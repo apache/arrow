@@ -24,7 +24,7 @@
 # This module defines
 #  THRIFT_VERSION, version string of ant if found
 #  THRIFT_INCLUDE_DIR, where to find THRIFT headers
-#  THRIFT_LIB, THRIFT static library
+#  THRIFT_LIB, THRIFT library
 #  THRIFT_FOUND, If false, do not try to use ant
 
 function(EXTRACT_THRIFT_VERSION)
@@ -39,27 +39,27 @@ function(EXTRACT_THRIFT_VERSION)
   endif()
 endfunction(EXTRACT_THRIFT_VERSION)
 
-set(THRIFT_LIB_NAMES thrift)
-if(MSVC)
-  if(ARROW_USE_STATIC_CRT)
-    set(THRIFT_LIB_NAMES thriftmt ${THRIFT_LIB_NAMES})
-  else()
-    set(THRIFT_LIB_NAMES thriftmd ${THRIFT_LIB_NAMES})
+if(MSVC AND NOT DEFINED THRIFT_MSVC_LIB_SUFFIX)
+  if(NOT ARROW_THRIFT_USE_SHARED)
+    if(ARROW_USE_STATIC_CRT)
+      set(THRIFT_MSVC_LIB_SUFFIX "mt")
+    else()
+      set(THRIFT_MSVC_LIB_SUFFIX "md")
+    endif()
   endif()
 endif()
+set(THRIFT_LIB_NAME_BASE "thrift${THRIFT_MSVC_LIB_SUFFIX}")
 
-set(THRIFT_STATIC_LIB_SUFFIX
-    "${THRIFT_MSVC_STATIC_LIB_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}")
-
-if(NOT ARROW_THRIFT_USE_SHARED)
-  set(static_names_)
-  foreach(name_ ${THRIFT_LIB_NAMES})
-    list(APPEND static_names_
-                "${CMAKE_STATIC_LIBRARY_PREFIX}${name_}${THRIFT_STATIC_LIB_SUFFIX}")
-  endforeach()
-  set(THRIFT_LIB_NAMES ${static_names_} ${THRIFT_LIB_NAMES})
-  unset(name_)
-  unset(static_names_)
+if(ARROW_THRIFT_USE_SHARED)
+  set(THRIFT_LIB_NAMES thrift)
+  if(CMAKE_IMPORTRARY_SUFFIX)
+    list(APPEND THRIFT_LIB_NAMES
+                "${CMAKE_IMPORT_LIBRARY_PREFIX}${THRIFT_LIB_NAME_BASE}${CMAKE_IMPORT_LIBRARY_SUFFIX}")
+  endif()
+  list(APPEND THRIFT_LIB_NAMES
+              "${CMAKE_SHARED_LIBRARY_PREFIX}${THRIFT_LIB_NAME_BASE}${CMAKE_SHARED_LIBRARY_SUFFIX}")
+else()
+  set(THRIFT_LIB_NAMES "${CMAKE_STATIC_LIBRARY_PREFIX}${THRIFT_LIB_NAME_BASE}${CMAKE_STATIC_LIBRARY_SUFFIX}")
 endif()
 
 if(Thrift_ROOT)
@@ -117,7 +117,11 @@ find_package_handle_standard_args(Thrift
 
 if(Thrift_FOUND OR THRIFT_FOUND)
   set(Thrift_FOUND TRUE)
-  add_library(thrift::thrift STATIC IMPORTED)
+  if(ARROW_THRIFT_USE_SHARED)
+    add_library(thrift::thrift SHARED IMPORTED)
+  else()
+    add_library(thrift::thrift STATIC IMPORTED)
+  endif()
   set_target_properties(thrift::thrift
                         PROPERTIES IMPORTED_LOCATION "${THRIFT_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${THRIFT_INCLUDE_DIR}")
