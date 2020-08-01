@@ -20,29 +20,56 @@
 use crate::array::*;
 use crate::{
     datatypes::DataType,
+    datatypes::UInt32Type,
     error::{ArrowError, Result},
 };
 use std::sync::Arc;
 
-/// Returns an array of UInt32 denoting the number of characters of the array.
+
+fn as_u32_le(array: &[u8]) -> u32 {
+    // le: little endian
+    ((array[0] as u32) <<  0) +
+    ((array[1] as u32) <<  8) +
+    ((array[2] as u32) << 16) +
+    ((array[3] as u32) << 24)
+}
+
+/// Returns an array of UInt32 denoting the number of characters in each string in the array.
 ///
 /// * this only accepts StringArray
 /// * lenght of null is null.
 /// * length of utf8 with more than one code point is the number of code points
-pub fn length(array: &Array) -> Result<ArrayRef> {
+pub fn length(array: &Array) -> Result<UInt32Array> {
     match array.data_type() {
         DataType::Utf8 => {
-            // TODO: is it possible to compute the length directly from the data instead, of value by value?
-            let b = array.as_any().downcast_ref::<StringArray>().unwrap();
-            let mut builder = UInt32Builder::new(b.len());
-            for i in 0..b.len() {
-                if b.is_null(i) {
-                    builder.append_null()?
-                } else {
-                    builder.append_value(b.value(i).len() as u32)?
-                }
+            // note: offsets are stored as u8, but they can be interpreted as u32
+            let offsets = array.data_ref().clone().buffers()[0].clone();
+            let offsets = offsets.data();
+
+            let mut builder = UInt32BufferBuilder::new(array.len());
+
+            let mut previous_offset = 0;
+            // the first u32 offset is always 0 and is not needed to compute lengths
+            for i in (4..offsets.len()).step_by(4) {
+                // interpret 4 u8 as 1 u32:
+                let offset = as_u32_le(&offsets[i..(i+4)]);
+                // offsets in u32 always increasing, and thus this is always >=0
+                builder.append(offset - previous_offset)?;
+                previous_offset = offset;
             }
-            Ok(Arc::new(builder.finish()))
+
+            let null_bit_buffer = array.data_ref().null_bitmap().as_ref().map(|b| b.bits.clone());
+
+            let data = ArrayData::new(
+                DataType::UInt32,
+                array.len(),
+                None,
+                null_bit_buffer,
+                0,
+                vec![builder.finish()],
+                vec![],
+            );
+            Ok(PrimitiveArray::<UInt32Type>::from(Arc::new(data)))
         }
         _ => Err(ArrowError::ComputeError(format!(
             "length not supported for {:?}",
@@ -55,34 +82,42 @@ pub fn length(array: &Array) -> Result<ArrayRef> {
 mod tests {
     use super::*;
 
+    /// Tests a vector whose len is not a multiple of 4
     #[test]
-    fn basic() -> Result<()> {
-        let a = StringArray::from(vec!["hello", " ", "world", "!"]);
-        let b = length(&a)?;
-        let c = b.as_ref().as_any().downcast_ref::<UInt32Array>().unwrap();
-        assert_eq!(4, c.len());
-        assert_eq!(5, c.value(0));
-        assert_eq!(1, c.value(1));
-        assert_eq!(5, c.value(2));
-        assert_eq!(1, c.value(3));
+    fn len_3() -> Result<()> {
+        let array = StringArray::from(vec!["hello", " ", "world"]);
+        let result = length(&array)?;
+        assert_eq!(3, result.len());
+        assert_eq!(vec![5, 1, 5], vec![result.value(0), result.value(1), result.value(2)]);
         Ok(())
     }
 
+    /// Tests a vector whose len is multiple of 4
+    #[test]
+    fn len_4() -> Result<()> {
+        let array = StringArray::from(vec!["hello", " ", "world", "!"]);
+        let result = length(&array)?;
+        assert_eq!(4, result.len());
+        assert_eq!(vec![5, 1, 5, 1], vec![result.value(0), result.value(1), result.value(2), result.value(3)]);
+        Ok(())
+    }
+
+    /// Tests a vector with a character with more than one code point.
     #[test]
     fn special() -> Result<()> {
         let mut builder: StringBuilder = StringBuilder::new(1);
         builder.append_value("💖")?;
         let array = builder.finish();
 
-        let b = length(&array)?;
-        let c = b.as_ref().as_any().downcast_ref::<UInt32Array>().unwrap();
-        assert_eq!(1, c.len());
+        let result = length(&array)?;
 
-        // our definition of length is utf8 code points.
-        assert_eq!(4, c.value(0));
+        assert_eq!(1, result.len());
+
+        assert_eq!(4, result.value(0));
         Ok(())
     }
 
+    /// Tests a vector with more than 255 entries, to ensure that offsets are correctly computed beyond simple cases
     #[test]
     fn long_array() -> Result<()> {
         fn double_vec<T: Clone>(v: Vec<T>) -> Vec<T> {
@@ -90,7 +125,6 @@ mod tests {
         }
 
         // double ["hello", " ", "world", "!"] 10 times
-        // this is done to go beyond 
         let mut values = vec!["one", "on", "o", ""];
         let mut expected = vec![3, 2, 1, 0];
         for _ in 0..10 {
@@ -99,9 +133,8 @@ mod tests {
         }
 
         let a = StringArray::from(values);
-        let b = length(&a)?;
 
-        let result = b.as_ref().as_any().downcast_ref::<UInt32Array>().unwrap();
+        let result = length(&a)?;
 
         assert_eq!(4096, result.len()); // 2^12
 
@@ -109,10 +142,11 @@ mod tests {
         for e in expected {
             builder.append_value(e)?
         };
-        assert_eq!(&builder.finish(), result);
+        assert_eq!(builder.finish(), result);
         Ok(())
     }
 
+    /// Tests handling of null values
     #[test]
     fn null() -> Result<()> {
         let mut builder: StringBuilder = StringBuilder::new(4);
@@ -136,6 +170,7 @@ mod tests {
         Ok(())
     }
 
+    /// Tests that length is not valid for u64.
     #[test]
     fn wrong_type() -> Result<()> {
         let mut builder = UInt64Builder::new(1);
