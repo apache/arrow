@@ -45,7 +45,8 @@ endif()
 
 find_package_handle_standard_args(Snappy REQUIRED_VARS Snappy_LIB Snappy_INCLUDE_DIR)
 
-if(Snappy_FOUND)
+# CMake 3.2 does uppercase the FOUND variable
+if(Snappy_FOUND OR SNAPPY_FOUND)
   add_library(Snappy::snappy UNKNOWN IMPORTED)
   set_target_properties(Snappy::snappy
                         PROPERTIES IMPORTED_LOCATION "${Snappy_LIB}"
