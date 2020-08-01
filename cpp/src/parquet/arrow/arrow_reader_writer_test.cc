@@ -2344,7 +2344,7 @@ TEST(ArrowReadWrite, SimpleStructRoundTrip) {
       2);
 }
 
-TEST(ArrowReadWrite, SingleColumnNullableStuct) {
+TEST(ArrowReadWrite, SingleColumnNullableStruct) {
   auto links =
       field("Links",
             ::arrow::struct_({field("Backward", ::arrow::int64(), /*nullable=*/true)}));
