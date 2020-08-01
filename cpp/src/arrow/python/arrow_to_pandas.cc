@@ -954,7 +954,7 @@ struct ObjectWriterVisitor {
   enable_if_timestamp<Type, Status> Visit(const Type& type) {
     const TimeUnit::type unit = type.unit();
     OwnedRef tzinfo;
-    if (!type.timezone().empty()) {
+    if (!type.timezone().empty() && !options.ignore_timezone) {
       ARROW_ASSIGN_OR_RAISE(tzinfo, internal::StringToTzinfo(type.timezone()));
       RETURN_IF_PYERROR();
     }
