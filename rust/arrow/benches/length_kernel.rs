@@ -24,7 +24,6 @@ extern crate arrow;
 use arrow::array::*;
 use arrow::compute::kernels::length::length;
 
-
 fn bench_length() {
     fn double_vec<T: Clone>(v: Vec<T>) -> Vec<T> {
         [&v[..], &v[..]].concat()
