@@ -94,5 +94,9 @@ name = "take_kernels"
 harness = false
 
 [[bench]]
+name = "length_kernel"
+harness = false
+
+[[bench]]
 name = "csv_writer"
 harness = false
