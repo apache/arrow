@@ -26,8 +26,9 @@ use std::sync::Arc;
 
 /// Returns an array of UInt32 denoting the number of characters of the array.
 ///
-/// * This only accepts StringArray
-/// * Lenght of null is null.
+/// * this only accepts StringArray
+/// * lenght of null is null.
+/// * length of utf8 with more than one code point is the number of code points
 pub fn length(array: &Array) -> Result<ArrayRef> {
     match array.data_type() {
         DataType::Utf8 => {
@@ -55,7 +56,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_length() -> Result<()> {
+    fn basic() -> Result<()> {
         let a = StringArray::from(vec!["hello", " ", "world", "!"]);
         let b = length(&a)?;
         let c = b.as_ref().as_any().downcast_ref::<UInt32Array>().unwrap();
@@ -68,7 +69,22 @@ mod tests {
     }
 
     #[test]
-    fn test_long() -> Result<()> {
+    fn special() -> Result<()> {
+        let mut builder: StringBuilder = StringBuilder::new(1);
+        builder.append_value("💖")?;
+        let array = builder.finish();
+
+        let b = length(&array)?;
+        let c = b.as_ref().as_any().downcast_ref::<UInt32Array>().unwrap();
+        assert_eq!(1, c.len());
+
+        // our definition of length is utf8 code points.
+        assert_eq!(4, c.value(0));
+        Ok(())
+    }
+
+    #[test]
+    fn long_array() -> Result<()> {
         fn double_vec<T: Clone>(v: Vec<T>) -> Vec<T> {
             [&v[..], &v[..]].concat()
         }
@@ -98,7 +114,7 @@ mod tests {
     }
 
     #[test]
-    fn test_null() -> Result<()> {
+    fn null() -> Result<()> {
         let mut builder: StringBuilder = StringBuilder::new(4);
         builder.append_value("one")?;
         builder.append_null()?;
@@ -121,7 +137,7 @@ mod tests {
     }
 
     #[test]
-    fn test_wrong_type() -> Result<()> {
+    fn wrong_type() -> Result<()> {
         let mut builder = UInt64Builder::new(1);
         builder.append_value(1)?;
         let array = builder.finish();
