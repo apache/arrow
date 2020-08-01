@@ -70,12 +70,12 @@ impl Bitmap {
     }
 
     /// Returns the total number of bytes of memory occupied by the buffers owned by this [Bitmap].
-    pub fn buffer_memory_size(&self) -> usize {
+    pub fn memory_used(&self) -> usize {
         self.bits.capacity()
     }
 
     /// Returns the total number of bytes of memory occupied physically by this [Bitmap].
-    pub fn total_memory_size(&self) -> usize {
+    pub fn memory_capacity(&self) -> usize {
         self.bits.capacity() + mem::size_of_val(self)
     }
 }

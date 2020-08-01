@@ -299,20 +299,20 @@ impl Array for UnionArray {
     }
 
     /// Returns the total number of bytes of memory occupied by the buffers owned by this [UnionArray].
-    fn buffer_memory_size(&self) -> usize {
-        let mut size = self.data.buffer_memory_size();
+    fn memory_used(&self) -> usize {
+        let mut size = self.data.memory_used();
         for field in &self.boxed_fields {
-            size += field.buffer_memory_size();
+            size += field.memory_used();
         }
         size
     }
 
     /// Returns the total number of bytes of memory occupied physically by this [UnionArray].
-    fn total_memory_size(&self) -> usize {
-        let mut size = self.data.total_memory_size();
+    fn memory_capacity(&self) -> usize {
+        let mut size = self.data.memory_capacity();
         size += mem::size_of_val(self) - mem::size_of_val(&self.boxed_fields);
         for field in &self.boxed_fields {
-            size += field.total_memory_size();
+            size += field.memory_capacity();
         }
         size
     }
@@ -696,14 +696,11 @@ mod tests {
             assert_eq!(expected_value, &value);
         }
 
-        assert_eq!(
-            4 * 8 * 4 * mem::size_of::<i32>(),
-            union.buffer_memory_size()
-        );
+        assert_eq!(4 * 8 * 4 * mem::size_of::<i32>(), union.memory_used());
         let internals_of_union_array = (8 + 72) + (union.boxed_fields.len() * 144); // Arc<ArrayData> & Vec<ArrayRef> combined.
         assert_eq!(
-            union.buffer_memory_size() + internals_of_union_array,
-            union.total_memory_size()
+            union.memory_used() + internals_of_union_array,
+            union.memory_capacity()
         );
     }
 

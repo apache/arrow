@@ -86,13 +86,13 @@ impl Array for NullArray {
     }
 
     /// Returns the total number of bytes of memory occupied by the buffers owned by this [NullArray].
-    fn buffer_memory_size(&self) -> usize {
-        self.data.buffer_memory_size()
+    fn memory_used(&self) -> usize {
+        self.data.memory_used()
     }
 
     /// Returns the total number of bytes of memory occupied physically by this [NullArray].
-    fn total_memory_size(&self) -> usize {
-        self.data.total_memory_size() + mem::size_of_val(self)
+    fn memory_capacity(&self) -> usize {
+        self.data.memory_capacity() + mem::size_of_val(self)
     }
 }
 
@@ -129,11 +129,11 @@ mod tests {
         assert_eq!(null_arr.null_count(), 32);
         assert_eq!(null_arr.is_valid(0), false);
 
-        assert_eq!(0, null_arr.buffer_memory_size());
+        assert_eq!(0, null_arr.memory_used());
         let internals_of_null_array = 64; // Arc<ArrayData>
         assert_eq!(
-            null_arr.buffer_memory_size() + internals_of_null_array,
-            null_arr.total_memory_size()
+            null_arr.memory_used() + internals_of_null_array,
+            null_arr.memory_capacity()
         );
     }
 
