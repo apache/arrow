@@ -29,6 +29,10 @@ add_custom_target(toolchain-tests)
 # allocators like jemalloc and mimalloc
 set(ARROW_BUNDLED_STATIC_LIBS)
 
+# Accumulate all system dependencies to provide suitable static link
+# parameters to the third party libraries.
+set(ARROW_SYSTEM_DEPENDENCIES)
+
 # ----------------------------------------------------------------------
 # Toolchain linkage options
 
@@ -201,7 +205,7 @@ macro(resolve_dependency DEPENDENCY_NAME)
   endif()
   if(${DEPENDENCY_NAME}_SOURCE STREQUAL "SYSTEM")
     provide_find_module(${DEPENDENCY_NAME})
-    string(APPEND ARROW_FIND_DEPENDENCY_LIST "\nfind_dependency(${DEPENDENCY_NAME})")
+    list(APPEND ARROW_SYSTEM_DEPENDENCIES ${DEPENDENCY_NAME})
   endif()
 endmacro()
 
@@ -992,7 +996,7 @@ if(ARROW_USE_OPENSSL)
                                      INTERFACE_INCLUDE_DIRECTORIES
                                      "${OPENSSL_INCLUDE_DIR}")
   endif()
-  string(APPEND ARROW_FIND_DEPENDENCY_LIST "\nfind_dependency(OpenSSL)")
+  list(APPEND ARROW_SYSTEM_DEPENDENCIES "OpenSSL")
 
   include_directories(SYSTEM ${OPENSSL_INCLUDE_DIR})
 else()
