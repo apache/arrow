@@ -68,6 +68,36 @@ mod tests {
     }
 
     #[test]
+    fn test_long() -> Result<()> {
+        fn double_vec<T: Clone>(v: Vec<T>) -> Vec<T> {
+            [&v[..], &v[..]].concat()
+        }
+
+        // double ["hello", " ", "world", "!"] 10 times
+        // this is done to go beyond 
+        let mut values = vec!["one", "on", "o", ""];
+        let mut expected = vec![3, 2, 1, 0];
+        for _ in 0..10 {
+            values = double_vec(values);
+            expected = double_vec(expected);
+        }
+
+        let a = StringArray::from(values);
+        let b = length(&a)?;
+
+        let result = b.as_ref().as_any().downcast_ref::<UInt32Array>().unwrap();
+
+        assert_eq!(4096, result.len()); // 2^12
+
+        let mut builder = UInt32Builder::new(expected.len());
+        for e in expected {
+            builder.append_value(e)?
+        };
+        assert_eq!(&builder.finish(), result);
+        Ok(())
+    }
+
+    #[test]
     fn test_null() -> Result<()> {
         let mut builder: StringBuilder = StringBuilder::new(4);
         builder.append_value("one")?;
