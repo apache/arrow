@@ -25,13 +25,12 @@ use crate::{
 };
 use std::sync::Arc;
 
-
 fn as_u32_le(array: &[u8]) -> u32 {
     // le: little endian
-    ((array[0] as u32) <<  0) +
-    ((array[1] as u32) <<  8) +
-    ((array[2] as u32) << 16) +
-    ((array[3] as u32) << 24)
+    ((array[0] as u32) << 0)
+        + ((array[1] as u32) << 8)
+        + ((array[2] as u32) << 16)
+        + ((array[3] as u32) << 24)
 }
 
 /// Returns an array of UInt32 denoting the number of characters in each string in the array.
@@ -52,13 +51,17 @@ pub fn length(array: &Array) -> Result<UInt32Array> {
             // the first u32 offset is always 0 and is not needed to compute lengths
             for i in (4..offsets.len()).step_by(4) {
                 // interpret 4 u8 as 1 u32:
-                let offset = as_u32_le(&offsets[i..(i+4)]);
+                let offset = as_u32_le(&offsets[i..(i + 4)]);
                 // offsets in u32 always increasing, and thus this is always >=0
                 builder.append(offset - previous_offset)?;
                 previous_offset = offset;
             }
 
-            let null_bit_buffer = array.data_ref().null_bitmap().as_ref().map(|b| b.bits.clone());
+            let null_bit_buffer = array
+                .data_ref()
+                .null_bitmap()
+                .as_ref()
+                .map(|b| b.bits.clone());
 
             let data = ArrayData::new(
                 DataType::UInt32,
@@ -88,7 +91,10 @@ mod tests {
         let array = StringArray::from(vec!["hello", " ", "world"]);
         let result = length(&array)?;
         assert_eq!(3, result.len());
-        assert_eq!(vec![5, 1, 5], vec![result.value(0), result.value(1), result.value(2)]);
+        assert_eq!(
+            vec![5, 1, 5],
+            vec![result.value(0), result.value(1), result.value(2)]
+        );
         Ok(())
     }
 
@@ -98,7 +104,15 @@ mod tests {
         let array = StringArray::from(vec!["hello", " ", "world", "!"]);
         let result = length(&array)?;
         assert_eq!(4, result.len());
-        assert_eq!(vec![5, 1, 5, 1], vec![result.value(0), result.value(1), result.value(2), result.value(3)]);
+        assert_eq!(
+            vec![5, 1, 5, 1],
+            vec![
+                result.value(0),
+                result.value(1),
+                result.value(2),
+                result.value(3)
+            ]
+        );
         Ok(())
     }
 
@@ -141,7 +155,7 @@ mod tests {
         let mut builder = UInt32Builder::new(expected.len());
         for e in expected {
             builder.append_value(e)?
-        };
+        }
         assert_eq!(builder.finish(), result);
         Ok(())
     }
