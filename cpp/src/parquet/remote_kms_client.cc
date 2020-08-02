@@ -75,8 +75,8 @@ void RemoteKmsClient::Initialize(const KmsConnectionConfig& kms_connection_confi
     master_key_cache_.clear();
   }
 
-  is_default_token_ =
-      kms_connection_config_.key_access_token == KmsClient::KEY_ACCESS_TOKEN_DEFAULT;
+  is_default_token_ = kms_connection_config_.key_access_token->value() ==
+                      KmsClient::KEY_ACCESS_TOKEN_DEFAULT;
 
   InitializeInternal();
 }

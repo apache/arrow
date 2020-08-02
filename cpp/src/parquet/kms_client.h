@@ -27,10 +27,19 @@ namespace parquet {
 
 namespace encryption {
 
+class KeyAccessToken {
+ public:
+  void Refresh(const std::string& new_value) { value_ = new_value; }
+  const std::string& value() const { return value_; }
+
+ private:
+  std::string value_;
+};
+
 struct KmsConnectionConfig {
   std::string kms_instance_id;
   std::string kms_instance_url;
-  std::string key_access_token;
+  std::shared_ptr<KeyAccessToken> key_access_token;
   std::unordered_map<std::string, std::string> custom_kms_conf;
 };
 

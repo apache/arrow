@@ -48,7 +48,7 @@ FileKeyWrapper::FileKeyWrapper(std::shared_ptr<KmsClientFactory> kms_client_fact
         cache_entry_lifetime_);
     kek_per_master_key_id_ =
         KeyToolkit::kek_write_cache_per_token().GetOrCreateInternalCache(
-            kms_connection_config.key_access_token, cache_entry_lifetime_);
+            kms_connection_config.key_access_token->value(), cache_entry_lifetime_);
   }
   // TODO
   // if (LOG.isDebugEnabled()) {
