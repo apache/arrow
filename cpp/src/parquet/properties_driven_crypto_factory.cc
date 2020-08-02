@@ -24,11 +24,9 @@
 
 #include "parquet/encryption_internal.h"
 #include "parquet/file_key_material_store.h"
-#include "parquet/hadoop_fs_key_material_store.h"
 #include "parquet/properties_driven_crypto_factory.h"
 
 using Buffer = arrow::Buffer;
-using HadoopFileSystem = arrow::io::HadoopFileSystem;
 
 namespace parquet {
 
@@ -144,14 +142,7 @@ PropertiesDrivenCryptoFactory::GetFileEncryptionProperties(
 
   std::shared_ptr<FileKeyMaterialStore> key_material_store = NULL;
   if (!encryption_config->internal_key_material()) {
-    std::shared_ptr<HadoopFileSystem> hadoop_file_system;
-    arrow::Status status =
-        HadoopFileSystem::Connect(&hdfs_connection_config, &hadoop_file_system);
-    if (!status.ok()) {
-      throw new ParquetException("Failed to get key material store: " + status.message());
-    }
-    key_material_store.reset(new HadoopFSKeyMaterialStore(hadoop_file_system));
-    key_material_store->Initialize(temp_file_path, false);
+    throw new ParquetException("External key material store is not supported yet.");
   }
 
   FileKeyWrapper key_wrapper(
