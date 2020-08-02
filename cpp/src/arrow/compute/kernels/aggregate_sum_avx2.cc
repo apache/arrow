@@ -49,12 +49,12 @@ struct RoundSizeAvx2<uint32_t> {
 template <typename ArrowType>
 struct SumImplAvx2
     : public SumImpl<RoundSizeAvx2<typename TypeTraits<ArrowType>::CType>::size,
-                     ArrowType> {};
+                     ArrowType, SimdLevel::AVX2> {};
 
 template <typename ArrowType>
 struct MeanImplAvx2
     : public MeanImpl<RoundSizeAvx2<typename TypeTraits<ArrowType>::CType>::size,
-                      ArrowType> {};
+                      ArrowType, SimdLevel::AVX2> {};
 
 std::unique_ptr<KernelState> SumInitAvx2(KernelContext* ctx, const KernelInitArgs& args) {
   SumLikeInit<SumImplAvx2> visitor(ctx, *args.inputs[0].type);
@@ -67,31 +67,20 @@ std::unique_ptr<KernelState> MeanInitAvx2(KernelContext* ctx,
   return visitor.Create();
 }
 
-}  // namespace aggregate
-
-namespace internal {
-
-void RegisterScalarAggregateSumAvx2(FunctionRegistry* registry) {
-  auto func = std::make_shared<ScalarAggregateFunction>("sum", Arity::Unary());
-  aggregate::AddBasicAggKernels(aggregate::SumInitAvx2, {boolean()}, int64(), func.get());
-  aggregate::AddBasicAggKernels(aggregate::SumInitAvx2, SignedIntTypes(), int64(),
-                                func.get());
-  aggregate::AddBasicAggKernels(aggregate::SumInitAvx2, UnsignedIntTypes(), uint64(),
-                                func.get());
-  aggregate::AddBasicAggKernels(aggregate::SumInitAvx2, FloatingPointTypes(), float64(),
-                                func.get());
-  // Register the override AVX2 version
-  DCHECK_OK(registry->AddFunction(std::move(func), /*allow_overwrite=*/true));
-
-  func = std::make_shared<ScalarAggregateFunction>("mean", Arity::Unary());
-  aggregate::AddBasicAggKernels(aggregate::MeanInitAvx2, {boolean()}, float64(),
-                                func.get());
-  aggregate::AddBasicAggKernels(aggregate::MeanInitAvx2, NumericTypes(), float64(),
-                                func.get());
-  // Register the override AVX2 version
-  DCHECK_OK(registry->AddFunction(std::move(func), /*allow_overwrite=*/true));
+void AddSumAvx2AggKernels(ScalarAggregateFunction* func) {
+  AddBasicAggKernels(SumInitAvx2, internal::SignedIntTypes(), int64(), func,
+                     SimdLevel::AVX2);
+  AddBasicAggKernels(SumInitAvx2, internal::UnsignedIntTypes(), uint64(), func,
+                     SimdLevel::AVX2);
+  AddBasicAggKernels(SumInitAvx2, internal::FloatingPointTypes(), float64(), func,
+                     SimdLevel::AVX2);
 }
 
-}  // namespace internal
+void AddMeanAvx2AggKernels(ScalarAggregateFunction* func) {
+  AddBasicAggKernels(MeanInitAvx2, internal::NumericTypes(), float64(), func,
+                     SimdLevel::AVX2);
+}
+
+}  // namespace aggregate
 }  // namespace compute
 }  // namespace arrow

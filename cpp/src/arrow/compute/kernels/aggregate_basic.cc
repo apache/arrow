@@ -111,12 +111,12 @@ struct RoundSizeDefault<uint32_t> {
 template <typename ArrowType>
 struct SumImplDefault
     : public SumImpl<RoundSizeDefault<typename TypeTraits<ArrowType>::CType>::size,
-                     ArrowType> {};
+                     ArrowType, SimdLevel::NONE> {};
 
 template <typename ArrowType>
 struct MeanImplDefault
     : public MeanImpl<RoundSizeDefault<typename TypeTraits<ArrowType>::CType>::size,
-                      ArrowType> {};
+                      ArrowType, SimdLevel::NONE> {};
 
 std::unique_ptr<KernelState> SumInit(KernelContext* ctx, const KernelInitArgs& args) {
   SumLikeInit<SumImplDefault> visitor(ctx, *args.inputs[0].type);
@@ -341,29 +341,35 @@ std::unique_ptr<KernelState> MinMaxInit(KernelContext* ctx, const KernelInitArgs
 }
 
 void AddAggKernel(std::shared_ptr<KernelSignature> sig, KernelInit init,
-                  ScalarAggregateFunction* func) {
-  DCHECK_OK(func->AddKernel(ScalarAggregateKernel(std::move(sig), init, AggregateConsume,
-                                                  AggregateMerge, AggregateFinalize)));
+                  ScalarAggregateFunction* func,
+                  SimdLevel::type simd_level = SimdLevel::NONE) {
+  ScalarAggregateKernel kernel(std::move(sig), init, AggregateConsume, AggregateMerge,
+                               AggregateFinalize);
+  // Set the simd level
+  kernel.simd_level = simd_level;
+  DCHECK_OK(func->AddKernel(kernel));
 }
 
 void AddBasicAggKernels(KernelInit init,
                         const std::vector<std::shared_ptr<DataType>>& types,
-                        std::shared_ptr<DataType> out_ty, ScalarAggregateFunction* func) {
+                        std::shared_ptr<DataType> out_ty, ScalarAggregateFunction* func,
+                        SimdLevel::type simd_level) {
   for (const auto& ty : types) {
     // array[InT] -> scalar[OutT]
     auto sig = KernelSignature::Make({InputType::Array(ty)}, ValueDescr::Scalar(out_ty));
-    AddAggKernel(std::move(sig), init, func);
+    AddAggKernel(std::move(sig), init, func, simd_level);
   }
 }
 
 void AddMinMaxKernels(KernelInit init,
                       const std::vector<std::shared_ptr<DataType>>& types,
-                      ScalarAggregateFunction* func) {
+                      ScalarAggregateFunction* func,
+                      SimdLevel::type simd_level = SimdLevel::NONE) {
   for (const auto& ty : types) {
     // array[T] -> scalar[struct<min: T, max: T>]
     auto out_ty = struct_({field("min", ty), field("max", ty)});
     auto sig = KernelSignature::Make({InputType::Array(ty)}, ValueDescr::Scalar(out_ty));
-    AddAggKernel(std::move(sig), init, func);
+    AddAggKernel(std::move(sig), init, func, simd_level);
   }
 }
 
@@ -375,7 +381,7 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarAggregateFunction>("count", Arity::Unary(),
                                                         &default_count_options);
 
-  /// Takes any array input, outputs int64 scalar
+  // Takes any array input, outputs int64 scalar
   InputType any_array(ValueDescr::ARRAY);
   aggregate::AddAggKernel(KernelSignature::Make({any_array}, ValueDescr::Scalar(int64())),
                           aggregate::CountInit, func.get());
@@ -389,12 +395,26 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
                                 func.get());
   aggregate::AddBasicAggKernels(aggregate::SumInit, FloatingPointTypes(), float64(),
                                 func.get());
+  // Add the SIMD variants for sum
+#if defined(ARROW_HAVE_RUNTIME_AVX2)
+  aggregate::AddSumAvx2AggKernels(func.get());
+#endif
+#if defined(ARROW_HAVE_RUNTIME_AVX512)
+  aggregate::AddSumAvx512AggKernels(func.get());
+#endif
   DCHECK_OK(registry->AddFunction(std::move(func)));
 
   func = std::make_shared<ScalarAggregateFunction>("mean", Arity::Unary());
   aggregate::AddBasicAggKernels(aggregate::MeanInit, {boolean()}, float64(), func.get());
   aggregate::AddBasicAggKernels(aggregate::MeanInit, NumericTypes(), float64(),
                                 func.get());
+  // Add the SIMD variants for mean
+#if defined(ARROW_HAVE_RUNTIME_AVX2)
+  aggregate::AddMeanAvx2AggKernels(func.get());
+#endif
+#if defined(ARROW_HAVE_RUNTIME_AVX512)
+  aggregate::AddMeanAvx512AggKernels(func.get());
+#endif
   DCHECK_OK(registry->AddFunction(std::move(func)));
 
   static auto default_minmax_options = MinMaxOptions::Defaults();

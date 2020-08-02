@@ -206,8 +206,9 @@ class TestRandomNumericSumKernel : public ::testing::Test {};
 TYPED_TEST_SUITE(TestRandomNumericSumKernel, NumericArrowTypes);
 TYPED_TEST(TestRandomNumericSumKernel, RandomArraySum) {
   auto rand = random::RandomArrayGenerator(0x5487655);
-  for (size_t i = 3; i < 10; i += 2) {
-    for (auto null_probability : {0.0, 0.1, 0.5, 1.0}) {
+  // Test size up to 1<<13 (8192).
+  for (size_t i = 3; i < 14; i += 2) {
+    for (auto null_probability : {0.0, 0.001, 0.1, 0.5, 0.999, 1.0}) {
       for (auto length_adjust : {-2, -1, 0, 1, 2}) {
         int64_t length = (1UL << i) + length_adjust;
         auto array = rand.Numeric<TypeParam>(length, 0, 100, null_probability);
@@ -389,8 +390,9 @@ class TestRandomNumericMeanKernel : public ::testing::Test {};
 TYPED_TEST_SUITE(TestRandomNumericMeanKernel, NumericArrowTypes);
 TYPED_TEST(TestRandomNumericMeanKernel, RandomArrayMean) {
   auto rand = random::RandomArrayGenerator(0x8afc055);
+  // Test size up to 1<<13 (8192).
   for (size_t i = 3; i < 14; i += 2) {
-    for (auto null_probability : {0.0, 0.1, 0.5, 1.0}) {
+    for (auto null_probability : {0.0, 0.001, 0.1, 0.5, 0.999, 1.0}) {
       for (auto length_adjust : {-2, -1, 0, 1, 2}) {
         int64_t length = (1UL << i) + length_adjust;
         auto array = rand.Numeric<TypeParam>(length, 0, 100, null_probability);
