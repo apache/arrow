@@ -394,6 +394,22 @@ impl<S: SchemaProvider> SqlToRel<S> {
                             return_type: DataType::UInt64,
                         })
                     }
+                    "length" => {
+                        if function.args.len() != 1 {
+                            return Err(ExecutionError::General(format!(
+                                "'{}' function accepts only a single argument",
+                                name
+                            )));
+                        }
+
+                        let rex_args = function
+                            .args
+                            .iter()
+                            .map(|a| self.sql_to_rex(a, schema))
+                            .collect::<Result<Vec<Expr>>>()?;
+
+                        Ok(Expr::Length(Box::new(rex_args[0].clone())))
+                    }
                     _ => match self.schema_provider.get_function_meta(&name) {
                         Some(fm) => {
                             let rex_args = function
@@ -480,6 +496,16 @@ mod tests {
             "SELECT sqrt(9)",
             "Projection: sqrt(CAST(Int64(9) AS Float64))\
              \n  EmptyRelation",
+        );
+    }
+
+    #[test]
+    fn select_length() {
+        quick_test(
+            "SELECT length(first_name) FROM person",
+            "\
+            Projection: length(#first_name)\
+             \n  TableScan: person projection=None",
         );
     }
 

@@ -254,6 +254,7 @@ fn create_name(e: &Expr, input_schema: &Schema) -> Result<String> {
             }
             Ok(format!("{}({})", name, names.join(",")))
         }
+        Expr::Length(expr) => Ok(format!("length({})", create_name(expr, input_schema)?)),
         other => Err(ExecutionError::NotImplemented(format!(
             "Physical plan does not support logical expression {:?}",
             other
@@ -284,6 +285,7 @@ pub fn expr_to_field(e: &Expr, input_schema: &Schema) -> Result<Field> {
             let right_type = right.get_type(input_schema)?;
             Ok(utils::get_supertype(&left_type, &right_type).unwrap())
         }
+        Expr::Length(_) => Ok(DataType::UInt32),
         _ => Err(ExecutionError::NotImplemented(format!(
             "Cannot determine schema type for expression {:?}",
             e
@@ -363,6 +365,8 @@ pub enum Expr {
     },
     /// Wildcard
     Wildcard,
+    /// unary length: length of a string
+    Length(Box<Expr>),
 }
 
 impl Expr {
@@ -399,6 +403,7 @@ impl Expr {
             Expr::Wildcard => Err(ExecutionError::General(
                 "Wildcard expressions are not valid in a logical query plan".to_owned(),
             )),
+            Expr::Length(_) => Ok(DataType::UInt32),
         }
     }
 
@@ -646,6 +651,7 @@ impl fmt::Debug for Expr {
                 write!(f, ")")
             }
             Expr::Wildcard => write!(f, "*"),
+            Expr::Length(expr) => write!(f, "length({:?})", expr),
         }
     }
 }

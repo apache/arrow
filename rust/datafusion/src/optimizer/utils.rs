@@ -52,6 +52,7 @@ pub fn expr_to_column_names(expr: &Expr, accum: &mut HashSet<String>) -> Result<
         Expr::Not(e) => expr_to_column_names(e, accum),
         Expr::IsNull(e) => expr_to_column_names(e, accum),
         Expr::IsNotNull(e) => expr_to_column_names(e, accum),
+        Expr::Length(expr) => expr_to_column_names(expr, accum),
         Expr::BinaryExpr { left, right, .. } => {
             expr_to_column_names(left, accum)?;
             expr_to_column_names(right, accum)?;

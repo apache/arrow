@@ -78,6 +78,9 @@ impl<'a> TypeCoercionRule<'a> {
             Expr::IsNotNull(e) => {
                 Ok(Expr::IsNotNull(Box::new(self.rewrite_expr(e, schema)?)))
             }
+            Expr::Length(expr) => {
+                Ok(Expr::Length(Box::new(self.rewrite_expr(expr, schema)?)))
+            }
             Expr::ScalarFunction {
                 name,
                 args,

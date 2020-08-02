@@ -44,6 +44,7 @@ use arrow::compute::kernels::comparison::{eq, gt, gt_eq, lt, lt_eq, neq};
 use arrow::compute::kernels::comparison::{
     eq_utf8, gt_eq_utf8, gt_utf8, like_utf8, lt_eq_utf8, lt_utf8, neq_utf8, nlike_utf8,
 };
+use arrow::compute::kernels::length::length;
 use arrow::compute::kernels::sort::{SortColumn, SortOptions};
 use arrow::datatypes::{DataType, Schema, TimeUnit};
 use arrow::record_batch::RecordBatch;
@@ -1162,6 +1163,48 @@ impl PhysicalExpr for CastExpr {
     fn evaluate(&self, batch: &RecordBatch) -> Result<ArrayRef> {
         let value = self.expr.evaluate(batch)?;
         Ok(cast(&value, &self.cast_type)?)
+    }
+}
+
+/// Represents the operation of counting the number of characters in a string
+pub struct Length {
+    /// The expression to compute length of
+    expr: Arc<dyn PhysicalExpr>,
+}
+
+impl Length {
+    /// Create a length expression. The expression's type must be DataType::Utf8
+    pub fn try_new(expr: Arc<dyn PhysicalExpr>, input_schema: &Schema) -> Result<Self> {
+        let expr_type = expr.data_type(input_schema)?;
+        if expr_type != DataType::Utf8 {
+            return Err(ExecutionError::General(format!(
+                "Cannot compute length of because argument is not of type string (it is of type '{:?}')",
+                expr_type
+            )));
+        }
+        Ok(Self { expr })
+    }
+}
+
+impl PhysicalExpr for Length {
+    fn data_type(&self, _input_schema: &Schema) -> Result<DataType> {
+        Ok(DataType::UInt32)
+    }
+
+    fn nullable(&self, input_schema: &Schema) -> Result<bool> {
+        // when expression is null, length is null
+        self.expr.nullable(input_schema)
+    }
+
+    fn evaluate(&self, batch: &RecordBatch) -> Result<ArrayRef> {
+        let value = self.expr.evaluate(batch)?;
+        Ok(Arc::new(length(value.as_ref())?))
+    }
+}
+
+impl fmt::Display for Length {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "length({})", self.expr)
     }
 }
 
