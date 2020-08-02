@@ -47,6 +47,7 @@ where
     }
 
     let left_data = left.data();
+
     let right_data = right.data();
     let null_bit_buffer = apply_bin_op_to_option_bitmap(
         left_data.null_bitmap(),

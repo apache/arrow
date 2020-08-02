@@ -33,7 +33,7 @@ Before running tests and examples it is necessary to set up the local developmen
 
 ### Git Submodules
 
-The tests rely on test data that is contained in git submodules.
+The tests rely on test data that is contained in git submodules. TTTT
 
 To pull down this data run the following:
 

@@ -96,6 +96,7 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
                 data.buffers().to_vec(),
                 vec![cast_array.data()],
             );
+
             let list = ListArray::from(Arc::new(array_data));
             Ok(Arc::new(list) as ArrayRef)
         }
