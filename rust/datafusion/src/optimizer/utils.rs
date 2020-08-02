@@ -213,6 +213,165 @@ pub fn optimize_explain(
     })
 }
 
+/// returns all expressions (non-recursively) in the current logical plan node.
+pub fn expressions(plan: &LogicalPlan) -> Vec<Expr> {
+    match plan {
+        LogicalPlan::Projection { expr, .. } => expr.clone(),
+        LogicalPlan::Selection { expr, .. } => vec![expr.clone()],
+        LogicalPlan::Aggregate {
+            group_expr,
+            aggr_expr,
+            ..
+        } => {
+            let mut result = group_expr.clone();
+            result.extend(aggr_expr.clone());
+            result
+        }
+        LogicalPlan::Sort { expr, .. } => expr.clone(),
+        // plans without expressions
+        LogicalPlan::TableScan { .. }
+        | LogicalPlan::InMemoryScan { .. }
+        | LogicalPlan::ParquetScan { .. }
+        | LogicalPlan::CsvScan { .. }
+        | LogicalPlan::EmptyRelation { .. }
+        | LogicalPlan::Limit { .. }
+        | LogicalPlan::CreateExternalTable { .. }
+        | LogicalPlan::Explain { .. } => vec![],
+    }
+}
+
+/// returns all inputs in the logical plan
+pub fn inputs(plan: &LogicalPlan) -> Vec<&LogicalPlan> {
+    match plan {
+        LogicalPlan::Projection { input, .. } => vec![input],
+        LogicalPlan::Selection { input, .. } => vec![input],
+        LogicalPlan::Aggregate { input, .. } => vec![input],
+        LogicalPlan::Sort { input, .. } => vec![input],
+        LogicalPlan::Limit { input, .. } => vec![input],
+        // plans without inputs
+        LogicalPlan::TableScan { .. }
+        | LogicalPlan::InMemoryScan { .. }
+        | LogicalPlan::ParquetScan { .. }
+        | LogicalPlan::CsvScan { .. }
+        | LogicalPlan::EmptyRelation { .. }
+        | LogicalPlan::CreateExternalTable { .. }
+        | LogicalPlan::Explain { .. } => vec![],
+    }
+}
+
+/// Returns a new logical plan based on the original one with inputs and expressions replaced
+pub fn from_plan(
+    plan: &LogicalPlan,
+    expr: &Vec<Expr>,
+    inputs: &Vec<LogicalPlan>,
+) -> Result<LogicalPlan> {
+    match plan {
+        LogicalPlan::Projection { schema, .. } => Ok(LogicalPlan::Projection {
+            expr: expr.clone(),
+            input: Box::new(inputs[0].clone()),
+            schema: schema.clone(),
+        }),
+        LogicalPlan::Selection { .. } => Ok(LogicalPlan::Selection {
+            expr: expr[0].clone(),
+            input: Box::new(inputs[0].clone()),
+        }),
+        LogicalPlan::Aggregate {
+            group_expr, schema, ..
+        } => Ok(LogicalPlan::Aggregate {
+            group_expr: expr[0..group_expr.len()].to_vec(),
+            aggr_expr: expr[group_expr.len()..].to_vec(),
+            input: Box::new(inputs[0].clone()),
+            schema: schema.clone(),
+        }),
+        LogicalPlan::Sort { .. } => Ok(LogicalPlan::Sort {
+            expr: expr.clone(),
+            input: Box::new(inputs[0].clone()),
+        }),
+        LogicalPlan::Limit { n, .. } => Ok(LogicalPlan::Limit {
+            n: *n,
+            input: Box::new(inputs[0].clone()),
+        }),
+        LogicalPlan::EmptyRelation { .. }
+        | LogicalPlan::TableScan { .. }
+        | LogicalPlan::InMemoryScan { .. }
+        | LogicalPlan::ParquetScan { .. }
+        | LogicalPlan::CsvScan { .. }
+        | LogicalPlan::CreateExternalTable { .. }
+        | LogicalPlan::Explain { .. } => Ok(plan.clone()),
+    }
+}
+
+/// Returns all direct children `Expression`s of `expr`.
+/// E.g. if the expression is "(a + 1) + 1", it returns ["a + 1", "1"] (as Expr objects)
+pub fn expr_sub_expressions(expr: &Expr) -> Result<Vec<&Expr>> {
+    match expr {
+        Expr::BinaryExpr { left, right, .. } => Ok(vec![left, right]),
+        Expr::IsNull(e) => Ok(vec![e]),
+        Expr::IsNotNull(e) => Ok(vec![e]),
+        Expr::ScalarFunction { args, .. } => Ok(args.iter().collect()),
+        Expr::AggregateFunction { args, .. } => Ok(args.iter().collect()),
+        Expr::Cast { expr, .. } => Ok(vec![expr]),
+        Expr::Column(_) => Ok(vec![]),
+        Expr::Alias(expr, ..) => Ok(vec![expr]),
+        Expr::Literal(_) => Ok(vec![]),
+        Expr::Not(expr) => Ok(vec![expr]),
+        Expr::Sort { expr, .. } => Ok(vec![expr]),
+        Expr::Wildcard { .. } => Err(ExecutionError::General(
+            "Wildcard expressions are not valid in a logical query plan".to_owned(),
+        )),
+        Expr::Nested(expr) => Ok(vec![expr]),
+    }
+}
+
+/// returns a new expression where the expressions in expr are replaced by the ones in `expr`.
+/// This is used in conjunction with ``expr_expressions`` to re-write expressions.
+pub fn rewrite_expression(expr: &Expr, expressions: &Vec<Expr>) -> Result<Expr> {
+    match expr {
+        Expr::BinaryExpr { op, .. } => Ok(Expr::BinaryExpr {
+            left: Box::new(expressions[0].clone()),
+            op: op.clone(),
+            right: Box::new(expressions[1].clone()),
+        }),
+        Expr::IsNull(_) => Ok(Expr::IsNull(Box::new(expressions[0].clone()))),
+        Expr::IsNotNull(_) => Ok(Expr::IsNotNull(Box::new(expressions[0].clone()))),
+        Expr::ScalarFunction {
+            name, return_type, ..
+        } => Ok(Expr::ScalarFunction {
+            name: name.clone(),
+            return_type: return_type.clone(),
+            args: expressions.clone(),
+        }),
+        Expr::AggregateFunction {
+            name, return_type, ..
+        } => Ok(Expr::AggregateFunction {
+            name: name.clone(),
+            return_type: return_type.clone(),
+            args: expressions.clone(),
+        }),
+        Expr::Cast { data_type, .. } => Ok(Expr::Cast {
+            expr: Box::new(expressions[0].clone()),
+            data_type: data_type.clone(),
+        }),
+        Expr::Alias(_, alias) => {
+            Ok(Expr::Alias(Box::new(expressions[0].clone()), alias.clone()))
+        }
+        Expr::Not(_) => Ok(Expr::Not(Box::new(expressions[0].clone()))),
+        Expr::Column(_) => Ok(expr.clone()),
+        Expr::Literal(_) => Ok(expr.clone()),
+        Expr::Sort {
+            asc, nulls_first, ..
+        } => Ok(Expr::Sort {
+            expr: Box::new(expressions[0].clone()),
+            asc: asc.clone(),
+            nulls_first: nulls_first.clone(),
+        }),
+        Expr::Wildcard { .. } => Err(ExecutionError::General(
+            "Wildcard expressions are not valid in a logical query plan".to_owned(),
+        )),
+        Expr::Nested(_) => Ok(Expr::Nested(Box::new(expressions[0].clone()))),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
