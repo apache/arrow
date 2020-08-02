@@ -25,14 +25,6 @@ use crate::{
 };
 use std::sync::Arc;
 
-fn as_u32_le(array: &[u8]) -> u32 {
-    // le: little endian
-    ((array[0] as u32) << 0)
-        + ((array[1] as u32) << 8)
-        + ((array[2] as u32) << 16)
-        + ((array[3] as u32) << 24)
-}
-
 /// Returns an array of UInt32 denoting the number of characters in each string in the array.
 ///
 /// * this only accepts StringArray
@@ -43,19 +35,15 @@ pub fn length(array: &Array) -> Result<UInt32Array> {
         DataType::Utf8 => {
             // note: offsets are stored as u8, but they can be interpreted as u32
             let offsets = array.data_ref().clone().buffers()[0].clone();
-            let offsets = offsets.data();
+            // this is a 30% improvement over iterating over u8s and building u32
+            let slice: &[u32] = unsafe { offsets.typed_data::<u32>() };
 
             let mut builder = UInt32BufferBuilder::new(array.len());
-
-            let mut previous_offset = 0;
-            // the first u32 offset is always 0 and is not needed to compute lengths
-            for i in (4..offsets.len()).step_by(4) {
-                // interpret 4 u8 as 1 u32:
-                let offset = as_u32_le(&offsets[i..(i + 4)]);
-                // offsets in u32 always increasing, and thus this is always >=0
-                builder.append(offset - previous_offset)?;
-                previous_offset = offset;
-            }
+            let lengths: Vec<u32> = slice
+                .windows(2)
+                .map(|offset| offset[1] - offset[0])
+                .collect();
+            builder.append_slice(lengths.as_slice())?;
 
             let null_bit_buffer = array
                 .data_ref()
