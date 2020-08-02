@@ -99,7 +99,6 @@ impl ProjectionPushDown {
             LogicalPlan::Sort {
                 expr,
                 input,
-                schema,
             } => {
                 // collect all columns referenced by sort expressions
                 utils::exprlist_to_column_names(&expr, accum)?;
@@ -107,13 +106,11 @@ impl ProjectionPushDown {
                 Ok(LogicalPlan::Sort {
                     expr: expr.clone(),
                     input: Box::new(self.optimize_plan(&input, accum, has_projection)?),
-                    schema: schema.clone(),
                 })
             }
-            LogicalPlan::Limit { n, input, schema } => Ok(LogicalPlan::Limit {
+            LogicalPlan::Limit { n, input } => Ok(LogicalPlan::Limit {
                 n: n.clone(),
                 input: Box::new(self.optimize_plan(&input, accum, has_projection)?),
-                schema: schema.clone(),
             }),
             LogicalPlan::EmptyRelation { .. } => Ok(plan.clone()),
             LogicalPlan::TableScan {
