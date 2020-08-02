@@ -135,7 +135,6 @@ std::shared_ptr<FileEncryptionProperties>
 PropertiesDrivenCryptoFactory::GetFileEncryptionProperties(
     const KmsConnectionConfig& kms_connection_config,
     std::shared_ptr<EncryptionConfiguration> encryption_config,
-    const arrow::io::HdfsConnectionConfig& hdfs_connection_config,
     const std::string& temp_file_path) {
   const std::string& footer_key_id = encryption_config->footer_key();
   const std::string& column_key_str = encryption_config->column_keys();

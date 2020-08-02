@@ -134,7 +134,6 @@ class PARQUET_EXPORT PropertiesDrivenCryptoFactory {
   std::shared_ptr<FileEncryptionProperties> GetFileEncryptionProperties(
       const KmsConnectionConfig& kms_connection_config,
       std::shared_ptr<EncryptionConfiguration> encryption_config,
-      const arrow::io::HdfsConnectionConfig& hdfs_connection_config,
       const std::string& temp_file_path);
 
  private:
