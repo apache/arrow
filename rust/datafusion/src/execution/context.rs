@@ -677,11 +677,13 @@ pub struct ExecutionContextSchemaProvider<'a> {
 }
 
 impl<'a> ExecutionContextSchemaProvider<'a> {
-    /// Create a new query planner
-    pub fn new(datasources: &'a HashMap<String, Box<dyn TableProvider + Send + Sync>>, scalar_functions: &'a HashMap<String, Box<ScalarFunction>>) -> Self {
+    pub fn new(
+        datasources: &'a HashMap<String, Box<dyn TableProvider + Send + Sync>>,
+        scalar_functions: &'a HashMap<String, Box<ScalarFunction>>,
+    ) -> Self {
         ExecutionContextSchemaProvider {
             datasources,
-            scalar_functions
+            scalar_functions,
         }
     }
 }
