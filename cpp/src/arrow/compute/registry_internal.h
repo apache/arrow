@@ -43,9 +43,6 @@ void RegisterVectorSort(FunctionRegistry* registry);
 
 // Aggregate functions
 void RegisterScalarAggregateBasic(FunctionRegistry* registry);
-// SIMD version
-void RegisterScalarAggregateSumAvx2(FunctionRegistry* registry);
-void RegisterScalarAggregateSumAvx512(FunctionRegistry* registry);
 
 }  // namespace internal
 }  // namespace compute
