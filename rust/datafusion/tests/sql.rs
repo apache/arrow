@@ -25,7 +25,7 @@ use arrow::array::*;
 use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
 use arrow::record_batch::RecordBatch;
 
-use datafusion::datasource::csv::CsvReadOptions;
+use datafusion::datasource::{csv::CsvReadOptions, MemTable};
 use datafusion::error::Result;
 use datafusion::execution::context::ExecutionContext;
 use datafusion::execution::physical_plan::udf::ScalarFunction;
@@ -618,4 +618,24 @@ fn result_str(results: &[RecordBatch]) -> Vec<String> {
         }
     }
     result
+}
+
+#[test]
+fn query_length() -> Result<()> {
+    let schema = Arc::new(Schema::new(vec![Field::new("c1", DataType::Utf8, false)]));
+
+    let data = RecordBatch::try_new(
+        schema.clone(),
+        vec![Arc::new(StringArray::from(vec!["", "a", "aa", "aaa"]))],
+    )?;
+
+    let table = MemTable::new(schema, vec![vec![data]])?;
+
+    let mut ctx = ExecutionContext::new();
+    ctx.register_table("test", Box::new(table));
+    let sql = "SELECT length(c1) FROM test";
+    let actual = execute(&mut ctx, sql).join("\n");
+    let expected = "0\n1\n2\n3".to_string();
+    assert_eq!(expected, actual);
+    Ok(())
 }

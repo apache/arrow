@@ -580,6 +580,11 @@ unary_math_expr!("log", ln);
 unary_math_expr!("log2", log2);
 unary_math_expr!("log10", log10);
 
+/// returns the length of a string in bytes
+pub fn length(e: Expr) -> Expr {
+    scalar_function("length", vec![e], DataType::UInt32)
+}
+
 /// Create an aggregate expression
 pub fn aggregate_expr(name: &str, expr: Expr, return_type: DataType) -> Expr {
     Expr::AggregateFunction {

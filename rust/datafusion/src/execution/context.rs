@@ -26,7 +26,9 @@ use std::thread::{self, JoinHandle};
 
 use arrow::csv;
 use arrow::datatypes::*;
-use arrow::record_batch::RecordBatch;
+use arrow::{
+    array::ArrayRef, compute::kernels::length::length, record_batch::RecordBatch,
+};
 
 use crate::datasource::csv::CsvFile;
 use crate::datasource::parquet::ParquetTable;
@@ -118,6 +120,12 @@ impl ExecutionContext {
             config,
         };
         register_math_functions(&mut ctx);
+        ctx.register_udf(ScalarFunction::new(
+            "length",
+            vec![Field::new("n", DataType::Utf8, true)],
+            DataType::UInt32,
+            Arc::new(|args: &[ArrayRef]| Ok(Arc::new(length(args[0].as_ref())?))),
+        ));
         ctx
     }
 
