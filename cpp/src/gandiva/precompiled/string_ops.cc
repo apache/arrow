@@ -567,6 +567,54 @@ const char* castVARCHAR_utf8_int64(gdv_int64 context, const char* data,
   return data;
 }
 
+// Split a string into substrings, then return a particular one
+FORCE_INLINE
+const char* split_utf8_utf8_int32(gdv_int64 context, const char* str, gdv_int32 str_len,
+                                  const char* delimiter, gdv_int32 delimiter_len,
+                                  gdv_int32 ret_index, gdv_int32* out_len) {
+  if (ret_index < 1) {
+    gdv_fn_context_set_error_msg(context, "Substring index must be greater than 0");
+    *out_len = 0;
+    return "";
+  }
+
+  if (delimiter_len == 0) {
+    gdv_fn_context_set_error_msg(context, "Cannot split using empty delimiter");
+    *out_len = 0;
+    return "";
+  }
+
+  int left_edge = 0;
+  int delimiters_found = 0;
+  while (left_edge <= str_len - delimiter_len && delimiters_found < ret_index - 1) {
+    if (memcmp(str + left_edge, delimiter, delimiter_len) == 0) {
+      left_edge += delimiter_len;
+      delimiters_found++;
+    } else {
+      left_edge++;
+    }
+  }
+
+  if (delimiters_found < ret_index - 1) {
+    gdv_fn_context_set_error_msg(context, "Not enough delimiters to split string");
+    *out_len = 0;
+    return "";
+  }
+
+  int right_edge = left_edge;
+  while (right_edge <= str_len - delimiter_len &&
+         memcmp(str + right_edge, delimiter, delimiter_len) != 0) {
+    right_edge++;
+  }
+
+  if (right_edge > str_len - delimiter_len) {
+    right_edge = str_len;
+  }
+
+  *out_len = right_edge - left_edge;
+  return str + left_edge;
+}
+
 #define IS_NULL(NAME, TYPE)                                                \
   FORCE_INLINE                                                             \
   bool NAME##_##TYPE(gdv_##TYPE in, gdv_int32 len, gdv_boolean is_valid) { \

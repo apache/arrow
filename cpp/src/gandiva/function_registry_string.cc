@@ -123,6 +123,10 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
       NativeFunction("replace", {}, DataTypeVector{utf8(), utf8(), utf8()}, utf8(),
                      kResultNullIfNull, "replace_utf8_utf8_utf8",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+
+      NativeFunction("split", {}, DataTypeVector{utf8(), utf8(), int32()}, utf8(),
+                     kResultNullIfNull, "split_utf8_utf8_int32",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
   };
 
   return string_fn_registry_;

@@ -942,4 +942,64 @@ TEST(TestParseStringHolder, TestCastFloat8) {
   ctx.Reset();
 }
 
+TEST(TestStringOps, TestSplit) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
+  gdv_int32 out_len = 0;
+
+  const char* out_str;
+  out_str = split_utf8_utf8_int32(ctx_ptr, "first second third", 18, " ", 1, 2, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "second");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = split_utf8_utf8_int32(ctx_ptr, "first  third", 10, " ", 1, 2, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str =
+      split_utf8_utf8_int32(ctx_ptr, "abababababatestababa", 20, "ababa", 5, 3, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "test");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = split_utf8_utf8_int32(ctx_ptr, "first second third", 18, " ", 1, 1, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "first");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = split_utf8_utf8_int32(ctx_ptr, "first second third", 18, " ", 1, 3, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "third");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = split_utf8_utf8_int32(ctx_ptr, "only", 4, " ", 1, 1, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "only");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = split_utf8_utf8_int32(ctx_ptr, " second third", 13, " ", 1, 1, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = split_utf8_utf8_int32(ctx_ptr, "first second ", 13, " ", 1, 3, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = split_utf8_utf8_int32(ctx_ptr, "first second third", 18, "", 0, 2, &out_len);
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr("Cannot split using empty delimiter"));
+  ctx.Reset();
+
+  out_str = split_utf8_utf8_int32(ctx_ptr, "first second third", 18, " ", 1, 4, &out_len);
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr("Not enough delimiters to split string"));
+  ctx.Reset();
+
+  out_str = split_utf8_utf8_int32(ctx_ptr, "first second third", 18, " ", 1, 0, &out_len);
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr("Substring index must be greater than 0"));
+  ctx.Reset();
+
+  out_str =
+      split_utf8_utf8_int32(ctx_ptr, "first  second  third", 20, "  ", 2, 3, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "third");
+  EXPECT_FALSE(ctx.has_error());
+}
+
 }  // namespace gandiva
