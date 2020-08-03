@@ -162,24 +162,24 @@ impl ArrayData {
     }
 
     /// Returns the total number of bytes of memory occupied by the buffers owned by this [ArrayData].
-    pub fn memory_used(&self) -> usize {
+    pub fn get_buffer_memory_size(&self) -> usize {
         let mut size = 0;
         for buffer in &self.buffers {
             size += buffer.capacity();
         }
         if let Some(bitmap) = &self.null_bitmap {
-            size += bitmap.memory_used()
+            size += bitmap.get_buffer_memory_size()
         }
         for child in &self.child_data {
-            size += child.memory_used();
+            size += child.get_buffer_memory_size();
         }
         size
     }
 
     /// Returns the total number of bytes of memory occupied physically by this [ArrayData].
-    pub fn memory_capacity(&self) -> usize {
+    pub fn get_array_memory_size(&self) -> usize {
         let mut size = 0;
-        // Calculate size of the fields that don't have [memory_capacity] method internally.
+        // Calculate size of the fields that don't have [get_array_memory_size] method internally.
         size += mem::size_of_val(self)
             - mem::size_of_val(&self.buffers)
             - mem::size_of_val(&self.null_bitmap)
@@ -191,10 +191,10 @@ impl ArrayData {
             size += buffer.capacity();
         }
         if let Some(bitmap) = &self.null_bitmap {
-            size += bitmap.memory_capacity()
+            size += bitmap.get_array_memory_size()
         }
         for child in &self.child_data {
-            size += child.memory_capacity();
+            size += child.get_array_memory_size();
         }
 
         size

@@ -215,10 +215,10 @@ pub trait Array: fmt::Debug + Send + Sync + ArrayEqual + JsonEqual {
     }
 
     /// Returns the total number of bytes of memory occupied by the buffers owned by this array.
-    fn memory_used(&self) -> usize;
+    fn get_buffer_memory_size(&self) -> usize;
 
     /// Returns the total number of bytes of memory occupied physically by this array.
-    fn memory_capacity(&self) -> usize;
+    fn get_array_memory_size(&self) -> usize;
 }
 
 /// A reference-counted reference to a generic `Array`.
@@ -451,13 +451,13 @@ impl<T: ArrowPrimitiveType> Array for PrimitiveArray<T> {
     }
 
     /// Returns the total number of bytes of memory occupied by the buffers owned by this [PrimitiveArray].
-    fn memory_used(&self) -> usize {
-        self.data.memory_used()
+    fn get_buffer_memory_size(&self) -> usize {
+        self.data.get_buffer_memory_size()
     }
 
     /// Returns the total number of bytes of memory occupied physically by this [PrimitiveArray].
-    fn memory_capacity(&self) -> usize {
-        self.data.memory_capacity() + mem::size_of_val(self)
+    fn get_array_memory_size(&self) -> usize {
+        self.data.get_array_memory_size() + mem::size_of_val(self)
     }
 }
 
@@ -1186,13 +1186,13 @@ impl Array for ListArray {
     }
 
     /// Returns the total number of bytes of memory occupied by the buffers owned by this [ListArray].
-    fn memory_used(&self) -> usize {
-        self.data.memory_used()
+    fn get_buffer_memory_size(&self) -> usize {
+        self.data.get_buffer_memory_size()
     }
 
     /// Returns the total number of bytes of memory occupied physically by this [ListArray].
-    fn memory_capacity(&self) -> usize {
-        self.data.memory_capacity() + mem::size_of_val(self)
+    fn get_array_memory_size(&self) -> usize {
+        self.data.get_array_memory_size() + mem::size_of_val(self)
     }
 }
 
@@ -1210,14 +1210,14 @@ impl Array for LargeListArray {
     }
 
     /// Returns the total number of bytes of memory occupied by the buffers owned by this [LargeListArray].
-    fn memory_used(&self) -> usize {
-        self.data.memory_used() + self.values().memory_used()
+    fn get_buffer_memory_size(&self) -> usize {
+        self.data.get_buffer_memory_size() + self.values().get_buffer_memory_size()
     }
 
     /// Returns the total number of bytes of memory occupied physically by this [LargeListArray].
-    fn memory_capacity(&self) -> usize {
-        self.data.memory_capacity()
-            + self.values().memory_capacity()
+    fn get_array_memory_size(&self) -> usize {
+        self.data.get_array_memory_size()
+            + self.values().get_array_memory_size()
             + mem::size_of_val(self)
     }
 }
@@ -1372,14 +1372,14 @@ impl Array for FixedSizeListArray {
     }
 
     /// Returns the total number of bytes of memory occupied by the buffers owned by this [FixedSizeListArray].
-    fn memory_used(&self) -> usize {
-        self.data.memory_used() + self.values().memory_used()
+    fn get_buffer_memory_size(&self) -> usize {
+        self.data.get_buffer_memory_size() + self.values().get_buffer_memory_size()
     }
 
     /// Returns the total number of bytes of memory occupied physically by this [FixedSizeListArray].
-    fn memory_capacity(&self) -> usize {
-        self.data.memory_capacity()
-            + self.values().memory_capacity()
+    fn get_array_memory_size(&self) -> usize {
+        self.data.get_array_memory_size()
+            + self.values().get_array_memory_size()
             + mem::size_of_val(self)
     }
 }
@@ -1450,13 +1450,13 @@ macro_rules! make_binary_type {
             }
 
             /// Returns the total number of bytes of memory occupied by the buffers owned by this [$name].
-            fn memory_used(&self) -> usize {
-                self.data.memory_used()
+            fn get_buffer_memory_size(&self) -> usize {
+                self.data.get_buffer_memory_size()
             }
 
             /// Returns the total number of bytes of memory occupied physically by this [$name].
-            fn memory_capacity(&self) -> usize {
-                self.data.memory_capacity() + mem::size_of_val(self)
+            fn get_array_memory_size(&self) -> usize {
+                self.data.get_array_memory_size() + mem::size_of_val(self)
             }
         }
     };
@@ -2015,13 +2015,13 @@ impl Array for FixedSizeBinaryArray {
     }
 
     /// Returns the total number of bytes of memory occupied by the buffers owned by this [FixedSizeBinaryArray].
-    fn memory_used(&self) -> usize {
-        self.data.memory_used()
+    fn get_buffer_memory_size(&self) -> usize {
+        self.data.get_buffer_memory_size()
     }
 
     /// Returns the total number of bytes of memory occupied physically by this [FixedSizeBinaryArray].
-    fn memory_capacity(&self) -> usize {
-        self.data.memory_capacity() + mem::size_of_val(self)
+    fn get_array_memory_size(&self) -> usize {
+        self.data.get_array_memory_size() + mem::size_of_val(self)
     }
 }
 
@@ -2107,13 +2107,13 @@ impl Array for StructArray {
     }
 
     /// Returns the total number of bytes of memory occupied by the buffers owned by this [StructArray].
-    fn memory_used(&self) -> usize {
-        self.data.memory_used()
+    fn get_buffer_memory_size(&self) -> usize {
+        self.data.get_buffer_memory_size()
     }
 
     /// Returns the total number of bytes of memory occupied physically by this [StructArray].
-    fn memory_capacity(&self) -> usize {
-        self.data.memory_capacity() + mem::size_of_val(self)
+    fn get_array_memory_size(&self) -> usize {
+        self.data.get_array_memory_size() + mem::size_of_val(self)
     }
 }
 
@@ -2415,14 +2415,14 @@ impl<T: ArrowPrimitiveType> Array for DictionaryArray<T> {
     }
 
     /// Returns the total number of bytes of memory occupied by the buffers owned by this [DictionaryArray].
-    fn memory_used(&self) -> usize {
-        self.data.memory_used() + self.values().memory_used()
+    fn get_buffer_memory_size(&self) -> usize {
+        self.data.get_buffer_memory_size() + self.values().get_buffer_memory_size()
     }
 
     /// Returns the total number of bytes of memory occupied physically by this [DictionaryArray].
-    fn memory_capacity(&self) -> usize {
-        self.data.memory_capacity()
-            + self.values().memory_capacity()
+    fn get_array_memory_size(&self) -> usize {
+        self.data.get_array_memory_size()
+            + self.values().get_array_memory_size()
             + mem::size_of_val(self)
     }
 }
@@ -2472,11 +2472,11 @@ mod tests {
             assert_eq!(i as i32, arr.value(i));
         }
 
-        assert_eq!(64, arr.memory_used());
+        assert_eq!(64, arr.get_buffer_memory_size());
         let internals_of_primitive_array = 8 + 72; // RawPtrBox & Arc<ArrayData> combined.
         assert_eq!(
-            arr.memory_used() + internals_of_primitive_array,
-            arr.memory_capacity()
+            arr.get_buffer_memory_size() + internals_of_primitive_array,
+            arr.get_array_memory_size()
         );
     }
 
@@ -2498,11 +2498,11 @@ mod tests {
             }
         }
 
-        assert_eq!(128, arr.memory_used());
+        assert_eq!(128, arr.get_buffer_memory_size());
         let internals_of_primitive_array = 8 + 72 + 16; // RawPtrBox & Arc<ArrayData> and it's null_bitmap combined.
         assert_eq!(
-            arr.memory_used() + internals_of_primitive_array,
-            arr.memory_capacity()
+            arr.get_buffer_memory_size() + internals_of_primitive_array,
+            arr.get_array_memory_size()
         );
     }
 
