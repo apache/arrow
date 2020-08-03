@@ -589,7 +589,7 @@ struct Unbox<Type, enable_if_integer<Type>> {
         break;
     }
 
-    return Status::Invalid("Cannot convert R vector of type <", Rcpp::type2name(obj),
+    return Status::Invalid("Cannot convert R vector of type <", Rf_type2char(TYPEOF(obj)),
                            "> to integer Arrow array");
   }
 
