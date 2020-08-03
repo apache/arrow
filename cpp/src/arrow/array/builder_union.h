@@ -117,6 +117,24 @@ class ARROW_EXPORT DenseUnionBuilder : public BasicUnionBuilder {
     return child_builder->AppendNull();
   }
 
+  Status AppendEmpty() final {
+    const int8_t first_child_code = type_codes_[0];
+    ArrayBuilder* child_builder = type_id_to_children_[first_child_code];
+    ARROW_RETURN_NOT_OK(types_builder_.Append(first_child_code));
+    ARROW_RETURN_NOT_OK(
+        offsets_builder_.Append(static_cast<int32_t>(child_builder->length())));
+    return child_builder->AppendEmpty();
+  }
+
+  Status AppendEmpties(int64_t length) {
+    const int8_t first_child_code = type_codes_[0];
+    ArrayBuilder* child_builder = type_id_to_children_[first_child_code];
+    ARROW_RETURN_NOT_OK(types_builder_.Append(length, first_child_code));
+    ARROW_RETURN_NOT_OK(
+        offsets_builder_.Append(length, static_cast<int32_t>(child_builder->length())));
+    return child_builder->AppendEmpty();
+  }
+
   /// \brief Append an element to the UnionArray. This must be followed
   ///        by an append to the appropriate child builder.
   ///
@@ -176,6 +194,22 @@ class ARROW_EXPORT SparseUnionBuilder : public BasicUnionBuilder {
     // Append nulls to children
     for (int8_t code : type_codes_) {
       ARROW_RETURN_NOT_OK(type_id_to_children_[code]->AppendNulls(length));
+    }
+    return Status::OK();
+  }
+
+  Status AppendEmpty() final {
+    ARROW_RETURN_NOT_OK(types_builder_.Append(type_codes_[0]));
+    for (int8_t code : type_codes_) {
+      ARROW_RETURN_NOT_OK(type_id_to_children_[code]->AppendEmpty());
+    }
+    return Status::OK();
+  }
+
+  Status AppendEmpties(int64_t length) {
+    ARROW_RETURN_NOT_OK(types_builder_.Append(length, type_codes_[0]));
+    for (int8_t code : type_codes_) {
+      ARROW_RETURN_NOT_OK(type_id_to_children_[code]->AppendEmpties(length));
     }
     return Status::OK();
   }

@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/pretty_print.h"
+
 #include <algorithm>
 #include <chrono>
 #include <cstddef>
@@ -28,7 +30,6 @@
 
 #include "arrow/array.h"
 #include "arrow/chunked_array.h"
-#include "arrow/pretty_print.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
@@ -327,7 +328,6 @@ class ArrayPrinter : public PrettyPrinter {
       if (offset != 0) {
         field = field->Slice(offset, length);
       }
-
       RETURN_NOT_OK(PrettyPrint(*field, indent_ + options_.indent_size, sink_));
     }
     return Status::OK();
@@ -339,6 +339,17 @@ class ArrayPrinter : public PrettyPrinter {
     children.reserve(array.num_fields());
     for (int i = 0; i < array.num_fields(); ++i) {
       children.emplace_back(array.field(i));
+      // set field array null at index which parent struct is null,
+      // because StructBuilder#AppendNull dosen't set child null bitmap.
+      auto field_null_buf = array.field(i)->null_bitmap();
+      if (field_null_buf != nullptr) {
+        uint8_t* field_null_data = field_null_buf->mutable_data();
+        for (int k = 0; k < array.length(); k++) {
+          if (array.IsNull(k)) {
+            BitUtil::SetBitTo(field_null_data, k, false);
+          }
+        }
+      }
     }
     return PrintChildren(children, 0, array.length());
   }

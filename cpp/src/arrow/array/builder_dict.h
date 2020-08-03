@@ -261,6 +261,20 @@ class DictionaryBuilderBase : public ArrayBuilder {
     return indices_builder_.AppendNulls(length);
   }
 
+  Status AppendEmpty() {
+    length_ += 1;
+    null_count_ += 1;
+
+    return indices_builder_.AppendEmpty();
+  }
+
+  Status AppendEmpties(int64_t length) {
+    length_ += length;
+    null_count_ += length;
+
+    return indices_builder_.AppendEmpties(length);
+  }
+
   /// \brief Insert values into the dictionary's memo, but do not append any
   /// indices. Can be used to initialize a new builder with known dictionary
   /// values

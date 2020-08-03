@@ -109,6 +109,25 @@ class BaseListBuilder : public ArrayBuilder {
     return Status::OK();
   }
 
+  Status AppendEmpty() final {
+    null_bitmap_builder_.Forward(1);
+    ++length_;
+    ++null_count_;
+    return AppendNextOffset();
+  }
+
+  Status AppendEmpties(int64_t length) final {
+    ARROW_RETURN_NOT_OK(CheckNextOffset());
+    const int64_t num_values = value_builder_->length();
+    for (int64_t i = 0; i < length; ++i) {
+      offsets_builder_.UnsafeAppend(static_cast<offset_type>(num_values));
+    }
+    null_bitmap_builder_.Forward(length);
+    length_ += length;
+    null_count_ += length;
+    return Status::OK();
+  }
+
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override {
     ARROW_RETURN_NOT_OK(AppendNextOffset());
 
@@ -258,6 +277,10 @@ class ARROW_EXPORT MapBuilder : public ArrayBuilder {
 
   Status AppendNulls(int64_t length) final;
 
+  Status AppendEmpty() final;
+
+  Status AppendEmpties(int64_t length) final;
+
   /// \brief Get builder to append keys.
   ///
   /// Append a key with this builder should be followed by appending
@@ -353,6 +376,10 @@ class ARROW_EXPORT FixedSizeListBuilder : public ArrayBuilder {
 
   Status ValidateOverflow(int64_t new_elements);
 
+  Status AppendEmpty() final;
+
+  Status AppendEmpties(int64_t length) final;
+
   ArrayBuilder* value_builder() const { return value_builder_.get(); }
 
   std::shared_ptr<DataType> type() const override {
@@ -410,18 +437,38 @@ class ARROW_EXPORT StructBuilder : public ArrayBuilder {
     return Status::OK();
   }
 
-  /// \brief Append a null value. Automatically appends a null to each child
+  /// \brief Append a null value. Automatically appends a empty to each child
   /// builder.
   Status AppendNull() final {
     for (const auto& field : children_) {
-      ARROW_RETURN_NOT_OK(field->AppendNull());
+      ARROW_RETURN_NOT_OK(field->AppendEmpty());
     }
     return Append(false);
   }
 
-  /// \brief Append multiple null values. Automatically appends nulls to each
+  /// \brief Append multiple null values. Automatically appends empties to each
   /// child builder.
   Status AppendNulls(int64_t length) final;
+
+  Status AppendEmpty() final {
+    for (const auto& field : children_) {
+      ARROW_RETURN_NOT_OK(field->AppendEmpty());
+    }
+    null_bitmap_builder_.Forward(1);
+    length_++;
+    null_count_++;
+    return Status::OK();
+  }
+
+  Status AppendEmpties(int64_t length) final {
+    for (const auto& field : children_) {
+      ARROW_RETURN_NOT_OK(field->AppendEmpties(length));
+    }
+    null_bitmap_builder_.Forward(length);
+    length_ += length;
+    null_count_ += length;
+    return Status::OK();
+  }
 
   void Reset() override;
 

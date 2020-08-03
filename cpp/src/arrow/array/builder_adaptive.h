@@ -64,6 +64,18 @@ class ARROW_EXPORT AdaptiveIntBuilderBase : public ArrayBuilder {
     return Status::OK();
   }
 
+  Status AppendEmpties(int64_t length) {
+    ARROW_RETURN_NOT_OK(CommitPendingData());
+    ARROW_RETURN_NOT_OK(Reserve(length));
+    memset(data_->mutable_data() + length_ * int_size_, 0, int_size_ * length);
+    length_ += length;
+    null_count_ += length;
+    null_bitmap_builder_.Forward(length);
+    return Status::OK();
+  }
+
+  Status AppendEmpty() { return AppendEmpties(1); }
+
   void Reset() override;
   Status Resize(int64_t capacity) override;
 
