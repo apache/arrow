@@ -244,17 +244,17 @@ int64_t FixedSizeListArray__value_offset(
 }
 
 // [[arrow::export]]
-Rcpp::IntegerVector ListArray__raw_value_offsets(
+cpp11::writable::integers ListArray__raw_value_offsets(
     const std::shared_ptr<arrow::ListArray>& array) {
   auto offsets = array->raw_value_offsets();
-  return Rcpp::IntegerVector(offsets, offsets + array->length());
+  return cpp11::writable::integers(offsets, offsets + array->length());
 }
 
 // [[arrow::export]]
-Rcpp::IntegerVector LargeListArray__raw_value_offsets(
+cpp11::writable::integers LargeListArray__raw_value_offsets(
     const std::shared_ptr<arrow::LargeListArray>& array) {
   auto offsets = array->raw_value_offsets();
-  return Rcpp::IntegerVector(offsets, offsets + array->length());
+  return cpp11::writable::integers(offsets, offsets + array->length());
 }
 
 #endif

@@ -493,7 +493,7 @@ RcppExport SEXP _arrow_FixedSizeListArray__value_offset(SEXP array_sexp, SEXP i_
 
 // array.cpp
 #if defined(ARROW_R_WITH_ARROW)
-Rcpp::IntegerVector ListArray__raw_value_offsets(const std::shared_ptr<arrow::ListArray>& array);
+cpp11::writable::integers ListArray__raw_value_offsets(const std::shared_ptr<arrow::ListArray>& array);
 extern "C" SEXP _arrow_ListArray__raw_value_offsets(SEXP array_sexp){
 BEGIN_CPP11
 	arrow::r::input<const std::shared_ptr<arrow::ListArray>&>::type array(array_sexp);
@@ -508,7 +508,7 @@ RcppExport SEXP _arrow_ListArray__raw_value_offsets(SEXP array_sexp){
 
 // array.cpp
 #if defined(ARROW_R_WITH_ARROW)
-Rcpp::IntegerVector LargeListArray__raw_value_offsets(const std::shared_ptr<arrow::LargeListArray>& array);
+cpp11::writable::integers LargeListArray__raw_value_offsets(const std::shared_ptr<arrow::LargeListArray>& array);
 extern "C" SEXP _arrow_LargeListArray__raw_value_offsets(SEXP array_sexp){
 BEGIN_CPP11
 	arrow::r::input<const std::shared_ptr<arrow::LargeListArray>&>::type array(array_sexp);
@@ -800,7 +800,7 @@ RcppExport SEXP _arrow_r___RBuffer__initialize(SEXP x_sexp){
 
 // buffer.cpp
 #if defined(ARROW_R_WITH_ARROW)
-Rcpp::RawVector Buffer__data(const std::shared_ptr<arrow::Buffer>& buffer);
+cpp11::writable::raws Buffer__data(const std::shared_ptr<arrow::Buffer>& buffer);
 extern "C" SEXP _arrow_Buffer__data(SEXP buffer_sexp){
 BEGIN_CPP11
 	arrow::r::input<const std::shared_ptr<arrow::Buffer>&>::type buffer(buffer_sexp);
