@@ -125,7 +125,7 @@ cmake -G "${CMAKE_GENERATOR:-Ninja}" \
       -DSnappy_SOURCE=${Snappy_SOURCE:-} \
       -DThrift_SOURCE=${Thrift_SOURCE:-} \
       -Dutf8proc_SOURCE=${utf8proc_SOURCE:-} \
-      -DZSTD_SOURCE=${ZSTD_SOURCE:-} \
+      -Dzstd_SOURCE=${zstd_SOURCE:-} \
       ${CMAKE_ARGS} \
       ${source_dir}
 
