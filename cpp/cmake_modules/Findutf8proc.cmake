@@ -15,11 +15,28 @@
 # specific language governing permissions and limitations
 # under the License.
 
+if(ARROW_UTF8PROC_USE_SHARED)
+  set(UTF8PROC_LIB_NAMES)
+  if(CMAKE_IMPORT_LIBRARY_SUFFIX)
+    list(APPEND UTF8PROC_LIB_NAMES
+                "${CMAKE_IMPORT_LIBRARY_PREFIX}utf8proc${CMAKE_IMPORT_LIBRARY_SUFFIX}")
+  endif()
+  list(APPEND UTF8PROC_LIB_NAMES
+              "${CMAKE_SHARED_LIBRARY_PREFIX}utf8proc${CMAKE_SHARED_LIBRARY_SUFFIX}")
+else()
+  if(MSVC AND NOT DEFINED UTF8PROC_MSVC_STATIC_LIB_SUFFIX)
+    set(UTF8PROC_MSVC_STATIC_LIB_SUFFIX "_static")
+  endif()
+  set(UTF8PROC_STATIC_LIB_SUFFIX
+      "${UTF8PROC_MSVC_STATIC_LIB_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}")
+  set(UTF8PROC_STATIC_LIB_NAME ${CMAKE_STATIC_LIBRARY_PREFIX}utf8proc${UTF8PROC_STATIC_LIB_SUFFIX})
+  set(UTF8PROC_LIB_NAMES "${UTF8PROC_STATIC_LIB_NAME}" "lib${UTF8PROC_STATIC_LIB_NAME}")
+endif()
+
 if(utf8proc_ROOT)
   find_library(
     UTF8PROC_LIB
-    NAMES utf8proc
-          "${CMAKE_SHARED_LIBRARY_PREFIX}utf8proc${CMAKE_SHARED_LIBRARY_SUFFIX}"
+    NAMES ${UTF8PROC_LIB_NAMES}
     PATHS ${utf8proc_ROOT}
     PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
     NO_DEFAULT_PATH)
@@ -28,12 +45,10 @@ if(utf8proc_ROOT)
             PATHS ${utf8proc_ROOT}
             NO_DEFAULT_PATH
             PATH_SUFFIXES ${INCLUDE_PATH_SUFFIXES})
-
 else()
   find_library(
     UTF8PROC_LIB
-    NAMES utf8proc
-          "${CMAKE_SHARED_LIBRARY_PREFIX}utf8proc${CMAKE_SHARED_LIBRARY_SUFFIX}"
+    NAMES ${UTF8PROC_LIB_NAMES}
     PATH_SUFFIXES ${LIB_PATH_SUFFIXES})
   find_path(UTF8PROC_INCLUDE_DIR NAMES utf8proc.h PATH_SUFFIXES ${INCLUDE_PATH_SUFFIXES})
 endif()
@@ -47,5 +62,8 @@ if(UTF8PROC_FOUND OR utf8proc_FOUND)
   set_target_properties(utf8proc::utf8proc
                         PROPERTIES IMPORTED_LOCATION "${UTF8PROC_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${UTF8PROC_INCLUDE_DIR}")
+  if(NOT ARROW_UTF8PROC_USE_SHARED)
+    set_target_properties(utf8proc::utf8proc
+                          PROPERTIES INTERFACE_COMPILER_DEFINITIONS "UTF8PROC_STATIC")
+  endif()
 endif()
-
