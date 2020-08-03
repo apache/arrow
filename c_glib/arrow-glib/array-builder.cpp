@@ -517,6 +517,8 @@ garrow_array_builder_finish(GArrowArrayBuilder *builder, GError **error)
 /**
  * garrow_array_builder_reset:
  * @builder: A #GArrowArrayBuilder.
+ *
+ * Since: 2.0.0
  */
 void
 garrow_array_builder_reset(GArrowArrayBuilder *builder)
@@ -530,6 +532,8 @@ garrow_array_builder_reset(GArrowArrayBuilder *builder)
  * @builder: A #GArrowArrayBuilder.
  *
  * Returns: The capacity of the building array.
+ *
+ * Since: 2.0.0
  */
 gint64
 garrow_array_builder_get_capacity(GArrowArrayBuilder *builder)
@@ -543,6 +547,8 @@ garrow_array_builder_get_capacity(GArrowArrayBuilder *builder)
  * @builder: A #GArrowArrayBuilder.
  *
  * Returns: The current length of the building array.
+ *
+ * Since: 2.0.0
  */
 gint64
 garrow_array_builder_get_length(GArrowArrayBuilder *builder)
@@ -556,6 +562,8 @@ garrow_array_builder_get_length(GArrowArrayBuilder *builder)
  * @builder: A #GArrowArrayBuilder.
  *
  * Returns: The current number of null elements in the building array.
+ *
+ * Since: 2.0.0
  */
 gint64
 garrow_array_builder_get_n_nulls(GArrowArrayBuilder *builder)
@@ -571,6 +579,8 @@ garrow_array_builder_get_n_nulls(GArrowArrayBuilder *builder)
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 2.0.0
  */
 gboolean
 garrow_array_builder_resize(GArrowArrayBuilder *builder,
@@ -589,6 +599,8 @@ garrow_array_builder_resize(GArrowArrayBuilder *builder,
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 2.0.0
  */
 gboolean
 garrow_array_builder_reserve(GArrowArrayBuilder *builder,
@@ -4043,7 +4055,7 @@ garrow_binary_dictionary_array_builder_class_init(GArrowBinaryDictionaryArrayBui
  *
  * Returns: A newly created #GArrowBinaryDictionaryArrayBuilder.
  *
- * Since: 1.0
+ * Since: 2.0.0
  */
 GArrowBinaryDictionaryArrayBuilder *
 garrow_binary_dictionary_array_builder_new(void)
@@ -4060,6 +4072,8 @@ garrow_binary_dictionary_array_builder_new(void)
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 2.0.0
  */
 gboolean
 garrow_binary_dictionary_array_builder_append_null(GArrowBinaryDictionaryArrayBuilder *builder,
@@ -4079,7 +4093,7 @@ garrow_binary_dictionary_array_builder_append_null(GArrowBinaryDictionaryArrayBu
  *
  * Returns: %TRUE on success, %FALSE if there was an error.
  *
- * Since: 1.0
+ * Since: 2.0.0
  */
 gboolean
 garrow_binary_dictionary_array_builder_append_value_bytes(GArrowBinaryDictionaryArrayBuilder *builder,
@@ -4108,7 +4122,7 @@ garrow_binary_dictionary_array_builder_append_value_bytes(GArrowBinaryDictionary
  *
  * Returns: %TRUE on success, %FALSE if there was an error.
  *
- * Since: 1.0
+ * Since: 2.0.0
  */
 gboolean
 garrow_binary_dictionary_array_builder_append_binary_array(GArrowBinaryDictionaryArrayBuilder *builder,
@@ -4143,7 +4157,7 @@ garrow_binary_dictionary_array_builder_append_binary_array(GArrowBinaryDictionar
  *
  * Returns: %TRUE on success, %FALSE if there was an error.
  *
- * Since: 1.0
+ * Since: 2.0.0
  */
 gboolean
 garrow_binary_dictionary_array_builder_append_indices(GArrowBinaryDictionaryArrayBuilder *builder,
@@ -4174,7 +4188,7 @@ garrow_binary_dictionary_array_builder_append_indices(GArrowBinaryDictionaryArra
  *
  * Returns: A number of entries in the dicitonary.
  *
- * Since: 1.0
+ * Since: 2.0.0
  */
 gint64 garrow_binary_dictionary_array_builder_get_dictionary_length(GArrowBinaryDictionaryArrayBuilder *builder)
 {
@@ -4193,7 +4207,7 @@ gint64 garrow_binary_dictionary_array_builder_get_dictionary_length(GArrowBinary
  * Returns: (transfer full): The built #GArrowArray containing indices on
  *   success, %NULL on error.
  *
- * Since: 1.0
+ * Since: 2.0.0
  */
 GArrowArray *
 garrow_binary_dictionary_array_builder_finish_delta(GArrowBinaryDictionaryArrayBuilder* builder,
@@ -4221,7 +4235,7 @@ garrow_binary_dictionary_array_builder_finish_delta(GArrowBinaryDictionaryArrayB
  *
  * Returns: %TRUE on success, %FALSE if there was an error.
  *
- * Since: 1.0
+ * Since: 2.0.0
  */
 gboolean
 garrow_binary_dictionary_array_builder_insert_memo_values(GArrowBinaryDictionaryArrayBuilder *builder,
@@ -4274,7 +4288,7 @@ garrow_string_dictionary_array_builder_class_init(GArrowStringDictionaryArrayBui
  *
  * Returns: A newly created #GArrowStringDictionaryArrayBuilder.
  *
- * Since: 1.0
+ * Since: 2.0.0
  */
 GArrowStringDictionaryArrayBuilder *
 garrow_string_dictionary_array_builder_new(void)
@@ -4291,6 +4305,8 @@ garrow_string_dictionary_array_builder_new(void)
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 2.0.0
  */
 gboolean
 garrow_string_dictionary_array_builder_append_null(GArrowStringDictionaryArrayBuilder *builder,
@@ -4310,7 +4326,7 @@ garrow_string_dictionary_array_builder_append_null(GArrowStringDictionaryArrayBu
  *
  * Returns: %TRUE on success, %FALSE if there was an error.
  *
- * Since: 1.0
+ * Since: 2.0.0
  */
 gboolean
 garrow_string_dictionary_array_builder_append_string(GArrowStringDictionaryArrayBuilder *builder,
@@ -4337,7 +4353,7 @@ garrow_string_dictionary_array_builder_append_string(GArrowStringDictionaryArray
  *
  * Returns: %TRUE on success, %FALSE if there was an error.
  *
- * Since: 1.0
+ * Since: 2.0.0
  */
 gboolean
 garrow_string_dictionary_array_builder_append_string_array(GArrowStringDictionaryArrayBuilder *builder,
@@ -4372,7 +4388,7 @@ garrow_string_dictionary_array_builder_append_string_array(GArrowStringDictionar
  *
  * Returns: %TRUE on success, %FALSE if there was an error.
  *
- * Since: 1.0
+ * Since: 2.0.0
  */
 gboolean
 garrow_string_dictionary_array_builder_append_indices(GArrowStringDictionaryArrayBuilder *builder,
@@ -4403,7 +4419,7 @@ garrow_string_dictionary_array_builder_append_indices(GArrowStringDictionaryArra
  *
  * Returns: A number of entries in the dicitonary.
  *
- * Since: 1.0
+ * Since: 2.0.0
  */
 gint64 garrow_string_dictionary_array_builder_get_dictionary_length(GArrowStringDictionaryArrayBuilder *builder)
 {
@@ -4422,7 +4438,7 @@ gint64 garrow_string_dictionary_array_builder_get_dictionary_length(GArrowString
  * Returns: (transfer full): The built #GArrowArray containing indices on
  *   success, %NULL on error.
  *
- * Since: 1.0
+ * Since: 2.0.0
  */
 GArrowArray *
 garrow_string_dictionary_array_builder_finish_delta(GArrowStringDictionaryArrayBuilder* builder,
@@ -4450,7 +4466,7 @@ garrow_string_dictionary_array_builder_finish_delta(GArrowStringDictionaryArrayB
  *
  * Returns: %TRUE on success, %FALSE if there was an error.
  *
- * Since: 1.0
+ * Since: 2.0.0
  */
 gboolean
 garrow_string_dictionary_array_builder_insert_memo_values(GArrowStringDictionaryArrayBuilder *builder,
@@ -4472,6 +4488,8 @@ garrow_string_dictionary_array_builder_insert_memo_values(GArrowStringDictionary
 /**
  * garrow_string_dictionary_array_builder_reset_full:
  * @builder: A #GArrowStringDictionaryArrayBuilder.
+ *
+ * Since: 2.0.0
  */
 void
 garrow_string_dictionary_array_builder_reset_full(GArrowStringDictionaryArrayBuilder *builder)

@@ -44,21 +44,21 @@ GArrowType garrow_array_builder_get_value_type(GArrowArrayBuilder *builder);
 GArrowArray        *garrow_array_builder_finish   (GArrowArrayBuilder *builder,
                                                    GError **error);
 
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_2_0
 void garrow_array_builder_reset(GArrowArrayBuilder *builder);
 
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_2_0
 gint64 garrow_array_builder_get_capacity(GArrowArrayBuilder *builder);
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_2_0
 gint64 garrow_array_builder_get_length(GArrowArrayBuilder *builder);
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_2_0
 gint64 garrow_array_builder_get_n_nulls(GArrowArrayBuilder *builder);
 
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_2_0
 gboolean garrow_array_builder_resize(GArrowArrayBuilder *builder,
                                      gint64 capacity,
                                      GError **error);
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_2_0
 gboolean garrow_array_builder_reserve(GArrowArrayBuilder *builder,
                                       gint64 additional_capacity,
                                       GError **error);
@@ -916,29 +916,29 @@ struct _GArrowBinaryDictionaryArrayBuilderClass
   GArrowArrayBuilderClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_2_0
 GArrowBinaryDictionaryArrayBuilder *
 garrow_binary_dictionary_array_builder_new(void);
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_2_0
 gboolean
 garrow_binary_dictionary_array_builder_append_null(GArrowBinaryDictionaryArrayBuilder *builder,
                                                    GError **error);
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_2_0
 gboolean
 garrow_binary_dictionary_array_builder_append_nulls(GArrowBinaryDictionaryArrayBuilder *builder,
                                                     gint64 n,
                                                     GError **error);
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_2_0
 gboolean
 garrow_binary_dictionary_array_builder_append_value_bytes(GArrowBinaryDictionaryArrayBuilder *builder,
                                                           GBytes *value,
                                                           GError **error);
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_2_0
 gboolean
 garrow_binary_dictionary_array_builder_append_binary_array(GArrowBinaryDictionaryArrayBuilder *builder,
                                                            GArrowBinaryArray *array,
                                                            GError **error);
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_2_0
 gboolean
 garrow_binary_dictionary_array_builder_append_indices(GArrowBinaryDictionaryArrayBuilder *builder,
                                                       const gint64 *values,
@@ -946,21 +946,20 @@ garrow_binary_dictionary_array_builder_append_indices(GArrowBinaryDictionaryArra
                                                       const gboolean *is_valids,
                                                       gint64 is_valids_length,
                                                       GError **error);
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_2_0
 gint64
 garrow_binary_dictionary_array_builder_get_dictionary_length(GArrowBinaryDictionaryArrayBuilder *builder);
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_2_0
 GArrowArray *
 garrow_binary_dictionary_array_builder_finish_delta(GArrowBinaryDictionaryArrayBuilder* builder,
                                                     GArrowArray **out_delta,
                                                     GError **error);
-
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_2_0
 gboolean
 garrow_binary_dictionary_array_builder_insert_memo_values(GArrowBinaryDictionaryArrayBuilder *builder,
                                                           GArrowBinaryArray *values,
                                                           GError **error);
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_2_0
 void
 garrow_binary_dictionary_array_builder_reset_full(GArrowBinaryDictionaryArrayBuilder *builder);
 
@@ -976,29 +975,29 @@ struct _GArrowStringDictionaryArrayBuilderClass
   GArrowArrayBuilderClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_2_0
 GArrowStringDictionaryArrayBuilder *
 garrow_string_dictionary_array_builder_new(void);
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_2_0
 gboolean
 garrow_string_dictionary_array_builder_append_null(GArrowStringDictionaryArrayBuilder *builder,
                                                    GError **error);
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_2_0
 gboolean
 garrow_string_dictionary_array_builder_append_nulls(GArrowStringDictionaryArrayBuilder *builder,
                                                     gint64 n,
                                                     GError **error);
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_2_0
 gboolean
 garrow_string_dictionary_array_builder_append_string(GArrowStringDictionaryArrayBuilder *builder,
                                                      const gchar *value,
                                                      GError **error);
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_2_0
 gboolean
 garrow_string_dictionary_array_builder_append_string_array(GArrowStringDictionaryArrayBuilder *builder,
                                                            GArrowStringArray *array,
                                                            GError **error);
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_2_0
 gboolean
 garrow_string_dictionary_array_builder_append_indices(GArrowStringDictionaryArrayBuilder *builder,
                                                       const gint64 *values,
@@ -1006,21 +1005,20 @@ garrow_string_dictionary_array_builder_append_indices(GArrowStringDictionaryArra
                                                       const gboolean *is_valids,
                                                       gint64 is_valids_length,
                                                       GError **error);
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_2_0
 gint64
 garrow_string_dictionary_array_builder_get_dictionary_length(GArrowStringDictionaryArrayBuilder *builder);
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_2_0
 GArrowArray *
 garrow_string_dictionary_array_builder_finish_delta(GArrowStringDictionaryArrayBuilder* builder,
                                                     GArrowArray **out_delta,
                                                     GError **error);
-
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_2_0
 gboolean
 garrow_string_dictionary_array_builder_insert_memo_values(GArrowStringDictionaryArrayBuilder *builder,
                                                           GArrowStringArray *values,
                                                           GError **error);
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_2_0
 void
 garrow_string_dictionary_array_builder_reset_full(GArrowStringDictionaryArrayBuilder *builder);
 
