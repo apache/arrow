@@ -4817,11 +4817,11 @@ RcppExport SEXP _arrow_RecordBatch__schema(SEXP x_sexp){
 
 // recordbatch.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::RecordBatch> RecordBatch__ReplaceSchemaMetadata(const std::shared_ptr<arrow::RecordBatch>& x, Rcpp::CharacterVector metadata);
+std::shared_ptr<arrow::RecordBatch> RecordBatch__ReplaceSchemaMetadata(const std::shared_ptr<arrow::RecordBatch>& x, cpp11::strings metadata);
 extern "C" SEXP _arrow_RecordBatch__ReplaceSchemaMetadata(SEXP x_sexp, SEXP metadata_sexp){
 BEGIN_CPP11
 	arrow::r::input<const std::shared_ptr<arrow::RecordBatch>&>::type x(x_sexp);
-	arrow::r::input<Rcpp::CharacterVector>::type metadata(metadata_sexp);
+	arrow::r::input<cpp11::strings>::type metadata(metadata_sexp);
 	return cpp11::as_sexp(RecordBatch__ReplaceSchemaMetadata(x, metadata));
 END_CPP11
 }
@@ -4880,11 +4880,11 @@ RcppExport SEXP _arrow_RecordBatch__GetColumnByName(SEXP batch_sexp, SEXP name_s
 
 // recordbatch.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::RecordBatch> RecordBatch__select(const std::shared_ptr<arrow::RecordBatch>& batch, const Rcpp::IntegerVector& indices);
+std::shared_ptr<arrow::RecordBatch> RecordBatch__select(const std::shared_ptr<arrow::RecordBatch>& batch, cpp11::integers indices);
 extern "C" SEXP _arrow_RecordBatch__select(SEXP batch_sexp, SEXP indices_sexp){
 BEGIN_CPP11
 	arrow::r::input<const std::shared_ptr<arrow::RecordBatch>&>::type batch(batch_sexp);
-	arrow::r::input<const Rcpp::IntegerVector&>::type indices(indices_sexp);
+	arrow::r::input<cpp11::integers>::type indices(indices_sexp);
 	return cpp11::as_sexp(RecordBatch__select(batch, indices));
 END_CPP11
 }
@@ -4945,7 +4945,7 @@ RcppExport SEXP _arrow_RecordBatch__column_name(SEXP batch_sexp, SEXP i_sexp){
 
 // recordbatch.cpp
 #if defined(ARROW_R_WITH_ARROW)
-Rcpp::CharacterVector RecordBatch__names(const std::shared_ptr<arrow::RecordBatch>& batch);
+cpp11::writable::strings RecordBatch__names(const std::shared_ptr<arrow::RecordBatch>& batch);
 extern "C" SEXP _arrow_RecordBatch__names(SEXP batch_sexp){
 BEGIN_CPP11
 	arrow::r::input<const std::shared_ptr<arrow::RecordBatch>&>::type batch(batch_sexp);
@@ -4993,7 +4993,7 @@ RcppExport SEXP _arrow_RecordBatch__Slice2(SEXP self_sexp, SEXP offset_sexp, SEX
 
 // recordbatch.cpp
 #if defined(ARROW_R_WITH_ARROW)
-Rcpp::RawVector ipc___SerializeRecordBatch__Raw(const std::shared_ptr<arrow::RecordBatch>& batch);
+cpp11::raws ipc___SerializeRecordBatch__Raw(const std::shared_ptr<arrow::RecordBatch>& batch);
 extern "C" SEXP _arrow_ipc___SerializeRecordBatch__Raw(SEXP batch_sexp){
 BEGIN_CPP11
 	arrow::r::input<const std::shared_ptr<arrow::RecordBatch>&>::type batch(batch_sexp);

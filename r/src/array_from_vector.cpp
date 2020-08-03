@@ -1363,15 +1363,15 @@ bool can_reuse_memory(SEXP x, const std::shared_ptr<arrow::DataType>& type) {
 
 // this is only used on some special cases when the arrow Array can just use the memory of
 // the R object, via an RBuffer, hence be zero copy
-template <int RTYPE, typename Type>
+template <int RTYPE, typename RVector, typename Type>
 std::shared_ptr<Array> MakeSimpleArray(SEXP x) {
   using value_type = typename arrow::TypeTraits<Type>::ArrayType::value_type;
-  Rcpp::Vector<RTYPE, Rcpp::NoProtectStorage> vec(x);
+  RVector vec(x);
   auto n = vec.size();
-  auto p_vec_start = reinterpret_cast<value_type*>(vec.begin());
+  auto p_vec_start = reinterpret_cast<value_type*>(arrow::r::vector_begin(vec));
   auto p_vec_end = p_vec_start + n;
   std::vector<std::shared_ptr<Buffer>> buffers{nullptr,
-                                               std::make_shared<RBuffer<RTYPE>>(vec)};
+                                               std::make_shared<RBuffer<RTYPE, RVector>>(vec)};
 
   int null_count = 0;
 
@@ -1413,13 +1413,13 @@ std::shared_ptr<arrow::Array> Array__from_vector_reuse_memory(SEXP x) {
   auto type = TYPEOF(x);
 
   if (type == INTSXP) {
-    return MakeSimpleArray<INTSXP, Int32Type>(x);
+    return MakeSimpleArray<INTSXP, cpp11::integers, Int32Type>(x);
   } else if (type == REALSXP && Rf_inherits(x, "integer64")) {
-    return MakeSimpleArray<REALSXP, Int64Type>(x);
+    return MakeSimpleArray<REALSXP, cpp11::doubles, Int64Type>(x);
   } else if (type == REALSXP) {
-    return MakeSimpleArray<REALSXP, DoubleType>(x);
+    return MakeSimpleArray<REALSXP, cpp11::doubles, DoubleType>(x);
   } else if (type == RAWSXP) {
-    return MakeSimpleArray<RAWSXP, UInt8Type>(x);
+    return MakeSimpleArray<RAWSXP, cpp11::raws, UInt8Type>(x);
   }
 
   Rcpp::stop("Unreachable: you might need to fix can_reuse_memory()");

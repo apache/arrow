@@ -80,17 +80,35 @@ void inspect(SEXP obj);
 // the integer64 sentinel
 constexpr int64_t NA_INT64 = std::numeric_limits<int64_t>::min();
 
-template <int RTYPE, typename Vec = Rcpp::Vector<RTYPE>>
+template <typename RVector>
+typename RVector::value_type* vector_begin(const RVector& vec) ;
+
+template <>
+inline uint8_t* vector_begin<cpp11::raws>(const cpp11::raws& vec) {
+  return RAW(vec);
+}
+
+template <>
+inline int* vector_begin<cpp11::integers>(const cpp11::integers& vec) {
+  return INTEGER(vec);
+}
+
+template <>
+inline double* vector_begin<cpp11::doubles>(const cpp11::doubles& vec) {
+  return REAL(vec);
+}
+
+template <int RTYPE, typename RVector>
 class RBuffer : public MutableBuffer {
  public:
-  explicit RBuffer(Vec vec)
-      : MutableBuffer(reinterpret_cast<uint8_t*>(vec.begin()),
-                      vec.size() * sizeof(typename Vec::stored_type)),
+  explicit RBuffer(RVector vec)
+      : MutableBuffer(reinterpret_cast<uint8_t*>(arrow::r::vector_begin(vec)),
+                      vec.size() * sizeof(typename RVector::value_type)),
         vec_(vec) {}
 
  private:
   // vec_ holds the memory
-  Vec vec_;
+  RVector vec_;
 };
 
 std::shared_ptr<arrow::DataType> InferArrowTypeFromFactor(SEXP);
@@ -126,6 +144,7 @@ arrow::Status InferSchemaFromDots(SEXP lst, SEXP schema_sxp, int num_fields,
 
 arrow::Status AddMetadataFromDots(SEXP lst, int num_fields,
                                   std::shared_ptr<arrow::Schema>& schema);
+
 
 }  // namespace r
 }  // namespace arrow

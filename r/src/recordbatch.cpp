@@ -44,9 +44,11 @@ std::shared_ptr<arrow::Schema> RecordBatch__schema(
 
 // [[arrow::export]]
 std::shared_ptr<arrow::RecordBatch> RecordBatch__ReplaceSchemaMetadata(
-    const std::shared_ptr<arrow::RecordBatch>& x, Rcpp::CharacterVector metadata) {
+    const std::shared_ptr<arrow::RecordBatch>& x, cpp11::strings metadata) {
+  auto vec_metadata = cpp11::as_cpp<std::vector<std::string>>(metadata);
+  auto names_metadata = cpp11::as_cpp<std::vector<std::string>>(metadata.names());
   auto kv = std::shared_ptr<arrow::KeyValueMetadata>(new arrow::KeyValueMetadata(
-      metadata.names(), Rcpp::as<std::vector<std::string>>(metadata)));
+    names_metadata, vec_metadata));
   return x->ReplaceSchemaMetadata(kv);
 }
 
@@ -77,7 +79,7 @@ std::shared_ptr<arrow::Array> RecordBatch__GetColumnByName(
 // [[arrow::export]]
 std::shared_ptr<arrow::RecordBatch> RecordBatch__select(
     const std::shared_ptr<arrow::RecordBatch>& batch,
-    const Rcpp::IntegerVector& indices) {
+    cpp11::integers indices) {
   R_xlen_t n = indices.size();
   auto nrows = batch->num_rows();
 
@@ -116,10 +118,10 @@ std::string RecordBatch__column_name(const std::shared_ptr<arrow::RecordBatch>& 
 }
 
 // [[arrow::export]]
-Rcpp::CharacterVector RecordBatch__names(
+cpp11::writable::strings RecordBatch__names(
     const std::shared_ptr<arrow::RecordBatch>& batch) {
   int n = batch->num_columns();
-  Rcpp::CharacterVector names(n);
+  cpp11::writable::strings names(n);
   for (int i = 0; i < n; i++) {
     names[i] = batch->column_name(i);
   }
@@ -143,17 +145,17 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__Slice2(
 }
 
 // [[arrow::export]]
-Rcpp::RawVector ipc___SerializeRecordBatch__Raw(
+cpp11::raws ipc___SerializeRecordBatch__Raw(
     const std::shared_ptr<arrow::RecordBatch>& batch) {
   // how many bytes do we need ?
   int64_t size;
   StopIfNotOk(arrow::ipc::GetRecordBatchSize(*batch, &size));
 
   // allocate the result raw vector
-  Rcpp::RawVector out(Rcpp::no_init(size));
+  cpp11::writable::raws out(size);
 
   // serialize into the bytes of the raw vector
-  auto buffer = std::make_shared<arrow::r::RBuffer<RAWSXP, Rcpp::RawVector>>(out);
+  auto buffer = std::make_shared<arrow::r::RBuffer<RAWSXP, cpp11::raws>>(out);
   arrow::io::FixedSizeBufferWriter stream(buffer);
   StopIfNotOk(arrow::ipc::SerializeRecordBatch(
       *batch, arrow::ipc::IpcWriteOptions::Defaults(), &stream));
