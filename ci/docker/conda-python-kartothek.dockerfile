@@ -24,6 +24,7 @@ FROM ${repo}:${arch}-conda-python-${python}
 RUN conda install -c conda-forge -q \
         dask \
         decorator \
+        freezegun \
         msgpack-python \
         pytest-mock \
         pytest-xdist \
