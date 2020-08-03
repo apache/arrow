@@ -32,7 +32,7 @@ RUN conda install -c conda-forge -q \
         storefact \
         toolz \
         urlquote \
-        zstandard && \
+        zstandard \
         attrs \
         click \
         prompt-toolkit \
