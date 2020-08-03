@@ -52,7 +52,7 @@ create a statically-linked executable with bundled dependencies.
 To run it on Linux, you can use the above Docker image:
 
 ```bash
-docker-compose run --rm minimal-static
+docker-compose run --rm static
 ```
 
 On macOS, you can use the `run_static.sh` but you must set some environment
@@ -82,7 +82,7 @@ system. To run this configuration, set
 `docker-compose` for this too:
 
 ```bash
-docker-compose run --rm minimal-system-dependency-static
+docker-compose run --rm static-system-dependency
 ```
 
 [docker-compose]: https://docs.docker.com/compose/

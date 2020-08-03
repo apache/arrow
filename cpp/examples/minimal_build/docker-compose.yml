@@ -28,7 +28,7 @@ services:
     command:
       - "/io/run.sh"
 
-  minimal-static:
+  static:
     build:
       context: .
       dockerfile: minimal.dockerfile
@@ -38,10 +38,10 @@ services:
     command:
       - "/io/run_static.sh"
 
-  minimal-system-dependency-static:
+  static-system-dependency:
     build:
       context: .
-      dockerfile: minimal_system_dependency.dockerfile
+      dockerfile: system_dependency.dockerfile
     environment:
       ARROW_DEPENDENCY_SOURCE: "SYSTEM"
     volumes:
