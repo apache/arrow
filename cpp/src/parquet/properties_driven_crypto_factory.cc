@@ -20,11 +20,11 @@
 #include "arrow/buffer.h"
 #include "arrow/result.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/string.h"
 
 #include "parquet/encryption_internal.h"
 #include "parquet/file_key_material_store.h"
 #include "parquet/properties_driven_crypto_factory.h"
+#include "parquet/string_util.h"
 
 using Buffer = arrow::Buffer;
 
@@ -33,22 +33,7 @@ namespace parquet {
 namespace encryption {
 
 constexpr char PropertiesDrivenCryptoFactory::COLUMN_KEYS_PROPERTY_NAME[];
-
-std::vector<std::string> SplitString(const std::string& v, char delim) {
-  std::vector<std::string> parts;
-  size_t start = 0, end;
-  while (true) {
-    end = v.find(delim, start);
-    parts.push_back(v.substr(start, end - start));
-    if (end == std::string::npos) {
-      break;
-    }
-    start = end + 1;
-  }
-  return parts;
-}
-
-std::string TrimString(const std::string& v) { return arrow::internal::TrimString(v); }
+constexpr int32_t PropertiesDrivenCryptoFactory::ACCEPTABLE_DATA_KEY_LENGTHS[];
 
 EncryptionConfiguration::Builder* EncryptionConfiguration::Builder::column_keys(
     const std::string& column_keys) {
@@ -134,14 +119,17 @@ void PropertiesDrivenCryptoFactory::kms_client_factory(
 std::shared_ptr<FileEncryptionProperties>
 PropertiesDrivenCryptoFactory::GetFileEncryptionProperties(
     const KmsConnectionConfig& kms_connection_config,
-    std::shared_ptr<EncryptionConfiguration> encryption_config,
-    const std::string& temp_file_path) {
+    std::shared_ptr<EncryptionConfiguration> encryption_config) {
   const std::string& footer_key_id = encryption_config->footer_key();
   const std::string& column_key_str = encryption_config->column_keys();
 
   std::shared_ptr<FileKeyMaterialStore> key_material_store = NULL;
   if (!encryption_config->internal_key_material()) {
     throw new ParquetException("External key material store is not supported yet.");
+  }
+
+  if (kms_client_factory_ == NULL) {
+    throw new ParquetException("No KmsClientFactory is registered.");
   }
 
   FileKeyWrapper key_wrapper(

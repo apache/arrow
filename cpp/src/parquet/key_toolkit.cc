@@ -28,7 +28,7 @@ std::shared_ptr<KmsClient> KeyToolkit::GetKmsClient(
     std::shared_ptr<KmsClientFactory> kms_client_factory,
     const KmsConnectionConfig& kms_connection_config, bool is_wrap_locally,
     uint64_t cache_entry_lifetime) {
-  std::map<std::string, std::shared_ptr<KmsClient>> kms_client_per_kms_instance_cache =
+  std::map<std::string, std::shared_ptr<KmsClient>>& kms_client_per_kms_instance_cache =
       kms_client_cache_per_token().GetOrCreateInternalCache(
           kms_connection_config.key_access_token->value(), cache_entry_lifetime);
 
@@ -73,6 +73,19 @@ std::vector<uint8_t> KeyToolkit::DecryptKeyLocally(
       master_key_bytes, master_key_size, aad_bytes, aad_size, decrypted_key.data());
 
   return decrypted_key;
+}
+
+// Flush any caches that are tied to the (compromised) access_token
+void KeyToolkit::RemoveCacheEntriesForToken(const std::string& access_token) {
+  kms_client_cache_per_token().RemoveCacheEntriesForToken(access_token);
+  kek_write_cache_per_token().RemoveCacheEntriesForToken(access_token);
+  // KEK_READ_CACHE_PER_TOKEN.removeCacheEntriesForToken(access_token); // TODO
+}
+
+void KeyToolkit::RemoveCacheEntriesForAllTokens() {
+  kms_client_cache_per_token().Clear();
+  kek_write_cache_per_token().Clear();
+  // KEK_READ_CACHE_PER_TOKEN.Clear(); // TODO
 }
 
 }  // namespace encryption

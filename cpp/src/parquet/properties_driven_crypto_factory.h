@@ -133,11 +133,10 @@ class PARQUET_EXPORT PropertiesDrivenCryptoFactory {
 
   std::shared_ptr<FileEncryptionProperties> GetFileEncryptionProperties(
       const KmsConnectionConfig& kms_connection_config,
-      std::shared_ptr<EncryptionConfiguration> encryption_config,
-      const std::string& temp_file_path);
+      std::shared_ptr<EncryptionConfiguration> encryption_config);
 
  private:
-  static int32_t constexpr ACCEPTABLE_DATA_KEY_LENGTHS[] = {128, 192, 256};
+  static constexpr int32_t ACCEPTABLE_DATA_KEY_LENGTHS[] = {128, 192, 256};
 
   ColumnPathToEncryptionPropertiesMap GetColumnEncryptionProperties(
       int dek_length, const std::string column_keys, FileKeyWrapper& key_wrapper);

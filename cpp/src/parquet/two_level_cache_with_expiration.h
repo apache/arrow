@@ -46,7 +46,7 @@ class TwoLevelCacheWithExpiration {
   }
 
   void RemoveCacheEntriesForToken(const std::string& access_token) {
-    cache_.remove(access_token);
+    cache_.erase(access_token);
   }
 
   void RemoveCacheEntriesForAllTokens() { cache_.clear(); }

@@ -80,6 +80,10 @@ class KeyToolkit {
                                                 const uint8_t* master_key_bytes,
                                                 int master_key_size,
                                                 const uint8_t* aad_bytes, int aad_size);
+
+  static void RemoveCacheEntriesForToken(const std::string& access_token);
+
+  static void RemoveCacheEntriesForAllTokens();
 };
 
 }  // namespace encryption
