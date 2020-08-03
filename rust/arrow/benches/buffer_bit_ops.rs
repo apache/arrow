@@ -21,9 +21,7 @@ use criterion::Criterion;
 
 extern crate arrow;
 
-use arrow::array::*;
 use arrow::buffer::{Buffer, MutableBuffer};
-use arrow::compute::kernels::boolean as boolean_kernels;
 use arrow::error::ArrowError;
 use arrow::error::Result;
 use arrow::util::bit_util;
@@ -47,19 +45,21 @@ fn bench_and_current_impl(left: &Buffer, right: &Buffer) {
 
 #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
 fn bench_and_packed_simd_chunked_exact(left: &Buffer, right: &Buffer) {
-    criterion::black_box(bitwise_bin_op_simd_helper(&left, &right, |a, b| a & b));
+    criterion::black_box(
+        bitwise_bin_op_simd_helper(&left, &right, |a, b| a & b).unwrap(),
+    );
 }
 
 fn bench_and_chunked_exact(left: &Buffer, right: &Buffer) {
-    criterion::black_box(bitwise_bin_op_autovec_chunked_helper(
-        &left,
-        &right,
-        |a, b| a & b,
-    ));
+    criterion::black_box(
+        bitwise_bin_op_autovec_chunked_helper(&left, &right, |a, b| a & b).unwrap(),
+    );
 }
 
 fn bench_and_autovec(left: &Buffer, right: &Buffer) {
-    criterion::black_box(bitwise_bin_op_autovec_helper(&left, &right, |a, b| a & b));
+    criterion::black_box(
+        bitwise_bin_op_autovec_helper(&left, &right, |a, b| a & b).unwrap(),
+    );
 }
 
 const AUTOVEC_LANES: usize = 64;
