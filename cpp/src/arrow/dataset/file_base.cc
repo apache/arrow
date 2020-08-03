@@ -245,9 +245,8 @@ Status FileSystemDataset::Write(std::shared_ptr<Schema> schema,
     task->partitioning = partitioning;
 
     // make a record batch reader which yields from a fragment
-    ARROW_ASSIGN_OR_RAISE(task->batches,
-                          FragmentRecordBatchReader::Make(std::move(fragment),
-                                                          schema, scan_context));
+    ARROW_ASSIGN_OR_RAISE(task->batches, FragmentRecordBatchReader::Make(
+                                             std::move(fragment), schema, scan_context));
     task_group->Append([task] { return task->Execute(); });
   }
 
