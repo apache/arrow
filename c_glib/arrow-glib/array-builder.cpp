@@ -2738,7 +2738,7 @@ garrow_binary_array_builder_append_value_bytes(GArrowBinaryArrayBuilder *builder
       garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
 
   gsize size;
-  gconstpointer data = g_bytes_get_data(value, &size);
+  auto data = g_bytes_get_data(value, &size);
   auto status = arrow_builder->Append(static_cast<const uint8_t *>(data),
                                       size);
   return garrow_error_check(error,
@@ -4108,7 +4108,7 @@ garrow_binary_dictionary_array_builder_append_value_bytes(GArrowBinaryDictionary
       garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
 
   gsize size;
-  gconstpointer data = g_bytes_get_data(value, &size);
+  auto data = g_bytes_get_data(value, &size);
   auto status = arrow_builder->Append(static_cast<const uint8_t *>(data),
                                       size);
 
