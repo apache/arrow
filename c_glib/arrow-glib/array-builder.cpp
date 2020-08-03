@@ -4060,9 +4060,12 @@ garrow_binary_dictionary_array_builder_class_init(GArrowBinaryDictionaryArrayBui
 GArrowBinaryDictionaryArrayBuilder *
 garrow_binary_dictionary_array_builder_new(void)
 {
-  auto memory_pool = arrow::default_memory_pool();
-  auto arrow_builder = new arrow::BinaryDictionaryBuilder(memory_pool);
-  auto builder = garrow_array_builder_new_raw(arrow_builder, GARROW_TYPE_BINARY_DICTIONARY_ARRAY_BUILDER);
+  // We can use arrow:int8() for the index type of the following arrow_dict_type
+  // because arrow::MakeBuilder creates a dictionary builder with arrow::AdaptiveIntBuilder.
+  auto arrow_dict_type = arrow::dictionary(arrow::int8(), arrow::binary());
+  auto builder = garrow_array_builder_new(arrow_dict_type,
+                                          nullptr,
+                                          "[binary-dictionary-array-builder][new]");
   return GARROW_BINARY_DICTIONARY_ARRAY_BUILDER(builder);
 }
 
@@ -4293,9 +4296,12 @@ garrow_string_dictionary_array_builder_class_init(GArrowStringDictionaryArrayBui
 GArrowStringDictionaryArrayBuilder *
 garrow_string_dictionary_array_builder_new(void)
 {
-  auto memory_pool = arrow::default_memory_pool();
-  auto arrow_builder = new arrow::StringDictionaryBuilder(memory_pool);
-  auto builder = garrow_array_builder_new_raw(arrow_builder, GARROW_TYPE_STRING_DICTIONARY_ARRAY_BUILDER);
+  // We can use arrow:int8() for the index type of the following arrow_dict_type
+  // because arrow::MakeBuilder creates a dictionary builder with arrow::AdaptiveIntBuilder.
+  auto arrow_dict_type = arrow::dictionary(arrow::int8(), arrow::utf8());
+  auto builder = garrow_array_builder_new(arrow_dict_type,
+                                          nullptr,
+                                          "[string-dictionary-array-builder][new]");
   return GARROW_STRING_DICTIONARY_ARRAY_BUILDER(builder);
 }
 
@@ -5502,6 +5508,22 @@ garrow_array_builder_new_raw(arrow::ArrayBuilder *arrow_builder,
       break;
     case arrow::Type::type::DECIMAL:
       type = GARROW_TYPE_DECIMAL128_ARRAY_BUILDER;
+      break;
+    case arrow::Type::type::DICTIONARY:
+      {
+        const auto& dict_type = arrow::internal::checked_cast<arrow::DictionaryType&>(*arrow_builder->type());
+        switch (dict_type.value_type()->id()) {
+          case arrow::Type::type::BINARY:
+            type = GARROW_TYPE_BINARY_DICTIONARY_ARRAY_BUILDER;
+            break;
+          case arrow::Type::type::STRING:
+            type = GARROW_TYPE_STRING_DICTIONARY_ARRAY_BUILDER;
+            break;
+          default:
+            type = GARROW_TYPE_ARRAY_BUILDER;
+            break;
+        }
+      }
       break;
     default:
       type = GARROW_TYPE_ARRAY_BUILDER;
