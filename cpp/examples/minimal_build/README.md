@@ -30,20 +30,14 @@ a file named `test.arrow`.
 
 ## Running the example
 
-You can run this simple example using `Docker` and the given `Dockerfile`,
-which installs a minimal Ubuntu image with a basic C++ toolchain.
+You can run this simple example using [Docker Compose][docker-compose]
+and the given `docker-compose.yml` and dockerfiles, which installs a
+minimal Ubuntu image with a basic C++ toolchain.
 
-Just open a terminal in this directory and, assuming `$ARROW_ROOT` points to
-the Arrow C++ source tree (either a stable release or a git checkout), run
-the following commands:
+Just open a terminal in this directory and run the following commands:
 
 ```bash
-
-# Build the Docker image
-docker build -t arrow_cpp_minimal .
-
-# Run the example inside the image
-docker run -it -v $PWD:/io -v $ARROW_ROOT:/arrow arrow_cpp_minimal /io/run.sh
+docker-compose run --rm minimal
 ```
 
 Note that this example mounts two volumes inside the Docker image:
@@ -58,7 +52,7 @@ create a statically-linked executable with bundled dependencies.
 To run it on Linux, you can use the above Docker image:
 
 ```bash
-docker run -it -v $PWD:/io -v $ARROW_ROOT:/arrow arrow_cpp_minimal /io/run_static.sh
+docker-compose run --rm minimal-static
 ```
 
 On macOS, you can use the `run_static.sh` but you must set some environment
@@ -67,8 +61,8 @@ variables to point the script to your Arrow checkout, for example:
 ```bash
 export ARROW_DIR=path/to/arrow-clone
 export EXAMPLE_DIR=$ARROW_DIR/cpp/examples/minimal_build
-export ARROW_BUILD_DIR=`pwd`/arrow-build
-export EXAMPLE_BUILD_DIR=`pwd`/example
+export ARROW_BUILD_DIR=$(pwd)/arrow-build
+export EXAMPLE_BUILD_DIR=$(pwd)/example
 
 ./run_static.sh
 ```
@@ -82,11 +76,13 @@ call run_static.bat
 
 ### Static linking against system libraries
 
-You can also use static libraries of arrows dependencies from the
-system.  To run this configuration, set
-`ARROW_DEPENDENCY_SOURCE=SYSTEM` for `run_static.sh`:
+You can also use static libraries of Arrow's dependencies from the
+system. To run this configuration, set
+`ARROW_DEPENDENCY_SOURCE=SYSTEM` for `run_static.sh`. You can use
+`docker-compose` for this too:
 
 ```bash
-docker run -it -v $PWD:/io -v $ARROW_ROOT:/arrow -e "ARROW_DEPENDENCY_SOURCE=SYSTEM" \
-  arrow_cpp_minimal /io/run_static.sh
+docker-compose run --rm minimal-system-dependency-static
 ```
+
+[docker-compose]: https://docs.docker.com/compose/
