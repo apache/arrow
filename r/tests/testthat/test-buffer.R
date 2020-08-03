@@ -39,6 +39,7 @@ test_that("Buffer can be created from numeric vector", {
 })
 
 test_that("Buffer can be created from complex vector", {
+  skip("until cpp11 has a complex vector class")
   vec <- complex(3)
   buf <- buffer(vec)
   expect_is(buf, "Buffer")
