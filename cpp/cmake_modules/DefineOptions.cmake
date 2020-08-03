@@ -308,8 +308,15 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
                 "Rely on Protocol Buffers shared libraries where relevant"
                 ${ARROW_DEPENDENCY_USE_SHARED})
 
+  if(WIN32)
+    # It seems that Thrift doesn't support DLL well yet.
+    # MSYS2, conda-forge and vcpkg don't build shared library.
+    set(ARROW_THRIFT_USE_SHARED_DEFAULT OFF)
+  else()
+    set(ARROW_THRIFT_USE_SHARED_DEFAULT ${ARROW_DEPENDENCY_USE_SHARED})
+  endif()
   define_option(ARROW_THRIFT_USE_SHARED "Rely on thrift shared libraries where relevant"
-                ${ARROW_DEPENDENCY_USE_SHARED})
+                ${ARROW_THRIFT_USE_SHARED_DEFAULT})
 
   define_option(ARROW_UTF8PROC_USE_SHARED
                 "Rely on utf8proc shared libraries where relevant"
