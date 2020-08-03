@@ -19,12 +19,12 @@
 
 use std::convert::TryFrom;
 
-use flight::{FlightData, SchemaResult};
+use crate::{FlightData, SchemaResult};
 
-use crate::datatypes::{Schema, SchemaRef};
-use crate::error::{ArrowError, Result};
-use crate::ipc::{convert, reader, writer};
-use crate::record_batch::RecordBatch;
+use arrow::datatypes::{Schema, SchemaRef};
+use arrow::error::{ArrowError, Result};
+use arrow::ipc::{convert, reader, writer};
+use arrow::record_batch::RecordBatch;
 
 /// Convert a `RecordBatch` to `FlightData` by getting the header and body as bytes
 impl From<&RecordBatch> for FlightData {
@@ -95,7 +95,7 @@ pub fn flight_data_to_batch(
     schema: SchemaRef,
 ) -> Result<Option<RecordBatch>> {
     // check that the data_header is a record batch message
-    let message = crate::ipc::get_root_as_message(&data.data_header[..]);
+    let message = arrow::ipc::get_root_as_message(&data.data_header[..]);
     let dictionaries_by_field = Vec::new();
     let batch_header = message.header_as_record_batch().ok_or_else(|| {
         ArrowError::ParseError(

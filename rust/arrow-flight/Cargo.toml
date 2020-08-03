@@ -26,6 +26,7 @@ repository = "https://github.com/apache/arrow"
 license = "Apache-2.0"
 
 [dependencies]
+arrow = { path = "../arrow", version = "2.0.0-SNAPSHOT" }
 tonic = "0.2"
 bytes = "0.5"
 prost = "0.6"
@@ -39,6 +40,6 @@ tonic-build = "0.2"
 # (and checked in) arrow.flight.protocol.rs from changing
 proc-macro2 = "=1.0.18"
 
-[lib]
-name = "flight"
-path = "src/lib.rs"
+#[lib]
+#name = "flight"
+#path = "src/lib.rs"
