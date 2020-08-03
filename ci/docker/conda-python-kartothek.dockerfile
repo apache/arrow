@@ -24,7 +24,6 @@ FROM ${repo}:${arch}-conda-python-${python}
 RUN conda install -c conda-forge -q \
         dask \
         decorator \
-        freezegun \
         msgpack-python \
         pytest-mock \
         pytest-xdist \
@@ -34,6 +33,13 @@ RUN conda install -c conda-forge -q \
         toolz \
         urlquote \
         zstandard && \
+        attrs \
+        click \
+        prompt-toolkit \
+        pyyaml \
+        # test dependencies
+        cloudpickle \
+        freezegun && \
     conda clean --all
 
 ARG kartothek=latest
