@@ -195,6 +195,7 @@ impl ExecutionContext {
         &self.scalar_functions
     }
 
+    /// Get schema from columns
     pub fn build_schema(&self, columns: &Vec<SQLColumnDef>) -> Result<Schema> {
         let mut fields = Vec::new();
 
@@ -672,6 +673,7 @@ impl ExecutionContext {
     }
 }
 
+/// Get schema and scalar functions for execution context
 pub struct ExecutionContextSchemaProvider<'a> {
     datasources: &'a HashMap<String, Box<dyn TableProvider + Send + Sync>>,
     scalar_functions: &'a HashMap<String, Box<ScalarFunction>>,
