@@ -298,6 +298,7 @@ void dataset___Dataset__Write(const std::shared_ptr<ds::Dataset>& ds,
                               const std::shared_ptr<ds::Partitioning>& partitioning) {
   auto frags = ds->GetFragments();
   auto ctx = std::make_shared<ds::ScanContext>();
+  ctx->use_threads = true;
   StopIfNotOk(ds::FileSystemDataset::Write(schema, format, filesystem, path, partitioning,
                                            ctx, std::move(frags)));
   return;

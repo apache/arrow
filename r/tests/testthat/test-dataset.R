@@ -627,7 +627,7 @@ test_that("Assembling multiple DatasetFactories with DatasetFactory", {
   expect_scan_result(ds, schm)
 })
 
-test_that("Writing a dataset", {
+test_that("Writing a dataset: CSV->IPC", {
   ds <- open_dataset(csv_dir, partitioning = "part", format = "csv")
   dst_dir <- tempfile()
   write_dataset(ds, dst_dir, format = "feather", partitioning = "int", partitioning_type = "hive")
@@ -636,14 +636,32 @@ test_that("Writing a dataset", {
 
   new_ds <- open_dataset(dst_dir, format = "feather")
 
-  print(new_ds %>%
-      select(string = chr, integer = int, part) %>%
-      collect())
+  expect_equivalent(
+    new_ds %>%
+      select(string = chr, integer = int) %>%
+      filter(integer > 6 & integer < 11) %>%
+      collect() %>%
+      summarize(mean = mean(integer)),
+    df1 %>%
+      select(string = chr, integer = int) %>%
+      filter(integer > 6) %>%
+      summarize(mean = mean(integer))
+  )
+})
+
+test_that("Writing a dataset: Parquet->IPC", {
+  ds <- open_dataset(hive_dir)
+  dst_dir <- tempfile()
+  write_dataset(ds, dst_dir, format = "feather", partitioning = "int", partitioning_type = "hive")
+  expect_true(dir.exists(dst_dir))
+  expect_identical(dir(dst_dir), sort(paste("int", c(1:10, 101:110), sep = "=")))
+
+  new_ds <- open_dataset(dst_dir, format = "feather")
 
   expect_equivalent(
     new_ds %>%
-      select(string = chr, integer = int, part) %>%
-      filter(integer > 6 & part == 5) %>%
+      select(string = chr, integer = int, group) %>%
+      filter(integer > 6 & group == 1) %>%
       collect() %>%
       summarize(mean = mean(integer)),
     df1 %>%
