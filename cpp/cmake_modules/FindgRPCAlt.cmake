@@ -146,7 +146,9 @@ else()
                  NAMES ${GRPC_UPB_LIB_NAMES}
                  PATH_SUFFIXES ${ARROW_LIBRARY_PATH_SUFFIXES})
     find_program(GRPC_CPP_PLUGIN grpc_cpp_plugin PATH_SUFFIXES "bin")
-    find_path(GRPC_INCLUDE_DIR NAMES grpc/grpc.h PATH_SUFFIXES ${ARROW_INCLUDE_PATH_SUFFIXES})
+    find_path(GRPC_INCLUDE_DIR
+              NAMES grpc/grpc.h
+              PATH_SUFFIXES ${ARROW_INCLUDE_PATH_SUFFIXES})
   endif()
 endif()
 

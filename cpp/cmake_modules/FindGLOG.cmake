@@ -39,7 +39,9 @@ elseif(GLOG_ROOT)
             PATH_SUFFIXES ${ARROW_INCLUDE_PATH_SUFFIXES})
 else()
   find_library(GLOG_LIB NAMES glog PATH_SUFFIXES ${ARROW_LIBRARY_PATH_SUFFIXES})
-  find_path(GLOG_INCLUDE_DIR NAMES glog/logging.h PATH_SUFFIXES ${ARROW_INCLUDE_PATH_SUFFIXES})
+  find_path(GLOG_INCLUDE_DIR
+            NAMES glog/logging.h
+            PATH_SUFFIXES ${ARROW_INCLUDE_PATH_SUFFIXES})
 endif()
 
 find_package_handle_standard_args(GLOG REQUIRED_VARS GLOG_INCLUDE_DIR GLOG_LIB)
