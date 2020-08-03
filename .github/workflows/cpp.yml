@@ -174,7 +174,7 @@ jobs:
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
-      - name: Run mimimal example
+      - name: Run
         run: |
           cd cpp/examples/minimal_build
           docker-compose run --rm minimal
