@@ -175,7 +175,7 @@ Result<std::vector<Partitioning::PartitionedBatch>> KeyValuePartitioning::Partit
 
   std::vector<PartitionedBatch> out(grouped_batches.size());
   for (size_t i = 0; i < out.size(); ++i) {
-    ARROW_ASSIGN_OR_RAISE(auto row, by->GetScalar(i));
+    ARROW_ASSIGN_OR_RAISE(auto row, unique_rows->GetScalar(i));
     out[i].partition_expression = ConjunctionFromGroupingRow(row.get());
     out[i].batch = std::move(grouped_batches[i]);
   }

@@ -632,10 +632,14 @@ test_that("Writing a dataset", {
   dst_dir <- tempfile()
   write_dataset(ds, dst_dir, format = "feather", partitioning = "int", partitioning_type = "hive")
   expect_true(dir.exists(dst_dir))
-  print(dir(dst_dir, recursive = TRUE))
   expect_identical(dir(dst_dir), sort(paste("int", c(1:10, 101:110), sep = "=")))
 
   new_ds <- open_dataset(dst_dir, format = "feather")
+
+  print(new_ds %>%
+      select(string = chr, integer = int, part) %>%
+      collect())
+
   expect_equivalent(
     new_ds %>%
       select(string = chr, integer = int, part) %>%

@@ -1671,9 +1671,11 @@ Result<RecordBatchVector> ApplyGroupings(const ListArray& groupings,
   ARROW_ASSIGN_OR_RAISE(Datum sorted,
                         compute::Take(batch, groupings.data()->child_data[0]));
 
+  const auto& sorted_batch = *sorted.record_batch();
+
   RecordBatchVector out(static_cast<size_t>(groupings.length()));
   for (size_t i = 0; i < out.size(); ++i) {
-    out[i] = batch->Slice(groupings.value_offset(i), groupings.value_length(i));
+    out[i] = sorted_batch.Slice(groupings.value_offset(i), groupings.value_length(i));
   }
 
   return out;
