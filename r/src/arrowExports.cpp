@@ -1529,12 +1529,12 @@ RcppExport SEXP _arrow_dataset___FileFormat__type_name(SEXP format_sexp){
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<ds::ParquetFileFormat> dataset___ParquetFileFormat__Make(bool use_buffered_stream, int64_t buffer_size, Rcpp::CharacterVector dict_columns);
+std::shared_ptr<ds::ParquetFileFormat> dataset___ParquetFileFormat__Make(bool use_buffered_stream, int64_t buffer_size, cpp11::strings dict_columns);
 extern "C" SEXP _arrow_dataset___ParquetFileFormat__Make(SEXP use_buffered_stream_sexp, SEXP buffer_size_sexp, SEXP dict_columns_sexp){
 BEGIN_CPP11
 	arrow::r::input<bool>::type use_buffered_stream(use_buffered_stream_sexp);
 	arrow::r::input<int64_t>::type buffer_size(buffer_size_sexp);
-	arrow::r::input<Rcpp::CharacterVector>::type dict_columns(dict_columns_sexp);
+	arrow::r::input<cpp11::strings>::type dict_columns(dict_columns_sexp);
 	return cpp11::as_sexp(dataset___ParquetFileFormat__Make(use_buffered_stream, buffer_size, dict_columns));
 END_CPP11
 }
