@@ -223,7 +223,7 @@ Requires:	boost%{boost_version}-system
 Requires:	boost%{boost_version}-filesystem
 Requires:	boost%{boost_version}-regex
 %endif
-%if %{have_blotli}
+%if %{have_brotli}
 Requires:	brotli
 %endif
 %if %{_centos_ver} >= 7
