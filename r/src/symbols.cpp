@@ -73,9 +73,10 @@ SEXP data::empty_raw = precious(Rf_allocVector(RAWSXP, 0));
 SEXP ns::arrow = precious(r_namespace("arrow"));
 
 void inspect(SEXP obj) {
-  Rcpp::Shield<SEXP> call_inspect(Rf_lang2(symbols::inspect, obj));
-  Rcpp::Shield<SEXP> call_internal(Rf_lang2(symbols::dot_Internal, call_inspect));
+  SEXP call_inspect = PROTECT(Rf_lang2(symbols::inspect, obj));
+  SEXP call_internal = PROTECT(Rf_lang2(symbols::dot_Internal, call_inspect));
   Rf_eval(call_internal, R_GlobalEnv);
+  UNPROTECT(2);
 }
 
 }  // namespace r
