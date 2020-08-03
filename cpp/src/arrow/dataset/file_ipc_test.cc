@@ -128,6 +128,24 @@ TEST_F(TestIpcFileFormat, ScanRecordBatchReader) {
   ASSERT_EQ(row_count, kNumRows);
 }
 
+TEST_F(TestIpcFileFormat, ScanRecordBatchReaderWithVirtualColumn) {
+  auto reader = GetRecordBatchReader();
+  auto source = GetFileSource(reader.get());
+
+  opts_ = ScanOptions::Make(schema({schema_->field(0), field("virtual", int32())}));
+  ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
+
+  int64_t row_count = 0;
+
+  for (auto maybe_batch : Batches(fragment.get())) {
+    ASSERT_OK_AND_ASSIGN(auto batch, std::move(maybe_batch));
+    AssertSchemaEqual(*batch->schema(), *schema_);
+    row_count += batch->num_rows();
+  }
+
+  ASSERT_EQ(row_count, kNumRows);
+}
+
 TEST_F(TestIpcFileFormat, WriteRecordBatchReader) {
   std::shared_ptr<RecordBatchReader> reader = GetRecordBatchReader();
   auto source = GetFileSource(reader.get());
