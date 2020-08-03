@@ -1422,7 +1422,7 @@ std::shared_ptr<arrow::Array> Array__from_vector_reuse_memory(SEXP x) {
     return MakeSimpleArray<RAWSXP, cpp11::raws, UInt8Type>(x);
   }
 
-  Rcpp::stop("Unreachable: you might need to fix can_reuse_memory()");
+  cpp11::stop("Unreachable: you might need to fix can_reuse_memory()");
 }
 
 bool CheckCompatibleFactor(SEXP obj, const std::shared_ptr<arrow::DataType>& type) {
