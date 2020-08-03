@@ -259,6 +259,7 @@ impl ExecutionContext {
         self.datasources.insert(name.to_string(), provider);
     }
 
+    /// Get a reference to the registered data sources
     pub fn datasources(&self) -> &HashMap<String, Box<dyn TableProvider + Send + Sync>> {
         &self.datasources
     }
@@ -677,6 +678,7 @@ pub struct ExecutionContextSchemaProvider<'a> {
 }
 
 impl<'a> ExecutionContextSchemaProvider<'a> {
+    /// Create a new ExecutionContextSchemaProvider based on data sources and scalar functions
     pub fn new(
         datasources: &'a HashMap<String, Box<dyn TableProvider + Send + Sync>>,
         scalar_functions: &'a HashMap<String, Box<ScalarFunction>>,
