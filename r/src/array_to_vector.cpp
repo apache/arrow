@@ -161,8 +161,9 @@ Status IngestSome(const std::shared_ptr<arrow::Array>& array, R_xlen_t n, Lambda
 SEXP ArrayVector__as_vector(R_xlen_t n, const std::shared_ptr<DataType>& type,
                             const ArrayVector& arrays) {
   auto converter = Converter::Make(type, arrays);
-  Rcpp::Shield<SEXP> data(converter->Allocate(n));
+  SEXP data = PROTECT(converter->Allocate(n));
   StopIfNotOk(converter->IngestSerial(data));
+  UNPROTECT(1);
   return data;
 }
 
@@ -194,7 +195,7 @@ class Converter_Date32 : public Converter_SimpleArray<REALSXP> {
       : Converter_SimpleArray<REALSXP>(arrays) {}
 
   SEXP Allocate(R_xlen_t n) const {
-    Rcpp::NumericVector data(Rcpp::no_init(n));
+    cpp11::writable::doubles data(n);
     data.attr("class") = "Date";
     return data;
   }
@@ -440,7 +441,7 @@ class Converter_Dictionary : public Converter {
   }
 
   SEXP Allocate(R_xlen_t n) const {
-    Rcpp::IntegerVector data(Rcpp::no_init(n));
+    cpp11::writable::integers data(n);
     data.attr("levels") = GetLevels();
     if (GetOrdered()) {
       Rf_classgets(data, arrow::r::data::classes_ordered);
@@ -605,7 +606,7 @@ class Converter_Date64 : public Converter {
   explicit Converter_Date64(const ArrayVector& arrays) : Converter(arrays) {}
 
   SEXP Allocate(R_xlen_t n) const {
-    Rcpp::NumericVector data(Rcpp::no_init(n));
+    cpp11::writable::doubles data(n);
     Rf_classgets(data, arrow::r::data::classes_POSIXct);
     return data;
   }
@@ -657,10 +658,11 @@ class Converter_Time : public Converter {
   explicit Converter_Time(const ArrayVector& arrays) : Converter(arrays) {}
 
   SEXP Allocate(R_xlen_t n) const {
-    Rcpp::NumericVector data(Rcpp::no_init(n));
-    data.attr("class") = Rcpp::CharacterVector::create("hms", "difftime");
+    cpp11::writable::doubles data(n);
+    data.attr("class") = cpp11::writable::strings({"hms", "difftime"});
+
     // hms difftime is always stored as "seconds"
-    data.attr("units") = Rcpp::CharacterVector::create("secs");
+    data.attr("units") = cpp11::writable::strings({"secs"});
     return data;
   }
 
@@ -703,7 +705,7 @@ class Converter_Timestamp : public Converter_Time<value_type, TimestampType> {
       : Converter_Time<value_type, TimestampType>(arrays) {}
 
   SEXP Allocate(R_xlen_t n) const {
-    Rcpp::NumericVector data(Rcpp::no_init(n));
+    cpp11::writable::doubles data(n);
     Rf_classgets(data, arrow::r::data::classes_POSIXct);
     auto array = checked_cast<const TimestampArray*>(this->arrays_[0].get());
     auto array_type = checked_cast<const TimestampType*>(array->type().get());
@@ -854,7 +856,7 @@ class Converter_Int64 : public Converter {
   explicit Converter_Int64(const ArrayVector& arrays) : Converter(arrays) {}
 
   SEXP Allocate(R_xlen_t n) const {
-    Rcpp::NumericVector data(Rcpp::no_init(n));
+    cpp11::writable::doubles data(n);
     data.attr("class") = "integer64";
     return data;
   }
@@ -893,7 +895,10 @@ class Converter_Null : public Converter {
   explicit Converter_Null(const ArrayVector& arrays) : Converter(arrays) {}
 
   SEXP Allocate(R_xlen_t n) const {
-    Rcpp::LogicalVector data(n, NA_LOGICAL);
+    cpp11::writable::logicals data(n);
+    for (R_xlen_t i = 0; i < n; i++) {
+      data[i] = NA_LOGICAL;
+    }
     data.attr("class") = "vctrs_unspecified";
     return data;
   }
@@ -1070,7 +1075,7 @@ std::shared_ptr<Converter> Converter::Make(const std::shared_ptr<DataType>& type
 }
 
 cpp11::writable::list to_dataframe_serial(
-    int64_t nr, int64_t nc, const Rcpp::CharacterVector& names,
+    int64_t nr, int64_t nc, const cpp11::writable::strings& names,
     const std::vector<std::shared_ptr<Converter>>& converters) {
   cpp11::writable::list tbl(nc);
   for (int i = 0; i < nc; i++) {
@@ -1084,7 +1089,7 @@ cpp11::writable::list to_dataframe_serial(
 }
 
 cpp11::writable::list to_dataframe_parallel(
-    int64_t nr, int64_t nc, const Rcpp::CharacterVector& names,
+    int64_t nr, int64_t nc, const cpp11::writable::strings& names,
     const std::vector<std::shared_ptr<Converter>>& converters) {
   cpp11::writable::list tbl(nc);
 
@@ -1144,12 +1149,12 @@ cpp11::writable::list RecordBatch__to_dataframe(
     const std::shared_ptr<arrow::RecordBatch>& batch, bool use_threads) {
   int64_t nc = batch->num_columns();
   int64_t nr = batch->num_rows();
-  Rcpp::CharacterVector names(nc);
+  cpp11::writable::strings names(nc);
   std::vector<arrow::ArrayVector> arrays(nc);
   std::vector<std::shared_ptr<arrow::r::Converter>> converters(nc);
 
-  for (int64_t i = 0; i < nc; i++) {
-    names[i] = Rcpp::String(batch->column_name(i), CE_UTF8);
+  for (R_xlen_t i = 0; i < nc; i++) {
+    names[i] = batch->column_name(i);
     arrays[i] = {batch->column(i)};
     converters[i] = arrow::r::Converter::Make(batch->column(i)->type(), arrays[i]);
   }
@@ -1166,13 +1171,13 @@ cpp11::writable::list Table__to_dataframe(const std::shared_ptr<arrow::Table>& t
                                           bool use_threads) {
   int64_t nc = table->num_columns();
   int64_t nr = table->num_rows();
-  Rcpp::CharacterVector names(nc);
+  cpp11::writable::strings names(nc);
   std::vector<std::shared_ptr<arrow::r::Converter>> converters(nc);
 
-  for (int64_t i = 0; i < nc; i++) {
+  for (R_xlen_t i = 0; i < nc; i++) {
     converters[i] =
         arrow::r::Converter::Make(table->column(i)->type(), table->column(i)->chunks());
-    names[i] = Rcpp::String(table->field(i)->name(), CE_UTF8);
+    names[i] = table->field(i)->name();
   }
 
   if (use_threads) {
