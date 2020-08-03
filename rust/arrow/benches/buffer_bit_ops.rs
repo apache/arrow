@@ -24,8 +24,10 @@ extern crate arrow;
 use arrow::buffer::{Buffer, MutableBuffer};
 use arrow::error::ArrowError;
 use arrow::error::Result;
+#[cfg(feature = "simd")]
 use arrow::util::bit_util;
 use std::borrow::BorrowMut;
+#[cfg(feature = "simd")]
 use std::slice::{from_raw_parts, from_raw_parts_mut};
 
 ///  Helper function to create arrays
