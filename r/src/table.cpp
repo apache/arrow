@@ -37,9 +37,10 @@ std::shared_ptr<arrow::Schema> Table__schema(const std::shared_ptr<arrow::Table>
 
 // [[arrow::export]]
 std::shared_ptr<arrow::Table> Table__ReplaceSchemaMetadata(
-    const std::shared_ptr<arrow::Table>& x, Rcpp::CharacterVector metadata) {
-  auto kv = std::shared_ptr<arrow::KeyValueMetadata>(new arrow::KeyValueMetadata(
-      metadata.names(), Rcpp::as<std::vector<std::string>>(metadata)));
+    const std::shared_ptr<arrow::Table>& x, cpp11::strings metadata) {
+  auto vec_metadata = cpp11::as_cpp<std::vector<std::string>>(metadata);
+  auto names_metadata = cpp11::as_cpp<std::vector<std::string>>(metadata.names());
+  auto kv = std::shared_ptr<arrow::KeyValueMetadata>(new arrow::KeyValueMetadata(names_metadata, vec_metadata));
   return x->ReplaceSchemaMetadata(kv);
 }
 
@@ -115,7 +116,7 @@ std::shared_ptr<arrow::ChunkedArray> Table__GetColumnByName(
 
 // [[arrow::export]]
 std::shared_ptr<arrow::Table> Table__select(const std::shared_ptr<arrow::Table>& table,
-                                            const Rcpp::IntegerVector& indices) {
+                                            cpp11::integers indices) {
   R_xlen_t n = indices.size();
 
   std::vector<std::shared_ptr<arrow::Field>> fields(n);

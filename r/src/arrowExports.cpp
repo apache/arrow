@@ -5661,11 +5661,11 @@ RcppExport SEXP _arrow_Table__schema(SEXP x_sexp){
 
 // table.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::Table> Table__ReplaceSchemaMetadata(const std::shared_ptr<arrow::Table>& x, Rcpp::CharacterVector metadata);
+std::shared_ptr<arrow::Table> Table__ReplaceSchemaMetadata(const std::shared_ptr<arrow::Table>& x, cpp11::strings metadata);
 extern "C" SEXP _arrow_Table__ReplaceSchemaMetadata(SEXP x_sexp, SEXP metadata_sexp){
 BEGIN_CPP11
 	arrow::r::input<const std::shared_ptr<arrow::Table>&>::type x(x_sexp);
-	arrow::r::input<Rcpp::CharacterVector>::type metadata(metadata_sexp);
+	arrow::r::input<cpp11::strings>::type metadata(metadata_sexp);
 	return cpp11::as_sexp(Table__ReplaceSchemaMetadata(x, metadata));
 END_CPP11
 }
@@ -5835,11 +5835,11 @@ RcppExport SEXP _arrow_Table__GetColumnByName(SEXP table_sexp, SEXP name_sexp){
 
 // table.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::Table> Table__select(const std::shared_ptr<arrow::Table>& table, const Rcpp::IntegerVector& indices);
+std::shared_ptr<arrow::Table> Table__select(const std::shared_ptr<arrow::Table>& table, cpp11::integers indices);
 extern "C" SEXP _arrow_Table__select(SEXP table_sexp, SEXP indices_sexp){
 BEGIN_CPP11
 	arrow::r::input<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
-	arrow::r::input<const Rcpp::IntegerVector&>::type indices(indices_sexp);
+	arrow::r::input<cpp11::integers>::type indices(indices_sexp);
 	return cpp11::as_sexp(Table__select(table, indices));
 END_CPP11
 }
