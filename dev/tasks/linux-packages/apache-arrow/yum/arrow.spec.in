@@ -45,6 +45,7 @@
 %define use_meson (%{_centos_ver} >= 8)
 
 %define have_rapidjson (%{_centos_ver} == 7)
+%define have_re2 (%{_centos_ver} >= 8)
 %define have_utf8proc (%{_centos_ver} == 7)
 
 Name:		@PACKAGE@
@@ -79,7 +80,7 @@ BuildRequires:	python%{python_version}-numpy
 %if %{have_rapidjson}
 BuildRequires:	rapidjson-devel
 %endif
-%if %{_centos_ver} >= 8
+%if %{have_re2}
 BuildRequires:	re2-devel
 %endif
 BuildRequires:	snappy-devel
@@ -265,6 +266,15 @@ Libraries and header files for Apache Arrow C++.
 %{_libdir}/cmake/arrow/ArrowOptions.cmake
 %{_libdir}/cmake/arrow/ArrowTargets*.cmake
 %{_libdir}/cmake/arrow/FindArrow.cmake
+%{_libdir}/cmake/arrow/FindLz4.cmake
+%if %{have_re2}
+%{_libdir}/cmake/arrow/FindRE2.cmake
+%endif
+%{_libdir}/cmake/arrow/FindSnappy.cmake
+%if %{have_utf8proc}
+%{_libdir}/cmake/arrow/Findutf8proc.cmake
+%endif
+%{_libdir}/cmake/arrow/Findzstd.cmake
 %{_libdir}/cmake/arrow/arrow-config.cmake
 %{_libdir}/libarrow.a
 %{_libdir}/libarrow.so
