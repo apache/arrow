@@ -339,7 +339,7 @@ function(ADD_ARROW_LIB LIB_NAME)
     endif()
 
     # On iOS, specifying -undefined conflicts with enabling bitcode
-    if(APPLE AND NOT IOS AND NOT DEFINED $ENV{EMSCRIPTEN})
+    if(APPLE AND NOT IOS AND NOT DEFINED ENV{EMSCRIPTEN})
       # On OS X, you can avoid linking at library load time and instead
       # expecting that the symbols have been loaded separately. This happens
       # with libpython* where there can be conflicts between system Python and
