@@ -47,10 +47,14 @@ public class FixedWidthOutOfPlaceVectorSorter<V extends BaseFixedWidthVector> im
 
     // check buffer size
     Preconditions.checkArgument(dstValidityBuffer.capacity() * 8 >= srcVector.getValueCount(),
-        "No enough capacity for the validity buffer of the dst vector");
+        "Not enough capacity for the validity buffer of the dst vector. " +
+            "Expected capacity %s, actual capacity %s",
+        (srcVector.getValueCount() + 7) / 8, dstValidityBuffer.capacity());
     Preconditions.checkArgument(
         dstValueBuffer.capacity() >= srcVector.getValueCount() * srcVector.getTypeWidth(),
-        "No enough capacity for the data buffer of the dst vector");
+        "Not enough capacity for the data buffer of the dst vector. " +
+            "Expected capacity %s, actual capacity %s",
+        srcVector.getValueCount() * srcVector.getTypeWidth(), dstValueBuffer.capacity());
 
     // sort value indices
     try (IntVector sortedIndices = new IntVector("", srcVector.getAllocator())) {

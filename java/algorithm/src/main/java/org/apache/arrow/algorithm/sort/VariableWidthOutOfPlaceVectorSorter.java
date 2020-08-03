@@ -48,14 +48,19 @@ public class VariableWidthOutOfPlaceVectorSorter<V extends BaseVariableWidthVect
 
     // check buffer size
     Preconditions.checkArgument(dstValidityBuffer.capacity() * 8 >= srcVector.getValueCount(),
-        "No enough capacity for the validity buffer of the dst vector");
+        "Not enough capacity for the validity buffer of the dst vector. " +
+            "Expected capacity %s, actual capacity %s",
+        (srcVector.getValueCount() + 7) / 8, dstValidityBuffer.capacity());
     Preconditions.checkArgument(
-        dstOffsetBuffer.capacity() >= srcVector.getValueCount() * BaseVariableWidthVector.OFFSET_WIDTH,
-        "No enough capacity for the offset buffer of the dst vector");
+        dstOffsetBuffer.capacity() >= (srcVector.getValueCount() + 1) * BaseVariableWidthVector.OFFSET_WIDTH,
+        "Not enough capacity for the offset buffer of the dst vector. " +
+            "Expected capacity %s, actual capacity %s",
+        (srcVector.getValueCount() + 1) * BaseVariableWidthVector.OFFSET_WIDTH, dstOffsetBuffer.capacity());
     long dataSize = srcVector.getOffsetBuffer().getInt(
         srcVector.getValueCount() * BaseVariableWidthVector.OFFSET_WIDTH);
     Preconditions.checkArgument(
-        dstValueBuffer.capacity() >= dataSize, "No enough capacity for the data buffer of the dst vector");
+        dstValueBuffer.capacity() >= dataSize, "No enough capacity for the data buffer of the dst vector. " +
+            "Expected capacity %s, actual capacity %s", dataSize, dstValueBuffer.capacity());
 
     // sort value indices
     try (IntVector sortedIndices = new IntVector("", srcVector.getAllocator())) {

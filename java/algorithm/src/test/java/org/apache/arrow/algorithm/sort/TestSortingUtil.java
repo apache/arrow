@@ -33,6 +33,7 @@ import org.apache.arrow.vector.SmallIntVector;
 import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.VarCharVector;
+import org.apache.arrow.vector.testing.RandomDataGenerator;
 import org.apache.arrow.vector.testing.ValueVectorDataPopulator;
 
 /**
@@ -43,27 +44,27 @@ public class TestSortingUtil {
   static final Random random = new Random(0);
 
   static final DataGenerator<TinyIntVector, Byte> TINY_INT_GENERATOR = new DataGenerator<>(
-      () -> (byte) random.nextInt(),
+      RandomDataGenerator.TINY_INT_GENERATOR,
       (vector, array) -> ValueVectorDataPopulator.setVector(vector, array), Byte.class);
 
   static final DataGenerator<SmallIntVector, Short> SMALL_INT_GENERATOR = new DataGenerator<>(
-      () -> (short) random.nextInt(),
+      RandomDataGenerator.SMALL_INT_GENERATOR,
       (vector, array) -> ValueVectorDataPopulator.setVector(vector, array), Short.class);
 
   static final DataGenerator<IntVector, Integer> INT_GENERATOR = new DataGenerator<>(
-      () -> random.nextInt(),
+      RandomDataGenerator.INT_GENERATOR,
       (vector, array) -> ValueVectorDataPopulator.setVector(vector, array), Integer.class);
 
   static final DataGenerator<BigIntVector, Long> LONG_GENERATOR = new DataGenerator<>(
-      () -> random.nextLong(),
+      RandomDataGenerator.LONG_GENERATOR,
       (vector, array) -> ValueVectorDataPopulator.setVector(vector, array), Long.class);
 
   static final DataGenerator<Float4Vector, Float> FLOAT_GENERATOR = new DataGenerator<>(
-      () -> random.nextFloat(),
+      RandomDataGenerator.FLOAT_GENERATOR,
       (vector, array) -> ValueVectorDataPopulator.setVector(vector, array), Float.class);
 
   static final DataGenerator<Float8Vector, Double> DOUBLE_GENERATOR = new DataGenerator<>(
-      () -> random.nextDouble(),
+      RandomDataGenerator.DOUBLE_GENERATOR,
       (vector, array) -> ValueVectorDataPopulator.setVector(vector, array), Double.class);
 
   static final DataGenerator<VarCharVector, String> STRING_GENERATOR = new DataGenerator<>(
