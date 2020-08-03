@@ -39,8 +39,8 @@ if(Snappy_ROOT)
             NO_DEFAULT_PATH
             PATH_SUFFIXES ${ARROW_INCLUDE_PATH_SUFFIXES})
 else()
-  find_library(Snappy_LIB NAMES ${SNAPPY_LIB_NAMES} HINTS "${CMAKE_ROOT}/Modules/")
-  find_path(Snappy_INCLUDE_DIR NAMES snappy.h HINTS "${CMAKE_ROOT}/Modules/" PATH_SUFFIXES ${ARROW_INCLUDE_PATH_SUFFIXES})
+  find_library(Snappy_LIB NAMES ${SNAPPY_LIB_NAMES})
+  find_path(Snappy_INCLUDE_DIR NAMES snappy.h PATH_SUFFIXES ${ARROW_INCLUDE_PATH_SUFFIXES})
 endif()
 
 find_package_handle_standard_args(Snappy REQUIRED_VARS Snappy_LIB Snappy_INCLUDE_DIR)
