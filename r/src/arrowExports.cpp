@@ -4420,12 +4420,12 @@ RcppExport SEXP _arrow_parquet___WriterProperties___Builder__version(SEXP builde
 
 // parquet.cpp
 #if defined(ARROW_R_WITH_ARROW)
-void parquet___ArrowWriterProperties___Builder__set_compressions(const std::shared_ptr<parquet::WriterPropertiesBuilder>& builder, const std::vector<std::string>& paths, const Rcpp::IntegerVector& types);
+void parquet___ArrowWriterProperties___Builder__set_compressions(const std::shared_ptr<parquet::WriterPropertiesBuilder>& builder, const std::vector<std::string>& paths, cpp11::integers types);
 extern "C" SEXP _arrow_parquet___ArrowWriterProperties___Builder__set_compressions(SEXP builder_sexp, SEXP paths_sexp, SEXP types_sexp){
 BEGIN_CPP11
 	arrow::r::input<const std::shared_ptr<parquet::WriterPropertiesBuilder>&>::type builder(builder_sexp);
 	arrow::r::input<const std::vector<std::string>&>::type paths(paths_sexp);
-	arrow::r::input<const Rcpp::IntegerVector&>::type types(types_sexp);
+	arrow::r::input<cpp11::integers>::type types(types_sexp);
 	parquet___ArrowWriterProperties___Builder__set_compressions(builder, paths, types);
 	return R_NilValue;
 END_CPP11
@@ -4438,12 +4438,12 @@ RcppExport SEXP _arrow_parquet___ArrowWriterProperties___Builder__set_compressio
 
 // parquet.cpp
 #if defined(ARROW_R_WITH_ARROW)
-void parquet___ArrowWriterProperties___Builder__set_compression_levels(const std::shared_ptr<parquet::WriterPropertiesBuilder>& builder, const std::vector<std::string>& paths, const Rcpp::IntegerVector& levels);
+void parquet___ArrowWriterProperties___Builder__set_compression_levels(const std::shared_ptr<parquet::WriterPropertiesBuilder>& builder, const std::vector<std::string>& paths, cpp11::integers levels);
 extern "C" SEXP _arrow_parquet___ArrowWriterProperties___Builder__set_compression_levels(SEXP builder_sexp, SEXP paths_sexp, SEXP levels_sexp){
 BEGIN_CPP11
 	arrow::r::input<const std::shared_ptr<parquet::WriterPropertiesBuilder>&>::type builder(builder_sexp);
 	arrow::r::input<const std::vector<std::string>&>::type paths(paths_sexp);
-	arrow::r::input<const Rcpp::IntegerVector&>::type levels(levels_sexp);
+	arrow::r::input<cpp11::integers>::type levels(levels_sexp);
 	parquet___ArrowWriterProperties___Builder__set_compression_levels(builder, paths, levels);
 	return R_NilValue;
 END_CPP11
@@ -4456,12 +4456,12 @@ RcppExport SEXP _arrow_parquet___ArrowWriterProperties___Builder__set_compressio
 
 // parquet.cpp
 #if defined(ARROW_R_WITH_ARROW)
-void parquet___ArrowWriterProperties___Builder__set_use_dictionary(const std::shared_ptr<parquet::WriterPropertiesBuilder>& builder, const std::vector<std::string>& paths, const Rcpp::LogicalVector& use_dictionary);
+void parquet___ArrowWriterProperties___Builder__set_use_dictionary(const std::shared_ptr<parquet::WriterPropertiesBuilder>& builder, const std::vector<std::string>& paths, cpp11::logicals use_dictionary);
 extern "C" SEXP _arrow_parquet___ArrowWriterProperties___Builder__set_use_dictionary(SEXP builder_sexp, SEXP paths_sexp, SEXP use_dictionary_sexp){
 BEGIN_CPP11
 	arrow::r::input<const std::shared_ptr<parquet::WriterPropertiesBuilder>&>::type builder(builder_sexp);
 	arrow::r::input<const std::vector<std::string>&>::type paths(paths_sexp);
-	arrow::r::input<const Rcpp::LogicalVector&>::type use_dictionary(use_dictionary_sexp);
+	arrow::r::input<cpp11::logicals>::type use_dictionary(use_dictionary_sexp);
 	parquet___ArrowWriterProperties___Builder__set_use_dictionary(builder, paths, use_dictionary);
 	return R_NilValue;
 END_CPP11
@@ -4474,12 +4474,12 @@ RcppExport SEXP _arrow_parquet___ArrowWriterProperties___Builder__set_use_dictio
 
 // parquet.cpp
 #if defined(ARROW_R_WITH_ARROW)
-void parquet___ArrowWriterProperties___Builder__set_write_statistics(const std::shared_ptr<parquet::WriterPropertiesBuilder>& builder, const std::vector<std::string>& paths, const Rcpp::LogicalVector& write_statistics);
+void parquet___ArrowWriterProperties___Builder__set_write_statistics(const std::shared_ptr<parquet::WriterPropertiesBuilder>& builder, const std::vector<std::string>& paths, cpp11::logicals write_statistics);
 extern "C" SEXP _arrow_parquet___ArrowWriterProperties___Builder__set_write_statistics(SEXP builder_sexp, SEXP paths_sexp, SEXP write_statistics_sexp){
 BEGIN_CPP11
 	arrow::r::input<const std::shared_ptr<parquet::WriterPropertiesBuilder>&>::type builder(builder_sexp);
 	arrow::r::input<const std::vector<std::string>&>::type paths(paths_sexp);
-	arrow::r::input<const Rcpp::LogicalVector&>::type write_statistics(write_statistics_sexp);
+	arrow::r::input<cpp11::logicals>::type write_statistics(write_statistics_sexp);
 	parquet___ArrowWriterProperties___Builder__set_write_statistics(builder, paths, write_statistics);
 	return R_NilValue;
 END_CPP11
