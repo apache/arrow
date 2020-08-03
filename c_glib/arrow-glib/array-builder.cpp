@@ -4260,6 +4260,10 @@ garrow_binary_dictionary_array_builder_insert_memo_values(GArrowBinaryDictionary
 /**
  * garrow_binary_dictionary_array_builder_reset_full:
  * @builder: A #GArrowBinaryDictionaryArrayBuilder.
+ *
+ * Reset and also clear accumulated dictionary values in memo table.
+ *
+ * Since: 2.0.0
  */
 void
 garrow_binary_dictionary_array_builder_reset_full(GArrowBinaryDictionaryArrayBuilder *builder)
