@@ -61,6 +61,7 @@ import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.compare.VectorVisitor;
 import org.apache.arrow.vector.complex.DenseUnionVector;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
+import org.apache.arrow.vector.complex.LargeListVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.NonNullableStructVector;
 import org.apache.arrow.vector.complex.UnionVector;
@@ -284,6 +285,16 @@ public class ValidateVectorTypeVisitor implements VectorVisitor<Void, Void> {
     validateOrThrow(arrowType.getListSize() == vector.getListSize(),
         "Inconsistent list size for FixedSizeListVector");
     validateOrThrow(arrowType.getListSize() > 0, "The list size must be positive");
+    ValueVector innerVector = vector.getDataVector();
+    if (innerVector != null) {
+      innerVector.accept(this, null);
+    }
+    return null;
+  }
+
+  @Override
+  public Void visit(LargeListVector vector, Void value) {
+    validateVectorCommon(vector, ArrowType.LargeList.class);
     ValueVector innerVector = vector.getDataVector();
     if (innerVector != null) {
       innerVector.accept(this, null);

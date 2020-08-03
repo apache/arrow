@@ -31,6 +31,7 @@ import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.compare.VectorVisitor;
 import org.apache.arrow.vector.complex.DenseUnionVector;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
+import org.apache.arrow.vector.complex.LargeListVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.NonNullableStructVector;
 import org.apache.arrow.vector.complex.UnionVector;
@@ -160,6 +161,26 @@ public class ValidateVectorBufferVisitor implements VectorVisitor<Void, Void> {
   }
 
   @Override
+  public Void visit(LargeListVector vector, Void value) {
+    int valueCount = vector.getValueCount();
+    validateVectorCommon(vector);
+    validateValidityBuffer(vector, valueCount);
+    validateLargeOffsetBuffer(vector, valueCount);
+
+    FieldVector dataVector = vector.getDataVector();
+    long lastOffset = valueCount == 0 ? 0 :
+        vector.getOffsetBuffer().getLong(valueCount * BaseLargeVariableWidthVector.OFFSET_WIDTH);
+    int dataVectorLength = dataVector == null ? 0 : dataVector.getValueCount();
+    validateOrThrow(dataVectorLength >= lastOffset,
+        "Inner vector does not contain enough elements.");
+
+    if (dataVector != null) {
+      dataVector.accept(this, null);
+    }
+    return null;
+  }
+
+  @Override
   public Void visit(NonNullableStructVector vector, Void value) {
     int valueCount = vector.getValueCount();
     validateVectorCommon(vector);
@@ -186,9 +207,7 @@ public class ValidateVectorBufferVisitor implements VectorVisitor<Void, Void> {
 
   @Override
   public Void visit(DenseUnionVector vector, Void value) {
-    int valueCount = vector.getValueCount();
     validateVectorCommon(vector);
-    validateValidityBuffer(vector, valueCount);
     for (ValueVector subVector : vector.getChildrenFromFields()) {
       subVector.accept(this, null);
     }

@@ -34,6 +34,7 @@ import org.apache.arrow.vector.LargeVarCharVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.complex.DenseUnionVector;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
+import org.apache.arrow.vector.complex.LargeListVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.UnionVector;
@@ -117,6 +118,21 @@ public class TestValidateVector {
       validate(vector);
 
       vector.getDataVector().setValueCount(3);
+      ValidateUtility.ValidateException e = assertThrows(ValidateUtility.ValidateException.class,
+          () -> validate(vector));
+      assertEquals("Inner vector does not contain enough elements.",
+          e.getMessage());
+    }
+  }
+
+  @Test
+  public void testLargeListVector() {
+    try (final LargeListVector vector = LargeListVector.empty("v", allocator)) {
+      validate(vector);
+      setVector(vector, Arrays.asList(1, 2, 3, 4), Arrays.asList(5, 6));
+      validate(vector);
+
+      vector.getDataVector().setValueCount(4);
       ValidateUtility.ValidateException e = assertThrows(ValidateUtility.ValidateException.class,
           () -> validate(vector));
       assertEquals("Inner vector does not contain enough elements.",

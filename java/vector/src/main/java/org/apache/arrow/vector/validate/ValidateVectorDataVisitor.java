@@ -28,6 +28,7 @@ import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.compare.VectorVisitor;
 import org.apache.arrow.vector.complex.DenseUnionVector;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
+import org.apache.arrow.vector.complex.LargeListVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.NonNullableStructVector;
 import org.apache.arrow.vector.complex.UnionVector;
@@ -99,6 +100,16 @@ public class ValidateVectorDataVisitor implements VectorVisitor<Void, Void> {
   @Override
   public Void visit(FixedSizeListVector vector, Void value) {
     validateOffsetBuffer(vector, vector.getValueCount());
+    ValueVector innerVector = vector.getDataVector();
+    if (innerVector != null) {
+      innerVector.accept(this, null);
+    }
+    return null;
+  }
+
+  @Override
+  public Void visit(LargeListVector vector, Void value) {
+    validateLargeOffsetBuffer(vector, vector.getValueCount());
     ValueVector innerVector = vector.getDataVector();
     if (innerVector != null) {
       innerVector.accept(this, null);

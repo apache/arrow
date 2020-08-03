@@ -30,6 +30,7 @@ import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.LargeVarCharVector;
 import org.apache.arrow.vector.VarCharVector;
+import org.apache.arrow.vector.complex.LargeListVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.testing.ValueVectorDataPopulator;
@@ -101,6 +102,23 @@ public class TestValidateVectorFull {
       ValidateUtility.ValidateException e = assertThrows(ValidateUtility.ValidateException.class,
           () -> validateFull(vector));
       assertTrue(e.getMessage().contains("The values in the offset buffer are decreasing"));
+    }
+  }
+
+  @Test
+  public void testLargeListVector() {
+    try (final LargeListVector vector = LargeListVector.empty("v", allocator)) {
+      validateFull(vector);
+      setVector(vector, Arrays.asList(1, 2, 3), Arrays.asList(4, 5), Arrays.asList(6, 7, 8, 9));
+      validateFull(vector);
+
+      ArrowBuf offsetBuf = vector.getOffsetBuffer();
+      offsetBuf.setLong(0, 100);
+      offsetBuf.setLong(16, 50);
+
+      ValidateUtility.ValidateException e = assertThrows(ValidateUtility.ValidateException.class,
+          () -> validateFull(vector));
+      assertTrue(e.getMessage().contains("The values in the large offset buffer are decreasing"));
     }
   }
 

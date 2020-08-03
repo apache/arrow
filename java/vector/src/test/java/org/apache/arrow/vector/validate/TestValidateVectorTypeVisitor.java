@@ -61,6 +61,7 @@ import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.complex.DenseUnionVector;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
+import org.apache.arrow.vector.complex.LargeListVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.UnionVector;
@@ -260,6 +261,14 @@ public class TestValidateVectorTypeVisitor {
 
     testNegativeCase(
         () -> new ListVector("vector", allocator, FieldType.nullable(Types.MinorType.INT.getType()), null));
+  }
+
+  @Test
+  public void testLargeListVector() {
+    testPositiveCase(() -> LargeListVector.empty("vector", allocator));
+
+    testNegativeCase(
+        () -> new LargeListVector("vector", allocator, FieldType.nullable(Types.MinorType.INT.getType()), null));
   }
 
   @Test
