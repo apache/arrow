@@ -236,19 +236,23 @@ class TestConvertMetadata:
         df = pd.DataFrame([(1, 'a'), (2, 'b'), (3, 'c')], columns=columns)
         _check_pandas_roundtrip(df, preserve_index=True)
 
-    def test_multiindex_with_datetimes(self):
-        # ARROW-3651. This bug occurred only when the dtype of the columns is
-        # object. It does not occur for datetime64[ns]
-        df = pd.DataFrame(1, index=pd.Index(list(range(5)), name='index'),
-                          columns=pd.Index([datetime(2018, 1, 1)], dtype='O'))
-        assert df.columns.dtype == 'object'
-        reconstructed = pa.table(df).to_pandas()
+    def test_multiindex_with_column_dtype_object(self):
+        # ARROW-3651 & ARROW-9096
+        # Bug when dtype of the columns is object.
 
-        # The reconstruction process results in object->datetime64[ns]
-        df_expected = df.copy()
-        df_expected.columns = df.columns.values
-        assert df_expected.columns.dtype == 'datetime64[ns]'
-        tm.assert_frame_equal(df_expected, reconstructed)
+        # uinderlying dtype: integer
+        df = pd.DataFrame([1], columns=pd.Index([1], dtype=object))
+        _check_pandas_roundtrip(df, preserve_index=True)
+
+        # underlying dtype: floating
+        df = pd.DataFrame([1], columns=pd.Index([1.1], dtype=object))
+        _check_pandas_roundtrip(df, preserve_index=True)
+
+        # underlying dtype: datetime
+        # ARROW-9096: a simple roundtrip now works
+        df = pd.DataFrame([1], columns=pd.Index(
+            [datetime(2018, 1, 1)], dtype="object"))
+        _check_pandas_roundtrip(df, preserve_index=True)
 
     def test_multiindex_columns_unicode(self):
         columns = pd.MultiIndex.from_arrays([['あ', 'い'], ['X', 'Y']])
