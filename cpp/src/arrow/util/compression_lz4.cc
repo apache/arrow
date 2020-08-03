@@ -29,6 +29,7 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/ubsan.h"
 
 #ifndef LZ4F_HEADER_SIZE_MAX
 #define LZ4F_HEADER_SIZE_MAX 19
@@ -363,10 +364,14 @@ class Lz4HadoopCodec : public Lz4Codec {
     // Parquet files written with the Hadoop Lz4Codec contain at the beginning
     // of the input buffer two uint32_t's representing (in this order) expected
     // decompressed size in bytes and expected compressed size in bytes.
-    const uint32_t* input_as_uint32 = reinterpret_cast<const uint32_t*>(input);
-    uint32_t expected_decompressed_size = ARROW_BYTE_SWAP32(input_as_uint32[0]);
-    uint32_t expected_compressed_size = ARROW_BYTE_SWAP32(input_as_uint32[1]);
-    int64_t lz4_compressed_buffer_size = input_len - data_byte_offset;
+    //
+    // The Hadoop Lz4Codec source code can be found here:
+    // https://github.com/apache/hadoop/blob/trunk/hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-nativetask/src/main/native/src/codec/Lz4Codec.cc
+    uint32_t expected_decompressed_size =
+        BitUtil::FromBigEndian(SafeLoadAs<uint32_t>(input));
+    uint32_t expected_compressed_size =
+        BitUtil::FromBigEndian(SafeLoadAs<uint32_t>(input + sizeof(uint32_t)));
+    int64_t lz4_compressed_buffer_size = input_len - kPrefixLength;
 
     // We use a heuristic to determine if the parquet file being read
     // was compressed using the Hadoop Lz4Codec.
@@ -379,7 +384,7 @@ class Lz4HadoopCodec : public Lz4Codec {
     } else {
       // Parquet file was likely compressed with Hadoop Lz4Codec
       Result<int64_t> decompressed_size_result =
-          Lz4Codec::Decompress(lz4_compressed_buffer_size, input + data_byte_offset,
+          Lz4Codec::Decompress(lz4_compressed_buffer_size, input + kPrefixLength,
                                output_buffer_len, output_buffer);
 
       if (!decompressed_size_result.ok() ||
@@ -398,21 +403,23 @@ class Lz4HadoopCodec : public Lz4Codec {
 
   int64_t MaxCompressedLen(int64_t input_len,
                            const uint8_t* ARROW_ARG_UNUSED(input)) override {
-    return data_byte_offset + Lz4Codec::MaxCompressedLen(input_len, nullptr);
+    return kPrefixLength + Lz4Codec::MaxCompressedLen(input_len, nullptr);
   }
 
   Result<int64_t> Compress(int64_t input_len, const uint8_t* input,
                            int64_t output_buffer_len, uint8_t* output_buffer) override {
     ARROW_ASSIGN_OR_RAISE(int64_t output_len,
                           Lz4Codec::Compress(input_len, input, output_buffer_len,
-                                             output_buffer + data_byte_offset));
+                                             output_buffer + kPrefixLength));
 
     // Prepend decompressed size in bytes and compressed size in bytes
     // to be compatible with Hadoop Lz4Codec
-    ((uint32_t*)output_buffer)[0] = ARROW_BYTE_SWAP32((uint32_t)input_len);
-    ((uint32_t*)output_buffer)[1] = ARROW_BYTE_SWAP32((uint32_t)output_len);
+    uint32_t decompressed_size = BitUtil::ToBigEndian((uint32_t)input_len);
+    uint32_t compressed_size = BitUtil::ToBigEndian((uint32_t)output_len);
+    memcpy(output_buffer, &decompressed_size, sizeof(uint32_t));
+    memcpy(output_buffer + sizeof(uint32_t), &compressed_size, sizeof(uint32_t));
 
-    return data_byte_offset + output_len;
+    return kPrefixLength + output_len;
   }
 
   Result<std::shared_ptr<Compressor>> MakeCompressor() override {
@@ -431,7 +438,7 @@ class Lz4HadoopCodec : public Lz4Codec {
 
  protected:
   // Offset starting at which page data can be read/written
-  static const int64_t data_byte_offset = sizeof(uint32_t) * 2;
+  static const int64_t kPrefixLength = sizeof(uint32_t) * 2;
 };
 
 }  // namespace
