@@ -40,11 +40,6 @@ fi
 
 cp $ARROW_HOME/ci/scripts/PKGBUILD .
 printenv
-pkg-config --cflags --libs liblz4
-pkg-config --variable=libdir liblz4
-pkg-config --cflags --libs libzstd
-pkg-config --variable=libdir libzstd
-ls -lah /mingw64/lib
 makepkg-mingw --noconfirm --noprogressbar --skippgpcheck --nocheck --syncdeps --cleanbuild
 
 VERSION=$(grep Version $ARROW_HOME/r/DESCRIPTION | cut -d " " -f 2)
