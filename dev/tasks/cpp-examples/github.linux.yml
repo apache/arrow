@@ -42,5 +42,5 @@ jobs:
       - name: Run
         shell: bash
         run: |
-          cd cpp/examples/{{ type }}
+          cd arrow/cpp/examples/{{ type }}
           docker-compose run --rm {{ run }}
