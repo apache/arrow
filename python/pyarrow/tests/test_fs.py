@@ -789,6 +789,10 @@ def test_move_directory(fs, pathfn, allow_move_dir):
 
 
 def test_move_file(fs, pathfn):
+    if fs.type_name == "py::fsspec+memory":
+        # https://issues.apache.org/jira/browse/ARROW-9621
+        # https://github.com/intake/filesystem_spec/issues/367
+        pytest.xfail(reason='Not working with in-memory fsspec')
     s = pathfn('test-move-source-file')
     t = pathfn('test-move-target-file')
 
