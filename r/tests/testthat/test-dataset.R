@@ -112,6 +112,12 @@ test_that("Simple interface for datasets", {
       filter(integer > 6) %>%
       summarize(mean = mean(integer))
   )
+
+  # Collecting virtual partition column works
+  expect_equal(
+    collect(ds) %>% pull(part),
+    c(rep(1, 10), rep(2, 10))
+  )
 })
 
 test_that("dim method returns the correct number of rows and columns",{
@@ -219,6 +225,12 @@ test_that("IPC/Feather format data", {
       filter(integer > 6) %>%
       summarize(mean = mean(integer))
   )
+
+  # Collecting virtual partition column works
+  expect_equal(
+    collect(ds) %>% pull(part),
+    c(rep(3, 10), rep(4, 10))
+  )
 })
 
 test_that("CSV dataset", {
@@ -238,6 +250,11 @@ test_that("CSV dataset", {
       select(string = chr, integer = int) %>%
       filter(integer > 6) %>%
       summarize(mean = mean(integer))
+  )
+  # Collecting virtual partition column works
+  expect_equal(
+    collect(ds) %>% pull(part),
+    c(rep(5, 10), rep(6, 10))
   )
 })
 
