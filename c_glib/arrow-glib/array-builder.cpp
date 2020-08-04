@@ -4503,6 +4503,8 @@ garrow_string_dictionary_array_builder_insert_memo_values(GArrowStringDictionary
  * garrow_string_dictionary_array_builder_reset_full:
  * @builder: A #GArrowStringDictionaryArrayBuilder.
  *
+ * Reset and also clear accumulated dictionary values in memo table.
+ *
  * Since: 2.0.0
  */
 void
