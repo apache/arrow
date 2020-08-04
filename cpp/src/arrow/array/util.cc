@@ -95,14 +95,13 @@ class ArrayDataEndianSwapper {
     return Status::OK();
   }
 
-  template <typename T>
-  Status SwapOffset(const T&, int index) {
+  template <typename VALUE_TYPE>
+  Status SwapOffset(int index) {
     if (data_->buffers[index] == nullptr) {
       return Status::OK();
     }
-    using value_type = typename T::c_type;
-    auto buffer = const_cast<value_type*>(
-        reinterpret_cast<const value_type*>(data_->buffers[index]->data()));
+    auto buffer = const_cast<VALUE_TYPE*>(
+        reinterpret_cast<const VALUE_TYPE*>(data_->buffers[index]->data()));
     // offset has one more element rather than data->length
     int64_t length = length_ + 1;
     for (int64_t i = 0; i < length; i++) {
@@ -116,15 +115,11 @@ class ArrayDataEndianSwapper {
   }
 
   Status SwapSmallOffset(int index = 1) {
-    Int32Type i32;
-    RETURN_NOT_OK(SwapOffset(i32, index));
-    return Status::OK();
+    return SwapOffset<int32_t>(index);
   }
 
   Status SwapLargeOffset() {
-    Int64Type i64;
-    RETURN_NOT_OK(SwapOffset(i64, 1));
-    return Status::OK();
+    return SwapOffset<int64_t>(1);
   }
 
   template <typename T>

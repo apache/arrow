@@ -764,10 +764,10 @@ class RecordBatchStreamReaderImpl : public RecordBatchStreamReader {
 
     RETURN_NOT_OK(UnpackSchemaMessage(*message, options, &dictionary_memo_, &schema_,
                                       &out_schema_, &field_inclusion_mask_));
-    swap_endian_ = out_schema_->endianness() != NATIVE_ENDIANNESS;
+    swap_endian_ = !out_schema_->IsNativeEndianness();
     if (swap_endian_) {
-      // set native endianness to the schemas before actually swapping endian in ArrayData
-      out_schema_->setNativeEndianness();
+      // create a new schema with native endianness before swapping endian in ArrayData
+      out_schema_ = out_schema_->WithNativeEndianness();
     }
     return Status::OK();
   }
@@ -981,10 +981,10 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
     // Get the schema and record any observed dictionaries
     RETURN_NOT_OK(UnpackSchemaMessage(footer_->schema(), options, &dictionary_memo_,
                                       &schema_, &out_schema_, &field_inclusion_mask_));
-    swap_endian_ = out_schema_->endianness() != NATIVE_ENDIANNESS;
+    swap_endian_ = !out_schema_->IsNativeEndianness();
     if (swap_endian_) {
-      // set native endianness to the schemas before actually swapping endian in ArrayData
-      out_schema_->setNativeEndianness();
+      // create a new schema with native endianness before swapping endian in ArrayData
+      out_schema_ = out_schema_->WithNativeEndianness();
     }
     ++stats_.num_messages;
     return Status::OK();
@@ -1214,10 +1214,10 @@ class StreamDecoder::StreamDecoderImpl : public MessageDecoderListener {
   Status OnSchemaMessageDecoded(std::unique_ptr<Message> message) {
     RETURN_NOT_OK(UnpackSchemaMessage(*message, options_, &dictionary_memo_, &schema_,
                                       &out_schema_, &field_inclusion_mask_));
-    swap_endian_ = out_schema_->endianness() != NATIVE_ENDIANNESS;
+    swap_endian_ = !out_schema_->IsNativeEndianness();
     if (swap_endian_) {
-      // set native endianness to the schemas before actually swapping endian in ArrayData
-      out_schema_->setNativeEndianness();
+      // create a new schema with native endianness before swapping endian in ArrayData
+      out_schema_ = out_schema_->WithNativeEndianness();
     }
 
     n_required_dictionaries_ = dictionary_memo_.fields().num_fields();

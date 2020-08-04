@@ -1321,16 +1321,30 @@ Schema::Schema(std::vector<std::shared_ptr<Field>> fields, Endianness endianness
 Schema::Schema(std::vector<std::shared_ptr<Field>> fields,
                std::shared_ptr<const KeyValueMetadata> metadata)
     : detail::Fingerprintable(),
-      impl_(new Impl(std::move(fields), NATIVE_ENDIANNESS, std::move(metadata))) {}
+#if ARROW_LITTLE_ENDIAN
+      impl_(new Impl(std::move(fields), Endianness::LITTLE, std::move(metadata))) {}
+#else
+      impl_(new Impl(std::move(fields), Endianness::BIG, std::move(metadata))) {}
+#endif
 
 Schema::Schema(const Schema& schema)
     : detail::Fingerprintable(), impl_(new Impl(*schema.impl_)) {}
 
 Schema::~Schema() = default;
 
-void Schema::setNativeEndianness() { impl_->endianness_ = NATIVE_ENDIANNESS; }
+std::shared_ptr<Schema> Schema::WithNativeEndianness() const {
+  return std::make_shared<Schema>(impl_->fields_, impl_->metadata_);
+}
 
 Endianness Schema::endianness() const { return impl_->endianness_; }
+
+bool Schema::IsNativeEndianness() const {
+#if ARROW_LITTLE_ENDIAN
+  return impl_->endianness_ == Endianness::LITTLE;
+#else
+  return impl_->endianness_ == Endianness::BIG;
+#endif
+}
 
 int Schema::num_fields() const { return static_cast<int>(impl_->fields_.size()); }
 
