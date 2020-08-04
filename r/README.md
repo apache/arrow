@@ -149,7 +149,7 @@ For any other build/configuration challenges, see the [C++ developer
 guide](https://arrow.apache.org/docs/developers/cpp/building.html) and
 `vignette("install", package = "arrow")`.
 
-### Editing Rcpp code
+### Editing C++ code
 
 The `arrow` package uses some customized tools on top of `Rcpp` to
 prepare its C++ code in `src/`. If you change C++ code in the R package,
