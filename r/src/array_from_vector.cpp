@@ -1370,8 +1370,8 @@ std::shared_ptr<Array> MakeSimpleArray(SEXP x) {
   auto n = vec.size();
   auto p_vec_start = reinterpret_cast<value_type*>(arrow::r::vector_begin(vec));
   auto p_vec_end = p_vec_start + n;
-  std::vector<std::shared_ptr<Buffer>> buffers{nullptr,
-                                               std::make_shared<RBuffer<RTYPE, RVector>>(vec)};
+  std::vector<std::shared_ptr<Buffer>> buffers{
+      nullptr, std::make_shared<RBuffer<RTYPE, RVector>>(vec)};
 
   int null_count = 0;
 

@@ -112,7 +112,8 @@ Status Ingest_OnlyNulls(cpp11::r_vector<T> vec, R_xlen_t start, R_xlen_t n) {
 }
 
 template <typename SetNonNull, typename SetNull>
-Status IngestSome(const std::shared_ptr<arrow::Array>& array, R_xlen_t n, SetNonNull&& set_non_null, SetNull&& set_null) {
+Status IngestSome(const std::shared_ptr<arrow::Array>& array, R_xlen_t n,
+                  SetNonNull&& set_non_null, SetNull&& set_null) {
   if (array->null_count()) {
     internal::BitmapReader bitmap_reader(array->null_bitmap()->data(), array->offset(),
                                          n);
@@ -135,8 +136,9 @@ Status IngestSome(const std::shared_ptr<arrow::Array>& array, R_xlen_t n, SetNon
 }
 
 template <typename SetNonNull>
-Status IngestSome(const std::shared_ptr<arrow::Array>& array, R_xlen_t n, SetNonNull&& set_non_null) {
-  auto nothing = [](R_xlen_t i){ return Status::OK();};
+Status IngestSome(const std::shared_ptr<arrow::Array>& array, R_xlen_t n,
+                  SetNonNull&& set_non_null) {
+  auto nothing = [](R_xlen_t i) { return Status::OK(); };
   return IngestSome(array, n, std::forward<SetNonNull>(set_non_null), nothing);
 }
 
@@ -154,12 +156,10 @@ template <typename Type>
 class Converter_Int : public Converter {
   using value_type = typename TypeTraits<Type>::ArrayType::value_type;
 
-public:
+ public:
   explicit Converter_Int(const ArrayVector& arrays) : Converter(arrays) {}
 
-  SEXP Allocate(R_xlen_t n) const {
-    return Rf_allocVector(INTSXP, n);
-  }
+  SEXP Allocate(R_xlen_t n) const { return Rf_allocVector(INTSXP, n); }
 
   Status Ingest_all_nulls(SEXP data, R_xlen_t start, R_xlen_t n) const {
     std::fill_n(INTEGER(data) + start, n, NA_INTEGER);
@@ -190,12 +190,10 @@ template <typename Type>
 class Converter_Double : public Converter {
   using value_type = typename TypeTraits<Type>::ArrayType::value_type;
 
-public:
+ public:
   explicit Converter_Double(const ArrayVector& arrays) : Converter(arrays) {}
 
-  SEXP Allocate(R_xlen_t n) const {
-    return Rf_allocVector(REALSXP, n);
-  }
+  SEXP Allocate(R_xlen_t n) const { return Rf_allocVector(REALSXP, n); }
 
   Status Ingest_all_nulls(SEXP data, R_xlen_t start, R_xlen_t n) const {
     std::fill_n(REAL(data) + start, n, NA_REAL);
@@ -224,8 +222,7 @@ public:
 
 class Converter_Date32 : public Converter {
  public:
-  explicit Converter_Date32(const ArrayVector& arrays)
-      : Converter(arrays) {}
+  explicit Converter_Date32(const ArrayVector& arrays) : Converter(arrays) {}
 
   SEXP Allocate(R_xlen_t n) const {
     SEXP data = PROTECT(Rf_allocVector(REALSXP, n));
@@ -241,7 +238,6 @@ class Converter_Date32 : public Converter {
 
   Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
                            R_xlen_t start, R_xlen_t n, size_t chunk_index) const {
-
     auto p_values = array->data()->GetValues<int>(1);
     if (!p_values) {
       return Status::Invalid("Invalid data buffer");
@@ -729,7 +725,6 @@ class Converter_Time : public Converter {
       return Status::OK();
     };
     return IngestSome(array, n, ingest_one, null_one);
-
   }
 
  private:
@@ -982,7 +977,8 @@ std::shared_ptr<Converter> Converter::Make(const std::shared_ptr<DataType>& type
   switch (type->id()) {
     // direct support
     case Type::INT32:
-      return std::make_shared<arrow::r::Converter_Int<arrow::Int32Type>>(std::move(arrays));
+      return std::make_shared<arrow::r::Converter_Int<arrow::Int32Type>>(
+          std::move(arrays));
 
     case Type::DOUBLE:
       return std::make_shared<arrow::r::Converter_Double<arrow::DoubleType>>(
@@ -1046,8 +1042,8 @@ std::shared_ptr<Converter> Converter::Make(const std::shared_ptr<DataType>& type
         return std::make_shared<arrow::r::Converter_Int<arrow::UInt32Type>>(
             std::move(arrays));
       } else {
-        return std::make_shared<
-            arrow::r::Converter_Double<arrow::UInt32Type>>(std::move(arrays));
+        return std::make_shared<arrow::r::Converter_Double<arrow::UInt32Type>>(
+            std::move(arrays));
       }
 
     case Type::UINT64:
@@ -1055,13 +1051,12 @@ std::shared_ptr<Converter> Converter::Make(const std::shared_ptr<DataType>& type
         return std::make_shared<arrow::r::Converter_Int<arrow::UInt64Type>>(
             std::move(arrays));
       } else {
-        return std::make_shared<
-            arrow::r::Converter_Double<arrow::UInt64Type>>(std::move(arrays));
+        return std::make_shared<arrow::r::Converter_Double<arrow::UInt64Type>>(
+            std::move(arrays));
       }
 
     case Type::HALF_FLOAT:
-      return std::make_shared<
-          arrow::r::Converter_Double<arrow::HalfFloatType>>(
+      return std::make_shared<arrow::r::Converter_Double<arrow::HalfFloatType>>(
           std::move(arrays));
 
     case Type::FLOAT:

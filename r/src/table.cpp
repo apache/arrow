@@ -40,7 +40,8 @@ std::shared_ptr<arrow::Table> Table__ReplaceSchemaMetadata(
     const std::shared_ptr<arrow::Table>& x, cpp11::strings metadata) {
   auto vec_metadata = cpp11::as_cpp<std::vector<std::string>>(metadata);
   auto names_metadata = cpp11::as_cpp<std::vector<std::string>>(metadata.names());
-  auto kv = std::shared_ptr<arrow::KeyValueMetadata>(new arrow::KeyValueMetadata(names_metadata, vec_metadata));
+  auto kv = std::shared_ptr<arrow::KeyValueMetadata>(
+      new arrow::KeyValueMetadata(names_metadata, vec_metadata));
   return x->ReplaceSchemaMetadata(kv);
 }
 

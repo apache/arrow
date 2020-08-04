@@ -174,8 +174,7 @@ int64_t io___BufferOutputStream__Tell(
 
 // [[arrow::export]]
 void io___BufferOutputStream__Write(
-    const std::shared_ptr<arrow::io::BufferOutputStream>& stream,
-    cpp11::raws bytes) {
+    const std::shared_ptr<arrow::io::BufferOutputStream>& stream, cpp11::raws bytes) {
   StopIfNotOk(stream->Write(RAW(bytes), bytes.size()));
 }
 

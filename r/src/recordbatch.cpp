@@ -47,8 +47,8 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__ReplaceSchemaMetadata(
     const std::shared_ptr<arrow::RecordBatch>& x, cpp11::strings metadata) {
   auto vec_metadata = cpp11::as_cpp<std::vector<std::string>>(metadata);
   auto names_metadata = cpp11::as_cpp<std::vector<std::string>>(metadata.names());
-  auto kv = std::shared_ptr<arrow::KeyValueMetadata>(new arrow::KeyValueMetadata(
-    names_metadata, vec_metadata));
+  auto kv = std::shared_ptr<arrow::KeyValueMetadata>(
+      new arrow::KeyValueMetadata(names_metadata, vec_metadata));
   return x->ReplaceSchemaMetadata(kv);
 }
 
@@ -78,8 +78,7 @@ std::shared_ptr<arrow::Array> RecordBatch__GetColumnByName(
 
 // [[arrow::export]]
 std::shared_ptr<arrow::RecordBatch> RecordBatch__select(
-    const std::shared_ptr<arrow::RecordBatch>& batch,
-    cpp11::integers indices) {
+    const std::shared_ptr<arrow::RecordBatch>& batch, cpp11::integers indices) {
   R_xlen_t n = indices.size();
   auto nrows = batch->num_rows();
 

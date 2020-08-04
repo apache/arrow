@@ -66,7 +66,7 @@ void inspect(SEXP obj);
 constexpr int64_t NA_INT64 = std::numeric_limits<int64_t>::min();
 
 template <typename RVector>
-typename RVector::value_type* vector_begin(const RVector& vec) ;
+typename RVector::value_type* vector_begin(const RVector& vec);
 
 template <>
 inline uint8_t* vector_begin<cpp11::raws>(const cpp11::raws& vec) {
@@ -84,7 +84,7 @@ inline double* vector_begin<cpp11::doubles>(const cpp11::doubles& vec) {
 }
 
 template <typename T>
-T na() ;
+T na();
 
 template <>
 inline int na<int>() {
@@ -100,7 +100,6 @@ template <>
 inline cpp11::r_string na<cpp11::r_string>() {
   return NA_STRING;
 };
-
 
 template <int RTYPE, typename RVector>
 class RBuffer : public MutableBuffer {
@@ -148,7 +147,6 @@ arrow::Status InferSchemaFromDots(SEXP lst, SEXP schema_sxp, int num_fields,
 
 arrow::Status AddMetadataFromDots(SEXP lst, int num_fields,
                                   std::shared_ptr<arrow::Schema>& schema);
-
 
 }  // namespace r
 }  // namespace arrow
