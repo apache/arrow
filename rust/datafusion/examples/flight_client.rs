@@ -19,12 +19,12 @@ use std::convert::TryFrom;
 use std::sync::Arc;
 
 use arrow::datatypes::Schema;
-use arrow::flight::flight_data_to_batch;
 use arrow::util::pretty;
 
-use flight::flight_descriptor;
-use flight::flight_service_client::FlightServiceClient;
-use flight::{FlightDescriptor, Ticket};
+use arrow_flight::flight_descriptor;
+use arrow_flight::flight_service_client::FlightServiceClient;
+use arrow_flight::utils::flight_data_to_batch;
+use arrow_flight::{FlightDescriptor, Ticket};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {

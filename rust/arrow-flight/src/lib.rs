@@ -15,8 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-mod flight {
-    include!("arrow.flight.protocol.rs");
-}
+include!("arrow.flight.protocol.rs");
 
-pub use crate::flight::*;
+pub mod utils;
