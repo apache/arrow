@@ -90,6 +90,7 @@ fn unnest_arrays_to_leaves(
     for (field, column) in fields.iter().zip(columns) {
         match field.data_type() {
             ArrowDataType::List(_dtype) => unimplemented!("list not yet implemented"),
+            ArrowDataType::LargeList(_dtype) => unimplemented!("largelist not yet implemented"),
             ArrowDataType::FixedSizeList(_, _) => {
                 unimplemented!("fsl not yet implemented")
             }
@@ -134,7 +135,9 @@ fn unnest_arrays_to_leaves(
             | ArrowDataType::Interval(_)
             | ArrowDataType::Binary
             | ArrowDataType::FixedSizeBinary(_)
-            | ArrowDataType::Utf8 => {
+            | ArrowDataType::Utf8
+            | ArrowDataType::LargeBinary
+            | ArrowDataType::LargeUtf8 => {
                 let col_writer = row_group_writer.next_column()?;
                 if let Some(mut writer) = col_writer {
                     // write_column
