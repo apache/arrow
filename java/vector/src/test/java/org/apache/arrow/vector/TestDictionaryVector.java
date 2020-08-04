@@ -911,7 +911,8 @@ public class TestDictionaryVector {
     try (VarCharVector dictionaryVector = new VarCharVector("dict vector", allocator)) {
       setVector(dictionaryVector, "0", "1", "2", "3", "4", "5", "6", "7", "8", "9");
       Dictionary dictionary1 = new Dictionary(dictionaryVector,
-          new DictionaryEncoding(/*id=*/10L, /*ordered=*/false, /*indexType=*/ new ArrowType.Int(8, false)));
+          new DictionaryEncoding(/*id=*/10L, /*ordered=*/false,
+              /*indexType=*/new ArrowType.Int(/*bitWidth*/8, /*isSigned*/false)));
       testDictionary(dictionary1, (vector, index) -> ((UInt1Vector) vector).get(index));
     }
   }
@@ -921,7 +922,8 @@ public class TestDictionaryVector {
     try (VarCharVector dictionaryVector = new VarCharVector("dict vector", allocator)) {
       setVector(dictionaryVector, "0", "1", "2", "3", "4", "5", "6", "7", "8", "9");
       Dictionary dictionary2 = new Dictionary(dictionaryVector,
-          new DictionaryEncoding(/*id=*/20L, /*ordered=*/false, /*indexType=*/ new ArrowType.Int(16, false)));
+          new DictionaryEncoding(/*id=*/20L, /*ordered=*/false,
+              /*indexType=*/new ArrowType.Int(/*indexType=*/16, /*isSigned*/false)));
       testDictionary(dictionary2, (vector, index) -> ((UInt2Vector) vector).get(index));
     }
   }
@@ -931,7 +933,8 @@ public class TestDictionaryVector {
     try (VarCharVector dictionaryVector = new VarCharVector("dict vector", allocator)) {
       setVector(dictionaryVector, "0", "1", "2", "3", "4", "5", "6", "7", "8", "9");
       Dictionary dictionary4 = new Dictionary(dictionaryVector,
-          new DictionaryEncoding(/*id=*/30L, /*ordered=*/false, /*indexType=*/ new ArrowType.Int(32, false)));
+          new DictionaryEncoding(/*id=*/30L, /*ordered=*/false,
+              /*indexType=*/new ArrowType.Int(/*indexType=*/32, /*isSigned*/false)));
       testDictionary(dictionary4, (vector, index) -> ((UInt4Vector) vector).get(index));
     }
   }
@@ -941,7 +944,8 @@ public class TestDictionaryVector {
     try (VarCharVector dictionaryVector = new VarCharVector("dict vector", allocator)) {
       setVector(dictionaryVector, "0", "1", "2", "3", "4", "5", "6", "7", "8", "9");
       Dictionary dictionary8 = new Dictionary(dictionaryVector,
-              new DictionaryEncoding(/*id=*/40L, /*ordered=*/false, /*indexType=*/ new ArrowType.Int(64, false)));
+              new DictionaryEncoding(/*id=*/40L, /*ordered=*/false,
+                  /*indexType=*/new ArrowType.Int(/*indexType=*/64, /*isSigned*/false)));
       testDictionary(dictionary8, (vector, index) -> (int) ((UInt8Vector) vector).get(index));
     }
   }
@@ -958,7 +962,8 @@ public class TestDictionaryVector {
       dictionaryVector.setValueCount(vecLength);
 
       Dictionary dictionary = new Dictionary(dictionaryVector,
-          new DictionaryEncoding(/*id=*/10L, /*ordered=*/false, /*indexType=*/ new ArrowType.Int(8, false)));
+          new DictionaryEncoding(/*id=*/10L, /*ordered=*/false,
+              /*indexType=*/new ArrowType.Int(/*indexType=*/8, /*isSigned*/false)));
 
       try (VarCharVector vector = new VarCharVector("vector", allocator)) {
         setVector(vector, "255");

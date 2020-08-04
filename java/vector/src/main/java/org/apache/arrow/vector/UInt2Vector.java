@@ -36,6 +36,12 @@ import org.apache.arrow.vector.util.TransferPair;
  * maintained to track which elements in the vector are null.
  */
 public final class UInt2Vector extends BaseFixedWidthVector implements BaseIntVector {
+
+  /**
+   * The maximum 16-bit unsigned integer.
+   */
+  public static final char MAX_UINT2 = (char) 0XFFFF;
+
   private static final byte TYPE_WIDTH = 2;
   private final FieldReader reader;
 
