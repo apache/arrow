@@ -153,7 +153,8 @@ class ARROW_DS_EXPORT FileFormat : public std::enable_shared_from_this<FileForma
 
   /// \brief Write a fragment.
   /// FIXME(bkietz) make this pure virtual
-  virtual Status WriteFragment(RecordBatchReader* batches, io::OutputStream* destination);
+  virtual Status WriteFragment(RecordBatchReader* batches,
+                               io::OutputStream* destination) const = 0;
 };
 
 /// \brief A Fragment that is stored in a file with a known format

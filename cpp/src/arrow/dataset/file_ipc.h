@@ -48,7 +48,7 @@ class ARROW_DS_EXPORT IpcFileFormat : public FileFormat {
                                     FileFragment* fragment) const override;
 
   Status WriteFragment(RecordBatchReader* batches,
-                       io::OutputStream* destination) override;
+                       io::OutputStream* destination) const override;
 };
 
 }  // namespace dataset

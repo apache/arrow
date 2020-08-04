@@ -65,10 +65,6 @@ Result<std::shared_ptr<FileFragment>> FileFormat::MakeFragment(
       new FileFragment(std::move(source), shared_from_this(),
                        std::move(partition_expression), std::move(physical_schema)));
 }
-Status FileFormat::WriteFragment(RecordBatchReader* batches,
-                                 io::OutputStream* destination) {
-  return Status::NotImplemented("writing fragment of format ", type_name());
-}
 
 Result<std::shared_ptr<Schema>> FileFragment::ReadPhysicalSchemaImpl() {
   return format_->Inspect(source_);

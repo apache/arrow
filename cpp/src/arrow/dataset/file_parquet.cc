@@ -34,6 +34,7 @@
 #include "arrow/util/range.h"
 #include "parquet/arrow/reader.h"
 #include "parquet/arrow/schema.h"
+#include "parquet/arrow/writer.h"
 #include "parquet/file_reader.h"
 #include "parquet/properties.h"
 #include "parquet/statistics.h"
@@ -276,7 +277,12 @@ class ParquetScanTaskIterator {
   size_t idx_ = 0;
 };
 
-ParquetFileFormat::ParquetFileFormat(const parquet::ReaderProperties& reader_properties) {
+ParquetFileFormat::ParquetFileFormat()
+    : writer_properties(parquet::default_writer_properties()),
+      arrow_writer_properties(parquet::default_arrow_writer_properties()) {}
+
+ParquetFileFormat::ParquetFileFormat(const parquet::ReaderProperties& reader_properties)
+    : ParquetFileFormat() {
   reader_options.use_buffered_stream = reader_properties.is_buffered_stream_enabled();
   reader_options.buffer_size = reader_properties.buffer_size();
   reader_options.file_decryption_properties =
@@ -332,6 +338,28 @@ static inline bool RowGroupInfosAreComplete(const std::vector<RowGroupInfo>& inf
   return !infos.empty() &&
          std::all_of(infos.cbegin(), infos.cend(),
                      [](const RowGroupInfo& i) { return i.HasStatistics(); });
+}
+
+Status ParquetFileFormat::WriteFragment(RecordBatchReader* batches,
+                                        io::OutputStream* destination) const {
+  using parquet::arrow::FileWriter;
+
+  std::shared_ptr<io::OutputStream> shared_destination{destination,
+                                                       [](io::OutputStream*) {}};
+
+  std::unique_ptr<FileWriter> writer;
+  RETURN_NOT_OK(FileWriter::Open(*batches->schema(), default_memory_pool(),
+                                 shared_destination, writer_properties,
+                                 arrow_writer_properties, &writer));
+
+  for (;;) {
+    ARROW_ASSIGN_OR_RAISE(auto batch, batches->Next());
+    if (batch == nullptr) break;
+    ARROW_ASSIGN_OR_RAISE(auto table, Table::FromRecordBatches(batch->schema(), {batch}));
+    RETURN_NOT_OK(writer->WriteTable(*table, batch->num_rows()));
+  }
+
+  return writer->Close();
 }
 
 Result<ScanTaskIterator> ParquetFileFormat::ScanFile(std::shared_ptr<ScanOptions> options,
