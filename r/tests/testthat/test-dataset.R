@@ -629,7 +629,7 @@ test_that("Assembling multiple DatasetFactories with DatasetFactory", {
 
 test_that("Writing a dataset: CSV->IPC", {
   ds <- open_dataset(csv_dir, partitioning = "part", format = "csv")
-  dst_dir <- tempfile()
+  dst_dir <- make_temp_dir()
   write_dataset(ds, dst_dir, format = "feather", partitioning = "int", partitioning_type = "hive")
   expect_true(dir.exists(dst_dir))
   expect_identical(dir(dst_dir), sort(paste("int", c(1:10, 101:110), sep = "=")))
@@ -651,7 +651,7 @@ test_that("Writing a dataset: CSV->IPC", {
 
 test_that("Writing a dataset: Parquet->IPC", {
   ds <- open_dataset(hive_dir)
-  dst_dir <- tempfile()
+  dst_dir <- make_temp_dir()
   write_dataset(ds, dst_dir, format = "feather", partitioning = "int", partitioning_type = "hive")
   expect_true(dir.exists(dst_dir))
   expect_identical(dir(dst_dir), sort(paste("int", c(1:10, 101:110), sep = "=")))
