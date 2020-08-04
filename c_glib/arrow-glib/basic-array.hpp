@@ -39,6 +39,6 @@ garrow_array_get_raw(GArrowArray *array);
 template <typename DataType>
 inline std::shared_ptr<typename arrow::TypeTraits<DataType>::ArrayType>
 garrow_array_get_raw(GArrowArray *array) {
-  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  auto arrow_array = garrow_array_get_raw(array);
   return std::static_pointer_cast<typename arrow::TypeTraits<DataType>::ArrayType>(arrow_array);
 }
