@@ -1322,9 +1322,11 @@ Schema::Schema(std::vector<std::shared_ptr<Field>> fields,
                std::shared_ptr<const KeyValueMetadata> metadata)
     : detail::Fingerprintable(),
 #if ARROW_LITTLE_ENDIAN
-      impl_(new Impl(std::move(fields), Endianness::LITTLE, std::move(metadata))) {}
+      impl_(new Impl(std::move(fields), Endianness::LITTLE, std::move(metadata))) {
+}
 #else
-      impl_(new Impl(std::move(fields), Endianness::BIG, std::move(metadata))) {}
+      impl_(new Impl(std::move(fields), Endianness::BIG, std::move(metadata))) {
+}
 #endif
 
 Schema::Schema(const Schema& schema)

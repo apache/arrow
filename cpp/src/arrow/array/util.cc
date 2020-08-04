@@ -114,13 +114,9 @@ class ArrayDataEndianSwapper {
     return Status::OK();
   }
 
-  Status SwapSmallOffset(int index = 1) {
-    return SwapOffset<int32_t>(index);
-  }
+  Status SwapSmallOffset(int index = 1) { return SwapOffset<int32_t>(index); }
 
-  Status SwapLargeOffset() {
-    return SwapOffset<int64_t>(1);
-  }
+  Status SwapLargeOffset() { return SwapOffset<int64_t>(1); }
 
   template <typename T>
   Status Visit(const T&) {
