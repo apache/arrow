@@ -4150,8 +4150,8 @@ garrow_binary_dictionary_array_builder_append_array(GArrowBinaryDictionaryArrayB
  * @values: (array length=values_length): The array of indices.
  * @values_length: The length of `values`.
  * @is_valids: (nullable) (array length=is_valids_length): The array of
- *   0 or 1 that shows whether the Nth value is valid or not. If the
- *   Nth `is_valids` is 1, the Nth `values` is valid value. Otherwise
+ *   %TRUE or %FALSE that shows whether the Nth value is valid or not. If the
+ *   Nth `is_valids` is %TRUE, the Nth `values` is valid value. Otherwise
  *   the Nth value is null value.
  * @is_valids_length: The length of `is_valids`.
  * @error: (nullable): Return location for a #GError or %NULL.
@@ -4388,8 +4388,8 @@ garrow_string_dictionary_array_builder_append_array(GArrowStringDictionaryArrayB
  * @values: (array length=values_length): The array of indices.
  * @values_length: The length of `values`.
  * @is_valids: (nullable) (array length=is_valids_length): The array of
- *   0 or 1 that shows whether the Nth value is valid or not. If the
- *   Nth `is_valids` is 1, the Nth `values` is valid value. Otherwise
+ *   %TRUE or %FALSE that shows whether the Nth value is valid or not. If the
+ *   Nth `is_valids` is %TRUE, the Nth `values` is valid value. Otherwise
  *   the Nth value is null value.
  * @is_valids_length: The length of `is_valids`.
  * @error: (nullable): Return location for a #GError or %NULL.
