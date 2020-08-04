@@ -930,6 +930,12 @@ garrow_binary_dictionary_array_builder_append_nulls(GArrowBinaryDictionaryArrayB
                                                     GError **error);
 GARROW_AVAILABLE_IN_2_0
 gboolean
+garrow_binary_dictionary_array_builder_append_value(GArrowBinaryDictionaryArrayBuilder *builder,
+                                                    const guint8 *value,
+                                                    gint32 length,
+                                                    GError **error);
+GARROW_AVAILABLE_IN_2_0
+gboolean
 garrow_binary_dictionary_array_builder_append_value_bytes(GArrowBinaryDictionaryArrayBuilder *builder,
                                                           GBytes *value,
                                                           GError **error);

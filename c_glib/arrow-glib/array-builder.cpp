@@ -4089,6 +4089,34 @@ garrow_binary_dictionary_array_builder_append_null(GArrowBinaryDictionaryArrayBu
 }
 
 /**
+ * garrow_binary_dictionary_array_builder_append_value:
+ * @builder: A #GArrowBinaryDictionaryArrayBuilder.
+ * @value: (array length=length): A binary value.
+ * @length: A value length.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 2.0.0
+ */
+gboolean
+garrow_binary_dictionary_array_builder_append_value(GArrowBinaryDictionaryArrayBuilder *builder,
+                                                    const guint8 *value,
+                                                    gint32 length,
+                                                    GError **error)
+{
+  auto arrow_builder =
+    static_cast<arrow::BinaryDictionaryBuilder *>(
+      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+
+  auto status = arrow_builder->Append(value, length);
+
+  return garrow_error_check(error,
+                            status,
+                            "[binary-dictionary-array-builder][append-value]");
+}
+
+/**
  * garrow_binary_dictionary_array_builder_append_value_bytes:
  * @builder: A #GArrowBinaryDictionaryArrayBuilder.
  * @value: A binary value.

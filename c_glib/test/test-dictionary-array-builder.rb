@@ -51,6 +51,17 @@ class TestDictinaryArrayBuilder < Test::Unit::TestCase
         end
       end
 
+      test("append_value") do
+        dictionary_array = build_binary_array([*@dictionary, "qux"])
+        indices_array = build_int8_array([*@indices, 3])
+        expected_array = Arrow::DictionaryArray.new(@data_type,
+                                                    indices_array,
+                                                    dictionary_array)
+
+        @builder.append_value("qux")
+        assert_equal(expected_array, @builder.finish)
+      end
+
       test("append_value_bytes") do
         dictionary_array = build_binary_array([*@dictionary, "qux"])
         indices_array = build_int8_array([*@indices, 3])
