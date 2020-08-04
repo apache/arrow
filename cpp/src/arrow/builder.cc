@@ -139,7 +139,8 @@ Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
 
     case Type::DICTIONARY: {
       const auto& dict_type = static_cast<const DictionaryType&>(*type);
-      DictionaryBuilderCase visitor = {pool, dict_type.index_type(), dict_type.value_type(), nullptr, out};
+      DictionaryBuilderCase visitor = {pool, dict_type.index_type(),
+                                       dict_type.value_type(), nullptr, out};
       auto status = visitor.Make();
       return status;
     }
@@ -210,7 +211,8 @@ Status MakeDictionaryBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& 
                              const std::shared_ptr<Array>& dictionary,
                              std::unique_ptr<ArrayBuilder>* out) {
   const auto& dict_type = static_cast<const DictionaryType&>(*type);
-  DictionaryBuilderCase visitor = {pool, dict_type.index_type(), dict_type.value_type(), dictionary, out};
+  DictionaryBuilderCase visitor = {pool, dict_type.index_type(), dict_type.value_type(),
+                                   dictionary, out};
   return visitor.Make();
 }
 
