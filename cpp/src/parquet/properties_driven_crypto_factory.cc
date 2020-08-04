@@ -125,6 +125,7 @@ PropertiesDrivenCryptoFactory::GetFileEncryptionProperties(
 
   std::shared_ptr<FileKeyMaterialStore> key_material_store = NULL;
   if (!encryption_config->internal_key_material()) {
+    // TODO: using external key material store with Hadoop file system
     throw new ParquetException("External key material store is not supported yet.");
   }
 
@@ -149,10 +150,10 @@ PropertiesDrivenCryptoFactory::GetFileEncryptionProperties(
 
   std::string footer_key_bytes;
   footer_key_bytes.resize(dek_length);
-  std::shared_ptr<Buffer> footer_key_buffer = Buffer::FromString(footer_key_bytes);
-  RandBytes(footer_key_buffer->mutable_data(), footer_key_buffer->size());
+  RandBytes(reinterpret_cast<uint8_t*>(&footer_key_bytes[0]), footer_key_bytes.size());
+
   std::string footer_key_metadata =
-      key_wrapper.GetEncryptionKeyMetadata(footer_key_buffer, footer_key_id, true);
+      key_wrapper.GetEncryptionKeyMetadata(Buffer::FromString(footer_key_bytes), footer_key_id, true);
 
   FileEncryptionProperties::Builder properties_builder =
       FileEncryptionProperties::Builder(footer_key_bytes);

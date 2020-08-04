@@ -59,7 +59,7 @@ using FileClass = ::arrow::io::FileOutputStream;
 
 constexpr int COLUMN_KEY_SIZE = 6;
 
-const char FOOTER_MASTER_KEY[] = "0123456789012345";
+const char FOOTER_MASTER_KEY[] = "0123456789112345";
 const char* const COLUMN_MASTER_KEYS[] = {"1234567890123450", "1234567890123451",
                                           "1234567890123452", "1234567890123453",
                                           "1234567890123454", "1234567890123455"};
@@ -82,14 +82,17 @@ std::string BuildKeyList(const char* const* ids, const char* const* keys, int si
   return stream.str();
 }
 
-std::vector<std::string> BuildKeyList2(const char* const* ids, const char* const* keys,
-                                       int size) {
+std::vector<std::string> BuildKeyList2(const char* const* column_ids, const char* const* column_keys,
+                                       int size, const char* footer_id, const char* footer_key) {
   std::vector<std::string> key_list;
   for (int i = 0; i < size; i++) {
     std::ostringstream stream;
-    stream << ids[i] << ":" << keys[i];
+    stream << column_ids[i] << ":" << column_keys[i];
     key_list.push_back(stream.str());
   }
+  std::ostringstream stream2;
+  stream2 << footer_id << ":" << footer_key;
+  key_list.push_back(stream2.str());
   return key_list;
 }
 
@@ -97,7 +100,7 @@ const std::string KEY_LIST =
     BuildKeyList(COLUMN_MASTER_KEY_IDS, COLUMN_MASTER_KEYS, COLUMN_KEY_SIZE);
 
 const std::vector<std::string> KEY_LIST2 =
-    BuildKeyList2(COLUMN_MASTER_KEY_IDS, COLUMN_MASTER_KEYS, COLUMN_KEY_SIZE);
+    BuildKeyList2(COLUMN_MASTER_KEY_IDS, COLUMN_MASTER_KEYS, COLUMN_KEY_SIZE, FOOTER_MASTER_KEY_ID, FOOTER_MASTER_KEY);
 
 const std::string NEW_KEY_LIST =
     BuildKeyList(COLUMN_MASTER_KEY_IDS, NEW_COLUMN_MASTER_KEYS, COLUMN_KEY_SIZE);
@@ -306,20 +309,28 @@ class TestEncryptionConfiguration : public ::testing::Test {
       std::shared_ptr<EncryptionConfiguration> encryption_config,
       const std::string& file_name) {
     std::shared_ptr<FileEncryptionProperties> file_encryption_properties = NULL;
-    try {
+//    try {
+      PropertiesDrivenCryptoFactory crypto_factory;
+
       std::shared_ptr<KmsClientFactory> kms_client_factory =
           std::make_shared<InMemoryKmsClientFactory>(KEY_LIST2);
-      PropertiesDrivenCryptoFactory crypto_factory;
       crypto_factory.kms_client_factory(kms_client_factory);
+
       file_encryption_properties = crypto_factory.GetFileEncryptionProperties(
           kms_connection_config, encryption_config);
-      this->EncryptFile(file_encryption_properties, file_name);
 
-    } catch (const std::exception& e) {
-      std::cout << "Failed writing " << file_name << ": " << e.what();  // TODO
-      // addErrorToErrorCollectorAndLog("Failed writing " + file.toString(), e,
-      //                                encryptionConfiguration, null);
-    }
+      this->EncryptFile(file_encryption_properties, file_name);
+//    }
+//    catch (const ParquetException& e) {
+//      std::cout << "Failed writing " << file_name << ": " << e.what();  // TODO
+//      // addErrorToErrorCollectorAndLog("Failed writing " + file.toString(), e,
+//      //                                encryptionConfiguration, null);
+//    }
+//    catch (const std::exception& e) {
+//      std::cout << "Failed writing " << file_name << ": " << e.what();  // TODO
+//      // addErrorToErrorCollectorAndLog("Failed writing " + file.toString(), e,
+//      //                                encryptionConfiguration, null);
+//    }
   }
 };
 
@@ -329,11 +340,16 @@ TEST_F(TestEncryptionConfiguration, TestWriteReadEncryptedParquetFiles) {
   // rootPath.toString()); LOG.info("Run: isKeyMaterialInternalStorage={}
   // isDoubleWrapping={} isWrapLocally={}", isKeyMaterialInternalStorage,
   // isDoubleWrapping, isWrapLocally);
-  EncryptionConfiguration::Builder builder("footer_key");
+  EncryptionConfiguration::Builder builder(FOOTER_MASTER_KEY_ID);
   builder.uniform_encryption();
+  builder.wrap_locally(true);
+  std::shared_ptr<EncryptionConfiguration> encryption_config = builder.build();
 
   KeyToolkit::RemoveCacheEntriesForAllTokens();
-  this->WriteEncryptedParquetFile(KmsConnectionConfig(), builder.build(),
+  KmsConnectionConfig kms_connection_config;
+  kms_connection_config.refreshable_key_access_token = std::make_shared<KeyAccessToken>();
+  kms_connection_config.refreshable_key_access_token->Refresh(KmsClient::KEY_ACCESS_TOKEN_DEFAULT);
+  this->WriteEncryptedParquetFile(kms_connection_config, encryption_config,
                                   "demo.parquet.encrypted");
 
   // Write using various encryption configurations.

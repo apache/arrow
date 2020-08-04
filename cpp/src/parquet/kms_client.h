@@ -23,6 +23,8 @@
 
 #include "arrow/buffer.h"
 
+#include "parquet/exception.h"
+
 namespace parquet {
 
 namespace encryption {
@@ -39,8 +41,15 @@ class KeyAccessToken {
 struct KmsConnectionConfig {
   std::string kms_instance_id;
   std::string kms_instance_url;
-  std::shared_ptr<KeyAccessToken> key_access_token;
+  std::shared_ptr<KeyAccessToken> refreshable_key_access_token;
   std::unordered_map<std::string, std::string> custom_kms_conf;
+
+  const std::string& key_access_token() const {
+    if (refreshable_key_access_token == NULL || refreshable_key_access_token->value().empty()) {
+        throw ParquetException("key access token is not set!");
+    }
+    return refreshable_key_access_token->value();
+  }
 };
 
 class KmsClient {

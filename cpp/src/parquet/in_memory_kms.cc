@@ -102,9 +102,7 @@ std::map<std::string, std::string> InMemoryKms::ParseKeyList(
                                       "' is not formatted correctly");
     }
     std::string key = TrimString(parts[1]);
-
-    std::string key_bytes = arrow::util::base64_decode(key);
-    key_map.insert({key_name, key_bytes});
+    key_map.insert({key_name, key});
   }
   return key_map;
 }

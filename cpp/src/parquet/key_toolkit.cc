@@ -30,7 +30,7 @@ std::shared_ptr<KmsClient> KeyToolkit::GetKmsClient(
     uint64_t cache_entry_lifetime) {
   std::map<std::string, std::shared_ptr<KmsClient>>& kms_client_per_kms_instance_cache =
       kms_client_cache_per_token().GetOrCreateInternalCache(
-          kms_connection_config.key_access_token->value(), cache_entry_lifetime);
+          kms_connection_config.key_access_token(), cache_entry_lifetime);
 
   if (kms_client_per_kms_instance_cache.find(kms_connection_config.kms_instance_id) ==
       kms_client_per_kms_instance_cache.end()) {
