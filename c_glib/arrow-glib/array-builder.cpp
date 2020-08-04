@@ -4233,7 +4233,7 @@ garrow_binary_dictionary_array_builder_finish_delta(GArrowBinaryDictionaryArrayB
 /**
  * garrow_binary_dictionary_array_builder_insert_memo_values:
  * @builder: A #GArrowBinaryDictionaryArrayBuilder.
- * @array: A #GArrowBinaryArray.
+ * @values: A #GArrowBinaryArray.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: %TRUE on success, %FALSE if there was an error.
@@ -4471,7 +4471,7 @@ garrow_string_dictionary_array_builder_finish_delta(GArrowStringDictionaryArrayB
 /**
  * garrow_string_dictionary_array_builder_insert_memo_values:
  * @builder: A #GArrowStringDictionaryArrayBuilder.
- * @array: A #GArrowStringArray.
+ * @values: A #GArrowStringArray.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: %TRUE on success, %FALSE if there was an error.
