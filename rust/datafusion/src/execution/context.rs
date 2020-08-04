@@ -260,11 +260,6 @@ impl ExecutionContext {
         self.datasources.insert(name.to_string(), provider);
     }
 
-    /// Get a reference to the registered data sources
-    pub fn datasources(&self) -> &HashMap<String, Box<dyn TableProvider + Send + Sync>> {
-        &self.datasources
-    }
-
     /// Get a table by name
     pub fn table(&mut self, table_name: &str) -> Result<Arc<dyn Table>> {
         match self.datasources.get(table_name) {
