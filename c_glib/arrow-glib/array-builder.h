@@ -950,8 +950,9 @@ GARROW_AVAILABLE_IN_2_0
 gint64
 garrow_binary_dictionary_array_builder_get_dictionary_length(GArrowBinaryDictionaryArrayBuilder *builder);
 GARROW_AVAILABLE_IN_2_0
-GArrowArray *
+gboolean
 garrow_binary_dictionary_array_builder_finish_delta(GArrowBinaryDictionaryArrayBuilder* builder,
+                                                    GArrowArray **out_indices,
                                                     GArrowArray **out_delta,
                                                     GError **error);
 GARROW_AVAILABLE_IN_2_0
@@ -1009,8 +1010,9 @@ GARROW_AVAILABLE_IN_2_0
 gint64
 garrow_string_dictionary_array_builder_get_dictionary_length(GArrowStringDictionaryArrayBuilder *builder);
 GARROW_AVAILABLE_IN_2_0
-GArrowArray *
+gboolean
 garrow_string_dictionary_array_builder_finish_delta(GArrowStringDictionaryArrayBuilder* builder,
+                                                    GArrowArray **out_indices,
                                                     GArrowArray **out_delta,
                                                     GError **error);
 GARROW_AVAILABLE_IN_2_0

@@ -98,6 +98,7 @@ class TestDictinaryArrayBuilder < Test::Unit::TestCase
 
       test("finish_delta") do
         assert_equal([
+                       true,
                        @indices_array,
                        @dictionary_array,
                      ],
@@ -243,6 +244,7 @@ class TestDictinaryArrayBuilder < Test::Unit::TestCase
 
       test("finish_delta") do
         assert_equal([
+                       true,
                        @indices_array,
                        @dictionary_array,
                      ],

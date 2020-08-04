@@ -4204,16 +4204,17 @@ gint64 garrow_binary_dictionary_array_builder_get_dictionary_length(GArrowBinary
 /**
  * garrow_binary_dictionary_array_builder_finish_delta:
  * @builder: A #GArrowBinaryDictionaryArrayBuilder.
+ * @out_indices: (out): The built #GArrowArray containing indices.
  * @out_delta: (out): The built #GArrowArray containing dictionary.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
- * Returns: (transfer full): The built #GArrowArray containing indices on
- *   success, %NULL on error.
+ * Returns: %TRUE on success, %FALSE if there was an error.
  *
  * Since: 2.0.0
  */
-GArrowArray *
+gboolean
 garrow_binary_dictionary_array_builder_finish_delta(GArrowBinaryDictionaryArrayBuilder* builder,
+                                                    GArrowArray **out_indices,
                                                     GArrowArray **out_delta,
                                                     GError **error)
 {
@@ -4224,10 +4225,11 @@ garrow_binary_dictionary_array_builder_finish_delta(GArrowBinaryDictionaryArrayB
   std::shared_ptr<arrow::Array> arrow_indices, arrow_delta;
   auto status = arrow_builder->FinishDelta(&arrow_indices, &arrow_delta);
   if (!garrow_error_check(error, status, context)) {
-    return NULL;
+    return FALSE;
   }
+  *out_indices = garrow_array_new_raw(&arrow_indices);
   *out_delta = garrow_array_new_raw(&arrow_delta);
-  return garrow_array_new_raw(&arrow_indices);
+  return TRUE;
 }
 
 /**
@@ -4442,16 +4444,17 @@ gint64 garrow_string_dictionary_array_builder_get_dictionary_length(GArrowString
 /**
  * garrow_string_dictionary_array_builder_finish_delta:
  * @builder: A #GArrowStringDictionaryArrayBuilder.
+ * @out_indices: (out): The built #GArrowArray containing indices.
  * @out_delta: (out): The built #GArrowArray containing dictionary.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
- * Returns: (transfer full): The built #GArrowArray containing indices on
- *   success, %NULL on error.
+ * Returns: %TRUE on success, %FALSE if there was an error.
  *
  * Since: 2.0.0
  */
-GArrowArray *
+gboolean
 garrow_string_dictionary_array_builder_finish_delta(GArrowStringDictionaryArrayBuilder* builder,
+                                                    GArrowArray **out_indices,
                                                     GArrowArray **out_delta,
                                                     GError **error)
 {
@@ -4462,10 +4465,11 @@ garrow_string_dictionary_array_builder_finish_delta(GArrowStringDictionaryArrayB
   std::shared_ptr<arrow::Array> arrow_indices, arrow_delta;
   auto status = arrow_builder->FinishDelta(&arrow_indices, &arrow_delta);
   if (!garrow_error_check(error, status, context)) {
-    return NULL;
+    return FALSE;
   }
+  *out_indices = garrow_array_new_raw(&arrow_indices);
   *out_delta = garrow_array_new_raw(&arrow_delta);
-  return garrow_array_new_raw(&arrow_indices);
+  return TRUE;
 }
 
 /**
