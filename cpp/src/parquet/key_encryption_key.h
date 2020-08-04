@@ -22,6 +22,10 @@
 
 #include "arrow/util/base64.h"
 
+namespace parquet {
+
+namespace encryption {
+
 class KeyEncryptionKey {
  public:
   KeyEncryptionKey() = default;
@@ -49,3 +53,7 @@ class KeyEncryptionKey {
   std::string encoded_kek_id_;
   std::string encoded_wrapped_kek_;
 };
+
+}  // namespace encryption
+
+}  // namespace parquet

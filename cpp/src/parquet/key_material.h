@@ -46,6 +46,11 @@ class KeyMaterial {
  public:
   static KeyMaterial Parse(const std::string& key_material_string);
 
+  static KeyMaterial Parse(const rapidjson::Document& key_material_json);
+
+  static std::shared_ptr<KeyMaterial> ParseShared(
+      const rapidjson::Document& key_material_json);
+
   static std::string CreateSerialized(bool is_footer_key,
                                       const std::string& kms_instance_id,
                                       const std::string& kms_instance_url,
@@ -65,8 +70,6 @@ class KeyMaterial {
   const std::string& kms_instance_url() const { return kms_instance_url_; }
 
  private:
-  static KeyMaterial Parse(const rapidjson::Document& key_material_json);
-
   KeyMaterial(bool is_footer_key, const std::string& kms_instance_id,
               const std::string& kms_instance_url, const std::string& master_key_id,
               bool is_double_wrapped, const std::string& kek_id,

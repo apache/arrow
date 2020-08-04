@@ -206,6 +206,7 @@ if(PARQUET_REQUIRE_ENCRYPTION)
   # these source files are for encryption key management
   set(PARQUET_SRCS ${PARQUET_SRCS}
       encryption_internal.cc
+      file_key_unwrapper.cc
       file_key_wrapper.cc
       key_material.cc
       key_metadata.cc

@@ -82,8 +82,9 @@ std::string BuildKeyList(const char* const* ids, const char* const* keys, int si
   return stream.str();
 }
 
-std::vector<std::string> BuildKeyList2(const char* const* column_ids, const char* const* column_keys,
-                                       int size, const char* footer_id, const char* footer_key) {
+std::vector<std::string> BuildKeyList2(const char* const* column_ids,
+                                       const char* const* column_keys, int size,
+                                       const char* footer_id, const char* footer_key) {
   std::vector<std::string> key_list;
   for (int i = 0; i < size; i++) {
     std::ostringstream stream;
@@ -100,7 +101,8 @@ const std::string KEY_LIST =
     BuildKeyList(COLUMN_MASTER_KEY_IDS, COLUMN_MASTER_KEYS, COLUMN_KEY_SIZE);
 
 const std::vector<std::string> KEY_LIST2 =
-    BuildKeyList2(COLUMN_MASTER_KEY_IDS, COLUMN_MASTER_KEYS, COLUMN_KEY_SIZE, FOOTER_MASTER_KEY_ID, FOOTER_MASTER_KEY);
+    BuildKeyList2(COLUMN_MASTER_KEY_IDS, COLUMN_MASTER_KEYS, COLUMN_KEY_SIZE,
+                  FOOTER_MASTER_KEY_ID, FOOTER_MASTER_KEY);
 
 const std::string NEW_KEY_LIST =
     BuildKeyList(COLUMN_MASTER_KEY_IDS, NEW_COLUMN_MASTER_KEYS, COLUMN_KEY_SIZE);
@@ -304,33 +306,319 @@ class TestEncryptionConfiguration : public ::testing::Test {
         GroupNode::Make("schema", Repetition::REQUIRED, fields));
   }
 
+  void DecryptFile(std::string file_name,
+                   std::shared_ptr<FileDecryptionProperties> file_decryption_properties) {
+    std::string file = data_file(file_name.c_str());
+    std::string exception_msg;
+    parquet::ReaderProperties reader_properties = parquet::default_reader_properties();
+    reader_properties.file_decryption_properties(file_decryption_properties);
+
+    auto file_reader =
+        parquet::ParquetFileReader::OpenFile(file, false, reader_properties);
+
+    // Get the File MetaData
+    std::shared_ptr<parquet::FileMetaData> file_metadata = file_reader->metadata();
+
+    // Get the number of RowGroups
+    int num_row_groups = file_metadata->num_row_groups();
+
+    // Get the number of Columns
+    int num_columns = file_metadata->num_columns();
+    ASSERT_EQ(num_columns, 8);
+
+    // Iterate over all the RowGroups in the file
+    for (int r = 0; r < num_row_groups; ++r) {
+      // Get the RowGroup Reader
+      std::shared_ptr<parquet::RowGroupReader> row_group_reader =
+          file_reader->RowGroup(r);
+
+      // Get the RowGroupMetaData
+      std::unique_ptr<RowGroupMetaData> rg_metadata = file_metadata->RowGroup(r);
+
+      int64_t values_read = 0;
+      int64_t rows_read = 0;
+      int16_t definition_level;
+      int16_t repetition_level;
+      int i;
+      std::shared_ptr<parquet::ColumnReader> column_reader;
+
+      // Get the Column Reader for the boolean column
+      column_reader = row_group_reader->Column(0);
+      parquet::BoolReader* bool_reader =
+          static_cast<parquet::BoolReader*>(column_reader.get());
+
+      // Get the ColumnChunkMetaData for the boolean column
+      std::unique_ptr<ColumnChunkMetaData> boolean_md = rg_metadata->ColumnChunk(0);
+
+      // Read all the rows in the column
+      i = 0;
+      while (bool_reader->HasNext()) {
+        bool value;
+        // Read one value at a time. The number of rows read is returned. values_read
+        // contains the number of non-null rows
+        rows_read = bool_reader->ReadBatch(1, nullptr, nullptr, &value, &values_read);
+        // Ensure only one value is read
+        ASSERT_EQ(rows_read, 1);
+        // There are no NULL values in the rows written
+        ASSERT_EQ(values_read, 1);
+        // Verify the value written
+        bool expected_value = ((i % 2) == 0) ? true : false;
+        ASSERT_EQ(value, expected_value);
+        i++;
+      }
+      // make sure we got the same number of values the metadata says
+      ASSERT_EQ(boolean_md->num_values(), i);
+
+      // Get the Column Reader for the Int32 column
+      column_reader = row_group_reader->Column(1);
+      parquet::Int32Reader* int32_reader =
+          static_cast<parquet::Int32Reader*>(column_reader.get());
+
+      // Get the ColumnChunkMetaData for the Int32 column
+      std::unique_ptr<ColumnChunkMetaData> int32_md = rg_metadata->ColumnChunk(1);
+
+      // Read all the rows in the column
+      i = 0;
+      while (int32_reader->HasNext()) {
+        int32_t value;
+        // Read one value at a time. The number of rows read is returned. values_read
+        // contains the number of non-null rows
+        rows_read = int32_reader->ReadBatch(1, nullptr, nullptr, &value, &values_read);
+        // Ensure only one value is read
+        ASSERT_EQ(rows_read, 1);
+        // There are no NULL values in the rows written
+        ASSERT_EQ(values_read, 1);
+        // Verify the value written
+        ASSERT_EQ(value, i);
+        i++;
+      }
+      // make sure we got the same number of values the metadata says
+      ASSERT_EQ(int32_md->num_values(), i);
+
+      // Get the Column Reader for the Int64 column
+      column_reader = row_group_reader->Column(2);
+      parquet::Int64Reader* int64_reader =
+          static_cast<parquet::Int64Reader*>(column_reader.get());
+
+      // Get the ColumnChunkMetaData for the Int64 column
+      std::unique_ptr<ColumnChunkMetaData> int64_md = rg_metadata->ColumnChunk(2);
+
+      // Read all the rows in the column
+      i = 0;
+      while (int64_reader->HasNext()) {
+        int64_t value;
+        // Read one value at a time. The number of rows read is returned. values_read
+        // contains the number of non-null rows
+        rows_read = int64_reader->ReadBatch(1, &definition_level, &repetition_level,
+                                            &value, &values_read);
+        // Ensure only one value is read
+        ASSERT_EQ(rows_read, 1);
+        // There are no NULL values in the rows written
+        ASSERT_EQ(values_read, 1);
+        // Verify the value written
+        int64_t expected_value = i * 1000 * 1000;
+        expected_value *= 1000 * 1000;
+        ASSERT_EQ(value, expected_value);
+        if ((i % 2) == 0) {
+          ASSERT_EQ(repetition_level, 1);
+        } else {
+          ASSERT_EQ(repetition_level, 0);
+        }
+        i++;
+      }
+      // make sure we got the same number of values the metadata says
+      ASSERT_EQ(int64_md->num_values(), i);
+
+      // Get the Column Reader for the Int96 column
+      column_reader = row_group_reader->Column(3);
+      parquet::Int96Reader* int96_reader =
+          static_cast<parquet::Int96Reader*>(column_reader.get());
+
+      // Get the ColumnChunkMetaData for the Int96 column
+      std::unique_ptr<ColumnChunkMetaData> int96_md = rg_metadata->ColumnChunk(3);
+
+      // Read all the rows in the column
+      i = 0;
+      while (int96_reader->HasNext()) {
+        parquet::Int96 value;
+        // Read one value at a time. The number of rows read is returned. values_read
+        // contains the number of non-null rows
+        rows_read = int96_reader->ReadBatch(1, nullptr, nullptr, &value, &values_read);
+        // Ensure only one value is read
+        ASSERT_EQ(rows_read, 1);
+        // There are no NULL values in the rows written
+        ASSERT_EQ(values_read, 1);
+        // Verify the value written
+        parquet::Int96 expected_value;
+        expected_value.value[0] = i;
+        expected_value.value[1] = i + 1;
+        expected_value.value[2] = i + 2;
+        for (int j = 0; j < 3; j++) {
+          ASSERT_EQ(value.value[j], expected_value.value[j]);
+        }
+        i++;
+      }
+      // make sure we got the same number of values the metadata says
+      ASSERT_EQ(int96_md->num_values(), i);
+
+      // if (decryption_config_num != 3) {
+      // Get the Column Reader for the Float column
+      column_reader = row_group_reader->Column(4);
+      parquet::FloatReader* float_reader =
+          static_cast<parquet::FloatReader*>(column_reader.get());
+
+      // Get the ColumnChunkMetaData for the Float column
+      std::unique_ptr<ColumnChunkMetaData> float_md = rg_metadata->ColumnChunk(4);
+
+      // Read all the rows in the column
+      i = 0;
+      while (float_reader->HasNext()) {
+        float value;
+        // Read one value at a time. The number of rows read is returned. values_read
+        // contains the number of non-null rows
+        rows_read = float_reader->ReadBatch(1, nullptr, nullptr, &value, &values_read);
+        // Ensure only one value is read
+        ASSERT_EQ(rows_read, 1);
+        // There are no NULL values in the rows written
+        ASSERT_EQ(values_read, 1);
+        // Verify the value written
+        float expected_value = static_cast<float>(i) * 1.1f;
+        ASSERT_EQ(value, expected_value);
+        i++;
+      }
+      // make sure we got the same number of values the metadata says
+      ASSERT_EQ(float_md->num_values(), i);
+
+      // Get the Column Reader for the Double column
+      column_reader = row_group_reader->Column(5);
+      parquet::DoubleReader* double_reader =
+          static_cast<parquet::DoubleReader*>(column_reader.get());
+
+      // Get the ColumnChunkMetaData for the Double column
+      std::unique_ptr<ColumnChunkMetaData> double_md = rg_metadata->ColumnChunk(5);
+
+      // Read all the rows in the column
+      i = 0;
+      while (double_reader->HasNext()) {
+        double value;
+        // Read one value at a time. The number of rows read is returned. values_read
+        // contains the number of non-null rows
+        rows_read = double_reader->ReadBatch(1, nullptr, nullptr, &value, &values_read);
+        // Ensure only one value is read
+        ASSERT_EQ(rows_read, 1);
+        // There are no NULL values in the rows written
+        ASSERT_EQ(values_read, 1);
+        // Verify the value written
+        double expected_value = i * 1.1111111;
+        ASSERT_EQ(value, expected_value);
+        i++;
+      }
+      // make sure we got the same number of values the metadata says
+      ASSERT_EQ(double_md->num_values(), i);
+      // }
+
+      // Get the Column Reader for the ByteArray column
+      column_reader = row_group_reader->Column(6);
+      parquet::ByteArrayReader* ba_reader =
+          static_cast<parquet::ByteArrayReader*>(column_reader.get());
+
+      // Get the ColumnChunkMetaData for the ByteArray column
+      std::unique_ptr<ColumnChunkMetaData> ba_md = rg_metadata->ColumnChunk(6);
+
+      // Read all the rows in the column
+      i = 0;
+      while (ba_reader->HasNext()) {
+        parquet::ByteArray value;
+        // Read one value at a time. The number of rows read is returned. values_read
+        // contains the number of non-null rows
+        rows_read =
+            ba_reader->ReadBatch(1, &definition_level, nullptr, &value, &values_read);
+        // Ensure only one value is read
+        ASSERT_EQ(rows_read, 1);
+        // Verify the value written
+        char expected_value[kFixedLength] = "parquet";
+        expected_value[7] = static_cast<char>('0' + i / 100);
+        expected_value[8] = static_cast<char>('0' + (i / 10) % 10);
+        expected_value[9] = static_cast<char>('0' + i % 10);
+        if (i % 2 == 0) {  // only alternate values exist
+          // There are no NULL values in the rows written
+          ASSERT_EQ(values_read, 1);
+          ASSERT_EQ(value.len, kFixedLength);
+          ASSERT_EQ(memcmp(value.ptr, &expected_value[0], kFixedLength), 0);
+          ASSERT_EQ(definition_level, 1);
+        } else {
+          // There are NULL values in the rows written
+          ASSERT_EQ(values_read, 0);
+          ASSERT_EQ(definition_level, 0);
+        }
+        i++;
+      }
+      // make sure we got the same number of values the metadata says
+      ASSERT_EQ(ba_md->num_values(), i);
+
+      // Get the Column Reader for the FixedLengthByteArray column
+      column_reader = row_group_reader->Column(7);
+      parquet::FixedLenByteArrayReader* flba_reader =
+          static_cast<parquet::FixedLenByteArrayReader*>(column_reader.get());
+
+      // Get the ColumnChunkMetaData for the FixedLengthByteArray column
+      std::unique_ptr<ColumnChunkMetaData> flba_md = rg_metadata->ColumnChunk(7);
+
+      // Read all the rows in the column
+      i = 0;
+      while (flba_reader->HasNext()) {
+        parquet::FixedLenByteArray value;
+        // Read one value at a time. The number of rows read is returned. values_read
+        // contains the number of non-null rows
+        rows_read = flba_reader->ReadBatch(1, nullptr, nullptr, &value, &values_read);
+        // Ensure only one value is read
+        ASSERT_EQ(rows_read, 1);
+        // There are no NULL values in the rows written
+        ASSERT_EQ(values_read, 1);
+        // Verify the value written
+        char v = static_cast<char>(i);
+        char expected_value[kFixedLength] = {v, v, v, v, v, v, v, v, v, v};
+        ASSERT_EQ(memcmp(value.ptr, &expected_value[0], kFixedLength), 0);
+        i++;
+      }
+      // make sure we got the same number of values the metadata says
+      ASSERT_EQ(flba_md->num_values(), i);
+    }
+    file_reader->Close();
+  }
+
   void WriteEncryptedParquetFile(
       const KmsConnectionConfig& kms_connection_config,
       std::shared_ptr<EncryptionConfiguration> encryption_config,
       const std::string& file_name) {
-    std::shared_ptr<FileEncryptionProperties> file_encryption_properties = NULL;
-//    try {
-      PropertiesDrivenCryptoFactory crypto_factory;
+    PropertiesDrivenCryptoFactory crypto_factory;
 
-      std::shared_ptr<KmsClientFactory> kms_client_factory =
-          std::make_shared<InMemoryKmsClientFactory>(KEY_LIST2);
-      crypto_factory.kms_client_factory(kms_client_factory);
+    std::shared_ptr<KmsClientFactory> kms_client_factory =
+        std::make_shared<InMemoryKmsClientFactory>(KEY_LIST2);
+    crypto_factory.kms_client_factory(kms_client_factory);
 
-      file_encryption_properties = crypto_factory.GetFileEncryptionProperties(
-          kms_connection_config, encryption_config);
+    std::shared_ptr<FileEncryptionProperties> file_encryption_properties =
+        crypto_factory.GetFileEncryptionProperties(kms_connection_config,
+                                                   encryption_config);
 
-      this->EncryptFile(file_encryption_properties, file_name);
-//    }
-//    catch (const ParquetException& e) {
-//      std::cout << "Failed writing " << file_name << ": " << e.what();  // TODO
-//      // addErrorToErrorCollectorAndLog("Failed writing " + file.toString(), e,
-//      //                                encryptionConfiguration, null);
-//    }
-//    catch (const std::exception& e) {
-//      std::cout << "Failed writing " << file_name << ": " << e.what();  // TODO
-//      // addErrorToErrorCollectorAndLog("Failed writing " + file.toString(), e,
-//      //                                encryptionConfiguration, null);
-//    }
+    this->EncryptFile(file_encryption_properties, file_name);
+  }
+
+  void ReadEncryptedParquetFile(
+      const KmsConnectionConfig& kms_connection_config,
+      std::shared_ptr<DecryptionConfiguration> decryption_config,
+      const std::string& file_name) {
+    PropertiesDrivenCryptoFactory crypto_factory;
+
+    std::shared_ptr<KmsClientFactory> kms_client_factory =
+        std::make_shared<InMemoryKmsClientFactory>(KEY_LIST2);
+    crypto_factory.kms_client_factory(kms_client_factory);
+
+    std::shared_ptr<FileDecryptionProperties> file_decryption_properties =
+        crypto_factory.GetFileDecryptionProperties(kms_connection_config,
+                                                   decryption_config);
+
+    this->DecryptFile(file_name, file_decryption_properties);
   }
 };
 
@@ -348,9 +636,14 @@ TEST_F(TestEncryptionConfiguration, TestWriteReadEncryptedParquetFiles) {
   KeyToolkit::RemoveCacheEntriesForAllTokens();
   KmsConnectionConfig kms_connection_config;
   kms_connection_config.refreshable_key_access_token = std::make_shared<KeyAccessToken>();
-  kms_connection_config.refreshable_key_access_token->Refresh(KmsClient::KEY_ACCESS_TOKEN_DEFAULT);
+  kms_connection_config.refreshable_key_access_token->Refresh(
+      KmsClient::KEY_ACCESS_TOKEN_DEFAULT);
   this->WriteEncryptedParquetFile(kms_connection_config, encryption_config,
                                   "demo.parquet.encrypted");
+
+  auto decryption_config = DecryptionConfiguration::Builder().wrap_locally(true)->build();
+  this->ReadEncryptedParquetFile(kms_connection_config, decryption_config,
+                                 "demo.parquet.encrypted");
 
   // Write using various encryption configurations.
   // TestWriteEncryptedParquetFiles(root_path);

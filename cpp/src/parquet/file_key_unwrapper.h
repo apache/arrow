@@ -17,36 +17,35 @@
 
 #pragma once
 
-#include <memory>
-#include <string>
-
+#include "parquet/encryption.h"
 #include "parquet/key_material.h"
+#include "parquet/key_toolkit.h"
+#include "parquet/kms_client.h"
+#include "parquet/kms_client_factory.h"
 
 namespace parquet {
 
 namespace encryption {
 
-class KeyMetadata {
+class FileKeyUnwrapper : public DecryptionKeyRetriever {
  public:
-  static constexpr char KEY_MATERIAL_INTERNAL_STORAGE_FIELD[] = "internalStorage";
-  static constexpr char KEY_REFERENCE_FIELD[] = "keyReference";
+  FileKeyUnwrapper(std::shared_ptr<KmsClientFactory> kms_client_factory,
+                   const KmsConnectionConfig& kms_connection_config,
+                   uint64_t cache_lifetime, bool is_wrap_locally);
 
-  static KeyMetadata Parse(const std::string& key_metadata_bytes);
-
-  static std::string CreateSerializedForExternalMaterial(
-      const std::string& key_reference);
-
-  bool key_material_stored_internally() const { return is_internal_storage_; }
-  const std::shared_ptr<KeyMaterial> key_material() const { return key_material_; }
-  const std::string& key_reference() const { return key_reference_; }
+  std::string GetKey(const std::string& key_metadata) override;
 
  private:
-  KeyMetadata(bool is_internal_storage, const std::string& key_reference,
-              std::shared_ptr<KeyMaterial> key_material);
+  KeyWithMasterID GetDEKandMasterID(std::shared_ptr<KeyMaterial> key_material);
+  std::shared_ptr<KmsClient> GetKmsClientFromConfigOrKeyMaterial(
+      std::shared_ptr<KeyMaterial> key_material);
 
-  bool is_internal_storage_;
-  std::string key_reference_;
-  std::shared_ptr<KeyMaterial> key_material_;
+  // A map of KEK_ID -> KEK bytes, for the current token
+  std::map<std::string, std::string> kek_per_kek_id_;
+  std::shared_ptr<KmsClientFactory> kms_client_factory_;
+  KmsConnectionConfig kms_connection_config_;
+  uint64_t cache_entry_lifetime_;
+  bool is_wrap_locally_;
 };
 
 }  // namespace encryption

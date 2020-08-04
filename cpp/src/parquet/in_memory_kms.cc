@@ -66,8 +66,8 @@ std::string InMemoryKms::WrapKeyInServer(std::shared_ptr<arrow::Buffer> key_byte
                                        master_key.size(), aad->data(), aad->size());
 }
 
-std::vector<uint8_t> InMemoryKms::UnwrapKeyInServer(
-    const std::string& wrapped_key, const std::string& master_key_identifier) {
+std::string InMemoryKms::UnwrapKeyInServer(const std::string& wrapped_key,
+                                           const std::string& master_key_identifier) {
   if (new_master_key_map_.find(master_key_identifier) == new_master_key_map_.end()) {
     throw new ParquetException("Key not found: " + master_key_identifier);
   }
@@ -79,14 +79,10 @@ std::vector<uint8_t> InMemoryKms::UnwrapKeyInServer(
       master_key.size(), aad->data(), aad->size());
 }
 
-std::vector<uint8_t> InMemoryKms::GetMasterKeyFromServer(
+std::string InMemoryKms::GetMasterKeyFromServer(
     const std::string& master_key_identifier) {
   // Always return the latest key version
-  const std::string master_key_str = new_master_key_map_.at(master_key_identifier);
-  std::vector<uint8_t> master_key(master_key_str.size());
-  memcpy(master_key.data(), master_key_str.c_str(), master_key_str.size());
-
-  return master_key;
+  return new_master_key_map_.at(master_key_identifier);
 }
 
 std::map<std::string, std::string> InMemoryKms::ParseKeyList(

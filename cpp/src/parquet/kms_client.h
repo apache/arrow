@@ -45,8 +45,9 @@ struct KmsConnectionConfig {
   std::unordered_map<std::string, std::string> custom_kms_conf;
 
   const std::string& key_access_token() const {
-    if (refreshable_key_access_token == NULL || refreshable_key_access_token->value().empty()) {
-        throw ParquetException("key access token is not set!");
+    if (refreshable_key_access_token == NULL ||
+        refreshable_key_access_token->value().empty()) {
+      throw ParquetException("key access token is not set!");
     }
     return refreshable_key_access_token->value();
   }
@@ -64,8 +65,8 @@ class KmsClient {
   virtual std::string WrapKey(std::shared_ptr<arrow::Buffer> key_bytes,
                               const std::string& master_key_identifier) = 0;
 
-  virtual std::vector<uint8_t> UnwrapKey(const std::string& wrapped_key,
-                                         const std::string& master_key_identifier) = 0;
+  virtual std::string UnwrapKey(const std::string& wrapped_key,
+                                const std::string& master_key_identifier) = 0;
 };
 
 }  // namespace encryption

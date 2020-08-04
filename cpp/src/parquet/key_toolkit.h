@@ -31,6 +31,19 @@ namespace parquet {
 
 namespace encryption {
 
+class KeyWithMasterID {
+ public:
+  KeyWithMasterID(const std::string& key_bytes, const std::string& master_id)
+      : key_bytes_(key_bytes), master_id_(master_id) {}
+
+  const std::string& data_key() const { return key_bytes_; }
+  const std::string& master_id() const { return master_id_; }
+
+ private:
+  std::string key_bytes_;
+  std::string master_id_;
+};
+
 class KeyToolkit {
  public:
   class KmsClientCache {
@@ -76,10 +89,10 @@ class KeyToolkit {
                                        int master_key_size, const uint8_t* aad_bytes,
                                        int aad_size);
 
-  static std::vector<uint8_t> DecryptKeyLocally(const std::string& encoded_encrypted_key,
-                                                const uint8_t* master_key_bytes,
-                                                int master_key_size,
-                                                const uint8_t* aad_bytes, int aad_size);
+  static std::string DecryptKeyLocally(const std::string& encoded_encrypted_key,
+                                       const uint8_t* master_key_bytes,
+                                       int master_key_size, const uint8_t* aad_bytes,
+                                       int aad_size);
 
   static void RemoveCacheEntriesForToken(const std::string& access_token);
 

@@ -23,6 +23,7 @@
 
 #include "parquet/encryption_internal.h"
 #include "parquet/file_key_material_store.h"
+#include "parquet/file_key_unwrapper.h"
 #include "parquet/properties_driven_crypto_factory.h"
 #include "parquet/string_util.h"
 
@@ -111,6 +112,24 @@ std::shared_ptr<EncryptionConfiguration> EncryptionConfiguration::Builder::build
       uniform_encryption_, data_key_length_bits_);
 }
 
+DecryptionConfiguration::Builder* DecryptionConfiguration::Builder::wrap_locally(
+    bool wrap_locally) {
+  wrap_locally_ = wrap_locally;
+  return this;
+}
+
+DecryptionConfiguration::Builder*
+DecryptionConfiguration::Builder::cache_lifetime_seconds(
+    uint64_t cache_lifetime_seconds) {
+  cache_lifetime_seconds_ = cache_lifetime_seconds;
+  return this;
+}
+
+std::shared_ptr<DecryptionConfiguration> DecryptionConfiguration::Builder::build() {
+  return std::make_shared<DecryptionConfiguration>(wrap_locally_,
+                                                   cache_lifetime_seconds_);
+}
+
 void PropertiesDrivenCryptoFactory::kms_client_factory(
     std::shared_ptr<KmsClientFactory> kms_client_factory) {
   kms_client_factory_ = kms_client_factory;
@@ -152,8 +171,8 @@ PropertiesDrivenCryptoFactory::GetFileEncryptionProperties(
   footer_key_bytes.resize(dek_length);
   RandBytes(reinterpret_cast<uint8_t*>(&footer_key_bytes[0]), footer_key_bytes.size());
 
-  std::string footer_key_metadata =
-      key_wrapper.GetEncryptionKeyMetadata(Buffer::FromString(footer_key_bytes), footer_key_id, true);
+  std::string footer_key_metadata = key_wrapper.GetEncryptionKeyMetadata(
+      Buffer::FromString(footer_key_bytes), footer_key_id, true);
 
   FileEncryptionProperties::Builder properties_builder =
       FileEncryptionProperties::Builder(footer_key_bytes);
@@ -247,6 +266,20 @@ PropertiesDrivenCryptoFactory::GetColumnEncryptionProperties(
   }
 
   return encrypted_columns;
+}
+
+std::shared_ptr<FileDecryptionProperties>
+PropertiesDrivenCryptoFactory::GetFileDecryptionProperties(
+    const KmsConnectionConfig& kms_connection_config,
+    std::shared_ptr<DecryptionConfiguration> decryption_config) {
+  std::shared_ptr<DecryptionKeyRetriever> key_retriever(new FileKeyUnwrapper(
+      kms_client_factory_, kms_connection_config,
+      decryption_config->cache_lifetime_seconds(), decryption_config->wrap_locally()));
+
+  return FileDecryptionProperties::Builder()
+      .key_retriever(key_retriever)
+      ->plaintext_files_allowed()
+      ->build();
 }
 
 }  // namespace encryption

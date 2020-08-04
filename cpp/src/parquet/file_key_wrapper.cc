@@ -50,15 +50,6 @@ FileKeyWrapper::FileKeyWrapper(std::shared_ptr<KmsClientFactory> kms_client_fact
         KeyToolkit::kek_write_cache_per_token().GetOrCreateInternalCache(
             kms_connection_config.key_access_token(), cache_entry_lifetime_);
   }
-  // TODO
-  // if (LOG.isDebugEnabled()) {
-  //   LOG.debug(
-  //       "Creating file key wrapper. KmsClient: {}; KmsInstanceId: {}; KmsInstanceURL: "
-  //       "{}; doubleWrapping: {}; " +
-  //           "keyMaterialStore: {}; token snippet: {}",
-  //       kmsClient, kmsInstanceID, kmsInstanceURL, doubleWrapping, keyMaterialStore,
-  //       KeyToolkit.formatTokenForLog(accessToken));
-  // }
 }
 
 std::string FileKeyWrapper::GetEncryptionKeyMetadata(

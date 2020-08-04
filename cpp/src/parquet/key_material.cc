@@ -105,6 +105,38 @@ KeyMaterial KeyMaterial::Parse(const rapidjson::Document& key_material_json) {
                      is_double_wrapped, kek_id, encoded_wrapped_kek, encoded_wrapped_dek);
 }
 
+std::shared_ptr<KeyMaterial> KeyMaterial::ParseShared(
+    const rapidjson::Document& key_material_json) {
+  // 2. Check if "key material" belongs to file footer key
+  bool is_footer_key = key_material_json[IS_FOOTER_KEY_FIELD].GetBool();
+  std::string kms_instance_id;
+  std::string kms_instance_url;
+  if (is_footer_key) {
+    // 3.  For footer key, extract KMS Instance ID
+    kms_instance_id = key_material_json[KMS_INSTANCE_ID_FIELD].GetString();
+    // 4.  For footer key, extract KMS Instance URL
+    kms_instance_url = key_material_json[KMS_INSTANCE_URL_FIELD].GetString();
+  }
+  // 5. Extract master key ID
+  std::string master_key_id = key_material_json[MASTER_KEY_ID_FIELD].GetString();
+  // 6. Extract wrapped DEK
+  std::string encoded_wrapped_dek = key_material_json[WRAPPED_DEK_FIELD].GetString();
+  std::string kek_id;
+  std::string encoded_wrapped_kek;
+  // 7. Check if "key material" was generated in double wrapping mode
+  bool is_double_wrapped = key_material_json[DOUBLE_WRAPPING_FIELD].GetBool();
+  if (is_double_wrapped) {
+    // 8. In double wrapping mode, extract KEK ID
+    kek_id = key_material_json[KEK_ID_FIELD].GetString();
+    // 9. In double wrapping mode, extract wrapped KEK
+    encoded_wrapped_kek = key_material_json[WRAPPED_KEK_FIELD].GetString();
+  }
+
+  return std::shared_ptr<KeyMaterial>(new KeyMaterial(
+      is_footer_key, kms_instance_id, kms_instance_url, master_key_id, is_double_wrapped,
+      kek_id, encoded_wrapped_kek, encoded_wrapped_dek));
+}
+
 std::string KeyMaterial::CreateSerialized(
     bool is_footer_key, const std::string& kms_instance_id,
     const std::string& kms_instance_url, const std::string& master_key_id,

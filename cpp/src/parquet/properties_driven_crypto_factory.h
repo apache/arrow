@@ -125,6 +125,35 @@ class PARQUET_EXPORT EncryptionConfiguration {
   int32_t data_key_length_bits_;
 };
 
+class PARQUET_EXPORT DecryptionConfiguration {
+ public:
+  class PARQUET_EXPORT Builder {
+   public:
+    Builder()
+        : wrap_locally_(kDefaultWrapLocally),
+          cache_lifetime_seconds_(kDefaultCacheLifetimeSeconds) {}
+
+    Builder* wrap_locally(bool wrap_locally);
+    Builder* cache_lifetime_seconds(uint64_t cache_lifetime_seconds);
+
+    std::shared_ptr<DecryptionConfiguration> build();
+
+   private:
+    bool wrap_locally_;                // default is false
+    uint64_t cache_lifetime_seconds_;  // the default is 600 (10 minutes)
+  };
+
+  DecryptionConfiguration(bool wrap_locally, uint64_t cache_lifetime_seconds)
+      : wrap_locally_(wrap_locally), cache_lifetime_seconds_(cache_lifetime_seconds) {}
+
+  bool wrap_locally() const { return wrap_locally_; }
+  uint64_t cache_lifetime_seconds() const { return cache_lifetime_seconds_; }
+
+ private:
+  bool wrap_locally_;
+  uint64_t cache_lifetime_seconds_;
+};
+
 class PARQUET_EXPORT PropertiesDrivenCryptoFactory {
  public:
   static constexpr char COLUMN_KEYS_PROPERTY_NAME[] = "parquet.encryption.column.keys";
@@ -134,6 +163,10 @@ class PARQUET_EXPORT PropertiesDrivenCryptoFactory {
   std::shared_ptr<FileEncryptionProperties> GetFileEncryptionProperties(
       const KmsConnectionConfig& kms_connection_config,
       std::shared_ptr<EncryptionConfiguration> encryption_config);
+
+  std::shared_ptr<FileDecryptionProperties> GetFileDecryptionProperties(
+      const KmsConnectionConfig& kms_connection_config,
+      std::shared_ptr<DecryptionConfiguration> decryption_config);
 
  private:
   static constexpr int32_t ACCEPTABLE_DATA_KEY_LENGTHS[] = {128, 192, 256};
