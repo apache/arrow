@@ -64,14 +64,14 @@ class TestDictinaryArrayBuilder < Test::Unit::TestCase
         end
       end
 
-      test("append_binary_array") do
+      test("append_array") do
         dictionary_array = build_binary_array([*@dictionary, "qux"])
         indices_array = build_int8_array([*@indices, 3, 0, nil, 2])
         expected_array = Arrow::DictionaryArray.new(@data_type,
                                                     indices_array,
                                                     dictionary_array)
 
-        @builder.append_binary_array(build_binary_array(["qux", "foo", nil, "baz"]))
+        @builder.append_array(build_binary_array(["qux", "foo", nil, "baz"]))
         assert do
           expected_array == @builder.finish
         end
@@ -221,14 +221,14 @@ class TestDictinaryArrayBuilder < Test::Unit::TestCase
         end
       end
 
-      test("append_string_array") do
+      test("append_array") do
         dictionary_array = build_string_array([*@dictionary, "qux"])
         indices_array = build_int8_array([*@indices, 3, 0, nil, 2])
         expected_array = Arrow::DictionaryArray.new(@data_type,
                                                     indices_array,
                                                     dictionary_array)
 
-        @builder.append_string_array(build_string_array(["qux", "foo", nil, "baz"]))
+        @builder.append_array(build_string_array(["qux", "foo", nil, "baz"]))
         assert do
           expected_array == @builder.finish
         end

@@ -935,9 +935,9 @@ garrow_binary_dictionary_array_builder_append_value_bytes(GArrowBinaryDictionary
                                                           GError **error);
 GARROW_AVAILABLE_IN_2_0
 gboolean
-garrow_binary_dictionary_array_builder_append_binary_array(GArrowBinaryDictionaryArrayBuilder *builder,
-                                                           GArrowBinaryArray *array,
-                                                           GError **error);
+garrow_binary_dictionary_array_builder_append_array(GArrowBinaryDictionaryArrayBuilder *builder,
+                                                    GArrowBinaryArray *array,
+                                                    GError **error);
 GARROW_AVAILABLE_IN_2_0
 gboolean
 garrow_binary_dictionary_array_builder_append_indices(GArrowBinaryDictionaryArrayBuilder *builder,
@@ -994,9 +994,9 @@ garrow_string_dictionary_array_builder_append_string(GArrowStringDictionaryArray
                                                      GError **error);
 GARROW_AVAILABLE_IN_2_0
 gboolean
-garrow_string_dictionary_array_builder_append_string_array(GArrowStringDictionaryArrayBuilder *builder,
-                                                           GArrowStringArray *array,
-                                                           GError **error);
+garrow_string_dictionary_array_builder_append_array(GArrowStringDictionaryArrayBuilder *builder,
+                                                    GArrowStringArray *array,
+                                                    GError **error);
 GARROW_AVAILABLE_IN_2_0
 gboolean
 garrow_string_dictionary_array_builder_append_indices(GArrowStringDictionaryArrayBuilder *builder,

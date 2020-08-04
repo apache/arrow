@@ -4118,7 +4118,7 @@ garrow_binary_dictionary_array_builder_append_value_bytes(GArrowBinaryDictionary
 }
 
 /**
- * garrow_binary_dictionary_array_builder_append_binary_array:
+ * garrow_binary_dictionary_array_builder_append_array:
  * @builder: A #GArrowBinaryDictionaryArrayBuilder.
  * @array: A #GArrowBinaryArray.
  * @error: (nullable): Return location for a #GError or %NULL.
@@ -4128,9 +4128,9 @@ garrow_binary_dictionary_array_builder_append_value_bytes(GArrowBinaryDictionary
  * Since: 2.0.0
  */
 gboolean
-garrow_binary_dictionary_array_builder_append_binary_array(GArrowBinaryDictionaryArrayBuilder *builder,
-                                                           GArrowBinaryArray *array,
-                                                           GError **error)
+garrow_binary_dictionary_array_builder_append_array(GArrowBinaryDictionaryArrayBuilder *builder,
+                                                    GArrowBinaryArray *array,
+                                                    GError **error)
 {
   auto arrow_builder =
     static_cast<arrow::BinaryDictionaryBuilder *>(
@@ -4356,7 +4356,7 @@ garrow_string_dictionary_array_builder_append_string(GArrowStringDictionaryArray
 }
 
 /**
- * garrow_string_dictionary_array_builder_append_string_array:
+ * garrow_string_dictionary_array_builder_append_array:
  * @builder: A #GArrowStringDictionaryArrayBuilder.
  * @array: A #GArrowStringArray.
  * @error: (nullable): Return location for a #GError or %NULL.
@@ -4366,9 +4366,9 @@ garrow_string_dictionary_array_builder_append_string(GArrowStringDictionaryArray
  * Since: 2.0.0
  */
 gboolean
-garrow_string_dictionary_array_builder_append_string_array(GArrowStringDictionaryArrayBuilder *builder,
-                                                           GArrowStringArray *array,
-                                                           GError **error)
+garrow_string_dictionary_array_builder_append_array(GArrowStringDictionaryArrayBuilder *builder,
+                                                    GArrowStringArray *array,
+                                                    GError **error)
 {
   auto arrow_builder =
     static_cast<arrow::StringDictionaryBuilder *>(
