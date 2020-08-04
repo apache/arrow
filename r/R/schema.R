@@ -85,7 +85,6 @@ Schema <- R6Class("Schema",
   active = list(
     names = function() {
       out <- Schema__field_names(self)
-      # Hack: Rcpp should set the encoding
       Encoding(out) <- "UTF-8"
       out
     },

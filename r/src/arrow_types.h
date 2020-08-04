@@ -21,21 +21,6 @@
 
 #include "./arrow_rcpp.h"
 
-namespace arrow {
-namespace r {
-
-template <int RTYPE>
-inline constexpr typename Rcpp::Vector<RTYPE>::stored_type default_value() {
-  return Rcpp::Vector<RTYPE>::get_na();
-}
-template <>
-inline constexpr Rbyte default_value<RAWSXP>() {
-  return 0;
-}
-
-}  // namespace r
-}  // namespace arrow
-
 #if defined(ARROW_R_WITH_ARROW)
 
 #include <arrow/buffer.h>  // for RBuffer definition below
@@ -97,6 +82,25 @@ template <>
 inline double* vector_begin<cpp11::doubles>(const cpp11::doubles& vec) {
   return REAL(vec);
 }
+
+template <typename T>
+T na() ;
+
+template <>
+inline int na<int>() {
+  return NA_INTEGER;
+};
+
+template <>
+inline double na<double>() {
+  return NA_REAL;
+};
+
+template <>
+inline cpp11::r_string na<cpp11::r_string>() {
+  return NA_STRING;
+};
+
 
 template <int RTYPE, typename RVector>
 class RBuffer : public MutableBuffer {

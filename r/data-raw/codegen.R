@@ -18,10 +18,10 @@
 # This file is used to generate code in the files
 # src/arrowExports.cpp and R/arrowExports.R
 #
-# This is similar to what Rcpp::compileAttributes() would do,
+# This is similar to what compileAttributes() would do,
 # with some arrow specific changes.
 #
-# Functions are decorated with [[arrow::export]] instead of [[Rcpp::export]]
+# Functions are decorated with [[arrow::export]]
 # and the generated code adds a layer of protection so that
 # the arrow package can be installed even when libarrow is not
 #
@@ -84,7 +84,7 @@ cpp_functions_definitions <- arrow_exports %>%
     END_CPP11
     }}
     #else
-    RcppExport SEXP _arrow_{name}({sexp_params}){{
+    extern "C" SEXP _arrow_{name}({sexp_params}){{
     \tRf_error("Cannot call {name}(). Please use arrow::install_arrow() to install required runtime libraries. ");
     }}
     #endif
@@ -112,7 +112,6 @@ writeLines(con = "src/arrowExports.cpp", glue::glue('
 #include <cpp11/declarations.hpp>
 
 #include "./arrow_exports.h"
-#include <Rcpp.h>
 
 {cpp_functions_definitions}
 
@@ -143,7 +142,7 @@ static const R_CallMethodDef CallEntries[] = {{
 \t\t{{NULL, NULL, 0}}
 }};
 
-RcppExport void R_init_arrow(DllInfo* dll){{
+extern "C" void R_init_arrow(DllInfo* dll){{
   R_registerRoutines(dll, NULL, CallEntries, NULL, NULL);
   R_useDynamicSymbols(dll, FALSE);
 }}

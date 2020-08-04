@@ -107,7 +107,7 @@ Note that after any change to the C++ library, you must reinstall it and
 run `make clean` or `git clean -fdx .` to remove any cached object code
 in the `r/src/` directory before reinstalling the R package. This is
 only necessary if you make changes to the C++ library source; you do not
-need to manually purge object files if you are only editing R or Rcpp
+need to manually purge object files if you are only editing R or C++
 code inside `r/`.
 
 Once you’ve built the C++ library, you can install the R package and its
@@ -120,7 +120,7 @@ R -e 'install.packages(c("devtools", "roxygen2", "pkgdown", "covr")); devtools::
 R CMD INSTALL .
 ```
 
-If you need to set any compilation flags while building the Rcpp
+If you need to set any compilation flags while building the C++
 extensions, you can use the `ARROW_R_CXXFLAGS` environment variable. For
 example, if you are using `perf` to profile the R extensions, you may
 need to set

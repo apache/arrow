@@ -1423,6 +1423,7 @@ std::shared_ptr<arrow::Array> Array__from_vector_reuse_memory(SEXP x) {
   }
 
   cpp11::stop("Unreachable: you might need to fix can_reuse_memory()");
+  return nullptr;
 }
 
 bool CheckCompatibleFactor(SEXP obj, const std::shared_ptr<arrow::DataType>& type) {

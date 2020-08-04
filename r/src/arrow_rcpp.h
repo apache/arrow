@@ -15,15 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <RcppCommon.h>
-
 #include <limits>
 #include <memory>
 #include <utility>
 #include <vector>
 #undef Free
-
-#include <Rcpp.h>
 
 namespace cpp11 {
 
