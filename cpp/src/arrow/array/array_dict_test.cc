@@ -905,6 +905,34 @@ TEST(TestDecimalDictionaryBuilder, DoubleTableSize) {
 }
 
 // ----------------------------------------------------------------------
+// Index byte width tests
+
+template <typename IndexType, typename ValueType>
+void AssertIndexByteWidth(const std::shared_ptr<DataType>& value_type = TypeTraits<ValueType>::type_singleton()) {
+  auto index_type = TypeTraits<IndexType>::type_singleton();
+  auto dict_type = dictionary(index_type, value_type);
+  std::unique_ptr<ArrayBuilder> builder;
+  ASSERT_OK(MakeBuilder(default_memory_pool(), dict_type, &builder));
+  ASSERT_TRUE(dict_type->Equals(builder->type()))
+    << "builder's type is " << builder->type()->ToString()
+    << ", but " << dict_type->ToString() << " is expected";
+}
+
+typedef ::testing::Types<Int8Type, Int16Type, Int32Type, Int64Type> IndexTypes;
+
+template <typename Type>
+class TestDictionaryBuilderIndexByteWidth : public TestBuilder {};
+
+TYPED_TEST_SUITE(TestDictionaryBuilderIndexByteWidth, IndexTypes);
+
+TYPED_TEST(TestDictionaryBuilderIndexByteWidth, MakeBuilder) {
+  AssertIndexByteWidth<TypeParam, FloatType>();
+  AssertIndexByteWidth<TypeParam, BinaryType>();
+  AssertIndexByteWidth<TypeParam, StringType>();
+  AssertIndexByteWidth<TypeParam, FixedSizeBinaryType>(fixed_size_binary(4));
+}
+
+// ----------------------------------------------------------------------
 // DictionaryArray tests
 
 TEST(TestDictionary, Equals) {
