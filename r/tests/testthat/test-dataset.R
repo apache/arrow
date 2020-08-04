@@ -630,7 +630,7 @@ test_that("Assembling multiple DatasetFactories with DatasetFactory", {
 test_that("Writing a dataset: CSV->IPC", {
   ds <- open_dataset(csv_dir, partitioning = "part", format = "csv")
   dst_dir <- make_temp_dir()
-  write_dataset(ds, dst_dir, format = "feather", partitioning = "int", partitioning_type = "hive")
+  write_dataset(ds, dst_dir, format = "feather", partitioning = "int")
   expect_true(dir.exists(dst_dir))
   expect_identical(dir(dst_dir), sort(paste("int", c(1:10, 101:110), sep = "=")))
 
@@ -652,7 +652,7 @@ test_that("Writing a dataset: CSV->IPC", {
 test_that("Writing a dataset: Parquet->IPC", {
   ds <- open_dataset(hive_dir)
   dst_dir <- make_temp_dir()
-  write_dataset(ds, dst_dir, format = "feather", partitioning = "int", partitioning_type = "hive")
+  write_dataset(ds, dst_dir, format = "feather", partitioning = "int")
   expect_true(dir.exists(dst_dir))
   expect_identical(dir(dst_dir), sort(paste("int", c(1:10, 101:110), sep = "=")))
 
@@ -668,5 +668,57 @@ test_that("Writing a dataset: Parquet->IPC", {
       select(string = chr, integer = int) %>%
       filter(integer > 6) %>%
       summarize(mean = mean(integer))
+  )
+})
+
+test_that("Dataset writing: dplyr methods", {
+  ds <- open_dataset(hive_dir)
+  dst_dir <- tempfile()
+  # Specify partition vars by group_by
+  ds %>% group_by(int) %>% write_dataset(dst_dir, format = "feather")
+  expect_true(dir.exists(dst_dir))
+  expect_identical(dir(dst_dir), sort(paste("int", c(1:10, 101:110), sep = "=")))
+
+  # select to specify schema
+  skip("TODO: select to specify schema")
+  ds %>% group_by(int) %>% select(lgl, chr) %>% write_dataset(dst_dir, format = "feather")
+  new_ds <- open_dataset(dst_dir, format = "feather")
+
+  expect_equivalent(
+    collect(new_ds),
+    rbind(df1[c("lgl", "chr", "int")], df2[c("lgl", "chr", "int")])
+  )
+})
+
+test_that("Dataset writing: non-hive", {
+  ds <- open_dataset(hive_dir)
+  dst_dir <- tempfile()
+  write_dataset(ds, dst_dir, format = "feather", partitioning = "int", hive_style = FALSE)
+  expect_true(dir.exists(dst_dir))
+  expect_identical(dir(dst_dir), sort(as.character(c(1:10, 101:110))))
+})
+
+test_that("Dataset writing: no partitioning", {
+  ds <- open_dataset(hive_dir)
+  dst_dir <- tempfile()
+  write_dataset(ds, dst_dir, format = "feather", partitioning = NULL)
+  expect_true(dir.exists(dst_dir))
+  expect_true(length(dir(dst_dir)) > 1)
+})
+
+test_that("Dataset writing: unsupported features/input validation", {
+  expect_error(write_dataset(4), "'dataset' must be a Dataset")
+
+  ds <- open_dataset(hive_dir)
+
+  expect_error(write_dataset(ds, format = "csv"), "Unsupported format")
+  expect_error(
+    filter(ds, int == 4) %>% write_dataset(ds),
+    "Writing a filtered dataset is not yet supported"
+  )
+
+  expect_error(
+    write_dataset(ds, partitioning = c("int", "NOTACOLUMN"), format = "ipc"),
+    'Invalid field name: "NOTACOLUMN"'
   )
 })
