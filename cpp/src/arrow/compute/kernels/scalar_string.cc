@@ -861,10 +861,10 @@ void AddBinaryLength(FunctionRegistry* registry) {
       applicator::ScalarUnaryNotNull<Int32Type, StringType, BinaryLength>::Exec;
   ArrayKernelExec exec_offset_64 =
       applicator::ScalarUnaryNotNull<Int64Type, LargeStringType, BinaryLength>::Exec;
-  for (const auto input_type : {binary(), utf8()}) {
+  for (const auto& input_type : {binary(), utf8()}) {
     DCHECK_OK(func->AddKernel({input_type}, int32(), exec_offset_32));
   }
-  for (const auto input_type : {large_binary(), large_utf8()}) {
+  for (const auto& input_type : {large_binary(), large_utf8()}) {
     DCHECK_OK(func->AddKernel({input_type}, int64(), exec_offset_64));
   }
   DCHECK_OK(registry->AddFunction(std::move(func)));
