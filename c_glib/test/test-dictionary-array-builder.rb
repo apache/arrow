@@ -59,9 +59,7 @@ class TestDictinaryArrayBuilder < Test::Unit::TestCase
                                                     dictionary_array)
 
         @builder.append_value_bytes("qux")
-        assert do
-          expected_array == @builder.finish
-        end
+        assert_equal(expected_array, @builder.finish)
       end
 
       test("append_array") do
@@ -72,9 +70,7 @@ class TestDictinaryArrayBuilder < Test::Unit::TestCase
                                                     dictionary_array)
 
         @builder.append_array(build_binary_array(["qux", "foo", nil, "baz"]))
-        assert do
-          expected_array == @builder.finish
-        end
+        assert_equal(expected_array, @builder.finish)
       end
 
       test("append_indices") do
@@ -88,15 +84,11 @@ class TestDictinaryArrayBuilder < Test::Unit::TestCase
         @builder.append_indices([1, 2, 1, 3, 0],
                                 [true, true, false, true, true])
         @builder.append_indices([1, 2, 1, 3, 0])
-        assert do
-          expected_array == @builder.finish
-        end
+        assert_equal(expected_array, @builder.finish)
       end
 
       test("dictionary_length") do
-        assert do
-          @dictionary.length == @builder.dictionary_length
-        end
+        assert_equal(@dictionary.length, @builder.dictionary_length)
       end
 
       test("finish") do
@@ -170,15 +162,11 @@ class TestDictinaryArrayBuilder < Test::Unit::TestCase
       end
 
       test("dictionary_length") do
-        assert do
-          @dictionary.length == @builder.dictionary_length
-        end
+        assert_equal(@dictionary.length, @builder.dictionary_length)
       end
 
       test("finish") do
-        assert do
-          @expected_array == @builder.finish
-        end
+        assert_equal(@expected_array, @builder.finish)
       end
     end
   end
@@ -216,9 +204,7 @@ class TestDictinaryArrayBuilder < Test::Unit::TestCase
                                                     dictionary_array)
 
         @builder.append_string("qux")
-        assert do
-          expected_array == @builder.finish
-        end
+        assert_equal(expected_array, @builder.finish)
       end
 
       test("append_array") do
@@ -229,9 +215,7 @@ class TestDictinaryArrayBuilder < Test::Unit::TestCase
                                                     dictionary_array)
 
         @builder.append_array(build_string_array(["qux", "foo", nil, "baz"]))
-        assert do
-          expected_array == @builder.finish
-        end
+        assert_equal(expected_array, @builder.finish)
       end
 
       test("append_indices") do
@@ -245,15 +229,11 @@ class TestDictinaryArrayBuilder < Test::Unit::TestCase
         @builder.append_indices([1, 2, 1, 3, 0],
                                 [true, true, false, true, true])
         @builder.append_indices([1, 2, 1, 3, 0])
-        assert do
-          expected_array == @builder.finish
-        end
+        assert_equal(expected_array, @builder.finish)
       end
 
       test("dictionary_length") do
-        assert do
-          @dictionary.length == @builder.dictionary_length
-        end
+        assert_equal(@dictionary.length, @builder.dictionary_length)
       end
 
       test("finish") do
@@ -327,15 +307,11 @@ class TestDictinaryArrayBuilder < Test::Unit::TestCase
       end
 
       test("dictionary_length") do
-        assert do
-          @dictionary.length == @builder.dictionary_length
-        end
+        assert_equal(@dictionary.length, @builder.dictionary_length)
       end
 
       test("finish") do
-        assert do
-          @expected_array == @builder.finish
-        end
+        assert_equal(@expected_array, @builder.finish)
       end
     end
   end
