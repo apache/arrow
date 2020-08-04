@@ -117,46 +117,6 @@ class ARROW_DS_EXPORT FileSource {
   Compression::type compression_ = Compression::UNCOMPRESSED;
 };
 
-/// \brief The path and filesystem where an actual file is located or a buffer which can
-/// be written to like a file
-class ARROW_DS_EXPORT WritableFileSource {
- public:
-  WritableFileSource(std::string path, std::shared_ptr<fs::FileSystem> filesystem,
-                     Compression::type compression = Compression::UNCOMPRESSED)
-      : path_(std::move(path)),
-        filesystem_(std::move(filesystem)),
-        compression_(compression) {}
-
-  explicit WritableFileSource(std::shared_ptr<ResizableBuffer> buffer,
-                              Compression::type compression = Compression::UNCOMPRESSED)
-      : buffer_(std::move(buffer)), compression_(compression) {}
-
-  /// \brief Return the type of raw compression on the file, if any
-  Compression::type compression() const { return compression_; }
-
-  /// \brief Return the file path, if any. Only valid when file source wraps a path.
-  const std::string& path() const {
-    static std::string buffer_path = "<Buffer>";
-    return filesystem_ ? path_ : buffer_path;
-  }
-
-  /// \brief Return the filesystem, if any. Otherwise returns nullptr
-  const std::shared_ptr<fs::FileSystem>& filesystem() const { return filesystem_; }
-
-  /// \brief Return the buffer containing the file, if any. Otherwise returns nullptr
-  const std::shared_ptr<ResizableBuffer>& buffer() const { return buffer_; }
-
-  /// \brief Get an OutputStream which wraps this file source. If necessary, parent
-  /// directories will be created.
-  Result<std::shared_ptr<arrow::io::OutputStream>> Open() const;
-
- private:
-  std::string path_;
-  std::shared_ptr<fs::FileSystem> filesystem_;
-  std::shared_ptr<ResizableBuffer> buffer_;
-  Compression::type compression_ = Compression::UNCOMPRESSED;
-};
-
 /// \brief Base class for file format implementation
 class ARROW_DS_EXPORT FileFormat : public std::enable_shared_from_this<FileFormat> {
  public:
@@ -191,12 +151,9 @@ class ARROW_DS_EXPORT FileFormat : public std::enable_shared_from_this<FileForma
   Result<std::shared_ptr<FileFragment>> MakeFragment(
       FileSource source, std::shared_ptr<Schema> physical_schema = NULLPTR);
 
-  /// \brief Write a fragment. If the parent directory of destination does not exist, it
-  /// will be created.
+  /// \brief Write a fragment.
   /// FIXME(bkietz) make this pure virtual
-  virtual Result<std::shared_ptr<FileFragment>> WriteFragment(
-      WritableFileSource destination, std::shared_ptr<Expression> partition_expression,
-      std::shared_ptr<RecordBatchReader> batches);
+  virtual Status WriteFragment(RecordBatchReader* batches, io::OutputStream* destination);
 };
 
 /// \brief A Fragment that is stored in a file with a known format

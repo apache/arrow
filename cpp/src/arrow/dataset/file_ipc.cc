@@ -159,25 +159,17 @@ Result<ScanTaskIterator> IpcFileFormat::ScanFile(std::shared_ptr<ScanOptions> op
                                    fragment->source());
 }
 
-Result<std::shared_ptr<FileFragment>> IpcFileFormat::WriteFragment(
-    WritableFileSource destination, std::shared_ptr<Expression> partition_expression,
-    std::shared_ptr<RecordBatchReader> batches) {
-  ARROW_ASSIGN_OR_RAISE(auto out_stream, destination.Open());
-  ARROW_ASSIGN_OR_RAISE(auto writer,
-                        ipc::NewFileWriter(out_stream.get(), batches->schema()));
+Status IpcFileFormat::WriteFragment(RecordBatchReader* batches,
+                                    io::OutputStream* destination) {
+  ARROW_ASSIGN_OR_RAISE(auto writer, ipc::NewFileWriter(destination, batches->schema()));
 
-  for (auto maybe_batch : IteratorFromReader(batches)) {
-    ARROW_ASSIGN_OR_RAISE(auto batch, std::move(maybe_batch));
+  for (;;) {
+    ARROW_ASSIGN_OR_RAISE(auto batch, batches->Next());
+    if (batch == nullptr) break;
     RETURN_NOT_OK(writer->WriteRecordBatch(*batch));
   }
 
-  RETURN_NOT_OK(writer->Close());
-
-  auto source = destination.buffer()
-                    ? FileSource(destination.buffer())
-                    : FileSource(destination.path(), destination.filesystem());
-  return MakeFragment(std::move(source), std::move(partition_expression),
-                      batches->schema());
+  return writer->Close();
 }
 
 }  // namespace dataset

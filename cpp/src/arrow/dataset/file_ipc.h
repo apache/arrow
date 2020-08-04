@@ -47,9 +47,8 @@ class ARROW_DS_EXPORT IpcFileFormat : public FileFormat {
                                     std::shared_ptr<ScanContext> context,
                                     FileFragment* fragment) const override;
 
-  Result<std::shared_ptr<FileFragment>> WriteFragment(
-      WritableFileSource destination, std::shared_ptr<Expression> partition_expression,
-      std::shared_ptr<RecordBatchReader> reader) override;
+  Status WriteFragment(RecordBatchReader* batches,
+                       io::OutputStream* destination) override;
 };
 
 }  // namespace dataset
