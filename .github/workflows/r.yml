@@ -162,7 +162,7 @@ jobs:
       - name: Make R tests verbose
         # If you get a segfault/mysterious test Execution halted,
         # make this `true` to see where it dies.
-        if: true
+        if: false
         shell: cmd
         run: |
           cd r/tests
