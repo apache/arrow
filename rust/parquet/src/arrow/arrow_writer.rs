@@ -17,7 +17,6 @@
 
 //! Contains writer which writes arrow data into parquet data.
 
-use std::fs::File;
 use std::rc::Rc;
 
 use array::Array;
@@ -30,23 +29,27 @@ use crate::errors::Result;
 use crate::file::properties::WriterProperties;
 use crate::{
     data_type::*,
-    file::writer::{FileWriter, RowGroupWriter, SerializedFileWriter},
+    file::writer::{FileWriter, ParquetWriter, RowGroupWriter, SerializedFileWriter},
 };
 
-pub struct ArrowWriter {
-    writer: SerializedFileWriter<File>,
+pub struct ArrowWriter<W: ParquetWriter> {
+    writer: SerializedFileWriter<W>,
     rows: i64,
 }
 
-impl ArrowWriter {
-    pub fn try_new(file: File, arrow_schema: &Schema, props: Option<Rc<WriterProperties>>) -> Result<Self> {
+impl<W: 'static + ParquetWriter> ArrowWriter<W> {
+    pub fn try_new(
+        writer: W,
+        arrow_schema: &Schema,
+        props: Option<Rc<WriterProperties>>,
+    ) -> Result<Self> {
         let schema = crate::arrow::arrow_to_parquet_schema(arrow_schema)?;
         let props = match props {
             Some(props) => props,
             None => Rc::new(WriterProperties::builder().build()),
         };
         let file_writer = SerializedFileWriter::new(
-            file.try_clone()?,
+            writer.try_clone()?,
             schema.root_schema_ptr(),
             props,
         )?;
@@ -93,7 +96,9 @@ fn unnest_arrays_to_leaves(
     for (field, column) in fields.iter().zip(columns) {
         match field.data_type() {
             ArrowDataType::List(_dtype) => unimplemented!("list not yet implemented"),
-            ArrowDataType::LargeList(_dtype) => unimplemented!("largelist not yet implemented"),
+            ArrowDataType::LargeList(_dtype) => {
+                unimplemented!("largelist not yet implemented")
+            }
             ArrowDataType::FixedSizeList(_, _) => {
                 unimplemented!("fsl not yet implemented")
             }
