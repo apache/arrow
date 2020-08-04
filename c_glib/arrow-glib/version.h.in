@@ -111,6 +111,15 @@
 #endif
 
 /**
+ * GARROW_VERSION_2_0:
+ *
+ * You can use this macro value for compile time API version check.
+ *
+ * Since: 2.0.0
+ */
+#define GARROW_VERSION_2_0 G_ENCODE_VERSION(2, 0)
+
+/**
  * GARROW_VERSION_1_0:
  *
  * You can use this macro value for compile time API version check.
