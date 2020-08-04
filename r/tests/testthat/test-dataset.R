@@ -628,6 +628,7 @@ test_that("Assembling multiple DatasetFactories with DatasetFactory", {
 })
 
 test_that("Writing a dataset: CSV->IPC", {
+  skip_on_os("windows")
   ds <- open_dataset(csv_dir, partitioning = "part", format = "csv")
   dst_dir <- make_temp_dir()
   write_dataset(ds, dst_dir, format = "feather", partitioning = "int")
@@ -650,6 +651,7 @@ test_that("Writing a dataset: CSV->IPC", {
 })
 
 test_that("Writing a dataset: Parquet->IPC", {
+  skip_on_os("windows")
   ds <- open_dataset(hive_dir)
   dst_dir <- make_temp_dir()
   write_dataset(ds, dst_dir, format = "feather", partitioning = "int")

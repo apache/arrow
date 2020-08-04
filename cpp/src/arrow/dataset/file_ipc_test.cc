@@ -88,10 +88,10 @@ class TestIpcFileFormat : public ArrowIpcWriterMixin {
                                     kBatchRepetitions);
   }
 
-  Result<WritableFileSource> GetFileSink() {
+  Result<std::shared_ptr<io::BufferOutputStream>> GetFileSink() {
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ResizableBuffer> buffer,
                           AllocateResizableBuffer(0));
-    return WritableFileSource(std::move(buffer));
+    return std::make_shared<io::BufferOutputStream>(buffer);
   }
 
   RecordBatchIterator Batches(ScanTaskIterator scan_task_it) {
@@ -156,9 +156,11 @@ TEST_F(TestIpcFileFormat, WriteRecordBatchReader) {
 
   EXPECT_OK_AND_ASSIGN(auto sink, GetFileSink());
 
-  EXPECT_OK_AND_ASSIGN(auto fragment, format_->WriteFragment(sink, scalar(true), reader));
+  ASSERT_OK(format_->WriteFragment(reader.get(), sink.get()));
 
-  AssertBufferEqual(*sink.buffer(), *source->buffer());
+  EXPECT_OK_AND_ASSIGN(auto written, sink->Finish());
+
+  AssertBufferEqual(*written, *source->buffer());
 }
 
 class TestIpcFileSystemDataset : public TestIpcFileFormat,

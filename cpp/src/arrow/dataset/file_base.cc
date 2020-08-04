@@ -36,26 +36,16 @@
 namespace arrow {
 namespace dataset {
 
-Result<std::shared_ptr<arrow::io::RandomAccessFile>> FileSource::Open() const {
+Result<std::shared_ptr<io::RandomAccessFile>> FileSource::Open() const {
   if (filesystem_) {
     return filesystem_->OpenInputFile(file_info_);
   }
 
   if (buffer_) {
-    return std::make_shared<::arrow::io::BufferReader>(buffer_);
+    return std::make_shared<io::BufferReader>(buffer_);
   }
 
   return custom_open_();
-}
-
-Result<std::shared_ptr<arrow::io::OutputStream>> WritableFileSource::Open() const {
-  if (filesystem_) {
-    auto parent = fs::internal::GetAbstractPathParent(path_).first;
-    RETURN_NOT_OK(filesystem_->CreateDir(parent, /* recursive = */ true));
-    return filesystem_->OpenOutputStream(path_);
-  }
-
-  return std::make_shared<::arrow::io::BufferOutputStream>(buffer_);
 }
 
 Result<std::shared_ptr<FileFragment>> FileFormat::MakeFragment(
@@ -75,10 +65,8 @@ Result<std::shared_ptr<FileFragment>> FileFormat::MakeFragment(
       new FileFragment(std::move(source), shared_from_this(),
                        std::move(partition_expression), std::move(physical_schema)));
 }
-
-Result<std::shared_ptr<FileFragment>> FileFormat::WriteFragment(
-    WritableFileSource destination, std::shared_ptr<Expression> partition_expression,
-    std::shared_ptr<RecordBatchReader> batches) {
+Status FileFormat::WriteFragment(RecordBatchReader* batches,
+                                 io::OutputStream* destination) {
   return Status::NotImplemented("writing fragment of format ", type_name());
 }
 
@@ -160,6 +148,8 @@ FragmentIterator FileSystemDataset::GetFragmentsImpl(
 struct WriteTask {
   Status Execute();
 
+  /// The basename of files written by this WriteTask. Extensions
+  /// are derived from format
   std::string basename;
 
   /// The partitioning with which paths will be generated
@@ -190,24 +180,22 @@ Status WriteTask::Execute() {
       AndExpression expr(std::move(partitioned_batch.partition_expression),
                          partition_expression);
       ARROW_ASSIGN_OR_RAISE(std::string path, partitioning->Format(expr));
+      path = fs::internal::EnsureLeadingSlash(path);
       path_to_batches[path].push_back(std::move(partitioned_batch.batch));
     }
   }
 
-  auto dummy = scalar(true);
-
   for (auto&& path_batches : path_to_batches) {
-    WritableFileSource destination(
-        fs::internal::JoinAbstractPath(
-            std::vector<std::string>{base_dir, path_batches.first, basename}),
-        filesystem);
+    auto dir = base_dir + path_batches.first;
+    RETURN_NOT_OK(filesystem->CreateDir(dir, /*recursive=*/true));
+
+    auto path = fs::internal::ConcatAbstractPath(dir, basename);
+    ARROW_ASSIGN_OR_RAISE(auto destination, filesystem->OpenOutputStream(path));
 
     DCHECK(!path_batches.second.empty());
     ARROW_ASSIGN_OR_RAISE(auto reader,
                           RecordBatchReader::Make(std::move(path_batches.second)));
-
-    RETURN_NOT_OK(
-        format->WriteFragment(std::move(destination), dummy, std::move(reader)));
+    RETURN_NOT_OK(format->WriteFragment(reader.get(), destination.get()));
   }
 
   return Status::OK();
@@ -222,9 +210,7 @@ Status FileSystemDataset::Write(std::shared_ptr<Schema> schema,
                                 FragmentIterator fragment_it) {
   auto task_group = scan_context->TaskGroup();
 
-  while (!base_dir.empty() && base_dir.back() == fs::internal::kSep) {
-    base_dir.pop_back();
-  }
+  base_dir = fs::internal::RemoveTrailingSlash(base_dir).to_string();
 
   for (const auto& f : partitioning->schema()->fields()) {
     if (f->type()->id() == Type::DICTIONARY) {
