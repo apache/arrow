@@ -59,17 +59,27 @@ struct DictionaryBuilderCase {
 
   template <typename BuilderType>
   Status Create() {
+    BuilderType* builder;
     if (dictionary != nullptr) {
-      out->reset(new BuilderType(dictionary, pool));
+      builder = new BuilderType(dictionary, pool);
     } else {
-      out->reset(new BuilderType(value_type, pool));
+      builder = new BuilderType(value_type, pool);
     }
+    RETURN_NOT_OK(AdjustIndexByteWidth(builder));
+    out->reset(builder);
     return Status::OK();
+  }
+
+  template <typename BuilderType>
+  Status AdjustIndexByteWidth(BuilderType* builder) {
+    const auto& fw_type = internal::checked_cast<const FixedWidthType&>(*index_type);
+    return builder->ExpandIndexByteWidth(fw_type.bit_width() / CHAR_BIT);
   }
 
   Status Make() { return VisitTypeInline(*value_type, this); }
 
   MemoryPool* pool;
+  const std::shared_ptr<DataType>& index_type;
   const std::shared_ptr<DataType>& value_type;
   const std::shared_ptr<Array>& dictionary;
   std::unique_ptr<ArrayBuilder>* out;
@@ -129,8 +139,9 @@ Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
 
     case Type::DICTIONARY: {
       const auto& dict_type = static_cast<const DictionaryType&>(*type);
-      DictionaryBuilderCase visitor = {pool, dict_type.value_type(), nullptr, out};
-      return visitor.Make();
+      DictionaryBuilderCase visitor = {pool, dict_type.index_type(), dict_type.value_type(), nullptr, out};
+      auto status = visitor.Make();
+      return status;
     }
 
     case Type::LIST: {
@@ -199,7 +210,7 @@ Status MakeDictionaryBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& 
                              const std::shared_ptr<Array>& dictionary,
                              std::unique_ptr<ArrayBuilder>* out) {
   const auto& dict_type = static_cast<const DictionaryType&>(*type);
-  DictionaryBuilderCase visitor = {pool, dict_type.value_type(), dictionary, out};
+  DictionaryBuilderCase visitor = {pool, dict_type.index_type(), dict_type.value_type(), dictionary, out};
   return visitor.Make();
 }
 

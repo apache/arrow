@@ -409,6 +409,10 @@ class DictionaryBuilder : public internal::DictionaryBuilderBase<AdaptiveIntBuil
   using BASE = internal::DictionaryBuilderBase<AdaptiveIntBuilder, T>;
   using BASE::BASE;
 
+  Status ExpandIndexByteWidth(uint8_t new_index_byte_width) {
+    return BASE::indices_builder_.ExpandIntSize(new_index_byte_width);
+  }
+
   /// \brief Append dictionary indices directly without modifying memo
   ///
   /// NOTE: Experimental API
