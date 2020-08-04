@@ -40,18 +40,16 @@ garrow_array_builder_append_value(GArrowArrayBuilder *builder,
   return garrow_error_check(error, status, context);
 }
 
-template <typename BUILDER, typename VALUE>
+template <typename VALUE, typename APPEND_FUNCTION>
 gboolean
-garrow_array_builder_append_values(GArrowArrayBuilder *builder,
-                                   VALUE *values,
+garrow_array_builder_append_values(VALUE *values,
                                    gint64 values_length,
                                    const gboolean *is_valids,
                                    gint64 is_valids_length,
                                    GError **error,
-                                   const gchar *context)
+                                   const gchar *context,
+                                   APPEND_FUNCTION& append_function)
 {
-  auto arrow_builder =
-    static_cast<BUILDER>(garrow_array_builder_get_raw(builder));
   arrow::Status status;
   if (is_valids_length > 0) {
     if (values_length != is_valids_length) {
@@ -77,9 +75,9 @@ garrow_array_builder_append_values(GArrowArrayBuilder *builder,
       for (gint64 j = 0; j < chunk_size; ++j) {
         valid_bytes[j] = chunked_is_valids[j];
       }
-      status = arrow_builder->AppendValues(values + offset,
-                                           chunk_size,
-                                           valid_bytes);
+      status = append_function(values + offset,
+                               chunk_size,
+                               valid_bytes);
       if (!garrow_error_check(error, status, context)) {
         return FALSE;
       }
@@ -91,14 +89,37 @@ garrow_array_builder_append_values(GArrowArrayBuilder *builder,
       for (gint64 i = 0; i < n_remains; ++i) {
         valid_bytes[i] = chunked_is_valids[i];
       }
-      status = arrow_builder->AppendValues(values + offset,
-                                           n_remains,
-                                           valid_bytes);
+      status = append_function(values + offset,
+                               n_remains,
+                               valid_bytes);
     }
   } else {
-    status = arrow_builder->AppendValues(values, values_length, nullptr);
+    status = append_function(values, values_length, nullptr);
   }
   return garrow_error_check(error, status, context);
+}
+
+template <typename BUILDER, typename VALUE>
+gboolean
+garrow_array_builder_append_values(GArrowArrayBuilder *builder,
+                                   VALUE *values,
+                                   gint64 values_length,
+                                   const gboolean *is_valids,
+                                   gint64 is_valids_length,
+                                   GError **error,
+                                   const gchar *context)
+{
+  auto arrow_builder =
+    static_cast<BUILDER>(garrow_array_builder_get_raw(builder));
+  auto append_function = [&arrow_builder](
+      VALUE *values,
+      gint64 values_length,
+      const uint8_t *valid_bytes) -> arrow::Status {
+    return arrow_builder->AppendValues(values, values_length, valid_bytes);
+  };
+  return garrow_array_builder_append_values(values, values_length, is_valids,
+                                            is_valids_length, error, context,
+                                            append_function);
 }
 
 template <typename BUILDER>
@@ -301,6 +322,9 @@ G_BEGIN_DECLS
  * #GArrowTime64ArrayBuilder is the class to create a new
  * #GArrowTime64Array.
  *
+ * #GArrowStringDictionaryBuilder is the class to create a new
+ * #GArrowDictionaryArray with a dictionary array of #GArrowStringArray.
+ *
  * #GArrowListArrayBuilder is the class to create a new
  * #GArrowListArray.
  *
@@ -490,6 +514,103 @@ garrow_array_builder_finish(GArrowArrayBuilder *builder, GError **error)
   }
 }
 
+/**
+ * garrow_array_builder_reset:
+ * @builder: A #GArrowArrayBuilder.
+ *
+ * Since: 2.0.0
+ */
+void
+garrow_array_builder_reset(GArrowArrayBuilder *builder)
+{
+  auto arrow_builder = garrow_array_builder_get_raw(builder);
+  arrow_builder->Reset();
+}
+
+/**
+ * garrow_array_builder_get_capacity:
+ * @builder: A #GArrowArrayBuilder.
+ *
+ * Returns: The capacity of the building array.
+ *
+ * Since: 2.0.0
+ */
+gint64
+garrow_array_builder_get_capacity(GArrowArrayBuilder *builder)
+{
+  auto arrow_builder = garrow_array_builder_get_raw(builder);
+  return arrow_builder->capacity();
+}
+
+/**
+ * garrow_array_builder_get_length:
+ * @builder: A #GArrowArrayBuilder.
+ *
+ * Returns: The current length of the building array.
+ *
+ * Since: 2.0.0
+ */
+gint64
+garrow_array_builder_get_length(GArrowArrayBuilder *builder)
+{
+  auto arrow_builder = garrow_array_builder_get_raw(builder);
+  return arrow_builder->length();
+}
+
+/**
+ * garrow_array_builder_get_n_nulls:
+ * @builder: A #GArrowArrayBuilder.
+ *
+ * Returns: The current number of null elements in the building array.
+ *
+ * Since: 2.0.0
+ */
+gint64
+garrow_array_builder_get_n_nulls(GArrowArrayBuilder *builder)
+{
+  auto arrow_builder = garrow_array_builder_get_raw(builder);
+  return arrow_builder->null_count();
+}
+
+/**
+ * garrow_array_builder_resize:
+ * @builder: A #GArrowArrayBuilder.
+ * @capacity: A new capacity.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 2.0.0
+ */
+gboolean
+garrow_array_builder_resize(GArrowArrayBuilder *builder,
+                            gint64 capacity,
+                            GError **error)
+{
+  auto arrow_builder = garrow_array_builder_get_raw(builder);
+  auto status = arrow_builder->Resize(capacity);
+  return garrow_error_check(error, status, "[array-builder][resize]");
+}
+
+/**
+ * garrow_array_builder_reserve:
+ * @builder: A #GArrowArrayBuilder.
+ * @additional_capacity: The additional capacity to be reserved.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 2.0.0
+ */
+gboolean
+garrow_array_builder_reserve(GArrowArrayBuilder *builder,
+                             gint64 additional_capacity,
+                             GError **error)
+{
+  auto arrow_builder = garrow_array_builder_get_raw(builder);
+  auto status = arrow_builder->Reserve(additional_capacity);
+  return garrow_error_check(error, status, "[array-builder][reserve]");
+}
 
 G_DEFINE_TYPE(GArrowNullArrayBuilder,
               garrow_null_array_builder,
@@ -2617,7 +2738,7 @@ garrow_binary_array_builder_append_value_bytes(GArrowBinaryArrayBuilder *builder
       garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
 
   gsize size;
-  gconstpointer data = g_bytes_get_data(value, &size);
+  auto data = g_bytes_get_data(value, &size);
   auto status = arrow_builder->Append(static_cast<const uint8_t *>(data),
                                       size);
   return garrow_error_check(error,
@@ -3914,6 +4035,516 @@ garrow_time64_array_builder_append_nulls(GArrowTime64ArrayBuilder *builder,
 }
 
 
+G_DEFINE_TYPE(GArrowBinaryDictionaryArrayBuilder,
+              garrow_binary_dictionary_array_builder,
+              GARROW_TYPE_ARRAY_BUILDER)
+
+static void
+garrow_binary_dictionary_array_builder_init(GArrowBinaryDictionaryArrayBuilder *builder)
+{
+}
+
+static void
+garrow_binary_dictionary_array_builder_class_init(GArrowBinaryDictionaryArrayBuilderClass *klass)
+{
+}
+
+
+/**
+ * garrow_binary_dictionary_array_builder_new:
+ *
+ * Returns: A newly created #GArrowBinaryDictionaryArrayBuilder.
+ *
+ * Since: 2.0.0
+ */
+GArrowBinaryDictionaryArrayBuilder *
+garrow_binary_dictionary_array_builder_new(void)
+{
+  // We can use arrow:int8() for the index type of the following arrow_dict_type
+  // because arrow::MakeBuilder creates a dictionary builder with arrow::AdaptiveIntBuilder.
+  auto arrow_dict_type = arrow::dictionary(arrow::int8(), arrow::binary());
+  auto builder = garrow_array_builder_new(arrow_dict_type,
+                                          nullptr,
+                                          "[binary-dictionary-array-builder][new]");
+  return GARROW_BINARY_DICTIONARY_ARRAY_BUILDER(builder);
+}
+
+/**
+ * garrow_binary_dictionary_array_builder_append_null:
+ * @builder: A #GArrowBinaryDictionaryArrayBuilder.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 2.0.0
+ */
+gboolean
+garrow_binary_dictionary_array_builder_append_null(GArrowBinaryDictionaryArrayBuilder *builder,
+                                                   GError **error)
+{
+  return garrow_array_builder_append_null<arrow::BinaryDictionaryBuilder *>
+    (GARROW_ARRAY_BUILDER(builder),
+     error,
+     "[binary-dictionary-array-builder][append-null]");
+}
+
+/**
+ * garrow_binary_dictionary_array_builder_append_value:
+ * @builder: A #GArrowBinaryDictionaryArrayBuilder.
+ * @value: (array length=length): A binary value.
+ * @length: A value length.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 2.0.0
+ */
+gboolean
+garrow_binary_dictionary_array_builder_append_value(GArrowBinaryDictionaryArrayBuilder *builder,
+                                                    const guint8 *value,
+                                                    gint32 length,
+                                                    GError **error)
+{
+  auto arrow_builder =
+    static_cast<arrow::BinaryDictionaryBuilder *>(
+      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+
+  auto status = arrow_builder->Append(value, length);
+
+  return garrow_error_check(error,
+                            status,
+                            "[binary-dictionary-array-builder][append-value]");
+}
+
+/**
+ * garrow_binary_dictionary_array_builder_append_value_bytes:
+ * @builder: A #GArrowBinaryDictionaryArrayBuilder.
+ * @value: A binary value.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 2.0.0
+ */
+gboolean
+garrow_binary_dictionary_array_builder_append_value_bytes(GArrowBinaryDictionaryArrayBuilder *builder,
+                                                          GBytes *value,
+                                                          GError **error)
+{
+  auto arrow_builder =
+    static_cast<arrow::BinaryDictionaryBuilder *>(
+      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+
+  gsize size;
+  auto data = g_bytes_get_data(value, &size);
+  auto status = arrow_builder->Append(static_cast<const uint8_t *>(data),
+                                      size);
+
+  return garrow_error_check(error,
+                            status,
+                            "[binary-dictionary-array-builder][append-value-bytes]");
+}
+
+/**
+ * garrow_binary_dictionary_array_builder_append_array:
+ * @builder: A #GArrowBinaryDictionaryArrayBuilder.
+ * @array: A #GArrowBinaryArray.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 2.0.0
+ */
+gboolean
+garrow_binary_dictionary_array_builder_append_array(GArrowBinaryDictionaryArrayBuilder *builder,
+                                                    GArrowBinaryArray *array,
+                                                    GError **error)
+{
+  auto arrow_builder =
+    static_cast<arrow::BinaryDictionaryBuilder *>(
+      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+  auto arrow_array = garrow_array_get_raw<arrow::BinaryType>(GARROW_ARRAY(array));
+
+  auto status = arrow_builder->AppendArray(*arrow_array);
+
+  return garrow_error_check(error,
+                            status,
+                            "[binary-dictionary-array-builder][append-binary-array]");
+}
+
+/**
+ * garrow_binary_dictionary_array_builder_append_indices:
+ * @builder: A #GArrowBinaryDictionaryArrayBuilder.
+ * @values: (array length=values_length): The array of indices.
+ * @values_length: The length of `values`.
+ * @is_valids: (nullable) (array length=is_valids_length): The array of
+ *   %TRUE or %FALSE that shows whether the Nth value is valid or not. If the
+ *   Nth `is_valids` is %TRUE, the Nth `values` is valid value. Otherwise
+ *   the Nth value is null value.
+ * @is_valids_length: The length of `is_valids`.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Append dictionary indices directly without modifying the internal memo.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 2.0.0
+ */
+gboolean
+garrow_binary_dictionary_array_builder_append_indices(GArrowBinaryDictionaryArrayBuilder *builder,
+                                                      const gint64 *values,
+                                                      gint64 values_length,
+                                                      const gboolean *is_valids,
+                                                      gint64 is_valids_length,
+                                                      GError **error)
+{
+  static const char *context = "[binary-dictionary-array-builder][append-indices]";
+  auto arrow_builder =
+    static_cast<arrow::BinaryDictionaryBuilder *>(
+      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+  auto append_function = [&arrow_builder](
+      const gint64 *values,
+      gint64 values_length,
+      const uint8_t *valid_bytes) -> arrow::Status {
+    return arrow_builder->AppendIndices(values, values_length, valid_bytes);
+  };
+  return garrow_array_builder_append_values(values, values_length, is_valids,
+                                            is_valids_length, error, context,
+                                            append_function);
+}
+
+/**
+ * garrow_binary_dictionary_array_builder_get_dictionary_length:
+ * @builder: A #GArrowBinaryDictionaryArrayBuilder.
+ *
+ * Returns: A number of entries in the dicitonary.
+ *
+ * Since: 2.0.0
+ */
+gint64 garrow_binary_dictionary_array_builder_get_dictionary_length(GArrowBinaryDictionaryArrayBuilder *builder)
+{
+  auto arrow_builder =
+    static_cast<arrow::BinaryDictionaryBuilder *>(
+      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+  return arrow_builder->dictionary_length();
+}
+
+/**
+ * garrow_binary_dictionary_array_builder_finish_delta:
+ * @builder: A #GArrowBinaryDictionaryArrayBuilder.
+ * @out_indices: (out): The built #GArrowArray containing indices.
+ * @out_delta: (out): The built #GArrowArray containing dictionary.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 2.0.0
+ */
+gboolean
+garrow_binary_dictionary_array_builder_finish_delta(GArrowBinaryDictionaryArrayBuilder* builder,
+                                                    GArrowArray **out_indices,
+                                                    GArrowArray **out_delta,
+                                                    GError **error)
+{
+  static const char *context = "[binary-dictionary-array-builder][finish-delta]";
+  auto arrow_builder =
+    static_cast<arrow::BinaryDictionaryBuilder *>(
+      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+  std::shared_ptr<arrow::Array> arrow_indices, arrow_delta;
+  auto status = arrow_builder->FinishDelta(&arrow_indices, &arrow_delta);
+  if (!garrow_error_check(error, status, context)) {
+    return FALSE;
+  }
+  *out_indices = garrow_array_new_raw(&arrow_indices);
+  *out_delta = garrow_array_new_raw(&arrow_delta);
+  return TRUE;
+}
+
+/**
+ * garrow_binary_dictionary_array_builder_insert_memo_values:
+ * @builder: A #GArrowBinaryDictionaryArrayBuilder.
+ * @values: A #GArrowBinaryArray.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 2.0.0
+ */
+gboolean
+garrow_binary_dictionary_array_builder_insert_memo_values(GArrowBinaryDictionaryArrayBuilder *builder,
+                                                          GArrowBinaryArray *values,
+                                                          GError **error)
+{
+  auto arrow_builder =
+    static_cast<arrow::BinaryDictionaryBuilder *>(
+      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+  auto arrow_array = garrow_array_get_raw<arrow::BinaryType>(GARROW_ARRAY(values));
+
+  auto status = arrow_builder->InsertMemoValues(*arrow_array);
+
+  return garrow_error_check(error,
+                            status,
+                            "[binary-dictionary-array-builder][insert-memo-values]");
+}
+
+/**
+ * garrow_binary_dictionary_array_builder_reset_full:
+ * @builder: A #GArrowBinaryDictionaryArrayBuilder.
+ *
+ * Reset and also clear accumulated dictionary values in memo table.
+ *
+ * Since: 2.0.0
+ */
+void
+garrow_binary_dictionary_array_builder_reset_full(GArrowBinaryDictionaryArrayBuilder *builder)
+{
+  auto arrow_builder =
+    static_cast<arrow::BinaryDictionaryBuilder *>(
+      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+  arrow_builder->ResetFull();
+}
+
+
+G_DEFINE_TYPE(GArrowStringDictionaryArrayBuilder,
+              garrow_string_dictionary_array_builder,
+              GARROW_TYPE_ARRAY_BUILDER)
+
+static void
+garrow_string_dictionary_array_builder_init(GArrowStringDictionaryArrayBuilder *builder)
+{
+}
+
+static void
+garrow_string_dictionary_array_builder_class_init(GArrowStringDictionaryArrayBuilderClass *klass)
+{
+}
+
+
+/**
+ * garrow_string_dictionary_array_builder_new:
+ *
+ * Returns: A newly created #GArrowStringDictionaryArrayBuilder.
+ *
+ * Since: 2.0.0
+ */
+GArrowStringDictionaryArrayBuilder *
+garrow_string_dictionary_array_builder_new(void)
+{
+  // We can use arrow:int8() for the index type of the following arrow_dict_type
+  // because arrow::MakeBuilder creates a dictionary builder with arrow::AdaptiveIntBuilder.
+  auto arrow_dict_type = arrow::dictionary(arrow::int8(), arrow::utf8());
+  auto builder = garrow_array_builder_new(arrow_dict_type,
+                                          nullptr,
+                                          "[string-dictionary-array-builder][new]");
+  return GARROW_STRING_DICTIONARY_ARRAY_BUILDER(builder);
+}
+
+/**
+ * garrow_string_dictionary_array_builder_append_null:
+ * @builder: A #GArrowStringDictionaryArrayBuilder.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 2.0.0
+ */
+gboolean
+garrow_string_dictionary_array_builder_append_null(GArrowStringDictionaryArrayBuilder *builder,
+                                                   GError **error)
+{
+  return garrow_array_builder_append_null<arrow::StringDictionaryBuilder *>
+    (GARROW_ARRAY_BUILDER(builder),
+     error,
+     "[string-dictionary-array-builder][append-null]");
+}
+
+/**
+ * garrow_string_dictionary_array_builder_append_string:
+ * @builder: A #GArrowStringDictionaryArrayBuilder.
+ * @value: A string value.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 2.0.0
+ */
+gboolean
+garrow_string_dictionary_array_builder_append_string(GArrowStringDictionaryArrayBuilder *builder,
+                                                     const gchar *value,
+                                                     GError **error)
+{
+  auto arrow_builder =
+    static_cast<arrow::StringDictionaryBuilder *>(
+      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+
+  auto status = arrow_builder->Append(value,
+                                      static_cast<guint32>(strlen(value)));
+
+  return garrow_error_check(error,
+                            status,
+                            "[string-dictionary-array-builder][append-string]");
+}
+
+/**
+ * garrow_string_dictionary_array_builder_append_array:
+ * @builder: A #GArrowStringDictionaryArrayBuilder.
+ * @array: A #GArrowStringArray.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 2.0.0
+ */
+gboolean
+garrow_string_dictionary_array_builder_append_array(GArrowStringDictionaryArrayBuilder *builder,
+                                                    GArrowStringArray *array,
+                                                    GError **error)
+{
+  auto arrow_builder =
+    static_cast<arrow::StringDictionaryBuilder *>(
+      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+  auto arrow_array = garrow_array_get_raw<arrow::StringType>(GARROW_ARRAY(array));
+
+  auto status = arrow_builder->AppendArray(*arrow_array);
+
+  return garrow_error_check(error,
+                            status,
+                            "[string-dictionary-array-builder][append-string-array]");
+}
+
+/**
+ * garrow_string_dictionary_array_builder_append_indices:
+ * @builder: A #GArrowStringDictionaryArrayBuilder.
+ * @values: (array length=values_length): The array of indices.
+ * @values_length: The length of `values`.
+ * @is_valids: (nullable) (array length=is_valids_length): The array of
+ *   %TRUE or %FALSE that shows whether the Nth value is valid or not. If the
+ *   Nth `is_valids` is %TRUE, the Nth `values` is valid value. Otherwise
+ *   the Nth value is null value.
+ * @is_valids_length: The length of `is_valids`.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Append dictionary indices directly without modifying the internal memo.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 2.0.0
+ */
+gboolean
+garrow_string_dictionary_array_builder_append_indices(GArrowStringDictionaryArrayBuilder *builder,
+                                                      const gint64 *values,
+                                                      gint64 values_length,
+                                                      const gboolean *is_valids,
+                                                      gint64 is_valids_length,
+                                                      GError **error)
+{
+  static const char *context = "[string-dictionary-array-builder][append-indices]";
+  auto arrow_builder =
+    static_cast<arrow::StringDictionaryBuilder *>(
+      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+  auto append_function = [&arrow_builder](
+      const gint64 *values,
+      gint64 values_length,
+      const uint8_t *valid_bytes) -> arrow::Status {
+    return arrow_builder->AppendIndices(values, values_length, valid_bytes);
+  };
+  return garrow_array_builder_append_values(values, values_length, is_valids,
+                                            is_valids_length, error, context,
+                                            append_function);
+}
+
+/**
+ * garrow_string_dictionary_array_builder_get_dictionary_length:
+ * @builder: A #GArrowStringDictionaryArrayBuilder.
+ *
+ * Returns: A number of entries in the dicitonary.
+ *
+ * Since: 2.0.0
+ */
+gint64 garrow_string_dictionary_array_builder_get_dictionary_length(GArrowStringDictionaryArrayBuilder *builder)
+{
+  auto arrow_builder =
+    static_cast<arrow::StringDictionaryBuilder *>(
+      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+  return arrow_builder->dictionary_length();
+}
+
+/**
+ * garrow_string_dictionary_array_builder_finish_delta:
+ * @builder: A #GArrowStringDictionaryArrayBuilder.
+ * @out_indices: (out): The built #GArrowArray containing indices.
+ * @out_delta: (out): The built #GArrowArray containing dictionary.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 2.0.0
+ */
+gboolean
+garrow_string_dictionary_array_builder_finish_delta(GArrowStringDictionaryArrayBuilder* builder,
+                                                    GArrowArray **out_indices,
+                                                    GArrowArray **out_delta,
+                                                    GError **error)
+{
+  static const char *context = "[string-dictionary-array-builder][finish-delta]";
+  auto arrow_builder =
+    static_cast<arrow::StringDictionaryBuilder *>(
+      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+  std::shared_ptr<arrow::Array> arrow_indices, arrow_delta;
+  auto status = arrow_builder->FinishDelta(&arrow_indices, &arrow_delta);
+  if (!garrow_error_check(error, status, context)) {
+    return FALSE;
+  }
+  *out_indices = garrow_array_new_raw(&arrow_indices);
+  *out_delta = garrow_array_new_raw(&arrow_delta);
+  return TRUE;
+}
+
+/**
+ * garrow_string_dictionary_array_builder_insert_memo_values:
+ * @builder: A #GArrowStringDictionaryArrayBuilder.
+ * @values: A #GArrowStringArray.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 2.0.0
+ */
+gboolean
+garrow_string_dictionary_array_builder_insert_memo_values(GArrowStringDictionaryArrayBuilder *builder,
+                                                          GArrowStringArray *values,
+                                                          GError **error)
+{
+  auto arrow_builder =
+    static_cast<arrow::StringDictionaryBuilder *>(
+      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+  auto arrow_array = garrow_array_get_raw<arrow::StringType>(GARROW_ARRAY(values));
+
+  auto status = arrow_builder->InsertMemoValues(*arrow_array);
+
+  return garrow_error_check(error,
+                            status,
+                            "[string-dictionary-array-builder][insert-memo-values]");
+}
+
+/**
+ * garrow_string_dictionary_array_builder_reset_full:
+ * @builder: A #GArrowStringDictionaryArrayBuilder.
+ *
+ * Reset and also clear accumulated dictionary values in memo table.
+ *
+ * Since: 2.0.0
+ */
+void
+garrow_string_dictionary_array_builder_reset_full(GArrowStringDictionaryArrayBuilder *builder)
+{
+  auto arrow_builder =
+    static_cast<arrow::StringDictionaryBuilder *>(
+      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+  arrow_builder->ResetFull();
+}
+
+
 typedef struct GArrowListArrayBuilderPrivate_ {
   GArrowArrayBuilder *value_builder;
 } GArrowListArrayBuilderPrivate;
@@ -4915,6 +5546,22 @@ garrow_array_builder_new_raw(arrow::ArrayBuilder *arrow_builder,
       break;
     case arrow::Type::type::DECIMAL:
       type = GARROW_TYPE_DECIMAL128_ARRAY_BUILDER;
+      break;
+    case arrow::Type::type::DICTIONARY:
+      {
+        const auto& dict_type = arrow::internal::checked_cast<arrow::DictionaryType&>(*arrow_builder->type());
+        switch (dict_type.value_type()->id()) {
+          case arrow::Type::type::BINARY:
+            type = GARROW_TYPE_BINARY_DICTIONARY_ARRAY_BUILDER;
+            break;
+          case arrow::Type::type::STRING:
+            type = GARROW_TYPE_STRING_DICTIONARY_ARRAY_BUILDER;
+            break;
+          default:
+            type = GARROW_TYPE_ARRAY_BUILDER;
+            break;
+        }
+      }
       break;
     default:
       type = GARROW_TYPE_ARRAY_BUILDER;
