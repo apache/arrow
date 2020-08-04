@@ -134,7 +134,7 @@ class GoogleBenchmarkObservation:
             return self.time_unit
 
     def __repr__(self):
-        return self.value
+        return str(self.value)
 
 
 class GoogleBenchmark(Benchmark):

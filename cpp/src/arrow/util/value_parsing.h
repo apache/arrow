@@ -29,8 +29,10 @@
 #include <type_traits>
 
 #include "arrow/type.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/time.h"
 #include "arrow/util/visibility.h"
 #include "arrow/vendored/datetime.h"
 #include "arrow/vendored/strptime.h"
@@ -59,14 +61,38 @@ class ARROW_EXPORT TimestampParser {
 
 namespace internal {
 
+/// \brief The entry point for conversion from strings.
+///
+/// Specializations of StringConverter for `ARROW_TYPE` must define:
+/// - A default constructible member type `value_type` which will be yielded on a
+///   successful parse.
+/// - The static member function `Convert`, callable with signature
+///   `(const ARROW_TYPE& t, const char* s, size_t length, value_type* out)`.
+///   `Convert` returns truthy for successful parses and assigns the parsed values to
+///   `*out`. Parameters required for parsing (for example a timestamp's TimeUnit)
+///   are acquired from the type parameter `t`.
 template <typename ARROW_TYPE, typename Enable = void>
 struct StringConverter;
+
+template <typename T>
+struct is_parseable {
+  template <typename U, typename = typename StringConverter<U>::value_type>
+  static std::true_type Test(U*);
+
+  template <typename U>
+  static std::false_type Test(...);
+
+  static constexpr bool value = decltype(Test<T>(NULLPTR))::value;
+};
+
+template <typename T, typename R = void>
+using enable_if_parseable = enable_if_t<is_parseable<T>::value, R>;
 
 template <>
 struct StringConverter<BooleanType> {
   using value_type = bool;
 
-  static bool Convert(const char* s, size_t length, value_type* out) {
+  static bool Convert(const BooleanType&, const char* s, size_t length, value_type* out) {
     if (length == 1) {
       // "0" or "1"?
       if (s[0] == '0') {
@@ -111,7 +137,7 @@ template <>
 struct StringConverter<FloatType> {
   using value_type = float;
 
-  static bool Convert(const char* s, size_t length, value_type* out) {
+  static bool Convert(const FloatType&, const char* s, size_t length, value_type* out) {
     return ARROW_PREDICT_TRUE(StringToFloat(s, length, out));
   }
 };
@@ -120,7 +146,7 @@ template <>
 struct StringConverter<DoubleType> {
   using value_type = double;
 
-  static bool Convert(const char* s, size_t length, value_type* out) {
+  static bool Convert(const DoubleType&, const char* s, size_t length, value_type* out) {
     return ARROW_PREDICT_TRUE(StringToFloat(s, length, out));
   }
 };
@@ -244,7 +270,7 @@ template <class ARROW_TYPE>
 struct StringToUnsignedIntConverterMixin {
   using value_type = typename ARROW_TYPE::c_type;
 
-  static bool Convert(const char* s, size_t length, value_type* out) {
+  static bool Convert(const ARROW_TYPE&, const char* s, size_t length, value_type* out) {
     if (ARROW_PREDICT_FALSE(length == 0)) {
       return false;
     }
@@ -285,8 +311,8 @@ struct StringToSignedIntConverterMixin {
   using value_type = typename ARROW_TYPE::c_type;
   using unsigned_type = typename std::make_unsigned<value_type>::type;
 
-  static bool Convert(const char* s, size_t length, value_type* out) {
-    static constexpr unsigned_type max_positive =
+  static bool Convert(const ARROW_TYPE&, const char* s, size_t length, value_type* out) {
+    static constexpr auto max_positive =
         static_cast<unsigned_type>(std::numeric_limits<value_type>::max());
     // Assuming two's complement
     static constexpr unsigned_type max_negative = max_positive + 1;
@@ -355,27 +381,8 @@ namespace detail {
 
 using ts_type = TimestampType::c_type;
 
-template <class TimePoint>
-static inline ts_type ConvertTimePoint(TimePoint tp, TimeUnit::type unit) {
-  auto duration = tp.time_since_epoch();
-  switch (unit) {
-    case TimeUnit::SECOND:
-      return std::chrono::duration_cast<std::chrono::seconds>(duration).count();
-    case TimeUnit::MILLI:
-      return std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();
-    case TimeUnit::MICRO:
-      return std::chrono::duration_cast<std::chrono::microseconds>(duration).count();
-    case TimeUnit::NANO:
-      return std::chrono::duration_cast<std::chrono::nanoseconds>(duration).count();
-    default:
-      // Compiler errors without default case even though all enum cases are handled
-      assert(0);
-      return 0;
-  }
-}
-
-static inline bool ParseYYYY_MM_DD(const char* s,
-                                   arrow_vendored::date::year_month_day* out) {
+template <typename Duration>
+static inline bool ParseYYYY_MM_DD(const char* s, Duration* since_epoch) {
   uint16_t year = 0;
   uint8_t month = 0;
   uint8_t day = 0;
@@ -391,12 +398,18 @@ static inline bool ParseYYYY_MM_DD(const char* s,
   if (ARROW_PREDICT_FALSE(!ParseUnsigned(s + 8, 2, &day))) {
     return false;
   }
-  *out = {arrow_vendored::date::year{year}, arrow_vendored::date::month{month},
-          arrow_vendored::date::day{day}};
-  return out->ok();
+  arrow_vendored::date::year_month_day ymd{arrow_vendored::date::year{year},
+                                           arrow_vendored::date::month{month},
+                                           arrow_vendored::date::day{day}};
+  if (ARROW_PREDICT_FALSE(!ymd.ok())) return false;
+
+  *since_epoch = std::chrono::duration_cast<Duration>(
+      arrow_vendored::date::sys_days{ymd}.time_since_epoch());
+  return true;
 }
 
-static inline bool ParseHH(const char* s, std::chrono::duration<ts_type>* out) {
+template <typename Duration>
+static inline bool ParseHH(const char* s, Duration* out) {
   uint8_t hours = 0;
   if (ARROW_PREDICT_FALSE(!ParseUnsigned(s + 0, 2, &hours))) {
     return false;
@@ -404,11 +417,12 @@ static inline bool ParseHH(const char* s, std::chrono::duration<ts_type>* out) {
   if (ARROW_PREDICT_FALSE(hours >= 24)) {
     return false;
   }
-  *out = std::chrono::duration<ts_type>(3600U * hours);
+  *out = std::chrono::duration_cast<Duration>(std::chrono::hours(hours));
   return true;
 }
 
-static inline bool ParseHH_MM(const char* s, std::chrono::duration<ts_type>* out) {
+template <typename Duration>
+static inline bool ParseHH_MM(const char* s, Duration* out) {
   uint8_t hours = 0;
   uint8_t minutes = 0;
   if (ARROW_PREDICT_FALSE(s[2] != ':')) {
@@ -426,11 +440,13 @@ static inline bool ParseHH_MM(const char* s, std::chrono::duration<ts_type>* out
   if (ARROW_PREDICT_FALSE(minutes >= 60)) {
     return false;
   }
-  *out = std::chrono::duration<ts_type>(3600U * hours + 60U * minutes);
+  *out = std::chrono::duration_cast<Duration>(std::chrono::hours(hours) +
+                                              std::chrono::minutes(minutes));
   return true;
 }
 
-static inline bool ParseHH_MM_SS(const char* s, std::chrono::duration<ts_type>* out) {
+template <typename Duration>
+static inline bool ParseHH_MM_SS(const char* s, Duration* out) {
   uint8_t hours = 0;
   uint8_t minutes = 0;
   uint8_t seconds = 0;
@@ -455,26 +471,43 @@ static inline bool ParseHH_MM_SS(const char* s, std::chrono::duration<ts_type>* 
   if (ARROW_PREDICT_FALSE(seconds >= 60)) {
     return false;
   }
-  *out = std::chrono::duration<ts_type>(3600U * hours + 60U * minutes + seconds);
+  *out = std::chrono::duration_cast<Duration>(std::chrono::hours(hours) +
+                                              std::chrono::minutes(minutes) +
+                                              std::chrono::seconds(seconds));
   return true;
+}
+
+static inline bool ParseSubSeconds(const char* s, size_t length, TimeUnit::type unit,
+                                   uint32_t* out) {
+  switch (length) {
+    case 4:  // .mmm
+      if (ARROW_PREDICT_FALSE(unit != TimeUnit::MILLI)) return false;
+      break;
+    case 7:  // .uuuuuu
+      if (ARROW_PREDICT_FALSE(unit != TimeUnit::MICRO)) return false;
+      break;
+    case 10:  // .nnnnnnnnn
+      if (ARROW_PREDICT_FALSE(unit != TimeUnit::NANO)) return false;
+      break;
+    default:
+      return false;
+  }
+
+  if (ARROW_PREDICT_FALSE(s[0] != '.')) {
+    return false;
+  }
+
+  return ParseUnsigned(s + 1, length - 1, out);
 }
 
 }  // namespace detail
 
-/// \brief Attempt to convert a string to the primitive type corresponding to
-/// an Arrow data type
-template <typename T, typename ParseContext = void>
-inline bool ParseValue(const char* s, size_t length, typename T::c_type* out,
-                       const ParseContext* ctx = NULLPTR) {
-  return StringConverter<T>::Convert(s, length, out);
-}
-
 static inline bool ParseTimestampISO8601(const char* s, size_t length,
                                          TimeUnit::type unit,
                                          TimestampType::c_type* out) {
-  using ts_type = TimestampType::c_type;
+  using seconds_type = std::chrono::duration<TimestampType::c_type>;
 
-  // We allow the following formats:
+  // We allow the following formats for all units:
   // - "YYYY-MM-DD"
   // - "YYYY-MM-DD[ T]hh"
   // - "YYYY-MM-DD[ T]hhZ"
@@ -482,58 +515,80 @@ static inline bool ParseTimestampISO8601(const char* s, size_t length,
   // - "YYYY-MM-DD[ T]hh:mmZ"
   // - "YYYY-MM-DD[ T]hh:mm:ss"
   // - "YYYY-MM-DD[ T]hh:mm:ssZ"
+  //
+  // We allow the following formats for unit==MILLI:
+  // - "YYYY-MM-DD[ T]hh:mm:ss.mmm"
+  // - "YYYY-MM-DD[ T]hh:mm:ss.mmmZ"
+  //
+  // We allow the following formats for unit==MICRO:
+  // - "YYYY-MM-DD[ T]hh:mm:ss.uuuuuu"
+  // - "YYYY-MM-DD[ T]hh:mm:ss.uuuuuuZ"
+  //
+  // We allow the following formats for unit==NANO:
+  // - "YYYY-MM-DD[ T]hh:mm:ss.nnnnnnnnn"
+  // - "YYYY-MM-DD[ T]hh:mm:ss.nnnnnnnnnZ"
+  //
   // UTC is always assumed, and the DataType's timezone is ignored.
-  arrow_vendored::date::year_month_day ymd;
-  if (ARROW_PREDICT_FALSE(length < 10)) {
+
+  if (ARROW_PREDICT_FALSE(length < 10)) return false;
+
+  seconds_type seconds_since_epoch;
+  if (ARROW_PREDICT_FALSE(!detail::ParseYYYY_MM_DD(s, &seconds_since_epoch))) {
     return false;
   }
+
   if (length == 10) {
-    if (ARROW_PREDICT_FALSE(!detail::ParseYYYY_MM_DD(s, &ymd))) {
-      return false;
-    }
-    *out = detail::ConvertTimePoint(arrow_vendored::date::sys_days(ymd), unit);
+    *out = util::CastSecondsToUnit(unit, seconds_since_epoch.count());
     return true;
   }
+
   if (ARROW_PREDICT_FALSE(s[10] != ' ') && ARROW_PREDICT_FALSE(s[10] != 'T')) {
     return false;
   }
+
   if (s[length - 1] == 'Z') {
     --length;
   }
-  if (length == 13) {
-    if (ARROW_PREDICT_FALSE(!detail::ParseYYYY_MM_DD(s, &ymd))) {
+
+  seconds_type seconds_since_midnight;
+  switch (length) {
+    case 13:  // YYYY-MM-DD[ T]hh
+      if (ARROW_PREDICT_FALSE(!detail::ParseHH(s + 11, &seconds_since_midnight))) {
+        return false;
+      }
+      break;
+    case 16:  // YYYY-MM-DD[ T]hh:mm
+      if (ARROW_PREDICT_FALSE(!detail::ParseHH_MM(s + 11, &seconds_since_midnight))) {
+        return false;
+      }
+      break;
+    case 19:  // YYYY-MM-DD[ T]hh:mm:ss
+    case 23:  // YYYY-MM-DD[ T]hh:mm:ss.mmm
+    case 26:  // YYYY-MM-DD[ T]hh:mm:ss.uuuuuu
+    case 29:  // YYYY-MM-DD[ T]hh:mm:ss.nnnnnnnnn
+      if (ARROW_PREDICT_FALSE(!detail::ParseHH_MM_SS(s + 11, &seconds_since_midnight))) {
+        return false;
+      }
+      break;
+    default:
       return false;
-    }
-    std::chrono::duration<ts_type> seconds;
-    if (ARROW_PREDICT_FALSE(!detail::ParseHH(s + 11, &seconds))) {
-      return false;
-    }
-    *out = detail::ConvertTimePoint(arrow_vendored::date::sys_days(ymd) + seconds, unit);
+  }
+
+  seconds_since_epoch += seconds_since_midnight;
+
+  if (length <= 19) {
+    *out = util::CastSecondsToUnit(unit, seconds_since_epoch.count());
     return true;
   }
-  if (length == 16) {
-    if (ARROW_PREDICT_FALSE(!detail::ParseYYYY_MM_DD(s, &ymd))) {
-      return false;
-    }
-    std::chrono::duration<ts_type> seconds;
-    if (ARROW_PREDICT_FALSE(!detail::ParseHH_MM(s + 11, &seconds))) {
-      return false;
-    }
-    *out = detail::ConvertTimePoint(arrow_vendored::date::sys_days(ymd) + seconds, unit);
-    return true;
+
+  uint32_t subseconds = 0;
+  if (ARROW_PREDICT_FALSE(
+          !detail::ParseSubSeconds(s + 19, length - 19, unit, &subseconds))) {
+    return false;
   }
-  if (length == 19) {
-    if (ARROW_PREDICT_FALSE(!detail::ParseYYYY_MM_DD(s, &ymd))) {
-      return false;
-    }
-    std::chrono::duration<ts_type> seconds;
-    if (ARROW_PREDICT_FALSE(!detail::ParseHH_MM_SS(s + 11, &seconds))) {
-      return false;
-    }
-    *out = detail::ConvertTimePoint(arrow_vendored::date::sys_days(ymd) + seconds, unit);
-    return true;
-  }
-  return false;
+
+  *out = util::CastSecondsToUnit(unit, seconds_since_epoch.count()) + subseconds;
+  return true;
 }
 
 /// \brief Returns time since the UNIX epoch in the requested unit
@@ -565,19 +620,92 @@ static inline bool ParseTimestampStrptime(const char* buf, size_t length,
     secs += (std::chrono::hours(result.tm_hour) + std::chrono::minutes(result.tm_min) +
              std::chrono::seconds(result.tm_sec));
   }
-  *out = detail::ConvertTimePoint(secs, unit);
+  *out = util::CastSecondsToUnit(unit, secs.time_since_epoch().count());
   return true;
 }
 
-/// \brief Parsing options for timestamps
-struct ParseTimestampContext {
-  TimeUnit::type unit;
+template <>
+struct StringConverter<TimestampType> {
+  using value_type = int64_t;
+
+  static bool Convert(const TimestampType& type, const char* s, size_t length,
+                      value_type* out) {
+    return ParseTimestampISO8601(s, length, type.unit(), out);
+  }
 };
 
 template <>
-inline bool ParseValue<TimestampType, ParseTimestampContext>(
-    const char* s, size_t length, int64_t* out, const ParseTimestampContext* ctx) {
-  return ParseTimestampISO8601(s, length, ctx->unit, out);
+struct StringConverter<DurationType>
+    : public StringToSignedIntConverterMixin<DurationType> {
+  using StringToSignedIntConverterMixin<DurationType>::StringToSignedIntConverterMixin;
+};
+
+template <typename DATE_TYPE>
+struct StringConverter<DATE_TYPE, enable_if_date<DATE_TYPE>> {
+  using value_type = typename DATE_TYPE::c_type;
+
+  using duration_type =
+      typename std::conditional<std::is_same<DATE_TYPE, Date32Type>::value,
+                                arrow_vendored::date::days,
+                                std::chrono::milliseconds>::type;
+
+  static bool Convert(const DATE_TYPE& type, const char* s, size_t length,
+                      value_type* out) {
+    if (length != 10) return false;
+
+    duration_type since_epoch;
+    if (ARROW_PREDICT_FALSE(!detail::ParseYYYY_MM_DD(s, &since_epoch))) {
+      return false;
+    }
+
+    *out = static_cast<value_type>(since_epoch.count());
+    return true;
+  }
+};
+
+template <typename TIME_TYPE>
+struct StringConverter<TIME_TYPE, enable_if_time<TIME_TYPE>> {
+  using value_type = typename TIME_TYPE::c_type;
+
+  static bool Convert(const TIME_TYPE& type, const char* s, size_t length,
+                      value_type* out) {
+    if (length < 8) return false;
+    auto unit = type.unit();
+
+    std::chrono::seconds since_midnight;
+    if (ARROW_PREDICT_FALSE(!detail::ParseHH_MM_SS(s, &since_midnight))) {
+      return false;
+    }
+
+    *out = static_cast<value_type>(util::CastSecondsToUnit(unit, since_midnight.count()));
+
+    if (length == 8) {
+      return true;
+    }
+
+    uint32_t subseconds_count = 0;
+    if (ARROW_PREDICT_FALSE(
+            !detail::ParseSubSeconds(s + 8, length - 8, unit, &subseconds_count))) {
+      return false;
+    }
+
+    *out += subseconds_count;
+    return true;
+  }
+};
+
+/// \brief Convenience wrappers around internal::StringConverter.
+template <typename T>
+bool ParseValue(const T& type, const char* s, size_t length,
+                typename StringConverter<T>::value_type* out) {
+  return StringConverter<T>::Convert(type, s, length, out);
+}
+
+template <typename T>
+enable_if_parameter_free<T, bool> ParseValue(
+    const char* s, size_t length, typename StringConverter<T>::value_type* out) {
+  static T type;
+  return StringConverter<T>::Convert(type, s, length, out);
 }
 
 }  // namespace internal
