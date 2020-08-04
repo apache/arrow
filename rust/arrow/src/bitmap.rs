@@ -21,6 +21,7 @@
 use crate::buffer::Buffer;
 use crate::error::Result;
 use crate::util::bit_util;
+use std::mem;
 
 use std::ops::{BitAnd, BitOr};
 
@@ -66,6 +67,16 @@ impl Bitmap {
 
     pub fn into_buffer(self) -> Buffer {
         self.bits
+    }
+
+    /// Returns the total number of bytes of memory occupied by the buffers owned by this [Bitmap].
+    pub fn get_buffer_memory_size(&self) -> usize {
+        self.bits.capacity()
+    }
+
+    /// Returns the total number of bytes of memory occupied physically by this [Bitmap].
+    pub fn get_array_memory_size(&self) -> usize {
+        self.bits.capacity() + mem::size_of_val(self)
     }
 }
 

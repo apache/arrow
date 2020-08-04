@@ -1015,6 +1015,8 @@ _pandas_logical_type_map = {
     'unicode': np.unicode_,
     'bytes': np.bytes_,
     'string': np.str_,
+    'integer': np.int64,
+    'floating': np.float,
     'empty': np.object_,
 }
 
@@ -1081,7 +1083,8 @@ def _reconstruct_columns_from_metadata(columns, column_indexes):
 
     # Convert each level to the dtype provided in the metadata
     levels_dtypes = [
-        (level, col_index.get('pandas_type', str(level.dtype)))
+        (level, col_index.get('pandas_type', str(level.dtype)),
+         col_index.get('numpy_type', None))
         for level, col_index in zip_longest(
             levels, column_indexes, fillvalue={}
         )
@@ -1090,9 +1093,8 @@ def _reconstruct_columns_from_metadata(columns, column_indexes):
     new_levels = []
     encoder = operator.methodcaller('encode', 'UTF-8')
 
-    for level, pandas_dtype in levels_dtypes:
+    for level, pandas_dtype, numpy_dtype in levels_dtypes:
         dtype = _pandas_type_to_numpy_type(pandas_dtype)
-
         # Since our metadata is UTF-8 encoded, Python turns things that were
         # bytes into unicode strings when json.loads-ing them. We need to
         # convert them back to bytes to preserve metadata.
@@ -1100,6 +1102,9 @@ def _reconstruct_columns_from_metadata(columns, column_indexes):
             level = level.map(encoder)
         elif level.dtype != dtype:
             level = level.astype(dtype)
+        # ARROW-9096: if original DataFrame was upcast we keep that
+        if level.dtype != numpy_dtype:
+            level = level.astype(numpy_dtype)
 
         new_levels.append(level)
 
@@ -1122,14 +1127,18 @@ def _flatten_single_level_multiindex(index):
     if isinstance(index, pd.MultiIndex) and index.nlevels == 1:
         levels, = index.levels
         labels, = _get_multiindex_codes(index)
+        # ARROW-9096: use levels.dtype to match cast with original DataFrame
+        dtype = levels.dtype
 
         # Cheaply check that we do not somehow have duplicate column names
         if not index.is_unique:
             raise ValueError('Found non-unique column index')
 
-        return pd.Index([levels[_label] if _label != -1 else None
-                         for _label in labels],
-                        name=index.names[0])
+        return pd.Index(
+            [levels[_label] if _label != -1 else None for _label in labels],
+            dtype=dtype,
+            name=index.names[0]
+        )
     return index
 
 

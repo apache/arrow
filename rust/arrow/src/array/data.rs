@@ -18,6 +18,7 @@
 //! Contains `ArrayData`, a generic representation of Arrow array data which encapsulates
 //! common attributes and operations for Arrow array.
 
+use std::mem;
 use std::sync::Arc;
 
 use crate::bitmap::Bitmap;
@@ -158,6 +159,45 @@ impl ArrayData {
     /// Returns the total number of nulls in this array
     pub fn null_count(&self) -> usize {
         self.null_count
+    }
+
+    /// Returns the total number of bytes of memory occupied by the buffers owned by this [ArrayData].
+    pub fn get_buffer_memory_size(&self) -> usize {
+        let mut size = 0;
+        for buffer in &self.buffers {
+            size += buffer.capacity();
+        }
+        if let Some(bitmap) = &self.null_bitmap {
+            size += bitmap.get_buffer_memory_size()
+        }
+        for child in &self.child_data {
+            size += child.get_buffer_memory_size();
+        }
+        size
+    }
+
+    /// Returns the total number of bytes of memory occupied physically by this [ArrayData].
+    pub fn get_array_memory_size(&self) -> usize {
+        let mut size = 0;
+        // Calculate size of the fields that don't have [get_array_memory_size] method internally.
+        size += mem::size_of_val(self)
+            - mem::size_of_val(&self.buffers)
+            - mem::size_of_val(&self.null_bitmap)
+            - mem::size_of_val(&self.child_data);
+
+        // Calculate rest of the fields top down which contain actual data
+        for buffer in &self.buffers {
+            size += mem::size_of_val(&buffer);
+            size += buffer.capacity();
+        }
+        if let Some(bitmap) = &self.null_bitmap {
+            size += bitmap.get_array_memory_size()
+        }
+        for child in &self.child_data {
+            size += child.get_array_memory_size();
+        }
+
+        size
     }
 }
 

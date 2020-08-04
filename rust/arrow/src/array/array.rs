@@ -213,6 +213,12 @@ pub trait Array: fmt::Debug + Send + Sync + ArrayEqual + JsonEqual {
     fn null_count(&self) -> usize {
         self.data().null_count()
     }
+
+    /// Returns the total number of bytes of memory occupied by the buffers owned by this array.
+    fn get_buffer_memory_size(&self) -> usize;
+
+    /// Returns the total number of bytes of memory occupied physically by this array.
+    fn get_array_memory_size(&self) -> usize;
 }
 
 /// A reference-counted reference to a generic `Array`.
@@ -442,6 +448,16 @@ impl<T: ArrowPrimitiveType> Array for PrimitiveArray<T> {
 
     fn data_ref(&self) -> &ArrayDataRef {
         &self.data
+    }
+
+    /// Returns the total number of bytes of memory occupied by the buffers owned by this [PrimitiveArray].
+    fn get_buffer_memory_size(&self) -> usize {
+        self.data.get_buffer_memory_size()
+    }
+
+    /// Returns the total number of bytes of memory occupied physically by this [PrimitiveArray].
+    fn get_array_memory_size(&self) -> usize {
+        self.data.get_array_memory_size() + mem::size_of_val(self)
     }
 }
 
@@ -1168,6 +1184,16 @@ impl Array for ListArray {
     fn data_ref(&self) -> &ArrayDataRef {
         &self.data
     }
+
+    /// Returns the total number of bytes of memory occupied by the buffers owned by this [ListArray].
+    fn get_buffer_memory_size(&self) -> usize {
+        self.data.get_buffer_memory_size()
+    }
+
+    /// Returns the total number of bytes of memory occupied physically by this [ListArray].
+    fn get_array_memory_size(&self) -> usize {
+        self.data.get_array_memory_size() + mem::size_of_val(self)
+    }
 }
 
 impl Array for LargeListArray {
@@ -1181,6 +1207,18 @@ impl Array for LargeListArray {
 
     fn data_ref(&self) -> &ArrayDataRef {
         &self.data
+    }
+
+    /// Returns the total number of bytes of memory occupied by the buffers owned by this [LargeListArray].
+    fn get_buffer_memory_size(&self) -> usize {
+        self.data.get_buffer_memory_size() + self.values().get_buffer_memory_size()
+    }
+
+    /// Returns the total number of bytes of memory occupied physically by this [LargeListArray].
+    fn get_array_memory_size(&self) -> usize {
+        self.data.get_array_memory_size()
+            + self.values().get_array_memory_size()
+            + mem::size_of_val(self)
     }
 }
 
@@ -1332,6 +1370,18 @@ impl Array for FixedSizeListArray {
     fn data_ref(&self) -> &ArrayDataRef {
         &self.data
     }
+
+    /// Returns the total number of bytes of memory occupied by the buffers owned by this [FixedSizeListArray].
+    fn get_buffer_memory_size(&self) -> usize {
+        self.data.get_buffer_memory_size() + self.values().get_buffer_memory_size()
+    }
+
+    /// Returns the total number of bytes of memory occupied physically by this [FixedSizeListArray].
+    fn get_array_memory_size(&self) -> usize {
+        self.data.get_array_memory_size()
+            + self.values().get_array_memory_size()
+            + mem::size_of_val(self)
+    }
 }
 
 impl fmt::Debug for FixedSizeListArray {
@@ -1397,6 +1447,16 @@ macro_rules! make_binary_type {
 
             fn data_ref(&self) -> &ArrayDataRef {
                 &self.data
+            }
+
+            /// Returns the total number of bytes of memory occupied by the buffers owned by this [$name].
+            fn get_buffer_memory_size(&self) -> usize {
+                self.data.get_buffer_memory_size()
+            }
+
+            /// Returns the total number of bytes of memory occupied physically by this [$name].
+            fn get_array_memory_size(&self) -> usize {
+                self.data.get_array_memory_size() + mem::size_of_val(self)
             }
         }
     };
@@ -1953,6 +2013,16 @@ impl Array for FixedSizeBinaryArray {
     fn data_ref(&self) -> &ArrayDataRef {
         &self.data
     }
+
+    /// Returns the total number of bytes of memory occupied by the buffers owned by this [FixedSizeBinaryArray].
+    fn get_buffer_memory_size(&self) -> usize {
+        self.data.get_buffer_memory_size()
+    }
+
+    /// Returns the total number of bytes of memory occupied physically by this [FixedSizeBinaryArray].
+    fn get_array_memory_size(&self) -> usize {
+        self.data.get_array_memory_size() + mem::size_of_val(self)
+    }
 }
 
 /// A nested array type where each child (called *field*) is represented by a separate
@@ -2034,6 +2104,16 @@ impl Array for StructArray {
     /// Returns the length (i.e., number of elements) of this array
     fn len(&self) -> usize {
         self.data().len()
+    }
+
+    /// Returns the total number of bytes of memory occupied by the buffers owned by this [StructArray].
+    fn get_buffer_memory_size(&self) -> usize {
+        self.data.get_buffer_memory_size()
+    }
+
+    /// Returns the total number of bytes of memory occupied physically by this [StructArray].
+    fn get_array_memory_size(&self) -> usize {
+        self.data.get_array_memory_size() + mem::size_of_val(self)
     }
 }
 
@@ -2333,6 +2413,18 @@ impl<T: ArrowPrimitiveType> Array for DictionaryArray<T> {
     fn data_ref(&self) -> &ArrayDataRef {
         &self.data
     }
+
+    /// Returns the total number of bytes of memory occupied by the buffers owned by this [DictionaryArray].
+    fn get_buffer_memory_size(&self) -> usize {
+        self.data.get_buffer_memory_size() + self.values().get_buffer_memory_size()
+    }
+
+    /// Returns the total number of bytes of memory occupied physically by this [DictionaryArray].
+    fn get_array_memory_size(&self) -> usize {
+        self.data.get_array_memory_size()
+            + self.values().get_array_memory_size()
+            + mem::size_of_val(self)
+    }
 }
 
 impl<T: ArrowPrimitiveType> fmt::Debug for DictionaryArray<T> {
@@ -2379,6 +2471,13 @@ mod tests {
             assert!(arr.is_valid(i));
             assert_eq!(i as i32, arr.value(i));
         }
+
+        assert_eq!(64, arr.get_buffer_memory_size());
+        let internals_of_primitive_array = 8 + 72; // RawPtrBox & Arc<ArrayData> combined.
+        assert_eq!(
+            arr.get_buffer_memory_size() + internals_of_primitive_array,
+            arr.get_array_memory_size()
+        );
     }
 
     #[test]
@@ -2398,6 +2497,13 @@ mod tests {
                 assert!(!arr.is_valid(i));
             }
         }
+
+        assert_eq!(128, arr.get_buffer_memory_size());
+        let internals_of_primitive_array = 8 + 72 + 16; // RawPtrBox & Arc<ArrayData> and it's null_bitmap combined.
+        assert_eq!(
+            arr.get_buffer_memory_size() + internals_of_primitive_array,
+            arr.get_array_memory_size()
+        );
     }
 
     #[test]

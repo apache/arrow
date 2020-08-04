@@ -36,6 +36,7 @@
 
 use std::any::Any;
 use std::fmt;
+use std::mem;
 
 use crate::array::{Array, ArrayData, ArrayDataRef};
 use crate::datatypes::*;
@@ -83,6 +84,16 @@ impl Array for NullArray {
     fn null_count(&self) -> usize {
         self.data().len()
     }
+
+    /// Returns the total number of bytes of memory occupied by the buffers owned by this [NullArray].
+    fn get_buffer_memory_size(&self) -> usize {
+        self.data.get_buffer_memory_size()
+    }
+
+    /// Returns the total number of bytes of memory occupied physically by this [NullArray].
+    fn get_array_memory_size(&self) -> usize {
+        self.data.get_array_memory_size() + mem::size_of_val(self)
+    }
 }
 
 impl From<ArrayDataRef> for NullArray {
@@ -112,11 +123,18 @@ mod tests {
 
     #[test]
     fn test_null_array() {
-        let array1 = NullArray::new(32);
+        let null_arr = NullArray::new(32);
 
-        assert_eq!(array1.len(), 32);
-        assert_eq!(array1.null_count(), 32);
-        assert_eq!(array1.is_valid(0), false);
+        assert_eq!(null_arr.len(), 32);
+        assert_eq!(null_arr.null_count(), 32);
+        assert_eq!(null_arr.is_valid(0), false);
+
+        assert_eq!(0, null_arr.get_buffer_memory_size());
+        let internals_of_null_array = 64; // Arc<ArrayData>
+        assert_eq!(
+            null_arr.get_buffer_memory_size() + internals_of_null_array,
+            null_arr.get_array_memory_size()
+        );
     }
 
     #[test]

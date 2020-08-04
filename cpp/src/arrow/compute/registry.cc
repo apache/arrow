@@ -45,6 +45,8 @@ class FunctionRegistry::FunctionRegistryImpl {
   }
 
   Status AddAlias(const std::string& target_name, const std::string& source_name) {
+    std::lock_guard<std::mutex> mutation_guard(lock_);
+
     auto it = name_to_function_.find(source_name);
     if (it == name_to_function_.end()) {
       return Status::KeyError("No function registered with name: ", source_name);
