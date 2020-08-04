@@ -33,15 +33,18 @@ use crate::{
     file::writer::{FileWriter, RowGroupWriter, SerializedFileWriter},
 };
 
-struct ArrowWriter {
+pub struct ArrowWriter {
     writer: SerializedFileWriter<File>,
     rows: i64,
 }
 
 impl ArrowWriter {
-    pub fn try_new(file: File, arrow_schema: &Schema) -> Result<Self> {
+    pub fn try_new(file: File, arrow_schema: &Schema, props: Option<Rc<WriterProperties>>) -> Result<Self> {
         let schema = crate::arrow::arrow_to_parquet_schema(arrow_schema)?;
-        let props = Rc::new(WriterProperties::builder().build());
+        let props = match props {
+            Some(props) => props,
+            None => Rc::new(WriterProperties::builder().build()),
+        };
         let file_writer = SerializedFileWriter::new(
             file.try_clone()?,
             schema.root_schema_ptr(),
