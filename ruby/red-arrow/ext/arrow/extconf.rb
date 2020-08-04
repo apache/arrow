@@ -16,7 +16,8 @@
 # under the License.
 
 require "extpp"
-require "mkmf-gnome2"
+require "mkmf-gnome"
+require_relative "../../lib/arrow/version"
 
 arrow_pkg_config_path = ENV["ARROW_PKG_CONFIG_PATH"]
 if arrow_pkg_config_path
@@ -24,7 +25,12 @@ if arrow_pkg_config_path
   ENV["PKG_CONFIG_PATH"] = pkg_config_paths.join(File::PATH_SEPARATOR)
 end
 
-unless required_pkg_config_package("arrow",
+unless required_pkg_config_package([
+                                     "arrow",
+                                     Arrow::Version::MAJOR,
+                                     Arrow::Version::MINOR,
+                                     Arrow::Version::MICRO,
+                                   ],
                                    debian: "libarrow-dev",
                                    redhat: "arrow-devel",
                                    homebrew: "apache-arrow",
@@ -32,7 +38,12 @@ unless required_pkg_config_package("arrow",
   exit(false)
 end
 
-unless required_pkg_config_package("arrow-glib",
+unless required_pkg_config_package([
+                                     "arrow-glib",
+                                     Arrow::Version::MAJOR,
+                                     Arrow::Version::MINOR,
+                                     Arrow::Version::MICRO,
+                                   ],
                                    debian: "libarrow-glib-dev",
                                    redhat: "arrow-glib-devel",
                                    homebrew: "apache-arrow-glib",
