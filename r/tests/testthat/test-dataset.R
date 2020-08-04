@@ -628,7 +628,7 @@ test_that("Assembling multiple DatasetFactories with DatasetFactory", {
 })
 
 test_that("Writing a dataset: CSV->IPC", {
-  skip_on_os("windows")
+  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
   ds <- open_dataset(csv_dir, partitioning = "part", format = "csv")
   dst_dir <- make_temp_dir()
   write_dataset(ds, dst_dir, format = "feather", partitioning = "int")
@@ -651,7 +651,7 @@ test_that("Writing a dataset: CSV->IPC", {
 })
 
 test_that("Writing a dataset: Parquet->IPC", {
-  skip_on_os("windows")
+  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
   ds <- open_dataset(hive_dir)
   dst_dir <- make_temp_dir()
   write_dataset(ds, dst_dir, format = "feather", partitioning = "int")
@@ -674,6 +674,7 @@ test_that("Writing a dataset: Parquet->IPC", {
 })
 
 test_that("Dataset writing: dplyr methods", {
+  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
   ds <- open_dataset(hive_dir)
   dst_dir <- tempfile()
   # Specify partition vars by group_by
@@ -693,6 +694,7 @@ test_that("Dataset writing: dplyr methods", {
 })
 
 test_that("Dataset writing: non-hive", {
+  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
   ds <- open_dataset(hive_dir)
   dst_dir <- tempfile()
   write_dataset(ds, dst_dir, format = "feather", partitioning = "int", hive_style = FALSE)
@@ -701,6 +703,7 @@ test_that("Dataset writing: non-hive", {
 })
 
 test_that("Dataset writing: no partitioning", {
+  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
   ds <- open_dataset(hive_dir)
   dst_dir <- tempfile()
   write_dataset(ds, dst_dir, format = "feather", partitioning = NULL)
