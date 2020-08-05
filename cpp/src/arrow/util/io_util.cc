@@ -1118,8 +1118,12 @@ Status MemoryAdviseWillNeed(const std::vector<MemoryRegion>& regions) {
   for (const auto& region : regions) {
     if (region.size != 0) {
       const auto aligned = align_region(region);
-      if (posix_madvise(aligned.addr, aligned.size, POSIX_MADV_WILLNEED)) {
-        return IOErrorFromErrno(errno, "posix_madvise failed");
+      int err = posix_madvise(aligned.addr, aligned.size, POSIX_MADV_WILLNEED);
+      // EBADF can be returned on Linux in the following cases:
+      // - the kernel version is older than 3.9
+      // - the kernel was compiled with CONFIG_SWAP disabled (ARROW-9577)
+      if (err != 0 && err != EBADF) {
+        return IOErrorFromErrno(err, "posix_madvise failed");
       }
     }
   }
