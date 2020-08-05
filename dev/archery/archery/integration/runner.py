@@ -337,10 +337,7 @@ def run_all_tests(with_cpp=True, with_java=True, with_js=True,
         testers.append(RustTester(**kwargs))
 
     static_json_files = get_static_json_files()
-    generated_json_files = datagen.get_generated_json_files(
-        tempdir=tempdir,
-        flight=run_flight
-    )
+    generated_json_files = datagen.get_generated_json_files(tempdir=tempdir)
     json_files = static_json_files + generated_json_files
 
     # Additional integration test cases for Arrow Flight.
