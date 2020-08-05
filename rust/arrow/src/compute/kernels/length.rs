@@ -29,7 +29,7 @@ use std::sync::Arc;
 ///
 /// * this only accepts StringArray
 /// * lenght of null is null.
-/// * length of utf8 with more than one code point is the number of code points
+/// * length is in number of bytes
 pub fn length(array: &Array) -> Result<UInt32Array> {
     match array.data_type() {
         DataType::Utf8 => {
