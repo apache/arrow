@@ -24,6 +24,7 @@ use crate::logicalplan::Expr::Alias;
 use crate::logicalplan::{
     lit, Expr, FunctionMeta, LogicalPlan, LogicalPlanBuilder, Operator, ScalarValue,
 };
+use crate::sql::parser::{CreateExternalTable, Statement as DFStatement};
 
 use arrow::datatypes::*;
 
@@ -31,6 +32,7 @@ use sqlparser::ast::{
     BinaryOperator, DataType as SQLDataType, Expr as SQLExpr, Query, Select, SelectItem,
     SetExpr, TableFactor, TableWithJoins, UnaryOperator, Value,
 };
+use sqlparser::ast::{ColumnDef as SQLColumnDef, ColumnOption};
 use sqlparser::ast::{OrderByExpr, Statement};
 
 /// The SchemaProvider trait allows the query planner to obtain meta-data about tables and
@@ -53,8 +55,16 @@ impl<S: SchemaProvider> SqlToRel<S> {
         SqlToRel { schema_provider }
     }
 
-    /// Generate a logic plan from an SQL statement
-    pub fn statement_to_plan(&self, sql: &Statement) -> Result<LogicalPlan> {
+    /// Generate a logical plan from an DataFusion SQL statement
+    pub fn statement_to_plan(&self, statement: &DFStatement) -> Result<LogicalPlan> {
+        match statement {
+            DFStatement::CreateExternalTable(s) => self.external_table_to_plan(&s),
+            DFStatement::Statement(s) => self.sql_statement_to_plan(&s),
+        }
+    }
+
+    /// Generate a logical plan from an SQL statement
+    fn sql_statement_to_plan(&self, sql: &Statement) -> Result<LogicalPlan> {
         match sql {
             Statement::Query(query) => self.query_to_plan(&query),
             _ => Err(ExecutionError::NotImplemented(
@@ -75,6 +85,67 @@ impl<S: SchemaProvider> SqlToRel<S> {
         let plan = self.order_by(&plan, &query.order_by)?;
 
         self.limit(&plan, &query.limit)
+    }
+
+    /// Generate a logical plan from a CREATE EXTERNAL TABLE statement
+    pub fn external_table_to_plan(
+        &self,
+        statement: &CreateExternalTable,
+    ) -> Result<LogicalPlan> {
+        let CreateExternalTable {
+            name,
+            columns,
+            file_type,
+            has_header,
+            location,
+        } = statement;
+
+        let schema = Box::new(self.build_schema(&columns)?);
+
+        Ok(LogicalPlan::CreateExternalTable {
+            schema,
+            name: name.clone(),
+            location: location.clone(),
+            file_type: file_type.clone(),
+            has_header: has_header.clone(),
+        })
+    }
+
+    fn build_schema(&self, columns: &Vec<SQLColumnDef>) -> Result<Schema> {
+        let mut fields = Vec::new();
+
+        for column in columns {
+            let data_type = self.make_data_type(&column.data_type)?;
+            let allow_null = column
+                .options
+                .iter()
+                .any(|x| x.option == ColumnOption::Null);
+            fields.push(Field::new(&column.name.value, data_type, allow_null));
+        }
+
+        Ok(Schema::new(fields))
+    }
+
+    fn make_data_type(&self, sql_type: &SQLDataType) -> Result<DataType> {
+        match sql_type {
+            SQLDataType::BigInt => Ok(DataType::Int64),
+            SQLDataType::Int => Ok(DataType::Int32),
+            SQLDataType::SmallInt => Ok(DataType::Int16),
+            SQLDataType::Char(_) | SQLDataType::Varchar(_) | SQLDataType::Text => {
+                Ok(DataType::Utf8)
+            }
+            SQLDataType::Decimal(_, _) => Ok(DataType::Float64),
+            SQLDataType::Float(_) => Ok(DataType::Float32),
+            SQLDataType::Real | SQLDataType::Double => Ok(DataType::Float64),
+            SQLDataType::Boolean => Ok(DataType::Boolean),
+            SQLDataType::Date => Ok(DataType::Date64(DateUnit::Day)),
+            SQLDataType::Time => Ok(DataType::Time64(TimeUnit::Millisecond)),
+            SQLDataType::Timestamp => Ok(DataType::Date64(DateUnit::Millisecond)),
+            _ => Err(ExecutionError::General(format!(
+                "Unsupported data type: {:?}.",
+                sql_type
+            ))),
+        }
     }
 
     fn from_join_to_plan(&self, from: &Vec<TableWithJoins>) -> Result<LogicalPlan> {
@@ -460,10 +531,9 @@ pub fn convert_data_type(sql: &SQLDataType) -> Result<DataType> {
 
 #[cfg(test)]
 mod tests {
-
     use super::*;
     use crate::logicalplan::FunctionType;
-    use sqlparser::{dialect::GenericDialect, parser::Parser};
+    use crate::sql::parser::DFParser;
 
     #[test]
     fn select_no_relation() {
@@ -688,10 +758,19 @@ mod tests {
         );
     }
 
+    //#[test]
+    // fn create_table_csv_with_columns() {
+    //     let sql = "CREATE EXTERNAL TABLE t(c1 int) STORED AS CSV LOCATION 'foo.csv'";
+    //     let err = logical_plan_create_table(sql)
+    //         assert_eq!(
+    //         "General(\"Projection references non-aggregate values\")",
+    //         format!("{:?}", err)
+    //     );
+    // }
+
     fn logical_plan(sql: &str) -> Result<LogicalPlan> {
-        let dialect = GenericDialect {};
         let planner = SqlToRel::new(MockSchemaProvider {});
-        let ast = Parser::parse_sql(&dialect, sql).unwrap();
+        let ast = DFParser::parse_sql(&sql).unwrap();
         planner.statement_to_plan(&ast[0])
     }
 
