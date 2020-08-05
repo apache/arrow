@@ -79,8 +79,7 @@ struct ns {
 
 class Index {
  public:
-  // TODO: uncomment when this is merged in cpp11: https://github.com/r-lib/cpp11/pull/58
-  /*explicit*/ Index(SEXP x) : index_(validate_index(x)) {}  // NOLINT runtime/explicit
+  Index(SEXP x) : index_(validate_index(x)) {}
 
   inline operator R_xlen_t() const { return index_; }
 
@@ -106,21 +105,6 @@ class Index {
     return 0;
   }
 };
-
-}  // namespace r
-}  // namespace arrow
-
-namespace cpp11 {
-
-template <typename E>
-typename std::enable_if<std::is_enum<E>::value, E>::type as_cpp(SEXP from) {
-  return E(cpp11::as_cpp<int>(from));
-}
-
-}  // namespace cpp11
-
-namespace arrow {
-namespace r {
 
 template <typename Pointer>
 Pointer r6_to_pointer(SEXP self) {
