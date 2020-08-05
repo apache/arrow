@@ -150,18 +150,16 @@ arrow::Status InferSchemaFromDots(SEXP lst, SEXP schema_sxp, int num_fields,
   // infer the schema from the `...`
   std::vector<std::shared_ptr<arrow::Field>> fields(num_fields);
 
-  auto extract_one_field = [&fields](int j, SEXP x, SEXP name) {
-    // Make sure we're ingesting UTF-8
-    name = Rf_mkCharCE(Rf_translateCharUTF8(name), CE_UTF8);
+  auto extract_one_field = [&fields](int j, SEXP x, cpp11::r_string name) {
     if (Rf_inherits(x, "ChunkedArray")) {
       fields[j] = arrow::field(
-          CHAR(name), cpp11::as_cpp<std::shared_ptr<arrow::ChunkedArray>>(x)->type());
+          name, cpp11::as_cpp<std::shared_ptr<arrow::ChunkedArray>>(x)->type());
     } else if (Rf_inherits(x, "Array")) {
-      fields[j] = arrow::field(CHAR(name),
-                               cpp11::as_cpp<std::shared_ptr<arrow::Array>>(x)->type());
+      fields[j] =
+          arrow::field(name, cpp11::as_cpp<std::shared_ptr<arrow::Array>>(x)->type());
     } else {
       // TODO: we just need the type at this point
-      fields[j] = arrow::field(CHAR(name), arrow::r::InferArrowType(x));
+      fields[j] = arrow::field(name, arrow::r::InferArrowType(x));
     }
   };
   arrow::r::TraverseDots(lst, num_fields, extract_one_field);
@@ -310,7 +308,7 @@ arrow::Status AddMetadataFromDots(SEXP lst, int num_fields,
 arrow::Status CollectTableColumns(
     SEXP lst, const std::shared_ptr<arrow::Schema>& schema, int num_fields, bool inferred,
     std::vector<std::shared_ptr<arrow::ChunkedArray>>& columns) {
-  auto extract_one_column = [&columns, &schema, inferred](int j, SEXP x, SEXP name) {
+  auto extract_one_column = [&columns, &schema, inferred](int j, SEXP x) {
     if (Rf_inherits(x, "ChunkedArray")) {
       columns[j] = cpp11::as_cpp<std::shared_ptr<arrow::ChunkedArray>>(x);
     } else if (Rf_inherits(x, "Array")) {
@@ -321,7 +319,7 @@ arrow::Status CollectTableColumns(
       columns[j] = std::make_shared<arrow::ChunkedArray>(array);
     }
   };
-  arrow::r::TraverseDots(lst, num_fields, extract_one_column);
+  arrow::r::TraverseDotsNoName(lst, num_fields, extract_one_column);
   return arrow::Status::OK();
 }
 

@@ -106,6 +106,25 @@ void TraverseDots(SEXP dots, int num_fields, Lambda lambda) {
   }
 }
 
+template <typename Lambda>
+void TraverseDotsNoName(SEXP dots, int num_fields, Lambda lambda) {
+  SEXP names = Rf_getAttrib(dots, R_NamesSymbol);
+
+  for (R_xlen_t i = 0, j = 0; j < num_fields; i++) {
+    SEXP name_i = STRING_ELT(names, i);
+    SEXP x_i = VECTOR_ELT(dots, i);
+
+    if (LENGTH(name_i) == 0) {
+      for (R_xlen_t k = 0; k < XLENGTH(x_i); k++, j++) {
+        lambda(j, VECTOR_ELT(x_i, k));
+      }
+    } else {
+      lambda(j, x_i);
+      j++;
+    }
+  }
+}
+
 arrow::Status InferSchemaFromDots(SEXP lst, SEXP schema_sxp, int num_fields,
                                   std::shared_ptr<arrow::Schema>& schema);
 

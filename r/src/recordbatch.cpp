@@ -263,10 +263,10 @@ namespace r {
 arrow::Status CollectRecordBatchArrays(
     SEXP lst, const std::shared_ptr<arrow::Schema>& schema, int num_fields, bool inferred,
     std::vector<std::shared_ptr<arrow::Array>>& arrays) {
-  auto extract_one_array = [&arrays, &schema, inferred](int j, SEXP x, SEXP name) {
+  auto extract_one_array = [&arrays, &schema, inferred](int j, SEXP x) {
     arrays[j] = arrow::r::Array__from_vector(x, schema->field(j)->type(), inferred);
   };
-  arrow::r::TraverseDots(lst, num_fields, extract_one_array);
+  arrow::r::TraverseDotsNoName(lst, num_fields, extract_one_array);
   return arrow::Status::OK();
 }
 
