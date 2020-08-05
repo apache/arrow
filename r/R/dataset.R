@@ -627,6 +627,42 @@ map_batches <- function(X, FUN, ..., .data.frame = TRUE) {
   })
 }
 
+#' @export
+head.Dataset <- function(x, n = 6L, ...) {
+  assert_that(n > 0) # For now
+  result <- list()
+  batch_num <- 0
+  scanner <- Scanner$create(ensure_group_vars(x))
+  for (scan_task in scanner$Scan()) {
+    for (batch in scan_task$Execute()) {
+      batch_num <- batch_num + 1
+      result[[batch_num]] <- head(batch, n)
+      n <- n - nrow(batch)
+      if (n <= 0) break
+    }
+    if (n <= 0) break
+  }
+  Table$create(!!!result)
+}
+
+#' @export
+tail.Dataset <- function(x, n = 6L, ...) {
+  assert_that(n > 0) # For now
+  result <- list()
+  batch_num <- 0
+  scanner <- Scanner$create(ensure_group_vars(x))
+  for (scan_task in rev(scanner$Scan())) {
+    for (batch in rev(scan_task$Execute())) {
+      batch_num <- batch_num + 1
+      result[[batch_num]] <- tail(batch, n)
+      n <- n - nrow(batch)
+      if (n <= 0) break
+    }
+    if (n <= 0) break
+  }
+  Table$create(!!!rev(result))
+}
+
 #' @usage NULL
 #' @format NULL
 #' @rdname Scanner

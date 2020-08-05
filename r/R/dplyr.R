@@ -347,6 +347,24 @@ arrange.arrow_dplyr_query <- function(.data, ...) {
 }
 arrange.Dataset <- arrange.Table <- arrange.RecordBatch <- arrange.arrow_dplyr_query
 
+#' @export
+head.arrow_dplyr_query <- function(x, n = 6L, ...) {
+  if (query_on_dataset(x)) {
+    head.Dataset(x, n, ...)
+  } else {
+    stop("TODO")
+  }
+}
+
+#' @export
+tail.arrow_dplyr_query <- function(x, n = 6L, ...) {
+  if (query_on_dataset(x)) {
+    tail.Dataset(x, n, ...)
+  } else {
+    stop("TODO")
+  }
+}
+
 query_on_dataset <- function(x) inherits(x$.data, "Dataset")
 
 not_implemented_for_dataset <- function(method) {
