@@ -55,8 +55,7 @@ std::shared_ptr<arrow::Array> Array__Slice1(const std::shared_ptr<arrow::Array>&
 
 // [[arrow::export]]
 std::shared_ptr<arrow::Array> Array__Slice2(const std::shared_ptr<arrow::Array>& array,
-                                            R_xlen_t offset,
-                                            R_xlen_t length) {
+                                            R_xlen_t offset, R_xlen_t length) {
   arrow::r::validate_slice_offset(offset, array->length());
   arrow::r::validate_slice_length(length, array->length() - offset);
   return array->Slice(offset, length);
@@ -127,9 +126,8 @@ std::shared_ptr<arrow::ArrayData> Array__data(
 
 // [[arrow::export]]
 bool Array__RangeEquals(const std::shared_ptr<arrow::Array>& self,
-                        const std::shared_ptr<arrow::Array>& other,
-                        R_xlen_t start_idx, R_xlen_t end_idx,
-                        R_xlen_t other_start_idx) {
+                        const std::shared_ptr<arrow::Array>& other, R_xlen_t start_idx,
+                        R_xlen_t end_idx, R_xlen_t other_start_idx) {
   if (start_idx == NA_INTEGER) {
     cpp11::stop("'start_idx' cannot be NA");
   }

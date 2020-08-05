@@ -136,8 +136,7 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__Slice1(
 
 // [[arrow::export]]
 std::shared_ptr<arrow::RecordBatch> RecordBatch__Slice2(
-    const std::shared_ptr<arrow::RecordBatch>& self, R_xlen_t offset,
-    R_xlen_t length) {
+    const std::shared_ptr<arrow::RecordBatch>& self, R_xlen_t offset, R_xlen_t length) {
   arrow::r::validate_slice_offset(offset, self->num_rows());
   arrow::r::validate_slice_length(length, self->num_rows() - offset);
   return self->Slice(offset, length);

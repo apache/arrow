@@ -84,8 +84,7 @@ std::shared_ptr<arrow::Table> Table__Slice1(const std::shared_ptr<arrow::Table>&
 
 // [[arrow::export]]
 std::shared_ptr<arrow::Table> Table__Slice2(const std::shared_ptr<arrow::Table>& table,
-                                            R_xlen_t offset,
-                                            R_xlen_t length) {
+                                            R_xlen_t offset, R_xlen_t length) {
   arrow::r::validate_slice_offset(offset, table->num_rows());
   arrow::r::validate_slice_length(length, table->num_rows() - offset);
   return table->Slice(offset, length);
