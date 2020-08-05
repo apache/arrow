@@ -1605,7 +1605,15 @@ class ARROW_EXPORT FieldRef {
 // ----------------------------------------------------------------------
 // Schema
 
-enum class Endianness { LITTLE, BIG };
+enum class Endianness {
+  LITTLE = 0,
+  BIG = 1,
+#if ARROW_LITTLE_ENDIAN
+  NATIVE = LITTLE
+#else
+  NATIVE = BIG
+#endif
+};
 
 /// \class Schema
 /// \brief Sequence of arrow::Field objects describing the columns of a record
