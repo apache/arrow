@@ -151,7 +151,7 @@ guide](https://arrow.apache.org/docs/developers/cpp/building.html) and
 
 ### Editing C++ code
 
-The `arrow` package uses some customized tools on top of `Rcpp` to
+The `arrow` package uses some customized tools on top of `cpp11` to
 prepare its C++ code in `src/`. If you change C++ code in the R package,
 you will need to set the `ARROW_R_DEV` environment variable to `TRUE`
 (optionally, add it to your`~/.Renviron` file to persist across

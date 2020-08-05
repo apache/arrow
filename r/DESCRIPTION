@@ -31,7 +31,6 @@ Imports:
     methods,
     purrr,
     R6,
-    Rcpp (>= 1.0.1),
     rlang,
     tidyselect,
     utils,
