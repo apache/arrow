@@ -592,5 +592,57 @@ TEST(ExpressionSerializationTest, RoundTrips) {
   }
 }
 
+void AssertGrouping(const FieldVector& by_fields, const std::string& batch_json,
+                    const std::string& expected_json) {
+  FieldVector fields_with_ids = by_fields;
+  fields_with_ids.push_back(field("ids", list(int32())));
+  auto expected = ArrayFromJSON(struct_(fields_with_ids), expected_json);
+
+  FieldVector fields_with_id = by_fields;
+  fields_with_id.push_back(field("id", int32()));
+  auto batch = RecordBatchFromJSON(schema(fields_with_id), batch_json);
+
+  ASSERT_OK_AND_ASSIGN(auto by, batch->RemoveColumn(batch->num_columns() - 1)
+                                    .Map([](std::shared_ptr<RecordBatch> by) {
+                                      return by->ToStructArray();
+                                    }));
+
+  ASSERT_OK_AND_ASSIGN(auto groupings_and_values, MakeGroupings(*by));
+
+  auto groupings =
+      checked_pointer_cast<ListArray>(groupings_and_values->GetFieldByName("groupings"));
+
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> grouped_ids,
+                       ApplyGroupings(*groupings, *batch->GetColumnByName("id")));
+
+  ArrayVector columns =
+      checked_cast<const StructArray&>(*groupings_and_values->GetFieldByName("values"))
+          .fields();
+  columns.push_back(grouped_ids);
+
+  ASSERT_OK_AND_ASSIGN(auto actual, StructArray::Make(columns, fields_with_ids));
+
+  AssertArraysEqual(*expected, *actual, /*verbose=*/true);
+}
+
+TEST(GroupTest, Basics) {
+  AssertGrouping({field("a", utf8()), field("b", int32())}, R"([
+    {"a": "ex",  "b": 0, "id": 0},
+    {"a": "ex",  "b": 0, "id": 1},
+    {"a": "why", "b": 0, "id": 2},
+    {"a": "ex",  "b": 1, "id": 3},
+    {"a": "why", "b": 0, "id": 4},
+    {"a": "ex",  "b": 1, "id": 5},
+    {"a": "ex",  "b": 0, "id": 6},
+    {"a": "why", "b": 1, "id": 7}
+  ])",
+                 R"([
+    {"a": "ex",  "b": 0, "ids": [0, 1, 6]},
+    {"a": "why", "b": 0, "ids": [2, 4]},
+    {"a": "ex",  "b": 1, "ids": [3, 5]},
+    {"a": "why", "b": 1, "ids": [7]}
+  ])");
+}
+
 }  // namespace dataset
 }  // namespace arrow

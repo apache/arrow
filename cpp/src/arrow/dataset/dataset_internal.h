@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "arrow/dataset/dataset.h"
+#include "arrow/dataset/file_base.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/record_batch.h"
 #include "arrow/scalar.h"
@@ -51,7 +52,8 @@ inline FragmentIterator GetFragmentsFromDatasets(const DatasetVector& datasets,
   return MakeFlattenIterator(std::move(fragments_it));
 }
 
-inline RecordBatchIterator IteratorFromReader(std::shared_ptr<RecordBatchReader> reader) {
+inline RecordBatchIterator IteratorFromReader(
+    const std::shared_ptr<RecordBatchReader>& reader) {
   return MakeFunctionIterator([reader] { return reader->Next(); });
 }
 

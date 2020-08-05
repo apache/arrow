@@ -60,6 +60,9 @@ A \code{Dataset} has the following methods:
 may also replace the dataset's schema by using \code{ds$schema <- new_schema}.
 This method currently supports only adding, removing, or reordering
 fields in the schema: you cannot alter or cast the field types.
+\item \verb{$write(path, filesystem, schema, format, partitioning)}: writes the
+dataset to \code{path} in the \code{format} file format, partitioned by \code{partitioning},
+and invisibly returns \code{self}. See \code{\link[=write_dataset]{write_dataset()}}.
 }
 
 \code{FileSystemDataset} has the following methods:

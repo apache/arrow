@@ -173,7 +173,7 @@ Result<std::shared_ptr<RecordBatch>> RecordBatch::FromStructArray(
               array->data()->child_data);
 }
 
-Result<std::shared_ptr<Array>> RecordBatch::ToStructArray() const {
+Result<std::shared_ptr<StructArray>> RecordBatch::ToStructArray() const {
   if (num_columns() != 0) {
     return StructArray::Make(columns(), schema()->fields());
   }

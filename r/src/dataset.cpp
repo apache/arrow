@@ -289,4 +289,19 @@ std::vector<std::shared_ptr<arrow::RecordBatch>> dataset___ScanTask__get_batches
   return out;
 }
 
+// [[arrow::export]]
+void dataset___Dataset__Write(const std::shared_ptr<ds::Dataset>& ds,
+                              const std::shared_ptr<arrow::Schema>& schema,
+                              const std::shared_ptr<ds::FileFormat>& format,
+                              const std::shared_ptr<fs::FileSystem>& filesystem,
+                              std::string path,
+                              const std::shared_ptr<ds::Partitioning>& partitioning) {
+  auto frags = ds->GetFragments();
+  auto ctx = std::make_shared<ds::ScanContext>();
+  ctx->use_threads = true;
+  StopIfNotOk(ds::FileSystemDataset::Write(schema, format, filesystem, path, partitioning,
+                                           ctx, std::move(frags)));
+  return;
+}
+
 #endif
