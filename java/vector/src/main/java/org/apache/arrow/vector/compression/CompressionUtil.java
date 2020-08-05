@@ -24,9 +24,9 @@ import org.apache.arrow.vector.ipc.message.ArrowBodyCompression;
 /**
  * Utilities for data compression/decompression.
  */
-public class CompressionUtility {
+public class CompressionUtil {
 
-  private CompressionUtility() {
+  private CompressionUtil() {
   }
 
   /**
@@ -34,10 +34,9 @@ public class CompressionUtility {
    * The implementation of this method should depend on the values of {@link CompressionType#names}.
    */
   public static ArrowBodyCompression createBodyCompression(CompressionCodec codec) {
-    if (codec == null) {
-      return null;
-    }
     switch (codec.getCodecName()) {
+      case "default":
+        return DefaultCompressionCodec.DEFAULT_BODY_COMPRESSION;
       case "LZ4_FRAME":
         return new ArrowBodyCompression((byte) 0, BodyCompressionMethod.BUFFER);
       case "ZSTD":
@@ -52,6 +51,8 @@ public class CompressionUtility {
    */
   public static CompressionCodec createCodec(byte compressionType) {
     switch (compressionType) {
+      case DefaultCompressionCodec.COMPRESSION_TYPE:
+        return DefaultCompressionCodec.INSTANCE;
       default:
         throw new IllegalArgumentException("Compression type not supported: " + compressionType);
     }

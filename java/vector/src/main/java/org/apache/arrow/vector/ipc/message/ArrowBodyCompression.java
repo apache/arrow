@@ -26,33 +26,30 @@ import com.google.flatbuffers.FlatBufferBuilder;
  */
 public class ArrowBodyCompression implements FBSerializable {
 
-  /**
-   * Length of the serialized object.
-   */
-  public static final long BODY_COMPRESSION_LENGTH = 2L;
+  private final byte codec;
 
-  final byte[] data = new byte[(int) BODY_COMPRESSION_LENGTH];
+  private final byte method;
 
   public ArrowBodyCompression(byte codec, byte method) {
-    this.data[0] = codec;
-    this.data[1] = method;
+    this.codec = codec;
+    this.method = method;
   }
 
   @Override
   public int writeTo(FlatBufferBuilder builder) {
-    return BodyCompression.createBodyCompression(builder, data[0], data[1]);
+    return BodyCompression.createBodyCompression(builder, codec, method);
   }
 
   public byte getCodec() {
-    return data[0];
+    return codec;
   }
 
   public byte getMethod() {
-    return data[1];
+    return method;
   }
 
   @Override
   public String toString() {
-    return "ArrowBodyCompression [codec=" + data[0] + ", method=" + data[1] + "]";
+    return "ArrowBodyCompression [codec=" + codec + ", method=" + method + "]";
   }
 }

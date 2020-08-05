@@ -35,6 +35,7 @@ import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.util.Preconditions;
+import org.apache.arrow.vector.compression.DefaultCompressionCodec;
 import org.apache.arrow.vector.ipc.message.ArrowBodyCompression;
 import org.apache.arrow.vector.ipc.message.ArrowDictionaryBatch;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
@@ -130,7 +131,7 @@ class ArrowMessage implements AutoCloseable {
     bufs = ImmutableList.of();
     this.descriptor = descriptor;
     this.appMetadata = null;
-    this.bodyCompression = null;
+    this.bodyCompression = DefaultCompressionCodec.DEFAULT_BODY_COMPRESSION;
   }
 
   /**
@@ -168,7 +169,7 @@ class ArrowMessage implements AutoCloseable {
     this.bufs = ImmutableList.of();
     this.descriptor = null;
     this.appMetadata = appMetadata;
-    this.bodyCompression = null;
+    this.bodyCompression = DefaultCompressionCodec.DEFAULT_BODY_COMPRESSION;
   }
 
   public ArrowMessage(FlightDescriptor descriptor) {
@@ -176,7 +177,7 @@ class ArrowMessage implements AutoCloseable {
     this.bufs = ImmutableList.of();
     this.descriptor = descriptor;
     this.appMetadata = null;
-    this.bodyCompression = null;
+    this.bodyCompression = DefaultCompressionCodec.DEFAULT_BODY_COMPRESSION;
   }
 
   private ArrowMessage(FlightDescriptor descriptor, MessageMetadataResult message, ArrowBuf appMetadata,
@@ -185,7 +186,7 @@ class ArrowMessage implements AutoCloseable {
     this.descriptor = descriptor;
     this.appMetadata = appMetadata;
     this.bufs = buf == null ? ImmutableList.of() : ImmutableList.of(buf);
-    this.bodyCompression = null;
+    this.bodyCompression = DefaultCompressionCodec.DEFAULT_BODY_COMPRESSION;
   }
 
   public MessageMetadataResult asSchemaMessage() {
@@ -361,23 +362,6 @@ class ArrowMessage implements AutoCloseable {
         // the reference count
         b.getReferenceManager().retain();
       }
-
-      // add compression info, if any
-      if (bodyCompression != null) {
-        ArrowBuf compBuf = allocator.buffer(ArrowBodyCompression.BODY_COMPRESSION_LENGTH);
-        compBuf.setByte(0, bodyCompression.getCodec());
-        compBuf.setByte(1, bodyCompression.getMethod());
-        compBuf.writerIndex(ArrowBodyCompression.BODY_COMPRESSION_LENGTH);
-        size += ArrowBodyCompression.BODY_COMPRESSION_LENGTH;
-        allBufs.add(compBuf.asNettyBuffer());
-
-        // align
-        int paddingBytes = (int) (8 - ArrowBodyCompression.BODY_COMPRESSION_LENGTH);
-        assert paddingBytes > 0 && paddingBytes < 8;
-        size += paddingBytes;
-        allBufs.add(PADDING_BUFFERS.get(paddingBytes).retain());
-      }
-
       // rawvarint is used for length definition.
       cos.writeUInt32NoTag(size);
       cos.flush();

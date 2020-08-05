@@ -17,33 +17,38 @@
 
 package org.apache.arrow.vector.compression;
 
+import org.apache.arrow.flatbuf.BodyCompressionMethod;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.vector.ipc.message.ArrowBodyCompression;
 
 /**
- * The codec for compression/decompression.
+ * The default compression codec that does no compression.
  */
-public interface CompressionCodec {
+public class DefaultCompressionCodec implements CompressionCodec {
 
-  /**
-   * Compress a buffer.
-   * @param allocator the allocator for allocating memory for compressed buffer.
-   * @param unCompressedBuffer the buffer to compress.
-   * @return the compressed buffer.
-   */
-  ArrowBuf compress(BufferAllocator allocator, ArrowBuf unCompressedBuffer);
+  public static final DefaultCompressionCodec INSTANCE = new DefaultCompressionCodec();
 
-  /**
-   * Decompress a buffer.
-   * @param allocator the allocator for allocating memory for decompressed buffer.
-   * @param compressedBuffer the buffer to be decompressed.
-   * @return the decompressed buffer.
-   */
-  ArrowBuf decompress(BufferAllocator allocator, ArrowBuf compressedBuffer);
+  public static final byte COMPRESSION_TYPE = -1;
 
-  /**
-   * Gets the name of the codec.
-   * @return the name of the codec.
-   */
-  String getCodecName();
+  public static final ArrowBodyCompression DEFAULT_BODY_COMPRESSION =
+      new ArrowBodyCompression(COMPRESSION_TYPE, BodyCompressionMethod.BUFFER);
+
+  private DefaultCompressionCodec() {
+  }
+
+  @Override
+  public ArrowBuf compress(BufferAllocator allocator, ArrowBuf unCompressedBuffer) {
+    return unCompressedBuffer;
+  }
+
+  @Override
+  public ArrowBuf decompress(BufferAllocator allocator, ArrowBuf compressedBuffer) {
+    return compressedBuffer;
+  }
+
+  @Override
+  public String getCodecName() {
+    return "default";
+  }
 }

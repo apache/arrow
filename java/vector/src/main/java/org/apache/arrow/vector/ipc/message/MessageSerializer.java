@@ -266,15 +266,8 @@ public class MessageSerializer {
     long bufferLength = writeBatchBuffers(out, batch);
     Preconditions.checkArgument(bufferLength % 8 == 0, "out is not aligned");
 
-    long compLength = 0L;
-    if (batch.getBodyCompression() != null) {
-      compLength = writeCompressionBody(out, batch.getBodyCompression());
-      Preconditions.checkArgument(compLength == ArrowBodyCompression.BODY_COMPRESSION_LENGTH,
-          "deserialized compression body length not equal to ArrowBodyCompression#BODY_COMPRESSION_LENGTH");
-    }
-
     // Metadata size in the Block account for the size prefix
-    return new ArrowBlock(start, metadataLength + prefixSize, bufferLength + compLength);
+    return new ArrowBlock(start, metadataLength + prefixSize, bufferLength);
   }
 
   /**
@@ -303,17 +296,6 @@ public class MessageSerializer {
                                         " != " + startPosition + layout.getSize());
       }
     }
-    out.align();
-    return out.getCurrentPosition() - bufferStart;
-  }
-
-  /**
-   * Serialize the compression body.
-   */
-  public static long writeCompressionBody(
-      WriteChannel out, ArrowBodyCompression bodyCompression) throws IOException {
-    long bufferStart = out.getCurrentPosition();
-    out.write(bodyCompression.data);
     out.align();
     return out.getCurrentPosition() - bufferStart;
   }
@@ -421,23 +403,14 @@ public class MessageSerializer {
       nodes.add(new ArrowFieldNode(node.length(), node.nullCount()));
     }
     List<ArrowBuf> buffers = new ArrayList<>();
-    long curOffset = 0L;
     for (int i = 0; i < recordBatchFB.buffersLength(); ++i) {
       Buffer bufferFB = recordBatchFB.buffers(i);
       ArrowBuf vectorBuffer = body.slice(bufferFB.offset(), bufferFB.length());
-      curOffset = bufferFB.offset() + bufferFB.length();
       buffers.add(vectorBuffer);
     }
 
-    if (curOffset % 8 != 0) {
-      curOffset += 8 - curOffset % 8;
-    }
-    ArrowBodyCompression bodyCompression = null;
-    if (body.writerIndex() > curOffset) {
-      assert body.writerIndex() - curOffset >= 8;
-      bodyCompression =
-          new ArrowBodyCompression(body.getByte(curOffset), body.getByte(curOffset + 1));
-    }
+    ArrowBodyCompression bodyCompression =
+        new ArrowBodyCompression(recordBatchFB.compression().codec(), recordBatchFB.compression().method());
 
     if ((int) recordBatchFB.length() != recordBatchFB.length()) {
       throw new IOException("Cannot currently deserialize record batches with more than INT_MAX records.");
@@ -503,16 +476,8 @@ public class MessageSerializer {
     long bufferLength = writeBatchBuffers(out, batch.getDictionary());
     Preconditions.checkArgument(bufferLength % 8 == 0, "out is not aligned");
 
-    // write the compression info, if any
-    long compLength = 0L;
-    if (batch.getDictionary().getBodyCompression() != null) {
-      compLength = writeCompressionBody(out, batch.getDictionary().getBodyCompression());
-      Preconditions.checkArgument(compLength == ArrowBodyCompression.BODY_COMPRESSION_LENGTH,
-          "deserialized compression body length not equal to ArrowBodyCompression#BODY_COMPRESSION_LENGTH");
-    }
-
     // Metadata size in the Block account for the size prefix
-    return new ArrowBlock(start, metadataLength + prefixSize, bufferLength + compLength);
+    return new ArrowBlock(start, metadataLength + prefixSize, bufferLength);
   }
 
   /**

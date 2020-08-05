@@ -23,7 +23,8 @@ import java.util.stream.Collectors;
 
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.vector.compression.CompressionCodec;
-import org.apache.arrow.vector.compression.CompressionUtility;
+import org.apache.arrow.vector.compression.CompressionUtil;
+import org.apache.arrow.vector.compression.DefaultCompressionCodec;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 
@@ -42,7 +43,7 @@ public class VectorUnloader {
    * Constructs a new instance of the given set of vectors.
    */
   public VectorUnloader(VectorSchemaRoot root) {
-    this(root, true, null, true);
+    this(root, true, DefaultCompressionCodec.INSTANCE, true);
   }
 
   /**
@@ -54,7 +55,7 @@ public class VectorUnloader {
    */
   public VectorUnloader(
       VectorSchemaRoot root, boolean includeNullCount, boolean alignBuffers) {
-    this(root, includeNullCount, null, alignBuffers);
+    this(root, includeNullCount, DefaultCompressionCodec.INSTANCE, alignBuffers);
   }
 
   /**
@@ -84,7 +85,7 @@ public class VectorUnloader {
       appendNodes(vector, nodes, buffers);
     }
     return new ArrowRecordBatch(
-        root.getRowCount(), nodes, buffers, CompressionUtility.createBodyCompression(codec), alignBuffers);
+        root.getRowCount(), nodes, buffers, CompressionUtil.createBodyCompression(codec), alignBuffers);
   }
 
   private void appendNodes(FieldVector vector, List<ArrowFieldNode> nodes, List<ArrowBuf> buffers) {
@@ -96,11 +97,10 @@ public class VectorUnloader {
           "wrong number of buffers for field %s in vector %s. found: %s",
           vector.getField(), vector.getClass().getSimpleName(), fieldBuffers));
     }
-    if (codec != null) {
-      fieldBuffers = fieldBuffers.stream().map(buf -> {
-        return codec.compress(buf);
-      }).collect(Collectors.toList());
-    }
+
+    fieldBuffers = fieldBuffers.stream().map(
+        buf -> codec.compress(vector.getAllocator(), buf)).collect(Collectors.toList());
+
     buffers.addAll(fieldBuffers);
     for (FieldVector child : vector.getChildrenFromFields()) {
       appendNodes(child, nodes, buffers);
