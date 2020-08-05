@@ -89,17 +89,17 @@ T na();
 template <>
 inline int na<int>() {
   return NA_INTEGER;
-};
+}
 
 template <>
 inline double na<double>() {
   return NA_REAL;
-};
+}
 
 template <>
 inline cpp11::r_string na<cpp11::r_string>() {
   return NA_STRING;
-};
+}
 
 template <int RTYPE, typename RVector>
 class RBuffer : public MutableBuffer {
