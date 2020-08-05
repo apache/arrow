@@ -1368,7 +1368,7 @@ std::shared_ptr<Array> MakeSimpleArray(SEXP x) {
   using value_type = typename arrow::TypeTraits<Type>::ArrayType::value_type;
   RVector vec(x);
   auto n = vec.size();
-  auto p_vec_start = reinterpret_cast<value_type*>(arrow::r::vector_begin(vec));
+  auto p_vec_start = reinterpret_cast<value_type*>(DATAPTR(vec));
   auto p_vec_end = p_vec_start + n;
   std::vector<std::shared_ptr<Buffer>> buffers{
       nullptr, std::make_shared<RBuffer<RTYPE, RVector>>(vec)};

@@ -104,13 +104,6 @@ class Converter {
   ArrayVector arrays_;
 };
 
-template <typename T>
-Status Ingest_OnlyNulls(cpp11::r_vector<T> vec, R_xlen_t start, R_xlen_t n) {
-  auto p_data = arrow::r::vector_begin(vec) + start;
-  std::fill_n(p_data, n, arrow::r::na<T>());
-  return Status::OK();
-}
-
 template <typename SetNonNull, typename SetNull>
 Status IngestSome(const std::shared_ptr<arrow::Array>& array, R_xlen_t n,
                   SetNonNull&& set_non_null, SetNull&& set_null) {

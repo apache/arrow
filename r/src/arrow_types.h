@@ -65,47 +65,11 @@ void inspect(SEXP obj);
 // the integer64 sentinel
 constexpr int64_t NA_INT64 = std::numeric_limits<int64_t>::min();
 
-template <typename RVector>
-typename RVector::value_type* vector_begin(const RVector& vec);
-
-template <>
-inline uint8_t* vector_begin<cpp11::raws>(const cpp11::raws& vec) {
-  return RAW(vec);
-}
-
-template <>
-inline int* vector_begin<cpp11::integers>(const cpp11::integers& vec) {
-  return INTEGER(vec);
-}
-
-template <>
-inline double* vector_begin<cpp11::doubles>(const cpp11::doubles& vec) {
-  return REAL(vec);
-}
-
-template <typename T>
-T na();
-
-template <>
-inline int na<int>() {
-  return NA_INTEGER;
-}
-
-template <>
-inline double na<double>() {
-  return NA_REAL;
-}
-
-template <>
-inline cpp11::r_string na<cpp11::r_string>() {
-  return NA_STRING;
-}
-
 template <int RTYPE, typename RVector>
 class RBuffer : public MutableBuffer {
  public:
   explicit RBuffer(RVector vec)
-      : MutableBuffer(reinterpret_cast<uint8_t*>(arrow::r::vector_begin(vec)),
+      : MutableBuffer(reinterpret_cast<uint8_t*>(DATAPTR(vec)),
                       vec.size() * sizeof(typename RVector::value_type)),
         vec_(vec) {}
 
