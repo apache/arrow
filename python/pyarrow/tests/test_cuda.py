@@ -690,6 +690,46 @@ def test_batch_serialize():
     assert batch.equals(batch2)
 
 
+def make_table(length):
+    a0 = pa.array(np.random.randint(0, 255, size=length, dtype=np.int16))
+    a1 = pa.array(np.random.randint(0, 255, size=length, dtype=np.int16))
+    a2 = pa.DictionaryArray.from_arrays(
+        indices=np.repeat([0, 1, 2], 1 + (length // 3))[:length],
+        dictionary=np.array(['foo', 'bar', 'baz'], dtype=object))
+
+    schema = pa.schema([pa.field('f0', a0.type),
+                        pa.field('f1', a1.type),
+                        pa.field('f2', a2.type)])
+    batch = pa.record_batch([a0, a1, a2], schema=schema)
+    table = pa.Table.from_batches([batch])
+    return table
+
+
+def test_table_deserialize_stream():
+    htable = make_table(10)
+    # Serialize the host table to bytes
+    sink = pa.BufferOutputStream()
+    pa.ipc.new_stream(sink, htable.schema).write_table(htable)
+    hbuf = pa.py_buffer(sink.getvalue().to_pybytes())
+
+    # Copy the host bytes to a device buffer
+    dbuf = global_context.new_buffer(len(hbuf))
+    dbuf.copy_from_host(hbuf, nbytes=len(hbuf))
+    # Deserialize the device buffer into a Table
+    dtable = pa.ipc.open_stream(cuda.BufferReader(dbuf)).read_all()
+
+    # Assert basic fields the same between host and device tables
+    assert htable.schema == dtable.schema
+    assert htable.num_rows == dtable.num_rows
+    assert htable.num_columns == dtable.num_columns
+    # Assert byte-level equality
+    assert hbuf.equals(dbuf.copy_to_host())
+    # Copy DtoH and assert the tables are still equivalent
+    assert htable.equals(pa.ipc.open_stream(
+        dbuf.copy_to_host()
+    ).read_all())
+
+
 def other_process_for_test_IPC(handle_buffer, expected_arr):
     other_context = pa.cuda.Context(0)
     ipc_handle = pa.cuda.IpcMemHandle.from_buffer(handle_buffer)
