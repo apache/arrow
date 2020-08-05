@@ -22,6 +22,8 @@
 #include <string>
 #include <vector>
 
+#include <iostream>
+
 #include <gtest/gtest.h>
 
 #include "arrow/array.h"
@@ -911,12 +913,14 @@ template <typename IndexType, typename ValueType>
 void AssertIndexByteWidth(const std::shared_ptr<DataType>& value_type =
                               TypeTraits<ValueType>::type_singleton()) {
   auto index_type = TypeTraits<IndexType>::type_singleton();
-  auto dict_type = dictionary(index_type, value_type);
+  auto dict_type =
+      checked_pointer_cast<DictionaryType>(dictionary(index_type, value_type));
   std::unique_ptr<ArrayBuilder> builder;
   ASSERT_OK(MakeBuilder(default_memory_pool(), dict_type, &builder));
-  ASSERT_TRUE(dict_type->Equals(builder->type()))
-      << "builder's type is " << builder->type()->ToString() << ", but "
-      << dict_type->ToString() << " is expected";
+  auto builder_dict_type = checked_pointer_cast<DictionaryType>(builder->type());
+  ASSERT_TRUE(dict_type->index_type()->Equals(builder_dict_type->index_type()))
+      << "builder's index type is " << builder_dict_type->index_type()->ToString()
+      << ", but " << dict_type->index_type()->ToString() << " is expected";
 }
 
 typedef ::testing::Types<Int8Type, Int16Type, Int32Type, Int64Type> IndexTypes;
