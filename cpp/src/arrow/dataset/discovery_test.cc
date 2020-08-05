@@ -282,6 +282,24 @@ TEST_F(FileSystemDatasetFactoryTest, OptionsIgnoredNoPrefixes) {
                          "not_ignored_by_default_either/dat"});
 }
 
+TEST_F(FileSystemDatasetFactoryTest, OptionsIgnoredPrefixesWithBaseDirectory) {
+  // ignore nothing
+  std::string dir = "_shouldnt_be_ignored/dataset/";
+  selector_.base_dir = dir;
+  selector_.recursive = true;
+  MakeFactory({
+      fs::File(dir + "."),
+      fs::File(dir + "_"),
+      fs::File(dir + "_$folder$/dat"),
+      fs::File(dir + "_SUCCESS"),
+      fs::File(dir + "not_ignored_by_default"),
+      fs::File(dir + "not_ignored_by_default_either/dat"),
+  });
+
+  AssertFinishWithPaths(
+      {dir + "not_ignored_by_default", dir + "not_ignored_by_default_either/dat"});
+}
+
 TEST_F(FileSystemDatasetFactoryTest, Inspect) {
   auto s = schema({field("f64", float64())});
   format_ = std::make_shared<DummyFileFormat>(s);

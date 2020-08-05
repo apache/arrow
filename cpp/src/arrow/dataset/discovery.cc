@@ -180,10 +180,17 @@ Result<std::shared_ptr<DatasetFactory>> FileSystemDatasetFactory::Make(
   // Filter out anything that's not a file or that's explicitly ignored
   auto files_end =
       std::remove_if(files.begin(), files.end(), [&](const fs::FileInfo& info) {
-        if (!info.IsFile() ||
-            StartsWithAnyOf(info.path(), options.selector_ignore_prefixes)) {
+        if (!info.IsFile()) return true;
+
+        if (auto relative =
+                fs::internal::RemoveAncestor(options.partition_base_dir, info.path())) {
+          if (StartsWithAnyOf(relative->to_string(), options.selector_ignore_prefixes)) {
+            return true;
+          }
+        } else if (StartsWithAnyOf(info.path(), options.selector_ignore_prefixes)) {
           return true;
         }
+
         return false;
       });
   files.erase(files_end, files.end());
