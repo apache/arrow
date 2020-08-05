@@ -24,7 +24,7 @@ use crate::logicalplan::Expr::Alias;
 use crate::logicalplan::{
     lit, Expr, FunctionMeta, LogicalPlan, LogicalPlanBuilder, Operator, ScalarValue,
 };
-use crate::sql::parser::{CreateExternalTable, Statement as DFStatement};
+use crate::sql::parser::{CreateExternalTable, FileType, Statement as DFStatement};
 
 use arrow::datatypes::*;
 
@@ -99,6 +99,26 @@ impl<S: SchemaProvider> SqlToRel<S> {
             has_header,
             location,
         } = statement;
+
+        // semantic checks
+        match *file_type {
+            FileType::CSV => {
+                if columns.is_empty() {
+                    return Err(ExecutionError::General(
+                        "Column definitions required for CSV files. None found".into(),
+                    ));
+                }
+            }
+            FileType::Parquet => {
+                if !columns.is_empty() {
+                    return Err(ExecutionError::General(
+                        "Column definitions can not be specified for PARQUET files."
+                            .into(),
+                    ));
+                }
+            }
+            FileType::NdJson => {}
+        };
 
         let schema = Box::new(self.build_schema(&columns)?);
 
@@ -758,15 +778,40 @@ mod tests {
         );
     }
 
-    //#[test]
-    // fn create_table_csv_with_columns() {
-    //     let sql = "CREATE EXTERNAL TABLE t(c1 int) STORED AS CSV LOCATION 'foo.csv'";
-    //     let err = logical_plan_create_table(sql)
-    //         assert_eq!(
-    //         "General(\"Projection references non-aggregate values\")",
-    //         format!("{:?}", err)
-    //     );
-    // }
+    #[test]
+    fn create_external_table_csv() {
+        let sql = "CREATE EXTERNAL TABLE t(c1 int) STORED AS CSV LOCATION 'foo.csv'";
+        let expected = "CreateExternalTable: \"t\"";
+        quick_test(sql, expected);
+    }
+
+    #[test]
+    fn create_external_table_csv_no_schema() {
+        let sql = "CREATE EXTERNAL TABLE t STORED AS CSV LOCATION 'foo.csv'";
+        let err = logical_plan(sql).expect_err("query should have failed");
+        assert_eq!(
+            "General(\"Column definitions required for CSV files. None found\")",
+            format!("{:?}", err)
+        );
+    }
+
+    #[test]
+    fn create_external_table_parquet() {
+        let sql =
+            "CREATE EXTERNAL TABLE t(c1 int) STORED AS PARQUET LOCATION 'foo.parquet'";
+        let err = logical_plan(sql).expect_err("query should have failed");
+        assert_eq!(
+            "General(\"Column definitions can not be specified for PARQUET files.\")",
+            format!("{:?}", err)
+        );
+    }
+
+    #[test]
+    fn create_external_table_parquet_no_schema() {
+        let sql = "CREATE EXTERNAL TABLE t STORED AS PARQUET LOCATION 'foo.parquet'";
+        let expected = "CreateExternalTable: \"t\"";
+        quick_test(sql, expected);
+    }
 
     fn logical_plan(sql: &str) -> Result<LogicalPlan> {
         let planner = SqlToRel::new(MockSchemaProvider {});
