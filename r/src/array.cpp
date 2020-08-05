@@ -22,7 +22,7 @@
 #include <arrow/array.h>
 #include <arrow/util/bitmap_reader.h>
 
-void arrow::r::validate_slice_offset(arrow::r::Index offset, int64_t len) {
+void arrow::r::validate_slice_offset(R_xlen_t offset, int64_t len) {
   if (offset == NA_INTEGER) {
     cpp11::stop("Slice 'offset' cannot be NA");
   }
@@ -34,7 +34,7 @@ void arrow::r::validate_slice_offset(arrow::r::Index offset, int64_t len) {
   }
 }
 
-void arrow::r::validate_slice_length(arrow::r::Index length, int64_t available) {
+void arrow::r::validate_slice_length(R_xlen_t length, int64_t available) {
   if (length == NA_INTEGER) {
     cpp11::stop("Slice 'length' cannot be NA");
   }
@@ -48,15 +48,15 @@ void arrow::r::validate_slice_length(arrow::r::Index length, int64_t available) 
 
 // [[arrow::export]]
 std::shared_ptr<arrow::Array> Array__Slice1(const std::shared_ptr<arrow::Array>& array,
-                                            arrow::r::Index offset) {
+                                            R_xlen_t offset) {
   arrow::r::validate_slice_offset(offset, array->length());
   return array->Slice(offset);
 }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::Array> Array__Slice2(const std::shared_ptr<arrow::Array>& array,
-                                            arrow::r::Index offset,
-                                            arrow::r::Index length) {
+                                            R_xlen_t offset,
+                                            R_xlen_t length) {
   arrow::r::validate_slice_offset(offset, array->length());
   arrow::r::validate_slice_length(length, array->length() - offset);
   return array->Slice(offset, length);
@@ -72,13 +72,13 @@ void arrow::r::validate_index(int i, int len) {
 }
 
 // [[arrow::export]]
-bool Array__IsNull(const std::shared_ptr<arrow::Array>& x, arrow::r::Index i) {
+bool Array__IsNull(const std::shared_ptr<arrow::Array>& x, R_xlen_t i) {
   arrow::r::validate_index(i, x->length());
   return x->IsNull(i);
 }
 
 // [[arrow::export]]
-bool Array__IsValid(const std::shared_ptr<arrow::Array>& x, arrow::r::Index i) {
+bool Array__IsValid(const std::shared_ptr<arrow::Array>& x, R_xlen_t i) {
   arrow::r::validate_index(i, x->length());
   return x->IsValid(i);
 }
@@ -128,8 +128,8 @@ std::shared_ptr<arrow::ArrayData> Array__data(
 // [[arrow::export]]
 bool Array__RangeEquals(const std::shared_ptr<arrow::Array>& self,
                         const std::shared_ptr<arrow::Array>& other,
-                        arrow::r::Index start_idx, arrow::r::Index end_idx,
-                        arrow::r::Index other_start_idx) {
+                        R_xlen_t start_idx, R_xlen_t end_idx,
+                        R_xlen_t other_start_idx) {
   if (start_idx == NA_INTEGER) {
     cpp11::stop("'start_idx' cannot be NA");
   }

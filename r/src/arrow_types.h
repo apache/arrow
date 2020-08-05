@@ -115,9 +115,9 @@ class RBuffer : public MutableBuffer {
 
 std::shared_ptr<arrow::DataType> InferArrowTypeFromFactor(SEXP);
 
-void validate_slice_offset(arrow::r::Index offset, int64_t len);
+void validate_slice_offset(R_xlen_t offset, int64_t len);
 
-void validate_slice_length(arrow::r::Index length, int64_t available);
+void validate_slice_length(R_xlen_t length, int64_t available);
 
 void validate_index(int i, int len);
 

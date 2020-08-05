@@ -77,35 +77,6 @@ struct ns {
   static SEXP arrow;
 };
 
-class Index {
- public:
-  Index(SEXP x) : index_(validate_index(x)) {}
-
-  inline operator R_xlen_t() const { return index_; }
-
- private:
-  R_xlen_t index_;
-
-  static R_xlen_t validate_index(SEXP x) {
-    if (XLENGTH(x) == 1) {
-      switch (TYPEOF(x)) {
-        case INTSXP:
-          return INTEGER_ELT(x, 0);
-        case REALSXP:
-          if (cpp11::is_convertable_without_loss_to_integer(REAL_ELT(x, 0)))
-            return REAL_ELT(x, 0);
-        case LGLSXP:
-          return LOGICAL_ELT(x, 0);
-        default:
-          break;
-      }
-    }
-
-    cpp11::stop("Expected single integer value");
-    return 0;
-  }
-};
-
 template <typename Pointer>
 Pointer r6_to_pointer(SEXP self) {
   return reinterpret_cast<Pointer>(

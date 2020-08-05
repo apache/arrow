@@ -57,15 +57,15 @@ std::shared_ptr<arrow::DataType> ChunkedArray__type(
 
 // [[arrow::export]]
 std::shared_ptr<arrow::ChunkedArray> ChunkedArray__Slice1(
-    const std::shared_ptr<arrow::ChunkedArray>& chunked_array, arrow::r::Index offset) {
+    const std::shared_ptr<arrow::ChunkedArray>& chunked_array, R_xlen_t offset) {
   arrow::r::validate_slice_offset(offset, chunked_array->length());
   return chunked_array->Slice(offset);
 }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::ChunkedArray> ChunkedArray__Slice2(
-    const std::shared_ptr<arrow::ChunkedArray>& chunked_array, arrow::r::Index offset,
-    arrow::r::Index length) {
+    const std::shared_ptr<arrow::ChunkedArray>& chunked_array, R_xlen_t offset,
+    R_xlen_t length) {
   arrow::r::validate_slice_offset(offset, chunked_array->length());
   arrow::r::validate_slice_length(length, chunked_array->length() - offset);
   return chunked_array->Slice(offset, length);
