@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include "./arrow_rcpp.h"
+#include "./arrow_cpp11.h"
 
 #if defined(ARROW_R_WITH_ARROW)
 #include <arrow/dataset/type_fwd.h>

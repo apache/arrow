@@ -18,8 +18,7 @@
 #pragma once
 
 #include <cpp11/R.hpp>
-
-#include "./arrow_rcpp.h"
+#include "./arrow_cpp11.h"
 
 #if defined(ARROW_R_WITH_ARROW)
 
