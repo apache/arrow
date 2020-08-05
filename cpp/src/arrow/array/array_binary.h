@@ -124,9 +124,10 @@ class BaseBinaryArray : public FlatArray {
     auto value_offsets = data->buffers[1];
     auto value_data = data->buffers[2];
     this->Array::SetData(data);
-    raw_data_ = value_data == NULLPTR ? NULLPTR : value_data->data();
+    raw_data_ =
+        value_data == NULLPTR || !value_data->is_cpu() ? NULLPTR : value_data->data();
     raw_value_offsets_ =
-        value_offsets == NULLPTR
+        value_offsets == NULLPTR || !value_data->is_cpu()
             ? NULLPTR
             : reinterpret_cast<const offset_type*>(value_offsets->data());
   }

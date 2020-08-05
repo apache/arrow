@@ -228,7 +228,7 @@ class ARROW_EXPORT PrimitiveArray : public FlatArray {
   inline void SetData(const std::shared_ptr<ArrayData>& data) {
     auto values = data->buffers[1];
     this->Array::SetData(data);
-    raw_values_ = values == NULLPTR ? NULLPTR : values->data();
+    raw_values_ = values == NULLPTR || !values->is_cpu() ? NULLPTR : values->data();
   }
 
   explicit inline PrimitiveArray(const std::shared_ptr<ArrayData>& data) {

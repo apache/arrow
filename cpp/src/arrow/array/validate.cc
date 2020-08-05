@@ -220,7 +220,7 @@ struct ValidateArrayVisitor {
     }
     RETURN_NOT_OK(ValidateOffsets(array));
 
-    if (array.length() > 0) {
+    if (array.length() > 0 && array.value_offsets()->is_cpu()) {
       const auto first_offset = array.value_offset(0);
       const auto last_offset = array.value_offset(array.length());
       // This early test avoids undefined behaviour when computing `data_extent`
@@ -251,7 +251,7 @@ struct ValidateArrayVisitor {
     RETURN_NOT_OK(ValidateOffsets(array));
 
     // An empty list array can have 0 offsets
-    if (array.length() > 0) {
+    if (array.length() > 0 && array.value_offsets()->is_cpu()) {
       const auto first_offset = array.value_offset(0);
       const auto last_offset = array.value_offset(array.length());
       // This early test avoids undefined behaviour when computing `data_extent`

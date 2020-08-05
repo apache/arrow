@@ -114,7 +114,7 @@ Result<std::shared_ptr<ArrayData>> ArrayData::SliceSafe(int64_t off, int64_t len
 int64_t ArrayData::GetNullCount() const {
   int64_t precomputed = this->null_count.load();
   if (ARROW_PREDICT_FALSE(precomputed == kUnknownNullCount)) {
-    if (this->buffers[0]) {
+    if (this->buffers[0] && this->buffers[0]->is_cpu()) {
       precomputed = this->length -
                     CountSetBits(this->buffers[0]->data(), this->offset, this->length);
     } else {
