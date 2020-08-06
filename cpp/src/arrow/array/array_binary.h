@@ -127,7 +127,7 @@ class BaseBinaryArray : public FlatArray {
     raw_data_ =
         value_data == NULLPTR || !value_data->is_cpu() ? NULLPTR : value_data->data();
     raw_value_offsets_ =
-        value_offsets == NULLPTR || !value_data->is_cpu()
+        value_offsets == NULLPTR || !value_offsets->is_cpu()
             ? NULLPTR
             : reinterpret_cast<const offset_type*>(value_offsets->data());
   }
