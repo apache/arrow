@@ -2678,6 +2678,30 @@ def test_ignore_no_private_directories_path_list(
     _assert_dataset_paths(dataset, paths, use_legacy_dataset)
 
 
+@pytest.mark.pandas
+@parametrize_legacy_dataset_fixed
+def test_ignore_custom_prefixes(tempdir, use_legacy_dataset):
+    # ARROW-9573 - allow override of default ignore_prefixes
+    part = ["xxx"] * 3 + ["yyy"] * 3
+    table = pa.table([
+        pa.array(range(len(part))),
+        pa.array(part).dictionary_encode(),
+    ], names=['index', '_part'])
+
+    pq.write_to_dataset(table, str(tempdir), partition_cols=['_part'])
+
+    private_duplicate = tempdir / '_private_duplicate'
+    private_duplicate.mkdir()
+    pq.write_to_dataset(table, str(private_duplicate),
+                        partition_cols=['_part'])
+
+    read = pq.read_table(
+        tempdir, use_legacy_dataset=use_legacy_dataset,
+        ignore_prefixes=['_private'])
+
+    assert read.equals(table)
+
+
 @parametrize_legacy_dataset_fixed
 def test_empty_directory(tempdir, use_legacy_dataset):
     # ARROW-5310 - reading empty directory
