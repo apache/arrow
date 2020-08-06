@@ -28,6 +28,7 @@
 
 #include "arrow/buffer.h"
 #include "arrow/buffer_builder.h"
+#include "arrow/builder.h"
 #include "arrow/compute/api.h"
 #include "arrow/dataset/dataset.h"
 #include "arrow/io/memory.h"
@@ -38,6 +39,7 @@
 #include "arrow/scalar.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/int_util.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/string.h"
@@ -1491,6 +1493,192 @@ struct DeserializeImpl {
 
 Result<std::shared_ptr<Expression>> Expression::Deserialize(const Buffer& serialized) {
   return DeserializeImpl{}.FromBuffer(serialized);
+}
+
+// Transform an array of counts to offsets which will divide a ListArray
+// into an equal number of slices with corresponding lengths.
+inline Result<std::shared_ptr<Array>> CountsToOffsets(
+    std::shared_ptr<Int64Array> counts) {
+  Int32Builder offset_builder;
+  RETURN_NOT_OK(offset_builder.Resize(counts->length() + 1));
+  offset_builder.UnsafeAppend(0);
+
+  for (int64_t i = 0; i < counts->length(); ++i) {
+    DCHECK_NE(counts->Value(i), 0);
+    auto next_offset = static_cast<int32_t>(offset_builder[i] + counts->Value(i));
+    offset_builder.UnsafeAppend(next_offset);
+  }
+
+  std::shared_ptr<Array> offsets;
+  RETURN_NOT_OK(offset_builder.Finish(&offsets));
+  return offsets;
+}
+
+// Helper for simultaneous dictionary encoding of multiple arrays.
+//
+// The fused dictionary is the Cartesian product of the individual dictionaries.
+// For example given two arrays A, B where A has unique values ["ex", "why"]
+// and B has unique values [0, 1] the fused dictionary is the set of tuples
+// [["ex", 0], ["ex", 1], ["why", 0], ["ex", 1]].
+//
+// TODO(bkietz) this capability belongs in an Action of the hash kernels, where
+// it can be used to group aggregates without materializing a grouped batch.
+// For the purposes of writing we need the materialized grouped batch anyway
+// since no Writers accept a selection vector.
+class StructDictionary {
+ public:
+  struct Encoded {
+    std::shared_ptr<Int32Array> indices;
+    std::shared_ptr<StructDictionary> dictionary;
+  };
+
+  static Result<Encoded> Encode(const ArrayVector& columns) {
+    Encoded out{nullptr, std::make_shared<StructDictionary>()};
+
+    for (const auto& column : columns) {
+      if (column->null_count() != 0) {
+        return Status::NotImplemented("Grouping on a field with nulls");
+      }
+
+      RETURN_NOT_OK(out.dictionary->AddOne(column, &out.indices));
+    }
+
+    return out;
+  }
+
+  Result<std::shared_ptr<StructArray>> Decode(std::shared_ptr<Int32Array> fused_indices,
+                                              FieldVector fields) {
+    std::vector<Int32Builder> builders(dictionaries_.size());
+    for (Int32Builder& b : builders) {
+      RETURN_NOT_OK(b.Resize(fused_indices->length()));
+    }
+
+    std::vector<int32_t> codes(dictionaries_.size());
+    for (int64_t i = 0; i < fused_indices->length(); ++i) {
+      Expand(fused_indices->Value(i), codes.data());
+
+      auto builder_it = builders.begin();
+      for (int32_t index : codes) {
+        builder_it++->UnsafeAppend(index);
+      }
+    }
+
+    ArrayVector columns(dictionaries_.size());
+    for (size_t i = 0; i < dictionaries_.size(); ++i) {
+      std::shared_ptr<ArrayData> indices;
+      RETURN_NOT_OK(builders[i].FinishInternal(&indices));
+
+      ARROW_ASSIGN_OR_RAISE(Datum column, compute::Take(dictionaries_[i], indices));
+      columns[i] = column.make_array();
+    }
+
+    return StructArray::Make(std::move(columns), std::move(fields));
+  }
+
+ private:
+  Status AddOne(const std::shared_ptr<Array>& column,
+                std::shared_ptr<Int32Array>* fused_indices) {
+    ARROW_ASSIGN_OR_RAISE(Datum encoded, compute::DictionaryEncode(column));
+    ArrayData* encoded_array = encoded.mutable_array();
+
+    auto indices = std::make_shared<Int32Array>(encoded_array->length,
+                                                std::move(encoded_array->buffers[1]));
+
+    dictionaries_.push_back(MakeArray(std::move(encoded_array->dictionary)));
+    auto dictionary_size = static_cast<int32_t>(dictionaries_.back()->length());
+
+    if (*fused_indices == nullptr) {
+      *fused_indices = std::move(indices);
+      size_ = dictionary_size;
+      return Status::OK();
+    }
+
+    // It's useful to think about the case where each of dictionaries_ has size 10.
+    // In this case the decimal digit in the ones place is the code in dictionaries_[0],
+    // the tens place corresponds to dictionaries_[1], etc.
+    // The incumbent indices must be shifted to the hundreds place so as not to collide.
+    ARROW_ASSIGN_OR_RAISE(Datum new_fused_indices,
+                          compute::Multiply(indices, MakeScalar(size_)));
+
+    ARROW_ASSIGN_OR_RAISE(new_fused_indices,
+                          compute::Add(new_fused_indices, *fused_indices));
+
+    *fused_indices = checked_pointer_cast<Int32Array>(new_fused_indices.make_array());
+
+    // XXX should probably cap this at 2**15 or so
+    DCHECK(!internal::HasPositiveMultiplyOverflow(size_, dictionary_size));
+    size_ *= dictionary_size;
+    return Status::OK();
+  }
+
+  // expand a fused code into component dict codes, order is in order of addition
+  void Expand(int32_t fused_code, int32_t* codes) {
+    for (size_t i = 0; i < dictionaries_.size(); ++i) {
+      auto dictionary_size = static_cast<int32_t>(dictionaries_[i]->length());
+      codes[i] = fused_code % dictionary_size;
+      fused_code /= dictionary_size;
+    }
+  }
+
+  int32_t size_;
+  ArrayVector dictionaries_;
+};
+
+Result<std::shared_ptr<StructArray>> MakeGroupings(const StructArray& by) {
+  if (by.num_fields() == 0) {
+    return Status::NotImplemented("Grouping with no criteria");
+  }
+
+  ARROW_ASSIGN_OR_RAISE(auto fused, StructDictionary::Encode(by.fields()));
+
+  ARROW_ASSIGN_OR_RAISE(auto sort_indices, compute::SortToIndices(*fused.indices));
+  ARROW_ASSIGN_OR_RAISE(Datum sorted, compute::Take(fused.indices, *sort_indices));
+  fused.indices = checked_pointer_cast<Int32Array>(sorted.make_array());
+
+  ARROW_ASSIGN_OR_RAISE(auto fused_counts_and_values,
+                        compute::ValueCounts(fused.indices));
+  fused.indices.reset();
+
+  auto unique_fused_indices =
+      checked_pointer_cast<Int32Array>(fused_counts_and_values->GetFieldByName("values"));
+  ARROW_ASSIGN_OR_RAISE(
+      auto unique_rows,
+      fused.dictionary->Decode(std::move(unique_fused_indices), by.type()->fields()));
+
+  auto counts =
+      checked_pointer_cast<Int64Array>(fused_counts_and_values->GetFieldByName("counts"));
+  ARROW_ASSIGN_OR_RAISE(auto offsets, CountsToOffsets(std::move(counts)));
+
+  ARROW_ASSIGN_OR_RAISE(auto grouped_sort_indices,
+                        ListArray::FromArrays(*offsets, *sort_indices));
+
+  return StructArray::Make(
+      ArrayVector{std::move(unique_rows), std::move(grouped_sort_indices)},
+      std::vector<std::string>{"values", "groupings"});
+}
+
+Result<std::shared_ptr<ListArray>> ApplyGroupings(const ListArray& groupings,
+                                                  const Array& array) {
+  ARROW_ASSIGN_OR_RAISE(Datum sorted,
+                        compute::Take(array, groupings.data()->child_data[0]));
+
+  return std::make_shared<ListArray>(list(array.type()), groupings.length(),
+                                     groupings.value_offsets(), sorted.make_array());
+}
+
+Result<RecordBatchVector> ApplyGroupings(const ListArray& groupings,
+                                         const std::shared_ptr<RecordBatch>& batch) {
+  ARROW_ASSIGN_OR_RAISE(Datum sorted,
+                        compute::Take(batch, groupings.data()->child_data[0]));
+
+  const auto& sorted_batch = *sorted.record_batch();
+
+  RecordBatchVector out(static_cast<size_t>(groupings.length()));
+  for (size_t i = 0; i < out.size(); ++i) {
+    out[i] = sorted_batch.Slice(groupings.value_offset(i), groupings.value_length(i));
+  }
+
+  return out;
 }
 
 }  // namespace dataset

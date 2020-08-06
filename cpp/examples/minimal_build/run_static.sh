@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -23,6 +23,8 @@ set -e
 : ${ARROW_BUILD_DIR:=/build/arrow}
 : ${EXAMPLE_BUILD_DIR:=/build/example}
 
+: ${ARROW_DEPENDENCY_SOURCE:=BUNDLED}
+
 echo
 echo "=="
 echo "== Building Arrow C++ library"
@@ -35,12 +37,13 @@ pushd $ARROW_BUILD_DIR
 NPROC=$(nproc)
 
 cmake $ARROW_DIR/cpp \
-    -DARROW_DEPENDENCY_SOURCE=BUNDLED \
     -DARROW_BUILD_SHARED=OFF \
     -DARROW_BUILD_STATIC=ON \
     -DARROW_COMPUTE=ON \
     -DARROW_CSV=ON \
     -DARROW_DATASET=ON \
+    -DARROW_DEPENDENCY_SOURCE=${ARROW_DEPENDENCY_SOURCE} \
+    -DARROW_DEPENDENCY_USE_SHARED=OFF \
     -DARROW_FILESYSTEM=ON \
     -DARROW_HDFS=ON \
     -DARROW_JEMALLOC=ON \
@@ -54,6 +57,7 @@ cmake $ARROW_DIR/cpp \
     -DARROW_WITH_SNAPPY=ON \
     -DARROW_WITH_ZLIB=ON \
     -DARROW_WITH_ZSTD=ON \
+    -DORC_SOURCE=BUNDLED \
     $ARROW_CMAKE_OPTIONS
 
 make -j$NPROC
@@ -81,6 +85,6 @@ echo "== Running example project"
 echo "=="
 echo
 
-cd $EXAMPLE_DIR
+pushd $EXAMPLE_DIR
 
 ${EXAMPLE_BUILD_DIR}/arrow_example

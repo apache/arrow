@@ -15,25 +15,43 @@
 # specific language governing permissions and limitations
 # under the License.
 
+if(ARROW_SNAPPY_USE_SHARED)
+  set(SNAPPY_LIB_NAMES)
+  if(CMAKE_IMPORT_LIBRARY_SUFFIX)
+    list(APPEND SNAPPY_LIB_NAMES
+                "${CMAKE_IMPORT_LIBRARY_PREFIX}snappy${CMAKE_IMPORT_LIBRARY_SUFFIX}")
+  endif()
+  list(APPEND SNAPPY_LIB_NAMES
+              "${CMAKE_SHARED_LIBRARY_PREFIX}snappy${CMAKE_SHARED_LIBRARY_SUFFIX}")
+else()
+  if(MSVC AND DEFINED ENV{CONDA_PREFIX})
+    # Conda package changes the output name.
+    # https://github.com/conda-forge/snappy-feedstock/blob/master/recipe/windows-static-lib-name.patch
+    set(SNAPPY_LIB_NAMES "${CMAKE_STATIC_LIBRARY_PREFIX}snappy_static${CMAKE_STATIC_LIBRARY_SUFFIX}")
+  endif()
+  set(SNAPPY_LIB_NAMES "${CMAKE_STATIC_LIBRARY_PREFIX}snappy${CMAKE_STATIC_LIBRARY_SUFFIX}")
+endif()
+
 if(Snappy_ROOT)
   find_library(Snappy_LIB
-               NAMES snappy
+               NAMES ${SNAPPY_LIB_NAMES}
                PATHS ${Snappy_ROOT}
-               PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
+               PATH_SUFFIXES ${ARROW_LIBRARY_PATH_SUFFIXES}
                NO_DEFAULT_PATH)
   find_path(Snappy_INCLUDE_DIR
             NAMES snappy.h
             PATHS ${Snappy_ROOT}
             NO_DEFAULT_PATH
-            PATH_SUFFIXES ${INCLUDE_PATH_SUFFIXES})
+            PATH_SUFFIXES ${ARROW_INCLUDE_PATH_SUFFIXES})
 else()
-  find_library(Snappy_LIB NAMES snappy)
-  find_path(Snappy_INCLUDE_DIR NAMES snappy.h PATH_SUFFIXES ${INCLUDE_PATH_SUFFIXES})
+  find_library(Snappy_LIB NAMES ${SNAPPY_LIB_NAMES})
+  find_path(Snappy_INCLUDE_DIR NAMES snappy.h PATH_SUFFIXES ${ARROW_INCLUDE_PATH_SUFFIXES})
 endif()
 
-find_package_handle_standard_args(SnappyAlt REQUIRED_VARS Snappy_LIB Snappy_INCLUDE_DIR)
+find_package_handle_standard_args(Snappy REQUIRED_VARS Snappy_LIB Snappy_INCLUDE_DIR)
 
-if(SnappyAlt_FOUND)
+# CMake 3.2 does uppercase the FOUND variable
+if(Snappy_FOUND OR SNAPPY_FOUND)
   add_library(Snappy::snappy UNKNOWN IMPORTED)
   set_target_properties(Snappy::snappy
                         PROPERTIES IMPORTED_LOCATION "${Snappy_LIB}"

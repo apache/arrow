@@ -26,26 +26,30 @@
 #include <vector>
 
 #include "arrow/array/array_base.h"
+#include "arrow/array/array_nested.h"
 #include "arrow/array/builder_binary.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/filter.h"
 #include "arrow/dataset/scanner.h"
+#include "arrow/dataset/scanner_internal.h"
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/filesystem/path_util.h"
 #include "arrow/scalar.h"
 #include "arrow/util/iterator.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/range.h"
 #include "arrow/util/sort.h"
 #include "arrow/util/string_view.h"
 
 namespace arrow {
-namespace dataset {
 
+using internal::checked_cast;
+using internal::checked_pointer_cast;
 using util::string_view;
 
-using arrow::internal::checked_cast;
+namespace dataset {
 
 std::shared_ptr<Partitioning> Partitioning::Default() {
   class DefaultPartitioning : public Partitioning {
@@ -62,22 +66,14 @@ std::shared_ptr<Partitioning> Partitioning::Default() {
       return Status::NotImplemented("formatting paths from ", type_name(),
                                     " Partitioning");
     }
+
+    Result<std::vector<PartitionedBatch>> Partition(
+        const std::shared_ptr<RecordBatch>& batch) const override {
+      return std::vector<PartitionedBatch>{{batch, scalar(true)}};
+    }
   };
 
   return std::make_shared<DefaultPartitioning>();
-}
-
-Result<WritePlan> PartitioningFactory::MakeWritePlan(std::shared_ptr<Schema> schema,
-                                                     FragmentIterator fragment_it) {
-  return Status::NotImplemented("MakeWritePlan from PartitioningFactory of type ",
-                                type_name());
-}
-
-Result<WritePlan> PartitioningFactory::MakeWritePlan(
-    std::shared_ptr<Schema> schema, FragmentIterator fragment_it,
-    std::shared_ptr<Schema> partition_schema) {
-  return Status::NotImplemented("MakeWritePlan from PartitioningFactory of type ",
-                                type_name());
 }
 
 Status KeyValuePartitioning::VisitKeys(
@@ -134,6 +130,56 @@ Status KeyValuePartitioning::SetDefaultValuesFromKeys(const Expression& expr,
         }
         return projector->SetDefaultValue(match, value);
       });
+}
+
+inline std::shared_ptr<Expression> ConjunctionFromGroupingRow(Scalar* row) {
+  ScalarVector* values = &checked_cast<StructScalar*>(row)->value;
+  ExpressionVector equality_expressions(values->size());
+  for (size_t i = 0; i < values->size(); ++i) {
+    const std::string& name = row->type->field(static_cast<int>(i))->name();
+    equality_expressions[i] = equal(field_ref(name), scalar(std::move(values->at(i))));
+  }
+  return and_(std::move(equality_expressions));
+}
+
+Result<std::vector<Partitioning::PartitionedBatch>> KeyValuePartitioning::Partition(
+    const std::shared_ptr<RecordBatch>& batch) const {
+  FieldVector by_fields;
+  ArrayVector by_columns;
+
+  std::shared_ptr<RecordBatch> rest = batch;
+  for (const auto& partition_field : schema_->fields()) {
+    ARROW_ASSIGN_OR_RAISE(
+        auto match, FieldRef(partition_field->name()).FindOneOrNone(*rest->schema()))
+
+    if (match) {
+      by_fields.push_back(partition_field);
+      by_columns.push_back(rest->column(match[0]));
+      ARROW_ASSIGN_OR_RAISE(rest, rest->RemoveColumn(match[0]));
+    }
+  }
+
+  if (by_fields.empty()) {
+    // no fields to group by; return the whole batch
+    return std::vector<PartitionedBatch>{{batch, scalar(true)}};
+  }
+
+  ARROW_ASSIGN_OR_RAISE(auto by,
+                        StructArray::Make(std::move(by_columns), std::move(by_fields)));
+  ARROW_ASSIGN_OR_RAISE(auto groupings_and_values, MakeGroupings(*by));
+  auto groupings =
+      checked_pointer_cast<ListArray>(groupings_and_values->GetFieldByName("groupings"));
+  auto unique_rows = groupings_and_values->GetFieldByName("values");
+
+  ARROW_ASSIGN_OR_RAISE(auto grouped_batches, ApplyGroupings(*groupings, rest));
+
+  std::vector<PartitionedBatch> out(grouped_batches.size());
+  for (size_t i = 0; i < out.size(); ++i) {
+    ARROW_ASSIGN_OR_RAISE(auto row, unique_rows->GetScalar(i));
+    out[i].partition_expression = ConjunctionFromGroupingRow(row.get());
+    out[i].batch = std::move(grouped_batches[i]);
+  }
+  return out;
 }
 
 Result<std::shared_ptr<Expression>> KeyValuePartitioning::ConvertKey(
@@ -254,7 +300,7 @@ Result<std::string> DirectoryPartitioning::FormatValues(
     if (auto illegal_index = NextValid(values, i)) {
       // XXX maybe we should just ignore keys provided after the first absent one?
       return Status::Invalid("No partition key for ", schema_->field(i)->name(),
-                             " but subsequent a key was provided subsequently for ",
+                             " but a key was provided subsequently for ",
                              schema_->field(*illegal_index)->name(), ".");
     }
 
@@ -311,6 +357,8 @@ class KeyValuePartitioningInspectImpl {
   void InsertRepr(int index, std::string repr) { values_[index].insert(std::move(repr)); }
 
   Result<std::shared_ptr<Schema>> Finish(ArrayVector* dictionaries) {
+    dictionaries->clear();
+
     if (options_.max_partition_dictionary_size != 0) {
       dictionaries->resize(name_to_index_.size());
     }
@@ -391,252 +439,11 @@ class DirectoryPartitioningFactory : public PartitioningFactory {
     return std::make_shared<DirectoryPartitioning>(std::move(out_schema), dictionaries_);
   }
 
-  struct MakeWritePlanImpl;
-
-  Result<WritePlan> MakeWritePlan(std::shared_ptr<Schema> schema,
-                                  FragmentIterator fragments) override;
-
-  Result<WritePlan> MakeWritePlan(std::shared_ptr<Schema> schema,
-                                  FragmentIterator fragments,
-                                  std::shared_ptr<Schema> partition_schema) override;
-
  private:
   std::vector<std::string> field_names_;
   ArrayVector dictionaries_;
   PartitioningFactoryOptions options_;
 };
-
-struct DirectoryPartitioningFactory::MakeWritePlanImpl {
-  using Indices = std::basic_string<int>;
-
-  MakeWritePlanImpl(DirectoryPartitioningFactory* factory, std::shared_ptr<Schema> schema,
-                    FragmentVector source_fragments)
-      : this_(factory),
-        schema_(std::move(schema)),
-        source_fragments_(std::move(source_fragments)),
-        right_hand_sides_(source_fragments_.size(), Indices(num_fields(), -1)) {}
-
-  int num_fields() const { return static_cast<int>(this_->field_names_.size()); }
-
-  // For a KeyValuePartitioning, every partition expression will be an equality
-  // ComparisonExpression where the left operand is a FieldExpression and the right is a
-  // ScalarExpression. Comparing Scalars directly is expensive, so first assemble a
-  // dictionary containing the scalars from the right operands of every partition
-  // expression. This allows later stages of MakeWritePlan to handle a scalar by its
-  // dictionary code, which is both more compact to store and cheap to compare.
-  //
-  // Scalars are stored such that the dictionary code of a fragment's RHS in the
-  // partition expression for a given field is given by
-  //     int code = right_hand_sides_[fragment_index][field_index];
-  // and the corresponding scalar can be retrieved with
-  //     std::shared_ptr<Scalar> scalar = scalar_dict_.code_to_scalar[code];
-  Status DictEncodeRightHandSides() {
-    if (source_fragments_.empty()) {
-      return Status::OK();
-    }
-
-    for (size_t fragment_i = 0; fragment_i < source_fragments_.size(); ++fragment_i) {
-      const auto& fragment = source_fragments_[fragment_i];
-
-      auto insert_representable_into_dict = [this, fragment_i](
-                                                const std::string& name,
-                                                const std::shared_ptr<Scalar>& value) {
-        auto it = std::find(this_->field_names_.begin(), this_->field_names_.end(), name);
-        if (it == this_->field_names_.end()) {
-          return Status::OK();
-        }
-
-        auto field_i = it - this_->field_names_.begin();
-
-        int code = scalar_dict_.GetOrInsert(value);
-        right_hand_sides_[fragment_i][field_i] = code;
-
-        return Status::OK();
-      };
-
-      RETURN_NOT_OK(KeyValuePartitioning::VisitKeys(*fragment->partition_expression(),
-                                                    insert_representable_into_dict));
-
-      auto it = std::find(right_hand_sides_[fragment_i].begin(),
-                          right_hand_sides_[fragment_i].end(), -1);
-      if (it != right_hand_sides_[fragment_i].end()) {
-        // NB: this is an error when writing DirectoryPartitioning but not
-        // HivePartitioning (as it will be valid to simply omit segments)
-        return Status::Invalid(
-            "fragment ", fragment_i, " had no partition expression for field '",
-            this_->field_names_.at(it - right_hand_sides_[fragment_i].begin()), "'");
-      }
-    }
-
-    return Status::OK();
-  }
-
-  // Infer the Partitioning schema from partition expressions.
-  // For example if one partition expression is "omega"_ == 13
-  // we can infer that the field "omega" has type int32
-  Result<std::shared_ptr<Schema>> InferPartitioningSchema() const {
-    if (source_fragments_.empty()) {
-      return Status::Invalid(
-          "No fragments were provided so the Partitioning schema could not be "
-          "inferred.");
-    }
-
-    // NB: under DirectoryPartitioning every fragment has a partition expression for every
-    // field, so we can infer the schema by looking only at the first fragment. This will
-    // be more complicated for HivePartitioning.
-    int fragment_i = 0;
-
-    FieldVector fields(num_fields());
-    for (int field_i = 0; field_i < num_fields(); ++field_i) {
-      const auto& name = this_->field_names_[field_i];
-      const auto& type =
-          scalar_dict_.code_to_scalar[right_hand_sides_[fragment_i][field_i]]->type;
-      fields[field_i] = field(name, type);
-    }
-
-    return schema(std::move(fields));
-  }
-
-  // reconstitute fragment_i's partition expression for field_i by reading the right
-  // hand side from the scalar dictionary and constructing an equality
-  // ComparisonExpression
-  std::shared_ptr<Expression> PartitionExpression(size_t fragment_i, int field_i) {
-    auto left_hand_side = field_ref(this_->field_names_[field_i]);
-    auto right_hand_side =
-        scalar(scalar_dict_.code_to_scalar[right_hand_sides_[fragment_i][field_i]]);
-    return equal(std::move(left_hand_side), std::move(right_hand_side));
-  }
-
-  // create a guid by stringifying the number of milliseconds since the epoch
-  std::string Guid() {
-    using std::chrono::duration_cast;
-    using std::chrono::milliseconds;
-    using std::chrono::steady_clock;
-    auto milliseconds_since_epoch =
-        duration_cast<milliseconds>(steady_clock::now().time_since_epoch()).count();
-    return std::to_string(milliseconds_since_epoch);
-  }
-
-  Result<WritePlan> Finish(std::shared_ptr<Schema> partitioning_schema = nullptr) && {
-    WritePlan out;
-
-    RETURN_NOT_OK(DictEncodeRightHandSides());
-
-    if (partitioning_schema == nullptr) {
-      ARROW_ASSIGN_OR_RAISE(partitioning_schema, InferPartitioningSchema());
-    }
-    ARROW_ASSIGN_OR_RAISE(out.partitioning,
-                          this_->Finish(std::move(partitioning_schema)));
-
-    // There's no guarantee that all Fragments have the same schema.
-    ARROW_ASSIGN_OR_RAISE(out.schema,
-                          UnifySchemas({out.partitioning->schema(), schema_}));
-
-    // Lexicographic ordering WRT right_hand_sides_ ensures that source_fragments_ are in
-    // a depth first visitation order WRT their partition expressions. This makes
-    // generation of the full directory tree far simpler since a directory's files are
-    // grouped.
-    auto permutation = arrow::internal::ArgSort(right_hand_sides_);
-    arrow::internal::Permute(permutation, &source_fragments_);
-    arrow::internal::Permute(permutation, &right_hand_sides_);
-
-    // out.paths[parents[i]] is the parent directory of out.paths[i]
-    std::vector<int> parents;
-
-    // current_right_hand_sides[field_i] is the RHS dictionary code for the current
-    // partition expression corresponding to field_i
-    Indices current_right_hand_sides(num_fields(), -1);
-
-    // current_partition_expressions[field_i] is the current partition expression
-    // corresponding to field_i
-    ExpressionVector current_partition_expressions(num_fields());
-
-    // out.paths[current_parents[field_i]] is the current ancestor directory corresponding
-    // to field_i
-    Indices current_parents(num_fields() + 1, -1);
-
-    for (size_t fragment_i = 0; fragment_i < source_fragments_.size(); ++fragment_i) {
-      int field_i = 0;
-      for (; field_i < num_fields(); ++field_i) {
-        // these directories have already been created and we're still writing their
-        // children
-        if (right_hand_sides_[fragment_i][field_i] != current_right_hand_sides[field_i]) {
-          break;
-        }
-      }
-
-      for (; field_i < num_fields(); ++field_i) {
-        // push a new directory
-        current_parents[field_i + 1] = static_cast<int>(parents.size());
-        parents.push_back(current_parents[field_i]);
-
-        current_partition_expressions.resize(field_i + 1);
-        current_partition_expressions[field_i] = PartitionExpression(fragment_i, field_i);
-        auto partition_expression = and_(current_partition_expressions);
-
-        // format segment for partition_expression
-        ARROW_ASSIGN_OR_RAISE(auto path, out.partitioning->Format(*partition_expression));
-        out.paths.push_back(std::move(path));
-
-        // store partition_expression for use in the written Dataset
-        out.fragment_or_partition_expressions.emplace_back(
-            current_partition_expressions[field_i]);
-
-        current_right_hand_sides[field_i] = right_hand_sides_[fragment_i][field_i];
-      }
-
-      // push a fragment (not attempting to give files meaningful names)
-      std::string basename = Guid() + "_" + std::to_string(fragment_i);
-      int parent_i = current_parents[field_i];
-      parents.push_back(parent_i);
-      out.paths.push_back(fs::internal::JoinAbstractPath(
-          std::vector<std::string>{out.paths[parent_i], std::move(basename)}));
-
-      // store a fragment for writing to disk
-      out.fragment_or_partition_expressions.emplace_back(
-          std::move(source_fragments_[fragment_i]));
-    }
-
-    return out;
-  }
-
-  DirectoryPartitioningFactory* this_;
-  std::shared_ptr<Schema> schema_;
-  FragmentVector source_fragments_;
-
-  struct {
-    std::unordered_map<std::shared_ptr<Scalar>, int, Scalar::Hash, Scalar::PtrsEqual>
-        scalar_to_code;
-
-    ScalarVector code_to_scalar;
-
-    int GetOrInsert(const std::shared_ptr<Scalar>& scalar) {
-      int new_code = static_cast<int>(code_to_scalar.size());
-
-      auto it_inserted = scalar_to_code.emplace(scalar, new_code);
-      if (!it_inserted.second) {
-        return it_inserted.first->second;
-      }
-
-      code_to_scalar.push_back(scalar);
-      return new_code;
-    }
-  } scalar_dict_;
-  std::vector<Indices> right_hand_sides_;
-};
-
-Result<WritePlan> DirectoryPartitioningFactory::MakeWritePlan(
-    std::shared_ptr<Schema> schema, FragmentIterator fragment_it,
-    std::shared_ptr<Schema> partition_schema) {
-  ARROW_ASSIGN_OR_RAISE(auto fragments, fragment_it.ToVector());
-  return MakeWritePlanImpl(this, schema, std::move(fragments)).Finish(partition_schema);
-}
-
-Result<WritePlan> DirectoryPartitioningFactory::MakeWritePlan(
-    std::shared_ptr<Schema> schema, FragmentIterator fragment_it) {
-  ARROW_ASSIGN_OR_RAISE(auto fragments, fragment_it.ToVector());
-  return MakeWritePlanImpl(this, schema, std::move(fragments)).Finish();
-}
 
 std::shared_ptr<PartitioningFactory> DirectoryPartitioning::MakeFactory(
     std::vector<std::string> field_names, PartitioningFactoryOptions options) {

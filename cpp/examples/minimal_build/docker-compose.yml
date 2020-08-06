@@ -15,4 +15,37 @@
 # specific language governing permissions and limitations
 # under the License.
 
-arm64v8/ubuntu:eoan
+version: '3.5'
+
+services:
+  minimal:
+    build:
+      context: .
+      dockerfile: minimal.dockerfile
+    volumes:
+      - ../../../:/arrow:delegated
+      - .:/io:delegated
+    command:
+      - "/io/run.sh"
+
+  static:
+    build:
+      context: .
+      dockerfile: minimal.dockerfile
+    volumes:
+      - ../../../:/arrow:delegated
+      - .:/io:delegated
+    command:
+      - "/io/run_static.sh"
+
+  static-system-dependency:
+    build:
+      context: .
+      dockerfile: system_dependency.dockerfile
+    environment:
+      ARROW_DEPENDENCY_SOURCE: "SYSTEM"
+    volumes:
+      - ../../../:/arrow:delegated
+      - .:/io:delegated
+    command:
+      - "/io/run_static.sh"

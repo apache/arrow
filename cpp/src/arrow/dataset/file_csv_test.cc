@@ -83,6 +83,23 @@ TEST_F(TestCsvFileFormat, ScanRecordBatchReader) {
   ASSERT_EQ(row_count, 3);
 }
 
+TEST_F(TestCsvFileFormat, ScanRecordBatchReaderWithVirtualColumn) {
+  auto source = GetFileSource();
+
+  opts_ = ScanOptions::Make(schema({schema_->field(0), field("virtual", int32())}));
+  ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
+
+  int64_t row_count = 0;
+
+  for (auto maybe_batch : Batches(fragment.get())) {
+    ASSERT_OK_AND_ASSIGN(auto batch, std::move(maybe_batch));
+    AssertSchemaEqual(*batch->schema(), *schema_);
+    row_count += batch->num_rows();
+  }
+
+  ASSERT_EQ(row_count, 3);
+}
+
 TEST_F(TestCsvFileFormat, OpenFailureWithRelevantError) {
   auto source = GetFileSource("");
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("<Buffer>"),

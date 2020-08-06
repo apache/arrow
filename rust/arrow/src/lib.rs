@@ -34,8 +34,6 @@ pub mod compute;
 pub mod csv;
 pub mod datatypes;
 pub mod error;
-#[cfg(feature = "flight")]
-pub mod flight;
 #[allow(clippy::redundant_closure)]
 #[allow(clippy::needless_lifetimes)]
 #[allow(clippy::extra_unused_lifetimes)]

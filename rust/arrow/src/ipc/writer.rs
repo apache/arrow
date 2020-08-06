@@ -209,7 +209,7 @@ impl<W: Write> Drop for StreamWriter<W> {
     }
 }
 
-pub(crate) fn schema_to_bytes(schema: &Schema) -> Vec<u8> {
+pub fn schema_to_bytes(schema: &Schema) -> Vec<u8> {
     let mut fbb = FlatBufferBuilder::new();
     let schema = {
         let fb = ipc::convert::schema_to_fb_offset(&mut fbb, schema);
@@ -270,7 +270,7 @@ fn write_padded_data<R: Write>(
 }
 
 /// Write a `RecordBatch` into a tuple of bytes, one for the header (ipc::Message) and the other for the batch's data
-pub(crate) fn record_batch_to_bytes(batch: &RecordBatch) -> (Vec<u8>, Vec<u8>) {
+pub fn record_batch_to_bytes(batch: &RecordBatch) -> (Vec<u8>, Vec<u8>) {
     let mut fbb = FlatBufferBuilder::new();
 
     let mut nodes: Vec<ipc::FieldNode> = vec![];

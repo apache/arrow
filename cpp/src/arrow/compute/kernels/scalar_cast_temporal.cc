@@ -27,7 +27,6 @@
 
 namespace arrow {
 
-using internal::ParseTimestampContext;
 using internal::ParseValue;
 
 namespace compute {
@@ -268,20 +267,16 @@ struct CastFunctor<Date32Type, Date64Type> {
 // String to Timestamp
 
 struct ParseTimestamp {
-  explicit ParseTimestamp(TimeUnit::type unit) : unit(unit) {}
-
   template <typename OUT, typename ARG0>
   OUT Call(KernelContext* ctx, ARG0 val) const {
-    ParseTimestampContext parse_ctx{this->unit};
     OUT result = 0;
-    if (ARROW_PREDICT_FALSE(
-            !ParseValue<TimestampType>(val.data(), val.size(), &result, &parse_ctx))) {
+    if (ARROW_PREDICT_FALSE(!ParseValue(type, val.data(), val.size(), &result))) {
       ctx->SetStatus(Status::Invalid("Failed to parse string: ", val));
     }
     return result;
   }
 
-  TimeUnit::type unit;
+  const TimestampType& type;
 };
 
 template <typename I>
@@ -289,7 +284,7 @@ struct CastFunctor<TimestampType, I, enable_if_t<is_base_binary_type<I>::value>>
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     const auto& out_type = checked_cast<const TimestampType&>(*out->type());
     applicator::ScalarUnaryNotNullStateful<TimestampType, I, ParseTimestamp> kernel(
-        ParseTimestamp(out_type.unit()));
+        ParseTimestamp{out_type});
     return kernel.Exec(ctx, batch, out);
   }
 };
@@ -333,7 +328,6 @@ std::shared_ptr<CastFunction> GetDate64Cast() {
   // timestamp -> date64
   AddSimpleCast<TimestampType, Date64Type>(InputType(Type::TIMESTAMP), date64(),
                                            func.get());
-
   return func;
 }
 

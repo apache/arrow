@@ -82,9 +82,8 @@ void CheckValueCountsNull(const std::shared_ptr<DataType>& type) {
   std::shared_ptr<Array> ex_values = ArrayFromJSON(type, "[]");
   std::shared_ptr<Array> ex_counts = ArrayFromJSON(int64(), "[]");
 
-  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> result, ValueCounts(input));
-  ASSERT_OK(result->ValidateFull());
-  auto result_struct = std::dynamic_pointer_cast<StructArray>(result);
+  ASSERT_OK_AND_ASSIGN(auto result_struct, ValueCounts(input));
+  ASSERT_OK(result_struct->ValidateFull());
   ASSERT_NE(result_struct->GetFieldByName(kValuesFieldName), nullptr);
   // TODO: We probably shouldn't rely on value ordering.
   ASSERT_ARRAYS_EQUAL(*ex_values, *result_struct->GetFieldByName(kValuesFieldName));
@@ -615,8 +614,7 @@ TEST_F(TestHashKernel, ChunkedArrayInvoke) {
   std::vector<std::string> dict_values = {"foo", "bar", "baz", "quuux"};
   auto ex_dict = _MakeArray<StringType, std::string>(type, dict_values, {});
 
-  std::vector<int64_t> counts = {3, 2, 1, 1};
-  auto ex_counts = _MakeArray<Int64Type, int64_t>(int64(), counts, {});
+  auto ex_counts = _MakeArray<Int64Type, int64_t>(int64(), {3, 2, 1, 1}, {});
 
   ArrayVector arrays = {a1, a2};
   auto carr = std::make_shared<ChunkedArray>(arrays);
@@ -636,10 +634,9 @@ TEST_F(TestHashKernel, ChunkedArrayInvoke) {
   auto dict_carr = std::make_shared<ChunkedArray>(dict_arrays);
 
   // Unique counts
-  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> counts_array, ValueCounts(carr));
-  auto counts_struct = std::dynamic_pointer_cast<StructArray>(counts_array);
-  ASSERT_ARRAYS_EQUAL(*ex_dict, *counts_struct->field(0));
-  ASSERT_ARRAYS_EQUAL(*ex_counts, *counts_struct->field(1));
+  ASSERT_OK_AND_ASSIGN(auto counts, ValueCounts(carr));
+  ASSERT_ARRAYS_EQUAL(*ex_dict, *counts->field(0));
+  ASSERT_ARRAYS_EQUAL(*ex_counts, *counts->field(1));
 
   // Dictionary encode
   ASSERT_OK_AND_ASSIGN(Datum encoded_out, DictionaryEncode(carr));

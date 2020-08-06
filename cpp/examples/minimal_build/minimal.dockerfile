@@ -1,5 +1,3 @@
-# -*- ruby -*-
-#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -17,31 +15,12 @@
 # specific language governing permissions and limitations
 # under the License.
 
-require "pkg-config"
-require "native-package-installer"
-require_relative "../lib/arrow-cuda/version"
+FROM ubuntu:focal
 
-case RUBY_PLATFORM
-when /mingw|mswin/
-  task :default => "nothing"
-else
-  task :default => "dependency:check"
-end
+ENV DEBIAN_FRONTEND=noninteractive
 
-task :nothing do
-end
-
-namespace :dependency do
-  desc "Check dependency"
-  task :check do
-    unless PKGConfig.check_version?("arrow-cuda-glib",
-                                    ArrowCUDA::Version::MAJOR,
-                                    ArrowCUDA::Version::MINOR,
-                                    ArrowCUDA::Version::MICRO)
-      unless NativePackageInstaller.install(:debian => "libarrow-cuda-glib-dev",
-                                            :redhat => "arrow-cuda-glib-devel")
-        exit(false)
-      end
-    end
-  end
-end
+RUN apt-get update -y -q && \
+    apt-get install -y -q --no-install-recommends \
+      build-essential \
+      cmake && \
+    apt-get clean && rm -rf /var/lib/apt/lists*

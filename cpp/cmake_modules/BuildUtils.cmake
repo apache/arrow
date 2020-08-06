@@ -18,7 +18,7 @@
 # Common path suffixes to be searched by find_library or find_path.
 # Windows artifacts may be found under "<root>/Library", so
 # search there as well.
-set(LIB_PATH_SUFFIXES
+set(ARROW_LIBRARY_PATH_SUFFIXES
     "${CMAKE_LIBRARY_ARCHITECTURE}"
     "lib/${CMAKE_LIBRARY_ARCHITECTURE}"
     "lib64"
@@ -28,7 +28,7 @@ set(LIB_PATH_SUFFIXES
     "Library"
     "Library/lib"
     "Library/bin")
-set(INCLUDE_PATH_SUFFIXES "include" "Library" "Library/include")
+set(ARROW_INCLUDE_PATH_SUFFIXES "include" "Library" "Library/include")
 
 function(ADD_THIRDPARTY_LIB LIB_NAME)
   set(options)
@@ -213,9 +213,14 @@ endfunction()
 
 # \arg OUTPUTS list to append built targets to
 function(ADD_ARROW_LIB LIB_NAME)
-  set(options BUILD_SHARED BUILD_STATIC)
-  set(one_value_args CMAKE_PACKAGE_NAME PKG_CONFIG_NAME SHARED_LINK_FLAGS
-                     PRECOMPILED_HEADER_LIB)
+  set(options)
+  set(one_value_args
+      BUILD_SHARED
+      BUILD_STATIC
+      CMAKE_PACKAGE_NAME
+      PKG_CONFIG_NAME
+      SHARED_LINK_FLAGS
+      PRECOMPILED_HEADER_LIB)
   set(multi_value_args
       SOURCES
       PRECOMPILED_HEADERS
@@ -243,12 +248,12 @@ function(ADD_ARROW_LIB LIB_NAME)
   endif()
 
   # Allow overriding ARROW_BUILD_SHARED and ARROW_BUILD_STATIC
-  if(ARG_BUILD_SHARED)
+  if(DEFINED ARG_BUILD_SHARED)
     set(BUILD_SHARED ${ARG_BUILD_SHARED})
   else()
     set(BUILD_SHARED ${ARROW_BUILD_SHARED})
   endif()
-  if(ARG_BUILD_STATIC)
+  if(DEFINED ARG_BUILD_STATIC)
     set(BUILD_STATIC ${ARG_BUILD_STATIC})
   else()
     set(BUILD_STATIC ${ARROW_BUILD_STATIC})
@@ -334,7 +339,7 @@ function(ADD_ARROW_LIB LIB_NAME)
     endif()
 
     # On iOS, specifying -undefined conflicts with enabling bitcode
-    if(APPLE AND NOT IOS AND NOT DEFINED $ENV{EMSCRIPTEN})
+    if(APPLE AND NOT IOS AND NOT DEFINED ENV{EMSCRIPTEN})
       # On OS X, you can avoid linking at library load time and instead
       # expecting that the symbols have been loaded separately. This happens
       # with libpython* where there can be conflicts between system Python and

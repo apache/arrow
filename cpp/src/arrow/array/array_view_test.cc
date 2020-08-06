@@ -329,6 +329,17 @@ TEST(TestArrayView, FixedSizeListAsFlat) {
   // XXX With nulls (currently fails)
 }
 
+TEST(TestArrayView, FixedSizeListAsFixedSizeBinary) {
+  auto ty1 = fixed_size_list(int32(), 1);
+#if ARROW_LITTLE_ENDIAN
+  auto arr = ArrayFromJSON(ty1, "[[2020568934], [2054316386]]");
+#else
+  auto arr = ArrayFromJSON(ty1, "[[1718579064], [1650553466]]");
+#endif
+  auto expected = ArrayFromJSON(fixed_size_binary(4), R"(["foox", "barz"])");
+  CheckView(arr, expected);
+}
+
 TEST(TestArrayView, SparseUnionAsStruct) {
   auto child1 = ArrayFromJSON(int16(), "[0, -1, 42]");
   auto child2 = ArrayFromJSON(int32(), "[0, 1069547520, -1071644672]");

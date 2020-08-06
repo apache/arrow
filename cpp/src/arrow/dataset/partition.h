@@ -59,6 +59,15 @@ class ARROW_DS_EXPORT Partitioning {
   /// \brief The name identifying the kind of partitioning
   virtual std::string type_name() const = 0;
 
+  /// \brief If the input batch shares any fields with this partitioning,
+  /// produce slices of the batch which satisfy mutually exclusive Expressions.
+  struct PartitionedBatch {
+    std::shared_ptr<RecordBatch> batch;
+    std::shared_ptr<Expression> partition_expression;
+  };
+  virtual Result<std::vector<PartitionedBatch>> Partition(
+      const std::shared_ptr<RecordBatch>& batch) const = 0;
+
   /// \brief Parse a path into a partition expression
   virtual Result<std::shared_ptr<Expression>> Parse(const std::string& path) const = 0;
 
@@ -104,15 +113,6 @@ class ARROW_DS_EXPORT PartitioningFactory {
   /// (fields may be dropped).
   virtual Result<std::shared_ptr<Partitioning>> Finish(
       const std::shared_ptr<Schema>& schema) const = 0;
-
-  // FIXME(bkietz) Make these pure virtual
-  /// Construct a WritePlan for the provided fragments
-  virtual Result<WritePlan> MakeWritePlan(std::shared_ptr<Schema> schema,
-                                          FragmentIterator fragments,
-                                          std::shared_ptr<Schema> partition_schema);
-  /// Construct a WritePlan for the provided fragments, inferring schema
-  virtual Result<WritePlan> MakeWritePlan(std::shared_ptr<Schema> schema,
-                                          FragmentIterator fragments);
 };
 
 /// \brief Subclass for the common case of a partitioning which yields an equality
@@ -135,6 +135,9 @@ class ARROW_DS_EXPORT KeyValuePartitioning : public Partitioning {
 
   static Status SetDefaultValuesFromKeys(const Expression& expr,
                                          RecordBatchProjector* projector);
+
+  Result<std::vector<PartitionedBatch>> Partition(
+      const std::shared_ptr<RecordBatch>& batch) const override;
 
   Result<std::shared_ptr<Expression>> Parse(const std::string& path) const override;
 
@@ -238,6 +241,12 @@ class ARROW_DS_EXPORT FunctionPartitioning : public Partitioning {
       return format_impl_(expr);
     }
     return Status::NotImplemented("formatting paths from ", type_name(), " Partitioning");
+  }
+
+  Result<std::vector<PartitionedBatch>> Partition(
+      const std::shared_ptr<RecordBatch>& batch) const override {
+    return Status::NotImplemented("partitioning batches from ", type_name(),
+                                  " Partitioning");
   }
 
  private:

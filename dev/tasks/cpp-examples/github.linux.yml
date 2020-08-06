@@ -15,27 +15,32 @@
 # specific language governing permissions and limitations
 # under the License.
 
-FROM ubuntu:eoan
+# NOTE: must set "Crossbow" as name to have the badge links working in the
+# github comment reports!
+name: Crossbow
 
-RUN \
-  echo "debconf debconf/frontend select Noninteractive" | \
-    debconf-set-selections
+on:
+  push:
+    branches:
+      - "*-github-*"
 
-RUN \
-  echo 'APT::Install-Recommends "false";' > \
-    /etc/apt/apt.conf.d/disable-install-recommends
-
-ARG DEBUG
-
-RUN \
-  quiet=$([ "${DEBUG}" = "yes" ] || echo "-qq") && \
-  apt update ${quiet} && \
-  apt install -y -V ${quiet} \
-    build-essential \
-    debhelper \
-    devscripts \
-    fakeroot \
-    gnupg \
-    lsb-release && \
-  apt clean && \
-  rm -rf /var/lib/apt/lists/*
+jobs:
+  test:
+    name: C++ Example
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Arrow
+        shell: bash
+        run: |
+          git clone --no-checkout {{ arrow.remote }} arrow
+          git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
+          git -C arrow checkout FETCH_HEAD
+          git -C arrow submodule update --init --recursive
+      - name: Free Up Disk Space
+        shell: bash
+        run: arrow/ci/scripts/util_cleanup.sh
+      - name: Run
+        shell: bash
+        run: |
+          cd arrow/cpp/examples/{{ type }}
+          docker-compose run --rm {{ run }}

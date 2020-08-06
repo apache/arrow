@@ -3,6 +3,11 @@ usr/lib/*/cmake/arrow/ArrowConfig*.cmake
 usr/lib/*/cmake/arrow/ArrowOptions.cmake
 usr/lib/*/cmake/arrow/ArrowTargets*.cmake
 usr/lib/*/cmake/arrow/FindArrow.cmake
+usr/lib/*/cmake/arrow/FindBrotli.cmake
+usr/lib/*/cmake/arrow/FindLz4.cmake
+usr/lib/*/cmake/arrow/FindSnappy.cmake
+usr/lib/*/cmake/arrow/Findutf8proc.cmake
+usr/lib/*/cmake/arrow/Findzstd.cmake
 usr/lib/*/cmake/arrow/arrow-config.cmake
 usr/lib/*/libarrow.a
 usr/lib/*/libarrow.so

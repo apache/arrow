@@ -143,8 +143,6 @@ test_apt() {
                 "arm64v8/ubuntu:xenial" \
                 "ubuntu:bionic" \
                 "arm64v8/ubuntu:bionic" \
-                "ubuntu:eoan" \
-                "arm64v8/ubuntu:eoan" \
                 "ubuntu:focal" \
                 "arm64v8/ubuntu:focal"; do \
     case "${target}" in

@@ -23,35 +23,29 @@
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/filter.h"
 #include "arrow/dataset/scanner.h"
+#include "arrow/dataset/scanner_internal.h"
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/filesystem/localfs.h"
 #include "arrow/filesystem/path_util.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/io/memory.h"
 #include "arrow/util/iterator.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/task_group.h"
 
 namespace arrow {
 namespace dataset {
 
-Result<std::shared_ptr<arrow::io::RandomAccessFile>> FileSource::Open() const {
+Result<std::shared_ptr<io::RandomAccessFile>> FileSource::Open() const {
   if (filesystem_) {
     return filesystem_->OpenInputFile(file_info_);
   }
 
   if (buffer_) {
-    return std::make_shared<::arrow::io::BufferReader>(buffer_);
+    return std::make_shared<io::BufferReader>(buffer_);
   }
 
   return custom_open_();
-}
-
-Result<std::shared_ptr<arrow::io::OutputStream>> WritableFileSource::Open() const {
-  if (filesystem_) {
-    return filesystem_->OpenOutputStream(path_);
-  }
-
-  return std::make_shared<::arrow::io::BufferOutputStream>(buffer_);
 }
 
 Result<std::shared_ptr<FileFragment>> FileFormat::MakeFragment(
@@ -71,11 +65,8 @@ Result<std::shared_ptr<FileFragment>> FileFormat::MakeFragment(
       new FileFragment(std::move(source), shared_from_this(),
                        std::move(partition_expression), std::move(physical_schema)));
 }
-
-Result<std::shared_ptr<WriteTask>> FileFormat::WriteFragment(
-    WritableFileSource destination, std::shared_ptr<Fragment> fragment,
-    std::shared_ptr<ScanOptions> scan_options,
-    std::shared_ptr<ScanContext> scan_context) {
+Status FileFormat::WriteFragment(RecordBatchReader* batches,
+                                 io::OutputStream* destination) {
   return Status::NotImplemented("writing fragment of format ", type_name());
 }
 
@@ -154,51 +145,98 @@ FragmentIterator FileSystemDataset::GetFragmentsImpl(
   return MakeVectorIterator(std::move(fragments));
 }
 
-Result<std::shared_ptr<FileSystemDataset>> FileSystemDataset::Write(
-    const WritePlan& plan, std::shared_ptr<ScanOptions> scan_options,
-    std::shared_ptr<ScanContext> scan_context) {
-  auto filesystem = plan.filesystem;
-  if (filesystem == nullptr) {
-    filesystem = std::make_shared<fs::LocalFileSystem>();
-  }
+struct WriteTask {
+  Status Execute();
 
-  auto task_group = scan_context->TaskGroup();
-  auto partition_base_dir = fs::internal::EnsureTrailingSlash(plan.partition_base_dir);
-  auto extension = "." + plan.format->type_name();
+  /// The basename of files written by this WriteTask. Extensions
+  /// are derived from format
+  std::string basename;
 
-  std::vector<std::shared_ptr<FileFragment>> fragments;
-  for (size_t i = 0; i < plan.paths.size(); ++i) {
-    const auto& op = plan.fragment_or_partition_expressions[i];
-    if (op.kind() == WritePlan::FragmentOrPartitionExpression::FRAGMENT) {
-      auto path = partition_base_dir + plan.paths[i] + extension;
+  /// The partitioning with which paths will be generated
+  std::shared_ptr<Partitioning> partitioning;
 
-      const auto& input_fragment = op.fragment();
-      FileSource dest(path, filesystem);
+  /// The format in which fragments will be written
+  std::shared_ptr<FileFormat> format;
 
-      ARROW_ASSIGN_OR_RAISE(auto write_task,
-                            plan.format->WriteFragment({path, filesystem}, input_fragment,
-                                                       scan_options, scan_context));
-      task_group->Append([write_task] { return write_task->Execute(); });
+  /// The FileSystem and base directory into which fragments will be written
+  std::shared_ptr<fs::FileSystem> filesystem;
+  std::string base_dir;
 
-      ARROW_ASSIGN_OR_RAISE(
-          auto fragment, plan.format->MakeFragment(
-                             {path, filesystem}, input_fragment->partition_expression()));
-      fragments.push_back(std::move(fragment));
+  /// Batches to be written
+  std::shared_ptr<RecordBatchReader> batches;
+
+  /// An Expression already satisfied by every batch to be written
+  std::shared_ptr<Expression> partition_expression;
+};
+
+Status WriteTask::Execute() {
+  std::unordered_map<std::string, RecordBatchVector> path_to_batches;
+
+  // TODO(bkietz) these calls to Partition() should be scattered across a TaskGroup
+  for (auto maybe_batch : IteratorFromReader(batches)) {
+    ARROW_ASSIGN_OR_RAISE(auto batch, std::move(maybe_batch));
+    ARROW_ASSIGN_OR_RAISE(auto partitioned_batches, partitioning->Partition(batch));
+    for (auto&& partitioned_batch : partitioned_batches) {
+      AndExpression expr(std::move(partitioned_batch.partition_expression),
+                         partition_expression);
+      ARROW_ASSIGN_OR_RAISE(std::string path, partitioning->Format(expr));
+      path = fs::internal::EnsureLeadingSlash(path);
+      path_to_batches[path].push_back(std::move(partitioned_batch.batch));
     }
   }
 
-  RETURN_NOT_OK(task_group->Finish());
+  for (auto&& path_batches : path_to_batches) {
+    auto dir = base_dir + path_batches.first;
+    RETURN_NOT_OK(filesystem->CreateDir(dir, /*recursive=*/true));
 
-  return Make(plan.schema, scalar(true), plan.format, fragments);
-}
+    auto path = fs::internal::ConcatAbstractPath(dir, basename);
+    ARROW_ASSIGN_OR_RAISE(auto destination, filesystem->OpenOutputStream(path));
 
-Status WriteTask::CreateDestinationParentDir() const {
-  if (auto filesystem = destination_.filesystem()) {
-    auto parent = fs::internal::GetAbstractPathParent(destination_.path()).first;
-    return filesystem->CreateDir(parent, /* recursive = */ true);
+    DCHECK(!path_batches.second.empty());
+    ARROW_ASSIGN_OR_RAISE(auto reader,
+                          RecordBatchReader::Make(std::move(path_batches.second)));
+    RETURN_NOT_OK(format->WriteFragment(reader.get(), destination.get()));
   }
 
   return Status::OK();
+}
+
+Status FileSystemDataset::Write(std::shared_ptr<Schema> schema,
+                                std::shared_ptr<FileFormat> format,
+                                std::shared_ptr<fs::FileSystem> filesystem,
+                                std::string base_dir,
+                                std::shared_ptr<Partitioning> partitioning,
+                                std::shared_ptr<ScanContext> scan_context,
+                                FragmentIterator fragment_it) {
+  auto task_group = scan_context->TaskGroup();
+
+  base_dir = fs::internal::RemoveTrailingSlash(base_dir).to_string();
+
+  for (const auto& f : partitioning->schema()->fields()) {
+    if (f->type()->id() == Type::DICTIONARY) {
+      return Status::NotImplemented("writing with dictionary partitions");
+    }
+  }
+
+  int i = 0;
+  for (auto maybe_fragment : fragment_it) {
+    ARROW_ASSIGN_OR_RAISE(auto fragment, std::move(maybe_fragment));
+    auto task = std::make_shared<WriteTask>();
+
+    task->basename = "dat_" + std::to_string(i++) + "." + format->type_name();
+    task->partition_expression = fragment->partition_expression();
+    task->format = format;
+    task->filesystem = filesystem;
+    task->base_dir = base_dir;
+    task->partitioning = partitioning;
+
+    // make a record batch reader which yields from a fragment
+    ARROW_ASSIGN_OR_RAISE(task->batches, FragmentRecordBatchReader::Make(
+                                             std::move(fragment), schema, scan_context));
+    task_group->Append([task] { return task->Execute(); });
+  }
+
+  return task_group->Finish();
 }
 
 }  // namespace dataset

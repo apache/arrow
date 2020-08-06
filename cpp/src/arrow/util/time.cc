@@ -23,7 +23,7 @@
 
 namespace arrow {
 
-using internal::checked_pointer_cast;
+using internal::checked_cast;
 
 namespace util {
 
@@ -47,11 +47,9 @@ std::pair<DivideOrMultiply, int64_t> GetTimestampConversion(TimeUnit::type in_un
 Result<int64_t> ConvertTimestampValue(const std::shared_ptr<DataType>& in,
                                       const std::shared_ptr<DataType>& out,
                                       int64_t value) {
-  auto from = checked_pointer_cast<TimestampType>(in)->unit();
-  auto to = checked_pointer_cast<TimestampType>(out)->unit();
-
   auto op_factor =
-      kTimestampConversionTable[static_cast<int>(from)][static_cast<int>(to)];
+      GetTimestampConversion(checked_cast<const TimestampType&>(*in).unit(),
+                             checked_cast<const TimestampType&>(*out).unit());
 
   auto op = op_factor.first;
   auto factor = op_factor.second;
