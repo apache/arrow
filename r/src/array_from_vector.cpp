@@ -170,16 +170,13 @@ struct VectorToArrayConverter {
     R_xlen_t n = XLENGTH(x);
     RETURN_NOT_OK(builder->Reserve(n));
     for (R_xlen_t i = 0; i < n; i++) {
-      SEXP s = STRING_ELT(x, i);
-      if (s == NA_STRING) {
+      SEXP si = STRING_ELT(x, i);
+      if (si == NA_STRING) {
         RETURN_NOT_OK(binary_builder->AppendNull());
         continue;
-      } else {
-        // Make sure we're ingesting UTF-8
-        s = Rf_mkCharCE(Rf_translateCharUTF8(s), CE_UTF8);
       }
-
-      RETURN_NOT_OK(binary_builder->Append(CHAR(s), LENGTH(s)));
+      std::string s = cpp11::r_string(si);
+      RETURN_NOT_OK(binary_builder->Append(s.c_str(), s.size()));
     }
 
     return Status::OK();
@@ -1066,42 +1063,42 @@ class FixedSizeBinaryVectorConverter : public VectorConverter {
   FixedSizeBinaryBuilder* typed_builder_;
 };
 
-template <typename Builder>
+template <typename StringBuilder>
 class StringVectorConverter : public VectorConverter {
  public:
   ~StringVectorConverter() {}
 
   Status Init(ArrayBuilder* builder) {
-    typed_builder_ = checked_cast<Builder*>(builder);
+    typed_builder_ = checked_cast<StringBuilder*>(builder);
     return Status::OK();
   }
 
   Status Ingest(SEXP obj) {
     ARROW_RETURN_IF(TYPEOF(obj) != STRSXP,
                     Status::RError("Expecting a character vector"));
-    R_xlen_t n = XLENGTH(obj);
 
-    // Reserve enough space before appending
-    int64_t size = 0;
-    for (R_xlen_t i = 0; i < n; i++) {
-      SEXP string_i = STRING_ELT(obj, i);
-      if (string_i != NA_STRING) {
-        size += XLENGTH(Rf_mkCharCE(Rf_translateCharUTF8(string_i), CE_UTF8));
-      }
+    cpp11::strings s(obj);
+    RETURN_NOT_OK(typed_builder_->Reserve(s.size()));
+
+    // note: the total length is calculated without utf8
+    //       conversion, so see this more as a hint rather than
+    //       the actual total length
+    auto total_length_hint = 0;
+    for (cpp11::r_string si : s) {
+      total_length_hint += (si == NA_STRING) ? 0 : si.size();
     }
-    RETURN_NOT_OK(typed_builder_->Reserve(size));
+    RETURN_NOT_OK(typed_builder_->ReserveData(total_length_hint));
 
     // append
-    for (R_xlen_t i = 0; i < n; i++) {
-      SEXP string_i = STRING_ELT(obj, i);
-      if (string_i == NA_STRING) {
+    for (cpp11::r_string si : s) {
+      if (si == NA_STRING) {
         RETURN_NOT_OK(typed_builder_->AppendNull());
       } else {
-        // Make sure we're ingesting UTF-8
-        string_i = Rf_mkCharCE(Rf_translateCharUTF8(string_i), CE_UTF8);
-        RETURN_NOT_OK(typed_builder_->Append(CHAR(string_i), XLENGTH(string_i)));
+        // converting the r_string to a std::string enforces utf-8
+        RETURN_NOT_OK(typed_builder_->Append(std::string(si)));
       }
     }
+
     return Status::OK();
   }
 
@@ -1110,7 +1107,7 @@ class StringVectorConverter : public VectorConverter {
   }
 
  private:
-  Builder* typed_builder_;
+   StringBuilder* typed_builder_;
 };
 
 #define NUMERIC_CONVERTER(TYPE_ENUM, TYPE)                                               \
