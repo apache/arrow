@@ -139,6 +139,9 @@ std::shared_ptr<FileEncryptionProperties>
 PropertiesDrivenCryptoFactory::GetFileEncryptionProperties(
     const KmsConnectionConfig& kms_connection_config,
     std::shared_ptr<EncryptionConfiguration> encryption_config) {
+  if (encryption_config == NULL) {
+    return NULL;
+  }
   const std::string& footer_key_id = encryption_config->footer_key();
   const std::string& column_key_str = encryption_config->column_keys();
 
@@ -170,8 +173,8 @@ PropertiesDrivenCryptoFactory::GetFileEncryptionProperties(
   std::vector<uint8_t> footer_key_bytes(dek_length);
   RandBytes(footer_key_bytes.data(), footer_key_bytes.size());
 
-  std::string footer_key_metadata = key_wrapper.GetEncryptionKeyMetadata(
-      footer_key_bytes, footer_key_id, true);
+  std::string footer_key_metadata =
+      key_wrapper.GetEncryptionKeyMetadata(footer_key_bytes, footer_key_id, true);
 
   std::string footer_key_str(footer_key_bytes.begin(), footer_key_bytes.end());
 

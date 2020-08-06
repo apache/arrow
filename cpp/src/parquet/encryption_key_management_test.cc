@@ -17,30 +17,25 @@
 
 #include <gtest/gtest.h>
 
-#include <stdio.h>
+#include <iostream>
+#include <string>
 
 #include <arrow/io/file.h>
 #include "arrow/testing/util.h"
 
-#include "parquet/column_reader.h"
-#include "parquet/column_writer.h"
-#include "parquet/file_reader.h"
-#include "parquet/file_writer.h"
-#include "parquet/platform.h"
-#include "parquet/schema.h"
-#include "parquet/test_util.h"
-
-#include <string>
 #include "parquet/column_page.h"
 #include "parquet/column_reader.h"
 #include "parquet/column_writer.h"
 #include "parquet/encoding.h"
-#include "parquet/platform.h"
-
+#include "parquet/file_reader.h"
+#include "parquet/file_writer.h"
 #include "parquet/in_memory_kms.h"
 #include "parquet/key_toolkit.h"
+#include "parquet/platform.h"
 #include "parquet/properties_driven_crypto_factory.h"
+#include "parquet/schema.h"
 #include "parquet/test_encryption_util.h"
+#include "parquet/test_util.h"
 
 using namespace parquet::encryption;
 
@@ -109,36 +104,27 @@ const std::string NEW_KEY_LIST =
 
 std::string BuildColumnKeyMapping() {
   std::ostringstream stream;
-  for (int i = 0; i < COLUMN_KEY_SIZE; i++) {
-    stream << COLUMN_MASTER_KEY_IDS[i] << ":"
-           << "SingleRow.DOUBLE_FIELD_NAME";  // TODO
-    if (i < COLUMN_KEY_SIZE - 1) {
-      stream << ",";
-    }
-  }
+  stream << COLUMN_MASTER_KEY_IDS[0] << ":"
+         << "double_field"
+         << ";" << COLUMN_MASTER_KEY_IDS[1] << ":"
+         << "float_field"
+         << ";" << COLUMN_MASTER_KEY_IDS[2] << ":"
+         << "boolean_field"
+         << ";" << COLUMN_MASTER_KEY_IDS[3] << ":"
+         << "int32_field"
+         << ";" << COLUMN_MASTER_KEY_IDS[4] << ":"
+         << "ba_field"
+         << ";" << COLUMN_MASTER_KEY_IDS[5] << ":"
+         << "flba_field"
+         << ";";
   return stream.str();
 }
 
-// private static final String COLUMN_KEY_MAPPING = new StringBuilder()
-//   << COLUMN_MASTER_KEY_IDS[0] << ": " << SingleRow.DOUBLE_FIELD_NAME << "; ")
-//   << COLUMN_MASTER_KEY_IDS[1] << ": " << SingleRow.FLOAT_FIELD_NAME << "; ")
-//   << COLUMN_MASTER_KEY_IDS[2] << ": " << SingleRow.BOOLEAN_FIELD_NAME << "; ")
-//   << COLUMN_MASTER_KEY_IDS[3] << ": " << SingleRow.INT32_FIELD_NAME << "; ")
-//   << COLUMN_MASTER_KEY_IDS[4] << ": " << SingleRow.BINARY_FIELD_NAME << "; ")
-//   << COLUMN_MASTER_KEY_IDS[5] << ": " << SingleRow.FIXED_LENGTH_BINARY_FIELD_NAME)
-//   .toString();
+const std::string COLUMN_KEY_MAPPING = BuildColumnKeyMapping();
 
-class TestEncryptionConfiguration : public ::testing::Test {
+class EncryptionCrypto {
  public:
-  void SetUp() {
-    // Setup the parquet schema
-    schema_ = SetupEncryptionSchema();
-  }
-
- protected:
-  std::string path_to_double_field_ = "double_field";
-  std::string path_to_float_field_ = "float_field";
-  std::string file_name_;
+  EncryptionCrypto() { schema_ = SetupEncryptionSchema(); }
   int num_rgs = 5;
   int rows_per_rowgroup_ = 50;
   std::shared_ptr<GroupNode> schema_;
@@ -586,6 +572,61 @@ class TestEncryptionConfiguration : public ::testing::Test {
     }
     file_reader->Close();
   }
+};
+
+class TestEncrytionKeyManagement : public ::testing::Test {
+ protected:
+  EncryptionCrypto encryption_crypto_;
+
+  void SetupCryptoFactory(PropertiesDrivenCryptoFactory& crypto_factory) {
+    std::shared_ptr<KmsClientFactory> kms_client_factory =
+        std::make_shared<InMemoryKmsClientFactory>(KEY_LIST2);
+    crypto_factory.kms_client_factory(kms_client_factory);
+  }
+
+  std::vector<std::shared_ptr<EncryptionConfiguration>> GetEncryptionConfigurations(
+      bool double_wrapping, bool wrap_locally) {
+    std::vector<std::shared_ptr<EncryptionConfiguration>> configs;
+    std::vector<EncryptionConfiguration::Builder*> config_builders;
+
+    // encrypt some columns and footer, different keys
+    EncryptionConfiguration::Builder builder1(FOOTER_MASTER_KEY_ID);
+    builder1.column_keys(COLUMN_KEY_MAPPING);
+    config_builders.push_back(&builder1);
+
+    // encrypt columns, plaintext footer, different keys
+    EncryptionConfiguration::Builder builder2(FOOTER_MASTER_KEY_ID);
+    builder2.column_keys(COLUMN_KEY_MAPPING)->plaintext_footer(true);
+    config_builders.push_back(&builder2);
+
+    // encrypt some columns and footer, same key
+    EncryptionConfiguration::Builder builder3(FOOTER_MASTER_KEY_ID);
+    builder3.uniform_encryption();
+    config_builders.push_back(&builder3);
+
+    // Encrypt two columns and the footer, with different keys.
+    // Use AES_GCM_CTR_V1 algorithm.
+    EncryptionConfiguration::Builder builder4(FOOTER_MASTER_KEY_ID);
+    builder4.column_keys(COLUMN_KEY_MAPPING)
+        ->encryption_algorithm(ParquetCipher::AES_GCM_CTR_V1);
+    config_builders.push_back(&builder4);
+
+    for (EncryptionConfiguration::Builder* builder : config_builders) {
+      auto config =
+          builder->double_wrapping(double_wrapping)->wrap_locally(wrap_locally)->build();
+      configs.push_back(config);
+    }
+
+    // non encryption
+    configs.push_back(NULL);
+
+    return configs;
+  }
+
+  std::shared_ptr<DecryptionConfiguration> GetDecryptionConfiguration(bool wrap_locally) {
+    DecryptionConfiguration::Builder builder;
+    return builder.wrap_locally(wrap_locally)->build();
+  }
 
   void WriteEncryptedParquetFile(
       const KmsConnectionConfig& kms_connection_config,
@@ -593,15 +634,12 @@ class TestEncryptionConfiguration : public ::testing::Test {
       const std::string& file_name) {
     PropertiesDrivenCryptoFactory crypto_factory;
 
-    std::shared_ptr<KmsClientFactory> kms_client_factory =
-        std::make_shared<InMemoryKmsClientFactory>(KEY_LIST2);
-    crypto_factory.kms_client_factory(kms_client_factory);
+    SetupCryptoFactory(crypto_factory);
 
     std::shared_ptr<FileEncryptionProperties> file_encryption_properties =
         crypto_factory.GetFileEncryptionProperties(kms_connection_config,
                                                    encryption_config);
-
-    this->EncryptFile(file_encryption_properties, file_name);
+    encryption_crypto_.EncryptFile(file_encryption_properties, file_name);
   }
 
   void ReadEncryptedParquetFile(
@@ -618,45 +656,42 @@ class TestEncryptionConfiguration : public ::testing::Test {
         crypto_factory.GetFileDecryptionProperties(kms_connection_config,
                                                    decryption_config);
 
-    this->DecryptFile(file_name, file_decryption_properties);
+    encryption_crypto_.DecryptFile(file_name, file_decryption_properties);
+  }
+
+  std::string GetFileName(std::shared_ptr<EncryptionConfiguration> encryption_config) {
+    std::string suffix = encryption_config == NULL ? ".parquet" : ".parquet.encrypted";
+    return "demo" + suffix;  // TODO
   }
 };
 
-TEST_F(TestEncryptionConfiguration, TestWriteReadEncryptedParquetFiles) {
-  // Path rootPath = new Path(temporaryFolder.getRoot().getPath());
-  // std::cout << "======== TestWriteReadEncryptedParquetFiles {} ========",
-  // rootPath.toString()); LOG.info("Run: isKeyMaterialInternalStorage={}
-  // isDoubleWrapping={} isWrapLocally={}", isKeyMaterialInternalStorage,
-  // isDoubleWrapping, isWrapLocally);
-  EncryptionConfiguration::Builder builder(FOOTER_MASTER_KEY_ID);
-  builder.uniform_encryption();
-  builder.wrap_locally(true);
-  std::shared_ptr<EncryptionConfiguration> encryption_config = builder.build();
+TEST_F(TestEncrytionKeyManagement, TestWriteReadEncryptedParquetFiles) {
+  const std::vector<bool> bool_flags = {true, false};
 
-  KeyToolkit::RemoveCacheEntriesForAllTokens();
   KmsConnectionConfig kms_connection_config;
   kms_connection_config.refreshable_key_access_token = std::make_shared<KeyAccessToken>();
   kms_connection_config.refreshable_key_access_token->Refresh(
       KmsClient::KEY_ACCESS_TOKEN_DEFAULT);
-  this->WriteEncryptedParquetFile(kms_connection_config, encryption_config,
-                                  "demo.parquet.encrypted");
 
-  auto decryption_config = DecryptionConfiguration::Builder().wrap_locally(true)->build();
-  this->ReadEncryptedParquetFile(kms_connection_config, decryption_config,
-                                 "demo.parquet.encrypted");
-
-  // Write using various encryption configurations.
-  // TestWriteEncryptedParquetFiles(root_path);
-  // Read using various decryption configurations.
-  // TestReadEncryptedParquetFiles(rootPath, DATA, threadPool);
-
-  // TODO: REMOVE
-  // PropertiesDrivenCryptoFactory crypto_factory;
-  //  crypto_factory.GetFileEncryptionProperties(
-  //      kms_connection_config,
-  //      encryption_config,
-  //      hdfs_connection_config,
-  //      temp_file_path);
+  KeyToolkit::RemoveCacheEntriesForAllTokens();
+  for (int i = 0; i < 2; i++) {
+    bool wrap_locally = (i == 0);
+    auto decryption_config = this->GetDecryptionConfiguration(wrap_locally);
+    for (int j = 0; j < 2; j++) {
+      bool double_wrapping = (j == 0);
+      auto encryption_configs =
+          this->GetEncryptionConfigurations(double_wrapping, wrap_locally);
+      for (auto encryption_config : encryption_configs) {
+        std::cout << "double_wrapping:" << double_wrapping
+                  << " wrap_locally:" << wrap_locally << std::endl;
+        std::string file_name = GetFileName(encryption_config);
+        this->WriteEncryptedParquetFile(kms_connection_config, encryption_config,
+                                        file_name);
+        this->ReadEncryptedParquetFile(kms_connection_config, decryption_config,
+                                       file_name);
+      }
+    }
+  }
 }
 
 }  // namespace test

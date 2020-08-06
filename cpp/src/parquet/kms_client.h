@@ -66,7 +66,7 @@ class KmsClient {
                               const std::string& master_key_identifier) = 0;
 
   virtual std::vector<uint8_t> UnwrapKey(const std::string& wrapped_key,
-                                const std::string& master_key_identifier) = 0;
+                                         const std::string& master_key_identifier) = 0;
 };
 
 }  // namespace encryption

@@ -58,23 +58,26 @@ std::string InMemoryKms::WrapKeyInServer(const std::vector<uint8_t>& key_bytes,
   if (new_master_key_map_.find(master_key_identifier) == new_master_key_map_.end()) {
     throw new ParquetException("Key not found: " + master_key_identifier);
   }
-  const std::vector<uint8_t>& master_key_bytes = new_master_key_map_.at(master_key_identifier);
+  const std::vector<uint8_t>& master_key_bytes =
+      new_master_key_map_.at(master_key_identifier);
 
   std::shared_ptr<arrow::Buffer> aad = arrow::Buffer::FromString(master_key_identifier);
-  std::vector<uint8_t> aad_bytes(master_key_identifier.begin(), master_key_identifier.end());
+  std::vector<uint8_t> aad_bytes(master_key_identifier.begin(),
+                                 master_key_identifier.end());
   return KeyToolkit::EncryptKeyLocally(key_bytes, master_key_bytes, aad_bytes);
 }
 
-std::vector<uint8_t> InMemoryKms::UnwrapKeyInServer(const std::string& wrapped_key,
-                                           const std::string& master_key_identifier) {
+std::vector<uint8_t> InMemoryKms::UnwrapKeyInServer(
+    const std::string& wrapped_key, const std::string& master_key_identifier) {
   if (new_master_key_map_.find(master_key_identifier) == new_master_key_map_.end()) {
     throw new ParquetException("Key not found: " + master_key_identifier);
   }
-  const std::vector<uint8_t>& master_key_bytes = new_master_key_map_.at(master_key_identifier);
+  const std::vector<uint8_t>& master_key_bytes =
+      new_master_key_map_.at(master_key_identifier);
 
-  std::vector<uint8_t> aad_bytes(master_key_identifier.begin(), master_key_identifier.end());
-  return KeyToolkit::DecryptKeyLocally(
-      wrapped_key, master_key_bytes, aad_bytes);
+  std::vector<uint8_t> aad_bytes(master_key_identifier.begin(),
+                                 master_key_identifier.end());
+  return KeyToolkit::DecryptKeyLocally(wrapped_key, master_key_bytes, aad_bytes);
 }
 
 std::vector<uint8_t> InMemoryKms::GetMasterKeyFromServer(

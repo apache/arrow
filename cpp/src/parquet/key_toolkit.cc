@@ -50,28 +50,28 @@ std::string KeyToolkit::EncryptKeyLocally(const std::vector<uint8_t>& key_bytes,
 
   int encrypted_key_len = key_bytes.size() + key_encryptor.CiphertextSizeDelta();
   std::vector<uint8_t> encrypted_key(encrypted_key_len);
-  encrypted_key_len =
-      key_encryptor.Encrypt(key_bytes.data(), key_bytes.size(), master_key.data(), master_key.size(), aad.data(), aad.size(), encrypted_key.data());
+  encrypted_key_len = key_encryptor.Encrypt(key_bytes.data(), key_bytes.size(),
+                                            master_key.data(), master_key.size(),
+                                            aad.data(), aad.size(), encrypted_key.data());
 
-  std::string encoded_encrypted_key = arrow::util::base64_encode(encrypted_key.data(), encrypted_key_len);
+  std::string encoded_encrypted_key =
+      arrow::util::base64_encode(encrypted_key.data(), encrypted_key_len);
   return encoded_encrypted_key;
 }
 
-std::vector<uint8_t> KeyToolkit::DecryptKeyLocally(const std::string& encoded_encrypted_key,
-                                          const std::vector<uint8_t>& master_key,
-                                          const std::vector<uint8_t>& aad) {
+std::vector<uint8_t> KeyToolkit::DecryptKeyLocally(
+    const std::string& encoded_encrypted_key, const std::vector<uint8_t>& master_key,
+    const std::vector<uint8_t>& aad) {
   std::string encrypted_key_str = arrow::util::base64_decode(encoded_encrypted_key);
   std::vector<uint8_t> encrypted_key(encrypted_key_str.begin(), encrypted_key_str.end());
 
   AesDecryptor key_decryptor(ParquetCipher::AES_GCM_V1, master_key.size(), false);
 
-  int decrypted_key_len =
-      encrypted_key.size() - key_decryptor.CiphertextSizeDelta();
+  int decrypted_key_len = encrypted_key.size() - key_decryptor.CiphertextSizeDelta();
   std::vector<uint8_t> decrypted_key(decrypted_key_len);
-  decrypted_key_len = key_decryptor.Decrypt(
-      encrypted_key.data(), encrypted_key.size(),
-      master_key.data(), master_key.size(), aad.data(), aad.size(),
-      decrypted_key.data());
+  decrypted_key_len = key_decryptor.Decrypt(encrypted_key.data(), encrypted_key.size(),
+                                            master_key.data(), master_key.size(),
+                                            aad.data(), aad.size(), decrypted_key.data());
 
   return decrypted_key;
 }

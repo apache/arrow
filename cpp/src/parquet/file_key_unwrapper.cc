@@ -75,8 +75,7 @@ KeyWithMasterID FileKeyUnwrapper::GetDEKandMasterID(
     // Decrypt the data key
     std::string aad_str = arrow::util::base64_decode(encoded_kek_id);
     std::vector<uint8_t> aad(aad_str.begin(), aad_str.end());
-    data_key = KeyToolkit::DecryptKeyLocally(
-        encoded_wrapped_dek, kek_bytes, aad);
+    data_key = KeyToolkit::DecryptKeyLocally(encoded_wrapped_dek, kek_bytes, aad);
   }
 
   return KeyWithMasterID(data_key, master_key_id);
@@ -88,8 +87,8 @@ std::shared_ptr<KmsClient> FileKeyUnwrapper::GetKmsClientFromConfigOrKeyMaterial
   if (kms_instance_id.empty()) {
     kms_instance_id = key_material->kms_instance_id();
     if (kms_instance_id.empty()) {
-    //   throw ParquetException( // TODO
-    //       "KMS instance ID is missing both in properties and file key material");
+      //   throw ParquetException( // TODO
+      //       "KMS instance ID is missing both in properties and file key material");
     }
   }
 
@@ -97,8 +96,8 @@ std::shared_ptr<KmsClient> FileKeyUnwrapper::GetKmsClientFromConfigOrKeyMaterial
   if (kms_instance_url.empty()) {
     kms_instance_url = key_material->kms_instance_url();
     if (kms_instance_url.empty()) {
-    //   throw ParquetException(
-    //       "KMS instance ID is missing both in properties and file key material");
+      //   throw ParquetException(
+      //       "KMS instance ID is missing both in properties and file key material");
     }
   }
 

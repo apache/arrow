@@ -384,7 +384,7 @@ if(PARQUET_REQUIRE_ENCRYPTION)
   add_parquet_test(encryption-key-management-test
                    SOURCES
                    in_memory_kms.cc
-                   properties_driven_encryption_test.cc
+                   encryption_key_management_test.cc
                    test_util.cc)
 endif()
 

@@ -85,12 +85,12 @@ class KeyToolkit {
       uint64_t cache_entry_lifetime);
 
   static std::string EncryptKeyLocally(const std::vector<uint8_t>& key_bytes,
-                                                   const std::vector<uint8_t>& master_key,
-                                                   const std::vector<uint8_t>& aad);
+                                       const std::vector<uint8_t>& master_key,
+                                       const std::vector<uint8_t>& aad);
 
   static std::vector<uint8_t> DecryptKeyLocally(const std::string& encoded_encrypted_key,
-                                                            const std::vector<uint8_t>& master_key,
-                                                            const std::vector<uint8_t>& aad);
+                                                const std::vector<uint8_t>& master_key,
+                                                const std::vector<uint8_t>& aad);
 
   static void RemoveCacheEntriesForToken(const std::string& access_token);
 

@@ -57,10 +57,11 @@ class InMemoryKms : public RemoteKmsClient {
   std::string WrapKeyInServer(const std::vector<uint8_t>& key_bytes,
                               const std::string& master_key_identifier) override;
 
-  std::vector<uint8_t> UnwrapKeyInServer(const std::string& wrapped_key,
-                                const std::string& master_key_identifier) override;
+  std::vector<uint8_t> UnwrapKeyInServer(
+      const std::string& wrapped_key, const std::string& master_key_identifier) override;
 
-  std::vector<uint8_t> GetMasterKeyFromServer(const std::string& master_key_identifier) override;
+  std::vector<uint8_t> GetMasterKeyFromServer(
+      const std::string& master_key_identifier) override;
 
  private:
   static std::map<std::string, std::vector<uint8_t>> ParseKeyList(
