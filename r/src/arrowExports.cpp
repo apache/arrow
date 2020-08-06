@@ -1793,20 +1793,20 @@ extern "C" SEXP _arrow_dataset___ScanTask__get_batches(SEXP scan_task_sexp){
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
 void dataset___Dataset__Write(const std::shared_ptr<ds::Dataset>& ds, const std::shared_ptr<arrow::Schema>& schema, const std::shared_ptr<ds::FileFormat>& format, const std::shared_ptr<fs::FileSystem>& filesystem, std::string path, const std::shared_ptr<ds::Partitioning>& partitioning);
-RcppExport SEXP _arrow_dataset___Dataset__Write(SEXP ds_sexp, SEXP schema_sexp, SEXP format_sexp, SEXP filesystem_sexp, SEXP path_sexp, SEXP partitioning_sexp){
-BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<ds::Dataset>&>::type ds(ds_sexp);
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
-	Rcpp::traits::input_parameter<const std::shared_ptr<ds::FileFormat>&>::type format(format_sexp);
-	Rcpp::traits::input_parameter<const std::shared_ptr<fs::FileSystem>&>::type filesystem(filesystem_sexp);
-	Rcpp::traits::input_parameter<std::string>::type path(path_sexp);
-	Rcpp::traits::input_parameter<const std::shared_ptr<ds::Partitioning>&>::type partitioning(partitioning_sexp);
+extern "C" SEXP _arrow_dataset___Dataset__Write(SEXP ds_sexp, SEXP schema_sexp, SEXP format_sexp, SEXP filesystem_sexp, SEXP path_sexp, SEXP partitioning_sexp){
+BEGIN_CPP11
+	arrow::r::input<const std::shared_ptr<ds::Dataset>&>::type ds(ds_sexp);
+	arrow::r::input<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
+	arrow::r::input<const std::shared_ptr<ds::FileFormat>&>::type format(format_sexp);
+	arrow::r::input<const std::shared_ptr<fs::FileSystem>&>::type filesystem(filesystem_sexp);
+	arrow::r::input<std::string>::type path(path_sexp);
+	arrow::r::input<const std::shared_ptr<ds::Partitioning>&>::type partitioning(partitioning_sexp);
 	dataset___Dataset__Write(ds, schema, format, filesystem, path, partitioning);
 	return R_NilValue;
-END_RCPP
+END_CPP11
 }
 #else
-RcppExport SEXP _arrow_dataset___Dataset__Write(SEXP ds_sexp, SEXP schema_sexp, SEXP format_sexp, SEXP filesystem_sexp, SEXP path_sexp, SEXP partitioning_sexp){
+extern "C" SEXP _arrow_dataset___Dataset__Write(SEXP ds_sexp, SEXP schema_sexp, SEXP format_sexp, SEXP filesystem_sexp, SEXP path_sexp, SEXP partitioning_sexp){
 	Rf_error("Cannot call dataset___Dataset__Write(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
