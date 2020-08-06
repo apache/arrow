@@ -21,7 +21,7 @@
 
 use sqlparser::{
     ast::{ColumnDef, Statement as SQLStatement, TableConstraint},
-    dialect::{keywords::Keyword, GenericDialect},
+    dialect::{keywords::Keyword, Dialect, GenericDialect},
     parser::{Parser, ParserError},
     tokenizer::{Token, Tokenizer},
 };
@@ -73,9 +73,9 @@ pub struct DFParser {
 
 impl DFParser {
     /// Parse the specified tokens
-    pub fn new(sql: &str) -> Result<Self, ParserError> {
-        let dialect = GenericDialect {};
-        let mut tokenizer = Tokenizer::new(&dialect, sql);
+    pub fn new(sql: &str, dialect: &dyn Dialect) -> Result<Self, ParserError> {
+        //let dialect = GenericDialect {};
+        let mut tokenizer = Tokenizer::new(dialect, sql);
         let tokens = tokenizer.tokenize()?;
         Ok(DFParser {
             parser: Parser::new(tokens),
@@ -83,10 +83,8 @@ impl DFParser {
     }
 
     /// Parse a SQL statement and produce a set of statements
-    pub fn parse_sql(sql: &str) -> Result<Vec<Statement>, ParserError> {
-        let mut tokenizer = Tokenizer::new(&GenericDialect {}, &sql);
-        tokenizer.tokenize()?;
-        let mut parser = DFParser::new(sql)?;
+    pub fn parse_sql(sql: &str, dialect: &dyn Dialect) -> Result<Vec<Statement>, ParserError> {
+        let mut parser = DFParser::new(sql, dialect)?;
         let mut stmts = Vec::new();
         let mut expecting_statement_delimiter = false;
         loop {

@@ -62,6 +62,7 @@ use crate::sql::{
 };
 use crate::table::Table;
 use sqlparser::ast::{ColumnDef as SQLColumnDef, ColumnOption, DataType as SQLDataType};
+use sqlparser::dialect::{Dialect, GenericDialect};
 
 /// Execution context for registering data sources and executing queries
 pub struct ExecutionContext {
@@ -142,7 +143,8 @@ impl ExecutionContext {
 
     /// Creates a logical plan
     pub fn create_logical_plan(&mut self, sql: &str) -> Result<LogicalPlan> {
-        let statements = DFParser::parse_sql(sql)?;
+        let a = &GenericDialect{};
+        let statements = DFParser::parse_sql(sql, a)?;
 
         if statements.len() != 1 {
             return Err(ExecutionError::NotImplemented(format!(
