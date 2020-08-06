@@ -581,7 +581,7 @@ def dataset(source, schema=None, format=None, filesystem=None,
         files may be present in the Dataset (resulting in an error at scan
         time).
     ignore_prefixes : list, optional
-        Files matching one of those prefixes will be ignored by the
+        Files matching any of these prefixes will be ignored by the
         discovery process. This is matched to the basename of a path.
         By default this is ['.', '_'].
         Note that discovery happens only if a directory is passed as source.

@@ -1376,7 +1376,7 @@ class _ParquetDatasetV2:
 
     def __init__(self, path_or_paths, filesystem=None, filters=None,
                  partitioning="hive", read_dictionary=None, buffer_size=None,
-                 memory_map=False, **kwargs):
+                 memory_map=False, ignore_prefixes=None, **kwargs):
         import pyarrow.dataset as ds
         import pyarrow.fs
 
@@ -1430,7 +1430,8 @@ class _ParquetDatasetV2:
 
         self._dataset = ds.dataset(path_or_paths, filesystem=filesystem,
                                    format=parquet_format,
-                                   partitioning=partitioning)
+                                   partitioning=partitioning,
+                                   ignore_prefixes=ignore_prefixes)
 
     @property
     def schema(self):
@@ -1521,6 +1522,12 @@ use_legacy_dataset : bool, default False
     for all columns and not only the partition keys, enables
     different partitioning schemes, etc.
     Set to False to use the legacy behaviour.
+ignore_prefixes : list, optional
+    Files matching any of these prefixes will be ignored by the
+    discovery process if use_legacy_dataset=False.
+    This is matched to the basename of a path.
+    By default this is ['.', '_'].
+    Note that discovery happens only if a directory is passed as source.
 filesystem : FileSystem, default None
     If nothing passed, paths assumed to be found in the local on-disk
     filesystem.
@@ -1544,7 +1551,8 @@ Returns
 def read_table(source, columns=None, use_threads=True, metadata=None,
                use_pandas_metadata=False, memory_map=False,
                read_dictionary=None, filesystem=None, filters=None,
-               buffer_size=0, partitioning="hive", use_legacy_dataset=False):
+               buffer_size=0, partitioning="hive", use_legacy_dataset=False,
+               ignore_prefixes=None):
     if not use_legacy_dataset:
         if metadata is not None:
             raise ValueError(
@@ -1562,6 +1570,7 @@ def read_table(source, columns=None, use_threads=True, metadata=None,
                 read_dictionary=read_dictionary,
                 buffer_size=buffer_size,
                 filters=filters,
+                ignore_prefixes=ignore_prefixes,
             )
         except ImportError:
             # fall back on ParquetFile for simple cases when pyarrow.dataset
@@ -1584,6 +1593,11 @@ def read_table(source, columns=None, use_threads=True, metadata=None,
 
         return dataset.read(columns=columns, use_threads=use_threads,
                             use_pandas_metadata=use_pandas_metadata)
+
+    if ignore_prefixes is not None:
+        raise ValueError(
+            "The 'ignore_prefixes' keyword is only supported when "
+            "use_legacy_dataset=False")
 
     if _is_path_like(source):
         pf = ParquetDataset(source, metadata=metadata, memory_map=memory_map,
@@ -1616,7 +1630,7 @@ switched to False.""",
 
 def read_pandas(source, columns=None, use_threads=True, memory_map=False,
                 metadata=None, filters=None, buffer_size=0,
-                use_legacy_dataset=True):
+                use_legacy_dataset=True, ignore_prefixes=None):
     return read_table(
         source,
         columns=columns,
@@ -1627,6 +1641,7 @@ def read_pandas(source, columns=None, use_threads=True, memory_map=False,
         buffer_size=buffer_size,
         use_pandas_metadata=True,
         use_legacy_dataset=use_legacy_dataset,
+        ignore_prefixes=ignore_prefixes
     )
 
 
