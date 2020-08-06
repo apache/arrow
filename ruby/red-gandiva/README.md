@@ -38,7 +38,7 @@ Install Gandiva GLib before install Red Gandiva. See [Apache Arrow install docum
 Install Red Gandiva after you install Gandiva GLib:
 
 ```text
-% gem install red-gandiva
+% gem install --no-document red-gandiva
 ```
 
 ## Usage

@@ -44,7 +44,7 @@ You can install them by the followings on Debian GNU/Linux and Ubuntu:
 
 ```console
 % sudo apt install -y -V libgirepository1.0-dev ruby-dev
-% sudo gem install gobject-introspection test-unit
+% sudo gem install --no-document gobject-introspection test-unit
 ```
 
 You can install them by the followings on CentOS:
@@ -59,14 +59,14 @@ You can install them by the followings on CentOS:
 % sudo yum install -y gcc make patch openssl-devel readline-devel zlib-devel
 % rbenv install 2.4.2
 % rbenv global 2.4.2
-% gem install gobject-introspection test-unit
+% gem install --no-document gobject-introspection test-unit
 ```
 
 You can install them by the followings on macOS:
 
 ```console
 % brew install -y gobject-introspection
-% gem install gobject-introspection test-unit
+% gem install --no-document gobject-introspection test-unit
 ```
 
 You need to set `PKG_CONFIG_PATH` to find libffi on macOS:

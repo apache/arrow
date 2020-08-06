@@ -226,7 +226,7 @@ On Debian GNU/Linux or Ubuntu:
 
 ```console
 % sudo apt install -y -V ruby-dev
-% sudo gem install bundler
+% sudo gem install --no-document bundler
 % (cd c_glib && bundle install)
 ```
 
@@ -242,7 +242,7 @@ On CentOS 7 or later:
 % sudo yum install -y gcc make patch openssl-devel readline-devel zlib-devel
 % rbenv install 2.4.1
 % rbenv global 2.4.1
-% gem install bundler
+% gem install --no-document bundler
 % (cd c_glib && bundle install)
 ```
 

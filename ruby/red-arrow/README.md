@@ -38,7 +38,7 @@ Install Apache Arrow GLib before install Red Arrow. See [Apache Arrow install do
 Install Red Arrow after you install Apache Arrow GLib:
 
 ```console
-% gem install red-arrow
+% gem install --no-document red-arrow
 ```
 
 ## Usage

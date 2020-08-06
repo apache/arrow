@@ -38,7 +38,7 @@ Install Apache Arrow CUDA GLib before install Red Arrow CUDA. Install Apache Arr
 Install Red Arrow CUDA after you install Apache Arrow CUDA GLib:
 
 ```text
-% gem install red-arrow-cuda
+% gem install --no-document red-arrow-cuda
 ```
 
 ## Usage

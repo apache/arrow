@@ -38,7 +38,7 @@ Install Plasma GLib before install Red Plasma. See [Apache Arrow install documen
 Install Red Plasma after you install Plasma GLib:
 
 ```text
-% gem install red-plasma
+% gem install --no-document red-plasma
 ```
 
 ## Usage

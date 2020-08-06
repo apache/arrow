@@ -38,7 +38,7 @@ Install Apache Parquet GLib before install Red Parquet. See [Apache Arrow instal
 Install Red Parquet after you install Apache Parquet GLib:
 
 ```text
-% gem install red-parquet
+% gem install --no-document red-parquet
 ```
 
 ## Usage
