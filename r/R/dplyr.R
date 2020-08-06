@@ -365,6 +365,15 @@ tail.arrow_dplyr_query <- function(x, n = 6L, ...) {
   }
 }
 
+#' @export
+`[.arrow_dplyr_query` <- function(x, i, j, ..., drop = FALSE) {
+  if (query_on_dataset(x)) {
+    `[.Dataset`(x, i, j, ..., drop = FALSE)
+  } else {
+    stop("TODO")
+  }
+}
+
 query_on_dataset <- function(x) inherits(x$.data, "Dataset")
 
 not_implemented_for_dataset <- function(method) {

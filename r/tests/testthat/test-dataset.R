@@ -516,7 +516,43 @@ test_that("head/tail", {
       as.data.frame(),
     rbind(df1[9:10,], df2[1:4,])
   )
+})
 
+test_that("Dataset slicing", {
+  ds <- open_dataset(dataset_dir)
+  # Taking only from one file
+  expect_equal(
+    as.data.frame(ds[c(4, 5, 9), 3:4]),
+    df1[c(4, 5, 9), 3:4]
+  )
+  # Taking from more than one
+  expect_equal(
+    as.data.frame(ds[c(4, 5, 9, 12, 13), 3:4]),
+    rbind(df1[c(4, 5, 9), 3:4], df2[2:3, 3:4])
+  )
+  # Taking out of order
+  expect_equal(
+    as.data.frame(ds[c(4, 13, 9, 12, 5), ]),
+    rbind(
+      df1[4, ],
+      df2[3, ],
+      df1[9, ],
+      df2[2, ],
+      df1[5, ]
+    )
+  )
+
+  # Take from a query
+  ds2 <- ds %>%
+    filter(int > 6) %>%
+    select(int, lgl)
+  expect_equal(
+    as.data.frame(ds2[c(2, 5), ]),
+    rbind(
+      df1[8, c("int", "lgl")],
+      df2[1, c("int", "lgl")]
+    )
+  )
 })
 
 test_that("dplyr method not implemented messages", {

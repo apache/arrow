@@ -663,6 +663,46 @@ tail.Dataset <- function(x, n = 6L, ...) {
   Table$create(!!!rev(result))
 }
 
+#' @export
+`[.Dataset` <- function(x, i, j, ..., drop = FALSE) {
+  if (nargs() == 2L) {
+    # List-like column extraction (x[i])
+    return(x[, i])
+  }
+  if (!missing(j)) {
+    x <- select.Dataset(x, j)
+  }
+
+  if (!missing(i)) {
+    x <- filter_dataset_rows(x, i)
+  }
+  x
+}
+
+filter_dataset_rows <- function(x, i) {
+  if (!is.numeric(i) || any(i < 0)) {
+    stop("TODO")
+  }
+  result <- list()  # Collect the batch slices
+  indexes <- list() # Collect
+  batch_num <- 0
+  scanner <- Scanner$create(ensure_group_vars(x))
+  for (scan_task in scanner$Scan()) {
+    for (batch in scan_task$Execute()) {
+      batch_num <- batch_num + 1
+      # Take all rows that are in this batch
+      this_batch_nrows <- nrow(batch)
+      result[[batch_num]] <- batch[sort(i[i <= this_batch_nrows & i > 0]), ]
+      i <- i - this_batch_nrows
+      if (all(i < 0)) break
+    }
+    if (all(i < 0)) break
+  }
+  tab <- Table$create(!!!result)
+  # Now sort
+  tab[order(i), ]
+}
+
 #' @usage NULL
 #' @format NULL
 #' @rdname Scanner
