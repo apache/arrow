@@ -1107,7 +1107,7 @@ class StringVectorConverter : public VectorConverter {
   }
 
  private:
-   StringBuilder* typed_builder_;
+  StringBuilder* typed_builder_;
 };
 
 #define NUMERIC_CONVERTER(TYPE_ENUM, TYPE)                                               \
