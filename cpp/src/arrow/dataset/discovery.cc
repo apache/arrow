@@ -30,6 +30,7 @@
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/filesystem/path_forest.h"
 #include "arrow/filesystem/path_util.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
 namespace dataset {
@@ -182,12 +183,11 @@ Result<std::shared_ptr<DatasetFactory>> FileSystemDatasetFactory::Make(
       std::remove_if(files.begin(), files.end(), [&](const fs::FileInfo& info) {
         if (!info.IsFile()) return true;
 
-        if (auto relative =
-                fs::internal::RemoveAncestor(options.partition_base_dir, info.path())) {
-          if (StartsWithAnyOf(relative->to_string(), options.selector_ignore_prefixes)) {
-            return true;
-          }
-        } else if (StartsWithAnyOf(info.path(), options.selector_ignore_prefixes)) {
+        auto relative = fs::internal::RemoveAncestor(selector.base_dir, info.path());
+        DCHECK(relative.has_value())
+            << "GetFileInfo() yielded path outside selector.base_dir";
+
+        if (StartsWithAnyOf(relative->to_string(), options.selector_ignore_prefixes)) {
           return true;
         }
 
