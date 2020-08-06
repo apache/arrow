@@ -617,20 +617,18 @@ test_that("Array$create() handles vector -> fixed size list arrays", {
 })
 
 test_that("Array$create() should have helpful error", {
-  verify_output(test_path("test-Array-errors.txt"), {
-    Array$create(list(numeric(0)), list_of(bool()))
-    Array$create(list(numeric(0)), list_of(int32()))
-    Array$create(list(integer(0)), list_of(float64()))
+  expect_error(Array$create(list(numeric(0)), list_of(bool())), "Expecting a logical vector")
+  expect_error(Array$create(list(numeric(0)), list_of(int32())), "Expecting an integer vector")
+  expect_error(Array$create(list(integer(0)), list_of(float64())), "Expecting a numeric vector")
 
-    lgl <- logical(0)
-    int <- integer(0)
-    num <- numeric(0)
-    char <- character(0)
-    Array$create(list())
-    Array$create(list(lgl, lgl, int))
-    Array$create(list(char, num, char))
-    Array$create(list(int, int, num))
-  })
+  lgl <- logical(0)
+  int <- integer(0)
+  num <- numeric(0)
+  char <- character(0)
+  expect_error(Array$create(list()), "Requires at least one element to infer")
+  expect_error(Array$create(list(lgl, lgl, int)), "Expecting a logical vector")
+  expect_error(Array$create(list(char, num, char)), "Expecting a character vector")
+  expect_error(Array$create(list(int, int, num)), "Expecting an integer vector")
 })
 
 test_that("Array$View() (ARROW-6542)", {
