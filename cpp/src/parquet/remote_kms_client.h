@@ -33,20 +33,20 @@ class RemoteKmsClient : public KmsClient {
   void Initialize(const KmsConnectionConfig& kms_connection_config,
                   bool is_wrap_locally) override;
 
-  std::string WrapKey(std::shared_ptr<arrow::Buffer> key_bytes,
+  std::string WrapKey(const std::vector<uint8_t>& key_bytes,
                       const std::string& master_key_identifier) override;
 
-  std::string UnwrapKey(const std::string& wrapped_key,
+  std::vector<uint8_t> UnwrapKey(const std::string& wrapped_key,
                         const std::string& master_key_identifier) override;
 
  protected:
-  virtual std::string WrapKeyInServer(std::shared_ptr<arrow::Buffer> key_bytes,
+  virtual std::string WrapKeyInServer(const std::vector<uint8_t>& key_bytes,
                                       const std::string& master_key_identifier) = 0;
 
-  virtual std::string UnwrapKeyInServer(const std::string& wrapped_key,
+  virtual std::vector<uint8_t> UnwrapKeyInServer(const std::string& wrapped_key,
                                         const std::string& master_key_identifier) = 0;
 
-  virtual std::string GetMasterKeyFromServer(
+  virtual std::vector<uint8_t> GetMasterKeyFromServer(
       const std::string& master_key_identifier) = 0;
 
   virtual void InitializeInternal() = 0;
@@ -74,12 +74,12 @@ class RemoteKmsClient : public KmsClient {
   };
 
   void RefreshToken();
-  std::string GetKeyFromServer(const std::string& key_identifier);
+  std::vector<uint8_t> GetKeyFromServer(const std::string& key_identifier);
 
   KmsConnectionConfig kms_connection_config_;
   bool is_wrap_locally_;
   bool is_default_token_;
-  std::map<std::string, std::string> master_key_cache_;
+  std::map<std::string, std::vector<uint8_t>> master_key_cache_;
 };
 
 }  // namespace encryption

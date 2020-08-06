@@ -54,20 +54,20 @@ class InMemoryKms : public RemoteKmsClient {
  protected:
   void InitializeInternal() override;
 
-  std::string WrapKeyInServer(std::shared_ptr<arrow::Buffer> key_bytes,
+  std::string WrapKeyInServer(const std::vector<uint8_t>& key_bytes,
                               const std::string& master_key_identifier) override;
 
-  std::string UnwrapKeyInServer(const std::string& wrapped_key,
+  std::vector<uint8_t> UnwrapKeyInServer(const std::string& wrapped_key,
                                 const std::string& master_key_identifier) override;
 
-  std::string GetMasterKeyFromServer(const std::string& master_key_identifier) override;
+  std::vector<uint8_t> GetMasterKeyFromServer(const std::string& master_key_identifier) override;
 
  private:
-  static std::map<std::string, std::string> ParseKeyList(
+  static std::map<std::string, std::vector<uint8_t>> ParseKeyList(
       const std::vector<std::string>& master_keys);
 
-  static std::map<std::string, std::string> master_key_map_;
-  static std::map<std::string, std::string> new_master_key_map_;
+  static std::map<std::string, std::vector<uint8_t>> master_key_map_;
+  static std::map<std::string, std::vector<uint8_t>> new_master_key_map_;
 };
 
 class InMemoryKmsClientFactory : public KmsClientFactory {
@@ -78,6 +78,7 @@ class InMemoryKmsClientFactory : public KmsClientFactory {
   std::shared_ptr<KmsClient> CreateKmsClient(
       const KmsConnectionConfig& kms_connection_config, bool is_wrap_locally) {
     std::shared_ptr<InMemoryKms> in_memory_kms(new InMemoryKms);
+    in_memory_kms->Initialize(kms_connection_config, is_wrap_locally);
     in_memory_kms->InitializeMasterKey(master_keys_);
     return in_memory_kms;
   }

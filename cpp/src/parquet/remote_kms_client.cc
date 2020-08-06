@@ -40,14 +40,19 @@ RemoteKmsClient::LocalKeyWrap::LocalKeyWrap(const std::string& master_key_versio
 
 std::string RemoteKmsClient::LocalKeyWrap::CreateSerialized(
     const std::string& encrypted_encoded_key) {
+  rapidjson::Document d;
+  auto& allocator = d.GetAllocator();
+  rapidjson::Value root(rapidjson::kObjectType);
+
+  root.AddMember(LOCAL_WRAP_KEY_VERSION_FIELD, LOCAL_WRAP_NO_KEY_VERSION, allocator);
+
+  rapidjson::Value value(rapidjson::kStringType);
+  value.SetString(encrypted_encoded_key.c_str(), allocator);
+  root.AddMember(LOCAL_WRAP_ENCRYPTED_KEY_FIELD, value, allocator);
+
   rapidjson::StringBuffer buffer;
   rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
-
-  writer.Key(LOCAL_WRAP_KEY_VERSION_FIELD);
-  writer.String(LOCAL_WRAP_NO_KEY_VERSION, sizeof(LOCAL_WRAP_NO_KEY_VERSION));
-
-  writer.Key(LOCAL_WRAP_KEY_VERSION_FIELD);
-  writer.String(encrypted_encoded_key.data(), encrypted_encoded_key.size());
+  root.Accept(writer);
 
   return buffer.GetString();
 }
@@ -81,19 +86,17 @@ void RemoteKmsClient::Initialize(const KmsConnectionConfig& kms_connection_confi
   InitializeInternal();
 }
 
-std::string RemoteKmsClient::WrapKey(std::shared_ptr<arrow::Buffer> key_bytes,
+std::string RemoteKmsClient::WrapKey(const std::vector<uint8_t>& key_bytes,
                                      const std::string& master_key_identifier) {
   if (is_wrap_locally_) {
     if (master_key_cache_.find(master_key_identifier) == master_key_cache_.end()) {
       master_key_cache_[master_key_identifier] = GetKeyFromServer(master_key_identifier);
     }
-    const std::string& master_key = master_key_cache_[master_key_identifier];
-    const uint8_t* aad_bytes = reinterpret_cast<const uint8_t*>(master_key_identifier[0]);
-    int aad_size = master_key_identifier.size();
+    const std::vector<uint8_t>& master_key_bytes = master_key_cache_[master_key_identifier];
+    std::vector<uint8_t> aad_bytes(master_key_identifier.begin(), master_key_identifier.end());
+
     std::string encrypted_encoded_key =
-        KeyToolkit::EncryptKeyLocally(key_bytes->data(), key_bytes->size(),
-                                      reinterpret_cast<const uint8_t*>(&master_key[0]),
-                                      master_key.size(), aad_bytes, aad_size);
+        KeyToolkit::EncryptKeyLocally(key_bytes, master_key_bytes, aad_bytes);
     return LocalKeyWrap::CreateSerialized(encrypted_encoded_key);
   } else {
     RefreshToken();
@@ -101,7 +104,7 @@ std::string RemoteKmsClient::WrapKey(std::shared_ptr<arrow::Buffer> key_bytes,
   }
 }
 
-std::string RemoteKmsClient::UnwrapKey(const std::string& wrapped_key,
+std::vector<uint8_t> RemoteKmsClient::UnwrapKey(const std::string& wrapped_key,
                                        const std::string& master_key_identifier) {
   if (is_wrap_locally_) {
     LocalKeyWrap key_wrap = LocalKeyWrap::Parse(wrapped_key);
@@ -115,13 +118,11 @@ std::string RemoteKmsClient::UnwrapKey(const std::string& wrapped_key,
     if (master_key_cache_.find(master_key_identifier) == master_key_cache_.end()) {
       master_key_cache_[master_key_identifier] = GetKeyFromServer(master_key_identifier);
     }
-    const std::string& master_key = master_key_cache_[master_key_identifier];
+    const std::vector<uint8_t>& master_key_bytes = master_key_cache_[master_key_identifier];
+    std::vector<uint8_t> aad_bytes(master_key_identifier.begin(), master_key_identifier.end());
 
-    const uint8_t* aad_bytes = reinterpret_cast<const uint8_t*>(master_key_identifier[0]);
-    int aad_size = master_key_identifier.size();
     return KeyToolkit::DecryptKeyLocally(encrypted_encoded_key,
-                                         reinterpret_cast<const uint8_t*>(&master_key[0]),
-                                         master_key.size(), aad_bytes, aad_size);
+                                         master_key_bytes, aad_bytes);
   } else {
     RefreshToken();
     return UnwrapKeyInServer(wrapped_key, master_key_identifier);
@@ -135,7 +136,7 @@ void RemoteKmsClient::RefreshToken() {
   // TODO
 }
 
-std::string RemoteKmsClient::GetKeyFromServer(const std::string& key_identifier) {
+std::vector<uint8_t> RemoteKmsClient::GetKeyFromServer(const std::string& key_identifier) {
   RefreshToken();
   return GetMasterKeyFromServer(key_identifier);
 }

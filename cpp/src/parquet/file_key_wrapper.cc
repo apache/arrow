@@ -53,13 +53,13 @@ FileKeyWrapper::FileKeyWrapper(std::shared_ptr<KmsClientFactory> kms_client_fact
 }
 
 std::string FileKeyWrapper::GetEncryptionKeyMetadata(
-    std::shared_ptr<arrow::Buffer> data_key, const std::string& master_key_id,
+    const std::vector<uint8_t>& data_key, const std::string& master_key_id,
     bool is_footer_key) {
   return GetEncryptionKeyMetadata(data_key, master_key_id, is_footer_key, "");
 }
 
 std::string FileKeyWrapper::GetEncryptionKeyMetadata(
-    std::shared_ptr<arrow::Buffer> data_key, const std::string& master_key_id,
+    const std::vector<uint8_t>& data_key, const std::string& master_key_id,
     bool is_footer_key, std::string key_id_in_file) {
   if (kms_client_ == NULL) {
     throw new ParquetException("No KMS client available. See previous errors.");
@@ -82,8 +82,7 @@ std::string FileKeyWrapper::GetEncryptionKeyMetadata(
     const std::vector<uint8_t>& aad = key_encryption_key.kek_id();
     const std::vector<uint8_t>& kek_bytes = key_encryption_key.kek_bytes();
     encoded_wrapped_dek =
-        KeyToolkit::EncryptKeyLocally(data_key->data(), data_key->size(), &kek_bytes[0],
-                                      kek_bytes.size(), &aad[0], aad.size());
+        KeyToolkit::EncryptKeyLocally(data_key, kek_bytes, aad);
     encoded_kek_id = key_encryption_key.encoded_kek_id();
     encoded_wrapped_kek = key_encryption_key.encoded_wrapped_kek();
   }
@@ -135,7 +134,7 @@ KeyEncryptionKey FileKeyWrapper::CreateKeyEncryptionKey(
 
   // Encrypt KEK with Master key
   std::string encoded_wrapped_kek =
-      kms_client_->WrapKey(arrow::Buffer::Wrap(kek_bytes), master_key_id);
+      kms_client_->WrapKey(kek_bytes, master_key_id);
 
   return KeyEncryptionKey(kek_bytes, kek_id, encoded_wrapped_kek);
 }

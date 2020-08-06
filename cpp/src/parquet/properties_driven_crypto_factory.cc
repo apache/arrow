@@ -167,15 +167,16 @@ PropertiesDrivenCryptoFactory::GetFileEncryptionProperties(
 
   int dek_length = dek_length_bits / 8;
 
-  std::string footer_key_bytes;
-  footer_key_bytes.resize(dek_length);
-  RandBytes(reinterpret_cast<uint8_t*>(&footer_key_bytes[0]), footer_key_bytes.size());
+  std::vector<uint8_t> footer_key_bytes(dek_length);
+  RandBytes(footer_key_bytes.data(), footer_key_bytes.size());
 
   std::string footer_key_metadata = key_wrapper.GetEncryptionKeyMetadata(
-      Buffer::FromString(footer_key_bytes), footer_key_id, true);
+      footer_key_bytes, footer_key_id, true);
+
+  std::string footer_key_str(footer_key_bytes.begin(), footer_key_bytes.end());
 
   FileEncryptionProperties::Builder properties_builder =
-      FileEncryptionProperties::Builder(footer_key_bytes);
+      FileEncryptionProperties::Builder(footer_key_str);
   properties_builder.footer_key_metadata(footer_key_metadata);
   properties_builder.algorithm(encryption_config->encryption_algorithm());
 
@@ -244,16 +245,15 @@ PropertiesDrivenCryptoFactory::GetColumnEncryptionProperties(
                                    column_name);
       }
 
-      std::string column_key_bytes;
-      column_key_bytes.resize(dek_length);
-      std::shared_ptr<Buffer> column_key_buffer = Buffer::FromString(column_key_bytes);
-      RandBytes(column_key_buffer->mutable_data(), column_key_buffer->size());
+      std::vector<uint8_t> column_key_bytes(dek_length);
+      RandBytes(column_key_bytes.data(), column_key_bytes.size());
       std::string column_key_key_metadata =
-          key_wrapper.GetEncryptionKeyMetadata(column_key_buffer, column_key_id, false);
+          key_wrapper.GetEncryptionKeyMetadata(column_key_bytes, column_key_id, false);
 
+      std::string column_key_str(column_key_bytes.begin(), column_key_bytes.end());
       std::shared_ptr<ColumnEncryptionProperties> cmd =
           ColumnEncryptionProperties::Builder(column_name)
-              .key(column_key_bytes)
+              .key(column_key_str)
               ->key_metadata(column_key_key_metadata)
               ->build();
       encrypted_columns.insert({column_name, cmd});

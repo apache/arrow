@@ -43,37 +43,35 @@ std::shared_ptr<KmsClient> KeyToolkit::GetKmsClient(
   return kms_client_per_kms_instance_cache[kms_connection_config.kms_instance_id];
 }
 
-std::string KeyToolkit::EncryptKeyLocally(const uint8_t* key_bytes, int key_size,
-                                          const uint8_t* master_key_bytes,
-                                          int master_key_size, const uint8_t* aad_bytes,
-                                          int aad_size) {
-  AesEncryptor key_encryptor(ParquetCipher::AES_GCM_V1, master_key_size, false);
+std::string KeyToolkit::EncryptKeyLocally(const std::vector<uint8_t>& key_bytes,
+                                          const std::vector<uint8_t>& master_key,
+                                          const std::vector<uint8_t>& aad) {
+  AesEncryptor key_encryptor(ParquetCipher::AES_GCM_V1, master_key.size(), false);
 
-  int encrypted_key_len = key_size + key_encryptor.CiphertextSizeDelta();
+  int encrypted_key_len = key_bytes.size() + key_encryptor.CiphertextSizeDelta();
   std::vector<uint8_t> encrypted_key(encrypted_key_len);
   encrypted_key_len =
-      key_encryptor.Encrypt(key_bytes, key_size, master_key_bytes, master_key_size,
-                            aad_bytes, aad_size, encrypted_key.data());
+      key_encryptor.Encrypt(key_bytes.data(), key_bytes.size(), master_key.data(), master_key.size(), aad.data(), aad.size(), encrypted_key.data());
 
-  return arrow::util::base64_encode(encrypted_key.data(), encrypted_key_len);
+  std::string encoded_encrypted_key = arrow::util::base64_encode(encrypted_key.data(), encrypted_key_len);
+  return encoded_encrypted_key;
 }
 
-std::string KeyToolkit::DecryptKeyLocally(const std::string& encoded_encrypted_key,
-                                          const uint8_t* master_key_bytes,
-                                          int master_key_size, const uint8_t* aad_bytes,
-                                          int aad_size) {
-  std::string encrypted_key = arrow::util::base64_decode(encoded_encrypted_key);
+std::vector<uint8_t> KeyToolkit::DecryptKeyLocally(const std::string& encoded_encrypted_key,
+                                          const std::vector<uint8_t>& master_key,
+                                          const std::vector<uint8_t>& aad) {
+  std::string encrypted_key_str = arrow::util::base64_decode(encoded_encrypted_key);
+  std::vector<uint8_t> encrypted_key(encrypted_key_str.begin(), encrypted_key_str.end());
 
-  AesDecryptor key_decryptor(ParquetCipher::AES_GCM_V1, master_key_size, false);
+  AesDecryptor key_decryptor(ParquetCipher::AES_GCM_V1, master_key.size(), false);
 
   int decrypted_key_len =
-      encoded_encrypted_key.size() - key_decryptor.CiphertextSizeDelta();
-  std::string decrypted_key;
-  decrypted_key.resize(decrypted_key_len);
+      encrypted_key.size() - key_decryptor.CiphertextSizeDelta();
+  std::vector<uint8_t> decrypted_key(decrypted_key_len);
   decrypted_key_len = key_decryptor.Decrypt(
-      reinterpret_cast<const uint8_t*>(&encrypted_key[0]), encrypted_key.size(),
-      master_key_bytes, master_key_size, aad_bytes, aad_size,
-      reinterpret_cast<uint8_t*>(&decrypted_key[0]));
+      encrypted_key.data(), encrypted_key.size(),
+      master_key.data(), master_key.size(), aad.data(), aad.size(),
+      decrypted_key.data());
 
   return decrypted_key;
 }

@@ -41,7 +41,7 @@ class FileKeyUnwrapper : public DecryptionKeyRetriever {
       std::shared_ptr<KeyMaterial> key_material);
 
   // A map of KEK_ID -> KEK bytes, for the current token
-  std::map<std::string, std::string> kek_per_kek_id_;
+  std::map<std::string, std::vector<uint8_t>> kek_per_kek_id_;
   std::shared_ptr<KmsClientFactory> kms_client_factory_;
   KmsConnectionConfig kms_connection_config_;
   uint64_t cache_entry_lifetime_;

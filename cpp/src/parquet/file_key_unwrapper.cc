@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <iostream>
+
 #include "parquet/file_key_unwrapper.h"
 #include "parquet/key_metadata.h"
 #include "parquet/key_toolkit.h"
@@ -40,7 +42,11 @@ std::string FileKeyUnwrapper::GetKey(const std::string& key_metadata_bytes) {
 
   std::shared_ptr<KeyMaterial> key_material = key_metadata.key_material();
 
-  return GetDEKandMasterID(key_material).data_key();
+  // TODO
+  std::vector<uint8_t> key = GetDEKandMasterID(key_material).data_key();
+  std::string key_str(key.begin(), key.end());
+
+  return key_str;
 }
 
 KeyWithMasterID FileKeyUnwrapper::GetDEKandMasterID(
@@ -51,7 +57,7 @@ KeyWithMasterID FileKeyUnwrapper::GetDEKandMasterID(
   const std::string& master_key_id = key_material->master_key_id();
   const std::string& encoded_wrapped_dek = key_material->wrapped_dek();
 
-  std::string data_key;
+  std::vector<uint8_t> data_key;
   if (!double_wrapping) {
     data_key = kms_client->UnwrapKey(encoded_wrapped_dek, master_key_id);
   } else {
@@ -64,13 +70,13 @@ KeyWithMasterID FileKeyUnwrapper::GetDEKandMasterID(
           {encoded_kek_id, kms_client->UnwrapKey(encoded_wrapped_kek, master_key_id)});
     }
 
-    std::string kek_bytes = kek_per_kek_id_[encoded_kek_id];
+    std::vector<uint8_t> kek_bytes = kek_per_kek_id_[encoded_kek_id];
 
     // Decrypt the data key
-    std::string aad = arrow::util::base64_decode(encoded_kek_id);
+    std::string aad_str = arrow::util::base64_decode(encoded_kek_id);
+    std::vector<uint8_t> aad(aad_str.begin(), aad_str.end());
     data_key = KeyToolkit::DecryptKeyLocally(
-        encoded_wrapped_dek, reinterpret_cast<const uint8_t*>(kek_bytes.c_str()),
-        kek_bytes.size(), reinterpret_cast<const uint8_t*>(aad.c_str()), aad.size());
+        encoded_wrapped_dek, kek_bytes, aad);
   }
 
   return KeyWithMasterID(data_key, master_key_id);
@@ -82,8 +88,8 @@ std::shared_ptr<KmsClient> FileKeyUnwrapper::GetKmsClientFromConfigOrKeyMaterial
   if (kms_instance_id.empty()) {
     kms_instance_id = key_material->kms_instance_id();
     if (kms_instance_id.empty()) {
-      throw ParquetException(
-          "KMS instance ID is missing both in properties and file key material");
+    //   throw ParquetException( // TODO
+    //       "KMS instance ID is missing both in properties and file key material");
     }
   }
 
@@ -91,8 +97,8 @@ std::shared_ptr<KmsClient> FileKeyUnwrapper::GetKmsClientFromConfigOrKeyMaterial
   if (kms_instance_url.empty()) {
     kms_instance_url = key_material->kms_instance_url();
     if (kms_instance_url.empty()) {
-      throw ParquetException(
-          "KMS instance ID is missing both in properties and file key material");
+    //   throw ParquetException(
+    //       "KMS instance ID is missing both in properties and file key material");
     }
   }
 
