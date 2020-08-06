@@ -633,8 +633,8 @@ head.Dataset <- function(x, n = 6L, ...) {
   result <- list()
   batch_num <- 0
   scanner <- Scanner$create(ensure_group_vars(x))
-  for (scan_task in scanner$Scan()) {
-    for (batch in scan_task$Execute()) {
+  for (scan_task in dataset___Scanner__Scan(scanner)) {
+    for (batch in shared_ptr(ScanTask, scan_task)$Execute()) {
       batch_num <- batch_num + 1
       result[[batch_num]] <- head(batch, n)
       n <- n - nrow(batch)
@@ -651,8 +651,8 @@ tail.Dataset <- function(x, n = 6L, ...) {
   result <- list()
   batch_num <- 0
   scanner <- Scanner$create(ensure_group_vars(x))
-  for (scan_task in rev(scanner$Scan())) {
-    for (batch in rev(scan_task$Execute())) {
+  for (scan_task in rev(dataset___Scanner__Scan(scanner))) {
+    for (batch in rev(shared_ptr(ScanTask, scan_task)$Execute())) {
       batch_num <- batch_num + 1
       result[[batch_num]] <- tail(batch, n)
       n <- n - nrow(batch)
@@ -684,11 +684,10 @@ filter_dataset_rows <- function(x, i) {
     stop("TODO")
   }
   result <- list()  # Collect the batch slices
-  indexes <- list() # Collect
   batch_num <- 0
   scanner <- Scanner$create(ensure_group_vars(x))
-  for (scan_task in scanner$Scan()) {
-    for (batch in scan_task$Execute()) {
+  for (scan_task in dataset___Scanner__Scan(scanner)) {
+    for (batch in shared_ptr(ScanTask, scan_task)$Execute()) {
       batch_num <- batch_num + 1
       # Take all rows that are in this batch
       this_batch_nrows <- nrow(batch)

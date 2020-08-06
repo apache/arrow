@@ -94,6 +94,33 @@ dim.arrow_dplyr_query <- function(x) {
   c(rows, cols)
 }
 
+#' @export
+head.arrow_dplyr_query <- function(x, n = 6L, ...) {
+  if (query_on_dataset(x)) {
+    head.Dataset(x, n, ...)
+  } else {
+    stop("TODO")
+  }
+}
+
+#' @export
+tail.arrow_dplyr_query <- function(x, n = 6L, ...) {
+  if (query_on_dataset(x)) {
+    tail.Dataset(x, n, ...)
+  } else {
+    stop("TODO")
+  }
+}
+
+#' @export
+`[.arrow_dplyr_query` <- function(x, i, j, ..., drop = FALSE) {
+  if (query_on_dataset(x)) {
+    `[.Dataset`(x, i, j, ..., drop = FALSE)
+  } else {
+    stop("TODO")
+  }
+}
+
 # The following S3 methods are registered on load if dplyr is present
 tbl_vars.arrow_dplyr_query <- function(x) names(x$selected_columns)
 
@@ -346,33 +373,6 @@ arrange.arrow_dplyr_query <- function(.data, ...) {
   dplyr::arrange(dplyr::collect(.data), ...)
 }
 arrange.Dataset <- arrange.Table <- arrange.RecordBatch <- arrange.arrow_dplyr_query
-
-#' @export
-head.arrow_dplyr_query <- function(x, n = 6L, ...) {
-  if (query_on_dataset(x)) {
-    head.Dataset(x, n, ...)
-  } else {
-    stop("TODO")
-  }
-}
-
-#' @export
-tail.arrow_dplyr_query <- function(x, n = 6L, ...) {
-  if (query_on_dataset(x)) {
-    tail.Dataset(x, n, ...)
-  } else {
-    stop("TODO")
-  }
-}
-
-#' @export
-`[.arrow_dplyr_query` <- function(x, i, j, ..., drop = FALSE) {
-  if (query_on_dataset(x)) {
-    `[.Dataset`(x, i, j, ..., drop = FALSE)
-  } else {
-    stop("TODO")
-  }
-}
 
 query_on_dataset <- function(x) inherits(x$.data, "Dataset")
 
