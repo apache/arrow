@@ -131,6 +131,10 @@ TEST_F(ExpressionsTest, SimplificationAgainstCompoundCondition) {
   AssertSimplifiesTo("b"_ > 5, "b"_ == 3 or "b"_ == 6, "b"_ > 5);
   AssertSimplifiesTo("b"_ > 7, "b"_ == 3 or "b"_ == 6, *never);
   AssertSimplifiesTo("b"_ > 5 and "b"_ < 10, "b"_ > 6 and "b"_ < 13, "b"_ < 10);
+
+  auto set_123 = ArrayFromJSON(int32(), R"([1, 2, 3])");
+  AssertSimplifiesTo("b"_.In(set_123), "a"_ == 3 and "b"_ == 3, *always);
+  AssertSimplifiesTo("b"_.In(set_123), "a"_ == 3 and "b"_ == 5, *never);
 }
 
 TEST_F(ExpressionsTest, SimplificationToNull) {

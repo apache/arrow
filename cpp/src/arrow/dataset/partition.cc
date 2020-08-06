@@ -80,32 +80,27 @@ Status KeyValuePartitioning::VisitKeys(
     const Expression& expr,
     const std::function<Status(const std::string& name,
                                const std::shared_ptr<Scalar>& value)>& visitor) {
-  if (expr.type() == ExpressionType::AND) {
-    const auto& and_ = checked_cast<const AndExpression&>(expr);
-    RETURN_NOT_OK(VisitKeys(*and_.left_operand(), visitor));
-    RETURN_NOT_OK(VisitKeys(*and_.right_operand(), visitor));
-    return Status::OK();
-  }
+  return VisitConjunctionMembers(expr, [visitor](const Expression& expr) {
+    if (expr.type() != ExpressionType::COMPARISON) {
+      return Status::OK();
+    }
 
-  if (expr.type() != ExpressionType::COMPARISON) {
-    return Status::OK();
-  }
+    const auto& cmp = checked_cast<const ComparisonExpression&>(expr);
+    if (cmp.op() != compute::CompareOperator::EQUAL) {
+      return Status::OK();
+    }
 
-  const auto& cmp = checked_cast<const ComparisonExpression&>(expr);
-  if (cmp.op() != compute::CompareOperator::EQUAL) {
-    return Status::OK();
-  }
+    auto lhs = cmp.left_operand().get();
+    auto rhs = cmp.right_operand().get();
+    if (lhs->type() != ExpressionType::FIELD) std::swap(lhs, rhs);
 
-  auto lhs = cmp.left_operand().get();
-  auto rhs = cmp.right_operand().get();
-  if (lhs->type() != ExpressionType::FIELD) std::swap(lhs, rhs);
+    if (lhs->type() != ExpressionType::FIELD || rhs->type() != ExpressionType::SCALAR) {
+      return Status::OK();
+    }
 
-  if (lhs->type() != ExpressionType::FIELD || rhs->type() != ExpressionType::SCALAR) {
-    return Status::OK();
-  }
-
-  return visitor(checked_cast<const FieldExpression*>(lhs)->name(),
-                 checked_cast<const ScalarExpression*>(rhs)->value());
+    return visitor(checked_cast<const FieldExpression*>(lhs)->name(),
+                   checked_cast<const ScalarExpression*>(rhs)->value());
+  });
 }
 
 Result<std::unordered_map<std::string, std::shared_ptr<Scalar>>>

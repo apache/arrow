@@ -261,22 +261,36 @@ std::shared_ptr<Expression> Invert(const Expression& expr) {
 }
 
 std::shared_ptr<Expression> Expression::Assume(const Expression& given) const {
-  if (given.type() == ExpressionType::COMPARISON) {
-    const auto& given_cmp = checked_cast<const ComparisonExpression&>(given);
-    if (given_cmp.op() == CompareOperator::EQUAL) {
-      if (this->Equals(given_cmp.left_operand()) &&
-          given_cmp.right_operand()->type() == ExpressionType::SCALAR) {
-        return given_cmp.right_operand();
-      }
+  std::shared_ptr<Expression> out;
 
-      if (this->Equals(given_cmp.right_operand()) &&
-          given_cmp.left_operand()->type() == ExpressionType::SCALAR) {
-        return given_cmp.left_operand();
-      }
+  DCHECK_OK(VisitConjunctionMembers(given, [&](const Expression& given) {
+    if (out != nullptr) {
+      return Status::OK();
     }
-  }
 
-  return Copy();
+    if (given.type() != ExpressionType::COMPARISON) {
+      return Status::OK();
+    }
+
+    const auto& given_cmp = checked_cast<const ComparisonExpression&>(given);
+    if (given_cmp.op() != CompareOperator::EQUAL) {
+      return Status::OK();
+    }
+
+    if (this->Equals(given_cmp.left_operand())) {
+      out = given_cmp.right_operand();
+      return Status::OK();
+    }
+
+    if (this->Equals(given_cmp.right_operand())) {
+      out = given_cmp.left_operand();
+      return Status::OK();
+    }
+
+    return Status::OK();
+  }));
+
+  return out ? out : Copy();
 }
 
 std::shared_ptr<Expression> ComparisonExpression::Assume(const Expression& given) const {
@@ -1044,6 +1058,18 @@ Result<std::shared_ptr<Expression>> InsertImplicitCasts(const Expression& expr,
                                                         const Schema& schema) {
   RETURN_NOT_OK(schema.CanReferenceFieldsByNames(FieldsInExpression(expr)));
   return VisitExpression(expr, InsertImplicitCastsImpl{schema});
+}
+
+Status VisitConjunctionMembers(const Expression& expr,
+                               const std::function<Status(const Expression&)>& visitor) {
+  if (expr.type() == ExpressionType::AND) {
+    const auto& and_ = checked_cast<const AndExpression&>(expr);
+    RETURN_NOT_OK(VisitConjunctionMembers(*and_.left_operand(), visitor));
+    RETURN_NOT_OK(VisitConjunctionMembers(*and_.right_operand(), visitor));
+    return Status::OK();
+  }
+
+  return visitor(expr);
 }
 
 std::vector<std::string> FieldsInExpression(const Expression& expr) {

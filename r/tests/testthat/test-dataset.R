@@ -391,6 +391,17 @@ test_that("filter() with %in%", {
       collect(),
     tibble(int = df1$int[c(3, 4, 6)], part = 1)
   )
+
+  ds <- open_dataset(hive_dir, partitioning = hive_partition(other = utf8(), group = uint8()))
+  expect_equivalent(
+    ds %>%
+      filter(group %in% c(2)) %>%
+      select(chr, dbl) %>%
+      filter(dbl > 7 & dbl < 53) %>%
+      collect() %>%
+      arrange(dbl),
+    df2[1:2, c("chr", "dbl")]
+  )
 })
 
 test_that("filter() on timestamp columns", {
