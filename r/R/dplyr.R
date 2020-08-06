@@ -95,6 +95,11 @@ dim.arrow_dplyr_query <- function(x) {
 }
 
 #' @export
+as.data.frame.arrow_dplyr_query <- function(x, row.names = NULL, optional = FALSE, ...) {
+  collect.arrow_dplyr_query(x, as_data_frame = TRUE, ...)
+}
+
+#' @export
 head.arrow_dplyr_query <- function(x, n = 6L, ...) {
   if (query_on_dataset(x)) {
     head.Dataset(x, n, ...)
@@ -260,7 +265,7 @@ set_filters <- function(.data, expressions) {
   .data
 }
 
-collect.arrow_dplyr_query <- function(x, ...) {
+collect.arrow_dplyr_query <- function(x, as_data_frame = TRUE, ...) {
   x <- ensure_group_vars(x)
   # Pull only the selected rows and cols into R
   if (query_on_dataset(x)) {
@@ -270,7 +275,9 @@ collect.arrow_dplyr_query <- function(x, ...) {
     # This is a Table/RecordBatch. See record-batch.R for the [ method
     df <- x$.data[x$filtered_rows, x$selected_columns, keep_na = FALSE]
   }
-  df <- as.data.frame(df)
+  if (as_data_frame) {
+    df <- as.data.frame(df)
+  }
   restore_dplyr_features(df, x)
 }
 collect.Table <- as.data.frame.Table
@@ -288,15 +295,24 @@ ensure_group_vars <- function(x) {
 
 restore_dplyr_features <- function(df, query) {
   # An arrow_dplyr_query holds some attributes that Arrow doesn't know about
-  # After pulling data into a data.frame, make sure these features are carried over
+  # After calling collect(), make sure these features are carried over
 
-  # In case variables were renamed, apply those names
-  if (ncol(df)) {
-    names(df) <- names(query)
-  }
-  # Preserve groupings, if present
-  if (length(query$group_by_vars)) {
-    df <- dplyr::grouped_df(df, dplyr::group_vars(query))
+  grouped <- length(query$group_by_vars) > 0
+  renamed <- !identical(names(df), names(query))
+  if (is.data.frame(df)) {
+    # In case variables were renamed, apply those names
+    if (renamed && ncol(df)) {
+      names(df) <- names(query)
+    }
+    # Preserve groupings, if present
+    if (grouped) {
+      df <- dplyr::grouped_df(df, dplyr::group_vars(query))
+    }
+  } else if (grouped || renamed) {
+    # This is a Table, via collect(as_data_frame = FALSE)
+    df <- arrow_dplyr_query(df)
+    names(df$selected_columns) <- names(query)
+    df$group_by_vars <- query$group_by_vars
   }
   df
 }
