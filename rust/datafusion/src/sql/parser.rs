@@ -34,7 +34,7 @@ macro_rules! parser_err {
 }
 
 /// Types of files to parse as DataFrames
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum FileType {
     /// Newline-delimited JSON
     NdJson,
@@ -44,10 +44,10 @@ pub enum FileType {
     CSV,
 }
 
-/// DataFrame Statement's representations.
+/// DataFusion Statement representations.
 ///
 /// Tokens parsed by `DFParser` are converted into these values.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Statement {
     /// ANSI SQL AST node
     Statement(SQLStatement),
@@ -238,9 +238,9 @@ impl DFParser {
                 "PARQUET" => Ok(FileType::Parquet),
                 "NDJSON" => Ok(FileType::NdJson),
                 "CSV" => Ok(FileType::CSV),
-                _ => self.expected("fileformat", Token::Word(w)),
+                _ => self.expected("one of PARQUET, NDJSON, or CSV", Token::Word(w)),
             },
-            unexpected => self.expected("fileformat", unexpected),
+            unexpected => self.expected("one of PARQUET, NDJSON, or CSV", unexpected),
         }
     }
 
@@ -257,5 +257,92 @@ impl DFParser {
         self.consume_token("WITH")
             & self.consume_token("HEADER")
             & self.consume_token("ROW")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use sqlparser::ast::{DataType, Ident};
+
+    fn expect_parse_ok(sql: &str, expected: Statement) -> Result<(), ParserError> {
+        let statements = DFParser::parse_sql(sql)?;
+        assert_eq!(
+            statements.len(),
+            1,
+            "Expected to parse exactly one statement"
+        );
+        assert_eq!(statements[0], expected);
+        Ok(())
+    }
+
+    /// Parses sql and asserts that the expected error message was found
+    fn expect_parse_error(sql: &str, expected_error: &str) -> Result<(), ParserError> {
+        match DFParser::parse_sql(sql) {
+            Ok(statements) => {
+                assert!(
+                    false,
+                    "Expected parse error for '{}', but was successful: {:?}",
+                    sql, statements
+                );
+            }
+            Err(e) => {
+                let error_message = e.to_string();
+                assert!(
+                    error_message.contains(expected_error),
+                    "Expected error '{}' not found in actual error '{}'",
+                    expected_error,
+                    error_message
+                );
+            }
+        }
+        Ok(())
+    }
+
+    fn make_column_def(name: impl Into<String>, data_type: DataType) -> ColumnDef {
+        ColumnDef {
+            name: Ident {
+                value: name.into(),
+                quote_style: None,
+            },
+            data_type,
+            collation: None,
+            options: vec![],
+        }
+    }
+
+    #[test]
+    fn create_external_table() -> Result<(), ParserError> {
+        // positive case
+        let sql = "CREATE EXTERNAL TABLE t(c1 int) STORED AS CSV LOCATION 'foo.csv'";
+        let expected = Statement::CreateExternalTable {
+            name: "t".into(),
+            columns: vec![make_column_def("c1", DataType::Int)],
+            file_type: FileType::CSV,
+            has_header: false,
+            location: "foo.csv".into(),
+        };
+        expect_parse_ok(sql, expected)?;
+
+        // positive case: it is ok for parquet files not to have columns specified
+        let sql = "CREATE EXTERNAL TABLE t STORED AS PARQUET LOCATION 'foo.parquet'";
+        let expected = Statement::CreateExternalTable {
+            name: "t".into(),
+            columns: vec![],
+            file_type: FileType::Parquet,
+            has_header: false,
+            location: "foo.parquet".into(),
+        };
+        expect_parse_ok(sql, expected)?;
+
+        // Error cases: Invalid type
+        let sql =
+            "CREATE EXTERNAL TABLE t(c1 int) STORED AS UNKNOWN_TYPE LOCATION 'foo.csv'";
+        expect_parse_error(
+            sql,
+            "Expected one of PARQUET, NDJSON, or CSV, found: UNKNOWN_TYPE",
+        )?;
+
+        Ok(())
     }
 }
