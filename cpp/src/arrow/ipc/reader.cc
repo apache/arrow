@@ -768,6 +768,7 @@ class RecordBatchStreamReaderImpl : public RecordBatchStreamReader {
     swap_endian_ = options.use_native_endian && !out_schema_->IsNativeEndianness();
     if (swap_endian_) {
       // create a new schema with native endianness before swapping endian in ArrayData
+      schema_ = schema_->WithNativeEndianness();
       out_schema_ = out_schema_->WithNativeEndianness();
     }
     return Status::OK();
@@ -985,6 +986,7 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
     swap_endian_ = options.use_native_endian && !out_schema_->IsNativeEndianness();
     if (swap_endian_) {
       // create a new schema with native endianness before swapping endian in ArrayData
+      schema_ = schema_->WithNativeEndianness();
       out_schema_ = out_schema_->WithNativeEndianness();
     }
     ++stats_.num_messages;
@@ -1218,6 +1220,7 @@ class StreamDecoder::StreamDecoderImpl : public MessageDecoderListener {
     swap_endian_ = options_.use_native_endian && !out_schema_->IsNativeEndianness();
     if (swap_endian_) {
       // create a new schema with native endianness before swapping endian in ArrayData
+      schema_ = schema_->WithNativeEndianness();
       out_schema_ = out_schema_->WithNativeEndianness();
     }
 
