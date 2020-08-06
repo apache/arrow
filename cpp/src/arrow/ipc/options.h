@@ -137,6 +137,11 @@ struct ARROW_EXPORT IpcReadOptions {
   /// like decompression
   bool use_threads = true;
 
+  /// \brief Convert endian of data element to platform-native endianness
+  /// if the endianness of the received schema is not equal to
+  /// platform-native endianness
+  bool use_native_endian = true;
+
   static IpcReadOptions Defaults();
 };
 
