@@ -174,15 +174,10 @@ jobs:
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
-      - name: Build Docker image
+      - name: Run
         run: |
           cd cpp/examples/minimal_build
-          docker build -t arrow_cpp_minimal .
-      - name: Compile and run example
-        run: |
-          ARROW_ROOT=$PWD
-          cd cpp/examples/minimal_build
-          docker run -v $PWD:/io -v $ARROW_ROOT:/arrow arrow_cpp_minimal /io/run.sh
+          docker-compose run --rm minimal
 
   macos:
     name: AMD64 MacOS 10.15 C++

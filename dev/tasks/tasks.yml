@@ -78,6 +78,12 @@ groups:
     - test-*spark*
     - test-*turbodbc*
 
+  example:
+    - example-*
+
+  example-cpp:
+    - example-*cpp*
+
   verify-rc:
     - verify-rc-*
 
@@ -109,6 +115,7 @@ groups:
     - homebrew-r-autobrew
     - nuget
     - test-*
+    - example-*
     - wheel-*
 
 tasks:
@@ -1844,3 +1851,17 @@ tasks:
     template: docker-tests/github.linux.yml
     params:
       run: conda-cpp-hiveserver2
+
+  example-cpp-minimal-build-static:
+    ci: github
+    template: cpp-examples/github.linux.yml
+    params:
+      type: minimal_build
+      run: static
+
+  example-cpp-minimal-build-static-system-dependency:
+    ci: github
+    template: cpp-examples/github.linux.yml
+    params:
+      type: minimal_build
+      run: static-system-dependency

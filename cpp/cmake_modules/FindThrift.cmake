@@ -24,7 +24,7 @@
 # This module defines
 #  THRIFT_VERSION, version string of ant if found
 #  THRIFT_INCLUDE_DIR, where to find THRIFT headers
-#  THRIFT_STATIC_LIB, THRIFT static library
+#  THRIFT_LIB, THRIFT library
 #  THRIFT_FOUND, If false, do not try to use ant
 
 function(EXTRACT_THRIFT_VERSION)
@@ -39,12 +39,40 @@ function(EXTRACT_THRIFT_VERSION)
   endif()
 endfunction(EXTRACT_THRIFT_VERSION)
 
-if(MSVC AND NOT THRIFT_MSVC_STATIC_LIB_SUFFIX)
-  set(THRIFT_MSVC_STATIC_LIB_SUFFIX md)
+if(MSVC AND NOT DEFINED THRIFT_MSVC_LIB_SUFFIX)
+  if(NOT ARROW_THRIFT_USE_SHARED)
+    if(ARROW_USE_STATIC_CRT)
+      set(THRIFT_MSVC_LIB_SUFFIX "mt")
+    else()
+      set(THRIFT_MSVC_LIB_SUFFIX "md")
+    endif()
+  endif()
+endif()
+set(THRIFT_LIB_NAME_BASE "thrift${THRIFT_MSVC_LIB_SUFFIX}")
+
+if(ARROW_THRIFT_USE_SHARED)
+  set(THRIFT_LIB_NAMES thrift)
+  if(CMAKE_IMPORT_LIBRARY_SUFFIX)
+    list(
+      APPEND
+        THRIFT_LIB_NAMES
+        "${CMAKE_IMPORT_LIBRARY_PREFIX}${THRIFT_LIB_NAME_BASE}${CMAKE_IMPORT_LIBRARY_SUFFIX}"
+      )
+  endif()
+  list(
+    APPEND
+      THRIFT_LIB_NAMES
+      "${CMAKE_SHARED_LIBRARY_PREFIX}${THRIFT_LIB_NAME_BASE}${CMAKE_SHARED_LIBRARY_SUFFIX}"
+    )
+else()
+  set(
+    THRIFT_LIB_NAMES
+    "${CMAKE_STATIC_LIBRARY_PREFIX}${THRIFT_LIB_NAME_BASE}${CMAKE_STATIC_LIBRARY_SUFFIX}")
 endif()
 
 if(Thrift_ROOT)
-  find_library(THRIFT_STATIC_LIB thrift${THRIFT_MSVC_STATIC_LIB_SUFFIX}
+  find_library(THRIFT_LIB
+               NAMES ${THRIFT_LIB_NAMES}
                PATHS ${Thrift_ROOT}
                PATH_SUFFIXES "lib/${CMAKE_LIBRARY_ARCHITECTURE}" "lib")
   find_path(THRIFT_INCLUDE_DIR thrift/Thrift.h
@@ -55,13 +83,15 @@ if(Thrift_ROOT)
 else()
   # THRIFT-4760: The pkgconfig files are currently only installed when using autotools.
   # Starting with 0.13, they are also installed for the CMake-based installations of Thrift.
+  find_package(PkgConfig QUIET)
   pkg_check_modules(THRIFT_PC thrift)
   if(THRIFT_PC_FOUND)
     set(THRIFT_INCLUDE_DIR "${THRIFT_PC_INCLUDEDIR}")
 
     list(APPEND THRIFT_PC_LIBRARY_DIRS "${THRIFT_PC_LIBDIR}")
 
-    find_library(THRIFT_STATIC_LIB thrift${THRIFT_MSVC_STATIC_LIB_SUFFIX}
+    find_library(THRIFT_LIB
+                 NAMES ${THRIFT_LIB_NAMES}
                  PATHS ${THRIFT_PC_LIBRARY_DIRS}
                  NO_DEFAULT_PATH)
     find_program(THRIFT_COMPILER thrift
@@ -70,7 +100,8 @@ else()
                  PATH_SUFFIXES "bin")
     set(THRIFT_VERSION ${THRIFT_PC_VERSION})
   else()
-    find_library(THRIFT_STATIC_LIB thrift${THRIFT_MSVC_STATIC_LIB_SUFFIX}
+    find_library(THRIFT_LIB
+                 NAMES ${THRIFT_LIB_NAMES}
                  PATH_SUFFIXES "lib/${CMAKE_LIBRARY_ARCHITECTURE}" "lib")
     find_path(THRIFT_INCLUDE_DIR thrift/Thrift.h PATH_SUFFIXES "include")
     find_program(THRIFT_COMPILER thrift PATH_SUFFIXES "bin")
@@ -86,7 +117,7 @@ endif()
 
 find_package_handle_standard_args(Thrift
                                   REQUIRED_VARS
-                                  THRIFT_STATIC_LIB
+                                  THRIFT_LIB
                                   THRIFT_INCLUDE_DIR
                                   VERSION_VAR
                                   THRIFT_VERSION
@@ -94,9 +125,13 @@ find_package_handle_standard_args(Thrift
 
 if(Thrift_FOUND OR THRIFT_FOUND)
   set(Thrift_FOUND TRUE)
-  add_library(thrift::thrift STATIC IMPORTED)
+  if(ARROW_THRIFT_USE_SHARED)
+    add_library(thrift::thrift SHARED IMPORTED)
+  else()
+    add_library(thrift::thrift STATIC IMPORTED)
+  endif()
   set_target_properties(thrift::thrift
-                        PROPERTIES IMPORTED_LOCATION "${THRIFT_STATIC_LIB}"
+                        PROPERTIES IMPORTED_LOCATION "${THRIFT_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${THRIFT_INCLUDE_DIR}")
   if(WIN32 AND NOT MSVC)
     # We don't need this for Visual C++ because Thrift uses
