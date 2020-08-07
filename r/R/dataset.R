@@ -637,16 +637,17 @@ head.Dataset <- function(x, n = 6L, ...) {
   result <- list()
   batch_num <- 0
   scanner <- Scanner$create(ensure_group_vars(x))
-  for (scan_task in dataset___Scanner__Scan(scanner)) {
-    for (batch in shared_ptr(ScanTask, scan_task)$Execute()) {
-      batch_num <- batch_num + 1
-      result[[batch_num]] <- head(batch, n)
-      n <- n - nrow(batch)
-      if (n <= 0) break
-    }
-    if (n <= 0) break
-  }
-  Table$create(!!!result)
+  shared_ptr(Table, dataset___Scanner__head(scanner, n))
+  # for (scan_task in dataset___Scanner__Scan(scanner)) {
+  #   for (batch in shared_ptr(ScanTask, scan_task)$Execute()) {
+  #     batch_num <- batch_num + 1
+  #     result[[batch_num]] <- head(batch, n)
+  #     n <- n - nrow(batch)
+  #     if (n <= 0) break
+  #   }
+  #   if (n <= 0) break
+  # }
+  # Table$create(!!!result)
 }
 
 #' @export

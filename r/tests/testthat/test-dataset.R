@@ -524,7 +524,7 @@ test_that("head/tail", {
   )
 })
 
-test_that("Dataset slicing", {
+test_that("Dataset [ (take by index)", {
   ds <- open_dataset(dataset_dir)
   # Taking only from one file
   expect_equal(
