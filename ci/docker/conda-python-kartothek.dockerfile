@@ -22,24 +22,23 @@ FROM ${repo}:${arch}-conda-python-${python}
 
 # install kartothek dependencies from conda-forge
 RUN conda install -c conda-forge -q \
+        attrs \
+        click \
+        cloudpickle \
         dask \
         decorator \
+        freezegun \
         msgpack-python \
+        prompt-toolkit \
         pytest-mock \
         pytest-xdist \
+        pyyaml \
         simplejson \
         simplekv \
         storefact \
         toolz \
         urlquote \
-        zstandard \
-        attrs \
-        click \
-        prompt-toolkit \
-        pyyaml \
-        # test dependencies
-        cloudpickle \
-        freezegun && \
+        zstandard && \
     conda clean --all
 
 ARG kartothek=latest
