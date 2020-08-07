@@ -31,6 +31,12 @@ import (
 )
 
 func TestLsStream(t *testing.T) {
+	tempDir, err := ioutil.TempDir("", "go-arrow-ls-stream-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tempDir)
+
 	for _, tc := range []struct {
 		name string
 		want string
@@ -119,7 +125,7 @@ records: 3
 			defer mem.AssertSize(t, 0)
 
 			fname := func() string {
-				f, err := ioutil.TempFile("", "go-arrow-")
+				f, err := ioutil.TempFile(tempDir, "go-arrow-ls-stream-")
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -147,7 +153,6 @@ records: 3
 
 				return f.Name()
 			}()
-			defer os.Remove(fname)
 
 			f, err := os.Open(fname)
 			if err != nil {
@@ -169,6 +174,12 @@ records: 3
 }
 
 func TestLsFile(t *testing.T) {
+	tempDir, err := ioutil.TempDir("", "go-arrow-ls-file-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tempDir)
+
 	for _, tc := range []struct {
 		stream bool
 		name   string
@@ -274,7 +285,7 @@ records: 3
 			defer mem.AssertSize(t, 0)
 
 			fname := func() string {
-				f, err := ioutil.TempFile("", "go-arrow-")
+				f, err := ioutil.TempFile(tempDir, "go-arrow-ls-file-")
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -315,7 +326,6 @@ records: 3
 
 				return f.Name()
 			}()
-			defer os.Remove(fname)
 
 			w := new(bytes.Buffer)
 			err := processFile(w, fname)

@@ -28,6 +28,12 @@ import (
 )
 
 func TestReadWrite(t *testing.T) {
+	tempDir, err := ioutil.TempDir("", "go-arrow-read-write-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tempDir)
+
 	for name, recs := range arrdata.Records {
 		t.Run(name, func(t *testing.T) {
 			if name == "decimal128" {
@@ -36,12 +42,11 @@ func TestReadWrite(t *testing.T) {
 			mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 			defer mem.AssertSize(t, 0)
 
-			f, err := ioutil.TempFile("", "arrjson-")
+			f, err := ioutil.TempFile(tempDir, "go-arrow-read-write-")
 			if err != nil {
 				t.Fatal(err)
 			}
 			defer f.Close()
-			defer os.RemoveAll(f.Name())
 
 			w, err := NewWriter(f, recs[0].Schema())
 			if err != nil {
