@@ -79,18 +79,21 @@ names.arrow_dplyr_query <- function(x) names(x$selected_columns)
 
 #' @export
 dim.arrow_dplyr_query <- function(x) {
+  cols <- length(names(x))
+
   if (isTRUE(x$filtered)) {
     rows <- x$.data$num_rows
+  } else if (query_on_dataset(x)) {
+    # Drop all columns: RecordBatches in the stream still know how many rows they have
+    # x$selected_columns <- character(0)
+    # Actually, Project won't let you select 0 columns, so pick the last, and
+    # it should be cheap if it is a partition column
+    x$selected_columns <- tail(x$selected_columns, 1)
+    rows <- Scanner$create(x)$ToTable()$num_rows
   } else {
-    warning(
-      "For arrow dplyr queries that call filter(), ",
-      "dim() returns NA for the number of rows.\n",
-      "Call collect() to pull data into R to access the number of rows.",
-      call. = FALSE
-    )
-    rows <- NA_integer_
+    # Evaluate the filter expression to a BooleanArray and count
+    rows <- as.integer(sum(eval_array_expression(x$filtered_rows), na.rm = TRUE))
   }
-  cols <- length(names(x))
   c(rows, cols)
 }
 

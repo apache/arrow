@@ -21,6 +21,7 @@
 
 #include <arrow/dataset/api.h>
 #include <arrow/filesystem/filesystem.h>
+#include <arrow/record_batch.h>
 #include <arrow/util/iterator.h>
 
 namespace ds = ::arrow::dataset;

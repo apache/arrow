@@ -145,6 +145,16 @@ test_that("More complex select/filter", {
   )
 })
 
+test_that("dim() on query", {
+  expect_dplyr_equal(
+    input %>%
+      filter(int > 5) %>%
+      select(int, chr) %>%
+      dim(),
+    tbl
+  )
+})
+
 test_that("Print method", {
   expect_output(
     record_batch(tbl) %>%

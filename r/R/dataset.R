@@ -240,12 +240,12 @@ FileSystemDataset <- R6Class("FileSystemDataset", inherit = Dataset,
       shared_ptr(FileFormat, dataset___FileSystemDataset__format(self))$..dispatch()
     },
     num_rows = function() {
-      if (!inherits(self$format, "ParquetFileFormat")) {
-        # TODO: implement for other file formats
-        warning("Number of rows unknown; returning NA", call. = FALSE)
-        NA_integer_
-      } else {
+      if (inherits(self$format, "ParquetFileFormat")) {
+        # It's generally faster to skim the files directly
         sum(map_int(self$files, ~ParquetFileReader$create(.x)$num_rows))
+      } else {
+        # Do a scan, picking only the last column, which hopefully is virtual
+        Scanner$create(self, projection = tail(names(self), 1))$ToTable()$num_rows
       }
     }
   )
@@ -559,6 +559,7 @@ Scanner$create <- function(dataset,
                            projection = NULL,
                            filter = TRUE,
                            use_threads = option_use_threads(),
+                           batch_size = NULL,
                            ...) {
   if (inherits(dataset, "arrow_dplyr_query") && inherits(dataset$.data, "Dataset")) {
     return(Scanner$create(
@@ -579,6 +580,9 @@ Scanner$create <- function(dataset,
   }
   if (!isTRUE(filter)) {
     scanner_builder$Filter(filter)
+  }
+  if (is_integerish(batch_size)) {
+    scanner_builder$BatchSize(batch_size)
   }
   scanner_builder$Finish()
 }
