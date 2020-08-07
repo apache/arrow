@@ -395,12 +395,9 @@ test_that("filter() with %in%", {
   ds <- open_dataset(hive_dir, partitioning = hive_partition(other = utf8(), group = uint8()))
   expect_equivalent(
     ds %>%
-      filter(group %in% c(2)) %>%
-      select(chr, dbl) %>%
-      filter(dbl > 7 & dbl < 53) %>%
-      collect() %>%
-      arrange(dbl),
-    df2[1:2, c("chr", "dbl")]
+      filter(group %in% 2) %>%
+      collect(),
+    df2
   )
 })
 
