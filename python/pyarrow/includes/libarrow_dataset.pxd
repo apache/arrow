@@ -247,6 +247,17 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
             shared_ptr[CFileFormat] format,
             shared_ptr[CFileSystem] filesystem,
             vector[shared_ptr[CFileFragment]] fragments)
+
+        @staticmethod
+        CStatus Write(
+            shared_ptr[CSchema] schema,
+            shared_ptr[CFileFormat] format,
+            shared_ptr[CFileSystem] filesystem,
+            c_string base_dir,
+            shared_ptr[CPartitioning] partitioning,
+            shared_ptr[CScanContext] scan_context,
+            CFragmentIterator fragments)
+
         c_string type()
         vector[c_string] files()
         const shared_ptr[CFileFormat]& format() const

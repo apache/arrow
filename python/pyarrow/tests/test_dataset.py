@@ -2123,3 +2123,86 @@ def test_dataset_project_only_partition_columns(tempdir):
     part_only = dataset.to_table(columns=['part'], use_threads=False)
 
     assert all_cols.column('part').equals(part_only.column('part'))
+
+
+def _check_dataset_roundtrip(dataset, base_dir, expected_files,
+                             base_dir_path=None, partitioning=None):
+    base_dir_path = base_dir_path or base_dir
+
+    ds.write_dataset(
+        dataset, base_dir, format="feather", partitioning=partitioning)
+
+    # check that all files are present
+    file_paths = list(base_dir_path.rglob("*"))
+    assert set(file_paths) == set(expected_files)
+
+    # check that reading back in as dataset gives the same result
+    dataset2 = ds.dataset(
+        base_dir_path, format="feather", partitioning=partitioning)
+    assert dataset2.to_table().equals(dataset.to_table())
+
+
+def test_write_dataset(tempdir):
+    # manually create a written dataset and read as dataset object
+    directory = tempdir / 'single-file'
+    directory.mkdir()
+    _ = _create_single_file(directory)
+    dataset = ds.dataset(directory)
+
+    # full string path
+    target = tempdir / 'single-file-target'
+    expected_files = [target / "dat_0.ipc"]
+    _check_dataset_roundtrip(dataset, str(target), expected_files, target)
+
+    # pathlib path object
+    target = tempdir / 'single-file-target2'
+    expected_files = [target / "dat_0.ipc"]
+    _check_dataset_roundtrip(dataset, target, expected_files, target)
+
+    # TODO
+    # # relative path
+    # target = tempdir / 'single-file-target3'
+    # expected_files = [target / "dat_0.ipc"]
+    # _check_dataset_roundtrip(
+    #     dataset, './single-file-target3', expected_files, target)
+
+    # Directory of files
+    directory = tempdir / 'single-directory'
+    directory.mkdir()
+    _ = _create_directory_of_files(directory)
+    dataset = ds.dataset(directory)
+
+    target = tempdir / 'single-directory-target'
+    expected_files = [target / "dat_0.ipc", target / "dat_1.ipc"]
+    _check_dataset_roundtrip(dataset, str(target), expected_files, target)
+
+
+def test_write_dataset_partitioned(tempdir):
+    directory = tempdir / "partitioned"
+    _ = _create_parquet_dataset_partitioned(directory)
+    partitioning = ds.partitioning(flavor="hive")
+    dataset = ds.dataset(directory, partitioning=partitioning)
+
+    # hive partitioning
+    target = tempdir / 'partitioned-hive-target'
+    expected_paths = [
+        target / "part=a", target / "part=a" / "dat_0.ipc",
+        target / "part=b", target / "part=b" / "dat_1.ipc"
+    ]
+    partitioning_schema = ds.partitioning(
+        pa.schema([("part", pa.string())]), flavor="hive")
+    _check_dataset_roundtrip(
+        dataset, str(target), expected_paths, target,
+        partitioning=partitioning_schema)
+
+    # directory partitioning
+    target = tempdir / 'partitioned-dir-target'
+    expected_paths = [
+        target / "a", target / "a" / "dat_0.ipc",
+        target / "b", target / "b" / "dat_1.ipc"
+    ]
+    partitioning_schema = ds.partitioning(
+        pa.schema([("part", pa.string())]))
+    _check_dataset_roundtrip(
+        dataset, str(target), expected_paths, target,
+        partitioning=partitioning_schema)

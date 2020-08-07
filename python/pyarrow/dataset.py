@@ -47,7 +47,8 @@ from pyarrow._dataset import (  # noqa
     ScanTask,
     UnionDataset,
     UnionDatasetFactory,
-    _get_partition_keys
+    _get_partition_keys,
+    _filesystemdataset_write,
 )
 
 
@@ -682,3 +683,56 @@ def dataset(source, schema=None, format=None, filesystem=None,
             'Expected a path-like, list of path-likes or a list of Datasets '
             'instead of the given type: {}'.format(type(source).__name__)
         )
+
+
+def _ensure_write_partitioning(scheme):
+    if scheme is None:
+        scheme = partitioning(pa.schema([]))
+    if not isinstance(scheme, Partitioning):
+        # TODO support passing field names, and get types from schema
+        raise ValueError("partitioning needs to be actual Partitioning object")
+    return scheme
+
+
+def write_dataset(data, base_dir, format=None, partitioning=None, schema=None,
+                  filesystem=None):
+    """
+    Write a dataset to a given format and partitioning.
+
+    Parameters
+    ----------
+    data : FileSystemDataset
+        The data to write. Currently only a FileSystemDataset instance is
+        supported.
+    base_dir : str
+        The root directory where to write the dataset.
+    format : FileFormat or str
+        The format in which to write the dataset. Currently supported:
+        "ipc"/"feather".
+    partitioning : Partitioning, optional
+    schema : Schema, optional
+    filesystem : FileSystem, optional
+    """
+    if not isinstance(data, FileSystemDataset):
+        raise NotImplementedError(
+            "only FileSystemDataset instances supported for now"
+        )
+
+    if schema is None:
+        schema = data.schema
+
+    if format is None:
+        format = data.format
+    format = _ensure_format(format)
+
+    partitioning = _ensure_write_partitioning(partitioning)
+
+    if filesystem is None:
+        # fall back to local file system as the default
+        from pyarrow.fs import LocalFileSystem
+        filesystem = LocalFileSystem()
+    filesystem, _ = _ensure_fs(filesystem)
+
+    _filesystemdataset_write(
+        data, base_dir, schema, format, filesystem, partitioning
+    )

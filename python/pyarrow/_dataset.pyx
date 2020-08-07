@@ -2038,3 +2038,40 @@ def _get_partition_keys(Expression partition_expression):
         frombytes(name_val.first): pyarrow_wrap_scalar(name_val.second).as_py()
         for name_val in GetResultValue(CGetPartitionKeys(deref(expr.get())))
     }
+
+
+def _filesystemdataset_write(
+    FileSystemDataset dataset, object base_dir, Schema schema,
+    FileFormat format, FileSystem filesystem, Partitioning partitioning
+):
+    """
+    CFileSystemDataset.Write wrapper
+    """
+    cdef:
+        c_string c_base_dir
+        shared_ptr[CSchema] c_schema
+        shared_ptr[CFileFormat] c_format
+        shared_ptr[CFileSystem] c_filesystem
+        shared_ptr[CPartitioning] c_partitioning
+        shared_ptr[CScanContext] c_context
+
+    c_base_dir = tobytes(_stringify_path(base_dir))
+    c_schema = pyarrow_unwrap_schema(schema)
+    c_format = format.unwrap()
+    c_filesystem = filesystem.unwrap()
+    c_partitioning = partitioning.unwrap()
+    # passthrough use_threads?
+    c_context = _build_scan_context()
+
+    with nogil:
+        check_status(
+            CFileSystemDataset.Write(
+                c_schema,
+                c_format,
+                c_filesystem,
+                c_base_dir,
+                c_partitioning,
+                c_context,
+                dataset.dataset.GetFragments()
+            )
+        )
