@@ -679,32 +679,35 @@ tail.Dataset <- function(x, n = 6L, ...) {
   }
 
   if (!missing(i)) {
-    x <- filter_dataset_rows(x, i)
+    x <- take_dataset_rows(x, i)
   }
   x
 }
 
-filter_dataset_rows <- function(x, i) {
+take_dataset_rows <- function(x, i) {
   if (!is.numeric(i) || any(i < 0)) {
     stop("TODO")
   }
-  result <- list()  # Collect the batch slices
-  batch_num <- 0
-  scanner <- Scanner$create(ensure_group_vars(x))
-  for (scan_task in dataset___Scanner__Scan(scanner)) {
-    for (batch in shared_ptr(ScanTask, scan_task)$Execute()) {
-      batch_num <- batch_num + 1
+  result <- list()
+  result_order <- order(i)
+  i <- sort(i) - 1L
+  scanner <- Scanner$create(x)
+  for (scan_task in arrow:::dataset___Scanner__Scan(scanner)) {
+    for (batch in arrow:::shared_ptr(arrow:::ScanTask, scan_task)$Execute()) {
       # Take all rows that are in this batch
-      this_batch_nrows <- nrow(batch)
-      result[[batch_num]] <- batch[sort(i[i <= this_batch_nrows & i > 0]), ]
+      this_batch_nrows <- batch$num_rows
+      in_this_batch <- i > -1L & i < this_batch_nrows
+      if (any(in_this_batch)) {
+        result[[length(result) + 1L]] <- batch$Take(i[in_this_batch])
+      }
       i <- i - this_batch_nrows
-      if (all(i < 0)) break
+      if (all(i < 0L)) break
     }
-    if (all(i < 0)) break
+    if (all(i < 0L)) break
   }
   tab <- Table$create(!!!result)
   # Now sort
-  tab[order(i), ]
+  tab$Take(result_order - 1L)
 }
 
 #' @usage NULL
