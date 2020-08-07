@@ -67,6 +67,12 @@ func (k copyKind) check(t *testing.T, f *os.File, mem memory.Allocator, schema *
 func TestCopy(t *testing.T) {
 	type kind int
 
+	tempDir, err := ioutil.TempDir("", "go-arrow-copy-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tempDir)
+
 	for _, tc := range []struct {
 		name     string
 		src, dst copyKind
@@ -94,19 +100,17 @@ func TestCopy(t *testing.T) {
 							mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 							defer mem.AssertSize(t, 0)
 
-							f, err := ioutil.TempFile("", "arrow-ipc-")
+							f, err := ioutil.TempFile(tempDir, "go-arrow-copy-")
 							if err != nil {
 								t.Fatal(err)
 							}
 							defer f.Close()
-							defer os.Remove(f.Name())
 
-							o, err := ioutil.TempFile("", "arrow-ipc-")
+							o, err := ioutil.TempFile(tempDir, "go-arrow-copy-")
 							if err != nil {
 								t.Fatal(err)
 							}
 							defer o.Close()
-							defer os.Remove(o.Name())
 
 							tc.src.write(t, f, mem, recs[0].Schema(), recs)
 							tc.src.check(t, f, mem, recs[0].Schema(), recs)
