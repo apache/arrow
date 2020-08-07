@@ -57,7 +57,6 @@ pub enum Level {
 macro_rules! gen_stats_section {
     ($physical_ty: ty, $stat_fn: ident, $min: ident, $max: ident, $distinct: ident, $nulls: ident) => {{
         let min = $min.as_ref().and_then(|v| {
-            println!("min: {:?} {}", &v.as_bytes(), v.as_bytes().len());
             Some(read_num_bytes!(
                 $physical_ty,
                 v.as_bytes().len(),
@@ -65,7 +64,6 @@ macro_rules! gen_stats_section {
             ))
         });
         let max = $max.as_ref().and_then(|v| {
-            println!("max: {:?} {}", &v.as_bytes(), v.as_bytes().len());
             Some(read_num_bytes!(
                 $physical_ty,
                 v.as_bytes().len(),

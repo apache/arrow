@@ -82,7 +82,7 @@ impl<W: 'static + ParquetWriter> ArrowWriter<W> {
 fn unnest_arrays_to_leaves(
     row_group_writer: &mut Box<dyn RowGroupWriter>,
     // The fields from the record batch or struct
-    fields: &Vec<Field>,
+    fields: &[Field],
     // The columns from record batch or struct, must have same length as fields
     columns: &[array::ArrayRef],
     // The parent mask, in the case of a struct, this represents which values
@@ -226,10 +226,10 @@ fn get_primitive_def_levels(
         parent_levels.len(),
         "Parent definition levels must equal array length"
     );
-    let levels = (0..len)
+
+    (0..len)
         .map(|index| (array.is_valid(index) as i16 + level) * parent_levels[index])
-        .collect();
-    levels
+        .collect()
 }
 
 /// Get the underlying numeric array slice, skipping any null values.
@@ -261,6 +261,8 @@ mod tests {
     use arrow::datatypes::{DataType, Field, Schema};
     use arrow::record_batch::RecordBatch;
 
+    use crate::util::test_common::get_temp_file;
+
     #[test]
     fn arrow_writer() {
         // define schema
@@ -280,8 +282,8 @@ mod tests {
         )
         .unwrap();
 
-        let file = File::create("test.parquet").unwrap();
-        let mut writer = ArrowWriter::try_new(file, &schema).unwrap();
+        let file = get_temp_file("test_arrow_writer.parquet", &[]);
+        let mut writer = ArrowWriter::try_new(file, &schema, None).unwrap();
         writer.write(&batch).unwrap();
         writer.close().unwrap();
     }
@@ -329,7 +331,7 @@ mod tests {
         // Construct a list array from the above two
         let g_list_data = ArrayData::builder(struct_field_g.data_type().clone())
             .len(5)
-            .add_buffer(g_value_offsets.clone())
+            .add_buffer(g_value_offsets)
             .add_child_data(g_value.data())
             .build();
         let _g = ListArray::from(g_list_data);
@@ -351,8 +353,8 @@ mod tests {
         )
         .unwrap();
 
-        let file = File::create("test_complex.parquet").unwrap();
-        let mut writer = ArrowWriter::try_new(file, &schema).unwrap();
+        let file = get_temp_file("test_arrow_writer_complex.parquet", &[]);
+        let mut writer = ArrowWriter::try_new(file, &schema, None).unwrap();
         writer.write(&batch).unwrap();
         writer.close().unwrap();
     }
