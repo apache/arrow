@@ -397,6 +397,7 @@ test_that("filter() with %in%", {
   expect_equivalent(
     ds %>%
       filter(group %in% 2) %>%
+      select(names(df2)) %>%
       collect(),
     df2
   )
