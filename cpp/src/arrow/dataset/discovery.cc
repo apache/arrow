@@ -176,6 +176,7 @@ Result<std::shared_ptr<DatasetFactory>> FileSystemDatasetFactory::Make(
     options.partition_base_dir = selector.base_dir;
   }
 
+  ARROW_ASSIGN_OR_RAISE(selector.base_dir, filesystem->NormalizePath(selector.base_dir));
   ARROW_ASSIGN_OR_RAISE(auto files, filesystem->GetFileInfo(selector));
 
   // Filter out anything that's not a file or that's explicitly ignored
