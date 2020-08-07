@@ -585,15 +585,30 @@ std::shared_ptr<Expression> InExpression::Assume(const Expression& given) const 
     return scalar(set_->null_count() > 0);
   }
 
-  const auto& value = checked_cast<const ScalarExpression&>(*operand).value();
+  Datum set, value;
+  if (set_->type_id() == Type::DICTIONARY) {
+    const auto& dict_set = checked_cast<const DictionaryArray&>(*set_);
+    auto maybe_decoded = compute::Take(dict_set.dictionary(), dict_set.indices());
+    auto maybe_value = checked_cast<const DictionaryScalar&>(
+                           *checked_cast<const ScalarExpression&>(*operand).value())
+                           .GetEncodedValue();
+    if (!maybe_decoded.ok() || !maybe_value.ok()) {
+      return std::make_shared<InExpression>(std::move(operand), set_);
+    }
+    set = *maybe_decoded;
+    value = *maybe_value;
+  } else {
+    set = set_;
+    value = checked_cast<const ScalarExpression&>(*operand).value();
+  }
 
   compute::CompareOptions eq(CompareOperator::EQUAL);
-  Result<Datum> out_result = compute::Compare(set_, value, eq);
-  if (!out_result.ok()) {
+  Result<Datum> maybe_out = compute::Compare(set, value, eq);
+  if (!maybe_out.ok()) {
     return std::make_shared<InExpression>(std::move(operand), set_);
   }
 
-  Datum out = out_result.ValueOrDie();
+  Datum out = maybe_out.ValueOrDie();
 
   DCHECK(out.is_array());
   DCHECK_EQ(out.type()->id(), Type::BOOL);
