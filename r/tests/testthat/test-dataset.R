@@ -392,7 +392,7 @@ test_that("filter() with %in%", {
     tibble(int = df1$int[c(3, 4, 6)], part = 1)
   )
 
-  ds <- open_dataset(hive_dir, partitioning = hive_partition(other = utf8(), group = uint8()))
+  ds <- open_dataset(hive_dir)
   expect_equivalent(
     ds %>%
       filter(group %in% 2) %>%
