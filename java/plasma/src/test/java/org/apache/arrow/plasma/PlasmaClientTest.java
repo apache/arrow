@@ -285,7 +285,7 @@ public class PlasmaClientTest {
     Arrays.fill(objectId, (byte) 1);
     try {
       ByteBuffer byteBuffer = client.create(objectId, 200000000, null);
-      client.seal(objectId);
+      Assert.fail("Fail to create an object, The plasma store ran out of memory.");
     } catch (PlasmaOutOfMemoryException e) {
       System.out.println(String.format("Expected PlasmaOutOfMemoryException: %s", e));
       System.out.println("PlasmaOutOfMemoryException test success.");
