@@ -20,6 +20,7 @@ package org.apache.arrow.vector.validate;
 import static org.apache.arrow.vector.testing.ValueVectorDataPopulator.setVector;
 import static org.apache.arrow.vector.util.ValueVectorUtility.validateFull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.Arrays;
@@ -27,14 +28,22 @@ import java.util.Arrays;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.LargeVarCharVector;
+import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.VarCharVector;
+import org.apache.arrow.vector.complex.DenseUnionVector;
 import org.apache.arrow.vector.complex.LargeListVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.StructVector;
+import org.apache.arrow.vector.complex.UnionVector;
+import org.apache.arrow.vector.holders.NullableFloat4Holder;
+import org.apache.arrow.vector.holders.NullableFloat8Holder;
 import org.apache.arrow.vector.testing.ValueVectorDataPopulator;
+import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.junit.After;
 import org.junit.Before;
@@ -153,6 +162,73 @@ public class TestValidateVectorFull {
       e = assertThrows(ValidateUtility.ValidateException.class,
           () -> validateFull(vector));
       assertTrue(e.getMessage().contains("The values in the offset buffer are decreasing"));
+    }
+  }
+
+  @Test
+  public void testUnionVector() {
+    try (final UnionVector vector = UnionVector.empty("union", allocator)) {
+      validateFull(vector);
+
+      final NullableFloat4Holder float4Holder = new NullableFloat4Holder();
+      float4Holder.value = 1.01f;
+      float4Holder.isSet = 1;
+
+      final NullableFloat8Holder float8Holder = new NullableFloat8Holder();
+      float8Holder.value = 2.02f;
+      float8Holder.isSet = 1;
+
+      vector.setType(0, Types.MinorType.FLOAT4);
+      vector.setSafe(0, float4Holder);
+      vector.setType(1, Types.MinorType.FLOAT8);
+      vector.setSafe(1, float8Holder);
+      vector.setValueCount(2);
+
+      validateFull(vector);
+
+      // negative type id
+      vector.getTypeBuffer().setByte(0, -1);
+
+      ValidateUtility.ValidateException e = assertThrows(ValidateUtility.ValidateException.class,
+          () -> validateFull(vector));
+      assertTrue(e.getMessage().contains("The type id must be non-negative"));
+    }
+  }
+
+  @Test
+  public void testDenseUnionVector() {
+    try (final DenseUnionVector vector = DenseUnionVector.empty("union", allocator)) {
+      validateFull(vector);
+
+      final NullableFloat4Holder float4Holder = new NullableFloat4Holder();
+      float4Holder.value = 1.01f;
+      float4Holder.isSet = 1;
+
+      final NullableFloat8Holder float8Holder = new NullableFloat8Holder();
+      float8Holder.value = 2.02f;
+      float8Holder.isSet = 1;
+
+      byte float4TypeId = vector.registerNewTypeId(Field.nullable("", Types.MinorType.FLOAT4.getType()));
+      byte float8TypeId = vector.registerNewTypeId(Field.nullable("", Types.MinorType.FLOAT8.getType()));
+
+      vector.setTypeId(0, float4TypeId);
+      vector.setSafe(0, float4Holder);
+      vector.setTypeId(1, float8TypeId);
+      vector.setSafe(1, float8Holder);
+      vector.setValueCount(2);
+
+      validateFull(vector);
+
+      ValueVector subVector = vector.getVectorByType(float4TypeId);
+      assertTrue(subVector instanceof Float4Vector);
+      assertEquals(1, subVector.getValueCount());
+
+      // shrink sub-vector
+      subVector.setValueCount(0);
+
+      ValidateUtility.ValidateException e = assertThrows(ValidateUtility.ValidateException.class,
+          () -> validateFull(vector));
+      assertTrue(e.getMessage().contains("Dense union vector offset exceeds sub-vector boundary"));
     }
   }
 }

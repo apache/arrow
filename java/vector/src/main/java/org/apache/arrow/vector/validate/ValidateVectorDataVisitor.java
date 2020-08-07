@@ -70,6 +70,12 @@ public class ValidateVectorDataVisitor implements VectorVisitor<Void, Void> {
     }
   }
 
+  private void validateTypeBuffer(ArrowBuf typeBuf, int valueCount) {
+    for (int i = 0; i < valueCount; i++) {
+      validateOrThrow(typeBuf.getByte(i) >= 0, "The type id must be non-negative");
+    }
+  }
+
   @Override
   public Void visit(BaseFixedWidthVector vector, Void value) {
     return null;
@@ -127,6 +133,7 @@ public class ValidateVectorDataVisitor implements VectorVisitor<Void, Void> {
 
   @Override
   public Void visit(UnionVector vector, Void value) {
+    validateTypeBuffer(vector.getTypeBuffer(), vector.getValueCount());
     for (ValueVector subVector : vector.getChildrenFromFields()) {
       subVector.accept(this, null);
     }
@@ -135,6 +142,17 @@ public class ValidateVectorDataVisitor implements VectorVisitor<Void, Void> {
 
   @Override
   public Void visit(DenseUnionVector vector, Void value) {
+    validateTypeBuffer(vector.getTypeBuffer(), vector.getValueCount());
+
+    // validate offset buffer
+    for (int i = 0; i < vector.getValueCount(); i++) {
+      int offset = vector.getOffset(i);
+      byte typeId = vector.getTypeId(i);
+      ValueVector subVector = vector.getVectorByType(typeId);
+      validateOrThrow(offset < subVector.getValueCount(),
+          "Dense union vector offset exceeds sub-vector boundary");
+    }
+
     for (ValueVector subVector : vector.getChildrenFromFields()) {
       subVector.accept(this, null);
     }

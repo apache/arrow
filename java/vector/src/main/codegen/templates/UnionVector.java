@@ -108,7 +108,7 @@ public class UnionVector implements FieldVector {
   private final FieldType fieldType;
   private final Field[] typeIds = new Field[Byte.MAX_VALUE + 1];
 
-  private static final byte TYPE_WIDTH = 1;
+  public static final byte TYPE_WIDTH = 1;
   private static final FieldType INTERNAL_STRUCT_TYPE = new FieldType(false /*nullable*/,
       ArrowType.Struct.INSTANCE, null /*dictionary*/, null /*metadata*/);
 

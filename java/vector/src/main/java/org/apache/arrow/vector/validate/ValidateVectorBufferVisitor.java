@@ -61,21 +61,10 @@ public class ValidateVectorBufferVisitor implements VectorVisitor<Void, Void> {
     validateOrThrow(validityBuffer.capacity() * 8 >= valueCount, "No enough capacity for the validity buffer.");
   }
 
-  private void validateOffsetBuffer(ValueVector vector, int valueCount) {
+  private void validateOffsetBuffer(ValueVector vector, long minCapacity) {
     ArrowBuf offsetBuffer = vector.getOffsetBuffer();
     validateOrThrow(offsetBuffer != null, "The offset buffer is null.");
-    if (valueCount > 0) {
-      validateOrThrow(offsetBuffer.capacity() >= (valueCount + 1) * 4, "No enough capacity for the offset buffer.");
-    }
-  }
-
-  private void validateLargeOffsetBuffer(ValueVector vector, int valueCount) {
-    ArrowBuf offsetBuffer = vector.getOffsetBuffer();
-    validateOrThrow(offsetBuffer != null, "The large offset buffer is null.");
-    if (valueCount > 0) {
-      validateOrThrow(offsetBuffer.capacity() >= (valueCount + 1) * 8,
-          "No enough capacity for the large offset buffer.");
-    }
+    validateOrThrow(offsetBuffer.capacity() >= minCapacity, "No enough capacity for the offset buffer.");
   }
 
   private void validateFixedWidthDataBuffer(ValueVector vector, int valueCount, int bitWidth) {
@@ -89,6 +78,11 @@ public class ValidateVectorBufferVisitor implements VectorVisitor<Void, Void> {
     ArrowBuf dataBuffer = vector.getDataBuffer();
     validateOrThrow(dataBuffer != null, "The data buffer is null.");
     validateOrThrow(dataBuffer.capacity() >= minCapacity, "No enough capacity for data buffer");
+  }
+
+  private void validateTypeBuffer(ArrowBuf typeBuf, long minCapacity) {
+    validateOrThrow(typeBuf != null, "The type buffer is null.");
+    validateOrThrow(typeBuf.capacity() >= minCapacity, "No enough capacity for type buffer");
   }
 
   @Override
@@ -106,7 +100,8 @@ public class ValidateVectorBufferVisitor implements VectorVisitor<Void, Void> {
     int valueCount = vector.getValueCount();
     validateVectorCommon(vector);
     validateValidityBuffer(vector, valueCount);
-    validateOffsetBuffer(vector, valueCount);
+    long minOffsetCapacity = valueCount == 0 ? 0L : (long) (valueCount + 1) * BaseVariableWidthVector.OFFSET_WIDTH;
+    validateOffsetBuffer(vector, minOffsetCapacity);
     int lastOffset = valueCount == 0 ? 0 :
         vector.getOffsetBuffer().getInt(valueCount * BaseVariableWidthVector.OFFSET_WIDTH);
     validateDataBuffer(vector, lastOffset);
@@ -118,7 +113,9 @@ public class ValidateVectorBufferVisitor implements VectorVisitor<Void, Void> {
     int valueCount = vector.getValueCount();
     validateVectorCommon(vector);
     validateValidityBuffer(vector, valueCount);
-    validateLargeOffsetBuffer(vector, valueCount);
+    long minOffsetCapacity = valueCount == 0 ? 0L
+        : (long) (valueCount + 1) * BaseLargeVariableWidthVector.OFFSET_WIDTH;
+    validateOffsetBuffer(vector, minOffsetCapacity);
     long lastOffset = valueCount == 0 ? 0L :
         vector.getOffsetBuffer().getLong((long) valueCount * BaseLargeVariableWidthVector.OFFSET_WIDTH);
     validateDataBuffer(vector, lastOffset);
@@ -130,7 +127,8 @@ public class ValidateVectorBufferVisitor implements VectorVisitor<Void, Void> {
     int valueCount = vector.getValueCount();
     validateVectorCommon(vector);
     validateValidityBuffer(vector, valueCount);
-    validateOffsetBuffer(vector, valueCount);
+    long minOffsetCapacity = valueCount == 0 ? 0L : (long) (valueCount + 1) * ListVector.OFFSET_WIDTH;
+    validateOffsetBuffer(vector, minOffsetCapacity);
 
     FieldVector dataVector = vector.getDataVector();
     int lastOffset = valueCount == 0 ? 0 :
@@ -165,7 +163,8 @@ public class ValidateVectorBufferVisitor implements VectorVisitor<Void, Void> {
     int valueCount = vector.getValueCount();
     validateVectorCommon(vector);
     validateValidityBuffer(vector, valueCount);
-    validateLargeOffsetBuffer(vector, valueCount);
+    long minOffsetCapacity = valueCount == 0 ? 0L : (long) (valueCount + 1) * LargeListVector.OFFSET_WIDTH;
+    validateOffsetBuffer(vector, minOffsetCapacity);
 
     FieldVector dataVector = vector.getDataVector();
     long lastOffset = valueCount == 0 ? 0 :
@@ -197,6 +196,7 @@ public class ValidateVectorBufferVisitor implements VectorVisitor<Void, Void> {
   public Void visit(UnionVector vector, Void value) {
     int valueCount = vector.getValueCount();
     validateVectorCommon(vector);
+    validateTypeBuffer(vector.getTypeBuffer(), valueCount * UnionVector.TYPE_WIDTH);
     for (ValueVector subVector : vector.getChildrenFromFields()) {
       validateOrThrow(valueCount == subVector.getValueCount(),
           "Union vector length not equal to child vector length");
@@ -207,7 +207,10 @@ public class ValidateVectorBufferVisitor implements VectorVisitor<Void, Void> {
 
   @Override
   public Void visit(DenseUnionVector vector, Void value) {
+    int valueCount = vector.getValueCount();
     validateVectorCommon(vector);
+    validateOffsetBuffer(vector, (long) valueCount * DenseUnionVector.OFFSET_WIDTH);
+    validateTypeBuffer(vector.getTypeBuffer(), valueCount * DenseUnionVector.TYPE_WIDTH);
     for (ValueVector subVector : vector.getChildrenFromFields()) {
       subVector.accept(this, null);
     }
