@@ -26,6 +26,7 @@ import java.util.stream.Collectors;
 
 import org.apache.arrow.plasma.exceptions.DuplicateObjectException;
 import org.apache.arrow.plasma.exceptions.PlasmaClientException;
+import org.apache.arrow.plasma.exceptions.PlasmaOutOfMemoryException;
 import org.junit.Assert;
 
 public class PlasmaClientTest {
@@ -277,6 +278,20 @@ public class PlasmaClientTest {
     client.release(id);
   }
 
+  public void doPlasmaOutOfMemoryExceptionTest() {
+    System.out.println("Start PlasmaOutOfMemoryException test.");
+    PlasmaClient client = (PlasmaClient) pLink;
+    byte[] objectId = new byte[20];
+    Arrays.fill(objectId, (byte) 1);
+    try {
+      ByteBuffer byteBuffer = client.create(objectId, 200000000, null);
+      Assert.fail("Fail to create an object, The plasma store ran out of memory.");
+    } catch (PlasmaOutOfMemoryException e) {
+      System.out.println(String.format("Expected PlasmaOutOfMemoryException: %s", e));
+      System.out.println("PlasmaOutOfMemoryException test success.");
+    }
+  }
+
   private byte[] getArrayFilledWithValue(int arrayLength, byte val) {
     byte[] arr = new byte[arrayLength];
     Arrays.fill(arr, val);
@@ -290,9 +305,9 @@ public class PlasmaClientTest {
   public static void main(String[] args) throws Exception {
 
     PlasmaClientTest plasmaClientTest = new PlasmaClientTest();
+    plasmaClientTest.doPlasmaOutOfMemoryExceptionTest();
     plasmaClientTest.doByteBufferTest();
     plasmaClientTest.doTest();
-
   }
 
 }
