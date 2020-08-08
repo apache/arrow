@@ -218,8 +218,7 @@ TEST(DecimalZerosTest, NoLeadingZerosDecimalPoint) {
 template <typename T>
 class Decimal128Test : public ::testing::Test {
  public:
-  Decimal128Test() : value_(42) {}
-  const T value_;
+  Decimal128Test() {}
 };
 
 using Decimal128Types =
@@ -231,18 +230,29 @@ using Decimal128Types =
 TYPED_TEST_SUITE(Decimal128Test, Decimal128Types);
 
 TYPED_TEST(Decimal128Test, ConstructibleFromAnyIntegerType) {
-  Decimal128 value(this->value_);
-  ASSERT_EQ(42, value.low_bits());
+  Decimal128 value(TypeParam{42});
+  EXPECT_EQ(42, value.low_bits());
+  EXPECT_EQ(0, value.high_bits());
+
+  Decimal128 max_value(std::numeric_limits<TypeParam>::max());
+  EXPECT_EQ(std::numeric_limits<TypeParam>::max(), max_value.low_bits());
+  EXPECT_EQ(0, max_value.high_bits());
+
+  Decimal128 min_value(std::numeric_limits<TypeParam>::min());
+  EXPECT_EQ(std::numeric_limits<TypeParam>::min(), min_value.low_bits());
+  EXPECT_EQ((std::is_signed<TypeParam>::value ? -1 : 0), min_value.high_bits());
 }
 
 TEST(Decimal128TestTrue, ConstructibleFromBool) {
   Decimal128 value(true);
-  ASSERT_EQ(1, value.low_bits());
+  EXPECT_EQ(1, value.low_bits());
+  EXPECT_EQ(0, value.high_bits());
 }
 
 TEST(Decimal128TestFalse, ConstructibleFromBool) {
   Decimal128 value(false);
-  ASSERT_EQ(0, value.low_bits());
+  EXPECT_EQ(0, value.low_bits());
+  EXPECT_EQ(0, value.high_bits());
 }
 
 TEST(Decimal128Test, Division) {
