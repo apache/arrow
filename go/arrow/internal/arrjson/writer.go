@@ -63,7 +63,7 @@ func (w *Writer) Write(rec array.Record) error {
 			return err
 		}
 	case w.nrecs > 0:
-		_, err := w.w.Write([]byte(",\n"))
+		_, err := w.w.Write([]byte(",\n" + jsonRecPrefix))
 		if err != nil {
 			return err
 		}

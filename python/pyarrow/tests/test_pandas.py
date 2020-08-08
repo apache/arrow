@@ -444,9 +444,7 @@ class TestConvertMetadata:
 
         df = pd.DataFrame({'numbers': numbers}, index=index)
 
-        table = pa.Table.from_pandas(df)
-        result_df = table.to_pandas()
-        tm.assert_frame_equal(result_df, df)
+        _check_pandas_roundtrip(df, preserve_index=True)
 
     def test_metadata_with_mixed_types(self):
         df = pd.DataFrame({'data': [b'some_bytes', 'some_unicode']})

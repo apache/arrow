@@ -152,6 +152,7 @@ impl ArrayData {
     }
 
     /// Returns the offset of this array
+    #[inline]
     pub fn offset(&self) -> usize {
         self.offset
     }

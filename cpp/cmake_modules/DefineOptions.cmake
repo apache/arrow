@@ -364,8 +364,16 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
     define_option_string(RE2_MSVC_STATIC_LIB_SUFFIX
                          "re2 static lib suffix used on Windows with MSVC" "_static")
 
+    if(DEFINED ENV{CONDA_PREFIX})
+      # Conda package changes the output name.
+      # https://github.com/conda-forge/snappy-feedstock/blob/master/recipe/windows-static-lib-name.patch
+      set(SNAPPY_MSVC_STATIC_LIB_SUFFIX_DEFAULT "_static")
+    else()
+      set(SNAPPY_MSVC_STATIC_LIB_SUFFIX_DEFAULT "")
+    endif()
     define_option_string(SNAPPY_MSVC_STATIC_LIB_SUFFIX
-                         "Snappy static lib suffix used on Windows with MSVC" "_static")
+                         "Snappy static lib suffix used on Windows with MSVC"
+                         "${SNAPPY_MSVC_STATIC_LIB_SUFFIX_DEFAULT}")
 
     define_option_string(LZ4_MSVC_STATIC_LIB_SUFFIX
                          "Lz4 static lib suffix used on Windows with MSVC" "_static")

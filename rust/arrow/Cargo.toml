@@ -86,6 +86,10 @@ name = "comparison_kernels"
 harness = false
 
 [[bench]]
+name = "filter_kernels"
+harness = false
+
+[[bench]]
 name = "take_kernels"
 harness = false
 

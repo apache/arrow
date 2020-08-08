@@ -24,12 +24,11 @@ if(ARROW_SNAPPY_USE_SHARED)
   list(APPEND SNAPPY_LIB_NAMES
               "${CMAKE_SHARED_LIBRARY_PREFIX}snappy${CMAKE_SHARED_LIBRARY_SUFFIX}")
 else()
-  if(MSVC AND DEFINED ENV{CONDA_PREFIX})
-    # Conda package changes the output name.
-    # https://github.com/conda-forge/snappy-feedstock/blob/master/recipe/windows-static-lib-name.patch
-    set(SNAPPY_LIB_NAMES "${CMAKE_STATIC_LIBRARY_PREFIX}snappy_static${CMAKE_STATIC_LIBRARY_SUFFIX}")
+  set(SNAPPY_STATIC_LIB_NAME_BASE "snappy")
+  if(MSVC)
+    set(SNAPPY_STATIC_LIB_NAME_BASE "${SNAPPY_STATIC_LIB_NAME_BASE}${SNAPPY_MSVC_STATIC_LIB_SUFFIX}")
   endif()
-  set(SNAPPY_LIB_NAMES "${CMAKE_STATIC_LIBRARY_PREFIX}snappy${CMAKE_STATIC_LIBRARY_SUFFIX}")
+  set(SNAPPY_LIB_NAMES "${CMAKE_STATIC_LIBRARY_PREFIX}${SNAPPY_STATIC_LIB_NAME_BASE}${CMAKE_STATIC_LIBRARY_SUFFIX}")
 endif()
 
 if(Snappy_ROOT)

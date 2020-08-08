@@ -21,6 +21,7 @@
 #include "arrow/compute/kernels/aggregate_basic_internal.h"
 #include "arrow/compute/kernels/aggregate_internal.h"
 #include "arrow/compute/kernels/common.h"
+#include "arrow/util/cpu_info.h"
 #include "arrow/util/make_unique.h"
 
 namespace arrow {
@@ -396,11 +397,16 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
   aggregate::AddBasicAggKernels(aggregate::SumInit, FloatingPointTypes(), float64(),
                                 func.get());
   // Add the SIMD variants for sum
+  auto cpu_info = arrow::internal::CpuInfo::GetInstance();
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
-  aggregate::AddSumAvx2AggKernels(func.get());
+  if (cpu_info->IsSupported(arrow::internal::CpuInfo::AVX2)) {
+    aggregate::AddSumAvx2AggKernels(func.get());
+  }
 #endif
 #if defined(ARROW_HAVE_RUNTIME_AVX512)
-  aggregate::AddSumAvx512AggKernels(func.get());
+  if (cpu_info->IsSupported(arrow::internal::CpuInfo::AVX512)) {
+    aggregate::AddSumAvx512AggKernels(func.get());
+  }
 #endif
   DCHECK_OK(registry->AddFunction(std::move(func)));
 
@@ -410,10 +416,14 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
                                 func.get());
   // Add the SIMD variants for mean
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
-  aggregate::AddMeanAvx2AggKernels(func.get());
+  if (cpu_info->IsSupported(arrow::internal::CpuInfo::AVX2)) {
+    aggregate::AddMeanAvx2AggKernels(func.get());
+  }
 #endif
 #if defined(ARROW_HAVE_RUNTIME_AVX512)
-  aggregate::AddMeanAvx512AggKernels(func.get());
+  if (cpu_info->IsSupported(arrow::internal::CpuInfo::AVX512)) {
+    aggregate::AddMeanAvx512AggKernels(func.get());
+  }
 #endif
   DCHECK_OK(registry->AddFunction(std::move(func)));
 

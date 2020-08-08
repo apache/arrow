@@ -26,6 +26,12 @@ import (
 )
 
 func TestIntegration(t *testing.T) {
+	tempDir, err := ioutil.TempDir("", "go-arrow-integration-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tempDir)
+
 	const verbose = true
 	for name, recs := range arrdata.Records {
 		t.Run(name, func(t *testing.T) {
@@ -35,22 +41,20 @@ func TestIntegration(t *testing.T) {
 			mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 			defer mem.AssertSize(t, 0)
 
-			af1, err := ioutil.TempFile("", "arrow-json-integration-")
+			af1, err := ioutil.TempFile(tempDir, "go-arrow-integration-")
 			if err != nil {
 				t.Fatal(err)
 			}
 			defer af1.Close()
-			defer os.RemoveAll(af1.Name())
 
 			arrdata.WriteFile(t, af1, mem, recs[0].Schema(), recs)
 			arrdata.CheckArrowFile(t, af1, mem, recs[0].Schema(), recs)
 
-			aj, err := ioutil.TempFile("", "arrow-json-integration-")
+			aj, err := ioutil.TempFile(tempDir, "arrow-json-integration-")
 			if err != nil {
 				t.Fatal(err)
 			}
 			defer aj.Close()
-			defer os.RemoveAll(aj.Name())
 
 			err = cnvToJSON(af1.Name(), aj.Name(), verbose)
 			if err != nil {
@@ -62,12 +66,11 @@ func TestIntegration(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			af2, err := ioutil.TempFile("", "arrow-json-integration-")
+			af2, err := ioutil.TempFile(tempDir, "go-arrow-integration-")
 			if err != nil {
 				t.Fatal(err)
 			}
-			af2.Close()
-			os.RemoveAll(af2.Name())
+			defer af2.Close()
 
 			err = cnvToARROW(af2.Name(), aj.Name(), verbose)
 			if err != nil {
