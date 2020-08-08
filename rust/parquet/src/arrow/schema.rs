@@ -55,32 +55,67 @@ pub fn parquet_to_arrow_schema_by_columns<T>(
 where
     T: IntoIterator<Item = usize>,
 {
-    let mut base_nodes = Vec::new();
-    let mut base_nodes_set = HashSet::new();
-    let mut leaves = HashSet::new();
+    let mut metadata = parse_key_value_metadata(key_value_metadata).unwrap_or_default();
+    let arrow_schema_metadata = metadata
+        .remove(super::ARROW_SCHEMA_META_KEY)
+        .map(|encoded| get_arrow_schema_from_metadata(&encoded));
 
-    for c in column_indices {
-        let column = parquet_schema.column(c).self_type() as *const Type;
-        let root = parquet_schema.get_column_root(c);
-        let root_raw_ptr = root as *const Type;
+    match arrow_schema_metadata {
+        Some(Some(schema)) => Ok(schema),
+        _ => {
+            let mut base_nodes = Vec::new();
+            let mut base_nodes_set = HashSet::new();
+            let mut leaves = HashSet::new();
 
-        leaves.insert(column);
-        if !base_nodes_set.contains(&root_raw_ptr) {
-            base_nodes.push(root);
-            base_nodes_set.insert(root_raw_ptr);
+            for c in column_indices {
+                let column = parquet_schema.column(c).self_type() as *const Type;
+                let root = parquet_schema.get_column_root(c);
+                let root_raw_ptr = root as *const Type;
+
+                leaves.insert(column);
+                if !base_nodes_set.contains(&root_raw_ptr) {
+                    base_nodes.push(root);
+                    base_nodes_set.insert(root_raw_ptr);
+                }
+            }
+            base_nodes
+                .into_iter()
+                .map(|t| ParquetTypeConverter::new(t, &leaves).to_field())
+                .collect::<Result<Vec<Option<Field>>>>()
+                .map(|result| {
+                    result.into_iter().filter_map(|f| f).collect::<Vec<Field>>()
+                })
+                .map(|fields| Schema::new_with_metadata(fields, metadata))
         }
     }
+}
 
-    let metadata = parse_key_value_metadata(key_value_metadata)
-        .map(|m| m.clone())
-        .unwrap_or(HashMap::default());
-
-    base_nodes
-        .into_iter()
-        .map(|t| ParquetTypeConverter::new(t, &leaves).to_field())
-        .collect::<Result<Vec<Option<Field>>>>()
-        .map(|result| result.into_iter().filter_map(|f| f).collect::<Vec<Field>>())
-        .map(|fields| Schema::new_with_metadata(fields, metadata))
+/// Try to convert to Arrow schema
+fn get_arrow_schema_from_metadata(encoded_meta: &str) -> Option<Schema> {
+    let decoded = base64::decode(encoded_meta);
+    match decoded {
+        Ok(bytes) => {
+            let slice = if bytes[0..4] == [255u8; 4] {
+                &bytes[8..]
+            } else {
+                bytes.as_slice()
+            };
+            let message = arrow::ipc::get_root_as_message(slice);
+            message
+                .header_as_schema()
+                .map(arrow::ipc::convert::fb_to_schema)
+        }
+        Err(err) => {
+            // The C++ implementation returns an error if the schema can't be parsed.
+            // To prevent this, we explicitly log this, then compute the schema without the metadata
+            eprintln!(
+                "Unable to decode the encoded schema stored in {}, {:?}",
+                super::ARROW_SCHEMA_META_KEY,
+                err
+            );
+            None
+        }
+    }
 }
 
 /// Convert arrow schema to parquet schema
@@ -88,7 +123,7 @@ pub fn arrow_to_parquet_schema(schema: &Schema) -> Result<SchemaDescriptor> {
     let fields: Result<Vec<TypePtr>> = schema
         .fields()
         .iter()
-        .map(|field| arrow_to_parquet_type(field).map(|f| Rc::new(f)))
+        .map(|field| arrow_to_parquet_type(field).map(Rc::new))
         .collect();
     let group = Type::group_type_builder("arrow_schema")
         .with_fields(&mut fields?)
@@ -220,42 +255,43 @@ fn arrow_to_parquet_type(field: &Field) -> Result<Type> {
                 .with_length(3)
                 .build()
         }
-        DataType::Binary => Type::primitive_type_builder(name, PhysicalType::BYTE_ARRAY)
-            .with_repetition(repetition)
-            .build(),
+        DataType::Binary | DataType::LargeBinary => {
+            Type::primitive_type_builder(name, PhysicalType::BYTE_ARRAY)
+                .with_repetition(repetition)
+                .build()
+        }
         DataType::FixedSizeBinary(length) => {
             Type::primitive_type_builder(name, PhysicalType::FIXED_LEN_BYTE_ARRAY)
                 .with_repetition(repetition)
                 .with_length(*length)
                 .build()
         }
-        DataType::Utf8 => Type::primitive_type_builder(name, PhysicalType::BYTE_ARRAY)
-            .with_logical_type(LogicalType::UTF8)
-            .with_repetition(repetition)
-            .build(),
-        DataType::List(dtype) | DataType::FixedSizeList(dtype, _) => {
-            Type::group_type_builder(name)
-                .with_fields(&mut vec![Rc::new(
-                    Type::group_type_builder("list")
-                        .with_fields(&mut vec![Rc::new({
-                            let list_field = Field::new(
-                                "element",
-                                *dtype.clone(),
-                                field.is_nullable(),
-                            );
-                            arrow_to_parquet_type(&list_field)?
-                        })])
-                        .with_repetition(Repetition::REPEATED)
-                        .build()?,
-                )])
-                .with_logical_type(LogicalType::LIST)
-                .with_repetition(Repetition::REQUIRED)
+        DataType::Utf8 | DataType::LargeUtf8 => {
+            Type::primitive_type_builder(name, PhysicalType::BYTE_ARRAY)
+                .with_logical_type(LogicalType::UTF8)
+                .with_repetition(repetition)
                 .build()
         }
+        DataType::List(dtype)
+        | DataType::FixedSizeList(dtype, _)
+        | DataType::LargeList(dtype) => Type::group_type_builder(name)
+            .with_fields(&mut vec![Rc::new(
+                Type::group_type_builder("list")
+                    .with_fields(&mut vec![Rc::new({
+                        let list_field =
+                            Field::new("element", *dtype.clone(), field.is_nullable());
+                        arrow_to_parquet_type(&list_field)?
+                    })])
+                    .with_repetition(Repetition::REPEATED)
+                    .build()?,
+            )])
+            .with_logical_type(LogicalType::LIST)
+            .with_repetition(Repetition::REQUIRED)
+            .build(),
         DataType::Struct(fields) => {
             // recursively convert children to types/nodes
             let fields: Result<Vec<TypePtr>> = fields
-                .into_iter()
+                .iter()
                 .map(|f| arrow_to_parquet_type(f).map(Rc::new))
                 .collect();
             Type::group_type_builder(name)
@@ -268,9 +304,6 @@ fn arrow_to_parquet_type(field: &Field) -> Result<Type> {
             // Dictionary encoding not handled at the schema level
             let dict_field = Field::new(name, *value.clone(), field.is_nullable());
             arrow_to_parquet_type(&dict_field)
-        }
-        DataType::LargeUtf8 | DataType::LargeBinary | DataType::LargeList(_) => {
-            Err(ArrowError("Large arrays not supported".to_string()))
         }
     }
 }

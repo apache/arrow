@@ -29,7 +29,10 @@ use crate::errors::{ParquetError, Result};
 use crate::file::properties::WriterProperties;
 use crate::{
     data_type::*,
-    file::writer::{FileWriter, ParquetWriter, RowGroupWriter, SerializedFileWriter},
+    file::{
+        metadata::KeyValue,
+        writer::{FileWriter, ParquetWriter, RowGroupWriter, SerializedFileWriter},
+    },
 };
 
 /// Arrow writer
@@ -53,13 +56,48 @@ impl<W: 'static + ParquetWriter> ArrowWriter<W> {
     pub fn try_new(
         writer: W,
         arrow_schema: SchemaRef,
-        props: Option<Rc<WriterProperties>>,
+        props: Option<WriterProperties>,
     ) -> Result<Self> {
         let schema = crate::arrow::arrow_to_parquet_schema(&arrow_schema)?;
-        let props = match props {
-            Some(props) => props,
-            None => Rc::new(WriterProperties::builder().build()),
+        // add serialized arrow schema
+        let mut serialized_schema = arrow::ipc::writer::schema_to_bytes(&arrow_schema);
+        let schema_len = serialized_schema.len();
+        let mut len_prefix_schema = Vec::with_capacity(schema_len + 8);
+        len_prefix_schema.append(&mut vec![255u8, 255, 255, 255]);
+        len_prefix_schema.append((schema_len as u32).to_le_bytes().to_vec().as_mut());
+        len_prefix_schema.append(&mut serialized_schema);
+        let encoded = base64::encode(&len_prefix_schema);
+        let schema_kv = KeyValue {
+            key: super::ARROW_SCHEMA_META_KEY.to_string(),
+            value: Some(encoded),
         };
+        let props = match props {
+            Some(mut props) => {
+                let mut meta = props.key_value_metadata.clone().unwrap_or_default();
+                // check if ARROW:schema exists, and overwrite it
+                let schema_meta = meta
+                    .iter()
+                    .enumerate()
+                    .find(|(_, kv)| kv.key.as_str() == super::ARROW_SCHEMA_META_KEY);
+                match schema_meta {
+                    Some((i, _)) => {
+                        meta.remove(i);
+                        meta.push(schema_kv);
+                    }
+                    None => {
+                        meta.push(schema_kv);
+                    }
+                }
+                props.key_value_metadata = Some(meta);
+                Rc::new(props)
+            }
+            None => Rc::new(
+                WriterProperties::builder()
+                    .set_key_value_metadata(Some(vec![schema_kv]))
+                    .build(),
+            ),
+        };
+
         let file_writer = SerializedFileWriter::new(
             writer.try_clone()?,
             schema.root_schema_ptr(),
@@ -674,8 +712,16 @@ mod tests {
         )
         .unwrap();
 
+        let props = WriterProperties::builder()
+            .set_key_value_metadata(Some(vec![KeyValue {
+                key: "test_key".to_string(),
+                value: Some("test_value".to_string()),
+            }]))
+            .build();
+
         let file = get_temp_file("test_arrow_writer_complex.parquet", &[]);
-        let mut writer = ArrowWriter::try_new(file, Arc::new(schema), None).unwrap();
+        let mut writer =
+            ArrowWriter::try_new(file, Arc::new(schema), Some(props)).unwrap();
         writer.write(&batch).unwrap();
         writer.close().unwrap();
     }
