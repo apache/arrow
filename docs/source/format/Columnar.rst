@@ -807,7 +807,7 @@ of these types:
 * RecordBatch
 * DictionaryBatch
 
-We specify a so-called *encapsulated IPC message** format which
+We specify a so-called *encapsulated IPC message* format which
 includes a serialized Flatbuffer type along with an optional message
 body. We define this message format before describing how to serialize
 each constituent IPC message type.
@@ -1028,7 +1028,7 @@ Schematically we have: ::
 In the file format, there is no requirement that dictionary keys
 should be defined in a ``DictionaryBatch`` before they are used in a
 ``RecordBatch``, as long as the keys are defined somewhere in the
-file. Further more, it is invalid to have more then one **non-delta**
+file. Further more, it is invalid to have more than one **non-delta**
 dictionary batch per dictionary ID (i.e. dictionary replacement is not
 supported).  Delta dictionaries are applied in the order they appear in
 the file footer.
