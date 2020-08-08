@@ -115,7 +115,7 @@ pub use self::array::StructArray;
 pub use self::null::NullArray;
 pub use self::union::UnionArray;
 
-pub(crate) use self::array::make_array;
+pub use self::array::make_array;
 
 pub type BooleanArray = PrimitiveArray<BooleanType>;
 pub type Int8Array = PrimitiveArray<Int8Type>;
