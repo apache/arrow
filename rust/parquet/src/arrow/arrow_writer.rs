@@ -244,7 +244,7 @@ fn write_leaf(
     Ok(written as i64)
 }
 
-/// A struct that repreesnts definition and repetition levels.
+/// A struct that represents definition and repetition levels.
 /// Repetition levels are only populated if the parent or current leaf is repeated
 #[derive(Debug)]
 struct Levels {
@@ -289,20 +289,14 @@ fn get_levels(
         ArrowDataType::FixedSizeBinary(_) => unimplemented!(),
         ArrowDataType::LargeBinary => unimplemented!(),
         ArrowDataType::List(_) | ArrowDataType::LargeList(_) => {
-            // a list can either be nested or flat. If it is flat, def and rep lengths will be the length of the list's items
             let array_data = array.data();
             let child_data = array_data.child_data().get(0).unwrap();
             // get offsets, accounting for large offsets if present
             let offsets: Vec<i64> = {
                 if let ArrowDataType::LargeList(_) = array.data_type() {
-                    unsafe {
-                        array_data.buffers()[0].typed_data::<i64>() // TODO: offsets
-                    }
-                    .to_vec()
+                    unsafe { array_data.buffers()[0].typed_data::<i64>() }.to_vec()
                 } else {
-                    let offsets = unsafe {
-                        array_data.buffers()[0].typed_data::<i32>() // TODO: offsets
-                    };
+                    let offsets = unsafe { array_data.buffers()[0].typed_data::<i32>() };
                     offsets.to_vec().into_iter().map(|v| v as i64).collect()
                 }
             };
