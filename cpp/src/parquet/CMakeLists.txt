@@ -380,11 +380,14 @@ if(PARQUET_REQUIRE_ENCRYPTION)
                    encryption_write_configurations_test.cc
                    encryption_read_configurations_test.cc
                    encryption_properties_test.cc
+                   test_encryption_util.cc
                    test_util.cc)
   add_parquet_test(encryption-key-management-test
                    SOURCES
                    in_memory_kms.cc
                    encryption_key_management_test.cc
+                   string_util.cc
+                   test_encryption_util.cc
                    test_util.cc)
 endif()
 

@@ -38,17 +38,17 @@ class KeyMetadata {
   bool key_material_stored_internally() const { return is_internal_storage_; }
 
   const KeyMaterial& key_material() const {
-      if (!is_internal_storage_) {
-          throw ParquetException("key material is stored externally.");
-      }
-      return key_material_;
+    if (!is_internal_storage_) {
+      throw ParquetException("key material is stored externally.");
+    }
+    return key_material_;
   }
 
   const std::string& key_reference() const {
-      if (is_internal_storage_) {
-          throw ParquetException("key material is stored internally.");
-      }
-      return key_reference_;
+    if (is_internal_storage_) {
+      throw ParquetException("key material is stored internally.");
+    }
+    return key_reference_;
   }
 
  private:

@@ -40,6 +40,7 @@
 #include "parquet/column_reader.h"
 #include "parquet/column_writer.h"
 #include "parquet/encoding.h"
+#include "parquet/encryption.h"
 #include "parquet/platform.h"
 #include "parquet/test_util.h"
 
@@ -77,6 +78,41 @@ inline arrow::Result<std::unique_ptr<TemporaryDir>> temp_data_dir() {
   ARROW_ASSIGN_OR_RAISE(dir, TemporaryDir::Make("parquet-encryption-test-"));
   return dir;
 }
+
+static constexpr char DOUBLE_FIELD_NAME[] = "double_field";
+static constexpr char FLOAT_FIELD_NAME[] = "float_field";
+static constexpr char BOOLEAN_FIELD_NAME[] = "boolean_field";
+static constexpr char INT32_FIELD_NAME[] = "int32_field";
+static constexpr char INT64_FIELD_NAME[] = "int64_field";
+static constexpr char INT96_FIELD_NAME[] = "int96_field";
+static constexpr char BA_FIELD_NAME[] = "ba_field";
+static constexpr char FLBA_FIELD_NAME[] = "flba_field";
+
+class FileEncryptor {
+ public:
+  FileEncryptor();
+
+  void EncryptFile(
+      std::string file,
+      std::shared_ptr<parquet::FileEncryptionProperties> encryption_configurations);
+
+ private:
+  std::shared_ptr<GroupNode> SetupEncryptionSchema();
+
+  int num_rgs = 5;
+  int rows_per_rowgroup_ = 50;
+  std::shared_ptr<GroupNode> schema_;
+};
+
+class FileDecryptor {
+ public:
+  void DecryptFile(std::string file_name,
+                   std::shared_ptr<FileDecryptionProperties> file_decryption_properties);
+
+ private:
+  int num_rgs = 5;
+  int rows_per_rowgroup_ = 50;
+};
 
 }  // namespace test
 }  // namespace parquet
