@@ -154,6 +154,44 @@ fn csv_query_group_by_int_min_max() -> Result<()> {
 }
 
 #[test]
+fn csv_query_group_by_two_columns() -> Result<()> {
+    let mut ctx = ExecutionContext::new();
+    register_aggregate_csv(&mut ctx)?;
+    let sql = "SELECT c1, c2, MIN(c3) FROM aggregate_test_100 GROUP BY c1, c2";
+    let mut actual = execute(&mut ctx, sql);
+    actual.sort();
+    let expected = [
+        "\"a\"\t1\t-85",
+        "\"a\"\t2\t-48",
+        "\"a\"\t3\t-72",
+        "\"a\"\t4\t-101",
+        "\"a\"\t5\t-101",
+        "\"b\"\t1\t12",
+        "\"b\"\t2\t-60",
+        "\"b\"\t3\t-101",
+        "\"b\"\t4\t-117",
+        "\"b\"\t5\t-82",
+        "\"c\"\t1\t-24",
+        "\"c\"\t2\t-117",
+        "\"c\"\t3\t-2",
+        "\"c\"\t4\t-90",
+        "\"c\"\t5\t-94",
+        "\"d\"\t1\t-99",
+        "\"d\"\t2\t93",
+        "\"d\"\t3\t-76",
+        "\"d\"\t4\t5",
+        "\"d\"\t5\t-59",
+        "\"e\"\t1\t36",
+        "\"e\"\t2\t-61",
+        "\"e\"\t3\t-95",
+        "\"e\"\t4\t-56",
+        "\"e\"\t5\t-86",
+    ];
+    assert_eq!(expected.join("\n"), actual.join("\n"));
+    Ok(())
+}
+
+#[test]
 fn csv_query_avg_sqrt() -> Result<()> {
     let mut ctx = create_ctx()?;
     register_aggregate_csv(&mut ctx)?;
