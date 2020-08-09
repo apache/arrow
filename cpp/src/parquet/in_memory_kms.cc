@@ -37,17 +37,9 @@ namespace test {
 using parquet::encryption::RemoteKmsClient;
 
 std::map<std::string, std::vector<uint8_t>> InMemoryKms::master_key_map_;
-std::map<std::string, std::vector<uint8_t>> InMemoryKms::new_master_key_map_;
-
-void InMemoryKms::StartKeyRotation(const std::vector<std::string>& new_master_keys) {
-  new_master_key_map_ = ParseKeyList(new_master_keys);
-}
-
-void InMemoryKms::FinishKeyRotation() { master_key_map_ = new_master_key_map_; }
 
 void InMemoryKms::InitializeMasterKey(const std::vector<std::string>& master_keys) {
   master_key_map_ = ParseKeyList(master_keys);
-  new_master_key_map_ = master_key_map_;
 }
 
 void InMemoryKms::InitializeInternal() {}
@@ -55,11 +47,11 @@ void InMemoryKms::InitializeInternal() {}
 std::string InMemoryKms::WrapKeyInServer(const std::vector<uint8_t>& key_bytes,
                                          const std::string& master_key_identifier) {
   // Always use the latest key version for writing
-  if (new_master_key_map_.find(master_key_identifier) == new_master_key_map_.end()) {
-    throw new ParquetException("Key not found: " + master_key_identifier);
+  if (master_key_map_.find(master_key_identifier) == master_key_map_.end()) {
+    throw ParquetException("Key not found: " + master_key_identifier);
   }
   const std::vector<uint8_t>& master_key_bytes =
-      new_master_key_map_.at(master_key_identifier);
+      master_key_map_.at(master_key_identifier);
 
   std::shared_ptr<arrow::Buffer> aad = arrow::Buffer::FromString(master_key_identifier);
   std::vector<uint8_t> aad_bytes(master_key_identifier.begin(),
@@ -69,11 +61,11 @@ std::string InMemoryKms::WrapKeyInServer(const std::vector<uint8_t>& key_bytes,
 
 std::vector<uint8_t> InMemoryKms::UnwrapKeyInServer(
     const std::string& wrapped_key, const std::string& master_key_identifier) {
-  if (new_master_key_map_.find(master_key_identifier) == new_master_key_map_.end()) {
-    throw new ParquetException("Key not found: " + master_key_identifier);
+  if (master_key_map_.find(master_key_identifier) == master_key_map_.end()) {
+    throw ParquetException("Key not found: " + master_key_identifier);
   }
   const std::vector<uint8_t>& master_key_bytes =
-      new_master_key_map_.at(master_key_identifier);
+      master_key_map_.at(master_key_identifier);
 
   std::vector<uint8_t> aad_bytes(master_key_identifier.begin(),
                                  master_key_identifier.end());
@@ -83,7 +75,7 @@ std::vector<uint8_t> InMemoryKms::UnwrapKeyInServer(
 std::vector<uint8_t> InMemoryKms::GetMasterKeyFromServer(
     const std::string& master_key_identifier) {
   // Always return the latest key version
-  return new_master_key_map_.at(master_key_identifier);
+  return master_key_map_.at(master_key_identifier);
 }
 
 std::map<std::string, std::vector<uint8_t>> InMemoryKms::ParseKeyList(
@@ -95,11 +87,9 @@ std::map<std::string, std::vector<uint8_t>> InMemoryKms::ParseKeyList(
     std::vector<std::string> parts = SplitString(master_keys[i], ':');
     std::string key_name = TrimString(parts[0]);
     if (parts.size() != 2) {
-      throw new std::invalid_argument("Key '" + key_name +
-                                      "' is not formatted correctly");
+      throw std::invalid_argument("Key '" + key_name + "' is not formatted correctly");
     }
     std::string key = TrimString(parts[1]);
-    // TODO
     std::vector<uint8_t> key_bytes(key.begin(), key.end());
     key_map.insert({key_name, key_bytes});
   }

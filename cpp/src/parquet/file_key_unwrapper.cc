@@ -40,30 +40,29 @@ std::string FileKeyUnwrapper::GetKey(const std::string& key_metadata_bytes) {
     throw ParquetException("External key material store is not supported yet.");
   }
 
-  std::shared_ptr<KeyMaterial> key_material = key_metadata.key_material();
+  const KeyMaterial& key_material = key_metadata.key_material();
 
-  // TODO
   std::vector<uint8_t> key = GetDEKandMasterID(key_material).data_key();
   std::string key_str(key.begin(), key.end());
 
   return key_str;
 }
 
-KeyWithMasterID FileKeyUnwrapper::GetDEKandMasterID(
-    std::shared_ptr<KeyMaterial> key_material) {
+FileKeyUnwrapper::KeyWithMasterID FileKeyUnwrapper::GetDEKandMasterID(
+    const KeyMaterial& key_material) {
   auto kms_client = GetKmsClientFromConfigOrKeyMaterial(key_material);
 
-  bool double_wrapping = key_material->is_double_wrapped();
-  const std::string& master_key_id = key_material->master_key_id();
-  const std::string& encoded_wrapped_dek = key_material->wrapped_dek();
+  bool double_wrapping = key_material.is_double_wrapped();
+  const std::string& master_key_id = key_material.master_key_id();
+  const std::string& encoded_wrapped_dek = key_material.wrapped_dek();
 
   std::vector<uint8_t> data_key;
   if (!double_wrapping) {
     data_key = kms_client->UnwrapKey(encoded_wrapped_dek, master_key_id);
   } else {
     // Get KEK
-    const std::string& encoded_kek_id = key_material->kek_id();
-    const std::string& encoded_wrapped_kek = key_material->wrapped_kek();
+    const std::string& encoded_kek_id = key_material.kek_id();
+    const std::string& encoded_wrapped_kek = key_material.wrapped_kek();
 
     if (kek_per_kek_id_.find(encoded_kek_id) == kek_per_kek_id_.end()) {
       kek_per_kek_id_.insert(
@@ -78,14 +77,14 @@ KeyWithMasterID FileKeyUnwrapper::GetDEKandMasterID(
     data_key = KeyToolkit::DecryptKeyLocally(encoded_wrapped_dek, kek_bytes, aad);
   }
 
-  return KeyWithMasterID(data_key, master_key_id);
+  return FileKeyUnwrapper::KeyWithMasterID(data_key, master_key_id);
 }
 
 std::shared_ptr<KmsClient> FileKeyUnwrapper::GetKmsClientFromConfigOrKeyMaterial(
-    std::shared_ptr<KeyMaterial> key_material) {
+    const KeyMaterial& key_material) {
   std::string& kms_instance_id = kms_connection_config_.kms_instance_id;
   if (kms_instance_id.empty()) {
-    kms_instance_id = key_material->kms_instance_id();
+    kms_instance_id = key_material.kms_instance_id();
     if (kms_instance_id.empty()) {
       //   throw ParquetException( // TODO
       //       "KMS instance ID is missing both in properties and file key material");
@@ -94,7 +93,7 @@ std::shared_ptr<KmsClient> FileKeyUnwrapper::GetKmsClientFromConfigOrKeyMaterial
 
   std::string& kms_instance_url = kms_connection_config_.kms_instance_url;
   if (kms_instance_url.empty()) {
-    kms_instance_url = key_material->kms_instance_url();
+    kms_instance_url = key_material.kms_instance_url();
     if (kms_instance_url.empty()) {
       //   throw ParquetException(
       //       "KMS instance ID is missing both in properties and file key material");

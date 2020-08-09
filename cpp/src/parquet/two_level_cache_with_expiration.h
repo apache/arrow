@@ -20,8 +20,6 @@
 #include <chrono>
 #include <map>
 
-// #include "arrow/filesystem/filesystem.h"
-
 // in miliseconds
 using TimePoint = std::chrono::system_clock::time_point;
 
@@ -56,7 +54,6 @@ class TwoLevelCacheWithExpiration {
 
     if (now > (last_cache_cleanup_timestamp_ +
                std::chrono::milliseconds(cache_cleanup_period))) {
-      // TODO: synchronize is needed or not?
       RemoveExpiredEntriesFromCache();
       last_cache_cleanup_timestamp_ =
           now + std::chrono::milliseconds(cache_cleanup_period);

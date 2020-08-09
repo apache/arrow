@@ -21,12 +21,13 @@
 #include <vector>
 
 #include "parquet/kms_client.h"
+#include "parquet/platform.h"
 
 namespace parquet {
 
 namespace encryption {
 
-class RemoteKmsClient : public KmsClient {
+class PARQUET_EXPORT RemoteKmsClient : public KmsClient {
  public:
   static constexpr char LOCAL_WRAP_NO_KEY_VERSION[] = "NO_VERSION";
 
@@ -73,7 +74,6 @@ class RemoteKmsClient : public KmsClient {
     std::string master_key_version_;
   };
 
-  void RefreshToken();
   std::vector<uint8_t> GetKeyFromServer(const std::string& key_identifier);
 
   KmsConnectionConfig kms_connection_config_;

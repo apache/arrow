@@ -24,12 +24,13 @@
 #include "arrow/buffer.h"
 
 #include "parquet/exception.h"
+#include "parquet/platform.h"
 
 namespace parquet {
 
 namespace encryption {
 
-class KeyAccessToken {
+class PARQUET_EXPORT KeyAccessToken {
  public:
   void Refresh(const std::string& new_value) { value_ = new_value; }
   const std::string& value() const { return value_; }
@@ -38,7 +39,7 @@ class KeyAccessToken {
   std::string value_;
 };
 
-struct KmsConnectionConfig {
+struct PARQUET_EXPORT KmsConnectionConfig {
   std::string kms_instance_id;
   std::string kms_instance_url;
   std::shared_ptr<KeyAccessToken> refreshable_key_access_token;
@@ -53,7 +54,7 @@ struct KmsConnectionConfig {
   }
 };
 
-class KmsClient {
+class PARQUET_EXPORT KmsClient {
  public:
   static constexpr char KMS_INSTANCE_ID_DEFAULT[] = "DEFAULT";
   static constexpr char KMS_INSTANCE_URL_DEFAULT[] = "DEFAULT";
@@ -67,6 +68,7 @@ class KmsClient {
 
   virtual std::vector<uint8_t> UnwrapKey(const std::string& wrapped_key,
                                          const std::string& master_key_identifier) = 0;
+  virtual ~KmsClient() {}
 };
 
 }  // namespace encryption

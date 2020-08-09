@@ -29,11 +29,11 @@ namespace encryption {
 constexpr char KeyMetadata::KEY_MATERIAL_INTERNAL_STORAGE_FIELD[];
 constexpr char KeyMetadata::KEY_REFERENCE_FIELD[];
 
-KeyMetadata::KeyMetadata(bool is_internal_storage, const std::string& key_reference,
-                         std::shared_ptr<KeyMaterial> key_material)
-    : is_internal_storage_(is_internal_storage),
-      key_reference_(key_reference),
-      key_material_(key_material) {}
+KeyMetadata::KeyMetadata(const std::string& key_reference)
+    : is_internal_storage_(false), key_reference_(key_reference) {}
+
+KeyMetadata::KeyMetadata(const KeyMaterial& key_material)
+    : is_internal_storage_(true), key_material_(key_material) {}
 
 KeyMetadata KeyMetadata::Parse(const std::string& key_metadata) {
   rapidjson::Document document;
@@ -47,8 +47,8 @@ KeyMetadata KeyMetadata::Parse(const std::string& key_metadata) {
   std::string key_material_type =
       document[KeyMaterial::KEY_MATERIAL_TYPE_FIELD].GetString();
   if (key_material_type != KeyMaterial::KEY_MATERIAL_TYPE1) {
-    throw new ParquetException("Wrong key material type: " + key_material_type + " vs " +
-                               KeyMaterial::KEY_MATERIAL_TYPE1);
+    throw ParquetException("Wrong key material type: " + key_material_type + " vs " +
+                           KeyMaterial::KEY_MATERIAL_TYPE1);
   }
 
   // 2. Check if "key material" is stored internally in Parquet file key metadata, or is
@@ -57,12 +57,12 @@ KeyMetadata KeyMetadata::Parse(const std::string& key_metadata) {
 
   if (is_internal_storage) {
     // 3.1 "key material" is stored internally, inside "key metadata" - parse it
-    std::shared_ptr<KeyMaterial> key_material = KeyMaterial::ParseShared(document);
-    return KeyMetadata(is_internal_storage, "", key_material);
+    KeyMaterial key_material = KeyMaterial::Parse(document);
+    return KeyMetadata(key_material);
   } else {
     // 3.2 "key material" is stored externally. "key metadata" keeps a reference to it
     std::string key_reference = document[KEY_REFERENCE_FIELD].GetString();
-    return KeyMetadata(is_internal_storage, key_reference, NULL);
+    return KeyMetadata(key_reference);
   }
 }
 

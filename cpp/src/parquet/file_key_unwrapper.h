@@ -22,12 +22,13 @@
 #include "parquet/key_toolkit.h"
 #include "parquet/kms_client.h"
 #include "parquet/kms_client_factory.h"
+#include "parquet/platform.h"
 
 namespace parquet {
 
 namespace encryption {
 
-class FileKeyUnwrapper : public DecryptionKeyRetriever {
+class PARQUET_EXPORT FileKeyUnwrapper : public DecryptionKeyRetriever {
  public:
   FileKeyUnwrapper(std::shared_ptr<KmsClientFactory> kms_client_factory,
                    const KmsConnectionConfig& kms_connection_config,
@@ -36,9 +37,22 @@ class FileKeyUnwrapper : public DecryptionKeyRetriever {
   std::string GetKey(const std::string& key_metadata) override;
 
  private:
-  KeyWithMasterID GetDEKandMasterID(std::shared_ptr<KeyMaterial> key_material);
+  class KeyWithMasterID {
+   public:
+    KeyWithMasterID(const std::vector<uint8_t>& key_bytes, const std::string& master_id)
+        : key_bytes_(key_bytes), master_id_(master_id) {}
+
+    const std::vector<uint8_t>& data_key() const { return key_bytes_; }
+    const std::string& master_id() const { return master_id_; }
+
+   private:
+    std::vector<uint8_t> key_bytes_;
+    std::string master_id_;
+  };
+
+  KeyWithMasterID GetDEKandMasterID(const KeyMaterial& key_material);
   std::shared_ptr<KmsClient> GetKmsClientFromConfigOrKeyMaterial(
-      std::shared_ptr<KeyMaterial> key_material);
+      const KeyMaterial& key_material);
 
   // A map of KEK_ID -> KEK bytes, for the current token
   std::map<std::string, std::vector<uint8_t>> kek_per_kek_id_;

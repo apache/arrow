@@ -25,6 +25,7 @@
 #include "parquet/key_encryption_key.h"
 #include "parquet/kms_client.h"
 #include "parquet/kms_client_factory.h"
+#include "parquet/platform.h"
 #include "parquet/two_level_cache_with_expiration.h"
 
 namespace parquet {
@@ -44,7 +45,7 @@ class KeyWithMasterID {
   std::string master_id_;
 };
 
-class KeyToolkit {
+class PARQUET_EXPORT KeyToolkit {
  public:
   class KmsClientCache {
    public:
@@ -70,6 +71,18 @@ class KeyToolkit {
     TwoLevelCacheWithExpiration<KeyEncryptionKey> cache_;
   };
 
+  class KEKReadCache {
+   public:
+    static KEKReadCache& GetInstance() {
+      static KEKReadCache instance;
+      return instance;
+    }
+    TwoLevelCacheWithExpiration<std::vector<uint8_t>>& cache() { return cache_; }
+
+   private:
+    TwoLevelCacheWithExpiration<std::vector<uint8_t>> cache_;
+  };
+
   static TwoLevelCacheWithExpiration<std::shared_ptr<KmsClient>>&
   kms_client_cache_per_token() {
     return KmsClientCache::GetInstance().cache();
@@ -77,6 +90,10 @@ class KeyToolkit {
 
   static TwoLevelCacheWithExpiration<KeyEncryptionKey>& kek_write_cache_per_token() {
     return KEKWriteCache::GetInstance().cache();
+  }
+
+  static TwoLevelCacheWithExpiration<std::vector<uint8_t>>& kek_read_cache_per_token() {
+    return KEKReadCache::GetInstance().cache();
   }
 
   static std::shared_ptr<KmsClient> GetKmsClient(

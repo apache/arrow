@@ -62,7 +62,7 @@ RemoteKmsClient::LocalKeyWrap RemoteKmsClient::LocalKeyWrap::Parse(
   rapidjson::Document key_wrap_document;
   key_wrap_document.Parse(wrapped_key.c_str());
   if (key_wrap_document.HasParseError() || !key_wrap_document.IsObject()) {
-    throw new ParquetException("Failed to parse local key wrap json " + wrapped_key);
+    throw ParquetException("Failed to parse local key wrap json " + wrapped_key);
   }
   std::string master_key_version =
       key_wrap_document[LOCAL_WRAP_KEY_VERSION_FIELD].GetString();
@@ -101,7 +101,6 @@ std::string RemoteKmsClient::WrapKey(const std::vector<uint8_t>& key_bytes,
         KeyToolkit::EncryptKeyLocally(key_bytes, master_key_bytes, aad_bytes);
     return LocalKeyWrap::CreateSerialized(encrypted_encoded_key);
   } else {
-    RefreshToken();
     return WrapKeyInServer(key_bytes, master_key_identifier);
   }
 }
@@ -112,7 +111,7 @@ std::vector<uint8_t> RemoteKmsClient::UnwrapKey(
     LocalKeyWrap key_wrap = LocalKeyWrap::Parse(wrapped_key);
     const std::string& master_key_version = key_wrap.master_key_version();
     if (LOCAL_WRAP_NO_KEY_VERSION != master_key_version) {
-      throw new ParquetException(
+      throw ParquetException(
           "Master key versions are not supported for local wrapping: " +
           master_key_version);
     }
@@ -128,21 +127,12 @@ std::vector<uint8_t> RemoteKmsClient::UnwrapKey(
     return KeyToolkit::DecryptKeyLocally(encrypted_encoded_key, master_key_bytes,
                                          aad_bytes);
   } else {
-    RefreshToken();
     return UnwrapKeyInServer(wrapped_key, master_key_identifier);
   }
 }
 
-void RemoteKmsClient::RefreshToken() {
-  if (is_default_token_) {
-    return;
-  }
-  // TODO
-}
-
 std::vector<uint8_t> RemoteKmsClient::GetKeyFromServer(
     const std::string& key_identifier) {
-  RefreshToken();
   return GetMasterKeyFromServer(key_identifier);
 }
 

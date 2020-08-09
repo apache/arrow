@@ -148,11 +148,11 @@ PropertiesDrivenCryptoFactory::GetFileEncryptionProperties(
   std::shared_ptr<FileKeyMaterialStore> key_material_store = NULL;
   if (!encryption_config->internal_key_material()) {
     // TODO: using external key material store with Hadoop file system
-    throw new ParquetException("External key material store is not supported yet.");
+    throw ParquetException("External key material store is not supported yet.");
   }
 
   if (kms_client_factory_ == NULL) {
-    throw new ParquetException("No KmsClientFactory is registered.");
+    throw ParquetException("No KmsClientFactory is registered.");
   }
 
   FileKeyWrapper key_wrapper(
@@ -165,7 +165,9 @@ PropertiesDrivenCryptoFactory::GetFileEncryptionProperties(
       const_cast<int32_t*>(ACCEPTABLE_DATA_KEY_LENGTHS),
       const_cast<int32_t*>(std::end(ACCEPTABLE_DATA_KEY_LENGTHS)), dek_length_bits);
   if (found_key_length == std::end(ACCEPTABLE_DATA_KEY_LENGTHS)) {
-    throw new ParquetException("Wrong data key length : " + dek_length_bits);
+    std::ostringstream ss;
+    ss << "Wrong data key length : " << dek_length_bits;
+    throw ParquetException(ss.str());
   }
 
   int dek_length = dek_length_bits / 8;
@@ -217,21 +219,20 @@ PropertiesDrivenCryptoFactory::GetColumnEncryptionProperties(
       std::ostringstream message;
       message << "Incorrect key to columns mapping in " << COLUMN_KEYS_PROPERTY_NAME
               << ": [" << cur_key_to_columns << "]";
-      throw new ParquetException(message.str());
+      throw ParquetException(message.str());
     }
 
     std::string column_key_id = TrimString(parts[0]);
     if (column_key_id.empty()) {
       std::ostringstream message;
       message << "Empty key name in " << COLUMN_KEYS_PROPERTY_NAME;
-      throw new ParquetException(message.str());
+      throw ParquetException(message.str());
     }
 
     std::string column_names_str = TrimString(parts[1]);
     std::vector<std::string> column_names = SplitString(column_names_str, ',');
     if (0 == column_names.size()) {
-      throw new ParquetException("No columns to encrypt defined for key: " +
-                                 column_key_id);
+      throw ParquetException("No columns to encrypt defined for key: " + column_key_id);
     }
 
     for (size_t j = 0; j < column_names.size(); ++j) {
@@ -240,12 +241,12 @@ PropertiesDrivenCryptoFactory::GetColumnEncryptionProperties(
         std::ostringstream message;
         message << "Empty column name in " << COLUMN_KEYS_PROPERTY_NAME
                 << " for key: " << column_key_id;
-        throw new ParquetException(message.str());
+        throw ParquetException(message.str());
       }
 
       if (encrypted_columns.find(column_name) != encrypted_columns.end()) {
-        throw new ParquetException("Multiple keys defined for the same column: " +
-                                   column_name);
+        throw ParquetException("Multiple keys defined for the same column: " +
+                               column_name);
       }
 
       std::vector<uint8_t> column_key_bytes(dek_length);
@@ -265,7 +266,7 @@ PropertiesDrivenCryptoFactory::GetColumnEncryptionProperties(
   if (encrypted_columns.empty()) {
     std::ostringstream message;
     message << "No column keys configured in " << COLUMN_KEYS_PROPERTY_NAME;
-    throw new ParquetException(message.str());
+    throw ParquetException(message.str());
   }
 
   return encrypted_columns;

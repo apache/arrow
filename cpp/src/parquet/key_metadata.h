@@ -17,7 +17,6 @@
 
 #pragma once
 
-#include <memory>
 #include <string>
 
 #include "parquet/key_material.h"
@@ -37,16 +36,30 @@ class KeyMetadata {
       const std::string& key_reference);
 
   bool key_material_stored_internally() const { return is_internal_storage_; }
-  const std::shared_ptr<KeyMaterial> key_material() const { return key_material_; }
-  const std::string& key_reference() const { return key_reference_; }
+
+  const KeyMaterial& key_material() const {
+      if (!is_internal_storage_) {
+          throw ParquetException("key material is stored externally.");
+      }
+      return key_material_;
+  }
+
+  const std::string& key_reference() const {
+      if (is_internal_storage_) {
+          throw ParquetException("key material is stored internally.");
+      }
+      return key_reference_;
+  }
 
  private:
-  KeyMetadata(bool is_internal_storage, const std::string& key_reference,
-              std::shared_ptr<KeyMaterial> key_material);
+  explicit KeyMetadata(const KeyMaterial& key_material);
+  explicit KeyMetadata(const std::string& key_reference);
 
   bool is_internal_storage_;
+  // set if is_internal_storage_ is false
   std::string key_reference_;
-  std::shared_ptr<KeyMaterial> key_material_;
+  // set if is_internal_storage_ is true
+  KeyMaterial key_material_;
 };
 
 }  // namespace encryption

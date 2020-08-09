@@ -23,6 +23,7 @@
 #include "parquet/encryption.h"
 #include "parquet/file_key_wrapper.h"
 #include "parquet/kms_client_factory.h"
+#include "parquet/platform.h"
 
 namespace parquet {
 

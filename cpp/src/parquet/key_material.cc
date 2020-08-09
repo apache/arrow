@@ -62,14 +62,14 @@ KeyMaterial KeyMaterial::Parse(const std::string& key_material_string) {
   document.Parse(key_material_string.c_str());
 
   if (document.HasParseError() || !document.IsObject()) {
-    throw new ParquetException("Failed to parse key metadata " + key_material_string);
+    throw ParquetException("Failed to parse key metadata " + key_material_string);
   }
 
   // External key material - extract "key material type", and make sure it is supported
   std::string key_material_type = document[KEY_MATERIAL_TYPE_FIELD].GetString();
   if (KEY_MATERIAL_TYPE1 != key_material_type) {
-    throw new ParquetException("Wrong key material type: " + key_material_type + " vs " +
-                               KEY_MATERIAL_TYPE1);
+    throw ParquetException("Wrong key material type: " + key_material_type + " vs " +
+                           KEY_MATERIAL_TYPE1);
   }
   // Parse other fields (common to internal and external key material)
   return Parse(document);
@@ -105,38 +105,6 @@ KeyMaterial KeyMaterial::Parse(const rapidjson::Document& key_material_json) {
                      is_double_wrapped, kek_id, encoded_wrapped_kek, encoded_wrapped_dek);
 }
 
-std::shared_ptr<KeyMaterial> KeyMaterial::ParseShared(
-    const rapidjson::Document& key_material_json) {
-  // 2. Check if "key material" belongs to file footer key
-  bool is_footer_key = key_material_json[IS_FOOTER_KEY_FIELD].GetBool();
-  std::string kms_instance_id;
-  std::string kms_instance_url;
-  if (is_footer_key) {
-    // 3.  For footer key, extract KMS Instance ID
-    kms_instance_id = key_material_json[KMS_INSTANCE_ID_FIELD].GetString();
-    // 4.  For footer key, extract KMS Instance URL
-    kms_instance_url = key_material_json[KMS_INSTANCE_URL_FIELD].GetString();
-  }
-  // 5. Extract master key ID
-  std::string master_key_id = key_material_json[MASTER_KEY_ID_FIELD].GetString();
-  // 6. Extract wrapped DEK
-  std::string encoded_wrapped_dek = key_material_json[WRAPPED_DEK_FIELD].GetString();
-  std::string kek_id;
-  std::string encoded_wrapped_kek;
-  // 7. Check if "key material" was generated in double wrapping mode
-  bool is_double_wrapped = key_material_json[DOUBLE_WRAPPING_FIELD].GetBool();
-  if (is_double_wrapped) {
-    // 8. In double wrapping mode, extract KEK ID
-    kek_id = key_material_json[KEK_ID_FIELD].GetString();
-    // 9. In double wrapping mode, extract wrapped KEK
-    encoded_wrapped_kek = key_material_json[WRAPPED_KEK_FIELD].GetString();
-  }
-
-  return std::shared_ptr<KeyMaterial>(new KeyMaterial(
-      is_footer_key, kms_instance_id, kms_instance_url, master_key_id, is_double_wrapped,
-      kek_id, encoded_wrapped_kek, encoded_wrapped_dek));
-}
-
 std::string KeyMaterial::CreateSerialized(
     bool is_footer_key, const std::string& kms_instance_id,
     const std::string& kms_instance_url, const std::string& master_key_id,
@@ -151,7 +119,7 @@ std::string KeyMaterial::CreateSerialized(
   key_material_map.AddMember(KEY_MATERIAL_TYPE_FIELD, KEY_MATERIAL_TYPE1, allocator);
 
   if (is_internal_storage) {
-    // for internal storage, key material and key metadata are the same.
+    // 1. for internal storage, key material and key metadata are the same.
     // adding the "internalStorage" field that belongs to KeyMetadata.
     key_material_map.AddMember(KeyMetadata::KEY_MATERIAL_INTERNAL_STORAGE_FIELD, true,
                                allocator);

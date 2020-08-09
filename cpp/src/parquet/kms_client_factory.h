@@ -18,15 +18,17 @@
 #pragma once
 
 #include "parquet/kms_client.h"
+#include "parquet/platform.h"
 
 namespace parquet {
 
 namespace encryption {
 
-class KmsClientFactory {
+class PARQUET_EXPORT KmsClientFactory {
  public:
   virtual std::shared_ptr<KmsClient> CreateKmsClient(
       const KmsConnectionConfig& kms_connection_config, bool is_wrap_locally) = 0;
+  virtual ~KmsClientFactory() {}
 };
 
 }  // namespace encryption

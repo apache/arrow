@@ -41,14 +41,6 @@ using parquet::encryption::RemoteKmsClient;
 //
 class InMemoryKms : public RemoteKmsClient {
  public:
-  // TODO
-  // static constexpr char KEY_LIST_PROPERTY_NAME[] = "parquet.encryption.key.list";
-  // static constexpr char NEW_KEY_LIST_PROPERTY_NAME[] =
-  // "parquet.encryption.new.key.list";
-  static void StartKeyRotation(const std::vector<std::string>& new_master_keys);
-
-  static void FinishKeyRotation();
-
   void InitializeMasterKey(const std::vector<std::string>& master_keys);
 
  protected:
@@ -68,7 +60,6 @@ class InMemoryKms : public RemoteKmsClient {
       const std::vector<std::string>& master_keys);
 
   static std::map<std::string, std::vector<uint8_t>> master_key_map_;
-  static std::map<std::string, std::vector<uint8_t>> new_master_key_map_;
 };
 
 class InMemoryKmsClientFactory : public KmsClientFactory {

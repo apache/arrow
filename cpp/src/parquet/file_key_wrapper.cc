@@ -17,6 +17,7 @@
 
 #include <openssl/rand.h>
 
+#include "parquet/encryption_internal.h"
 #include "parquet/exception.h"
 #include "parquet/file_key_wrapper.h"
 #include "parquet/key_material.h"
@@ -63,7 +64,7 @@ std::string FileKeyWrapper::GetEncryptionKeyMetadata(const std::vector<uint8_t>&
                                                      bool is_footer_key,
                                                      std::string key_id_in_file) {
   if (kms_client_ == NULL) {
-    throw new ParquetException("No KMS client available. See previous errors.");
+    throw ParquetException("No KMS client available. See previous errors.");
   }
 
   std::string encoded_kek_id;
@@ -121,16 +122,10 @@ std::string FileKeyWrapper::GetEncryptionKeyMetadata(const std::vector<uint8_t>&
 KeyEncryptionKey FileKeyWrapper::CreateKeyEncryptionKey(
     const std::string& master_key_id) {
   std::vector<uint8_t> kek_bytes(KEK_LENGTH);
-  memset(kek_bytes.data(), 0, KEK_LENGTH);
-
-  RAND_load_file("/dev/urandom", RND_MAX_BYTES);
-  RAND_bytes(kek_bytes.data(), KEK_LENGTH);
+  RandBytes(kek_bytes.data(), KEK_LENGTH);
 
   std::vector<uint8_t> kek_id(KEK_ID_LENGTH);
-  memset(kek_id.data(), 0, KEK_ID_LENGTH);
-
-  RAND_load_file("/dev/urandom", RND_MAX_BYTES);
-  RAND_bytes(kek_id.data(), KEK_ID_LENGTH);
+  RandBytes(kek_id.data(), KEK_ID_LENGTH);
 
   // Encrypt KEK with Master key
   std::string encoded_wrapped_kek = kms_client_->WrapKey(kek_bytes, master_key_id);

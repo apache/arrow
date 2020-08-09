@@ -44,12 +44,11 @@ class KeyMaterial {
   static constexpr char WRAPPED_KEK_FIELD[] = "wrappedKEK";
 
  public:
+  KeyMaterial() = default;
+
   static KeyMaterial Parse(const std::string& key_material_string);
 
   static KeyMaterial Parse(const rapidjson::Document& key_material_json);
-
-  static std::shared_ptr<KeyMaterial> ParseShared(
-      const rapidjson::Document& key_material_json);
 
   static std::string CreateSerialized(bool is_footer_key,
                                       const std::string& kms_instance_id,

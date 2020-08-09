@@ -80,13 +80,13 @@ std::vector<uint8_t> KeyToolkit::DecryptKeyLocally(
 void KeyToolkit::RemoveCacheEntriesForToken(const std::string& access_token) {
   kms_client_cache_per_token().RemoveCacheEntriesForToken(access_token);
   kek_write_cache_per_token().RemoveCacheEntriesForToken(access_token);
-  // KEK_READ_CACHE_PER_TOKEN.removeCacheEntriesForToken(access_token); // TODO
+  kek_read_cache_per_token().RemoveCacheEntriesForToken(access_token);
 }
 
 void KeyToolkit::RemoveCacheEntriesForAllTokens() {
   kms_client_cache_per_token().Clear();
   kek_write_cache_per_token().Clear();
-  // KEK_READ_CACHE_PER_TOKEN.Clear(); // TODO
+  kek_read_cache_per_token().Clear();
 }
 
 }  // namespace encryption
