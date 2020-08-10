@@ -30,6 +30,7 @@ class ApacheArrow < Formula
   end
 
   # NOTE: if you add something here, be sure to add to PKG_LIBS in r/tools/autobrew
+  depends_on "aws-sdk-cpp"
   depends_on "boost" => :build
   depends_on "cmake" => :build
   depends_on "lz4"
@@ -50,7 +51,7 @@ class ApacheArrow < Formula
       -DARROW_JEMALLOC=ON
       -DARROW_USE_GLOG=OFF
       -DARROW_PYTHON=OFF
-      -DARROW_S3=OFF
+      -DARROW_S3=ON
       -DARROW_WITH_LZ4=ON
       -DARROW_WITH_ZLIB=ON
       -DARROW_WITH_SNAPPY=ON
