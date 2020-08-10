@@ -391,6 +391,16 @@ test_that("filter() with %in%", {
       collect(),
     tibble(int = df1$int[c(3, 4, 6)], part = 1)
   )
+
+# ARROW-9606: bug in %in% filter on partition column with >1 partition columns
+  ds <- open_dataset(hive_dir)
+  expect_equivalent(
+    ds %>%
+      filter(group %in% 2) %>%
+      select(names(df2)) %>%
+      collect(),
+    df2
+  )
 })
 
 test_that("filter() on timestamp columns", {
