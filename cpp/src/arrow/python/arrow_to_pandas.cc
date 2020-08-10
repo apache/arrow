@@ -952,8 +952,8 @@ struct ObjectWriterVisitor {
 
   template <typename Type>
   enable_if_timestamp<Type, Status> Visit(const Type& type) {
-    PyObject* tzinfo = nullptr;
     const TimeUnit::type unit = type.unit();
+    OwnedRef tzinfo;
 
     auto ConvertTimezoneNaive = [&](typename Type::c_type value, PyObject** out) {
       RETURN_NOT_OK(internal::PyDateTime_from_int(value, unit, out));
@@ -964,7 +964,7 @@ struct ObjectWriterVisitor {
       PyObject* naive_datetime;
       RETURN_NOT_OK(ConvertTimezoneNaive(value, &naive_datetime));
       // convert the timezone naive datetime object to timezone aware
-      *out = PyObject_CallMethod(tzinfo, "fromutc", "O", naive_datetime);
+      *out = PyObject_CallMethod(tzinfo.obj(), "fromutc", "O", naive_datetime);
       // the timezone naive object is no longer required
       Py_DECREF(naive_datetime);
       RETURN_IF_PYERROR();
@@ -973,11 +973,12 @@ struct ObjectWriterVisitor {
 
     if (!type.timezone().empty() && !options.ignore_timezone) {
       // convert timezone aware
-      ARROW_ASSIGN_OR_RAISE(tzinfo, internal::StringToTzinfo(type.timezone()));
+      PyObject *tzobj;
+      ARROW_ASSIGN_OR_RAISE(tzobj, internal::StringToTzinfo(type.timezone()));
+      tzinfo.reset(tzobj);
       RETURN_IF_PYERROR();
       RETURN_NOT_OK(
           ConvertAsPyObjects<Type>(options, data, ConvertTimezoneAware, out_values));
-      Py_DECREF(tzinfo);
     } else {
       // convert timezone naive
       RETURN_NOT_OK(
