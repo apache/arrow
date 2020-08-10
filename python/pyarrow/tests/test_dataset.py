@@ -2142,6 +2142,7 @@ def _check_dataset_roundtrip(dataset, base_dir, expected_files,
     assert dataset2.to_table().equals(dataset.to_table())
 
 
+@pytest.mark.parquet
 def test_write_dataset(tempdir):
     # manually create a written dataset and read as dataset object
     directory = tempdir / 'single-file'
@@ -2177,6 +2178,8 @@ def test_write_dataset(tempdir):
     _check_dataset_roundtrip(dataset, str(target), expected_files, target)
 
 
+@pytest.mark.parquet
+@pytest.mark.pandas
 def test_write_dataset_partitioned(tempdir):
     directory = tempdir / "partitioned"
     _ = _create_parquet_dataset_partitioned(directory)
@@ -2210,10 +2213,9 @@ def test_write_dataset_partitioned(tempdir):
 
 def test_write_table(tempdir):
     table = pa.table([
-            pa.array(range(20)), pa.array(np.random.randn(20)),
-            pa.array(np.repeat(['a', 'b'], 10))
-        ], names=["f1", "f2", "part"]
-    )
+        pa.array(range(20)), pa.array(np.random.randn(20)),
+        pa.array(np.repeat(['a', 'b'], 10))
+    ], names=["f1", "f2", "part"])
 
     base_dir = tempdir / 'single'
     ds.write_dataset(table, base_dir, format="feather")
