@@ -108,10 +108,6 @@ class FileDecryptor {
  public:
   void DecryptFile(std::string file_name,
                    std::shared_ptr<FileDecryptionProperties> file_decryption_properties);
-
- private:
-  int num_rgs = 5;
-  int rows_per_rowgroup_ = 50;
 };
 
 }  // namespace test

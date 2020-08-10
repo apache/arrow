@@ -79,6 +79,13 @@ class TestEncrytionKeyManagement : public ::testing::Test {
     key_list_ = BuildKeyList(COLUMN_MASTER_KEY_IDS, COLUMN_MASTER_KEYS,
                              FOOTER_MASTER_KEY_ID, FOOTER_MASTER_KEY);
     column_key_mapping_ = BuildColumnKeyMapping();
+
+    kms_connection_config_.kms_instance_id = KmsClient::KMS_INSTANCE_ID_DEFAULT;
+    kms_connection_config_.kms_instance_url = KmsClient::KMS_INSTANCE_URL_DEFAULT;
+    kms_connection_config_.refreshable_key_access_token =
+        std::make_shared<KeyAccessToken>();
+    kms_connection_config_.refreshable_key_access_token->Refresh(
+        KmsClient::KEY_ACCESS_TOKEN_DEFAULT);
   }
 
  protected:
@@ -87,11 +94,37 @@ class TestEncrytionKeyManagement : public ::testing::Test {
 
   std::vector<std::string> key_list_;
   std::string column_key_mapping_;
+  KmsConnectionConfig kms_connection_config_;
 
   void SetupCryptoFactory(PropertiesDrivenCryptoFactory& crypto_factory) {
     std::shared_ptr<KmsClientFactory> kms_client_factory =
         std::make_shared<InMemoryKmsClientFactory>(key_list_);
     crypto_factory.kms_client_factory(kms_client_factory);
+  }
+
+  std::string GetFileName(bool double_wrapping, bool wrap_locally, int encryption_no) {
+    std::string file_name;
+    file_name += double_wrapping ? "double_wrapping" : "no_double_wrapping";
+    file_name += wrap_locally ? "-wrap_locally" : "-no_wrap_locally";
+    switch (encryption_no) {
+      case 0:
+        file_name += "-encrypt_columns_and_footer_diff_keys";
+        break;
+      case 1:
+        file_name += "-encrypt_columns_not_footer";
+        break;
+      case 2:
+        file_name += "-encrypt_columns_and_footer_same_keys";
+        break;
+      case 3:
+        file_name += "-encrypt_columns_and_footer_ctr";
+        break;
+      default:  // case 4:
+        file_name += "-no_encrypt";
+        break;
+    }
+    file_name += encryption_no == 4 ? ".parquet" : ".parquet.encrypted";
+    return file_name;
   }
 
   std::vector<std::shared_ptr<EncryptionConfiguration>> GetEncryptionConfigurations(
@@ -138,72 +171,64 @@ class TestEncrytionKeyManagement : public ::testing::Test {
     return builder.wrap_locally(wrap_locally)->build();
   }
 
-  void WriteEncryptedParquetFile(
-      const KmsConnectionConfig& kms_connection_config,
-      std::shared_ptr<EncryptionConfiguration> encryption_config,
-      const std::string& file_name) {
+  void WriteEncryptedParquetFiles() {
     PropertiesDrivenCryptoFactory crypto_factory;
-
     SetupCryptoFactory(crypto_factory);
 
-    std::shared_ptr<FileEncryptionProperties> file_encryption_properties =
-        crypto_factory.GetFileEncryptionProperties(kms_connection_config,
-                                                   encryption_config);
-    std::string file = data_file(file_name.c_str());
-    encryptor_.EncryptFile(file, file_encryption_properties);
+    for (int i = 0; i < 2; i++) {
+      bool wrap_locally = (i == 0);
+      for (int j = 0; j < 2; j++) {
+        bool double_wrapping = (j == 0);
+        auto encryption_configs =
+            this->GetEncryptionConfigurations(double_wrapping, wrap_locally);
+        for (size_t encryption_no = 0; encryption_no < encryption_configs.size();
+             encryption_no++) {
+          std::string file_name =
+              GetFileName(double_wrapping, wrap_locally, encryption_no);
+          std::cout << "Writing file: " << file_name << std::endl;
+
+          auto encryption_config = encryption_configs[encryption_no];
+          std::shared_ptr<FileEncryptionProperties> file_encryption_properties =
+              crypto_factory.GetFileEncryptionProperties(kms_connection_config_,
+                                                         encryption_config);
+
+          std::string file = data_file(file_name.c_str());
+          encryptor_.EncryptFile(file, file_encryption_properties);
+        }
+      }
+    }
   }
 
-  void ReadEncryptedParquetFile(
-      const KmsConnectionConfig& kms_connection_config,
-      std::shared_ptr<DecryptionConfiguration> decryption_config,
-      const std::string& file_name) {
+  void ReadEncryptedParquetFiles() {
     PropertiesDrivenCryptoFactory crypto_factory;
+    SetupCryptoFactory(crypto_factory);
 
-    std::shared_ptr<KmsClientFactory> kms_client_factory =
-        std::make_shared<InMemoryKmsClientFactory>(key_list_);
-    crypto_factory.kms_client_factory(kms_client_factory);
+    for (int i = 0; i < 2; i++) {
+      bool wrap_locally = (i == 0);
+      auto decryption_config = this->GetDecryptionConfiguration(wrap_locally);
+      for (int j = 0; j < 2; j++) {
+        bool double_wrapping = (j == 0);
+        for (size_t encryption_no = 0; encryption_no < 5; encryption_no++) {
+          std::string file_name =
+              GetFileName(double_wrapping, wrap_locally, encryption_no);
+          std::cout << "Reading file: " << file_name << std::endl;
 
-    std::shared_ptr<FileDecryptionProperties> file_decryption_properties =
-        crypto_factory.GetFileDecryptionProperties(kms_connection_config,
-                                                   decryption_config);
+          std::shared_ptr<FileDecryptionProperties> file_decryption_properties =
+              crypto_factory.GetFileDecryptionProperties(kms_connection_config_,
+                                                         decryption_config);
 
-    std::string file = data_file(file_name.c_str());
-    decryptor_.DecryptFile(file, file_decryption_properties);
-  }
-
-  std::string GetFileName(std::shared_ptr<EncryptionConfiguration> encryption_config) {
-    std::string suffix = encryption_config == NULL ? ".parquet" : ".parquet.encrypted";
-    return "demo" + suffix;  // TODO
+          std::string file = data_file(file_name.c_str());
+          decryptor_.DecryptFile(file, file_decryption_properties);
+        }
+      }
+    }
   }
 };
 
 TEST_F(TestEncrytionKeyManagement, TestWriteReadEncryptedParquetFiles) {
-  const std::vector<bool> bool_flags = {true, false};
-
-  KmsConnectionConfig kms_connection_config;
-  kms_connection_config.refreshable_key_access_token = std::make_shared<KeyAccessToken>();
-  kms_connection_config.refreshable_key_access_token->Refresh(
-      KmsClient::KEY_ACCESS_TOKEN_DEFAULT);
-
   KeyToolkit::RemoveCacheEntriesForAllTokens();
-  for (int i = 0; i < 2; i++) {
-    bool wrap_locally = (i == 0);
-    auto decryption_config = this->GetDecryptionConfiguration(wrap_locally);
-    for (int j = 0; j < 2; j++) {
-      bool double_wrapping = (j == 0);
-      auto encryption_configs =
-          this->GetEncryptionConfigurations(double_wrapping, wrap_locally);
-      for (auto encryption_config : encryption_configs) {
-        std::cout << "double_wrapping:" << double_wrapping
-                  << " wrap_locally:" << wrap_locally << std::endl;
-        std::string file_name = GetFileName(encryption_config);
-        this->WriteEncryptedParquetFile(kms_connection_config, encryption_config,
-                                        file_name);
-        this->ReadEncryptedParquetFile(kms_connection_config, decryption_config,
-                                       file_name);
-      }
-    }
-  }
+  this->WriteEncryptedParquetFiles();
+  this->ReadEncryptedParquetFiles();
 }
 
 }  // namespace test

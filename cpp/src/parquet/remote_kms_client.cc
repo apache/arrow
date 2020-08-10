@@ -15,14 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "parquet/remote_kms_client.h"
 #include "rapidjson/document.h"
 #include "rapidjson/stringbuffer.h"
 #include "rapidjson/writer.h"
 
 #include "parquet/exception.h"
-
 #include "parquet/key_toolkit.h"
+#include "parquet/remote_kms_client.h"
 
 namespace parquet {
 

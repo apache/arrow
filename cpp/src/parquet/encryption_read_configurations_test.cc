@@ -198,8 +198,7 @@ class TestDecryptionConfiguration
     if (decryption_config_num == 4 && encryption_config_num != 3) {
       return;
     }
-    DecryptFile(file_name, decryption_config_num - 1);
-    //    EXPECT_NO_THROW(DecryptFile(file_name, decryption_config_num - 1));
+    EXPECT_NO_THROW(DecryptFile(file_name, decryption_config_num - 1));
   }
 
   // Returns true if file exists. Otherwise returns false.
