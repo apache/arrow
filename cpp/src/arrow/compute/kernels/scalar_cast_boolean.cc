@@ -29,15 +29,15 @@ namespace compute {
 namespace internal {
 
 struct IsNonZero {
-  template <typename OUT, typename ARG0>
-  static OUT Call(KernelContext*, ARG0 val) {
+  template <typename OutValue, typename Arg0Value>
+  static OutValue Call(KernelContext*, Arg0Value val) {
     return val != 0;
   }
 };
 
 struct ParseBooleanString {
-  template <typename OUT, typename ARG0>
-  static OUT Call(KernelContext* ctx, ARG0 val) {
+  template <typename OutValue, typename Arg0Value>
+  static OutValue Call(KernelContext* ctx, Arg0Value val) {
     bool result = false;
     if (ARROW_PREDICT_FALSE(!ParseValue<BooleanType>(val.data(), val.size(), &result))) {
       ctx->SetStatus(Status::Invalid("Failed to parse value: ", val));

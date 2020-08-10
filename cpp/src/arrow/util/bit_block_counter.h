@@ -22,14 +22,14 @@
 #include <limits>
 #include <memory>
 
+#include "arrow/buffer.h"
+#include "arrow/status.h"
+#include "arrow/util/bit_util.h"
+#include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
-
-class Buffer;
-
 namespace internal {
-
 namespace detail {
 
 // These templates are here to help with unit tests
@@ -121,7 +121,7 @@ class ARROW_EXPORT BitBlockCounter {
 /// cases without giving up a lot of performance.
 class ARROW_EXPORT OptionalBitBlockCounter {
  public:
-  // validity_bitmap may be nullptr
+  // validity_bitmap may be NULLPTR
   OptionalBitBlockCounter(const uint8_t* validity_bitmap, int64_t offset, int64_t length);
 
   // validity_bitmap may be null
@@ -163,10 +163,10 @@ class ARROW_EXPORT OptionalBitBlockCounter {
   }
 
  private:
-  BitBlockCounter counter_;
+  const bool has_bitmap_;
   int64_t position_;
   int64_t length_;
-  bool has_bitmap_;
+  BitBlockCounter counter_;
 };
 
 /// \brief A class that computes popcounts on the result of bitwise operations
@@ -206,6 +206,178 @@ class ARROW_EXPORT BinaryBitBlockCounter {
   int64_t right_offset_;
   int64_t bits_remaining_;
 };
+
+class ARROW_EXPORT OptionalBinaryBitBlockCounter {
+ public:
+  // Any bitmap may be NULLPTR
+  OptionalBinaryBitBlockCounter(const uint8_t* left_bitmap, int64_t left_offset,
+                                const uint8_t* right_bitmap, int64_t right_offset,
+                                int64_t length);
+
+  // Any bitmap may be null
+  OptionalBinaryBitBlockCounter(const std::shared_ptr<Buffer>& left_bitmap,
+                                int64_t left_offset,
+                                const std::shared_ptr<Buffer>& right_bitmap,
+                                int64_t right_offset, int64_t length);
+
+  BitBlockCount NextAndBlock() {
+    static constexpr int64_t kMaxBlockSize = std::numeric_limits<int16_t>::max();
+    switch (has_bitmap_) {
+      case HasBitmap::BOTH: {
+        BitBlockCount block = binary_counter_.NextAndWord();
+        position_ += block.length;
+        return block;
+      }
+      case HasBitmap::ONE: {
+        BitBlockCount block = unary_counter_.NextWord();
+        position_ += block.length;
+        return block;
+      }
+      case HasBitmap::NONE:
+      default: {
+        const int16_t block_size =
+            static_cast<int16_t>(std::min(kMaxBlockSize, length_ - position_));
+        position_ += block_size;
+        // All values are non-null
+        return {block_size, block_size};
+      }
+    }
+  }
+
+ private:
+  enum class HasBitmap : int { BOTH, ONE, NONE };
+
+  const HasBitmap has_bitmap_;
+  int64_t position_;
+  int64_t length_;
+  BitBlockCounter unary_counter_;
+  BinaryBitBlockCounter binary_counter_;
+
+  static HasBitmap HasBitmapFromBitmaps(bool has_left, bool has_right) {
+    switch (static_cast<int>(has_left) + static_cast<int>(has_right)) {
+      case 0:
+        return HasBitmap::NONE;
+      case 1:
+        return HasBitmap::ONE;
+      default:  // 2
+        return HasBitmap::BOTH;
+    }
+  }
+};
+
+// Functional-style bit block visitors.
+
+template <typename VisitNotNull, typename VisitNull>
+Status VisitBitBlocks(const std::shared_ptr<Buffer>& bitmap_buf, int64_t offset,
+                      int64_t length, VisitNotNull&& visit_not_null,
+                      VisitNull&& visit_null) {
+  const uint8_t* bitmap = NULLPTR;
+  if (bitmap_buf != NULLPTR) {
+    bitmap = bitmap_buf->data();
+  }
+  internal::OptionalBitBlockCounter bit_counter(bitmap, offset, length);
+  int64_t position = 0;
+  while (position < length) {
+    internal::BitBlockCount block = bit_counter.NextBlock();
+    if (block.AllSet()) {
+      for (int64_t i = 0; i < block.length; ++i, ++position) {
+        ARROW_RETURN_NOT_OK(visit_not_null(position));
+      }
+    } else if (block.NoneSet()) {
+      for (int64_t i = 0; i < block.length; ++i, ++position) {
+        ARROW_RETURN_NOT_OK(visit_null());
+      }
+    } else {
+      for (int64_t i = 0; i < block.length; ++i, ++position) {
+        if (BitUtil::GetBit(bitmap, offset + position)) {
+          ARROW_RETURN_NOT_OK(visit_not_null(position));
+        } else {
+          ARROW_RETURN_NOT_OK(visit_null());
+        }
+      }
+    }
+  }
+  return Status::OK();
+}
+
+template <typename VisitNotNull, typename VisitNull>
+void VisitBitBlocksVoid(const std::shared_ptr<Buffer>& bitmap_buf, int64_t offset,
+                        int64_t length, VisitNotNull&& visit_not_null,
+                        VisitNull&& visit_null) {
+  const uint8_t* bitmap = NULLPTR;
+  if (bitmap_buf != NULLPTR) {
+    bitmap = bitmap_buf->data();
+  }
+  internal::OptionalBitBlockCounter bit_counter(bitmap, offset, length);
+  int64_t position = 0;
+  while (position < length) {
+    internal::BitBlockCount block = bit_counter.NextBlock();
+    if (block.AllSet()) {
+      for (int64_t i = 0; i < block.length; ++i, ++position) {
+        visit_not_null(position);
+      }
+    } else if (block.NoneSet()) {
+      for (int64_t i = 0; i < block.length; ++i, ++position) {
+        visit_null();
+      }
+    } else {
+      for (int64_t i = 0; i < block.length; ++i, ++position) {
+        if (BitUtil::GetBit(bitmap, offset + position)) {
+          visit_not_null(position);
+        } else {
+          visit_null();
+        }
+      }
+    }
+  }
+}
+
+template <typename VisitNotNull, typename VisitNull>
+void VisitTwoBitBlocksVoid(const std::shared_ptr<Buffer>& left_bitmap_buf,
+                           int64_t left_offset,
+                           const std::shared_ptr<Buffer>& right_bitmap_buf,
+                           int64_t right_offset, int64_t length,
+                           VisitNotNull&& visit_not_null, VisitNull&& visit_null) {
+  if (left_bitmap_buf == NULLPTR || right_bitmap_buf == NULLPTR) {
+    // At most one bitmap is present
+    if (left_bitmap_buf == NULLPTR) {
+      return VisitBitBlocksVoid(right_bitmap_buf, right_offset, length,
+                                std::forward<VisitNotNull>(visit_not_null),
+                                std::forward<VisitNull>(visit_null));
+    } else {
+      return VisitBitBlocksVoid(left_bitmap_buf, left_offset, length,
+                                std::forward<VisitNotNull>(visit_not_null),
+                                std::forward<VisitNull>(visit_null));
+    }
+  }
+  // Both bitmaps are present
+  const uint8_t* left_bitmap = left_bitmap_buf->data();
+  const uint8_t* right_bitmap = right_bitmap_buf->data();
+  BinaryBitBlockCounter bit_counter(left_bitmap, left_offset, right_bitmap, right_offset,
+                                    length);
+  int64_t position = 0;
+  while (position < length) {
+    BitBlockCount block = bit_counter.NextAndWord();
+    if (block.AllSet()) {
+      for (int64_t i = 0; i < block.length; ++i, ++position) {
+        visit_not_null(position);
+      }
+    } else if (block.NoneSet()) {
+      for (int64_t i = 0; i < block.length; ++i, ++position) {
+        visit_null();
+      }
+    } else {
+      for (int64_t i = 0; i < block.length; ++i, ++position) {
+        if (BitUtil::GetBit(left_bitmap, left_offset + position) &&
+            BitUtil::GetBit(right_bitmap, right_offset + position)) {
+          visit_not_null(position);
+        } else {
+          visit_null();
+        }
+      }
+    }
+  }
+}
 
 }  // namespace internal
 }  // namespace arrow

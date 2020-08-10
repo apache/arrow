@@ -321,5 +321,97 @@ TEST(TestOptionalBitBlockCounter, NextWord) {
   ASSERT_EQ(optional_block.popcount, 0);
 }
 
+class TestOptionalBinaryBitBlockCounter : public ::testing::Test {
+ public:
+  void SetUp() {
+    const int64_t nbytes = 5000;
+    ASSERT_OK_AND_ASSIGN(left_bitmap_, AllocateBitmap(nbytes * 8));
+    ASSERT_OK_AND_ASSIGN(right_bitmap_, AllocateBitmap(nbytes * 8));
+    random_bytes(nbytes, 0, left_bitmap_->mutable_data());
+    random_bytes(nbytes, 0, right_bitmap_->mutable_data());
+
+    left_offset_ = 12;
+    right_offset_ = 23;
+    length_ = nbytes * 8 - std::max(left_offset_, right_offset_);
+  }
+
+ protected:
+  std::shared_ptr<Buffer> left_bitmap_, right_bitmap_;
+  int64_t left_offset_;
+  int64_t right_offset_;
+  int64_t length_;
+};
+
+TEST_F(TestOptionalBinaryBitBlockCounter, NextBlockBothBitmaps) {
+  // Both bitmaps present
+  OptionalBinaryBitBlockCounter optional_counter(left_bitmap_, left_offset_,
+                                                 right_bitmap_, right_offset_, length_);
+  BinaryBitBlockCounter bit_counter(left_bitmap_->data(), left_offset_,
+                                    right_bitmap_->data(), right_offset_, length_);
+
+  while (true) {
+    BitBlockCount block = bit_counter.NextAndWord();
+    BitBlockCount optional_block = optional_counter.NextAndBlock();
+    ASSERT_EQ(optional_block.length, block.length);
+    ASSERT_EQ(optional_block.popcount, block.popcount);
+    if (block.length == 0) {
+      break;
+    }
+  }
+}
+
+TEST_F(TestOptionalBinaryBitBlockCounter, NextBlockLeftBitmap) {
+  // Left bitmap present
+  OptionalBinaryBitBlockCounter optional_counter(left_bitmap_, left_offset_, nullptr,
+                                                 right_offset_, length_);
+  BitBlockCounter bit_counter(left_bitmap_->data(), left_offset_, length_);
+
+  while (true) {
+    BitBlockCount block = bit_counter.NextWord();
+    BitBlockCount optional_block = optional_counter.NextAndBlock();
+    ASSERT_EQ(optional_block.length, block.length);
+    ASSERT_EQ(optional_block.popcount, block.popcount);
+    if (block.length == 0) {
+      break;
+    }
+  }
+}
+
+TEST_F(TestOptionalBinaryBitBlockCounter, NextBlockRightBitmap) {
+  // Right bitmap present
+  OptionalBinaryBitBlockCounter optional_counter(nullptr, left_offset_, right_bitmap_,
+                                                 right_offset_, length_);
+  BitBlockCounter bit_counter(right_bitmap_->data(), right_offset_, length_);
+
+  while (true) {
+    BitBlockCount block = bit_counter.NextWord();
+    BitBlockCount optional_block = optional_counter.NextAndBlock();
+    ASSERT_EQ(optional_block.length, block.length);
+    ASSERT_EQ(optional_block.popcount, block.popcount);
+    if (block.length == 0) {
+      break;
+    }
+  }
+}
+
+TEST_F(TestOptionalBinaryBitBlockCounter, NextBlockNoBitmap) {
+  // No bitmap present
+  OptionalBinaryBitBlockCounter optional_counter(nullptr, left_offset_, nullptr,
+                                                 right_offset_, length_);
+
+  BitBlockCount block = optional_counter.NextAndBlock();
+  ASSERT_EQ(block.length, std::numeric_limits<int16_t>::max());
+  ASSERT_EQ(block.popcount, block.length);
+
+  const int64_t remaining_length = length_ - block.length;
+  block = optional_counter.NextAndBlock();
+  ASSERT_EQ(block.length, remaining_length);
+  ASSERT_EQ(block.popcount, block.length);
+
+  block = optional_counter.NextAndBlock();
+  ASSERT_EQ(block.length, 0);
+  ASSERT_EQ(block.popcount, 0);
+}
+
 }  // namespace internal
 }  // namespace arrow

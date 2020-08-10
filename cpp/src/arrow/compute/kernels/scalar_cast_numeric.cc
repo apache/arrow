@@ -257,10 +257,10 @@ void CastIntegerToFloating(KernelContext* ctx, const ExecBatch& batch, Datum* ou
 // Boolean to number
 
 struct BooleanToNumber {
-  template <typename OUT, typename ARG0>
-  static OUT Call(KernelContext*, ARG0 val) {
-    constexpr auto kOne = static_cast<OUT>(1);
-    constexpr auto kZero = static_cast<OUT>(0);
+  template <typename OutValue, typename Arg0Value>
+  static OutValue Call(KernelContext*, Arg0Value val) {
+    constexpr auto kOne = static_cast<OutValue>(1);
+    constexpr auto kZero = static_cast<OutValue>(0);
     return val ? kOne : kZero;
   }
 };
@@ -277,9 +277,9 @@ struct CastFunctor<O, BooleanType, enable_if_number<O>> {
 
 template <typename OutType>
 struct ParseString {
-  template <typename OUT, typename ARG0>
-  OUT Call(KernelContext* ctx, ARG0 val) const {
-    OUT result = OUT(0);
+  template <typename OutValue, typename Arg0Value>
+  OutValue Call(KernelContext* ctx, Arg0Value val) const {
+    OutValue result = OutValue(0);
     if (ARROW_PREDICT_FALSE(!ParseValue<OutType>(val.data(), val.size(), &result))) {
       ctx->SetStatus(Status::Invalid("Failed to parse string: ", val));
     }
@@ -298,16 +298,16 @@ struct CastFunctor<O, I, enable_if_base_binary<I>> {
 // Decimal to integer
 
 struct DecimalToIntegerMixin {
-  template <typename OUT>
-  OUT ToInteger(KernelContext* ctx, const Decimal128& val) const {
-    constexpr auto min_value = std::numeric_limits<OUT>::min();
-    constexpr auto max_value = std::numeric_limits<OUT>::max();
+  template <typename OutValue>
+  OutValue ToInteger(KernelContext* ctx, const Decimal128& val) const {
+    constexpr auto min_value = std::numeric_limits<OutValue>::min();
+    constexpr auto max_value = std::numeric_limits<OutValue>::max();
 
     if (!allow_int_overflow_ && ARROW_PREDICT_FALSE(val < min_value || val > max_value)) {
       ctx->SetStatus(Status::Invalid("Integer value out of bounds"));
-      return OUT{};  // Zero
+      return OutValue{};  // Zero
     } else {
-      return static_cast<OUT>(val.low_bits());
+      return static_cast<OutValue>(val.low_bits());
     }
   }
 
@@ -321,32 +321,32 @@ struct DecimalToIntegerMixin {
 struct UnsafeUpscaleDecimalToInteger : public DecimalToIntegerMixin {
   using DecimalToIntegerMixin::DecimalToIntegerMixin;
 
-  template <typename OUT, typename ARG0>
-  OUT Call(KernelContext* ctx, Decimal128 val) const {
-    return ToInteger<OUT>(ctx, val.IncreaseScaleBy(-in_scale_));
+  template <typename OutValue, typename Arg0Value>
+  OutValue Call(KernelContext* ctx, Decimal128 val) const {
+    return ToInteger<OutValue>(ctx, val.IncreaseScaleBy(-in_scale_));
   }
 };
 
 struct UnsafeDownscaleDecimalToInteger : public DecimalToIntegerMixin {
   using DecimalToIntegerMixin::DecimalToIntegerMixin;
 
-  template <typename OUT, typename ARG0>
-  OUT Call(KernelContext* ctx, Decimal128 val) const {
-    return ToInteger<OUT>(ctx, val.ReduceScaleBy(in_scale_, false));
+  template <typename OutValue, typename Arg0Value>
+  OutValue Call(KernelContext* ctx, Decimal128 val) const {
+    return ToInteger<OutValue>(ctx, val.ReduceScaleBy(in_scale_, false));
   }
 };
 
 struct SafeRescaleDecimalToInteger : public DecimalToIntegerMixin {
   using DecimalToIntegerMixin::DecimalToIntegerMixin;
 
-  template <typename OUT, typename ARG0>
-  OUT Call(KernelContext* ctx, Decimal128 val) const {
+  template <typename OutValue, typename Arg0Value>
+  OutValue Call(KernelContext* ctx, Decimal128 val) const {
     auto result = val.Rescale(in_scale_, 0);
     if (ARROW_PREDICT_FALSE(!result.ok())) {
       ctx->SetStatus(result.status());
-      return OUT{};  // Zero
+      return OutValue{};  // Zero
     } else {
-      return ToInteger<OUT>(ctx, *result);
+      return ToInteger<OutValue>(ctx, *result);
     }
   }
 };
@@ -466,7 +466,7 @@ struct CastFunctor<Decimal128Type, Decimal128Type> {
 // Real to decimal
 
 struct RealToDecimal {
-  template <typename OUT, typename RealType>
+  template <typename OutValue, typename RealType>
   Decimal128 Call(KernelContext* ctx, RealType val) const {
     auto result = Decimal128::FromReal(val, out_precision_, out_scale_);
     if (ARROW_PREDICT_FALSE(!result.ok())) {
@@ -502,7 +502,7 @@ struct CastFunctor<Decimal128Type, I, enable_if_t<is_floating_type<I>::value>> {
 // Decimal to real
 
 struct DecimalToReal {
-  template <typename RealType, typename ARG0>
+  template <typename RealType, typename Arg0Value>
   RealType Call(KernelContext* ctx, const Decimal128& val) const {
     return val.ToReal<RealType>(in_scale_);
   }
