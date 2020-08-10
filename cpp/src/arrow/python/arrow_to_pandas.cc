@@ -961,13 +961,13 @@ struct ObjectWriterVisitor {
       return Status::OK();
     };
     auto ConvertTimezoneAware = [&](typename Type::c_type value, PyObject** out) {
-      PyObject* tz_naive;
-      RETURN_NOT_OK(ConvertTimezoneNaive(value, &tz_naive));
+      PyObject* naive_datetime;
+      RETURN_NOT_OK(ConvertTimezoneNaive(value, &naive_datetime));
       // convert the timezone naive datetime object to timezone aware
-      *out = PyObject_CallMethod(tzinfo, "fromutc", "O", tz_naive);
-      RETURN_IF_PYERROR();
+      *out = PyObject_CallMethod(tzinfo, "fromutc", "O", naive_datetime);
       // the timezone naive object is no longer required
-      Py_DECREF(tz_naive);
+      Py_DECREF(naive_datetime);
+      RETURN_IF_PYERROR();
       return Status::OK();
     };
 
@@ -977,6 +977,7 @@ struct ObjectWriterVisitor {
       RETURN_IF_PYERROR();
       RETURN_NOT_OK(
           ConvertAsPyObjects<Type>(options, data, ConvertTimezoneAware, out_values));
+      Py_DECREF(tzinfo);
     } else {
       // convert timezone naive
       RETURN_NOT_OK(

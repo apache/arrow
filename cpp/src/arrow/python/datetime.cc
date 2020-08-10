@@ -319,12 +319,12 @@ Result<int64_t> PyDateTime_utcoffset_s(PyObject* obj) {
   }
 }
 
-Result<std::string> PyTZInfo_utcoffset_hhmm(PyObject* pytzinfo, PyObject* pydelta_class) {
+Result<std::string> PyTZInfo_utcoffset_hhmm(PyObject* pytzinfo) {
   // attempt to convert timezone offset objects to "+/-{hh}:{mm}" format
   OwnedRef pydelta_object(PyObject_CallMethod(pytzinfo, "utcoffset", "O", Py_None));
   RETURN_IF_PYERROR();
 
-  if (!PyObject_IsInstance(pydelta_object.obj(), pydelta_class)) {
+  if (!PyDelta_Check(pydelta_object.obj())) {
     return Status::Invalid(
         "Object returned by tzinfo.utcoffset(None) is not an instance of "
         "datetime.timedelta");
@@ -396,9 +396,7 @@ Result<PyObject*> StringToTzinfo(const std::string& tz) {
 Result<std::string> TzinfoToString(PyObject* tzinfo) {
   OwnedRef module_pytz;        // import pytz
   OwnedRef module_datetime;    // import datetime
-  OwnedRef class_tzinfo;       // from datetime import tzinfo
   OwnedRef class_timezone;     // from datetime import timezone
-  OwnedRef class_timedelta;    // from datetime import timedelta
   OwnedRef class_fixedoffset;  // from pytz import _FixedOffset
 
   // import necessary modules
@@ -408,22 +406,18 @@ Result<std::string> TzinfoToString(PyObject* tzinfo) {
   RETURN_NOT_OK(
       internal::ImportFromModule(module_pytz.obj(), "_FixedOffset", &class_fixedoffset));
   RETURN_NOT_OK(
-      internal::ImportFromModule(module_datetime.obj(), "tzinfo", &class_tzinfo));
-  RETURN_NOT_OK(
       internal::ImportFromModule(module_datetime.obj(), "timezone", &class_timezone));
-  RETURN_NOT_OK(
-      internal::ImportFromModule(module_datetime.obj(), "timedelta", &class_timedelta));
 
   // check that it's a valid tzinfo object
-  if (!PyObject_IsInstance(tzinfo, class_tzinfo.obj())) {
-    return Status::Invalid("Not an instance of datetime.tzinfo");
+  if (!PyTZInfo_Check(tzinfo)) {
+    return Status::TypeError("Not an instance of datetime.tzinfo");
   }
 
-  // if tzinfo is an instance of pytz._FixedOffset or datetime.timedelta return the
+  // if tzinfo is an instance of pytz._FixedOffset or datetime.timezone return the
   // HH:MM offset string representation
   if (PyObject_IsInstance(tzinfo, class_timezone.obj()) ||
       PyObject_IsInstance(tzinfo, class_fixedoffset.obj())) {
-    return PyTZInfo_utcoffset_hhmm(tzinfo, class_timedelta.obj());
+    return PyTZInfo_utcoffset_hhmm(tzinfo);
   }
 
   // attempt to call tzinfo.tzname(None)
@@ -436,7 +430,7 @@ Result<std::string> TzinfoToString(PyObject* tzinfo) {
   }
 
   // fall back to HH:MM offset string representation based on tzinfo.utcoffset(None)
-  return PyTZInfo_utcoffset_hhmm(tzinfo, class_timedelta.obj());
+  return PyTZInfo_utcoffset_hhmm(tzinfo);
 }
 
 }  // namespace internal

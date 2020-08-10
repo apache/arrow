@@ -18,7 +18,6 @@
 from collections import OrderedDict
 from collections.abc import Iterator
 import datetime
-import sys
 
 import pickle
 import pytest
@@ -266,19 +265,15 @@ def test_tzinfo_to_string(tz, expected):
     assert pa.lib.tzinfo_to_string(tz) == expected
 
 
-@pytest.mark.skipif(sys.version_info <= (3, 7), reason=(
-    "Since python 3.7 the UTC offset for datetime.timezone is not restricted "
-    "to a whole number of minutes"
-))
 def test_tzinfo_to_string_errors():
+    msg = "Not an instance of datetime.tzinfo"
+    with pytest.raises(TypeError):
+        pa.lib.tzinfo_to_string("Europe/Budapest")
+
+    tz = datetime.timezone(datetime.timedelta(hours=1, seconds=30))
     msg = "Offset must represent whole number of minutes"
     with pytest.raises(ValueError, match=msg):
-        tz = datetime.timezone(datetime.timedelta(hours=1, seconds=30))
         pa.lib.tzinfo_to_string(tz)
-
-    msg = "Not an instance of datetime.tzinfo"
-    with pytest.raises(ValueError):
-        pa.lib.tzinfo_to_string("Europe/Budapest")
 
 
 def test_convert_custom_tzinfo_objects_to_string():
