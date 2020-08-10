@@ -482,7 +482,20 @@ def test_to_numpy():
     np.testing.assert_array_equal(result, expected)
 
     # chunked array
-    charr = pa.chunked_array([arr])
+    a1 = pa.chunked_array([arr, arr])
+    a2 = pa.chunked_array([arr, arr], type=period_type)
+    expected = np.hstack([expected, expected])
 
-    result = np.asarray(charr)
-    np.testing.assert_array_equal(result, expected)
+    for charr in [a1, a2]:
+        assert charr.type == period_type
+        for result in [np.asarray(charr), charr.to_numpy()]:
+            assert result.dtype == np.int64
+            np.testing.assert_array_equal(result, expected)
+
+    # zero chunks
+    charr = pa.chunked_array([], type=period_type)
+    assert charr.type == period_type
+
+    for result in [np.asarray(charr), charr.to_numpy()]:
+        assert result.dtype == np.int64
+        np.testing.assert_array_equal(result, np.array([], dtype='int64'))
