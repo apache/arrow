@@ -554,6 +554,7 @@ mod tests {
     use super::*;
     use crate::logicalplan::FunctionType;
     use crate::sql::parser::DFParser;
+    use sqlparser::dialect::GenericDialect;
 
     #[test]
     fn select_no_relation() {
@@ -815,7 +816,8 @@ mod tests {
 
     fn logical_plan(sql: &str) -> Result<LogicalPlan> {
         let planner = SqlToRel::new(MockSchemaProvider {});
-        let ast = DFParser::parse_sql(&sql).unwrap();
+        let dialet = &GenericDialect {};
+        let ast = DFParser::parse_sql(&sql, dialet).unwrap();
         planner.statement_to_plan(&ast[0])
     }
 
