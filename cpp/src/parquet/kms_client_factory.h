@@ -21,7 +21,6 @@
 #include "parquet/platform.h"
 
 namespace parquet {
-
 namespace encryption {
 
 class PARQUET_EXPORT KmsClientFactory {
@@ -32,5 +31,4 @@ class PARQUET_EXPORT KmsClientFactory {
 };
 
 }  // namespace encryption
-
 }  // namespace parquet

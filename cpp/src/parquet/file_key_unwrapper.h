@@ -25,7 +25,6 @@
 #include "parquet/platform.h"
 
 namespace parquet {
-
 namespace encryption {
 
 class PARQUET_EXPORT FileKeyUnwrapper : public DecryptionKeyRetriever {
@@ -63,5 +62,4 @@ class PARQUET_EXPORT FileKeyUnwrapper : public DecryptionKeyRetriever {
 };
 
 }  // namespace encryption
-
 }  // namespace parquet

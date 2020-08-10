@@ -20,11 +20,18 @@
 #include <chrono>
 #include <map>
 
+namespace parquet {
+namespace encryption {
+
 // in miliseconds
 using TimePoint = std::chrono::system_clock::time_point;
 
 static inline TimePoint CurrentTimePoint() { return std::chrono::system_clock::now(); }
 
+// Two-level cache with expiration of internal caches according to token lifetime.
+// External cache is per token, internal is per string key.
+// Wrapper class around:
+//    std::map<std::string, ExpiringCacheEntry<std::map<std::string, V>>>
 template <typename V>
 class TwoLevelCacheWithExpiration {
  public:
@@ -103,3 +110,6 @@ class TwoLevelCacheWithExpiration {
   std::map<std::string, ExpiringCacheEntry<std::map<std::string, V>>> cache_;
   TimePoint last_cache_cleanup_timestamp_;
 };
+
+}  // namespace encryption
+}  // namespace parquet

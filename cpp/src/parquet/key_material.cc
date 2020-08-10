@@ -24,7 +24,6 @@
 #include "parquet/key_metadata.h"
 
 namespace parquet {
-
 namespace encryption {
 
 constexpr char KeyMaterial::KEY_MATERIAL_TYPE_FIELD[];
@@ -159,5 +158,4 @@ std::string KeyMaterial::CreateSerialized(
 }
 
 }  // namespace encryption
-
 }  // namespace parquet

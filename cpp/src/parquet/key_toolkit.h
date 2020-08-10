@@ -29,7 +29,6 @@
 #include "parquet/two_level_cache_with_expiration.h"
 
 namespace parquet {
-
 namespace encryption {
 
 class KeyWithMasterID {
@@ -83,15 +82,18 @@ class PARQUET_EXPORT KeyToolkit {
     TwoLevelCacheWithExpiration<std::vector<uint8_t>> cache_;
   };
 
+  // KMS client two level cache: token -> KMSInstanceId -> KmsClient
   static TwoLevelCacheWithExpiration<std::shared_ptr<KmsClient>>&
   kms_client_cache_per_token() {
     return KmsClientCache::GetInstance().cache();
   }
 
+  // KEK two level cache for wrapping: token -> MEK_ID -> KeyEncryptionKey
   static TwoLevelCacheWithExpiration<KeyEncryptionKey>& kek_write_cache_per_token() {
     return KEKWriteCache::GetInstance().cache();
   }
 
+  // KEK two level cache for unwrapping: token -> KEK_ID -> KEK bytes
   static TwoLevelCacheWithExpiration<std::vector<uint8_t>>& kek_read_cache_per_token() {
     return KEKReadCache::GetInstance().cache();
   }
@@ -101,19 +103,21 @@ class PARQUET_EXPORT KeyToolkit {
       const KmsConnectionConfig& kms_connection_config, bool is_wrap_locally,
       uint64_t cache_entry_lifetime);
 
-  static std::string EncryptKeyLocally(const std::vector<uint8_t>& key_bytes,
+  // Encrypts "key" with "master_key", using AES-GCM and the "aad"
+  static std::string EncryptKeyLocally(const std::vector<uint8_t>& key,
                                        const std::vector<uint8_t>& master_key,
                                        const std::vector<uint8_t>& aad);
 
+  // Decrypts encrypted key with "master_key", using AES-GCM and the "aad"
   static std::vector<uint8_t> DecryptKeyLocally(const std::string& encoded_encrypted_key,
                                                 const std::vector<uint8_t>& master_key,
                                                 const std::vector<uint8_t>& aad);
 
+  // Flush any caches that are tied to the (compromised) access_token
   static void RemoveCacheEntriesForToken(const std::string& access_token);
 
   static void RemoveCacheEntriesForAllTokens();
 };
 
 }  // namespace encryption
-
 }  // namespace parquet

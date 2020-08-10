@@ -15,17 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <openssl/rand.h>
-
+#include "parquet/file_key_wrapper.h"
 #include "parquet/encryption_internal.h"
 #include "parquet/exception.h"
-#include "parquet/file_key_wrapper.h"
 #include "parquet/key_material.h"
 #include "parquet/key_metadata.h"
 #include "parquet/key_toolkit.h"
 
 namespace parquet {
-
 namespace encryption {
 
 FileKeyWrapper::FileKeyWrapper(std::shared_ptr<KmsClientFactory> kms_client_factory,
@@ -134,5 +131,4 @@ KeyEncryptionKey FileKeyWrapper::CreateKeyEncryptionKey(
 }
 
 }  // namespace encryption
-
 }  // namespace parquet

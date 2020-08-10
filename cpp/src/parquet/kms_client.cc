@@ -18,7 +18,6 @@
 #include "parquet/kms_client.h"
 
 namespace parquet {
-
 namespace encryption {
 
 constexpr char KmsClient::KMS_INSTANCE_ID_DEFAULT[];
@@ -26,5 +25,4 @@ constexpr char KmsClient::KMS_INSTANCE_URL_DEFAULT[];
 constexpr char KmsClient::KEY_ACCESS_TOKEN_DEFAULT[];
 
 }  // namespace encryption
-
 }  // namespace parquet

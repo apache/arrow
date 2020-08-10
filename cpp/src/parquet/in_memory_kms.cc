@@ -31,7 +31,6 @@ using parquet::encryption::KmsConnectionConfig;
 using parquet::encryption::RemoteKmsClient;
 
 namespace parquet {
-
 namespace test {
 
 using parquet::encryption::RemoteKmsClient;
@@ -97,5 +96,4 @@ std::map<std::string, std::vector<uint8_t>> InMemoryKms::ParseKeyList(
 }
 
 }  // namespace test
-
 }  // namespace parquet

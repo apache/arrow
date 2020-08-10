@@ -24,7 +24,6 @@
 #include "parquet/remote_kms_client.h"
 
 namespace parquet {
-
 namespace encryption {
 
 constexpr char RemoteKmsClient::LOCAL_WRAP_NO_KEY_VERSION[];
@@ -136,5 +135,4 @@ std::vector<uint8_t> RemoteKmsClient::GetKeyFromServer(
 }
 
 }  // namespace encryption
-
 }  // namespace parquet

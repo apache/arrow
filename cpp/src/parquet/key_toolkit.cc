@@ -21,7 +21,6 @@
 #include "arrow/util/base64.h"
 
 namespace parquet {
-
 namespace encryption {
 
 std::shared_ptr<KmsClient> KeyToolkit::GetKmsClient(
@@ -90,5 +89,4 @@ void KeyToolkit::RemoveCacheEntriesForAllTokens() {
 }
 
 }  // namespace encryption
-
 }  // namespace parquet

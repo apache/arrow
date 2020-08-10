@@ -21,15 +21,12 @@
 #include <memory>
 #include <string>
 
-#include "arrow/buffer.h"
-
 #include "parquet/file_key_material_store.h"
 #include "parquet/key_encryption_key.h"
 #include "parquet/kms_client.h"
 #include "parquet/kms_client_factory.h"
 
 namespace parquet {
-
 namespace encryption {
 
 class FileKeyWrapper {
@@ -68,5 +65,4 @@ class FileKeyWrapper {
 };
 
 }  // namespace encryption
-
 }  // namespace parquet

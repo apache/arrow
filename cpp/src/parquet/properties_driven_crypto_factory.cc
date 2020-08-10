@@ -17,7 +17,6 @@
 
 #include <sstream>
 
-#include "arrow/buffer.h"
 #include "arrow/result.h"
 #include "arrow/util/logging.h"
 
@@ -27,13 +26,9 @@
 #include "parquet/properties_driven_crypto_factory.h"
 #include "parquet/string_util.h"
 
-using Buffer = arrow::Buffer;
-
 namespace parquet {
-
 namespace encryption {
 
-constexpr char PropertiesDrivenCryptoFactory::COLUMN_KEYS_PROPERTY_NAME[];
 constexpr int32_t PropertiesDrivenCryptoFactory::ACCEPTABLE_DATA_KEY_LENGTHS[];
 
 EncryptionConfiguration::Builder* EncryptionConfiguration::Builder::column_keys(
@@ -217,16 +212,14 @@ PropertiesDrivenCryptoFactory::GetColumnEncryptionProperties(
     std::vector<std::string> parts = SplitString(cur_key_to_columns, ':');
     if (parts.size() != 2) {
       std::ostringstream message;
-      message << "Incorrect key to columns mapping in " << COLUMN_KEYS_PROPERTY_NAME
+      message << "Incorrect key to columns mapping in column keys property"
               << ": [" << cur_key_to_columns << "]";
       throw ParquetException(message.str());
     }
 
     std::string column_key_id = TrimString(parts[0]);
     if (column_key_id.empty()) {
-      std::ostringstream message;
-      message << "Empty key name in " << COLUMN_KEYS_PROPERTY_NAME;
-      throw ParquetException(message.str());
+      throw ParquetException("Empty key name in column keys property.");
     }
 
     std::string column_names_str = TrimString(parts[1]);
@@ -239,8 +232,7 @@ PropertiesDrivenCryptoFactory::GetColumnEncryptionProperties(
       std::string column_name = TrimString(column_names[j]);
       if (column_name.empty()) {
         std::ostringstream message;
-        message << "Empty column name in " << COLUMN_KEYS_PROPERTY_NAME
-                << " for key: " << column_key_id;
+        message << "Empty column name in column keys property for key: " << column_key_id;
         throw ParquetException(message.str());
       }
 
@@ -264,9 +256,7 @@ PropertiesDrivenCryptoFactory::GetColumnEncryptionProperties(
     }
   }
   if (encrypted_columns.empty()) {
-    std::ostringstream message;
-    message << "No column keys configured in " << COLUMN_KEYS_PROPERTY_NAME;
-    throw ParquetException(message.str());
+    throw ParquetException("No column keys configured in column keys property.");
   }
 
   return encrypted_columns;
@@ -287,5 +277,4 @@ PropertiesDrivenCryptoFactory::GetFileDecryptionProperties(
 }
 
 }  // namespace encryption
-
 }  // namespace parquet

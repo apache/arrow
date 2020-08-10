@@ -23,7 +23,6 @@
 #include "parquet/key_metadata.h"
 
 namespace parquet {
-
 namespace encryption {
 
 constexpr char KeyMetadata::KEY_MATERIAL_INTERNAL_STORAGE_FIELD[];
@@ -90,5 +89,4 @@ std::string KeyMetadata::CreateSerializedForExternalMaterial(
 }
 
 }  // namespace encryption
-
 }  // namespace parquet

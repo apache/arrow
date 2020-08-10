@@ -18,6 +18,8 @@
 #include "parquet/string_util.h"
 #include "arrow/util/string.h"
 
+namespace parquet {
+
 std::vector<std::string> SplitString(const std::string& v, char delim) {
   std::vector<std::string> parts;
   size_t start = 0, end;
@@ -33,3 +35,5 @@ std::vector<std::string> SplitString(const std::string& v, char delim) {
 }
 
 std::string TrimString(const std::string& v) { return arrow::internal::TrimString(v); }
+
+}  // namespace parquet

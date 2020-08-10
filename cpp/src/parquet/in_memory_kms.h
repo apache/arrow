@@ -31,14 +31,12 @@ using parquet::encryption::KmsConnectionConfig;
 using parquet::encryption::RemoteKmsClient;
 
 namespace parquet {
-
 namespace test {
 
 using parquet::encryption::RemoteKmsClient;
 
 // This is a mock class, built for testing only. Don't use it as an example of KmsClient
 // implementation. (VaultClient is the sample implementation).
-//
 class InMemoryKms : public RemoteKmsClient {
  public:
   void InitializeMasterKey(const std::vector<std::string>& master_keys);
@@ -80,5 +78,4 @@ class InMemoryKmsClientFactory : public KmsClientFactory {
 };
 
 }  // namespace test
-
 }  // namespace parquet

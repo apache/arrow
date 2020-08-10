@@ -24,9 +24,24 @@
 #include "parquet/platform.h"
 
 namespace parquet {
-
 namespace encryption {
 
+// KMS systems wrap keys by encrypting them by master keys, and attaching additional
+// information (such as the version number of the masker key) to the result of encryption.
+// The master key version is required in  key rotation. Currently, the local wrapping mode
+// does not support key rotation (because not all KMS systems allow to fetch a master key
+// by its ID and version number). Still, the local wrapping mode adds a placeholder for
+// the master key version, that will enable support for key rotation in this mode in the
+// future, with appropriate KMS systems. This will also enable backward compatibility,
+// where future readers will be able to extract master key version in the files written by
+// the current code.
+//
+// LocalKeyWrap class writes (and reads) the "key wrap" as a flat json with the following
+// fields:
+// 1. "masterKeyVersion" - a String, with the master key version. In the current version,
+// only one value is allowed - "NO_VERSION".
+// 2. "encryptedKey" - a String, with the key encrypted by the master key
+// (base64-encoded).
 class PARQUET_EXPORT RemoteKmsClient : public KmsClient {
  public:
   static constexpr char LOCAL_WRAP_NO_KEY_VERSION[] = "NO_VERSION";
@@ -41,12 +56,17 @@ class PARQUET_EXPORT RemoteKmsClient : public KmsClient {
                                  const std::string& master_key_identifier) override;
 
  protected:
+  // Wrap a key with the master key in the remote KMS server.
   virtual std::string WrapKeyInServer(const std::vector<uint8_t>& key_bytes,
                                       const std::string& master_key_identifier) = 0;
 
+  // Unwrap a key with the master key in the remote KMS server.
   virtual std::vector<uint8_t> UnwrapKeyInServer(
       const std::string& wrapped_key, const std::string& master_key_identifier) = 0;
 
+  // Get master key from the remote KMS server.
+  // Required only for local wrapping. No need to implement if KMS supports in-server
+  // wrapping/unwrapping.
   virtual std::vector<uint8_t> GetMasterKeyFromServer(
       const std::string& master_key_identifier) = 0;
 
@@ -83,5 +103,4 @@ class PARQUET_EXPORT RemoteKmsClient : public KmsClient {
 };
 
 }  // namespace encryption
-
 }  // namespace parquet

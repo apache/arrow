@@ -22,7 +22,6 @@
 #include "parquet/key_toolkit.h"
 
 namespace parquet {
-
 namespace encryption {
 
 FileKeyUnwrapper::FileKeyUnwrapper(std::shared_ptr<KmsClientFactory> kms_client_factory,
@@ -107,5 +106,4 @@ std::shared_ptr<KmsClient> FileKeyUnwrapper::GetKmsClientFromConfigOrKeyMaterial
 }
 
 }  // namespace encryption
-
 }  // namespace parquet

@@ -23,7 +23,6 @@
 #include "arrow/util/base64.h"
 
 namespace parquet {
-
 namespace encryption {
 
 class KeyEncryptionKey {
@@ -55,5 +54,4 @@ class KeyEncryptionKey {
 };
 
 }  // namespace encryption
-
 }  // namespace parquet

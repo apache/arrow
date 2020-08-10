@@ -21,33 +21,23 @@
 #include <string>
 
 namespace parquet {
-
 namespace encryption {
 
 class FileKeyMaterialStore {
  public:
   // Initializes key material store for a parquet file.
-  // @param parquetFilePath Parquet file path
   virtual void Initialize(const std::string& parquet_file_path, bool temp_store) = 0;
 
-  // Add key material for one encryption key.
-  // @param keyIDInFile ID of the key in Parquet file
-  // @param keyMaterial key material
   virtual void AddKeyMaterial(const std::string& key_id_in_file,
                               const std::string& key_material) = 0;
 
-  /**
-   * After key material was added for all keys in the given Parquet file,
-   * save material in persistent store.
-   */
+  // After key material was added for all keys in the given Parquet file,
+  // save material in persistent store.
   virtual void SaveMaterial() = 0;
 
-  // Get key material
-  // @param keyIDInFile ID of a key in Parquet file
-  // @return key material
   virtual std::string GetKeyMaterial(const std::string& key_id_in_file) = 0;
 
-  //@return Set of all key IDs in this store (for the given Parquet file)
+  // return set of all key IDs in this store (for the given Parquet file)
   virtual std::set<std::string> GetKeyIdSet() = 0;
 
   // Remove key material from persistent store. Used in key rotation.
@@ -58,5 +48,4 @@ class FileKeyMaterialStore {
 };
 
 }  // namespace encryption
-
 }  // namespace parquet

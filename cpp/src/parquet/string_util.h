@@ -20,6 +20,10 @@
 #include <string>
 #include <vector>
 
+namespace parquet {
+
 std::vector<std::string> SplitString(const std::string& v, char delim);
 
 std::string TrimString(const std::string& v);
+
+}  // namespace parquet
