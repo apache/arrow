@@ -99,6 +99,17 @@ def test_chunked_array_construction():
             pa.array([1., 2., 3.])
         ])
 
+    msg = (
+        "When passing an empty collection of arrays you must also pass the "
+        "data type"
+    )
+    with pytest.raises(ValueError, match=msg):
+        assert pa.chunked_array([])
+
+    assert pa.chunked_array([], type=pa.string()).type == pa.string()
+    assert pa.chunked_array([[]]).type == pa.null()
+    assert pa.chunked_array([[]], type=pa.string()).type == pa.string()
+
 
 def test_chunked_array_to_numpy():
     data = pa.chunked_array([

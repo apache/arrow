@@ -240,9 +240,10 @@ cdef class ChunkedArray(_PandasConvertible):
             object values
 
         if self.type.id == _Type_EXTENSION:
-            storage_array = chunked_array([
-                chunk.storage for chunk in self.iterchunks()
-            ])
+            storage_array = chunked_array(
+                [chunk.storage for chunk in self.iterchunks()],
+                type=self.type.storage_type
+            )
             return storage_array.to_numpy()
 
         with nogil:
@@ -455,7 +456,7 @@ def chunked_array(arrays, type=None):
         else:
             if arr.type != type:
                 raise ArrowInvalid(
-                    "Each array chunks must have type {}".format(type)
+                    "All array chunks must have type {}".format(type)
                 )
 
         c_arrays.push_back(arr.sp_array)
