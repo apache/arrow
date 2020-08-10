@@ -93,12 +93,6 @@ def test_chunked_array_construction():
     assert len(arr) == 3
     assert len(arr.chunks) == 2
 
-    with pytest.raises(pa.ArrowInvalid):
-        pa.chunked_array([
-            pa.array([1, 2, 3]),
-            pa.array([1., 2., 3.])
-        ])
-
     msg = (
         "When passing an empty collection of arrays you must also pass the "
         "data type"
@@ -126,8 +120,16 @@ def test_chunked_array_to_numpy():
 
 
 def test_chunked_array_mismatch_types():
-    with pytest.raises(pa.ArrowInvalid):
-        pa.chunked_array([pa.array([1, 2]), pa.array(['foo', 'bar'])])
+    with pytest.raises(TypeError):
+        # Given array types are different
+        pa.chunked_array([
+            pa.array([1, 2, 3]),
+            pa.array([1., 2., 3.])
+        ])
+
+    with pytest.raises(TypeError):
+        # Given array type is different from explicit type argument
+        pa.chunked_array([pa.array([1, 2, 3])], type=pa.float64())
 
 
 def test_chunked_array_str():

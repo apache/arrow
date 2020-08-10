@@ -455,7 +455,7 @@ def chunked_array(arrays, type=None):
             type = arr.type
         else:
             if arr.type != type:
-                raise ArrowInvalid(
+                raise TypeError(
                     "All array chunks must have type {}".format(type)
                 )
 
