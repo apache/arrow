@@ -79,18 +79,21 @@ class ArrayDataEndianSwapper {
   ArrayDataEndianSwapper(std::shared_ptr<ArrayData>& data, int64_t length)
       : data_(data), length_(length) {}
 
-  Status SwapType(const DataType& type) { return VisitTypeInline(type, this); }
+  Status SwapType(const DataType& type) {
+    RETURN_NOT_OK(VisitTypeInline(type, this));
+    RETURN_NOT_OK(SwapChildren(type.fields()));
+    return Status::OK();
+  }
 
   Status SwapChildren(std::vector<std::shared_ptr<Field>> child_fields) {
     int i = 0;
     for (const auto& child_field : child_fields) {
-      auto orig_data = data_;
-      auto orig_length = length_;
-      data_ = data_->child_data[i++];
-      length_ = data_->length;
-      RETURN_NOT_OK(SwapType(*child_field.get()->type()));
-      length_ = orig_length;
-      data_ = orig_data;
+      ArrayDataEndianSwapper
+          swapper_child_visitor(data_->child_data[i], data_->child_data[i]->length);
+      RETURN_NOT_OK(VisitTypeInline(*child_field.get()->type(), &swapper_child_visitor));
+      RETURN_NOT_OK(
+          swapper_child_visitor.SwapChildren((*child_field.get()->type()).fields()));
+      i++;
     }
     return Status::OK();
   }
@@ -176,6 +179,9 @@ class ArrayDataEndianSwapper {
   Status Visit(const Int8Type& type) { return Status::OK(); }
   Status Visit(const UInt8Type& type) { return Status::OK(); }
   Status Visit(const FixedSizeBinaryType& type) { return Status::OK(); }
+  Status Visit(const FixedSizeListType& type) { return Status::OK(); }
+  Status Visit(const StructType& type) { return Status::OK(); }
+  Status Visit(const SparseUnionType& type) { return Status::OK(); }
 
   Status Visit(const StringType& type) {
     RETURN_NOT_OK(SwapSmallOffset());
@@ -196,38 +202,20 @@ class ArrayDataEndianSwapper {
 
   Status Visit(const ListType& type) {
     RETURN_NOT_OK(SwapSmallOffset());
-    RETURN_NOT_OK(SwapChildren(type.fields()));
     return Status::OK();
   }
   Status Visit(const LargeListType& type) {
     RETURN_NOT_OK(SwapLargeOffset());
-    RETURN_NOT_OK(SwapChildren(type.fields()));
-    return Status::OK();
-  }
-  Status Visit(const FixedSizeListType& type) {
-    RETURN_NOT_OK(SwapChildren(type.fields()));
     return Status::OK();
   }
 
   Status Visit(const MapType& type) {
     RETURN_NOT_OK(SwapSmallOffset());
-    RETURN_NOT_OK(SwapChildren(type.fields()));
-    return Status::OK();
-  }
-
-  Status Visit(const StructType& type) {
-    RETURN_NOT_OK(SwapChildren(type.fields()));
-    return Status::OK();
-  }
-
-  Status Visit(const SparseUnionType& type) {
-    RETURN_NOT_OK(SwapChildren(type.fields()));
     return Status::OK();
   }
 
   Status Visit(const DenseUnionType& type) {
     RETURN_NOT_OK(SwapSmallOffset(2));
-    RETURN_NOT_OK(SwapChildren(type.fields()));
     return Status::OK();
   }
 
@@ -258,6 +246,7 @@ std::shared_ptr<Array> MakeArray(const std::shared_ptr<ArrayData>& data) {
 void SwapEndianArrayData(std::shared_ptr<ArrayData>& data) {
   internal::ArrayDataEndianSwapper swapper_visitor(data, data->length);
   DCHECK_OK(VisitTypeInline(*data->type, &swapper_visitor));
+  DCHECK_OK(swapper_visitor.SwapChildren((*data->type).fields()));
 }
 
 // ----------------------------------------------------------------------

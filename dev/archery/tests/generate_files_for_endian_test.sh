@@ -17,9 +17,11 @@
 # under the License.
 
 : ${ARROW_DIR:=/arrow}
+: ${TMP_DIR:=/tmp/arrow}
 
-json_file=`archery integration --with-cpp=1 | grep "Testing file" | tail -1 | awk '{ print $3 }'`
-json_dir=`dirname $json_file`
+json_dir=$TMP_DIR/arrow.$$
+mkdir -p $json_dir
+archery integration --with-cpp=1 --tempdir=$json_dir
 for f in $json_dir/*.json ; do $ARROW_DIR/cpp/build/debug/arrow-json-integration-test -mode JSON_TO_ARROW -json $f -arrow ${f%.*}.arrow_file -integration true ; done
 for f in $json_dir/*.arrow_file ; do $ARROW_DIR/cpp/build/debug/arrow-file-to-stream $f > ${f%.*}.stream; done
 for f in $json_dir/*.json ; do gzip $f ; done
