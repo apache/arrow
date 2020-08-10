@@ -38,6 +38,7 @@
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/compression.h"
+#include "arrow/util/endian.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/rle_encoding.h"
 #include "arrow/visitor_inline.h"
