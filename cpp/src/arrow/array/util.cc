@@ -89,8 +89,8 @@ class ArrayDataEndianSwapper {
   Status SwapChildren(std::vector<std::shared_ptr<Field>> child_fields) {
     int i = 0;
     for (const auto& child_field : child_fields) {
-      ArrayDataEndianSwapper
-          swapper_child_visitor(data_->child_data[i], data_->child_data[i]->length);
+      ArrayDataEndianSwapper swapper_child_visitor(data_->child_data[i],
+                                                   data_->child_data[i]->length);
       RETURN_NOT_OK(VisitTypeInline(*child_field.get()->type(), &swapper_child_visitor));
       RETURN_NOT_OK(
           swapper_child_visitor.SwapChildren((*child_field.get()->type()).fields()));
