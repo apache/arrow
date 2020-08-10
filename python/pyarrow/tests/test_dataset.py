@@ -2206,3 +2206,36 @@ def test_write_dataset_partitioned(tempdir):
     _check_dataset_roundtrip(
         dataset, str(target), expected_paths, target,
         partitioning=partitioning_schema)
+
+
+def test_write_table(tempdir):
+    table = pa.table([
+            pa.array(range(20)), pa.array(np.random.randn(20)),
+            pa.array(np.repeat(['a', 'b'], 10))
+        ], names=["f1", "f2", "part"]
+    )
+
+    base_dir = tempdir / 'single'
+    ds.write_dataset(table, base_dir, format="feather")
+    # check that all files are present
+    file_paths = list(base_dir.rglob("*"))
+    expected_paths = [base_dir / "dat_0.ipc"]
+    assert set(file_paths) == set(expected_paths)
+    # check Table roundtrip
+    result = ds.dataset(base_dir, format="ipc").to_table()
+    assert result.equals(table)
+
+    # with partitioning
+    base_dir = tempdir / 'partitioned'
+    partitioning = ds.partitioning(
+        pa.schema([("part", pa.string())]), flavor="hive")
+    ds.write_dataset(
+        table, base_dir, format="feather", partitioning=partitioning)
+    file_paths = list(base_dir.rglob("*"))
+    expected_paths = [
+        base_dir / "part=a", base_dir / "part=a" / "dat_0.ipc",
+        base_dir / "part=b", base_dir / "part=b" / "dat_0.ipc"
+    ]
+    assert set(file_paths) == set(expected_paths)
+    result = ds.dataset(base_dir, format="ipc", partitioning=partitioning)
+    assert result.to_table().equals(table)

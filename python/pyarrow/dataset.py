@@ -713,18 +713,16 @@ def write_dataset(data, base_dir, format=None, partitioning=None, schema=None,
     schema : Schema, optional
     filesystem : FileSystem, optional
     """
-    if not isinstance(data, FileSystemDataset):
-        raise NotImplementedError(
-            "only FileSystemDataset instances supported for now"
-        )
+    if isinstance(data, pa.Table):
+        schema = schema or data.schema
+        data = data.to_batches()
+    elif isinstance(data, FileSystemDataset):
+        schema = schema or data.schema
+        format = format or data.format
+    else:
+        raise ValueError("Only Table and Dataset instances are supported.")
 
-    if schema is None:
-        schema = data.schema
-
-    if format is None:
-        format = data.format
     format = _ensure_format(format)
-
     partitioning = _ensure_write_partitioning(partitioning)
 
     if filesystem is None:

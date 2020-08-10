@@ -2041,7 +2041,7 @@ def _get_partition_keys(Expression partition_expression):
 
 
 def _filesystemdataset_write(
-    FileSystemDataset dataset, object base_dir, Schema schema,
+    data, object base_dir, Schema schema,
     FileFormat format, FileSystem filesystem, Partitioning partitioning
 ):
     """
@@ -2054,6 +2054,10 @@ def _filesystemdataset_write(
         shared_ptr[CFileSystem] c_filesystem
         shared_ptr[CPartitioning] c_partitioning
         shared_ptr[CScanContext] c_context
+        # to create iterator of InMemory fragments
+        vector[shared_ptr[CRecordBatch]] c_batches
+        shared_ptr[CFragment] c_fragment
+        vector[shared_ptr[CFragment]] c_fragment_vector
 
     c_base_dir = tobytes(_stringify_path(base_dir))
     c_schema = pyarrow_unwrap_schema(schema)
@@ -2063,15 +2067,37 @@ def _filesystemdataset_write(
     # passthrough use_threads?
     c_context = _build_scan_context()
 
-    with nogil:
-        check_status(
-            CFileSystemDataset.Write(
-                c_schema,
-                c_format,
-                c_filesystem,
-                c_base_dir,
-                c_partitioning,
-                c_context,
-                dataset.dataset.GetFragments()
+    if isinstance(data, Dataset):
+        with nogil:
+            check_status(
+                CFileSystemDataset.Write(
+                    c_schema,
+                    c_format,
+                    c_filesystem,
+                    c_base_dir,
+                    c_partitioning,
+                    c_context,
+                    (<Dataset> data).dataset.GetFragments()
+                )
             )
-        )
+    else:
+        # data is list of batches
+        for batch in data:
+            c_batches.push_back((<RecordBatch> batch).sp_batch)
+
+        c_fragment = shared_ptr[CFragment](
+            new CInMemoryFragment(c_batches, _true.unwrap()))
+        c_fragment_vector.push_back(c_fragment)
+
+        with nogil:
+            check_status(
+                CFileSystemDataset.Write(
+                    c_schema,
+                    c_format,
+                    c_filesystem,
+                    c_base_dir,
+                    c_partitioning,
+                    c_context,
+                    MakeVectorIterator(c_fragment_vector)
+                )
+            )

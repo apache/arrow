@@ -126,6 +126,11 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
     ctypedef CIterator[shared_ptr[CFragment]] CFragmentIterator \
         "arrow::dataset::FragmentIterator"
 
+    cdef cppclass CInMemoryFragment "arrow::dataset::InMemoryFragment"(
+            CFragment):
+        CInMemoryFragment(vector[shared_ptr[CRecordBatch]] record_batches,
+                          shared_ptr[CExpression] scalar)
+
     cdef cppclass CScanner "arrow::dataset::Scanner":
         CScanner(shared_ptr[CDataset], shared_ptr[CScanOptions],
                  shared_ptr[CScanContext])
