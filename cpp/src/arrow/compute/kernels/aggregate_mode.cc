@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <cmath>
 #include <unordered_map>
 
 #include "arrow/compute/kernels/aggregate_basic_internal.h"
@@ -39,7 +40,17 @@ struct ModeState {
     this->has_values |= state.has_values;
   }
 
-  void MergeOne(T value) { ++this->value_counts[value]; }
+  template <typename ArrowType_ = ArrowType>
+  enable_if_t<!is_floating_type<ArrowType_>::value> MergeOne(T value) {
+    ++this->value_counts[value];
+  }
+
+  template <typename ArrowType_ = ArrowType>
+  enable_if_t<is_floating_type<ArrowType_>::value> MergeOne(T value) {
+    if (!std::isnan(value)) {
+      ++this->value_counts[value];
+    }
+  }
 
   std::pair<T, int64_t> Finalize() {
     T mode = std::numeric_limits<T>::min();
@@ -65,7 +76,7 @@ struct ModeImpl : public ScalarAggregator {
   using ThisType = ModeImpl<ArrowType>;
   using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
 
-  ModeImpl(const std::shared_ptr<DataType>& out_type) : out_type(out_type) {}
+  explicit ModeImpl(const std::shared_ptr<DataType>& out_type) : out_type(out_type) {}
 
   void Consume(KernelContext*, const ExecBatch& batch) override {
     ModeState<ArrowType> local_state;
