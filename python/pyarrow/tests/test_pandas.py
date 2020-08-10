@@ -3334,12 +3334,8 @@ def test_nested_with_timestamp_tz_round_trip():
     struct = pa.StructArray.from_arrays([arr, arr], ['start', 'stop'])
 
     result = struct.to_pandas()
-    # N.B. we test with Pandas because the Arrow types are not
-    # actually equal. All Timezone aware times are currently normalized
-    # to "UTC" as the timestamp type, but since this conversion results
-    # in object dtypes, and tzinfo is preserved the comparison should
-    # result in equality.
-    pd.testing.assert_series_equal(pa.array(result).to_pandas(), result)
+    restored = pa.array(result)
+    assert restored.equals(struct)
 
 
 def test_nested_with_timestamp_tz():
