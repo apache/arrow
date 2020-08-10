@@ -973,7 +973,7 @@ struct ObjectWriterVisitor {
 
     if (!type.timezone().empty() && !options.ignore_timezone) {
       // convert timezone aware
-      PyObject *tzobj;
+      PyObject* tzobj;
       ARROW_ASSIGN_OR_RAISE(tzobj, internal::StringToTzinfo(type.timezone()));
       tzinfo.reset(tzobj);
       RETURN_IF_PYERROR();
