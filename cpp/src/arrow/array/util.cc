@@ -41,6 +41,7 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
+#include "arrow/util/endian.h"
 #include "arrow/util/logging.h"
 #include "arrow/visitor_inline.h"
 
