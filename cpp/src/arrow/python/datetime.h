@@ -163,13 +163,23 @@ Result<int64_t> PyDateTime_utcoffset_s(PyObject* pydatetime);
 /// \brief Convert a time zone name into a time zone object.
 ///
 /// Supported input strings are:
-///  * As used in the Olson time zone database (the "tz database" or
+/// * As used in the Olson time zone database (the "tz database" or
 ///   "tzdata"), such as "America/New_York"
 /// * An absolute time zone offset of the form +XX:XX or -XX:XX, such as +07:30
 /// GIL must be held when calling this method.
 ARROW_PYTHON_EXPORT
 Result<PyObject*> StringToTzinfo(const std::string& tz);
 
+/// \brief Convert a time zone object to a string representation.
+///
+/// The output strings are:
+/// * An absolute time zone offset of the form +XX:XX or -XX:XX, such as +07:30
+///   if the input object is either an instance of pytz._FixedOffset or
+///   datetime.timedelta
+/// * The timezone's name if the input object's tzname() method returns with a
+///   non-empty timezone name such as "UTC" or "America/New_York"
+///
+/// GIL must be held when calling this method.
 ARROW_PYTHON_EXPORT
 Result<std::string> TzinfoToString(PyObject* pytzinfo);
 

@@ -245,7 +245,7 @@ struct ValueConverter<TimestampType> {
                                            bool ignore_timezone) {
     int64_t value;
     if (PyDateTime_Check(obj)) {
-      ARROW_ASSIGN_OR_RAISE(auto offset, internal::PyDateTime_utcoffset_s(obj));
+      ARROW_ASSIGN_OR_RAISE(int64_t offset, internal::PyDateTime_utcoffset_s(obj));
       if (ignore_timezone) {
         offset = 0;
       }
@@ -1358,7 +1358,7 @@ Status ConvertPySequence(PyObject* sequence_source, PyObject* mask,
   if (options.type == nullptr) {
     RETURN_NOT_OK(InferArrowType(seq, mask, options.from_pandas, &real_type));
     if (options.ignore_timezone && real_type->id() == Type::TIMESTAMP) {
-      const auto& ts_type = checked_cast<TimestampType&>(*real_type);
+      const auto& ts_type = checked_cast<const TimestampType&>(*real_type);
       real_type = timestamp(ts_type.unit());
     }
   } else {

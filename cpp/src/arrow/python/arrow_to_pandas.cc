@@ -952,26 +952,38 @@ struct ObjectWriterVisitor {
 
   template <typename Type>
   enable_if_timestamp<Type, Status> Visit(const Type& type) {
+    PyObject* tzinfo = nullptr;
     const TimeUnit::type unit = type.unit();
-    OwnedRef tzinfo;
-    if (!type.timezone().empty() && !options.ignore_timezone) {
-      ARROW_ASSIGN_OR_RAISE(tzinfo, internal::StringToTzinfo(type.timezone()));
-      RETURN_IF_PYERROR();
-    }
-    auto WrapValue = [&](typename Type::c_type value, PyObject** out) {
-      RETURN_NOT_OK(internal::PyDateTime_from_int(value, unit, out));
-      RETURN_IF_PYERROR();
-      if (tzinfo.obj() != nullptr) {
-        PyObject* with_tz = PyObject_CallMethod(tzinfo.obj(), "fromutc", "O", *out);
-        RETURN_IF_PYERROR();
-        Py_DECREF(*out);
-        *out = with_tz;
-      }
 
+    auto ConvertTimezoneNaive = [&](typename Type::c_type value, PyObject** out) {
+      RETURN_NOT_OK(internal::PyDateTime_from_int(value, unit, out));
       RETURN_IF_PYERROR();
       return Status::OK();
     };
-    return ConvertAsPyObjects<Type>(options, data, WrapValue, out_values);
+    auto ConvertTimezoneAware = [&](typename Type::c_type value, PyObject** out) {
+      PyObject* tz_naive;
+      RETURN_NOT_OK(ConvertTimezoneNaive(value, &tz_naive));
+      // convert the timezone naive datetime object to timezone aware
+      *out = PyObject_CallMethod(tzinfo, "fromutc", "O", tz_naive);
+      RETURN_IF_PYERROR();
+      // the timezone naive object is no longer required
+      Py_DECREF(tz_naive);
+      return Status::OK();
+    };
+
+    if (!type.timezone().empty() && !options.ignore_timezone) {
+      // convert timezone aware
+      ARROW_ASSIGN_OR_RAISE(tzinfo, internal::StringToTzinfo(type.timezone()));
+      RETURN_IF_PYERROR();
+      RETURN_NOT_OK(
+          ConvertAsPyObjects<Type>(options, data, ConvertTimezoneAware, out_values));
+    } else {
+      // convert timezone naive
+      RETURN_NOT_OK(
+          ConvertAsPyObjects<Type>(options, data, ConvertTimezoneNaive, out_values));
+    }
+
+    return Status::OK();
   }
 
   Status Visit(const Decimal128Type& type) {
