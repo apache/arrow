@@ -2344,6 +2344,23 @@ TEST(ArrowReadWrite, SimpleStructRoundTrip) {
       2);
 }
 
+TEST(ArrowReadWrite, SingleColumnNullableStruct) {
+  auto links =
+      field("Links",
+            ::arrow::struct_({field("Backward", ::arrow::int64(), /*nullable=*/true)}));
+
+  auto links_id_array = ::arrow::ArrayFromJSON(links->type(),
+                                               "[null, "
+                                               "{\"Backward\": 10}"
+                                               "]");
+
+  CheckSimpleRoundtrip(
+      ::arrow::Table::Make(std::make_shared<::arrow::Schema>(
+                               std::vector<std::shared_ptr<::arrow::Field>>{links}),
+                           {links_id_array}),
+      3);
+}
+
 // Disabled until implementation can be finished.
 TEST(TestArrowReadWrite, DISABLED_CanonicalNestedRoundTrip) {
   auto doc_id = field("DocId", ::arrow::int64(), /*nullable=*/false);
