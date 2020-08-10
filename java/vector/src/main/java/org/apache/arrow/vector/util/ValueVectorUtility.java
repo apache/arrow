@@ -17,7 +17,7 @@
 
 package org.apache.arrow.vector.util;
 
-import static org.apache.arrow.vector.validate.ValidateUtility.validateOrThrow;
+import static org.apache.arrow.vector.validate.ValidateUtil.validateOrThrow;
 
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.BaseFixedWidthVector;
@@ -122,10 +122,11 @@ public class ValueVectorUtility {
   public static void validate(VectorSchemaRoot root) {
     Preconditions.checkNotNull(root);
     int valueCount = root.getRowCount();
-    validateOrThrow(valueCount >= 0, "The row count of vector schema root must be non-negative");
+    validateOrThrow(valueCount >= 0, "The row count of vector schema root %s is negative.", valueCount);
     for (ValueVector childVec : root.getFieldVectors()) {
       validateOrThrow(valueCount == childVec.getValueCount(),
-          "Child vector and vector schema root have different value counts");
+          "Child vector and vector schema root have different value counts. " +
+              "Child vector value count %s, vector schema root value count %s", childVec.getValueCount(), valueCount);
       validate(childVec);
     }
   }
@@ -136,10 +137,11 @@ public class ValueVectorUtility {
   public static void validateFull(VectorSchemaRoot root) {
     Preconditions.checkNotNull(root);
     int valueCount = root.getRowCount();
-    validateOrThrow(valueCount >= 0, "The row count of vector schema root must be non-negative");
+    validateOrThrow(valueCount >= 0, "The row count of vector schema root %s is negative.", valueCount);
     for (ValueVector childVec : root.getFieldVectors()) {
       validateOrThrow(valueCount == childVec.getValueCount(),
-          "Child vector and vector schema root have different value counts");
+          "Child vector and vector schema root have different value counts. " +
+              "Child vector value count %s, vector schema root value count %s", childVec.getValueCount(), valueCount);
       validateFull(childVec);
     }
   }

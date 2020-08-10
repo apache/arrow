@@ -17,7 +17,7 @@
 
 package org.apache.arrow.vector.validate;
 
-import static org.apache.arrow.vector.validate.ValidateUtility.validateOrThrow;
+import static org.apache.arrow.vector.validate.ValidateUtil.validateOrThrow;
 
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.vector.BaseFixedWidthVector;
@@ -44,45 +44,55 @@ public class ValidateVectorBufferVisitor implements VectorVisitor<Void, Void> {
 
   private void validateVectorCommon(ValueVector vector) {
     ArrowType arrowType = vector.getField().getType();
-    validateOrThrow(vector.getValueCount() >= 0, "vector valueCount is negative");
+    validateOrThrow(vector.getValueCount() >= 0,
+        "Vector valueCount %s is negative.", vector.getValueCapacity());
 
     if (vector instanceof FieldVector) {
       FieldVector fieldVector = (FieldVector) vector;
       int typeBufferCount = TypeLayout.getTypeBufferCount(arrowType);
       validateOrThrow(fieldVector.getFieldBuffers().size() == typeBufferCount,
-          String.format("Expected %s buffers in vector of type %s, got %s",
-              typeBufferCount, vector.getField().getType().toString(), fieldVector.getFieldBuffers().size()));
+          "Expected %s buffers in vector of type %s, got %s.",
+              typeBufferCount, vector.getField().getType().toString(), fieldVector.getFieldBuffers().size());
     }
   }
 
   private void validateValidityBuffer(ValueVector vector, int valueCount) {
     ArrowBuf validityBuffer = vector.getValidityBuffer();
     validateOrThrow(validityBuffer != null, "The validity buffer is null.");
-    validateOrThrow(validityBuffer.capacity() * 8 >= valueCount, "No enough capacity for the validity buffer.");
+    validateOrThrow(validityBuffer.capacity() * 8 >= valueCount,
+        "Not enough capacity for the validity buffer. Minimum capacity %s, actual capacity %s.",
+        (valueCount + 7) / 8, validityBuffer.capacity());
   }
 
   private void validateOffsetBuffer(ValueVector vector, long minCapacity) {
     ArrowBuf offsetBuffer = vector.getOffsetBuffer();
     validateOrThrow(offsetBuffer != null, "The offset buffer is null.");
-    validateOrThrow(offsetBuffer.capacity() >= minCapacity, "No enough capacity for the offset buffer.");
+    validateOrThrow(offsetBuffer.capacity() >= minCapacity,
+        "Not enough capacity for the offset buffer. Minimum capacity %s, actual capacity %s.",
+        minCapacity, offsetBuffer.capacity());
   }
 
   private void validateFixedWidthDataBuffer(ValueVector vector, int valueCount, int bitWidth) {
     ArrowBuf dataBuffer = vector.getDataBuffer();
     validateOrThrow(dataBuffer != null, "The fixed width data buffer is null.");
     validateOrThrow((long) bitWidth * valueCount <= dataBuffer.capacity() * 8L,
-        "No enough capacity for fixed width data buffer");
+        "Not enough capacity for fixed width data buffer. Minimum capacity %s, actual capacity %s.",
+        ((long) bitWidth * valueCount + 7L) / 8L, dataBuffer.capacity());
   }
 
   private void validateDataBuffer(ValueVector vector, long minCapacity) {
     ArrowBuf dataBuffer = vector.getDataBuffer();
     validateOrThrow(dataBuffer != null, "The data buffer is null.");
-    validateOrThrow(dataBuffer.capacity() >= minCapacity, "No enough capacity for data buffer");
+    validateOrThrow(dataBuffer.capacity() >= minCapacity,
+        "Not enough capacity for data buffer. Minimum capacity %s, actual capacity %s.",
+        minCapacity, dataBuffer.capacity());
   }
 
   private void validateTypeBuffer(ArrowBuf typeBuf, long minCapacity) {
     validateOrThrow(typeBuf != null, "The type buffer is null.");
-    validateOrThrow(typeBuf.capacity() >= minCapacity, "No enough capacity for type buffer");
+    validateOrThrow(typeBuf.capacity() >= minCapacity,
+        "Not enough capacity for type buffer. Minimum capacity %s, actual capacity %s.",
+        minCapacity, typeBuf.capacity());
   }
 
   @Override
@@ -135,7 +145,8 @@ public class ValidateVectorBufferVisitor implements VectorVisitor<Void, Void> {
         vector.getOffsetBuffer().getInt(valueCount * BaseVariableWidthVector.OFFSET_WIDTH);
     int dataVectorLength = dataVector == null ? 0 : dataVector.getValueCount();
     validateOrThrow(dataVectorLength >= lastOffset,
-        "Inner vector does not contain enough elements.");
+        "Inner vector does not contain enough elements. Minimum element count %s, actual element count %s",
+        lastOffset + 1, dataVectorLength);
 
     if (dataVector != null) {
       dataVector.accept(this, null);
@@ -151,7 +162,8 @@ public class ValidateVectorBufferVisitor implements VectorVisitor<Void, Void> {
     FieldVector dataVector = vector.getDataVector();
     int dataVectorLength = dataVector == null ? 0 : dataVector.getValueCount();
     validateOrThrow(dataVectorLength >= valueCount * vector.getListSize(),
-        "Inner vector does not contain enough elements.");
+        "Inner vector does not contain enough elements. Minimum element count %s, actual element count %s.",
+        valueCount * vector.getListSize(), dataVectorLength);
     if (dataVector != null) {
       dataVector.accept(this, null);
     }
@@ -171,7 +183,8 @@ public class ValidateVectorBufferVisitor implements VectorVisitor<Void, Void> {
         vector.getOffsetBuffer().getLong(valueCount * BaseLargeVariableWidthVector.OFFSET_WIDTH);
     int dataVectorLength = dataVector == null ? 0 : dataVector.getValueCount();
     validateOrThrow(dataVectorLength >= lastOffset,
-        "Inner vector does not contain enough elements.");
+        "Inner vector does not contain enough elements. Minimum element count %s, actual element count %s",
+        lastOffset + 1, dataVectorLength);
 
     if (dataVector != null) {
       dataVector.accept(this, null);
@@ -186,7 +199,8 @@ public class ValidateVectorBufferVisitor implements VectorVisitor<Void, Void> {
     validateValidityBuffer(vector, valueCount);
     for (ValueVector subVector : vector.getChildrenFromFields()) {
       validateOrThrow(valueCount == subVector.getValueCount(),
-          "Struct vector length not equal to child vector length");
+          "Struct vector length not equal to child vector length. Struct vector length %s, child vector length %s",
+          valueCount, subVector.getValueCount());
       subVector.accept(this, null);
     }
     return null;
@@ -199,7 +213,8 @@ public class ValidateVectorBufferVisitor implements VectorVisitor<Void, Void> {
     validateTypeBuffer(vector.getTypeBuffer(), valueCount * UnionVector.TYPE_WIDTH);
     for (ValueVector subVector : vector.getChildrenFromFields()) {
       validateOrThrow(valueCount == subVector.getValueCount(),
-          "Union vector length not equal to child vector length");
+          "Union vector length not equal to child vector length. Union vector length %s, child vector length %s",
+          valueCount, subVector.getValueCount());
       subVector.accept(this, null);
     }
     return null;

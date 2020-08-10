@@ -19,7 +19,6 @@ package org.apache.arrow.vector.validate;
 
 import static org.apache.arrow.vector.testing.ValueVectorDataPopulator.setVector;
 import static org.apache.arrow.vector.util.ValueVectorUtility.validate;
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -76,9 +75,9 @@ public class TestValidateVector {
       validate(vector);
 
       vector.getDataBuffer().capacity(0);
-      ValidateUtility.ValidateException e = assertThrows(ValidateUtility.ValidateException.class,
+      ValidateUtil.ValidateException e = assertThrows(ValidateUtil.ValidateException.class,
           () -> validate(vector));
-      assertTrue(e.getMessage().contains("No enough capacity for fixed width data buffer"));
+      assertTrue(e.getMessage().contains("Not enough capacity for fixed width data buffer"));
     }
   }
 
@@ -90,9 +89,9 @@ public class TestValidateVector {
       validate(vector);
 
       vector.getDataBuffer().capacity(0);
-      ValidateUtility.ValidateException e = assertThrows(ValidateUtility.ValidateException.class,
+      ValidateUtil.ValidateException e = assertThrows(ValidateUtil.ValidateException.class,
           () -> validate(vector));
-      assertTrue(e.getMessage().contains("No enough capacity for data buffer"));
+      assertTrue(e.getMessage().contains("Not enough capacity for data buffer"));
     }
   }
 
@@ -104,9 +103,9 @@ public class TestValidateVector {
       validate(vector);
 
       vector.getDataBuffer().capacity(0);
-      ValidateUtility.ValidateException e = assertThrows(ValidateUtility.ValidateException.class,
+      ValidateUtil.ValidateException e = assertThrows(ValidateUtil.ValidateException.class,
           () -> validate(vector));
-      assertTrue(e.getMessage().contains("No enough capacity for data buffer"));
+      assertTrue(e.getMessage().contains("Not enough capacity for data buffer"));
     }
   }
 
@@ -118,10 +117,9 @@ public class TestValidateVector {
       validate(vector);
 
       vector.getDataVector().setValueCount(3);
-      ValidateUtility.ValidateException e = assertThrows(ValidateUtility.ValidateException.class,
+      ValidateUtil.ValidateException e = assertThrows(ValidateUtil.ValidateException.class,
           () -> validate(vector));
-      assertEquals("Inner vector does not contain enough elements.",
-          e.getMessage());
+      assertTrue(e.getMessage().contains("Inner vector does not contain enough elements."));
     }
   }
 
@@ -133,10 +131,9 @@ public class TestValidateVector {
       validate(vector);
 
       vector.getDataVector().setValueCount(4);
-      ValidateUtility.ValidateException e = assertThrows(ValidateUtility.ValidateException.class,
+      ValidateUtil.ValidateException e = assertThrows(ValidateUtil.ValidateException.class,
           () -> validate(vector));
-      assertEquals("Inner vector does not contain enough elements.",
-          e.getMessage());
+      assertTrue(e.getMessage().contains("Inner vector does not contain enough elements."));
     }
   }
 
@@ -148,10 +145,9 @@ public class TestValidateVector {
       validate(vector);
 
       vector.getDataVector().setValueCount(3);
-      ValidateUtility.ValidateException e = assertThrows(ValidateUtility.ValidateException.class,
+      ValidateUtil.ValidateException e = assertThrows(ValidateUtil.ValidateException.class,
           () -> validate(vector));
-      assertEquals("Inner vector does not contain enough elements.",
-          e.getMessage());
+      assertTrue(e.getMessage().contains("Inner vector does not contain enough elements."));
     }
   }
 
@@ -174,7 +170,7 @@ public class TestValidateVector {
       writer.setValueCount(5);
 
       vector.getChild("f0").setValueCount(2);
-      ValidateUtility.ValidateException e = assertThrows(ValidateUtility.ValidateException.class,
+      ValidateUtil.ValidateException e = assertThrows(ValidateUtil.ValidateException.class,
           () -> validate(vector));
       assertTrue(e.getMessage().contains("Struct vector length not equal to child vector length"));
 
@@ -182,9 +178,9 @@ public class TestValidateVector {
       validate(vector);
 
       vector.getChild("f0").getDataBuffer().capacity(0);
-      ValidateUtility.ValidateException e2 = assertThrows(ValidateUtility.ValidateException.class,
+      ValidateUtil.ValidateException e2 = assertThrows(ValidateUtil.ValidateException.class,
           () -> validate(vector));
-      assertTrue(e2.getMessage().contains("No enough capacity for fixed width data buffer"));
+      assertTrue(e2.getMessage().contains("Not enough capacity for fixed width data buffer"));
     }
   }
 
@@ -210,7 +206,7 @@ public class TestValidateVector {
       validate(vector);
 
       vector.getChildrenFromFields().get(0).setValueCount(1);
-      ValidateUtility.ValidateException e1 = assertThrows(ValidateUtility.ValidateException.class,
+      ValidateUtil.ValidateException e1 = assertThrows(ValidateUtil.ValidateException.class,
           () -> validate(vector));
       assertTrue(e1.getMessage().contains("Union vector length not equal to child vector length"));
 
@@ -218,9 +214,9 @@ public class TestValidateVector {
       validate(vector);
 
       vector.getChildrenFromFields().get(0).getDataBuffer().capacity(0);
-      ValidateUtility.ValidateException e2 = assertThrows(ValidateUtility.ValidateException.class,
+      ValidateUtil.ValidateException e2 = assertThrows(ValidateUtil.ValidateException.class,
           () -> validate(vector));
-      assertTrue(e2.getMessage().contains("No enough capacity for fixed width data buffer"));
+      assertTrue(e2.getMessage().contains("Not enough capacity for fixed width data buffer"));
     }
   }
 
@@ -249,9 +245,9 @@ public class TestValidateVector {
       validate(vector);
 
       vector.getChildrenFromFields().get(0).getDataBuffer().capacity(0);
-      ValidateUtility.ValidateException e = assertThrows(ValidateUtility.ValidateException.class,
+      ValidateUtil.ValidateException e = assertThrows(ValidateUtil.ValidateException.class,
           () -> validate(vector));
-      assertTrue(e.getMessage().contains("No enough capacity for fixed width data buffer"));
+      assertTrue(e.getMessage().contains("Not enough capacity for fixed width data buffer"));
     }
   }
 
@@ -261,6 +257,4 @@ public class TestValidateVector {
     writer.bigInt("f1").writeBigInt(value2);
     writer.end();
   }
-
-
 }

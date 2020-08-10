@@ -80,10 +80,10 @@ public class TestValidateVectorSchemaRoot {
       root.setRowCount(4);
       intVector.setValueCount(5);
       strVector.setValueCount(5);
-      ValidateUtility.ValidateException e = assertThrows(ValidateUtility.ValidateException.class,
+      ValidateUtil.ValidateException e = assertThrows(ValidateUtil.ValidateException.class,
           () -> validate(root));
       assertTrue(e.getMessage().contains("Child vector and vector schema root have different value counts"));
-      e = assertThrows(ValidateUtility.ValidateException.class,
+      e = assertThrows(ValidateUtil.ValidateException.class,
           () -> validateFull(root));
       assertTrue(e.getMessage().contains("Child vector and vector schema root have different value counts"));
 
@@ -93,9 +93,9 @@ public class TestValidateVectorSchemaRoot {
       offsetBuf.setInt(0, 100);
       offsetBuf.setInt(8, 50);
       validate(root);
-      e = assertThrows(ValidateUtility.ValidateException.class,
+      e = assertThrows(ValidateUtil.ValidateException.class,
           () -> validateFull(root));
-      assertTrue(e.getMessage().contains("The values in the offset buffer are decreasing"));
+      assertTrue(e.getMessage().contains("The values in positions 0 and 1 of the offset buffer are decreasing"));
     }
   }
 }

@@ -74,9 +74,9 @@ public class TestValidateVectorFull {
       offsetBuf.setInt(0, 100);
       offsetBuf.setInt(4, 50);
 
-      ValidateUtility.ValidateException e = assertThrows(ValidateUtility.ValidateException.class,
+      ValidateUtil.ValidateException e = assertThrows(ValidateUtil.ValidateException.class,
           () -> validateFull(vector));
-      assertTrue(e.getMessage().contains("The values in the offset buffer are decreasing"));
+      assertTrue(e.getMessage().contains("The values in positions 0 and 1 of the offset buffer are decreasing"));
     }
   }
 
@@ -88,12 +88,12 @@ public class TestValidateVectorFull {
       validateFull(vector);
 
       ArrowBuf offsetBuf = vector.getOffsetBuffer();
-      offsetBuf.setInt(0, 100);
-      offsetBuf.setInt(4, 50);
+      offsetBuf.setLong(0, 100);
+      offsetBuf.setLong(8, 50);
 
-      ValidateUtility.ValidateException e = assertThrows(ValidateUtility.ValidateException.class,
+      ValidateUtil.ValidateException e = assertThrows(ValidateUtil.ValidateException.class,
           () -> validateFull(vector));
-      assertTrue(e.getMessage().contains("The values in the large offset buffer are decreasing"));
+      assertTrue(e.getMessage().contains("The values in positions 0 and 1 of the large offset buffer are decreasing"));
     }
   }
 
@@ -108,9 +108,9 @@ public class TestValidateVectorFull {
       offsetBuf.setInt(0, 100);
       offsetBuf.setInt(8, 50);
 
-      ValidateUtility.ValidateException e = assertThrows(ValidateUtility.ValidateException.class,
+      ValidateUtil.ValidateException e = assertThrows(ValidateUtil.ValidateException.class,
           () -> validateFull(vector));
-      assertTrue(e.getMessage().contains("The values in the offset buffer are decreasing"));
+      assertTrue(e.getMessage().contains("The values in positions 0 and 1 of the offset buffer are decreasing"));
     }
   }
 
@@ -125,9 +125,9 @@ public class TestValidateVectorFull {
       offsetBuf.setLong(0, 100);
       offsetBuf.setLong(16, 50);
 
-      ValidateUtility.ValidateException e = assertThrows(ValidateUtility.ValidateException.class,
+      ValidateUtil.ValidateException e = assertThrows(ValidateUtil.ValidateException.class,
           () -> validateFull(vector));
-      assertTrue(e.getMessage().contains("The values in the large offset buffer are decreasing"));
+      assertTrue(e.getMessage().contains("The values in positions 0 and 1 of the large offset buffer are decreasing"));
     }
   }
 
@@ -155,13 +155,13 @@ public class TestValidateVectorFull {
       offsetBuf.setInt(0, 100);
       offsetBuf.setInt(8, 50);
 
-      ValidateUtility.ValidateException e = assertThrows(ValidateUtility.ValidateException.class,
+      ValidateUtil.ValidateException e = assertThrows(ValidateUtil.ValidateException.class,
           () -> validateFull(strVector));
-      assertTrue(e.getMessage().contains("The values in the offset buffer are decreasing"));
+      assertTrue(e.getMessage().contains("The values in positions 0 and 1 of the offset buffer are decreasing"));
 
-      e = assertThrows(ValidateUtility.ValidateException.class,
+      e = assertThrows(ValidateUtil.ValidateException.class,
           () -> validateFull(vector));
-      assertTrue(e.getMessage().contains("The values in the offset buffer are decreasing"));
+      assertTrue(e.getMessage().contains("The values in positions 0 and 1 of the offset buffer are decreasing"));
     }
   }
 
@@ -189,9 +189,9 @@ public class TestValidateVectorFull {
       // negative type id
       vector.getTypeBuffer().setByte(0, -1);
 
-      ValidateUtility.ValidateException e = assertThrows(ValidateUtility.ValidateException.class,
+      ValidateUtil.ValidateException e = assertThrows(ValidateUtil.ValidateException.class,
           () -> validateFull(vector));
-      assertTrue(e.getMessage().contains("The type id must be non-negative"));
+      assertTrue(e.getMessage().contains("The type id at position 0 is negative"));
     }
   }
 
@@ -226,7 +226,7 @@ public class TestValidateVectorFull {
       // shrink sub-vector
       subVector.setValueCount(0);
 
-      ValidateUtility.ValidateException e = assertThrows(ValidateUtility.ValidateException.class,
+      ValidateUtil.ValidateException e = assertThrows(ValidateUtil.ValidateException.class,
           () -> validateFull(vector));
       assertTrue(e.getMessage().contains("Dense union vector offset exceeds sub-vector boundary"));
     }

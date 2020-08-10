@@ -100,7 +100,7 @@ public class TestValidateVectorTypeVisitor {
 
   private void testNegativeCase(Supplier<ValueVector> vectorGenerator) {
     try (ValueVector vector = vectorGenerator.get()) {
-      assertThrows(ValidateUtility.ValidateException.class, () -> {
+      assertThrows(ValidateUtil.ValidateException.class, () -> {
         vector.accept(visitor, null);
       });
     }

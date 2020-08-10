@@ -20,9 +20,9 @@ package org.apache.arrow.vector.validate;
 /**
  * Utilities for vector validation.
  */
-public class ValidateUtility {
+public class ValidateUtil {
 
-  private ValidateUtility() {
+  private ValidateUtil() {
   }
 
   /**
@@ -34,6 +34,19 @@ public class ValidateUtility {
   public static void validateOrThrow(boolean expression, String errorMessage) {
     if (!expression) {
       throw new ValidateException(errorMessage);
+    }
+  }
+
+  /**
+   * Validate the expression.
+   * @param expression the expression to validate.
+   * @param errorMessage the error message template.
+   * @param args the error message arguments.
+   * @throws ValidateException if the expression evaluates to false.
+   */
+  public static void validateOrThrow(boolean expression, String errorMessage, Object... args) {
+    if (!expression) {
+      throw new ValidateException(String.format(errorMessage, args));
     }
   }
 
