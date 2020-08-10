@@ -44,12 +44,12 @@ else
 fi
 OPENSSL_LIBS="-lcrypto -lcrypt32"
 MIMALLOC_LIBS="-lbcrypt -lpsapi"
-AWS_LIBS="-laws-c-common -laws-c-event-stream -laws-checksums -laws-cpp-sdk-config -laws-cpp-sdk-core -laws-cpp-sdk-s3"
+AWS_LIBS="-laws-cpp-sdk-config -laws-cpp-sdk-transfer -laws-cpp-sdk-s3 -laws-cpp-sdk-core -laws-c-event-stream -laws-checksums -laws-c-common -lUserenv -lversion -lws2_32 -lBcrypt -lWininet -lwinhttp"
 
 # NOTE: If you make changes to the libraries below, you should also change
 # ci/scripts/r_windows_build.sh and ci/scripts/PKGBUILD
 PKG_CFLAGS="-I${RWINLIB}/include -DARROW_STATIC -DPARQUET_STATIC -DARROW_DS_STATIC -DARROW_R_WITH_ARROW -DARROW_R_WITH_S3"
-PKG_LIBS="-L${RWINLIB}/lib"'$(subst gcc,,$(COMPILED_BY))$(R_ARCH) '"-L${RWINLIB}/lib"'$(R_ARCH) '"-lparquet -larrow_dataset -larrow -larrow_bundled_dependencies -lthrift -lsnappy -lz -lzstd -llz4 ${MIMALLOC_LIBS} ${OPENSSL_LIBS} -lws2_32 ${AWS_LIBS}"
+PKG_LIBS="-L${RWINLIB}/lib"'$(subst gcc,,$(COMPILED_BY))$(R_ARCH) '"-L${RWINLIB}/lib"'$(R_ARCH) '"-lparquet -larrow_dataset -larrow -larrow_bundled_dependencies -lthrift -lsnappy -lz -lzstd -llz4 ${MIMALLOC_LIBS} ${OPENSSL_LIBS} ${AWS_LIBS}"
 
 # Set any user-defined CXXFLAGS
 if [ "$ARROW_R_CXXFLAGS" ]; then
