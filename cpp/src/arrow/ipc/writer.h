@@ -166,12 +166,10 @@ Status SerializeRecordBatch(const RecordBatch& batch, const IpcWriteOptions& opt
 /// \brief Serialize schema as encapsulated IPC message
 ///
 /// \param[in] schema the schema to write
-/// \param[in] dictionary_memo a DictionaryMemo for recording dictionary ids
 /// \param[in] pool a MemoryPool to allocate memory from
 /// \return the serialized schema
 ARROW_EXPORT
 Result<std::shared_ptr<Buffer>> SerializeSchema(const Schema& schema,
-                                                DictionaryMemo* dictionary_memo,
                                                 MemoryPool* pool = default_memory_pool());
 
 /// \brief Write multiple record batches to OutputStream, including schema
@@ -280,12 +278,12 @@ Status WriteSparseTensor(const SparseTensor& sparse_tensor, io::OutputStream* ds
 /// \brief Compute IpcPayload for the given schema
 /// \param[in] schema the Schema that is being serialized
 /// \param[in] options options for serialization
-/// \param[in,out] dictionary_memo class to populate with assigned dictionary ids
+/// \param[in] mapper object mapping dictionary fields to dictionary ids
 /// \param[out] out the returned vector of IpcPayloads
 /// \return Status
 ARROW_EXPORT
 Status GetSchemaPayload(const Schema& schema, const IpcWriteOptions& options,
-                        DictionaryMemo* dictionary_memo, IpcPayload* out);
+                        const DictionaryFieldMapper& mapper, IpcPayload* out);
 
 /// \brief Compute IpcPayload for a dictionary
 /// \param[in] id the dictionary id

@@ -763,9 +763,8 @@ Status GetSchemaMetadata(const ::arrow::Schema& schema, ::arrow::MemoryPool* poo
     result = ::arrow::key_value_metadata({}, {});
   }
 
-  ::arrow::ipc::DictionaryMemo dict_memo;
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> serialized,
-                        ::arrow::ipc::SerializeSchema(schema, &dict_memo, pool));
+                        ::arrow::ipc::SerializeSchema(schema, pool));
 
   // The serialized schema is not UTF-8, which is required for Thrift
   std::string schema_as_string = serialized->ToString();

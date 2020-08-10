@@ -288,8 +288,9 @@ class DoExchangeMessageWriter : public FlightMessageWriter {
     started_ = true;
     ipc_options_ = options;
 
+    RETURN_NOT_OK(mapper_.AddSchemaFields(*schema));
     FlightPayload schema_payload;
-    RETURN_NOT_OK(ipc::GetSchemaPayload(*schema, ipc_options_, &dictionary_memo_,
+    RETURN_NOT_OK(ipc::GetSchemaPayload(*schema, ipc_options_, mapper_,
                                         &schema_payload.ipc_message));
     return WritePayload(schema_payload);
   }
@@ -342,8 +343,9 @@ class DoExchangeMessageWriter : public FlightMessageWriter {
       return Status::OK();
     }
     dictionaries_written_ = true;
-    RETURN_NOT_OK(ipc::CollectDictionaries(batch, &dictionary_memo_));
-    for (auto& pair : dictionary_memo_.dictionaries()) {
+    ARROW_ASSIGN_OR_RAISE(const auto dictionaries,
+                          ipc::CollectDictionaries(batch, mapper_));
+    for (const auto& pair : dictionaries) {
       FlightPayload payload{};
       RETURN_NOT_OK(ipc::GetDictionaryPayload(pair.first, pair.second, ipc_options_,
                                               &payload.ipc_message));
@@ -354,7 +356,7 @@ class DoExchangeMessageWriter : public FlightMessageWriter {
 
   grpc::ServerReaderWriter<pb::FlightData, pb::FlightData>* stream_;
   ::arrow::ipc::IpcWriteOptions ipc_options_;
-  ipc::DictionaryMemo dictionary_memo_;
+  ipc::DictionaryFieldMapper mapper_;
   bool started_ = false;
   bool dictionaries_written_ = false;
 };
@@ -969,12 +971,12 @@ class RecordBatchStream::RecordBatchStreamImpl {
 
   RecordBatchStreamImpl(const std::shared_ptr<RecordBatchReader>& reader,
                         const ipc::IpcWriteOptions& options)
-      : reader_(reader), ipc_options_(options) {}
+      : reader_(reader), mapper_(*reader_->schema()), ipc_options_(options) {}
 
   std::shared_ptr<Schema> schema() { return reader_->schema(); }
 
   Status GetSchemaPayload(FlightPayload* payload) {
-    return ipc::GetSchemaPayload(*reader_->schema(), ipc_options_, &dictionary_memo_,
+    return ipc::GetSchemaPayload(*reader_->schema(), ipc_options_, mapper_,
                                  &payload->ipc_message);
   }
 
@@ -986,7 +988,8 @@ class RecordBatchStream::RecordBatchStreamImpl {
         payload->ipc_message.metadata = nullptr;
         return Status::OK();
       }
-      RETURN_NOT_OK(CollectDictionaries(*current_batch_));
+      ARROW_ASSIGN_OR_RAISE(dictionaries_,
+                            ipc::CollectDictionaries(*current_batch_, mapper_));
       stage_ = Stage::DICTIONARY;
     }
 
@@ -1020,15 +1023,9 @@ class RecordBatchStream::RecordBatchStreamImpl {
                                      &payload->ipc_message);
   }
 
-  Status CollectDictionaries(const RecordBatch& batch) {
-    RETURN_NOT_OK(ipc::CollectDictionaries(batch, &dictionary_memo_));
-    dictionaries_ = dictionary_memo_.dictionaries();
-    return Status::OK();
-  }
-
   Stage stage_ = Stage::NEW;
   std::shared_ptr<RecordBatchReader> reader_;
-  ipc::DictionaryMemo dictionary_memo_;
+  ipc::DictionaryFieldMapper mapper_;
   ipc::IpcWriteOptions ipc_options_;
   std::shared_ptr<RecordBatch> current_batch_;
   std::vector<std::pair<int64_t, std::shared_ptr<Array>>> dictionaries_;

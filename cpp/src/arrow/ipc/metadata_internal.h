@@ -48,6 +48,7 @@ namespace flatbuf = org::apache::arrow::flatbuf;
 
 namespace ipc {
 
+class DictionaryFieldMapper;
 class DictionaryMemo;
 
 namespace internal {
@@ -166,13 +167,7 @@ static inline Status VerifyMessage(const uint8_t* data, int64_t size,
 }
 
 // Serialize arrow::Schema as a Flatbuffer
-//
-// \param[in] schema a Schema instance
-// \param[in,out] dictionary_memo class for tracking dictionaries and assigning
-// dictionary ids
-// \param[out] out the serialized arrow::Buffer
-// \return Status outcome
-Status WriteSchemaMessage(const Schema& schema, DictionaryMemo* dictionary_memo,
+Status WriteSchemaMessage(const Schema& schema, const DictionaryFieldMapper& mapper,
                           const IpcWriteOptions& options, std::shared_ptr<Buffer>* out);
 
 // This function is used in a unit test

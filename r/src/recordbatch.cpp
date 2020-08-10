@@ -168,6 +168,7 @@ std::shared_ptr<arrow::RecordBatch> ipc___ReadRecordBatch__InputStream__Schema(
     const std::shared_ptr<arrow::Schema>& schema) {
   // TODO: promote to function arg
   arrow::ipc::DictionaryMemo memo;
+  StopIfNotOk(memo.fields().AddSchemaFields(*schema));
   return ValueOrStop(arrow::ipc::ReadRecordBatch(
       schema, &memo, arrow::ipc::IpcReadOptions::Defaults(), stream.get()));
 }

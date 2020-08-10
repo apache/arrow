@@ -596,9 +596,9 @@ Status WriteIpcPayload(const IpcPayload& payload, const IpcWriteOptions& options
 }
 
 Status GetSchemaPayload(const Schema& schema, const IpcWriteOptions& options,
-                        DictionaryMemo* dictionary_memo, IpcPayload* out) {
+                        const DictionaryFieldMapper& mapper, IpcPayload* out) {
   out->type = MessageType::SCHEMA;
-  return internal::WriteSchemaMessage(schema, dictionary_memo, options, &out->metadata);
+  return internal::WriteSchemaMessage(schema, mapper, options, &out->metadata);
 }
 
 Status GetDictionaryPayload(int64_t id, const std::shared_ptr<Array>& dictionary,
@@ -960,24 +960,18 @@ Status IpcPayloadWriter::Start() { return Status::OK(); }
 
 class ARROW_EXPORT IpcFormatWriter : public RecordBatchWriter {
  public:
-  /// A RecordBatchWriter implementation that writes to a IpcPayloadWriter.
+  // A RecordBatchWriter implementation that writes to a IpcPayloadWriter.
   IpcFormatWriter(std::unique_ptr<internal::IpcPayloadWriter> payload_writer,
-                  const Schema& schema, const IpcWriteOptions& options,
-                  DictionaryMemo* out_memo = nullptr)
+                  const Schema& schema, const IpcWriteOptions& options)
       : payload_writer_(std::move(payload_writer)),
         schema_(schema),
-        dictionary_memo_(out_memo),
-        options_(options) {
-    if (out_memo == nullptr) {
-      dictionary_memo_ = &internal_dict_memo_;
-    }
-  }
+        mapper_(schema),
+        options_(options) {}
 
   // A Schema-owning constructor variant
   IpcFormatWriter(std::unique_ptr<internal::IpcPayloadWriter> payload_writer,
-                  const std::shared_ptr<Schema>& schema, const IpcWriteOptions& options,
-                  DictionaryMemo* out_memo = nullptr)
-      : IpcFormatWriter(std::move(payload_writer), *schema, options, out_memo) {
+                  const std::shared_ptr<Schema>& schema, const IpcWriteOptions& options)
+      : IpcFormatWriter(std::move(payload_writer), *schema, options) {
     shared_schema_ = schema;
   }
 
@@ -1011,7 +1005,7 @@ class ARROW_EXPORT IpcFormatWriter : public RecordBatchWriter {
     RETURN_NOT_OK(payload_writer_->Start());
 
     IpcPayload payload;
-    RETURN_NOT_OK(GetSchemaPayload(schema_, options_, dictionary_memo_, &payload));
+    RETURN_NOT_OK(GetSchemaPayload(schema_, options_, mapper_, &payload));
     return payload_writer_->WritePayload(payload);
   }
 
@@ -1024,9 +1018,9 @@ class ARROW_EXPORT IpcFormatWriter : public RecordBatchWriter {
   }
 
   Status WriteDictionaries(const RecordBatch& batch) {
-    RETURN_NOT_OK(CollectDictionaries(batch, dictionary_memo_));
+    ARROW_ASSIGN_OR_RAISE(const auto dictionaries, CollectDictionaries(batch, mapper_));
 
-    for (const auto& pair : dictionary_memo_->dictionaries()) {
+    for (const auto& pair : dictionaries) {
       IpcPayload payload;
       int64_t dictionary_id = pair.first;
       const auto& dictionary = pair.second;
@@ -1040,8 +1034,7 @@ class ARROW_EXPORT IpcFormatWriter : public RecordBatchWriter {
   std::unique_ptr<IpcPayloadWriter> payload_writer_;
   std::shared_ptr<Schema> shared_schema_;
   const Schema& schema_;
-  DictionaryMemo* dictionary_memo_;
-  DictionaryMemo internal_dict_memo_;
+  const DictionaryFieldMapper mapper_;
   bool started_ = false;
   bool wrote_dictionaries_ = false;
   IpcWriteOptions options_;
@@ -1284,16 +1277,13 @@ Status SerializeRecordBatch(const RecordBatch& batch, const IpcWriteOptions& opt
   return WriteRecordBatch(batch, 0, out, &metadata_length, &body_length, options);
 }
 
-Result<std::shared_ptr<Buffer>> SerializeSchema(const Schema& schema,
-                                                DictionaryMemo* dictionary_memo,
-                                                MemoryPool* pool) {
+Result<std::shared_ptr<Buffer>> SerializeSchema(const Schema& schema, MemoryPool* pool) {
   ARROW_ASSIGN_OR_RAISE(auto stream, io::BufferOutputStream::Create(1024, pool));
 
   auto options = IpcWriteOptions::Defaults();
   internal::IpcFormatWriter writer(
       ::arrow::internal::make_unique<internal::PayloadStreamWriter>(stream.get()), schema,
-      options, dictionary_memo);
-  // Write schema and populate fields (but not dictionaries) in dictionary_memo
+      options);
   RETURN_NOT_OK(writer.Start());
   return stream->Finish();
 }

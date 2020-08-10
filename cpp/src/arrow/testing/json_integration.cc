@@ -41,6 +41,7 @@ using std::size_t;
 
 namespace arrow {
 
+using ipc::DictionaryFieldMapper;
 using ipc::DictionaryMemo;
 
 namespace testing {
@@ -51,24 +52,24 @@ namespace testing {
 class IntegrationJsonWriter::Impl {
  public:
   explicit Impl(const std::shared_ptr<Schema>& schema)
-      : schema_(schema), first_batch_written_(false) {
+      : schema_(schema), mapper_(*schema), first_batch_written_(false) {
     writer_.reset(new RjWriter(string_buffer_));
   }
 
   Status Start() {
     writer_->StartObject();
-    RETURN_NOT_OK(json::WriteSchema(*schema_, &dictionary_memo_, writer_.get()));
+    RETURN_NOT_OK(json::WriteSchema(*schema_, mapper_, writer_.get()));
     return Status::OK();
   }
 
   Status FirstRecordBatch(const RecordBatch& batch) {
-    RETURN_NOT_OK(CollectDictionaries(batch, &dictionary_memo_));
+    ARROW_ASSIGN_OR_RAISE(const auto dictionaries, CollectDictionaries(batch, mapper_));
 
     // Write dictionaries, if any
-    if (dictionary_memo_.num_dictionaries() > 0) {
+    if (!dictionaries.empty()) {
       writer_->Key("dictionaries");
       writer_->StartArray();
-      for (const auto& entry : dictionary_memo_.dictionaries()) {
+      for (const auto& entry : dictionaries) {
         RETURN_NOT_OK(json::WriteDictionary(entry.first, entry.second, writer_.get()));
       }
       writer_->EndArray();
@@ -100,7 +101,7 @@ class IntegrationJsonWriter::Impl {
 
  private:
   std::shared_ptr<Schema> schema_;
-  DictionaryMemo dictionary_memo_;
+  DictionaryFieldMapper mapper_;
 
   bool first_batch_written_;
 
