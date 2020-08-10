@@ -57,11 +57,10 @@ use crate::optimizer::optimizer::OptimizerRule;
 use crate::optimizer::projection_push_down::ProjectionPushDown;
 use crate::optimizer::type_coercion::TypeCoercionRule;
 use crate::sql::{
-    parser::{DFParser, FileType, Statement},
+    parser::{DFParser, FileType},
     planner::{SchemaProvider, SqlToRel},
 };
 use crate::table::Table;
-use sqlparser::ast::{ColumnDef as SQLColumnDef, ColumnOption, DataType as SQLDataType};
 
 /// Execution context for registering data sources and executing queries
 pub struct ExecutionContext {
@@ -150,39 +149,14 @@ impl ExecutionContext {
             )));
         }
 
-        match &statements[0] {
-            Statement::Statement(s) => {
-                let schema_provider = ExecutionContextSchemaProvider {
-                    datasources: &self.datasources,
-                    scalar_functions: &self.scalar_functions,
-                };
+        let schema_provider = ExecutionContextSchemaProvider {
+            datasources: &self.datasources,
+            scalar_functions: &self.scalar_functions,
+        };
 
-                // create a query planner
-                let query_planner = SqlToRel::new(schema_provider);
-
-                // plan the query (create a logical relational plan)
-                let plan = query_planner.statement_to_plan(&s)?;
-
-                Ok(plan)
-            }
-            Statement::CreateExternalTable {
-                name,
-                columns,
-                file_type,
-                has_header,
-                location,
-            } => {
-                let schema = Box::new(self.build_schema(&columns)?);
-
-                Ok(LogicalPlan::CreateExternalTable {
-                    schema,
-                    name: name.clone(),
-                    location: location.clone(),
-                    file_type: file_type.clone(),
-                    has_header: has_header.clone(),
-                })
-            }
-        }
+        // create a query planner
+        let query_planner = SqlToRel::new(schema_provider);
+        Ok(query_planner.statement_to_plan(&statements[0])?)
     }
 
     /// Register a scalar UDF
@@ -193,44 +167,6 @@ impl ExecutionContext {
     /// Get a reference to the registered scalar functions
     pub fn scalar_functions(&self) -> &HashMap<String, Box<ScalarFunction>> {
         &self.scalar_functions
-    }
-
-    /// Get schema from columns
-    pub fn build_schema(&self, columns: &Vec<SQLColumnDef>) -> Result<Schema> {
-        let mut fields = Vec::new();
-
-        for column in columns {
-            let data_type = self.make_data_type(&column.data_type)?;
-            let allow_null = column
-                .options
-                .iter()
-                .any(|x| x.option == ColumnOption::Null);
-            fields.push(Field::new(&column.name.value, data_type, allow_null));
-        }
-
-        Ok(Schema::new(fields))
-    }
-
-    fn make_data_type(&self, sql_type: &SQLDataType) -> Result<DataType> {
-        match sql_type {
-            SQLDataType::BigInt => Ok(DataType::Int64),
-            SQLDataType::Int => Ok(DataType::Int32),
-            SQLDataType::SmallInt => Ok(DataType::Int16),
-            SQLDataType::Char(_) | SQLDataType::Varchar(_) | SQLDataType::Text => {
-                Ok(DataType::Utf8)
-            }
-            SQLDataType::Decimal(_, _) => Ok(DataType::Float64),
-            SQLDataType::Float(_) => Ok(DataType::Float32),
-            SQLDataType::Real | SQLDataType::Double => Ok(DataType::Float64),
-            SQLDataType::Boolean => Ok(DataType::Boolean),
-            SQLDataType::Date => Ok(DataType::Date64(DateUnit::Day)),
-            SQLDataType::Time => Ok(DataType::Time64(TimeUnit::Millisecond)),
-            SQLDataType::Timestamp => Ok(DataType::Date64(DateUnit::Millisecond)),
-            _ => Err(ExecutionError::General(format!(
-                "Unsupported data type: {:?}.",
-                sql_type
-            ))),
-        }
     }
 
     /// Register a CSV file as a table so that it can be queried from SQL

@@ -44,6 +44,21 @@ pub enum FileType {
     CSV,
 }
 
+/// DataFusion extension DDL for `CREATE EXTERNAL TABLE`
+#[derive(Debug, Clone, PartialEq)]
+pub struct CreateExternalTable {
+    /// Table name
+    pub name: String,
+    /// Optional schema
+    pub columns: Vec<ColumnDef>,
+    /// File type (Parquet, NDJSON, CSV)
+    pub file_type: FileType,
+    /// CSV Header row?
+    pub has_header: bool,
+    /// Path to file
+    pub location: String,
+}
+
 /// DataFusion Statement representations.
 ///
 /// Tokens parsed by `DFParser` are converted into these values.
@@ -51,19 +66,8 @@ pub enum FileType {
 pub enum Statement {
     /// ANSI SQL AST node
     Statement(SQLStatement),
-    /// DDL for creating an external table in DataFusion
-    CreateExternalTable {
-        /// Table name
-        name: String,
-        /// Optional schema
-        columns: Vec<ColumnDef>,
-        /// File type (Parquet, NDJSON, CSV)
-        file_type: FileType,
-        /// CSV Header row?
-        has_header: bool,
-        /// Path to file
-        location: String,
-    },
+    /// Extension: `CREATE EXTERNAL TABLE`
+    CreateExternalTable(CreateExternalTable),
 }
 
 /// SQL Parser
@@ -222,13 +226,14 @@ impl DFParser {
         self.parser.expect_keyword(Keyword::LOCATION)?;
         let location = self.parser.parse_literal_string()?;
 
-        Ok(Statement::CreateExternalTable {
+        let create = CreateExternalTable {
             name: table_name.to_string(),
             columns,
             file_type,
             has_header,
             location,
-        })
+        };
+        Ok(Statement::CreateExternalTable(create))
     }
 
     /// Parses the set of valid formats
@@ -315,24 +320,24 @@ mod tests {
     fn create_external_table() -> Result<(), ParserError> {
         // positive case
         let sql = "CREATE EXTERNAL TABLE t(c1 int) STORED AS CSV LOCATION 'foo.csv'";
-        let expected = Statement::CreateExternalTable {
+        let expected = Statement::CreateExternalTable(CreateExternalTable {
             name: "t".into(),
             columns: vec![make_column_def("c1", DataType::Int)],
             file_type: FileType::CSV,
             has_header: false,
             location: "foo.csv".into(),
-        };
+        });
         expect_parse_ok(sql, expected)?;
 
         // positive case: it is ok for parquet files not to have columns specified
         let sql = "CREATE EXTERNAL TABLE t STORED AS PARQUET LOCATION 'foo.parquet'";
-        let expected = Statement::CreateExternalTable {
+        let expected = Statement::CreateExternalTable(CreateExternalTable {
             name: "t".into(),
             columns: vec![],
             file_type: FileType::Parquet,
             has_header: false,
             location: "foo.parquet".into(),
-        };
+        });
         expect_parse_ok(sql, expected)?;
 
         // Error cases: Invalid type
