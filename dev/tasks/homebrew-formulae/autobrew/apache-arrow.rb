@@ -60,6 +60,7 @@ class ApacheArrow < Formula
       -DARROW_VERBOSE_THIRDPARTY_BUILD=ON
       -DCMAKE_UNITY_BUILD=ON
       -DPARQUET_BUILD_EXECUTABLES=ON
+      -DAWSSDK_HOME=#{Formula["aws-sdk-cpp"].prefix}
       -DLZ4_HOME=#{Formula["lz4"].prefix}
       -DTHRIFT_HOME=#{Formula["thrift"].prefix}
     ]
