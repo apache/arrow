@@ -39,7 +39,7 @@
 #include "arrow/scalar.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/int_util.h"
+#include "arrow/util/int_util_internal.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/string.h"
@@ -1606,8 +1606,7 @@ class StructDictionary {
     *fused_indices = checked_pointer_cast<Int32Array>(new_fused_indices.make_array());
 
     // XXX should probably cap this at 2**15 or so
-    DCHECK(!internal::HasPositiveMultiplyOverflow(size_, dictionary_size));
-    size_ *= dictionary_size;
+    ARROW_CHECK(!internal::MultiplyWithOverflow(size_, dictionary_size, &size_));
     return Status::OK();
   }
 

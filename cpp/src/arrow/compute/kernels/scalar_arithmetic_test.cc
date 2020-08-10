@@ -127,8 +127,7 @@ class TestBinaryArithmetic : public TestBase {
     auto left = ArrayFromJSON(type_singleton(), lhs);
     auto right = ArrayFromJSON(type_singleton(), rhs);
 
-    AssertBinop(func, ArrayFromJSON(type_singleton(), lhs),
-                ArrayFromJSON(type_singleton(), rhs), expected);
+    AssertBinop(func, left, right, expected);
   }
 
   // (Array, Array)

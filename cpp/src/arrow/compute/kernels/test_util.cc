@@ -42,8 +42,7 @@ std::vector<Datum> GetDatums(const std::vector<T>& inputs) {
   return datums;
 }
 
-void CheckScalarNonRecursive(const std::string& func_name,
-                             const std::vector<std::shared_ptr<Array>>& inputs,
+void CheckScalarNonRecursive(const std::string& func_name, const ArrayVector& inputs,
                              const std::shared_ptr<Array>& expected,
                              const FunctionOptions* options) {
   ASSERT_OK_AND_ASSIGN(Datum out, CallFunction(func_name, GetDatums(inputs), options));
@@ -53,32 +52,29 @@ void CheckScalarNonRecursive(const std::string& func_name,
 }
 
 template <typename... SliceArgs>
-std::vector<std::shared_ptr<Array>> SliceAll(
-    const std::vector<std::shared_ptr<Array>>& inputs, SliceArgs... slice_args) {
-  std::vector<std::shared_ptr<Array>> sliced;
+ArrayVector SliceAll(const ArrayVector& inputs, SliceArgs... slice_args) {
+  ArrayVector sliced;
   for (const auto& input : inputs) {
     sliced.push_back(input->Slice(slice_args...));
   }
   return sliced;
 }
 
-std::vector<std::shared_ptr<Scalar>> GetScalars(
-    const std::vector<std::shared_ptr<Array>>& inputs, int64_t index) {
-  std::vector<std::shared_ptr<Scalar>> scalars;
+ScalarVector GetScalars(const ArrayVector& inputs, int64_t index) {
+  ScalarVector scalars;
   for (const auto& input : inputs) {
     scalars.push_back(*input->GetScalar(index));
   }
   return scalars;
 }
 
-void CheckScalar(std::string func_name,
-                 const std::vector<std::shared_ptr<Scalar>>& inputs,
+void CheckScalar(std::string func_name, const ScalarVector& inputs,
                  std::shared_ptr<Scalar> expected, const FunctionOptions* options) {
   ASSERT_OK_AND_ASSIGN(Datum out, CallFunction(func_name, GetDatums(inputs), options));
   AssertScalarsEqual(*expected, *out.scalar(), /*verbose=*/true);
 }
 
-void CheckScalar(std::string func_name, const std::vector<std::shared_ptr<Array>>& inputs,
+void CheckScalar(std::string func_name, const ArrayVector& inputs,
                  std::shared_ptr<Array> expected, const FunctionOptions* options) {
   CheckScalarNonRecursive(func_name, inputs, expected, options);
 
