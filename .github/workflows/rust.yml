@@ -152,12 +152,8 @@ jobs:
       - name: Fetch Submodules and Tags
         shell: bash
         run: ci/scripts/util_checkout.sh
-      - name: Cache Build Artifacts
-        uses: actions/cache@v1
-        with:
-          path: rust/target
-          key: macos-10-rust-${{ hashFiles('rust/**.rs') }}
-          restore-keys: macos-10-rust-
+      # Note we don't cache the build artifacts for MacOSX as it was causing intermittent failures
+      # see https://issues.apache.org/jira/browse/ARROW-9628
       - name: Run Clippy
         shell: bash
         run: ci/scripts/rust_lint.sh $(pwd)

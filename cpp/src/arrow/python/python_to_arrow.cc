@@ -91,6 +91,8 @@ struct ValueConverter<BooleanType> {
       return true;
     } else if (obj == Py_False) {
       return false;
+    } else if (PyArray_IsScalar(obj, Bool)) {
+      return reinterpret_cast<PyBoolScalarObject*>(obj)->obval == NPY_TRUE;
     } else {
       return internal::InvalidValue(obj, "tried to convert to boolean");
     }

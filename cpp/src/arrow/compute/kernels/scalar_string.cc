@@ -56,9 +56,9 @@ static inline bool IsAsciiCharacter(T character) {
 }
 
 struct BinaryLength {
-  template <typename OUT, typename ARG0 = util::string_view>
-  static OUT Call(KernelContext*, ARG0 val) {
-    return static_cast<OUT>(val.size());
+  template <typename OutValue, typename Arg0Value = util::string_view>
+  static OutValue Call(KernelContext*, Arg0Value val) {
+    return static_cast<OutValue>(val.size());
   }
 };
 
