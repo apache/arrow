@@ -71,6 +71,8 @@ BINARY_SYMMETRIC(bitwise_and, int32, &)
 BINARY_SYMMETRIC(bitwise_and, int64, &)
 BINARY_SYMMETRIC(bitwise_or, int32, |)
 BINARY_SYMMETRIC(bitwise_or, int64, |)
+BINARY_SYMMETRIC(bitwise_xor, int32, ^)
+BINARY_SYMMETRIC(bitwise_xor, int64, ^)
 
 #undef BINARY_SYMMETRIC
 
