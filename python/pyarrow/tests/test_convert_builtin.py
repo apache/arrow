@@ -176,10 +176,16 @@ def test_sequence_boolean(seq):
 def test_sequence_numpy_boolean(seq):
     expected = [np.bool(True), None, np.bool(False), None]
     arr = pa.array(seq(expected))
-    assert len(arr) == 4
-    assert arr.null_count == 2
     assert arr.type == pa.bool_()
-    assert arr.to_pylist() == expected
+    assert arr.to_pylist() == [True, None, False, None]
+
+
+@parametrize_with_iterable_types
+def test_sequence_mixed_numpy_python_bools(seq):
+    values = np.array([True, False])
+    arr = pa.array(seq([values[0], None, values[1], True, False]))
+    assert arr.type == pa.bool_()
+    assert arr.to_pylist() == [True, None, False, True, False]
 
 
 @parametrize_with_iterable_types
