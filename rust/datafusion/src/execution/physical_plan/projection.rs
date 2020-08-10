@@ -29,6 +29,7 @@ use arrow::error::Result as ArrowResult;
 use arrow::record_batch::{RecordBatch, RecordBatchReader};
 
 /// Execution plan for a projection
+#[derive(Debug)]
 pub struct ProjectionExec {
     /// The projection expressions
     expr: Vec<Arc<dyn PhysicalExpr>>,
@@ -95,6 +96,7 @@ impl ExecutionPlan for ProjectionExec {
 }
 
 /// Represents a single partition of a projection execution plan
+#[derive(Debug)]
 struct ProjectionPartition {
     schema: SchemaRef,
     expr: Vec<Arc<dyn PhysicalExpr>>,

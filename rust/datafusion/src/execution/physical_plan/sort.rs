@@ -33,6 +33,7 @@ use crate::execution::physical_plan::expressions::PhysicalSortExpr;
 use crate::execution::physical_plan::{common, ExecutionPlan, Partition};
 
 /// Sort execution plan
+#[derive(Debug)]
 pub struct SortExec {
     /// Input schema
     input: Arc<dyn ExecutionPlan>,
@@ -66,6 +67,7 @@ impl ExecutionPlan for SortExec {
 }
 
 /// Represents a single partition of a Sort execution plan
+#[derive(Debug)]
 struct SortPartition {
     schema: SchemaRef,
     expr: Vec<PhysicalSortExpr>,

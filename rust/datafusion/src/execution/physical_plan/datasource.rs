@@ -17,7 +17,10 @@
 
 //! ExecutionPlan implementation for DataFusion data sources
 
-use std::sync::{Arc, Mutex};
+use std::{
+    fmt::{self, Debug, Formatter},
+    sync::{Arc, Mutex},
+};
 
 use crate::error::Result;
 use crate::execution::physical_plan::{ExecutionPlan, Partition};
@@ -28,6 +31,15 @@ use arrow::record_batch::RecordBatchReader;
 pub struct DatasourceExec {
     schema: SchemaRef,
     partitions: Vec<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>>,
+}
+
+impl Debug for DatasourceExec {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_struct("DataSourceExec")
+            .field("schema", &self.schema)
+            .field("partitions.len", &self.partitions.len())
+            .finish()
+    }
 }
 
 impl DatasourceExec {
@@ -59,6 +71,12 @@ impl ExecutionPlan for DatasourceExec {
 /// Wrapper to convert a `SendableRecordBatchReader` into a `Partition`.
 pub struct DatasourcePartition {
     batch_iter: Arc<Mutex<dyn RecordBatchReader + Send + Sync>>,
+}
+
+impl Debug for DatasourcePartition {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_struct("DatasourcePartition").finish()
+    }
 }
 
 impl DatasourcePartition {

@@ -93,6 +93,7 @@ impl<'a> CsvReadOptions<'a> {
 }
 
 /// Execution plan for scanning a CSV file
+#[derive(Debug)]
 pub struct CsvExec {
     /// Path to directory containing partitioned CSV files with the same schema
     path: String,
@@ -184,6 +185,7 @@ impl ExecutionPlan for CsvExec {
 }
 
 /// CSV Partition
+#[derive(Debug)]
 struct CsvPartition {
     /// Path to the CSV File
     path: String,

@@ -28,6 +28,7 @@ use arrow::error::Result as ArrowResult;
 use arrow::record_batch::{RecordBatch, RecordBatchReader};
 
 /// Execution plan for a Selection
+#[derive(Debug)]
 pub struct SelectionExec {
     /// The selection predicate expression
     expr: Arc<dyn PhysicalExpr>,
@@ -78,6 +79,7 @@ impl ExecutionPlan for SelectionExec {
 }
 
 /// Represents a single partition of a Selection execution plan
+#[derive(Debug)]
 struct SelectionPartition {
     schema: SchemaRef,
     expr: Arc<dyn PhysicalExpr>,

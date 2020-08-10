@@ -26,6 +26,7 @@ use crate::error::Result;
 use crate::execution::physical_plan::PhysicalExpr;
 
 use arrow::record_batch::RecordBatch;
+use fmt::{Debug, Formatter};
 use std::sync::Arc;
 
 /// Scalar UDF
@@ -42,6 +43,17 @@ pub struct ScalarFunction {
     pub return_type: DataType,
     /// UDF implementation
     pub fun: ScalarUdf,
+}
+
+impl Debug for ScalarFunction {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ScalarFunction")
+            .field("name", &self.name)
+            .field("args", &self.args)
+            .field("return_type", &self.return_type)
+            .field("fun", &"<FUNC>")
+            .finish()
+    }
 }
 
 impl ScalarFunction {
@@ -67,6 +79,17 @@ pub struct ScalarFunctionExpr {
     name: String,
     args: Vec<Arc<dyn PhysicalExpr>>,
     return_type: DataType,
+}
+
+impl Debug for ScalarFunctionExpr {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ScalarFunctionExpr")
+            .field("fun", &"<FUNC>")
+            .field("name", &self.name)
+            .field("args", &self.args)
+            .field("return_type", &self.return_type)
+            .finish()
+    }
 }
 
 impl ScalarFunctionExpr {

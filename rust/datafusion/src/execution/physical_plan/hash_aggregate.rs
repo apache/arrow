@@ -44,6 +44,7 @@ use crate::logicalplan::ScalarValue;
 use fnv::FnvHashMap;
 
 /// Hash aggregate execution plan
+#[derive(Debug)]
 pub struct HashAggregateExec {
     group_expr: Vec<Arc<dyn PhysicalExpr>>,
     aggr_expr: Vec<Arc<dyn AggregateExpr>>,
@@ -121,6 +122,7 @@ impl ExecutionPlan for HashAggregateExec {
     }
 }
 
+#[derive(Debug)]
 struct HashAggregatePartition {
     group_expr: Vec<Arc<dyn PhysicalExpr>>,
     aggr_expr: Vec<Arc<dyn AggregateExpr>>,
