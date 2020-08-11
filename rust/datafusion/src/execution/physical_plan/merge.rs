@@ -30,6 +30,7 @@ use std::thread::JoinHandle;
 
 /// Merge execution plan executes partitions in parallel and combines them into a single
 /// partition. No guarantees are made about the order of the resulting partition.
+#[derive(Debug)]
 pub struct MergeExec {
     /// Input schema
     schema: SchemaRef,
@@ -57,6 +58,7 @@ impl ExecutionPlan for MergeExec {
     }
 }
 
+#[derive(Debug)]
 struct MergePartition {
     /// Input schema
     schema: SchemaRef,

@@ -26,6 +26,7 @@ use arrow::error::Result as ArrowResult;
 use arrow::record_batch::{RecordBatch, RecordBatchReader};
 
 /// Execution plan for reading in-memory batches of data
+#[derive(Debug)]
 pub struct MemoryExec {
     /// The partitions to query
     partitions: Vec<Vec<RecordBatch>>,
@@ -74,6 +75,7 @@ impl MemoryExec {
 }
 
 /// Memory partition
+#[derive(Debug)]
 struct MemoryPartition {
     /// Vector of record batches
     data: Vec<RecordBatch>,
