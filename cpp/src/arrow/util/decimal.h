@@ -172,4 +172,30 @@ struct Decimal128::ToRealConversion<double> {
   }
 };
 
+/// Represents a signed 256-bit integer in two's complement.
+/// The max decimal precision that can be safely represented is
+/// 76 significant digits.
+///
+/// The implementation is split into two parts :
+///
+/// 1. BasicDecimal256
+///    - can be safely compiled to IR without references to libstdc++.
+/// 2. Decimal256
+///    - (TODO) has additional functionality on top of BasicDecimal256 to deal with
+///      strings and streams.
+class ARROW_EXPORT Decimal256 : public BasicDecimal256 {
+ public:
+  /// \cond FALSE
+  // (need to avoid a duplicate definition in Sphinx)
+  using BasicDecimal256::BasicDecimal256;
+  /// \endcond
+
+  /// \brief constructor creates a Decimal256 from a BasicDecimal128.
+  constexpr Decimal256(const BasicDecimal256& value) noexcept : BasicDecimal256(value) {}
+
+  /// \brief Empty constructor creates a Decimal256 with a value of 0.
+  // This is required on some older compilers.
+  constexpr Decimal256() noexcept : BasicDecimal256() {}
+};
+
 }  // namespace arrow
