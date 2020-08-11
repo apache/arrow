@@ -64,6 +64,7 @@ pub fn expr_to_column_names(expr: &Expr, accum: &mut HashSet<String>) -> Result<
         Expr::Wildcard => Err(ExecutionError::General(
             "Wildcard expressions are not valid in a logical query plan".to_owned(),
         )),
+        Expr::Nested(e) => expr_to_column_names(e, accum),
     }
 }
 

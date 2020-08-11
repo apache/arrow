@@ -137,6 +137,7 @@ impl<'a> TypeCoercionRule<'a> {
             Expr::Wildcard { .. } => Err(ExecutionError::General(
                 "Wildcard expressions are not valid in a logical query plan".to_owned(),
             )),
+            Expr::Nested(e) => self.rewrite_expr(e, schema),
         }
     }
 }
