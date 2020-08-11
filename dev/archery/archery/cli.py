@@ -938,7 +938,7 @@ def release_changelog_regenerate(obj):
 
 @release.command('cherry-pick')
 @click.argument('version')
-@click.option('--dry-run/--execute', default=False,
+@click.option('--dry-run/--execute', default=True,
               help="Display the git commands instead of executing them.")
 @click.pass_obj
 def release_cherry_pick(obj, version, dry_run):
