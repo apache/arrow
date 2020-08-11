@@ -34,7 +34,7 @@ std::shared_ptr<KmsClient> KeyToolkit::GetKmsClient(
   if (kms_client_per_kms_instance_cache.find(kms_connection_config.kms_instance_id) ==
       kms_client_per_kms_instance_cache.end()) {
     std::shared_ptr<KmsClient> kms_client =
-        kms_client_factory->CreateKmsClient(kms_connection_config, is_wrap_locally);
+        kms_client_factory->CreateKmsClient(kms_connection_config);
     kms_client_per_kms_instance_cache.insert(
         {kms_connection_config.kms_instance_id, kms_client});
   }

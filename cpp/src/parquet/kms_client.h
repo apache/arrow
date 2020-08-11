@@ -32,6 +32,8 @@ class PARQUET_EXPORT KeyAccessToken {
   void Refresh(const std::string& new_value) { value_ = new_value; }
   const std::string& value() const { return value_; }
 
+  void SetDefaultIfEmpty();
+
  private:
   std::string value_;
 };
@@ -49,6 +51,8 @@ struct PARQUET_EXPORT KmsConnectionConfig {
     }
     return refreshable_key_access_token->value();
   }
+
+  void SetDefaultIfEmpty();
 };
 
 class PARQUET_EXPORT KmsClient {
@@ -56,9 +60,6 @@ class PARQUET_EXPORT KmsClient {
   static constexpr char KMS_INSTANCE_ID_DEFAULT[] = "DEFAULT";
   static constexpr char KMS_INSTANCE_URL_DEFAULT[] = "DEFAULT";
   static constexpr char KEY_ACCESS_TOKEN_DEFAULT[] = "DEFAULT";
-
-  virtual void Initialize(const KmsConnectionConfig& kms_connection_config,
-                          bool is_wrap_locally) = 0;
 
   // Wraps a key - encrypts it with the master key, encodes the result
   // and potentially adds a KMS-specific metadata.

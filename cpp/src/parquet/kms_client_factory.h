@@ -25,9 +25,17 @@ namespace encryption {
 
 class PARQUET_EXPORT KmsClientFactory {
  public:
-  virtual std::shared_ptr<KmsClient> CreateKmsClient(
-      const KmsConnectionConfig& kms_connection_config, bool is_wrap_locally) = 0;
+  explicit KmsClientFactory(bool wrap_locally) : wrap_locally_(wrap_locally) {}
+
+  KmsClientFactory() : KmsClientFactory(false) {}
+
   virtual ~KmsClientFactory() {}
+
+  virtual std::shared_ptr<KmsClient> CreateKmsClient(
+      const KmsConnectionConfig& kms_connection_config) = 0;
+
+ protected:
+  bool wrap_locally_;
 };
 
 }  // namespace encryption

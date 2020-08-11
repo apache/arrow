@@ -33,12 +33,11 @@ using parquet::encryption::RemoteKmsClient;
 namespace parquet {
 namespace test {
 
-using parquet::encryption::RemoteKmsClient;
-
 std::map<std::string, std::vector<uint8_t>> InMemoryKms::master_key_map_;
 
-void InMemoryKms::InitializeMasterKey(const std::vector<std::string>& master_keys) {
-  master_key_map_ = ParseKeyList(master_keys);
+void InMemoryKms::InitializeMasterKeys(
+    const std::map<std::string, std::string>& master_keys_map) {
+  master_key_map_ = ParseKeyList(master_keys_map);
 }
 
 void InMemoryKms::InitializeInternal() {}
@@ -78,19 +77,13 @@ std::vector<uint8_t> InMemoryKms::GetMasterKeyFromServer(
 }
 
 std::map<std::string, std::vector<uint8_t>> InMemoryKms::ParseKeyList(
-    const std::vector<std::string>& master_keys) {
+    const std::map<std::string, std::string>& master_keys_map) {
   std::map<std::string, std::vector<uint8_t>> key_map;
 
-  int n_keys = master_keys.size();
-  for (int i = 0; i < n_keys; i++) {
-    std::vector<std::string> parts = SplitString(master_keys[i], ':');
-    std::string key_name = TrimString(parts[0]);
-    if (parts.size() != 2) {
-      throw std::invalid_argument("Key '" + key_name + "' is not formatted correctly");
-    }
-    std::string key = TrimString(parts[1]);
+  for (auto it = master_keys_map.begin(); it != master_keys_map.end(); it++) {
+    std::string key = it->second;
     std::vector<uint8_t> key_bytes(key.begin(), key.end());
-    key_map.insert({key_name, key_bytes});
+    key_map.insert({it->first, key_bytes});
   }
   return key_map;
 }

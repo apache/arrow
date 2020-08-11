@@ -24,5 +24,24 @@ constexpr char KmsClient::KMS_INSTANCE_ID_DEFAULT[];
 constexpr char KmsClient::KMS_INSTANCE_URL_DEFAULT[];
 constexpr char KmsClient::KEY_ACCESS_TOKEN_DEFAULT[];
 
+void KeyAccessToken::SetDefaultIfEmpty() {
+  if (value_.empty()) {
+    value_ = KmsClient::KEY_ACCESS_TOKEN_DEFAULT;
+  }
+}
+
+void KmsConnectionConfig::SetDefaultIfEmpty() {
+  if (kms_instance_id.empty()) {
+    kms_instance_id = KmsClient::KMS_INSTANCE_ID_DEFAULT;
+  }
+  if (kms_instance_url.empty()) {
+    kms_instance_url = KmsClient::KMS_INSTANCE_URL_DEFAULT;
+  }
+  if (refreshable_key_access_token == NULL) {
+    refreshable_key_access_token = std::make_shared<KeyAccessToken>();
+  }
+  refreshable_key_access_token->SetDefaultIfEmpty();
+}
+
 }  // namespace encryption
 }  // namespace parquet

@@ -35,6 +35,7 @@ FileKeyWrapper::FileKeyWrapper(std::shared_ptr<KmsClientFactory> kms_client_fact
       cache_entry_lifetime_(cache_entry_lifetime),
       double_wrapping_(double_wrapping),
       key_counter_(0) {
+  kms_connection_config_.SetDefaultIfEmpty();
   // Check caches upon each file writing (clean once in cache_entry_lifetime_)
   KeyToolkit::kms_client_cache_per_token().CheckCacheForExpiredTokens(
       cache_entry_lifetime_);

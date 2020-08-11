@@ -30,7 +30,9 @@ FileKeyUnwrapper::FileKeyUnwrapper(std::shared_ptr<KmsClientFactory> kms_client_
     : kms_client_factory_(kms_client_factory),
       kms_connection_config_(kms_connection_config),
       cache_entry_lifetime_(cache_lifetime),
-      is_wrap_locally_(is_wrap_locally) {}
+      is_wrap_locally_(is_wrap_locally) {
+  kms_connection_config.refreshable_key_access_token->SetDefaultIfEmpty();
+}
 
 std::string FileKeyUnwrapper::GetKey(const std::string& key_metadata_bytes) {
   KeyMetadata key_metadata = KeyMetadata::Parse(key_metadata_bytes);

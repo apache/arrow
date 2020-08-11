@@ -214,8 +214,8 @@ if(PARQUET_REQUIRE_ENCRYPTION)
       key_toolkit.cc
       kms_client.cc
       properties_driven_crypto_factory.cc
-      string_util.cc
-      remote_kms_client.cc)
+      remote_kms_client.cc
+      string_util.cc)
 else()
   set(PARQUET_SRCS ${PARQUET_SRCS} encryption_internal_nossl.cc)
 endif()
@@ -385,8 +385,8 @@ if(PARQUET_REQUIRE_ENCRYPTION)
                    test_util.cc)
   add_parquet_test(encryption-key-management-test
                    SOURCES
-                   in_memory_kms.cc
                    encryption_key_management_test.cc
+                   in_memory_kms.cc
                    string_util.cc
                    test_encryption_util.cc
                    test_util.cc)

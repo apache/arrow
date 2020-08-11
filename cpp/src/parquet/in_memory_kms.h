@@ -33,13 +33,12 @@ using parquet::encryption::RemoteKmsClient;
 namespace parquet {
 namespace test {
 
-using parquet::encryption::RemoteKmsClient;
-
 // This is a mock class, built for testing only. Don't use it as an example of KmsClient
 // implementation. (VaultClient is the sample implementation).
 class InMemoryKms : public RemoteKmsClient {
  public:
-  void InitializeMasterKey(const std::vector<std::string>& master_keys);
+  static void InitializeMasterKeys(
+      const std::map<std::string, std::string>& master_keys_map);
 
  protected:
   void InitializeInternal() override;
@@ -55,26 +54,25 @@ class InMemoryKms : public RemoteKmsClient {
 
  private:
   static std::map<std::string, std::vector<uint8_t>> ParseKeyList(
-      const std::vector<std::string>& master_keys);
+      const std::map<std::string, std::string>& master_keys_map);
 
   static std::map<std::string, std::vector<uint8_t>> master_key_map_;
 };
 
 class InMemoryKmsClientFactory : public KmsClientFactory {
  public:
-  explicit InMemoryKmsClientFactory(const std::vector<std::string>& master_keys)
-      : master_keys_(master_keys) {}
-
-  std::shared_ptr<KmsClient> CreateKmsClient(
-      const KmsConnectionConfig& kms_connection_config, bool is_wrap_locally) {
-    std::shared_ptr<InMemoryKms> in_memory_kms(new InMemoryKms);
-    in_memory_kms->Initialize(kms_connection_config, is_wrap_locally);
-    in_memory_kms->InitializeMasterKey(master_keys_);
-    return in_memory_kms;
+  InMemoryKmsClientFactory(bool wrap_locally,
+                           const std::map<std::string, std::string>& master_keys_map)
+      : KmsClientFactory(wrap_locally) {
+    InMemoryKms::InitializeMasterKeys(master_keys_map);
   }
 
- private:
-  std::vector<std::string> master_keys_;
+  std::shared_ptr<KmsClient> CreateKmsClient(
+      const KmsConnectionConfig& kms_connection_config) {
+    std::shared_ptr<InMemoryKms> in_memory_kms = std::make_shared<InMemoryKms>();
+    in_memory_kms->Initialize(kms_connection_config, wrap_locally_);
+    return in_memory_kms;
+  }
 };
 
 }  // namespace test

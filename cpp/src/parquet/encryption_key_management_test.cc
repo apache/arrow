@@ -44,22 +44,19 @@ const char* const COLUMN_MASTER_KEYS[] = {"1234567890123450", "1234567890123451"
 const char* const COLUMN_MASTER_KEY_IDS[] = {"kc1", "kc2", "kc3", "kc4", "kc5", "kc6"};
 const char FOOTER_MASTER_KEY_ID[] = "kf";
 
-std::vector<std::string> BuildKeyList(const char* const* column_ids,
-                                      const char* const* column_keys,
-                                      const char* footer_id, const char* footer_key) {
-  std::vector<std::string> key_list;
+std::map<std::string, std::string> BuildKeyMap(const char* const* column_ids,
+                                               const char* const* column_keys,
+                                               const char* footer_id,
+                                               const char* footer_key) {
+  std::map<std::string, std::string> key_map;
   // add column keys
   for (int i = 0; i < 6; i++) {
-    std::ostringstream stream;
-    stream << column_ids[i] << ":" << column_keys[i];
-    key_list.push_back(stream.str());
+    key_map.insert({column_ids[i], column_keys[i]});
   }
   // add footer key
-  std::ostringstream stream2;
-  stream2 << footer_id << ":" << footer_key;
-  key_list.push_back(stream2.str());
+  key_map.insert({footer_id, footer_key});
 
-  return key_list;
+  return key_map;
 }
 
 std::string BuildColumnKeyMapping() {
@@ -76,29 +73,27 @@ std::string BuildColumnKeyMapping() {
 class TestEncrytionKeyManagement : public ::testing::Test {
  public:
   void SetUp() {
-    key_list_ = BuildKeyList(COLUMN_MASTER_KEY_IDS, COLUMN_MASTER_KEYS,
-                             FOOTER_MASTER_KEY_ID, FOOTER_MASTER_KEY);
+    key_list_ = BuildKeyMap(COLUMN_MASTER_KEY_IDS, COLUMN_MASTER_KEYS,
+                            FOOTER_MASTER_KEY_ID, FOOTER_MASTER_KEY);
     column_key_mapping_ = BuildColumnKeyMapping();
 
-    kms_connection_config_.kms_instance_id = KmsClient::KMS_INSTANCE_ID_DEFAULT;
-    kms_connection_config_.kms_instance_url = KmsClient::KMS_INSTANCE_URL_DEFAULT;
     kms_connection_config_.refreshable_key_access_token =
         std::make_shared<KeyAccessToken>();
-    kms_connection_config_.refreshable_key_access_token->Refresh(
-        KmsClient::KEY_ACCESS_TOKEN_DEFAULT);
   }
 
  protected:
   FileEncryptor encryptor_;
   FileDecryptor decryptor_;
 
-  std::vector<std::string> key_list_;
+  std::map<std::string, std::string> key_list_;
   std::string column_key_mapping_;
   KmsConnectionConfig kms_connection_config_;
 
-  void SetupCryptoFactory(PropertiesDrivenCryptoFactory& crypto_factory) {
+  void SetupCryptoFactory(PropertiesDrivenCryptoFactory& crypto_factory,
+                          bool wrap_locally) {
+    KeyToolkit::RemoveCacheEntriesForAllTokens();
     std::shared_ptr<KmsClientFactory> kms_client_factory =
-        std::make_shared<InMemoryKmsClientFactory>(key_list_);
+        std::make_shared<InMemoryKmsClientFactory>(wrap_locally, key_list_);
     crypto_factory.kms_client_factory(kms_client_factory);
   }
 
@@ -172,11 +167,12 @@ class TestEncrytionKeyManagement : public ::testing::Test {
   }
 
   void WriteEncryptedParquetFiles() {
-    PropertiesDrivenCryptoFactory crypto_factory;
-    SetupCryptoFactory(crypto_factory);
-
     for (int i = 0; i < 2; i++) {
       bool wrap_locally = (i == 0);
+
+      PropertiesDrivenCryptoFactory crypto_factory;
+      SetupCryptoFactory(crypto_factory, wrap_locally);
+
       for (int j = 0; j < 2; j++) {
         bool double_wrapping = (j == 0);
         auto encryption_configs =
@@ -200,11 +196,12 @@ class TestEncrytionKeyManagement : public ::testing::Test {
   }
 
   void ReadEncryptedParquetFiles() {
-    PropertiesDrivenCryptoFactory crypto_factory;
-    SetupCryptoFactory(crypto_factory);
-
     for (int i = 0; i < 2; i++) {
       bool wrap_locally = (i == 0);
+
+      PropertiesDrivenCryptoFactory crypto_factory;
+      SetupCryptoFactory(crypto_factory, wrap_locally);
+
       auto decryption_config = this->GetDecryptionConfiguration(wrap_locally);
       for (int j = 0; j < 2; j++) {
         bool double_wrapping = (j == 0);

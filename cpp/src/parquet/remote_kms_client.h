@@ -46,8 +46,7 @@ class PARQUET_EXPORT RemoteKmsClient : public KmsClient {
  public:
   static constexpr char LOCAL_WRAP_NO_KEY_VERSION[] = "NO_VERSION";
 
-  void Initialize(const KmsConnectionConfig& kms_connection_config,
-                  bool is_wrap_locally) override;
+  void Initialize(const KmsConnectionConfig& kms_connection_config, bool is_wrap_locally);
 
   std::string WrapKey(const std::vector<uint8_t>& key_bytes,
                       const std::string& master_key_identifier) override;
