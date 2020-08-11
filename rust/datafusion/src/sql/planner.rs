@@ -64,7 +64,7 @@ impl<S: SchemaProvider> SqlToRel<S> {
     }
 
     /// Generate a logical plan from an SQL statement
-    fn sql_statement_to_plan(&self, sql: &Statement) -> Result<LogicalPlan> {
+    pub fn sql_statement_to_plan(&self, sql: &Statement) -> Result<LogicalPlan> {
         match sql {
             Statement::Query(query) => self.query_to_plan(&query),
             _ => Err(ExecutionError::NotImplemented(
