@@ -954,6 +954,9 @@ def release_cherry_pick(obj, version, dry_run):
         release.cherry_pick_commits()
         click.echo('Executed the following commands:\n')
 
+    click.echo(
+        'git checkout {} -b {}'.format(release.previous.tag, release.branch)
+    )
     for commit in release.commits_to_pick():
         click.echo('git cherry-pick {}'.format(commit.hexsha))
 
