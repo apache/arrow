@@ -306,9 +306,9 @@ def test_maintenance_patch_selection(fake_jira):
 
     shas_to_pick = [c.hexsha for c in r.commits_to_pick()]
     expected = [
-        '9123dadfd123bca7af4eaa9455f5b0d1ca8b929d',
-        '6002ec388840de5622e39af85abdc57a2cccc9b2',
+        '8939b4bd446ee406d5225c79d563a27d30fd7d6d',
         'bcef6c95a324417e85e0140f9745d342cd8784b3',
-        '8939b4bd446ee406d5225c79d563a27d30fd7d6d'
+        '6002ec388840de5622e39af85abdc57a2cccc9b2',
+        '9123dadfd123bca7af4eaa9455f5b0d1ca8b929d',
     ]
     assert shas_to_pick == expected
