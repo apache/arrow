@@ -448,7 +448,7 @@ class MaintenanceMixin:
         # the ones that are included in the jira release
         patches_to_pick = [c for c in commits if c.issue in self.issues]
 
-        return patches_to_pick
+        return reversed(patches_to_pick)
 
     def cherry_pick_commits(self):
         if self.branch in self.repo.branches:
