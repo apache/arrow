@@ -766,7 +766,7 @@ class RecordBatchStreamReaderImpl : public RecordBatchStreamReader {
 
     RETURN_NOT_OK(UnpackSchemaMessage(*message, options, &dictionary_memo_, &schema_,
                                       &out_schema_, &field_inclusion_mask_));
-    swap_endian_ = options.use_native_endian && !out_schema_->IsNativeEndianness();
+    swap_endian_ = options.ensure_native_endian && !out_schema_->IsNativeEndianness();
     if (swap_endian_) {
       // create a new schema with native endianness before swapping endian in ArrayData
       schema_ = schema_->WithNativeEndianness();
@@ -984,7 +984,7 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
     // Get the schema and record any observed dictionaries
     RETURN_NOT_OK(UnpackSchemaMessage(footer_->schema(), options, &dictionary_memo_,
                                       &schema_, &out_schema_, &field_inclusion_mask_));
-    swap_endian_ = options.use_native_endian && !out_schema_->IsNativeEndianness();
+    swap_endian_ = options.ensure_native_endian && !out_schema_->IsNativeEndianness();
     if (swap_endian_) {
       // create a new schema with native endianness before swapping endian in ArrayData
       schema_ = schema_->WithNativeEndianness();
@@ -1218,7 +1218,7 @@ class StreamDecoder::StreamDecoderImpl : public MessageDecoderListener {
   Status OnSchemaMessageDecoded(std::unique_ptr<Message> message) {
     RETURN_NOT_OK(UnpackSchemaMessage(*message, options_, &dictionary_memo_, &schema_,
                                       &out_schema_, &field_inclusion_mask_));
-    swap_endian_ = options_.use_native_endian && !out_schema_->IsNativeEndianness();
+    swap_endian_ = options_.ensure_native_endian && !out_schema_->IsNativeEndianness();
     if (swap_endian_) {
       // create a new schema with native endianness before swapping endian in ArrayData
       schema_ = schema_->WithNativeEndianness();
