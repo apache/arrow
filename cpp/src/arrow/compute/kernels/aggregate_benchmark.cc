@@ -330,5 +330,44 @@ SUM_KERNEL_BENCHMARK(SumKernelInt16, Int16Type);
 SUM_KERNEL_BENCHMARK(SumKernelInt32, Int32Type);
 SUM_KERNEL_BENCHMARK(SumKernelInt64, Int64Type);
 
+template <typename ArrowType>
+void ModeKernelBench(benchmark::State& state) {
+  using CType = typename TypeTraits<ArrowType>::CType;
+
+  RegressionArgs args(state);
+  const int64_t array_size = args.size / sizeof(CType);
+  auto rand = random::RandomArrayGenerator(1924);
+  auto array = rand.Numeric<ArrowType>(array_size, -100, 100, args.null_proportion);
+
+  for (auto _ : state) {
+    ABORT_NOT_OK(Mode(array).status());
+  }
+}
+
+template <>
+void ModeKernelBench<BooleanType>(benchmark::State& state) {
+  RegressionArgs args(state);
+  auto rand = random::RandomArrayGenerator(1924);
+  auto array = rand.Boolean(args.size * 8, 0.5, args.null_proportion);
+
+  for (auto _ : state) {
+    ABORT_NOT_OK(Mode(array).status());
+  }
+}
+
+static void ModeKernelBenchArgs(benchmark::internal::Benchmark* bench) {
+  BenchmarkSetArgsWithSizes(bench, {1 * 1024 * 1024});  // 1M
+}
+
+#define MODE_KERNEL_BENCHMARK(FuncName, Type)                                     \
+  static void FuncName(benchmark::State& state) { ModeKernelBench<Type>(state); } \
+  BENCHMARK(FuncName)->Apply(ModeKernelBenchArgs)
+
+MODE_KERNEL_BENCHMARK(ModeKernelBoolean, BooleanType);
+MODE_KERNEL_BENCHMARK(ModeKernelInt8, Int8Type);
+MODE_KERNEL_BENCHMARK(ModeKernelInt16, Int16Type);
+MODE_KERNEL_BENCHMARK(ModeKernelInt32, Int32Type);
+MODE_KERNEL_BENCHMARK(ModeKernelInt64, Int64Type);
+
 }  // namespace compute
 }  // namespace arrow

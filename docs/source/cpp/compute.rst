@@ -138,15 +138,18 @@ Aggregations
 +--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
 | min_max                  | Unary      | Numeric            | Scalar Struct  (1)    | :struct:`MinMaxOptions`                    |
 +--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
-| sum                      | Unary      | Numeric            | Scalar Numeric (2)    |                                            |
+| mode                     | Unary      | Numeric            | Scalar Struct  (2)    |                                            |
++--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
+| sum                      | Unary      | Numeric            | Scalar Numeric (3)    |                                            |
 +--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
 
 Notes:
 
 * \(1) Output is a ``{"min": input type, "max": input type}`` Struct
 
-* \(2) Output is Int64, UInt64 or Float64, depending on the input type
+* \(2) Output is a ``{"mode": input type, "count": Int64}`` Struct
 
+* \(3) Output is Int64, UInt64 or Float64, depending on the input type
 
 Element-wise ("scalar") functions
 ---------------------------------

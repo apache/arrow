@@ -349,6 +349,7 @@ if(ARROW_COMPUTE)
               compute/kernel.cc
               compute/registry.cc
               compute/kernels/aggregate_basic.cc
+              compute/kernels/aggregate_mode.cc
               compute/kernels/codegen_internal.cc
               compute/kernels/scalar_arithmetic.cc
               compute/kernels/scalar_boolean.cc
