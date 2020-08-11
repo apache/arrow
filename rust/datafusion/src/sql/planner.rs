@@ -648,7 +648,7 @@ mod tests {
     #[test]
     fn select_binary_expr_nested() {
         let sql = "SELECT (age + salary)/2 from person";
-        let expected = "Projection: #age Plus #salary\
+        let expected = "Projection: #age Plus #salary Divide Int64(2)\
                         \n  TableScan: person projection=None";
         quick_test(sql, expected);
     }
