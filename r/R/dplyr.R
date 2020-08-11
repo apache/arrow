@@ -84,12 +84,9 @@ dim.arrow_dplyr_query <- function(x) {
   if (isTRUE(x$filtered)) {
     rows <- x$.data$num_rows
   } else if (query_on_dataset(x)) {
-    # Drop all columns: RecordBatches in the stream still know how many rows they have
-    # x$selected_columns <- character(0)
-    # Actually, Project won't let you select 0 columns, so pick the last, and
-    # it should be cheap if it is a partition column
-    x$selected_columns <- tail(x$selected_columns, 1)
-    rows <- Scanner$create(x)$ToTable()$num_rows
+    warning("Number of rows unknown; returning NA", call. = FALSE)
+    # TODO: https://issues.apache.org/jira/browse/ARROW-9697
+    rows <- NA_integer_
   } else {
     # Evaluate the filter expression to a BooleanArray and count
     rows <- as.integer(sum(eval_array_expression(x$filtered_rows), na.rm = TRUE))

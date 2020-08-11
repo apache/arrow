@@ -129,11 +129,13 @@ test_that("dim method returns the correct number of rows and columns",{
 test_that("dim() correctly determine numbers of rows and columns on arrow_dplyr_query object",{
   ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
 
-  expect_equal(
-    ds %>%
-      filter(chr == 'a') %>%
-      dim(),
-    c(2L, 7L)
+  expect_warning(
+    expect_identical(
+      ds %>%
+        filter(chr == 'a') %>%
+        dim(),
+      c(NA, 7L)
+    )
   )
   expect_equal(
     ds %>%
@@ -141,12 +143,14 @@ test_that("dim() correctly determine numbers of rows and columns on arrow_dplyr_
       dim(),
     c(20L, 3L)
   )
-  expect_equal(
-    ds %>%
-      select(chr, fct, int) %>%
-      filter(chr == 'a') %>%
-      dim(),
-    c(2L, 3L)
+  expect_warning(
+    expect_identical(
+      ds %>%
+        select(chr, fct, int) %>%
+        filter(chr == 'a') %>%
+        dim(),
+      c(NA, 3L)
+    )
   )
 })
 
@@ -220,7 +224,9 @@ test_that("Partitioning inference", {
 test_that("IPC/Feather format data", {
   ds <- open_dataset(ipc_dir, partitioning = "part", format = "feather")
   expect_identical(names(ds), c(names(df1), "part"))
-  expect_equal(dim(ds), c(20L, 7L))
+  expect_warning(
+    expect_identical(dim(ds), c(NA, 7L))
+  )
 
   expect_equivalent(
     ds %>%
@@ -244,8 +250,9 @@ test_that("IPC/Feather format data", {
 test_that("CSV dataset", {
   ds <- open_dataset(csv_dir, partitioning = "part", format = "csv")
   expect_identical(names(ds), c(names(df1), "part"))
-  expect_equal(dim(ds), c(20L, 7L))
-
+  expect_warning(
+    expect_identical(dim(ds), c(NA, 7L))
+  )
   expect_equivalent(
     ds %>%
       select(string = chr, integer = int, part) %>%
