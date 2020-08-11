@@ -451,7 +451,7 @@ class MaintenanceMixin:
         return patches_to_pick
 
     def cherry_pick_commits(self):
-        current_branch = self.repo.active_branch()
+        current_branch = self.repo.active_branch
 
         if self.branch in self.repo.branches:
             # always recreate the maintenance branch to keep the commit order
