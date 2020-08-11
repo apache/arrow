@@ -634,20 +634,8 @@ map_batches <- function(X, FUN, ..., .data.frame = TRUE) {
 #' @export
 head.Dataset <- function(x, n = 6L, ...) {
   assert_that(n > 0) # For now
-  result <- list()
-  batch_num <- 0
   scanner <- Scanner$create(ensure_group_vars(x))
   shared_ptr(Table, dataset___Scanner__head(scanner, n))
-  # for (scan_task in dataset___Scanner__Scan(scanner)) {
-  #   for (batch in shared_ptr(ScanTask, scan_task)$Execute()) {
-  #     batch_num <- batch_num + 1
-  #     result[[batch_num]] <- head(batch, n)
-  #     n <- n - nrow(batch)
-  #     if (n <= 0) break
-  #   }
-  #   if (n <= 0) break
-  # }
-  # Table$create(!!!result)
 }
 
 #' @export
@@ -685,15 +673,16 @@ tail.Dataset <- function(x, n = 6L, ...) {
 }
 
 take_dataset_rows <- function(x, i) {
+  # TODO: move this to cpp
   if (!is.numeric(i) || any(i < 0)) {
-    stop("TODO")
+    stop("Only slicing with positive indices is supported", call. = FALSE)
   }
   result <- list()
   result_order <- order(i)
   i <- sort(i) - 1L
-  scanner <- Scanner$create(x)
-  for (scan_task in arrow:::dataset___Scanner__Scan(scanner)) {
-    for (batch in arrow:::shared_ptr(arrow:::ScanTask, scan_task)$Execute()) {
+  scanner <- Scanner$create(ensure_group_vars(x))
+  for (scan_task in dataset___Scanner__Scan(scanner)) {
+    for (batch in shared_ptr(ScanTask, scan_task)$Execute()) {
       # Take all rows that are in this batch
       this_batch_nrows <- batch$num_rows
       in_this_batch <- i > -1L & i < this_batch_nrows
