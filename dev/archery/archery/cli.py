@@ -950,11 +950,12 @@ def release_cherry_pick(obj, version, dry_run):
         raise click.UsageError('Cherry-pick command only supported for minor '
                                'and patch releases')
 
-    if dry_run:
-        for commit in release.commits_to_pick():
-            click.echo('git cherry-pick {}'.format(commit.hexsha))
-    else:
-        pass
+    if not dry_run:
+        release.cherry_pick_commits()
+        click.echo('Executed the following commands:\n')
+
+    for commit in release.commits_to_pick():
+        click.echo('git cherry-pick {}'.format(commit.hexsha))
 
 
 if __name__ == "__main__":

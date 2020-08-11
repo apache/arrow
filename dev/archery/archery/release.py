@@ -450,6 +450,24 @@ class MaintenanceMixin:
 
         return patches_to_pick
 
+    def cherry_pick_commits(self):
+        current_branch = self.repo.active_branch()
+
+        if self.branch in self.repo.branches:
+            # always recreate the maintenance branch to keep the commit order
+            self.repo.delete_head(self.branch)
+
+        try:
+            # create and checkout the maintenance branch based off of the
+            # previous tag
+            self.repo.git.checkout(self.previous.tag, b=self.branch)
+
+            # cherry pick the commits based on the jira tickets
+            for commit in self.commits_to_pick():
+                self.repo.git.cherry_pick(commit.hexsha)
+        finally:
+            self.repo.git.checkout(current_branch)
+
 
 class MajorRelease(Release):
 
@@ -493,15 +511,3 @@ class PatchRelease(Release, MaintenanceMixin):
         No filtering, consider all releases.
         """
         return self.jira.project_versions('ARROW')
-
-    def cherry_pick_commits(self):
-        if self.branch in self.repo.branches:
-            # always recreate the maintenance branch to keep the commit order
-            self.repo.delete_head(self.branch)
-
-        # create and checkout the maintenance branch based on the previous tag
-        self.repo.git.checkout(self.previous.tag, b=self.branch)
-
-        # cherry pick the commits based on the jira tickets
-        for commit in self.commits_to_pick():
-            self.repo.git.cherry_pick(commit.hexsha)
