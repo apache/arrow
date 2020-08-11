@@ -1098,6 +1098,31 @@ mod tests {
     }
 
     #[test]
+    fn query_csv_with_custom_partition_extension() -> Result<()> {
+        let tmp_dir = TempDir::new("query_csv_with_custom_partition_extension")?;
+
+        // The main stipulation of this test: use a file extension that isn't .csv.
+        let file_extension = ".tst";
+
+        let mut ctx = ExecutionContext::new();
+        let schema = populate_csv_partitions(&tmp_dir, 2, file_extension)?;
+        ctx.register_csv(
+            "test",
+            tmp_dir.path().to_str().unwrap(),
+            CsvReadOptions::new()
+                .schema(&schema)
+                .file_extension(file_extension),
+        )?;
+        let results = collect(&mut ctx, "SELECT SUM(c1), SUM(c2), COUNT(*) FROM test")?;
+
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].num_rows(), 1);
+        assert_eq!(test::format_batch(&results[0]), vec!["10,110,20"]);
+
+        Ok(())
+    }
+
+    #[test]
     fn scalar_udf() -> Result<()> {
         let schema = Schema::new(vec![
             Field::new("a", DataType::Int32, false),
@@ -1223,10 +1248,12 @@ mod tests {
         ctx.write_csv(physical_plan.as_ref(), out_dir)
     }
 
-    /// Generate a partitioned CSV file and register it with an execution context
-    fn create_ctx(tmp_dir: &TempDir, partition_count: usize) -> Result<ExecutionContext> {
-        let mut ctx = ExecutionContext::new();
-
+    /// Generate CSV partitions within the supplied directory
+    fn populate_csv_partitions(
+        tmp_dir: &TempDir,
+        partition_count: usize,
+        file_extension: &str,
+    ) -> Result<SchemaRef> {
         // define schema for data source (csv file)
         let schema = Arc::new(Schema::new(vec![
             Field::new("c1", DataType::UInt32, false),
@@ -1235,7 +1262,7 @@ mod tests {
 
         // generate a partitioned file
         for partition in 0..partition_count {
-            let filename = format!("partition-{}.csv", partition);
+            let filename = format!("partition-{}.{}", partition, file_extension);
             let file_path = tmp_dir.path().join(&filename);
             let mut file = File::create(file_path)?;
 
@@ -1245,6 +1272,15 @@ mod tests {
                 file.write_all(data.as_bytes())?;
             }
         }
+
+        Ok(schema)
+    }
+
+    /// Generate a partitioned CSV file and register it with an execution context
+    fn create_ctx(tmp_dir: &TempDir, partition_count: usize) -> Result<ExecutionContext> {
+        let mut ctx = ExecutionContext::new();
+
+        let schema = populate_csv_partitions(tmp_dir, partition_count, ".csv")?;
 
         // register csv file with the execution context
         ctx.register_csv(
