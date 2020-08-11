@@ -139,7 +139,8 @@ struct ARROW_EXPORT IpcReadOptions {
 
   /// \brief Convert endian of data element to platform-native endianness
   /// if the endianness of the received schema is not equal to
-  /// platform-native endianness
+  /// platform-native endianness. This is effective at RecordBatchFileReader.Open(),
+  ///  RecordBatchStreamReader(), or StreamDecoder().
   bool ensure_native_endian = true;
 
   static IpcReadOptions Defaults();
