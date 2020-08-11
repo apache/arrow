@@ -71,22 +71,16 @@ public class TestUIntDictionaryRoundTrip {
 
   private BufferAllocator allocator;
 
-  private VarCharVector dictionaryVector;
-
   private DictionaryProvider.MapDictionaryProvider dictionaryProvider;
 
   @Before
   public void init() {
     allocator = new RootAllocator(Long.MAX_VALUE);
-    dictionaryVector = new VarCharVector("dict vector", allocator);
-    setVector(dictionaryVector, "0", "1", "2", "3", "4", "5", "6", "7", "8", "9");
-
     dictionaryProvider = new DictionaryProvider.MapDictionaryProvider();
   }
 
   @After
   public void terminate() throws Exception {
-    dictionaryVector.close();
     allocator.close();
   }
 
@@ -110,7 +104,9 @@ public class TestUIntDictionaryRoundTrip {
       byte[] data,
       Field expectedField,
       ToIntBiFunction<ValueVector, Integer> valGetter,
-      long dictionaryID) throws IOException {
+      long dictionaryID,
+      int[] expectedIndices,
+      String[] expectedDictItems) throws IOException {
     try (ArrowReader reader = streamMode ?
              new ArrowStreamReader(new ByteArrayInputStream(data), allocator) :
              new ArrowFileReader(new SeekableReadChannel(new ByteArrayReadableSeekableByteChannel(data)), allocator)) {
@@ -126,13 +122,11 @@ public class TestUIntDictionaryRoundTrip {
 
       assertEquals(1, root.getFieldVectors().size());
       ValueVector encodedVector = root.getVector(0);
-      assertEquals(5, encodedVector.getValueCount());
+      assertEquals(expectedIndices.length, encodedVector.getValueCount());
 
-      assertEquals(1, valGetter.applyAsInt(encodedVector, 0));
-      assertEquals(3, valGetter.applyAsInt(encodedVector, 1));
-      assertEquals(5, valGetter.applyAsInt(encodedVector, 2));
-      assertEquals(7, valGetter.applyAsInt(encodedVector, 3));
-      assertEquals(9, valGetter.applyAsInt(encodedVector, 4));
+      for (int i = 0; i < expectedIndices.length; i++) {
+        assertEquals(expectedIndices[i], valGetter.applyAsInt(encodedVector, i));
+      }
 
       // verify dictionary
       Map<Long, Dictionary> dictVectors = reader.getDictionaryVectors();
@@ -142,14 +136,14 @@ public class TestUIntDictionaryRoundTrip {
 
       assertTrue(dictionary.getVector() instanceof VarCharVector);
       VarCharVector dictVector = (VarCharVector) dictionary.getVector();
-      assertEquals(10, dictVector.getValueCount());
+      assertEquals(expectedDictItems.length, dictVector.getValueCount());
       for (int i = 0; i < dictVector.getValueCount(); i++) {
-        assertArrayEquals(String.valueOf(i).getBytes(), dictVector.get(i));
+        assertArrayEquals(expectedDictItems[i].getBytes(), dictVector.get(i));
       }
     }
   }
 
-  private ValueVector createEncodedVector(int bitWidth) {
+  private ValueVector createEncodedVector(int bitWidth, VarCharVector dictionaryVector) {
     final DictionaryEncoding dictionaryEncoding =
         new DictionaryEncoding(bitWidth, false, new ArrowType.Int(bitWidth, false));
     Dictionary dictionary = new Dictionary(dictionaryVector, dictionaryEncoding);
@@ -163,37 +157,82 @@ public class TestUIntDictionaryRoundTrip {
 
   @Test
   public void testUInt1RoundTrip() throws IOException {
-    try (UInt1Vector encodedVector1 = (UInt1Vector) createEncodedVector(8)) {
-      setVector(encodedVector1, (byte) 1, (byte) 3, (byte) 5, (byte) 7, (byte) 9);
+    final int vectorLength = UInt1Vector.MAX_UINT1 & UInt1Vector.PROMOTION_MASK;
+    try (VarCharVector dictionaryVector = new VarCharVector("dictionary", allocator);
+         UInt1Vector encodedVector1 = (UInt1Vector) createEncodedVector(8, dictionaryVector)) {
+      int[] indices = new int[vectorLength];
+      String[] dictionaryItems = new String[vectorLength];
+      for (int i = 0; i < vectorLength; i++) {
+        encodedVector1.setSafe(i, (byte) i);
+        indices[i] = i;
+        dictionaryItems[i] = String.valueOf(i);
+      }
+      encodedVector1.setValueCount(vectorLength);
+      setVector(dictionaryVector, dictionaryItems);
       byte[] data = writeData(encodedVector1);
-      readData(data, encodedVector1.getField(), (vector, index) -> ((UInt1Vector) vector).get(index), 8L);
+      readData(
+          data, encodedVector1.getField(), (vector, index) -> (int) ((UInt1Vector) vector).getValueAsLong(index),
+          8L, indices, dictionaryItems);
     }
   }
 
   @Test
   public void testUInt2RoundTrip() throws IOException {
-    try (UInt2Vector encodedVector2 = (UInt2Vector) createEncodedVector(16)) {
-      setVector(encodedVector2, (char) 1, (char) 3, (char) 5, (char) 7, (char) 9);
+    try (VarCharVector dictionaryVector = new VarCharVector("dictionary", allocator);
+        UInt2Vector encodedVector2 = (UInt2Vector) createEncodedVector(16, dictionaryVector)) {
+      int[] indices = new int[]{1, 3, 5, 7, 9, UInt2Vector.MAX_UINT2};
+      String[] dictItems = new String[UInt2Vector.MAX_UINT2];
+      for (int i = 0; i < UInt2Vector.MAX_UINT2; i++) {
+        dictItems[i] = String.valueOf(i);
+      }
+
+      setVector(encodedVector2, (char) 1, (char) 3, (char) 5, (char) 7, (char) 9, UInt2Vector.MAX_UINT2);
+      setVector(dictionaryVector, dictItems);
+
       byte[] data = writeData(encodedVector2);
-      readData(data, encodedVector2.getField(), (vector, index) -> ((UInt2Vector) vector).get(index), 16L);
+      readData(data, encodedVector2.getField(), (vector, index) -> (int) ((UInt2Vector) vector).getValueAsLong(index),
+          16L, indices, dictItems);
     }
   }
 
   @Test
   public void testUInt4RoundTrip() throws IOException {
-    try (UInt4Vector encodedVector4 = (UInt4Vector) createEncodedVector(32)) {
+    final int dictLength = 10;
+    try (VarCharVector dictionaryVector = new VarCharVector("dictionary", allocator);
+        UInt4Vector encodedVector4 = (UInt4Vector) createEncodedVector(32, dictionaryVector)) {
+      int[] indices = new int[]{1, 3, 5, 7, 9};
+      String[] dictItems = new String[dictLength];
+      for (int i = 0; i < dictLength; i++) {
+        dictItems[i] = String.valueOf(i);
+      }
+
+      setVector(encodedVector4, 1, 3, 5, 7, 9);
+      setVector(dictionaryVector, dictItems);
+
       setVector(encodedVector4, 1, 3, 5, 7, 9);
       byte[] data = writeData(encodedVector4);
-      readData(data, encodedVector4.getField(), (vector, index) -> ((UInt4Vector) vector).get(index), 32L);
+      readData(data, encodedVector4.getField(), (vector, index) -> (int) ((UInt4Vector) vector).getValueAsLong(index),
+          32L, indices, dictItems);
     }
   }
 
   @Test
   public void testUInt8RoundTrip() throws IOException {
-    try (UInt8Vector encodedVector8 = (UInt8Vector) createEncodedVector(64)) {
+    final int dictLength = 10;
+    try (VarCharVector dictionaryVector = new VarCharVector("dictionary", allocator);
+        UInt8Vector encodedVector8 = (UInt8Vector) createEncodedVector(64, dictionaryVector)) {
+      int[] indices = new int[]{1, 3, 5, 7, 9};
+      String[] dictItems = new String[dictLength];
+      for (int i = 0; i < dictLength; i++) {
+        dictItems[i] = String.valueOf(i);
+      }
+
       setVector(encodedVector8, 1L, 3L, 5L, 7L, 9L);
+      setVector(dictionaryVector, dictItems);
+
       byte[] data = writeData(encodedVector8);
-      readData(data, encodedVector8.getField(), (vector, index) -> (int) ((UInt8Vector) vector).get(index), 64L);
+      readData(data, encodedVector8.getField(), (vector, index) -> (int) ((UInt8Vector) vector).getValueAsLong(index),
+          64L, indices, dictItems);
     }
   }
 
