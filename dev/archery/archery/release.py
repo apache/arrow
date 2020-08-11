@@ -453,7 +453,7 @@ class MaintenanceMixin:
     def cherry_pick_commits(self):
         if self.branch in self.repo.branches:
             # always recreate the maintenance branch to keep the commit order
-            self.repo.delete_head(self.branch)
+            self.repo.git.branch('-D', self.branch)
 
         # create and checkout the maintenance branch based off of the
         # previous tag
