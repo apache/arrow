@@ -37,7 +37,6 @@ struct ModeState {
       auto count = value_count.second;
       this->value_counts[value] += count;
     }
-    this->has_values |= state.has_values;
   }
 
   template <typename ArrowType_ = ArrowType>
@@ -67,7 +66,6 @@ struct ModeState {
     return std::make_pair(mode, count);
   }
 
-  bool has_values = false;
   std::unordered_map<T, int64_t> value_counts{};
 };
 
@@ -82,7 +80,6 @@ struct ModeImpl : public ScalarAggregator {
     ModeState<ArrowType> local_state;
     ArrayType arr(batch[0].array());
 
-    local_state.has_values = (arr.length() - arr.null_count()) > 0;
     if (arr.null_count() > 0) {
       BitmapReader reader(arr.null_bitmap_data(), arr.offset(), arr.length());
       for (int64_t i = 0; i < arr.length(); i++) {
@@ -109,7 +106,7 @@ struct ModeImpl : public ScalarAggregator {
     using CountType = typename TypeTraits<Int64Type>::ScalarType;
 
     std::vector<std::shared_ptr<Scalar>> values;
-    if (!this->state.has_values) {
+    if (this->state.value_counts.empty()) {
       values = {std::make_shared<ModeType>(), std::make_shared<CountType>()};
     } else {
       auto mode_count = state.Finalize();

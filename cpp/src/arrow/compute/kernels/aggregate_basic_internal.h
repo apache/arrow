@@ -48,7 +48,6 @@ void AddMeanAvx2AggKernels(ScalarAggregateFunction* func);
 void AddSumAvx512AggKernels(ScalarAggregateFunction* func);
 void AddMeanAvx512AggKernels(ScalarAggregateFunction* func);
 
-// Aggregate kernels in separated source files
 std::shared_ptr<ScalarAggregateFunction> AddModeAggKernels();
 
 // ----------------------------------------------------------------------

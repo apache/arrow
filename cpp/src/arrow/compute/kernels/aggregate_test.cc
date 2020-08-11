@@ -43,9 +43,9 @@ using internal::checked_pointer_cast;
 
 namespace compute {
 
-///
-/// Sum
-///
+//
+// Sum
+//
 
 template <typename ArrowType>
 using SumResult =
@@ -262,9 +262,9 @@ TYPED_TEST(TestRandomNumericSumKernel, RandomSliceArraySum) {
   }
 }
 
-///
-/// Count
-///
+//
+// Count
+//
 
 using CountPair = std::pair<int64_t, int64_t>;
 
@@ -325,9 +325,9 @@ TYPED_TEST(TestRandomNumericCountKernel, RandomArrayCount) {
   }
 }
 
-///
-/// Mean
-///
+//
+// Mean
+//
 
 template <typename ArrowType>
 static Datum NaiveMean(const Array& array) {
@@ -425,9 +425,9 @@ TYPED_TEST(TestRandomNumericMeanKernel, RandomArrayMeanOverflow) {
   }
 }
 
-///
-/// Min / Max
-///
+//
+// Min / Max
+//
 
 template <typename ArrowType>
 class TestPrimitiveMinMaxKernel : public ::testing::Test {
@@ -594,9 +594,9 @@ TYPED_TEST(TestFloatingMinMaxKernel, DefaultOptions) {
   AssertDatumsEqual(explicit_defaults, no_options_provided);
 }
 
-///
-/// Mode
-///
+//
+// Mode
+//
 
 template <typename ArrowType>
 class TestPrimitiveModeKernel : public ::testing::Test {
@@ -656,6 +656,7 @@ TEST_F(TestBooleanModeKernel, Basics) {
 
   this->AssertModeIs("[true, null, false, false, null, true, null, null, true]", true, 3);
   this->AssertModeIsNull("[null, null, null]");
+  this->AssertModeIsNull("[]");
 }
 
 TYPED_TEST_SUITE(TestIntegerModeKernel, IntegralArrowTypes);
@@ -679,6 +680,9 @@ TYPED_TEST(TestFloatingModeKernel, Floats) {
   this->AssertModeIs("[null, null, 2, null, 1]", 1, 1);
   this->AssertModeIs("[NaN, NaN, 1]", 1, 1);
   this->AssertModeIsNull("[null, null, null]");
+  this->AssertModeIsNull("[NaN, NaN, null]");
+  this->AssertModeIsNull("[NaN, NaN, NaN]");
+  this->AssertModeIsNull("[]");
 }
 
 }  // namespace compute

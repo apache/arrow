@@ -157,7 +157,7 @@ Result<Datum> MinMax(const Array& array,
 /// \param[in] ctx the function execution context, optional
 /// \return resulting datum as a struct<mode: T, count: int64> scalar
 ///
-/// \since 1.0.0
+/// \since 2.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
 Result<Datum> Mode(const Datum& value, ExecContext* ctx = NULLPTR);
