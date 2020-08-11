@@ -324,7 +324,7 @@ ensure_cmake <- function() {
   if (is.null(cmake)) {
     # If not found, download it
     cat("**** cmake\n")
-    CMAKE_VERSION <- Sys.getenv("CMAKE_VERSION", "3.16.2")
+    CMAKE_VERSION <- Sys.getenv("CMAKE_VERSION", "3.18.1")
     cmake_binary_url <- paste0(
       "https://github.com/Kitware/CMake/releases/download/v", CMAKE_VERSION,
       "/cmake-", CMAKE_VERSION, "-Linux-x86_64.tar.gz"
