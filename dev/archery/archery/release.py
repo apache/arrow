@@ -461,7 +461,7 @@ class MaintenanceMixin:
 
         # cherry pick the commits based on the jira tickets
         for commit in self.commits_to_pick():
-            self.repo.git.cherry_pick(commit.hexsha)
+            self.repo.git.cherry_pick(commit.hexsha, X='theirs')
 
 
 class MajorRelease(Release):
