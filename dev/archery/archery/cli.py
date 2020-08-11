@@ -937,19 +937,24 @@ def release_changelog_regenerate(obj):
 
 
 @release.command('cherry-pick')
+@click.argument('version')
+@click.option('--dry-run/--execute', default=False,
+              help="Display the git commands instead of executing them.")
 @click.pass_obj
-def release_cherry_pick(obj):
+def release_cherry_pick(obj, version, dry_run):
     """Cherry pick commits."""
-    from .release import PatchRelease
+    from .release import Release, MinorRelease, PatchRelease
 
-    release = obj['release']
-    if not isinstance(release, PatchRelease):
-        raise click.UsageError('Cherry-pick command only supported for patch '
-                               'releases')
+    release = Release.from_jira(version, jira=obj['jira'], repo=obj['repo'])
+    if not isinstance(release, (MinorRelease, PatchRelease)):
+        raise click.UsageError('Cherry-pick command only supported for minor '
+                               'and patch releases')
 
-    commands = release.generate_update_branch_commands()
-    for cmd in commands:
-        click.echo(cmd)
+    if dry_run:
+        for commit in release.commits_to_pick():
+            click.echo('git cherry-pick {}'.format(commit.hexsha))
+    else:
+        pass
 
 
 if __name__ == "__main__":
