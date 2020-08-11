@@ -691,25 +691,39 @@ def test_batch_serialize():
 
 
 def make_table(length):
-    a0 = pa.array(np.random.randint(0, 255, size=length, dtype=np.int16))
-    a1 = pa.array(np.random.randint(0, 255, size=length, dtype=np.int16))
-    a2 = pa.DictionaryArray.from_arrays(
-        indices=np.repeat([0, 1, 2], 1 + (length // 3))[:length],
-        dictionary=np.array(['foo', 'bar', 'baz'], dtype=object))
+    a0 = pa.array([0, 1, 42, None], type=pa.int16())
+    a1 = pa.array([[0, 1], [2], [], None], type=pa.list_(pa.int32()))
+    a2 = pa.array([("ab", True), ("cde", False), (None, None), None],
+                  type=pa.struct([("strs", pa.utf8()),
+                                  ("bools", pa.bool_())]))
+    # Dictionaries are validated on the IPC read path, but that can produce
+    # issues for GPU-located dictionaries.  Check that they work fine.
+    a3 = pa.DictionaryArray.from_arrays(
+        indices=[0, 1, 1, None],
+        dictionary=pa.array(['foo', 'bar']))
+    a4 = pa.DictionaryArray.from_arrays(
+        indices=[2, 1, 2, None],
+        dictionary=a1)
+    a5 = pa.DictionaryArray.from_arrays(
+        indices=[2, 1, 0, None],
+        dictionary=a2)
 
-    schema = pa.schema([pa.field('f0', a0.type),
-                        pa.field('f1', a1.type),
-                        pa.field('f2', a2.type)])
-    batch = pa.record_batch([a0, a1, a2], schema=schema)
+    arrays = [a0, a1, a2, a3, a4, a5]
+    schema = pa.schema([('f{}'.format(i), arr.type)
+                        for i, arr in enumerate(arrays)])
+    batch = pa.record_batch(arrays, schema=schema)
     table = pa.Table.from_batches([batch])
     return table
 
 
-def test_table_deserialize_stream():
+def test_table_deserialize():
+    # ARROW-9659: make sure that we can deserialize a GPU-located table
+    # without crashing when initializing or validating the underlying arrays.
     htable = make_table(10)
     # Serialize the host table to bytes
     sink = pa.BufferOutputStream()
-    pa.ipc.new_stream(sink, htable.schema).write_table(htable)
+    with pa.ipc.new_stream(sink, htable.schema) as out:
+        out.write_table(htable)
     hbuf = pa.py_buffer(sink.getvalue().to_pybytes())
 
     # Copy the host bytes to a device buffer

@@ -209,10 +209,7 @@ void ListArray::SetData(const std::shared_ptr<ArrayData>& data,
   ARROW_CHECK_EQ(data->type->id(), expected_type_id);
   list_type_ = checked_cast<const ListType*>(data->type.get());
 
-  auto value_offsets = data->buffers[1];
-  raw_value_offsets_ = value_offsets == nullptr
-                           ? nullptr
-                           : reinterpret_cast<const offset_type*>(value_offsets->data());
+  raw_value_offsets_ = data->GetValuesSafe<offset_type>(1, /*offset=*/0);
 
   ARROW_CHECK_EQ(data_->child_data.size(), 1);
   ARROW_CHECK_EQ(list_type_->value_type()->id(), data->child_data[0]->type->id());
@@ -220,16 +217,14 @@ void ListArray::SetData(const std::shared_ptr<ArrayData>& data,
   values_ = MakeArray(data_->child_data[0]);
 }
 
+/* XXX This is almost exactly the same as ListArray::SetData */
 void LargeListArray::SetData(const std::shared_ptr<ArrayData>& data) {
   this->Array::SetData(data);
   ARROW_CHECK_EQ(data->buffers.size(), 2);
   ARROW_CHECK_EQ(data->type->id(), Type::LARGE_LIST);
   list_type_ = checked_cast<const LargeListType*>(data->type.get());
 
-  auto value_offsets = data->buffers[1];
-  raw_value_offsets_ = value_offsets == nullptr
-                           ? nullptr
-                           : reinterpret_cast<const offset_type*>(value_offsets->data());
+  raw_value_offsets_ = data->GetValuesSafe<offset_type>(1, /*offset=*/0);
 
   ARROW_CHECK_EQ(data_->child_data.size(), 1);
   ARROW_CHECK_EQ(list_type_->value_type()->id(), data->child_data[0]->type->id());
@@ -600,10 +595,7 @@ void UnionArray::SetData(std::shared_ptr<ArrayData> data) {
   union_type_ = checked_cast<const UnionType*>(data_->type.get());
 
   ARROW_CHECK_GE(data_->buffers.size(), 2);
-  auto type_codes = data_->buffers[1];
-  raw_type_codes_ = type_codes == nullptr
-                        ? nullptr
-                        : reinterpret_cast<const int8_t*>(type_codes->data());
+  raw_type_codes_ = data->GetValuesSafe<int8_t>(1, /*offset=*/0);
   boxed_fields_.resize(data_->child_data.size());
 }
 
@@ -625,10 +617,7 @@ void DenseUnionArray::SetData(const std::shared_ptr<ArrayData>& data) {
   // No validity bitmap
   ARROW_CHECK_EQ(data_->buffers[0], nullptr);
 
-  auto value_offsets = data_->buffers[2];
-  raw_value_offsets_ = value_offsets == nullptr
-                           ? nullptr
-                           : reinterpret_cast<const int32_t*>(value_offsets->data());
+  raw_value_offsets_ = data->GetValuesSafe<int32_t>(2, /*offset=*/0);
 }
 
 SparseUnionArray::SparseUnionArray(std::shared_ptr<ArrayData> data) {
