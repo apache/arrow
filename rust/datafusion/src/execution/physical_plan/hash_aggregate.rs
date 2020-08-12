@@ -188,12 +188,6 @@ macro_rules! accum_val {
     }};
 }
 
-#[derive(Debug)]
-struct MapEntry {
-    k: Vec<GroupByScalar>,
-    v: Vec<Option<ScalarValue>>,
-}
-
 struct GroupedHashAggregateIterator {
     schema: SchemaRef,
     group_expr: Vec<Arc<dyn PhysicalExpr>>,
@@ -222,7 +216,7 @@ impl GroupedHashAggregateIterator {
 
 type AccumulatorSet = Vec<Rc<RefCell<dyn Accumulator>>>;
 
-macro_rules! update_acc {
+macro_rules! update_accum {
     ($ARRAY:ident, $ARRAY_TY:ident, $SCALAR_TY:expr, $COL:expr, $ACCUM:expr) => {{
         let primitive_array = $ARRAY.as_any().downcast_ref::<$ARRAY_TY>().unwrap();
 
@@ -317,37 +311,49 @@ impl RecordBatchReader for GroupedHashAggregateIterator {
 
                 match array.data_type() {
                     DataType::Int8 => {
-                        update_acc!(array, Int8Array, ScalarValue::Int8, col, accums)
+                        update_accum!(array, Int8Array, ScalarValue::Int8, col, accums)
                     }
                     DataType::Int16 => {
-                        update_acc!(array, Int16Array, ScalarValue::Int16, col, accums)
+                        update_accum!(array, Int16Array, ScalarValue::Int16, col, accums)
                     }
                     DataType::Int32 => {
-                        update_acc!(array, Int32Array, ScalarValue::Int32, col, accums)
+                        update_accum!(array, Int32Array, ScalarValue::Int32, col, accums)
                     }
                     DataType::Int64 => {
-                        update_acc!(array, Int64Array, ScalarValue::Int64, col, accums)
+                        update_accum!(array, Int64Array, ScalarValue::Int64, col, accums)
                     }
                     DataType::UInt8 => {
-                        update_acc!(array, UInt8Array, ScalarValue::UInt8, col, accums)
+                        update_accum!(array, UInt8Array, ScalarValue::UInt8, col, accums)
                     }
-                    DataType::UInt16 => {
-                        update_acc!(array, UInt16Array, ScalarValue::UInt16, col, accums)
-                    }
-                    DataType::UInt32 => {
-                        update_acc!(array, UInt32Array, ScalarValue::UInt32, col, accums)
-                    }
-                    DataType::UInt64 => {
-                        update_acc!(array, UInt64Array, ScalarValue::UInt64, col, accums)
-                    }
-                    DataType::Float32 => update_acc!(
+                    DataType::UInt16 => update_accum!(
+                        array,
+                        UInt16Array,
+                        ScalarValue::UInt16,
+                        col,
+                        accums
+                    ),
+                    DataType::UInt32 => update_accum!(
+                        array,
+                        UInt32Array,
+                        ScalarValue::UInt32,
+                        col,
+                        accums
+                    ),
+                    DataType::UInt64 => update_accum!(
+                        array,
+                        UInt64Array,
+                        ScalarValue::UInt64,
+                        col,
+                        accums
+                    ),
+                    DataType::Float32 => update_accum!(
                         array,
                         Float32Array,
                         ScalarValue::Float32,
                         col,
                         accums
                     ),
-                    DataType::Float64 => update_acc!(
+                    DataType::Float64 => update_accum!(
                         array,
                         Float64Array,
                         ScalarValue::Float64,
