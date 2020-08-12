@@ -1464,7 +1464,7 @@ mod tests {
         ]);
 
         let combiner = max.create_reducer("Max(a)");
-        assert_eq!(DataType::Int64, combiner.data_type(&schema)?);
+        assert_eq!(DataType::Int32, combiner.data_type(&schema)?);
 
         Ok(())
     }
@@ -1482,7 +1482,7 @@ mod tests {
             Field::new("MIN(a)", min.data_type(&schema)?, false),
         ]);
         let combiner = min.create_reducer("MIN(a)");
-        assert_eq!(DataType::Int64, combiner.data_type(&schema)?);
+        assert_eq!(DataType::Int32, combiner.data_type(&schema)?);
 
         Ok(())
     }
