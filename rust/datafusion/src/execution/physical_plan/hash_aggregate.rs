@@ -531,8 +531,8 @@ fn create_batch_from_map(
         .map(|f| f.data_type())
         .collect();
     let mut builders: Vec<Box<dyn ArrayBuilder>> = vec![];
-    for i in 0..num_group_expr + num_aggr_expr {
-        let builder: Box<dyn ArrayBuilder> = match output_types[i] {
+    for data_type in &output_types {
+        let builder: Box<dyn ArrayBuilder> = match data_type {
             DataType::Int8 => Box::new(Int8Builder::new(map.len())),
             DataType::Int16 => Box::new(Int16Builder::new(map.len())),
             DataType::Int32 => Box::new(Int32Builder::new(map.len())),
