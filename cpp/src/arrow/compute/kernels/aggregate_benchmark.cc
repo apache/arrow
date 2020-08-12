@@ -369,5 +369,34 @@ MODE_KERNEL_BENCHMARK(ModeKernelInt16, Int16Type);
 MODE_KERNEL_BENCHMARK(ModeKernelInt32, Int32Type);
 MODE_KERNEL_BENCHMARK(ModeKernelInt64, Int64Type);
 
+template <typename ArrowType>
+static void MinMaxKernelBench(benchmark::State& state) {
+  using CType = typename TypeTraits<ArrowType>::CType;
+
+  RegressionArgs args(state);
+  const int64_t array_size = args.size / sizeof(CType);
+  auto rand = random::RandomArrayGenerator(1923);
+  auto array = rand.Numeric<ArrowType>(array_size, -100, 100, args.null_proportion);
+
+  for (auto _ : state) {
+    ABORT_NOT_OK(MinMax(array).status());
+  }
+}
+
+static void MinMaxKernelBenchArgs(benchmark::internal::Benchmark* bench) {
+  BenchmarkSetArgsWithSizes(bench, {1 * 1024 * 1024});  // 1M
+}
+
+#define MINMAX_KERNEL_BENCHMARK(FuncName, Type)                                     \
+  static void FuncName(benchmark::State& state) { MinMaxKernelBench<Type>(state); } \
+  BENCHMARK(FuncName)->Apply(MinMaxKernelBenchArgs)
+
+MINMAX_KERNEL_BENCHMARK(MinMaxKernelFloat, FloatType);
+MINMAX_KERNEL_BENCHMARK(MinMaxKernelDouble, DoubleType);
+MINMAX_KERNEL_BENCHMARK(MinMaxKernelInt8, Int8Type);
+MINMAX_KERNEL_BENCHMARK(MinMaxKernelInt16, Int16Type);
+MINMAX_KERNEL_BENCHMARK(MinMaxKernelInt32, Int32Type);
+MINMAX_KERNEL_BENCHMARK(MinMaxKernelInt64, Int64Type);
+
 }  // namespace compute
 }  // namespace arrow
