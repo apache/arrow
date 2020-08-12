@@ -502,50 +502,49 @@ impl RecordBatchReader for GroupedHashAggregateIterator {
                 )),
             };
             result_arrays.push(array.map_err(ExecutionError::into_arrow_external_error)?);
+        }
 
-            // aggregate values
-            for i in 0..self.aggr_expr.len() {
-                let aggr_data_type = self.aggr_expr[i]
-                    .data_type(&input_schema)
-                    .map_err(ExecutionError::into_arrow_external_error)?;
-                let array = match aggr_data_type {
-                    DataType::UInt8 => {
-                        aggr_array_from_map_entries!(UInt64Builder, UInt8, u64, map, i)
-                    }
-                    DataType::UInt16 => {
-                        aggr_array_from_map_entries!(UInt64Builder, UInt16, u64, map, i)
-                    }
-                    DataType::UInt32 => {
-                        aggr_array_from_map_entries!(UInt64Builder, UInt32, u64, map, i)
-                    }
-                    DataType::UInt64 => {
-                        aggr_array_from_map_entries!(UInt64Builder, UInt64, u64, map, i)
-                    }
-                    DataType::Int8 => {
-                        aggr_array_from_map_entries!(Int64Builder, Int8, i64, map, i)
-                    }
-                    DataType::Int16 => {
-                        aggr_array_from_map_entries!(Int64Builder, Int16, i64, map, i)
-                    }
-                    DataType::Int32 => {
-                        aggr_array_from_map_entries!(Int64Builder, Int32, i64, map, i)
-                    }
-                    DataType::Int64 => {
-                        aggr_array_from_map_entries!(Int64Builder, Int64, i64, map, i)
-                    }
-                    DataType::Float32 => {
-                        aggr_array_from_map_entries!(Float32Builder, Float32, f32, map, i)
-                    }
-                    DataType::Float64 => {
-                        aggr_array_from_map_entries!(Float64Builder, Float64, f64, map, i)
-                    }
-                    _ => Err(ExecutionError::ExecutionError(
-                        "Unsupported aggregate expr".to_string(),
-                    )),
-                };
-                result_arrays
-                    .push(array.map_err(ExecutionError::into_arrow_external_error)?);
-            }
+        // aggregate values
+        for i in 0..self.aggr_expr.len() {
+            let aggr_data_type = self.aggr_expr[i]
+                .data_type(&input_schema)
+                .map_err(ExecutionError::into_arrow_external_error)?;
+            let array = match aggr_data_type {
+                DataType::UInt8 => {
+                    aggr_array_from_map_entries!(UInt64Builder, UInt8, u64, map, i)
+                }
+                DataType::UInt16 => {
+                    aggr_array_from_map_entries!(UInt64Builder, UInt16, u64, map, i)
+                }
+                DataType::UInt32 => {
+                    aggr_array_from_map_entries!(UInt64Builder, UInt32, u64, map, i)
+                }
+                DataType::UInt64 => {
+                    aggr_array_from_map_entries!(UInt64Builder, UInt64, u64, map, i)
+                }
+                DataType::Int8 => {
+                    aggr_array_from_map_entries!(Int64Builder, Int8, i64, map, i)
+                }
+                DataType::Int16 => {
+                    aggr_array_from_map_entries!(Int64Builder, Int16, i64, map, i)
+                }
+                DataType::Int32 => {
+                    aggr_array_from_map_entries!(Int64Builder, Int32, i64, map, i)
+                }
+                DataType::Int64 => {
+                    aggr_array_from_map_entries!(Int64Builder, Int64, i64, map, i)
+                }
+                DataType::Float32 => {
+                    aggr_array_from_map_entries!(Float32Builder, Float32, f32, map, i)
+                }
+                DataType::Float64 => {
+                    aggr_array_from_map_entries!(Float64Builder, Float64, f64, map, i)
+                }
+                _ => Err(ExecutionError::ExecutionError(
+                    "Unsupported aggregate expr".to_string(),
+                )),
+            };
+            result_arrays.push(array.map_err(ExecutionError::into_arrow_external_error)?);
         }
 
         let batch = RecordBatch::try_new(self.schema.clone(), result_arrays)?;
