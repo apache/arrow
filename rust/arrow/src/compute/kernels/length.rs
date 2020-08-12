@@ -28,14 +28,15 @@ use std::sync::Arc;
 /// Returns an array of UInt32 denoting the number of characters in each string in the array.
 ///
 /// * this only accepts StringArray
-/// * lenght of null is null.
+/// * length of null is null.
 /// * length is in number of bytes
 pub fn length(array: &Array) -> Result<UInt32Array> {
     match array.data_type() {
         DataType::Utf8 => {
             // note: offsets are stored as u8, but they can be interpreted as u32
             let offsets = array.data_ref().clone().buffers()[0].clone();
-            // this is a 30% improvement over iterating over u8s and building u32
+            // this is a 30% improvement over iterating over u8s and building u32, which
+            // justifies the usage of `unsafe`.
             let slice: &[u32] = unsafe { offsets.typed_data::<u32>() };
 
             let mut builder = UInt32BufferBuilder::new(array.len());
