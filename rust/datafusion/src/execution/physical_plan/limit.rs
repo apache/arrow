@@ -30,6 +30,7 @@ use std::thread;
 use std::thread::JoinHandle;
 
 /// Limit execution plan
+#[derive(Debug)]
 pub struct LimitExec {
     /// Input schema
     schema: SchemaRef,
@@ -68,6 +69,7 @@ impl ExecutionPlan for LimitExec {
     }
 }
 
+#[derive(Debug)]
 struct LimitPartition {
     /// Input schema
     schema: SchemaRef,

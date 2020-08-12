@@ -49,6 +49,7 @@ use arrow::datatypes::{DataType, Schema, TimeUnit};
 use arrow::record_batch::RecordBatch;
 
 /// Represents the column at a given index in a RecordBatch
+#[derive(Debug)]
 pub struct Column {
     name: String,
 }
@@ -94,6 +95,7 @@ pub fn col(name: &str) -> Arc<dyn PhysicalExpr> {
 }
 
 /// SUM aggregate expression
+#[derive(Debug)]
 pub struct Sum {
     expr: Arc<dyn PhysicalExpr>,
 }
@@ -152,6 +154,7 @@ macro_rules! sum_accumulate {
     }};
 }
 
+#[derive(Debug)]
 struct SumAccumulator {
     sum: Option<ScalarValue>,
 }
@@ -286,6 +289,7 @@ pub fn sum(expr: Arc<dyn PhysicalExpr>) -> Arc<dyn AggregateExpr> {
 }
 
 /// AVG aggregate expression
+#[derive(Debug)]
 pub struct Avg {
     expr: Arc<dyn PhysicalExpr>,
 }
@@ -347,6 +351,7 @@ macro_rules! avg_accumulate {
         };
     }};
 }
+#[derive(Debug)]
 struct AvgAccumulator {
     sum: Option<f64>,
     count: Option<i64>,
@@ -400,6 +405,7 @@ pub fn avg(expr: Arc<dyn PhysicalExpr>) -> Arc<dyn AggregateExpr> {
 }
 
 /// MAX aggregate expression
+#[derive(Debug)]
 pub struct Max {
     expr: Arc<dyn PhysicalExpr>,
 }
@@ -461,6 +467,7 @@ macro_rules! max_accumulate {
         };
     }};
 }
+#[derive(Debug)]
 struct MaxAccumulator {
     max: Option<ScalarValue>,
 }
@@ -595,6 +602,7 @@ pub fn max(expr: Arc<dyn PhysicalExpr>) -> Arc<dyn AggregateExpr> {
 }
 
 /// MIN aggregate expression
+#[derive(Debug)]
 pub struct Min {
     expr: Arc<dyn PhysicalExpr>,
 }
@@ -656,6 +664,7 @@ macro_rules! min_accumulate {
         };
     }};
 }
+#[derive(Debug)]
 struct MinAccumulator {
     min: Option<ScalarValue>,
 }
@@ -791,6 +800,7 @@ pub fn min(expr: Arc<dyn PhysicalExpr>) -> Arc<dyn AggregateExpr> {
 
 /// COUNT aggregate expression
 /// Returns the amount of non-null values of the given expression.
+#[derive(Debug)]
 pub struct Count {
     expr: Arc<dyn PhysicalExpr>,
 }
@@ -820,6 +830,7 @@ impl AggregateExpr for Count {
     }
 }
 
+#[derive(Debug)]
 struct CountAccumulator {
     count: u64,
 }
@@ -955,6 +966,7 @@ macro_rules! boolean_op {
     }};
 }
 /// Binary expression
+#[derive(Debug)]
 pub struct BinaryExpr {
     left: Arc<dyn PhysicalExpr>,
     op: Operator,
@@ -1051,6 +1063,7 @@ pub fn binary(
 }
 
 /// Not expression
+#[derive(Debug)]
 pub struct NotExpr {
     arg: Arc<dyn PhysicalExpr>,
 }
@@ -1099,6 +1112,7 @@ pub fn not(arg: Arc<dyn PhysicalExpr>) -> Arc<dyn PhysicalExpr> {
 }
 
 /// CAST expression casts an expression to a specific data type
+#[derive(Debug)]
 pub struct CastExpr {
     /// The expression to cast
     expr: Arc<dyn PhysicalExpr>,
@@ -1166,6 +1180,7 @@ impl PhysicalExpr for CastExpr {
 }
 
 /// Represents a non-null literal value
+#[derive(Debug)]
 pub struct Literal {
     value: ScalarValue,
 }
@@ -1252,7 +1267,7 @@ pub fn lit(value: ScalarValue) -> Arc<dyn PhysicalExpr> {
 }
 
 /// Represents Sort operation for a column in a RecordBatch
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct PhysicalSortExpr {
     /// Physical expression representing the column to sort
     pub expr: Arc<dyn PhysicalExpr>,

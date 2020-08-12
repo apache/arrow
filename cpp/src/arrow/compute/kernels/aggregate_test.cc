@@ -43,9 +43,9 @@ using internal::checked_pointer_cast;
 
 namespace compute {
 
-///
-/// Sum
-///
+//
+// Sum
+//
 
 template <typename ArrowType>
 using SumResult =
@@ -262,9 +262,9 @@ TYPED_TEST(TestRandomNumericSumKernel, RandomSliceArraySum) {
   }
 }
 
-///
-/// Count
-///
+//
+// Count
+//
 
 using CountPair = std::pair<int64_t, int64_t>;
 
@@ -325,9 +325,9 @@ TYPED_TEST(TestRandomNumericCountKernel, RandomArrayCount) {
   }
 }
 
-///
-/// Mean
-///
+//
+// Mean
+//
 
 template <typename ArrowType>
 static Datum NaiveMean(const Array& array) {
@@ -425,9 +425,9 @@ TYPED_TEST(TestRandomNumericMeanKernel, RandomArrayMeanOverflow) {
   }
 }
 
-///
-/// Min / Max
-///
+//
+// Min / Max
+//
 
 template <typename ArrowType>
 class TestPrimitiveMinMaxKernel : public ::testing::Test {
@@ -592,6 +592,97 @@ TYPED_TEST(TestFloatingMinMaxKernel, DefaultOptions) {
                        CallFunction("min_max", {values}, &default_options));
 
   AssertDatumsEqual(explicit_defaults, no_options_provided);
+}
+
+//
+// Mode
+//
+
+template <typename ArrowType>
+class TestPrimitiveModeKernel : public ::testing::Test {
+  using Traits = TypeTraits<ArrowType>;
+  using c_type = typename ArrowType::c_type;
+  using ModeType = typename Traits::ScalarType;
+  using CountType = typename TypeTraits<Int64Type>::ScalarType;
+
+ public:
+  void AssertModeIs(const Datum& array, c_type expected_mode, int64_t expected_count) {
+    ASSERT_OK_AND_ASSIGN(Datum out, Mode(array));
+    const StructScalar& value = out.scalar_as<StructScalar>();
+
+    const auto& out_mode = checked_cast<const ModeType&>(*value.value[0]);
+    ASSERT_EQ(expected_mode, out_mode.value);
+
+    const auto& out_count = checked_cast<const CountType&>(*value.value[1]);
+    ASSERT_EQ(expected_count, out_count.value);
+  }
+
+  void AssertModeIs(const std::string& json, c_type expected_mode,
+                    int64_t expected_count) {
+    auto array = ArrayFromJSON(type_singleton(), json);
+    AssertModeIs(array, expected_mode, expected_count);
+  }
+
+  void AssertModeIsNull(const Datum& array) {
+    ASSERT_OK_AND_ASSIGN(Datum out, Mode(array));
+    const StructScalar& value = out.scalar_as<StructScalar>();
+
+    for (const auto& val : value.value) {
+      ASSERT_FALSE(val->is_valid);
+    }
+  }
+
+  void AssertModeIsNull(const std::string& json) {
+    auto array = ArrayFromJSON(type_singleton(), json);
+    AssertModeIsNull(array);
+  }
+
+  std::shared_ptr<DataType> type_singleton() { return Traits::type_singleton(); }
+};
+
+template <typename ArrowType>
+class TestIntegerModeKernel : public TestPrimitiveModeKernel<ArrowType> {};
+
+template <typename ArrowType>
+class TestFloatingModeKernel : public TestPrimitiveModeKernel<ArrowType> {};
+
+class TestBooleanModeKernel : public TestPrimitiveModeKernel<BooleanType> {};
+
+TEST_F(TestBooleanModeKernel, Basics) {
+  this->AssertModeIs("[false, false]", false, 2);
+  this->AssertModeIs("[false, false, true, true, true]", true, 3);
+  this->AssertModeIs("[true, false, false, true, true]", true, 3);
+  this->AssertModeIs("[false, false, true, true, true, false]", false, 3);
+
+  this->AssertModeIs("[true, null, false, false, null, true, null, null, true]", true, 3);
+  this->AssertModeIsNull("[null, null, null]");
+  this->AssertModeIsNull("[]");
+}
+
+TYPED_TEST_SUITE(TestIntegerModeKernel, IntegralArrowTypes);
+TYPED_TEST(TestIntegerModeKernel, Basics) {
+  this->AssertModeIs("[5, 1, 1, 5, 5]", 5, 3);
+  this->AssertModeIs("[5, 1, 1, 5, 5, 1]", 1, 3);
+  this->AssertModeIs("[127, 0, 127, 127, 0, 1, 0, 127]", 127, 4);
+
+  this->AssertModeIs("[null, null, 2, null, 1]", 1, 1);
+  this->AssertModeIsNull("[null, null, null]");
+  this->AssertModeIsNull("[]");
+}
+
+TYPED_TEST_SUITE(TestFloatingModeKernel, RealArrowTypes);
+TYPED_TEST(TestFloatingModeKernel, Floats) {
+  this->AssertModeIs("[5, 1, 1, 5, 5]", 5, 3);
+  this->AssertModeIs("[5, 1, 1, 5, 5, 1]", 1, 3);
+  this->AssertModeIs("[Inf, 100, Inf, 100, Inf]", INFINITY, 3);
+  this->AssertModeIs("[Inf, -Inf, Inf, -Inf]", -INFINITY, 2);
+
+  this->AssertModeIs("[null, null, 2, null, 1]", 1, 1);
+  this->AssertModeIs("[NaN, NaN, 1]", 1, 1);
+  this->AssertModeIsNull("[null, null, null]");
+  this->AssertModeIsNull("[NaN, NaN, null]");
+  this->AssertModeIsNull("[NaN, NaN, NaN]");
+  this->AssertModeIsNull("[]");
 }
 
 }  // namespace compute

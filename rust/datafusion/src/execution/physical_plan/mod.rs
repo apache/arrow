@@ -18,7 +18,7 @@
 //! Traits for physical query plan, supporting parallel execution for partitioned relations.
 
 use std::cell::RefCell;
-use std::fmt::Display;
+use std::fmt::{Debug, Display};
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 
@@ -29,7 +29,7 @@ use arrow::datatypes::{DataType, Schema, SchemaRef};
 use arrow::record_batch::{RecordBatch, RecordBatchReader};
 
 /// Partition-aware execution plan for a relation
-pub trait ExecutionPlan {
+pub trait ExecutionPlan: Debug {
     /// Get the schema for this execution plan
     fn schema(&self) -> SchemaRef;
     /// Get the partitions for this execution plan. Each partition can be executed in parallel.
@@ -37,14 +37,14 @@ pub trait ExecutionPlan {
 }
 
 /// Represents a partition of an execution plan that can be executed on a thread
-pub trait Partition: Send + Sync {
+pub trait Partition: Send + Sync + Debug {
     /// Execute this partition and return an iterator over RecordBatch
     fn execute(&self) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>>;
 }
 
 /// Expression that can be evaluated against a RecordBatch
 /// A Physical expression knows its type, nullability and how to evaluate itself.
-pub trait PhysicalExpr: Send + Sync + Display {
+pub trait PhysicalExpr: Send + Sync + Display + Debug {
     /// Get the data type of this expression, given the schema of the input
     fn data_type(&self, input_schema: &Schema) -> Result<DataType>;
     /// Decide whehter this expression is nullable, given the schema of the input
@@ -54,7 +54,7 @@ pub trait PhysicalExpr: Send + Sync + Display {
 }
 
 /// Aggregate expression that can be evaluated against a RecordBatch
-pub trait AggregateExpr: Send + Sync {
+pub trait AggregateExpr: Send + Sync + Debug {
     /// Get the data type of this expression, given the schema of the input
     fn data_type(&self, input_schema: &Schema) -> Result<DataType>;
     /// Evaluate the expression being aggregated
@@ -68,7 +68,7 @@ pub trait AggregateExpr: Send + Sync {
 }
 
 /// Aggregate accumulator
-pub trait Accumulator {
+pub trait Accumulator: Debug {
     /// Update the accumulator based on a row in a batch
     fn accumulate_scalar(&mut self, value: Option<ScalarValue>) -> Result<()>;
     /// Update the accumulator based on an array in a batch

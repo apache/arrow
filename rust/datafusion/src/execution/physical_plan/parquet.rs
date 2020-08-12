@@ -20,7 +20,7 @@
 use std::fs::File;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
-use std::thread;
+use std::{fmt, thread};
 
 use crate::error::{ExecutionError, Result};
 use crate::execution::physical_plan::common;
@@ -31,9 +31,11 @@ use arrow::record_batch::{RecordBatch, RecordBatchReader};
 use parquet::file::reader::SerializedFileReader;
 
 use crossbeam::channel::{bounded, Receiver, RecvError, Sender};
+use fmt::{Debug, Formatter};
 use parquet::arrow::{ArrowReader, ParquetFileArrowReader};
 
 /// Execution plan for scanning a Parquet file
+#[derive(Debug)]
 pub struct ParquetExec {
     /// Path to directory containing partitioned Parquet files with the same schema
     filenames: Vec<String>,
@@ -108,6 +110,12 @@ impl ExecutionPlan for ParquetExec {
 
 struct ParquetPartition {
     iterator: Arc<Mutex<dyn RecordBatchReader + Send + Sync>>,
+}
+
+impl Debug for ParquetPartition {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ParquetPartition").finish()
+    }
 }
 
 impl ParquetPartition {

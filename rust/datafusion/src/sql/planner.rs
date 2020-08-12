@@ -64,7 +64,7 @@ impl<S: SchemaProvider> SqlToRel<S> {
     }
 
     /// Generate a logical plan from an SQL statement
-    fn sql_statement_to_plan(&self, sql: &Statement) -> Result<LogicalPlan> {
+    pub fn sql_statement_to_plan(&self, sql: &Statement) -> Result<LogicalPlan> {
         match sql {
             Statement::Query(query) => self.query_to_plan(&query),
             _ => Err(ExecutionError::NotImplemented(
@@ -515,6 +515,8 @@ impl<S: SchemaProvider> SqlToRel<S> {
                 }
             }
 
+            SQLExpr::Nested(e) => self.sql_to_rex(&e, &schema),
+
             _ => Err(ExecutionError::General(format!(
                 "Unsupported ast node {:?} in sqltorel",
                 sql
@@ -633,6 +635,22 @@ mod tests {
                         And #age Lt Int64(65) \
                         And #age LtEq Int64(65)\
                         \n    TableScan: person projection=None";
+        quick_test(sql, expected);
+    }
+
+    #[test]
+    fn select_binary_expr() {
+        let sql = "SELECT age + salary from person";
+        let expected = "Projection: #age Plus #salary\
+                        \n  TableScan: person projection=None";
+        quick_test(sql, expected);
+    }
+
+    #[test]
+    fn select_binary_expr_nested() {
+        let sql = "SELECT (age + salary)/2 from person";
+        let expected = "Projection: #age Plus #salary Divide Int64(2)\
+                        \n  TableScan: person projection=None";
         quick_test(sql, expected);
     }
 
