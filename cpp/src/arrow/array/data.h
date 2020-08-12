@@ -180,6 +180,22 @@ struct ARROW_EXPORT ArrayData {
     return GetValues<T>(i, offset);
   }
 
+  // Like GetValues, but returns NULLPTR instead of aborting if the underlying
+  // buffer is not a CPU buffer.
+  template <typename T>
+  inline const T* GetValuesSafe(int i, int64_t absolute_offset) const {
+    if (buffers[i] && buffers[i]->is_cpu()) {
+      return reinterpret_cast<const T*>(buffers[i]->data()) + absolute_offset;
+    } else {
+      return NULLPTR;
+    }
+  }
+
+  template <typename T>
+  inline const T* GetValuesSafe(int i) const {
+    return GetValuesSafe<T>(i, offset);
+  }
+
   // Access a buffer's data as a typed C pointer
   template <typename T>
   inline T* GetMutableValues(int i, int64_t absolute_offset) {

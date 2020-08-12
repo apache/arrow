@@ -276,7 +276,7 @@ services:
       cache_from:
         - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cuda-${CUDA}-cpp
       args:
-        base: nvidia/cuda:10.0-devel-ubuntu${UBUNTU}
+        base: nvidia/cuda:${CUDA}-devel-ubuntu${UBUNTU}
         clang_tools: ${CLANG_TOOLS}
         llvm: ${LLVM}
     shm_size: *shm-size
