@@ -514,12 +514,13 @@ macro_rules! append_group_value {
 
 /// Append an aggregate expression value to a builder
 macro_rules! append_aggr_value {
-    ($BUILDER:expr, $BUILDER_TY:ident, $VALUE:expr, $SCALAR_TY:ident, $TY2:ty) => {{
+    ($BUILDER:expr, $BUILDER_TY:ident, $VALUE:expr, $SCALAR_TY:ident) => {{
+        println!("downcast {:#?} to {:#?}", $BUILDER, $VALUE);
         let builder = $BUILDER
             .downcast_mut::<$BUILDER_TY>()
             .expect("failed to downcast aggregate value builder to expected type");
         match $VALUE {
-            Some(ScalarValue::$SCALAR_TY(n)) => builder.append_value(n as $TY2)?,
+            Some(ScalarValue::$SCALAR_TY(n)) => builder.append_value(n)?,
             None => builder.append_null()?,
             Some(_) => panic!(),
         }
@@ -534,7 +535,7 @@ fn create_batch_from_map(
     output_schema: &Schema,
 ) -> Result<RecordBatch> {
     let mut builders: Vec<Box<dyn ArrayBuilder>> = vec![];
-    for i in 0..num_group_expr {
+    for i in 0..num_group_expr + num_aggr_expr {
         let builder: Box<dyn ArrayBuilder> = match output_schema.field(i).data_type() {
             DataType::Int8 => Box::new(Int8Builder::new(map.len())),
             DataType::Int16 => Box::new(Int16Builder::new(map.len())),
@@ -543,29 +544,6 @@ fn create_batch_from_map(
             DataType::UInt8 => Box::new(UInt8Builder::new(map.len())),
             DataType::UInt16 => Box::new(UInt16Builder::new(map.len())),
             DataType::UInt32 => Box::new(UInt32Builder::new(map.len())),
-            DataType::UInt64 => Box::new(UInt64Builder::new(map.len())),
-            DataType::Float32 => Box::new(Float32Builder::new(map.len())),
-            DataType::Float64 => Box::new(Float64Builder::new(map.len())),
-            DataType::Utf8 => Box::new(StringBuilder::new(map.len())),
-            _ => {
-                return Err(ExecutionError::ExecutionError(
-                    "Unsupported group data type".to_string(),
-                ))
-            }
-        };
-        builders.push(builder);
-    }
-
-    // aggregate builders use larger width types
-    for i in 0..num_aggr_expr {
-        let builder: Box<dyn ArrayBuilder> = match output_schema.field(i).data_type() {
-            DataType::Int8 => Box::new(Int64Builder::new(map.len())),
-            DataType::Int16 => Box::new(Int64Builder::new(map.len())),
-            DataType::Int32 => Box::new(Int64Builder::new(map.len())),
-            DataType::Int64 => Box::new(Int64Builder::new(map.len())),
-            DataType::UInt8 => Box::new(UInt64Builder::new(map.len())),
-            DataType::UInt16 => Box::new(UInt64Builder::new(map.len())),
-            DataType::UInt32 => Box::new(UInt64Builder::new(map.len())),
             DataType::UInt64 => Box::new(UInt64Builder::new(map.len())),
             DataType::Float32 => Box::new(Float32Builder::new(map.len())),
             DataType::Float64 => Box::new(Float64Builder::new(map.len())),
@@ -611,35 +589,33 @@ fn create_batch_from_map(
             let index = num_group_expr + i;
             let builder = builders[index].as_any_mut();
             match output_schema.field(i).data_type() {
-                DataType::Int8 => {
-                    append_aggr_value!(builder, Int64Builder, value, Int8, i64)
-                }
+                DataType::Int8 => append_aggr_value!(builder, Int8Builder, value, Int8),
                 DataType::Int16 => {
-                    append_aggr_value!(builder, Int64Builder, value, Int16, i64)
+                    append_aggr_value!(builder, Int16Builder, value, Int16)
                 }
                 DataType::Int32 => {
-                    append_aggr_value!(builder, Int64Builder, value, Int32, i64)
+                    append_aggr_value!(builder, Int32Builder, value, Int32)
                 }
                 DataType::Int64 => {
-                    append_aggr_value!(builder, Int64Builder, value, Int64, i64)
+                    append_aggr_value!(builder, Int64Builder, value, Int64)
                 }
                 DataType::UInt8 => {
-                    append_aggr_value!(builder, UInt64Builder, value, UInt8, u64)
+                    append_aggr_value!(builder, UInt8Builder, value, UInt8)
                 }
                 DataType::UInt16 => {
-                    append_aggr_value!(builder, UInt64Builder, value, UInt16, u64)
+                    append_aggr_value!(builder, UInt16Builder, value, UInt16)
                 }
                 DataType::UInt32 => {
-                    append_aggr_value!(builder, UInt64Builder, value, UInt32, u64)
+                    append_aggr_value!(builder, UInt32Builder, value, UInt32)
                 }
                 DataType::UInt64 => {
-                    append_aggr_value!(builder, UInt64Builder, value, UInt64, u64)
+                    append_aggr_value!(builder, UInt64Builder, value, UInt64)
                 }
                 DataType::Float32 => {
-                    append_aggr_value!(builder, Float32Builder, value, Float32, f32)
+                    append_aggr_value!(builder, Float32Builder, value, Float32)
                 }
                 DataType::Float64 => {
-                    append_aggr_value!(builder, Float64Builder, value, Float64, f64)
+                    append_aggr_value!(builder, Float64Builder, value, Float64)
                 }
                 DataType::Utf8 => {
                     let builder = builder
