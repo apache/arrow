@@ -198,7 +198,7 @@ double Decimal128::ToDouble(int32_t scale) const {
 template <size_t n>
 static void AppendLittleEndianArrayToString(const std::array<uint64_t, n>& array,
                                             std::string* result) {
-  static_assert(n > 0);
+  static_assert(n > 0, "Array size must be positive");
   size_t most_significant_elem_idx = n - 1;
   while (array[most_significant_elem_idx] == 0) {
     if (most_significant_elem_idx == 0) {
