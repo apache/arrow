@@ -25,4 +25,6 @@ use crate::logicalplan::LogicalPlan;
 pub trait OptimizerRule {
     /// Perform optimizations on the plan
     fn optimize(&mut self, plan: &LogicalPlan) -> Result<LogicalPlan>;
+    /// Produce a human readable name for this optimizer rule
+    fn name(&self) -> &str;
 }

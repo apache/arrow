@@ -59,6 +59,15 @@ pub struct CreateExternalTable {
     pub location: String,
 }
 
+/// DataFusion extension DDL for `EXPLAIN` and `EXPLAIN VERBOSE`
+#[derive(Debug, Clone, PartialEq)]
+pub struct ExplainPlan {
+    /// If true, dumps more intermediate plans and results of optimizaton passes
+    pub verbose: bool,
+    /// The statement for which to generate an planning explination
+    pub statement: Box<Statement>,
+}
+
 /// DataFusion Statement representations.
 ///
 /// Tokens parsed by `DFParser` are converted into these values.
@@ -68,6 +77,8 @@ pub enum Statement {
     Statement(SQLStatement),
     /// Extension: `CREATE EXTERNAL TABLE`
     CreateExternalTable(CreateExternalTable),
+    /// Extension: `EXPLAIN <SQL>`
+    Explain(ExplainPlan),
 }
 
 /// SQL Parser
@@ -121,18 +132,24 @@ impl DFParser {
     /// Parse a new expression
     pub fn parse_statement(&mut self) -> Result<Statement, ParserError> {
         match self.parser.peek_token() {
-            Token::Word(w) => match w.keyword {
-                Keyword::CREATE => {
-                    // move one token forward
-                    self.parser.next_token();
-                    // use custom parsing
-                    Ok(self.parse_create()?)
+            Token::Word(w) => {
+                match w.keyword {
+                    Keyword::CREATE => {
+                        // move one token forward
+                        self.parser.next_token();
+                        // use custom parsing
+                        self.parse_create()
+                    }
+                    Keyword::NoKeyword if w.value.to_uppercase() == "EXPLAIN" => {
+                        self.parser.next_token();
+                        self.parse_explain()
+                    }
+                    _ => {
+                        // use the native parser
+                        Ok(Statement::Statement(self.parser.parse_statement()?))
+                    }
                 }
-                _ => {
-                    // use the native parser
-                    Ok(Statement::Statement(self.parser.parse_statement()?))
-                }
-            },
+            }
             _ => {
                 // use the native parser
                 Ok(Statement::Statement(self.parser.parse_statement()?))
@@ -147,6 +164,26 @@ impl DFParser {
         } else {
             Ok(Statement::Statement(self.parser.parse_create()?))
         }
+    }
+
+    /// Parse an SQL EXPLAIN statement.
+    pub fn parse_explain(&mut self) -> Result<Statement, ParserError> {
+        // Parser is at the token immediately after EXPLAIN
+        // Check for EXPLAIN VERBOSE
+        let verbose = match self.parser.peek_token() {
+            Token::Word(w) => match w.keyword {
+                Keyword::NoKeyword if w.value.to_uppercase() == "VERBOSE" => {
+                    self.parser.next_token();
+                    true
+                }
+                _ => false,
+            },
+            _ => false,
+        };
+
+        let statement = Box::new(self.parse_statement()?);
+        let explain_plan = ExplainPlan { statement, verbose };
+        Ok(Statement::Explain(explain_plan))
     }
 
     // This is a copy of the equivalent implementation in sqlparser.

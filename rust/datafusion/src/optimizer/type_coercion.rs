@@ -30,6 +30,7 @@ use crate::logicalplan::LogicalPlan;
 use crate::logicalplan::{Expr, LogicalPlanBuilder};
 use crate::optimizer::optimizer::OptimizerRule;
 use crate::optimizer::utils;
+use utils::optimize_explain;
 
 /// Implementation of type coercion optimizer rule
 pub struct TypeCoercionRule<'a> {
@@ -174,7 +175,17 @@ impl<'a> OptimizerRule for TypeCoercionRule<'a> {
             LogicalPlan::Limit { .. } => Ok(plan.clone()),
             LogicalPlan::Sort { .. } => Ok(plan.clone()),
             LogicalPlan::CreateExternalTable { .. } => Ok(plan.clone()),
+            LogicalPlan::Explain {
+                verbose,
+                plan,
+                stringified_plans,
+                schema,
+            } => optimize_explain(self, *verbose, &*plan, stringified_plans, &*schema),
         }
+    }
+
+    fn name(&self) -> &str {
+        return "type_coercion";
     }
 }
 

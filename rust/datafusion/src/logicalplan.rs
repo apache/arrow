@@ -21,7 +21,7 @@
 //! Logical query plans can then be optimized and executed directly, or translated into
 //! physical query plans and executed.
 
-use std::fmt;
+use std::{fmt, sync::Arc};
 
 use arrow::datatypes::{DataType, Field, Schema};
 
@@ -784,6 +784,18 @@ pub enum LogicalPlan {
         /// Whether the CSV file contains a header
         has_header: bool,
     },
+    /// Produces a relation with string representations of
+    /// various parts of the plan
+    Explain {
+        /// Should extra (detailed, intermediate plans) be included?
+        verbose: bool,
+        /// The logical plan that is being EXPLAIN'd
+        plan: Box<LogicalPlan>,
+        /// Represent the various stages plans have gone through
+        stringified_plans: Vec<StringifiedPlan>,
+        /// The output schema of the explain (2 columns of text)
+        schema: Box<Schema>,
+    },
 }
 
 impl LogicalPlan {
@@ -809,7 +821,16 @@ impl LogicalPlan {
             LogicalPlan::Sort { schema, .. } => &schema,
             LogicalPlan::Limit { schema, .. } => &schema,
             LogicalPlan::CreateExternalTable { schema, .. } => &schema,
+            LogicalPlan::Explain { schema, .. } => &schema,
         }
+    }
+
+    /// Returns the (fixed) output schema for explain plans
+    pub fn explain_schema() -> Box<Schema> {
+        Box::new(Schema::new(vec![
+            Field::new("plan_type", DataType::Utf8, false),
+            Field::new("plan", DataType::Utf8, false),
+        ]))
     }
 }
 
@@ -898,6 +919,10 @@ impl LogicalPlan {
             }
             LogicalPlan::CreateExternalTable { ref name, .. } => {
                 write!(f, "CreateExternalTable: {:?}", name)
+            }
+            LogicalPlan::Explain { ref plan, .. } => {
+                write!(f, "Explain")?;
+                plan.fmt_with_indent(f, indent + 1)
             }
         }
     }
@@ -1128,6 +1153,32 @@ impl LogicalPlanBuilder {
     }
 }
 
+/// Represents some sort of execution plan, in String form
+#[derive(Debug, Clone, PartialEq)]
+pub struct StringifiedPlan {
+    /// An identifier of what type of plan this string represents
+    pub plan_type: Arc<String>, // TODO make this an enum?
+    /// The string representation of the plan
+    pub plan: Arc<String>,
+}
+
+impl StringifiedPlan {
+    /// Create a new Stringified plan of `plan_type` with string
+    /// representation `plan`
+    pub fn new(plan_type: impl Into<String>, plan: impl Into<String>) -> Self {
+        StringifiedPlan {
+            plan_type: Arc::new(plan_type.into()),
+            plan: Arc::new(plan.into()),
+        }
+    }
+
+    /// returns true if this plan should be displayed. Generally
+    /// `verbose_mode = true` will display all available plans
+    pub fn should_display(&self, verbose_mode: bool) -> bool {
+        verbose_mode || *self.plan_type == "logical_plan"
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1236,5 +1287,23 @@ mod tests {
             Field::new("state", DataType::Utf8, false),
             Field::new("salary", DataType::Int32, false),
         ])
+    }
+
+    #[test]
+    fn stringified_plan() -> Result<()> {
+        let stringified_plan = StringifiedPlan::new("logical_plan", "...the plan...");
+        assert!(stringified_plan.should_display(true));
+        assert!(stringified_plan.should_display(false)); // display in non verbose mode too
+
+        let stringified_plan = StringifiedPlan::new("physical_plan", "...the plan...");
+        assert!(stringified_plan.should_display(true));
+        assert!(!stringified_plan.should_display(false));
+
+        let stringified_plan =
+            StringifiedPlan::new("some random opt pass", "...the plan...");
+        assert!(stringified_plan.should_display(true));
+        assert!(!stringified_plan.should_display(false));
+
+        Ok(())
     }
 }
