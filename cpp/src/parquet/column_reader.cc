@@ -86,8 +86,12 @@ int LevelDecoder::SetData(Encoding::type encoding, int16_t max_level,
       return 4 + num_bytes;
     }
     case Encoding::BIT_PACKED: {
-      num_bytes =
-          static_cast<int32_t>(BitUtil::BytesForBits(num_buffered_values * bit_width_));
+      int num_bits = 0;
+      if (MultiplyWithOverflow(num_buffered_values, bit_width_, &num_bits)) {
+        throw ParquetException(
+            "Number of buffered values too large (corrupt data page?)");
+      }
+      num_bytes = static_cast<int32_t>(BitUtil::BytesForBits(num_bits));
       if (num_bytes < 0 || num_bytes > data_size - 4) {
         throw ParquetException("Received invalid number of bytes (corrupt data page?)");
       }
