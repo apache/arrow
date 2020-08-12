@@ -84,7 +84,7 @@ public class MessageSerializerTest {
     WriteChannel out = new WriteChannel(Channels.newChannel(outputStream));
 
     // This is not a valid Arrow Message, only to test writing and alignment
-    ByteBuffer buffer = ByteBuffer.allocate(8).order(ByteOrder.LITTLE_ENDIAN);
+    ByteBuffer buffer = ByteBuffer.allocate(8).order(ByteOrder.nativeOrder());
     buffer.putInt(1);
     buffer.putInt(2);
     buffer.flip();
@@ -100,19 +100,25 @@ public class MessageSerializerTest {
 
     ByteArrayInputStream inputStream = new ByteArrayInputStream(outputStream.toByteArray());
     ReadChannel in = new ReadChannel(Channels.newChannel(inputStream));
-    ByteBuffer result = ByteBuffer.allocate(32).order(ByteOrder.LITTLE_ENDIAN);
+    ByteBuffer result = ByteBuffer.allocate(32).order(ByteOrder.nativeOrder());
     in.readFully(result);
     result.rewind();
 
     // First message continuation, size, and 2 int values
     assertEquals(MessageSerializer.IPC_CONTINUATION_TOKEN, result.getInt());
+    // mesage length is represented in little endian
+    result.order(ByteOrder.LITTLE_ENDIAN);
     assertEquals(8, result.getInt());
+    result.order(ByteOrder.nativeOrder());
     assertEquals(1, result.getInt());
     assertEquals(2, result.getInt());
 
     // Second message continuation, size, 1 int value and 4 bytes padding
     assertEquals(MessageSerializer.IPC_CONTINUATION_TOKEN, result.getInt());
+    // mesage length is represented in little endian
+    result.order(ByteOrder.LITTLE_ENDIAN);
     assertEquals(8, result.getInt());
+    result.order(ByteOrder.nativeOrder());
     assertEquals(3, result.getInt());
     assertEquals(0, result.getInt());
   }
