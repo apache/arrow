@@ -41,6 +41,7 @@ jobs:
         ARROW_CI_MODULES: "CPP"
         DOCKER_IMAGE_ID: ubuntu-cpp
         UBUNTU: "20.04"
+
     - name: "C++ on s390x"
       os: linux
       arch: s390x
@@ -57,6 +58,7 @@ jobs:
         UBUNTU: "20.04"
         cares_SOURCE: "BUNDLED"
         gRPC_SOURCE: "BUNDLED"
+
     - name: "Go on s390x"
       os: linux
       arch: s390x
@@ -64,6 +66,16 @@ jobs:
         ARCH: s390x
         ARROW_CI_MODULES: "GO"
         DOCKER_IMAGE_ID: debian-go
+
+    - name: "Java on s390x"
+      os: linux
+      arch: s390x
+      env:
+        ARCH: s390x
+        ARROW_CI_MODULES: "JAVA"
+        DOCKER_IMAGE_ID: debian-java
+        UBUNTU: "20.04"
+
   allow_failures:
     - arch: s390x
 
