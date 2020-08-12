@@ -214,20 +214,19 @@ set(ARROW_SRCS
     vendored/double-conversion/diy-fp.cc
     vendored/double-conversion/strtod.cc)
 
-  if(CXX_SUPPORTS_AVX2)
-    list(APPEND ARROW_SRCS util/bpacking_avx2.cc)
-    set_source_files_properties(util/bpacking_avx2.cc PROPERTIES SKIP_PRECOMPILE_HEADERS
-                                ON)
-    set_source_files_properties(util/bpacking_avx2.cc PROPERTIES COMPILE_FLAGS
-                                ${ARROW_AVX2_FLAG})
-  endif()
-  if(CXX_SUPPORTS_AVX512)
-    list(APPEND ARROW_SRCS util/bpacking_avx512.cc)
-    set_source_files_properties(util/bpacking_avx512.cc PROPERTIES
-                                SKIP_PRECOMPILE_HEADERS ON)
-    set_source_files_properties(util/bpacking_avx512.cc PROPERTIES COMPILE_FLAGS
-                                ${ARROW_AVX512_FLAG})
-  endif()
+if(CXX_SUPPORTS_AVX2)
+  list(APPEND ARROW_SRCS util/bpacking_avx2.cc)
+  set_source_files_properties(util/bpacking_avx2.cc PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
+  set_source_files_properties(util/bpacking_avx2.cc PROPERTIES COMPILE_FLAGS
+                              ${ARROW_AVX2_FLAG})
+endif()
+if(CXX_SUPPORTS_AVX512)
+  list(APPEND ARROW_SRCS util/bpacking_avx512.cc)
+  set_source_files_properties(util/bpacking_avx512.cc PROPERTIES SKIP_PRECOMPILE_HEADERS
+                              ON)
+  set_source_files_properties(util/bpacking_avx512.cc PROPERTIES COMPILE_FLAGS
+                              ${ARROW_AVX512_FLAG})
+endif()
 
 if(APPLE)
   list(APPEND ARROW_SRCS vendored/datetime/ios.mm)

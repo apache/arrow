@@ -17,11 +17,14 @@
 
 #pragma once
 
+#include "arrow/util/visibility.h"
+
 #include <stdint.h>
 
 namespace arrow {
 namespace internal {
 
+ARROW_EXPORT
 int unpack32(const uint32_t* in, uint32_t* out, int batch_size, int num_bits);
 
 }  // namespace internal
