@@ -36,11 +36,11 @@ public class CompressionUtil {
   public static ArrowBodyCompression createBodyCompression(CompressionCodec codec) {
     switch (codec.getCodecName()) {
       case "default":
-        return DefaultCompressionCodec.DEFAULT_BODY_COMPRESSION;
+        return NoCompressionCodec.DEFAULT_BODY_COMPRESSION;
       case "LZ4_FRAME":
-        return new ArrowBodyCompression((byte) 0, BodyCompressionMethod.BUFFER);
+        return new ArrowBodyCompression(CompressionType.LZ4_FRAME, BodyCompressionMethod.BUFFER);
       case "ZSTD":
-        return new ArrowBodyCompression((byte) 1, BodyCompressionMethod.BUFFER);
+        return new ArrowBodyCompression(CompressionType.ZSTD, BodyCompressionMethod.BUFFER);
       default:
         throw new IllegalArgumentException("Unknown codec: " + codec.getCodecName());
     }
@@ -51,8 +51,8 @@ public class CompressionUtil {
    */
   public static CompressionCodec createCodec(byte compressionType) {
     switch (compressionType) {
-      case DefaultCompressionCodec.COMPRESSION_TYPE:
-        return DefaultCompressionCodec.INSTANCE;
+      case NoCompressionCodec.COMPRESSION_TYPE:
+        return NoCompressionCodec.INSTANCE;
       default:
         throw new IllegalArgumentException("Compression type not supported: " + compressionType);
     }

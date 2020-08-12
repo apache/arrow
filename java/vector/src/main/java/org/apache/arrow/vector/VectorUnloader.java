@@ -19,12 +19,11 @@ package org.apache.arrow.vector;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.vector.compression.CompressionCodec;
 import org.apache.arrow.vector.compression.CompressionUtil;
-import org.apache.arrow.vector.compression.DefaultCompressionCodec;
+import org.apache.arrow.vector.compression.NoCompressionCodec;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 
@@ -43,7 +42,7 @@ public class VectorUnloader {
    * Constructs a new instance of the given set of vectors.
    */
   public VectorUnloader(VectorSchemaRoot root) {
-    this(root, true, DefaultCompressionCodec.INSTANCE, true);
+    this(root, true, NoCompressionCodec.INSTANCE, true);
   }
 
   /**
@@ -55,7 +54,7 @@ public class VectorUnloader {
    */
   public VectorUnloader(
       VectorSchemaRoot root, boolean includeNullCount, boolean alignBuffers) {
-    this(root, includeNullCount, DefaultCompressionCodec.INSTANCE, alignBuffers);
+    this(root, includeNullCount, NoCompressionCodec.INSTANCE, alignBuffers);
   }
 
   /**
@@ -97,11 +96,9 @@ public class VectorUnloader {
           "wrong number of buffers for field %s in vector %s. found: %s",
           vector.getField(), vector.getClass().getSimpleName(), fieldBuffers));
     }
-
-    fieldBuffers = fieldBuffers.stream().map(
-        buf -> codec.compress(vector.getAllocator(), buf)).collect(Collectors.toList());
-
-    buffers.addAll(fieldBuffers);
+    for (ArrowBuf buf : fieldBuffers) {
+      buffers.add(codec.compress(vector.getAllocator(), buf));
+    }
     for (FieldVector child : vector.getChildrenFromFields()) {
       appendNodes(child, nodes, buffers);
     }

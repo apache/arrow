@@ -25,16 +25,16 @@ import org.apache.arrow.vector.ipc.message.ArrowBodyCompression;
 /**
  * The default compression codec that does no compression.
  */
-public class DefaultCompressionCodec implements CompressionCodec {
+public class NoCompressionCodec implements CompressionCodec {
 
-  public static final DefaultCompressionCodec INSTANCE = new DefaultCompressionCodec();
+  public static final NoCompressionCodec INSTANCE = new NoCompressionCodec();
 
   public static final byte COMPRESSION_TYPE = -1;
 
   public static final ArrowBodyCompression DEFAULT_BODY_COMPRESSION =
       new ArrowBodyCompression(COMPRESSION_TYPE, BodyCompressionMethod.BUFFER);
 
-  private DefaultCompressionCodec() {
+  private NoCompressionCodec() {
   }
 
   @Override

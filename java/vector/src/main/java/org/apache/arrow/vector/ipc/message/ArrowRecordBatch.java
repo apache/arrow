@@ -28,7 +28,7 @@ import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.DataSizeRoundingUtil;
 import org.apache.arrow.util.Preconditions;
-import org.apache.arrow.vector.compression.DefaultCompressionCodec;
+import org.apache.arrow.vector.compression.NoCompressionCodec;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -61,7 +61,7 @@ public class ArrowRecordBatch implements ArrowMessage {
 
   public ArrowRecordBatch(
       int length, List<ArrowFieldNode> nodes, List<ArrowBuf> buffers) {
-    this(length, nodes, buffers, DefaultCompressionCodec.DEFAULT_BODY_COMPRESSION, true);
+    this(length, nodes, buffers, NoCompressionCodec.DEFAULT_BODY_COMPRESSION, true);
   }
 
   public ArrowRecordBatch(
