@@ -76,6 +76,9 @@ class BaseListArray : public Array {
   }
 
  protected:
+  void SetData(const std::shared_ptr<ArrayData>& data,
+               Type::type expected_type_id = TypeClass::type_id);
+
   const TypeClass* list_type_ = NULLPTR;
   std::shared_ptr<Array> values_;
   const offset_type* raw_value_offsets_ = NULLPTR;
@@ -121,8 +124,6 @@ class ARROW_EXPORT ListArray : public BaseListArray<ListType> {
  protected:
   // This constructor defers SetData to a derived array class
   ListArray() = default;
-  void SetData(const std::shared_ptr<ArrayData>& data,
-               Type::type expected_type_id = Type::LIST);
 };
 
 /// Concrete Array class for large list data (with 64-bit offsets)
@@ -162,9 +163,6 @@ class ARROW_EXPORT LargeListArray : public BaseListArray<LargeListType> {
 
   /// \brief Return list offsets as an Int64Array
   std::shared_ptr<Array> offsets() const;
-
- protected:
-  void SetData(const std::shared_ptr<ArrayData>& data);
 };
 
 // ----------------------------------------------------------------------

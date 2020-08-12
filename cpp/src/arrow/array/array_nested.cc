@@ -174,6 +174,24 @@ Result<std::shared_ptr<Array>> FlattenListArray(const ListArrayT& list_array,
 
 }  // namespace
 
+// This template class method is only used in this compilation unit,
+// so can be defined here.
+template <typename TYPE>
+void BaseListArray<TYPE>::SetData(const std::shared_ptr<ArrayData>& data,
+                                  Type::type expected_type_id) {
+  this->Array::SetData(data);
+  ARROW_CHECK_EQ(data->buffers.size(), 2);
+  ARROW_CHECK_EQ(data->type->id(), expected_type_id);
+  list_type_ = checked_cast<const TypeClass*>(data->type.get());
+
+  raw_value_offsets_ = data->GetValuesSafe<offset_type>(1, /*offset=*/0);
+
+  ARROW_CHECK_EQ(data_->child_data.size(), 1);
+  ARROW_CHECK_EQ(list_type_->value_type()->id(), data->child_data[0]->type->id());
+  DCHECK(list_type_->value_type()->Equals(data->child_data[0]->type));
+  values_ = MakeArray(data_->child_data[0]);
+}
+
 ListArray::ListArray(std::shared_ptr<ArrayData> data) { SetData(std::move(data)); }
 
 LargeListArray::LargeListArray(const std::shared_ptr<ArrayData>& data) { SetData(data); }
@@ -200,36 +218,6 @@ LargeListArray::LargeListArray(const std::shared_ptr<DataType>& type, int64_t le
       ArrayData::Make(type, length, {null_bitmap, value_offsets}, null_count, offset);
   internal_data->child_data.emplace_back(values->data());
   SetData(internal_data);
-}
-
-void ListArray::SetData(const std::shared_ptr<ArrayData>& data,
-                        Type::type expected_type_id) {
-  this->Array::SetData(data);
-  ARROW_CHECK_EQ(data->buffers.size(), 2);
-  ARROW_CHECK_EQ(data->type->id(), expected_type_id);
-  list_type_ = checked_cast<const ListType*>(data->type.get());
-
-  raw_value_offsets_ = data->GetValuesSafe<offset_type>(1, /*offset=*/0);
-
-  ARROW_CHECK_EQ(data_->child_data.size(), 1);
-  ARROW_CHECK_EQ(list_type_->value_type()->id(), data->child_data[0]->type->id());
-  DCHECK(list_type_->value_type()->Equals(data->child_data[0]->type));
-  values_ = MakeArray(data_->child_data[0]);
-}
-
-/* XXX This is almost exactly the same as ListArray::SetData */
-void LargeListArray::SetData(const std::shared_ptr<ArrayData>& data) {
-  this->Array::SetData(data);
-  ARROW_CHECK_EQ(data->buffers.size(), 2);
-  ARROW_CHECK_EQ(data->type->id(), Type::LARGE_LIST);
-  list_type_ = checked_cast<const LargeListType*>(data->type.get());
-
-  raw_value_offsets_ = data->GetValuesSafe<offset_type>(1, /*offset=*/0);
-
-  ARROW_CHECK_EQ(data_->child_data.size(), 1);
-  ARROW_CHECK_EQ(list_type_->value_type()->id(), data->child_data[0]->type->id());
-  DCHECK(list_type_->value_type()->Equals(data->child_data[0]->type));
-  values_ = MakeArray(data_->child_data[0]);
 }
 
 Result<std::shared_ptr<ListArray>> ListArray::FromArrays(const Array& offsets,
