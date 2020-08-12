@@ -169,10 +169,10 @@ impl Partition for HashAggregatePartition {
 
 /// Create array from single accumulator value
 macro_rules! accum_val {
-    ($BUILDER:ident, $TY:ident, $VALUE:expr) => {{
+    ($BUILDER:ident, $SCALAR_TY:ident, $VALUE:expr) => {{
         let mut builder = $BUILDER::new(1);
         match $VALUE {
-            Some(ScalarValue::$TY(n)) => {
+            Some(ScalarValue::$SCALAR_TY(n)) => {
                 builder.append_value(n)?;
                 Ok(Arc::new(builder.finish()) as ArrayRef)
             }
@@ -507,7 +507,12 @@ macro_rules! aggr_val {
         match $VALUE {
             Some(ScalarValue::$SCALAR_TY(n)) => builder.append_value(n)?,
             None => builder.append_null()?,
-            Some(_) => panic!(),
+            Some(other) => {
+                return Err(ExecutionError::General(format!(
+                    "Unexpected data type {:?} for aggregate value",
+                    other
+                )))
+            }
         }
     }};
 }
