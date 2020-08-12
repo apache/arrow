@@ -180,12 +180,14 @@ fn read_file(
                 break;
             }
             Err(e) => {
+                let err_msg = format!("Error reading Parquet batch: {:?}", e);
+                // send error to operator
                 send_result(
                     &response_tx,
-                    Err(ArrowError::ParquetError(format!("{:?}", e))),
+                    Err(ArrowError::ParquetError(err_msg.clone())),
                 )?;
-                // terminate thread on error
-                break;
+                // terminate thread with error
+                return Err(ExecutionError::ExecutionError(err_msg));
             }
         }
     }
