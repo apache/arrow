@@ -145,7 +145,7 @@ class CommitTitle:
     def __init__(self, summary, project=None, issue=None, components=None):
         self.project = project
         self.issue = issue
-        self.components = tuple(components or [])
+        self.components = components or []
         self.summary = summary
 
     def __str__(self):
@@ -168,7 +168,9 @@ class CommitTitle:
         )
 
     def __hash__(self):
-        return hash((self.summary, self.project, self.issue, self.components))
+        return hash(
+            (self.summary, self.project, self.issue, tuple(self.components))
+        )
 
     @classmethod
     def parse(cls, headline):
@@ -438,7 +440,7 @@ class MaintenanceMixin:
     Utility methods for cherry-picking commits from the main branch.
     """
 
-    def commits_to_pick(self):
+    def commits_to_pick(self, exclude_already_applied=True):
         # collect commits applied on the main branch since the root of the
         # maintenance branch (the previous major release)
         if self.version.major == 0:
@@ -458,7 +460,10 @@ class MaintenanceMixin:
         # exclude patches that have been already applied to the maintenance
         # branch, we cannot identify patches based on sha because it changes
         # after the cherry pick so use commit title instead
-        already_applied = {c.title for c in self.commits}
+        if exclude_already_applied:
+            already_applied = {c.title for c in self.commits}
+        else:
+            already_applied = set()
 
         # iterate over the commits applied on the main branch and filter out
         # the ones that are included in the jira release

@@ -304,7 +304,9 @@ def test_release_commits(fake_jira, version, ncommits):
 def test_maintenance_patch_selection(fake_jira):
     r = Release.from_jira("0.17.1", jira=fake_jira)
 
-    shas_to_pick = [c.hexsha for c in r.commits_to_pick()]
+    shas_to_pick = [
+        c.hexsha for c in r.commits_to_pick(exclude_already_applied=False)
+    ]
     expected = [
         '8939b4bd446ee406d5225c79d563a27d30fd7d6d',
         'bcef6c95a324417e85e0140f9745d342cd8784b3',
