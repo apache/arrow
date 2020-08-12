@@ -184,21 +184,24 @@ pub enum ScalarValue {
 
 impl ScalarValue {
     /// Getter for the `DataType` of the value
-    pub fn get_datatype(&self) -> DataType {
+    pub fn get_datatype(&self) -> Result<DataType> {
         match *self {
-            ScalarValue::Boolean(_) => DataType::Boolean,
-            ScalarValue::UInt8(_) => DataType::UInt8,
-            ScalarValue::UInt16(_) => DataType::UInt16,
-            ScalarValue::UInt32(_) => DataType::UInt32,
-            ScalarValue::UInt64(_) => DataType::UInt64,
-            ScalarValue::Int8(_) => DataType::Int8,
-            ScalarValue::Int16(_) => DataType::Int16,
-            ScalarValue::Int32(_) => DataType::Int32,
-            ScalarValue::Int64(_) => DataType::Int64,
-            ScalarValue::Float32(_) => DataType::Float32,
-            ScalarValue::Float64(_) => DataType::Float64,
-            ScalarValue::Utf8(_) => DataType::Utf8,
-            _ => panic!("Cannot treat {:?} as scalar value", self),
+            ScalarValue::Boolean(_) => Ok(DataType::Boolean),
+            ScalarValue::UInt8(_) => Ok(DataType::UInt8),
+            ScalarValue::UInt16(_) => Ok(DataType::UInt16),
+            ScalarValue::UInt32(_) => Ok(DataType::UInt32),
+            ScalarValue::UInt64(_) => Ok(DataType::UInt64),
+            ScalarValue::Int8(_) => Ok(DataType::Int8),
+            ScalarValue::Int16(_) => Ok(DataType::Int16),
+            ScalarValue::Int32(_) => Ok(DataType::Int32),
+            ScalarValue::Int64(_) => Ok(DataType::Int64),
+            ScalarValue::Float32(_) => Ok(DataType::Float32),
+            ScalarValue::Float64(_) => Ok(DataType::Float64),
+            ScalarValue::Utf8(_) => Ok(DataType::Utf8),
+            _ => Err(ExecutionError::General(format!(
+                "Cannot treat {:?} as scalar value",
+                self
+            ))),
         }
     }
 }
@@ -267,7 +270,7 @@ pub fn expr_to_field(e: &Expr, input_schema: &Schema) -> Result<Field> {
     let data_type = match e {
         Expr::Alias(expr, ..) => expr.get_type(input_schema),
         Expr::Column(name) => Ok(input_schema.field_with_name(name)?.data_type().clone()),
-        Expr::Literal(ref lit) => Ok(lit.get_datatype()),
+        Expr::Literal(ref lit) => lit.get_datatype(),
         Expr::ScalarFunction {
             ref return_type, ..
         } => Ok(return_type.clone()),
@@ -373,7 +376,7 @@ impl Expr {
         match self {
             Expr::Alias(expr, _) => expr.get_type(schema),
             Expr::Column(name) => Ok(schema.field_with_name(name)?.data_type().clone()),
-            Expr::Literal(l) => Ok(l.get_datatype()),
+            Expr::Literal(l) => l.get_datatype(),
             Expr::Cast { data_type, .. } => Ok(data_type.clone()),
             Expr::ScalarFunction { return_type, .. } => Ok(return_type.clone()),
             Expr::AggregateFunction { return_type, .. } => Ok(return_type.clone()),
