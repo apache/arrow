@@ -42,6 +42,8 @@
 
 namespace arrow {
 
+using internal::SafeSignedAdd;
+
 /// offset, length pair for representing a Range of a buffer or array
 struct Range {
   int64_t offset = -1, length = 0;
@@ -158,7 +160,7 @@ static Status PutOffsets(const std::shared_ptr<Buffer>& src, Offset first_offset
   // Avoid UB on non-validated input by doing the addition in the unsigned domain.
   // (the result can later be validated using Array::ValidateFull)
   std::transform(src_begin, src_end, dst, [adjustment](Offset offset) {
-    return internal::SafeSignedAdd(offset, adjustment);
+    return SafeSignedAdd(offset, adjustment);
   });
   return Status::OK();
 }
@@ -170,13 +172,13 @@ class ConcatenateImpl {
       : in_(std::move(in)), pool_(pool), out_(std::make_shared<ArrayData>()) {
     out_->type = in[0]->type;
     for (size_t i = 0; i < in_.size(); ++i) {
-      out_->length += in[i]->length;
+      out_->length = SafeSignedAdd(out_->length, in[i]->length);
       if (out_->null_count == kUnknownNullCount ||
           in[i]->null_count == kUnknownNullCount) {
         out_->null_count = kUnknownNullCount;
         continue;
       }
-      out_->null_count += in[i]->null_count;
+      out_->null_count = SafeSignedAdd(out_->null_count.load(), in[i]->null_count.load());
     }
     out_->buffers.resize(in[0]->buffers.size());
     out_->child_data.resize(in[0]->child_data.size());
