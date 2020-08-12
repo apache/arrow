@@ -156,7 +156,18 @@ void AssertObjectContents(Aws::S3::S3Client* client, const std::string& bucket,
 ////////////////////////////////////////////////////////////////////////////
 // S3Options tests
 
-TEST(S3Options, FromUri) {
+class S3OptionsTest : public ::testing::Test {
+ public:
+  void SetUp() {
+    // we set this environment variable to speed up tests by ensuring
+    // DefaultAWSCredentialsProviderChain does not query (inaccessible)
+    // EC2 metadata endpoint
+    ASSERT_OK(SetEnvVar("AWS_EC2_METADATA_DISABLED", "true"));
+  }
+  void TearDown() { ASSERT_OK(DelEnvVar("AWS_EC2_METADATA_DISABLED")); }
+};
+
+TEST_F(S3OptionsTest, FromUri) {
   std::string path;
   S3Options options;
 
@@ -201,7 +212,7 @@ TEST(S3Options, FromUri) {
   ASSERT_RAISES(Invalid, S3Options::FromUri("s3:///foo/bar/", &path));
 }
 
-TEST(S3Options, FromAccessKey) {
+TEST_F(S3OptionsTest, FromAccessKey) {
   S3Options options;
 
   // session token is optional and should default to empty string
@@ -216,21 +227,14 @@ TEST(S3Options, FromAccessKey) {
   ASSERT_EQ(options.GetSessionToken(), "token");
 }
 
-TEST(S3Options, FromAssumeRole) {
+TEST_F(S3OptionsTest, FromAssumeRole) {
   S3Options options;
-
-  // we set this envvar to speed up tests by ensuring
-  // DefaultAWSCredentialsProviderChain does not query (inaccessible)
-  // EC2 metadata endpoint
-  ASSERT_OK(SetEnvVar("AWS_EC2_METADATA_DISABLED", "true"));
 
   // arn should be only required argument
   options = S3Options::FromAssumeRole("my_role_arn");
   options = S3Options::FromAssumeRole("my_role_arn", "session");
   options = S3Options::FromAssumeRole("my_role_arn", "session", "id");
   options = S3Options::FromAssumeRole("my_role_arn", "session", "id", 42);
-
-  ASSERT_OK(DelEnvVar("AWS_EC2_METADATA_DISABLED"));
 
   // test w/ custom STSClient (will not use DefaultAWSCredentialsProviderChain)
   Aws::Auth::AWSCredentials test_creds = Aws::Auth::AWSCredentials("access", "secret");
