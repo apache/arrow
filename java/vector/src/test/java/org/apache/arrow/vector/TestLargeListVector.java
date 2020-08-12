@@ -149,7 +149,7 @@ public class TestLargeListVector {
       dataVector.setSafe(0, 1, 10);
       dataVector.setSafe(1, 1, 11);
       dataVector.setSafe(2, 1, 12);
-      offsetBuffer.setInt((index + 1) * LargeListVector.OFFSET_WIDTH, 3);
+      offsetBuffer.setLong((index + 1) * LargeListVector.OFFSET_WIDTH, 3);
 
       index += 1;
 
@@ -157,7 +157,7 @@ public class TestLargeListVector {
       BitVectorHelper.setBit(validityBuffer, index);
       dataVector.setSafe(3, 1, 13);
       dataVector.setSafe(4, 1, 14);
-      offsetBuffer.setInt((index + 1) * LargeListVector.OFFSET_WIDTH, 5);
+      offsetBuffer.setLong((index + 1) * LargeListVector.OFFSET_WIDTH, 5);
 
       index += 1;
 
@@ -166,7 +166,7 @@ public class TestLargeListVector {
       dataVector.setSafe(5, 1, 15);
       dataVector.setSafe(6, 1, 16);
       dataVector.setSafe(7, 1, 17);
-      offsetBuffer.setInt((index + 1) * LargeListVector.OFFSET_WIDTH, 8);
+      offsetBuffer.setLong((index + 1) * LargeListVector.OFFSET_WIDTH, 8);
 
       /* check current lastSet */
       assertEquals(-1L, listVector.getLastSet());
@@ -217,7 +217,7 @@ public class TestLargeListVector {
       assertEquals(0.8D, listVector.getDensity(), 0);
 
       index = 0;
-      offset = offsetBuffer.getInt(index * LargeListVector.OFFSET_WIDTH);
+      offset = (int) offsetBuffer.getLong(index * LargeListVector.OFFSET_WIDTH);
       assertEquals(Integer.toString(0), Integer.toString(offset));
 
       Object actual = dataVector.getObject(offset);
@@ -230,7 +230,7 @@ public class TestLargeListVector {
       assertEquals(new Long(12), (Long) actual);
 
       index++;
-      offset = offsetBuffer.getInt(index * LargeListVector.OFFSET_WIDTH);
+      offset = (int) offsetBuffer.getLong(index * LargeListVector.OFFSET_WIDTH);
       assertEquals(Integer.toString(3), Integer.toString(offset));
 
       actual = dataVector.getObject(offset);
@@ -240,7 +240,7 @@ public class TestLargeListVector {
       assertEquals(new Long(14), (Long) actual);
 
       index++;
-      offset = offsetBuffer.getInt(index * LargeListVector.OFFSET_WIDTH);
+      offset = (int) offsetBuffer.getLong(index * LargeListVector.OFFSET_WIDTH);
       assertEquals(Integer.toString(5), Integer.toString(offset));
 
       actual = dataVector.getObject(offset);
@@ -253,7 +253,7 @@ public class TestLargeListVector {
       assertEquals(new Long(17), (Long) actual);
 
       index++;
-      offset = offsetBuffer.getInt(index * LargeListVector.OFFSET_WIDTH);
+      offset = (int) offsetBuffer.getLong(index * LargeListVector.OFFSET_WIDTH);
       assertEquals(Integer.toString(8), Integer.toString(offset));
 
       actual = dataVector.getObject(offset);
@@ -327,7 +327,7 @@ public class TestLargeListVector {
 
       /* index 0 */
       assertFalse(listVector.isNull(index));
-      offset = offsetBuffer.getInt(index * LargeListVector.OFFSET_WIDTH);
+      offset = (int) offsetBuffer.getLong(index * LargeListVector.OFFSET_WIDTH);
       assertEquals(Integer.toString(0), Integer.toString(offset));
 
       actual = dataVector.getObject(offset);
@@ -342,7 +342,7 @@ public class TestLargeListVector {
       /* index 1 */
       index++;
       assertFalse(listVector.isNull(index));
-      offset = offsetBuffer.getInt(index * LargeListVector.OFFSET_WIDTH);
+      offset = (int) offsetBuffer.getLong(index * LargeListVector.OFFSET_WIDTH);
       assertEquals(Integer.toString(3), Integer.toString(offset));
 
       actual = dataVector.getObject(offset);
@@ -354,7 +354,7 @@ public class TestLargeListVector {
       /* index 2 */
       index++;
       assertFalse(listVector.isNull(index));
-      offset = offsetBuffer.getInt(index * LargeListVector.OFFSET_WIDTH);
+      offset = (int) offsetBuffer.getLong(index * LargeListVector.OFFSET_WIDTH);
       assertEquals(Integer.toString(5), Integer.toString(offset));
 
       actual = dataVector.getObject(offset);
@@ -372,7 +372,7 @@ public class TestLargeListVector {
       /* index 3 */
       index++;
       assertFalse(listVector.isNull(index));
-      offset = offsetBuffer.getInt(index * LargeListVector.OFFSET_WIDTH);
+      offset = (int) offsetBuffer.getLong(index * LargeListVector.OFFSET_WIDTH);
       assertEquals(Integer.toString(9), Integer.toString(offset));
 
       actual = dataVector.getObject(offset);
@@ -381,7 +381,7 @@ public class TestLargeListVector {
       /* index 4 */
       index++;
       assertFalse(listVector.isNull(index));
-      offset = offsetBuffer.getInt(index * LargeListVector.OFFSET_WIDTH);
+      offset = (int) offsetBuffer.getLong(index * LargeListVector.OFFSET_WIDTH);
       assertEquals(Integer.toString(10), Integer.toString(offset));
 
       actual = dataVector.getObject(offset);
@@ -399,7 +399,7 @@ public class TestLargeListVector {
       /* index 5 */
       index++;
       assertTrue(listVector.isNull(index));
-      offset = offsetBuffer.getInt(index * LargeListVector.OFFSET_WIDTH);
+      offset = (int) offsetBuffer.getLong(index * LargeListVector.OFFSET_WIDTH);
       assertEquals(Integer.toString(14), Integer.toString(offset));
 
       /* do split and transfer */
@@ -428,16 +428,16 @@ public class TestLargeListVector {
           BigIntVector dataVector1 = (BigIntVector) toVector.getDataVector();
 
           for (int i = 0; i < splitLength; i++) {
-            dataLength1 = offsetBuffer.getInt((start + i + 1) * LargeListVector.OFFSET_WIDTH) -
-                    offsetBuffer.getInt((start + i) * LargeListVector.OFFSET_WIDTH);
-            dataLength2 = toOffsetBuffer.getInt((i + 1) * LargeListVector.OFFSET_WIDTH) -
-                    toOffsetBuffer.getInt(i * LargeListVector.OFFSET_WIDTH);
+            dataLength1 = (int) offsetBuffer.getLong((start + i + 1) * LargeListVector.OFFSET_WIDTH) -
+                    (int) offsetBuffer.getLong((start + i) * LargeListVector.OFFSET_WIDTH);
+            dataLength2 = (int) toOffsetBuffer.getLong((i + 1) * LargeListVector.OFFSET_WIDTH) -
+                    (int) toOffsetBuffer.getLong(i * LargeListVector.OFFSET_WIDTH);
 
             assertEquals("Different data lengths at index: " + i + " and start: " + start,
                     dataLength1, dataLength2);
 
-            offset1 = offsetBuffer.getInt((start + i) * LargeListVector.OFFSET_WIDTH);
-            offset2 = toOffsetBuffer.getInt(i * LargeListVector.OFFSET_WIDTH);
+            offset1 = (int) offsetBuffer.getLong((start + i) * LargeListVector.OFFSET_WIDTH);
+            offset2 = (int) toOffsetBuffer.getLong(i * LargeListVector.OFFSET_WIDTH);
 
             for (int j = 0; j < dataLength1; j++) {
               assertEquals("Different data at indexes: " + offset1 + " and " + offset2,
@@ -560,9 +560,9 @@ public class TestLargeListVector {
       final ArrowBuf offsetBuffer = listVector.getOffsetBuffer();
 
       /* listVector has 2 lists at index 0 and 3 lists at index 1 */
-      assertEquals(0, offsetBuffer.getInt(0 * LargeListVector.OFFSET_WIDTH));
-      assertEquals(2, offsetBuffer.getInt(1 * LargeListVector.OFFSET_WIDTH));
-      assertEquals(5, offsetBuffer.getInt(2 * LargeListVector.OFFSET_WIDTH));
+      assertEquals(0, offsetBuffer.getLong(0 * LargeListVector.OFFSET_WIDTH));
+      assertEquals(2, offsetBuffer.getLong(1 * LargeListVector.OFFSET_WIDTH));
+      assertEquals(5, offsetBuffer.getLong(2 * LargeListVector.OFFSET_WIDTH));
     }
   }
 
@@ -688,9 +688,9 @@ public class TestLargeListVector {
       final ArrowBuf offsetBuffer = listVector.getOffsetBuffer();
 
       /* listVector has 2 lists at index 0 and 3 lists at index 1 */
-      assertEquals(0, offsetBuffer.getInt(0 * LargeListVector.OFFSET_WIDTH));
-      assertEquals(2, offsetBuffer.getInt(1 * LargeListVector.OFFSET_WIDTH));
-      assertEquals(4, offsetBuffer.getInt(2 * LargeListVector.OFFSET_WIDTH));
+      assertEquals(0, offsetBuffer.getLong(0 * LargeListVector.OFFSET_WIDTH));
+      assertEquals(2, offsetBuffer.getLong(1 * LargeListVector.OFFSET_WIDTH));
+      assertEquals(4, offsetBuffer.getLong(2 * LargeListVector.OFFSET_WIDTH));
     }
   }
 
