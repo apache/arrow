@@ -906,6 +906,35 @@ TEST(TestDecimalDictionaryBuilder, DoubleTableSize) {
   ASSERT_TRUE(expected.Equals(result));
 }
 
+TEST(TestNullDictionaryBuilder, Basic) {
+  // MakeBuilder
+  auto dict_type = dictionary(int8(), null());
+  std::unique_ptr<ArrayBuilder> boxed_builder;
+  ASSERT_OK(MakeBuilder(default_memory_pool(), dict_type, &boxed_builder));
+  auto& builder = checked_cast<DictionaryBuilder<NullType>&>(*boxed_builder);
+
+  ASSERT_OK(builder.AppendNull());
+  ASSERT_OK(builder.AppendNull());
+  ASSERT_OK(builder.AppendNull());
+  ASSERT_EQ(3, builder.length());
+  ASSERT_EQ(3, builder.null_count());
+
+  ASSERT_OK(builder.AppendNulls(4));
+  ASSERT_EQ(7, builder.length());
+  ASSERT_EQ(7, builder.null_count());
+
+  auto int_array = ArrayFromJSON(int8(), "[0, 1, 0, null]");
+  ASSERT_OK(builder.AppendArray(*int_array));
+  ASSERT_EQ(11, builder.length());
+  ASSERT_EQ(11, builder.null_count());
+
+  std::shared_ptr<Array> result;
+  ASSERT_OK(builder.Finish(&result));
+  ASSERT_TRUE(dict_type->Equals(*result->type()));
+  ASSERT_EQ(11, result->length());
+  ASSERT_EQ(11, result->null_count());
+}
+
 // ----------------------------------------------------------------------
 // Index byte width tests
 

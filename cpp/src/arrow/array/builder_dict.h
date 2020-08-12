@@ -335,9 +335,24 @@ class DictionaryBuilderBase : public ArrayBuilder {
 template <typename BuilderType>
 class DictionaryBuilderBase<BuilderType, NullType> : public ArrayBuilder {
  public:
+  template <typename B = BuilderType>
+  DictionaryBuilderBase(
+      enable_if_t<std::is_base_of<AdaptiveIntBuilderBase, B>::value, uint8_t>
+          start_int_size,
+      const std::shared_ptr<DataType>& value_type,
+      MemoryPool* pool = default_memory_pool())
+      : ArrayBuilder(pool), indices_builder_(start_int_size, pool) {}
+
   DictionaryBuilderBase(const std::shared_ptr<DataType>& value_type,
                         MemoryPool* pool = default_memory_pool())
       : ArrayBuilder(pool), indices_builder_(pool) {}
+
+  template <typename B = BuilderType>
+  explicit DictionaryBuilderBase(
+      enable_if_t<std::is_base_of<AdaptiveIntBuilderBase, B>::value, uint8_t>
+          start_int_size,
+      MemoryPool* pool = default_memory_pool())
+      : ArrayBuilder(pool), indices_builder_(start_int_size, pool) {}
 
   explicit DictionaryBuilderBase(MemoryPool* pool = default_memory_pool())
       : ArrayBuilder(pool), indices_builder_(pool) {}

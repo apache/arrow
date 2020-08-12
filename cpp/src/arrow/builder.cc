@@ -40,6 +40,7 @@ struct DictionaryBuilderCase {
     return CreateFor<ValueType>();
   }
 
+  Status Visit(const NullType&) { return CreateFor<NullType>(); }
   Status Visit(const BinaryType&) { return Create<BinaryDictionaryBuilder>(); }
   Status Visit(const StringType&) { return Create<StringDictionaryBuilder>(); }
   Status Visit(const FixedSizeBinaryType&) { return CreateFor<FixedSizeBinaryType>(); }
