@@ -180,7 +180,7 @@ fn read_file(
                 break;
             }
             Err(e) => {
-                let err_msg = format!("Error reading Parquet batch: {:?}", e);
+                let err_msg = format!("Error reading batch from {}: {:?}", filename, e);
                 // send error to operator
                 send_result(
                     &response_tx,
