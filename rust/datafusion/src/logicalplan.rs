@@ -658,43 +658,53 @@ impl fmt::Debug for Expr {
 /// Selection, etc) and can be created by the SQL query planner and the DataFrame API.
 #[derive(Clone)]
 pub enum LogicalPlan {
-    /// A Projection (essentially a SELECT with an expression list)
+    /// Evaluates an arbitrary list of expressions (essentially a
+    /// SELECT with an expression list) on its input.
     Projection {
         /// The list of expressions
         expr: Vec<Expr>,
-        /// The incoming logic plan
+        /// The incoming logical plan
         input: Box<LogicalPlan>,
-        /// The schema description
+        /// The schema description of the output
         schema: Box<Schema>,
     },
-    /// A Selection (essentially a WHERE clause with a predicate expression)
+    /// Filters rows from its input that do not match an
+    /// expression (essentially a WHERE clause with a predicate
+    /// expression).
+    ///
+    /// Semantically, `<expr>` is evaluated for each row of the input;
+    /// If the value of `<expr>` is true, the input row is passed to
+    /// the output. If the value of `<expr>` is false, the row is
+    /// discarded.
     Selection {
-        /// The expression
+        /// The expression. Must have Boolean type.
         expr: Expr,
-        /// The incoming logic plan
+        /// The incoming logical plan
         input: Box<LogicalPlan>,
     },
-    /// Represents a list of aggregate expressions with optional grouping expressions
+    /// Aggregates its input based on a set of grouping and aggregate
+    /// expressions (e.g. SUM).
     Aggregate {
-        /// The incoming logic plan
+        /// The incoming logical plan
         input: Box<LogicalPlan>,
         /// Grouping expressions
         group_expr: Vec<Expr>,
         /// Aggregate expressions
         aggr_expr: Vec<Expr>,
-        /// The schema description
+        /// The schema description of the aggregate output
         schema: Box<Schema>,
     },
-    /// Represents a list of sort expressions to be applied to a relation
+    /// Sorts its input according to a list of sort expressions.
     Sort {
         /// The sort expressions
         expr: Vec<Expr>,
-        /// The incoming logic plan
+        /// The incoming logical plan
         input: Box<LogicalPlan>,
-        /// The schema description
+        /// The schema description of the otuput
         schema: Box<Schema>,
     },
-    /// A table scan against a table that has been registered on a context
+    /// Produces rows from a table that has been registered on a
+    /// context
     TableScan {
         /// The name of the schema
         schema_name: String,
@@ -704,10 +714,10 @@ pub enum LogicalPlan {
         table_schema: Box<Schema>,
         /// Optional column indices to use as a projection
         projection: Option<Vec<usize>>,
-        /// The projected schema
+        /// The schema description of the output
         projected_schema: Box<Schema>,
     },
-    /// A table scan against a vector of record batches
+    /// Produces rows that come from a `Vec` of in memory `RecordBatch`es
     InMemoryScan {
         /// Record batch partitions
         data: Vec<Vec<RecordBatch>>,
@@ -715,10 +725,10 @@ pub enum LogicalPlan {
         schema: Box<Schema>,
         /// Optional column indices to use as a projection
         projection: Option<Vec<usize>>,
-        /// The projected schema
+        /// The schema description of the output
         projected_schema: Box<Schema>,
     },
-    /// A table scan against a Parquet data source
+    /// Produces rows by scanning Parquet file(s)
     ParquetScan {
         /// The path to the files
         path: String,
@@ -726,10 +736,10 @@ pub enum LogicalPlan {
         schema: Box<Schema>,
         /// Optional column indices to use as a projection
         projection: Option<Vec<usize>>,
-        /// The projected schema
+        /// The schema description of the output
         projected_schema: Box<Schema>,
     },
-    /// A table scan against a CSV data source
+    /// Produces rows by scanning a CSV file(s)
     CsvScan {
         /// The path to the files
         path: String,
@@ -741,24 +751,24 @@ pub enum LogicalPlan {
         delimiter: Option<u8>,
         /// Optional column indices to use as a projection
         projection: Option<Vec<usize>>,
-        /// The projected schema
+        /// The schema description of the output
         projected_schema: Box<Schema>,
     },
-    /// An empty relation with an empty schema
+    /// Produces no rows: An empty relation with an empty schema
     EmptyRelation {
-        /// The schema description
+        /// The schema description of the output
         schema: Box<Schema>,
     },
-    /// Represents the maximum number of records to return
+    /// Produces the first `n` tuples from its input and discards the rest.
     Limit {
         /// The limit
         n: usize,
         /// The logical plan
         input: Box<LogicalPlan>,
-        /// The schema description
+        /// The schema description of the output
         schema: Box<Schema>,
     },
-    /// Represents a create external table expression.
+    /// Creates an external table.
     CreateExternalTable {
         /// The table schema
         schema: Box<Schema>,
