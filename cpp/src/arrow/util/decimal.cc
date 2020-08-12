@@ -45,10 +45,6 @@ Decimal128::Decimal128(const std::string& str) : Decimal128() {
   *this = Decimal128::FromString(str).ValueOrDie();
 }
 
-static const Decimal128 kTenTo36(static_cast<int64_t>(0xC097CE7BC90715),
-                                 0xB34B9F1000000000);
-static const Decimal128 kTenTo18(0xDE0B6B3A7640000);
-
 static constexpr auto kInt64DecimalDigits =
     static_cast<size_t>(std::numeric_limits<int64_t>::digits10);
 
