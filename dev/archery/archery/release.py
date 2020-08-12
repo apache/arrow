@@ -145,7 +145,7 @@ class CommitTitle:
     def __init__(self, summary, project=None, issue=None, components=None):
         self.project = project
         self.issue = issue
-        self.components = components or []
+        self.components = tuple(components or [])
         self.summary = summary
 
     def __str__(self):
@@ -158,6 +158,17 @@ class CommitTitle:
             out += " "
         out += self.summary
         return out
+
+    def __eq__(self, other):
+        return (
+            self.summary == other.summary and
+            self.project == other.project and
+            self.issue == other.issue and
+            self.components == other.components
+        )
+
+    def __hash__(self):
+        return hash((self.summary, self.project, self.issue, self.components))
 
     @classmethod
     def parse(cls, headline):
@@ -338,7 +349,7 @@ class Release:
     @cached_property
     def commits(self):
         """
-        All commits applied between two versions on the master branch.
+        All commits applied between two versions.
         """
         if self.previous is None:
             # first release
@@ -444,24 +455,33 @@ class MaintenanceMixin:
         # conflicts during cherry-picks
         commits = map(Commit, self.repo.iter_commits(commit_range))
 
+        # exclude patches that have been already applied to the maintenance
+        # branch, we cannot identify patches based on sha because it changes
+        # after the cherry pick so use commit title instead
+        already_applied = {c.title for c in self.commits}
+
         # iterate over the commits applied on the main branch and filter out
         # the ones that are included in the jira release
-        patches_to_pick = [c for c in commits if c.issue in self.issues]
+        patches_to_pick = [c for c in commits if
+                           c.issue in self.issues and
+                           c.title not in already_applied]
 
         return reversed(patches_to_pick)
 
-    def cherry_pick_commits(self):
-        if self.branch in self.repo.branches:
-            # always recreate the maintenance branch to keep the commit order
-            self.repo.git.branch('-D', self.branch)
-
-        # create and checkout the maintenance branch based off of the
-        # previous tag
-        self.repo.git.checkout(self.previous.tag, b=self.branch)
+    def cherry_pick_commits(self, recreate_branch=True):
+        if recreate_branch:
+            # delete, create and checkout the maintenance branch based off of
+            # the previous tag
+            if self.branch in self.repo.branches:
+                self.repo.git.branch('-D', self.branch)
+            self.repo.git.checkout(self.previous.tag, b=self.branch)
+        else:
+            # just checkout the already existing maintenance branch
+            self.repo.git.checkout(self.branch)
 
         # cherry pick the commits based on the jira tickets
         for commit in self.commits_to_pick():
-            self.repo.git.cherry_pick(commit.hexsha, X='theirs')
+            self.repo.git.cherry_pick(commit.hexsha)
 
 
 class MajorRelease(Release):
