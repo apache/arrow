@@ -284,64 +284,43 @@ Decimal128::operator int64_t() const {
   return static_cast<int64_t>(low_bits());
 }
 
-static std::string ToStringNegativeScale(const std::string& str,
-                                         int32_t adjusted_exponent, bool is_negative) {
-  std::stringstream buf;
-
-  size_t offset = 0;
-  buf << str[offset++];
-
-  if (is_negative) {
-    buf << str[offset++];
-  }
-
-  buf << '.' << str.substr(offset, std::string::npos) << 'E' << std::showpos
-      << adjusted_exponent;
-  return buf.str();
-}
-
-std::string Decimal128::ToString(int32_t scale) const {
-  const std::string str(ToIntegerString());
-
+static void AdjustIntegerStringWithScale(int32_t scale, std::string* str) {
   if (scale == 0) {
-    return str;
+    return;
   }
 
-  const bool is_negative = *this < 0;
-
-  const auto len = static_cast<int32_t>(str.size());
+  const bool is_negative = str->front() == '-';
   const auto is_negative_offset = static_cast<int32_t>(is_negative);
-  const int32_t adjusted_exponent = -scale + (len - 1 - is_negative_offset);
+  const auto len = static_cast<int32_t>(str->size());
+  const int32_t num_digits = len - is_negative_offset;
+  const int32_t adjusted_exponent = num_digits - 1 - scale;
 
   /// Note that the -6 is taken from the Java BigDecimal documentation.
   if (scale < 0 || adjusted_exponent < -6) {
-    return ToStringNegativeScale(str, adjusted_exponent, is_negative);
+    str->insert(str->begin() + 1 + is_negative_offset, '.');
+    str->push_back('E');
+    // Use stringstream only for printing the exponent integer. It should be short
+    // enough to avoid memory allocations.
+    std::stringstream buf;
+    buf << std::showpos << adjusted_exponent;
+    *str += buf.str();
+    return;
   }
 
-  if (is_negative) {
-    if (len - 1 > scale) {
-      const auto n = static_cast<size_t>(len - scale);
-      return str.substr(0, n) + "." + str.substr(n, static_cast<size_t>(scale));
-    }
-
-    if (len - 1 == scale) {
-      return "-0." + str.substr(1, std::string::npos);
-    }
-
-    std::string result("-0." + std::string(static_cast<size_t>(scale - len + 1), '0'));
-    return result + str.substr(1, std::string::npos);
-  }
-
-  if (len > scale) {
+  if (num_digits > scale) {
     const auto n = static_cast<size_t>(len - scale);
-    return str.substr(0, n) + "." + str.substr(n, static_cast<size_t>(scale));
+    str->insert(str->begin() + n, '.');
+    return;
   }
 
-  if (len == scale) {
-    return "0." + str;
-  }
+  str->insert(is_negative_offset, scale - num_digits + 2, '0');
+  str->at(is_negative_offset + 1) = '.';
+}
 
-  return "0." + std::string(static_cast<size_t>(scale - len), '0') + str;
+std::string Decimal128::ToString(int32_t scale) const {
+  std::string str(ToIntegerString());
+  AdjustIntegerStringWithScale(scale, &str);
+  return str;
 }
 
 // Iterates over data and for each group of kInt64DecimalDigits multiple out by
