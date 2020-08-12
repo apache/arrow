@@ -22,8 +22,6 @@
 #include <string>
 #include <vector>
 
-#include <iostream>
-
 #include <gtest/gtest.h>
 
 #include "arrow/array.h"
@@ -964,6 +962,7 @@ TYPED_TEST(TestDictionaryBuilderIndexByteWidth, MakeBuilder) {
   AssertIndexByteWidth<TypeParam, BinaryType>();
   AssertIndexByteWidth<TypeParam, StringType>();
   AssertIndexByteWidth<TypeParam, FixedSizeBinaryType>(fixed_size_binary(4));
+  AssertIndexByteWidth<TypeParam, NullType>();
 }
 
 // ----------------------------------------------------------------------

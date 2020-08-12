@@ -131,10 +131,9 @@ class ARROW_EXPORT AdaptiveUIntBuilder : public internal::AdaptiveIntBuilderBase
 
   std::shared_ptr<DataType> type() const override;
 
-  Status ExpandIntSize(uint8_t new_int_size);
-
  protected:
   Status CommitPendingData() override;
+  Status ExpandIntSize(uint8_t new_int_size);
 
   Status AppendValuesInternal(const uint64_t* values, int64_t length,
                               const uint8_t* valid_bytes);
@@ -170,10 +169,9 @@ class ARROW_EXPORT AdaptiveIntBuilder : public internal::AdaptiveIntBuilderBase 
 
   std::shared_ptr<DataType> type() const override;
 
-  Status ExpandIntSize(uint8_t new_int_size);
-
  protected:
   Status CommitPendingData() override;
+  Status ExpandIntSize(uint8_t new_int_size);
 
   Status AppendValuesInternal(const int64_t* values, int64_t length,
                               const uint8_t* valid_bytes);

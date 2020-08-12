@@ -105,8 +105,10 @@ class DictionaryBuilderBase : public ArrayBuilder {
 
   // WARNING: the type given below is the value type, not the DictionaryType.
   // The DictionaryType is instantiated on the Finish() call.
-  template <typename T1 = T>
-  DictionaryBuilderBase(enable_if_t<!std::is_base_of<FixedSizeBinaryType, T1>::value,
+  template <typename B = BuilderType, typename T1 = T>
+  DictionaryBuilderBase(uint8_t start_int_size,
+                        enable_if_t<std::is_base_of<AdaptiveIntBuilderBase, B>::value &&
+                                        !is_fixed_size_binary_type<T1>::value,
                                     const std::shared_ptr<DataType>&>
                             value_type,
                         MemoryPool* pool = default_memory_pool())
@@ -114,7 +116,33 @@ class DictionaryBuilderBase : public ArrayBuilder {
         memo_table_(new internal::DictionaryMemoTable(pool, value_type)),
         delta_offset_(0),
         byte_width_(-1),
+        indices_builder_(start_int_size, pool),
+        value_type_(value_type) {}
+
+  template <typename T1 = T>
+  DictionaryBuilderBase(
+      enable_if_t<!is_fixed_size_binary_type<T1>::value, const std::shared_ptr<DataType>&>
+          value_type,
+      MemoryPool* pool = default_memory_pool())
+      : ArrayBuilder(pool),
+        memo_table_(new internal::DictionaryMemoTable(pool, value_type)),
+        delta_offset_(0),
+        byte_width_(-1),
         indices_builder_(pool),
+        value_type_(value_type) {}
+
+  template <typename B = BuilderType, typename T1 = T>
+  DictionaryBuilderBase(uint8_t start_int_size,
+                        enable_if_t<std::is_base_of<AdaptiveIntBuilderBase, B>::value &&
+                                        is_fixed_size_binary_type<T1>::value,
+                                    const std::shared_ptr<DataType>&>
+                            value_type,
+                        MemoryPool* pool = default_memory_pool())
+      : ArrayBuilder(pool),
+        memo_table_(new internal::DictionaryMemoTable(pool, value_type)),
+        delta_offset_(0),
+        byte_width_(static_cast<const T1&>(*value_type).byte_width()),
+        indices_builder_(start_int_size, pool),
         value_type_(value_type) {}
 
   template <typename T1 = T>
@@ -423,10 +451,6 @@ class DictionaryBuilder : public internal::DictionaryBuilderBase<AdaptiveIntBuil
  public:
   using BASE = internal::DictionaryBuilderBase<AdaptiveIntBuilder, T>;
   using BASE::BASE;
-
-  Status ExpandIndexByteWidth(uint8_t new_index_byte_width) {
-    return BASE::indices_builder_.ExpandIntSize(new_index_byte_width);
-  }
 
   /// \brief Append dictionary indices directly without modifying memo
   ///

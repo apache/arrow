@@ -64,17 +64,11 @@ struct DictionaryBuilderCase {
     if (dictionary != nullptr) {
       builder = new BuilderType(dictionary, pool);
     } else {
-      builder = new BuilderType(value_type, pool);
+      auto start_int_size = internal::GetByteWidth(*index_type);
+      builder = new BuilderType(start_int_size, value_type, pool);
     }
-    RETURN_NOT_OK(AdjustIndexByteWidth(builder));
     out->reset(builder);
     return Status::OK();
-  }
-
-  template <typename BuilderType>
-  Status AdjustIndexByteWidth(BuilderType* builder) {
-    const auto& fw_type = internal::checked_cast<const FixedWidthType&>(*index_type);
-    return builder->ExpandIndexByteWidth(fw_type.bit_width() / CHAR_BIT);
   }
 
   Status Make() { return VisitTypeInline(*value_type, this); }
