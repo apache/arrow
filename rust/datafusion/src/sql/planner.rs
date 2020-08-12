@@ -270,11 +270,11 @@ impl<S: SchemaProvider> SqlToRel<S> {
         let group_by_count = group_expr.len();
         let aggr_count = aggr_expr.len();
 
-        // if group_by_count + aggr_count != projection_expr.len() {
-        //     return Err(ExecutionError::General(
-        //         "Projection references non-aggregate values".to_owned(),
-        //     ));
-        // }
+        if group_by_count + aggr_count != projection_expr.len() {
+            return Err(ExecutionError::General(
+                "Projection references non-aggregate values".to_owned(),
+            ));
+        }
 
         let plan = LogicalPlanBuilder::from(&input)
             .aggregate(group_expr, aggr_expr)?
