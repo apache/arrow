@@ -18,7 +18,7 @@
 //! Defines the merge plan for executing partitions in parallel and then merging the results
 //! into a single partition
 
-use crate::error::{Result, ExecutionError};
+use crate::error::{ExecutionError, Result};
 use crate::execution::physical_plan::common::RecordBatchIterator;
 use crate::execution::physical_plan::Partition;
 use crate::execution::physical_plan::{common, ExecutionPlan};
@@ -85,10 +85,11 @@ impl Partition for MergePartition {
         for thread in threads {
             match thread.join() {
                 Ok(join) => {
-                    join?.iter()
+                    join?
+                        .iter()
                         .for_each(|batch| combined_results.push(Arc::new(batch.clone())));
                 }
-                Err(e) => return Err(ExecutionError::General(format!("{:?}", e)))
+                Err(e) => return Err(ExecutionError::General(format!("{:?}", e))),
             }
         }
 
