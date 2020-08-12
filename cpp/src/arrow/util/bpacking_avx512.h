@@ -22,7 +22,7 @@
 namespace arrow {
 namespace internal {
 
-int unpack32(const uint32_t* in, uint32_t* out, int batch_size, int num_bits);
+int unpack32_avx512(const uint32_t* in, uint32_t* out, int batch_size, int num_bits);
 
 }  // namespace internal
 }  // namespace arrow
