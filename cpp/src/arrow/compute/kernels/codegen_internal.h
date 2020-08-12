@@ -728,7 +728,6 @@ struct ScalarBinary {
       }
     } else {
       if (batch[1].kind() == Datum::ARRAY) {
-        // e.g. if we were doing scalar < array, we flip and do array >= scalar
         return ScalarArray(ctx, *batch[0].scalar(), *batch[1].array(), out);
       } else {
         return ScalarScalar(ctx, *batch[0].scalar(), *batch[1].scalar(), out);
@@ -842,6 +841,8 @@ struct ScalarBinaryNotNull {
 template <typename OutType, typename ArgType, typename Op>
 using ScalarBinaryEqualTypes = ScalarBinary<OutType, ArgType, ArgType, Op>;
 
+// A kernel exec generator for non-null binary kernels where both input types are the
+// same
 template <typename OutType, typename ArgType, typename Op>
 using ScalarBinaryNotNullEqualTypes = ScalarBinaryNotNull<OutType, ArgType, ArgType, Op>;
 

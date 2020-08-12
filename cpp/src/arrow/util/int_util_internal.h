@@ -58,6 +58,7 @@ namespace internal {
 OPS_WITH_OVERFLOW(AddWithOverflow, add)
 OPS_WITH_OVERFLOW(SubtractWithOverflow, sub)
 OPS_WITH_OVERFLOW(MultiplyWithOverflow, mul)
+OPS_WITH_OVERFLOW(DivideWithOverflow, div)
 
 #undef OP_WITH_OVERFLOW
 #undef OPS_WITH_OVERFLOW
