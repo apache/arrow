@@ -2101,6 +2101,19 @@ TEST_F(TestAdaptiveIntBuilder, TestAppendNulls) {
   }
 }
 
+TEST(TestAdaptiveIntBuilderWithStartIntSize, TestReset) {
+  auto builder = std::make_shared<AdaptiveIntBuilder>(
+      static_cast<uint8_t>(sizeof(int16_t)), default_memory_pool());
+  ASSERT_TRUE(int16()->Equals(*builder->type()));
+
+  ASSERT_OK(
+      builder->Append(static_cast<int64_t>(std::numeric_limits<int16_t>::max()) + 1));
+  ASSERT_TRUE(int32()->Equals(*builder->type()));
+
+  builder->Reset();
+  ASSERT_TRUE(int16()->Equals(*builder->type()));
+}
+
 class TestAdaptiveUIntBuilder : public TestBuilder {
  public:
   void SetUp() {
@@ -2304,6 +2317,19 @@ TEST_F(TestAdaptiveUIntBuilder, TestAppendNulls) {
   for (unsigned index = 0; index < size; ++index) {
     ASSERT_FALSE(result_->IsValid(index));
   }
+}
+
+TEST(TestAdaptiveUIntBuilderWithStartIntSize, TestReset) {
+  auto builder = std::make_shared<AdaptiveUIntBuilder>(
+      static_cast<uint8_t>(sizeof(uint16_t)), default_memory_pool());
+  ASSERT_TRUE(uint16()->Equals(*builder->type()));
+
+  ASSERT_OK(
+      builder->Append(static_cast<uint64_t>(std::numeric_limits<uint16_t>::max()) + 1));
+  ASSERT_TRUE(uint32()->Equals(*builder->type()));
+
+  builder->Reset();
+  ASSERT_TRUE(uint16()->Equals(*builder->type()));
 }
 
 // ----------------------------------------------------------------------

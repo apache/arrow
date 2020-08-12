@@ -33,7 +33,8 @@ namespace arrow {
 
 using internal::AdaptiveIntBuilderBase;
 
-AdaptiveIntBuilderBase::AdaptiveIntBuilderBase(MemoryPool* pool) : ArrayBuilder(pool) {}
+AdaptiveIntBuilderBase::AdaptiveIntBuilderBase(uint8_t start_int_size, MemoryPool* pool)
+    : ArrayBuilder(pool), start_int_size_(start_int_size), int_size_(start_int_size) {}
 
 void AdaptiveIntBuilderBase::Reset() {
   ArrayBuilder::Reset();
@@ -41,7 +42,7 @@ void AdaptiveIntBuilderBase::Reset() {
   raw_data_ = nullptr;
   pending_pos_ = 0;
   pending_has_nulls_ = false;
-  int_size_ = sizeof(uint8_t);
+  int_size_ = start_int_size_;
 }
 
 Status AdaptiveIntBuilderBase::Resize(int64_t capacity) {
@@ -69,16 +70,13 @@ template <typename new_type, typename old_type>
 typename std::enable_if<(sizeof(old_type) < sizeof(new_type)), Status>::type
 AdaptiveIntBuilderBase::ExpandIntSizeInternal() {
   int_size_ = sizeof(new_type);
+  RETURN_NOT_OK(Resize(data_->size() / sizeof(old_type)));
 
-  if (data_) {
-    RETURN_NOT_OK(Resize(data_->size() / sizeof(old_type)));
-
-    const old_type* src = reinterpret_cast<old_type*>(raw_data_);
-    new_type* dst = reinterpret_cast<new_type*>(raw_data_);
-    // By doing the backward copy, we ensure that no element is overridden during
-    // the copy process while the copy stays in-place.
-    std::copy_backward(src, src + length_, dst + length_);
-  }
+  const old_type* src = reinterpret_cast<old_type*>(raw_data_);
+  new_type* dst = reinterpret_cast<new_type*>(raw_data_);
+  // By doing the backward copy, we ensure that no element is overridden during
+  // the copy process while the copy stays in-place.
+  std::copy_backward(src, src + length_, dst + length_);
 
   return Status::OK();
 }
@@ -127,7 +125,8 @@ std::shared_ptr<DataType> AdaptiveIntBuilder::type() const {
   return nullptr;
 }
 
-AdaptiveIntBuilder::AdaptiveIntBuilder(MemoryPool* pool) : AdaptiveIntBuilderBase(pool) {}
+AdaptiveIntBuilder::AdaptiveIntBuilder(uint8_t start_int_size, MemoryPool* pool)
+    : AdaptiveIntBuilderBase(start_int_size, pool) {}
 
 Status AdaptiveIntBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   RETURN_NOT_OK(CommitPendingData());
@@ -267,8 +266,8 @@ Status AdaptiveIntBuilder::ExpandIntSize(uint8_t new_int_size) {
   return Status::OK();
 }
 
-AdaptiveUIntBuilder::AdaptiveUIntBuilder(MemoryPool* pool)
-    : AdaptiveIntBuilderBase(pool) {}
+AdaptiveUIntBuilder::AdaptiveUIntBuilder(uint8_t start_int_size, MemoryPool* pool)
+    : AdaptiveIntBuilderBase(start_int_size, pool) {}
 
 Status AdaptiveUIntBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   RETURN_NOT_OK(CommitPendingData());
