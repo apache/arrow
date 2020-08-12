@@ -174,23 +174,27 @@ Result<std::shared_ptr<Array>> FlattenListArray(const ListArrayT& list_array,
 
 }  // namespace
 
-// This template class method is only used in this compilation unit,
-// so can be defined here.
+namespace internal {
+
 template <typename TYPE>
-void BaseListArray<TYPE>::SetData(const std::shared_ptr<ArrayData>& data,
-                                  Type::type expected_type_id) {
-  this->Array::SetData(data);
+inline void SetListData(BaseListArray<TYPE>* self, const std::shared_ptr<ArrayData>& data,
+                        Type::type expected_type_id) {
   ARROW_CHECK_EQ(data->buffers.size(), 2);
   ARROW_CHECK_EQ(data->type->id(), expected_type_id);
-  list_type_ = checked_cast<const TypeClass*>(data->type.get());
+  ARROW_CHECK_EQ(data->child_data.size(), 1);
 
-  raw_value_offsets_ = data->GetValuesSafe<offset_type>(1, /*offset=*/0);
+  self->Array::SetData(data);
 
-  ARROW_CHECK_EQ(data_->child_data.size(), 1);
-  ARROW_CHECK_EQ(list_type_->value_type()->id(), data->child_data[0]->type->id());
-  DCHECK(list_type_->value_type()->Equals(data->child_data[0]->type));
-  values_ = MakeArray(data_->child_data[0]);
+  self->list_type_ = checked_cast<const TYPE*>(data->type.get());
+  self->raw_value_offsets_ =
+      data->GetValuesSafe<typename TYPE::offset_type>(1, /*offset=*/0);
+
+  ARROW_CHECK_EQ(self->list_type_->value_type()->id(), data->child_data[0]->type->id());
+  DCHECK(self->list_type_->value_type()->Equals(data->child_data[0]->type));
+  self->values_ = MakeArray(self->data_->child_data[0]);
 }
+
+}  // namespace internal
 
 ListArray::ListArray(std::shared_ptr<ArrayData> data) { SetData(std::move(data)); }
 
@@ -208,6 +212,10 @@ ListArray::ListArray(std::shared_ptr<DataType> type, int64_t length,
   SetData(std::move(internal_data));
 }
 
+void ListArray::SetData(const std::shared_ptr<ArrayData>& data) {
+  internal::SetListData(this, data);
+}
+
 LargeListArray::LargeListArray(const std::shared_ptr<DataType>& type, int64_t length,
                                const std::shared_ptr<Buffer>& value_offsets,
                                const std::shared_ptr<Array>& values,
@@ -218,6 +226,10 @@ LargeListArray::LargeListArray(const std::shared_ptr<DataType>& type, int64_t le
       ArrayData::Make(type, length, {null_bitmap, value_offsets}, null_count, offset);
   internal_data->child_data.emplace_back(values->data());
   SetData(internal_data);
+}
+
+void LargeListArray::SetData(const std::shared_ptr<ArrayData>& data) {
+  internal::SetListData(this, data);
 }
 
 Result<std::shared_ptr<ListArray>> ListArray::FromArrays(const Array& offsets,
@@ -363,7 +375,7 @@ Status MapArray::ValidateChildData(
 void MapArray::SetData(const std::shared_ptr<ArrayData>& data) {
   ARROW_CHECK_OK(ValidateChildData(data->child_data));
 
-  this->ListArray::SetData(data, Type::MAP);
+  internal::SetListData(this, data, Type::MAP);
   map_type_ = checked_cast<const MapType*>(data->type.get());
   const auto& pair_data = data->child_data[0];
   keys_ = MakeArray(pair_data->child_data[0]);

@@ -41,6 +41,20 @@ namespace arrow {
 // ----------------------------------------------------------------------
 // ListArray
 
+template <typename TYPE>
+class BaseListArray;
+
+namespace internal {
+
+// Private helper for ListArray::SetData.
+// Unfortunately, trying to define BaseListArray::SetData outside of this header
+// doesn't play well with MSVC.
+template <typename TYPE>
+void SetListData(BaseListArray<TYPE>* self, const std::shared_ptr<ArrayData>& data,
+                 Type::type expected_type_id = TYPE::type_id);
+
+}  // namespace internal
+
 /// Base class for variable-sized list arrays, regardless of offset size.
 template <typename TYPE>
 class BaseListArray : public Array {
@@ -76,8 +90,9 @@ class BaseListArray : public Array {
   }
 
  protected:
-  void SetData(const std::shared_ptr<ArrayData>& data,
-               Type::type expected_type_id = TypeClass::type_id);
+  friend void internal::SetListData<TYPE>(BaseListArray<TYPE>* self,
+                                          const std::shared_ptr<ArrayData>& data,
+                                          Type::type expected_type_id);
 
   const TypeClass* list_type_ = NULLPTR;
   std::shared_ptr<Array> values_;
@@ -124,6 +139,8 @@ class ARROW_EXPORT ListArray : public BaseListArray<ListType> {
  protected:
   // This constructor defers SetData to a derived array class
   ListArray() = default;
+
+  void SetData(const std::shared_ptr<ArrayData>& data);
 };
 
 /// Concrete Array class for large list data (with 64-bit offsets)
@@ -163,6 +180,9 @@ class ARROW_EXPORT LargeListArray : public BaseListArray<LargeListType> {
 
   /// \brief Return list offsets as an Int64Array
   std::shared_ptr<Array> offsets() const;
+
+ protected:
+  void SetData(const std::shared_ptr<ArrayData>& data);
 };
 
 // ----------------------------------------------------------------------
