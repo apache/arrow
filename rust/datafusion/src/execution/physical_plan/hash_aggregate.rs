@@ -587,6 +587,9 @@ fn create_batch_from_map(
                 DataType::UInt64 => aggr_val!(builder, UInt64Builder, value, UInt64),
                 DataType::Float32 => aggr_val!(builder, Float32Builder, value, Float32),
                 DataType::Float64 => aggr_val!(builder, Float64Builder, value, Float64),
+                // The aggr_val! macro doesn't work for ScalarValue::Utf8 because it contains
+                // String and the builder wants &str. In all other cases the scalar and builder
+                // types are the same.
                 DataType::Utf8 => {
                     let builder = builder
                         .downcast_mut::<StringBuilder>()
