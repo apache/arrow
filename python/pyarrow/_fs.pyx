@@ -62,20 +62,6 @@ cdef inline c_string _path_as_bytes(path) except *:
     return tobytes(path)
 
 
-def _normalize_path(FileSystem filesystem, path):
-    """
-    Normalize path for the given filesystem.
-
-    The default implementation of this method is a no-op, but subclasses
-    may allow normalizing irregular path forms (such as Windows local paths).
-    """
-    cdef c_string c_path = _path_as_bytes(path)
-    cdef c_string c_path_normalized
-
-    c_path_normalized = GetResultValue(filesystem.fs.NormalizePath(c_path))
-    return frombytes(c_path_normalized)
-
-
 cdef object _wrap_file_type(CFileType ty):
     return FileType(<int8_t> ty)
 
@@ -709,6 +695,27 @@ cdef class FileSystem(_Weakrefable):
             stream, path=path, compression=compression, buffer_size=buffer_size
         )
 
+    def normalize_path(self, path):
+        """
+        Normalize filesystem path.
+
+        Parameters
+        ----------
+        path : str
+            The path to normalize
+
+        Returns
+        -------
+        normalized_path : str
+            The normalized path
+        """
+        cdef:
+            c_string c_path = _path_as_bytes(path)
+            c_string c_path_normalized
+
+        c_path_normalized = GetResultValue(self.fs.NormalizePath(c_path))
+        return frombytes(c_path_normalized)
+
 
 cdef class LocalFileSystem(FileSystem):
     """
@@ -851,6 +858,7 @@ cdef class PyFileSystem(FileSystem):
         vtable.open_input_file = _cb_open_input_file
         vtable.open_output_stream = _cb_open_output_stream
         vtable.open_append_stream = _cb_open_append_stream
+        vtable.normalize_path = _cb_normalize_path
 
         wrapped = CPyFileSystem.Make(handler, move(vtable))
         self.init(<shared_ptr[CFileSystem]> wrapped)
@@ -963,6 +971,12 @@ class FileSystemHandler(ABC):
         Implement PyFileSystem.open_append_stream(...).
         """
 
+    @abstractmethod
+    def normalize_path(self, path):
+        """
+        Implement PyFileSystem.normalize_path(...).
+        """
+
 
 # Callback definitions for CPyFileSystemVtable
 
@@ -1058,3 +1072,7 @@ cdef void _cb_open_append_stream(handler, const c_string& path,
         raise TypeError("open_append_stream should have returned "
                         "a PyArrow file")
     out[0] = (<NativeFile> stream).get_output_stream()
+
+cdef void _cb_normalize_path(handler, const c_string& path,
+                             c_string* out) except *:
+    out[0] = tobytes(handler.normalize_path(frombytes(path)))
