@@ -166,13 +166,22 @@ impl<'a> OptimizerRule for TypeCoercionRule<'a> {
                     self.rewrite_expr_list(aggr_expr, input.schema())?,
                 )?
                 .build(),
+            LogicalPlan::Limit { n, input, .. } => {
+                LogicalPlanBuilder::from(&self.optimize(input)?)
+                    .limit(*n)?
+                    .build()
+            }
+            LogicalPlan::Sort { input, expr, .. } => {
+                LogicalPlanBuilder::from(&self.optimize(input)?)
+                    .sort(expr.to_owned())?
+                    .build()
+            }
+            // the following rules do not have inputs and do not need to be re-written
             LogicalPlan::TableScan { .. } => Ok(plan.clone()),
             LogicalPlan::InMemoryScan { .. } => Ok(plan.clone()),
             LogicalPlan::ParquetScan { .. } => Ok(plan.clone()),
             LogicalPlan::CsvScan { .. } => Ok(plan.clone()),
             LogicalPlan::EmptyRelation { .. } => Ok(plan.clone()),
-            LogicalPlan::Limit { .. } => Ok(plan.clone()),
-            LogicalPlan::Sort { .. } => Ok(plan.clone()),
             LogicalPlan::CreateExternalTable { .. } => Ok(plan.clone()),
         }
     }
