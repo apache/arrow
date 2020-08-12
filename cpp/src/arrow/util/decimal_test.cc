@@ -106,6 +106,33 @@ TEST(DecimalTest, TestFromDecimalString128) {
   ASSERT_NE(result.high_bits(), 0);
 }
 
+TEST(DecimalTest, TestStringRoundTrip) {
+  static constexpr uint64_t kTestBits[] = {
+      0,
+      1,
+      999,
+      1000,
+      std::numeric_limits<int32_t>::max(),
+      (1ull << 31),
+      std::numeric_limits<uint32_t>::max(),
+      (1ull << 32),
+      std::numeric_limits<int64_t>::max(),
+      (1ull << 63),
+      std::numeric_limits<uint64_t>::max(),
+  };
+  static constexpr int32_t kScales[] = {-10, -1, 0, 1, 10};
+  for (uint64_t high_bits : kTestBits) {
+    for (uint64_t low_bits : kTestBits) {
+      Decimal128 decimal(high_bits, low_bits);
+      for (int32_t scale : kScales) {
+        std::string str = decimal.ToString(scale);
+        ASSERT_OK_AND_ASSIGN(Decimal128 result, Decimal128::FromString(str));
+        EXPECT_EQ(decimal, result);
+      }
+    }
+  }
+}
+
 TEST(DecimalTest, TestDecimal32SignedRoundTrip) {
   Decimal128 expected("-3402692");
 

@@ -195,42 +195,89 @@ double Decimal128::ToDouble(int32_t scale) const {
   return DecimalDoubleConversion::ToReal(*this, scale);
 }
 
-std::string Decimal128::ToIntegerString() const {
-  Decimal128 remainder;
-  std::stringstream buf;
-  bool need_fill = false;
-
-  // get anything above 10 ** 36 and print it
-  Decimal128 top;
-  std::tie(top, remainder) = Divide(kTenTo36).ValueOrDie();
-
-  if (top != 0) {
-    buf << static_cast<int64_t>(top);
-    remainder.Abs();
-    need_fill = true;
-  }
-
-  // now get anything above 10 ** 18 and print it
-  Decimal128 tail;
-  std::tie(top, tail) = remainder.Divide(kTenTo18).ValueOrDie();
-
-  if (need_fill || top != 0) {
-    if (need_fill) {
-      buf << std::setw(18) << std::setfill('0');
-    } else {
-      need_fill = true;
-      tail.Abs();
+template <size_t n>
+static void AppendLittleEndianArrayToString(const std::array<uint64_t, n>& array,
+                                            std::string* result) {
+  static_assert(n > 0);
+  size_t most_significant_elem_idx = n - 1;
+  while (array[most_significant_elem_idx] == 0) {
+    if (most_significant_elem_idx == 0) {
+      result->push_back('0');
+      return;
     }
-
-    buf << static_cast<int64_t>(top);
+    --most_significant_elem_idx;
   }
 
-  // finally print the tail, which is less than 10**18
-  if (need_fill) {
-    buf << std::setw(18) << std::setfill('0');
+  std::array<uint64_t, n> copy = array;
+  constexpr uint32_t k1e9 = 1000000000U;
+  constexpr size_t num_bits = n * 64;
+  // Each segment holds at most 9 decimal digits.
+  // The number of segments needed = ceil(num_bits * log(2) / log(1e9))
+  // = ceil(num_bits / 29.897352854) <= ceil(num_bits / 29).
+  std::array<uint32_t, (num_bits + 28) / 29> segments;
+  size_t num_segments = 0;
+  uint64_t* most_significant_elem = &copy[most_significant_elem_idx];
+  do {
+    // Compute remainder = copy % 1e9 and copy = copy / 1e9.
+    uint32_t remainder = 0;
+    uint64_t* elem = most_significant_elem;
+    do {
+      uint32_t hi = static_cast<uint32_t>(*elem >> 32);
+      uint32_t lo = static_cast<uint32_t>(*elem & ~uint32_t{0});
+      uint64_t dividend_hi = (static_cast<uint64_t>(remainder) << 32) | hi;
+      uint64_t quotient_hi = dividend_hi / k1e9;
+      remainder = static_cast<uint32_t>(dividend_hi % k1e9);
+      uint64_t dividend_lo = (static_cast<uint64_t>(remainder) << 32) | lo;
+      uint64_t quotient_lo = dividend_lo / k1e9;
+      remainder = static_cast<uint32_t>(dividend_lo % k1e9);
+      *elem = (quotient_hi << 32) | quotient_lo;
+    } while (elem-- != copy.data());
+
+    segments[num_segments++] = remainder;
+  } while (*most_significant_elem != 0 || most_significant_elem-- != copy.data());
+
+  size_t old_size = result->size();
+  size_t new_size = old_size + num_segments * 9;
+  result->resize(new_size);
+  char* output = &result->at(0) + old_size;
+  const uint32_t* segment = &segments[num_segments - 1];
+  size_t num_digits_in_first_segment = 9;
+  uint32_t digits = *segment;
+  for (int j = 8; j >= 0; --j) {
+    output[j] = static_cast<char>(digits % 10) + '0';
+    digits /= 10;
+    if (digits == 0) {  // skip leading zeros for the highest segment
+      num_digits_in_first_segment = 9 - j;
+      memmove(output, output + j, num_digits_in_first_segment);
+      break;
+    }
   }
-  buf << static_cast<int64_t>(tail);
-  return buf.str();
+  output += num_digits_in_first_segment;
+  while (segment != segments.data()) {
+    --segment;
+    digits = *segment;
+    for (int j = 8; j >= 0; --j) {
+      output[j] = static_cast<char>(digits % 10) + '0';
+      digits /= 10;
+    }
+    output += 9;
+  }
+  result->resize(new_size - (9 - num_digits_in_first_segment));
+}
+
+std::string Decimal128::ToIntegerString() const {
+  std::string result;
+  if (high_bits() < 0) {
+    result.push_back('-');
+    Decimal128 abs = *this;
+    abs.Negate();
+    AppendLittleEndianArrayToString<2>(
+        {abs.low_bits(), static_cast<uint64_t>(abs.high_bits())}, &result);
+  } else {
+    AppendLittleEndianArrayToString<2>({low_bits(), static_cast<uint64_t>(high_bits())},
+                                       &result);
+  }
+  return result;
 }
 
 Decimal128::operator int64_t() const {
