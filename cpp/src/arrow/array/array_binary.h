@@ -121,14 +121,9 @@ class BaseBinaryArray : public FlatArray {
 
   // Protected method for constructors
   void SetData(const std::shared_ptr<ArrayData>& data) {
-    auto value_offsets = data->buffers[1];
-    auto value_data = data->buffers[2];
     this->Array::SetData(data);
-    raw_data_ = value_data == NULLPTR ? NULLPTR : value_data->data();
-    raw_value_offsets_ =
-        value_offsets == NULLPTR
-            ? NULLPTR
-            : reinterpret_cast<const offset_type*>(value_offsets->data());
+    raw_value_offsets_ = data->GetValuesSafe<offset_type>(1, /*offset=*/0);
+    raw_data_ = data->GetValuesSafe<uint8_t>(2, /*offset=*/0);
   }
 
   const offset_type* raw_value_offsets_;
@@ -230,7 +225,7 @@ class ARROW_EXPORT FixedSizeBinaryArray : public PrimitiveArray {
   const uint8_t* raw_values() const { return raw_values_ + data_->offset * byte_width_; }
 
  protected:
-  inline void SetData(const std::shared_ptr<ArrayData>& data) {
+  void SetData(const std::shared_ptr<ArrayData>& data) {
     this->PrimitiveArray::SetData(data);
     byte_width_ =
         internal::checked_cast<const FixedSizeBinaryType&>(*type()).byte_width();

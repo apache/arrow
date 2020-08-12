@@ -690,6 +690,60 @@ def test_batch_serialize():
     assert batch.equals(batch2)
 
 
+def make_table(length):
+    a0 = pa.array([0, 1, 42, None], type=pa.int16())
+    a1 = pa.array([[0, 1], [2], [], None], type=pa.list_(pa.int32()))
+    a2 = pa.array([("ab", True), ("cde", False), (None, None), None],
+                  type=pa.struct([("strs", pa.utf8()),
+                                  ("bools", pa.bool_())]))
+    # Dictionaries are validated on the IPC read path, but that can produce
+    # issues for GPU-located dictionaries.  Check that they work fine.
+    a3 = pa.DictionaryArray.from_arrays(
+        indices=[0, 1, 1, None],
+        dictionary=pa.array(['foo', 'bar']))
+    a4 = pa.DictionaryArray.from_arrays(
+        indices=[2, 1, 2, None],
+        dictionary=a1)
+    a5 = pa.DictionaryArray.from_arrays(
+        indices=[2, 1, 0, None],
+        dictionary=a2)
+
+    arrays = [a0, a1, a2, a3, a4, a5]
+    schema = pa.schema([('f{}'.format(i), arr.type)
+                        for i, arr in enumerate(arrays)])
+    batch = pa.record_batch(arrays, schema=schema)
+    table = pa.Table.from_batches([batch])
+    return table
+
+
+def test_table_deserialize():
+    # ARROW-9659: make sure that we can deserialize a GPU-located table
+    # without crashing when initializing or validating the underlying arrays.
+    htable = make_table(10)
+    # Serialize the host table to bytes
+    sink = pa.BufferOutputStream()
+    with pa.ipc.new_stream(sink, htable.schema) as out:
+        out.write_table(htable)
+    hbuf = pa.py_buffer(sink.getvalue().to_pybytes())
+
+    # Copy the host bytes to a device buffer
+    dbuf = global_context.new_buffer(len(hbuf))
+    dbuf.copy_from_host(hbuf, nbytes=len(hbuf))
+    # Deserialize the device buffer into a Table
+    dtable = pa.ipc.open_stream(cuda.BufferReader(dbuf)).read_all()
+
+    # Assert basic fields the same between host and device tables
+    assert htable.schema == dtable.schema
+    assert htable.num_rows == dtable.num_rows
+    assert htable.num_columns == dtable.num_columns
+    # Assert byte-level equality
+    assert hbuf.equals(dbuf.copy_to_host())
+    # Copy DtoH and assert the tables are still equivalent
+    assert htable.equals(pa.ipc.open_stream(
+        dbuf.copy_to_host()
+    ).read_all())
+
+
 def other_process_for_test_IPC(handle_buffer, expected_arr):
     other_context = pa.cuda.Context(0)
     ipc_handle = pa.cuda.IpcMemHandle.from_buffer(handle_buffer)

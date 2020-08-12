@@ -46,9 +46,6 @@ struct ValidateArrayVisitor {
   }
 
   Status Visit(const PrimitiveArray& array) {
-    ARROW_RETURN_IF(array.data()->buffers.size() != 2,
-                    Status::Invalid("number of buffers is != 2"));
-
     if (array.length() > 0) {
       if (array.data()->buffers[1] == nullptr) {
         return Status::Invalid("values buffer is null");
@@ -61,9 +58,6 @@ struct ValidateArrayVisitor {
   }
 
   Status Visit(const Decimal128Array& array) {
-    if (array.data()->buffers.size() != 2) {
-      return Status::Invalid("number of buffers is != 2");
-    }
     if (array.length() > 0 && array.values() == nullptr) {
       return Status::Invalid("values is null");
     }
@@ -212,15 +206,12 @@ struct ValidateArrayVisitor {
  protected:
   template <typename BinaryArrayType>
   Status ValidateBinaryArray(const BinaryArrayType& array) {
-    if (array.data()->buffers.size() != 3) {
-      return Status::Invalid("number of buffers is != 3");
-    }
     if (array.value_data() == nullptr) {
       return Status::Invalid("value data buffer is null");
     }
     RETURN_NOT_OK(ValidateOffsets(array));
 
-    if (array.length() > 0) {
+    if (array.length() > 0 && array.value_offsets()->is_cpu()) {
       const auto first_offset = array.value_offset(0);
       const auto last_offset = array.value_offset(array.length());
       // This early test avoids undefined behaviour when computing `data_extent`
@@ -251,7 +242,7 @@ struct ValidateArrayVisitor {
     RETURN_NOT_OK(ValidateOffsets(array));
 
     // An empty list array can have 0 offsets
-    if (array.length() > 0) {
+    if (array.length() > 0 && array.value_offsets()->is_cpu()) {
       const auto first_offset = array.value_offset(0);
       const auto last_offset = array.value_offset(array.length());
       // This early test avoids undefined behaviour when computing `data_extent`
