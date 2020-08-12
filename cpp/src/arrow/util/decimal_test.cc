@@ -1206,18 +1206,18 @@ TYPED_TEST_SUITE(Decimal256Test, Decimal256Types);
 TYPED_TEST(Decimal256Test, ConstructibleFromAnyIntegerType) {
   using UInt64Array = std::array<uint64_t, 4>;
   Decimal256 value(TypeParam{42});
-  EXPECT_EQ(UInt64Array({42, 0, 0, 0}), value.little_endian_bits());
+  EXPECT_EQ(UInt64Array({42, 0, 0, 0}), value.little_endian_array());
 
   TypeParam max = std::numeric_limits<TypeParam>::max();
   Decimal256 max_value(max);
   EXPECT_EQ(UInt64Array({static_cast<uint64_t>(max), 0, 0, 0}),
-            max_value.little_endian_bits());
+            max_value.little_endian_array());
 
   TypeParam min = std::numeric_limits<TypeParam>::min();
   Decimal256 min_value(min);
   uint64_t high_bits = std::is_signed<TypeParam>::value ? ~uint64_t{0} : uint64_t{0};
   EXPECT_EQ(UInt64Array({static_cast<uint64_t>(min), high_bits, high_bits, high_bits}),
-            min_value.little_endian_bits());
+            min_value.little_endian_array());
 }
 
 TEST(Decimal256Test, ConstructibleFromBool) {

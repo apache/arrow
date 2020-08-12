@@ -181,27 +181,32 @@ ARROW_EXPORT BasicDecimal128 operator%(const BasicDecimal128& left,
 class ARROW_EXPORT BasicDecimal256 {
  public:
   /// \brief Create a BasicDecimal256 from the two's complement representation.
-  constexpr BasicDecimal256(const std::array<uint64_t, 4>& little_endian_bits) noexcept
-      : little_endian_bits_(little_endian_bits) {}
+  constexpr BasicDecimal256(const std::array<uint64_t, 4>& little_endian_array) noexcept
+      : little_endian_array_(little_endian_array) {}
 
   /// \brief Empty constructor creates a BasicDecimal256 with a value of 0.
-  constexpr BasicDecimal256() noexcept : little_endian_bits_({0, 0, 0, 0}) {}
+  constexpr BasicDecimal256() noexcept : little_endian_array_({0, 0, 0, 0}) {}
 
   /// \brief Convert any integer value into a BasicDecimal256.
   template <typename T,
             typename = typename std::enable_if<
                 std::is_integral<T>::value && (sizeof(T) <= sizeof(uint64_t)), T>::type>
   constexpr BasicDecimal256(T value) noexcept
-      : little_endian_bits_({static_cast<uint64_t>(value), extend(value), extend(value),
-                             extend(value)}) {}
+      : little_endian_array_({static_cast<uint64_t>(value), extend(value), extend(value),
+                              extend(value)}) {}
 
   /// \brief Create a BasicDecimal256 from an array of bytes. Bytes are assumed to be in
   /// native-endian byte order.
   explicit BasicDecimal256(const uint8_t* bytes);
 
-  /// \brief Get the high bits of the two's complement representation of the number.
-  inline const std::array<uint64_t, 4>& little_endian_bits() const {
-    return little_endian_bits_;
+  /// \brief Get the bits of the two's complement representation of the number. The 4
+  /// elements are in little endian order. The bits within each uint64_t element are in
+  /// native endian order. For example,
+  /// BasicDecimal256(123).little_endian_array() = {123, 0, 0, 0};
+  /// BasicDecimal256(-2).little_endian_array() = {0xFF...FE, 0xFF...FF, 0xFF...FF,
+  /// 0xFF...FF}.
+  inline const std::array<uint64_t, 4>& little_endian_array() const {
+    return little_endian_array_;
   }
 
   /// \brief Return the raw bytes of the value in native-endian byte order.
@@ -213,7 +218,7 @@ class ARROW_EXPORT BasicDecimal256 {
   inline static constexpr uint64_t extend(T low_bits) noexcept {
     return low_bits >= T() ? uint64_t{0} : ~uint64_t{0};
   }
-  std::array<uint64_t, 4> little_endian_bits_;
+  std::array<uint64_t, 4> little_endian_array_;
 };
 
 ARROW_EXPORT bool operator==(const BasicDecimal256& left, const BasicDecimal256& right);
