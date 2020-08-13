@@ -78,8 +78,10 @@ impl Partition for SortPartition {
     fn execute(&self) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
         // sort needs to operate on a single partition currently
         let merge = MergeExec::new(self.schema.clone(), self.input.clone());
-        // MergeExec has a single partition
-        let it = merge.partitions()?[0].execute()?;
+        let merge_partitions = merge.partitions()?;
+        // MergeExec must always produce a single partition
+        assert_eq!(1, merge_partitions.len());
+        let it = merge_partitions[0].execute()?;
         let batches = common::collect(it)?;
 
         // combine all record batches into one for each column

@@ -97,8 +97,10 @@ impl Partition for LimitPartition {
 
         // limit needs to collapse inputs down to a single partition
         let merge = MergeExec::new(self.schema.clone(), local_limit);
-        // MergeExec has a single partition
-        let it = merge.partitions()?[0].execute()?;
+        let merge_partitions = merge.partitions()?;
+        // MergeExec must always produce a single partition
+        assert_eq!(1, merge_partitions.len());
+        let it = merge_partitions[0].execute()?;
         let batches = common::collect(it)?;
 
         // apply the limit to the output
