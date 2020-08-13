@@ -31,51 +31,51 @@ if [[ "$(uname -s)" == "Linux" ]] && [[ "$(uname -m)" == "s390x" ]]; then
   bintray_base_url="https://dl.bintray.com/apache/arrow"
 
   bintray_dir="flatc-binary"
-  grp="com.github.icexelloss"
+  group="com.github.icexelloss"
   artifact="flatc-linux-s390_64"
   ver="1.9.0"
   extension="exe"
   target=${artifact}-${ver}.${extension}
   ${wget} ${bintray_base_url}/${bintray_dir}/${ver}/${target}
-  ${mvn_install} -DgroupId=${grp} -DartifactId=${artifact} -Dversion=${ver} -Dpackaging=${extension} -Dfile=`pwd`/${target}
+  ${mvn_install} -DgroupId=${group} -DartifactId=${artifact} -Dversion=${ver} -Dpackaging=${extension} -Dfile=$(pwd)/${target}
 
   bintray_dir="protoc-binary"
-  grp="com.google.protobuf"
+  group="com.google.protobuf"
   artifact="protoc"
   ver="3.7.1"
-  cls="linux-s390_64"
+  classifier="linux-s390_64"
   extension="exe"
-  target=${artifact}-${ver}-${cls}.${extension}
+  target=${artifact}-${ver}-${classifier}.${extension}
   ${wget} ${bintray_base_url}/${bintray_dir}/${ver}/${target}
-  ${mvn_install} -DgroupId=${grp} -DartifactId=${artifact} -Dversion=${ver} -Dclassifier=${cls} -Dpackaging=${extension} -Dfile=`pwd`/${target}
+  ${mvn_install} -DgroupId=${group} -DartifactId=${artifact} -Dversion=${ver} -Dclassifier=${classifier} -Dpackaging=${extension} -Dfile=$(pwd)/${target}
   # protoc requires libprotoc.so.18
   ${wget} ${bintray_base_url}/${bintray_dir}/${ver}/libprotoc.so.18
-  export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:`pwd`
+  export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:$(pwd)
 
-  bintray_dir="protoc-gen-grpc-java-binary"
-  grp="io.grpc"
-  artifact="protoc-gen-grpc-java"
+  bintray_dir="protoc-gen-groupc-java-binary"
+  group="io.groupc"
+  artifact="protoc-gen-groupc-java"
   ver="1.30.2"
-  cls="linux-s390_64"
+  classifier="linux-s390_64"
   extension="exe"
-  target=${artifact}-${ver}-${cls}.${extension}
+  target=${artifact}-${ver}-${classifier}.${extension}
   ${wget} ${bintray_base_url}/${bintray_dir}/${ver}/${target}
-  ${mvn_install} -DgroupId=${grp} -DartifactId=${artifact} -Dversion=${ver} -Dclassifier=${cls} -Dpackaging=${extension} -Dfile=`pwd`/${target}
+  ${mvn_install} -DgroupId=${group} -DartifactId=${artifact} -Dversion=${ver} -Dclassifier=${classifier} -Dpackaging=${extension} -Dfile=$(pwd)/${target}
 
   bintray_dir="netty-binary"
-  grp="io.netty"
+  group="io.netty"
   artifact="netty-transport-native-unix-common"
   ver="4.1.48.Final"
-  cls="linux-s390_64"
+  classifier="linux-s390_64"
   extension="jar"
-  target=${artifact}-${ver}-${cls}.${extension}
+  target=${artifact}-${ver}-${classifier}.${extension}
   ${wget} ${bintray_base_url}/${bintray_dir}/${ver}/${target}
-  ${mvn_install} -DgroupId=${grp} -DartifactId=${artifact} -Dversion=${ver} -Dclassifier=${cls} -Dpackaging=${extension} -Dfile=`pwd`/${target}
+  ${mvn_install} -DgroupId=${group} -DartifactId=${artifact} -Dversion=${ver} -Dclassifier=${classifier} -Dpackaging=${extension} -Dfile=$(pwd)/${target}
   artifact="netty-transport-native-epoll"
   extension="jar"
-  target=${artifact}-${ver}-${cls}.${extension}
+  target=${artifact}-${ver}-${classifier}.${extension}
   ${wget} ${bintray_base_url}/${bintray_dir}/${ver}/${target}
-  ${mvn_install} -DgroupId=${grp} -DartifactId=${artifact} -Dversion=${ver} -Dclassifier=${cls} -Dpackaging=${extension} -Dfile=`pwd`/${target}
+  ${mvn_install} -DgroupId=${group} -DartifactId=${artifact} -Dversion=${ver} -Dclassifier=${classifier} -Dpackaging=${extension} -Dfile=$(pwd)/${target}
 fi
 
 mvn="mvn -B -DskipTests -Drat.skip=true -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn"
