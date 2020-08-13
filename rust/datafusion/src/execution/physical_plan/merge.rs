@@ -24,6 +24,7 @@ use std::thread::{self, JoinHandle};
 use crate::error::{ExecutionError, Result};
 use crate::execution::physical_plan::common::RecordBatchIterator;
 use crate::execution::physical_plan::Partition;
+
 use crate::execution::physical_plan::{common, ExecutionPlan};
 
 use arrow::datatypes::SchemaRef;
@@ -78,24 +79,6 @@ struct MergePartition {
     partitions: Vec<Arc<dyn Partition>>,
     /// Maximum number of concurrent threads
     concurrency: usize,
-}
-
-fn collect_from_thread(
-    thread: JoinHandle<Result<Vec<RecordBatch>>>,
-    combined_results: &mut Vec<Arc<RecordBatch>>,
-) -> Result<()> {
-    match thread.join() {
-        Ok(join) => {
-            join?
-                .iter()
-                .for_each(|batch| combined_results.push(Arc::new(batch.clone())));
-            Ok(())
-        }
-        Err(e) => Err(ExecutionError::General(format!(
-            "Error collecting batches from thread: {:?}",
-            e
-        ))),
-    }
 }
 
 impl Partition for MergePartition {
