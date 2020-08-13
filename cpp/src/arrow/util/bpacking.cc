@@ -15,11 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <mutex>
-
 #include "arrow/util/bpacking.h"
 #include "arrow/util/bpacking_default.h"
 #include "arrow/util/cpu_info.h"
+#include "arrow/util/dispatch.h"
 #include "arrow/util/logging.h"
 
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
@@ -146,28 +145,32 @@ int unpack32_default(const uint32_t* in, uint32_t* out, int batch_size, int num_
 typedef int (*unpack32_func_t)(const uint32_t* in, uint32_t* out, int batch_size,
                                int num_bits);
 
-static std::once_flag unpack32_ptr_initialized;
-static unpack32_func_t unpack32_func_ptr = unpack32_default;
+using FunctionType = unpack32_func_t;
+class Unpack32Dispatch : public DynamicDispatch<FunctionType> {
+  using FunctionIntance = std::pair<DispatchLevel::type, FunctionType>;
 
-static void resolve_unpack32_ptr() {
-  std::call_once(unpack32_ptr_initialized, []() {
-    auto cpu_info = arrow::internal::CpuInfo::GetInstance();
+ public:
+  Unpack32Dispatch() { Reslove(); }
+
+  std::vector<FunctionIntance> Implementations() {
+    std::vector<FunctionIntance> instances;
+
+    // Register all instances it support
+    instances.push_back({DispatchLevel::NONE, unpack32_default});
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
-    if (cpu_info->IsSupported(arrow::internal::CpuInfo::AVX2)) {
-      unpack32_func_ptr = unpack32_avx2;
-    }
+    instances.push_back({DispatchLevel::AVX2, unpack32_avx2});
 #endif
 #if defined(ARROW_HAVE_RUNTIME_AVX512)
-    if (cpu_info->IsSupported(arrow::internal::CpuInfo::AVX512)) {
-      unpack32_func_ptr = unpack32_avx512;
-    }
+    instances.push_back({DispatchLevel::AVX512, unpack32_avx512});
 #endif
-  });
-}
+
+    return instances;
+  }
+};
 
 int unpack32(const uint32_t* in, uint32_t* out, int batch_size, int num_bits) {
-  resolve_unpack32_ptr();
-  return unpack32_func_ptr(in, out, batch_size, num_bits);
+  static Unpack32Dispatch dispatch;
+  return dispatch.func(in, out, batch_size, num_bits);
 }
 
 }  // namespace internal
