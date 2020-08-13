@@ -73,7 +73,7 @@ RUN pip install \
         meson \
         breathe \
         ipython \
-        sphinx==3.1 \
+        sphinx==3.1.2 \
         sphinx_rtd_theme
 
 COPY c_glib/Gemfile /arrow/c_glib/
