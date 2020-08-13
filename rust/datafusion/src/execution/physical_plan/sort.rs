@@ -18,8 +18,6 @@
 //! Defines the SORT plan
 
 use std::sync::{Arc, Mutex};
-use std::thread;
-use std::thread::JoinHandle;
 
 use arrow::array::ArrayRef;
 pub use arrow::compute::SortOptions;
@@ -30,6 +28,7 @@ use arrow::record_batch::{RecordBatch, RecordBatchReader};
 use crate::error::Result;
 use crate::execution::physical_plan::common::RecordBatchIterator;
 use crate::execution::physical_plan::expressions::PhysicalSortExpr;
+use crate::execution::physical_plan::merge::MergeExec;
 use crate::execution::physical_plan::{common, ExecutionPlan, Partition};
 
 /// Sort execution plan
@@ -77,27 +76,13 @@ struct SortPartition {
 impl Partition for SortPartition {
     /// Execute the sort
     fn execute(&self) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
-        let threads: Vec<JoinHandle<Result<Vec<RecordBatch>>>> = self
-            .input
-            .iter()
-            .map(|p| {
-                let p = p.clone();
-                thread::spawn(move || {
-                    let it = p.execute()?;
-                    common::collect(it)
-                })
-            })
-            .collect();
-
-        // generate record batches from input in parallel
-        let mut all_batches: Vec<Arc<RecordBatch>> = vec![];
-        for thread in threads {
-            let join = thread.join().expect("Failed to join thread");
-            let result = join?;
-            result
-                .iter()
-                .for_each(|batch| all_batches.push(Arc::new(batch.clone())));
-        }
+        // sort needs to operate on a single partition currently
+        let merge = MergeExec::new(self.schema.clone(), self.input.clone());
+        let merge_partitions = merge.partitions()?;
+        // MergeExec must always produce a single partition
+        assert_eq!(1, merge_partitions.len());
+        let it = merge_partitions[0].execute()?;
+        let batches = common::collect(it)?;
 
         // combine all record batches into one for each column
         let combined_batch = RecordBatch::try_new(
@@ -108,7 +93,7 @@ impl Partition for SortPartition {
                 .enumerate()
                 .map(|(i, _)| -> Result<ArrayRef> {
                     Ok(concat(
-                        &all_batches
+                        &batches
                             .iter()
                             .map(|batch| batch.columns()[i].clone())
                             .collect::<Vec<ArrayRef>>(),
