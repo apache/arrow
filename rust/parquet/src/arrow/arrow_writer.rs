@@ -144,7 +144,11 @@ fn write_leaves(
         | ArrowDataType::Time32(_)
         | ArrowDataType::Time64(_)
         | ArrowDataType::Duration(_)
-        | ArrowDataType::Interval(_) => {
+        | ArrowDataType::Interval(_)
+        | ArrowDataType::LargeBinary
+        | ArrowDataType::Binary
+        | ArrowDataType::Utf8
+        | ArrowDataType::LargeUtf8 => {
             let mut col_writer = get_col_writer(&mut row_group_writer)?;
             write_leaf(
                 &mut col_writer,
@@ -175,10 +179,6 @@ fn write_leaves(
         | ArrowDataType::Null
         | ArrowDataType::Boolean
         | ArrowDataType::FixedSizeBinary(_)
-        | ArrowDataType::LargeBinary
-        | ArrowDataType::Binary
-        | ArrowDataType::Utf8
-        | ArrowDataType::LargeUtf8
         | ArrowDataType::Union(_)
         | ArrowDataType::Dictionary(_, _) => Err(ParquetError::NYI(
             "Attempting to write an Arrow type that is not yet implemented".to_string(),
@@ -234,9 +234,25 @@ fn write_leaf(
                 levels.repetition.as_deref(),
             )?
         }
-        ColumnWriter::ByteArrayColumnWriter(ref mut _typed) => {
-            unreachable!("Currently unreachable because data type not supported")
-        }
+        ColumnWriter::ByteArrayColumnWriter(ref mut typed) => match column.data_type() {
+            ArrowDataType::Binary | ArrowDataType::Utf8 => {
+                let array = arrow_array::BinaryArray::from(column.data());
+                typed.write_batch(
+                    get_binary_array(&array).as_slice(),
+                    Some(levels.definition.as_slice()),
+                    levels.repetition.as_deref(),
+                )?
+            }
+            ArrowDataType::LargeBinary | ArrowDataType::LargeUtf8 => {
+                let array = arrow_array::LargeBinaryArray::from(column.data());
+                typed.write_batch(
+                    get_large_binary_array(&array).as_slice(),
+                    Some(levels.definition.as_slice()),
+                    levels.repetition.as_deref(),
+                )?
+            }
+            _ => unreachable!("Currently unreachable because data type not supported"),
+        },
         ColumnWriter::FixedLenByteArrayColumnWriter(ref mut _typed) => {
             unreachable!("Currently unreachable because data type not supported")
         }
@@ -281,13 +297,13 @@ fn get_levels(
         | ArrowDataType::Time32(_)
         | ArrowDataType::Time64(_)
         | ArrowDataType::Duration(_)
-        | ArrowDataType::Interval(_) => vec![Levels {
+        | ArrowDataType::Interval(_)
+        | ArrowDataType::Binary
+        | ArrowDataType::LargeBinary => vec![Levels {
             definition: get_primitive_def_levels(array, parent_def_levels),
             repetition: None,
         }],
-        ArrowDataType::Binary => unimplemented!(),
         ArrowDataType::FixedSizeBinary(_) => unimplemented!(),
-        ArrowDataType::LargeBinary => unimplemented!(),
         ArrowDataType::List(_) | ArrowDataType::LargeList(_) => {
             let array_data = array.data();
             let child_data = array_data.child_data().get(0).unwrap();
@@ -430,6 +446,24 @@ fn get_primitive_def_levels(
     primitive_def_levels
 }
 
+macro_rules! def_get_binary_array_fn {
+    ($name:ident, $ty:ty) => {
+        fn $name(array: &$ty) -> Vec<ByteArray> {
+            let mut values = Vec::with_capacity(array.len() - array.null_count());
+            for i in 0..array.len() {
+                if array.is_valid(i) {
+                    let bytes = ByteArray::from(array.value(i).to_vec());
+                    values.push(bytes);
+                }
+            }
+            values
+        }
+    };
+}
+
+def_get_binary_array_fn!(get_binary_array, arrow_array::BinaryArray);
+def_get_binary_array_fn!(get_large_binary_array, arrow_array::LargeBinaryArray);
+
 /// Get the underlying numeric array slice, skipping any null values.
 /// If there are no null values, it might be quicker to get the slice directly instead of
 /// calling this function.
@@ -452,13 +486,16 @@ where
 mod tests {
     use super::*;
 
+    use std::io::Seek;
     use std::sync::Arc;
 
     use arrow::array::*;
     use arrow::datatypes::ToByteSlice;
     use arrow::datatypes::{DataType, Field, Schema};
-    use arrow::record_batch::RecordBatch;
+    use arrow::record_batch::{RecordBatch, RecordBatchReader};
 
+    use crate::arrow::{ArrowReader, ParquetFileArrowReader};
+    use crate::file::reader::SerializedFileReader;
     use crate::util::test_common::get_temp_file;
 
     #[test]
@@ -519,6 +556,62 @@ mod tests {
         let mut writer = ArrowWriter::try_new(file, Arc::new(schema), None).unwrap();
         writer.write(&batch).unwrap();
         writer.close().unwrap();
+    }
+
+    #[test]
+    fn arrow_writer_binary() {
+        let string_field = Field::new("a", DataType::Utf8, false);
+        let binary_field = Field::new("b", DataType::Binary, false);
+        let schema = Schema::new(vec![string_field, binary_field]);
+
+        let raw_string_values = vec!["foo", "bar", "baz", "quux"];
+        let raw_binary_values = vec![
+            b"foo".to_vec(),
+            b"bar".to_vec(),
+            b"baz".to_vec(),
+            b"quux".to_vec(),
+        ];
+        let raw_binary_value_refs = raw_binary_values
+            .iter()
+            .map(|x| x.as_slice())
+            .collect::<Vec<_>>();
+
+        let string_values = StringArray::from(raw_string_values.clone());
+        let binary_values = BinaryArray::from(raw_binary_value_refs);
+        let batch = RecordBatch::try_new(
+            Arc::new(schema.clone()),
+            vec![Arc::new(string_values), Arc::new(binary_values)],
+        )
+        .unwrap();
+
+        let mut file = get_temp_file("test_arrow_writer.parquet", &[]);
+        let mut writer =
+            ArrowWriter::try_new(file.try_clone().unwrap(), Arc::new(schema), None)
+                .unwrap();
+        writer.write(&batch).unwrap();
+        writer.close().unwrap();
+
+        file.seek(std::io::SeekFrom::Start(0)).unwrap();
+        let file_reader = SerializedFileReader::new(file).unwrap();
+        let mut arrow_reader = ParquetFileArrowReader::new(Rc::new(file_reader));
+        let mut record_batch_reader = arrow_reader.get_record_reader(1024).unwrap();
+
+        let batch = record_batch_reader.next_batch().unwrap().unwrap();
+        let string_col = batch
+            .column(0)
+            .as_any()
+            .downcast_ref::<StringArray>()
+            .unwrap();
+        let binary_col = batch
+            .column(1)
+            .as_any()
+            .downcast_ref::<BinaryArray>()
+            .unwrap();
+
+        for i in 0..batch.num_rows() {
+            assert_eq!(string_col.value(i), raw_string_values[i]);
+            assert_eq!(binary_col.value(i), raw_binary_values[i].as_slice());
+        }
     }
 
     #[test]
