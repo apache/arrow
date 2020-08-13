@@ -115,7 +115,7 @@ script:
     ulimit -c unlimited || :
   - |
     archery docker run \
-      ${DOCKER_RUN_ARGS}
+      ${DOCKER_RUN_ARGS} \
       --volume ${PWD}/build:/build \
       ${DOCKER_IMAGE_ID}
 
