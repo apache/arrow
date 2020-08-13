@@ -129,15 +129,29 @@ test_that("dim method returns the correct number of rows and columns",{
 test_that("dim() correctly determine numbers of rows and columns on arrow_dplyr_query object",{
   ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
 
-  expect_warning(dim_fil <- dim(filter(ds, chr == 'A')))
-  expect_identical(dim_fil, c(NA, 7L))
-
-  dim_sel <- dim(select(ds, chr, fct))
-  expect_identical(dim_sel, c(20L, 2L))
-
-  expect_warning(dim_sel_fil <- dim(select(ds, chr, fct) %>% filter(chr == 'A')))
-  expect_identical(dim_sel_fil, c(NA, 2L))
-
+  expect_warning(
+    expect_identical(
+      ds %>%
+        filter(chr == 'a') %>%
+        dim(),
+      c(NA, 7L)
+    )
+  )
+  expect_equal(
+    ds %>%
+      select(chr, fct, int) %>%
+      dim(),
+    c(20L, 3L)
+  )
+  expect_warning(
+    expect_identical(
+      ds %>%
+        select(chr, fct, int) %>%
+        filter(chr == 'a') %>%
+        dim(),
+      c(NA, 3L)
+    )
+  )
 })
 
 test_that("dataset from URI", {
@@ -211,9 +225,9 @@ test_that("IPC/Feather format data", {
   ds <- open_dataset(ipc_dir, partitioning = "part", format = "feather")
   expect_identical(names(ds), c(names(df1), "part"))
   expect_warning(
-    dim(ds),
-    "Number of rows unknown; returning NA"
+    expect_identical(dim(ds), c(NA, 7L))
   )
+
   expect_equivalent(
     ds %>%
       select(string = chr, integer = int, part) %>%
@@ -237,8 +251,7 @@ test_that("CSV dataset", {
   ds <- open_dataset(csv_dir, partitioning = "part", format = "csv")
   expect_identical(names(ds), c(names(df1), "part"))
   expect_warning(
-    dim(ds),
-    "Number of rows unknown; returning NA"
+    expect_identical(dim(ds), c(NA, 7L))
   )
   expect_equivalent(
     ds %>%
@@ -486,6 +499,72 @@ test_that("count()", {
     df %>%
       filter(int > 6, int < 108) %>%
       count(chr)
+  )
+})
+
+test_that("head/tail", {
+  ds <- open_dataset(dataset_dir)
+  expect_equal(as.data.frame(head(ds)), head(df1))
+  expect_equal(
+    as.data.frame(head(ds, 12)),
+    rbind(df1, df2[1:2,])
+  )
+  expect_equal(
+    ds %>%
+      filter(int > 6) %>%
+      head() %>%
+      as.data.frame(),
+    rbind(df1[7:10,], df2[1:2,])
+  )
+
+  expect_equal(as.data.frame(tail(ds)), tail(df2))
+  expect_equal(
+    as.data.frame(tail(ds, 12)),
+    rbind(df1[9:10,], df2)
+  )
+  expect_equal(
+    ds %>%
+      filter(int < 105) %>%
+      tail() %>%
+      as.data.frame(),
+    rbind(df1[9:10,], df2[1:4,])
+  )
+})
+
+test_that("Dataset [ (take by index)", {
+  ds <- open_dataset(dataset_dir)
+  # Taking only from one file
+  expect_equal(
+    as.data.frame(ds[c(4, 5, 9), 3:4]),
+    df1[c(4, 5, 9), 3:4]
+  )
+  # Taking from more than one
+  expect_equal(
+    as.data.frame(ds[c(4, 5, 9, 12, 13), 3:4]),
+    rbind(df1[c(4, 5, 9), 3:4], df2[2:3, 3:4])
+  )
+  # Taking out of order
+  expect_equal(
+    as.data.frame(ds[c(4, 13, 9, 12, 5), ]),
+    rbind(
+      df1[4, ],
+      df2[3, ],
+      df1[9, ],
+      df2[2, ],
+      df1[5, ]
+    )
+  )
+
+  # Take from a query
+  ds2 <- ds %>%
+    filter(int > 6) %>%
+    select(int, lgl)
+  expect_equal(
+    as.data.frame(ds2[c(2, 5), ]),
+    rbind(
+      df1[8, c("int", "lgl")],
+      df2[1, c("int", "lgl")]
+    )
   )
 })
 

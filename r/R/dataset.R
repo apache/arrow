@@ -240,12 +240,17 @@ FileSystemDataset <- R6Class("FileSystemDataset", inherit = Dataset,
       shared_ptr(FileFormat, dataset___FileSystemDataset__format(self))$..dispatch()
     },
     num_rows = function() {
-      if (!inherits(self$format, "ParquetFileFormat")) {
+      if (inherits(self$format, "ParquetFileFormat")) {
+        # It's generally fast enough to skim the files directly
+        sum(map_int(self$files, ~ParquetFileReader$create(.x)$num_rows))
+      } else {
         # TODO: implement for other file formats
         warning("Number of rows unknown; returning NA", call. = FALSE)
         NA_integer_
-      } else {
-        sum(map_int(self$files, ~ParquetFileReader$create(.x)$num_rows))
+        # Could do a scan, picking only the last column, which hopefully is virtual
+        # But this is can be slow
+        # Scanner$create(self, projection = tail(names(self), 1))$ToTable()$num_rows
+        # See also https://issues.apache.org/jira/browse/ARROW-9697
       }
     }
   )
@@ -559,6 +564,7 @@ Scanner$create <- function(dataset,
                            projection = NULL,
                            filter = TRUE,
                            use_threads = option_use_threads(),
+                           batch_size = NULL,
                            ...) {
   if (inherits(dataset, "arrow_dplyr_query") && inherits(dataset$.data, "Dataset")) {
     return(Scanner$create(
@@ -579,6 +585,9 @@ Scanner$create <- function(dataset,
   }
   if (!isTRUE(filter)) {
     scanner_builder$Filter(filter)
+  }
+  if (is_integerish(batch_size)) {
+    scanner_builder$BatchSize(batch_size)
   }
   scanner_builder$Finish()
 }
@@ -625,6 +634,74 @@ map_batches <- function(X, FUN, ..., .data.frame = TRUE) {
       FUN(batch, ...)
     })
   })
+}
+
+#' @export
+head.Dataset <- function(x, n = 6L, ...) {
+  assert_that(n > 0) # For now
+  scanner <- Scanner$create(ensure_group_vars(x))
+  shared_ptr(Table, dataset___Scanner__head(scanner, n))
+}
+
+#' @export
+tail.Dataset <- function(x, n = 6L, ...) {
+  assert_that(n > 0) # For now
+  result <- list()
+  batch_num <- 0
+  scanner <- Scanner$create(ensure_group_vars(x))
+  for (scan_task in rev(dataset___Scanner__Scan(scanner))) {
+    for (batch in rev(shared_ptr(ScanTask, scan_task)$Execute())) {
+      batch_num <- batch_num + 1
+      result[[batch_num]] <- tail(batch, n)
+      n <- n - nrow(batch)
+      if (n <= 0) break
+    }
+    if (n <= 0) break
+  }
+  Table$create(!!!rev(result))
+}
+
+#' @export
+`[.Dataset` <- function(x, i, j, ..., drop = FALSE) {
+  if (nargs() == 2L) {
+    # List-like column extraction (x[i])
+    return(x[, i])
+  }
+  if (!missing(j)) {
+    x <- select.Dataset(x, j)
+  }
+
+  if (!missing(i)) {
+    x <- take_dataset_rows(x, i)
+  }
+  x
+}
+
+take_dataset_rows <- function(x, i) {
+  # TODO: move this to cpp
+  if (!is.numeric(i) || any(i < 0)) {
+    stop("Only slicing with positive indices is supported", call. = FALSE)
+  }
+  result <- list()
+  result_order <- order(i)
+  i <- sort(i) - 1L
+  scanner <- Scanner$create(ensure_group_vars(x))
+  for (scan_task in dataset___Scanner__Scan(scanner)) {
+    for (batch in shared_ptr(ScanTask, scan_task)$Execute()) {
+      # Take all rows that are in this batch
+      this_batch_nrows <- batch$num_rows
+      in_this_batch <- i > -1L & i < this_batch_nrows
+      if (any(in_this_batch)) {
+        result[[length(result) + 1L]] <- batch$Take(i[in_this_batch])
+      }
+      i <- i - this_batch_nrows
+      if (all(i < 0L)) break
+    }
+    if (all(i < 0L)) break
+  }
+  tab <- Table$create(!!!result)
+  # Now sort
+  tab$Take(result_order - 1L)
 }
 
 #' @usage NULL

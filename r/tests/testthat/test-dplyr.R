@@ -145,6 +145,16 @@ test_that("More complex select/filter", {
   )
 })
 
+test_that("dim() on query", {
+  expect_dplyr_equal(
+    input %>%
+      filter(int > 5) %>%
+      select(int, chr) %>%
+      dim(),
+    tbl
+  )
+})
+
 test_that("Print method", {
   expect_output(
     record_batch(tbl) %>%
@@ -376,4 +386,103 @@ test_that("pull", {
       pull(strng),
     tbl
   )
+})
+
+test_that("collect(as_data_frame=FALSE)", {
+  batch <- record_batch(tbl)
+
+  b2 <- batch %>%
+    select(int, chr) %>%
+    filter(int > 5) %>%
+    collect(as_data_frame = FALSE)
+
+  expect_is(b2, "RecordBatch")
+  expected <- tbl[tbl$int > 5 & !is.na(tbl$int), c("int", "chr")]
+  expect_equal(as.data.frame(b2), expected)
+
+  b3 <- batch %>%
+    select(int, strng = chr) %>%
+    filter(int > 5) %>%
+    collect(as_data_frame = FALSE)
+  expect_is(b3, "arrow_dplyr_query")
+  expect_equal(as.data.frame(b3), set_names(expected, c("int", "strng")))
+
+  b4 <- batch %>%
+    select(int, strng = chr) %>%
+    filter(int > 5) %>%
+    group_by(int) %>%
+    collect(as_data_frame = FALSE)
+  expect_is(b4, "arrow_dplyr_query")
+  expect_equal(
+    as.data.frame(b4),
+    expected %>%
+      rename(strng = chr) %>%
+      group_by(int)
+    )
+})
+
+test_that("head", {
+  batch <- record_batch(tbl)
+
+  b2 <- batch %>%
+    select(int, chr) %>%
+    filter(int > 5) %>%
+    head(2)
+
+  expect_is(b2, "RecordBatch")
+  expected <- tbl[tbl$int > 5 & !is.na(tbl$int), c("int", "chr")][1:2, ]
+  expect_equal(as.data.frame(b2), expected)
+
+  b3 <- batch %>%
+    select(int, strng = chr) %>%
+    filter(int > 5) %>%
+    head(2)
+  expect_is(b3, "arrow_dplyr_query")
+  expect_equal(as.data.frame(b3), set_names(expected, c("int", "strng")))
+
+  b4 <- batch %>%
+    select(int, strng = chr) %>%
+    filter(int > 5) %>%
+    group_by(int) %>%
+    head(2)
+  expect_is(b4, "arrow_dplyr_query")
+  expect_equal(
+    as.data.frame(b4),
+    expected %>%
+      rename(strng = chr) %>%
+      group_by(int)
+    )
+})
+
+test_that("tail", {
+  batch <- record_batch(tbl)
+
+  b2 <- batch %>%
+    select(int, chr) %>%
+    filter(int > 5) %>%
+    tail(2)
+
+  expect_is(b2, "RecordBatch")
+  expected <- tail(tbl[tbl$int > 5 & !is.na(tbl$int), c("int", "chr")], 2)
+  expect_equal(as.data.frame(b2), expected)
+
+  b3 <- batch %>%
+    select(int, strng = chr) %>%
+    filter(int > 5) %>%
+    tail(2)
+  expect_is(b3, "arrow_dplyr_query")
+  expect_equal(as.data.frame(b3), set_names(expected, c("int", "strng")))
+
+  b4 <- batch %>%
+    select(int, strng = chr) %>%
+    filter(int > 5) %>%
+    group_by(int) %>%
+    tail(2)
+  expect_is(b4, "arrow_dplyr_query")
+  expect_equal(
+    as.data.frame(b4),
+    expected %>%
+      rename(strng = chr) %>%
+      group_by(int)
+    )
 })
