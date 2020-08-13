@@ -104,7 +104,13 @@ head.arrow_dplyr_query <- function(x, n = 6L, ...) {
   if (query_on_dataset(x)) {
     head.Dataset(x, n, ...)
   } else {
-    stop("TODO")
+    out <- collect.arrow_dplyr_query(x, as_data_frame = FALSE)
+    if (inherits(out, "arrow_dplyr_query")) {
+      out$.data <- head(out$.data, n)
+    } else {
+      out <- head(out, n)
+    }
+    out
   }
 }
 
@@ -113,7 +119,13 @@ tail.arrow_dplyr_query <- function(x, n = 6L, ...) {
   if (query_on_dataset(x)) {
     tail.Dataset(x, n, ...)
   } else {
-    stop("TODO")
+    out <- collect.arrow_dplyr_query(x, as_data_frame = FALSE)
+    if (inherits(out, "arrow_dplyr_query")) {
+      out$.data <- tail(out$.data, n)
+    } else {
+      out <- tail(out, n)
+    }
+    out
   }
 }
 
@@ -122,7 +134,10 @@ tail.arrow_dplyr_query <- function(x, n = 6L, ...) {
   if (query_on_dataset(x)) {
     `[.Dataset`(x, i, j, ..., drop = FALSE)
   } else {
-    stop("TODO")
+    stop(
+      "[ method not implemented for queries. Call 'collect(x, as_data_frame = FALSE)' first",
+      call. = FALSE
+    )
   }
 }
 
