@@ -75,6 +75,9 @@ build() {
     export PATH="/C/Rtools${MINGW_PREFIX/mingw/mingw_}/bin:$PATH"
     export CPPFLAGS="${CPPFLAGS} -I${MINGW_PREFIX}/include"
     export LIBS="-L${MINGW_PREFIX}/libs"
+    export ARROW_S3=OFF
+  else
+    export ARROW_S3=ON
   fi
 
   MSYS2_ARG_CONV_EXCL="-DCMAKE_INSTALL_PREFIX=" \
@@ -95,7 +98,7 @@ build() {
     -DARROW_MIMALLOC=ON \
     -DARROW_PACKAGE_PREFIX="${MINGW_PREFIX}" \
     -DARROW_PARQUET=ON \
-    -DARROW_S3=ON \
+    -DARROW_S3="${ARROW_S3}" \
     -DARROW_SNAPPY_USE_SHARED=OFF \
     -DARROW_USE_GLOG=OFF \
     -DARROW_WITH_LZ4=ON \
