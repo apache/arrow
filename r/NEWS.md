@@ -21,7 +21,11 @@
 
 ## Bug fixes
 
-* The `version` option to `write_parquet()` is now correctly implemented.
+* Filtering a Dataset that has multiple partition keys using an `%in%` expression now faithfully returns all relevant rows
+* Datasets can now have path segments in the root directory that start with `.` or `_`; files and subdirectories starting with those prefixes are still ignored
+* The `version` option to `write_parquet()` is now correctly implemented
+* An UBSAN failure in the `parquet-cpp` library has been fixed
+* For bundled Linux builds, the logic for finding `cmake` is more robust, and you can now specify a `/path/to/cmake` by setting the `CMAKE` environment variable
 
 # arrow 1.0.0
 

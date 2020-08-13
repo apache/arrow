@@ -312,6 +312,8 @@ By default, these are all unset. All boolean variables are case-insensitive.
   To capture those logs, set this variable to an absolute (not relative) path
   and the log files will be copied there.
   The directory will be created if it does not exist.
+* `CMAKE`: When building the C++ library from source, you can specify a
+  `/path/to/cmake` to use a different version than whatever is found on the `$PATH`
 
 # Contributing
 
