@@ -45,13 +45,6 @@ class DecimalTestFixture : public ::testing::Test {
   std::string string_value_;
 };
 
-TEST_F(DecimalTestFixture, TestToString) {
-  Decimal128 decimal(this->integer_value_);
-  int32_t scale = 5;
-  std::string result = decimal.ToString(scale);
-  ASSERT_EQ(result, this->string_value_);
-}
-
 TEST_F(DecimalTestFixture, TestFromString) {
   Decimal128 expected(this->integer_value_);
   Decimal128 result;
@@ -318,10 +311,10 @@ TEST(Decimal128Test, PrintMinValue) {
   ASSERT_EQ(string_value, printed_value);
 }
 
-class Decimal128PrintingTest
+class Decimal128ToStringTest
     : public ::testing::TestWithParam<std::tuple<int32_t, int32_t, std::string>> {};
 
-TEST_P(Decimal128PrintingTest, Print) {
+TEST_P(Decimal128ToStringTest, ToString) {
   int32_t test_value;
   int32_t scale;
   std::string expected_string;
@@ -331,15 +324,24 @@ TEST_P(Decimal128PrintingTest, Print) {
   ASSERT_EQ(expected_string, printed_value);
 }
 
-INSTANTIATE_TEST_SUITE_P(Decimal128PrintingTest, Decimal128PrintingTest,
-                         ::testing::Values(std::make_tuple(123, 1, "12.3"),
-                                           std::make_tuple(123, 5, "0.00123"),
-                                           std::make_tuple(123, 10, "1.23E-8"),
-                                           std::make_tuple(123, -1, "1.23E+3"),
-                                           std::make_tuple(-123, -1, "-1.23E+3"),
-                                           std::make_tuple(123, -3, "1.23E+5"),
-                                           std::make_tuple(-123, -3, "-1.23E+5"),
-                                           std::make_tuple(12345, -3, "1.2345E+7")));
+INSTANTIATE_TEST_SUITE_P(
+    Decimal128ToStringTest, Decimal128ToStringTest,
+    ::testing::Values(
+        std::make_tuple(0, -1, "0.E+1"), std::make_tuple(0, 0, "0"),
+        std::make_tuple(0, 1, "0.0"), std::make_tuple(0, 6, "0.000000"),
+        std::make_tuple(2, 7, "2.E-7"), std::make_tuple(2, -1, "2.E+1"),
+        std::make_tuple(2, 0, "2"), std::make_tuple(2, 1, "0.2"),
+        std::make_tuple(2, 6, "0.000002"), std::make_tuple(-2, 7, "-2.E-7"),
+        std::make_tuple(-2, 7, "-2.E-7"), std::make_tuple(-2, -1, "-2.E+1"),
+        std::make_tuple(-2, 0, "-2"), std::make_tuple(-2, 1, "-0.2"),
+        std::make_tuple(-2, 6, "-0.000002"), std::make_tuple(-2, 7, "-2.E-7"),
+        std::make_tuple(123, -3, "1.23E+5"), std::make_tuple(123, -1, "1.23E+3"),
+        std::make_tuple(123, 1, "12.3"), std::make_tuple(123, 5, "0.00123"),
+        std::make_tuple(123, 8, "0.00000123"), std::make_tuple(123, 9, "1.23E-7"),
+        std::make_tuple(123, 10, "1.23E-8"), std::make_tuple(-123, -3, "-1.23E+5"),
+        std::make_tuple(-123, -1, "-1.23E+3"), std::make_tuple(-123, 1, "-12.3"),
+        std::make_tuple(-123, 5, "-0.00123"), std::make_tuple(-123, 8, "-0.00000123"),
+        std::make_tuple(-123, 9, "-1.23E-7"), std::make_tuple(-123, 10, "-1.23E-8")));
 
 class Decimal128ParsingTest
     : public ::testing::TestWithParam<std::tuple<std::string, uint64_t, int32_t>> {};
@@ -732,15 +734,6 @@ TEST_F(TestDecimalToRealDouble, Precision) {
 }
 
 #endif  // __MINGW32__
-
-TEST(Decimal128Test, TestSmallNumberFormat) {
-  Decimal128 value("0.2");
-  std::string expected("0.2");
-
-  const int32_t scale = 1;
-  std::string result = value.ToString(scale);
-  ASSERT_EQ(expected, result);
-}
 
 TEST(Decimal128Test, TestNoDecimalPointExponential) {
   Decimal128 value;
