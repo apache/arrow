@@ -17,17 +17,17 @@
 
 //! Defines the LIMIT plan
 
+use std::sync::{Arc, Mutex};
+
 use crate::error::{ExecutionError, Result};
-use crate::execution::physical_plan::common::RecordBatchIterator;
+use crate::execution::physical_plan::common::{self, RecordBatchIterator};
+use crate::execution::physical_plan::merge::MergeExec;
 use crate::execution::physical_plan::ExecutionPlan;
 use crate::execution::physical_plan::Partition;
 use arrow::array::ArrayRef;
 use arrow::compute::limit;
 use arrow::datatypes::SchemaRef;
 use arrow::record_batch::{RecordBatch, RecordBatchReader};
-use std::sync::{Arc, Mutex};
-use std::thread;
-use std::thread::JoinHandle;
 
 /// Limit execution plan
 #[derive(Debug)]
@@ -81,39 +81,27 @@ struct LimitPartition {
 
 impl Partition for LimitPartition {
     fn execute(&self) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
-        // collect up to "limit" rows on each partition
-        let threads: Vec<JoinHandle<Result<Vec<RecordBatch>>>> = self
-            .partitions
-            .iter()
-            .map(|p| {
-                let p = p.clone();
-                let limit = self.limit;
-                thread::spawn(move || {
-                    let it = p.execute()?;
-                    collect_with_limit(it, limit)
-                })
-            })
-            .collect();
+        // limit needs to collapse inputs down to a single partition
+        let merge = MergeExec::new(self.schema.clone(), self.partitions.clone());
+        // MergeExec has a single partition
+        let it = merge.partitions()?[0].execute()?;
+        let batches = common::collect(it)?;
 
         // combine the results from each thread, up to the limit
         let mut combined_results: Vec<Arc<RecordBatch>> = vec![];
         let mut count = 0;
-        for thread in threads {
-            let join = thread.join().expect("Failed to join thread");
-            let result = join?;
-            for batch in result {
-                let capacity = self.limit - count;
-                if batch.num_rows() <= capacity {
-                    count += batch.num_rows();
-                    combined_results.push(Arc::new(batch.clone()))
-                } else {
-                    let batch = truncate_batch(&batch, capacity)?;
-                    count += batch.num_rows();
-                    combined_results.push(Arc::new(batch.clone()))
-                }
-                if count == self.limit {
-                    break;
-                }
+        for batch in batches {
+            let capacity = self.limit - count;
+            if batch.num_rows() <= capacity {
+                count += batch.num_rows();
+                combined_results.push(Arc::new(batch.clone()))
+            } else {
+                let batch = truncate_batch(&batch, capacity)?;
+                count += batch.num_rows();
+                combined_results.push(Arc::new(batch.clone()))
+            }
+            if count == self.limit {
+                break;
             }
         }
 
@@ -134,39 +122,6 @@ pub fn truncate_batch(batch: &RecordBatch, n: usize) -> Result<RecordBatch> {
         batch.schema().clone(),
         limited_columns?,
     )?)
-}
-
-/// Create a vector of record batches from an iterator
-fn collect_with_limit(
-    reader: Arc<Mutex<dyn RecordBatchReader + Send + Sync>>,
-    limit: usize,
-) -> Result<Vec<RecordBatch>> {
-    let mut count = 0;
-    let mut reader = reader.lock().unwrap();
-    let mut results: Vec<RecordBatch> = vec![];
-    loop {
-        match reader.next_batch() {
-            Ok(Some(batch)) => {
-                let capacity = limit - count;
-                if batch.num_rows() <= capacity {
-                    count += batch.num_rows();
-                    results.push(batch);
-                } else {
-                    let batch = truncate_batch(&batch, capacity)?;
-                    count += batch.num_rows();
-                    results.push(batch);
-                }
-                if count == limit {
-                    return Ok(results);
-                }
-            }
-            Ok(None) => {
-                // end of result set
-                return Ok(results);
-            }
-            Err(e) => return Err(ExecutionError::from(e)),
-        }
-    }
 }
 
 #[cfg(test)]
