@@ -33,14 +33,14 @@ namespace encryption {
 
 class KeyWithMasterID {
  public:
-  KeyWithMasterID(const std::vector<uint8_t>& key_bytes, const std::string& master_id)
+  KeyWithMasterID(const std::string& key_bytes, const std::string& master_id)
       : key_bytes_(key_bytes), master_id_(master_id) {}
 
-  const std::vector<uint8_t>& data_key() const { return key_bytes_; }
+  const std::string& data_key() const { return key_bytes_; }
   const std::string& master_id() const { return master_id_; }
 
  private:
-  std::vector<uint8_t> key_bytes_;
+  std::string key_bytes_;
   std::string master_id_;
 };
 
@@ -76,10 +76,10 @@ class PARQUET_EXPORT KeyToolkit {
       static KEKReadCache instance;
       return instance;
     }
-    TwoLevelCacheWithExpiration<std::vector<uint8_t>>& cache() { return cache_; }
+    TwoLevelCacheWithExpiration<std::string>& cache() { return cache_; }
 
    private:
-    TwoLevelCacheWithExpiration<std::vector<uint8_t>> cache_;
+    TwoLevelCacheWithExpiration<std::string> cache_;
   };
 
   // KMS client two level cache: token -> KMSInstanceId -> KmsClient
@@ -94,7 +94,7 @@ class PARQUET_EXPORT KeyToolkit {
   }
 
   // KEK two level cache for unwrapping: token -> KEK_ID -> KEK bytes
-  static TwoLevelCacheWithExpiration<std::vector<uint8_t>>& kek_read_cache_per_token() {
+  static TwoLevelCacheWithExpiration<std::string>& kek_read_cache_per_token() {
     return KEKReadCache::GetInstance().cache();
   }
 
@@ -104,14 +104,14 @@ class PARQUET_EXPORT KeyToolkit {
       uint64_t cache_entry_lifetime);
 
   // Encrypts "key" with "master_key", using AES-GCM and the "aad"
-  static std::string EncryptKeyLocally(const std::vector<uint8_t>& key,
-                                       const std::vector<uint8_t>& master_key,
-                                       const std::vector<uint8_t>& aad);
+  static std::string EncryptKeyLocally(const std::string& key,
+                                       const std::string& master_key,
+                                       const std::string& aad);
 
   // Decrypts encrypted key with "master_key", using AES-GCM and the "aad"
-  static std::vector<uint8_t> DecryptKeyLocally(const std::string& encoded_encrypted_key,
-                                                const std::vector<uint8_t>& master_key,
-                                                const std::vector<uint8_t>& aad);
+  static std::string DecryptKeyLocally(const std::string& encoded_encrypted_key,
+                                       const std::string& master_key,
+                                       const std::string& aad);
 
   // Flush any caches that are tied to the (compromised) access_token
   static void RemoveCacheEntriesForToken(const std::string& access_token);

@@ -51,13 +51,13 @@ FileKeyWrapper::FileKeyWrapper(std::shared_ptr<KmsClientFactory> kms_client_fact
   }
 }
 
-std::string FileKeyWrapper::GetEncryptionKeyMetadata(const std::vector<uint8_t>& data_key,
+std::string FileKeyWrapper::GetEncryptionKeyMetadata(const std::string& data_key,
                                                      const std::string& master_key_id,
                                                      bool is_footer_key) {
   return GetEncryptionKeyMetadata(data_key, master_key_id, is_footer_key, "");
 }
 
-std::string FileKeyWrapper::GetEncryptionKeyMetadata(const std::vector<uint8_t>& data_key,
+std::string FileKeyWrapper::GetEncryptionKeyMetadata(const std::string& data_key,
                                                      const std::string& master_key_id,
                                                      bool is_footer_key,
                                                      std::string key_id_in_file) {
@@ -79,8 +79,8 @@ std::string FileKeyWrapper::GetEncryptionKeyMetadata(const std::vector<uint8_t>&
     const KeyEncryptionKey& key_encryption_key = kek_per_master_key_id_[master_key_id];
 
     // Encrypt DEK with KEK
-    const std::vector<uint8_t>& aad = key_encryption_key.kek_id();
-    const std::vector<uint8_t>& kek_bytes = key_encryption_key.kek_bytes();
+    const std::string& aad = key_encryption_key.kek_id();
+    const std::string& kek_bytes = key_encryption_key.kek_bytes();
     encoded_wrapped_dek = KeyToolkit::EncryptKeyLocally(data_key, kek_bytes, aad);
     encoded_kek_id = key_encryption_key.encoded_kek_id();
     encoded_wrapped_kek = key_encryption_key.encoded_wrapped_kek();
@@ -119,11 +119,11 @@ std::string FileKeyWrapper::GetEncryptionKeyMetadata(const std::vector<uint8_t>&
 
 KeyEncryptionKey FileKeyWrapper::CreateKeyEncryptionKey(
     const std::string& master_key_id) {
-  std::vector<uint8_t> kek_bytes(KEK_LENGTH);
-  RandBytes(kek_bytes.data(), KEK_LENGTH);
+  std::string kek_bytes(KEK_LENGTH, '\0');
+  RandBytes(reinterpret_cast<uint8_t*>(&kek_bytes[0]), KEK_LENGTH);
 
-  std::vector<uint8_t> kek_id(KEK_ID_LENGTH);
-  RandBytes(kek_id.data(), KEK_ID_LENGTH);
+  std::string kek_id(KEK_ID_LENGTH, '\0');
+  RandBytes(reinterpret_cast<uint8_t*>(&kek_id[0]), KEK_ID_LENGTH);
 
   // Encrypt KEK with Master key
   std::string encoded_wrapped_kek = kms_client_->WrapKey(kek_bytes, master_key_id);

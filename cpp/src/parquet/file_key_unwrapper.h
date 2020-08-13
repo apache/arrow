@@ -38,14 +38,14 @@ class PARQUET_EXPORT FileKeyUnwrapper : public DecryptionKeyRetriever {
  private:
   class KeyWithMasterID {
    public:
-    KeyWithMasterID(const std::vector<uint8_t>& key_bytes, const std::string& master_id)
+    KeyWithMasterID(const std::string& key_bytes, const std::string& master_id)
         : key_bytes_(key_bytes), master_id_(master_id) {}
 
-    const std::vector<uint8_t>& data_key() const { return key_bytes_; }
+    const std::string& data_key() const { return key_bytes_; }
     const std::string& master_id() const { return master_id_; }
 
    private:
-    std::vector<uint8_t> key_bytes_;
+    std::string key_bytes_;
     std::string master_id_;
   };
 
@@ -54,7 +54,7 @@ class PARQUET_EXPORT FileKeyUnwrapper : public DecryptionKeyRetriever {
       const KeyMaterial& key_material);
 
   // A map of KEK_ID -> KEK bytes, for the current token
-  std::map<std::string, std::vector<uint8_t>> kek_per_kek_id_;
+  std::map<std::string, std::string> kek_per_kek_id_;
   std::shared_ptr<KmsClientFactory> kms_client_factory_;
   KmsConnectionConfig kms_connection_config_;
   uint64_t cache_entry_lifetime_;

@@ -48,25 +48,25 @@ class PARQUET_EXPORT RemoteKmsClient : public KmsClient {
 
   void Initialize(const KmsConnectionConfig& kms_connection_config, bool is_wrap_locally);
 
-  std::string WrapKey(const std::vector<uint8_t>& key_bytes,
+  std::string WrapKey(const std::string& key_bytes,
                       const std::string& master_key_identifier) override;
 
-  std::vector<uint8_t> UnwrapKey(const std::string& wrapped_key,
-                                 const std::string& master_key_identifier) override;
+  std::string UnwrapKey(const std::string& wrapped_key,
+                        const std::string& master_key_identifier) override;
 
  protected:
   // Wrap a key with the master key in the remote KMS server.
-  virtual std::string WrapKeyInServer(const std::vector<uint8_t>& key_bytes,
+  virtual std::string WrapKeyInServer(const std::string& key_bytes,
                                       const std::string& master_key_identifier) = 0;
 
   // Unwrap a key with the master key in the remote KMS server.
-  virtual std::vector<uint8_t> UnwrapKeyInServer(
-      const std::string& wrapped_key, const std::string& master_key_identifier) = 0;
+  virtual std::string UnwrapKeyInServer(const std::string& wrapped_key,
+                                        const std::string& master_key_identifier) = 0;
 
   // Get master key from the remote KMS server.
   // Required only for local wrapping. No need to implement if KMS supports in-server
   // wrapping/unwrapping.
-  virtual std::vector<uint8_t> GetMasterKeyFromServer(
+  virtual std::string GetMasterKeyFromServer(
       const std::string& master_key_identifier) = 0;
 
   virtual void InitializeInternal() = 0;
@@ -93,12 +93,13 @@ class PARQUET_EXPORT RemoteKmsClient : public KmsClient {
     std::string master_key_version_;
   };
 
-  std::vector<uint8_t> GetKeyFromServer(const std::string& key_identifier);
+  std::string GetKeyFromServer(const std::string& key_identifier);
 
+ protected:
   KmsConnectionConfig kms_connection_config_;
   bool is_wrap_locally_;
   bool is_default_token_;
-  std::map<std::string, std::vector<uint8_t>> master_key_cache_;
+  std::map<std::string, std::string> master_key_cache_;
 };
 
 }  // namespace encryption

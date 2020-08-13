@@ -167,16 +167,14 @@ PropertiesDrivenCryptoFactory::GetFileEncryptionProperties(
 
   int dek_length = dek_length_bits / 8;
 
-  std::vector<uint8_t> footer_key_bytes(dek_length);
-  RandBytes(footer_key_bytes.data(), footer_key_bytes.size());
+  std::string footer_key(dek_length, '\0');
+  RandBytes(reinterpret_cast<uint8_t*>(&footer_key[0]), footer_key.size());
 
   std::string footer_key_metadata =
-      key_wrapper.GetEncryptionKeyMetadata(footer_key_bytes, footer_key_id, true);
-
-  std::string footer_key_str(footer_key_bytes.begin(), footer_key_bytes.end());
+      key_wrapper.GetEncryptionKeyMetadata(footer_key, footer_key_id, true);
 
   FileEncryptionProperties::Builder properties_builder =
-      FileEncryptionProperties::Builder(footer_key_str);
+      FileEncryptionProperties::Builder(footer_key);
   properties_builder.footer_key_metadata(footer_key_metadata);
   properties_builder.algorithm(encryption_config->encryption_algorithm());
 
@@ -241,15 +239,14 @@ PropertiesDrivenCryptoFactory::GetColumnEncryptionProperties(
                                column_name);
       }
 
-      std::vector<uint8_t> column_key_bytes(dek_length);
-      RandBytes(column_key_bytes.data(), column_key_bytes.size());
+      std::string column_key(dek_length, '\0');
+      RandBytes(reinterpret_cast<uint8_t*>(&column_key[0]), column_key.size());
       std::string column_key_key_metadata =
-          key_wrapper.GetEncryptionKeyMetadata(column_key_bytes, column_key_id, false);
+          key_wrapper.GetEncryptionKeyMetadata(column_key, column_key_id, false);
 
-      std::string column_key_str(column_key_bytes.begin(), column_key_bytes.end());
       std::shared_ptr<ColumnEncryptionProperties> cmd =
           ColumnEncryptionProperties::Builder(column_name)
-              .key(column_key_str)
+              .key(column_key)
               ->key_metadata(column_key_key_metadata)
               ->build();
       encrypted_columns.insert({column_name, cmd});

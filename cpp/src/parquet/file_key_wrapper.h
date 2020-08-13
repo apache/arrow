@@ -42,11 +42,11 @@ class FileKeyWrapper {
                  uint64_t cache_entry_lifetime, bool double_wrapping,
                  bool is_wrap_locally);
 
-  std::string GetEncryptionKeyMetadata(const std::vector<uint8_t>& data_key,
+  std::string GetEncryptionKeyMetadata(const std::string& data_key,
                                        const std::string& master_key_id,
                                        bool is_footer_key);
 
-  std::string GetEncryptionKeyMetadata(const std::vector<uint8_t>& data_key,
+  std::string GetEncryptionKeyMetadata(const std::string& data_key,
                                        const std::string& master_key_id,
                                        bool is_footer_key, std::string key_id_in_file);
 

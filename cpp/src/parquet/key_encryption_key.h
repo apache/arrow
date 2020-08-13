@@ -29,26 +29,26 @@ class KeyEncryptionKey {
  public:
   KeyEncryptionKey() = default;
 
-  KeyEncryptionKey(const std::vector<uint8_t>& kek_bytes,
-                   const std::vector<uint8_t>& kek_id,
+  KeyEncryptionKey(const std::string& kek_bytes, const std::string& kek_id,
                    const std::string& encoded_wrapped_kek)
       : kek_bytes_(kek_bytes),
         kek_id_(kek_id),
         encoded_wrapped_kek_(encoded_wrapped_kek) {
-    encoded_kek_id_ = arrow::util::base64_encode(&kek_id_[0], kek_id_.size());
+    encoded_kek_id_ = arrow::util::base64_encode(reinterpret_cast<uint8_t*>(&kek_id_[0]),
+                                                 kek_id_.size());
   }
 
-  const std::vector<uint8_t>& kek_bytes() const { return kek_bytes_; }
+  const std::string& kek_bytes() const { return kek_bytes_; }
 
-  const std::vector<uint8_t>& kek_id() const { return kek_id_; }
+  const std::string& kek_id() const { return kek_id_; }
 
   const std::string& encoded_kek_id() const { return encoded_kek_id_; }
 
   const std::string& encoded_wrapped_kek() const { return encoded_wrapped_kek_; }
 
  private:
-  std::vector<uint8_t> kek_bytes_;
-  std::vector<uint8_t> kek_id_;
+  std::string kek_bytes_;
+  std::string kek_id_;
   std::string encoded_kek_id_;
   std::string encoded_wrapped_kek_;
 };
