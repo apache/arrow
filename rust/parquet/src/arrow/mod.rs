@@ -51,10 +51,13 @@
 
 pub(in crate::arrow) mod array_reader;
 pub mod arrow_reader;
+pub mod arrow_writer;
 pub(in crate::arrow) mod converter;
 pub(in crate::arrow) mod record_reader;
 pub mod schema;
 
 pub use self::arrow_reader::ArrowReader;
 pub use self::arrow_reader::ParquetFileArrowReader;
-pub use self::schema::{parquet_to_arrow_schema, parquet_to_arrow_schema_by_columns};
+pub use self::schema::{
+    arrow_to_parquet_schema, parquet_to_arrow_schema, parquet_to_arrow_schema_by_columns,
+};
