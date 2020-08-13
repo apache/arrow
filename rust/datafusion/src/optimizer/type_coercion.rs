@@ -205,6 +205,7 @@ mod tests {
         let plan = LogicalPlanBuilder::scan_csv(&path, options, None)?
             // filter clause needs the type coercion rule applied
             .filter(col("c7").lt(&lit(5_u8)))?
+            .project(vec![col("c1"), col("c2")])?
             .aggregate(
                 vec![col("c1")],
                 vec![aggregate_expr("SUM", col("c2"), DataType::Int64)],
@@ -219,10 +220,12 @@ mod tests {
 
         // check that the filter had a cast added
         let plan_str = format!("{:?}", plan);
+        println!("{}", plan_str);
         let expected_plan_str = "Limit: 10
   Sort: #c1
     Aggregate: groupBy=[[#c1]], aggr=[[SUM(#c2)]]
-      Selection: #c7 Lt CAST(UInt8(5) AS Int64)";
+      Projection: #c1, #c2
+        Selection: #c7 Lt CAST(UInt8(5) AS Int64)";
         assert!(plan_str.starts_with(expected_plan_str));
 
         Ok(())
