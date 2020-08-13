@@ -788,7 +788,7 @@ impl SchemaDescriptor {
         result.clone()
     }
 
-    fn column_root_of(&self, i: usize) -> &Rc<Type> {
+    fn column_root_of(&self, i: usize) -> &TypePtr {
         assert!(
             i < self.leaves.len(),
             "Index out of bound: {} not in [0, {})",
@@ -808,6 +808,10 @@ impl SchemaDescriptor {
     /// Returns schema as [`Type`](crate::schema::types::Type).
     pub fn root_schema(&self) -> &Type {
         self.schema.as_ref()
+    }
+
+    pub fn root_schema_ptr(&self) -> TypePtr {
+        self.schema.clone()
     }
 
     /// Returns schema name.
