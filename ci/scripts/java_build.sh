@@ -52,9 +52,9 @@ if [[ "$(uname -s)" == "Linux" ]] && [[ "$(uname -m)" == "s390x" ]]; then
   ${wget} ${bintray_base_url}/${bintray_dir}/${ver}/libprotoc.so.18
   export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:$(pwd)
 
-  bintray_dir="protoc-gen-groupc-java-binary"
-  group="io.groupc"
-  artifact="protoc-gen-groupc-java"
+  bintray_dir="protoc-gen-grpc-java-binary"
+  group="io.grpc"
+  artifact="protoc-gen-grpc-java"
   ver="1.30.2"
   classifier="linux-s390_64"
   extension="exe"
