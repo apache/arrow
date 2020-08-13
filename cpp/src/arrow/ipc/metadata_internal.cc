@@ -275,8 +275,7 @@ Status ConcreteTypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
       return Status::OK();
     case flatbuf::Type::FixedSizeBinary: {
       auto fw_binary = static_cast<const flatbuf::FixedSizeBinary*>(type_data);
-      *out = fixed_size_binary(fw_binary->byteWidth());
-      return Status::OK();
+      return FixedSizeBinaryType::Make(fw_binary->byteWidth()).Value(out);
     }
     case flatbuf::Type::Utf8:
       *out = utf8();
