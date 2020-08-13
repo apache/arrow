@@ -380,7 +380,7 @@ def create_library_symlinks():
         bundled_libs = glob.glob(_os.path.join(package_cwd, '*.*.dylib'))
 
         def get_symlink_path(hard_path):
-            return '.'.join((hard_path.split('.')[0], 'dylib'))
+            return '.'.join((hard_path.rsplit('.', 2)[0], 'dylib'))
 
     for lib_hard_path in bundled_libs:
         symlink_path = get_symlink_path(lib_hard_path)
