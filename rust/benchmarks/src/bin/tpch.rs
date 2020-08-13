@@ -44,6 +44,10 @@ struct TpchOpt {
     #[structopt(short = "i", long = "iterations", default_value = "3")]
     iterations: usize,
 
+    /// Number of threads to use for parallel execution
+    #[structopt(short = "c", long = "concurrency", default_value = "2")]
+    concurrency: usize,
+
     /// Batch size when reading CSV or Parquet files
     #[structopt(short = "s", long = "batch-size", default_value = "4096")]
     batch_size: usize,
@@ -61,7 +65,7 @@ fn main() -> Result<()> {
     let opt = TpchOpt::from_args();
     println!("Running benchmarks with the following options: {:?}", opt);
 
-    let mut ctx = ExecutionContext::new();
+    let mut ctx = ExecutionContext::with_max_concurrency(opt.concurrency);
 
     let path = opt.path.to_str().unwrap();
 
