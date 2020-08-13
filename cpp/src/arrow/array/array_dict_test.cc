@@ -928,7 +928,7 @@ TEST(TestNullDictionaryBuilder, Basic) {
 
   std::shared_ptr<Array> result;
   ASSERT_OK(builder.Finish(&result));
-  ASSERT_TRUE(dict_type->Equals(*result->type()));
+  AssertTypeEqual(*dict_type, *result->type());
   ASSERT_EQ(11, result->length());
   ASSERT_EQ(11, result->null_count());
 }
