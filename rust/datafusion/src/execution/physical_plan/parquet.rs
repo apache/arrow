@@ -157,6 +157,8 @@ fn read_file(
     batch_size: usize,
     response_tx: Sender<ArrowResult<Option<RecordBatch>>>,
 ) -> Result<()> {
+    println!("opening parqet file {} for reading", filename);
+
     let file = File::open(&filename)?;
     let file_reader = Rc::new(SerializedFileReader::new(file)?);
     let mut arrow_reader = ParquetFileArrowReader::new(file_reader);
