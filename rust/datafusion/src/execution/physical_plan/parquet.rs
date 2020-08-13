@@ -136,53 +136,8 @@ impl ParquetPartition {
         let filename = filename.to_string();
 
         thread::spawn(move || {
-            //TODO error handling, remove unwraps
-
-            // open file
-            let file = File::open(&filename).unwrap();
-            match SerializedFileReader::new(file) {
-                Ok(file_reader) => {
-                    let file_reader = Rc::new(file_reader);
-
-                    let mut arrow_reader = ParquetFileArrowReader::new(file_reader);
-
-                    match arrow_reader
-                        .get_record_reader_by_columns(projection, batch_size)
-                    {
-                        Ok(mut batch_reader) => loop {
-                            match batch_reader.next_batch() {
-                                Ok(Some(batch)) => {
-                                    response_tx.send(Ok(Some(batch))).unwrap();
-                                }
-                                Ok(None) => {
-                                    response_tx.send(Ok(None)).unwrap();
-                                    break;
-                                }
-                                Err(e) => {
-                                    response_tx
-                                        .send(Err(ArrowError::ParquetError(format!(
-                                            "{:?}",
-                                            e
-                                        ))))
-                                        .unwrap();
-                                    break;
-                                }
-                            }
-                        },
-
-                        Err(e) => {
-                            response_tx
-                                .send(Err(ArrowError::ParquetError(format!("{:?}", e))))
-                                .unwrap();
-                        }
-                    }
-                }
-
-                Err(e) => {
-                    response_tx
-                        .send(Err(ArrowError::ParquetError(format!("{:?}", e))))
-                        .unwrap();
-                }
+            if let Err(e) = read_file(&filename, projection, batch_size, response_tx) {
+                println!("Parquet reader thread terminated due to error: {:?}", e);
             }
         });
 
@@ -193,6 +148,50 @@ impl ParquetPartition {
 
         Self { iterator }
     }
+}
+
+fn send_result(
+    response_tx: &Sender<ArrowResult<Option<RecordBatch>>>,
+    result: ArrowResult<Option<RecordBatch>>,
+) -> Result<()> {
+    response_tx
+        .send(result)
+        .map_err(|e| ExecutionError::ExecutionError(format!("{:?}", e)))?;
+    Ok(())
+}
+
+fn read_file(
+    filename: &str,
+    projection: Vec<usize>,
+    batch_size: usize,
+    response_tx: Sender<ArrowResult<Option<RecordBatch>>>,
+) -> Result<()> {
+    let file = File::open(&filename)?;
+    let file_reader = Rc::new(SerializedFileReader::new(file)?);
+    let mut arrow_reader = ParquetFileArrowReader::new(file_reader);
+    let mut batch_reader =
+        arrow_reader.get_record_reader_by_columns(projection.clone(), batch_size)?;
+    loop {
+        match batch_reader.next_batch() {
+            Ok(Some(batch)) => send_result(&response_tx, Ok(Some(batch)))?,
+            Ok(None) => {
+                // finished reading file
+                send_result(&response_tx, Ok(None))?;
+                break;
+            }
+            Err(e) => {
+                let err_msg = format!("Error reading batch from {}: {:?}", filename, e);
+                // send error to operator
+                send_result(
+                    &response_tx,
+                    Err(ArrowError::ParquetError(err_msg.clone())),
+                )?;
+                // terminate thread with error
+                return Err(ExecutionError::ExecutionError(err_msg));
+            }
+        }
+    }
+    Ok(())
 }
 
 impl Partition for ParquetPartition {
