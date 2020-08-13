@@ -21,6 +21,7 @@ use std::sync::{Arc, Mutex};
 
 use crate::error::{ExecutionError, Result};
 use crate::execution::physical_plan::common::{self, RecordBatchIterator};
+use crate::execution::physical_plan::memory::MemoryIterator;
 use crate::execution::physical_plan::merge::MergeExec;
 use crate::execution::physical_plan::ExecutionPlan;
 use crate::execution::physical_plan::Partition;
@@ -31,7 +32,7 @@ use arrow::record_batch::{RecordBatch, RecordBatchReader};
 
 /// Limit execution plan
 #[derive(Debug)]
-pub struct LimitExec {
+pub struct GlobalLimitExec {
     /// Input schema
     schema: SchemaRef,
     /// Input partitions
@@ -40,14 +41,14 @@ pub struct LimitExec {
     limit: usize,
 }
 
-impl LimitExec {
+impl GlobalLimitExec {
     /// Create a new MergeExec
     pub fn new(
         schema: SchemaRef,
         partitions: Vec<Arc<dyn Partition>>,
         limit: usize,
     ) -> Self {
-        LimitExec {
+        GlobalLimitExec {
             schema,
             partitions,
             limit,
@@ -55,7 +56,7 @@ impl LimitExec {
     }
 }
 
-impl ExecutionPlan for LimitExec {
+impl ExecutionPlan for GlobalLimitExec {
     fn schema(&self) -> SchemaRef {
         self.schema.clone()
     }
@@ -81,13 +82,26 @@ struct LimitPartition {
 
 impl Partition for LimitPartition {
     fn execute(&self) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
+        // apply limit in parallel across all input partitions
+        let local_limit = self
+            .partitions
+            .iter()
+            .map(|p| {
+                Arc::new(LocalLimitExec::new(
+                    p.clone(),
+                    self.schema.clone(),
+                    self.limit,
+                )) as Arc<dyn Partition>
+            })
+            .collect();
+
         // limit needs to collapse inputs down to a single partition
-        let merge = MergeExec::new(self.schema.clone(), self.partitions.clone());
+        let merge = MergeExec::new(self.schema.clone(), local_limit);
         // MergeExec has a single partition
         let it = merge.partitions()?[0].execute()?;
         let batches = common::collect(it)?;
 
-        // combine the results from each thread, up to the limit
+        // apply the limit to the output
         let mut combined_results: Vec<Arc<RecordBatch>> = vec![];
         let mut count = 0;
         for batch in batches {
@@ -112,6 +126,36 @@ impl Partition for LimitPartition {
     }
 }
 
+/// LocalLimitExec applies a limit so a single partition
+#[derive(Debug)]
+pub struct LocalLimitExec {
+    input: Arc<dyn Partition>,
+    schema: SchemaRef,
+    limit: usize,
+}
+
+impl LocalLimitExec {
+    /// Create a new LocalLimitExec partition
+    pub fn new(input: Arc<dyn Partition>, schema: SchemaRef, limit: usize) -> Self {
+        Self {
+            input,
+            schema,
+            limit,
+        }
+    }
+}
+
+impl Partition for LocalLimitExec {
+    fn execute(&self) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
+        let it = self.input.execute()?;
+        Ok(Arc::new(Mutex::new(MemoryIterator::try_new(
+            collect_with_limit(it, self.limit)?,
+            self.schema.clone(),
+            None,
+        )?)))
+    }
+}
+
 /// Truncate a RecordBatch to maximum of n rows
 pub fn truncate_batch(batch: &RecordBatch, n: usize) -> Result<RecordBatch> {
     let limited_columns: Result<Vec<ArrayRef>> = (0..batch.num_columns())
@@ -122,6 +166,39 @@ pub fn truncate_batch(batch: &RecordBatch, n: usize) -> Result<RecordBatch> {
         batch.schema().clone(),
         limited_columns?,
     )?)
+}
+
+/// Create a vector of record batches from an iterator
+fn collect_with_limit(
+    reader: Arc<Mutex<dyn RecordBatchReader + Send + Sync>>,
+    limit: usize,
+) -> Result<Vec<RecordBatch>> {
+    let mut count = 0;
+    let mut reader = reader.lock().unwrap();
+    let mut results: Vec<RecordBatch> = vec![];
+    loop {
+        match reader.next_batch() {
+            Ok(Some(batch)) => {
+                let capacity = limit - count;
+                if batch.num_rows() <= capacity {
+                    count += batch.num_rows();
+                    results.push(batch);
+                } else {
+                    let batch = truncate_batch(&batch, capacity)?;
+                    count += batch.num_rows();
+                    results.push(batch);
+                }
+                if count == limit {
+                    return Ok(results);
+                }
+            }
+            Ok(None) => {
+                // end of result set
+                return Ok(results);
+            }
+            Err(e) => return Err(ExecutionError::from(e)),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -147,7 +224,7 @@ mod tests {
         let input = csv.partitions()?;
         assert_eq!(input.len(), num_partitions);
 
-        let limit = LimitExec::new(schema.clone(), input, 7);
+        let limit = GlobalLimitExec::new(schema.clone(), input, 7);
         let partitions = limit.partitions()?;
 
         // the result should contain 4 batches (one per input partition)
