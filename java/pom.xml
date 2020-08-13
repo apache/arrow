@@ -748,6 +748,9 @@
       <!-- using github.com/google/error-prone-javac is required when running on JDK 8 -->
       <activation>
         <jdk>1.8</jdk>
+        <property>
+           <name>!m2e.version</name>
+        </property>
       </activation>
       <build>
         <plugins>
