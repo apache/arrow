@@ -66,6 +66,8 @@ use crate::table::Table;
 pub struct ExecutionContext {
     datasources: HashMap<String, Box<dyn TableProvider + Send + Sync>>,
     scalar_functions: HashMap<String, Box<ScalarFunction>>,
+    /// Maximum number of concurrent threads for query execution
+    max_concurrency: usize,
 }
 
 fn tuple_err<T, R>(value: (Result<T>, Result<R>)) -> Result<(T, R)> {
@@ -80,9 +82,16 @@ fn tuple_err<T, R>(value: (Result<T>, Result<R>)) -> Result<(T, R)> {
 impl ExecutionContext {
     /// Create a new execution context for in-memory queries
     pub fn new() -> Self {
+        Self::with_max_concurrency(2)
+    }
+
+    /// Create a new execution context for in-memory queries with the specified maximum
+    /// concurrency
+    pub fn with_max_concurrency(max_concurrency: usize) -> Self {
         let mut ctx = Self {
             datasources: HashMap::new(),
             scalar_functions: HashMap::new(),
+            max_concurrency,
         };
         register_math_functions(&mut ctx);
         ctx
@@ -364,7 +373,11 @@ impl ExecutionContext {
                     return Ok(Arc::new(initial_aggr));
                 }
 
-                let merge = Arc::new(MergeExec::new(schema.clone(), partitions));
+                let merge = Arc::new(MergeExec::new(
+                    schema.clone(),
+                    partitions,
+                    self.max_concurrency,
+                ));
 
                 // construct the expressions for the final aggregation
                 let (final_group, final_aggr) = initial_aggr.make_final_expr(
@@ -552,7 +565,11 @@ impl ExecutionContext {
             }
             _ => {
                 // merge into a single partition
-                let plan = MergeExec::new(plan.schema().clone(), partitions);
+                let plan = MergeExec::new(
+                    plan.schema().clone(),
+                    partitions,
+                    self.max_concurrency,
+                );
                 let partitions = plan.partitions()?;
                 if partitions.len() == 1 {
                     common::collect(partitions[0].execute()?)

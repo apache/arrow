@@ -733,7 +733,7 @@ mod tests {
             aggregates.iter().map(|x| x.1.clone()).collect(),
         );
 
-        let merge = Arc::new(MergeExec::new(schema.clone(), partitions));
+        let merge = Arc::new(MergeExec::new(schema.clone(), partitions, 2));
 
         let merged_aggregate = HashAggregateExec::try_new(
             final_group
