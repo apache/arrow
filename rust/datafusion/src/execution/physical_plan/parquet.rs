@@ -109,7 +109,13 @@ impl ExecutionPlan for ParquetExec {
 }
 
 struct ParquetPartition {
-    iterator: Arc<Mutex<dyn RecordBatchReader + Send + Sync>>,
+    /// Filename for this partition
+    filename: String,
+    /// Projection for which columns to load
+    projection: Vec<usize>,
+    /// Batch size
+    batch_size: usize,
+    schema: SchemaRef,
 }
 
 impl Debug for ParquetPartition {
@@ -126,27 +132,12 @@ impl ParquetPartition {
         schema: SchemaRef,
         batch_size: usize,
     ) -> Self {
-        // because the parquet implementation is not thread-safe, it is necessary to execute
-        // on a thread and communicate with channels
-        let (response_tx, response_rx): (
-            Sender<ArrowResult<Option<RecordBatch>>>,
-            Receiver<ArrowResult<Option<RecordBatch>>>,
-        ) = bounded(2);
-
-        let filename = filename.to_string();
-
-        thread::spawn(move || {
-            if let Err(e) = read_file(&filename, projection, batch_size, response_tx) {
-                println!("Parquet reader thread terminated due to error: {:?}", e);
-            }
-        });
-
-        let iterator = Arc::new(Mutex::new(ParquetIterator {
+        Self {
+            filename: filename.to_owned(),
+            projection,
             schema,
-            response_rx,
-        }));
-
-        Self { iterator }
+            batch_size,
+        }
     }
 }
 
@@ -156,7 +147,7 @@ fn send_result(
 ) -> Result<()> {
     response_tx
         .send(result)
-        .map_err(|e| ExecutionError::ExecutionError(format!("{:?}", e)))?;
+        .map_err(|e| ExecutionError::ExecutionError(e.to_string()))?;
     Ok(())
 }
 
@@ -180,7 +171,8 @@ fn read_file(
                 break;
             }
             Err(e) => {
-                let err_msg = format!("Error reading batch from {}: {:?}", filename, e);
+                let err_msg =
+                    format!("Error reading batch from {}: {}", filename, e.to_string());
                 // send error to operator
                 send_result(
                     &response_tx,
@@ -196,7 +188,29 @@ fn read_file(
 
 impl Partition for ParquetPartition {
     fn execute(&self) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
-        Ok(self.iterator.clone())
+        // because the parquet implementation is not thread-safe, it is necessary to execute
+        // on a thread and communicate with channels
+        let (response_tx, response_rx): (
+            Sender<ArrowResult<Option<RecordBatch>>>,
+            Receiver<ArrowResult<Option<RecordBatch>>>,
+        ) = bounded(2);
+
+        let filename = self.filename.clone();
+        let projection = self.projection.clone();
+        let batch_size = self.batch_size;
+
+        thread::spawn(move || {
+            if let Err(e) = read_file(&filename, projection, batch_size, response_tx) {
+                println!("Parquet reader thread terminated due to error: {:?}", e);
+            }
+        });
+
+        let iterator = Arc::new(Mutex::new(ParquetIterator {
+            schema: self.schema.clone(),
+            response_rx,
+        }));
+
+        Ok(iterator)
     }
 }
 
