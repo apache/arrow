@@ -62,12 +62,31 @@ use crate::sql::{
 };
 use crate::table::Table;
 
+/// Configuration options for execution context
+#[derive(Copy, Clone)]
+pub struct ExecutionConfig {
+    /// Maximum number of concurrent threads for query execution
+    max_concurrency: usize,
+}
+
+impl ExecutionConfig {
+    /// Create an execution config with default settings
+    pub fn new() -> Self {
+        Self { max_concurrency: 2 }
+    }
+
+    /// Customize max_concurrency
+    pub fn with_max_concurrency(mut self, n: usize) -> Self {
+        self.max_concurrency = n;
+        self
+    }
+}
+
 /// Execution context for registering data sources and executing queries
 pub struct ExecutionContext {
     datasources: HashMap<String, Box<dyn TableProvider + Send + Sync>>,
     scalar_functions: HashMap<String, Box<ScalarFunction>>,
-    /// Maximum number of concurrent threads for query execution
-    max_concurrency: usize,
+    config: ExecutionConfig,
 }
 
 fn tuple_err<T, R>(value: (Result<T>, Result<R>)) -> Result<(T, R)> {
@@ -80,18 +99,17 @@ fn tuple_err<T, R>(value: (Result<T>, Result<R>)) -> Result<(T, R)> {
 }
 
 impl ExecutionContext {
-    /// Create a new execution context for in-memory queries
+    /// Create a new execution context for in-memory queries using default configs
     pub fn new() -> Self {
-        Self::with_max_concurrency(2)
+        Self::with_config(ExecutionConfig::new())
     }
 
-    /// Create a new execution context for in-memory queries with the specified maximum
-    /// concurrency
-    pub fn with_max_concurrency(max_concurrency: usize) -> Self {
+    /// Create a new execution context for in-memory queries using provided configs
+    pub fn with_config(config: ExecutionConfig) -> Self {
         let mut ctx = Self {
             datasources: HashMap::new(),
             scalar_functions: HashMap::new(),
-            max_concurrency,
+            config,
         };
         register_math_functions(&mut ctx);
         ctx
@@ -376,7 +394,7 @@ impl ExecutionContext {
                 let merge = Arc::new(MergeExec::new(
                     schema.clone(),
                     partitions,
-                    self.max_concurrency,
+                    self.config.max_concurrency,
                 ));
 
                 // construct the expressions for the final aggregation
@@ -568,7 +586,7 @@ impl ExecutionContext {
                 let plan = MergeExec::new(
                     plan.schema().clone(),
                     partitions,
-                    self.max_concurrency,
+                    self.config.max_concurrency,
                 );
                 let partitions = plan.partitions()?;
                 if partitions.len() == 1 {
