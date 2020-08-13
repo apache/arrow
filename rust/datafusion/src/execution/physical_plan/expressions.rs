@@ -1186,7 +1186,7 @@ impl fmt::Display for Literal {
 
 impl PhysicalExpr for Literal {
     fn data_type(&self, _input_schema: &Schema) -> Result<DataType> {
-        Ok(self.value.get_datatype())
+        self.value.get_datatype()
     }
 
     fn nullable(&self, _input_schema: &Schema) -> Result<bool> {
@@ -1422,13 +1422,9 @@ mod tests {
     #[test]
     fn invalid_cast() -> Result<()> {
         let schema = Schema::new(vec![Field::new("a", DataType::Utf8, false)]);
-        match CastExpr::try_new(col("a"), &schema, DataType::Int32) {
-            Err(ExecutionError::General(ref str)) => {
-                assert_eq!(str, "Invalid CAST from Utf8 to Int32");
-                Ok(())
-            }
-            _ => panic!(),
-        }
+        let result = CastExpr::try_new(col("a"), &schema, DataType::Int32);
+        result.expect_err("Invalid CAST from Utf8 to Int32");
+        Ok(())
     }
 
     #[test]
