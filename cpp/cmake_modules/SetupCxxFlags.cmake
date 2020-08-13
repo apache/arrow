@@ -533,12 +533,6 @@ else()
   message(FATAL_ERROR "Unknown build type: ${CMAKE_BUILD_TYPE}")
 endif()
 
-if("${CMAKE_CXX_FLAGS}" MATCHES "-DNDEBUG")
-  set(ARROW_DEFINITION_FLAGS "-DNDEBUG")
-else()
-  set(ARROW_DEFINITION_FLAGS "")
-endif()
-
 message(STATUS "Build Type: ${CMAKE_BUILD_TYPE}")
 
 # ----------------------------------------------------------------------
