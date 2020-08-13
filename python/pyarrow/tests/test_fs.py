@@ -48,6 +48,9 @@ class DummyHandler(FileSystemHandler):
     def get_type_name(self):
         return "dummy"
 
+    def normalize_path(self, path):
+        return path
+
     def get_file_info(self, paths):
         info = []
         for path in paths:
@@ -150,6 +153,9 @@ class ProxyHandler(FileSystemHandler):
 
     def get_type_name(self):
         return "proxy::" + self._fs.type_name
+
+    def normalize_path(self, path):
+        return self._fs.normalize_path(path)
 
     def get_file_info(self, paths):
         return self._fs.get_file_info(paths)
@@ -575,6 +581,12 @@ def test_type_name():
     assert fs.type_name == "local"
     fs = _MockFileSystem()
     assert fs.type_name == "mock"
+
+
+def test_normalize_path(fs):
+    # Trivial path names (without separators) should generally be
+    # already normalized.  Just a sanity check.
+    assert fs.normalize_path("foo") == "foo"
 
 
 def test_non_path_like_input_raises(fs):

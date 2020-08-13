@@ -18,7 +18,7 @@
 """Dataset is currently unstable. APIs subject to change without notice."""
 
 import pyarrow as pa
-from pyarrow.fs import _normalize_path, _MockFileSystem
+from pyarrow.fs import _MockFileSystem
 from pyarrow.util import _stringify_path, _is_path_like
 
 from pyarrow._dataset import (  # noqa
@@ -227,7 +227,7 @@ def _ensure_fs(fs_or_uri):
         # component then it will be treated as a path prefix
         filesystem, prefix = FileSystem.from_uri(fs_or_uri)
         is_local = isinstance(filesystem, LocalFileSystem)
-        prefix = _normalize_path(filesystem, prefix)
+        prefix = filesystem.normalize_path(prefix)
         if prefix:
             # validate that the prefix is pointing to a directory
             prefix_info = filesystem.get_file_info([prefix])[0]
@@ -294,7 +294,7 @@ def _ensure_multiple_sources(paths, filesystem=None):
     filesystem, is_local = _ensure_fs(filesystem)
 
     # allow normalizing irregular paths such as Windows local paths
-    paths = [_normalize_path(filesystem, _stringify_path(p)) for p in paths]
+    paths = [filesystem.normalize_path(_stringify_path(p)) for p in paths]
 
     # validate that all of the paths are pointing to existing *files*
     # possible improvement is to group the file_infos by type and raise for
@@ -384,7 +384,7 @@ def _ensure_single_source(path, filesystem=None):
     filesystem, _ = _ensure_fs(filesystem)
 
     # ensure that the path is normalized before passing to dataset discovery
-    path = _normalize_path(filesystem, path)
+    path = filesystem.normalize_path(path)
 
     # retrieve the file descriptor
     if file_info is None:
@@ -502,7 +502,7 @@ def parquet_dataset(metadata_path, schema=None, filesystem=None, format=None,
     else:
         filesystem, _ = _ensure_fs(filesystem)
 
-    metadata_path = _normalize_path(filesystem, _stringify_path(metadata_path))
+    metadata_path = filesystem.normalize_path(_stringify_path(metadata_path))
     options = ParquetFactoryOptions(
         partition_base_dir=partition_base_dir,
         partitioning=_ensure_partitioning(partitioning)
