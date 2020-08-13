@@ -28,7 +28,8 @@ crates as well.
 
 ## Benchmark derived from TPC-H
 
-These benchmarks are derived from the [TPC-H](http://www.tpc.org/tpch/) benchmark.
+These benchmarks are derived from the [TPC-H](http://www.tpc.org/tpch/) benchmark. Data for this benchmark can be 
+generated using [tpch-dbgen](https://github.com/databricks/tpch-dbgen).
 
 ```bash
 cargo run --release --bin tpch -- --iterations 3 --path /mnt/tpch/csv --format csv --query 1 --batch-size 4096
