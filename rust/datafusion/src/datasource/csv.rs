@@ -42,11 +42,11 @@ use arrow::record_batch::{RecordBatch, RecordBatchReader};
 use std::string::String;
 use std::sync::Arc;
 
-use crate::datasource::{ScanResult, TableProvider};
+use crate::datasource::TableProvider;
 use crate::error::Result;
 use crate::execution::physical_plan::csv::CsvExec;
 pub use crate::execution::physical_plan::csv::CsvReadOptions;
-use crate::execution::physical_plan::ExecutionPlan;
+use crate::execution::physical_plan::{ExecutionPlan, Partition};
 
 /// Represents a CSV file with a provided schema
 pub struct CsvFile {
@@ -84,7 +84,7 @@ impl TableProvider for CsvFile {
         &self,
         projection: &Option<Vec<usize>>,
         batch_size: usize,
-    ) -> Result<Vec<ScanResult>> {
+    ) -> Result<Vec<Arc<dyn Partition>>> {
         let exec = CsvExec::try_new(
             &self.filename,
             CsvReadOptions::new()
@@ -95,12 +95,7 @@ impl TableProvider for CsvFile {
             projection.clone(),
             batch_size,
         )?;
-        let partitions = exec.partitions()?;
-        let iterators = partitions
-            .iter()
-            .map(|p| p.execute())
-            .collect::<Result<Vec<_>>>()?;
-        Ok(iterators)
+        exec.partitions()
     }
 }
 
