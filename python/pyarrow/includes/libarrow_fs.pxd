@@ -209,6 +209,7 @@ ctypedef void CallbackOpenInputFile(object, const c_string&,
                                     shared_ptr[CRandomAccessFile]*)
 ctypedef void CallbackOpenOutputStream(object, const c_string&,
                                        shared_ptr[COutputStream]*)
+ctypedef void CallbackNormalizePath(object, const c_string&, c_string*)
 
 cdef extern from "arrow/python/filesystem.h" namespace "arrow::py::fs" nogil:
 
@@ -230,6 +231,7 @@ cdef extern from "arrow/python/filesystem.h" namespace "arrow::py::fs" nogil:
         function[CallbackOpenInputFile] open_input_file
         function[CallbackOpenOutputStream] open_output_stream
         function[CallbackOpenOutputStream] open_append_stream
+        function[CallbackNormalizePath] normalize_path
 
     cdef cppclass CPyFileSystem "arrow::py::fs::PyFileSystem":
         @staticmethod

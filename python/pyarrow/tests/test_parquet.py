@@ -2662,7 +2662,7 @@ def test_ignore_hidden_files_underscore(tempdir, use_legacy_dataset):
 @pytest.mark.pandas
 @parametrize_legacy_dataset
 @pytest.mark.parametrize('dir_prefix', ['_', '.'])
-def test_ignore_no_private_directories_path_list(
+def test_ignore_no_private_directories_in_base_path(
     tempdir, dir_prefix, use_legacy_dataset
 ):
     # ARROW-8427 - don't ignore explicitly listed files if parent directory
@@ -2674,7 +2674,10 @@ def test_ignore_no_private_directories_path_list(
                                             file_nrows=5)
 
     dataset = pq.ParquetDataset(paths, use_legacy_dataset=use_legacy_dataset)
+    _assert_dataset_paths(dataset, paths, use_legacy_dataset)
 
+    # ARROW-9644 - don't ignore full directory with underscore in base path
+    dataset = pq.ParquetDataset(dirpath, use_legacy_dataset=use_legacy_dataset)
     _assert_dataset_paths(dataset, paths, use_legacy_dataset)
 
 
