@@ -21,10 +21,7 @@ use std::sync::{Arc, Mutex};
 
 use crate::error::{ExecutionError, Result};
 use crate::execution::physical_plan::common::{self, RecordBatchIterator};
-<<<<<<< HEAD
 use crate::execution::physical_plan::memory::MemoryIterator;
-=======
->>>>>>> save
 use crate::execution::physical_plan::merge::MergeExec;
 use crate::execution::physical_plan::ExecutionPlan;
 use crate::execution::physical_plan::Partition;
@@ -178,6 +175,39 @@ pub fn truncate_batch(batch: &RecordBatch, n: usize) -> Result<RecordBatch> {
         batch.schema().clone(),
         limited_columns?,
     )?)
+}
+
+/// Create a vector of record batches from an iterator
+fn collect_with_limit(
+    reader: Arc<Mutex<dyn RecordBatchReader + Send + Sync>>,
+    limit: usize,
+) -> Result<Vec<RecordBatch>> {
+    let mut count = 0;
+    let mut reader = reader.lock().unwrap();
+    let mut results: Vec<RecordBatch> = vec![];
+    loop {
+        match reader.next_batch() {
+            Ok(Some(batch)) => {
+                let capacity = limit - count;
+                if batch.num_rows() <= capacity {
+                    count += batch.num_rows();
+                    results.push(batch);
+                } else {
+                    let batch = truncate_batch(&batch, capacity)?;
+                    count += batch.num_rows();
+                    results.push(batch);
+                }
+                if count == limit {
+                    return Ok(results);
+                }
+            }
+            Ok(None) => {
+                // end of result set
+                return Ok(results);
+            }
+            Err(e) => return Err(ExecutionError::from(e)),
+        }
+    }
 }
 
 #[cfg(test)]
