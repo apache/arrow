@@ -83,7 +83,10 @@ impl DFParser {
     }
 
     /// Parse the specified tokens with dialect
-    pub fn new_with_dialect(sql: &str, dialect: &dyn Dialect) -> Result<Self, ParserError> {
+    pub fn new_with_dialect(
+        sql: &str,
+        dialect: &dyn Dialect,
+    ) -> Result<Self, ParserError> {
         let mut tokenizer = Tokenizer::new(dialect, sql);
         let tokens = tokenizer.tokenize()?;
         Ok(DFParser {
