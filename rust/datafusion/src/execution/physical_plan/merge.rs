@@ -112,19 +112,21 @@ impl Partition for MergePartition {
                 let partitions_per_thread =
                     (self.partitions.len() / self.concurrency).max(1);
                 let chunks = self.partitions.chunks(partitions_per_thread);
-                let threads = chunks.map(|chunk| {
-                    let chunk = chunk.to_vec();
-                    thread::spawn(move || {
-                        let mut batches = vec![];
-                        for partition in chunk {
-                            let it = partition.execute()?;
-                            common::collect(it).iter().for_each(|b| {
-                                b.iter().for_each(|b| batches.push(b.clone()))
-                            });
-                        }
-                        Ok(batches)
+                let threads: Vec<JoinHandle<Result<Vec<RecordBatch>>>> = chunks
+                    .map(|chunk| {
+                        let chunk = chunk.to_vec();
+                        thread::spawn(move || {
+                            let mut batches = vec![];
+                            for partition in chunk {
+                                let it = partition.execute()?;
+                                common::collect(it).iter().for_each(|b| {
+                                    b.iter().for_each(|b| batches.push(b.clone()))
+                                });
+                            }
+                            Ok(batches)
+                        })
                     })
-                });
+                    .collect();
 
                 // combine the results from each thread
                 let mut combined_results: Vec<Arc<RecordBatch>> = vec![];
