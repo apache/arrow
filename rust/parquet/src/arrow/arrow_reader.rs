@@ -204,11 +204,8 @@ impl ParquetRecordBatchReader {
 #[cfg(test)]
 mod tests {
     use crate::arrow::arrow_reader::{ArrowReader, ParquetFileArrowReader};
-    use crate::arrow::{
-        converter::{
-            Converter, FixedSizeArrayConverter, FromConverter, Utf8ArrayConverter,
-        },
-        ArrowWriter,
+    use crate::arrow::converter::{
+        Converter, FixedSizeArrayConverter, FromConverter, Utf8ArrayConverter,
     };
     use crate::column::writer::get_typed_column_writer_mut;
     use crate::data_type::{
@@ -220,11 +217,11 @@ mod tests {
     use crate::file::writer::{FileWriter, SerializedFileWriter};
     use crate::schema::parser::parse_message_type;
     use crate::schema::types::TypePtr;
-    use crate::util::test_common::{get_temp_file, get_temp_filename, RandGen};
+    use crate::util::test_common::{get_temp_filename, RandGen};
     use arrow::array::{
         Array, BooleanArray, FixedSizeBinaryArray, StringArray, StructArray,
     };
-    use arrow::{datatypes, record_batch::RecordBatchReader};
+    use arrow::record_batch::RecordBatchReader;
     use rand::RngCore;
     use serde_json::json;
     use serde_json::Value::{Array as JArray, Null as JNull, Object as JObject};
@@ -233,7 +230,7 @@ mod tests {
     use std::env;
     use std::fs::File;
     use std::path::{Path, PathBuf};
-    use std::{collections::HashMap, rc::Rc, sync::Arc};
+    use std::rc::Rc;
 
     #[test]
     fn test_arrow_reader_all_columns() {
@@ -305,194 +302,6 @@ mod tests {
             FromConverter<Vec<Option<bool>>, BooleanArray>,
             BoolType,
         >(2, 100, 2, message_type, 15, 50, converter);
-    }
-
-    #[test]
-    fn test_arrow_schema_roundtrip() -> Result<()> {
-        // This tests the roundtrip of an Arrow schema
-        // Fields that are commented out fail roundtrip tests or are unsupported by the writer
-        let metadata: HashMap<String, String> =
-            [("Key".to_string(), "Value".to_string())]
-                .iter()
-                .cloned()
-                .collect();
-
-        let schema = datatypes::Schema::new_with_metadata(
-            vec![
-                datatypes::Field::new("c1", datatypes::DataType::Utf8, false),
-                datatypes::Field::new("c2", datatypes::DataType::Binary, false),
-                datatypes::Field::new(
-                    "c3",
-                    datatypes::DataType::FixedSizeBinary(3),
-                    false,
-                ),
-                datatypes::Field::new("c4", datatypes::DataType::Boolean, false),
-                datatypes::Field::new(
-                    "c5",
-                    datatypes::DataType::Date32(datatypes::DateUnit::Day),
-                    false,
-                ),
-                datatypes::Field::new(
-                    "c6",
-                    datatypes::DataType::Date64(datatypes::DateUnit::Millisecond),
-                    false,
-                ),
-                datatypes::Field::new(
-                    "c7",
-                    datatypes::DataType::Time32(datatypes::TimeUnit::Second),
-                    false,
-                ),
-                datatypes::Field::new(
-                    "c8",
-                    datatypes::DataType::Time32(datatypes::TimeUnit::Millisecond),
-                    false,
-                ),
-                datatypes::Field::new(
-                    "c13",
-                    datatypes::DataType::Time64(datatypes::TimeUnit::Microsecond),
-                    false,
-                ),
-                datatypes::Field::new(
-                    "c14",
-                    datatypes::DataType::Time64(datatypes::TimeUnit::Nanosecond),
-                    false,
-                ),
-                datatypes::Field::new(
-                    "c15",
-                    datatypes::DataType::Timestamp(datatypes::TimeUnit::Second, None),
-                    false,
-                ),
-                datatypes::Field::new(
-                    "c16",
-                    datatypes::DataType::Timestamp(
-                        datatypes::TimeUnit::Millisecond,
-                        Some(Arc::new("UTC".to_string())),
-                    ),
-                    false,
-                ),
-                datatypes::Field::new(
-                    "c17",
-                    datatypes::DataType::Timestamp(
-                        datatypes::TimeUnit::Microsecond,
-                        Some(Arc::new("Africa/Johannesburg".to_string())),
-                    ),
-                    false,
-                ),
-                datatypes::Field::new(
-                    "c18",
-                    datatypes::DataType::Timestamp(datatypes::TimeUnit::Nanosecond, None),
-                    false,
-                ),
-                datatypes::Field::new(
-                    "c19",
-                    datatypes::DataType::Interval(datatypes::IntervalUnit::DayTime),
-                    false,
-                ),
-                datatypes::Field::new(
-                    "c20",
-                    datatypes::DataType::Interval(datatypes::IntervalUnit::YearMonth),
-                    false,
-                ),
-                datatypes::Field::new(
-                    "c21",
-                    datatypes::DataType::List(Box::new(datatypes::DataType::Boolean)),
-                    false,
-                ),
-                datatypes::Field::new(
-                    "c22",
-                    datatypes::DataType::FixedSizeList(
-                        Box::new(datatypes::DataType::Boolean),
-                        5,
-                    ),
-                    false,
-                ),
-                datatypes::Field::new(
-                    "c23",
-                    datatypes::DataType::List(Box::new(datatypes::DataType::List(
-                        Box::new(datatypes::DataType::Struct(vec![
-                            datatypes::Field::new("a", datatypes::DataType::Int16, true),
-                            datatypes::Field::new(
-                                "b",
-                                datatypes::DataType::Float64,
-                                false,
-                            ),
-                        ])),
-                    ))),
-                    true,
-                ),
-                datatypes::Field::new(
-                    "c24",
-                    datatypes::DataType::Struct(vec![
-                        datatypes::Field::new("a", datatypes::DataType::Utf8, false),
-                        datatypes::Field::new("b", datatypes::DataType::UInt16, false),
-                    ]),
-                    false,
-                ),
-                datatypes::Field::new(
-                    "c25",
-                    datatypes::DataType::Interval(datatypes::IntervalUnit::YearMonth),
-                    true,
-                ),
-                datatypes::Field::new(
-                    "c26",
-                    datatypes::DataType::Interval(datatypes::IntervalUnit::DayTime),
-                    true,
-                ),
-                // datatypes::Field::new("c27", datatypes::DataType::Duration(datatypes::TimeUnit::Second), false),
-                // datatypes::Field::new("c28", datatypes::DataType::Duration(datatypes::TimeUnit::Millisecond), false),
-                // datatypes::Field::new("c29", datatypes::DataType::Duration(datatypes::TimeUnit::Microsecond), false),
-                // datatypes::Field::new("c30", datatypes::DataType::Duration(datatypes::TimeUnit::Nanosecond), false),
-                // datatypes::Field::new_dict(
-                //     "c31",
-                //     datatypes::DataType::Dictionary(
-                //         Box::new(datatypes::DataType::Int32),
-                //         Box::new(datatypes::DataType::Utf8),
-                //     ),
-                //     true,
-                //     123,
-                //     true,
-                // ),
-                datatypes::Field::new("c32", datatypes::DataType::LargeBinary, true),
-                datatypes::Field::new("c33", datatypes::DataType::LargeUtf8, true),
-                datatypes::Field::new(
-                    "c34",
-                    datatypes::DataType::LargeList(Box::new(
-                        datatypes::DataType::LargeList(Box::new(
-                            datatypes::DataType::Struct(vec![
-                                datatypes::Field::new(
-                                    "a",
-                                    datatypes::DataType::Int16,
-                                    true,
-                                ),
-                                datatypes::Field::new(
-                                    "b",
-                                    datatypes::DataType::Float64,
-                                    true,
-                                ),
-                            ]),
-                        )),
-                    )),
-                    true,
-                ),
-            ],
-            metadata,
-        );
-
-        // write to an empty parquet file so that schema is serialized
-        let file = get_temp_file("test_arrow_schema_roundtrip.parquet", &[]);
-        let mut writer = ArrowWriter::try_new(
-            file.try_clone().unwrap(),
-            Arc::new(schema.clone()),
-            None,
-        )?;
-        writer.close()?;
-
-        // read file back
-        let parquet_reader = SerializedFileReader::try_from(file)?;
-        let mut arrow_reader = ParquetFileArrowReader::new(Rc::new(parquet_reader));
-        let read_schema = arrow_reader.get_schema()?;
-        assert_eq!(schema, read_schema);
-        Ok(())
     }
 
     struct RandFixedLenGen {}

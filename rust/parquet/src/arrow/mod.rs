@@ -60,7 +60,8 @@ pub use self::arrow_reader::ArrowReader;
 pub use self::arrow_reader::ParquetFileArrowReader;
 pub use self::arrow_writer::ArrowWriter;
 pub use self::schema::{
-    arrow_to_parquet_schema, parquet_to_arrow_schema, parquet_to_arrow_schema_by_columns,
+    add_encoded_arrow_schema_to_metadata, arrow_to_parquet_schema,
+    parquet_to_arrow_schema, parquet_to_arrow_schema_by_columns,
 };
 
 /// Schema metadata key used to store serialized Arrow IPC schema
