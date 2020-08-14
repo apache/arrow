@@ -286,6 +286,7 @@ DatasetFactory$create <- function(x,
       x <- fs_from_uri$path
     } else {
       filesystem <- LocalFileSystem$create()
+      x <- clean_path_abs(x)
     }
   }
   selector <- FileSelector$create(x, allow_not_found = FALSE, recursive = TRUE)
