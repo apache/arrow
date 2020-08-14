@@ -24,7 +24,7 @@ use std::time::Instant;
 use arrow::datatypes::{DataType, Field, Schema};
 use arrow::util::pretty;
 use datafusion::error::Result;
-use datafusion::execution::context::ExecutionContext;
+use datafusion::execution::context::{ExecutionConfig, ExecutionContext};
 
 use datafusion::execution::physical_plan::csv::CsvReadOptions;
 use structopt::StructOpt;
@@ -65,7 +65,9 @@ fn main() -> Result<()> {
     let opt = TpchOpt::from_args();
     println!("Running benchmarks with the following options: {:?}", opt);
 
-    let mut ctx = ExecutionContext::with_max_concurrency(opt.concurrency);
+    let mut ctx = ExecutionContext::with_config(
+        ExecutionConfig::new().with_concurrency(opt.concurrency),
+    );
 
     let path = opt.path.to_str().unwrap();
 
