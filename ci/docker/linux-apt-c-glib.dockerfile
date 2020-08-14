@@ -54,7 +54,7 @@ RUN luarocks install lgi
 # ERROR: Command errored out with exit status 1: /usr/bin/python3 /usr/share/python-wheels/pep517-0.7.0-py2.py3-none-any.whl/pep517/_in_process.py get_requires_for_build_wheel /tmp/tmpsk4jveay Check the logs for full command output.
 RUN (python3 -m pip install meson || \
          python3 -m pip install --no-use-pep517 meson) && \
-    gem install bundler
+    gem install --no-document bundler
 
 COPY c_glib/Gemfile /arrow/c_glib/
 RUN bundle install --gemfile /arrow/c_glib/Gemfile
