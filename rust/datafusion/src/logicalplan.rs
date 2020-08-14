@@ -1153,11 +1153,37 @@ impl LogicalPlanBuilder {
     }
 }
 
+/// Represents which type of plan
+#[derive(Debug, Clone, PartialEq)]
+pub enum PlanType {
+    /// The initial LogicalPlan provided to DataFusion
+    LogicalPlan,
+    /// The LogicalPlan which results from applying an optimizer pass
+    OptimizedLogicalPlan {
+        /// The name of the optimizer which produced this plan
+        optimizer_name: String,
+    },
+    /// The physical plan, prepared for execution
+    PhysicalPlan,
+}
+
+impl From<&PlanType> for String {
+    fn from(t: &PlanType) -> Self {
+        match t {
+            PlanType::LogicalPlan => "logical_plan".into(),
+            PlanType::OptimizedLogicalPlan { optimizer_name } => {
+                format!("logical_plan after {}", optimizer_name)
+            }
+            PlanType::PhysicalPlan => "physical_plan".into(),
+        }
+    }
+}
+
 /// Represents some sort of execution plan, in String form
 #[derive(Debug, Clone, PartialEq)]
 pub struct StringifiedPlan {
     /// An identifier of what type of plan this string represents
-    pub plan_type: Arc<String>, // TODO make this an enum?
+    pub plan_type: PlanType,
     /// The string representation of the plan
     pub plan: Arc<String>,
 }
@@ -1165,9 +1191,9 @@ pub struct StringifiedPlan {
 impl StringifiedPlan {
     /// Create a new Stringified plan of `plan_type` with string
     /// representation `plan`
-    pub fn new(plan_type: impl Into<String>, plan: impl Into<String>) -> Self {
+    pub fn new(plan_type: PlanType, plan: impl Into<String>) -> Self {
         StringifiedPlan {
-            plan_type: Arc::new(plan_type.into()),
+            plan_type,
             plan: Arc::new(plan.into()),
         }
     }
@@ -1175,7 +1201,7 @@ impl StringifiedPlan {
     /// returns true if this plan should be displayed. Generally
     /// `verbose_mode = true` will display all available plans
     pub fn should_display(&self, verbose_mode: bool) -> bool {
-        verbose_mode || *self.plan_type == "logical_plan"
+        self.plan_type == PlanType::LogicalPlan || verbose_mode
     }
 }
 

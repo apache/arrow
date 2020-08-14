@@ -79,7 +79,7 @@ impl Partition for ExplainPartition {
         let mut plan_builder = StringArray::builder(self.stringified_plans.len());
 
         for p in &self.stringified_plans {
-            type_builder.append_value(&p.plan_type)?;
+            type_builder.append_value(&String::from(&p.plan_type))?;
             plan_builder.append_value(&p.plan)?;
         }
 

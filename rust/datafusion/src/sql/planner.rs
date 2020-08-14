@@ -22,8 +22,8 @@ use std::sync::Arc;
 use crate::error::{ExecutionError, Result};
 use crate::logicalplan::Expr::Alias;
 use crate::logicalplan::{
-    lit, Expr, FunctionMeta, LogicalPlan, LogicalPlanBuilder, Operator, ScalarValue,
-    StringifiedPlan,
+    lit, Expr, FunctionMeta, LogicalPlan, LogicalPlanBuilder, Operator, PlanType,
+    ScalarValue, StringifiedPlan,
 };
 use crate::sql::parser::{CreateExternalTable, FileType, Statement as DFStatement};
 
@@ -143,8 +143,10 @@ impl<S: SchemaProvider> SqlToRel<S> {
         let verbose = explain_plan.verbose;
         let plan = self.statement_to_plan(&explain_plan.statement)?;
 
-        let stringified_plans =
-            vec![StringifiedPlan::new("logical_plan", format!("{:#?}", plan))];
+        let stringified_plans = vec![StringifiedPlan::new(
+            PlanType::LogicalPlan,
+            format!("{:#?}", plan),
+        )];
 
         let schema = LogicalPlan::explain_schema();
         let plan = Box::new(plan);

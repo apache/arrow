@@ -52,7 +52,8 @@ use crate::execution::physical_plan::udf::{ScalarFunction, ScalarFunctionExpr};
 use crate::execution::physical_plan::{AggregateExpr, ExecutionPlan, PhysicalExpr};
 use crate::execution::table_impl::TableImpl;
 use crate::logicalplan::{
-    Expr, FunctionMeta, FunctionType, LogicalPlan, LogicalPlanBuilder, StringifiedPlan,
+    Expr, FunctionMeta, FunctionType, LogicalPlan, LogicalPlanBuilder, PlanType,
+    StringifiedPlan,
 };
 use crate::optimizer::optimizer::OptimizerRule;
 use crate::optimizer::projection_push_down::ProjectionPushDown;
@@ -443,7 +444,7 @@ impl ExecutionContext {
                 // add in the physical plan if requested
                 if *verbose {
                     stringified_plans.push(StringifiedPlan::new(
-                        "physical_plan",
+                        PlanType::PhysicalPlan,
                         format!("{:#?}", input),
                     ));
                 }

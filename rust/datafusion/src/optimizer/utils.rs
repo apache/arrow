@@ -23,7 +23,7 @@ use arrow::datatypes::{DataType, Schema};
 
 use super::optimizer::OptimizerRule;
 use crate::error::{ExecutionError, Result};
-use crate::logicalplan::{Expr, LogicalPlan, StringifiedPlan};
+use crate::logicalplan::{Expr, LogicalPlan, PlanType, StringifiedPlan};
 
 /// Recursively walk a list of expression trees, collecting the unique set of column
 /// names referenced in the expression
@@ -198,8 +198,9 @@ pub fn optimize_explain(
     // passing the fields individually
     let plan = Box::new(optimizer.optimize(plan)?);
     let mut stringified_plans = stringified_plans.clone();
+    let optimizer_name = optimizer.name().into();
     stringified_plans.push(StringifiedPlan::new(
-        optimizer.name(),
+        PlanType::OptimizedLogicalPlan { optimizer_name },
         format!("{:#?}", plan),
     ));
     let schema = Box::new(schema.clone());
