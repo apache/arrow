@@ -281,7 +281,6 @@ impl DFParser {
 mod tests {
     use super::*;
     use sqlparser::ast::{DataType, Ident};
-    use sqlparser::dialect::GenericDialect;
 
     fn expect_parse_ok(sql: &str, expected: Statement) -> Result<(), ParserError> {
         let statements = DFParser::parse_sql(sql)?;
