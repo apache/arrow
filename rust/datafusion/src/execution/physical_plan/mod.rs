@@ -80,6 +80,7 @@ pub trait Accumulator: Debug {
 pub mod common;
 pub mod csv;
 pub mod datasource;
+pub mod explain;
 pub mod expressions;
 pub mod hash_aggregate;
 pub mod limit;

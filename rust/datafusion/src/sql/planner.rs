@@ -22,12 +22,14 @@ use std::sync::Arc;
 use crate::error::{ExecutionError, Result};
 use crate::logicalplan::Expr::Alias;
 use crate::logicalplan::{
-    lit, Expr, FunctionMeta, LogicalPlan, LogicalPlanBuilder, Operator, ScalarValue,
+    lit, Expr, FunctionMeta, LogicalPlan, LogicalPlanBuilder, Operator, PlanType,
+    ScalarValue, StringifiedPlan,
 };
 use crate::sql::parser::{CreateExternalTable, FileType, Statement as DFStatement};
 
 use arrow::datatypes::*;
 
+use super::parser::ExplainPlan;
 use sqlparser::ast::{
     BinaryOperator, DataType as SQLDataType, Expr as SQLExpr, Query, Select, SelectItem,
     SetExpr, TableFactor, TableWithJoins, UnaryOperator, Value,
@@ -60,6 +62,7 @@ impl<S: SchemaProvider> SqlToRel<S> {
         match statement {
             DFStatement::CreateExternalTable(s) => self.external_table_to_plan(&s),
             DFStatement::Statement(s) => self.sql_statement_to_plan(&s),
+            DFStatement::Explain(s) => self.explain_statement_to_plan(&(*s)),
         }
     }
 
@@ -128,6 +131,31 @@ impl<S: SchemaProvider> SqlToRel<S> {
             location: location.clone(),
             file_type: file_type.clone(),
             has_header: has_header.clone(),
+        })
+    }
+
+    /// Generate a plan for EXPLAIN ... that will print out a plan
+    ///
+    pub fn explain_statement_to_plan(
+        &self,
+        explain_plan: &ExplainPlan,
+    ) -> Result<LogicalPlan> {
+        let verbose = explain_plan.verbose;
+        let plan = self.statement_to_plan(&explain_plan.statement)?;
+
+        let stringified_plans = vec![StringifiedPlan::new(
+            PlanType::LogicalPlan,
+            format!("{:#?}", plan),
+        )];
+
+        let schema = LogicalPlan::explain_schema();
+        let plan = Box::new(plan);
+
+        Ok(LogicalPlan::Explain {
+            verbose,
+            plan,
+            stringified_plans,
+            schema,
         })
     }
 

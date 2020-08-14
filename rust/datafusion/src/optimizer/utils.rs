@@ -19,10 +19,11 @@
 
 use std::collections::HashSet;
 
-use arrow::datatypes::DataType;
+use arrow::datatypes::{DataType, Schema};
 
+use super::optimizer::OptimizerRule;
 use crate::error::{ExecutionError, Result};
-use crate::logicalplan::Expr;
+use crate::logicalplan::{Expr, LogicalPlan, PlanType, StringifiedPlan};
 
 /// Recursively walk a list of expression trees, collecting the unique set of column
 /// names referenced in the expression
@@ -183,10 +184,39 @@ fn _get_supertype(l: &DataType, r: &DataType) -> Option<DataType> {
     }
 }
 
+/// Create a `LogicalPlan::Explain` node by running `optimizer` on the
+/// input plan and capturing the resulting plan string
+pub fn optimize_explain(
+    optimizer: &mut impl OptimizerRule,
+    verbose: bool,
+    plan: &LogicalPlan,
+    stringified_plans: &Vec<StringifiedPlan>,
+    schema: &Schema,
+) -> Result<LogicalPlan> {
+    // These are the fields of LogicalPlan::Explain It might be nice
+    // to transform that enum Variant into its own struct and avoid
+    // passing the fields individually
+    let plan = Box::new(optimizer.optimize(plan)?);
+    let mut stringified_plans = stringified_plans.clone();
+    let optimizer_name = optimizer.name().into();
+    stringified_plans.push(StringifiedPlan::new(
+        PlanType::OptimizedLogicalPlan { optimizer_name },
+        format!("{:#?}", plan),
+    ));
+    let schema = Box::new(schema.clone());
+
+    Ok(LogicalPlan::Explain {
+        verbose,
+        plan,
+        stringified_plans,
+        schema,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::logicalplan::col;
+    use crate::logicalplan::{col, LogicalPlanBuilder};
     use arrow::datatypes::DataType;
     use std::collections::HashSet;
 
@@ -209,6 +239,62 @@ mod tests {
         )?;
         assert_eq!(1, accum.len());
         assert!(accum.contains("a"));
+        Ok(())
+    }
+
+    struct TestOptimizer {}
+
+    impl OptimizerRule for TestOptimizer {
+        fn optimize(&mut self, plan: &LogicalPlan) -> Result<LogicalPlan> {
+            Ok(plan.clone())
+        }
+
+        fn name(&self) -> &str {
+            return "test_optimizer";
+        }
+    }
+
+    #[test]
+    fn test_optimize_explain() -> Result<()> {
+        let mut optimizer = TestOptimizer {};
+
+        let empty_plan = LogicalPlanBuilder::empty().build()?;
+        let schema = LogicalPlan::explain_schema();
+
+        let optimized_explain = optimize_explain(
+            &mut optimizer,
+            true,
+            &empty_plan,
+            &vec![StringifiedPlan::new(PlanType::LogicalPlan, "...")],
+            &*schema,
+        )?;
+
+        match &optimized_explain {
+            LogicalPlan::Explain {
+                verbose,
+                stringified_plans,
+                ..
+            } => {
+                assert_eq!(*verbose, true);
+
+                let expected_stringified_plans = vec![
+                    StringifiedPlan::new(PlanType::LogicalPlan, "..."),
+                    StringifiedPlan::new(
+                        PlanType::OptimizedLogicalPlan {
+                            optimizer_name: "test_optimizer".into(),
+                        },
+                        "EmptyRelation",
+                    ),
+                ];
+                assert_eq!(*stringified_plans, expected_stringified_plans);
+            }
+            _ => assert!(
+                false,
+                "Expected explain plan but got {:?}",
+                optimized_explain
+            ),
+        }
+
         Ok(())
     }
 }

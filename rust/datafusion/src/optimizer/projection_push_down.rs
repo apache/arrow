@@ -25,6 +25,7 @@ use crate::optimizer::utils;
 use arrow::datatypes::{Field, Schema};
 use arrow::error::Result as ArrowResult;
 use std::collections::HashSet;
+use utils::optimize_explain;
 
 /// Projection Push Down optimizer rule ensures that only referenced columns are
 /// loaded into memory
@@ -36,6 +37,10 @@ impl OptimizerRule for ProjectionPushDown {
         let mut accum: HashSet<String> = HashSet::new();
         self.optimize_plan(plan, &mut accum, false)
     }
+
+    fn name(&self) -> &str {
+        return "projection_push_down";
+    }
 }
 
 impl ProjectionPushDown {
@@ -45,7 +50,7 @@ impl ProjectionPushDown {
     }
 
     fn optimize_plan(
-        &self,
+        &mut self,
         plan: &LogicalPlan,
         accum: &mut HashSet<String>,
         has_projection: bool,
@@ -186,6 +191,12 @@ impl ProjectionPushDown {
                 })
             }
             LogicalPlan::CreateExternalTable { .. } => Ok(plan.clone()),
+            LogicalPlan::Explain {
+                verbose,
+                plan,
+                stringified_plans,
+                schema,
+            } => optimize_explain(self, *verbose, &*plan, stringified_plans, &*schema),
         }
     }
 }

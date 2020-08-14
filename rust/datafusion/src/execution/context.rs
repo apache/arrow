@@ -35,6 +35,7 @@ use crate::error::{ExecutionError, Result};
 use crate::execution::physical_plan::common;
 use crate::execution::physical_plan::csv::{CsvExec, CsvReadOptions};
 use crate::execution::physical_plan::datasource::DatasourceExec;
+use crate::execution::physical_plan::explain::ExplainExec;
 use crate::execution::physical_plan::expressions::{
     Avg, BinaryExpr, CastExpr, Column, Count, Literal, Max, Min, PhysicalSortExpr, Sum,
 };
@@ -51,7 +52,8 @@ use crate::execution::physical_plan::udf::{ScalarFunction, ScalarFunctionExpr};
 use crate::execution::physical_plan::{AggregateExpr, ExecutionPlan, PhysicalExpr};
 use crate::execution::table_impl::TableImpl;
 use crate::logicalplan::{
-    Expr, FunctionMeta, FunctionType, LogicalPlan, LogicalPlanBuilder,
+    Expr, FunctionMeta, FunctionType, LogicalPlan, LogicalPlanBuilder, PlanType,
+    StringifiedPlan,
 };
 use crate::optimizer::optimizer::OptimizerRule;
 use crate::optimizer::projection_push_down::ProjectionPushDown;
@@ -470,6 +472,30 @@ impl ExecutionContext {
                     *n,
                     self.config.concurrency,
                 )))
+            }
+            LogicalPlan::Explain {
+                verbose,
+                plan,
+                stringified_plans,
+                schema,
+            } => {
+                let input = self.create_physical_plan(plan, batch_size)?;
+
+                let mut stringified_plans = stringified_plans
+                    .iter()
+                    .filter(|s| s.should_display(*verbose))
+                    .map(|s| s.clone())
+                    .collect::<Vec<_>>();
+
+                // add in the physical plan if requested
+                if *verbose {
+                    stringified_plans.push(StringifiedPlan::new(
+                        PlanType::PhysicalPlan,
+                        format!("{:#?}", input),
+                    ));
+                }
+                let schema_ref = Arc::new((**schema).clone());
+                Ok(Arc::new(ExplainExec::new(schema_ref, stringified_plans)))
             }
             _ => Err(ExecutionError::General(
                 "Unsupported logical plan variant".to_string(),
