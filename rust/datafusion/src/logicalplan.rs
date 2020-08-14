@@ -1317,16 +1317,22 @@ mod tests {
 
     #[test]
     fn stringified_plan() -> Result<()> {
-        let stringified_plan = StringifiedPlan::new("logical_plan", "...the plan...");
+        let stringified_plan =
+            StringifiedPlan::new(PlanType::LogicalPlan, "...the plan...");
         assert!(stringified_plan.should_display(true));
         assert!(stringified_plan.should_display(false)); // display in non verbose mode too
 
-        let stringified_plan = StringifiedPlan::new("physical_plan", "...the plan...");
+        let stringified_plan =
+            StringifiedPlan::new(PlanType::PhysicalPlan, "...the plan...");
         assert!(stringified_plan.should_display(true));
         assert!(!stringified_plan.should_display(false));
 
-        let stringified_plan =
-            StringifiedPlan::new("some random opt pass", "...the plan...");
+        let stringified_plan = StringifiedPlan::new(
+            PlanType::OptimizedLogicalPlan {
+                optimizer_name: "random opt pass".into(),
+            },
+            "...the plan...",
+        );
         assert!(stringified_plan.should_display(true));
         assert!(!stringified_plan.should_display(false));
 

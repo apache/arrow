@@ -265,7 +265,7 @@ mod tests {
             &mut optimizer,
             true,
             &empty_plan,
-            &vec![StringifiedPlan::new("foo", "...")],
+            &vec![StringifiedPlan::new(PlanType::LogicalPlan, "...")],
             &*schema,
         )?;
 
@@ -278,8 +278,13 @@ mod tests {
                 assert_eq!(*verbose, true);
 
                 let expected_stringified_plans = vec![
-                    StringifiedPlan::new("foo", "..."),
-                    StringifiedPlan::new("test_optimizer", "EmptyRelation"),
+                    StringifiedPlan::new(PlanType::LogicalPlan, "..."),
+                    StringifiedPlan::new(
+                        PlanType::OptimizedLogicalPlan {
+                            optimizer_name: "test_optimizer".into(),
+                        },
+                        "EmptyRelation",
+                    ),
                 ];
                 assert_eq!(*stringified_plans, expected_stringified_plans);
             }
