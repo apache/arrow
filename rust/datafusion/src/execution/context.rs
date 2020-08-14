@@ -257,10 +257,16 @@ impl ExecutionContext {
                             "Table provider returned no partitions".to_string(),
                         ))
                     } else {
-                        let partition = partitions[0].lock().unwrap();
-                        let schema = partition.schema();
-                        let exec =
-                            DatasourceExec::new(schema.clone(), partitions.clone());
+                        let schema = match projection {
+                            None => provider.schema().clone(),
+                            Some(p) => Arc::new(Schema::new(
+                                p.iter()
+                                    .map(|i| provider.schema().field(*i).clone())
+                                    .collect(),
+                            )),
+                        };
+
+                        let exec = DatasourceExec::new(schema, partitions.clone());
                         Ok(Arc::new(exec))
                     }
                 }

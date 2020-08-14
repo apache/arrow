@@ -24,10 +24,10 @@ use std::sync::Arc;
 use arrow::datatypes::{Field, Schema, SchemaRef};
 use arrow::record_batch::RecordBatch;
 
-use crate::datasource::{ScanResult, TableProvider};
+use crate::datasource::TableProvider;
 use crate::error::{ExecutionError, Result};
 use crate::execution::physical_plan::memory::MemoryExec;
-use crate::execution::physical_plan::ExecutionPlan;
+use crate::execution::physical_plan::{ExecutionPlan, Partition};
 
 /// In-memory table
 pub struct MemTable {
@@ -60,12 +60,14 @@ impl MemTable {
         let partitions = t.scan(&None, 1024 * 1024)?;
 
         let mut data: Vec<Vec<RecordBatch>> = Vec::with_capacity(partitions.len());
-        for it in &partitions {
-            let mut partition = vec![];
-            while let Ok(Some(batch)) = it.lock().unwrap().next_batch() {
-                partition.push(batch);
+        for partition in &partitions {
+            let it = partition.execute()?;
+            let mut it = it.lock().unwrap();
+            let mut partition_batches = vec![];
+            while let Ok(Some(batch)) = it.next_batch() {
+                partition_batches.push(batch);
             }
-            data.push(partition);
+            data.push(partition_batches);
         }
 
         MemTable::new(schema.clone(), data)
@@ -81,7 +83,7 @@ impl TableProvider for MemTable {
         &self,
         projection: &Option<Vec<usize>>,
         _batch_size: usize,
-    ) -> Result<Vec<ScanResult>> {
+    ) -> Result<Vec<Arc<dyn Partition>>> {
         let columns: Vec<usize> = match projection {
             Some(p) => p.clone(),
             None => {
@@ -114,12 +116,7 @@ impl TableProvider for MemTable {
             projected_schema,
             projection.clone(),
         )?;
-        let partitions = exec.partitions()?;
-        let iterators = partitions
-            .iter()
-            .map(|p| p.execute())
-            .collect::<Result<Vec<_>>>()?;
-        Ok(iterators)
+        exec.partitions()
     }
 }
 
@@ -151,7 +148,8 @@ mod tests {
 
         // scan with projection
         let partitions = provider.scan(&Some(vec![2, 1]), 1024).unwrap();
-        let batch2 = partitions[0].lock().unwrap().next_batch().unwrap().unwrap();
+        let it = partitions[0].execute().unwrap();
+        let batch2 = it.lock().unwrap().next_batch().unwrap().unwrap();
         assert_eq!(2, batch2.schema().fields().len());
         assert_eq!("c", batch2.schema().field(0).name());
         assert_eq!("b", batch2.schema().field(1).name());
@@ -179,7 +177,8 @@ mod tests {
         let provider = MemTable::new(schema, vec![vec![batch]]).unwrap();
 
         let partitions = provider.scan(&None, 1024).unwrap();
-        let batch1 = partitions[0].lock().unwrap().next_batch().unwrap().unwrap();
+        let it = partitions[0].execute().unwrap();
+        let batch1 = it.lock().unwrap().next_batch().unwrap().unwrap();
         assert_eq!(3, batch1.schema().fields().len());
         assert_eq!(3, batch1.num_columns());
     }

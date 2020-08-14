@@ -18,13 +18,14 @@
 //! Parquet data source
 
 use std::string::String;
+use std::sync::Arc;
 
 use arrow::datatypes::*;
 
-use crate::datasource::{ScanResult, TableProvider};
+use crate::datasource::TableProvider;
 use crate::error::Result;
 use crate::execution::physical_plan::parquet::ParquetExec;
-use crate::execution::physical_plan::ExecutionPlan;
+use crate::execution::physical_plan::{ExecutionPlan, Partition};
 
 /// Table-based representation of a `ParquetFile`.
 pub struct ParquetTable {
@@ -56,17 +57,11 @@ impl TableProvider for ParquetTable {
         &self,
         projection: &Option<Vec<usize>>,
         batch_size: usize,
-    ) -> Result<Vec<ScanResult>> {
+    ) -> Result<Vec<Arc<dyn Partition>>> {
         let parquet_exec =
             ParquetExec::try_new(&self.path, projection.clone(), batch_size)?;
 
-        let partitions = parquet_exec.partitions()?;
-
-        let iterators = partitions
-            .iter()
-            .map(|p| p.execute())
-            .collect::<Result<Vec<_>>>()?;
-        Ok(iterators)
+        parquet_exec.partitions()
     }
 }
 
@@ -85,7 +80,8 @@ mod tests {
 
         let projection = None;
         let scan = table.scan(&projection, 2).unwrap();
-        let mut it = scan[0].lock().unwrap();
+        let it = scan[0].execute().unwrap();
+        let mut it = it.lock().unwrap();
 
         let mut count = 0;
         while let Some(batch) = it.next_batch().unwrap() {
@@ -126,7 +122,8 @@ mod tests {
 
         let projection = None;
         let scan = table.scan(&projection, 1024).unwrap();
-        let mut it = scan[0].lock().unwrap();
+        let it = scan[0].execute().unwrap();
+        let mut it = it.lock().unwrap();
         let batch = it.next_batch().unwrap().unwrap();
 
         assert_eq!(11, batch.num_columns());
@@ -139,7 +136,8 @@ mod tests {
 
         let projection = Some(vec![1]);
         let scan = table.scan(&projection, 1024).unwrap();
-        let mut it = scan[0].lock().unwrap();
+        let it = scan[0].execute().unwrap();
+        let mut it = it.lock().unwrap();
         let batch = it.next_batch().unwrap().unwrap();
 
         assert_eq!(1, batch.num_columns());
@@ -167,7 +165,8 @@ mod tests {
 
         let projection = Some(vec![0]);
         let scan = table.scan(&projection, 1024).unwrap();
-        let mut it = scan[0].lock().unwrap();
+        let it = scan[0].execute().unwrap();
+        let mut it = it.lock().unwrap();
         let batch = it.next_batch().unwrap().unwrap();
 
         assert_eq!(1, batch.num_columns());
@@ -192,7 +191,8 @@ mod tests {
 
         let projection = Some(vec![10]);
         let scan = table.scan(&projection, 1024).unwrap();
-        let mut it = scan[0].lock().unwrap();
+        let it = scan[0].execute().unwrap();
+        let mut it = it.lock().unwrap();
         let batch = it.next_batch().unwrap().unwrap();
 
         assert_eq!(1, batch.num_columns());
@@ -217,7 +217,8 @@ mod tests {
 
         let projection = Some(vec![6]);
         let scan = table.scan(&projection, 1024).unwrap();
-        let mut it = scan[0].lock().unwrap();
+        let it = scan[0].execute().unwrap();
+        let mut it = it.lock().unwrap();
         let batch = it.next_batch().unwrap().unwrap();
         assert_eq!(1, batch.num_columns());
         assert_eq!(8, batch.num_rows());
@@ -244,7 +245,8 @@ mod tests {
 
         let projection = Some(vec![7]);
         let scan = table.scan(&projection, 1024).unwrap();
-        let mut it = scan[0].lock().unwrap();
+        let it = scan[0].execute().unwrap();
+        let mut it = it.lock().unwrap();
         let batch = it.next_batch().unwrap().unwrap();
 
         assert_eq!(1, batch.num_columns());
@@ -272,7 +274,8 @@ mod tests {
 
         let projection = Some(vec![9]);
         let scan = table.scan(&projection, 1024).unwrap();
-        let mut it = scan[0].lock().unwrap();
+        let it = scan[0].execute().unwrap();
+        let mut it = it.lock().unwrap();
         let batch = it.next_batch().unwrap().unwrap();
 
         assert_eq!(1, batch.num_columns());
