@@ -834,8 +834,7 @@ mod tests {
 
     fn logical_plan(sql: &str) -> Result<LogicalPlan> {
         let planner = SqlToRel::new(MockSchemaProvider {});
-        let dialet = &GenericDialect {};
-        let ast = DFParser::parse_sql(&sql, dialet).unwrap();
+        let ast = DFParser::parse_sql(&sql).unwrap();
         planner.statement_to_plan(&ast[0])
     }
 

@@ -143,8 +143,7 @@ impl ExecutionContext {
 
     /// Creates a logical plan
     pub fn create_logical_plan(&mut self, sql: &str) -> Result<LogicalPlan> {
-        let dialect = &GenericDialect {};
-        let statements = DFParser::parse_sql(sql, dialect)?;
+        let statements = DFParser::parse_sql(sql)?;
 
         if statements.len() != 1 {
             return Err(ExecutionError::NotImplemented(format!(

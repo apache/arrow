@@ -77,7 +77,13 @@ pub struct DFParser {
 
 impl DFParser {
     /// Parse the specified tokens
-    pub fn new(sql: &str, dialect: &dyn Dialect) -> Result<Self, ParserError> {
+    pub fn new(sql: &str) -> Result<Self, ParserError> {
+        let dialect = &GenericDialect {};
+        DFParser::new_with_dialect(sql, dialect)
+    }
+
+    /// Parse the specified tokens with dialect
+    pub fn new_with_dialect(sql: &str, dialect: &dyn Dialect) -> Result<Self, ParserError> {
         let mut tokenizer = Tokenizer::new(dialect, sql);
         let tokens = tokenizer.tokenize()?;
         Ok(DFParser {
@@ -85,12 +91,18 @@ impl DFParser {
         })
     }
 
+    /// Parse a SQL statement and produce a set of statements with dialect
+    pub fn parse_sql(sql: &str) -> Result<Vec<Statement>, ParserError> {
+        let dialect = &GenericDialect {};
+        DFParser::parse_sql_with_dialect(sql, dialect)
+    }
+
     /// Parse a SQL statement and produce a set of statements
-    pub fn parse_sql(
+    pub fn parse_sql_with_dialect(
         sql: &str,
         dialect: &dyn Dialect,
     ) -> Result<Vec<Statement>, ParserError> {
-        let mut parser = DFParser::new(sql, dialect)?;
+        let mut parser = DFParser::new_with_dialect(sql, dialect)?;
         let mut stmts = Vec::new();
         let mut expecting_statement_delimiter = false;
         loop {
@@ -272,8 +284,7 @@ mod tests {
     use sqlparser::dialect::GenericDialect;
 
     fn expect_parse_ok(sql: &str, expected: Statement) -> Result<(), ParserError> {
-        let dialect = &GenericDialect {};
-        let statements = DFParser::parse_sql(sql, dialect)?;
+        let statements = DFParser::parse_sql(sql)?;
         assert_eq!(
             statements.len(),
             1,
