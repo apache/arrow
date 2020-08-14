@@ -52,6 +52,7 @@ clap = "2.33"
 rustyline = {version = "6.0", optional = true}
 crossbeam = "0.7"
 paste = "0.1"
+num_cpus = "1.13.0"
 
 [dev-dependencies]
 criterion = "0.3"

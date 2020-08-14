@@ -62,7 +62,7 @@ fn main() -> Result<()> {
     let opt = Opt::from_args();
     println!("Running benchmarks with the following options: {:?}", opt);
 
-    let config = ExecutionConfig::new().with_max_concurrency(opt.concurrency);
+    let config = ExecutionConfig::new().with_concurrency(opt.concurrency);
     let mut ctx = ExecutionContext::with_config(config);
 
     let path = opt.path.to_str().unwrap();

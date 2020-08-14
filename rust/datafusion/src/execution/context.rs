@@ -65,19 +65,23 @@ use crate::table::Table;
 /// Configuration options for execution context
 #[derive(Copy, Clone)]
 pub struct ExecutionConfig {
-    /// Maximum number of concurrent threads for query execution
-    max_concurrency: usize,
+    /// Number of concurrent threads for query execution.
+    concurrency: usize,
 }
 
 impl ExecutionConfig {
     /// Create an execution config with default settings
     pub fn new() -> Self {
-        Self { max_concurrency: 2 }
+        Self {
+            concurrency: num_cpus::get(),
+        }
     }
 
     /// Customize max_concurrency
-    pub fn with_max_concurrency(mut self, n: usize) -> Self {
-        self.max_concurrency = n;
+    pub fn with_concurrency(mut self, n: usize) -> Self {
+        // concurrency must be greater than zero
+        assert!(n > 0);
+        self.concurrency = n;
         self
     }
 }
@@ -394,7 +398,7 @@ impl ExecutionContext {
                 let merge = Arc::new(MergeExec::new(
                     schema.clone(),
                     partitions,
-                    self.config.max_concurrency,
+                    self.config.concurrency,
                 ));
 
                 // construct the expressions for the final aggregation
@@ -450,7 +454,11 @@ impl ExecutionContext {
                     })
                     .collect::<Result<Vec<_>>>()?;
 
-                Ok(Arc::new(SortExec::try_new(sort_expr, input)?))
+                Ok(Arc::new(SortExec::try_new(
+                    sort_expr,
+                    input,
+                    self.config.concurrency,
+                )?))
             }
             LogicalPlan::Limit { input, n, .. } => {
                 let input = self.create_physical_plan(input, batch_size)?;
@@ -460,6 +468,7 @@ impl ExecutionContext {
                     input_schema.clone(),
                     input.partitions()?,
                     *n,
+                    self.config.concurrency,
                 )))
             }
             _ => Err(ExecutionError::General(
@@ -586,7 +595,7 @@ impl ExecutionContext {
                 let plan = MergeExec::new(
                     plan.schema().clone(),
                     partitions,
-                    self.config.max_concurrency,
+                    self.config.concurrency,
                 );
                 let partitions = plan.partitions()?;
                 if partitions.len() == 1 {

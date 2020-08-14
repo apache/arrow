@@ -39,6 +39,8 @@ pub struct GlobalLimitExec {
     partitions: Vec<Arc<dyn Partition>>,
     /// Maximum number of rows to return
     limit: usize,
+    /// Number of threads to run parallel LocalLimitExec on
+    concurrency: usize,
 }
 
 impl GlobalLimitExec {
@@ -47,11 +49,13 @@ impl GlobalLimitExec {
         schema: SchemaRef,
         partitions: Vec<Arc<dyn Partition>>,
         limit: usize,
+        concurrency: usize,
     ) -> Self {
         GlobalLimitExec {
             schema,
             partitions,
             limit,
+            concurrency,
         }
     }
 }
@@ -66,6 +70,7 @@ impl ExecutionPlan for GlobalLimitExec {
             schema: self.schema.clone(),
             partitions: self.partitions.clone(),
             limit: self.limit,
+            concurrency: self.concurrency,
         })])
     }
 }
@@ -78,6 +83,8 @@ struct LimitPartition {
     partitions: Vec<Arc<dyn Partition>>,
     /// Maximum number of rows to return
     limit: usize,
+    /// Number of threads to run parallel LocalLimitExec on
+    concurrency: usize,
 }
 
 impl Partition for LimitPartition {
@@ -96,7 +103,7 @@ impl Partition for LimitPartition {
             .collect();
 
         // limit needs to collapse inputs down to a single partition
-        let merge = MergeExec::new(self.schema.clone(), local_limit);
+        let merge = MergeExec::new(self.schema.clone(), local_limit, self.concurrency);
         let merge_partitions = merge.partitions()?;
         // MergeExec must always produce a single partition
         assert_eq!(1, merge_partitions.len());
@@ -226,7 +233,7 @@ mod tests {
         let input = csv.partitions()?;
         assert_eq!(input.len(), num_partitions);
 
-        let limit = GlobalLimitExec::new(schema.clone(), input, 7);
+        let limit = GlobalLimitExec::new(schema.clone(), input, 7, 2);
         let partitions = limit.partitions()?;
 
         // the result should contain 4 batches (one per input partition)
