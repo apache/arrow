@@ -37,6 +37,8 @@ pub struct SortExec {
     /// Input schema
     input: Arc<dyn ExecutionPlan>,
     expr: Vec<PhysicalSortExpr>,
+    /// Number of threads to execute input partitions on before combining into a single partition
+    concurrency: usize,
 }
 
 impl SortExec {
@@ -44,8 +46,13 @@ impl SortExec {
     pub fn try_new(
         expr: Vec<PhysicalSortExpr>,
         input: Arc<dyn ExecutionPlan>,
+        concurrency: usize,
     ) -> Result<Self> {
-        Ok(Self { expr, input })
+        Ok(Self {
+            expr,
+            input,
+            concurrency,
+        })
     }
 }
 
@@ -60,6 +67,7 @@ impl ExecutionPlan for SortExec {
                 input: self.input.partitions()?,
                 expr: self.expr.clone(),
                 schema: self.schema(),
+                concurrency: self.concurrency,
             })),
         ])
     }
@@ -71,13 +79,16 @@ struct SortPartition {
     schema: SchemaRef,
     expr: Vec<PhysicalSortExpr>,
     input: Vec<Arc<dyn Partition>>,
+    /// Number of threads to execute input partitions on before combining into a single partition
+    concurrency: usize,
 }
 
 impl Partition for SortPartition {
     /// Execute the sort
     fn execute(&self) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
         // sort needs to operate on a single partition currently
-        let merge = MergeExec::new(self.schema.clone(), self.input.clone());
+        let merge =
+            MergeExec::new(self.schema.clone(), self.input.clone(), self.concurrency);
         let merge_partitions = merge.partitions()?;
         // MergeExec must always produce a single partition
         assert_eq!(1, merge_partitions.len());
@@ -174,6 +185,7 @@ mod tests {
                 },
             ],
             Arc::new(csv),
+            2,
         )?;
 
         let result: Vec<RecordBatch> = test::execute(&sort_exec)?;

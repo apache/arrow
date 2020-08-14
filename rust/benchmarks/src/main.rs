@@ -25,7 +25,7 @@ use std::time::Instant;
 use arrow::datatypes::{DataType, Field, Schema};
 use arrow::util::pretty;
 use datafusion::error::Result;
-use datafusion::execution::context::ExecutionContext;
+use datafusion::execution::context::{ExecutionConfig, ExecutionContext};
 
 use datafusion::execution::physical_plan::csv::CsvReadOptions;
 use structopt::StructOpt;
@@ -40,6 +40,10 @@ struct Opt {
     /// Number of iterations of each test run
     #[structopt(short = "i", long = "iterations", default_value = "3")]
     iterations: usize,
+
+    /// Number of threads for query execution
+    #[structopt(short = "c", long = "concurrency", default_value = "2")]
+    concurrency: usize,
 
     /// Batch size when reading CSV or Parquet files
     #[structopt(short = "s", long = "batch-size", default_value = "4096")]
@@ -58,7 +62,8 @@ fn main() -> Result<()> {
     let opt = Opt::from_args();
     println!("Running benchmarks with the following options: {:?}", opt);
 
-    let mut ctx = ExecutionContext::new();
+    let config = ExecutionConfig::new().with_concurrency(opt.concurrency);
+    let mut ctx = ExecutionContext::with_config(config);
 
     let path = opt.path.to_str().unwrap();
 

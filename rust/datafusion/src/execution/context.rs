@@ -62,10 +62,35 @@ use crate::sql::{
 };
 use crate::table::Table;
 
+/// Configuration options for execution context
+#[derive(Copy, Clone)]
+pub struct ExecutionConfig {
+    /// Number of concurrent threads for query execution.
+    concurrency: usize,
+}
+
+impl ExecutionConfig {
+    /// Create an execution config with default settings
+    pub fn new() -> Self {
+        Self {
+            concurrency: num_cpus::get(),
+        }
+    }
+
+    /// Customize max_concurrency
+    pub fn with_concurrency(mut self, n: usize) -> Self {
+        // concurrency must be greater than zero
+        assert!(n > 0);
+        self.concurrency = n;
+        self
+    }
+}
+
 /// Execution context for registering data sources and executing queries
 pub struct ExecutionContext {
     datasources: HashMap<String, Box<dyn TableProvider + Send + Sync>>,
     scalar_functions: HashMap<String, Box<ScalarFunction>>,
+    config: ExecutionConfig,
 }
 
 fn tuple_err<T, R>(value: (Result<T>, Result<R>)) -> Result<(T, R)> {
@@ -78,11 +103,17 @@ fn tuple_err<T, R>(value: (Result<T>, Result<R>)) -> Result<(T, R)> {
 }
 
 impl ExecutionContext {
-    /// Create a new execution context for in-memory queries
+    /// Create a new execution context for in-memory queries using default configs
     pub fn new() -> Self {
+        Self::with_config(ExecutionConfig::new())
+    }
+
+    /// Create a new execution context for in-memory queries using provided configs
+    pub fn with_config(config: ExecutionConfig) -> Self {
         let mut ctx = Self {
             datasources: HashMap::new(),
             scalar_functions: HashMap::new(),
+            config,
         };
         register_math_functions(&mut ctx);
         ctx
@@ -364,7 +395,11 @@ impl ExecutionContext {
                     return Ok(Arc::new(initial_aggr));
                 }
 
-                let merge = Arc::new(MergeExec::new(schema.clone(), partitions));
+                let merge = Arc::new(MergeExec::new(
+                    schema.clone(),
+                    partitions,
+                    self.config.concurrency,
+                ));
 
                 // construct the expressions for the final aggregation
                 let (final_group, final_aggr) = initial_aggr.make_final_expr(
@@ -419,7 +454,11 @@ impl ExecutionContext {
                     })
                     .collect::<Result<Vec<_>>>()?;
 
-                Ok(Arc::new(SortExec::try_new(sort_expr, input)?))
+                Ok(Arc::new(SortExec::try_new(
+                    sort_expr,
+                    input,
+                    self.config.concurrency,
+                )?))
             }
             LogicalPlan::Limit { input, n, .. } => {
                 let input = self.create_physical_plan(input, batch_size)?;
@@ -429,6 +468,7 @@ impl ExecutionContext {
                     input_schema.clone(),
                     input.partitions()?,
                     *n,
+                    self.config.concurrency,
                 )))
             }
             _ => Err(ExecutionError::General(
@@ -552,7 +592,11 @@ impl ExecutionContext {
             }
             _ => {
                 // merge into a single partition
-                let plan = MergeExec::new(plan.schema().clone(), partitions);
+                let plan = MergeExec::new(
+                    plan.schema().clone(),
+                    partitions,
+                    self.config.concurrency,
+                );
                 let partitions = plan.partitions()?;
                 if partitions.len() == 1 {
                     common::collect(partitions[0].execute()?)
