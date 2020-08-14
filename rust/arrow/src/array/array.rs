@@ -2287,7 +2287,7 @@ impl<'a, K: ArrowPrimitiveType> DictionaryArray<K> {
     }
 
     /// Returns the lookup key by doing reverse dictionary lookup
-    pub fn lookup_key(&self, value: &'static str) -> Option<K::Native> {
+    pub fn lookup_key(&self, value: &str) -> Option<K::Native> {
         let rd_buf: &StringArray =
             self.values.as_any().downcast_ref::<StringArray>().unwrap();
 

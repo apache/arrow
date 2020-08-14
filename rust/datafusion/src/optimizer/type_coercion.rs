@@ -166,13 +166,22 @@ impl<'a> OptimizerRule for TypeCoercionRule<'a> {
                     self.rewrite_expr_list(aggr_expr, input.schema())?,
                 )?
                 .build(),
+            LogicalPlan::Limit { n, input, .. } => {
+                LogicalPlanBuilder::from(&self.optimize(input)?)
+                    .limit(*n)?
+                    .build()
+            }
+            LogicalPlan::Sort { input, expr, .. } => {
+                LogicalPlanBuilder::from(&self.optimize(input)?)
+                    .sort(self.rewrite_expr_list(expr, input.schema())?)?
+                    .build()
+            }
+            // the following rules do not have inputs and do not need to be re-written
             LogicalPlan::TableScan { .. } => Ok(plan.clone()),
             LogicalPlan::InMemoryScan { .. } => Ok(plan.clone()),
             LogicalPlan::ParquetScan { .. } => Ok(plan.clone()),
             LogicalPlan::CsvScan { .. } => Ok(plan.clone()),
             LogicalPlan::EmptyRelation { .. } => Ok(plan.clone()),
-            LogicalPlan::Limit { .. } => Ok(plan.clone()),
-            LogicalPlan::Sort { .. } => Ok(plan.clone()),
             LogicalPlan::CreateExternalTable { .. } => Ok(plan.clone()),
         }
     }
@@ -183,9 +192,44 @@ mod tests {
     use super::*;
     use crate::execution::context::ExecutionContext;
     use crate::execution::physical_plan::csv::CsvReadOptions;
-    use crate::logicalplan::{col, Operator};
+    use crate::logicalplan::{aggregate_expr, col, lit, Operator};
     use crate::test::arrow_testdata_path;
     use arrow::datatypes::{DataType, Field, Schema};
+
+    #[test]
+    fn test_all_operators() -> Result<()> {
+        let testdata = arrow_testdata_path();
+        let path = format!("{}/csv/aggregate_test_100.csv", testdata);
+
+        let options = CsvReadOptions::new().schema_infer_max_records(100);
+        let plan = LogicalPlanBuilder::scan_csv(&path, options, None)?
+            // filter clause needs the type coercion rule applied
+            .filter(col("c7").lt(&lit(5_u8)))?
+            .project(vec![col("c1"), col("c2")])?
+            .aggregate(
+                vec![col("c1")],
+                vec![aggregate_expr("SUM", col("c2"), DataType::Int64)],
+            )?
+            .sort(vec![col("c1")])?
+            .limit(10)?
+            .build()?;
+
+        let scalar_functions = HashMap::new();
+        let mut rule = TypeCoercionRule::new(&scalar_functions);
+        let plan = rule.optimize(&plan)?;
+
+        // check that the filter had a cast added
+        let plan_str = format!("{:?}", plan);
+        println!("{}", plan_str);
+        let expected_plan_str = "Limit: 10
+  Sort: #c1
+    Aggregate: groupBy=[[#c1]], aggr=[[SUM(#c2)]]
+      Projection: #c1, #c2
+        Selection: #c7 Lt CAST(UInt8(5) AS Int64)";
+        assert!(plan_str.starts_with(expected_plan_str));
+
+        Ok(())
+    }
 
     #[test]
     fn test_with_csv_plan() -> Result<()> {

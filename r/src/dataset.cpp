@@ -21,6 +21,7 @@
 
 #include <arrow/dataset/api.h>
 #include <arrow/filesystem/filesystem.h>
+#include <arrow/table.h>
 #include <arrow/util/iterator.h>
 
 namespace ds = ::arrow::dataset;
@@ -259,6 +260,25 @@ std::shared_ptr<ds::Scanner> dataset___ScannerBuilder__Finish(
 std::shared_ptr<arrow::Table> dataset___Scanner__ToTable(
     const std::shared_ptr<ds::Scanner>& scanner) {
   return ValueOrStop(scanner->ToTable());
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::Table> dataset___Scanner__head(
+    const std::shared_ptr<ds::Scanner>& scanner, int n) {
+  // TODO: make this a full Slice with offset > 0
+  std::vector<std::shared_ptr<arrow::RecordBatch>> batches;
+  std::shared_ptr<arrow::RecordBatch> current_batch;
+
+  for (auto st : ValueOrStop(scanner->Scan())) {
+    for (auto b : ValueOrStop(ValueOrStop(st)->Execute())) {
+      current_batch = ValueOrStop(b);
+      batches.push_back(current_batch->Slice(0, n));
+      n -= current_batch->num_rows();
+      if (n < 0) break;
+    }
+    if (n < 0) break;
+  }
+  return ValueOrStop(arrow::Table::FromRecordBatches(std::move(batches)));
 }
 
 // [[arrow::export]]

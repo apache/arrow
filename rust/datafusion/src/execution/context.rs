@@ -39,7 +39,7 @@ use crate::execution::physical_plan::expressions::{
     Avg, BinaryExpr, CastExpr, Column, Count, Literal, Max, Min, PhysicalSortExpr, Sum,
 };
 use crate::execution::physical_plan::hash_aggregate::HashAggregateExec;
-use crate::execution::physical_plan::limit::LimitExec;
+use crate::execution::physical_plan::limit::GlobalLimitExec;
 use crate::execution::physical_plan::math_expressions::register_math_functions;
 use crate::execution::physical_plan::memory::MemoryExec;
 use crate::execution::physical_plan::merge::MergeExec;
@@ -257,10 +257,16 @@ impl ExecutionContext {
                             "Table provider returned no partitions".to_string(),
                         ))
                     } else {
-                        let partition = partitions[0].lock().unwrap();
-                        let schema = partition.schema();
-                        let exec =
-                            DatasourceExec::new(schema.clone(), partitions.clone());
+                        let schema = match projection {
+                            None => provider.schema().clone(),
+                            Some(p) => Arc::new(Schema::new(
+                                p.iter()
+                                    .map(|i| provider.schema().field(*i).clone())
+                                    .collect(),
+                            )),
+                        };
+
+                        let exec = DatasourceExec::new(schema, partitions.clone());
                         Ok(Arc::new(exec))
                     }
                 }
@@ -419,7 +425,7 @@ impl ExecutionContext {
                 let input = self.create_physical_plan(input, batch_size)?;
                 let input_schema = input.as_ref().schema().clone();
 
-                Ok(Arc::new(LimitExec::new(
+                Ok(Arc::new(GlobalLimitExec::new(
                     input_schema.clone(),
                     input.partitions()?,
                     *n,

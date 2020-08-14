@@ -15,17 +15,35 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! Computation kernels on Arrow Arrays
+#[macro_use]
+extern crate criterion;
+use criterion::Criterion;
 
-pub mod aggregate;
-pub mod arithmetic;
-pub mod boolean;
-pub mod cast;
-pub mod comparison;
-pub mod concat;
-pub mod filter;
-pub mod length;
-pub mod limit;
-pub mod sort;
-pub mod take;
-pub mod temporal;
+extern crate arrow;
+
+use arrow::array::*;
+use arrow::compute::kernels::length::length;
+
+fn bench_length() {
+    fn double_vec<T: Clone>(v: Vec<T>) -> Vec<T> {
+        [&v[..], &v[..]].concat()
+    }
+
+    // double ["hello", " ", "world", "!"] 10 times
+    let mut values = vec!["one", "on", "o", ""];
+    let mut expected = vec![3, 2, 1, 0];
+    for _ in 0..10 {
+        values = double_vec(values);
+        expected = double_vec(expected);
+    }
+    let array = StringArray::from(values);
+
+    criterion::black_box(length(&array).unwrap());
+}
+
+fn add_benchmark(c: &mut Criterion) {
+    c.bench_function("length", |b| b.iter(|| bench_length()));
+}
+
+criterion_group!(benches, add_benchmark);
+criterion_main!(benches);

@@ -112,7 +112,7 @@ impl Partition for MemoryPartition {
 }
 
 /// Iterator over batches
-struct MemoryIterator {
+pub(crate) struct MemoryIterator {
     /// Vector of record batches
     data: Vec<RecordBatch>,
     /// Schema representing the data

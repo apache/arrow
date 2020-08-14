@@ -184,21 +184,24 @@ pub enum ScalarValue {
 
 impl ScalarValue {
     /// Getter for the `DataType` of the value
-    pub fn get_datatype(&self) -> DataType {
+    pub fn get_datatype(&self) -> Result<DataType> {
         match *self {
-            ScalarValue::Boolean(_) => DataType::Boolean,
-            ScalarValue::UInt8(_) => DataType::UInt8,
-            ScalarValue::UInt16(_) => DataType::UInt16,
-            ScalarValue::UInt32(_) => DataType::UInt32,
-            ScalarValue::UInt64(_) => DataType::UInt64,
-            ScalarValue::Int8(_) => DataType::Int8,
-            ScalarValue::Int16(_) => DataType::Int16,
-            ScalarValue::Int32(_) => DataType::Int32,
-            ScalarValue::Int64(_) => DataType::Int64,
-            ScalarValue::Float32(_) => DataType::Float32,
-            ScalarValue::Float64(_) => DataType::Float64,
-            ScalarValue::Utf8(_) => DataType::Utf8,
-            _ => panic!("Cannot treat {:?} as scalar value", self),
+            ScalarValue::Boolean(_) => Ok(DataType::Boolean),
+            ScalarValue::UInt8(_) => Ok(DataType::UInt8),
+            ScalarValue::UInt16(_) => Ok(DataType::UInt16),
+            ScalarValue::UInt32(_) => Ok(DataType::UInt32),
+            ScalarValue::UInt64(_) => Ok(DataType::UInt64),
+            ScalarValue::Int8(_) => Ok(DataType::Int8),
+            ScalarValue::Int16(_) => Ok(DataType::Int16),
+            ScalarValue::Int32(_) => Ok(DataType::Int32),
+            ScalarValue::Int64(_) => Ok(DataType::Int64),
+            ScalarValue::Float32(_) => Ok(DataType::Float32),
+            ScalarValue::Float64(_) => Ok(DataType::Float64),
+            ScalarValue::Utf8(_) => Ok(DataType::Utf8),
+            _ => Err(ExecutionError::General(format!(
+                "Cannot treat {:?} as scalar value",
+                self
+            ))),
         }
     }
 }
@@ -267,7 +270,7 @@ pub fn expr_to_field(e: &Expr, input_schema: &Schema) -> Result<Field> {
     let data_type = match e {
         Expr::Alias(expr, ..) => expr.get_type(input_schema),
         Expr::Column(name) => Ok(input_schema.field_with_name(name)?.data_type().clone()),
-        Expr::Literal(ref lit) => Ok(lit.get_datatype()),
+        Expr::Literal(ref lit) => lit.get_datatype(),
         Expr::ScalarFunction {
             ref return_type, ..
         } => Ok(return_type.clone()),
@@ -373,7 +376,7 @@ impl Expr {
         match self {
             Expr::Alias(expr, _) => expr.get_type(schema),
             Expr::Column(name) => Ok(schema.field_with_name(name)?.data_type().clone()),
-            Expr::Literal(l) => Ok(l.get_datatype()),
+            Expr::Literal(l) => l.get_datatype(),
             Expr::Cast { data_type, .. } => Ok(data_type.clone()),
             Expr::ScalarFunction { return_type, .. } => Ok(return_type.clone()),
             Expr::AggregateFunction { return_type, .. } => Ok(return_type.clone()),
@@ -658,43 +661,53 @@ impl fmt::Debug for Expr {
 /// Selection, etc) and can be created by the SQL query planner and the DataFrame API.
 #[derive(Clone)]
 pub enum LogicalPlan {
-    /// A Projection (essentially a SELECT with an expression list)
+    /// Evaluates an arbitrary list of expressions (essentially a
+    /// SELECT with an expression list) on its input.
     Projection {
         /// The list of expressions
         expr: Vec<Expr>,
-        /// The incoming logic plan
+        /// The incoming logical plan
         input: Box<LogicalPlan>,
-        /// The schema description
+        /// The schema description of the output
         schema: Box<Schema>,
     },
-    /// A Selection (essentially a WHERE clause with a predicate expression)
+    /// Filters rows from its input that do not match an
+    /// expression (essentially a WHERE clause with a predicate
+    /// expression).
+    ///
+    /// Semantically, `<expr>` is evaluated for each row of the input;
+    /// If the value of `<expr>` is true, the input row is passed to
+    /// the output. If the value of `<expr>` is false, the row is
+    /// discarded.
     Selection {
-        /// The expression
+        /// The expression. Must have Boolean type.
         expr: Expr,
-        /// The incoming logic plan
+        /// The incoming logical plan
         input: Box<LogicalPlan>,
     },
-    /// Represents a list of aggregate expressions with optional grouping expressions
+    /// Aggregates its input based on a set of grouping and aggregate
+    /// expressions (e.g. SUM).
     Aggregate {
-        /// The incoming logic plan
+        /// The incoming logical plan
         input: Box<LogicalPlan>,
         /// Grouping expressions
         group_expr: Vec<Expr>,
         /// Aggregate expressions
         aggr_expr: Vec<Expr>,
-        /// The schema description
+        /// The schema description of the aggregate output
         schema: Box<Schema>,
     },
-    /// Represents a list of sort expressions to be applied to a relation
+    /// Sorts its input according to a list of sort expressions.
     Sort {
         /// The sort expressions
         expr: Vec<Expr>,
-        /// The incoming logic plan
+        /// The incoming logical plan
         input: Box<LogicalPlan>,
-        /// The schema description
+        /// The schema description of the otuput
         schema: Box<Schema>,
     },
-    /// A table scan against a table that has been registered on a context
+    /// Produces rows from a table that has been registered on a
+    /// context
     TableScan {
         /// The name of the schema
         schema_name: String,
@@ -704,10 +717,10 @@ pub enum LogicalPlan {
         table_schema: Box<Schema>,
         /// Optional column indices to use as a projection
         projection: Option<Vec<usize>>,
-        /// The projected schema
+        /// The schema description of the output
         projected_schema: Box<Schema>,
     },
-    /// A table scan against a vector of record batches
+    /// Produces rows that come from a `Vec` of in memory `RecordBatch`es
     InMemoryScan {
         /// Record batch partitions
         data: Vec<Vec<RecordBatch>>,
@@ -715,10 +728,10 @@ pub enum LogicalPlan {
         schema: Box<Schema>,
         /// Optional column indices to use as a projection
         projection: Option<Vec<usize>>,
-        /// The projected schema
+        /// The schema description of the output
         projected_schema: Box<Schema>,
     },
-    /// A table scan against a Parquet data source
+    /// Produces rows by scanning Parquet file(s)
     ParquetScan {
         /// The path to the files
         path: String,
@@ -726,10 +739,10 @@ pub enum LogicalPlan {
         schema: Box<Schema>,
         /// Optional column indices to use as a projection
         projection: Option<Vec<usize>>,
-        /// The projected schema
+        /// The schema description of the output
         projected_schema: Box<Schema>,
     },
-    /// A table scan against a CSV data source
+    /// Produces rows by scanning a CSV file(s)
     CsvScan {
         /// The path to the files
         path: String,
@@ -741,24 +754,24 @@ pub enum LogicalPlan {
         delimiter: Option<u8>,
         /// Optional column indices to use as a projection
         projection: Option<Vec<usize>>,
-        /// The projected schema
+        /// The schema description of the output
         projected_schema: Box<Schema>,
     },
-    /// An empty relation with an empty schema
+    /// Produces no rows: An empty relation with an empty schema
     EmptyRelation {
-        /// The schema description
+        /// The schema description of the output
         schema: Box<Schema>,
     },
-    /// Represents the maximum number of records to return
+    /// Produces the first `n` tuples from its input and discards the rest.
     Limit {
         /// The limit
         n: usize,
         /// The logical plan
         input: Box<LogicalPlan>,
-        /// The schema description
+        /// The schema description of the output
         schema: Box<Schema>,
     },
-    /// Represents a create external table expression.
+    /// Creates an external table.
     CreateExternalTable {
         /// The table schema
         schema: Box<Schema>,

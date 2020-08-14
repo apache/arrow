@@ -444,6 +444,10 @@ dataset___Scanner__ToTable <- function(scanner){
     .Call(`_arrow_dataset___Scanner__ToTable` , scanner)
 }
 
+dataset___Scanner__head <- function(scanner, n){
+    .Call(`_arrow_dataset___Scanner__head` , scanner, n)
+}
+
 dataset___Scanner__Scan <- function(scanner){
     .Call(`_arrow_dataset___Scanner__Scan` , scanner)
 }

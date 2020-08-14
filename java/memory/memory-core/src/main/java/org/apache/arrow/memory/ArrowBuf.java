@@ -163,7 +163,7 @@ public final class ArrowBuf implements AutoCloseable {
    * Returns the byte order of elements in this buffer.
    */
   public ByteOrder order() {
-    return ByteOrder.LITTLE_ENDIAN;
+    return ByteOrder.nativeOrder();
   }
 
   /**
@@ -846,7 +846,7 @@ public final class ArrowBuf implements AutoCloseable {
         src.position(src.position() + length);
       } else {
         final ByteOrder originalByteOrder = src.order();
-        src.order(ByteOrder.LITTLE_ENDIAN);
+        src.order(order());
         try {
           // copy word at a time
           while (length - 128 >= LONG_SIZE) {
