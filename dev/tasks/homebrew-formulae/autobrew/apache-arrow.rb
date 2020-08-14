@@ -58,7 +58,7 @@ class ApacheArrow < Formula
       -DARROW_WITH_UTF8PROC=OFF
       -DARROW_BUILD_UTILITIES=ON
       -DARROW_VERBOSE_THIRDPARTY_BUILD=ON
-      -DCMAKE_UNITY_BUILD=ON
+      -DCMAKE_UNITY_BUILD=OFF
       -DPARQUET_BUILD_EXECUTABLES=ON
       -DAWSSDK_HOME=#{Formula["aws-sdk-cpp"].prefix}
       -DLZ4_HOME=#{Formula["lz4"].prefix}
