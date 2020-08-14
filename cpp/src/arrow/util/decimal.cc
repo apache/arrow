@@ -243,15 +243,15 @@ static void AppendLittleEndianArrayToString(const std::array<uint64_t, n>& array
   char* output = &result->at(old_size);
   const uint32_t* segment = &segments[num_segments - 1];
   internal::StringFormatter<UInt32Type> format;
-  format(*segment, [&output](util::string_view x) {
-    memcpy(output, x.data(), x.size());
-    output += x.size();
+  format(*segment, [&output](util::string_view formatted) {
+    memcpy(output, formatted.data(), formatted.size());
+    output += formatted.size();
   });
   while (segment != segments.data()) {
     --segment;
     output += 9;
-    format(*segment, [output](util::string_view x) {
-      memcpy(output - x.size(), x.data(), x.size());
+    format(*segment, [output](util::string_view formatted) {
+      memcpy(output - formatted.size(), formatted.data(), formatted.size());
     });
   }
   result->resize(output - result->data());
@@ -294,17 +294,11 @@ static void AdjustIntegerStringWithScale(int32_t scale, std::string* str) {
 
   /// Note that the -6 is taken from the Java BigDecimal documentation.
   if (scale < 0 || adjusted_exponent < -6) {
-    // Use stringstream only for printing the exponent integer. It should be short
-    // enough to avoid memory allocations.
-    std::stringstream buf;
-    buf << std::showpos << adjusted_exponent;
-    std::string exponent_str = buf.str();
-    str->reserve(str->size() + 2 + exponent_str.size());
     // Example 1:
     // Precondition: *str = "123", is_negative_offset = 0, num_digits = 3, scale = -2,
     //               adjusted_exponent = 4
     // After inserting decimal point: *str = "1.23"
-    // After appending exponent: *str = "1.23E4"
+    // After appending exponent: *str = "1.23E+4"
     // Example 2:
     // Precondition: *str = "-123", is_negative_offset = 1, num_digits = 3, scale = 9,
     //               adjusted_exponent = -7
@@ -312,7 +306,13 @@ static void AdjustIntegerStringWithScale(int32_t scale, std::string* str) {
     // After appending exponent: *str = "-1.23E-7"
     str->insert(str->begin() + 1 + is_negative_offset, '.');
     str->push_back('E');
-    *str += exponent_str;
+    if (adjusted_exponent >= 0) {
+      str->push_back('+');
+    }
+    internal::StringFormatter<Int32Type> format;
+    format(adjusted_exponent, [str](util::string_view formatted) {
+      str->append(formatted.data(), formatted.size());
+    });
     return;
   }
 
