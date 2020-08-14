@@ -19,12 +19,28 @@
 
 # Apache Arrow Rust Benchmarks
 
-This crate contains benchmarks based on the [New York Taxi and Limousine Commission](https://www1.nyc.gov/site/tlc/about/tlc-trip-record-data.page) data set.
+This crate contains benchmarks based on popular public data sets and open source benchmark suites, making it easy to
+run real-world benchmarks to help with performance and scalability testing and for comparing performance with other Arrow
+implementations as well as other query engines.
 
-Currently, only DataFusion benchmarks exist, but the plan is to add benchmarks for the arrow, flight, and parquet crates as well.
+Currently, only DataFusion benchmarks exist, but the plan is to add benchmarks for the arrow, flight, and parquet 
+crates as well. 
+
+## Benchmark derived from TPC-H
+
+These benchmarks are derived from the [TPC-H](http://www.tpc.org/tpch/) benchmark. Data for this benchmark can be 
+generated using [tpch-dbgen](https://github.com/databricks/tpch-dbgen).
 
 ```bash
-cargo run --release -- --iterations 3 --path /mnt/nyctaxi/csv --format csv --batch-size 4096
+cargo run --release --bin tpch -- --iterations 3 --path /mnt/tpch/csv --format csv --query 1 --batch-size 4096
+```
+
+## NYC Taxi Benchmark
+
+These benchmarks are based on the [New York Taxi and Limousine Commission](https://www1.nyc.gov/site/tlc/about/tlc-trip-record-data.page) data set.
+
+```bash
+cargo run --release --bin nyctaxi -- --iterations 3 --path /mnt/nyctaxi/csv --format csv --batch-size 4096
 ```
 
 Example output:
