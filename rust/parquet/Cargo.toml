@@ -40,7 +40,6 @@ zstd = { version = "0.5", optional = true }
 chrono = "0.4"
 num-bigint = "0.3"
 arrow = { path = "../arrow", version = "2.0.0-SNAPSHOT", optional = true }
-serde_json = { version = "1.0", features = ["preserve_order"] }
 
 [dev-dependencies]
 rand = "0.7"
@@ -50,6 +49,7 @@ flate2 = "1.0"
 lz4 = "1.23"
 zstd = "0.5"
 arrow = { path = "../arrow", version = "2.0.0-SNAPSHOT" }
+serde_json = { version = "1.0", features = ["preserve_order"] }
 
 [features]
 default = ["arrow", "snap", "brotli", "flate2", "lz4", "zstd"]
