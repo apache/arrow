@@ -383,8 +383,16 @@ mod tests {
                     datatypes::DataType::Timestamp(datatypes::TimeUnit::Nanosecond, None),
                     false,
                 ),
-                // datatypes::Field::new("c19", datatypes::DataType::Interval(datatypes::IntervalUnit::DayTime), false),
-                // datatypes::Field::new("c20", datatypes::DataType::Interval(datatypes::IntervalUnit::YearMonth), false),
+                datatypes::Field::new(
+                    "c19",
+                    datatypes::DataType::Interval(datatypes::IntervalUnit::DayTime),
+                    false,
+                ),
+                datatypes::Field::new(
+                    "c20",
+                    datatypes::DataType::Interval(datatypes::IntervalUnit::YearMonth),
+                    false,
+                ),
                 datatypes::Field::new(
                     "c21",
                     datatypes::DataType::List(Box::new(datatypes::DataType::Boolean)),
@@ -398,13 +406,20 @@ mod tests {
                     ),
                     false,
                 ),
-                // datatypes::Field::new(
-                //     "c23",
-                //     datatypes::DataType::List(Box::new(datatypes::DataType::List(Box::new(datatypes::DataType::Struct(
-                //         vec![],
-                //     ))))),
-                //     true,
-                // ),
+                datatypes::Field::new(
+                    "c23",
+                    datatypes::DataType::List(Box::new(datatypes::DataType::List(
+                        Box::new(datatypes::DataType::Struct(vec![
+                            datatypes::Field::new("a", datatypes::DataType::Int16, true),
+                            datatypes::Field::new(
+                                "b",
+                                datatypes::DataType::Float64,
+                                false,
+                            ),
+                        ])),
+                    ))),
+                    true,
+                ),
                 datatypes::Field::new(
                     "c24",
                     datatypes::DataType::Struct(vec![
@@ -413,8 +428,16 @@ mod tests {
                     ]),
                     false,
                 ),
-                // datatypes::Field::new("c25", datatypes::DataType::Interval(datatypes::IntervalUnit::YearMonth), true),
-                // datatypes::Field::new("c26", datatypes::DataType::Interval(datatypes::IntervalUnit::DayTime), true),
+                datatypes::Field::new(
+                    "c25",
+                    datatypes::DataType::Interval(datatypes::IntervalUnit::YearMonth),
+                    true,
+                ),
+                datatypes::Field::new(
+                    "c26",
+                    datatypes::DataType::Interval(datatypes::IntervalUnit::DayTime),
+                    true,
+                ),
                 // datatypes::Field::new("c27", datatypes::DataType::Duration(datatypes::TimeUnit::Second), false),
                 // datatypes::Field::new("c28", datatypes::DataType::Duration(datatypes::TimeUnit::Millisecond), false),
                 // datatypes::Field::new("c29", datatypes::DataType::Duration(datatypes::TimeUnit::Microsecond), false),
@@ -431,13 +454,26 @@ mod tests {
                 // ),
                 datatypes::Field::new("c32", datatypes::DataType::LargeBinary, true),
                 datatypes::Field::new("c33", datatypes::DataType::LargeUtf8, true),
-                // datatypes::Field::new(
-                //     "c34",
-                //     datatypes::DataType::LargeList(Box::new(datatypes::DataType::LargeList(Box::new(
-                //         datatypes::DataType::Struct(vec![]),
-                //     )))),
-                //     true,
-                // ),
+                datatypes::Field::new(
+                    "c34",
+                    datatypes::DataType::LargeList(Box::new(
+                        datatypes::DataType::LargeList(Box::new(
+                            datatypes::DataType::Struct(vec![
+                                datatypes::Field::new(
+                                    "a",
+                                    datatypes::DataType::Int16,
+                                    true,
+                                ),
+                                datatypes::Field::new(
+                                    "b",
+                                    datatypes::DataType::Float64,
+                                    true,
+                                ),
+                            ]),
+                        )),
+                    )),
+                    true,
+                ),
             ],
             metadata,
         );

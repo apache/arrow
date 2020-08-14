@@ -34,16 +34,26 @@ use crate::schema::types::{ColumnDescriptor, SchemaDescriptor, Type, TypePtr};
 use arrow::datatypes::TimeUnit;
 use arrow::datatypes::{DataType, DateUnit, Field, Schema};
 
-/// Convert parquet schema to arrow schema including optional metadata.
+/// Convert Parquet schema to Arrow schema including optional metadata.
+/// Attempts to decode any existing Arrow shcema metadata, falling back
+/// to converting the Parquet schema column-wise
 pub fn parquet_to_arrow_schema(
     parquet_schema: &SchemaDescriptor,
-    metadata: &Option<Vec<KeyValue>>,
+    key_value_metadata: &Option<Vec<KeyValue>>,
 ) -> Result<Schema> {
-    parquet_to_arrow_schema_by_columns(
-        parquet_schema,
-        0..parquet_schema.columns().len(),
-        metadata,
-    )
+    let mut metadata = parse_key_value_metadata(key_value_metadata).unwrap_or_default();
+    let arrow_schema_metadata = metadata
+        .remove(super::ARROW_SCHEMA_META_KEY)
+        .map(|encoded| get_arrow_schema_from_metadata(&encoded));
+
+    match arrow_schema_metadata {
+        Some(Some(schema)) => Ok(schema),
+        _ => parquet_to_arrow_schema_by_columns(
+            parquet_schema,
+            0..parquet_schema.columns().len(),
+            key_value_metadata,
+        ),
+    }
 }
 
 /// Convert parquet schema to arrow schema including optional metadata, only preserving some leaf columns.
@@ -55,42 +65,33 @@ pub fn parquet_to_arrow_schema_by_columns<T>(
 where
     T: IntoIterator<Item = usize>,
 {
-    let mut metadata = parse_key_value_metadata(key_value_metadata).unwrap_or_default();
-    let arrow_schema_metadata = metadata
-        .remove(super::ARROW_SCHEMA_META_KEY)
-        .map(|encoded| get_arrow_schema_from_metadata(&encoded));
+    let mut base_nodes = Vec::new();
+    let mut base_nodes_set = HashSet::new();
+    let mut leaves = HashSet::new();
 
-    match arrow_schema_metadata {
-        Some(Some(schema)) => Ok(schema),
-        _ => {
-            let mut base_nodes = Vec::new();
-            let mut base_nodes_set = HashSet::new();
-            let mut leaves = HashSet::new();
+    for c in column_indices {
+        let column = parquet_schema.column(c).self_type() as *const Type;
+        let root = parquet_schema.get_column_root(c);
+        let root_raw_ptr = root as *const Type;
 
-            for c in column_indices {
-                let column = parquet_schema.column(c).self_type() as *const Type;
-                let root = parquet_schema.get_column_root(c);
-                let root_raw_ptr = root as *const Type;
-
-                leaves.insert(column);
-                if !base_nodes_set.contains(&root_raw_ptr) {
-                    base_nodes.push(root);
-                    base_nodes_set.insert(root_raw_ptr);
-                }
-            }
-            base_nodes
-                .into_iter()
-                .map(|t| ParquetTypeConverter::new(t, &leaves).to_field())
-                .collect::<Result<Vec<Option<Field>>>>()
-                .map(|result| {
-                    result.into_iter().filter_map(|f| f).collect::<Vec<Field>>()
-                })
-                .map(|fields| Schema::new_with_metadata(fields, metadata))
+        leaves.insert(column);
+        if !base_nodes_set.contains(&root_raw_ptr) {
+            base_nodes.push(root);
+            base_nodes_set.insert(root_raw_ptr);
         }
     }
+
+    let metadata = parse_key_value_metadata(key_value_metadata).unwrap_or_default();
+
+    base_nodes
+        .into_iter()
+        .map(|t| ParquetTypeConverter::new(t, &leaves).to_field())
+        .collect::<Result<Vec<Option<Field>>>>()
+        .map(|result| result.into_iter().filter_map(|f| f).collect::<Vec<Field>>())
+        .map(|fields| Schema::new_with_metadata(fields, metadata))
 }
 
-/// Try to convert to Arrow schema
+/// Try to convert Arrow schema metadata into a schema
 fn get_arrow_schema_from_metadata(encoded_meta: &str) -> Option<Schema> {
     let decoded = base64::decode(encoded_meta);
     match decoded {
@@ -252,7 +253,7 @@ fn arrow_to_parquet_type(field: &Field) -> Result<Type> {
             Type::primitive_type_builder(name, PhysicalType::FIXED_LEN_BYTE_ARRAY)
                 .with_logical_type(LogicalType::INTERVAL)
                 .with_repetition(repetition)
-                .with_length(3)
+                .with_length(12)
                 .build()
         }
         DataType::Binary | DataType::LargeBinary => {
@@ -289,6 +290,11 @@ fn arrow_to_parquet_type(field: &Field) -> Result<Type> {
             .with_repetition(Repetition::REQUIRED)
             .build(),
         DataType::Struct(fields) => {
+            if fields.is_empty() {
+                return Err(ArrowError(
+                    "Parquet does not support writing empty structs".to_string(),
+                ));
+            }
             // recursively convert children to types/nodes
             let fields: Result<Vec<TypePtr>> = fields
                 .iter()
@@ -464,9 +470,9 @@ impl ParquetTypeConverter<'_> {
                 ref type_length, ..
             } => *type_length,
             _ => {
-                return Err(ArrowError(format!(
-                    "Expected a physical type, not a group type"
-                )))
+                return Err(ArrowError(
+                    "Expected a physical type, not a group type".to_string(),
+                ))
             }
         };
 
@@ -548,7 +554,7 @@ impl ParquetTypeConverter<'_> {
                 let item_type = match list_item.as_ref() {
                     Type::PrimitiveType { .. } => {
                         if item_converter.is_repeated() {
-                            item_converter.to_primitive_type_inner().map(|dt| Some(dt))
+                            item_converter.to_primitive_type_inner().map(Some)
                         } else {
                             Err(ArrowError(
                                 "Primitive element type of list must be repeated."
@@ -1227,6 +1233,17 @@ mod tests {
             .for_each(|(a, b)| {
                 assert_eq!(a, b);
             });
+    }
+
+    #[test]
+    #[should_panic(expected = "Parquet does not support writing empty structs")]
+    fn test_empty_struct_field() {
+        let arrow_fields = vec![Field::new("struct", DataType::Struct(vec![]), false)];
+        let arrow_schema = Schema::new(arrow_fields);
+        let converted_arrow_schema = arrow_to_parquet_schema(&arrow_schema);
+
+        assert!(converted_arrow_schema.is_err());
+        converted_arrow_schema.unwrap();
     }
 
     #[test]

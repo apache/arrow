@@ -622,7 +622,7 @@ mod tests {
         )
         .unwrap();
 
-        let mut file = get_temp_file("test_arrow_writer.parquet", &[]);
+        let mut file = get_temp_file("test_arrow_writer_binary.parquet", &[]);
         let mut writer =
             ArrowWriter::try_new(file.try_clone().unwrap(), Arc::new(schema), None)
                 .unwrap();
