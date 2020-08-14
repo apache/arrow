@@ -199,6 +199,9 @@ class ARROW_EXPORT BasicDecimal256 {
   /// native-endian byte order.
   explicit BasicDecimal256(const uint8_t* bytes);
 
+  /// \brief Negate the current value (in-place)
+  BasicDecimal256& Negate();
+
   /// \brief Get the bits of the two's complement representation of the number. The 4
   /// elements are in little endian order. The bits within each uint64_t element are in
   /// native endian order. For example,

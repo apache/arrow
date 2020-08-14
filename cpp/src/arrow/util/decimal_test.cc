@@ -1225,4 +1225,16 @@ TEST(Decimal256Test, ConstructibleFromBool) {
   EXPECT_EQ(Decimal256(1), Decimal256(true));
 }
 
+class Decimal256ToStringTest : public ::testing::TestWithParam<ToStringTestParam> {};
+
+TEST_P(Decimal256ToStringTest, ToString) {
+  const ToStringTestParam& data = GetParam();
+  const Decimal256 value(data.test_value);
+  const std::string printed_value = value.ToString(data.scale);
+  ASSERT_EQ(data.expected_string, printed_value);
+}
+
+INSTANTIATE_TEST_SUITE_P(Decimal256ToStringTest, Decimal256ToStringTest,
+                         ::testing::ValuesIn(kToStringTestData));
+
 }  // namespace arrow

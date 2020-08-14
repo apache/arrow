@@ -196,6 +196,13 @@ class ARROW_EXPORT Decimal256 : public BasicDecimal256 {
   /// \brief Empty constructor creates a Decimal256 with a value of 0.
   // This is required on some older compilers.
   constexpr Decimal256() noexcept : BasicDecimal256() {}
+
+  /// \brief Convert the Decimal256 value to a base 10 decimal string with the given
+  /// scale.
+  std::string ToString(int32_t scale) const;
+
+  /// \brief Convert the value to an integer string
+  std::string ToIntegerString() const;
 };
 
 }  // namespace arrow

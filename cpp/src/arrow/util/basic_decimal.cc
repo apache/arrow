@@ -741,6 +741,15 @@ BasicDecimal256::BasicDecimal256(const uint8_t* bytes)
                                    reinterpret_cast<const uint64_t*>(bytes)[0]})) {
 #endif
 
+BasicDecimal256& BasicDecimal256::Negate() {
+  uint64_t carry = 1;
+  for (uint64_t& elem : little_endian_array_) {
+    elem = ~elem + carry;
+    carry &= (elem == 0);
+  }
+  return *this;
+}
+
 std::array<uint8_t, 32> BasicDecimal256::ToBytes() const {
   std::array<uint8_t, 32> out{{0}};
   ToBytes(out.data());

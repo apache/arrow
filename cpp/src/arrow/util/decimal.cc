@@ -625,4 +625,23 @@ std::ostream& operator<<(std::ostream& os, const Decimal128& decimal) {
   return os;
 }
 
+std::string Decimal256::ToIntegerString() const {
+  std::string result;
+  if (static_cast<int64_t>(little_endian_array()[3]) < 0) {
+    result.push_back('-');
+    Decimal256 abs = *this;
+    abs.Negate();
+    AppendLittleEndianArrayToString(abs.little_endian_array(), &result);
+  } else {
+    AppendLittleEndianArrayToString(little_endian_array(), &result);
+  }
+  return result;
+}
+
+std::string Decimal256::ToString(int32_t scale) const {
+  std::string str(ToIntegerString());
+  AdjustIntegerStringWithScale(scale, &str);
+  return str;
+}
+
 }  // namespace arrow
