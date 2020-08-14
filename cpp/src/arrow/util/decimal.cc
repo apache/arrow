@@ -31,6 +31,7 @@
 #include "arrow/status.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/decimal.h"
+#include "arrow/util/formatting.h"
 #include "arrow/util/int_util_internal.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
@@ -194,23 +195,24 @@ double Decimal128::ToDouble(int32_t scale) const {
 template <size_t n>
 static void AppendLittleEndianArrayToString(const std::array<uint64_t, n>& array,
                                             std::string* result) {
-  static_assert(n > 0, "Array size must be positive");
-  size_t most_significant_elem_idx = n - 1;
-  while (array[most_significant_elem_idx] == 0) {
-    if (most_significant_elem_idx == 0) {
-      result->push_back('0');
-      return;
-    }
-    --most_significant_elem_idx;
+  auto most_significat_non_zero =
+      find_if(array.rbegin(), array.rend(), [](uint64_t v) { return v != 0; });
+  if (most_significat_non_zero == array.rend()) {
+    result->push_back('0');
+    return;
   }
 
+  size_t most_significant_elem_idx = &*most_significat_non_zero - array.data();
   std::array<uint64_t, n> copy = array;
   constexpr uint32_t k1e9 = 1000000000U;
-  constexpr size_t num_bits = n * 64;
-  // Each segment holds at most 9 decimal digits.
-  // The number of segments needed = ceil(num_bits * log(2) / log(1e9))
-  // = ceil(num_bits / 29.897352854) <= ceil(num_bits / 29).
-  std::array<uint32_t, (num_bits + 28) / 29> segments;
+  constexpr size_t kNumBits = n * 64;
+  // Segments will contain the array split into groups that map to decimal digits,
+  // in little endian order. Each segment will hold at most 9 decimal digits.
+  // For example, if the input represents 9876543210123456789, then segments will be
+  // [123456789, 876543210, 9].
+  // The max number of segments needed = ceil(kNumBits * log(2) / log(1e9))
+  // = ceil(kNumBits / 29.897352854) <= ceil(kNumBits / 29).
+  std::array<uint32_t, (kNumBits + 28) / 29> segments;
   size_t num_segments = 0;
   uint64_t* most_significant_elem = &copy[most_significant_elem_idx];
   do {
@@ -218,8 +220,11 @@ static void AppendLittleEndianArrayToString(const std::array<uint64_t, n>& array
     uint32_t remainder = 0;
     uint64_t* elem = most_significant_elem;
     do {
+      // Compute dividend = (remainder << 32) | *elem  (a virtual 96-bit integer);
+      // *elem = dividend / 1e9;
+      // remainder = dividend % 1e9.
       uint32_t hi = static_cast<uint32_t>(*elem >> 32);
-      uint32_t lo = static_cast<uint32_t>(*elem & ~uint32_t{0});
+      uint32_t lo = static_cast<uint32_t>(*elem & BitUtil::LeastSignficantBitMask(32));
       uint64_t dividend_hi = (static_cast<uint64_t>(remainder) << 32) | hi;
       uint64_t quotient_hi = dividend_hi / k1e9;
       remainder = static_cast<uint32_t>(dividend_hi % k1e9);
@@ -234,31 +239,22 @@ static void AppendLittleEndianArrayToString(const std::array<uint64_t, n>& array
 
   size_t old_size = result->size();
   size_t new_size = old_size + num_segments * 9;
-  result->resize(new_size);
-  char* output = &result->at(0) + old_size;
+  result->resize(new_size, '0');
+  char* output = &result->at(old_size);
   const uint32_t* segment = &segments[num_segments - 1];
-  size_t num_digits_in_first_segment = 9;
-  uint32_t digits = *segment;
-  for (int j = 8; j >= 0; --j) {
-    output[j] = static_cast<char>(digits % 10) + '0';
-    digits /= 10;
-    if (digits == 0) {  // skip leading zeros for the highest segment
-      num_digits_in_first_segment = 9 - j;
-      memmove(output, output + j, num_digits_in_first_segment);
-      break;
-    }
-  }
-  output += num_digits_in_first_segment;
+  internal::StringFormatter<UInt32Type> format;
+  format(*segment, [&output](util::string_view x) {
+    memcpy(output, x.data(), x.size());
+    output += x.size();
+  });
   while (segment != segments.data()) {
     --segment;
-    digits = *segment;
-    for (int j = 8; j >= 0; --j) {
-      output[j] = static_cast<char>(digits % 10) + '0';
-      digits /= 10;
-    }
     output += 9;
+    format(*segment, [output](util::string_view x) {
+      memcpy(output - x.size(), x.data(), x.size());
+    });
   }
-  result->resize(new_size - (9 - num_digits_in_first_segment));
+  result->resize(output - result->data());
 }
 
 std::string Decimal128::ToIntegerString() const {
@@ -288,7 +284,8 @@ static void AdjustIntegerStringWithScale(int32_t scale, std::string* str) {
   if (scale == 0) {
     return;
   }
-
+  DCHECK(str != nullptr);
+  DCHECK(!str->empty());
   const bool is_negative = str->front() == '-';
   const auto is_negative_offset = static_cast<int32_t>(is_negative);
   const auto len = static_cast<int32_t>(str->size());
@@ -297,6 +294,12 @@ static void AdjustIntegerStringWithScale(int32_t scale, std::string* str) {
 
   /// Note that the -6 is taken from the Java BigDecimal documentation.
   if (scale < 0 || adjusted_exponent < -6) {
+    // Example 1:
+    // Precondition: *str = "123", is_negative_offset = 0, num_digits = 3, scale = -2,
+    // adjusted_exponent = 4 After inserting decimal point: *str = "1.23" After appending
+    // exponent: *str = "1.23E4" Example 2: Precondition: *str = "-123",
+    // is_negative_offset = 1, num_digits = 3, scale = 9, adjusted_exponent = -7 After
+    // inserting decimal point: *str = "-1.23" After appending exponent: *str = "-1.23E-7"
     str->insert(str->begin() + 1 + is_negative_offset, '.');
     str->push_back('E');
     // Use stringstream only for printing the exponent integer. It should be short
@@ -309,10 +312,24 @@ static void AdjustIntegerStringWithScale(int32_t scale, std::string* str) {
 
   if (num_digits > scale) {
     const auto n = static_cast<size_t>(len - scale);
+    // Example 1:
+    // Precondition: *str = "123", len = num_digits = 3, scale = 1, n = 2
+    // After inserting decimal point: *str = "12.3"
+    // Example 2:
+    // Precondition: *str = "-123", len = 4, num_digits = 3, scale = 1, n = 3
+    // After inserting decimal point: *str = "-12.3"
     str->insert(str->begin() + n, '.');
     return;
   }
 
+  // Example 1:
+  // Precondition: *str = "123", is_negative_offset = 0, num_digits = 3, scale = 4
+  // After insert: *str = "000123"
+  // After setting decimal point: *str = "0.0123"
+  // Example 2:
+  // Precondition: *str = "-123", is_negative_offset = 1, num_digits = 3, scale = 4
+  // After insert: *str = "-000123"
+  // After setting decimal point: *str = "-0.0123"
   str->insert(is_negative_offset, scale - num_digits + 2, '0');
   str->at(is_negative_offset + 1) = '.';
 }

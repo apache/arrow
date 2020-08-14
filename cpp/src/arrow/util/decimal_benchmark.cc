@@ -27,31 +27,29 @@ namespace arrow {
 namespace Decimal {
 
 static const std::vector<std::string>& GetValuesAsString() {
-  static const std::vector<std::string>* values =
-      new std::vector<std::string>{"0",
-                                   "1.23",
-                                   "12.345e6",
-                                   "-12.345e-6",
-                                   "123456789.123456789",
-                                   "1231234567890.451234567890"};
-  return *values;
+  static const std::vector<std::string> kValues = {"0",
+                                                   "1.23",
+                                                   "12.345e6",
+                                                   "-12.345e-6",
+                                                   "123456789.123456789",
+                                                   "1231234567890.451234567890"};
+  return kValues;
 }
 
-static std::vector<std::pair<Decimal128, int32_t>> BuildDecimalValuesAndScales() {
+struct DecimalValueAndScale {
+  Decimal128 decimal;
+  int32_t scale;
+};
+
+static std::vector<DecimalValueAndScale> GetDecimalValuesAndScales() {
   const std::vector<std::string>& value_strs = GetValuesAsString();
-  std::vector<std::pair<Decimal128, int32_t>> result(value_strs.size());
+  std::vector<DecimalValueAndScale> result(value_strs.size());
   for (size_t i = 0; i < value_strs.size(); ++i) {
     int32_t precision;
-    Decimal128::FromString(value_strs[i], &result[i].first, &result[i].second,
+    Decimal128::FromString(value_strs[i], &result[i].decimal, &result[i].scale,
                            &precision);
   }
   return result;
-}
-
-static const std::vector<std::pair<Decimal128, int32_t>>& GetDecimalValuesAndScales() {
-  static const auto* values =
-      new std::vector<std::pair<Decimal128, int32_t>>(BuildDecimalValuesAndScales());
-  return *values;
 }
 
 static void FromString(benchmark::State& state) {  // NOLINT non-const reference
@@ -67,10 +65,10 @@ static void FromString(benchmark::State& state) {  // NOLINT non-const reference
 }
 
 static void ToString(benchmark::State& state) {  // NOLINT non-const reference
-  const auto& values = GetDecimalValuesAndScales();
+  static const std::vector<DecimalValueAndScale> values = GetDecimalValuesAndScales();
   for (auto _ : state) {
-    for (const auto& item : values) {
-      benchmark::DoNotOptimize(item.first.ToString(item.second));
+    for (const DecimalValueAndScale& item : values) {
+      benchmark::DoNotOptimize(item.decimal.ToString(item.scale));
     }
   }
   state.SetItemsProcessed(state.iterations() * values.size());
