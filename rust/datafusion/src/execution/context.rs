@@ -28,8 +28,6 @@ use arrow::csv;
 use arrow::datatypes::*;
 use arrow::record_batch::RecordBatch;
 
-use sqlparser::dialect::GenericDialect;
-
 use crate::datasource::csv::CsvFile;
 use crate::datasource::parquet::ParquetTable;
 use crate::datasource::TableProvider;

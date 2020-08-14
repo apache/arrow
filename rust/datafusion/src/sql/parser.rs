@@ -21,7 +21,7 @@
 
 use sqlparser::{
     ast::{ColumnDef, Statement as SQLStatement, TableConstraint},
-    dialect::{keywords::Keyword, Dialect},
+    dialect::{keywords::Keyword, Dialect, GenericDialect},
     parser::{Parser, ParserError},
     tokenizer::{Token, Tokenizer},
 };
@@ -296,8 +296,7 @@ mod tests {
 
     /// Parses sql and asserts that the expected error message was found
     fn expect_parse_error(sql: &str, expected_error: &str) -> Result<(), ParserError> {
-        let dialect = &GenericDialect {};
-        match DFParser::parse_sql(sql, dialect) {
+        match DFParser::parse_sql(sql) {
             Ok(statements) => {
                 assert!(
                     false,

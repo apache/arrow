@@ -556,7 +556,6 @@ mod tests {
     use super::*;
     use crate::logicalplan::FunctionType;
     use crate::sql::parser::DFParser;
-    use sqlparser::dialect::GenericDialect;
 
     #[test]
     fn select_no_relation() {
