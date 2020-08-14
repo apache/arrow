@@ -41,9 +41,11 @@ jobs:
         ARROW_CI_MODULES: "CPP"
         DOCKER_IMAGE_ID: ubuntu-cpp
         DOCKER_RUN_ARGS: >-
+          "
           -e ARROW_BUILD_STATIC=OFF
           -e ARROW_ORC=OFF
           -e CMAKE_UNITY_BUILD=ON
+          "
         UBUNTU: "20.04"
 
     - name: "C++ on s390x"
@@ -55,6 +57,7 @@ jobs:
         DOCKER_IMAGE_ID: ubuntu-cpp
         # CMAKE_UNITIFY_BUILD=OFF is for avoiding compiler crash
         DOCKER_RUN_ARGS: >-
+          "
           -e ARROW_BUILD_STATIC=OFF
           -e ARROW_FLIGHT=ON
           -e ARROW_PARQUET=OFF
@@ -64,6 +67,7 @@ jobs:
           -e Protobuf_SOURCE=BUNDLED
           -e cares_SOURCE=BUNDLED
           -e gRPC_SOURCE=BUNDLED
+          "
         UBUNTU: "20.04"
 
     - name: "Go on s390x"
