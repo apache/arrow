@@ -294,19 +294,25 @@ static void AdjustIntegerStringWithScale(int32_t scale, std::string* str) {
 
   /// Note that the -6 is taken from the Java BigDecimal documentation.
   if (scale < 0 || adjusted_exponent < -6) {
-    // Example 1:
-    // Precondition: *str = "123", is_negative_offset = 0, num_digits = 3, scale = -2,
-    // adjusted_exponent = 4 After inserting decimal point: *str = "1.23" After appending
-    // exponent: *str = "1.23E4" Example 2: Precondition: *str = "-123",
-    // is_negative_offset = 1, num_digits = 3, scale = 9, adjusted_exponent = -7 After
-    // inserting decimal point: *str = "-1.23" After appending exponent: *str = "-1.23E-7"
-    str->insert(str->begin() + 1 + is_negative_offset, '.');
-    str->push_back('E');
     // Use stringstream only for printing the exponent integer. It should be short
     // enough to avoid memory allocations.
     std::stringstream buf;
     buf << std::showpos << adjusted_exponent;
-    *str += buf.str();
+    std::string exponent_str = buf.str();
+    str->reserve(str->size() + 2 + exponent_str.size());
+    // Example 1:
+    // Precondition: *str = "123", is_negative_offset = 0, num_digits = 3, scale = -2,
+    //               adjusted_exponent = 4
+    // After inserting decimal point: *str = "1.23"
+    // After appending exponent: *str = "1.23E4"
+    // Example 2:
+    // Precondition: *str = "-123", is_negative_offset = 1, num_digits = 3, scale = 9,
+    //               adjusted_exponent = -7
+    // After inserting decimal point: *str = "-1.23"
+    // After appending exponent: *str = "-1.23E-7"
+    str->insert(str->begin() + 1 + is_negative_offset, '.');
+    str->push_back('E');
+    *str += exponent_str;
     return;
   }
 
