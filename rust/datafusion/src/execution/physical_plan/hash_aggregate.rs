@@ -150,7 +150,6 @@ impl HashAggregatePartition {
 
 impl Partition for HashAggregatePartition {
     fn execute(&self) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
-        println!("HashAggregatePartition::execute()");
         if self.group_expr.is_empty() {
             Ok(Arc::new(Mutex::new(HashAggregateIterator::new(
                 self.schema.clone(),
