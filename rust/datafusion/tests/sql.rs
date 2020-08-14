@@ -441,7 +441,7 @@ fn csv_explain() {
     let expected = "\"logical_plan\"\t\"Projection: #c1\\n  Selection: #c2 Gt Int64(10)\\n    TableScan: aggregate_test_100 projection=None\"".to_string();
     assert_eq!(expected, actual);
 
-    // Also, expect same result with case explain
+    // Also, expect same result with lowercase explain
     let sql = "explain SELECT c1 FROM aggregate_test_100 where c2 > 10";
     let actual = execute(&mut ctx, sql).join("\n");
     assert_eq!(expected, actual);
