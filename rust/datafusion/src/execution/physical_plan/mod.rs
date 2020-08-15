@@ -25,8 +25,12 @@ use std::sync::{Arc, Mutex};
 use crate::error::Result;
 use crate::logicalplan::ScalarValue;
 use arrow::array::ArrayRef;
-use arrow::datatypes::{DataType, Schema, SchemaRef};
-use arrow::record_batch::{RecordBatch, RecordBatchReader};
+use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
+use arrow::{
+    compute::kernels::length::length,
+    record_batch::{RecordBatch, RecordBatchReader},
+};
+use udf::ScalarFunction;
 
 /// Partition-aware execution plan for a relation
 pub trait ExecutionPlan: Debug {
@@ -75,6 +79,18 @@ pub trait Accumulator: Debug {
     fn accumulate_batch(&mut self, array: &ArrayRef) -> Result<()>;
     /// Get the final value for the accumulator
     fn get_value(&self) -> Result<Option<ScalarValue>>;
+}
+
+/// Vector of scalar functions declared in this module
+pub fn scalar_functions() -> Vec<ScalarFunction> {
+    let mut udfs = vec![ScalarFunction::new(
+        "length",
+        vec![Field::new("n", DataType::Utf8, true)],
+        DataType::UInt32,
+        Arc::new(|args: &[ArrayRef]| Ok(Arc::new(length(args[0].as_ref())?))),
+    )];
+    udfs.append(&mut math_expressions::scalar_functions());
+    udfs
 }
 
 pub mod common;

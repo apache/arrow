@@ -18,7 +18,6 @@
 //! Math expressions
 
 use crate::error::ExecutionError;
-use crate::execution::context::ExecutionContext;
 use crate::execution::physical_plan::udf::ScalarFunction;
 
 use arrow::array::{Array, ArrayRef, Float64Array, Float64Builder};
@@ -56,32 +55,37 @@ macro_rules! math_unary_function {
     };
 }
 
-/// Register math scalar functions with the context
-pub fn register_math_functions(ctx: &mut ExecutionContext) {
-    ctx.register_udf(math_unary_function!("sqrt", sqrt));
-    ctx.register_udf(math_unary_function!("sin", sin));
-    ctx.register_udf(math_unary_function!("cos", cos));
-    ctx.register_udf(math_unary_function!("tan", tan));
-    ctx.register_udf(math_unary_function!("asin", asin));
-    ctx.register_udf(math_unary_function!("acos", acos));
-    ctx.register_udf(math_unary_function!("atan", atan));
-    ctx.register_udf(math_unary_function!("floor", floor));
-    ctx.register_udf(math_unary_function!("ceil", ceil));
-    ctx.register_udf(math_unary_function!("round", round));
-    ctx.register_udf(math_unary_function!("trunc", trunc));
-    ctx.register_udf(math_unary_function!("abs", abs));
-    ctx.register_udf(math_unary_function!("signum", signum));
-    ctx.register_udf(math_unary_function!("exp", exp));
-    ctx.register_udf(math_unary_function!("log", ln));
-    ctx.register_udf(math_unary_function!("log2", log2));
-    ctx.register_udf(math_unary_function!("log10", log10));
+/// vector of math scalar functions
+pub fn scalar_functions() -> Vec<ScalarFunction> {
+    vec![
+        math_unary_function!("sqrt", sqrt),
+        math_unary_function!("sin", sin),
+        math_unary_function!("cos", cos),
+        math_unary_function!("tan", tan),
+        math_unary_function!("asin", asin),
+        math_unary_function!("acos", acos),
+        math_unary_function!("atan", atan),
+        math_unary_function!("floor", floor),
+        math_unary_function!("ceil", ceil),
+        math_unary_function!("round", round),
+        math_unary_function!("trunc", trunc),
+        math_unary_function!("abs", abs),
+        math_unary_function!("signum", signum),
+        math_unary_function!("exp", exp),
+        math_unary_function!("log", ln),
+        math_unary_function!("log2", log2),
+        math_unary_function!("log10", log10),
+    ]
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::error::Result;
-    use crate::logicalplan::{col, sqrt, LogicalPlanBuilder};
+    use crate::{
+        execution::context::ExecutionContext,
+        logicalplan::{col, sqrt, LogicalPlanBuilder},
+    };
     use arrow::datatypes::Schema;
 
     #[test]

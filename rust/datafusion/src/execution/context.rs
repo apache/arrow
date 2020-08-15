@@ -26,9 +26,7 @@ use std::thread::{self, JoinHandle};
 
 use arrow::csv;
 use arrow::datatypes::*;
-use arrow::{
-    array::ArrayRef, compute::kernels::length::length, record_batch::RecordBatch,
-};
+use arrow::record_batch::RecordBatch;
 
 use crate::datasource::csv::CsvFile;
 use crate::datasource::parquet::ParquetTable;
@@ -43,11 +41,11 @@ use crate::execution::physical_plan::expressions::{
 };
 use crate::execution::physical_plan::hash_aggregate::HashAggregateExec;
 use crate::execution::physical_plan::limit::GlobalLimitExec;
-use crate::execution::physical_plan::math_expressions::register_math_functions;
 use crate::execution::physical_plan::memory::MemoryExec;
 use crate::execution::physical_plan::merge::MergeExec;
 use crate::execution::physical_plan::parquet::ParquetExec;
 use crate::execution::physical_plan::projection::ProjectionExec;
+use crate::execution::physical_plan::scalar_functions;
 use crate::execution::physical_plan::selection::SelectionExec;
 use crate::execution::physical_plan::sort::{SortExec, SortOptions};
 use crate::execution::physical_plan::udf::{ScalarFunction, ScalarFunctionExpr};
@@ -119,13 +117,9 @@ impl ExecutionContext {
             scalar_functions: HashMap::new(),
             config,
         };
-        register_math_functions(&mut ctx);
-        ctx.register_udf(ScalarFunction::new(
-            "length",
-            vec![Field::new("n", DataType::Utf8, true)],
-            DataType::UInt32,
-            Arc::new(|args: &[ArrayRef]| Ok(Arc::new(length(args[0].as_ref())?))),
-        ));
+        for udf in scalar_functions() {
+            ctx.register_udf(udf);
+        }
         ctx
     }
 
