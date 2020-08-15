@@ -354,7 +354,6 @@ Result<std::string> PyTZInfo_utcoffset_hhmm(PyObject* pytzinfo) {
   return stream.str();
 }
 
-// GIL must be held when calling this function.
 // Converted from python.  See https://github.com/apache/arrow/pull/7604
 // for details.
 Result<PyObject*> StringToTzinfo(const std::string& tz) {

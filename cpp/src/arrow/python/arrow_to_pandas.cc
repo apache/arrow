@@ -648,6 +648,7 @@ inline Status ConvertStruct(const PandasOptions& options, const ChunkedArray& da
   // units second through microsecond but PyLong for nanosecond (because
   // datetime.datetime does not support nanoseconds).
   // We force the object conversion to preserve the value of the timezone.
+  // Nanoseconds are returned integers inside of structs.
   PandasOptions modified_options = options;
   modified_options.coerce_temporal_nanoseconds = false;
 
