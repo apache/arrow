@@ -399,7 +399,7 @@ test_glib() {
   export GI_TYPELIB_PATH=$ARROW_HOME/lib/girepository-1.0:$GI_TYPELIB_PATH
 
   if ! bundle --version; then
-    gem install bundler
+    gem install --no-document bundler
   fi
 
   bundle install --path vendor/bundle
