@@ -268,7 +268,7 @@ impl RecordBatchReader for GroupedHashAggregateIterator {
                 .aggr_expr
                 .iter()
                 .map(|expr| {
-                    expr.evaluate_input(&batch)
+                    expr.evaluate(&batch)
                         .map_err(ExecutionError::into_arrow_external_error)
                 })
                 .collect::<ArrowResult<Vec<_>>>()?;
@@ -433,7 +433,7 @@ impl RecordBatchReader for HashAggregateIterator {
                 .aggr_expr
                 .iter()
                 .map(|expr| {
-                    expr.evaluate_input(&batch)
+                    expr.evaluate(&batch)
                         .map_err(ExecutionError::into_arrow_external_error)
                 })
                 .collect::<ArrowResult<Vec<_>>>()?;

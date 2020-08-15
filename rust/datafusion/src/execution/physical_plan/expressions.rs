@@ -24,7 +24,9 @@ use std::sync::Arc;
 
 use crate::error::{ExecutionError, Result};
 use crate::execution::physical_plan::common::get_scalar_value;
-use crate::execution::physical_plan::{Accumulator, AggregateExpr, PhysicalExpr};
+use crate::execution::physical_plan::{
+    Accumulator, Aggregate, AggregateExpr, PhysicalExpr,
+};
 use crate::logicalplan::{Operator, ScalarValue};
 use arrow::array::{
     ArrayRef, BooleanArray, Float32Array, Float64Array, Int16Array, Int32Array,
@@ -107,7 +109,7 @@ impl Sum {
     }
 }
 
-impl AggregateExpr for Sum {
+impl PhysicalExpr for Sum {
     fn data_type(&self, input_schema: &Schema) -> Result<DataType> {
         match self.expr.data_type(input_schema)? {
             DataType::Int8 | DataType::Int16 | DataType::Int32 | DataType::Int64 => {
@@ -125,10 +127,22 @@ impl AggregateExpr for Sum {
         }
     }
 
-    fn evaluate_input(&self, batch: &RecordBatch) -> Result<ArrayRef> {
-        self.expr.evaluate(batch)
+    fn nullable(&self, _input_schema: &Schema) -> Result<bool> {
+        Ok(false)
     }
 
+    fn evaluate(&self, batch: &RecordBatch) -> Result<ArrayRef> {
+        self.expr.evaluate(batch)
+    }
+}
+
+impl fmt::Display for Sum {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "SUM({})", self.expr)
+    }
+}
+
+impl Aggregate for Sum {
     fn create_accumulator(&self) -> Rc<RefCell<dyn Accumulator>> {
         Rc::new(RefCell::new(SumAccumulator { sum: None }))
     }
@@ -301,7 +315,7 @@ impl Avg {
     }
 }
 
-impl AggregateExpr for Avg {
+impl PhysicalExpr for Avg {
     fn data_type(&self, input_schema: &Schema) -> Result<DataType> {
         match self.expr.data_type(input_schema)? {
             DataType::Int8
@@ -321,10 +335,22 @@ impl AggregateExpr for Avg {
         }
     }
 
-    fn evaluate_input(&self, batch: &RecordBatch) -> Result<ArrayRef> {
-        self.expr.evaluate(batch)
+    fn nullable(&self, _input_schema: &Schema) -> Result<bool> {
+        Ok(false)
     }
 
+    fn evaluate(&self, batch: &RecordBatch) -> Result<ArrayRef> {
+        self.expr.evaluate(batch)
+    }
+}
+
+impl fmt::Display for Avg {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "AVG({})", self.expr)
+    }
+}
+
+impl Aggregate for Avg {
     fn create_accumulator(&self) -> Rc<RefCell<dyn Accumulator>> {
         Rc::new(RefCell::new(AvgAccumulator {
             sum: None,
@@ -417,15 +443,27 @@ impl Max {
     }
 }
 
-impl AggregateExpr for Max {
+impl PhysicalExpr for Max {
     fn data_type(&self, input_schema: &Schema) -> Result<DataType> {
         self.expr.data_type(input_schema)
     }
 
-    fn evaluate_input(&self, batch: &RecordBatch) -> Result<ArrayRef> {
-        self.expr.evaluate(batch)
+    fn nullable(&self, _input_schema: &Schema) -> Result<bool> {
+        Ok(false)
     }
 
+    fn evaluate(&self, batch: &RecordBatch) -> Result<ArrayRef> {
+        self.expr.evaluate(batch)
+    }
+}
+
+impl fmt::Display for Max {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "MAX({})", self.expr)
+    }
+}
+
+impl Aggregate for Max {
     fn create_accumulator(&self) -> Rc<RefCell<dyn Accumulator>> {
         Rc::new(RefCell::new(MaxAccumulator { max: None }))
     }
@@ -601,15 +639,27 @@ impl Min {
     }
 }
 
-impl AggregateExpr for Min {
+impl PhysicalExpr for Min {
     fn data_type(&self, input_schema: &Schema) -> Result<DataType> {
         self.expr.data_type(input_schema)
     }
 
-    fn evaluate_input(&self, batch: &RecordBatch) -> Result<ArrayRef> {
-        self.expr.evaluate(batch)
+    fn nullable(&self, _input_schema: &Schema) -> Result<bool> {
+        Ok(false)
     }
 
+    fn evaluate(&self, batch: &RecordBatch) -> Result<ArrayRef> {
+        self.expr.evaluate(batch)
+    }
+}
+
+impl fmt::Display for Min {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "MIN({})", self.expr)
+    }
+}
+
+impl Aggregate for Min {
     fn create_accumulator(&self) -> Rc<RefCell<dyn Accumulator>> {
         Rc::new(RefCell::new(MinAccumulator { min: None }))
     }
@@ -786,15 +836,27 @@ impl Count {
     }
 }
 
-impl AggregateExpr for Count {
+impl PhysicalExpr for Count {
     fn data_type(&self, _input_schema: &Schema) -> Result<DataType> {
         Ok(DataType::UInt64)
     }
 
-    fn evaluate_input(&self, batch: &RecordBatch) -> Result<ArrayRef> {
-        self.expr.evaluate(batch)
+    fn nullable(&self, _input_schema: &Schema) -> Result<bool> {
+        Ok(false)
     }
 
+    fn evaluate(&self, batch: &RecordBatch) -> Result<ArrayRef> {
+        self.expr.evaluate(batch)
+    }
+}
+
+impl fmt::Display for Count {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "COUNT({})", self.expr)
+    }
+}
+
+impl Aggregate for Count {
     fn create_accumulator(&self) -> Rc<RefCell<dyn Accumulator>> {
         Rc::new(RefCell::new(CountAccumulator { count: 0 }))
     }
@@ -1828,7 +1890,7 @@ mod tests {
     fn do_sum(batch: &RecordBatch) -> Result<Option<ScalarValue>> {
         let sum = sum(col("a"));
         let accum = sum.create_accumulator();
-        let input = sum.evaluate_input(batch)?;
+        let input = sum.evaluate(batch)?;
         let mut accum = accum.borrow_mut();
         for i in 0..batch.num_rows() {
             accum.accumulate_scalar(get_scalar_value(&input, i)?)?;
@@ -1839,7 +1901,7 @@ mod tests {
     fn do_max(batch: &RecordBatch) -> Result<Option<ScalarValue>> {
         let max = max(col("a"));
         let accum = max.create_accumulator();
-        let input = max.evaluate_input(batch)?;
+        let input = max.evaluate(batch)?;
         let mut accum = accum.borrow_mut();
         for i in 0..batch.num_rows() {
             accum.accumulate_scalar(get_scalar_value(&input, i)?)?;
@@ -1850,7 +1912,7 @@ mod tests {
     fn do_min(batch: &RecordBatch) -> Result<Option<ScalarValue>> {
         let min = min(col("a"));
         let accum = min.create_accumulator();
-        let input = min.evaluate_input(batch)?;
+        let input = min.evaluate(batch)?;
         let mut accum = accum.borrow_mut();
         for i in 0..batch.num_rows() {
             accum.accumulate_scalar(get_scalar_value(&input, i)?)?;
@@ -1861,7 +1923,7 @@ mod tests {
     fn do_count(batch: &RecordBatch) -> Result<Option<ScalarValue>> {
         let count = count(col("a"));
         let accum = count.create_accumulator();
-        let input = count.evaluate_input(batch)?;
+        let input = count.evaluate(batch)?;
         let mut accum = accum.borrow_mut();
         for i in 0..batch.num_rows() {
             accum.accumulate_scalar(get_scalar_value(&input, i)?)?;
@@ -1872,7 +1934,7 @@ mod tests {
     fn do_avg(batch: &RecordBatch) -> Result<Option<ScalarValue>> {
         let avg = avg(col("a"));
         let accum = avg.create_accumulator();
-        let input = avg.evaluate_input(batch)?;
+        let input = avg.evaluate(batch)?;
         let mut accum = accum.borrow_mut();
         for i in 0..batch.num_rows() {
             accum.accumulate_scalar(get_scalar_value(&input, i)?)?;

@@ -68,12 +68,8 @@ pub trait PhysicalExpr: Send + Sync + Display + Debug {
     fn evaluate(&self, batch: &RecordBatch) -> Result<ArrayRef>;
 }
 
-/// Aggregate expression that can be evaluated against a RecordBatch
-pub trait AggregateExpr: Send + Sync + Debug {
-    /// Get the data type of this expression, given the schema of the input
-    fn data_type(&self, input_schema: &Schema) -> Result<DataType>;
-    /// Evaluate the expression being aggregated
-    fn evaluate_input(&self, batch: &RecordBatch) -> Result<ArrayRef>;
+/// Aggregate knows how to accumulate arrays
+pub trait Aggregate: Send + Sync + Debug {
     /// Create an accumulator for this aggregate expression
     fn create_accumulator(&self) -> Rc<RefCell<dyn Accumulator>>;
     /// Create an aggregate expression for combining the results of accumulators from partitions.
@@ -81,6 +77,10 @@ pub trait AggregateExpr: Send + Sync + Debug {
     /// to combine the results of parallel COUNT we would also use SUM.
     fn create_reducer(&self, column_name: &str) -> Arc<dyn AggregateExpr>;
 }
+
+/// Aggregate expression that can be evaluated against a RecordBatch
+pub trait AggregateExpr: PhysicalExpr + Aggregate {}
+impl<T: PhysicalExpr + Aggregate> AggregateExpr for T {}
 
 /// Aggregate accumulator
 pub trait Accumulator: Debug {
