@@ -698,7 +698,7 @@ mod tests {
 
     use super::*;
     use crate::execution::physical_plan::csv::{CsvExec, CsvReadOptions};
-    use crate::execution::physical_plan::expressions::{col, sum};
+    use crate::execution::physical_plan::expressions::{col, physical_sum};
     use crate::execution::physical_plan::merge::MergeExec;
     use crate::test;
 
@@ -716,7 +716,7 @@ mod tests {
             vec![(col("c2"), "c2".to_string())];
 
         let aggregates: Vec<(Arc<dyn AggregateExpr>, String)> =
-            vec![(sum(col("c4")), "SUM(c4)".to_string())];
+            vec![(physical_sum(col("c4")), "SUM(c4)".to_string())];
 
         let partition_aggregate = HashAggregateExec::try_new(
             groups.clone(),

@@ -94,27 +94,27 @@ impl DataFrame for DataFrameImpl {
 
     /// Create an expression to represent the min() aggregate function
     fn min(&self, expr: Expr) -> Result<Expr> {
-        self.aggregate_expr("MIN", expr)
+        self.aggregate_expr("min", expr)
     }
 
     /// Create an expression to represent the max() aggregate function
     fn max(&self, expr: Expr) -> Result<Expr> {
-        self.aggregate_expr("MAX", expr)
+        self.aggregate_expr("max", expr)
     }
 
     /// Create an expression to represent the sum() aggregate function
     fn sum(&self, expr: Expr) -> Result<Expr> {
-        self.aggregate_expr("SUM", expr)
+        self.aggregate_expr("sum", expr)
     }
 
     /// Create an expression to represent the avg() aggregate function
     fn avg(&self, expr: Expr) -> Result<Expr> {
-        self.aggregate_expr("AVG", expr)
+        self.aggregate_expr("avg", expr)
     }
 
     /// Create an expression to represent the count() aggregate function
     fn count(&self, expr: Expr) -> Result<Expr> {
-        self.aggregate_expr("COUNT", expr)
+        self.aggregate_expr("count", expr)
     }
 
     /// Convert to logical plan
@@ -218,7 +218,7 @@ mod tests {
         let plan = t2.to_logical_plan();
 
         // build same plan using SQL API
-        let sql = "SELECT c1, MIN(c12), MAX(c12), AVG(c12), SUM(c12), COUNT(c12) \
+        let sql = "SELECT c1, min(c12), max(c12), avg(c12), sum(c12), count(c12) \
                    FROM aggregate_test_100 \
                    GROUP BY c1";
         let sql_plan = create_plan(sql)?;

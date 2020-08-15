@@ -22,8 +22,8 @@ use std::sync::Arc;
 use crate::error::{ExecutionError, Result};
 use crate::logicalplan::Expr::Alias;
 use crate::logicalplan::{
-    lit, Expr, FunctionMeta, LogicalPlan, LogicalPlanBuilder, Operator, PlanType,
-    ScalarValue, StringifiedPlan,
+    lit, Expr, FunctionMeta, FunctionType, LogicalPlan, LogicalPlanBuilder, Operator,
+    PlanType, ScalarValue, StringifiedPlan,
 };
 use crate::sql::parser::{CreateExternalTable, FileType, Statement as DFStatement};
 
@@ -44,6 +44,8 @@ pub trait SchemaProvider {
     fn get_table_meta(&self, name: &str) -> Option<SchemaRef>;
     /// Getter for a UDF description
     fn get_function_meta(&self, name: &str) -> Option<Arc<FunctionMeta>>;
+    /// Getter list of valid udfs
+    fn functions(&self) -> Vec<String>;
 }
 
 /// SQL query planner
@@ -476,76 +478,50 @@ impl<S: SchemaProvider> SqlToRel<S> {
             }
 
             SQLExpr::Function(function) => {
-                //TODO: fix this hack
-                let name: String = function.name.to_string();
-                match name.to_lowercase().as_ref() {
-                    "min" | "max" | "sum" | "avg" => {
-                        let rex_args = function
-                            .args
-                            .iter()
-                            .map(|a| self.sql_to_rex(a, schema))
-                            .collect::<Result<Vec<Expr>>>()?;
+                // make the search case-insensitive
+                let name: String = function.name.to_string().to_lowercase();
 
-                        // return type is same as the argument type for these aggregate
-                        // functions
-                        let return_type = rex_args[0].get_type(schema)?.clone();
-
-                        Ok(Expr::AggregateFunction {
-                            name: name.clone(),
-                            args: rex_args,
-                            return_type,
-                        })
-                    }
-                    "count" => {
-                        let rex_args = function
-                            .args
-                            .iter()
-                            .map(|a| match a {
-                                SQLExpr::Value(Value::Number(_)) => Ok(lit(1_u8)),
-                                SQLExpr::Wildcard => Ok(lit(1_u8)),
-                                _ => self.sql_to_rex(a, schema),
-                            })
-                            .collect::<Result<Vec<Expr>>>()?;
-
-                        Ok(Expr::AggregateFunction {
-                            name: name.clone(),
-                            args: rex_args,
-                            return_type: DataType::UInt64,
-                        })
-                    }
-                    _ => match self.schema_provider.get_function_meta(&name) {
-                        Some(fm) => {
-                            let args = function
+                match self.schema_provider.get_function_meta(&name) {
+                    Some(fm) => {
+                        let args = if name == "count" {
+                            // optimization to avoid computing expressions
+                            function
+                                .args
+                                .iter()
+                                .map(|a| match a {
+                                    SQLExpr::Value(Value::Number(_)) => Ok(lit(1_u8)),
+                                    SQLExpr::Wildcard => Ok(lit(1_u8)),
+                                    _ => self.sql_to_rex(a, schema),
+                                })
+                                .collect::<Result<Vec<Expr>>>()?
+                        } else {
+                            function
                                 .args
                                 .iter()
                                 .map(|a| self.sql_to_rex(a, schema))
-                                .collect::<Result<Vec<Expr>>>()?;
-                            let expected_args = match fm.arg_types().len() {
-                                0 => 0,
-                                _ => fm.arg_types()[0].len(),
-                            };
-                            let current_args = args.len();
+                                .collect::<Result<Vec<Expr>>>()?
+                        };
 
-                            if current_args != expected_args {
-                                return Err(ExecutionError::General(
-                                    format!("The function '{}' expects {} arguments, but {} were passed",
-                                    name,
-                                    expected_args,
-                                    current_args,
-                                )));
-                            }
+                        //let args = coerse_expr(&args, &fm, &schema)?;
 
-                            Ok(Expr::ScalarFunction {
+                        match fm.function_type() {
+                            FunctionType::Scalar => Ok(Expr::ScalarFunction {
                                 name: name.clone(),
                                 args,
                                 return_type: fm.return_type().clone(),
-                            })
+                            }),
+                            FunctionType::Aggregate => Ok(Expr::AggregateFunction {
+                                name: name.clone(),
+                                args,
+                                return_type: fm.return_type().clone(),
+                            }),
                         }
-                        _ => Err(ExecutionError::General(format!(
-                            "Invalid function '{}'",
-                            name
-                        ))),
-                    },
+                    }
+                    _ => Err(ExecutionError::General(format!(
+                        "Invalid function '{}'. Valid functions: {:?}",
+                        name,
+                        self.schema_provider.functions(),
+                    ))),
                 }
             }
 
@@ -691,7 +667,7 @@ mod tests {
     fn select_simple_aggregate() {
         quick_test(
             "SELECT MIN(age) FROM person",
-            "Aggregate: groupBy=[[]], aggr=[[MIN(#age)]]\
+            "Aggregate: groupBy=[[]], aggr=[[min(#age)]]\
              \n  TableScan: person projection=None",
         );
     }
@@ -700,7 +676,7 @@ mod tests {
     fn test_sum_aggregate() {
         quick_test(
             "SELECT SUM(age) from person",
-            "Aggregate: groupBy=[[]], aggr=[[SUM(#age)]]\
+            "Aggregate: groupBy=[[]], aggr=[[sum(#age)]]\
              \n  TableScan: person projection=None",
         );
     }
@@ -709,7 +685,7 @@ mod tests {
     fn select_simple_aggregate_with_groupby() {
         quick_test(
             "SELECT state, MIN(age), MAX(age) FROM person GROUP BY state",
-            "Aggregate: groupBy=[[#state]], aggr=[[MIN(#age), MAX(#age)]]\
+            "Aggregate: groupBy=[[#state]], aggr=[[min(#age), max(#age)]]\
              \n  TableScan: person projection=None",
         );
     }
@@ -726,7 +702,7 @@ mod tests {
     #[test]
     fn select_count_one() {
         let sql = "SELECT COUNT(1) FROM person";
-        let expected = "Aggregate: groupBy=[[]], aggr=[[COUNT(UInt8(1))]]\
+        let expected = "Aggregate: groupBy=[[]], aggr=[[count(UInt8(1))]]\
                         \n  TableScan: person projection=None";
         quick_test(sql, expected);
     }
@@ -734,7 +710,7 @@ mod tests {
     #[test]
     fn select_count_column() {
         let sql = "SELECT COUNT(id) FROM person";
-        let expected = "Aggregate: groupBy=[[]], aggr=[[COUNT(#id)]]\
+        let expected = "Aggregate: groupBy=[[]], aggr=[[count(#id)]]\
                         \n  TableScan: person projection=None";
         quick_test(sql, expected);
     }
@@ -803,8 +779,8 @@ mod tests {
     fn select_group_by_needs_projection() {
         let sql = "SELECT COUNT(state), state FROM person GROUP BY state";
         let expected = "\
-        Projection: #COUNT(state), #state\
-        \n  Aggregate: groupBy=[[#state]], aggr=[[COUNT(#state)]]\
+        Projection: #count(state), #state\
+        \n  Aggregate: groupBy=[[#state]], aggr=[[count(#state)]]\
         \n    TableScan: person projection=None";
 
         quick_test(sql, expected);
@@ -915,15 +891,43 @@ mod tests {
         }
 
         fn get_function_meta(&self, name: &str) -> Option<Arc<FunctionMeta>> {
-            match name {
-                "sqrt" => Some(Arc::new(FunctionMeta::new(
-                    "sqrt".to_string(),
-                    vec![vec![DataType::Float64]],
+            let fnc_type = if name == "sqrt" {
+                FunctionType::Scalar
+            } else {
+                FunctionType::Aggregate
+            };
+            let valid_types = if name == "sqrt" {
+                vec![DataType::Float64]
+            } else {
+                vec![
+                    DataType::UInt8,
+                    DataType::UInt32,
+                    DataType::Int64,
+                    DataType::Int32,
                     DataType::Float64,
-                    FunctionType::Scalar,
-                ))),
+                    DataType::Utf8,
+                ]
+            };
+
+            let fm = Arc::new(FunctionMeta::new(
+                name.to_string(),
+                vec![valid_types],
+                DataType::Float64,
+                fnc_type,
+            ));
+
+            match name {
+                "sqrt" => Some(fm),
+                "min" => Some(fm),
+                "max" => Some(fm),
+                "sum" => Some(fm),
+                "count" => Some(fm),
                 _ => None,
             }
+        }
+
+        fn functions(&self) -> Vec<String> {
+            vec!["sqrt".to_string()]
         }
     }
 }

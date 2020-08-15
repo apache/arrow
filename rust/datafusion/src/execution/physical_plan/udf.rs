@@ -25,12 +25,17 @@ use arrow::datatypes::{DataType, Schema};
 use crate::error::Result;
 use crate::execution::physical_plan::PhysicalExpr;
 
+use super::{Accumulator, AggregateExpr, Aggregator};
 use arrow::record_batch::RecordBatch;
 use fmt::{Debug, Formatter};
-use std::sync::Arc;
+use std::{cell::RefCell, rc::Rc, sync::Arc};
 
 /// Scalar UDF
 pub type ScalarUdf = Arc<dyn Fn(&[ArrayRef]) -> Result<ArrayRef> + Send + Sync>;
+
+/// Function to construct the return type of a function given its arguments.
+pub type ReturnType =
+    Arc<dyn Fn(&Vec<Arc<dyn PhysicalExpr>>, &Schema) -> Result<DataType> + Send + Sync>;
 
 /// Scalar UDF Expression
 #[derive(Clone)]
@@ -147,5 +152,103 @@ impl PhysicalExpr for ScalarFunctionExpr {
         // evaluate the function
         let fun = self.fun.as_ref();
         (fun)(&inputs)
+    }
+}
+
+/// A generic aggregate function
+/*
+This struct is
+
+An aggregate function accepts an arbitrary number of arguments, of arbitrary data types,
+and returns an arbitrary type based on the incoming types.
+
+It is the developer of the function's responsibility to ensure that the aggregator correctly handles the different
+types that are presented to them, and that the return type correctly matches the type returned by the
+aggregator.
+
+It is the user of the function's responsibility to pass arguments to the function that have valid types.
+*/
+#[derive(Clone)]
+pub struct AggregateFunction {
+    /// Function name
+    pub name: String,
+    /// A list of arguments and their respective types. A function can accept more than one type as argument
+    /// (e.g. sum(i8), sum(u8)).
+    pub args: Vec<Vec<DataType>>,
+    /// Return type. This function takes
+    pub return_type: ReturnType,
+    /// implementation of the aggregation
+    pub aggregate: Arc<dyn Aggregator>,
+}
+
+/// An aggregate function physical expression
+pub struct AggregateFunctionExpr {
+    name: String,
+    fun: Box<AggregateFunction>,
+    // for now, our AggregateFunctionExpr accepts a single element only.
+    arg: Arc<dyn PhysicalExpr>,
+}
+
+impl AggregateFunctionExpr {
+    /// Create a new AggregateFunctionExpr
+    pub fn new(
+        name: &str,
+        args: Vec<Arc<dyn PhysicalExpr>>,
+        fun: Box<AggregateFunction>,
+    ) -> Self {
+        Self {
+            name: name.to_owned(),
+            arg: args[0].clone(),
+            fun,
+        }
+    }
+}
+
+impl Debug for AggregateFunctionExpr {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_struct("AggregateFunctionExpr")
+            .field("fun", &"<FUNC>")
+            .field("name", &self.name)
+            .field("args", &self.arg)
+            .finish()
+    }
+}
+
+impl PhysicalExpr for AggregateFunctionExpr {
+    fn data_type(&self, input_schema: &Schema) -> Result<DataType> {
+        self.fun.as_ref().return_type.as_ref()(&vec![self.arg.clone()], input_schema)
+    }
+
+    fn nullable(&self, _input_schema: &Schema) -> Result<bool> {
+        Ok(false)
+    }
+
+    fn evaluate(&self, batch: &RecordBatch) -> Result<ArrayRef> {
+        self.arg.evaluate(batch)
+    }
+}
+
+impl Aggregator for AggregateFunctionExpr {
+    fn create_accumulator(&self) -> Rc<RefCell<dyn Accumulator>> {
+        self.fun.aggregate.create_accumulator()
+    }
+
+    fn create_reducer(&self, column_name: &str) -> Arc<dyn AggregateExpr> {
+        self.fun.aggregate.create_reducer(column_name)
+    }
+}
+
+impl fmt::Display for AggregateFunctionExpr {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{}({})",
+            self.name,
+            [&self.arg]
+                .iter()
+                .map(|e| format!("{}", e))
+                .collect::<Vec<String>>()
+                .join(", ")
+        )
     }
 }

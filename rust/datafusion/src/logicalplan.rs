@@ -603,9 +603,18 @@ pub fn aggregate_expr(name: &str, expr: Expr, return_type: DataType) -> Expr {
     }
 }
 
-/// Create an aggregate expression
+/// Create an scalar function expression
 pub fn scalar_function(name: &str, expr: Vec<Expr>, return_type: DataType) -> Expr {
     Expr::ScalarFunction {
+        name: name.to_owned(),
+        args: expr,
+        return_type,
+    }
+}
+
+/// Create an aggregate expression
+pub fn aggregate_function(name: &str, expr: Vec<Expr>, return_type: DataType) -> Expr {
+    Expr::AggregateFunction {
         name: name.to_owned(),
         args: expr,
         return_type,

@@ -24,8 +24,9 @@ use std::sync::Arc;
 
 use crate::error::{ExecutionError, Result};
 use crate::execution::physical_plan::common::get_scalar_value;
+use crate::execution::physical_plan::udf;
 use crate::execution::physical_plan::{
-    Accumulator, Aggregate, AggregateExpr, PhysicalExpr,
+    Accumulator, AggregateExpr, Aggregator, PhysicalExpr,
 };
 use crate::logicalplan::{Operator, ScalarValue};
 use arrow::array::{
@@ -49,6 +50,7 @@ use arrow::compute::kernels::comparison::{
 use arrow::compute::kernels::sort::{SortColumn, SortOptions};
 use arrow::datatypes::{DataType, Schema, TimeUnit};
 use arrow::record_batch::RecordBatch;
+use udf::AggregateFunction;
 
 /// Represents the column at a given index in a RecordBatch
 #[derive(Debug)]
@@ -96,59 +98,51 @@ pub fn col(name: &str) -> Arc<dyn PhysicalExpr> {
     Arc::new(Column::new(name))
 }
 
+/// aggregate functions declared in this module
+pub fn aggregate_functions() -> Vec<AggregateFunction> {
+    vec![sum(), avg(), max(), min(), count()]
+}
 /// SUM aggregate expression
 #[derive(Debug)]
-pub struct Sum {
-    expr: Arc<dyn PhysicalExpr>,
-}
+pub struct Sum {}
 
-impl Sum {
-    /// Create a new SUM aggregate function
-    pub fn new(expr: Arc<dyn PhysicalExpr>) -> Self {
-        Self { expr }
-    }
-}
-
-impl PhysicalExpr for Sum {
-    fn data_type(&self, input_schema: &Schema) -> Result<DataType> {
-        match self.expr.data_type(input_schema)? {
-            DataType::Int8 | DataType::Int16 | DataType::Int32 | DataType::Int64 => {
-                Ok(DataType::Int64)
-            }
-            DataType::UInt8 | DataType::UInt16 | DataType::UInt32 | DataType::UInt64 => {
-                Ok(DataType::UInt64)
-            }
-            DataType::Float32 => Ok(DataType::Float32),
-            DataType::Float64 => Ok(DataType::Float64),
-            other => Err(ExecutionError::General(format!(
-                "SUM does not support {:?}",
-                other
-            ))),
-        }
-    }
-
-    fn nullable(&self, _input_schema: &Schema) -> Result<bool> {
-        Ok(false)
-    }
-
-    fn evaluate(&self, batch: &RecordBatch) -> Result<ArrayRef> {
-        self.expr.evaluate(batch)
-    }
-}
-
-impl fmt::Display for Sum {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "SUM({})", self.expr)
-    }
-}
-
-impl Aggregate for Sum {
+impl Aggregator for Sum {
     fn create_accumulator(&self) -> Rc<RefCell<dyn Accumulator>> {
         Rc::new(RefCell::new(SumAccumulator { sum: None }))
     }
 
     fn create_reducer(&self, column_name: &str) -> Arc<dyn AggregateExpr> {
-        Arc::new(Sum::new(Arc::new(Column::new(column_name))))
+        physical_sum(Arc::new(Column::new(column_name)))
+    }
+}
+
+fn sum_return_type(
+    expr: &Vec<Arc<dyn PhysicalExpr>>,
+    schema: &Schema,
+) -> Result<DataType> {
+    match expr[0].data_type(schema)? {
+        DataType::Int8 | DataType::Int16 | DataType::Int32 | DataType::Int64 => {
+            Ok(DataType::Int64)
+        }
+        DataType::UInt8 | DataType::UInt16 | DataType::UInt32 | DataType::UInt64 => {
+            Ok(DataType::UInt64)
+        }
+        DataType::Float32 => Ok(DataType::Float32),
+        DataType::Float64 => Ok(DataType::Float64),
+        other => Err(ExecutionError::General(format!(
+            "SUM does not support {:?}",
+            other
+        ))),
+    }
+}
+
+/// Creates a sum aggregate function
+pub fn sum() -> AggregateFunction {
+    AggregateFunction {
+        name: "sum".to_string(),
+        return_type: Arc::new(sum_return_type),
+        args: vec![common_types()],
+        aggregate: Arc::new(Sum {}),
     }
 }
 
@@ -170,7 +164,7 @@ macro_rules! sum_accumulate {
 
 #[derive(Debug)]
 struct SumAccumulator {
-    sum: Option<ScalarValue>,
+    pub sum: Option<ScalarValue>,
 }
 
 impl Accumulator for SumAccumulator {
@@ -297,60 +291,20 @@ impl Accumulator for SumAccumulator {
     }
 }
 
-/// Create a sum expression
-pub fn sum(expr: Arc<dyn PhysicalExpr>) -> Arc<dyn AggregateExpr> {
-    Arc::new(Sum::new(expr))
+/// Create a physical aggregate sum expression
+pub fn physical_sum(expr: Arc<dyn PhysicalExpr>) -> Arc<dyn AggregateExpr> {
+    Arc::new(udf::AggregateFunctionExpr::new(
+        "SUM",
+        vec![expr],
+        Box::new(sum()),
+    ))
 }
 
-/// AVG aggregate expression
+/// Average aggregate expression.
 #[derive(Debug)]
-pub struct Avg {
-    expr: Arc<dyn PhysicalExpr>,
-}
+pub struct Avg {}
 
-impl Avg {
-    /// Create a new AVG aggregate function
-    pub fn new(expr: Arc<dyn PhysicalExpr>) -> Self {
-        Self { expr }
-    }
-}
-
-impl PhysicalExpr for Avg {
-    fn data_type(&self, input_schema: &Schema) -> Result<DataType> {
-        match self.expr.data_type(input_schema)? {
-            DataType::Int8
-            | DataType::Int16
-            | DataType::Int32
-            | DataType::Int64
-            | DataType::UInt8
-            | DataType::UInt16
-            | DataType::UInt32
-            | DataType::UInt64
-            | DataType::Float32
-            | DataType::Float64 => Ok(DataType::Float64),
-            other => Err(ExecutionError::General(format!(
-                "AVG does not support {:?}",
-                other
-            ))),
-        }
-    }
-
-    fn nullable(&self, _input_schema: &Schema) -> Result<bool> {
-        Ok(false)
-    }
-
-    fn evaluate(&self, batch: &RecordBatch) -> Result<ArrayRef> {
-        self.expr.evaluate(batch)
-    }
-}
-
-impl fmt::Display for Avg {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "AVG({})", self.expr)
-    }
-}
-
-impl Aggregate for Avg {
+impl Aggregator for Avg {
     fn create_accumulator(&self) -> Rc<RefCell<dyn Accumulator>> {
         Rc::new(RefCell::new(AvgAccumulator {
             sum: None,
@@ -359,7 +313,48 @@ impl Aggregate for Avg {
     }
 
     fn create_reducer(&self, column_name: &str) -> Arc<dyn AggregateExpr> {
-        Arc::new(Avg::new(Arc::new(Column::new(column_name))))
+        physical_avg(Arc::new(Column::new(column_name)))
+    }
+}
+
+fn avg_return_type(
+    expr: &Vec<Arc<dyn PhysicalExpr>>,
+    schema: &Schema,
+) -> Result<DataType> {
+    match expr[0].data_type(schema)? {
+        DataType::Int8
+        | DataType::Int16
+        | DataType::Int32
+        | DataType::Int64
+        | DataType::UInt8
+        | DataType::UInt16
+        | DataType::UInt32
+        | DataType::UInt64
+        | DataType::Float32
+        | DataType::Float64 => Ok(DataType::Float64),
+        other => Err(ExecutionError::General(format!(
+            "AVG does not support {:?}",
+            other
+        ))),
+    }
+}
+
+/// Create a physical aggregate avg expression
+pub fn physical_avg(expr: Arc<dyn PhysicalExpr>) -> Arc<dyn AggregateExpr> {
+    Arc::new(udf::AggregateFunctionExpr::new(
+        "AVG",
+        vec![expr],
+        Box::new(avg()),
+    ))
+}
+
+/// Creates a avg aggregate function
+pub fn avg() -> AggregateFunction {
+    AggregateFunction {
+        name: "avg".to_string(),
+        return_type: Arc::new(avg_return_type),
+        args: vec![common_types()],
+        aggregate: Arc::new(Avg {}),
     }
 }
 
@@ -425,52 +420,60 @@ impl Accumulator for AvgAccumulator {
     }
 }
 
-/// Create a avg expression
-pub fn avg(expr: Arc<dyn PhysicalExpr>) -> Arc<dyn AggregateExpr> {
-    Arc::new(Avg::new(expr))
-}
-
 /// MAX aggregate expression
 #[derive(Debug)]
-pub struct Max {
-    expr: Arc<dyn PhysicalExpr>,
-}
+pub struct Max {}
 
-impl Max {
-    /// Create a new MAX aggregate function
-    pub fn new(expr: Arc<dyn PhysicalExpr>) -> Self {
-        Self { expr }
-    }
-}
-
-impl PhysicalExpr for Max {
-    fn data_type(&self, input_schema: &Schema) -> Result<DataType> {
-        self.expr.data_type(input_schema)
-    }
-
-    fn nullable(&self, _input_schema: &Schema) -> Result<bool> {
-        Ok(false)
-    }
-
-    fn evaluate(&self, batch: &RecordBatch) -> Result<ArrayRef> {
-        self.expr.evaluate(batch)
-    }
-}
-
-impl fmt::Display for Max {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "MAX({})", self.expr)
-    }
-}
-
-impl Aggregate for Max {
+impl Aggregator for Max {
     fn create_accumulator(&self) -> Rc<RefCell<dyn Accumulator>> {
         Rc::new(RefCell::new(MaxAccumulator { max: None }))
     }
 
     fn create_reducer(&self, column_name: &str) -> Arc<dyn AggregateExpr> {
-        Arc::new(Max::new(Arc::new(Column::new(column_name))))
+        physical_max(Arc::new(Column::new(column_name)))
     }
+}
+
+/// Create a physical aggregate max expression
+pub fn physical_max(expr: Arc<dyn PhysicalExpr>) -> Arc<dyn AggregateExpr> {
+    Arc::new(udf::AggregateFunctionExpr::new(
+        "MAX",
+        vec![expr],
+        Box::new(max()),
+    ))
+}
+
+fn common_types() -> Vec<DataType> {
+    // this order dictactes the order on which we try to cast to.
+    vec![
+        DataType::UInt8,
+        DataType::UInt16,
+        DataType::UInt32,
+        DataType::UInt64,
+        DataType::Int8,
+        DataType::Int16,
+        DataType::Int32,
+        DataType::Int64,
+        DataType::Float32,
+        DataType::Float64,
+    ]
+}
+
+/// Creates a max aggregate function
+pub fn max() -> AggregateFunction {
+    AggregateFunction {
+        name: "max".to_string(),
+        return_type: Arc::new(max_return_type),
+        args: vec![common_types()],
+        aggregate: Arc::new(Max {}),
+    }
+}
+
+fn max_return_type(
+    expr: &Vec<Arc<dyn PhysicalExpr>>,
+    schema: &Schema,
+) -> Result<DataType> {
+    expr[0].data_type(schema)
 }
 
 macro_rules! max_accumulate {
@@ -621,51 +624,36 @@ impl Accumulator for MaxAccumulator {
     }
 }
 
-/// Create a max expression
-pub fn max(expr: Arc<dyn PhysicalExpr>) -> Arc<dyn AggregateExpr> {
-    Arc::new(Max::new(expr))
-}
-
 /// MIN aggregate expression
 #[derive(Debug)]
-pub struct Min {
-    expr: Arc<dyn PhysicalExpr>,
+pub struct Min {}
+
+/// Create a physical aggregate min expression
+pub fn physical_min(expr: Arc<dyn PhysicalExpr>) -> Arc<dyn AggregateExpr> {
+    Arc::new(udf::AggregateFunctionExpr::new(
+        "MIN",
+        vec![expr],
+        Box::new(min()),
+    ))
 }
 
-impl Min {
-    /// Create a new MIN aggregate function
-    pub fn new(expr: Arc<dyn PhysicalExpr>) -> Self {
-        Self { expr }
-    }
-}
-
-impl PhysicalExpr for Min {
-    fn data_type(&self, input_schema: &Schema) -> Result<DataType> {
-        self.expr.data_type(input_schema)
-    }
-
-    fn nullable(&self, _input_schema: &Schema) -> Result<bool> {
-        Ok(false)
-    }
-
-    fn evaluate(&self, batch: &RecordBatch) -> Result<ArrayRef> {
-        self.expr.evaluate(batch)
+/// Creates a avg aggregate function
+pub fn min() -> AggregateFunction {
+    AggregateFunction {
+        name: "min".to_string(),
+        return_type: Arc::new(max_return_type),
+        args: vec![common_types()],
+        aggregate: Arc::new(Min {}),
     }
 }
 
-impl fmt::Display for Min {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "MIN({})", self.expr)
-    }
-}
-
-impl Aggregate for Min {
+impl Aggregator for Min {
     fn create_accumulator(&self) -> Rc<RefCell<dyn Accumulator>> {
         Rc::new(RefCell::new(MinAccumulator { min: None }))
     }
 
     fn create_reducer(&self, column_name: &str) -> Arc<dyn AggregateExpr> {
-        Arc::new(Min::new(Arc::new(Column::new(column_name))))
+        physical_min(Arc::new(Column::new(column_name)))
     }
 }
 
@@ -817,53 +805,48 @@ impl Accumulator for MinAccumulator {
     }
 }
 
-/// Create a min expression
-pub fn min(expr: Arc<dyn PhysicalExpr>) -> Arc<dyn AggregateExpr> {
-    Arc::new(Min::new(expr))
-}
-
 /// COUNT aggregate expression
 /// Returns the amount of non-null values of the given expression.
 #[derive(Debug)]
-pub struct Count {
-    expr: Arc<dyn PhysicalExpr>,
-}
+pub struct Count {}
 
-impl Count {
-    /// Create a new COUNT aggregate function.
-    pub fn new(expr: Arc<dyn PhysicalExpr>) -> Self {
-        Self { expr: expr }
-    }
-}
-
-impl PhysicalExpr for Count {
-    fn data_type(&self, _input_schema: &Schema) -> Result<DataType> {
-        Ok(DataType::UInt64)
-    }
-
-    fn nullable(&self, _input_schema: &Schema) -> Result<bool> {
-        Ok(false)
-    }
-
-    fn evaluate(&self, batch: &RecordBatch) -> Result<ArrayRef> {
-        self.expr.evaluate(batch)
-    }
-}
-
-impl fmt::Display for Count {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "COUNT({})", self.expr)
-    }
-}
-
-impl Aggregate for Count {
+impl Aggregator for Count {
     fn create_accumulator(&self) -> Rc<RefCell<dyn Accumulator>> {
         Rc::new(RefCell::new(CountAccumulator { count: 0 }))
     }
 
     fn create_reducer(&self, column_name: &str) -> Arc<dyn AggregateExpr> {
-        Arc::new(Sum::new(Arc::new(Column::new(column_name))))
+        physical_sum(Arc::new(Column::new(column_name)))
     }
+}
+
+/// Create a physical aggregate count expression
+pub fn physical_count(expr: Arc<dyn PhysicalExpr>) -> Arc<dyn AggregateExpr> {
+    Arc::new(udf::AggregateFunctionExpr::new(
+        "COUNT",
+        vec![expr],
+        Box::new(count()),
+    ))
+}
+
+/// Creates a count aggregate function
+pub fn count() -> AggregateFunction {
+    let mut types = common_types();
+    types.push(DataType::Utf8);
+
+    AggregateFunction {
+        name: "count".to_string(),
+        return_type: Arc::new(count_return_type),
+        args: vec![types],
+        aggregate: Arc::new(Count {}),
+    }
+}
+
+fn count_return_type(
+    _expr: &Vec<Arc<dyn PhysicalExpr>>,
+    _schema: &Schema,
+) -> Result<DataType> {
+    Ok(DataType::UInt64)
 }
 
 #[derive(Debug)]
@@ -887,11 +870,6 @@ impl Accumulator for CountAccumulator {
     fn get_value(&self) -> Result<Option<ScalarValue>> {
         Ok(Some(ScalarValue::UInt64(self.count)))
     }
-}
-
-/// Create a count expression
-pub fn count(expr: Arc<dyn PhysicalExpr>) -> Arc<dyn AggregateExpr> {
-    Arc::new(Count::new(expr))
 }
 
 /// Invoke a compute kernel on a pair of binary data arrays
@@ -1493,7 +1471,7 @@ mod tests {
     fn sum_contract() -> Result<()> {
         let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
 
-        let sum = sum(col("a"));
+        let sum = physical_sum(col("a"));
         assert_eq!(DataType::Int64, sum.data_type(&schema)?);
 
         // after the aggr expression is applied, the schema changes to:
@@ -1512,7 +1490,7 @@ mod tests {
     fn max_contract() -> Result<()> {
         let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
 
-        let max = max(col("a"));
+        let max = physical_max(col("a"));
         assert_eq!(DataType::Int32, max.data_type(&schema)?);
 
         // after the aggr expression is applied, the schema changes to:
@@ -1531,7 +1509,7 @@ mod tests {
     fn min_contract() -> Result<()> {
         let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
 
-        let min = min(col("a"));
+        let min = physical_min(col("a"));
         assert_eq!(DataType::Int32, min.data_type(&schema)?);
 
         // after the aggr expression is applied, the schema changes to:
@@ -1548,16 +1526,16 @@ mod tests {
     fn avg_contract() -> Result<()> {
         let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
 
-        let avg = avg(col("a"));
+        let avg = physical_avg(col("a"));
         assert_eq!(DataType::Float64, avg.data_type(&schema)?);
 
         // after the aggr expression is applied, the schema changes to:
         let schema = Schema::new(vec![
             schema.field(0).clone(),
-            Field::new("SUM(a)", avg.data_type(&schema)?, false),
+            Field::new("AVG(a)", avg.data_type(&schema)?, false),
         ]);
 
-        let combiner = avg.create_reducer("SUM(a)");
+        let combiner = avg.create_reducer("AVG(a)");
         assert_eq!(DataType::Float64, combiner.data_type(&schema)?);
 
         Ok(())
@@ -1888,7 +1866,7 @@ mod tests {
     }
 
     fn do_sum(batch: &RecordBatch) -> Result<Option<ScalarValue>> {
-        let sum = sum(col("a"));
+        let sum = physical_sum(col("a"));
         let accum = sum.create_accumulator();
         let input = sum.evaluate(batch)?;
         let mut accum = accum.borrow_mut();
@@ -1899,7 +1877,7 @@ mod tests {
     }
 
     fn do_max(batch: &RecordBatch) -> Result<Option<ScalarValue>> {
-        let max = max(col("a"));
+        let max = physical_max(col("a"));
         let accum = max.create_accumulator();
         let input = max.evaluate(batch)?;
         let mut accum = accum.borrow_mut();
@@ -1910,7 +1888,7 @@ mod tests {
     }
 
     fn do_min(batch: &RecordBatch) -> Result<Option<ScalarValue>> {
-        let min = min(col("a"));
+        let min = physical_min(col("a"));
         let accum = min.create_accumulator();
         let input = min.evaluate(batch)?;
         let mut accum = accum.borrow_mut();
@@ -1921,7 +1899,7 @@ mod tests {
     }
 
     fn do_count(batch: &RecordBatch) -> Result<Option<ScalarValue>> {
-        let count = count(col("a"));
+        let count = physical_count(col("a"));
         let accum = count.create_accumulator();
         let input = count.evaluate(batch)?;
         let mut accum = accum.borrow_mut();
@@ -1932,7 +1910,7 @@ mod tests {
     }
 
     fn do_avg(batch: &RecordBatch) -> Result<Option<ScalarValue>> {
-        let avg = avg(col("a"));
+        let avg = physical_avg(col("a"));
         let accum = avg.create_accumulator();
         let input = avg.evaluate(batch)?;
         let mut accum = accum.borrow_mut();

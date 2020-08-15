@@ -28,6 +28,7 @@ use arrow::csv;
 use arrow::datatypes::*;
 use arrow::record_batch::RecordBatch;
 
+use super::physical_plan::udf::AggregateFunction;
 use crate::dataframe::DataFrame;
 use crate::datasource::csv::CsvFile;
 use crate::datasource::parquet::ParquetTable;
@@ -38,10 +39,10 @@ use crate::execution::physical_plan::common;
 use crate::execution::physical_plan::csv::CsvReadOptions;
 use crate::execution::physical_plan::merge::MergeExec;
 use crate::execution::physical_plan::planner::PhysicalPlannerImpl;
-use crate::execution::physical_plan::scalar_functions;
 use crate::execution::physical_plan::udf::ScalarFunction;
 use crate::execution::physical_plan::ExecutionPlan;
 use crate::execution::physical_plan::PhysicalPlanner;
+use crate::execution::physical_plan::{aggregate_functions, scalar_functions};
 use crate::logicalplan::{FunctionMeta, FunctionType, LogicalPlan, LogicalPlanBuilder};
 use crate::optimizer::optimizer::OptimizerRule;
 use crate::optimizer::projection_push_down::ProjectionPushDown;
@@ -103,11 +104,15 @@ impl ExecutionContext {
             state: Arc::new(Mutex::new(ExecutionContextState {
                 datasources: Arc::new(Mutex::new(HashMap::new())),
                 scalar_functions: Arc::new(Mutex::new(HashMap::new())),
+                aggregate_functions: Arc::new(Mutex::new(HashMap::new())),
                 config,
             })),
         };
         for udf in scalar_functions() {
             ctx.register_udf(udf);
+        }
+        for udf in aggregate_functions() {
+            ctx.register_aggregate_udf(udf);
         }
         ctx
     }
@@ -195,6 +200,16 @@ impl ExecutionContext {
         let state = self.state.lock().expect("failed to lock mutex");
         state
             .scalar_functions
+            .lock()
+            .expect("failed to lock mutex")
+            .insert(f.name.clone(), Box::new(f));
+    }
+
+    /// Register an aggregate function
+    pub fn register_aggregate_udf(&mut self, f: AggregateFunction) {
+        let state = self.state.lock().expect("failed to lock mutex");
+        state
+            .aggregate_functions
             .lock()
             .expect("failed to lock mutex")
             .insert(f.name.clone(), Box::new(f));
@@ -495,6 +510,8 @@ pub struct ExecutionContextState {
     pub datasources: Arc<Mutex<HashMap<String, Box<dyn TableProvider + Send + Sync>>>>,
     /// Scalar functions that are registered with the context
     pub scalar_functions: Arc<Mutex<HashMap<String, Box<ScalarFunction>>>>,
+    /// Aggregate functions that are registered with the context
+    pub aggregate_functions: Arc<Mutex<HashMap<String, Box<AggregateFunction>>>>,
     /// Context configuration
     pub config: ExecutionConfig,
 }
@@ -509,7 +526,8 @@ impl SchemaProvider for ExecutionContextState {
     }
 
     fn get_function_meta(&self, name: &str) -> Option<Arc<FunctionMeta>> {
-        self.scalar_functions
+        let scalar = self
+            .scalar_functions
             .lock()
             .expect("failed to lock mutex")
             .get(name)
@@ -520,7 +538,43 @@ impl SchemaProvider for ExecutionContextState {
                     f.return_type.clone(),
                     FunctionType::Scalar,
                 ))
+            });
+        // give priority to scalar functions
+        if scalar.is_some() {
+            return scalar;
+        }
+
+        self.aggregate_functions
+            .lock()
+            .expect("failed to lock mutex")
+            .get(name)
+            .map(|f| {
+                Arc::new(FunctionMeta::new(
+                    name.to_owned(),
+                    f.args.clone(),
+                    DataType::Float32,
+                    FunctionType::Aggregate,
+                ))
             })
+    }
+
+    fn functions(&self) -> Vec<String> {
+        let mut scalars: Vec<String> = self
+            .scalar_functions
+            .lock()
+            .expect("failed to lock mutex")
+            .keys()
+            .cloned()
+            .collect();
+        let mut aggregates: Vec<String> = self
+            .aggregate_functions
+            .lock()
+            .expect("failed to lock mutex")
+            .keys()
+            .cloned()
+            .collect();
+        aggregates.append(&mut scalars);
+        aggregates
     }
 }
 
@@ -737,7 +791,7 @@ mod tests {
 
         let batch = &results[0];
 
-        assert_eq!(field_names(batch), vec!["SUM(c1)", "SUM(c2)"]);
+        assert_eq!(field_names(batch), vec!["sum(c1)", "sum(c2)"]);
 
         let expected: Vec<&str> = vec!["60,220"];
         let mut rows = test::format_batch(&batch);
@@ -754,7 +808,7 @@ mod tests {
 
         let batch = &results[0];
 
-        assert_eq!(field_names(batch), vec!["AVG(c1)", "AVG(c2)"]);
+        assert_eq!(field_names(batch), vec!["avg(c1)", "avg(c2)"]);
 
         let expected: Vec<&str> = vec!["1.5,5.5"];
         let mut rows = test::format_batch(&batch);
@@ -771,7 +825,7 @@ mod tests {
 
         let batch = &results[0];
 
-        assert_eq!(field_names(batch), vec!["MAX(c1)", "MAX(c2)"]);
+        assert_eq!(field_names(batch), vec!["max(c1)", "max(c2)"]);
 
         let expected: Vec<&str> = vec!["3,10"];
         let mut rows = test::format_batch(&batch);
@@ -788,7 +842,7 @@ mod tests {
 
         let batch = &results[0];
 
-        assert_eq!(field_names(batch), vec!["MIN(c1)", "MIN(c2)"]);
+        assert_eq!(field_names(batch), vec!["min(c1)", "min(c2)"]);
 
         let expected: Vec<&str> = vec!["0,1"];
         let mut rows = test::format_batch(&batch);
@@ -805,7 +859,7 @@ mod tests {
 
         let batch = &results[0];
 
-        assert_eq!(field_names(batch), vec!["c1", "SUM(c2)"]);
+        assert_eq!(field_names(batch), vec!["c1", "sum(c2)"]);
 
         let expected: Vec<&str> = vec!["0,55", "1,55", "2,55", "3,55"];
         let mut rows = test::format_batch(&batch);
@@ -822,7 +876,7 @@ mod tests {
 
         let batch = &results[0];
 
-        assert_eq!(field_names(batch), vec!["c1", "AVG(c2)"]);
+        assert_eq!(field_names(batch), vec!["c1", "avg(c2)"]);
 
         let expected: Vec<&str> = vec!["0,5.5", "1,5.5", "2,5.5", "3,5.5"];
         let mut rows = test::format_batch(&batch);
@@ -839,7 +893,7 @@ mod tests {
 
         let batch = &results[0];
 
-        assert_eq!(field_names(batch), vec!["c1", "MAX(c2)"]);
+        assert_eq!(field_names(batch), vec!["c1", "max(c2)"]);
 
         let expected: Vec<&str> = vec!["0,10", "1,10", "2,10", "3,10"];
         let mut rows = test::format_batch(&batch);
@@ -856,7 +910,7 @@ mod tests {
 
         let batch = &results[0];
 
-        assert_eq!(field_names(batch), vec!["c1", "MIN(c2)"]);
+        assert_eq!(field_names(batch), vec!["c1", "min(c2)"]);
 
         let expected: Vec<&str> = vec!["0,1", "1,1", "2,1", "3,1"];
         let mut rows = test::format_batch(&batch);
@@ -873,7 +927,7 @@ mod tests {
 
         let batch = &results[0];
 
-        assert_eq!(field_names(batch), vec!["COUNT(c1)", "COUNT(c2)"]);
+        assert_eq!(field_names(batch), vec!["count(c1)", "count(c2)"]);
 
         let expected: Vec<&str> = vec!["10,10"];
         let mut rows = test::format_batch(&batch);
@@ -889,7 +943,7 @@ mod tests {
 
         let batch = &results[0];
 
-        assert_eq!(field_names(batch), vec!["COUNT(c1)", "COUNT(c2)"]);
+        assert_eq!(field_names(batch), vec!["count(c1)", "count(c2)"]);
 
         let expected: Vec<&str> = vec!["40,40"];
         let mut rows = test::format_batch(&batch);
@@ -905,7 +959,7 @@ mod tests {
 
         let batch = &results[0];
 
-        assert_eq!(field_names(batch), vec!["c1", "COUNT(c2)"]);
+        assert_eq!(field_names(batch), vec!["c1", "count(c2)"]);
 
         let expected = vec!["0,10", "1,10", "2,10", "3,10"];
         let mut rows = test::format_batch(&batch);
@@ -927,9 +981,9 @@ mod tests {
         let plan = LogicalPlanBuilder::scan("default", "test", schema.as_ref(), None)?
             .aggregate(
                 vec![col("c1")],
-                vec![aggregate_expr("SUM", col("c2"), DataType::UInt32)],
+                vec![aggregate_expr("sum", col("c2"), DataType::UInt32)],
             )?
-            .project(vec![col("c1"), col("SUM(c2)").alias("total_salary")])?
+            .project(vec![col("c1"), col("sum(c2)").alias("total_salary")])?
             .build()?;
 
         let plan = ctx.optimize(&plan)?;

@@ -19,13 +19,14 @@
 
 use std::sync::{Arc, Mutex};
 
+use super::udf::AggregateFunctionExpr;
 use crate::error::{ExecutionError, Result};
 use crate::execution::context::ExecutionContextState;
 use crate::execution::physical_plan::csv::{CsvExec, CsvReadOptions};
 use crate::execution::physical_plan::datasource::DatasourceExec;
 use crate::execution::physical_plan::explain::ExplainExec;
 use crate::execution::physical_plan::expressions::{
-    Avg, BinaryExpr, CastExpr, Column, Count, Literal, Max, Min, PhysicalSortExpr, Sum,
+    BinaryExpr, CastExpr, Column, Literal, PhysicalSortExpr,
 };
 use crate::execution::physical_plan::hash_aggregate::HashAggregateExec;
 use crate::execution::physical_plan::limit::GlobalLimitExec;
@@ -403,35 +404,32 @@ impl PhysicalPlannerImpl {
     ) -> Result<Arc<dyn AggregateExpr>> {
         match e {
             Expr::AggregateFunction { name, args, .. } => {
-                match name.to_lowercase().as_ref() {
-                    "sum" => Ok(Arc::new(Sum::new(self.create_physical_expr(
-                        &args[0],
-                        input_schema,
-                        ctx_state.clone(),
-                    )?))),
-                    "avg" => Ok(Arc::new(Avg::new(self.create_physical_expr(
-                        &args[0],
-                        input_schema,
-                        ctx_state.clone(),
-                    )?))),
-                    "max" => Ok(Arc::new(Max::new(self.create_physical_expr(
-                        &args[0],
-                        input_schema,
-                        ctx_state.clone(),
-                    )?))),
-                    "min" => Ok(Arc::new(Min::new(self.create_physical_expr(
-                        &args[0],
-                        input_schema,
-                        ctx_state.clone(),
-                    )?))),
-                    "count" => Ok(Arc::new(Count::new(self.create_physical_expr(
-                        &args[0],
-                        input_schema,
-                        ctx_state.clone(),
-                    )?))),
-                    other => Err(ExecutionError::NotImplemented(format!(
-                        "Unsupported aggregate function '{}'",
-                        other
+                match &ctx_state
+                    .lock()
+                    .expect("failed to lock mutex")
+                    .aggregate_functions
+                    .lock()
+                    .expect("failed to lock mutex")
+                    .get(name)
+                {
+                    Some(f) => {
+                        let mut physical_args = vec![];
+                        for e in args {
+                            physical_args.push(self.create_physical_expr(
+                                e,
+                                input_schema,
+                                ctx_state.clone(),
+                            )?);
+                        }
+                        Ok(Arc::new(AggregateFunctionExpr::new(
+                            name,
+                            physical_args,
+                            Box::new(f.as_ref().clone()),
+                        )))
+                    }
+                    _ => Err(ExecutionError::General(format!(
+                        "Invalid aggregate function '{:?}'",
+                        name
                     ))),
                 }
             }

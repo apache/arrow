@@ -68,8 +68,9 @@ pub trait PhysicalExpr: Send + Sync + Display + Debug {
     fn evaluate(&self, batch: &RecordBatch) -> Result<ArrayRef>;
 }
 
-/// Aggregate knows how to accumulate arrays
-pub trait Aggregate: Send + Sync + Debug {
+/// An aggregators knows how to accumulate arrays in parts, so that the array does not have
+/// to be all available in memory. This type of aggregation is also known as online update.
+pub trait Aggregator: Send + Sync + Debug {
     /// Create an accumulator for this aggregate expression
     fn create_accumulator(&self) -> Rc<RefCell<dyn Accumulator>>;
     /// Create an aggregate expression for combining the results of accumulators from partitions.
@@ -79,10 +80,11 @@ pub trait Aggregate: Send + Sync + Debug {
 }
 
 /// Aggregate expression that can be evaluated against a RecordBatch
-pub trait AggregateExpr: PhysicalExpr + Aggregate {}
-impl<T: PhysicalExpr + Aggregate> AggregateExpr for T {}
+pub trait AggregateExpr: PhysicalExpr + Aggregator {}
+impl<T: PhysicalExpr + Aggregator> AggregateExpr for T {}
 
-/// Aggregate accumulator
+/// An accumulator knows how compute aggregations without full access to the complete array.
+/// This is also known as online updates.
 pub trait Accumulator: Debug {
     /// Update the accumulator based on a row in a batch
     fn accumulate_scalar(&mut self, value: Option<ScalarValue>) -> Result<()>;
@@ -102,6 +104,11 @@ pub fn scalar_functions() -> Vec<ScalarFunction> {
     )];
     udfs.append(&mut math_expressions::scalar_functions());
     udfs
+}
+
+/// Vector of aggregate functions declared in this module
+pub fn aggregate_functions() -> Vec<udf::AggregateFunction> {
+    expressions::aggregate_functions()
 }
 
 pub mod common;
