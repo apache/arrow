@@ -19,7 +19,7 @@
 
 use std::fs::File;
 use std::rc::Rc;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::{fmt, thread};
 
 use crate::error::{ExecutionError, Result};
@@ -160,7 +160,7 @@ fn read_file(
     let file = File::open(&filename)?;
     let file_reader = Rc::new(SerializedFileReader::new(file)?);
     let mut arrow_reader = ParquetFileArrowReader::new(file_reader);
-    let mut batch_reader =
+    let batch_reader =
         arrow_reader.get_record_reader_by_columns(projection.clone(), batch_size)?;
     loop {
         match batch_reader.next_batch() {
@@ -187,7 +187,7 @@ fn read_file(
 }
 
 impl Partition for ParquetPartition {
-    fn execute(&self) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
+    fn execute(&self) -> Result<Arc<dyn RecordBatchReader + Send + Sync>> {
         // because the parquet implementation is not thread-safe, it is necessary to execute
         // on a thread and communicate with channels
         let (response_tx, response_rx): (
@@ -205,10 +205,10 @@ impl Partition for ParquetPartition {
             }
         });
 
-        let iterator = Arc::new(Mutex::new(ParquetIterator {
+        let iterator = Arc::new(ParquetIterator {
             schema: self.schema.clone(),
             response_rx,
-        }));
+        });
 
         Ok(iterator)
     }
@@ -224,7 +224,7 @@ impl RecordBatchReader for ParquetIterator {
         self.schema.clone()
     }
 
-    fn next_batch(&mut self) -> ArrowResult<Option<RecordBatch>> {
+    fn next_batch(&self) -> ArrowResult<Option<RecordBatch>> {
         match self.response_rx.recv() {
             Ok(batch) => batch,
             // RecvError means receiver has exited and closed the channel
@@ -248,7 +248,6 @@ mod tests {
         assert_eq!(partitions.len(), 1);
 
         let results = partitions[0].execute()?;
-        let mut results = results.lock().unwrap();
         let batch = results.next_batch()?.unwrap();
 
         assert_eq!(8, batch.num_rows());

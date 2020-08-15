@@ -19,7 +19,8 @@
 
 use std::fs;
 use std::fs::metadata;
-use std::sync::{Arc, Mutex};
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 
 use crate::error::{ExecutionError, Result};
 
@@ -33,7 +34,7 @@ use arrow::record_batch::{RecordBatch, RecordBatchReader};
 pub struct RecordBatchIterator {
     schema: SchemaRef,
     batches: Vec<Arc<RecordBatch>>,
-    index: usize,
+    index: AtomicUsize,
 }
 
 impl RecordBatchIterator {
@@ -41,7 +42,7 @@ impl RecordBatchIterator {
     pub fn new(schema: SchemaRef, batches: Vec<Arc<RecordBatch>>) -> Self {
         RecordBatchIterator {
             schema,
-            index: 0,
+            index: AtomicUsize::new(0),
             batches,
         }
     }
@@ -52,10 +53,10 @@ impl RecordBatchReader for RecordBatchIterator {
         self.schema.clone()
     }
 
-    fn next_batch(&mut self) -> ArrowResult<Option<RecordBatch>> {
-        if self.index < self.batches.len() {
-            self.index += 1;
-            Ok(Some(self.batches[self.index - 1].as_ref().clone()))
+    fn next_batch(&self) -> ArrowResult<Option<RecordBatch>> {
+        if self.index.load(Ordering::SeqCst) < self.batches.len() {
+            let index = self.index.fetch_add(1, Ordering::SeqCst);
+            Ok(Some(self.batches[index].as_ref().clone()))
         } else {
             Ok(None)
         }
@@ -63,13 +64,10 @@ impl RecordBatchReader for RecordBatchIterator {
 }
 
 /// Create a vector of record batches from an iterator
-pub fn collect(
-    it: Arc<Mutex<dyn RecordBatchReader + Send + Sync>>,
-) -> Result<Vec<RecordBatch>> {
-    let mut reader = it.lock().unwrap();
+pub fn collect(it: Arc<dyn RecordBatchReader + Send + Sync>) -> Result<Vec<RecordBatch>> {
     let mut results: Vec<RecordBatch> = vec![];
     loop {
-        match reader.next_batch() {
+        match it.next_batch() {
             Ok(Some(batch)) => {
                 results.push(batch);
             }

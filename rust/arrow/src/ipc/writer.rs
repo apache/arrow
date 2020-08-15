@@ -456,7 +456,7 @@ mod tests {
             let file =
                 File::open(format!("target/debug/testdata/{}.arrow_file", "arrow"))
                     .unwrap();
-            let mut reader = FileReader::try_new(file).unwrap();
+            let reader = FileReader::try_new(file).unwrap();
             while let Ok(Some(read_batch)) = reader.next_batch() {
                 read_batch
                     .columns()
@@ -503,7 +503,7 @@ mod tests {
 
         {
             let file = File::open("target/debug/testdata/nulls.arrow_file").unwrap();
-            let mut reader = FileReader::try_new(file).unwrap();
+            let reader = FileReader::try_new(file).unwrap();
             while let Ok(Some(read_batch)) = reader.next_batch() {
                 read_batch
                     .columns()
@@ -537,7 +537,7 @@ mod tests {
             ))
             .unwrap();
 
-            let mut reader = FileReader::try_new(file).unwrap();
+            let reader = FileReader::try_new(file).unwrap();
 
             // read and rewrite the file to a temp location
             {
@@ -580,7 +580,7 @@ mod tests {
             ))
             .unwrap();
 
-            let mut reader = StreamReader::try_new(file).unwrap();
+            let reader = StreamReader::try_new(file).unwrap();
 
             // read and rewrite the stream to a temp location
             {

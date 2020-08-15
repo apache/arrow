@@ -17,7 +17,7 @@
 
 //! Defines the selection execution plan. A selection filters rows based on a predicate
 
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use crate::error::{ExecutionError, Result};
 use crate::execution::physical_plan::{ExecutionPlan, Partition, PhysicalExpr};
@@ -88,12 +88,12 @@ struct SelectionPartition {
 
 impl Partition for SelectionPartition {
     /// Execute the Selection
-    fn execute(&self) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
-        Ok(Arc::new(Mutex::new(SelectionIterator {
+    fn execute(&self) -> Result<Arc<dyn RecordBatchReader + Send + Sync>> {
+        Ok(Arc::new(SelectionIterator {
             schema: self.schema.clone(),
             expr: self.expr.clone(),
             input: self.input.execute()?,
-        })))
+        }))
     }
 }
 
@@ -101,7 +101,7 @@ impl Partition for SelectionPartition {
 struct SelectionIterator {
     schema: SchemaRef,
     expr: Arc<dyn PhysicalExpr>,
-    input: Arc<Mutex<dyn RecordBatchReader + Send + Sync>>,
+    input: Arc<dyn RecordBatchReader + Send + Sync>,
 }
 
 impl RecordBatchReader for SelectionIterator {
@@ -111,9 +111,8 @@ impl RecordBatchReader for SelectionIterator {
     }
 
     /// Get the next batch
-    fn next_batch(&mut self) -> ArrowResult<Option<RecordBatch>> {
-        let mut input = self.input.lock().unwrap();
-        match input.next_batch()? {
+    fn next_batch(&self) -> ArrowResult<Option<RecordBatch>> {
+        match self.input.next_batch()? {
             Some(batch) => {
                 // evaluate the selection predicate to get a boolean array
                 let predicate_result = self

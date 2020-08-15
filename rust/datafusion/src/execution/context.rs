@@ -655,7 +655,6 @@ impl ExecutionContext {
                     let file = fs::File::create(path)?;
                     let mut writer = csv::Writer::new(file);
                     let reader = p.execute()?;
-                    let mut reader = reader.lock().unwrap();
                     loop {
                         match reader.next_batch() {
                             Ok(Some(batch)) => {

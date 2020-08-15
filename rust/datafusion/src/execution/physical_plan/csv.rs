@@ -241,22 +241,22 @@ impl CsvPartition {
 
 impl Partition for CsvPartition {
     /// Execute this partition and return an iterator over RecordBatch
-    fn execute(&self) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
-        Ok(Arc::new(Mutex::new(CsvIterator::try_new(
+    fn execute(&self) -> Result<Arc<dyn RecordBatchReader + Send + Sync>> {
+        Ok(Arc::new(CsvIterator::try_new(
             &self.path,
             self.schema.clone(),
             self.has_header,
             self.delimiter,
             &self.projection,
             self.batch_size,
-        )?)))
+        )?))
     }
 }
 
 /// Iterator over batches
 struct CsvIterator {
     /// Arrow CSV reader
-    reader: csv::Reader<File>,
+    reader: Arc<Mutex<csv::Reader<File>>>,
 }
 
 impl CsvIterator {
@@ -270,14 +270,14 @@ impl CsvIterator {
         batch_size: usize,
     ) -> Result<Self> {
         let file = File::open(filename)?;
-        let reader = csv::Reader::new(
+        let reader = Arc::new(Mutex::new(csv::Reader::new(
             file,
             schema.clone(),
             has_header,
             delimiter,
             batch_size,
             projection.clone(),
-        );
+        )));
 
         Ok(Self { reader })
     }
@@ -286,12 +286,12 @@ impl CsvIterator {
 impl RecordBatchReader for CsvIterator {
     /// Get the schema
     fn schema(&self) -> SchemaRef {
-        self.reader.schema()
+        self.reader.lock().unwrap().schema()
     }
 
     /// Get the next RecordBatch
-    fn next_batch(&mut self) -> ArrowResult<Option<RecordBatch>> {
-        Ok(self.reader.next()?)
+    fn next_batch(&self) -> ArrowResult<Option<RecordBatch>> {
+        Ok(self.reader.lock().unwrap().next()?)
     }
 }
 
@@ -317,8 +317,7 @@ mod tests {
         assert_eq!(3, csv.schema().fields().len());
         let partitions = csv.partitions()?;
         let results = partitions[0].execute()?;
-        let mut it = results.lock().unwrap();
-        let batch = it.next_batch()?.unwrap();
+        let batch = results.next_batch()?.unwrap();
         assert_eq!(3, batch.num_columns());
         let batch_schema = batch.schema();
         assert_eq!(3, batch_schema.fields().len());
@@ -341,8 +340,7 @@ mod tests {
         assert_eq!(13, csv.schema().fields().len());
         let partitions = csv.partitions()?;
         let results = partitions[0].execute()?;
-        let mut it = results.lock().unwrap();
-        let batch = it.next_batch()?.unwrap();
+        let batch = results.next_batch()?.unwrap();
         assert_eq!(13, batch.num_columns());
         let batch_schema = batch.schema();
         assert_eq!(13, batch_schema.fields().len());

@@ -17,7 +17,8 @@
 
 //! Execution plan for reading in-memory batches of data
 
-use std::sync::{Arc, Mutex};
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 
 use crate::error::Result;
 use crate::execution::physical_plan::{ExecutionPlan, Partition};
@@ -102,12 +103,12 @@ impl MemoryPartition {
 
 impl Partition for MemoryPartition {
     /// Execute this partition and return an iterator over RecordBatch
-    fn execute(&self) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
-        Ok(Arc::new(Mutex::new(MemoryIterator::try_new(
+    fn execute(&self) -> Result<Arc<dyn RecordBatchReader + Send + Sync>> {
+        Ok(Arc::new(MemoryIterator::try_new(
             self.data.clone(),
             self.schema.clone(),
             self.projection.clone(),
-        )?)))
+        )?))
     }
 }
 
@@ -120,7 +121,7 @@ pub(crate) struct MemoryIterator {
     /// Optional projection for which columns to load
     projection: Option<Vec<usize>>,
     /// Index into the data
-    index: usize,
+    index: AtomicUsize,
 }
 
 impl MemoryIterator {
@@ -134,7 +135,7 @@ impl MemoryIterator {
             data: data.clone(),
             schema: schema.clone(),
             projection,
-            index: 0,
+            index: AtomicUsize::new(0),
         })
     }
 }
@@ -146,10 +147,10 @@ impl RecordBatchReader for MemoryIterator {
     }
 
     /// Get the next RecordBatch
-    fn next_batch(&mut self) -> ArrowResult<Option<RecordBatch>> {
-        if self.index < self.data.len() {
-            self.index += 1;
-            let batch = &self.data[self.index - 1];
+    fn next_batch(&self) -> ArrowResult<Option<RecordBatch>> {
+        if self.index.load(Ordering::SeqCst) < self.data.len() {
+            let index = self.index.fetch_add(1, Ordering::SeqCst);
+            let batch = &self.data[index];
             // apply projection
             match &self.projection {
                 Some(columns) => Ok(Some(RecordBatch::try_new(

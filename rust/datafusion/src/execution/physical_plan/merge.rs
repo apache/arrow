@@ -18,7 +18,7 @@
 //! Defines the merge plan for executing partitions in parallel and then merging the results
 //! into a single partition
 
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::thread::{self, JoinHandle};
 
 use crate::error::{ExecutionError, Result};
@@ -99,7 +99,7 @@ fn collect_from_thread(
 }
 
 impl Partition for MergePartition {
-    fn execute(&self) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
+    fn execute(&self) -> Result<Arc<dyn RecordBatchReader + Send + Sync>> {
         match self.partitions.len() {
             0 => Err(ExecutionError::General(
                 "MergeExec requires at least one input partition".to_owned(),
@@ -134,10 +134,10 @@ impl Partition for MergePartition {
                     collect_from_thread(thread, &mut combined_results)?;
                 }
 
-                Ok(Arc::new(Mutex::new(RecordBatchIterator::new(
+                Ok(Arc::new(RecordBatchIterator::new(
                     self.schema.clone(),
                     combined_results,
-                ))))
+                )))
             }
         }
     }

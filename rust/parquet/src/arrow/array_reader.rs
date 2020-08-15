@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+use std::cell::RefCell;
 use std::cmp::{max, min};
 use std::collections::{HashMap, HashSet};
 use std::marker::PhantomData;
@@ -427,7 +428,7 @@ where
 
 /// Implementation of struct array reader.
 pub struct StructArrayReader {
-    children: Vec<Box<dyn ArrayReader>>,
+    children: Vec<Rc<RefCell<dyn ArrayReader>>>,
     data_type: ArrowType,
     struct_def_level: i16,
     struct_rep_level: i16,
@@ -439,7 +440,7 @@ impl StructArrayReader {
     /// Construct struct array reader.
     pub fn new(
         data_type: ArrowType,
-        children: Vec<Box<dyn ArrayReader>>,
+        children: Vec<Rc<RefCell<dyn ArrayReader>>>,
         def_level: i16,
         rep_level: i16,
     ) -> Self {
@@ -492,7 +493,7 @@ impl ArrayReader for StructArrayReader {
         let children_array = self
             .children
             .iter_mut()
-            .map(|reader| reader.next_batch(batch_size))
+            .map(|reader| reader.borrow_mut().next_batch(batch_size))
             .try_fold(
                 Vec::new(),
                 |mut result, child_array| -> Result<Vec<ArrayRef>> {
@@ -526,7 +527,7 @@ impl ArrayReader for StructArrayReader {
             .for_each(|v| *v = self.struct_def_level);
 
         for child in &self.children {
-            if let Some(current_child_def_levels) = child.get_def_levels() {
+            if let Some(current_child_def_levels) = child.borrow().get_def_levels() {
                 if current_child_def_levels.len() != children_array_len {
                     return Err(general_err!("Child array length are not equal!"));
                 } else {
@@ -571,6 +572,7 @@ impl ArrayReader for StructArrayReader {
             .ok_or_else(|| {
                 general_err!("Struct array reader should have at least one child!")
             })?
+            .borrow()
             .get_rep_levels()
             .map(|data| -> Result<Buffer> {
                 let mut buffer = Int16BufferBuilder::new(children_array_len);
@@ -602,7 +604,7 @@ pub fn build_array_reader<T>(
     parquet_schema: SchemaDescPtr,
     column_indices: T,
     file_reader: Rc<dyn FileReader>,
-) -> Result<Box<dyn ArrayReader>>
+) -> Result<Rc<RefCell<dyn ArrayReader>>>
 where
     T: IntoIterator<Item = usize>,
 {
@@ -670,7 +672,7 @@ impl Default for ArrayReaderBuilderContext {
 }
 
 /// Create array reader by visiting schema.
-impl<'a> TypeVisitor<Option<Box<dyn ArrayReader>>, &'a ArrayReaderBuilderContext>
+impl<'a> TypeVisitor<Option<Rc<RefCell<dyn ArrayReader>>>, &'a ArrayReaderBuilderContext>
     for ArrayReaderBuilder
 {
     /// Build array reader for primitive type.
@@ -680,7 +682,7 @@ impl<'a> TypeVisitor<Option<Box<dyn ArrayReader>>, &'a ArrayReaderBuilderContext
         &mut self,
         cur_type: TypePtr,
         context: &'a ArrayReaderBuilderContext,
-    ) -> Result<Option<Box<dyn ArrayReader>>> {
+    ) -> Result<Option<Rc<RefCell<dyn ArrayReader>>>> {
         if self.is_included(cur_type.as_ref()) {
             let mut new_context = context.clone();
             new_context.path.append(vec![cur_type.name().to_string()]);
@@ -716,7 +718,7 @@ impl<'a> TypeVisitor<Option<Box<dyn ArrayReader>>, &'a ArrayReaderBuilderContext
         &mut self,
         cur_type: Rc<Type>,
         context: &'a ArrayReaderBuilderContext,
-    ) -> Result<Option<Box<ArrayReader>>> {
+    ) -> Result<Option<Rc<RefCell<ArrayReader>>>> {
         let mut new_context = context.clone();
         new_context.path.append(vec![cur_type.name().to_string()]);
 
@@ -754,7 +756,7 @@ impl<'a> TypeVisitor<Option<Box<dyn ArrayReader>>, &'a ArrayReaderBuilderContext
         &mut self,
         _cur_type: Rc<Type>,
         _context: &'a ArrayReaderBuilderContext,
-    ) -> Result<Option<Box<dyn ArrayReader>>> {
+    ) -> Result<Option<Rc<RefCell<dyn ArrayReader>>>> {
         Err(ArrowError(
             "Reading parquet map array into arrow is not supported yet!".to_string(),
         ))
@@ -767,7 +769,7 @@ impl<'a> TypeVisitor<Option<Box<dyn ArrayReader>>, &'a ArrayReaderBuilderContext
         _list_type: Rc<Type>,
         _item_type: &Type,
         _context: &'a ArrayReaderBuilderContext,
-    ) -> Result<Option<Box<dyn ArrayReader>>> {
+    ) -> Result<Option<Rc<RefCell<dyn ArrayReader>>>> {
         Err(ArrowError(
             "Reading parquet list array into arrow is not supported yet!".to_string(),
         ))
@@ -789,7 +791,7 @@ impl<'a> ArrayReaderBuilder {
     }
 
     /// Main entry point.
-    fn build_array_reader(&mut self) -> Result<Box<dyn ArrayReader>> {
+    fn build_array_reader(&mut self) -> Result<Rc<RefCell<dyn ArrayReader>>> {
         let context = ArrayReaderBuilderContext::default();
 
         self.visit_struct(self.root_schema.clone(), &context)
@@ -810,7 +812,7 @@ impl<'a> ArrayReaderBuilder {
         &self,
         cur_type: TypePtr,
         context: &'a ArrayReaderBuilderContext,
-    ) -> Result<Box<dyn ArrayReader>> {
+    ) -> Result<Rc<RefCell<dyn ArrayReader>>> {
         let column_desc = Rc::new(ColumnDescriptor::new(
             cur_type.clone(),
             Some(self.root_schema.clone()),
@@ -824,51 +826,63 @@ impl<'a> ArrayReaderBuilder {
         )?);
 
         match cur_type.get_physical_type() {
-            PhysicalType::BOOLEAN => Ok(Box::new(PrimitiveArrayReader::<BoolType>::new(
-                page_iterator,
-                column_desc,
-            )?)),
-            PhysicalType::INT32 => Ok(Box::new(PrimitiveArrayReader::<Int32Type>::new(
-                page_iterator,
-                column_desc,
-            )?)),
-            PhysicalType::INT64 => Ok(Box::new(PrimitiveArrayReader::<Int64Type>::new(
-                page_iterator,
-                column_desc,
-            )?)),
+            PhysicalType::BOOLEAN => {
+                Ok(Rc::new(RefCell::new(
+                    PrimitiveArrayReader::<BoolType>::new(page_iterator, column_desc)?,
+                )))
+            }
+            PhysicalType::INT32 => {
+                Ok(Rc::new(RefCell::new(
+                    PrimitiveArrayReader::<Int32Type>::new(page_iterator, column_desc)?,
+                )))
+            }
+            PhysicalType::INT64 => {
+                Ok(Rc::new(RefCell::new(
+                    PrimitiveArrayReader::<Int64Type>::new(page_iterator, column_desc)?,
+                )))
+            }
             PhysicalType::INT96 => {
                 let converter = Int96Converter::new(Int96ArrayConverter {});
-                Ok(Box::new(ComplexObjectArrayReader::<
+                Ok(Rc::new(RefCell::new(ComplexObjectArrayReader::<
                     Int96Type,
                     Int96Converter,
                 >::new(
-                    page_iterator, column_desc, converter
-                )?))
+                    page_iterator,
+                    column_desc,
+                    converter,
+                )?)))
             }
-            PhysicalType::FLOAT => Ok(Box::new(PrimitiveArrayReader::<FloatType>::new(
-                page_iterator,
-                column_desc,
-            )?)),
-            PhysicalType::DOUBLE => Ok(Box::new(
-                PrimitiveArrayReader::<DoubleType>::new(page_iterator, column_desc)?,
-            )),
+            PhysicalType::FLOAT => {
+                Ok(Rc::new(RefCell::new(
+                    PrimitiveArrayReader::<FloatType>::new(page_iterator, column_desc)?,
+                )))
+            }
+            PhysicalType::DOUBLE => {
+                Ok(Rc::new(RefCell::new(
+                    PrimitiveArrayReader::<DoubleType>::new(page_iterator, column_desc)?,
+                )))
+            }
             PhysicalType::BYTE_ARRAY => {
                 if cur_type.get_basic_info().logical_type() == LogicalType::UTF8 {
                     let converter = Utf8Converter::new(Utf8ArrayConverter {});
-                    Ok(Box::new(ComplexObjectArrayReader::<
+                    Ok(Rc::new(RefCell::new(ComplexObjectArrayReader::<
                         ByteArrayType,
                         Utf8Converter,
                     >::new(
-                        page_iterator, column_desc, converter
-                    )?))
+                        page_iterator,
+                        column_desc,
+                        converter,
+                    )?)))
                 } else {
                     let converter = BinaryConverter::new(BinaryArrayConverter {});
-                    Ok(Box::new(ComplexObjectArrayReader::<
+                    Ok(Rc::new(RefCell::new(ComplexObjectArrayReader::<
                         ByteArrayType,
                         BinaryConverter,
                     >::new(
-                        page_iterator, column_desc, converter
-                    )?))
+                        page_iterator,
+                        column_desc,
+                        converter,
+                    )?)))
                 }
             }
             PhysicalType::FIXED_LEN_BYTE_ARRAY => {
@@ -885,12 +899,14 @@ impl<'a> ArrayReaderBuilder {
                 let converter = FixedLenBinaryConverter::new(
                     FixedSizeArrayConverter::new(byte_width),
                 );
-                Ok(Box::new(ComplexObjectArrayReader::<
+                Ok(Rc::new(RefCell::new(ComplexObjectArrayReader::<
                     FixedLenByteArrayType,
                     FixedLenBinaryConverter,
                 >::new(
-                    page_iterator, column_desc, converter
-                )?))
+                    page_iterator,
+                    column_desc,
+                    converter,
+                )?)))
             }
         }
     }
@@ -900,7 +916,7 @@ impl<'a> ArrayReaderBuilder {
         &mut self,
         cur_type: &Type,
         context: &'a ArrayReaderBuilderContext,
-    ) -> Result<Option<Box<dyn ArrayReader>>> {
+    ) -> Result<Option<Rc<RefCell<dyn ArrayReader>>>> {
         let mut fields = Vec::with_capacity(cur_type.get_fields().len());
         let mut children_reader = Vec::with_capacity(cur_type.get_fields().len());
 
@@ -908,7 +924,7 @@ impl<'a> ArrayReaderBuilder {
             if let Some(child_reader) = self.dispatch(child.clone(), context)? {
                 fields.push(Field::new(
                     child.name(),
-                    child_reader.get_data_type().clone(),
+                    child_reader.borrow().get_data_type().clone(),
                     child.is_optional(),
                 ));
                 children_reader.push(child_reader);
@@ -917,12 +933,12 @@ impl<'a> ArrayReaderBuilder {
 
         if !fields.is_empty() {
             let arrow_type = ArrowType::Struct(fields);
-            Ok(Some(Box::new(StructArrayReader::new(
+            Ok(Some(Rc::new(RefCell::new(StructArrayReader::new(
                 arrow_type,
                 children_reader,
                 context.def_level,
                 context.rep_level,
-            ))))
+            )))))
         } else {
             Ok(None)
         }
@@ -1477,7 +1493,10 @@ mod tests {
 
         let mut struct_array_reader = StructArrayReader::new(
             struct_type,
-            vec![Box::new(array_reader_1), Box::new(array_reader_2)],
+            vec![
+                Rc::new(RefCell::new(array_reader_1)),
+                Rc::new(RefCell::new(array_reader_2)),
+            ],
             1,
             1,
         );
@@ -1521,6 +1540,6 @@ mod tests {
             true,
         )]);
 
-        assert_eq!(array_reader.get_data_type(), &arrow_type);
+        assert_eq!(array_reader.borrow().get_data_type(), &arrow_type);
     }
 }

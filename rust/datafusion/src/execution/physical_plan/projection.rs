@@ -20,7 +20,7 @@
 //! of a projection on table `t1` where the expressions `a`, `b`, and `a+b` are the
 //! projection expressions.
 
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use crate::error::{ExecutionError, Result};
 use crate::execution::physical_plan::{ExecutionPlan, Partition, PhysicalExpr};
@@ -105,12 +105,12 @@ struct ProjectionPartition {
 
 impl Partition for ProjectionPartition {
     /// Execute the projection
-    fn execute(&self) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
-        Ok(Arc::new(Mutex::new(ProjectionIterator {
+    fn execute(&self) -> Result<Arc<dyn RecordBatchReader + Send + Sync>> {
+        Ok(Arc::new(ProjectionIterator {
             schema: self.schema.clone(),
             expr: self.expr.clone(),
             input: self.input.execute()?,
-        })))
+        }))
     }
 }
 
@@ -118,7 +118,7 @@ impl Partition for ProjectionPartition {
 struct ProjectionIterator {
     schema: SchemaRef,
     expr: Vec<Arc<dyn PhysicalExpr>>,
-    input: Arc<Mutex<dyn RecordBatchReader + Send + Sync>>,
+    input: Arc<dyn RecordBatchReader + Send + Sync>,
 }
 
 impl RecordBatchReader for ProjectionIterator {
@@ -128,9 +128,8 @@ impl RecordBatchReader for ProjectionIterator {
     }
 
     /// Get the next batch
-    fn next_batch(&mut self) -> ArrowResult<Option<RecordBatch>> {
-        let mut input = self.input.lock().unwrap();
-        match input.next_batch()? {
+    fn next_batch(&self) -> ArrowResult<Option<RecordBatch>> {
+        match self.input.next_batch()? {
             Some(batch) => {
                 let arrays: Result<Vec<_>> =
                     self.expr.iter().map(|expr| expr.evaluate(&batch)).collect();
@@ -171,7 +170,6 @@ mod tests {
         for partition in projection.partitions()? {
             partition_count += 1;
             let iterator = partition.execute()?;
-            let mut iterator = iterator.lock().unwrap();
             while let Some(batch) = iterator.next_batch()? {
                 assert_eq!(1, batch.num_columns());
                 row_count += batch.num_rows();

@@ -17,7 +17,7 @@
 
 //! Defines the LIMIT plan
 
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use crate::error::{ExecutionError, Result};
 use crate::execution::physical_plan::common::{self, RecordBatchIterator};
@@ -88,7 +88,7 @@ struct LimitPartition {
 }
 
 impl Partition for LimitPartition {
-    fn execute(&self) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
+    fn execute(&self) -> Result<Arc<dyn RecordBatchReader + Send + Sync>> {
         // apply limit in parallel across all input partitions
         let local_limit = self
             .partitions
@@ -128,10 +128,10 @@ impl Partition for LimitPartition {
             }
         }
 
-        Ok(Arc::new(Mutex::new(RecordBatchIterator::new(
+        Ok(Arc::new(RecordBatchIterator::new(
             self.schema.clone(),
             combined_results,
-        ))))
+        )))
     }
 }
 
@@ -155,13 +155,13 @@ impl LocalLimitExec {
 }
 
 impl Partition for LocalLimitExec {
-    fn execute(&self) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
+    fn execute(&self) -> Result<Arc<dyn RecordBatchReader + Send + Sync>> {
         let it = self.input.execute()?;
-        Ok(Arc::new(Mutex::new(MemoryIterator::try_new(
+        Ok(Arc::new(MemoryIterator::try_new(
             collect_with_limit(it, self.limit)?,
             self.schema.clone(),
             None,
-        )?)))
+        )?))
     }
 }
 
@@ -179,11 +179,10 @@ pub fn truncate_batch(batch: &RecordBatch, n: usize) -> Result<RecordBatch> {
 
 /// Create a vector of record batches from an iterator
 fn collect_with_limit(
-    reader: Arc<Mutex<dyn RecordBatchReader + Send + Sync>>,
+    reader: Arc<dyn RecordBatchReader + Send + Sync>,
     limit: usize,
 ) -> Result<Vec<RecordBatch>> {
     let mut count = 0;
-    let mut reader = reader.lock().unwrap();
     let mut results: Vec<RecordBatch> = vec![];
     loop {
         match reader.next_batch() {

@@ -33,7 +33,9 @@
 //! let schema = csvdata.schema();
 //! ```
 
+use std::cell::RefCell;
 use std::fs::File;
+use std::rc::Rc;
 
 use arrow::csv;
 use arrow::datatypes::{Field, Schema, SchemaRef};
@@ -103,7 +105,7 @@ impl TableProvider for CsvFile {
 // TODO: usage example (rather than documenting `new()`)
 pub struct CsvBatchIterator {
     schema: SchemaRef,
-    reader: csv::Reader<File>,
+    reader: Rc<RefCell<csv::Reader<File>>>,
 }
 
 impl CsvBatchIterator {
@@ -138,7 +140,7 @@ impl CsvBatchIterator {
 
         Ok(Self {
             schema: projected_schema,
-            reader,
+            reader: Rc::new(RefCell::new(reader)),
         })
     }
 }
@@ -148,7 +150,7 @@ impl RecordBatchReader for CsvBatchIterator {
         self.schema.clone()
     }
 
-    fn next_batch(&mut self) -> ArrowResult<Option<RecordBatch>> {
-        self.reader.next()
+    fn next_batch(&self) -> ArrowResult<Option<RecordBatch>> {
+        self.reader.borrow_mut().next()
     }
 }

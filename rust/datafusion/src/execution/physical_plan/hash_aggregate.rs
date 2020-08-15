@@ -19,7 +19,8 @@
 
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::sync::{Arc, Mutex};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 
 use crate::error::{ExecutionError, Result};
 use crate::execution::physical_plan::{
@@ -149,20 +150,20 @@ impl HashAggregatePartition {
 }
 
 impl Partition for HashAggregatePartition {
-    fn execute(&self) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
+    fn execute(&self) -> Result<Arc<dyn RecordBatchReader + Send + Sync>> {
         if self.group_expr.is_empty() {
-            Ok(Arc::new(Mutex::new(HashAggregateIterator::new(
+            Ok(Arc::new(HashAggregateIterator::new(
                 self.schema.clone(),
                 self.aggr_expr.clone(),
                 self.input.execute()?,
-            ))))
+            )))
         } else {
-            Ok(Arc::new(Mutex::new(GroupedHashAggregateIterator::new(
+            Ok(Arc::new(GroupedHashAggregateIterator::new(
                 self.schema.clone(),
                 self.group_expr.clone(),
                 self.aggr_expr.clone(),
                 self.input.execute()?,
-            ))))
+            )))
         }
     }
 }
@@ -192,8 +193,8 @@ struct GroupedHashAggregateIterator {
     schema: SchemaRef,
     group_expr: Vec<Arc<dyn PhysicalExpr>>,
     aggr_expr: Vec<Arc<dyn AggregateExpr>>,
-    input: Arc<Mutex<dyn RecordBatchReader + Send + Sync>>,
-    finished: bool,
+    input: Arc<dyn RecordBatchReader + Send + Sync>,
+    finished: AtomicBool,
 }
 
 impl GroupedHashAggregateIterator {
@@ -202,14 +203,14 @@ impl GroupedHashAggregateIterator {
         schema: SchemaRef,
         group_expr: Vec<Arc<dyn PhysicalExpr>>,
         aggr_expr: Vec<Arc<dyn AggregateExpr>>,
-        input: Arc<Mutex<dyn RecordBatchReader + Send + Sync>>,
+        input: Arc<dyn RecordBatchReader + Send + Sync>,
     ) -> Self {
         GroupedHashAggregateIterator {
             schema,
             group_expr,
             aggr_expr,
             input,
-            finished: false,
+            finished: AtomicBool::new(false),
         }
     }
 }
@@ -237,22 +238,18 @@ impl RecordBatchReader for GroupedHashAggregateIterator {
         self.schema.clone()
     }
 
-    fn next_batch(&mut self) -> ArrowResult<Option<RecordBatch>> {
-        if self.finished {
+    fn next_batch(&self) -> ArrowResult<Option<RecordBatch>> {
+        if self.finished.load(Ordering::SeqCst) {
             return Ok(None);
         }
-
-        self.finished = true;
+        self.finished.store(true, Ordering::SeqCst);
 
         // create map to store accumulators for each unique grouping key
         let mut map: FnvHashMap<Vec<GroupByScalar>, Rc<AccumulatorSet>> =
             FnvHashMap::default();
 
         // iterate over all input batches and update the accumulators
-        let mut input = self.input.lock().unwrap();
-
-        // iterate over input and perform aggregation
-        while let Some(batch) = input.next_batch()? {
+        while let Some(batch) = self.input.next_batch()? {
             // evaluate the grouping expressions for this batch
             let group_values = self
                 .group_expr
@@ -385,8 +382,8 @@ impl RecordBatchReader for GroupedHashAggregateIterator {
 struct HashAggregateIterator {
     schema: SchemaRef,
     aggr_expr: Vec<Arc<dyn AggregateExpr>>,
-    input: Arc<Mutex<dyn RecordBatchReader + Send + Sync>>,
-    finished: bool,
+    input: Arc<dyn RecordBatchReader + Send + Sync>,
+    finished: AtomicBool,
 }
 
 impl HashAggregateIterator {
@@ -394,13 +391,13 @@ impl HashAggregateIterator {
     pub fn new(
         schema: SchemaRef,
         aggr_expr: Vec<Arc<dyn AggregateExpr>>,
-        input: Arc<Mutex<dyn RecordBatchReader + Send + Sync>>,
+        input: Arc<dyn RecordBatchReader + Send + Sync>,
     ) -> Self {
         HashAggregateIterator {
             schema,
             aggr_expr,
             input,
-            finished: false,
+            finished: AtomicBool::new(false),
         }
     }
 }
@@ -410,12 +407,11 @@ impl RecordBatchReader for HashAggregateIterator {
         self.schema.clone()
     }
 
-    fn next_batch(&mut self) -> ArrowResult<Option<RecordBatch>> {
-        if self.finished {
+    fn next_batch(&self) -> ArrowResult<Option<RecordBatch>> {
+        if self.finished.load(Ordering::SeqCst) {
             return Ok(None);
         }
-
-        self.finished = true;
+        self.finished.store(true, Ordering::SeqCst);
 
         let accumulators: Vec<Rc<RefCell<dyn Accumulator>>> = self
             .aggr_expr
@@ -424,10 +420,7 @@ impl RecordBatchReader for HashAggregateIterator {
             .collect();
 
         // iterate over all input batches and update the accumulators
-        let mut input = self.input.lock().unwrap();
-
-        // iterate over input and perform aggregation
-        while let Some(batch) = input.next_batch()? {
+        while let Some(batch) = self.input.next_batch()? {
             // evaluate the inputs to the aggregate expressions for this batch
             let aggr_input_values = self
                 .aggr_expr
@@ -451,7 +444,7 @@ impl RecordBatchReader for HashAggregateIterator {
                 .collect::<ArrowResult<Vec<_>>>()?;
         }
 
-        let input_schema = input.schema();
+        let input_schema = self.input.schema();
 
         // build the result arrays
         let mut result_arrays: Vec<ArrayRef> = Vec::with_capacity(self.aggr_expr.len());

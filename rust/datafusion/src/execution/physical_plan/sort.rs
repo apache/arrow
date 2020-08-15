@@ -17,7 +17,7 @@
 
 //! Defines the SORT plan
 
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use arrow::array::ArrayRef;
 pub use arrow::compute::SortOptions;
@@ -85,7 +85,7 @@ struct SortPartition {
 
 impl Partition for SortPartition {
     /// Execute the sort
-    fn execute(&self) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
+    fn execute(&self) -> Result<Arc<dyn RecordBatchReader + Send + Sync>> {
         // sort needs to operate on a single partition currently
         let merge =
             MergeExec::new(self.schema.clone(), self.input.clone(), self.concurrency);
@@ -142,10 +142,10 @@ impl Partition for SortPartition {
                 .collect::<Result<Vec<ArrayRef>>>()?,
         )?;
 
-        Ok(Arc::new(Mutex::new(RecordBatchIterator::new(
+        Ok(Arc::new(RecordBatchIterator::new(
             self.schema.clone(),
             vec![Arc::new(sorted_batch)],
-        ))))
+        )))
     }
 }
 

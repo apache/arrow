@@ -423,7 +423,7 @@ fn arrow_to_json(arrow_name: &str, json_name: &str, verbose: bool) -> Result<()>
     }
 
     let arrow_file = File::open(arrow_name)?;
-    let mut reader = FileReader::try_new(arrow_file)?;
+    let reader = FileReader::try_new(arrow_file)?;
 
     let mut fields = vec![];
     for f in reader.schema().fields() {
@@ -458,7 +458,7 @@ fn validate(arrow_name: &str, json_name: &str, verbose: bool) -> Result<()> {
 
     // open Arrow file
     let arrow_file = File::open(arrow_name)?;
-    let mut arrow_reader = FileReader::try_new(arrow_file)?;
+    let arrow_reader = FileReader::try_new(arrow_file)?;
     let arrow_schema = arrow_reader.schema().as_ref().to_owned();
 
     // compare schemas

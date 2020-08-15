@@ -27,7 +27,7 @@ fn main() -> Result<()> {
     let args: Vec<String> = env::args().collect();
     eprintln!("{:?}", args);
 
-    let mut arrow_stream_reader = StreamReader::try_new(io::stdin())?;
+    let arrow_stream_reader = StreamReader::try_new(io::stdin())?;
     let schema = arrow_stream_reader.schema();
 
     let mut writer = FileWriter::try_new(io::stdout(), &schema)?;

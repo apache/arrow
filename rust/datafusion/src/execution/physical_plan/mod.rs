@@ -20,7 +20,7 @@
 use std::cell::RefCell;
 use std::fmt::{Debug, Display};
 use std::rc::Rc;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use crate::error::Result;
 use crate::logicalplan::ScalarValue;
@@ -39,7 +39,7 @@ pub trait ExecutionPlan: Debug {
 /// Represents a partition of an execution plan that can be executed on a thread
 pub trait Partition: Send + Sync + Debug {
     /// Execute this partition and return an iterator over RecordBatch
-    fn execute(&self) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>>;
+    fn execute(&self) -> Result<Arc<dyn RecordBatchReader + Send + Sync>>;
 }
 
 /// Expression that can be evaluated against a RecordBatch

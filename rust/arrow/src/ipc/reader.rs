@@ -20,8 +20,11 @@
 //! The `FileReader` and `StreamReader` have similar interfaces,
 //! however the `FileReader` expects a reader that supports `Seek`ing
 
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::io::{BufReader, Read, Seek, SeekFrom};
+use std::rc::Rc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 use crate::array::*;
@@ -462,7 +465,7 @@ fn find_dictionary_field(ipc_schema: &ipc::Schema, id: i64) -> Option<usize> {
 /// Arrow File reader
 pub struct FileReader<R: Read + Seek> {
     /// Buffered file reader that supports reading and seeking
-    reader: BufReader<R>,
+    reader: Rc<RefCell<BufReader<R>>>,
 
     /// The schema that is read from the file header
     schema: SchemaRef,
@@ -473,7 +476,7 @@ pub struct FileReader<R: Read + Seek> {
     blocks: Vec<ipc::Block>,
 
     /// A counter to keep track of the current block that should be read
-    current_block: usize,
+    current_block: Rc<RefCell<usize>>,
 
     /// The total number of blocks, which may contain record batches and other types
     total_blocks: usize,
@@ -611,10 +614,10 @@ impl<R: Read + Seek> FileReader<R> {
         }
 
         Ok(Self {
-            reader,
+            reader: Rc::new(RefCell::new(reader)),
             schema: Arc::new(schema),
             blocks: blocks.to_vec(),
-            current_block: 0,
+            current_block: Rc::new(RefCell::new(0)),
             total_blocks,
             dictionaries_by_field,
         })
@@ -640,7 +643,7 @@ impl<R: Read + Seek> FileReader<R> {
                 index, self.total_blocks
             )))
         } else {
-            self.current_block = index;
+            *self.current_block.borrow_mut() = index;
             Ok(())
         }
     }
@@ -651,19 +654,20 @@ impl<R: Read + Seek> RecordBatchReader for FileReader<R> {
         self.schema.clone()
     }
 
-    fn next_batch(&mut self) -> Result<Option<RecordBatch>> {
+    fn next_batch(&self) -> Result<Option<RecordBatch>> {
         // get current block
-        if self.current_block < self.total_blocks {
-            let block = self.blocks[self.current_block];
-            self.current_block += 1;
+        let mut current_block = self.current_block.borrow_mut();
+        if *current_block < self.total_blocks {
+            let block = self.blocks[*current_block];
+            *current_block += 1;
 
             // read length from end of offset
             let meta_len = block.metaDataLength() - 4;
 
             let mut block_data = vec![0; meta_len as usize];
-            self.reader
-                .seek(SeekFrom::Start(block.offset() as u64 + 4))?;
-            self.reader.read_exact(&mut block_data)?;
+            let mut reader = self.reader.borrow_mut();
+            reader.seek(SeekFrom::Start(block.offset() as u64 + 4))?;
+            reader.read_exact(&mut block_data)?;
 
             let message = ipc::get_root_as_message(&block_data[..]);
 
@@ -679,10 +683,10 @@ impl<R: Read + Seek> RecordBatchReader for FileReader<R> {
                     })?;
                     // read the block that makes up the record batch into a buffer
                     let mut buf = vec![0; block.bodyLength() as usize];
-                    self.reader.seek(SeekFrom::Start(
+                    reader.seek(SeekFrom::Start(
                         block.offset() as u64 + block.metaDataLength() as u64,
                     ))?;
-                    self.reader.read_exact(&mut buf)?;
+                    reader.read_exact(&mut buf)?;
 
                     read_record_batch(
                         &buf,
@@ -707,13 +711,13 @@ impl<R: Read + Seek> RecordBatchReader for FileReader<R> {
 /// Arrow Stream reader
 pub struct StreamReader<R: Read> {
     /// Buffered stream reader
-    reader: BufReader<R>,
+    reader: Rc<RefCell<BufReader<R>>>,
     /// The schema that is read from the stream's first message
     schema: SchemaRef,
     /// An indicator of whether the strewam is complete.
     ///
     /// This value is set to `true` the first time the reader's `next()` returns `None`.
-    finished: bool,
+    finished: AtomicBool,
 
     /// Optional dictionaries for each schema field.
     ///
@@ -760,9 +764,9 @@ impl<R: Read> StreamReader<R> {
         let dictionaries_by_field = vec![None; schema.fields().len()];
 
         Ok(Self {
-            reader,
+            reader: Rc::new(RefCell::new(reader)),
             schema: Arc::new(schema),
-            finished: false,
+            finished: AtomicBool::new(false),
             dictionaries_by_field,
         })
     }
@@ -774,7 +778,7 @@ impl<R: Read> StreamReader<R> {
 
     /// Check if the stream is finished
     pub fn is_finished(&self) -> bool {
-        self.finished
+        self.finished.load(Ordering::SeqCst)
     }
 }
 
@@ -783,21 +787,22 @@ impl<R: Read> RecordBatchReader for StreamReader<R> {
         self.schema.clone()
     }
 
-    fn next_batch(&mut self) -> Result<Option<RecordBatch>> {
-        if self.finished {
+    fn next_batch(&self) -> Result<Option<RecordBatch>> {
+        if self.finished.load(Ordering::SeqCst) {
             return Ok(None);
         }
         // determine metadata length
         let mut meta_size: [u8; 4] = [0; 4];
 
-        match self.reader.read_exact(&mut meta_size) {
+        let mut reader = self.reader.borrow_mut();
+        match reader.read_exact(&mut meta_size) {
             Ok(()) => (),
             Err(e) => {
                 return if e.kind() == std::io::ErrorKind::UnexpectedEof {
                     // Handle EOF without the "0xFFFFFFFF 0x00000000"
                     // valid according to:
                     // https://arrow.apache.org/docs/format/Columnar.html#ipc-streaming-format
-                    self.finished = true;
+                    self.finished.store(true, Ordering::SeqCst);
                     Ok(None)
                 } else {
                     Err(ArrowError::from(e))
@@ -811,7 +816,7 @@ impl<R: Read> RecordBatchReader for StreamReader<R> {
             // If a continuation marker is encountered, skip over it and read
             // the size from the next four bytes.
             if meta_len == CONTINUATION_MARKER {
-                self.reader.read_exact(&mut meta_size)?;
+                reader.read_exact(&mut meta_size)?;
                 u32::from_le_bytes(meta_size)
             } else {
                 meta_len
@@ -820,12 +825,12 @@ impl<R: Read> RecordBatchReader for StreamReader<R> {
 
         if meta_len == 0 {
             // the stream has ended, mark the reader as finished
-            self.finished = true;
+            self.finished.store(true, Ordering::SeqCst);
             return Ok(None);
         }
 
         let mut meta_buffer = vec![0; meta_len as usize];
-        self.reader.read_exact(&mut meta_buffer)?;
+        reader.read_exact(&mut meta_buffer)?;
 
         let vecs = &meta_buffer.to_vec();
         let message = ipc::get_root_as_message(vecs);
@@ -842,7 +847,7 @@ impl<R: Read> RecordBatchReader for StreamReader<R> {
                 })?;
                 // read the block that makes up the record batch into a buffer
                 let mut buf = vec![0; message.bodyLength() as usize];
-                self.reader.read_exact(&mut buf)?;
+                reader.read_exact(&mut buf)?;
 
                 read_record_batch(&buf, batch, self.schema(), &self.dictionaries_by_field)
             }
@@ -950,7 +955,7 @@ mod tests {
 
         // read stream back
         let file = File::open("target/debug/testdata/float.stream").unwrap();
-        let mut reader = StreamReader::try_new(file).unwrap();
+        let reader = StreamReader::try_new(file).unwrap();
         while let Some(batch) = reader.next_batch().unwrap() {
             assert!(
                 batch

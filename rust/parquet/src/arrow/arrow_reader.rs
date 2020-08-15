@@ -26,6 +26,7 @@ use arrow::array::StructArray;
 use arrow::datatypes::{DataType as ArrowType, Schema, SchemaRef};
 use arrow::error::Result as ArrowResult;
 use arrow::record_batch::{RecordBatch, RecordBatchReader};
+use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -139,7 +140,7 @@ impl ParquetFileArrowReader {
 
 pub struct ParquetRecordBatchReader {
     batch_size: usize,
-    array_reader: Box<dyn ArrayReader>,
+    array_reader: Rc<RefCell<dyn ArrayReader>>,
     schema: SchemaRef,
 }
 
@@ -148,8 +149,9 @@ impl RecordBatchReader for ParquetRecordBatchReader {
         self.schema.clone()
     }
 
-    fn next_batch(&mut self) -> ArrowResult<Option<RecordBatch>> {
-        self.array_reader
+    fn next_batch(&self) -> ArrowResult<Option<RecordBatch>> {
+        let mut array_reader = self.array_reader.borrow_mut();
+        array_reader
             .next_batch(self.batch_size)
             .map_err(|err| err.into())
             .and_then(|array| {
@@ -180,15 +182,16 @@ impl RecordBatchReader for ParquetRecordBatchReader {
 impl ParquetRecordBatchReader {
     pub fn try_new(
         batch_size: usize,
-        array_reader: Box<dyn ArrayReader>,
+        array_reader: Rc<RefCell<dyn ArrayReader>>,
     ) -> Result<Self> {
         // Check that array reader is struct array reader
         array_reader
+            .borrow()
             .as_any()
             .downcast_ref::<StructArrayReader>()
             .ok_or_else(|| general_err!("The input must be struct array reader!"))?;
 
-        let schema = match array_reader.get_data_type() {
+        let schema = match array_reader.borrow().get_data_type() {
             &ArrowType::Struct(ref fields) => Schema::new(fields.clone()),
             _ => unreachable!("Struct array reader's data type is not struct!"),
         };
@@ -387,8 +390,7 @@ mod tests {
             SerializedFileReader::try_from(File::open(&path).unwrap()).unwrap();
         let mut arrow_reader = ParquetFileArrowReader::new(Rc::new(parquet_reader));
 
-        let mut record_reader =
-            arrow_reader.get_record_reader(record_batch_size).unwrap();
+        let record_reader = arrow_reader.get_record_reader(record_batch_size).unwrap();
 
         let expected_data: Vec<Option<T::T>> = values
             .iter()
