@@ -30,7 +30,6 @@ use crate::execution::physical_plan::memory::MemoryExec;
 use crate::execution::physical_plan::{ExecutionPlan, Partition};
 
 /// In-memory table
-#[derive(Clone)]
 pub struct MemTable {
     schema: SchemaRef,
     batches: Vec<Vec<RecordBatch>>,
