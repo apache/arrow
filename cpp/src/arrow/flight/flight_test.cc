@@ -354,8 +354,6 @@ class TestFlightClient : public ::testing::Test {
   template <typename EndpointCheckFunc>
   void CheckDoGet(const FlightDescriptor& descr, const BatchVector& expected_batches,
                   EndpointCheckFunc&& check_endpoints) {
-    auto num_batches = static_cast<int>(expected_batches.size());
-    ASSERT_GE(num_batches, 2);
     auto expected_schema = expected_batches[0]->schema();
 
     std::unique_ptr<FlightInfo> info;
@@ -369,6 +367,13 @@ class TestFlightClient : public ::testing::Test {
 
     // By convention, fetch the first endpoint
     Ticket ticket = info->endpoints()[0].ticket;
+    CheckDoGet(ticket, expected_batches);
+  }
+
+  void CheckDoGet(const Ticket& ticket, const BatchVector& expected_batches) {
+    auto num_batches = static_cast<int>(expected_batches.size());
+    ASSERT_GE(num_batches, 2);
+
     std::unique_ptr<FlightStreamReader> stream;
     ASSERT_OK(client_->DoGet(ticket, &stream));
 
@@ -1105,6 +1110,15 @@ TEST_F(TestFlightClient, DoGetDicts) {
   CheckDoGet(descr, expected_batches, check_endpoints);
 }
 
+// Ensure the gRPC client is configured to allow large messages
+// Tests a 32 MiB batch
+TEST_F(TestFlightClient, DoGetLargeBatch) {
+  BatchVector expected_batches;
+  ASSERT_OK(ExampleLargeBatches(&expected_batches));
+  Ticket ticket{"ticket-large-batch-1"};
+  CheckDoGet(ticket, expected_batches);
+}
+
 TEST_F(TestFlightClient, DoExchange) {
   auto descr = FlightDescriptor::Command("counter");
   BatchVector batches;
@@ -1512,6 +1526,16 @@ TEST_F(TestDoPut, DoPutDicts) {
     batches.push_back(RecordBatch::Make(schema, dict_array->length(), {dict_array}));
   }
 
+  CheckDoPut(descr, schema, batches);
+}
+
+// Ensure the gRPC server is configured to allow large messages
+// Tests a 32 MiB batch
+TEST_F(TestDoPut, DoPutLargeBatch) {
+  auto descr = FlightDescriptor::Path({"large-batches"});
+  auto schema = ExampleLargeSchema();
+  BatchVector batches;
+  ASSERT_OK(ExampleLargeBatches(&batches));
   CheckDoPut(descr, schema, batches);
 }
 

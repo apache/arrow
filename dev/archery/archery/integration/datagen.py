@@ -1485,7 +1485,7 @@ def generate_extension_case():
                           dictionaries=[dict0])
 
 
-def get_generated_json_files(tempdir=None, flight=False):
+def get_generated_json_files(tempdir=None):
     tempdir = tempdir or tempfile.mkdtemp(prefix='arrow-integration-')
 
     def _temp_path():
@@ -1582,11 +1582,6 @@ def get_generated_json_files(tempdir=None, flight=False):
         .skip_category('JS')
         .skip_category('Rust'),
     ]
-
-    if flight:
-        file_objs.append(generate_primitive_case([24 * 1024],
-                                                 name='large_batch')
-                         .skip_category('Rust'))
 
     generated_paths = []
     for file_obj in file_objs:
