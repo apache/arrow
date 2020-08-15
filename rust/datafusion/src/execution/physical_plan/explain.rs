@@ -27,7 +27,7 @@ use arrow::{
     datatypes::SchemaRef,
     record_batch::{RecordBatch, RecordBatchReader},
 };
-
+use async_trait::async_trait;
 use std::sync::Arc;
 
 /// Explain execution plan operator. This operator contains the string
@@ -73,8 +73,9 @@ struct ExplainPartition {
     stringified_plans: Vec<StringifiedPlan>,
 }
 
+#[async_trait]
 impl Partition for ExplainPartition {
-    fn execute(&self) -> Result<Arc<dyn RecordBatchReader + Send + Sync>> {
+    async fn execute(&self) -> Result<Arc<dyn RecordBatchReader + Send + Sync>> {
         let mut type_builder = StringArray::builder(self.stringified_plans.len());
         let mut plan_builder = StringArray::builder(self.stringified_plans.len());
 
