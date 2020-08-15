@@ -32,7 +32,7 @@ cdef _sequence_to_array(object sequence, object mask, object size,
 
     options.pool = pool
     options.from_pandas = from_pandas
-    options.ignore_timezone = os.environ.get('PYARROW_IGNORE_TZ', False)
+    options.ignore_timezone = os.environ.get('PYARROW_IGNORE_TIMEZONE', False)
 
     cdef shared_ptr[CChunkedArray] out
 
@@ -732,7 +732,7 @@ cdef PandasOptions _convert_pandas_options(dict options):
     result.safe_cast = options['safe']
     result.split_blocks = options['split_blocks']
     result.self_destruct = options['self_destruct']
-    result.ignore_timezone = os.environ.get('PYARROW_IGNORE_TZ', False)
+    result.ignore_timezone = os.environ.get('PYARROW_IGNORE_TIMEZONE', False)
     return result
 
 
