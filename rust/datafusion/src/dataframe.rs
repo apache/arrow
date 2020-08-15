@@ -15,42 +15,46 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! Table API for building a logical query plan. This is similar to the Table API in Ibis
-//! and the DataFrame API in Apache Spark
+//! DataFrame API for building and executing query plans.
 
 use crate::arrow::record_batch::RecordBatch;
 use crate::error::Result;
-use crate::execution::context::ExecutionContext;
 use crate::logicalplan::{Expr, LogicalPlan};
 use arrow::datatypes::Schema;
 use std::sync::Arc;
 
-/// Table is an abstraction of a logical query plan
-pub trait Table {
+/// DataFrame is an abstraction of a logical query plan
+pub trait DataFrame {
     /// Select columns by name
-    fn select_columns(&self, columns: Vec<&str>) -> Result<Arc<dyn Table>>;
+    fn select_columns(&self, columns: Vec<&str>) -> Result<Arc<dyn DataFrame>>;
 
     /// Create a projection based on arbitrary expressions
-    fn select(&self, expr: Vec<Expr>) -> Result<Arc<dyn Table>>;
+    fn select(&self, expr: Vec<Expr>) -> Result<Arc<dyn DataFrame>>;
 
     /// Create a selection based on a filter expression
-    fn filter(&self, expr: Expr) -> Result<Arc<dyn Table>>;
+    fn filter(&self, expr: Expr) -> Result<Arc<dyn DataFrame>>;
 
     /// Perform an aggregate query
     fn aggregate(
         &self,
         group_expr: Vec<Expr>,
         aggr_expr: Vec<Expr>,
-    ) -> Result<Arc<dyn Table>>;
+    ) -> Result<Arc<dyn DataFrame>>;
 
     /// limit the number of rows
-    fn limit(&self, n: usize) -> Result<Arc<dyn Table>>;
+    fn limit(&self, n: usize) -> Result<Arc<dyn DataFrame>>;
 
     /// Return the logical plan
     fn to_logical_plan(&self) -> LogicalPlan;
 
-    /// Return an expression representing a column within this table
-    fn col(&self, name: &str) -> Result<Expr>;
+    /// Collects the result as a vector of RecordBatch.
+    fn collect(&self, batch_size: usize) -> Result<Vec<RecordBatch>>;
+
+    /// Returns the schema
+    fn schema(&self) -> &Schema;
+
+    //TODO these methods should be removed out of this trait soon and be standalone functions
+    // instead but this depends on some refactoring of how aggregate functions are registered
 
     /// Create an expression to represent the min() aggregate function
     fn min(&self, expr: &Expr) -> Result<Expr>;
@@ -66,14 +70,4 @@ pub trait Table {
 
     /// Create an expression to represent the count() aggregate function
     fn count(&self, expr: &Expr) -> Result<Expr>;
-
-    /// Collects the result as a vector of RecordBatch.
-    fn collect(
-        &self,
-        ctx: &mut ExecutionContext,
-        batch_size: usize,
-    ) -> Result<Vec<RecordBatch>>;
-
-    /// Returns the schema
-    fn schema(&self) -> &Schema;
 }

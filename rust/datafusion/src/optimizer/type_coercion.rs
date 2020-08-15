@@ -20,7 +20,9 @@
 //! the operation `c_float + c_int` would be rewritten as `c_float + CAST(c_int AS
 //! float)`. This keeps the runtime query execution code much simpler.
 
+use std::cell::RefCell;
 use std::collections::HashMap;
+use std::rc::Rc;
 
 use arrow::datatypes::Schema;
 
@@ -33,14 +35,16 @@ use crate::optimizer::utils;
 use utils::optimize_explain;
 
 /// Implementation of type coercion optimizer rule
-pub struct TypeCoercionRule<'a> {
-    scalar_functions: &'a HashMap<String, Box<ScalarFunction>>,
+pub struct TypeCoercionRule {
+    scalar_functions: Rc<RefCell<HashMap<String, Box<ScalarFunction>>>>,
 }
 
-impl<'a> TypeCoercionRule<'a> {
+impl TypeCoercionRule {
     /// Create a new type coercion optimizer rule using meta-data about registered
     /// scalar functions
-    pub fn new(scalar_functions: &'a HashMap<String, Box<ScalarFunction>>) -> Self {
+    pub fn new(
+        scalar_functions: Rc<RefCell<HashMap<String, Box<ScalarFunction>>>>,
+    ) -> Self {
         Self { scalar_functions }
     }
 
@@ -85,7 +89,7 @@ impl<'a> TypeCoercionRule<'a> {
                 return_type,
             } => {
                 // cast the inputs of scalar functions to the appropriate type where possible
-                match self.scalar_functions.get(name) {
+                match self.scalar_functions.borrow().get(name) {
                     Some(func_meta) => {
                         let mut func_args = Vec::with_capacity(args.len());
                         for i in 0..args.len() {
@@ -143,7 +147,7 @@ impl<'a> TypeCoercionRule<'a> {
     }
 }
 
-impl<'a> OptimizerRule for TypeCoercionRule<'a> {
+impl OptimizerRule for TypeCoercionRule {
     fn optimize(&mut self, plan: &LogicalPlan) -> Result<LogicalPlan> {
         match plan {
             LogicalPlan::Projection { expr, input, .. } => {
@@ -226,7 +230,7 @@ mod tests {
             .build()?;
 
         let scalar_functions = HashMap::new();
-        let mut rule = TypeCoercionRule::new(&scalar_functions);
+        let mut rule = TypeCoercionRule::new(Rc::new(RefCell::new(scalar_functions)));
         let plan = rule.optimize(&plan)?;
 
         // check that the filter had a cast added
@@ -253,7 +257,7 @@ mod tests {
             .build()?;
 
         let scalar_functions = HashMap::new();
-        let mut rule = TypeCoercionRule::new(&scalar_functions);
+        let mut rule = TypeCoercionRule::new(Rc::new(RefCell::new(scalar_functions)));
         let plan = rule.optimize(&plan)?;
 
         assert!(

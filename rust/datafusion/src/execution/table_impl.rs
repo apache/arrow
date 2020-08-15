@@ -17,31 +17,40 @@
 
 //! Implementation of Table API
 
+use std::cell::RefCell;
+use std::rc::Rc;
 use std::sync::Arc;
 
 use crate::arrow::datatypes::DataType;
 use crate::arrow::record_batch::RecordBatch;
+use crate::dataframe::*;
 use crate::error::{ExecutionError, Result};
-use crate::execution::context::ExecutionContext;
+use crate::execution::context::{ExecutionContext, ExecutionContextState};
 use crate::logicalplan::{col, Expr, LogicalPlan, LogicalPlanBuilder};
-use crate::table::*;
 use arrow::datatypes::Schema;
 
 /// Implementation of Table API
-pub struct TableImpl {
+pub struct DataFrameImpl {
+    ctx_state: Rc<RefCell<ExecutionContextState>>,
     plan: LogicalPlan,
 }
 
-impl TableImpl {
+impl DataFrameImpl {
     /// Create a new Table based on an existing logical plan
-    pub fn new(plan: &LogicalPlan) -> Self {
-        Self { plan: plan.clone() }
+    pub fn new(
+        ctx_state: Rc<RefCell<ExecutionContextState>>,
+        plan: &LogicalPlan,
+    ) -> Self {
+        Self {
+            ctx_state,
+            plan: plan.clone(),
+        }
     }
 }
 
-impl Table for TableImpl {
+impl DataFrame for DataFrameImpl {
     /// Apply a projection based on a list of column names
-    fn select_columns(&self, columns: Vec<&str>) -> Result<Arc<dyn Table>> {
+    fn select_columns(&self, columns: Vec<&str>) -> Result<Arc<dyn DataFrame>> {
         let exprs = columns
             .iter()
             .map(|name| {
@@ -57,17 +66,17 @@ impl Table for TableImpl {
     }
 
     /// Create a projection based on arbitrary expressions
-    fn select(&self, expr_list: Vec<Expr>) -> Result<Arc<dyn Table>> {
+    fn select(&self, expr_list: Vec<Expr>) -> Result<Arc<dyn DataFrame>> {
         let plan = LogicalPlanBuilder::from(&self.plan)
             .project(expr_list)?
             .build()?;
-        Ok(Arc::new(TableImpl::new(&plan)))
+        Ok(Arc::new(DataFrameImpl::new(self.ctx_state.clone(), &plan)))
     }
 
     /// Create a selection based on a filter expression
-    fn filter(&self, expr: Expr) -> Result<Arc<dyn Table>> {
+    fn filter(&self, expr: Expr) -> Result<Arc<dyn DataFrame>> {
         let plan = LogicalPlanBuilder::from(&self.plan).filter(expr)?.build()?;
-        Ok(Arc::new(TableImpl::new(&plan)))
+        Ok(Arc::new(DataFrameImpl::new(self.ctx_state.clone(), &plan)))
     }
 
     /// Perform an aggregate query
@@ -75,23 +84,17 @@ impl Table for TableImpl {
         &self,
         group_expr: Vec<Expr>,
         aggr_expr: Vec<Expr>,
-    ) -> Result<Arc<dyn Table>> {
+    ) -> Result<Arc<dyn DataFrame>> {
         let plan = LogicalPlanBuilder::from(&self.plan)
             .aggregate(group_expr, aggr_expr)?
             .build()?;
-        Ok(Arc::new(TableImpl::new(&plan)))
+        Ok(Arc::new(DataFrameImpl::new(self.ctx_state.clone(), &plan)))
     }
 
     /// Limit the number of rows
-    fn limit(&self, n: usize) -> Result<Arc<dyn Table>> {
+    fn limit(&self, n: usize) -> Result<Arc<dyn DataFrame>> {
         let plan = LogicalPlanBuilder::from(&self.plan).limit(n)?.build()?;
-        Ok(Arc::new(TableImpl::new(&plan)))
-    }
-
-    /// Return an expression representing a column within this table
-    fn col(&self, name: &str) -> Result<Expr> {
-        self.plan.schema().index_of(name)?; // check that the column exists
-        Ok(col(name))
+        Ok(Arc::new(DataFrameImpl::new(self.ctx_state.clone(), &plan)))
     }
 
     /// Create an expression to represent the min() aggregate function
@@ -124,11 +127,8 @@ impl Table for TableImpl {
         self.plan.clone()
     }
 
-    fn collect(
-        &self,
-        ctx: &mut ExecutionContext,
-        batch_size: usize,
-    ) -> Result<Vec<RecordBatch>> {
+    fn collect(&self, batch_size: usize) -> Result<Vec<RecordBatch>> {
+        let mut ctx = ExecutionContext::from(self.ctx_state.clone());
         ctx.collect_plan(&self.plan.clone(), batch_size)
     }
 
@@ -138,7 +138,7 @@ impl Table for TableImpl {
     }
 }
 
-impl TableImpl {
+impl DataFrameImpl {
     /// Determine the data type for a given expression
     fn get_data_type(&self, expr: &Expr) -> Result<DataType> {
         match expr {
@@ -193,7 +193,7 @@ mod tests {
     fn select_expr() -> Result<()> {
         // build plan using Table API
         let t = test_table()?;
-        let t2 = t.select(vec![t.col("c1")?, t.col("c2")?, t.col("c11")?])?;
+        let t2 = t.select(vec![col("c1"), col("c2"), col("c11")])?;
         let plan = t2.to_logical_plan();
 
         // build query using SQL
@@ -209,8 +209,8 @@ mod tests {
     fn aggregate() -> Result<()> {
         // build plan using Table API
         let t = test_table()?;
-        let group_expr = vec![t.col("c1")?];
-        let c12 = t.col("c12")?;
+        let group_expr = vec![col("c1")];
+        let c12 = col("c12");
         let aggr_expr = vec![
             t.min(&c12)?,
             t.max(&c12)?,
@@ -264,7 +264,7 @@ mod tests {
         ctx.create_logical_plan(sql)
     }
 
-    fn test_table() -> Result<Arc<dyn Table + 'static>> {
+    fn test_table() -> Result<Arc<dyn DataFrame + 'static>> {
         let mut ctx = ExecutionContext::new();
         register_aggregate_csv(&mut ctx)?;
         ctx.table("aggregate_test_100")

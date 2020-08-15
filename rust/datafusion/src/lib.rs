@@ -29,13 +29,13 @@
 extern crate arrow;
 extern crate sqlparser;
 
+pub mod dataframe;
 pub mod datasource;
 pub mod error;
 pub mod execution;
 pub mod logicalplan;
 pub mod optimizer;
 pub mod sql;
-pub mod table;
 
 #[cfg(test)]
 pub mod test;

@@ -28,6 +28,7 @@ use crate::execution::physical_plan::parquet::ParquetExec;
 use crate::execution::physical_plan::{ExecutionPlan, Partition};
 
 /// Table-based representation of a `ParquetFile`.
+#[derive(Clone)]
 pub struct ParquetTable {
     path: String,
     schema: SchemaRef,

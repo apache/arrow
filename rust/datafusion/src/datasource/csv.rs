@@ -49,6 +49,7 @@ pub use crate::execution::physical_plan::csv::CsvReadOptions;
 use crate::execution::physical_plan::{ExecutionPlan, Partition};
 
 /// Represents a CSV file with a provided schema
+#[derive(Clone)]
 pub struct CsvFile {
     filename: String,
     schema: SchemaRef,

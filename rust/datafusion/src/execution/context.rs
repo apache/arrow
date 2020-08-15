@@ -17,9 +17,11 @@
 
 //! ExecutionContext contains methods for registering data sources and executing queries
 
+use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::Path;
+use std::rc::Rc;
 use std::string::String;
 use std::sync::Arc;
 use std::thread::{self, JoinHandle};
@@ -28,6 +30,7 @@ use arrow::csv;
 use arrow::datatypes::*;
 use arrow::record_batch::RecordBatch;
 
+use crate::dataframe::DataFrame;
 use crate::datasource::csv::CsvFile;
 use crate::datasource::parquet::ParquetTable;
 use crate::datasource::TableProvider;
@@ -50,7 +53,7 @@ use crate::execution::physical_plan::selection::SelectionExec;
 use crate::execution::physical_plan::sort::{SortExec, SortOptions};
 use crate::execution::physical_plan::udf::{ScalarFunction, ScalarFunctionExpr};
 use crate::execution::physical_plan::{AggregateExpr, ExecutionPlan, PhysicalExpr};
-use crate::execution::table_impl::TableImpl;
+use crate::execution::table_impl::DataFrameImpl;
 use crate::logicalplan::{
     Expr, FunctionMeta, FunctionType, LogicalPlan, LogicalPlanBuilder, PlanType,
     StringifiedPlan,
@@ -62,7 +65,6 @@ use crate::sql::{
     parser::{DFParser, FileType},
     planner::{SchemaProvider, SqlToRel},
 };
-use crate::table::Table;
 
 /// Configuration options for execution context
 #[derive(Copy, Clone)]
@@ -89,10 +91,16 @@ impl ExecutionConfig {
 }
 
 /// Execution context for registering data sources and executing queries
-pub struct ExecutionContext {
-    datasources: HashMap<String, Box<dyn TableProvider + Send + Sync>>,
-    scalar_functions: HashMap<String, Box<ScalarFunction>>,
+#[derive(Clone)]
+pub struct ExecutionContextState {
+    datasources: Rc<RefCell<HashMap<String, Box<dyn TableProvider + Send + Sync>>>>,
+    scalar_functions: Rc<RefCell<HashMap<String, Box<ScalarFunction>>>>,
     config: ExecutionConfig,
+}
+
+/// Execution context for registering data sources and executing queries
+pub struct ExecutionContext {
+    state: Rc<RefCell<ExecutionContextState>>,
 }
 
 fn tuple_err<T, R>(value: (Result<T>, Result<R>)) -> Result<(T, R)> {
@@ -113,14 +121,21 @@ impl ExecutionContext {
     /// Create a new execution context for in-memory queries using provided configs
     pub fn with_config(config: ExecutionConfig) -> Self {
         let mut ctx = Self {
-            datasources: HashMap::new(),
-            scalar_functions: HashMap::new(),
-            config,
+            state: Rc::new(RefCell::new(ExecutionContextState {
+                datasources: Rc::new(RefCell::new(HashMap::new())),
+                scalar_functions: Rc::new(RefCell::new(HashMap::new())),
+                config,
+            })),
         };
         for udf in scalar_functions() {
             ctx.register_udf(udf);
         }
         ctx
+    }
+
+    /// Create a context from existing context state
+    pub(crate) fn from(state: Rc<RefCell<ExecutionContextState>>) -> Self {
+        Self { state }
     }
 
     /// Execute a SQL query and produce a Relation (a schema-aware iterator over a series
@@ -184,9 +199,11 @@ impl ExecutionContext {
             )));
         }
 
+        let state = self.state.borrow();
+
         let schema_provider = ExecutionContextSchemaProvider {
-            datasources: &self.datasources,
-            scalar_functions: &self.scalar_functions,
+            datasources: state.datasources.clone(),
+            scalar_functions: state.scalar_functions.clone(),
         };
 
         // create a query planner
@@ -196,12 +213,16 @@ impl ExecutionContext {
 
     /// Register a scalar UDF
     pub fn register_udf(&mut self, f: ScalarFunction) {
-        self.scalar_functions.insert(f.name.clone(), Box::new(f));
+        let state = self.state.borrow();
+        state
+            .scalar_functions
+            .borrow_mut()
+            .insert(f.name.clone(), Box::new(f));
     }
 
     /// Get a reference to the registered scalar functions
-    pub fn scalar_functions(&self) -> &HashMap<String, Box<ScalarFunction>> {
-        &self.scalar_functions
+    pub fn scalar_functions(&self) -> Rc<RefCell<HashMap<String, Box<ScalarFunction>>>> {
+        self.state.borrow().scalar_functions.clone()
     }
 
     /// Register a CSV file as a table so that it can be queried from SQL
@@ -228,12 +249,16 @@ impl ExecutionContext {
         name: &str,
         provider: Box<dyn TableProvider + Send + Sync>,
     ) {
-        self.datasources.insert(name.to_string(), provider);
+        let state = self.state.borrow();
+        state
+            .datasources
+            .borrow_mut()
+            .insert(name.to_string(), provider);
     }
 
     /// Get a table by name
-    pub fn table(&mut self, table_name: &str) -> Result<Arc<dyn Table>> {
-        match self.datasources.get(table_name) {
+    pub fn table(&mut self, table_name: &str) -> Result<Arc<dyn DataFrame>> {
+        match self.state.borrow().datasources.borrow().get(table_name) {
             Some(provider) => {
                 let schema = provider.schema().as_ref().clone();
                 let table_scan = LogicalPlan::TableScan {
@@ -243,7 +268,8 @@ impl ExecutionContext {
                     projected_schema: Box::new(schema),
                     projection: None,
                 };
-                Ok(Arc::new(TableImpl::new(
+                Ok(Arc::new(DataFrameImpl::new(
+                    self.state.clone(),
                     &LogicalPlanBuilder::from(&table_scan).build()?,
                 )))
             }
@@ -256,14 +282,22 @@ impl ExecutionContext {
 
     /// The set of available tables. Use `table` to get a specific table.
     pub fn tables(&self) -> HashSet<String> {
-        self.datasources.keys().cloned().collect()
+        self.state
+            .borrow()
+            .datasources
+            .borrow()
+            .keys()
+            .cloned()
+            .collect()
     }
 
     /// Optimize the logical plan by applying optimizer rules
     pub fn optimize(&self, plan: &LogicalPlan) -> Result<LogicalPlan> {
         let rules: Vec<Box<dyn OptimizerRule>> = vec![
             Box::new(ProjectionPushDown::new()),
-            Box::new(TypeCoercionRule::new(&self.scalar_functions)),
+            Box::new(TypeCoercionRule::new(
+                self.state.borrow().scalar_functions.clone(),
+            )),
         ];
         let mut plan = plan.clone();
 
@@ -284,7 +318,7 @@ impl ExecutionContext {
                 table_name,
                 projection,
                 ..
-            } => match self.datasources.get(table_name) {
+            } => match self.state.borrow().datasources.borrow().get(table_name) {
                 Some(provider) => {
                     let partitions = provider.scan(projection, batch_size)?;
                     if partitions.is_empty() {
@@ -402,7 +436,7 @@ impl ExecutionContext {
                 let merge = Arc::new(MergeExec::new(
                     schema.clone(),
                     partitions,
-                    self.config.concurrency,
+                    self.state.borrow().config.concurrency,
                 ));
 
                 // construct the expressions for the final aggregation
@@ -461,7 +495,7 @@ impl ExecutionContext {
                 Ok(Arc::new(SortExec::try_new(
                     sort_expr,
                     input,
-                    self.config.concurrency,
+                    self.state.borrow().config.concurrency,
                 )?))
             }
             LogicalPlan::Limit { input, n, .. } => {
@@ -472,7 +506,7 @@ impl ExecutionContext {
                     input_schema.clone(),
                     input.partitions()?,
                     *n,
-                    self.config.concurrency,
+                    self.state.borrow().config.concurrency,
                 )))
             }
             LogicalPlan::Explain {
@@ -533,7 +567,7 @@ impl ExecutionContext {
                 name,
                 args,
                 return_type,
-            } => match &self.scalar_functions.get(name) {
+            } => match &self.state.borrow().scalar_functions.borrow().get(name) {
                 Some(f) => {
                     let mut physical_args = vec![];
                     for e in args {
@@ -623,7 +657,7 @@ impl ExecutionContext {
                 let plan = MergeExec::new(
                     plan.schema().clone(),
                     partitions,
-                    self.config.concurrency,
+                    self.state.borrow().config.concurrency,
                 );
                 let partitions = plan.partitions()?;
                 if partitions.len() == 1 {
@@ -683,16 +717,16 @@ impl ExecutionContext {
 }
 
 /// Get schema and scalar functions for execution context
-pub struct ExecutionContextSchemaProvider<'a> {
-    datasources: &'a HashMap<String, Box<dyn TableProvider + Send + Sync>>,
-    scalar_functions: &'a HashMap<String, Box<ScalarFunction>>,
+pub struct ExecutionContextSchemaProvider {
+    datasources: Rc<RefCell<HashMap<String, Box<dyn TableProvider + Send + Sync>>>>,
+    scalar_functions: Rc<RefCell<HashMap<String, Box<ScalarFunction>>>>,
 }
 
-impl<'a> ExecutionContextSchemaProvider<'a> {
+impl<'a> ExecutionContextSchemaProvider {
     /// Create a new ExecutionContextSchemaProvider based on data sources and scalar functions
     pub fn new(
-        datasources: &'a HashMap<String, Box<dyn TableProvider + Send + Sync>>,
-        scalar_functions: &'a HashMap<String, Box<ScalarFunction>>,
+        datasources: Rc<RefCell<HashMap<String, Box<dyn TableProvider + Send + Sync>>>>,
+        scalar_functions: Rc<RefCell<HashMap<String, Box<ScalarFunction>>>>,
     ) -> Self {
         ExecutionContextSchemaProvider {
             datasources,
@@ -701,13 +735,16 @@ impl<'a> ExecutionContextSchemaProvider<'a> {
     }
 }
 
-impl SchemaProvider for ExecutionContextSchemaProvider<'_> {
+impl SchemaProvider for ExecutionContextSchemaProvider {
     fn get_table_meta(&self, name: &str) -> Option<SchemaRef> {
-        self.datasources.get(name).map(|ds| ds.schema().clone())
+        self.datasources
+            .borrow()
+            .get(name)
+            .map(|ds| ds.schema().clone())
     }
 
     fn get_function_meta(&self, name: &str) -> Option<Arc<FunctionMeta>> {
-        self.scalar_functions.get(name).map(|f| {
+        self.scalar_functions.borrow().get(name).map(|f| {
             Arc::new(FunctionMeta::new(
                 name.to_owned(),
                 f.args.clone(),
@@ -824,7 +861,14 @@ mod tests {
         let tmp_dir = TempDir::new("execute")?;
         let ctx = create_ctx(&tmp_dir, 1)?;
 
-        let schema = ctx.datasources.get("test").unwrap().schema();
+        let schema = ctx
+            .state
+            .borrow()
+            .datasources
+            .borrow()
+            .get("test")
+            .unwrap()
+            .schema();
         assert_eq!(schema.field_with_name("c1")?.is_nullable(), false);
 
         let plan = LogicalPlanBuilder::scan("default", "test", schema.as_ref(), None)?
