@@ -20,36 +20,62 @@
 use crate::error::ExecutionError;
 use crate::execution::physical_plan::udf::ScalarFunction;
 
-use arrow::array::{Array, ArrayRef, Float64Array, Float64Builder};
+use arrow::array::{Array, ArrayRef};
+use arrow::array::{Float32Array, Float64Array};
 use arrow::datatypes::DataType;
 
 use std::sync::Arc;
+
+macro_rules! compute_op {
+    ($ARRAY:expr, $FUNC:ident, $TYPE:ident) => {{
+        let mut builder = <$TYPE>::builder($ARRAY.len());
+        for i in 0..$ARRAY.len() {
+            if $ARRAY.is_null(i) {
+                builder.append_null()?;
+            } else {
+                builder.append_value($ARRAY.value(i).$FUNC())?;
+            }
+        }
+        Ok(Arc::new(builder.finish()))
+    }};
+}
+
+macro_rules! downcast_compute_op {
+    ($ARRAY:expr, $NAME:expr, $FUNC:ident, $TYPE:ident) => {{
+        let n = $ARRAY.as_any().downcast_ref::<$TYPE>();
+        match n {
+            Some(array) => compute_op!(array, $FUNC, $TYPE),
+            _ => Err(ExecutionError::General(format!(
+                "Invalid data type for {}",
+                $NAME
+            ))),
+        }
+    }};
+}
+
+macro_rules! unary_primitive_array_op {
+    ($ARRAY:expr, $NAME:expr, $FUNC:ident) => {{
+        match ($ARRAY).data_type() {
+            DataType::Float32 => downcast_compute_op!($ARRAY, $NAME, $FUNC, Float32Array),
+            DataType::Float64 => downcast_compute_op!($ARRAY, $NAME, $FUNC, Float64Array),
+            other => Err(ExecutionError::General(format!(
+                "Unsupported data type {:?} for function {}",
+                other, $NAME,
+            ))),
+        }
+    }};
+}
 
 macro_rules! math_unary_function {
     ($NAME:expr, $FUNC:ident) => {
         ScalarFunction::new(
             $NAME,
-            vec![vec![DataType::Float64]],
+            // order: from faster to slower
+            vec![vec![DataType::Float32], vec![DataType::Float64]],
             DataType::Float64,
             Arc::new(|args: &[ArrayRef]| {
-                let n = &args[0].as_any().downcast_ref::<Float64Array>();
-                match n {
-                    Some(array) => {
-                        let mut builder = Float64Builder::new(array.len());
-                        for i in 0..array.len() {
-                            if array.is_null(i) {
-                                builder.append_null()?;
-                            } else {
-                                builder.append_value(array.value(i).$FUNC())?;
-                            }
-                        }
-                        Ok(Arc::new(builder.finish()))
-                    }
-                    _ => Err(ExecutionError::General(format!(
-                        "Invalid data type for {}",
-                        $NAME
-                    ))),
-                }
+                let array = &args[0];
+                unary_primitive_array_op!(array, $NAME, $FUNC)
             }),
         )
     };
@@ -96,7 +122,7 @@ mod tests {
             .build()?;
         let ctx = ExecutionContext::new();
         let plan = ctx.optimize(&plan)?;
-        let expected = "Projection: sqrt(CAST(#c0 AS Float64))\
+        let expected = "Projection: sqrt(CAST(#c0 AS Float32))\
         \n  TableScan:  projection=Some([0])";
         assert_eq!(format!("{:?}", plan), expected);
         Ok(())
@@ -105,6 +131,20 @@ mod tests {
     #[test]
     fn no_cast_f64_input() -> Result<()> {
         let schema = Schema::new(vec![Field::new("c0", DataType::Float64, true)]);
+        let plan = LogicalPlanBuilder::scan("", "", &schema, None)?
+            .project(vec![sqrt(col("c0"))])?
+            .build()?;
+        let ctx = ExecutionContext::new();
+        let plan = ctx.optimize(&plan)?;
+        let expected = "Projection: sqrt(#c0)\
+        \n  TableScan:  projection=Some([0])";
+        assert_eq!(format!("{:?}", plan), expected);
+        Ok(())
+    }
+
+    #[test]
+    fn no_cast_f32_input() -> Result<()> {
+        let schema = Schema::new(vec![Field::new("c0", DataType::Float32, true)]);
         let plan = LogicalPlanBuilder::scan("", "", &schema, None)?
             .project(vec![sqrt(col("c0"))])?
             .build()?;
