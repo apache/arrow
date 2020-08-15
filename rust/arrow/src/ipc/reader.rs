@@ -24,7 +24,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::io::{BufReader, Read, Seek, SeekFrom};
 use std::rc::Rc;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
 
 use crate::array::*;
@@ -476,7 +476,7 @@ pub struct FileReader<R: Read + Seek> {
     blocks: Vec<ipc::Block>,
 
     /// A counter to keep track of the current block that should be read
-    current_block: Rc<RefCell<usize>>,
+    current_block: AtomicUsize,
 
     /// The total number of blocks, which may contain record batches and other types
     total_blocks: usize,
@@ -617,7 +617,7 @@ impl<R: Read + Seek> FileReader<R> {
             reader: Rc::new(RefCell::new(reader)),
             schema: Arc::new(schema),
             blocks: blocks.to_vec(),
-            current_block: Rc::new(RefCell::new(0)),
+            current_block: AtomicUsize::new(0),
             total_blocks,
             dictionaries_by_field,
         })
@@ -643,7 +643,7 @@ impl<R: Read + Seek> FileReader<R> {
                 index, self.total_blocks
             )))
         } else {
-            *self.current_block.borrow_mut() = index;
+            self.current_block.store(index, Ordering::SeqCst);
             Ok(())
         }
     }
@@ -656,10 +656,10 @@ impl<R: Read + Seek> RecordBatchReader for FileReader<R> {
 
     fn next_batch(&self) -> Result<Option<RecordBatch>> {
         // get current block
-        let mut current_block = self.current_block.borrow_mut();
-        if *current_block < self.total_blocks {
-            let block = self.blocks[*current_block];
-            *current_block += 1;
+        let current_block = self.current_block.load(Ordering::SeqCst);
+        if self.current_block.load(Ordering::SeqCst) < self.total_blocks {
+            let block = self.blocks[current_block];
+            self.current_block.fetch_add(1, Ordering::SeqCst);
 
             // read length from end of offset
             let meta_len = block.metaDataLength() - 4;
