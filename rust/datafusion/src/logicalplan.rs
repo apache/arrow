@@ -47,8 +47,8 @@ pub enum FunctionType {
 pub struct FunctionMeta {
     /// Function name
     name: String,
-    /// Function arguments
-    args: Vec<Field>,
+    /// Function arguments. Each argument i can be one of the types of args[i], with respective priority
+    args: Vec<Vec<DataType>>,
     /// Function return type
     return_type: DataType,
     /// Function type (Scalar or Aggregate)
@@ -59,7 +59,7 @@ impl FunctionMeta {
     #[allow(missing_docs)]
     pub fn new(
         name: String,
-        args: Vec<Field>,
+        args: Vec<Vec<DataType>>,
         return_type: DataType,
         function_type: FunctionType,
     ) -> Self {
@@ -75,7 +75,7 @@ impl FunctionMeta {
         &self.name
     }
     /// Getter for the arg list
-    pub fn args(&self) -> &Vec<Field> {
+    pub fn args(&self) -> &Vec<Vec<DataType>> {
         &self.args
     }
     /// Getter for the `DataType` the function returns

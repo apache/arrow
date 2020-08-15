@@ -20,7 +20,7 @@
 use std::fmt;
 
 use arrow::array::ArrayRef;
-use arrow::datatypes::{DataType, Field, Schema};
+use arrow::datatypes::{DataType, Schema};
 
 use crate::error::Result;
 use crate::execution::physical_plan::PhysicalExpr;
@@ -37,8 +37,11 @@ pub type ScalarUdf = Arc<dyn Fn(&[ArrayRef]) -> Result<ArrayRef> + Send + Sync>;
 pub struct ScalarFunction {
     /// Function name
     pub name: String,
-    /// Function argument meta-data
-    pub args: Vec<Field>,
+    /// Set of valid argument types.
+    /// The first dimension (0) represents specific combinations of valid argument types
+    /// The second dimension (1) represents the types of each argument.
+    /// For example, [[t1, t2]] is a function of 2 arguments that only accept t1 on the first arg and t2 on the second
+    pub args: Vec<Vec<DataType>>,
     /// Return type
     pub return_type: DataType,
     /// UDF implementation
@@ -60,7 +63,7 @@ impl ScalarFunction {
     /// Create a new ScalarFunction
     pub fn new(
         name: &str,
-        args: Vec<Field>,
+        args: Vec<Vec<DataType>>,
         return_type: DataType,
         fun: ScalarUdf,
     ) -> Self {

@@ -23,7 +23,7 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-use arrow::datatypes::Schema;
+use arrow::datatypes::{DataType, Schema};
 
 use crate::error::{ExecutionError, Result};
 use crate::execution::physical_plan::udf::ScalarFunction;
@@ -80,16 +80,32 @@ impl TypeCoercionRule {
                     .get(name)
                 {
                     Some(func_meta) => {
-                        for i in 0..expressions.len() {
-                            let field = &func_meta.args[i];
-                            let actual_type = expressions[i].get_type(schema)?;
-                            let required_type = field.data_type();
-                            if &actual_type != required_type {
-                                let super_type =
-                                    utils::get_supertype(&actual_type, required_type)?;
-                                expressions[i] =
-                                    expressions[i].cast_to(&super_type, schema)?
-                            };
+                        // compute the current types and expressions
+                        let current_types = expressions
+                            .iter()
+                            .map(|e| e.get_type(schema))
+                            .collect::<Result<Vec<_>>>()?;
+
+                        let new = if func_meta.args.contains(&current_types) {
+                            Some(expressions)
+                        } else {
+                            maybe_rewrite(
+                                &expressions,
+                                &current_types,
+                                &schema,
+                                &func_meta.args,
+                            )?
+                        };
+
+                        if let Some(args) = new {
+                            expressions = args;
+                        } else {
+                            return Err(ExecutionError::General(format!(
+                                "The scalar function '{}' requires one of the type variants {:?}, but the arguments of type '{:?}' cannot be safely casted to any of them.",
+                                func_meta.name,
+                                func_meta.args,
+                                current_types,
+                            )));
                         }
                     }
                     _ => {
@@ -145,6 +161,50 @@ impl OptimizerRule for TypeCoercionRule {
     fn name(&self) -> &str {
         return "type_coercion";
     }
+}
+
+/// tries to re-cast expressions under schema based on the set of valid signatures
+fn maybe_rewrite(
+    expressions: &Vec<Expr>,
+    current_types: &Vec<DataType>,
+    schema: &Schema,
+    signature: &Vec<Vec<DataType>>,
+) -> Result<Option<Vec<Expr>>> {
+    // for each set of valid signatures, try to coerse all expressions to one of them
+    let mut new_expressions: Option<Vec<Expr>> = None;
+    for valid_types in signature {
+        // for each option, try to coerse all arguments to it
+        if let Some(types) = maybe_coerse(valid_types, &current_types) {
+            // yes: let's re-write the expressions
+            new_expressions = Some(
+                expressions
+                    .iter()
+                    .enumerate()
+                    .map(|(i, expr)| expr.cast_to(&types[i], schema))
+                    .collect::<Result<Vec<_>>>()?,
+            );
+            break;
+        }
+        // we cannot: try the next
+    }
+    Ok(new_expressions)
+}
+
+/// Try to coerse current_types into valid_types
+fn maybe_coerse(
+    valid_types: &Vec<DataType>,
+    current_types: &Vec<DataType>,
+) -> Option<Vec<DataType>> {
+    let mut super_type = Vec::with_capacity(valid_types.len());
+    for (i, valid_type) in valid_types.iter().enumerate() {
+        let current_type = &current_types[i];
+        if let Ok(t) = utils::get_supertype(current_type, valid_type) {
+            super_type.push(t)
+        } else {
+            return None;
+        }
+    }
+    Some(super_type)
 }
 
 #[cfg(test)]

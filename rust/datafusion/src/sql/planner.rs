@@ -523,10 +523,14 @@ impl<S: SchemaProvider> SqlToRel<S> {
 
                             let mut safe_args: Vec<Expr> = vec![];
                             for i in 0..rex_args.len() {
-                                safe_args.push(
-                                    rex_args[i]
-                                        .cast_to(fm.args()[i].data_type(), schema)?,
-                                );
+                                let expr = if fm.args()[i]
+                                    .contains(&rex_args[i].get_type(schema)?)
+                                {
+                                    rex_args[i].clone()
+                                } else {
+                                    rex_args[i].cast_to(&fm.args()[i][0], schema)?
+                                };
+                                safe_args.push(expr)
                             }
 
                             Ok(Expr::ScalarFunction {
@@ -912,7 +916,7 @@ mod tests {
             match name {
                 "sqrt" => Some(Arc::new(FunctionMeta::new(
                     "sqrt".to_string(),
-                    vec![Field::new("n", DataType::Float64, false)],
+                    vec![vec![DataType::Float64]],
                     DataType::Float64,
                     FunctionType::Scalar,
                 ))),

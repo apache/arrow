@@ -1049,10 +1049,7 @@ mod tests {
 
         let my_add = ScalarFunction::new(
             "my_add",
-            vec![
-                Field::new("a", DataType::Int32, true),
-                Field::new("b", DataType::Int32, true),
-            ],
+            vec![vec![DataType::Int32, DataType::Int32]],
             DataType::Int32,
             myfunc,
         );
