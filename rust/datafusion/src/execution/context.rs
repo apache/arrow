@@ -41,11 +41,11 @@ use crate::execution::physical_plan::expressions::{
 };
 use crate::execution::physical_plan::hash_aggregate::HashAggregateExec;
 use crate::execution::physical_plan::limit::GlobalLimitExec;
-use crate::execution::physical_plan::math_expressions::register_math_functions;
 use crate::execution::physical_plan::memory::MemoryExec;
 use crate::execution::physical_plan::merge::MergeExec;
 use crate::execution::physical_plan::parquet::ParquetExec;
 use crate::execution::physical_plan::projection::ProjectionExec;
+use crate::execution::physical_plan::scalar_functions;
 use crate::execution::physical_plan::selection::SelectionExec;
 use crate::execution::physical_plan::sort::{SortExec, SortOptions};
 use crate::execution::physical_plan::udf::{ScalarFunction, ScalarFunctionExpr};
@@ -117,7 +117,9 @@ impl ExecutionContext {
             scalar_functions: HashMap::new(),
             config,
         };
-        register_math_functions(&mut ctx);
+        for udf in scalar_functions() {
+            ctx.register_udf(udf);
+        }
         ctx
     }
 
