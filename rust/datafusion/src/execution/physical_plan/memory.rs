@@ -25,6 +25,7 @@ use crate::execution::physical_plan::{ExecutionPlan, Partition};
 use arrow::datatypes::SchemaRef;
 use arrow::error::Result as ArrowResult;
 use arrow::record_batch::{RecordBatch, RecordBatchReader};
+use async_trait::async_trait;
 
 /// Execution plan for reading in-memory batches of data
 #[derive(Debug)]
@@ -101,9 +102,10 @@ impl MemoryPartition {
     }
 }
 
+#[async_trait]
 impl Partition for MemoryPartition {
     /// Execute this partition and return an iterator over RecordBatch
-    fn execute(&self) -> Result<Arc<dyn RecordBatchReader + Send + Sync>> {
+    async fn execute(&self) -> Result<Arc<dyn RecordBatchReader + Send + Sync>> {
         Ok(Arc::new(MemoryIterator::try_new(
             self.data.clone(),
             self.schema.clone(),

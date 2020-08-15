@@ -26,6 +26,7 @@ use arrow::compute::filter;
 use arrow::datatypes::SchemaRef;
 use arrow::error::Result as ArrowResult;
 use arrow::record_batch::{RecordBatch, RecordBatchReader};
+use async_trait::async_trait;
 
 /// Execution plan for a Selection
 #[derive(Debug)]
@@ -86,13 +87,14 @@ struct SelectionPartition {
     input: Arc<dyn Partition>,
 }
 
+#[async_trait]
 impl Partition for SelectionPartition {
     /// Execute the Selection
-    fn execute(&self) -> Result<Arc<dyn RecordBatchReader + Send + Sync>> {
+    async fn execute(&self) -> Result<Arc<dyn RecordBatchReader + Send + Sync>> {
         Ok(Arc::new(SelectionIterator {
             schema: self.schema.clone(),
             expr: self.expr.clone(),
-            input: self.input.execute()?,
+            input: self.input.execute().await?,
         }))
     }
 }

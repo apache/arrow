@@ -29,6 +29,7 @@ use arrow::array::ArrayRef;
 use arrow::compute::limit;
 use arrow::datatypes::SchemaRef;
 use arrow::record_batch::{RecordBatch, RecordBatchReader};
+use async_trait::async_trait;
 
 /// Limit execution plan
 #[derive(Debug)]
@@ -87,8 +88,9 @@ struct LimitPartition {
     concurrency: usize,
 }
 
+#[async_trait]
 impl Partition for LimitPartition {
-    fn execute(&self) -> Result<Arc<dyn RecordBatchReader + Send + Sync>> {
+    async fn execute(&self) -> Result<Arc<dyn RecordBatchReader + Send + Sync>> {
         // apply limit in parallel across all input partitions
         let local_limit = self
             .partitions
@@ -107,7 +109,7 @@ impl Partition for LimitPartition {
         let merge_partitions = merge.partitions()?;
         // MergeExec must always produce a single partition
         assert_eq!(1, merge_partitions.len());
-        let it = merge_partitions[0].execute()?;
+        let it = merge_partitions[0].execute().await?;
         let batches = common::collect(it)?;
 
         // apply the limit to the output
@@ -154,9 +156,10 @@ impl LocalLimitExec {
     }
 }
 
+#[async_trait]
 impl Partition for LocalLimitExec {
-    fn execute(&self) -> Result<Arc<dyn RecordBatchReader + Send + Sync>> {
-        let it = self.input.execute()?;
+    async fn execute(&self) -> Result<Arc<dyn RecordBatchReader + Send + Sync>> {
+        let it = self.input.execute().await?;
         Ok(Arc::new(MemoryIterator::try_new(
             collect_with_limit(it, self.limit)?,
             self.schema.clone(),
@@ -219,30 +222,36 @@ mod tests {
 
     #[test]
     fn limit() -> Result<()> {
-        let schema = test::aggr_test_schema();
+        async_executor::LocalExecutor::new().run(async {
+            let schema = test::aggr_test_schema();
 
-        let num_partitions = 4;
-        let path =
-            test::create_partitioned_csv("aggregate_test_100.csv", num_partitions)?;
+            let num_partitions = 4;
+            let path =
+                test::create_partitioned_csv("aggregate_test_100.csv", num_partitions)?;
 
-        let csv =
-            CsvExec::try_new(&path, CsvReadOptions::new().schema(&schema), None, 1024)?;
+            let csv = CsvExec::try_new(
+                &path,
+                CsvReadOptions::new().schema(&schema),
+                None,
+                1024,
+            )?;
 
-        // input should have 4 partitions
-        let input = csv.partitions()?;
-        assert_eq!(input.len(), num_partitions);
+            // input should have 4 partitions
+            let input = csv.partitions()?;
+            assert_eq!(input.len(), num_partitions);
 
-        let limit = GlobalLimitExec::new(schema.clone(), input, 7, 2);
-        let partitions = limit.partitions()?;
+            let limit = GlobalLimitExec::new(schema.clone(), input, 7, 2);
+            let partitions = limit.partitions()?;
 
-        // the result should contain 4 batches (one per input partition)
-        let iter = partitions[0].execute()?;
-        let batches = common::collect(iter)?;
+            // the result should contain 4 batches (one per input partition)
+            let iter = partitions[0].execute().await?;
+            let batches = common::collect(iter)?;
 
-        // there should be a total of 100 rows
-        let row_count: usize = batches.iter().map(|batch| batch.num_rows()).sum();
-        assert_eq!(row_count, 7);
+            // there should be a total of 100 rows
+            let row_count: usize = batches.iter().map(|batch| batch.num_rows()).sum();
+            assert_eq!(row_count, 7);
 
-        Ok(())
+            Ok(())
+        })
     }
 }

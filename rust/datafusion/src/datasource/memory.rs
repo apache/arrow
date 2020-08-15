@@ -56,20 +56,22 @@ impl MemTable {
 
     /// Create a mem table by reading from another data source
     pub fn load(t: &dyn TableProvider) -> Result<Self> {
-        let schema = t.schema();
-        let partitions = t.scan(&None, 1024 * 1024)?;
+        async_executor::LocalExecutor::new().run(async {
+            let schema = t.schema();
+            let partitions = t.scan(&None, 1024 * 1024)?;
 
-        let mut data: Vec<Vec<RecordBatch>> = Vec::with_capacity(partitions.len());
-        for partition in &partitions {
-            let it = partition.execute()?;
-            let mut partition_batches = vec![];
-            while let Ok(Some(batch)) = it.next_batch() {
-                partition_batches.push(batch);
+            let mut data: Vec<Vec<RecordBatch>> = Vec::with_capacity(partitions.len());
+            for partition in &partitions {
+                let it = partition.execute().await?;
+                let mut partition_batches = vec![];
+                while let Ok(Some(batch)) = it.next_batch() {
+                    partition_batches.push(batch);
+                }
+                data.push(partition_batches);
             }
-            data.push(partition_batches);
-        }
 
-        MemTable::new(schema.clone(), data)
+            MemTable::new(schema.clone(), data)
+        })
     }
 }
 
@@ -127,59 +129,63 @@ mod tests {
 
     #[test]
     fn test_with_projection() {
-        let schema = Arc::new(Schema::new(vec![
-            Field::new("a", DataType::Int32, false),
-            Field::new("b", DataType::Int32, false),
-            Field::new("c", DataType::Int32, false),
-        ]));
+        async_executor::LocalExecutor::new().run(async {
+            let schema = Arc::new(Schema::new(vec![
+                Field::new("a", DataType::Int32, false),
+                Field::new("b", DataType::Int32, false),
+                Field::new("c", DataType::Int32, false),
+            ]));
 
-        let batch = RecordBatch::try_new(
-            schema.clone(),
-            vec![
-                Arc::new(Int32Array::from(vec![1, 2, 3])),
-                Arc::new(Int32Array::from(vec![4, 5, 6])),
-                Arc::new(Int32Array::from(vec![7, 8, 9])),
-            ],
-        )
-        .unwrap();
+            let batch = RecordBatch::try_new(
+                schema.clone(),
+                vec![
+                    Arc::new(Int32Array::from(vec![1, 2, 3])),
+                    Arc::new(Int32Array::from(vec![4, 5, 6])),
+                    Arc::new(Int32Array::from(vec![7, 8, 9])),
+                ],
+            )
+            .unwrap();
 
-        let provider = MemTable::new(schema, vec![vec![batch]]).unwrap();
+            let provider = MemTable::new(schema, vec![vec![batch]]).unwrap();
 
-        // scan with projection
-        let partitions = provider.scan(&Some(vec![2, 1]), 1024).unwrap();
-        let it = partitions[0].execute().unwrap();
-        let batch2 = it.next_batch().unwrap().unwrap();
-        assert_eq!(2, batch2.schema().fields().len());
-        assert_eq!("c", batch2.schema().field(0).name());
-        assert_eq!("b", batch2.schema().field(1).name());
-        assert_eq!(2, batch2.num_columns());
+            // scan with projection
+            let partitions = provider.scan(&Some(vec![2, 1]), 1024).unwrap();
+            let it = partitions[0].execute().await.unwrap();
+            let batch2 = it.next_batch().unwrap().unwrap();
+            assert_eq!(2, batch2.schema().fields().len());
+            assert_eq!("c", batch2.schema().field(0).name());
+            assert_eq!("b", batch2.schema().field(1).name());
+            assert_eq!(2, batch2.num_columns());
+        })
     }
 
     #[test]
     fn test_without_projection() {
-        let schema = Arc::new(Schema::new(vec![
-            Field::new("a", DataType::Int32, false),
-            Field::new("b", DataType::Int32, false),
-            Field::new("c", DataType::Int32, false),
-        ]));
+        async_executor::LocalExecutor::new().run(async {
+            let schema = Arc::new(Schema::new(vec![
+                Field::new("a", DataType::Int32, false),
+                Field::new("b", DataType::Int32, false),
+                Field::new("c", DataType::Int32, false),
+            ]));
 
-        let batch = RecordBatch::try_new(
-            schema.clone(),
-            vec![
-                Arc::new(Int32Array::from(vec![1, 2, 3])),
-                Arc::new(Int32Array::from(vec![4, 5, 6])),
-                Arc::new(Int32Array::from(vec![7, 8, 9])),
-            ],
-        )
-        .unwrap();
+            let batch = RecordBatch::try_new(
+                schema.clone(),
+                vec![
+                    Arc::new(Int32Array::from(vec![1, 2, 3])),
+                    Arc::new(Int32Array::from(vec![4, 5, 6])),
+                    Arc::new(Int32Array::from(vec![7, 8, 9])),
+                ],
+            )
+            .unwrap();
 
-        let provider = MemTable::new(schema, vec![vec![batch]]).unwrap();
+            let provider = MemTable::new(schema, vec![vec![batch]]).unwrap();
 
-        let partitions = provider.scan(&None, 1024).unwrap();
-        let it = partitions[0].execute().unwrap();
-        let batch1 = it.next_batch().unwrap().unwrap();
-        assert_eq!(3, batch1.schema().fields().len());
-        assert_eq!(3, batch1.num_columns());
+            let partitions = provider.scan(&None, 1024).unwrap();
+            let it = partitions[0].execute().await.unwrap();
+            let batch1 = it.next_batch().unwrap().unwrap();
+            assert_eq!(3, batch1.schema().fields().len());
+            assert_eq!(3, batch1.num_columns());
+        })
     }
 
     #[test]

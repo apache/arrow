@@ -30,6 +30,7 @@ use crate::execution::physical_plan::common::RecordBatchIterator;
 use crate::execution::physical_plan::expressions::PhysicalSortExpr;
 use crate::execution::physical_plan::merge::MergeExec;
 use crate::execution::physical_plan::{common, ExecutionPlan, Partition};
+use async_trait::async_trait;
 
 /// Sort execution plan
 #[derive(Debug)]
@@ -83,16 +84,17 @@ struct SortPartition {
     concurrency: usize,
 }
 
+#[async_trait]
 impl Partition for SortPartition {
     /// Execute the sort
-    fn execute(&self) -> Result<Arc<dyn RecordBatchReader + Send + Sync>> {
+    async fn execute(&self) -> Result<Arc<dyn RecordBatchReader + Send + Sync>> {
         // sort needs to operate on a single partition currently
         let merge =
             MergeExec::new(self.schema.clone(), self.input.clone(), self.concurrency);
         let merge_partitions = merge.partitions()?;
         // MergeExec must always produce a single partition
         assert_eq!(1, merge_partitions.len());
-        let it = merge_partitions[0].execute()?;
+        let it = merge_partitions[0].execute().await?;
         let batches = common::collect(it)?;
 
         // combine all record batches into one for each column

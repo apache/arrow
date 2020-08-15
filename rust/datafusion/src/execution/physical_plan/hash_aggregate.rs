@@ -17,6 +17,7 @@
 
 //! Defines the execution plan for the hash aggregate operation
 
+use async_trait::async_trait;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -149,20 +150,21 @@ impl HashAggregatePartition {
     }
 }
 
+#[async_trait]
 impl Partition for HashAggregatePartition {
-    fn execute(&self) -> Result<Arc<dyn RecordBatchReader + Send + Sync>> {
+    async fn execute(&self) -> Result<Arc<dyn RecordBatchReader + Send + Sync>> {
         if self.group_expr.is_empty() {
             Ok(Arc::new(HashAggregateIterator::new(
                 self.schema.clone(),
                 self.aggr_expr.clone(),
-                self.input.execute()?,
+                self.input.execute().await?,
             )))
         } else {
             Ok(Arc::new(GroupedHashAggregateIterator::new(
                 self.schema.clone(),
                 self.group_expr.clone(),
                 self.aggr_expr.clone(),
-                self.input.execute()?,
+                self.input.execute().await?,
             )))
         }
     }

@@ -30,6 +30,7 @@ use arrow::error::{ArrowError, Result as ArrowResult};
 use arrow::record_batch::{RecordBatch, RecordBatchReader};
 use parquet::file::reader::SerializedFileReader;
 
+use async_trait::async_trait;
 use crossbeam::channel::{bounded, Receiver, RecvError, Sender};
 use fmt::{Debug, Formatter};
 use parquet::arrow::{ArrowReader, ParquetFileArrowReader};
@@ -186,8 +187,9 @@ fn read_file(
     Ok(())
 }
 
+#[async_trait]
 impl Partition for ParquetPartition {
-    fn execute(&self) -> Result<Arc<dyn RecordBatchReader + Send + Sync>> {
+    async fn execute(&self) -> Result<Arc<dyn RecordBatchReader + Send + Sync>> {
         // because the parquet implementation is not thread-safe, it is necessary to execute
         // on a thread and communicate with channels
         let (response_tx, response_rx): (
@@ -240,33 +242,35 @@ mod tests {
 
     #[test]
     fn test() -> Result<()> {
-        let testdata =
-            env::var("PARQUET_TEST_DATA").expect("PARQUET_TEST_DATA not defined");
-        let filename = format!("{}/alltypes_plain.parquet", testdata);
-        let parquet_exec = ParquetExec::try_new(&filename, Some(vec![0, 1, 2]), 1024)?;
-        let partitions = parquet_exec.partitions()?;
-        assert_eq!(partitions.len(), 1);
+        async_executor::LocalExecutor::new().run(async {
+            let testdata =
+                env::var("PARQUET_TEST_DATA").expect("PARQUET_TEST_DATA not defined");
+            let filename = format!("{}/alltypes_plain.parquet", testdata);
+            let parquet_exec =
+                ParquetExec::try_new(&filename, Some(vec![0, 1, 2]), 1024)?;
+            let partitions = parquet_exec.partitions()?;
+            assert_eq!(partitions.len(), 1);
 
-        let results = partitions[0].execute()?;
-        let batch = results.next_batch()?.unwrap();
+            let results = partitions[0].execute().await?;
+            let batch = results.next_batch()?.unwrap();
 
-        assert_eq!(8, batch.num_rows());
-        assert_eq!(3, batch.num_columns());
+            assert_eq!(8, batch.num_rows());
+            assert_eq!(3, batch.num_columns());
 
-        let schema = batch.schema();
-        let field_names: Vec<&str> =
-            schema.fields().iter().map(|f| f.name().as_str()).collect();
-        assert_eq!(vec!["id", "bool_col", "tinyint_col"], field_names);
+            let schema = batch.schema();
+            let field_names: Vec<&str> =
+                schema.fields().iter().map(|f| f.name().as_str()).collect();
+            assert_eq!(vec!["id", "bool_col", "tinyint_col"], field_names);
 
-        let batch = results.next_batch()?;
-        assert!(batch.is_none());
+            let batch = results.next_batch()?;
+            assert!(batch.is_none());
 
-        let batch = results.next_batch()?;
-        assert!(batch.is_none());
+            let batch = results.next_batch()?;
+            assert!(batch.is_none());
 
-        let batch = results.next_batch()?;
-        assert!(batch.is_none());
-
-        Ok(())
+            let batch = results.next_batch()?;
+            assert!(batch.is_none());
+            Ok(())
+        })
     }
 }

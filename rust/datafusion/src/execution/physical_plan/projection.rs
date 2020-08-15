@@ -27,6 +27,7 @@ use crate::execution::physical_plan::{ExecutionPlan, Partition, PhysicalExpr};
 use arrow::datatypes::{Field, Schema, SchemaRef};
 use arrow::error::Result as ArrowResult;
 use arrow::record_batch::{RecordBatch, RecordBatchReader};
+use async_trait::async_trait;
 
 /// Execution plan for a projection
 #[derive(Debug)]
@@ -103,13 +104,14 @@ struct ProjectionPartition {
     input: Arc<dyn Partition>,
 }
 
+#[async_trait]
 impl Partition for ProjectionPartition {
     /// Execute the projection
-    fn execute(&self) -> Result<Arc<dyn RecordBatchReader + Send + Sync>> {
+    async fn execute(&self) -> Result<Arc<dyn RecordBatchReader + Send + Sync>> {
         Ok(Arc::new(ProjectionIterator {
             schema: self.schema.clone(),
             expr: self.expr.clone(),
-            input: self.input.execute()?,
+            input: self.input.execute().await?,
         }))
     }
 }
@@ -153,31 +155,40 @@ mod tests {
 
     #[test]
     fn project_first_column() -> Result<()> {
-        let schema = test::aggr_test_schema();
+        async_executor::LocalExecutor::new().run(async {
+            let schema = test::aggr_test_schema();
 
-        let partitions = 4;
-        let path = test::create_partitioned_csv("aggregate_test_100.csv", partitions)?;
+            let partitions = 4;
+            let path =
+                test::create_partitioned_csv("aggregate_test_100.csv", partitions)?;
 
-        let csv =
-            CsvExec::try_new(&path, CsvReadOptions::new().schema(&schema), None, 1024)?;
+            let csv = CsvExec::try_new(
+                &path,
+                CsvReadOptions::new().schema(&schema),
+                None,
+                1024,
+            )?;
 
-        // pick column c1 and name it column c1 in the output schema
-        let projection =
-            ProjectionExec::try_new(vec![(col("c1"), "c1".to_string())], Arc::new(csv))?;
+            // pick column c1 and name it column c1 in the output schema
+            let projection = ProjectionExec::try_new(
+                vec![(col("c1"), "c1".to_string())],
+                Arc::new(csv),
+            )?;
 
-        let mut partition_count = 0;
-        let mut row_count = 0;
-        for partition in projection.partitions()? {
-            partition_count += 1;
-            let iterator = partition.execute()?;
-            while let Some(batch) = iterator.next_batch()? {
-                assert_eq!(1, batch.num_columns());
-                row_count += batch.num_rows();
+            let mut partition_count = 0;
+            let mut row_count = 0;
+            for partition in projection.partitions()? {
+                partition_count += 1;
+                let iterator = partition.execute().await?;
+                while let Some(batch) = iterator.next_batch()? {
+                    assert_eq!(1, batch.num_columns());
+                    row_count += batch.num_rows();
+                }
             }
-        }
-        assert_eq!(partitions, partition_count);
-        assert_eq!(100, row_count);
+            assert_eq!(partitions, partition_count);
+            assert_eq!(100, row_count);
 
-        Ok(())
+            Ok(())
+        })
     }
 }

@@ -27,6 +27,7 @@ use crate::logicalplan::ScalarValue;
 use arrow::array::ArrayRef;
 use arrow::datatypes::{DataType, Schema, SchemaRef};
 use arrow::record_batch::{RecordBatch, RecordBatchReader};
+use async_trait::async_trait;
 
 /// Partition-aware execution plan for a relation
 pub trait ExecutionPlan: Debug {
@@ -37,9 +38,10 @@ pub trait ExecutionPlan: Debug {
 }
 
 /// Represents a partition of an execution plan that can be executed on a thread
+#[async_trait]
 pub trait Partition: Send + Sync + Debug {
     /// Execute this partition and return an iterator over RecordBatch
-    fn execute(&self) -> Result<Arc<dyn RecordBatchReader + Send + Sync>>;
+    async fn execute(&self) -> Result<Arc<dyn RecordBatchReader + Send + Sync>>;
 }
 
 /// Expression that can be evaluated against a RecordBatch

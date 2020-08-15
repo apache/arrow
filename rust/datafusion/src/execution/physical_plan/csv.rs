@@ -27,6 +27,7 @@ use arrow::csv;
 use arrow::datatypes::{Schema, SchemaRef};
 use arrow::error::Result as ArrowResult;
 use arrow::record_batch::{RecordBatch, RecordBatchReader};
+use async_trait::async_trait;
 
 /// CSV file read option
 #[derive(Copy, Clone)]
@@ -239,9 +240,10 @@ impl CsvPartition {
     }
 }
 
+#[async_trait]
 impl Partition for CsvPartition {
     /// Execute this partition and return an iterator over RecordBatch
-    fn execute(&self) -> Result<Arc<dyn RecordBatchReader + Send + Sync>> {
+    async fn execute(&self) -> Result<Arc<dyn RecordBatchReader + Send + Sync>> {
         Ok(Arc::new(CsvIterator::try_new(
             &self.path,
             self.schema.clone(),
@@ -302,51 +304,59 @@ mod tests {
 
     #[test]
     fn csv_exec_with_projection() -> Result<()> {
-        let schema = aggr_test_schema();
-        let testdata = arrow_testdata_path();
-        let filename = "aggregate_test_100.csv";
-        let path = format!("{}/csv/{}", testdata, filename);
-        let csv = CsvExec::try_new(
-            &path,
-            CsvReadOptions::new().schema(&schema),
-            Some(vec![0, 2, 4]),
-            1024,
-        )?;
-        assert_eq!(13, csv.schema.fields().len());
-        assert_eq!(3, csv.projected_schema.fields().len());
-        assert_eq!(3, csv.schema().fields().len());
-        let partitions = csv.partitions()?;
-        let results = partitions[0].execute()?;
-        let batch = results.next_batch()?.unwrap();
-        assert_eq!(3, batch.num_columns());
-        let batch_schema = batch.schema();
-        assert_eq!(3, batch_schema.fields().len());
-        assert_eq!("c1", batch_schema.field(0).name());
-        assert_eq!("c3", batch_schema.field(1).name());
-        assert_eq!("c5", batch_schema.field(2).name());
-        Ok(())
+        async_executor::LocalExecutor::new().run(async {
+            let schema = aggr_test_schema();
+            let testdata = arrow_testdata_path();
+            let filename = "aggregate_test_100.csv";
+            let path = format!("{}/csv/{}", testdata, filename);
+            let csv = CsvExec::try_new(
+                &path,
+                CsvReadOptions::new().schema(&schema),
+                Some(vec![0, 2, 4]),
+                1024,
+            )?;
+            assert_eq!(13, csv.schema.fields().len());
+            assert_eq!(3, csv.projected_schema.fields().len());
+            assert_eq!(3, csv.schema().fields().len());
+            let partitions = csv.partitions()?;
+            let results = partitions[0].execute().await?;
+            let batch = results.next_batch()?.unwrap();
+            assert_eq!(3, batch.num_columns());
+            let batch_schema = batch.schema();
+            assert_eq!(3, batch_schema.fields().len());
+            assert_eq!("c1", batch_schema.field(0).name());
+            assert_eq!("c3", batch_schema.field(1).name());
+            assert_eq!("c5", batch_schema.field(2).name());
+            Ok(())
+        })
     }
 
     #[test]
     fn csv_exec_without_projection() -> Result<()> {
-        let schema = aggr_test_schema();
-        let testdata = arrow_testdata_path();
-        let filename = "aggregate_test_100.csv";
-        let path = format!("{}/csv/{}", testdata, filename);
-        let csv =
-            CsvExec::try_new(&path, CsvReadOptions::new().schema(&schema), None, 1024)?;
-        assert_eq!(13, csv.schema.fields().len());
-        assert_eq!(13, csv.projected_schema.fields().len());
-        assert_eq!(13, csv.schema().fields().len());
-        let partitions = csv.partitions()?;
-        let results = partitions[0].execute()?;
-        let batch = results.next_batch()?.unwrap();
-        assert_eq!(13, batch.num_columns());
-        let batch_schema = batch.schema();
-        assert_eq!(13, batch_schema.fields().len());
-        assert_eq!("c1", batch_schema.field(0).name());
-        assert_eq!("c2", batch_schema.field(1).name());
-        assert_eq!("c3", batch_schema.field(2).name());
-        Ok(())
+        async_executor::LocalExecutor::new().run(async {
+            let schema = aggr_test_schema();
+            let testdata = arrow_testdata_path();
+            let filename = "aggregate_test_100.csv";
+            let path = format!("{}/csv/{}", testdata, filename);
+            let csv = CsvExec::try_new(
+                &path,
+                CsvReadOptions::new().schema(&schema),
+                None,
+                1024,
+            )?;
+            assert_eq!(13, csv.schema.fields().len());
+            assert_eq!(13, csv.projected_schema.fields().len());
+            assert_eq!(13, csv.schema().fields().len());
+            let partitions = csv.partitions()?;
+            let results = partitions[0].execute().await?;
+            let batch = results.next_batch()?.unwrap();
+            assert_eq!(13, batch.num_columns());
+            let batch_schema = batch.schema();
+            assert_eq!(13, batch_schema.fields().len());
+            assert_eq!("c1", batch_schema.field(0).name());
+            assert_eq!("c2", batch_schema.field(1).name());
+            assert_eq!("c3", batch_schema.field(2).name());
+            Ok(())
+        })
     }
 }

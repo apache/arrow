@@ -608,74 +608,79 @@ impl ExecutionContext {
 
     /// Execute a physical plan and collect the results in memory
     pub fn collect(&self, plan: &dyn ExecutionPlan) -> Result<Vec<RecordBatch>> {
-        let partitions = plan.partitions()?;
-
-        match partitions.len() {
-            0 => Ok(vec![]),
-            1 => {
-                let it = partitions[0].execute()?;
-                common::collect(it)
-            }
-            _ => {
-                // merge into a single partition
-                let plan = MergeExec::new(
-                    plan.schema().clone(),
-                    partitions,
-                    self.config.concurrency,
-                );
-                let partitions = plan.partitions()?;
-                if partitions.len() == 1 {
-                    common::collect(partitions[0].execute()?)
-                } else {
-                    Err(ExecutionError::InternalError(format!(
-                        "MergeExec returned {} partitions",
-                        partitions.len()
-                    )))
+        async_executor::LocalExecutor::new().run(async {
+            let partitions = plan.partitions()?;
+            match partitions.len() {
+                0 => Ok(vec![]),
+                1 => {
+                    let it = partitions[0].execute().await?;
+                    common::collect(it)
+                }
+                _ => {
+                    // merge into a single partition
+                    let plan = MergeExec::new(
+                        plan.schema().clone(),
+                        partitions,
+                        self.config.concurrency,
+                    );
+                    let partitions = plan.partitions()?;
+                    if partitions.len() == 1 {
+                        common::collect(partitions[0].execute().await?)
+                    } else {
+                        Err(ExecutionError::InternalError(format!(
+                            "MergeExec returned {} partitions",
+                            partitions.len()
+                        )))
+                    }
                 }
             }
-        }
+        })
     }
 
     /// Execute a query and write the results to a partitioned CSV file
     pub fn write_csv(&self, plan: &dyn ExecutionPlan, path: &str) -> Result<()> {
-        // create directory to contain the CSV files (one per partition)
-        let path = path.to_string();
-        fs::create_dir(&path)?;
+        async_executor::LocalExecutor::new().run(async {
+            // create directory to contain the CSV files (one per partition)
+            let path = path.to_string();
+            fs::create_dir(&path)?;
 
-        let threads: Vec<JoinHandle<Result<()>>> = plan
-            .partitions()?
-            .iter()
-            .enumerate()
-            .map(|(i, p)| {
-                let p = p.clone();
-                let path = path.clone();
-                thread::spawn(move || {
-                    let filename = format!("part-{}.csv", i);
-                    let path = Path::new(&path).join(&filename);
-                    let file = fs::File::create(path)?;
-                    let mut writer = csv::Writer::new(file);
-                    let reader = p.execute()?;
-                    loop {
-                        match reader.next_batch() {
-                            Ok(Some(batch)) => {
-                                writer.write(&batch)?;
+            let threads: Vec<JoinHandle<Result<()>>> = plan
+                .partitions()?
+                .iter()
+                .enumerate()
+                .map(|(i, p)| {
+                    let p = p.clone();
+                    let path = path.clone();
+                    thread::spawn(move || {
+                        async_executor::LocalExecutor::new().run(async {
+                            let filename = format!("part-{}.csv", i);
+                            let path = Path::new(&path).join(&filename);
+                            let file = fs::File::create(path)?;
+                            let mut writer = csv::Writer::new(file);
+                            let reader = p.execute().await?;
+                            loop {
+                                match reader.next_batch() {
+                                    Ok(Some(batch)) => {
+                                        writer.write(&batch)?;
+                                    }
+                                    Ok(None) => break,
+                                    Err(e) => return Err(ExecutionError::from(e)),
+                                }
                             }
-                            Ok(None) => break,
-                            Err(e) => return Err(ExecutionError::from(e)),
-                        }
-                    }
-                    Ok(())
+                            Ok(())
+                        })
+                    })
                 })
-            })
-            .collect();
+                .collect();
 
-        // combine the results from each thread
-        for thread in threads {
-            let join = thread.join().expect("Failed to join thread");
-            join?;
-        }
+            // combine the results from each thread
+            for thread in threads {
+                let join = thread.join().expect("Failed to join thread");
+                join?;
+            }
 
-        Ok(())
+            Ok(())
+        })
     }
 }
 
