@@ -28,7 +28,7 @@ use arrow::{
     record_batch::{RecordBatch, RecordBatchReader},
 };
 
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 /// Explain execution plan operator. This operator contains the string
 /// values of the various plans it has when it is created, and passes
@@ -74,7 +74,7 @@ struct ExplainPartition {
 }
 
 impl Partition for ExplainPartition {
-    fn execute(&self) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
+    fn execute(&self) -> Result<Arc<dyn RecordBatchReader + Send + Sync>> {
         let mut type_builder = StringArray::builder(self.stringified_plans.len());
         let mut plan_builder = StringArray::builder(self.stringified_plans.len());
 
@@ -91,9 +91,9 @@ impl Partition for ExplainPartition {
             ],
         )?;
 
-        Ok(Arc::new(Mutex::new(RecordBatchIterator::new(
+        Ok(Arc::new(RecordBatchIterator::new(
             self.schema.clone(),
             vec![Arc::new(record_batch)],
-        ))))
+        )))
     }
 }
