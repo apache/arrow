@@ -23,7 +23,8 @@ use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 
 use crate::error::Result;
-use crate::logicalplan::ScalarValue;
+use crate::execution::context::ExecutionContextState;
+use crate::logicalplan::{LogicalPlan, ScalarValue};
 use arrow::array::ArrayRef;
 use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
 use arrow::{
@@ -31,6 +32,16 @@ use arrow::{
     record_batch::{RecordBatch, RecordBatchReader},
 };
 use udf::ScalarFunction;
+
+/// Physical query planner
+pub trait PhysicalPlanner {
+    /// Create a physical plan from a logical plan
+    fn create_physical_plan(
+        &self,
+        logical_plan: &LogicalPlan,
+        ctx_state: Arc<Mutex<ExecutionContextState>>,
+    ) -> Result<Arc<dyn ExecutionPlan>>;
+}
 
 /// Partition-aware execution plan for a relation
 pub trait ExecutionPlan: Debug {
@@ -104,6 +115,7 @@ pub mod math_expressions;
 pub mod memory;
 pub mod merge;
 pub mod parquet;
+pub mod planner;
 pub mod projection;
 pub mod selection;
 pub mod sort;
