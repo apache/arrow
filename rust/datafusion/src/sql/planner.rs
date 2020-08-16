@@ -523,12 +523,12 @@ impl<S: SchemaProvider> SqlToRel<S> {
 
                             let mut safe_args: Vec<Expr> = vec![];
                             for i in 0..rex_args.len() {
-                                let expr = if fm.args()[i]
+                                let expr = if fm.arg_types()[i]
                                     .contains(&rex_args[i].get_type(schema)?)
                                 {
                                     rex_args[i].clone()
                                 } else {
-                                    rex_args[i].cast_to(&fm.args()[i][0], schema)?
+                                    rex_args[i].cast_to(&fm.arg_types()[i][0], schema)?
                                 };
                                 safe_args.push(expr)
                             }

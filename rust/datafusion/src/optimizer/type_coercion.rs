@@ -86,14 +86,14 @@ impl TypeCoercionRule {
                             .map(|e| e.get_type(schema))
                             .collect::<Result<Vec<_>>>()?;
 
-                        let new = if func_meta.args.contains(&current_types) {
+                        let new = if func_meta.arg_types.contains(&current_types) {
                             Some(expressions)
                         } else {
                             maybe_rewrite(
                                 &expressions,
                                 &current_types,
                                 &schema,
-                                &func_meta.args,
+                                &func_meta.arg_types,
                             )?
                         };
 
@@ -103,7 +103,7 @@ impl TypeCoercionRule {
                             return Err(ExecutionError::General(format!(
                                 "The scalar function '{}' requires one of the type variants {:?}, but the arguments of type '{:?}' cannot be safely casted to any of them.",
                                 func_meta.name,
-                                func_meta.args,
+                                func_meta.arg_types,
                                 current_types,
                             )));
                         }

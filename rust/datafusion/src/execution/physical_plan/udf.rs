@@ -41,7 +41,7 @@ pub struct ScalarFunction {
     /// The first dimension (0) represents specific combinations of valid argument types
     /// The second dimension (1) represents the types of each argument.
     /// For example, [[t1, t2]] is a function of 2 arguments that only accept t1 on the first arg and t2 on the second
-    pub args: Vec<Vec<DataType>>,
+    pub arg_types: Vec<Vec<DataType>>,
     /// Return type
     pub return_type: DataType,
     /// UDF implementation
@@ -52,7 +52,7 @@ impl Debug for ScalarFunction {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("ScalarFunction")
             .field("name", &self.name)
-            .field("args", &self.args)
+            .field("arg_types", &self.arg_types)
             .field("return_type", &self.return_type)
             .field("fun", &"<FUNC>")
             .finish()
@@ -63,13 +63,13 @@ impl ScalarFunction {
     /// Create a new ScalarFunction
     pub fn new(
         name: &str,
-        args: Vec<Vec<DataType>>,
+        arg_types: Vec<Vec<DataType>>,
         return_type: DataType,
         fun: ScalarUdf,
     ) -> Self {
         Self {
             name: name.to_owned(),
-            args,
+            arg_types,
             return_type,
             fun,
         }

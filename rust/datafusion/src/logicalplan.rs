@@ -48,7 +48,7 @@ pub struct FunctionMeta {
     /// Function name
     name: String,
     /// Function arguments. Each argument i can be one of the types of args[i], with respective priority
-    args: Vec<Vec<DataType>>,
+    arg_types: Vec<Vec<DataType>>,
     /// Function return type
     return_type: DataType,
     /// Function type (Scalar or Aggregate)
@@ -59,13 +59,13 @@ impl FunctionMeta {
     #[allow(missing_docs)]
     pub fn new(
         name: String,
-        args: Vec<Vec<DataType>>,
+        arg_types: Vec<Vec<DataType>>,
         return_type: DataType,
         function_type: FunctionType,
     ) -> Self {
         FunctionMeta {
             name,
-            args,
+            arg_types,
             return_type,
             function_type,
         }
@@ -75,8 +75,8 @@ impl FunctionMeta {
         &self.name
     }
     /// Getter for the arg list
-    pub fn args(&self) -> &Vec<Vec<DataType>> {
-        &self.args
+    pub fn arg_types(&self) -> &Vec<Vec<DataType>> {
+        &self.arg_types
     }
     /// Getter for the `DataType` the function returns
     pub fn return_type(&self) -> &DataType {

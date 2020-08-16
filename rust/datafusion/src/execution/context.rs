@@ -516,7 +516,7 @@ impl SchemaProvider for ExecutionContextState {
             .map(|f| {
                 Arc::new(FunctionMeta::new(
                     name.to_owned(),
-                    f.args.clone(),
+                    f.arg_types.clone(),
                     f.return_type.clone(),
                     FunctionType::Scalar,
                 ))
