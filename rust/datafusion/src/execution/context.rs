@@ -17,13 +17,11 @@
 
 //! ExecutionContext contains methods for registering data sources and executing queries
 
-use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::Path;
-use std::rc::Rc;
 use std::string::String;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 
 use arrow::csv;
@@ -93,8 +91,8 @@ impl ExecutionConfig {
 /// Execution context for registering data sources and executing queries
 #[derive(Clone)]
 pub struct ExecutionContextState {
-    datasources: Rc<RefCell<HashMap<String, Box<dyn TableProvider + Send + Sync>>>>,
-    scalar_functions: Rc<RefCell<HashMap<String, Box<ScalarFunction>>>>,
+    datasources: Arc<Mutex<HashMap<String, Box<dyn TableProvider + Send + Sync>>>>,
+    scalar_functions: Arc<Mutex<HashMap<String, Box<ScalarFunction>>>>,
     config: ExecutionConfig,
 }
 
@@ -135,7 +133,7 @@ pub struct ExecutionContextState {
 /// let results = ctx.sql("SELECT a, MIN(b) FROM example GROUP BY a LIMIT 100", batch_size).unwrap();
 /// ```
 pub struct ExecutionContext {
-    state: Rc<RefCell<ExecutionContextState>>,
+    state: Arc<Mutex<ExecutionContextState>>,
 }
 
 fn tuple_err<T, R>(value: (Result<T>, Result<R>)) -> Result<(T, R)> {
@@ -156,9 +154,9 @@ impl ExecutionContext {
     /// Create a new execution context using the provided configuration
     pub fn with_config(config: ExecutionConfig) -> Self {
         let mut ctx = Self {
-            state: Rc::new(RefCell::new(ExecutionContextState {
-                datasources: Rc::new(RefCell::new(HashMap::new())),
-                scalar_functions: Rc::new(RefCell::new(HashMap::new())),
+            state: Arc::new(Mutex::new(ExecutionContextState {
+                datasources: Arc::new(Mutex::new(HashMap::new())),
+                scalar_functions: Arc::new(Mutex::new(HashMap::new())),
                 config,
             })),
         };
@@ -169,7 +167,7 @@ impl ExecutionContext {
     }
 
     /// Create a context from existing context state
-    pub(crate) fn from(state: Rc<RefCell<ExecutionContextState>>) -> Self {
+    pub(crate) fn from(state: Arc<Mutex<ExecutionContextState>>) -> Self {
         Self { state }
     }
 
@@ -236,7 +234,7 @@ impl ExecutionContext {
             )));
         }
 
-        let state = self.state.borrow();
+        let state = self.state.lock().expect("failed to lock mutex");
 
         let schema_provider = ExecutionContextSchemaProvider {
             datasources: state.datasources.clone(),
@@ -250,16 +248,21 @@ impl ExecutionContext {
 
     /// Register a scalar UDF
     pub fn register_udf(&mut self, f: ScalarFunction) {
-        let state = self.state.borrow();
+        let state = self.state.lock().expect("failed to lock mutex");
         state
             .scalar_functions
-            .borrow_mut()
+            .lock()
+            .expect("failed to lock mutex")
             .insert(f.name.clone(), Box::new(f));
     }
 
     /// Get a reference to the registered scalar functions
-    pub fn scalar_functions(&self) -> Rc<RefCell<HashMap<String, Box<ScalarFunction>>>> {
-        self.state.borrow().scalar_functions.clone()
+    pub fn scalar_functions(&self) -> Arc<Mutex<HashMap<String, Box<ScalarFunction>>>> {
+        self.state
+            .lock()
+            .expect("failed to lock mutex")
+            .scalar_functions
+            .clone()
     }
 
     /// Creates a DataFrame for reading a CSV data source.
@@ -329,10 +332,11 @@ impl ExecutionContext {
         name: &str,
         provider: Box<dyn TableProvider + Send + Sync>,
     ) {
-        let state = self.state.borrow();
+        let state = self.state.lock().expect("failed to lock mutex");
         state
             .datasources
-            .borrow_mut()
+            .lock()
+            .expect("failed to lock mutex")
             .insert(name.to_string(), provider);
     }
 
@@ -340,7 +344,15 @@ impl ExecutionContext {
     /// register_table function. An Err result will be returned if no table has been
     /// registered with the provided name.
     pub fn table(&mut self, table_name: &str) -> Result<Arc<dyn DataFrame>> {
-        match self.state.borrow().datasources.borrow().get(table_name) {
+        match self
+            .state
+            .lock()
+            .expect("failed to lock mutex")
+            .datasources
+            .lock()
+            .expect("failed to lock mutex")
+            .get(table_name)
+        {
             Some(provider) => {
                 let schema = provider.schema().as_ref().clone();
                 let table_scan = LogicalPlan::TableScan {
@@ -365,9 +377,11 @@ impl ExecutionContext {
     /// The set of available tables. Use `table` to get a specific table.
     pub fn tables(&self) -> HashSet<String> {
         self.state
-            .borrow()
+            .lock()
+            .expect("failed to lock mutex")
             .datasources
-            .borrow()
+            .lock()
+            .expect("failed to lock mutex")
             .keys()
             .cloned()
             .collect()
@@ -378,7 +392,11 @@ impl ExecutionContext {
         let rules: Vec<Box<dyn OptimizerRule>> = vec![
             Box::new(ProjectionPushDown::new()),
             Box::new(TypeCoercionRule::new(
-                self.state.borrow().scalar_functions.clone(),
+                self.state
+                    .lock()
+                    .expect("failed to lock mutex")
+                    .scalar_functions
+                    .clone(),
             )),
         ];
         let mut plan = plan.clone();
@@ -400,7 +418,15 @@ impl ExecutionContext {
                 table_name,
                 projection,
                 ..
-            } => match self.state.borrow().datasources.borrow().get(table_name) {
+            } => match self
+                .state
+                .lock()
+                .expect("failed to lock mutex")
+                .datasources
+                .lock()
+                .expect("failed to lock mutex")
+                .get(table_name)
+            {
                 Some(provider) => {
                     let partitions = provider.scan(projection, batch_size)?;
                     if partitions.is_empty() {
@@ -518,7 +544,11 @@ impl ExecutionContext {
                 let merge = Arc::new(MergeExec::new(
                     schema.clone(),
                     partitions,
-                    self.state.borrow().config.concurrency,
+                    self.state
+                        .lock()
+                        .expect("failed to lock mutex")
+                        .config
+                        .concurrency,
                 ));
 
                 // construct the expressions for the final aggregation
@@ -577,7 +607,11 @@ impl ExecutionContext {
                 Ok(Arc::new(SortExec::try_new(
                     sort_expr,
                     input,
-                    self.state.borrow().config.concurrency,
+                    self.state
+                        .lock()
+                        .expect("failed to lock mutex")
+                        .config
+                        .concurrency,
                 )?))
             }
             LogicalPlan::Limit { input, n, .. } => {
@@ -588,7 +622,11 @@ impl ExecutionContext {
                     input_schema.clone(),
                     input.partitions()?,
                     *n,
-                    self.state.borrow().config.concurrency,
+                    self.state
+                        .lock()
+                        .expect("failed to lock mutex")
+                        .config
+                        .concurrency,
                 )))
             }
             LogicalPlan::Explain {
@@ -649,7 +687,15 @@ impl ExecutionContext {
                 name,
                 args,
                 return_type,
-            } => match &self.state.borrow().scalar_functions.borrow().get(name) {
+            } => match &self
+                .state
+                .lock()
+                .expect("failed to lock mutex")
+                .scalar_functions
+                .lock()
+                .expect("failed to lock mutex")
+                .get(name)
+            {
                 Some(f) => {
                     let mut physical_args = vec![];
                     for e in args {
@@ -739,7 +785,11 @@ impl ExecutionContext {
                 let plan = MergeExec::new(
                     plan.schema().clone(),
                     partitions,
-                    self.state.borrow().config.concurrency,
+                    self.state
+                        .lock()
+                        .expect("failed to lock mutex")
+                        .config
+                        .concurrency,
                 );
                 let partitions = plan.partitions()?;
                 if partitions.len() == 1 {
@@ -800,15 +850,15 @@ impl ExecutionContext {
 
 /// Get schema and scalar functions for execution context
 pub struct ExecutionContextSchemaProvider {
-    datasources: Rc<RefCell<HashMap<String, Box<dyn TableProvider + Send + Sync>>>>,
-    scalar_functions: Rc<RefCell<HashMap<String, Box<ScalarFunction>>>>,
+    datasources: Arc<Mutex<HashMap<String, Box<dyn TableProvider + Send + Sync>>>>,
+    scalar_functions: Arc<Mutex<HashMap<String, Box<ScalarFunction>>>>,
 }
 
 impl<'a> ExecutionContextSchemaProvider {
     /// Create a new ExecutionContextSchemaProvider based on data sources and scalar functions
     pub fn new(
-        datasources: Rc<RefCell<HashMap<String, Box<dyn TableProvider + Send + Sync>>>>,
-        scalar_functions: Rc<RefCell<HashMap<String, Box<ScalarFunction>>>>,
+        datasources: Arc<Mutex<HashMap<String, Box<dyn TableProvider + Send + Sync>>>>,
+        scalar_functions: Arc<Mutex<HashMap<String, Box<ScalarFunction>>>>,
     ) -> Self {
         ExecutionContextSchemaProvider {
             datasources,
@@ -820,20 +870,25 @@ impl<'a> ExecutionContextSchemaProvider {
 impl SchemaProvider for ExecutionContextSchemaProvider {
     fn get_table_meta(&self, name: &str) -> Option<SchemaRef> {
         self.datasources
-            .borrow()
+            .lock()
+            .expect("failed to lock mutex")
             .get(name)
             .map(|ds| ds.schema().clone())
     }
 
     fn get_function_meta(&self, name: &str) -> Option<Arc<FunctionMeta>> {
-        self.scalar_functions.borrow().get(name).map(|f| {
-            Arc::new(FunctionMeta::new(
-                name.to_owned(),
-                f.args.clone(),
-                f.return_type.clone(),
-                FunctionType::Scalar,
-            ))
-        })
+        self.scalar_functions
+            .lock()
+            .expect("failed to lock mutex")
+            .get(name)
+            .map(|f| {
+                Arc::new(FunctionMeta::new(
+                    name.to_owned(),
+                    f.args.clone(),
+                    f.return_type.clone(),
+                    FunctionType::Scalar,
+                ))
+            })
     }
 }
 
@@ -945,9 +1000,11 @@ mod tests {
 
         let schema = ctx
             .state
-            .borrow()
+            .lock()
+            .expect("failed to lock mutex")
             .datasources
-            .borrow()
+            .lock()
+            .expect("failed to lock mutex")
             .get("test")
             .unwrap()
             .schema();

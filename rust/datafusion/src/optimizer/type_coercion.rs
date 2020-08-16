@@ -20,9 +20,8 @@
 //! the operation `c_float + c_int` would be rewritten as `c_float + CAST(c_int AS
 //! float)`. This keeps the runtime query execution code much simpler.
 
-use std::cell::RefCell;
 use std::collections::HashMap;
-use std::rc::Rc;
+use std::sync::{Arc, Mutex};
 
 use arrow::datatypes::Schema;
 
@@ -36,14 +35,14 @@ use utils::optimize_explain;
 
 /// Implementation of type coercion optimizer rule
 pub struct TypeCoercionRule {
-    scalar_functions: Rc<RefCell<HashMap<String, Box<ScalarFunction>>>>,
+    scalar_functions: Arc<Mutex<HashMap<String, Box<ScalarFunction>>>>,
 }
 
 impl TypeCoercionRule {
     /// Create a new type coercion optimizer rule using meta-data about registered
     /// scalar functions
     pub fn new(
-        scalar_functions: Rc<RefCell<HashMap<String, Box<ScalarFunction>>>>,
+        scalar_functions: Arc<Mutex<HashMap<String, Box<ScalarFunction>>>>,
     ) -> Self {
         Self { scalar_functions }
     }
@@ -89,7 +88,12 @@ impl TypeCoercionRule {
                 return_type,
             } => {
                 // cast the inputs of scalar functions to the appropriate type where possible
-                match self.scalar_functions.borrow().get(name) {
+                match self
+                    .scalar_functions
+                    .lock()
+                    .expect("failed to lock mutex")
+                    .get(name)
+                {
                     Some(func_meta) => {
                         let mut func_args = Vec::with_capacity(args.len());
                         for i in 0..args.len() {
@@ -230,7 +234,7 @@ mod tests {
             .build()?;
 
         let scalar_functions = HashMap::new();
-        let mut rule = TypeCoercionRule::new(Rc::new(RefCell::new(scalar_functions)));
+        let mut rule = TypeCoercionRule::new(Arc::new(Mutex::new(scalar_functions)));
         let plan = rule.optimize(&plan)?;
 
         // check that the filter had a cast added
@@ -257,7 +261,7 @@ mod tests {
             .build()?;
 
         let scalar_functions = HashMap::new();
-        let mut rule = TypeCoercionRule::new(Rc::new(RefCell::new(scalar_functions)));
+        let mut rule = TypeCoercionRule::new(Arc::new(Mutex::new(scalar_functions)));
         let plan = rule.optimize(&plan)?;
 
         assert!(

@@ -15,11 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! Implementation of Table API
+//! Implementation of DataFrame API
 
-use std::cell::RefCell;
-use std::rc::Rc;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use crate::arrow::datatypes::DataType;
 use crate::arrow::record_batch::RecordBatch;
@@ -29,18 +27,15 @@ use crate::execution::context::{ExecutionContext, ExecutionContextState};
 use crate::logicalplan::{col, Expr, LogicalPlan, LogicalPlanBuilder};
 use arrow::datatypes::Schema;
 
-/// Implementation of Table API
+/// Implementation of DataFrame API
 pub struct DataFrameImpl {
-    ctx_state: Rc<RefCell<ExecutionContextState>>,
+    ctx_state: Arc<Mutex<ExecutionContextState>>,
     plan: LogicalPlan,
 }
 
 impl DataFrameImpl {
     /// Create a new Table based on an existing logical plan
-    pub fn new(
-        ctx_state: Rc<RefCell<ExecutionContextState>>,
-        plan: &LogicalPlan,
-    ) -> Self {
+    pub fn new(ctx_state: Arc<Mutex<ExecutionContextState>>, plan: &LogicalPlan) -> Self {
         Self {
             ctx_state,
             plan: plan.clone(),
