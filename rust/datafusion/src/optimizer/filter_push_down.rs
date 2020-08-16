@@ -59,7 +59,7 @@ To perform such optimization, we first analyze the plan to identify three items:
 
 With this information, we re-write the plan by:
 
-1. Computing the maximum possible depth of each column
+1. Computing the maximum possible depth of each column between breakpoints
 2. Computing the maximum possible depth of each filter expression based on the columns it depends on
 3. re-write the filter expression for every projection that it commutes with from its original depth to its max possible depth
 4. recursively re-write the plan by deleting old filter expressions and adding new filter expressions on their max possible depth.
@@ -75,25 +75,45 @@ impl OptimizerRule for FilterPushDown {
         let result = analyze_plan(plan, 0)?;
         let break_points = result.break_points.clone();
 
+        // get max depth over all breakpoints
+        let max_depth = break_points.keys().max();
+        if max_depth.is_none() {
+            // it is unlikely that the plan is correct without break points as all scans
+            // adds breakpoints we just return the plan and let others handle the error
+            return Ok(plan.clone());
+        }
+        let max_depth = *max_depth.unwrap(); // unwrap is safe by previous if
+
+        println!("{:?}, {:?}", break_points, result.selections.clone());
+
         // construct optimized position of each of the new selections
         // E.g. when we have a filter (c1 + c2 > 2), c1's max depth is 10 and c2 is 11, we
         // can push the filter to depth 10
         let mut new_selections: HashMap<usize, Expr> = HashMap::new();
         for (selection_depth, expr) in result.selections {
             // get all columns on the filter expression
-            let mut columns: HashSet<String> = HashSet::new();
-            utils::expr_to_column_names(&expr, &mut columns)?;
+            let mut selection_columns: HashSet<String> = HashSet::new();
+            utils::expr_to_column_names(&expr, &mut selection_columns)?;
 
-            // compute the depths of each of the observed columns and the aggregate minimum depth
-            let depth = columns
-                .iter()
-                .filter_map(|column| break_points.get(column))
-                .min_by_key(|depth| **depth);
-
-            let new_depth = match depth {
-                None => selection_depth,
-                Some(d) => *d,
-            };
+            // identify the depths that are filter-commutable with this selection
+            let mut new_depth = selection_depth;
+            for depth in selection_depth..max_depth {
+                if let Some(break_columns) = break_points.get(&depth) {
+                    if selection_columns
+                        .intersection(break_columns)
+                        .peekable()
+                        .peek()
+                        .is_none()
+                    {
+                        new_depth += 1
+                    } else {
+                        // non-commutable: can't advance any further
+                        break;
+                    }
+                } else {
+                    new_depth += 1
+                }
+            }
 
             // re-write the new selections based on all projections that it crossed.
             // E.g. in `Selection: #b\n  Projection: #a > 1 as b`, we can swap them, but the selection must be "#a > 1"
@@ -111,17 +131,18 @@ impl OptimizerRule for FilterPushDown {
     }
 }
 
+/// The result of a plan analysis suitable to perform a filter push down optimization
 struct AnalysisResult {
-    pub break_points: HashMap<String, usize>,
+    /// maps the depths of non filter-commutative nodes to their columns
+    /// depths not in here indicate that the node is commutative
+    pub break_points: HashMap<usize, HashSet<String>>,
+    /// maps the depths of filter nodes to expressions
     pub selections: HashMap<usize, Expr>,
+    /// maps the depths of projection nodes to their expressions
     pub projections: HashMap<usize, HashMap<String, Expr>>,
 }
 
 /// Recursively transverses the logical plan looking for depths that break filter pushdown
-/// Returns a tuple of three maps
-/// breakpoints: map {c_name: depth} of the max depth that each column is found up to.
-/// selections: {depth: Expr}
-/// projections: {depth: {c_name: Expr}}
 fn analyze_plan(plan: &LogicalPlan, depth: usize) -> Result<AnalysisResult> {
     match plan {
         LogicalPlan::Selection { input, expr } => {
@@ -155,12 +176,20 @@ fn analyze_plan(plan: &LogicalPlan, depth: usize) -> Result<AnalysisResult> {
         } => {
             let mut result = analyze_plan(&input, depth + 1)?;
 
-            let mut accum = HashSet::new();
-            utils::exprlist_to_column_names(aggr_expr, &mut accum)?;
+            // construct set of columns that `aggr_expr` depends on
+            let mut agg_columns = HashSet::new();
+            utils::exprlist_to_column_names(aggr_expr, &mut agg_columns)?;
 
-            accum.iter().for_each(|x: &String| {
-                result.break_points.insert(x.clone(), depth);
-            });
+            // collect all columns that break at this depth:
+            // * columns whose aggregation expression depends on
+            // * the aggregation columns themselves
+            let mut columns = agg_columns.iter().cloned().collect::<HashSet<_>>();
+            let agg_columns = aggr_expr
+                .iter()
+                .map(|x| x.name(input.schema()))
+                .collect::<Result<HashSet<_>>>()?;
+            columns.extend(agg_columns);
+            result.break_points.insert(depth, columns);
 
             Ok(result)
         }
@@ -168,18 +197,27 @@ fn analyze_plan(plan: &LogicalPlan, depth: usize) -> Result<AnalysisResult> {
         LogicalPlan::Limit { input, .. } => {
             let mut result = analyze_plan(&input, depth + 1)?;
 
-            // pick all fields in the input schema of this limit: none of them can be used after this limit.
-            input.schema().fields().iter().for_each(|x| {
-                result.break_points.insert(x.name().clone(), depth);
-            });
+            // collect all columns that break at this depth
+            let columns = input
+                .schema()
+                .fields()
+                .iter()
+                .map(|f| f.name().clone())
+                .collect::<HashSet<_>>();
+            result.break_points.insert(depth, columns);
             Ok(result)
         }
         // all other plans add breaks to all their columns to indicate that filters can't proceed further.
         _ => {
+            let columns = plan
+                .schema()
+                .fields()
+                .iter()
+                .map(|f| f.name().clone())
+                .collect::<HashSet<_>>();
             let mut break_points = HashMap::new();
-            plan.schema().fields().iter().for_each(|x| {
-                break_points.insert(x.name().clone(), depth);
-            });
+
+            break_points.insert(depth, columns);
             Ok(AnalysisResult {
                 break_points,
                 selections: HashMap::new(),
@@ -516,6 +554,42 @@ mod tests {
             \n      Limit: 20\
             \n        Projection: #a, #b\
             \n          TableScan: test projection=None";
+        assert_optimized_plan_eq(&plan, expected);
+        Ok(())
+    }
+
+    /// verifies that filters with the same columns are correctly placed
+    #[test]
+    fn filter_2_breaks_limits() -> Result<()> {
+        let table_scan = test_table_scan()?;
+        let plan = LogicalPlanBuilder::from(&table_scan)
+            .project(vec![col("a")])?
+            .filter(col("a").lt_eq(&Expr::Literal(ScalarValue::Int64(1))))?
+            .limit(1)?
+            .project(vec![col("a")])?
+            .filter(col("a").gt_eq(&Expr::Literal(ScalarValue::Int64(1))))?
+            .build()?;
+        // Should be able to move both filters below the projections
+
+        // not part of the test
+        assert_eq!(
+            format!("{:?}", plan),
+            "Selection: #a GtEq Int64(1)\
+             \n  Projection: #a\
+             \n    Limit: 1\
+             \n      Selection: #a LtEq Int64(1)\
+             \n        Projection: #a\
+             \n          TableScan: test projection=None"
+        );
+
+        let expected = "\
+        Projection: #a\
+        \n  Selection: #a GtEq Int64(1)\
+        \n    Limit: 1\
+        \n      Projection: #a\
+        \n        Selection: #a LtEq Int64(1)\
+        \n          TableScan: test projection=None";
+
         assert_optimized_plan_eq(&plan, expected);
         Ok(())
     }
