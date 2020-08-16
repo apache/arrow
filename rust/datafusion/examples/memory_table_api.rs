@@ -54,7 +54,7 @@ fn main() -> Result<()> {
     let df = ctx.table("t")?;
 
     // construct an expression corresponding to "SELECT a, b FROM t WHERE b = 10" in SQL
-    let filter = col("b").eq(&lit(10));
+    let filter = col("b").eq(lit(10));
 
     let df = df.select_columns(vec!["a", "b"])?.filter(filter)?;
 

@@ -98,27 +98,27 @@ impl DataFrame for DataFrameImpl {
     }
 
     /// Create an expression to represent the min() aggregate function
-    fn min(&self, expr: &Expr) -> Result<Expr> {
+    fn min(&self, expr: Expr) -> Result<Expr> {
         self.aggregate_expr("MIN", expr)
     }
 
     /// Create an expression to represent the max() aggregate function
-    fn max(&self, expr: &Expr) -> Result<Expr> {
+    fn max(&self, expr: Expr) -> Result<Expr> {
         self.aggregate_expr("MAX", expr)
     }
 
     /// Create an expression to represent the sum() aggregate function
-    fn sum(&self, expr: &Expr) -> Result<Expr> {
+    fn sum(&self, expr: Expr) -> Result<Expr> {
         self.aggregate_expr("SUM", expr)
     }
 
     /// Create an expression to represent the avg() aggregate function
-    fn avg(&self, expr: &Expr) -> Result<Expr> {
+    fn avg(&self, expr: Expr) -> Result<Expr> {
         self.aggregate_expr("AVG", expr)
     }
 
     /// Create an expression to represent the count() aggregate function
-    fn count(&self, expr: &Expr) -> Result<Expr> {
+    fn count(&self, expr: Expr) -> Result<Expr> {
         self.aggregate_expr("COUNT", expr)
     }
 
@@ -156,8 +156,8 @@ impl DataFrameImpl {
     }
 
     /// Create an expression to represent a named aggregate function
-    fn aggregate_expr(&self, name: &str, expr: &Expr) -> Result<Expr> {
-        let return_type = self.get_data_type(expr)?;
+    fn aggregate_expr(&self, name: &str, expr: Expr) -> Result<Expr> {
+        let return_type = self.get_data_type(&expr)?;
         Ok(Expr::AggregateFunction {
             name: name.to_string(),
             args: vec![expr.clone()],
@@ -210,13 +210,12 @@ mod tests {
         // build plan using Table API
         let t = test_table()?;
         let group_expr = vec![col("c1")];
-        let c12 = col("c12");
         let aggr_expr = vec![
-            t.min(&c12)?,
-            t.max(&c12)?,
-            t.avg(&c12)?,
-            t.sum(&c12)?,
-            t.count(&c12)?,
+            t.min(col("c12"))?,
+            t.max(col("c12"))?,
+            t.avg(col("c12"))?,
+            t.sum(col("c12"))?,
+            t.count(col("c12"))?,
         ];
 
         let t2 = t.aggregate(group_expr.clone(), aggr_expr.clone())?;

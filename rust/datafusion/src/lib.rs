@@ -37,5 +37,7 @@ pub mod logicalplan;
 pub mod optimizer;
 pub mod sql;
 
+pub use execution::context::ExecutionContext;
+
 #[cfg(test)]
 pub mod test;

@@ -24,51 +24,146 @@ use arrow::datatypes::Schema;
 use std::sync::Arc;
 
 /// DataFrame represents a logical set of rows with the same named columns.
-/// Similar to a [Pandas DataFrame](https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.DataFrame.html) or [Spark DataFrame](https://spark.apache.org/docs/latest/sql-programming-guide.html)
+/// Similar to a [Pandas DataFrame]
+/// (https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.DataFrame.html) or
+/// [Spark DataFrame](https://spark.apache.org/docs/latest/sql-programming-guide.html)
+///
+/// DataFrames are typically created by the `read_csv` and `read_parquet` methods on the
+/// `ExecutionContext` and can then be modified by calling the transformation methods, such
+/// as `filter`, `select`, `aggregate`, and `limit` to build up a query definition.
+///
+/// The query can be executed by calling the `collect` method.
+///
+/// ```
+/// use datafusion::ExecutionContext;
+/// use datafusion::execution::physical_plan::csv::CsvReadOptions;
+/// use datafusion::logicalplan::col;
+///
+/// let mut ctx = ExecutionContext::new();
+/// let df = ctx.read_csv("tests/example.csv", CsvReadOptions::new()).unwrap();
+/// let df = df.filter(col("a").lt_eq(col("b"))).unwrap()
+///            .aggregate(vec![col("a")], vec![df.min(col("b")).unwrap()]).unwrap()
+///            .limit(100).unwrap();
+/// let results = df.collect(4096);
+/// ```
 pub trait DataFrame {
-    /// Select columns by name
+
+    /// Filter the DataFrame by column. Returns a new DataFrame only containing the
+    /// specified columns.
+    ///
+    /// ```
+    /// use datafusion::ExecutionContext;
+    /// use datafusion::execution::physical_plan::csv::CsvReadOptions;
+    /// let mut ctx = ExecutionContext::new();
+    ///
+    /// let df = ctx.read_csv("tests/example.csv", CsvReadOptions::new()).unwrap();
+    /// let df = df.select_columns(vec!["a", "b"]).unwrap();
+    /// ```
     fn select_columns(&self, columns: Vec<&str>) -> Result<Arc<dyn DataFrame>>;
 
-    /// Create a projection based on arbitrary expressions
+    /// Create a projection based on arbitrary expressions.
+    ///
+    /// ```
+    /// use datafusion::ExecutionContext;
+    /// use datafusion::execution::physical_plan::csv::CsvReadOptions;
+    /// use datafusion::logicalplan::col;
+    ///
+    /// let mut ctx = ExecutionContext::new();
+    /// let df = ctx.read_csv("tests/example.csv", CsvReadOptions::new()).unwrap();
+    /// let df = df.select(vec![col("a").multiply(col("b")), col("c")]).unwrap();
+    /// ```
     fn select(&self, expr: Vec<Expr>) -> Result<Arc<dyn DataFrame>>;
 
-    /// Create a selection based on a filter expression
+    /// Filter a DataFrame to only include rows that match the specified filter expression.
+    ///
+    /// ```
+    /// use datafusion::ExecutionContext;
+    /// use datafusion::execution::physical_plan::csv::CsvReadOptions;
+    /// use datafusion::logicalplan::col;
+    ///
+    /// let mut ctx = ExecutionContext::new();
+    /// let df = ctx.read_csv("tests/example.csv", CsvReadOptions::new()).unwrap();
+    /// let df = df.filter(col("a").lt_eq(col("b"))).unwrap();
+    /// ```
     fn filter(&self, expr: Expr) -> Result<Arc<dyn DataFrame>>;
 
-    /// Perform an aggregate query
+    /// Perform an aggregate query with optional grouping expressions.
+    /// 
+    /// ```
+    /// use datafusion::ExecutionContext;
+    /// use datafusion::execution::physical_plan::csv::CsvReadOptions;
+    /// use datafusion::logicalplan::col;
+    ///
+    /// let mut ctx = ExecutionContext::new();
+    /// let df = ctx.read_csv("tests/example.csv", CsvReadOptions::new()).unwrap();
+    ///
+    /// // The following use is the equivalent of "SELECT MIN(b) GROUP BY a"
+    /// let _ = df.aggregate(vec![col("a")], vec![df.min(col("b")).unwrap()]).unwrap();
+    ///
+    /// // The following use is the equivalent of "SELECT MIN(b)"
+    /// let _ = df.aggregate(vec![], vec![df.min(col("b")).unwrap()]).unwrap();
+    /// ```
     fn aggregate(
         &self,
         group_expr: Vec<Expr>,
         aggr_expr: Vec<Expr>,
     ) -> Result<Arc<dyn DataFrame>>;
 
-    /// limit the number of rows
+    /// limit the number of rows returned from this DataFrame.
+    ///
+    /// ```
+    /// use datafusion::ExecutionContext;
+    /// use datafusion::execution::physical_plan::csv::CsvReadOptions;
+    /// use datafusion::logicalplan::col;
+    ///
+    /// let mut ctx = ExecutionContext::new();
+    /// let df = ctx.read_csv("tests/example.csv", CsvReadOptions::new()).unwrap();
+    /// let df = df.limit(100).unwrap();
+    /// ```
     fn limit(&self, n: usize) -> Result<Arc<dyn DataFrame>>;
 
-    /// Return the logical plan
-    fn to_logical_plan(&self) -> LogicalPlan;
-
-    /// Collects the result as a vector of RecordBatch.
+    /// Executes this DataFrame and collects all results into a vector of RecordBatch.
+    ///
+    /// ```
+    /// use datafusion::ExecutionContext;
+    /// use datafusion::execution::physical_plan::csv::CsvReadOptions;
+    /// use datafusion::logicalplan::col;
+    ///
+    /// let mut ctx = ExecutionContext::new();
+    /// let df = ctx.read_csv("tests/example.csv", CsvReadOptions::new()).unwrap();
+    /// let batches = df.collect(4096).unwrap();
+    /// ```
     fn collect(&self, batch_size: usize) -> Result<Vec<RecordBatch>>;
 
-    /// Returns the schema (names and types of columns) in this DataFrame
+    /// Returns the schema describing the output of this DataFrame in terms of columns returned,
+    /// where each column has a name, data type, and nullability attribute.
+
+    /// ```
+    /// use datafusion::ExecutionContext;
+    /// use datafusion::execution::physical_plan::csv::CsvReadOptions;
+    /// use datafusion::logicalplan::col;
+    ///
+    /// let mut ctx = ExecutionContext::new();
+    /// let df = ctx.read_csv("tests/example.csv", CsvReadOptions::new()).unwrap();
+    /// let schema = df.schema();
+    /// ```
     fn schema(&self) -> &Schema;
 
-    //TODO these methods should be removed out of this trait soon and be standalone functions
-    // instead but this depends on some refactoring of how aggregate functions are registered
+    /// Return the logical plan represented by this DataFrame.
+    fn to_logical_plan(&self) -> LogicalPlan;
 
     /// Create an expression to represent the min() aggregate function
-    fn min(&self, expr: &Expr) -> Result<Expr>;
+    fn min(&self, expr: Expr) -> Result<Expr>;
 
     /// Create an expression to represent the max() aggregate function
-    fn max(&self, expr: &Expr) -> Result<Expr>;
+    fn max(&self, expr: Expr) -> Result<Expr>;
 
     /// Create an expression to represent the sum() aggregate function
-    fn sum(&self, expr: &Expr) -> Result<Expr>;
+    fn sum(&self, expr: Expr) -> Result<Expr>;
 
     /// Create an expression to represent the avg() aggregate function
-    fn avg(&self, expr: &Expr) -> Result<Expr>;
+    fn avg(&self, expr: Expr) -> Result<Expr>;
 
     /// Create an expression to represent the count() aggregate function
-    fn count(&self, expr: &Expr) -> Result<Expr>;
+    fn count(&self, expr: Expr) -> Result<Expr>;
 }

@@ -219,7 +219,7 @@ mod tests {
         let options = CsvReadOptions::new().schema_infer_max_records(100);
         let plan = LogicalPlanBuilder::scan_csv(&path, options, None)?
             // filter clause needs the type coercion rule applied
-            .filter(col("c7").lt(&lit(5_u8)))?
+            .filter(col("c7").lt(lit(5_u8)))?
             .project(vec![col("c1"), col("c2")])?
             .aggregate(
                 vec![col("c1")],
@@ -253,7 +253,7 @@ mod tests {
 
         let options = CsvReadOptions::new().schema_infer_max_records(100);
         let plan = LogicalPlanBuilder::scan_csv(&path, options, None)?
-            .filter(col("c7").lt(&col("c12")))?
+            .filter(col("c7").lt(col("c12")))?
             .build()?;
 
         let scalar_functions = HashMap::new();

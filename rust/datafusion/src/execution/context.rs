@@ -53,7 +53,7 @@ use crate::execution::physical_plan::selection::SelectionExec;
 use crate::execution::physical_plan::sort::{SortExec, SortOptions};
 use crate::execution::physical_plan::udf::{ScalarFunction, ScalarFunctionExpr};
 use crate::execution::physical_plan::{AggregateExpr, ExecutionPlan, PhysicalExpr};
-use crate::execution::table_impl::DataFrameImpl;
+use crate::execution::dataframe_impl::DataFrameImpl;
 use crate::logicalplan::{
     Expr, FunctionMeta, FunctionType, LogicalPlan, LogicalPlanBuilder, PlanType,
     StringifiedPlan,
@@ -223,6 +223,51 @@ impl ExecutionContext {
     /// Get a reference to the registered scalar functions
     pub fn scalar_functions(&self) -> Rc<RefCell<HashMap<String, Box<ScalarFunction>>>> {
         self.state.borrow().scalar_functions.clone()
+    }
+
+    /// Creates a DataFrame for reading a CSV data source
+    pub fn read_csv(
+        &mut self,
+        filename: &str,
+        options: CsvReadOptions,
+    ) -> Result<Arc<dyn DataFrame>> {
+
+        let csv = CsvFile::try_new(filename, options)?;
+
+        let table_scan = LogicalPlan::CsvScan {
+            path: filename.to_string(),
+            schema: Box::new(csv.schema().as_ref().to_owned()),
+            has_header: options.has_header,
+            delimiter: Some(options.delimiter),
+            projection: None,
+            projected_schema: Box::new(csv.schema().as_ref().to_owned()),
+        };
+
+        Ok(Arc::new(DataFrameImpl::new(
+            self.state.clone(),
+            &LogicalPlanBuilder::from(&table_scan).build()?,
+        )))
+    }
+
+    /// Creates a DataFrame for reading a CSV data source
+    pub fn read_parquet(
+        &mut self,
+        filename: &str,
+    ) -> Result<Arc<dyn DataFrame>> {
+
+        let parquet = ParquetTable::try_new(filename)?;
+
+        let table_scan = LogicalPlan::ParquetScan {
+            path: filename.to_string(),
+            schema: Box::new(parquet.schema().as_ref().to_owned()),
+            projection: None,
+            projected_schema: Box::new(parquet.schema().as_ref().to_owned()),
+        };
+
+        Ok(Arc::new(DataFrameImpl::new(
+            self.state.clone(),
+            &LogicalPlanBuilder::from(&table_scan).build()?,
+        )))
     }
 
     /// Register a CSV file as a table so that it can be queried from SQL
