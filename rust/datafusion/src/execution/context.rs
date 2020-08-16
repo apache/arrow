@@ -363,7 +363,10 @@ impl ExecutionContext {
         logical_plan: &LogicalPlan,
         _batch_size: usize,
     ) -> Result<Arc<dyn ExecutionPlan>> {
-        let planner = PhysicalPlannerImpl::default();
+        let planner: Arc<dyn PhysicalPlanner> = match self.config().physical_planner {
+            Some(planner) => planner,
+            None => Arc::new(PhysicalPlannerImpl::default()),
+        };
         planner.create_physical_plan(logical_plan, self.state.clone())
     }
 
@@ -446,12 +449,14 @@ impl ExecutionContext {
 }
 
 /// Configuration options for execution context
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 pub struct ExecutionConfig {
     /// Number of concurrent threads for query execution.
     pub concurrency: usize,
     /// Default batch size when reading data sources
     pub batch_size: usize,
+    /// Optional physical planner to override the default physical planner
+    physical_planner: Option<Arc<dyn PhysicalPlanner>>,
 }
 
 impl ExecutionConfig {
@@ -460,6 +465,7 @@ impl ExecutionConfig {
         Self {
             concurrency: num_cpus::get(),
             batch_size: 4096,
+            physical_planner: None,
         }
     }
 
@@ -476,6 +482,15 @@ impl ExecutionConfig {
         // batch size must be greater than zero
         assert!(n > 0);
         self.batch_size = n;
+        self
+    }
+
+    /// Optional physical planner to override the default physical planner
+    pub fn with_physical_planner(
+        mut self,
+        physical_planner: Arc<dyn PhysicalPlanner>,
+    ) -> Self {
+        self.physical_planner = Some(physical_planner);
         self
     }
 }
