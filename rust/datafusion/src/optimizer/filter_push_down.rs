@@ -16,7 +16,7 @@
 
 use crate::error::Result;
 use crate::logicalplan::Expr;
-use crate::logicalplan::LogicalPlan;
+use crate::logicalplan::{and, LogicalPlan};
 use crate::optimizer::optimizer::OptimizerRule;
 use crate::optimizer::utils;
 use std::collections::{HashMap, HashSet};
@@ -79,12 +79,10 @@ impl OptimizerRule for FilterPushDown {
         let max_depth = break_points.keys().max();
         if max_depth.is_none() {
             // it is unlikely that the plan is correct without break points as all scans
-            // adds breakpoints we just return the plan and let others handle the error
+            // adds breakpoints. We just return the plan and let others handle the error
             return Ok(plan.clone());
         }
         let max_depth = *max_depth.unwrap(); // unwrap is safe by previous if
-
-        println!("{:?}, {:?}", break_points, result.selections.clone());
 
         // construct optimized position of each of the new selections
         // E.g. when we have a filter (c1 + c2 > 2), c1's max depth is 10 and c2 is 11, we
@@ -124,6 +122,10 @@ impl OptimizerRule for FilterPushDown {
                 }
             }
 
+            // AND filter expressions that would be placed on the same depth
+            if let Some(existing_expression) = new_selections.get(&new_depth) {
+                new_expression = and(existing_expression, &new_expression)
+            }
             new_selections.insert(new_depth, new_expression);
         }
 
@@ -589,6 +591,37 @@ mod tests {
         \n      Projection: #a\
         \n        Selection: #a LtEq Int64(1)\
         \n          TableScan: test projection=None";
+
+        assert_optimized_plan_eq(&plan, expected);
+        Ok(())
+    }
+
+    /// verifies that filters to be placed on the same depth are ANDed
+    #[test]
+    fn two_filters_on_same_depth() -> Result<()> {
+        let table_scan = test_table_scan()?;
+        let plan = LogicalPlanBuilder::from(&table_scan)
+            .limit(1)?
+            .filter(col("a").lt_eq(&Expr::Literal(ScalarValue::Int64(1))))?
+            .filter(col("a").gt_eq(&Expr::Literal(ScalarValue::Int64(1))))?
+            .project(vec![col("a")])?
+            .build()?;
+
+        // not part of the test
+        assert_eq!(
+            format!("{:?}", plan),
+            "Projection: #a\
+            \n  Selection: #a GtEq Int64(1)\
+            \n    Selection: #a LtEq Int64(1)\
+            \n      Limit: 1\
+            \n        TableScan: test projection=None"
+        );
+
+        let expected = "\
+        Projection: #a\
+        \n  Selection: #a GtEq Int64(1) And #a LtEq Int64(1)\
+        \n    Limit: 1\
+        \n      TableScan: test projection=None";
 
         assert_optimized_plan_eq(&plan, expected);
         Ok(())
