@@ -170,28 +170,26 @@ fn maybe_rewrite(
     schema: &Schema,
     signature: &Vec<Vec<DataType>>,
 ) -> Result<Option<Vec<Expr>>> {
-    // for each set of valid signatures, try to coerse all expressions to one of them
-    let mut new_expressions: Option<Vec<Expr>> = None;
+    // for each set of valid signatures, try to coerce all expressions to one of them
     for valid_types in signature {
-        // for each option, try to coerse all arguments to it
-        if let Some(types) = maybe_coerse(valid_types, &current_types) {
+        // for each option, try to coerce all arguments to it
+        if let Some(types) = maybe_coerce(valid_types, &current_types) {
             // yes: let's re-write the expressions
-            new_expressions = Some(
+            return Ok(Some(
                 expressions
                     .iter()
                     .enumerate()
                     .map(|(i, expr)| expr.cast_to(&types[i], schema))
                     .collect::<Result<Vec<_>>>()?,
-            );
-            break;
+            ))
         }
         // we cannot: try the next
     }
-    Ok(new_expressions)
+    Ok(None)
 }
 
-/// Try to coerse current_types into valid_types
-fn maybe_coerse(
+/// Try to coerce current_types into valid_types
+fn maybe_coerce(
     valid_types: &Vec<DataType>,
     current_types: &Vec<DataType>,
 ) -> Option<Vec<DataType>> {
