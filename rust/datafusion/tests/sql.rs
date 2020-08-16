@@ -201,15 +201,109 @@ fn csv_query_avg_sqrt() -> Result<()> {
     Ok(())
 }
 
+#[test]
+fn csv_query_avg_custom_udf_f64_f64() -> Result<()> {
+    let mut ctx = create_ctx()?;
+    register_aggregate_csv(&mut ctx)?;
+    // c12 is f64
+    let sql = "SELECT avg(custom_add(c12, c12)) FROM aggregate_test_100";
+    let actual = execute(&mut ctx, sql);
+
+    // perform equivalent calculation
+    let sql = "SELECT avg(c12 + c12) FROM aggregate_test_100";
+    let expected = execute(&mut ctx, sql);
+
+    // verify equality
+    assert_eq!(actual.join("\n"), expected.join("\n"));
+    Ok(())
+}
+
+#[test]
+fn csv_query_avg_custom_udf_f32_f64() -> Result<()> {
+    let mut ctx = create_ctx()?;
+    register_aggregate_csv(&mut ctx)?;
+    // c11 is f32
+    // c12 is f64
+    let sql = "SELECT avg(custom_add(c11, c12)) FROM aggregate_test_100";
+    let actual = execute(&mut ctx, sql);
+
+    // function evaluted as f32,f64 returns a constant 3264.0
+    let expected = "3264.0".to_string();
+
+    // verify equality
+    assert_eq!(actual.join("\n"), expected);
+    Ok(())
+}
+
+#[test]
+fn csv_query_avg_custom_udf_f32_f32() -> Result<()> {
+    let mut ctx = create_ctx()?;
+    register_aggregate_csv(&mut ctx)?;
+    // c11 is f32
+    let sql = "SELECT avg(custom_add(c11, c11)) FROM aggregate_test_100";
+    let actual = execute(&mut ctx, sql);
+
+    // function evaluted as f32,f32 returns 3232.0
+    let expected = "3232.0".to_string();
+
+    // verify equality
+    assert_eq!(actual.join("\n"), expected);
+    Ok(())
+}
+
+#[test]
+fn csv_query_avg_custom_udf_i8() -> Result<()> {
+    let mut ctx = create_ctx()?;
+    register_aggregate_csv(&mut ctx)?;
+    // c3 is i8, castable to float32
+    let sql = "SELECT avg(custom_add(c3, c3)) FROM aggregate_test_100";
+    let actual = execute(&mut ctx, sql);
+
+    // function evaluted as float32,float32 returns a constant 1111.0
+    let expected = "3232.0".to_string();
+
+    // verify equality
+    assert_eq!(actual.join("\n"), expected);
+    Ok(())
+}
+
+#[test]
+fn csv_query_avg_custom_udf_utf8() -> Result<()> {
+    let mut ctx = create_ctx()?;
+    register_aggregate_csv(&mut ctx)?;
+    // utf8 is currently convertable to any type. See https://issues.apache.org/jira/browse/ARROW-4957
+    let sql = "SELECT avg(custom_add(c1, c1)) FROM aggregate_test_100";
+    let actual = execute(&mut ctx, sql);
+
+    // function evaluted on any other type returns a constant 1111.0
+    let expected = "1111.0".to_string();
+
+    // verify equality
+    assert_eq!(actual.join("\n"), expected);
+    Ok(())
+}
+
 fn create_ctx() -> Result<ExecutionContext> {
     let mut ctx = ExecutionContext::new();
 
-    // register a custom UDF
+    // register a UDF of 1 argument
     ctx.register_udf(ScalarFunction::new(
         "custom_sqrt",
         vec![vec![DataType::Float64]],
         DataType::Float64,
         Arc::new(custom_sqrt),
+    ));
+
+    // register a udf of two arguments
+    ctx.register_udf(ScalarFunction::new(
+        "custom_add",
+        vec![
+            vec![DataType::Float32, DataType::Float32],
+            vec![DataType::Float32, DataType::Float64],
+            vec![DataType::Float64, DataType::Float64],
+        ],
+        DataType::Float64,
+        Arc::new(custom_add),
     ));
 
     Ok(ctx)
@@ -230,6 +324,55 @@ fn custom_sqrt(args: &[ArrayRef]) -> Result<ArrayRef> {
         }
     }
     Ok(Arc::new(builder.finish()))
+}
+
+fn custom_add(args: &[ArrayRef]) -> Result<ArrayRef> {
+    match (args[0].data_type(), args[1].data_type()) {
+        (DataType::Float64, DataType::Float64) => {
+            let input1 = &args[0]
+                .as_any()
+                .downcast_ref::<Float64Array>()
+                .expect("cast failed");
+            let input2 = &args[1]
+                .as_any()
+                .downcast_ref::<Float64Array>()
+                .expect("cast failed");
+
+            let mut builder = Float64Builder::new(input1.len());
+            for i in 0..input1.len() {
+                if input1.is_null(i) || input2.is_null(i) {
+                    builder.append_null()?;
+                } else {
+                    builder.append_value(input1.value(i) + input2.value(i))?;
+                }
+            }
+            Ok(Arc::new(builder.finish()))
+        }
+        (DataType::Float32, DataType::Float32) => {
+            // all other cases return a constant vector (just to be diferent)
+            let mut builder = Float64Builder::new(args[0].len());
+            for _ in 0..args[0].len() {
+                builder.append_value(3232.0)?;
+            }
+            Ok(Arc::new(builder.finish()))
+        }
+        (DataType::Float32, DataType::Float64) => {
+            // all other cases return a constant vector (just to be diferent)
+            let mut builder = Float64Builder::new(args[0].len());
+            for _ in 0..args[0].len() {
+                builder.append_value(3264.0)?;
+            }
+            Ok(Arc::new(builder.finish()))
+        }
+        (_, _) => {
+            // all other cases return a constant vector (just to be diferent)
+            let mut builder = Float64Builder::new(args[0].len());
+            for _ in 0..args[0].len() {
+                builder.append_value(1111.0)?;
+            }
+            Ok(Arc::new(builder.finish()))
+        }
+    }
 }
 
 #[test]
