@@ -44,7 +44,7 @@ use std::sync::Arc;
 /// let df = df.filter(col("a").lt_eq(col("b"))).unwrap()
 ///            .aggregate(vec![col("a")], vec![df.min(col("b")).unwrap()]).unwrap()
 ///            .limit(100).unwrap();
-/// let results = df.collect(4096);
+/// let results = df.collect();
 /// ```
 pub trait DataFrame {
     /// Filter the DataFrame by column. Returns a new DataFrame only containing the
@@ -130,9 +130,9 @@ pub trait DataFrame {
     ///
     /// let mut ctx = ExecutionContext::new();
     /// let df = ctx.read_csv("tests/example.csv", CsvReadOptions::new()).unwrap();
-    /// let batches = df.collect(4096).unwrap();
+    /// let batches = df.collect().unwrap();
     /// ```
-    fn collect(&self, batch_size: usize) -> Result<Vec<RecordBatch>>;
+    fn collect(&self) -> Result<Vec<RecordBatch>>;
 
     /// Returns the schema describing the output of this DataFrame in terms of columns returned,
     /// where each column has a name, data type, and nullability attribute.

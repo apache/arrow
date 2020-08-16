@@ -38,8 +38,7 @@ fn main() -> Result<()> {
         .filter(col("tinyint_col").lt(col("tinyint_col")))?;
 
     // execute the query
-    let batch_size = 4096;
-    let results = df.collect(batch_size)?;
+    let results = df.collect()?;
 
     // print the results
     pretty::print_batches(&results)?;

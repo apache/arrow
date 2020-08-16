@@ -122,9 +122,9 @@ impl DataFrame for DataFrameImpl {
         self.plan.clone()
     }
 
-    fn collect(&self, batch_size: usize) -> Result<Vec<RecordBatch>> {
+    fn collect(&self) -> Result<Vec<RecordBatch>> {
         let mut ctx = ExecutionContext::from(self.ctx_state.clone());
-        ctx.collect_plan(&self.plan.clone(), batch_size)
+        ctx.collect_plan(&self.plan.clone())
     }
 
     /// Returns the schema from the logical plan

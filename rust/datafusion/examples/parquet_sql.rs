@@ -35,8 +35,11 @@ fn main() -> Result<()> {
     )?;
 
     // execute the query
-    let batch_size = 4096;
-    let results = ctx.sql("SELECT int_col, double_col, CAST(date_string_col as VARCHAR) FROM alltypes_plain WHERE id > 1 AND tinyint_col < double_col", batch_size)?;
+    let results = ctx.sql(
+        "SELECT int_col, double_col, CAST(date_string_col as VARCHAR) \
+        FROM alltypes_plain \
+        WHERE id > 1 AND tinyint_col < double_col",
+    )?;
 
     // print the results
     pretty::print_batches(&results)?;
