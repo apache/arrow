@@ -16,8 +16,9 @@
 // under the License.
 
 use arrow::util::pretty;
+
 use datafusion::error::Result;
-use datafusion::execution::context::ExecutionContext;
+use datafusion::prelude::*;
 
 /// This example demonstrates executing a simple query against an Arrow data source (Parquet) and
 /// fetching results

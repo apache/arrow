@@ -17,9 +17,8 @@
 
 use arrow::util::pretty;
 
-use datafusion::datasource::csv::CsvReadOptions;
 use datafusion::error::Result;
-use datafusion::ExecutionContext;
+use datafusion::prelude::*;
 
 /// This example demonstrates executing a simple query against an Arrow data source (CSV) and
 /// fetching results

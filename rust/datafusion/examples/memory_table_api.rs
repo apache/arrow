@@ -25,8 +25,7 @@ use arrow::util::pretty;
 
 use datafusion::datasource::MemTable;
 use datafusion::error::Result;
-use datafusion::execution::context::ExecutionContext;
-use datafusion::logicalplan::{col, lit};
+use datafusion::prelude::*;
 
 /// This example demonstrates basic uses of the Table API on an in-memory table
 fn main() -> Result<()> {

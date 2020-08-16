@@ -35,10 +35,8 @@ use std::sync::Arc;
 /// The query can be executed by calling the `collect` method.
 ///
 /// ```
-/// # use datafusion::ExecutionContext;
+/// # use datafusion::prelude::*;
 /// # use datafusion::error::Result;
-/// # use datafusion::execution::physical_plan::csv::CsvReadOptions;
-/// # use datafusion::logicalplan::col;
 /// # fn main() -> Result<()> {
 /// let mut ctx = ExecutionContext::new();
 /// let df = ctx.read_csv("tests/example.csv", CsvReadOptions::new())?;
@@ -54,9 +52,8 @@ pub trait DataFrame {
     /// specified columns.
     ///
     /// ```
-    /// # use datafusion::ExecutionContext;
+    /// # use datafusion::prelude::*;
     /// # use datafusion::error::Result;
-    /// # use datafusion::execution::physical_plan::csv::CsvReadOptions;
     /// # fn main() -> Result<()> {
     /// let mut ctx = ExecutionContext::new();
     /// let df = ctx.read_csv("tests/example.csv", CsvReadOptions::new())?;
@@ -69,10 +66,8 @@ pub trait DataFrame {
     /// Create a projection based on arbitrary expressions.
     ///
     /// ```
-    /// # use datafusion::ExecutionContext;
+    /// # use datafusion::prelude::*;
     /// # use datafusion::error::Result;
-    /// # use datafusion::execution::physical_plan::csv::CsvReadOptions;
-    /// # use datafusion::logicalplan::col;
     /// # fn main() -> Result<()> {
     /// let mut ctx = ExecutionContext::new();
     /// let df = ctx.read_csv("tests/example.csv", CsvReadOptions::new())?;
@@ -85,10 +80,8 @@ pub trait DataFrame {
     /// Filter a DataFrame to only include rows that match the specified filter expression.
     ///
     /// ```
-    /// # use datafusion::ExecutionContext;
+    /// # use datafusion::prelude::*;
     /// # use datafusion::error::Result;
-    /// # use datafusion::execution::physical_plan::csv::CsvReadOptions;
-    /// # use datafusion::logicalplan::col;
     /// # fn main() -> Result<()> {
     /// let mut ctx = ExecutionContext::new();
     /// let df = ctx.read_csv("tests/example.csv", CsvReadOptions::new())?;
@@ -101,10 +94,8 @@ pub trait DataFrame {
     /// Perform an aggregate query with optional grouping expressions.
     ///
     /// ```
-    /// # use datafusion::ExecutionContext;
+    /// # use datafusion::prelude::*;
     /// # use datafusion::error::Result;
-    /// # use datafusion::execution::physical_plan::csv::CsvReadOptions;
-    /// # use datafusion::logicalplan::col;
     /// # fn main() -> Result<()> {
     /// let mut ctx = ExecutionContext::new();
     /// let df = ctx.read_csv("tests/example.csv", CsvReadOptions::new())?;
@@ -126,10 +117,8 @@ pub trait DataFrame {
     /// Limit the number of rows returned from this DataFrame.
     ///
     /// ```
-    /// # use datafusion::ExecutionContext;
+    /// # use datafusion::prelude::*;
     /// # use datafusion::error::Result;
-    /// # use datafusion::execution::physical_plan::csv::CsvReadOptions;
-    /// # use datafusion::logicalplan::col;
     /// # fn main() -> Result<()> {
     /// let mut ctx = ExecutionContext::new();
     /// let df = ctx.read_csv("tests/example.csv", CsvReadOptions::new())?;
@@ -143,10 +132,8 @@ pub trait DataFrame {
     /// a sort expression by calling its [sort](../logicalplan/enum.Expr.html#method.sort) method.
     ///
     /// ```
-    /// # use datafusion::ExecutionContext;
+    /// # use datafusion::prelude::*;
     /// # use datafusion::error::Result;
-    /// # use datafusion::execution::physical_plan::csv::CsvReadOptions;
-    /// # use datafusion::logicalplan::col;
     /// # fn main() -> Result<()> {
     /// let mut ctx = ExecutionContext::new();
     /// let df = ctx.read_csv("tests/example.csv", CsvReadOptions::new())?;
@@ -159,10 +146,8 @@ pub trait DataFrame {
     /// Executes this DataFrame and collects all results into a vector of RecordBatch.
     ///
     /// ```
-    /// # use datafusion::ExecutionContext;
+    /// # use datafusion::prelude::*;
     /// # use datafusion::error::Result;
-    /// # use datafusion::execution::physical_plan::csv::CsvReadOptions;
-    /// # use datafusion::logicalplan::col;
     /// # fn main() -> Result<()> {
     /// let mut ctx = ExecutionContext::new();
     /// let df = ctx.read_csv("tests/example.csv", CsvReadOptions::new())?;
@@ -176,10 +161,8 @@ pub trait DataFrame {
     /// where each column has a name, data type, and nullability attribute.
 
     /// ```
-    /// # use datafusion::ExecutionContext;
+    /// # use datafusion::prelude::*;
     /// # use datafusion::error::Result;
-    /// # use datafusion::execution::physical_plan::csv::CsvReadOptions;
-    /// # use datafusion::logicalplan::col;
     /// # fn main() -> Result<()> {
     /// let mut ctx = ExecutionContext::new();
     /// let df = ctx.read_csv("tests/example.csv", CsvReadOptions::new())?;

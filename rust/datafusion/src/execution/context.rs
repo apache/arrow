@@ -60,31 +60,34 @@ use crate::sql::{
 /// * Execution a SQL query
 ///
 /// The following example demonstrates how to use the context to execute a query against a CSV
-/// data source:
+/// data source using the DataFrame API:
 ///
 /// ```
-/// use datafusion::ExecutionContext;
-/// use datafusion::execution::physical_plan::csv::CsvReadOptions;
-/// use datafusion::logicalplan::col;
-///
+/// use datafusion::prelude::*;
+/// # use datafusion::error::Result;
+/// # fn main() -> Result<()> {
 /// let mut ctx = ExecutionContext::new();
-/// let df = ctx.read_csv("tests/example.csv", CsvReadOptions::new()).unwrap();
-/// let df = df.filter(col("a").lt_eq(col("b"))).unwrap()
-///            .aggregate(vec![col("a")], vec![df.min(col("b")).unwrap()]).unwrap()
-///            .limit(100).unwrap();
+/// let df = ctx.read_csv("tests/example.csv", CsvReadOptions::new())?;
+/// let df = df.filter(col("a").lt_eq(col("b")))?
+///            .aggregate(vec![col("a")], vec![df.min(col("b"))?])?
+///            .limit(100)?;
 /// let results = df.collect();
+/// # Ok(())
+/// # }
 /// ```
 ///
 /// The following example demonstrates how to execute the same query using SQL:
 ///
 /// ```
-/// use datafusion::ExecutionContext;
-/// use datafusion::execution::physical_plan::csv::CsvReadOptions;
-/// use datafusion::logicalplan::col;
+/// use datafusion::prelude::*;
 ///
+/// # use datafusion::error::Result;
+/// # fn main() -> Result<()> {
 /// let mut ctx = ExecutionContext::new();
-/// ctx.register_csv("example", "tests/example.csv", CsvReadOptions::new()).unwrap();
-/// let results = ctx.sql("SELECT a, MIN(b) FROM example GROUP BY a LIMIT 100").unwrap();
+/// ctx.register_csv("example", "tests/example.csv", CsvReadOptions::new())?;
+/// let results = ctx.sql("SELECT a, MIN(b) FROM example GROUP BY a LIMIT 100")?;
+/// # Ok(())
+/// # }
 /// ```
 pub struct ExecutionContext {
     /// Internal state for the context
