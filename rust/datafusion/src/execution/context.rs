@@ -224,6 +224,17 @@ impl ExecutionContext {
             .clone()
     }
 
+    /// Get a reference to the registered aggregate functions
+    pub fn aggregate_functions(
+        &self,
+    ) -> Arc<Mutex<HashMap<String, Box<AggregateFunction>>>> {
+        self.state
+            .lock()
+            .expect("failed to lock mutex")
+            .aggregate_functions
+            .clone()
+    }
+
     /// Creates a DataFrame for reading a CSV data source.
     pub fn read_csv(
         &mut self,
@@ -351,11 +362,8 @@ impl ExecutionContext {
         let rules: Vec<Box<dyn OptimizerRule>> = vec![
             Box::new(ProjectionPushDown::new()),
             Box::new(TypeCoercionRule::new(
-                self.state
-                    .lock()
-                    .expect("failed to lock mutex")
-                    .scalar_functions
-                    .clone(),
+                self.scalar_functions(),
+                self.aggregate_functions(),
             )),
         ];
         let mut plan = plan.clone();
@@ -551,7 +559,9 @@ impl SchemaProvider for ExecutionContextState {
             .map(|f| {
                 Arc::new(FunctionMeta::new(
                     name.to_owned(),
-                    f.args.clone(),
+                    f.arg_types.clone(),
+                    // this is wrong, but the actual type is overwritten by the physical plan
+                    // as aggregate functions have a variable type.
                     DataType::Float32,
                     FunctionType::Aggregate,
                 ))
@@ -583,13 +593,17 @@ mod tests {
 
     use super::*;
     use crate::datasource::MemTable;
-    use crate::execution::physical_plan::udf::ScalarUdf;
-    use crate::logicalplan::{aggregate_expr, col, scalar_function};
+    use crate::execution::physical_plan::{
+        expressions::Column,
+        udf::{AggregateFunctionExpr, ScalarUdf},
+        Accumulator, AggregateExpr, Aggregator,
+    };
+    use crate::logicalplan::{aggregate_expr, col, scalar_function, ScalarValue};
     use crate::test;
-    use arrow::array::{ArrayRef, Int32Array};
-    use arrow::compute::add;
+    use arrow::array::{ArrayRef, Float64Array, Int32Array};
+    use arrow::compute::{add, sum};
     use std::fs::File;
-    use std::io::prelude::*;
+    use std::{cell::RefCell, io::prelude::*, rc::Rc};
     use tempdir::TempDir;
     use test::*;
 
@@ -1256,6 +1270,107 @@ mod tests {
             CsvReadOptions::new().schema(&schema),
         )?;
 
+        ctx.register_aggregate_udf(avg());
+
         Ok(ctx)
+    }
+
+    // declare an accumulator of an average of f64
+    // math details here: https://stackoverflow.com/a/23493727/931303
+    #[derive(Debug)]
+    struct MyAvg {
+        avg: f64, // online average
+        n: usize,
+    }
+
+    impl Accumulator for MyAvg {
+        fn accumulate_scalar(&mut self, value: Option<ScalarValue>) -> Result<()> {
+            if let Some(value) = value {
+                match value {
+                    ScalarValue::Float64(v) => {
+                        self.n += 1;
+                        self.avg = (self.avg * ((self.n - 1) as f64) - v) / self.n as f64;
+                    }
+                    _ => {
+                        return Err(ExecutionError::ExecutionError(format!(
+                            "Unsupported type {:?}.",
+                            value
+                        )))
+                    }
+                }
+            }
+            Ok(())
+        }
+
+        fn accumulate_batch(&mut self, array: &ArrayRef) -> Result<()> {
+            match array.data_type() {
+                DataType::Float64 => {
+                    let array = array
+                        .as_any()
+                        .downcast_ref::<Float64Array>()
+                        .expect("Failed to cast array");
+                    let sum = sum(array).unwrap_or(0.0);
+                    let m = array.len();
+
+                    self.n += m;
+                    self.avg = (self.avg * (self.n - m) as f64 - sum) / self.n as f64;
+                }
+                _ => {
+                    return Err(ExecutionError::ExecutionError(format!(
+                        "Unsupported type {:?}.",
+                        array.data_type()
+                    )))
+                }
+            }
+            Ok(())
+        }
+
+        fn get_value(&self) -> Result<Option<ScalarValue>> {
+            Ok(Some(ScalarValue::Float64(self.avg)))
+        }
+    }
+
+    fn avg() -> AggregateFunction {
+        AggregateFunction {
+            name: "my_avg".to_string(),
+            return_type: Arc::new(|_, _| Ok(DataType::Float64)),
+            arg_types: vec![vec![DataType::Float64]],
+            aggregate: Arc::new(MyAvg { avg: 0.0, n: 0 }),
+        }
+    }
+
+    // implement it on the same struct just for fun
+    impl Aggregator for MyAvg {
+        fn create_accumulator(&self) -> Rc<RefCell<dyn Accumulator>> {
+            Rc::new(RefCell::new(MyAvg { avg: 0.0, n: 0 }))
+        }
+
+        fn create_reducer(&self, column_name: &str) -> Arc<dyn AggregateExpr> {
+            Arc::new(AggregateFunctionExpr::new(
+                "my_avg",
+                vec![Arc::new(Column::new(column_name))],
+                Box::new(avg()),
+            ))
+        }
+    }
+
+    #[test]
+    fn aggregate_custom_agg() -> Result<()> {
+        let results = execute("SELECT c1, my_avg(c2) FROM test GROUP BY c1", 4)?;
+        assert_eq!(results.len(), 1);
+
+        let batch = &results[0];
+
+        assert_eq!(
+            field_names(batch),
+            vec!["c1", "my_avg(CAST(c2 as Float64))"]
+        );
+
+        let expected: Vec<&str> = vec!["0,5.5", "1,5.5", "2,5.5", "3,5.5"];
+        let mut rows = test::format_batch(&batch);
+        rows.sort();
+        assert_eq!(rows, expected);
+
+        Ok(())
     }
 }

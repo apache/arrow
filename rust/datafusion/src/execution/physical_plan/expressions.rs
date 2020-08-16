@@ -141,7 +141,10 @@ pub fn sum() -> AggregateFunction {
     AggregateFunction {
         name: "sum".to_string(),
         return_type: Arc::new(sum_return_type),
-        args: vec![common_types()],
+        arg_types: common_types()
+            .iter()
+            .map(|x| vec![x.clone()])
+            .collect::<Vec<_>>(),
         aggregate: Arc::new(Sum {}),
     }
 }
@@ -353,7 +356,10 @@ pub fn avg() -> AggregateFunction {
     AggregateFunction {
         name: "avg".to_string(),
         return_type: Arc::new(avg_return_type),
-        args: vec![common_types()],
+        arg_types: common_types()
+            .iter()
+            .map(|x| vec![x.clone()])
+            .collect::<Vec<_>>(),
         aggregate: Arc::new(Avg {}),
     }
 }
@@ -464,7 +470,10 @@ pub fn max() -> AggregateFunction {
     AggregateFunction {
         name: "max".to_string(),
         return_type: Arc::new(max_return_type),
-        args: vec![common_types()],
+        arg_types: common_types()
+            .iter()
+            .map(|x| vec![x.clone()])
+            .collect::<Vec<_>>(),
         aggregate: Arc::new(Max {}),
     }
 }
@@ -642,7 +651,10 @@ pub fn min() -> AggregateFunction {
     AggregateFunction {
         name: "min".to_string(),
         return_type: Arc::new(max_return_type),
-        args: vec![common_types()],
+        arg_types: common_types()
+            .iter()
+            .map(|x| vec![x.clone()])
+            .collect::<Vec<_>>(),
         aggregate: Arc::new(Min {}),
     }
 }
@@ -831,13 +843,16 @@ pub fn physical_count(expr: Arc<dyn PhysicalExpr>) -> Arc<dyn AggregateExpr> {
 
 /// Creates a count aggregate function
 pub fn count() -> AggregateFunction {
-    let mut types = common_types();
-    types.push(DataType::Utf8);
+    let mut types = common_types()
+        .iter()
+        .map(|x| vec![x.clone()])
+        .collect::<Vec<_>>();
+    types.push(vec![DataType::Utf8]);
 
     AggregateFunction {
         name: "count".to_string(),
         return_type: Arc::new(count_return_type),
-        args: vec![types],
+        arg_types: types,
         aggregate: Arc::new(Count {}),
     }
 }

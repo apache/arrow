@@ -26,7 +26,7 @@ use std::sync::{Arc, Mutex};
 use arrow::datatypes::{DataType, Schema};
 
 use crate::error::{ExecutionError, Result};
-use crate::execution::physical_plan::udf::ScalarFunction;
+use crate::execution::physical_plan::udf::{AggregateFunction, ScalarFunction};
 use crate::logicalplan::Expr;
 use crate::logicalplan::LogicalPlan;
 use crate::optimizer::optimizer::OptimizerRule;
@@ -38,6 +38,7 @@ use utils::optimize_explain;
 /// This optimizer does not alter the structure of the plan, it only changes expressions on it.
 pub struct TypeCoercionRule {
     scalar_functions: Arc<Mutex<HashMap<String, Box<ScalarFunction>>>>,
+    aggregate_functions: Arc<Mutex<HashMap<String, Box<AggregateFunction>>>>,
 }
 
 impl TypeCoercionRule {
@@ -45,8 +46,12 @@ impl TypeCoercionRule {
     /// scalar functions
     pub fn new(
         scalar_functions: Arc<Mutex<HashMap<String, Box<ScalarFunction>>>>,
+        aggregate_functions: Arc<Mutex<HashMap<String, Box<AggregateFunction>>>>,
     ) -> Self {
-        Self { scalar_functions }
+        Self {
+            scalar_functions,
+            aggregate_functions,
+        }
     }
 
     /// Rewrite an expression to include explicit CAST operations when required
@@ -71,10 +76,9 @@ impl TypeCoercionRule {
                     expressions[1] = expressions[1].cast_to(&super_type, schema)?;
                 }
             }
-            Expr::ScalarFunction { name, .. } => {
-                // cast the inputs of scalar functions to the appropriate type where possible
+            Expr::AggregateFunction { name, .. } => {
                 match self
-                    .scalar_functions
+                    .aggregate_functions
                     .lock()
                     .expect("failed to lock mutex")
                     .get(name)
@@ -107,6 +111,26 @@ impl TypeCoercionRule {
                                 current_types,
                             )));
                         }
+                    }
+                    None => {
+                        return Err(ExecutionError::General(format!(
+                            "Invalid aggregate function {}",
+                            name
+                        )))
+                    }
+                }
+            }
+            Expr::ScalarFunction { name, .. } => {
+                // cast the inputs of scalar functions to the appropriate type where possible
+                match self
+                    .scalar_functions
+                    .lock()
+                    .expect("failed to lock mutex")
+                    .get(name)
+                {
+                    Some(func_meta) => {
+                        expressions =
+                            rewrite_args(expressions, schema, func_meta.as_ref())?;
                     }
                     _ => {
                         return Err(ExecutionError::General(format!(
@@ -160,6 +184,36 @@ impl OptimizerRule for TypeCoercionRule {
 
     fn name(&self) -> &str {
         return "type_coercion";
+    }
+}
+
+/// rewrites
+fn rewrite_args(
+    expressions: Vec<Expr>,
+    schema: &Schema,
+    func_meta: &ScalarFunction,
+) -> Result<Vec<Expr>> {
+    // compute the current types and expressions
+    let current_types = expressions
+        .iter()
+        .map(|e| e.get_type(schema))
+        .collect::<Result<Vec<_>>>()?;
+
+    let new = if func_meta.arg_types.contains(&current_types) {
+        Some(expressions)
+    } else {
+        maybe_rewrite(&expressions, &current_types, &schema, &func_meta.arg_types)?
+    };
+
+    if let Some(args) = new {
+        Ok(args)
+    } else {
+        Err(ExecutionError::General(format!(
+            "The scalar function '{}' requires one of the type variants {:?}, but the arguments of type '{:?}' cannot be safely casted to any of them.",
+            func_meta.name,
+            func_meta.arg_types,
+            current_types,
+        )))
     }
 }
 
@@ -226,14 +280,15 @@ mod tests {
             .project(vec![col("c1"), col("c2")])?
             .aggregate(
                 vec![col("c1")],
-                vec![aggregate_expr("SUM", col("c2"), DataType::Int64)],
+                vec![aggregate_expr("sum", col("c2"), DataType::Int64)],
             )?
             .sort(vec![col("c1")])?
             .limit(10)?
             .build()?;
 
-        let scalar_functions = HashMap::new();
-        let mut rule = TypeCoercionRule::new(Arc::new(Mutex::new(scalar_functions)));
+        let ctx = ExecutionContext::new();
+        let mut rule =
+            TypeCoercionRule::new(ctx.scalar_functions(), ctx.aggregate_functions());
         let plan = rule.optimize(&plan)?;
 
         // check that the filter had a cast added
@@ -241,7 +296,7 @@ mod tests {
         println!("{}", plan_str);
         let expected_plan_str = "Limit: 10
   Sort: #c1
-    Aggregate: groupBy=[[#c1]], aggr=[[SUM(#c2)]]
+    Aggregate: groupBy=[[#c1]], aggr=[[sum(#c2)]]
       Projection: #c1, #c2
         Selection: #c7 Lt CAST(UInt8(5) AS Int64)";
         assert!(plan_str.starts_with(expected_plan_str));
@@ -259,8 +314,10 @@ mod tests {
             .filter(col("c7").lt(col("c12")))?
             .build()?;
 
-        let scalar_functions = HashMap::new();
-        let mut rule = TypeCoercionRule::new(Arc::new(Mutex::new(scalar_functions)));
+        let mut rule = TypeCoercionRule::new(
+            Arc::new(Mutex::new(HashMap::new())),
+            Arc::new(Mutex::new(HashMap::new())),
+        );
         let plan = rule.optimize(&plan)?;
 
         assert!(
@@ -339,7 +396,8 @@ mod tests {
         };
 
         let ctx = ExecutionContext::new();
-        let rule = TypeCoercionRule::new(ctx.scalar_functions());
+        let rule =
+            TypeCoercionRule::new(ctx.scalar_functions(), ctx.aggregate_functions());
 
         let expr2 = rule.rewrite_expr(&expr, &schema).unwrap();
 

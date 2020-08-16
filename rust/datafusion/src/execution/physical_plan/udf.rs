@@ -157,8 +157,6 @@ impl PhysicalExpr for ScalarFunctionExpr {
 
 /// A generic aggregate function
 /*
-This struct is
-
 An aggregate function accepts an arbitrary number of arguments, of arbitrary data types,
 and returns an arbitrary type based on the incoming types.
 
@@ -174,7 +172,7 @@ pub struct AggregateFunction {
     pub name: String,
     /// A list of arguments and their respective types. A function can accept more than one type as argument
     /// (e.g. sum(i8), sum(u8)).
-    pub args: Vec<Vec<DataType>>,
+    pub arg_types: Vec<Vec<DataType>>,
     /// Return type. This function takes
     pub return_type: ReturnType,
     /// implementation of the aggregation
