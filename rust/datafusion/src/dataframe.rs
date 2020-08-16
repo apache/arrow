@@ -23,7 +23,8 @@ use crate::logicalplan::{Expr, LogicalPlan};
 use arrow::datatypes::Schema;
 use std::sync::Arc;
 
-/// DataFrame is an abstraction of a logical query plan
+/// DataFrame represents a logical set of rows with the same named columns.
+/// Similar to a [Pandas DataFrame](https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.DataFrame.html) or [Spark DataFrame](https://spark.apache.org/docs/latest/sql-programming-guide.html)
 pub trait DataFrame {
     /// Select columns by name
     fn select_columns(&self, columns: Vec<&str>) -> Result<Arc<dyn DataFrame>>;
