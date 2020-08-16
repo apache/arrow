@@ -19,7 +19,7 @@ use crate::logicalplan::Expr;
 use crate::logicalplan::{and, LogicalPlan};
 use crate::optimizer::optimizer::OptimizerRule;
 use crate::optimizer::utils;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 /// Filter Push Down optimizer rule pushes filter clauses down the plan
 ///
@@ -87,7 +87,7 @@ impl OptimizerRule for FilterPushDown {
         // construct optimized position of each of the new selections
         // E.g. when we have a filter (c1 + c2 > 2), c1's max depth is 10 and c2 is 11, we
         // can push the filter to depth 10
-        let mut new_selections: HashMap<usize, Expr> = HashMap::new();
+        let mut new_selections: BTreeMap<usize, Expr> = BTreeMap::new();
         for (selection_depth, expr) in result.selections {
             // get all columns on the filter expression
             let mut selection_columns: HashSet<String> = HashSet::new();
@@ -134,14 +134,16 @@ impl OptimizerRule for FilterPushDown {
 }
 
 /// The result of a plan analysis suitable to perform a filter push down optimization
+// BTreeMap are ordered, which ensures stability in ordered operations.
+// Also, most inserts here are at the end
 struct AnalysisResult {
     /// maps the depths of non filter-commutative nodes to their columns
     /// depths not in here indicate that the node is commutative
-    pub break_points: HashMap<usize, HashSet<String>>,
+    pub break_points: BTreeMap<usize, HashSet<String>>,
     /// maps the depths of filter nodes to expressions
-    pub selections: HashMap<usize, Expr>,
+    pub selections: BTreeMap<usize, Expr>,
     /// maps the depths of projection nodes to their expressions
-    pub projections: HashMap<usize, HashMap<String, Expr>>,
+    pub projections: BTreeMap<usize, HashMap<String, Expr>>,
 }
 
 /// Recursively transverses the logical plan looking for depths that break filter pushdown
@@ -217,13 +219,13 @@ fn analyze_plan(plan: &LogicalPlan, depth: usize) -> Result<AnalysisResult> {
                 .iter()
                 .map(|f| f.name().clone())
                 .collect::<HashSet<_>>();
-            let mut break_points = HashMap::new();
+            let mut break_points = BTreeMap::new();
 
             break_points.insert(depth, columns);
             Ok(AnalysisResult {
                 break_points,
-                selections: HashMap::new(),
-                projections: HashMap::new(),
+                selections: BTreeMap::new(),
+                projections: BTreeMap::new(),
             })
         }
     }
@@ -239,7 +241,7 @@ impl FilterPushDown {
 /// Returns a re-written logical plan where all old filters are removed and the new ones are added.
 fn optimize_plan(
     plan: &LogicalPlan,
-    new_selections: &HashMap<usize, Expr>,
+    new_selections: &BTreeMap<usize, Expr>,
     depth: usize,
 ) -> Result<LogicalPlan> {
     // optimize the plan recursively:
