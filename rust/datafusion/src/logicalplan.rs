@@ -465,6 +465,16 @@ impl Expr {
         binary_expr(self.clone(), Operator::LtEq, other.clone())
     }
 
+    /// And
+    pub fn and(&self, other: Expr) -> Expr {
+        binary_expr(self.clone(), Operator::And, other)
+    }
+
+    /// Or
+    pub fn or(&self, other: Expr) -> Expr {
+        binary_expr(self.clone(), Operator::Or, other)
+    }
+
     /// Not
     pub fn not(&self) -> Expr {
         Expr::Not(Box::new(self.clone()))
@@ -498,6 +508,20 @@ impl Expr {
     /// Alias
     pub fn alias(&self, name: &str) -> Expr {
         Expr::Alias(Box::new(self.clone()), name.to_owned())
+    }
+
+    /// Create a sort expression from an existing expression.
+    ///
+    /// ```
+    /// # use datafusion::logicalplan::col;
+    /// let sort_expr = col("foo").sort(true, true); // SORT ASC NULLS_FIRST
+    /// ```
+    pub fn sort(&self, asc: bool, nulls_first: bool) -> Expr {
+        Expr::Sort {
+            expr: Box::new(self.clone()),
+            asc,
+            nulls_first,
+        }
     }
 }
 

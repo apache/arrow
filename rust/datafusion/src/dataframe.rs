@@ -35,72 +35,87 @@ use std::sync::Arc;
 /// The query can be executed by calling the `collect` method.
 ///
 /// ```
-/// use datafusion::ExecutionContext;
-/// use datafusion::execution::physical_plan::csv::CsvReadOptions;
-/// use datafusion::logicalplan::col;
-///
+/// # use datafusion::ExecutionContext;
+/// # use datafusion::error::Result;
+/// # use datafusion::execution::physical_plan::csv::CsvReadOptions;
+/// # use datafusion::logicalplan::col;
+/// # fn main() -> Result<()> {
 /// let mut ctx = ExecutionContext::new();
-/// let df = ctx.read_csv("tests/example.csv", CsvReadOptions::new()).unwrap();
-/// let df = df.filter(col("a").lt_eq(col("b"))).unwrap()
-///            .aggregate(vec![col("a")], vec![df.min(col("b")).unwrap()]).unwrap()
-///            .limit(100).unwrap();
+/// let df = ctx.read_csv("tests/example.csv", CsvReadOptions::new())?;
+/// let df = df.filter(col("a").lt_eq(col("b")))?
+///            .aggregate(vec![col("a")], vec![df.min(col("b"))?])?
+///            .limit(100)?;
 /// let results = df.collect();
+/// # Ok(())
+/// # }
 /// ```
 pub trait DataFrame {
     /// Filter the DataFrame by column. Returns a new DataFrame only containing the
     /// specified columns.
     ///
     /// ```
-    /// use datafusion::ExecutionContext;
-    /// use datafusion::execution::physical_plan::csv::CsvReadOptions;
+    /// # use datafusion::ExecutionContext;
+    /// # use datafusion::error::Result;
+    /// # use datafusion::execution::physical_plan::csv::CsvReadOptions;
+    /// # fn main() -> Result<()> {
     /// let mut ctx = ExecutionContext::new();
-    ///
-    /// let df = ctx.read_csv("tests/example.csv", CsvReadOptions::new()).unwrap();
-    /// let df = df.select_columns(vec!["a", "b"]).unwrap();
+    /// let df = ctx.read_csv("tests/example.csv", CsvReadOptions::new())?;
+    /// let df = df.select_columns(vec!["a", "b"])?;
+    /// # Ok(())
+    /// # }
     /// ```
     fn select_columns(&self, columns: Vec<&str>) -> Result<Arc<dyn DataFrame>>;
 
     /// Create a projection based on arbitrary expressions.
     ///
     /// ```
-    /// use datafusion::ExecutionContext;
-    /// use datafusion::execution::physical_plan::csv::CsvReadOptions;
-    /// use datafusion::logicalplan::col;
-    ///
+    /// # use datafusion::ExecutionContext;
+    /// # use datafusion::error::Result;
+    /// # use datafusion::execution::physical_plan::csv::CsvReadOptions;
+    /// # use datafusion::logicalplan::col;
+    /// # fn main() -> Result<()> {
     /// let mut ctx = ExecutionContext::new();
-    /// let df = ctx.read_csv("tests/example.csv", CsvReadOptions::new()).unwrap();
-    /// let df = df.select(vec![col("a").multiply(col("b")), col("c")]).unwrap();
+    /// let df = ctx.read_csv("tests/example.csv", CsvReadOptions::new())?;
+    /// let df = df.select(vec![col("a").multiply(col("b")), col("c")])?;
+    /// # Ok(())
+    /// # }
     /// ```
     fn select(&self, expr: Vec<Expr>) -> Result<Arc<dyn DataFrame>>;
 
     /// Filter a DataFrame to only include rows that match the specified filter expression.
     ///
     /// ```
-    /// use datafusion::ExecutionContext;
-    /// use datafusion::execution::physical_plan::csv::CsvReadOptions;
-    /// use datafusion::logicalplan::col;
-    ///
+    /// # use datafusion::ExecutionContext;
+    /// # use datafusion::error::Result;
+    /// # use datafusion::execution::physical_plan::csv::CsvReadOptions;
+    /// # use datafusion::logicalplan::col;
+    /// # fn main() -> Result<()> {
     /// let mut ctx = ExecutionContext::new();
-    /// let df = ctx.read_csv("tests/example.csv", CsvReadOptions::new()).unwrap();
-    /// let df = df.filter(col("a").lt_eq(col("b"))).unwrap();
+    /// let df = ctx.read_csv("tests/example.csv", CsvReadOptions::new())?;
+    /// let df = df.filter(col("a").lt_eq(col("b")))?;
+    /// # Ok(())
+    /// # }
     /// ```
     fn filter(&self, expr: Expr) -> Result<Arc<dyn DataFrame>>;
 
     /// Perform an aggregate query with optional grouping expressions.
     ///
     /// ```
-    /// use datafusion::ExecutionContext;
-    /// use datafusion::execution::physical_plan::csv::CsvReadOptions;
-    /// use datafusion::logicalplan::col;
-    ///
+    /// # use datafusion::ExecutionContext;
+    /// # use datafusion::error::Result;
+    /// # use datafusion::execution::physical_plan::csv::CsvReadOptions;
+    /// # use datafusion::logicalplan::col;
+    /// # fn main() -> Result<()> {
     /// let mut ctx = ExecutionContext::new();
-    /// let df = ctx.read_csv("tests/example.csv", CsvReadOptions::new()).unwrap();
+    /// let df = ctx.read_csv("tests/example.csv", CsvReadOptions::new())?;
     ///
     /// // The following use is the equivalent of "SELECT MIN(b) GROUP BY a"
-    /// let _ = df.aggregate(vec![col("a")], vec![df.min(col("b")).unwrap()]).unwrap();
+    /// let _ = df.aggregate(vec![col("a")], vec![df.min(col("b"))?])?;
     ///
     /// // The following use is the equivalent of "SELECT MIN(b)"
-    /// let _ = df.aggregate(vec![], vec![df.min(col("b")).unwrap()]).unwrap();
+    /// let _ = df.aggregate(vec![], vec![df.min(col("b"))?])?;
+    /// # Ok(())
+    /// # }
     /// ```
     fn aggregate(
         &self,
@@ -108,29 +123,52 @@ pub trait DataFrame {
         aggr_expr: Vec<Expr>,
     ) -> Result<Arc<dyn DataFrame>>;
 
-    /// limit the number of rows returned from this DataFrame.
+    /// Limit the number of rows returned from this DataFrame.
     ///
     /// ```
-    /// use datafusion::ExecutionContext;
-    /// use datafusion::execution::physical_plan::csv::CsvReadOptions;
-    /// use datafusion::logicalplan::col;
-    ///
+    /// # use datafusion::ExecutionContext;
+    /// # use datafusion::error::Result;
+    /// # use datafusion::execution::physical_plan::csv::CsvReadOptions;
+    /// # use datafusion::logicalplan::col;
+    /// # fn main() -> Result<()> {
     /// let mut ctx = ExecutionContext::new();
-    /// let df = ctx.read_csv("tests/example.csv", CsvReadOptions::new()).unwrap();
-    /// let df = df.limit(100).unwrap();
+    /// let df = ctx.read_csv("tests/example.csv", CsvReadOptions::new())?;
+    /// let df = df.limit(100)?;
+    /// # Ok(())
+    /// # }
     /// ```
     fn limit(&self, n: usize) -> Result<Arc<dyn DataFrame>>;
+
+    /// Sort the DataFrame by the specified sorting expressions. Any expression can be turned into
+    /// a sort expression by calling its [sort](../logicalplan/enum.Expr.html#method.sort) method.
+    ///
+    /// ```
+    /// # use datafusion::ExecutionContext;
+    /// # use datafusion::error::Result;
+    /// # use datafusion::execution::physical_plan::csv::CsvReadOptions;
+    /// # use datafusion::logicalplan::col;
+    /// # fn main() -> Result<()> {
+    /// let mut ctx = ExecutionContext::new();
+    /// let df = ctx.read_csv("tests/example.csv", CsvReadOptions::new())?;
+    /// let df = df.sort(vec![col("a").sort(true, true), col("b").sort(false, false)])?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    fn sort(&self, expr: Vec<Expr>) -> Result<Arc<dyn DataFrame>>;
 
     /// Executes this DataFrame and collects all results into a vector of RecordBatch.
     ///
     /// ```
-    /// use datafusion::ExecutionContext;
-    /// use datafusion::execution::physical_plan::csv::CsvReadOptions;
-    /// use datafusion::logicalplan::col;
-    ///
+    /// # use datafusion::ExecutionContext;
+    /// # use datafusion::error::Result;
+    /// # use datafusion::execution::physical_plan::csv::CsvReadOptions;
+    /// # use datafusion::logicalplan::col;
+    /// # fn main() -> Result<()> {
     /// let mut ctx = ExecutionContext::new();
-    /// let df = ctx.read_csv("tests/example.csv", CsvReadOptions::new()).unwrap();
-    /// let batches = df.collect().unwrap();
+    /// let df = ctx.read_csv("tests/example.csv", CsvReadOptions::new())?;
+    /// let batches = df.collect()?;
+    /// # Ok(())
+    /// # }
     /// ```
     fn collect(&self) -> Result<Vec<RecordBatch>>;
 
@@ -138,13 +176,16 @@ pub trait DataFrame {
     /// where each column has a name, data type, and nullability attribute.
 
     /// ```
-    /// use datafusion::ExecutionContext;
-    /// use datafusion::execution::physical_plan::csv::CsvReadOptions;
-    /// use datafusion::logicalplan::col;
-    ///
+    /// # use datafusion::ExecutionContext;
+    /// # use datafusion::error::Result;
+    /// # use datafusion::execution::physical_plan::csv::CsvReadOptions;
+    /// # use datafusion::logicalplan::col;
+    /// # fn main() -> Result<()> {
     /// let mut ctx = ExecutionContext::new();
-    /// let df = ctx.read_csv("tests/example.csv", CsvReadOptions::new()).unwrap();
+    /// let df = ctx.read_csv("tests/example.csv", CsvReadOptions::new())?;
     /// let schema = df.schema();
+    /// # Ok(())
+    /// # }
     /// ```
     fn schema(&self) -> &Schema;
 
