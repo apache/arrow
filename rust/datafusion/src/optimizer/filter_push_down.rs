@@ -568,10 +568,10 @@ mod tests {
         let table_scan = test_table_scan()?;
         let plan = LogicalPlanBuilder::from(&table_scan)
             .project(vec![col("a")])?
-            .filter(col("a").lt_eq(&Expr::Literal(ScalarValue::Int64(1))))?
+            .filter(col("a").lt_eq(lit(1i64)))?
             .limit(1)?
             .project(vec![col("a")])?
-            .filter(col("a").gt_eq(&Expr::Literal(ScalarValue::Int64(1))))?
+            .filter(col("a").gt_eq(lit(1i64)))?
             .build()?;
         // Should be able to move both filters below the projections
 
@@ -604,8 +604,8 @@ mod tests {
         let table_scan = test_table_scan()?;
         let plan = LogicalPlanBuilder::from(&table_scan)
             .limit(1)?
-            .filter(col("a").lt_eq(&Expr::Literal(ScalarValue::Int64(1))))?
-            .filter(col("a").gt_eq(&Expr::Literal(ScalarValue::Int64(1))))?
+            .filter(col("a").lt_eq(lit(1i64)))?
+            .filter(col("a").gt_eq(lit(1i64)))?
             .project(vec![col("a")])?
             .build()?;
 
