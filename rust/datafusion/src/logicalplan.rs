@@ -470,7 +470,7 @@ impl Expr {
         binary_expr(self.clone(), Operator::And, other)
     }
 
-    /// And
+    /// Or
     pub fn or(&self, other: Expr) -> Expr {
         binary_expr(self.clone(), Operator::Or, other)
     }
