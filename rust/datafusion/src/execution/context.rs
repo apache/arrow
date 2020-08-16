@@ -72,7 +72,7 @@ use crate::sql::{
 /// let df = df.filter(col("a").lt_eq(col("b"))).unwrap()
 ///            .aggregate(vec![col("a")], vec![df.min(col("b")).unwrap()]).unwrap()
 ///            .limit(100).unwrap();
-/// let results = df.collect(4096);
+/// let results = df.collect();
 /// ```
 ///
 /// The following example demonstrates how to execute the same query using SQL:
@@ -84,8 +84,7 @@ use crate::sql::{
 ///
 /// let mut ctx = ExecutionContext::new();
 /// ctx.register_csv("example", "tests/example.csv", CsvReadOptions::new()).unwrap();
-/// let batch_size = 4096;
-/// let results = ctx.sql("SELECT a, MIN(b) FROM example GROUP BY a LIMIT 100", batch_size).unwrap();
+/// let results = ctx.sql("SELECT a, MIN(b) FROM example GROUP BY a LIMIT 100").unwrap();
 /// ```
 pub struct ExecutionContext {
     /// Internal state for the context
@@ -129,20 +128,15 @@ impl ExecutionContext {
 
     /// Execute a SQL query and produce a Relation (a schema-aware iterator over a series
     /// of RecordBatch instances)
-    pub fn sql(&mut self, sql: &str, batch_size: usize) -> Result<Vec<RecordBatch>> {
+    pub fn sql(&mut self, sql: &str) -> Result<Vec<RecordBatch>> {
         let plan = self.create_logical_plan(sql)?;
-
-        return self.collect_plan(&plan, batch_size);
+        return self.collect_plan(&plan);
     }
 
     /// Executes a logical plan and produce a Relation (a schema-aware iterator over a series
     /// of RecordBatch instances). This function is intended for internal use and should not be
     /// called directly.
-    pub fn collect_plan(
-        &mut self,
-        plan: &LogicalPlan,
-        batch_size: usize,
-    ) -> Result<Vec<RecordBatch>> {
+    pub fn collect_plan(&mut self, plan: &LogicalPlan) -> Result<Vec<RecordBatch>> {
         match plan {
             LogicalPlan::CreateExternalTable {
                 ref schema,
@@ -173,7 +167,7 @@ impl ExecutionContext {
 
             plan => {
                 let plan = self.optimize(&plan)?;
-                let plan = self.create_physical_plan(&plan, batch_size)?;
+                let plan = self.create_physical_plan(&plan)?;
                 Ok(self.collect(plan.as_ref())?)
             }
         }
@@ -361,7 +355,6 @@ impl ExecutionContext {
     pub fn create_physical_plan(
         &self,
         logical_plan: &LogicalPlan,
-        _batch_size: usize,
     ) -> Result<Arc<dyn ExecutionPlan>> {
         let planner: Arc<dyn PhysicalPlanner> = match self.config().physical_planner {
             Some(planner) => planner,
@@ -575,7 +568,7 @@ mod tests {
             ctx.create_logical_plan("SELECT c1, c2 FROM test WHERE c1 > 0 AND c1 < 3")?;
         let logical_plan = ctx.optimize(&logical_plan)?;
 
-        let physical_plan = ctx.create_physical_plan(&logical_plan, 1024)?;
+        let physical_plan = ctx.create_physical_plan(&logical_plan)?;
 
         let results = ctx.collect(physical_plan.as_ref())?;
 
@@ -619,7 +612,7 @@ mod tests {
         \n  TableScan: test projection=Some([1])";
         assert_eq!(format!("{:?}", optimized_plan), expected);
 
-        let physical_plan = ctx.create_physical_plan(&optimized_plan, 1024)?;
+        let physical_plan = ctx.create_physical_plan(&optimized_plan)?;
 
         assert_eq!(1, physical_plan.schema().fields().len());
         assert_eq!("c2", physical_plan.schema().field(0).name().as_str());
@@ -654,7 +647,7 @@ mod tests {
             .build()?;
 
         let plan = ctx.optimize(&plan)?;
-        let physical_plan = ctx.create_physical_plan(&Arc::new(plan), 1024)?;
+        let physical_plan = ctx.create_physical_plan(&Arc::new(plan))?;
         assert_eq!(
             physical_plan.schema().field_with_name("c1")?.is_nullable(),
             false
@@ -707,7 +700,7 @@ mod tests {
         \n  InMemoryScan: projection=Some([1])";
         assert_eq!(format!("{:?}", optimized_plan), expected);
 
-        let physical_plan = ctx.create_physical_plan(&optimized_plan, 1024)?;
+        let physical_plan = ctx.create_physical_plan(&optimized_plan)?;
 
         assert_eq!(1, physical_plan.schema().fields().len());
         assert_eq!("b", physical_plan.schema().field(0).name().as_str());
@@ -941,7 +934,7 @@ mod tests {
 
         let plan = ctx.optimize(&plan)?;
 
-        let physical_plan = ctx.create_physical_plan(&Arc::new(plan), 1024)?;
+        let physical_plan = ctx.create_physical_plan(&Arc::new(plan))?;
         assert_eq!("c1", physical_plan.schema().field(0).name().as_str());
         assert_eq!(
             "total_salary",
@@ -1082,7 +1075,7 @@ mod tests {
         );
 
         let plan = ctx.optimize(&plan)?;
-        let plan = ctx.create_physical_plan(&plan, 1024)?;
+        let plan = ctx.create_physical_plan(&plan)?;
         let result = ctx.collect(plan.as_ref())?;
 
         let batch = &result[0];
@@ -1120,7 +1113,7 @@ mod tests {
     fn collect(ctx: &mut ExecutionContext, sql: &str) -> Result<Vec<RecordBatch>> {
         let logical_plan = ctx.create_logical_plan(sql)?;
         let logical_plan = ctx.optimize(&logical_plan)?;
-        let physical_plan = ctx.create_physical_plan(&logical_plan, 1024)?;
+        let physical_plan = ctx.create_physical_plan(&logical_plan)?;
         ctx.collect(physical_plan.as_ref())
     }
 
@@ -1144,7 +1137,7 @@ mod tests {
     fn write_csv(ctx: &mut ExecutionContext, sql: &str, out_dir: &str) -> Result<()> {
         let logical_plan = ctx.create_logical_plan(sql)?;
         let logical_plan = ctx.optimize(&logical_plan)?;
-        let physical_plan = ctx.create_physical_plan(&logical_plan, 1024)?;
+        let physical_plan = ctx.create_physical_plan(&logical_plan)?;
         ctx.write_csv(physical_plan.as_ref(), out_dir)
     }
 

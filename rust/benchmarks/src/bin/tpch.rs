@@ -65,9 +65,10 @@ fn main() -> Result<()> {
     let opt = TpchOpt::from_args();
     println!("Running benchmarks with the following options: {:?}", opt);
 
-    let mut ctx = ExecutionContext::with_config(
-        ExecutionConfig::new().with_concurrency(opt.concurrency),
-    );
+    let config = ExecutionConfig::new()
+        .with_concurrency(opt.concurrency)
+        .with_batch_size(opt.batch_size);
+    let mut ctx = ExecutionContext::with_config(config);
 
     let path = opt.path.to_str().unwrap();
 
@@ -118,7 +119,7 @@ fn main() -> Result<()> {
 
     for i in 0..opt.iterations {
         let start = Instant::now();
-        execute_sql(&mut ctx, sql, opt.batch_size, opt.debug)?;
+        execute_sql(&mut ctx, sql, opt.debug)?;
         println!(
             "Query {} iteration {} took {} ms",
             opt.query,
@@ -130,18 +131,13 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn execute_sql(
-    ctx: &mut ExecutionContext,
-    sql: &str,
-    batch_size: usize,
-    debug: bool,
-) -> Result<()> {
+fn execute_sql(ctx: &mut ExecutionContext, sql: &str, debug: bool) -> Result<()> {
     let plan = ctx.create_logical_plan(sql)?;
     let plan = ctx.optimize(&plan)?;
     if debug {
         println!("Optimized logical plan:\n{:?}", plan);
     }
-    let physical_plan = ctx.create_physical_plan(&plan, batch_size)?;
+    let physical_plan = ctx.create_physical_plan(&plan)?;
     let result = ctx.collect(physical_plan.as_ref())?;
     if debug {
         pretty::print_batches(&result)?;

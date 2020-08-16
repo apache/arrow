@@ -59,7 +59,7 @@ fn main() -> Result<()> {
     let df = df.select_columns(vec!["a", "b"])?.filter(filter)?;
 
     // execute
-    let results = df.collect(10)?;
+    let results = df.collect()?;
 
     // print the results
     pretty::print_batches(&results)?;

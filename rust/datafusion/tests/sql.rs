@@ -31,8 +31,6 @@ use datafusion::execution::context::ExecutionContext;
 use datafusion::execution::physical_plan::udf::ScalarFunction;
 use datafusion::logicalplan::LogicalPlan;
 
-const DEFAULT_BATCH_SIZE: usize = 1024 * 1024;
-
 #[test]
 fn nyc() -> Result<()> {
     // schema for nyxtaxi csv files
@@ -111,7 +109,7 @@ fn parquet_single_nan_schema() {
     let sql = "SELECT mycol FROM single_nan";
     let plan = ctx.create_logical_plan(&sql).unwrap();
     let plan = ctx.optimize(&plan).unwrap();
-    let plan = ctx.create_physical_plan(&plan, DEFAULT_BATCH_SIZE).unwrap();
+    let plan = ctx.create_physical_plan(&plan).unwrap();
     let results = ctx.collect(plan.as_ref()).unwrap();
     for batch in results {
         assert_eq!(1, batch.num_rows());
@@ -277,7 +275,7 @@ fn csv_query_avg_multi_batch() -> Result<()> {
     let sql = "SELECT avg(c12) FROM aggregate_test_100";
     let plan = ctx.create_logical_plan(&sql).unwrap();
     let plan = ctx.optimize(&plan).unwrap();
-    let plan = ctx.create_physical_plan(&plan, DEFAULT_BATCH_SIZE).unwrap();
+    let plan = ctx.create_physical_plan(&plan).unwrap();
     let results = ctx.collect(plan.as_ref()).unwrap();
     let batch = &results[0];
     let column = batch.column(0);
@@ -489,9 +487,8 @@ fn register_aggregate_csv_by_sql(ctx: &mut ExecutionContext) {
 
     // TODO: The following c9 should be migrated to UInt32 and c10 should be UInt64 once
     // unsigned is supported.
-    ctx.sql(
-        &format!(
-            "
+    ctx.sql(&format!(
+        "
     CREATE EXTERNAL TABLE aggregate_test_100 (
         c1  VARCHAR NOT NULL,
         c2  INT NOT NULL,
@@ -511,10 +508,8 @@ fn register_aggregate_csv_by_sql(ctx: &mut ExecutionContext) {
     WITH HEADER ROW
     LOCATION '{}/csv/aggregate_test_100.csv'
     ",
-            testdata
-        ),
-        1024,
-    )
+        testdata
+    ))
     .unwrap();
 }
 
@@ -542,7 +537,7 @@ fn register_alltypes_parquet(ctx: &mut ExecutionContext) {
 fn execute(ctx: &mut ExecutionContext, sql: &str) -> Vec<String> {
     let plan = ctx.create_logical_plan(&sql).unwrap();
     let plan = ctx.optimize(&plan).unwrap();
-    let plan = ctx.create_physical_plan(&plan, DEFAULT_BATCH_SIZE).unwrap();
+    let plan = ctx.create_physical_plan(&plan).unwrap();
     let results = ctx.collect(plan.as_ref()).unwrap();
     result_str(&results)
 }

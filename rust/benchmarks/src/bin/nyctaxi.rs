@@ -62,7 +62,9 @@ fn main() -> Result<()> {
     let opt = Opt::from_args();
     println!("Running benchmarks with the following options: {:?}", opt);
 
-    let config = ExecutionConfig::new().with_concurrency(opt.concurrency);
+    let config = ExecutionConfig::new()
+        .with_concurrency(opt.concurrency)
+        .with_batch_size(opt.batch_size);
     let mut ctx = ExecutionContext::with_config(config);
 
     let path = opt.path.to_str().unwrap();
@@ -80,13 +82,12 @@ fn main() -> Result<()> {
         }
     }
 
-    datafusion_sql_benchmarks(&mut ctx, opt.iterations, opt.batch_size, opt.debug)
+    datafusion_sql_benchmarks(&mut ctx, opt.iterations, opt.debug)
 }
 
 fn datafusion_sql_benchmarks(
     ctx: &mut ExecutionContext,
     iterations: usize,
-    batch_size: usize,
     debug: bool,
 ) -> Result<()> {
     let mut queries = HashMap::new();
@@ -95,7 +96,7 @@ fn datafusion_sql_benchmarks(
         println!("Executing '{}'", name);
         for i in 0..iterations {
             let start = Instant::now();
-            execute_sql(ctx, sql, batch_size, debug)?;
+            execute_sql(ctx, sql, debug)?;
             println!(
                 "Query '{}' iteration {} took {} ms",
                 name,
@@ -107,18 +108,13 @@ fn datafusion_sql_benchmarks(
     Ok(())
 }
 
-fn execute_sql(
-    ctx: &mut ExecutionContext,
-    sql: &str,
-    batch_size: usize,
-    debug: bool,
-) -> Result<()> {
+fn execute_sql(ctx: &mut ExecutionContext, sql: &str, debug: bool) -> Result<()> {
     let plan = ctx.create_logical_plan(sql)?;
     let plan = ctx.optimize(&plan)?;
     if debug {
         println!("Optimized logical plan:\n{:?}", plan);
     }
-    let physical_plan = ctx.create_physical_plan(&plan, batch_size)?;
+    let physical_plan = ctx.create_physical_plan(&plan)?;
     let result = ctx.collect(physical_plan.as_ref())?;
     if debug {
         pretty::print_batches(&result)?;
