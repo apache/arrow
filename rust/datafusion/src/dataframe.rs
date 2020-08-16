@@ -51,7 +51,7 @@ pub trait DataFrame {
     /// Collects the result as a vector of RecordBatch.
     fn collect(&self, batch_size: usize) -> Result<Vec<RecordBatch>>;
 
-    /// Returns the schema
+    /// Returns the schema (names and types of columns) in this DataFrame
     fn schema(&self) -> &Schema;
 
     //TODO these methods should be removed out of this trait soon and be standalone functions
