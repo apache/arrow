@@ -1109,6 +1109,29 @@ mod tests {
         Ok(())
     }
 
+    #[test]
+    fn custom_physical_planner() -> Result<()> {
+        let mut ctx = ExecutionContext::with_config(
+            ExecutionConfig::new().with_physical_planner(Arc::new(MyPhysicalPlanner {})),
+        );
+        ctx.sql("SELECT 1").expect_err("query not supported");
+        Ok(())
+    }
+
+    struct MyPhysicalPlanner {}
+
+    impl PhysicalPlanner for MyPhysicalPlanner {
+        fn create_physical_plan(
+            &self,
+            _logical_plan: &LogicalPlan,
+            _ctx_state: Arc<Mutex<ExecutionContextState>>,
+        ) -> Result<Arc<dyn ExecutionPlan>> {
+            Err(ExecutionError::NotImplemented(
+                "query not supported".to_string(),
+            ))
+        }
+    }
+
     /// Execute SQL and return results
     fn collect(ctx: &mut ExecutionContext, sql: &str) -> Result<Vec<RecordBatch>> {
         let logical_plan = ctx.create_logical_plan(sql)?;
