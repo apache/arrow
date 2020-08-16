@@ -21,7 +21,7 @@
 
 use sqlparser::{
     ast::{ColumnDef, Statement as SQLStatement, TableConstraint},
-    dialect::{keywords::Keyword, GenericDialect},
+    dialect::{keywords::Keyword, Dialect, GenericDialect},
     parser::{Parser, ParserError},
     tokenizer::{Token, Tokenizer},
 };
@@ -89,19 +89,34 @@ pub struct DFParser {
 impl DFParser {
     /// Parse the specified tokens
     pub fn new(sql: &str) -> Result<Self, ParserError> {
-        let dialect = GenericDialect {};
-        let mut tokenizer = Tokenizer::new(&dialect, sql);
+        let dialect = &GenericDialect {};
+        DFParser::new_with_dialect(sql, dialect)
+    }
+
+    /// Parse the specified tokens with dialect
+    pub fn new_with_dialect(
+        sql: &str,
+        dialect: &dyn Dialect,
+    ) -> Result<Self, ParserError> {
+        let mut tokenizer = Tokenizer::new(dialect, sql);
         let tokens = tokenizer.tokenize()?;
         Ok(DFParser {
             parser: Parser::new(tokens),
         })
     }
 
-    /// Parse a SQL statement and produce a set of statements
+    /// Parse a SQL statement and produce a set of statements with dialect
     pub fn parse_sql(sql: &str) -> Result<Vec<Statement>, ParserError> {
-        let mut tokenizer = Tokenizer::new(&GenericDialect {}, &sql);
-        tokenizer.tokenize()?;
-        let mut parser = DFParser::new(sql)?;
+        let dialect = &GenericDialect {};
+        DFParser::parse_sql_with_dialect(sql, dialect)
+    }
+
+    /// Parse a SQL statement and produce a set of statements
+    pub fn parse_sql_with_dialect(
+        sql: &str,
+        dialect: &dyn Dialect,
+    ) -> Result<Vec<Statement>, ParserError> {
+        let mut parser = DFParser::new_with_dialect(sql, dialect)?;
         let mut stmts = Vec::new();
         let mut expecting_statement_delimiter = false;
         loop {
