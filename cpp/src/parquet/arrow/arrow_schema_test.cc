@@ -1217,8 +1217,7 @@ TEST_F(TestLevels, TestPrimitive) {
               ElementsAre(Levels{/*def_level=*/1, /*rep_level=*/1,
                                  /*ancestor_list_def_level*/ 0},  // List Field
                           Levels{/*def_level=*/1, /*rep_level=*/1,
-                                 /*ancestor_list_def_level*/ 1}  //  primitive field
-                          ));
+                                 /*ancestor_list_def_level*/ 1}));  //  primitive field
 }
 
 TEST_F(TestLevels, TestSimpleGroups) {
@@ -1279,9 +1278,7 @@ TEST_F(TestLevels, TestRepeatedGroups) {
                           Levels{/*def_level=*/3, /*rep_level=*/2,
                                  /*ancestor_list_def_level*/ 1},  // repeated field
                           Levels{/*def_level=*/3, /*rep_level=*/2,
-                                 /*ancestor_list_def_level*/ 3}  // innter field
-
-                          ));
+                                 /*ancestor_list_def_level*/ 3}));  // innter field
 
   SetParquetSchema(GroupNode::Make(
       "parent", Repetition::REPEATED,
@@ -1306,9 +1303,8 @@ TEST_F(TestLevels, TestRepeatedGroups) {
                                  /*ancestor_list_def_level*/ 3},  // inner struct field
 
                           Levels{/*def_level=*/5, /*rep_level=*/2,
-                                 /*ancestor_list_def_level*/ 3}  // f0 bool field
+                                 /*ancestor_list_def_level*/ 3}));  // f0 bool field
 
-                          ));
   ASSERT_OK_AND_ASSIGN(levels, RootToTreeLeafLevels(*manifest_, /*column_number=*/1));
   EXPECT_THAT(levels,
               ElementsAre(Levels{/*def_level=*/1, /*rep_level=*/1,
@@ -1320,9 +1316,7 @@ TEST_F(TestLevels, TestRepeatedGroups) {
                                  /*ancestor_list_def_level*/ 3},  // inner struct field
 
                           Levels{/*def_level=*/4, /*rep_level=*/2,
-                                 /*ancestor_list_def_level*/ 3}  // f1 bool field
-
-                          ));
+                                 /*ancestor_list_def_level*/ 3}));  // f1 bool field
 
   // Legacy 2-level necoding
   SetParquetSchema(GroupNode::Make(
@@ -1340,8 +1334,7 @@ TEST_F(TestLevels, TestRepeatedGroups) {
                           Levels{/*def_level=*/3, /*rep_level=*/2,
                                  /*ancestor_list_def_level*/ 1},  // list field
                           Levels{/*def_level=*/3, /*rep_level=*/2,
-                                 /*ancestor_list_def_level*/ 3}  // inner struct field
-                          ));
+                                 /*ancestor_list_def_level*/ 3}));  // inner struct field
 }
 
 TEST_F(TestLevels, ListErrors) {
