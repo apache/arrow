@@ -21,17 +21,19 @@ use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::Path;
 use std::string::String;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 
 use arrow::csv;
 use arrow::datatypes::*;
 use arrow::record_batch::RecordBatch;
 
+use crate::dataframe::DataFrame;
 use crate::datasource::csv::CsvFile;
 use crate::datasource::parquet::ParquetTable;
 use crate::datasource::TableProvider;
 use crate::error::{ExecutionError, Result};
+use crate::execution::dataframe_impl::DataFrameImpl;
 use crate::execution::physical_plan::common;
 use crate::execution::physical_plan::csv::{CsvExec, CsvReadOptions};
 use crate::execution::physical_plan::datasource::DatasourceExec;
@@ -50,7 +52,6 @@ use crate::execution::physical_plan::selection::SelectionExec;
 use crate::execution::physical_plan::sort::{SortExec, SortOptions};
 use crate::execution::physical_plan::udf::{ScalarFunction, ScalarFunctionExpr};
 use crate::execution::physical_plan::{AggregateExpr, ExecutionPlan, PhysicalExpr};
-use crate::execution::table_impl::TableImpl;
 use crate::logicalplan::{
     Expr, FunctionMeta, FunctionType, LogicalPlan, LogicalPlanBuilder, PlanType,
     StringifiedPlan,
@@ -62,37 +63,45 @@ use crate::sql::{
     parser::{DFParser, FileType},
     planner::{SchemaProvider, SqlToRel},
 };
-use crate::table::Table;
 
-/// Configuration options for execution context
-#[derive(Copy, Clone)]
-pub struct ExecutionConfig {
-    /// Number of concurrent threads for query execution.
-    concurrency: usize,
-}
-
-impl ExecutionConfig {
-    /// Create an execution config with default settings
-    pub fn new() -> Self {
-        Self {
-            concurrency: num_cpus::get(),
-        }
-    }
-
-    /// Customize max_concurrency
-    pub fn with_concurrency(mut self, n: usize) -> Self {
-        // concurrency must be greater than zero
-        assert!(n > 0);
-        self.concurrency = n;
-        self
-    }
-}
-
-/// Execution context for registering data sources and executing queries
+/// ExecutionContext is the main interface for executing queries with DataFusion. The context
+/// provides the following functionality:
+///
+/// * Create DataFrame from a CSV or Parquet data source.
+/// * Register a CSV or Parquet data source as a table that can be referenced from a SQL query.
+/// * Register a custom data source that can be referenced from a SQL query.
+/// * Execution a SQL query
+///
+/// The following example demonstrates how to use the context to execute a query against a CSV
+/// data source:
+///
+/// ```
+/// use datafusion::ExecutionContext;
+/// use datafusion::execution::physical_plan::csv::CsvReadOptions;
+/// use datafusion::logicalplan::col;
+///
+/// let mut ctx = ExecutionContext::new();
+/// let df = ctx.read_csv("tests/example.csv", CsvReadOptions::new()).unwrap();
+/// let df = df.filter(col("a").lt_eq(col("b"))).unwrap()
+///            .aggregate(vec![col("a")], vec![df.min(col("b")).unwrap()]).unwrap()
+///            .limit(100).unwrap();
+/// let results = df.collect(4096);
+/// ```
+///
+/// The following example demonstrates how to execute the same query using SQL:
+///
+/// ```
+/// use datafusion::ExecutionContext;
+/// use datafusion::execution::physical_plan::csv::CsvReadOptions;
+/// use datafusion::logicalplan::col;
+///
+/// let mut ctx = ExecutionContext::new();
+/// ctx.register_csv("example", "tests/example.csv", CsvReadOptions::new()).unwrap();
+/// let batch_size = 4096;
+/// let results = ctx.sql("SELECT a, MIN(b) FROM example GROUP BY a LIMIT 100", batch_size).unwrap();
+/// ```
 pub struct ExecutionContext {
-    datasources: HashMap<String, Box<dyn TableProvider + Send + Sync>>,
-    scalar_functions: HashMap<String, Box<ScalarFunction>>,
-    config: ExecutionConfig,
+    state: Arc<Mutex<ExecutionContextState>>,
 }
 
 fn tuple_err<T, R>(value: (Result<T>, Result<R>)) -> Result<(T, R)> {
@@ -105,22 +114,29 @@ fn tuple_err<T, R>(value: (Result<T>, Result<R>)) -> Result<(T, R)> {
 }
 
 impl ExecutionContext {
-    /// Create a new execution context for in-memory queries using default configs
+    /// Create a new execution context using a default configuration.
     pub fn new() -> Self {
         Self::with_config(ExecutionConfig::new())
     }
 
-    /// Create a new execution context for in-memory queries using provided configs
+    /// Create a new execution context using the provided configuration
     pub fn with_config(config: ExecutionConfig) -> Self {
         let mut ctx = Self {
-            datasources: HashMap::new(),
-            scalar_functions: HashMap::new(),
-            config,
+            state: Arc::new(Mutex::new(ExecutionContextState {
+                datasources: Arc::new(Mutex::new(HashMap::new())),
+                scalar_functions: Arc::new(Mutex::new(HashMap::new())),
+                config,
+            })),
         };
         for udf in scalar_functions() {
             ctx.register_udf(udf);
         }
         ctx
+    }
+
+    /// Create a context from existing context state
+    pub(crate) fn from(state: Arc<Mutex<ExecutionContextState>>) -> Self {
+        Self { state }
     }
 
     /// Execute a SQL query and produce a Relation (a schema-aware iterator over a series
@@ -132,7 +148,8 @@ impl ExecutionContext {
     }
 
     /// Executes a logical plan and produce a Relation (a schema-aware iterator over a series
-    /// of RecordBatch instances)
+    /// of RecordBatch instances). This function is intended for internal use and should not be
+    /// called directly.
     pub fn collect_plan(
         &mut self,
         plan: &LogicalPlan,
@@ -174,7 +191,8 @@ impl ExecutionContext {
         }
     }
 
-    /// Creates a logical plan
+    /// Creates a logical plan. This function is intended for internal use and should not be
+    /// called directly.
     pub fn create_logical_plan(&mut self, sql: &str) -> Result<LogicalPlan> {
         let statements = DFParser::parse_sql(sql)?;
 
@@ -184,27 +202,73 @@ impl ExecutionContext {
             )));
         }
 
-        let schema_provider = ExecutionContextSchemaProvider {
-            datasources: &self.datasources,
-            scalar_functions: &self.scalar_functions,
-        };
-
         // create a query planner
-        let query_planner = SqlToRel::new(schema_provider);
+        let state = self.state.lock().expect("failed to lock mutex");
+        let query_planner = SqlToRel::new(state.clone());
         Ok(query_planner.statement_to_plan(&statements[0])?)
     }
 
     /// Register a scalar UDF
     pub fn register_udf(&mut self, f: ScalarFunction) {
-        self.scalar_functions.insert(f.name.clone(), Box::new(f));
+        let state = self.state.lock().expect("failed to lock mutex");
+        state
+            .scalar_functions
+            .lock()
+            .expect("failed to lock mutex")
+            .insert(f.name.clone(), Box::new(f));
     }
 
     /// Get a reference to the registered scalar functions
-    pub fn scalar_functions(&self) -> &HashMap<String, Box<ScalarFunction>> {
-        &self.scalar_functions
+    pub fn scalar_functions(&self) -> Arc<Mutex<HashMap<String, Box<ScalarFunction>>>> {
+        self.state
+            .lock()
+            .expect("failed to lock mutex")
+            .scalar_functions
+            .clone()
     }
 
-    /// Register a CSV file as a table so that it can be queried from SQL
+    /// Creates a DataFrame for reading a CSV data source.
+    pub fn read_csv(
+        &mut self,
+        filename: &str,
+        options: CsvReadOptions,
+    ) -> Result<Arc<dyn DataFrame>> {
+        let csv = CsvFile::try_new(filename, options)?;
+
+        let table_scan = LogicalPlan::CsvScan {
+            path: filename.to_string(),
+            schema: Box::new(csv.schema().as_ref().to_owned()),
+            has_header: options.has_header,
+            delimiter: Some(options.delimiter),
+            projection: None,
+            projected_schema: Box::new(csv.schema().as_ref().to_owned()),
+        };
+
+        Ok(Arc::new(DataFrameImpl::new(
+            self.state.clone(),
+            &LogicalPlanBuilder::from(&table_scan).build()?,
+        )))
+    }
+
+    /// Creates a DataFrame for reading a Parquet data source.
+    pub fn read_parquet(&mut self, filename: &str) -> Result<Arc<dyn DataFrame>> {
+        let parquet = ParquetTable::try_new(filename)?;
+
+        let table_scan = LogicalPlan::ParquetScan {
+            path: filename.to_string(),
+            schema: Box::new(parquet.schema().as_ref().to_owned()),
+            projection: None,
+            projected_schema: Box::new(parquet.schema().as_ref().to_owned()),
+        };
+
+        Ok(Arc::new(DataFrameImpl::new(
+            self.state.clone(),
+            &LogicalPlanBuilder::from(&table_scan).build()?,
+        )))
+    }
+
+    /// Register a CSV data source so that it can be referenced from SQL statements
+    /// executed against this context.
     pub fn register_csv(
         &mut self,
         name: &str,
@@ -215,25 +279,42 @@ impl ExecutionContext {
         Ok(())
     }
 
-    /// Register a Parquet file as a table so that it can be queried from SQL
+    /// Register a Parquet data source so that it can be referenced from SQL statements
+    /// executed against this context.
     pub fn register_parquet(&mut self, name: &str, filename: &str) -> Result<()> {
         let table = ParquetTable::try_new(&filename)?;
         self.register_table(name, Box::new(table));
         Ok(())
     }
 
-    /// Register a table so that it can be queried from SQL
+    /// Register a table using a custom TableProvider so that it can be referenced from SQL
+    /// statements executed against this context.
     pub fn register_table(
         &mut self,
         name: &str,
         provider: Box<dyn TableProvider + Send + Sync>,
     ) {
-        self.datasources.insert(name.to_string(), provider);
+        let state = self.state.lock().expect("failed to lock mutex");
+        state
+            .datasources
+            .lock()
+            .expect("failed to lock mutex")
+            .insert(name.to_string(), provider);
     }
 
-    /// Get a table by name
-    pub fn table(&mut self, table_name: &str) -> Result<Arc<dyn Table>> {
-        match self.datasources.get(table_name) {
+    /// Retrieves a DataFrame representing a table previously registered by calling the
+    /// register_table function. An Err result will be returned if no table has been
+    /// registered with the provided name.
+    pub fn table(&mut self, table_name: &str) -> Result<Arc<dyn DataFrame>> {
+        match self
+            .state
+            .lock()
+            .expect("failed to lock mutex")
+            .datasources
+            .lock()
+            .expect("failed to lock mutex")
+            .get(table_name)
+        {
             Some(provider) => {
                 let schema = provider.schema().as_ref().clone();
                 let table_scan = LogicalPlan::TableScan {
@@ -243,7 +324,8 @@ impl ExecutionContext {
                     projected_schema: Box::new(schema),
                     projection: None,
                 };
-                Ok(Arc::new(TableImpl::new(
+                Ok(Arc::new(DataFrameImpl::new(
+                    self.state.clone(),
                     &LogicalPlanBuilder::from(&table_scan).build()?,
                 )))
             }
@@ -256,14 +338,28 @@ impl ExecutionContext {
 
     /// The set of available tables. Use `table` to get a specific table.
     pub fn tables(&self) -> HashSet<String> {
-        self.datasources.keys().cloned().collect()
+        self.state
+            .lock()
+            .expect("failed to lock mutex")
+            .datasources
+            .lock()
+            .expect("failed to lock mutex")
+            .keys()
+            .cloned()
+            .collect()
     }
 
     /// Optimize the logical plan by applying optimizer rules
     pub fn optimize(&self, plan: &LogicalPlan) -> Result<LogicalPlan> {
         let rules: Vec<Box<dyn OptimizerRule>> = vec![
             Box::new(ProjectionPushDown::new()),
-            Box::new(TypeCoercionRule::new(&self.scalar_functions)),
+            Box::new(TypeCoercionRule::new(
+                self.state
+                    .lock()
+                    .expect("failed to lock mutex")
+                    .scalar_functions
+                    .clone(),
+            )),
         ];
         let mut plan = plan.clone();
 
@@ -284,7 +380,15 @@ impl ExecutionContext {
                 table_name,
                 projection,
                 ..
-            } => match self.datasources.get(table_name) {
+            } => match self
+                .state
+                .lock()
+                .expect("failed to lock mutex")
+                .datasources
+                .lock()
+                .expect("failed to lock mutex")
+                .get(table_name)
+            {
                 Some(provider) => {
                     let partitions = provider.scan(projection, batch_size)?;
                     if partitions.is_empty() {
@@ -402,7 +506,11 @@ impl ExecutionContext {
                 let merge = Arc::new(MergeExec::new(
                     schema.clone(),
                     partitions,
-                    self.config.concurrency,
+                    self.state
+                        .lock()
+                        .expect("failed to lock mutex")
+                        .config
+                        .concurrency,
                 ));
 
                 // construct the expressions for the final aggregation
@@ -461,7 +569,11 @@ impl ExecutionContext {
                 Ok(Arc::new(SortExec::try_new(
                     sort_expr,
                     input,
-                    self.config.concurrency,
+                    self.state
+                        .lock()
+                        .expect("failed to lock mutex")
+                        .config
+                        .concurrency,
                 )?))
             }
             LogicalPlan::Limit { input, n, .. } => {
@@ -472,7 +584,11 @@ impl ExecutionContext {
                     input_schema.clone(),
                     input.partitions()?,
                     *n,
-                    self.config.concurrency,
+                    self.state
+                        .lock()
+                        .expect("failed to lock mutex")
+                        .config
+                        .concurrency,
                 )))
             }
             LogicalPlan::Explain {
@@ -533,7 +649,15 @@ impl ExecutionContext {
                 name,
                 args,
                 return_type,
-            } => match &self.scalar_functions.get(name) {
+            } => match &self
+                .state
+                .lock()
+                .expect("failed to lock mutex")
+                .scalar_functions
+                .lock()
+                .expect("failed to lock mutex")
+                .get(name)
+            {
                 Some(f) => {
                     let mut physical_args = vec![];
                     for e in args {
@@ -623,7 +747,11 @@ impl ExecutionContext {
                 let plan = MergeExec::new(
                     plan.schema().clone(),
                     partitions,
-                    self.config.concurrency,
+                    self.state
+                        .lock()
+                        .expect("failed to lock mutex")
+                        .config
+                        .concurrency,
                 );
                 let partitions = plan.partitions()?;
                 if partitions.len() == 1 {
@@ -682,39 +810,60 @@ impl ExecutionContext {
     }
 }
 
-/// Get schema and scalar functions for execution context
-pub struct ExecutionContextSchemaProvider<'a> {
-    datasources: &'a HashMap<String, Box<dyn TableProvider + Send + Sync>>,
-    scalar_functions: &'a HashMap<String, Box<ScalarFunction>>,
+/// Configuration options for execution context
+#[derive(Copy, Clone)]
+pub struct ExecutionConfig {
+    /// Number of concurrent threads for query execution.
+    concurrency: usize,
 }
 
-impl<'a> ExecutionContextSchemaProvider<'a> {
-    /// Create a new ExecutionContextSchemaProvider based on data sources and scalar functions
-    pub fn new(
-        datasources: &'a HashMap<String, Box<dyn TableProvider + Send + Sync>>,
-        scalar_functions: &'a HashMap<String, Box<ScalarFunction>>,
-    ) -> Self {
-        ExecutionContextSchemaProvider {
-            datasources,
-            scalar_functions,
+impl ExecutionConfig {
+    /// Create an execution config with default settings
+    pub fn new() -> Self {
+        Self {
+            concurrency: num_cpus::get(),
         }
+    }
+
+    /// Customize max_concurrency
+    pub fn with_concurrency(mut self, n: usize) -> Self {
+        // concurrency must be greater than zero
+        assert!(n > 0);
+        self.concurrency = n;
+        self
     }
 }
 
-impl SchemaProvider for ExecutionContextSchemaProvider<'_> {
+/// Execution context for registering data sources and executing queries
+#[derive(Clone)]
+pub struct ExecutionContextState {
+    datasources: Arc<Mutex<HashMap<String, Box<dyn TableProvider + Send + Sync>>>>,
+    scalar_functions: Arc<Mutex<HashMap<String, Box<ScalarFunction>>>>,
+    config: ExecutionConfig,
+}
+
+impl SchemaProvider for ExecutionContextState {
     fn get_table_meta(&self, name: &str) -> Option<SchemaRef> {
-        self.datasources.get(name).map(|ds| ds.schema().clone())
+        self.datasources
+            .lock()
+            .expect("failed to lock mutex")
+            .get(name)
+            .map(|ds| ds.schema().clone())
     }
 
     fn get_function_meta(&self, name: &str) -> Option<Arc<FunctionMeta>> {
-        self.scalar_functions.get(name).map(|f| {
-            Arc::new(FunctionMeta::new(
-                name.to_owned(),
-                f.args.clone(),
-                f.return_type.clone(),
-                FunctionType::Scalar,
-            ))
-        })
+        self.scalar_functions
+            .lock()
+            .expect("failed to lock mutex")
+            .get(name)
+            .map(|f| {
+                Arc::new(FunctionMeta::new(
+                    name.to_owned(),
+                    f.args.clone(),
+                    f.return_type.clone(),
+                    FunctionType::Scalar,
+                ))
+            })
     }
 }
 
@@ -824,7 +973,16 @@ mod tests {
         let tmp_dir = TempDir::new("execute")?;
         let ctx = create_ctx(&tmp_dir, 1)?;
 
-        let schema = ctx.datasources.get("test").unwrap().schema();
+        let schema = ctx
+            .state
+            .lock()
+            .expect("failed to lock mutex")
+            .datasources
+            .lock()
+            .expect("failed to lock mutex")
+            .get("test")
+            .unwrap()
+            .schema();
         assert_eq!(schema.field_with_name("c1")?.is_nullable(), false);
 
         let plan = LogicalPlanBuilder::scan("default", "test", schema.as_ref(), None)?

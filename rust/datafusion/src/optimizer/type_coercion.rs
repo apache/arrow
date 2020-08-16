@@ -21,6 +21,7 @@
 //! float)`. This keeps the runtime query execution code much simpler.
 
 use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 
 use arrow::datatypes::Schema;
 
@@ -33,14 +34,16 @@ use crate::optimizer::utils;
 use utils::optimize_explain;
 
 /// Implementation of type coercion optimizer rule
-pub struct TypeCoercionRule<'a> {
-    scalar_functions: &'a HashMap<String, Box<ScalarFunction>>,
+pub struct TypeCoercionRule {
+    scalar_functions: Arc<Mutex<HashMap<String, Box<ScalarFunction>>>>,
 }
 
-impl<'a> TypeCoercionRule<'a> {
+impl TypeCoercionRule {
     /// Create a new type coercion optimizer rule using meta-data about registered
     /// scalar functions
-    pub fn new(scalar_functions: &'a HashMap<String, Box<ScalarFunction>>) -> Self {
+    pub fn new(
+        scalar_functions: Arc<Mutex<HashMap<String, Box<ScalarFunction>>>>,
+    ) -> Self {
         Self { scalar_functions }
     }
 
@@ -85,7 +88,12 @@ impl<'a> TypeCoercionRule<'a> {
                 return_type,
             } => {
                 // cast the inputs of scalar functions to the appropriate type where possible
-                match self.scalar_functions.get(name) {
+                match self
+                    .scalar_functions
+                    .lock()
+                    .expect("failed to lock mutex")
+                    .get(name)
+                {
                     Some(func_meta) => {
                         let mut func_args = Vec::with_capacity(args.len());
                         for i in 0..args.len() {
@@ -143,7 +151,7 @@ impl<'a> TypeCoercionRule<'a> {
     }
 }
 
-impl<'a> OptimizerRule for TypeCoercionRule<'a> {
+impl OptimizerRule for TypeCoercionRule {
     fn optimize(&mut self, plan: &LogicalPlan) -> Result<LogicalPlan> {
         match plan {
             LogicalPlan::Projection { expr, input, .. } => {
@@ -215,7 +223,7 @@ mod tests {
         let options = CsvReadOptions::new().schema_infer_max_records(100);
         let plan = LogicalPlanBuilder::scan_csv(&path, options, None)?
             // filter clause needs the type coercion rule applied
-            .filter(col("c7").lt(&lit(5_u8)))?
+            .filter(col("c7").lt(lit(5_u8)))?
             .project(vec![col("c1"), col("c2")])?
             .aggregate(
                 vec![col("c1")],
@@ -226,7 +234,7 @@ mod tests {
             .build()?;
 
         let scalar_functions = HashMap::new();
-        let mut rule = TypeCoercionRule::new(&scalar_functions);
+        let mut rule = TypeCoercionRule::new(Arc::new(Mutex::new(scalar_functions)));
         let plan = rule.optimize(&plan)?;
 
         // check that the filter had a cast added
@@ -249,11 +257,11 @@ mod tests {
 
         let options = CsvReadOptions::new().schema_infer_max_records(100);
         let plan = LogicalPlanBuilder::scan_csv(&path, options, None)?
-            .filter(col("c7").lt(&col("c12")))?
+            .filter(col("c7").lt(col("c12")))?
             .build()?;
 
         let scalar_functions = HashMap::new();
-        let mut rule = TypeCoercionRule::new(&scalar_functions);
+        let mut rule = TypeCoercionRule::new(Arc::new(Mutex::new(scalar_functions)));
         let plan = rule.optimize(&plan)?;
 
         assert!(

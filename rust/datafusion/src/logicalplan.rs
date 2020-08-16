@@ -436,57 +436,33 @@ impl Expr {
     }
 
     /// Equal
-    pub fn eq(&self, other: &Expr) -> Expr {
-        Expr::BinaryExpr {
-            left: Box::new(self.clone()),
-            op: Operator::Eq,
-            right: Box::new(other.clone()),
-        }
+    pub fn eq(&self, other: Expr) -> Expr {
+        binary_expr(self.clone(), Operator::Eq, other.clone())
     }
 
     /// Not equal
-    pub fn not_eq(&self, other: &Expr) -> Expr {
-        Expr::BinaryExpr {
-            left: Box::new(self.clone()),
-            op: Operator::NotEq,
-            right: Box::new(other.clone()),
-        }
+    pub fn not_eq(&self, other: Expr) -> Expr {
+        binary_expr(self.clone(), Operator::NotEq, other.clone())
     }
 
     /// Greater than
-    pub fn gt(&self, other: &Expr) -> Expr {
-        Expr::BinaryExpr {
-            left: Box::new(self.clone()),
-            op: Operator::Gt,
-            right: Box::new(other.clone()),
-        }
+    pub fn gt(&self, other: Expr) -> Expr {
+        binary_expr(self.clone(), Operator::Gt, other.clone())
     }
 
     /// Greater than or equal to
-    pub fn gt_eq(&self, other: &Expr) -> Expr {
-        Expr::BinaryExpr {
-            left: Box::new(self.clone()),
-            op: Operator::GtEq,
-            right: Box::new(other.clone()),
-        }
+    pub fn gt_eq(&self, other: Expr) -> Expr {
+        binary_expr(self.clone(), Operator::GtEq, other.clone())
     }
 
     /// Less than
-    pub fn lt(&self, other: &Expr) -> Expr {
-        Expr::BinaryExpr {
-            left: Box::new(self.clone()),
-            op: Operator::Lt,
-            right: Box::new(other.clone()),
-        }
+    pub fn lt(&self, other: Expr) -> Expr {
+        binary_expr(self.clone(), Operator::Lt, other.clone())
     }
 
     /// Less than or equal to
-    pub fn lt_eq(&self, other: &Expr) -> Expr {
-        Expr::BinaryExpr {
-            left: Box::new(self.clone()),
-            op: Operator::LtEq,
-            right: Box::new(other.clone()),
-        }
+    pub fn lt_eq(&self, other: Expr) -> Expr {
+        binary_expr(self.clone(), Operator::LtEq, other.clone())
     }
 
     /// Not
@@ -494,9 +470,42 @@ impl Expr {
         Expr::Not(Box::new(self.clone()))
     }
 
+    /// Add the specified expression
+    pub fn plus(&self, other: Expr) -> Expr {
+        binary_expr(self.clone(), Operator::Plus, other.clone())
+    }
+
+    /// Subtract the specified expression
+    pub fn minus(&self, other: Expr) -> Expr {
+        binary_expr(self.clone(), Operator::Minus, other.clone())
+    }
+
+    /// Multiply by the specified expression
+    pub fn multiply(&self, other: Expr) -> Expr {
+        binary_expr(self.clone(), Operator::Multiply, other.clone())
+    }
+
+    /// Divide by the specified expression
+    pub fn divide(&self, other: Expr) -> Expr {
+        binary_expr(self.clone(), Operator::Divide, other.clone())
+    }
+
+    /// Calculate the modulus of two expressions
+    pub fn modulus(&self, other: Expr) -> Expr {
+        binary_expr(self.clone(), Operator::Modulus, other.clone())
+    }
+
     /// Alias
     pub fn alias(&self, name: &str) -> Expr {
         Expr::Alias(Box::new(self.clone()), name.to_owned())
+    }
+}
+
+fn binary_expr(l: Expr, op: Operator, r: Expr) -> Expr {
+    Expr::BinaryExpr {
+        left: Box::new(l),
+        op,
+        right: Box::new(r),
     }
 }
 
@@ -1222,7 +1231,7 @@ mod tests {
             &employee_schema(),
             Some(vec![0, 3]),
         )?
-        .filter(col("state").eq(&lit("CO")))?
+        .filter(col("state").eq(lit("CO")))?
         .project(vec![col("id")])?
         .build()?;
 
@@ -1242,7 +1251,7 @@ mod tests {
             CsvReadOptions::new().schema(&employee_schema()),
             Some(vec![0, 3]),
         )?
-        .filter(col("state").eq(&lit("CO")))?
+        .filter(col("state").eq(lit("CO")))?
         .project(vec![col("id")])?
         .build()?;
 
