@@ -72,7 +72,7 @@ macro_rules! math_unary_function {
             $NAME,
             // order: from faster to slower
             vec![vec![DataType::Float32], vec![DataType::Float64]],
-            DataType::Float64,
+            Arc::new(|expr, schema| expr[0].get_type(schema)),
             Arc::new(|args: &[ArrayRef]| {
                 let array = &args[0];
                 unary_primitive_array_op!(array, $NAME, $FUNC)
@@ -122,6 +122,15 @@ mod tests {
             .build()?;
         let ctx = ExecutionContext::new();
         let plan = ctx.optimize(&plan)?;
+
+        assert_eq!(
+            *plan
+                .schema()
+                .field_with_name("sqrt(CAST(c0 as Float32))")?
+                .data_type(),
+            DataType::Float32
+        );
+
         let expected = "Projection: sqrt(CAST(#c0 AS Float32))\
         \n  TableScan:  projection=Some([0])";
         assert_eq!(format!("{:?}", plan), expected);
@@ -136,6 +145,12 @@ mod tests {
             .build()?;
         let ctx = ExecutionContext::new();
         let plan = ctx.optimize(&plan)?;
+
+        assert_eq!(
+            *plan.schema().field_with_name("sqrt(c0)")?.data_type(),
+            DataType::Float64
+        );
+
         let expected = "Projection: sqrt(#c0)\
         \n  TableScan:  projection=Some([0])";
         assert_eq!(format!("{:?}", plan), expected);
@@ -150,6 +165,12 @@ mod tests {
             .build()?;
         let ctx = ExecutionContext::new();
         let plan = ctx.optimize(&plan)?;
+
+        assert_eq!(
+            *plan.schema().field_with_name("sqrt(c0)")?.data_type(),
+            DataType::Float32
+        );
+
         let expected = "Projection: sqrt(#c0)\
         \n  TableScan:  projection=Some([0])";
         assert_eq!(format!("{:?}", plan), expected);

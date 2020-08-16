@@ -25,12 +25,16 @@ use std::{fmt, sync::Arc};
 
 use arrow::datatypes::{DataType, Field, Schema};
 
-use crate::datasource::csv::{CsvFile, CsvReadOptions};
+use crate::datasource::csv::CsvFile;
 use crate::datasource::parquet::ParquetTable;
-use crate::datasource::TableProvider;
+use crate::datasource::{CsvReadOptions, TableProvider};
 use crate::error::{ExecutionError, Result};
 use crate::optimizer::utils;
-use crate::sql::parser::FileType;
+use crate::{
+    datatyped::{AsDataTyped, DataTyped},
+    execution::physical_plan::udf::ReturnType,
+    sql::parser::FileType,
+};
 use arrow::record_batch::RecordBatch;
 
 /// Enumeration of supported function types (Scalar and Aggregate)
@@ -43,24 +47,24 @@ pub enum FunctionType {
 }
 
 /// Logical representation of a UDF (user-defined function)
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct FunctionMeta {
     /// Function name
     name: String,
     /// Function argument types
     arg_types: Vec<Vec<DataType>>,
     /// Function return type
-    return_type: DataType,
+    return_type: ReturnType,
     /// Function type (Scalar or Aggregate)
     function_type: FunctionType,
 }
 
 impl FunctionMeta {
-    #[allow(missing_docs)]
+    /// constructs a new FunctionMeta
     pub fn new(
         name: String,
         arg_types: Vec<Vec<DataType>>,
-        return_type: DataType,
+        return_type: ReturnType,
         function_type: FunctionType,
     ) -> Self {
         FunctionMeta {
@@ -79,7 +83,7 @@ impl FunctionMeta {
         &self.arg_types
     }
     /// Getter for the `DataType` the function returns
-    pub fn return_type(&self) -> &DataType {
+    pub fn return_type(&self) -> &ReturnType {
         &self.return_type
     }
     /// Getter for the `FunctionType`
@@ -271,12 +275,8 @@ pub fn expr_to_field(e: &Expr, input_schema: &Schema) -> Result<Field> {
         Expr::Alias(expr, ..) => expr.get_type(input_schema),
         Expr::Column(name) => Ok(input_schema.field_with_name(name)?.data_type().clone()),
         Expr::Literal(ref lit) => lit.get_datatype(),
-        Expr::ScalarFunction {
-            ref return_type, ..
-        } => Ok(return_type.clone()),
-        Expr::AggregateFunction {
-            ref return_type, ..
-        } => Ok(return_type.clone()),
+        Expr::ScalarFunction { .. } => e.get_type(&input_schema),
+        Expr::AggregateFunction { .. } => e.get_type(&input_schema),
         Expr::Cast { ref data_type, .. } => Ok(data_type.clone()),
         Expr::BinaryExpr {
             ref left,
@@ -307,7 +307,7 @@ pub fn exprlist_to_fields(expr: &[Expr], input_schema: &Schema) -> Result<Vec<Fi
 }
 
 /// Relation expression
-#[derive(Clone, PartialEq)]
+#[derive(Clone)]
 pub enum Expr {
     /// An aliased expression
     Alias(Box<Expr>, String),
@@ -355,7 +355,7 @@ pub enum Expr {
         /// List of expressions to feed to the functions as arguments
         args: Vec<Expr>,
         /// The `DataType` the expression will yield
-        return_type: DataType,
+        return_type: ReturnType,
     },
     /// aggregate function
     AggregateFunction {
@@ -364,22 +364,25 @@ pub enum Expr {
         /// List of expressions to feed to the functions as arguments
         args: Vec<Expr>,
         /// The `DataType` the expression will yield
-        return_type: DataType,
+        return_type: ReturnType,
     },
     /// Wildcard
     Wildcard,
 }
 
-impl Expr {
-    /// Find the `DataType` for the expression
-    pub fn get_type(&self, schema: &Schema) -> Result<DataType> {
+impl DataTyped for Expr {
+    fn get_type(&self, schema: &Schema) -> Result<DataType> {
         match self {
             Expr::Alias(expr, _) => expr.get_type(schema),
             Expr::Column(name) => Ok(schema.field_with_name(name)?.data_type().clone()),
             Expr::Literal(l) => l.get_datatype(),
             Expr::Cast { data_type, .. } => Ok(data_type.clone()),
-            Expr::ScalarFunction { return_type, .. } => Ok(return_type.clone()),
-            Expr::AggregateFunction { return_type, .. } => Ok(return_type.clone()),
+            Expr::ScalarFunction {
+                args, return_type, ..
+            } => return_type(&args.iter().map(|x| x.as_datatyped()).collect(), schema),
+            Expr::AggregateFunction {
+                args, return_type, ..
+            } => return_type(&args.iter().map(|x| x.as_datatyped()).collect(), schema),
             Expr::Not(_) => Ok(DataType::Boolean),
             Expr::IsNull(_) => Ok(DataType::Boolean),
             Expr::IsNotNull(_) => Ok(DataType::Boolean),
@@ -407,7 +410,9 @@ impl Expr {
             Expr::Nested(e) => e.get_type(schema),
         }
     }
+}
 
+impl Expr {
     /// Return the name of this expression
     ///
     /// This represents how a column with this expression is named when no alias is chosen
@@ -565,7 +570,7 @@ macro_rules! unary_math_expr {
     ($NAME:expr, $FUNC:ident) => {
         #[allow(missing_docs)]
         pub fn $FUNC(e: Expr) -> Expr {
-            scalar_function($NAME, vec![e], DataType::Float64)
+            scalar_function($NAME, vec![e], Arc::new(|e, schema| e[0].get_type(&schema)))
         }
     };
 }
@@ -591,11 +596,11 @@ unary_math_expr!("log10", log10);
 
 /// returns the length of a string in bytes
 pub fn length(e: Expr) -> Expr {
-    scalar_function("length", vec![e], DataType::UInt32)
+    scalar_function("length", vec![e], Arc::new(|_, _| Ok(DataType::UInt32)))
 }
 
 /// Create an aggregate expression
-pub fn aggregate_expr(name: &str, expr: Expr, return_type: DataType) -> Expr {
+pub fn aggregate_expr(name: &str, expr: Expr, return_type: ReturnType) -> Expr {
     Expr::AggregateFunction {
         name: name.to_owned(),
         args: vec![expr],
@@ -604,7 +609,7 @@ pub fn aggregate_expr(name: &str, expr: Expr, return_type: DataType) -> Expr {
 }
 
 /// Create an scalar function expression
-pub fn scalar_function(name: &str, expr: Vec<Expr>, return_type: DataType) -> Expr {
+pub fn scalar_function(name: &str, expr: Vec<Expr>, return_type: ReturnType) -> Expr {
     Expr::ScalarFunction {
         name: name.to_owned(),
         args: expr,
@@ -613,7 +618,7 @@ pub fn scalar_function(name: &str, expr: Vec<Expr>, return_type: DataType) -> Ex
 }
 
 /// Create an aggregate expression
-pub fn aggregate_function(name: &str, expr: Vec<Expr>, return_type: DataType) -> Expr {
+pub fn aggregate_function(name: &str, expr: Vec<Expr>, return_type: ReturnType) -> Expr {
     Expr::AggregateFunction {
         name: name.to_owned(),
         args: expr,
@@ -1101,7 +1106,7 @@ impl LogicalPlanBuilder {
     /// Apply a projection
     pub fn project(&self, expr: Vec<Expr>) -> Result<Self> {
         let input_schema = self.plan.schema();
-        let projected_expr = if expr.contains(&Expr::Wildcard) {
+        let projected_expr = {
             let mut expr_vec = vec![];
             (0..expr.len()).for_each(|i| match &expr[i] {
                 Expr::Wildcard => {
@@ -1111,8 +1116,6 @@ impl LogicalPlanBuilder {
                 _ => expr_vec.push(expr[i].clone()),
             });
             expr_vec
-        } else {
-            expr.clone()
         };
 
         let schema =
@@ -1277,8 +1280,12 @@ mod tests {
         )?
         .aggregate(
             vec![col("state")],
-            vec![aggregate_expr("SUM", col("salary"), DataType::Int32)
-                .alias("total_salary")],
+            vec![aggregate_expr(
+                "SUM",
+                col("salary"),
+                Arc::new(|_, _| Ok(DataType::Int32)),
+            )
+            .alias("total_salary")],
         )?
         .project(vec![col("state"), col("total_salary")])?
         .build()?;

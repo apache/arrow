@@ -22,6 +22,7 @@ use std::fmt::{Debug, Display};
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 
+use crate::datatyped::DataTyped;
 use crate::error::Result;
 use crate::execution::context::ExecutionContextState;
 use crate::logicalplan::{LogicalPlan, ScalarValue};
@@ -59,9 +60,7 @@ pub trait Partition: Send + Sync + Debug {
 
 /// Expression that can be evaluated against a RecordBatch
 /// A Physical expression knows its type, nullability and how to evaluate itself.
-pub trait PhysicalExpr: Send + Sync + Display + Debug {
-    /// Get the data type of this expression, given the schema of the input
-    fn data_type(&self, input_schema: &Schema) -> Result<DataType>;
+pub trait PhysicalExpr: Send + Sync + Display + Debug + DataTyped {
     /// Decide whehter this expression is nullable, given the schema of the input
     fn nullable(&self, input_schema: &Schema) -> Result<bool>;
     /// Evaluate an expression against a RecordBatch
@@ -99,7 +98,7 @@ pub fn scalar_functions() -> Vec<ScalarFunction> {
     let mut udfs = vec![ScalarFunction::new(
         "length",
         vec![vec![DataType::Utf8]],
-        DataType::UInt32,
+        Arc::new(|_, _| Ok(DataType::UInt32)),
         Arc::new(|args: &[ArrayRef]| Ok(Arc::new(length(args[0].as_ref())?))),
     )];
     udfs.append(&mut math_expressions::scalar_functions());

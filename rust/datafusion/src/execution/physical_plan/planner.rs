@@ -355,11 +355,7 @@ impl PhysicalPlannerImpl {
                 input_schema,
                 data_type.clone(),
             )?)),
-            Expr::ScalarFunction {
-                name,
-                args,
-                return_type,
-            } => match ctx_state
+            Expr::ScalarFunction { name, args, .. } => match ctx_state
                 .lock()
                 .expect("failed to lock mutex")
                 .scalar_functions
@@ -380,7 +376,7 @@ impl PhysicalPlannerImpl {
                         name,
                         Box::new(f.fun.clone()),
                         physical_args,
-                        return_type,
+                        f.return_type.clone(),
                     )))
                 }
                 _ => Err(ExecutionError::General(format!(

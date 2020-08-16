@@ -52,7 +52,7 @@ impl ProjectionExec {
             .map(|(e, name)| {
                 Ok(Field::new(
                     name,
-                    e.data_type(&input_schema)?,
+                    e.get_type(&input_schema)?,
                     e.nullable(&input_schema)?,
                 ))
             })

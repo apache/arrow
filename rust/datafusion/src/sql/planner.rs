@@ -912,7 +912,7 @@ mod tests {
             let fm = Arc::new(FunctionMeta::new(
                 name.to_string(),
                 vec![valid_types],
-                DataType::Float64,
+                Arc::new(|_, _| Ok(DataType::Float64)),
                 fnc_type,
             ));
 

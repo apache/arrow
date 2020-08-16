@@ -560,9 +560,7 @@ impl SchemaProvider for ExecutionContextState {
                 Arc::new(FunctionMeta::new(
                     name.to_owned(),
                     f.arg_types.clone(),
-                    // this is wrong, but the actual type is overwritten by the physical plan
-                    // as aggregate functions have a variable type.
-                    DataType::Float32,
+                    f.return_type.clone(),
                     FunctionType::Aggregate,
                 ))
             })
@@ -995,7 +993,11 @@ mod tests {
         let plan = LogicalPlanBuilder::scan("default", "test", schema.as_ref(), None)?
             .aggregate(
                 vec![col("c1")],
-                vec![aggregate_expr("sum", col("c2"), DataType::UInt32)],
+                vec![aggregate_expr(
+                    "sum",
+                    col("c2"),
+                    Arc::new(|_, _| Ok(DataType::Int32)),
+                )],
             )?
             .project(vec![col("c1"), col("sum(c2)").alias("total_salary")])?
             .build()?;
@@ -1118,7 +1120,7 @@ mod tests {
         let my_add = ScalarFunction::new(
             "my_add",
             vec![vec![DataType::Int32, DataType::Int32]],
-            DataType::Int32,
+            Arc::new(|_, _| Ok(DataType::Int32)),
             myfunc,
         );
 
@@ -1130,7 +1132,11 @@ mod tests {
             .project(vec![
                 col("a"),
                 col("b"),
-                scalar_function("my_add", vec![col("a"), col("b")], DataType::Int32),
+                scalar_function(
+                    "my_add",
+                    vec![col("a"), col("b")],
+                    Arc::new(|_, _| Ok(DataType::Int32)),
+                ),
             ])?
             .build()?;
 

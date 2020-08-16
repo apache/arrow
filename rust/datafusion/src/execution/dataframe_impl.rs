@@ -19,10 +19,9 @@
 
 use std::sync::{Arc, Mutex};
 
-use crate::arrow::datatypes::DataType;
 use crate::arrow::record_batch::RecordBatch;
 use crate::dataframe::*;
-use crate::error::{ExecutionError, Result};
+use crate::error::Result;
 use crate::execution::context::{ExecutionContext, ExecutionContextState};
 use crate::logicalplan::{col, Expr, LogicalPlan, LogicalPlanBuilder};
 use arrow::datatypes::Schema;
@@ -134,29 +133,12 @@ impl DataFrame for DataFrameImpl {
 }
 
 impl DataFrameImpl {
-    /// Determine the data type for a given expression
-    fn get_data_type(&self, expr: &Expr) -> Result<DataType> {
-        match expr {
-            Expr::Column(name) => Ok(self
-                .plan
-                .schema()
-                .field_with_name(name)?
-                .data_type()
-                .clone()),
-            _ => Err(ExecutionError::General(format!(
-                "Could not determine data type for expr {:?}",
-                expr
-            ))),
-        }
-    }
-
     /// Create an expression to represent a named aggregate function
     fn aggregate_expr(&self, name: &str, expr: Expr) -> Result<Expr> {
-        let return_type = self.get_data_type(&expr)?;
         Ok(Expr::AggregateFunction {
             name: name.to_string(),
-            args: vec![expr.clone()],
-            return_type,
+            args: vec![expr],
+            return_type: Arc::new(|e, schema| e[0].get_type(&schema)),
         })
     }
 }

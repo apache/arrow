@@ -15,30 +15,24 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! DataFusion is an extensible query execution framework that uses
-//! Apache Arrow as the memory model.
-//!
-//! DataFusion supports both SQL and a Table/DataFrame-style API for building logical query plans
-//! and also provides a query optimizer and execution engine capable of parallel execution
-//! against partitioned data sources (CSV and Parquet) using threads.
-//!
-//! DataFusion currently supports simple projection, selection, and aggregate queries.
+//! This module contains a public trait to annotate objects that know their data type.
+// The pattern in this module follows https://stackoverflow.com/a/28664881/931303
 
-#![warn(missing_docs)]
+use crate::error::Result;
+use arrow::datatypes::{DataType, Schema};
 
-extern crate arrow;
-extern crate sqlparser;
+/// Any object that knows how to infer its resulting data type from an underlying schema
+pub trait DataTyped: AsDataTyped {
+    fn get_type(&self, input_schema: &Schema) -> Result<DataType>;
+}
 
-pub mod dataframe;
-pub mod datasource;
-mod datatyped;
-pub mod error;
-pub mod execution;
-pub mod logicalplan;
-pub mod optimizer;
-pub mod sql;
+/// Trait that allows DataTyped objects to be upcasted to DataTyped.
+pub trait AsDataTyped {
+    fn as_datatyped(&self) -> &dyn DataTyped;
+}
 
-pub use execution::context::ExecutionContext;
-
-#[cfg(test)]
-pub mod test;
+impl<T: DataTyped> AsDataTyped for T {
+    fn as_datatyped(&self) -> &dyn DataTyped {
+        self
+    }
+}

@@ -30,7 +30,7 @@ use crate::execution::physical_plan::udf::{AggregateFunction, ScalarFunction};
 use crate::logicalplan::Expr;
 use crate::logicalplan::LogicalPlan;
 use crate::optimizer::optimizer::OptimizerRule;
-use crate::optimizer::utils;
+use crate::{datatyped::DataTyped, optimizer::utils};
 use utils::optimize_explain;
 
 /// Optimizer that applies coercion rules to expressions in the logical plan.
@@ -267,6 +267,7 @@ mod tests {
     use crate::logicalplan::{aggregate_expr, col, lit, LogicalPlanBuilder, Operator};
     use crate::test::arrow_testdata_path;
     use arrow::datatypes::{DataType, Field, Schema};
+    use std::sync::Arc;
 
     #[test]
     fn test_all_operators() -> Result<()> {
@@ -280,7 +281,11 @@ mod tests {
             .project(vec![col("c1"), col("c2")])?
             .aggregate(
                 vec![col("c1")],
-                vec![aggregate_expr("sum", col("c2"), DataType::Int64)],
+                vec![aggregate_expr(
+                    "sum",
+                    col("c2"),
+                    Arc::new(|_, _| Ok(DataType::Int64)),
+                )],
             )?
             .sort(vec![col("c1")])?
             .limit(10)?
@@ -535,10 +540,10 @@ mod tests {
         ];
 
         for (i, case) in cases.iter().enumerate() {
-            if maybe_rewrite(&case.0, &case.1, &case.2, &case.3)? != case.4 {
-                assert_eq!(maybe_rewrite(&case.0, &case.1, &case.2, &case.3)?, case.4);
-                return Err(ExecutionError::General(format!("case {} failed", i)));
-            }
+            let result = maybe_rewrite(&case.0, &case.1, &case.2, &case.3)?;
+            let result = format!("case {}: {:?}", i, result);
+            let expected = format!("case {}: {:?}", i, case.4);
+            assert_eq!(result, expected);
         }
         Ok(())
     }

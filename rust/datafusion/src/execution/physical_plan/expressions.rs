@@ -28,7 +28,10 @@ use crate::execution::physical_plan::udf;
 use crate::execution::physical_plan::{
     Accumulator, AggregateExpr, Aggregator, PhysicalExpr,
 };
-use crate::logicalplan::{Operator, ScalarValue};
+use crate::{
+    datatyped::DataTyped,
+    logicalplan::{Operator, ScalarValue},
+};
 use arrow::array::{
     ArrayRef, BooleanArray, Float32Array, Float64Array, Int16Array, Int32Array,
     Int64Array, Int8Array, StringArray, TimestampNanosecondArray, UInt16Array,
@@ -73,15 +76,16 @@ impl fmt::Display for Column {
     }
 }
 
-impl PhysicalExpr for Column {
-    /// Get the data type of this expression, given the schema of the input
-    fn data_type(&self, input_schema: &Schema) -> Result<DataType> {
+impl DataTyped for Column {
+    fn get_type(&self, input_schema: &Schema) -> Result<DataType> {
         Ok(input_schema
             .field_with_name(&self.name)?
             .data_type()
             .clone())
     }
+}
 
+impl PhysicalExpr for Column {
     /// Decide whehter this expression is nullable, given the schema of the input
     fn nullable(&self, input_schema: &Schema) -> Result<bool> {
         Ok(input_schema.field_with_name(&self.name)?.is_nullable())
@@ -116,11 +120,8 @@ impl Aggregator for Sum {
     }
 }
 
-fn sum_return_type(
-    expr: &Vec<Arc<dyn PhysicalExpr>>,
-    schema: &Schema,
-) -> Result<DataType> {
-    match expr[0].data_type(schema)? {
+fn sum_return_type(expr: &Vec<&dyn DataTyped>, schema: &Schema) -> Result<DataType> {
+    match expr[0].get_type(schema)? {
         DataType::Int8 | DataType::Int16 | DataType::Int32 | DataType::Int64 => {
             Ok(DataType::Int64)
         }
@@ -320,11 +321,8 @@ impl Aggregator for Avg {
     }
 }
 
-fn avg_return_type(
-    expr: &Vec<Arc<dyn PhysicalExpr>>,
-    schema: &Schema,
-) -> Result<DataType> {
-    match expr[0].data_type(schema)? {
+fn avg_return_type(expr: &Vec<&dyn DataTyped>, schema: &Schema) -> Result<DataType> {
+    match expr[0].get_type(schema)? {
         DataType::Int8
         | DataType::Int16
         | DataType::Int32
@@ -478,11 +476,8 @@ pub fn max() -> AggregateFunction {
     }
 }
 
-fn max_return_type(
-    expr: &Vec<Arc<dyn PhysicalExpr>>,
-    schema: &Schema,
-) -> Result<DataType> {
-    expr[0].data_type(schema)
+fn max_return_type(expr: &Vec<&dyn DataTyped>, schema: &Schema) -> Result<DataType> {
+    expr[0].get_type(schema)
 }
 
 macro_rules! max_accumulate {
@@ -857,10 +852,7 @@ pub fn count() -> AggregateFunction {
     }
 }
 
-fn count_return_type(
-    _expr: &Vec<Arc<dyn PhysicalExpr>>,
-    _schema: &Schema,
-) -> Result<DataType> {
+fn count_return_type(_expr: &Vec<&dyn DataTyped>, _schema: &Schema) -> Result<DataType> {
     Ok(DataType::UInt64)
 }
 
@@ -1019,11 +1011,13 @@ impl fmt::Display for BinaryExpr {
     }
 }
 
-impl PhysicalExpr for BinaryExpr {
-    fn data_type(&self, input_schema: &Schema) -> Result<DataType> {
-        self.left.data_type(input_schema)
+impl DataTyped for BinaryExpr {
+    fn get_type(&self, input_schema: &Schema) -> Result<DataType> {
+        self.left.get_type(input_schema)
     }
+}
 
+impl PhysicalExpr for BinaryExpr {
     fn nullable(&self, _input_schema: &Schema) -> Result<bool> {
         // binary operator should always return a boolean value
         Ok(false)
@@ -1109,11 +1103,14 @@ impl fmt::Display for NotExpr {
         write!(f, "NOT {}", self.arg)
     }
 }
-impl PhysicalExpr for NotExpr {
-    fn data_type(&self, _input_schema: &Schema) -> Result<DataType> {
+
+impl DataTyped for NotExpr {
+    fn get_type(&self, _input_schema: &Schema) -> Result<DataType> {
         return Ok(DataType::Boolean);
     }
+}
 
+impl PhysicalExpr for NotExpr {
     fn nullable(&self, _input_schema: &Schema) -> Result<bool> {
         // !Null == true
         Ok(false)
@@ -1166,7 +1163,7 @@ impl CastExpr {
         input_schema: &Schema,
         cast_type: DataType,
     ) -> Result<Self> {
-        let expr_type = expr.data_type(input_schema)?;
+        let expr_type = expr.get_type(input_schema)?;
         // numbers can be cast to numbers and strings
         if is_numeric(&expr_type)
             && (is_numeric(&cast_type) || cast_type == DataType::Utf8)
@@ -1193,11 +1190,13 @@ impl fmt::Display for CastExpr {
     }
 }
 
-impl PhysicalExpr for CastExpr {
-    fn data_type(&self, _input_schema: &Schema) -> Result<DataType> {
+impl DataTyped for CastExpr {
+    fn get_type(&self, _input_schema: &Schema) -> Result<DataType> {
         Ok(self.cast_type.clone())
     }
+}
 
+impl PhysicalExpr for CastExpr {
     fn nullable(&self, input_schema: &Schema) -> Result<bool> {
         self.expr.nullable(input_schema)
     }
@@ -1239,11 +1238,13 @@ impl fmt::Display for Literal {
     }
 }
 
-impl PhysicalExpr for Literal {
-    fn data_type(&self, _input_schema: &Schema) -> Result<DataType> {
+impl DataTyped for Literal {
+    fn get_type(&self, _input_schema: &Schema) -> Result<DataType> {
         self.value.get_datatype()
     }
+}
 
+impl PhysicalExpr for Literal {
     fn nullable(&self, _input_schema: &Schema) -> Result<bool> {
         match &self.value {
             ScalarValue::Null => Ok(true),
@@ -1487,16 +1488,16 @@ mod tests {
         let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
 
         let sum = physical_sum(col("a"));
-        assert_eq!(DataType::Int64, sum.data_type(&schema)?);
+        assert_eq!(DataType::Int64, sum.get_type(&schema)?);
 
         // after the aggr expression is applied, the schema changes to:
         let schema = Schema::new(vec![
             schema.field(0).clone(),
-            Field::new("SUM(a)", sum.data_type(&schema)?, false),
+            Field::new("SUM(a)", sum.get_type(&schema)?, false),
         ]);
 
         let combiner = sum.create_reducer("SUM(a)");
-        assert_eq!(DataType::Int64, combiner.data_type(&schema)?);
+        assert_eq!(DataType::Int64, combiner.get_type(&schema)?);
 
         Ok(())
     }
@@ -1506,16 +1507,16 @@ mod tests {
         let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
 
         let max = physical_max(col("a"));
-        assert_eq!(DataType::Int32, max.data_type(&schema)?);
+        assert_eq!(DataType::Int32, max.get_type(&schema)?);
 
         // after the aggr expression is applied, the schema changes to:
         let schema = Schema::new(vec![
             schema.field(0).clone(),
-            Field::new("Max(a)", max.data_type(&schema)?, false),
+            Field::new("Max(a)", max.get_type(&schema)?, false),
         ]);
 
         let combiner = max.create_reducer("Max(a)");
-        assert_eq!(DataType::Int32, combiner.data_type(&schema)?);
+        assert_eq!(DataType::Int32, combiner.get_type(&schema)?);
 
         Ok(())
     }
@@ -1525,15 +1526,15 @@ mod tests {
         let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
 
         let min = physical_min(col("a"));
-        assert_eq!(DataType::Int32, min.data_type(&schema)?);
+        assert_eq!(DataType::Int32, min.get_type(&schema)?);
 
         // after the aggr expression is applied, the schema changes to:
         let schema = Schema::new(vec![
             schema.field(0).clone(),
-            Field::new("MIN(a)", min.data_type(&schema)?, false),
+            Field::new("MIN(a)", min.get_type(&schema)?, false),
         ]);
         let combiner = min.create_reducer("MIN(a)");
-        assert_eq!(DataType::Int32, combiner.data_type(&schema)?);
+        assert_eq!(DataType::Int32, combiner.get_type(&schema)?);
 
         Ok(())
     }
@@ -1542,16 +1543,16 @@ mod tests {
         let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
 
         let avg = physical_avg(col("a"));
-        assert_eq!(DataType::Float64, avg.data_type(&schema)?);
+        assert_eq!(DataType::Float64, avg.get_type(&schema)?);
 
         // after the aggr expression is applied, the schema changes to:
         let schema = Schema::new(vec![
             schema.field(0).clone(),
-            Field::new("AVG(a)", avg.data_type(&schema)?, false),
+            Field::new("AVG(a)", avg.get_type(&schema)?, false),
         ]);
 
         let combiner = avg.create_reducer("AVG(a)");
-        assert_eq!(DataType::Float64, combiner.data_type(&schema)?);
+        assert_eq!(DataType::Float64, combiner.get_type(&schema)?);
 
         Ok(())
     }

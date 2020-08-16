@@ -23,7 +23,7 @@ use arrow::array::ArrayRef;
 use arrow::datatypes::{DataType, Schema};
 
 use crate::error::Result;
-use crate::execution::physical_plan::PhysicalExpr;
+use crate::{datatyped::DataTyped, execution::physical_plan::PhysicalExpr};
 
 use super::{Accumulator, AggregateExpr, Aggregator};
 use arrow::record_batch::RecordBatch;
@@ -35,7 +35,7 @@ pub type ScalarUdf = Arc<dyn Fn(&[ArrayRef]) -> Result<ArrayRef> + Send + Sync>;
 
 /// Function to construct the return type of a function given its arguments.
 pub type ReturnType =
-    Arc<dyn Fn(&Vec<Arc<dyn PhysicalExpr>>, &Schema) -> Result<DataType> + Send + Sync>;
+    Arc<dyn Fn(&Vec<&dyn DataTyped>, &Schema) -> Result<DataType> + Send + Sync>;
 
 /// Scalar UDF Expression
 #[derive(Clone)]
@@ -48,7 +48,7 @@ pub struct ScalarFunction {
     /// For example, [[t1, t2]] is a function of 2 arguments that only accept t1 on the first arg and t2 on the second
     pub arg_types: Vec<Vec<DataType>>,
     /// Return type
-    pub return_type: DataType,
+    pub return_type: ReturnType,
     /// UDF implementation
     pub fun: ScalarUdf,
 }
@@ -58,7 +58,7 @@ impl Debug for ScalarFunction {
         f.debug_struct("ScalarFunction")
             .field("name", &self.name)
             .field("arg_types", &self.arg_types)
-            .field("return_type", &self.return_type)
+            //.field("return_type", &self.return_type)
             .field("fun", &"<FUNC>")
             .finish()
     }
@@ -69,7 +69,7 @@ impl ScalarFunction {
     pub fn new(
         name: &str,
         arg_types: Vec<Vec<DataType>>,
-        return_type: DataType,
+        return_type: ReturnType,
         fun: ScalarUdf,
     ) -> Self {
         Self {
@@ -86,7 +86,7 @@ pub struct ScalarFunctionExpr {
     fun: Box<ScalarUdf>,
     name: String,
     args: Vec<Arc<dyn PhysicalExpr>>,
-    return_type: DataType,
+    return_type: ReturnType,
 }
 
 impl Debug for ScalarFunctionExpr {
@@ -95,7 +95,7 @@ impl Debug for ScalarFunctionExpr {
             .field("fun", &"<FUNC>")
             .field("name", &self.name)
             .field("args", &self.args)
-            .field("return_type", &self.return_type)
+            //.field("return_type", &self.return_type)
             .finish()
     }
 }
@@ -106,7 +106,7 @@ impl ScalarFunctionExpr {
         name: &str,
         fun: Box<ScalarUdf>,
         args: Vec<Arc<dyn PhysicalExpr>>,
-        return_type: &DataType,
+        return_type: ReturnType,
     ) -> Self {
         Self {
             fun,
@@ -132,11 +132,15 @@ impl fmt::Display for ScalarFunctionExpr {
     }
 }
 
-impl PhysicalExpr for ScalarFunctionExpr {
-    fn data_type(&self, _input_schema: &Schema) -> Result<DataType> {
-        Ok(self.return_type.clone())
+impl DataTyped for ScalarFunctionExpr {
+    fn get_type(&self, input_schema: &Schema) -> Result<DataType> {
+        let x = self.args.clone();
+        let x = x.iter().map(|x| x.as_datatyped()).collect::<Vec<_>>();
+        (self.return_type)(&x, input_schema)
     }
+}
 
+impl PhysicalExpr for ScalarFunctionExpr {
     fn nullable(&self, _input_schema: &Schema) -> Result<bool> {
         Ok(true)
     }
@@ -212,11 +216,16 @@ impl Debug for AggregateFunctionExpr {
     }
 }
 
-impl PhysicalExpr for AggregateFunctionExpr {
-    fn data_type(&self, input_schema: &Schema) -> Result<DataType> {
-        self.fun.as_ref().return_type.as_ref()(&vec![self.arg.clone()], input_schema)
+impl DataTyped for AggregateFunctionExpr {
+    fn get_type(&self, input_schema: &Schema) -> Result<DataType> {
+        self.fun.as_ref().return_type.as_ref()(
+            &vec![self.arg.as_datatyped()],
+            input_schema,
+        )
     }
+}
 
+impl PhysicalExpr for AggregateFunctionExpr {
     fn nullable(&self, _input_schema: &Schema) -> Result<bool> {
         Ok(false)
     }

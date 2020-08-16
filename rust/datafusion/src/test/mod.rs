@@ -228,6 +228,6 @@ pub fn max(expr: Expr) -> Expr {
     Expr::AggregateFunction {
         name: "MAX".to_owned(),
         args: vec![expr],
-        return_type: DataType::Float64,
+        return_type: Arc::new(|_, _| Ok(DataType::Float64)),
     }
 }
