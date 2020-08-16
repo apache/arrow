@@ -515,27 +515,29 @@ impl<S: SchemaProvider> SqlToRel<S> {
                     }
                     _ => match self.schema_provider.get_function_meta(&name) {
                         Some(fm) => {
-                            let rex_args = function
+                            let args = function
                                 .args
                                 .iter()
                                 .map(|a| self.sql_to_rex(a, schema))
                                 .collect::<Result<Vec<Expr>>>()?;
+                            let expected_args = match fm.arg_types().len() {
+                                0 => 0,
+                                _ => fm.arg_types()[0].len(),
+                            };
+                            let current_args = args.len();
 
-                            let mut safe_args: Vec<Expr> = vec![];
-                            for i in 0..rex_args.len() {
-                                let expr = if fm.arg_types()[i]
-                                    .contains(&rex_args[i].get_type(schema)?)
-                                {
-                                    rex_args[i].clone()
-                                } else {
-                                    rex_args[i].cast_to(&fm.arg_types()[i][0], schema)?
-                                };
-                                safe_args.push(expr)
+                            if current_args != expected_args {
+                                return Err(ExecutionError::General(
+                                    format!("The function '{}' expects {} arguments, but {} were passed",
+                                    name,
+                                    expected_args,
+                                    current_args,
+                                )));
                             }
 
                             Ok(Expr::ScalarFunction {
                                 name: name.clone(),
-                                args: safe_args,
+                                args,
                                 return_type: fm.return_type().clone(),
                             })
                         }
@@ -602,7 +604,7 @@ mod tests {
     fn select_scalar_func_with_literal_no_relation() {
         quick_test(
             "SELECT sqrt(9)",
-            "Projection: sqrt(CAST(Int64(9) AS Float64))\
+            "Projection: sqrt(Int64(9))\
              \n  EmptyRelation",
         );
     }
@@ -740,7 +742,7 @@ mod tests {
     #[test]
     fn select_scalar_func() {
         let sql = "SELECT sqrt(age) FROM person";
-        let expected = "Projection: sqrt(CAST(#age AS Float64))\
+        let expected = "Projection: sqrt(#age)\
                         \n  TableScan: person projection=None";
         quick_test(sql, expected);
     }
@@ -748,7 +750,7 @@ mod tests {
     #[test]
     fn select_aliased_scalar_func() {
         let sql = "SELECT sqrt(age) AS square_people FROM person";
-        let expected = "Projection: sqrt(CAST(#age AS Float64)) AS square_people\
+        let expected = "Projection: sqrt(#age) AS square_people\
                         \n  TableScan: person projection=None";
         quick_test(sql, expected);
     }
