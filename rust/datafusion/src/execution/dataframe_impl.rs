@@ -92,6 +92,12 @@ impl DataFrame for DataFrameImpl {
         Ok(Arc::new(DataFrameImpl::new(self.ctx_state.clone(), &plan)))
     }
 
+    /// Sort by specified sorting expressions
+    fn sort(&self, expr: Vec<Expr>) -> Result<Arc<dyn DataFrame>> {
+        let plan = LogicalPlanBuilder::from(&self.plan).sort(expr)?.build()?;
+        Ok(Arc::new(DataFrameImpl::new(self.ctx_state.clone(), &plan)))
+    }
+
     /// Create an expression to represent the min() aggregate function
     fn min(&self, expr: Expr) -> Result<Expr> {
         self.aggregate_expr("MIN", expr)
