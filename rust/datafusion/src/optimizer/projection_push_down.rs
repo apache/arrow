@@ -28,7 +28,9 @@ use std::collections::HashSet;
 use utils::optimize_explain;
 
 /// Projection Push Down optimizer rule ensures that only referenced columns are
-/// loaded into memory
+/// loaded into memory.
+///
+/// This optimizer does not modify expressions in the plan; it only changes the read projections
 pub struct ProjectionPushDown {}
 
 impl OptimizerRule for ProjectionPushDown {
@@ -56,66 +58,6 @@ impl ProjectionPushDown {
         has_projection: bool,
     ) -> Result<LogicalPlan> {
         match plan {
-            LogicalPlan::Projection {
-                expr,
-                input,
-                schema,
-            } => {
-                // collect all columns referenced by projection expressions
-                utils::exprlist_to_column_names(&expr, accum)?;
-
-                Ok(LogicalPlan::Projection {
-                    expr: expr.clone(),
-                    input: Box::new(self.optimize_plan(&input, accum, true)?),
-                    schema: schema.clone(),
-                })
-            }
-            LogicalPlan::Selection { expr, input } => {
-                // collect all columns referenced by filter expression
-                utils::expr_to_column_names(expr, accum)?;
-
-                Ok(LogicalPlan::Selection {
-                    expr: expr.clone(),
-                    input: Box::new(self.optimize_plan(&input, accum, has_projection)?),
-                })
-            }
-            LogicalPlan::Aggregate {
-                input,
-                group_expr,
-                aggr_expr,
-                schema,
-            } => {
-                // collect all columns referenced by grouping and aggregate expressions
-                utils::exprlist_to_column_names(&group_expr, accum)?;
-                utils::exprlist_to_column_names(&aggr_expr, accum)?;
-
-                Ok(LogicalPlan::Aggregate {
-                    input: Box::new(self.optimize_plan(&input, accum, has_projection)?),
-                    group_expr: group_expr.clone(),
-                    aggr_expr: aggr_expr.clone(),
-                    schema: schema.clone(),
-                })
-            }
-            LogicalPlan::Sort {
-                expr,
-                input,
-                schema,
-            } => {
-                // collect all columns referenced by sort expressions
-                utils::exprlist_to_column_names(&expr, accum)?;
-
-                Ok(LogicalPlan::Sort {
-                    expr: expr.clone(),
-                    input: Box::new(self.optimize_plan(&input, accum, has_projection)?),
-                    schema: schema.clone(),
-                })
-            }
-            LogicalPlan::Limit { n, input, schema } => Ok(LogicalPlan::Limit {
-                n: n.clone(),
-                input: Box::new(self.optimize_plan(&input, accum, has_projection)?),
-                schema: schema.clone(),
-            }),
-            LogicalPlan::EmptyRelation { .. } => Ok(plan.clone()),
             LogicalPlan::TableScan {
                 schema_name,
                 table_name,
@@ -190,13 +132,32 @@ impl ProjectionPushDown {
                     projected_schema: Box::new(projected_schema),
                 })
             }
-            LogicalPlan::CreateExternalTable { .. } => Ok(plan.clone()),
             LogicalPlan::Explain {
                 verbose,
                 plan,
                 stringified_plans,
                 schema,
             } => optimize_explain(self, *verbose, &*plan, stringified_plans, &*schema),
+            // in all other cases, we construct a new plan based on the optimized inputs and re-written expressions
+            _ => {
+                let has_projection = match plan {
+                    LogicalPlan::Projection { .. } => true,
+                    _ => false,
+                };
+
+                let expr = utils::expressions(plan);
+                // collect all columns referenced by projection expressions
+                utils::exprlist_to_column_names(&expr, accum)?;
+
+                // apply the optimization to all inputs of the plan
+                let inputs = utils::inputs(plan);
+                let new_inputs = inputs
+                    .iter()
+                    .map(|plan| self.optimize_plan(plan, accum, has_projection))
+                    .collect::<Result<Vec<_>>>()?;
+
+                utils::from_plan(plan, &expr, &new_inputs)
+            }
         }
     }
 }

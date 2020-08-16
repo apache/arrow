@@ -717,8 +717,6 @@ pub enum LogicalPlan {
         expr: Vec<Expr>,
         /// The incoming logical plan
         input: Box<LogicalPlan>,
-        /// The schema description of the otuput
-        schema: Box<Schema>,
     },
     /// Produces rows from a table that has been registered on a
     /// context
@@ -782,8 +780,6 @@ pub enum LogicalPlan {
         n: usize,
         /// The logical plan
         input: Box<LogicalPlan>,
-        /// The schema description of the output
-        schema: Box<Schema>,
     },
     /// Creates an external table.
     CreateExternalTable {
@@ -832,8 +828,8 @@ impl LogicalPlan {
             LogicalPlan::Projection { schema, .. } => &schema,
             LogicalPlan::Selection { input, .. } => input.schema(),
             LogicalPlan::Aggregate { schema, .. } => &schema,
-            LogicalPlan::Sort { schema, .. } => &schema,
-            LogicalPlan::Limit { schema, .. } => &schema,
+            LogicalPlan::Sort { input, .. } => input.schema(),
+            LogicalPlan::Limit { input, .. } => input.schema(),
             LogicalPlan::CreateExternalTable { schema, .. } => &schema,
             LogicalPlan::Explain { schema, .. } => &schema,
         }
@@ -1133,7 +1129,6 @@ impl LogicalPlanBuilder {
         Ok(Self::from(&LogicalPlan::Limit {
             n,
             input: Box::new(self.plan.clone()),
-            schema: self.plan.schema().clone(),
         }))
     }
 
@@ -1142,7 +1137,6 @@ impl LogicalPlanBuilder {
         Ok(Self::from(&LogicalPlan::Sort {
             expr,
             input: Box::new(self.plan.clone()),
-            schema: self.plan.schema().clone(),
         }))
     }
 

@@ -27,13 +27,15 @@ use arrow::datatypes::Schema;
 
 use crate::error::{ExecutionError, Result};
 use crate::execution::physical_plan::udf::ScalarFunction;
+use crate::logicalplan::Expr;
 use crate::logicalplan::LogicalPlan;
-use crate::logicalplan::{Expr, LogicalPlanBuilder};
 use crate::optimizer::optimizer::OptimizerRule;
 use crate::optimizer::utils;
 use utils::optimize_explain;
 
-/// Implementation of type coercion optimizer rule
+/// Optimizer that applies coercion rules to expressions in the logical plan.
+///
+/// This optimizer does not alter the structure of the plan, it only changes expressions on it.
 pub struct TypeCoercionRule {
     scalar_functions: Arc<Mutex<HashMap<String, Box<ScalarFunction>>>>,
 }
@@ -47,46 +49,29 @@ impl TypeCoercionRule {
         Self { scalar_functions }
     }
 
-    /// Rewrite an expression list to include explicit CAST operations when required
-    fn rewrite_expr_list(&self, expr: &[Expr], schema: &Schema) -> Result<Vec<Expr>> {
-        Ok(expr
-            .iter()
-            .map(|e| self.rewrite_expr(e, schema))
-            .collect::<Result<Vec<_>>>()?)
-    }
-
     /// Rewrite an expression to include explicit CAST operations when required
     fn rewrite_expr(&self, expr: &Expr, schema: &Schema) -> Result<Expr> {
+        let expressions = utils::expr_sub_expressions(expr)?;
+
+        // recurse of the re-write
+        let mut expressions = expressions
+            .iter()
+            .map(|e| self.rewrite_expr(e, schema))
+            .collect::<Result<Vec<_>>>()?;
+
+        // modify `expressions` by introducing casts when necessary
         match expr {
-            Expr::BinaryExpr { left, op, right } => {
-                let left = self.rewrite_expr(left, schema)?;
-                let right = self.rewrite_expr(right, schema)?;
-                let left_type = left.get_type(schema)?;
-                let right_type = right.get_type(schema)?;
-                if left_type == right_type {
-                    Ok(Expr::BinaryExpr {
-                        left: Box::new(left),
-                        op: op.clone(),
-                        right: Box::new(right),
-                    })
-                } else {
+            Expr::BinaryExpr { .. } => {
+                let left_type = expressions[0].get_type(schema)?;
+                let right_type = expressions[1].get_type(schema)?;
+                if left_type != right_type {
                     let super_type = utils::get_supertype(&left_type, &right_type)?;
-                    Ok(Expr::BinaryExpr {
-                        left: Box::new(left.cast_to(&super_type, schema)?),
-                        op: op.clone(),
-                        right: Box::new(right.cast_to(&super_type, schema)?),
-                    })
+
+                    expressions[0] = expressions[0].cast_to(&super_type, schema)?;
+                    expressions[1] = expressions[1].cast_to(&super_type, schema)?;
                 }
             }
-            Expr::IsNull(e) => Ok(Expr::IsNull(Box::new(self.rewrite_expr(e, schema)?))),
-            Expr::IsNotNull(e) => {
-                Ok(Expr::IsNotNull(Box::new(self.rewrite_expr(e, schema)?)))
-            }
-            Expr::ScalarFunction {
-                name,
-                args,
-                return_type,
-            } => {
+            Expr::ScalarFunction { name, .. } => {
                 // cast the inputs of scalar functions to the appropriate type where possible
                 match self
                     .scalar_functions
@@ -95,109 +80,65 @@ impl TypeCoercionRule {
                     .get(name)
                 {
                     Some(func_meta) => {
-                        let mut func_args = Vec::with_capacity(args.len());
-                        for i in 0..args.len() {
+                        for i in 0..expressions.len() {
                             let field = &func_meta.args[i];
-                            let expr = self.rewrite_expr(&args[i], schema)?;
-                            let actual_type = expr.get_type(schema)?;
+                            let actual_type = expressions[i].get_type(schema)?;
                             let required_type = field.data_type();
-                            if &actual_type == required_type {
-                                func_args.push(expr)
-                            } else {
+                            if &actual_type != required_type {
                                 let super_type =
                                     utils::get_supertype(&actual_type, required_type)?;
-                                func_args.push(expr.cast_to(&super_type, schema)?);
-                            }
+                                expressions[i] =
+                                    expressions[i].cast_to(&super_type, schema)?
+                            };
                         }
-
-                        Ok(Expr::ScalarFunction {
-                            name: name.clone(),
-                            args: func_args,
-                            return_type: return_type.clone(),
-                        })
                     }
-                    _ => Err(ExecutionError::General(format!(
-                        "Invalid scalar function {}",
-                        name
-                    ))),
+                    _ => {
+                        return Err(ExecutionError::General(format!(
+                            "Invalid scalar function {}",
+                            name
+                        )))
+                    }
                 }
             }
-            Expr::AggregateFunction {
-                name,
-                args,
-                return_type,
-            } => Ok(Expr::AggregateFunction {
-                name: name.clone(),
-                args: args
-                    .iter()
-                    .map(|a| self.rewrite_expr(a, schema))
-                    .collect::<Result<Vec<_>>>()?,
-                return_type: return_type.clone(),
-            }),
-            Expr::Cast { .. } => Ok(expr.clone()),
-            Expr::Column(_) => Ok(expr.clone()),
-            Expr::Alias(expr, alias) => Ok(Expr::Alias(
-                Box::new(self.rewrite_expr(expr, schema)?),
-                alias.to_owned(),
-            )),
-            Expr::Literal(_) => Ok(expr.clone()),
-            Expr::Not(_) => Ok(expr.clone()),
-            Expr::Sort { .. } => Ok(expr.clone()),
-            Expr::Wildcard { .. } => Err(ExecutionError::General(
-                "Wildcard expressions are not valid in a logical query plan".to_owned(),
-            )),
-            Expr::Nested(e) => self.rewrite_expr(e, schema),
-        }
+            _ => {}
+        };
+        utils::rewrite_expression(expr, &expressions)
     }
 }
 
 impl OptimizerRule for TypeCoercionRule {
     fn optimize(&mut self, plan: &LogicalPlan) -> Result<LogicalPlan> {
         match plan {
-            LogicalPlan::Projection { expr, input, .. } => {
-                LogicalPlanBuilder::from(&self.optimize(input)?)
-                    .project(self.rewrite_expr_list(expr, input.schema())?)?
-                    .build()
-            }
-            LogicalPlan::Selection { expr, input, .. } => {
-                LogicalPlanBuilder::from(&self.optimize(input)?)
-                    .filter(self.rewrite_expr(expr, input.schema())?)?
-                    .build()
-            }
-            LogicalPlan::Aggregate {
-                input,
-                group_expr,
-                aggr_expr,
-                ..
-            } => LogicalPlanBuilder::from(&self.optimize(input)?)
-                .aggregate(
-                    self.rewrite_expr_list(group_expr, input.schema())?,
-                    self.rewrite_expr_list(aggr_expr, input.schema())?,
-                )?
-                .build(),
-            LogicalPlan::Limit { n, input, .. } => {
-                LogicalPlanBuilder::from(&self.optimize(input)?)
-                    .limit(*n)?
-                    .build()
-            }
-            LogicalPlan::Sort { input, expr, .. } => {
-                LogicalPlanBuilder::from(&self.optimize(input)?)
-                    .sort(self.rewrite_expr_list(expr, input.schema())?)?
-                    .build()
-            }
-            // the following rules do not have inputs and do not need to be re-written
-            LogicalPlan::TableScan { .. } => Ok(plan.clone()),
-            LogicalPlan::InMemoryScan { .. } => Ok(plan.clone()),
-            LogicalPlan::ParquetScan { .. } => Ok(plan.clone()),
-            LogicalPlan::CsvScan { .. } => Ok(plan.clone()),
-            LogicalPlan::EmptyRelation { .. } => Ok(plan.clone()),
-            LogicalPlan::CreateExternalTable { .. } => Ok(plan.clone()),
             LogicalPlan::Explain {
                 verbose,
                 plan,
                 stringified_plans,
                 schema,
             } => optimize_explain(self, *verbose, &*plan, stringified_plans, &*schema),
+            _ => {
+                let inputs = utils::inputs(plan);
+                let expressions = utils::expressions(plan);
+
+                // apply the optimization to all inputs of the plan
+                let new_inputs = inputs
+                    .iter()
+                    .map(|plan| self.optimize(*plan))
+                    .collect::<Result<Vec<_>>>()?;
+                // re-write all expressions on this plan.
+                // This assumes a single input, [0]. It wont work for join, subqueries and union operations with more than one input.
+                // It is currently not an issue as we do not have any plan with more than one input.
+                assert!(
+                    expressions.len() == 0 || inputs.len() > 0,
+                    "Assume that all plan nodes with expressions have inputs"
+                );
+
+                let new_expressions = expressions
+                    .iter()
+                    .map(|expr| self.rewrite_expr(expr, inputs[0].schema()))
+                    .collect::<Result<Vec<_>>>()?;
+
+                utils::from_plan(plan, &new_expressions, &new_inputs)
+            }
         }
     }
 
@@ -211,7 +152,7 @@ mod tests {
     use super::*;
     use crate::execution::context::ExecutionContext;
     use crate::execution::physical_plan::csv::CsvReadOptions;
-    use crate::logicalplan::{aggregate_expr, col, lit, Operator};
+    use crate::logicalplan::{aggregate_expr, col, lit, LogicalPlanBuilder, Operator};
     use crate::test::arrow_testdata_path;
     use arrow::datatypes::{DataType, Field, Schema};
 
