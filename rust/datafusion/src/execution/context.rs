@@ -64,63 +64,6 @@ use crate::sql::{
     planner::{SchemaProvider, SqlToRel},
 };
 
-/// Configuration options for execution context
-#[derive(Copy, Clone)]
-pub struct ExecutionConfig {
-    /// Number of concurrent threads for query execution.
-    concurrency: usize,
-}
-
-impl ExecutionConfig {
-    /// Create an execution config with default settings
-    pub fn new() -> Self {
-        Self {
-            concurrency: num_cpus::get(),
-        }
-    }
-
-    /// Customize max_concurrency
-    pub fn with_concurrency(mut self, n: usize) -> Self {
-        // concurrency must be greater than zero
-        assert!(n > 0);
-        self.concurrency = n;
-        self
-    }
-}
-
-/// Execution context for registering data sources and executing queries
-#[derive(Clone)]
-pub struct ExecutionContextState {
-    datasources: Arc<Mutex<HashMap<String, Box<dyn TableProvider + Send + Sync>>>>,
-    scalar_functions: Arc<Mutex<HashMap<String, Box<ScalarFunction>>>>,
-    config: ExecutionConfig,
-}
-
-impl SchemaProvider for ExecutionContextState {
-    fn get_table_meta(&self, name: &str) -> Option<SchemaRef> {
-        self.datasources
-            .lock()
-            .expect("failed to lock mutex")
-            .get(name)
-            .map(|ds| ds.schema().clone())
-    }
-
-    fn get_function_meta(&self, name: &str) -> Option<Arc<FunctionMeta>> {
-        self.scalar_functions
-            .lock()
-            .expect("failed to lock mutex")
-            .get(name)
-            .map(|f| {
-                Arc::new(FunctionMeta::new(
-                    name.to_owned(),
-                    f.args.clone(),
-                    f.return_type.clone(),
-                    FunctionType::Scalar,
-                ))
-            })
-    }
-}
-
 /// ExecutionContext is the main interface for executing queries with DataFusion. The context
 /// provides the following functionality:
 ///
@@ -864,6 +807,63 @@ impl ExecutionContext {
         }
 
         Ok(())
+    }
+}
+
+/// Configuration options for execution context
+#[derive(Copy, Clone)]
+pub struct ExecutionConfig {
+    /// Number of concurrent threads for query execution.
+    concurrency: usize,
+}
+
+impl ExecutionConfig {
+    /// Create an execution config with default settings
+    pub fn new() -> Self {
+        Self {
+            concurrency: num_cpus::get(),
+        }
+    }
+
+    /// Customize max_concurrency
+    pub fn with_concurrency(mut self, n: usize) -> Self {
+        // concurrency must be greater than zero
+        assert!(n > 0);
+        self.concurrency = n;
+        self
+    }
+}
+
+/// Execution context for registering data sources and executing queries
+#[derive(Clone)]
+pub struct ExecutionContextState {
+    datasources: Arc<Mutex<HashMap<String, Box<dyn TableProvider + Send + Sync>>>>,
+    scalar_functions: Arc<Mutex<HashMap<String, Box<ScalarFunction>>>>,
+    config: ExecutionConfig,
+}
+
+impl SchemaProvider for ExecutionContextState {
+    fn get_table_meta(&self, name: &str) -> Option<SchemaRef> {
+        self.datasources
+            .lock()
+            .expect("failed to lock mutex")
+            .get(name)
+            .map(|ds| ds.schema().clone())
+    }
+
+    fn get_function_meta(&self, name: &str) -> Option<Arc<FunctionMeta>> {
+        self.scalar_functions
+            .lock()
+            .expect("failed to lock mutex")
+            .get(name)
+            .map(|f| {
+                Arc::new(FunctionMeta::new(
+                    name.to_owned(),
+                    f.args.clone(),
+                    f.return_type.clone(),
+                    FunctionType::Scalar,
+                ))
+            })
     }
 }
 
