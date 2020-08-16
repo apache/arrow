@@ -24,13 +24,13 @@ use arrow::datatypes::Schema;
 use std::sync::Arc;
 
 /// DataFrame represents a logical set of rows with the same named columns.
-/// Similar to a [Pandas DataFrame]
-/// (https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.DataFrame.html) or
+/// Similar to a [Pandas DataFrame](https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.DataFrame.html) or
 /// [Spark DataFrame](https://spark.apache.org/docs/latest/sql-programming-guide.html)
 ///
 /// DataFrames are typically created by the `read_csv` and `read_parquet` methods on the
-/// `ExecutionContext` and can then be modified by calling the transformation methods, such
-/// as `filter`, `select`, `aggregate`, and `limit` to build up a query definition.
+/// [ExecutionContext](../execution/context/struct.ExecutionContext.html) and can then be modified
+/// by calling the transformation methods, such as `filter`, `select`, `aggregate`, and `limit`
+/// to build up a query definition.
 ///
 /// The query can be executed by calling the `collect` method.
 ///
@@ -47,7 +47,6 @@ use std::sync::Arc;
 /// let results = df.collect(4096);
 /// ```
 pub trait DataFrame {
-
     /// Filter the DataFrame by column. Returns a new DataFrame only containing the
     /// specified columns.
     ///
@@ -88,7 +87,7 @@ pub trait DataFrame {
     fn filter(&self, expr: Expr) -> Result<Arc<dyn DataFrame>>;
 
     /// Perform an aggregate query with optional grouping expressions.
-    /// 
+    ///
     /// ```
     /// use datafusion::ExecutionContext;
     /// use datafusion::execution::physical_plan::csv::CsvReadOptions;
