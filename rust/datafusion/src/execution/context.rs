@@ -96,6 +96,31 @@ pub struct ExecutionContextState {
     config: ExecutionConfig,
 }
 
+impl SchemaProvider for ExecutionContextState {
+    fn get_table_meta(&self, name: &str) -> Option<SchemaRef> {
+        self.datasources
+            .lock()
+            .expect("failed to lock mutex")
+            .get(name)
+            .map(|ds| ds.schema().clone())
+    }
+
+    fn get_function_meta(&self, name: &str) -> Option<Arc<FunctionMeta>> {
+        self.scalar_functions
+            .lock()
+            .expect("failed to lock mutex")
+            .get(name)
+            .map(|f| {
+                Arc::new(FunctionMeta::new(
+                    name.to_owned(),
+                    f.args.clone(),
+                    f.return_type.clone(),
+                    FunctionType::Scalar,
+                ))
+            })
+    }
+}
+
 /// ExecutionContext is the main interface for executing queries with DataFusion. The context
 /// provides the following functionality:
 ///
@@ -234,15 +259,9 @@ impl ExecutionContext {
             )));
         }
 
-        let state = self.state.lock().expect("failed to lock mutex");
-
-        let schema_provider = ExecutionContextSchemaProvider {
-            datasources: state.datasources.clone(),
-            scalar_functions: state.scalar_functions.clone(),
-        };
-
         // create a query planner
-        let query_planner = SqlToRel::new(schema_provider);
+        let state = self.state.lock().expect("failed to lock mutex");
+        let query_planner = SqlToRel::new(state.clone());
         Ok(query_planner.statement_to_plan(&statements[0])?)
     }
 
@@ -845,50 +864,6 @@ impl ExecutionContext {
         }
 
         Ok(())
-    }
-}
-
-/// Get schema and scalar functions for execution context
-pub struct ExecutionContextSchemaProvider {
-    datasources: Arc<Mutex<HashMap<String, Box<dyn TableProvider + Send + Sync>>>>,
-    scalar_functions: Arc<Mutex<HashMap<String, Box<ScalarFunction>>>>,
-}
-
-impl<'a> ExecutionContextSchemaProvider {
-    /// Create a new ExecutionContextSchemaProvider based on data sources and scalar functions
-    pub fn new(
-        datasources: Arc<Mutex<HashMap<String, Box<dyn TableProvider + Send + Sync>>>>,
-        scalar_functions: Arc<Mutex<HashMap<String, Box<ScalarFunction>>>>,
-    ) -> Self {
-        ExecutionContextSchemaProvider {
-            datasources,
-            scalar_functions,
-        }
-    }
-}
-
-impl SchemaProvider for ExecutionContextSchemaProvider {
-    fn get_table_meta(&self, name: &str) -> Option<SchemaRef> {
-        self.datasources
-            .lock()
-            .expect("failed to lock mutex")
-            .get(name)
-            .map(|ds| ds.schema().clone())
-    }
-
-    fn get_function_meta(&self, name: &str) -> Option<Arc<FunctionMeta>> {
-        self.scalar_functions
-            .lock()
-            .expect("failed to lock mutex")
-            .get(name)
-            .map(|f| {
-                Arc::new(FunctionMeta::new(
-                    name.to_owned(),
-                    f.args.clone(),
-                    f.return_type.clone(),
-                    FunctionType::Scalar,
-                ))
-            })
     }
 }
 
