@@ -181,7 +181,7 @@ fn maybe_rewrite(
                     .enumerate()
                     .map(|(i, expr)| expr.cast_to(&types[i], schema))
                     .collect::<Result<Vec<_>>>()?,
-            ))
+            ));
         }
         // we cannot: try the next
     }
@@ -344,5 +344,144 @@ mod tests {
         let expr2 = rule.rewrite_expr(&expr, &schema).unwrap();
 
         assert_eq!(expected, format!("{:?}", expr2));
+    }
+
+    #[test]
+    fn test_maybe_coerce() -> Result<()> {
+        // this vec contains: arg1, arg2, expected result
+        let cases = vec![
+            // 2 entries, same values
+            (
+                vec![DataType::UInt8, DataType::UInt16],
+                vec![DataType::UInt8, DataType::UInt16],
+                Some(vec![DataType::UInt8, DataType::UInt16]),
+            ),
+            // 2 entries, can coerse values
+            (
+                vec![DataType::UInt16, DataType::UInt16],
+                vec![DataType::UInt8, DataType::UInt16],
+                Some(vec![DataType::UInt16, DataType::UInt16]),
+            ),
+            // 0 entries, all good
+            (vec![], vec![], Some(vec![])),
+            // 2 entries, can't coerce
+            (
+                vec![DataType::Boolean, DataType::UInt16],
+                vec![DataType::UInt8, DataType::UInt16],
+                None,
+            ),
+            // u32 -> u16 is possible
+            (
+                vec![DataType::Boolean, DataType::UInt32],
+                vec![DataType::Boolean, DataType::UInt16],
+                Some(vec![DataType::Boolean, DataType::UInt32]),
+            ),
+        ];
+
+        for case in cases {
+            assert_eq!(maybe_coerce(&case.0, &case.1), case.2)
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn test_maybe_rewrite() -> Result<()> {
+        // create a schema
+        let schema = |t: Vec<DataType>| {
+            Schema::new(
+                t.iter()
+                    .enumerate()
+                    .map(|(i, t)| Field::new(&*format!("c{}", i), t.clone(), true))
+                    .collect(),
+            )
+        };
+
+        // create a vector of expressions
+        let expressions = |t: Vec<DataType>, schema| -> Result<Vec<Expr>> {
+            t.iter()
+                .enumerate()
+                .map(|(i, t)| col(&*format!("c{}", i)).cast_to(&t, &schema))
+                .collect::<Result<Vec<Expr>>>()
+        };
+
+        // map expr + schema to types
+        let current_types = |expressions: &Vec<Expr>, schema| -> Result<Vec<DataType>> {
+            Ok(expressions
+                .iter()
+                .map(|e| e.get_type(&schema))
+                .collect::<Result<Vec<_>>>()?)
+        };
+
+        // create a case: input + expected result
+        let case = |observed: Vec<DataType>,
+                    valid,
+                    expected: Option<Vec<DataType>>|
+         -> Result<_> {
+            let schema = schema(observed.clone());
+            let expr = expressions(observed, schema.clone())?;
+            let expected = if let Some(e) = expected {
+                // expressions re-written as cast
+                Some(expressions(e, schema.clone())?)
+            } else {
+                None
+            };
+            Ok((
+                expr.clone(),
+                current_types(&expr, schema.clone())?,
+                schema,
+                valid,
+                expected,
+            ))
+        };
+
+        let cases = vec![
+            // no conversion -> all good
+            case(vec![], vec![vec![]], Some(vec![]))?,
+            // u16 -> u32
+            case(
+                vec![DataType::UInt16, DataType::UInt32],
+                vec![vec![DataType::UInt32, DataType::UInt32]],
+                Some(vec![DataType::UInt32, DataType::UInt32]),
+            )?,
+            // same type
+            case(
+                vec![DataType::UInt16, DataType::UInt32],
+                vec![vec![DataType::UInt16, DataType::UInt32]],
+                Some(vec![DataType::UInt16, DataType::UInt32]),
+            )?,
+            // we do not know how to cast bool to UInt16 => fail
+            case(
+                vec![DataType::Boolean, DataType::UInt32],
+                vec![vec![DataType::UInt16, DataType::UInt32]],
+                None,
+            )?,
+            // we do not know how to cast (bool,u16) to (u16,u32),
+            // but we know to cast to (bool,u32)
+            case(
+                vec![DataType::Boolean, DataType::UInt16],
+                vec![
+                    vec![DataType::UInt16, DataType::UInt32],
+                    vec![DataType::Boolean, DataType::UInt32],
+                ],
+                Some(vec![DataType::Boolean, DataType::UInt32]),
+            )?,
+            // we do not know how to cast (bool,u16) to (u16,u32) nor (u32,u16)
+            case(
+                vec![DataType::Boolean, DataType::UInt32],
+                vec![
+                    vec![DataType::UInt16, DataType::UInt32],
+                    vec![DataType::UInt32, DataType::UInt16],
+                ],
+                None,
+            )?,
+        ];
+
+        for (i, case) in cases.iter().enumerate() {
+            if maybe_rewrite(&case.0, &case.1, &case.2, &case.3)? != case.4 {
+                assert_eq!(maybe_rewrite(&case.0, &case.1, &case.2, &case.3)?, case.4);
+                return Err(ExecutionError::General(format!("case {} failed", i)));
+            }
+        }
+        Ok(())
     }
 }
