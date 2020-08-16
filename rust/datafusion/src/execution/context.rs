@@ -98,7 +98,42 @@ pub struct ExecutionContextState {
     config: ExecutionConfig,
 }
 
-/// Execution context for registering data sources and executing queries
+/// ExecutionContext is the main interface for executing queries with DataFusion. The context
+/// provides the following functionality:
+///
+/// * Create DataFrame from a CSV or Parquet data source.
+/// * Register a CSV or Parquet data source as a table that can be referenced from a SQL query.
+/// * Register a custom data source that can be referenced from a SQL query.
+/// * Execution a SQL query
+///
+/// The following example demonstrates how to use the context to execute a query against a CSV
+/// data source:
+///
+/// ```
+/// use datafusion::ExecutionContext;
+/// use datafusion::execution::physical_plan::csv::CsvReadOptions;
+/// use datafusion::logicalplan::col;
+///
+/// let mut ctx = ExecutionContext::new();
+/// let df = ctx.read_csv("tests/example.csv", CsvReadOptions::new()).unwrap();
+/// let df = df.filter(col("a").lt_eq(col("b"))).unwrap()
+///            .aggregate(vec![col("a")], vec![df.min(col("b")).unwrap()]).unwrap()
+///            .limit(100).unwrap();
+/// let results = df.collect(4096);
+/// ```
+///
+/// The following example demonstrates how to execute the same query using SQL:
+///
+/// ```
+/// use datafusion::ExecutionContext;
+/// use datafusion::execution::physical_plan::csv::CsvReadOptions;
+/// use datafusion::logicalplan::col;
+///
+/// let mut ctx = ExecutionContext::new();
+/// ctx.register_csv("example", "tests/example.csv", CsvReadOptions::new()).unwrap();
+/// let batch_size = 4096;
+/// let results = ctx.sql("SELECT a, MIN(b) FROM example GROUP BY a LIMIT 100", batch_size).unwrap();
+/// ```
 pub struct ExecutionContext {
     state: Rc<RefCell<ExecutionContextState>>,
 }
@@ -113,12 +148,12 @@ fn tuple_err<T, R>(value: (Result<T>, Result<R>)) -> Result<(T, R)> {
 }
 
 impl ExecutionContext {
-    /// Create a new execution context for in-memory queries using default configs
+    /// Create a new execution context using a default configuration.
     pub fn new() -> Self {
         Self::with_config(ExecutionConfig::new())
     }
 
-    /// Create a new execution context for in-memory queries using provided configs
+    /// Create a new execution context using the provided configuration
     pub fn with_config(config: ExecutionConfig) -> Self {
         let mut ctx = Self {
             state: Rc::new(RefCell::new(ExecutionContextState {
@@ -147,7 +182,8 @@ impl ExecutionContext {
     }
 
     /// Executes a logical plan and produce a Relation (a schema-aware iterator over a series
-    /// of RecordBatch instances)
+    /// of RecordBatch instances). This function is intended for internal use and should not be
+    /// called directly.
     pub fn collect_plan(
         &mut self,
         plan: &LogicalPlan,
@@ -189,7 +225,8 @@ impl ExecutionContext {
         }
     }
 
-    /// Creates a logical plan
+    /// Creates a logical plan. This function is intended for internal use and should not be
+    /// called directly.
     pub fn create_logical_plan(&mut self, sql: &str) -> Result<LogicalPlan> {
         let statements = DFParser::parse_sql(sql)?;
 
@@ -225,7 +262,7 @@ impl ExecutionContext {
         self.state.borrow().scalar_functions.clone()
     }
 
-    /// Creates a DataFrame for reading a CSV data source
+    /// Creates a DataFrame for reading a CSV data source.
     pub fn read_csv(
         &mut self,
         filename: &str,
@@ -248,7 +285,7 @@ impl ExecutionContext {
         )))
     }
 
-    /// Creates a DataFrame for reading a CSV data source
+    /// Creates a DataFrame for reading a Parquet data source.
     pub fn read_parquet(&mut self, filename: &str) -> Result<Arc<dyn DataFrame>> {
         let parquet = ParquetTable::try_new(filename)?;
 
@@ -265,7 +302,8 @@ impl ExecutionContext {
         )))
     }
 
-    /// Register a CSV file as a table so that it can be queried from SQL
+    /// Register a CSV data source so that it can be referenced from SQL statements
+    /// executed against this context.
     pub fn register_csv(
         &mut self,
         name: &str,
@@ -276,14 +314,16 @@ impl ExecutionContext {
         Ok(())
     }
 
-    /// Register a Parquet file as a table so that it can be queried from SQL
+    /// Register a Parquet data source so that it can be referenced from SQL statements
+    /// executed against this context.
     pub fn register_parquet(&mut self, name: &str, filename: &str) -> Result<()> {
         let table = ParquetTable::try_new(&filename)?;
         self.register_table(name, Box::new(table));
         Ok(())
     }
 
-    /// Register a table so that it can be queried from SQL
+    /// Register a table using a custom TableProvider so that it can be referenced from SQL
+    /// statements executed against this context.
     pub fn register_table(
         &mut self,
         name: &str,
@@ -296,7 +336,9 @@ impl ExecutionContext {
             .insert(name.to_string(), provider);
     }
 
-    /// Get a table by name
+    /// Retrieves a DataFrame representing a table previously registered by calling the
+    /// register_table function. An Err result will be returned if no table has been
+    /// registered with the provided name.
     pub fn table(&mut self, table_name: &str) -> Result<Arc<dyn DataFrame>> {
         match self.state.borrow().datasources.borrow().get(table_name) {
             Some(provider) => {

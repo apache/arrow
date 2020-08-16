@@ -17,10 +17,11 @@
 
 use arrow::util::pretty;
 use datafusion::error::Result;
-use datafusion::execution::context::ExecutionContext;
+use datafusion::logicalplan::{col, lit};
+use datafusion::ExecutionContext;
 
 /// This example demonstrates executing a simple query against an Arrow data source (Parquet) and
-/// fetching results
+/// fetching results, using the DataFrame trait
 fn main() -> Result<()> {
     // create local execution context
     let mut ctx = ExecutionContext::new();
@@ -28,15 +29,17 @@ fn main() -> Result<()> {
     let testdata =
         std::env::var("PARQUET_TEST_DATA").expect("PARQUET_TEST_DATA not defined");
 
-    // register parquet file with the execution context
-    ctx.register_parquet(
-        "alltypes_plain",
-        &format!("{}/alltypes_plain.parquet", testdata),
-    )?;
+    let filename = &format!("{}/alltypes_plain.parquet", testdata);
+
+    // define the query using the DataFrame trait
+    let df = ctx
+        .read_parquet(filename)?
+        .filter(col("id").gt(lit(1)))?
+        .filter(col("tinyint_col").lt(col("tinyint_col")))?;
 
     // execute the query
     let batch_size = 4096;
-    let results = ctx.sql("SELECT int_col, double_col, CAST(date_string_col as VARCHAR) FROM alltypes_plain WHERE id > 1 AND tinyint_col < double_col", batch_size)?;
+    let results = df.collect(batch_size)?;
 
     // print the results
     pretty::print_batches(&results)?;
