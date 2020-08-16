@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import os
 import warnings
 
 
@@ -31,6 +32,7 @@ cdef _sequence_to_array(object sequence, object mask, object size,
 
     options.pool = pool
     options.from_pandas = from_pandas
+    options.ignore_timezone = os.environ.get('PYARROW_IGNORE_TIMEZONE', False)
 
     cdef shared_ptr[CChunkedArray] out
 
@@ -730,6 +732,7 @@ cdef PandasOptions _convert_pandas_options(dict options):
     result.safe_cast = options['safe']
     result.split_blocks = options['split_blocks']
     result.self_destruct = options['self_destruct']
+    result.ignore_timezone = os.environ.get('PYARROW_IGNORE_TIMEZONE', False)
     return result
 
 
@@ -1287,7 +1290,9 @@ cdef _array_like_to_pandas(obj, options):
     result = pandas_api.series(arr, dtype=dtype, name=name)
 
     if (isinstance(original_type, TimestampType) and
-            original_type.tz is not None):
+            original_type.tz is not None and
+            # can be object dtype for non-ns and timestamp_as_object=True
+            result.dtype.kind == "M"):
         from pyarrow.pandas_compat import make_tz_aware
         result = make_tz_aware(result, original_type.tz)
 

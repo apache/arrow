@@ -32,6 +32,7 @@ try:
     import pickle5
 except ImportError:
     pickle5 = None
+import pytz
 
 import pyarrow as pa
 import pyarrow.tests.strategies as past
@@ -309,6 +310,8 @@ def test_nulls(ty):
 def test_array_from_scalar():
     today = datetime.date.today()
     now = datetime.datetime.now()
+    now_utc = now.replace(tzinfo=pytz.utc)
+    now_with_tz = now_utc.astimezone(pytz.timezone('US/Eastern'))
     oneday = datetime.timedelta(days=1)
 
     cases = [
@@ -326,6 +329,14 @@ def test_array_from_scalar():
         (pa.scalar(True), 11, pa.array([True] * 11)),
         (today, 2, pa.array([today] * 2)),
         (now, 10, pa.array([now] * 10)),
+        (
+            now_with_tz,
+            2,
+            pa.array(
+                [now_utc] * 2,
+                type=pa.timestamp('us', tz=pytz.timezone('US/Eastern'))
+            )
+        ),
         (now.time(), 9, pa.array([now.time()] * 9)),
         (oneday, 4, pa.array([oneday] * 4)),
         (False, 9, pa.array([False] * 9)),
@@ -341,8 +352,8 @@ def test_array_from_scalar():
     for value, size, expected in cases:
         arr = pa.repeat(value, size)
         assert len(arr) == size
+        assert arr.type.equals(expected.type)
         assert arr.equals(expected)
-
         if expected.type == pa.null():
             assert arr.null_count == size
         else:
@@ -1802,6 +1813,15 @@ def test_array_from_numpy_datetimeD():
     result = pa.array(arr)
     expected = pa.array([None, datetime.date(2017, 4, 4)], type=pa.date32())
     assert result.equals(expected)
+
+
+def test_array_from_naive_datetimes():
+    arr = pa.array([
+        None,
+        datetime.datetime(2017, 4, 4, 12, 11, 10),
+        datetime.datetime(2018, 1, 1, 0, 2, 0)
+    ])
+    assert arr.type == pa.timestamp('us', tz=None)
 
 
 @pytest.mark.parametrize(('dtype', 'type'), [

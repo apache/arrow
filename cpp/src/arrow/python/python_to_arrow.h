@@ -54,8 +54,12 @@ struct PyConversionOptions {
   // Memory pool to use for allocations
   MemoryPool* pool;
 
-  // Default false
-  bool from_pandas;
+  bool from_pandas = false;
+
+  /// Used to maintain backwards compatibility for
+  /// timezone bugs (see ARROW-9528).  Should be removed
+  /// after Arrow 2.0 release.
+  bool ignore_timezone = false;
 };
 
 /// \brief Convert sequence (list, generator, NumPy array with dtype object) of

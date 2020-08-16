@@ -797,6 +797,70 @@ def test_date32_overflow():
         pa.array(data3, type=pa.date32())
 
 
+@pytest.mark.parametrize(('time_type', 'unit', 'int_type'), [
+    (pa.time32, 's', 'int32'),
+    (pa.time32, 'ms', 'int32'),
+    (pa.time64, 'us', 'int64'),
+    (pa.time64, 'ns', 'int64'),
+])
+def test_sequence_time_with_timezone(time_type, unit, int_type):
+    def expected_integer_value(t):
+        # only use with utc time object because it doesn't adjust with the
+        # offset
+        units = ['s', 'ms', 'us', 'ns']
+        multiplier = 10**(units.index(unit) * 3)
+        if t is None:
+            return None
+        seconds = (
+            t.hour * 3600 +
+            t.minute * 60 +
+            t.second +
+            t.microsecond * 10**-6
+        )
+        return int(seconds * multiplier)
+
+    def expected_time_value(t):
+        # only use with utc time object because it doesn't adjust with the
+        # time objects tzdata
+        if unit == 's':
+            return t.replace(microsecond=0)
+        elif unit == 'ms':
+            return t.replace(microsecond=(t.microsecond // 1000) * 1000)
+        else:
+            return t
+
+    # only timezone naive times are supported in arrow
+    data = [
+        datetime.time(8, 23, 34, 123456),
+        datetime.time(5, 0, 0, 1000),
+        None,
+        datetime.time(1, 11, 56, 432539),
+        datetime.time(23, 10, 0, 437699)
+    ]
+
+    ty = time_type(unit)
+    arr = pa.array(data, type=ty)
+    assert len(arr) == 5
+    assert arr.type == ty
+    assert arr.null_count == 1
+
+    # test that the underlying integers are UTC values
+    values = arr.cast(int_type)
+    expected = list(map(expected_integer_value, data))
+    assert values.to_pylist() == expected
+
+    # test that the scalars are datetime.time objects with UTC timezone
+    assert arr[0].as_py() == expected_time_value(data[0])
+    assert arr[1].as_py() == expected_time_value(data[1])
+    assert arr[2].as_py() is None
+    assert arr[3].as_py() == expected_time_value(data[3])
+    assert arr[4].as_py() == expected_time_value(data[4])
+
+    def tz(hours, minutes=0):
+        offset = datetime.timedelta(hours=hours, minutes=minutes)
+        return datetime.timezone(offset)
+
+
 def test_sequence_timestamp():
     data = [
         datetime.datetime(2007, 7, 13, 1, 23, 34, 123456),
@@ -817,6 +881,137 @@ def test_sequence_timestamp():
                                                46, 57, 437699)
 
 
+@pytest.mark.parametrize('timezone', [
+    None,
+    'UTC',
+    'Europe/Budapest',
+])
+@pytest.mark.parametrize('unit', [
+    's',
+    'ms',
+    'us',
+    'ns'
+])
+def test_sequence_timestamp_with_timezone(timezone, unit):
+    def expected_integer_value(dt):
+        units = ['s', 'ms', 'us', 'ns']
+        multiplier = 10**(units.index(unit) * 3)
+        if dt is None:
+            return None
+        else:
+            # avoid float precision issues
+            ts = decimal.Decimal(str(dt.timestamp()))
+            return int(ts * multiplier)
+
+    def expected_datetime_value(dt):
+        if dt is None:
+            return None
+
+        if unit == 's':
+            dt = dt.replace(microsecond=0)
+        elif unit == 'ms':
+            dt = dt.replace(microsecond=(dt.microsecond // 1000) * 1000)
+
+        # adjust the timezone
+        if timezone is None:
+            # make datetime timezone unaware
+            return dt.replace(tzinfo=None)
+        else:
+            # convert to the expected timezone
+            return dt.astimezone(pytz.timezone(timezone))
+
+    data = [
+        datetime.datetime(2007, 7, 13, 8, 23, 34, 123456),  # naive
+        pytz.utc.localize(
+            datetime.datetime(2008, 1, 5, 5, 0, 0, 1000)
+        ),
+        None,
+        pytz.timezone('US/Eastern').localize(
+            datetime.datetime(2006, 1, 13, 12, 34, 56, 432539)
+        ),
+        pytz.timezone('Europe/Moscow').localize(
+            datetime.datetime(2010, 8, 13, 5, 0, 0, 437699)
+        ),
+    ]
+    utcdata = [
+        pytz.utc.localize(data[0]),
+        data[1],
+        None,
+        data[3].astimezone(pytz.utc),
+        data[4].astimezone(pytz.utc),
+    ]
+
+    ty = pa.timestamp(unit, tz=timezone)
+    arr = pa.array(data, type=ty)
+    assert len(arr) == 5
+    assert arr.type == ty
+    assert arr.null_count == 1
+
+    # test that the underlying integers are UTC values
+    values = arr.cast('int64')
+    expected = list(map(expected_integer_value, utcdata))
+    assert values.to_pylist() == expected
+
+    # test that the scalars are datetimes with the correct timezone
+    for i in range(len(arr)):
+        assert arr[i].as_py() == expected_datetime_value(utcdata[i])
+
+
+def test_sequence_timestamp_with_timezone_inference():
+    data = [
+        datetime.datetime(2007, 7, 13, 8, 23, 34, 123456),  # naive
+        pytz.utc.localize(
+            datetime.datetime(2008, 1, 5, 5, 0, 0, 1000)
+        ),
+        None,
+        pytz.timezone('US/Eastern').localize(
+            datetime.datetime(2006, 1, 13, 12, 34, 56, 432539)
+        ),
+        pytz.timezone('Europe/Moscow').localize(
+            datetime.datetime(2010, 8, 13, 5, 0, 0, 437699)
+        ),
+    ]
+    expected = [
+        pa.timestamp('us', tz=None),
+        pa.timestamp('us', tz='UTC'),
+        pa.timestamp('us', tz=None),
+        pa.timestamp('us', tz='US/Eastern'),
+        pa.timestamp('us', tz='Europe/Moscow')
+    ]
+    for dt, expected_type in zip(data, expected):
+        prepended = [dt] + data
+        arr = pa.array(prepended)
+        assert arr.type == expected_type
+
+
+@pytest.mark.pandas
+def test_sequence_timestamp_from_mixed_builtin_and_pandas_datetimes():
+    import pandas as pd
+
+    data = [
+        pd.Timestamp(1184307814123456123, tz=pytz.timezone('US/Eastern'),
+                     unit='ns'),
+        datetime.datetime(2007, 7, 13, 8, 23, 34, 123456),  # naive
+        pytz.utc.localize(
+            datetime.datetime(2008, 1, 5, 5, 0, 0, 1000)
+        ),
+        None,
+    ]
+    utcdata = [
+        data[0].astimezone(pytz.utc),
+        pytz.utc.localize(data[1]),
+        data[2].astimezone(pytz.utc),
+        None,
+    ]
+
+    arr = pa.array(data)
+    assert arr.type == pa.timestamp('us', tz='US/Eastern')
+
+    values = arr.cast('int64')
+    expected = [int(dt.timestamp() * 10**6) if dt else None for dt in utcdata]
+    assert values.to_pylist() == expected
+
+
 def test_sequence_numpy_timestamp():
     data = [
         np.datetime64(datetime.datetime(2007, 7, 13, 1, 23, 34, 123456)),
@@ -835,34 +1030,6 @@ def test_sequence_numpy_timestamp():
                                                34, 56, 432539)
     assert arr[3].as_py() == datetime.datetime(2010, 8, 13, 5,
                                                46, 57, 437699)
-
-
-def test_sequence_timestamp_with_unit():
-    data = [
-        datetime.datetime(2007, 7, 13, 1, 23, 34, 123456),
-    ]
-
-    s = pa.timestamp('s')
-    ms = pa.timestamp('ms')
-    us = pa.timestamp('us')
-
-    arr_s = pa.array(data, type=s)
-    assert len(arr_s) == 1
-    assert arr_s.type == s
-    assert arr_s[0].as_py() == datetime.datetime(2007, 7, 13, 1,
-                                                 23, 34, 0)
-
-    arr_ms = pa.array(data, type=ms)
-    assert len(arr_ms) == 1
-    assert arr_ms.type == ms
-    assert arr_ms[0].as_py() == datetime.datetime(2007, 7, 13, 1,
-                                                  23, 34, 123000)
-
-    arr_us = pa.array(data, type=us)
-    assert len(arr_us) == 1
-    assert arr_us.type == us
-    assert arr_us[0].as_py() == datetime.datetime(2007, 7, 13, 1,
-                                                  23, 34, 123456)
 
 
 class MyDate(datetime.date):
@@ -1419,17 +1586,6 @@ def test_decimal_array_with_none_and_nan():
 
     array = pa.array(values, type=pa.decimal128(10, 4), from_pandas=True)
     assert array.to_pylist() == [decimal.Decimal('1.2340'), None, None, None]
-
-
-@pytest.mark.parametrize('tz,name', [
-    (pytz.FixedOffset(90), '+01:30'),
-    (pytz.FixedOffset(-90), '-01:30'),
-    (pytz.utc, 'UTC'),
-    (pytz.timezone('America/New_York'), 'America/New_York')
-])
-def test_timezone_string(tz, name):
-    assert pa.lib.tzinfo_to_string(tz) == name
-    assert pa.lib.string_to_tzinfo(name) == tz
 
 
 def test_map_from_dicts():

@@ -17,9 +17,12 @@
 
 from collections import OrderedDict
 from collections.abc import Iterator
+import datetime
+import sys
 
 import pickle
 import pytest
+import pytz
 import hypothesis as h
 import hypothesis.strategies as st
 import weakref
@@ -250,6 +253,120 @@ def test_is_temporal_date_time_timestamp():
 def test_is_primitive():
     assert types.is_primitive(pa.int32())
     assert not types.is_primitive(pa.list_(pa.int32()))
+
+
+@pytest.mark.parametrize(('tz', 'expected'), [
+    (pytz.utc, 'UTC'),
+    (pytz.timezone('Europe/Paris'), 'Europe/Paris'),
+    (pytz.FixedOffset(180), '+03:00'),
+    (datetime.timezone.utc, '+00:00'),
+    (datetime.timezone(datetime.timedelta(hours=1, minutes=30)), '+01:30')
+])
+def test_tzinfo_to_string(tz, expected):
+    assert pa.lib.tzinfo_to_string(tz) == expected
+
+
+def test_tzinfo_to_string_errors():
+    msg = "Not an instance of datetime.tzinfo"
+    with pytest.raises(TypeError):
+        pa.lib.tzinfo_to_string("Europe/Budapest")
+
+    if sys.version_info >= (3, 8):
+        # before 3.8 it was only possible to create timezone objects with whole
+        # number of minutes
+        tz = datetime.timezone(datetime.timedelta(hours=1, seconds=30))
+        msg = "Offset must represent whole number of minutes"
+        with pytest.raises(ValueError, match=msg):
+            pa.lib.tzinfo_to_string(tz)
+
+
+def test_convert_custom_tzinfo_objects_to_string():
+    class CorrectTimezone1(datetime.tzinfo):
+        """
+        Conversion is using utcoffset()
+        """
+
+        def tzname(self, dt):
+            return None
+
+        def utcoffset(self, dt):
+            return datetime.timedelta(hours=-3, minutes=30)
+
+    class CorrectTimezone2(datetime.tzinfo):
+        """
+        Conversion is using tzname()
+        """
+
+        def tzname(self, dt):
+            return "+03:00"
+
+        def utcoffset(self, dt):
+            return datetime.timedelta(hours=3)
+
+    class BuggyTimezone1(datetime.tzinfo):
+        """
+        Unable to infer name or offset
+        """
+
+        def tzname(self, dt):
+            return None
+
+        def utcoffset(self, dt):
+            return None
+
+    class BuggyTimezone2(datetime.tzinfo):
+        """
+        Wrong offset type
+        """
+
+        def tzname(self, dt):
+            return None
+
+        def utcoffset(self, dt):
+            return "one hour"
+
+    class BuggyTimezone3(datetime.tzinfo):
+        """
+        Wrong timezone name type
+        """
+
+        def tzname(self, dt):
+            return 240
+
+        def utcoffset(self, dt):
+            return None
+
+    assert pa.lib.tzinfo_to_string(CorrectTimezone1()) == "-02:30"
+    assert pa.lib.tzinfo_to_string(CorrectTimezone2()) == "+03:00"
+
+    msg = (r"Object returned by tzinfo.utcoffset\(None\) is not an instance "
+           r"of datetime.timedelta")
+    for wrong in [BuggyTimezone1(), BuggyTimezone2(), BuggyTimezone3()]:
+        with pytest.raises(ValueError, match=msg):
+            pa.lib.tzinfo_to_string(wrong)
+
+
+@pytest.mark.parametrize(('string', 'expected'), [
+    ('UTC', pytz.utc),
+    ('Europe/Paris', pytz.timezone('Europe/Paris')),
+    ('+03:00', pytz.FixedOffset(180)),
+    ('+01:30', pytz.FixedOffset(90)),
+    ('-02:00', pytz.FixedOffset(-120))
+])
+def test_string_to_tzinfo(string, expected):
+    result = pa.lib.string_to_tzinfo(string)
+    assert result == expected
+
+
+@pytest.mark.parametrize('tz,name', [
+    (pytz.FixedOffset(90), '+01:30'),
+    (pytz.FixedOffset(-90), '-01:30'),
+    (pytz.utc, 'UTC'),
+    (pytz.timezone('America/New_York'), 'America/New_York')
+])
+def test_timezone_string_roundtrip(tz, name):
+    assert pa.lib.tzinfo_to_string(tz) == name
+    assert pa.lib.string_to_tzinfo(name) == tz
 
 
 def test_timestamp():
