@@ -38,6 +38,9 @@ pub struct ScalarFunction {
     /// Function name
     pub name: String,
     /// Set of valid argument types.
+    /// The first dimension (0) represents specific combinations of valid argument types
+    /// The second dimension (1) represents the types of each argument.
+    /// For example, [[t1, t2]] is a function of 2 arguments that only accept t1 on the first arg and t2 on the second
     pub arg_types: Vec<Vec<DataType>>,
     /// Return type
     pub return_type: DataType,

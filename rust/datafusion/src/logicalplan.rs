@@ -48,9 +48,6 @@ pub struct FunctionMeta {
     /// Function name
     name: String,
     /// Function argument types
-    /// The first dimension (0) represents specific combinations of valid argument types
-    /// The second dimension (1) represents the types of each argument.
-    /// For example, [[t1, t2]] is a function of 2 arguments that only accept t1 on the first arg and t2 on the second
     arg_types: Vec<Vec<DataType>>,
     /// Function return type
     return_type: DataType,
