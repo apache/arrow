@@ -45,13 +45,6 @@ class DecimalTestFixture : public ::testing::Test {
   std::string string_value_;
 };
 
-TEST_F(DecimalTestFixture, TestToString) {
-  Decimal128 decimal(this->integer_value_);
-  int32_t scale = 5;
-  std::string result = decimal.ToString(scale);
-  ASSERT_EQ(result, this->string_value_);
-}
-
 TEST_F(DecimalTestFixture, TestFromString) {
   Decimal128 expected(this->integer_value_);
   Decimal128 result;
@@ -104,6 +97,35 @@ TEST(DecimalTest, TestFromDecimalString128) {
 
   // Sanity check that our number is actually using more than 64 bits
   ASSERT_NE(result.high_bits(), 0);
+}
+
+TEST(DecimalTest, TestStringRoundTrip) {
+  static constexpr uint64_t kTestBits[] = {
+      0,
+      1,
+      999,
+      1000,
+      std::numeric_limits<int32_t>::max(),
+      (1ull << 31),
+      std::numeric_limits<uint32_t>::max(),
+      (1ull << 32),
+      std::numeric_limits<int64_t>::max(),
+      (1ull << 63),
+      std::numeric_limits<uint64_t>::max(),
+  };
+  static constexpr int32_t kScales[] = {-10, -1, 0, 1, 10};
+  for (uint64_t high_bits : kTestBits) {
+    for (uint64_t low_bits : kTestBits) {
+      // When high_bits = 1ull << 63 or std::numeric_limits<uint64_t>::max(), decimal is
+      // negative.
+      Decimal128 decimal(high_bits, low_bits);
+      for (int32_t scale : kScales) {
+        std::string str = decimal.ToString(scale);
+        ASSERT_OK_AND_ASSIGN(Decimal128 result, Decimal128::FromString(str));
+        EXPECT_EQ(decimal, result);
+      }
+    }
+  }
 }
 
 TEST(DecimalTest, TestDecimal32SignedRoundTrip) {
@@ -291,28 +313,88 @@ TEST(Decimal128Test, PrintMinValue) {
   ASSERT_EQ(string_value, printed_value);
 }
 
-class Decimal128PrintingTest
-    : public ::testing::TestWithParam<std::tuple<int32_t, int32_t, std::string>> {};
-
-TEST_P(Decimal128PrintingTest, Print) {
-  int32_t test_value;
+struct ToStringTestData {
+  int64_t test_value;
   int32_t scale;
   std::string expected_string;
-  std::tie(test_value, scale, expected_string) = GetParam();
-  const Decimal128 value(test_value);
-  const std::string printed_value = value.ToString(scale);
-  ASSERT_EQ(expected_string, printed_value);
+};
+
+static const ToStringTestData kToStringTestData[] = {
+    {0, -1, "0.E+1"},
+    {0, 0, "0"},
+    {0, 1, "0.0"},
+    {0, 6, "0.000000"},
+    {2, 7, "2.E-7"},
+    {2, -1, "2.E+1"},
+    {2, 0, "2"},
+    {2, 1, "0.2"},
+    {2, 6, "0.000002"},
+    {-2, 7, "-2.E-7"},
+    {-2, 7, "-2.E-7"},
+    {-2, -1, "-2.E+1"},
+    {-2, 0, "-2"},
+    {-2, 1, "-0.2"},
+    {-2, 6, "-0.000002"},
+    {-2, 7, "-2.E-7"},
+    {123, -3, "1.23E+5"},
+    {123, -1, "1.23E+3"},
+    {123, 1, "12.3"},
+    {123, 0, "123"},
+    {123, 5, "0.00123"},
+    {123, 8, "0.00000123"},
+    {123, 9, "1.23E-7"},
+    {123, 10, "1.23E-8"},
+    {-123, -3, "-1.23E+5"},
+    {-123, -1, "-1.23E+3"},
+    {-123, 1, "-12.3"},
+    {-123, 0, "-123"},
+    {-123, 5, "-0.00123"},
+    {-123, 8, "-0.00000123"},
+    {-123, 9, "-1.23E-7"},
+    {-123, 10, "-1.23E-8"},
+    {1000000000, -3, "1.000000000E+12"},
+    {1000000000, -1, "1.000000000E+10"},
+    {1000000000, 0, "1000000000"},
+    {1000000000, 1, "100000000.0"},
+    {1000000000, 5, "10000.00000"},
+    {1000000000, 15, "0.000001000000000"},
+    {1000000000, 16, "1.000000000E-7"},
+    {1000000000, 17, "1.000000000E-8"},
+    {-1000000000, -3, "-1.000000000E+12"},
+    {-1000000000, -1, "-1.000000000E+10"},
+    {-1000000000, 0, "-1000000000"},
+    {-1000000000, 1, "-100000000.0"},
+    {-1000000000, 5, "-10000.00000"},
+    {-1000000000, 15, "-0.000001000000000"},
+    {-1000000000, 16, "-1.000000000E-7"},
+    {-1000000000, 17, "-1.000000000E-8"},
+    {1234567890123456789LL, -3, "1.234567890123456789E+21"},
+    {1234567890123456789LL, -1, "1.234567890123456789E+19"},
+    {1234567890123456789LL, 0, "1234567890123456789"},
+    {1234567890123456789LL, 1, "123456789012345678.9"},
+    {1234567890123456789LL, 5, "12345678901234.56789"},
+    {1234567890123456789LL, 24, "0.000001234567890123456789"},
+    {1234567890123456789LL, 25, "1.234567890123456789E-7"},
+    {-1234567890123456789LL, -3, "-1.234567890123456789E+21"},
+    {-1234567890123456789LL, -1, "-1.234567890123456789E+19"},
+    {-1234567890123456789LL, 0, "-1234567890123456789"},
+    {-1234567890123456789LL, 1, "-123456789012345678.9"},
+    {-1234567890123456789LL, 5, "-12345678901234.56789"},
+    {-1234567890123456789LL, 24, "-0.000001234567890123456789"},
+    {-1234567890123456789LL, 25, "-1.234567890123456789E-7"},
+};
+
+class Decimal128ToStringTest : public ::testing::TestWithParam<ToStringTestData> {};
+
+TEST_P(Decimal128ToStringTest, ToString) {
+  const ToStringTestData& data = GetParam();
+  const Decimal128 value(data.test_value);
+  const std::string printed_value = value.ToString(data.scale);
+  ASSERT_EQ(data.expected_string, printed_value);
 }
 
-INSTANTIATE_TEST_SUITE_P(Decimal128PrintingTest, Decimal128PrintingTest,
-                         ::testing::Values(std::make_tuple(123, 1, "12.3"),
-                                           std::make_tuple(123, 5, "0.00123"),
-                                           std::make_tuple(123, 10, "1.23E-8"),
-                                           std::make_tuple(123, -1, "1.23E+3"),
-                                           std::make_tuple(-123, -1, "-1.23E+3"),
-                                           std::make_tuple(123, -3, "1.23E+5"),
-                                           std::make_tuple(-123, -3, "-1.23E+5"),
-                                           std::make_tuple(12345, -3, "1.2345E+7")));
+INSTANTIATE_TEST_SUITE_P(Decimal128ToStringTest, Decimal128ToStringTest,
+                         ::testing::ValuesIn(kToStringTestData));
 
 class Decimal128ParsingTest
     : public ::testing::TestWithParam<std::tuple<std::string, uint64_t, int32_t>> {};
@@ -705,15 +787,6 @@ TEST_F(TestDecimalToRealDouble, Precision) {
 }
 
 #endif  // __MINGW32__
-
-TEST(Decimal128Test, TestSmallNumberFormat) {
-  Decimal128 value("0.2");
-  std::string expected("0.2");
-
-  const int32_t scale = 1;
-  std::string result = value.ToString(scale);
-  ASSERT_EQ(expected, result);
-}
 
 TEST(Decimal128Test, TestNoDecimalPointExponential) {
   Decimal128 value;
