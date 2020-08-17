@@ -33,7 +33,8 @@ use arrow::{
 };
 use udf::ScalarFunction;
 
-/// Physical query planner
+/// Physical query planner that converts a `LogicalPlan` to an
+/// `ExecutionPlan` suitable for execution.
 pub trait PhysicalPlanner {
     /// Create a physical plan from a logical plan
     fn create_physical_plan(
