@@ -981,29 +981,10 @@ def test_union_array_to_pylist_with_nulls():
         pa.array([0, 1, 0, 0, 1], type=pa.int8()),
         [
             pa.array([0.0, 1.1, None, 3.3, 4.4]),
-            pa.array([True, True, False, True, False]),
-        ]
-    )
-    assert arr.to_pylist() == [0.0, True, None, 3.3, False]
-
-    arr = pa.UnionArray.from_sparse(
-        pa.array([0, 1, 0, 0, 1], type=pa.int8()),
-        [
-            pa.array([0.0, 1.1, None, 3.3, 4.4]),
             pa.array([True, None, False, True, False]),
         ]
     )
     assert arr.to_pylist() == [0.0, None, None, 3.3, False]
-
-    arr = pa.UnionArray.from_dense(
-        pa.array([0, 1, 0, 0, 0, 1, 1], type=pa.int8()),
-        pa.array([0, 0, 1, 2, 3, 1, 2], type=pa.int32()),
-        [
-            pa.array([0.0, 1.1, None, 3.3]),
-            pa.array([True, True, False])
-        ]
-    )
-    assert arr.to_pylist() == [0.0, True, 1.1, None, 3.3, True, False]
 
     arr = pa.UnionArray.from_dense(
         pa.array([0, 1, 0, 0, 0, 1, 1], type=pa.int8()),
