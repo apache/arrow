@@ -739,7 +739,7 @@ cdef class UnionScalar(Scalar):
         Return underlying value as a scalar.
         """
         cdef CUnionScalar* sp = <CUnionScalar*> self.wrapped.get()
-        return Scalar.wrap(sp.value)
+        return Scalar.wrap(sp.value) if sp.is_valid else None
 
     def as_py(self):
         """
