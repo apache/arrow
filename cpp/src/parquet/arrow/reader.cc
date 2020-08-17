@@ -98,6 +98,10 @@ std::shared_ptr<std::unordered_set<int>> VectorToSharedSet(
   return result;
 }
 
+Status GetReader(const SchemaField& field, const std::shared_ptr<ReaderContext>& context,
+                 const ArrowReaderProperties& properties,
+                 std::unique_ptr<ColumnReaderImpl>* out);
+
 // ----------------------------------------------------------------------
 // FileReaderImpl forward declaration
 

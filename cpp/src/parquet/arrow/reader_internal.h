@@ -53,8 +53,6 @@ class ArrowReaderProperties;
 
 namespace arrow {
 
-class ColumnReaderImpl;
-
 // ----------------------------------------------------------------------
 // Iteration utilities
 
@@ -125,10 +123,6 @@ struct ReaderContext {
     return true;
   }
 };
-
-Status GetReader(const SchemaField& field, const std::shared_ptr<ReaderContext>& context,
-                 const ArrowReaderProperties& properties,
-                 std::unique_ptr<ColumnReaderImpl>* out);
 
 }  // namespace arrow
 }  // namespace parquet
