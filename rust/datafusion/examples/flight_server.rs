@@ -23,7 +23,7 @@ use tonic::{Request, Response, Status, Streaming};
 
 use datafusion::datasource::parquet::ParquetTable;
 use datafusion::datasource::TableProvider;
-use datafusion::execution::context::ExecutionContext;
+use datafusion::prelude::*;
 
 use arrow_flight::{
     flight_service_server::FlightService, flight_service_server::FlightServiceServer,

@@ -16,9 +16,9 @@
 // under the License.
 
 use arrow::util::pretty;
+
 use datafusion::error::Result;
-use datafusion::logicalplan::{col, lit};
-use datafusion::ExecutionContext;
+use datafusion::prelude::*;
 
 /// This example demonstrates executing a simple query against an Arrow data source (Parquet) and
 /// fetching results, using the DataFrame trait

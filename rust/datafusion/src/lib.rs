@@ -15,17 +15,46 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#![warn(missing_docs)]
+
 //! DataFusion is an extensible query execution framework that uses
 //! Apache Arrow as the memory model.
 //!
-//! DataFusion supports both SQL and a Table/DataFrame-style API for building logical query plans
+//! DataFusion supports both SQL and a DataFrame API for building logical query plans
 //! and also provides a query optimizer and execution engine capable of parallel execution
 //! against partitioned data sources (CSV and Parquet) using threads.
 //!
 //! DataFusion currently supports simple projection, selection, and aggregate queries.
-
-#![warn(missing_docs)]
-
+//!
+/// [ExecutionContext](../execution/context/struct.ExecutionContext.html) is the main interface
+/// for executing queries with DataFusion.
+///
+/// The following example demonstrates how to use the context to execute a query against a CSV
+/// data source using the DataFrame API:
+///
+/// ```
+/// # use datafusion::prelude::*;
+/// # use datafusion::error::Result;
+/// # fn main() -> Result<()> {
+/// let mut ctx = ExecutionContext::new();
+/// let df = ctx.read_csv("tests/example.csv", CsvReadOptions::new())?;
+/// let df = df.filter(col("a").lt_eq(col("b")))?
+///            .aggregate(vec![col("a")], vec![df.min(col("b"))?])?
+///            .limit(100)?;
+/// let results = df.collect();
+/// # Ok(())
+/// # }
+/// ```
+///
+/// The following example demonstrates how to execute the same query using SQL:
+///
+/// ```
+/// use datafusion::prelude::*;
+///
+/// let mut ctx = ExecutionContext::new();
+/// ctx.register_csv("example", "tests/example.csv", CsvReadOptions::new()).unwrap();
+/// let results = ctx.sql("SELECT a, MIN(b) FROM example GROUP BY a LIMIT 100").unwrap();
+/// ```
 extern crate arrow;
 extern crate sqlparser;
 
@@ -35,9 +64,8 @@ pub mod error;
 pub mod execution;
 pub mod logicalplan;
 pub mod optimizer;
+pub mod prelude;
 pub mod sql;
-
-pub use execution::context::ExecutionContext;
 
 #[cfg(test)]
 pub mod test;
