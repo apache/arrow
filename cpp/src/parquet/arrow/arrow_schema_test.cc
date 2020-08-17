@@ -44,7 +44,6 @@ using parquet::schema::NodePtr;
 using parquet::schema::PrimitiveNode;
 
 using ::testing::ElementsAre;
-using ::testing::HasSubstr;
 
 namespace parquet {
 
@@ -1296,7 +1295,7 @@ TEST_F(TestLevels, TestRepeatedGroups) {
   EXPECT_THAT(levels,
               ElementsAre(Levels{/*def_level=*/1, /*rep_level=*/1,
                                  /*ancestor_list_def_level*/ 1},
-                          // Def_ldevl=2 is skipped because it represents a empty list.
+                          // Def_ldevl=2 is skipped because it represents a null list.
                           Levels{/*def_level=*/3, /*rep_level=*/2,
                                  /*ancestor_list_def_level*/ 1},  // list field
                           Levels{/*def_level=*/4, /*rep_level=*/2,
@@ -1309,7 +1308,7 @@ TEST_F(TestLevels, TestRepeatedGroups) {
   EXPECT_THAT(levels,
               ElementsAre(Levels{/*def_level=*/1, /*rep_level=*/1,
                                  /*ancestor_list_def_level*/ 1},
-                          // Def_ldevl=2 is skipped because it represents a empty list.
+                          // Def_ldevl=2 is skipped because it represents a null list.
                           Levels{/*def_level=*/3, /*rep_level=*/2,
                                  /*ancestor_list_def_level*/ 1},  // list field
                           Levels{/*def_level=*/4, /*rep_level=*/2,
@@ -1330,7 +1329,7 @@ TEST_F(TestLevels, TestRepeatedGroups) {
   EXPECT_THAT(levels,
               ElementsAre(Levels{/*def_level=*/1, /*rep_level=*/1,
                                  /*ancestor_list_def_level*/ 1},
-                          // Def_ldevl=2 is skipped because it represents a empty list.
+                          // Def_ldevl=2 is skipped because it represents a null list.
                           Levels{/*def_level=*/3, /*rep_level=*/2,
                                  /*ancestor_list_def_level*/ 1},  // list field
                           Levels{/*def_level=*/3, /*rep_level=*/2,
@@ -1344,7 +1343,7 @@ TEST_F(TestLevels, ListErrors) {
         {PrimitiveNode::Make("bool", Repetition::REPEATED, ParquetType::BOOLEAN)},
         ConvertedType::LIST));
     EXPECT_TRUE(error.IsInvalid());
-    EXPECT_THAT(error.message(), HasSubstr("must not be repeated"));
+    EXPECT_EQ(error.message(), "LIST-annotated groups must not be repeated.");
   }
   {
     ::arrow::Status error = MaybeSetParquetSchema(GroupNode::Make(
@@ -1353,7 +1352,7 @@ TEST_F(TestLevels, ListErrors) {
          PrimitiveNode::Make("f2", Repetition::REPEATED, ParquetType::BOOLEAN)},
         ConvertedType::LIST));
     EXPECT_TRUE(error.IsInvalid());
-    EXPECT_THAT(error.message(), HasSubstr("must have a single child"));
+    EXPECT_EQ(error.message(), "LIST-annotated groups must have a single child.");
   }
 
   {
