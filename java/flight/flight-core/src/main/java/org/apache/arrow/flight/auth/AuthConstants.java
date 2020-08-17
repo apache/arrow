@@ -46,6 +46,10 @@ public final class AuthConstants {
   });
 
   public static final Context.Key<String> PEER_IDENTITY_KEY = Context.keyWithDefault("arrow-flight-peer-identity", "");
+  public static final String BEARER_PREFIX = "Bearer ";
+  public static final String BASIC_PREFIX = "Basic ";
+  public static final String AUTHORIZATION_HEADER = "Authorization";
 
-  private AuthConstants() {}
+  private AuthConstants() {
+  }
 }

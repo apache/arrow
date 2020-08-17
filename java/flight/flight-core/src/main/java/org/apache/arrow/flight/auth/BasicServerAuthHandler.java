@@ -17,14 +17,16 @@
 
 package org.apache.arrow.flight.auth;
 
-import java.util.Iterator;
+import java.io.UnsupportedEncodingException;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.Optional;
 
-import org.apache.arrow.flight.impl.Flight.BasicAuth;
+import org.apache.arrow.flight.CallHeaders;
+import org.apache.arrow.flight.CallStatus;
+import org.apache.arrow.flight.FlightRuntimeException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.google.protobuf.InvalidProtocolBufferException;
 
 /**
  * A ServerAuthHandler for username/password authentication.
@@ -39,37 +41,56 @@ public class BasicServerAuthHandler implements ServerAuthHandler {
     this.authValidator = authValidator;
   }
 
+  @Override
+  public HandshakeResult authenticate(CallHeaders headers) {
+    final String authEncoded = AuthUtilities.getValueFromAuthHeader(headers, AuthConstants.BASIC_PREFIX);
+    if (authEncoded == null) {
+      throw new FlightRuntimeException(CallStatus.UNAUTHENTICATED);
+    }
+
+    try {
+      // The value has the format Base64(<username>:<password>)
+      final String authDecoded = new String(Base64.getDecoder().decode(authEncoded), StandardCharsets.UTF_8);
+      final String[] authInParts = authDecoded.split(":");
+      if (authInParts.length != 2) {
+        throw new FlightRuntimeException(CallStatus.UNAUTHORIZED);
+      }
+      final Optional<String> bearerToken = authValidator.validateCredentials(authInParts[0], authInParts[1]);
+      return new HandshakeResult() {
+        @Override
+        public String getPeerIdentity() {
+          return authInParts[0];
+        }
+
+        @Override
+        public Optional<String> getBearerToken() {
+          return bearerToken;
+        }
+      };
+
+    } catch (UnsupportedEncodingException ex) {
+      final FlightRuntimeException exception = new FlightRuntimeException(CallStatus.INTERNAL);
+      exception.initCause(ex);
+      throw exception;
+    } catch (Exception ex) {
+      final FlightRuntimeException exception = new FlightRuntimeException(CallStatus.UNAUTHORIZED);
+      exception.initCause(ex);
+      throw exception;
+    }
+  }
+
+  @Override
+  public boolean validateBearer(String bearerToken) {
+    return false;
+  }
+
   /**
    * Interface that this handler delegates for determining if credentials are valid.
    */
   public interface BasicAuthValidator {
 
-    byte[] getToken(String username, String password) throws Exception;
+    Optional<String> validateCredentials(String username, String password) throws Exception;
 
-    Optional<String> isValid(byte[] token);
-
+    Optional<String> isValid(String token);
   }
-
-  @Override
-  public boolean authenticate(ServerAuthSender outgoing, Iterator<byte[]> incoming) {
-    byte[] bytes = incoming.next();
-    try {
-      BasicAuth auth = BasicAuth.parseFrom(bytes);
-      byte[] token = authValidator.getToken(auth.getUsername(), auth.getPassword());
-      outgoing.send(token);
-      return true;
-    } catch (InvalidProtocolBufferException e) {
-      logger.debug("Failure parsing auth message.", e);
-    } catch (Exception e) {
-      logger.debug("Unknown error during authorization.", e);
-    }
-
-    return false;
-  }
-
-  @Override
-  public Optional<String> isValid(byte[] token) {
-    return authValidator.isValid(token);
-  }
-
 }

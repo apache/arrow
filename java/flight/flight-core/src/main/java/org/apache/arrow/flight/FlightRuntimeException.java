@@ -29,7 +29,7 @@ public class FlightRuntimeException extends RuntimeException {
   /**
    * Create a new exception from the given status.
    */
-  FlightRuntimeException(CallStatus status) {
+  public FlightRuntimeException(CallStatus status) {
     super(status.description(), status.cause());
     this.status = status;
   }

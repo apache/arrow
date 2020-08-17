@@ -90,14 +90,16 @@ class IntegrationTestClient {
     final int port = Integer.parseInt(cmd.getOptionValue("port", "31337"));
 
     final Location defaultLocation = Location.forGrpcInsecure(host, port);
-    try (final BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
-        final FlightClient client = FlightClient.builder(allocator, defaultLocation).build()) {
+    try (final BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE)) {
+      final FlightClient.Builder clientBuilder = FlightClient.builder(allocator, defaultLocation);
 
       if (cmd.hasOption("scenario")) {
-        Scenarios.getScenario(cmd.getOptionValue("scenario")).client(allocator, defaultLocation, client);
+        Scenarios.getScenario(cmd.getOptionValue("scenario")).client(allocator, defaultLocation, clientBuilder);
       } else {
-        final String inputPath = cmd.getOptionValue("j");
-        testStream(allocator, defaultLocation, client, inputPath);
+        try (final FlightClient client = clientBuilder.build()) {
+          final String inputPath = cmd.getOptionValue("j");
+          testStream(allocator, defaultLocation, client, inputPath);
+        }
       }
     } catch (InterruptedException e) {
       throw new RuntimeException(e);

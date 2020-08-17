@@ -17,42 +17,39 @@
 
 package org.apache.arrow.flight.auth;
 
-import java.util.Iterator;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
+import java.util.concurrent.Executor;
 
-import org.apache.arrow.flight.impl.Flight.BasicAuth;
+import io.grpc.CallCredentials;
+import io.grpc.Metadata;
 
 /**
  * A client auth handler that supports username and password.
  */
-public class BasicClientAuthHandler implements ClientAuthHandler {
+public final class BasicAuthCallCredentials extends CallCredentials {
 
   private final String name;
   private final String password;
-  private byte[] token = null;
 
-  public BasicClientAuthHandler(String name, String password) {
+  public BasicAuthCallCredentials(String name, String password) {
     this.name = name;
     this.password = password;
   }
 
   @Override
-  public void authenticate(ClientAuthSender outgoing, Iterator<byte[]> incoming) {
-    BasicAuth.Builder builder = BasicAuth.newBuilder();
-    if (name != null) {
-      builder.setUsername(name);
-    }
-
-    if (password != null) {
-      builder.setPassword(password);
-    }
-
-    outgoing.send(builder.build().toByteArray());
-    this.token = incoming.next();
+  public void applyRequestMetadata(RequestInfo requestInfo, Executor executor, MetadataApplier metadataApplier) {
+    final Metadata authMetadata = new Metadata();
+    // Basic authorization header is
+    // Authorization: Basic Base64(username:password)
+    final Metadata.Key<String> authorizationKey = Metadata.Key.of("Authorization", Metadata.ASCII_STRING_MARSHALLER);
+    authMetadata.put(authorizationKey, "Basic " +
+        Base64.getEncoder().encodeToString(String.format("%s:%s", name, password).getBytes(StandardCharsets.UTF_8)));
+    metadataApplier.apply(new Metadata());
   }
 
   @Override
-  public byte[] getCallToken() {
-    return token;
+  public void thisUsesUnstableApi() {
+    // Mandatory to override this to acknowledge that CallCredentials is Experimental.
   }
-
 }

@@ -23,7 +23,6 @@ import java.io.IOException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import org.apache.arrow.flight.auth.ServerAuthHandler;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.junit.Assert;
@@ -54,10 +53,8 @@ public class TestFlightGrpcUtils {
     //Defines flight service
     final BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
     final NoOpFlightProducer producer = new NoOpFlightProducer();
-    final ServerAuthHandler authHandler = ServerAuthHandler.NO_OP;
     final ExecutorService exec = Executors.newCachedThreadPool();
-    final BindableService flightBindingService = FlightGrpcUtils.createFlightService(allocator, producer,
-            authHandler, exec);
+    final BindableService flightBindingService = FlightGrpcUtils.createFlightService(allocator, producer, exec);
 
     //initializes server with 2 services - FlightBindingService & TestService
     final String serverName = InProcessServerBuilder.generateName();

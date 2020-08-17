@@ -26,8 +26,7 @@ import java.util.function.Consumer;
 import org.apache.arrow.flight.FlightProducer.ServerStreamListener;
 import org.apache.arrow.flight.FlightServerMiddleware.Key;
 import org.apache.arrow.flight.auth.AuthConstants;
-import org.apache.arrow.flight.auth.ServerAuthHandler;
-import org.apache.arrow.flight.auth.ServerAuthWrapper;
+import org.apache.arrow.flight.auth.ServerHandshakeWrapper;
 import org.apache.arrow.flight.grpc.ContextPropagatingExecutorService;
 import org.apache.arrow.flight.grpc.ServerInterceptorAdapter;
 import org.apache.arrow.flight.grpc.StatusUtils;
@@ -51,14 +50,11 @@ class FlightService extends FlightServiceImplBase {
 
   private final BufferAllocator allocator;
   private final FlightProducer producer;
-  private final ServerAuthHandler authHandler;
   private final ExecutorService executors;
 
-  FlightService(BufferAllocator allocator, FlightProducer producer, ServerAuthHandler authHandler,
-      ExecutorService executors) {
+  FlightService(BufferAllocator allocator, FlightProducer producer, ExecutorService executors) {
     this.allocator = allocator;
     this.producer = producer;
-    this.authHandler = authHandler;
     this.executors = new ContextPropagatingExecutorService(executors);
   }
 
@@ -68,7 +64,7 @@ class FlightService extends FlightServiceImplBase {
 
   @Override
   public StreamObserver<Flight.HandshakeRequest> handshake(StreamObserver<Flight.HandshakeResponse> responseObserver) {
-    return ServerAuthWrapper.wrapHandshake(authHandler, responseObserver, executors);
+    return ServerHandshakeWrapper.wrapHandshake(responseObserver, executors);
   }
 
   @Override

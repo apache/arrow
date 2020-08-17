@@ -35,7 +35,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 import org.apache.arrow.flight.auth.ServerAuthHandler;
-import org.apache.arrow.flight.auth.ServerAuthInterceptor;
+import org.apache.arrow.flight.auth.ServerAuthMiddleware;
 import org.apache.arrow.flight.grpc.ServerInterceptorAdapter;
 import org.apache.arrow.flight.grpc.ServerInterceptorAdapter.KeyFactory;
 import org.apache.arrow.memory.BufferAllocator;
@@ -45,7 +45,6 @@ import org.apache.arrow.util.VisibleForTesting;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 import io.grpc.Server;
-import io.grpc.ServerInterceptors;
 import io.grpc.netty.NettyServerBuilder;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.ServerChannel;
@@ -187,6 +186,10 @@ public class FlightServer implements AutoCloseable {
 
     /** Create the server for this builder. */
     public FlightServer build() {
+      // Add the auth middleware if applicable.
+      if (authHandler != ServerAuthHandler.NO_OP) {
+        this.middleware(FlightServerMiddleware.Key.of("Authentication"), new ServerAuthMiddleware.Factory(authHandler));
+      }
       final NettyServerBuilder builder;
       switch (location.getUri().getScheme()) {
         case LocationSchemes.GRPC_DOMAIN_SOCKET: {
@@ -250,14 +253,11 @@ public class FlightServer implements AutoCloseable {
             new ThreadFactoryBuilder().setNameFormat("flight-server-default-executor-%d").build());
         grpcExecutor = exec;
       }
-      final FlightBindingService flightService = new FlightBindingService(allocator, producer, authHandler, exec);
+      final FlightBindingService flightService = new FlightBindingService(allocator, producer, exec);
       builder
           .executor(exec)
           .maxInboundMessageSize(maxInboundMessageSize)
-          .addService(
-              ServerInterceptors.intercept(
-                  flightService,
-                  new ServerAuthInterceptor(authHandler)));
+          .addService(flightService);
 
       // Allow hooking into the gRPC builder. This is not guaranteed to be available on all Arrow versions or
       // Flight implementations.

@@ -20,7 +20,6 @@ package org.apache.arrow.flight;
 import java.util.Collections;
 import java.util.concurrent.ExecutorService;
 
-import org.apache.arrow.flight.auth.ServerAuthHandler;
 import org.apache.arrow.memory.BufferAllocator;
 
 import io.grpc.BindableService;
@@ -37,13 +36,12 @@ public class FlightGrpcUtils {
    * Creates a Flight service.
    * @param allocator Memory allocator
    * @param producer Specifies the service api
-   * @param authHandler Authentication handler
    * @param executor Executor service
    * @return FlightBindingService
    */
   public static BindableService createFlightService(BufferAllocator allocator, FlightProducer producer,
-                                                    ServerAuthHandler authHandler, ExecutorService executor) {
-    return new FlightBindingService(allocator, producer, authHandler, executor);
+                                                    ExecutorService executor) {
+    return new FlightBindingService(allocator, producer, executor);
   }
 
   /**
@@ -53,6 +51,6 @@ public class FlightGrpcUtils {
    * @return FlightClient
    */
   public static FlightClient createFlightClient(BufferAllocator incomingAllocator, ManagedChannel channel) {
-    return new FlightClient(incomingAllocator, channel, Collections.emptyList());
+    return new FlightClient(incomingAllocator, channel, Collections.emptyList(), null);
   }
 }
