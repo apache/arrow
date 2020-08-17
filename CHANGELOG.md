@@ -1,4 +1,49 @@
 
+# Apache Arrow 1.0.1 (2020-08-17)
+
+## Bug Fixes
+
+* [ARROW-9535](https://issues.apache.org/jira/browse/ARROW-9535) - [Python] Remove symlink fixes from conda recipe
+* [ARROW-9536](https://issues.apache.org/jira/browse/ARROW-9536) - Missing parameters in PlasmaOutOfMemoryException.java
+* [ARROW-9544](https://issues.apache.org/jira/browse/ARROW-9544) - [R] version argument of write\_parquet not working
+* [ARROW-9549](https://issues.apache.org/jira/browse/ARROW-9549) - [Rust] Parquet no longer builds
+* [ARROW-9556](https://issues.apache.org/jira/browse/ARROW-9556) - [Python][C++] Segfaults in UnionArray with null values
+* [ARROW-9560](https://issues.apache.org/jira/browse/ARROW-9560) - [Packaging] conda recipes failing due to missing conda-forge.yml
+* [ARROW-9569](https://issues.apache.org/jira/browse/ARROW-9569) - [CI][R] Fix rtools35 builds for msys2 key change
+* [ARROW-9570](https://issues.apache.org/jira/browse/ARROW-9570) - [Doc] Clean up sphinx sidebar
+* [ARROW-9573](https://issues.apache.org/jira/browse/ARROW-9573) - [Python] Parquet doesn't load when partitioned column starts with '\_'
+* [ARROW-9574](https://issues.apache.org/jira/browse/ARROW-9574) - [R] Cleanups for CRAN 1.0.0 release
+* [ARROW-9575](https://issues.apache.org/jira/browse/ARROW-9575) - [R] gcc-UBSAN failure on CRAN
+* [ARROW-9577](https://issues.apache.org/jira/browse/ARROW-9577) - [Python][C++] posix\_madvise error on Debian in pyarrow 1.0.0
+* [ARROW-9589](https://issues.apache.org/jira/browse/ARROW-9589) - [C++/R] arrow\_exports.h contains structs declared as class
+* [ARROW-9592](https://issues.apache.org/jira/browse/ARROW-9592) - [CI] Update homebrew before calling brew bundle
+* [ARROW-9596](https://issues.apache.org/jira/browse/ARROW-9596) - [CI][Crossbow] Fix homebrew-cpp again, again
+* [ARROW-9598](https://issues.apache.org/jira/browse/ARROW-9598) - [C++][Parquet]  Spaced definition levels is not assigned correctly.
+* [ARROW-9599](https://issues.apache.org/jira/browse/ARROW-9599) - [CI] Appveyor toolchain build fails because CMake detects different C and C++ compilers
+* [ARROW-9600](https://issues.apache.org/jira/browse/ARROW-9600) - [Rust] When used as a crate dependency, arrow-flight is rebuilt on every invocation of cargo build
+* [ARROW-9600](https://issues.apache.org/jira/browse/ARROW-9600) - [Rust] When used as a crate dependency, arrow-flight is rebuilt on every invocation of cargo build
+* [ARROW-9602](https://issues.apache.org/jira/browse/ARROW-9602) - [R] Improve cmake detection in Linux build
+* [ARROW-9606](https://issues.apache.org/jira/browse/ARROW-9606) - [C++][Dataset] in expressions don't work with \>1 partition levels
+* [ARROW-9609](https://issues.apache.org/jira/browse/ARROW-9609) - [C++] CSV datasets don't materialize virtual columns
+* [ARROW-9621](https://issues.apache.org/jira/browse/ARROW-9621) - [Python] test\_move\_file() is failed with fsspec 0.8.0
+* [ARROW-9631](https://issues.apache.org/jira/browse/ARROW-9631) - [Rust] Arrow crate should not depend on flight
+* [ARROW-9631](https://issues.apache.org/jira/browse/ARROW-9631) - [Rust] Arrow crate should not depend on flight
+* [ARROW-9644](https://issues.apache.org/jira/browse/ARROW-9644) - [C++][Dataset] Do not check for ignore\_prefixes in the base path
+* [ARROW-9659](https://issues.apache.org/jira/browse/ARROW-9659) - [C++] RecordBatchStreamReader throws on CUDA device buffers
+* [ARROW-9684](https://issues.apache.org/jira/browse/ARROW-9684) - [C++] Fix undefined behaviour on invalid IPC / Parquet input (OSS-Fuzz)
+* [ARROW-9700](https://issues.apache.org/jira/browse/ARROW-9700) - [Python] create\_library\_symlinks doesn't work in macos
+* [ARROW-9712](https://issues.apache.org/jira/browse/ARROW-9712) - [Rust] [DataFusion] ParquetScanExec panics on error
+* [ARROW-9743](https://issues.apache.org/jira/browse/ARROW-9743) - [R] Sanitize paths in open\_dataset
+
+
+## New Features and Improvements
+
+* [ARROW-9402](https://issues.apache.org/jira/browse/ARROW-9402) - [C++] Add portable wrappers for \_\_builtin\_add\_overflow and friends
+* [ARROW-9563](https://issues.apache.org/jira/browse/ARROW-9563) - [Dev][Release] Use archery's changelog generator when creating release notes for the website 
+* [ARROW-9715](https://issues.apache.org/jira/browse/ARROW-9715) - [R] changelog/doc updates for 1.0.1
+
+
+
 # Apache Arrow 1.0.0 (2020-07-20)
 
 ## Bug Fixes
