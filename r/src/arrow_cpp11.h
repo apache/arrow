@@ -232,8 +232,8 @@ SEXP as_sexp(const std::vector<std::shared_ptr<T>>& vec) {
   return arrow::r::to_r_list(vec);
 }
 
-template <typename E, typename std::enable_if<std::is_enum<E>::value>::type*>
-SEXP as_sexp(E e) {
+template <typename E>
+enable_if_enum<E, SEXP> as_sexp(E e) {
   return as_sexp(static_cast<int>(e));
 }
 
