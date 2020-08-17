@@ -1579,6 +1579,35 @@ TEST_F(TestDoPut, DoPutSizeLimit) {
   CheckBatches(descr, batches);
 }
 
+// Ensure that if Close() is called with an ongoing read, we properly
+// error and don't lock up
+TEST_F(TestDoPut, CloseWithRead) {
+  // Sending and receiving a 0-sized batch shouldn't fail
+  auto descr = FlightDescriptor::Path({"ints"});
+  BatchVector batches;
+  auto a1 = ArrayFromJSON(int32(), "[]");
+  auto schema = arrow::schema({field("f1", a1->type())});
+  batches.push_back(RecordBatch::Make(schema, a1->length(), {a1}));
+
+  std::unique_ptr<FlightStreamWriter> stream;
+  std::unique_ptr<FlightMetadataReader> reader;
+  ASSERT_OK(client_->DoPut(descr, schema, &stream, &reader));
+
+  std::thread consumer([&]() {
+    std::shared_ptr<Buffer> buf;
+    ASSERT_OK(reader->ReadMetadata(&buf));
+  });
+  auto status = stream->Close();
+  ASSERT_RAISES(IOError, status);
+  ASSERT_THAT(status.message(),
+              ::testing::HasSubstr("Cannot close stream with pending read"));
+  // Signal to the server that we're done writing, which will unblock
+  // the reader thread
+  ASSERT_OK(stream->DoneWriting());
+  consumer.join();
+  ASSERT_OK(stream->Close());
+}
+
 TEST_F(TestAuthHandler, PassAuthenticatedCalls) {
   ASSERT_OK(client_->Authenticate(
       {},

@@ -212,10 +212,10 @@ class FinishableWritableStream : public FinishableStream<Stream, ReadT> {
     // outstanding read.
     std::unique_lock<std::mutex> read_guard(*read_mutex_, std::try_to_lock);
     if (!read_guard.owns_lock()) {
-      return Finish(MakeFlightError(
+      return MakeFlightError(
           FlightStatusCode::Internal,
           "Cannot close stream with pending read operation. Client context: " +
-              st.ToString()));
+              st.ToString());
     }
 
     // Try to flush pending writes. Don't use our WritesDone() to
