@@ -126,7 +126,7 @@ class ARROW_EXPORT DenseUnionBuilder : public BasicUnionBuilder {
     return child_builder->AppendEmpty();
   }
 
-  Status AppendEmpties(int64_t length) {
+  Status AppendEmpties(int64_t length) final {
     const int8_t first_child_code = type_codes_[0];
     ArrayBuilder* child_builder = type_id_to_children_[first_child_code];
     ARROW_RETURN_NOT_OK(types_builder_.Append(length, first_child_code));
@@ -206,7 +206,7 @@ class ARROW_EXPORT SparseUnionBuilder : public BasicUnionBuilder {
     return Status::OK();
   }
 
-  Status AppendEmpties(int64_t length) {
+  Status AppendEmpties(int64_t length) final {
     ARROW_RETURN_NOT_OK(types_builder_.Append(length, type_codes_[0]));
     for (int8_t code : type_codes_) {
       ARROW_RETURN_NOT_OK(type_id_to_children_[code]->AppendEmpties(length));

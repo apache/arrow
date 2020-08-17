@@ -261,14 +261,14 @@ class DictionaryBuilderBase : public ArrayBuilder {
     return indices_builder_.AppendNulls(length);
   }
 
-  Status AppendEmpty() {
+  Status AppendEmpty() final {
     length_ += 1;
     null_count_ += 1;
 
     return indices_builder_.AppendEmpty();
   }
 
-  Status AppendEmpties(int64_t length) {
+  Status AppendEmpties(int64_t length) final {
     length_ += length;
     null_count_ += length;
 
