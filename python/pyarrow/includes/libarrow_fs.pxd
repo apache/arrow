@@ -130,11 +130,17 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         c_string endpoint_override
         c_string scheme
         c_bool background_writes
+        c_string role_arn
+        c_string session_name
+        c_string external_id
+        int load_frequency
         void ConfigureDefaultCredentials()
         void ConfigureAccessKey(const c_string& access_key,
-                                const c_string& secret_key)
+                                const c_string& secret_key,
+                                const c_string& session_token)
         c_string GetAccessKey()
         c_string GetSecretKey()
+        c_string GetSessionToken()
         c_bool Equals(const CS3Options& other)
 
         @staticmethod
@@ -145,7 +151,14 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
 
         @staticmethod
         CS3Options FromAccessKey(const c_string& access_key,
-                                 const c_string& secret_key)
+                                 const c_string& secret_key,
+                                 const c_string& session_token)
+
+        @staticmethod
+        CS3Options FromAssumeRole(const c_string& role_arn,
+                                  const c_string& session_name,
+                                  const c_string& external_id,
+                                  const int load_frequency)
 
     cdef cppclass CS3FileSystem "arrow::fs::S3FileSystem"(CFileSystem):
         @staticmethod

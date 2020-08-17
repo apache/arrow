@@ -29,8 +29,12 @@ namespace Aws {
 namespace Auth {
 
 class AWSCredentialsProvider;
+class STSAssumeRoleCredentialsProvider;
 
 }  // namespace Auth
+namespace STS {
+class STSClient;
+}
 }  // namespace Aws
 
 namespace arrow {
@@ -49,6 +53,15 @@ struct ARROW_EXPORT S3Options {
   /// S3 connection transport, default "https"
   std::string scheme = "https";
 
+  /// ARN of role to assume
+  std::string role_arn;
+  /// Optional identifier for an assumed role session.
+  std::string session_name;
+  /// Optional external idenitifer to pass to STS when assuming a role
+  std::string external_id;
+  /// Frequency (in seconds) to refresh temporary credentials from assumed role
+  int load_frequency;
+
   /// AWS credentials provider
   std::shared_ptr<Aws::Auth::AWSCredentialsProvider> credentials_provider;
 
@@ -62,10 +75,18 @@ struct ARROW_EXPORT S3Options {
   void ConfigureAnonymousCredentials();
 
   /// Configure with explicit access and secret key.
-  void ConfigureAccessKey(const std::string& access_key, const std::string& secret_key);
+  void ConfigureAccessKey(const std::string& access_key, const std::string& secret_key,
+                          const std::string& session_token = "");
+
+  /// Configure with credentials from an assumed role.
+  void ConfigureAssumeRoleCredentials(
+      const std::string& role_arn, const std::string& session_name = "",
+      const std::string& external_id = "", int load_frequency = 900,
+      const std::shared_ptr<Aws::STS::STSClient>& stsClient = NULLPTR);
 
   std::string GetAccessKey() const;
   std::string GetSecretKey() const;
+  std::string GetSessionToken() const;
 
   bool Equals(const S3Options& other) const;
 
@@ -78,10 +99,18 @@ struct ARROW_EXPORT S3Options {
   ///
   /// This will only let you access public buckets.
   static S3Options Anonymous();
-  /// \brief Initialize with explicit access and secret key
+  /// \brief Initialize with explicit access and secret key.
+  ///
+  /// Optionally, a session token may also be provided for temporary credentials
+  /// (from STS).
   static S3Options FromAccessKey(const std::string& access_key,
-                                 const std::string& secret_key);
-
+                                 const std::string& secret_key,
+                                 const std::string& session_token = "");
+  /// \brief Initialize from an assumed role.
+  static S3Options FromAssumeRole(
+      const std::string& role_arn, const std::string& session_name = "",
+      const std::string& external_id = "", int load_frequency = 900,
+      const std::shared_ptr<Aws::STS::STSClient>& stsClient = NULLPTR);
   static Result<S3Options> FromUri(const ::arrow::internal::Uri& uri,
                                    std::string* out_path = NULLPTR);
   static Result<S3Options> FromUri(const std::string& uri,
