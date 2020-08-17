@@ -29,9 +29,6 @@ SEXP as_sexp(const std::shared_ptr<T>& ptr);
 template <typename T>
 SEXP as_sexp(const std::vector<std::shared_ptr<T>>& vec);
 
-template <typename E, typename std::enable_if<std::is_enum<E>::value>::type* = nullptr>
-SEXP as_sexp(E e);
-
 }  // namespace cpp11
 
 #include <cpp11.hpp>
