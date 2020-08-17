@@ -195,14 +195,14 @@ double Decimal128::ToDouble(int32_t scale) const {
 template <size_t n>
 static void AppendLittleEndianArrayToString(const std::array<uint64_t, n>& array,
                                             std::string* result) {
-  auto most_significat_non_zero =
+  const auto most_significant_non_zero =
       find_if(array.rbegin(), array.rend(), [](uint64_t v) { return v != 0; });
-  if (most_significat_non_zero == array.rend()) {
+  if (most_significant_non_zero == array.rend()) {
     result->push_back('0');
     return;
   }
 
-  size_t most_significant_elem_idx = &*most_significat_non_zero - array.data();
+  size_t most_significant_elem_idx = &*most_significant_non_zero - array.data();
   std::array<uint64_t, n> copy = array;
   constexpr uint32_t k1e9 = 1000000000U;
   constexpr size_t kNumBits = n * 64;
@@ -243,12 +243,14 @@ static void AppendLittleEndianArrayToString(const std::array<uint64_t, n>& array
   char* output = &result->at(old_size);
   const uint32_t* segment = &segments[num_segments - 1];
   internal::StringFormatter<UInt32Type> format;
+  // First segment is formatted as-is.
   format(*segment, [&output](util::string_view formatted) {
     memcpy(output, formatted.data(), formatted.size());
     output += formatted.size();
   });
   while (segment != segments.data()) {
     --segment;
+    // Right-pad formatted segment such that e.g. 123 is formatted as "000000123".
     output += 9;
     format(*segment, [output](util::string_view formatted) {
       memcpy(output - formatted.size(), formatted.data(), formatted.size());

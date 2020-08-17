@@ -21,6 +21,7 @@
 #include <vector>
 
 #include "arrow/util/decimal.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 
 namespace arrow {
@@ -46,8 +47,8 @@ static std::vector<DecimalValueAndScale> GetDecimalValuesAndScales() {
   std::vector<DecimalValueAndScale> result(value_strs.size());
   for (size_t i = 0; i < value_strs.size(); ++i) {
     int32_t precision;
-    Decimal128::FromString(value_strs[i], &result[i].decimal, &result[i].scale,
-                           &precision);
+    ARROW_CHECK_OK(Decimal128::FromString(value_strs[i], &result[i].decimal,
+                                          &result[i].scale, &precision));
   }
   return result;
 }
