@@ -37,7 +37,7 @@ use crate::execution::dataframe_impl::DataFrameImpl;
 use crate::execution::physical_plan::common;
 use crate::execution::physical_plan::csv::CsvReadOptions;
 use crate::execution::physical_plan::merge::MergeExec;
-use crate::execution::physical_plan::planner::PhysicalPlannerImpl;
+use crate::execution::physical_plan::planner::DefaultPhysicalPlanner;
 use crate::execution::physical_plan::scalar_functions;
 use crate::execution::physical_plan::udf::ScalarFunction;
 use crate::execution::physical_plan::ExecutionPlan;
@@ -361,7 +361,7 @@ impl ExecutionContext {
     ) -> Result<Arc<dyn ExecutionPlan>> {
         let planner: Arc<dyn PhysicalPlanner> = match self.config().physical_planner {
             Some(planner) => planner,
-            None => Arc::new(PhysicalPlannerImpl::default()),
+            None => Arc::new(DefaultPhysicalPlanner::default()),
         };
         planner.create_physical_plan(logical_plan, self.state.clone())
     }

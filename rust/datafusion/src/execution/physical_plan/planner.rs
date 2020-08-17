@@ -43,17 +43,18 @@ use crate::logicalplan::{Expr, LogicalPlan, PlanType, StringifiedPlan};
 use arrow::compute::SortOptions;
 use arrow::datatypes::Schema;
 
-/// Default physical query planner
-pub struct PhysicalPlannerImpl {}
+/// Default single node physical query planner that converts a
+/// `LogicalPlan` to an `ExecutionPlan` suitable for execution.
+pub struct DefaultPhysicalPlanner {}
 
-impl Default for PhysicalPlannerImpl {
+impl Default for DefaultPhysicalPlanner {
     /// Create an implementation of the physical planner
     fn default() -> Self {
         Self {}
     }
 }
 
-impl PhysicalPlanner for PhysicalPlannerImpl {
+impl PhysicalPlanner for DefaultPhysicalPlanner {
     /// Create a physical plan from a logical plan
     fn create_physical_plan(
         &self,
@@ -326,7 +327,7 @@ impl PhysicalPlanner for PhysicalPlannerImpl {
     }
 }
 
-impl PhysicalPlannerImpl {
+impl DefaultPhysicalPlanner {
     /// Create a physical expression from a logical expression
     pub fn create_physical_expr(
         &self,
