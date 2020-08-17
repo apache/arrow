@@ -19,6 +19,8 @@ package org.apache.arrow.flight;
 
 import java.util.Objects;
 
+import io.grpc.Context;
+
 /**
  * Server-side middleware for Flight calls.
  *
@@ -70,6 +72,10 @@ public interface FlightServerMiddleware {
     public static <T extends FlightServerMiddleware> Key<T> of(String key) {
       return new Key<>(key);
     }
+  }
+
+  default Context onAuthenticationSuccess(Context currentContext) {
+    return currentContext;
   }
 
   /**

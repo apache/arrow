@@ -18,8 +18,6 @@
 package org.apache.arrow.flight.auth;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
 import java.util.Optional;
 
 import org.apache.arrow.flight.Criteria;
@@ -50,15 +48,17 @@ public class TestBasicAuth {
 
   private static final String USERNAME = "flight";
   private static final String PASSWORD = "woohoo";
-  private static final byte[] VALID_TOKEN = "my_token".getBytes(StandardCharsets.UTF_8);
+  private static final String VALID_TOKEN = "my_token";
 
+  private FlightClient.Builder clientBuilder;
   private FlightClient client;
   private FlightServer server;
   private BufferAllocator allocator;
 
   @Test
   public void validAuth() {
-    client.authenticateBasic(USERNAME, PASSWORD);
+    client = clientBuilder.callCredentials(new BasicAuthCallCredentials(USERNAME, PASSWORD)).build();
+    client.handshake();
     Assert.assertTrue(ImmutableList.copyOf(client.listFlights(Criteria.ALL)).size() == 0);
   }
 
@@ -66,7 +66,8 @@ public class TestBasicAuth {
   @Ignore
   @Test
   public void asyncCall() throws Exception {
-    client.authenticateBasic(USERNAME, PASSWORD);
+    client = clientBuilder.callCredentials(new BasicAuthCallCredentials(USERNAME, PASSWORD)).build();
+    client.handshake();
     client.listFlights(Criteria.ALL);
     try (final FlightStream s = client.getStream(new Ticket(new byte[1]))) {
       while (s.next()) {
@@ -78,7 +79,8 @@ public class TestBasicAuth {
   @Test
   public void invalidAuth() {
     FlightTestUtil.assertCode(FlightStatusCode.UNAUTHENTICATED, () -> {
-      client.authenticateBasic(USERNAME, "WRONG");
+      client = clientBuilder.callCredentials(new BasicAuthCallCredentials(USERNAME, "WRONG")).build();
+      client.handshake();
     });
 
     FlightTestUtil.assertCode(FlightStatusCode.UNAUTHENTICATED, () -> {
@@ -89,6 +91,7 @@ public class TestBasicAuth {
   @Test
   public void didntAuth() {
     FlightTestUtil.assertCode(FlightStatusCode.UNAUTHENTICATED, () -> {
+      client = clientBuilder.build();
       client.listFlights(Criteria.ALL).forEach(action -> Assert.fail());
     });
   }
@@ -99,20 +102,20 @@ public class TestBasicAuth {
     final BasicServerAuthHandler.BasicAuthValidator validator = new BasicServerAuthHandler.BasicAuthValidator() {
 
       @Override
-      public Optional<String> isValid(byte[] token) {
-        if (Arrays.equals(token, VALID_TOKEN)) {
-          return Optional.of(USERNAME);
-        }
-        return Optional.empty();
-      }
-
-      @Override
-      public byte[] getToken(String username, String password) {
+      public Optional<String> validateCredentials(String username, String password) throws Exception {
         if (USERNAME.equals(username) && PASSWORD.equals(password)) {
-          return VALID_TOKEN;
+          return Optional.of(VALID_TOKEN);
         } else {
           throw new IllegalArgumentException("invalid credentials");
         }
+      }
+
+      @Override
+      public Optional<String> isValid(String token) {
+        if (token.equals(VALID_TOKEN)) {
+          return Optional.of(USERNAME);
+        }
+        return Optional.empty();
       }
     };
 
@@ -147,7 +150,7 @@ public class TestBasicAuth {
             }
           }
         }).authHandler(new BasicServerAuthHandler(validator)).build());
-    client = FlightClient.builder(allocator, server.getLocation()).build();
+    clientBuilder = FlightClient.builder(allocator, server.getLocation());
   }
 
   @After

@@ -41,5 +41,5 @@ interface Scenario {
   /**
    * Run as the client in the scenario.
    */
-  void client(BufferAllocator allocator, Location location, FlightClient client) throws Exception;
+  void client(BufferAllocator allocator, Location location, FlightClient.Builder client) throws Exception;
 }

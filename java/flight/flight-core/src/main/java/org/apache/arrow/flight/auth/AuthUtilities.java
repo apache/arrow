@@ -17,39 +17,31 @@
 
 package org.apache.arrow.flight.auth;
 
-import java.util.Iterator;
+import org.apache.arrow.flight.CallHeaders;
 
 /**
- * Implement authentication for Flight on the client side.
+ * Utility class for completing the auth process.
  */
-public interface ClientAuthHandler {
-  /**
-   * Handle the initial handshake with the server.
-   * @param outgoing A channel to send data to the server.
-   * @param incoming An iterator of incoming data from the server.
-   */
-  void authenticate(ClientAuthSender outgoing, Iterator<byte[]> incoming);
+public final class AuthUtilities {
+  private AuthUtilities() {
+
+  }
 
   /**
-   * Get the per-call authentication token.
+   * Helper method for retrieving a value from the Authorization header.
+   *
+   * @param headers     The headers to inspect.
+   * @param valuePrefix The prefix within the value portion of the header to extract away.
+   * @return The header value.
    */
-  byte[] getCallToken();
-
-  /**
-   * A communication channel to the server during initial connection.
-   */
-  interface ClientAuthSender {
-
-    /**
-     * Send the server a message.
-     */
-    void send(byte[] payload);
-
-    /**
-     * Signal an error to the server and abort the authentication attempt.
-     */
-    void onError(Throwable cause);
-
+  public static String getValueFromAuthHeader(CallHeaders headers, String valuePrefix) {
+    final String authHeaderValue = headers.get(AuthConstants.AUTHORIZATION_HEADER);
+    if (authHeaderValue != null) {
+      if (authHeaderValue.regionMatches(true, 0, valuePrefix, 0, valuePrefix.length())) {
+        return authHeaderValue.substring(valuePrefix.length());
+      }
+    }
+    return null;
   }
 
 }

@@ -69,9 +69,11 @@ final class MiddlewareScenario implements Scenario {
   }
 
   @Override
-  public void client(BufferAllocator allocator, Location location, FlightClient ignored) throws Exception {
+  public void client(BufferAllocator allocator, Location location,
+                             FlightClient.Builder ignored) throws Exception {
     final ExtractingClientMiddleware.Factory factory = new ExtractingClientMiddleware.Factory();
-    try (final FlightClient client = FlightClient.builder(allocator, location).intercept(factory).build()) {
+    try (final FlightClient client =
+             FlightClient.builder(allocator, location).intercept(factory).build()) {
       // Should fail immediately
       IntegrationAssertions.assertThrows(FlightRuntimeException.class,
           () -> client.getInfo(FlightDescriptor.command(new byte[0])));

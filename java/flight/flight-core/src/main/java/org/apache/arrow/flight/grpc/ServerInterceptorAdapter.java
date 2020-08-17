@@ -87,10 +87,12 @@ public class ServerInterceptorAdapter implements ServerInterceptor {
     // Use LinkedHashMap to preserve insertion order
     final Map<FlightServerMiddleware.Key<?>, FlightServerMiddleware> middlewareMap = new LinkedHashMap<>();
     final MetadataAdapter headerAdapter = new MetadataAdapter(headers);
+    Context currentContext = Context.current();
     for (final KeyFactory<?> factory : factories) {
       final FlightServerMiddleware m;
       try {
         m = factory.factory.onCallStarted(info, headerAdapter);
+        currentContext = m.onAuthenticationSuccess(currentContext);
       } catch (FlightRuntimeException e) {
         // Cancel call
         call.close(StatusUtils.toGrpcStatus(e.status()), new Metadata());
@@ -101,7 +103,7 @@ public class ServerInterceptorAdapter implements ServerInterceptor {
     }
 
     // Inject the middleware into the context so RPC method implementations can communicate with middleware instances
-    final Context contextWithMiddleware = Context.current().withValue(SERVER_MIDDLEWARE_KEY,
+    final Context contextWithMiddleware = currentContext.withValue(SERVER_MIDDLEWARE_KEY,
         Collections.unmodifiableMap(middlewareMap));
 
     final SimpleForwardingServerCall<ReqT, RespT> forwardingServerCall = new SimpleForwardingServerCall<ReqT, RespT>(

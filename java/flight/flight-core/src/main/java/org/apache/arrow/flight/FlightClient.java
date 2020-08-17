@@ -29,10 +29,8 @@ import java.util.function.BooleanSupplier;
 import javax.net.ssl.SSLException;
 
 import org.apache.arrow.flight.FlightProducer.StreamListener;
-import org.apache.arrow.flight.auth.BasicClientAuthHandler;
-import org.apache.arrow.flight.auth.ClientAuthHandler;
-import org.apache.arrow.flight.auth.ClientAuthInterceptor;
-import org.apache.arrow.flight.auth.ClientAuthWrapper;
+import org.apache.arrow.flight.auth.ClientBearerTokenMiddleware;
+import org.apache.arrow.flight.auth.ClientHandshakeWrapper;
 import org.apache.arrow.flight.grpc.ClientInterceptorAdapter;
 import org.apache.arrow.flight.grpc.StatusUtils;
 import org.apache.arrow.flight.impl.Flight;
@@ -46,9 +44,9 @@ import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.dictionary.DictionaryProvider.MapDictionaryProvider;
 
+import io.grpc.CallCredentials;
 import io.grpc.Channel;
 import io.grpc.ClientCall;
-import io.grpc.ClientInterceptor;
 import io.grpc.ClientInterceptors;
 import io.grpc.ManagedChannel;
 import io.grpc.MethodDescriptor;
@@ -76,7 +74,6 @@ public class FlightClient implements AutoCloseable {
   private final Channel interceptedChannel;
   private final FlightServiceBlockingStub blockingStub;
   private final FlightServiceStub asyncStub;
-  private final ClientAuthInterceptor authInterceptor = new ClientAuthInterceptor();
   private final MethodDescriptor<Flight.Ticket, ArrowMessage> doGetDescriptor;
   private final MethodDescriptor<ArrowMessage, Flight.PutResult> doPutDescriptor;
   private final MethodDescriptor<ArrowMessage, ArrowMessage> doExchangeDescriptor;
@@ -85,18 +82,15 @@ public class FlightClient implements AutoCloseable {
    * Create a Flight client from an allocator and a gRPC channel.
    */
   FlightClient(BufferAllocator incomingAllocator, ManagedChannel channel,
-      List<FlightClientMiddleware.Factory> middleware) {
+      List<FlightClientMiddleware.Factory> middleware, CallCredentials callCredentials) {
     this.allocator = incomingAllocator.newChildAllocator("flight-client", 0, Long.MAX_VALUE);
     this.channel = channel;
 
-    final ClientInterceptor[] interceptors;
-    interceptors = new ClientInterceptor[]{authInterceptor, new ClientInterceptorAdapter(middleware)};
-
     // Create a channel with interceptors pre-applied for DoGet and DoPut
-    this.interceptedChannel = ClientInterceptors.intercept(channel, interceptors);
+    this.interceptedChannel = ClientInterceptors.intercept(channel, new ClientInterceptorAdapter(middleware));
 
-    blockingStub = FlightServiceGrpc.newBlockingStub(interceptedChannel);
-    asyncStub = FlightServiceGrpc.newStub(interceptedChannel);
+    blockingStub = FlightServiceGrpc.newBlockingStub(interceptedChannel).withCallCredentials(callCredentials);
+    asyncStub = FlightServiceGrpc.newStub(interceptedChannel).withCallCredentials(callCredentials);
     doGetDescriptor = FlightBindingService.getDoGetDescriptor(allocator);
     doPutDescriptor = FlightBindingService.getDoPutDescriptor(allocator);
     doExchangeDescriptor = FlightBindingService.getDoExchangeDescriptor(allocator);
@@ -157,23 +151,12 @@ public class FlightClient implements AutoCloseable {
   }
 
   /**
-   * Authenticates with a username and password.
-   */
-  public void authenticateBasic(String username, String password) {
-    BasicClientAuthHandler basicClient = new BasicClientAuthHandler(username, password);
-    authenticate(basicClient);
-  }
-
-  /**
-   * Authenticates against the Flight service.
+   * Executes the handshake against the Flight service.
    *
    * @param options RPC-layer hints for this call.
-   * @param handler The auth mechanism to use.
    */
-  public void authenticate(ClientAuthHandler handler, CallOption... options) {
-    Preconditions.checkArgument(!authInterceptor.hasAuthHandler(), "Auth already completed.");
-    ClientAuthWrapper.doClientAuth(handler, CallOptions.wrapStub(asyncStub, options));
-    authInterceptor.setAuthHandler(handler);
+  public void handshake(CallOption... options) {
+    ClientHandshakeWrapper.doClientHandshake(CallOptions.wrapStub(asyncStub, options));
   }
 
   /**
@@ -381,6 +364,9 @@ public class FlightClient implements AutoCloseable {
     }
   }
 
+  /**
+   * A stream observer for Flight.PutResult
+   */
   private static class SetStreamObserver implements StreamObserver<Flight.PutResult> {
     private final BufferAllocator allocator;
     private final StreamListener<PutResult> listener;
@@ -679,7 +665,7 @@ public class FlightClient implements AutoCloseable {
       builder
           .maxTraceEvents(MAX_CHANNEL_TRACE_EVENTS)
           .maxInboundMessageSize(maxInboundMessageSize);
-      return new FlightClient(allocator, builder.build(), middleware);
+      return new FlightClient(allocator, builder.build(), middleware, callCredentials);
     }
   }
 }
