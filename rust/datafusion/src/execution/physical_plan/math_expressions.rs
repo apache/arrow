@@ -124,10 +124,7 @@ mod tests {
         let plan = ctx.optimize(&plan)?;
 
         assert_eq!(
-            *plan
-                .schema()
-                .field_with_name("sqrt(CAST(c0 as Float32))")?
-                .data_type(),
+            *plan.schema().field_with_name("sqrt(c0)")?.data_type(),
             DataType::Float32
         );
 

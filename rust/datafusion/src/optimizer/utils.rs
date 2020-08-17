@@ -19,9 +19,10 @@
 
 use std::collections::HashSet;
 
-use arrow::datatypes::{DataType, Schema};
+use arrow::datatypes::{DataType, Field, Schema};
 
 use super::optimizer::OptimizerRule;
+use crate::datatyped::DataTyped;
 use crate::error::{ExecutionError, Result};
 use crate::logicalplan::{Expr, LogicalPlan, PlanType, StringifiedPlan};
 
@@ -269,7 +270,21 @@ pub fn from_plan(
         LogicalPlan::Projection { schema, .. } => Ok(LogicalPlan::Projection {
             expr: expr.clone(),
             input: Box::new(inputs[0].clone()),
-            schema: schema.clone(),
+            // new expressions may have a different type, which changes the resulting schema
+            schema: Box::new(Schema::new(
+                schema
+                    .fields()
+                    .iter()
+                    .enumerate()
+                    .map(|(i, f)| {
+                        Ok(Field::new(
+                            f.name(),
+                            expr[i].get_type(inputs[0].schema())?,
+                            f.is_nullable(),
+                        ))
+                    })
+                    .collect::<Result<Vec<_>>>()?,
+            )),
         }),
         LogicalPlan::Selection { .. } => Ok(LogicalPlan::Selection {
             expr: expr[0].clone(),
