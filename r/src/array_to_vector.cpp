@@ -491,6 +491,8 @@ class Converter_Dictionary : public Converter {
     return data;
   }
 
+  virtual bool Parallel() const { return false; }
+
   Status Ingest_all_nulls(SEXP data, R_xlen_t start, R_xlen_t n) const {
     std::fill_n(INTEGER(data) + start, n, NA_INTEGER);
     return Status::OK();
@@ -584,10 +586,9 @@ class Converter_Dictionary : public Converter {
     // Alternative: preserve the logical type of the dictionary values
     // (e.g. if dict is timestamp, return a POSIXt R vector, not factor)
     if (dictionary_->type_id() != Type::STRING) {
-      cpp11::warning(
-          "Coercing dictionary values from type %s to R character factor levels",
-          dictionary_->type()->ToString().c_str());
+      cpp11::warning("Coercing dictionary values to R character factor levels");
     }
+
     SEXP vec = PROTECT(ArrayVector__as_vector(dictionary_->length(), dictionary_->type(),
                                               {dictionary_}));
     SEXP strings_vec = PROTECT(Rf_coerceVector(vec, STRSXP));

@@ -726,8 +726,7 @@ test_that("Dictionary array: translate to R when dict isn't string", {
     expect_identical(
       as.vector(a),
       factor(c(3, 2, 2, 3, 1), labels = c("4.5", "3.2", "1.1"))
-    ),
-    "Coercing dictionary values from type double to R character factor levels"
+    )
   )
 })
 
