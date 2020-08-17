@@ -1082,7 +1082,7 @@ class StringVectorConverter : public VectorConverter {
     // note: the total length is calculated without utf8
     //       conversion, so see this more as a hint rather than
     //       the actual total length
-    auto total_length_hint = 0;
+    int64_t total_length_hint = 0;
     for (cpp11::r_string si : s) {
       total_length_hint += cpp11::is_na(si) ? 0 : si.size();
     }
