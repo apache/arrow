@@ -408,7 +408,6 @@ std::shared_ptr<Array> MakeFactorArray(cpp11::integers factor,
 
   cpp11::stop("Cannot convert to dictionary with index_type '%s'",
               dict_type.index_type()->ToString().c_str());
-  return nullptr;
 }
 
 std::shared_ptr<Array> MakeStructArray(SEXP df, const std::shared_ptr<DataType>& type) {
@@ -1200,7 +1199,6 @@ std::shared_ptr<arrow::DataType> InferArrowTypeFromVector<ENVSXP>(SEXP x) {
   }
 
   cpp11::stop("Unrecognized vector instance for type ENVSXP");
-  return nullptr;
 }
 
 template <>
@@ -1337,7 +1335,6 @@ std::shared_ptr<arrow::DataType> InferArrowType(SEXP x) {
   }
 
   cpp11::stop("Cannot infer type from vector");
-  return nullptr;
 }
 
 // in some situations we can just use the memory of the R object in an RBuffer
@@ -1420,7 +1417,6 @@ std::shared_ptr<arrow::Array> Array__from_vector_reuse_memory(SEXP x) {
   }
 
   cpp11::stop("Unreachable: you might need to fix can_reuse_memory()");
-  return nullptr;
 }
 
 bool CheckCompatibleFactor(SEXP obj, const std::shared_ptr<arrow::DataType>& type) {

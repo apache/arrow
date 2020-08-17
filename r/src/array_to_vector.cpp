@@ -1106,7 +1106,6 @@ std::shared_ptr<Converter> Converter::Make(const std::shared_ptr<DataType>& type
   }
 
   cpp11::stop("cannot handle Array of type ", type->name().c_str());
-  return nullptr;
 }
 
 cpp11::writable::list to_dataframe_serial(

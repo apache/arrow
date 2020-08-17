@@ -52,9 +52,9 @@ std::shared_ptr<arrow::Buffer> r___RBuffer__initialize(SEXP x) {
     // case CPLXSXP:
     //   return std::make_shared<arrow::r::RBuffer<CPLXSXP, cpp11::c>>(x);
     default:
-      cpp11::stop("R object of type <%s> not supported", Rf_type2char(TYPEOF(x)));
+      break;
   }
-  return nullptr;
+  cpp11::stop("R object of type <%s> not supported", Rf_type2char(TYPEOF(x)));
 }
 
 // [[arrow::export]]
