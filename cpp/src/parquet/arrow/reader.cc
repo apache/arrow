@@ -173,7 +173,7 @@ class FileReaderImpl : public FileReader {
     ctx->iterator_factory = SomeRowGroupsFactory(row_groups);
     ctx->filter_leaves = true;
     ctx->included_leaves = included_leaves;
-    return GetReader(manifest_.schema_fields[i], ctx, out);
+    return GetReader(manifest_.schema_fields[i], ctx, reader_properties_, out);
   }
 
   Status GetFieldReaders(const std::vector<int>& column_indices,
@@ -682,6 +682,7 @@ Status StructReader::NextBatch(int64_t records_to_read,
 // File reader implementation
 
 Status GetReader(const SchemaField& field, const std::shared_ptr<ReaderContext>& ctx,
+                 const ArrowReaderProperties& properties,
                  std::unique_ptr<ColumnReaderImpl>* out) {
   BEGIN_PARQUET_CATCH_EXCEPTIONS
 
@@ -693,6 +694,8 @@ Status GetReader(const SchemaField& field, const std::shared_ptr<ReaderContext>&
     std::unique_ptr<FileColumnIterator> input(
         ctx->iterator_factory(field.column_index, ctx->reader));
     out->reset(new LeafReader(ctx, field.field, std::move(input)));
+  } else if (properties.engine_version() != ArrowReaderProperties::V1) {
+    return Status::Invalid("Engine version not yet implemented");
   } else if (type_id == ::arrow::Type::LIST) {
     // We can only read lists-of-lists or structs at the moment
     auto list_field = field.field;
@@ -711,7 +714,7 @@ Status GetReader(const SchemaField& field, const std::shared_ptr<ReaderContext>&
       return Status::OK();
     }
     std::unique_ptr<ColumnReaderImpl> child_reader;
-    RETURN_NOT_OK(GetReader(*child, ctx, &child_reader));
+    RETURN_NOT_OK(GetReader(*child, ctx, properties, &child_reader));
     // Use the max definition/repetition level of the leaf here
     out->reset(new NestedListReader(ctx, list_field, child->definition_level,
                                     child->repetition_level, std::move(child_reader)));
@@ -724,7 +727,7 @@ Status GetReader(const SchemaField& field, const std::shared_ptr<ReaderContext>&
         continue;
       }
       std::unique_ptr<ColumnReaderImpl> child_reader;
-      RETURN_NOT_OK(GetReader(child, ctx, &child_reader));
+      RETURN_NOT_OK(GetReader(child, ctx, properties, &child_reader));
       if (!child_reader) {
         // If all children were pruned, then we do not try to read this field
         continue;
@@ -828,7 +831,7 @@ Status FileReaderImpl::GetColumn(int i, FileColumnIteratorFactory iterator_facto
   ctx->iterator_factory = iterator_factory;
   ctx->filter_leaves = false;
   std::unique_ptr<ColumnReaderImpl> result;
-  RETURN_NOT_OK(GetReader(manifest_.schema_fields[i], ctx, &result));
+  RETURN_NOT_OK(GetReader(manifest_.schema_fields[i], ctx, reader_properties_, &result));
   out->reset(result.release());
   return Status::OK();
 }

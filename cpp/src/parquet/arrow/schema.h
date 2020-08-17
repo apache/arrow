@@ -136,8 +136,12 @@ struct PARQUET_EXPORT SchemaManifest {
   const SchemaDescriptor* descr;
   std::shared_ptr<::arrow::Schema> origin_schema;
   std::shared_ptr<const ::arrow::KeyValueMetadata> schema_metadata;
+  // Toplevel SchemaFields in the parquet file. N.B. these can
+  // actually contain multiple columns when the field is a nested
+  // type.
   std::vector<SchemaField> schema_fields;
 
+  // Mapping from leaf column index to SchemaField.
   std::unordered_map<int, const SchemaField*> column_index_to_field;
   std::unordered_map<const SchemaField*, const SchemaField*> child_to_parent;
 

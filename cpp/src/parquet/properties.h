@@ -571,12 +571,17 @@ static constexpr int64_t kArrowDefaultBatchSize = 64 * 1024;
 /// EXPERIMENTAL: Properties for configuring FileReader behavior.
 class PARQUET_EXPORT ArrowReaderProperties {
  public:
+  enum EngineVersion {
+    V1,  // Only handles nested lists or nested structs not a mixture of the two.
+    V2   // Not yet implemented ARROW-1644
+  };
   explicit ArrowReaderProperties(bool use_threads = kArrowDefaultUseThreads)
       : use_threads_(use_threads),
         read_dict_indices_(),
         batch_size_(kArrowDefaultBatchSize),
         pre_buffer_(false),
-        cache_options_(::arrow::io::CacheOptions::Defaults()) {}
+        cache_options_(::arrow::io::CacheOptions::Defaults()),
+        engine_version_(V1) {}
 
   void set_use_threads(bool use_threads) { use_threads_ = use_threads; }
 
@@ -616,6 +621,10 @@ class PARQUET_EXPORT ArrowReaderProperties {
 
   ::arrow::io::CacheOptions cache_options() const { return cache_options_; }
 
+  EngineVersion engine_version() const { return engine_version_; }
+
+  void set_engine_version(EngineVersion version) { engine_version_ = version; }
+
   /// Set execution context for read coalescing.
   void set_async_context(::arrow::io::AsyncContext ctx) { async_context_ = ctx; }
 
@@ -628,6 +637,7 @@ class PARQUET_EXPORT ArrowReaderProperties {
   bool pre_buffer_;
   ::arrow::io::AsyncContext async_context_;
   ::arrow::io::CacheOptions cache_options_;
+  EngineVersion engine_version_;
 };
 
 /// EXPERIMENTAL: Constructs the default ArrowReaderProperties
