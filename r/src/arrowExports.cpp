@@ -9,8 +9,8 @@
 std::shared_ptr<arrow::Array> Array__Slice1(const std::shared_ptr<arrow::Array>& array, R_xlen_t offset);
 extern "C" SEXP _arrow_Array__Slice1(SEXP array_sexp, SEXP offset_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::Array>&>::type array(array_sexp);
-	arrow::r::input<R_xlen_t>::type offset(offset_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Array>&>::type array(array_sexp);
+	arrow::r::Input<R_xlen_t>::type offset(offset_sexp);
 	return cpp11::as_sexp(Array__Slice1(array, offset));
 END_CPP11
 }
@@ -25,9 +25,9 @@ extern "C" SEXP _arrow_Array__Slice1(SEXP array_sexp, SEXP offset_sexp){
 std::shared_ptr<arrow::Array> Array__Slice2(const std::shared_ptr<arrow::Array>& array, R_xlen_t offset, R_xlen_t length);
 extern "C" SEXP _arrow_Array__Slice2(SEXP array_sexp, SEXP offset_sexp, SEXP length_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::Array>&>::type array(array_sexp);
-	arrow::r::input<R_xlen_t>::type offset(offset_sexp);
-	arrow::r::input<R_xlen_t>::type length(length_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Array>&>::type array(array_sexp);
+	arrow::r::Input<R_xlen_t>::type offset(offset_sexp);
+	arrow::r::Input<R_xlen_t>::type length(length_sexp);
 	return cpp11::as_sexp(Array__Slice2(array, offset, length));
 END_CPP11
 }
@@ -42,8 +42,8 @@ extern "C" SEXP _arrow_Array__Slice2(SEXP array_sexp, SEXP offset_sexp, SEXP len
 bool Array__IsNull(const std::shared_ptr<arrow::Array>& x, R_xlen_t i);
 extern "C" SEXP _arrow_Array__IsNull(SEXP x_sexp, SEXP i_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::Array>&>::type x(x_sexp);
-	arrow::r::input<R_xlen_t>::type i(i_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Array>&>::type x(x_sexp);
+	arrow::r::Input<R_xlen_t>::type i(i_sexp);
 	return cpp11::as_sexp(Array__IsNull(x, i));
 END_CPP11
 }
@@ -58,8 +58,8 @@ extern "C" SEXP _arrow_Array__IsNull(SEXP x_sexp, SEXP i_sexp){
 bool Array__IsValid(const std::shared_ptr<arrow::Array>& x, R_xlen_t i);
 extern "C" SEXP _arrow_Array__IsValid(SEXP x_sexp, SEXP i_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::Array>&>::type x(x_sexp);
-	arrow::r::input<R_xlen_t>::type i(i_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Array>&>::type x(x_sexp);
+	arrow::r::Input<R_xlen_t>::type i(i_sexp);
 	return cpp11::as_sexp(Array__IsValid(x, i));
 END_CPP11
 }
@@ -74,7 +74,7 @@ extern "C" SEXP _arrow_Array__IsValid(SEXP x_sexp, SEXP i_sexp){
 int Array__length(const std::shared_ptr<arrow::Array>& x);
 extern "C" SEXP _arrow_Array__length(SEXP x_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::Array>&>::type x(x_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Array>&>::type x(x_sexp);
 	return cpp11::as_sexp(Array__length(x));
 END_CPP11
 }
@@ -89,7 +89,7 @@ extern "C" SEXP _arrow_Array__length(SEXP x_sexp){
 int Array__offset(const std::shared_ptr<arrow::Array>& x);
 extern "C" SEXP _arrow_Array__offset(SEXP x_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::Array>&>::type x(x_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Array>&>::type x(x_sexp);
 	return cpp11::as_sexp(Array__offset(x));
 END_CPP11
 }
@@ -104,7 +104,7 @@ extern "C" SEXP _arrow_Array__offset(SEXP x_sexp){
 int Array__null_count(const std::shared_ptr<arrow::Array>& x);
 extern "C" SEXP _arrow_Array__null_count(SEXP x_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::Array>&>::type x(x_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Array>&>::type x(x_sexp);
 	return cpp11::as_sexp(Array__null_count(x));
 END_CPP11
 }
@@ -119,7 +119,7 @@ extern "C" SEXP _arrow_Array__null_count(SEXP x_sexp){
 std::shared_ptr<arrow::DataType> Array__type(const std::shared_ptr<arrow::Array>& x);
 extern "C" SEXP _arrow_Array__type(SEXP x_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::Array>&>::type x(x_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Array>&>::type x(x_sexp);
 	return cpp11::as_sexp(Array__type(x));
 END_CPP11
 }
@@ -134,7 +134,7 @@ extern "C" SEXP _arrow_Array__type(SEXP x_sexp){
 std::string Array__ToString(const std::shared_ptr<arrow::Array>& x);
 extern "C" SEXP _arrow_Array__ToString(SEXP x_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::Array>&>::type x(x_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Array>&>::type x(x_sexp);
 	return cpp11::as_sexp(Array__ToString(x));
 END_CPP11
 }
@@ -149,7 +149,7 @@ extern "C" SEXP _arrow_Array__ToString(SEXP x_sexp){
 arrow::Type::type Array__type_id(const std::shared_ptr<arrow::Array>& x);
 extern "C" SEXP _arrow_Array__type_id(SEXP x_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::Array>&>::type x(x_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Array>&>::type x(x_sexp);
 	return cpp11::as_sexp(Array__type_id(x));
 END_CPP11
 }
@@ -164,8 +164,8 @@ extern "C" SEXP _arrow_Array__type_id(SEXP x_sexp){
 bool Array__Equals(const std::shared_ptr<arrow::Array>& lhs, const std::shared_ptr<arrow::Array>& rhs);
 extern "C" SEXP _arrow_Array__Equals(SEXP lhs_sexp, SEXP rhs_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::Array>&>::type lhs(lhs_sexp);
-	arrow::r::input<const std::shared_ptr<arrow::Array>&>::type rhs(rhs_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Array>&>::type lhs(lhs_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Array>&>::type rhs(rhs_sexp);
 	return cpp11::as_sexp(Array__Equals(lhs, rhs));
 END_CPP11
 }
@@ -180,8 +180,8 @@ extern "C" SEXP _arrow_Array__Equals(SEXP lhs_sexp, SEXP rhs_sexp){
 bool Array__ApproxEquals(const std::shared_ptr<arrow::Array>& lhs, const std::shared_ptr<arrow::Array>& rhs);
 extern "C" SEXP _arrow_Array__ApproxEquals(SEXP lhs_sexp, SEXP rhs_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::Array>&>::type lhs(lhs_sexp);
-	arrow::r::input<const std::shared_ptr<arrow::Array>&>::type rhs(rhs_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Array>&>::type lhs(lhs_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Array>&>::type rhs(rhs_sexp);
 	return cpp11::as_sexp(Array__ApproxEquals(lhs, rhs));
 END_CPP11
 }
@@ -196,7 +196,7 @@ extern "C" SEXP _arrow_Array__ApproxEquals(SEXP lhs_sexp, SEXP rhs_sexp){
 std::shared_ptr<arrow::ArrayData> Array__data(const std::shared_ptr<arrow::Array>& array);
 extern "C" SEXP _arrow_Array__data(SEXP array_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::Array>&>::type array(array_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Array>&>::type array(array_sexp);
 	return cpp11::as_sexp(Array__data(array));
 END_CPP11
 }
@@ -211,11 +211,11 @@ extern "C" SEXP _arrow_Array__data(SEXP array_sexp){
 bool Array__RangeEquals(const std::shared_ptr<arrow::Array>& self, const std::shared_ptr<arrow::Array>& other, R_xlen_t start_idx, R_xlen_t end_idx, R_xlen_t other_start_idx);
 extern "C" SEXP _arrow_Array__RangeEquals(SEXP self_sexp, SEXP other_sexp, SEXP start_idx_sexp, SEXP end_idx_sexp, SEXP other_start_idx_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::Array>&>::type self(self_sexp);
-	arrow::r::input<const std::shared_ptr<arrow::Array>&>::type other(other_sexp);
-	arrow::r::input<R_xlen_t>::type start_idx(start_idx_sexp);
-	arrow::r::input<R_xlen_t>::type end_idx(end_idx_sexp);
-	arrow::r::input<R_xlen_t>::type other_start_idx(other_start_idx_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Array>&>::type self(self_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Array>&>::type other(other_sexp);
+	arrow::r::Input<R_xlen_t>::type start_idx(start_idx_sexp);
+	arrow::r::Input<R_xlen_t>::type end_idx(end_idx_sexp);
+	arrow::r::Input<R_xlen_t>::type other_start_idx(other_start_idx_sexp);
 	return cpp11::as_sexp(Array__RangeEquals(self, other, start_idx, end_idx, other_start_idx));
 END_CPP11
 }
@@ -230,8 +230,8 @@ extern "C" SEXP _arrow_Array__RangeEquals(SEXP self_sexp, SEXP other_sexp, SEXP 
 std::shared_ptr<arrow::Array> Array__View(const std::shared_ptr<arrow::Array>& array, const std::shared_ptr<arrow::DataType>& type);
 extern "C" SEXP _arrow_Array__View(SEXP array_sexp, SEXP type_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::Array>&>::type array(array_sexp);
-	arrow::r::input<const std::shared_ptr<arrow::DataType>&>::type type(type_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Array>&>::type array(array_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::DataType>&>::type type(type_sexp);
 	return cpp11::as_sexp(Array__View(array, type));
 END_CPP11
 }
@@ -246,7 +246,7 @@ extern "C" SEXP _arrow_Array__View(SEXP array_sexp, SEXP type_sexp){
 void Array__Validate(const std::shared_ptr<arrow::Array>& array);
 extern "C" SEXP _arrow_Array__Validate(SEXP array_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::Array>&>::type array(array_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Array>&>::type array(array_sexp);
 	Array__Validate(array);
 	return R_NilValue;
 END_CPP11
@@ -262,7 +262,7 @@ extern "C" SEXP _arrow_Array__Validate(SEXP array_sexp){
 std::shared_ptr<arrow::Array> DictionaryArray__indices(const std::shared_ptr<arrow::DictionaryArray>& array);
 extern "C" SEXP _arrow_DictionaryArray__indices(SEXP array_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::DictionaryArray>&>::type array(array_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::DictionaryArray>&>::type array(array_sexp);
 	return cpp11::as_sexp(DictionaryArray__indices(array));
 END_CPP11
 }
@@ -277,7 +277,7 @@ extern "C" SEXP _arrow_DictionaryArray__indices(SEXP array_sexp){
 std::shared_ptr<arrow::Array> DictionaryArray__dictionary(const std::shared_ptr<arrow::DictionaryArray>& array);
 extern "C" SEXP _arrow_DictionaryArray__dictionary(SEXP array_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::DictionaryArray>&>::type array(array_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::DictionaryArray>&>::type array(array_sexp);
 	return cpp11::as_sexp(DictionaryArray__dictionary(array));
 END_CPP11
 }
@@ -292,8 +292,8 @@ extern "C" SEXP _arrow_DictionaryArray__dictionary(SEXP array_sexp){
 std::shared_ptr<arrow::Array> StructArray__field(const std::shared_ptr<arrow::StructArray>& array, int i);
 extern "C" SEXP _arrow_StructArray__field(SEXP array_sexp, SEXP i_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::StructArray>&>::type array(array_sexp);
-	arrow::r::input<int>::type i(i_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::StructArray>&>::type array(array_sexp);
+	arrow::r::Input<int>::type i(i_sexp);
 	return cpp11::as_sexp(StructArray__field(array, i));
 END_CPP11
 }
@@ -308,8 +308,8 @@ extern "C" SEXP _arrow_StructArray__field(SEXP array_sexp, SEXP i_sexp){
 std::shared_ptr<arrow::Array> StructArray__GetFieldByName(const std::shared_ptr<arrow::StructArray>& array, const std::string& name);
 extern "C" SEXP _arrow_StructArray__GetFieldByName(SEXP array_sexp, SEXP name_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::StructArray>&>::type array(array_sexp);
-	arrow::r::input<const std::string&>::type name(name_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::StructArray>&>::type array(array_sexp);
+	arrow::r::Input<const std::string&>::type name(name_sexp);
 	return cpp11::as_sexp(StructArray__GetFieldByName(array, name));
 END_CPP11
 }
@@ -324,7 +324,7 @@ extern "C" SEXP _arrow_StructArray__GetFieldByName(SEXP array_sexp, SEXP name_se
 arrow::ArrayVector StructArray__Flatten(const std::shared_ptr<arrow::StructArray>& array);
 extern "C" SEXP _arrow_StructArray__Flatten(SEXP array_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::StructArray>&>::type array(array_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::StructArray>&>::type array(array_sexp);
 	return cpp11::as_sexp(StructArray__Flatten(array));
 END_CPP11
 }
@@ -339,7 +339,7 @@ extern "C" SEXP _arrow_StructArray__Flatten(SEXP array_sexp){
 std::shared_ptr<arrow::DataType> ListArray__value_type(const std::shared_ptr<arrow::ListArray>& array);
 extern "C" SEXP _arrow_ListArray__value_type(SEXP array_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::ListArray>&>::type array(array_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::ListArray>&>::type array(array_sexp);
 	return cpp11::as_sexp(ListArray__value_type(array));
 END_CPP11
 }
@@ -354,7 +354,7 @@ extern "C" SEXP _arrow_ListArray__value_type(SEXP array_sexp){
 std::shared_ptr<arrow::DataType> LargeListArray__value_type(const std::shared_ptr<arrow::LargeListArray>& array);
 extern "C" SEXP _arrow_LargeListArray__value_type(SEXP array_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::LargeListArray>&>::type array(array_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::LargeListArray>&>::type array(array_sexp);
 	return cpp11::as_sexp(LargeListArray__value_type(array));
 END_CPP11
 }
@@ -369,7 +369,7 @@ extern "C" SEXP _arrow_LargeListArray__value_type(SEXP array_sexp){
 std::shared_ptr<arrow::Array> ListArray__values(const std::shared_ptr<arrow::ListArray>& array);
 extern "C" SEXP _arrow_ListArray__values(SEXP array_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::ListArray>&>::type array(array_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::ListArray>&>::type array(array_sexp);
 	return cpp11::as_sexp(ListArray__values(array));
 END_CPP11
 }
@@ -384,7 +384,7 @@ extern "C" SEXP _arrow_ListArray__values(SEXP array_sexp){
 std::shared_ptr<arrow::Array> LargeListArray__values(const std::shared_ptr<arrow::LargeListArray>& array);
 extern "C" SEXP _arrow_LargeListArray__values(SEXP array_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::LargeListArray>&>::type array(array_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::LargeListArray>&>::type array(array_sexp);
 	return cpp11::as_sexp(LargeListArray__values(array));
 END_CPP11
 }
@@ -399,8 +399,8 @@ extern "C" SEXP _arrow_LargeListArray__values(SEXP array_sexp){
 int32_t ListArray__value_length(const std::shared_ptr<arrow::ListArray>& array, int64_t i);
 extern "C" SEXP _arrow_ListArray__value_length(SEXP array_sexp, SEXP i_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::ListArray>&>::type array(array_sexp);
-	arrow::r::input<int64_t>::type i(i_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::ListArray>&>::type array(array_sexp);
+	arrow::r::Input<int64_t>::type i(i_sexp);
 	return cpp11::as_sexp(ListArray__value_length(array, i));
 END_CPP11
 }
@@ -415,8 +415,8 @@ extern "C" SEXP _arrow_ListArray__value_length(SEXP array_sexp, SEXP i_sexp){
 int64_t LargeListArray__value_length(const std::shared_ptr<arrow::LargeListArray>& array, int64_t i);
 extern "C" SEXP _arrow_LargeListArray__value_length(SEXP array_sexp, SEXP i_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::LargeListArray>&>::type array(array_sexp);
-	arrow::r::input<int64_t>::type i(i_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::LargeListArray>&>::type array(array_sexp);
+	arrow::r::Input<int64_t>::type i(i_sexp);
 	return cpp11::as_sexp(LargeListArray__value_length(array, i));
 END_CPP11
 }
@@ -431,8 +431,8 @@ extern "C" SEXP _arrow_LargeListArray__value_length(SEXP array_sexp, SEXP i_sexp
 int64_t FixedSizeListArray__value_length(const std::shared_ptr<arrow::FixedSizeListArray>& array, int64_t i);
 extern "C" SEXP _arrow_FixedSizeListArray__value_length(SEXP array_sexp, SEXP i_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::FixedSizeListArray>&>::type array(array_sexp);
-	arrow::r::input<int64_t>::type i(i_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::FixedSizeListArray>&>::type array(array_sexp);
+	arrow::r::Input<int64_t>::type i(i_sexp);
 	return cpp11::as_sexp(FixedSizeListArray__value_length(array, i));
 END_CPP11
 }
@@ -447,8 +447,8 @@ extern "C" SEXP _arrow_FixedSizeListArray__value_length(SEXP array_sexp, SEXP i_
 int32_t ListArray__value_offset(const std::shared_ptr<arrow::ListArray>& array, int64_t i);
 extern "C" SEXP _arrow_ListArray__value_offset(SEXP array_sexp, SEXP i_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::ListArray>&>::type array(array_sexp);
-	arrow::r::input<int64_t>::type i(i_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::ListArray>&>::type array(array_sexp);
+	arrow::r::Input<int64_t>::type i(i_sexp);
 	return cpp11::as_sexp(ListArray__value_offset(array, i));
 END_CPP11
 }
@@ -463,8 +463,8 @@ extern "C" SEXP _arrow_ListArray__value_offset(SEXP array_sexp, SEXP i_sexp){
 int64_t LargeListArray__value_offset(const std::shared_ptr<arrow::LargeListArray>& array, int64_t i);
 extern "C" SEXP _arrow_LargeListArray__value_offset(SEXP array_sexp, SEXP i_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::LargeListArray>&>::type array(array_sexp);
-	arrow::r::input<int64_t>::type i(i_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::LargeListArray>&>::type array(array_sexp);
+	arrow::r::Input<int64_t>::type i(i_sexp);
 	return cpp11::as_sexp(LargeListArray__value_offset(array, i));
 END_CPP11
 }
@@ -479,8 +479,8 @@ extern "C" SEXP _arrow_LargeListArray__value_offset(SEXP array_sexp, SEXP i_sexp
 int64_t FixedSizeListArray__value_offset(const std::shared_ptr<arrow::FixedSizeListArray>& array, int64_t i);
 extern "C" SEXP _arrow_FixedSizeListArray__value_offset(SEXP array_sexp, SEXP i_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::FixedSizeListArray>&>::type array(array_sexp);
-	arrow::r::input<int64_t>::type i(i_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::FixedSizeListArray>&>::type array(array_sexp);
+	arrow::r::Input<int64_t>::type i(i_sexp);
 	return cpp11::as_sexp(FixedSizeListArray__value_offset(array, i));
 END_CPP11
 }
@@ -495,7 +495,7 @@ extern "C" SEXP _arrow_FixedSizeListArray__value_offset(SEXP array_sexp, SEXP i_
 cpp11::writable::integers ListArray__raw_value_offsets(const std::shared_ptr<arrow::ListArray>& array);
 extern "C" SEXP _arrow_ListArray__raw_value_offsets(SEXP array_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::ListArray>&>::type array(array_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::ListArray>&>::type array(array_sexp);
 	return cpp11::as_sexp(ListArray__raw_value_offsets(array));
 END_CPP11
 }
@@ -510,7 +510,7 @@ extern "C" SEXP _arrow_ListArray__raw_value_offsets(SEXP array_sexp){
 cpp11::writable::integers LargeListArray__raw_value_offsets(const std::shared_ptr<arrow::LargeListArray>& array);
 extern "C" SEXP _arrow_LargeListArray__raw_value_offsets(SEXP array_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::LargeListArray>&>::type array(array_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::LargeListArray>&>::type array(array_sexp);
 	return cpp11::as_sexp(LargeListArray__raw_value_offsets(array));
 END_CPP11
 }
@@ -525,7 +525,7 @@ extern "C" SEXP _arrow_LargeListArray__raw_value_offsets(SEXP array_sexp){
 std::shared_ptr<arrow::DataType> Array__infer_type(SEXP x);
 extern "C" SEXP _arrow_Array__infer_type(SEXP x_sexp){
 BEGIN_CPP11
-	arrow::r::input<SEXP>::type x(x_sexp);
+	arrow::r::Input<SEXP>::type x(x_sexp);
 	return cpp11::as_sexp(Array__infer_type(x));
 END_CPP11
 }
@@ -540,8 +540,8 @@ extern "C" SEXP _arrow_Array__infer_type(SEXP x_sexp){
 std::shared_ptr<arrow::Array> Array__from_vector(SEXP x, SEXP s_type);
 extern "C" SEXP _arrow_Array__from_vector(SEXP x_sexp, SEXP s_type_sexp){
 BEGIN_CPP11
-	arrow::r::input<SEXP>::type x(x_sexp);
-	arrow::r::input<SEXP>::type s_type(s_type_sexp);
+	arrow::r::Input<SEXP>::type x(x_sexp);
+	arrow::r::Input<SEXP>::type s_type(s_type_sexp);
 	return cpp11::as_sexp(Array__from_vector(x, s_type));
 END_CPP11
 }
@@ -556,8 +556,8 @@ extern "C" SEXP _arrow_Array__from_vector(SEXP x_sexp, SEXP s_type_sexp){
 std::shared_ptr<arrow::ChunkedArray> ChunkedArray__from_list(cpp11::list chunks, SEXP s_type);
 extern "C" SEXP _arrow_ChunkedArray__from_list(SEXP chunks_sexp, SEXP s_type_sexp){
 BEGIN_CPP11
-	arrow::r::input<cpp11::list>::type chunks(chunks_sexp);
-	arrow::r::input<SEXP>::type s_type(s_type_sexp);
+	arrow::r::Input<cpp11::list>::type chunks(chunks_sexp);
+	arrow::r::Input<SEXP>::type s_type(s_type_sexp);
 	return cpp11::as_sexp(ChunkedArray__from_list(chunks, s_type));
 END_CPP11
 }
@@ -572,9 +572,9 @@ extern "C" SEXP _arrow_ChunkedArray__from_list(SEXP chunks_sexp, SEXP s_type_sex
 std::shared_ptr<arrow::Array> DictionaryArray__FromArrays(const std::shared_ptr<arrow::DataType>& type, const std::shared_ptr<arrow::Array>& indices, const std::shared_ptr<arrow::Array>& dict);
 extern "C" SEXP _arrow_DictionaryArray__FromArrays(SEXP type_sexp, SEXP indices_sexp, SEXP dict_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::DataType>&>::type type(type_sexp);
-	arrow::r::input<const std::shared_ptr<arrow::Array>&>::type indices(indices_sexp);
-	arrow::r::input<const std::shared_ptr<arrow::Array>&>::type dict(dict_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::DataType>&>::type type(type_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Array>&>::type indices(indices_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Array>&>::type dict(dict_sexp);
 	return cpp11::as_sexp(DictionaryArray__FromArrays(type, indices, dict));
 END_CPP11
 }
@@ -589,7 +589,7 @@ extern "C" SEXP _arrow_DictionaryArray__FromArrays(SEXP type_sexp, SEXP indices_
 SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array);
 extern "C" SEXP _arrow_Array__as_vector(SEXP array_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::Array>&>::type array(array_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Array>&>::type array(array_sexp);
 	return cpp11::as_sexp(Array__as_vector(array));
 END_CPP11
 }
@@ -604,7 +604,7 @@ extern "C" SEXP _arrow_Array__as_vector(SEXP array_sexp){
 SEXP ChunkedArray__as_vector(const std::shared_ptr<arrow::ChunkedArray>& chunked_array);
 extern "C" SEXP _arrow_ChunkedArray__as_vector(SEXP chunked_array_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::ChunkedArray>&>::type chunked_array(chunked_array_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::ChunkedArray>&>::type chunked_array(chunked_array_sexp);
 	return cpp11::as_sexp(ChunkedArray__as_vector(chunked_array));
 END_CPP11
 }
@@ -619,8 +619,8 @@ extern "C" SEXP _arrow_ChunkedArray__as_vector(SEXP chunked_array_sexp){
 cpp11::writable::list RecordBatch__to_dataframe(const std::shared_ptr<arrow::RecordBatch>& batch, bool use_threads);
 extern "C" SEXP _arrow_RecordBatch__to_dataframe(SEXP batch_sexp, SEXP use_threads_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::RecordBatch>&>::type batch(batch_sexp);
-	arrow::r::input<bool>::type use_threads(use_threads_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::RecordBatch>&>::type batch(batch_sexp);
+	arrow::r::Input<bool>::type use_threads(use_threads_sexp);
 	return cpp11::as_sexp(RecordBatch__to_dataframe(batch, use_threads));
 END_CPP11
 }
@@ -635,8 +635,8 @@ extern "C" SEXP _arrow_RecordBatch__to_dataframe(SEXP batch_sexp, SEXP use_threa
 cpp11::writable::list Table__to_dataframe(const std::shared_ptr<arrow::Table>& table, bool use_threads);
 extern "C" SEXP _arrow_Table__to_dataframe(SEXP table_sexp, SEXP use_threads_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
-	arrow::r::input<bool>::type use_threads(use_threads_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
+	arrow::r::Input<bool>::type use_threads(use_threads_sexp);
 	return cpp11::as_sexp(Table__to_dataframe(table, use_threads));
 END_CPP11
 }
@@ -651,7 +651,7 @@ extern "C" SEXP _arrow_Table__to_dataframe(SEXP table_sexp, SEXP use_threads_sex
 std::shared_ptr<arrow::DataType> ArrayData__get_type(const std::shared_ptr<arrow::ArrayData>& x);
 extern "C" SEXP _arrow_ArrayData__get_type(SEXP x_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::ArrayData>&>::type x(x_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::ArrayData>&>::type x(x_sexp);
 	return cpp11::as_sexp(ArrayData__get_type(x));
 END_CPP11
 }
@@ -666,7 +666,7 @@ extern "C" SEXP _arrow_ArrayData__get_type(SEXP x_sexp){
 int ArrayData__get_length(const std::shared_ptr<arrow::ArrayData>& x);
 extern "C" SEXP _arrow_ArrayData__get_length(SEXP x_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::ArrayData>&>::type x(x_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::ArrayData>&>::type x(x_sexp);
 	return cpp11::as_sexp(ArrayData__get_length(x));
 END_CPP11
 }
@@ -681,7 +681,7 @@ extern "C" SEXP _arrow_ArrayData__get_length(SEXP x_sexp){
 int ArrayData__get_null_count(const std::shared_ptr<arrow::ArrayData>& x);
 extern "C" SEXP _arrow_ArrayData__get_null_count(SEXP x_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::ArrayData>&>::type x(x_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::ArrayData>&>::type x(x_sexp);
 	return cpp11::as_sexp(ArrayData__get_null_count(x));
 END_CPP11
 }
@@ -696,7 +696,7 @@ extern "C" SEXP _arrow_ArrayData__get_null_count(SEXP x_sexp){
 int ArrayData__get_offset(const std::shared_ptr<arrow::ArrayData>& x);
 extern "C" SEXP _arrow_ArrayData__get_offset(SEXP x_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::ArrayData>&>::type x(x_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::ArrayData>&>::type x(x_sexp);
 	return cpp11::as_sexp(ArrayData__get_offset(x));
 END_CPP11
 }
@@ -711,7 +711,7 @@ extern "C" SEXP _arrow_ArrayData__get_offset(SEXP x_sexp){
 cpp11::list ArrayData__buffers(const std::shared_ptr<arrow::ArrayData>& x);
 extern "C" SEXP _arrow_ArrayData__buffers(SEXP x_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::ArrayData>&>::type x(x_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::ArrayData>&>::type x(x_sexp);
 	return cpp11::as_sexp(ArrayData__buffers(x));
 END_CPP11
 }
@@ -726,7 +726,7 @@ extern "C" SEXP _arrow_ArrayData__buffers(SEXP x_sexp){
 bool Buffer__is_mutable(const std::shared_ptr<arrow::Buffer>& buffer);
 extern "C" SEXP _arrow_Buffer__is_mutable(SEXP buffer_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::Buffer>&>::type buffer(buffer_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Buffer>&>::type buffer(buffer_sexp);
 	return cpp11::as_sexp(Buffer__is_mutable(buffer));
 END_CPP11
 }
@@ -741,7 +741,7 @@ extern "C" SEXP _arrow_Buffer__is_mutable(SEXP buffer_sexp){
 void Buffer__ZeroPadding(const std::shared_ptr<arrow::Buffer>& buffer);
 extern "C" SEXP _arrow_Buffer__ZeroPadding(SEXP buffer_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::Buffer>&>::type buffer(buffer_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Buffer>&>::type buffer(buffer_sexp);
 	Buffer__ZeroPadding(buffer);
 	return R_NilValue;
 END_CPP11
@@ -757,7 +757,7 @@ extern "C" SEXP _arrow_Buffer__ZeroPadding(SEXP buffer_sexp){
 int64_t Buffer__capacity(const std::shared_ptr<arrow::Buffer>& buffer);
 extern "C" SEXP _arrow_Buffer__capacity(SEXP buffer_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::Buffer>&>::type buffer(buffer_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Buffer>&>::type buffer(buffer_sexp);
 	return cpp11::as_sexp(Buffer__capacity(buffer));
 END_CPP11
 }
@@ -772,7 +772,7 @@ extern "C" SEXP _arrow_Buffer__capacity(SEXP buffer_sexp){
 int64_t Buffer__size(const std::shared_ptr<arrow::Buffer>& buffer);
 extern "C" SEXP _arrow_Buffer__size(SEXP buffer_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::Buffer>&>::type buffer(buffer_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Buffer>&>::type buffer(buffer_sexp);
 	return cpp11::as_sexp(Buffer__size(buffer));
 END_CPP11
 }
@@ -787,7 +787,7 @@ extern "C" SEXP _arrow_Buffer__size(SEXP buffer_sexp){
 std::shared_ptr<arrow::Buffer> r___RBuffer__initialize(SEXP x);
 extern "C" SEXP _arrow_r___RBuffer__initialize(SEXP x_sexp){
 BEGIN_CPP11
-	arrow::r::input<SEXP>::type x(x_sexp);
+	arrow::r::Input<SEXP>::type x(x_sexp);
 	return cpp11::as_sexp(r___RBuffer__initialize(x));
 END_CPP11
 }
@@ -802,7 +802,7 @@ extern "C" SEXP _arrow_r___RBuffer__initialize(SEXP x_sexp){
 cpp11::writable::raws Buffer__data(const std::shared_ptr<arrow::Buffer>& buffer);
 extern "C" SEXP _arrow_Buffer__data(SEXP buffer_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::Buffer>&>::type buffer(buffer_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Buffer>&>::type buffer(buffer_sexp);
 	return cpp11::as_sexp(Buffer__data(buffer));
 END_CPP11
 }
@@ -817,8 +817,8 @@ extern "C" SEXP _arrow_Buffer__data(SEXP buffer_sexp){
 bool Buffer__Equals(const std::shared_ptr<arrow::Buffer>& x, const std::shared_ptr<arrow::Buffer>& y);
 extern "C" SEXP _arrow_Buffer__Equals(SEXP x_sexp, SEXP y_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::Buffer>&>::type x(x_sexp);
-	arrow::r::input<const std::shared_ptr<arrow::Buffer>&>::type y(y_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Buffer>&>::type x(x_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Buffer>&>::type y(y_sexp);
 	return cpp11::as_sexp(Buffer__Equals(x, y));
 END_CPP11
 }
@@ -833,7 +833,7 @@ extern "C" SEXP _arrow_Buffer__Equals(SEXP x_sexp, SEXP y_sexp){
 int ChunkedArray__length(const std::shared_ptr<arrow::ChunkedArray>& chunked_array);
 extern "C" SEXP _arrow_ChunkedArray__length(SEXP chunked_array_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::ChunkedArray>&>::type chunked_array(chunked_array_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::ChunkedArray>&>::type chunked_array(chunked_array_sexp);
 	return cpp11::as_sexp(ChunkedArray__length(chunked_array));
 END_CPP11
 }
@@ -848,7 +848,7 @@ extern "C" SEXP _arrow_ChunkedArray__length(SEXP chunked_array_sexp){
 int ChunkedArray__null_count(const std::shared_ptr<arrow::ChunkedArray>& chunked_array);
 extern "C" SEXP _arrow_ChunkedArray__null_count(SEXP chunked_array_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::ChunkedArray>&>::type chunked_array(chunked_array_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::ChunkedArray>&>::type chunked_array(chunked_array_sexp);
 	return cpp11::as_sexp(ChunkedArray__null_count(chunked_array));
 END_CPP11
 }
@@ -863,7 +863,7 @@ extern "C" SEXP _arrow_ChunkedArray__null_count(SEXP chunked_array_sexp){
 int ChunkedArray__num_chunks(const std::shared_ptr<arrow::ChunkedArray>& chunked_array);
 extern "C" SEXP _arrow_ChunkedArray__num_chunks(SEXP chunked_array_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::ChunkedArray>&>::type chunked_array(chunked_array_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::ChunkedArray>&>::type chunked_array(chunked_array_sexp);
 	return cpp11::as_sexp(ChunkedArray__num_chunks(chunked_array));
 END_CPP11
 }
@@ -878,8 +878,8 @@ extern "C" SEXP _arrow_ChunkedArray__num_chunks(SEXP chunked_array_sexp){
 std::shared_ptr<arrow::Array> ChunkedArray__chunk(const std::shared_ptr<arrow::ChunkedArray>& chunked_array, int i);
 extern "C" SEXP _arrow_ChunkedArray__chunk(SEXP chunked_array_sexp, SEXP i_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::ChunkedArray>&>::type chunked_array(chunked_array_sexp);
-	arrow::r::input<int>::type i(i_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::ChunkedArray>&>::type chunked_array(chunked_array_sexp);
+	arrow::r::Input<int>::type i(i_sexp);
 	return cpp11::as_sexp(ChunkedArray__chunk(chunked_array, i));
 END_CPP11
 }
@@ -894,7 +894,7 @@ extern "C" SEXP _arrow_ChunkedArray__chunk(SEXP chunked_array_sexp, SEXP i_sexp)
 cpp11::list ChunkedArray__chunks(const std::shared_ptr<arrow::ChunkedArray>& chunked_array);
 extern "C" SEXP _arrow_ChunkedArray__chunks(SEXP chunked_array_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::ChunkedArray>&>::type chunked_array(chunked_array_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::ChunkedArray>&>::type chunked_array(chunked_array_sexp);
 	return cpp11::as_sexp(ChunkedArray__chunks(chunked_array));
 END_CPP11
 }
@@ -909,7 +909,7 @@ extern "C" SEXP _arrow_ChunkedArray__chunks(SEXP chunked_array_sexp){
 std::shared_ptr<arrow::DataType> ChunkedArray__type(const std::shared_ptr<arrow::ChunkedArray>& chunked_array);
 extern "C" SEXP _arrow_ChunkedArray__type(SEXP chunked_array_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::ChunkedArray>&>::type chunked_array(chunked_array_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::ChunkedArray>&>::type chunked_array(chunked_array_sexp);
 	return cpp11::as_sexp(ChunkedArray__type(chunked_array));
 END_CPP11
 }
@@ -924,8 +924,8 @@ extern "C" SEXP _arrow_ChunkedArray__type(SEXP chunked_array_sexp){
 std::shared_ptr<arrow::ChunkedArray> ChunkedArray__Slice1(const std::shared_ptr<arrow::ChunkedArray>& chunked_array, R_xlen_t offset);
 extern "C" SEXP _arrow_ChunkedArray__Slice1(SEXP chunked_array_sexp, SEXP offset_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::ChunkedArray>&>::type chunked_array(chunked_array_sexp);
-	arrow::r::input<R_xlen_t>::type offset(offset_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::ChunkedArray>&>::type chunked_array(chunked_array_sexp);
+	arrow::r::Input<R_xlen_t>::type offset(offset_sexp);
 	return cpp11::as_sexp(ChunkedArray__Slice1(chunked_array, offset));
 END_CPP11
 }
@@ -940,9 +940,9 @@ extern "C" SEXP _arrow_ChunkedArray__Slice1(SEXP chunked_array_sexp, SEXP offset
 std::shared_ptr<arrow::ChunkedArray> ChunkedArray__Slice2(const std::shared_ptr<arrow::ChunkedArray>& chunked_array, R_xlen_t offset, R_xlen_t length);
 extern "C" SEXP _arrow_ChunkedArray__Slice2(SEXP chunked_array_sexp, SEXP offset_sexp, SEXP length_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::ChunkedArray>&>::type chunked_array(chunked_array_sexp);
-	arrow::r::input<R_xlen_t>::type offset(offset_sexp);
-	arrow::r::input<R_xlen_t>::type length(length_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::ChunkedArray>&>::type chunked_array(chunked_array_sexp);
+	arrow::r::Input<R_xlen_t>::type offset(offset_sexp);
+	arrow::r::Input<R_xlen_t>::type length(length_sexp);
 	return cpp11::as_sexp(ChunkedArray__Slice2(chunked_array, offset, length));
 END_CPP11
 }
@@ -957,8 +957,8 @@ extern "C" SEXP _arrow_ChunkedArray__Slice2(SEXP chunked_array_sexp, SEXP offset
 std::shared_ptr<arrow::ChunkedArray> ChunkedArray__View(const std::shared_ptr<arrow::ChunkedArray>& array, const std::shared_ptr<arrow::DataType>& type);
 extern "C" SEXP _arrow_ChunkedArray__View(SEXP array_sexp, SEXP type_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::ChunkedArray>&>::type array(array_sexp);
-	arrow::r::input<const std::shared_ptr<arrow::DataType>&>::type type(type_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::ChunkedArray>&>::type array(array_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::DataType>&>::type type(type_sexp);
 	return cpp11::as_sexp(ChunkedArray__View(array, type));
 END_CPP11
 }
@@ -973,7 +973,7 @@ extern "C" SEXP _arrow_ChunkedArray__View(SEXP array_sexp, SEXP type_sexp){
 void ChunkedArray__Validate(const std::shared_ptr<arrow::ChunkedArray>& chunked_array);
 extern "C" SEXP _arrow_ChunkedArray__Validate(SEXP chunked_array_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::ChunkedArray>&>::type chunked_array(chunked_array_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::ChunkedArray>&>::type chunked_array(chunked_array_sexp);
 	ChunkedArray__Validate(chunked_array);
 	return R_NilValue;
 END_CPP11
@@ -989,8 +989,8 @@ extern "C" SEXP _arrow_ChunkedArray__Validate(SEXP chunked_array_sexp){
 bool ChunkedArray__Equals(const std::shared_ptr<arrow::ChunkedArray>& x, const std::shared_ptr<arrow::ChunkedArray>& y);
 extern "C" SEXP _arrow_ChunkedArray__Equals(SEXP x_sexp, SEXP y_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::ChunkedArray>&>::type x(x_sexp);
-	arrow::r::input<const std::shared_ptr<arrow::ChunkedArray>&>::type y(y_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::ChunkedArray>&>::type x(x_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::ChunkedArray>&>::type y(y_sexp);
 	return cpp11::as_sexp(ChunkedArray__Equals(x, y));
 END_CPP11
 }
@@ -1005,7 +1005,7 @@ extern "C" SEXP _arrow_ChunkedArray__Equals(SEXP x_sexp, SEXP y_sexp){
 std::string ChunkedArray__ToString(const std::shared_ptr<arrow::ChunkedArray>& x);
 extern "C" SEXP _arrow_ChunkedArray__ToString(SEXP x_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::ChunkedArray>&>::type x(x_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::ChunkedArray>&>::type x(x_sexp);
 	return cpp11::as_sexp(ChunkedArray__ToString(x));
 END_CPP11
 }
@@ -1020,8 +1020,8 @@ extern "C" SEXP _arrow_ChunkedArray__ToString(SEXP x_sexp){
 std::shared_ptr<arrow::util::Codec> util___Codec__Create(arrow::Compression::type codec, R_xlen_t compression_level);
 extern "C" SEXP _arrow_util___Codec__Create(SEXP codec_sexp, SEXP compression_level_sexp){
 BEGIN_CPP11
-	arrow::r::input<arrow::Compression::type>::type codec(codec_sexp);
-	arrow::r::input<R_xlen_t>::type compression_level(compression_level_sexp);
+	arrow::r::Input<arrow::Compression::type>::type codec(codec_sexp);
+	arrow::r::Input<R_xlen_t>::type compression_level(compression_level_sexp);
 	return cpp11::as_sexp(util___Codec__Create(codec, compression_level));
 END_CPP11
 }
@@ -1036,7 +1036,7 @@ extern "C" SEXP _arrow_util___Codec__Create(SEXP codec_sexp, SEXP compression_le
 std::string util___Codec__name(const std::shared_ptr<arrow::util::Codec>& codec);
 extern "C" SEXP _arrow_util___Codec__name(SEXP codec_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::util::Codec>&>::type codec(codec_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::util::Codec>&>::type codec(codec_sexp);
 	return cpp11::as_sexp(util___Codec__name(codec));
 END_CPP11
 }
@@ -1051,7 +1051,7 @@ extern "C" SEXP _arrow_util___Codec__name(SEXP codec_sexp){
 bool util___Codec__IsAvailable(arrow::Compression::type codec);
 extern "C" SEXP _arrow_util___Codec__IsAvailable(SEXP codec_sexp){
 BEGIN_CPP11
-	arrow::r::input<arrow::Compression::type>::type codec(codec_sexp);
+	arrow::r::Input<arrow::Compression::type>::type codec(codec_sexp);
 	return cpp11::as_sexp(util___Codec__IsAvailable(codec));
 END_CPP11
 }
@@ -1066,8 +1066,8 @@ extern "C" SEXP _arrow_util___Codec__IsAvailable(SEXP codec_sexp){
 std::shared_ptr<arrow::io::CompressedOutputStream> io___CompressedOutputStream__Make(const std::shared_ptr<arrow::util::Codec>& codec, const std::shared_ptr<arrow::io::OutputStream>& raw);
 extern "C" SEXP _arrow_io___CompressedOutputStream__Make(SEXP codec_sexp, SEXP raw_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::util::Codec>&>::type codec(codec_sexp);
-	arrow::r::input<const std::shared_ptr<arrow::io::OutputStream>&>::type raw(raw_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::util::Codec>&>::type codec(codec_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::io::OutputStream>&>::type raw(raw_sexp);
 	return cpp11::as_sexp(io___CompressedOutputStream__Make(codec, raw));
 END_CPP11
 }
@@ -1082,8 +1082,8 @@ extern "C" SEXP _arrow_io___CompressedOutputStream__Make(SEXP codec_sexp, SEXP r
 std::shared_ptr<arrow::io::CompressedInputStream> io___CompressedInputStream__Make(const std::shared_ptr<arrow::util::Codec>& codec, const std::shared_ptr<arrow::io::InputStream>& raw);
 extern "C" SEXP _arrow_io___CompressedInputStream__Make(SEXP codec_sexp, SEXP raw_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::util::Codec>&>::type codec(codec_sexp);
-	arrow::r::input<const std::shared_ptr<arrow::io::InputStream>&>::type raw(raw_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::util::Codec>&>::type codec(codec_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::io::InputStream>&>::type raw(raw_sexp);
 	return cpp11::as_sexp(io___CompressedInputStream__Make(codec, raw));
 END_CPP11
 }
@@ -1098,9 +1098,9 @@ extern "C" SEXP _arrow_io___CompressedInputStream__Make(SEXP codec_sexp, SEXP ra
 std::shared_ptr<arrow::compute::CastOptions> compute___CastOptions__initialize(bool allow_int_overflow, bool allow_time_truncate, bool allow_float_truncate);
 extern "C" SEXP _arrow_compute___CastOptions__initialize(SEXP allow_int_overflow_sexp, SEXP allow_time_truncate_sexp, SEXP allow_float_truncate_sexp){
 BEGIN_CPP11
-	arrow::r::input<bool>::type allow_int_overflow(allow_int_overflow_sexp);
-	arrow::r::input<bool>::type allow_time_truncate(allow_time_truncate_sexp);
-	arrow::r::input<bool>::type allow_float_truncate(allow_float_truncate_sexp);
+	arrow::r::Input<bool>::type allow_int_overflow(allow_int_overflow_sexp);
+	arrow::r::Input<bool>::type allow_time_truncate(allow_time_truncate_sexp);
+	arrow::r::Input<bool>::type allow_float_truncate(allow_float_truncate_sexp);
 	return cpp11::as_sexp(compute___CastOptions__initialize(allow_int_overflow, allow_time_truncate, allow_float_truncate));
 END_CPP11
 }
@@ -1115,9 +1115,9 @@ extern "C" SEXP _arrow_compute___CastOptions__initialize(SEXP allow_int_overflow
 std::shared_ptr<arrow::Array> Array__cast(const std::shared_ptr<arrow::Array>& array, const std::shared_ptr<arrow::DataType>& target_type, const std::shared_ptr<arrow::compute::CastOptions>& options);
 extern "C" SEXP _arrow_Array__cast(SEXP array_sexp, SEXP target_type_sexp, SEXP options_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::Array>&>::type array(array_sexp);
-	arrow::r::input<const std::shared_ptr<arrow::DataType>&>::type target_type(target_type_sexp);
-	arrow::r::input<const std::shared_ptr<arrow::compute::CastOptions>&>::type options(options_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Array>&>::type array(array_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::DataType>&>::type target_type(target_type_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::compute::CastOptions>&>::type options(options_sexp);
 	return cpp11::as_sexp(Array__cast(array, target_type, options));
 END_CPP11
 }
@@ -1132,9 +1132,9 @@ extern "C" SEXP _arrow_Array__cast(SEXP array_sexp, SEXP target_type_sexp, SEXP 
 std::shared_ptr<arrow::ChunkedArray> ChunkedArray__cast(const std::shared_ptr<arrow::ChunkedArray>& chunked_array, const std::shared_ptr<arrow::DataType>& target_type, const std::shared_ptr<arrow::compute::CastOptions>& options);
 extern "C" SEXP _arrow_ChunkedArray__cast(SEXP chunked_array_sexp, SEXP target_type_sexp, SEXP options_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::ChunkedArray>&>::type chunked_array(chunked_array_sexp);
-	arrow::r::input<const std::shared_ptr<arrow::DataType>&>::type target_type(target_type_sexp);
-	arrow::r::input<const std::shared_ptr<arrow::compute::CastOptions>&>::type options(options_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::ChunkedArray>&>::type chunked_array(chunked_array_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::DataType>&>::type target_type(target_type_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::compute::CastOptions>&>::type options(options_sexp);
 	return cpp11::as_sexp(ChunkedArray__cast(chunked_array, target_type, options));
 END_CPP11
 }
@@ -1149,9 +1149,9 @@ extern "C" SEXP _arrow_ChunkedArray__cast(SEXP chunked_array_sexp, SEXP target_t
 std::shared_ptr<arrow::RecordBatch> RecordBatch__cast(const std::shared_ptr<arrow::RecordBatch>& batch, const std::shared_ptr<arrow::Schema>& schema, const std::shared_ptr<arrow::compute::CastOptions>& options);
 extern "C" SEXP _arrow_RecordBatch__cast(SEXP batch_sexp, SEXP schema_sexp, SEXP options_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::RecordBatch>&>::type batch(batch_sexp);
-	arrow::r::input<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
-	arrow::r::input<const std::shared_ptr<arrow::compute::CastOptions>&>::type options(options_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::RecordBatch>&>::type batch(batch_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::compute::CastOptions>&>::type options(options_sexp);
 	return cpp11::as_sexp(RecordBatch__cast(batch, schema, options));
 END_CPP11
 }
@@ -1166,9 +1166,9 @@ extern "C" SEXP _arrow_RecordBatch__cast(SEXP batch_sexp, SEXP schema_sexp, SEXP
 std::shared_ptr<arrow::Table> Table__cast(const std::shared_ptr<arrow::Table>& table, const std::shared_ptr<arrow::Schema>& schema, const std::shared_ptr<arrow::compute::CastOptions>& options);
 extern "C" SEXP _arrow_Table__cast(SEXP table_sexp, SEXP schema_sexp, SEXP options_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
-	arrow::r::input<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
-	arrow::r::input<const std::shared_ptr<arrow::compute::CastOptions>&>::type options(options_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::compute::CastOptions>&>::type options(options_sexp);
 	return cpp11::as_sexp(Table__cast(table, schema, options));
 END_CPP11
 }
@@ -1183,9 +1183,9 @@ extern "C" SEXP _arrow_Table__cast(SEXP table_sexp, SEXP schema_sexp, SEXP optio
 SEXP compute__CallFunction(std::string func_name, cpp11::list args, cpp11::list options);
 extern "C" SEXP _arrow_compute__CallFunction(SEXP func_name_sexp, SEXP args_sexp, SEXP options_sexp){
 BEGIN_CPP11
-	arrow::r::input<std::string>::type func_name(func_name_sexp);
-	arrow::r::input<cpp11::list>::type args(args_sexp);
-	arrow::r::input<cpp11::list>::type options(options_sexp);
+	arrow::r::Input<std::string>::type func_name(func_name_sexp);
+	arrow::r::Input<cpp11::list>::type args(args_sexp);
+	arrow::r::Input<cpp11::list>::type options(options_sexp);
 	return cpp11::as_sexp(compute__CallFunction(func_name, args, options));
 END_CPP11
 }
@@ -1200,7 +1200,7 @@ extern "C" SEXP _arrow_compute__CallFunction(SEXP func_name_sexp, SEXP args_sexp
 std::shared_ptr<arrow::csv::ReadOptions> csv___ReadOptions__initialize(cpp11::list options);
 extern "C" SEXP _arrow_csv___ReadOptions__initialize(SEXP options_sexp){
 BEGIN_CPP11
-	arrow::r::input<cpp11::list>::type options(options_sexp);
+	arrow::r::Input<cpp11::list>::type options(options_sexp);
 	return cpp11::as_sexp(csv___ReadOptions__initialize(options));
 END_CPP11
 }
@@ -1215,7 +1215,7 @@ extern "C" SEXP _arrow_csv___ReadOptions__initialize(SEXP options_sexp){
 std::shared_ptr<arrow::csv::ParseOptions> csv___ParseOptions__initialize(cpp11::list options);
 extern "C" SEXP _arrow_csv___ParseOptions__initialize(SEXP options_sexp){
 BEGIN_CPP11
-	arrow::r::input<cpp11::list>::type options(options_sexp);
+	arrow::r::Input<cpp11::list>::type options(options_sexp);
 	return cpp11::as_sexp(csv___ParseOptions__initialize(options));
 END_CPP11
 }
@@ -1230,7 +1230,7 @@ extern "C" SEXP _arrow_csv___ParseOptions__initialize(SEXP options_sexp){
 std::shared_ptr<arrow::csv::ConvertOptions> csv___ConvertOptions__initialize(cpp11::list options);
 extern "C" SEXP _arrow_csv___ConvertOptions__initialize(SEXP options_sexp){
 BEGIN_CPP11
-	arrow::r::input<cpp11::list>::type options(options_sexp);
+	arrow::r::Input<cpp11::list>::type options(options_sexp);
 	return cpp11::as_sexp(csv___ConvertOptions__initialize(options));
 END_CPP11
 }
@@ -1245,10 +1245,10 @@ extern "C" SEXP _arrow_csv___ConvertOptions__initialize(SEXP options_sexp){
 std::shared_ptr<arrow::csv::TableReader> csv___TableReader__Make(const std::shared_ptr<arrow::io::InputStream>& input, const std::shared_ptr<arrow::csv::ReadOptions>& read_options, const std::shared_ptr<arrow::csv::ParseOptions>& parse_options, const std::shared_ptr<arrow::csv::ConvertOptions>& convert_options);
 extern "C" SEXP _arrow_csv___TableReader__Make(SEXP input_sexp, SEXP read_options_sexp, SEXP parse_options_sexp, SEXP convert_options_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::io::InputStream>&>::type input(input_sexp);
-	arrow::r::input<const std::shared_ptr<arrow::csv::ReadOptions>&>::type read_options(read_options_sexp);
-	arrow::r::input<const std::shared_ptr<arrow::csv::ParseOptions>&>::type parse_options(parse_options_sexp);
-	arrow::r::input<const std::shared_ptr<arrow::csv::ConvertOptions>&>::type convert_options(convert_options_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::io::InputStream>&>::type input(input_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::csv::ReadOptions>&>::type read_options(read_options_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::csv::ParseOptions>&>::type parse_options(parse_options_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::csv::ConvertOptions>&>::type convert_options(convert_options_sexp);
 	return cpp11::as_sexp(csv___TableReader__Make(input, read_options, parse_options, convert_options));
 END_CPP11
 }
@@ -1263,7 +1263,7 @@ extern "C" SEXP _arrow_csv___TableReader__Make(SEXP input_sexp, SEXP read_option
 std::shared_ptr<arrow::Table> csv___TableReader__Read(const std::shared_ptr<arrow::csv::TableReader>& table_reader);
 extern "C" SEXP _arrow_csv___TableReader__Read(SEXP table_reader_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::csv::TableReader>&>::type table_reader(table_reader_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::csv::TableReader>&>::type table_reader(table_reader_sexp);
 	return cpp11::as_sexp(csv___TableReader__Read(table_reader));
 END_CPP11
 }
@@ -1278,7 +1278,7 @@ extern "C" SEXP _arrow_csv___TableReader__Read(SEXP table_reader_sexp){
 std::shared_ptr<ds::ScannerBuilder> dataset___Dataset__NewScan(const std::shared_ptr<ds::Dataset>& ds);
 extern "C" SEXP _arrow_dataset___Dataset__NewScan(SEXP ds_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<ds::Dataset>&>::type ds(ds_sexp);
+	arrow::r::Input<const std::shared_ptr<ds::Dataset>&>::type ds(ds_sexp);
 	return cpp11::as_sexp(dataset___Dataset__NewScan(ds));
 END_CPP11
 }
@@ -1293,7 +1293,7 @@ extern "C" SEXP _arrow_dataset___Dataset__NewScan(SEXP ds_sexp){
 std::shared_ptr<arrow::Schema> dataset___Dataset__schema(const std::shared_ptr<ds::Dataset>& dataset);
 extern "C" SEXP _arrow_dataset___Dataset__schema(SEXP dataset_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<ds::Dataset>&>::type dataset(dataset_sexp);
+	arrow::r::Input<const std::shared_ptr<ds::Dataset>&>::type dataset(dataset_sexp);
 	return cpp11::as_sexp(dataset___Dataset__schema(dataset));
 END_CPP11
 }
@@ -1308,7 +1308,7 @@ extern "C" SEXP _arrow_dataset___Dataset__schema(SEXP dataset_sexp){
 std::string dataset___Dataset__type_name(const std::shared_ptr<ds::Dataset>& dataset);
 extern "C" SEXP _arrow_dataset___Dataset__type_name(SEXP dataset_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<ds::Dataset>&>::type dataset(dataset_sexp);
+	arrow::r::Input<const std::shared_ptr<ds::Dataset>&>::type dataset(dataset_sexp);
 	return cpp11::as_sexp(dataset___Dataset__type_name(dataset));
 END_CPP11
 }
@@ -1323,8 +1323,8 @@ extern "C" SEXP _arrow_dataset___Dataset__type_name(SEXP dataset_sexp){
 std::shared_ptr<ds::Dataset> dataset___Dataset__ReplaceSchema(const std::shared_ptr<ds::Dataset>& dataset, const std::shared_ptr<arrow::Schema>& schm);
 extern "C" SEXP _arrow_dataset___Dataset__ReplaceSchema(SEXP dataset_sexp, SEXP schm_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<ds::Dataset>&>::type dataset(dataset_sexp);
-	arrow::r::input<const std::shared_ptr<arrow::Schema>&>::type schm(schm_sexp);
+	arrow::r::Input<const std::shared_ptr<ds::Dataset>&>::type dataset(dataset_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Schema>&>::type schm(schm_sexp);
 	return cpp11::as_sexp(dataset___Dataset__ReplaceSchema(dataset, schm));
 END_CPP11
 }
@@ -1339,8 +1339,8 @@ extern "C" SEXP _arrow_dataset___Dataset__ReplaceSchema(SEXP dataset_sexp, SEXP 
 std::shared_ptr<ds::UnionDataset> dataset___UnionDataset__create(const ds::DatasetVector& datasets, const std::shared_ptr<arrow::Schema>& schm);
 extern "C" SEXP _arrow_dataset___UnionDataset__create(SEXP datasets_sexp, SEXP schm_sexp){
 BEGIN_CPP11
-	arrow::r::input<const ds::DatasetVector&>::type datasets(datasets_sexp);
-	arrow::r::input<const std::shared_ptr<arrow::Schema>&>::type schm(schm_sexp);
+	arrow::r::Input<const ds::DatasetVector&>::type datasets(datasets_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Schema>&>::type schm(schm_sexp);
 	return cpp11::as_sexp(dataset___UnionDataset__create(datasets, schm));
 END_CPP11
 }
@@ -1355,7 +1355,7 @@ extern "C" SEXP _arrow_dataset___UnionDataset__create(SEXP datasets_sexp, SEXP s
 ds::DatasetVector dataset___UnionDataset__children(const std::shared_ptr<ds::UnionDataset>& ds);
 extern "C" SEXP _arrow_dataset___UnionDataset__children(SEXP ds_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<ds::UnionDataset>&>::type ds(ds_sexp);
+	arrow::r::Input<const std::shared_ptr<ds::UnionDataset>&>::type ds(ds_sexp);
 	return cpp11::as_sexp(dataset___UnionDataset__children(ds));
 END_CPP11
 }
@@ -1370,7 +1370,7 @@ extern "C" SEXP _arrow_dataset___UnionDataset__children(SEXP ds_sexp){
 std::shared_ptr<ds::FileFormat> dataset___FileSystemDataset__format(const std::shared_ptr<ds::FileSystemDataset>& dataset);
 extern "C" SEXP _arrow_dataset___FileSystemDataset__format(SEXP dataset_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<ds::FileSystemDataset>&>::type dataset(dataset_sexp);
+	arrow::r::Input<const std::shared_ptr<ds::FileSystemDataset>&>::type dataset(dataset_sexp);
 	return cpp11::as_sexp(dataset___FileSystemDataset__format(dataset));
 END_CPP11
 }
@@ -1385,7 +1385,7 @@ extern "C" SEXP _arrow_dataset___FileSystemDataset__format(SEXP dataset_sexp){
 std::vector<std::string> dataset___FileSystemDataset__files(const std::shared_ptr<ds::FileSystemDataset>& dataset);
 extern "C" SEXP _arrow_dataset___FileSystemDataset__files(SEXP dataset_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<ds::FileSystemDataset>&>::type dataset(dataset_sexp);
+	arrow::r::Input<const std::shared_ptr<ds::FileSystemDataset>&>::type dataset(dataset_sexp);
 	return cpp11::as_sexp(dataset___FileSystemDataset__files(dataset));
 END_CPP11
 }
@@ -1400,8 +1400,8 @@ extern "C" SEXP _arrow_dataset___FileSystemDataset__files(SEXP dataset_sexp){
 std::shared_ptr<ds::Dataset> dataset___DatasetFactory__Finish1(const std::shared_ptr<ds::DatasetFactory>& factory, bool unify_schemas);
 extern "C" SEXP _arrow_dataset___DatasetFactory__Finish1(SEXP factory_sexp, SEXP unify_schemas_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<ds::DatasetFactory>&>::type factory(factory_sexp);
-	arrow::r::input<bool>::type unify_schemas(unify_schemas_sexp);
+	arrow::r::Input<const std::shared_ptr<ds::DatasetFactory>&>::type factory(factory_sexp);
+	arrow::r::Input<bool>::type unify_schemas(unify_schemas_sexp);
 	return cpp11::as_sexp(dataset___DatasetFactory__Finish1(factory, unify_schemas));
 END_CPP11
 }
@@ -1416,8 +1416,8 @@ extern "C" SEXP _arrow_dataset___DatasetFactory__Finish1(SEXP factory_sexp, SEXP
 std::shared_ptr<ds::Dataset> dataset___DatasetFactory__Finish2(const std::shared_ptr<ds::DatasetFactory>& factory, const std::shared_ptr<arrow::Schema>& schema);
 extern "C" SEXP _arrow_dataset___DatasetFactory__Finish2(SEXP factory_sexp, SEXP schema_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<ds::DatasetFactory>&>::type factory(factory_sexp);
-	arrow::r::input<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
+	arrow::r::Input<const std::shared_ptr<ds::DatasetFactory>&>::type factory(factory_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
 	return cpp11::as_sexp(dataset___DatasetFactory__Finish2(factory, schema));
 END_CPP11
 }
@@ -1432,8 +1432,8 @@ extern "C" SEXP _arrow_dataset___DatasetFactory__Finish2(SEXP factory_sexp, SEXP
 std::shared_ptr<arrow::Schema> dataset___DatasetFactory__Inspect(const std::shared_ptr<ds::DatasetFactory>& factory, bool unify_schemas);
 extern "C" SEXP _arrow_dataset___DatasetFactory__Inspect(SEXP factory_sexp, SEXP unify_schemas_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<ds::DatasetFactory>&>::type factory(factory_sexp);
-	arrow::r::input<bool>::type unify_schemas(unify_schemas_sexp);
+	arrow::r::Input<const std::shared_ptr<ds::DatasetFactory>&>::type factory(factory_sexp);
+	arrow::r::Input<bool>::type unify_schemas(unify_schemas_sexp);
 	return cpp11::as_sexp(dataset___DatasetFactory__Inspect(factory, unify_schemas));
 END_CPP11
 }
@@ -1448,7 +1448,7 @@ extern "C" SEXP _arrow_dataset___DatasetFactory__Inspect(SEXP factory_sexp, SEXP
 std::shared_ptr<ds::DatasetFactory> dataset___UnionDatasetFactory__Make(const std::vector<std::shared_ptr<ds::DatasetFactory>>& children);
 extern "C" SEXP _arrow_dataset___UnionDatasetFactory__Make(SEXP children_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::vector<std::shared_ptr<ds::DatasetFactory>>&>::type children(children_sexp);
+	arrow::r::Input<const std::vector<std::shared_ptr<ds::DatasetFactory>>&>::type children(children_sexp);
 	return cpp11::as_sexp(dataset___UnionDatasetFactory__Make(children));
 END_CPP11
 }
@@ -1463,10 +1463,10 @@ extern "C" SEXP _arrow_dataset___UnionDatasetFactory__Make(SEXP children_sexp){
 std::shared_ptr<ds::DatasetFactory> dataset___FileSystemDatasetFactory__Make2(const std::shared_ptr<fs::FileSystem>& fs, const std::shared_ptr<fs::FileSelector>& selector, const std::shared_ptr<ds::FileFormat>& format, const std::shared_ptr<ds::Partitioning>& partitioning);
 extern "C" SEXP _arrow_dataset___FileSystemDatasetFactory__Make2(SEXP fs_sexp, SEXP selector_sexp, SEXP format_sexp, SEXP partitioning_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<fs::FileSystem>&>::type fs(fs_sexp);
-	arrow::r::input<const std::shared_ptr<fs::FileSelector>&>::type selector(selector_sexp);
-	arrow::r::input<const std::shared_ptr<ds::FileFormat>&>::type format(format_sexp);
-	arrow::r::input<const std::shared_ptr<ds::Partitioning>&>::type partitioning(partitioning_sexp);
+	arrow::r::Input<const std::shared_ptr<fs::FileSystem>&>::type fs(fs_sexp);
+	arrow::r::Input<const std::shared_ptr<fs::FileSelector>&>::type selector(selector_sexp);
+	arrow::r::Input<const std::shared_ptr<ds::FileFormat>&>::type format(format_sexp);
+	arrow::r::Input<const std::shared_ptr<ds::Partitioning>&>::type partitioning(partitioning_sexp);
 	return cpp11::as_sexp(dataset___FileSystemDatasetFactory__Make2(fs, selector, format, partitioning));
 END_CPP11
 }
@@ -1481,9 +1481,9 @@ extern "C" SEXP _arrow_dataset___FileSystemDatasetFactory__Make2(SEXP fs_sexp, S
 std::shared_ptr<ds::DatasetFactory> dataset___FileSystemDatasetFactory__Make1(const std::shared_ptr<fs::FileSystem>& fs, const std::shared_ptr<fs::FileSelector>& selector, const std::shared_ptr<ds::FileFormat>& format);
 extern "C" SEXP _arrow_dataset___FileSystemDatasetFactory__Make1(SEXP fs_sexp, SEXP selector_sexp, SEXP format_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<fs::FileSystem>&>::type fs(fs_sexp);
-	arrow::r::input<const std::shared_ptr<fs::FileSelector>&>::type selector(selector_sexp);
-	arrow::r::input<const std::shared_ptr<ds::FileFormat>&>::type format(format_sexp);
+	arrow::r::Input<const std::shared_ptr<fs::FileSystem>&>::type fs(fs_sexp);
+	arrow::r::Input<const std::shared_ptr<fs::FileSelector>&>::type selector(selector_sexp);
+	arrow::r::Input<const std::shared_ptr<ds::FileFormat>&>::type format(format_sexp);
 	return cpp11::as_sexp(dataset___FileSystemDatasetFactory__Make1(fs, selector, format));
 END_CPP11
 }
@@ -1498,10 +1498,10 @@ extern "C" SEXP _arrow_dataset___FileSystemDatasetFactory__Make1(SEXP fs_sexp, S
 std::shared_ptr<ds::DatasetFactory> dataset___FileSystemDatasetFactory__Make3(const std::shared_ptr<fs::FileSystem>& fs, const std::shared_ptr<fs::FileSelector>& selector, const std::shared_ptr<ds::FileFormat>& format, const std::shared_ptr<ds::PartitioningFactory>& factory);
 extern "C" SEXP _arrow_dataset___FileSystemDatasetFactory__Make3(SEXP fs_sexp, SEXP selector_sexp, SEXP format_sexp, SEXP factory_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<fs::FileSystem>&>::type fs(fs_sexp);
-	arrow::r::input<const std::shared_ptr<fs::FileSelector>&>::type selector(selector_sexp);
-	arrow::r::input<const std::shared_ptr<ds::FileFormat>&>::type format(format_sexp);
-	arrow::r::input<const std::shared_ptr<ds::PartitioningFactory>&>::type factory(factory_sexp);
+	arrow::r::Input<const std::shared_ptr<fs::FileSystem>&>::type fs(fs_sexp);
+	arrow::r::Input<const std::shared_ptr<fs::FileSelector>&>::type selector(selector_sexp);
+	arrow::r::Input<const std::shared_ptr<ds::FileFormat>&>::type format(format_sexp);
+	arrow::r::Input<const std::shared_ptr<ds::PartitioningFactory>&>::type factory(factory_sexp);
 	return cpp11::as_sexp(dataset___FileSystemDatasetFactory__Make3(fs, selector, format, factory));
 END_CPP11
 }
@@ -1516,7 +1516,7 @@ extern "C" SEXP _arrow_dataset___FileSystemDatasetFactory__Make3(SEXP fs_sexp, S
 std::string dataset___FileFormat__type_name(const std::shared_ptr<ds::FileFormat>& format);
 extern "C" SEXP _arrow_dataset___FileFormat__type_name(SEXP format_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<ds::FileFormat>&>::type format(format_sexp);
+	arrow::r::Input<const std::shared_ptr<ds::FileFormat>&>::type format(format_sexp);
 	return cpp11::as_sexp(dataset___FileFormat__type_name(format));
 END_CPP11
 }
@@ -1531,9 +1531,9 @@ extern "C" SEXP _arrow_dataset___FileFormat__type_name(SEXP format_sexp){
 std::shared_ptr<ds::ParquetFileFormat> dataset___ParquetFileFormat__Make(bool use_buffered_stream, int64_t buffer_size, cpp11::strings dict_columns);
 extern "C" SEXP _arrow_dataset___ParquetFileFormat__Make(SEXP use_buffered_stream_sexp, SEXP buffer_size_sexp, SEXP dict_columns_sexp){
 BEGIN_CPP11
-	arrow::r::input<bool>::type use_buffered_stream(use_buffered_stream_sexp);
-	arrow::r::input<int64_t>::type buffer_size(buffer_size_sexp);
-	arrow::r::input<cpp11::strings>::type dict_columns(dict_columns_sexp);
+	arrow::r::Input<bool>::type use_buffered_stream(use_buffered_stream_sexp);
+	arrow::r::Input<int64_t>::type buffer_size(buffer_size_sexp);
+	arrow::r::Input<cpp11::strings>::type dict_columns(dict_columns_sexp);
 	return cpp11::as_sexp(dataset___ParquetFileFormat__Make(use_buffered_stream, buffer_size, dict_columns));
 END_CPP11
 }
@@ -1562,7 +1562,7 @@ extern "C" SEXP _arrow_dataset___IpcFileFormat__Make(){
 std::shared_ptr<ds::CsvFileFormat> dataset___CsvFileFormat__Make(const std::shared_ptr<arrow::csv::ParseOptions>& parse_options);
 extern "C" SEXP _arrow_dataset___CsvFileFormat__Make(SEXP parse_options_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::csv::ParseOptions>&>::type parse_options(parse_options_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::csv::ParseOptions>&>::type parse_options(parse_options_sexp);
 	return cpp11::as_sexp(dataset___CsvFileFormat__Make(parse_options));
 END_CPP11
 }
@@ -1577,7 +1577,7 @@ extern "C" SEXP _arrow_dataset___CsvFileFormat__Make(SEXP parse_options_sexp){
 std::shared_ptr<ds::Partitioning> dataset___DirectoryPartitioning(const std::shared_ptr<arrow::Schema>& schm);
 extern "C" SEXP _arrow_dataset___DirectoryPartitioning(SEXP schm_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::Schema>&>::type schm(schm_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Schema>&>::type schm(schm_sexp);
 	return cpp11::as_sexp(dataset___DirectoryPartitioning(schm));
 END_CPP11
 }
@@ -1592,7 +1592,7 @@ extern "C" SEXP _arrow_dataset___DirectoryPartitioning(SEXP schm_sexp){
 std::shared_ptr<ds::PartitioningFactory> dataset___DirectoryPartitioning__MakeFactory(const std::vector<std::string>& field_names);
 extern "C" SEXP _arrow_dataset___DirectoryPartitioning__MakeFactory(SEXP field_names_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::vector<std::string>&>::type field_names(field_names_sexp);
+	arrow::r::Input<const std::vector<std::string>&>::type field_names(field_names_sexp);
 	return cpp11::as_sexp(dataset___DirectoryPartitioning__MakeFactory(field_names));
 END_CPP11
 }
@@ -1607,7 +1607,7 @@ extern "C" SEXP _arrow_dataset___DirectoryPartitioning__MakeFactory(SEXP field_n
 std::shared_ptr<ds::Partitioning> dataset___HivePartitioning(const std::shared_ptr<arrow::Schema>& schm);
 extern "C" SEXP _arrow_dataset___HivePartitioning(SEXP schm_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::Schema>&>::type schm(schm_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Schema>&>::type schm(schm_sexp);
 	return cpp11::as_sexp(dataset___HivePartitioning(schm));
 END_CPP11
 }
@@ -1636,8 +1636,8 @@ extern "C" SEXP _arrow_dataset___HivePartitioning__MakeFactory(){
 void dataset___ScannerBuilder__Project(const std::shared_ptr<ds::ScannerBuilder>& sb, const std::vector<std::string>& cols);
 extern "C" SEXP _arrow_dataset___ScannerBuilder__Project(SEXP sb_sexp, SEXP cols_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<ds::ScannerBuilder>&>::type sb(sb_sexp);
-	arrow::r::input<const std::vector<std::string>&>::type cols(cols_sexp);
+	arrow::r::Input<const std::shared_ptr<ds::ScannerBuilder>&>::type sb(sb_sexp);
+	arrow::r::Input<const std::vector<std::string>&>::type cols(cols_sexp);
 	dataset___ScannerBuilder__Project(sb, cols);
 	return R_NilValue;
 END_CPP11
@@ -1653,8 +1653,8 @@ extern "C" SEXP _arrow_dataset___ScannerBuilder__Project(SEXP sb_sexp, SEXP cols
 void dataset___ScannerBuilder__Filter(const std::shared_ptr<ds::ScannerBuilder>& sb, const std::shared_ptr<ds::Expression>& expr);
 extern "C" SEXP _arrow_dataset___ScannerBuilder__Filter(SEXP sb_sexp, SEXP expr_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<ds::ScannerBuilder>&>::type sb(sb_sexp);
-	arrow::r::input<const std::shared_ptr<ds::Expression>&>::type expr(expr_sexp);
+	arrow::r::Input<const std::shared_ptr<ds::ScannerBuilder>&>::type sb(sb_sexp);
+	arrow::r::Input<const std::shared_ptr<ds::Expression>&>::type expr(expr_sexp);
 	dataset___ScannerBuilder__Filter(sb, expr);
 	return R_NilValue;
 END_CPP11
@@ -1670,8 +1670,8 @@ extern "C" SEXP _arrow_dataset___ScannerBuilder__Filter(SEXP sb_sexp, SEXP expr_
 void dataset___ScannerBuilder__UseThreads(const std::shared_ptr<ds::ScannerBuilder>& sb, bool threads);
 extern "C" SEXP _arrow_dataset___ScannerBuilder__UseThreads(SEXP sb_sexp, SEXP threads_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<ds::ScannerBuilder>&>::type sb(sb_sexp);
-	arrow::r::input<bool>::type threads(threads_sexp);
+	arrow::r::Input<const std::shared_ptr<ds::ScannerBuilder>&>::type sb(sb_sexp);
+	arrow::r::Input<bool>::type threads(threads_sexp);
 	dataset___ScannerBuilder__UseThreads(sb, threads);
 	return R_NilValue;
 END_CPP11
@@ -1687,8 +1687,8 @@ extern "C" SEXP _arrow_dataset___ScannerBuilder__UseThreads(SEXP sb_sexp, SEXP t
 void dataset___ScannerBuilder__BatchSize(const std::shared_ptr<ds::ScannerBuilder>& sb, int64_t batch_size);
 extern "C" SEXP _arrow_dataset___ScannerBuilder__BatchSize(SEXP sb_sexp, SEXP batch_size_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<ds::ScannerBuilder>&>::type sb(sb_sexp);
-	arrow::r::input<int64_t>::type batch_size(batch_size_sexp);
+	arrow::r::Input<const std::shared_ptr<ds::ScannerBuilder>&>::type sb(sb_sexp);
+	arrow::r::Input<int64_t>::type batch_size(batch_size_sexp);
 	dataset___ScannerBuilder__BatchSize(sb, batch_size);
 	return R_NilValue;
 END_CPP11
@@ -1704,7 +1704,7 @@ extern "C" SEXP _arrow_dataset___ScannerBuilder__BatchSize(SEXP sb_sexp, SEXP ba
 std::shared_ptr<arrow::Schema> dataset___ScannerBuilder__schema(const std::shared_ptr<ds::ScannerBuilder>& sb);
 extern "C" SEXP _arrow_dataset___ScannerBuilder__schema(SEXP sb_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<ds::ScannerBuilder>&>::type sb(sb_sexp);
+	arrow::r::Input<const std::shared_ptr<ds::ScannerBuilder>&>::type sb(sb_sexp);
 	return cpp11::as_sexp(dataset___ScannerBuilder__schema(sb));
 END_CPP11
 }
@@ -1719,7 +1719,7 @@ extern "C" SEXP _arrow_dataset___ScannerBuilder__schema(SEXP sb_sexp){
 std::shared_ptr<ds::Scanner> dataset___ScannerBuilder__Finish(const std::shared_ptr<ds::ScannerBuilder>& sb);
 extern "C" SEXP _arrow_dataset___ScannerBuilder__Finish(SEXP sb_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<ds::ScannerBuilder>&>::type sb(sb_sexp);
+	arrow::r::Input<const std::shared_ptr<ds::ScannerBuilder>&>::type sb(sb_sexp);
 	return cpp11::as_sexp(dataset___ScannerBuilder__Finish(sb));
 END_CPP11
 }
@@ -1734,7 +1734,7 @@ extern "C" SEXP _arrow_dataset___ScannerBuilder__Finish(SEXP sb_sexp){
 std::shared_ptr<arrow::Table> dataset___Scanner__ToTable(const std::shared_ptr<ds::Scanner>& scanner);
 extern "C" SEXP _arrow_dataset___Scanner__ToTable(SEXP scanner_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<ds::Scanner>&>::type scanner(scanner_sexp);
+	arrow::r::Input<const std::shared_ptr<ds::Scanner>&>::type scanner(scanner_sexp);
 	return cpp11::as_sexp(dataset___Scanner__ToTable(scanner));
 END_CPP11
 }
@@ -1749,8 +1749,8 @@ extern "C" SEXP _arrow_dataset___Scanner__ToTable(SEXP scanner_sexp){
 std::shared_ptr<arrow::Table> dataset___Scanner__head(const std::shared_ptr<ds::Scanner>& scanner, int n);
 extern "C" SEXP _arrow_dataset___Scanner__head(SEXP scanner_sexp, SEXP n_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<ds::Scanner>&>::type scanner(scanner_sexp);
-	arrow::r::input<int>::type n(n_sexp);
+	arrow::r::Input<const std::shared_ptr<ds::Scanner>&>::type scanner(scanner_sexp);
+	arrow::r::Input<int>::type n(n_sexp);
 	return cpp11::as_sexp(dataset___Scanner__head(scanner, n));
 END_CPP11
 }
@@ -1765,7 +1765,7 @@ extern "C" SEXP _arrow_dataset___Scanner__head(SEXP scanner_sexp, SEXP n_sexp){
 std::vector<std::shared_ptr<ds::ScanTask>> dataset___Scanner__Scan(const std::shared_ptr<ds::Scanner>& scanner);
 extern "C" SEXP _arrow_dataset___Scanner__Scan(SEXP scanner_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<ds::Scanner>&>::type scanner(scanner_sexp);
+	arrow::r::Input<const std::shared_ptr<ds::Scanner>&>::type scanner(scanner_sexp);
 	return cpp11::as_sexp(dataset___Scanner__Scan(scanner));
 END_CPP11
 }
@@ -1780,7 +1780,7 @@ extern "C" SEXP _arrow_dataset___Scanner__Scan(SEXP scanner_sexp){
 std::vector<std::shared_ptr<arrow::RecordBatch>> dataset___ScanTask__get_batches(const std::shared_ptr<ds::ScanTask>& scan_task);
 extern "C" SEXP _arrow_dataset___ScanTask__get_batches(SEXP scan_task_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<ds::ScanTask>&>::type scan_task(scan_task_sexp);
+	arrow::r::Input<const std::shared_ptr<ds::ScanTask>&>::type scan_task(scan_task_sexp);
 	return cpp11::as_sexp(dataset___ScanTask__get_batches(scan_task));
 END_CPP11
 }
@@ -1795,12 +1795,12 @@ extern "C" SEXP _arrow_dataset___ScanTask__get_batches(SEXP scan_task_sexp){
 void dataset___Dataset__Write(const std::shared_ptr<ds::Dataset>& ds, const std::shared_ptr<arrow::Schema>& schema, const std::shared_ptr<ds::FileFormat>& format, const std::shared_ptr<fs::FileSystem>& filesystem, std::string path, const std::shared_ptr<ds::Partitioning>& partitioning);
 extern "C" SEXP _arrow_dataset___Dataset__Write(SEXP ds_sexp, SEXP schema_sexp, SEXP format_sexp, SEXP filesystem_sexp, SEXP path_sexp, SEXP partitioning_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<ds::Dataset>&>::type ds(ds_sexp);
-	arrow::r::input<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
-	arrow::r::input<const std::shared_ptr<ds::FileFormat>&>::type format(format_sexp);
-	arrow::r::input<const std::shared_ptr<fs::FileSystem>&>::type filesystem(filesystem_sexp);
-	arrow::r::input<std::string>::type path(path_sexp);
-	arrow::r::input<const std::shared_ptr<ds::Partitioning>&>::type partitioning(partitioning_sexp);
+	arrow::r::Input<const std::shared_ptr<ds::Dataset>&>::type ds(ds_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
+	arrow::r::Input<const std::shared_ptr<ds::FileFormat>&>::type format(format_sexp);
+	arrow::r::Input<const std::shared_ptr<fs::FileSystem>&>::type filesystem(filesystem_sexp);
+	arrow::r::Input<std::string>::type path(path_sexp);
+	arrow::r::Input<const std::shared_ptr<ds::Partitioning>&>::type partitioning(partitioning_sexp);
 	dataset___Dataset__Write(ds, schema, format, filesystem, path, partitioning);
 	return R_NilValue;
 END_CPP11
@@ -1816,7 +1816,7 @@ extern "C" SEXP _arrow_dataset___Dataset__Write(SEXP ds_sexp, SEXP schema_sexp, 
 bool shared_ptr_is_null(SEXP xp);
 extern "C" SEXP _arrow_shared_ptr_is_null(SEXP xp_sexp){
 BEGIN_CPP11
-	arrow::r::input<SEXP>::type xp(xp_sexp);
+	arrow::r::Input<SEXP>::type xp(xp_sexp);
 	return cpp11::as_sexp(shared_ptr_is_null(xp));
 END_CPP11
 }
@@ -1831,7 +1831,7 @@ extern "C" SEXP _arrow_shared_ptr_is_null(SEXP xp_sexp){
 bool unique_ptr_is_null(SEXP xp);
 extern "C" SEXP _arrow_unique_ptr_is_null(SEXP xp_sexp){
 BEGIN_CPP11
-	arrow::r::input<SEXP>::type xp(xp_sexp);
+	arrow::r::Input<SEXP>::type xp(xp_sexp);
 	return cpp11::as_sexp(unique_ptr_is_null(xp));
 END_CPP11
 }
@@ -2112,8 +2112,8 @@ extern "C" SEXP _arrow_Null__initialize(){
 std::shared_ptr<arrow::DataType> Decimal128Type__initialize(int32_t precision, int32_t scale);
 extern "C" SEXP _arrow_Decimal128Type__initialize(SEXP precision_sexp, SEXP scale_sexp){
 BEGIN_CPP11
-	arrow::r::input<int32_t>::type precision(precision_sexp);
-	arrow::r::input<int32_t>::type scale(scale_sexp);
+	arrow::r::Input<int32_t>::type precision(precision_sexp);
+	arrow::r::Input<int32_t>::type scale(scale_sexp);
 	return cpp11::as_sexp(Decimal128Type__initialize(precision, scale));
 END_CPP11
 }
@@ -2128,7 +2128,7 @@ extern "C" SEXP _arrow_Decimal128Type__initialize(SEXP precision_sexp, SEXP scal
 std::shared_ptr<arrow::DataType> FixedSizeBinary__initialize(R_xlen_t byte_width);
 extern "C" SEXP _arrow_FixedSizeBinary__initialize(SEXP byte_width_sexp){
 BEGIN_CPP11
-	arrow::r::input<R_xlen_t>::type byte_width(byte_width_sexp);
+	arrow::r::Input<R_xlen_t>::type byte_width(byte_width_sexp);
 	return cpp11::as_sexp(FixedSizeBinary__initialize(byte_width));
 END_CPP11
 }
@@ -2143,8 +2143,8 @@ extern "C" SEXP _arrow_FixedSizeBinary__initialize(SEXP byte_width_sexp){
 std::shared_ptr<arrow::DataType> Timestamp__initialize(arrow::TimeUnit::type unit, const std::string& timezone);
 extern "C" SEXP _arrow_Timestamp__initialize(SEXP unit_sexp, SEXP timezone_sexp){
 BEGIN_CPP11
-	arrow::r::input<arrow::TimeUnit::type>::type unit(unit_sexp);
-	arrow::r::input<const std::string&>::type timezone(timezone_sexp);
+	arrow::r::Input<arrow::TimeUnit::type>::type unit(unit_sexp);
+	arrow::r::Input<const std::string&>::type timezone(timezone_sexp);
 	return cpp11::as_sexp(Timestamp__initialize(unit, timezone));
 END_CPP11
 }
@@ -2159,7 +2159,7 @@ extern "C" SEXP _arrow_Timestamp__initialize(SEXP unit_sexp, SEXP timezone_sexp)
 std::shared_ptr<arrow::DataType> Time32__initialize(arrow::TimeUnit::type unit);
 extern "C" SEXP _arrow_Time32__initialize(SEXP unit_sexp){
 BEGIN_CPP11
-	arrow::r::input<arrow::TimeUnit::type>::type unit(unit_sexp);
+	arrow::r::Input<arrow::TimeUnit::type>::type unit(unit_sexp);
 	return cpp11::as_sexp(Time32__initialize(unit));
 END_CPP11
 }
@@ -2174,7 +2174,7 @@ extern "C" SEXP _arrow_Time32__initialize(SEXP unit_sexp){
 std::shared_ptr<arrow::DataType> Time64__initialize(arrow::TimeUnit::type unit);
 extern "C" SEXP _arrow_Time64__initialize(SEXP unit_sexp){
 BEGIN_CPP11
-	arrow::r::input<arrow::TimeUnit::type>::type unit(unit_sexp);
+	arrow::r::Input<arrow::TimeUnit::type>::type unit(unit_sexp);
 	return cpp11::as_sexp(Time64__initialize(unit));
 END_CPP11
 }
@@ -2189,7 +2189,7 @@ extern "C" SEXP _arrow_Time64__initialize(SEXP unit_sexp){
 SEXP list__(SEXP x);
 extern "C" SEXP _arrow_list__(SEXP x_sexp){
 BEGIN_CPP11
-	arrow::r::input<SEXP>::type x(x_sexp);
+	arrow::r::Input<SEXP>::type x(x_sexp);
 	return cpp11::as_sexp(list__(x));
 END_CPP11
 }
@@ -2204,7 +2204,7 @@ extern "C" SEXP _arrow_list__(SEXP x_sexp){
 SEXP large_list__(SEXP x);
 extern "C" SEXP _arrow_large_list__(SEXP x_sexp){
 BEGIN_CPP11
-	arrow::r::input<SEXP>::type x(x_sexp);
+	arrow::r::Input<SEXP>::type x(x_sexp);
 	return cpp11::as_sexp(large_list__(x));
 END_CPP11
 }
@@ -2219,8 +2219,8 @@ extern "C" SEXP _arrow_large_list__(SEXP x_sexp){
 SEXP fixed_size_list__(SEXP x, int list_size);
 extern "C" SEXP _arrow_fixed_size_list__(SEXP x_sexp, SEXP list_size_sexp){
 BEGIN_CPP11
-	arrow::r::input<SEXP>::type x(x_sexp);
-	arrow::r::input<int>::type list_size(list_size_sexp);
+	arrow::r::Input<SEXP>::type x(x_sexp);
+	arrow::r::Input<int>::type list_size(list_size_sexp);
 	return cpp11::as_sexp(fixed_size_list__(x, list_size));
 END_CPP11
 }
@@ -2235,7 +2235,7 @@ extern "C" SEXP _arrow_fixed_size_list__(SEXP x_sexp, SEXP list_size_sexp){
 std::shared_ptr<arrow::DataType> struct__(const std::vector<std::shared_ptr<arrow::Field>>& fields);
 extern "C" SEXP _arrow_struct__(SEXP fields_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::vector<std::shared_ptr<arrow::Field>>&>::type fields(fields_sexp);
+	arrow::r::Input<const std::vector<std::shared_ptr<arrow::Field>>&>::type fields(fields_sexp);
 	return cpp11::as_sexp(struct__(fields));
 END_CPP11
 }
@@ -2250,7 +2250,7 @@ extern "C" SEXP _arrow_struct__(SEXP fields_sexp){
 std::string DataType__ToString(const std::shared_ptr<arrow::DataType>& type);
 extern "C" SEXP _arrow_DataType__ToString(SEXP type_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::DataType>&>::type type(type_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::DataType>&>::type type(type_sexp);
 	return cpp11::as_sexp(DataType__ToString(type));
 END_CPP11
 }
@@ -2265,7 +2265,7 @@ extern "C" SEXP _arrow_DataType__ToString(SEXP type_sexp){
 std::string DataType__name(const std::shared_ptr<arrow::DataType>& type);
 extern "C" SEXP _arrow_DataType__name(SEXP type_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::DataType>&>::type type(type_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::DataType>&>::type type(type_sexp);
 	return cpp11::as_sexp(DataType__name(type));
 END_CPP11
 }
@@ -2280,8 +2280,8 @@ extern "C" SEXP _arrow_DataType__name(SEXP type_sexp){
 bool DataType__Equals(const std::shared_ptr<arrow::DataType>& lhs, const std::shared_ptr<arrow::DataType>& rhs);
 extern "C" SEXP _arrow_DataType__Equals(SEXP lhs_sexp, SEXP rhs_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::DataType>&>::type lhs(lhs_sexp);
-	arrow::r::input<const std::shared_ptr<arrow::DataType>&>::type rhs(rhs_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::DataType>&>::type lhs(lhs_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::DataType>&>::type rhs(rhs_sexp);
 	return cpp11::as_sexp(DataType__Equals(lhs, rhs));
 END_CPP11
 }
@@ -2296,7 +2296,7 @@ extern "C" SEXP _arrow_DataType__Equals(SEXP lhs_sexp, SEXP rhs_sexp){
 int DataType__num_children(const std::shared_ptr<arrow::DataType>& type);
 extern "C" SEXP _arrow_DataType__num_children(SEXP type_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::DataType>&>::type type(type_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::DataType>&>::type type(type_sexp);
 	return cpp11::as_sexp(DataType__num_children(type));
 END_CPP11
 }
@@ -2311,7 +2311,7 @@ extern "C" SEXP _arrow_DataType__num_children(SEXP type_sexp){
 cpp11::writable::list DataType__children_pointer(const std::shared_ptr<arrow::DataType>& type);
 extern "C" SEXP _arrow_DataType__children_pointer(SEXP type_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::DataType>&>::type type(type_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::DataType>&>::type type(type_sexp);
 	return cpp11::as_sexp(DataType__children_pointer(type));
 END_CPP11
 }
@@ -2326,7 +2326,7 @@ extern "C" SEXP _arrow_DataType__children_pointer(SEXP type_sexp){
 arrow::Type::type DataType__id(const std::shared_ptr<arrow::DataType>& type);
 extern "C" SEXP _arrow_DataType__id(SEXP type_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::DataType>&>::type type(type_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::DataType>&>::type type(type_sexp);
 	return cpp11::as_sexp(DataType__id(type));
 END_CPP11
 }
@@ -2341,7 +2341,7 @@ extern "C" SEXP _arrow_DataType__id(SEXP type_sexp){
 std::string ListType__ToString(const std::shared_ptr<arrow::ListType>& type);
 extern "C" SEXP _arrow_ListType__ToString(SEXP type_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::ListType>&>::type type(type_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::ListType>&>::type type(type_sexp);
 	return cpp11::as_sexp(ListType__ToString(type));
 END_CPP11
 }
@@ -2356,7 +2356,7 @@ extern "C" SEXP _arrow_ListType__ToString(SEXP type_sexp){
 int FixedWidthType__bit_width(const std::shared_ptr<arrow::FixedWidthType>& type);
 extern "C" SEXP _arrow_FixedWidthType__bit_width(SEXP type_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::FixedWidthType>&>::type type(type_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::FixedWidthType>&>::type type(type_sexp);
 	return cpp11::as_sexp(FixedWidthType__bit_width(type));
 END_CPP11
 }
@@ -2371,7 +2371,7 @@ extern "C" SEXP _arrow_FixedWidthType__bit_width(SEXP type_sexp){
 arrow::DateUnit DateType__unit(const std::shared_ptr<arrow::DateType>& type);
 extern "C" SEXP _arrow_DateType__unit(SEXP type_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::DateType>&>::type type(type_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::DateType>&>::type type(type_sexp);
 	return cpp11::as_sexp(DateType__unit(type));
 END_CPP11
 }
@@ -2386,7 +2386,7 @@ extern "C" SEXP _arrow_DateType__unit(SEXP type_sexp){
 arrow::TimeUnit::type TimeType__unit(const std::shared_ptr<arrow::TimeType>& type);
 extern "C" SEXP _arrow_TimeType__unit(SEXP type_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::TimeType>&>::type type(type_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::TimeType>&>::type type(type_sexp);
 	return cpp11::as_sexp(TimeType__unit(type));
 END_CPP11
 }
@@ -2401,7 +2401,7 @@ extern "C" SEXP _arrow_TimeType__unit(SEXP type_sexp){
 int32_t DecimalType__precision(const std::shared_ptr<arrow::DecimalType>& type);
 extern "C" SEXP _arrow_DecimalType__precision(SEXP type_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::DecimalType>&>::type type(type_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::DecimalType>&>::type type(type_sexp);
 	return cpp11::as_sexp(DecimalType__precision(type));
 END_CPP11
 }
@@ -2416,7 +2416,7 @@ extern "C" SEXP _arrow_DecimalType__precision(SEXP type_sexp){
 int32_t DecimalType__scale(const std::shared_ptr<arrow::DecimalType>& type);
 extern "C" SEXP _arrow_DecimalType__scale(SEXP type_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::DecimalType>&>::type type(type_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::DecimalType>&>::type type(type_sexp);
 	return cpp11::as_sexp(DecimalType__scale(type));
 END_CPP11
 }
@@ -2431,7 +2431,7 @@ extern "C" SEXP _arrow_DecimalType__scale(SEXP type_sexp){
 std::string TimestampType__timezone(const std::shared_ptr<arrow::TimestampType>& type);
 extern "C" SEXP _arrow_TimestampType__timezone(SEXP type_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::TimestampType>&>::type type(type_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::TimestampType>&>::type type(type_sexp);
 	return cpp11::as_sexp(TimestampType__timezone(type));
 END_CPP11
 }
@@ -2446,7 +2446,7 @@ extern "C" SEXP _arrow_TimestampType__timezone(SEXP type_sexp){
 arrow::TimeUnit::type TimestampType__unit(const std::shared_ptr<arrow::TimestampType>& type);
 extern "C" SEXP _arrow_TimestampType__unit(SEXP type_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::TimestampType>&>::type type(type_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::TimestampType>&>::type type(type_sexp);
 	return cpp11::as_sexp(TimestampType__unit(type));
 END_CPP11
 }
@@ -2461,9 +2461,9 @@ extern "C" SEXP _arrow_TimestampType__unit(SEXP type_sexp){
 std::shared_ptr<arrow::DataType> DictionaryType__initialize(const std::shared_ptr<arrow::DataType>& index_type, const std::shared_ptr<arrow::DataType>& value_type, bool ordered);
 extern "C" SEXP _arrow_DictionaryType__initialize(SEXP index_type_sexp, SEXP value_type_sexp, SEXP ordered_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::DataType>&>::type index_type(index_type_sexp);
-	arrow::r::input<const std::shared_ptr<arrow::DataType>&>::type value_type(value_type_sexp);
-	arrow::r::input<bool>::type ordered(ordered_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::DataType>&>::type index_type(index_type_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::DataType>&>::type value_type(value_type_sexp);
+	arrow::r::Input<bool>::type ordered(ordered_sexp);
 	return cpp11::as_sexp(DictionaryType__initialize(index_type, value_type, ordered));
 END_CPP11
 }
@@ -2478,7 +2478,7 @@ extern "C" SEXP _arrow_DictionaryType__initialize(SEXP index_type_sexp, SEXP val
 std::shared_ptr<arrow::DataType> DictionaryType__index_type(const std::shared_ptr<arrow::DictionaryType>& type);
 extern "C" SEXP _arrow_DictionaryType__index_type(SEXP type_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::DictionaryType>&>::type type(type_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::DictionaryType>&>::type type(type_sexp);
 	return cpp11::as_sexp(DictionaryType__index_type(type));
 END_CPP11
 }
@@ -2493,7 +2493,7 @@ extern "C" SEXP _arrow_DictionaryType__index_type(SEXP type_sexp){
 std::shared_ptr<arrow::DataType> DictionaryType__value_type(const std::shared_ptr<arrow::DictionaryType>& type);
 extern "C" SEXP _arrow_DictionaryType__value_type(SEXP type_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::DictionaryType>&>::type type(type_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::DictionaryType>&>::type type(type_sexp);
 	return cpp11::as_sexp(DictionaryType__value_type(type));
 END_CPP11
 }
@@ -2508,7 +2508,7 @@ extern "C" SEXP _arrow_DictionaryType__value_type(SEXP type_sexp){
 std::string DictionaryType__name(const std::shared_ptr<arrow::DictionaryType>& type);
 extern "C" SEXP _arrow_DictionaryType__name(SEXP type_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::DictionaryType>&>::type type(type_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::DictionaryType>&>::type type(type_sexp);
 	return cpp11::as_sexp(DictionaryType__name(type));
 END_CPP11
 }
@@ -2523,7 +2523,7 @@ extern "C" SEXP _arrow_DictionaryType__name(SEXP type_sexp){
 bool DictionaryType__ordered(const std::shared_ptr<arrow::DictionaryType>& type);
 extern "C" SEXP _arrow_DictionaryType__ordered(SEXP type_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::DictionaryType>&>::type type(type_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::DictionaryType>&>::type type(type_sexp);
 	return cpp11::as_sexp(DictionaryType__ordered(type));
 END_CPP11
 }
@@ -2538,8 +2538,8 @@ extern "C" SEXP _arrow_DictionaryType__ordered(SEXP type_sexp){
 std::shared_ptr<arrow::Field> StructType__GetFieldByName(const std::shared_ptr<arrow::StructType>& type, const std::string& name);
 extern "C" SEXP _arrow_StructType__GetFieldByName(SEXP type_sexp, SEXP name_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::StructType>&>::type type(type_sexp);
-	arrow::r::input<const std::string&>::type name(name_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::StructType>&>::type type(type_sexp);
+	arrow::r::Input<const std::string&>::type name(name_sexp);
 	return cpp11::as_sexp(StructType__GetFieldByName(type, name));
 END_CPP11
 }
@@ -2554,8 +2554,8 @@ extern "C" SEXP _arrow_StructType__GetFieldByName(SEXP type_sexp, SEXP name_sexp
 int StructType__GetFieldIndex(const std::shared_ptr<arrow::StructType>& type, const std::string& name);
 extern "C" SEXP _arrow_StructType__GetFieldIndex(SEXP type_sexp, SEXP name_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::StructType>&>::type type(type_sexp);
-	arrow::r::input<const std::string&>::type name(name_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::StructType>&>::type type(type_sexp);
+	arrow::r::Input<const std::string&>::type name(name_sexp);
 	return cpp11::as_sexp(StructType__GetFieldIndex(type, name));
 END_CPP11
 }
@@ -2570,7 +2570,7 @@ extern "C" SEXP _arrow_StructType__GetFieldIndex(SEXP type_sexp, SEXP name_sexp)
 std::shared_ptr<arrow::Field> ListType__value_field(const std::shared_ptr<arrow::ListType>& type);
 extern "C" SEXP _arrow_ListType__value_field(SEXP type_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::ListType>&>::type type(type_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::ListType>&>::type type(type_sexp);
 	return cpp11::as_sexp(ListType__value_field(type));
 END_CPP11
 }
@@ -2585,7 +2585,7 @@ extern "C" SEXP _arrow_ListType__value_field(SEXP type_sexp){
 std::shared_ptr<arrow::DataType> ListType__value_type(const std::shared_ptr<arrow::ListType>& type);
 extern "C" SEXP _arrow_ListType__value_type(SEXP type_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::ListType>&>::type type(type_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::ListType>&>::type type(type_sexp);
 	return cpp11::as_sexp(ListType__value_type(type));
 END_CPP11
 }
@@ -2600,7 +2600,7 @@ extern "C" SEXP _arrow_ListType__value_type(SEXP type_sexp){
 std::shared_ptr<arrow::Field> LargeListType__value_field(const std::shared_ptr<arrow::LargeListType>& type);
 extern "C" SEXP _arrow_LargeListType__value_field(SEXP type_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::LargeListType>&>::type type(type_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::LargeListType>&>::type type(type_sexp);
 	return cpp11::as_sexp(LargeListType__value_field(type));
 END_CPP11
 }
@@ -2615,7 +2615,7 @@ extern "C" SEXP _arrow_LargeListType__value_field(SEXP type_sexp){
 std::shared_ptr<arrow::DataType> LargeListType__value_type(const std::shared_ptr<arrow::LargeListType>& type);
 extern "C" SEXP _arrow_LargeListType__value_type(SEXP type_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::LargeListType>&>::type type(type_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::LargeListType>&>::type type(type_sexp);
 	return cpp11::as_sexp(LargeListType__value_type(type));
 END_CPP11
 }
@@ -2630,7 +2630,7 @@ extern "C" SEXP _arrow_LargeListType__value_type(SEXP type_sexp){
 std::shared_ptr<arrow::Field> FixedSizeListType__value_field(const std::shared_ptr<arrow::FixedSizeListType>& type);
 extern "C" SEXP _arrow_FixedSizeListType__value_field(SEXP type_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::FixedSizeListType>&>::type type(type_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::FixedSizeListType>&>::type type(type_sexp);
 	return cpp11::as_sexp(FixedSizeListType__value_field(type));
 END_CPP11
 }
@@ -2645,7 +2645,7 @@ extern "C" SEXP _arrow_FixedSizeListType__value_field(SEXP type_sexp){
 std::shared_ptr<arrow::DataType> FixedSizeListType__value_type(const std::shared_ptr<arrow::FixedSizeListType>& type);
 extern "C" SEXP _arrow_FixedSizeListType__value_type(SEXP type_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::FixedSizeListType>&>::type type(type_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::FixedSizeListType>&>::type type(type_sexp);
 	return cpp11::as_sexp(FixedSizeListType__value_type(type));
 END_CPP11
 }
@@ -2660,7 +2660,7 @@ extern "C" SEXP _arrow_FixedSizeListType__value_type(SEXP type_sexp){
 int FixedSizeListType__list_size(const std::shared_ptr<arrow::FixedSizeListType>& type);
 extern "C" SEXP _arrow_FixedSizeListType__list_size(SEXP type_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::FixedSizeListType>&>::type type(type_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::FixedSizeListType>&>::type type(type_sexp);
 	return cpp11::as_sexp(FixedSizeListType__list_size(type));
 END_CPP11
 }
@@ -2675,7 +2675,7 @@ extern "C" SEXP _arrow_FixedSizeListType__list_size(SEXP type_sexp){
 std::shared_ptr<ds::Expression> dataset___expr__field_ref(std::string name);
 extern "C" SEXP _arrow_dataset___expr__field_ref(SEXP name_sexp){
 BEGIN_CPP11
-	arrow::r::input<std::string>::type name(name_sexp);
+	arrow::r::Input<std::string>::type name(name_sexp);
 	return cpp11::as_sexp(dataset___expr__field_ref(name));
 END_CPP11
 }
@@ -2690,8 +2690,8 @@ extern "C" SEXP _arrow_dataset___expr__field_ref(SEXP name_sexp){
 std::shared_ptr<ds::Expression> dataset___expr__equal(const std::shared_ptr<ds::Expression>& lhs, const std::shared_ptr<ds::Expression>& rhs);
 extern "C" SEXP _arrow_dataset___expr__equal(SEXP lhs_sexp, SEXP rhs_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<ds::Expression>&>::type lhs(lhs_sexp);
-	arrow::r::input<const std::shared_ptr<ds::Expression>&>::type rhs(rhs_sexp);
+	arrow::r::Input<const std::shared_ptr<ds::Expression>&>::type lhs(lhs_sexp);
+	arrow::r::Input<const std::shared_ptr<ds::Expression>&>::type rhs(rhs_sexp);
 	return cpp11::as_sexp(dataset___expr__equal(lhs, rhs));
 END_CPP11
 }
@@ -2706,8 +2706,8 @@ extern "C" SEXP _arrow_dataset___expr__equal(SEXP lhs_sexp, SEXP rhs_sexp){
 std::shared_ptr<ds::Expression> dataset___expr__not_equal(const std::shared_ptr<ds::Expression>& lhs, const std::shared_ptr<ds::Expression>& rhs);
 extern "C" SEXP _arrow_dataset___expr__not_equal(SEXP lhs_sexp, SEXP rhs_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<ds::Expression>&>::type lhs(lhs_sexp);
-	arrow::r::input<const std::shared_ptr<ds::Expression>&>::type rhs(rhs_sexp);
+	arrow::r::Input<const std::shared_ptr<ds::Expression>&>::type lhs(lhs_sexp);
+	arrow::r::Input<const std::shared_ptr<ds::Expression>&>::type rhs(rhs_sexp);
 	return cpp11::as_sexp(dataset___expr__not_equal(lhs, rhs));
 END_CPP11
 }
@@ -2722,8 +2722,8 @@ extern "C" SEXP _arrow_dataset___expr__not_equal(SEXP lhs_sexp, SEXP rhs_sexp){
 std::shared_ptr<ds::Expression> dataset___expr__greater(const std::shared_ptr<ds::Expression>& lhs, const std::shared_ptr<ds::Expression>& rhs);
 extern "C" SEXP _arrow_dataset___expr__greater(SEXP lhs_sexp, SEXP rhs_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<ds::Expression>&>::type lhs(lhs_sexp);
-	arrow::r::input<const std::shared_ptr<ds::Expression>&>::type rhs(rhs_sexp);
+	arrow::r::Input<const std::shared_ptr<ds::Expression>&>::type lhs(lhs_sexp);
+	arrow::r::Input<const std::shared_ptr<ds::Expression>&>::type rhs(rhs_sexp);
 	return cpp11::as_sexp(dataset___expr__greater(lhs, rhs));
 END_CPP11
 }
@@ -2738,8 +2738,8 @@ extern "C" SEXP _arrow_dataset___expr__greater(SEXP lhs_sexp, SEXP rhs_sexp){
 std::shared_ptr<ds::Expression> dataset___expr__greater_equal(const std::shared_ptr<ds::Expression>& lhs, const std::shared_ptr<ds::Expression>& rhs);
 extern "C" SEXP _arrow_dataset___expr__greater_equal(SEXP lhs_sexp, SEXP rhs_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<ds::Expression>&>::type lhs(lhs_sexp);
-	arrow::r::input<const std::shared_ptr<ds::Expression>&>::type rhs(rhs_sexp);
+	arrow::r::Input<const std::shared_ptr<ds::Expression>&>::type lhs(lhs_sexp);
+	arrow::r::Input<const std::shared_ptr<ds::Expression>&>::type rhs(rhs_sexp);
 	return cpp11::as_sexp(dataset___expr__greater_equal(lhs, rhs));
 END_CPP11
 }
@@ -2754,8 +2754,8 @@ extern "C" SEXP _arrow_dataset___expr__greater_equal(SEXP lhs_sexp, SEXP rhs_sex
 std::shared_ptr<ds::Expression> dataset___expr__less(const std::shared_ptr<ds::Expression>& lhs, const std::shared_ptr<ds::Expression>& rhs);
 extern "C" SEXP _arrow_dataset___expr__less(SEXP lhs_sexp, SEXP rhs_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<ds::Expression>&>::type lhs(lhs_sexp);
-	arrow::r::input<const std::shared_ptr<ds::Expression>&>::type rhs(rhs_sexp);
+	arrow::r::Input<const std::shared_ptr<ds::Expression>&>::type lhs(lhs_sexp);
+	arrow::r::Input<const std::shared_ptr<ds::Expression>&>::type rhs(rhs_sexp);
 	return cpp11::as_sexp(dataset___expr__less(lhs, rhs));
 END_CPP11
 }
@@ -2770,8 +2770,8 @@ extern "C" SEXP _arrow_dataset___expr__less(SEXP lhs_sexp, SEXP rhs_sexp){
 std::shared_ptr<ds::Expression> dataset___expr__less_equal(const std::shared_ptr<ds::Expression>& lhs, const std::shared_ptr<ds::Expression>& rhs);
 extern "C" SEXP _arrow_dataset___expr__less_equal(SEXP lhs_sexp, SEXP rhs_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<ds::Expression>&>::type lhs(lhs_sexp);
-	arrow::r::input<const std::shared_ptr<ds::Expression>&>::type rhs(rhs_sexp);
+	arrow::r::Input<const std::shared_ptr<ds::Expression>&>::type lhs(lhs_sexp);
+	arrow::r::Input<const std::shared_ptr<ds::Expression>&>::type rhs(rhs_sexp);
 	return cpp11::as_sexp(dataset___expr__less_equal(lhs, rhs));
 END_CPP11
 }
@@ -2786,8 +2786,8 @@ extern "C" SEXP _arrow_dataset___expr__less_equal(SEXP lhs_sexp, SEXP rhs_sexp){
 std::shared_ptr<ds::Expression> dataset___expr__in(const std::shared_ptr<ds::Expression>& lhs, const std::shared_ptr<arrow::Array>& rhs);
 extern "C" SEXP _arrow_dataset___expr__in(SEXP lhs_sexp, SEXP rhs_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<ds::Expression>&>::type lhs(lhs_sexp);
-	arrow::r::input<const std::shared_ptr<arrow::Array>&>::type rhs(rhs_sexp);
+	arrow::r::Input<const std::shared_ptr<ds::Expression>&>::type lhs(lhs_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Array>&>::type rhs(rhs_sexp);
 	return cpp11::as_sexp(dataset___expr__in(lhs, rhs));
 END_CPP11
 }
@@ -2802,8 +2802,8 @@ extern "C" SEXP _arrow_dataset___expr__in(SEXP lhs_sexp, SEXP rhs_sexp){
 std::shared_ptr<ds::Expression> dataset___expr__and(const std::shared_ptr<ds::Expression>& lhs, const std::shared_ptr<ds::Expression>& rhs);
 extern "C" SEXP _arrow_dataset___expr__and(SEXP lhs_sexp, SEXP rhs_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<ds::Expression>&>::type lhs(lhs_sexp);
-	arrow::r::input<const std::shared_ptr<ds::Expression>&>::type rhs(rhs_sexp);
+	arrow::r::Input<const std::shared_ptr<ds::Expression>&>::type lhs(lhs_sexp);
+	arrow::r::Input<const std::shared_ptr<ds::Expression>&>::type rhs(rhs_sexp);
 	return cpp11::as_sexp(dataset___expr__and(lhs, rhs));
 END_CPP11
 }
@@ -2818,8 +2818,8 @@ extern "C" SEXP _arrow_dataset___expr__and(SEXP lhs_sexp, SEXP rhs_sexp){
 std::shared_ptr<ds::Expression> dataset___expr__or(const std::shared_ptr<ds::Expression>& lhs, const std::shared_ptr<ds::Expression>& rhs);
 extern "C" SEXP _arrow_dataset___expr__or(SEXP lhs_sexp, SEXP rhs_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<ds::Expression>&>::type lhs(lhs_sexp);
-	arrow::r::input<const std::shared_ptr<ds::Expression>&>::type rhs(rhs_sexp);
+	arrow::r::Input<const std::shared_ptr<ds::Expression>&>::type lhs(lhs_sexp);
+	arrow::r::Input<const std::shared_ptr<ds::Expression>&>::type rhs(rhs_sexp);
 	return cpp11::as_sexp(dataset___expr__or(lhs, rhs));
 END_CPP11
 }
@@ -2834,7 +2834,7 @@ extern "C" SEXP _arrow_dataset___expr__or(SEXP lhs_sexp, SEXP rhs_sexp){
 std::shared_ptr<ds::Expression> dataset___expr__not(const std::shared_ptr<ds::Expression>& lhs);
 extern "C" SEXP _arrow_dataset___expr__not(SEXP lhs_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<ds::Expression>&>::type lhs(lhs_sexp);
+	arrow::r::Input<const std::shared_ptr<ds::Expression>&>::type lhs(lhs_sexp);
 	return cpp11::as_sexp(dataset___expr__not(lhs));
 END_CPP11
 }
@@ -2849,7 +2849,7 @@ extern "C" SEXP _arrow_dataset___expr__not(SEXP lhs_sexp){
 std::shared_ptr<ds::Expression> dataset___expr__is_valid(const std::shared_ptr<ds::Expression>& lhs);
 extern "C" SEXP _arrow_dataset___expr__is_valid(SEXP lhs_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<ds::Expression>&>::type lhs(lhs_sexp);
+	arrow::r::Input<const std::shared_ptr<ds::Expression>&>::type lhs(lhs_sexp);
 	return cpp11::as_sexp(dataset___expr__is_valid(lhs));
 END_CPP11
 }
@@ -2864,7 +2864,7 @@ extern "C" SEXP _arrow_dataset___expr__is_valid(SEXP lhs_sexp){
 std::shared_ptr<ds::Expression> dataset___expr__scalar(const std::shared_ptr<arrow::Scalar>& x);
 extern "C" SEXP _arrow_dataset___expr__scalar(SEXP x_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::Scalar>&>::type x(x_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Scalar>&>::type x(x_sexp);
 	return cpp11::as_sexp(dataset___expr__scalar(x));
 END_CPP11
 }
@@ -2879,7 +2879,7 @@ extern "C" SEXP _arrow_dataset___expr__scalar(SEXP x_sexp){
 std::string dataset___expr__ToString(const std::shared_ptr<ds::Expression>& x);
 extern "C" SEXP _arrow_dataset___expr__ToString(SEXP x_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<ds::Expression>&>::type x(x_sexp);
+	arrow::r::Input<const std::shared_ptr<ds::Expression>&>::type x(x_sexp);
 	return cpp11::as_sexp(dataset___expr__ToString(x));
 END_CPP11
 }
@@ -2894,12 +2894,12 @@ extern "C" SEXP _arrow_dataset___expr__ToString(SEXP x_sexp){
 void ipc___WriteFeather__Table(const std::shared_ptr<arrow::io::OutputStream>& stream, const std::shared_ptr<arrow::Table>& table, int version, int chunk_size, arrow::Compression::type compression, int compression_level);
 extern "C" SEXP _arrow_ipc___WriteFeather__Table(SEXP stream_sexp, SEXP table_sexp, SEXP version_sexp, SEXP chunk_size_sexp, SEXP compression_sexp, SEXP compression_level_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::io::OutputStream>&>::type stream(stream_sexp);
-	arrow::r::input<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
-	arrow::r::input<int>::type version(version_sexp);
-	arrow::r::input<int>::type chunk_size(chunk_size_sexp);
-	arrow::r::input<arrow::Compression::type>::type compression(compression_sexp);
-	arrow::r::input<int>::type compression_level(compression_level_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::io::OutputStream>&>::type stream(stream_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
+	arrow::r::Input<int>::type version(version_sexp);
+	arrow::r::Input<int>::type chunk_size(chunk_size_sexp);
+	arrow::r::Input<arrow::Compression::type>::type compression(compression_sexp);
+	arrow::r::Input<int>::type compression_level(compression_level_sexp);
 	ipc___WriteFeather__Table(stream, table, version, chunk_size, compression, compression_level);
 	return R_NilValue;
 END_CPP11
@@ -2915,7 +2915,7 @@ extern "C" SEXP _arrow_ipc___WriteFeather__Table(SEXP stream_sexp, SEXP table_se
 int ipc___feather___Reader__version(const std::shared_ptr<arrow::ipc::feather::Reader>& reader);
 extern "C" SEXP _arrow_ipc___feather___Reader__version(SEXP reader_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::ipc::feather::Reader>&>::type reader(reader_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::ipc::feather::Reader>&>::type reader(reader_sexp);
 	return cpp11::as_sexp(ipc___feather___Reader__version(reader));
 END_CPP11
 }
@@ -2930,8 +2930,8 @@ extern "C" SEXP _arrow_ipc___feather___Reader__version(SEXP reader_sexp){
 std::shared_ptr<arrow::Table> ipc___feather___Reader__Read(const std::shared_ptr<arrow::ipc::feather::Reader>& reader, SEXP columns);
 extern "C" SEXP _arrow_ipc___feather___Reader__Read(SEXP reader_sexp, SEXP columns_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::ipc::feather::Reader>&>::type reader(reader_sexp);
-	arrow::r::input<SEXP>::type columns(columns_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::ipc::feather::Reader>&>::type reader(reader_sexp);
+	arrow::r::Input<SEXP>::type columns(columns_sexp);
 	return cpp11::as_sexp(ipc___feather___Reader__Read(reader, columns));
 END_CPP11
 }
@@ -2946,7 +2946,7 @@ extern "C" SEXP _arrow_ipc___feather___Reader__Read(SEXP reader_sexp, SEXP colum
 std::shared_ptr<arrow::ipc::feather::Reader> ipc___feather___Reader__Open(const std::shared_ptr<arrow::io::RandomAccessFile>& stream);
 extern "C" SEXP _arrow_ipc___feather___Reader__Open(SEXP stream_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::io::RandomAccessFile>&>::type stream(stream_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::io::RandomAccessFile>&>::type stream(stream_sexp);
 	return cpp11::as_sexp(ipc___feather___Reader__Open(stream));
 END_CPP11
 }
@@ -2961,7 +2961,7 @@ extern "C" SEXP _arrow_ipc___feather___Reader__Open(SEXP stream_sexp){
 cpp11::writable::strings ipc___feather___Reader__column_names(const std::shared_ptr<arrow::ipc::feather::Reader>& reader);
 extern "C" SEXP _arrow_ipc___feather___Reader__column_names(SEXP reader_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::ipc::feather::Reader>&>::type reader(reader_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::ipc::feather::Reader>&>::type reader(reader_sexp);
 	return cpp11::as_sexp(ipc___feather___Reader__column_names(reader));
 END_CPP11
 }
@@ -2976,9 +2976,9 @@ extern "C" SEXP _arrow_ipc___feather___Reader__column_names(SEXP reader_sexp){
 std::shared_ptr<arrow::Field> Field__initialize(const std::string& name, const std::shared_ptr<arrow::DataType>& field, bool nullable);
 extern "C" SEXP _arrow_Field__initialize(SEXP name_sexp, SEXP field_sexp, SEXP nullable_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::string&>::type name(name_sexp);
-	arrow::r::input<const std::shared_ptr<arrow::DataType>&>::type field(field_sexp);
-	arrow::r::input<bool>::type nullable(nullable_sexp);
+	arrow::r::Input<const std::string&>::type name(name_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::DataType>&>::type field(field_sexp);
+	arrow::r::Input<bool>::type nullable(nullable_sexp);
 	return cpp11::as_sexp(Field__initialize(name, field, nullable));
 END_CPP11
 }
@@ -2993,7 +2993,7 @@ extern "C" SEXP _arrow_Field__initialize(SEXP name_sexp, SEXP field_sexp, SEXP n
 std::string Field__ToString(const std::shared_ptr<arrow::Field>& field);
 extern "C" SEXP _arrow_Field__ToString(SEXP field_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::Field>&>::type field(field_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Field>&>::type field(field_sexp);
 	return cpp11::as_sexp(Field__ToString(field));
 END_CPP11
 }
@@ -3008,7 +3008,7 @@ extern "C" SEXP _arrow_Field__ToString(SEXP field_sexp){
 std::string Field__name(const std::shared_ptr<arrow::Field>& field);
 extern "C" SEXP _arrow_Field__name(SEXP field_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::Field>&>::type field(field_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Field>&>::type field(field_sexp);
 	return cpp11::as_sexp(Field__name(field));
 END_CPP11
 }
@@ -3023,8 +3023,8 @@ extern "C" SEXP _arrow_Field__name(SEXP field_sexp){
 bool Field__Equals(const std::shared_ptr<arrow::Field>& field, const std::shared_ptr<arrow::Field>& other);
 extern "C" SEXP _arrow_Field__Equals(SEXP field_sexp, SEXP other_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::Field>&>::type field(field_sexp);
-	arrow::r::input<const std::shared_ptr<arrow::Field>&>::type other(other_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Field>&>::type field(field_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Field>&>::type other(other_sexp);
 	return cpp11::as_sexp(Field__Equals(field, other));
 END_CPP11
 }
@@ -3039,7 +3039,7 @@ extern "C" SEXP _arrow_Field__Equals(SEXP field_sexp, SEXP other_sexp){
 bool Field__nullable(const std::shared_ptr<arrow::Field>& field);
 extern "C" SEXP _arrow_Field__nullable(SEXP field_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::Field>&>::type field(field_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Field>&>::type field(field_sexp);
 	return cpp11::as_sexp(Field__nullable(field));
 END_CPP11
 }
@@ -3054,7 +3054,7 @@ extern "C" SEXP _arrow_Field__nullable(SEXP field_sexp){
 std::shared_ptr<arrow::DataType> Field__type(const std::shared_ptr<arrow::Field>& field);
 extern "C" SEXP _arrow_Field__type(SEXP field_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::Field>&>::type field(field_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Field>&>::type field(field_sexp);
 	return cpp11::as_sexp(Field__type(field));
 END_CPP11
 }
@@ -3069,7 +3069,7 @@ extern "C" SEXP _arrow_Field__type(SEXP field_sexp){
 fs::FileType fs___FileInfo__type(const std::shared_ptr<fs::FileInfo>& x);
 extern "C" SEXP _arrow_fs___FileInfo__type(SEXP x_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<fs::FileInfo>&>::type x(x_sexp);
+	arrow::r::Input<const std::shared_ptr<fs::FileInfo>&>::type x(x_sexp);
 	return cpp11::as_sexp(fs___FileInfo__type(x));
 END_CPP11
 }
@@ -3084,8 +3084,8 @@ extern "C" SEXP _arrow_fs___FileInfo__type(SEXP x_sexp){
 void fs___FileInfo__set_type(const std::shared_ptr<fs::FileInfo>& x, fs::FileType type);
 extern "C" SEXP _arrow_fs___FileInfo__set_type(SEXP x_sexp, SEXP type_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<fs::FileInfo>&>::type x(x_sexp);
-	arrow::r::input<fs::FileType>::type type(type_sexp);
+	arrow::r::Input<const std::shared_ptr<fs::FileInfo>&>::type x(x_sexp);
+	arrow::r::Input<fs::FileType>::type type(type_sexp);
 	fs___FileInfo__set_type(x, type);
 	return R_NilValue;
 END_CPP11
@@ -3101,7 +3101,7 @@ extern "C" SEXP _arrow_fs___FileInfo__set_type(SEXP x_sexp, SEXP type_sexp){
 std::string fs___FileInfo__path(const std::shared_ptr<fs::FileInfo>& x);
 extern "C" SEXP _arrow_fs___FileInfo__path(SEXP x_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<fs::FileInfo>&>::type x(x_sexp);
+	arrow::r::Input<const std::shared_ptr<fs::FileInfo>&>::type x(x_sexp);
 	return cpp11::as_sexp(fs___FileInfo__path(x));
 END_CPP11
 }
@@ -3116,8 +3116,8 @@ extern "C" SEXP _arrow_fs___FileInfo__path(SEXP x_sexp){
 void fs___FileInfo__set_path(const std::shared_ptr<fs::FileInfo>& x, const std::string& path);
 extern "C" SEXP _arrow_fs___FileInfo__set_path(SEXP x_sexp, SEXP path_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<fs::FileInfo>&>::type x(x_sexp);
-	arrow::r::input<const std::string&>::type path(path_sexp);
+	arrow::r::Input<const std::shared_ptr<fs::FileInfo>&>::type x(x_sexp);
+	arrow::r::Input<const std::string&>::type path(path_sexp);
 	fs___FileInfo__set_path(x, path);
 	return R_NilValue;
 END_CPP11
@@ -3133,7 +3133,7 @@ extern "C" SEXP _arrow_fs___FileInfo__set_path(SEXP x_sexp, SEXP path_sexp){
 int64_t fs___FileInfo__size(const std::shared_ptr<fs::FileInfo>& x);
 extern "C" SEXP _arrow_fs___FileInfo__size(SEXP x_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<fs::FileInfo>&>::type x(x_sexp);
+	arrow::r::Input<const std::shared_ptr<fs::FileInfo>&>::type x(x_sexp);
 	return cpp11::as_sexp(fs___FileInfo__size(x));
 END_CPP11
 }
@@ -3148,8 +3148,8 @@ extern "C" SEXP _arrow_fs___FileInfo__size(SEXP x_sexp){
 void fs___FileInfo__set_size(const std::shared_ptr<fs::FileInfo>& x, int64_t size);
 extern "C" SEXP _arrow_fs___FileInfo__set_size(SEXP x_sexp, SEXP size_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<fs::FileInfo>&>::type x(x_sexp);
-	arrow::r::input<int64_t>::type size(size_sexp);
+	arrow::r::Input<const std::shared_ptr<fs::FileInfo>&>::type x(x_sexp);
+	arrow::r::Input<int64_t>::type size(size_sexp);
 	fs___FileInfo__set_size(x, size);
 	return R_NilValue;
 END_CPP11
@@ -3165,7 +3165,7 @@ extern "C" SEXP _arrow_fs___FileInfo__set_size(SEXP x_sexp, SEXP size_sexp){
 std::string fs___FileInfo__base_name(const std::shared_ptr<fs::FileInfo>& x);
 extern "C" SEXP _arrow_fs___FileInfo__base_name(SEXP x_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<fs::FileInfo>&>::type x(x_sexp);
+	arrow::r::Input<const std::shared_ptr<fs::FileInfo>&>::type x(x_sexp);
 	return cpp11::as_sexp(fs___FileInfo__base_name(x));
 END_CPP11
 }
@@ -3180,7 +3180,7 @@ extern "C" SEXP _arrow_fs___FileInfo__base_name(SEXP x_sexp){
 std::string fs___FileInfo__extension(const std::shared_ptr<fs::FileInfo>& x);
 extern "C" SEXP _arrow_fs___FileInfo__extension(SEXP x_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<fs::FileInfo>&>::type x(x_sexp);
+	arrow::r::Input<const std::shared_ptr<fs::FileInfo>&>::type x(x_sexp);
 	return cpp11::as_sexp(fs___FileInfo__extension(x));
 END_CPP11
 }
@@ -3195,7 +3195,7 @@ extern "C" SEXP _arrow_fs___FileInfo__extension(SEXP x_sexp){
 SEXP fs___FileInfo__mtime(const std::shared_ptr<fs::FileInfo>& x);
 extern "C" SEXP _arrow_fs___FileInfo__mtime(SEXP x_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<fs::FileInfo>&>::type x(x_sexp);
+	arrow::r::Input<const std::shared_ptr<fs::FileInfo>&>::type x(x_sexp);
 	return cpp11::as_sexp(fs___FileInfo__mtime(x));
 END_CPP11
 }
@@ -3210,8 +3210,8 @@ extern "C" SEXP _arrow_fs___FileInfo__mtime(SEXP x_sexp){
 void fs___FileInfo__set_mtime(const std::shared_ptr<fs::FileInfo>& x, SEXP time);
 extern "C" SEXP _arrow_fs___FileInfo__set_mtime(SEXP x_sexp, SEXP time_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<fs::FileInfo>&>::type x(x_sexp);
-	arrow::r::input<SEXP>::type time(time_sexp);
+	arrow::r::Input<const std::shared_ptr<fs::FileInfo>&>::type x(x_sexp);
+	arrow::r::Input<SEXP>::type time(time_sexp);
 	fs___FileInfo__set_mtime(x, time);
 	return R_NilValue;
 END_CPP11
@@ -3227,7 +3227,7 @@ extern "C" SEXP _arrow_fs___FileInfo__set_mtime(SEXP x_sexp, SEXP time_sexp){
 std::string fs___FileSelector__base_dir(const std::shared_ptr<fs::FileSelector>& selector);
 extern "C" SEXP _arrow_fs___FileSelector__base_dir(SEXP selector_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<fs::FileSelector>&>::type selector(selector_sexp);
+	arrow::r::Input<const std::shared_ptr<fs::FileSelector>&>::type selector(selector_sexp);
 	return cpp11::as_sexp(fs___FileSelector__base_dir(selector));
 END_CPP11
 }
@@ -3242,7 +3242,7 @@ extern "C" SEXP _arrow_fs___FileSelector__base_dir(SEXP selector_sexp){
 bool fs___FileSelector__allow_not_found(const std::shared_ptr<fs::FileSelector>& selector);
 extern "C" SEXP _arrow_fs___FileSelector__allow_not_found(SEXP selector_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<fs::FileSelector>&>::type selector(selector_sexp);
+	arrow::r::Input<const std::shared_ptr<fs::FileSelector>&>::type selector(selector_sexp);
 	return cpp11::as_sexp(fs___FileSelector__allow_not_found(selector));
 END_CPP11
 }
@@ -3257,7 +3257,7 @@ extern "C" SEXP _arrow_fs___FileSelector__allow_not_found(SEXP selector_sexp){
 bool fs___FileSelector__recursive(const std::shared_ptr<fs::FileSelector>& selector);
 extern "C" SEXP _arrow_fs___FileSelector__recursive(SEXP selector_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<fs::FileSelector>&>::type selector(selector_sexp);
+	arrow::r::Input<const std::shared_ptr<fs::FileSelector>&>::type selector(selector_sexp);
 	return cpp11::as_sexp(fs___FileSelector__recursive(selector));
 END_CPP11
 }
@@ -3272,9 +3272,9 @@ extern "C" SEXP _arrow_fs___FileSelector__recursive(SEXP selector_sexp){
 std::shared_ptr<fs::FileSelector> fs___FileSelector__create(const std::string& base_dir, bool allow_not_found, bool recursive);
 extern "C" SEXP _arrow_fs___FileSelector__create(SEXP base_dir_sexp, SEXP allow_not_found_sexp, SEXP recursive_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::string&>::type base_dir(base_dir_sexp);
-	arrow::r::input<bool>::type allow_not_found(allow_not_found_sexp);
-	arrow::r::input<bool>::type recursive(recursive_sexp);
+	arrow::r::Input<const std::string&>::type base_dir(base_dir_sexp);
+	arrow::r::Input<bool>::type allow_not_found(allow_not_found_sexp);
+	arrow::r::Input<bool>::type recursive(recursive_sexp);
 	return cpp11::as_sexp(fs___FileSelector__create(base_dir, allow_not_found, recursive));
 END_CPP11
 }
@@ -3289,8 +3289,8 @@ extern "C" SEXP _arrow_fs___FileSelector__create(SEXP base_dir_sexp, SEXP allow_
 std::vector<std::shared_ptr<fs::FileInfo>> fs___FileSystem__GetTargetInfos_Paths(const std::shared_ptr<fs::FileSystem>& file_system, const std::vector<std::string>& paths);
 extern "C" SEXP _arrow_fs___FileSystem__GetTargetInfos_Paths(SEXP file_system_sexp, SEXP paths_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<fs::FileSystem>&>::type file_system(file_system_sexp);
-	arrow::r::input<const std::vector<std::string>&>::type paths(paths_sexp);
+	arrow::r::Input<const std::shared_ptr<fs::FileSystem>&>::type file_system(file_system_sexp);
+	arrow::r::Input<const std::vector<std::string>&>::type paths(paths_sexp);
 	return cpp11::as_sexp(fs___FileSystem__GetTargetInfos_Paths(file_system, paths));
 END_CPP11
 }
@@ -3305,8 +3305,8 @@ extern "C" SEXP _arrow_fs___FileSystem__GetTargetInfos_Paths(SEXP file_system_se
 std::vector<std::shared_ptr<fs::FileInfo>> fs___FileSystem__GetTargetInfos_FileSelector(const std::shared_ptr<fs::FileSystem>& file_system, const std::shared_ptr<fs::FileSelector>& selector);
 extern "C" SEXP _arrow_fs___FileSystem__GetTargetInfos_FileSelector(SEXP file_system_sexp, SEXP selector_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<fs::FileSystem>&>::type file_system(file_system_sexp);
-	arrow::r::input<const std::shared_ptr<fs::FileSelector>&>::type selector(selector_sexp);
+	arrow::r::Input<const std::shared_ptr<fs::FileSystem>&>::type file_system(file_system_sexp);
+	arrow::r::Input<const std::shared_ptr<fs::FileSelector>&>::type selector(selector_sexp);
 	return cpp11::as_sexp(fs___FileSystem__GetTargetInfos_FileSelector(file_system, selector));
 END_CPP11
 }
@@ -3321,9 +3321,9 @@ extern "C" SEXP _arrow_fs___FileSystem__GetTargetInfos_FileSelector(SEXP file_sy
 void fs___FileSystem__CreateDir(const std::shared_ptr<fs::FileSystem>& file_system, const std::string& path, bool recursive);
 extern "C" SEXP _arrow_fs___FileSystem__CreateDir(SEXP file_system_sexp, SEXP path_sexp, SEXP recursive_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<fs::FileSystem>&>::type file_system(file_system_sexp);
-	arrow::r::input<const std::string&>::type path(path_sexp);
-	arrow::r::input<bool>::type recursive(recursive_sexp);
+	arrow::r::Input<const std::shared_ptr<fs::FileSystem>&>::type file_system(file_system_sexp);
+	arrow::r::Input<const std::string&>::type path(path_sexp);
+	arrow::r::Input<bool>::type recursive(recursive_sexp);
 	fs___FileSystem__CreateDir(file_system, path, recursive);
 	return R_NilValue;
 END_CPP11
@@ -3339,8 +3339,8 @@ extern "C" SEXP _arrow_fs___FileSystem__CreateDir(SEXP file_system_sexp, SEXP pa
 void fs___FileSystem__DeleteDir(const std::shared_ptr<fs::FileSystem>& file_system, const std::string& path);
 extern "C" SEXP _arrow_fs___FileSystem__DeleteDir(SEXP file_system_sexp, SEXP path_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<fs::FileSystem>&>::type file_system(file_system_sexp);
-	arrow::r::input<const std::string&>::type path(path_sexp);
+	arrow::r::Input<const std::shared_ptr<fs::FileSystem>&>::type file_system(file_system_sexp);
+	arrow::r::Input<const std::string&>::type path(path_sexp);
 	fs___FileSystem__DeleteDir(file_system, path);
 	return R_NilValue;
 END_CPP11
@@ -3356,8 +3356,8 @@ extern "C" SEXP _arrow_fs___FileSystem__DeleteDir(SEXP file_system_sexp, SEXP pa
 void fs___FileSystem__DeleteDirContents(const std::shared_ptr<fs::FileSystem>& file_system, const std::string& path);
 extern "C" SEXP _arrow_fs___FileSystem__DeleteDirContents(SEXP file_system_sexp, SEXP path_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<fs::FileSystem>&>::type file_system(file_system_sexp);
-	arrow::r::input<const std::string&>::type path(path_sexp);
+	arrow::r::Input<const std::shared_ptr<fs::FileSystem>&>::type file_system(file_system_sexp);
+	arrow::r::Input<const std::string&>::type path(path_sexp);
 	fs___FileSystem__DeleteDirContents(file_system, path);
 	return R_NilValue;
 END_CPP11
@@ -3373,8 +3373,8 @@ extern "C" SEXP _arrow_fs___FileSystem__DeleteDirContents(SEXP file_system_sexp,
 void fs___FileSystem__DeleteFile(const std::shared_ptr<fs::FileSystem>& file_system, const std::string& path);
 extern "C" SEXP _arrow_fs___FileSystem__DeleteFile(SEXP file_system_sexp, SEXP path_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<fs::FileSystem>&>::type file_system(file_system_sexp);
-	arrow::r::input<const std::string&>::type path(path_sexp);
+	arrow::r::Input<const std::shared_ptr<fs::FileSystem>&>::type file_system(file_system_sexp);
+	arrow::r::Input<const std::string&>::type path(path_sexp);
 	fs___FileSystem__DeleteFile(file_system, path);
 	return R_NilValue;
 END_CPP11
@@ -3390,8 +3390,8 @@ extern "C" SEXP _arrow_fs___FileSystem__DeleteFile(SEXP file_system_sexp, SEXP p
 void fs___FileSystem__DeleteFiles(const std::shared_ptr<fs::FileSystem>& file_system, const std::vector<std::string>& paths);
 extern "C" SEXP _arrow_fs___FileSystem__DeleteFiles(SEXP file_system_sexp, SEXP paths_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<fs::FileSystem>&>::type file_system(file_system_sexp);
-	arrow::r::input<const std::vector<std::string>&>::type paths(paths_sexp);
+	arrow::r::Input<const std::shared_ptr<fs::FileSystem>&>::type file_system(file_system_sexp);
+	arrow::r::Input<const std::vector<std::string>&>::type paths(paths_sexp);
 	fs___FileSystem__DeleteFiles(file_system, paths);
 	return R_NilValue;
 END_CPP11
@@ -3407,9 +3407,9 @@ extern "C" SEXP _arrow_fs___FileSystem__DeleteFiles(SEXP file_system_sexp, SEXP 
 void fs___FileSystem__Move(const std::shared_ptr<fs::FileSystem>& file_system, const std::string& src, const std::string& dest);
 extern "C" SEXP _arrow_fs___FileSystem__Move(SEXP file_system_sexp, SEXP src_sexp, SEXP dest_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<fs::FileSystem>&>::type file_system(file_system_sexp);
-	arrow::r::input<const std::string&>::type src(src_sexp);
-	arrow::r::input<const std::string&>::type dest(dest_sexp);
+	arrow::r::Input<const std::shared_ptr<fs::FileSystem>&>::type file_system(file_system_sexp);
+	arrow::r::Input<const std::string&>::type src(src_sexp);
+	arrow::r::Input<const std::string&>::type dest(dest_sexp);
 	fs___FileSystem__Move(file_system, src, dest);
 	return R_NilValue;
 END_CPP11
@@ -3425,9 +3425,9 @@ extern "C" SEXP _arrow_fs___FileSystem__Move(SEXP file_system_sexp, SEXP src_sex
 void fs___FileSystem__CopyFile(const std::shared_ptr<fs::FileSystem>& file_system, const std::string& src, const std::string& dest);
 extern "C" SEXP _arrow_fs___FileSystem__CopyFile(SEXP file_system_sexp, SEXP src_sexp, SEXP dest_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<fs::FileSystem>&>::type file_system(file_system_sexp);
-	arrow::r::input<const std::string&>::type src(src_sexp);
-	arrow::r::input<const std::string&>::type dest(dest_sexp);
+	arrow::r::Input<const std::shared_ptr<fs::FileSystem>&>::type file_system(file_system_sexp);
+	arrow::r::Input<const std::string&>::type src(src_sexp);
+	arrow::r::Input<const std::string&>::type dest(dest_sexp);
 	fs___FileSystem__CopyFile(file_system, src, dest);
 	return R_NilValue;
 END_CPP11
@@ -3443,8 +3443,8 @@ extern "C" SEXP _arrow_fs___FileSystem__CopyFile(SEXP file_system_sexp, SEXP src
 std::shared_ptr<arrow::io::InputStream> fs___FileSystem__OpenInputStream(const std::shared_ptr<fs::FileSystem>& file_system, const std::string& path);
 extern "C" SEXP _arrow_fs___FileSystem__OpenInputStream(SEXP file_system_sexp, SEXP path_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<fs::FileSystem>&>::type file_system(file_system_sexp);
-	arrow::r::input<const std::string&>::type path(path_sexp);
+	arrow::r::Input<const std::shared_ptr<fs::FileSystem>&>::type file_system(file_system_sexp);
+	arrow::r::Input<const std::string&>::type path(path_sexp);
 	return cpp11::as_sexp(fs___FileSystem__OpenInputStream(file_system, path));
 END_CPP11
 }
@@ -3459,8 +3459,8 @@ extern "C" SEXP _arrow_fs___FileSystem__OpenInputStream(SEXP file_system_sexp, S
 std::shared_ptr<arrow::io::RandomAccessFile> fs___FileSystem__OpenInputFile(const std::shared_ptr<fs::FileSystem>& file_system, const std::string& path);
 extern "C" SEXP _arrow_fs___FileSystem__OpenInputFile(SEXP file_system_sexp, SEXP path_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<fs::FileSystem>&>::type file_system(file_system_sexp);
-	arrow::r::input<const std::string&>::type path(path_sexp);
+	arrow::r::Input<const std::shared_ptr<fs::FileSystem>&>::type file_system(file_system_sexp);
+	arrow::r::Input<const std::string&>::type path(path_sexp);
 	return cpp11::as_sexp(fs___FileSystem__OpenInputFile(file_system, path));
 END_CPP11
 }
@@ -3475,8 +3475,8 @@ extern "C" SEXP _arrow_fs___FileSystem__OpenInputFile(SEXP file_system_sexp, SEX
 std::shared_ptr<arrow::io::OutputStream> fs___FileSystem__OpenOutputStream(const std::shared_ptr<fs::FileSystem>& file_system, const std::string& path);
 extern "C" SEXP _arrow_fs___FileSystem__OpenOutputStream(SEXP file_system_sexp, SEXP path_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<fs::FileSystem>&>::type file_system(file_system_sexp);
-	arrow::r::input<const std::string&>::type path(path_sexp);
+	arrow::r::Input<const std::shared_ptr<fs::FileSystem>&>::type file_system(file_system_sexp);
+	arrow::r::Input<const std::string&>::type path(path_sexp);
 	return cpp11::as_sexp(fs___FileSystem__OpenOutputStream(file_system, path));
 END_CPP11
 }
@@ -3491,8 +3491,8 @@ extern "C" SEXP _arrow_fs___FileSystem__OpenOutputStream(SEXP file_system_sexp, 
 std::shared_ptr<arrow::io::OutputStream> fs___FileSystem__OpenAppendStream(const std::shared_ptr<fs::FileSystem>& file_system, const std::string& path);
 extern "C" SEXP _arrow_fs___FileSystem__OpenAppendStream(SEXP file_system_sexp, SEXP path_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<fs::FileSystem>&>::type file_system(file_system_sexp);
-	arrow::r::input<const std::string&>::type path(path_sexp);
+	arrow::r::Input<const std::shared_ptr<fs::FileSystem>&>::type file_system(file_system_sexp);
+	arrow::r::Input<const std::string&>::type path(path_sexp);
 	return cpp11::as_sexp(fs___FileSystem__OpenAppendStream(file_system, path));
 END_CPP11
 }
@@ -3507,7 +3507,7 @@ extern "C" SEXP _arrow_fs___FileSystem__OpenAppendStream(SEXP file_system_sexp, 
 std::string fs___FileSystem__type_name(const std::shared_ptr<fs::FileSystem>& file_system);
 extern "C" SEXP _arrow_fs___FileSystem__type_name(SEXP file_system_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<fs::FileSystem>&>::type file_system(file_system_sexp);
+	arrow::r::Input<const std::shared_ptr<fs::FileSystem>&>::type file_system(file_system_sexp);
 	return cpp11::as_sexp(fs___FileSystem__type_name(file_system));
 END_CPP11
 }
@@ -3536,8 +3536,8 @@ extern "C" SEXP _arrow_fs___LocalFileSystem__create(){
 std::shared_ptr<fs::SubTreeFileSystem> fs___SubTreeFileSystem__create(const std::string& base_path, const std::shared_ptr<fs::FileSystem>& base_fs);
 extern "C" SEXP _arrow_fs___SubTreeFileSystem__create(SEXP base_path_sexp, SEXP base_fs_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::string&>::type base_path(base_path_sexp);
-	arrow::r::input<const std::shared_ptr<fs::FileSystem>&>::type base_fs(base_fs_sexp);
+	arrow::r::Input<const std::string&>::type base_path(base_path_sexp);
+	arrow::r::Input<const std::shared_ptr<fs::FileSystem>&>::type base_fs(base_fs_sexp);
 	return cpp11::as_sexp(fs___SubTreeFileSystem__create(base_path, base_fs));
 END_CPP11
 }
@@ -3552,7 +3552,7 @@ extern "C" SEXP _arrow_fs___SubTreeFileSystem__create(SEXP base_path_sexp, SEXP 
 cpp11::writable::list fs___FileSystemFromUri(const std::string& path);
 extern "C" SEXP _arrow_fs___FileSystemFromUri(SEXP path_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::string&>::type path(path_sexp);
+	arrow::r::Input<const std::string&>::type path(path_sexp);
 	return cpp11::as_sexp(fs___FileSystemFromUri(path));
 END_CPP11
 }
@@ -3596,8 +3596,8 @@ extern "C" SEXP _arrow_fs___S3FileSystem__create(){
 std::shared_ptr<arrow::Buffer> io___Readable__Read(const std::shared_ptr<arrow::io::Readable>& x, int64_t nbytes);
 extern "C" SEXP _arrow_io___Readable__Read(SEXP x_sexp, SEXP nbytes_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::io::Readable>&>::type x(x_sexp);
-	arrow::r::input<int64_t>::type nbytes(nbytes_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::io::Readable>&>::type x(x_sexp);
+	arrow::r::Input<int64_t>::type nbytes(nbytes_sexp);
 	return cpp11::as_sexp(io___Readable__Read(x, nbytes));
 END_CPP11
 }
@@ -3612,7 +3612,7 @@ extern "C" SEXP _arrow_io___Readable__Read(SEXP x_sexp, SEXP nbytes_sexp){
 void io___InputStream__Close(const std::shared_ptr<arrow::io::InputStream>& x);
 extern "C" SEXP _arrow_io___InputStream__Close(SEXP x_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::io::InputStream>&>::type x(x_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::io::InputStream>&>::type x(x_sexp);
 	io___InputStream__Close(x);
 	return R_NilValue;
 END_CPP11
@@ -3628,7 +3628,7 @@ extern "C" SEXP _arrow_io___InputStream__Close(SEXP x_sexp){
 void io___OutputStream__Close(const std::shared_ptr<arrow::io::OutputStream>& x);
 extern "C" SEXP _arrow_io___OutputStream__Close(SEXP x_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::io::OutputStream>&>::type x(x_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::io::OutputStream>&>::type x(x_sexp);
 	io___OutputStream__Close(x);
 	return R_NilValue;
 END_CPP11
@@ -3644,7 +3644,7 @@ extern "C" SEXP _arrow_io___OutputStream__Close(SEXP x_sexp){
 int64_t io___RandomAccessFile__GetSize(const std::shared_ptr<arrow::io::RandomAccessFile>& x);
 extern "C" SEXP _arrow_io___RandomAccessFile__GetSize(SEXP x_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::io::RandomAccessFile>&>::type x(x_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::io::RandomAccessFile>&>::type x(x_sexp);
 	return cpp11::as_sexp(io___RandomAccessFile__GetSize(x));
 END_CPP11
 }
@@ -3659,7 +3659,7 @@ extern "C" SEXP _arrow_io___RandomAccessFile__GetSize(SEXP x_sexp){
 bool io___RandomAccessFile__supports_zero_copy(const std::shared_ptr<arrow::io::RandomAccessFile>& x);
 extern "C" SEXP _arrow_io___RandomAccessFile__supports_zero_copy(SEXP x_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::io::RandomAccessFile>&>::type x(x_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::io::RandomAccessFile>&>::type x(x_sexp);
 	return cpp11::as_sexp(io___RandomAccessFile__supports_zero_copy(x));
 END_CPP11
 }
@@ -3674,8 +3674,8 @@ extern "C" SEXP _arrow_io___RandomAccessFile__supports_zero_copy(SEXP x_sexp){
 void io___RandomAccessFile__Seek(const std::shared_ptr<arrow::io::RandomAccessFile>& x, int64_t position);
 extern "C" SEXP _arrow_io___RandomAccessFile__Seek(SEXP x_sexp, SEXP position_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::io::RandomAccessFile>&>::type x(x_sexp);
-	arrow::r::input<int64_t>::type position(position_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::io::RandomAccessFile>&>::type x(x_sexp);
+	arrow::r::Input<int64_t>::type position(position_sexp);
 	io___RandomAccessFile__Seek(x, position);
 	return R_NilValue;
 END_CPP11
@@ -3691,7 +3691,7 @@ extern "C" SEXP _arrow_io___RandomAccessFile__Seek(SEXP x_sexp, SEXP position_se
 int64_t io___RandomAccessFile__Tell(const std::shared_ptr<arrow::io::RandomAccessFile>& x);
 extern "C" SEXP _arrow_io___RandomAccessFile__Tell(SEXP x_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::io::RandomAccessFile>&>::type x(x_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::io::RandomAccessFile>&>::type x(x_sexp);
 	return cpp11::as_sexp(io___RandomAccessFile__Tell(x));
 END_CPP11
 }
@@ -3706,7 +3706,7 @@ extern "C" SEXP _arrow_io___RandomAccessFile__Tell(SEXP x_sexp){
 std::shared_ptr<arrow::Buffer> io___RandomAccessFile__Read0(const std::shared_ptr<arrow::io::RandomAccessFile>& x);
 extern "C" SEXP _arrow_io___RandomAccessFile__Read0(SEXP x_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::io::RandomAccessFile>&>::type x(x_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::io::RandomAccessFile>&>::type x(x_sexp);
 	return cpp11::as_sexp(io___RandomAccessFile__Read0(x));
 END_CPP11
 }
@@ -3721,9 +3721,9 @@ extern "C" SEXP _arrow_io___RandomAccessFile__Read0(SEXP x_sexp){
 std::shared_ptr<arrow::Buffer> io___RandomAccessFile__ReadAt(const std::shared_ptr<arrow::io::RandomAccessFile>& x, int64_t position, int64_t nbytes);
 extern "C" SEXP _arrow_io___RandomAccessFile__ReadAt(SEXP x_sexp, SEXP position_sexp, SEXP nbytes_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::io::RandomAccessFile>&>::type x(x_sexp);
-	arrow::r::input<int64_t>::type position(position_sexp);
-	arrow::r::input<int64_t>::type nbytes(nbytes_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::io::RandomAccessFile>&>::type x(x_sexp);
+	arrow::r::Input<int64_t>::type position(position_sexp);
+	arrow::r::Input<int64_t>::type nbytes(nbytes_sexp);
 	return cpp11::as_sexp(io___RandomAccessFile__ReadAt(x, position, nbytes));
 END_CPP11
 }
@@ -3738,8 +3738,8 @@ extern "C" SEXP _arrow_io___RandomAccessFile__ReadAt(SEXP x_sexp, SEXP position_
 std::shared_ptr<arrow::io::MemoryMappedFile> io___MemoryMappedFile__Create(const std::string& path, int64_t size);
 extern "C" SEXP _arrow_io___MemoryMappedFile__Create(SEXP path_sexp, SEXP size_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::string&>::type path(path_sexp);
-	arrow::r::input<int64_t>::type size(size_sexp);
+	arrow::r::Input<const std::string&>::type path(path_sexp);
+	arrow::r::Input<int64_t>::type size(size_sexp);
 	return cpp11::as_sexp(io___MemoryMappedFile__Create(path, size));
 END_CPP11
 }
@@ -3754,8 +3754,8 @@ extern "C" SEXP _arrow_io___MemoryMappedFile__Create(SEXP path_sexp, SEXP size_s
 std::shared_ptr<arrow::io::MemoryMappedFile> io___MemoryMappedFile__Open(const std::string& path, arrow::io::FileMode::type mode);
 extern "C" SEXP _arrow_io___MemoryMappedFile__Open(SEXP path_sexp, SEXP mode_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::string&>::type path(path_sexp);
-	arrow::r::input<arrow::io::FileMode::type>::type mode(mode_sexp);
+	arrow::r::Input<const std::string&>::type path(path_sexp);
+	arrow::r::Input<arrow::io::FileMode::type>::type mode(mode_sexp);
 	return cpp11::as_sexp(io___MemoryMappedFile__Open(path, mode));
 END_CPP11
 }
@@ -3770,8 +3770,8 @@ extern "C" SEXP _arrow_io___MemoryMappedFile__Open(SEXP path_sexp, SEXP mode_sex
 void io___MemoryMappedFile__Resize(const std::shared_ptr<arrow::io::MemoryMappedFile>& x, int64_t size);
 extern "C" SEXP _arrow_io___MemoryMappedFile__Resize(SEXP x_sexp, SEXP size_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::io::MemoryMappedFile>&>::type x(x_sexp);
-	arrow::r::input<int64_t>::type size(size_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::io::MemoryMappedFile>&>::type x(x_sexp);
+	arrow::r::Input<int64_t>::type size(size_sexp);
 	io___MemoryMappedFile__Resize(x, size);
 	return R_NilValue;
 END_CPP11
@@ -3787,7 +3787,7 @@ extern "C" SEXP _arrow_io___MemoryMappedFile__Resize(SEXP x_sexp, SEXP size_sexp
 std::shared_ptr<arrow::io::ReadableFile> io___ReadableFile__Open(const std::string& path);
 extern "C" SEXP _arrow_io___ReadableFile__Open(SEXP path_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::string&>::type path(path_sexp);
+	arrow::r::Input<const std::string&>::type path(path_sexp);
 	return cpp11::as_sexp(io___ReadableFile__Open(path));
 END_CPP11
 }
@@ -3802,7 +3802,7 @@ extern "C" SEXP _arrow_io___ReadableFile__Open(SEXP path_sexp){
 std::shared_ptr<arrow::io::BufferReader> io___BufferReader__initialize(const std::shared_ptr<arrow::Buffer>& buffer);
 extern "C" SEXP _arrow_io___BufferReader__initialize(SEXP buffer_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::Buffer>&>::type buffer(buffer_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Buffer>&>::type buffer(buffer_sexp);
 	return cpp11::as_sexp(io___BufferReader__initialize(buffer));
 END_CPP11
 }
@@ -3817,8 +3817,8 @@ extern "C" SEXP _arrow_io___BufferReader__initialize(SEXP buffer_sexp){
 void io___Writable__write(const std::shared_ptr<arrow::io::Writable>& stream, const std::shared_ptr<arrow::Buffer>& buf);
 extern "C" SEXP _arrow_io___Writable__write(SEXP stream_sexp, SEXP buf_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::io::Writable>&>::type stream(stream_sexp);
-	arrow::r::input<const std::shared_ptr<arrow::Buffer>&>::type buf(buf_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::io::Writable>&>::type stream(stream_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Buffer>&>::type buf(buf_sexp);
 	io___Writable__write(stream, buf);
 	return R_NilValue;
 END_CPP11
@@ -3834,7 +3834,7 @@ extern "C" SEXP _arrow_io___Writable__write(SEXP stream_sexp, SEXP buf_sexp){
 int64_t io___OutputStream__Tell(const std::shared_ptr<arrow::io::OutputStream>& stream);
 extern "C" SEXP _arrow_io___OutputStream__Tell(SEXP stream_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::io::OutputStream>&>::type stream(stream_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::io::OutputStream>&>::type stream(stream_sexp);
 	return cpp11::as_sexp(io___OutputStream__Tell(stream));
 END_CPP11
 }
@@ -3849,7 +3849,7 @@ extern "C" SEXP _arrow_io___OutputStream__Tell(SEXP stream_sexp){
 std::shared_ptr<arrow::io::FileOutputStream> io___FileOutputStream__Open(const std::string& path);
 extern "C" SEXP _arrow_io___FileOutputStream__Open(SEXP path_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::string&>::type path(path_sexp);
+	arrow::r::Input<const std::string&>::type path(path_sexp);
 	return cpp11::as_sexp(io___FileOutputStream__Open(path));
 END_CPP11
 }
@@ -3864,7 +3864,7 @@ extern "C" SEXP _arrow_io___FileOutputStream__Open(SEXP path_sexp){
 std::shared_ptr<arrow::io::BufferOutputStream> io___BufferOutputStream__Create(int64_t initial_capacity);
 extern "C" SEXP _arrow_io___BufferOutputStream__Create(SEXP initial_capacity_sexp){
 BEGIN_CPP11
-	arrow::r::input<int64_t>::type initial_capacity(initial_capacity_sexp);
+	arrow::r::Input<int64_t>::type initial_capacity(initial_capacity_sexp);
 	return cpp11::as_sexp(io___BufferOutputStream__Create(initial_capacity));
 END_CPP11
 }
@@ -3879,7 +3879,7 @@ extern "C" SEXP _arrow_io___BufferOutputStream__Create(SEXP initial_capacity_sex
 int64_t io___BufferOutputStream__capacity(const std::shared_ptr<arrow::io::BufferOutputStream>& stream);
 extern "C" SEXP _arrow_io___BufferOutputStream__capacity(SEXP stream_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::io::BufferOutputStream>&>::type stream(stream_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::io::BufferOutputStream>&>::type stream(stream_sexp);
 	return cpp11::as_sexp(io___BufferOutputStream__capacity(stream));
 END_CPP11
 }
@@ -3894,7 +3894,7 @@ extern "C" SEXP _arrow_io___BufferOutputStream__capacity(SEXP stream_sexp){
 std::shared_ptr<arrow::Buffer> io___BufferOutputStream__Finish(const std::shared_ptr<arrow::io::BufferOutputStream>& stream);
 extern "C" SEXP _arrow_io___BufferOutputStream__Finish(SEXP stream_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::io::BufferOutputStream>&>::type stream(stream_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::io::BufferOutputStream>&>::type stream(stream_sexp);
 	return cpp11::as_sexp(io___BufferOutputStream__Finish(stream));
 END_CPP11
 }
@@ -3909,7 +3909,7 @@ extern "C" SEXP _arrow_io___BufferOutputStream__Finish(SEXP stream_sexp){
 int64_t io___BufferOutputStream__Tell(const std::shared_ptr<arrow::io::BufferOutputStream>& stream);
 extern "C" SEXP _arrow_io___BufferOutputStream__Tell(SEXP stream_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::io::BufferOutputStream>&>::type stream(stream_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::io::BufferOutputStream>&>::type stream(stream_sexp);
 	return cpp11::as_sexp(io___BufferOutputStream__Tell(stream));
 END_CPP11
 }
@@ -3924,8 +3924,8 @@ extern "C" SEXP _arrow_io___BufferOutputStream__Tell(SEXP stream_sexp){
 void io___BufferOutputStream__Write(const std::shared_ptr<arrow::io::BufferOutputStream>& stream, cpp11::raws bytes);
 extern "C" SEXP _arrow_io___BufferOutputStream__Write(SEXP stream_sexp, SEXP bytes_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::io::BufferOutputStream>&>::type stream(stream_sexp);
-	arrow::r::input<cpp11::raws>::type bytes(bytes_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::io::BufferOutputStream>&>::type stream(stream_sexp);
+	arrow::r::Input<cpp11::raws>::type bytes(bytes_sexp);
 	io___BufferOutputStream__Write(stream, bytes);
 	return R_NilValue;
 END_CPP11
@@ -3941,8 +3941,8 @@ extern "C" SEXP _arrow_io___BufferOutputStream__Write(SEXP stream_sexp, SEXP byt
 std::shared_ptr<arrow::json::ReadOptions> json___ReadOptions__initialize(bool use_threads, int block_size);
 extern "C" SEXP _arrow_json___ReadOptions__initialize(SEXP use_threads_sexp, SEXP block_size_sexp){
 BEGIN_CPP11
-	arrow::r::input<bool>::type use_threads(use_threads_sexp);
-	arrow::r::input<int>::type block_size(block_size_sexp);
+	arrow::r::Input<bool>::type use_threads(use_threads_sexp);
+	arrow::r::Input<int>::type block_size(block_size_sexp);
 	return cpp11::as_sexp(json___ReadOptions__initialize(use_threads, block_size));
 END_CPP11
 }
@@ -3957,7 +3957,7 @@ extern "C" SEXP _arrow_json___ReadOptions__initialize(SEXP use_threads_sexp, SEX
 std::shared_ptr<arrow::json::ParseOptions> json___ParseOptions__initialize(bool newlines_in_values);
 extern "C" SEXP _arrow_json___ParseOptions__initialize(SEXP newlines_in_values_sexp){
 BEGIN_CPP11
-	arrow::r::input<bool>::type newlines_in_values(newlines_in_values_sexp);
+	arrow::r::Input<bool>::type newlines_in_values(newlines_in_values_sexp);
 	return cpp11::as_sexp(json___ParseOptions__initialize(newlines_in_values));
 END_CPP11
 }
@@ -3972,9 +3972,9 @@ extern "C" SEXP _arrow_json___ParseOptions__initialize(SEXP newlines_in_values_s
 std::shared_ptr<arrow::json::TableReader> json___TableReader__Make(const std::shared_ptr<arrow::io::InputStream>& input, const std::shared_ptr<arrow::json::ReadOptions>& read_options, const std::shared_ptr<arrow::json::ParseOptions>& parse_options);
 extern "C" SEXP _arrow_json___TableReader__Make(SEXP input_sexp, SEXP read_options_sexp, SEXP parse_options_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::io::InputStream>&>::type input(input_sexp);
-	arrow::r::input<const std::shared_ptr<arrow::json::ReadOptions>&>::type read_options(read_options_sexp);
-	arrow::r::input<const std::shared_ptr<arrow::json::ParseOptions>&>::type parse_options(parse_options_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::io::InputStream>&>::type input(input_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::json::ReadOptions>&>::type read_options(read_options_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::json::ParseOptions>&>::type parse_options(parse_options_sexp);
 	return cpp11::as_sexp(json___TableReader__Make(input, read_options, parse_options));
 END_CPP11
 }
@@ -3989,7 +3989,7 @@ extern "C" SEXP _arrow_json___TableReader__Make(SEXP input_sexp, SEXP read_optio
 std::shared_ptr<arrow::Table> json___TableReader__Read(const std::shared_ptr<arrow::json::TableReader>& table_reader);
 extern "C" SEXP _arrow_json___TableReader__Read(SEXP table_reader_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::json::TableReader>&>::type table_reader(table_reader_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::json::TableReader>&>::type table_reader(table_reader_sexp);
 	return cpp11::as_sexp(json___TableReader__Read(table_reader));
 END_CPP11
 }
@@ -4018,7 +4018,7 @@ extern "C" SEXP _arrow_MemoryPool__default(){
 int MemoryPool__bytes_allocated(const std::shared_ptr<arrow::MemoryPool>& pool);
 extern "C" SEXP _arrow_MemoryPool__bytes_allocated(SEXP pool_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::MemoryPool>&>::type pool(pool_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::MemoryPool>&>::type pool(pool_sexp);
 	return cpp11::as_sexp(MemoryPool__bytes_allocated(pool));
 END_CPP11
 }
@@ -4033,7 +4033,7 @@ extern "C" SEXP _arrow_MemoryPool__bytes_allocated(SEXP pool_sexp){
 int MemoryPool__max_memory(const std::shared_ptr<arrow::MemoryPool>& pool);
 extern "C" SEXP _arrow_MemoryPool__max_memory(SEXP pool_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::MemoryPool>&>::type pool(pool_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::MemoryPool>&>::type pool(pool_sexp);
 	return cpp11::as_sexp(MemoryPool__max_memory(pool));
 END_CPP11
 }
@@ -4048,7 +4048,7 @@ extern "C" SEXP _arrow_MemoryPool__max_memory(SEXP pool_sexp){
 int64_t ipc___Message__body_length(const std::unique_ptr<arrow::ipc::Message>& message);
 extern "C" SEXP _arrow_ipc___Message__body_length(SEXP message_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::unique_ptr<arrow::ipc::Message>&>::type message(message_sexp);
+	arrow::r::Input<const std::unique_ptr<arrow::ipc::Message>&>::type message(message_sexp);
 	return cpp11::as_sexp(ipc___Message__body_length(message));
 END_CPP11
 }
@@ -4063,7 +4063,7 @@ extern "C" SEXP _arrow_ipc___Message__body_length(SEXP message_sexp){
 std::shared_ptr<arrow::Buffer> ipc___Message__metadata(const std::unique_ptr<arrow::ipc::Message>& message);
 extern "C" SEXP _arrow_ipc___Message__metadata(SEXP message_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::unique_ptr<arrow::ipc::Message>&>::type message(message_sexp);
+	arrow::r::Input<const std::unique_ptr<arrow::ipc::Message>&>::type message(message_sexp);
 	return cpp11::as_sexp(ipc___Message__metadata(message));
 END_CPP11
 }
@@ -4078,7 +4078,7 @@ extern "C" SEXP _arrow_ipc___Message__metadata(SEXP message_sexp){
 std::shared_ptr<arrow::Buffer> ipc___Message__body(const std::unique_ptr<arrow::ipc::Message>& message);
 extern "C" SEXP _arrow_ipc___Message__body(SEXP message_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::unique_ptr<arrow::ipc::Message>&>::type message(message_sexp);
+	arrow::r::Input<const std::unique_ptr<arrow::ipc::Message>&>::type message(message_sexp);
 	return cpp11::as_sexp(ipc___Message__body(message));
 END_CPP11
 }
@@ -4093,7 +4093,7 @@ extern "C" SEXP _arrow_ipc___Message__body(SEXP message_sexp){
 int64_t ipc___Message__Verify(const std::unique_ptr<arrow::ipc::Message>& message);
 extern "C" SEXP _arrow_ipc___Message__Verify(SEXP message_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::unique_ptr<arrow::ipc::Message>&>::type message(message_sexp);
+	arrow::r::Input<const std::unique_ptr<arrow::ipc::Message>&>::type message(message_sexp);
 	return cpp11::as_sexp(ipc___Message__Verify(message));
 END_CPP11
 }
@@ -4108,7 +4108,7 @@ extern "C" SEXP _arrow_ipc___Message__Verify(SEXP message_sexp){
 arrow::ipc::MessageType ipc___Message__type(const std::unique_ptr<arrow::ipc::Message>& message);
 extern "C" SEXP _arrow_ipc___Message__type(SEXP message_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::unique_ptr<arrow::ipc::Message>&>::type message(message_sexp);
+	arrow::r::Input<const std::unique_ptr<arrow::ipc::Message>&>::type message(message_sexp);
 	return cpp11::as_sexp(ipc___Message__type(message));
 END_CPP11
 }
@@ -4123,8 +4123,8 @@ extern "C" SEXP _arrow_ipc___Message__type(SEXP message_sexp){
 bool ipc___Message__Equals(const std::unique_ptr<arrow::ipc::Message>& x, const std::unique_ptr<arrow::ipc::Message>& y);
 extern "C" SEXP _arrow_ipc___Message__Equals(SEXP x_sexp, SEXP y_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::unique_ptr<arrow::ipc::Message>&>::type x(x_sexp);
-	arrow::r::input<const std::unique_ptr<arrow::ipc::Message>&>::type y(y_sexp);
+	arrow::r::Input<const std::unique_ptr<arrow::ipc::Message>&>::type x(x_sexp);
+	arrow::r::Input<const std::unique_ptr<arrow::ipc::Message>&>::type y(y_sexp);
 	return cpp11::as_sexp(ipc___Message__Equals(x, y));
 END_CPP11
 }
@@ -4139,8 +4139,8 @@ extern "C" SEXP _arrow_ipc___Message__Equals(SEXP x_sexp, SEXP y_sexp){
 std::shared_ptr<arrow::RecordBatch> ipc___ReadRecordBatch__Message__Schema(const std::unique_ptr<arrow::ipc::Message>& message, const std::shared_ptr<arrow::Schema>& schema);
 extern "C" SEXP _arrow_ipc___ReadRecordBatch__Message__Schema(SEXP message_sexp, SEXP schema_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::unique_ptr<arrow::ipc::Message>&>::type message(message_sexp);
-	arrow::r::input<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
+	arrow::r::Input<const std::unique_ptr<arrow::ipc::Message>&>::type message(message_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
 	return cpp11::as_sexp(ipc___ReadRecordBatch__Message__Schema(message, schema));
 END_CPP11
 }
@@ -4155,7 +4155,7 @@ extern "C" SEXP _arrow_ipc___ReadRecordBatch__Message__Schema(SEXP message_sexp,
 std::shared_ptr<arrow::Schema> ipc___ReadSchema_InputStream(const std::shared_ptr<arrow::io::InputStream>& stream);
 extern "C" SEXP _arrow_ipc___ReadSchema_InputStream(SEXP stream_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::io::InputStream>&>::type stream(stream_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::io::InputStream>&>::type stream(stream_sexp);
 	return cpp11::as_sexp(ipc___ReadSchema_InputStream(stream));
 END_CPP11
 }
@@ -4170,7 +4170,7 @@ extern "C" SEXP _arrow_ipc___ReadSchema_InputStream(SEXP stream_sexp){
 std::shared_ptr<arrow::Schema> ipc___ReadSchema_Message(const std::unique_ptr<arrow::ipc::Message>& message);
 extern "C" SEXP _arrow_ipc___ReadSchema_Message(SEXP message_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::unique_ptr<arrow::ipc::Message>&>::type message(message_sexp);
+	arrow::r::Input<const std::unique_ptr<arrow::ipc::Message>&>::type message(message_sexp);
 	return cpp11::as_sexp(ipc___ReadSchema_Message(message));
 END_CPP11
 }
@@ -4185,7 +4185,7 @@ extern "C" SEXP _arrow_ipc___ReadSchema_Message(SEXP message_sexp){
 std::shared_ptr<arrow::ipc::MessageReader> ipc___MessageReader__Open(const std::shared_ptr<arrow::io::InputStream>& stream);
 extern "C" SEXP _arrow_ipc___MessageReader__Open(SEXP stream_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::io::InputStream>&>::type stream(stream_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::io::InputStream>&>::type stream(stream_sexp);
 	return cpp11::as_sexp(ipc___MessageReader__Open(stream));
 END_CPP11
 }
@@ -4200,7 +4200,7 @@ extern "C" SEXP _arrow_ipc___MessageReader__Open(SEXP stream_sexp){
 std::shared_ptr<arrow::ipc::Message> ipc___MessageReader__ReadNextMessage(const std::unique_ptr<arrow::ipc::MessageReader>& reader);
 extern "C" SEXP _arrow_ipc___MessageReader__ReadNextMessage(SEXP reader_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::unique_ptr<arrow::ipc::MessageReader>&>::type reader(reader_sexp);
+	arrow::r::Input<const std::unique_ptr<arrow::ipc::MessageReader>&>::type reader(reader_sexp);
 	return cpp11::as_sexp(ipc___MessageReader__ReadNextMessage(reader));
 END_CPP11
 }
@@ -4215,7 +4215,7 @@ extern "C" SEXP _arrow_ipc___MessageReader__ReadNextMessage(SEXP reader_sexp){
 std::shared_ptr<arrow::ipc::Message> ipc___ReadMessage(const std::shared_ptr<arrow::io::InputStream>& stream);
 extern "C" SEXP _arrow_ipc___ReadMessage(SEXP stream_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::io::InputStream>&>::type stream(stream_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::io::InputStream>&>::type stream(stream_sexp);
 	return cpp11::as_sexp(ipc___ReadMessage(stream));
 END_CPP11
 }
@@ -4230,7 +4230,7 @@ extern "C" SEXP _arrow_ipc___ReadMessage(SEXP stream_sexp){
 std::shared_ptr<parquet::ArrowReaderProperties> parquet___arrow___ArrowReaderProperties__Make(bool use_threads);
 extern "C" SEXP _arrow_parquet___arrow___ArrowReaderProperties__Make(SEXP use_threads_sexp){
 BEGIN_CPP11
-	arrow::r::input<bool>::type use_threads(use_threads_sexp);
+	arrow::r::Input<bool>::type use_threads(use_threads_sexp);
 	return cpp11::as_sexp(parquet___arrow___ArrowReaderProperties__Make(use_threads));
 END_CPP11
 }
@@ -4245,8 +4245,8 @@ extern "C" SEXP _arrow_parquet___arrow___ArrowReaderProperties__Make(SEXP use_th
 void parquet___arrow___ArrowReaderProperties__set_use_threads(const std::shared_ptr<parquet::ArrowReaderProperties>& properties, bool use_threads);
 extern "C" SEXP _arrow_parquet___arrow___ArrowReaderProperties__set_use_threads(SEXP properties_sexp, SEXP use_threads_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<parquet::ArrowReaderProperties>&>::type properties(properties_sexp);
-	arrow::r::input<bool>::type use_threads(use_threads_sexp);
+	arrow::r::Input<const std::shared_ptr<parquet::ArrowReaderProperties>&>::type properties(properties_sexp);
+	arrow::r::Input<bool>::type use_threads(use_threads_sexp);
 	parquet___arrow___ArrowReaderProperties__set_use_threads(properties, use_threads);
 	return R_NilValue;
 END_CPP11
@@ -4262,8 +4262,8 @@ extern "C" SEXP _arrow_parquet___arrow___ArrowReaderProperties__set_use_threads(
 bool parquet___arrow___ArrowReaderProperties__get_use_threads(const std::shared_ptr<parquet::ArrowReaderProperties>& properties, bool use_threads);
 extern "C" SEXP _arrow_parquet___arrow___ArrowReaderProperties__get_use_threads(SEXP properties_sexp, SEXP use_threads_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<parquet::ArrowReaderProperties>&>::type properties(properties_sexp);
-	arrow::r::input<bool>::type use_threads(use_threads_sexp);
+	arrow::r::Input<const std::shared_ptr<parquet::ArrowReaderProperties>&>::type properties(properties_sexp);
+	arrow::r::Input<bool>::type use_threads(use_threads_sexp);
 	return cpp11::as_sexp(parquet___arrow___ArrowReaderProperties__get_use_threads(properties, use_threads));
 END_CPP11
 }
@@ -4278,8 +4278,8 @@ extern "C" SEXP _arrow_parquet___arrow___ArrowReaderProperties__get_use_threads(
 bool parquet___arrow___ArrowReaderProperties__get_read_dictionary(const std::shared_ptr<parquet::ArrowReaderProperties>& properties, int column_index);
 extern "C" SEXP _arrow_parquet___arrow___ArrowReaderProperties__get_read_dictionary(SEXP properties_sexp, SEXP column_index_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<parquet::ArrowReaderProperties>&>::type properties(properties_sexp);
-	arrow::r::input<int>::type column_index(column_index_sexp);
+	arrow::r::Input<const std::shared_ptr<parquet::ArrowReaderProperties>&>::type properties(properties_sexp);
+	arrow::r::Input<int>::type column_index(column_index_sexp);
 	return cpp11::as_sexp(parquet___arrow___ArrowReaderProperties__get_read_dictionary(properties, column_index));
 END_CPP11
 }
@@ -4294,9 +4294,9 @@ extern "C" SEXP _arrow_parquet___arrow___ArrowReaderProperties__get_read_diction
 void parquet___arrow___ArrowReaderProperties__set_read_dictionary(const std::shared_ptr<parquet::ArrowReaderProperties>& properties, int column_index, bool read_dict);
 extern "C" SEXP _arrow_parquet___arrow___ArrowReaderProperties__set_read_dictionary(SEXP properties_sexp, SEXP column_index_sexp, SEXP read_dict_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<parquet::ArrowReaderProperties>&>::type properties(properties_sexp);
-	arrow::r::input<int>::type column_index(column_index_sexp);
-	arrow::r::input<bool>::type read_dict(read_dict_sexp);
+	arrow::r::Input<const std::shared_ptr<parquet::ArrowReaderProperties>&>::type properties(properties_sexp);
+	arrow::r::Input<int>::type column_index(column_index_sexp);
+	arrow::r::Input<bool>::type read_dict(read_dict_sexp);
 	parquet___arrow___ArrowReaderProperties__set_read_dictionary(properties, column_index, read_dict);
 	return R_NilValue;
 END_CPP11
@@ -4312,8 +4312,8 @@ extern "C" SEXP _arrow_parquet___arrow___ArrowReaderProperties__set_read_diction
 std::shared_ptr<parquet::arrow::FileReader> parquet___arrow___FileReader__OpenFile(const std::shared_ptr<arrow::io::RandomAccessFile>& file, const std::shared_ptr<parquet::ArrowReaderProperties>& props);
 extern "C" SEXP _arrow_parquet___arrow___FileReader__OpenFile(SEXP file_sexp, SEXP props_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::io::RandomAccessFile>&>::type file(file_sexp);
-	arrow::r::input<const std::shared_ptr<parquet::ArrowReaderProperties>&>::type props(props_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::io::RandomAccessFile>&>::type file(file_sexp);
+	arrow::r::Input<const std::shared_ptr<parquet::ArrowReaderProperties>&>::type props(props_sexp);
 	return cpp11::as_sexp(parquet___arrow___FileReader__OpenFile(file, props));
 END_CPP11
 }
@@ -4328,7 +4328,7 @@ extern "C" SEXP _arrow_parquet___arrow___FileReader__OpenFile(SEXP file_sexp, SE
 std::shared_ptr<arrow::Table> parquet___arrow___FileReader__ReadTable1(const std::shared_ptr<parquet::arrow::FileReader>& reader);
 extern "C" SEXP _arrow_parquet___arrow___FileReader__ReadTable1(SEXP reader_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<parquet::arrow::FileReader>&>::type reader(reader_sexp);
+	arrow::r::Input<const std::shared_ptr<parquet::arrow::FileReader>&>::type reader(reader_sexp);
 	return cpp11::as_sexp(parquet___arrow___FileReader__ReadTable1(reader));
 END_CPP11
 }
@@ -4343,8 +4343,8 @@ extern "C" SEXP _arrow_parquet___arrow___FileReader__ReadTable1(SEXP reader_sexp
 std::shared_ptr<arrow::Table> parquet___arrow___FileReader__ReadTable2(const std::shared_ptr<parquet::arrow::FileReader>& reader, const std::vector<int>& column_indices);
 extern "C" SEXP _arrow_parquet___arrow___FileReader__ReadTable2(SEXP reader_sexp, SEXP column_indices_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<parquet::arrow::FileReader>&>::type reader(reader_sexp);
-	arrow::r::input<const std::vector<int>&>::type column_indices(column_indices_sexp);
+	arrow::r::Input<const std::shared_ptr<parquet::arrow::FileReader>&>::type reader(reader_sexp);
+	arrow::r::Input<const std::vector<int>&>::type column_indices(column_indices_sexp);
 	return cpp11::as_sexp(parquet___arrow___FileReader__ReadTable2(reader, column_indices));
 END_CPP11
 }
@@ -4359,7 +4359,7 @@ extern "C" SEXP _arrow_parquet___arrow___FileReader__ReadTable2(SEXP reader_sexp
 int64_t parquet___arrow___FileReader__num_rows(const std::shared_ptr<parquet::arrow::FileReader>& reader);
 extern "C" SEXP _arrow_parquet___arrow___FileReader__num_rows(SEXP reader_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<parquet::arrow::FileReader>&>::type reader(reader_sexp);
+	arrow::r::Input<const std::shared_ptr<parquet::arrow::FileReader>&>::type reader(reader_sexp);
 	return cpp11::as_sexp(parquet___arrow___FileReader__num_rows(reader));
 END_CPP11
 }
@@ -4374,9 +4374,9 @@ extern "C" SEXP _arrow_parquet___arrow___FileReader__num_rows(SEXP reader_sexp){
 std::shared_ptr<parquet::ArrowWriterProperties> parquet___ArrowWriterProperties___create(bool allow_truncated_timestamps, bool use_deprecated_int96_timestamps, int timestamp_unit);
 extern "C" SEXP _arrow_parquet___ArrowWriterProperties___create(SEXP allow_truncated_timestamps_sexp, SEXP use_deprecated_int96_timestamps_sexp, SEXP timestamp_unit_sexp){
 BEGIN_CPP11
-	arrow::r::input<bool>::type allow_truncated_timestamps(allow_truncated_timestamps_sexp);
-	arrow::r::input<bool>::type use_deprecated_int96_timestamps(use_deprecated_int96_timestamps_sexp);
-	arrow::r::input<int>::type timestamp_unit(timestamp_unit_sexp);
+	arrow::r::Input<bool>::type allow_truncated_timestamps(allow_truncated_timestamps_sexp);
+	arrow::r::Input<bool>::type use_deprecated_int96_timestamps(use_deprecated_int96_timestamps_sexp);
+	arrow::r::Input<int>::type timestamp_unit(timestamp_unit_sexp);
 	return cpp11::as_sexp(parquet___ArrowWriterProperties___create(allow_truncated_timestamps, use_deprecated_int96_timestamps, timestamp_unit));
 END_CPP11
 }
@@ -4405,8 +4405,8 @@ extern "C" SEXP _arrow_parquet___WriterProperties___Builder__create(){
 void parquet___WriterProperties___Builder__version(const std::shared_ptr<parquet::WriterPropertiesBuilder>& builder, const parquet::ParquetVersion::type& version);
 extern "C" SEXP _arrow_parquet___WriterProperties___Builder__version(SEXP builder_sexp, SEXP version_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<parquet::WriterPropertiesBuilder>&>::type builder(builder_sexp);
-	arrow::r::input<const parquet::ParquetVersion::type&>::type version(version_sexp);
+	arrow::r::Input<const std::shared_ptr<parquet::WriterPropertiesBuilder>&>::type builder(builder_sexp);
+	arrow::r::Input<const parquet::ParquetVersion::type&>::type version(version_sexp);
 	parquet___WriterProperties___Builder__version(builder, version);
 	return R_NilValue;
 END_CPP11
@@ -4422,9 +4422,9 @@ extern "C" SEXP _arrow_parquet___WriterProperties___Builder__version(SEXP builde
 void parquet___ArrowWriterProperties___Builder__set_compressions(const std::shared_ptr<parquet::WriterPropertiesBuilder>& builder, const std::vector<std::string>& paths, cpp11::integers types);
 extern "C" SEXP _arrow_parquet___ArrowWriterProperties___Builder__set_compressions(SEXP builder_sexp, SEXP paths_sexp, SEXP types_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<parquet::WriterPropertiesBuilder>&>::type builder(builder_sexp);
-	arrow::r::input<const std::vector<std::string>&>::type paths(paths_sexp);
-	arrow::r::input<cpp11::integers>::type types(types_sexp);
+	arrow::r::Input<const std::shared_ptr<parquet::WriterPropertiesBuilder>&>::type builder(builder_sexp);
+	arrow::r::Input<const std::vector<std::string>&>::type paths(paths_sexp);
+	arrow::r::Input<cpp11::integers>::type types(types_sexp);
 	parquet___ArrowWriterProperties___Builder__set_compressions(builder, paths, types);
 	return R_NilValue;
 END_CPP11
@@ -4440,9 +4440,9 @@ extern "C" SEXP _arrow_parquet___ArrowWriterProperties___Builder__set_compressio
 void parquet___ArrowWriterProperties___Builder__set_compression_levels(const std::shared_ptr<parquet::WriterPropertiesBuilder>& builder, const std::vector<std::string>& paths, cpp11::integers levels);
 extern "C" SEXP _arrow_parquet___ArrowWriterProperties___Builder__set_compression_levels(SEXP builder_sexp, SEXP paths_sexp, SEXP levels_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<parquet::WriterPropertiesBuilder>&>::type builder(builder_sexp);
-	arrow::r::input<const std::vector<std::string>&>::type paths(paths_sexp);
-	arrow::r::input<cpp11::integers>::type levels(levels_sexp);
+	arrow::r::Input<const std::shared_ptr<parquet::WriterPropertiesBuilder>&>::type builder(builder_sexp);
+	arrow::r::Input<const std::vector<std::string>&>::type paths(paths_sexp);
+	arrow::r::Input<cpp11::integers>::type levels(levels_sexp);
 	parquet___ArrowWriterProperties___Builder__set_compression_levels(builder, paths, levels);
 	return R_NilValue;
 END_CPP11
@@ -4458,9 +4458,9 @@ extern "C" SEXP _arrow_parquet___ArrowWriterProperties___Builder__set_compressio
 void parquet___ArrowWriterProperties___Builder__set_use_dictionary(const std::shared_ptr<parquet::WriterPropertiesBuilder>& builder, const std::vector<std::string>& paths, cpp11::logicals use_dictionary);
 extern "C" SEXP _arrow_parquet___ArrowWriterProperties___Builder__set_use_dictionary(SEXP builder_sexp, SEXP paths_sexp, SEXP use_dictionary_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<parquet::WriterPropertiesBuilder>&>::type builder(builder_sexp);
-	arrow::r::input<const std::vector<std::string>&>::type paths(paths_sexp);
-	arrow::r::input<cpp11::logicals>::type use_dictionary(use_dictionary_sexp);
+	arrow::r::Input<const std::shared_ptr<parquet::WriterPropertiesBuilder>&>::type builder(builder_sexp);
+	arrow::r::Input<const std::vector<std::string>&>::type paths(paths_sexp);
+	arrow::r::Input<cpp11::logicals>::type use_dictionary(use_dictionary_sexp);
 	parquet___ArrowWriterProperties___Builder__set_use_dictionary(builder, paths, use_dictionary);
 	return R_NilValue;
 END_CPP11
@@ -4476,9 +4476,9 @@ extern "C" SEXP _arrow_parquet___ArrowWriterProperties___Builder__set_use_dictio
 void parquet___ArrowWriterProperties___Builder__set_write_statistics(const std::shared_ptr<parquet::WriterPropertiesBuilder>& builder, const std::vector<std::string>& paths, cpp11::logicals write_statistics);
 extern "C" SEXP _arrow_parquet___ArrowWriterProperties___Builder__set_write_statistics(SEXP builder_sexp, SEXP paths_sexp, SEXP write_statistics_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<parquet::WriterPropertiesBuilder>&>::type builder(builder_sexp);
-	arrow::r::input<const std::vector<std::string>&>::type paths(paths_sexp);
-	arrow::r::input<cpp11::logicals>::type write_statistics(write_statistics_sexp);
+	arrow::r::Input<const std::shared_ptr<parquet::WriterPropertiesBuilder>&>::type builder(builder_sexp);
+	arrow::r::Input<const std::vector<std::string>&>::type paths(paths_sexp);
+	arrow::r::Input<cpp11::logicals>::type write_statistics(write_statistics_sexp);
 	parquet___ArrowWriterProperties___Builder__set_write_statistics(builder, paths, write_statistics);
 	return R_NilValue;
 END_CPP11
@@ -4494,8 +4494,8 @@ extern "C" SEXP _arrow_parquet___ArrowWriterProperties___Builder__set_write_stat
 void parquet___ArrowWriterProperties___Builder__data_page_size(const std::shared_ptr<parquet::WriterPropertiesBuilder>& builder, int64_t data_page_size);
 extern "C" SEXP _arrow_parquet___ArrowWriterProperties___Builder__data_page_size(SEXP builder_sexp, SEXP data_page_size_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<parquet::WriterPropertiesBuilder>&>::type builder(builder_sexp);
-	arrow::r::input<int64_t>::type data_page_size(data_page_size_sexp);
+	arrow::r::Input<const std::shared_ptr<parquet::WriterPropertiesBuilder>&>::type builder(builder_sexp);
+	arrow::r::Input<int64_t>::type data_page_size(data_page_size_sexp);
 	parquet___ArrowWriterProperties___Builder__data_page_size(builder, data_page_size);
 	return R_NilValue;
 END_CPP11
@@ -4511,7 +4511,7 @@ extern "C" SEXP _arrow_parquet___ArrowWriterProperties___Builder__data_page_size
 std::shared_ptr<parquet::WriterProperties> parquet___WriterProperties___Builder__build(const std::shared_ptr<parquet::WriterPropertiesBuilder>& builder);
 extern "C" SEXP _arrow_parquet___WriterProperties___Builder__build(SEXP builder_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<parquet::WriterPropertiesBuilder>&>::type builder(builder_sexp);
+	arrow::r::Input<const std::shared_ptr<parquet::WriterPropertiesBuilder>&>::type builder(builder_sexp);
 	return cpp11::as_sexp(parquet___WriterProperties___Builder__build(builder));
 END_CPP11
 }
@@ -4526,10 +4526,10 @@ extern "C" SEXP _arrow_parquet___WriterProperties___Builder__build(SEXP builder_
 std::shared_ptr<parquet::arrow::FileWriter> parquet___arrow___ParquetFileWriter__Open(const std::shared_ptr<arrow::Schema>& schema, const std::shared_ptr<arrow::io::OutputStream>& sink, const std::shared_ptr<parquet::WriterProperties>& properties, const std::shared_ptr<parquet::ArrowWriterProperties>& arrow_properties);
 extern "C" SEXP _arrow_parquet___arrow___ParquetFileWriter__Open(SEXP schema_sexp, SEXP sink_sexp, SEXP properties_sexp, SEXP arrow_properties_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
-	arrow::r::input<const std::shared_ptr<arrow::io::OutputStream>&>::type sink(sink_sexp);
-	arrow::r::input<const std::shared_ptr<parquet::WriterProperties>&>::type properties(properties_sexp);
-	arrow::r::input<const std::shared_ptr<parquet::ArrowWriterProperties>&>::type arrow_properties(arrow_properties_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::io::OutputStream>&>::type sink(sink_sexp);
+	arrow::r::Input<const std::shared_ptr<parquet::WriterProperties>&>::type properties(properties_sexp);
+	arrow::r::Input<const std::shared_ptr<parquet::ArrowWriterProperties>&>::type arrow_properties(arrow_properties_sexp);
 	return cpp11::as_sexp(parquet___arrow___ParquetFileWriter__Open(schema, sink, properties, arrow_properties));
 END_CPP11
 }
@@ -4544,9 +4544,9 @@ extern "C" SEXP _arrow_parquet___arrow___ParquetFileWriter__Open(SEXP schema_sex
 void parquet___arrow___FileWriter__WriteTable(const std::shared_ptr<parquet::arrow::FileWriter>& writer, const std::shared_ptr<arrow::Table>& table, int64_t chunk_size);
 extern "C" SEXP _arrow_parquet___arrow___FileWriter__WriteTable(SEXP writer_sexp, SEXP table_sexp, SEXP chunk_size_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<parquet::arrow::FileWriter>&>::type writer(writer_sexp);
-	arrow::r::input<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
-	arrow::r::input<int64_t>::type chunk_size(chunk_size_sexp);
+	arrow::r::Input<const std::shared_ptr<parquet::arrow::FileWriter>&>::type writer(writer_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
+	arrow::r::Input<int64_t>::type chunk_size(chunk_size_sexp);
 	parquet___arrow___FileWriter__WriteTable(writer, table, chunk_size);
 	return R_NilValue;
 END_CPP11
@@ -4562,7 +4562,7 @@ extern "C" SEXP _arrow_parquet___arrow___FileWriter__WriteTable(SEXP writer_sexp
 void parquet___arrow___FileWriter__Close(const std::shared_ptr<parquet::arrow::FileWriter>& writer);
 extern "C" SEXP _arrow_parquet___arrow___FileWriter__Close(SEXP writer_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<parquet::arrow::FileWriter>&>::type writer(writer_sexp);
+	arrow::r::Input<const std::shared_ptr<parquet::arrow::FileWriter>&>::type writer(writer_sexp);
 	parquet___arrow___FileWriter__Close(writer);
 	return R_NilValue;
 END_CPP11
@@ -4578,10 +4578,10 @@ extern "C" SEXP _arrow_parquet___arrow___FileWriter__Close(SEXP writer_sexp){
 void parquet___arrow___WriteTable(const std::shared_ptr<arrow::Table>& table, const std::shared_ptr<arrow::io::OutputStream>& sink, const std::shared_ptr<parquet::WriterProperties>& properties, const std::shared_ptr<parquet::ArrowWriterProperties>& arrow_properties);
 extern "C" SEXP _arrow_parquet___arrow___WriteTable(SEXP table_sexp, SEXP sink_sexp, SEXP properties_sexp, SEXP arrow_properties_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
-	arrow::r::input<const std::shared_ptr<arrow::io::OutputStream>&>::type sink(sink_sexp);
-	arrow::r::input<const std::shared_ptr<parquet::WriterProperties>&>::type properties(properties_sexp);
-	arrow::r::input<const std::shared_ptr<parquet::ArrowWriterProperties>&>::type arrow_properties(arrow_properties_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::io::OutputStream>&>::type sink(sink_sexp);
+	arrow::r::Input<const std::shared_ptr<parquet::WriterProperties>&>::type properties(properties_sexp);
+	arrow::r::Input<const std::shared_ptr<parquet::ArrowWriterProperties>&>::type arrow_properties(arrow_properties_sexp);
 	parquet___arrow___WriteTable(table, sink, properties, arrow_properties);
 	return R_NilValue;
 END_CPP11
@@ -4597,7 +4597,7 @@ extern "C" SEXP _arrow_parquet___arrow___WriteTable(SEXP table_sexp, SEXP sink_s
 std::shared_ptr<arrow::Schema> parquet___arrow___FileReader__GetSchema(const std::shared_ptr<parquet::arrow::FileReader>& reader);
 extern "C" SEXP _arrow_parquet___arrow___FileReader__GetSchema(SEXP reader_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<parquet::arrow::FileReader>&>::type reader(reader_sexp);
+	arrow::r::Input<const std::shared_ptr<parquet::arrow::FileReader>&>::type reader(reader_sexp);
 	return cpp11::as_sexp(parquet___arrow___FileReader__GetSchema(reader));
 END_CPP11
 }
@@ -4612,8 +4612,8 @@ extern "C" SEXP _arrow_parquet___arrow___FileReader__GetSchema(SEXP reader_sexp)
 std::shared_ptr<arrow::Array> ImportArray(uintptr_t array, uintptr_t schema);
 extern "C" SEXP _arrow_ImportArray(SEXP array_sexp, SEXP schema_sexp){
 BEGIN_CPP11
-	arrow::r::input<uintptr_t>::type array(array_sexp);
-	arrow::r::input<uintptr_t>::type schema(schema_sexp);
+	arrow::r::Input<uintptr_t>::type array(array_sexp);
+	arrow::r::Input<uintptr_t>::type schema(schema_sexp);
 	return cpp11::as_sexp(ImportArray(array, schema));
 END_CPP11
 }
@@ -4628,8 +4628,8 @@ extern "C" SEXP _arrow_ImportArray(SEXP array_sexp, SEXP schema_sexp){
 std::shared_ptr<arrow::RecordBatch> ImportRecordBatch(uintptr_t array, uintptr_t schema);
 extern "C" SEXP _arrow_ImportRecordBatch(SEXP array_sexp, SEXP schema_sexp){
 BEGIN_CPP11
-	arrow::r::input<uintptr_t>::type array(array_sexp);
-	arrow::r::input<uintptr_t>::type schema(schema_sexp);
+	arrow::r::Input<uintptr_t>::type array(array_sexp);
+	arrow::r::Input<uintptr_t>::type schema(schema_sexp);
 	return cpp11::as_sexp(ImportRecordBatch(array, schema));
 END_CPP11
 }
@@ -4658,7 +4658,7 @@ extern "C" SEXP _arrow_allocate_arrow_schema(){
 void delete_arrow_schema(uintptr_t ptr);
 extern "C" SEXP _arrow_delete_arrow_schema(SEXP ptr_sexp){
 BEGIN_CPP11
-	arrow::r::input<uintptr_t>::type ptr(ptr_sexp);
+	arrow::r::Input<uintptr_t>::type ptr(ptr_sexp);
 	delete_arrow_schema(ptr);
 	return R_NilValue;
 END_CPP11
@@ -4688,7 +4688,7 @@ extern "C" SEXP _arrow_allocate_arrow_array(){
 void delete_arrow_array(uintptr_t ptr);
 extern "C" SEXP _arrow_delete_arrow_array(SEXP ptr_sexp){
 BEGIN_CPP11
-	arrow::r::input<uintptr_t>::type ptr(ptr_sexp);
+	arrow::r::Input<uintptr_t>::type ptr(ptr_sexp);
 	delete_arrow_array(ptr);
 	return R_NilValue;
 END_CPP11
@@ -4704,8 +4704,8 @@ extern "C" SEXP _arrow_delete_arrow_array(SEXP ptr_sexp){
 void ExportType(const std::shared_ptr<arrow::DataType>& type, uintptr_t ptr);
 extern "C" SEXP _arrow_ExportType(SEXP type_sexp, SEXP ptr_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::DataType>&>::type type(type_sexp);
-	arrow::r::input<uintptr_t>::type ptr(ptr_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::DataType>&>::type type(type_sexp);
+	arrow::r::Input<uintptr_t>::type ptr(ptr_sexp);
 	ExportType(type, ptr);
 	return R_NilValue;
 END_CPP11
@@ -4721,8 +4721,8 @@ extern "C" SEXP _arrow_ExportType(SEXP type_sexp, SEXP ptr_sexp){
 void ExportSchema(const std::shared_ptr<arrow::Schema>& schema, uintptr_t ptr);
 extern "C" SEXP _arrow_ExportSchema(SEXP schema_sexp, SEXP ptr_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
-	arrow::r::input<uintptr_t>::type ptr(ptr_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
+	arrow::r::Input<uintptr_t>::type ptr(ptr_sexp);
 	ExportSchema(schema, ptr);
 	return R_NilValue;
 END_CPP11
@@ -4738,9 +4738,9 @@ extern "C" SEXP _arrow_ExportSchema(SEXP schema_sexp, SEXP ptr_sexp){
 void ExportArray(const std::shared_ptr<arrow::Array>& array, uintptr_t ptr, uintptr_t schema_ptr);
 extern "C" SEXP _arrow_ExportArray(SEXP array_sexp, SEXP ptr_sexp, SEXP schema_ptr_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::Array>&>::type array(array_sexp);
-	arrow::r::input<uintptr_t>::type ptr(ptr_sexp);
-	arrow::r::input<uintptr_t>::type schema_ptr(schema_ptr_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Array>&>::type array(array_sexp);
+	arrow::r::Input<uintptr_t>::type ptr(ptr_sexp);
+	arrow::r::Input<uintptr_t>::type schema_ptr(schema_ptr_sexp);
 	ExportArray(array, ptr, schema_ptr);
 	return R_NilValue;
 END_CPP11
@@ -4756,9 +4756,9 @@ extern "C" SEXP _arrow_ExportArray(SEXP array_sexp, SEXP ptr_sexp, SEXP schema_p
 void ExportRecordBatch(const std::shared_ptr<arrow::RecordBatch>& batch, uintptr_t ptr, uintptr_t schema_ptr);
 extern "C" SEXP _arrow_ExportRecordBatch(SEXP batch_sexp, SEXP ptr_sexp, SEXP schema_ptr_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::RecordBatch>&>::type batch(batch_sexp);
-	arrow::r::input<uintptr_t>::type ptr(ptr_sexp);
-	arrow::r::input<uintptr_t>::type schema_ptr(schema_ptr_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::RecordBatch>&>::type batch(batch_sexp);
+	arrow::r::Input<uintptr_t>::type ptr(ptr_sexp);
+	arrow::r::Input<uintptr_t>::type schema_ptr(schema_ptr_sexp);
 	ExportRecordBatch(batch, ptr, schema_ptr);
 	return R_NilValue;
 END_CPP11
@@ -4774,7 +4774,7 @@ extern "C" SEXP _arrow_ExportRecordBatch(SEXP batch_sexp, SEXP ptr_sexp, SEXP sc
 int RecordBatch__num_columns(const std::shared_ptr<arrow::RecordBatch>& x);
 extern "C" SEXP _arrow_RecordBatch__num_columns(SEXP x_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::RecordBatch>&>::type x(x_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::RecordBatch>&>::type x(x_sexp);
 	return cpp11::as_sexp(RecordBatch__num_columns(x));
 END_CPP11
 }
@@ -4789,7 +4789,7 @@ extern "C" SEXP _arrow_RecordBatch__num_columns(SEXP x_sexp){
 int RecordBatch__num_rows(const std::shared_ptr<arrow::RecordBatch>& x);
 extern "C" SEXP _arrow_RecordBatch__num_rows(SEXP x_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::RecordBatch>&>::type x(x_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::RecordBatch>&>::type x(x_sexp);
 	return cpp11::as_sexp(RecordBatch__num_rows(x));
 END_CPP11
 }
@@ -4804,7 +4804,7 @@ extern "C" SEXP _arrow_RecordBatch__num_rows(SEXP x_sexp){
 std::shared_ptr<arrow::Schema> RecordBatch__schema(const std::shared_ptr<arrow::RecordBatch>& x);
 extern "C" SEXP _arrow_RecordBatch__schema(SEXP x_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::RecordBatch>&>::type x(x_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::RecordBatch>&>::type x(x_sexp);
 	return cpp11::as_sexp(RecordBatch__schema(x));
 END_CPP11
 }
@@ -4819,8 +4819,8 @@ extern "C" SEXP _arrow_RecordBatch__schema(SEXP x_sexp){
 std::shared_ptr<arrow::RecordBatch> RecordBatch__ReplaceSchemaMetadata(const std::shared_ptr<arrow::RecordBatch>& x, cpp11::strings metadata);
 extern "C" SEXP _arrow_RecordBatch__ReplaceSchemaMetadata(SEXP x_sexp, SEXP metadata_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::RecordBatch>&>::type x(x_sexp);
-	arrow::r::input<cpp11::strings>::type metadata(metadata_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::RecordBatch>&>::type x(x_sexp);
+	arrow::r::Input<cpp11::strings>::type metadata(metadata_sexp);
 	return cpp11::as_sexp(RecordBatch__ReplaceSchemaMetadata(x, metadata));
 END_CPP11
 }
@@ -4835,7 +4835,7 @@ extern "C" SEXP _arrow_RecordBatch__ReplaceSchemaMetadata(SEXP x_sexp, SEXP meta
 arrow::ArrayVector RecordBatch__columns(const std::shared_ptr<arrow::RecordBatch>& batch);
 extern "C" SEXP _arrow_RecordBatch__columns(SEXP batch_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::RecordBatch>&>::type batch(batch_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::RecordBatch>&>::type batch(batch_sexp);
 	return cpp11::as_sexp(RecordBatch__columns(batch));
 END_CPP11
 }
@@ -4850,8 +4850,8 @@ extern "C" SEXP _arrow_RecordBatch__columns(SEXP batch_sexp){
 std::shared_ptr<arrow::Array> RecordBatch__column(const std::shared_ptr<arrow::RecordBatch>& batch, R_xlen_t i);
 extern "C" SEXP _arrow_RecordBatch__column(SEXP batch_sexp, SEXP i_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::RecordBatch>&>::type batch(batch_sexp);
-	arrow::r::input<R_xlen_t>::type i(i_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::RecordBatch>&>::type batch(batch_sexp);
+	arrow::r::Input<R_xlen_t>::type i(i_sexp);
 	return cpp11::as_sexp(RecordBatch__column(batch, i));
 END_CPP11
 }
@@ -4866,8 +4866,8 @@ extern "C" SEXP _arrow_RecordBatch__column(SEXP batch_sexp, SEXP i_sexp){
 std::shared_ptr<arrow::Array> RecordBatch__GetColumnByName(const std::shared_ptr<arrow::RecordBatch>& batch, const std::string& name);
 extern "C" SEXP _arrow_RecordBatch__GetColumnByName(SEXP batch_sexp, SEXP name_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::RecordBatch>&>::type batch(batch_sexp);
-	arrow::r::input<const std::string&>::type name(name_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::RecordBatch>&>::type batch(batch_sexp);
+	arrow::r::Input<const std::string&>::type name(name_sexp);
 	return cpp11::as_sexp(RecordBatch__GetColumnByName(batch, name));
 END_CPP11
 }
@@ -4882,8 +4882,8 @@ extern "C" SEXP _arrow_RecordBatch__GetColumnByName(SEXP batch_sexp, SEXP name_s
 std::shared_ptr<arrow::RecordBatch> RecordBatch__select(const std::shared_ptr<arrow::RecordBatch>& batch, cpp11::integers indices);
 extern "C" SEXP _arrow_RecordBatch__select(SEXP batch_sexp, SEXP indices_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::RecordBatch>&>::type batch(batch_sexp);
-	arrow::r::input<cpp11::integers>::type indices(indices_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::RecordBatch>&>::type batch(batch_sexp);
+	arrow::r::Input<cpp11::integers>::type indices(indices_sexp);
 	return cpp11::as_sexp(RecordBatch__select(batch, indices));
 END_CPP11
 }
@@ -4898,9 +4898,9 @@ extern "C" SEXP _arrow_RecordBatch__select(SEXP batch_sexp, SEXP indices_sexp){
 bool RecordBatch__Equals(const std::shared_ptr<arrow::RecordBatch>& self, const std::shared_ptr<arrow::RecordBatch>& other, bool check_metadata);
 extern "C" SEXP _arrow_RecordBatch__Equals(SEXP self_sexp, SEXP other_sexp, SEXP check_metadata_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::RecordBatch>&>::type self(self_sexp);
-	arrow::r::input<const std::shared_ptr<arrow::RecordBatch>&>::type other(other_sexp);
-	arrow::r::input<bool>::type check_metadata(check_metadata_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::RecordBatch>&>::type self(self_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::RecordBatch>&>::type other(other_sexp);
+	arrow::r::Input<bool>::type check_metadata(check_metadata_sexp);
 	return cpp11::as_sexp(RecordBatch__Equals(self, other, check_metadata));
 END_CPP11
 }
@@ -4915,8 +4915,8 @@ extern "C" SEXP _arrow_RecordBatch__Equals(SEXP self_sexp, SEXP other_sexp, SEXP
 std::shared_ptr<arrow::RecordBatch> RecordBatch__RemoveColumn(const std::shared_ptr<arrow::RecordBatch>& batch, R_xlen_t i);
 extern "C" SEXP _arrow_RecordBatch__RemoveColumn(SEXP batch_sexp, SEXP i_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::RecordBatch>&>::type batch(batch_sexp);
-	arrow::r::input<R_xlen_t>::type i(i_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::RecordBatch>&>::type batch(batch_sexp);
+	arrow::r::Input<R_xlen_t>::type i(i_sexp);
 	return cpp11::as_sexp(RecordBatch__RemoveColumn(batch, i));
 END_CPP11
 }
@@ -4931,8 +4931,8 @@ extern "C" SEXP _arrow_RecordBatch__RemoveColumn(SEXP batch_sexp, SEXP i_sexp){
 std::string RecordBatch__column_name(const std::shared_ptr<arrow::RecordBatch>& batch, R_xlen_t i);
 extern "C" SEXP _arrow_RecordBatch__column_name(SEXP batch_sexp, SEXP i_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::RecordBatch>&>::type batch(batch_sexp);
-	arrow::r::input<R_xlen_t>::type i(i_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::RecordBatch>&>::type batch(batch_sexp);
+	arrow::r::Input<R_xlen_t>::type i(i_sexp);
 	return cpp11::as_sexp(RecordBatch__column_name(batch, i));
 END_CPP11
 }
@@ -4947,7 +4947,7 @@ extern "C" SEXP _arrow_RecordBatch__column_name(SEXP batch_sexp, SEXP i_sexp){
 cpp11::writable::strings RecordBatch__names(const std::shared_ptr<arrow::RecordBatch>& batch);
 extern "C" SEXP _arrow_RecordBatch__names(SEXP batch_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::RecordBatch>&>::type batch(batch_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::RecordBatch>&>::type batch(batch_sexp);
 	return cpp11::as_sexp(RecordBatch__names(batch));
 END_CPP11
 }
@@ -4962,8 +4962,8 @@ extern "C" SEXP _arrow_RecordBatch__names(SEXP batch_sexp){
 std::shared_ptr<arrow::RecordBatch> RecordBatch__Slice1(const std::shared_ptr<arrow::RecordBatch>& self, R_xlen_t offset);
 extern "C" SEXP _arrow_RecordBatch__Slice1(SEXP self_sexp, SEXP offset_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::RecordBatch>&>::type self(self_sexp);
-	arrow::r::input<R_xlen_t>::type offset(offset_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::RecordBatch>&>::type self(self_sexp);
+	arrow::r::Input<R_xlen_t>::type offset(offset_sexp);
 	return cpp11::as_sexp(RecordBatch__Slice1(self, offset));
 END_CPP11
 }
@@ -4978,9 +4978,9 @@ extern "C" SEXP _arrow_RecordBatch__Slice1(SEXP self_sexp, SEXP offset_sexp){
 std::shared_ptr<arrow::RecordBatch> RecordBatch__Slice2(const std::shared_ptr<arrow::RecordBatch>& self, R_xlen_t offset, R_xlen_t length);
 extern "C" SEXP _arrow_RecordBatch__Slice2(SEXP self_sexp, SEXP offset_sexp, SEXP length_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::RecordBatch>&>::type self(self_sexp);
-	arrow::r::input<R_xlen_t>::type offset(offset_sexp);
-	arrow::r::input<R_xlen_t>::type length(length_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::RecordBatch>&>::type self(self_sexp);
+	arrow::r::Input<R_xlen_t>::type offset(offset_sexp);
+	arrow::r::Input<R_xlen_t>::type length(length_sexp);
 	return cpp11::as_sexp(RecordBatch__Slice2(self, offset, length));
 END_CPP11
 }
@@ -4995,7 +4995,7 @@ extern "C" SEXP _arrow_RecordBatch__Slice2(SEXP self_sexp, SEXP offset_sexp, SEX
 cpp11::raws ipc___SerializeRecordBatch__Raw(const std::shared_ptr<arrow::RecordBatch>& batch);
 extern "C" SEXP _arrow_ipc___SerializeRecordBatch__Raw(SEXP batch_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::RecordBatch>&>::type batch(batch_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::RecordBatch>&>::type batch(batch_sexp);
 	return cpp11::as_sexp(ipc___SerializeRecordBatch__Raw(batch));
 END_CPP11
 }
@@ -5010,8 +5010,8 @@ extern "C" SEXP _arrow_ipc___SerializeRecordBatch__Raw(SEXP batch_sexp){
 std::shared_ptr<arrow::RecordBatch> ipc___ReadRecordBatch__InputStream__Schema(const std::shared_ptr<arrow::io::InputStream>& stream, const std::shared_ptr<arrow::Schema>& schema);
 extern "C" SEXP _arrow_ipc___ReadRecordBatch__InputStream__Schema(SEXP stream_sexp, SEXP schema_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::io::InputStream>&>::type stream(stream_sexp);
-	arrow::r::input<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::io::InputStream>&>::type stream(stream_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
 	return cpp11::as_sexp(ipc___ReadRecordBatch__InputStream__Schema(stream, schema));
 END_CPP11
 }
@@ -5026,8 +5026,8 @@ extern "C" SEXP _arrow_ipc___ReadRecordBatch__InputStream__Schema(SEXP stream_se
 std::shared_ptr<arrow::RecordBatch> RecordBatch__from_arrays(SEXP schema_sxp, SEXP lst);
 extern "C" SEXP _arrow_RecordBatch__from_arrays(SEXP schema_sxp_sexp, SEXP lst_sexp){
 BEGIN_CPP11
-	arrow::r::input<SEXP>::type schema_sxp(schema_sxp_sexp);
-	arrow::r::input<SEXP>::type lst(lst_sexp);
+	arrow::r::Input<SEXP>::type schema_sxp(schema_sxp_sexp);
+	arrow::r::Input<SEXP>::type lst(lst_sexp);
 	return cpp11::as_sexp(RecordBatch__from_arrays(schema_sxp, lst));
 END_CPP11
 }
@@ -5042,7 +5042,7 @@ extern "C" SEXP _arrow_RecordBatch__from_arrays(SEXP schema_sxp_sexp, SEXP lst_s
 std::shared_ptr<arrow::Schema> RecordBatchReader__schema(const std::shared_ptr<arrow::RecordBatchReader>& reader);
 extern "C" SEXP _arrow_RecordBatchReader__schema(SEXP reader_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::RecordBatchReader>&>::type reader(reader_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::RecordBatchReader>&>::type reader(reader_sexp);
 	return cpp11::as_sexp(RecordBatchReader__schema(reader));
 END_CPP11
 }
@@ -5057,7 +5057,7 @@ extern "C" SEXP _arrow_RecordBatchReader__schema(SEXP reader_sexp){
 std::shared_ptr<arrow::RecordBatch> RecordBatchReader__ReadNext(const std::shared_ptr<arrow::RecordBatchReader>& reader);
 extern "C" SEXP _arrow_RecordBatchReader__ReadNext(SEXP reader_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::RecordBatchReader>&>::type reader(reader_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::RecordBatchReader>&>::type reader(reader_sexp);
 	return cpp11::as_sexp(RecordBatchReader__ReadNext(reader));
 END_CPP11
 }
@@ -5072,7 +5072,7 @@ extern "C" SEXP _arrow_RecordBatchReader__ReadNext(SEXP reader_sexp){
 std::shared_ptr<arrow::RecordBatchReader> ipc___RecordBatchStreamReader__Open(const std::shared_ptr<arrow::io::InputStream>& stream);
 extern "C" SEXP _arrow_ipc___RecordBatchStreamReader__Open(SEXP stream_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::io::InputStream>&>::type stream(stream_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::io::InputStream>&>::type stream(stream_sexp);
 	return cpp11::as_sexp(ipc___RecordBatchStreamReader__Open(stream));
 END_CPP11
 }
@@ -5087,7 +5087,7 @@ extern "C" SEXP _arrow_ipc___RecordBatchStreamReader__Open(SEXP stream_sexp){
 std::vector<std::shared_ptr<arrow::RecordBatch>> ipc___RecordBatchStreamReader__batches(const std::shared_ptr<arrow::ipc::RecordBatchStreamReader>& reader);
 extern "C" SEXP _arrow_ipc___RecordBatchStreamReader__batches(SEXP reader_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::ipc::RecordBatchStreamReader>&>::type reader(reader_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::ipc::RecordBatchStreamReader>&>::type reader(reader_sexp);
 	return cpp11::as_sexp(ipc___RecordBatchStreamReader__batches(reader));
 END_CPP11
 }
@@ -5102,7 +5102,7 @@ extern "C" SEXP _arrow_ipc___RecordBatchStreamReader__batches(SEXP reader_sexp){
 std::shared_ptr<arrow::Schema> ipc___RecordBatchFileReader__schema(const std::shared_ptr<arrow::ipc::RecordBatchFileReader>& reader);
 extern "C" SEXP _arrow_ipc___RecordBatchFileReader__schema(SEXP reader_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::ipc::RecordBatchFileReader>&>::type reader(reader_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::ipc::RecordBatchFileReader>&>::type reader(reader_sexp);
 	return cpp11::as_sexp(ipc___RecordBatchFileReader__schema(reader));
 END_CPP11
 }
@@ -5117,7 +5117,7 @@ extern "C" SEXP _arrow_ipc___RecordBatchFileReader__schema(SEXP reader_sexp){
 int ipc___RecordBatchFileReader__num_record_batches(const std::shared_ptr<arrow::ipc::RecordBatchFileReader>& reader);
 extern "C" SEXP _arrow_ipc___RecordBatchFileReader__num_record_batches(SEXP reader_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::ipc::RecordBatchFileReader>&>::type reader(reader_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::ipc::RecordBatchFileReader>&>::type reader(reader_sexp);
 	return cpp11::as_sexp(ipc___RecordBatchFileReader__num_record_batches(reader));
 END_CPP11
 }
@@ -5132,8 +5132,8 @@ extern "C" SEXP _arrow_ipc___RecordBatchFileReader__num_record_batches(SEXP read
 std::shared_ptr<arrow::RecordBatch> ipc___RecordBatchFileReader__ReadRecordBatch(const std::shared_ptr<arrow::ipc::RecordBatchFileReader>& reader, int i);
 extern "C" SEXP _arrow_ipc___RecordBatchFileReader__ReadRecordBatch(SEXP reader_sexp, SEXP i_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::ipc::RecordBatchFileReader>&>::type reader(reader_sexp);
-	arrow::r::input<int>::type i(i_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::ipc::RecordBatchFileReader>&>::type reader(reader_sexp);
+	arrow::r::Input<int>::type i(i_sexp);
 	return cpp11::as_sexp(ipc___RecordBatchFileReader__ReadRecordBatch(reader, i));
 END_CPP11
 }
@@ -5148,7 +5148,7 @@ extern "C" SEXP _arrow_ipc___RecordBatchFileReader__ReadRecordBatch(SEXP reader_
 std::shared_ptr<arrow::ipc::RecordBatchFileReader> ipc___RecordBatchFileReader__Open(const std::shared_ptr<arrow::io::RandomAccessFile>& file);
 extern "C" SEXP _arrow_ipc___RecordBatchFileReader__Open(SEXP file_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::io::RandomAccessFile>&>::type file(file_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::io::RandomAccessFile>&>::type file(file_sexp);
 	return cpp11::as_sexp(ipc___RecordBatchFileReader__Open(file));
 END_CPP11
 }
@@ -5163,7 +5163,7 @@ extern "C" SEXP _arrow_ipc___RecordBatchFileReader__Open(SEXP file_sexp){
 std::shared_ptr<arrow::Table> Table__from_RecordBatchFileReader(const std::shared_ptr<arrow::ipc::RecordBatchFileReader>& reader);
 extern "C" SEXP _arrow_Table__from_RecordBatchFileReader(SEXP reader_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::ipc::RecordBatchFileReader>&>::type reader(reader_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::ipc::RecordBatchFileReader>&>::type reader(reader_sexp);
 	return cpp11::as_sexp(Table__from_RecordBatchFileReader(reader));
 END_CPP11
 }
@@ -5178,7 +5178,7 @@ extern "C" SEXP _arrow_Table__from_RecordBatchFileReader(SEXP reader_sexp){
 std::shared_ptr<arrow::Table> Table__from_RecordBatchStreamReader(const std::shared_ptr<arrow::ipc::RecordBatchStreamReader>& reader);
 extern "C" SEXP _arrow_Table__from_RecordBatchStreamReader(SEXP reader_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::ipc::RecordBatchStreamReader>&>::type reader(reader_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::ipc::RecordBatchStreamReader>&>::type reader(reader_sexp);
 	return cpp11::as_sexp(Table__from_RecordBatchStreamReader(reader));
 END_CPP11
 }
@@ -5193,7 +5193,7 @@ extern "C" SEXP _arrow_Table__from_RecordBatchStreamReader(SEXP reader_sexp){
 std::vector<std::shared_ptr<arrow::RecordBatch>> ipc___RecordBatchFileReader__batches(const std::shared_ptr<arrow::ipc::RecordBatchFileReader>& reader);
 extern "C" SEXP _arrow_ipc___RecordBatchFileReader__batches(SEXP reader_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::ipc::RecordBatchFileReader>&>::type reader(reader_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::ipc::RecordBatchFileReader>&>::type reader(reader_sexp);
 	return cpp11::as_sexp(ipc___RecordBatchFileReader__batches(reader));
 END_CPP11
 }
@@ -5208,8 +5208,8 @@ extern "C" SEXP _arrow_ipc___RecordBatchFileReader__batches(SEXP reader_sexp){
 void ipc___RecordBatchWriter__WriteRecordBatch(const std::shared_ptr<arrow::ipc::RecordBatchWriter>& batch_writer, const std::shared_ptr<arrow::RecordBatch>& batch);
 extern "C" SEXP _arrow_ipc___RecordBatchWriter__WriteRecordBatch(SEXP batch_writer_sexp, SEXP batch_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::ipc::RecordBatchWriter>&>::type batch_writer(batch_writer_sexp);
-	arrow::r::input<const std::shared_ptr<arrow::RecordBatch>&>::type batch(batch_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::ipc::RecordBatchWriter>&>::type batch_writer(batch_writer_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::RecordBatch>&>::type batch(batch_sexp);
 	ipc___RecordBatchWriter__WriteRecordBatch(batch_writer, batch);
 	return R_NilValue;
 END_CPP11
@@ -5225,8 +5225,8 @@ extern "C" SEXP _arrow_ipc___RecordBatchWriter__WriteRecordBatch(SEXP batch_writ
 void ipc___RecordBatchWriter__WriteTable(const std::shared_ptr<arrow::ipc::RecordBatchWriter>& batch_writer, const std::shared_ptr<arrow::Table>& table);
 extern "C" SEXP _arrow_ipc___RecordBatchWriter__WriteTable(SEXP batch_writer_sexp, SEXP table_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::ipc::RecordBatchWriter>&>::type batch_writer(batch_writer_sexp);
-	arrow::r::input<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::ipc::RecordBatchWriter>&>::type batch_writer(batch_writer_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
 	ipc___RecordBatchWriter__WriteTable(batch_writer, table);
 	return R_NilValue;
 END_CPP11
@@ -5242,7 +5242,7 @@ extern "C" SEXP _arrow_ipc___RecordBatchWriter__WriteTable(SEXP batch_writer_sex
 void ipc___RecordBatchWriter__Close(const std::shared_ptr<arrow::ipc::RecordBatchWriter>& batch_writer);
 extern "C" SEXP _arrow_ipc___RecordBatchWriter__Close(SEXP batch_writer_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::ipc::RecordBatchWriter>&>::type batch_writer(batch_writer_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::ipc::RecordBatchWriter>&>::type batch_writer(batch_writer_sexp);
 	ipc___RecordBatchWriter__Close(batch_writer);
 	return R_NilValue;
 END_CPP11
@@ -5258,10 +5258,10 @@ extern "C" SEXP _arrow_ipc___RecordBatchWriter__Close(SEXP batch_writer_sexp){
 std::shared_ptr<arrow::ipc::RecordBatchWriter> ipc___RecordBatchFileWriter__Open(const std::shared_ptr<arrow::io::OutputStream>& stream, const std::shared_ptr<arrow::Schema>& schema, bool use_legacy_format, arrow::ipc::MetadataVersion metadata_version);
 extern "C" SEXP _arrow_ipc___RecordBatchFileWriter__Open(SEXP stream_sexp, SEXP schema_sexp, SEXP use_legacy_format_sexp, SEXP metadata_version_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::io::OutputStream>&>::type stream(stream_sexp);
-	arrow::r::input<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
-	arrow::r::input<bool>::type use_legacy_format(use_legacy_format_sexp);
-	arrow::r::input<arrow::ipc::MetadataVersion>::type metadata_version(metadata_version_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::io::OutputStream>&>::type stream(stream_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
+	arrow::r::Input<bool>::type use_legacy_format(use_legacy_format_sexp);
+	arrow::r::Input<arrow::ipc::MetadataVersion>::type metadata_version(metadata_version_sexp);
 	return cpp11::as_sexp(ipc___RecordBatchFileWriter__Open(stream, schema, use_legacy_format, metadata_version));
 END_CPP11
 }
@@ -5276,10 +5276,10 @@ extern "C" SEXP _arrow_ipc___RecordBatchFileWriter__Open(SEXP stream_sexp, SEXP 
 std::shared_ptr<arrow::ipc::RecordBatchWriter> ipc___RecordBatchStreamWriter__Open(const std::shared_ptr<arrow::io::OutputStream>& stream, const std::shared_ptr<arrow::Schema>& schema, bool use_legacy_format, arrow::ipc::MetadataVersion metadata_version);
 extern "C" SEXP _arrow_ipc___RecordBatchStreamWriter__Open(SEXP stream_sexp, SEXP schema_sexp, SEXP use_legacy_format_sexp, SEXP metadata_version_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::io::OutputStream>&>::type stream(stream_sexp);
-	arrow::r::input<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
-	arrow::r::input<bool>::type use_legacy_format(use_legacy_format_sexp);
-	arrow::r::input<arrow::ipc::MetadataVersion>::type metadata_version(metadata_version_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::io::OutputStream>&>::type stream(stream_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
+	arrow::r::Input<bool>::type use_legacy_format(use_legacy_format_sexp);
+	arrow::r::Input<arrow::ipc::MetadataVersion>::type metadata_version(metadata_version_sexp);
 	return cpp11::as_sexp(ipc___RecordBatchStreamWriter__Open(stream, schema, use_legacy_format, metadata_version));
 END_CPP11
 }
@@ -5294,8 +5294,8 @@ extern "C" SEXP _arrow_ipc___RecordBatchStreamWriter__Open(SEXP stream_sexp, SEX
 std::shared_ptr<arrow::Scalar> Array__GetScalar(const std::shared_ptr<arrow::Array>& x, int64_t i);
 extern "C" SEXP _arrow_Array__GetScalar(SEXP x_sexp, SEXP i_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::Array>&>::type x(x_sexp);
-	arrow::r::input<int64_t>::type i(i_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Array>&>::type x(x_sexp);
+	arrow::r::Input<int64_t>::type i(i_sexp);
 	return cpp11::as_sexp(Array__GetScalar(x, i));
 END_CPP11
 }
@@ -5310,7 +5310,7 @@ extern "C" SEXP _arrow_Array__GetScalar(SEXP x_sexp, SEXP i_sexp){
 std::string Scalar__ToString(const std::shared_ptr<arrow::Scalar>& s);
 extern "C" SEXP _arrow_Scalar__ToString(SEXP s_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::Scalar>&>::type s(s_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Scalar>&>::type s(s_sexp);
 	return cpp11::as_sexp(Scalar__ToString(s));
 END_CPP11
 }
@@ -5325,8 +5325,8 @@ extern "C" SEXP _arrow_Scalar__ToString(SEXP s_sexp){
 std::shared_ptr<arrow::Scalar> Scalar__CastTo(const std::shared_ptr<arrow::Scalar>& s, const std::shared_ptr<arrow::DataType>& t);
 extern "C" SEXP _arrow_Scalar__CastTo(SEXP s_sexp, SEXP t_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::Scalar>&>::type s(s_sexp);
-	arrow::r::input<const std::shared_ptr<arrow::DataType>&>::type t(t_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Scalar>&>::type s(s_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::DataType>&>::type t(t_sexp);
 	return cpp11::as_sexp(Scalar__CastTo(s, t));
 END_CPP11
 }
@@ -5341,8 +5341,8 @@ extern "C" SEXP _arrow_Scalar__CastTo(SEXP s_sexp, SEXP t_sexp){
 std::shared_ptr<arrow::Scalar> StructScalar__field(const std::shared_ptr<arrow::StructScalar>& s, int i);
 extern "C" SEXP _arrow_StructScalar__field(SEXP s_sexp, SEXP i_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::StructScalar>&>::type s(s_sexp);
-	arrow::r::input<int>::type i(i_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::StructScalar>&>::type s(s_sexp);
+	arrow::r::Input<int>::type i(i_sexp);
 	return cpp11::as_sexp(StructScalar__field(s, i));
 END_CPP11
 }
@@ -5357,8 +5357,8 @@ extern "C" SEXP _arrow_StructScalar__field(SEXP s_sexp, SEXP i_sexp){
 std::shared_ptr<arrow::Scalar> StructScalar__GetFieldByName(const std::shared_ptr<arrow::StructScalar>& s, const std::string& name);
 extern "C" SEXP _arrow_StructScalar__GetFieldByName(SEXP s_sexp, SEXP name_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::StructScalar>&>::type s(s_sexp);
-	arrow::r::input<const std::string&>::type name(name_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::StructScalar>&>::type s(s_sexp);
+	arrow::r::Input<const std::string&>::type name(name_sexp);
 	return cpp11::as_sexp(StructScalar__GetFieldByName(s, name));
 END_CPP11
 }
@@ -5373,7 +5373,7 @@ extern "C" SEXP _arrow_StructScalar__GetFieldByName(SEXP s_sexp, SEXP name_sexp)
 SEXP Scalar__as_vector(const std::shared_ptr<arrow::Scalar>& scalar);
 extern "C" SEXP _arrow_Scalar__as_vector(SEXP scalar_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::Scalar>&>::type scalar(scalar_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Scalar>&>::type scalar(scalar_sexp);
 	return cpp11::as_sexp(Scalar__as_vector(scalar));
 END_CPP11
 }
@@ -5388,7 +5388,7 @@ extern "C" SEXP _arrow_Scalar__as_vector(SEXP scalar_sexp){
 bool Scalar__is_valid(const std::shared_ptr<arrow::Scalar>& s);
 extern "C" SEXP _arrow_Scalar__is_valid(SEXP s_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::Scalar>&>::type s(s_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Scalar>&>::type s(s_sexp);
 	return cpp11::as_sexp(Scalar__is_valid(s));
 END_CPP11
 }
@@ -5403,7 +5403,7 @@ extern "C" SEXP _arrow_Scalar__is_valid(SEXP s_sexp){
 std::shared_ptr<arrow::DataType> Scalar__type(const std::shared_ptr<arrow::Scalar>& s);
 extern "C" SEXP _arrow_Scalar__type(SEXP s_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::Scalar>&>::type s(s_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Scalar>&>::type s(s_sexp);
 	return cpp11::as_sexp(Scalar__type(s));
 END_CPP11
 }
@@ -5418,7 +5418,7 @@ extern "C" SEXP _arrow_Scalar__type(SEXP s_sexp){
 std::shared_ptr<arrow::Schema> schema_(const std::vector<std::shared_ptr<arrow::Field>>& fields);
 extern "C" SEXP _arrow_schema_(SEXP fields_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::vector<std::shared_ptr<arrow::Field>>&>::type fields(fields_sexp);
+	arrow::r::Input<const std::vector<std::shared_ptr<arrow::Field>>&>::type fields(fields_sexp);
 	return cpp11::as_sexp(schema_(fields));
 END_CPP11
 }
@@ -5433,7 +5433,7 @@ extern "C" SEXP _arrow_schema_(SEXP fields_sexp){
 std::string Schema__ToString(const std::shared_ptr<arrow::Schema>& s);
 extern "C" SEXP _arrow_Schema__ToString(SEXP s_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::Schema>&>::type s(s_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Schema>&>::type s(s_sexp);
 	return cpp11::as_sexp(Schema__ToString(s));
 END_CPP11
 }
@@ -5448,7 +5448,7 @@ extern "C" SEXP _arrow_Schema__ToString(SEXP s_sexp){
 int Schema__num_fields(const std::shared_ptr<arrow::Schema>& s);
 extern "C" SEXP _arrow_Schema__num_fields(SEXP s_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::Schema>&>::type s(s_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Schema>&>::type s(s_sexp);
 	return cpp11::as_sexp(Schema__num_fields(s));
 END_CPP11
 }
@@ -5463,8 +5463,8 @@ extern "C" SEXP _arrow_Schema__num_fields(SEXP s_sexp){
 std::shared_ptr<arrow::Field> Schema__field(const std::shared_ptr<arrow::Schema>& s, int i);
 extern "C" SEXP _arrow_Schema__field(SEXP s_sexp, SEXP i_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::Schema>&>::type s(s_sexp);
-	arrow::r::input<int>::type i(i_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Schema>&>::type s(s_sexp);
+	arrow::r::Input<int>::type i(i_sexp);
 	return cpp11::as_sexp(Schema__field(s, i));
 END_CPP11
 }
@@ -5479,8 +5479,8 @@ extern "C" SEXP _arrow_Schema__field(SEXP s_sexp, SEXP i_sexp){
 std::shared_ptr<arrow::Field> Schema__GetFieldByName(const std::shared_ptr<arrow::Schema>& s, std::string x);
 extern "C" SEXP _arrow_Schema__GetFieldByName(SEXP s_sexp, SEXP x_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::Schema>&>::type s(s_sexp);
-	arrow::r::input<std::string>::type x(x_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Schema>&>::type s(s_sexp);
+	arrow::r::Input<std::string>::type x(x_sexp);
 	return cpp11::as_sexp(Schema__GetFieldByName(s, x));
 END_CPP11
 }
@@ -5495,7 +5495,7 @@ extern "C" SEXP _arrow_Schema__GetFieldByName(SEXP s_sexp, SEXP x_sexp){
 std::vector<std::shared_ptr<arrow::Field>> Schema__fields(const std::shared_ptr<arrow::Schema>& schema);
 extern "C" SEXP _arrow_Schema__fields(SEXP schema_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
 	return cpp11::as_sexp(Schema__fields(schema));
 END_CPP11
 }
@@ -5510,7 +5510,7 @@ extern "C" SEXP _arrow_Schema__fields(SEXP schema_sexp){
 std::vector<std::string> Schema__field_names(const std::shared_ptr<arrow::Schema>& schema);
 extern "C" SEXP _arrow_Schema__field_names(SEXP schema_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
 	return cpp11::as_sexp(Schema__field_names(schema));
 END_CPP11
 }
@@ -5525,7 +5525,7 @@ extern "C" SEXP _arrow_Schema__field_names(SEXP schema_sexp){
 bool Schema__HasMetadata(const std::shared_ptr<arrow::Schema>& schema);
 extern "C" SEXP _arrow_Schema__HasMetadata(SEXP schema_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
 	return cpp11::as_sexp(Schema__HasMetadata(schema));
 END_CPP11
 }
@@ -5540,7 +5540,7 @@ extern "C" SEXP _arrow_Schema__HasMetadata(SEXP schema_sexp){
 cpp11::writable::list Schema__metadata(const std::shared_ptr<arrow::Schema>& schema);
 extern "C" SEXP _arrow_Schema__metadata(SEXP schema_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
 	return cpp11::as_sexp(Schema__metadata(schema));
 END_CPP11
 }
@@ -5555,8 +5555,8 @@ extern "C" SEXP _arrow_Schema__metadata(SEXP schema_sexp){
 std::shared_ptr<arrow::Schema> Schema__WithMetadata(const std::shared_ptr<arrow::Schema>& schema, cpp11::strings metadata);
 extern "C" SEXP _arrow_Schema__WithMetadata(SEXP schema_sexp, SEXP metadata_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
-	arrow::r::input<cpp11::strings>::type metadata(metadata_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
+	arrow::r::Input<cpp11::strings>::type metadata(metadata_sexp);
 	return cpp11::as_sexp(Schema__WithMetadata(schema, metadata));
 END_CPP11
 }
@@ -5571,7 +5571,7 @@ extern "C" SEXP _arrow_Schema__WithMetadata(SEXP schema_sexp, SEXP metadata_sexp
 cpp11::writable::raws Schema__serialize(const std::shared_ptr<arrow::Schema>& schema);
 extern "C" SEXP _arrow_Schema__serialize(SEXP schema_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
 	return cpp11::as_sexp(Schema__serialize(schema));
 END_CPP11
 }
@@ -5586,9 +5586,9 @@ extern "C" SEXP _arrow_Schema__serialize(SEXP schema_sexp){
 bool Schema__Equals(const std::shared_ptr<arrow::Schema>& schema, const std::shared_ptr<arrow::Schema>& other, bool check_metadata);
 extern "C" SEXP _arrow_Schema__Equals(SEXP schema_sexp, SEXP other_sexp, SEXP check_metadata_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
-	arrow::r::input<const std::shared_ptr<arrow::Schema>&>::type other(other_sexp);
-	arrow::r::input<bool>::type check_metadata(check_metadata_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Schema>&>::type other(other_sexp);
+	arrow::r::Input<bool>::type check_metadata(check_metadata_sexp);
 	return cpp11::as_sexp(Schema__Equals(schema, other, check_metadata));
 END_CPP11
 }
@@ -5603,7 +5603,7 @@ extern "C" SEXP _arrow_Schema__Equals(SEXP schema_sexp, SEXP other_sexp, SEXP ch
 std::shared_ptr<arrow::Schema> arrow__UnifySchemas(const std::vector<std::shared_ptr<arrow::Schema>>& schemas);
 extern "C" SEXP _arrow_arrow__UnifySchemas(SEXP schemas_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::vector<std::shared_ptr<arrow::Schema>>&>::type schemas(schemas_sexp);
+	arrow::r::Input<const std::vector<std::shared_ptr<arrow::Schema>>&>::type schemas(schemas_sexp);
 	return cpp11::as_sexp(arrow__UnifySchemas(schemas));
 END_CPP11
 }
@@ -5618,7 +5618,7 @@ extern "C" SEXP _arrow_arrow__UnifySchemas(SEXP schemas_sexp){
 int Table__num_columns(const std::shared_ptr<arrow::Table>& x);
 extern "C" SEXP _arrow_Table__num_columns(SEXP x_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::Table>&>::type x(x_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Table>&>::type x(x_sexp);
 	return cpp11::as_sexp(Table__num_columns(x));
 END_CPP11
 }
@@ -5633,7 +5633,7 @@ extern "C" SEXP _arrow_Table__num_columns(SEXP x_sexp){
 int Table__num_rows(const std::shared_ptr<arrow::Table>& x);
 extern "C" SEXP _arrow_Table__num_rows(SEXP x_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::Table>&>::type x(x_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Table>&>::type x(x_sexp);
 	return cpp11::as_sexp(Table__num_rows(x));
 END_CPP11
 }
@@ -5648,7 +5648,7 @@ extern "C" SEXP _arrow_Table__num_rows(SEXP x_sexp){
 std::shared_ptr<arrow::Schema> Table__schema(const std::shared_ptr<arrow::Table>& x);
 extern "C" SEXP _arrow_Table__schema(SEXP x_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::Table>&>::type x(x_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Table>&>::type x(x_sexp);
 	return cpp11::as_sexp(Table__schema(x));
 END_CPP11
 }
@@ -5663,8 +5663,8 @@ extern "C" SEXP _arrow_Table__schema(SEXP x_sexp){
 std::shared_ptr<arrow::Table> Table__ReplaceSchemaMetadata(const std::shared_ptr<arrow::Table>& x, cpp11::strings metadata);
 extern "C" SEXP _arrow_Table__ReplaceSchemaMetadata(SEXP x_sexp, SEXP metadata_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::Table>&>::type x(x_sexp);
-	arrow::r::input<cpp11::strings>::type metadata(metadata_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Table>&>::type x(x_sexp);
+	arrow::r::Input<cpp11::strings>::type metadata(metadata_sexp);
 	return cpp11::as_sexp(Table__ReplaceSchemaMetadata(x, metadata));
 END_CPP11
 }
@@ -5679,8 +5679,8 @@ extern "C" SEXP _arrow_Table__ReplaceSchemaMetadata(SEXP x_sexp, SEXP metadata_s
 std::shared_ptr<arrow::ChunkedArray> Table__column(const std::shared_ptr<arrow::Table>& table, R_xlen_t i);
 extern "C" SEXP _arrow_Table__column(SEXP table_sexp, SEXP i_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
-	arrow::r::input<R_xlen_t>::type i(i_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
+	arrow::r::Input<R_xlen_t>::type i(i_sexp);
 	return cpp11::as_sexp(Table__column(table, i));
 END_CPP11
 }
@@ -5695,8 +5695,8 @@ extern "C" SEXP _arrow_Table__column(SEXP table_sexp, SEXP i_sexp){
 std::shared_ptr<arrow::Field> Table__field(const std::shared_ptr<arrow::Table>& table, R_xlen_t i);
 extern "C" SEXP _arrow_Table__field(SEXP table_sexp, SEXP i_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
-	arrow::r::input<R_xlen_t>::type i(i_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
+	arrow::r::Input<R_xlen_t>::type i(i_sexp);
 	return cpp11::as_sexp(Table__field(table, i));
 END_CPP11
 }
@@ -5711,7 +5711,7 @@ extern "C" SEXP _arrow_Table__field(SEXP table_sexp, SEXP i_sexp){
 std::vector<std::shared_ptr<arrow::ChunkedArray>> Table__columns(const std::shared_ptr<arrow::Table>& table);
 extern "C" SEXP _arrow_Table__columns(SEXP table_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
 	return cpp11::as_sexp(Table__columns(table));
 END_CPP11
 }
@@ -5726,7 +5726,7 @@ extern "C" SEXP _arrow_Table__columns(SEXP table_sexp){
 std::vector<std::string> Table__ColumnNames(const std::shared_ptr<arrow::Table>& table);
 extern "C" SEXP _arrow_Table__ColumnNames(SEXP table_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
 	return cpp11::as_sexp(Table__ColumnNames(table));
 END_CPP11
 }
@@ -5741,8 +5741,8 @@ extern "C" SEXP _arrow_Table__ColumnNames(SEXP table_sexp){
 std::shared_ptr<arrow::Table> Table__Slice1(const std::shared_ptr<arrow::Table>& table, R_xlen_t offset);
 extern "C" SEXP _arrow_Table__Slice1(SEXP table_sexp, SEXP offset_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
-	arrow::r::input<R_xlen_t>::type offset(offset_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
+	arrow::r::Input<R_xlen_t>::type offset(offset_sexp);
 	return cpp11::as_sexp(Table__Slice1(table, offset));
 END_CPP11
 }
@@ -5757,9 +5757,9 @@ extern "C" SEXP _arrow_Table__Slice1(SEXP table_sexp, SEXP offset_sexp){
 std::shared_ptr<arrow::Table> Table__Slice2(const std::shared_ptr<arrow::Table>& table, R_xlen_t offset, R_xlen_t length);
 extern "C" SEXP _arrow_Table__Slice2(SEXP table_sexp, SEXP offset_sexp, SEXP length_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
-	arrow::r::input<R_xlen_t>::type offset(offset_sexp);
-	arrow::r::input<R_xlen_t>::type length(length_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
+	arrow::r::Input<R_xlen_t>::type offset(offset_sexp);
+	arrow::r::Input<R_xlen_t>::type length(length_sexp);
 	return cpp11::as_sexp(Table__Slice2(table, offset, length));
 END_CPP11
 }
@@ -5774,9 +5774,9 @@ extern "C" SEXP _arrow_Table__Slice2(SEXP table_sexp, SEXP offset_sexp, SEXP len
 bool Table__Equals(const std::shared_ptr<arrow::Table>& lhs, const std::shared_ptr<arrow::Table>& rhs, bool check_metadata);
 extern "C" SEXP _arrow_Table__Equals(SEXP lhs_sexp, SEXP rhs_sexp, SEXP check_metadata_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::Table>&>::type lhs(lhs_sexp);
-	arrow::r::input<const std::shared_ptr<arrow::Table>&>::type rhs(rhs_sexp);
-	arrow::r::input<bool>::type check_metadata(check_metadata_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Table>&>::type lhs(lhs_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Table>&>::type rhs(rhs_sexp);
+	arrow::r::Input<bool>::type check_metadata(check_metadata_sexp);
 	return cpp11::as_sexp(Table__Equals(lhs, rhs, check_metadata));
 END_CPP11
 }
@@ -5791,7 +5791,7 @@ extern "C" SEXP _arrow_Table__Equals(SEXP lhs_sexp, SEXP rhs_sexp, SEXP check_me
 bool Table__Validate(const std::shared_ptr<arrow::Table>& table);
 extern "C" SEXP _arrow_Table__Validate(SEXP table_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
 	return cpp11::as_sexp(Table__Validate(table));
 END_CPP11
 }
@@ -5806,7 +5806,7 @@ extern "C" SEXP _arrow_Table__Validate(SEXP table_sexp){
 bool Table__ValidateFull(const std::shared_ptr<arrow::Table>& table);
 extern "C" SEXP _arrow_Table__ValidateFull(SEXP table_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
 	return cpp11::as_sexp(Table__ValidateFull(table));
 END_CPP11
 }
@@ -5821,8 +5821,8 @@ extern "C" SEXP _arrow_Table__ValidateFull(SEXP table_sexp){
 std::shared_ptr<arrow::ChunkedArray> Table__GetColumnByName(const std::shared_ptr<arrow::Table>& table, const std::string& name);
 extern "C" SEXP _arrow_Table__GetColumnByName(SEXP table_sexp, SEXP name_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
-	arrow::r::input<const std::string&>::type name(name_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
+	arrow::r::Input<const std::string&>::type name(name_sexp);
 	return cpp11::as_sexp(Table__GetColumnByName(table, name));
 END_CPP11
 }
@@ -5837,8 +5837,8 @@ extern "C" SEXP _arrow_Table__GetColumnByName(SEXP table_sexp, SEXP name_sexp){
 std::shared_ptr<arrow::Table> Table__select(const std::shared_ptr<arrow::Table>& table, cpp11::integers indices);
 extern "C" SEXP _arrow_Table__select(SEXP table_sexp, SEXP indices_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
-	arrow::r::input<cpp11::integers>::type indices(indices_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
+	arrow::r::Input<cpp11::integers>::type indices(indices_sexp);
 	return cpp11::as_sexp(Table__select(table, indices));
 END_CPP11
 }
@@ -5853,7 +5853,7 @@ extern "C" SEXP _arrow_Table__select(SEXP table_sexp, SEXP indices_sexp){
 bool all_record_batches(SEXP lst);
 extern "C" SEXP _arrow_all_record_batches(SEXP lst_sexp){
 BEGIN_CPP11
-	arrow::r::input<SEXP>::type lst(lst_sexp);
+	arrow::r::Input<SEXP>::type lst(lst_sexp);
 	return cpp11::as_sexp(all_record_batches(lst));
 END_CPP11
 }
@@ -5868,8 +5868,8 @@ extern "C" SEXP _arrow_all_record_batches(SEXP lst_sexp){
 std::shared_ptr<arrow::Table> Table__from_record_batches(const std::vector<std::shared_ptr<arrow::RecordBatch>>& batches, SEXP schema_sxp);
 extern "C" SEXP _arrow_Table__from_record_batches(SEXP batches_sexp, SEXP schema_sxp_sexp){
 BEGIN_CPP11
-	arrow::r::input<const std::vector<std::shared_ptr<arrow::RecordBatch>>&>::type batches(batches_sexp);
-	arrow::r::input<SEXP>::type schema_sxp(schema_sxp_sexp);
+	arrow::r::Input<const std::vector<std::shared_ptr<arrow::RecordBatch>>&>::type batches(batches_sexp);
+	arrow::r::Input<SEXP>::type schema_sxp(schema_sxp_sexp);
 	return cpp11::as_sexp(Table__from_record_batches(batches, schema_sxp));
 END_CPP11
 }
@@ -5884,8 +5884,8 @@ extern "C" SEXP _arrow_Table__from_record_batches(SEXP batches_sexp, SEXP schema
 std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp);
 extern "C" SEXP _arrow_Table__from_dots(SEXP lst_sexp, SEXP schema_sxp_sexp){
 BEGIN_CPP11
-	arrow::r::input<SEXP>::type lst(lst_sexp);
-	arrow::r::input<SEXP>::type schema_sxp(schema_sxp_sexp);
+	arrow::r::Input<SEXP>::type lst(lst_sexp);
+	arrow::r::Input<SEXP>::type schema_sxp(schema_sxp_sexp);
 	return cpp11::as_sexp(Table__from_dots(lst, schema_sxp));
 END_CPP11
 }
@@ -5914,7 +5914,7 @@ extern "C" SEXP _arrow_GetCpuThreadPoolCapacity(){
 void SetCpuThreadPoolCapacity(int threads);
 extern "C" SEXP _arrow_SetCpuThreadPoolCapacity(SEXP threads_sexp){
 BEGIN_CPP11
-	arrow::r::input<int>::type threads(threads_sexp);
+	arrow::r::Input<int>::type threads(threads_sexp);
 	SetCpuThreadPoolCapacity(threads);
 	return R_NilValue;
 END_CPP11

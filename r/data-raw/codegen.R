@@ -93,7 +93,7 @@ cpp_functions_definitions <- arrow_exports %>%
       sep = "\n",
       real_params = glue_collapse_data(args, "{type} {name}"),
       sexp_params = glue_collapse_data(args, "SEXP {name}_sexp"),
-      input_params = glue_collapse_data(args, "\tarrow::r::input<{type}>::type {name}({name}_sexp);", sep = "\n"),
+      input_params = glue_collapse_data(args, "\tarrow::r::Input<{type}>::type {name}({name}_sexp);", sep = "\n"),
       return_line = if(nrow(args)) "\n" else ""
     )
   }) %>%

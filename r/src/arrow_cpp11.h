@@ -80,43 +80,38 @@ Pointer r6_to_pointer(SEXP self) {
       R_ExternalPtrAddr(Rf_findVarInFrame(self, arrow::r::symbols::xp)));
 }
 
-template <typename T, template <class> class SmartPtr>
-class ConstRefSmartPtrInput {
+// T is either std::shared_ptr<U> or std::unique_ptr<U>
+// e.g. T = std::shared_ptr<arrow::Array>
+template <typename T>
+class ExternalPtrInput {
  public:
-  using const_reference = const SmartPtr<T>&;
+  explicit ExternalPtrInput(SEXP self) : ptr_(r6_to_pointer<const T*>(self)) {}
 
-  explicit ConstRefSmartPtrInput(SEXP self)
-      : ptr(r6_to_pointer<const SmartPtr<T>*>(self)) {}
-
-  inline operator const_reference() { return *ptr; }
+  operator const T&() const { return *ptr_; }
 
  private:
-  // this class host
-  const SmartPtr<T>* ptr;
-};
-
-template <typename T, template <class> class SmartPtr>
-class ConstRefVectorSmartPtrInput {
- public:
-  using const_reference = const std::vector<SmartPtr<T>>&;
-
-  explicit ConstRefVectorSmartPtrInput(SEXP self) : vec() {
-    R_xlen_t n = XLENGTH(self);
-    for (R_xlen_t i = 0; i < n; i++) {
-      vec.push_back(*r6_to_pointer<const SmartPtr<T>*>(VECTOR_ELT(self, i)));
-    }
-  }
-
-  inline operator const_reference() { return vec; }
-
- private:
-  std::vector<SmartPtr<T>> vec;
+  const T* ptr_;
 };
 
 template <typename T>
-class default_input {
+class VectorExternalPtrInput {
  public:
-  explicit default_input(SEXP from) : from_(from) {}
+  explicit VectorExternalPtrInput(SEXP self) : vec_(XLENGTH(self)) {
+    R_xlen_t i = 0;
+    for (auto& element : vec_) {
+      element = *r6_to_pointer<const T*>(VECTOR_ELT(self, i++));
+    }
+  }
+  operator const std::vector<T>&() const { return vec_; }
+
+ private:
+  std::vector<T> vec_;
+};
+
+template <typename T>
+class DefaultInput {
+ public:
+  explicit DefaultInput(SEXP from) : from_(from) {}
 
   operator T() const { return cpp11::as_cpp<T>(from_); }
 
@@ -125,9 +120,9 @@ class default_input {
 };
 
 template <typename T>
-class const_reference_input {
+class ConstReferenceInput {
  public:
-  explicit const_reference_input(SEXP from) : obj_(cpp11::as_cpp<T>(from)) {}
+  explicit ConstReferenceInput(SEXP from) : obj_(cpp11::as_cpp<T>(from)) {}
 
   using const_reference = const T&;
   operator const_reference() const { return obj_; }
@@ -137,31 +132,28 @@ class const_reference_input {
 };
 
 template <typename T>
-struct input {
-  using type = default_input<T>;
+struct Input {
+  using type = DefaultInput<T>;
 };
 
 template <typename T>
-struct input<const T&> {
-  using type = const_reference_input<typename std::decay<T>::type>;
+struct Input<const T&> {
+  using type = ConstReferenceInput<typename std::decay<T>::type>;
 };
 
 template <typename T>
-struct input<const std::shared_ptr<T>&> {
-  using type = ConstRefSmartPtrInput<T, std::shared_ptr>;
+struct Input<const std::shared_ptr<T>&> {
+  using type = ExternalPtrInput<std::shared_ptr<T>>;
 };
 
 template <typename T>
-using default_unique_ptr = std::unique_ptr<T, std::default_delete<T>>;
-
-template <typename T>
-struct input<const std::unique_ptr<T>&> {
-  using type = ConstRefSmartPtrInput<T, default_unique_ptr>;
+struct Input<const std::unique_ptr<T>&> {
+  using type = ExternalPtrInput<std::unique_ptr<T>>;
 };
 
 template <typename T>
-struct input<const std::vector<std::shared_ptr<T>>&> {
-  using type = ConstRefVectorSmartPtrInput<T, std::shared_ptr>;
+struct Input<const std::vector<std::shared_ptr<T>>&> {
+  using type = VectorExternalPtrInput<std::shared_ptr<T>>;
 };
 
 template <typename Rvector, typename T, typename ToVectorElement>
@@ -219,7 +211,7 @@ using enable_if_shared_ptr = typename std::enable_if<
 
 template <typename T>
 enable_if_shared_ptr<T> as_cpp(SEXP from) {
-  return arrow::r::ConstRefSmartPtrInput<typename T::element_type, std::shared_ptr>(from);
+  return arrow::r::ExternalPtrInput<T>(from);
 }
 
 template <typename T>
