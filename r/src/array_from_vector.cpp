@@ -1084,7 +1084,7 @@ class StringVectorConverter : public VectorConverter {
     //       the actual total length
     auto total_length_hint = 0;
     for (cpp11::r_string si : s) {
-      total_length_hint += (si == NA_STRING) ? 0 : si.size();
+      total_length_hint += cpp11::is_na(si) ? 0 : si.size();
     }
     RETURN_NOT_OK(typed_builder_->ReserveData(total_length_hint));
 
