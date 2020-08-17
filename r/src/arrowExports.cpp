@@ -1747,15 +1747,15 @@ extern "C" SEXP _arrow_dataset___Scanner__ToTable(SEXP scanner_sexp){
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Table> dataset___Scanner__head(const std::shared_ptr<ds::Scanner>& scanner, int n);
-RcppExport SEXP _arrow_dataset___Scanner__head(SEXP scanner_sexp, SEXP n_sexp){
-BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<ds::Scanner>&>::type scanner(scanner_sexp);
-	Rcpp::traits::input_parameter<int>::type n(n_sexp);
-	return Rcpp::wrap(dataset___Scanner__head(scanner, n));
-END_RCPP
+extern "C" SEXP _arrow_dataset___Scanner__head(SEXP scanner_sexp, SEXP n_sexp){
+BEGIN_CPP11
+	arrow::r::input<const std::shared_ptr<ds::Scanner>&>::type scanner(scanner_sexp);
+	arrow::r::input<int>::type n(n_sexp);
+	return cpp11::as_sexp(dataset___Scanner__head(scanner, n));
+END_CPP11
 }
 #else
-RcppExport SEXP _arrow_dataset___Scanner__head(SEXP scanner_sexp, SEXP n_sexp){
+extern "C" SEXP _arrow_dataset___Scanner__head(SEXP scanner_sexp, SEXP n_sexp){
 	Rf_error("Cannot call dataset___Scanner__head(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
