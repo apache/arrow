@@ -17,7 +17,7 @@
   under the License.
 -->
 
-# arrow 1.0.0.9000
+# arrow 1.0.1
 
 ## Bug fixes
 
