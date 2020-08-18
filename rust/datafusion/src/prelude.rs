@@ -28,4 +28,4 @@
 pub use crate::dataframe::DataFrame;
 pub use crate::execution::context::{ExecutionConfig, ExecutionContext};
 pub use crate::execution::physical_plan::csv::CsvReadOptions;
-pub use crate::logicalplan::{col, lit};
+pub use crate::logicalplan::{avg, col, count, lit, max, min, sum};

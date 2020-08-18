@@ -486,14 +486,9 @@ impl<S: SchemaProvider> SqlToRel<S> {
                             .map(|a| self.sql_to_rex(a, schema))
                             .collect::<Result<Vec<Expr>>>()?;
 
-                        // return type is same as the argument type for these aggregate
-                        // functions
-                        let return_type = rex_args[0].get_type(schema)?.clone();
-
                         Ok(Expr::AggregateFunction {
                             name: name.clone(),
                             args: rex_args,
-                            return_type,
                         })
                     }
                     "count" => {
@@ -510,7 +505,6 @@ impl<S: SchemaProvider> SqlToRel<S> {
                         Ok(Expr::AggregateFunction {
                             name: name.clone(),
                             args: rex_args,
-                            return_type: DataType::UInt64,
                         })
                     }
                     _ => match self.schema_provider.get_function_meta(&name) {

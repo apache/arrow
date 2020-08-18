@@ -166,10 +166,7 @@ mod tests {
             // filter clause needs the type coercion rule applied
             .filter(col("c7").lt(lit(5_u8)))?
             .project(vec![col("c1"), col("c2")])?
-            .aggregate(
-                vec![col("c1")],
-                vec![aggregate_expr("SUM", col("c2"), DataType::Int64)],
-            )?
+            .aggregate(vec![col("c1")], vec![aggregate_expr("SUM", col("c2"))])?
             .sort(vec![col("c1")])?
             .limit(10)?
             .build()?;

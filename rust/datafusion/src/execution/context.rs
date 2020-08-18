@@ -69,7 +69,7 @@ use crate::sql::{
 /// let mut ctx = ExecutionContext::new();
 /// let df = ctx.read_csv("tests/example.csv", CsvReadOptions::new())?;
 /// let df = df.filter(col("a").lt_eq(col("b")))?
-///            .aggregate(vec![col("a")], vec![df.min(col("b"))?])?
+///            .aggregate(vec![col("a")], vec![min(col("b"))?])?
 ///            .limit(100)?;
 /// let results = df.collect();
 /// # Ok(())
@@ -928,10 +928,7 @@ mod tests {
         ]));
 
         let plan = LogicalPlanBuilder::scan("default", "test", schema.as_ref(), None)?
-            .aggregate(
-                vec![col("c1")],
-                vec![aggregate_expr("SUM", col("c2"), DataType::UInt32)],
-            )?
+            .aggregate(vec![col("c1")], vec![aggregate_expr("SUM", col("c2"))])?
             .project(vec![col("c1"), col("SUM(c2)").alias("total_salary")])?
             .build()?;
 

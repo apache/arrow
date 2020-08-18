@@ -267,36 +267,8 @@ fn create_name(e: &Expr, input_schema: &Schema) -> Result<String> {
 /// Returns the datatype of the expression given the input schema
 // note: the physical plan derived from an expression must match the datatype on this function.
 pub fn expr_to_field(e: &Expr, input_schema: &Schema) -> Result<Field> {
-    let data_type = match e {
-        Expr::Alias(expr, ..) => expr.get_type(input_schema),
-        Expr::Column(name) => Ok(input_schema.field_with_name(name)?.data_type().clone()),
-        Expr::Literal(ref lit) => lit.get_datatype(),
-        Expr::ScalarFunction {
-            ref return_type, ..
-        } => Ok(return_type.clone()),
-        Expr::AggregateFunction {
-            ref return_type, ..
-        } => Ok(return_type.clone()),
-        Expr::Cast { ref data_type, .. } => Ok(data_type.clone()),
-        Expr::BinaryExpr {
-            ref left,
-            ref right,
-            ..
-        } => {
-            let left_type = left.get_type(input_schema)?;
-            let right_type = right.get_type(input_schema)?;
-            Ok(utils::get_supertype(&left_type, &right_type).unwrap())
-        }
-        _ => Err(ExecutionError::NotImplemented(format!(
-            "Cannot determine schema type for expression {:?}",
-            e
-        ))),
-    };
-
-    match data_type {
-        Ok(d) => Ok(Field::new(&e.name(input_schema)?, d, true)),
-        Err(e) => Err(e),
-    }
+    let data_type = e.get_type(input_schema)?;
+    Ok(Field::new(&e.name(input_schema)?, data_type, true))
 }
 
 /// Create field meta-data from an expression, for use in a result set schema
@@ -363,8 +335,6 @@ pub enum Expr {
         name: String,
         /// List of expressions to feed to the functions as arguments
         args: Vec<Expr>,
-        /// The `DataType` the expression will yield
-        return_type: DataType,
     },
     /// Wildcard
     Wildcard,
@@ -379,7 +349,48 @@ impl Expr {
             Expr::Literal(l) => l.get_datatype(),
             Expr::Cast { data_type, .. } => Ok(data_type.clone()),
             Expr::ScalarFunction { return_type, .. } => Ok(return_type.clone()),
-            Expr::AggregateFunction { return_type, .. } => Ok(return_type.clone()),
+            Expr::AggregateFunction { name, args, .. } => {
+                match name.to_uppercase().as_str() {
+                    "MIN" | "MAX" => args[0].get_type(schema),
+                    "SUM" => match args[0].get_type(schema)? {
+                        DataType::Int8
+                        | DataType::Int16
+                        | DataType::Int32
+                        | DataType::Int64 => Ok(DataType::Int64),
+                        DataType::UInt8
+                        | DataType::UInt16
+                        | DataType::UInt32
+                        | DataType::UInt64 => Ok(DataType::UInt64),
+                        DataType::Float32 => Ok(DataType::Float32),
+                        DataType::Float64 => Ok(DataType::Float64),
+                        other => Err(ExecutionError::General(format!(
+                            "SUM does not support {:?}",
+                            other
+                        ))),
+                    },
+                    "AVG" => match args[0].get_type(schema)? {
+                        DataType::Int8
+                        | DataType::Int16
+                        | DataType::Int32
+                        | DataType::Int64
+                        | DataType::UInt8
+                        | DataType::UInt16
+                        | DataType::UInt32
+                        | DataType::UInt64
+                        | DataType::Float32
+                        | DataType::Float64 => Ok(DataType::Float64),
+                        other => Err(ExecutionError::General(format!(
+                            "AVG does not support {:?}",
+                            other
+                        ))),
+                    },
+                    "COUNT" => Ok(DataType::UInt64),
+                    other => Err(ExecutionError::General(format!(
+                        "Invalid aggregate function '{:?}'",
+                        other
+                    ))),
+                }
+            }
             Expr::Not(_) => Ok(DataType::Boolean),
             Expr::IsNull(_) => Ok(DataType::Boolean),
             Expr::IsNotNull(_) => Ok(DataType::Boolean),
@@ -538,6 +549,31 @@ pub fn col(name: &str) -> Expr {
     Expr::Column(name.to_owned())
 }
 
+/// Create an expression to represent the min() aggregate function
+pub fn min(expr: Expr) -> Result<Expr> {
+    Ok(aggregate_expr("MIN", expr))
+}
+
+/// Create an expression to represent the max() aggregate function
+pub fn max(expr: Expr) -> Result<Expr> {
+    Ok(aggregate_expr("MAX", expr))
+}
+
+/// Create an expression to represent the sum() aggregate function
+pub fn sum(expr: Expr) -> Result<Expr> {
+    Ok(aggregate_expr("SUM", expr))
+}
+
+/// Create an expression to represent the avg() aggregate function
+pub fn avg(expr: Expr) -> Result<Expr> {
+    Ok(aggregate_expr("AVG", expr))
+}
+
+/// Create an expression to represent the count() aggregate function
+pub fn count(expr: Expr) -> Result<Expr> {
+    Ok(aggregate_expr("COUNT", expr))
+}
+
 /// Whether it can be represented as a literal expression
 pub trait Literal {
     /// convert the value to a Literal expression
@@ -619,11 +655,10 @@ pub fn length(e: Expr) -> Expr {
 }
 
 /// Create an aggregate expression
-pub fn aggregate_expr(name: &str, expr: Expr, return_type: DataType) -> Expr {
+pub fn aggregate_expr(name: &str, expr: Expr) -> Expr {
     Expr::AggregateFunction {
         name: name.to_owned(),
         args: vec![expr],
-        return_type,
     }
 }
 
@@ -1292,8 +1327,7 @@ mod tests {
         )?
         .aggregate(
             vec![col("state")],
-            vec![aggregate_expr("SUM", col("salary"), DataType::Int32)
-                .alias("total_salary")],
+            vec![aggregate_expr("SUM", col("salary")).alias("total_salary")],
         )?
         .project(vec![col("state"), col("total_salary")])?
         .build()?;
@@ -1307,6 +1341,7 @@ mod tests {
         Ok(())
     }
 
+    #[test]
     #[test]
     fn plan_builder_sort() -> Result<()> {
         let plan = LogicalPlanBuilder::scan(
