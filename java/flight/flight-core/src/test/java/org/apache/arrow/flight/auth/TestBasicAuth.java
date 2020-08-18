@@ -20,6 +20,7 @@ package org.apache.arrow.flight.auth;
 import java.io.IOException;
 import java.util.Optional;
 
+import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.Criteria;
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightInfo;
@@ -43,6 +44,7 @@ import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
 
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 
 public class TestBasicAuth {
@@ -109,10 +111,13 @@ public class TestBasicAuth {
 
       @Override
       public Optional<String> validateCredentials(String username, String password) throws Exception {
+        if (Strings.isNullOrEmpty(username)) {
+          throw CallStatus.UNAUTHENTICATED.withDescription("Username or password is invalid.").toRuntimeException();
+        }
         if (USERNAME.equals(username) && PASSWORD.equals(password)) {
           return Optional.of(VALID_TOKEN);
         } else {
-          throw new IllegalArgumentException("invalid credentials");
+          throw CallStatus.UNAUTHORIZED.withDescription("Username or password is invalid.").toRuntimeException();
         }
       }
 
