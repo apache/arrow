@@ -118,19 +118,28 @@ fn get_arrow_schema_from_metadata(encoded_meta: &str) -> Option<Schema> {
     }
 }
 
-/// Mutates writer metadata by encoding the Arrow schema and storing it in the metadata.
-/// If there is an existing Arrow schema metadata, it is replaced.
-pub fn add_encoded_arrow_schema_to_metadata(
-    schema: &Schema,
-    props: &mut WriterProperties,
-) {
+/// Encodes the Arrow schema into the IPC format, and base64 encodes it
+fn encode_arrow_schema(schema: &Schema) -> String {
     let mut serialized_schema = arrow::ipc::writer::schema_to_bytes(&schema);
+
+    // manually prepending the length to the schema as arrow uses the legacy IPC format
+    // TODO: change after addressing ARROW-9777
     let schema_len = serialized_schema.len();
     let mut len_prefix_schema = Vec::with_capacity(schema_len + 8);
     len_prefix_schema.append(&mut vec![255u8, 255, 255, 255]);
     len_prefix_schema.append((schema_len as u32).to_le_bytes().to_vec().as_mut());
     len_prefix_schema.append(&mut serialized_schema);
-    let encoded = base64::encode(&len_prefix_schema);
+
+    base64::encode(&len_prefix_schema)
+}
+
+/// Mutates writer metadata by storing the encoded Arrow schema.
+/// If there is an existing Arrow schema metadata, it is replaced.
+pub(crate) fn add_encoded_arrow_schema_to_metadata(
+    schema: &Schema,
+    props: &mut WriterProperties,
+) {
+    let encoded = encode_arrow_schema(schema);
 
     let schema_kv = KeyValue {
         key: super::ARROW_SCHEMA_META_KEY.to_string(),

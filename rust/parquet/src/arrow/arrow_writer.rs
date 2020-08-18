@@ -24,7 +24,7 @@ use arrow::datatypes::{DataType as ArrowDataType, SchemaRef};
 use arrow::record_batch::RecordBatch;
 use arrow_array::Array;
 
-use super::add_encoded_arrow_schema_to_metadata;
+use super::schema::add_encoded_arrow_schema_to_metadata;
 use crate::column::writer::ColumnWriter;
 use crate::errors::{ParquetError, Result};
 use crate::file::properties::WriterProperties;
