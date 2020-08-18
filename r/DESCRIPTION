@@ -50,7 +50,7 @@ Suggests:
     testthat,
     tibble
 Remotes:
-    r-lib/cpp11#85
+    r-lib/cpp11
 Collate:
     'enums.R'
     'arrow-package.R'
