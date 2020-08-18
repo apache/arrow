@@ -1264,7 +1264,9 @@ mod tests {
     use super::*;
     use crate::error::Result;
     use crate::execution::physical_plan::common::get_scalar_value;
-    use arrow::array::{PrimitiveArray, StringArray, Time64NanosecondArray};
+    use arrow::array::{
+        LargeStringArray, PrimitiveArray, StringArray, Time64NanosecondArray,
+    };
     use arrow::datatypes::*;
 
     #[test]
@@ -1822,6 +1824,24 @@ mod tests {
         let a = BooleanArray::from(Vec::<bool>::new());
         let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
         assert_eq!(do_count(&batch)?, Some(ScalarValue::UInt64(0)));
+        Ok(())
+    }
+
+    #[test]
+    fn count_utf8() -> Result<()> {
+        let schema = Schema::new(vec![Field::new("a", DataType::Utf8, false)]);
+        let a = StringArray::from(vec!["a", "bb", "ccc", "dddd", "ad"]);
+        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
+        assert_eq!(do_count(&batch)?, Some(ScalarValue::UInt64(5)));
+        Ok(())
+    }
+
+    #[test]
+    fn count_large_utf8() -> Result<()> {
+        let schema = Schema::new(vec![Field::new("a", DataType::LargeUtf8, false)]);
+        let a = LargeStringArray::from(vec!["a", "bb", "ccc", "dddd", "ad"]);
+        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
+        assert_eq!(do_count(&batch)?, Some(ScalarValue::UInt64(5)));
         Ok(())
     }
 
