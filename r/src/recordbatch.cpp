@@ -226,31 +226,17 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__from_arrays__known_schema(
 
   // convert lst to a vector of arrow::Array
   std::vector<std::shared_ptr<arrow::Array>> arrays(num_fields);
-  SEXP names = Rf_getAttrib(lst, R_NamesSymbol);
 
-  auto fill_array = [&arrays, &schema](int j, SEXP x, SEXP name) {
-    name = Rf_mkCharCE(Rf_translateCharUTF8(name), CE_UTF8);
-    if (schema->field(j)->name() != CHAR(name)) {
+  auto fill_array = [&arrays, &schema](int j, SEXP x, cpp11::r_string name) {
+    std::string utf8_name = name;
+    if (schema->field(j)->name() != utf8_name) {
       cpp11::stop("field at index %d has name '%s' != '%s'", j + 1,
-                  schema->field(j)->name().c_str(), CHAR(name));
+                  schema->field(j)->name().c_str(), utf8_name.c_str());
     }
     arrays[j] = arrow::r::Array__from_vector(x, schema->field(j)->type(), false);
   };
 
-  for (R_xlen_t i = 0, j = 0; j < num_fields; i++) {
-    SEXP name_i = STRING_ELT(names, i);
-    SEXP x_i = VECTOR_ELT(lst, i);
-
-    if (LENGTH(name_i) == 0) {
-      SEXP names_x_i = Rf_getAttrib(x_i, R_NamesSymbol);
-      for (R_xlen_t k = 0; k < XLENGTH(x_i); k++, j++) {
-        fill_array(j, VECTOR_ELT(x_i, k), STRING_ELT(names_x_i, k));
-      }
-    } else {
-      fill_array(j, x_i, name_i);
-      j++;
-    }
-  }
+  arrow::r::TraverseDots(lst, num_fields, fill_array);
 
   int64_t num_rows = 0;
   StopIfNotOk(arrow::r::check_consistent_array_size(arrays, &num_rows));
