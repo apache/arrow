@@ -129,7 +129,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
     cdef cppclass CInMemoryFragment "arrow::dataset::InMemoryFragment"(
             CFragment):
         CInMemoryFragment(vector[shared_ptr[CRecordBatch]] record_batches,
-                          shared_ptr[CExpression] scalar)
+                          shared_ptr[CExpression] partition_expression)
 
     cdef cppclass CScanner "arrow::dataset::Scanner":
         CScanner(shared_ptr[CDataset], shared_ptr[CScanOptions],
