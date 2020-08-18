@@ -341,11 +341,8 @@ pub fn rewrite_expression(expr: &Expr, expressions: &Vec<Expr>) -> Result<Expr> 
             return_type: return_type.clone(),
             args: expressions.clone(),
         }),
-        Expr::AggregateFunction {
-            name, return_type, ..
-        } => Ok(Expr::AggregateFunction {
+        Expr::AggregateFunction { name, .. } => Ok(Expr::AggregateFunction {
             name: name.clone(),
-            return_type: return_type.clone(),
             args: expressions.clone(),
         }),
         Expr::Cast { data_type, .. } => Ok(Expr::Cast {
