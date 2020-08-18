@@ -88,16 +88,16 @@ void validate_index(int i, int len);
 
 template <typename Lambda>
 void TraverseDots(SEXP dots, int num_fields, Lambda lambda) {
-  SEXP names = Rf_getAttrib(dots, R_NamesSymbol);
+  cpp11::strings names = Rf_getAttrib(dots, R_NamesSymbol);
 
   for (R_xlen_t i = 0, j = 0; j < num_fields; i++) {
-    SEXP name_i = STRING_ELT(names, i);
+    auto name_i = names[i];
     SEXP x_i = VECTOR_ELT(dots, i);
 
-    if (LENGTH(name_i) == 0) {
-      SEXP names_x_i = Rf_getAttrib(x_i, R_NamesSymbol);
+    if (name_i.size() == 0) {
+      cpp11::strings names_x_i = Rf_getAttrib(x_i, R_NamesSymbol);
       for (R_xlen_t k = 0; k < XLENGTH(x_i); k++, j++) {
-        lambda(j, VECTOR_ELT(x_i, k), STRING_ELT(names_x_i, k));
+        lambda(j, VECTOR_ELT(x_i, k), names_x_i[k]);
       }
     } else {
       lambda(j, x_i, name_i);

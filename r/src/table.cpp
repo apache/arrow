@@ -150,7 +150,7 @@ arrow::Status InferSchemaFromDots(SEXP lst, SEXP schema_sxp, int num_fields,
   // infer the schema from the `...`
   std::vector<std::shared_ptr<arrow::Field>> fields(num_fields);
 
-  auto extract_one_field = [&fields](int j, SEXP x, cpp11::r_string name) {
+  auto extract_one_field = [&fields](int j, SEXP x, std::string name) {
     if (Rf_inherits(x, "ChunkedArray")) {
       fields[j] = arrow::field(
           name, cpp11::as_cpp<std::shared_ptr<arrow::ChunkedArray>>(x)->type());
@@ -171,15 +171,14 @@ arrow::Status InferSchemaFromDots(SEXP lst, SEXP schema_sxp, int num_fields,
 
 SEXP CollectColumnMetadata(SEXP lst, int num_fields, bool& has_metadata) {
   // Preallocate for the lambda to fill in
-  SEXP metadata_columns = PROTECT(Rf_allocVector(VECSXP, num_fields));
-  SEXP metadata_columns_names = PROTECT(Rf_allocVector(STRSXP, num_fields));
+  cpp11::writable::list metadata_columns(num_fields);
+  cpp11::writable::strings metadata_columns_names(num_fields);
   Rf_setAttrib(metadata_columns, R_NamesSymbol, metadata_columns_names);
 
   auto extract_one_metadata = [&metadata_columns, &metadata_columns_names, &has_metadata](
-                                  int j, SEXP x, SEXP name) {
-    // Make sure we're ingesting UTF-8
-    name = Rf_mkCharCE(Rf_translateCharUTF8(name), CE_UTF8);
-    SET_STRING_ELT(metadata_columns_names, j, name);
+                                  int j, SEXP x, std::string name) {
+    metadata_columns_names[j] = name;
+
     // no metadata for arrow R6 objects
     if (Rf_inherits(x, "ArrowObject")) {
       return;
@@ -254,7 +253,6 @@ SEXP CollectColumnMetadata(SEXP lst, int num_fields, bool& has_metadata) {
         StopIfNotOk(arrow::r::count_fields(x, &inner_num_fields));
         SET_VECTOR_ELT(r_meta, 1,
                        CollectColumnMetadata(x, inner_num_fields, has_metadata));
-        UNPROTECT(2);  // CollectColumnMetadata adds 2 PROTECTS
         this_has_metadata = true;
       }
       if (this_has_metadata) {
@@ -288,7 +286,6 @@ arrow::Status AddMetadataFromDots(SEXP lst, int num_fields,
   //   has_metadata = true;
   // }
   SET_VECTOR_ELT(metadata, 1, CollectColumnMetadata(lst, num_fields, has_metadata));
-  UNPROTECT(2);  // CollectColumnMetadata adds 2 PROTECTS
 
   if (has_metadata) {
     SEXP serialise_call =
