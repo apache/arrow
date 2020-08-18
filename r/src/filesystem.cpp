@@ -223,7 +223,7 @@ std::shared_ptr<fs::SubTreeFileSystem> fs___SubTreeFileSystem__create(
 
 // [[arrow::export]]
 cpp11::writable::list fs___FileSystemFromUri(const std::string& path) {
-  using cpp11::literals::operator""_nm;
+  using cpp11::literals::operator"" _nm;
 
   std::string out_path;
   auto file_system = ValueOrStop(fs::FileSystemFromUri(path, &out_path));
