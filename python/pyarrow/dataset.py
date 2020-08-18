@@ -724,9 +724,10 @@ def write_dataset(data, base_dir, format=None, partitioning=None, schema=None,
         Write files in parallel. If enabled, then maximum parallelism will be
         used determined by the number of available CPU cores.
     """
-    if isinstance(data, FileSystemDataset):
+    if isinstance(data, Dataset):
         schema = schema or data.schema
-        format = format or data.format
+        if isinstance(data, FileSystemDataset):
+            format = format or data.format
     elif isinstance(data, (pa.Table, pa.RecordBatch)):
         schema = schema or data.schema
         data = [data]
