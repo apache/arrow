@@ -716,14 +716,19 @@ def write_dataset(data, base_dir, format=None, partitioning=None, schema=None,
         Write files in parallel. If enabled, then maximum parallelism will be
         used determined by the number of available CPU cores.
     """
-    if isinstance(data, pa.Table):
-        schema = schema or data.schema
-        data = data.to_batches()
-    elif isinstance(data, FileSystemDataset):
+    if isinstance(data, FileSystemDataset):
         schema = schema or data.schema
         format = format or data.format
+    elif isinstance(data, (pa.Table, pa.RecordBatch)):
+        schema = schema or data.schema
+        data = [data]
+    elif isinstance(data, list):
+        schema = schema or data[0].schema
     else:
-        raise ValueError("Only Table and Dataset instances are supported.")
+        raise ValueError(
+            "Only Dataset, Table/RecordBatch or a list of Table/RecordBatch "
+            "objects are supported."
+        )
 
     format = _ensure_format(format)
     partitioning = _ensure_write_partitioning(partitioning)

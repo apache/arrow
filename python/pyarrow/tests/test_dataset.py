@@ -2274,3 +2274,39 @@ def test_write_table(tempdir):
     assert set(file_paths) == set(expected_paths)
     result = ds.dataset(base_dir, format="ipc", partitioning=partitioning)
     assert result.to_table().equals(table)
+
+
+def test_write_table_multiple_fragments(tempdir):
+    table = pa.table([
+        pa.array(range(10)), pa.array(np.random.randn(10)),
+        pa.array(np.repeat(['a', 'b'], 5))
+    ], names=["f1", "f2", "part"])
+    table = pa.concat_tables([table]*2)
+
+    # Table with multiple batches written as single Fragment by default
+    base_dir = tempdir / 'single'
+    ds.write_dataset(table, base_dir, format="feather")
+    assert set(base_dir.rglob("*")) == set([base_dir / "dat_0.ipc"])
+    assert ds.dataset(base_dir, format="ipc").to_table().equals(table)
+
+    # Same for single-element list of Table
+    base_dir = tempdir / 'single-list'
+    ds.write_dataset([table], base_dir, format="feather")
+    assert set(base_dir.rglob("*")) == set([base_dir / "dat_0.ipc"])
+    assert ds.dataset(base_dir, format="ipc").to_table().equals(table)
+
+    # Provide list of batches to write multiple fragments
+    base_dir = tempdir / 'multiple'
+    ds.write_dataset(table.to_batches(), base_dir, format="feather")
+    assert set(base_dir.rglob("*")) == set(
+        [base_dir / "dat_0.ipc", base_dir / "dat_1.ipc"])
+    assert ds.dataset(base_dir, format="ipc").to_table().equals(table)
+
+    # Provide list of tables to write multiple fragments
+    base_dir = tempdir / 'multiple-table'
+    ds.write_dataset([table, table], base_dir, format="feather")
+    assert set(base_dir.rglob("*")) == set(
+        [base_dir / "dat_0.ipc", base_dir / "dat_1.ipc"])
+    assert ds.dataset(base_dir, format="ipc").to_table().equals(
+        pa.concat_tables([table]*2)
+    )

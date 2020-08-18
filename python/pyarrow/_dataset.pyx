@@ -2081,13 +2081,18 @@ def _filesystemdataset_write(
                 )
             )
     else:
-        # data is list of batches
-        for batch in data:
-            c_batches.push_back((<RecordBatch> batch).sp_batch)
+        # data is list of batches/tables, one element per fragment
+        for table in data:
+            if isinstance(table, Table):
+                for batch in table.to_batches():
+                    c_batches.push_back((<RecordBatch> batch).sp_batch)
+            else:
+                c_batches.push_back((<RecordBatch> table).sp_batch)
 
-        c_fragment = shared_ptr[CFragment](
-            new CInMemoryFragment(c_batches, _true.unwrap()))
-        c_fragment_vector.push_back(c_fragment)
+            c_fragment = shared_ptr[CFragment](
+                new CInMemoryFragment(c_batches, _true.unwrap()))
+            c_batches.clear()
+            c_fragment_vector.push_back(c_fragment)
 
         with nogil:
             check_status(
@@ -2098,6 +2103,6 @@ def _filesystemdataset_write(
                     c_base_dir,
                     c_partitioning,
                     c_context,
-                    MakeVectorIterator(c_fragment_vector)
+                    MakeVectorIterator(move(c_fragment_vector))
                 )
             )
