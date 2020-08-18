@@ -85,12 +85,34 @@ fn criterion_benchmark(c: &mut Criterion) {
         })
     });
 
+    c.bench_function("aggregate_query_no_group_by_avg", |b| {
+        let mut ctx = create_context();
+        b.iter(|| {
+            aggregate_query(
+                &mut ctx,
+                "SELECT AVG(c12) \
+                 FROM aggregate_test_100",
+            )
+        })
+    });
+
     c.bench_function("aggregate_query_group_by", |b| {
         let mut ctx = create_context();
         b.iter(|| {
             aggregate_query(
                 &mut ctx,
                 "SELECT c1, MIN(c12), MAX(c12) \
+                 FROM aggregate_test_100 GROUP BY c1",
+            )
+        })
+    });
+
+    c.bench_function("aggregate_query_group_by_avg", |b| {
+        let mut ctx = create_context();
+        b.iter(|| {
+            aggregate_query(
+                &mut ctx,
+                "SELECT c1, AVG(c12) \
                  FROM aggregate_test_100 GROUP BY c1",
             )
         })
