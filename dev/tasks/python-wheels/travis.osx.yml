@@ -21,6 +21,7 @@ language: generic
 addons:
   homebrew:
     packages:
+      - aws-sdk-cpp
       - automake
       - boost
       - brotli
