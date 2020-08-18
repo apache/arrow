@@ -36,6 +36,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
+#include "arrow/util/int_util_internal.h"
 #include "arrow/util/logging.h"
 
 #include "arrow/python/datetime.h"
@@ -263,7 +264,12 @@ struct ValueConverter<TimestampType> {
           value = internal::PyDateTime_to_us(dt) - offset * 1000 * 1000;
           break;
         case TimeUnit::NANO:
-          value = internal::PyDateTime_to_ns(dt) - offset * 1000 * 1000 * 1000;
+          // Conversion to nanoseconds can overflow -> check multiply of microseconds
+          value = internal::PyDateTime_to_us(dt);
+          if (arrow::internal::MultiplyWithOverflow(value, 1000, &value)) {
+            return internal::InvalidValue(obj, "out of bounds for nanosecond resolution");
+          }
+          value -= offset * 1000 * 1000 * 1000;
           break;
         default:
           return Status::UnknownError("Invalid time unit");
