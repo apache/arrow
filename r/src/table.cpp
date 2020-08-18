@@ -305,7 +305,8 @@ arrow::Status AddMetadataFromDots(SEXP lst, int num_fields,
 arrow::Status CollectTableColumns(
     SEXP lst, const std::shared_ptr<arrow::Schema>& schema, int num_fields, bool inferred,
     std::vector<std::shared_ptr<arrow::ChunkedArray>>& columns) {
-  auto extract_one_column = [&columns, &schema, inferred](int j, SEXP x) {
+  auto extract_one_column = [&columns, &schema, inferred](int j, SEXP x,
+                                                          cpp11::r_string) {
     if (Rf_inherits(x, "ChunkedArray")) {
       columns[j] = cpp11::as_cpp<std::shared_ptr<arrow::ChunkedArray>>(x);
     } else if (Rf_inherits(x, "Array")) {
@@ -316,7 +317,7 @@ arrow::Status CollectTableColumns(
       columns[j] = std::make_shared<arrow::ChunkedArray>(array);
     }
   };
-  arrow::r::TraverseDotsNoName(lst, num_fields, extract_one_column);
+  arrow::r::TraverseDots(lst, num_fields, extract_one_column);
   return arrow::Status::OK();
 }
 
