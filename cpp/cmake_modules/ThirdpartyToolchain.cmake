@@ -1454,7 +1454,7 @@ if(ARROW_JEMALLOC)
     BUILD_IN_SOURCE 1
     BUILD_COMMAND ${JEMALLOC_BUILD_COMMAND}
     BUILD_BYPRODUCTS "${JEMALLOC_STATIC_LIB}"
-    INSTALL_COMMAND ${MAKE} install)
+    INSTALL_COMMAND ${MAKE} -j1 install)
 
   # Don't use the include directory directly so that we can point to a path
   # that is unique to our codebase.
