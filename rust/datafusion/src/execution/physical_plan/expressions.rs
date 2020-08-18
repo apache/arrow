@@ -437,12 +437,10 @@ impl AggregateExpr for Max {
 
 macro_rules! max_accumulate {
     ($SELF:ident, $VALUE:expr, $ARRAY_TYPE:ident, $SCALAR_VARIANT:ident) => {{
-        $SELF.max = match $SELF.max {
+        match &$SELF.max {
             Some(ScalarValue::$SCALAR_VARIANT(n)) => {
-                if n > ($VALUE) {
-                    Some(ScalarValue::$SCALAR_VARIANT(n))
-                } else {
-                    Some(ScalarValue::$SCALAR_VARIANT($VALUE))
+                if ($VALUE) > *n {
+                    $SELF.max = Some(ScalarValue::$SCALAR_VARIANT($VALUE))
                 }
             }
             Some(_) => {
@@ -450,7 +448,7 @@ macro_rules! max_accumulate {
                     "Unexpected ScalarValue variant".to_string(),
                 ))
             }
-            None => Some(ScalarValue::$SCALAR_VARIANT($VALUE)),
+            None => $SELF.max = Some(ScalarValue::$SCALAR_VARIANT($VALUE)),
         };
     }};
 }
@@ -492,6 +490,9 @@ impl Accumulator for MaxAccumulator {
                 }
                 ScalarValue::Float64(value) => {
                     max_accumulate!(self, value, Float64Array, Float64)
+                }
+                ScalarValue::Utf8(value) => {
+                    max_accumulate!(self, value, StringArray, Utf8)
                 }
                 other => {
                     return Err(ExecutionError::General(format!(
@@ -621,12 +622,10 @@ impl AggregateExpr for Min {
 
 macro_rules! min_accumulate {
     ($SELF:ident, $VALUE:expr, $ARRAY_TYPE:ident, $SCALAR_VARIANT:ident) => {{
-        $SELF.min = match $SELF.min {
+        match &$SELF.min {
             Some(ScalarValue::$SCALAR_VARIANT(n)) => {
-                if n < ($VALUE) {
-                    Some(ScalarValue::$SCALAR_VARIANT(n))
-                } else {
-                    Some(ScalarValue::$SCALAR_VARIANT($VALUE))
+                if ($VALUE) < *n {
+                    $SELF.min = Some(ScalarValue::$SCALAR_VARIANT($VALUE))
                 }
             }
             Some(_) => {
@@ -634,7 +633,7 @@ macro_rules! min_accumulate {
                     "Unexpected ScalarValue variant".to_string(),
                 ))
             }
-            None => Some(ScalarValue::$SCALAR_VARIANT($VALUE)),
+            None => $SELF.min = Some(ScalarValue::$SCALAR_VARIANT($VALUE)),
         };
     }};
 }
@@ -676,6 +675,9 @@ impl Accumulator for MinAccumulator {
                 }
                 ScalarValue::Float64(value) => {
                     min_accumulate!(self, value, Float64Array, Float64)
+                }
+                ScalarValue::Utf8(value) => {
+                    min_accumulate!(self, value, StringArray, Utf8)
                 }
                 other => {
                     return Err(ExecutionError::General(format!(
@@ -1540,6 +1542,30 @@ mod tests {
     }
 
     #[test]
+    fn max_utf8() -> Result<()> {
+        let schema = Schema::new(vec![Field::new("a", DataType::Utf8, false)]);
+
+        let a = StringArray::from(vec!["d", "a", "c", "b"]);
+        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
+
+        assert_eq!(do_max(&batch)?, Some(ScalarValue::Utf8("d".to_string())));
+
+        Ok(())
+    }
+
+    #[test]
+    fn max_large_utf8() -> Result<()> {
+        let schema = Schema::new(vec![Field::new("a", DataType::LargeUtf8, false)]);
+
+        let a = LargeStringArray::from(vec!["d", "a", "c", "b"]);
+        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
+
+        assert_eq!(do_max(&batch)?, Some(ScalarValue::Utf8("d".to_string())));
+
+        Ok(())
+    }
+
+    #[test]
     fn min_i32() -> Result<()> {
         let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
 
@@ -1547,6 +1573,30 @@ mod tests {
         let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
 
         assert_eq!(do_min(&batch)?, Some(ScalarValue::Int32(1)));
+
+        Ok(())
+    }
+
+    #[test]
+    fn min_utf8() -> Result<()> {
+        let schema = Schema::new(vec![Field::new("a", DataType::Utf8, false)]);
+
+        let a = StringArray::from(vec!["d", "a", "c", "b"]);
+        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
+
+        assert_eq!(do_min(&batch)?, Some(ScalarValue::Utf8("a".to_string())));
+
+        Ok(())
+    }
+
+    #[test]
+    fn min_large_utf8() -> Result<()> {
+        let schema = Schema::new(vec![Field::new("a", DataType::LargeUtf8, false)]);
+
+        let a = LargeStringArray::from(vec!["d", "a", "c", "b"]);
+        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
+
+        assert_eq!(do_min(&batch)?, Some(ScalarValue::Utf8("a".to_string())));
 
         Ok(())
     }
