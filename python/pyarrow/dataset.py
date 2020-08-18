@@ -712,9 +712,10 @@ def write_dataset(data, base_dir, format=None, partitioning=None, schema=None,
         The root directory where to write the dataset.
     format : FileFormat or str
         The format in which to write the dataset. Currently supported:
-        "ipc"/"feather". If a FileSystemDataset is being written and `format` is not
-        specified, it defaults to the same format as the specified FileSystemDataset.
-        When writing a Table or RecordBatch, this keyword is required.
+        "ipc"/"feather". If a FileSystemDataset is being written and `format`
+        is not specified, it defaults to the same format as the specified
+        FileSystemDataset. When writing a Table or RecordBatch, this keyword
+        is required.
     partitioning : Partitioning, optional
         The partitioning scheme specified with the ``partitioning()``
         function.
