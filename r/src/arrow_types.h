@@ -96,7 +96,8 @@ void TraverseDots(cpp11::list dots, int num_fields, Lambda lambda) {
     if (name_i.size() == 0) {
       cpp11::list x_i = dots[i];
       cpp11::strings names_x_i(x_i.attr(R_NamesSymbol));
-      for (R_xlen_t k = 0; k < XLENGTH(x_i); k++, j++) {
+      R_xlen_t n_i = x_i.size();
+      for (R_xlen_t k = 0; k < n_i; k++, j++) {
         lambda(j, x_i[k], names_x_i[k]);
       }
     } else {
