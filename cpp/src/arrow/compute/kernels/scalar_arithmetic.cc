@@ -80,7 +80,7 @@ struct AddChecked {
   template <typename T, typename Arg0, typename Arg1>
   enable_if_integer<T> Call(KernelContext* ctx, Arg0 left, Arg1 right) {
     static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
-    T result;
+    T result = 0;
     if (ARROW_PREDICT_FALSE(AddWithOverflow(left, right, &result))) {
       ctx->SetStatus(Status::Invalid("overflow"));
     }
@@ -115,7 +115,7 @@ struct SubtractChecked {
   template <typename T, typename Arg0, typename Arg1>
   enable_if_integer<T> Call(KernelContext* ctx, Arg0 left, Arg1 right) {
     static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
-    T result;
+    T result = 0;
     if (ARROW_PREDICT_FALSE(SubtractWithOverflow(left, right, &result))) {
       ctx->SetStatus(Status::Invalid("overflow"));
     }
@@ -172,7 +172,7 @@ struct MultiplyChecked {
   template <typename T, typename Arg0, typename Arg1>
   enable_if_integer<T> Call(KernelContext* ctx, Arg0 left, Arg1 right) {
     static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
-    T result;
+    T result = 0;
     if (ARROW_PREDICT_FALSE(MultiplyWithOverflow(left, right, &result))) {
       ctx->SetStatus(Status::Invalid("overflow"));
     }
