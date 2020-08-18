@@ -89,8 +89,8 @@ pub type WriterPropertiesPtr = Rc<WriterProperties>;
 
 /// Writer properties.
 ///
-/// It is created as an immutable data structure, use [`WriterPropertiesBuilder`] to
-/// assemble the properties.
+/// All properties except the key-value metadata are immutable,
+/// use [`WriterPropertiesBuilder`] to assemble these properties.
 #[derive(Debug, Clone)]
 pub struct WriterProperties {
     data_pagesize_limit: usize,
@@ -99,7 +99,7 @@ pub struct WriterProperties {
     max_row_group_size: usize,
     writer_version: WriterVersion,
     created_by: String,
-    key_value_metadata: Option<Vec<KeyValue>>,
+    pub(crate) key_value_metadata: Option<Vec<KeyValue>>,
     default_column_properties: ColumnProperties,
     column_properties: HashMap<ColumnPath, ColumnProperties>,
 }
