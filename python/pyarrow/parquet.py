@@ -541,9 +541,10 @@ schema : arrow Schema
         # sure to close it when `self.close` is called.
         self.file_handle = None
 
-        filesystem, path = resolve_filesystem_and_path(where, filesystem)
+        from pyarrow.fs import _resolve_filesystem_and_path
+        filesystem, path = _resolve_filesystem_and_path(where, filesystem)
         if filesystem is not None:
-            sink = self.file_handle = filesystem.open(path, 'wb')
+            sink = self.file_handle = filesystem.open_output_stream(path)
         else:
             sink = where
         self._metadata_collector = options.pop('metadata_collector', None)

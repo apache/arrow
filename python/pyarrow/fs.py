@@ -19,6 +19,8 @@
 FileSystem abstraction to interact with various local and remote filesystems.
 """
 
+from pyarrow.util import _is_path_like, _stringify_path
+
 from pyarrow._fs import (  # noqa
     FileSelector,
     FileType,
@@ -86,6 +88,25 @@ def _ensure_filesystem(filesystem, use_mmap=False):
     # TODO handle HDFS?
 
     raise TypeError("Unrecognized filesystem: {}".format(type(filesystem)))
+
+
+def _resolve_filesystem_and_path(path, filesystem=None):
+    """
+    Return filesystem/path from path which could be an URI or a plain
+    filesystem path.
+    """
+    if not _is_path_like(path):
+        if filesystem is not None:
+            raise ValueError("filesystem passed but where is file-like, so"
+                             " there is nothing to open with filesystem.")
+        return filesystem, path
+
+    path = _stringify_path(path)
+
+    if filesystem is not None:
+        return _ensure_filesystem(filesystem), path
+    else:
+        return FileSystem.from_uri(path)
 
 
 class FSSpecHandler(FileSystemHandler):
