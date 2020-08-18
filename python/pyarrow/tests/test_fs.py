@@ -983,8 +983,11 @@ def test_mockfs_mtime_roundtrip(mockfs):
 
 
 @pytest.mark.s3
-def test_s3_options():
+def test_s3_options(monkeypatch):
     from pyarrow.fs import S3FileSystem
+
+    # Avoid wait for unavailable metadata server in ARN role example below
+    monkeypatch.setenv("AWS_EC2_METADATA_DISABLED", "true")
 
     fs = S3FileSystem(access_key='access', secret_key='secret',
                       session_token='token', region='us-east-1',
