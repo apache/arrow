@@ -701,8 +701,8 @@ def write_dataset(data, base_dir, format=None, partitioning=None, schema=None,
 
     Parameters
     ----------
-    data : FileSystemDataset, Table/RecordBatch, or list of Table/RecordBatch
-        The data to write. This can be a FileSystemDataset instance or
+    data : Dataset, Table/RecordBatch, or list of Table/RecordBatch
+        The data to write. This can be a Dataset instance or
         in-memory Arrow data. A Table or RecordBatch is written as a
         single fragment (resulting in a single file, or multiple files if
         split according to the `partitioning`). If you have a Table consisting
