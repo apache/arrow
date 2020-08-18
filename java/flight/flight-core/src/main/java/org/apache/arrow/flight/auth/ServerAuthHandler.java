@@ -53,7 +53,8 @@ public interface ServerAuthHandler {
    *
    * @param headers The headers to authenticate.
    * @return a handshake result containing a peer identity and optionally a bearer token.
-   * @throws FlightRuntimeException with CallStatus.UNAUTHENTICATED if authentication failed.
+   * @throws FlightRuntimeException with CallStatus.UNAUTHENTICATED if credentials were not supplied
+   *     or CallStatus.UNAUTHORIZED if credentials were supplied but were not valid.
    */
   HandshakeResult authenticate(CallHeaders headers);
 

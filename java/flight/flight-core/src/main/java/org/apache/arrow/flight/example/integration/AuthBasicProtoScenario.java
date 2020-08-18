@@ -33,6 +33,8 @@ import org.apache.arrow.flight.auth.BasicAuthCallCredentials;
 import org.apache.arrow.flight.auth.BasicServerAuthHandler;
 import org.apache.arrow.memory.BufferAllocator;
 
+import com.google.common.base.Strings;
+
 /**
  * A scenario testing the built-in basic authentication Protobuf.
  */
@@ -57,8 +59,12 @@ final class AuthBasicProtoScenario implements Scenario {
     builder.authHandler(new BasicServerAuthHandler(new BasicServerAuthHandler.BasicAuthValidator() {
       @Override
       public Optional<String> validateCredentials(String username, String password) throws Exception {
+        if (Strings.isNullOrEmpty(username)) {
+          throw CallStatus.UNAUTHORIZED.withDescription("Credentials not supplied").toRuntimeException();
+        }
+
         if (!USERNAME.equals(username) || !PASSWORD.equals(password)) {
-          throw CallStatus.UNAUTHENTICATED.withDescription("Username or password is invalid.").toRuntimeException();
+          throw CallStatus.UNAUTHORIZED.withDescription("Username or password is invalid.").toRuntimeException();
         }
         return Optional.of("valid:" + username);
       }
