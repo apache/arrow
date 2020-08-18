@@ -701,15 +701,21 @@ def write_dataset(data, base_dir, format=None, partitioning=None, schema=None,
 
     Parameters
     ----------
-    data : FileSystemDataset
-        The data to write. Currently only a FileSystemDataset instance is
-        supported.
+    data : FileSystemDataset, Table/RecordBatch, or list of Table/RecordBatch
+        The data to write. This can be a FileSystemDataset instance or
+        in-memory Arrow data. A Table or RecordBatch is written as a
+        single fragment (resulting in a single file, or multiple files if
+        split according to the `partitioning`). If you have a Table consisting
+        of multiple record batches, you can pass ``table.to_batches()`` to
+        handle each record batch as a separate fragment.
     base_dir : str
         The root directory where to write the dataset.
     format : FileFormat or str
         The format in which to write the dataset. Currently supported:
         "ipc"/"feather".
     partitioning : Partitioning, optional
+        The partitioning scheme specified with the ``partitioning()``
+        function.
     schema : Schema, optional
     filesystem : FileSystem, optional
     use_threads : bool, default True
