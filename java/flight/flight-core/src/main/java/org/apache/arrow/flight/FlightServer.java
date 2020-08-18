@@ -34,6 +34,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
+import org.apache.arrow.flight.auth.AuthConstants;
 import org.apache.arrow.flight.auth.ServerAuthHandler;
 import org.apache.arrow.flight.auth.ServerAuthMiddleware;
 import org.apache.arrow.flight.grpc.ServerInterceptorAdapter;
@@ -188,7 +189,8 @@ public class FlightServer implements AutoCloseable {
     public FlightServer build() {
       // Add the auth middleware if applicable.
       if (authHandler != ServerAuthHandler.NO_OP) {
-        this.middleware(FlightServerMiddleware.Key.of("Authentication"), new ServerAuthMiddleware.Factory(authHandler));
+        this.middleware(FlightServerMiddleware.Key.of(AuthConstants.AUTHORIZATION_HEADER),
+            new ServerAuthMiddleware.Factory(authHandler));
       }
       final NettyServerBuilder builder;
       switch (location.getUri().getScheme()) {

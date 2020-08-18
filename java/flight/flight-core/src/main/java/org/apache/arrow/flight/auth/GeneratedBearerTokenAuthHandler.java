@@ -19,24 +19,28 @@ package org.apache.arrow.flight.auth;
 
 import java.nio.ByteBuffer;
 import java.util.Base64;
-import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
+
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 
 /**
  * Generates and caches bearer tokens from user credentials.
  */
 public class GeneratedBearerTokenAuthHandler extends BearerTokenAuthHandler {
-  private final Map<String, String> bearerToIdentityMap = new ConcurrentHashMap<>();
+  private final Cache<String, String> bearerToIdentityCache = CacheBuilder.newBuilder()
+      .expireAfterAccess(2, TimeUnit.HOURS)
+      .build();
 
   @Override
-  protected String getPeerForBearerToken(String bearerToken) {
-    return bearerToIdentityMap.get(bearerToken);
+  protected String getIdentityForBearerToken(String bearerToken) {
+    return bearerToIdentityCache.getIfPresent(bearerToken);
   }
 
   @Override
   public boolean validateBearer(String bearerToken) {
-    return bearerToken.contains(bearerToken);
+    return bearerToIdentityCache.getIfPresent(bearerToken) != null;
   }
 
   String registerBearer(HandshakeResult handshakeResult) {
@@ -48,7 +52,7 @@ public class GeneratedBearerTokenAuthHandler extends BearerTokenAuthHandler {
           byteBuffer.putLong(uuid.getLeastSignificantBits());
           return Base64.getEncoder().encodeToString(byteBuffer.array());
         });
-    bearerToIdentityMap.put(bearerToken, handshakeResult.getPeerIdentity());
+    bearerToIdentityCache.put(bearerToken, handshakeResult.getPeerIdentity());
     return bearerToken;
   }
 }

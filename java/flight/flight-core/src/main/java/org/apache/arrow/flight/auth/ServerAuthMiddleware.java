@@ -25,6 +25,8 @@ import org.apache.arrow.flight.CallInfo;
 import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.FlightRuntimeException;
 import org.apache.arrow.flight.FlightServerMiddleware;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import io.grpc.Context;
 
@@ -33,6 +35,8 @@ import io.grpc.Context;
  * the bearer token in subsequent requests.
  */
 public class ServerAuthMiddleware implements FlightServerMiddleware {
+  private static final Logger logger = LoggerFactory.getLogger(ServerAuthMiddleware.class);
+
   /**
    * Factory for accessing ServerAuthMiddleware.
    */
@@ -46,12 +50,13 @@ public class ServerAuthMiddleware implements FlightServerMiddleware {
     }
 
     public String getPeerForBearer(String bearerToken) {
-      return bearerTokenAuthHandler.getPeerForBearerToken(bearerToken);
+      return bearerTokenAuthHandler.getIdentityForBearerToken(bearerToken);
     }
 
     @Override
     public ServerAuthMiddleware onCallStarted(CallInfo callInfo, CallHeaders incomingHeaders) {
-      if (callInfo.method().equals(AuthConstants.HANDSHAKE_DESCRIPTOR_NAME)) {
+      logger.debug("Call name: {}", callInfo.method().name());
+      if (callInfo.method().name().equals(AuthConstants.HANDSHAKE_DESCRIPTOR_NAME)) {
         final ServerAuthHandler.HandshakeResult result = authHandler.authenticate(incomingHeaders);
         final String bearerToken = bearerTokenAuthHandler.registerBearer(result);
         return new ServerAuthMiddleware(result.getPeerIdentity(), bearerToken);
@@ -63,14 +68,16 @@ public class ServerAuthMiddleware implements FlightServerMiddleware {
         if (authHandler.validateBearer(null)) {
           return new ServerAuthMiddleware("", null);
         }
+        logger.info("Client did not supply a bearer token.");
         throw new FlightRuntimeException(CallStatus.UNAUTHENTICATED);
       }
 
       if (!authHandler.validateBearer(bearerToken) && !bearerTokenAuthHandler.validateBearer(bearerToken)) {
+        logger.info("Bearer token supplied by client was not authorized.");
         throw new FlightRuntimeException(CallStatus.UNAUTHORIZED);
       }
 
-      final String peerIdentity = bearerTokenAuthHandler.getPeerForBearerToken(bearerToken);
+      final String peerIdentity = bearerTokenAuthHandler.getIdentityForBearerToken(bearerToken);
       return new ServerAuthMiddleware(peerIdentity, null);
     }
   }
@@ -85,6 +92,7 @@ public class ServerAuthMiddleware implements FlightServerMiddleware {
 
   @Override
   public Context onAuthenticationSuccess(Context currentContext) {
+    logger.info("Client authenticated.");
     return currentContext.withValue(AuthConstants.PEER_IDENTITY_KEY, peerIdentity);
   }
 

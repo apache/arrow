@@ -23,6 +23,7 @@ import java.util.Optional;
 import org.apache.arrow.flight.Criteria;
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightInfo;
+import org.apache.arrow.flight.FlightRuntimeException;
 import org.apache.arrow.flight.FlightServer;
 import org.apache.arrow.flight.FlightStatusCode;
 import org.apache.arrow.flight.FlightStream;
@@ -57,9 +58,14 @@ public class TestBasicAuth {
 
   @Test
   public void validAuth() {
-    client = clientBuilder.callCredentials(new BasicAuthCallCredentials(USERNAME, PASSWORD)).build();
-    client.handshake();
-    Assert.assertTrue(ImmutableList.copyOf(client.listFlights(Criteria.ALL)).size() == 0);
+    try {
+      client = clientBuilder.callCredentials(new BasicAuthCallCredentials(USERNAME, PASSWORD)).build();
+      client.handshake();
+      Assert.assertTrue(ImmutableList.copyOf(client.listFlights(Criteria.ALL)).size() == 0);
+    } catch (FlightRuntimeException ex) {
+      ex.printStackTrace();
+      System.out.println(ex.status());
+    }
   }
 
   // ARROW-7722: this test occasionally leaks memory

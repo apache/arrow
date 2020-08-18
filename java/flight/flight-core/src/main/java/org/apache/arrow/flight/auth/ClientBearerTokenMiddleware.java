@@ -41,13 +41,15 @@ public class ClientBearerTokenMiddleware implements FlightClientMiddleware {
 
     @Override
     public FlightClientMiddleware onCallStarted(CallInfo info) {
-      if (info.method().equals(AuthConstants.HANDSHAKE_DESCRIPTOR_NAME)) {
+      logger.debug("Call name: {}", info.method().name());
+      if (info.method().name().equalsIgnoreCase(AuthConstants.HANDSHAKE_DESCRIPTOR_NAME)) {
         return new ClientAuthHandshakeMiddleware(this);
       }
 
       if (bearerToken == null) {
-        logger.error("Tried to execute a method without getting a bearer token from the authorization process.");
-        throw new FlightRuntimeException(CallStatus.INTERNAL);
+        logger.error("Tried to execute a non-handshake method without getting a " +
+            "bearer token from the authorization process.");
+        throw new FlightRuntimeException(CallStatus.UNAUTHENTICATED);
       }
       return new ClientBearerTokenMiddleware(bearerToken);
     }
