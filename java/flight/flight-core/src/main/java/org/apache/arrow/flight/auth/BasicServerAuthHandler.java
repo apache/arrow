@@ -19,6 +19,7 @@ package org.apache.arrow.flight.auth;
 
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.Optional;
 
@@ -52,14 +53,18 @@ public class BasicServerAuthHandler implements ServerAuthHandler {
       // The value has the format Base64(<username>:<password>)
       final String authDecoded = new String(Base64.getDecoder().decode(authEncoded), StandardCharsets.UTF_8);
       final String[] authInParts = authDecoded.split(":");
-      if (authInParts.length != 2) {
+      if (authInParts.length < 2) {
         throw new FlightRuntimeException(CallStatus.UNAUTHORIZED);
       }
-      final Optional<String> bearerToken = authValidator.validateCredentials(authInParts[0], authInParts[1]);
+
+      final String user = authInParts[0];
+      final String[] passwordParts = Arrays.copyOfRange(authInParts, 1, authInParts.length);
+      final String password = String.join(":", passwordParts);
+      final Optional<String> bearerToken = authValidator.validateCredentials(user, password);
       return new HandshakeResult() {
         @Override
         public String getPeerIdentity() {
-          return authInParts[0];
+          return user;
         }
 
         @Override
@@ -69,13 +74,11 @@ public class BasicServerAuthHandler implements ServerAuthHandler {
       };
 
     } catch (UnsupportedEncodingException ex) {
-      final FlightRuntimeException exception = new FlightRuntimeException(CallStatus.INTERNAL);
-      exception.initCause(ex);
-      throw exception;
+      throw new FlightRuntimeException(CallStatus.INTERNAL.withCause(ex));
+    } catch (FlightRuntimeException ex) {
+      throw ex;
     } catch (Exception ex) {
-      final FlightRuntimeException exception = new FlightRuntimeException(CallStatus.UNAUTHORIZED);
-      exception.initCause(ex);
-      throw exception;
+      throw new FlightRuntimeException(CallStatus.UNAUTHORIZED.withCause(ex));
     }
   }
 
@@ -85,7 +88,7 @@ public class BasicServerAuthHandler implements ServerAuthHandler {
   }
 
   /**
-   * Interface that this handler delegates for determining if credentials are valid.
+   * Interface that this handler delegates to forS determining if credentials are valid.
    */
   public interface BasicAuthValidator {
 

@@ -41,7 +41,7 @@ abstract class BearerTokenAuthHandler implements ServerAuthHandler {
     return new HandshakeResult() {
       @Override
       public String getPeerIdentity() {
-        return getPeerForBearerToken(bearerToken);
+        return getIdentityForBearerToken(bearerToken);
       }
 
       @Override
@@ -51,5 +51,5 @@ abstract class BearerTokenAuthHandler implements ServerAuthHandler {
     };
   }
 
-  protected abstract String getPeerForBearerToken(String bearerToken);
+  protected abstract String getIdentityForBearerToken(String bearerToken);
 }
