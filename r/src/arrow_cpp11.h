@@ -161,9 +161,9 @@ struct Input<const std::vector<std::shared_ptr<T>>&> {
 template <typename Rvector, typename T, typename ToVectorElement>
 Rvector to_r_vector(const std::vector<std::shared_ptr<T>>& x,
                     ToVectorElement&& to_element) {
-  auto n = x.size();
+  R_xlen_t n = x.size();
   Rvector out(n);
-  for (int i = 0; i < n; i++) {
+  for (R_xlen_t i = 0; i < n; i++) {
     out[i] = to_element(x[i]);
   }
   return out;
