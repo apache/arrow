@@ -2041,8 +2041,9 @@ def _get_partition_keys(Expression partition_expression):
 
 
 def _filesystemdataset_write(
-    data, object base_dir, Schema schema,
-    FileFormat format, FileSystem filesystem, Partitioning partitioning
+    data, object base_dir, Schema schema not None,
+    FileFormat format not None, FileSystem filesystem not None,
+    Partitioning partitioning not None, bint use_threads=True,
 ):
     """
     CFileSystemDataset.Write wrapper
@@ -2064,8 +2065,7 @@ def _filesystemdataset_write(
     c_format = format.unwrap()
     c_filesystem = filesystem.unwrap()
     c_partitioning = partitioning.unwrap()
-    # passthrough use_threads?
-    c_context = _build_scan_context()
+    c_context = _build_scan_context(use_threads=use_threads)
 
     if isinstance(data, Dataset):
         with nogil:

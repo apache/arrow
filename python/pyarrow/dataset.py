@@ -695,7 +695,7 @@ def _ensure_write_partitioning(scheme):
 
 
 def write_dataset(data, base_dir, format=None, partitioning=None, schema=None,
-                  filesystem=None):
+                  filesystem=None, use_threads=True):
     """
     Write a dataset to a given format and partitioning.
 
@@ -712,6 +712,9 @@ def write_dataset(data, base_dir, format=None, partitioning=None, schema=None,
     partitioning : Partitioning, optional
     schema : Schema, optional
     filesystem : FileSystem, optional
+    use_threads : bool, default True
+        Write files in parallel. If enabled, then maximum parallelism will be
+        used determined by the number of available CPU cores.
     """
     if isinstance(data, pa.Table):
         schema = schema or data.schema
@@ -732,5 +735,5 @@ def write_dataset(data, base_dir, format=None, partitioning=None, schema=None,
     filesystem, _ = _ensure_fs(filesystem)
 
     _filesystemdataset_write(
-        data, base_dir, schema, format, filesystem, partitioning
+        data, base_dir, schema, format, filesystem, partitioning, use_threads,
     )

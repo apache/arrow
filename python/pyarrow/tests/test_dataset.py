@@ -2130,7 +2130,8 @@ def _check_dataset_roundtrip(dataset, base_dir, expected_files,
     base_dir_path = base_dir_path or base_dir
 
     ds.write_dataset(
-        dataset, base_dir, format="feather", partitioning=partitioning)
+        dataset, base_dir, format="feather", partitioning=partitioning
+    )
 
     # check that all files are present
     file_paths = list(base_dir_path.rglob("*"))
@@ -2209,6 +2210,38 @@ def test_write_dataset_partitioned(tempdir):
     _check_dataset_roundtrip(
         dataset, str(target), expected_paths, target,
         partitioning=partitioning_schema)
+
+
+@pytest.mark.parquet
+@pytest.mark.pandas
+def test_write_dataset_use_threads(tempdir):
+    directory = tempdir / "partitioned"
+    _ = _create_parquet_dataset_partitioned(directory)
+    dataset = ds.dataset(directory, partitioning="hive")
+
+    partitioning = ds.partitioning(
+        pa.schema([("part", pa.string())]), flavor="hive")
+
+    target1 = tempdir / 'partitioned1'
+    ds.write_dataset(
+        dataset, target1, format="feather", partitioning=partitioning,
+        use_threads=True
+    )
+    target2 = tempdir / 'partitioned2'
+    ds.write_dataset(
+        dataset, target2, format="feather", partitioning=partitioning,
+        use_threads=False
+    )
+
+    # check that all files are the same in both cases
+    paths1 = [p.relative_to(target1) for p in target1.rglob("*")]
+    paths2 = [p.relative_to(target2) for p in target2.rglob("*")]
+    assert set(paths1) == set(paths2)
+
+    # check that reading in gives same result
+    result1 = ds.dataset(target1, format="feather", partitioning=partitioning)
+    result2 = ds.dataset(target2, format="feather", partitioning=partitioning)
+    assert result1.to_table().equals(result2.to_table())
 
 
 def test_write_table(tempdir):
