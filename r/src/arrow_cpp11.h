@@ -31,6 +31,8 @@ SEXP as_sexp(const std::vector<std::shared_ptr<T>>& vec);
 
 }  // namespace cpp11
 
+// TODO: move this include up once we can resolve this issue in cpp11
+//       https://github.com/apache/arrow/pull/7819#discussion_r471664878
 #include <cpp11.hpp>
 
 namespace arrow {
