@@ -24,6 +24,7 @@ use arrow::datatypes::{DataType as ArrowDataType, SchemaRef};
 use arrow::record_batch::RecordBatch;
 use arrow_array::Array;
 
+use super::schema::add_encoded_arrow_schema_to_metadata;
 use crate::column::writer::ColumnWriter;
 use crate::errors::{ParquetError, Result};
 use crate::file::properties::WriterProperties;
@@ -53,17 +54,17 @@ impl<W: 'static + ParquetWriter> ArrowWriter<W> {
     pub fn try_new(
         writer: W,
         arrow_schema: SchemaRef,
-        props: Option<Rc<WriterProperties>>,
+        props: Option<WriterProperties>,
     ) -> Result<Self> {
         let schema = crate::arrow::arrow_to_parquet_schema(&arrow_schema)?;
-        let props = match props {
-            Some(props) => props,
-            None => Rc::new(WriterProperties::builder().build()),
-        };
+        // add serialized arrow schema
+        let mut props = props.unwrap_or_else(|| WriterProperties::builder().build());
+        add_encoded_arrow_schema_to_metadata(&arrow_schema, &mut props);
+
         let file_writer = SerializedFileWriter::new(
             writer.try_clone()?,
             schema.root_schema_ptr(),
-            props,
+            Rc::new(props),
         )?;
 
         Ok(Self {
@@ -495,7 +496,7 @@ mod tests {
     use arrow::record_batch::{RecordBatch, RecordBatchReader};
 
     use crate::arrow::{ArrowReader, ParquetFileArrowReader};
-    use crate::file::reader::SerializedFileReader;
+    use crate::file::{metadata::KeyValue, reader::SerializedFileReader};
     use crate::util::test_common::get_temp_file;
 
     #[test]
@@ -584,7 +585,7 @@ mod tests {
         )
         .unwrap();
 
-        let mut file = get_temp_file("test_arrow_writer.parquet", &[]);
+        let mut file = get_temp_file("test_arrow_writer_binary.parquet", &[]);
         let mut writer =
             ArrowWriter::try_new(file.try_clone().unwrap(), Arc::new(schema), None)
                 .unwrap();
@@ -674,8 +675,16 @@ mod tests {
         )
         .unwrap();
 
+        let props = WriterProperties::builder()
+            .set_key_value_metadata(Some(vec![KeyValue {
+                key: "test_key".to_string(),
+                value: Some("test_value".to_string()),
+            }]))
+            .build();
+
         let file = get_temp_file("test_arrow_writer_complex.parquet", &[]);
-        let mut writer = ArrowWriter::try_new(file, Arc::new(schema), None).unwrap();
+        let mut writer =
+            ArrowWriter::try_new(file, Arc::new(schema), Some(props)).unwrap();
         writer.write(&batch).unwrap();
         writer.close().unwrap();
     }
