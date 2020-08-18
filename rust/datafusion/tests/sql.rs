@@ -251,7 +251,7 @@ fn csv_query_group_by_avg() -> Result<()> {
     let sql = "SELECT c1, avg(c12) FROM aggregate_test_100 GROUP BY c1";
     let mut actual = execute(&mut ctx, sql);
     actual.sort();
-    let expected = "\"a\"\t0.48754517466109415\n\"b\"\t0.41040709263815384\n\"c\"\t0.6600456536439784\n\"d\"\t0.48855379387549824\n\"e\"\t0.48600669271341534".to_string();
+    let expected = "\"a\"\t0.48754517466109415\n\"b\"\t0.41040709263815384\n\"c\"\t0.6600456536439784\n\"d\"\t0.48855379387549835\n\"e\"\t0.48600669271341534".to_string();
     assert_eq!(expected, actual.join("\n"));
     Ok(())
 }
@@ -263,7 +263,7 @@ fn csv_query_group_by_avg_with_projection() -> Result<()> {
     let sql = "SELECT avg(c12), c1 FROM aggregate_test_100 GROUP BY c1";
     let mut actual = execute(&mut ctx, sql);
     actual.sort();
-    let expected = "0.41040709263815384\t\"b\"\n0.48600669271341534\t\"e\"\n0.48754517466109415\t\"a\"\n0.48855379387549824\t\"d\"\n0.6600456536439784\t\"c\"".to_string();
+    let expected = "0.41040709263815384\t\"b\"\n0.48600669271341534\t\"e\"\n0.48754517466109415\t\"a\"\n0.48855379387549835\t\"d\"\n0.6600456536439784\t\"c\"".to_string();
     assert_eq!(expected, actual.join("\n"));
     Ok(())
 }

@@ -23,7 +23,6 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use crate::error::{ExecutionError, Result};
-use crate::execution::physical_plan::common::get_scalar_value;
 use crate::execution::physical_plan::{Accumulator, AggregateExpr, PhysicalExpr};
 use crate::logicalplan::{Operator, ScalarValue};
 use arrow::array::{
@@ -327,7 +326,7 @@ impl AggregateExpr for Avg {
 
     fn create_accumulator(&self) -> Rc<RefCell<dyn Accumulator>> {
         Rc::new(RefCell::new(AvgAccumulator {
-            sum: None,
+            avg: None,
             count: None,
         }))
     }
@@ -337,40 +336,86 @@ impl AggregateExpr for Avg {
     }
 }
 
-macro_rules! avg_accumulate {
+macro_rules! avg_accumulate_scalar {
     ($SELF:ident, $VALUE:expr, $ARRAY_TYPE:ident) => {{
-        match ($SELF.sum, $SELF.count) {
-            (Some(sum), Some(count)) => {
-                $SELF.sum = Some(sum + $VALUE as f64);
+        // details here: https://stackoverflow.com/a/23493727/931303
+        match ($SELF.avg, $SELF.count) {
+            (Some(avg), Some(count)) => {
                 $SELF.count = Some(count + 1);
+                let online = (avg * (count as f64) + $VALUE as f64) / (count + 1) as f64;
+                $SELF.avg = Some(online);
             }
             _ => {
-                $SELF.sum = Some($VALUE as f64);
                 $SELF.count = Some(1);
+                $SELF.avg = Some($VALUE as f64);
             }
         };
     }};
 }
+
+macro_rules! avg_accumulate_array {
+    ($SELF:ident, $ARRAY:expr, $ARRAY_TYPE:ident) => {{
+        // details here: https://stackoverflow.com/a/23493727/931303
+        let m = $ARRAY.len();
+        let sum = compute::sum($ARRAY.as_any().downcast_ref::<$ARRAY_TYPE>().unwrap());
+        let sum = match sum {
+            Some(sum) => sum as f64,
+            None => return Ok(()),
+        };
+        match ($SELF.avg, $SELF.count) {
+            (Some(avg), Some(count)) => {
+                $SELF.count = Some(count + m);
+                let online = (avg * (count as f64) + sum) / (count + m) as f64;
+                $SELF.avg = Some(online);
+            }
+            _ => {
+                $SELF.count = Some(m);
+                $SELF.avg = Some(sum / m as f64);
+            }
+        };
+    }};
+}
+
 #[derive(Debug)]
 struct AvgAccumulator {
-    sum: Option<f64>,
-    count: Option<i64>,
+    avg: Option<f64>, // online average
+    count: Option<usize>,
 }
 
 impl Accumulator for AvgAccumulator {
     fn accumulate_scalar(&mut self, value: Option<ScalarValue>) -> Result<()> {
         if let Some(value) = value {
             match value {
-                ScalarValue::Int8(value) => avg_accumulate!(self, value, Int8Array),
-                ScalarValue::Int16(value) => avg_accumulate!(self, value, Int16Array),
-                ScalarValue::Int32(value) => avg_accumulate!(self, value, Int32Array),
-                ScalarValue::Int64(value) => avg_accumulate!(self, value, Int64Array),
-                ScalarValue::UInt8(value) => avg_accumulate!(self, value, UInt8Array),
-                ScalarValue::UInt16(value) => avg_accumulate!(self, value, UInt16Array),
-                ScalarValue::UInt32(value) => avg_accumulate!(self, value, UInt32Array),
-                ScalarValue::UInt64(value) => avg_accumulate!(self, value, UInt64Array),
-                ScalarValue::Float32(value) => avg_accumulate!(self, value, Float32Array),
-                ScalarValue::Float64(value) => avg_accumulate!(self, value, Float64Array),
+                ScalarValue::Int8(value) => {
+                    avg_accumulate_scalar!(self, value, Int8Array)
+                }
+                ScalarValue::Int16(value) => {
+                    avg_accumulate_scalar!(self, value, Int16Array)
+                }
+                ScalarValue::Int32(value) => {
+                    avg_accumulate_scalar!(self, value, Int32Array)
+                }
+                ScalarValue::Int64(value) => {
+                    avg_accumulate_scalar!(self, value, Int64Array)
+                }
+                ScalarValue::UInt8(value) => {
+                    avg_accumulate_scalar!(self, value, UInt8Array)
+                }
+                ScalarValue::UInt16(value) => {
+                    avg_accumulate_scalar!(self, value, UInt16Array)
+                }
+                ScalarValue::UInt32(value) => {
+                    avg_accumulate_scalar!(self, value, UInt32Array)
+                }
+                ScalarValue::UInt64(value) => {
+                    avg_accumulate_scalar!(self, value, UInt64Array)
+                }
+                ScalarValue::Float32(value) => {
+                    avg_accumulate_scalar!(self, value, Float32Array)
+                }
+                ScalarValue::Float64(value) => {
+                    avg_accumulate_scalar!(self, value, Float64Array)
+                }
                 other => {
                     return Err(ExecutionError::General(format!(
                         "AVG does not support {:?}",
@@ -383,17 +428,30 @@ impl Accumulator for AvgAccumulator {
     }
 
     fn accumulate_batch(&mut self, array: &ArrayRef) -> Result<()> {
-        for row in 0..array.len() {
-            self.accumulate_scalar(get_scalar_value(array, row)?)?;
+        match array.data_type() {
+            DataType::Int8 => avg_accumulate_array!(self, array, Int8Array),
+            DataType::Int16 => avg_accumulate_array!(self, array, Int16Array),
+            DataType::Int32 => avg_accumulate_array!(self, array, Int32Array),
+            DataType::Int64 => avg_accumulate_array!(self, array, Int64Array),
+            DataType::UInt8 => avg_accumulate_array!(self, array, UInt8Array),
+            DataType::UInt16 => avg_accumulate_array!(self, array, UInt16Array),
+            DataType::UInt32 => avg_accumulate_array!(self, array, UInt32Array),
+            DataType::UInt64 => avg_accumulate_array!(self, array, UInt64Array),
+            DataType::Float32 => avg_accumulate_array!(self, array, Float32Array),
+            DataType::Float64 => avg_accumulate_array!(self, array, Float64Array),
+            other => {
+                return Err(ExecutionError::General(format!(
+                    "AVG does not support {:?}",
+                    other
+                )))
+            }
         }
         Ok(())
     }
 
     fn get_value(&self) -> Result<Option<ScalarValue>> {
-        match (self.sum, self.count) {
-            (Some(sum), Some(count)) => {
-                Ok(Some(ScalarValue::Float64(sum / count as f64)))
-            }
+        match self.avg {
+            Some(avg) => Ok(Some(ScalarValue::Float64(avg))),
             _ => Ok(None),
         }
     }
