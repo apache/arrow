@@ -494,7 +494,7 @@ class TypedConverter : public SeqConverter {
     return Status::OK();
   }
 
-  virtual Status Append(PyObject* obj) override {
+  Status Append(PyObject* obj) override {
     // Append null if the obj is None or pandas null otherwise the valid value
     return NullChecker<null_coding>::Check(obj) ? AppendNull() : AppendValue(obj);
   }
