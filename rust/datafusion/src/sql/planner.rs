@@ -239,7 +239,7 @@ impl<S: SchemaProvider> SqlToRel<S> {
 
         let plan = self.from_join_to_plan(&select.from)?;
 
-        // selection first
+        // filter (also known as selection) first
         let plan = self.filter(&plan, &select.selection)?;
 
         let projection_expr: Vec<Expr> = select
@@ -267,11 +267,11 @@ impl<S: SchemaProvider> SqlToRel<S> {
     fn filter(
         &self,
         plan: &LogicalPlan,
-        selection: &Option<SQLExpr>,
+        predicate: &Option<SQLExpr>,
     ) -> Result<LogicalPlan> {
-        match *selection {
-            Some(ref filter_expr) => LogicalPlanBuilder::from(&plan)
-                .filter(self.sql_to_rex(filter_expr, &plan.schema())?)?
+        match *predicate {
+            Some(ref predicate_expr) => LogicalPlanBuilder::from(&plan)
+                .filter(self.sql_to_rex(predicate_expr, &plan.schema())?)?
                 .build(),
             _ => Ok(plan.clone()),
         }
@@ -598,41 +598,41 @@ mod tests {
     }
 
     #[test]
-    fn select_simple_selection() {
+    fn select_simple_filter() {
         let sql = "SELECT id, first_name, last_name \
                    FROM person WHERE state = 'CO'";
         let expected = "Projection: #id, #first_name, #last_name\
-                        \n  Selection: #state Eq Utf8(\"CO\")\
+                        \n  Filter: #state Eq Utf8(\"CO\")\
                         \n    TableScan: person projection=None";
         quick_test(sql, expected);
     }
 
     #[test]
-    fn select_neg_selection() {
+    fn select_neg_filter() {
         let sql = "SELECT id, first_name, last_name \
                    FROM person WHERE NOT state";
         let expected = "Projection: #id, #first_name, #last_name\
-                        \n  Selection: NOT #state\
+                        \n  Filter: NOT #state\
                         \n    TableScan: person projection=None";
         quick_test(sql, expected);
     }
 
     #[test]
-    fn select_compound_selection() {
+    fn select_compound_filter() {
         let sql = "SELECT id, first_name, last_name \
                    FROM person WHERE state = 'CO' AND age >= 21 AND age <= 65";
         let expected = "Projection: #id, #first_name, #last_name\
-            \n  Selection: #state Eq Utf8(\"CO\") And #age GtEq Int64(21) And #age LtEq Int64(65)\
+            \n  Filter: #state Eq Utf8(\"CO\") And #age GtEq Int64(21) And #age LtEq Int64(65)\
             \n    TableScan: person projection=None";
         quick_test(sql, expected);
     }
 
     #[test]
-    fn test_timestamp_selection() {
+    fn test_timestamp_filter() {
         let sql = "SELECT state FROM person WHERE birth_date < CAST (158412331400600000 as timestamp)";
 
         let expected = "Projection: #state\
-            \n  Selection: #birth_date Lt CAST(Int64(158412331400600000) AS Timestamp(Nanosecond, None))\
+            \n  Filter: #birth_date Lt CAST(Int64(158412331400600000) AS Timestamp(Nanosecond, None))\
             \n    TableScan: person projection=None";
 
         quick_test(sql, expected);
@@ -649,7 +649,7 @@ mod tests {
                    AND age < 65 \
                    AND age <= 65";
         let expected = "Projection: #age, #first_name, #last_name\
-                        \n  Selection: #age Eq Int64(21) \
+                        \n  Filter: #age Eq Int64(21) \
                         And #age NotEq Int64(21) \
                         And #age Gt Int64(21) \
                         And #age GtEq Int64(21) \

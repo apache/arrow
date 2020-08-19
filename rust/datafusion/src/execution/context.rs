@@ -565,8 +565,8 @@ mod tests {
     }
 
     #[test]
-    fn parallel_selection() -> Result<()> {
-        let tmp_dir = TempDir::new("parallel_selection")?;
+    fn parallel_query_with_filter() -> Result<()> {
+        let tmp_dir = TempDir::new("parallel_query_with_filter")?;
         let partition_count = 4;
         let mut ctx = create_ctx(&tmp_dir, partition_count)?;
 

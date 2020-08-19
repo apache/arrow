@@ -740,7 +740,7 @@ impl fmt::Debug for Expr {
 }
 
 /// The LogicalPlan represents different types of relations (such as Projection,
-/// Selection, etc) and can be created by the SQL query planner and the DataFrame API.
+/// Filter, etc) and can be created by the SQL query planner and the DataFrame API.
 #[derive(Clone)]
 pub enum LogicalPlan {
     /// Evaluates an arbitrary list of expressions (essentially a
@@ -757,13 +757,13 @@ pub enum LogicalPlan {
     /// expression (essentially a WHERE clause with a predicate
     /// expression).
     ///
-    /// Semantically, `<expr>` is evaluated for each row of the input;
-    /// If the value of `<expr>` is true, the input row is passed to
-    /// the output. If the value of `<expr>` is false, the row is
+    /// Semantically, `<predicate>` is evaluated for each row of the input;
+    /// If the value of `<predicate>` is true, the input row is passed to
+    /// the output. If the value of `<predicate>` is false, the row is
     /// discarded.
-    Selection {
-        /// The expression. Must have Boolean type.
-        expr: Expr,
+    Filter {
+        /// The predicate expression, which must have Boolean type.
+        predicate: Expr,
         /// The incoming logical plan
         input: Box<LogicalPlan>,
     },
@@ -894,7 +894,7 @@ impl LogicalPlan {
                 projected_schema, ..
             } => &projected_schema,
             LogicalPlan::Projection { schema, .. } => &schema,
-            LogicalPlan::Selection { input, .. } => input.schema(),
+            LogicalPlan::Filter { input, .. } => input.schema(),
             LogicalPlan::Aggregate { schema, .. } => &schema,
             LogicalPlan::Sort { input, .. } => input.schema(),
             LogicalPlan::Limit { input, .. } => input.schema(),
@@ -954,12 +954,12 @@ impl LogicalPlan {
                 }
                 input.fmt_with_indent(f, indent + 1)
             }
-            LogicalPlan::Selection {
-                ref expr,
+            LogicalPlan::Filter {
+                predicate: ref expr,
                 ref input,
                 ..
             } => {
-                write!(f, "Selection: {:?}", expr)?;
+                write!(f, "Filter: {:?}", expr)?;
                 input.fmt_with_indent(f, indent + 1)
             }
             LogicalPlan::Aggregate {
@@ -1186,8 +1186,8 @@ impl LogicalPlanBuilder {
 
     /// Apply a filter
     pub fn filter(&self, expr: Expr) -> Result<Self> {
-        Ok(Self::from(&LogicalPlan::Selection {
-            expr,
+        Ok(Self::from(&LogicalPlan::Filter {
+            predicate: expr,
             input: Box::new(self.plan.clone()),
         }))
     }
@@ -1298,7 +1298,7 @@ mod tests {
         .build()?;
 
         let expected = "Projection: #id\
-        \n  Selection: #state Eq Utf8(\"CO\")\
+        \n  Filter: #state Eq Utf8(\"CO\")\
         \n    TableScan: employee.csv projection=Some([0, 3])";
 
         assert_eq!(expected, format!("{:?}", plan));
@@ -1318,7 +1318,7 @@ mod tests {
         .build()?;
 
         let expected = "Projection: #id\
-        \n  Selection: #state Eq Utf8(\"CO\")\
+        \n  Filter: #state Eq Utf8(\"CO\")\
         \n    CsvScan: employee.csv projection=Some([0, 3])";
 
         assert_eq!(expected, format!("{:?}", plan));

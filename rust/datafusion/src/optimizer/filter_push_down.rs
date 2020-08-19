@@ -43,13 +43,13 @@ This optimizer commutes filters with filter-commutative operations to push the f
 to the maximum possible depth, consequently re-writing the filter expressions by every
 projection that changes the filter's expression.
 
-    Selection: #b Gt Int64(10)
+    Filter: #b Gt Int64(10)
         Projection: #a AS b
 
 is optimized to
 
     Projection: #a AS b
-        Selection: #a Gt Int64(10)  <--- changed from #b to #a
+        Filter: #a Gt Int64(10)  <--- changed from #b to #a
 
 To perform such optimization, we first analyze the plan to identify three items:
 
@@ -84,20 +84,20 @@ impl OptimizerRule for FilterPushDown {
         }
         let max_depth = *max_depth.unwrap(); // unwrap is safe by previous if
 
-        // construct optimized position of each of the new selections
+        // construct optimized position of each of the new filters
         // E.g. when we have a filter (c1 + c2 > 2), c1's max depth is 10 and c2 is 11, we
         // can push the filter to depth 10
-        let mut new_selections: BTreeMap<usize, Expr> = BTreeMap::new();
-        for (selection_depth, expr) in result.selections {
+        let mut new_filtersnew_filters: BTreeMap<usize, Expr> = BTreeMap::new();
+        for (filter_depth, expr) in result.filters {
             // get all columns on the filter expression
-            let mut selection_columns: HashSet<String> = HashSet::new();
-            utils::expr_to_column_names(&expr, &mut selection_columns)?;
+            let mut filter_columns: HashSet<String> = HashSet::new();
+            utils::expr_to_column_names(&expr, &mut filter_columns)?;
 
-            // identify the depths that are filter-commutable with this selection
-            let mut new_depth = selection_depth;
-            for depth in selection_depth..max_depth {
+            // identify the depths that are filter-commutable with this filter
+            let mut new_depth = filter_depth;
+            for depth in filter_depth..max_depth {
                 if let Some(break_columns) = break_points.get(&depth) {
-                    if selection_columns
+                    if filter_columns
                         .intersection(break_columns)
                         .peekable()
                         .peek()
@@ -113,23 +113,23 @@ impl OptimizerRule for FilterPushDown {
                 }
             }
 
-            // re-write the new selections based on all projections that it crossed.
-            // E.g. in `Selection: #b\n  Projection: #a > 1 as b`, we can swap them, but the selection must be "#a > 1"
+            // re-write the new filters based on all projections that it crossed.
+            // E.g. in `Filter: #b\n  Projection: #a > 1 as b`, we can swap them, but the filter must be "#a > 1"
             let mut new_expression = expr.clone();
-            for depth_i in selection_depth..new_depth {
+            for depth_i in filter_depth..new_depth {
                 if let Some(projection) = result.projections.get(&depth_i) {
                     new_expression = rewrite(&new_expression, projection)?;
                 }
             }
 
             // AND filter expressions that would be placed on the same depth
-            if let Some(existing_expression) = new_selections.get(&new_depth) {
+            if let Some(existing_expression) = new_filtersnew_filters.get(&new_depth) {
                 new_expression = and(existing_expression, &new_expression)
             }
-            new_selections.insert(new_depth, new_expression);
+            new_filtersnew_filters.insert(new_depth, new_expression);
         }
 
-        optimize_plan(plan, &new_selections, 0)
+        optimize_plan(plan, &new_filtersnew_filters, 0)
     }
 }
 
@@ -141,7 +141,7 @@ struct AnalysisResult {
     /// depths not in here indicate that the node is commutative
     pub break_points: BTreeMap<usize, HashSet<String>>,
     /// maps the depths of filter nodes to expressions
-    pub selections: BTreeMap<usize, Expr>,
+    pub filters: BTreeMap<usize, Expr>,
     /// maps the depths of projection nodes to their expressions
     pub projections: BTreeMap<usize, HashMap<String, Expr>>,
 }
@@ -149,9 +149,9 @@ struct AnalysisResult {
 /// Recursively transverses the logical plan looking for depths that break filter pushdown
 fn analyze_plan(plan: &LogicalPlan, depth: usize) -> Result<AnalysisResult> {
     match plan {
-        LogicalPlan::Selection { input, expr } => {
+        LogicalPlan::Filter { input, predicate } => {
             let mut result = analyze_plan(&input, depth + 1)?;
-            result.selections.insert(depth, expr.clone());
+            result.filters.insert(depth, predicate.clone());
             Ok(result)
         }
         LogicalPlan::Projection {
@@ -164,7 +164,7 @@ fn analyze_plan(plan: &LogicalPlan, depth: usize) -> Result<AnalysisResult> {
             // collect projection.
             let mut projection = HashMap::new();
             schema.fields().iter().enumerate().for_each(|(i, field)| {
-                // strip alias, as they should not be part of selections
+                // strip alias, as they should not be part of filters
                 let expr = match &expr[i] {
                     Expr::Alias(expr, _) => expr.as_ref().clone(),
                     expr => expr.clone(),
@@ -224,7 +224,7 @@ fn analyze_plan(plan: &LogicalPlan, depth: usize) -> Result<AnalysisResult> {
             break_points.insert(depth, columns);
             Ok(AnalysisResult {
                 break_points,
-                selections: BTreeMap::new(),
+                filters: BTreeMap::new(),
                 projections: BTreeMap::new(),
             })
         }
@@ -241,14 +241,14 @@ impl FilterPushDown {
 /// Returns a re-written logical plan where all old filters are removed and the new ones are added.
 fn optimize_plan(
     plan: &LogicalPlan,
-    new_selections: &BTreeMap<usize, Expr>,
+    new_filters: &BTreeMap<usize, Expr>,
     depth: usize,
 ) -> Result<LogicalPlan> {
     // optimize the plan recursively:
     let new_plan = match plan {
-        LogicalPlan::Selection { input, .. } => {
-            // ignore old selections
-            Ok(optimize_plan(&input, new_selections, depth + 1)?)
+        LogicalPlan::Filter { input, .. } => {
+            // ignore old filters
+            Ok(optimize_plan(&input, new_filters, depth + 1)?)
         }
         _ => {
             // all other nodes are copied, optimizing recursively.
@@ -257,17 +257,17 @@ fn optimize_plan(
             let inputs = utils::inputs(plan);
             let new_inputs = inputs
                 .iter()
-                .map(|plan| optimize_plan(plan, new_selections, depth + 1))
+                .map(|plan| optimize_plan(plan, new_filters, depth + 1))
                 .collect::<Result<Vec<_>>>()?;
 
             utils::from_plan(plan, &expr, &new_inputs)
         }
     }?;
 
-    // if a new selection is to be applied, apply it
-    if let Some(expr) = new_selections.get(&depth) {
-        return Ok(LogicalPlan::Selection {
-            expr: expr.clone(),
+    // if a new filter is to be applied, apply it
+    if let Some(expr) = new_filters.get(&depth) {
+        return Ok(LogicalPlan::Filter {
+            predicate: expr.clone(),
             input: Box::new(new_plan),
         });
     } else {
@@ -317,10 +317,10 @@ mod tests {
             .project(vec![col("a"), col("b")])?
             .filter(col("a").eq(lit(1i64)))?
             .build()?;
-        // selection is before projection
+        // filter is before projection
         let expected = "\
             Projection: #a, #b\
-            \n  Selection: #a Eq Int64(1)\
+            \n  Filter: #a Eq Int64(1)\
             \n    TableScan: test projection=None";
         assert_optimized_plan_eq(&plan, expected);
         Ok(())
@@ -334,9 +334,9 @@ mod tests {
             .limit(10)?
             .filter(col("a").eq(lit(1i64)))?
             .build()?;
-        // selection is before single projection
+        // filter is before single projection
         let expected = "\
-            Selection: #a Eq Int64(1)\
+            Filter: #a Eq Int64(1)\
             \n  Limit: 10\
             \n    Projection: #a, #b\
             \n      TableScan: test projection=None";
@@ -352,11 +352,11 @@ mod tests {
             .project(vec![col("c"), col("b")])?
             .filter(col("a").eq(lit(1i64)))?
             .build()?;
-        // selection is before double projection
+        // filter is before double projection
         let expected = "\
             Projection: #c, #b\
             \n  Projection: #a, #b, #c\
-            \n    Selection: #a Eq Int64(1)\
+            \n    Filter: #a Eq Int64(1)\
             \n      TableScan: test projection=None";
         assert_optimized_plan_eq(&plan, expected);
         Ok(())
@@ -372,10 +372,10 @@ mod tests {
             )?
             .filter(col("a").gt(lit(10i64)))?
             .build()?;
-        // selection of key aggregation is commutative
+        // filter of key aggregation is commutative
         let expected = "\
             Aggregate: groupBy=[[#a]], aggr=[[SUM(#b) AS total_salary]]\
-            \n  Selection: #a Gt Int64(10)\
+            \n  Filter: #a Gt Int64(10)\
             \n    TableScan: test projection=None";
         assert_optimized_plan_eq(&plan, expected);
         Ok(())
@@ -391,9 +391,9 @@ mod tests {
             )?
             .filter(col("b").gt(lit(10i64)))?
             .build()?;
-        // selection of aggregate is after aggregation since they are non-commutative
+        // filter of aggregate is after aggregation since they are non-commutative
         let expected = "\
-            Selection: #b Gt Int64(10)\
+            Filter: #b Gt Int64(10)\
             \n  Aggregate: groupBy=[[#a]], aggr=[[SUM(#b) AS b]]\
             \n    TableScan: test projection=None";
         assert_optimized_plan_eq(&plan, expected);
@@ -408,10 +408,10 @@ mod tests {
             .project(vec![col("a").alias("b"), col("c")])?
             .filter(col("b").eq(lit(1i64)))?
             .build()?;
-        // selection is before projection
+        // filter is before projection
         let expected = "\
             Projection: #a AS b, #c\
-            \n  Selection: #a Eq Int64(1)\
+            \n  Filter: #a Eq Int64(1)\
             \n    TableScan: test projection=None";
         assert_optimized_plan_eq(&plan, expected);
         Ok(())
@@ -449,15 +449,15 @@ mod tests {
         assert_eq!(
             format!("{:?}", plan),
             "\
-            Selection: #b Eq Int64(1)\
+            Filter: #b Eq Int64(1)\
             \n  Projection: #a Multiply Int32(2) Plus #c AS b, #c\
             \n    TableScan: test projection=None"
         );
 
-        // selection is before projection
+        // filter is before projection
         let expected = "\
             Projection: #a Multiply Int32(2) Plus #c AS b, #c\
-            \n  Selection: #a Multiply Int32(2) Plus #c Eq Int64(1)\
+            \n  Filter: #a Multiply Int32(2) Plus #c Eq Int64(1)\
             \n    TableScan: test projection=None";
         assert_optimized_plan_eq(&plan, expected);
         Ok(())
@@ -481,17 +481,17 @@ mod tests {
         assert_eq!(
             format!("{:?}", plan),
             "\
-            Selection: #a Eq Int64(1)\
+            Filter: #a Eq Int64(1)\
             \n  Projection: #b Multiply Int32(3) AS a, #c\
             \n    Projection: #a Multiply Int32(2) Plus #c AS b, #c\
             \n      TableScan: test projection=None"
         );
 
-        // selection is before the projections
+        // filter is before the projections
         let expected = "\
         Projection: #b Multiply Int32(3) AS a, #c\
         \n  Projection: #a Multiply Int32(2) Plus #c AS b, #c\
-        \n    Selection: #a Multiply Int32(2) Plus #c Multiply Int32(3) Eq Int64(1)\
+        \n    Filter: #a Multiply Int32(2) Plus #c Multiply Int32(3) Eq Int64(1)\
         \n      TableScan: test projection=None";
         assert_optimized_plan_eq(&plan, expected);
         Ok(())
@@ -514,19 +514,19 @@ mod tests {
         assert_eq!(
             format!("{:?}", plan),
             "\
-            Selection: #SUM(c) Gt Int64(10)\
-            \n  Selection: #b Gt Int64(10)\
+            Filter: #SUM(c) Gt Int64(10)\
+            \n  Filter: #b Gt Int64(10)\
             \n    Aggregate: groupBy=[[#b]], aggr=[[SUM(#c)]]\
             \n      Projection: #a AS b, #c\
             \n        TableScan: test projection=None"
         );
 
-        // selection is before the projections
+        // filter is before the projections
         let expected = "\
-        Selection: #SUM(c) Gt Int64(10)\
+        Filter: #SUM(c) Gt Int64(10)\
         \n  Aggregate: groupBy=[[#b]], aggr=[[SUM(#c)]]\
         \n    Projection: #a AS b, #c\
-        \n      Selection: #a Gt Int64(10)\
+        \n      Filter: #a Gt Int64(10)\
         \n        TableScan: test projection=None";
         assert_optimized_plan_eq(&plan, expected);
 
@@ -544,10 +544,10 @@ mod tests {
             .project(vec![col("a"), col("b")])?
             .filter(col("a").eq(lit(1i64)))?
             .build()?;
-        // selection does not just any of the limits
+        // filter does not just any of the limits
         let expected = "\
             Projection: #a, #b\
-            \n  Selection: #a Eq Int64(1)\
+            \n  Filter: #a Eq Int64(1)\
             \n    Limit: 10\
             \n      Limit: 20\
             \n        Projection: #a, #b\
@@ -572,20 +572,20 @@ mod tests {
         // not part of the test
         assert_eq!(
             format!("{:?}", plan),
-            "Selection: #a GtEq Int64(1)\
+            "Filter: #a GtEq Int64(1)\
              \n  Projection: #a\
              \n    Limit: 1\
-             \n      Selection: #a LtEq Int64(1)\
+             \n      Filter: #a LtEq Int64(1)\
              \n        Projection: #a\
              \n          TableScan: test projection=None"
         );
 
         let expected = "\
         Projection: #a\
-        \n  Selection: #a GtEq Int64(1)\
+        \n  Filter: #a GtEq Int64(1)\
         \n    Limit: 1\
         \n      Projection: #a\
-        \n        Selection: #a LtEq Int64(1)\
+        \n        Filter: #a LtEq Int64(1)\
         \n          TableScan: test projection=None";
 
         assert_optimized_plan_eq(&plan, expected);
@@ -607,15 +607,15 @@ mod tests {
         assert_eq!(
             format!("{:?}", plan),
             "Projection: #a\
-            \n  Selection: #a GtEq Int64(1)\
-            \n    Selection: #a LtEq Int64(1)\
+            \n  Filter: #a GtEq Int64(1)\
+            \n    Filter: #a LtEq Int64(1)\
             \n      Limit: 1\
             \n        TableScan: test projection=None"
         );
 
         let expected = "\
         Projection: #a\
-        \n  Selection: #a GtEq Int64(1) And #a LtEq Int64(1)\
+        \n  Filter: #a GtEq Int64(1) And #a LtEq Int64(1)\
         \n    Limit: 1\
         \n      TableScan: test projection=None";
 

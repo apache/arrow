@@ -15,7 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! Defines the selection execution plan. A selection filters rows based on a predicate
+//! FilterExec evaluates a boolean predicate against all input batches to determine which rows to
+//! include in its output batches.
 
 use std::sync::{Arc, Mutex};
 
@@ -23,36 +24,43 @@ use crate::error::{ExecutionError, Result};
 use crate::execution::physical_plan::{ExecutionPlan, Partition, PhysicalExpr};
 use arrow::array::BooleanArray;
 use arrow::compute::filter;
-use arrow::datatypes::SchemaRef;
+use arrow::datatypes::{DataType, SchemaRef};
 use arrow::error::Result as ArrowResult;
 use arrow::record_batch::{RecordBatch, RecordBatchReader};
 
-/// Execution plan for a Selection
+/// FilterExec evaluates a boolean predicate against all input batches to determine which rows to
+/// include in its output batches.
 #[derive(Debug)]
-pub struct SelectionExec {
-    /// The selection predicate expression
-    expr: Arc<dyn PhysicalExpr>,
+pub struct FilterExec {
+    /// The expression to filter on. This expression must evaluate to a boolean value.
+    predicate: Arc<dyn PhysicalExpr>,
     /// The input plan
     input: Arc<dyn ExecutionPlan>,
 }
 
-impl SelectionExec {
-    /// Create a selection on an input
+impl FilterExec {
+    /// Create a FilterExec on an input
     pub fn try_new(
-        expr: Arc<dyn PhysicalExpr>,
+        predicate: Arc<dyn PhysicalExpr>,
         input: Arc<dyn ExecutionPlan>,
     ) -> Result<Self> {
-        Ok(Self {
-            expr: expr.clone(),
-            input: input.clone(),
-        })
+        match predicate.data_type(input.schema().as_ref())? {
+            DataType::Boolean => Ok(Self {
+                predicate: predicate.clone(),
+                input: input.clone(),
+            }),
+            other => Err(ExecutionError::General(format!(
+                "Filter predicate must return boolean values, not {:?}",
+                other
+            ))),
+        }
     }
 }
 
-impl ExecutionPlan for SelectionExec {
+impl ExecutionPlan for FilterExec {
     /// Get the schema for this execution plan
     fn schema(&self) -> SchemaRef {
-        // The selection operator does not make any changes to the schema of its input
+        // The filter operator does not make any changes to the schema of its input
         self.input.schema()
     }
 
@@ -63,10 +71,10 @@ impl ExecutionPlan for SelectionExec {
             .partitions()?
             .iter()
             .map(|p| {
-                let expr = self.expr.clone();
-                let partition: Arc<dyn Partition> = Arc::new(SelectionPartition {
+                let expr = self.predicate.clone();
+                let partition: Arc<dyn Partition> = Arc::new(FilterExecPartition {
                     schema: self.input.schema(),
-                    expr,
+                    predicate: expr,
                     input: p.clone() as Arc<dyn Partition>,
                 });
 
@@ -78,33 +86,40 @@ impl ExecutionPlan for SelectionExec {
     }
 }
 
-/// Represents a single partition of a Selection execution plan
+/// Represents a single partition of a filter execution plan
 #[derive(Debug)]
-struct SelectionPartition {
+struct FilterExecPartition {
+    /// Output schema, which is the same as the input schema for this operator
     schema: SchemaRef,
-    expr: Arc<dyn PhysicalExpr>,
+    /// The expression to filter on. This expression must evaluate to a boolean value.
+    predicate: Arc<dyn PhysicalExpr>,
+    /// The input partition to filter.
     input: Arc<dyn Partition>,
 }
 
-impl Partition for SelectionPartition {
-    /// Execute the Selection
+impl Partition for FilterExecPartition {
+    /// Execute the filter
     fn execute(&self) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
-        Ok(Arc::new(Mutex::new(SelectionIterator {
+        Ok(Arc::new(Mutex::new(FilterExecIter {
             schema: self.schema.clone(),
-            expr: self.expr.clone(),
+            predicate: self.predicate.clone(),
             input: self.input.execute()?,
         })))
     }
 }
 
-/// Selection iterator
-struct SelectionIterator {
+/// The FilterExec iterator wraps the input iterator and applies the predicate expression to
+/// determine which rows to include in its output batches
+struct FilterExecIter {
+    /// Output schema, which is the same as the input schema for this operator
     schema: SchemaRef,
-    expr: Arc<dyn PhysicalExpr>,
+    /// The expression to filter on. This expression must evaluate to a boolean value.
+    predicate: Arc<dyn PhysicalExpr>,
+    /// The input partition to filter.
     input: Arc<Mutex<dyn RecordBatchReader + Send + Sync>>,
 }
 
-impl RecordBatchReader for SelectionIterator {
+impl RecordBatchReader for FilterExecIter {
     /// Get the schema
     fn schema(&self) -> SchemaRef {
         self.schema.clone()
@@ -115,16 +130,16 @@ impl RecordBatchReader for SelectionIterator {
         let mut input = self.input.lock().unwrap();
         match input.next_batch()? {
             Some(batch) => {
-                // evaluate the selection predicate to get a boolean array
-                let predicate_result = self
-                    .expr
+                // evaluate the filter predicate to get a boolean array indicating which rows
+                // to include in the output
+                let result = self
+                    .predicate
                     .evaluate(&batch)
                     .map_err(ExecutionError::into_arrow_external_error)?;
 
-                if let Some(f) = predicate_result.as_any().downcast_ref::<BooleanArray>()
-                {
+                if let Some(f) = result.as_any().downcast_ref::<BooleanArray>() {
                     // filter each array
-                    let mut filtered_arrays = vec![];
+                    let mut filtered_arrays = Vec::with_capacity(batch.num_columns());
                     for i in 0..batch.num_columns() {
                         let array = batch.column(i);
                         let filtered_array = filter(array.as_ref(), f)?;
@@ -136,7 +151,7 @@ impl RecordBatchReader for SelectionIterator {
                     )?))
                 } else {
                     Err(ExecutionError::InternalError(
-                        "Predicate evaluated to non-boolean value".to_string(),
+                        "Filter predicate evaluated to non-boolean value".to_string(),
                     )
                     .into_arrow_external_error())
                 }
@@ -173,10 +188,10 @@ mod tests {
             binary(col("c2"), Operator::Lt, lit(ScalarValue::UInt32(4))),
         );
 
-        let selection: Arc<dyn ExecutionPlan> =
-            Arc::new(SelectionExec::try_new(predicate, Arc::new(csv))?);
+        let filter: Arc<dyn ExecutionPlan> =
+            Arc::new(FilterExec::try_new(predicate, Arc::new(csv))?);
 
-        let results = test::execute(selection.as_ref())?;
+        let results = test::execute(filter.as_ref())?;
 
         results
             .iter()

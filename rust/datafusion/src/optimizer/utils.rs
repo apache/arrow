@@ -217,7 +217,7 @@ pub fn optimize_explain(
 pub fn expressions(plan: &LogicalPlan) -> Vec<Expr> {
     match plan {
         LogicalPlan::Projection { expr, .. } => expr.clone(),
-        LogicalPlan::Selection { expr, .. } => vec![expr.clone()],
+        LogicalPlan::Filter { predicate, .. } => vec![predicate.clone()],
         LogicalPlan::Aggregate {
             group_expr,
             aggr_expr,
@@ -244,7 +244,7 @@ pub fn expressions(plan: &LogicalPlan) -> Vec<Expr> {
 pub fn inputs(plan: &LogicalPlan) -> Vec<&LogicalPlan> {
     match plan {
         LogicalPlan::Projection { input, .. } => vec![input],
-        LogicalPlan::Selection { input, .. } => vec![input],
+        LogicalPlan::Filter { input, .. } => vec![input],
         LogicalPlan::Aggregate { input, .. } => vec![input],
         LogicalPlan::Sort { input, .. } => vec![input],
         LogicalPlan::Limit { input, .. } => vec![input],
@@ -271,8 +271,8 @@ pub fn from_plan(
             input: Box::new(inputs[0].clone()),
             schema: schema.clone(),
         }),
-        LogicalPlan::Selection { .. } => Ok(LogicalPlan::Selection {
-            expr: expr[0].clone(),
+        LogicalPlan::Filter { .. } => Ok(LogicalPlan::Filter {
+            predicate: expr[0].clone(),
             input: Box::new(inputs[0].clone()),
         }),
         LogicalPlan::Aggregate {

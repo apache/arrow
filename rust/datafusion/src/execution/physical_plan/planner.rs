@@ -27,13 +27,13 @@ use crate::execution::physical_plan::explain::ExplainExec;
 use crate::execution::physical_plan::expressions::{
     Avg, BinaryExpr, CastExpr, Column, Count, Literal, Max, Min, PhysicalSortExpr, Sum,
 };
+use crate::execution::physical_plan::filter::FilterExec;
 use crate::execution::physical_plan::hash_aggregate::HashAggregateExec;
 use crate::execution::physical_plan::limit::GlobalLimitExec;
 use crate::execution::physical_plan::memory::MemoryExec;
 use crate::execution::physical_plan::merge::MergeExec;
 use crate::execution::physical_plan::parquet::ParquetExec;
 use crate::execution::physical_plan::projection::ProjectionExec;
-use crate::execution::physical_plan::selection::SelectionExec;
 use crate::execution::physical_plan::sort::SortExec;
 use crate::execution::physical_plan::udf::ScalarFunctionExpr;
 use crate::execution::physical_plan::{
@@ -238,12 +238,17 @@ impl PhysicalPlanner for DefaultPhysicalPlanner {
                     merge,
                 )?))
             }
-            LogicalPlan::Selection { input, expr, .. } => {
+            LogicalPlan::Filter {
+                input, predicate, ..
+            } => {
                 let input = self.create_physical_plan(input, ctx_state.clone())?;
                 let input_schema = input.as_ref().schema().clone();
-                let runtime_expr =
-                    self.create_physical_expr(expr, &input_schema, ctx_state.clone())?;
-                Ok(Arc::new(SelectionExec::try_new(runtime_expr, input)?))
+                let runtime_expr = self.create_physical_expr(
+                    predicate,
+                    &input_schema,
+                    ctx_state.clone(),
+                )?;
+                Ok(Arc::new(FilterExec::try_new(runtime_expr, input)?))
             }
             LogicalPlan::Sort { expr, input, .. } => {
                 let input = self.create_physical_plan(input, ctx_state.clone())?;

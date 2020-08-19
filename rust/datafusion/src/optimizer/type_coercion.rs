@@ -182,7 +182,7 @@ mod tests {
   Sort: #c1
     Aggregate: groupBy=[[#c1]], aggr=[[SUM(#c2)]]
       Projection: #c1, #c2
-        Selection: #c7 Lt CAST(UInt8(5) AS Int64)";
+        Filter: #c7 Lt CAST(UInt8(5) AS Int64)";
         assert!(plan_str.starts_with(expected_plan_str));
 
         Ok(())
@@ -202,9 +202,7 @@ mod tests {
         let mut rule = TypeCoercionRule::new(Arc::new(Mutex::new(scalar_functions)));
         let plan = rule.optimize(&plan)?;
 
-        assert!(
-            format!("{:?}", plan).starts_with("Selection: CAST(#c7 AS Float64) Lt #c12")
-        );
+        assert!(format!("{:?}", plan).starts_with("Filter: CAST(#c7 AS Float64) Lt #c12"));
 
         Ok(())
     }
