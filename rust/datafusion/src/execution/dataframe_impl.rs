@@ -113,6 +113,13 @@ impl DataFrame for DataFrameImpl {
     fn schema(&self) -> &Schema {
         self.plan.schema().as_ref()
     }
+
+    fn explain(&self, verbose: bool) -> Result<Arc<dyn DataFrame>> {
+        let plan = LogicalPlanBuilder::from(&self.plan)
+            .explain(verbose)?
+            .build()?;
+        Ok(Arc::new(DataFrameImpl::new(self.ctx_state.clone(), &plan)))
+    }
 }
 
 #[cfg(test)]
@@ -194,6 +201,26 @@ mod tests {
         // build query using SQL
         let sql_plan =
             create_plan("SELECT c1, c2, c11 FROM aggregate_test_100 LIMIT 10")?;
+
+        // the two plans should be identical
+        assert_same_plan(&plan, &sql_plan);
+
+        Ok(())
+    }
+
+    #[test]
+    fn explain() -> Result<()> {
+        // build query using Table API
+        let df = test_table()?;
+        let df = df
+            .select_columns(vec!["c1", "c2", "c11"])?
+            .limit(10)?
+            .explain(false)?;
+        let plan = df.to_logical_plan();
+
+        // build query using SQL
+        let sql_plan =
+            create_plan("EXPLAIN SELECT c1, c2, c11 FROM aggregate_test_100 LIMIT 10")?;
 
         // the two plans should be identical
         assert_same_plan(&plan, &sql_plan);

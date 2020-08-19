@@ -1251,6 +1251,23 @@ impl LogicalPlanBuilder {
         }))
     }
 
+    /// Create an expression to represent the explanation of the plan
+    pub fn explain(&self, verbose: bool) -> Result<Self> {
+        let stringified_plans = vec![StringifiedPlan::new(
+            PlanType::LogicalPlan,
+            format!("{:#?}", self.plan.clone()),
+        )];
+
+        let schema = LogicalPlan::explain_schema();
+
+        Ok(Self::from(&LogicalPlan::Explain {
+            verbose,
+            plan: Box::new(self.plan.clone()),
+            stringified_plans,
+            schema,
+        }))
+    }
+
     /// Build the plan
     pub fn build(&self) -> Result<LogicalPlan> {
         Ok(self.plan.clone())

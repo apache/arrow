@@ -174,4 +174,18 @@ pub trait DataFrame {
 
     /// Return the logical plan represented by this DataFrame.
     fn to_logical_plan(&self) -> LogicalPlan;
+
+    /// Return a DataFrame with the explanation of its plan so far.
+    ///
+    /// ```
+    /// # use datafusion::prelude::*;
+    /// # use datafusion::error::Result;
+    /// # fn main() -> Result<()> {
+    /// let mut ctx = ExecutionContext::new();
+    /// let df = ctx.read_csv("tests/example.csv", CsvReadOptions::new())?;
+    /// let batches = df.limit(100)?.explain(false)?.collect()?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    fn explain(&self, verbose: bool) -> Result<Arc<dyn DataFrame>>;
 }
