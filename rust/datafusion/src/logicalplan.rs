@@ -264,21 +264,9 @@ fn create_name(e: &Expr, input_schema: &Schema) -> Result<String> {
     }
 }
 
-/// Returns the datatype of the expression given the input schema
-// note: the physical plan derived from an expression must match the datatype on this function.
-pub fn expr_to_field(e: &Expr, input_schema: &Schema) -> Result<Field> {
-    Ok(Field::new(
-        &e.name(input_schema)?,
-        e.get_type(input_schema)?,
-        e.nullable(input_schema)?,
-    ))
-}
-
 /// Create field meta-data from an expression, for use in a result set schema
 pub fn exprlist_to_fields(expr: &[Expr], input_schema: &Schema) -> Result<Vec<Field>> {
-    expr.iter()
-        .map(|e| expr_to_field(e, input_schema))
-        .collect()
+    expr.iter().map(|e| e.to_field(input_schema)).collect()
 }
 
 /// Relation expression
@@ -455,6 +443,15 @@ impl Expr {
     /// This represents how a column with this expression is named when no alias is chosen
     pub fn name(&self, input_schema: &Schema) -> Result<String> {
         create_name(self, input_schema)
+    }
+
+    /// Create a Field representing this expression
+    pub fn to_field(&self, input_schema: &Schema) -> Result<Field> {
+        Ok(Field::new(
+            &self.name(input_schema)?,
+            self.get_type(input_schema)?,
+            self.nullable(input_schema)?,
+        ))
     }
 
     /// Perform a type cast on the expression value.

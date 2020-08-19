@@ -71,7 +71,11 @@ impl HashAggregateExec {
             ))
         }
         for (expr, name) in &aggr_expr {
-            fields.push(Field::new(&name, expr.data_type(&input_schema)?, true))
+            fields.push(Field::new(
+                &name,
+                expr.data_type(&input_schema)?,
+                expr.nullable(&input_schema)?,
+            ))
         }
         let schema = Arc::new(Schema::new(fields));
 
