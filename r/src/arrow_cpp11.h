@@ -47,6 +47,21 @@ SEXP as_sexp(const std::vector<std::shared_ptr<T>>& vec);
 namespace arrow {
 namespace r {
 
+// until cpp11 has a similar class
+class complexs {
+ public:
+  using value_type = Rcomplex;
+
+  complexs(SEXP x) : data_(x) {}
+
+  inline R_xlen_t size() const { return XLENGTH(data_); }
+
+  inline operator SEXP() const { return data_; }
+
+ private:
+  cpp11::sexp data_;
+};
+
 // functions that need to be called from an unwind_protect()
 namespace unsafe {
 

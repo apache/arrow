@@ -48,9 +48,8 @@ std::shared_ptr<arrow::Buffer> r___RBuffer__initialize(SEXP x) {
       return std::make_shared<arrow::r::RBuffer<cpp11::doubles>>(x);
     case INTSXP:
       return std::make_shared<arrow::r::RBuffer<cpp11::integers>>(x);
-    // until cpp11 has a CPLXSXP vector
-    // case CPLXSXP:
-    //   return std::make_shared<arrow::r::RBuffer<CPLXSXP, cpp11::c>>(x);
+    case CPLXSXP:
+      return std::make_shared<arrow::r::RBuffer<arrow::r::complexs>>(x);
     default:
       break;
   }
