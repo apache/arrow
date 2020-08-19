@@ -1076,25 +1076,23 @@ class StringVectorConverter : public VectorConverter {
     ARROW_RETURN_IF(TYPEOF(obj) != STRSXP,
                     Status::RError("Expecting a character vector"));
 
-    cpp11::strings s(obj);
+    cpp11::strings s(arrow::r::utf8_strings(obj));
     RETURN_NOT_OK(typed_builder_->Reserve(s.size()));
 
-    // note: the total length is calculated without utf8
-    //       conversion, so see this more as a hint rather than
-    //       the actual total length
-    int64_t total_length_hint = 0;
+    // we know all the R strings are utf8 already, so we can get
+    // a definite size and then use UnsafeAppend*()
+    int64_t total_length = 0;
     for (cpp11::r_string si : s) {
-      total_length_hint += cpp11::is_na(si) ? 0 : si.size();
+      total_length += cpp11::is_na(si) ? 0 : si.size();
     }
-    RETURN_NOT_OK(typed_builder_->ReserveData(total_length_hint));
+    RETURN_NOT_OK(typed_builder_->ReserveData(total_length));
 
     // append
     for (cpp11::r_string si : s) {
       if (si == NA_STRING) {
-        RETURN_NOT_OK(typed_builder_->AppendNull());
+        typed_builder_->UnsafeAppendNull();
       } else {
-        // converting the r_string to a std::string enforces utf-8
-        RETURN_NOT_OK(typed_builder_->Append(std::string(si)));
+        typed_builder_->UnsafeAppend(CHAR(si), si.size());
       }
     }
 

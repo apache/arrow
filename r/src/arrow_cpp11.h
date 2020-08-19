@@ -50,13 +50,6 @@ namespace r {
 // functions that need to be called from an unwind_protect()
 namespace unsafe {
 
-inline SEXP utf8_r_string(SEXP s) {
-  if (!IS_UTF8(s) && !IS_ASCII(s)) {
-    s = Rf_mkCharCE(Rf_translateCharUTF8(s), CE_UTF8);
-  }
-  return s;
-}
-
 inline const char* utf8_string(SEXP s) {
   if (!IS_UTF8(s) && !IS_ASCII(s)) {
     return Rf_translateCharUTF8(s);
@@ -66,14 +59,29 @@ inline const char* utf8_string(SEXP s) {
 }
 
 inline R_xlen_t r_string_size(SEXP s) {
-  if (!IS_UTF8(s) && !IS_ASCII(s)) {
-    return strlen(Rf_translateCharUTF8(s));
-  } else {
+  if (s == NA_STRING) {
+    return 0;
+  } else if (IS_ASCII(s) || IS_UTF8(s)) {
     return XLENGTH(s);
+  } else {
+    return strlen(Rf_translateCharUTF8(s));
   }
 }
 
 }  // namespace unsafe
+
+inline SEXP utf8_strings(SEXP x) {
+  return cpp11::unwind_protect([x] {
+    R_xlen_t n = XLENGTH(x);
+    for (R_xlen_t i = 0; i < n; i++) {
+      SEXP s = STRING_ELT(x, i);
+      if (s != NA_STRING && !IS_UTF8(s) && !IS_ASCII(s)) {
+        SET_STRING_ELT(x, i, Rf_mkCharCE(Rf_translateCharUTF8(s), CE_UTF8));
+      }
+    }
+    return x;
+  });
+}
 
 struct symbols {
   static SEXP units;
