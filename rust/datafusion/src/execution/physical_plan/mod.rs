@@ -63,7 +63,7 @@ pub trait Partition: Send + Sync + Debug {
 pub trait PhysicalExpr: Send + Sync + Display + Debug {
     /// Get the data type of this expression, given the schema of the input
     fn data_type(&self, input_schema: &Schema) -> Result<DataType>;
-    /// Decide whehter this expression is nullable, given the schema of the input
+    /// Determine whether this expression is nullable, given the schema of the input
     fn nullable(&self, input_schema: &Schema) -> Result<bool>;
     /// Evaluate an expression against a RecordBatch
     fn evaluate(&self, batch: &RecordBatch) -> Result<ArrayRef>;
@@ -73,6 +73,8 @@ pub trait PhysicalExpr: Send + Sync + Display + Debug {
 pub trait AggregateExpr: Send + Sync + Debug {
     /// Get the data type of this expression, given the schema of the input
     fn data_type(&self, input_schema: &Schema) -> Result<DataType>;
+    /// Determine whether this expression is nullable, given the schema of the input
+    fn nullable(&self, input_schema: &Schema) -> Result<bool>;
     /// Evaluate the expression being aggregated
     fn evaluate_input(&self, batch: &RecordBatch) -> Result<ArrayRef>;
     /// Create an accumulator for this aggregate expression

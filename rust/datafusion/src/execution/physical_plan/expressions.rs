@@ -125,6 +125,11 @@ impl AggregateExpr for Sum {
         }
     }
 
+    fn nullable(&self, _input_schema: &Schema) -> Result<bool> {
+        // null should be returned if no rows are aggregated
+        Ok(true)
+    }
+
     fn evaluate_input(&self, batch: &RecordBatch) -> Result<ArrayRef> {
         self.expr.evaluate(batch)
     }
@@ -321,6 +326,11 @@ impl AggregateExpr for Avg {
         }
     }
 
+    fn nullable(&self, _input_schema: &Schema) -> Result<bool> {
+        // null should be returned if no rows are aggregated
+        Ok(true)
+    }
+
     fn evaluate_input(&self, batch: &RecordBatch) -> Result<ArrayRef> {
         self.expr.evaluate(batch)
     }
@@ -420,6 +430,11 @@ impl Max {
 impl AggregateExpr for Max {
     fn data_type(&self, input_schema: &Schema) -> Result<DataType> {
         self.expr.data_type(input_schema)
+    }
+
+    fn nullable(&self, _input_schema: &Schema) -> Result<bool> {
+        // null should be returned if no rows are aggregated
+        Ok(true)
     }
 
     fn evaluate_input(&self, batch: &RecordBatch) -> Result<ArrayRef> {
@@ -606,6 +621,11 @@ impl AggregateExpr for Min {
         self.expr.data_type(input_schema)
     }
 
+    fn nullable(&self, _input_schema: &Schema) -> Result<bool> {
+        // null should be returned if no rows are aggregated
+        Ok(true)
+    }
+
     fn evaluate_input(&self, batch: &RecordBatch) -> Result<ArrayRef> {
         self.expr.evaluate(batch)
     }
@@ -789,6 +809,11 @@ impl Count {
 impl AggregateExpr for Count {
     fn data_type(&self, _input_schema: &Schema) -> Result<DataType> {
         Ok(DataType::UInt64)
+    }
+
+    fn nullable(&self, _input_schema: &Schema) -> Result<bool> {
+        // null should be returned if no rows are aggregated
+        Ok(true)
     }
 
     fn evaluate_input(&self, batch: &RecordBatch) -> Result<ArrayRef> {
@@ -990,9 +1015,8 @@ impl PhysicalExpr for BinaryExpr {
         })
     }
 
-    fn nullable(&self, _input_schema: &Schema) -> Result<bool> {
-        // this is not correct
-        Ok(false)
+    fn nullable(&self, input_schema: &Schema) -> Result<bool> {
+        Ok(self.left.nullable(input_schema)? || self.right.nullable(input_schema)?)
     }
 
     fn evaluate(&self, batch: &RecordBatch) -> Result<ArrayRef> {

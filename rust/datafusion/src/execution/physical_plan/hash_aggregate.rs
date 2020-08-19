@@ -64,10 +64,18 @@ impl HashAggregateExec {
 
         let mut fields = Vec::with_capacity(group_expr.len() + aggr_expr.len());
         for (expr, name) in &group_expr {
-            fields.push(Field::new(name, expr.data_type(&input_schema)?, true))
+            fields.push(Field::new(
+                name,
+                expr.data_type(&input_schema)?,
+                expr.nullable(&input_schema)?,
+            ))
         }
         for (expr, name) in &aggr_expr {
-            fields.push(Field::new(&name, expr.data_type(&input_schema)?, true))
+            fields.push(Field::new(
+                &name,
+                expr.data_type(&input_schema)?,
+                expr.nullable(&input_schema)?,
+            ))
         }
         let schema = Arc::new(Schema::new(fields));
 
