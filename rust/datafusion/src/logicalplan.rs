@@ -267,8 +267,11 @@ fn create_name(e: &Expr, input_schema: &Schema) -> Result<String> {
 /// Returns the datatype of the expression given the input schema
 // note: the physical plan derived from an expression must match the datatype on this function.
 pub fn expr_to_field(e: &Expr, input_schema: &Schema) -> Result<Field> {
-    let data_type = e.get_type(input_schema)?;
-    Ok(Field::new(&e.name(input_schema)?, data_type, true))
+    Ok(Field::new(
+        &e.name(input_schema)?,
+        e.get_type(input_schema)?,
+        e.nullable(input_schema)?,
+    ))
 }
 
 /// Create field meta-data from an expression, for use in a result set schema
@@ -416,6 +419,34 @@ impl Expr {
                 "Wildcard expressions are not valid in a logical query plan".to_owned(),
             )),
             Expr::Nested(e) => e.get_type(schema),
+        }
+    }
+
+    /// Determine if this expression can produce null values
+    pub fn nullable(&self, input_schema: &Schema) -> Result<bool> {
+        match self {
+            Expr::Alias(expr, _) => expr.nullable(input_schema),
+            Expr::Column(name) => Ok(input_schema.field_with_name(name)?.is_nullable()),
+            Expr::Literal(value) => match value {
+                ScalarValue::Null => Ok(true),
+                _ => Ok(false),
+            },
+            Expr::Cast { expr, .. } => expr.nullable(input_schema),
+            Expr::ScalarFunction { .. } => Ok(true),
+            Expr::AggregateFunction { .. } => Ok(true),
+            Expr::Not(_) => Ok(false),
+            Expr::IsNull(_) => Ok(false),
+            Expr::IsNotNull(_) => Ok(false),
+            Expr::BinaryExpr {
+                ref left,
+                ref right,
+                ..
+            } => Ok(left.nullable(input_schema)? || right.nullable(input_schema)?),
+            Expr::Sort { ref expr, .. } => expr.nullable(input_schema),
+            Expr::Nested(e) => e.nullable(input_schema),
+            Expr::Wildcard => Err(ExecutionError::General(
+                "Wildcard expressions are not valid in a logical query plan".to_owned(),
+            )),
         }
     }
 

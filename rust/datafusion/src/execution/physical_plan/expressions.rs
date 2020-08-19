@@ -990,9 +990,8 @@ impl PhysicalExpr for BinaryExpr {
         })
     }
 
-    fn nullable(&self, _input_schema: &Schema) -> Result<bool> {
-        // this is not correct
-        Ok(false)
+    fn nullable(&self, input_schema: &Schema) -> Result<bool> {
+        Ok(self.left.nullable(input_schema)? || self.right.nullable(input_schema)?)
     }
 
     fn evaluate(&self, batch: &RecordBatch) -> Result<ArrayRef> {
