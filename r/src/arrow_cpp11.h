@@ -52,7 +52,7 @@ class complexs {
  public:
   using value_type = Rcomplex;
 
-  complexs(SEXP x) : data_(x) {}
+  explicit complexs(SEXP x) : data_(x) {}
 
   inline R_xlen_t size() const { return XLENGTH(data_); }
 
