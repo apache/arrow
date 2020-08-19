@@ -171,6 +171,7 @@ Dataset <- R6Class("Dataset", inherit = ArrowObject,
           path <- fs_from_uri$path
         } else {
           filesystem <- LocalFileSystem$create()
+          path <- clean_path_abs(path)
         }
       }
       dataset___Dataset__Write(self, schema, format, filesystem, path, partitioning)
