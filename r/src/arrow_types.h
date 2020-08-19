@@ -65,7 +65,7 @@ void inspect(SEXP obj);
 // the integer64 sentinel
 constexpr int64_t NA_INT64 = std::numeric_limits<int64_t>::min();
 
-template <int RTYPE, typename RVector>
+template <typename RVector>
 class RBuffer : public MutableBuffer {
  public:
   explicit RBuffer(RVector vec)

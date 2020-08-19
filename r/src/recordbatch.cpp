@@ -153,7 +153,7 @@ cpp11::raws ipc___SerializeRecordBatch__Raw(
   cpp11::writable::raws out(size);
 
   // serialize into the bytes of the raw vector
-  auto buffer = std::make_shared<arrow::r::RBuffer<RAWSXP, cpp11::raws>>(out);
+  auto buffer = std::make_shared<arrow::r::RBuffer<cpp11::raws>>(out);
   arrow::io::FixedSizeBufferWriter stream(buffer);
   StopIfNotOk(arrow::ipc::SerializeRecordBatch(
       *batch, arrow::ipc::IpcWriteOptions::Defaults(), &stream));

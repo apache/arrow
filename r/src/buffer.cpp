@@ -43,11 +43,11 @@ int64_t Buffer__size(const std::shared_ptr<arrow::Buffer>& buffer) {
 std::shared_ptr<arrow::Buffer> r___RBuffer__initialize(SEXP x) {
   switch (TYPEOF(x)) {
     case RAWSXP:
-      return std::make_shared<arrow::r::RBuffer<RAWSXP, cpp11::raws>>(x);
+      return std::make_shared<arrow::r::RBuffer<cpp11::raws>>(x);
     case REALSXP:
-      return std::make_shared<arrow::r::RBuffer<REALSXP, cpp11::doubles>>(x);
+      return std::make_shared<arrow::r::RBuffer<cpp11::doubles>>(x);
     case INTSXP:
-      return std::make_shared<arrow::r::RBuffer<INTSXP, cpp11::integers>>(x);
+      return std::make_shared<arrow::r::RBuffer<cpp11::integers>>(x);
     // until cpp11 has a CPLXSXP vector
     // case CPLXSXP:
     //   return std::make_shared<arrow::r::RBuffer<CPLXSXP, cpp11::c>>(x);
