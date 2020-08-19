@@ -23,6 +23,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -68,7 +69,13 @@ public class FlightStream implements AutoCloseable {
   private final SettableFuture<FlightDescriptor> descriptor = SettableFuture.create();
   private final int pendingTarget;
   private final Requestor requestor;
+  // The completion flags.
+  // This flag is only updated as the user iterates through the data, i.e. it tracks whether the user has read all the
+  // data and closed the stream
   final CompletableFuture<Void> completed;
+  // This flag is immediately updated when gRPC signals that the server has ended the call. This is used to make sure
+  // we don't block forever trying to write to a server that has rejected a call.
+  final CompletableFuture<Void> cancelled;
 
   private volatile int pending = 1;
   private volatile VectorSchemaRoot fulfilledRoot;
@@ -84,16 +91,20 @@ public class FlightStream implements AutoCloseable {
    *
    * @param allocator  The allocator to use for creating/reallocating buffers for Vectors.
    * @param pendingTarget Target number of messages to receive.
-   * @param cancellable Only provided for streams from server to client, used to cancel mid-stream requests.
+   * @param cancellable Used to cancel mid-stream requests.
    * @param requestor A callback to determine how many pending items there are.
    */
   public FlightStream(BufferAllocator allocator, int pendingTarget, Cancellable cancellable, Requestor requestor) {
+    Objects.requireNonNull(allocator);
+    Objects.requireNonNull(cancellable);
+    Objects.requireNonNull(requestor);
     this.allocator = allocator;
     this.pendingTarget = pendingTarget;
     this.cancellable = cancellable;
     this.requestor = requestor;
     this.dictionaries = new DictionaryProvider.MapDictionaryProvider();
     this.completed = new CompletableFuture<>();
+    this.cancelled = new CompletableFuture<>();
   }
 
   /**
@@ -157,17 +168,9 @@ public class FlightStream implements AutoCloseable {
 
   /**
    * Closes the stream (freeing any existing resources).
-   *
-   * <p>If the stream isn't complete and is cancellable, this method will cancel the stream first.</p>
    */
   public void close() throws Exception {
     final List<AutoCloseable> closeables = new ArrayList<>();
-    // cancellation can throw, but we still want to clean up resources, so make it an AutoCloseable too
-    closeables.add(() -> {
-      if (!completed.isDone() && cancellable != null) {
-        cancel("Stream closed before end.", /* no exception to report */ null);
-      }
-    });
     if (fulfilledRoot != null) {
       closeables.add(fulfilledRoot);
     }
@@ -381,10 +384,12 @@ public class FlightStream implements AutoCloseable {
           break;
         }
         case RECORD_BATCH:
-          queue.add(msg);
-          break;
         case DICTIONARY_BATCH:
-          queue.add(msg);
+          if (!completed.isDone()) {
+            queue.add(msg);
+          } else {
+            AutoCloseables.closeNoChecked(msg);
+          }
           break;
         case TENSOR:
         default:
@@ -397,30 +402,25 @@ public class FlightStream implements AutoCloseable {
     public void onError(Throwable t) {
       ex = StatusUtils.fromThrowable(t);
       queue.add(DONE_EX);
+      cancelled.complete(null);
       root.setException(ex);
     }
 
     @Override
     public void onCompleted() {
       // Depends on gRPC calling onNext and onCompleted non-concurrently
+      cancelled.complete(null);
       queue.add(DONE);
     }
   }
 
   /**
    * Cancels sending the stream to a client.
-   *
-   * @throws UnsupportedOperationException on a stream being uploaded from the client.
    */
   public void cancel(String message, Throwable exception) {
     completed.completeExceptionally(
         CallStatus.CANCELLED.withDescription(message).withCause(exception).toRuntimeException());
-    if (cancellable != null) {
-      cancellable.cancel(message, exception);
-    } else {
-      throw new UnsupportedOperationException("Streams cannot be cancelled that are produced by client. " +
-          "Instead, server should reject incoming messages.");
-    }
+    cancellable.cancel(message, exception);
   }
 
   StreamObserver<ArrowMessage> asObserver() {
