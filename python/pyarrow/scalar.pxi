@@ -687,6 +687,44 @@ cdef class DictionaryScalar(Scalar):
     Concrete class for dictionary-encoded scalars.
     """
 
+    def __init__(self, index, dictionary, type):
+        cdef:
+            CDictionaryValue value
+            shared_ptr[CDictionaryScalar] wrapped
+            DataType type_
+            Scalar index_
+            Array dictionary_
+
+        type_ = ensure_type(type, allow_none=False)
+        if not isinstance(type_, DictionaryType):
+            raise TypeError('Must pass a DictionaryType instance')
+
+        if isinstance(index, Scalar):
+            if not index.type.equals(type.index_type):
+                raise TypeError("The Scalar value passed as index must have "
+                                "identical type to the dictionary type's "
+                                "index_type")
+            index_ = index
+        else:
+            index_ = scalar(index, type=type_.index_type)
+
+        if isinstance(dictionary, Array):
+            if not dictionary.type.equals(type.value_type):
+                raise TypeError("The Array passed as dictionary must have "
+                                "identical type to the dictionary type's "
+                                "value_type")
+            dictionary_ = dictionary
+        else:
+            dictionary_ = array(dictionary, type=type_.value_type)
+
+        value.index = pyarrow_unwrap_scalar(index_)
+        value.dictionary = pyarrow_unwrap_array(dictionary_)
+
+        wrapped = make_shared[CDictionaryScalar](
+            value, pyarrow_unwrap_data_type(type_)
+        )
+        self.init(<shared_ptr[CScalar]> wrapped)
+
     @property
     def index(self):
         """
@@ -726,6 +764,9 @@ cdef class DictionaryScalar(Scalar):
         warnings.warn("`dictionary_value` property is deprecated as of 1.0.0, "
                       "please use the `value` property instead", FutureWarning)
         return self.value
+
+    def __reduce__(self):
+        return DictionaryScalar, (self.index, self.dictionary, self.type)
 
 
 cdef class UnionScalar(Scalar):
