@@ -660,7 +660,7 @@ def test_struct_from_arrays():
         pa.StructArray.from_arrays([a, b, c], fields=[fa2, fb, fc])
 
 
-def test_pina():
+def test_dictionary_array_from_python_sequence():
     typ = pa.dictionary(pa.int8(), pa.int64())
     a = pa.array([123, 123, 123, 123, 123], type=typ)
 

@@ -432,9 +432,8 @@ class SeqConverter {
   // Append the contents of a Python sequence to the underlying builder
   virtual Status Extend(PyObject* obj, int64_t size) {
     /// Ensure we've allocated enough space
-    // RETURN_NOT_OK(builder_->Reserve(size));
-    // TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT Iterate over the items adding each
-    // one
+    RETURN_NOT_OK(builder_->Reserve(size));
+    // Iterate over the items adding each one
     return internal::VisitSequence(
         obj, [this](PyObject* item, bool* /* unused */) { return this->Append(item); });
   }
@@ -929,8 +928,6 @@ class PrimitiveDictionaryConverter : public DictionaryConverter<ValueType, null_
     return this->typed_builder_->Append(value);
   }
 };
-
-// TODO: use a mixin with multiple inheritance
 
 template <typename ValueType, NullCoding null_coding>
 class BinaryLikeDictionaryConverter : public DictionaryConverter<ValueType, null_coding> {
