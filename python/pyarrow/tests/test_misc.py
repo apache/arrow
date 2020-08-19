@@ -132,7 +132,6 @@ def test_build_info():
     pa.FixedSizeListScalar,
     pa.UnionScalar,
     pa.StructScalar,
-    pa.DictionaryScalar,
     pa.ipc.Message,
     pa.ipc.MessageReader,
     pa.MemoryPool,
