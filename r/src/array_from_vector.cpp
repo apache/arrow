@@ -1247,32 +1247,30 @@ std::shared_ptr<arrow::DataType> InferArrowTypeFromVector<REALSXP>(SEXP x) {
 
 template <>
 std::shared_ptr<arrow::DataType> InferArrowTypeFromVector<STRSXP>(SEXP x) {
-  // See how big the character vector is
-  R_xlen_t n = XLENGTH(x);
-  int64_t size = 0;
-  for (R_xlen_t i = 0; i < n; i++) {
-    SEXP string_i = STRING_ELT(x, i);
-    if (string_i != NA_STRING) {
-      size += XLENGTH(Rf_mkCharCE(Rf_translateCharUTF8(string_i), CE_UTF8));
-    }
-    if (size > arrow::kBinaryMemoryLimit) {
-      // Exceeds 2GB capacity of utf8 type, so use large
-      return large_utf8();
-    }
-  }
+  return cpp11::unwind_protect([&] {
+    R_xlen_t n = XLENGTH(x);
 
-  return utf8();
+    int64_t size = 0;
+
+    for (R_xlen_t i = 0; i < n; i++) {
+      size += arrow::r::unsafe::r_string_size(STRING_ELT(x, i));
+      if (size > arrow::kBinaryMemoryLimit) {
+        // Exceeds 2GB capacity of utf8 type, so use large
+        return large_utf8();
+      }
+    }
+
+    return utf8();
+  });
 }
 
-static inline std::shared_ptr<arrow::DataType> InferArrowTypeFromDataFrame(SEXP x) {
-  R_xlen_t n = XLENGTH(x);
-  SEXP names = Rf_getAttrib(x, R_NamesSymbol);
+static inline std::shared_ptr<arrow::DataType> InferArrowTypeFromDataFrame(
+    cpp11::list x) {
+  R_xlen_t n = x.size();
+  cpp11::strings names(x.attr(R_NamesSymbol));
   std::vector<std::shared_ptr<arrow::Field>> fields(n);
   for (R_xlen_t i = 0; i < n; i++) {
-    // Make sure we're ingesting UTF-8
-    const auto* field_name =
-        CHAR(Rf_mkCharCE(Rf_translateCharUTF8(STRING_ELT(names, i)), CE_UTF8));
-    fields[i] = arrow::field(field_name, InferArrowType(VECTOR_ELT(x, i)));
+    fields[i] = arrow::field(names[i], InferArrowType(x[i]));
   }
   return arrow::struct_(std::move(fields));
 }
@@ -1447,18 +1445,21 @@ arrow::Status CheckCompatibleStruct(SEXP obj,
   // the columns themselves are not checked against the
   // types of the fields, because Array__from_vector will error
   // when not compatible.
-  SEXP names = Rf_getAttrib(obj, R_NamesSymbol);
-  SEXP name_i;
-  for (int i = 0; i < num_fields; i++) {
-    name_i = Rf_mkCharCE(Rf_translateCharUTF8(STRING_ELT(names, i)), CE_UTF8);
-    if (type->field(i)->name() != CHAR(name_i)) {
-      return Status::RError("Field name in position ", i, " (", type->field(i)->name(),
-                            ") does not match the name of the column of the data frame (",
-                            CHAR(name_i), ")");
-    }
-  }
+  cpp11::strings names = Rf_getAttrib(obj, R_NamesSymbol);
 
-  return Status::OK();
+  return cpp11::unwind_protect([&] {
+    for (int i = 0; i < num_fields; i++) {
+      const char* name_i = arrow::r::unsafe::utf8_string(names[i]);
+      auto field_name = type->field(i)->name();
+      if (field_name != name_i) {
+        return Status::RError(
+            "Field name in position ", i, " (", field_name,
+            ") does not match the name of the column of the data frame (", name_i, ")");
+      }
+    }
+
+    return Status::OK();
+  });
 }
 
 std::shared_ptr<arrow::Array> Array__from_vector(

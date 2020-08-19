@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <cstring>  // for strlen
 #include <limits>
 #include <memory>
 #include <utility>
@@ -35,8 +36,45 @@ SEXP as_sexp(const std::vector<std::shared_ptr<T>>& vec);
 //       https://github.com/apache/arrow/pull/7819#discussion_r471664878
 #include <cpp11.hpp>
 
+// borrowed from enc package
+// because R does not make these macros available (i.e. from Defn.h)
+#define UTF8_MASK (1 << 3)
+#define ASCII_MASK (1 << 6)
+
+#define IS_ASCII(x) (LEVELS(x) & ASCII_MASK)
+#define IS_UTF8(x) (LEVELS(x) & UTF8_MASK)
+
 namespace arrow {
 namespace r {
+
+// functions that need to be called from an unwind_protect()
+namespace unsafe {
+
+inline SEXP utf8_r_string(SEXP s) {
+  if (!IS_UTF8(s) && !IS_ASCII(s)) {
+    s = Rf_mkCharCE(Rf_translateCharUTF8(s), CE_UTF8);
+  }
+  return s;
+}
+
+inline const char* utf8_string(SEXP s) {
+  if (!IS_UTF8(s) && !IS_ASCII(s)) {
+    return Rf_translateCharUTF8(s);
+  } else {
+    return CHAR(s);
+  }
+}
+
+inline R_xlen_t r_string_size(SEXP s) {
+  if (!IS_UTF8(s) && !IS_ASCII(s)) {
+    return strlen(Rf_translateCharUTF8(s));
+  } else {
+    return XLENGTH(s);
+  }
+}
+
+}  // namespace unsafe
+
 struct symbols {
   static SEXP units;
   static SEXP tzone;
