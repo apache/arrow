@@ -623,15 +623,22 @@ def test_type_schema_pickling():
 
 
 def test_empty_table():
-    schema = pa.schema([
+    schema1 = pa.schema([
         pa.field('f0', pa.int64()),
         pa.field('f1', pa.dictionary(pa.int32(), pa.string())),
         pa.field('f2', pa.list_(pa.list_(pa.int64()))),
     ])
-    table = schema.empty_table()
-    assert isinstance(table, pa.Table)
-    assert table.num_rows == 0
-    assert table.schema == schema
+    # test it preserves field nullability
+    schema2 = pa.schema([
+        pa.field('a', pa.int64(), nullable=False),
+        pa.field('b', pa.int64())
+    ])
+
+    for schema in [schema1, schema2]:
+        table = schema.empty_table()
+        assert isinstance(table, pa.Table)
+        assert table.num_rows == 0
+        assert table.schema == schema
 
 
 @pytest.mark.pandas
