@@ -966,11 +966,32 @@ impl fmt::Display for BinaryExpr {
 
 impl PhysicalExpr for BinaryExpr {
     fn data_type(&self, input_schema: &Schema) -> Result<DataType> {
-        self.left.data_type(input_schema)
+        Ok(match self.op {
+            Operator::And
+            | Operator::Or
+            | Operator::Not
+            | Operator::NotLike
+            | Operator::Like
+            | Operator::Lt
+            | Operator::LtEq
+            | Operator::Eq
+            | Operator::NotEq
+            | Operator::Gt
+            | Operator::GtEq => DataType::Boolean,
+            Operator::Plus
+            | Operator::Minus
+            | Operator::Multiply
+            | Operator::Divide
+            | Operator::Modulus => {
+                // this assumes that the left and right expressions have already been co-coerced
+                // to the same type
+                self.left.data_type(input_schema)?
+            }
+        })
     }
 
     fn nullable(&self, _input_schema: &Schema) -> Result<bool> {
-        // binary operator should always return a boolean value
+        // this is not correct
         Ok(false)
     }
 
