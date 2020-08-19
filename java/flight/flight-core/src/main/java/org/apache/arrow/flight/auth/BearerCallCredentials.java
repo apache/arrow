@@ -17,44 +17,30 @@
 
 package org.apache.arrow.flight.auth;
 
-import java.nio.charset.StandardCharsets;
-import java.util.Base64;
 import java.util.concurrent.Executor;
 
 import io.grpc.CallCredentials;
 import io.grpc.Metadata;
 
 /**
- * Client call credentials that use a username and password.
+ * Client call credentials that use a bearer token.
  */
-public final class BasicAuthCallCredentials extends CallCredentials {
+public final class BearerCallCredentials extends CallCredentials {
 
-  private final String name;
-  private final String password;
+  private final String bearer;
 
-  public BasicAuthCallCredentials(String name, String password) {
-    this.name = name;
-    this.password = password;
+  public BearerCallCredentials(String bearer) {
+    this.bearer = bearer;
   }
 
   @Override
   public void applyRequestMetadata(RequestInfo requestInfo, Executor executor, MetadataApplier metadataApplier) {
-    // Basic auth header is only sent during the handshake.
-    if (!requestInfo.getMethodDescriptor().getFullMethodName()
-        .equalsIgnoreCase(AuthConstants.HANDSHAKE_DESCRIPTOR_NAME)) {
-      // Note: We must call metadataApplier.apply(), even if we are not modifying any
-      // headers. If we don't, the request will not get sent.
-      metadataApplier.apply(new Metadata());
-      return;
-    }
-
     final Metadata authMetadata = new Metadata();
-    // Basic authorization header is
-    // Authorization: Basic Base64(username:password)
+    // Bearer authorization header is
+    // Authorization: Bearer <bearerToken>
     final Metadata.Key<String> authorizationKey =
         Metadata.Key.of(AuthConstants.AUTHORIZATION_HEADER, Metadata.ASCII_STRING_MARSHALLER);
-    authMetadata.put(authorizationKey, AuthConstants.BASIC_PREFIX +
-        Base64.getEncoder().encodeToString(String.format("%s:%s", name, password).getBytes(StandardCharsets.UTF_8)));
+    authMetadata.put(authorizationKey, AuthConstants.BEARER_PREFIX + bearer);
     metadataApplier.apply(authMetadata);
   }
 

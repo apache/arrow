@@ -18,6 +18,7 @@
 package org.apache.arrow.flight.auth;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 
 import org.apache.arrow.flight.grpc.StatusUtils;
 import org.apache.arrow.flight.impl.Flight.HandshakeRequest;
@@ -31,6 +32,7 @@ import io.grpc.stub.StreamObserver;
  * Utility class for executing a handshake with a FlightServer.
  */
 public class ClientHandshakeWrapper {
+  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ClientHandshakeWrapper.class);
 
   /**
    * Do handshake for a client.  The stub will be authenticated after this method returns.
@@ -40,16 +42,33 @@ public class ClientHandshakeWrapper {
   public static void doClientHandshake(FlightServiceStub stub) {
     final HandshakeObserver observer = new HandshakeObserver();
     try {
-      observer.responseObserver = stub.handshake(observer);
-      observer.responseObserver.onCompleted();
+      observer.requestObserver = stub.handshake(observer);
+      observer.requestObserver.onNext(HandshakeRequest.newBuilder().build());
+      observer.requestObserver.onCompleted();
+      try {
+        if (!observer.completed.get()) {
+          // TODO: ARROW-5681
+          throw new RuntimeException("Unauthenticated");
+        }
+      } catch (InterruptedException ex) {
+        Thread.currentThread().interrupt();
+        throw ex;
+      } catch (ExecutionException ex) {
+        logger.error("Failed on completing future", ex.getCause());
+        throw ex.getCause();
+      }
     } catch (StatusRuntimeException sre) {
+      logger.error("Failed with SREe", sre);
       throw StatusUtils.fromGrpcRuntimeException(sre);
+    } catch (Throwable ex) {
+      logger.error("Failed with unknown", ex);
+      throw StatusUtils.fromThrowable(ex);
     }
   }
 
   private static class HandshakeObserver implements StreamObserver<HandshakeResponse> {
 
-    private volatile StreamObserver<HandshakeRequest> responseObserver;
+    private volatile StreamObserver<HandshakeRequest> requestObserver;
     private final CompletableFuture<Boolean> completed;
 
     public HandshakeObserver() {
@@ -59,15 +78,18 @@ public class ClientHandshakeWrapper {
 
     @Override
     public void onNext(HandshakeResponse value) {
+      logger.debug("Got HandshakeResponse");
     }
 
     @Override
     public void onError(Throwable t) {
+      logger.error("Error", t);
       completed.completeExceptionally(t);
     }
 
     @Override
     public void onCompleted() {
+      logger.debug("Got HandshakeResponse.onCompleted");
       completed.complete(true);
     }
   }

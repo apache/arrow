@@ -17,18 +17,17 @@
 
 package org.apache.arrow.flight.auth;
 
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-
 import org.apache.arrow.flight.CallHeaders;
 import org.apache.arrow.flight.CallInfo;
 import org.apache.arrow.flight.CallStatus;
+import org.apache.arrow.flight.FlightConstants;
 import org.apache.arrow.flight.FlightRuntimeException;
 import org.apache.arrow.flight.FlightServerMiddleware;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.grpc.Context;
+import io.grpc.MethodDescriptor;
 
 /**
  * Middleware that's used to validate credentials during the handshake and verify
@@ -43,20 +42,20 @@ public class ServerAuthMiddleware implements FlightServerMiddleware {
   public static class Factory implements FlightServerMiddleware.Factory<ServerAuthMiddleware> {
     private final ServerAuthHandler authHandler;
     private final GeneratedBearerTokenAuthHandler bearerTokenAuthHandler = new GeneratedBearerTokenAuthHandler();
-    private final Map<String, String> tokenToIdentityMap = new ConcurrentHashMap<>();
 
     public Factory(ServerAuthHandler authHandler) {
       this.authHandler = authHandler;
     }
 
-    public String getPeerForBearer(String bearerToken) {
+    public String getIdentityForBearer(String bearerToken) {
       return bearerTokenAuthHandler.getIdentityForBearerToken(bearerToken);
     }
 
     @Override
     public ServerAuthMiddleware onCallStarted(CallInfo callInfo, CallHeaders incomingHeaders) {
       logger.debug("Call name: {}", callInfo.method().name());
-      if (callInfo.method().name().equals(AuthConstants.HANDSHAKE_DESCRIPTOR_NAME)) {
+      if (MethodDescriptor.generateFullMethodName(FlightConstants.SERVICE, callInfo.method().name())
+          .equalsIgnoreCase(AuthConstants.HANDSHAKE_DESCRIPTOR_NAME)) {
         final ServerAuthHandler.HandshakeResult result = authHandler.authenticate(incomingHeaders);
         final String bearerToken = bearerTokenAuthHandler.registerBearer(result);
         return new ServerAuthMiddleware(result.getPeerIdentity(), bearerToken);
@@ -98,18 +97,19 @@ public class ServerAuthMiddleware implements FlightServerMiddleware {
 
   @Override
   public void onBeforeSendingHeaders(CallHeaders outgoingHeaders) {
-    if (bearerToken != null) {
+    if (bearerToken != null &&
+        null == AuthUtilities.getValueFromAuthHeader(outgoingHeaders, AuthConstants.BEARER_PREFIX)) {
       outgoingHeaders.insert(AuthConstants.AUTHORIZATION_HEADER, AuthConstants.BEARER_PREFIX + bearerToken);
     }
   }
 
   @Override
   public void onCallCompleted(CallStatus status) {
-
+    logger.debug("Call completed with status {}", status);
   }
 
   @Override
   public void onCallErrored(Throwable err) {
-
+    logger.error("Call failed", err);
   }
 }

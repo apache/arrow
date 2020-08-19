@@ -21,9 +21,12 @@ import org.apache.arrow.flight.CallHeaders;
 import org.apache.arrow.flight.CallInfo;
 import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.FlightClientMiddleware;
+import org.apache.arrow.flight.FlightConstants;
 import org.apache.arrow.flight.FlightRuntimeException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import io.grpc.MethodDescriptor;
 
 /**
  * Middleware for capturing and sending back bearer tokens.
@@ -37,12 +40,13 @@ public class ClientBearerTokenMiddleware implements FlightClientMiddleware {
    * Factory used within FlightClient.
    */
   public static class Factory implements FlightClientMiddleware.Factory {
-    private final String bearerToken = null;
+    private String bearerToken = null;
 
     @Override
     public FlightClientMiddleware onCallStarted(CallInfo info) {
       logger.debug("Call name: {}", info.method().name());
-      if (info.method().name().equalsIgnoreCase(AuthConstants.HANDSHAKE_DESCRIPTOR_NAME)) {
+      if (MethodDescriptor.generateFullMethodName(FlightConstants.SERVICE, info.method().name())
+          .equalsIgnoreCase(AuthConstants.HANDSHAKE_DESCRIPTOR_NAME)) {
         return new ClientAuthHandshakeMiddleware(this);
       }
 
@@ -55,10 +59,11 @@ public class ClientBearerTokenMiddleware implements FlightClientMiddleware {
     }
 
     void setBearerToken(String bearerToken) {
-      if (bearerToken != null) {
+      if (this.bearerToken != null) {
         logger.error("Executed the authentication process twice.");
         throw new FlightRuntimeException(CallStatus.INTERNAL);
       }
+      this.bearerToken = bearerToken;
     }
   }
 
@@ -73,12 +78,11 @@ public class ClientBearerTokenMiddleware implements FlightClientMiddleware {
 
   @Override
   public void onHeadersReceived(CallHeaders incomingHeaders) {
-
   }
 
   @Override
   public void onCallCompleted(CallStatus status) {
-
+    logger.debug("Request completed with status {}.", status);
   }
 
   /**
@@ -100,12 +104,9 @@ public class ClientBearerTokenMiddleware implements FlightClientMiddleware {
     @Override
     public void onHeadersReceived(CallHeaders incomingHeaders) {
       final String bearerValue = AuthUtilities.getValueFromAuthHeader(incomingHeaders, AuthConstants.BEARER_PREFIX);
-      if (bearerValue == null) {
-        logger.error("Server did not send a bearer token after successful authentication.");
-        throw new FlightRuntimeException(CallStatus.INTERNAL);
+      if (bearerValue != null) {
+        factory.setBearerToken(bearerValue);
       }
-
-      factory.setBearerToken(bearerValue);
     }
 
     @Override

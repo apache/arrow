@@ -24,7 +24,6 @@ import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.Criteria;
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightInfo;
-import org.apache.arrow.flight.FlightRuntimeException;
 import org.apache.arrow.flight.FlightServer;
 import org.apache.arrow.flight.FlightStatusCode;
 import org.apache.arrow.flight.FlightStream;
@@ -60,14 +59,9 @@ public class TestBasicAuth {
 
   @Test
   public void validAuth() {
-    try {
-      client = clientBuilder.callCredentials(new BasicAuthCallCredentials(USERNAME, PASSWORD)).build();
-      client.handshake();
-      Assert.assertTrue(ImmutableList.copyOf(client.listFlights(Criteria.ALL)).size() == 0);
-    } catch (FlightRuntimeException ex) {
-      ex.printStackTrace();
-      System.out.println(ex.status());
-    }
+    client = clientBuilder.callCredentials(new BasicAuthCallCredentials(USERNAME, PASSWORD)).build();
+    client.handshake();
+    Assert.assertTrue(ImmutableList.copyOf(client.listFlights(Criteria.ALL)).size() == 0);
   }
 
   // ARROW-7722: this test occasionally leaks memory
@@ -86,7 +80,7 @@ public class TestBasicAuth {
 
   @Test
   public void invalidAuth() {
-    FlightTestUtil.assertCode(FlightStatusCode.UNAUTHENTICATED, () -> {
+    FlightTestUtil.assertCode(FlightStatusCode.UNAUTHORIZED, () -> {
       client = clientBuilder.callCredentials(new BasicAuthCallCredentials(USERNAME, "WRONG")).build();
       client.handshake();
     });
@@ -112,7 +106,7 @@ public class TestBasicAuth {
       @Override
       public Optional<String> validateCredentials(String username, String password) throws Exception {
         if (Strings.isNullOrEmpty(username)) {
-          throw CallStatus.UNAUTHENTICATED.withDescription("Username or password is invalid.").toRuntimeException();
+          throw CallStatus.UNAUTHENTICATED.withDescription("Username is missing.").toRuntimeException();
         }
         if (USERNAME.equals(username) && PASSWORD.equals(password)) {
           return Optional.of(VALID_TOKEN);

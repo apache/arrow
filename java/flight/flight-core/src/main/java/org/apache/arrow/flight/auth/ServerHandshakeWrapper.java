@@ -63,17 +63,19 @@ public class ServerHandshakeWrapper {
 
     @Override
     public void onNext(HandshakeRequest value) {
+      LOGGER.debug("Got HandshakeRequest");
     }
 
     @Override
     public void onError(Throwable t) {
+      LOGGER.error("Error", t);
       while (future == null) {/* busy wait */}
       future.cancel(true);
     }
 
     @Override
     public void onCompleted() {
+      LOGGER.debug("Got HandshakeRequest.onCompleted");
     }
   }
-
 }
