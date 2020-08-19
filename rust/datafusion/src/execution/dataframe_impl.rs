@@ -155,20 +155,20 @@ mod tests {
 
     #[test]
     fn aggregate() -> Result<()> {
-        // build plan using Table API
-        let t = test_table()?;
+        // build plan using DataFrame API
+        let df = test_table()?;
         let group_expr = vec![col("c1")];
         let aggr_expr = vec![
-            min(col("c12"))?,
-            max(col("c12"))?,
-            avg(col("c12"))?,
-            sum(col("c12"))?,
-            count(col("c12"))?,
+            min(col("c12")),
+            max(col("c12")),
+            avg(col("c12")),
+            sum(col("c12")),
+            count(col("c12")),
         ];
 
-        let t2 = t.aggregate(group_expr.clone(), aggr_expr.clone())?;
+        let df = df.aggregate(group_expr.clone(), aggr_expr.clone())?;
 
-        let plan = t2.to_logical_plan();
+        let plan = df.to_logical_plan();
 
         // build same plan using SQL API
         let sql = "SELECT c1, MIN(c12), MAX(c12), AVG(c12), SUM(c12), COUNT(c12) \
