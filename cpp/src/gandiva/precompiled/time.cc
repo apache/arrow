@@ -699,6 +699,8 @@ gdv_timestamp castTIMESTAMP_utf8(int64_t context, const char* input, gdv_int32 l
 
 gdv_timestamp castTIMESTAMP_date64(gdv_date64 date_in_millis) { return date_in_millis; }
 
+gdv_timestamp castTIMESTAMP_int64(gdv_int64 in) { return in; }
+
 gdv_date64 castDATE_timestamp(gdv_timestamp timestamp_in_millis) {
   EpochTimePoint tp(timestamp_in_millis);
   return tp.ClearTimeOfDay().MillisSinceEpoch();
