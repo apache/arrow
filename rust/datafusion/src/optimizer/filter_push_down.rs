@@ -300,10 +300,8 @@ fn rewrite(expr: &Expr, projection: &HashMap<String, Expr>) -> Result<Expr> {
 mod tests {
     use super::*;
     use crate::logicalplan::col;
-    use crate::logicalplan::ScalarValue;
     use crate::logicalplan::{aggregate_expr, lit, Expr, LogicalPlanBuilder, Operator};
     use crate::test::*;
-    use arrow::datatypes::DataType;
 
     fn assert_optimized_plan_eq(plan: &LogicalPlan, expected: &str) {
         let mut rule = FilterPushDown::new();
@@ -370,10 +368,9 @@ mod tests {
         let plan = LogicalPlanBuilder::from(&table_scan)
             .aggregate(
                 vec![col("a")],
-                vec![aggregate_expr("SUM", col("b"), DataType::Int32)
-                    .alias("total_salary")],
+                vec![aggregate_expr("SUM", col("b")).alias("total_salary")],
             )?
-            .filter(col("a").gt(Expr::Literal(ScalarValue::Int64(10))))?
+            .filter(col("a").gt(lit(10i64)))?
             .build()?;
         // selection of key aggregation is commutative
         let expected = "\
@@ -390,7 +387,7 @@ mod tests {
         let plan = LogicalPlanBuilder::from(&table_scan)
             .aggregate(
                 vec![col("a")],
-                vec![aggregate_expr("SUM", col("b"), DataType::Int32).alias("b")],
+                vec![aggregate_expr("SUM", col("b")).alias("b")],
             )?
             .filter(col("b").gt(lit(10i64)))?
             .build()?;
@@ -508,10 +505,7 @@ mod tests {
         let table_scan = test_table_scan()?;
         let plan = LogicalPlanBuilder::from(&table_scan)
             .project(vec![col("a").alias("b"), col("c")])?
-            .aggregate(
-                vec![col("b")],
-                vec![aggregate_expr("SUM", col("c"), DataType::Int32)],
-            )?
+            .aggregate(vec![col("b")], vec![aggregate_expr("SUM", col("c"))])?
             .filter(col("b").gt(lit(10i64)))?
             .filter(col("SUM(c)").gt(lit(10i64)))?
             .build()?;
