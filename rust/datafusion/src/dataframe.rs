@@ -41,7 +41,7 @@ use std::sync::Arc;
 /// let mut ctx = ExecutionContext::new();
 /// let df = ctx.read_csv("tests/example.csv", CsvReadOptions::new())?;
 /// let df = df.filter(col("a").lt_eq(col("b")))?
-///            .aggregate(vec![col("a")], vec![min(col("b"))?])?
+///            .aggregate(vec![col("a")], vec![min(col("b"))])?
 ///            .limit(100)?;
 /// let results = df.collect();
 /// # Ok(())
@@ -101,10 +101,10 @@ pub trait DataFrame {
     /// let df = ctx.read_csv("tests/example.csv", CsvReadOptions::new())?;
     ///
     /// // The following use is the equivalent of "SELECT MIN(b) GROUP BY a"
-    /// let _ = df.aggregate(vec![col("a")], vec![min(col("b"))?])?;
+    /// let _ = df.aggregate(vec![col("a")], vec![min(col("b"))])?;
     ///
     /// // The following use is the equivalent of "SELECT MIN(b)"
-    /// let _ = df.aggregate(vec![], vec![min(col("b"))?])?;
+    /// let _ = df.aggregate(vec![], vec![min(col("b"))])?;
     /// # Ok(())
     /// # }
     /// ```

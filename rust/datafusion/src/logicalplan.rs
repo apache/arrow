@@ -559,28 +559,28 @@ pub fn col(name: &str) -> Expr {
 }
 
 /// Create an expression to represent the min() aggregate function
-pub fn min(expr: Expr) -> Result<Expr> {
-    Ok(aggregate_expr("MIN", expr))
+pub fn min(expr: Expr) -> Expr {
+    aggregate_expr("MIN", expr)
 }
 
 /// Create an expression to represent the max() aggregate function
-pub fn max(expr: Expr) -> Result<Expr> {
-    Ok(aggregate_expr("MAX", expr))
+pub fn max(expr: Expr) -> Expr {
+    aggregate_expr("MAX", expr)
 }
 
 /// Create an expression to represent the sum() aggregate function
-pub fn sum(expr: Expr) -> Result<Expr> {
-    Ok(aggregate_expr("SUM", expr))
+pub fn sum(expr: Expr) -> Expr {
+    aggregate_expr("SUM", expr)
 }
 
 /// Create an expression to represent the avg() aggregate function
-pub fn avg(expr: Expr) -> Result<Expr> {
-    Ok(aggregate_expr("AVG", expr))
+pub fn avg(expr: Expr) -> Expr {
+    aggregate_expr("AVG", expr)
 }
 
 /// Create an expression to represent the count() aggregate function
-pub fn count(expr: Expr) -> Result<Expr> {
-    Ok(aggregate_expr("COUNT", expr))
+pub fn count(expr: Expr) -> Expr {
+    aggregate_expr("COUNT", expr)
 }
 
 /// Whether it can be represented as a literal expression
