@@ -932,7 +932,7 @@ mod tests {
     use super::*;
     use crate::arrow::converter::Utf8Converter;
     use crate::basic::{Encoding, Type as PhysicalType};
-    use crate::column::page::Page;
+    use crate::column::page::{Page, PageReader};
     use crate::data_type::{ByteArray, DataType, Int32Type, Int64Type};
     use crate::errors::Result;
     use crate::file::reader::{FileReader, SerializedFileReader};
@@ -996,6 +996,33 @@ mod tests {
             values.append(&mut data);
             page_lists.push(Vec::from(pages));
         }
+    }
+
+    #[test]
+    fn test_primitive_array_reader_empty_pages() {
+        // Construct column schema
+        let message_type = "
+        message test_schema {
+          REQUIRED INT32 leaf;
+        }
+        ";
+
+        let schema = parse_message_type(message_type)
+            .map(|t| Rc::new(SchemaDescriptor::new(Rc::new(t))))
+            .unwrap();
+
+        let column_desc = schema.column(0);
+        let page_iterator = EmptyPageIterator::new(schema.clone());
+
+        let mut array_reader = PrimitiveArrayReader::<Int32Type>::new(
+            Box::new(page_iterator),
+            column_desc.clone(),
+        )
+        .unwrap();
+
+        // expect no values to be read
+        let array = array_reader.next_batch(50).unwrap();
+        assert!(array.is_empty());
     }
 
     #[test]
@@ -1447,6 +1474,35 @@ mod tests {
 
         fn get_rep_levels(&self) -> Option<&[i16]> {
             self.rep_levels.as_ref().map(|v| v.as_slice())
+        }
+    }
+
+    /// Iterator for testing reading empty columns
+    struct EmptyPageIterator {
+        schema: SchemaDescPtr,
+    }
+
+    impl EmptyPageIterator {
+        fn new(schema: SchemaDescPtr) -> Self {
+            EmptyPageIterator { schema }
+        }
+    }
+
+    impl Iterator for EmptyPageIterator {
+        type Item = Result<Box<dyn PageReader>>;
+
+        fn next(&mut self) -> Option<Self::Item> {
+            None
+        }
+    }
+
+    impl PageIterator for EmptyPageIterator {
+        fn schema(&mut self) -> Result<SchemaDescPtr> {
+            Ok(self.schema.clone())
+        }
+
+        fn column_schema(&mut self) -> Result<ColumnDescPtr> {
+            Ok(self.schema.column(0))
         }
     }
 
