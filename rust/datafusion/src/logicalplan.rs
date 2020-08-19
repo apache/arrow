@@ -422,7 +422,7 @@ impl Expr {
             Expr::Cast { expr, .. } => expr.nullable(input_schema),
             Expr::ScalarFunction { .. } => Ok(true),
             Expr::AggregateFunction { .. } => Ok(true),
-            Expr::Not(_) => Ok(false),
+            Expr::Not(expr) => expr.nullable(input_schema),
             Expr::IsNull(_) => Ok(false),
             Expr::IsNotNull(_) => Ok(false),
             Expr::BinaryExpr {
