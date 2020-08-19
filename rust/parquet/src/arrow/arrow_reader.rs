@@ -304,6 +304,45 @@ mod tests {
         >(2, 100, 2, message_type, 15, 50, converter);
     }
 
+    #[test]
+    fn test_bool_single_column_reader_test_batch_size_divides_into_row_group_size() {
+        let message_type = "
+        message test_schema {
+          REQUIRED BOOLEAN leaf;
+        }
+        ";
+
+        // Use a batch size (5) so batches to fall on
+        // row group boundaries (25 rows in 3 row groups --> row
+        // groups of 10, 10, and 5) to test edge refilling edge cases.
+        let converter = FromConverter::new();
+        single_column_reader_test::<
+            BoolType,
+            BooleanArray,
+            FromConverter<Vec<Option<bool>>, BooleanArray>,
+            BoolType,
+        >(3, 25, 2, message_type, 5, 50, converter);
+    }
+
+    #[test]
+    fn test_bool_single_column_reader_test_batch_size_divides_into_row_group_size2() {
+        let message_type = "
+        message test_schema {
+          REQUIRED BOOLEAN leaf;
+        }
+        ";
+
+        // Ensure that every batch size (25) falls exactly a row group
+        // boundary (25 in this case) to test edge case.
+        let converter = FromConverter::new();
+        single_column_reader_test::<
+            BoolType,
+            BooleanArray,
+            FromConverter<Vec<Option<bool>>, BooleanArray>,
+            BoolType,
+        >(4, 100, 2, message_type, 25, 50, converter);
+    }
+
     struct RandFixedLenGen {}
 
     impl RandGen<FixedLenByteArrayType> for RandFixedLenGen {

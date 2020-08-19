@@ -136,10 +136,8 @@ impl<T: DataType> ArrayReader for PrimitiveArrayReader<T> {
         while records_read < batch_size {
             let records_to_read = batch_size - records_read;
 
+            // NB can be 0 if at end of page
             let records_read_once = self.record_reader.read_records(records_to_read)?;
-            if records_read_once == 0 {
-                break; // record reader has no record
-            }
             records_read = records_read + records_read_once;
 
             // Record reader exhausted
