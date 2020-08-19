@@ -410,7 +410,7 @@ impl Expr {
         }
     }
 
-    /// Determine if this expression can produce null values
+    /// return true if this expression might produce null values
     pub fn nullable(&self, input_schema: &Schema) -> Result<bool> {
         match self {
             Expr::Alias(expr, _) => expr.nullable(input_schema),
