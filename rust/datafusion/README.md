@@ -49,7 +49,7 @@ DataFusion includes a simple command-line interactive SQL utility. See the [CLI 
 ## SQL Support
 
 - [x] Projection
-- [x] Selection
+- [x] Filter (WHERE)
 - [x] Limit
 - [x] Aggregate
 - [x] UDFs

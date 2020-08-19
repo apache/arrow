@@ -255,7 +255,7 @@ mod tests {
     }
 
     #[test]
-    fn aggregate_no_group_by_with_selection() -> Result<()> {
+    fn aggregate_no_group_by_with_filter() -> Result<()> {
         let table_scan = test_table_scan()?;
 
         let plan = LogicalPlanBuilder::from(&table_scan)
@@ -264,7 +264,7 @@ mod tests {
             .build()?;
 
         let expected = "Aggregate: groupBy=[[]], aggr=[[MAX(#b)]]\
-        \n  Selection: #c\
+        \n  Filter: #c\
         \n    TableScan: test projection=Some([1, 2])";
 
         assert_optimized_plan_eq(&plan, expected);

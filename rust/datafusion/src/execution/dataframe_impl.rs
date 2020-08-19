@@ -67,9 +67,11 @@ impl DataFrame for DataFrameImpl {
         Ok(Arc::new(DataFrameImpl::new(self.ctx_state.clone(), &plan)))
     }
 
-    /// Create a selection based on a filter expression
-    fn filter(&self, expr: Expr) -> Result<Arc<dyn DataFrame>> {
-        let plan = LogicalPlanBuilder::from(&self.plan).filter(expr)?.build()?;
+    /// Create a filter based on a predicate expression
+    fn filter(&self, predicate: Expr) -> Result<Arc<dyn DataFrame>> {
+        let plan = LogicalPlanBuilder::from(&self.plan)
+            .filter(predicate)?
+            .build()?;
         Ok(Arc::new(DataFrameImpl::new(self.ctx_state.clone(), &plan)))
     }
 

@@ -24,7 +24,7 @@
 //! and also provides a query optimizer and execution engine capable of parallel execution
 //! against partitioned data sources (CSV and Parquet) using threads.
 //!
-//! DataFusion currently supports simple projection, selection, and aggregate queries.
+//! DataFusion currently supports simple projection, filter, and aggregate queries.
 //!
 /// [ExecutionContext](../execution/context/struct.ExecutionContext.html) is the main interface
 /// for executing queries with DataFusion.

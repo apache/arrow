@@ -238,11 +238,16 @@ impl PhysicalPlanner for DefaultPhysicalPlanner {
                     merge,
                 )?))
             }
-            LogicalPlan::Selection { input, expr, .. } => {
+            LogicalPlan::Filter {
+                input, predicate, ..
+            } => {
                 let input = self.create_physical_plan(input, ctx_state.clone())?;
                 let input_schema = input.as_ref().schema().clone();
-                let runtime_expr =
-                    self.create_physical_expr(expr, &input_schema, ctx_state.clone())?;
+                let runtime_expr = self.create_physical_expr(
+                    predicate,
+                    &input_schema,
+                    ctx_state.clone(),
+                )?;
                 Ok(Arc::new(FilterExec::try_new(runtime_expr, input)?))
             }
             LogicalPlan::Sort { expr, input, .. } => {
