@@ -114,6 +114,9 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
 
   # Arm64 architectures and extensions can lead to exploding combinations.
   # So set it directly through cmake command line.
+  #
+  # If you change this, you need to change the definition in
+  # python/CMakeLists.txt too.
   define_option_string(ARROW_ARMV8_ARCH
                        "Arm64 arch and extensions"
                        "armv8-a" # Default
