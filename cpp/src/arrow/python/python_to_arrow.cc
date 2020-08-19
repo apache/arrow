@@ -395,7 +395,7 @@ struct ValueConverter<Type, enable_if_fixed_size_binary<Type>> {
 };
 
 // ----------------------------------------------------------------------
-// Sequence converter base and CRTP "middle" subclasses
+// Sequence converter base
 
 class SeqConverter;
 
@@ -414,24 +414,47 @@ class SeqConverter {
   // arrow::MakeBuilder which also creates child builders for nested types, so
   // we have to pass in the child builders to child SeqConverter in the case of
   // converting Python objects to Arrow nested types
-  virtual Status Init(ArrayBuilder* builder) = 0;
+  virtual Status Init(ArrayBuilder* builder) {
+    builder_ = builder;
+    DCHECK_NE(builder_, nullptr);
+    return Status::OK();
+  }
 
   // Append a single null value to the builder
-  virtual Status AppendNull() = 0;
+  virtual Status AppendNull() { return this->builder_->AppendNull(); }
 
   // Append a valid value
-  virtual Status AppendValue(PyObject* seq) = 0;
+  virtual Status AppendValue(PyObject* obj) = 0;
 
   // Append a single python object handling Null values
-  virtual Status Append(PyObject* seq) = 0;
+  virtual Status Append(PyObject* obj) = 0;
 
-  // Append the contents of a Python sequence to the underlying builder,
-  // virtual version
-  virtual Status Extend(PyObject* seq, int64_t size) = 0;
+  // Append the contents of a Python sequence to the underlying builder
+  virtual Status Extend(PyObject* obj, int64_t size) {
+    /// Ensure we've allocated enough space
+    // RETURN_NOT_OK(builder_->Reserve(size));
+    // TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT Iterate over the items adding each
+    // one
+    return internal::VisitSequence(
+        obj, [this](PyObject* item, bool* /* unused */) { return this->Append(item); });
+  }
 
-  // Append the contents of a Python sequence to the underlying builder,
-  // virtual version
-  virtual Status ExtendMasked(PyObject* seq, PyObject* mask, int64_t size) = 0;
+  // Append the contents of a Python sequence to the underlying builder
+  virtual Status ExtendMasked(PyObject* obj, PyObject* mask, int64_t size) {
+    /// Ensure we've allocated enough space
+    RETURN_NOT_OK(builder_->Reserve(size));
+    // Iterate over the items adding each one
+    return internal::VisitSequenceMasked(
+        obj, mask, [this](PyObject* item, bool is_masked, bool* /* unused */) {
+          if (is_masked) {
+            return this->AppendNull();
+          } else {
+            // This will also apply the null-checking convention in the event
+            // that the value is not masked
+            return this->Append(item);  // perhaps use AppendValue instead?
+          }
+        });
+  }
 
   virtual Status Close() {
     if (chunks_.size() == 0 || builder_->length() > 0) {
@@ -467,42 +490,14 @@ class TypedConverter : public SeqConverter {
   using BuilderType = typename TypeTraits<Type>::BuilderType;
 
   Status Init(ArrayBuilder* builder) override {
-    builder_ = builder;
-    DCHECK_NE(builder_, nullptr);
+    RETURN_NOT_OK(SeqConverter::Init(builder));
     typed_builder_ = checked_cast<BuilderType*>(builder);
     return Status::OK();
   }
 
-  // Append a missing item (default implementation)
-  Status AppendNull() override { return this->typed_builder_->AppendNull(); }
-
-  // Append null if the obj is None or pandas null otherwise the valid value
-  Status Append(PyObject* obj) override {
+  virtual Status Append(PyObject* obj) override {
+    // Append null if the obj is None or pandas null otherwise the valid value
     return NullChecker<null_coding>::Check(obj) ? AppendNull() : AppendValue(obj);
-  }
-
-  Status Extend(PyObject* obj, int64_t size) override {
-    /// Ensure we've allocated enough space
-    RETURN_NOT_OK(typed_builder_->Reserve(size));
-    // Iterate over the items adding each one
-    return internal::VisitSequence(
-        obj, [this](PyObject* item, bool* /* unused */) { return this->Append(item); });
-  }
-
-  Status ExtendMasked(PyObject* obj, PyObject* mask, int64_t size) override {
-    /// Ensure we've allocated enough space
-    RETURN_NOT_OK(typed_builder_->Reserve(size));
-    // Iterate over the items adding each one
-    return internal::VisitSequenceMasked(
-        obj, mask, [this](PyObject* item, bool is_masked, bool* /* unused */) {
-          if (is_masked) {
-            return this->AppendNull();
-          } else {
-            // This will also apply the null-checking convention in the event
-            // that the value is not masked
-            return this->Append(item);  // perhaps use AppendValue instead?
-          }
-        });
   }
 
  protected:
@@ -904,6 +899,59 @@ class FixedSizeListConverter : public BaseListConverter<FixedSizeListType, null_
 };
 
 // ----------------------------------------------------------------------
+// Convert dictionary
+
+template <typename ValueType, NullCoding null_coding>
+class DictionaryConverter : public SeqConverter {
+ public:
+  using BuilderType = DictionaryBuilder<ValueType>;
+
+  Status Init(ArrayBuilder* builder) override {
+    RETURN_NOT_OK(SeqConverter::Init(builder));
+    typed_builder_ = checked_cast<BuilderType*>(builder);
+    return Status::OK();
+  }
+
+  Status Append(PyObject* obj) override {
+    // Append null if the obj is None or pandas null otherwise the valid value
+    return NullChecker<null_coding>::Check(obj) ? AppendNull() : AppendValue(obj);
+  }
+
+ protected:
+  BuilderType* typed_builder_;
+};
+
+template <typename ValueType, NullCoding null_coding>
+class PrimitiveDictionaryConverter : public DictionaryConverter<ValueType, null_coding> {
+ public:
+  Status AppendValue(PyObject* obj) override {
+    ARROW_ASSIGN_OR_RAISE(auto value, ValueConverter<ValueType>::FromPython(obj));
+    return this->typed_builder_->Append(value);
+  }
+};
+
+// TODO: use a mixin with multiple inheritance
+
+template <typename ValueType, NullCoding null_coding>
+class BinaryLikeDictionaryConverter : public DictionaryConverter<ValueType, null_coding> {
+ public:
+  Status AppendValue(PyObject* obj) override {
+    ARROW_ASSIGN_OR_RAISE(string_view_, ValueConverter<ValueType>::FromPython(obj));
+    DCHECK_GE(string_view_.size, 0);
+    RETURN_NOT_OK(this->typed_builder_->Append(string_view_.bytes,
+                                               static_cast<int32_t>(string_view_.size)));
+    return Status::OK();
+  }
+
+ protected:
+  // Create a single instance of PyBytesView here to prevent unnecessary object
+  // creation/destruction
+  PyBytesView string_view_;
+};
+
+// create one dictionary builder for binary like value types
+
+// ----------------------------------------------------------------------
 // Convert maps
 
 // Define a MapConverter as a ListConverter that uses MapBuilder.value_builder
@@ -1123,6 +1171,50 @@ class DecimalConverter : public TypedConverter<arrow::Decimal128Type, null_codin
   std::shared_ptr<DecimalType> decimal_type_;
 };
 
+#define DICTIONARY_PRIMITIVE(TYPE_ENUM, TYPE_CLASS)                 \
+  case Type::TYPE_ENUM:                                             \
+    *out = std::unique_ptr<SeqConverter>(                           \
+        new PrimitiveDictionaryConverter<TYPE_CLASS, null_coding>); \
+    break;
+
+#define DICTIONARY_BINARY_LIKE(TYPE_ENUM, TYPE_CLASS)                \
+  case Type::TYPE_ENUM:                                              \
+    *out = std::unique_ptr<SeqConverter>(                            \
+        new BinaryLikeDictionaryConverter<TYPE_CLASS, null_coding>); \
+    break;
+
+template <NullCoding null_coding>
+Status GetDictionaryConverter(const std::shared_ptr<DataType>& type,
+                              std::unique_ptr<SeqConverter>* out) {
+  const auto& dict_type = checked_cast<const DictionaryType&>(*type);
+  const auto& value_type = dict_type.value_type();
+
+  switch (value_type->id()) {
+    DICTIONARY_PRIMITIVE(BOOL, BooleanType);
+    DICTIONARY_PRIMITIVE(INT8, Int8Type);
+    DICTIONARY_PRIMITIVE(INT16, Int16Type);
+    DICTIONARY_PRIMITIVE(INT32, Int32Type);
+    DICTIONARY_PRIMITIVE(INT64, Int64Type);
+    DICTIONARY_PRIMITIVE(UINT8, UInt8Type);
+    DICTIONARY_PRIMITIVE(UINT16, UInt16Type);
+    DICTIONARY_PRIMITIVE(UINT32, UInt32Type);
+    DICTIONARY_PRIMITIVE(UINT64, UInt64Type);
+    DICTIONARY_PRIMITIVE(HALF_FLOAT, HalfFloatType);
+    DICTIONARY_PRIMITIVE(FLOAT, FloatType);
+    DICTIONARY_PRIMITIVE(DOUBLE, DoubleType);
+    DICTIONARY_PRIMITIVE(DATE32, Date32Type);
+    DICTIONARY_PRIMITIVE(DATE64, Date64Type);
+    DICTIONARY_BINARY_LIKE(BINARY, BinaryType);
+    DICTIONARY_BINARY_LIKE(STRING, StringType);
+    // DICTIONARY_BINARY_LIKE(LARGE_BINARY, LargeBinaryType);
+    // DICTIONARY_BINARY_LIKE(LARGE_STRING, LargeStringType);
+    default:
+      return Status::NotImplemented("Sequence converter for type ", type->ToString(),
+                                    " not implemented");
+  }
+  return Status::OK();
+}
+
 #define PRIMITIVE(TYPE_ENUM, TYPE)                                                   \
   case Type::TYPE_ENUM:                                                              \
     *out = std::unique_ptr<SeqConverter>(new PrimitiveConverter<TYPE, null_coding>); \
@@ -1279,6 +1371,12 @@ Status GetConverter(const std::shared_ptr<DataType>& type, bool from_pandas,
             from_pandas, strict_conversions, ignore_timezone));
       }
       return Status::OK();
+    case Type::DICTIONARY:
+      if (from_pandas) {
+        return GetDictionaryConverter<NullCoding::PANDAS_SENTINELS>(type, out);
+      } else {
+        return GetDictionaryConverter<NullCoding::NONE_ONLY>(type, out);
+      }
     default:
       break;
   }
