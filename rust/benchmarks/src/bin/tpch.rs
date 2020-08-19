@@ -73,6 +73,16 @@ fn main() -> Result<()> {
     let path = opt.path.to_str().unwrap();
 
     match opt.file_format.as_str() {
+        // dbgen creates .tbl ('|' delimited) files
+        "tbl" => {
+            let path = format!("{}/lineitem.tbl", path);
+            let schema = lineitem_schema();
+            let options = CsvReadOptions::new()
+                .schema(&schema)
+                .delimiter(b'|')
+                .file_extension(".tbl");
+            ctx.register_csv("lineitem", &path, options)?
+        }
         "csv" => {
             let path = format!("{}/lineitem", path);
             let schema = lineitem_schema();
