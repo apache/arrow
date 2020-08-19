@@ -544,6 +544,15 @@ fn binary_expr(l: Expr, op: Operator, r: Expr) -> Expr {
     }
 }
 
+/// return a new expression with a logical AND
+pub fn and(left: &Expr, right: &Expr) -> Expr {
+    Expr::BinaryExpr {
+        left: Box::new(left.clone()),
+        op: Operator::And,
+        right: Box::new(right.clone()),
+    }
+}
+
 /// Create a column expression based on a column name
 pub fn col(name: &str) -> Expr {
     Expr::Column(name.to_owned())

@@ -42,7 +42,7 @@ DataFusion includes a simple command-line interactive SQL utility. See the [CLI 
 - [x] SQL Query Planner
 - [x] Query Optimizer
 - [x] Projection push down
-- [ ] Predicate push down
+- [x] Predicate push down
 - [x] Type coercion
 - [x] Parallel query execution
 

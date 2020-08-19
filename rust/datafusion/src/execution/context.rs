@@ -45,7 +45,9 @@ use crate::execution::physical_plan::PhysicalPlanner;
 use crate::logicalplan::{FunctionMeta, FunctionType, LogicalPlan, LogicalPlanBuilder};
 use crate::optimizer::optimizer::OptimizerRule;
 use crate::optimizer::projection_push_down::ProjectionPushDown;
-use crate::optimizer::type_coercion::TypeCoercionRule;
+use crate::optimizer::{
+    filter_push_down::FilterPushDown, type_coercion::TypeCoercionRule,
+};
 use crate::sql::{
     parser::{DFParser, FileType},
     planner::{SchemaProvider, SqlToRel},
@@ -338,6 +340,7 @@ impl ExecutionContext {
     pub fn optimize(&self, plan: &LogicalPlan) -> Result<LogicalPlan> {
         let rules: Vec<Box<dyn OptimizerRule>> = vec![
             Box::new(ProjectionPushDown::new()),
+            Box::new(FilterPushDown::new()),
             Box::new(TypeCoercionRule::new(
                 self.state
                     .lock()
