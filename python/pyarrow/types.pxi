@@ -1254,16 +1254,8 @@ cdef class Schema(_Weakrefable):
         -------
         table: pyarrow.Table
         """
-        arrays = []
-        names = []
-        for field in self:
-            arrays.append(_empty_array(field.type))
-            names.append(field.name)
-        return Table.from_arrays(
-            arrays=arrays,
-            names=names,
-            metadata=self.metadata
-        )
+        arrays = [_empty_array(field.type) for field in self]
+        return Table.from_arrays(arrays, schema=self)
 
     def equals(self, Schema other not None, bint check_metadata=False):
         """
