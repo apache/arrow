@@ -20,43 +20,81 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/status.h"
 #include "arrow/util/cpu_info.h"
 
 namespace arrow {
 namespace internal {
 
-struct DispatchLevel {
-  enum type { NONE = 0, SSE4_2, AVX2, AVX512, NEON, MAX };
+enum class DispatchLevel : int {
+  // These dispatch levels, corresponding to instruction set features,
+  // are sorted in increasing order of preference.
+  NONE = 0,
+  SSE4_2,
+  AVX2,
+  AVX512,
+  NEON,
+  MAX
 };
 
-template <typename FunctionType>
+/*
+  A facility for dynamic dispatch according to available DispatchLevel.
+
+  Typical use:
+
+    static void my_function_default(...);
+    static void my_function_avx2(...);
+
+    struct MyDynamicFunction {
+      using FunctionType = decltype(&my_function_default);
+
+      static std::vector<std::pair<DispatchLevel, FunctionType>> implementations() {
+        return {
+          { DispatchLevel::NONE, my_function_default }
+    #if defined(ARROW_HAVE_RUNTIME_AVX2)
+          , { DispatchLevel::AVX2, my_function_avx2 }
+    #endif
+        };
+      }
+    };
+
+    void my_function(...) {
+      static DynamicDispatch<MyDynamicFunction> dispatch;
+      return dispatch.func(...);
+    }
+*/
+template <typename DynamicFunction>
 class DynamicDispatch {
-  using FunctionIntance = std::pair<DispatchLevel::type, FunctionType>;
+ protected:
+  using FunctionType = typename DynamicFunction::FunctionType;
+  using Implementation = std::pair<DispatchLevel, FunctionType>;
 
  public:
-  // Provide all SIMD instances implemented
-  virtual std::vector<FunctionIntance> Implementations() = 0;
+  DynamicDispatch() { Resolve(DynamicFunction::implementations()); }
 
-  // Reslove the highest SIMD function of host CPU
-  void Reslove() {
-    FunctionIntance cur = {DispatchLevel::NONE, NULL};
-    auto instances = Implementations();
+  FunctionType func = {};
 
-    for (const auto& i : instances) {
-      if (i.first >= cur.first && IsSupported(i.first)) {
-        // Higher(or same) level than current
-        cur = i;
+ protected:
+  // Use the Implementation with the highest DispatchLevel
+  void Resolve(const std::vector<Implementation>& implementations) {
+    Implementation cur{DispatchLevel::NONE, {}};
+
+    for (const auto& impl : implementations) {
+      if (impl.first >= cur.first && IsSupported(impl.first)) {
+        // Higher (or same) level than current
+        cur = impl;
       }
     }
 
+    if (!cur.second) {
+      Status::Invalid("No appropriate implementation found").Abort();
+    }
     func = cur.second;
   }
 
-  FunctionType func;
-
  private:
-  bool IsSupported(DispatchLevel::type level) {
-    auto cpu_info = arrow::internal::CpuInfo::GetInstance();
+  bool IsSupported(DispatchLevel level) const {
+    static const auto cpu_info = arrow::internal::CpuInfo::GetInstance();
 
     switch (level) {
       case DispatchLevel::NONE:

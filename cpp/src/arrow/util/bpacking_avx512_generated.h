@@ -31,14 +31,14 @@
 namespace arrow {
 namespace internal {
 
-inline const uint32_t* unpack0_32_avx512(const uint32_t* in, uint32_t* out) {
+inline static const uint32_t* unpack0_32_avx512(const uint32_t* in, uint32_t* out) {
   memset(out, 0x0, 32 * sizeof(*out));
   out += 32;
 
   return in;
 }
 
-inline const uint32_t* unpack1_32_avx512(const uint32_t* in, uint32_t* out) {
+inline static const uint32_t* unpack1_32_avx512(const uint32_t* in, uint32_t* out) {
   uint32_t mask = 0x1;
   __m512i reg_shifts, reg_inls, reg_masks;
   __m512i results;
@@ -84,7 +84,7 @@ inline const uint32_t* unpack1_32_avx512(const uint32_t* in, uint32_t* out) {
   return in;
 }
 
-inline const uint32_t* unpack2_32_avx512(const uint32_t* in, uint32_t* out) {
+inline static const uint32_t* unpack2_32_avx512(const uint32_t* in, uint32_t* out) {
   uint32_t mask = 0x3;
   __m512i reg_shifts, reg_inls, reg_masks;
   __m512i results;
@@ -130,7 +130,7 @@ inline const uint32_t* unpack2_32_avx512(const uint32_t* in, uint32_t* out) {
   return in;
 }
 
-inline const uint32_t* unpack3_32_avx512(const uint32_t* in, uint32_t* out) {
+inline static const uint32_t* unpack3_32_avx512(const uint32_t* in, uint32_t* out) {
   uint32_t mask = 0x7;
   __m512i reg_shifts, reg_inls, reg_masks;
   __m512i results;
@@ -176,7 +176,7 @@ inline const uint32_t* unpack3_32_avx512(const uint32_t* in, uint32_t* out) {
   return in;
 }
 
-inline const uint32_t* unpack4_32_avx512(const uint32_t* in, uint32_t* out) {
+inline static const uint32_t* unpack4_32_avx512(const uint32_t* in, uint32_t* out) {
   uint32_t mask = 0xf;
   __m512i reg_shifts, reg_inls, reg_masks;
   __m512i results;
@@ -222,7 +222,7 @@ inline const uint32_t* unpack4_32_avx512(const uint32_t* in, uint32_t* out) {
   return in;
 }
 
-inline const uint32_t* unpack5_32_avx512(const uint32_t* in, uint32_t* out) {
+inline static const uint32_t* unpack5_32_avx512(const uint32_t* in, uint32_t* out) {
   uint32_t mask = 0x1f;
   __m512i reg_shifts, reg_inls, reg_masks;
   __m512i results;
@@ -268,7 +268,7 @@ inline const uint32_t* unpack5_32_avx512(const uint32_t* in, uint32_t* out) {
   return in;
 }
 
-inline const uint32_t* unpack6_32_avx512(const uint32_t* in, uint32_t* out) {
+inline static const uint32_t* unpack6_32_avx512(const uint32_t* in, uint32_t* out) {
   uint32_t mask = 0x3f;
   __m512i reg_shifts, reg_inls, reg_masks;
   __m512i results;
@@ -314,7 +314,7 @@ inline const uint32_t* unpack6_32_avx512(const uint32_t* in, uint32_t* out) {
   return in;
 }
 
-inline const uint32_t* unpack7_32_avx512(const uint32_t* in, uint32_t* out) {
+inline static const uint32_t* unpack7_32_avx512(const uint32_t* in, uint32_t* out) {
   uint32_t mask = 0x7f;
   __m512i reg_shifts, reg_inls, reg_masks;
   __m512i results;
@@ -360,7 +360,7 @@ inline const uint32_t* unpack7_32_avx512(const uint32_t* in, uint32_t* out) {
   return in;
 }
 
-inline const uint32_t* unpack8_32_avx512(const uint32_t* in, uint32_t* out) {
+inline static const uint32_t* unpack8_32_avx512(const uint32_t* in, uint32_t* out) {
   uint32_t mask = 0xff;
   __m512i reg_shifts, reg_inls, reg_masks;
   __m512i results;
@@ -406,7 +406,7 @@ inline const uint32_t* unpack8_32_avx512(const uint32_t* in, uint32_t* out) {
   return in;
 }
 
-inline const uint32_t* unpack9_32_avx512(const uint32_t* in, uint32_t* out) {
+inline static const uint32_t* unpack9_32_avx512(const uint32_t* in, uint32_t* out) {
   uint32_t mask = 0x1ff;
   __m512i reg_shifts, reg_inls, reg_masks;
   __m512i results;
@@ -452,7 +452,7 @@ inline const uint32_t* unpack9_32_avx512(const uint32_t* in, uint32_t* out) {
   return in;
 }
 
-inline const uint32_t* unpack10_32_avx512(const uint32_t* in, uint32_t* out) {
+inline static const uint32_t* unpack10_32_avx512(const uint32_t* in, uint32_t* out) {
   uint32_t mask = 0x3ff;
   __m512i reg_shifts, reg_inls, reg_masks;
   __m512i results;
@@ -498,7 +498,7 @@ inline const uint32_t* unpack10_32_avx512(const uint32_t* in, uint32_t* out) {
   return in;
 }
 
-inline const uint32_t* unpack11_32_avx512(const uint32_t* in, uint32_t* out) {
+inline static const uint32_t* unpack11_32_avx512(const uint32_t* in, uint32_t* out) {
   uint32_t mask = 0x7ff;
   __m512i reg_shifts, reg_inls, reg_masks;
   __m512i results;
@@ -544,7 +544,7 @@ inline const uint32_t* unpack11_32_avx512(const uint32_t* in, uint32_t* out) {
   return in;
 }
 
-inline const uint32_t* unpack12_32_avx512(const uint32_t* in, uint32_t* out) {
+inline static const uint32_t* unpack12_32_avx512(const uint32_t* in, uint32_t* out) {
   uint32_t mask = 0xfff;
   __m512i reg_shifts, reg_inls, reg_masks;
   __m512i results;
@@ -590,7 +590,7 @@ inline const uint32_t* unpack12_32_avx512(const uint32_t* in, uint32_t* out) {
   return in;
 }
 
-inline const uint32_t* unpack13_32_avx512(const uint32_t* in, uint32_t* out) {
+inline static const uint32_t* unpack13_32_avx512(const uint32_t* in, uint32_t* out) {
   uint32_t mask = 0x1fff;
   __m512i reg_shifts, reg_inls, reg_masks;
   __m512i results;
@@ -636,7 +636,7 @@ inline const uint32_t* unpack13_32_avx512(const uint32_t* in, uint32_t* out) {
   return in;
 }
 
-inline const uint32_t* unpack14_32_avx512(const uint32_t* in, uint32_t* out) {
+inline static const uint32_t* unpack14_32_avx512(const uint32_t* in, uint32_t* out) {
   uint32_t mask = 0x3fff;
   __m512i reg_shifts, reg_inls, reg_masks;
   __m512i results;
@@ -682,7 +682,7 @@ inline const uint32_t* unpack14_32_avx512(const uint32_t* in, uint32_t* out) {
   return in;
 }
 
-inline const uint32_t* unpack15_32_avx512(const uint32_t* in, uint32_t* out) {
+inline static const uint32_t* unpack15_32_avx512(const uint32_t* in, uint32_t* out) {
   uint32_t mask = 0x7fff;
   __m512i reg_shifts, reg_inls, reg_masks;
   __m512i results;
@@ -728,7 +728,7 @@ inline const uint32_t* unpack15_32_avx512(const uint32_t* in, uint32_t* out) {
   return in;
 }
 
-inline const uint32_t* unpack16_32_avx512(const uint32_t* in, uint32_t* out) {
+inline static const uint32_t* unpack16_32_avx512(const uint32_t* in, uint32_t* out) {
   uint32_t mask = 0xffff;
   __m512i reg_shifts, reg_inls, reg_masks;
   __m512i results;
@@ -774,7 +774,7 @@ inline const uint32_t* unpack16_32_avx512(const uint32_t* in, uint32_t* out) {
   return in;
 }
 
-inline const uint32_t* unpack17_32_avx512(const uint32_t* in, uint32_t* out) {
+inline static const uint32_t* unpack17_32_avx512(const uint32_t* in, uint32_t* out) {
   uint32_t mask = 0x1ffff;
   __m512i reg_shifts, reg_inls, reg_masks;
   __m512i results;
@@ -820,7 +820,7 @@ inline const uint32_t* unpack17_32_avx512(const uint32_t* in, uint32_t* out) {
   return in;
 }
 
-inline const uint32_t* unpack18_32_avx512(const uint32_t* in, uint32_t* out) {
+inline static const uint32_t* unpack18_32_avx512(const uint32_t* in, uint32_t* out) {
   uint32_t mask = 0x3ffff;
   __m512i reg_shifts, reg_inls, reg_masks;
   __m512i results;
@@ -866,7 +866,7 @@ inline const uint32_t* unpack18_32_avx512(const uint32_t* in, uint32_t* out) {
   return in;
 }
 
-inline const uint32_t* unpack19_32_avx512(const uint32_t* in, uint32_t* out) {
+inline static const uint32_t* unpack19_32_avx512(const uint32_t* in, uint32_t* out) {
   uint32_t mask = 0x7ffff;
   __m512i reg_shifts, reg_inls, reg_masks;
   __m512i results;
@@ -912,7 +912,7 @@ inline const uint32_t* unpack19_32_avx512(const uint32_t* in, uint32_t* out) {
   return in;
 }
 
-inline const uint32_t* unpack20_32_avx512(const uint32_t* in, uint32_t* out) {
+inline static const uint32_t* unpack20_32_avx512(const uint32_t* in, uint32_t* out) {
   uint32_t mask = 0xfffff;
   __m512i reg_shifts, reg_inls, reg_masks;
   __m512i results;
@@ -958,7 +958,7 @@ inline const uint32_t* unpack20_32_avx512(const uint32_t* in, uint32_t* out) {
   return in;
 }
 
-inline const uint32_t* unpack21_32_avx512(const uint32_t* in, uint32_t* out) {
+inline static const uint32_t* unpack21_32_avx512(const uint32_t* in, uint32_t* out) {
   uint32_t mask = 0x1fffff;
   __m512i reg_shifts, reg_inls, reg_masks;
   __m512i results;
@@ -1004,7 +1004,7 @@ inline const uint32_t* unpack21_32_avx512(const uint32_t* in, uint32_t* out) {
   return in;
 }
 
-inline const uint32_t* unpack22_32_avx512(const uint32_t* in, uint32_t* out) {
+inline static const uint32_t* unpack22_32_avx512(const uint32_t* in, uint32_t* out) {
   uint32_t mask = 0x3fffff;
   __m512i reg_shifts, reg_inls, reg_masks;
   __m512i results;
@@ -1050,7 +1050,7 @@ inline const uint32_t* unpack22_32_avx512(const uint32_t* in, uint32_t* out) {
   return in;
 }
 
-inline const uint32_t* unpack23_32_avx512(const uint32_t* in, uint32_t* out) {
+inline static const uint32_t* unpack23_32_avx512(const uint32_t* in, uint32_t* out) {
   uint32_t mask = 0x7fffff;
   __m512i reg_shifts, reg_inls, reg_masks;
   __m512i results;
@@ -1096,7 +1096,7 @@ inline const uint32_t* unpack23_32_avx512(const uint32_t* in, uint32_t* out) {
   return in;
 }
 
-inline const uint32_t* unpack24_32_avx512(const uint32_t* in, uint32_t* out) {
+inline static const uint32_t* unpack24_32_avx512(const uint32_t* in, uint32_t* out) {
   uint32_t mask = 0xffffff;
   __m512i reg_shifts, reg_inls, reg_masks;
   __m512i results;
@@ -1142,7 +1142,7 @@ inline const uint32_t* unpack24_32_avx512(const uint32_t* in, uint32_t* out) {
   return in;
 }
 
-inline const uint32_t* unpack25_32_avx512(const uint32_t* in, uint32_t* out) {
+inline static const uint32_t* unpack25_32_avx512(const uint32_t* in, uint32_t* out) {
   uint32_t mask = 0x1ffffff;
   __m512i reg_shifts, reg_inls, reg_masks;
   __m512i results;
@@ -1188,7 +1188,7 @@ inline const uint32_t* unpack25_32_avx512(const uint32_t* in, uint32_t* out) {
   return in;
 }
 
-inline const uint32_t* unpack26_32_avx512(const uint32_t* in, uint32_t* out) {
+inline static const uint32_t* unpack26_32_avx512(const uint32_t* in, uint32_t* out) {
   uint32_t mask = 0x3ffffff;
   __m512i reg_shifts, reg_inls, reg_masks;
   __m512i results;
@@ -1234,7 +1234,7 @@ inline const uint32_t* unpack26_32_avx512(const uint32_t* in, uint32_t* out) {
   return in;
 }
 
-inline const uint32_t* unpack27_32_avx512(const uint32_t* in, uint32_t* out) {
+inline static const uint32_t* unpack27_32_avx512(const uint32_t* in, uint32_t* out) {
   uint32_t mask = 0x7ffffff;
   __m512i reg_shifts, reg_inls, reg_masks;
   __m512i results;
@@ -1280,7 +1280,7 @@ inline const uint32_t* unpack27_32_avx512(const uint32_t* in, uint32_t* out) {
   return in;
 }
 
-inline const uint32_t* unpack28_32_avx512(const uint32_t* in, uint32_t* out) {
+inline static const uint32_t* unpack28_32_avx512(const uint32_t* in, uint32_t* out) {
   uint32_t mask = 0xfffffff;
   __m512i reg_shifts, reg_inls, reg_masks;
   __m512i results;
@@ -1326,7 +1326,7 @@ inline const uint32_t* unpack28_32_avx512(const uint32_t* in, uint32_t* out) {
   return in;
 }
 
-inline const uint32_t* unpack29_32_avx512(const uint32_t* in, uint32_t* out) {
+inline static const uint32_t* unpack29_32_avx512(const uint32_t* in, uint32_t* out) {
   uint32_t mask = 0x1fffffff;
   __m512i reg_shifts, reg_inls, reg_masks;
   __m512i results;
@@ -1372,7 +1372,7 @@ inline const uint32_t* unpack29_32_avx512(const uint32_t* in, uint32_t* out) {
   return in;
 }
 
-inline const uint32_t* unpack30_32_avx512(const uint32_t* in, uint32_t* out) {
+inline static const uint32_t* unpack30_32_avx512(const uint32_t* in, uint32_t* out) {
   uint32_t mask = 0x3fffffff;
   __m512i reg_shifts, reg_inls, reg_masks;
   __m512i results;
@@ -1418,7 +1418,7 @@ inline const uint32_t* unpack30_32_avx512(const uint32_t* in, uint32_t* out) {
   return in;
 }
 
-inline const uint32_t* unpack31_32_avx512(const uint32_t* in, uint32_t* out) {
+inline static const uint32_t* unpack31_32_avx512(const uint32_t* in, uint32_t* out) {
   uint32_t mask = 0x7fffffff;
   __m512i reg_shifts, reg_inls, reg_masks;
   __m512i results;
@@ -1464,7 +1464,7 @@ inline const uint32_t* unpack31_32_avx512(const uint32_t* in, uint32_t* out) {
   return in;
 }
 
-inline const uint32_t* unpack32_32_avx512(const uint32_t* in, uint32_t* out) {
+inline static const uint32_t* unpack32_32_avx512(const uint32_t* in, uint32_t* out) {
   memcpy(out, in, 32 * sizeof(*out));
   in += 32;
   out += 32;

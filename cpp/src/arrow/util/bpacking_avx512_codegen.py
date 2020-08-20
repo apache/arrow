@@ -29,7 +29,7 @@ def print_unpack_bit_func(bit):
     bracket = "{"
 
     print(
-        f"inline const uint32_t* unpack{bit}_32_avx512(const uint32_t* in, uint32_t* out) {bracket}")
+        f"inline static const uint32_t* unpack{bit}_32_avx512(const uint32_t* in, uint32_t* out) {bracket}")
     print("  uint32_t mask = 0x%x;" % mask)
     print("  __m512i reg_shifts, reg_inls, reg_masks;")
     print("  __m512i results;")
@@ -106,7 +106,7 @@ def print_unpack_bit_func(bit):
 
 def print_unpack_bit0_func():
     print(
-        "inline const uint32_t* unpack0_32_avx512(const uint32_t* in, uint32_t* out) {")
+        "inline static const uint32_t* unpack0_32_avx512(const uint32_t* in, uint32_t* out) {")
     print("  memset(out, 0x0, 32 * sizeof(*out));")
     print("  out += 32;")
     print("")
@@ -116,7 +116,7 @@ def print_unpack_bit0_func():
 
 def print_unpack_bit32_func():
     print(
-        "inline const uint32_t* unpack32_32_avx512(const uint32_t* in, uint32_t* out) {")
+        "inline static const uint32_t* unpack32_32_avx512(const uint32_t* in, uint32_t* out) {")
     print("  memcpy(out, in, 32 * sizeof(*out));")
     print("  in += 32;")
     print("  out += 32;")

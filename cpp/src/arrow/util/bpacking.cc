@@ -31,6 +31,8 @@
 namespace arrow {
 namespace internal {
 
+namespace {
+
 int unpack32_default(const uint32_t* in, uint32_t* out, int batch_size, int num_bits) {
   batch_size = batch_size / 32 * 32;
   int num_loops = batch_size / 32;
@@ -142,34 +144,26 @@ int unpack32_default(const uint32_t* in, uint32_t* out, int batch_size, int num_
   return batch_size;
 }
 
-typedef int (*unpack32_func_t)(const uint32_t* in, uint32_t* out, int batch_size,
-                               int num_bits);
+struct Unpack32DynamicFunction {
+  using FunctionType = decltype(&unpack32_default);
 
-using FunctionType = unpack32_func_t;
-class Unpack32Dispatch : public DynamicDispatch<FunctionType> {
-  using FunctionIntance = std::pair<DispatchLevel::type, FunctionType>;
-
- public:
-  Unpack32Dispatch() { Reslove(); }
-
-  std::vector<FunctionIntance> Implementations() {
-    std::vector<FunctionIntance> instances;
-
-    // Register all instances it support
-    instances.push_back({DispatchLevel::NONE, unpack32_default});
+  static std::vector<std::pair<DispatchLevel, FunctionType>> implementations() {
+    return {
+      { DispatchLevel::NONE, unpack32_default }
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
-    instances.push_back({DispatchLevel::AVX2, unpack32_avx2});
+      , { DispatchLevel::AVX2, unpack32_avx2 }
 #endif
 #if defined(ARROW_HAVE_RUNTIME_AVX512)
-    instances.push_back({DispatchLevel::AVX512, unpack32_avx512});
+      , { DispatchLevel::AVX512, unpack32_avx512 }
 #endif
-
-    return instances;
+    };
   }
 };
 
+}  // namespace
+
 int unpack32(const uint32_t* in, uint32_t* out, int batch_size, int num_bits) {
-  static Unpack32Dispatch dispatch;
+  static DynamicDispatch<Unpack32DynamicFunction> dispatch;
   return dispatch.func(in, out, batch_size, num_bits);
 }
 
