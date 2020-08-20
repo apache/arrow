@@ -17,7 +17,25 @@
   under the License.
 -->
 
-# arrow 1.0.0.9000
+# arrow 1.0.1.9000
+
+## Datasets
+
+* `write_dataset()` to Feather files with partitioning
+* Datasets now have `head()`, `tail()`, and take (`[`) methods. `head()` is optimized but the others  may not be performant.
+* `collect()` gains an `as_data_frame` argument, default `TRUE` but when `FALSE` allows you to evaluate the accumulated `select` and `filter` query but keep the result in Arrow, not an R `data.frame`
+
+## Computation
+
+* Comparison (`==`, `>`, etc.) and boolean (`&`, `|`, `!`) operations, along with `is.na` and `%in%`, on Arrow Arrays and ChunkedArrays are now implemented in the C++ library.
+* `dplyr` filter expressions on Arrow Tables and RecordBatches are now evaluated in the C++ library, rather than by pulling data into R and evaluating. This yields significant performance improvements.
+* `dim()` (`nrow`) for dplyr queries on Table/RecordBatch is now supported
+
+## Packaging
+
+* S3 support is now enabled in binary macOS and Windows (Rtools40 only, i.e. R >= 4.0) packages
+
+# arrow 1.0.1
 
 ## Bug fixes
 
