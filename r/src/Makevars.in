@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-PKG_CPPFLAGS=@cflags@
+PKG_CPPFLAGS=@cflags@ -I../inst/include/
 # `-fvisibility=hidden` does not play well with UBSAN:
 # https://bugs.llvm.org/show_bug.cgi?id=39191
 # https://www.mail-archive.com/gcc-bugs@gcc.gnu.org/msg534862.html
