@@ -492,6 +492,88 @@ TYPED_TEST(TestBinaryArithmeticFloating, Add) {
   this->AssertBinop(Add, "[null, 2.0]", this->MakeNullScalar(), "[null, null]");
 }
 
+TYPED_TEST(TestBinaryArithmeticFloating, Div) {
+  for (auto check_overflow : {false, true}) {
+    this->SetOverflowCheck(check_overflow);
+    // Empty arrays
+    this->AssertBinop(Divide, "[]", "[]", "[]");
+    // Ordinary arrays
+    this->AssertBinop(Divide, "[3.4, 0.64, 1.28]", "[1, 2, 4]", "[3.4, 0.32, 0.32]");
+    // Array with nulls
+    this->AssertBinop(Divide, "[null, 1, 3.3, null, 2]", "[1, 4, 2, 5, 0.1]",
+                      "[null, 0.25, 1.65, null, 20]");
+    // Scalar divides by array
+    this->AssertBinop(Divide, 10.0F, "[null, 1, 2.5, null, 2, 5]",
+                      "[null, 10, 4, null, 5, 2]");
+    // Array divides by scalar
+    this->AssertBinop(Divide, "[null, 1, 2.5, null, 2, 5]", 10.0F,
+                      "[null, 0.1, 0.25, null, 0.2, 0.5]");
+    // Array with infinity
+    this->AssertBinop(Divide, "[3.4, Inf, -Inf]", "[1, 2, 3]", "[3.4, Inf, -Inf]");
+    // Scalar divides by scalar
+    this->AssertBinop(Divide, 21.0F, 3.0F, 7.0F);
+  }
+}
+
+TYPED_TEST(TestBinaryArithmeticIntegral, Div) {
+  for (auto check_overflow : {false, true}) {
+    this->SetOverflowCheck(check_overflow);
+
+    // Empty arrays
+    this->AssertBinop(Divide, "[]", "[]", "[]");
+    // Ordinary arrays
+    this->AssertBinop(Divide, "[3, 2, 6]", "[1, 1, 2]", "[3, 2, 3]");
+    // Array with nulls
+    this->AssertBinop(Divide, "[null, 10, 30, null, 20]", "[1, 4, 2, 5, 10]",
+                      "[null, 2, 15, null, 2]");
+    // Scalar divides by array
+    this->AssertBinop(Divide, 33, "[null, 1, 3, null, 2]", "[null, 33, 11, null, 16]");
+    // Array divides by scalar
+    this->AssertBinop(Divide, "[null, 10, 30, null, 2]", 3, "[null, 3, 10, null, 0]");
+    // Scalar divides by scalar
+    this->AssertBinop(Divide, 16, 7, 2);
+  }
+}
+
+TYPED_TEST(TestBinaryArithmeticSigned, Div) {
+  // Ordinary arrays
+  this->AssertBinop(Divide, "[-3, 2, -6]", "[1, 1, 2]", "[-3, 2, -3]");
+  // Array with nulls
+  this->AssertBinop(Divide, "[null, 10, 30, null, -20]", "[1, 4, 2, 5, 10]",
+                    "[null, 2, 15, null, -2]");
+  // Scalar divides by array
+  this->AssertBinop(Divide, 33, "[null, -1, -3, null, 2]", "[null, -33, -11, null, 16]");
+  // Array divides by scalar
+  this->AssertBinop(Divide, "[null, 10, 30, null, 2]", 3, "[null, 3, 10, null, 0]");
+  // Scalar divides by scalar
+  this->AssertBinop(Divide, -16, -8, 2);
+}
+
+TYPED_TEST(TestBinaryArithmeticIntegral, DivideByZero) {
+  for (auto check_overflow : {false, true}) {
+    this->SetOverflowCheck(check_overflow);
+    this->AssertBinopRaises(Divide, "[3, 2, 6]", "[1, 1, 0]", "divide by zero");
+  }
+}
+
+TYPED_TEST(TestBinaryArithmeticFloating, DivideByZero) {
+  for (auto check_overflow : {false, true}) {
+    this->SetOverflowCheck(check_overflow);
+    this->AssertBinopRaises(Divide, "[3.0, 2.0, 6.0]", "[1.0, 1.0, 0]", "divide by zero");
+  }
+}
+
+TYPED_TEST(TestBinaryArithmeticSigned, DivideOverflowRaises) {
+  using CType = typename TestFixture::CType;
+  auto min = std::numeric_limits<CType>::lowest();
+
+  this->SetOverflowCheck(true);
+  this->AssertBinopRaises(Divide, MakeArray(min), MakeArray(-1), "overflow");
+
+  this->SetOverflowCheck(false);
+  this->AssertBinop(Divide, MakeArray(min), MakeArray(-1), "[0]");
+}
+
 TYPED_TEST(TestBinaryArithmeticFloating, Sub) {
   this->AssertBinop(Subtract, "[]", "[]", "[]");
 
