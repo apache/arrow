@@ -1012,6 +1012,27 @@ def test_sequence_timestamp_from_mixed_builtin_and_pandas_datetimes():
     assert values.to_pylist() == expected
 
 
+def test_sequence_timestamp_out_of_bounds_nanosecond():
+    # https://issues.apache.org/jira/browse/ARROW-9768
+    # datetime outside of range supported for nanosecond resolution
+    data = [datetime.datetime(2262, 4, 12)]
+    with pytest.raises(ValueError, match="out of bounds"):
+        pa.array(data, type=pa.timestamp('ns'))
+
+    # with microsecond resolution it works fine
+    arr = pa.array(data, type=pa.timestamp('us'))
+    assert arr.to_pylist() == data
+
+    # case where the naive is within bounds, but converted to UTC not
+    tz = datetime.timezone(datetime.timedelta(hours=-1))
+    data = [datetime.datetime(2262, 4, 11, 23, tzinfo=tz)]
+    with pytest.raises(ValueError, match="out of bounds"):
+        pa.array(data, type=pa.timestamp('ns'))
+
+    arr = pa.array(data, type=pa.timestamp('us'))
+    assert arr.to_pylist()[0] == datetime.datetime(2262, 4, 12)
+
+
 def test_sequence_numpy_timestamp():
     data = [
         np.datetime64(datetime.datetime(2007, 7, 13, 1, 23, 34, 123456)),
