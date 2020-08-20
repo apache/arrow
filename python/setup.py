@@ -225,6 +225,7 @@ class build_ext(_build_ext):
 
             cmake_options = [
                 '-DPYTHON_EXECUTABLE=%s' % sys.executable,
+                '-DPython3_EXECUTABLE=%s' % sys.executable,
                 static_lib_option,
             ]
 
