@@ -31,6 +31,10 @@
 * `dplyr` filter expressions on Arrow Tables and RecordBatches are now evaluated in the C++ library, rather than by pulling data into R and evaluating. This yields significant performance improvements.
 * `dim()` (`nrow`) for dplyr queries on Table/RecordBatch is now supported
 
+## Packaging
+
+* S3 support is now enabled in binary macOS and Windows (Rtools40 only, i.e. R >= 4.0) packages
+
 # arrow 1.0.1
 
 ## Bug fixes
