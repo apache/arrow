@@ -674,13 +674,13 @@ class FixedSizeBinaryConverter
 
 // For String/UTF8, if strict_conversions enabled, we reject any non-UTF8,
 // otherwise we allow but return results as BinaryArray
-template <typename Type, bool STRICT, NullCoding null_coding>
+template <typename Type, bool Strict, NullCoding null_coding>
 class StringConverter : public BinaryLikeConverter<Type, null_coding> {
  public:
   StringConverter() : binary_count_(0) {}
 
   Status AppendValue(PyObject* obj) override {
-    if (STRICT) {
+    if (Strict) {
       // raise if the object is not unicode or not an utf-8 encoded bytes
       ARROW_ASSIGN_OR_RAISE(this->string_view_, ValueConverter<Type>::FromPython(obj));
     } else {
@@ -702,7 +702,7 @@ class StringConverter : public BinaryLikeConverter<Type, null_coding> {
     // If we saw any non-unicode, cast results to BinaryArray
     if (binary_count_) {
       // We should have bailed out earlier
-      DCHECK(!STRICT);
+      DCHECK(!Strict);
       auto binary_type = TypeTraits<typename Type::PhysicalType>::type_singleton();
       return (*out)->View(binary_type).Value(out);
     }
