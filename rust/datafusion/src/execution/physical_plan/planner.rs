@@ -364,35 +364,38 @@ impl DefaultPhysicalPlanner {
                 name,
                 args,
                 return_type,
-            } => match ctx_state
-                .lock()
-                .expect("failed to lock mutex")
-                .scalar_functions
-                .lock()
-                .expect("failed to lock mutex")
-                .get(name)
-            {
-                Some(f) => {
-                    let mut physical_args = vec![];
-                    for e in args {
-                        physical_args.push(self.create_physical_expr(
-                            e,
-                            input_schema,
-                            ctx_state.clone(),
-                        )?);
+            } => {
+                let functions = ctx_state
+                    .lock()
+                    .expect("failed to lock mutex")
+                    .scalar_functions
+                    .lock()
+                    .expect("Unable to lock mutex")
+                    .clone();
+
+                match functions.get(name) {
+                    Some(f) => {
+                        let mut physical_args = vec![];
+                        for e in args {
+                            physical_args.push(self.create_physical_expr(
+                                e,
+                                input_schema,
+                                ctx_state.clone(),
+                            )?);
+                        }
+                        Ok(Arc::new(ScalarFunctionExpr::new(
+                            name,
+                            Box::new(f.fun.clone()),
+                            physical_args,
+                            return_type,
+                        )))
                     }
-                    Ok(Arc::new(ScalarFunctionExpr::new(
-                        name,
-                        Box::new(f.fun.clone()),
-                        physical_args,
-                        return_type,
-                    )))
+                    _ => Err(ExecutionError::General(format!(
+                        "Invalid scalar function '{:?}'",
+                        name
+                    ))),
                 }
-                _ => Err(ExecutionError::General(format!(
-                    "Invalid scalar function '{:?}'",
-                    name
-                ))),
-            },
+            }
             other => Err(ExecutionError::NotImplemented(format!(
                 "Physical plan does not support logical expression {:?}",
                 other
