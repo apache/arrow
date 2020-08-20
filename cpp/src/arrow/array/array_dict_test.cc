@@ -921,8 +921,8 @@ TEST(TestNullDictionaryBuilder, Basic) {
   ASSERT_EQ(7, builder.length());
   ASSERT_EQ(7, builder.null_count());
 
-  auto int_array = ArrayFromJSON(int8(), "[0, 1, 0, null]");
-  ASSERT_OK(builder.AppendArray(*int_array));
+  auto null_array = ArrayFromJSON(null(), "[null, null, null, null]");
+  ASSERT_OK(builder.AppendArray(*null_array));
   ASSERT_EQ(11, builder.length());
   ASSERT_EQ(11, builder.null_count());
 
