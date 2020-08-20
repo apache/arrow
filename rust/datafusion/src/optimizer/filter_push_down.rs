@@ -198,18 +198,32 @@ fn analyze_plan(plan: &LogicalPlan, depth: usize) -> Result<AnalysisResult> {
             Ok(result)
         }
         LogicalPlan::Sort { input, .. } => analyze_plan(&input, depth + 1),
-        LogicalPlan::Limit { input, .. } => {
-            let mut result = analyze_plan(&input, depth + 1)?;
+        LogicalPlan::UserDefined { wrapper } => {
+            let inputs = wrapper.node.inputs();
 
-            // collect all columns that break at this depth
-            let columns = input
-                .schema()
-                .fields()
-                .iter()
-                .map(|f| f.name().clone())
-                .collect::<HashSet<_>>();
-            result.break_points.insert(depth, columns);
-            Ok(result)
+            let columns = wrapper.node.prevent_predicate_push_down_columns();
+
+            match inputs.len() {
+                // add breaks to all columns to indicate that filters can't proceed further.
+                0 => {
+                    let mut break_points = BTreeMap::new();
+                    break_points.insert(depth, columns);
+                    Ok(AnalysisResult {
+                        break_points,
+                        filters: BTreeMap::new(),
+                        projections: BTreeMap::new(),
+                    })
+                },
+                1 => {
+                    let input = inputs[0];
+                    let mut result = analyze_plan(input, depth + 1)?;
+                    result.break_points.insert(depth, columns);
+                    Ok(result)
+                },
+                _ => {
+                    unimplemented!("Filter pushdown can only handle user defined inputs with 0 or 1 inputs")
+                }
+            }
         }
         // all other plans add breaks to all their columns to indicate that filters can't proceed further.
         _ => {

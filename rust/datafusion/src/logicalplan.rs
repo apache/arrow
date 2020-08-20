@@ -30,7 +30,10 @@ use crate::datasource::parquet::ParquetTable;
 use crate::datasource::TableProvider;
 use crate::error::{ExecutionError, Result};
 use crate::optimizer::utils;
-use crate::sql::parser::FileType;
+use crate::{
+    lp::{CloneableLogicalPlanNode, LogicalPlanNode},
+    sql::parser::FileType,
+};
 use arrow::record_batch::RecordBatch;
 
 /// Enumeration of supported function types (Scalar and Aggregate)
@@ -708,6 +711,13 @@ pub fn scalar_function(name: &str, expr: Vec<Expr>, return_type: DataType) -> Ex
     }
 }
 
+/// Create a new LogicalPlanNode that is a clone of `plan`
+pub fn make_logical_plan_node(plan: Box<dyn LogicalPlanNode>) -> LogicalPlan {
+    LogicalPlan::UserDefined {
+        wrapper: CloneableLogicalPlanNode::new(plan),
+    }
+}
+
 impl fmt::Debug for Expr {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
@@ -870,12 +880,14 @@ pub enum LogicalPlan {
         /// The schema description of the output
         schema: Box<Schema>,
     },
-    /// Produces the first `n` tuples from its input and discards the rest.
-    Limit {
-        /// The limit
-        n: usize,
-        /// The logical plan
-        input: Box<LogicalPlan>,
+    /// Extension point for users of DataFusion to provide their own
+    /// logical plan nodes
+    ///
+    /// TODO would it be a better design to have *ALL* nodes in a
+    /// logical plan LogicalPlanNode traits?
+    UserDefined {
+        /// Wrapper around a LogicalPlanNode that can be cloned
+        wrapper: CloneableLogicalPlanNode,
     },
     /// Creates an external table.
     CreateExternalTable {
@@ -906,7 +918,7 @@ pub enum LogicalPlan {
 
 impl LogicalPlan {
     /// Get a reference to the logical plan's schema
-    pub fn schema(&self) -> &Box<Schema> {
+    pub fn schema(&self) -> &Schema {
         match self {
             LogicalPlan::EmptyRelation { schema } => &schema,
             LogicalPlan::InMemoryScan {
@@ -925,7 +937,7 @@ impl LogicalPlan {
             LogicalPlan::Filter { input, .. } => input.schema(),
             LogicalPlan::Aggregate { schema, .. } => &schema,
             LogicalPlan::Sort { input, .. } => input.schema(),
-            LogicalPlan::Limit { input, .. } => input.schema(),
+            LogicalPlan::UserDefined { wrapper } => wrapper.node.schema(),
             LogicalPlan::CreateExternalTable { schema, .. } => &schema,
             LogicalPlan::Explain { schema, .. } => &schema,
         }
@@ -1017,11 +1029,12 @@ impl LogicalPlan {
                 }
                 input.fmt_with_indent(f, indent + 1)
             }
-            LogicalPlan::Limit {
-                ref input, ref n, ..
-            } => {
-                write!(f, "Limit: {}", n)?;
-                input.fmt_with_indent(f, indent + 1)
+            LogicalPlan::UserDefined { ref wrapper } => {
+                wrapper.node.format_for_explain(f)?;
+                for input in wrapper.node.inputs() {
+                    input.fmt_with_indent(f, indent + 1)?
+                }
+                Ok(())
             }
             LogicalPlan::CreateExternalTable { ref name, .. } => {
                 write!(f, "CreateExternalTable: {:?}", name)
@@ -1202,8 +1215,7 @@ impl LogicalPlanBuilder {
             expr.clone()
         };
 
-        let schema =
-            Schema::new(exprlist_to_fields(&projected_expr, input_schema.as_ref())?);
+        let schema = Schema::new(exprlist_to_fields(&projected_expr, input_schema)?);
 
         Ok(Self::from(&LogicalPlan::Projection {
             expr: projected_expr,
@@ -1222,10 +1234,9 @@ impl LogicalPlanBuilder {
 
     /// Apply a limit
     pub fn limit(&self, n: usize) -> Result<Self> {
-        Ok(Self::from(&LogicalPlan::Limit {
-            n,
-            input: Box::new(self.plan.clone()),
-        }))
+        Ok(Self::from(&make_logical_plan_node(Box::new(
+            crate::lp_limit::LimitNode::new(n, self.plan.clone()),
+        ))))
     }
 
     /// Apply a sort

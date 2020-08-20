@@ -63,6 +63,8 @@ pub mod datasource;
 pub mod error;
 pub mod execution;
 pub mod logicalplan;
+pub mod lp;
+mod lp_limit;
 pub mod optimizer;
 pub mod prelude;
 pub mod sql;

@@ -543,8 +543,8 @@ fn execute(ctx: &mut ExecutionContext, sql: &str) -> Vec<String> {
     let physical_schema = plan.schema().clone();
     let results = ctx.collect(plan.as_ref()).unwrap();
 
-    assert_eq!(logical_schema.as_ref(), optimized_logical_schema.as_ref());
-    assert_eq!(logical_schema.as_ref(), physical_schema.as_ref());
+    assert_eq!(logical_schema, optimized_logical_schema);
+    assert_eq!(&logical_schema, physical_schema.as_ref());
 
     result_str(&results)
 }

@@ -23,7 +23,10 @@ use arrow::datatypes::{DataType, Schema};
 
 use super::optimizer::OptimizerRule;
 use crate::error::{ExecutionError, Result};
-use crate::logicalplan::{Expr, LogicalPlan, PlanType, StringifiedPlan};
+use crate::{
+    logicalplan::{Expr, LogicalPlan, PlanType, StringifiedPlan},
+    lp::CloneableLogicalPlanNode,
+};
 
 /// Recursively walk a list of expression trees, collecting the unique set of column
 /// names referenced in the expression
@@ -228,13 +231,13 @@ pub fn expressions(plan: &LogicalPlan) -> Vec<Expr> {
             result
         }
         LogicalPlan::Sort { expr, .. } => expr.clone(),
+        LogicalPlan::UserDefined { wrapper } => wrapper.node.expressions(),
         // plans without expressions
         LogicalPlan::TableScan { .. }
         | LogicalPlan::InMemoryScan { .. }
         | LogicalPlan::ParquetScan { .. }
         | LogicalPlan::CsvScan { .. }
         | LogicalPlan::EmptyRelation { .. }
-        | LogicalPlan::Limit { .. }
         | LogicalPlan::CreateExternalTable { .. }
         | LogicalPlan::Explain { .. } => vec![],
     }
@@ -247,7 +250,7 @@ pub fn inputs(plan: &LogicalPlan) -> Vec<&LogicalPlan> {
         LogicalPlan::Filter { input, .. } => vec![input],
         LogicalPlan::Aggregate { input, .. } => vec![input],
         LogicalPlan::Sort { input, .. } => vec![input],
-        LogicalPlan::Limit { input, .. } => vec![input],
+        LogicalPlan::UserDefined { wrapper } => wrapper.node.inputs(),
         // plans without inputs
         LogicalPlan::TableScan { .. }
         | LogicalPlan::InMemoryScan { .. }
@@ -287,9 +290,10 @@ pub fn from_plan(
             expr: expr.clone(),
             input: Box::new(inputs[0].clone()),
         }),
-        LogicalPlan::Limit { n, .. } => Ok(LogicalPlan::Limit {
-            n: *n,
-            input: Box::new(inputs[0].clone()),
+        LogicalPlan::UserDefined { wrapper } => Ok(LogicalPlan::UserDefined {
+            wrapper: CloneableLogicalPlanNode::new(
+                wrapper.node.clone_from_template(expr, inputs),
+            ),
         }),
         LogicalPlan::EmptyRelation { .. }
         | LogicalPlan::TableScan { .. }

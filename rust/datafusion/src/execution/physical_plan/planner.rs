@@ -29,7 +29,6 @@ use crate::execution::physical_plan::expressions::{
 };
 use crate::execution::physical_plan::filter::FilterExec;
 use crate::execution::physical_plan::hash_aggregate::HashAggregateExec;
-use crate::execution::physical_plan::limit::GlobalLimitExec;
 use crate::execution::physical_plan::memory::MemoryExec;
 use crate::execution::physical_plan::merge::MergeExec;
 use crate::execution::physical_plan::parquet::ParquetExec;
@@ -286,20 +285,16 @@ impl PhysicalPlanner for DefaultPhysicalPlanner {
                         .concurrency,
                 )?))
             }
-            LogicalPlan::Limit { input, n, .. } => {
-                let input = self.create_physical_plan(input, ctx_state.clone())?;
-                let input_schema = input.as_ref().schema().clone();
+            LogicalPlan::UserDefined { wrapper } => {
+                let plan_node = &wrapper.node;
+                let input_physical_plans = plan_node
+                    .inputs()
+                    .iter()
+                    .map(|input| self.create_physical_plan(input, ctx_state.clone()))
+                    .collect::<Result<Vec<_>>>()?;
 
-                Ok(Arc::new(GlobalLimitExec::new(
-                    input_schema.clone(),
-                    input.partitions()?,
-                    *n,
-                    ctx_state
-                        .lock()
-                        .expect("failed to lock mutex")
-                        .config
-                        .concurrency,
-                )))
+                Ok(plan_node
+                    .create_physical_plan(input_physical_plans, ctx_state.clone())?)
             }
             LogicalPlan::Explain {
                 verbose,
