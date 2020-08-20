@@ -305,7 +305,7 @@ libraries are needed for Parquet support.
 If multiple versions of Python are installed in your environment, you may have
 to pass additional parameters to cmake so that it can find the right
 executable, headers and libraries.  For example, specifying
-``-DPYTHON_EXECUTABLE=$VIRTUAL_ENV/bin/python`` (assuming that you're in
+``-DPython3_EXECUTABLE=$VIRTUAL_ENV/bin/python`` (assuming that you're in
 virtualenv) enables cmake to choose the python executable which you are using.
 
 .. note::
