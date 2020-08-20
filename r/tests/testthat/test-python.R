@@ -17,8 +17,6 @@
 
 context("To/from Python")
 
-skip("for now")
-
 test_that("install_pyarrow", {
   skip_on_cran()
   skip_if_not_dev_mode()
