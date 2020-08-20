@@ -29,7 +29,12 @@ namespace encryption {
 
 class PARQUET_EXPORT KeyAccessToken {
  public:
+  KeyAccessToken() = default;
+
+  explicit KeyAccessToken(const std::string value) : value_(value) {}
+
   void Refresh(const std::string& new_value) { value_ = new_value; }
+
   const std::string& value() const { return value_; }
 
   void SetDefaultIfEmpty();

@@ -34,7 +34,12 @@ namespace test {
 
 using encryption::DecryptionConfiguration;
 using encryption::EncryptionConfiguration;
+using encryption::InMemoryKmsClientFactory;
 using encryption::KeyAccessToken;
+using encryption::KeyToolkit;
+using encryption::KmsClient;
+using encryption::KmsClientFactory;
+using encryption::KmsConnectionConfig;
 using encryption::PropertiesDrivenCryptoFactory;
 
 const char FOOTER_MASTER_KEY[] = "0123456789112345";

@@ -24,14 +24,8 @@
 #include "parquet/remote_kms_client.h"
 #include "parquet/string_util.h"
 
-using parquet::encryption::KeyToolkit;
-using parquet::encryption::KmsClient;
-using parquet::encryption::KmsClientFactory;
-using parquet::encryption::KmsConnectionConfig;
-using parquet::encryption::RemoteKmsClient;
-
 namespace parquet {
-namespace test {
+namespace encryption {
 
 // This is a mock class, built for testing only. Don't use it as an example of KmsClient
 // implementation. (VaultClient is the sample implementation).
@@ -71,5 +65,5 @@ class InMemoryKmsClientFactory : public KmsClientFactory {
   }
 };
 
-}  // namespace test
+}  // namespace encryption
 }  // namespace parquet

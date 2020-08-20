@@ -209,13 +209,15 @@ if(PARQUET_REQUIRE_ENCRYPTION)
   set(PARQUET_SRCS ${PARQUET_SRCS}
       file_key_unwrapper.cc
       file_key_wrapper.cc
+      in_memory_kms.cc
       key_material.cc
       key_metadata.cc
       key_toolkit.cc
       kms_client.cc
       properties_driven_crypto_factory.cc
       remote_kms_client.cc
-      string_util.cc)
+      string_util.cc
+      vault_client.cc)
 else()
   set(PARQUET_SRCS ${PARQUET_SRCS} encryption_internal_nossl.cc)
 endif()
@@ -386,8 +388,6 @@ if(PARQUET_REQUIRE_ENCRYPTION)
   add_parquet_test(encryption-key-management-test
                    SOURCES
                    encryption_key_management_test.cc
-                   in_memory_kms.cc
-                   string_util.cc
                    test_encryption_util.cc
                    test_util.cc)
 endif()

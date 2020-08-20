@@ -31,7 +31,7 @@ using parquet::encryption::KmsConnectionConfig;
 using parquet::encryption::RemoteKmsClient;
 
 namespace parquet {
-namespace test {
+namespace encryption {
 
 std::map<std::string, std::string> InMemoryKms::master_key_map_;
 
@@ -71,5 +71,5 @@ std::string InMemoryKms::GetMasterKeyFromServer(
   return master_key_map_.at(master_key_identifier);
 }
 
-}  // namespace test
+}  // namespace encryption
 }  // namespace parquet
