@@ -1023,6 +1023,15 @@ def test_sequence_timestamp_out_of_bounds_nanosecond():
     arr = pa.array(data, type=pa.timestamp('us'))
     assert arr.to_pylist() == data
 
+    # case where the naive is within bounds, but converted to UTC not
+    tz = datetime.timezone(datetime.timedelta(hours=-1))
+    data = [datetime.datetime(2262, 4, 11, 23, tzinfo=tz)]
+    with pytest.raises(ValueError, match="out of bounds"):
+        pa.array(data, type=pa.timestamp('ns'))
+
+    arr = pa.array(data, type=pa.timestamp('us'))
+    assert arr.to_pylist()[0] == datetime.datetime(2262, 4, 12)
+
 
 def test_sequence_numpy_timestamp():
     data = [

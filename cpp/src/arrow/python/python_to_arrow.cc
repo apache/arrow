@@ -269,7 +269,10 @@ struct ValueConverter<TimestampType> {
           if (arrow::internal::MultiplyWithOverflow(value, 1000, &value)) {
             return internal::InvalidValue(obj, "out of bounds for nanosecond resolution");
           }
-          value -= offset * 1000 * 1000 * 1000;
+          if (arrow::internal::SubtractWithOverflow(value, offset * 1000 * 1000 * 1000,
+                                                    &value)) {
+            return internal::InvalidValue(obj, "out of bounds for nanosecond resolution");
+          }
           break;
         default:
           return Status::UnknownError("Invalid time unit");
