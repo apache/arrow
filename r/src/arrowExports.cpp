@@ -4609,11 +4609,11 @@ extern "C" SEXP _arrow_parquet___arrow___FileReader__GetSchema(SEXP reader_sexp)
 
 // py-to-r.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::Array> ImportArray(uintptr_t array, uintptr_t schema);
+std::shared_ptr<arrow::Array> ImportArray(arrow::r::Pointer<struct ArrowArray> array, arrow::r::Pointer<struct ArrowSchema> schema);
 extern "C" SEXP _arrow_ImportArray(SEXP array_sexp, SEXP schema_sexp){
 BEGIN_CPP11
-	arrow::r::Input<uintptr_t>::type array(array_sexp);
-	arrow::r::Input<uintptr_t>::type schema(schema_sexp);
+	arrow::r::Input<arrow::r::Pointer<struct ArrowArray>>::type array(array_sexp);
+	arrow::r::Input<arrow::r::Pointer<struct ArrowSchema>>::type schema(schema_sexp);
 	return cpp11::as_sexp(ImportArray(array, schema));
 END_CPP11
 }
@@ -4625,11 +4625,11 @@ extern "C" SEXP _arrow_ImportArray(SEXP array_sexp, SEXP schema_sexp){
 
 // py-to-r.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::RecordBatch> ImportRecordBatch(uintptr_t array, uintptr_t schema);
+std::shared_ptr<arrow::RecordBatch> ImportRecordBatch(arrow::r::Pointer<struct ArrowArray> array, arrow::r::Pointer<struct ArrowSchema> schema);
 extern "C" SEXP _arrow_ImportRecordBatch(SEXP array_sexp, SEXP schema_sexp){
 BEGIN_CPP11
-	arrow::r::Input<uintptr_t>::type array(array_sexp);
-	arrow::r::Input<uintptr_t>::type schema(schema_sexp);
+	arrow::r::Input<arrow::r::Pointer<struct ArrowArray>>::type array(array_sexp);
+	arrow::r::Input<arrow::r::Pointer<struct ArrowSchema>>::type schema(schema_sexp);
 	return cpp11::as_sexp(ImportRecordBatch(array, schema));
 END_CPP11
 }
@@ -4641,7 +4641,7 @@ extern "C" SEXP _arrow_ImportRecordBatch(SEXP array_sexp, SEXP schema_sexp){
 
 // py-to-r.cpp
 #if defined(ARROW_R_WITH_ARROW)
-uintptr_t allocate_arrow_schema();
+arrow::r::Pointer<struct ArrowSchema> allocate_arrow_schema();
 extern "C" SEXP _arrow_allocate_arrow_schema(){
 BEGIN_CPP11
 	return cpp11::as_sexp(allocate_arrow_schema());
@@ -4655,10 +4655,10 @@ extern "C" SEXP _arrow_allocate_arrow_schema(){
 
 // py-to-r.cpp
 #if defined(ARROW_R_WITH_ARROW)
-void delete_arrow_schema(uintptr_t ptr);
+void delete_arrow_schema(arrow::r::Pointer<struct ArrowSchema> ptr);
 extern "C" SEXP _arrow_delete_arrow_schema(SEXP ptr_sexp){
 BEGIN_CPP11
-	arrow::r::Input<uintptr_t>::type ptr(ptr_sexp);
+	arrow::r::Input<arrow::r::Pointer<struct ArrowSchema>>::type ptr(ptr_sexp);
 	delete_arrow_schema(ptr);
 	return R_NilValue;
 END_CPP11
@@ -4671,7 +4671,7 @@ extern "C" SEXP _arrow_delete_arrow_schema(SEXP ptr_sexp){
 
 // py-to-r.cpp
 #if defined(ARROW_R_WITH_ARROW)
-uintptr_t allocate_arrow_array();
+arrow::r::Pointer<struct ArrowArray> allocate_arrow_array();
 extern "C" SEXP _arrow_allocate_arrow_array(){
 BEGIN_CPP11
 	return cpp11::as_sexp(allocate_arrow_array());
@@ -4685,10 +4685,10 @@ extern "C" SEXP _arrow_allocate_arrow_array(){
 
 // py-to-r.cpp
 #if defined(ARROW_R_WITH_ARROW)
-void delete_arrow_array(uintptr_t ptr);
+void delete_arrow_array(arrow::r::Pointer<struct ArrowArray> ptr);
 extern "C" SEXP _arrow_delete_arrow_array(SEXP ptr_sexp){
 BEGIN_CPP11
-	arrow::r::Input<uintptr_t>::type ptr(ptr_sexp);
+	arrow::r::Input<arrow::r::Pointer<struct ArrowArray>>::type ptr(ptr_sexp);
 	delete_arrow_array(ptr);
 	return R_NilValue;
 END_CPP11
@@ -4701,11 +4701,11 @@ extern "C" SEXP _arrow_delete_arrow_array(SEXP ptr_sexp){
 
 // py-to-r.cpp
 #if defined(ARROW_R_WITH_ARROW)
-void ExportType(const std::shared_ptr<arrow::DataType>& type, uintptr_t ptr);
+void ExportType(const std::shared_ptr<arrow::DataType>& type, arrow::r::Pointer<struct ArrowSchema> ptr);
 extern "C" SEXP _arrow_ExportType(SEXP type_sexp, SEXP ptr_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::DataType>&>::type type(type_sexp);
-	arrow::r::Input<uintptr_t>::type ptr(ptr_sexp);
+	arrow::r::Input<arrow::r::Pointer<struct ArrowSchema>>::type ptr(ptr_sexp);
 	ExportType(type, ptr);
 	return R_NilValue;
 END_CPP11
@@ -4718,11 +4718,11 @@ extern "C" SEXP _arrow_ExportType(SEXP type_sexp, SEXP ptr_sexp){
 
 // py-to-r.cpp
 #if defined(ARROW_R_WITH_ARROW)
-void ExportSchema(const std::shared_ptr<arrow::Schema>& schema, uintptr_t ptr);
+void ExportSchema(const std::shared_ptr<arrow::Schema>& schema, arrow::r::Pointer<struct ArrowSchema> ptr);
 extern "C" SEXP _arrow_ExportSchema(SEXP schema_sexp, SEXP ptr_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
-	arrow::r::Input<uintptr_t>::type ptr(ptr_sexp);
+	arrow::r::Input<arrow::r::Pointer<struct ArrowSchema>>::type ptr(ptr_sexp);
 	ExportSchema(schema, ptr);
 	return R_NilValue;
 END_CPP11
@@ -4735,36 +4735,36 @@ extern "C" SEXP _arrow_ExportSchema(SEXP schema_sexp, SEXP ptr_sexp){
 
 // py-to-r.cpp
 #if defined(ARROW_R_WITH_ARROW)
-void ExportArray(const std::shared_ptr<arrow::Array>& array, uintptr_t ptr, uintptr_t schema_ptr);
-extern "C" SEXP _arrow_ExportArray(SEXP array_sexp, SEXP ptr_sexp, SEXP schema_ptr_sexp){
+void ExportArray(const std::shared_ptr<arrow::Array>& array, arrow::r::Pointer<struct ArrowArray> array_ptr, arrow::r::Pointer<struct ArrowSchema> schema_ptr);
+extern "C" SEXP _arrow_ExportArray(SEXP array_sexp, SEXP array_ptr_sexp, SEXP schema_ptr_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::Array>&>::type array(array_sexp);
-	arrow::r::Input<uintptr_t>::type ptr(ptr_sexp);
-	arrow::r::Input<uintptr_t>::type schema_ptr(schema_ptr_sexp);
-	ExportArray(array, ptr, schema_ptr);
+	arrow::r::Input<arrow::r::Pointer<struct ArrowArray>>::type array_ptr(array_ptr_sexp);
+	arrow::r::Input<arrow::r::Pointer<struct ArrowSchema>>::type schema_ptr(schema_ptr_sexp);
+	ExportArray(array, array_ptr, schema_ptr);
 	return R_NilValue;
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_ExportArray(SEXP array_sexp, SEXP ptr_sexp, SEXP schema_ptr_sexp){
+extern "C" SEXP _arrow_ExportArray(SEXP array_sexp, SEXP array_ptr_sexp, SEXP schema_ptr_sexp){
 	Rf_error("Cannot call ExportArray(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
 // py-to-r.cpp
 #if defined(ARROW_R_WITH_ARROW)
-void ExportRecordBatch(const std::shared_ptr<arrow::RecordBatch>& batch, uintptr_t ptr, uintptr_t schema_ptr);
-extern "C" SEXP _arrow_ExportRecordBatch(SEXP batch_sexp, SEXP ptr_sexp, SEXP schema_ptr_sexp){
+void ExportRecordBatch(const std::shared_ptr<arrow::RecordBatch>& batch, arrow::r::Pointer<ArrowArray> array_ptr, arrow::r::Pointer<ArrowSchema> schema_ptr);
+extern "C" SEXP _arrow_ExportRecordBatch(SEXP batch_sexp, SEXP array_ptr_sexp, SEXP schema_ptr_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::RecordBatch>&>::type batch(batch_sexp);
-	arrow::r::Input<uintptr_t>::type ptr(ptr_sexp);
-	arrow::r::Input<uintptr_t>::type schema_ptr(schema_ptr_sexp);
-	ExportRecordBatch(batch, ptr, schema_ptr);
+	arrow::r::Input<arrow::r::Pointer<ArrowArray>>::type array_ptr(array_ptr_sexp);
+	arrow::r::Input<arrow::r::Pointer<ArrowSchema>>::type schema_ptr(schema_ptr_sexp);
+	ExportRecordBatch(batch, array_ptr, schema_ptr);
 	return R_NilValue;
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_ExportRecordBatch(SEXP batch_sexp, SEXP ptr_sexp, SEXP schema_ptr_sexp){
+extern "C" SEXP _arrow_ExportRecordBatch(SEXP batch_sexp, SEXP array_ptr_sexp, SEXP schema_ptr_sexp){
 	Rf_error("Cannot call ExportRecordBatch(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif

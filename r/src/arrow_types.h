@@ -24,6 +24,7 @@
 #if defined(ARROW_R_WITH_ARROW)
 
 #include <arrow/buffer.h>  // for RBuffer definition below
+#include <arrow/c/bridge.h>
 #include <arrow/result.h>
 #include <arrow/type_fwd.h>
 

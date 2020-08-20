@@ -47,6 +47,23 @@ SEXP as_sexp(const std::vector<std::shared_ptr<T>>& vec);
 namespace arrow {
 namespace r {
 
+template <typename T>
+struct Pointer {
+  Pointer() : ptr_(new T()) {}
+  explicit Pointer(SEXP x)
+      : ptr_(reinterpret_cast<T*>(static_cast<uintptr_t>(REAL(x)[0]))) {}
+
+  inline operator SEXP() const {
+    return Rf_ScalarReal(static_cast<double>(reinterpret_cast<uintptr_t>(ptr_)));
+  }
+
+  inline operator T*() const { return ptr_; }
+
+  inline void finalize() { delete ptr_; }
+
+  T* ptr_;
+};
+
 // until cpp11 has a similar class
 class complexs {
  public:

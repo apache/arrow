@@ -1212,12 +1212,12 @@ ExportSchema <- function(schema, ptr){
     invisible(.Call(`_arrow_ExportSchema` , schema, ptr))
 }
 
-ExportArray <- function(array, ptr, schema_ptr){
-    invisible(.Call(`_arrow_ExportArray` , array, ptr, schema_ptr))
+ExportArray <- function(array, array_ptr, schema_ptr){
+    invisible(.Call(`_arrow_ExportArray` , array, array_ptr, schema_ptr))
 }
 
-ExportRecordBatch <- function(batch, ptr, schema_ptr){
-    invisible(.Call(`_arrow_ExportRecordBatch` , batch, ptr, schema_ptr))
+ExportRecordBatch <- function(batch, array_ptr, schema_ptr){
+    invisible(.Call(`_arrow_ExportRecordBatch` , batch, array_ptr, schema_ptr))
 }
 
 RecordBatch__num_columns <- function(x){
