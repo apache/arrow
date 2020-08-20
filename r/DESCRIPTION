@@ -23,8 +23,6 @@ Language: en-US
 LazyData: true
 SystemRequirements: C++11
 Biarch: true
-LinkingTo:
-    cpp11
 Imports:
     assertthat,
     bit64,
@@ -49,8 +47,6 @@ Suggests:
     rmarkdown,
     testthat,
     tibble
-Remotes:
-    r-lib/cpp11
 Collate:
     'enums.R'
     'arrow-package.R'
