@@ -372,22 +372,6 @@ mod tests {
         num_iterations: usize,
     }
 
-    impl TestOptions {
-        fn new(
-            num_row_groups: usize,
-            num_rows: usize,
-            record_batch_size: usize,
-            num_iterations: usize,
-        ) -> Self {
-            TestOptions {
-                num_row_groups,
-                num_rows,
-                record_batch_size,
-                num_iterations,
-            }
-        }
-    }
-
     /// Create a parquet file and then read it using
     /// `ParquetFileArrowReader` using a standard set of parameters
     /// `opts`.
@@ -405,14 +389,33 @@ mod tests {
         C: Converter<Vec<Option<T::T>>, A> + 'static,
     {
         let all_options = vec![
-            TestOptions::new(2, 100, 15, 50),
-            // batch size (5) so batches to fall on row group
-            // boundaries (25 rows in 3 row groups --> row groups of
-            // 10, 10, and 5) to test edge refilling edge cases.
-            TestOptions::new(3, 25, 5, 50),
-            // Ensure that every batch size (25) falls exactly a row group
-            // boundary (25 in this case) to test edge case.
-            TestOptions::new(4, 100, 25, 50),
+            // choose record_batch_batch (15) so batches cross row
+            // group boundaries (50 rows in 2 row groups) cases.
+            TestOptions {
+                num_row_groups: 2,
+                num_rows: 100,
+                record_batch_size: 15,
+                num_iterations: 50,
+            },
+            // choose record_batch_batch (5) so batches sometime fall
+            // on row group boundaries and (25 rows in 3 row groups
+            // --> row groups of 10, 10, and 5). Tests buffer
+            // refilling edge cases.
+            TestOptions {
+                num_row_groups: 3,
+                num_rows: 25,
+                record_batch_size: 5,
+                num_iterations: 50,
+            },
+            // Choose record_batch_size (25) so all batches fall
+            // exactly on row group boundary (25). Tests buffer
+            // refilling edge cases.
+            TestOptions {
+                num_row_groups: 4,
+                num_rows: 100,
+                record_batch_size: 25,
+                num_iterations: 50,
+            },
         ];
 
         all_options.into_iter().for_each(|opts| {
