@@ -51,9 +51,9 @@ struct PARQUET_EXPORT LevelInfo {
   // or equal to indicate this value indicate a not-null
   // value for the field). For list fields definition levels
   // greater then or equal to this field indicate a present
-  // element (if the listis nullable def_level-1 indicates
-  // and empty but not-null list).
+  // , possibly null, element.
   int16_t def_level = 0;
+
   // The repetition level corresponding to this element
   // or the closest repeated ancestor.  Any repetition
   // level less than this indicates either a new list OR
