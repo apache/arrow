@@ -77,7 +77,7 @@ struct PARQUET_EXPORT LevelInfo {
   // repeated_ancestor_def_level would be 2.  Any
   // def_level < 2 indicates that there isn't a corresponding
   // slot in the struct or int fields.
-  // i.e. [null, [], [null], [{f0: null}], [{f0: 1}]
+  // i.e. [null, [], [null], [{f0: null}], [{f0: 1}]]
   // has the def levels [0, 1, 2, 3, 4].  The actual
   // struct array is only of length 3: [not-set, set, set] and
   // the int array is also of length 3: [N/A, null, 1].
