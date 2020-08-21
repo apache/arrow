@@ -51,6 +51,7 @@ using parquet::ConvertedType;
 using parquet::LogicalType;
 
 using parquet::internal::DecimalSize;
+using parquet::internal::LevelInfo;
 
 namespace parquet {
 
@@ -410,52 +411,6 @@ bool IsDictionaryReadSupported(const ArrowType& type) {
   return storage_type;
 }
 
-struct LevelInfo {
-  int16_t def_level = 0;
-  int16_t rep_level = 0;
-  int16_t repeated_ancestor_def_level = 0;
-
-  /// Copies current levels to the schema field.
-  void Populate(SchemaField* out) {
-    out->definition_level = def_level;
-    out->repetition_level = rep_level;
-    out->repeated_ancestor_definition_level = repeated_ancestor_def_level;
-  }
-
-  /// Increments levels according to the cardinality of node.
-  void Increment(const Node& node) {
-    if (node.is_repeated()) {
-      IncrementRepeated();
-      return;
-    }
-    if (node.is_optional()) {
-      IncrementOptional();
-      return;
-    }
-  }
-
-  /// Incremetns level for a optional node.
-  void IncrementOptional() { def_level++; }
-
-  /// Increments levels for the repeated node.  Returns
-  /// the previous ancestor_list_def_level.
-  int16_t IncrementRepeated() {
-    int16_t last_repeated_ancestor = repeated_ancestor_def_level;
-
-    // Repeated fields add both a repetition and definition level. This is used
-    // to distinguish between an empty list and a list with an item in it.
-    ++rep_level;
-    ++def_level;
-    // For levels >= current_def_level it indicates the list was
-    // non-null and had at least one element.  This is important
-    // for later decoding because we need to add a slot for these
-    // values.  for levels < current_def_level no slots are added
-    // to arrays.
-    repeated_ancestor_def_level = def_level;
-    return last_repeated_ancestor;
-  }
-};
-
 Status NodeToSchemaField(const Node& node, LevelInfo current_levels,
                          SchemaTreeContext* ctx, const SchemaField* parent,
                          SchemaField* out);
@@ -469,7 +424,7 @@ Status PopulateLeaf(int column_index, const std::shared_ptr<Field>& field,
                     const SchemaField* parent, SchemaField* out) {
   out->field = field;
   out->column_index = column_index;
-  current_levels.Populate(out);
+  out->level_info = current_levels;
   ctx->RecordLeaf(out);
   ctx->LinkParent(out, parent);
   return Status::OK();
@@ -505,7 +460,7 @@ Status GroupToStruct(const GroupNode& node, LevelInfo current_levels,
   auto struct_type = ::arrow::struct_(arrow_fields);
   out->field = ::arrow::field(node.name(), struct_type, node.is_optional(),
                               FieldIdMetadata(node.field_id()));
-  current_levels.Populate(out);
+  out->level_info = current_levels;
   return Status::OK();
 }
 
@@ -585,10 +540,10 @@ Status ListToSchemaField(const GroupNode& group, LevelInfo current_levels,
   }
   out->field = ::arrow::field(group.name(), ::arrow::list(child_field->field),
                               group.is_optional(), FieldIdMetadata(group.field_id()));
-  current_levels.Populate(out);
+  out->level_info = current_levels;
   // At this point current levels contains the def level for this list,
   // we need to reset to the prior parent.
-  out->repeated_ancestor_definition_level = repeated_ancesor_def_level;
+  out->level_info.repeated_ancestor_def_level = repeated_ancesor_def_level;
   return Status::OK();
 }
 
@@ -605,16 +560,17 @@ Status GroupToSchemaField(const GroupNode& node, LevelInfo current_levels,
     // repeated group $NAME {
     //   r/o TYPE[0] f0
     //   r/o TYPE[1] f1
+    // }
     out->children.resize(1);
 
     int16_t repeated_ancestor_def_level = current_levels.IncrementRepeated();
     RETURN_NOT_OK(GroupToStruct(node, current_levels, ctx, out, &out->children[0]));
     out->field = ::arrow::field(node.name(), ::arrow::list(out->children[0].field),
                                 /*nullable=*/false, FieldIdMetadata(node.field_id()));
-    current_levels.Populate(out);
+    out->level_info = current_levels;
     // At this point current_levels contains this list as the def level, we need to
     // use the previous ancenstor of thi slist.
-    out->repeated_ancestor_definition_level = repeated_ancestor_def_level;
+    out->level_info.repeated_ancestor_def_level = repeated_ancestor_def_level;
     return Status::OK();
   } else {
     current_levels.Increment(node);
@@ -660,11 +616,10 @@ Status NodeToSchemaField(const Node& node, LevelInfo current_levels,
 
       out->field = ::arrow::field(node.name(), ::arrow::list(child_field),
                                   /*nullable=*/false, FieldIdMetadata(node.field_id()));
-      // Is this right?
-      current_levels.Populate(out);
+      out->level_info = current_levels;
       // At this point current_levels has consider this list the ancestor so restore
       // the actual ancenstor.
-      out->repeated_ancestor_definition_level = repeated_ancestor_def_level;
+      out->level_info.repeated_ancestor_def_level = repeated_ancestor_def_level;
       return Status::OK();
     } else {
       current_levels.Increment(node);
