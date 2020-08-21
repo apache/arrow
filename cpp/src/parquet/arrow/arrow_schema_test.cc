@@ -1355,7 +1355,7 @@ TEST_F(TestLevels, ListErrors) {
     ::arrow::Status error = MaybeSetParquetSchema(GroupNode::Make(
         "child_list", Repetition::REPEATED,
         {PrimitiveNode::Make("bool", Repetition::REPEATED, ParquetType::BOOLEAN)},
-        ConvertedType::LIST));
+        LogicalType::List()));
     ASSERT_RAISES(Invalid, error);
     std::string expected("LIST-annotated groups must not be repeated.");
     EXPECT_EQ(error.message().substr(0, expected.size()), expected);
@@ -1365,7 +1365,7 @@ TEST_F(TestLevels, ListErrors) {
         "child_list", Repetition::OPTIONAL,
         {PrimitiveNode::Make("f1", Repetition::REPEATED, ParquetType::BOOLEAN),
          PrimitiveNode::Make("f2", Repetition::REPEATED, ParquetType::BOOLEAN)},
-        ConvertedType::LIST));
+        LogicalType::List()));
     ASSERT_RAISES(Invalid, error);
     std::string expected("LIST-annotated groups must have a single child.");
     EXPECT_EQ(error.message().substr(0, expected.size()), expected);
@@ -1375,7 +1375,7 @@ TEST_F(TestLevels, ListErrors) {
     ::arrow::Status error = MaybeSetParquetSchema(GroupNode::Make(
         "child_list", Repetition::OPTIONAL,
         {PrimitiveNode::Make("f1", Repetition::OPTIONAL, ParquetType::BOOLEAN)},
-        ConvertedType::LIST));
+        LogicalType::List()));
     ASSERT_RAISES(Invalid, error);
     std::string expected(
         "Non-repeated nodes in a LIST-annotated group are not supported.");
