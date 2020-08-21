@@ -107,48 +107,28 @@ struct ModeState<ArrowType, enable_if_t<(sizeof(typename ArrowType::c_type) == 1
   std::vector<int64_t> value_counts;
 };
 
-// read raw_values[] directly improves performance ~15%
-template <typename ArrowType>
-struct RawValuesReader {
-  using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
-  using T = typename ArrowType::c_type;
-  explicit RawValuesReader(const ArrayType* array) : raw_values(array->raw_values()) {}
-  T operator[](int64_t i) const { return this->raw_values[i]; }
-  const T* raw_values;
-};
-
-// boolean array has no raw_values[]
-template <>
-struct RawValuesReader<BooleanType> {
-  explicit RawValuesReader(const BooleanArray* array) : array(array) {}
-  bool operator[](int64_t i) const { return this->array->Value(i); }
-  const BooleanArray* array;
-};
-
 template <typename ArrowType>
 struct ModeImpl : public ScalarAggregator {
   using ThisType = ModeImpl<ArrowType>;
   using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
-  using T = typename ArrowType::c_type;
 
   explicit ModeImpl(const std::shared_ptr<DataType>& out_type) : out_type(out_type) {}
 
   void Consume(KernelContext*, const ExecBatch& batch) override {
     ModeState<ArrowType> local_state;
     ArrayType arr(batch[0].array());
-    RawValuesReader<ArrowType> values{&arr};
 
     if (arr.null_count() > 0) {
       BitmapReader reader(arr.null_bitmap_data(), arr.offset(), arr.length());
       for (int64_t i = 0; i < arr.length(); i++) {
         if (reader.IsSet()) {
-          local_state.MergeOne(values[i]);
+          local_state.MergeOne(arr.Value(i));
         }
         reader.Next();
       }
     } else {
       for (int64_t i = 0; i < arr.length(); i++) {
-        local_state.MergeOne(values[i]);
+        local_state.MergeOne(arr.Value(i));
       }
     }
     this->state = std::move(local_state);
