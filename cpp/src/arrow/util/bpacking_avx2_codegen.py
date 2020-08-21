@@ -41,7 +41,7 @@ def print_unpack_bit_func(bit):
             inls.append(f"in[{in_index}]")
             in_index += 1
             shift = 0
-        elif shift + bit > 32:  # croos the boundary
+        elif shift + bit > 32:  # cross the boundary
             inls.append(
                 f"in[{in_index}] >> {shift} | in[{in_index + 1}] << {32 - shift}")
             in_index += 1
