@@ -174,16 +174,14 @@ fn optimize_plan(
 
             // Gather all columns needed for expressions in this Aggregate
             let mut new_aggr_expr = Vec::new();
-            let mut new_fields = Vec::new();
             aggr_expr
                 .iter()
                 .map(|expr| {
                     let name = &expr.name(&schema)?;
-                    let field = schema.field_with_name(name)?;
 
                     if required_columns.contains(name) {
                         new_aggr_expr.push(expr.clone());
-                        new_fields.push(field.clone());
+                        new_required_columns.insert(name.clone());
 
                         // add to the new set of required columns
                         utils::expr_to_column_names(expr, &mut new_required_columns)
@@ -192,7 +190,15 @@ fn optimize_plan(
                     }
                 })
                 .collect::<Result<()>>()?;
-            let new_schema = Schema::new(new_fields);
+
+            let new_schema = Schema::new(
+                schema
+                    .fields()
+                    .iter()
+                    .filter(|x| new_required_columns.contains(x.name()))
+                    .cloned()
+                    .collect(),
+            );
 
             Ok(LogicalPlan::Aggregate {
                 group_expr: group_expr.clone(),
