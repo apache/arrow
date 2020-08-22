@@ -29,7 +29,7 @@ use crate::error::Result;
 use crate::execution::physical_plan::common::RecordBatchIterator;
 use crate::execution::physical_plan::expressions::PhysicalSortExpr;
 use crate::execution::physical_plan::merge::MergeExec;
-use crate::execution::physical_plan::{common, ExecutionPlan, Partition, Partitioning};
+use crate::execution::physical_plan::{common, ExecutionPlan, Partitioning};
 
 /// Sort execution plan
 #[derive(Debug)]
@@ -63,14 +63,13 @@ impl ExecutionPlan for SortExec {
 
     /// Get the output partitioning of this plan
     fn output_partitioning(&self) -> Partitioning {
-        self.input.output_partitioning()
+        Partitioning::UnknownPartitioning(1)
     }
 
     fn execute(
         &self,
         partition: usize,
     ) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
-        // SortExec produces a single partition
         assert_eq!(0, partition);
 
         // sort needs to operate on a single partition currently
@@ -131,10 +130,6 @@ impl ExecutionPlan for SortExec {
             self.schema(),
             vec![Arc::new(sorted_batch)],
         ))))
-    }
-
-    fn partitions(&self) -> Result<Vec<Arc<dyn Partition>>> {
-        unimplemented!()
     }
 }
 

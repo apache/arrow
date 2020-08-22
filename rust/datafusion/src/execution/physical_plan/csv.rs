@@ -21,8 +21,8 @@ use std::fs::File;
 use std::sync::{Arc, Mutex};
 
 use crate::error::{ExecutionError, Result};
+use crate::execution::physical_plan::ExecutionPlan;
 use crate::execution::physical_plan::{common, Partitioning};
-use crate::execution::physical_plan::{ExecutionPlan, Partition};
 use arrow::csv;
 use arrow::datatypes::{Schema, SchemaRef};
 use arrow::error::Result as ArrowResult;
@@ -201,11 +201,6 @@ impl ExecutionPlan for CsvExec {
             &self.projection,
             self.batch_size,
         )?)))
-    }
-
-    /// Get the partitions for this execution plan. Each partition can be executed in parallel.
-    fn partitions(&self) -> Result<Vec<Arc<dyn Partition>>> {
-        unimplemented!()
     }
 }
 

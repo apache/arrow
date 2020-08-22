@@ -21,9 +21,7 @@
 use std::sync::{Arc, Mutex};
 
 use crate::error::{ExecutionError, Result};
-use crate::execution::physical_plan::{
-    ExecutionPlan, Partition, Partitioning, PhysicalExpr,
-};
+use crate::execution::physical_plan::{ExecutionPlan, Partitioning, PhysicalExpr};
 use arrow::array::BooleanArray;
 use arrow::compute::filter;
 use arrow::datatypes::{DataType, SchemaRef};
@@ -80,11 +78,6 @@ impl ExecutionPlan for FilterExec {
             predicate: self.predicate.clone(),
             input: self.input.execute(partition)?,
         })))
-    }
-
-    /// Get the partitions for this execution plan
-    fn partitions(&self) -> Result<Vec<Arc<dyn Partition>>> {
-        unimplemented!()
     }
 }
 

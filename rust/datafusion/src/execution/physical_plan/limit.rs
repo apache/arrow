@@ -23,7 +23,6 @@ use crate::error::{ExecutionError, Result};
 use crate::execution::physical_plan::common::{self, RecordBatchIterator};
 use crate::execution::physical_plan::memory::MemoryIterator;
 use crate::execution::physical_plan::merge::MergeExec;
-use crate::execution::physical_plan::Partition;
 use crate::execution::physical_plan::{ExecutionPlan, Partitioning};
 use arrow::array::ArrayRef;
 use arrow::compute::limit;
@@ -114,10 +113,6 @@ impl ExecutionPlan for GlobalLimitExec {
             combined_results,
         ))))
     }
-
-    fn partitions(&self) -> Result<Vec<Arc<dyn Partition>>> {
-        unimplemented!()
-    }
 }
 
 /// LocalLimitExec applies a limit so a single partition
@@ -158,10 +153,6 @@ impl ExecutionPlan for LocalLimitExec {
             self.schema.clone(),
             None,
         )?)))
-    }
-
-    fn partitions(&self) -> Result<Vec<Arc<dyn Partition>>> {
-        unimplemented!()
     }
 }
 

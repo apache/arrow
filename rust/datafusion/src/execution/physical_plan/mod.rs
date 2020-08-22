@@ -55,9 +55,6 @@ pub trait ExecutionPlan: Debug + Send + Sync {
         &self,
         partition: usize,
     ) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>>;
-
-    /// Get the partitions for this execution plan. Each partition can be executed in parallel.
-    fn partitions(&self) -> Result<Vec<Arc<dyn Partition>>>;
 }
 
 /// Partitioning schemes supported by operators.

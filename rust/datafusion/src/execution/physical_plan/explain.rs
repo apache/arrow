@@ -19,7 +19,7 @@
 
 use crate::error::Result;
 use crate::{
-    execution::physical_plan::{common::RecordBatchIterator, ExecutionPlan, Partition},
+    execution::physical_plan::{common::RecordBatchIterator, ExecutionPlan},
     logicalplan::StringifiedPlan,
 };
 use arrow::{
@@ -89,9 +89,5 @@ impl ExecutionPlan for ExplainExec {
             self.schema.clone(),
             vec![Arc::new(record_batch)],
         ))))
-    }
-
-    fn partitions(&self) -> Result<Vec<Arc<dyn Partition>>> {
-        unimplemented!()
     }
 }

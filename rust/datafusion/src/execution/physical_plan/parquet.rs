@@ -23,8 +23,8 @@ use std::sync::{Arc, Mutex};
 use std::{fmt, thread};
 
 use crate::error::{ExecutionError, Result};
+use crate::execution::physical_plan::ExecutionPlan;
 use crate::execution::physical_plan::{common, Partitioning};
-use crate::execution::physical_plan::{ExecutionPlan, Partition};
 use arrow::datatypes::{Schema, SchemaRef};
 use arrow::error::{ArrowError, Result as ArrowResult};
 use arrow::record_batch::{RecordBatch, RecordBatchReader};
@@ -123,10 +123,6 @@ impl ExecutionPlan for ParquetExec {
         }));
 
         Ok(iterator)
-    }
-
-    fn partitions(&self) -> Result<Vec<Arc<dyn Partition>>> {
-        unimplemented!()
     }
 }
 

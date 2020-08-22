@@ -23,8 +23,8 @@ use std::thread::{self, JoinHandle};
 
 use crate::error::{ExecutionError, Result};
 use crate::execution::physical_plan::common::RecordBatchIterator;
+use crate::execution::physical_plan::Partitioning;
 use crate::execution::physical_plan::{common, ExecutionPlan};
-use crate::execution::physical_plan::{Partition, Partitioning};
 
 use arrow::datatypes::SchemaRef;
 use arrow::record_batch::{RecordBatch, RecordBatchReader};
@@ -115,10 +115,6 @@ impl ExecutionPlan for MergeExec {
                 ))))
             }
         }
-    }
-
-    fn partitions(&self) -> Result<Vec<Arc<dyn Partition>>> {
-        unimplemented!()
     }
 }
 
