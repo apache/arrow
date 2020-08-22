@@ -63,6 +63,13 @@ impl ExecutionPlan for ExplainExec {
         Partitioning::UnknownPartitioning(1)
     }
 
+    fn execute(
+        &self,
+        partition: usize,
+    ) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
+        self.partitions()?[partition].execute()
+    }
+
     fn partitions(&self) -> Result<Vec<Arc<dyn Partition>>> {
         Ok(vec![Arc::new(ExplainPartition {
             schema: self.schema.clone(),

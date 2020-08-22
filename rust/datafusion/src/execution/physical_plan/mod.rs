@@ -50,7 +50,12 @@ pub trait ExecutionPlan: Debug {
     fn schema(&self) -> SchemaRef;
     /// Specifies the output partitioning scheme of this plan
     fn output_partitioning(&self) -> Partitioning;
-    /// Get the partitions for this execution plan. Each partition can be executed in parallel.
+    /// Execute one partition and return an iterator over RecordBatch
+    fn execute(
+        &self,
+        partition: usize,
+    ) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>>;
+    /// DEPRECATED - Get the partitions for this execution plan. Each partition can be executed in parallel.
     fn partitions(&self) -> Result<Vec<Arc<dyn Partition>>>;
 }
 

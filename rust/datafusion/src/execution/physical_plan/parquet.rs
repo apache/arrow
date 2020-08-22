@@ -96,6 +96,13 @@ impl ExecutionPlan for ParquetExec {
         Partitioning::UnknownPartitioning(self.filenames.len())
     }
 
+    fn execute(
+        &self,
+        partition: usize,
+    ) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
+        self.partitions()?[partition].execute()
+    }
+
     fn partitions(&self) -> Result<Vec<Arc<dyn Partition>>> {
         let partitions = self
             .filenames

@@ -189,6 +189,13 @@ impl ExecutionPlan for CsvExec {
         Partitioning::UnknownPartitioning(self.filenames.len())
     }
 
+    fn execute(
+        &self,
+        partition: usize,
+    ) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
+        self.partitions()?[partition].execute()
+    }
+
     /// Get the partitions for this execution plan. Each partition can be executed in parallel.
     fn partitions(&self) -> Result<Vec<Arc<dyn Partition>>> {
         let partitions = self

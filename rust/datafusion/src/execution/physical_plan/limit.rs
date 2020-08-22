@@ -70,6 +70,13 @@ impl ExecutionPlan for GlobalLimitExec {
         Partitioning::UnknownPartitioning(self.partitions.len())
     }
 
+    fn execute(
+        &self,
+        partition: usize,
+    ) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
+        self.partitions[partition].execute()
+    }
+
     fn partitions(&self) -> Result<Vec<Arc<dyn Partition>>> {
         Ok(vec![Arc::new(LimitPartition {
             schema: self.schema.clone(),

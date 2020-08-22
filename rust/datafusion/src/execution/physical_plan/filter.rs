@@ -71,6 +71,13 @@ impl ExecutionPlan for FilterExec {
         self.input.output_partitioning()
     }
 
+    fn execute(
+        &self,
+        partition: usize,
+    ) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
+        self.partitions()?[partition].execute()
+    }
+
     /// Get the partitions for this execution plan
     fn partitions(&self) -> Result<Vec<Arc<dyn Partition>>> {
         let partitions: Vec<Arc<dyn Partition>> = self

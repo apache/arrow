@@ -66,6 +66,13 @@ impl ExecutionPlan for SortExec {
         self.input.output_partitioning()
     }
 
+    fn execute(
+        &self,
+        partition: usize,
+    ) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
+        self.partitions()?[partition].execute()
+    }
+
     fn partitions(&self) -> Result<Vec<Arc<dyn Partition>>> {
         Ok(vec![
             (Arc::new(SortPartition {

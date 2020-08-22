@@ -25,6 +25,8 @@ use std::{
 use crate::error::Result;
 use crate::execution::physical_plan::{ExecutionPlan, Partition, Partitioning};
 use arrow::datatypes::SchemaRef;
+use arrow::record_batch::RecordBatchReader;
+use std::sync::Mutex;
 
 /// Datasource execution plan
 pub struct DatasourceExec {
@@ -56,6 +58,13 @@ impl ExecutionPlan for DatasourceExec {
     /// Get the output partitioning of this plan
     fn output_partitioning(&self) -> Partitioning {
         Partitioning::UnknownPartitioning(self.partitions.len())
+    }
+
+    fn execute(
+        &self,
+        partition: usize,
+    ) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
+        self.partitions()?[partition].execute()
     }
 
     fn partitions(&self) -> Result<Vec<Arc<dyn Partition>>> {

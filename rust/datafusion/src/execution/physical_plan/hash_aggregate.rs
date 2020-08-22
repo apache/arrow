@@ -116,6 +116,13 @@ impl ExecutionPlan for HashAggregateExec {
         self.input.output_partitioning()
     }
 
+    fn execute(
+        &self,
+        partition: usize,
+    ) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
+        self.partitions()?[partition].execute()
+    }
+
     fn partitions(&self) -> Result<Vec<Arc<dyn Partition>>> {
         Ok(self
             .input
