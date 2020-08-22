@@ -201,6 +201,7 @@ fn csv_query_avg_sqrt() -> Result<()> {
     Ok(())
 }
 
+// this query used to deadlock due to the call udf(udf())
 #[test]
 fn csv_query_sqrt_sqrt() -> Result<()> {
     let mut ctx = create_ctx()?;

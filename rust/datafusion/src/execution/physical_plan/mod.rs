@@ -40,7 +40,7 @@ pub trait PhysicalPlanner {
     fn create_physical_plan(
         &self,
         logical_plan: &LogicalPlan,
-        ctx_state: Arc<Mutex<ExecutionContextState>>,
+        ctx_state: &ExecutionContextState,
     ) -> Result<Arc<dyn ExecutionPlan>>;
 }
 
