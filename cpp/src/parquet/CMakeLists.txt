@@ -216,8 +216,7 @@ if(PARQUET_REQUIRE_ENCRYPTION)
       kms_client.cc
       properties_driven_crypto_factory.cc
       remote_kms_client.cc
-      string_util.cc
-      vault_client.cc)
+      string_util.cc)
 else()
   set(PARQUET_SRCS ${PARQUET_SRCS} encryption_internal_nossl.cc)
 endif()
