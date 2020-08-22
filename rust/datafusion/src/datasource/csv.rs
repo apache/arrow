@@ -46,7 +46,7 @@ use crate::datasource::TableProvider;
 use crate::error::Result;
 use crate::execution::physical_plan::csv::CsvExec;
 pub use crate::execution::physical_plan::csv::CsvReadOptions;
-use crate::execution::physical_plan::{ExecutionPlan, Partition};
+use crate::execution::physical_plan::ExecutionPlan;
 
 /// Represents a CSV file with a provided schema
 pub struct CsvFile {
@@ -84,8 +84,8 @@ impl TableProvider for CsvFile {
         &self,
         projection: &Option<Vec<usize>>,
         batch_size: usize,
-    ) -> Result<Vec<Arc<dyn Partition>>> {
-        let exec = CsvExec::try_new(
+    ) -> Result<Arc<dyn ExecutionPlan>> {
+        Ok(Arc::new(CsvExec::try_new(
             &self.filename,
             CsvReadOptions::new()
                 .schema(&self.schema)
@@ -94,8 +94,7 @@ impl TableProvider for CsvFile {
                 .file_extension(self.file_extension.as_str()),
             projection.clone(),
             batch_size,
-        )?;
-        exec.partitions()
+        )?))
     }
 }
 
