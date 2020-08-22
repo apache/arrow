@@ -37,9 +37,9 @@ use arrow::array::{
     UInt8Builder,
 };
 use arrow::compute;
+use arrow::compute::kernels;
 use arrow::compute::kernels::arithmetic::{add, divide, multiply, subtract};
 use arrow::compute::kernels::boolean::{and, or};
-use arrow::compute::kernels::cast::cast;
 use arrow::compute::kernels::comparison::{eq, gt, gt_eq, lt, lt_eq, neq};
 use arrow::compute::kernels::comparison::{
     eq_utf8, gt_eq_utf8, gt_utf8, like_utf8, lt_eq_utf8, lt_utf8, neq_utf8, nlike_utf8,
@@ -991,30 +991,240 @@ impl fmt::Display for BinaryExpr {
     }
 }
 
+// Returns a formatted error about being impossible to coerce types for the binary operator.
+fn coercion_error<T>(
+    lhs_type: &DataType,
+    op: &Operator,
+    rhs_type: &DataType,
+) -> Result<T> {
+    Err(ExecutionError::General(
+        format!(
+            "The binary operator '{}' can't evaluate with lhs = '{:?}' and rhs = '{:?}'",
+            op, lhs_type, rhs_type
+        )
+        .to_string(),
+    ))
+}
+
+// the type that both lhs and rhs can be casted to for the purpose of a string computation
+fn string_coercion(
+    lhs_type: &DataType,
+    op: &Operator,
+    rhs_type: &DataType,
+) -> Result<DataType> {
+    use arrow::datatypes::DataType::*;
+    match (lhs_type, rhs_type) {
+        (Utf8, Utf8) => Ok(Utf8),
+        (LargeUtf8, Utf8) => Ok(LargeUtf8),
+        (Utf8, LargeUtf8) => Ok(LargeUtf8),
+        (LargeUtf8, LargeUtf8) => Ok(LargeUtf8),
+        _ => coercion_error(lhs_type, op, rhs_type),
+    }
+}
+
+/// coercion rule for numerical values
+pub fn numerical_coercion(
+    lhs_type: &DataType,
+    op: &Operator,
+    rhs_type: &DataType,
+) -> Result<DataType> {
+    use arrow::datatypes::DataType::*;
+
+    // error on any non-numeric type
+    if !is_numeric(lhs_type) || !is_numeric(rhs_type) {
+        return coercion_error(lhs_type, op, rhs_type);
+    };
+
+    // same type => all good
+    if lhs_type == rhs_type {
+        return Ok(lhs_type.clone());
+    }
+
+    // these are ordered from most informative to least informative so
+    // that the coercion removes the least amount of information
+    match (lhs_type, rhs_type) {
+        (Float64, _) => Ok(Float64),
+        (_, Float64) => Ok(Float64),
+
+        (_, Float32) => Ok(Float32),
+        (Float32, _) => Ok(Float32),
+
+        (Int64, _) => Ok(Int64),
+        (_, Int64) => Ok(Int64),
+
+        (Int32, _) => Ok(Int32),
+        (_, Int32) => Ok(Int32),
+
+        (Int16, _) => Ok(Int16),
+        (_, Int16) => Ok(Int16),
+
+        (Int8, _) => Ok(Int8),
+        (_, Int8) => Ok(Int8),
+
+        (UInt64, _) => Ok(UInt64),
+        (_, UInt64) => Ok(UInt64),
+
+        (UInt32, _) => Ok(UInt32),
+        (_, UInt32) => Ok(UInt32),
+
+        (UInt16, _) => Ok(UInt16),
+        (_, UInt16) => Ok(UInt16),
+
+        (UInt8, _) => Ok(UInt8),
+        (_, UInt8) => Ok(UInt8),
+
+        _ => coercion_error(lhs_type, op, rhs_type),
+    }
+}
+
+// coercion rules for `equal` and `not equal`. This is a superset of all numerical coercion rules.
+fn eq_coercion(
+    lhs_type: &DataType,
+    op: &Operator,
+    rhs_type: &DataType,
+) -> Result<DataType> {
+    if lhs_type == rhs_type {
+        // same type => equality is possible
+        return Ok(lhs_type.clone());
+    }
+    numerical_coercion(lhs_type, op, rhs_type)
+}
+
+// coercion rules for operators that assume an ordered set, such as "less than".
+// These are the union of all numerical coercion rules and all string coercion rules
+fn order_coercion(
+    lhs_type: &DataType,
+    op: &Operator,
+    rhs_type: &DataType,
+) -> Result<DataType> {
+    if lhs_type == rhs_type {
+        // same type => all good
+        return Ok(lhs_type.clone());
+    }
+
+    match numerical_coercion(lhs_type, op, rhs_type) {
+        Err(_) => {
+            // strings are naturally ordered, and thus ordering can be applied to them.
+            string_coercion(lhs_type, op, rhs_type)
+        }
+        t => t,
+    }
+}
+
+/// Returns the return type of a binary operator or an error
+/// when the binary operator cannot correctly perform the computation between the argument's types, even after
+/// trying to coerce them.
+///
+/// This function makes some assumptions about the underlying available computations.
+pub fn binary_operator_data_type(
+    lhs_type: &DataType,
+    op: &Operator,
+    rhs_type: &DataType,
+) -> Result<DataType> {
+    // This result MUST be compatible with `binary_coerce`
+    match op {
+        // logical binary boolean operators can only be evaluated in bools
+        Operator::And | Operator::Or => match (lhs_type, rhs_type) {
+            (DataType::Boolean, DataType::Boolean) => Ok(DataType::Boolean),
+            _ => coercion_error(lhs_type, op, rhs_type),
+        },
+        // logical equality operators have their own rules, and always return a boolean
+        Operator::Eq | Operator::NotEq => {
+            // validate that the types are valid
+            eq_coercion(lhs_type, op, rhs_type)?;
+            Ok(DataType::Boolean)
+        }
+        // "like" operators operate on strings and always return a boolean
+        Operator::Like | Operator::NotLike => {
+            // validate that the types are valid
+            string_coercion(lhs_type, op, rhs_type)?;
+            Ok(DataType::Boolean)
+        }
+        // order-comparison operators have their own rules
+        Operator::Lt | Operator::Gt | Operator::GtEq | Operator::LtEq => {
+            // validate that the types are valid
+            order_coercion(lhs_type, op, rhs_type)?;
+            Ok(DataType::Boolean)
+        }
+        // for math expressions, the final value of the coercion is also the return type
+        // because coercion favours higher information types
+        Operator::Plus | Operator::Minus | Operator::Divide | Operator::Multiply => {
+            numerical_coercion(lhs_type, op, rhs_type)
+        }
+        Operator::Modulus => Err(ExecutionError::NotImplemented(
+            "Modulus operator is still not supported".to_string(),
+        )),
+        Operator::Not => Err(ExecutionError::InternalError(
+            "Trying to coerce a unary operator".to_string(),
+        )),
+    }
+}
+
+/// return a binary physical expression that includes any necessary coercion of its arguments.
+/// The coercion rule depends on the operator.
+// This function MUST be compatible with `binary_operator_data_type` in that the resulting type
+// from this function's expression must match `binary_operator_data_type` type:
+//      binary_coerce(lhs, op, rhs, schema).type === binary_operator_data_type(lhs.type, op, rhs.type)
+fn binary_coerce(
+    lhs: Arc<dyn PhysicalExpr>,
+    op: &Operator,
+    rhs: Arc<dyn PhysicalExpr>,
+    input_schema: &Schema,
+) -> Result<(Arc<dyn PhysicalExpr>, Arc<dyn PhysicalExpr>)> {
+    let lhs_type = &lhs.data_type(input_schema)?;
+    let rhs_type = &rhs.data_type(input_schema)?;
+
+    match op {
+        // logical binary boolean operators can only be evaluated in bools
+        Operator::And | Operator::Or => match (lhs_type, rhs_type) {
+            (DataType::Boolean, DataType::Boolean) => Ok((lhs.clone(), rhs.clone())),
+            _ => coercion_error(lhs_type, op, rhs_type),
+        },
+        Operator::Eq | Operator::NotEq => {
+            // validate that the types are valid
+            let cast_type = eq_coercion(lhs_type, op, rhs_type)?;
+            Ok((
+                cast(lhs, input_schema, cast_type.clone())?,
+                cast(rhs, input_schema, cast_type)?,
+            ))
+        }
+        Operator::Like | Operator::NotLike => {
+            let cast_type = string_coercion(lhs_type, op, rhs_type)?;
+            Ok((
+                cast(lhs, input_schema, cast_type.clone())?,
+                cast(rhs, input_schema, cast_type)?,
+            ))
+        }
+        Operator::Lt | Operator::Gt | Operator::GtEq | Operator::LtEq => {
+            let cast_type = order_coercion(lhs_type, op, rhs_type)?;
+            Ok((
+                cast(lhs, input_schema, cast_type.clone())?,
+                cast(rhs, input_schema, cast_type)?,
+            ))
+        }
+        Operator::Plus | Operator::Minus | Operator::Divide | Operator::Multiply => {
+            let cast_type = numerical_coercion(lhs_type, op, rhs_type)?;
+            Ok((
+                cast(lhs, input_schema, cast_type.clone())?,
+                cast(rhs, input_schema, cast_type)?,
+            ))
+        }
+        Operator::Modulus => Err(ExecutionError::NotImplemented(
+            "Modulus operator is still not supported".to_string(),
+        )),
+        Operator::Not => Err(ExecutionError::InternalError(
+            "Trying to coerce a unary operator ".to_string(),
+        )),
+    }
+}
+
 impl PhysicalExpr for BinaryExpr {
     fn data_type(&self, input_schema: &Schema) -> Result<DataType> {
-        Ok(match self.op {
-            Operator::And
-            | Operator::Or
-            | Operator::Not
-            | Operator::NotLike
-            | Operator::Like
-            | Operator::Lt
-            | Operator::LtEq
-            | Operator::Eq
-            | Operator::NotEq
-            | Operator::Gt
-            | Operator::GtEq => DataType::Boolean,
-            Operator::Plus
-            | Operator::Minus
-            | Operator::Multiply
-            | Operator::Divide
-            | Operator::Modulus => {
-                // this assumes that the left and right expressions have already been co-coerced
-                // to the same type
-                self.left.data_type(input_schema)?
-            }
-        })
+        binary_operator_data_type(
+            &self.left.data_type(input_schema)?,
+            &self.op,
+            &self.right.data_type(input_schema)?,
+        )
     }
 
     fn nullable(&self, input_schema: &Schema) -> Result<bool> {
@@ -1069,18 +1279,27 @@ impl PhysicalExpr for BinaryExpr {
                     )));
                 }
             }
-            _ => Err(ExecutionError::General("Unsupported operator".to_string())),
+            Operator::Modulus => Err(ExecutionError::NotImplemented(
+                "Modulus operator is still not supported".to_string(),
+            )),
+            Operator::Not => {
+                Err(ExecutionError::General("Unsupported operator".to_string()))
+            }
         }
     }
 }
 
-/// Create a binary expression
+/// Create a binary expression whose arguments are correctly coerced.
+/// This function errors if it is not possible to coerce the arguments
+/// to computational types supported by the operator.
 pub fn binary(
-    l: Arc<dyn PhysicalExpr>,
+    lhs: Arc<dyn PhysicalExpr>,
     op: Operator,
-    r: Arc<dyn PhysicalExpr>,
-) -> Arc<dyn PhysicalExpr> {
-    Arc::new(BinaryExpr::new(l, op, r))
+    rhs: Arc<dyn PhysicalExpr>,
+    input_schema: &Schema,
+) -> Result<Arc<dyn PhysicalExpr>> {
+    let (l, r) = binary_coerce(lhs, &op, rhs, input_schema)?;
+    Ok(Arc::new(BinaryExpr::new(l, op, r)))
 }
 
 /// Not expression
@@ -1151,34 +1370,6 @@ fn is_numeric(dt: &DataType) -> bool {
     }
 }
 
-impl CastExpr {
-    /// Create a CAST expression
-    pub fn try_new(
-        expr: Arc<dyn PhysicalExpr>,
-        input_schema: &Schema,
-        cast_type: DataType,
-    ) -> Result<Self> {
-        let expr_type = expr.data_type(input_schema)?;
-        // numbers can be cast to numbers and strings
-        if is_numeric(&expr_type)
-            && (is_numeric(&cast_type) || cast_type == DataType::Utf8)
-        {
-            Ok(Self { expr, cast_type })
-        } else if expr_type == DataType::Binary && cast_type == DataType::Utf8 {
-            Ok(Self { expr, cast_type })
-        } else if is_numeric(&expr_type)
-            && cast_type == DataType::Timestamp(TimeUnit::Nanosecond, None)
-        {
-            Ok(Self { expr, cast_type })
-        } else {
-            Err(ExecutionError::General(format!(
-                "Invalid CAST from {:?} to {:?}",
-                expr_type, cast_type
-            )))
-        }
-    }
-}
-
 impl fmt::Display for CastExpr {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "CAST({} AS {:?})", self.expr, self.cast_type)
@@ -1196,7 +1387,33 @@ impl PhysicalExpr for CastExpr {
 
     fn evaluate(&self, batch: &RecordBatch) -> Result<ArrayRef> {
         let value = self.expr.evaluate(batch)?;
-        Ok(cast(&value, &self.cast_type)?)
+        Ok(kernels::cast::cast(&value, &self.cast_type)?)
+    }
+}
+
+/// Returns a cast operation, if casting needed.
+pub fn cast(
+    expr: Arc<dyn PhysicalExpr>,
+    input_schema: &Schema,
+    cast_type: DataType,
+) -> Result<Arc<dyn PhysicalExpr>> {
+    let expr_type = expr.data_type(input_schema)?;
+    if expr_type == cast_type {
+        return Ok(expr.clone());
+    }
+    if is_numeric(&expr_type) && (is_numeric(&cast_type) || cast_type == DataType::Utf8) {
+        Ok(Arc::new(CastExpr { expr, cast_type }))
+    } else if expr_type == DataType::Binary && cast_type == DataType::Utf8 {
+        Ok(Arc::new(CastExpr { expr, cast_type }))
+    } else if is_numeric(&expr_type)
+        && cast_type == DataType::Timestamp(TimeUnit::Nanosecond, None)
+    {
+        Ok(Arc::new(CastExpr { expr, cast_type }))
+    } else {
+        Err(ExecutionError::General(format!(
+            "Invalid CAST from {:?} to {:?}",
+            expr_type, cast_type
+        )))
     }
 }
 
@@ -1316,6 +1533,16 @@ mod tests {
     };
     use arrow::datatypes::*;
 
+    // Create a binary expression without coercion. Used here when we do not want to coerce the expressions
+    // to valid types. Usage can result in an execution (after plan) error.
+    fn binary_simple(
+        l: Arc<dyn PhysicalExpr>,
+        op: Operator,
+        r: Arc<dyn PhysicalExpr>,
+    ) -> Arc<dyn PhysicalExpr> {
+        Arc::new(BinaryExpr::new(l, op, r))
+    }
+
     #[test]
     fn binary_comparison() -> Result<()> {
         let schema = Schema::new(vec![
@@ -1330,7 +1557,7 @@ mod tests {
         )?;
 
         // expression: "a < b"
-        let lt = binary(col("a"), Operator::Lt, col("b"));
+        let lt = binary_simple(col("a"), Operator::Lt, col("b"));
         let result = lt.evaluate(&batch)?;
         assert_eq!(result.len(), 5);
 
@@ -1360,10 +1587,10 @@ mod tests {
         )?;
 
         // expression: "a < b OR a == b"
-        let expr = binary(
-            binary(col("a"), Operator::Lt, col("b")),
+        let expr = binary_simple(
+            binary_simple(col("a"), Operator::Lt, col("b")),
             Operator::Or,
-            binary(col("a"), Operator::Eq, col("b")),
+            binary_simple(col("a"), Operator::Eq, col("b")),
         );
         assert_eq!("a < b OR a = b", format!("{}", expr));
 
@@ -1406,13 +1633,120 @@ mod tests {
         Ok(())
     }
 
+    // runs an end-to-end test of physical type coercion:
+    // 1. construct a record batch with two columns of type A and B
+    // 2. construct a physical expression of A OP B
+    // 3. evaluate the expression
+    // 4. verify that the resulting expression is of type C
+    macro_rules! test_coercion {
+        ($A_ARRAY:ident, $A_TYPE:expr, $A_VEC:expr, $B_ARRAY:ident, $B_TYPE:expr, $B_VEC:expr, $OP:expr, $TYPEARRAY:ident, $TYPE:expr, $VEC:expr) => {{
+            let schema = Schema::new(vec![
+                Field::new("a", $A_TYPE, false),
+                Field::new("b", $B_TYPE, false),
+            ]);
+            let a = $A_ARRAY::from($A_VEC);
+            let b = $B_ARRAY::from($B_VEC);
+            let batch = RecordBatch::try_new(
+                Arc::new(schema.clone()),
+                vec![Arc::new(a), Arc::new(b)],
+            )?;
+
+            // verify that we can construct the expression
+            let expression = binary(col("a"), $OP, col("b"), &schema)?;
+
+            // verify that the expression's type is correct
+            assert_eq!(expression.data_type(&schema)?, $TYPE);
+
+            // compute
+            let result = expression.evaluate(&batch)?;
+
+            // verify that the array's data_type is correct
+            assert_eq!(*result.data_type(), $TYPE);
+
+            // verify that the data itself is downcastable
+            let result = result
+                .as_any()
+                .downcast_ref::<$TYPEARRAY>()
+                .expect("failed to downcast");
+            // verify that the result itself is correct
+            for (i, x) in $VEC.iter().enumerate() {
+                assert_eq!(result.value(i), *x);
+            }
+        }};
+    }
+
+    #[test]
+    fn test_type_coersion() -> Result<()> {
+        test_coercion!(
+            Int32Array,
+            DataType::Int32,
+            vec![1i32, 2i32],
+            UInt32Array,
+            DataType::UInt32,
+            vec![1u32, 2u32],
+            Operator::Plus,
+            Int32Array,
+            DataType::Int32,
+            vec![2i32, 4i32]
+        );
+        test_coercion!(
+            Int32Array,
+            DataType::Int32,
+            vec![1i32],
+            UInt16Array,
+            DataType::UInt16,
+            vec![1u16],
+            Operator::Plus,
+            Int32Array,
+            DataType::Int32,
+            vec![2i32]
+        );
+        test_coercion!(
+            Float32Array,
+            DataType::Float32,
+            vec![1f32],
+            UInt16Array,
+            DataType::UInt16,
+            vec![1u16],
+            Operator::Plus,
+            Float32Array,
+            DataType::Float32,
+            vec![2f32]
+        );
+        test_coercion!(
+            Float32Array,
+            DataType::Float32,
+            vec![2f32],
+            UInt16Array,
+            DataType::UInt16,
+            vec![1u16],
+            Operator::Multiply,
+            Float32Array,
+            DataType::Float32,
+            vec![2f32]
+        );
+        test_coercion!(
+            StringArray,
+            DataType::Utf8,
+            vec!["hello world", "world"],
+            StringArray,
+            DataType::Utf8,
+            vec!["%hello%", "%hello%"],
+            Operator::Like,
+            BooleanArray,
+            DataType::Boolean,
+            vec![true, false]
+        );
+        Ok(())
+    }
+
     #[test]
     fn cast_i32_to_u32() -> Result<()> {
         let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
         let a = Int32Array::from(vec![1, 2, 3, 4, 5]);
         let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
 
-        let cast = CastExpr::try_new(col("a"), &schema, DataType::UInt32)?;
+        let cast = cast(col("a"), &schema, DataType::UInt32)?;
         assert_eq!("CAST(a AS UInt32)", format!("{}", cast));
         let result = cast.evaluate(&batch)?;
         assert_eq!(result.len(), 5);
@@ -1432,7 +1766,7 @@ mod tests {
         let a = Int32Array::from(vec![1, 2, 3, 4, 5]);
         let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
 
-        let cast = CastExpr::try_new(col("a"), &schema, DataType::Utf8)?;
+        let cast = cast(col("a"), &schema, DataType::Utf8)?;
         let result = cast.evaluate(&batch)?;
         assert_eq!(result.len(), 5);
 
@@ -1451,7 +1785,7 @@ mod tests {
         let a = Int64Array::from(vec![1, 2, 3, 4, 5]);
         let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
 
-        let cast = CastExpr::try_new(
+        let cast = cast(
             col("a"),
             &schema,
             DataType::Timestamp(TimeUnit::Nanosecond, None),
@@ -1471,7 +1805,7 @@ mod tests {
     #[test]
     fn invalid_cast() -> Result<()> {
         let schema = Schema::new(vec![Field::new("a", DataType::Utf8, false)]);
-        let result = CastExpr::try_new(col("a"), &schema, DataType::Int32);
+        let result = cast(col("a"), &schema, DataType::Int32);
         result.expect_err("Invalid CAST from Utf8 to Int32");
         Ok(())
     }
@@ -2085,7 +2419,7 @@ mod tests {
         op: Operator,
         expected: PrimitiveArray<T>,
     ) -> Result<()> {
-        let arithmetic_op = binary(col("a"), op, col("b"));
+        let arithmetic_op = binary_simple(col("a"), op, col("b"));
         let batch = RecordBatch::try_new(schema, data)?;
         let result = arithmetic_op.evaluate(&batch)?;
 

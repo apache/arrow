@@ -29,8 +29,10 @@ use crate::datasource::csv::{CsvFile, CsvReadOptions};
 use crate::datasource::parquet::ParquetTable;
 use crate::datasource::TableProvider;
 use crate::error::{ExecutionError, Result};
-use crate::optimizer::utils;
-use crate::sql::parser::FileType;
+use crate::{
+    execution::physical_plan::expressions::binary_operator_data_type,
+    sql::parser::FileType,
+};
 use arrow::record_batch::RecordBatch;
 
 /// Enumeration of supported function types (Scalar and Aggregate)
@@ -389,19 +391,11 @@ impl Expr {
                 ref left,
                 ref right,
                 ref op,
-            } => match op {
-                Operator::Not => Ok(DataType::Boolean),
-                Operator::Like | Operator::NotLike => Ok(DataType::Boolean),
-                Operator::Eq | Operator::NotEq => Ok(DataType::Boolean),
-                Operator::Lt | Operator::LtEq => Ok(DataType::Boolean),
-                Operator::Gt | Operator::GtEq => Ok(DataType::Boolean),
-                Operator::And | Operator::Or => Ok(DataType::Boolean),
-                _ => {
-                    let left_type = left.get_type(schema)?;
-                    let right_type = right.get_type(schema)?;
-                    utils::get_supertype(&left_type, &right_type)
-                }
-            },
+            } => binary_operator_data_type(
+                &left.get_type(schema)?,
+                op,
+                &right.get_type(schema)?,
+            ),
             Expr::Sort { ref expr, .. } => expr.get_type(schema),
             Expr::Wildcard => Err(ExecutionError::General(
                 "Wildcard expressions are not valid in a logical query plan".to_owned(),
@@ -542,6 +536,16 @@ impl Expr {
     /// Calculate the modulus of two expressions
     pub fn modulus(&self, other: Expr) -> Expr {
         binary_expr(self.clone(), Operator::Modulus, other.clone())
+    }
+
+    /// like (string) another expression
+    pub fn like(&self, other: Expr) -> Expr {
+        binary_expr(self.clone(), Operator::Like, other.clone())
+    }
+
+    /// not like another expression
+    pub fn not_like(&self, other: Expr) -> Expr {
+        binary_expr(self.clone(), Operator::NotLike, other.clone())
     }
 
     /// Alias
