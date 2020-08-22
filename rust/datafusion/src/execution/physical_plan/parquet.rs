@@ -23,7 +23,7 @@ use std::sync::{Arc, Mutex};
 use std::{fmt, thread};
 
 use crate::error::{ExecutionError, Result};
-use crate::execution::physical_plan::common;
+use crate::execution::physical_plan::{common, Partitioning};
 use crate::execution::physical_plan::{ExecutionPlan, Partition};
 use arrow::datatypes::{Schema, SchemaRef};
 use arrow::error::{ArrowError, Result as ArrowResult};
@@ -89,6 +89,11 @@ impl ParquetExec {
 impl ExecutionPlan for ParquetExec {
     fn schema(&self) -> SchemaRef {
         self.schema.clone()
+    }
+
+    /// Get the output partitioning of this plan
+    fn output_partitioning(&self) -> Partitioning {
+        Partitioning::UnknownPartitioning(self.filenames.len())
     }
 
     fn partitions(&self) -> Result<Vec<Arc<dyn Partition>>> {

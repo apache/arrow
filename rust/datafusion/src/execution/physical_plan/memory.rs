@@ -20,7 +20,7 @@
 use std::sync::{Arc, Mutex};
 
 use crate::error::Result;
-use crate::execution::physical_plan::{ExecutionPlan, Partition};
+use crate::execution::physical_plan::{ExecutionPlan, Partition, Partitioning};
 use arrow::datatypes::SchemaRef;
 use arrow::error::Result as ArrowResult;
 use arrow::record_batch::{RecordBatch, RecordBatchReader};
@@ -40,6 +40,11 @@ impl ExecutionPlan for MemoryExec {
     /// Get the schema for this execution plan
     fn schema(&self) -> SchemaRef {
         self.schema.clone()
+    }
+
+    /// Get the output partitioning of this plan
+    fn output_partitioning(&self) -> Partitioning {
+        Partitioning::UnknownPartitioning(self.partitions.len())
     }
 
     /// Get the partitions for this execution plan. Each partition can be executed in parallel.

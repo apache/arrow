@@ -23,7 +23,9 @@
 use std::sync::{Arc, Mutex};
 
 use crate::error::{ExecutionError, Result};
-use crate::execution::physical_plan::{ExecutionPlan, Partition, PhysicalExpr};
+use crate::execution::physical_plan::{
+    ExecutionPlan, Partition, Partitioning, PhysicalExpr,
+};
 use arrow::datatypes::{Field, Schema, SchemaRef};
 use arrow::error::Result as ArrowResult;
 use arrow::record_batch::{RecordBatch, RecordBatchReader};
@@ -72,6 +74,11 @@ impl ExecutionPlan for ProjectionExec {
     /// Get the schema for this execution plan
     fn schema(&self) -> SchemaRef {
         self.schema.clone()
+    }
+
+    /// Get the output partitioning of this plan
+    fn output_partitioning(&self) -> Partitioning {
+        self.input.output_partitioning()
     }
 
     /// Get the partitions for this execution plan

@@ -23,8 +23,8 @@ use crate::error::{ExecutionError, Result};
 use crate::execution::physical_plan::common::{self, RecordBatchIterator};
 use crate::execution::physical_plan::memory::MemoryIterator;
 use crate::execution::physical_plan::merge::MergeExec;
-use crate::execution::physical_plan::ExecutionPlan;
 use crate::execution::physical_plan::Partition;
+use crate::execution::physical_plan::{ExecutionPlan, Partitioning};
 use arrow::array::ArrayRef;
 use arrow::compute::limit;
 use arrow::datatypes::SchemaRef;
@@ -63,6 +63,11 @@ impl GlobalLimitExec {
 impl ExecutionPlan for GlobalLimitExec {
     fn schema(&self) -> SchemaRef {
         self.schema.clone()
+    }
+
+    /// Get the output partitioning of this plan
+    fn output_partitioning(&self) -> Partitioning {
+        Partitioning::UnknownPartitioning(self.partitions.len())
     }
 
     fn partitions(&self) -> Result<Vec<Arc<dyn Partition>>> {

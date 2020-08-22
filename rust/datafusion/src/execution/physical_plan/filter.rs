@@ -21,7 +21,9 @@
 use std::sync::{Arc, Mutex};
 
 use crate::error::{ExecutionError, Result};
-use crate::execution::physical_plan::{ExecutionPlan, Partition, PhysicalExpr};
+use crate::execution::physical_plan::{
+    ExecutionPlan, Partition, Partitioning, PhysicalExpr,
+};
 use arrow::array::BooleanArray;
 use arrow::compute::filter;
 use arrow::datatypes::{DataType, SchemaRef};
@@ -62,6 +64,11 @@ impl ExecutionPlan for FilterExec {
     fn schema(&self) -> SchemaRef {
         // The filter operator does not make any changes to the schema of its input
         self.input.schema()
+    }
+
+    /// Get the output partitioning of this plan
+    fn output_partitioning(&self) -> Partitioning {
+        self.input.output_partitioning()
     }
 
     /// Get the partitions for this execution plan

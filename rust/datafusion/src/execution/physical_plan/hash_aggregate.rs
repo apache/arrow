@@ -23,7 +23,7 @@ use std::sync::{Arc, Mutex};
 
 use crate::error::{ExecutionError, Result};
 use crate::execution::physical_plan::{
-    Accumulator, AggregateExpr, ExecutionPlan, Partition, PhysicalExpr,
+    Accumulator, AggregateExpr, ExecutionPlan, Partition, Partitioning, PhysicalExpr,
 };
 
 use arrow::array::{
@@ -109,6 +109,11 @@ impl HashAggregateExec {
 impl ExecutionPlan for HashAggregateExec {
     fn schema(&self) -> SchemaRef {
         self.schema.clone()
+    }
+
+    /// Get the output partitioning of this plan
+    fn output_partitioning(&self) -> Partitioning {
+        self.input.output_partitioning()
     }
 
     fn partitions(&self) -> Result<Vec<Arc<dyn Partition>>> {

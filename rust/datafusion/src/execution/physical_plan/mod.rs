@@ -48,8 +48,27 @@ pub trait PhysicalPlanner {
 pub trait ExecutionPlan: Debug {
     /// Get the schema for this execution plan
     fn schema(&self) -> SchemaRef;
+    /// Specifies the output partitioning scheme of this plan
+    fn output_partitioning(&self) -> Partitioning;
     /// Get the partitions for this execution plan. Each partition can be executed in parallel.
     fn partitions(&self) -> Result<Vec<Arc<dyn Partition>>>;
+}
+
+/// Partitioning schemes supported by operators.
+#[derive(Debug, Clone)]
+pub enum Partitioning {
+    /// Unknown partitioning scheme
+    UnknownPartitioning(usize),
+}
+
+impl Partitioning {
+    /// Returns the number of partitions in this partitioning scheme
+    pub fn partition_count(&self) -> usize {
+        use Partitioning::*;
+        match self {
+            UnknownPartitioning(n) => *n,
+        }
+    }
 }
 
 /// Represents a partition of an execution plan that can be executed on a thread

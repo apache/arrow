@@ -28,6 +28,7 @@ use arrow::{
     record_batch::{RecordBatch, RecordBatchReader},
 };
 
+use crate::execution::physical_plan::Partitioning;
 use std::sync::{Arc, Mutex};
 
 /// Explain execution plan operator. This operator contains the string
@@ -55,6 +56,11 @@ impl ExplainExec {
 impl ExecutionPlan for ExplainExec {
     fn schema(&self) -> SchemaRef {
         self.schema.clone()
+    }
+
+    /// Get the output partitioning of this plan
+    fn output_partitioning(&self) -> Partitioning {
+        Partitioning::UnknownPartitioning(1)
     }
 
     fn partitions(&self) -> Result<Vec<Arc<dyn Partition>>> {

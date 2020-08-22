@@ -29,7 +29,7 @@ use crate::error::Result;
 use crate::execution::physical_plan::common::RecordBatchIterator;
 use crate::execution::physical_plan::expressions::PhysicalSortExpr;
 use crate::execution::physical_plan::merge::MergeExec;
-use crate::execution::physical_plan::{common, ExecutionPlan, Partition};
+use crate::execution::physical_plan::{common, ExecutionPlan, Partition, Partitioning};
 
 /// Sort execution plan
 #[derive(Debug)]
@@ -59,6 +59,11 @@ impl SortExec {
 impl ExecutionPlan for SortExec {
     fn schema(&self) -> SchemaRef {
         self.input.schema().clone()
+    }
+
+    /// Get the output partitioning of this plan
+    fn output_partitioning(&self) -> Partitioning {
+        self.input.output_partitioning()
     }
 
     fn partitions(&self) -> Result<Vec<Arc<dyn Partition>>> {

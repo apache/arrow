@@ -21,7 +21,7 @@ use std::fs::File;
 use std::sync::{Arc, Mutex};
 
 use crate::error::{ExecutionError, Result};
-use crate::execution::physical_plan::common;
+use crate::execution::physical_plan::{common, Partitioning};
 use crate::execution::physical_plan::{ExecutionPlan, Partition};
 use arrow::csv;
 use arrow::datatypes::{Schema, SchemaRef};
@@ -107,6 +107,8 @@ impl<'a> CsvReadOptions<'a> {
 pub struct CsvExec {
     /// Path to directory containing partitioned CSV files with the same schema
     path: String,
+    /// The individual files under path
+    filenames: Vec<String>,
     /// Schema representing the CSV file
     schema: SchemaRef,
     /// Does the CSV file have a header?
@@ -131,9 +133,17 @@ impl CsvExec {
         projection: Option<Vec<usize>>,
         batch_size: usize,
     ) -> Result<Self> {
+        let file_extension = String::from(options.file_extension);
+
+        let mut filenames: Vec<String> = vec![];
+        common::build_file_list(path, &mut filenames, file_extension.as_str())?;
+        if filenames.is_empty() {
+            return Err(ExecutionError::General("No files found".to_string()));
+        }
+
         let schema = match options.schema {
             Some(s) => s.clone(),
-            None => CsvExec::try_infer_schema(path, &options)?,
+            None => CsvExec::try_infer_schema(&filenames, &options)?,
         };
 
         let projected_schema = match &projection {
@@ -143,10 +153,11 @@ impl CsvExec {
 
         Ok(Self {
             path: path.to_string(),
+            filenames,
             schema: Arc::new(schema),
             has_header: options.has_header,
             delimiter: Some(options.delimiter),
-            file_extension: String::from(options.file_extension),
+            file_extension,
             projection,
             projected_schema: Arc::new(projected_schema),
             batch_size,
@@ -154,16 +165,12 @@ impl CsvExec {
     }
 
     /// Infer schema for given CSV dataset
-    pub fn try_infer_schema(path: &str, options: &CsvReadOptions) -> Result<Schema> {
-        let mut filenames: Vec<String> = vec![];
-        common::build_file_list(path, &mut filenames, options.file_extension)?;
-
-        if filenames.is_empty() {
-            return Err(ExecutionError::General("No files found".to_string()));
-        }
-
+    pub fn try_infer_schema(
+        filenames: &[String],
+        options: &CsvReadOptions,
+    ) -> Result<Schema> {
         Ok(csv::infer_schema_from_files(
-            &filenames,
+            filenames,
             options.delimiter,
             Some(options.schema_infer_max_records),
             options.has_header,
@@ -177,15 +184,15 @@ impl ExecutionPlan for CsvExec {
         self.projected_schema.clone()
     }
 
+    /// Get the output partitioning of this plan
+    fn output_partitioning(&self) -> Partitioning {
+        Partitioning::UnknownPartitioning(self.filenames.len())
+    }
+
     /// Get the partitions for this execution plan. Each partition can be executed in parallel.
     fn partitions(&self) -> Result<Vec<Arc<dyn Partition>>> {
-        let mut filenames: Vec<String> = vec![];
-        common::build_file_list(
-            &self.path,
-            &mut filenames,
-            self.file_extension.as_str(),
-        )?;
-        let partitions = filenames
+        let partitions = self
+            .filenames
             .iter()
             .map(|filename| {
                 Arc::new(CsvPartition::new(

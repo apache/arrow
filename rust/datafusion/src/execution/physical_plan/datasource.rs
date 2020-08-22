@@ -23,7 +23,7 @@ use std::{
 };
 
 use crate::error::Result;
-use crate::execution::physical_plan::{ExecutionPlan, Partition};
+use crate::execution::physical_plan::{ExecutionPlan, Partition, Partitioning};
 use arrow::datatypes::SchemaRef;
 
 /// Datasource execution plan
@@ -51,6 +51,11 @@ impl DatasourceExec {
 impl ExecutionPlan for DatasourceExec {
     fn schema(&self) -> SchemaRef {
         self.schema.clone()
+    }
+
+    /// Get the output partitioning of this plan
+    fn output_partitioning(&self) -> Partitioning {
+        Partitioning::UnknownPartitioning(self.partitions.len())
     }
 
     fn partitions(&self) -> Result<Vec<Arc<dyn Partition>>> {
