@@ -21,6 +21,7 @@
 
 #include "parquet/key_toolkit.h"
 #include "parquet/kms_client_factory.h"
+#include "parquet/platform.h"
 #include "parquet/remote_kms_client.h"
 #include "parquet/string_util.h"
 
@@ -29,7 +30,7 @@ namespace encryption {
 
 // This is a mock class, built for testing only. Don't use it as an example of KmsClient
 // implementation. (VaultClient is the sample implementation).
-class InMemoryKms : public RemoteKmsClient {
+class PARQUET_EXPORT InMemoryKms : public RemoteKmsClient {
  public:
   static void InitializeMasterKeys(
       const std::map<std::string, std::string>& master_keys_map);
@@ -49,7 +50,7 @@ class InMemoryKms : public RemoteKmsClient {
   static std::map<std::string, std::string> master_key_map_;
 };
 
-class InMemoryKmsClientFactory : public KmsClientFactory {
+class PARQUET_EXPORT InMemoryKmsClientFactory : public KmsClientFactory {
  public:
   InMemoryKmsClientFactory(bool wrap_locally,
                            const std::map<std::string, std::string>& master_keys_map)
