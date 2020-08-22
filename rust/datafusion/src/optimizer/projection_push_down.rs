@@ -303,7 +303,7 @@ fn optimize_plan(
         // all other nodes:
         // * gather all used columns as required columns
         LogicalPlan::Limit { .. }
-        | LogicalPlan::Selection { .. }
+        | LogicalPlan::Filter { .. }
         | LogicalPlan::EmptyRelation { .. }
         | LogicalPlan::Sort { .. }
         | LogicalPlan::CreateExternalTable { .. } => {
@@ -486,7 +486,7 @@ mod tests {
 
         let expected = "\
         Aggregate: groupBy=[[#c]], aggr=[[MAX(#a)]]\
-        \n  Selection: #c Gt Int32(1)\
+        \n  Filter: #c Gt Int32(1)\
         \n    Projection: #c, #a\
         \n      TableScan: test projection=Some([0, 2])";
 
@@ -537,7 +537,7 @@ mod tests {
 
         let expected = "\
         Projection: #c, #a, #MAX(b)\
-        \n  Selection: #c Gt Int32(1)\
+        \n  Filter: #c Gt Int32(1)\
         \n    Aggregate: groupBy=[[#a, #c]], aggr=[[MAX(#b)]]\
         \n      TableScan: test projection=Some([0, 1, 2])";
 
