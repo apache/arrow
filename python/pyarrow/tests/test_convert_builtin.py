@@ -390,10 +390,17 @@ def test_broken_integers(seq):
 
 
 def test_numpy_scalars_mixed_type():
+
     # ARROW-4324
     data = [np.int32(10), np.float32(0.5)]
     arr = pa.array(data)
-    expected = pa.array([10, 0.5], type='float64')
+    expected = pa.array([10, 0.5], type="float64")
+    assert arr.equals(expected)
+
+    # ARROW-9490
+    data = [np.int8(10), np.float32(0.5)]
+    arr = pa.array(data)
+    expected = pa.array([10, 0.5], type="float32")
     assert arr.equals(expected)
 
 
