@@ -1,0 +1,226 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+syntax = "proto3";
+
+option java_package = "org.apache.arrow.flight.sql.impl";
+package arrow.flight.protocol.sql;
+
+/*
+ * Wrap the result of a "GetSQLCapabilities" action.
+ */
+message ActionGetSQLCapabilitiesResult{
+  string identifierQuoteString = 1;
+  bool supportsExpressionsInOrderBy = 2;
+  // TODO add more capabilities.
+}
+
+/*
+ * Request message for the "GetCatalogs" action on a 
+ * Flight SQL enabled backend. 
+ * Requests a list of catalogs available in the server.
+ */
+message ActionGetCatalogsRequest {
+  /*
+   * True will ensure results are ordered alphabetically.
+   * False will not enforce ordering.
+   */ 
+  bool orderResultsAlphabetically = 1;
+}
+
+/*
+ * Wrap the result of a "GetCatalogs" action.
+ */
+message ActionGetCatalogsResult {
+  repeated string catalogNames = 1;
+}
+
+/*
+ * Request message for the "GetSchemas" action on a 
+ * Flight SQL enabled backend. 
+ * Requests a list of schemas available in the server.
+ */
+message ActionGetSchemasRequest {
+  /*
+   * True will ensure results are ordered alphabetically.
+   * False will not enforce ordering.
+   */ 
+  bool orderResultsAlphabetically = 1;
+
+  /*
+   * Specifies the Catalog to search for schemas.
+   */ 
+  string catalog = 2;
+
+  // Specifies a filter pattern for schemas to search for.
+  string schemaFilterPattern = 3;
+}
+
+/*
+ * Wrap the result of a "GetSchemas" action.
+ */
+message ActionGetSchemasResult {
+  string catalog = 1;
+  string schema = 2;
+}
+
+/*
+ * Request message for the "GetTables" action on a 
+ * Flight SQL enabled backend. 
+ * Requests a list of tables available in the server.
+ */
+message ActionGetTablesRequest {
+  /*
+   * True will ensure results are ordered alphabetically.
+   * False will not enforce ordering.
+   */ 
+  bool orderResultsAlphabetically = 1;
+
+  // Specifies the Catalog to search for schemas.
+  string catalog = 2;
+
+  // Specifies a filter pattern for schemas to search for.
+  string schemaFilterPattern = 3;
+
+  // Specifies a filter pattern for tables to search for.
+  string tableNameFilterPattern = 4;
+
+  // Specifies a filter of table types which must match.
+  repeated string tableTypes = 5;
+
+  // Specifies if the schema should be returned for found tables.
+  bool includeSchema = 6; 
+}
+
+/*
+ * Wrap the result of a "GetTables" action.
+ */
+message ActionGetTablesResult {
+  string catalog = 1;
+  string schema = 2;
+  string table = 3;
+  string tableType = 4;
+
+  /*
+   * Schema of the dataset as described in Schema.fbs::Schema,
+   * Null if includeSchema on request is false.
+   */
+  bytes schemaMetadata = 5; 
+}
+
+/*
+ * Wrap the result of a "GetTableTypes" action.
+ */
+message ActionGetTableTypesResult {
+  string tableType = 1;
+}
+
+// SQL Execution Action Messages
+
+/*
+ * Request message for the "GetPreparedStatement" action on a 
+ * Flight SQL enabled backend. 
+ * Requests a list of tables available in the server.
+ */
+message ActionGetPreparedStatementRequest {
+  // The SQL syntax.
+  string query = 1;
+}
+
+/*
+ * Wrap the result of a "GetPreparedStatement" action.
+ */
+message ActionGetPreparedStatementResult {
+
+  // Opaque handle for the prepared statement on the server.
+  bytes preparedStatementHandle = 1;
+
+  // schema of the dataset as described in Schema.fbs::Schema.
+  bytes datasetSchema = 2;
+
+  // schema of the expected parameters, if any existed, as described in Schema.fbs::Schema.
+  bytes parameterSchema = 3;
+}
+
+/*
+ * Request message for the "ClosePreparedStatement" action on a 
+ * Flight SQL enabled backend. 
+ * Closes server resources associated with the prepared statement handle.
+ */
+message ActionClosePreparedStatementRequest {
+  // Opaque handle for the prepared statement on the server.
+  string preparedStatementHandle = 1;
+}
+
+
+// SQL Execution Messages.
+
+/*
+ * Represents a SQL query. Used in the command member of FlightDescriptor
+ * for the following RPC calls:
+ *  - GetSchema: return the schema of the query.
+ *  - GetFlightInfo: execute the query.
+ */
+message CommandStatementQuery {
+  // The SQL syntax.
+  string query = 2;
+}
+
+/*
+ * Represents an instance of executing a prepared statement. Used in the 
+ * command member of FlightDescriptor for the following RPC calls:
+ *  - DoPut: bind parameter values.
+ *  - GetFlightInfo: execute the prepared statement instance.
+ */
+message CommandPreparedStatementQuery {
+  // Unique identifier for the instance of the prepared statement to execute.
+  bytes clientExecutionHandle = 2; 
+  // Opaque handle for the prepared statement on the server.
+  bytes preparedStatementHandle = 3;
+}
+
+/*
+ * Represents a SQL update query. Used in the command member of FlightDescriptor
+ * for the the RPC call DoPut to cause the server to execute the included 
+ * SQL update.
+ */
+message CommandStatementUpdate {
+  // The SQL syntax.
+  string query = 2;
+}
+
+/*
+ * Represents a SQL update query. Used in the command member of FlightDescriptor
+ * for the the RPC call DoPut to cause the server to execute the included 
+ * prepared statement handle as an update.
+ */
+message CommandPreparedStatementUpdate {
+  // Unique identifier for the instance of the prepared statement to execute.
+  bytes clientExecutionHandle = 2; 
+  // Opaque handle for the prepared statement on the server.
+  bytes preparedStatementHandle = 3;
+}
+
+/*
+ * Returned from the RPC call DoPut when a CommandStatementUpdate
+ * CommandPreparedStatementUpdate was in the request, containing
+ * results from the update.
+ */
+message DoPutUpdateResult {
+  int64 recordCount = 1; 
+}
