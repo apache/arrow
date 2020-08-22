@@ -115,7 +115,7 @@ fn execute_sql(ctx: &mut ExecutionContext, sql: &str, debug: bool) -> Result<()>
         println!("Optimized logical plan:\n{:?}", plan);
     }
     let physical_plan = ctx.create_physical_plan(&plan)?;
-    let result = ctx.collect(physical_plan.as_ref())?;
+    let result = ctx.collect(physical_plan)?;
     if debug {
         pretty::print_batches(&result)?;
     }

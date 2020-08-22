@@ -51,23 +51,16 @@ impl ExecutionPlan for MemoryExec {
         &self,
         partition: usize,
     ) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
-        self.partitions()?[partition].execute()
+        Ok(Arc::new(Mutex::new(MemoryIterator::try_new(
+            self.partitions[partition].clone(),
+            self.schema.clone(),
+            self.projection.clone(),
+        )?)))
     }
 
     /// Get the partitions for this execution plan. Each partition can be executed in parallel.
     fn partitions(&self) -> Result<Vec<Arc<dyn Partition>>> {
-        let partitions = self
-            .partitions
-            .iter()
-            .map(|vec| {
-                Arc::new(MemoryPartition::new(
-                    vec.clone(),
-                    self.schema.clone(),
-                    self.projection.clone(),
-                )) as Arc<dyn Partition>
-            })
-            .collect();
-        Ok(partitions)
+        unimplemented!()
     }
 }
 
@@ -83,43 +76,6 @@ impl MemoryExec {
             schema,
             projection,
         })
-    }
-}
-
-/// Memory partition
-#[derive(Debug)]
-struct MemoryPartition {
-    /// Vector of record batches
-    data: Vec<RecordBatch>,
-    /// Schema representing the data
-    schema: SchemaRef,
-    /// Optional projection
-    projection: Option<Vec<usize>>,
-}
-
-impl MemoryPartition {
-    /// Create a new in-memory partition
-    fn new(
-        data: Vec<RecordBatch>,
-        schema: SchemaRef,
-        projection: Option<Vec<usize>>,
-    ) -> Self {
-        Self {
-            data,
-            schema,
-            projection,
-        }
-    }
-}
-
-impl Partition for MemoryPartition {
-    /// Execute this partition and return an iterator over RecordBatch
-    fn execute(&self) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
-        Ok(Arc::new(Mutex::new(MemoryIterator::try_new(
-            self.data.clone(),
-            self.schema.clone(),
-            self.projection.clone(),
-        )?)))
     }
 }
 

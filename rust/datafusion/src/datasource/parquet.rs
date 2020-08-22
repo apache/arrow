@@ -81,8 +81,7 @@ mod tests {
         let table = load_table("alltypes_plain.parquet")?;
         let projection = None;
         let exec = table.scan(&projection, 2)?;
-        let partitions = exec.partitions()?;
-        let it = partitions[0].execute()?;
+        let it = exec.execute(0)?;
         let mut it = it.lock().unwrap();
 
         let mut count = 0;
@@ -302,8 +301,7 @@ mod tests {
         projection: &Option<Vec<usize>>,
     ) -> Result<RecordBatch> {
         let exec = table.scan(projection, 1024)?;
-        let partitions = exec.partitions()?;
-        let it = partitions[0].execute()?;
+        let it = exec.execute(0)?;
         let mut it = it.lock().expect("failed to lock mutex");
         Ok(it
             .next_batch()?

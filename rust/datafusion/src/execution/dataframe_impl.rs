@@ -110,7 +110,7 @@ impl DataFrame for DataFrameImpl {
         let ctx = ExecutionContext::from(self.ctx_state.clone());
         let plan = ctx.optimize(&self.plan)?;
         let plan = ctx.create_physical_plan(&plan)?;
-        Ok(ctx.collect(plan.as_ref())?)
+        Ok(ctx.collect(plan)?)
     }
 
     /// Returns the schema from the logical plan

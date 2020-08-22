@@ -193,77 +193,19 @@ impl ExecutionPlan for CsvExec {
         &self,
         partition: usize,
     ) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
-        self.partitions()?[partition].execute()
-    }
-
-    /// Get the partitions for this execution plan. Each partition can be executed in parallel.
-    fn partitions(&self) -> Result<Vec<Arc<dyn Partition>>> {
-        let partitions = self
-            .filenames
-            .iter()
-            .map(|filename| {
-                Arc::new(CsvPartition::new(
-                    &filename,
-                    self.schema.clone(),
-                    self.has_header,
-                    self.delimiter,
-                    self.projection.clone(),
-                    self.batch_size,
-                )) as Arc<dyn Partition>
-            })
-            .collect();
-        Ok(partitions)
-    }
-}
-
-/// CSV Partition
-#[derive(Debug)]
-struct CsvPartition {
-    /// Path to the CSV File
-    path: String,
-    /// Schema representing the CSV file
-    schema: SchemaRef,
-    /// Does the CSV file have a header?
-    has_header: bool,
-    /// An optional column delimiter. Defaults to `b','`
-    delimiter: Option<u8>,
-    /// Optional projection for which columns to load
-    projection: Option<Vec<usize>>,
-    /// Batch size
-    batch_size: usize,
-}
-
-impl CsvPartition {
-    fn new(
-        path: &str,
-        schema: SchemaRef,
-        has_header: bool,
-        delimiter: Option<u8>,
-        projection: Option<Vec<usize>>,
-        batch_size: usize,
-    ) -> Self {
-        Self {
-            path: path.to_string(),
-            schema,
-            has_header,
-            delimiter,
-            projection,
-            batch_size,
-        }
-    }
-}
-
-impl Partition for CsvPartition {
-    /// Execute this partition and return an iterator over RecordBatch
-    fn execute(&self) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
         Ok(Arc::new(Mutex::new(CsvIterator::try_new(
-            &self.path,
+            &self.filenames[partition],
             self.schema.clone(),
             self.has_header,
             self.delimiter,
             &self.projection,
             self.batch_size,
         )?)))
+    }
+
+    /// Get the partitions for this execution plan. Each partition can be executed in parallel.
+    fn partitions(&self) -> Result<Vec<Arc<dyn Partition>>> {
+        unimplemented!()
     }
 }
 
@@ -329,9 +271,8 @@ mod tests {
         assert_eq!(13, csv.schema.fields().len());
         assert_eq!(3, csv.projected_schema.fields().len());
         assert_eq!(3, csv.schema().fields().len());
-        let partitions = csv.partitions()?;
-        let results = partitions[0].execute()?;
-        let mut it = results.lock().unwrap();
+        let it = csv.execute(0)?;
+        let mut it = it.lock().unwrap();
         let batch = it.next_batch()?.unwrap();
         assert_eq!(3, batch.num_columns());
         let batch_schema = batch.schema();
@@ -353,9 +294,8 @@ mod tests {
         assert_eq!(13, csv.schema.fields().len());
         assert_eq!(13, csv.projected_schema.fields().len());
         assert_eq!(13, csv.schema().fields().len());
-        let partitions = csv.partitions()?;
-        let results = partitions[0].execute()?;
-        let mut it = results.lock().unwrap();
+        let it = csv.execute(0)?;
+        let mut it = it.lock().unwrap();
         let batch = it.next_batch()?.unwrap();
         assert_eq!(13, batch.num_columns());
         let batch_schema = batch.schema();

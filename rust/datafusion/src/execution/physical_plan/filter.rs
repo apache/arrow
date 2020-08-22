@@ -75,50 +75,16 @@ impl ExecutionPlan for FilterExec {
         &self,
         partition: usize,
     ) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
-        self.partitions()?[partition].execute()
+        Ok(Arc::new(Mutex::new(FilterExecIter {
+            schema: self.input.schema().clone(),
+            predicate: self.predicate.clone(),
+            input: self.input.execute(partition)?,
+        })))
     }
 
     /// Get the partitions for this execution plan
     fn partitions(&self) -> Result<Vec<Arc<dyn Partition>>> {
-        let partitions: Vec<Arc<dyn Partition>> = self
-            .input
-            .partitions()?
-            .iter()
-            .map(|p| {
-                let expr = self.predicate.clone();
-                let partition: Arc<dyn Partition> = Arc::new(FilterExecPartition {
-                    schema: self.input.schema(),
-                    predicate: expr,
-                    input: p.clone() as Arc<dyn Partition>,
-                });
-
-                partition
-            })
-            .collect();
-
-        Ok(partitions)
-    }
-}
-
-/// Represents a single partition of a filter execution plan
-#[derive(Debug)]
-struct FilterExecPartition {
-    /// Output schema, which is the same as the input schema for this operator
-    schema: SchemaRef,
-    /// The expression to filter on. This expression must evaluate to a boolean value.
-    predicate: Arc<dyn PhysicalExpr>,
-    /// The input partition to filter.
-    input: Arc<dyn Partition>,
-}
-
-impl Partition for FilterExecPartition {
-    /// Execute the filter
-    fn execute(&self) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
-        Ok(Arc::new(Mutex::new(FilterExecIter {
-            schema: self.schema.clone(),
-            predicate: self.predicate.clone(),
-            input: self.input.execute()?,
-        })))
+        unimplemented!()
     }
 }
 
@@ -216,7 +182,7 @@ mod tests {
         let filter: Arc<dyn ExecutionPlan> =
             Arc::new(FilterExec::try_new(predicate, Arc::new(csv))?);
 
-        let results = test::execute(filter.as_ref())?;
+        let results = test::execute(filter)?;
 
         results
             .iter()

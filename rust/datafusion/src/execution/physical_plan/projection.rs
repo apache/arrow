@@ -85,46 +85,16 @@ impl ExecutionPlan for ProjectionExec {
         &self,
         partition: usize,
     ) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
-        self.partitions()?[partition].execute()
+        Ok(Arc::new(Mutex::new(ProjectionIterator {
+            schema: self.schema.clone(),
+            expr: self.expr.clone(),
+            input: self.input.execute(partition)?,
+        })))
     }
 
     /// Get the partitions for this execution plan
     fn partitions(&self) -> Result<Vec<Arc<dyn Partition>>> {
-        let partitions: Vec<Arc<dyn Partition>> = self
-            .input
-            .partitions()?
-            .iter()
-            .map(|p| {
-                let projection: Arc<dyn Partition> = Arc::new(ProjectionPartition {
-                    schema: self.schema.clone(),
-                    expr: self.expr.clone(),
-                    input: p.clone() as Arc<dyn Partition>,
-                });
-
-                projection
-            })
-            .collect();
-
-        Ok(partitions)
-    }
-}
-
-/// Represents a single partition of a projection execution plan
-#[derive(Debug)]
-struct ProjectionPartition {
-    schema: SchemaRef,
-    expr: Vec<Arc<dyn PhysicalExpr>>,
-    input: Arc<dyn Partition>,
-}
-
-impl Partition for ProjectionPartition {
-    /// Execute the projection
-    fn execute(&self) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
-        Ok(Arc::new(Mutex::new(ProjectionIterator {
-            schema: self.schema.clone(),
-            expr: self.expr.clone(),
-            input: self.input.execute()?,
-        })))
+        unimplemented!()
     }
 }
 
@@ -182,9 +152,9 @@ mod tests {
 
         let mut partition_count = 0;
         let mut row_count = 0;
-        for partition in projection.partitions()? {
+        for partition in 0..projection.output_partitioning().partition_count() {
             partition_count += 1;
-            let iterator = partition.execute()?;
+            let iterator = projection.execute(partition)?;
             let mut iterator = iterator.lock().unwrap();
             while let Some(batch) = iterator.next_batch()? {
                 assert_eq!(1, batch.num_columns());

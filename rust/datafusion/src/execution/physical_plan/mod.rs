@@ -45,7 +45,7 @@ pub trait PhysicalPlanner {
 }
 
 /// Partition-aware execution plan for a relation
-pub trait ExecutionPlan: Debug {
+pub trait ExecutionPlan: Debug + Send + Sync {
     /// Get the schema for this execution plan
     fn schema(&self) -> SchemaRef;
     /// Specifies the output partitioning scheme of this plan
@@ -55,7 +55,8 @@ pub trait ExecutionPlan: Debug {
         &self,
         partition: usize,
     ) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>>;
-    /// DEPRECATED - Get the partitions for this execution plan. Each partition can be executed in parallel.
+
+    /// Get the partitions for this execution plan. Each partition can be executed in parallel.
     fn partitions(&self) -> Result<Vec<Arc<dyn Partition>>>;
 }
 
@@ -133,7 +134,6 @@ pub fn scalar_functions() -> Vec<ScalarFunction> {
 
 pub mod common;
 pub mod csv;
-pub mod datasource;
 pub mod explain;
 pub mod expressions;
 pub mod filter;

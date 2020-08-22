@@ -350,72 +350,64 @@ impl ExecutionContext {
     }
 
     /// Execute a physical plan and collect the results in memory
-    pub fn collect(&self, plan: &dyn ExecutionPlan) -> Result<Vec<RecordBatch>> {
-        let partitions = plan.partitions()?;
-
-        match partitions.len() {
+    pub fn collect(&self, plan: Arc<dyn ExecutionPlan>) -> Result<Vec<RecordBatch>> {
+        match plan.output_partitioning().partition_count() {
             0 => Ok(vec![]),
             1 => {
-                let it = partitions[0].execute()?;
+                let it = plan.execute(0)?;
                 common::collect(it)
             }
             _ => {
                 // merge into a single partition
                 let plan = MergeExec::new(
                     plan.schema().clone(),
-                    partitions,
+                    plan.clone(),
                     self.state
                         .lock()
                         .expect("failed to lock mutex")
                         .config
                         .concurrency,
                 );
-                let partitions = plan.partitions()?;
-                if partitions.len() == 1 {
-                    common::collect(partitions[0].execute()?)
-                } else {
-                    Err(ExecutionError::InternalError(format!(
-                        "MergeExec returned {} partitions",
-                        partitions.len()
-                    )))
-                }
+                // MergeExec must produce a single partition
+                assert_eq!(1, plan.output_partitioning().partition_count());
+                common::collect(plan.execute(0)?)
             }
         }
     }
 
     /// Execute a query and write the results to a partitioned CSV file
-    pub fn write_csv(&self, plan: &dyn ExecutionPlan, path: &str) -> Result<()> {
+    pub fn write_csv(&self, plan: Arc<dyn ExecutionPlan>, path: &str) -> Result<()> {
         // create directory to contain the CSV files (one per partition)
         let path = path.to_string();
         fs::create_dir(&path)?;
 
-        let threads: Vec<JoinHandle<Result<()>>> = plan
-            .partitions()?
-            .iter()
-            .enumerate()
-            .map(|(i, p)| {
-                let p = p.clone();
-                let path = path.clone();
-                thread::spawn(move || {
-                    let filename = format!("part-{}.csv", i);
-                    let path = Path::new(&path).join(&filename);
-                    let file = fs::File::create(path)?;
-                    let mut writer = csv::Writer::new(file);
-                    let reader = p.execute()?;
-                    let mut reader = reader.lock().unwrap();
-                    loop {
-                        match reader.next_batch() {
-                            Ok(Some(batch)) => {
-                                writer.write(&batch)?;
+        let threads: Vec<JoinHandle<Result<()>>> =
+            (0..plan.output_partitioning().partition_count())
+                .enumerate()
+                .map(|(i, p)| {
+                    let p = p.clone();
+                    let path = path.clone();
+                    let plan = plan.clone();
+                    thread::spawn(move || {
+                        let filename = format!("part-{}.csv", i);
+                        let path = Path::new(&path).join(&filename);
+                        let file = fs::File::create(path)?;
+                        let mut writer = csv::Writer::new(file);
+                        let reader = plan.execute(p)?;
+                        let mut reader = reader.lock().unwrap();
+                        loop {
+                            match reader.next_batch() {
+                                Ok(Some(batch)) => {
+                                    writer.write(&batch)?;
+                                }
+                                Ok(None) => break,
+                                Err(e) => return Err(ExecutionError::from(e)),
                             }
-                            Ok(None) => break,
-                            Err(e) => return Err(ExecutionError::from(e)),
                         }
-                    }
-                    Ok(())
+                        Ok(())
+                    })
                 })
-            })
-            .collect();
+                .collect();
 
         // combine the results from each thread
         for thread in threads {
@@ -547,7 +539,7 @@ mod tests {
 
         let physical_plan = ctx.create_physical_plan(&logical_plan)?;
 
-        let results = ctx.collect(physical_plan.as_ref())?;
+        let results = ctx.collect(physical_plan)?;
 
         // there should be one batch per partition
         assert_eq!(results.len(), partition_count);
@@ -594,7 +586,7 @@ mod tests {
         assert_eq!(1, physical_plan.schema().fields().len());
         assert_eq!("c2", physical_plan.schema().field(0).name().as_str());
 
-        let batches = ctx.collect(physical_plan.as_ref())?;
+        let batches = ctx.collect(physical_plan)?;
         assert_eq!(4, batches.len());
         assert_eq!(1, batches[0].num_columns());
         assert_eq!(10, batches[0].num_rows());
@@ -680,7 +672,7 @@ mod tests {
         assert_eq!(1, physical_plan.schema().fields().len());
         assert_eq!("b", physical_plan.schema().field(0).name().as_str());
 
-        let batches = ctx.collect(physical_plan.as_ref())?;
+        let batches = ctx.collect(physical_plan)?;
         assert_eq!(1, batches.len());
         assert_eq!(1, batches[0].num_columns());
         assert_eq!(4, batches[0].num_rows());
@@ -1048,7 +1040,7 @@ mod tests {
 
         let plan = ctx.optimize(&plan)?;
         let plan = ctx.create_physical_plan(&plan)?;
-        let result = ctx.collect(plan.as_ref())?;
+        let result = ctx.collect(plan)?;
 
         let batch = &result[0];
         assert_eq!(3, batch.num_columns());
@@ -1110,7 +1102,7 @@ mod tests {
         let logical_plan = ctx.create_logical_plan(sql)?;
         let logical_plan = ctx.optimize(&logical_plan)?;
         let physical_plan = ctx.create_physical_plan(&logical_plan)?;
-        ctx.collect(physical_plan.as_ref())
+        ctx.collect(physical_plan)
     }
 
     fn field_names(result: &RecordBatch) -> Vec<String> {
@@ -1134,7 +1126,7 @@ mod tests {
         let logical_plan = ctx.create_logical_plan(sql)?;
         let logical_plan = ctx.optimize(&logical_plan)?;
         let physical_plan = ctx.create_physical_plan(&logical_plan)?;
-        ctx.write_csv(physical_plan.as_ref(), out_dir)
+        ctx.write_csv(physical_plan, out_dir)
     }
 
     /// Generate CSV partitions within the supplied directory

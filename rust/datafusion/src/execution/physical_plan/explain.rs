@@ -67,27 +67,8 @@ impl ExecutionPlan for ExplainExec {
         &self,
         partition: usize,
     ) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
-        self.partitions()?[partition].execute()
-    }
+        assert_eq!(0, partition);
 
-    fn partitions(&self) -> Result<Vec<Arc<dyn Partition>>> {
-        Ok(vec![Arc::new(ExplainPartition {
-            schema: self.schema.clone(),
-            stringified_plans: self.stringified_plans.clone(),
-        })])
-    }
-}
-
-#[derive(Debug)]
-struct ExplainPartition {
-    /// Input schema
-    schema: SchemaRef,
-    /// The various plans that were created.
-    stringified_plans: Vec<StringifiedPlan>,
-}
-
-impl Partition for ExplainPartition {
-    fn execute(&self) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
         let mut type_builder = StringArray::builder(self.stringified_plans.len());
         let mut plan_builder = StringArray::builder(self.stringified_plans.len());
 
@@ -108,5 +89,9 @@ impl Partition for ExplainPartition {
             self.schema.clone(),
             vec![Arc::new(record_batch)],
         ))))
+    }
+
+    fn partitions(&self) -> Result<Vec<Arc<dyn Partition>>> {
+        unimplemented!()
     }
 }
