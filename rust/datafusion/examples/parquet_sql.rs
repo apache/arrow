@@ -36,11 +36,12 @@ fn main() -> Result<()> {
     )?;
 
     // execute the query
-    let results = ctx.sql(
+    let df = ctx.sql(
         "SELECT int_col, double_col, CAST(date_string_col as VARCHAR) \
         FROM alltypes_plain \
         WHERE id > 1 AND tinyint_col < double_col",
     )?;
+    let results = df.collect()?;
 
     // print the results
     pretty::print_batches(&results)?;

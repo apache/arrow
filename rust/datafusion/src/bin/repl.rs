@@ -103,7 +103,8 @@ fn is_exit_command(line: &str) -> bool {
 fn exec_and_print(ctx: &mut ExecutionContext, sql: String) -> Result<()> {
     let now = Instant::now();
 
-    let results = ctx.sql(&sql)?;
+    let df = ctx.sql(&sql)?;
+    let results = df.collect()?;
 
     if results.is_empty() {
         println!(

@@ -133,15 +133,8 @@ impl ExecutionContext {
 
     /// Execute a SQL query and produce a Relation (a schema-aware iterator over a series
     /// of RecordBatch instances)
-    pub fn sql(&mut self, sql: &str) -> Result<Vec<RecordBatch>> {
+    pub fn sql(&mut self, sql: &str) -> Result<Arc<dyn DataFrame>> {
         let plan = self.create_logical_plan(sql)?;
-        return self.collect_plan(&plan);
-    }
-
-    /// Executes a logical plan and produce a Relation (a schema-aware iterator over a series
-    /// of RecordBatch instances). This function is intended for internal use and should not be
-    /// called directly.
-    pub fn collect_plan(&mut self, plan: &LogicalPlan) -> Result<Vec<RecordBatch>> {
         match plan {
             LogicalPlan::CreateExternalTable {
                 ref schema,
@@ -158,11 +151,13 @@ impl ExecutionContext {
                             .schema(&schema)
                             .has_header(*has_header),
                     )?;
-                    Ok(vec![])
+                    let plan = LogicalPlanBuilder::empty().build()?;
+                    Ok(Arc::new(DataFrameImpl::new(self.state.clone(), &plan)))
                 }
                 FileType::Parquet => {
                     self.register_parquet(name, location)?;
-                    Ok(vec![])
+                    let plan = LogicalPlanBuilder::empty().build()?;
+                    Ok(Arc::new(DataFrameImpl::new(self.state.clone(), &plan)))
                 }
                 _ => Err(ExecutionError::ExecutionError(format!(
                     "Unsupported file type {:?}.",
@@ -170,11 +165,7 @@ impl ExecutionContext {
                 ))),
             },
 
-            plan => {
-                let plan = self.optimize(&plan)?;
-                let plan = self.create_physical_plan(&plan)?;
-                Ok(self.collect(plan.as_ref())?)
-            }
+            plan => Ok(Arc::new(DataFrameImpl::new(self.state.clone(), &plan))),
         }
     }
 
@@ -1095,7 +1086,8 @@ mod tests {
         let mut ctx = ExecutionContext::with_config(
             ExecutionConfig::new().with_physical_planner(Arc::new(MyPhysicalPlanner {})),
         );
-        ctx.sql("SELECT 1").expect_err("query not supported");
+        let df = ctx.sql("SELECT 1")?;
+        df.collect().expect_err("query not supported");
         Ok(())
     }
 
