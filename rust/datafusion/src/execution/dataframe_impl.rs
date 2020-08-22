@@ -104,9 +104,13 @@ impl DataFrame for DataFrameImpl {
         self.plan.clone()
     }
 
+    // Convert the logical plan represented by this DataFrame into a physical plan and
+    // execute it
     fn collect(&self) -> Result<Vec<RecordBatch>> {
-        let mut ctx = ExecutionContext::from(self.ctx_state.clone());
-        ctx.collect_plan(&self.plan.clone())
+        let ctx = ExecutionContext::from(self.ctx_state.clone());
+        let plan = ctx.optimize(&self.plan)?;
+        let plan = ctx.create_physical_plan(&plan)?;
+        Ok(ctx.collect(plan.as_ref())?)
     }
 
     /// Returns the schema from the logical plan

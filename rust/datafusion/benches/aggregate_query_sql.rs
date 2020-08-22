@@ -32,7 +32,8 @@ use datafusion::execution::context::ExecutionContext;
 
 fn aggregate_query(ctx: &mut ExecutionContext, sql: &str) {
     // execute the query
-    let results = ctx.sql(&sql).unwrap();
+    let df = ctx.sql(&sql).unwrap();
+    let results = df.collect().unwrap();
 
     // display the relation
     for _batch in results {}
