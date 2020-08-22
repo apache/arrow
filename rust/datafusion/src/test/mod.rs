@@ -235,6 +235,5 @@ pub fn min(expr: Expr) -> Expr {
     Expr::AggregateFunction {
         name: "MIN".to_owned(),
         args: vec![expr],
-        return_type: DataType::Float64,
     }
 }

@@ -174,16 +174,14 @@ fn optimize_plan(
 
             // Gather all columns needed for expressions in this Aggregate
             let mut new_aggr_expr = Vec::new();
-            let mut new_fields = Vec::new();
             aggr_expr
                 .iter()
                 .map(|expr| {
                     let name = &expr.name(&schema)?;
-                    let field = schema.field_with_name(name)?;
 
                     if required_columns.contains(name) {
                         new_aggr_expr.push(expr.clone());
-                        new_fields.push(field.clone());
+                        new_required_columns.insert(name.clone());
 
                         // add to the new set of required columns
                         utils::expr_to_column_names(expr, &mut new_required_columns)
@@ -192,7 +190,15 @@ fn optimize_plan(
                     }
                 })
                 .collect::<Result<()>>()?;
-            let new_schema = Schema::new(new_fields);
+
+            let new_schema = Schema::new(
+                schema
+                    .fields()
+                    .iter()
+                    .filter(|x| new_required_columns.contains(x.name()))
+                    .cloned()
+                    .collect(),
+            );
 
             Ok(LogicalPlan::Aggregate {
                 group_expr: group_expr.clone(),
@@ -303,7 +309,7 @@ fn optimize_plan(
         // all other nodes:
         // * gather all used columns as required columns
         LogicalPlan::Limit { .. }
-        | LogicalPlan::Selection { .. }
+        | LogicalPlan::Filter { .. }
         | LogicalPlan::EmptyRelation { .. }
         | LogicalPlan::Sort { .. }
         | LogicalPlan::CreateExternalTable { .. } => {
@@ -486,7 +492,7 @@ mod tests {
 
         let expected = "\
         Aggregate: groupBy=[[#c]], aggr=[[MAX(#a)]]\
-        \n  Selection: #c Gt Int32(1)\
+        \n  Filter: #c Gt Int32(1)\
         \n    Projection: #c, #a\
         \n      TableScan: test projection=Some([0, 2])";
 
@@ -537,7 +543,7 @@ mod tests {
 
         let expected = "\
         Projection: #c, #a, #MAX(b)\
-        \n  Selection: #c Gt Int32(1)\
+        \n  Filter: #c Gt Int32(1)\
         \n    Aggregate: groupBy=[[#a, #c]], aggr=[[MAX(#b)]]\
         \n      TableScan: test projection=Some([0, 1, 2])";
 
