@@ -47,13 +47,13 @@ pub trait SchemaProvider {
 }
 
 /// SQL query planner
-pub struct SqlToRel<S: SchemaProvider> {
-    schema_provider: S,
+pub struct SqlToRel<'a, S: SchemaProvider> {
+    schema_provider: &'a S,
 }
 
-impl<S: SchemaProvider> SqlToRel<S> {
+impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
     /// Create a new query planner
-    pub fn new(schema_provider: S) -> Self {
+    pub fn new(schema_provider: &'a S) -> Self {
         SqlToRel { schema_provider }
     }
 
@@ -854,7 +854,7 @@ mod tests {
     }
 
     fn logical_plan(sql: &str) -> Result<LogicalPlan> {
-        let planner = SqlToRel::new(MockSchemaProvider {});
+        let planner = SqlToRel::new(&MockSchemaProvider {});
         let ast = DFParser::parse_sql(&sql).unwrap();
         planner.statement_to_plan(&ast[0])
     }

@@ -106,8 +106,8 @@ impl ExecutionContext {
     pub fn with_config(config: ExecutionConfig) -> Self {
         let mut ctx = Self {
             state: Arc::new(Mutex::new(ExecutionContextState {
-                datasources: Arc::new(Mutex::new(HashMap::new())),
-                scalar_functions: Arc::new(Mutex::new(HashMap::new())),
+                datasources: Box::new(HashMap::new()),
+                scalar_functions: Box::new(HashMap::new()),
                 config,
             })),
         };
@@ -191,22 +191,18 @@ impl ExecutionContext {
 
         // create a query planner
         let state = self.state.lock().expect("failed to lock mutex");
-        let query_planner = SqlToRel::new(state.clone());
+        let query_planner = SqlToRel::new(&*state);
         Ok(query_planner.statement_to_plan(&statements[0])?)
     }
 
     /// Register a scalar UDF
     pub fn register_udf(&mut self, f: ScalarFunction) {
-        let state = self.state.lock().expect("failed to lock mutex");
-        state
-            .scalar_functions
-            .lock()
-            .expect("failed to lock mutex")
-            .insert(f.name.clone(), Box::new(f));
+        let mut state = self.state.lock().expect("failed to lock mutex");
+        state.scalar_functions.insert(f.name.clone(), Box::new(f));
     }
 
     /// Get a reference to the registered scalar functions
-    pub fn scalar_functions(&self) -> Arc<Mutex<HashMap<String, Box<ScalarFunction>>>> {
+    pub fn scalar_functions(&self) -> Box<HashMap<String, Box<ScalarFunction>>> {
         self.state
             .lock()
             .expect("failed to lock mutex")
@@ -281,12 +277,8 @@ impl ExecutionContext {
         name: &str,
         provider: Box<dyn TableProvider + Send + Sync>,
     ) {
-        let state = self.state.lock().expect("failed to lock mutex");
-        state
-            .datasources
-            .lock()
-            .expect("failed to lock mutex")
-            .insert(name.to_string(), provider);
+        let mut ctx_state = self.state.lock().expect("failed to lock mutex");
+        ctx_state.datasources.insert(name.to_string(), provider);
     }
 
     /// Retrieves a DataFrame representing a table previously registered by calling the
@@ -298,8 +290,6 @@ impl ExecutionContext {
             .lock()
             .expect("failed to lock mutex")
             .datasources
-            .lock()
-            .expect("failed to lock mutex")
             .get(table_name)
         {
             Some(provider) => {
@@ -329,8 +319,6 @@ impl ExecutionContext {
             .lock()
             .expect("failed to lock mutex")
             .datasources
-            .lock()
-            .expect("failed to lock mutex")
             .keys()
             .cloned()
             .collect()
@@ -346,7 +334,7 @@ impl ExecutionContext {
                     .lock()
                     .expect("failed to lock mutex")
                     .scalar_functions
-                    .clone(),
+                    .as_ref(),
             )),
         ];
         let mut plan = plan.clone();
@@ -366,7 +354,8 @@ impl ExecutionContext {
             Some(planner) => planner,
             None => Arc::new(DefaultPhysicalPlanner::default()),
         };
-        planner.create_physical_plan(logical_plan, self.state.clone())
+        let ctx_state = self.state.lock().expect("Failed to aquire lock");
+        planner.create_physical_plan(logical_plan, &ctx_state)
     }
 
     /// Execute a physical plan and collect the results in memory
@@ -495,38 +484,29 @@ impl ExecutionConfig {
 }
 
 /// Execution context for registering data sources and executing queries
-#[derive(Clone)]
 pub struct ExecutionContextState {
     /// Data sources that are registered with the context
-    pub datasources: Arc<Mutex<HashMap<String, Box<dyn TableProvider + Send + Sync>>>>,
+    pub datasources: Box<HashMap<String, Box<dyn TableProvider + Send + Sync>>>,
     /// Scalar functions that are registered with the context
-    pub scalar_functions: Arc<Mutex<HashMap<String, Box<ScalarFunction>>>>,
+    pub scalar_functions: Box<HashMap<String, Box<ScalarFunction>>>,
     /// Context configuration
     pub config: ExecutionConfig,
 }
 
 impl SchemaProvider for ExecutionContextState {
     fn get_table_meta(&self, name: &str) -> Option<SchemaRef> {
-        self.datasources
-            .lock()
-            .expect("failed to lock mutex")
-            .get(name)
-            .map(|ds| ds.schema().clone())
+        self.datasources.get(name).map(|ds| ds.schema().clone())
     }
 
     fn get_function_meta(&self, name: &str) -> Option<Arc<FunctionMeta>> {
-        self.scalar_functions
-            .lock()
-            .expect("failed to lock mutex")
-            .get(name)
-            .map(|f| {
-                Arc::new(FunctionMeta::new(
-                    name.to_owned(),
-                    f.args.clone(),
-                    f.return_type.clone(),
-                    FunctionType::Scalar,
-                ))
-            })
+        self.scalar_functions.get(name).map(|f| {
+            Arc::new(FunctionMeta::new(
+                name.to_owned(),
+                f.args.clone(),
+                f.return_type.clone(),
+                FunctionType::Scalar,
+            ))
+        })
     }
 }
 
@@ -641,8 +621,6 @@ mod tests {
             .lock()
             .expect("failed to lock mutex")
             .datasources
-            .lock()
-            .expect("failed to lock mutex")
             .get("test")
             .unwrap()
             .schema();
@@ -1127,7 +1105,7 @@ mod tests {
         fn create_physical_plan(
             &self,
             _logical_plan: &LogicalPlan,
-            _ctx_state: Arc<Mutex<ExecutionContextState>>,
+            _ctx_state: &ExecutionContextState,
         ) -> Result<Arc<dyn ExecutionPlan>> {
             Err(ExecutionError::NotImplemented(
                 "query not supported".to_string(),

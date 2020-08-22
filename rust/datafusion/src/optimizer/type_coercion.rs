@@ -21,7 +21,7 @@
 //! float)`. This keeps the runtime query execution code much simpler.
 
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use arrow::datatypes::Schema;
 
@@ -37,16 +37,16 @@ use utils::optimize_explain;
 ///
 /// This optimizer does not alter the structure of the plan, it only changes expressions on it.
 pub struct TypeCoercionRule {
-    scalar_functions: Arc<Mutex<HashMap<String, Box<ScalarFunction>>>>,
+    scalar_functions: Arc<HashMap<String, Box<ScalarFunction>>>,
 }
 
 impl TypeCoercionRule {
     /// Create a new type coercion optimizer rule using meta-data about registered
     /// scalar functions
-    pub fn new(
-        scalar_functions: Arc<Mutex<HashMap<String, Box<ScalarFunction>>>>,
-    ) -> Self {
-        Self { scalar_functions }
+    pub fn new(scalar_functions: &HashMap<String, Box<ScalarFunction>>) -> Self {
+        Self {
+            scalar_functions: Arc::new(scalar_functions.clone()),
+        }
     }
 
     /// Rewrite an expression to include explicit CAST operations when required
@@ -73,12 +73,7 @@ impl TypeCoercionRule {
             }
             Expr::ScalarFunction { name, .. } => {
                 // cast the inputs of scalar functions to the appropriate type where possible
-                match self
-                    .scalar_functions
-                    .lock()
-                    .expect("failed to lock mutex")
-                    .get(name)
-                {
+                match self.scalar_functions.get(name) {
                     Some(func_meta) => {
                         for i in 0..expressions.len() {
                             let field = &func_meta.args[i];
@@ -172,7 +167,7 @@ mod tests {
             .build()?;
 
         let scalar_functions = HashMap::new();
-        let mut rule = TypeCoercionRule::new(Arc::new(Mutex::new(scalar_functions)));
+        let mut rule = TypeCoercionRule::new(&scalar_functions);
         let plan = rule.optimize(&plan)?;
 
         // check that the filter had a cast added
@@ -199,7 +194,7 @@ mod tests {
             .build()?;
 
         let scalar_functions = HashMap::new();
-        let mut rule = TypeCoercionRule::new(Arc::new(Mutex::new(scalar_functions)));
+        let mut rule = TypeCoercionRule::new(&scalar_functions);
         let plan = rule.optimize(&plan)?;
 
         assert!(format!("{:?}", plan).starts_with("Filter: CAST(#c7 AS Float64) Lt #c12"));
@@ -276,7 +271,7 @@ mod tests {
         };
 
         let ctx = ExecutionContext::new();
-        let rule = TypeCoercionRule::new(ctx.scalar_functions());
+        let rule = TypeCoercionRule::new(ctx.scalar_functions().as_ref());
 
         let expr2 = rule.rewrite_expr(&expr, &schema).unwrap();
 

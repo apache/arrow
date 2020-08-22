@@ -17,7 +17,7 @@
 
 //! Physical query planner
 
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use crate::error::{ExecutionError, Result};
 use crate::execution::context::ExecutionContextState;
@@ -59,27 +59,16 @@ impl PhysicalPlanner for DefaultPhysicalPlanner {
     fn create_physical_plan(
         &self,
         logical_plan: &LogicalPlan,
-        ctx_state: Arc<Mutex<ExecutionContextState>>,
+        ctx_state: &ExecutionContextState,
     ) -> Result<Arc<dyn ExecutionPlan>> {
-        let batch_size = ctx_state
-            .lock()
-            .expect("failed to lock mutex")
-            .config
-            .batch_size;
+        let batch_size = ctx_state.config.batch_size;
 
         match logical_plan {
             LogicalPlan::TableScan {
                 table_name,
                 projection,
                 ..
-            } => match ctx_state
-                .lock()
-                .expect("failed to lock mutex")
-                .datasources
-                .lock()
-                .expect("failed to lock mutex")
-                .get(table_name)
-            {
+            } => match ctx_state.datasources.get(table_name) {
                 Some(provider) => {
                     let partitions = provider.scan(projection, batch_size)?;
                     if partitions.is_empty() {
@@ -139,17 +128,13 @@ impl PhysicalPlanner for DefaultPhysicalPlanner {
                 batch_size,
             )?)),
             LogicalPlan::Projection { input, expr, .. } => {
-                let input = self.create_physical_plan(input, ctx_state.clone())?;
+                let input = self.create_physical_plan(input, ctx_state)?;
                 let input_schema = input.as_ref().schema().clone();
                 let runtime_expr = expr
                     .iter()
                     .map(|e| {
                         tuple_err((
-                            self.create_physical_expr(
-                                e,
-                                &input_schema,
-                                ctx_state.clone(),
-                            ),
+                            self.create_physical_expr(e, &input_schema, &ctx_state),
                             e.name(&input_schema),
                         ))
                     })
@@ -163,18 +148,14 @@ impl PhysicalPlanner for DefaultPhysicalPlanner {
                 ..
             } => {
                 // Initially need to perform the aggregate and then merge the partitions
-                let input = self.create_physical_plan(input, ctx_state.clone())?;
+                let input = self.create_physical_plan(input, ctx_state)?;
                 let input_schema = input.as_ref().schema().clone();
 
                 let groups = group_expr
                     .iter()
                     .map(|e| {
                         tuple_err((
-                            self.create_physical_expr(
-                                e,
-                                &input_schema,
-                                ctx_state.clone(),
-                            ),
+                            self.create_physical_expr(e, &input_schema, ctx_state),
                             e.name(&input_schema),
                         ))
                     })
@@ -183,11 +164,7 @@ impl PhysicalPlanner for DefaultPhysicalPlanner {
                     .iter()
                     .map(|e| {
                         tuple_err((
-                            self.create_aggregate_expr(
-                                e,
-                                &input_schema,
-                                ctx_state.clone(),
-                            ),
+                            self.create_aggregate_expr(e, &input_schema, ctx_state),
                             e.name(&input_schema),
                         ))
                     })
@@ -209,11 +186,7 @@ impl PhysicalPlanner for DefaultPhysicalPlanner {
                 let merge = Arc::new(MergeExec::new(
                     schema.clone(),
                     partitions,
-                    ctx_state
-                        .lock()
-                        .expect("failed to lock mutex")
-                        .config
-                        .concurrency,
+                    ctx_state.config.concurrency,
                 ));
 
                 // construct the expressions for the final aggregation
@@ -241,17 +214,14 @@ impl PhysicalPlanner for DefaultPhysicalPlanner {
             LogicalPlan::Filter {
                 input, predicate, ..
             } => {
-                let input = self.create_physical_plan(input, ctx_state.clone())?;
+                let input = self.create_physical_plan(input, ctx_state)?;
                 let input_schema = input.as_ref().schema().clone();
-                let runtime_expr = self.create_physical_expr(
-                    predicate,
-                    &input_schema,
-                    ctx_state.clone(),
-                )?;
+                let runtime_expr =
+                    self.create_physical_expr(predicate, &input_schema, ctx_state)?;
                 Ok(Arc::new(FilterExec::try_new(runtime_expr, input)?))
             }
             LogicalPlan::Sort { expr, input, .. } => {
-                let input = self.create_physical_plan(input, ctx_state.clone())?;
+                let input = self.create_physical_plan(input, ctx_state)?;
                 let input_schema = input.as_ref().schema().clone();
 
                 let sort_expr = expr
@@ -268,7 +238,7 @@ impl PhysicalPlanner for DefaultPhysicalPlanner {
                                 descending: !*asc,
                                 nulls_first: *nulls_first,
                             },
-                            ctx_state.clone(),
+                            ctx_state,
                         ),
                         _ => Err(ExecutionError::ExecutionError(
                             "Sort only accepts sort expressions".to_string(),
@@ -279,26 +249,18 @@ impl PhysicalPlanner for DefaultPhysicalPlanner {
                 Ok(Arc::new(SortExec::try_new(
                     sort_expr,
                     input,
-                    ctx_state
-                        .lock()
-                        .expect("failed to lock mutex")
-                        .config
-                        .concurrency,
+                    ctx_state.config.concurrency,
                 )?))
             }
             LogicalPlan::Limit { input, n, .. } => {
-                let input = self.create_physical_plan(input, ctx_state.clone())?;
+                let input = self.create_physical_plan(input, ctx_state)?;
                 let input_schema = input.as_ref().schema().clone();
 
                 Ok(Arc::new(GlobalLimitExec::new(
                     input_schema.clone(),
                     input.partitions()?,
                     *n,
-                    ctx_state
-                        .lock()
-                        .expect("failed to lock mutex")
-                        .config
-                        .concurrency,
+                    ctx_state.config.concurrency,
                 )))
             }
             LogicalPlan::Explain {
@@ -307,7 +269,7 @@ impl PhysicalPlanner for DefaultPhysicalPlanner {
                 stringified_plans,
                 schema,
             } => {
-                let input = self.create_physical_plan(plan, ctx_state.clone())?;
+                let input = self.create_physical_plan(plan, ctx_state)?;
 
                 let mut stringified_plans = stringified_plans
                     .iter()
@@ -338,11 +300,11 @@ impl DefaultPhysicalPlanner {
         &self,
         e: &Expr,
         input_schema: &Schema,
-        ctx_state: Arc<Mutex<ExecutionContextState>>,
+        ctx_state: &ExecutionContextState,
     ) -> Result<Arc<dyn PhysicalExpr>> {
         match e {
             Expr::Alias(expr, ..) => {
-                Ok(self.create_physical_expr(expr, input_schema, ctx_state.clone())?)
+                Ok(self.create_physical_expr(expr, input_schema, ctx_state)?)
             }
             Expr::Column(name) => {
                 // check that name exists
@@ -351,12 +313,12 @@ impl DefaultPhysicalPlanner {
             }
             Expr::Literal(value) => Ok(Arc::new(Literal::new(value.clone()))),
             Expr::BinaryExpr { left, op, right } => Ok(Arc::new(BinaryExpr::new(
-                self.create_physical_expr(left, input_schema, ctx_state.clone())?,
+                self.create_physical_expr(left, input_schema, ctx_state)?,
                 op.clone(),
-                self.create_physical_expr(right, input_schema, ctx_state.clone())?,
+                self.create_physical_expr(right, input_schema, ctx_state)?,
             ))),
             Expr::Cast { expr, data_type } => Ok(Arc::new(CastExpr::try_new(
-                self.create_physical_expr(expr, input_schema, ctx_state.clone())?,
+                self.create_physical_expr(expr, input_schema, ctx_state)?,
                 input_schema,
                 data_type.clone(),
             )?)),
@@ -364,14 +326,7 @@ impl DefaultPhysicalPlanner {
                 name,
                 args,
                 return_type,
-            } => match ctx_state
-                .lock()
-                .expect("failed to lock mutex")
-                .scalar_functions
-                .lock()
-                .expect("failed to lock mutex")
-                .get(name)
-            {
+            } => match ctx_state.scalar_functions.get(name) {
                 Some(f) => {
                     let mut physical_args = vec![];
                     for e in args {
@@ -405,7 +360,7 @@ impl DefaultPhysicalPlanner {
         &self,
         e: &Expr,
         input_schema: &Schema,
-        ctx_state: Arc<Mutex<ExecutionContextState>>,
+        ctx_state: &ExecutionContextState,
     ) -> Result<Arc<dyn AggregateExpr>> {
         match e {
             Expr::AggregateFunction { name, args, .. } => {
@@ -413,27 +368,27 @@ impl DefaultPhysicalPlanner {
                     "sum" => Ok(Arc::new(Sum::new(self.create_physical_expr(
                         &args[0],
                         input_schema,
-                        ctx_state.clone(),
+                        ctx_state,
                     )?))),
                     "avg" => Ok(Arc::new(Avg::new(self.create_physical_expr(
                         &args[0],
                         input_schema,
-                        ctx_state.clone(),
+                        ctx_state,
                     )?))),
                     "max" => Ok(Arc::new(Max::new(self.create_physical_expr(
                         &args[0],
                         input_schema,
-                        ctx_state.clone(),
+                        ctx_state,
                     )?))),
                     "min" => Ok(Arc::new(Min::new(self.create_physical_expr(
                         &args[0],
                         input_schema,
-                        ctx_state.clone(),
+                        ctx_state,
                     )?))),
                     "count" => Ok(Arc::new(Count::new(self.create_physical_expr(
                         &args[0],
                         input_schema,
-                        ctx_state.clone(),
+                        ctx_state,
                     )?))),
                     other => Err(ExecutionError::NotImplemented(format!(
                         "Unsupported aggregate function '{}'",
@@ -454,10 +409,10 @@ impl DefaultPhysicalPlanner {
         e: &Expr,
         input_schema: &Schema,
         options: SortOptions,
-        ctx_state: Arc<Mutex<ExecutionContextState>>,
+        ctx_state: &ExecutionContextState,
     ) -> Result<PhysicalSortExpr> {
         Ok(PhysicalSortExpr {
-            expr: self.create_physical_expr(e, input_schema, ctx_state.clone())?,
+            expr: self.create_physical_expr(e, input_schema, ctx_state)?,
             options: options,
         })
     }

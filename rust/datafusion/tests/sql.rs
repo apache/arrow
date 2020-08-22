@@ -201,6 +201,19 @@ fn csv_query_avg_sqrt() -> Result<()> {
     Ok(())
 }
 
+// this query used to deadlock due to the call udf(udf())
+#[test]
+fn csv_query_sqrt_sqrt() -> Result<()> {
+    let mut ctx = create_ctx()?;
+    register_aggregate_csv(&mut ctx)?;
+    let sql = "SELECT sqrt(sqrt(c12)) FROM aggregate_test_100 LIMIT 1";
+    let actual = execute(&mut ctx, sql);
+    // sqrt(sqrt(c12=0.9294097332465232)) = 0.9818650561397431
+    let expected = "0.9818650561397431".to_string();
+    assert_eq!(actual.join("\n"), expected);
+    Ok(())
+}
+
 fn create_ctx() -> Result<ExecutionContext> {
     let mut ctx = ExecutionContext::new();
 
