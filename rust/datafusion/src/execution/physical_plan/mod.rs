@@ -74,12 +74,6 @@ impl Partitioning {
     }
 }
 
-/// Represents a partition of an execution plan that can be executed on a thread
-pub trait Partition: Send + Sync + Debug {
-    /// Execute this partition and return an iterator over RecordBatch
-    fn execute(&self) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>>;
-}
-
 /// Expression that can be evaluated against a RecordBatch
 /// A Physical expression knows its type, nullability and how to evaluate itself.
 pub trait PhysicalExpr: Send + Sync + Display + Debug {
