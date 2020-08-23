@@ -110,7 +110,7 @@ fn parquet_single_nan_schema() {
     let plan = ctx.create_logical_plan(&sql).unwrap();
     let plan = ctx.optimize(&plan).unwrap();
     let plan = ctx.create_physical_plan(&plan).unwrap();
-    let results = ctx.collect(plan.as_ref()).unwrap();
+    let results = ctx.collect(plan).unwrap();
     for batch in results {
         assert_eq!(1, batch.num_rows());
         assert_eq!(1, batch.num_columns());
@@ -289,7 +289,7 @@ fn csv_query_avg_multi_batch() -> Result<()> {
     let plan = ctx.create_logical_plan(&sql).unwrap();
     let plan = ctx.optimize(&plan).unwrap();
     let plan = ctx.create_physical_plan(&plan).unwrap();
-    let results = ctx.collect(plan.as_ref()).unwrap();
+    let results = ctx.collect(plan).unwrap();
     let batch = &results[0];
     let column = batch.column(0);
     let array = column.as_any().downcast_ref::<Float64Array>().unwrap();
@@ -550,7 +550,7 @@ fn execute(ctx: &mut ExecutionContext, sql: &str) -> Vec<String> {
     let optimized_logical_schema = plan.schema().clone();
     let plan = ctx.create_physical_plan(&plan).unwrap();
     let physical_schema = plan.schema().clone();
-    let results = ctx.collect(plan.as_ref()).unwrap();
+    let results = ctx.collect(plan).unwrap();
 
     assert_eq!(logical_schema.as_ref(), optimized_logical_schema.as_ref());
     assert_eq!(logical_schema.as_ref(), physical_schema.as_ref());

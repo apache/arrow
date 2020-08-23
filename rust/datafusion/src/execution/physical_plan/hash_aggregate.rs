@@ -23,7 +23,7 @@ use std::sync::{Arc, Mutex};
 
 use crate::error::{ExecutionError, Result};
 use crate::execution::physical_plan::{
-    Accumulator, AggregateExpr, ExecutionPlan, Partition, PhysicalExpr,
+    Accumulator, AggregateExpr, ExecutionPlan, Partitioning, PhysicalExpr,
 };
 
 use arrow::array::{
@@ -111,65 +111,28 @@ impl ExecutionPlan for HashAggregateExec {
         self.schema.clone()
     }
 
-    fn partitions(&self) -> Result<Vec<Arc<dyn Partition>>> {
-        Ok(self
-            .input
-            .partitions()?
-            .iter()
-            .map(|p| {
-                let aggregate: Arc<dyn Partition> =
-                    Arc::new(HashAggregatePartition::new(
-                        self.group_expr.clone(),
-                        self.aggr_expr.clone(),
-                        p.clone() as Arc<dyn Partition>,
-                        self.schema.clone(),
-                    ));
-
-                aggregate
-            })
-            .collect::<Vec<Arc<dyn Partition>>>())
+    /// Get the output partitioning of this plan
+    fn output_partitioning(&self) -> Partitioning {
+        self.input.output_partitioning()
     }
-}
 
-#[derive(Debug)]
-struct HashAggregatePartition {
-    group_expr: Vec<Arc<dyn PhysicalExpr>>,
-    aggr_expr: Vec<Arc<dyn AggregateExpr>>,
-    input: Arc<dyn Partition>,
-    schema: SchemaRef,
-}
-
-impl HashAggregatePartition {
-    /// Create a new HashAggregatePartition
-    pub fn new(
-        group_expr: Vec<Arc<dyn PhysicalExpr>>,
-        aggr_expr: Vec<Arc<dyn AggregateExpr>>,
-        input: Arc<dyn Partition>,
-        schema: SchemaRef,
-    ) -> Self {
-        HashAggregatePartition {
-            group_expr,
-            aggr_expr,
-            input,
-            schema,
-        }
-    }
-}
-
-impl Partition for HashAggregatePartition {
-    fn execute(&self) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
+    fn execute(
+        &self,
+        partition: usize,
+    ) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
+        let input = self.input.execute(partition)?;
         if self.group_expr.is_empty() {
             Ok(Arc::new(Mutex::new(HashAggregateIterator::new(
                 self.schema.clone(),
                 self.aggr_expr.clone(),
-                self.input.execute()?,
+                input,
             ))))
         } else {
             Ok(Arc::new(Mutex::new(GroupedHashAggregateIterator::new(
                 self.schema.clone(),
                 self.group_expr.clone(),
                 self.aggr_expr.clone(),
-                self.input.execute()?,
+                input,
             ))))
         }
     }
@@ -726,14 +689,13 @@ mod tests {
         let aggregates: Vec<(Arc<dyn AggregateExpr>, String)> =
             vec![(sum(col("c4")), "SUM(c4)".to_string())];
 
-        let partition_aggregate = HashAggregateExec::try_new(
+        let partition_aggregate = Arc::new(HashAggregateExec::try_new(
             groups.clone(),
             aggregates.clone(),
             Arc::new(csv),
-        )?;
+        )?);
 
         let schema = partition_aggregate.schema();
-        let partitions = partition_aggregate.partitions()?;
 
         // construct the expressions for the final aggregation
         let (final_group, final_aggr) = partition_aggregate.make_final_expr(
@@ -741,9 +703,9 @@ mod tests {
             aggregates.iter().map(|x| x.1.clone()).collect(),
         );
 
-        let merge = Arc::new(MergeExec::new(schema.clone(), partitions, 2));
+        let merge = Arc::new(MergeExec::new(schema.clone(), partition_aggregate, 2));
 
-        let merged_aggregate = HashAggregateExec::try_new(
+        let merged_aggregate = Arc::new(HashAggregateExec::try_new(
             final_group
                 .iter()
                 .enumerate()
@@ -755,9 +717,9 @@ mod tests {
                 .map(|(i, expr)| (expr.clone(), aggregates[i].1.clone()))
                 .collect(),
             merge,
-        )?;
+        )?);
 
-        let result = test::execute(&merged_aggregate)?;
+        let result = test::execute(merged_aggregate)?;
         assert_eq!(result.len(), 1);
 
         let batch = &result[0];

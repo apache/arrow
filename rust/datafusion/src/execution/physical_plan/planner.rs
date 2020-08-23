@@ -23,7 +23,6 @@ use super::expressions::binary;
 use crate::error::{ExecutionError, Result};
 use crate::execution::context::ExecutionContextState;
 use crate::execution::physical_plan::csv::{CsvExec, CsvReadOptions};
-use crate::execution::physical_plan::datasource::DatasourceExec;
 use crate::execution::physical_plan::explain::ExplainExec;
 use crate::execution::physical_plan::expressions;
 use crate::execution::physical_plan::expressions::{
@@ -71,27 +70,7 @@ impl PhysicalPlanner for DefaultPhysicalPlanner {
                 projection,
                 ..
             } => match ctx_state.datasources.get(table_name) {
-                Some(provider) => {
-                    let exec = provider.scan(projection, batch_size)?;
-                    let partitions = exec.partitions()?;
-                    if partitions.is_empty() {
-                        Err(ExecutionError::General(
-                            "Table provider returned no partitions".to_string(),
-                        ))
-                    } else {
-                        let schema = match projection {
-                            None => provider.schema().clone(),
-                            Some(p) => Arc::new(Schema::new(
-                                p.iter()
-                                    .map(|i| provider.schema().field(*i).clone())
-                                    .collect(),
-                            )),
-                        };
-
-                        let exec = DatasourceExec::new(schema, partitions.clone());
-                        Ok(Arc::new(exec))
-                    }
-                }
+                Some(provider) => provider.scan(projection, batch_size),
                 _ => Err(ExecutionError::General(format!(
                     "No table named {}",
                     table_name
@@ -180,15 +159,15 @@ impl PhysicalPlanner for DefaultPhysicalPlanner {
                 )?;
 
                 let schema = initial_aggr.schema();
-                let partitions = initial_aggr.partitions()?;
 
-                if partitions.len() == 1 {
+                if initial_aggr.output_partitioning().partition_count() == 1 {
                     return Ok(Arc::new(initial_aggr));
                 }
 
+                let initial_aggr = Arc::new(initial_aggr);
                 let merge = Arc::new(MergeExec::new(
                     schema.clone(),
-                    partitions,
+                    initial_aggr.clone(),
                     ctx_state.config.concurrency,
                 ));
 
@@ -261,7 +240,7 @@ impl PhysicalPlanner for DefaultPhysicalPlanner {
 
                 Ok(Arc::new(GlobalLimitExec::new(
                     input_schema.clone(),
-                    input.partitions()?,
+                    input,
                     *n,
                     ctx_state.config.concurrency,
                 )))

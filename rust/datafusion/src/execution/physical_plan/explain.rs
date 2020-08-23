@@ -19,7 +19,7 @@
 
 use crate::error::Result;
 use crate::{
-    execution::physical_plan::{common::RecordBatchIterator, ExecutionPlan, Partition},
+    execution::physical_plan::{common::RecordBatchIterator, ExecutionPlan},
     logicalplan::StringifiedPlan,
 };
 use arrow::{
@@ -28,6 +28,7 @@ use arrow::{
     record_batch::{RecordBatch, RecordBatchReader},
 };
 
+use crate::execution::physical_plan::Partitioning;
 use std::sync::{Arc, Mutex};
 
 /// Explain execution plan operator. This operator contains the string
@@ -57,24 +58,17 @@ impl ExecutionPlan for ExplainExec {
         self.schema.clone()
     }
 
-    fn partitions(&self) -> Result<Vec<Arc<dyn Partition>>> {
-        Ok(vec![Arc::new(ExplainPartition {
-            schema: self.schema.clone(),
-            stringified_plans: self.stringified_plans.clone(),
-        })])
+    /// Get the output partitioning of this plan
+    fn output_partitioning(&self) -> Partitioning {
+        Partitioning::UnknownPartitioning(1)
     }
-}
 
-#[derive(Debug)]
-struct ExplainPartition {
-    /// Input schema
-    schema: SchemaRef,
-    /// The various plans that were created.
-    stringified_plans: Vec<StringifiedPlan>,
-}
+    fn execute(
+        &self,
+        partition: usize,
+    ) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
+        assert_eq!(0, partition);
 
-impl Partition for ExplainPartition {
-    fn execute(&self) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
         let mut type_builder = StringArray::builder(self.stringified_plans.len());
         let mut plan_builder = StringArray::builder(self.stringified_plans.len());
 

@@ -45,17 +45,33 @@ pub trait PhysicalPlanner {
 }
 
 /// Partition-aware execution plan for a relation
-pub trait ExecutionPlan: Debug {
+pub trait ExecutionPlan: Debug + Send + Sync {
     /// Get the schema for this execution plan
     fn schema(&self) -> SchemaRef;
-    /// Get the partitions for this execution plan. Each partition can be executed in parallel.
-    fn partitions(&self) -> Result<Vec<Arc<dyn Partition>>>;
+    /// Specifies the output partitioning scheme of this plan
+    fn output_partitioning(&self) -> Partitioning;
+    /// Execute one partition and return an iterator over RecordBatch
+    fn execute(
+        &self,
+        partition: usize,
+    ) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>>;
 }
 
-/// Represents a partition of an execution plan that can be executed on a thread
-pub trait Partition: Send + Sync + Debug {
-    /// Execute this partition and return an iterator over RecordBatch
-    fn execute(&self) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>>;
+/// Partitioning schemes supported by operators.
+#[derive(Debug, Clone)]
+pub enum Partitioning {
+    /// Unknown partitioning scheme
+    UnknownPartitioning(usize),
+}
+
+impl Partitioning {
+    /// Returns the number of partitions in this partitioning scheme
+    pub fn partition_count(&self) -> usize {
+        use Partitioning::*;
+        match self {
+            UnknownPartitioning(n) => *n,
+        }
+    }
 }
 
 /// Expression that can be evaluated against a RecordBatch
@@ -109,7 +125,6 @@ pub fn scalar_functions() -> Vec<ScalarFunction> {
 
 pub mod common;
 pub mod csv;
-pub mod datasource;
 pub mod explain;
 pub mod expressions;
 pub mod filter;

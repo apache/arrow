@@ -23,7 +23,7 @@ use std::thread::{self, JoinHandle};
 
 use crate::error::{ExecutionError, Result};
 use crate::execution::physical_plan::common::RecordBatchIterator;
-use crate::execution::physical_plan::Partition;
+use crate::execution::physical_plan::Partitioning;
 use crate::execution::physical_plan::{common, ExecutionPlan};
 
 use arrow::datatypes::SchemaRef;
@@ -36,7 +36,7 @@ pub struct MergeExec {
     /// Input schema
     schema: SchemaRef,
     /// Input partitions
-    partitions: Vec<Arc<dyn Partition>>,
+    input: Arc<dyn ExecutionPlan>,
     /// Maximum number of concurrent threads
     concurrency: usize,
 }
@@ -45,12 +45,12 @@ impl MergeExec {
     /// Create a new MergeExec
     pub fn new(
         schema: SchemaRef,
-        partitions: Vec<Arc<dyn Partition>>,
+        input: Arc<dyn ExecutionPlan>,
         max_concurrency: usize,
     ) -> Self {
         MergeExec {
             schema,
-            partitions,
+            input,
             concurrency: max_concurrency,
         }
     }
@@ -61,64 +61,39 @@ impl ExecutionPlan for MergeExec {
         self.schema.clone()
     }
 
-    fn partitions(&self) -> Result<Vec<Arc<dyn Partition>>> {
-        Ok(vec![Arc::new(MergePartition {
-            schema: self.schema.clone(),
-            partitions: self.partitions.clone(),
-            concurrency: self.concurrency,
-        })])
+    /// Get the output partitioning of this plan
+    fn output_partitioning(&self) -> Partitioning {
+        Partitioning::UnknownPartitioning(1)
     }
-}
 
-#[derive(Debug)]
-struct MergePartition {
-    /// Input schema
-    schema: SchemaRef,
-    /// Input partitions
-    partitions: Vec<Arc<dyn Partition>>,
-    /// Maximum number of concurrent threads
-    concurrency: usize,
-}
+    fn execute(
+        &self,
+        partition: usize,
+    ) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
+        // MergeExec produces a single partition
+        assert_eq!(0, partition);
 
-fn collect_from_thread(
-    thread: JoinHandle<Result<Vec<RecordBatch>>>,
-    combined_results: &mut Vec<Arc<RecordBatch>>,
-) -> Result<()> {
-    match thread.join() {
-        Ok(join) => {
-            join?
-                .iter()
-                .for_each(|batch| combined_results.push(Arc::new(batch.clone())));
-            Ok(())
-        }
-        Err(e) => Err(ExecutionError::General(format!(
-            "Error collecting batches from thread: {:?}",
-            e
-        ))),
-    }
-}
-
-impl Partition for MergePartition {
-    fn execute(&self) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
-        match self.partitions.len() {
+        let input_partitions = self.input.output_partitioning().partition_count();
+        match input_partitions {
             0 => Err(ExecutionError::General(
                 "MergeExec requires at least one input partition".to_owned(),
             )),
             1 => {
                 // bypass any threading if there is a single partition
-                self.partitions[0].execute()
+                self.input.execute(0)
             }
             _ => {
-                let partitions_per_thread =
-                    (self.partitions.len() / self.concurrency).max(1);
-                let chunks = self.partitions.chunks(partitions_per_thread);
+                let partitions_per_thread = (input_partitions / self.concurrency).max(1);
+                let range: Vec<usize> = (0..input_partitions).collect();
+                let chunks = range.chunks(partitions_per_thread);
                 let threads: Vec<JoinHandle<Result<Vec<RecordBatch>>>> = chunks
                     .map(|chunk| {
                         let chunk = chunk.to_vec();
+                        let input = self.input.clone();
                         thread::spawn(move || {
                             let mut batches = vec![];
                             for partition in chunk {
-                                let it = partition.execute()?;
+                                let it = input.execute(partition)?;
                                 common::collect(it).iter().for_each(|b| {
                                     b.iter().for_each(|b| batches.push(b.clone()))
                                 });
@@ -143,6 +118,24 @@ impl Partition for MergePartition {
     }
 }
 
+fn collect_from_thread(
+    thread: JoinHandle<Result<Vec<RecordBatch>>>,
+    combined_results: &mut Vec<Arc<RecordBatch>>,
+) -> Result<()> {
+    match thread.join() {
+        Ok(join) => {
+            join?
+                .iter()
+                .for_each(|batch| combined_results.push(Arc::new(batch.clone())));
+            Ok(())
+        }
+        Err(e) => Err(ExecutionError::General(format!(
+            "Error collecting batches from thread: {:?}",
+            e
+        ))),
+    }
+}
+
 #[cfg(test)]
 mod tests {
 
@@ -163,17 +156,15 @@ mod tests {
             CsvExec::try_new(&path, CsvReadOptions::new().schema(&schema), None, 1024)?;
 
         // input should have 4 partitions
-        let input = csv.partitions()?;
-        assert_eq!(input.len(), num_partitions);
+        assert_eq!(csv.output_partitioning().partition_count(), num_partitions);
 
-        let merge = MergeExec::new(schema.clone(), input, 2);
+        let merge = MergeExec::new(schema.clone(), Arc::new(csv), 2);
 
         // output of MergeExec should have a single partition
-        let merged = merge.partitions()?;
-        assert_eq!(merged.len(), 1);
+        assert_eq!(merge.output_partitioning().partition_count(), 1);
 
         // the result should contain 4 batches (one per input partition)
-        let iter = merged[0].execute()?;
+        let iter = merge.execute(0)?;
         let batches = common::collect(iter)?;
         assert_eq!(batches.len(), num_partitions);
 
