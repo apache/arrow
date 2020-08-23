@@ -72,7 +72,8 @@ impl PhysicalPlanner for DefaultPhysicalPlanner {
                 ..
             } => match ctx_state.datasources.get(table_name) {
                 Some(provider) => {
-                    let partitions = provider.scan(projection, batch_size)?;
+                    let exec = provider.scan(projection, batch_size)?;
+                    let partitions = exec.partitions()?;
                     if partitions.is_empty() {
                         Err(ExecutionError::General(
                             "Table provider returned no partitions".to_string(),

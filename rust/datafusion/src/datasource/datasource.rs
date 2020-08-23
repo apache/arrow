@@ -19,10 +19,9 @@
 
 use std::sync::Arc;
 
-use arrow::datatypes::SchemaRef;
-
+use crate::arrow::datatypes::SchemaRef;
 use crate::error::Result;
-use crate::execution::physical_plan::Partition;
+use crate::execution::physical_plan::ExecutionPlan;
 
 /// Source table
 pub trait TableProvider {
@@ -35,5 +34,5 @@ pub trait TableProvider {
         &self,
         projection: &Option<Vec<usize>>,
         batch_size: usize,
-    ) -> Result<Vec<Arc<dyn Partition>>>;
+    ) -> Result<Arc<dyn ExecutionPlan>>;
 }
