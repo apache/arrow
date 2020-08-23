@@ -46,12 +46,12 @@ pub struct ScalarFunction {
 }
 
 /// Something which provides information for particular scalar functions
-pub trait ScalarFunctionProvider {
+pub trait ScalarFunctionRegistry {
     /// Return ScalarFunction for `name`
     fn lookup(&self, name: &str) -> Option<Arc<ScalarFunction>>;
 }
 
-impl ScalarFunctionProvider for HashMap<String, Arc<ScalarFunction>> {
+impl ScalarFunctionRegistry for HashMap<String, Arc<ScalarFunction>> {
     fn lookup(&self, name: &str) -> Option<Arc<ScalarFunction>> {
         self.get(name).and_then(|func| Some(func.clone()))
     }

@@ -28,7 +28,7 @@ use arrow::csv;
 use arrow::datatypes::*;
 use arrow::record_batch::RecordBatch;
 
-use super::physical_plan::udf::ScalarFunctionProvider;
+use super::physical_plan::udf::ScalarFunctionRegistry;
 use crate::dataframe::DataFrame;
 use crate::datasource::csv::CsvFile;
 use crate::datasource::parquet::ParquetTable;
@@ -398,7 +398,7 @@ impl ExecutionContext {
     }
 }
 
-impl ScalarFunctionProvider for ExecutionContext {
+impl ScalarFunctionRegistry for ExecutionContext {
     fn lookup(&self, name: &str) -> Option<Arc<ScalarFunction>> {
         self.state
             .lock()

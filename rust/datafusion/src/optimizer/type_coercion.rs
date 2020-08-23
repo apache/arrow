@@ -24,7 +24,7 @@ use arrow::datatypes::Schema;
 
 use crate::error::{ExecutionError, Result};
 use crate::execution::physical_plan::{
-    expressions::numerical_coercion, udf::ScalarFunctionProvider
+    expressions::numerical_coercion, udf::ScalarFunctionRegistry,
 };
 use crate::logicalplan::Expr;
 use crate::logicalplan::{LogicalPlan, Operator};
@@ -37,14 +37,14 @@ use utils::optimize_explain;
 /// This optimizer does not alter the structure of the plan, it only changes expressions on it.
 pub struct TypeCoercionRule<'a, P>
 where
-    P: ScalarFunctionProvider,
+    P: ScalarFunctionRegistry,
 {
     scalar_functions: &'a P,
 }
 
 impl<'a, P> TypeCoercionRule<'a, P>
 where
-    P: ScalarFunctionProvider,
+    P: ScalarFunctionRegistry,
 {
     /// Create a new type coercion optimizer rule using meta-data about registered
     /// scalar functions
@@ -105,7 +105,7 @@ where
 
 impl<'a, P> OptimizerRule for TypeCoercionRule<'a, P>
 where
-    P: ScalarFunctionProvider,
+    P: ScalarFunctionRegistry,
 {
     fn optimize(&mut self, plan: &LogicalPlan) -> Result<LogicalPlan> {
         match plan {
