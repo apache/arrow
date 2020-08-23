@@ -22,10 +22,13 @@ use std::sync::Arc;
 use crate::error::{ExecutionError, Result};
 use crate::logicalplan::Expr::Alias;
 use crate::logicalplan::{
-    lit, Expr, FunctionMeta, LogicalPlan, LogicalPlanBuilder, Operator, PlanType,
-    ScalarValue, StringifiedPlan,
+    lit, Expr, LogicalPlan, LogicalPlanBuilder, Operator, PlanType, ScalarValue,
+    StringifiedPlan,
 };
-use crate::sql::parser::{CreateExternalTable, FileType, Statement as DFStatement};
+use crate::{
+    execution::physical_plan::udf::ScalarFunction,
+    sql::parser::{CreateExternalTable, FileType, Statement as DFStatement},
+};
 
 use arrow::datatypes::*;
 
@@ -43,7 +46,7 @@ pub trait SchemaProvider {
     /// Getter for a field description
     fn get_table_meta(&self, name: &str) -> Option<SchemaRef>;
     /// Getter for a UDF description
-    fn get_function_meta(&self, name: &str) -> Option<Arc<FunctionMeta>>;
+    fn get_function_meta(&self, name: &str) -> Option<Arc<ScalarFunction>>;
 }
 
 /// SQL query planner
@@ -519,14 +522,14 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
                             for i in 0..rex_args.len() {
                                 safe_args.push(
                                     rex_args[i]
-                                        .cast_to(fm.args()[i].data_type(), schema)?,
+                                        .cast_to(fm.args[i].data_type(), schema)?,
                                 );
                             }
 
                             Ok(Expr::ScalarFunction {
                                 name: name.clone(),
                                 args: safe_args,
-                                return_type: fm.return_type().clone(),
+                                return_type: fm.return_type.clone(),
                             })
                         }
                         _ => Err(ExecutionError::General(format!(
@@ -576,7 +579,6 @@ pub fn convert_data_type(sql: &SQLDataType) -> Result<DataType> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::logicalplan::FunctionType;
     use crate::sql::parser::DFParser;
 
     #[test]
@@ -902,13 +904,13 @@ mod tests {
             }
         }
 
-        fn get_function_meta(&self, name: &str) -> Option<Arc<FunctionMeta>> {
+        fn get_function_meta(&self, name: &str) -> Option<Arc<ScalarFunction>> {
             match name {
-                "sqrt" => Some(Arc::new(FunctionMeta::new(
-                    "sqrt".to_string(),
+                "sqrt" => Some(Arc::new(ScalarFunction::new(
+                    "sqrt",
                     vec![Field::new("n", DataType::Float64, false)],
                     DataType::Float64,
-                    FunctionType::Scalar,
+                    Arc::new(|_| Err(ExecutionError::NotImplemented("".to_string()))),
                 ))),
                 _ => None,
             }

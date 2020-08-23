@@ -42,7 +42,7 @@ use crate::execution::physical_plan::scalar_functions;
 use crate::execution::physical_plan::udf::ScalarFunction;
 use crate::execution::physical_plan::ExecutionPlan;
 use crate::execution::physical_plan::PhysicalPlanner;
-use crate::logicalplan::{FunctionMeta, FunctionType, LogicalPlan, LogicalPlanBuilder};
+use crate::logicalplan::{LogicalPlan, LogicalPlanBuilder};
 use crate::optimizer::optimizer::OptimizerRule;
 use crate::optimizer::projection_push_down::ProjectionPushDown;
 use crate::optimizer::{
@@ -481,15 +481,10 @@ impl SchemaProvider for ExecutionContextState {
         self.datasources.get(name).map(|ds| ds.schema().clone())
     }
 
-    fn get_function_meta(&self, name: &str) -> Option<Arc<FunctionMeta>> {
-        self.scalar_functions.get(name).map(|f| {
-            Arc::new(FunctionMeta::new(
-                name.to_owned(),
-                f.args.clone(),
-                f.return_type.clone(),
-                FunctionType::Scalar,
-            ))
-        })
+    fn get_function_meta(&self, name: &str) -> Option<Arc<ScalarFunction>> {
+        self.scalar_functions
+            .get(name)
+            .and_then(|func| Some(Arc::new(func.as_ref().clone())))
     }
 }
 
