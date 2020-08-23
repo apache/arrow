@@ -32,7 +32,7 @@ use arrow::record_batch::{RecordBatch, RecordBatchReader};
 #[derive(Debug)]
 pub struct ProjectionExec {
     /// The projection expressions
-    expr: Vec<Arc<dyn PhysicalExpr>>,
+    expr: Vec<(Arc<dyn PhysicalExpr>, String)>,
     /// The schema once the projection has been applied to the input
     schema: SchemaRef,
     /// The input plan
@@ -61,7 +61,7 @@ impl ProjectionExec {
         let schema = Arc::new(Schema::new(fields?));
 
         Ok(Self {
-            expr: expr.iter().map(|x| x.0.clone()).collect(),
+            expr,
             schema,
             input: input.clone(),
         })
@@ -74,9 +74,24 @@ impl ExecutionPlan for ProjectionExec {
         self.schema.clone()
     }
 
+    fn children(&self) -> Vec<Arc<dyn ExecutionPlan>> {
+        vec![self.input.clone()]
+    }
+
     /// Get the output partitioning of this plan
     fn output_partitioning(&self) -> Partitioning {
         self.input.output_partitioning()
+    }
+
+    fn with_new_children(
+        &self,
+        children: Vec<Arc<dyn ExecutionPlan>>,
+    ) -> Result<Arc<dyn ExecutionPlan>> {
+        assert_eq!(1, children.len());
+        Ok(Arc::new(ProjectionExec::try_new(
+            self.expr.clone(),
+            children[0].clone(),
+        )?))
     }
 
     fn execute(
@@ -85,7 +100,7 @@ impl ExecutionPlan for ProjectionExec {
     ) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
         Ok(Arc::new(Mutex::new(ProjectionIterator {
             schema: self.schema.clone(),
-            expr: self.expr.clone(),
+            expr: self.expr.iter().map(|x| x.0.clone()).collect(),
             input: self.input.execute(partition)?,
         })))
     }

@@ -19,7 +19,7 @@
 
 use std::sync::{Arc, Mutex};
 
-use crate::error::Result;
+use crate::error::{ExecutionError, Result};
 use crate::execution::physical_plan::{ExecutionPlan, Partitioning};
 use arrow::datatypes::SchemaRef;
 use arrow::error::Result as ArrowResult;
@@ -42,9 +42,24 @@ impl ExecutionPlan for MemoryExec {
         self.schema.clone()
     }
 
+    fn children(&self) -> Vec<Arc<dyn ExecutionPlan>> {
+        // this is a leaf node and has no children
+        vec![]
+    }
+
     /// Get the output partitioning of this plan
     fn output_partitioning(&self) -> Partitioning {
         Partitioning::UnknownPartitioning(self.partitions.len())
+    }
+
+    fn with_new_children(
+        &self,
+        _: Vec<Arc<dyn ExecutionPlan>>,
+    ) -> Result<Arc<dyn ExecutionPlan>> {
+        Err(ExecutionError::General(format!(
+            "Children cannot be replaced in {:?}",
+            self
+        )))
     }
 
     fn execute(

@@ -28,14 +28,16 @@ use arrow::record_batch::{RecordBatch, RecordBatchReader};
 use crate::error::Result;
 use crate::execution::physical_plan::common::RecordBatchIterator;
 use crate::execution::physical_plan::expressions::PhysicalSortExpr;
-use crate::execution::physical_plan::merge::MergeExec;
-use crate::execution::physical_plan::{common, ExecutionPlan, Partitioning};
+use crate::execution::physical_plan::{
+    common, Distribution, ExecutionPlan, Partitioning,
+};
 
 /// Sort execution plan
 #[derive(Debug)]
 pub struct SortExec {
     /// Input schema
     input: Arc<dyn ExecutionPlan>,
+    /// Sort expressions
     expr: Vec<PhysicalSortExpr>,
     /// Number of threads to execute input partitions on before combining into a single partition
     concurrency: usize,
@@ -61,9 +63,29 @@ impl ExecutionPlan for SortExec {
         self.input.schema().clone()
     }
 
+    fn children(&self) -> Vec<Arc<dyn ExecutionPlan>> {
+        vec![self.input.clone()]
+    }
+
     /// Get the output partitioning of this plan
     fn output_partitioning(&self) -> Partitioning {
         Partitioning::UnknownPartitioning(1)
+    }
+
+    fn required_child_distribution(&self) -> Distribution {
+        Distribution::SinglePartition
+    }
+
+    fn with_new_children(
+        &self,
+        children: Vec<Arc<dyn ExecutionPlan>>,
+    ) -> Result<Arc<dyn ExecutionPlan>> {
+        assert_eq!(1, children.len());
+        Ok(Arc::new(SortExec::try_new(
+            self.expr.clone(),
+            children[0].clone(),
+            self.concurrency,
+        )?))
     }
 
     fn execute(
@@ -73,10 +95,8 @@ impl ExecutionPlan for SortExec {
         assert_eq!(0, partition);
 
         // sort needs to operate on a single partition currently
-        let merge = MergeExec::new(self.schema(), self.input.clone(), self.concurrency);
-        // MergeExec must always produce a single partition
-        assert_eq!(1, merge.output_partitioning().partition_count());
-        let it = merge.execute(0)?;
+        assert_eq!(1, self.input.output_partitioning().partition_count());
+        let it = self.input.execute(0)?;
         let batches = common::collect(it)?;
 
         // combine all record batches into one for each column
@@ -138,6 +158,7 @@ mod tests {
     use super::*;
     use crate::execution::physical_plan::csv::{CsvExec, CsvReadOptions};
     use crate::execution::physical_plan::expressions::col;
+    use crate::execution::physical_plan::merge::MergeExec;
     use crate::test;
     use arrow::array::*;
     use arrow::datatypes::*;
@@ -168,7 +189,7 @@ mod tests {
                     options: SortOptions::default(),
                 },
             ],
-            Arc::new(csv),
+            Arc::new(MergeExec::new(Arc::new(csv), 2)),
             2,
         )?);
 

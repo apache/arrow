@@ -91,9 +91,24 @@ impl ExecutionPlan for ParquetExec {
         self.schema.clone()
     }
 
+    fn children(&self) -> Vec<Arc<dyn ExecutionPlan>> {
+        // this is a leaf node and has no children
+        vec![]
+    }
+
     /// Get the output partitioning of this plan
     fn output_partitioning(&self) -> Partitioning {
         Partitioning::UnknownPartitioning(self.filenames.len())
+    }
+
+    fn with_new_children(
+        &self,
+        _: Vec<Arc<dyn ExecutionPlan>>,
+    ) -> Result<Arc<dyn ExecutionPlan>> {
+        Err(ExecutionError::General(format!(
+            "Children cannot be replaced in {:?}",
+            self
+        )))
     }
 
     fn execute(
