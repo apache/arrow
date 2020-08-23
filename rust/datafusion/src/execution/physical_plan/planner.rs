@@ -212,14 +212,10 @@ impl DefaultPhysicalPlanner {
                     return Ok(Arc::new(initial_aggr));
                 }
 
-                let initial_aggr = Arc::new(initial_aggr);
-                let merge = Arc::new(MergeExec::new(
-                    initial_aggr.clone(),
-                    ctx_state.config.concurrency,
-                ));
+                let partial_aggr = Arc::new(initial_aggr);
 
                 // construct the expressions for the final aggregation
-                let (final_group, final_aggr) = initial_aggr.make_final_expr(
+                let (final_group, final_aggr) = partial_aggr.make_final_expr(
                     groups.iter().map(|x| x.1.clone()).collect(),
                     aggregates.iter().map(|x| x.1.clone()).collect(),
                 );
@@ -238,7 +234,7 @@ impl DefaultPhysicalPlanner {
                         .enumerate()
                         .map(|(i, expr)| (expr.clone(), aggregates[i].1.clone()))
                         .collect(),
-                    merge,
+                    partial_aggr,
                 )?))
             }
             LogicalPlan::Filter {
@@ -252,14 +248,6 @@ impl DefaultPhysicalPlanner {
             }
             LogicalPlan::Sort { expr, input, .. } => {
                 let input = self.create_physical_plan(input, ctx_state)?;
-
-                // sort requires a single partition for input
-                let input = if input.output_partitioning().partition_count() == 1 {
-                    input
-                } else {
-                    Arc::new(MergeExec::new(input, ctx_state.config.concurrency))
-                };
-
                 let input_schema = input.as_ref().schema().clone();
 
                 let sort_expr = expr
@@ -298,11 +286,9 @@ impl DefaultPhysicalPlanner {
                 let input = if input.output_partitioning().partition_count() == 1 {
                     input
                 } else {
-                    // Apply a LocalLimitExec to each partition, then merge into a single partition
-                    Arc::new(MergeExec::new(
-                        Arc::new(LocalLimitExec::new(input, limit)),
-                        ctx_state.config.concurrency,
-                    ))
+                    // Apply a LocalLimitExec to each partition. The optimizer will also insert
+                    // a MergeExec between the GlobalLimitExec and LocalLimitExec
+                    Arc::new(LocalLimitExec::new(input, limit))
                 };
 
                 Ok(Arc::new(GlobalLimitExec::new(
