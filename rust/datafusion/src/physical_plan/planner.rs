@@ -368,32 +368,22 @@ impl DefaultPhysicalPlanner {
                     .collect::<Result<Vec<_>>>()?;
                 functions::create_physical_expr(fun, &physical_args, input_schema)
             }
-            Expr::ScalarUDF {
-                name,
-                args,
-                return_type,
-            } => match ctx_state.scalar_functions.get(name) {
-                Some(f) => {
-                    let mut physical_args = vec![];
-                    for e in args {
-                        physical_args.push(self.create_physical_expr(
-                            e,
-                            input_schema,
-                            ctx_state,
-                        )?);
-                    }
-                    Ok(Arc::new(ScalarFunctionExpr::new(
-                        name,
-                        f.fun.clone(),
-                        physical_args,
-                        return_type,
-                    )))
+            Expr::ScalarUDF { fun, args } => {
+                let mut physical_args = vec![];
+                for e in args {
+                    physical_args.push(self.create_physical_expr(
+                        e,
+                        input_schema,
+                        ctx_state,
+                    )?);
                 }
-                _ => Err(ExecutionError::General(format!(
-                    "Invalid scalar function '{:?}'",
-                    name
-                ))),
-            },
+                Ok(Arc::new(ScalarFunctionExpr::new(
+                    &fun.name,
+                    fun.fun.clone(),
+                    physical_args,
+                    &fun.return_type,
+                )))
+            }
             other => Err(ExecutionError::NotImplemented(format!(
                 "Physical plan does not support logical expression {:?}",
                 other

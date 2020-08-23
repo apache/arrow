@@ -22,34 +22,24 @@
 
 use arrow::datatypes::Schema;
 
-use crate::error::{ExecutionError, Result};
+use crate::error::Result;
 use crate::logical_plan::Expr;
 use crate::logical_plan::LogicalPlan;
 use crate::optimizer::optimizer::OptimizerRule;
 use crate::optimizer::utils;
-use crate::physical_plan::{
-    expressions::numerical_coercion, udf::ScalarFunctionRegistry,
-};
+use crate::physical_plan::expressions::numerical_coercion;
 use utils::optimize_explain;
 
 /// Optimizer that applies coercion rules to expressions in the logical plan.
 ///
 /// This optimizer does not alter the structure of the plan, it only changes expressions on it.
-pub struct TypeCoercionRule<'a, P>
-where
-    P: ScalarFunctionRegistry,
-{
-    scalar_functions: &'a P,
-}
+pub struct TypeCoercionRule {}
 
-impl<'a, P> TypeCoercionRule<'a, P>
-where
-    P: ScalarFunctionRegistry,
-{
+impl TypeCoercionRule {
     /// Create a new type coercion optimizer rule using meta-data about registered
     /// scalar functions
-    pub fn new(scalar_functions: &'a P) -> Self {
-        Self { scalar_functions }
+    pub fn new() -> Self {
+        Self {}
     }
 
     /// Rewrite an expression to include explicit CAST operations when required
@@ -64,32 +54,22 @@ where
 
         // modify `expressions` by introducing casts when necessary
         match expr {
-            Expr::ScalarUDF { name, .. } => {
+            Expr::ScalarUDF { fun, .. } => {
                 // cast the inputs of scalar functions to the appropriate type where possible
-                match self.scalar_functions.lookup(name) {
-                    Some(func_meta) => {
-                        for i in 0..expressions.len() {
-                            let actual_type = expressions[i].get_type(schema)?;
-                            let required_type = &func_meta.arg_types[i];
-                            if &actual_type != required_type {
-                                // attempt to coerce using numerical coercion
-                                // todo: also try string coercion.
-                                if let Some(cast_to_type) =
-                                    numerical_coercion(&actual_type, required_type)
-                                {
-                                    expressions[i] =
-                                        expressions[i].cast_to(&cast_to_type, schema)?
-                                };
-                                // not possible: do nothing and let the plan fail with a clear error message
-                            };
-                        }
-                    }
-                    _ => {
-                        return Err(ExecutionError::General(format!(
-                            "Invalid scalar function {}",
-                            name
-                        )))
-                    }
+                for i in 0..expressions.len() {
+                    let actual_type = expressions[i].get_type(schema)?;
+                    let required_type = &fun.arg_types[i];
+                    if &actual_type != required_type {
+                        // attempt to coerce using numerical coercion
+                        // todo: also try string coercion.
+                        if let Some(cast_to_type) =
+                            numerical_coercion(&actual_type, required_type)
+                        {
+                            expressions[i] =
+                                expressions[i].cast_to(&cast_to_type, schema)?
+                        };
+                        // not possible: do nothing and let the plan fail with a clear error message
+                    };
                 }
             }
             _ => {}
@@ -98,10 +78,7 @@ where
     }
 }
 
-impl<'a, P> OptimizerRule for TypeCoercionRule<'a, P>
-where
-    P: ScalarFunctionRegistry,
-{
+impl OptimizerRule for TypeCoercionRule {
     fn optimize(&mut self, plan: &LogicalPlan) -> Result<LogicalPlan> {
         match plan {
             LogicalPlan::Explain {

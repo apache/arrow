@@ -225,11 +225,8 @@ pub fn rewrite_expression(expr: &Expr, expressions: &Vec<Expr>) -> Result<Expr> 
             fun: fun.clone(),
             args: expressions.clone(),
         }),
-        Expr::ScalarUDF {
-            name, return_type, ..
-        } => Ok(Expr::ScalarUDF {
-            name: name.clone(),
-            return_type: return_type.clone(),
+        Expr::ScalarUDF { fun, .. } => Ok(Expr::ScalarUDF {
+            fun: fun.clone(),
             args: expressions.clone(),
         }),
         Expr::AggregateFunction { name, .. } => Ok(Expr::AggregateFunction {
