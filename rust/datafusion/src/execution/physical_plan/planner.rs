@@ -421,8 +421,8 @@ mod tests {
 
     fn plan(logical_plan: &LogicalPlan) -> Result<Arc<dyn ExecutionPlan>> {
         let ctx_state = ExecutionContextState {
-            datasources: Box::new(HashMap::new()),
-            scalar_functions: Box::new(HashMap::new()),
+            datasources: HashMap::new(),
+            scalar_functions: HashMap::new(),
             config: ExecutionConfig::new(),
         };
 
