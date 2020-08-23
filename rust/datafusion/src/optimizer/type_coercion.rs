@@ -26,9 +26,11 @@ use std::sync::Arc;
 use arrow::datatypes::Schema;
 
 use crate::error::{ExecutionError, Result};
-use crate::execution::physical_plan::udf::ScalarFunction;
+use crate::execution::physical_plan::{
+    expressions::numerical_coercion, udf::ScalarFunction,
+};
 use crate::logicalplan::Expr;
-use crate::logicalplan::LogicalPlan;
+use crate::logicalplan::{LogicalPlan, Operator};
 use crate::optimizer::optimizer::OptimizerRule;
 use crate::optimizer::utils;
 use utils::optimize_explain;
@@ -61,16 +63,6 @@ impl TypeCoercionRule {
 
         // modify `expressions` by introducing casts when necessary
         match expr {
-            Expr::BinaryExpr { .. } => {
-                let left_type = expressions[0].get_type(schema)?;
-                let right_type = expressions[1].get_type(schema)?;
-                if left_type != right_type {
-                    let super_type = utils::get_supertype(&left_type, &right_type)?;
-
-                    expressions[0] = expressions[0].cast_to(&super_type, schema)?;
-                    expressions[1] = expressions[1].cast_to(&super_type, schema)?;
-                }
-            }
             Expr::ScalarFunction { name, .. } => {
                 // cast the inputs of scalar functions to the appropriate type where possible
                 match self.scalar_functions.get(name) {
@@ -80,10 +72,19 @@ impl TypeCoercionRule {
                             let actual_type = expressions[i].get_type(schema)?;
                             let required_type = field.data_type();
                             if &actual_type != required_type {
-                                let super_type =
-                                    utils::get_supertype(&actual_type, required_type)?;
-                                expressions[i] =
-                                    expressions[i].cast_to(&super_type, schema)?
+                                // attempt to coerce using numerical coercion
+                                // todo: also try string coercion.
+                                if let Ok(cast_to_type) = numerical_coercion(
+                                    &actual_type,
+                                    // assume that the function behaves like plus
+                                    // plus is not special here; the optimizer is just trying its best...
+                                    &Operator::Plus,
+                                    required_type,
+                                ) {
+                                    expressions[i] =
+                                        expressions[i].cast_to(&cast_to_type, schema)?
+                                };
+                                // not possible: do nothing and let the plan fail with a clear error message
                             };
                         }
                     }
@@ -139,142 +140,5 @@ impl OptimizerRule for TypeCoercionRule {
 
     fn name(&self) -> &str {
         return "type_coercion";
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::execution::context::ExecutionContext;
-    use crate::execution::physical_plan::csv::CsvReadOptions;
-    use crate::logicalplan::{aggregate_expr, col, lit, LogicalPlanBuilder, Operator};
-    use crate::test::arrow_testdata_path;
-    use arrow::datatypes::{DataType, Field, Schema};
-
-    #[test]
-    fn test_all_operators() -> Result<()> {
-        let testdata = arrow_testdata_path();
-        let path = format!("{}/csv/aggregate_test_100.csv", testdata);
-
-        let options = CsvReadOptions::new().schema_infer_max_records(100);
-        let plan = LogicalPlanBuilder::scan_csv(&path, options, None)?
-            // filter clause needs the type coercion rule applied
-            .filter(col("c7").lt(lit(5_u8)))?
-            .project(vec![col("c1"), col("c2")])?
-            .aggregate(vec![col("c1")], vec![aggregate_expr("SUM", col("c2"))])?
-            .sort(vec![col("c1")])?
-            .limit(10)?
-            .build()?;
-
-        let scalar_functions = HashMap::new();
-        let mut rule = TypeCoercionRule::new(&scalar_functions);
-        let plan = rule.optimize(&plan)?;
-
-        // check that the filter had a cast added
-        let plan_str = format!("{:?}", plan);
-        println!("{}", plan_str);
-        let expected_plan_str = "Limit: 10
-  Sort: #c1
-    Aggregate: groupBy=[[#c1]], aggr=[[SUM(#c2)]]
-      Projection: #c1, #c2
-        Filter: #c7 Lt CAST(UInt8(5) AS Int64)";
-        assert!(plan_str.starts_with(expected_plan_str));
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_with_csv_plan() -> Result<()> {
-        let testdata = arrow_testdata_path();
-        let path = format!("{}/csv/aggregate_test_100.csv", testdata);
-
-        let options = CsvReadOptions::new().schema_infer_max_records(100);
-        let plan = LogicalPlanBuilder::scan_csv(&path, options, None)?
-            .filter(col("c7").lt(col("c12")))?
-            .build()?;
-
-        let scalar_functions = HashMap::new();
-        let mut rule = TypeCoercionRule::new(&scalar_functions);
-        let plan = rule.optimize(&plan)?;
-
-        assert!(format!("{:?}", plan).starts_with("Filter: CAST(#c7 AS Float64) Lt #c12"));
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_add_i32_i64() {
-        binary_cast_test(
-            DataType::Int32,
-            DataType::Int64,
-            "CAST(#c0 AS Int64) Plus #c1",
-        );
-        binary_cast_test(
-            DataType::Int64,
-            DataType::Int32,
-            "#c0 Plus CAST(#c1 AS Int64)",
-        );
-    }
-
-    #[test]
-    fn test_add_f32_f64() {
-        binary_cast_test(
-            DataType::Float32,
-            DataType::Float64,
-            "CAST(#c0 AS Float64) Plus #c1",
-        );
-        binary_cast_test(
-            DataType::Float64,
-            DataType::Float32,
-            "#c0 Plus CAST(#c1 AS Float64)",
-        );
-    }
-
-    #[test]
-    fn test_add_i32_f32() {
-        binary_cast_test(
-            DataType::Int32,
-            DataType::Float32,
-            "CAST(#c0 AS Float32) Plus #c1",
-        );
-        binary_cast_test(
-            DataType::Float32,
-            DataType::Int32,
-            "#c0 Plus CAST(#c1 AS Float32)",
-        );
-    }
-
-    #[test]
-    fn test_add_u32_i64() {
-        binary_cast_test(
-            DataType::UInt32,
-            DataType::Int64,
-            "CAST(#c0 AS Int64) Plus #c1",
-        );
-        binary_cast_test(
-            DataType::Int64,
-            DataType::UInt32,
-            "#c0 Plus CAST(#c1 AS Int64)",
-        );
-    }
-
-    fn binary_cast_test(left_type: DataType, right_type: DataType, expected: &str) {
-        let schema = Schema::new(vec![
-            Field::new("c0", left_type, true),
-            Field::new("c1", right_type, true),
-        ]);
-
-        let expr = Expr::BinaryExpr {
-            left: Box::new(col("c0")),
-            op: Operator::Plus,
-            right: Box::new(col("c1")),
-        };
-
-        let ctx = ExecutionContext::new();
-        let rule = TypeCoercionRule::new(ctx.scalar_functions().as_ref());
-
-        let expr2 = rule.rewrite_expr(&expr, &schema).unwrap();
-
-        assert_eq!(expected, format!("{:?}", expr2));
     }
 }

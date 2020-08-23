@@ -19,13 +19,15 @@
 
 use std::sync::Arc;
 
+use super::expressions::binary;
 use crate::error::{ExecutionError, Result};
 use crate::execution::context::ExecutionContextState;
 use crate::execution::physical_plan::csv::{CsvExec, CsvReadOptions};
 use crate::execution::physical_plan::datasource::DatasourceExec;
 use crate::execution::physical_plan::explain::ExplainExec;
+use crate::execution::physical_plan::expressions;
 use crate::execution::physical_plan::expressions::{
-    Avg, BinaryExpr, CastExpr, Column, Count, Literal, Max, Min, PhysicalSortExpr, Sum,
+    Avg, Column, Count, Literal, Max, Min, PhysicalSortExpr, Sum,
 };
 use crate::execution::physical_plan::filter::FilterExec;
 use crate::execution::physical_plan::hash_aggregate::HashAggregateExec;
@@ -312,16 +314,18 @@ impl DefaultPhysicalPlanner {
                 Ok(Arc::new(Column::new(name)))
             }
             Expr::Literal(value) => Ok(Arc::new(Literal::new(value.clone()))),
-            Expr::BinaryExpr { left, op, right } => Ok(Arc::new(BinaryExpr::new(
-                self.create_physical_expr(left, input_schema, ctx_state)?,
-                op.clone(),
-                self.create_physical_expr(right, input_schema, ctx_state)?,
-            ))),
-            Expr::Cast { expr, data_type } => Ok(Arc::new(CastExpr::try_new(
-                self.create_physical_expr(expr, input_schema, ctx_state)?,
+            Expr::BinaryExpr { left, op, right } => {
+                let lhs =
+                    self.create_physical_expr(left, input_schema, ctx_state.clone())?;
+                let rhs =
+                    self.create_physical_expr(right, input_schema, ctx_state.clone())?;
+                binary(lhs, op.clone(), rhs, input_schema)
+            }
+            Expr::Cast { expr, data_type } => expressions::cast(
+                self.create_physical_expr(expr, input_schema, ctx_state.clone())?,
                 input_schema,
                 data_type.clone(),
-            )?)),
+            ),
             Expr::ScalarFunction {
                 name,
                 args,
@@ -424,5 +428,103 @@ fn tuple_err<T, R>(value: (Result<T>, Result<R>)) -> Result<(T, R)> {
         (Err(e), Ok(_)) => Err(e),
         (Ok(_), Err(e1)) => Err(e1),
         (Err(e), Err(_)) => Err(e),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::execution::physical_plan::csv::CsvReadOptions;
+    use crate::logicalplan::{aggregate_expr, col, lit, LogicalPlanBuilder};
+    use crate::{prelude::ExecutionConfig, test::arrow_testdata_path};
+    use std::collections::HashMap;
+
+    fn plan(logical_plan: &LogicalPlan) -> Result<Arc<dyn ExecutionPlan>> {
+        let ctx_state = ExecutionContextState {
+            datasources: Box::new(HashMap::new()),
+            scalar_functions: Box::new(HashMap::new()),
+            config: ExecutionConfig::new(),
+        };
+
+        let planer = DefaultPhysicalPlanner {};
+        planer.create_physical_plan(logical_plan, &ctx_state)
+    }
+
+    #[test]
+    fn test_all_operators() -> Result<()> {
+        let testdata = arrow_testdata_path();
+        let path = format!("{}/csv/aggregate_test_100.csv", testdata);
+
+        let options = CsvReadOptions::new().schema_infer_max_records(100);
+        let logical_plan = LogicalPlanBuilder::scan_csv(&path, options, None)?
+            // filter clause needs the type coercion rule applied
+            .filter(col("c7").lt(lit(5_u8)))?
+            .project(vec![col("c1"), col("c2")])?
+            .aggregate(vec![col("c1")], vec![aggregate_expr("SUM", col("c2"))])?
+            .sort(vec![col("c1").sort(true, true)])?
+            .limit(10)?
+            .build()?;
+
+        let plan = plan(&logical_plan)?;
+
+        // verify that the plan correctly casts u8 to i64
+        let expected = "BinaryExpr { left: Column { name: \"c7\" }, op: Lt, right: CastExpr { expr: Literal { value: UInt8(5) }, cast_type: Int64 } }";
+        assert!(format!("{:?}", plan).contains(expected));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_with_csv_plan() -> Result<()> {
+        let testdata = arrow_testdata_path();
+        let path = format!("{}/csv/aggregate_test_100.csv", testdata);
+
+        let options = CsvReadOptions::new().schema_infer_max_records(100);
+        let logical_plan = LogicalPlanBuilder::scan_csv(&path, options, None)?
+            .filter(col("c7").lt(col("c12")))?
+            .build()?;
+
+        let plan = plan(&logical_plan)?;
+
+        // c12 is f64, c7 is u8 -> cast c7 to f64
+        let expected = "predicate: BinaryExpr { left: CastExpr { expr: Column { name: \"c7\" }, cast_type: Float64 }, op: Lt, right: Column { name: \"c12\" } }";
+        assert!(format!("{:?}", plan).contains(expected));
+        Ok(())
+    }
+
+    #[test]
+    fn errors() -> Result<()> {
+        let testdata = arrow_testdata_path();
+        let path = format!("{}/csv/aggregate_test_100.csv", testdata);
+        let options = CsvReadOptions::new().schema_infer_max_records(100);
+
+        let bool_expr = col("c1").eq(col("c1"));
+        let cases = vec![
+            // utf8 < u32
+            col("c1").lt(col("c2")),
+            // utf8 AND utf8
+            col("c1").and(col("c1")),
+            // u8 AND u8
+            col("c3").and(col("c3")),
+            // utf8 = u32
+            col("c1").eq(col("c2")),
+            // utf8 = bool
+            col("c1").eq(bool_expr.clone()),
+            // u32 AND bool
+            col("c2").and(bool_expr),
+            // utf8 LIKE u32
+            col("c1").like(col("c2")),
+        ];
+        for case in cases {
+            let logical_plan = LogicalPlanBuilder::scan_csv(&path, options, None)?
+                .project(vec![case.clone()]);
+            if let Ok(_) = logical_plan {
+                return Err(ExecutionError::General(format!(
+                    "Expression {:?} expected to error due to impossible coercion",
+                    case
+                )));
+            };
+        }
+        Ok(())
     }
 }

@@ -470,11 +470,7 @@ fn csv_explain_verbose() {
     assert!(actual.contains("logical_plan"), "Actual: '{}'", actual);
     assert!(actual.contains("physical_plan"), "Actual: '{}'", actual);
     assert!(actual.contains("type_coercion"), "Actual: '{}'", actual);
-    assert!(
-        actual.contains("CAST(#c2 AS Int64) Gt Int64(10)"),
-        "Actual: '{}'",
-        actual
-    );
+    assert!(actual.contains("#c2 Gt Int64(10)"), "Actual: '{}'", actual);
 }
 
 fn aggr_test_schema() -> SchemaRef {
@@ -626,6 +622,13 @@ fn result_str(results: &[RecordBatch]) -> Vec<String> {
 
                         str.push_str(&format!("{:?}", s));
                     }
+                    DataType::Boolean => {
+                        let array =
+                            column.as_any().downcast_ref::<BooleanArray>().unwrap();
+                        let s = array.value(row_index);
+
+                        str.push_str(&format!("{:?}", s));
+                    }
                     _ => str.push_str("???"),
                 }
             }
@@ -651,6 +654,29 @@ fn query_length() -> Result<()> {
     let sql = "SELECT length(c1) FROM test";
     let actual = execute(&mut ctx, sql).join("\n");
     let expected = "0\n1\n2\n3".to_string();
+    assert_eq!(expected, actual);
+    Ok(())
+}
+
+#[test]
+fn csv_query_sum_cast() {
+    let mut ctx = ExecutionContext::new();
+    register_aggregate_csv_by_sql(&mut ctx);
+    // c8 = i32; c9 = i64
+    let sql = "SELECT c8 + c9 FROM aggregate_test_100";
+    // check that the physical and logical schemas are equal
+    execute(&mut ctx, sql);
+}
+
+#[test]
+fn like() -> Result<()> {
+    let mut ctx = ExecutionContext::new();
+    register_aggregate_csv_by_sql(&mut ctx);
+    let sql = "SELECT COUNT(c1) FROM aggregate_test_100 WHERE c13 LIKE '%FB%'";
+    // check that the physical and logical schemas are equal
+    let actual = execute(&mut ctx, sql).join("\n");
+
+    let expected = "1".to_string();
     assert_eq!(expected, actual);
     Ok(())
 }
