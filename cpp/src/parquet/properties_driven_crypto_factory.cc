@@ -188,10 +188,6 @@ PropertiesDrivenCryptoFactory::GetFileEncryptionProperties(
     }
   }
 
-  if (NULL != key_material_store) {
-    key_material_store->SaveMaterial();
-  }
-
   return properties_builder.build();
 }
 

@@ -23,29 +23,12 @@
 namespace parquet {
 namespace encryption {
 
-class FileKeyMaterialStore {
- public:
-  // Initializes key material store for a parquet file.
-  virtual void Initialize(const std::string& parquet_file_path, bool temp_store) = 0;
-
-  virtual void AddKeyMaterial(const std::string& key_id_in_file,
-                              const std::string& key_material) = 0;
-
-  // After key material was added for all keys in the given Parquet file,
-  // save material in persistent store.
-  virtual void SaveMaterial() = 0;
-
-  virtual std::string GetKeyMaterial(const std::string& key_id_in_file) = 0;
-
-  // return set of all key IDs in this store (for the given Parquet file)
-  virtual std::set<std::string> GetKeyIdSet() = 0;
-
-  // Remove key material from persistent store. Used in key rotation.
-  virtual void RemoveMaterial() = 0;
-
-  // Move key material to another store. Used in key rotation.
-  virtual void MoveMaterialTo(FileKeyMaterialStore* target_key_material_store) = 0;
-};
+// Key material can be stored outside the Parquet file, for example in a separate small
+// file in the same folder. This is important for “key rotation”, when MEKs have to be
+// changed (if compromised; or periodically, just in case) - without modifying the Parquet
+// files (often  immutable).
+// TODO: details will be implemented later
+class FileKeyMaterialStore {};
 
 }  // namespace encryption
 }  // namespace parquet

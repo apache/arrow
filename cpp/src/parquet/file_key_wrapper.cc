@@ -28,26 +28,25 @@ namespace encryption {
 FileKeyWrapper::FileKeyWrapper(std::shared_ptr<KmsClientFactory> kms_client_factory,
                                const KmsConnectionConfig& kms_connection_config,
                                std::shared_ptr<FileKeyMaterialStore> key_material_store,
-                               uint64_t cache_entry_lifetime, bool double_wrapping,
-                               bool is_wrap_locally)
+                               uint64_t cache_entry_lifetime_seconds,
+                               bool double_wrapping, bool is_wrap_locally)
     : kms_connection_config_(kms_connection_config),
       key_material_store_(key_material_store),
-      cache_entry_lifetime_(cache_entry_lifetime),
-      double_wrapping_(double_wrapping),
-      key_counter_(0) {
+      cache_entry_lifetime_ms_(1000 * cache_entry_lifetime_seconds),
+      double_wrapping_(double_wrapping) {
   kms_connection_config_.SetDefaultIfEmpty();
-  // Check caches upon each file writing (clean once in cache_entry_lifetime_)
+  // Check caches upon each file writing (clean once in cache_entry_lifetime_ms_)
   KeyToolkit::kms_client_cache_per_token().CheckCacheForExpiredTokens(
-      cache_entry_lifetime_);
+      cache_entry_lifetime_ms_);
   kms_client_ = KeyToolkit::GetKmsClient(kms_client_factory, kms_connection_config,
-                                         is_wrap_locally, cache_entry_lifetime_);
+                                         is_wrap_locally, cache_entry_lifetime_ms_);
 
   if (double_wrapping) {
     KeyToolkit::kek_write_cache_per_token().CheckCacheForExpiredTokens(
-        cache_entry_lifetime_);
+        cache_entry_lifetime_ms_);
     kek_per_master_key_id_ =
         KeyToolkit::kek_write_cache_per_token().GetOrCreateInternalCache(
-            kms_connection_config.key_access_token(), cache_entry_lifetime_);
+            kms_connection_config.key_access_token(), cache_entry_lifetime_ms_);
   }
 }
 
@@ -97,24 +96,9 @@ std::string FileKeyWrapper::GetEncryptionKeyMetadata(const std::string& data_key
   // Internal key material storage: key metadata and key material are the same
   if (store_key_material_internally) {
     return serialized_key_material;
+  } else {
+    throw ParquetException("External key material store is not supported yet.");
   }
-
-  // External key material storage: key metadata is a reference to a key in the material
-  // store
-  if (key_id_in_file.empty()) {
-    if (is_footer_key) {
-      key_id_in_file = KeyMaterial::FOOTER_KEY_ID_IN_FILE;
-    } else {
-      key_id_in_file = KeyMaterial::COLUMN_KEY_ID_IN_FILE_PREFIX + key_counter_;
-      key_counter_++;
-    }
-  }
-  key_material_store_->AddKeyMaterial(key_id_in_file, serialized_key_material);
-
-  std::string serialized_key_metadata =
-      KeyMetadata::CreateSerializedForExternalMaterial(key_id_in_file);
-
-  return serialized_key_metadata;
 }
 
 KeyEncryptionKey FileKeyWrapper::CreateKeyEncryptionKey(

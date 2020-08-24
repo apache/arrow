@@ -39,7 +39,7 @@ class FileKeyWrapper {
   FileKeyWrapper(std::shared_ptr<KmsClientFactory> kms_client_factory,
                  const KmsConnectionConfig& kms_connection_config,
                  std::shared_ptr<FileKeyMaterialStore> key_material_store,
-                 uint64_t cache_entry_lifetime, bool double_wrapping,
+                 uint64_t cache_entry_lifetime_seconds, bool double_wrapping,
                  bool is_wrap_locally);
 
   std::string GetEncryptionKeyMetadata(const std::string& data_key,
@@ -59,9 +59,8 @@ class FileKeyWrapper {
   std::shared_ptr<KmsClient> kms_client_;
   KmsConnectionConfig kms_connection_config_;
   std::shared_ptr<FileKeyMaterialStore> key_material_store_;
-  uint64_t cache_entry_lifetime_;
+  uint64_t cache_entry_lifetime_ms_;
   bool double_wrapping_;
-  uint16_t key_counter_;
 };
 
 }  // namespace encryption
