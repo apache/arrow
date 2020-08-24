@@ -46,7 +46,7 @@ std::string FileKeyUnwrapper::GetKey(const std::string& key_metadata_bytes) cons
   return GetDEKandMasterID(key_material).data_key();
 }
 
-FileKeyUnwrapper::KeyWithMasterID FileKeyUnwrapper::GetDEKandMasterID(
+KeyWithMasterId FileKeyUnwrapper::GetDEKandMasterID(
     const KeyMaterial& key_material) const {
   auto kms_client = GetKmsClientFromConfigOrKeyMaterial(key_material);
 
@@ -74,7 +74,7 @@ FileKeyUnwrapper::KeyWithMasterID FileKeyUnwrapper::GetDEKandMasterID(
     data_key = KeyToolkit::DecryptKeyLocally(encoded_wrapped_dek, kek_bytes, aad);
   }
 
-  return FileKeyUnwrapper::KeyWithMasterID(data_key, master_key_id);
+  return KeyWithMasterId(data_key, master_key_id);
 }
 
 std::shared_ptr<KmsClient> FileKeyUnwrapper::GetKmsClientFromConfigOrKeyMaterial(

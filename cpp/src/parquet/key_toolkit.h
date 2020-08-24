@@ -31,9 +31,9 @@
 namespace parquet {
 namespace encryption {
 
-class KeyWithMasterID {
+class KeyWithMasterId {
  public:
-  KeyWithMasterID(const std::string& key_bytes, const std::string& master_id)
+  KeyWithMasterId(const std::string& key_bytes, const std::string& master_id)
       : key_bytes_(key_bytes), master_id_(master_id) {}
 
   const std::string& data_key() const { return key_bytes_; }

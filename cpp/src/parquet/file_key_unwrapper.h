@@ -36,20 +36,7 @@ class PARQUET_EXPORT FileKeyUnwrapper : public DecryptionKeyRetriever {
   std::string GetKey(const std::string& key_metadata) const override;
 
  private:
-  class KeyWithMasterID {
-   public:
-    KeyWithMasterID(const std::string& key_bytes, const std::string& master_id)
-        : key_bytes_(key_bytes), master_id_(master_id) {}
-
-    const std::string& data_key() const { return key_bytes_; }
-    const std::string& master_id() const { return master_id_; }
-
-   private:
-    std::string key_bytes_;
-    std::string master_id_;
-  };
-
-  KeyWithMasterID GetDEKandMasterID(const KeyMaterial& key_material) const;
+  KeyWithMasterId GetDEKandMasterID(const KeyMaterial& key_material) const;
   std::shared_ptr<KmsClient> GetKmsClientFromConfigOrKeyMaterial(
       const KeyMaterial& key_material) const;
 
