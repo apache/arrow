@@ -111,6 +111,20 @@ LOG_WITH_BASE(float64, float64, float64)
 
 POWER(float64, float64, float64)
 
+// round
+#define ROUND_DECIMAL(TYPE)                                                 \
+  FORCE_INLINE                                                              \
+  gdv_##TYPE round_##TYPE##_int32(gdv_##TYPE number, gdv_int32 out_scale) { \
+    gdv_##TYPE scale_multiplier =                                           \
+        static_cast<gdv_##TYPE>(get_scale_multiplier(out_scale));           \
+    return static_cast<gdv_##TYPE>(                                         \
+        trunc(number * scale_multiplier + ((number > 0) ? 0.5 : -0.5)) /    \
+        scale_multiplier);                                                  \
+  }
+
+ROUND_DECIMAL(float32)
+ROUND_DECIMAL(float64)
+
 FORCE_INLINE
 gdv_int64 truncate_int64_int32(gdv_int64 in, gdv_int32 out_scale) {
   bool overflow = false;
@@ -123,6 +137,34 @@ gdv_int64 truncate_int64_int32(gdv_int64 in, gdv_int32 out_scale) {
   }
   return gandiva::decimalops::ToInt64(
       gandiva::BasicDecimalScalar128(decimal_with_outscale, 38, out_scale), &overflow);
+}
+
+FORCE_INLINE
+gdv_float64 get_scale_multiplier(gdv_int32 scale) {
+  static const gdv_float64 values[] = {1.0,
+                                       10.0,
+                                       100.0,
+                                       1000.0,
+                                       10000.0,
+                                       100000.0,
+                                       1000000.0,
+                                       10000000.0,
+                                       100000000.0,
+                                       1000000000.0,
+                                       10000000000.0,
+                                       100000000000.0,
+                                       1000000000000.0,
+                                       10000000000000.0,
+                                       100000000000000.0,
+                                       1000000000000000.0,
+                                       10000000000000000.0,
+                                       100000000000000000.0,
+                                       1000000000000000000.0,
+                                       10000000000000000000.0};
+  if (scale >= 0 && scale < 20) {
+    return values[scale];
+  }
+  return power_float64_float64(10.0, scale);
 }
 
 }  // extern "C"

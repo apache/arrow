@@ -87,6 +87,9 @@ std::vector<NativeFunction> GetArithmeticFunctionRegistry() {
       UNARY_SAFE_NULL_IF_NULL(bitwise_not, {}, int32, int32),
       UNARY_SAFE_NULL_IF_NULL(bitwise_not, {}, int64, int64),
 
+      BINARY_GENERIC_SAFE_NULL_IF_NULL(round, {}, float32, int32, float32),
+      BINARY_GENERIC_SAFE_NULL_IF_NULL(round, {}, float64, int32, float64),
+
       // compare functions
       BINARY_RELATIONAL_BOOL_FN(equal, ({"eq", "same"})),
       BINARY_RELATIONAL_BOOL_FN(not_equal, {}),
