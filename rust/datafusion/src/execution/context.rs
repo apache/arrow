@@ -28,6 +28,7 @@ use arrow::csv;
 use arrow::datatypes::*;
 use arrow::record_batch::RecordBatch;
 
+use super::physical_plan::udf::ScalarFunctionRegistry;
 use crate::dataframe::DataFrame;
 use crate::datasource::csv::CsvFile;
 use crate::datasource::parquet::ParquetTable;
@@ -106,8 +107,8 @@ impl ExecutionContext {
     pub fn with_config(config: ExecutionConfig) -> Self {
         let mut ctx = Self {
             state: Arc::new(Mutex::new(ExecutionContextState {
-                datasources: Box::new(HashMap::new()),
-                scalar_functions: Box::new(HashMap::new()),
+                datasources: HashMap::new(),
+                scalar_functions: HashMap::new(),
                 config,
             })),
         };
@@ -189,16 +190,7 @@ impl ExecutionContext {
     /// Register a scalar UDF
     pub fn register_udf(&mut self, f: ScalarFunction) {
         let mut state = self.state.lock().expect("failed to lock mutex");
-        state.scalar_functions.insert(f.name.clone(), Box::new(f));
-    }
-
-    /// Get a reference to the registered scalar functions
-    pub fn scalar_functions(&self) -> Box<HashMap<String, Box<ScalarFunction>>> {
-        self.state
-            .lock()
-            .expect("failed to lock mutex")
-            .scalar_functions
-            .clone()
+        state.scalar_functions.insert(f.name.clone(), Arc::new(f));
     }
 
     /// Creates a DataFrame for reading a CSV data source.
@@ -317,22 +309,9 @@ impl ExecutionContext {
 
     /// Optimize the logical plan by applying optimizer rules
     pub fn optimize(&self, plan: &LogicalPlan) -> Result<LogicalPlan> {
-        let rules: Vec<Box<dyn OptimizerRule>> = vec![
-            Box::new(ProjectionPushDown::new()),
-            Box::new(FilterPushDown::new()),
-            Box::new(TypeCoercionRule::new(
-                self.state
-                    .lock()
-                    .expect("failed to lock mutex")
-                    .scalar_functions
-                    .as_ref(),
-            )),
-        ];
-        let mut plan = plan.clone();
-
-        for mut rule in rules {
-            plan = rule.optimize(&plan)?;
-        }
+        let plan = ProjectionPushDown::new().optimize(&plan)?;
+        let plan = FilterPushDown::new().optimize(&plan)?;
+        let plan = TypeCoercionRule::new(self).optimize(&plan)?;
         Ok(plan)
     }
 
@@ -419,6 +398,16 @@ impl ExecutionContext {
     }
 }
 
+impl ScalarFunctionRegistry for ExecutionContext {
+    fn lookup(&self, name: &str) -> Option<Arc<ScalarFunction>> {
+        self.state
+            .lock()
+            .expect("failed to lock mutex")
+            .scalar_functions
+            .lookup(name)
+    }
+}
+
 /// Configuration options for execution context
 #[derive(Clone)]
 pub struct ExecutionConfig {
@@ -469,9 +458,9 @@ impl ExecutionConfig {
 /// Execution context for registering data sources and executing queries
 pub struct ExecutionContextState {
     /// Data sources that are registered with the context
-    pub datasources: Box<HashMap<String, Box<dyn TableProvider + Send + Sync>>>,
+    pub datasources: HashMap<String, Box<dyn TableProvider + Send + Sync>>,
     /// Scalar functions that are registered with the context
-    pub scalar_functions: Box<HashMap<String, Box<ScalarFunction>>>,
+    pub scalar_functions: HashMap<String, Arc<ScalarFunction>>,
     /// Context configuration
     pub config: ExecutionConfig,
 }

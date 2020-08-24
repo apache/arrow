@@ -20,14 +20,11 @@
 //! the operation `c_float + c_int` would be rewritten as `c_float + CAST(c_int AS
 //! float)`. This keeps the runtime query execution code much simpler.
 
-use std::collections::HashMap;
-use std::sync::Arc;
-
 use arrow::datatypes::Schema;
 
 use crate::error::{ExecutionError, Result};
 use crate::execution::physical_plan::{
-    expressions::numerical_coercion, udf::ScalarFunction,
+    expressions::numerical_coercion, udf::ScalarFunctionRegistry,
 };
 use crate::logicalplan::Expr;
 use crate::logicalplan::{LogicalPlan, Operator};
@@ -38,17 +35,21 @@ use utils::optimize_explain;
 /// Optimizer that applies coercion rules to expressions in the logical plan.
 ///
 /// This optimizer does not alter the structure of the plan, it only changes expressions on it.
-pub struct TypeCoercionRule {
-    scalar_functions: Arc<HashMap<String, Box<ScalarFunction>>>,
+pub struct TypeCoercionRule<'a, P>
+where
+    P: ScalarFunctionRegistry,
+{
+    scalar_functions: &'a P,
 }
 
-impl TypeCoercionRule {
+impl<'a, P> TypeCoercionRule<'a, P>
+where
+    P: ScalarFunctionRegistry,
+{
     /// Create a new type coercion optimizer rule using meta-data about registered
     /// scalar functions
-    pub fn new(scalar_functions: &HashMap<String, Box<ScalarFunction>>) -> Self {
-        Self {
-            scalar_functions: Arc::new(scalar_functions.clone()),
-        }
+    pub fn new(scalar_functions: &'a P) -> Self {
+        Self { scalar_functions }
     }
 
     /// Rewrite an expression to include explicit CAST operations when required
@@ -65,7 +66,7 @@ impl TypeCoercionRule {
         match expr {
             Expr::ScalarFunction { name, .. } => {
                 // cast the inputs of scalar functions to the appropriate type where possible
-                match self.scalar_functions.get(name) {
+                match self.scalar_functions.lookup(name) {
                     Some(func_meta) => {
                         for i in 0..expressions.len() {
                             let field = &func_meta.args[i];
@@ -102,7 +103,10 @@ impl TypeCoercionRule {
     }
 }
 
-impl OptimizerRule for TypeCoercionRule {
+impl<'a, P> OptimizerRule for TypeCoercionRule<'a, P>
+where
+    P: ScalarFunctionRegistry,
+{
     fn optimize(&mut self, plan: &LogicalPlan) -> Result<LogicalPlan> {
         match plan {
             LogicalPlan::Explain {
