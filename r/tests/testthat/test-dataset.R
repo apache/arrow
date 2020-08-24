@@ -788,12 +788,12 @@ test_that("Dataset writing: dplyr methods", {
   expect_identical(dir(dst_dir), sort(paste("int", c(1:10, 101:110), sep = "=")))
 
   # select to specify schema
-  skip("TODO: select to specify schema")
-  ds %>% group_by(int) %>% select(lgl, chr) %>% write_dataset(dst_dir, format = "feather")
-  new_ds <- open_dataset(dst_dir, format = "feather")
+  dst_dir2 <- tempfile()
+  ds %>% group_by(int) %>% select(lgl, chr) %>% write_dataset(dst_dir2, format = "feather")
+  new_ds <- open_dataset(dst_dir2, format = "feather")
 
   expect_equivalent(
-    collect(new_ds),
+    collect(new_ds) %>% arrange(int),
     rbind(df1[c("lgl", "chr", "int")], df2[c("lgl", "chr", "int")])
   )
 })
@@ -875,6 +875,10 @@ test_that("Dataset writing: unsupported features/input validation", {
   expect_error(
     filter(ds, int == 4) %>% write_dataset(ds),
     "Writing a filtered dataset is not yet supported"
+  )
+  expect_error(
+    select(ds, integer = int) %>% write_dataset(ds),
+    "Renaming columns when writing a dataset is not yet supported"
   )
 
   expect_error(

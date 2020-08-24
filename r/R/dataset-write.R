@@ -38,18 +38,25 @@
 write_dataset <- function(dataset,
                           path,
                           format = dataset$format$type,
+                          schema = dataset$schema,
                           partitioning = dplyr::group_vars(dataset),
                           hive_style = TRUE,
                           ...) {
   if (inherits(dataset, "arrow_dplyr_query")) {
     force(partitioning) # get the group_vars before we drop the object
-    # TODO: Write a filtered/projected dataset
+    # Check for a filter
     if (!isTRUE(dataset$filtered_rows)) {
+      # TODO:
       stop("Writing a filtered dataset is not yet supported", call. = FALSE)
     }
+    # Check for a select
     if (!identical(dataset$selected_columns, set_names(names(dataset$.data)))) {
-      # TODO: actually, we can do this?
-      stop("TODO", call. = FALSE)
+      # We can select a subset of columns but we can't rename them
+      if (!all(dataset$selected_columns == names(dataset$selected_columns))) {
+        stop("Renaming columns when writing a dataset is not yet supported", call. = FALSE)
+      }
+      dataset <- ensure_group_vars(dataset)
+      schema <- dataset$.data$schema[dataset$selected_columns]
     }
     dataset <- dataset$.data
   }
@@ -80,5 +87,5 @@ write_dataset <- function(dataset,
       partitioning <- DirectoryPartitioning$create(partition_schema)
     }
   }
-  dataset$write(path, format = format, partitioning = partitioning, ...)
+  dataset$write(path, format = format, partitioning = partitioning, schema = schema, ...)
 }
