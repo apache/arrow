@@ -21,14 +21,16 @@ language: generic
 addons:
   homebrew:
     packages:
-      - aws-sdk-cpp
       - automake
+      - aws-sdk-cpp
+      - bison
       - boost
       - brotli
       - c-ares
       - ccache
       - cmake
       - flatbuffers
+      - flex
       - git
       - glog
       - grpc
@@ -44,8 +46,6 @@ addons:
       - thrift
       - wget
       - zstd
-      - bison
-      - flex
     update: true
 
 # don't build twice
