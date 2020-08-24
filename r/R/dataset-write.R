@@ -53,10 +53,12 @@ write_dataset <- function(dataset,
     }
     dataset <- dataset$.data
   }
+  if (inherits(dataset, c("data.frame", "RecordBatch", "Table"))) {
+    force(partitioning) # get the group_vars before we replace the object
+    dataset <- InMemoryDataset$create(dataset)
+  }
   if (!inherits(dataset, "Dataset")) {
-    stop("'dataset' must be a Dataset", call. = FALSE)
-    # TODO: This does not exist yet (in the R bindings at least)
-    # dataset <- InMemoryDataset$create(dataset)
+    stop("'dataset' must be a Dataset, not ", class(dataset)[1], call. = FALSE)
   }
 
   if (!inherits(format, "FileFormat")) {

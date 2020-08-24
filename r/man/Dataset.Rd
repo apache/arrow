@@ -4,6 +4,7 @@
 \alias{Dataset}
 \alias{FileSystemDataset}
 \alias{UnionDataset}
+\alias{InMemoryDataset}
 \alias{DatasetFactory}
 \alias{FileSystemDatasetFactory}
 \title{Multi-file datasets}

@@ -368,6 +368,22 @@ test_that("Creating UnionDataset", {
   expect_error(c(ds1, 42), "'x' must be a string or a list of DatasetFactory")
 })
 
+test_that("InMemoryDataset", {
+  ds <- InMemoryDataset$create(rbind(df1, df2))
+  expect_is(ds, "InMemoryDataset")
+  expect_equivalent(
+    ds %>%
+      select(chr, dbl) %>%
+      filter(dbl > 7 & dbl < 53L) %>%
+      collect() %>%
+      arrange(dbl),
+    rbind(
+      df1[8:10, c("chr", "dbl")],
+      df2[1:2, c("chr", "dbl")]
+    )
+  )
+})
+
 test_that("map_batches", {
   ds <- open_dataset(dataset_dir, partitioning = "part")
   expect_equivalent(
@@ -798,6 +814,56 @@ test_that("Dataset writing: no partitioning", {
   write_dataset(ds, dst_dir, format = "feather", partitioning = NULL)
   expect_true(dir.exists(dst_dir))
   expect_true(length(dir(dst_dir)) > 1)
+})
+
+test_that("Dataset writing: from data.frame", {
+  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
+  dst_dir <- tempfile()
+  stacked <- rbind(df1, df2)
+  stacked %>%
+    group_by(int) %>%
+    write_dataset(dst_dir, format = "feather")
+  expect_true(dir.exists(dst_dir))
+  expect_identical(dir(dst_dir), sort(paste("int", c(1:10, 101:110), sep = "=")))
+
+  new_ds <- open_dataset(dst_dir, format = "feather")
+
+  expect_equivalent(
+    new_ds %>%
+      select(string = chr, integer = int) %>%
+      filter(integer > 6 & integer < 11) %>%
+      collect() %>%
+      summarize(mean = mean(integer)),
+    df1 %>%
+      select(string = chr, integer = int) %>%
+      filter(integer > 6) %>%
+      summarize(mean = mean(integer))
+  )
+})
+
+test_that("Dataset writing: from RecordBatch", {
+  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
+  dst_dir <- tempfile()
+  stacked <- record_batch(rbind(df1, df2))
+  stacked %>%
+    group_by(int) %>%
+    write_dataset(dst_dir, format = "feather")
+  expect_true(dir.exists(dst_dir))
+  expect_identical(dir(dst_dir), sort(paste("int", c(1:10, 101:110), sep = "=")))
+
+  new_ds <- open_dataset(dst_dir, format = "feather")
+
+  expect_equivalent(
+    new_ds %>%
+      select(string = chr, integer = int) %>%
+      filter(integer > 6 & integer < 11) %>%
+      collect() %>%
+      summarize(mean = mean(integer)),
+    df1 %>%
+      select(string = chr, integer = int) %>%
+      filter(integer > 6) %>%
+      summarize(mean = mean(integer))
+  )
 })
 
 test_that("Dataset writing: unsupported features/input validation", {

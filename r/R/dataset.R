@@ -261,6 +261,17 @@ UnionDataset <- R6Class("UnionDataset", inherit = Dataset,
   )
 )
 
+#' @name InMemoryDataset
+#' @rdname Dataset
+#' @export
+InMemoryDataset <- R6Class("InMemoryDataset", inherit = Dataset)
+InMemoryDataset$create <- function(x) {
+  if (!inherits(x, "Table")) {
+    x <- Table$create(x)
+  }
+  shared_ptr(InMemoryDataset, dataset___InMemoryDataset__create(x))
+}
+
 
 #' @export
 names.Dataset <- function(x) names(x$schema)
