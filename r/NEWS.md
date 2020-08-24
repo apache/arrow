@@ -35,6 +35,10 @@
 
 * S3 support is now enabled in binary macOS and Windows (Rtools40 only, i.e. R >= 4.0) packages
 
+## Other improvements
+
+* `arrow` now depends on [`cpp11`](https://cpp11.r-lib.org/), which brings more robust UTF-8 handling and faster compilation
+
 # arrow 1.0.1
 
 ## Bug fixes
