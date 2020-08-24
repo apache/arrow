@@ -88,7 +88,7 @@ impl Block {
         self.metaDataLength_.from_little_endian()
     }
     /// Length of the data (this is aligned so there can be a gap between this and
-    /// the metatdata).
+    /// the metadata).
     pub fn bodyLength<'a>(&'a self) -> i64 {
         self.bodyLength_.from_little_endian()
     }
