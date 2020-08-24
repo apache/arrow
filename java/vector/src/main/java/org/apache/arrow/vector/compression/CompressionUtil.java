@@ -35,14 +35,12 @@ public class CompressionUtil {
    */
   public static ArrowBodyCompression createBodyCompression(CompressionCodec codec) {
     switch (codec.getCodecName()) {
-      case "default":
-        return NoCompressionCodec.DEFAULT_BODY_COMPRESSION;
       case "LZ4_FRAME":
         return new ArrowBodyCompression(CompressionType.LZ4_FRAME, BodyCompressionMethod.BUFFER);
       case "ZSTD":
         return new ArrowBodyCompression(CompressionType.ZSTD, BodyCompressionMethod.BUFFER);
       default:
-        throw new IllegalArgumentException("Unknown codec: " + codec.getCodecName());
+        return null;
     }
   }
 

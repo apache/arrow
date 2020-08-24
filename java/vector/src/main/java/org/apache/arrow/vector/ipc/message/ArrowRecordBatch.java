@@ -27,8 +27,6 @@ import org.apache.arrow.flatbuf.RecordBatch;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.DataSizeRoundingUtil;
-import org.apache.arrow.util.Preconditions;
-import org.apache.arrow.vector.compression.NoCompressionCodec;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -61,7 +59,7 @@ public class ArrowRecordBatch implements ArrowMessage {
 
   public ArrowRecordBatch(
       int length, List<ArrowFieldNode> nodes, List<ArrowBuf> buffers) {
-    this(length, nodes, buffers, NoCompressionCodec.DEFAULT_BODY_COMPRESSION, true);
+    this(length, nodes, buffers, null, true);
   }
 
   public ArrowRecordBatch(
@@ -86,7 +84,6 @@ public class ArrowRecordBatch implements ArrowMessage {
     this.nodes = nodes;
     this.buffers = buffers;
     this.bodyCompression = bodyCompression;
-    Preconditions.checkArgument(bodyCompression != null, "body compression cannot be null");
     List<ArrowBuffer> arrowBuffers = new ArrayList<>(buffers.size());
     long offset = 0;
     for (ArrowBuf arrowBuf : buffers) {
@@ -115,7 +112,6 @@ public class ArrowRecordBatch implements ArrowMessage {
     this.nodes = nodes;
     this.buffers = buffers;
     this.bodyCompression = bodyCompression;
-    Preconditions.checkArgument(bodyCompression != null, "body compression cannot be null");
     this.closed = false;
     List<ArrowBuffer> arrowBuffers = new ArrayList<>();
     long offset = 0;
@@ -194,12 +190,17 @@ public class ArrowRecordBatch implements ArrowMessage {
     int nodesOffset = FBSerializables.writeAllStructsToVector(builder, nodes);
     RecordBatch.startBuffersVector(builder, buffers.size());
     int buffersOffset = FBSerializables.writeAllStructsToVector(builder, buffersLayout);
-    int compressOffset = bodyCompression.writeTo(builder);
+    int compressOffset = 0;
+    if (bodyCompression != null) {
+      compressOffset = bodyCompression.writeTo(builder);
+    }
     RecordBatch.startRecordBatch(builder);
     RecordBatch.addLength(builder, length);
     RecordBatch.addNodes(builder, nodesOffset);
     RecordBatch.addBuffers(builder, buffersOffset);
-    RecordBatch.addCompression(builder, compressOffset);
+    if (bodyCompression != null) {
+      RecordBatch.addCompression(builder, compressOffset);
+    }
     return RecordBatch.endRecordBatch(builder);
   }
 

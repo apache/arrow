@@ -34,7 +34,6 @@ import org.apache.arrow.flatbuf.RecordBatch;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.Preconditions;
-import org.apache.arrow.vector.compression.NoCompressionCodec;
 import org.apache.arrow.vector.ipc.ReadChannel;
 import org.apache.arrow.vector.ipc.WriteChannel;
 import org.apache.arrow.vector.types.pojo.Schema;
@@ -410,8 +409,7 @@ public class MessageSerializer {
       buffers.add(vectorBuffer);
     }
 
-    ArrowBodyCompression bodyCompression = recordBatchFB.compression() == null ?
-        NoCompressionCodec.DEFAULT_BODY_COMPRESSION
+    ArrowBodyCompression bodyCompression = recordBatchFB.compression() == null ? null
         : new ArrowBodyCompression(recordBatchFB.compression().codec(), recordBatchFB.compression().method());
 
     if ((int) recordBatchFB.length() != recordBatchFB.length()) {
