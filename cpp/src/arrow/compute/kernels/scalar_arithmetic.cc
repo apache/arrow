@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <cmath>
+
 #include "arrow/compute/kernels/common.h"
 #include "arrow/util/int_util_internal.h"
 #include "arrow/util/macros.h"
@@ -191,8 +193,15 @@ struct Divide {
   template <typename T, typename Arg0, typename Arg1>
   static enable_if_floating_point<T> Call(KernelContext* ctx, Arg0 left, Arg1 right) {
     if (ARROW_PREDICT_FALSE(right == 0)) {
-      ctx->SetStatus(Status::Invalid("divide by zero"));
-      return 0;
+      if (left == 0) {
+        return static_cast<T>(NAN);
+      } else {
+        if (std::signbit(left) == std::signbit(right)) {
+          return std::numeric_limits<T>::infinity();
+        } else {
+          return -std::numeric_limits<T>::infinity();
+        }
+      }
     }
     return left / right;
   }

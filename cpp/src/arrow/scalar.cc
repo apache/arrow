@@ -40,6 +40,10 @@ namespace arrow {
 using internal::checked_cast;
 using internal::checked_pointer_cast;
 
+bool Scalar::Equals(const Scalar& other, const EqualOptions& options) const {
+  return ScalarEquals(*this, other, options);
+}
+
 bool Scalar::Equals(const Scalar& other) const { return ScalarEquals(*this, other); }
 
 struct ScalarHashImpl {

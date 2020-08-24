@@ -167,9 +167,14 @@ ARROW_TESTING_EXPORT void AssertArraysEqual(const Array& expected, const Array& 
 ARROW_TESTING_EXPORT void AssertArraysApproxEqual(const Array& expected,
                                                   const Array& actual,
                                                   bool verbose = false);
+ARROW_TESTING_EXPORT void AssertArraysApproxEqual(const Array& expected,
+                                                  const Array& actual, bool verbose,
+                                                  const EqualOptions& option);
 // Returns true when values are both null
 ARROW_TESTING_EXPORT void AssertScalarsEqual(const Scalar& expected, const Scalar& actual,
                                              bool verbose = false);
+ARROW_TESTING_EXPORT void AssertScalarsEqual(const Scalar& expected, const Scalar& actual,
+                                             bool verbose, const EqualOptions& options);
 ARROW_TESTING_EXPORT void AssertBatchesEqual(const RecordBatch& expected,
                                              const RecordBatch& actual,
                                              bool check_metadata = false);

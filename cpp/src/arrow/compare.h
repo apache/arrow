@@ -113,4 +113,11 @@ bool ARROW_EXPORT TypeEquals(const DataType& left, const DataType& right,
 /// \param[in] right a Scalar
 bool ARROW_EXPORT ScalarEquals(const Scalar& left, const Scalar& right);
 
+/// Returns true if scalars are equal
+/// \param[in] left a Scalar
+/// \param[in] right a Scalar
+/// \param[in] options comparison options
+bool ARROW_EXPORT ScalarEquals(const Scalar& left, const Scalar& right,
+                               const EqualOptions& options);
+
 }  // namespace arrow

@@ -144,7 +144,8 @@ class TestBinaryArithmetic : public TestBase {
       const auto expected_scalar = *expected->GetScalar(i);
       ASSERT_OK_AND_ASSIGN(
           actual, func(*left->GetScalar(i), *right->GetScalar(i), options_, nullptr));
-      AssertScalarsEqual(*expected_scalar, *actual.scalar(), /*verbose=*/true);
+      AssertScalarsEqual(*expected_scalar, *actual.scalar(), /*verbose=*/true,
+                         equal_options_);
     }
   }
 
@@ -165,12 +166,17 @@ class TestBinaryArithmetic : public TestBase {
   void ValidateAndAssertApproxEqual(const std::shared_ptr<Array>& actual,
                                     const std::shared_ptr<Array>& expected) {
     ASSERT_OK(actual->ValidateFull());
-    AssertArraysApproxEqual(*expected, *actual, /*verbose=*/true);
+    AssertArraysApproxEqual(*expected, *actual, /*verbose=*/true, equal_options_);
   }
 
   void SetOverflowCheck(bool value = true) { options_.check_overflow = value; }
 
+  void SetNansEqual(bool value = false) {
+    this->equal_options_ = equal_options_.nans_equal(value);
+  }
+
   ArithmeticOptions options_ = ArithmeticOptions();
+  EqualOptions equal_options_ = EqualOptions();
 };
 
 template <typename... Elements>
@@ -557,10 +563,17 @@ TYPED_TEST(TestBinaryArithmeticIntegral, DivideByZero) {
 }
 
 TYPED_TEST(TestBinaryArithmeticFloating, DivideByZero) {
-  for (auto check_overflow : {false, true}) {
-    this->SetOverflowCheck(check_overflow);
-    this->AssertBinopRaises(Divide, "[3.0, 2.0, 6.0]", "[1.0, 1.0, 0]", "divide by zero");
-  }
+  this->SetOverflowCheck(true);
+  this->AssertBinopRaises(Divide, "[3.0, 2.0, 6.0]", "[1.0, 1.0, 0.0]", "divide by zero");
+  this->AssertBinopRaises(Divide, "[3.0, 2.0, 0.0]", "[1.0, 1.0, 0.0]", "divide by zero");
+  this->AssertBinopRaises(Divide, "[3.0, 2.0, -6.0]", "[1.0, 1.0, 0.0]",
+                          "divide by zero");
+
+  this->SetOverflowCheck(false);
+  this->SetNansEqual(true);
+  this->AssertBinop(Divide, "[3.0, 2.0, 6.0]", "[1.0, 1.0, 0.0]", "[3.0, 2.0, Inf]");
+  this->AssertBinop(Divide, "[3.0, 2.0, 0.0]", "[1.0, 1.0, 0.0]", "[3.0, 2.0, NaN]");
+  this->AssertBinop(Divide, "[3.0, 2.0, -6.0]", "[1.0, 1.0, 0.0]", "[3.0, 2.0, -Inf]");
 }
 
 TYPED_TEST(TestBinaryArithmeticSigned, DivideOverflowRaises) {

@@ -862,7 +862,11 @@ class TypeEqualsVisitor {
 
 class ScalarEqualsVisitor {
  public:
-  explicit ScalarEqualsVisitor(const Scalar& right) : right_(right), result_(false) {}
+  explicit ScalarEqualsVisitor(const Scalar& right)
+      : right_(right), result_(false), options_(EqualOptions()) {}
+
+  explicit ScalarEqualsVisitor(const Scalar& right, const EqualOptions& opts)
+      : right_(right), result_(false), options_(opts) {}
 
   Status Visit(const NullScalar& left) {
     result_ = true;
@@ -876,8 +880,25 @@ class ScalarEqualsVisitor {
   }
 
   template <typename T>
+  typename std::enable_if<std::is_base_of<FloatScalar, T>::value ||
+                              std::is_base_of<DoubleScalar, T>::value,
+                          Status>::type
+  Visit(const T& left_) {
+    const auto& right = checked_cast<const T&>(right_);
+    if (options_.nans_equal()) {
+      result_ = right.value == left_.value ||
+                (std::isnan(right.value) && std::isnan(left_.value));
+    } else {
+      result_ = right.value == left_.value;
+    }
+    return Status::OK();
+  }
+
+  template <typename T>
   typename std::enable_if<
-      std::is_base_of<internal::PrimitiveScalar<typename T::TypeClass>, T>::value ||
+      (std::is_base_of<internal::PrimitiveScalar<typename T::TypeClass>, T>::value &&
+       !std::is_base_of<FloatScalar, T>::value &&
+       !std::is_base_of<DoubleScalar, T>::value) ||
           std::is_base_of<TemporalScalar<typename T::TypeClass>, T>::value,
       Status>::type
   Visit(const T& left_) {
@@ -968,6 +989,7 @@ class ScalarEqualsVisitor {
  protected:
   const Scalar& right_;
   bool result_;
+  EqualOptions options_;
 };
 
 Status PrintDiff(const Array& left, const Array& right, std::ostream* os) {
@@ -1386,7 +1408,7 @@ bool TypeEquals(const DataType& left, const DataType& right, bool check_metadata
   }
 }
 
-bool ScalarEquals(const Scalar& left, const Scalar& right) {
+bool ScalarEquals(const Scalar& left, const Scalar& right, const EqualOptions& options) {
   bool are_equal = false;
   if (&left == &right) {
     are_equal = true;
@@ -1395,12 +1417,17 @@ bool ScalarEquals(const Scalar& left, const Scalar& right) {
   } else if (left.is_valid != right.is_valid) {
     are_equal = false;
   } else {
-    ScalarEqualsVisitor visitor(right);
+    ScalarEqualsVisitor visitor(right, options);
     auto error = VisitScalarInline(left, &visitor);
     DCHECK_OK(error);
     are_equal = visitor.result();
   }
   return are_equal;
+}
+
+bool ScalarEquals(const Scalar& left, const Scalar& right) {
+  const EqualOptions options;
+  return ScalarEquals(left, right, options);
 }
 
 }  // namespace arrow
