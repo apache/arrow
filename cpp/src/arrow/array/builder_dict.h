@@ -58,16 +58,6 @@ struct DictionaryScalar<StringType> {
 };
 
 template <>
-struct DictionaryScalar<LargeBinaryType> {
-  using type = util::string_view;
-};
-
-template <>
-struct DictionaryScalar<LargeStringType> {
-  using type = util::string_view;
-};
-
-template <>
 struct DictionaryScalar<FixedSizeBinaryType> {
   using type = util::string_view;
 };

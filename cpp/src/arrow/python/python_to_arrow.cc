@@ -934,7 +934,7 @@ class BinaryLikeDictionaryConverter : public DictionaryConverter<ValueType, null
  public:
   Status AppendValue(PyObject* obj) override {
     ARROW_ASSIGN_OR_RAISE(string_view_, ValueConverter<ValueType>::FromPython(obj));
-    DCHECK_GE(string_view_.size, 0);
+    // DCHECK_GE(string_view_.size, 0);
     RETURN_NOT_OK(this->typed_builder_->Append(string_view_.bytes,
                                                static_cast<int32_t>(string_view_.size)));
     return Status::OK();
@@ -946,7 +946,25 @@ class BinaryLikeDictionaryConverter : public DictionaryConverter<ValueType, null
   PyBytesView string_view_;
 };
 
-// create one dictionary builder for binary like value types
+template <NullCoding null_coding>
+class FixedSizeBinaryDictionaryConverter
+    : public DictionaryConverter<FixedSizeBinaryType, null_coding> {
+ public:
+  explicit FixedSizeBinaryDictionaryConverter(int32_t byte_width)
+      : byte_width_(byte_width) {}
+
+  Status AppendValue(PyObject* obj) override {
+    ARROW_ASSIGN_OR_RAISE(
+        string_view_, ValueConverter<FixedSizeBinaryType>::FromPython(obj, byte_width_));
+    RETURN_NOT_OK(this->typed_builder_->Append(string_view_.bytes,
+                                               static_cast<int32_t>(string_view_.size)));
+    return Status::OK();
+  }
+
+ protected:
+  int32_t byte_width_;
+  PyBytesView string_view_;
+};
 
 // ----------------------------------------------------------------------
 // Convert maps
@@ -1203,8 +1221,11 @@ Status GetDictionaryConverter(const std::shared_ptr<DataType>& type,
     DICTIONARY_PRIMITIVE(DATE64, Date64Type);
     DICTIONARY_BINARY_LIKE(BINARY, BinaryType);
     DICTIONARY_BINARY_LIKE(STRING, StringType);
-    // DICTIONARY_BINARY_LIKE(LARGE_BINARY, LargeBinaryType);
-    // DICTIONARY_BINARY_LIKE(LARGE_STRING, LargeStringType);
+    case Type::FIXED_SIZE_BINARY:
+      *out = std::unique_ptr<SeqConverter>(
+          new FixedSizeBinaryDictionaryConverter<null_coding>(
+              checked_cast<const FixedSizeBinaryType&>(*value_type).byte_width()));
+      break;
     default:
       return Status::NotImplemented("Sequence converter for type ", type->ToString(),
                                     " not implemented");

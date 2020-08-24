@@ -660,22 +660,6 @@ def test_struct_from_arrays():
         pa.StructArray.from_arrays([a, b, c], fields=[fa2, fb, fc])
 
 
-def test_dictionary_array_from_python_sequence():
-    typ = pa.dictionary(pa.int8(), pa.int64())
-    a = pa.array([123, 123, 123, 123, 123], type=typ)
-    assert isinstance(a.type, pa.DictionaryType)
-
-    for value_type in [
-        pa.binary(),
-        pa.string(),
-        # pa.large_binary(),
-        # pa.large_string()
-    ]:
-        typ = pa.dictionary(pa.int8(), value_type)
-        b = pa.array(["aaa", "bbb"], type=typ)
-        assert isinstance(b.type, pa.DictionaryType)
-
-
 def test_dictionary_from_numpy():
     indices = np.repeat([0, 1, 2], 2)
     dictionary = np.array(['foo', 'bar', 'baz'], dtype=object)
