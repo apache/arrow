@@ -783,18 +783,23 @@ test_that("Dataset writing: dplyr methods", {
   ds <- open_dataset(hive_dir)
   dst_dir <- tempfile()
   # Specify partition vars by group_by
-  ds %>% group_by(int) %>% write_dataset(dst_dir, format = "feather")
+  ds %>%
+    group_by(int) %>%
+    write_dataset(dst_dir, format = "feather")
   expect_true(dir.exists(dst_dir))
   expect_identical(dir(dst_dir), sort(paste("int", c(1:10, 101:110), sep = "=")))
 
   # select to specify schema
   dst_dir2 <- tempfile()
-  ds %>% group_by(int) %>% select(lgl, chr) %>% write_dataset(dst_dir2, format = "feather")
+  ds %>%
+    group_by(int) %>%
+    select(chr, dbl) %>%
+    write_dataset(dst_dir2, format = "feather")
   new_ds <- open_dataset(dst_dir2, format = "feather")
 
   expect_equivalent(
     collect(new_ds) %>% arrange(int),
-    rbind(df1[c("lgl", "chr", "int")], df2[c("lgl", "chr", "int")])
+    rbind(df1[c("chr", "dbl", "int")], df2[c("chr", "dbl", "int")])
   )
 })
 

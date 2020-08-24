@@ -21,12 +21,17 @@
 #' binary storage formats, and by specifying relevant partitioning, you can
 #' make it much faster to read and query.
 #'
-#' @param dataset [Dataset] or `arrow_dplyr_query`. If a `arrow_dplyr_query`,
-#' note that `select()` or `filter()` queries are not currently supported.
+#' @param dataset [Dataset], [RecordBatch], [Table], `arrow_dplyr_query`, or
+#' `data.frame`. If an `arrow_dplyr_query` or `grouped_df`,
+#' `schema` and `partitioning` will be taken from the result of any `select()`
+#' and `group_by()` operations done on the dataset. Note that `filter()` queries
+#' are not currently supported, and `select`-ed columns may not be renamed.
 #' @param path string path to a directory to write to (directory will be
 #' created if it does not exist)
 #' @param format file format to write the dataset to. Currently only "feather"
 #' (aka "ipc") is supported.
+#' @param schema [Schema] containing a subset of columns, possibly reordered,
+#' in `dataset`. Default is `dataset$schema`, i.e. all columns.
 #' @param partitioning `Partitioning` or a character vector of columns to
 #' use as partition keys (to be written as path segments). Default is to
 #' use the current `group_by()` columns.
@@ -52,7 +57,7 @@ write_dataset <- function(dataset,
     # Check for a select
     if (!identical(dataset$selected_columns, set_names(names(dataset$.data)))) {
       # We can select a subset of columns but we can't rename them
-      if (!all(dataset$selected_columns == names(dataset$selected_columns))) {
+      if (!setequal(dataset$selected_columns, names(dataset$selected_columns))) {
         stop("Renaming columns when writing a dataset is not yet supported", call. = FALSE)
       }
       dataset <- ensure_group_vars(dataset)
