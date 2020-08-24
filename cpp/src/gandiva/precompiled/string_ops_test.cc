@@ -991,7 +991,8 @@ TEST(TestStringOps, TestSplit) {
               ::testing::HasSubstr("Not enough delimiters to split string"));
   ctx.Reset();
 
-  out_str = split_utf8_utf8_int32(ctx_ptr, "first second third", 18, " ", 1, -1, &out_len);
+  out_str =
+      split_utf8_utf8_int32(ctx_ptr, "first second third", 18, " ", 1, -1, &out_len);
   EXPECT_THAT(ctx.get_error(),
               ::testing::HasSubstr("Substring index must be at least 0"));
   ctx.Reset();
