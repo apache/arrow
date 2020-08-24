@@ -103,6 +103,22 @@ TEST(TestExtendedMathOps, TestRound) {
   EXPECT_EQ(round_int64_int32(345353425343, -12), 0);
 }
 
+TEST(TestExtendedMathOps, TestRoundDecimal) {
+  EXPECT_FLOAT_EQ(round_float32_int32(1234.789, 2), 1234.79);
+  EXPECT_FLOAT_EQ(round_float32_int32(1234.12345, -3), 1000);
+  EXPECT_FLOAT_EQ(round_float32_int32(-1234.4567, 3), -1234.457);
+  EXPECT_FLOAT_EQ(round_float32_int32(-1234.4567, -3), -1000);
+  EXPECT_FLOAT_EQ(round_float32_int32(1234.4567, 0), 1234);
+
+  VerifyFuzzyEquals(round_float64_int32(1234.789, 2), 1234.79);
+  VerifyFuzzyEquals(round_float64_int32(1234.12345, -3), 1000);
+  VerifyFuzzyEquals(round_float64_int32(-1234.4567, 3), -1234.457);
+  VerifyFuzzyEquals(round_float64_int32(-1234.4567, -3), -1000);
+  VerifyFuzzyEquals(round_float64_int32(1234.4567, 0), 1234);
+  VerifyFuzzyEquals(round_float64_int32((double)INT_MAX + 1, 0), (double)INT_MAX + 1);
+  VerifyFuzzyEquals(round_float64_int32((double)INT_MIN - 1, 0), (double)INT_MIN - 1);
+}
+
 TEST(TestExtendedMathOps, TestTruncate) {
   EXPECT_EQ(truncate_int64_int32(1234, 4), 1234);
   EXPECT_EQ(truncate_int64_int32(-1234, 4), -1234);

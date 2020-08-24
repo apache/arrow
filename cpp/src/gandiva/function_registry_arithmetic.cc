@@ -90,6 +90,8 @@ std::vector<NativeFunction> GetArithmeticFunctionRegistry() {
       // round functions
       BINARY_GENERIC_SAFE_NULL_IF_NULL(round, {}, int32, int32, int32),
       BINARY_GENERIC_SAFE_NULL_IF_NULL(round, {}, int64, int32, int64),
+      BINARY_GENERIC_SAFE_NULL_IF_NULL(round, {}, float32, int32, float32),
+      BINARY_GENERIC_SAFE_NULL_IF_NULL(round, {}, float64, int32, float64),
 
       // compare functions
       BINARY_RELATIONAL_BOOL_FN(equal, ({"eq", "same"})),
