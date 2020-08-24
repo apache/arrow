@@ -385,12 +385,14 @@ Result<ScanTaskIterator> ParquetFileFormat::ScanFile(std::shared_ptr<ScanOptions
                         GetReader(fragment->source(), options.get(), context.get()));
 
   if (!parquet_fragment->HasCompleteMetadata()) {
-    // row groups were not already filtered; do this now
-    RETURN_NOT_OK(parquet_fragment->EnsureCompleteMetadata(reader.get()));
-    ARROW_ASSIGN_OR_RAISE(row_groups,
-                          parquet_fragment->FilterRowGroups(*options->filter));
-    if (row_groups.empty()) {
-      return MakeEmptyIterator<std::shared_ptr<ScanTask>>();
+    // row groups were not already filtered; do this now (if there is a filter)
+    if (!options->filter->Equals(true)) {
+      RETURN_NOT_OK(parquet_fragment->EnsureCompleteMetadata(reader.get()));
+      ARROW_ASSIGN_OR_RAISE(row_groups,
+                            parquet_fragment->FilterRowGroups(*options->filter));
+      if (row_groups.empty()) {
+        return MakeEmptyIterator<std::shared_ptr<ScanTask>>();
+      }
     }
   }
 
