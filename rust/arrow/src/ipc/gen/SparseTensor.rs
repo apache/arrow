@@ -89,10 +89,11 @@ pub enum SparseTensorIndex {
     NONE = 0,
     SparseTensorIndexCOO = 1,
     SparseMatrixIndexCSX = 2,
+    SparseTensorIndexCSF = 3,
 }
 
 const ENUM_MIN_SPARSE_TENSOR_INDEX: u8 = 0;
-const ENUM_MAX_SPARSE_TENSOR_INDEX: u8 = 2;
+const ENUM_MAX_SPARSE_TENSOR_INDEX: u8 = 3;
 
 impl<'a> flatbuffers::Follow<'a> for SparseTensorIndex {
     type Inner = Self;
@@ -126,15 +127,20 @@ impl flatbuffers::Push for SparseTensorIndex {
 }
 
 #[allow(non_camel_case_types)]
-const ENUM_VALUES_SPARSE_TENSOR_INDEX: [SparseTensorIndex; 3] = [
+const ENUM_VALUES_SPARSE_TENSOR_INDEX: [SparseTensorIndex; 4] = [
     SparseTensorIndex::NONE,
     SparseTensorIndex::SparseTensorIndexCOO,
     SparseTensorIndex::SparseMatrixIndexCSX,
+    SparseTensorIndex::SparseTensorIndexCSF,
 ];
 
 #[allow(non_camel_case_types)]
-const ENUM_NAMES_SPARSE_TENSOR_INDEX: [&'static str; 3] =
-    ["NONE", "SparseTensorIndexCOO", "SparseMatrixIndexCSX"];
+const ENUM_NAMES_SPARSE_TENSOR_INDEX: [&'static str; 4] = [
+    "NONE",
+    "SparseTensorIndexCOO",
+    "SparseMatrixIndexCSX",
+    "SparseTensorIndexCSF",
+];
 
 pub fn enum_name_sparse_tensor_index(e: SparseTensorIndex) -> &'static str {
     let index = e as u8;
@@ -218,13 +224,16 @@ impl<'a> SparseTensorIndexCOO<'a> {
 
     /// The type of values in indicesBuffer
     #[inline]
-    pub fn indicesType(&self) -> Option<Int<'a>> {
-        self._tab.get::<flatbuffers::ForwardsUOffset<Int<'a>>>(
-            SparseTensorIndexCOO::VT_INDICESTYPE,
-            None,
-        )
+    pub fn indicesType(&self) -> Int<'a> {
+        self._tab
+            .get::<flatbuffers::ForwardsUOffset<Int<'a>>>(
+                SparseTensorIndexCOO::VT_INDICESTYPE,
+                None,
+            )
+            .unwrap()
     }
     /// Non-negative byte offsets to advance one value cell along each dimension
+    /// If omitted, default to row-major order (C-like).
     #[inline]
     pub fn indicesStrides(&self) -> Option<flatbuffers::Vector<'a, i64>> {
         self._tab
@@ -235,9 +244,10 @@ impl<'a> SparseTensorIndexCOO<'a> {
     }
     /// The location and size of the indices matrix's data
     #[inline]
-    pub fn indicesBuffer(&self) -> Option<&'a Buffer> {
+    pub fn indicesBuffer(&self) -> &'a Buffer {
         self._tab
             .get::<Buffer>(SparseTensorIndexCOO::VT_INDICESBUFFER, None)
+            .unwrap()
     }
 }
 
@@ -250,9 +260,9 @@ impl<'a> Default for SparseTensorIndexCOOArgs<'a> {
     #[inline]
     fn default() -> Self {
         SparseTensorIndexCOOArgs {
-            indicesType: None,
+            indicesType: None, // required field
             indicesStrides: None,
-            indicesBuffer: None,
+            indicesBuffer: None, // required field
         }
     }
 }
@@ -298,6 +308,10 @@ impl<'a: 'b, 'b> SparseTensorIndexCOOBuilder<'a, 'b> {
     #[inline]
     pub fn finish(self) -> flatbuffers::WIPOffset<SparseTensorIndexCOO<'a>> {
         let o = self.fbb_.end_table(self.start_);
+        self.fbb_
+            .required(o, SparseTensorIndexCOO::VT_INDICESTYPE, "indices_type");
+        self.fbb_
+            .required(o, SparseTensorIndexCOO::VT_INDICESBUFFER, "indices_buffer");
         flatbuffers::WIPOffset::new(o.value())
     }
 }
@@ -365,11 +379,13 @@ impl<'a> SparseMatrixIndexCSX<'a> {
     }
     /// The type of values in indptrBuffer
     #[inline]
-    pub fn indptrType(&self) -> Option<Int<'a>> {
-        self._tab.get::<flatbuffers::ForwardsUOffset<Int<'a>>>(
-            SparseMatrixIndexCSX::VT_INDPTRTYPE,
-            None,
-        )
+    pub fn indptrType(&self) -> Int<'a> {
+        self._tab
+            .get::<flatbuffers::ForwardsUOffset<Int<'a>>>(
+                SparseMatrixIndexCSX::VT_INDPTRTYPE,
+                None,
+            )
+            .unwrap()
     }
     /// indptrBuffer stores the location and size of indptr array that
     /// represents the range of the rows.
@@ -394,17 +410,20 @@ impl<'a> SparseMatrixIndexCSX<'a> {
     ///
     ///   indptr(X) = [0, 2, 3, 5, 5, 8, 10].
     #[inline]
-    pub fn indptrBuffer(&self) -> Option<&'a Buffer> {
+    pub fn indptrBuffer(&self) -> &'a Buffer {
         self._tab
             .get::<Buffer>(SparseMatrixIndexCSX::VT_INDPTRBUFFER, None)
+            .unwrap()
     }
     /// The type of values in indicesBuffer
     #[inline]
-    pub fn indicesType(&self) -> Option<Int<'a>> {
-        self._tab.get::<flatbuffers::ForwardsUOffset<Int<'a>>>(
-            SparseMatrixIndexCSX::VT_INDICESTYPE,
-            None,
-        )
+    pub fn indicesType(&self) -> Int<'a> {
+        self._tab
+            .get::<flatbuffers::ForwardsUOffset<Int<'a>>>(
+                SparseMatrixIndexCSX::VT_INDICESTYPE,
+                None,
+            )
+            .unwrap()
     }
     /// indicesBuffer stores the location and size of the array that
     /// contains the column indices of the corresponding non-zero values.
@@ -416,9 +435,10 @@ impl<'a> SparseMatrixIndexCSX<'a> {
     ///
     /// Note that the indices are sorted in lexicographical order for each row.
     #[inline]
-    pub fn indicesBuffer(&self) -> Option<&'a Buffer> {
+    pub fn indicesBuffer(&self) -> &'a Buffer {
         self._tab
             .get::<Buffer>(SparseMatrixIndexCSX::VT_INDICESBUFFER, None)
+            .unwrap()
     }
 }
 
@@ -434,10 +454,10 @@ impl<'a> Default for SparseMatrixIndexCSXArgs<'a> {
     fn default() -> Self {
         SparseMatrixIndexCSXArgs {
             compressedAxis: SparseMatrixCompressedAxis::Row,
-            indptrType: None,
-            indptrBuffer: None,
-            indicesType: None,
-            indicesBuffer: None,
+            indptrType: None,    // required field
+            indptrBuffer: None,  // required field
+            indicesType: None,   // required field
+            indicesBuffer: None, // required field
         }
     }
 }
@@ -495,6 +515,276 @@ impl<'a: 'b, 'b> SparseMatrixIndexCSXBuilder<'a, 'b> {
     #[inline]
     pub fn finish(self) -> flatbuffers::WIPOffset<SparseMatrixIndexCSX<'a>> {
         let o = self.fbb_.end_table(self.start_);
+        self.fbb_
+            .required(o, SparseMatrixIndexCSX::VT_INDPTRTYPE, "indptr_type");
+        self.fbb_
+            .required(o, SparseMatrixIndexCSX::VT_INDPTRBUFFER, "indptr_buffer");
+        self.fbb_
+            .required(o, SparseMatrixIndexCSX::VT_INDICESTYPE, "indices_type");
+        self.fbb_
+            .required(o, SparseMatrixIndexCSX::VT_INDICESBUFFER, "indices_buffer");
+        flatbuffers::WIPOffset::new(o.value())
+    }
+}
+
+pub enum SparseTensorIndexCSFOffset {}
+#[derive(Copy, Clone, Debug, PartialEq)]
+
+/// Compressed Sparse Fiber (CSF) sparse tensor index.
+pub struct SparseTensorIndexCSF<'a> {
+    pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for SparseTensorIndexCSF<'a> {
+    type Inner = SparseTensorIndexCSF<'a>;
+    #[inline]
+    fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+        Self {
+            _tab: flatbuffers::Table { buf: buf, loc: loc },
+        }
+    }
+}
+
+impl<'a> SparseTensorIndexCSF<'a> {
+    #[inline]
+    pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+        SparseTensorIndexCSF { _tab: table }
+    }
+    #[allow(unused_mut)]
+    pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
+        _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+        args: &'args SparseTensorIndexCSFArgs<'args>,
+    ) -> flatbuffers::WIPOffset<SparseTensorIndexCSF<'bldr>> {
+        let mut builder = SparseTensorIndexCSFBuilder::new(_fbb);
+        if let Some(x) = args.axisOrder {
+            builder.add_axisOrder(x);
+        }
+        if let Some(x) = args.indicesBuffers {
+            builder.add_indicesBuffers(x);
+        }
+        if let Some(x) = args.indicesType {
+            builder.add_indicesType(x);
+        }
+        if let Some(x) = args.indptrBuffers {
+            builder.add_indptrBuffers(x);
+        }
+        if let Some(x) = args.indptrType {
+            builder.add_indptrType(x);
+        }
+        builder.finish()
+    }
+
+    pub const VT_INDPTRTYPE: flatbuffers::VOffsetT = 4;
+    pub const VT_INDPTRBUFFERS: flatbuffers::VOffsetT = 6;
+    pub const VT_INDICESTYPE: flatbuffers::VOffsetT = 8;
+    pub const VT_INDICESBUFFERS: flatbuffers::VOffsetT = 10;
+    pub const VT_AXISORDER: flatbuffers::VOffsetT = 12;
+
+    /// CSF is a generalization of compressed sparse row (CSR) index.
+    /// See [smith2017knl]: http://shaden.io/pub-files/smith2017knl.pdf
+    ///
+    /// CSF index recursively compresses each dimension of a tensor into a set
+    /// of prefix trees. Each path from a root to leaf forms one tensor
+    /// non-zero index. CSF is implemented with two arrays of buffers and one
+    /// arrays of integers.
+    ///
+    /// For example, let X be a 2x3x4x5 tensor and let it have the following
+    /// 8 non-zero values:
+    ///
+    ///   X[0, 0, 0, 1] := 1
+    ///   X[0, 0, 0, 2] := 2
+    ///   X[0, 1, 0, 0] := 3
+    ///   X[0, 1, 0, 2] := 4
+    ///   X[0, 1, 1, 0] := 5
+    ///   X[1, 1, 1, 0] := 6
+    ///   X[1, 1, 1, 1] := 7
+    ///   X[1, 1, 1, 2] := 8
+    ///
+    /// As a prefix tree this would be represented as:
+    ///
+    /// //        0          1
+    /// //       / \         |
+    /// //      0   1        1
+    /// //     /   / \       |
+    /// //    0   0   1      1
+    /// //   /|  /|   |    /| |
+    /// //  1 2 0 2   0   0 1 2
+    /// The type of values in indptrBuffers
+    #[inline]
+    pub fn indptrType(&self) -> Int<'a> {
+        self._tab
+            .get::<flatbuffers::ForwardsUOffset<Int<'a>>>(
+                SparseTensorIndexCSF::VT_INDPTRTYPE,
+                None,
+            )
+            .unwrap()
+    }
+    /// indptrBuffers stores the sparsity structure.
+    /// Each two consecutive dimensions in a tensor correspond to a buffer in
+    /// indptrBuffers. A pair of consecutive values at indptrBuffers[dim][i]
+    /// and indptrBuffers[dim][i + 1] signify a range of nodes in
+    /// indicesBuffers[dim + 1] who are children of indicesBuffers[dim][i] node.
+    ///
+    /// For example, the indptrBuffers for the above X is:
+    ///
+    ///   indptrBuffer(X) = [
+    ///                       [0, 2, 3],
+    ///                       [0, 1, 3, 4],
+    ///                       [0, 2, 4, 5, 8]
+    ///                     ].
+    ///
+    #[inline]
+    pub fn indptrBuffers(&self) -> &'a [Buffer] {
+        self._tab
+            .get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<Buffer>>>(
+                SparseTensorIndexCSF::VT_INDPTRBUFFERS,
+                None,
+            )
+            .map(|v| v.safe_slice())
+            .unwrap()
+    }
+    /// The type of values in indicesBuffers
+    #[inline]
+    pub fn indicesType(&self) -> Int<'a> {
+        self._tab
+            .get::<flatbuffers::ForwardsUOffset<Int<'a>>>(
+                SparseTensorIndexCSF::VT_INDICESTYPE,
+                None,
+            )
+            .unwrap()
+    }
+    /// indicesBuffers stores values of nodes.
+    /// Each tensor dimension corresponds to a buffer in indicesBuffers.
+    /// For example, the indicesBuffers for the above X is:
+    ///
+    ///   indicesBuffer(X) = [
+    ///                        [0, 1],
+    ///                        [0, 1, 1],
+    ///                        [0, 0, 1, 1],
+    ///                        [1, 2, 0, 2, 0, 0, 1, 2]
+    ///                      ].
+    ///
+    #[inline]
+    pub fn indicesBuffers(&self) -> &'a [Buffer] {
+        self._tab
+            .get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<Buffer>>>(
+                SparseTensorIndexCSF::VT_INDICESBUFFERS,
+                None,
+            )
+            .map(|v| v.safe_slice())
+            .unwrap()
+    }
+    /// axisOrder stores the sequence in which dimensions were traversed to
+    /// produce the prefix tree.
+    /// For example, the axisOrder for the above X is:
+    ///
+    ///   axisOrder(X) = [0, 1, 2, 3].
+    ///
+    #[inline]
+    pub fn axisOrder(&self) -> flatbuffers::Vector<'a, i32> {
+        self._tab
+            .get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, i32>>>(
+                SparseTensorIndexCSF::VT_AXISORDER,
+                None,
+            )
+            .unwrap()
+    }
+}
+
+pub struct SparseTensorIndexCSFArgs<'a> {
+    pub indptrType: Option<flatbuffers::WIPOffset<Int<'a>>>,
+    pub indptrBuffers: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, Buffer>>>,
+    pub indicesType: Option<flatbuffers::WIPOffset<Int<'a>>>,
+    pub indicesBuffers: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, Buffer>>>,
+    pub axisOrder: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, i32>>>,
+}
+impl<'a> Default for SparseTensorIndexCSFArgs<'a> {
+    #[inline]
+    fn default() -> Self {
+        SparseTensorIndexCSFArgs {
+            indptrType: None,     // required field
+            indptrBuffers: None,  // required field
+            indicesType: None,    // required field
+            indicesBuffers: None, // required field
+            axisOrder: None,      // required field
+        }
+    }
+}
+pub struct SparseTensorIndexCSFBuilder<'a: 'b, 'b> {
+    fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+    start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b> SparseTensorIndexCSFBuilder<'a, 'b> {
+    #[inline]
+    pub fn add_indptrType(&mut self, indptrType: flatbuffers::WIPOffset<Int<'b>>) {
+        self.fbb_.push_slot_always::<flatbuffers::WIPOffset<Int>>(
+            SparseTensorIndexCSF::VT_INDPTRTYPE,
+            indptrType,
+        );
+    }
+    #[inline]
+    pub fn add_indptrBuffers(
+        &mut self,
+        indptrBuffers: flatbuffers::WIPOffset<flatbuffers::Vector<'b, Buffer>>,
+    ) {
+        self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
+            SparseTensorIndexCSF::VT_INDPTRBUFFERS,
+            indptrBuffers,
+        );
+    }
+    #[inline]
+    pub fn add_indicesType(&mut self, indicesType: flatbuffers::WIPOffset<Int<'b>>) {
+        self.fbb_.push_slot_always::<flatbuffers::WIPOffset<Int>>(
+            SparseTensorIndexCSF::VT_INDICESTYPE,
+            indicesType,
+        );
+    }
+    #[inline]
+    pub fn add_indicesBuffers(
+        &mut self,
+        indicesBuffers: flatbuffers::WIPOffset<flatbuffers::Vector<'b, Buffer>>,
+    ) {
+        self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
+            SparseTensorIndexCSF::VT_INDICESBUFFERS,
+            indicesBuffers,
+        );
+    }
+    #[inline]
+    pub fn add_axisOrder(
+        &mut self,
+        axisOrder: flatbuffers::WIPOffset<flatbuffers::Vector<'b, i32>>,
+    ) {
+        self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
+            SparseTensorIndexCSF::VT_AXISORDER,
+            axisOrder,
+        );
+    }
+    #[inline]
+    pub fn new(
+        _fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+    ) -> SparseTensorIndexCSFBuilder<'a, 'b> {
+        let start = _fbb.start_table();
+        SparseTensorIndexCSFBuilder {
+            fbb_: _fbb,
+            start_: start,
+        }
+    }
+    #[inline]
+    pub fn finish(self) -> flatbuffers::WIPOffset<SparseTensorIndexCSF<'a>> {
+        let o = self.fbb_.end_table(self.start_);
+        self.fbb_
+            .required(o, SparseTensorIndexCSF::VT_INDPTRTYPE, "indptr_type");
+        self.fbb_
+            .required(o, SparseTensorIndexCSF::VT_INDPTRBUFFERS, "indptr_buffers");
+        self.fbb_
+            .required(o, SparseTensorIndexCSF::VT_INDICESTYPE, "indices_type");
+        self.fbb_.required(
+            o,
+            SparseTensorIndexCSF::VT_INDICESBUFFERS,
+            "indices_buffers",
+        );
+        self.fbb_
+            .required(o, SparseTensorIndexCSF::VT_AXISORDER, "axis_order");
         flatbuffers::WIPOffset::new(o.value())
     }
 }
@@ -563,22 +853,24 @@ impl<'a> SparseTensor<'a> {
     /// Currently only fixed-width value types are supported,
     /// no strings or nested types.
     #[inline]
-    pub fn type_(&self) -> Option<flatbuffers::Table<'a>> {
+    pub fn type_(&self) -> flatbuffers::Table<'a> {
         self._tab
             .get::<flatbuffers::ForwardsUOffset<flatbuffers::Table<'a>>>(
                 SparseTensor::VT_TYPE_,
                 None,
             )
+            .unwrap()
     }
     /// The dimensions of the tensor, optionally named.
     #[inline]
     pub fn shape(
         &self,
-    ) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<TensorDim<'a>>>>
-    {
-        self._tab.get::<flatbuffers::ForwardsUOffset<
-            flatbuffers::Vector<flatbuffers::ForwardsUOffset<TensorDim<'a>>>,
-        >>(SparseTensor::VT_SHAPE, None)
+    ) -> flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<TensorDim<'a>>> {
+        self._tab
+            .get::<flatbuffers::ForwardsUOffset<
+                flatbuffers::Vector<flatbuffers::ForwardsUOffset<TensorDim<'a>>>,
+            >>(SparseTensor::VT_SHAPE, None)
+            .unwrap()
     }
     /// The number of non-zero values in a sparse tensor.
     #[inline]
@@ -598,23 +890,26 @@ impl<'a> SparseTensor<'a> {
     }
     /// Sparse tensor index
     #[inline]
-    pub fn sparseIndex(&self) -> Option<flatbuffers::Table<'a>> {
+    pub fn sparseIndex(&self) -> flatbuffers::Table<'a> {
         self._tab
             .get::<flatbuffers::ForwardsUOffset<flatbuffers::Table<'a>>>(
                 SparseTensor::VT_SPARSEINDEX,
                 None,
             )
+            .unwrap()
     }
     /// The location and size of the tensor's data
     #[inline]
-    pub fn data(&self) -> Option<&'a Buffer> {
-        self._tab.get::<Buffer>(SparseTensor::VT_DATA, None)
+    pub fn data(&self) -> &'a Buffer {
+        self._tab
+            .get::<Buffer>(SparseTensor::VT_DATA, None)
+            .unwrap()
     }
     #[inline]
     #[allow(non_snake_case)]
     pub fn type_as_null(&self) -> Option<Null<'a>> {
         if self.type_type() == Type::Null {
-            self.type_().map(|u| Null::init_from_table(u))
+            Some(Null::init_from_table(self.type_()))
         } else {
             None
         }
@@ -624,7 +919,7 @@ impl<'a> SparseTensor<'a> {
     #[allow(non_snake_case)]
     pub fn type_as_int(&self) -> Option<Int<'a>> {
         if self.type_type() == Type::Int {
-            self.type_().map(|u| Int::init_from_table(u))
+            Some(Int::init_from_table(self.type_()))
         } else {
             None
         }
@@ -634,7 +929,7 @@ impl<'a> SparseTensor<'a> {
     #[allow(non_snake_case)]
     pub fn type_as_floating_point(&self) -> Option<FloatingPoint<'a>> {
         if self.type_type() == Type::FloatingPoint {
-            self.type_().map(|u| FloatingPoint::init_from_table(u))
+            Some(FloatingPoint::init_from_table(self.type_()))
         } else {
             None
         }
@@ -644,7 +939,7 @@ impl<'a> SparseTensor<'a> {
     #[allow(non_snake_case)]
     pub fn type_as_binary(&self) -> Option<Binary<'a>> {
         if self.type_type() == Type::Binary {
-            self.type_().map(|u| Binary::init_from_table(u))
+            Some(Binary::init_from_table(self.type_()))
         } else {
             None
         }
@@ -654,7 +949,7 @@ impl<'a> SparseTensor<'a> {
     #[allow(non_snake_case)]
     pub fn type_as_utf_8(&self) -> Option<Utf8<'a>> {
         if self.type_type() == Type::Utf8 {
-            self.type_().map(|u| Utf8::init_from_table(u))
+            Some(Utf8::init_from_table(self.type_()))
         } else {
             None
         }
@@ -664,7 +959,7 @@ impl<'a> SparseTensor<'a> {
     #[allow(non_snake_case)]
     pub fn type_as_bool(&self) -> Option<Bool<'a>> {
         if self.type_type() == Type::Bool {
-            self.type_().map(|u| Bool::init_from_table(u))
+            Some(Bool::init_from_table(self.type_()))
         } else {
             None
         }
@@ -674,7 +969,7 @@ impl<'a> SparseTensor<'a> {
     #[allow(non_snake_case)]
     pub fn type_as_decimal(&self) -> Option<Decimal<'a>> {
         if self.type_type() == Type::Decimal {
-            self.type_().map(|u| Decimal::init_from_table(u))
+            Some(Decimal::init_from_table(self.type_()))
         } else {
             None
         }
@@ -684,7 +979,7 @@ impl<'a> SparseTensor<'a> {
     #[allow(non_snake_case)]
     pub fn type_as_date(&self) -> Option<Date<'a>> {
         if self.type_type() == Type::Date {
-            self.type_().map(|u| Date::init_from_table(u))
+            Some(Date::init_from_table(self.type_()))
         } else {
             None
         }
@@ -694,7 +989,7 @@ impl<'a> SparseTensor<'a> {
     #[allow(non_snake_case)]
     pub fn type_as_time(&self) -> Option<Time<'a>> {
         if self.type_type() == Type::Time {
-            self.type_().map(|u| Time::init_from_table(u))
+            Some(Time::init_from_table(self.type_()))
         } else {
             None
         }
@@ -704,7 +999,7 @@ impl<'a> SparseTensor<'a> {
     #[allow(non_snake_case)]
     pub fn type_as_timestamp(&self) -> Option<Timestamp<'a>> {
         if self.type_type() == Type::Timestamp {
-            self.type_().map(|u| Timestamp::init_from_table(u))
+            Some(Timestamp::init_from_table(self.type_()))
         } else {
             None
         }
@@ -714,7 +1009,7 @@ impl<'a> SparseTensor<'a> {
     #[allow(non_snake_case)]
     pub fn type_as_interval(&self) -> Option<Interval<'a>> {
         if self.type_type() == Type::Interval {
-            self.type_().map(|u| Interval::init_from_table(u))
+            Some(Interval::init_from_table(self.type_()))
         } else {
             None
         }
@@ -724,7 +1019,7 @@ impl<'a> SparseTensor<'a> {
     #[allow(non_snake_case)]
     pub fn type_as_list(&self) -> Option<List<'a>> {
         if self.type_type() == Type::List {
-            self.type_().map(|u| List::init_from_table(u))
+            Some(List::init_from_table(self.type_()))
         } else {
             None
         }
@@ -734,7 +1029,7 @@ impl<'a> SparseTensor<'a> {
     #[allow(non_snake_case)]
     pub fn type_as_struct_(&self) -> Option<Struct_<'a>> {
         if self.type_type() == Type::Struct_ {
-            self.type_().map(|u| Struct_::init_from_table(u))
+            Some(Struct_::init_from_table(self.type_()))
         } else {
             None
         }
@@ -744,7 +1039,7 @@ impl<'a> SparseTensor<'a> {
     #[allow(non_snake_case)]
     pub fn type_as_union(&self) -> Option<Union<'a>> {
         if self.type_type() == Type::Union {
-            self.type_().map(|u| Union::init_from_table(u))
+            Some(Union::init_from_table(self.type_()))
         } else {
             None
         }
@@ -754,7 +1049,7 @@ impl<'a> SparseTensor<'a> {
     #[allow(non_snake_case)]
     pub fn type_as_fixed_size_binary(&self) -> Option<FixedSizeBinary<'a>> {
         if self.type_type() == Type::FixedSizeBinary {
-            self.type_().map(|u| FixedSizeBinary::init_from_table(u))
+            Some(FixedSizeBinary::init_from_table(self.type_()))
         } else {
             None
         }
@@ -764,7 +1059,7 @@ impl<'a> SparseTensor<'a> {
     #[allow(non_snake_case)]
     pub fn type_as_fixed_size_list(&self) -> Option<FixedSizeList<'a>> {
         if self.type_type() == Type::FixedSizeList {
-            self.type_().map(|u| FixedSizeList::init_from_table(u))
+            Some(FixedSizeList::init_from_table(self.type_()))
         } else {
             None
         }
@@ -774,7 +1069,7 @@ impl<'a> SparseTensor<'a> {
     #[allow(non_snake_case)]
     pub fn type_as_map(&self) -> Option<Map<'a>> {
         if self.type_type() == Type::Map {
-            self.type_().map(|u| Map::init_from_table(u))
+            Some(Map::init_from_table(self.type_()))
         } else {
             None
         }
@@ -784,7 +1079,7 @@ impl<'a> SparseTensor<'a> {
     #[allow(non_snake_case)]
     pub fn type_as_duration(&self) -> Option<Duration<'a>> {
         if self.type_type() == Type::Duration {
-            self.type_().map(|u| Duration::init_from_table(u))
+            Some(Duration::init_from_table(self.type_()))
         } else {
             None
         }
@@ -794,7 +1089,7 @@ impl<'a> SparseTensor<'a> {
     #[allow(non_snake_case)]
     pub fn type_as_large_binary(&self) -> Option<LargeBinary<'a>> {
         if self.type_type() == Type::LargeBinary {
-            self.type_().map(|u| LargeBinary::init_from_table(u))
+            Some(LargeBinary::init_from_table(self.type_()))
         } else {
             None
         }
@@ -804,7 +1099,7 @@ impl<'a> SparseTensor<'a> {
     #[allow(non_snake_case)]
     pub fn type_as_large_utf_8(&self) -> Option<LargeUtf8<'a>> {
         if self.type_type() == Type::LargeUtf8 {
-            self.type_().map(|u| LargeUtf8::init_from_table(u))
+            Some(LargeUtf8::init_from_table(self.type_()))
         } else {
             None
         }
@@ -814,7 +1109,7 @@ impl<'a> SparseTensor<'a> {
     #[allow(non_snake_case)]
     pub fn type_as_large_list(&self) -> Option<LargeList<'a>> {
         if self.type_type() == Type::LargeList {
-            self.type_().map(|u| LargeList::init_from_table(u))
+            Some(LargeList::init_from_table(self.type_()))
         } else {
             None
         }
@@ -826,8 +1121,7 @@ impl<'a> SparseTensor<'a> {
         &self,
     ) -> Option<SparseTensorIndexCOO<'a>> {
         if self.sparseIndex_type() == SparseTensorIndex::SparseTensorIndexCOO {
-            self.sparseIndex()
-                .map(|u| SparseTensorIndexCOO::init_from_table(u))
+            Some(SparseTensorIndexCOO::init_from_table(self.sparseIndex()))
         } else {
             None
         }
@@ -839,8 +1133,19 @@ impl<'a> SparseTensor<'a> {
         &self,
     ) -> Option<SparseMatrixIndexCSX<'a>> {
         if self.sparseIndex_type() == SparseTensorIndex::SparseMatrixIndexCSX {
-            self.sparseIndex()
-                .map(|u| SparseMatrixIndexCSX::init_from_table(u))
+            Some(SparseMatrixIndexCSX::init_from_table(self.sparseIndex()))
+        } else {
+            None
+        }
+    }
+
+    #[inline]
+    #[allow(non_snake_case)]
+    pub fn sparseIndex_as_sparse_tensor_index_csf(
+        &self,
+    ) -> Option<SparseTensorIndexCSF<'a>> {
+        if self.sparseIndex_type() == SparseTensorIndex::SparseTensorIndexCSF {
+            Some(SparseTensorIndexCSF::init_from_table(self.sparseIndex()))
         } else {
             None
         }
@@ -865,12 +1170,12 @@ impl<'a> Default for SparseTensorArgs<'a> {
     fn default() -> Self {
         SparseTensorArgs {
             type_type: Type::NONE,
-            type_: None,
-            shape: None,
+            type_: None, // required field
+            shape: None, // required field
             non_zero_length: 0,
             sparseIndex_type: SparseTensorIndex::NONE,
-            sparseIndex: None,
-            data: None,
+            sparseIndex: None, // required field
+            data: None,        // required field
         }
     }
 }
@@ -943,6 +1248,11 @@ impl<'a: 'b, 'b> SparseTensorBuilder<'a, 'b> {
     #[inline]
     pub fn finish(self) -> flatbuffers::WIPOffset<SparseTensor<'a>> {
         let o = self.fbb_.end_table(self.start_);
+        self.fbb_.required(o, SparseTensor::VT_TYPE_, "type_");
+        self.fbb_.required(o, SparseTensor::VT_SHAPE, "shape");
+        self.fbb_
+            .required(o, SparseTensor::VT_SPARSEINDEX, "sparse_index");
+        self.fbb_.required(o, SparseTensor::VT_DATA, "data");
         flatbuffers::WIPOffset::new(o.value())
     }
 }

@@ -180,24 +180,27 @@ impl<'a> Tensor<'a> {
     /// The type of data contained in a value cell. Currently only fixed-width
     /// value types are supported, no strings or nested types
     #[inline]
-    pub fn type_(&self) -> Option<flatbuffers::Table<'a>> {
+    pub fn type_(&self) -> flatbuffers::Table<'a> {
         self._tab
             .get::<flatbuffers::ForwardsUOffset<flatbuffers::Table<'a>>>(
                 Tensor::VT_TYPE_,
                 None,
             )
+            .unwrap()
     }
     /// The dimensions of the tensor, optionally named
     #[inline]
     pub fn shape(
         &self,
-    ) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<TensorDim<'a>>>>
-    {
-        self._tab.get::<flatbuffers::ForwardsUOffset<
-            flatbuffers::Vector<flatbuffers::ForwardsUOffset<TensorDim<'a>>>,
-        >>(Tensor::VT_SHAPE, None)
+    ) -> flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<TensorDim<'a>>> {
+        self._tab
+            .get::<flatbuffers::ForwardsUOffset<
+                flatbuffers::Vector<flatbuffers::ForwardsUOffset<TensorDim<'a>>>,
+            >>(Tensor::VT_SHAPE, None)
+            .unwrap()
     }
     /// Non-negative byte offsets to advance one value cell along each dimension
+    /// If omitted, default to row-major order (C-like).
     #[inline]
     pub fn strides(&self) -> Option<flatbuffers::Vector<'a, i64>> {
         self._tab
@@ -208,14 +211,14 @@ impl<'a> Tensor<'a> {
     }
     /// The location and size of the tensor's data
     #[inline]
-    pub fn data(&self) -> Option<&'a Buffer> {
-        self._tab.get::<Buffer>(Tensor::VT_DATA, None)
+    pub fn data(&self) -> &'a Buffer {
+        self._tab.get::<Buffer>(Tensor::VT_DATA, None).unwrap()
     }
     #[inline]
     #[allow(non_snake_case)]
     pub fn type_as_null(&self) -> Option<Null<'a>> {
         if self.type_type() == Type::Null {
-            self.type_().map(|u| Null::init_from_table(u))
+            Some(Null::init_from_table(self.type_()))
         } else {
             None
         }
@@ -225,7 +228,7 @@ impl<'a> Tensor<'a> {
     #[allow(non_snake_case)]
     pub fn type_as_int(&self) -> Option<Int<'a>> {
         if self.type_type() == Type::Int {
-            self.type_().map(|u| Int::init_from_table(u))
+            Some(Int::init_from_table(self.type_()))
         } else {
             None
         }
@@ -235,7 +238,7 @@ impl<'a> Tensor<'a> {
     #[allow(non_snake_case)]
     pub fn type_as_floating_point(&self) -> Option<FloatingPoint<'a>> {
         if self.type_type() == Type::FloatingPoint {
-            self.type_().map(|u| FloatingPoint::init_from_table(u))
+            Some(FloatingPoint::init_from_table(self.type_()))
         } else {
             None
         }
@@ -245,7 +248,7 @@ impl<'a> Tensor<'a> {
     #[allow(non_snake_case)]
     pub fn type_as_binary(&self) -> Option<Binary<'a>> {
         if self.type_type() == Type::Binary {
-            self.type_().map(|u| Binary::init_from_table(u))
+            Some(Binary::init_from_table(self.type_()))
         } else {
             None
         }
@@ -255,7 +258,7 @@ impl<'a> Tensor<'a> {
     #[allow(non_snake_case)]
     pub fn type_as_utf_8(&self) -> Option<Utf8<'a>> {
         if self.type_type() == Type::Utf8 {
-            self.type_().map(|u| Utf8::init_from_table(u))
+            Some(Utf8::init_from_table(self.type_()))
         } else {
             None
         }
@@ -265,7 +268,7 @@ impl<'a> Tensor<'a> {
     #[allow(non_snake_case)]
     pub fn type_as_bool(&self) -> Option<Bool<'a>> {
         if self.type_type() == Type::Bool {
-            self.type_().map(|u| Bool::init_from_table(u))
+            Some(Bool::init_from_table(self.type_()))
         } else {
             None
         }
@@ -275,7 +278,7 @@ impl<'a> Tensor<'a> {
     #[allow(non_snake_case)]
     pub fn type_as_decimal(&self) -> Option<Decimal<'a>> {
         if self.type_type() == Type::Decimal {
-            self.type_().map(|u| Decimal::init_from_table(u))
+            Some(Decimal::init_from_table(self.type_()))
         } else {
             None
         }
@@ -285,7 +288,7 @@ impl<'a> Tensor<'a> {
     #[allow(non_snake_case)]
     pub fn type_as_date(&self) -> Option<Date<'a>> {
         if self.type_type() == Type::Date {
-            self.type_().map(|u| Date::init_from_table(u))
+            Some(Date::init_from_table(self.type_()))
         } else {
             None
         }
@@ -295,7 +298,7 @@ impl<'a> Tensor<'a> {
     #[allow(non_snake_case)]
     pub fn type_as_time(&self) -> Option<Time<'a>> {
         if self.type_type() == Type::Time {
-            self.type_().map(|u| Time::init_from_table(u))
+            Some(Time::init_from_table(self.type_()))
         } else {
             None
         }
@@ -305,7 +308,7 @@ impl<'a> Tensor<'a> {
     #[allow(non_snake_case)]
     pub fn type_as_timestamp(&self) -> Option<Timestamp<'a>> {
         if self.type_type() == Type::Timestamp {
-            self.type_().map(|u| Timestamp::init_from_table(u))
+            Some(Timestamp::init_from_table(self.type_()))
         } else {
             None
         }
@@ -315,7 +318,7 @@ impl<'a> Tensor<'a> {
     #[allow(non_snake_case)]
     pub fn type_as_interval(&self) -> Option<Interval<'a>> {
         if self.type_type() == Type::Interval {
-            self.type_().map(|u| Interval::init_from_table(u))
+            Some(Interval::init_from_table(self.type_()))
         } else {
             None
         }
@@ -325,7 +328,7 @@ impl<'a> Tensor<'a> {
     #[allow(non_snake_case)]
     pub fn type_as_list(&self) -> Option<List<'a>> {
         if self.type_type() == Type::List {
-            self.type_().map(|u| List::init_from_table(u))
+            Some(List::init_from_table(self.type_()))
         } else {
             None
         }
@@ -335,7 +338,7 @@ impl<'a> Tensor<'a> {
     #[allow(non_snake_case)]
     pub fn type_as_struct_(&self) -> Option<Struct_<'a>> {
         if self.type_type() == Type::Struct_ {
-            self.type_().map(|u| Struct_::init_from_table(u))
+            Some(Struct_::init_from_table(self.type_()))
         } else {
             None
         }
@@ -345,7 +348,7 @@ impl<'a> Tensor<'a> {
     #[allow(non_snake_case)]
     pub fn type_as_union(&self) -> Option<Union<'a>> {
         if self.type_type() == Type::Union {
-            self.type_().map(|u| Union::init_from_table(u))
+            Some(Union::init_from_table(self.type_()))
         } else {
             None
         }
@@ -355,7 +358,7 @@ impl<'a> Tensor<'a> {
     #[allow(non_snake_case)]
     pub fn type_as_fixed_size_binary(&self) -> Option<FixedSizeBinary<'a>> {
         if self.type_type() == Type::FixedSizeBinary {
-            self.type_().map(|u| FixedSizeBinary::init_from_table(u))
+            Some(FixedSizeBinary::init_from_table(self.type_()))
         } else {
             None
         }
@@ -365,7 +368,7 @@ impl<'a> Tensor<'a> {
     #[allow(non_snake_case)]
     pub fn type_as_fixed_size_list(&self) -> Option<FixedSizeList<'a>> {
         if self.type_type() == Type::FixedSizeList {
-            self.type_().map(|u| FixedSizeList::init_from_table(u))
+            Some(FixedSizeList::init_from_table(self.type_()))
         } else {
             None
         }
@@ -375,7 +378,7 @@ impl<'a> Tensor<'a> {
     #[allow(non_snake_case)]
     pub fn type_as_map(&self) -> Option<Map<'a>> {
         if self.type_type() == Type::Map {
-            self.type_().map(|u| Map::init_from_table(u))
+            Some(Map::init_from_table(self.type_()))
         } else {
             None
         }
@@ -385,7 +388,7 @@ impl<'a> Tensor<'a> {
     #[allow(non_snake_case)]
     pub fn type_as_duration(&self) -> Option<Duration<'a>> {
         if self.type_type() == Type::Duration {
-            self.type_().map(|u| Duration::init_from_table(u))
+            Some(Duration::init_from_table(self.type_()))
         } else {
             None
         }
@@ -395,7 +398,7 @@ impl<'a> Tensor<'a> {
     #[allow(non_snake_case)]
     pub fn type_as_large_binary(&self) -> Option<LargeBinary<'a>> {
         if self.type_type() == Type::LargeBinary {
-            self.type_().map(|u| LargeBinary::init_from_table(u))
+            Some(LargeBinary::init_from_table(self.type_()))
         } else {
             None
         }
@@ -405,7 +408,7 @@ impl<'a> Tensor<'a> {
     #[allow(non_snake_case)]
     pub fn type_as_large_utf_8(&self) -> Option<LargeUtf8<'a>> {
         if self.type_type() == Type::LargeUtf8 {
-            self.type_().map(|u| LargeUtf8::init_from_table(u))
+            Some(LargeUtf8::init_from_table(self.type_()))
         } else {
             None
         }
@@ -415,7 +418,7 @@ impl<'a> Tensor<'a> {
     #[allow(non_snake_case)]
     pub fn type_as_large_list(&self) -> Option<LargeList<'a>> {
         if self.type_type() == Type::LargeList {
-            self.type_().map(|u| LargeList::init_from_table(u))
+            Some(LargeList::init_from_table(self.type_()))
         } else {
             None
         }
@@ -438,10 +441,10 @@ impl<'a> Default for TensorArgs<'a> {
     fn default() -> Self {
         TensorArgs {
             type_type: Type::NONE,
-            type_: None,
-            shape: None,
+            type_: None, // required field
+            shape: None, // required field
             strides: None,
-            data: None,
+            data: None, // required field
         }
     }
 }
@@ -498,6 +501,9 @@ impl<'a: 'b, 'b> TensorBuilder<'a, 'b> {
     #[inline]
     pub fn finish(self) -> flatbuffers::WIPOffset<Tensor<'a>> {
         let o = self.fbb_.end_table(self.start_);
+        self.fbb_.required(o, Tensor::VT_TYPE_, "type_");
+        self.fbb_.required(o, Tensor::VT_SHAPE, "shape");
+        self.fbb_.required(o, Tensor::VT_DATA, "data");
         flatbuffers::WIPOffset::new(o.value())
     }
 }
