@@ -210,6 +210,8 @@ class PARQUET_EXPORT RowGroupMetaData {
 
   /// \brief Total byte size of all the uncompressed column data in this row group.
   int64_t total_byte_size() const;
+  /// \brief Offset into file at which this row group begins.
+  int64_t file_offset() const;
   // Return const-pointer to make it clear that this object is not to be copied
   const SchemaDescriptor* schema() const;
   // Indicate if all of the RowGroup's ColumnChunks can be decompressed.
