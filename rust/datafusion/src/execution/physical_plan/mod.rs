@@ -54,9 +54,12 @@ pub trait ExecutionPlan: Debug + Send + Sync {
     fn required_child_distribution(&self) -> Distribution {
         Distribution::UnspecifiedDistribution
     }
-    /// Get the children of this plan
+    /// Get a list of child execution plans that provide the input for this plan. The returned list
+    /// will be empty for leaf nodes, will contain a single value for unary nodes, or two
+    /// values for binary nodes (such as joins).
     fn children(&self) -> Vec<Arc<dyn ExecutionPlan>>;
-    /// Replace the children of this execution plan
+    /// Returns a new plan where all children were replaced by new plans.
+    /// The size of `children` must be equal to the size of `ExecutionPlan::children()`.
     fn with_new_children(
         &self,
         children: Vec<Arc<dyn ExecutionPlan>>,

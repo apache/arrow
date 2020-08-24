@@ -103,7 +103,7 @@ impl<'a> CsvReadOptions<'a> {
 }
 
 /// Execution plan for scanning a CSV file
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CsvExec {
     /// Path to directory containing partitioned CSV files with the same schema
     path: String,
@@ -196,12 +196,16 @@ impl ExecutionPlan for CsvExec {
 
     fn with_new_children(
         &self,
-        _: Vec<Arc<dyn ExecutionPlan>>,
+        children: Vec<Arc<dyn ExecutionPlan>>,
     ) -> Result<Arc<dyn ExecutionPlan>> {
-        Err(ExecutionError::General(format!(
-            "Children cannot be replaced in {:?}",
-            self
-        )))
+        if children.is_empty() {
+            Ok(Arc::new(self.clone()))
+        } else {
+            Err(ExecutionError::General(format!(
+                "Children cannot be replaced in {:?}",
+                self
+            )))
+        }
     }
 
     fn execute(
