@@ -2612,8 +2612,6 @@ endif()
 # AWS SDK for C++
 
 macro(build_awssdk)
-  message(
-    FATAL_ERROR "FIXME: Building AWS C++ SDK from source will link with wrong libcrypto")
   message("Building AWS C++ SDK from source")
 
   set(AWSSDK_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/awssdk_ep-install")
