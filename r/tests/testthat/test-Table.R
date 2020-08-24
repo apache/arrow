@@ -80,14 +80,14 @@ test_that("Table $column and $field", {
   expect_error(tab$column(NA), "'i' cannot be NA")
   expect_error(tab$column(-1), "subscript out of bounds")
   expect_error(tab$column(1000), "subscript out of bounds")
-  expect_error(tab$column(1:2), class = "Rcpp::not_compatible")
-  expect_error(tab$column("one"), class = "Rcpp::not_compatible")
+  expect_error(tab$column(1:2))
+  expect_error(tab$column("one"))
 
   expect_error(tab$field(NA), "'i' cannot be NA")
   expect_error(tab$field(-1), "subscript out of bounds")
   expect_error(tab$field(1000), "subscript out of bounds")
-  expect_error(tab$field(1:2), class = "Rcpp::not_compatible")
-  expect_error(tab$field("one"), class = "Rcpp::not_compatible")
+  expect_error(tab$field(1:2))
+  expect_error(tab$field("one"))
 })
 
 test_that("[, [[, $ for Table", {
@@ -132,7 +132,7 @@ test_that("[, [[, $ for Table", {
   expect_data_frame(tab[2:4], tbl[2:4])
   expect_data_frame(tab[c(1, 0)], tbl[c(1, 0)])
 
-  expect_error(tab[[c(4, 3)]], class = "Rcpp::not_compatible")
+  expect_error(tab[[c(4, 3)]])
   expect_error(tab[[NA]], "'i' must be character or numeric, not logical")
   expect_error(tab[[NULL]], "'i' must be character or numeric, not NULL")
   expect_error(tab[[c("asdf", "jkl;")]], 'length(name) not equal to 1', fixed = TRUE)
@@ -153,14 +153,14 @@ test_that("Table$Slice", {
   expect_data_frame(tab3, tbl[6:7,])
 
   # Input validation
-  expect_error(tab$Slice("ten"), class = "Rcpp::not_compatible")
+  expect_error(tab$Slice("ten"))
   expect_error(tab$Slice(NA_integer_), "Slice 'offset' cannot be NA")
   expect_error(tab$Slice(NA), "Slice 'offset' cannot be NA")
-  expect_error(tab$Slice(10, "ten"), class = "Rcpp::not_compatible")
+  expect_error(tab$Slice(10, "ten"))
   expect_error(tab$Slice(10, NA_integer_), "Slice 'length' cannot be NA")
   expect_error(tab$Slice(NA_integer_, NA_integer_), "Slice 'offset' cannot be NA")
-  expect_error(tab$Slice(c(10, 10)), class = "Rcpp::not_compatible")
-  expect_error(tab$Slice(10, c(10, 10)), class = "Rcpp::not_compatible")
+  expect_error(tab$Slice(c(10, 10)))
+  expect_error(tab$Slice(10, c(10, 10)))
   expect_error(tab$Slice(1000), "Slice 'offset' greater than array length")
   expect_error(tab$Slice(-1), "Slice 'offset' cannot be negative")
   expect_error(tab3$Slice(10, 10), "Slice 'offset' greater than array length")

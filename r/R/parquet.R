@@ -268,7 +268,8 @@ ParquetWriterPropertiesBuilder <- R6Class("ParquetWriterPropertiesBuilder", inhe
       )
     },
     set_compression_level = function(table, compression_level){
-      assert_that(is_integerish(compression_level))
+      # cast to integer but keep names
+      compression_level <- set_names(as.integer(compression_level), names(compression_level))
       private$.set(table, compression_level,
         parquet___ArrowWriterProperties___Builder__set_compression_levels
       )

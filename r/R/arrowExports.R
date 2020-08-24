@@ -576,8 +576,8 @@ fixed_size_list__ <- function(x, list_size){
     .Call(`_arrow_fixed_size_list__` , x, list_size)
 }
 
-struct_ <- function(fields){
-    .Call(`_arrow_struct_` , fields)
+struct__ <- function(fields){
+    .Call(`_arrow_struct__` , fields)
 }
 
 DataType__ToString <- function(type){
@@ -1012,12 +1012,12 @@ io___BufferOutputStream__Write <- function(stream, bytes){
     invisible(.Call(`_arrow_io___BufferOutputStream__Write` , stream, bytes))
 }
 
-json___ReadOptions__initialize <- function(options){
-    .Call(`_arrow_json___ReadOptions__initialize` , options)
+json___ReadOptions__initialize <- function(use_threads, block_size){
+    .Call(`_arrow_json___ReadOptions__initialize` , use_threads, block_size)
 }
 
-json___ParseOptions__initialize <- function(options){
-    .Call(`_arrow_json___ParseOptions__initialize` , options)
+json___ParseOptions__initialize <- function(newlines_in_values){
+    .Call(`_arrow_json___ParseOptions__initialize` , newlines_in_values)
 }
 
 json___TableReader__Make <- function(input, read_options, parse_options){
@@ -1212,12 +1212,12 @@ ExportSchema <- function(schema, ptr){
     invisible(.Call(`_arrow_ExportSchema` , schema, ptr))
 }
 
-ExportArray <- function(array, ptr, schema_ptr){
-    invisible(.Call(`_arrow_ExportArray` , array, ptr, schema_ptr))
+ExportArray <- function(array, array_ptr, schema_ptr){
+    invisible(.Call(`_arrow_ExportArray` , array, array_ptr, schema_ptr))
 }
 
-ExportRecordBatch <- function(batch, ptr, schema_ptr){
-    invisible(.Call(`_arrow_ExportRecordBatch` , batch, ptr, schema_ptr))
+ExportRecordBatch <- function(batch, array_ptr, schema_ptr){
+    invisible(.Call(`_arrow_ExportRecordBatch` , batch, array_ptr, schema_ptr))
 }
 
 RecordBatch__num_columns <- function(x){
@@ -1250,10 +1250,6 @@ RecordBatch__GetColumnByName <- function(batch, name){
 
 RecordBatch__select <- function(batch, indices){
     .Call(`_arrow_RecordBatch__select` , batch, indices)
-}
-
-RecordBatch__from_dataframe <- function(tbl){
-    .Call(`_arrow_RecordBatch__from_dataframe` , tbl)
 }
 
 RecordBatch__Equals <- function(self, other, check_metadata){
@@ -1440,10 +1436,6 @@ arrow__UnifySchemas <- function(schemas){
     .Call(`_arrow_arrow__UnifySchemas` , schemas)
 }
 
-Table__from_dataframe <- function(tbl){
-    .Call(`_arrow_Table__from_dataframe` , tbl)
-}
-
 Table__num_columns <- function(x){
     .Call(`_arrow_Table__num_columns` , x)
 }
@@ -1502,6 +1494,14 @@ Table__GetColumnByName <- function(table, name){
 
 Table__select <- function(table, indices){
     .Call(`_arrow_Table__select` , table, indices)
+}
+
+all_record_batches <- function(lst){
+    .Call(`_arrow_all_record_batches` , lst)
+}
+
+Table__from_record_batches <- function(batches, schema_sxp){
+    .Call(`_arrow_Table__from_record_batches` , batches, schema_sxp)
 }
 
 Table__from_dots <- function(lst, schema_sxp){

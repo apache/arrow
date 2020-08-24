@@ -23,15 +23,12 @@ Language: en-US
 LazyData: true
 SystemRequirements: C++11
 Biarch: true
-LinkingTo:
-    Rcpp (>= 1.0.1)
 Imports:
     assertthat,
     bit64,
     methods,
     purrr,
     R6,
-    Rcpp (>= 1.0.1),
     rlang,
     tidyselect,
     utils,

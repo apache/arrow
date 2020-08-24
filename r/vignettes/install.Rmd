@@ -303,8 +303,8 @@ By default, these are all unset. All boolean variables are case-insensitive.
   `NOT_CRAN=true` as part of their workflow, without requiring additional
   environment variables to be set.
 * `ARROW_R_DEV`: If set to `true`, more verbose messaging will be printed
-  in the build script. This variable also is needed if you're modifying `Rcpp`
-  code in the package: see "Editing Rcpp code" in the README.
+  in the build script. This variable also is needed if you're modifying C++
+  code in the package: see "Editing C++ code" in the README.
 * `LIBARROW_DEBUG_DIR`: If the C++ library building from source fails (`cmake`),
   there may be messages telling you to check some log file in the build directory.
   However, when the library is built during R package installation,
