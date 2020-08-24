@@ -31,9 +31,9 @@ class PARQUET_EXPORT FileKeyUnwrapper : public DecryptionKeyRetriever {
  public:
   FileKeyUnwrapper(std::shared_ptr<KmsClientFactory> kms_client_factory,
                    const KmsConnectionConfig& kms_connection_config,
-                   uint64_t cache_lifetime, bool is_wrap_locally);
+                   uint64_t cache_lifetime_seconds, bool is_wrap_locally);
 
-  std::string GetKey(const std::string& key_metadata) override;
+  std::string GetKey(const std::string& key_metadata) const override;
 
  private:
   class KeyWithMasterID {
@@ -49,16 +49,16 @@ class PARQUET_EXPORT FileKeyUnwrapper : public DecryptionKeyRetriever {
     std::string master_id_;
   };
 
-  KeyWithMasterID GetDEKandMasterID(const KeyMaterial& key_material);
+  KeyWithMasterID GetDEKandMasterID(const KeyMaterial& key_material) const;
   std::shared_ptr<KmsClient> GetKmsClientFromConfigOrKeyMaterial(
-      const KeyMaterial& key_material);
+      const KeyMaterial& key_material) const;
 
   // A map of KEK_ID -> KEK bytes, for the current token
-  std::map<std::string, std::string> kek_per_kek_id_;
+  mutable std::map<std::string, std::string> kek_per_kek_id_;
   std::shared_ptr<KmsClientFactory> kms_client_factory_;
-  KmsConnectionConfig kms_connection_config_;
-  uint64_t cache_entry_lifetime_;
-  bool is_wrap_locally_;
+  mutable KmsConnectionConfig kms_connection_config_;
+  const uint64_t cache_entry_lifetime_ms_;
+  const bool is_wrap_locally_;
 };
 
 }  // namespace encryption

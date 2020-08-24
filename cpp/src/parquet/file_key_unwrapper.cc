@@ -26,15 +26,15 @@ namespace encryption {
 
 FileKeyUnwrapper::FileKeyUnwrapper(std::shared_ptr<KmsClientFactory> kms_client_factory,
                                    const KmsConnectionConfig& kms_connection_config,
-                                   uint64_t cache_lifetime, bool is_wrap_locally)
+                                   uint64_t cache_lifetime_seconds, bool is_wrap_locally)
     : kms_client_factory_(kms_client_factory),
       kms_connection_config_(kms_connection_config),
-      cache_entry_lifetime_(cache_lifetime),
+      cache_entry_lifetime_ms_(1000 * cache_lifetime_seconds),
       is_wrap_locally_(is_wrap_locally) {
   kms_connection_config.refreshable_key_access_token->SetDefaultIfEmpty();
 }
 
-std::string FileKeyUnwrapper::GetKey(const std::string& key_metadata_bytes) {
+std::string FileKeyUnwrapper::GetKey(const std::string& key_metadata_bytes) const {
   KeyMetadata key_metadata = KeyMetadata::Parse(key_metadata_bytes);
 
   if (!key_metadata.key_material_stored_internally()) {
@@ -47,7 +47,7 @@ std::string FileKeyUnwrapper::GetKey(const std::string& key_metadata_bytes) {
 }
 
 FileKeyUnwrapper::KeyWithMasterID FileKeyUnwrapper::GetDEKandMasterID(
-    const KeyMaterial& key_material) {
+    const KeyMaterial& key_material) const {
   auto kms_client = GetKmsClientFromConfigOrKeyMaterial(key_material);
 
   bool double_wrapping = key_material.is_double_wrapped();
@@ -78,7 +78,7 @@ FileKeyUnwrapper::KeyWithMasterID FileKeyUnwrapper::GetDEKandMasterID(
 }
 
 std::shared_ptr<KmsClient> FileKeyUnwrapper::GetKmsClientFromConfigOrKeyMaterial(
-    const KeyMaterial& key_material) {
+    const KeyMaterial& key_material) const {
   std::string& kms_instance_id = kms_connection_config_.kms_instance_id;
   if (kms_instance_id.empty()) {
     kms_instance_id = key_material.kms_instance_id();
@@ -100,7 +100,7 @@ std::shared_ptr<KmsClient> FileKeyUnwrapper::GetKmsClientFromConfigOrKeyMaterial
   }
 
   return KeyToolkit::GetKmsClient(kms_client_factory_, kms_connection_config_,
-                                  is_wrap_locally_, cache_entry_lifetime_);
+                                  is_wrap_locally_, cache_entry_lifetime_ms_);
 }
 
 }  // namespace encryption
