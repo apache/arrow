@@ -31,10 +31,8 @@ namespace encryption {
 
 class FileKeyWrapper {
  public:
-  static constexpr int KEK_LENGTH = 16;
-  static constexpr int KEK_ID_LENGTH = 16;
-
-  static constexpr int RND_MAX_BYTES = 32;
+  static constexpr int kKeyEncryptionKeyLength = 16;
+  static constexpr int kKeyEncryptionKeyIdLength = 16;
 
   FileKeyWrapper(std::shared_ptr<KmsClientFactory> kms_client_factory,
                  const KmsConnectionConfig& kms_connection_config,

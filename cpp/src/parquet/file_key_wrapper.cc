@@ -103,11 +103,11 @@ std::string FileKeyWrapper::GetEncryptionKeyMetadata(const std::string& data_key
 
 KeyEncryptionKey FileKeyWrapper::CreateKeyEncryptionKey(
     const std::string& master_key_id) {
-  std::string kek_bytes(KEK_LENGTH, '\0');
-  RandBytes(reinterpret_cast<uint8_t*>(&kek_bytes[0]), KEK_LENGTH);
+  std::string kek_bytes(kKeyEncryptionKeyLength, '\0');
+  RandBytes(reinterpret_cast<uint8_t*>(&kek_bytes[0]), kKeyEncryptionKeyLength);
 
-  std::string kek_id(KEK_ID_LENGTH, '\0');
-  RandBytes(reinterpret_cast<uint8_t*>(&kek_id[0]), KEK_ID_LENGTH);
+  std::string kek_id(kKeyEncryptionKeyIdLength, '\0');
+  RandBytes(reinterpret_cast<uint8_t*>(&kek_id[0]), kKeyEncryptionKeyIdLength);
 
   // Encrypt KEK with Master key
   std::string encoded_wrapped_kek = kms_client_->WrapKey(kek_bytes, master_key_id);

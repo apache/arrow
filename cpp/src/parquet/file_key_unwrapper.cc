@@ -43,10 +43,10 @@ std::string FileKeyUnwrapper::GetKey(const std::string& key_metadata_bytes) cons
 
   const KeyMaterial& key_material = key_metadata.key_material();
 
-  return GetDEKandMasterID(key_material).data_key();
+  return GetDataEncryptionKey(key_material).data_key();
 }
 
-KeyWithMasterId FileKeyUnwrapper::GetDEKandMasterID(
+KeyWithMasterId FileKeyUnwrapper::GetDataEncryptionKey(
     const KeyMaterial& key_material) const {
   auto kms_client = GetKmsClientFromConfigOrKeyMaterial(key_material);
 
