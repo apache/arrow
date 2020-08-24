@@ -35,61 +35,6 @@ use crate::{
 };
 use arrow::record_batch::RecordBatch;
 
-/// Enumeration of supported function types (Scalar and Aggregate)
-#[derive(Debug, Clone)]
-pub enum FunctionType {
-    /// Simple function returning a value per DataFrame
-    Scalar,
-    /// Aggregate functions produce a value by sampling multiple DataFrames
-    Aggregate,
-}
-
-/// Logical representation of a UDF (user-defined function)
-#[derive(Debug, Clone)]
-pub struct FunctionMeta {
-    /// Function name
-    name: String,
-    /// Function arguments
-    args: Vec<Field>,
-    /// Function return type
-    return_type: DataType,
-    /// Function type (Scalar or Aggregate)
-    function_type: FunctionType,
-}
-
-impl FunctionMeta {
-    #[allow(missing_docs)]
-    pub fn new(
-        name: String,
-        args: Vec<Field>,
-        return_type: DataType,
-        function_type: FunctionType,
-    ) -> Self {
-        FunctionMeta {
-            name,
-            args,
-            return_type,
-            function_type,
-        }
-    }
-    /// Getter for the function name
-    pub fn name(&self) -> &String {
-        &self.name
-    }
-    /// Getter for the arg list
-    pub fn args(&self) -> &Vec<Field> {
-        &self.args
-    }
-    /// Getter for the `DataType` the function returns
-    pub fn return_type(&self) -> &DataType {
-        &self.return_type
-    }
-    /// Getter for the `FunctionType`
-    pub fn function_type(&self) -> &FunctionType {
-        &self.function_type
-    }
-}
-
 /// Operators applied to expressions
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Operator {
