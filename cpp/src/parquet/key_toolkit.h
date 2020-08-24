@@ -101,7 +101,7 @@ class PARQUET_EXPORT KeyToolkit {
   static std::shared_ptr<KmsClient> GetKmsClient(
       std::shared_ptr<KmsClientFactory> kms_client_factory,
       const KmsConnectionConfig& kms_connection_config, bool is_wrap_locally,
-      uint64_t cache_entry_lifetime);
+      uint64_t cache_entry_lifetime_ms);
 
   // Encrypts "key" with "master_key", using AES-GCM and the "aad"
   static std::string EncryptKeyLocally(const std::string& key,

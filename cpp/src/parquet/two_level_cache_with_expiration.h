@@ -38,13 +38,13 @@ class TwoLevelCacheWithExpiration {
   TwoLevelCacheWithExpiration() { last_cache_cleanup_timestamp_ = CurrentTimePoint(); }
 
   std::map<std::string, V>& GetOrCreateInternalCache(const std::string& access_token,
-                                                     uint64_t cache_entry_life_time) {
+                                                     uint64_t cache_entry_lifetime_ms) {
     auto external_cache_entry = cache_.find(access_token);
     if (external_cache_entry == cache_.end() ||
         external_cache_entry->second.IsExpired()) {
       cache_.insert(
           {access_token, ExpiringCacheEntry<std::map<std::string, V>>(
-                             std::map<std::string, V>(), cache_entry_life_time)});
+                             std::map<std::string, V>(), cache_entry_lifetime_ms)});
     }
 
     return cache_[access_token].cached_item();
