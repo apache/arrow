@@ -1353,14 +1353,14 @@ extern "C" SEXP _arrow_dataset___UnionDataset__create(SEXP datasets_sexp, SEXP s
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<ds::InMemoryDataset> dataset___InMemoryDataset__create(const std::shared_ptr<arrow::Table>& table);
-RcppExport SEXP _arrow_dataset___InMemoryDataset__create(SEXP table_sexp){
-BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
-	return Rcpp::wrap(dataset___InMemoryDataset__create(table));
-END_RCPP
+extern "C" SEXP _arrow_dataset___InMemoryDataset__create(SEXP table_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
+	return cpp11::as_sexp(dataset___InMemoryDataset__create(table));
+END_CPP11
 }
 #else
-RcppExport SEXP _arrow_dataset___InMemoryDataset__create(SEXP table_sexp){
+extern "C" SEXP _arrow_dataset___InMemoryDataset__create(SEXP table_sexp){
 	Rf_error("Cannot call dataset___InMemoryDataset__create(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
