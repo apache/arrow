@@ -201,6 +201,30 @@ fn csv_query_avg_sqrt() -> Result<()> {
     Ok(())
 }
 
+#[test]
+fn csv_query_sqrt_f32() -> Result<()> {
+    let mut ctx = create_ctx()?;
+    register_aggregate_csv(&mut ctx)?;
+    // sqrt(f32)'s plan passes
+    let sql = "SELECT avg(sqrt(c11)) FROM aggregate_test_100";
+    let mut actual = execute(&mut ctx, sql);
+    actual.sort();
+    let expected = "0.6584408483418833".to_string();
+    assert_eq!(actual.join("\n"), expected);
+    Ok(())
+}
+
+#[test]
+fn csv_query_error() -> Result<()> {
+    // sin(utf8) should error
+    let mut ctx = create_ctx()?;
+    register_aggregate_csv(&mut ctx)?;
+    let sql = "SELECT sin(c1) FROM aggregate_test_100";
+    let plan = ctx.create_logical_plan(&sql);
+    assert!(plan.is_err());
+    Ok(())
+}
+
 // this query used to deadlock due to the call udf(udf())
 #[test]
 fn csv_query_sqrt_sqrt() -> Result<()> {

@@ -30,7 +30,7 @@ use crate::datasource::parquet::ParquetTable;
 use crate::datasource::TableProvider;
 use crate::error::{ExecutionError, Result};
 use crate::{
-    execution::physical_plan::expressions::binary_operator_data_type,
+    execution::physical_plan::{expressions::binary_operator_data_type, functions},
     sql::parser::FileType,
 };
 use arrow::record_batch::RecordBatch;
@@ -190,7 +190,14 @@ fn create_name(e: &Expr, input_schema: &Schema) -> Result<String> {
             let expr = create_name(expr, input_schema)?;
             Ok(format!("CAST({} as {:?})", expr, data_type))
         }
-        Expr::ScalarFunction { name, args, .. } => {
+        Expr::ScalarFunction { fun, args, .. } => {
+            let mut names = Vec::with_capacity(args.len());
+            for e in args {
+                names.push(create_name(e, input_schema)?);
+            }
+            Ok(format!("{}({})", fun, names.join(",")))
+        }
+        Expr::ScalarUDF { name, args, .. } => {
             let mut names = Vec::with_capacity(args.len());
             for e in args {
                 names.push(create_name(e, input_schema)?);
@@ -258,9 +265,16 @@ pub enum Expr {
         /// Whether to put Nulls before all other data values
         nulls_first: bool,
     },
-    /// scalar function
+    /// scalar function.
     ScalarFunction {
-        /// Name of the function
+        /// The function
+        fun: functions::ScalarFunction,
+        /// List of expressions to feed to the functions as arguments
+        args: Vec<Expr>,
+    },
+    /// scalar udf.
+    ScalarUDF {
+        /// The function's name
         name: String,
         /// List of expressions to feed to the functions as arguments
         args: Vec<Expr>,
@@ -286,7 +300,14 @@ impl Expr {
             Expr::Column(name) => Ok(schema.field_with_name(name)?.data_type().clone()),
             Expr::Literal(l) => l.get_datatype(),
             Expr::Cast { data_type, .. } => Ok(data_type.clone()),
-            Expr::ScalarFunction { return_type, .. } => Ok(return_type.clone()),
+            Expr::ScalarUDF { return_type, .. } => Ok(return_type.clone()),
+            Expr::ScalarFunction { fun, args } => {
+                let data_types = args
+                    .iter()
+                    .map(|e| e.get_type(schema))
+                    .collect::<Result<Vec<_>>>()?;
+                functions::return_type(fun, &data_types)
+            }
             Expr::AggregateFunction { name, args, .. } => {
                 match name.to_uppercase().as_str() {
                     "MIN" | "MAX" => args[0].get_type(schema),
@@ -360,6 +381,7 @@ impl Expr {
             },
             Expr::Cast { expr, .. } => expr.nullable(input_schema),
             Expr::ScalarFunction { .. } => Ok(true),
+            Expr::ScalarUDF { .. } => Ok(true),
             Expr::AggregateFunction { .. } => Ok(true),
             Expr::Not(expr) => expr.nullable(input_schema),
             Expr::IsNull(_) => Ok(false),
@@ -608,36 +630,42 @@ pub fn lit<T: Literal>(n: T) -> Expr {
 
 /// Create an convenience function representing a unary scalar function
 macro_rules! unary_math_expr {
-    ($NAME:expr, $FUNC:ident) => {
+    ($ENUM:ident, $FUNC:ident) => {
         #[allow(missing_docs)]
         pub fn $FUNC(e: Expr) -> Expr {
-            scalar_function($NAME, vec![e], DataType::Float64)
+            Expr::ScalarFunction {
+                fun: functions::ScalarFunction::$ENUM,
+                args: vec![e],
+            }
         }
     };
 }
 
 // generate methods for creating the supported unary math expressions
-unary_math_expr!("sqrt", sqrt);
-unary_math_expr!("sin", sin);
-unary_math_expr!("cos", cos);
-unary_math_expr!("tan", tan);
-unary_math_expr!("asin", asin);
-unary_math_expr!("acos", acos);
-unary_math_expr!("atan", atan);
-unary_math_expr!("floor", floor);
-unary_math_expr!("ceil", ceil);
-unary_math_expr!("round", round);
-unary_math_expr!("trunc", trunc);
-unary_math_expr!("abs", abs);
-unary_math_expr!("signum", signum);
-unary_math_expr!("exp", exp);
-unary_math_expr!("log", ln);
-unary_math_expr!("log2", log2);
-unary_math_expr!("log10", log10);
+unary_math_expr!(Sqrt, sqrt);
+unary_math_expr!(Sin, sin);
+unary_math_expr!(Cos, cos);
+unary_math_expr!(Tan, tan);
+unary_math_expr!(Asin, asin);
+unary_math_expr!(Acos, acos);
+unary_math_expr!(Atan, atan);
+unary_math_expr!(Floor, floor);
+unary_math_expr!(Ceil, ceil);
+unary_math_expr!(Round, round);
+unary_math_expr!(Trunc, trunc);
+unary_math_expr!(Abs, abs);
+unary_math_expr!(Signum, signum);
+unary_math_expr!(Exp, exp);
+unary_math_expr!(Log, ln);
+unary_math_expr!(Log2, log2);
+unary_math_expr!(Log10, log10);
 
 /// returns the length of a string in bytes
 pub fn length(e: Expr) -> Expr {
-    scalar_function("length", vec![e], DataType::UInt32)
+    Expr::ScalarFunction {
+        fun: functions::ScalarFunction::Length,
+        args: vec![e],
+    }
 }
 
 /// Create an aggregate expression
@@ -648,9 +676,9 @@ pub fn aggregate_expr(name: &str, expr: Expr) -> Expr {
     }
 }
 
-/// Create an aggregate expression
+/// call a scalar UDF
 pub fn scalar_function(name: &str, expr: Vec<Expr>, return_type: DataType) -> Expr {
-    Expr::ScalarFunction {
+    Expr::ScalarUDF {
         name: name.to_owned(),
         args: expr,
         return_type,
@@ -688,7 +716,18 @@ impl fmt::Debug for Expr {
                     write!(f, " NULLS LAST")
                 }
             }
-            Expr::ScalarFunction { name, ref args, .. } => {
+            Expr::ScalarFunction { fun, ref args, .. } => {
+                write!(f, "{}(", fun)?;
+                for i in 0..args.len() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{:?}", args[i])?;
+                }
+
+                write!(f, ")")
+            }
+            Expr::ScalarUDF { name, ref args, .. } => {
                 write!(f, "{}(", name)?;
                 for i in 0..args.len() {
                     if i > 0 {

@@ -1361,7 +1361,7 @@ pub struct CastExpr {
 }
 
 /// Determine if a DataType is numeric or not
-fn is_numeric(dt: &DataType) -> bool {
+pub fn is_numeric(dt: &DataType) -> bool {
     match dt {
         DataType::Int8 | DataType::Int16 | DataType::Int32 | DataType::Int64 => true,
         DataType::UInt8 | DataType::UInt16 | DataType::UInt32 | DataType::UInt64 => true,

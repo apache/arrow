@@ -62,6 +62,7 @@ pub fn expr_to_column_names(expr: &Expr, accum: &mut HashSet<String>) -> Result<
         Expr::Sort { expr, .. } => expr_to_column_names(expr, accum),
         Expr::AggregateFunction { args, .. } => exprlist_to_column_names(args, accum),
         Expr::ScalarFunction { args, .. } => exprlist_to_column_names(args, accum),
+        Expr::ScalarUDF { args, .. } => exprlist_to_column_names(args, accum),
         Expr::Wildcard => Err(ExecutionError::General(
             "Wildcard expressions are not valid in a logical query plan".to_owned(),
         )),
@@ -194,6 +195,7 @@ pub fn expr_sub_expressions(expr: &Expr) -> Result<Vec<&Expr>> {
         Expr::IsNull(e) => Ok(vec![e]),
         Expr::IsNotNull(e) => Ok(vec![e]),
         Expr::ScalarFunction { args, .. } => Ok(args.iter().collect()),
+        Expr::ScalarUDF { args, .. } => Ok(args.iter().collect()),
         Expr::AggregateFunction { args, .. } => Ok(args.iter().collect()),
         Expr::Cast { expr, .. } => Ok(vec![expr]),
         Expr::Column(_) => Ok(vec![]),
@@ -219,9 +221,13 @@ pub fn rewrite_expression(expr: &Expr, expressions: &Vec<Expr>) -> Result<Expr> 
         }),
         Expr::IsNull(_) => Ok(Expr::IsNull(Box::new(expressions[0].clone()))),
         Expr::IsNotNull(_) => Ok(Expr::IsNotNull(Box::new(expressions[0].clone()))),
-        Expr::ScalarFunction {
+        Expr::ScalarFunction { fun, .. } => Ok(Expr::ScalarFunction {
+            fun: fun.clone(),
+            args: expressions.clone(),
+        }),
+        Expr::ScalarUDF {
             name, return_type, ..
-        } => Ok(Expr::ScalarFunction {
+        } => Ok(Expr::ScalarUDF {
             name: name.clone(),
             return_type: return_type.clone(),
             args: expressions.clone(),

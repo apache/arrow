@@ -64,7 +64,7 @@ where
 
         // modify `expressions` by introducing casts when necessary
         match expr {
-            Expr::ScalarFunction { name, .. } => {
+            Expr::ScalarUDF { name, .. } => {
                 // cast the inputs of scalar functions to the appropriate type where possible
                 match self.scalar_functions.lookup(name) {
                     Some(func_meta) => {
