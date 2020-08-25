@@ -226,13 +226,20 @@ mmap_open <- function(path, mode = c("read", "write", "readwrite")) {
 #' to infer compression from the file extension.
 #' @return An `InputStream` or a subclass of one.
 #' @keywords internal
-make_readable_file <- function(file, mmap = TRUE, compression = NULL) {
+make_readable_file <- function(file, mmap = TRUE, compression = NULL, filesystem = NULL) {
   if (is.string(file)) {
+    if (grepl("://", file)) {
+      fs_and_path <- FileSystem$from_uri(file)
+      filesystem <- fs_and_path$fs
+      file <- fs_and_path$path
+    }
     if (is.null(compression)) {
       # Infer compression from the file path
       compression <- detect_compression(file)
     }
-    if (isTRUE(mmap)) {
+    if (!is.null(filesystem)) {
+      file <- filesystem$OpenInputFile(file)
+    } else if (isTRUE(mmap)) {
       file <- mmap_open(file)
     } else {
       file <- ReadableFile$create(file)

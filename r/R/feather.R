@@ -106,7 +106,12 @@ write_feather <- function(x,
   assert_is(x, "Table")
 
   if (is.string(sink)) {
-    sink <- FileOutputStream$create(sink)
+    if (grepl("://", sink)) {
+      fs_and_path <- FileSystem$from_uri(sink)
+      sink <- fs_and_path$fs$OpenOutputStream(fs_and_path$path)
+    } else {
+      sink <- FileOutputStream$create(sink)
+    }
     on.exit(sink$close())
   }
   assert_is(sink, "OutputStream")

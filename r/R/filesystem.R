@@ -228,7 +228,7 @@ FileSystem <- R6Class("FileSystem", inherit = ArrowObject,
       shared_ptr(InputStream, fs___FileSystem__OpenInputStream(self, clean_path_rel(path)))
     },
     OpenInputFile = function(path) {
-      shared_ptr(InputStream, fs___FileSystem__OpenInputFile(self, clean_path_rel(path)))
+      shared_ptr(RandomAccessFile, fs___FileSystem__OpenInputFile(self, clean_path_rel(path)))
     },
     OpenOutputStream = function(path) {
       shared_ptr(OutputStream, fs___FileSystem__OpenOutputStream(self, clean_path_rel(path)))
