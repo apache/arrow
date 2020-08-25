@@ -79,7 +79,7 @@ ctest \
     --output-on-failure \
     --parallel ${n_jobs} \
     --timeout 300 \
-    "${ctest_options[@]}" -R arrow-compute-aggregate-test
+    "${ctest_options[@]}"
 
 if [ "${ARROW_FUZZING}" == "ON" ]; then
     # Fuzzing regression tests
