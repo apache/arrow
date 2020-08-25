@@ -18,6 +18,7 @@
 #include "arrow/c/bridge.h"
 
 #include <algorithm>
+#include <cerrno>
 #include <cstring>
 #include <string>
 #include <utility>
@@ -1499,6 +1500,115 @@ Result<std::shared_ptr<RecordBatch>> ImportRecordBatch(struct ArrowArray* array,
     return maybe_schema.status();
   }
   return ImportRecordBatch(array, *maybe_schema);
+}
+
+//////////////////////////////////////////////////////////////////////////
+// C stream export
+
+namespace {
+
+class ExportedArrayStream {
+ public:
+  struct PrivateData {
+    explicit PrivateData(std::shared_ptr<RecordBatchReader> reader)
+        : reader_(std::move(reader)) {}
+
+    std::shared_ptr<RecordBatchReader> reader_;
+    std::string last_error_;
+
+    PrivateData() = default;
+    ARROW_DISALLOW_COPY_AND_ASSIGN(PrivateData);
+  };
+
+  explicit ExportedArrayStream(struct ArrowArrayStream* stream) : stream_(stream) {}
+
+  Status GetSchema(struct ArrowSchema* out_schema) {
+    return ExportSchema(*reader()->schema(), out_schema);
+  }
+
+  Status GetNext(struct ArrowArray* out_array) {
+    std::shared_ptr<RecordBatch> batch;
+    RETURN_NOT_OK(reader()->ReadNext(&batch));
+    if (batch == nullptr) {
+      // End of stream
+      ArrowArrayMarkReleased(out_array);
+      return Status::OK();
+    } else {
+      return ExportRecordBatch(*batch, out_array);
+    }
+  }
+
+  const char* GetLastError() {
+    const auto& last_error = private_data()->last_error_;
+    return last_error.empty() ? nullptr : last_error.c_str();
+  }
+
+  void Release() {
+    if (ArrowArrayStreamIsReleased(stream_)) {
+      return;
+    }
+    DCHECK_NE(private_data(), nullptr);
+    delete private_data();
+
+    ArrowArrayStreamMarkReleased(stream_);
+  }
+
+  // C-compatible callbacks
+
+  static int StaticGetSchema(struct ArrowArrayStream* stream,
+                             struct ArrowSchema* out_schema) {
+    ExportedArrayStream self{stream};
+    return self.ToCError(self.GetSchema(out_schema));
+  }
+
+  static int StaticGetNext(struct ArrowArrayStream* stream,
+                           struct ArrowArray* out_array) {
+    ExportedArrayStream self{stream};
+    return self.ToCError(self.GetNext(out_array));
+  }
+
+  static void StaticRelease(struct ArrowArrayStream* stream) {
+    ExportedArrayStream{stream}.Release();
+  }
+
+  static const char* StaticGetLastError(struct ArrowArrayStream* stream) {
+    return ExportedArrayStream{stream}.GetLastError();
+  }
+
+ private:
+  int ToCError(const Status& status) {
+    if (ARROW_PREDICT_TRUE(status.ok())) {
+      private_data()->last_error_.clear();
+      return 0;
+    }
+    private_data()->last_error_ = status.ToString();
+    switch (status.code()) {
+      case StatusCode::IOError:
+        return EIO;
+      default:
+        return EINVAL;  // Most likely?
+    }
+  }
+
+  PrivateData* private_data() {
+    return reinterpret_cast<PrivateData*>(stream_->private_data);
+  }
+
+  const std::shared_ptr<RecordBatchReader>& reader() { return private_data()->reader_; }
+
+  struct ArrowArrayStream* stream_;
+};
+
+}  // namespace
+
+Status ExportRecordBatchReader(std::shared_ptr<RecordBatchReader> reader,
+                               struct ArrowArrayStream* out) {
+  out->get_schema = ExportedArrayStream::StaticGetSchema;
+  out->get_next = ExportedArrayStream::StaticGetNext;
+  out->get_last_error = ExportedArrayStream::StaticGetLastError;
+  out->release = ExportedArrayStream::StaticRelease;
+  out->private_data = new ExportedArrayStream::PrivateData{std::move(reader)};
+  return Status::OK();
 }
 
 }  // namespace arrow

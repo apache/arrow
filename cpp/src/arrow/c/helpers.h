@@ -82,6 +82,24 @@ inline void ArrowArrayRelease(struct ArrowArray* array) {
   }
 }
 
+/// Query whether the C array stream is released
+inline int ArrowArrayStreamIsReleased(const struct ArrowArrayStream* stream) {
+  return stream->release == NULL;
+}
+
+/// Mark the C array stream released (for use in release callbacks)
+inline void ArrowArrayStreamMarkReleased(struct ArrowArrayStream* stream) {
+  stream->release = NULL;
+}
+
+/// Release the C array stream, if necessary, by calling its release callback
+inline void ArrowArrayStreamRelease(struct ArrowArrayStream* stream) {
+  if (!ArrowArrayStreamIsReleased(stream)) {
+    stream->release(stream);
+    assert(ArrowArrayStreamIsReleased(stream));
+  }
+}
+
 #ifdef __cplusplus
 }
 #endif

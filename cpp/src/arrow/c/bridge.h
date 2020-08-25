@@ -160,4 +160,10 @@ ARROW_EXPORT
 Result<std::shared_ptr<RecordBatch>> ImportRecordBatch(struct ArrowArray* array,
                                                        struct ArrowSchema* schema);
 
+// EXPERIMENTAL: array stream APIs
+
+ARROW_EXPORT
+Status ExportRecordBatchReader(std::shared_ptr<RecordBatchReader> reader,
+                               struct ArrowArrayStream* out);
+
 }  // namespace arrow
