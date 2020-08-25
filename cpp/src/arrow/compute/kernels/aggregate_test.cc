@@ -648,6 +648,8 @@ class TestFloatingModeKernel : public TestPrimitiveModeKernel<ArrowType> {};
 
 class TestBooleanModeKernel : public TestPrimitiveModeKernel<BooleanType> {};
 
+class TestInt8ModeKernelValueRange : public TestPrimitiveModeKernel<Int8Type> {};
+
 TEST_F(TestBooleanModeKernel, Basics) {
   this->AssertModeIs("[false, false]", false, 2);
   this->AssertModeIs("[false, false, true, true, true]", true, 3);
@@ -683,6 +685,11 @@ TYPED_TEST(TestFloatingModeKernel, Floats) {
   this->AssertModeIsNull("[NaN, NaN, null]");
   this->AssertModeIsNull("[NaN, NaN, NaN]");
   this->AssertModeIsNull("[]");
+}
+
+TEST_F(TestInt8ModeKernelValueRange, Basics) {
+  this->AssertModeIs("[0, 127, -128, -128]", -128, 2);
+  this->AssertModeIs("[127, 127, 127]", 127, 3);
 }
 
 }  // namespace compute
