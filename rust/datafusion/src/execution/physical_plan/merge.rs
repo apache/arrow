@@ -79,7 +79,12 @@ impl ExecutionPlan for MergeExec {
         partition: usize,
     ) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
         // MergeExec produces a single partition
-        assert_eq!(0, partition);
+        if 0 != partition {
+            return Err(ExecutionError::General(format!(
+                "MergeExec invalid partition {}",
+                partition
+            )));
+        }
 
         let input_partitions = self.input.output_partitioning().partition_count();
         match input_partitions {

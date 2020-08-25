@@ -81,7 +81,12 @@ impl ExecutionPlan for ExplainExec {
         &self,
         partition: usize,
     ) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
-        assert_eq!(0, partition);
+        if 0 != partition {
+            return Err(ExecutionError::General(format!(
+                "ExplainExec invalid partition {}",
+                partition
+            )));
+        }
 
         let mut type_builder = StringArray::builder(self.stringified_plans.len());
         let mut plan_builder = StringArray::builder(self.stringified_plans.len());

@@ -25,7 +25,7 @@ use arrow::compute::{concat, lexsort_to_indices, take, SortColumn, TakeOptions};
 use arrow::datatypes::SchemaRef;
 use arrow::record_batch::{RecordBatch, RecordBatchReader};
 
-use crate::error::Result;
+use crate::error::{ExecutionError, Result};
 use crate::execution::physical_plan::common::RecordBatchIterator;
 use crate::execution::physical_plan::expressions::PhysicalSortExpr;
 use crate::execution::physical_plan::{
@@ -92,10 +92,19 @@ impl ExecutionPlan for SortExec {
         &self,
         partition: usize,
     ) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
-        assert_eq!(0, partition);
+        if 0 != partition {
+            return Err(ExecutionError::General(format!(
+                "SortExec invalid partition {}",
+                partition
+            )));
+        }
 
         // sort needs to operate on a single partition currently
-        assert_eq!(1, self.input.output_partitioning().partition_count());
+        if 1 != self.input.output_partitioning().partition_count() {
+            return Err(ExecutionError::General(
+                "SortExec requires a single input partition".to_owned(),
+            ));
+        }
         let it = self.input.execute(0)?;
         let batches = common::collect(it)?;
 

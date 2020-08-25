@@ -84,10 +84,19 @@ impl ExecutionPlan for GlobalLimitExec {
         partition: usize,
     ) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
         // GlobalLimitExec has a single output partition
-        assert_eq!(0, partition);
+        if 0 != partition {
+            return Err(ExecutionError::General(format!(
+                "GlobalLimitExec invalid partition {}",
+                partition
+            )));
+        }
 
         // GlobalLimitExec requires a single input partition
-        assert_eq!(1, self.input.output_partitioning().partition_count());
+        if 1 != self.input.output_partitioning().partition_count() {
+            return Err(ExecutionError::General(
+                "GlobalLimitExec requires a single input partition".to_owned(),
+            ));
+        }
 
         let it = self.input.execute(0)?;
         Ok(Arc::new(Mutex::new(MemoryIterator::try_new(
