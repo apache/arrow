@@ -192,7 +192,11 @@ Table$create <- function(..., schema = NULL) {
     names(dots) <- rep_len("", length(dots))
   }
   stopifnot(length(dots) > 0)
-  shared_ptr(Table, Table__from_dots(dots, schema))
+  if (all_record_batches(dots)) {
+    shared_ptr(Table, Table__from_record_batches(dots, schema))
+  } else {
+    shared_ptr(Table, Table__from_dots(dots, schema))
+  }
 }
 
 #' @export

@@ -68,15 +68,16 @@ RUN wget -q -O - https://deb.nodesource.com/setup_${node}.x | bash - && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
+# Sphinx is pinned because of ARROW-9693
 RUN pip install \
         meson \
         breathe \
         ipython \
-        sphinx \
+        sphinx==3.1.2 \
         sphinx_rtd_theme
 
 COPY c_glib/Gemfile /arrow/c_glib/
-RUN gem install bundler && \
+RUN gem install --no-document bundler && \
     bundle install --gemfile /arrow/c_glib/Gemfile
 
 COPY ci/scripts/r_deps.sh /arrow/ci/scripts/

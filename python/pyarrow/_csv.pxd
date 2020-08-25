@@ -18,9 +18,10 @@
 # cython: language_level = 3
 
 from pyarrow.includes.libarrow cimport *
+from pyarrow.lib cimport _Weakrefable
 
 
-cdef class ParseOptions:
+cdef class ParseOptions(_Weakrefable):
     cdef:
         CCSVParseOptions options
 

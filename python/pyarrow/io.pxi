@@ -41,7 +41,7 @@ cdef extern from "Python.h":
         char *v, Py_ssize_t len) except NULL
 
 
-cdef class NativeFile:
+cdef class NativeFile(_Weakrefable):
     """
     The base class for all Arrow streams.
 
@@ -878,7 +878,7 @@ cdef class FixedSizeBufferWriter(NativeFile):
 # Arrow buffers
 
 
-cdef class Buffer:
+cdef class Buffer(_Weakrefable):
     """
     The base class for all Arrow buffers.
 
@@ -1576,7 +1576,7 @@ cdef str _compression_name(CCompressionType ctype):
         raise RuntimeError('Unexpected CCompressionType value')
 
 
-cdef class Codec:
+cdef class Codec(_Weakrefable):
     """
     Compression codec.
 

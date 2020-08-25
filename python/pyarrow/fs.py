@@ -27,7 +27,6 @@ from pyarrow._fs import (  # noqa
     LocalFileSystem,
     SubTreeFileSystem,
     _MockFileSystem,
-    _normalize_path,
     FileSystemHandler,
     PyFileSystem,
 )
@@ -116,6 +115,9 @@ class FSSpecHandler(FileSystemHandler):
         if isinstance(protocol, list):
             protocol = protocol[0]
         return "fsspec+{0}".format(protocol)
+
+    def normalize_path(self, path):
+        return path
 
     @staticmethod
     def _create_file_info(path, info):

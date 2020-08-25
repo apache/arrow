@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include "./arrow_rcpp.h"
+#include "./arrow_cpp11.h"
 
 #if defined(ARROW_R_WITH_ARROW)
 #include <arrow/dataset/type_fwd.h>
@@ -33,24 +33,24 @@
 namespace arrow {
 
 namespace compute {
-class CastOptions;
+struct CastOptions;
 
 }  // namespace compute
 
 namespace csv {
 
 class TableReader;
-class ConvertOptions;
-class ReadOptions;
-class ParseOptions;
+struct ConvertOptions;
+struct ReadOptions;
+struct ParseOptions;
 
 }  // namespace csv
 
 namespace json {
 
 class TableReader;
-class ReadOptions;
-class ParseOptions;
+struct ReadOptions;
+struct ParseOptions;
 
 }  // namespace json
 
@@ -82,16 +82,5 @@ class FileWriter;
 
 }  // namespace arrow
 }  // namespace parquet
-
-RCPP_EXPOSED_ENUM_NODECL(arrow::Type::type)
-RCPP_EXPOSED_ENUM_NODECL(arrow::DateUnit)
-RCPP_EXPOSED_ENUM_NODECL(arrow::ipc::MetadataVersion)
-RCPP_EXPOSED_ENUM_NODECL(arrow::TimeUnit::type)
-RCPP_EXPOSED_ENUM_NODECL(arrow::StatusCode)
-RCPP_EXPOSED_ENUM_NODECL(arrow::io::FileMode::type)
-RCPP_EXPOSED_ENUM_NODECL(arrow::ipc::MessageType)
-RCPP_EXPOSED_ENUM_NODECL(arrow::Compression::type)
-RCPP_EXPOSED_ENUM_NODECL(arrow::fs::FileType)
-RCPP_EXPOSED_ENUM_NODECL(parquet::ParquetVersion::type)
 
 #endif

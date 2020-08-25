@@ -23,7 +23,7 @@ project('arrow-glib', 'c', 'cpp',
           'cpp_std=c++11',
         ])
 
-version = '1.1.0-SNAPSHOT'
+version = '2.0.0-SNAPSHOT'
 if version.endswith('-SNAPSHOT')
   version_numbers = version.split('-')[0].split('.')
   version_tag = version.split('-')[1]
@@ -124,6 +124,9 @@ if get_option('development_mode')
   else
     cxx_flags += ['-Werror']
   endif
+endif
+if cxx.get_id() != 'msvc'
+  cxx_flags += ['-Wmissing-declarations']
 endif
 add_project_arguments(cxx.get_supported_arguments(cxx_flags), language: 'cpp')
 

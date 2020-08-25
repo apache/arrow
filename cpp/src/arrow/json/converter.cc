@@ -24,6 +24,7 @@
 #include "arrow/builder.h"
 #include "arrow/json/parser.h"
 #include "arrow/type.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/string_view.h"
 #include "arrow/util/value_parsing.h"
@@ -31,6 +32,7 @@
 namespace arrow {
 namespace json {
 
+using internal::checked_cast;
 using util::string_view;
 
 template <typename... Args>
@@ -103,38 +105,12 @@ class BooleanConverter : public PrimitiveConverter {
 };
 
 template <typename T>
-struct ParserAdapter {
-  using value_type = typename T::c_type;
-
-  void InitParser(const DataType& type) {}
-
-  bool ConvertOne(const char* s, size_t length, value_type* out) {
-    return internal::ParseValue<T>(s, length, out);
-  }
-};
-
-template <>
-struct ParserAdapter<TimestampType> {
-  void InitParser(const DataType& type) {
-    this->unit = internal::checked_cast<const TimestampType&>(type).unit();
-  }
-
-  bool ConvertOne(const char* s, size_t length, int64_t* out) {
-    return internal::ParseTimestampISO8601(s, length, unit, out);
-  }
-
-  TimeUnit::type unit;
-};
-
-template <typename T>
-class NumericConverter : public PrimitiveConverter, public ParserAdapter<T> {
+class NumericConverter : public PrimitiveConverter {
  public:
   using value_type = typename T::c_type;
 
   NumericConverter(MemoryPool* pool, const std::shared_ptr<DataType>& type)
-      : PrimitiveConverter(pool, type) {
-    ParserAdapter<T>::InitParser(*type);
-  }
+      : PrimitiveConverter(pool, type), numeric_type_(checked_cast<const T&>(*type)) {}
 
   Status Convert(const std::shared_ptr<Array>& in, std::shared_ptr<Array>* out) override {
     if (in->type_id() == Type::NA) {
@@ -148,7 +124,7 @@ class NumericConverter : public PrimitiveConverter, public ParserAdapter<T> {
 
     auto visit_valid = [&](string_view repr) {
       value_type value;
-      if (!ParserAdapter<T>::ConvertOne(repr.data(), repr.size(), &value)) {
+      if (!internal::ParseValue(numeric_type_, repr.data(), repr.size(), &value)) {
         return GenericConversionError(*out_type_, ", couldn't parse:", repr);
       }
 
@@ -164,6 +140,8 @@ class NumericConverter : public PrimitiveConverter, public ParserAdapter<T> {
     RETURN_NOT_OK(VisitDictionaryEntries(dict_array, visit_valid, visit_null));
     return builder.Finish(out);
   }
+
+  const T& numeric_type_;
 };
 
 template <typename DateTimeType>

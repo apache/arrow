@@ -147,6 +147,7 @@ jobs:
       - name: Install Dependencies
         shell: bash
         run: |
+          brew update --preinstall
           brew bundle --file=cpp/Brewfile
           brew install coreutils python
           pip3 install -r python/requirements-build.txt \

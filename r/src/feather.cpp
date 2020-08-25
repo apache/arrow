@@ -65,7 +65,7 @@ std::shared_ptr<arrow::Table> ipc___feather___Reader__Read(
       StopIfNotOk(reader->Read(&table));
       break;
     default:
-      Rcpp::stop("incompatible column specification");
+      cpp11::stop("incompatible column specification");
       break;
   }
 
@@ -79,15 +79,11 @@ std::shared_ptr<arrow::ipc::feather::Reader> ipc___feather___Reader__Open(
 }
 
 // [[arrow::export]]
-Rcpp::CharacterVector ipc___feather___Reader__column_names(
+cpp11::writable::strings ipc___feather___Reader__column_names(
     const std::shared_ptr<arrow::ipc::feather::Reader>& reader) {
-  auto sch = reader->schema();
-  int64_t n = sch->num_fields();
-  Rcpp::CharacterVector out(n);
-  for (int i = 0; i < n; i++) {
-    out[i] = sch->field(i)->name();
-  }
-  return out;
+  return arrow::r::to_r_strings(
+      reader->schema()->fields(),
+      [](const std::shared_ptr<arrow::Field>& field) { return field->name(); });
 }
 
 #endif

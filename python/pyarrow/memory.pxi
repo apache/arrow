@@ -20,7 +20,7 @@
 # cython: embedsignature = True
 
 
-cdef class MemoryPool:
+cdef class MemoryPool(_Weakrefable):
     """
     Base class for memory allocation.
 

@@ -17,17 +17,8 @@
 
 #include "./arrow_types.h"
 
-using Rcpp::CharacterVector;
-using Rcpp::List;
-using Rcpp::stop;
-using Rcpp::wrap;
-
 #if defined(ARROW_R_WITH_ARROW)
 #include <arrow/type.h>
-
-RCPP_EXPOSED_ENUM_NODECL(arrow::Type::type)
-RCPP_EXPOSED_ENUM_NODECL(arrow::DateUnit)
-RCPP_EXPOSED_ENUM_NODECL(arrow::TimeUnit::type)
 
 // [[arrow::export]]
 bool shared_ptr_is_null(SEXP xp) {
@@ -108,12 +99,12 @@ std::shared_ptr<arrow::DataType> Decimal128Type__initialize(int32_t precision,
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::DataType> FixedSizeBinary__initialize(int32_t byte_width) {
+std::shared_ptr<arrow::DataType> FixedSizeBinary__initialize(R_xlen_t byte_width) {
   if (byte_width == NA_INTEGER) {
-    Rcpp::stop("'byte_width' cannot be NA");
+    cpp11::stop("'byte_width' cannot be NA");
   }
   if (byte_width < 1) {
-    Rcpp::stop("'byte_width' must be > 0");
+    cpp11::stop("'byte_width' must be > 0");
   }
   return arrow::fixed_size_binary(byte_width);
 }
@@ -137,54 +128,55 @@ std::shared_ptr<arrow::DataType> Time64__initialize(arrow::TimeUnit::type unit) 
 // [[arrow::export]]
 SEXP list__(SEXP x) {
   if (Rf_inherits(x, "Field")) {
-    Rcpp::ConstReferenceSmartPtrInputParameter<std::shared_ptr<arrow::Field>> field(x);
-    return wrap(arrow::list(field));
+    auto field = cpp11::as_cpp<std::shared_ptr<arrow::Field>>(x);
+    return cpp11::as_sexp(arrow::list(field));
   }
 
   if (Rf_inherits(x, "DataType")) {
-    Rcpp::ConstReferenceSmartPtrInputParameter<std::shared_ptr<arrow::DataType>> type(x);
-    return wrap(arrow::list(type));
+    auto type = cpp11::as_cpp<std::shared_ptr<arrow::DataType>>(x);
+    return cpp11::as_sexp(arrow::list(type));
   }
 
-  stop("incompatible");
+  cpp11::stop("incompatible");
   return R_NilValue;
 }
 
 // [[arrow::export]]
 SEXP large_list__(SEXP x) {
   if (Rf_inherits(x, "Field")) {
-    Rcpp::ConstReferenceSmartPtrInputParameter<std::shared_ptr<arrow::Field>> field(x);
-    return wrap(arrow::large_list(field));
+    auto field = cpp11::as_cpp<std::shared_ptr<arrow::Field>>(x);
+    return cpp11::as_sexp(arrow::large_list(field));
   }
 
   if (Rf_inherits(x, "DataType")) {
-    Rcpp::ConstReferenceSmartPtrInputParameter<std::shared_ptr<arrow::DataType>> type(x);
-    return wrap(arrow::large_list(type));
+    auto type = cpp11::as_cpp<std::shared_ptr<arrow::DataType>>(x);
+    return cpp11::as_sexp(arrow::large_list(type));
   }
 
-  stop("incompatible");
+  cpp11::stop("incompatible");
   return R_NilValue;
 }
 
 // [[arrow::export]]
 SEXP fixed_size_list__(SEXP x, int list_size) {
   if (Rf_inherits(x, "Field")) {
-    Rcpp::ConstReferenceSmartPtrInputParameter<std::shared_ptr<arrow::Field>> field(x);
-    return wrap(arrow::fixed_size_list(field, list_size));
+    auto field = cpp11::as_cpp<std::shared_ptr<arrow::Field>>(x);
+    return cpp11::as_sexp(arrow::fixed_size_list(field, list_size));
   }
 
   if (Rf_inherits(x, "DataType")) {
-    Rcpp::ConstReferenceSmartPtrInputParameter<std::shared_ptr<arrow::DataType>> type(x);
-    return wrap(arrow::fixed_size_list(type, list_size));
+    auto type = cpp11::as_cpp<std::shared_ptr<arrow::DataType>>(x);
+    return cpp11::as_sexp(arrow::fixed_size_list(type, list_size));
   }
 
-  stop("incompatible");
+  cpp11::stop("incompatible");
   return R_NilValue;
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::DataType> struct_(List fields) {
-  return arrow::struct_(arrow::r::List_to_shared_ptr_vector<arrow::Field>(fields));
+std::shared_ptr<arrow::DataType> struct__(
+    const std::vector<std::shared_ptr<arrow::Field>>& fields) {
+  return arrow::struct_(fields);
 }
 
 // [[arrow::export]]
@@ -209,8 +201,9 @@ int DataType__num_children(const std::shared_ptr<arrow::DataType>& type) {
 }
 
 // [[arrow::export]]
-List DataType__children_pointer(const std::shared_ptr<arrow::DataType>& type) {
-  return List(type->fields().begin(), type->fields().end());
+cpp11::writable::list DataType__children_pointer(
+    const std::shared_ptr<arrow::DataType>& type) {
+  return arrow::r::to_r_list(type->fields());
 }
 
 // [[arrow::export]]

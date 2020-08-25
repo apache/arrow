@@ -41,6 +41,7 @@
 #include <aws/core/client/RetryStrategy.h>
 #include <aws/core/utils/logging/ConsoleLogSystem.h>
 #include <aws/core/utils/stream/PreallocatedStreamBuf.h>
+#include <aws/identity-management/auth/STSAssumeRoleCredentialsProvider.h>
 #include <aws/s3/S3Client.h>
 #include <aws/s3/model/AbortMultipartUploadRequest.h>
 #include <aws/s3/model/CompleteMultipartUploadRequest.h>
@@ -170,9 +171,19 @@ void S3Options::ConfigureAnonymousCredentials() {
 }
 
 void S3Options::ConfigureAccessKey(const std::string& access_key,
-                                   const std::string& secret_key) {
+                                   const std::string& secret_key,
+                                   const std::string& session_token) {
   credentials_provider = std::make_shared<Aws::Auth::SimpleAWSCredentialsProvider>(
-      ToAwsString(access_key), ToAwsString(secret_key));
+      ToAwsString(access_key), ToAwsString(secret_key), ToAwsString(session_token));
+}
+
+void S3Options::ConfigureAssumeRoleCredentials(
+    const std::string& role_arn, const std::string& session_name,
+    const std::string& external_id, int load_frequency,
+    const std::shared_ptr<Aws::STS::STSClient>& stsClient) {
+  credentials_provider = std::make_shared<Aws::Auth::STSAssumeRoleCredentialsProvider>(
+      ToAwsString(role_arn), ToAwsString(session_name), ToAwsString(external_id),
+      load_frequency, stsClient);
 }
 
 std::string S3Options::GetAccessKey() const {
@@ -183,6 +194,11 @@ std::string S3Options::GetAccessKey() const {
 std::string S3Options::GetSecretKey() const {
   auto credentials = credentials_provider->GetAWSCredentials();
   return std::string(FromAwsString(credentials.GetAWSSecretKey()));
+}
+
+std::string S3Options::GetSessionToken() const {
+  auto credentials = credentials_provider->GetAWSCredentials();
+  return std::string(FromAwsString(credentials.GetSessionToken()));
 }
 
 S3Options S3Options::Defaults() {
@@ -198,9 +214,24 @@ S3Options S3Options::Anonymous() {
 }
 
 S3Options S3Options::FromAccessKey(const std::string& access_key,
-                                   const std::string& secret_key) {
+                                   const std::string& secret_key,
+                                   const std::string& session_token) {
   S3Options options;
-  options.ConfigureAccessKey(access_key, secret_key);
+  options.ConfigureAccessKey(access_key, secret_key, session_token);
+  return options;
+}
+
+S3Options S3Options::FromAssumeRole(
+    const std::string& role_arn, const std::string& session_name,
+    const std::string& external_id, int load_frequency,
+    const std::shared_ptr<Aws::STS::STSClient>& stsClient) {
+  S3Options options;
+  options.role_arn = role_arn;
+  options.session_name = session_name;
+  options.external_id = external_id;
+  options.load_frequency = load_frequency;
+  options.ConfigureAssumeRoleCredentials(role_arn, session_name, external_id,
+                                         load_frequency, stsClient);
   return options;
 }
 
@@ -267,7 +298,8 @@ bool S3Options::Equals(const S3Options& other) const {
   return (region == other.region && endpoint_override == other.endpoint_override &&
           scheme == other.scheme && background_writes == other.background_writes &&
           GetAccessKey() == other.GetAccessKey() &&
-          GetSecretKey() == other.GetSecretKey());
+          GetSecretKey() == other.GetSecretKey() &&
+          GetSessionToken() == other.GetSessionToken());
 }
 
 namespace {
@@ -861,7 +893,7 @@ class S3FileSystem::Impl {
  public:
   S3Options options_;
   Aws::Client::ClientConfiguration client_config_;
-  Aws::Auth::AWSCredentials credentials_;
+  std::shared_ptr<Aws::Auth::AWSCredentialsProvider> credentials_provider_;
   std::unique_ptr<Aws::S3::S3Client> client_;
 
   const int32_t kListObjectsMaxKeys = 1000;
@@ -873,7 +905,7 @@ class S3FileSystem::Impl {
   explicit Impl(S3Options options) : options_(std::move(options)) {}
 
   Status Init() {
-    credentials_ = options_.credentials_provider->GetAWSCredentials();
+    credentials_provider_ = options_.credentials_provider;
     client_config_.region = ToAwsString(options_.region);
     client_config_.endpointOverride = ToAwsString(options_.endpoint_override);
     if (options_.scheme == "http") {
@@ -893,7 +925,7 @@ class S3FileSystem::Impl {
 
     bool use_virtual_addressing = options_.endpoint_override.empty();
     client_.reset(
-        new Aws::S3::S3Client(credentials_, client_config_,
+        new Aws::S3::S3Client(credentials_provider_, client_config_,
                               Aws::Client::AWSAuthV4Signer::PayloadSigningPolicy::Never,
                               use_virtual_addressing));
     return Status::OK();

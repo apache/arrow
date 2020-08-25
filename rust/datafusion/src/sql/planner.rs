@@ -22,15 +22,22 @@ use std::sync::Arc;
 use crate::error::{ExecutionError, Result};
 use crate::logicalplan::Expr::Alias;
 use crate::logicalplan::{
-    lit, Expr, FunctionMeta, LogicalPlan, LogicalPlanBuilder, Operator, ScalarValue,
+    lit, Expr, LogicalPlan, LogicalPlanBuilder, Operator, PlanType, ScalarValue,
+    StringifiedPlan,
+};
+use crate::{
+    execution::physical_plan::udf::ScalarFunction,
+    sql::parser::{CreateExternalTable, FileType, Statement as DFStatement},
 };
 
 use arrow::datatypes::*;
 
+use super::parser::ExplainPlan;
 use sqlparser::ast::{
     BinaryOperator, DataType as SQLDataType, Expr as SQLExpr, Query, Select, SelectItem,
     SetExpr, TableFactor, TableWithJoins, UnaryOperator, Value,
 };
+use sqlparser::ast::{ColumnDef as SQLColumnDef, ColumnOption};
 use sqlparser::ast::{OrderByExpr, Statement};
 
 /// The SchemaProvider trait allows the query planner to obtain meta-data about tables and
@@ -39,22 +46,31 @@ pub trait SchemaProvider {
     /// Getter for a field description
     fn get_table_meta(&self, name: &str) -> Option<SchemaRef>;
     /// Getter for a UDF description
-    fn get_function_meta(&self, name: &str) -> Option<Arc<FunctionMeta>>;
+    fn get_function_meta(&self, name: &str) -> Option<Arc<ScalarFunction>>;
 }
 
 /// SQL query planner
-pub struct SqlToRel<S: SchemaProvider> {
-    schema_provider: S,
+pub struct SqlToRel<'a, S: SchemaProvider> {
+    schema_provider: &'a S,
 }
 
-impl<S: SchemaProvider> SqlToRel<S> {
+impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
     /// Create a new query planner
-    pub fn new(schema_provider: S) -> Self {
+    pub fn new(schema_provider: &'a S) -> Self {
         SqlToRel { schema_provider }
     }
 
-    /// Generate a logic plan from an SQL statement
-    pub fn statement_to_plan(&self, sql: &Statement) -> Result<LogicalPlan> {
+    /// Generate a logical plan from an DataFusion SQL statement
+    pub fn statement_to_plan(&self, statement: &DFStatement) -> Result<LogicalPlan> {
+        match statement {
+            DFStatement::CreateExternalTable(s) => self.external_table_to_plan(&s),
+            DFStatement::Statement(s) => self.sql_statement_to_plan(&s),
+            DFStatement::Explain(s) => self.explain_statement_to_plan(&(*s)),
+        }
+    }
+
+    /// Generate a logical plan from an SQL statement
+    pub fn sql_statement_to_plan(&self, sql: &Statement) -> Result<LogicalPlan> {
         match sql {
             Statement::Query(query) => self.query_to_plan(&query),
             _ => Err(ExecutionError::NotImplemented(
@@ -75,6 +91,112 @@ impl<S: SchemaProvider> SqlToRel<S> {
         let plan = self.order_by(&plan, &query.order_by)?;
 
         self.limit(&plan, &query.limit)
+    }
+
+    /// Generate a logical plan from a CREATE EXTERNAL TABLE statement
+    pub fn external_table_to_plan(
+        &self,
+        statement: &CreateExternalTable,
+    ) -> Result<LogicalPlan> {
+        let CreateExternalTable {
+            name,
+            columns,
+            file_type,
+            has_header,
+            location,
+        } = statement;
+
+        // semantic checks
+        match *file_type {
+            FileType::CSV => {
+                if columns.is_empty() {
+                    return Err(ExecutionError::General(
+                        "Column definitions required for CSV files. None found".into(),
+                    ));
+                }
+            }
+            FileType::Parquet => {
+                if !columns.is_empty() {
+                    return Err(ExecutionError::General(
+                        "Column definitions can not be specified for PARQUET files."
+                            .into(),
+                    ));
+                }
+            }
+            FileType::NdJson => {}
+        };
+
+        let schema = Box::new(self.build_schema(&columns)?);
+
+        Ok(LogicalPlan::CreateExternalTable {
+            schema,
+            name: name.clone(),
+            location: location.clone(),
+            file_type: file_type.clone(),
+            has_header: has_header.clone(),
+        })
+    }
+
+    /// Generate a plan for EXPLAIN ... that will print out a plan
+    ///
+    pub fn explain_statement_to_plan(
+        &self,
+        explain_plan: &ExplainPlan,
+    ) -> Result<LogicalPlan> {
+        let verbose = explain_plan.verbose;
+        let plan = self.statement_to_plan(&explain_plan.statement)?;
+
+        let stringified_plans = vec![StringifiedPlan::new(
+            PlanType::LogicalPlan,
+            format!("{:#?}", plan),
+        )];
+
+        let schema = LogicalPlan::explain_schema();
+        let plan = Box::new(plan);
+
+        Ok(LogicalPlan::Explain {
+            verbose,
+            plan,
+            stringified_plans,
+            schema,
+        })
+    }
+
+    fn build_schema(&self, columns: &Vec<SQLColumnDef>) -> Result<Schema> {
+        let mut fields = Vec::new();
+
+        for column in columns {
+            let data_type = self.make_data_type(&column.data_type)?;
+            let allow_null = column
+                .options
+                .iter()
+                .any(|x| x.option == ColumnOption::Null);
+            fields.push(Field::new(&column.name.value, data_type, allow_null));
+        }
+
+        Ok(Schema::new(fields))
+    }
+
+    fn make_data_type(&self, sql_type: &SQLDataType) -> Result<DataType> {
+        match sql_type {
+            SQLDataType::BigInt => Ok(DataType::Int64),
+            SQLDataType::Int => Ok(DataType::Int32),
+            SQLDataType::SmallInt => Ok(DataType::Int16),
+            SQLDataType::Char(_) | SQLDataType::Varchar(_) | SQLDataType::Text => {
+                Ok(DataType::Utf8)
+            }
+            SQLDataType::Decimal(_, _) => Ok(DataType::Float64),
+            SQLDataType::Float(_) => Ok(DataType::Float32),
+            SQLDataType::Real | SQLDataType::Double => Ok(DataType::Float64),
+            SQLDataType::Boolean => Ok(DataType::Boolean),
+            SQLDataType::Date => Ok(DataType::Date64(DateUnit::Day)),
+            SQLDataType::Time => Ok(DataType::Time64(TimeUnit::Millisecond)),
+            SQLDataType::Timestamp => Ok(DataType::Date64(DateUnit::Millisecond)),
+            _ => Err(ExecutionError::General(format!(
+                "Unsupported data type: {:?}.",
+                sql_type
+            ))),
+        }
     }
 
     fn from_join_to_plan(&self, from: &Vec<TableWithJoins>) -> Result<LogicalPlan> {
@@ -120,7 +242,7 @@ impl<S: SchemaProvider> SqlToRel<S> {
 
         let plan = self.from_join_to_plan(&select.from)?;
 
-        // selection first
+        // filter (also known as selection) first
         let plan = self.filter(&plan, &select.selection)?;
 
         let projection_expr: Vec<Expr> = select
@@ -148,11 +270,11 @@ impl<S: SchemaProvider> SqlToRel<S> {
     fn filter(
         &self,
         plan: &LogicalPlan,
-        selection: &Option<SQLExpr>,
+        predicate: &Option<SQLExpr>,
     ) -> Result<LogicalPlan> {
-        match *selection {
-            Some(ref filter_expr) => LogicalPlanBuilder::from(&plan)
-                .filter(self.sql_to_rex(filter_expr, &plan.schema())?)?
+        match *predicate {
+            Some(ref predicate_expr) => LogicalPlanBuilder::from(&plan)
+                .filter(self.sql_to_rex(predicate_expr, &plan.schema())?)?
                 .build(),
             _ => Ok(plan.clone()),
         }
@@ -367,14 +489,9 @@ impl<S: SchemaProvider> SqlToRel<S> {
                             .map(|a| self.sql_to_rex(a, schema))
                             .collect::<Result<Vec<Expr>>>()?;
 
-                        // return type is same as the argument type for these aggregate
-                        // functions
-                        let return_type = rex_args[0].get_type(schema)?.clone();
-
                         Ok(Expr::AggregateFunction {
                             name: name.clone(),
                             args: rex_args,
-                            return_type,
                         })
                     }
                     "count" => {
@@ -391,7 +508,6 @@ impl<S: SchemaProvider> SqlToRel<S> {
                         Ok(Expr::AggregateFunction {
                             name: name.clone(),
                             args: rex_args,
-                            return_type: DataType::UInt64,
                         })
                     }
                     _ => match self.schema_provider.get_function_meta(&name) {
@@ -406,14 +522,14 @@ impl<S: SchemaProvider> SqlToRel<S> {
                             for i in 0..rex_args.len() {
                                 safe_args.push(
                                     rex_args[i]
-                                        .cast_to(fm.args()[i].data_type(), schema)?,
+                                        .cast_to(fm.args[i].data_type(), schema)?,
                                 );
                             }
 
                             Ok(Expr::ScalarFunction {
                                 name: name.clone(),
                                 args: safe_args,
-                                return_type: fm.return_type().clone(),
+                                return_type: fm.return_type.clone(),
                             })
                         }
                         _ => Err(ExecutionError::General(format!(
@@ -423,6 +539,8 @@ impl<S: SchemaProvider> SqlToRel<S> {
                     },
                 }
             }
+
+            SQLExpr::Nested(e) => self.sql_to_rex(&e, &schema),
 
             _ => Err(ExecutionError::General(format!(
                 "Unsupported ast node {:?} in sqltorel",
@@ -460,10 +578,8 @@ pub fn convert_data_type(sql: &SQLDataType) -> Result<DataType> {
 
 #[cfg(test)]
 mod tests {
-
     use super::*;
-    use crate::logicalplan::FunctionType;
-    use sqlparser::{dialect::GenericDialect, parser::Parser};
+    use crate::sql::parser::DFParser;
 
     #[test]
     fn select_no_relation() {
@@ -484,41 +600,41 @@ mod tests {
     }
 
     #[test]
-    fn select_simple_selection() {
+    fn select_simple_filter() {
         let sql = "SELECT id, first_name, last_name \
                    FROM person WHERE state = 'CO'";
         let expected = "Projection: #id, #first_name, #last_name\
-                        \n  Selection: #state Eq Utf8(\"CO\")\
+                        \n  Filter: #state Eq Utf8(\"CO\")\
                         \n    TableScan: person projection=None";
         quick_test(sql, expected);
     }
 
     #[test]
-    fn select_neg_selection() {
+    fn select_neg_filter() {
         let sql = "SELECT id, first_name, last_name \
                    FROM person WHERE NOT state";
         let expected = "Projection: #id, #first_name, #last_name\
-                        \n  Selection: NOT #state\
+                        \n  Filter: NOT #state\
                         \n    TableScan: person projection=None";
         quick_test(sql, expected);
     }
 
     #[test]
-    fn select_compound_selection() {
+    fn select_compound_filter() {
         let sql = "SELECT id, first_name, last_name \
                    FROM person WHERE state = 'CO' AND age >= 21 AND age <= 65";
         let expected = "Projection: #id, #first_name, #last_name\
-            \n  Selection: #state Eq Utf8(\"CO\") And #age GtEq Int64(21) And #age LtEq Int64(65)\
+            \n  Filter: #state Eq Utf8(\"CO\") And #age GtEq Int64(21) And #age LtEq Int64(65)\
             \n    TableScan: person projection=None";
         quick_test(sql, expected);
     }
 
     #[test]
-    fn test_timestamp_selection() {
+    fn test_timestamp_filter() {
         let sql = "SELECT state FROM person WHERE birth_date < CAST (158412331400600000 as timestamp)";
 
         let expected = "Projection: #state\
-            \n  Selection: #birth_date Lt CAST(Int64(158412331400600000) AS Timestamp(Nanosecond, None))\
+            \n  Filter: #birth_date Lt CAST(Int64(158412331400600000) AS Timestamp(Nanosecond, None))\
             \n    TableScan: person projection=None";
 
         quick_test(sql, expected);
@@ -535,13 +651,29 @@ mod tests {
                    AND age < 65 \
                    AND age <= 65";
         let expected = "Projection: #age, #first_name, #last_name\
-                        \n  Selection: #age Eq Int64(21) \
+                        \n  Filter: #age Eq Int64(21) \
                         And #age NotEq Int64(21) \
                         And #age Gt Int64(21) \
                         And #age GtEq Int64(21) \
                         And #age Lt Int64(65) \
                         And #age LtEq Int64(65)\
                         \n    TableScan: person projection=None";
+        quick_test(sql, expected);
+    }
+
+    #[test]
+    fn select_binary_expr() {
+        let sql = "SELECT age + salary from person";
+        let expected = "Projection: #age Plus #salary\
+                        \n  TableScan: person projection=None";
+        quick_test(sql, expected);
+    }
+
+    #[test]
+    fn select_binary_expr_nested() {
+        let sql = "SELECT (age + salary)/2 from person";
+        let expected = "Projection: #age Plus #salary Divide Int64(2)\
+                        \n  TableScan: person projection=None";
         quick_test(sql, expected);
     }
 
@@ -688,10 +820,44 @@ mod tests {
         );
     }
 
+    #[test]
+    fn create_external_table_csv() {
+        let sql = "CREATE EXTERNAL TABLE t(c1 int) STORED AS CSV LOCATION 'foo.csv'";
+        let expected = "CreateExternalTable: \"t\"";
+        quick_test(sql, expected);
+    }
+
+    #[test]
+    fn create_external_table_csv_no_schema() {
+        let sql = "CREATE EXTERNAL TABLE t STORED AS CSV LOCATION 'foo.csv'";
+        let err = logical_plan(sql).expect_err("query should have failed");
+        assert_eq!(
+            "General(\"Column definitions required for CSV files. None found\")",
+            format!("{:?}", err)
+        );
+    }
+
+    #[test]
+    fn create_external_table_parquet() {
+        let sql =
+            "CREATE EXTERNAL TABLE t(c1 int) STORED AS PARQUET LOCATION 'foo.parquet'";
+        let err = logical_plan(sql).expect_err("query should have failed");
+        assert_eq!(
+            "General(\"Column definitions can not be specified for PARQUET files.\")",
+            format!("{:?}", err)
+        );
+    }
+
+    #[test]
+    fn create_external_table_parquet_no_schema() {
+        let sql = "CREATE EXTERNAL TABLE t STORED AS PARQUET LOCATION 'foo.parquet'";
+        let expected = "CreateExternalTable: \"t\"";
+        quick_test(sql, expected);
+    }
+
     fn logical_plan(sql: &str) -> Result<LogicalPlan> {
-        let dialect = GenericDialect {};
-        let planner = SqlToRel::new(MockSchemaProvider {});
-        let ast = Parser::parse_sql(&dialect, sql).unwrap();
+        let planner = SqlToRel::new(&MockSchemaProvider {});
+        let ast = DFParser::parse_sql(&sql).unwrap();
         planner.statement_to_plan(&ast[0])
     }
 
@@ -738,13 +904,13 @@ mod tests {
             }
         }
 
-        fn get_function_meta(&self, name: &str) -> Option<Arc<FunctionMeta>> {
+        fn get_function_meta(&self, name: &str) -> Option<Arc<ScalarFunction>> {
             match name {
-                "sqrt" => Some(Arc::new(FunctionMeta::new(
-                    "sqrt".to_string(),
+                "sqrt" => Some(Arc::new(ScalarFunction::new(
+                    "sqrt",
                     vec![Field::new("n", DataType::Float64, false)],
                     DataType::Float64,
-                    FunctionType::Scalar,
+                    Arc::new(|_| Err(ExecutionError::NotImplemented("".to_string()))),
                 ))),
                 _ => None,
             }

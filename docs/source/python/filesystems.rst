@@ -31,7 +31,7 @@ storage is exposed.  Data paths are represented as *abstract paths*, which
 are ``/``-separated, even on Windows, and shouldn't include special path
 components such as ``.`` and ``..``.  Symbolic links, if supported by the
 underlying storage, are automatically dereferenced.  Only basic
-:class:`metadata <FileStats>` about file entries, such as the file size
+:class:`metadata <FileInfo>` about file entries, such as the file size
 and modification time, is made available.
 
 Types
@@ -54,16 +54,16 @@ here is how you can read contents from a S3 bucket::
    >>> s3 = fs.S3FileSystem(region='eu-west-3')
 
    # List all contents in a bucket, recursively
-   >>> s3.get_target_stats(fs.FileSelector('my-test-bucket', recursive=True))
-   [<FileStats for 'my-test-bucket/File1': type=FileType.File, size=10>,
-    <FileStats for 'my-test-bucket/File5': type=FileType.File, size=10>,
-    <FileStats for 'my-test-bucket/Dir1': type=FileType.Directory>,
-    <FileStats for 'my-test-bucket/Dir2': type=FileType.Directory>,
-    <FileStats for 'my-test-bucket/EmptyDir': type=FileType.Directory>,
-    <FileStats for 'my-test-bucket/Dir1/File2': type=FileType.File, size=11>,
-    <FileStats for 'my-test-bucket/Dir1/Subdir': type=FileType.Directory>,
-    <FileStats for 'my-test-bucket/Dir2/Subdir': type=FileType.Directory>,
-    <FileStats for 'my-test-bucket/Dir2/Subdir/File3': type=FileType.File, size=10>]
+   >>> s3.get_file_info(fs.FileSelector('my-test-bucket', recursive=True))
+   [<FileInfo for 'my-test-bucket/File1': type=FileType.File, size=10>,
+    <FileInfo for 'my-test-bucket/File5': type=FileType.File, size=10>,
+    <FileInfo for 'my-test-bucket/Dir1': type=FileType.Directory>,
+    <FileInfo for 'my-test-bucket/Dir2': type=FileType.Directory>,
+    <FileInfo for 'my-test-bucket/EmptyDir': type=FileType.Directory>,
+    <FileInfo for 'my-test-bucket/Dir1/File2': type=FileType.File, size=11>,
+    <FileInfo for 'my-test-bucket/Dir1/Subdir': type=FileType.Directory>,
+    <FileInfo for 'my-test-bucket/Dir2/Subdir': type=FileType.Directory>,
+    <FileInfo for 'my-test-bucket/Dir2/Subdir/File3': type=FileType.File, size=10>]
 
    # Open a file for reading and download its contents
    >>> f = s3.open_input_stream('my-test-bucket/Dir1/File2')

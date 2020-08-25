@@ -26,18 +26,24 @@ use std::{cmp::Ordering, mem};
 #[repr(i16)]
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub enum MetadataVersion {
-    /// 0.1.0
+    /// 0.1.0 (October 2016).
     V1 = 0,
-    /// 0.2.0
+    /// 0.2.0 (February 2017). Non-backwards compatible with V1.
     V2 = 1,
-    /// 0.3.0 -> 0.7.1
+    /// 0.3.0 -> 0.7.1 (May - December 2017). Non-backwards compatible with V2.
     V3 = 2,
-    /// >= 0.8.0
+    /// >= 0.8.0 (December 2017). Non-backwards compatible with V3.
     V4 = 3,
+    /// >= 1.0.0 (July 2020. Backwards compatible with V4 (V5 readers can read V4
+    /// metadata and IPC messages). Implementations are recommended to provide a
+    /// V4 compatibility mode with V5 format changes disabled.
+    ///
+    /// TODO: Add list of non-forward compatible changes.
+    V5 = 4,
 }
 
 const ENUM_MIN_METADATA_VERSION: i16 = 0;
-const ENUM_MAX_METADATA_VERSION: i16 = 3;
+const ENUM_MAX_METADATA_VERSION: i16 = 4;
 
 impl<'a> flatbuffers::Follow<'a> for MetadataVersion {
     type Inner = Self;
@@ -71,19 +77,102 @@ impl flatbuffers::Push for MetadataVersion {
 }
 
 #[allow(non_camel_case_types)]
-const ENUM_VALUES_METADATA_VERSION: [MetadataVersion; 4] = [
+const ENUM_VALUES_METADATA_VERSION: [MetadataVersion; 5] = [
     MetadataVersion::V1,
     MetadataVersion::V2,
     MetadataVersion::V3,
     MetadataVersion::V4,
+    MetadataVersion::V5,
 ];
 
 #[allow(non_camel_case_types)]
-const ENUM_NAMES_METADATA_VERSION: [&'static str; 4] = ["V1", "V2", "V3", "V4"];
+const ENUM_NAMES_METADATA_VERSION: [&'static str; 5] = ["V1", "V2", "V3", "V4", "V5"];
 
 pub fn enum_name_metadata_version(e: MetadataVersion) -> &'static str {
     let index = e as i16;
     ENUM_NAMES_METADATA_VERSION[index as usize]
+}
+
+/// Represents Arrow Features that might not have full support
+/// within implementations. This is intended to be used in
+/// two scenarios:
+///  1.  A mechanism for readers of Arrow Streams
+///      and files to understand that the stream or file makes
+///      use of a feature that isn't supported or unknown to
+///      the implementation (and therefore can meet the Arrow
+///      forward compatibility guarantees).
+///  2.  A means of negotiating between a client and server
+///      what features a stream is allowed to use. The enums
+///      values here are intented to represent higher level
+///      features, additional details maybe negotiated
+///      with key-value pairs specific to the protocol.
+///
+/// Enums added to this list should be assigned power-of-two values
+/// to facilitate exchanging and comparing bitmaps for supported
+/// features.
+#[allow(non_camel_case_types)]
+#[repr(i64)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+pub enum Feature {
+    /// Needed to make flatbuffers happy.
+    UNUSED = 0,
+    /// The stream makes use of multiple full dictionaries with the
+    /// same ID and assumes clients implement dictionary replacement
+    /// correctly.
+    DICTIONARY_REPLACEMENT = 1,
+    /// The stream makes use of compressed bodies as described
+    /// in Message.fbs.
+    COMPRESSED_BODY = 2,
+}
+
+const ENUM_MIN_FEATURE: i64 = 0;
+const ENUM_MAX_FEATURE: i64 = 2;
+
+impl<'a> flatbuffers::Follow<'a> for Feature {
+    type Inner = Self;
+    #[inline]
+    fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+        flatbuffers::read_scalar_at::<Self>(buf, loc)
+    }
+}
+
+impl flatbuffers::EndianScalar for Feature {
+    #[inline]
+    fn to_little_endian(self) -> Self {
+        let n = i64::to_le(self as i64);
+        let p = &n as *const i64 as *const Feature;
+        unsafe { *p }
+    }
+    #[inline]
+    fn from_little_endian(self) -> Self {
+        let n = i64::from_le(self as i64);
+        let p = &n as *const i64 as *const Feature;
+        unsafe { *p }
+    }
+}
+
+impl flatbuffers::Push for Feature {
+    type Output = Feature;
+    #[inline]
+    fn push(&self, dst: &mut [u8], _rest: &[u8]) {
+        flatbuffers::emplace_scalar::<Feature>(dst, *self);
+    }
+}
+
+#[allow(non_camel_case_types)]
+const ENUM_VALUES_FEATURE: [Feature; 3] = [
+    Feature::UNUSED,
+    Feature::DICTIONARY_REPLACEMENT,
+    Feature::COMPRESSED_BODY,
+];
+
+#[allow(non_camel_case_types)]
+const ENUM_NAMES_FEATURE: [&'static str; 3] =
+    ["UNUSED", "DICTIONARY_REPLACEMENT", "COMPRESSED_BODY"];
+
+pub fn enum_name_feature(e: Feature) -> &'static str {
+    let index = e as i64;
+    ENUM_NAMES_FEATURE[index as usize]
 }
 
 #[allow(non_camel_case_types)]
@@ -1757,6 +1846,10 @@ impl<'a: 'b, 'b> BoolBuilder<'a, 'b> {
 pub enum DecimalOffset {}
 #[derive(Copy, Clone, Debug, PartialEq)]
 
+/// Exact decimal value represented as an integer value in two's
+/// complement. Currently only 128-bit (16-byte) integers are used but this may
+/// be expanded in the future. The representation uses the endianness indicated
+/// in the Schema.
 pub struct Decimal<'a> {
     pub _tab: flatbuffers::Table<'a>,
 }
@@ -1782,6 +1875,7 @@ impl<'a> Decimal<'a> {
         args: &'args DecimalArgs,
     ) -> flatbuffers::WIPOffset<Decimal<'bldr>> {
         let mut builder = DecimalBuilder::new(_fbb);
+        builder.add_bitWidth(args.bitWidth);
         builder.add_scale(args.scale);
         builder.add_precision(args.precision);
         builder.finish()
@@ -1789,6 +1883,7 @@ impl<'a> Decimal<'a> {
 
     pub const VT_PRECISION: flatbuffers::VOffsetT = 4;
     pub const VT_SCALE: flatbuffers::VOffsetT = 6;
+    pub const VT_BITWIDTH: flatbuffers::VOffsetT = 8;
 
     /// Total number of decimal digits
     #[inline]
@@ -1802,11 +1897,22 @@ impl<'a> Decimal<'a> {
     pub fn scale(&self) -> i32 {
         self._tab.get::<i32>(Decimal::VT_SCALE, Some(0)).unwrap()
     }
+    /// Number of bits per value. The only accepted width right now is 128 but
+    /// this field exists for forward compatibility so that other bit widths may
+    /// be supported in future format versions. We use bitWidth for consistency
+    /// with Int::bitWidth.
+    #[inline]
+    pub fn bitWidth(&self) -> i32 {
+        self._tab
+            .get::<i32>(Decimal::VT_BITWIDTH, Some(128))
+            .unwrap()
+    }
 }
 
 pub struct DecimalArgs {
     pub precision: i32,
     pub scale: i32,
+    pub bitWidth: i32,
 }
 impl<'a> Default for DecimalArgs {
     #[inline]
@@ -1814,6 +1920,7 @@ impl<'a> Default for DecimalArgs {
         DecimalArgs {
             precision: 0,
             scale: 0,
+            bitWidth: 128,
         }
     }
 }
@@ -1830,6 +1937,11 @@ impl<'a: 'b, 'b> DecimalBuilder<'a, 'b> {
     #[inline]
     pub fn add_scale(&mut self, scale: i32) {
         self.fbb_.push_slot::<i32>(Decimal::VT_SCALE, scale, 0);
+    }
+    #[inline]
+    pub fn add_bitWidth(&mut self, bitWidth: i32) {
+        self.fbb_
+            .push_slot::<i32>(Decimal::VT_BITWIDTH, bitWidth, 128);
     }
     #[inline]
     pub fn new(
@@ -2463,8 +2575,11 @@ impl<'a> DictionaryEncoding<'a> {
             .get::<i64>(DictionaryEncoding::VT_ID, Some(0))
             .unwrap()
     }
-    /// The dictionary indices are constrained to be positive integers. If this
-    /// field is null, the indices must be signed int32
+    /// The dictionary indices are constrained to be non-negative integers. If
+    /// this field is null, the indices must be signed int32. To maximize
+    /// cross-language compatibility and performance, implementations are
+    /// recommended to prefer signed integer types over unsigned integer types
+    /// and to avoid uint64 indices unless they are required by an application.
     #[inline]
     pub fn indexType(&self) -> Option<Int<'a>> {
         self._tab.get::<flatbuffers::ForwardsUOffset<Int<'a>>>(
@@ -3019,6 +3134,9 @@ impl<'a> Schema<'a> {
         args: &'args SchemaArgs<'args>,
     ) -> flatbuffers::WIPOffset<Schema<'bldr>> {
         let mut builder = SchemaBuilder::new(_fbb);
+        if let Some(x) = args.features {
+            builder.add_features(x);
+        }
         if let Some(x) = args.custom_metadata {
             builder.add_custom_metadata(x);
         }
@@ -3032,6 +3150,7 @@ impl<'a> Schema<'a> {
     pub const VT_ENDIANNESS: flatbuffers::VOffsetT = 4;
     pub const VT_FIELDS: flatbuffers::VOffsetT = 6;
     pub const VT_CUSTOM_METADATA: flatbuffers::VOffsetT = 8;
+    pub const VT_FEATURES: flatbuffers::VOffsetT = 10;
 
     /// endianness of the buffer
     /// it is Little Endian by default
@@ -3058,6 +3177,15 @@ impl<'a> Schema<'a> {
             flatbuffers::Vector<flatbuffers::ForwardsUOffset<KeyValue<'a>>>,
         >>(Schema::VT_CUSTOM_METADATA, None)
     }
+    /// Features used in the stream/file.
+    #[inline]
+    pub fn features(&self) -> Option<flatbuffers::Vector<'a, Feature>> {
+        self._tab
+            .get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, Feature>>>(
+                Schema::VT_FEATURES,
+                None,
+            )
+    }
 }
 
 pub struct SchemaArgs<'a> {
@@ -3072,6 +3200,7 @@ pub struct SchemaArgs<'a> {
             flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<KeyValue<'a>>>,
         >,
     >,
+    pub features: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, Feature>>>,
 }
 impl<'a> Default for SchemaArgs<'a> {
     #[inline]
@@ -3080,6 +3209,7 @@ impl<'a> Default for SchemaArgs<'a> {
             endianness: Endianness::Little,
             fields: None,
             custom_metadata: None,
+            features: None,
         }
     }
 }
@@ -3117,6 +3247,14 @@ impl<'a: 'b, 'b> SchemaBuilder<'a, 'b> {
             Schema::VT_CUSTOM_METADATA,
             custom_metadata,
         );
+    }
+    #[inline]
+    pub fn add_features(
+        &mut self,
+        features: flatbuffers::WIPOffset<flatbuffers::Vector<'b, Feature>>,
+    ) {
+        self.fbb_
+            .push_slot_always::<flatbuffers::WIPOffset<_>>(Schema::VT_FEATURES, features);
     }
     #[inline]
     pub fn new(

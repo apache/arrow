@@ -19,7 +19,7 @@
 import collections
 
 
-cdef class Scalar:
+cdef class Scalar(_Weakrefable):
     """
     The base class for scalars.
     """
@@ -96,6 +96,9 @@ cdef class Scalar:
     def __hash__(self):
         cdef CScalarHash hasher
         return hasher(self.wrapped)
+
+    def __reduce__(self):
+        return scalar, (self.as_py(), self.type)
 
     def as_py(self):
         raise NotImplementedError()
@@ -736,7 +739,7 @@ cdef class UnionScalar(Scalar):
         Return underlying value as a scalar.
         """
         cdef CUnionScalar* sp = <CUnionScalar*> self.wrapped.get()
-        return Scalar.wrap(sp.value)
+        return Scalar.wrap(sp.value) if sp.is_valid else None
 
     def as_py(self):
         """

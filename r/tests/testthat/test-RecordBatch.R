@@ -50,8 +50,8 @@ test_that("RecordBatch", {
   expect_error(batch$column_name(NA), "'i' cannot be NA")
   expect_error(batch$column_name(-1), "subscript out of bounds")
   expect_error(batch$column_name(1000), "subscript out of bounds")
-  expect_error(batch$column_name(1:2), class = "Rcpp::not_compatible")
-  expect_error(batch$column_name("one"), class = "Rcpp::not_compatible")
+  expect_error(batch$column_name(1:2))
+  expect_error(batch$column_name("one"))
 
   col_int <- batch$column(0)
   expect_true(inherits(col_int, 'Array'))
@@ -82,8 +82,8 @@ test_that("RecordBatch", {
   expect_error(batch$column(NA), "'i' cannot be NA")
   expect_error(batch$column(-1), "subscript out of bounds")
   expect_error(batch$column(1000), "subscript out of bounds")
-  expect_error(batch$column(1:2), class = "Rcpp::not_compatible")
-  expect_error(batch$column("one"), class = "Rcpp::not_compatible")
+  expect_error(batch$column(1:2))
+  expect_error(batch$column("one"))
 
   batch2 <- batch$RemoveColumn(0)
   expect_equal(
@@ -97,8 +97,8 @@ test_that("RecordBatch", {
   expect_error(batch$RemoveColumn(NA), "'i' cannot be NA")
   expect_error(batch$RemoveColumn(-1), "subscript out of bounds")
   expect_error(batch$RemoveColumn(1000), "subscript out of bounds")
-  expect_error(batch$RemoveColumn(1:2), class = "Rcpp::not_compatible")
-  expect_error(batch$RemoveColumn("one"), class = "Rcpp::not_compatible")
+  expect_error(batch$RemoveColumn(1:2))
+  expect_error(batch$RemoveColumn("one"))
 })
 
 test_that("RecordBatch S3 methods", {
@@ -117,14 +117,14 @@ test_that("RecordBatch$Slice", {
   expect_data_frame(batch4, tbl[6:7,])
 
   # Input validation
-  expect_error(batch$Slice("ten"), class = "Rcpp::not_compatible")
+  expect_error(batch$Slice("ten"))
   expect_error(batch$Slice(NA_integer_), "Slice 'offset' cannot be NA")
   expect_error(batch$Slice(NA), "Slice 'offset' cannot be NA")
-  expect_error(batch$Slice(10, "ten"), class = "Rcpp::not_compatible")
+  expect_error(batch$Slice(10, "ten"))
   expect_error(batch$Slice(10, NA_integer_), "Slice 'length' cannot be NA")
   expect_error(batch$Slice(NA_integer_, NA_integer_), "Slice 'offset' cannot be NA")
-  expect_error(batch$Slice(c(10, 10)), class = "Rcpp::not_compatible")
-  expect_error(batch$Slice(10, c(10, 10)), class = "Rcpp::not_compatible")
+  expect_error(batch$Slice(c(10, 10)))
+  expect_error(batch$Slice(10, c(10, 10)))
   expect_error(batch$Slice(1000), "Slice 'offset' greater than array length")
   expect_error(batch$Slice(-1), "Slice 'offset' cannot be negative")
   expect_error(batch4$Slice(10, 10), "Slice 'offset' greater than array length")
@@ -155,7 +155,7 @@ test_that("[[ and $ on RecordBatch", {
   expect_vector(batch[[4]], tbl$chr)
   expect_null(batch$qwerty)
   expect_null(batch[["asdf"]])
-  expect_error(batch[[c(4, 3)]], class = "Rcpp::not_compatible")
+  expect_error(batch[[c(4, 3)]])
   expect_error(batch[[NA]], "'i' must be character or numeric, not logical")
   expect_error(batch[[NULL]], "'i' must be character or numeric, not NULL")
   expect_error(batch[[c("asdf", "jkl;")]], 'name is not a string', fixed = TRUE)

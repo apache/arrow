@@ -20,7 +20,7 @@
 #include "arrow/array/array_base.h"
 #include "arrow/compute/kernels/common.h"
 #include "arrow/result.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/util/bit_block_counter.h"
 
 namespace arrow {
 namespace compute {
@@ -37,7 +37,7 @@ void ListValueLength(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     ArrayData* out_arr = out->mutable_array();
     auto out_values = out_arr->GetMutableValues<offset_type>(1);
     const offset_type* offsets = list.raw_value_offsets();
-    ::arrow::internal::detail::VisitBitBlocksVoid(
+    ::arrow::internal::VisitBitBlocksVoid(
         list.data()->buffers[0], list.offset(), list.length(),
         [&](int64_t position) {
           *out_values++ = offsets[position + 1] - offsets[position];

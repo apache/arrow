@@ -17,6 +17,8 @@
 
 package org.apache.arrow.memory.util;
 
+import java.nio.ByteOrder;
+
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BoundsChecking;
 import org.apache.arrow.memory.util.hash.ArrowBufHasher;
@@ -27,6 +29,8 @@ import org.apache.arrow.memory.util.hash.SimpleHasher;
  */
 public class ByteFunctionHelpers {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ByteFunctionHelpers.class);
+
+  private static final boolean LITTLE_ENDIAN = ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN;
 
   private ByteFunctionHelpers() {}
 
@@ -152,7 +156,11 @@ public class ByteFunctionHelpers {
         long leftLong = MemoryUtil.UNSAFE.getLong(lPos);
         long rightLong = MemoryUtil.UNSAFE.getLong(rPos);
         if (leftLong != rightLong) {
-          return unsignedLongCompare(Long.reverseBytes(leftLong), Long.reverseBytes(rightLong));
+          if (LITTLE_ENDIAN) {
+            return unsignedLongCompare(Long.reverseBytes(leftLong), Long.reverseBytes(rightLong));
+          } else {
+            return unsignedLongCompare(leftLong, rightLong);
+          }
         }
         lPos += 8;
         rPos += 8;
@@ -164,7 +172,11 @@ public class ByteFunctionHelpers {
       long leftLong = MemoryUtil.UNSAFE.getLong(lPos);
       long rightLong = MemoryUtil.UNSAFE.getLong(rPos);
       if (leftLong != rightLong) {
-        return unsignedLongCompare(Long.reverseBytes(leftLong), Long.reverseBytes(rightLong));
+        if (LITTLE_ENDIAN) {
+          return unsignedLongCompare(Long.reverseBytes(leftLong), Long.reverseBytes(rightLong));
+        } else {
+          return unsignedLongCompare(leftLong, rightLong);
+        }
       }
       lPos += 8;
       rPos += 8;
@@ -175,7 +187,11 @@ public class ByteFunctionHelpers {
       int leftInt = MemoryUtil.UNSAFE.getInt(lPos);
       int rightInt = MemoryUtil.UNSAFE.getInt(rPos);
       if (leftInt != rightInt) {
-        return unsignedIntCompare(Integer.reverseBytes(leftInt), Integer.reverseBytes(rightInt));
+        if (LITTLE_ENDIAN) {
+          return unsignedIntCompare(Integer.reverseBytes(leftInt), Integer.reverseBytes(rightInt));
+        } else {
+          return unsignedIntCompare(leftInt, rightInt);
+        }
       }
       lPos += 4;
       rPos += 4;
@@ -259,7 +275,11 @@ public class ByteFunctionHelpers {
       long leftLong = MemoryUtil.UNSAFE.getLong(lPos);
       long rightLong = MemoryUtil.UNSAFE.getLong(right, MemoryUtil.BYTE_ARRAY_BASE_OFFSET + rPos);
       if (leftLong != rightLong) {
-        return unsignedLongCompare(Long.reverseBytes(leftLong), Long.reverseBytes(rightLong));
+        if (LITTLE_ENDIAN) {
+          return unsignedLongCompare(Long.reverseBytes(leftLong), Long.reverseBytes(rightLong));
+        } else {
+          return unsignedLongCompare(leftLong, rightLong);
+        }
       }
       lPos += 8;
       rPos += 8;
@@ -270,7 +290,11 @@ public class ByteFunctionHelpers {
       int leftInt = MemoryUtil.UNSAFE.getInt(lPos);
       int rightInt = MemoryUtil.UNSAFE.getInt(right, MemoryUtil.BYTE_ARRAY_BASE_OFFSET + rPos);
       if (leftInt != rightInt) {
-        return unsignedIntCompare(Integer.reverseBytes(leftInt), Integer.reverseBytes(rightInt));
+        if (LITTLE_ENDIAN) {
+          return unsignedIntCompare(Integer.reverseBytes(leftInt), Integer.reverseBytes(rightInt));
+        } else {
+          return unsignedIntCompare(leftInt, rightInt);
+        }
       }
       lPos += 4;
       rPos += 4;

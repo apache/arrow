@@ -19,6 +19,7 @@
 
 require "pkg-config"
 require "native-package-installer"
+require_relative "../lib/arrow-dataset/version"
 
 case RUBY_PLATFORM
 when /mingw|mswin/
@@ -33,7 +34,10 @@ end
 namespace :dependency do
   desc "Check dependency"
   task :check do
-    unless PKGConfig.check_version?("arrow-dataset-glib")
+    unless PKGConfig.check_version?("arrow-dataset-glib",
+                                    ArrowDataset::Version::MAJOR,
+                                    ArrowDataset::Version::MINOR,
+                                    ArrowDataset::Version::MICRO)
       unless NativePackageInstaller.install(:debian => "libarrow-dataset-glib-dev",
                                             :redhat => "arrow-dataset-glib-devel")
         exit(false)

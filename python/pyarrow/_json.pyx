@@ -22,14 +22,14 @@
 
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
-from pyarrow.lib cimport (check_status, Field, MemoryPool, ensure_type,
-                          maybe_unbox_memory_pool, get_input_stream,
-                          pyarrow_wrap_table, pyarrow_wrap_data_type,
-                          pyarrow_unwrap_data_type, pyarrow_wrap_schema,
-                          pyarrow_unwrap_schema)
+from pyarrow.lib cimport (check_status, _Weakrefable, Field, MemoryPool,
+                          ensure_type, maybe_unbox_memory_pool,
+                          get_input_stream, pyarrow_wrap_table,
+                          pyarrow_wrap_data_type, pyarrow_unwrap_data_type,
+                          pyarrow_wrap_schema, pyarrow_unwrap_schema)
 
 
-cdef class ReadOptions:
+cdef class ReadOptions(_Weakrefable):
     """
     Options for reading JSON files.
 
@@ -81,7 +81,7 @@ cdef class ReadOptions:
         self.options.block_size = value
 
 
-cdef class ParseOptions:
+cdef class ParseOptions(_Weakrefable):
     """
     Options for parsing JSON files.
 

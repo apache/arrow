@@ -239,8 +239,6 @@ class PackageTask
       # "ubuntu-xenial-arm64",
       "ubuntu-bionic",
       # "ubuntu-bionic-arm64",
-      "ubuntu-eoan",
-      # "ubuntu-eoan-arm64",
       "ubuntu-focal",
       # "ubuntu-focal-arm64",
     ]

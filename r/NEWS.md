@@ -17,7 +17,38 @@
   under the License.
 -->
 
-# arrow 1.0.0.9000
+# arrow 1.0.1.9000
+
+## Datasets
+
+* `write_dataset()` to Feather files with partitioning
+* Datasets now have `head()`, `tail()`, and take (`[`) methods. `head()` is optimized but the others  may not be performant.
+* `collect()` gains an `as_data_frame` argument, default `TRUE` but when `FALSE` allows you to evaluate the accumulated `select` and `filter` query but keep the result in Arrow, not an R `data.frame`
+
+## Computation
+
+* Comparison (`==`, `>`, etc.) and boolean (`&`, `|`, `!`) operations, along with `is.na` and `%in%`, on Arrow Arrays and ChunkedArrays are now implemented in the C++ library.
+* `dplyr` filter expressions on Arrow Tables and RecordBatches are now evaluated in the C++ library, rather than by pulling data into R and evaluating. This yields significant performance improvements.
+* `dim()` (`nrow`) for dplyr queries on Table/RecordBatch is now supported
+
+## Packaging
+
+* S3 support is now enabled in binary macOS and Windows (Rtools40 only, i.e. R >= 4.0) packages
+
+## Other improvements
+
+* `arrow` now depends on [`cpp11`](https://cpp11.r-lib.org/), which brings more robust UTF-8 handling and faster compilation
+
+# arrow 1.0.1
+
+## Bug fixes
+
+* Filtering a Dataset that has multiple partition keys using an `%in%` expression now faithfully returns all relevant rows
+* Datasets can now have path segments in the root directory that start with `.` or `_`; files and subdirectories starting with those prefixes are still ignored
+* `open_dataset("~/path")` now correctly expands the path
+* The `version` option to `write_parquet()` is now correctly implemented
+* An UBSAN failure in the `parquet-cpp` library has been fixed
+* For bundled Linux builds, the logic for finding `cmake` is more robust, and you can now specify a `/path/to/cmake` by setting the `CMAKE` environment variable
 
 # arrow 1.0.0
 
@@ -50,7 +81,7 @@
 
 * Non-UTF-8 strings (common on Windows) are correctly coerced to UTF-8 when passing to Arrow memory and appropriately re-localized when converting to R
 * The `coerce_timestamps` option to `write_parquet()` is now correctly implemented.
-* Creating a Dictionary array respects the `type` definition if provided by the user  
+* Creating a Dictionary array respects the `type` definition if provided by the user
 * `read_arrow` and `write_arrow` are now deprecated; use the `read/write_feather()` and `read/write_ipc_stream()` functions depending on whether you're working with the Arrow IPC file or stream format, respectively.
 * Previously deprecated `FileStats`, `read_record_batch`, and `read_table` have been removed.
 

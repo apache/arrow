@@ -811,6 +811,9 @@ class ARROW_EXPORT FixedSizeBinaryType : public FixedWidthType, public Parametri
   int32_t byte_width() const { return byte_width_; }
   int bit_width() const override;
 
+  // Validating constructor
+  static Result<std::shared_ptr<DataType>> Make(int32_t byte_width);
+
  protected:
   std::string ComputeFingerprint() const override;
 
@@ -1363,11 +1366,14 @@ class ARROW_EXPORT FieldPath {
   size_t hash() const;
 
   explicit operator bool() const { return !indices_.empty(); }
+  bool operator!() const { return indices_.empty(); }
   bool operator==(const FieldPath& other) const { return indices() == other.indices(); }
-  bool operator!=(const FieldPath& other) const { return !(*this == other); }
+  bool operator!=(const FieldPath& other) const { return indices() != other.indices(); }
 
-  std::vector<int>& indices() { return indices_; }
   const std::vector<int>& indices() const { return indices_; }
+  int operator[](size_t i) const { return indices_[i]; }
+  std::vector<int>::const_iterator begin() const { return indices_.begin(); }
+  std::vector<int>::const_iterator end() const { return indices_.end(); }
 
   /// \brief Retrieve the referenced child Field from a Schema, Field, or DataType
   Result<std::shared_ptr<Field>> Get(const Schema& schema) const;

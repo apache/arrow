@@ -36,6 +36,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
+#include "arrow/util/int_util_internal.h"
 #include "arrow/util/logging.h"
 
 #include "arrow/python/datetime.h"
@@ -91,6 +92,8 @@ struct ValueConverter<BooleanType> {
       return true;
     } else if (obj == Py_False) {
       return false;
+    } else if (PyArray_IsScalar(obj, Bool)) {
+      return reinterpret_cast<PyBoolScalarObject*>(obj)->obval == NPY_TRUE;
     } else {
       return internal::InvalidValue(obj, "tried to convert to boolean");
     }
@@ -191,10 +194,11 @@ struct ValueConverter<Date64Type> {
 
 template <>
 struct ValueConverter<Time32Type> {
-  static inline Result<int32_t> FromPython(PyObject* obj, TimeUnit::type unit) {
+  static inline Result<int32_t> FromPython(PyObject* obj, TimeUnit::type unit,
+                                           bool /*ignore_timezone*/) {
     int32_t value;
     if (PyTime_Check(obj)) {
-      // datetime.time stores microsecond resolution
+      // TODO(kszucs): consider to raise if a timezone aware time object is encountered
       switch (unit) {
         case TimeUnit::SECOND:
           value = static_cast<int32_t>(internal::PyTime_to_s(obj));
@@ -206,6 +210,7 @@ struct ValueConverter<Time32Type> {
           return Status::UnknownError("Invalid time unit");
       }
     } else {
+      // TODO(kszucs): validate maximum value?
       RETURN_NOT_OK(internal::CIntFromPython(obj, &value, "Integer too large for int32"));
     }
     return value;
@@ -214,10 +219,11 @@ struct ValueConverter<Time32Type> {
 
 template <>
 struct ValueConverter<Time64Type> {
-  static inline Result<int64_t> FromPython(PyObject* obj, TimeUnit::type unit) {
+  static inline Result<int64_t> FromPython(PyObject* obj, TimeUnit::type unit,
+                                           bool /*ignore_timezone=*/) {
     int64_t value;
     if (PyTime_Check(obj)) {
-      // datetime.time stores microsecond resolution
+      // TODO(kszucs): consider to raise if a timezone aware time object is encountered
       switch (unit) {
         case TimeUnit::MICRO:
           value = internal::PyTime_to_us(obj);
@@ -229,6 +235,7 @@ struct ValueConverter<Time64Type> {
           return Status::UnknownError("Invalid time unit");
       }
     } else {
+      // TODO(kszucs): validate maximum value?
       RETURN_NOT_OK(internal::CIntFromPython(obj, &value, "Integer too large for int64"));
     }
     return value;
@@ -237,22 +244,35 @@ struct ValueConverter<Time64Type> {
 
 template <>
 struct ValueConverter<TimestampType> {
-  static inline Result<int64_t> FromPython(PyObject* obj, TimeUnit::type unit) {
+  static inline Result<int64_t> FromPython(PyObject* obj, TimeUnit::type unit,
+                                           bool ignore_timezone) {
     int64_t value;
     if (PyDateTime_Check(obj)) {
+      ARROW_ASSIGN_OR_RAISE(int64_t offset, internal::PyDateTime_utcoffset_s(obj));
+      if (ignore_timezone) {
+        offset = 0;
+      }
       auto dt = reinterpret_cast<PyDateTime_DateTime*>(obj);
       switch (unit) {
         case TimeUnit::SECOND:
-          value = internal::PyDateTime_to_s(dt);
+          value = internal::PyDateTime_to_s(dt) - offset;
           break;
         case TimeUnit::MILLI:
-          value = internal::PyDateTime_to_ms(dt);
+          value = internal::PyDateTime_to_ms(dt) - offset * 1000;
           break;
         case TimeUnit::MICRO:
-          value = internal::PyDateTime_to_us(dt);
+          value = internal::PyDateTime_to_us(dt) - offset * 1000 * 1000;
           break;
         case TimeUnit::NANO:
-          value = internal::PyDateTime_to_ns(dt);
+          // Conversion to nanoseconds can overflow -> check multiply of microseconds
+          value = internal::PyDateTime_to_us(dt);
+          if (arrow::internal::MultiplyWithOverflow(value, 1000, &value)) {
+            return internal::InvalidValue(obj, "out of bounds for nanosecond resolution");
+          }
+          if (arrow::internal::SubtractWithOverflow(value, offset * 1000 * 1000 * 1000,
+                                                    &value)) {
+            return internal::InvalidValue(obj, "out of bounds for nanosecond resolution");
+          }
           break;
         default:
           return Status::UnknownError("Invalid time unit");
@@ -283,7 +303,8 @@ struct ValueConverter<TimestampType> {
 
 template <>
 struct ValueConverter<DurationType> {
-  static inline Result<int64_t> FromPython(PyObject* obj, TimeUnit::type unit) {
+  static inline Result<int64_t> FromPython(PyObject* obj, TimeUnit::type unit,
+                                           bool /*ignore_timezone*/) {
     int64_t value;
     if (PyDelta_Check(obj)) {
       auto dt = reinterpret_cast<PyDateTime_Delta*>(obj);
@@ -389,7 +410,8 @@ class SeqConverter;
 
 // Forward-declare converter factory
 Status GetConverter(const std::shared_ptr<DataType>& type, bool from_pandas,
-                    bool strict_conversions, std::unique_ptr<SeqConverter>* out);
+                    bool strict_conversions, bool ignore_timezone,
+                    std::unique_ptr<SeqConverter>* out);
 
 // Marshal Python sequence (list, tuple, etc.) to Arrow array
 class SeqConverter {
@@ -524,16 +546,19 @@ class PrimitiveConverter : public TypedConverter<Type, null_coding> {
 template <typename Type, NullCoding null_coding>
 class TimeConverter : public TypedConverter<Type, null_coding> {
  public:
-  explicit TimeConverter(TimeUnit::type unit) : unit_(unit) {}
+  explicit TimeConverter(TimeUnit::type unit, bool ignore_timezone)
+      : unit_(unit), ignore_timezone_(ignore_timezone) {}
 
   // TODO(kszucs): support numpy values for date and time converters
   Status AppendValue(PyObject* obj) override {
-    ARROW_ASSIGN_OR_RAISE(auto value, ValueConverter<Type>::FromPython(obj, unit_));
+    ARROW_ASSIGN_OR_RAISE(auto value,
+                          ValueConverter<Type>::FromPython(obj, unit_, ignore_timezone_));
     return this->typed_builder_->Append(value);
   }
 
  protected:
   TimeUnit::type unit_;
+  bool ignore_timezone_;
 };
 
 // TODO(kszucs): move it to the type_traits
@@ -569,8 +594,10 @@ class TemporalConverter : public TimeConverter<Type, null_coding> {
         return this->typed_builder_->AppendNull();
       }
     } else {
-      // convert builtin python objects
-      ARROW_ASSIGN_OR_RAISE(value, ValueConverter<Type>::FromPython(obj, this->unit_));
+      ARROW_ASSIGN_OR_RAISE(
+          value,
+          ValueConverter<Type>::FromPython(
+              obj, this->unit_, TimeConverter<Type, null_coding>::ignore_timezone_));
     }
     return this->typed_builder_->Append(value);
   }
@@ -647,13 +674,13 @@ class FixedSizeBinaryConverter
 
 // For String/UTF8, if strict_conversions enabled, we reject any non-UTF8,
 // otherwise we allow but return results as BinaryArray
-template <typename Type, bool STRICT, NullCoding null_coding>
+template <typename Type, bool Strict, NullCoding null_coding>
 class StringConverter : public BinaryLikeConverter<Type, null_coding> {
  public:
   StringConverter() : binary_count_(0) {}
 
   Status AppendValue(PyObject* obj) override {
-    if (STRICT) {
+    if (Strict) {
       // raise if the object is not unicode or not an utf-8 encoded bytes
       ARROW_ASSIGN_OR_RAISE(this->string_view_, ValueConverter<Type>::FromPython(obj));
     } else {
@@ -675,7 +702,7 @@ class StringConverter : public BinaryLikeConverter<Type, null_coding> {
     // If we saw any non-unicode, cast results to BinaryArray
     if (binary_count_) {
       // We should have bailed out earlier
-      DCHECK(!STRICT);
+      DCHECK(!Strict);
       auto binary_type = TypeTraits<typename Type::PhysicalType>::type_singleton();
       return (*out)->View(binary_type).Value(out);
     }
@@ -711,16 +738,19 @@ class BaseListConverter : public TypedConverter<TypeClass, null_coding> {
  public:
   using BuilderType = typename TypeTraits<TypeClass>::BuilderType;
 
-  explicit BaseListConverter(bool from_pandas, bool strict_conversions)
-      : from_pandas_(from_pandas), strict_conversions_(strict_conversions) {}
+  explicit BaseListConverter(bool from_pandas, bool strict_conversions,
+                             bool ignore_timezone)
+      : from_pandas_(from_pandas),
+        strict_conversions_(strict_conversions),
+        ignore_timezone_(ignore_timezone) {}
 
   Status Init(ArrayBuilder* builder) override {
     this->builder_ = builder;
     this->typed_builder_ = checked_cast<BuilderType*>(builder);
 
     this->value_type_ = checked_cast<const TypeClass&>(*builder->type()).value_type();
-    RETURN_NOT_OK(
-        GetConverter(value_type_, from_pandas_, strict_conversions_, &value_converter_));
+    RETURN_NOT_OK(GetConverter(value_type_, from_pandas_, strict_conversions_,
+                               ignore_timezone_, &value_converter_));
     return this->value_converter_->Init(this->typed_builder_->value_builder());
   }
 
@@ -830,8 +860,9 @@ class BaseListConverter : public TypedConverter<TypeClass, null_coding> {
  protected:
   std::shared_ptr<DataType> value_type_;
   std::unique_ptr<SeqConverter> value_converter_;
-  bool from_pandas_;
-  bool strict_conversions_;
+  const bool from_pandas_;
+  const bool strict_conversions_;
+  const bool ignore_timezone_;
 };
 
 template <typename TypeClass, NullCoding null_coding>
@@ -891,8 +922,8 @@ class MapConverter : public BaseListConverter<MapType, null_coding> {
  public:
   using BASE = BaseListConverter<MapType, null_coding>;
 
-  explicit MapConverter(bool from_pandas, bool strict_conversions)
-      : BASE(from_pandas, strict_conversions), key_builder_(nullptr) {}
+  explicit MapConverter(bool from_pandas, bool strict_conversions, bool ignore_timezone)
+      : BASE(from_pandas, strict_conversions, ignore_timezone), key_builder_(nullptr) {}
 
   Status Append(PyObject* obj) override {
     RETURN_NOT_OK(BASE::Append(obj));
@@ -934,8 +965,11 @@ class MapConverter : public BaseListConverter<MapType, null_coding> {
 template <NullCoding null_coding>
 class StructConverter : public TypedConverter<StructType, null_coding> {
  public:
-  explicit StructConverter(bool from_pandas, bool strict_conversions)
-      : from_pandas_(from_pandas), strict_conversions_(strict_conversions) {}
+  explicit StructConverter(bool from_pandas, bool strict_conversions,
+                           bool ignore_timezone)
+      : from_pandas_(from_pandas),
+        strict_conversions_(strict_conversions),
+        ignore_timezone_(ignore_timezone) {}
 
   Status Init(ArrayBuilder* builder) override {
     this->builder_ = builder;
@@ -955,8 +989,8 @@ class StructConverter : public TypedConverter<StructType, null_coding> {
       std::shared_ptr<DataType> field_type(struct_type->field(i)->type());
 
       std::unique_ptr<SeqConverter> value_converter;
-      RETURN_NOT_OK(
-          GetConverter(field_type, from_pandas_, strict_conversions_, &value_converter));
+      RETURN_NOT_OK(GetConverter(field_type, from_pandas_, strict_conversions_,
+                                 ignore_timezone_, &value_converter));
       RETURN_NOT_OK(value_converter->Init(this->typed_builder_->field_builder(i)));
       value_converters_.push_back(std::move(value_converter));
 
@@ -1074,6 +1108,7 @@ class StructConverter : public TypedConverter<StructType, null_coding> {
   } dict_key_kind_ = DictKeyKind::UNKNOWN;
   bool from_pandas_;
   bool strict_conversions_;
+  bool ignore_timezone_;
 };
 
 template <NullCoding null_coding>
@@ -1110,7 +1145,7 @@ class DecimalConverter : public TypedConverter<arrow::Decimal128Type, null_codin
 // Dynamic constructor for sequence converters
 template <NullCoding null_coding>
 Status GetConverterFlat(const std::shared_ptr<DataType>& type, bool strict_conversions,
-                        std::unique_ptr<SeqConverter>* out) {
+                        bool ignore_timezone, std::unique_ptr<SeqConverter>* out) {
   switch (type->id()) {
     SIMPLE_CONVERTER_CASE(NA, NullConverter);
     PRIMITIVE(BOOL, BooleanType);
@@ -1159,25 +1194,28 @@ Status GetConverterFlat(const std::shared_ptr<DataType>& type, bool strict_conve
       }
       break;
     case Type::TIME32: {
-      *out = std::unique_ptr<SeqConverter>(new TimeConverter<Time32Type, null_coding>(
-          checked_cast<const Time32Type&>(*type).unit()));
+      auto unit = checked_cast<const Time32Type&>(*type).unit();
+      *out = std::unique_ptr<SeqConverter>(
+          new TimeConverter<Time32Type, null_coding>(unit, ignore_timezone));
       break;
     }
     case Type::TIME64: {
-      *out = std::unique_ptr<SeqConverter>(new TimeConverter<Time64Type, null_coding>(
-          checked_cast<const Time64Type&>(*type).unit()));
+      auto unit = checked_cast<const Time64Type&>(*type).unit();
+      *out = std::unique_ptr<SeqConverter>(
+          new TimeConverter<Time64Type, null_coding>(unit, ignore_timezone));
       break;
     }
     case Type::TIMESTAMP: {
-      *out =
-          std::unique_ptr<SeqConverter>(new TemporalConverter<TimestampType, null_coding>(
-              checked_cast<const TimestampType&>(*type).unit()));
+      auto unit = checked_cast<const TimestampType&>(*type).unit();
+      *out = std::unique_ptr<SeqConverter>(
+          new TemporalConverter<TimestampType, null_coding>(unit, ignore_timezone));
       break;
     }
     case Type::DURATION: {
+      auto unit = checked_cast<const DurationType&>(*type).unit();
       *out =
           std::unique_ptr<SeqConverter>(new TemporalConverter<DurationType, null_coding>(
-              checked_cast<const DurationType&>(*type).unit()));
+              unit, /*ignore_timezone=*/false));
       break;
     }
     default:
@@ -1188,7 +1226,8 @@ Status GetConverterFlat(const std::shared_ptr<DataType>& type, bool strict_conve
 }
 
 Status GetConverter(const std::shared_ptr<DataType>& type, bool from_pandas,
-                    bool strict_conversions, std::unique_ptr<SeqConverter>* out) {
+                    bool strict_conversions, bool ignore_timezone,
+                    std::unique_ptr<SeqConverter>* out) {
   if (from_pandas) {
     // ARROW-842: If pandas is not installed then null checks will be less
     // comprehensive, but that is okay.
@@ -1200,53 +1239,53 @@ Status GetConverter(const std::shared_ptr<DataType>& type, bool from_pandas,
       if (from_pandas) {
         *out = std::unique_ptr<SeqConverter>(
             new ListConverter<ListType, NullCoding::PANDAS_SENTINELS>(
-                from_pandas, strict_conversions));
+                from_pandas, strict_conversions, ignore_timezone));
       } else {
         *out = std::unique_ptr<SeqConverter>(
-            new ListConverter<ListType, NullCoding::NONE_ONLY>(from_pandas,
-                                                               strict_conversions));
+            new ListConverter<ListType, NullCoding::NONE_ONLY>(
+                from_pandas, strict_conversions, ignore_timezone));
       }
       return Status::OK();
     case Type::LARGE_LIST:
       if (from_pandas) {
         *out = std::unique_ptr<SeqConverter>(
             new ListConverter<LargeListType, NullCoding::PANDAS_SENTINELS>(
-                from_pandas, strict_conversions));
+                from_pandas, strict_conversions, ignore_timezone));
       } else {
         *out = std::unique_ptr<SeqConverter>(
-            new ListConverter<LargeListType, NullCoding::NONE_ONLY>(from_pandas,
-                                                                    strict_conversions));
+            new ListConverter<LargeListType, NullCoding::NONE_ONLY>(
+                from_pandas, strict_conversions, ignore_timezone));
       }
       return Status::OK();
     case Type::MAP:
       if (from_pandas) {
         *out =
             std::unique_ptr<SeqConverter>(new MapConverter<NullCoding::PANDAS_SENTINELS>(
-                from_pandas, strict_conversions));
+                from_pandas, strict_conversions, ignore_timezone));
       } else {
-        *out = std::unique_ptr<SeqConverter>(
-            new MapConverter<NullCoding::NONE_ONLY>(from_pandas, strict_conversions));
+        *out = std::unique_ptr<SeqConverter>(new MapConverter<NullCoding::NONE_ONLY>(
+            from_pandas, strict_conversions, ignore_timezone));
       }
       return Status::OK();
     case Type::FIXED_SIZE_LIST:
       if (from_pandas) {
         *out = std::unique_ptr<SeqConverter>(
-            new FixedSizeListConverter<NullCoding::PANDAS_SENTINELS>(from_pandas,
-                                                                     strict_conversions));
+            new FixedSizeListConverter<NullCoding::PANDAS_SENTINELS>(
+                from_pandas, strict_conversions, ignore_timezone));
       } else {
         *out = std::unique_ptr<SeqConverter>(
-            new FixedSizeListConverter<NullCoding::NONE_ONLY>(from_pandas,
-                                                              strict_conversions));
+            new FixedSizeListConverter<NullCoding::NONE_ONLY>(
+                from_pandas, strict_conversions, ignore_timezone));
       }
       return Status::OK();
     case Type::STRUCT:
       if (from_pandas) {
         *out = std::unique_ptr<SeqConverter>(
-            new StructConverter<NullCoding::PANDAS_SENTINELS>(from_pandas,
-                                                              strict_conversions));
+            new StructConverter<NullCoding::PANDAS_SENTINELS>(
+                from_pandas, strict_conversions, ignore_timezone));
       } else {
-        *out = std::unique_ptr<SeqConverter>(
-            new StructConverter<NullCoding::NONE_ONLY>(from_pandas, strict_conversions));
+        *out = std::unique_ptr<SeqConverter>(new StructConverter<NullCoding::NONE_ONLY>(
+            from_pandas, strict_conversions, ignore_timezone));
       }
       return Status::OK();
     default:
@@ -1254,10 +1293,11 @@ Status GetConverter(const std::shared_ptr<DataType>& type, bool from_pandas,
   }
 
   if (from_pandas) {
-    RETURN_NOT_OK(
-        GetConverterFlat<NullCoding::PANDAS_SENTINELS>(type, strict_conversions, out));
+    RETURN_NOT_OK(GetConverterFlat<NullCoding::PANDAS_SENTINELS>(type, strict_conversions,
+                                                                 ignore_timezone, out));
   } else {
-    RETURN_NOT_OK(GetConverterFlat<NullCoding::NONE_ONLY>(type, strict_conversions, out));
+    RETURN_NOT_OK(GetConverterFlat<NullCoding::NONE_ONLY>(type, strict_conversions,
+                                                          ignore_timezone, out));
   }
   return Status::OK();
 }
@@ -1328,6 +1368,10 @@ Status ConvertPySequence(PyObject* sequence_source, PyObject* mask,
 
   if (options.type == nullptr) {
     RETURN_NOT_OK(InferArrowType(seq, mask, options.from_pandas, &real_type));
+    if (options.ignore_timezone && real_type->id() == Type::TIMESTAMP) {
+      const auto& ts_type = checked_cast<const TimestampType&>(*real_type);
+      real_type = timestamp(ts_type.unit());
+    }
   } else {
     real_type = options.type;
     strict_conversions = true;
@@ -1336,8 +1380,8 @@ Status ConvertPySequence(PyObject* sequence_source, PyObject* mask,
 
   // Create the sequence converter, initialize with the builder
   std::unique_ptr<SeqConverter> converter;
-  RETURN_NOT_OK(
-      GetConverter(real_type, options.from_pandas, strict_conversions, &converter));
+  RETURN_NOT_OK(GetConverter(real_type, options.from_pandas, strict_conversions,
+                             options.ignore_timezone, &converter));
 
   // Create ArrayBuilder for type, then pass into the SeqConverter
   // instance. The reason this is created here rather than in GetConverter is

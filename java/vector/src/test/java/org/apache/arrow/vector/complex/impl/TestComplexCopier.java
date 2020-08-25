@@ -671,4 +671,41 @@ public class TestComplexCopier {
       assertTrue(e.getMessage().contains("BigDecimal scale must equal that in the Arrow vector: 2 != 1"));
     }
   }
+
+  @Test
+  public void testCopyStructVectorWithNulls() {
+    try (StructVector from = StructVector.empty("v", allocator);
+         StructVector to = StructVector.empty("v", allocator)) {
+
+      NullableStructWriter writer = from.getWriter();
+
+      for (int i = 0; i < COUNT; ++i) {
+        writer.setPosition(i);
+        writer.start();
+        writer.integer("int").writeInt(i);
+        if (i % 3 == 0) {
+          writer.float4("child").writeFloat4(12.3f);
+        } else if (i % 3 == 1) {
+          writer.integer("child").writeInt(123);
+        } else {
+          writer.integer("child").writeNull();
+        }
+        writer.end();
+      }
+      from.setValueCount(COUNT);
+
+      // copy values
+      FieldReader in = from.getReader();
+      FieldWriter out = to.getWriter();
+      for (int i = 0; i < COUNT; i++) {
+        in.setPosition(i);
+        out.setPosition(i);
+        ComplexCopier.copy(in, out);
+      }
+      to.setValueCount(COUNT);
+
+      // validate equals
+      assertTrue(VectorEqualsVisitor.vectorEquals(from, to));
+    }
+  }
 }

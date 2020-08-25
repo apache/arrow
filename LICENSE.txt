@@ -2207,3 +2207,19 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+--------------------------------------------------------------------------------
+
+The files in cpp/src/arrow/vendored/portable-snippets/ contain code from
+
+https://github.com/nemequ/portable-snippets
+
+and have the following copyright notice:
+
+Each source file contains a preamble explaining the license situation
+for that file, which takes priority over this file.  With the
+exception of some code pulled in from other repositories (such as
+µnit, an MIT-licensed project which is used for testing), the code is
+public domain, released using the CC0 1.0 Universal dedication (*).
+
+(*) https://creativecommons.org/publicdomain/zero/1.0/legalcode

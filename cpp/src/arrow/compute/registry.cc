@@ -26,7 +26,6 @@
 #include "arrow/compute/function.h"
 #include "arrow/compute/registry_internal.h"
 #include "arrow/status.h"
-#include "arrow/util/cpu_info.h"
 
 namespace arrow {
 namespace compute {
@@ -42,6 +41,17 @@ class FunctionRegistry::FunctionRegistryImpl {
       return Status::KeyError("Already have a function registered with name: ", name);
     }
     name_to_function_[name] = std::move(function);
+    return Status::OK();
+  }
+
+  Status AddAlias(const std::string& target_name, const std::string& source_name) {
+    std::lock_guard<std::mutex> mutation_guard(lock_);
+
+    auto it = name_to_function_.find(source_name);
+    if (it == name_to_function_.end()) {
+      return Status::KeyError("No function registered with name: ", source_name);
+    }
+    name_to_function_[target_name] = it->second;
     return Status::OK();
   }
 
@@ -82,6 +92,11 @@ Status FunctionRegistry::AddFunction(std::shared_ptr<Function> function,
   return impl_->AddFunction(std::move(function), allow_overwrite);
 }
 
+Status FunctionRegistry::AddAlias(const std::string& target_name,
+                                  const std::string& source_name) {
+  return impl_->AddAlias(target_name, source_name);
+}
+
 Result<std::shared_ptr<Function>> FunctionRegistry::GetFunction(
     const std::string& name) const {
   return impl_->GetFunction(name);
@@ -117,19 +132,6 @@ static std::unique_ptr<FunctionRegistry> CreateBuiltInRegistry() {
   RegisterVectorSelection(registry.get());
   RegisterVectorNested(registry.get());
   RegisterVectorSort(registry.get());
-
-  // SIMD functions
-  auto cpu_info = arrow::internal::CpuInfo::GetInstance();
-#if defined(ARROW_HAVE_RUNTIME_AVX2)
-  if (cpu_info->IsSupported(arrow::internal::CpuInfo::AVX2)) {
-    RegisterScalarAggregateSumAvx2(registry.get());
-  }
-#endif
-#if defined(ARROW_HAVE_RUNTIME_AVX512)
-  if (cpu_info->IsSupported(arrow::internal::CpuInfo::AVX512)) {
-    RegisterScalarAggregateSumAvx512(registry.get());
-  }
-#endif
 
   return registry;
 }

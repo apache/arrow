@@ -328,6 +328,8 @@ Status UnboxIntegerAsInt64(PyObject* obj, int64_t* out) {
     if (overflow) {
       return Status::Invalid("PyLong is too large to fit int64");
     }
+  } else if (PyArray_IsScalar(obj, Byte)) {
+    *out = reinterpret_cast<PyByteScalarObject*>(obj)->obval;
   } else if (PyArray_IsScalar(obj, UByte)) {
     *out = reinterpret_cast<PyUByteScalarObject*>(obj)->obval;
   } else if (PyArray_IsScalar(obj, Short)) {

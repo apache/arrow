@@ -92,6 +92,8 @@ template <class StringIt>
 std::string JoinAbstractPath(StringIt it, StringIt end) {
   std::string path;
   for (; it != end; ++it) {
+    if (it->empty()) continue;
+
     if (!path.empty()) {
       path += kSep;
     }

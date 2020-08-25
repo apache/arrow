@@ -65,18 +65,18 @@ test_that("ChunkedArray", {
 
   # input validation
   expect_error(x$chunk(14), "subscript out of bounds")
-  expect_error(x$chunk("one"), class = "Rcpp::not_compatible")
+  expect_error(x$chunk("one"))
   expect_error(x$chunk(NA_integer_), "'i' cannot be NA")
   expect_error(x$chunk(-1), "subscript out of bounds")
 
-  expect_error(x$Slice("ten"), class = "Rcpp::not_compatible")
+  expect_error(x$Slice("ten"))
   expect_error(x$Slice(NA_integer_), "Slice 'offset' cannot be NA")
   expect_error(x$Slice(NA), "Slice 'offset' cannot be NA")
-  expect_error(x$Slice(10, "ten"), class = "Rcpp::not_compatible")
+  expect_error(x$Slice(10, "ten"))
   expect_error(x$Slice(10, NA_integer_), "Slice 'length' cannot be NA")
   expect_error(x$Slice(NA_integer_, NA_integer_), "Slice 'offset' cannot be NA")
-  expect_error(x$Slice(c(10, 10)), class = "Rcpp::not_compatible")
-  expect_error(x$Slice(10, c(10, 10)), class = "Rcpp::not_compatible")
+  expect_error(x$Slice(c(10, 10)))
+  expect_error(x$Slice(10, c(10, 10)))
   expect_error(x$Slice(1000), "Slice 'offset' greater than array length")
   expect_error(x$Slice(-1), "Slice 'offset' cannot be negative")
   expect_error(z$Slice(10, 10), "Slice 'offset' greater than array length")

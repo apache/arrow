@@ -21,8 +21,6 @@
 #include <arrow/ipc/reader.h>
 #include <arrow/ipc/writer.h>
 
-RCPP_EXPOSED_ENUM_NODECL(arrow::ipc::MessageType)
-
 // [[arrow::export]]
 int64_t ipc___Message__body_length(const std::unique_ptr<arrow::ipc::Message>& message) {
   return message->body_length();

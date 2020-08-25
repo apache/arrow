@@ -34,6 +34,12 @@ if [ "$RTOOLS_VERSION" = "35" ]; then
   # lib-4.9.3 is for libraries compiled with gcc 4.9 (Rtools 3.5)
   RWINLIB_LIB_DIR="lib-4.9.3"
 else
+  # Uncomment L38-41 if you're testing a new rtools dependency that hasn't yet sync'd to CRAN
+  # curl https://raw.githubusercontent.com/r-windows/rtools-packages/master/pacman.conf > /etc/pacman.conf
+  # curl -OSsl "http://repo.msys2.org/msys/x86_64/msys2-keyring-r21.b39fb11-1-any.pkg.tar.xz"
+  # pacman -U --noconfirm msys2-keyring-r21.b39fb11-1-any.pkg.tar.xz && rm msys2-keyring-r21.b39fb11-1-any.pkg.tar.xz
+  # pacman --noconfirm -Scc
+
   pacman --noconfirm -Syy
   RWINLIB_LIB_DIR="lib"
 fi
@@ -84,8 +90,8 @@ cp $MSYS_LIB_DIR/mingw64/lib/lib{thrift,snappy}.a $DST_DIR/${RWINLIB_LIB_DIR}/x6
 cp $MSYS_LIB_DIR/mingw32/lib/lib{thrift,snappy}.a $DST_DIR/${RWINLIB_LIB_DIR}/i386
 
 # These are from https://dl.bintray.com/rtools/mingw{32,64}/
-cp $MSYS_LIB_DIR/mingw64/lib/lib{zstd,lz4,crypto}.a $DST_DIR/lib/x64
-cp $MSYS_LIB_DIR/mingw32/lib/lib{zstd,lz4,crypto}.a $DST_DIR/lib/i386
+cp $MSYS_LIB_DIR/mingw64/lib/lib{zstd,lz4,crypto,aws*}.a $DST_DIR/lib/x64
+cp $MSYS_LIB_DIR/mingw32/lib/lib{zstd,lz4,crypto,aws*}.a $DST_DIR/lib/i386
 
 # Create build artifact
 zip -r ${DST_DIR}.zip $DST_DIR

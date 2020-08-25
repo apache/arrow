@@ -575,6 +575,16 @@ auto VisitExpression(const Expression& expr, Visitor&& visitor)
   return visitor(internal::checked_cast<const CustomExpression&>(expr));
 }
 
+/// \brief Visit each subexpression of an arbitrarily nested conjunction.
+///
+/// | given                          | visit                                       |
+/// |--------------------------------|---------------------------------------------|
+/// | a and b                        | visit(a), visit(b)                          |
+/// | c                              | visit(c)                                    |
+/// | (a and b) and ((c or d) and e) | visit(a), visit(b), visit(c or d), visit(e) |
+ARROW_DS_EXPORT Status VisitConjunctionMembers(
+    const Expression& expr, const std::function<Status(const Expression&)>& visitor);
+
 /// \brief Insert CastExpressions where necessary to make a valid expression.
 ARROW_DS_EXPORT Result<std::shared_ptr<Expression>> InsertImplicitCasts(
     const Expression& expr, const Schema& schema);
@@ -640,6 +650,23 @@ class ARROW_DS_EXPORT TreeEvaluator : public ExpressionEvaluator {
  protected:
   struct Impl;
 };
+
+/// \brief Assemble lists of indices of identical rows.
+///
+/// \param[in] by A StructArray whose columns will be used as grouping criteria.
+/// \return A StructArray mapping unique rows (in field "values", represented as a
+///         StructArray with the same fields as `by`) to lists of indices where
+///         that row appears (in field "groupings").
+ARROW_DS_EXPORT
+Result<std::shared_ptr<StructArray>> MakeGroupings(const StructArray& by);
+
+/// \brief Produce slices of an Array which correspond to the provided groupings.
+ARROW_DS_EXPORT
+Result<std::shared_ptr<ListArray>> ApplyGroupings(const ListArray& groupings,
+                                                  const Array& array);
+ARROW_DS_EXPORT
+Result<RecordBatchVector> ApplyGroupings(const ListArray& groupings,
+                                         const std::shared_ptr<RecordBatch>& batch);
 
 }  // namespace dataset
 }  // namespace arrow

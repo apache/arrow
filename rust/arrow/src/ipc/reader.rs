@@ -409,7 +409,7 @@ fn create_dictionary_array(
 }
 
 /// Creates a record batch from binary data using the `ipc::RecordBatch` indexes and the `Schema`
-pub(crate) fn read_record_batch(
+pub fn read_record_batch(
     buf: &[u8],
     batch: ipc::RecordBatch,
     schema: SchemaRef,

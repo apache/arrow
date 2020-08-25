@@ -138,15 +138,18 @@ Aggregations
 +--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
 | min_max                  | Unary      | Numeric            | Scalar Struct  (1)    | :struct:`MinMaxOptions`                    |
 +--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
-| sum                      | Unary      | Numeric            | Scalar Numeric (2)    |                                            |
+| mode                     | Unary      | Numeric            | Scalar Struct  (2)    |                                            |
++--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
+| sum                      | Unary      | Numeric            | Scalar Numeric (3)    |                                            |
 +--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
 
 Notes:
 
 * \(1) Output is a ``{"min": input type, "max": input type}`` Struct
 
-* \(2) Output is Int64, UInt64 or Float64, depending on the input type
+* \(2) Output is a ``{"mode": input type, "count": Int64}`` Struct
 
+* \(3) Output is Int64, UInt64 or Float64, depending on the input type
 
 Element-wise ("scalar") functions
 ---------------------------------
@@ -185,6 +188,10 @@ an ``Invalid`` :class:`Status` when overflow is detected.
 | add                      | Binary     | Numeric            | Numeric             |
 +--------------------------+------------+--------------------+---------------------+
 | add_checked              | Binary     | Numeric            | Numeric             |
++--------------------------+------------+--------------------+---------------------+
+| divide                   | Binary     | Numeric            | Numeric             |
++--------------------------+------------+--------------------+---------------------+
+| divide_checked           | Binary     | Numeric            | Numeric             |
 +--------------------------+------------+--------------------+---------------------+
 | multiply                 | Binary     | Numeric            | Numeric             |
 +--------------------------+------------+--------------------+---------------------+

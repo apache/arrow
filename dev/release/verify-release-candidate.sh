@@ -143,8 +143,6 @@ test_apt() {
                 "arm64v8/ubuntu:xenial" \
                 "ubuntu:bionic" \
                 "arm64v8/ubuntu:bionic" \
-                "ubuntu:eoan" \
-                "arm64v8/ubuntu:eoan" \
                 "ubuntu:focal" \
                 "arm64v8/ubuntu:focal"; do \
     case "${target}" in
@@ -401,7 +399,7 @@ test_glib() {
   export GI_TYPELIB_PATH=$ARROW_HOME/lib/girepository-1.0:$GI_TYPELIB_PATH
 
   if ! bundle --version; then
-    gem install bundler
+    gem install --no-document bundler
   fi
 
   bundle install --path vendor/bundle

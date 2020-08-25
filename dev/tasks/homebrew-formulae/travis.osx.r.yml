@@ -49,6 +49,5 @@ script:
 - Rscript -e 'install.packages("rcmdcheck")'
 # Note that this is not --as-cran. CRAN doesn't do macOS checks --as-cran
 - travis_wait Rscript -e "rcmdcheck::rcmdcheck(build_args = '--no-build-vignettes', args = c('--no-manual', '--ignore-vignettes', '--run-donttest'), error_on = 'warning', check_dir = 'check')"
-after_failure:
-# If there's a build failure, it's probably in this log
-- cat arrow.Rcheck/00install.out
+# If there's a build failure, it's probably in this log. Let's print it regardless though
+- cat check/arrow.Rcheck/00install.out

@@ -1753,6 +1753,7 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
         int64_t size
         CMemoryPool* pool
         c_bool from_pandas
+        c_bool ignore_timezone
 
     # TODO Some functions below are not actually "nogil"
 
@@ -1875,6 +1876,7 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
         c_bool timestamp_as_object
         c_bool use_threads
         c_bool coerce_temporal_nanoseconds
+        c_bool ignore_timezone
         c_bool deduplicate_objects
         c_bool safe_cast
         c_bool split_blocks
@@ -1926,6 +1928,9 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py::internal" nogil:
     int64_t TimePoint_to_ns(CTimePoint val)
     CTimePoint TimePoint_from_s(double val)
     CTimePoint TimePoint_from_ns(int64_t val)
+
+    CResult[c_string] TzinfoToString(PyObject* pytzinfo)
+    CResult[PyObject*] StringToTzinfo(c_string)
 
 
 cdef extern from 'arrow/python/init.h':

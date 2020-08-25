@@ -134,75 +134,6 @@ namespace internal {
 template <typename T, typename Enable = void>
 struct ArrayDataInlineVisitor {};
 
-namespace detail {
-
-template <typename VisitNotNull, typename VisitNull>
-Status VisitBitBlocks(const std::shared_ptr<Buffer>& bitmap_buf, int64_t offset,
-                      int64_t length, VisitNotNull&& visit_not_null,
-                      VisitNull&& visit_null) {
-  const uint8_t* bitmap = nullptr;
-  if (bitmap_buf != nullptr) {
-    bitmap = bitmap_buf->data();
-  }
-  internal::OptionalBitBlockCounter bit_counter(bitmap, offset, length);
-  int64_t position = 0;
-  while (position < length) {
-    internal::BitBlockCount block = bit_counter.NextBlock();
-    if (block.AllSet()) {
-      for (int64_t i = 0; i < block.length; ++i, ++position) {
-        ARROW_RETURN_NOT_OK(visit_not_null(position));
-      }
-    } else if (block.NoneSet()) {
-      for (int64_t i = 0; i < block.length; ++i, ++position) {
-        ARROW_RETURN_NOT_OK(visit_null());
-      }
-    } else {
-      for (int64_t i = 0; i < block.length; ++i, ++position) {
-        if (BitUtil::GetBit(bitmap, offset + position)) {
-          ARROW_RETURN_NOT_OK(visit_not_null(position));
-        } else {
-          ARROW_RETURN_NOT_OK(visit_null());
-        }
-      }
-    }
-  }
-  return Status::OK();
-}
-
-template <typename VisitNotNull, typename VisitNull>
-void VisitBitBlocksVoid(const std::shared_ptr<Buffer>& bitmap_buf, int64_t offset,
-                        int64_t length, VisitNotNull&& visit_not_null,
-                        VisitNull&& visit_null) {
-  const uint8_t* bitmap = nullptr;
-  if (bitmap_buf != nullptr) {
-    bitmap = bitmap_buf->data();
-  }
-  internal::OptionalBitBlockCounter bit_counter(bitmap, offset, length);
-  int64_t position = 0;
-  while (position < length) {
-    internal::BitBlockCount block = bit_counter.NextBlock();
-    if (block.AllSet()) {
-      for (int64_t i = 0; i < block.length; ++i, ++position) {
-        visit_not_null(position);
-      }
-    } else if (block.NoneSet()) {
-      for (int64_t i = 0; i < block.length; ++i, ++position) {
-        visit_null();
-      }
-    } else {
-      for (int64_t i = 0; i < block.length; ++i, ++position) {
-        if (BitUtil::GetBit(bitmap, offset + position)) {
-          visit_not_null(position);
-        } else {
-          visit_null();
-        }
-      }
-    }
-  }
-}
-
-}  // namespace detail
-
 // Numeric and primitive C-compatible types
 template <typename T>
 struct ArrayDataInlineVisitor<T, enable_if_has_c_type<T>> {
@@ -213,9 +144,8 @@ struct ArrayDataInlineVisitor<T, enable_if_has_c_type<T>> {
                             NullFunc&& null_func) {
     const c_type* data = arr.GetValues<c_type>(1);
     auto visit_valid = [&](int64_t i) { return valid_func(data[i]); };
-    return detail::VisitBitBlocks(arr.buffers[0], arr.offset, arr.length,
-                                  std::move(visit_valid),
-                                  std::forward<NullFunc>(null_func));
+    return VisitBitBlocks(arr.buffers[0], arr.offset, arr.length, std::move(visit_valid),
+                          std::forward<NullFunc>(null_func));
   }
 
   template <typename ValidFunc, typename NullFunc>
@@ -224,8 +154,8 @@ struct ArrayDataInlineVisitor<T, enable_if_has_c_type<T>> {
     using c_type = typename T::c_type;
     const c_type* data = arr.GetValues<c_type>(1);
     auto visit_valid = [&](int64_t i) { valid_func(data[i]); };
-    detail::VisitBitBlocksVoid(arr.buffers[0], arr.offset, arr.length,
-                               std::move(visit_valid), std::forward<NullFunc>(null_func));
+    VisitBitBlocksVoid(arr.buffers[0], arr.offset, arr.length, std::move(visit_valid),
+                       std::forward<NullFunc>(null_func));
   }
 };
 
@@ -239,7 +169,7 @@ struct ArrayDataInlineVisitor<BooleanType> {
                             NullFunc&& null_func) {
     int64_t offset = arr.offset;
     const uint8_t* data = arr.buffers[1]->data();
-    return detail::VisitBitBlocks(
+    return VisitBitBlocks(
         arr.buffers[0], offset, arr.length,
         [&](int64_t i) { return valid_func(BitUtil::GetBit(data, offset + i)); },
         std::forward<NullFunc>(null_func));
@@ -250,7 +180,7 @@ struct ArrayDataInlineVisitor<BooleanType> {
                         NullFunc&& null_func) {
     int64_t offset = arr.offset;
     const uint8_t* data = arr.buffers[1]->data();
-    detail::VisitBitBlocksVoid(
+    VisitBitBlocksVoid(
         arr.buffers[0], offset, arr.length,
         [&](int64_t i) { valid_func(BitUtil::GetBit(data, offset + i)); },
         std::forward<NullFunc>(null_func));
@@ -278,7 +208,7 @@ struct ArrayDataInlineVisitor<T, enable_if_base_binary<T>> {
       data = arr.GetValues<char>(2, /*absolute_offset=*/0);
     }
     offset_type cur_offset = *offsets++;
-    return detail::VisitBitBlocks(
+    return VisitBitBlocks(
         arr.buffers[0], arr.offset, arr.length,
         [&](int64_t i) {
           ARROW_UNUSED(i);
@@ -308,7 +238,7 @@ struct ArrayDataInlineVisitor<T, enable_if_base_binary<T>> {
       data = arr.GetValues<uint8_t>(2, /*absolute_offset=*/0);
     }
 
-    detail::VisitBitBlocksVoid(
+    VisitBitBlocksVoid(
         arr.buffers[0], arr.offset, arr.length,
         [&](int64_t i) {
           auto value = util::string_view(reinterpret_cast<const char*>(data + offsets[i]),
@@ -333,7 +263,7 @@ struct ArrayDataInlineVisitor<T, enable_if_fixed_size_binary<T>> {
     const char* data = arr.GetValues<char>(1,
                                            /*absolute_offset=*/arr.offset * byte_width);
 
-    return detail::VisitBitBlocks(
+    return VisitBitBlocks(
         arr.buffers[0], arr.offset, arr.length,
         [&](int64_t i) {
           auto value = util::string_view(data, byte_width);
@@ -355,7 +285,7 @@ struct ArrayDataInlineVisitor<T, enable_if_fixed_size_binary<T>> {
     const char* data = arr.GetValues<char>(1,
                                            /*absolute_offset=*/arr.offset * byte_width);
 
-    detail::VisitBitBlocksVoid(
+    VisitBitBlocksVoid(
         arr.buffers[0], arr.offset, arr.length,
         [&](int64_t i) {
           valid_func(util::string_view(data, byte_width));

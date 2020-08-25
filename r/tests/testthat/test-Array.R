@@ -17,33 +17,6 @@
 
 context("Array")
 
-expect_array_roundtrip <- function(x, type, as = NULL) {
-  a <- Array$create(x, type = as)
-  expect_type_equal(a$type, type)
-  expect_identical(length(a), length(x))
-  if (!inherits(type, c("ListType", "LargeListType"))) {
-    # TODO: revisit how missingness works with ListArrays
-    # R list objects don't handle missingness the same way as other vectors.
-    # Is there some vctrs thing we should do on the roundtrip back to R?
-    expect_equal(as.vector(is.na(a)), is.na(x))
-  }
-  expect_equivalent(as.vector(a), x)
-  # Make sure the storage mode is the same on roundtrip (esp. integer vs. numeric)
-  expect_identical(typeof(as.vector(a)), typeof(x))
-
-  if (length(x)) {
-    a_sliced <- a$Slice(1)
-    x_sliced <- x[-1]
-    expect_type_equal(a_sliced$type, type)
-    expect_identical(length(a_sliced), length(x_sliced))
-    if (!inherits(type, c("ListType", "LargeListType"))) {
-      expect_equal(as.vector(is.na(a_sliced)), is.na(x_sliced))
-    }
-    expect_equivalent(as.vector(a_sliced), x_sliced)
-  }
-  invisible(a)
-}
-
 test_that("Integer Array", {
   ints <- c(1:10, 1:10, 1:5)
   x <- expect_array_roundtrip(ints, int32())
@@ -131,14 +104,14 @@ test_that("Slice() and RangeEquals()", {
   expect_true(x$RangeEquals(z, 10, 15, 0))
 
   # Input validation
-  expect_error(x$Slice("ten"), class = "Rcpp::not_compatible")
+  expect_error(x$Slice("ten"))
   expect_error(x$Slice(NA_integer_), "Slice 'offset' cannot be NA")
   expect_error(x$Slice(NA), "Slice 'offset' cannot be NA")
-  expect_error(x$Slice(10, "ten"), class = "Rcpp::not_compatible")
+  expect_error(x$Slice(10, "ten"))
   expect_error(x$Slice(10, NA_integer_), "Slice 'length' cannot be NA")
   expect_error(x$Slice(NA_integer_, NA_integer_), "Slice 'offset' cannot be NA")
-  expect_error(x$Slice(c(10, 10)), class = "Rcpp::not_compatible")
-  expect_error(x$Slice(10, c(10, 10)), class = "Rcpp::not_compatible")
+  expect_error(x$Slice(c(10, 10)))
+  expect_error(x$Slice(10, c(10, 10)))
   expect_error(x$Slice(1000), "Slice 'offset' greater than array length")
   expect_error(x$Slice(-1), "Slice 'offset' cannot be negative")
   expect_error(z$Slice(10, 10), "Slice 'offset' greater than array length")
@@ -157,7 +130,7 @@ test_that("Slice() and RangeEquals()", {
   expect_error(x$RangeEquals(y, NA, 24), "'start_idx' cannot be NA")
   expect_error(x$RangeEquals(y, 10, NA), "'end_idx' cannot be NA")
   expect_error(x$RangeEquals(y, 10, 24, NA), "'other_start_idx' cannot be NA")
-  expect_error(x$RangeEquals(y, "ten", 24), class = "Rcpp::not_compatible")
+  expect_error(x$RangeEquals(y, "ten", 24))
   # TODO (if anyone uses RangeEquals)
   # expect_error(x$RangeEquals(y, 10, 2400, 0)) # does not error
   # expect_error(x$RangeEquals(y, 1000, 24, 0)) # does not error
@@ -186,10 +159,10 @@ test_that("Array supports NA", {
   expect_equal(as.vector(is.na(x_dbl)), c(rep(FALSE, 10), TRUE))
 
   # Input validation
-  expect_error(x_int$IsValid("ten"), class = "Rcpp::not_compatible")
-  expect_error(x_int$IsNull("ten"), class = "Rcpp::not_compatible")
-  expect_error(x_int$IsValid(c(10, 10)), class = "Rcpp::not_compatible")
-  expect_error(x_int$IsNull(c(10, 10)), class = "Rcpp::not_compatible")
+  expect_error(x_int$IsValid("ten"))
+  expect_error(x_int$IsNull("ten"))
+  expect_error(x_int$IsValid(c(10, 10)))
+  expect_error(x_int$IsNull(c(10, 10)))
   expect_error(x_int$IsValid(NA), "'i' cannot be NA")
   expect_error(x_int$IsNull(NA), "'i' cannot be NA")
   expect_error(x_int$IsValid(1000), "subscript out of bounds")
@@ -644,20 +617,18 @@ test_that("Array$create() handles vector -> fixed size list arrays", {
 })
 
 test_that("Array$create() should have helpful error", {
-  verify_output(test_path("test-Array-errors.txt"), {
-    Array$create(list(numeric(0)), list_of(bool()))
-    Array$create(list(numeric(0)), list_of(int32()))
-    Array$create(list(integer(0)), list_of(float64()))
+  expect_error(Array$create(list(numeric(0)), list_of(bool())), "Expecting a logical vector")
+  expect_error(Array$create(list(numeric(0)), list_of(int32())), "Expecting an integer vector")
+  expect_error(Array$create(list(integer(0)), list_of(float64())), "Expecting a numeric vector")
 
-    lgl <- logical(0)
-    int <- integer(0)
-    num <- numeric(0)
-    char <- character(0)
-    Array$create(list())
-    Array$create(list(lgl, lgl, int))
-    Array$create(list(char, num, char))
-    Array$create(list(int, int, num))
-  })
+  lgl <- logical(0)
+  int <- integer(0)
+  num <- numeric(0)
+  char <- character(0)
+  expect_error(Array$create(list()), "Requires at least one element to infer")
+  expect_error(Array$create(list(lgl, lgl, int)), "Expecting a logical vector")
+  expect_error(Array$create(list(char, num, char)), "Expecting a character vector")
+  expect_error(Array$create(list(int, int, num)), "Expecting an integer vector")
 })
 
 test_that("Array$View() (ARROW-6542)", {
@@ -755,8 +726,7 @@ test_that("Dictionary array: translate to R when dict isn't string", {
     expect_identical(
       as.vector(a),
       factor(c(3, 2, 2, 3, 1), labels = c("4.5", "3.2", "1.1"))
-    ),
-    "Coercing dictionary values from type double to R character factor levels"
+    )
   )
 })
 

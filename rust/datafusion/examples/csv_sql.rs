@@ -17,9 +17,8 @@
 
 use arrow::util::pretty;
 
-use datafusion::datasource::csv::CsvReadOptions;
 use datafusion::error::Result;
-use datafusion::execution::context::ExecutionContext;
+use datafusion::prelude::*;
 
 /// This example demonstrates executing a simple query against an Arrow data source (CSV) and
 /// fetching results
@@ -36,15 +35,14 @@ fn main() -> Result<()> {
         CsvReadOptions::new(),
     )?;
 
-    let sql = "SELECT c1, MIN(c12), MAX(c12) FROM aggregate_test_100 WHERE c11 > 0.1 AND c11 < 0.9 GROUP BY c1";
-
-    // create the query plan
-    let plan = ctx.create_logical_plan(sql)?;
-    let plan = ctx.optimize(&plan)?;
-    let plan = ctx.create_physical_plan(&plan, 1024 * 1024)?;
-
     // execute the query
-    let results = ctx.collect(plan.as_ref())?;
+    let df = ctx.sql(
+        "SELECT c1, MIN(c12), MAX(c12) \
+        FROM aggregate_test_100 \
+        WHERE c11 > 0.1 AND c11 < 0.9 \
+        GROUP BY c1",
+    )?;
+    let results = df.collect()?;
 
     // print the results
     pretty::print_batches(&results)?;

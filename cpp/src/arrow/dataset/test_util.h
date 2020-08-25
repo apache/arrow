@@ -300,8 +300,10 @@ struct MakeFileSystemDatasetMixin {
       partitions.resize(n_fragments, scalar(true));
     }
 
+    auto s = schema({});
+
     MakeFileSystem(infos);
-    auto format = std::make_shared<DummyFileFormat>();
+    auto format = std::make_shared<DummyFileFormat>(s);
 
     std::vector<std::shared_ptr<FileFragment>> fragments;
     for (size_t i = 0; i < n_fragments; i++) {
@@ -315,8 +317,8 @@ struct MakeFileSystemDatasetMixin {
       fragments.push_back(std::move(fragment));
     }
 
-    ASSERT_OK_AND_ASSIGN(dataset_, FileSystemDataset::Make(schema({}), root_partition,
-                                                           format, std::move(fragments)));
+    ASSERT_OK_AND_ASSIGN(dataset_, FileSystemDataset::Make(s, root_partition, format,
+                                                           std::move(fragments)));
   }
 
   void MakeDatasetFromPathlist(const std::string& pathlist,

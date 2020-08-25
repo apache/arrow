@@ -35,7 +35,8 @@ import socket
 import warnings
 
 import pyarrow
-from pyarrow.lib cimport Buffer, NativeFile, check_status, pyarrow_wrap_buffer
+from pyarrow.lib cimport (Buffer, NativeFile, _Weakrefable,
+                          check_status, pyarrow_wrap_buffer)
 from pyarrow.lib import ArrowException, frombytes
 from pyarrow.includes.libarrow cimport (CBuffer, CMutableBuffer,
                                         CFixedSizeBufferWriter, CStatus)
@@ -154,7 +155,7 @@ def make_object_id(object_id):
     return ObjectID(object_id)
 
 
-cdef class ObjectID:
+cdef class ObjectID(_Weakrefable):
     """
     An ObjectID represents a string of bytes used to identify Plasma objects.
     """
@@ -210,7 +211,7 @@ cdef class ObjectID:
         return ObjectID(random_id)
 
 
-cdef class ObjectNotAvailable:
+cdef class ObjectNotAvailable(_Weakrefable):
     """
     Placeholder for an object that was not available within the given timeout.
     """
@@ -293,7 +294,7 @@ def get_socket_from_fd(fileno, family, type):
     return socket.socket(fileno=fileno, family=family, type=type)
 
 
-cdef class PlasmaClient:
+cdef class PlasmaClient(_Weakrefable):
     """
     The PlasmaClient is used to interface with a plasma store and manager.
 

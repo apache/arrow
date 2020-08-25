@@ -36,6 +36,17 @@ import org.apache.arrow.vector.util.TransferPair;
  * maintained to track which elements in the vector are null.
  */
 public final class UInt4Vector extends BaseFixedWidthVector implements BaseIntVector {
+
+  /**
+   * The mask to use when promoting the unsigned int value to a long int.
+   */
+  public static final long PROMOTION_MASK = 0x00000000FFFFFFFFL;
+
+  /**
+   * The maximum 32-bit unsigned integer.
+   */
+  public static final int MAX_UINT4 = 0XFFFFFFFF;
+
   private static final byte TYPE_WIDTH = 4;
   private final FieldReader reader;
 
@@ -83,7 +94,7 @@ public final class UInt4Vector extends BaseFixedWidthVector implements BaseIntVe
    */
   public static long getNoOverflow(final ArrowBuf buffer, final int index) {
     long l = buffer.getInt((long) index * TYPE_WIDTH);
-    return (0x00000000FFFFFFFFL) & l;
+    return PROMOTION_MASK & l;
   }
 
   /**
@@ -286,7 +297,7 @@ public final class UInt4Vector extends BaseFixedWidthVector implements BaseIntVe
 
   @Override
   public long getValueAsLong(int index) {
-    return this.get(index);
+    return this.get(index) & PROMOTION_MASK;
   }
 
   private class TransferImpl implements TransferPair {

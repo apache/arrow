@@ -20,12 +20,13 @@
 use std::sync::{Arc, Mutex};
 
 use crate::error::Result;
-use crate::execution::physical_plan::{ExecutionPlan, Partition};
+use crate::execution::physical_plan::{ExecutionPlan, Partitioning};
 use arrow::datatypes::SchemaRef;
 use arrow::error::Result as ArrowResult;
 use arrow::record_batch::{RecordBatch, RecordBatchReader};
 
 /// Execution plan for reading in-memory batches of data
+#[derive(Debug)]
 pub struct MemoryExec {
     /// The partitions to query
     partitions: Vec<Vec<RecordBatch>>,
@@ -41,20 +42,20 @@ impl ExecutionPlan for MemoryExec {
         self.schema.clone()
     }
 
-    /// Get the partitions for this execution plan. Each partition can be executed in parallel.
-    fn partitions(&self) -> Result<Vec<Arc<dyn Partition>>> {
-        let partitions = self
-            .partitions
-            .iter()
-            .map(|vec| {
-                Arc::new(MemoryPartition::new(
-                    vec.clone(),
-                    self.schema.clone(),
-                    self.projection.clone(),
-                )) as Arc<dyn Partition>
-            })
-            .collect();
-        Ok(partitions)
+    /// Get the output partitioning of this plan
+    fn output_partitioning(&self) -> Partitioning {
+        Partitioning::UnknownPartitioning(self.partitions.len())
+    }
+
+    fn execute(
+        &self,
+        partition: usize,
+    ) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
+        Ok(Arc::new(Mutex::new(MemoryIterator::try_new(
+            self.partitions[partition].clone(),
+            self.schema.clone(),
+            self.projection.clone(),
+        )?)))
     }
 }
 
@@ -73,44 +74,8 @@ impl MemoryExec {
     }
 }
 
-/// Memory partition
-struct MemoryPartition {
-    /// Vector of record batches
-    data: Vec<RecordBatch>,
-    /// Schema representing the data
-    schema: SchemaRef,
-    /// Optional projection
-    projection: Option<Vec<usize>>,
-}
-
-impl MemoryPartition {
-    /// Create a new in-memory partition
-    fn new(
-        data: Vec<RecordBatch>,
-        schema: SchemaRef,
-        projection: Option<Vec<usize>>,
-    ) -> Self {
-        Self {
-            data,
-            schema,
-            projection,
-        }
-    }
-}
-
-impl Partition for MemoryPartition {
-    /// Execute this partition and return an iterator over RecordBatch
-    fn execute(&self) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
-        Ok(Arc::new(Mutex::new(MemoryIterator::try_new(
-            self.data.clone(),
-            self.schema.clone(),
-            self.projection.clone(),
-        )?)))
-    }
-}
-
 /// Iterator over batches
-struct MemoryIterator {
+pub(crate) struct MemoryIterator {
     /// Vector of record batches
     data: Vec<RecordBatch>,
     /// Schema representing the data

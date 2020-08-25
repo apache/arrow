@@ -91,7 +91,7 @@ def _is_primitive(Type type):
 ctypedef CFixedWidthType* _CFixedWidthTypePtr
 
 
-cdef class DataType:
+cdef class DataType(_Weakrefable):
     """
     Base class of all Arrow data types.
 
@@ -219,7 +219,7 @@ cdef class DataType:
         return pyarrow_wrap_data_type(result)
 
 
-cdef class DictionaryMemo:
+cdef class DictionaryMemo(_Weakrefable):
     """
     Tracking container for dictionary-encoded fields.
     """
@@ -961,7 +961,7 @@ cdef KeyValueMetadata ensure_metadata(object meta, c_bool allow_none=False):
         return KeyValueMetadata(meta)
 
 
-cdef class Field:
+cdef class Field(_Weakrefable):
     """
     A named field, with a data type, nullability, and optional metadata.
 
@@ -1149,7 +1149,7 @@ cdef class Field:
         return [pyarrow_wrap_field(f) for f in flattened]
 
 
-cdef class Schema:
+cdef class Schema(_Weakrefable):
 
     def __cinit__(self):
         pass
@@ -1254,16 +1254,8 @@ cdef class Schema:
         -------
         table: pyarrow.Table
         """
-        arrays = []
-        names = []
-        for field in self:
-            arrays.append(_empty_array(field.type))
-            names.append(field.name)
-        return Table.from_arrays(
-            arrays=arrays,
-            names=names,
-            metadata=self.metadata
-        )
+        arrays = [_empty_array(field.type) for field in self]
+        return Table.from_arrays(arrays, schema=self)
 
     def equals(self, Schema other not None, bint check_metadata=False):
         """
@@ -1816,9 +1808,6 @@ cdef timeunit_to_string(TimeUnit unit):
         return 'ns'
 
 
-_FIXED_OFFSET_RE = re.compile(r'([+-])(0[0-9]|1[0-9]|2[0-3]):([0-5][0-9])$')
-
-
 def tzinfo_to_string(tz):
     """
     Converts a time zone object into a string indicating the name of a time
@@ -1837,32 +1826,7 @@ def tzinfo_to_string(tz):
       name : str
         Time zone name
     """
-    import pytz
-    import datetime
-
-    def fixed_offset_to_string(offset):
-        seconds = int(offset.utcoffset(None).total_seconds())
-        sign = '+' if seconds >= 0 else '-'
-        minutes, seconds = divmod(abs(seconds), 60)
-        hours, minutes = divmod(minutes, 60)
-        if seconds > 0:
-            raise ValueError('Offset must represent whole number of minutes')
-        return '{}{:02d}:{:02d}'.format(sign, hours, minutes)
-
-    if tz is pytz.utc:
-        return tz.zone  # ARROW-4055
-    elif isinstance(tz, pytz.tzinfo.BaseTzInfo):
-        return tz.zone
-    elif isinstance(tz, pytz._FixedOffset):
-        return fixed_offset_to_string(tz)
-    elif isinstance(tz, datetime.tzinfo):
-        if isinstance(tz, datetime.timezone):
-            return fixed_offset_to_string(tz)
-        else:
-            raise ValueError('Unable to convert timezone `{}` to string'
-                             .format(tz))
-    else:
-        raise TypeError('Must be an instance of `datetime.tzinfo`')
+    return frombytes(GetResultValue(TzinfoToString(<PyObject*>tz)))
 
 
 def string_to_tzinfo(name):
@@ -1884,14 +1848,8 @@ def string_to_tzinfo(name):
       tz : datetime.tzinfo
         Time zone object
     """
-    import pytz
-    m = _FIXED_OFFSET_RE.match(name)
-    if m:
-        sign = 1 if m.group(1) == '+' else -1
-        hours, minutes = map(int, m.group(2, 3))
-        return pytz.FixedOffset(sign * (hours * 60 + minutes))
-    else:
-        return pytz.timezone(name)
+    cdef PyObject* tz = GetResultValue(StringToTzinfo(name.encode('utf-8')))
+    return PyObject_to_object(tz)
 
 
 def timestamp(unit, tz=None):
@@ -2605,7 +2563,7 @@ def is_float_value(object obj):
     return IsPyFloat(obj)
 
 
-cdef class _ExtensionRegistryNanny:
+cdef class _ExtensionRegistryNanny(_Weakrefable):
     # Keep the registry alive until we have unregistered PyExtensionType
     cdef:
         shared_ptr[CExtensionTypeRegistry] registry

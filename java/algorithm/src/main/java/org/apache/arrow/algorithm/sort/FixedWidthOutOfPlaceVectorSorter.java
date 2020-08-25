@@ -18,6 +18,7 @@
 package org.apache.arrow.algorithm.sort;
 
 import org.apache.arrow.memory.ArrowBuf;
+import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.BaseFixedWidthVector;
 import org.apache.arrow.vector.BitVectorHelper;
 import org.apache.arrow.vector.IntVector;
@@ -43,6 +44,17 @@ public class FixedWidthOutOfPlaceVectorSorter<V extends BaseFixedWidthVector> im
     ArrowBuf srcValueBuffer = srcVector.getDataBuffer();
     ArrowBuf dstValidityBuffer = dstVector.getValidityBuffer();
     ArrowBuf dstValueBuffer = dstVector.getDataBuffer();
+
+    // check buffer size
+    Preconditions.checkArgument(dstValidityBuffer.capacity() * 8 >= srcVector.getValueCount(),
+        "Not enough capacity for the validity buffer of the dst vector. " +
+            "Expected capacity %s, actual capacity %s",
+        (srcVector.getValueCount() + 7) / 8, dstValidityBuffer.capacity());
+    Preconditions.checkArgument(
+        dstValueBuffer.capacity() >= srcVector.getValueCount() * srcVector.getTypeWidth(),
+        "Not enough capacity for the data buffer of the dst vector. " +
+            "Expected capacity %s, actual capacity %s",
+        srcVector.getValueCount() * srcVector.getTypeWidth(), dstValueBuffer.capacity());
 
     // sort value indices
     try (IntVector sortedIndices = new IntVector("", srcVector.getAllocator())) {

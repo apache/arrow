@@ -20,16 +20,23 @@ set -ex
 
 : ${R_BIN:=R}
 
+# The Dockerfile should have put this file here
+if [ -f "/arrow/ci/etc/rprofile" ]; then
+  # Ensure parallel R package installation, set CRAN repo mirror,
+  # and use pre-built binaries where possible
+  cat /arrow/ci/etc/rprofile >> $(${R_BIN} RHOME)/etc/Rprofile.site
+fi
+
 # Ensure parallel compilation of C/C++ code
-echo "MAKEFLAGS=-j$(R -s -e 'cat(parallel::detectCores())')" >> $(R RHOME)/etc/Makeconf
+echo "MAKEFLAGS=-j$(${R_BIN} -s -e 'cat(parallel::detectCores())')" >> $(${R_BIN} RHOME)/etc/Makeconf
 
 # Special hacking to try to reproduce quirks on fedora-clang-devel on CRAN
 # which uses a bespoke clang compiled to use libc++
 # https://www.stats.ox.ac.uk/pub/bdr/Rconfig/r-devel-linux-x86_64-fedora-clang
 if [ "$RHUB_PLATFORM" = "linux-x86_64-fedora-clang" ]; then
   dnf install -y libcxx-devel
-  sed -i.bak -E -e 's/(CXX1?1? =.*)/\1 -stdlib=libc++/g' $(R RHOME)/etc/Makeconf
-  rm -rf $(R RHOME)/etc/Makeconf.bak
+  sed -i.bak -E -e 's/(CXX1?1? =.*)/\1 -stdlib=libc++/g' $(${R_BIN} RHOME)/etc/Makeconf
+  rm -rf $(${R_BIN} RHOME)/etc/Makeconf.bak
 fi
 
 # Workaround for html help install failure; see https://github.com/r-lib/devtools/issues/2084#issuecomment-530912786

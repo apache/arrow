@@ -23,9 +23,9 @@ use tonic::{Request, Response, Status, Streaming};
 
 use datafusion::datasource::parquet::ParquetTable;
 use datafusion::datasource::TableProvider;
-use datafusion::execution::context::ExecutionContext;
+use datafusion::prelude::*;
 
-use flight::{
+use arrow_flight::{
     flight_service_server::FlightService, flight_service_server::FlightServiceServer,
     Action, ActionType, Criteria, Empty, FlightData, FlightDescriptor, FlightInfo,
     HandshakeRequest, HandshakeResponse, PutResult, SchemaResult, Ticket,
@@ -50,7 +50,12 @@ impl FlightService for FlightServiceImpl {
     type DoPutStream =
         Pin<Box<dyn Stream<Item = Result<PutResult, Status>> + Send + Sync + 'static>>;
     type DoActionStream = Pin<
-        Box<dyn Stream<Item = Result<flight::Result, Status>> + Send + Sync + 'static>,
+        Box<
+            dyn Stream<Item = Result<arrow_flight::Result, Status>>
+                + Send
+                + Sync
+                + 'static,
+        >,
     >;
     type ListActionsStream =
         Pin<Box<dyn Stream<Item = Result<ActionType, Status>> + Send + Sync + 'static>>;
@@ -94,11 +99,11 @@ impl FlightService for FlightServiceImpl {
                 let plan = ctx
                     .create_logical_plan(&sql)
                     .and_then(|plan| ctx.optimize(&plan))
-                    .and_then(|plan| ctx.create_physical_plan(&plan, 1024 * 1024))
+                    .and_then(|plan| ctx.create_physical_plan(&plan))
                     .map_err(|e| to_tonic_err(&e))?;
 
                 // execute the query
-                let results = ctx.collect(plan.as_ref()).map_err(|e| to_tonic_err(&e))?;
+                let results = ctx.collect(plan.clone()).map_err(|e| to_tonic_err(&e))?;
                 if results.is_empty() {
                     return Err(Status::internal("There were no results from ticket"));
                 }

@@ -2977,4 +2977,47 @@ public class TestValueVector {
       assertEquals(0, vector.getOffsetBuffer().capacity());
     }
   }
+
+  @Test
+  public void testSetGetUInt1() {
+    try (UInt1Vector vector = new UInt1Vector("vector", allocator)) {
+      vector.allocateNew(2);
+
+      vector.setWithPossibleTruncate(0, UInt1Vector.MAX_UINT1);
+      vector.setUnsafeWithPossibleTruncate(1, UInt1Vector.MAX_UINT1);
+      vector.setValueCount(2);
+
+      assertEquals(UInt1Vector.MAX_UINT1 & UInt1Vector.PROMOTION_MASK, vector.getValueAsLong(0));
+      assertEquals(UInt1Vector.MAX_UINT1 & UInt1Vector.PROMOTION_MASK, vector.getValueAsLong(1));
+    }
+  }
+
+  @Test
+  public void testSetGetUInt2() {
+    try (UInt2Vector vector = new UInt2Vector("vector", allocator)) {
+      vector.allocateNew(2);
+
+      vector.setWithPossibleTruncate(0, UInt2Vector.MAX_UINT2);
+      vector.setUnsafeWithPossibleTruncate(1, UInt2Vector.MAX_UINT2);
+      vector.setValueCount(2);
+
+      assertEquals(UInt2Vector.MAX_UINT2, vector.getValueAsLong(0));
+      assertEquals(UInt2Vector.MAX_UINT2, vector.getValueAsLong(1));
+    }
+  }
+
+  @Test
+  public void testSetGetUInt4() {
+    try (UInt4Vector vector = new UInt4Vector("vector", allocator)) {
+      vector.allocateNew(2);
+
+      vector.setWithPossibleTruncate(0, UInt4Vector.MAX_UINT4);
+      vector.setUnsafeWithPossibleTruncate(1, UInt4Vector.MAX_UINT4);
+      vector.setValueCount(2);
+
+      long expected = UInt4Vector.MAX_UINT4 & UInt4Vector.PROMOTION_MASK;
+      assertEquals(expected, vector.getValueAsLong(0));
+      assertEquals(expected, vector.getValueAsLong(1));
+    }
+  }
 }

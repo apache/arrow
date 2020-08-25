@@ -18,6 +18,7 @@
 from collections import OrderedDict
 import pickle
 import sys
+import weakref
 
 from distutils.version import LooseVersion
 
@@ -242,6 +243,19 @@ baz: list<item: int8>
 
     with pytest.raises(TypeError):
         pa.schema([None])
+
+
+def test_schema_weakref():
+    fields = [
+        pa.field('foo', pa.int32()),
+        pa.field('bar', pa.string()),
+        pa.field('baz', pa.list_(pa.int8()))
+    ]
+    schema = pa.schema(fields)
+    wr = weakref.ref(schema)
+    assert wr() is not None
+    del schema
+    assert wr() is None
 
 
 def test_schema_to_string_with_metadata():
@@ -609,15 +623,22 @@ def test_type_schema_pickling():
 
 
 def test_empty_table():
-    schema = pa.schema([
+    schema1 = pa.schema([
         pa.field('f0', pa.int64()),
         pa.field('f1', pa.dictionary(pa.int32(), pa.string())),
         pa.field('f2', pa.list_(pa.list_(pa.int64()))),
     ])
-    table = schema.empty_table()
-    assert isinstance(table, pa.Table)
-    assert table.num_rows == 0
-    assert table.schema == schema
+    # test it preserves field nullability
+    schema2 = pa.schema([
+        pa.field('a', pa.int64(), nullable=False),
+        pa.field('b', pa.int64())
+    ])
+
+    for schema in [schema1, schema2]:
+        table = schema.empty_table()
+        assert isinstance(table, pa.Table)
+        assert table.num_rows == 0
+        assert table.schema == schema
 
 
 @pytest.mark.pandas

@@ -26,7 +26,8 @@ use crate::error::Result;
 use crate::execution::physical_plan::PhysicalExpr;
 
 use arrow::record_batch::RecordBatch;
-use std::sync::Arc;
+use fmt::{Debug, Formatter};
+use std::{collections::HashMap, sync::Arc};
 
 /// Scalar UDF
 pub type ScalarUdf = Arc<dyn Fn(&[ArrayRef]) -> Result<ArrayRef> + Send + Sync>;
@@ -42,6 +43,29 @@ pub struct ScalarFunction {
     pub return_type: DataType,
     /// UDF implementation
     pub fun: ScalarUdf,
+}
+
+/// Something which provides information for particular scalar functions
+pub trait ScalarFunctionRegistry {
+    /// Return ScalarFunction for `name`
+    fn lookup(&self, name: &str) -> Option<Arc<ScalarFunction>>;
+}
+
+impl ScalarFunctionRegistry for HashMap<String, Arc<ScalarFunction>> {
+    fn lookup(&self, name: &str) -> Option<Arc<ScalarFunction>> {
+        self.get(name).and_then(|func| Some(func.clone()))
+    }
+}
+
+impl Debug for ScalarFunction {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ScalarFunction")
+            .field("name", &self.name)
+            .field("args", &self.args)
+            .field("return_type", &self.return_type)
+            .field("fun", &"<FUNC>")
+            .finish()
+    }
 }
 
 impl ScalarFunction {
@@ -67,6 +91,17 @@ pub struct ScalarFunctionExpr {
     name: String,
     args: Vec<Arc<dyn PhysicalExpr>>,
     return_type: DataType,
+}
+
+impl Debug for ScalarFunctionExpr {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ScalarFunctionExpr")
+            .field("fun", &"<FUNC>")
+            .field("name", &self.name)
+            .field("args", &self.args)
+            .field("return_type", &self.return_type)
+            .finish()
+    }
 }
 
 impl ScalarFunctionExpr {

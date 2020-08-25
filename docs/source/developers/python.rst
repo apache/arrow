@@ -148,7 +148,7 @@ Pull in the test data and setup the environment variables:
    git submodule update
    export PARQUET_TEST_DATA="${PWD}/cpp/submodules/parquet-testing/data"
    export ARROW_TEST_DATA="${PWD}/testing/data"
-
+   popd
 
 Using Conda
 ~~~~~~~~~~~
@@ -305,7 +305,7 @@ libraries are needed for Parquet support.
 If multiple versions of Python are installed in your environment, you may have
 to pass additional parameters to cmake so that it can find the right
 executable, headers and libraries.  For example, specifying
-``-DPYTHON_EXECUTABLE=$VIRTUAL_ENV/bin/python`` (assuming that you're in
+``-DPython3_EXECUTABLE=$VIRTUAL_ENV/bin/python`` (assuming that you're in
 virtualenv) enables cmake to choose the python executable which you are using.
 
 .. note::
@@ -322,6 +322,12 @@ virtualenv) enables cmake to choose the python executable which you are using.
    ``-DARROW_DEPENDENCY_SOURCE=AUTO`` or some other value (described
    :ref:`here <cpp-build-dependency-management>`)
    to explicitly tell CMake not to use conda.
+
+.. note::
+
+   With older versions of ``cmake`` (<3.15) you might need to pass ``-DPYTHON_EXECUTABLE``
+   instead of ``-DPython3_EXECUTABLE``. See `cmake documentation <https://cmake.org/cmake/help/latest/module/FindPython3.html#artifacts-specification>`
+   for more details.
 
 For any other C++ build challenges, see :ref:`cpp-development`.
 

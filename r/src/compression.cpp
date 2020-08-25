@@ -21,11 +21,9 @@
 #include <arrow/io/compressed.h>
 #include <arrow/util/compression.h>
 
-RCPP_EXPOSED_ENUM_NODECL(arrow::Compression::type)
-
 // [[arrow::export]]
 std::shared_ptr<arrow::util::Codec> util___Codec__Create(arrow::Compression::type codec,
-                                                         int compression_level) {
+                                                         R_xlen_t compression_level) {
   return ValueOrStop(arrow::util::Codec::Create(codec, compression_level));
 }
 

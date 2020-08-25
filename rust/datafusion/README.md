@@ -27,7 +27,7 @@ DataFusion can be used as a library by adding the following to your `Cargo.toml`
 
 ```toml
 [dependencies]
-datafusion = "1.1.0-SNAPSHOT"
+datafusion = "2.0.0-SNAPSHOT"
 ```
 
 ## Using DataFusion as a binary
@@ -42,20 +42,20 @@ DataFusion includes a simple command-line interactive SQL utility. See the [CLI 
 - [x] SQL Query Planner
 - [x] Query Optimizer
 - [x] Projection push down
-- [x] Projection push down
-- [ ] Predicate push down
+- [x] Predicate push down
 - [x] Type coercion
 - [x] Parallel query execution
 
 ## SQL Support
 
 - [x] Projection
-- [x] Selection
+- [x] Filter (WHERE)
 - [x] Limit
 - [x] Aggregate
 - [x] UDFs
 - [x] Common math functions
-- [ ] Common string functions
+- String functions
+  - [x] Length of the string
 - [ ] Common date/time functions
 - [x] Sorting
 - [ ] Nested types

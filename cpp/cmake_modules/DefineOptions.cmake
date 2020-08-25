@@ -114,6 +114,9 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
 
   # Arm64 architectures and extensions can lead to exploding combinations.
   # So set it directly through cmake command line.
+  #
+  # If you change this, you need to change the definition in
+  # python/CMakeLists.txt too.
   define_option_string(ARROW_ARMV8_ARCH
                        "Arm64 arch and extensions"
                        "armv8-a" # Default
@@ -284,25 +287,58 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   define_option(ARROW_VERBOSE_THIRDPARTY_BUILD
                 "Show output from ExternalProjects rather than just logging to files" OFF)
 
-  define_option(ARROW_BOOST_USE_SHARED "Rely on boost shared libraries where relevant" ON)
+  define_option(ARROW_DEPENDENCY_USE_SHARED "Link to shared libraries" ON)
+
+  define_option(ARROW_BOOST_USE_SHARED "Rely on boost shared libraries where relevant"
+                ${ARROW_DEPENDENCY_USE_SHARED})
 
   define_option(ARROW_BROTLI_USE_SHARED "Rely on Brotli shared libraries where relevant"
-                ON)
+                ${ARROW_DEPENDENCY_USE_SHARED})
+
+  define_option(ARROW_BZ2_USE_SHARED "Rely on Bz2 shared libraries where relevant"
+                ${ARROW_DEPENDENCY_USE_SHARED})
 
   define_option(ARROW_GFLAGS_USE_SHARED "Rely on GFlags shared libraries where relevant"
-                ON)
+                ${ARROW_DEPENDENCY_USE_SHARED})
 
-  define_option(ARROW_GRPC_USE_SHARED "Rely on gRPC shared libraries where relevant" ON)
+  define_option(ARROW_GRPC_USE_SHARED "Rely on gRPC shared libraries where relevant"
+                ${ARROW_DEPENDENCY_USE_SHARED})
+
+  define_option(ARROW_LZ4_USE_SHARED "Rely on lz4 shared libraries where relevant"
+                ${ARROW_DEPENDENCY_USE_SHARED})
 
   define_option(ARROW_PROTOBUF_USE_SHARED
-                "Rely on Protocol Buffers shared libraries where relevant" ON)
+                "Rely on Protocol Buffers shared libraries where relevant"
+                ${ARROW_DEPENDENCY_USE_SHARED})
 
-  define_option(ARROW_ZSTD_USE_SHARED "Rely on zstd shared libraries where relevant" ON)
+  if(WIN32)
+    # It seems that Thrift doesn't support DLL well yet.
+    # MSYS2, conda-forge and vcpkg don't build shared library.
+    set(ARROW_THRIFT_USE_SHARED_DEFAULT OFF)
+  else()
+    set(ARROW_THRIFT_USE_SHARED_DEFAULT ${ARROW_DEPENDENCY_USE_SHARED})
+  endif()
+  define_option(ARROW_THRIFT_USE_SHARED "Rely on thrift shared libraries where relevant"
+                ${ARROW_THRIFT_USE_SHARED_DEFAULT})
 
-  define_option(ARROW_WITH_BACKTRACE "Build with backtrace support" ON)
+  define_option(ARROW_UTF8PROC_USE_SHARED
+                "Rely on utf8proc shared libraries where relevant"
+                ${ARROW_DEPENDENCY_USE_SHARED})
+
+  define_option(ARROW_SNAPPY_USE_SHARED "Rely on snappy shared libraries where relevant"
+                ${ARROW_DEPENDENCY_USE_SHARED})
+
+  define_option(ARROW_UTF8PROC_USE_SHARED
+                "Rely on utf8proc shared libraries where relevant"
+                ${ARROW_DEPENDENCY_USE_SHARED})
+
+  define_option(ARROW_ZSTD_USE_SHARED "Rely on zstd shared libraries where relevant"
+                ${ARROW_DEPENDENCY_USE_SHARED})
 
   define_option(ARROW_USE_GLOG "Build libraries with glog support for pluggable logging"
                 OFF)
+
+  define_option(ARROW_WITH_BACKTRACE "Build with backtrace support" ON)
 
   define_option(ARROW_WITH_BROTLI "Build with Brotli compression" OFF)
   define_option(ARROW_WITH_BZ2 "Build with BZ2 compression" OFF)
@@ -331,8 +367,16 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
     define_option_string(RE2_MSVC_STATIC_LIB_SUFFIX
                          "re2 static lib suffix used on Windows with MSVC" "_static")
 
+    if(DEFINED ENV{CONDA_PREFIX})
+      # Conda package changes the output name.
+      # https://github.com/conda-forge/snappy-feedstock/blob/master/recipe/windows-static-lib-name.patch
+      set(SNAPPY_MSVC_STATIC_LIB_SUFFIX_DEFAULT "_static")
+    else()
+      set(SNAPPY_MSVC_STATIC_LIB_SUFFIX_DEFAULT "")
+    endif()
     define_option_string(SNAPPY_MSVC_STATIC_LIB_SUFFIX
-                         "Snappy static lib suffix used on Windows with MSVC" "_static")
+                         "Snappy static lib suffix used on Windows with MSVC"
+                         "${SNAPPY_MSVC_STATIC_LIB_SUFFIX_DEFAULT}")
 
     define_option_string(LZ4_MSVC_STATIC_LIB_SUFFIX
                          "Lz4 static lib suffix used on Windows with MSVC" "_static")

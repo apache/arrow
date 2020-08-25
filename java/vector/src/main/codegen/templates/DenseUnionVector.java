@@ -122,7 +122,7 @@ public class DenseUnionVector implements FieldVector {
 
   private final FieldType fieldType;
 
-  private static final byte TYPE_WIDTH = 1;
+  public static final byte TYPE_WIDTH = 1;
   public static final byte OFFSET_WIDTH = 4;
 
   private static final FieldType INTERNAL_STRUCT_TYPE = new FieldType(/*nullable*/ false,

@@ -349,6 +349,14 @@ def test_buffer_invalid():
         pa.py_buffer(None)
 
 
+def test_buffer_weakref():
+    buf = pa.py_buffer(b'some data')
+    wr = weakref.ref(buf)
+    assert wr() is not None
+    del buf
+    assert wr() is None
+
+
 @pytest.mark.parametrize('val, expected_hex_buffer',
                          [(b'check', b'636865636B'),
                           (b'\a0', b'0730'),

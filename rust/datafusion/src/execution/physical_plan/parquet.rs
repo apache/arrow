@@ -20,20 +20,22 @@
 use std::fs::File;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
-use std::thread;
+use std::{fmt, thread};
 
 use crate::error::{ExecutionError, Result};
-use crate::execution::physical_plan::common;
-use crate::execution::physical_plan::{ExecutionPlan, Partition};
+use crate::execution::physical_plan::ExecutionPlan;
+use crate::execution::physical_plan::{common, Partitioning};
 use arrow::datatypes::{Schema, SchemaRef};
 use arrow::error::{ArrowError, Result as ArrowResult};
 use arrow::record_batch::{RecordBatch, RecordBatchReader};
 use parquet::file::reader::SerializedFileReader;
 
 use crossbeam::channel::{bounded, Receiver, RecvError, Sender};
+use fmt::Debug;
 use parquet::arrow::{ArrowReader, ParquetFileArrowReader};
 
 /// Execution plan for scanning a Parquet file
+#[derive(Debug)]
 pub struct ParquetExec {
     /// Path to directory containing partitioned Parquet files with the same schema
     filenames: Vec<String>,
@@ -89,35 +91,15 @@ impl ExecutionPlan for ParquetExec {
         self.schema.clone()
     }
 
-    fn partitions(&self) -> Result<Vec<Arc<dyn Partition>>> {
-        let partitions = self
-            .filenames
-            .iter()
-            .map(|filename| {
-                Arc::new(ParquetPartition::new(
-                    &filename,
-                    self.projection.clone(),
-                    self.schema.clone(),
-                    self.batch_size,
-                )) as Arc<dyn Partition>
-            })
-            .collect();
-        Ok(partitions)
+    /// Get the output partitioning of this plan
+    fn output_partitioning(&self) -> Partitioning {
+        Partitioning::UnknownPartitioning(self.filenames.len())
     }
-}
 
-struct ParquetPartition {
-    iterator: Arc<Mutex<dyn RecordBatchReader + Send + Sync>>,
-}
-
-impl ParquetPartition {
-    /// Create a new Parquet partition
-    pub fn new(
-        filename: &str,
-        projection: Vec<usize>,
-        schema: SchemaRef,
-        batch_size: usize,
-    ) -> Self {
+    fn execute(
+        &self,
+        partition: usize,
+    ) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
         // because the parquet implementation is not thread-safe, it is necessary to execute
         // on a thread and communicate with channels
         let (response_tx, response_rx): (
@@ -125,72 +107,68 @@ impl ParquetPartition {
             Receiver<ArrowResult<Option<RecordBatch>>>,
         ) = bounded(2);
 
-        let filename = filename.to_string();
+        let filename = self.filenames[partition].clone();
+        let projection = self.projection.clone();
+        let batch_size = self.batch_size;
 
         thread::spawn(move || {
-            //TODO error handling, remove unwraps
-
-            // open file
-            let file = File::open(&filename).unwrap();
-            match SerializedFileReader::new(file) {
-                Ok(file_reader) => {
-                    let file_reader = Rc::new(file_reader);
-
-                    let mut arrow_reader = ParquetFileArrowReader::new(file_reader);
-
-                    match arrow_reader
-                        .get_record_reader_by_columns(projection, batch_size)
-                    {
-                        Ok(mut batch_reader) => loop {
-                            match batch_reader.next_batch() {
-                                Ok(Some(batch)) => {
-                                    response_tx.send(Ok(Some(batch))).unwrap();
-                                }
-                                Ok(None) => {
-                                    response_tx.send(Ok(None)).unwrap();
-                                    break;
-                                }
-                                Err(e) => {
-                                    response_tx
-                                        .send(Err(ArrowError::ParquetError(format!(
-                                            "{:?}",
-                                            e
-                                        ))))
-                                        .unwrap();
-                                    break;
-                                }
-                            }
-                        },
-
-                        Err(e) => {
-                            response_tx
-                                .send(Err(ArrowError::ParquetError(format!("{:?}", e))))
-                                .unwrap();
-                        }
-                    }
-                }
-
-                Err(e) => {
-                    response_tx
-                        .send(Err(ArrowError::ParquetError(format!("{:?}", e))))
-                        .unwrap();
-                }
+            if let Err(e) = read_file(&filename, projection, batch_size, response_tx) {
+                println!("Parquet reader thread terminated due to error: {:?}", e);
             }
         });
 
         let iterator = Arc::new(Mutex::new(ParquetIterator {
-            schema,
+            schema: self.schema.clone(),
             response_rx,
         }));
 
-        Self { iterator }
+        Ok(iterator)
     }
 }
 
-impl Partition for ParquetPartition {
-    fn execute(&self) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
-        Ok(self.iterator.clone())
+fn send_result(
+    response_tx: &Sender<ArrowResult<Option<RecordBatch>>>,
+    result: ArrowResult<Option<RecordBatch>>,
+) -> Result<()> {
+    response_tx
+        .send(result)
+        .map_err(|e| ExecutionError::ExecutionError(e.to_string()))?;
+    Ok(())
+}
+
+fn read_file(
+    filename: &str,
+    projection: Vec<usize>,
+    batch_size: usize,
+    response_tx: Sender<ArrowResult<Option<RecordBatch>>>,
+) -> Result<()> {
+    let file = File::open(&filename)?;
+    let file_reader = Rc::new(SerializedFileReader::new(file)?);
+    let mut arrow_reader = ParquetFileArrowReader::new(file_reader);
+    let mut batch_reader =
+        arrow_reader.get_record_reader_by_columns(projection.clone(), batch_size)?;
+    loop {
+        match batch_reader.next_batch() {
+            Ok(Some(batch)) => send_result(&response_tx, Ok(Some(batch)))?,
+            Ok(None) => {
+                // finished reading file
+                send_result(&response_tx, Ok(None))?;
+                break;
+            }
+            Err(e) => {
+                let err_msg =
+                    format!("Error reading batch from {}: {}", filename, e.to_string());
+                // send error to operator
+                send_result(
+                    &response_tx,
+                    Err(ArrowError::ParquetError(err_msg.clone())),
+                )?;
+                // terminate thread with error
+                return Err(ExecutionError::ExecutionError(err_msg));
+            }
+        }
     }
+    Ok(())
 }
 
 struct ParquetIterator {
@@ -223,10 +201,9 @@ mod tests {
             env::var("PARQUET_TEST_DATA").expect("PARQUET_TEST_DATA not defined");
         let filename = format!("{}/alltypes_plain.parquet", testdata);
         let parquet_exec = ParquetExec::try_new(&filename, Some(vec![0, 1, 2]), 1024)?;
-        let partitions = parquet_exec.partitions()?;
-        assert_eq!(partitions.len(), 1);
+        assert_eq!(parquet_exec.output_partitioning().partition_count(), 1);
 
-        let results = partitions[0].execute()?;
+        let results = parquet_exec.execute(0)?;
         let mut results = results.lock().unwrap();
         let batch = results.next_batch()?.unwrap();
 

@@ -37,7 +37,7 @@ pub fn arrow_testdata_path() -> String {
 }
 
 /// Execute a physical plan and collect the results
-pub fn execute(plan: &dyn ExecutionPlan) -> Result<Vec<RecordBatch>> {
+pub fn execute(plan: Arc<dyn ExecutionPlan>) -> Result<Vec<RecordBatch>> {
     let ctx = ExecutionContext::new();
     ctx.collect(plan)
 }
@@ -228,6 +228,12 @@ pub fn max(expr: Expr) -> Expr {
     Expr::AggregateFunction {
         name: "MAX".to_owned(),
         args: vec![expr],
-        return_type: DataType::Float64,
+    }
+}
+
+pub fn min(expr: Expr) -> Expr {
+    Expr::AggregateFunction {
+        name: "MIN".to_owned(),
+        args: vec![expr],
     }
 }

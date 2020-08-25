@@ -35,13 +35,6 @@ using internal::IntegersCanFit;
 
 namespace r {
 
-using Rcpp::default_value;
-using Rcpp::IntegerVector;
-using Rcpp::LogicalVector_;
-using Rcpp::no_init;
-using Rcpp::Shield;
-using Rcpp::StringVector_;
-
 class Converter {
  public:
   explicit Converter(ArrayVector arrays) : arrays_(std::move(arrays)) {}
@@ -92,7 +85,7 @@ class Converter {
   //
   // for each array, add a task to the task group
   //
-  // The task group is Finish() iun the caller
+  // The task group is Finish() in the caller
   void IngestParallel(SEXP data, const std::shared_ptr<arrow::internal::TaskGroup>& tg) {
     R_xlen_t k = 0, i = 0;
     for (const auto& array : arrays_) {
@@ -111,105 +104,148 @@ class Converter {
   ArrayVector arrays_;
 };
 
-// data[start:(start+n)] = NA
-template <int RTYPE>
-Status AllNull_Ingest(SEXP data, R_xlen_t start, R_xlen_t n) {
-  auto p_data = Rcpp::internal::r_vector_start<RTYPE>(data) + start;
-  std::fill_n(p_data, n, Rcpp::default_value<RTYPE>());
-  return Status::OK();
-}
-
-// ingest the data from `array` into a slice of `data`
-//
-// each element goes through `lambda` when some conversion is needed
-template <int RTYPE, typename array_value_type, typename Lambda>
-Status SomeNull_Ingest(SEXP data, R_xlen_t start, R_xlen_t n,
-                       const array_value_type* p_values,
-                       const std::shared_ptr<arrow::Array>& array, Lambda lambda) {
-  if (!p_values) {
-    return Status::Invalid("Invalid data buffer");
-  }
-  auto p_data = Rcpp::internal::r_vector_start<RTYPE>(data) + start;
-
-  if (array->null_count()) {
-    arrow::internal::BitmapReader bitmap_reader(array->null_bitmap()->data(),
-                                                array->offset(), n);
-    for (R_xlen_t i = 0; i < n; i++, bitmap_reader.Next(), ++p_data, ++p_values) {
-      *p_data = bitmap_reader.IsSet() ? lambda(*p_values) : default_value<RTYPE>();
-    }
-  } else {
-    std::transform(p_values, p_values + n, p_data, lambda);
-  }
-
-  return Status::OK();
-}
-
-template <typename Lambda>
-Status IngestSome(const std::shared_ptr<arrow::Array>& array, R_xlen_t n, Lambda lambda) {
+template <typename SetNonNull, typename SetNull>
+Status IngestSome(const std::shared_ptr<arrow::Array>& array, R_xlen_t n,
+                  SetNonNull&& set_non_null, SetNull&& set_null) {
   if (array->null_count()) {
     internal::BitmapReader bitmap_reader(array->null_bitmap()->data(), array->offset(),
                                          n);
 
     for (R_xlen_t i = 0; i < n; i++, bitmap_reader.Next()) {
-      if (bitmap_reader.IsSet()) RETURN_NOT_OK(lambda(i));
+      if (bitmap_reader.IsSet()) {
+        RETURN_NOT_OK(set_non_null(i));
+      } else {
+        RETURN_NOT_OK(set_null(i));
+      }
     }
 
   } else {
     for (R_xlen_t i = 0; i < n; i++) {
-      RETURN_NOT_OK(lambda(i));
+      RETURN_NOT_OK(set_non_null(i));
     }
   }
 
   return Status::OK();
+}
+
+template <typename SetNonNull>
+Status IngestSome(const std::shared_ptr<arrow::Array>& array, R_xlen_t n,
+                  SetNonNull&& set_non_null) {
+  auto nothing = [](R_xlen_t i) { return Status::OK(); };
+  return IngestSome(array, n, std::forward<SetNonNull>(set_non_null), nothing);
 }
 
 // Allocate + Ingest
 SEXP ArrayVector__as_vector(R_xlen_t n, const std::shared_ptr<DataType>& type,
                             const ArrayVector& arrays) {
   auto converter = Converter::Make(type, arrays);
-  Shield<SEXP> data(converter->Allocate(n));
+  SEXP data = PROTECT(converter->Allocate(n));
   StopIfNotOk(converter->IngestSerial(data));
+  UNPROTECT(1);
   return data;
 }
 
-template <int RTYPE>
-class Converter_SimpleArray : public Converter {
-  using Vector = Rcpp::Vector<RTYPE, Rcpp::NoProtectStorage>;
-  using value_type = typename Vector::stored_type;
+template <typename Type>
+class Converter_Int : public Converter {
+  using value_type = typename TypeTraits<Type>::ArrayType::value_type;
 
  public:
-  explicit Converter_SimpleArray(const ArrayVector& arrays) : Converter(arrays) {}
+  explicit Converter_Int(const ArrayVector& arrays) : Converter(arrays) {}
 
-  SEXP Allocate(R_xlen_t n) const { return Vector(no_init(n)); }
+  SEXP Allocate(R_xlen_t n) const { return Rf_allocVector(INTSXP, n); }
 
   Status Ingest_all_nulls(SEXP data, R_xlen_t start, R_xlen_t n) const {
-    return AllNull_Ingest<RTYPE>(data, start, n);
+    std::fill_n(INTEGER(data) + start, n, NA_INTEGER);
+    return Status::OK();
   }
 
   Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
                            R_xlen_t start, R_xlen_t n, size_t chunk_index) const {
     auto p_values = array->data()->GetValues<value_type>(1);
-    auto echo = [](value_type value) { return value; };
-    return SomeNull_Ingest<RTYPE, value_type>(data, start, n, p_values, array, echo);
+    if (!p_values) {
+      return Status::Invalid("Invalid data buffer");
+    }
+    auto p_data = INTEGER(data) + start;
+    auto ingest_one = [&](R_xlen_t i) {
+      p_data[i] = static_cast<int>(p_values[i]);
+      return Status::OK();
+    };
+    auto null_one = [&](R_xlen_t i) {
+      p_data[i] = NA_INTEGER;
+      return Status::OK();
+    };
+
+    return IngestSome(array, n, ingest_one, null_one);
   }
 };
 
-class Converter_Date32 : public Converter_SimpleArray<REALSXP> {
- public:
-  explicit Converter_Date32(const ArrayVector& arrays)
-      : Converter_SimpleArray<REALSXP>(arrays) {}
+template <typename Type>
+class Converter_Double : public Converter {
+  using value_type = typename TypeTraits<Type>::ArrayType::value_type;
 
-  SEXP Allocate(R_xlen_t n) const {
-    Rcpp::NumericVector data(no_init(n));
-    data.attr("class") = "Date";
-    return data;
+ public:
+  explicit Converter_Double(const ArrayVector& arrays) : Converter(arrays) {}
+
+  SEXP Allocate(R_xlen_t n) const { return Rf_allocVector(REALSXP, n); }
+
+  Status Ingest_all_nulls(SEXP data, R_xlen_t start, R_xlen_t n) const {
+    std::fill_n(REAL(data) + start, n, NA_REAL);
+    return Status::OK();
   }
 
   Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
                            R_xlen_t start, R_xlen_t n, size_t chunk_index) const {
-    auto convert = [](int days) { return static_cast<double>(days); };
-    return SomeNull_Ingest<REALSXP, int>(data, start, n, array->data()->GetValues<int>(1),
-                                         array, convert);
+    auto p_values = array->data()->GetValues<value_type>(1);
+    if (!p_values) {
+      return Status::Invalid("Invalid data buffer");
+    }
+    auto p_data = REAL(data) + start;
+    auto ingest_one = [&](R_xlen_t i) {
+      p_data[i] = static_cast<value_type>(p_values[i]);
+      return Status::OK();
+    };
+    auto null_one = [&](R_xlen_t i) {
+      p_data[i] = NA_REAL;
+      return Status::OK();
+    };
+
+    return IngestSome(array, n, ingest_one, null_one);
+  }
+};
+
+class Converter_Date32 : public Converter {
+ public:
+  explicit Converter_Date32(const ArrayVector& arrays) : Converter(arrays) {}
+
+  SEXP Allocate(R_xlen_t n) const {
+    SEXP data = PROTECT(Rf_allocVector(REALSXP, n));
+    Rf_classgets(data, Rf_mkString("Date"));
+    UNPROTECT(1);
+    return data;
+  }
+
+  Status Ingest_all_nulls(SEXP data, R_xlen_t start, R_xlen_t n) const {
+    std::fill_n(REAL(data) + start, n, NA_REAL);
+    return Status::OK();
+  }
+
+  Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
+                           R_xlen_t start, R_xlen_t n, size_t chunk_index) const {
+    auto p_values = array->data()->GetValues<int>(1);
+    if (!p_values) {
+      return Status::Invalid("Invalid data buffer");
+    }
+    auto p_data = REAL(data) + start;
+    auto ingest_one = [&](R_xlen_t i) {
+      p_data[i] = static_cast<double>(p_values[i]);
+      return Status::OK();
+    };
+    auto null_one = [&](R_xlen_t i) {
+      p_data[i] = NA_REAL;
+      return Status::OK();
+    };
+
+    return IngestSome(array, n, ingest_one, null_one);
   }
 };
 
@@ -218,10 +254,13 @@ struct Converter_String : public Converter {
  public:
   explicit Converter_String(const ArrayVector& arrays) : Converter(arrays) {}
 
-  SEXP Allocate(R_xlen_t n) const { return StringVector_(no_init(n)); }
+  SEXP Allocate(R_xlen_t n) const { return Rf_allocVector(STRSXP, n); }
 
   Status Ingest_all_nulls(SEXP data, R_xlen_t start, R_xlen_t n) const {
-    return AllNull_Ingest<STRSXP>(data, start, n);
+    for (R_xlen_t i = 0; i < n; i++) {
+      SET_STRING_ELT(data, i + start, NA_STRING);
+    }
+    return Status::OK();
   }
 
   Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
@@ -255,7 +294,7 @@ struct Converter_String : public Converter {
                                                 array->offset(), n);
       for (int i = 0; i < n; i++, null_reader.Next()) {
         if (null_reader.IsSet()) {
-          SET_STRING_ELT(data, start + i, r_string(string_array->GetString(i)));
+          SET_STRING_ELT(data, start + i, cpp11::r_string(string_array->GetString(i)));
         } else {
           SET_STRING_ELT(data, start + i, NA_STRING);
         }
@@ -263,7 +302,7 @@ struct Converter_String : public Converter {
 
     } else {
       for (int i = 0; i < n; i++) {
-        SET_STRING_ELT(data, start + i, r_string(string_array->GetString(i)));
+        SET_STRING_ELT(data, start + i, cpp11::r_string(string_array->GetString(i)));
       }
     }
 
@@ -271,45 +310,41 @@ struct Converter_String : public Converter {
   }
 
   bool Parallel() const { return false; }
-
-  inline SEXP r_string(const arrow::util::string_view& view) const {
-    return Rf_mkCharLenCE(view.data(), view.size(), CE_UTF8);
-  }
 };
 
 class Converter_Boolean : public Converter {
  public:
   explicit Converter_Boolean(const ArrayVector& arrays) : Converter(arrays) {}
 
-  SEXP Allocate(R_xlen_t n) const { return LogicalVector_(no_init(n)); }
+  SEXP Allocate(R_xlen_t n) const { return Rf_allocVector(LGLSXP, n); }
 
   Status Ingest_all_nulls(SEXP data, R_xlen_t start, R_xlen_t n) const {
-    return AllNull_Ingest<LGLSXP>(data, start, n);
+    std::fill_n(LOGICAL(data) + start, n, NA_LOGICAL);
+    return Status::OK();
   }
 
   Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
                            R_xlen_t start, R_xlen_t n, size_t chunk_index) const {
-    auto p_data = Rcpp::internal::r_vector_start<LGLSXP>(data) + start;
+    auto p_data = LOGICAL(data) + start;
     auto p_bools = array->data()->GetValues<uint8_t>(1, 0);
     if (!p_bools) {
       return Status::Invalid("Invalid data buffer");
     }
 
     arrow::internal::BitmapReader data_reader(p_bools, array->offset(), n);
-    if (array->null_count()) {
-      arrow::internal::BitmapReader null_reader(array->null_bitmap()->data(),
-                                                array->offset(), n);
+    auto ingest_one = [&](R_xlen_t i) {
+      p_data[i] = data_reader.IsSet();
+      data_reader.Next();
+      return Status::OK();
+    };
 
-      for (R_xlen_t i = 0; i < n; i++, data_reader.Next(), null_reader.Next(), ++p_data) {
-        *p_data = null_reader.IsSet() ? data_reader.IsSet() : NA_LOGICAL;
-      }
-    } else {
-      for (R_xlen_t i = 0; i < n; i++, data_reader.Next(), ++p_data) {
-        *p_data = data_reader.IsSet();
-      }
-    }
+    auto null_one = [&](R_xlen_t i) {
+      data_reader.Next();
+      p_data[i] = NA_LOGICAL;
+      return Status::OK();
+    };
 
-    return Status::OK();
+    return IngestSome(array, n, ingest_one, null_one);
   }
 };
 
@@ -347,7 +382,7 @@ class Converter_Binary : public Converter {
       SEXP raw = PROTECT(Rf_allocVector(RAWSXP, ni));
       std::copy(value, value + ni, RAW(raw));
 
-      SET_VECTOR_ELT(data, i, raw);
+      SET_VECTOR_ELT(data, i + start, raw);
       UNPROTECT(1);
 
       return Status::OK();
@@ -385,7 +420,7 @@ class Converter_FixedSizeBinary : public Converter {
       SEXP raw = PROTECT(Rf_allocVector(RAWSXP, byte_width));
       std::copy(value, value + byte_width, RAW(raw));
 
-      SET_VECTOR_ELT(data, i, raw);
+      SET_VECTOR_ELT(data, i + start, raw);
       UNPROTECT(1);
 
       return Status::OK();
@@ -437,8 +472,8 @@ class Converter_Dictionary : public Converter {
           // TODO: also add int64, uint32, uint64 downcasts, if possible
           break;
         default:
-          Rcpp::stop("Cannot convert Dictionary Array of type `%s` to R",
-                     dict_array.type()->ToString());
+          cpp11::stop("Cannot convert Dictionary Array of type `%s` to R",
+                      dict_array.type()->ToString().c_str());
       }
 
       dictionary_ = dict_array.dictionary();
@@ -446,7 +481,7 @@ class Converter_Dictionary : public Converter {
   }
 
   SEXP Allocate(R_xlen_t n) const {
-    IntegerVector data(no_init(n));
+    cpp11::writable::integers data(n);
     data.attr("levels") = GetLevels();
     if (GetOrdered()) {
       Rf_classgets(data, arrow::r::data::classes_ordered);
@@ -456,8 +491,11 @@ class Converter_Dictionary : public Converter {
     return data;
   }
 
+  virtual bool Parallel() const { return false; }
+
   Status Ingest_all_nulls(SEXP data, R_xlen_t start, R_xlen_t n) const {
-    return AllNull_Ingest<INTSXP>(data, start, n);
+    std::fill_n(INTEGER(data) + start, n, NA_INTEGER);
+    return Status::OK();
   }
 
   Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
@@ -495,20 +533,31 @@ class Converter_Dictionary : public Converter {
     auto indices = checked_cast<const DictionaryArray&>(*array).indices();
     auto raw_indices = indices->data()->GetValues<index_type>(1);
 
+    auto p_data = INTEGER(data) + start;
+    auto null_one = [&](R_xlen_t i) {
+      p_data[i] = NA_INTEGER;
+      return Status::OK();
+    };
+
     // convert the 0-based indices from the arrow Array
     // to 1-based indices used in R factors
     if (need_unification_) {
       // transpose the indices before converting
       auto transposed =
           reinterpret_cast<const int32_t*>(arrays_transpose_[chunk_index]->data());
-      auto transpose_convert = [=](index_type i) { return transposed[i] + 1; };
 
-      return SomeNull_Ingest<INTSXP>(data, start, n, raw_indices, indices,
-                                     transpose_convert);
+      auto ingest_one = [&](R_xlen_t i) {
+        p_data[i] = transposed[raw_indices[i]] + 1;
+        return Status::OK();
+      };
+
+      return IngestSome(array, n, ingest_one, null_one);
     } else {
-      auto convert = [](index_type i) { return static_cast<int>(i) + 1; };
-
-      return SomeNull_Ingest<INTSXP>(data, start, n, raw_indices, indices, convert);
+      auto ingest_one = [&](R_xlen_t i) {
+        p_data[i] = static_cast<int>(raw_indices[i]) + 1;
+        return Status::OK();
+      };
+      return IngestSome(array, n, ingest_one, null_one);
     }
   }
 
@@ -537,10 +586,9 @@ class Converter_Dictionary : public Converter {
     // Alternative: preserve the logical type of the dictionary values
     // (e.g. if dict is timestamp, return a POSIXt R vector, not factor)
     if (dictionary_->type_id() != Type::STRING) {
-      Rcpp::warning(
-          "Coercing dictionary values from type %s to R character factor levels",
-          dictionary_->type()->ToString());
+      cpp11::warning("Coercing dictionary values to R character factor levels");
     }
+
     SEXP vec = PROTECT(ArrayVector__as_vector(dictionary_->length(), dictionary_->type(),
                                               {dictionary_}));
     SEXP strings_vec = PROTECT(Rf_coerceVector(vec, STRSXP));
@@ -564,21 +612,17 @@ class Converter_Struct : public Converter {
     // allocate a data frame column to host each array
     auto first_array = checked_cast<const arrow::StructArray*>(this->arrays_[0].get());
     auto type = first_array->struct_type();
-    int nf = first_array->num_fields();
-    Rcpp::List out(nf);
-    Rcpp::CharacterVector colnames(nf);
-    for (int i = 0; i < nf; i++) {
-      out[i] = converters[i]->Allocate(n);
-      colnames[i] = Rcpp::String(type->field(i)->name(), CE_UTF8);
-    }
+    auto out =
+        arrow::r::to_r_list(converters, [n](const std::shared_ptr<Converter>& converter) {
+          return converter->Allocate(n);
+        });
+    auto colnames = arrow::r::to_r_strings(
+        type->fields(),
+        [](const std::shared_ptr<Field>& field) { return field->name(); });
+    out.attr(symbols::row_names) = arrow::r::short_row_names(n);
+    out.attr(R_NamesSymbol) = colnames;
+    out.attr(R_ClassSymbol) = arrow::r::data::classes_tbl_df;
 
-    IntegerVector rn(2);
-    rn[0] = NA_INTEGER;
-    rn[1] = -n;
-    Rf_setAttrib(out, symbols::row_names, rn);
-    Rf_setAttrib(out, R_NamesSymbol, colnames);
-    Rf_setAttrib(out, R_ClassSymbol,
-                 Rcpp::CharacterVector::create("tbl_df", "tbl", "data.frame"));
     return out;
   }
 
@@ -615,49 +659,29 @@ class Converter_Date64 : public Converter {
   explicit Converter_Date64(const ArrayVector& arrays) : Converter(arrays) {}
 
   SEXP Allocate(R_xlen_t n) const {
-    Rcpp::NumericVector data(no_init(n));
+    cpp11::writable::doubles data(n);
     Rf_classgets(data, arrow::r::data::classes_POSIXct);
     return data;
   }
 
   Status Ingest_all_nulls(SEXP data, R_xlen_t start, R_xlen_t n) const {
-    return AllNull_Ingest<REALSXP>(data, start, n);
+    std::fill_n(REAL(data) + start, n, NA_REAL);
+    return Status::OK();
   }
 
   Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
                            R_xlen_t start, R_xlen_t n, size_t chunk_index) const {
-    auto convert = [](int64_t ms) { return static_cast<double>(ms / 1000); };
-    return SomeNull_Ingest<REALSXP, int64_t>(
-        data, start, n, array->data()->GetValues<int64_t>(1), array, convert);
-  }
-};
-
-template <int RTYPE, typename Type>
-class Converter_Promotion : public Converter {
-  using r_stored_type = typename Rcpp::Vector<RTYPE>::stored_type;
-  using value_type = typename TypeTraits<Type>::ArrayType::value_type;
-
- public:
-  explicit Converter_Promotion(const ArrayVector& arrays) : Converter(arrays) {}
-
-  SEXP Allocate(R_xlen_t n) const {
-    return Rcpp::Vector<RTYPE, Rcpp::NoProtectStorage>(no_init(n));
-  }
-
-  Status Ingest_all_nulls(SEXP data, R_xlen_t start, R_xlen_t n) const {
-    return AllNull_Ingest<RTYPE>(data, start, n);
-  }
-
-  Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
-                           R_xlen_t start, R_xlen_t n, size_t chunk_index) const {
-    auto convert = [](value_type value) { return static_cast<r_stored_type>(value); };
-    return SomeNull_Ingest<RTYPE, value_type>(
-        data, start, n, array->data()->GetValues<value_type>(1), array, convert);
-  }
-
- private:
-  static r_stored_type value_convert(value_type value) {
-    return static_cast<r_stored_type>(value);
+    auto p_data = REAL(data) + start;
+    auto p_values = array->data()->GetValues<int64_t>(1);
+    auto ingest_one = [&](R_xlen_t i) {
+      p_data[i] = static_cast<double>(p_values[i] / 1000);
+      return Status::OK();
+    };
+    auto null_one = [&](R_xlen_t i) {
+      p_data[i] = NA_REAL;
+      return Status::OK();
+    };
+    return IngestSome(array, n, ingest_one, null_one);
   }
 };
 
@@ -667,25 +691,34 @@ class Converter_Time : public Converter {
   explicit Converter_Time(const ArrayVector& arrays) : Converter(arrays) {}
 
   SEXP Allocate(R_xlen_t n) const {
-    Rcpp::NumericVector data(no_init(n));
-    data.attr("class") = Rcpp::CharacterVector::create("hms", "difftime");
+    cpp11::writable::doubles data(n);
+    data.attr("class") = cpp11::writable::strings({"hms", "difftime"});
+
     // hms difftime is always stored as "seconds"
-    data.attr("units") = Rcpp::CharacterVector::create("secs");
+    data.attr("units") = cpp11::writable::strings({"secs"});
     return data;
   }
 
   Status Ingest_all_nulls(SEXP data, R_xlen_t start, R_xlen_t n) const {
-    return AllNull_Ingest<REALSXP>(data, start, n);
+    std::fill_n(REAL(data) + start, n, NA_REAL);
+    return Status::OK();
   }
 
   Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
                            R_xlen_t start, R_xlen_t n, size_t chunk_index) const {
     int multiplier = TimeUnit_multiplier(array);
-    auto convert = [=](value_type value) {
-      return static_cast<double>(value) / multiplier;
+
+    auto p_data = REAL(data) + start;
+    auto p_values = array->data()->GetValues<value_type>(1);
+    auto ingest_one = [&](R_xlen_t i) {
+      p_data[i] = static_cast<double>(p_values[i]) / multiplier;
+      return Status::OK();
     };
-    return SomeNull_Ingest<REALSXP, value_type>(
-        data, start, n, array->data()->GetValues<value_type>(1), array, convert);
+    auto null_one = [&](R_xlen_t i) {
+      p_data[i] = NA_REAL;
+      return Status::OK();
+    };
+    return IngestSome(array, n, ingest_one, null_one);
   }
 
  private:
@@ -713,7 +746,7 @@ class Converter_Timestamp : public Converter_Time<value_type, TimestampType> {
       : Converter_Time<value_type, TimestampType>(arrays) {}
 
   SEXP Allocate(R_xlen_t n) const {
-    Rcpp::NumericVector data(no_init(n));
+    cpp11::writable::doubles data(n);
     Rf_classgets(data, arrow::r::data::classes_POSIXct);
     auto array = checked_cast<const TimestampArray*>(this->arrays_[0].get());
     auto array_type = checked_cast<const TimestampType*>(array->type().get());
@@ -729,32 +762,28 @@ class Converter_Decimal : public Converter {
  public:
   explicit Converter_Decimal(const ArrayVector& arrays) : Converter(arrays) {}
 
-  SEXP Allocate(R_xlen_t n) const { return Rcpp::NumericVector_(no_init(n)); }
+  SEXP Allocate(R_xlen_t n) const { return Rf_allocVector(REALSXP, n); }
 
   Status Ingest_all_nulls(SEXP data, R_xlen_t start, R_xlen_t n) const {
-    return AllNull_Ingest<REALSXP>(data, start, n);
+    std::fill_n(REAL(data) + start, n, NA_REAL);
+    return Status::OK();
   }
 
   Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
                            R_xlen_t start, R_xlen_t n, size_t chunk_index) const {
-    auto p_data = Rcpp::internal::r_vector_start<REALSXP>(data) + start;
+    auto p_data = REAL(data) + start;
     const auto& decimals_arr = checked_cast<const arrow::Decimal128Array&>(*array);
 
-    if (array->null_count()) {
-      internal::BitmapReader bitmap_reader(array->null_bitmap()->data(), array->offset(),
-                                           n);
+    auto ingest_one = [&](R_xlen_t i) {
+      p_data[i] = std::stod(decimals_arr.FormatValue(i).c_str());
+      return Status::OK();
+    };
+    auto null_one = [&](R_xlen_t i) {
+      p_data[i] = NA_REAL;
+      return Status::OK();
+    };
 
-      for (R_xlen_t i = 0; i < n; i++, bitmap_reader.Next(), ++p_data) {
-        *p_data = bitmap_reader.IsSet() ? std::stod(decimals_arr.FormatValue(i).c_str())
-                                        : NA_REAL;
-      }
-    } else {
-      for (R_xlen_t i = 0; i < n; i++, ++p_data) {
-        *p_data = std::stod(decimals_arr.FormatValue(i).c_str());
-      }
-    }
-
-    return Status::OK();
+    return IngestSome(array, n, ingest_one, null_one);
   }
 };
 
@@ -769,12 +798,10 @@ class Converter_List : public Converter {
       : Converter(arrays), value_type_(value_type) {}
 
   SEXP Allocate(R_xlen_t n) const {
-    Rcpp::List res(no_init(n));
-    if (std::is_same<ListArrayType, ListArray>::value) {
-      Rf_setAttrib(res, R_ClassSymbol, arrow::r::data::classes_arrow_list);
-    } else {
-      Rf_setAttrib(res, R_ClassSymbol, arrow::r::data::classes_arrow_large_list);
-    }
+    cpp11::writable::list res(n);
+    res.attr(R_ClassSymbol) = std::is_same<ListArrayType, ListArray>::value
+                                  ? arrow::r::data::classes_arrow_list
+                                  : arrow::r::data::classes_arrow_large_list;
 
     // Build an empty array to match value_type
     std::unique_ptr<arrow::ArrayBuilder> builder;
@@ -784,8 +811,7 @@ class Converter_List : public Converter {
     StopIfNotOk(builder->Finish(&array));
 
     // convert to an R object to store as the list' ptype
-    SEXP ptype = Array__as_vector(array);
-    Rf_setAttrib(res, arrow::r::symbols::ptype, ptype);
+    res.attr(arrow::r::symbols::ptype) = Array__as_vector(array);
 
     return res;
   }
@@ -824,9 +850,9 @@ class Converter_FixedSizeList : public Converter {
       : Converter(arrays), value_type_(value_type), list_size_(list_size) {}
 
   SEXP Allocate(R_xlen_t n) const {
-    Rcpp::List res(no_init(n));
+    cpp11::writable::list res(n);
     Rf_classgets(res, arrow::r::data::classes_arrow_fixed_size_list);
-    Rf_setAttrib(res, arrow::r::symbols::list_size, Rf_ScalarInteger(list_size_));
+    res.attr(arrow::r::symbols::list_size) = Rf_ScalarInteger(list_size_);
 
     // Build an empty array to match value_type
     std::unique_ptr<arrow::ArrayBuilder> builder;
@@ -836,8 +862,7 @@ class Converter_FixedSizeList : public Converter {
     StopIfNotOk(builder->Finish(&array));
 
     // convert to an R object to store as the list' ptype
-    SEXP ptype = Array__as_vector(array);
-    Rf_setAttrib(res, arrow::r::symbols::ptype, ptype);
+    res.attr(arrow::r::symbols::ptype) = Array__as_vector(array);
 
     return res;
   }
@@ -868,7 +893,7 @@ class Converter_Int64 : public Converter {
   explicit Converter_Int64(const ArrayVector& arrays) : Converter(arrays) {}
 
   SEXP Allocate(R_xlen_t n) const {
-    Rcpp::NumericVector data(no_init(n));
+    cpp11::writable::doubles data(n);
     data.attr("class") = "integer64";
     return data;
   }
@@ -907,8 +932,10 @@ class Converter_Null : public Converter {
   explicit Converter_Null(const ArrayVector& arrays) : Converter(arrays) {}
 
   SEXP Allocate(R_xlen_t n) const {
-    Rcpp::LogicalVector data(n, NA_LOGICAL);
-    data.attr("class") = "vctrs_unspecified";
+    SEXP data = PROTECT(Rf_allocVector(LGLSXP, n));
+    std::fill_n(LOGICAL(data), n, NA_LOGICAL);
+    Rf_classgets(data, Rf_mkString("vctrs_unspecified"));
+    UNPROTECT(1);
     return data;
   }
 
@@ -944,10 +971,11 @@ std::shared_ptr<Converter> Converter::Make(const std::shared_ptr<DataType>& type
   switch (type->id()) {
     // direct support
     case Type::INT32:
-      return std::make_shared<arrow::r::Converter_SimpleArray<INTSXP>>(std::move(arrays));
+      return std::make_shared<arrow::r::Converter_Int<arrow::Int32Type>>(
+          std::move(arrays));
 
     case Type::DOUBLE:
-      return std::make_shared<arrow::r::Converter_SimpleArray<REALSXP>>(
+      return std::make_shared<arrow::r::Converter_Double<arrow::DoubleType>>(
           std::move(arrays));
 
       // need to handle 1-bit case
@@ -987,47 +1015,46 @@ std::shared_ptr<Converter> Converter::Make(const std::shared_ptr<DataType>& type
 
       // promotions to integer vector
     case Type::INT8:
-      return std::make_shared<arrow::r::Converter_Promotion<INTSXP, arrow::Int8Type>>(
+      return std::make_shared<arrow::r::Converter_Int<arrow::Int8Type>>(
           std::move(arrays));
 
     case Type::UINT8:
-      return std::make_shared<arrow::r::Converter_Promotion<INTSXP, arrow::UInt8Type>>(
+      return std::make_shared<arrow::r::Converter_Int<arrow::UInt8Type>>(
           std::move(arrays));
 
     case Type::INT16:
-      return std::make_shared<arrow::r::Converter_Promotion<INTSXP, arrow::Int16Type>>(
+      return std::make_shared<arrow::r::Converter_Int<arrow::Int16Type>>(
           std::move(arrays));
 
     case Type::UINT16:
-      return std::make_shared<arrow::r::Converter_Promotion<INTSXP, arrow::UInt16Type>>(
+      return std::make_shared<arrow::r::Converter_Int<arrow::UInt16Type>>(
           std::move(arrays));
 
       // promotions to numeric vector, if they don't fit into int32
     case Type::UINT32:
       if (ArraysCanFitInteger(arrays)) {
-        return std::make_shared<arrow::r::Converter_Promotion<INTSXP, arrow::UInt32Type>>(
+        return std::make_shared<arrow::r::Converter_Int<arrow::UInt32Type>>(
             std::move(arrays));
       } else {
-        return std::make_shared<
-            arrow::r::Converter_Promotion<REALSXP, arrow::UInt32Type>>(std::move(arrays));
+        return std::make_shared<arrow::r::Converter_Double<arrow::UInt32Type>>(
+            std::move(arrays));
       }
 
     case Type::UINT64:
       if (ArraysCanFitInteger(arrays)) {
-        return std::make_shared<arrow::r::Converter_Promotion<INTSXP, arrow::UInt64Type>>(
+        return std::make_shared<arrow::r::Converter_Int<arrow::UInt64Type>>(
             std::move(arrays));
       } else {
-        return std::make_shared<
-            arrow::r::Converter_Promotion<REALSXP, arrow::UInt64Type>>(std::move(arrays));
+        return std::make_shared<arrow::r::Converter_Double<arrow::UInt64Type>>(
+            std::move(arrays));
       }
 
     case Type::HALF_FLOAT:
-      return std::make_shared<
-          arrow::r::Converter_Promotion<REALSXP, arrow::HalfFloatType>>(
+      return std::make_shared<arrow::r::Converter_Double<arrow::HalfFloatType>>(
           std::move(arrays));
 
     case Type::FLOAT:
-      return std::make_shared<arrow::r::Converter_Promotion<REALSXP, arrow::FloatType>>(
+      return std::make_shared<arrow::r::Converter_Double<arrow::FloatType>>(
           std::move(arrays));
 
       // time32 and time64
@@ -1043,7 +1070,7 @@ std::shared_ptr<Converter> Converter::Make(const std::shared_ptr<DataType>& type
     case Type::INT64:
       // Prefer integer if it fits
       if (ArraysCanFitInteger(arrays)) {
-        return std::make_shared<arrow::r::Converter_Promotion<INTSXP, arrow::Int64Type>>(
+        return std::make_shared<arrow::r::Converter_Int<arrow::Int64Type>>(
             std::move(arrays));
       } else {
         return std::make_shared<arrow::r::Converter_Int64>(std::move(arrays));
@@ -1079,29 +1106,27 @@ std::shared_ptr<Converter> Converter::Make(const std::shared_ptr<DataType>& type
       break;
   }
 
-  Rcpp::stop(tfm::format("cannot handle Array of type %s", type->name()));
-  return nullptr;
+  cpp11::stop("cannot handle Array of type ", type->name().c_str());
 }
 
-Rcpp::List to_dataframe_serial(
-    int64_t nr, int64_t nc, const Rcpp::CharacterVector& names,
+cpp11::writable::list to_dataframe_serial(
+    int64_t nr, int64_t nc, const cpp11::writable::strings& names,
     const std::vector<std::shared_ptr<Converter>>& converters) {
-  Rcpp::List tbl(nc);
-
+  cpp11::writable::list tbl(nc);
   for (int i = 0; i < nc; i++) {
     SEXP column = tbl[i] = converters[i]->Allocate(nr);
     StopIfNotOk(converters[i]->IngestSerial(column));
   }
-  tbl.attr("names") = names;
-  tbl.attr("class") = Rcpp::CharacterVector::create("tbl_df", "tbl", "data.frame");
-  tbl.attr("row.names") = Rcpp::IntegerVector::create(NA_INTEGER, -nr);
+  tbl.attr(R_NamesSymbol) = names;
+  tbl.attr(R_ClassSymbol) = arrow::r::data::classes_tbl_df;
+  tbl.attr(R_RowNamesSymbol) = arrow::r::short_row_names(nr);
   return tbl;
 }
 
-Rcpp::List to_dataframe_parallel(
-    int64_t nr, int64_t nc, const Rcpp::CharacterVector& names,
+cpp11::writable::list to_dataframe_parallel(
+    int64_t nr, int64_t nc, const cpp11::writable::strings& names,
     const std::vector<std::shared_ptr<Converter>>& converters) {
-  Rcpp::List tbl(nc);
+  cpp11::writable::list tbl(nc);
 
   // task group to ingest data in parallel
   auto tg = arrow::internal::TaskGroup::MakeThreaded(arrow::internal::GetCpuThreadPool());
@@ -1133,9 +1158,9 @@ Rcpp::List to_dataframe_parallel(
 
   StopIfNotOk(status);
 
-  tbl.attr("names") = names;
-  tbl.attr("class") = Rcpp::CharacterVector::create("tbl_df", "tbl", "data.frame");
-  tbl.attr("row.names") = IntegerVector::create(NA_INTEGER, -nr);
+  tbl.attr(R_NamesSymbol) = names;
+  tbl.attr(R_ClassSymbol) = arrow::r::data::classes_tbl_df;
+  tbl.attr(R_RowNamesSymbol) = arrow::r::short_row_names(nr);
 
   return tbl;
 }
@@ -1155,16 +1180,16 @@ SEXP ChunkedArray__as_vector(const std::shared_ptr<arrow::ChunkedArray>& chunked
 }
 
 // [[arrow::export]]
-Rcpp::List RecordBatch__to_dataframe(const std::shared_ptr<arrow::RecordBatch>& batch,
-                                     bool use_threads) {
+cpp11::writable::list RecordBatch__to_dataframe(
+    const std::shared_ptr<arrow::RecordBatch>& batch, bool use_threads) {
   int64_t nc = batch->num_columns();
   int64_t nr = batch->num_rows();
-  Rcpp::CharacterVector names(nc);
+  cpp11::writable::strings names(nc);
   std::vector<arrow::ArrayVector> arrays(nc);
   std::vector<std::shared_ptr<arrow::r::Converter>> converters(nc);
 
-  for (int64_t i = 0; i < nc; i++) {
-    names[i] = Rcpp::String(batch->column_name(i), CE_UTF8);
+  for (R_xlen_t i = 0; i < nc; i++) {
+    names[i] = batch->column_name(i);
     arrays[i] = {batch->column(i)};
     converters[i] = arrow::r::Converter::Make(batch->column(i)->type(), arrays[i]);
   }
@@ -1177,17 +1202,17 @@ Rcpp::List RecordBatch__to_dataframe(const std::shared_ptr<arrow::RecordBatch>& 
 }
 
 // [[arrow::export]]
-Rcpp::List Table__to_dataframe(const std::shared_ptr<arrow::Table>& table,
-                               bool use_threads) {
+cpp11::writable::list Table__to_dataframe(const std::shared_ptr<arrow::Table>& table,
+                                          bool use_threads) {
   int64_t nc = table->num_columns();
   int64_t nr = table->num_rows();
-  Rcpp::CharacterVector names(nc);
+  cpp11::writable::strings names(nc);
   std::vector<std::shared_ptr<arrow::r::Converter>> converters(nc);
 
-  for (int64_t i = 0; i < nc; i++) {
+  for (R_xlen_t i = 0; i < nc; i++) {
     converters[i] =
         arrow::r::Converter::Make(table->column(i)->type(), table->column(i)->chunks());
-    names[i] = Rcpp::String(table->field(i)->name(), CE_UTF8);
+    names[i] = table->field(i)->name();
   }
 
   if (use_threads) {

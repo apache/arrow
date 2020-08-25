@@ -20,8 +20,6 @@
 #if defined(ARROW_R_WITH_ARROW)
 #include <arrow/ipc/writer.h>
 
-RCPP_EXPOSED_ENUM_NODECL(arrow::ipc::MetadataVersion)
-
 // [[arrow::export]]
 void ipc___RecordBatchWriter__WriteRecordBatch(
     const std::shared_ptr<arrow::ipc::RecordBatchWriter>& batch_writer,

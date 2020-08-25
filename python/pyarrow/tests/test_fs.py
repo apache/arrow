@@ -48,6 +48,9 @@ class DummyHandler(FileSystemHandler):
     def get_type_name(self):
         return "dummy"
 
+    def normalize_path(self, path):
+        return path
+
     def get_file_info(self, paths):
         info = []
         for path in paths:
@@ -150,6 +153,9 @@ class ProxyHandler(FileSystemHandler):
 
     def get_type_name(self):
         return "proxy::" + self._fs.type_name
+
+    def normalize_path(self, path):
+        return self._fs.normalize_path(path)
 
     def get_file_info(self, paths):
         return self._fs.get_file_info(paths)
@@ -577,6 +583,12 @@ def test_type_name():
     assert fs.type_name == "mock"
 
 
+def test_normalize_path(fs):
+    # Trivial path names (without separators) should generally be
+    # already normalized.  Just a sanity check.
+    assert fs.normalize_path("foo") == "foo"
+
+
 def test_non_path_like_input_raises(fs):
     class Path:
         pass
@@ -789,6 +801,10 @@ def test_move_directory(fs, pathfn, allow_move_dir):
 
 
 def test_move_file(fs, pathfn):
+    if fs.type_name == "py::fsspec+memory":
+        # https://issues.apache.org/jira/browse/ARROW-9621
+        # https://github.com/intake/filesystem_spec/issues/367
+        pytest.xfail(reason='Not working with in-memory fsspec')
     s = pathfn('test-move-source-file')
     t = pathfn('test-move-target-file')
 
@@ -967,12 +983,20 @@ def test_mockfs_mtime_roundtrip(mockfs):
 
 
 @pytest.mark.s3
-def test_s3_options():
+def test_s3_options(monkeypatch):
     from pyarrow.fs import S3FileSystem
 
+    # Avoid wait for unavailable metadata server in ARN role example below
+    monkeypatch.setenv("AWS_EC2_METADATA_DISABLED", "true")
+
     fs = S3FileSystem(access_key='access', secret_key='secret',
-                      region='us-east-1', scheme='https',
-                      endpoint_override='localhost:8999')
+                      session_token='token', region='us-east-1',
+                      scheme='https', endpoint_override='localhost:8999')
+    assert isinstance(fs, S3FileSystem)
+    assert pickle.loads(pickle.dumps(fs)) == fs
+
+    fs = S3FileSystem(role_arn='role', session_name='session',
+                      external_id='id', load_frequency=100)
     assert isinstance(fs, S3FileSystem)
     assert pickle.loads(pickle.dumps(fs)) == fs
 
@@ -980,6 +1004,14 @@ def test_s3_options():
         S3FileSystem(access_key='access')
     with pytest.raises(ValueError):
         S3FileSystem(secret_key='secret')
+    with pytest.raises(ValueError):
+        S3FileSystem(access_key='access', session_token='token')
+    with pytest.raises(ValueError):
+        S3FileSystem(secret_key='secret', session_token='token')
+    with pytest.raises(ValueError):
+        S3FileSystem(
+            access_key='access', secret_key='secret', role_arn='arn'
+        )
 
 
 @pytest.mark.hdfs

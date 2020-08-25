@@ -61,27 +61,27 @@ if(gRPC_ROOT)
   find_library(GRPC_GPR_LIB
                NAMES ${GRPC_GPR_LIB_NAMES}
                PATHS ${gRPC_ROOT}
-               PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
+               PATH_SUFFIXES ${ARROW_LIBRARY_PATH_SUFFIXES}
                NO_DEFAULT_PATH)
   find_library(GRPC_GRPC_LIB
                NAMES ${GRPC_GRPC_LIB_NAMES}
                PATHS ${gRPC_ROOT}
-               PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
+               PATH_SUFFIXES ${ARROW_LIBRARY_PATH_SUFFIXES}
                NO_DEFAULT_PATH)
   find_library(GRPC_GRPCPP_LIB
                NAMES ${GRPC_GRPCPP_LIB_NAMES}
                PATHS ${gRPC_ROOT}
-               PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
+               PATH_SUFFIXES ${ARROW_LIBRARY_PATH_SUFFIXES}
                NO_DEFAULT_PATH)
   find_library(GRPC_ADDRESS_SORTING_LIB
                NAMES ${GRPC_ADDRESS_SORTING_LIB_NAMES}
                PATHS ${gRPC_ROOT}
-               PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
+               PATH_SUFFIXES ${ARROW_LIBRARY_PATH_SUFFIXES}
                NO_DEFAULT_PATH)
   find_library(GRPC_UPB_LIB
                NAMES ${GRPC_UPB_LIB_NAMES}
                PATHS ${gRPC_ROOT}
-               PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
+               PATH_SUFFIXES ${ARROW_LIBRARY_PATH_SUFFIXES}
                NO_DEFAULT_PATH)
   find_program(GRPC_CPP_PLUGIN grpc_cpp_plugin NO_DEFAULT_PATH
                PATHS ${gRPC_ROOT}
@@ -90,8 +90,9 @@ if(gRPC_ROOT)
             NAMES grpc/grpc.h
             PATHS ${gRPC_ROOT}
             NO_DEFAULT_PATH
-            PATH_SUFFIXES ${INCLUDE_PATH_SUFFIXES})
+            PATH_SUFFIXES ${ARROW_INCLUDE_PATH_SUFFIXES})
 else()
+  find_package(PkgConfig QUIET)
   pkg_check_modules(GRPC_PC grpc++)
   if(GRPC_PC_FOUND)
     set(GRPC_ALT_VERSION "${GRPC_PC_VERSION}")
@@ -102,27 +103,27 @@ else()
     find_library(GRPC_GPR_LIB
                  NAMES ${GRPC_GPR_LIB_NAMES}
                  PATHS ${GRPC_PC_LIBRARY_DIRS}
-                 PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
+                 PATH_SUFFIXES ${ARROW_LIBRARY_PATH_SUFFIXES}
                  NO_DEFAULT_PATH)
     find_library(GRPC_GRPC_LIB
                  NAMES ${GRPC_GRPC_LIB_NAMES}
                  PATHS ${GRPC_PC_LIBRARY_DIRS}
-                 PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
+                 PATH_SUFFIXES ${ARROW_LIBRARY_PATH_SUFFIXES}
                  NO_DEFAULT_PATH)
     find_library(GRPC_GRPCPP_LIB
                  NAMES ${GRPC_GRPCPP_LIB_NAMES}
                  PATHS ${GRPC_PC_LIBRARY_DIRS}
-                 PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
+                 PATH_SUFFIXES ${ARROW_LIBRARY_PATH_SUFFIXES}
                  NO_DEFAULT_PATH)
     find_library(GRPC_ADDRESS_SORTING_LIB
                  NAMES ${GRPC_ADDRESS_SORTING_LIB_NAMES}
                  PATHS ${GRPC_PC_LIBRARY_DIRS}
-                 PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
+                 PATH_SUFFIXES ${ARROW_LIBRARY_PATH_SUFFIXES}
                  NO_DEFAULT_PATH)
     find_library(GRPC_UPB_LIB
                  NAMES ${GRPC_UPB_LIB_NAMES}
                  PATHS ${GRPC_PC_LIBRARY_DIRS}
-                 PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
+                 PATH_SUFFIXES ${ARROW_LIBRARY_PATH_SUFFIXES}
                  NO_DEFAULT_PATH)
     find_program(GRPC_CPP_PLUGIN grpc_cpp_plugin
                  HINTS ${GRPC_PC_PREFIX}
@@ -131,21 +132,23 @@ else()
   else()
     find_library(GRPC_GPR_LIB
                  NAMES ${GRPC_GPR_LIB_NAMES}
-                 PATH_SUFFIXES ${LIB_PATH_SUFFIXES})
+                 PATH_SUFFIXES ${ARROW_LIBRARY_PATH_SUFFIXES})
     find_library(GRPC_GRPC_LIB
                  NAMES ${GRPC_GRPC_LIB_NAMES}
-                 PATH_SUFFIXES ${LIB_PATH_SUFFIXES})
+                 PATH_SUFFIXES ${ARROW_LIBRARY_PATH_SUFFIXES})
     find_library(GRPC_GRPCPP_LIB
                  NAMES ${GRPC_GRPCPP_LIB_NAMES}
-                 PATH_SUFFIXES ${LIB_PATH_SUFFIXES})
+                 PATH_SUFFIXES ${ARROW_LIBRARY_PATH_SUFFIXES})
     find_library(GRPC_ADDRESS_SORTING_LIB
                  NAMES ${GRPC_ADDRESS_SORTING_LIB_NAMES}
-                 PATH_SUFFIXES ${LIB_PATH_SUFFIXES})
+                 PATH_SUFFIXES ${ARROW_LIBRARY_PATH_SUFFIXES})
     find_library(GRPC_UPB_LIB
                  NAMES ${GRPC_UPB_LIB_NAMES}
-                 PATH_SUFFIXES ${LIB_PATH_SUFFIXES})
+                 PATH_SUFFIXES ${ARROW_LIBRARY_PATH_SUFFIXES})
     find_program(GRPC_CPP_PLUGIN grpc_cpp_plugin PATH_SUFFIXES "bin")
-    find_path(GRPC_INCLUDE_DIR NAMES grpc/grpc.h PATH_SUFFIXES ${INCLUDE_PATH_SUFFIXES})
+    find_path(GRPC_INCLUDE_DIR
+              NAMES grpc/grpc.h
+              PATH_SUFFIXES ${ARROW_INCLUDE_PATH_SUFFIXES})
   endif()
 endif()
 

@@ -48,3 +48,13 @@
 !ruby/red-plasma/Gemfile
 !ruby/red-plasma/lib/plasma/version.rb
 !ruby/red-plasma/red-plasma.gemspec
+!rust/Cargo.toml
+!rust/benchmarks/Cargo.toml
+!rust/arrow/Cargo.toml
+!rust/arrow/benches
+!rust/arrow-flight/Cargo.toml
+!rust/parquet/Cargo.toml
+!rust/parquet/build.rs
+!rust/datafusion/Cargo.toml
+!rust/datafusion/benches
+!rust/integration-testing/Cargo.toml

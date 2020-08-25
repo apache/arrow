@@ -1138,8 +1138,12 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
     if (descr_->max_definition_level() > 0) {
       // Minimal definition level for which spaced values are written
       int16_t min_spaced_def_level = descr_->max_definition_level();
-      if (descr_->schema_node()->is_optional()) {
-        min_spaced_def_level--;
+      const ::parquet::schema::Node* node = descr_->schema_node().get();
+      while (node != nullptr && !node->is_repeated()) {
+        if (node->is_optional()) {
+          min_spaced_def_level--;
+        }
+        node = node->parent();
       }
       for (int64_t i = 0; i < num_levels; ++i) {
         if (def_levels[i] == descr_->max_definition_level()) {
@@ -1149,7 +1153,6 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
           ++spaced_values_to_write;
         }
       }
-
       WriteDefinitionLevels(num_levels, def_levels);
     } else {
       // Required field, write all values

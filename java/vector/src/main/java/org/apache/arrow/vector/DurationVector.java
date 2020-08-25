@@ -44,6 +44,7 @@ import org.apache.arrow.vector.util.TransferPair;
 public final class DurationVector extends BaseFixedWidthVector {
   private static final byte TYPE_WIDTH = 8;
   private final FieldReader reader;
+
   private final TimeUnit unit;
 
   /**
@@ -191,6 +192,13 @@ public final class DurationVector extends BaseFixedWidthVector {
 
   private StringBuilder getAsStringBuilderHelper(int index) {
     return new StringBuilder(getObject(index).toString());
+  }
+
+  /**
+   * Gets the time unit of the duration.
+   */
+  public TimeUnit getUnit() {
+    return unit;
   }
 
   /*----------------------------------------------------------------*

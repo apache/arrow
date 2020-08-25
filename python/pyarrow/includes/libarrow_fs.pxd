@@ -130,11 +130,17 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         c_string endpoint_override
         c_string scheme
         c_bool background_writes
+        c_string role_arn
+        c_string session_name
+        c_string external_id
+        int load_frequency
         void ConfigureDefaultCredentials()
         void ConfigureAccessKey(const c_string& access_key,
-                                const c_string& secret_key)
+                                const c_string& secret_key,
+                                const c_string& session_token)
         c_string GetAccessKey()
         c_string GetSecretKey()
+        c_string GetSessionToken()
         c_bool Equals(const CS3Options& other)
 
         @staticmethod
@@ -145,7 +151,14 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
 
         @staticmethod
         CS3Options FromAccessKey(const c_string& access_key,
-                                 const c_string& secret_key)
+                                 const c_string& secret_key,
+                                 const c_string& session_token)
+
+        @staticmethod
+        CS3Options FromAssumeRole(const c_string& role_arn,
+                                  const c_string& session_name,
+                                  const c_string& external_id,
+                                  const int load_frequency)
 
     cdef cppclass CS3FileSystem "arrow::fs::S3FileSystem"(CFileSystem):
         @staticmethod
@@ -209,6 +222,7 @@ ctypedef void CallbackOpenInputFile(object, const c_string&,
                                     shared_ptr[CRandomAccessFile]*)
 ctypedef void CallbackOpenOutputStream(object, const c_string&,
                                        shared_ptr[COutputStream]*)
+ctypedef void CallbackNormalizePath(object, const c_string&, c_string*)
 
 cdef extern from "arrow/python/filesystem.h" namespace "arrow::py::fs" nogil:
 
@@ -230,6 +244,7 @@ cdef extern from "arrow/python/filesystem.h" namespace "arrow::py::fs" nogil:
         function[CallbackOpenInputFile] open_input_file
         function[CallbackOpenOutputStream] open_output_stream
         function[CallbackOpenOutputStream] open_append_stream
+        function[CallbackNormalizePath] normalize_path
 
     cdef cppclass CPyFileSystem "arrow::py::fs::PyFileSystem":
         @staticmethod

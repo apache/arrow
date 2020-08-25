@@ -63,7 +63,7 @@ func (w *Writer) Write(rec array.Record) error {
 			return err
 		}
 	case w.nrecs > 0:
-		_, err := w.w.Write([]byte(",\n"))
+		_, err := w.w.Write([]byte(",\n" + jsonRecPrefix))
 		if err != nil {
 			return err
 		}
@@ -101,7 +101,13 @@ func (w *Writer) writeSchema() error {
 }
 
 func (w *Writer) Close() error {
+	if w.w == nil {
+		return nil
+	}
 	_, err := w.w.Write([]byte("\n  ]\n}"))
+	if err == nil {
+		w.w = nil
+	}
 	return err
 }
 

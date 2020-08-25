@@ -51,24 +51,25 @@ if(BROTLI_ROOT)
   find_library(BROTLI_COMMON_LIBRARY
                NAMES ${BROTLI_COMMON_LIB_NAMES}
                PATHS ${BROTLI_ROOT}
-               PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
+               PATH_SUFFIXES ${ARROW_LIBRARY_PATH_SUFFIXES}
                NO_DEFAULT_PATH)
   find_library(BROTLI_ENC_LIBRARY
                NAMES ${BROTLI_ENC_LIB_NAMES}
                PATHS ${BROTLI_ROOT}
-               PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
+               PATH_SUFFIXES ${ARROW_LIBRARY_PATH_SUFFIXES}
                NO_DEFAULT_PATH)
   find_library(BROTLI_DEC_LIBRARY
                NAMES ${BROTLI_DEC_LIB_NAMES}
                PATHS ${BROTLI_ROOT}
-               PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
+               PATH_SUFFIXES ${ARROW_LIBRARY_PATH_SUFFIXES}
                NO_DEFAULT_PATH)
   find_path(BROTLI_INCLUDE_DIR
             NAMES brotli/decode.h
             PATHS ${BROTLI_ROOT}
-            PATH_SUFFIXES ${INCLUDE_PATH_SUFFIXES}
+            PATH_SUFFIXES ${ARROW_INCLUDE_PATH_SUFFIXES}
             NO_DEFAULT_PATH)
 else()
+  find_package(PkgConfig QUIET)
   pkg_check_modules(BROTLI_PC libbrotlicommon libbrotlienc libbrotlidec)
   if(BROTLI_PC_FOUND)
     set(BROTLI_INCLUDE_DIR "${BROTLI_PC_libbrotlicommon_INCLUDEDIR}")
@@ -81,31 +82,31 @@ else()
     find_library(BROTLI_COMMON_LIBRARY
                  NAMES ${BROTLI_COMMON_LIB_NAMES}
                  PATHS ${BROTLI_PC_LIBRARY_DIRS}
-                 PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
+                 PATH_SUFFIXES ${ARROW_LIBRARY_PATH_SUFFIXES}
                  NO_DEFAULT_PATH)
     find_library(BROTLI_ENC_LIBRARY
                  NAMES ${BROTLI_ENC_LIB_NAMES}
                  PATHS ${BROTLI_PC_LIBRARY_DIRS}
-                 PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
+                 PATH_SUFFIXES ${ARROW_LIBRARY_PATH_SUFFIXES}
                  NO_DEFAULT_PATH)
     find_library(BROTLI_DEC_LIBRARY
                  NAMES ${BROTLI_DEC_LIB_NAMES}
                  PATHS ${BROTLI_PC_LIBRARY_DIRS}
-                 PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
+                 PATH_SUFFIXES ${ARROW_LIBRARY_PATH_SUFFIXES}
                  NO_DEFAULT_PATH)
   else()
     find_library(BROTLI_COMMON_LIBRARY
                  NAMES ${BROTLI_COMMON_LIB_NAMES}
-                 PATH_SUFFIXES ${LIB_PATH_SUFFIXES})
+                 PATH_SUFFIXES ${ARROW_LIBRARY_PATH_SUFFIXES})
     find_library(BROTLI_ENC_LIBRARY
                  NAMES ${BROTLI_ENC_LIB_NAMES}
-                 PATH_SUFFIXES ${LIB_PATH_SUFFIXES})
+                 PATH_SUFFIXES ${ARROW_LIBRARY_PATH_SUFFIXES})
     find_library(BROTLI_DEC_LIBRARY
                  NAMES ${BROTLI_DEC_LIB_NAMES}
-                 PATH_SUFFIXES ${LIB_PATH_SUFFIXES})
+                 PATH_SUFFIXES ${ARROW_LIBRARY_PATH_SUFFIXES})
     find_path(BROTLI_INCLUDE_DIR
               NAMES brotli/decode.h
-              PATH_SUFFIXES ${INCLUDE_PATH_SUFFIXES})
+              PATH_SUFFIXES ${ARROW_INCLUDE_PATH_SUFFIXES})
   endif()
 endif()
 

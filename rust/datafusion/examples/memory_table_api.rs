@@ -25,8 +25,7 @@ use arrow::util::pretty;
 
 use datafusion::datasource::MemTable;
 use datafusion::error::Result;
-use datafusion::execution::context::ExecutionContext;
-use datafusion::logicalplan::lit;
+use datafusion::prelude::*;
 
 /// This example demonstrates basic uses of the Table API on an in-memory table
 fn main() -> Result<()> {
@@ -51,15 +50,15 @@ fn main() -> Result<()> {
     // declare a table in memory. In spark API, this corresponds to createDataFrame(...).
     let provider = MemTable::new(schema, vec![vec![batch]])?;
     ctx.register_table("t", Box::new(provider));
-    let t = ctx.table("t")?;
+    let df = ctx.table("t")?;
 
     // construct an expression corresponding to "SELECT a, b FROM t WHERE b = 10" in SQL
-    let filter = t.col("b")?.eq(&lit(10));
+    let filter = col("b").eq(lit(10));
 
-    let t = t.select_columns(vec!["a", "b"])?.filter(filter)?;
+    let df = df.select_columns(vec!["a", "b"])?.filter(filter)?;
 
     // execute
-    let results = t.collect(&mut ctx, 10)?;
+    let results = df.collect()?;
 
     // print the results
     pretty::print_batches(&results)?;

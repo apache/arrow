@@ -35,7 +35,7 @@
 #include "arrow/util/bit_stream_utils.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/compression.h"
-#include "arrow/util/int_util.h"
+#include "arrow/util/int_util_internal.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/rle_encoding.h"
 #include "parquet/column_page.h"
@@ -46,9 +46,13 @@
 #include "parquet/properties.h"
 #include "parquet/statistics.h"
 #include "parquet/thrift_internal.h"  // IWYU pragma: keep
+// Required after "arrow/util/int_util_internal.h" (for OPTIONAL)
+#include "parquet/windows_compatibility.h"
 
 using arrow::MemoryPool;
+using arrow::internal::AddWithOverflow;
 using arrow::internal::checked_cast;
+using arrow::internal::MultiplyWithOverflow;
 
 namespace parquet {
 
@@ -82,8 +86,12 @@ int LevelDecoder::SetData(Encoding::type encoding, int16_t max_level,
       return 4 + num_bytes;
     }
     case Encoding::BIT_PACKED: {
-      num_bytes =
-          static_cast<int32_t>(BitUtil::BytesForBits(num_buffered_values * bit_width_));
+      int num_bits = 0;
+      if (MultiplyWithOverflow(num_buffered_values, bit_width_, &num_bits)) {
+        throw ParquetException(
+            "Number of buffered values too large (corrupt data page?)");
+      }
+      num_bytes = static_cast<int32_t>(BitUtil::BytesForBits(num_bits));
       if (num_bytes < 0 || num_bytes > data_size - 4) {
         throw ParquetException("Received invalid number of bytes (corrupt data page?)");
       }
@@ -1028,10 +1036,11 @@ class TypedRecordReader : public ColumnReaderImplBase<DType>,
   // Compute the values capacity in bytes for the given number of elements
   int64_t bytes_for_values(int64_t nitems) const {
     int64_t type_size = GetTypeByteSize(this->descr_->physical_type());
-    if (::arrow::internal::HasPositiveMultiplyOverflow(nitems, type_size)) {
+    int64_t bytes_for_values = -1;
+    if (MultiplyWithOverflow(nitems, type_size, &bytes_for_values)) {
       throw ParquetException("Total size of items too large");
     }
-    return nitems * type_size;
+    return bytes_for_values;
   }
 
   int64_t ReadRecords(int64_t num_records) override {
@@ -1196,10 +1205,10 @@ class TypedRecordReader : public ColumnReaderImplBase<DType>,
     if (extra_size < 0) {
       throw ParquetException("Negative size (corrupt file?)");
     }
-    if (::arrow::internal::HasPositiveAdditionOverflow(size, extra_size)) {
+    int64_t target_size = -1;
+    if (AddWithOverflow(size, extra_size, &target_size)) {
       throw ParquetException("Allocation size too large (corrupt file?)");
     }
-    const int64_t target_size = size + extra_size;
     if (target_size >= (1LL << 62)) {
       throw ParquetException("Allocation size too large (corrupt file?)");
     }
@@ -1215,14 +1224,13 @@ class TypedRecordReader : public ColumnReaderImplBase<DType>,
           UpdateCapacity(levels_capacity_, levels_written_, extra_levels);
       if (new_levels_capacity > levels_capacity_) {
         constexpr auto kItemSize = static_cast<int64_t>(sizeof(int16_t));
-        if (::arrow::internal::HasPositiveMultiplyOverflow(new_levels_capacity,
-                                                           kItemSize)) {
+        int64_t capacity_in_bytes = -1;
+        if (MultiplyWithOverflow(new_levels_capacity, kItemSize, &capacity_in_bytes)) {
           throw ParquetException("Allocation size too large (corrupt file?)");
         }
-        PARQUET_THROW_NOT_OK(def_levels_->Resize(new_levels_capacity * kItemSize, false));
+        PARQUET_THROW_NOT_OK(def_levels_->Resize(capacity_in_bytes, false));
         if (this->max_rep_level_ > 0) {
-          PARQUET_THROW_NOT_OK(
-              rep_levels_->Resize(new_levels_capacity * kItemSize, false));
+          PARQUET_THROW_NOT_OK(rep_levels_->Resize(capacity_in_bytes, false));
         }
         levels_capacity_ = new_levels_capacity;
       }
