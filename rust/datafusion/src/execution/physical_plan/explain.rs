@@ -34,7 +34,7 @@ use std::sync::{Arc, Mutex};
 /// Explain execution plan operator. This operator contains the string
 /// values of the various plans it has when it is created, and passes
 /// them to its output.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ExplainExec {
     /// The schema that this exec plan node outputs
     schema: SchemaRef,
@@ -70,12 +70,16 @@ impl ExecutionPlan for ExplainExec {
 
     fn with_new_children(
         &self,
-        _: Vec<Arc<dyn ExecutionPlan>>,
+        children: Vec<Arc<dyn ExecutionPlan>>,
     ) -> Result<Arc<dyn ExecutionPlan>> {
-        Err(ExecutionError::General(format!(
-            "Children cannot be replaced in {:?}",
-            self
-        )))
+        if children.is_empty() {
+            Ok(Arc::new(self.clone()))
+        } else {
+            Err(ExecutionError::General(format!(
+                "Children cannot be replaced in {:?}",
+                self
+            )))
+        }
     }
     fn execute(
         &self,
