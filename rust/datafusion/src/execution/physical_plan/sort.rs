@@ -80,12 +80,16 @@ impl ExecutionPlan for SortExec {
         &self,
         children: Vec<Arc<dyn ExecutionPlan>>,
     ) -> Result<Arc<dyn ExecutionPlan>> {
-        assert_eq!(1, children.len());
-        Ok(Arc::new(SortExec::try_new(
-            self.expr.clone(),
-            children[0].clone(),
-            self.concurrency,
-        )?))
+        match children.len() {
+            1 => Ok(Arc::new(SortExec::try_new(
+                self.expr.clone(),
+                children[0].clone(),
+                self.concurrency,
+            )?)),
+            _ => Err(ExecutionError::General(
+                "SortExec wrong number of children".to_string(),
+            )),
+        }
     }
 
     fn execute(

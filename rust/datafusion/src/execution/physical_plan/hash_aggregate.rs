@@ -166,13 +166,17 @@ impl ExecutionPlan for HashAggregateExec {
         &self,
         children: Vec<Arc<dyn ExecutionPlan>>,
     ) -> Result<Arc<dyn ExecutionPlan>> {
-        assert_eq!(1, children.len());
-        Ok(Arc::new(HashAggregateExec::try_new(
-            self.mode,
-            self.group_expr.clone(),
-            self.aggr_expr.clone(),
-            children[0].clone(),
-        )?))
+        match children.len() {
+            1 => Ok(Arc::new(HashAggregateExec::try_new(
+                self.mode,
+                self.group_expr.clone(),
+                self.aggr_expr.clone(),
+                children[0].clone(),
+            )?)),
+            _ => Err(ExecutionError::General(
+                "HashAggregateExec wrong number of children".to_string(),
+            )),
+        }
     }
 }
 

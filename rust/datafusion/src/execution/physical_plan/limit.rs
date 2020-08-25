@@ -71,12 +71,16 @@ impl ExecutionPlan for GlobalLimitExec {
         &self,
         children: Vec<Arc<dyn ExecutionPlan>>,
     ) -> Result<Arc<dyn ExecutionPlan>> {
-        assert_eq!(1, children.len());
-        Ok(Arc::new(GlobalLimitExec::new(
-            children[0].clone(),
-            self.limit,
-            self.concurrency,
-        )))
+        match children.len() {
+            1 => Ok(Arc::new(GlobalLimitExec::new(
+                children[0].clone(),
+                self.limit,
+                self.concurrency,
+            ))),
+            _ => Err(ExecutionError::General(
+                "GlobalLimitExec wrong number of children".to_string(),
+            )),
+        }
     }
 
     fn execute(
@@ -138,11 +142,15 @@ impl ExecutionPlan for LocalLimitExec {
         &self,
         children: Vec<Arc<dyn ExecutionPlan>>,
     ) -> Result<Arc<dyn ExecutionPlan>> {
-        assert_eq!(1, children.len());
-        Ok(Arc::new(LocalLimitExec::new(
-            children[0].clone(),
-            self.limit,
-        )))
+        match children.len() {
+            1 => Ok(Arc::new(LocalLimitExec::new(
+                children[0].clone(),
+                self.limit,
+            ))),
+            _ => Err(ExecutionError::General(
+                "LocalLimitExec wrong number of children".to_string(),
+            )),
+        }
     }
 
     fn execute(

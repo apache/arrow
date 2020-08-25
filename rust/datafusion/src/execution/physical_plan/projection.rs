@@ -87,11 +87,15 @@ impl ExecutionPlan for ProjectionExec {
         &self,
         children: Vec<Arc<dyn ExecutionPlan>>,
     ) -> Result<Arc<dyn ExecutionPlan>> {
-        assert_eq!(1, children.len());
-        Ok(Arc::new(ProjectionExec::try_new(
-            self.expr.clone(),
-            children[0].clone(),
-        )?))
+        match children.len() {
+            1 => Ok(Arc::new(ProjectionExec::try_new(
+                self.expr.clone(),
+                children[0].clone(),
+            )?)),
+            _ => Err(ExecutionError::General(
+                "ProjectionExec wrong number of children".to_string(),
+            )),
+        }
     }
 
     fn execute(

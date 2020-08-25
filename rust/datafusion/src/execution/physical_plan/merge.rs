@@ -67,11 +67,15 @@ impl ExecutionPlan for MergeExec {
         &self,
         children: Vec<Arc<dyn ExecutionPlan>>,
     ) -> Result<Arc<dyn ExecutionPlan>> {
-        assert_eq!(1, children.len());
-        Ok(Arc::new(MergeExec::new(
-            children[0].clone(),
-            self.concurrency,
-        )))
+        match children.len() {
+            1 => Ok(Arc::new(MergeExec::new(
+                children[0].clone(),
+                self.concurrency,
+            ))),
+            _ => Err(ExecutionError::General(
+                "MergeExec wrong number of children".to_string(),
+            )),
+        }
     }
 
     fn execute(
