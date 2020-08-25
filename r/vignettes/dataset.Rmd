@@ -287,7 +287,11 @@ instead of a file path, or simply concatenate them like `big_dataset <- c(ds1, d
 
 ## Writing datasets
 
-As you can see, querying a large dataset can be quite fast, especially when it is stored in an efficient binary columnar format like Parquet or Feather and when it is partitioned into separate files based on the value of a column commonly used in filtering. However, we don't always get our data delivered to us that way. Sometimes we start with one giant CSV. Our first step in analyzing data is cleaning is up and reshaping it into a more usable form.
+As you can see, querying a large dataset can be made quite fast by storage in an
+efficient binary columnar format like Parquet or Feather and partitioning based on
+columns commonly used for filtering. However, we don't always get our data delivered
+to us that way. Sometimes we start with one giant CSV. Our first step in analyzing data
+is cleaning is up and reshaping it into a more usable form.
 
 The `write_dataset()` function allows you to take a Dataset or other tabular data object---an Arrow `Table` or `RecordBatch`, or an R `data.frame`---and write it to a different file format, partitioned into multiple files.
 
@@ -305,9 +309,8 @@ write_dataset(ds, "nyc-taxi/feather", format = "feather")
 ```
 
 Next, let's imagine that the "payment_type" column is something we often filter on,
-so we want to partition the day by that variable. By doing so, when we filter
-the resulting dataset on `payment_type == 3`, we would only have to look at the
-files that we know contain only rows where payment_type is 3.
+so we want to partition the data by that variable. By doing so we ensure that a filter like
+`payment_type == 3` will touch only a subset of files where payment_type is always 3.
 
 One natural way to express the columns you want to partition on is to use the
 `group_by()` method:
