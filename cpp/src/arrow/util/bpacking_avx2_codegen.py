@@ -17,7 +17,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Usage: python bpacking_avx512_codegen.py > bpacking_avx512_generated.h
+# Usage: python bpacking_avx2_codegen.py > bpacking_avx2_generated.h
 
 
 def print_unpack_bit_func(bit):
@@ -29,10 +29,10 @@ def print_unpack_bit_func(bit):
     bracket = "{"
 
     print(
-        f"inline static const uint32_t* unpack{bit}_32_avx512(const uint32_t* in, uint32_t* out) {bracket}")
+        f"inline static const uint32_t* unpack{bit}_32_avx2(const uint32_t* in, uint32_t* out) {bracket}")
     print("  uint32_t mask = 0x%x;" % mask)
-    print("  __m512i reg_shifts, reg_inls, reg_masks;")
-    print("  __m512i results;")
+    print("  __m256i reg_shifts, reg_inls, reg_masks;")
+    print("  __m256i results;")
 
     print("")
     for i in range(32):
@@ -52,51 +52,68 @@ def print_unpack_bit_func(bit):
             inls.append(f"in[{in_index}]")
             shift += bit
 
-    print("  reg_masks = _mm512_set1_epi32(mask);")
+    print("  reg_masks = _mm256_set1_epi32(mask);")
     print("")
-    print("  // shift the first 16 outs")
+
+    print("  // shift the first 8 outs")
     print(
-        f"  reg_shifts = _mm512_set_epi32({shifts[15]}, {shifts[14]}, {shifts[13]}, {shifts[12]},")
+        f"  reg_shifts = _mm256_set_epi32({shifts[7]}, {shifts[6]}, {shifts[5]}, {shifts[4]},")
     print(
-        f"                                {shifts[11]}, {shifts[10]}, {shifts[9]}, {shifts[8]},")
+        f"                               {shifts[3]}, {shifts[2]}, {shifts[1]}, {shifts[0]});")
+    print(f"  reg_inls = _mm256_set_epi32({inls[7]}, {inls[6]},")
+    print(f"                             {inls[5]}, {inls[4]},")
+    print(f"                             {inls[3]}, {inls[2]},")
+    print(f"                             {inls[1]}, {inls[0]});")
     print(
-        f"                                {shifts[7]}, {shifts[6]}, {shifts[5]}, {shifts[4]},")
+        "  results = _mm256_and_si256(_mm256_srlv_epi32(reg_inls, reg_shifts), reg_masks);")
+    print("  _mm256_storeu_si256(reinterpret_cast<__m256i*>(out), results);")
+    print("  out += 8;")
+    print("")
+
+    print("  // shift the second 8 outs")
     print(
-        f"                                {shifts[3]}, {shifts[2]}, {shifts[1]}, {shifts[0]});")
-    print(f"  reg_inls = _mm512_set_epi32({inls[15]}, {inls[14]},")
+        f"  reg_shifts = _mm256_set_epi32({shifts[15]}, {shifts[14]}, {shifts[13]}, {shifts[12]},")
+    print(
+        f"                                {shifts[11]}, {shifts[10]}, {shifts[9]}, {shifts[8]});")
+    print(f"  reg_inls = _mm256_set_epi32({inls[15]}, {inls[14]},")
     print(f"                              {inls[13]}, {inls[12]},")
     print(f"                              {inls[11]}, {inls[10]},")
-    print(f"                              {inls[9]}, {inls[8]},")
-    print(f"                              {inls[7]}, {inls[6]},")
-    print(f"                              {inls[5]}, {inls[4]},")
-    print(f"                              {inls[3]}, {inls[2]},")
-    print(f"                              {inls[1]}, {inls[0]});")
+    print(f"                              {inls[9]}, {inls[8]});")
     print(
-        "  results = _mm512_and_epi32(_mm512_srlv_epi32(reg_inls, reg_shifts), reg_masks);")
-    print("  _mm512_storeu_si512(out, results);")
-    print("  out += 16;")
+        "  results = _mm256_and_si256(_mm256_srlv_epi32(reg_inls, reg_shifts), reg_masks);")
+    print("  _mm256_storeu_si256(reinterpret_cast<__m256i*>(out), results);")
+    print("  out += 8;")
     print("")
-    print("  // shift the second 16 outs")
+
+    print("  // shift the third 8 outs")
     print(
-        f"  reg_shifts = _mm512_set_epi32({shifts[31]}, {shifts[30]}, {shifts[29]}, {shifts[28]},")
-    print(
-        f"                                {shifts[27]}, {shifts[26]}, {shifts[25]}, {shifts[24]},")
-    print(
-        f"                                {shifts[23]}, {shifts[22]}, {shifts[21]}, {shifts[20]},")
+        f"  reg_shifts = _mm256_set_epi32({shifts[23]}, {shifts[22]}, {shifts[21]}, {shifts[20]},")
     print(
         f"                                {shifts[19]}, {shifts[18]}, {shifts[17]}, {shifts[16]});")
-    print(f"  reg_inls = _mm512_set_epi32({inls[31]}, {inls[30]},")
-    print(f"                              {inls[29]}, {inls[28]},")
-    print(f"                              {inls[27]}, {inls[26]},")
-    print(f"                              {inls[25]}, {inls[24]},")
-    print(f"                              {inls[23]}, {inls[22]},")
+    print(f"  reg_inls = _mm256_set_epi32({inls[23]}, {inls[22]},")
     print(f"                              {inls[21]}, {inls[20]},")
     print(f"                              {inls[19]}, {inls[18]},")
     print(f"                              {inls[17]}, {inls[16]});")
     print(
-        "  results = _mm512_and_epi32(_mm512_srlv_epi32(reg_inls, reg_shifts), reg_masks);")
-    print("  _mm512_storeu_si512(out, results);")
-    print("  out += 16;")
+        "  results = _mm256_and_si256(_mm256_srlv_epi32(reg_inls, reg_shifts), reg_masks);")
+    print("  _mm256_storeu_si256(reinterpret_cast<__m256i*>(out), results);")
+    print("  out += 8;")
+    print("")
+
+    print("  // shift the last 8 outs")
+    print(
+        f"  reg_shifts = _mm256_set_epi32({shifts[31]}, {shifts[30]}, {shifts[29]}, {shifts[28]},")
+    print(
+        f"                                {shifts[27]}, {shifts[26]}, {shifts[25]}, {shifts[24]});")
+    print(f"  reg_inls = _mm256_set_epi32({inls[31]}, {inls[30]},")
+    print(f"                              {inls[29]}, {inls[28]},")
+    print(f"                              {inls[27]}, {inls[26]},")
+    print(f"                              {inls[25]}, {inls[24]});")
+    print(
+        "  results = _mm256_and_si256(_mm256_srlv_epi32(reg_inls, reg_shifts), reg_masks);")
+    print("  _mm256_storeu_si256(reinterpret_cast<__m256i*>(out), results);")
+    print("  out += 8;")
+
     print("")
     print(f"  in += {bit};")
     print("")
@@ -106,7 +123,7 @@ def print_unpack_bit_func(bit):
 
 def print_unpack_bit0_func():
     print(
-        "inline static const uint32_t* unpack0_32_avx512(const uint32_t* in, uint32_t* out) {")
+        "inline static const uint32_t* unpack0_32_avx2(const uint32_t* in, uint32_t* out) {")
     print("  memset(out, 0x0, 32 * sizeof(*out));")
     print("  out += 32;")
     print("")
@@ -116,7 +133,7 @@ def print_unpack_bit0_func():
 
 def print_unpack_bit32_func():
     print(
-        "inline static const uint32_t* unpack32_32_avx512(const uint32_t* in, uint32_t* out) {")
+        "inline static const uint32_t* unpack32_32_avx2(const uint32_t* in, uint32_t* out) {")
     print("  memcpy(out, in, 32 * sizeof(*out));")
     print("  in += 32;")
     print("  out += 32;")
