@@ -110,7 +110,7 @@ class ARROW_EXPORT DictionaryMemo {
 
   /// \brief Return current dictionary corresponding to a particular
   /// id. Returns KeyError if id not found
-  Result<std::shared_ptr<ArrayData>> GetDictionary(int64_t id) const;
+  Result<std::shared_ptr<ArrayData>> GetDictionary(int64_t id, MemoryPool* pool) const;
 
   /// \brief Return dictionary value type corresponding to a
   /// particular dictionary id.
@@ -129,8 +129,7 @@ class ARROW_EXPORT DictionaryMemo {
 
   /// \brief Append a dictionary delta to the memo with a particular id. Returns
   /// KeyError if that dictionary does not exists
-  Status AddDictionaryDelta(int64_t id, const std::shared_ptr<ArrayData>& dictionary,
-                            MemoryPool* pool);
+  Status AddDictionaryDelta(int64_t id, const std::shared_ptr<ArrayData>& dictionary);
 
   /// \brief Add a dictionary to the memo if it does not have one with the id,
   /// otherwise, replace the dictionary with the new one.
@@ -152,7 +151,8 @@ Result<DictionaryVector> CollectDictionaries(const RecordBatch& batch,
 // Columns may be sparse, i.e. some entries may be left null
 // (e.g. if an inclusion mask was used).
 ARROW_EXPORT
-Status ResolveDictionaries(const ArrayDataVector& columns, const DictionaryMemo& memo);
+Status ResolveDictionaries(const ArrayDataVector& columns, const DictionaryMemo& memo,
+                           MemoryPool* pool);
 
 namespace internal {
 

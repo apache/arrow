@@ -143,10 +143,43 @@ int DictionaryFieldMapper::num_fields() const { return impl_->num_fields(); }
 // DictionaryMemo implementation
 
 struct DictionaryMemo::Impl {
-  // Map of dictionary id to dictionary array
-  std::unordered_map<int64_t, std::shared_ptr<ArrayData>> id_to_dictionary_;
+  // Map of dictionary id to dictionary array(s) (several in case of deltas)
+  std::unordered_map<int64_t, ArrayDataVector> id_to_dictionary_;
   std::unordered_map<int64_t, std::shared_ptr<DataType>> id_to_type_;
   DictionaryFieldMapper mapper_;
+
+  Result<decltype(id_to_dictionary_)::iterator> FindDictionary(int64_t id) {
+    auto it = id_to_dictionary_.find(id);
+    if (it == id_to_dictionary_.end()) {
+      return Status::KeyError("Dictionary with id ", id, " not found");
+    }
+    return it;
+  }
+
+  Result<std::shared_ptr<ArrayData>> ReifyDictionary(int64_t id, MemoryPool* pool) {
+    ARROW_ASSIGN_OR_RAISE(auto it, FindDictionary(id));
+    ArrayDataVector* data_vector = &it->second;
+
+    DCHECK(!data_vector->empty());
+    if (data_vector->size() > 1) {
+      // There are deltas, we need to concatenate them to the first dictionary.
+      ArrayVector to_combine;
+      to_combine.reserve(data_vector->size());
+      // IMPORTANT: At this point, the dictionary data may be untrusted.
+      // We need to validate it, as concatenation can crash on invalid or
+      // corrupted data.  Full validation is necessary for certain types
+      // (for example nested dictionaries).
+      // XXX: this won't work if there are unresolved nested dictionaries.
+      for (const auto& data : *data_vector) {
+        to_combine.push_back(MakeArray(data));
+        RETURN_NOT_OK(to_combine.back()->ValidateFull());
+      }
+      ARROW_ASSIGN_OR_RAISE(auto combined_dict, Concatenate(to_combine, pool));
+      *data_vector = {combined_dict->data()};
+    }
+
+    return data_vector->back();
+  }
 };
 
 DictionaryMemo::DictionaryMemo() : impl_(new Impl()) {}
@@ -166,12 +199,9 @@ Result<std::shared_ptr<DataType>> DictionaryMemo::GetDictionaryType(int64_t id) 
 }
 
 // Returns KeyError if dictionary not found
-Result<std::shared_ptr<ArrayData>> DictionaryMemo::GetDictionary(int64_t id) const {
-  const auto it = impl_->id_to_dictionary_.find(id);
-  if (it == impl_->id_to_dictionary_.end()) {
-    return Status::KeyError("Dictionary with id ", id, " not found");
-  }
-  return it->second;
+Result<std::shared_ptr<ArrayData>> DictionaryMemo::GetDictionary(int64_t id,
+                                                                 MemoryPool* pool) const {
+  return impl_->ReifyDictionary(id, pool);
 }
 
 Status DictionaryMemo::AddDictionaryType(int64_t id,
@@ -192,36 +222,23 @@ bool DictionaryMemo::HasDictionary(int64_t id) const {
 
 Status DictionaryMemo::AddDictionary(int64_t id,
                                      const std::shared_ptr<ArrayData>& dictionary) {
-  if (HasDictionary(id)) {
+  const auto pair = impl_->id_to_dictionary_.emplace(id, ArrayDataVector{dictionary});
+  if (!pair.second) {
     return Status::KeyError("Dictionary with id ", id, " already exists");
   }
-  impl_->id_to_dictionary_[id] = dictionary;
   return Status::OK();
 }
 
 Status DictionaryMemo::AddDictionaryDelta(int64_t id,
-                                          const std::shared_ptr<ArrayData>& dictionary,
-                                          MemoryPool* pool) {
-  ARROW_ASSIGN_OR_RAISE(auto original_dict, GetDictionary(id));
-
-  // XXX This won't work if there is an unresolved nested dictionary.
-  // We could expose a ArrayData concatenation API, but then we wouldn't be able
-  // to validate below.
-  ArrayVector to_combine{MakeArray(original_dict), MakeArray(dictionary)};
-
-  // Validate the dictionaries for safe concatenation
-  for (const auto& array : to_combine) {
-    RETURN_NOT_OK(array->Validate());
-  }
-
-  ARROW_ASSIGN_OR_RAISE(auto combined_dict, Concatenate(to_combine, pool));
-  impl_->id_to_dictionary_[id] = combined_dict->data();
+                                          const std::shared_ptr<ArrayData>& dictionary) {
+  ARROW_ASSIGN_OR_RAISE(auto it, impl_->FindDictionary(id));
+  it->second.push_back(dictionary);
   return Status::OK();
 }
 
 Status DictionaryMemo::AddOrReplaceDictionary(
     int64_t id, const std::shared_ptr<ArrayData>& dictionary) {
-  impl_->id_to_dictionary_[id] = dictionary;
+  impl_->id_to_dictionary_[id] = {dictionary};
   return Status::OK();
 }
 
@@ -282,7 +299,8 @@ struct DictionaryCollector {
 };
 
 struct DictionaryResolver {
-  const DictionaryMemo& memo;
+  const DictionaryMemo& memo_;
+  MemoryPool* pool_;
 
   Status VisitChildren(const ArrayDataVector& data_vector, FieldPosition parent_pos) {
     int i = 0;
@@ -302,8 +320,9 @@ struct DictionaryResolver {
       type = checked_cast<const ExtensionType&>(*type).storage_type().get();
     }
     if (type->id() == Type::DICTIONARY) {
-      ARROW_ASSIGN_OR_RAISE(const int64_t id, memo.fields().GetFieldId(field_pos.path()));
-      ARROW_ASSIGN_OR_RAISE(data->dictionary, memo.GetDictionary(id));
+      ARROW_ASSIGN_OR_RAISE(const int64_t id,
+                            memo_.fields().GetFieldId(field_pos.path()));
+      ARROW_ASSIGN_OR_RAISE(data->dictionary, memo_.GetDictionary(id, pool_));
       // Resolve nested dictionary data
       RETURN_NOT_OK(VisitField(field_pos, data->dictionary.get()));
     }
@@ -335,8 +354,9 @@ Status CollectDictionaries(const RecordBatch& batch, DictionaryMemo* memo) {
 
 }  // namespace internal
 
-Status ResolveDictionaries(const ArrayDataVector& columns, const DictionaryMemo& memo) {
-  DictionaryResolver resolver{memo};
+Status ResolveDictionaries(const ArrayDataVector& columns, const DictionaryMemo& memo,
+                           MemoryPool* pool) {
+  DictionaryResolver resolver{memo, pool};
   return resolver.VisitChildren(columns, FieldPosition());
 }
 
