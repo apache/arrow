@@ -59,7 +59,7 @@ public class TestBasicAuth {
 
   @Test
   public void validAuth() {
-    client = clientBuilder.callCredentials(new BasicAuthCallCredentials(USERNAME, PASSWORD)).build();
+    client = clientBuilder.credentials(new BasicAuthCredentialWriter(USERNAME, PASSWORD)).build();
     client.handshake();
     Assert.assertTrue(ImmutableList.copyOf(client.listFlights(Criteria.ALL)).size() == 0);
   }
@@ -68,7 +68,7 @@ public class TestBasicAuth {
   @Ignore
   @Test
   public void asyncCall() throws Exception {
-    client = clientBuilder.callCredentials(new BasicAuthCallCredentials(USERNAME, PASSWORD)).build();
+    client = clientBuilder.credentials(new BasicAuthCredentialWriter(USERNAME, PASSWORD)).build();
     client.handshake();
     client.listFlights(Criteria.ALL);
     try (final FlightStream s = client.getStream(new Ticket(new byte[1]))) {
@@ -81,7 +81,7 @@ public class TestBasicAuth {
   @Test
   public void invalidAuth() {
     FlightTestUtil.assertCode(FlightStatusCode.UNAUTHORIZED, () -> {
-      client = clientBuilder.callCredentials(new BasicAuthCallCredentials(USERNAME, "WRONG")).build();
+      client = clientBuilder.credentials(new BasicAuthCredentialWriter(USERNAME, "WRONG")).build();
       client.handshake();
     });
 

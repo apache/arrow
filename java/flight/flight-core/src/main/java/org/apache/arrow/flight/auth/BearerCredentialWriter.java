@@ -17,35 +17,22 @@
 
 package org.apache.arrow.flight.auth;
 
-import java.util.concurrent.Executor;
-
-import io.grpc.CallCredentials;
-import io.grpc.Metadata;
+import org.apache.arrow.flight.CallHeaders;
+import org.apache.arrow.flight.CallInfo;
 
 /**
- * Client call credentials that use a bearer token.
+ * Client credentials that use a bearer token.
  */
-public final class BearerCallCredentials extends CallCredentials {
+public final class BearerCredentialWriter implements CredentialWriter {
 
   private final String bearer;
 
-  public BearerCallCredentials(String bearer) {
+  public BearerCredentialWriter(String bearer) {
     this.bearer = bearer;
   }
 
   @Override
-  public void applyRequestMetadata(RequestInfo requestInfo, Executor executor, MetadataApplier metadataApplier) {
-    final Metadata authMetadata = new Metadata();
-    // Bearer authorization header is
-    // Authorization: Bearer <bearerToken>
-    final Metadata.Key<String> authorizationKey =
-        Metadata.Key.of(AuthConstants.AUTHORIZATION_HEADER, Metadata.ASCII_STRING_MARSHALLER);
-    authMetadata.put(authorizationKey, AuthConstants.BEARER_PREFIX + bearer);
-    metadataApplier.apply(authMetadata);
-  }
-
-  @Override
-  public void thisUsesUnstableApi() {
-    // Mandatory to override this to acknowledge that CallCredentials is Experimental.
+  public void writeCredentials(CallInfo info, CallHeaders outputHeaders) {
+    outputHeaders.insert(AuthConstants.AUTHORIZATION_HEADER, AuthConstants.BEARER_PREFIX + bearer);
   }
 }

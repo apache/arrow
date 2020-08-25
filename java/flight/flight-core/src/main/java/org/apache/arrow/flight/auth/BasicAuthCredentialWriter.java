@@ -19,47 +19,34 @@ package org.apache.arrow.flight.auth;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
-import java.util.concurrent.Executor;
 
-import io.grpc.CallCredentials;
-import io.grpc.Metadata;
+import org.apache.arrow.flight.CallHeaders;
+import org.apache.arrow.flight.CallInfo;
+import org.apache.arrow.flight.FlightMethod;
 
 /**
- * Client call credentials that use a username and password.
+ * Client credentials that use a username and password.
  */
-public final class BasicAuthCallCredentials extends CallCredentials {
+public final class BasicAuthCredentialWriter implements CredentialWriter {
 
   private final String name;
   private final String password;
 
-  public BasicAuthCallCredentials(String name, String password) {
+  public BasicAuthCredentialWriter(String name, String password) {
     this.name = name;
     this.password = password;
   }
 
   @Override
-  public void applyRequestMetadata(RequestInfo requestInfo, Executor executor, MetadataApplier metadataApplier) {
+  public void writeCredentials(CallInfo info, CallHeaders outputHeaders) {
     // Basic auth header is only sent during the handshake.
-    if (!requestInfo.getMethodDescriptor().getFullMethodName()
-        .equalsIgnoreCase(AuthConstants.HANDSHAKE_DESCRIPTOR_NAME)) {
+    if (info.method() != FlightMethod.HANDSHAKE) {
       // Note: We must call metadataApplier.apply(), even if we are not modifying any
       // headers. If we don't, the request will not get sent.
-      metadataApplier.apply(new Metadata());
       return;
     }
 
-    final Metadata authMetadata = new Metadata();
-    // Basic authorization header is
-    // Authorization: Basic Base64(username:password)
-    final Metadata.Key<String> authorizationKey =
-        Metadata.Key.of(AuthConstants.AUTHORIZATION_HEADER, Metadata.ASCII_STRING_MARSHALLER);
-    authMetadata.put(authorizationKey, AuthConstants.BASIC_PREFIX +
+    outputHeaders.insert(AuthConstants.AUTHORIZATION_HEADER, AuthConstants.BASIC_PREFIX +
         Base64.getEncoder().encodeToString(String.format("%s:%s", name, password).getBytes(StandardCharsets.UTF_8)));
-    metadataApplier.apply(authMetadata);
-  }
-
-  @Override
-  public void thisUsesUnstableApi() {
-    // Mandatory to override this to acknowledge that CallCredentials is Experimental.
   }
 }

@@ -31,6 +31,8 @@ import javax.net.ssl.SSLException;
 import org.apache.arrow.flight.FlightProducer.StreamListener;
 import org.apache.arrow.flight.auth.ClientBearerTokenMiddleware;
 import org.apache.arrow.flight.auth.ClientHandshakeWrapper;
+import org.apache.arrow.flight.auth.CredentialWriter;
+import org.apache.arrow.flight.grpc.CallCredentialAdapter;
 import org.apache.arrow.flight.grpc.ClientInterceptorAdapter;
 import org.apache.arrow.flight.grpc.StatusUtils;
 import org.apache.arrow.flight.impl.Flight;
@@ -82,12 +84,15 @@ public class FlightClient implements AutoCloseable {
    * Create a Flight client from an allocator and a gRPC channel.
    */
   FlightClient(BufferAllocator incomingAllocator, ManagedChannel channel,
-      List<FlightClientMiddleware.Factory> middleware, CallCredentials callCredentials) {
+               List<FlightClientMiddleware.Factory> middleware, CredentialWriter credentialWriter) {
     this.allocator = incomingAllocator.newChildAllocator("flight-client", 0, Long.MAX_VALUE);
     this.channel = channel;
 
     // Create a channel with interceptors pre-applied for DoGet and DoPut
     this.interceptedChannel = ClientInterceptors.intercept(channel, new ClientInterceptorAdapter(middleware));
+
+    final CallCredentials callCredentials = credentialWriter != null ?
+        new CallCredentialAdapter(credentialWriter) : null;
 
     blockingStub = FlightServiceGrpc.newBlockingStub(interceptedChannel).withCallCredentials(callCredentials);
     asyncStub = FlightServiceGrpc.newStub(interceptedChannel).withCallCredentials(callCredentials);
@@ -665,7 +670,7 @@ public class FlightClient implements AutoCloseable {
       builder
           .maxTraceEvents(MAX_CHANNEL_TRACE_EVENTS)
           .maxInboundMessageSize(maxInboundMessageSize);
-      return new FlightClient(allocator, builder.build(), middleware, callCredentials);
+      return new FlightClient(allocator, builder.build(), middleware, credentialWriter);
     }
   }
 }

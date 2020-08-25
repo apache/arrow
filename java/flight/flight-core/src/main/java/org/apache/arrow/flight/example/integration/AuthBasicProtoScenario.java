@@ -29,7 +29,7 @@ import org.apache.arrow.flight.FlightServer;
 import org.apache.arrow.flight.Location;
 import org.apache.arrow.flight.NoOpFlightProducer;
 import org.apache.arrow.flight.Result;
-import org.apache.arrow.flight.auth.BasicAuthCallCredentials;
+import org.apache.arrow.flight.auth.BasicAuthCredentialWriter;
 import org.apache.arrow.flight.auth.BasicServerAuthHandler;
 import org.apache.arrow.memory.BufferAllocator;
 
@@ -81,7 +81,7 @@ final class AuthBasicProtoScenario implements Scenario {
 
   @Override
   public void client(BufferAllocator allocator, Location location, FlightClient.Builder clientBuilder) {
-    clientBuilder.callCredentials(new BasicAuthCallCredentials(USERNAME, PASSWORD));
+    clientBuilder.credentials(new BasicAuthCredentialWriter(USERNAME, PASSWORD));
 
     try (final FlightClient client = clientBuilder.build()) {
       client.handshake();
