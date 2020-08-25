@@ -393,6 +393,15 @@ Result<ScanTaskIterator> ParquetFileFormat::ScanFile(std::shared_ptr<ScanOptions
       if (row_groups.empty()) {
         return MakeEmptyIterator<std::shared_ptr<ScanTask>>();
       }
+    } else {
+      row_groups = parquet_fragment->row_groups();
+      if (row_groups.empty()) {
+        // empty vector represents all row groups
+        std::shared_ptr<parquet::FileMetaData> metadata =
+            reader->parquet_reader()->metadata();
+        int num_row_groups = metadata->num_row_groups();
+        row_groups = RowGroupInfo::FromCount(num_row_groups);
+      }
     }
   }
 
