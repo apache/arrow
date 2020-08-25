@@ -31,7 +31,7 @@ use arrow::record_batch::{RecordBatch, RecordBatchReader};
 /// Execution plan for a projection
 #[derive(Debug)]
 pub struct ProjectionExec {
-    /// The projection expressions
+    /// The projection expressions stored as tuples of (expression, output column name)
     expr: Vec<(Arc<dyn PhysicalExpr>, String)>,
     /// The schema once the projection has been applied to the input
     schema: SchemaRef,
