@@ -19,7 +19,6 @@ package org.apache.arrow.flight.auth;
 
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
 import java.util.Base64;
 import java.util.Optional;
 
@@ -43,7 +42,7 @@ public class BasicServerAuthHandler implements ServerAuthHandler {
   }
 
   @Override
-  public HandshakeResult authenticate(CallHeaders headers) {
+  public AuthResult authenticate(CallHeaders headers) {
     final String authEncoded = AuthUtilities.getValueFromAuthHeader(headers, AuthConstants.BASIC_PREFIX);
     if (authEncoded == null) {
       throw new FlightRuntimeException(CallStatus.UNAUTHENTICATED);
@@ -52,16 +51,15 @@ public class BasicServerAuthHandler implements ServerAuthHandler {
     try {
       // The value has the format Base64(<username>:<password>)
       final String authDecoded = new String(Base64.getDecoder().decode(authEncoded), StandardCharsets.UTF_8);
-      final String[] authInParts = authDecoded.split(":");
-      if (authInParts.length < 2) {
+      final int colonPos = authDecoded.indexOf(':');
+      if (colonPos == -1) {
         throw new FlightRuntimeException(CallStatus.UNAUTHORIZED);
       }
 
-      final String user = authInParts[0];
-      final String[] passwordParts = Arrays.copyOfRange(authInParts, 1, authInParts.length);
-      final String password = String.join(":", passwordParts);
+      final String user = authDecoded.substring(0, colonPos);
+      final String password = authDecoded.substring(colonPos + 1);
       final Optional<String> bearerToken = authValidator.validateCredentials(user, password);
-      return new HandshakeResult() {
+      return new AuthResult() {
         @Override
         public String getPeerIdentity() {
           return user;
@@ -85,6 +83,11 @@ public class BasicServerAuthHandler implements ServerAuthHandler {
   @Override
   public boolean validateBearer(String bearerToken) {
     return false;
+  }
+
+  @Override
+  public boolean enableCachedCredentials() {
+    return true;
   }
 
   /**

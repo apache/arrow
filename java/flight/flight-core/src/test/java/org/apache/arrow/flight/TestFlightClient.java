@@ -179,7 +179,7 @@ public class TestFlightClient {
     }
 
     @Override
-    public void getStream(CallContext context, Ticket ticket, ServerStreamListener listener) {
+    public void getStream(FlightContext context, Ticket ticket, ServerStreamListener listener) {
       final byte[] zero = "zero".getBytes(StandardCharsets.UTF_8);
       final byte[] one = "one".getBytes(StandardCharsets.UTF_8);
       final byte[] two = "two".getBytes(StandardCharsets.UTF_8);

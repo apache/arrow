@@ -27,6 +27,7 @@ import org.apache.arrow.flight.FlightProducer.ServerStreamListener;
 import org.apache.arrow.flight.FlightServerMiddleware.Key;
 import org.apache.arrow.flight.auth.AuthConstants;
 import org.apache.arrow.flight.auth.ServerHandshakeWrapper;
+import org.apache.arrow.flight.grpc.ContextAdapter;
 import org.apache.arrow.flight.grpc.ContextPropagatingExecutorService;
 import org.apache.arrow.flight.grpc.ServerInterceptorAdapter;
 import org.apache.arrow.flight.grpc.StatusUtils;
@@ -58,8 +59,9 @@ class FlightService extends FlightServiceImplBase {
     this.executors = new ContextPropagatingExecutorService(executors);
   }
 
-  private CallContext makeContext(ServerCallStreamObserver<?> responseObserver) {
-    return new CallContext(AuthConstants.PEER_IDENTITY_KEY.get(), responseObserver::isCancelled);
+  private FlightContext makeContext(ServerCallStreamObserver<?> responseObserver) {
+    final ContextAdapter contextAdapter = new ContextAdapter();
+    return new FlightContext(contextAdapter.get(AuthConstants.PEER_IDENTITY_KEY), responseObserver::isCancelled);
   }
 
   @Override
@@ -72,7 +74,7 @@ class FlightService extends FlightServiceImplBase {
     final StreamPipe<FlightInfo, Flight.FlightInfo> listener = StreamPipe
         .wrap(responseObserver, FlightInfo::toProtocol, this::handleExceptionWithMiddleware);
     try {
-      final CallContext context = makeContext((ServerCallStreamObserver<?>) responseObserver);
+      final FlightContext context = makeContext((ServerCallStreamObserver<?>) responseObserver);
       producer.listFlights(context, new Criteria(criteria), listener);
     } catch (Exception ex) {
       listener.onError(ex);
@@ -98,7 +100,7 @@ class FlightService extends FlightServiceImplBase {
     final StreamPipe<Result, Flight.Result> listener = StreamPipe
         .wrap(responseObserver, Result::toProtocol, this::handleExceptionWithMiddleware);
     try {
-      final CallContext context = makeContext((ServerCallStreamObserver<?>) responseObserver);
+      final FlightContext context = makeContext((ServerCallStreamObserver<?>) responseObserver);
       producer.doAction(context, new Action(request), listener);
     } catch (Exception ex) {
       listener.onError(ex);
@@ -111,7 +113,7 @@ class FlightService extends FlightServiceImplBase {
     final StreamPipe<org.apache.arrow.flight.ActionType, Flight.ActionType> listener = StreamPipe
         .wrap(responseObserver, ActionType::toProtocol, this::handleExceptionWithMiddleware);
     try {
-      final CallContext context = makeContext((ServerCallStreamObserver<?>) responseObserver);
+      final FlightContext context = makeContext((ServerCallStreamObserver<?>) responseObserver);
       producer.listActions(context, listener);
     } catch (Exception ex) {
       listener.onError(ex);
@@ -358,12 +360,13 @@ class FlightService extends FlightServiceImplBase {
   /**
    * Call context for the service.
    */
-  static class CallContext implements FlightProducer.CallContext {
+  static class FlightContext implements FlightProducer.FlightContext {
 
     private final String peerIdentity;
     private final BooleanSupplier isCancelled;
 
-    CallContext(final String peerIdentity, BooleanSupplier isCancelled) {
+    FlightContext(final String peerIdentity, BooleanSupplier isCancelled) {
+      System.out.println("Peer identity: " + peerIdentity);
       this.peerIdentity = peerIdentity;
       this.isCancelled = isCancelled;
     }

@@ -19,15 +19,14 @@ package org.apache.arrow.flight.auth;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
+import java.util.function.Consumer;
 
 import org.apache.arrow.flight.CallHeaders;
-import org.apache.arrow.flight.CallInfo;
-import org.apache.arrow.flight.FlightMethod;
 
 /**
  * Client credentials that use a username and password.
  */
-public final class BasicAuthCredentialWriter implements CredentialWriter {
+public final class BasicAuthCredentialWriter implements Consumer<CallHeaders> {
 
   private final String name;
   private final String password;
@@ -38,14 +37,7 @@ public final class BasicAuthCredentialWriter implements CredentialWriter {
   }
 
   @Override
-  public void writeCredentials(CallInfo info, CallHeaders outputHeaders) {
-    // Basic auth header is only sent during the handshake.
-    if (info.method() != FlightMethod.HANDSHAKE) {
-      // Note: We must call metadataApplier.apply(), even if we are not modifying any
-      // headers. If we don't, the request will not get sent.
-      return;
-    }
-
+  public void accept(CallHeaders outputHeaders) {
     outputHeaders.insert(AuthConstants.AUTHORIZATION_HEADER, AuthConstants.BASIC_PREFIX +
         Base64.getEncoder().encodeToString(String.format("%s:%s", name, password).getBytes(StandardCharsets.UTF_8)));
   }

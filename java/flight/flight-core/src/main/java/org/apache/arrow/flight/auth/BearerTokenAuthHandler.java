@@ -28,7 +28,7 @@ import org.apache.arrow.flight.FlightRuntimeException;
  */
 abstract class BearerTokenAuthHandler implements ServerAuthHandler {
   @Override
-  public HandshakeResult authenticate(CallHeaders headers) {
+  public AuthResult authenticate(CallHeaders headers) {
     final String bearerToken = AuthUtilities.getValueFromAuthHeader(headers, AuthConstants.BEARER_PREFIX);
     if (bearerToken == null) {
       throw new FlightRuntimeException(CallStatus.UNAUTHENTICATED);
@@ -38,7 +38,7 @@ abstract class BearerTokenAuthHandler implements ServerAuthHandler {
       throw new FlightRuntimeException(CallStatus.UNAUTHORIZED);
     }
 
-    return new HandshakeResult() {
+    return new AuthResult() {
       @Override
       public String getPeerIdentity() {
         return getIdentityForBearerToken(bearerToken);
@@ -52,4 +52,10 @@ abstract class BearerTokenAuthHandler implements ServerAuthHandler {
   }
 
   protected abstract String getIdentityForBearerToken(String bearerToken);
+
+  @Override
+  public final boolean enableCachedCredentials() {
+    // Already using bearer token validation. No point in caching these.
+    return false;
+  }
 }

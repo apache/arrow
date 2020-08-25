@@ -21,6 +21,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collections;
 
+import org.apache.arrow.flight.CallContext;
 import org.apache.arrow.flight.CallHeaders;
 import org.apache.arrow.flight.CallInfo;
 import org.apache.arrow.flight.CallStatus;
@@ -52,7 +53,7 @@ final class MiddlewareScenario implements Scenario {
   public FlightProducer producer(BufferAllocator allocator, Location location) {
     return new NoOpFlightProducer() {
       @Override
-      public FlightInfo getFlightInfo(CallContext context, FlightDescriptor descriptor) {
+      public FlightInfo getFlightInfo(FlightContext context, FlightDescriptor descriptor) {
         if (descriptor.isCommand()) {
           if (Arrays.equals(COMMAND_SUCCESS, descriptor.getCommand())) {
             return new FlightInfo(new Schema(Collections.emptyList()), descriptor, Collections.emptyList(), -1, -1);
@@ -124,7 +125,7 @@ final class MiddlewareScenario implements Scenario {
     static class Factory implements FlightServerMiddleware.Factory<InjectingServerMiddleware> {
 
       @Override
-      public InjectingServerMiddleware onCallStarted(CallInfo info, CallHeaders incomingHeaders) {
+      public InjectingServerMiddleware onCallStarted(CallInfo info, CallHeaders incomingHeaders, CallContext context) {
         String incoming = incomingHeaders.get(HEADER);
         return new InjectingServerMiddleware(incoming == null ? "" : incoming);
       }

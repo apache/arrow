@@ -29,7 +29,7 @@ public interface ServerAuthHandler {
   /**
    * The result of the server analyzing authentication headers.
    */
-  interface HandshakeResult {
+  interface AuthResult {
     /**
      * The peer identity that was determined by the handshake process based on the
      * authentication credentials supplied by the client.
@@ -56,7 +56,7 @@ public interface ServerAuthHandler {
    * @throws FlightRuntimeException with CallStatus.UNAUTHENTICATED if credentials were not supplied
    *     or CallStatus.UNAUTHORIZED if credentials were supplied but were not valid.
    */
-  HandshakeResult authenticate(CallHeaders headers);
+  AuthResult authenticate(CallHeaders headers);
 
   /**
    * Validate a bearer token.
@@ -66,14 +66,18 @@ public interface ServerAuthHandler {
    */
   boolean validateBearer(String bearerToken);
 
+  /**
+   * Indicates if the server should implement its own authenticated session management.
+   */
+  boolean enableCachedCredentials();
 
   /**
    * An auth handler that does nothing.
    */
   ServerAuthHandler NO_OP = new ServerAuthHandler() {
     @Override
-    public HandshakeResult authenticate(CallHeaders headers) {
-      return new HandshakeResult() {
+    public AuthResult authenticate(CallHeaders headers) {
+      return new AuthResult() {
         @Override
         public String getPeerIdentity() {
           return "";
@@ -84,6 +88,11 @@ public interface ServerAuthHandler {
     @Override
     public boolean validateBearer(String bearerToken) {
       return true;
+    }
+
+    @Override
+    public boolean enableCachedCredentials() {
+      return false;
     }
   };
 }

@@ -157,7 +157,7 @@ public class TestClientMiddleware {
     static class Factory implements FlightServerMiddleware.Factory<ServerSpanInjector> {
 
       @Override
-      public ServerSpanInjector onCallStarted(CallInfo info, CallHeaders incomingHeaders) {
+      public ServerSpanInjector onCallStarted(CallInfo info, CallHeaders incomingHeaders, CallContext context) {
         return new ServerSpanInjector(incomingHeaders.get("x-span"));
       }
     }
@@ -256,7 +256,7 @@ public class TestClientMiddleware {
   static class MultiHeaderServerMiddlewareFactory implements
       FlightServerMiddleware.Factory<MultiHeaderServerMiddleware> {
     @Override
-    public MultiHeaderServerMiddleware onCallStarted(CallInfo info, CallHeaders incomingHeaders) {
+    public MultiHeaderServerMiddleware onCallStarted(CallInfo info, CallHeaders incomingHeaders, CallContext context) {
       // Echo the headers back to the client. Copy values out of CallHeaders since the underlying gRPC metadata
       // object isn't safe to use after this function returns.
       Map<String, List<byte[]>> binaryHeaders = new HashMap<>();

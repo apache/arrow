@@ -90,7 +90,7 @@ public class TestCallOptions {
     }
 
     @Override
-    public void doAction(CallContext context, Action action, StreamListener<Result> listener) {
+    public void doAction(FlightContext context, Action action, StreamListener<Result> listener) {
       switch (action.getType()) {
         case "hang": {
           try {

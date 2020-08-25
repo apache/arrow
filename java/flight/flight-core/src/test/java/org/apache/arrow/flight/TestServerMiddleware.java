@@ -217,7 +217,7 @@ public class TestServerMiddleware {
       ErrorRecorder instance = new ErrorRecorder();
 
       @Override
-      public ErrorRecorder onCallStarted(CallInfo info, CallHeaders incomingHeaders) {
+      public ErrorRecorder onCallStarted(CallInfo info, CallHeaders incomingHeaders, CallContext context) {
         return instance;
       }
     }
@@ -235,7 +235,7 @@ public class TestServerMiddleware {
     }
 
     @Override
-    public Runnable acceptPut(CallContext context, FlightStream flightStream, StreamListener<PutResult> ackStream) {
+    public Runnable acceptPut(FlightContext context, FlightStream flightStream, StreamListener<PutResult> ackStream) {
       return () -> {
         // Drain queue to avoid FlightStream#close cancelling the call
         while (flightStream.next()) {
@@ -257,7 +257,7 @@ public class TestServerMiddleware {
     }
 
     @Override
-    public void getStream(CallContext context, Ticket ticket, ServerStreamListener listener) {
+    public void getStream(FlightContext context, Ticket ticket, ServerStreamListener listener) {
       try (final BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
           final VectorSchemaRoot root = VectorSchemaRoot.create(new Schema(Collections.emptyList()), allocator)) {
         listener.start(root);
@@ -267,18 +267,18 @@ public class TestServerMiddleware {
     }
 
     @Override
-    public void listFlights(CallContext context, Criteria criteria, StreamListener<FlightInfo> listener) {
+    public void listFlights(FlightContext context, Criteria criteria, StreamListener<FlightInfo> listener) {
       listener.onCompleted();
       throw error;
     }
 
     @Override
-    public FlightInfo getFlightInfo(CallContext context, FlightDescriptor descriptor) {
+    public FlightInfo getFlightInfo(FlightContext context, FlightDescriptor descriptor) {
       throw error;
     }
 
     @Override
-    public Runnable acceptPut(CallContext context, FlightStream flightStream, StreamListener<PutResult> ackStream) {
+    public Runnable acceptPut(FlightContext context, FlightStream flightStream, StreamListener<PutResult> ackStream) {
       return () -> {
         while (flightStream.next()) {
         }
@@ -288,13 +288,13 @@ public class TestServerMiddleware {
     }
 
     @Override
-    public void doAction(CallContext context, Action action, StreamListener<Result> listener) {
+    public void doAction(FlightContext context, Action action, StreamListener<Result> listener) {
       listener.onCompleted();
       throw error;
     }
 
     @Override
-    public void listActions(CallContext context, StreamListener<ActionType> listener) {
+    public void listActions(FlightContext context, StreamListener<ActionType> listener) {
       listener.onCompleted();
       throw error;
     }

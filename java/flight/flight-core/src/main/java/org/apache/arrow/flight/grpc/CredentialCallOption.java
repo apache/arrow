@@ -17,37 +17,25 @@
 
 package org.apache.arrow.flight.grpc;
 
-import java.util.concurrent.Executor;
 import java.util.function.Consumer;
 
 import org.apache.arrow.flight.CallHeaders;
+import org.apache.arrow.flight.CallOptions;
 
-import io.grpc.CallCredentials;
-import io.grpc.Metadata;
+import io.grpc.stub.AbstractStub;
 
 /**
- * Adapter class to utilize a CredentialWriter to implement Grpc CallCredentials.
+ * Method option for supplying credentials to method calls.
  */
-public class CallCredentialAdapter extends CallCredentials {
-
+public class CredentialCallOption implements CallOptions.GrpcCallOption {
   private final Consumer<CallHeaders> credentialWriter;
 
-  public CallCredentialAdapter(Consumer<CallHeaders> credentialWriter) {
+  public CredentialCallOption(Consumer<CallHeaders> credentialWriter) {
     this.credentialWriter = credentialWriter;
   }
 
   @Override
-  public void applyRequestMetadata(RequestInfo requestInfo, Executor executor, MetadataApplier metadataApplier) {
-    executor.execute(() ->
-    {
-      final Metadata headers = new Metadata();
-      credentialWriter.accept(new MetadataAdapter(headers));
-      metadataApplier.apply(headers);
-    });
-  }
-
-  @Override
-  public void thisUsesUnstableApi() {
-    // Mandatory to override this to acknowledge that CallCredentials is Experimental.
+  public <T extends AbstractStub<T>> T wrapStub(T stub) {
+    return stub.withCallCredentials(new CallCredentialAdapter(credentialWriter));
   }
 }

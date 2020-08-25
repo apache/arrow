@@ -348,7 +348,7 @@ public class FlightServer implements AutoCloseable {
      * Add a Flight middleware component to inspect and modify requests to this service.
      *
      * @param key An identifier for this middleware component. Service implementations can retrieve the middleware
-     *     instance for the current call using {@link org.apache.arrow.flight.FlightProducer.CallContext}.
+     *     instance for the current call using {@link FlightProducer.FlightContext}.
      * @param factory A factory for the middleware.
      * @param <T> The middleware type.
      * @throws IllegalArgumentException if the key already exists

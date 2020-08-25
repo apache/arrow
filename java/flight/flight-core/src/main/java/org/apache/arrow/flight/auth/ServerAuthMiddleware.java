@@ -17,17 +17,13 @@
 
 package org.apache.arrow.flight.auth;
 
+import org.apache.arrow.flight.CallContext;
 import org.apache.arrow.flight.CallHeaders;
 import org.apache.arrow.flight.CallInfo;
 import org.apache.arrow.flight.CallStatus;
-import org.apache.arrow.flight.FlightConstants;
-import org.apache.arrow.flight.FlightRuntimeException;
 import org.apache.arrow.flight.FlightServerMiddleware;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import io.grpc.Context;
-import io.grpc.MethodDescriptor;
 
 /**
  * Middleware that's used to validate credentials during the handshake and verify
@@ -41,43 +37,43 @@ public class ServerAuthMiddleware implements FlightServerMiddleware {
    */
   public static class Factory implements FlightServerMiddleware.Factory<ServerAuthMiddleware> {
     private final ServerAuthHandler authHandler;
-    private final GeneratedBearerTokenAuthHandler bearerTokenAuthHandler = new GeneratedBearerTokenAuthHandler();
+    private final GeneratedBearerTokenAuthHandler bearerTokenAuthHandler;
 
+    /**
+     * Construct a factory with the given auth handler.
+     * @param authHandler The auth handler what will be used for authenticating requests.
+     */
     public Factory(ServerAuthHandler authHandler) {
       this.authHandler = authHandler;
-    }
-
-    public String getIdentityForBearer(String bearerToken) {
-      return bearerTokenAuthHandler.getIdentityForBearerToken(bearerToken);
+      bearerTokenAuthHandler = authHandler.enableCachedCredentials() ?
+          new GeneratedBearerTokenAuthHandler() : null;
     }
 
     @Override
-    public ServerAuthMiddleware onCallStarted(CallInfo callInfo, CallHeaders incomingHeaders) {
+    public ServerAuthMiddleware onCallStarted(CallInfo callInfo, CallHeaders incomingHeaders, CallContext context) {
       logger.debug("Call name: {}", callInfo.method().name());
-      if (MethodDescriptor.generateFullMethodName(FlightConstants.SERVICE, callInfo.method().name())
-          .equalsIgnoreCase(AuthConstants.HANDSHAKE_DESCRIPTOR_NAME)) {
-        final ServerAuthHandler.HandshakeResult result = authHandler.authenticate(incomingHeaders);
-        final String bearerToken = bearerTokenAuthHandler.registerBearer(result);
-        return new ServerAuthMiddleware(result.getPeerIdentity(), bearerToken);
-      }
-
-      final String bearerToken = AuthUtilities.getValueFromAuthHeader(incomingHeaders, AuthConstants.BEARER_PREFIX);
-      // No bearer token provided. Auth handler may explicitly allow this.
-      if (bearerToken == null) {
-        if (authHandler.validateBearer(null)) {
-          return new ServerAuthMiddleware("", null);
+      // Check if bearer token auth is being used, and if we've enabled use of server-generated
+      // bearer tokens.
+      if (authHandler.enableCachedCredentials()) {
+        final String bearerTokenFromHeaders =
+            AuthUtilities.getValueFromAuthHeader(incomingHeaders, AuthConstants.BEARER_PREFIX);
+        if (bearerTokenFromHeaders != null) {
+          final ServerAuthHandler.AuthResult result = bearerTokenAuthHandler.authenticate(incomingHeaders);
+          context.put(AuthConstants.PEER_IDENTITY_KEY, result.getPeerIdentity());
+          return new ServerAuthMiddleware(result.getPeerIdentity(), result.getBearerToken().get());
         }
-        logger.info("Client did not supply a bearer token.");
-        throw new FlightRuntimeException(CallStatus.UNAUTHENTICATED);
       }
 
-      if (!authHandler.validateBearer(bearerToken) && !bearerTokenAuthHandler.validateBearer(bearerToken)) {
-        logger.info("Bearer token supplied by client was not authorized.");
-        throw new FlightRuntimeException(CallStatus.UNAUTHORIZED);
+      // Delegate to server auth handler to do the validation.
+      final ServerAuthHandler.AuthResult result = authHandler.authenticate(incomingHeaders);
+      final String bearerToken;
+      if (authHandler.enableCachedCredentials()) {
+        bearerToken = bearerTokenAuthHandler.registerBearer(result);
+      } else {
+        bearerToken = result.getBearerToken().get();
       }
-
-      final String peerIdentity = bearerTokenAuthHandler.getIdentityForBearerToken(bearerToken);
-      return new ServerAuthMiddleware(peerIdentity, null);
+      context.put(AuthConstants.PEER_IDENTITY_KEY, result.getPeerIdentity());
+      return new ServerAuthMiddleware(result.getPeerIdentity(), bearerToken);
     }
   }
 
@@ -87,12 +83,6 @@ public class ServerAuthMiddleware implements FlightServerMiddleware {
   public ServerAuthMiddleware(String peerIdentity, String bearerToken) {
     this.peerIdentity = peerIdentity;
     this.bearerToken = bearerToken;
-  }
-
-  @Override
-  public Context onAuthenticationSuccess(Context currentContext) {
-    logger.info("Client authenticated.");
-    return currentContext.withValue(AuthConstants.PEER_IDENTITY_KEY, peerIdentity);
   }
 
   @Override

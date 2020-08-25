@@ -15,21 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.flight.auth;
-
-import org.apache.arrow.flight.CallHeaders;
-import org.apache.arrow.flight.CallInfo;
+package org.apache.arrow.flight;
 
 /**
- * Interface for writing credentials.
+ * Tracks variables about the current request.
  */
-public interface CredentialWriter {
+public interface CallContext {
+  /**
+   * Register a variable and a value.
+   * @param key the variable name.
+   * @param value the value.
+   */
+  void put(String key, String value);
 
   /**
-   * Write credentials to the given headers.
-   *
-   * @param info  Information about the Flight method being called.
-   * @param outputHeaders The headers to populate.
+   * Retrieve a registered variable.
+   * @param key the variable name.
+   * @return the value, or empty string if not found.
    */
-  void writeCredentials(CallInfo info, CallHeaders outputHeaders);
+  String get(String key);
 }
