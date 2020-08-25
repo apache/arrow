@@ -712,30 +712,21 @@ mod tests {
         dict_builder.append("foo").unwrap();
 
         let array = dict_builder.finish();
-
-        let expected_values = StringArray::try_from(vec!["foo", "bar", ""]).unwrap();
-        assert_eq!(
-            &expected_values,
-            array
-                .values()
-                .as_any()
-                .downcast_ref::<StringArray>()
-                .unwrap()
-        );
-
-        let array_ref: Arc<dyn Array> = Arc::new(array);
+        let dict_values = array.values().clone();
+        let dict_values = dict_values.as_any().downcast_ref::<StringArray>().unwrap();
+        let array: Arc<dyn Array> = Arc::new(array);
 
         let indices = UInt32Array::from(vec![
-            Some(0),
-            Some(7),
-            None,
-            Some(5),
-            Some(6),
-            Some(2),
-            Some(3),
+            Some(0), // first "foo"
+            Some(7), // last "foo"
+            None,    // null index should return null
+            Some(5), // second "bar"
+            Some(6), // another "bar"
+            Some(2), // empty string
+            Some(3), // input is null at this index
         ]);
 
-        let result = take(&array_ref, &indices, None).unwrap();
+        let result = take(&array, &indices, None).unwrap();
         let result = result
             .as_any()
             .downcast_ref::<DictionaryArray<Int16Type>>()
@@ -744,9 +735,12 @@ mod tests {
         let result_values: StringArray = result.values().data().into();
 
         // dictionary values should stay the same
+        let expected_values = StringArray::try_from(vec!["foo", "bar", ""]).unwrap();
+        assert_eq!(&expected_values, dict_values);
         assert_eq!(&expected_values, &result_values);
 
         let result_keys: Int16Array = result.keys().collect::<Vec<_>>().into();
+
         let expected_keys = Int16Array::from(vec![
             Some(0),
             Some(0),
