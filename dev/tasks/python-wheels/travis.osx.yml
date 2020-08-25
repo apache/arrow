@@ -22,7 +22,6 @@ addons:
   homebrew:
     packages:
       - automake
-      - aws-sdk-cpp
       - bison
       - boost
       - brotli
