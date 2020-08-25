@@ -29,8 +29,8 @@ import org.apache.arrow.flight.FlightServer;
 import org.apache.arrow.flight.Location;
 import org.apache.arrow.flight.NoOpFlightProducer;
 import org.apache.arrow.flight.Result;
-import org.apache.arrow.flight.auth.BasicAuthCredentialWriter;
 import org.apache.arrow.flight.auth.BasicServerAuthHandler;
+import org.apache.arrow.flight.grpc.CredentialCallOption;
 import org.apache.arrow.memory.BufferAllocator;
 
 import com.google.common.base.Strings;
@@ -47,7 +47,7 @@ final class AuthBasicProtoScenario implements Scenario {
   public FlightProducer producer(BufferAllocator allocator, Location location) {
     return new NoOpFlightProducer() {
       @Override
-      public void doAction(CallContext context, Action action, StreamListener<Result> listener) {
+      public void doAction(FlightContext context, Action action, StreamListener<Result> listener) {
         listener.onNext(new Result(context.peerIdentity().getBytes(StandardCharsets.UTF_8)));
         listener.onCompleted();
       }
@@ -81,11 +81,9 @@ final class AuthBasicProtoScenario implements Scenario {
 
   @Override
   public void client(BufferAllocator allocator, Location location, FlightClient.Builder clientBuilder) {
-    clientBuilder.credentials(new BasicAuthCredentialWriter(USERNAME, PASSWORD));
-
     try (final FlightClient client = clientBuilder.build()) {
-      client.handshake();
-      final Result result = client.doAction(new Action("")).next();
+      final CredentialCallOption bearerCredentials = client.authenticateBasic(USERNAME, PASSWORD).get();
+      final Result result = client.doAction(new Action(""), bearerCredentials).next();
       if (!USERNAME.equals(new String(result.getBody(), StandardCharsets.UTF_8))) {
         throw new AssertionError("Expected " + USERNAME + " but got " + Arrays.toString(result.getBody()));
       }

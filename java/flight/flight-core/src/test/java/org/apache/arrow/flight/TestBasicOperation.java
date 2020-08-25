@@ -331,8 +331,8 @@ public class TestBasicOperation {
     }
 
     @Override
-    public void listFlights(CallContext context, Criteria criteria,
-        StreamListener<FlightInfo> listener) {
+    public void listFlights(FlightContext context, Criteria criteria,
+                            StreamListener<FlightInfo> listener) {
       if (criteria.getExpression().length > 0) {
         // Don't send anything if criteria are set
         listener.onCompleted();
@@ -353,7 +353,7 @@ public class TestBasicOperation {
     }
 
     @Override
-    public Runnable acceptPut(CallContext context, FlightStream flightStream, StreamListener<PutResult> ackStream) {
+    public Runnable acceptPut(FlightContext context, FlightStream flightStream, StreamListener<PutResult> ackStream) {
       return () -> {
         while (flightStream.next()) {
           // Drain the stream
@@ -362,7 +362,7 @@ public class TestBasicOperation {
     }
 
     @Override
-    public void getStream(CallContext context, Ticket ticket, ServerStreamListener listener) {
+    public void getStream(FlightContext context, Ticket ticket, ServerStreamListener listener) {
       if (Arrays.equals(TICKET_LARGE_BATCH, ticket.getBytes())) {
         getLargeBatch(listener);
         return;
@@ -419,8 +419,8 @@ public class TestBasicOperation {
     }
 
     @Override
-    public FlightInfo getFlightInfo(CallContext context,
-        FlightDescriptor descriptor) {
+    public FlightInfo getFlightInfo(FlightContext context,
+                                    FlightDescriptor descriptor) {
       try {
         Flight.FlightInfo getInfo = Flight.FlightInfo.newBuilder()
             .setFlightDescriptor(Flight.FlightDescriptor.newBuilder()
@@ -436,8 +436,8 @@ public class TestBasicOperation {
     }
 
     @Override
-    public void doAction(CallContext context, Action action,
-        StreamListener<Result> listener) {
+    public void doAction(FlightContext context, Action action,
+                         StreamListener<Result> listener) {
       switch (action.getType()) {
         case "hello": {
           listener.onNext(new Result("world".getBytes(Charsets.UTF_8)));
@@ -457,8 +457,8 @@ public class TestBasicOperation {
     }
 
     @Override
-    public void listActions(CallContext context,
-        StreamListener<ActionType> listener) {
+    public void listActions(FlightContext context,
+                            StreamListener<ActionType> listener) {
       listener.onNext(new ActionType("get", ""));
       listener.onNext(new ActionType("put", ""));
       listener.onNext(new ActionType("hello", ""));

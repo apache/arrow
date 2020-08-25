@@ -19,8 +19,6 @@ package org.apache.arrow.flight;
 
 import java.util.Objects;
 
-import io.grpc.Context;
-
 /**
  * Server-side middleware for Flight calls.
  *
@@ -29,7 +27,7 @@ import io.grpc.Context;
  * <p>Methods are not guaranteed to be called on any particular thread, relative to the thread that Flight requests are
  * executed on. Do not depend on thread-local storage; instead, use state on the middleware instance. Service
  * implementations may communicate with middleware implementations through
- * {@link org.apache.arrow.flight.FlightProducer.CallContext#getMiddleware(Key)}. Methods on the middleware instance
+ * {@link FlightProducer.FlightContext#getMiddleware(Key)}. Methods on the middleware instance
  * are non-reentrant, that is, a particular RPC will not make multiple concurrent calls to methods on a single
  * middleware instance. However, methods on the factory instance are expected to be thread-safe, and if the factory
  * instance returns the same middleware object more than once, then that middleware object must be thread-safe.
@@ -46,10 +44,11 @@ public interface FlightServerMiddleware {
      *
      * @param info Details about the call.
      * @param incomingHeaders A mutable set of request headers.
+     * @param context Context about the current request.
      *
      * @throws FlightRuntimeException if the middleware wants to reject the call with the given status
      */
-    T onCallStarted(CallInfo info, CallHeaders incomingHeaders);
+    T onCallStarted(CallInfo info, CallHeaders incomingHeaders, CallContext context);
   }
 
   /**
@@ -72,10 +71,6 @@ public interface FlightServerMiddleware {
     public static <T extends FlightServerMiddleware> Key<T> of(String key) {
       return new Key<>(key);
     }
-  }
-
-  default Context onAuthenticationSuccess(Context currentContext) {
-    return currentContext;
   }
 
   /**

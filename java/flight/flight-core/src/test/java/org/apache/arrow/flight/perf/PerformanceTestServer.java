@@ -178,8 +178,8 @@ public class PerformanceTestServer implements AutoCloseable {
     }
 
     @Override
-    public FlightInfo getFlightInfo(CallContext context,
-        FlightDescriptor descriptor) {
+    public FlightInfo getFlightInfo(FlightContext context,
+                                    FlightDescriptor descriptor) {
       try {
         Preconditions.checkArgument(descriptor.isCommand());
         Perf exec = Perf.parseFrom(descriptor.getCommand());

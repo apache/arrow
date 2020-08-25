@@ -30,6 +30,7 @@ import org.apache.arrow.flight.FlightStream;
 import org.apache.arrow.flight.FlightTestUtil;
 import org.apache.arrow.flight.NoOpFlightProducer;
 import org.apache.arrow.flight.Ticket;
+import org.apache.arrow.flight.grpc.CredentialCallOption;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
@@ -52,25 +53,24 @@ public class TestBasicAuth {
   private static final String PASSWORD = "woohoo";
   private static final String VALID_TOKEN = "my_token";
 
-  private FlightClient.Builder clientBuilder;
   private FlightClient client;
   private FlightServer server;
   private BufferAllocator allocator;
 
   @Test
   public void validAuth() {
-    client = clientBuilder.credentials(new BasicAuthCredentialWriter(USERNAME, PASSWORD)).build();
-    client.handshake();
-    Assert.assertTrue(ImmutableList.copyOf(client.listFlights(Criteria.ALL)).size() == 0);
+    final CredentialCallOption bearerToken = client.authenticateBasic(USERNAME, PASSWORD).get();
+    Assert.assertTrue(ImmutableList.copyOf(client
+        .listFlights(Criteria.ALL, bearerToken))
+        .isEmpty());
   }
 
   // ARROW-7722: this test occasionally leaks memory
   @Ignore
   @Test
   public void asyncCall() throws Exception {
-    client = clientBuilder.credentials(new BasicAuthCredentialWriter(USERNAME, PASSWORD)).build();
-    client.handshake();
-    client.listFlights(Criteria.ALL);
+    final CredentialCallOption bearerToken = client.authenticateBasic(USERNAME, PASSWORD).get();
+    client.listFlights(Criteria.ALL, bearerToken);
     try (final FlightStream s = client.getStream(new Ticket(new byte[1]))) {
       while (s.next()) {
         Assert.assertEquals(4095, s.getRoot().getRowCount());
@@ -80,22 +80,17 @@ public class TestBasicAuth {
 
   @Test
   public void invalidAuth() {
-    FlightTestUtil.assertCode(FlightStatusCode.UNAUTHORIZED, () -> {
-      client = clientBuilder.credentials(new BasicAuthCredentialWriter(USERNAME, "WRONG")).build();
-      client.handshake();
-    });
+    FlightTestUtil.assertCode(FlightStatusCode.UNAUTHORIZED, () ->
+        client.authenticateBasic(USERNAME, "WRONG"));
 
-    FlightTestUtil.assertCode(FlightStatusCode.UNAUTHENTICATED, () -> {
-      client.listFlights(Criteria.ALL).forEach(action -> Assert.fail());
-    });
+    FlightTestUtil.assertCode(FlightStatusCode.UNAUTHENTICATED, () ->
+        client.listFlights(Criteria.ALL).forEach(action -> Assert.fail()));
   }
 
   @Test
   public void didntAuth() {
-    FlightTestUtil.assertCode(FlightStatusCode.UNAUTHENTICATED, () -> {
-      client = clientBuilder.build();
-      client.listFlights(Criteria.ALL).forEach(action -> Assert.fail());
-    });
+    FlightTestUtil.assertCode(FlightStatusCode.UNAUTHENTICATED, () ->
+        client.listFlights(Criteria.ALL).forEach(action -> Assert.fail()));
   }
 
   @Before
@@ -129,8 +124,8 @@ public class TestBasicAuth {
         location,
         new NoOpFlightProducer() {
           @Override
-          public void listFlights(CallContext context, Criteria criteria,
-              StreamListener<FlightInfo> listener) {
+          public void listFlights(FlightContext context, Criteria criteria,
+                                  StreamListener<FlightInfo> listener) {
             if (!context.peerIdentity().equals(USERNAME)) {
               listener.onError(new IllegalArgumentException("Invalid username"));
               return;
@@ -139,7 +134,7 @@ public class TestBasicAuth {
           }
 
           @Override
-          public void getStream(CallContext context, Ticket ticket, ServerStreamListener listener) {
+          public void getStream(FlightContext context, Ticket ticket, ServerStreamListener listener) {
             if (!context.peerIdentity().equals(USERNAME)) {
               listener.error(new IllegalArgumentException("Invalid username"));
               return;
@@ -155,12 +150,11 @@ public class TestBasicAuth {
             }
           }
         }).authHandler(new BasicServerAuthHandler(validator)).build());
-    clientBuilder = FlightClient.builder(allocator, server.getLocation());
+    client = FlightClient.builder(allocator, server.getLocation()).build();
   }
 
   @After
   public void shutdown() throws Exception {
     AutoCloseables.close(client, server, allocator);
   }
-
 }

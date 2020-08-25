@@ -26,7 +26,7 @@ import java.util.Map;
 import org.apache.arrow.flight.CallInfo;
 import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.FlightMethod;
-import org.apache.arrow.flight.FlightProducer.CallContext;
+import org.apache.arrow.flight.FlightProducer.FlightContext;
 import org.apache.arrow.flight.FlightRuntimeException;
 import org.apache.arrow.flight.FlightServerMiddleware;
 import org.apache.arrow.flight.FlightServerMiddleware.Factory;
@@ -69,7 +69,7 @@ public class ServerInterceptorAdapter implements ServerInterceptor {
   /**
    * The {@link Context.Key} that stores the Flight middleware active for a particular call.
    *
-   * <p>Applications should not use this directly. Instead, see {@link CallContext#getMiddleware(Key)}.
+   * <p>Applications should not use this directly. Instead, see {@link FlightContext#getMiddleware(Key)}.
    */
   public static final Context.Key<Map<FlightServerMiddleware.Key<?>, FlightServerMiddleware>> SERVER_MIDDLEWARE_KEY =
       Context.key("arrow.flight.server_middleware");
@@ -87,12 +87,11 @@ public class ServerInterceptorAdapter implements ServerInterceptor {
     // Use LinkedHashMap to preserve insertion order
     final Map<FlightServerMiddleware.Key<?>, FlightServerMiddleware> middlewareMap = new LinkedHashMap<>();
     final MetadataAdapter headerAdapter = new MetadataAdapter(headers);
-    Context currentContext = Context.current();
+    final ContextAdapter contextAdapter = new ContextAdapter();
     for (final KeyFactory<?> factory : factories) {
       final FlightServerMiddleware m;
       try {
-        m = factory.factory.onCallStarted(info, headerAdapter);
-        currentContext = m.onAuthenticationSuccess(currentContext);
+        m = factory.factory.onCallStarted(info, headerAdapter, contextAdapter);
       } catch (FlightRuntimeException e) {
         // Cancel call
         call.close(StatusUtils.toGrpcStatus(e.status()), new Metadata());
@@ -103,7 +102,7 @@ public class ServerInterceptorAdapter implements ServerInterceptor {
     }
 
     // Inject the middleware into the context so RPC method implementations can communicate with middleware instances
-    final Context contextWithMiddleware = currentContext.withValue(SERVER_MIDDLEWARE_KEY,
+    final Context contextWithMiddleware = contextAdapter.getContext().withValue(SERVER_MIDDLEWARE_KEY,
         Collections.unmodifiableMap(middlewareMap));
 
     final SimpleForwardingServerCall<ReqT, RespT> forwardingServerCall = new SimpleForwardingServerCall<ReqT, RespT>(

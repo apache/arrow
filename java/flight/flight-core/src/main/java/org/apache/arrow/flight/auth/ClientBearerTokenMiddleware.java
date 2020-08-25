@@ -17,101 +17,62 @@
 
 package org.apache.arrow.flight.auth;
 
+import java.util.concurrent.atomic.AtomicReference;
+
 import org.apache.arrow.flight.CallHeaders;
 import org.apache.arrow.flight.CallInfo;
 import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.FlightClientMiddleware;
-import org.apache.arrow.flight.FlightConstants;
-import org.apache.arrow.flight.FlightRuntimeException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.grpc.MethodDescriptor;
-
 /**
- * Middleware for capturing and sending back bearer tokens.
+ * Middleware for capturing bearer tokens sent back from the Flight server.
  */
 public class ClientBearerTokenMiddleware implements FlightClientMiddleware {
   private static final Logger logger = LoggerFactory.getLogger(ClientBearerTokenMiddleware.class);
 
-  private final String bearerToken;
+  private final Factory factory;
 
   /**
    * Factory used within FlightClient.
    */
   public static class Factory implements FlightClientMiddleware.Factory {
-    private String bearerToken = null;
+    private final AtomicReference<String> bearerToken = new AtomicReference<>();
 
     @Override
     public FlightClientMiddleware onCallStarted(CallInfo info) {
       logger.debug("Call name: {}", info.method().name());
-      if (MethodDescriptor.generateFullMethodName(FlightConstants.SERVICE, info.method().name())
-          .equalsIgnoreCase(AuthConstants.HANDSHAKE_DESCRIPTOR_NAME)) {
-        return new ClientAuthHandshakeMiddleware(this);
-      }
-
-      if (bearerToken == null) {
-        logger.error("Tried to execute a non-handshake method without getting a " +
-            "bearer token from the authorization process.");
-        throw new FlightRuntimeException(CallStatus.UNAUTHENTICATED);
-      }
-      return new ClientBearerTokenMiddleware(bearerToken);
+      return new ClientBearerTokenMiddleware(this);
     }
 
     void setBearerToken(String bearerToken) {
-      if (this.bearerToken != null) {
-        logger.error("Executed the authentication process twice.");
-        throw new FlightRuntimeException(CallStatus.INTERNAL);
-      }
-      this.bearerToken = bearerToken;
+      this.bearerToken.set(bearerToken);
+    }
+
+    public String getBearerToken() {
+      return bearerToken.get();
     }
   }
 
-  private ClientBearerTokenMiddleware(String bearerToken) {
-    this.bearerToken = bearerToken;
+  private ClientBearerTokenMiddleware(Factory factory) {
+    this.factory = factory;
   }
 
   @Override
   public void onBeforeSendingHeaders(CallHeaders outgoingHeaders) {
-    outgoingHeaders.insert(AuthConstants.AUTHORIZATION_HEADER, AuthConstants.BEARER_PREFIX + bearerToken);
   }
 
   @Override
   public void onHeadersReceived(CallHeaders incomingHeaders) {
+    final String bearerValue = AuthUtilities.getValueFromAuthHeader(incomingHeaders, AuthConstants.BEARER_PREFIX);
+    if (bearerValue != null) {
+      factory.setBearerToken(bearerValue);
+    }
   }
 
   @Override
   public void onCallCompleted(CallStatus status) {
     logger.debug("Request completed with status {}.", status);
-  }
-
-  /**
-   * Middleware for capturing the bearer token to use in subsequent requests.
-   */
-  static class ClientAuthHandshakeMiddleware implements FlightClientMiddleware {
-    private final ClientBearerTokenMiddleware.Factory factory;
-
-    private ClientAuthHandshakeMiddleware(ClientBearerTokenMiddleware.Factory factory) {
-      this.factory = factory;
-    }
-
-    @Override
-    public void onBeforeSendingHeaders(CallHeaders outgoingHeaders) {
-      // Auth headers are specified by setting CallCredentials on the
-      // FlightClient.Builder, rather than through middleware.
-    }
-
-    @Override
-    public void onHeadersReceived(CallHeaders incomingHeaders) {
-      final String bearerValue = AuthUtilities.getValueFromAuthHeader(incomingHeaders, AuthConstants.BEARER_PREFIX);
-      if (bearerValue != null) {
-        factory.setBearerToken(bearerValue);
-      }
-    }
-
-    @Override
-    public void onCallCompleted(CallStatus status) {
-      logger.info("Handshake completed successfully.");
-    }
   }
 }

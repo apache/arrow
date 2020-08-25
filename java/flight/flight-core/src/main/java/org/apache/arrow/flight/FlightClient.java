@@ -22,6 +22,7 @@ import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
@@ -29,11 +30,12 @@ import java.util.function.BooleanSupplier;
 import javax.net.ssl.SSLException;
 
 import org.apache.arrow.flight.FlightProducer.StreamListener;
+import org.apache.arrow.flight.auth.BasicAuthCredentialWriter;
+import org.apache.arrow.flight.auth.BearerCredentialWriter;
 import org.apache.arrow.flight.auth.ClientBearerTokenMiddleware;
 import org.apache.arrow.flight.auth.ClientHandshakeWrapper;
-import org.apache.arrow.flight.auth.CredentialWriter;
-import org.apache.arrow.flight.grpc.CallCredentialAdapter;
 import org.apache.arrow.flight.grpc.ClientInterceptorAdapter;
+import org.apache.arrow.flight.grpc.CredentialCallOption;
 import org.apache.arrow.flight.grpc.StatusUtils;
 import org.apache.arrow.flight.impl.Flight;
 import org.apache.arrow.flight.impl.Flight.Empty;
@@ -46,7 +48,6 @@ import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.dictionary.DictionaryProvider.MapDictionaryProvider;
 
-import io.grpc.CallCredentials;
 import io.grpc.Channel;
 import io.grpc.ClientCall;
 import io.grpc.ClientInterceptors;
@@ -79,23 +80,22 @@ public class FlightClient implements AutoCloseable {
   private final MethodDescriptor<Flight.Ticket, ArrowMessage> doGetDescriptor;
   private final MethodDescriptor<ArrowMessage, Flight.PutResult> doPutDescriptor;
   private final MethodDescriptor<ArrowMessage, ArrowMessage> doExchangeDescriptor;
+  private final List<FlightClientMiddleware.Factory> middleware;
 
   /**
    * Create a Flight client from an allocator and a gRPC channel.
    */
   FlightClient(BufferAllocator incomingAllocator, ManagedChannel channel,
-               List<FlightClientMiddleware.Factory> middleware, CredentialWriter credentialWriter) {
+               List<FlightClientMiddleware.Factory> middleware) {
     this.allocator = incomingAllocator.newChildAllocator("flight-client", 0, Long.MAX_VALUE);
     this.channel = channel;
+    this.middleware = middleware;
 
     // Create a channel with interceptors pre-applied for DoGet and DoPut
     this.interceptedChannel = ClientInterceptors.intercept(channel, new ClientInterceptorAdapter(middleware));
 
-    final CallCredentials callCredentials = credentialWriter != null ?
-        new CallCredentialAdapter(credentialWriter) : null;
-
-    blockingStub = FlightServiceGrpc.newBlockingStub(interceptedChannel).withCallCredentials(callCredentials);
-    asyncStub = FlightServiceGrpc.newStub(interceptedChannel).withCallCredentials(callCredentials);
+    blockingStub = FlightServiceGrpc.newBlockingStub(interceptedChannel);
+    asyncStub = FlightServiceGrpc.newStub(interceptedChannel);
     doGetDescriptor = FlightBindingService.getDoGetDescriptor(allocator);
     doPutDescriptor = FlightBindingService.getDoPutDescriptor(allocator);
     doExchangeDescriptor = FlightBindingService.getDoExchangeDescriptor(allocator);
@@ -153,6 +153,23 @@ public class FlightClient implements AutoCloseable {
   public Iterator<Result> doAction(Action action, CallOption... options) {
     return StatusUtils
         .wrapIterator(CallOptions.wrapStub(blockingStub, options).doAction(action.toProtocol()), Result::new);
+  }
+
+  /**
+   * Authenticates with a username and password.
+   *
+   * @param username the username.
+   * @param password the password.
+   * @return a CredentialCallOption containing a bearer token if the server emitted one, or
+   *     empty if no bearer token was returned. This can be used in subsequent API calls.
+   */
+  public Optional<CredentialCallOption> authenticateBasic(String username, String password) {
+    final ClientBearerTokenMiddleware.Factory tokenMiddleware = new ClientBearerTokenMiddleware.Factory();
+    middleware.add(tokenMiddleware);
+    handshake(new CredentialCallOption(new BasicAuthCredentialWriter(username, password)));
+
+    return Optional.ofNullable(tokenMiddleware.getBearerToken()).map(token ->
+        new CredentialCallOption(new BearerCredentialWriter(token)));
   }
 
   /**
@@ -670,7 +687,7 @@ public class FlightClient implements AutoCloseable {
       builder
           .maxTraceEvents(MAX_CHANNEL_TRACE_EVENTS)
           .maxInboundMessageSize(maxInboundMessageSize);
-      return new FlightClient(allocator, builder.build(), middleware, credentialWriter);
+      return new FlightClient(allocator, builder.build(), middleware);
     }
   }
 }

@@ -17,13 +17,14 @@
 
 package org.apache.arrow.flight.auth;
 
+import java.util.function.Consumer;
+
 import org.apache.arrow.flight.CallHeaders;
-import org.apache.arrow.flight.CallInfo;
 
 /**
  * Client credentials that use a bearer token.
  */
-public final class BearerCredentialWriter implements CredentialWriter {
+public final class BearerCredentialWriter implements Consumer<CallHeaders> {
 
   private final String bearer;
 
@@ -32,7 +33,7 @@ public final class BearerCredentialWriter implements CredentialWriter {
   }
 
   @Override
-  public void writeCredentials(CallInfo info, CallHeaders outputHeaders) {
+  public void accept(CallHeaders outputHeaders) {
     outputHeaders.insert(AuthConstants.AUTHORIZATION_HEADER, AuthConstants.BEARER_PREFIX + bearer);
   }
 }
