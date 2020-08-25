@@ -104,17 +104,20 @@ class ArrayDataEndianSwapper {
     if (data_->buffers[index] == nullptr) {
       return Status::OK();
     }
-    auto buffer = const_cast<VALUE_TYPE*>(
-        reinterpret_cast<const VALUE_TYPE*>(data_->buffers[index]->data()));
+    auto data = reinterpret_cast<const VALUE_TYPE*>(data_->buffers[index]->data());
+    ARROW_ASSIGN_OR_RAISE(auto new_buffer,
+                          AllocateBuffer(data_->buffers[index]->size() + 1));
+    auto new_data = reinterpret_cast<VALUE_TYPE*>(new_buffer->mutable_data());
     // offset has one more element rather than data->length
     int64_t length = length_ + 1;
     for (int64_t i = 0; i < length; i++) {
 #if ARROW_LITTLE_ENDIAN
-      buffer[i] = BitUtil::FromBigEndian(buffer[i]);
+      new_data[i] = BitUtil::FromBigEndian(data[i]);
 #else
-      buffer[i] = BitUtil::FromLittleEndian(buffer[i]);
+      new_data[i] = BitUtil::FromLittleEndian(data[i]);
 #endif
     }
+    data_->buffers[index] = std::move(new_buffer);
     return Status::OK();
   }
 
