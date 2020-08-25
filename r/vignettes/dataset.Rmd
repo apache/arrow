@@ -87,8 +87,11 @@ ds <- open_dataset("nyc-taxi", partitioning = c("year", "month"))
 
 The default file format for `open_dataset()` is Parquet; if we had a directory
 of Arrow format files, we could include `format = "arrow"` in the call.
-Future versions will support more file formats, including CSV/delimited text data
-and JSON.
+Other supported formats include: "feather" (an alias for "arrow", as Feather v2
+is the Arrow file format), "csv", "tsv" (for tab-delimited), and "text" for
+generic text-delimited files. For text files, you can pass any parsing options
+("delim", "quote", etc.) to `open_dataset()` that you would otherwise pass to
+`read_csv_arrow()`.
 
 The `partitioning` argument lets us specify how the file paths provide information
 about how the dataset is chunked into different files. Our files in this example
@@ -257,7 +260,7 @@ rows match the filter. Relatedly, since Parquet files contain row groups with
 statistics on the data within, there may be entire chunks of data we can
 avoid scanning because they have no rows where `total_amount > 100`.
 
-## Going farther
+## More dataset options
 
 There are a few ways you can control the Dataset creation to adapt to special use cases.
 For one, you can specify a `schema` argument to declare the columns and their data types.
@@ -281,3 +284,82 @@ this would mean you could point to an S3 bucked of Parquet data and a directory
 of CSVs on the local file system and query them together as a single dataset.
 To create a multi-source dataset, provide a list of datasets to `open_dataset()`
 instead of a file path, or simply concatenate them like `big_dataset <- c(ds1, ds2)`.
+
+## Writing datasets
+
+As you can see, querying a large dataset can be made quite fast by storage in an
+efficient binary columnar format like Parquet or Feather and partitioning based on
+columns commonly used for filtering. However, we don't always get our data delivered
+to us that way. Sometimes we start with one giant CSV. Our first step in analyzing data
+is cleaning is up and reshaping it into a more usable form.
+
+The `write_dataset()` function allows you to take a Dataset or other tabular data object---an Arrow `Table` or `RecordBatch`, or an R `data.frame`---and write it to a different file format, partitioned into multiple files.
+
+Assume we have a version of the NYC Taxi data as CSV:
+
+```r
+ds <- open_dataset("nyc-taxi/csv/", format = "csv")
+```
+
+We can write it to a new location and translate the files to the Feather format
+by calling `write_dataset()` on it:
+
+```r
+write_dataset(ds, "nyc-taxi/feather", format = "feather")
+```
+
+Next, let's imagine that the "payment_type" column is something we often filter on,
+so we want to partition the data by that variable. By doing so we ensure that a filter like
+`payment_type == 3` will touch only a subset of files where payment_type is always 3.
+
+One natural way to express the columns you want to partition on is to use the
+`group_by()` method:
+
+```r
+ds %>%
+  group_by(payment_type) %>%
+  write_dataset("nyc-taxi/feather", format = "feather")
+```
+
+This will write files to a directory tree that looks like this:
+
+```r
+system("tree nyc-taxi/feather")
+
+# feather
+# ├── payment_type=1
+# │   ├── dat_0.ipc
+# │   ├── dat_1.ipc
+# │   ├── dat_2.ipc
+# │   ├── dat_3.ipc
+# │   ├── dat_4.ipc
+# │   └── dat_5.ipc
+# ├── payment_type=2
+# │   ├── dat_0.ipc
+# ...
+# └── payment_type=5
+#     └── dat_2.ipc
+#
+# 5 directories, 25 files
+```
+
+Note that the directory names are `payment_type=1` and similar:
+this is the Hive-style partitioning described above. This means that when
+we call `open_dataset()` on this directory, we don't have to declare what the
+partitions are because they can be read from the file paths.
+(To instead write bare values for partition segments,
+i.e. `1` rather than `payment_type=1`, call `write_dataset()` with `hive_style = FALSE`.)
+
+The other thing we can do when writing datasets is select a subset of and/or reorder
+columns. Suppose we never care about `vendor_id`, and being a string column,
+it can take up a lot of space when we read it in, so let's drop it:
+
+```r
+ds %>%
+  group_by(payment_type) %>%
+  select(-vendor_id) %>%
+  write_dataset("nyc-taxi/feather", format = "feather")
+```
+
+Note that you cannot currently rename columns when writing, nor can you `filter()`
+and write a subset of the data.

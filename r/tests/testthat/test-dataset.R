@@ -368,6 +368,22 @@ test_that("Creating UnionDataset", {
   expect_error(c(ds1, 42), "'x' must be a string or a list of DatasetFactory")
 })
 
+test_that("InMemoryDataset", {
+  ds <- InMemoryDataset$create(rbind(df1, df2))
+  expect_is(ds, "InMemoryDataset")
+  expect_equivalent(
+    ds %>%
+      select(chr, dbl) %>%
+      filter(dbl > 7 & dbl < 53L) %>%
+      collect() %>%
+      arrange(dbl),
+    rbind(
+      df1[8:10, c("chr", "dbl")],
+      df2[1:2, c("chr", "dbl")]
+    )
+  )
+})
+
 test_that("map_batches", {
   ds <- open_dataset(dataset_dir, partitioning = "part")
   expect_equivalent(
@@ -767,18 +783,23 @@ test_that("Dataset writing: dplyr methods", {
   ds <- open_dataset(hive_dir)
   dst_dir <- tempfile()
   # Specify partition vars by group_by
-  ds %>% group_by(int) %>% write_dataset(dst_dir, format = "feather")
+  ds %>%
+    group_by(int) %>%
+    write_dataset(dst_dir, format = "feather")
   expect_true(dir.exists(dst_dir))
   expect_identical(dir(dst_dir), sort(paste("int", c(1:10, 101:110), sep = "=")))
 
   # select to specify schema
-  skip("TODO: select to specify schema")
-  ds %>% group_by(int) %>% select(lgl, chr) %>% write_dataset(dst_dir, format = "feather")
-  new_ds <- open_dataset(dst_dir, format = "feather")
+  dst_dir2 <- tempfile()
+  ds %>%
+    group_by(int) %>%
+    select(chr, dbl) %>%
+    write_dataset(dst_dir2, format = "feather")
+  new_ds <- open_dataset(dst_dir2, format = "feather")
 
   expect_equivalent(
-    collect(new_ds),
-    rbind(df1[c("lgl", "chr", "int")], df2[c("lgl", "chr", "int")])
+    collect(new_ds) %>% arrange(int),
+    rbind(df1[c("chr", "dbl", "int")], df2[c("chr", "dbl", "int")])
   )
 })
 
@@ -800,6 +821,56 @@ test_that("Dataset writing: no partitioning", {
   expect_true(length(dir(dst_dir)) > 1)
 })
 
+test_that("Dataset writing: from data.frame", {
+  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
+  dst_dir <- tempfile()
+  stacked <- rbind(df1, df2)
+  stacked %>%
+    group_by(int) %>%
+    write_dataset(dst_dir, format = "feather")
+  expect_true(dir.exists(dst_dir))
+  expect_identical(dir(dst_dir), sort(paste("int", c(1:10, 101:110), sep = "=")))
+
+  new_ds <- open_dataset(dst_dir, format = "feather")
+
+  expect_equivalent(
+    new_ds %>%
+      select(string = chr, integer = int) %>%
+      filter(integer > 6 & integer < 11) %>%
+      collect() %>%
+      summarize(mean = mean(integer)),
+    df1 %>%
+      select(string = chr, integer = int) %>%
+      filter(integer > 6) %>%
+      summarize(mean = mean(integer))
+  )
+})
+
+test_that("Dataset writing: from RecordBatch", {
+  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
+  dst_dir <- tempfile()
+  stacked <- record_batch(rbind(df1, df2))
+  stacked %>%
+    group_by(int) %>%
+    write_dataset(dst_dir, format = "feather")
+  expect_true(dir.exists(dst_dir))
+  expect_identical(dir(dst_dir), sort(paste("int", c(1:10, 101:110), sep = "=")))
+
+  new_ds <- open_dataset(dst_dir, format = "feather")
+
+  expect_equivalent(
+    new_ds %>%
+      select(string = chr, integer = int) %>%
+      filter(integer > 6 & integer < 11) %>%
+      collect() %>%
+      summarize(mean = mean(integer)),
+    df1 %>%
+      select(string = chr, integer = int) %>%
+      filter(integer > 6) %>%
+      summarize(mean = mean(integer))
+  )
+})
+
 test_that("Dataset writing: unsupported features/input validation", {
   expect_error(write_dataset(4), "'dataset' must be a Dataset")
 
@@ -809,6 +880,10 @@ test_that("Dataset writing: unsupported features/input validation", {
   expect_error(
     filter(ds, int == 4) %>% write_dataset(ds),
     "Writing a filtered dataset is not yet supported"
+  )
+  expect_error(
+    select(ds, integer = int) %>% write_dataset(ds),
+    "Renaming columns when writing a dataset is not yet supported"
   )
 
   expect_error(

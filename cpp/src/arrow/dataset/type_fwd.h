@@ -50,6 +50,8 @@ class FileFormat;
 class FileFragment;
 class FileSystemDataset;
 
+class InMemoryDataset;
+
 class CsvFileFormat;
 
 class IpcFileFormat;

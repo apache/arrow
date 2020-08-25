@@ -344,6 +344,10 @@ dataset___UnionDataset__create <- function(datasets, schm){
     .Call(`_arrow_dataset___UnionDataset__create` , datasets, schm)
 }
 
+dataset___InMemoryDataset__create <- function(table){
+    .Call(`_arrow_dataset___InMemoryDataset__create` , table)
+}
+
 dataset___UnionDataset__children <- function(ds){
     .Call(`_arrow_dataset___UnionDataset__children` , ds)
 }

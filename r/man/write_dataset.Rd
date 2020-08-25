@@ -8,20 +8,27 @@ write_dataset(
   dataset,
   path,
   format = dataset$format$type,
+  schema = dataset$schema,
   partitioning = dplyr::group_vars(dataset),
   hive_style = TRUE,
   ...
 )
 }
 \arguments{
-\item{dataset}{\link{Dataset} or \code{arrow_dplyr_query}. If a \code{arrow_dplyr_query},
-note that \code{select()} or \code{filter()} queries are not currently supported.}
+\item{dataset}{\link{Dataset}, \link{RecordBatch}, \link{Table}, \code{arrow_dplyr_query}, or
+\code{data.frame}. If an \code{arrow_dplyr_query} or \code{grouped_df},
+\code{schema} and \code{partitioning} will be taken from the result of any \code{select()}
+and \code{group_by()} operations done on the dataset. Note that \code{filter()} queries
+are not currently supported, and \code{select}-ed columns may not be renamed.}
 
 \item{path}{string path to a directory to write to (directory will be
 created if it does not exist)}
 
 \item{format}{file format to write the dataset to. Currently only "feather"
 (aka "ipc") is supported.}
+
+\item{schema}{\link{Schema} containing a subset of columns, possibly reordered,
+in \code{dataset}. Default is \code{dataset$schema}, i.e. all columns.}
 
 \item{partitioning}{\code{Partitioning} or a character vector of columns to
 use as partition keys (to be written as path segments). Default is to

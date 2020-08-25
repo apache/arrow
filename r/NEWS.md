@@ -21,7 +21,7 @@
 
 ## Datasets
 
-* `write_dataset()` to Feather files with partitioning
+* `write_dataset()` to Feather files with partitioning. See the end of `vignette("dataset", package = "arrow")` for discussion and examples.
 * Datasets now have `head()`, `tail()`, and take (`[`) methods. `head()` is optimized but the others  may not be performant.
 * `collect()` gains an `as_data_frame` argument, default `TRUE` but when `FALSE` allows you to evaluate the accumulated `select` and `filter` query but keep the result in Arrow, not an R `data.frame`
 

@@ -1352,6 +1352,21 @@ extern "C" SEXP _arrow_dataset___UnionDataset__create(SEXP datasets_sexp, SEXP s
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<ds::InMemoryDataset> dataset___InMemoryDataset__create(const std::shared_ptr<arrow::Table>& table);
+RcppExport SEXP _arrow_dataset___InMemoryDataset__create(SEXP table_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
+	return Rcpp::wrap(dataset___InMemoryDataset__create(table));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_dataset___InMemoryDataset__create(SEXP table_sexp){
+	Rf_error("Cannot call dataset___InMemoryDataset__create(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// dataset.cpp
+#if defined(ARROW_R_WITH_ARROW)
 ds::DatasetVector dataset___UnionDataset__children(const std::shared_ptr<ds::UnionDataset>& ds);
 extern "C" SEXP _arrow_dataset___UnionDataset__children(SEXP ds_sexp){
 BEGIN_CPP11
@@ -6035,6 +6050,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_dataset___Dataset__type_name", (DL_FUNC) &_arrow_dataset___Dataset__type_name, 1}, 
 		{ "_arrow_dataset___Dataset__ReplaceSchema", (DL_FUNC) &_arrow_dataset___Dataset__ReplaceSchema, 2}, 
 		{ "_arrow_dataset___UnionDataset__create", (DL_FUNC) &_arrow_dataset___UnionDataset__create, 2}, 
+		{ "_arrow_dataset___InMemoryDataset__create", (DL_FUNC) &_arrow_dataset___InMemoryDataset__create, 1}, 
 		{ "_arrow_dataset___UnionDataset__children", (DL_FUNC) &_arrow_dataset___UnionDataset__children, 1}, 
 		{ "_arrow_dataset___FileSystemDataset__format", (DL_FUNC) &_arrow_dataset___FileSystemDataset__format, 1}, 
 		{ "_arrow_dataset___FileSystemDataset__files", (DL_FUNC) &_arrow_dataset___FileSystemDataset__files, 1}, 

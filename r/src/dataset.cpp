@@ -60,6 +60,12 @@ std::shared_ptr<ds::UnionDataset> dataset___UnionDataset__create(
 }
 
 // [[arrow::export]]
+std::shared_ptr<ds::InMemoryDataset> dataset___InMemoryDataset__create(
+    const std::shared_ptr<arrow::Table>& table) {
+  return std::make_shared<ds::InMemoryDataset>(table);
+}
+
+// [[arrow::export]]
 ds::DatasetVector dataset___UnionDataset__children(
     const std::shared_ptr<ds::UnionDataset>& ds) {
   return ds->children();
