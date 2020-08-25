@@ -520,10 +520,8 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
 
                             let mut safe_args: Vec<Expr> = vec![];
                             for i in 0..rex_args.len() {
-                                safe_args.push(
-                                    rex_args[i]
-                                        .cast_to(fm.args[i].data_type(), schema)?,
-                                );
+                                safe_args
+                                    .push(rex_args[i].cast_to(&fm.arg_types[i], schema)?);
                             }
 
                             Ok(Expr::ScalarFunction {
@@ -908,7 +906,7 @@ mod tests {
             match name {
                 "sqrt" => Some(Arc::new(ScalarFunction::new(
                     "sqrt",
-                    vec![Field::new("n", DataType::Float64, false)],
+                    vec![DataType::Float64],
                     DataType::Float64,
                     Arc::new(|_| Err(ExecutionError::NotImplemented("".to_string()))),
                 ))),

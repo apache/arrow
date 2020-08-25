@@ -69,9 +69,8 @@ where
                 match self.scalar_functions.lookup(name) {
                     Some(func_meta) => {
                         for i in 0..expressions.len() {
-                            let field = &func_meta.args[i];
                             let actual_type = expressions[i].get_type(schema)?;
-                            let required_type = field.data_type();
+                            let required_type = &func_meta.arg_types[i];
                             if &actual_type != required_type {
                                 // attempt to coerce using numerical coercion
                                 // todo: also try string coercion.
