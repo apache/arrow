@@ -382,11 +382,8 @@ def test_sequence_custom_integers(seq):
 @parametrize_with_iterable_types
 def test_broken_integers(seq):
     data = [MyBrokenInt()]
-    with pytest.raises(ZeroDivisionError) as exc_info:
+    with pytest.raises(pa.ArrowInvalid):
         pa.array(seq(data), type=pa.int64())
-    # Original traceback is kept
-    tb_lines = traceback.format_tb(exc_info.tb)
-    assert "# MARKER" in tb_lines[-1]
 
 
 def test_numpy_scalars_mixed_type():
@@ -1643,7 +1640,7 @@ def test_map_from_dicts():
 
     # Invalid dictionary types
     for entry in [[{'key': '1', 'value': 5}], [{'key': {'value': 2}}]]:
-        with pytest.raises(TypeError, match="integer is required"):
+        with pytest.raises(pa.ArrowInvalid, match="tried to convert to int"):
             pa.array([entry], type=pa.map_('i4', 'i4'))
 
 

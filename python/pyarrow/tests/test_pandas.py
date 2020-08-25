@@ -2449,12 +2449,18 @@ class TestConvertMisc:
 
     @pytest.mark.parametrize(
         "data,error_type",
-        [({"a": ["a", 1, 2.0]}, pa.ArrowTypeError), ({"a": [1, True]}, pa.ArrowTypeError), ({"a": ["a", 1, 2.0]}, pa.ArrowTypeError), ({"a": [1, "a"]}, pa.ArrowInvalid )],
+        [
+            ({"a": ["a", 1, 2.0]}, pa.ArrowTypeError),
+            ({"a": ["a", 1, 2.0]}, pa.ArrowTypeError),
+            ({"a": [1, True]}, pa.ArrowTypeError),
+            ({"a": [True, "a"]}, pa.ArrowInvalid),
+            ({"a": [1, "a"]}, pa.ArrowInvalid),
+            ({"a": [1.0, "a"]}, pa.ArrowInvalid),
+        ],
     )
     def test_mixed_types_fails(self, data, error_type):
-        expected_msg = "Conversion failed for column a"
         df = pd.DataFrame(data)
-        with pytest.raises(error_type, match=expected_msg):
+        with pytest.raises(error_type):
             pa.Table.from_pandas(df)
 
     def test_strided_data_import(self):
@@ -3531,7 +3537,7 @@ def test_dictionary_from_pandas_specified_type():
     typ = pa.dictionary(index_type=pa.int8(), value_type=pa.int64())
     with pytest.raises(pa.ArrowInvalid):
         result = pa.array(cat, type=typ)
-    assert result.to_pylist() == ['a', 'b']
+    assert result.to_pylist() == ["a", "b"]
 
     # mismatching order -> raise error (for now a deprecation warning)
     typ = pa.dictionary(
