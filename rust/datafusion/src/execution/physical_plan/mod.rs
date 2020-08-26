@@ -26,7 +26,7 @@ use crate::error::Result;
 use crate::execution::context::ExecutionContextState;
 use crate::logicalplan::{LogicalPlan, ScalarValue};
 use arrow::array::ArrayRef;
-use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
+use arrow::datatypes::{DataType, Schema, SchemaRef};
 use arrow::{
     compute::kernels::length::length,
     record_batch::{RecordBatch, RecordBatchReader},
@@ -138,7 +138,7 @@ pub trait Accumulator: Debug {
 pub fn scalar_functions() -> Vec<ScalarFunction> {
     let mut udfs = vec![ScalarFunction::new(
         "length",
-        vec![Field::new("n", DataType::Utf8, true)],
+        vec![DataType::Utf8],
         DataType::UInt32,
         Arc::new(|args: &[ArrayRef]| Ok(Arc::new(length(args[0].as_ref())?))),
     )];

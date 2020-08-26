@@ -220,7 +220,7 @@ fn create_ctx() -> Result<ExecutionContext> {
     // register a custom UDF
     ctx.register_udf(ScalarFunction::new(
         "custom_sqrt",
-        vec![Field::new("n", DataType::Float64, true)],
+        vec![DataType::Float64],
         DataType::Float64,
         Arc::new(custom_sqrt),
     ));

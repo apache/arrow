@@ -21,7 +21,7 @@ use crate::error::ExecutionError;
 use crate::execution::physical_plan::udf::ScalarFunction;
 
 use arrow::array::{Array, ArrayRef, Float64Array, Float64Builder};
-use arrow::datatypes::{DataType, Field};
+use arrow::datatypes::DataType;
 
 use std::sync::Arc;
 
@@ -29,7 +29,7 @@ macro_rules! math_unary_function {
     ($NAME:expr, $FUNC:ident) => {
         ScalarFunction::new(
             $NAME,
-            vec![Field::new("n", DataType::Float64, true)],
+            vec![DataType::Float64],
             DataType::Float64,
             Arc::new(|args: &[ArrayRef]| {
                 let n = &args[0].as_any().downcast_ref::<Float64Array>();
@@ -86,7 +86,7 @@ mod tests {
         execution::context::ExecutionContext,
         logicalplan::{col, sqrt, LogicalPlanBuilder},
     };
-    use arrow::datatypes::Schema;
+    use arrow::datatypes::{Field, Schema};
 
     #[test]
     fn cast_i8_input() -> Result<()> {

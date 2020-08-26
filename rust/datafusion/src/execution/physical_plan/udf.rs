@@ -20,7 +20,7 @@
 use std::fmt;
 
 use arrow::array::ArrayRef;
-use arrow::datatypes::{DataType, Field, Schema};
+use arrow::datatypes::{DataType, Schema};
 
 use crate::error::Result;
 use crate::execution::physical_plan::PhysicalExpr;
@@ -38,7 +38,7 @@ pub struct ScalarFunction {
     /// Function name
     pub name: String,
     /// Function argument meta-data
-    pub args: Vec<Field>,
+    pub arg_types: Vec<DataType>,
     /// Return type
     pub return_type: DataType,
     /// UDF implementation
@@ -61,7 +61,7 @@ impl Debug for ScalarFunction {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("ScalarFunction")
             .field("name", &self.name)
-            .field("args", &self.args)
+            .field("arg_types", &self.arg_types)
             .field("return_type", &self.return_type)
             .field("fun", &"<FUNC>")
             .finish()
@@ -72,13 +72,13 @@ impl ScalarFunction {
     /// Create a new ScalarFunction
     pub fn new(
         name: &str,
-        args: Vec<Field>,
+        arg_types: Vec<DataType>,
         return_type: DataType,
         fun: ScalarUdf,
     ) -> Self {
         Self {
             name: name.to_owned(),
-            args,
+            arg_types,
             return_type,
             fun,
         }
