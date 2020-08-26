@@ -106,12 +106,7 @@ write_feather <- function(x,
   assert_is(x, "Table")
 
   if (is.string(sink)) {
-    if (grepl("://", sink)) {
-      fs_and_path <- FileSystem$from_uri(sink)
-      sink <- fs_and_path$fs$OpenOutputStream(fs_and_path$path)
-    } else {
-      sink <- FileOutputStream$create(sink)
-    }
+    sink <- make_output_stream(sink)
     on.exit(sink$close())
   }
   assert_is(sink, "OutputStream")
@@ -147,7 +142,7 @@ write_feather <- function(x,
 #' df <- read_feather(tf, col_select = starts_with("d"))
 #' }
 read_feather <- function(file, col_select = NULL, as_data_frame = TRUE, ...) {
-  if (!inherits(file, "InputStream")) {
+  if (!inherits(file, "RandomAccessFile")) {
     file <- make_readable_file(file)
     on.exit(file$close())
   }

@@ -48,17 +48,8 @@ DatasetFactory$create <- function(x,
     stop("'x' must be a string or a list of DatasetFactory", call. = FALSE)
   }
 
-  if (!inherits(filesystem, "FileSystem")) {
-    if (grepl("://", x)) {
-      fs_from_uri <- FileSystem$from_uri(x)
-      filesystem <- fs_from_uri$fs
-      x <- fs_from_uri$path
-    } else {
-      filesystem <- LocalFileSystem$create()
-      x <- clean_path_abs(x)
-    }
-  }
-  selector <- FileSelector$create(x, allow_not_found = FALSE, recursive = TRUE)
+  path_and_fs <- get_path_and_filesystem(x, filesystem)
+  selector <- FileSelector$create(path_and_fs$path, allow_not_found = FALSE, recursive = TRUE)
 
   if (is.character(format)) {
     format <- FileFormat$create(match.arg(format), ...)
@@ -74,7 +65,7 @@ DatasetFactory$create <- function(x,
       partitioning <- DirectoryPartitioningFactory$create(partitioning)
     }
   }
-  FileSystemDatasetFactory$create(filesystem, selector, format, partitioning)
+  FileSystemDatasetFactory$create(path_and_fs$fs, selector, format, partitioning)
 }
 
 #' Create a DatasetFactory

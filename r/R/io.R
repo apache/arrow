@@ -228,7 +228,7 @@ mmap_open <- function(path, mode = c("read", "write", "readwrite")) {
 #' @keywords internal
 make_readable_file <- function(file, mmap = TRUE, compression = NULL, filesystem = NULL) {
   if (is.string(file)) {
-    if (grepl("://", file)) {
+    if (is_url(file)) {
       fs_and_path <- FileSystem$from_uri(file)
       filesystem <- fs_and_path$fs
       file <- fs_and_path$path
@@ -252,6 +252,15 @@ make_readable_file <- function(file, mmap = TRUE, compression = NULL, filesystem
   }
   assert_is(file, "InputStream")
   file
+}
+
+make_output_stream <- function(x) {
+  if (is_url(x)) {
+    fs_and_path <- FileSystem$from_uri(x)
+    fs_and_path$fs$OpenOutputStream(fs_and_path$path)
+  } else {
+    FileOutputStream$create(x)
+  }
 }
 
 detect_compression <- function(path) {
