@@ -210,7 +210,11 @@ class PARQUET_EXPORT RowGroupMetaData {
 
   /// \brief Total byte size of all the uncompressed column data in this row group.
   int64_t total_byte_size() const;
-  /// \brief Offset into file at which this row group begins.
+
+  // The file_offset field that this method exposes is optional. This method
+  // will return 0 if that field is not set to a meaningful value.
+  /// \brief Byte offset from beginning of file to first page (data or
+  /// dictionary) in this row group
   int64_t file_offset() const;
   // Return const-pointer to make it clear that this object is not to be copied
   const SchemaDescriptor* schema() const;
