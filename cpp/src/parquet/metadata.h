@@ -213,7 +213,7 @@ class PARQUET_EXPORT RowGroupMetaData {
 
   /// \brief Byte offset from beginning of file to first page (data or
   /// dictionary) in this row group
-
+  ///
   /// The file_offset field that this method exposes is optional. This method
   /// will return 0 if that field is not set to a meaningful value.
   int64_t file_offset() const;
