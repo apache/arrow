@@ -392,10 +392,10 @@ static const ToStringTestParam kToStringTestData[] = {
 class Decimal128ToStringTest : public ::testing::TestWithParam<ToStringTestParam> {};
 
 TEST_P(Decimal128ToStringTest, ToString) {
-  const ToStringTestParam& data = GetParam();
-  const Decimal128 value(data.test_value);
-  const std::string printed_value = value.ToString(data.scale);
-  ASSERT_EQ(data.expected_string, printed_value);
+  const ToStringTestParam& param = GetParam();
+  const Decimal128 value(param.test_value);
+  const std::string printed_value = value.ToString(param.scale);
+  ASSERT_EQ(param.expected_string, printed_value);
 }
 
 INSTANTIATE_TEST_SUITE_P(Decimal128ToStringTest, Decimal128ToStringTest,
