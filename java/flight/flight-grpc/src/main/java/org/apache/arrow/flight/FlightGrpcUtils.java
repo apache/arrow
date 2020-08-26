@@ -51,6 +51,6 @@ public class FlightGrpcUtils {
    * @return FlightClient
    */
   public static FlightClient createFlightClient(BufferAllocator incomingAllocator, ManagedChannel channel) {
-    return new FlightClient(incomingAllocator, channel, Collections.emptyList(), null);
+    return new FlightClient(incomingAllocator, channel, Collections.emptyList());
   }
 }
