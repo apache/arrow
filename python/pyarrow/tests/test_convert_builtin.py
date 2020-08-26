@@ -25,7 +25,6 @@ import datetime
 import decimal
 import itertools
 import math
-import traceback
 
 import numpy as np
 import pytz
