@@ -283,6 +283,13 @@ elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     set(CXX_ONLY_FLAGS "${CXX_ONLY_FLAGS} -Wno-noexcept-type")
   endif()
 
+  if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER "5.2")
+    # Disabling semantic interposition allows faster calling conventions
+    # when calling global functions internally, and can also help inlining.
+    # See https://stackoverflow.com/questions/35745543/new-option-in-gcc-5-3-fno-semantic-interposition
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -fno-semantic-interposition")
+  endif()
+
   if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER "4.9")
     # Add colors when paired with ninja
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fdiagnostics-color=always")
