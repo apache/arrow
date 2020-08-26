@@ -594,6 +594,113 @@ TYPED_TEST(TestFloatingMinMaxKernel, DefaultOptions) {
   AssertDatumsEqual(explicit_defaults, no_options_provided);
 }
 
+template <typename ArrowType>
+using MinMaxResult = std::pair<typename ArrowType::c_type, typename ArrowType::c_type>;
+
+template <typename ArrowType>
+static enable_if_integer<ArrowType, MinMaxResult<ArrowType>> NaiveMinMax(
+    const Array& array) {
+  using T = typename ArrowType::c_type;
+  using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
+
+  const auto& array_numeric = reinterpret_cast<const ArrayType&>(array);
+  const auto values = array_numeric.raw_values();
+
+  if (array.length() <= array.null_count()) {  // All null values
+    return {static_cast<T>(0), static_cast<T>(0)};
+  }
+
+  T min = std::numeric_limits<T>::max();
+  T max = std::numeric_limits<T>::min();
+  if (array.null_count() != 0) {  // Some values are null
+    internal::BitmapReader reader(array.null_bitmap_data(), array.offset(),
+                                  array.length());
+    for (int64_t i = 0; i < array.length(); i++) {
+      if (reader.IsSet()) {
+        min = std::min(min, values[i]);
+        max = std::max(max, values[i]);
+      }
+      reader.Next();
+    }
+  } else {  // All true values
+    for (int64_t i = 0; i < array.length(); i++) {
+      min = std::min(min, values[i]);
+      max = std::max(max, values[i]);
+    }
+  }
+
+  return {min, max};
+}
+
+template <typename ArrowType>
+static enable_if_floating_point<ArrowType, MinMaxResult<ArrowType>> NaiveMinMax(
+    const Array& array) {
+  using T = typename ArrowType::c_type;
+  using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
+
+  const auto& array_numeric = reinterpret_cast<const ArrayType&>(array);
+  const auto values = array_numeric.raw_values();
+
+  if (array.length() <= array.null_count()) {  // All null values
+    return {static_cast<T>(0), static_cast<T>(0)};
+  }
+
+  T min = std::numeric_limits<T>::infinity();
+  T max = -std::numeric_limits<T>::infinity();
+  if (array.null_count() != 0) {  // Some values are null
+    internal::BitmapReader reader(array.null_bitmap_data(), array.offset(),
+                                  array.length());
+    for (int64_t i = 0; i < array.length(); i++) {
+      if (reader.IsSet()) {
+        min = std::fmin(min, values[i]);
+        max = std::fmax(max, values[i]);
+      }
+      reader.Next();
+    }
+  } else {  // All true values
+    for (int64_t i = 0; i < array.length(); i++) {
+      min = std::fmin(min, values[i]);
+      max = std::fmax(max, values[i]);
+    }
+  }
+
+  return {min, max};
+}
+
+template <typename ArrowType>
+void ValidateMinMax(const Array& array) {
+  using Traits = TypeTraits<ArrowType>;
+  using ScalarType = typename Traits::ScalarType;
+
+  ASSERT_OK_AND_ASSIGN(Datum out, MinMax(array));
+  const StructScalar& value = out.scalar_as<StructScalar>();
+
+  auto expected = NaiveMinMax<ArrowType>(array);
+  const auto& out_min = checked_cast<const ScalarType&>(*value.value[0]);
+  ASSERT_EQ(expected.first, out_min.value);
+
+  const auto& out_max = checked_cast<const ScalarType&>(*value.value[1]);
+  ASSERT_EQ(expected.second, out_max.value);
+}
+
+template <typename ArrowType>
+class TestRandomNumericMinMaxKernel : public ::testing::Test {};
+
+TYPED_TEST_SUITE(TestRandomNumericMinMaxKernel, NumericArrowTypes);
+TYPED_TEST(TestRandomNumericMinMaxKernel, RandomArrayMinMax) {
+  auto rand = random::RandomArrayGenerator(0x8afc055);
+  // Test size up to 1<<13 (8192).
+  for (size_t i = 3; i < 14; i += 2) {
+    for (auto null_probability : {0.0, 0.001, 0.1, 0.5, 0.999, 1.0}) {
+      for (auto length_adjust : {-2, -1, 0, 1, 2}) {
+        int64_t length = (1UL << i) + length_adjust;
+        auto array = rand.Numeric<TypeParam>(length, 0, 100, null_probability);
+        ValidateMinMax<TypeParam>(*array);
+      }
+    }
+  }
+}
+
 //
 // Mode
 //
