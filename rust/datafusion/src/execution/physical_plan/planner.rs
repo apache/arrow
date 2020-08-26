@@ -24,19 +24,19 @@ use crate::error::{ExecutionError, Result};
 use crate::execution::context::ExecutionContextState;
 use crate::execution::physical_plan::csv::{CsvExec, CsvReadOptions};
 use crate::execution::physical_plan::explain::ExplainExec;
-use crate::execution::physical_plan::expressions;
 use crate::execution::physical_plan::expressions::{
     Avg, Column, Count, Literal, Max, Min, PhysicalSortExpr, Sum,
 };
 use crate::execution::physical_plan::filter::FilterExec;
-use crate::execution::physical_plan::hash_aggregate::HashAggregateExec;
-use crate::execution::physical_plan::limit::GlobalLimitExec;
+use crate::execution::physical_plan::hash_aggregate::{AggregateMode, HashAggregateExec};
+use crate::execution::physical_plan::limit::{GlobalLimitExec, LocalLimitExec};
 use crate::execution::physical_plan::memory::MemoryExec;
 use crate::execution::physical_plan::merge::MergeExec;
 use crate::execution::physical_plan::parquet::ParquetExec;
 use crate::execution::physical_plan::projection::ProjectionExec;
 use crate::execution::physical_plan::sort::SortExec;
 use crate::execution::physical_plan::udf::ScalarFunctionExpr;
+use crate::execution::physical_plan::{expressions, Distribution};
 use crate::execution::physical_plan::{
     AggregateExpr, ExecutionPlan, PhysicalExpr, PhysicalPlanner,
 };
@@ -58,6 +58,55 @@ impl Default for DefaultPhysicalPlanner {
 impl PhysicalPlanner for DefaultPhysicalPlanner {
     /// Create a physical plan from a logical plan
     fn create_physical_plan(
+        &self,
+        logical_plan: &LogicalPlan,
+        ctx_state: &ExecutionContextState,
+    ) -> Result<Arc<dyn ExecutionPlan>> {
+        let plan = self.create_initial_plan(logical_plan, ctx_state)?;
+        self.optimize_plan(plan, ctx_state)
+    }
+}
+
+impl DefaultPhysicalPlanner {
+    /// Create a physical plan from a logical plan
+    fn optimize_plan(
+        &self,
+        plan: Arc<dyn ExecutionPlan>,
+        ctx_state: &ExecutionContextState,
+    ) -> Result<Arc<dyn ExecutionPlan>> {
+        let children = plan
+            .children()
+            .iter()
+            .map(|child| self.optimize_plan(child.clone(), ctx_state))
+            .collect::<Result<Vec<_>>>()?;
+
+        if children.len() == 0 {
+            // leaf node, children cannot be replaced
+            Ok(plan.clone())
+        } else {
+            match plan.required_child_distribution() {
+                Distribution::UnspecifiedDistribution => plan.with_new_children(children),
+                Distribution::SinglePartition => plan.with_new_children(
+                    children
+                        .iter()
+                        .map(|child| {
+                            if child.output_partitioning().partition_count() == 1 {
+                                child.clone()
+                            } else {
+                                Arc::new(MergeExec::new(
+                                    child.clone(),
+                                    ctx_state.config.concurrency,
+                                ))
+                            }
+                        })
+                        .collect(),
+                ),
+            }
+        }
+    }
+
+    /// Create a physical plan from a logical plan
+    fn create_initial_plan(
         &self,
         logical_plan: &LogicalPlan,
         ctx_state: &ExecutionContextState,
@@ -153,26 +202,20 @@ impl PhysicalPlanner for DefaultPhysicalPlanner {
                     .collect::<Result<Vec<_>>>()?;
 
                 let initial_aggr = HashAggregateExec::try_new(
+                    AggregateMode::Partial,
                     groups.clone(),
                     aggregates.clone(),
                     input,
                 )?;
 
-                let schema = initial_aggr.schema();
-
                 if initial_aggr.output_partitioning().partition_count() == 1 {
                     return Ok(Arc::new(initial_aggr));
                 }
 
-                let initial_aggr = Arc::new(initial_aggr);
-                let merge = Arc::new(MergeExec::new(
-                    schema.clone(),
-                    initial_aggr.clone(),
-                    ctx_state.config.concurrency,
-                ));
+                let partial_aggr = Arc::new(initial_aggr);
 
                 // construct the expressions for the final aggregation
-                let (final_group, final_aggr) = initial_aggr.make_final_expr(
+                let (final_group, final_aggr) = partial_aggr.make_final_expr(
                     groups.iter().map(|x| x.1.clone()).collect(),
                     aggregates.iter().map(|x| x.1.clone()).collect(),
                 );
@@ -180,6 +223,7 @@ impl PhysicalPlanner for DefaultPhysicalPlanner {
                 // construct a second aggregation, keeping the final column name equal to the first aggregation
                 // and the expressions corresponding to the respective aggregate
                 Ok(Arc::new(HashAggregateExec::try_new(
+                    AggregateMode::Final,
                     final_group
                         .iter()
                         .enumerate()
@@ -190,7 +234,7 @@ impl PhysicalPlanner for DefaultPhysicalPlanner {
                         .enumerate()
                         .map(|(i, expr)| (expr.clone(), aggregates[i].1.clone()))
                         .collect(),
-                    merge,
+                    partial_aggr,
                 )?))
             }
             LogicalPlan::Filter {
@@ -235,13 +279,21 @@ impl PhysicalPlanner for DefaultPhysicalPlanner {
                 )?))
             }
             LogicalPlan::Limit { input, n, .. } => {
+                let limit = *n;
                 let input = self.create_physical_plan(input, ctx_state)?;
-                let input_schema = input.as_ref().schema().clone();
+
+                // GlobalLimitExec requires a single partition for input
+                let input = if input.output_partitioning().partition_count() == 1 {
+                    input
+                } else {
+                    // Apply a LocalLimitExec to each partition. The optimizer will also insert
+                    // a MergeExec between the GlobalLimitExec and LocalLimitExec
+                    Arc::new(LocalLimitExec::new(input, limit))
+                };
 
                 Ok(Arc::new(GlobalLimitExec::new(
-                    input_schema.clone(),
                     input,
-                    *n,
+                    limit,
                     ctx_state.config.concurrency,
                 )))
             }
@@ -274,9 +326,7 @@ impl PhysicalPlanner for DefaultPhysicalPlanner {
             )),
         }
     }
-}
 
-impl DefaultPhysicalPlanner {
     /// Create a physical expression from a logical expression
     pub fn create_physical_expr(
         &self,

@@ -17,7 +17,7 @@
 
 //! Defines the EXPLAIN operator
 
-use crate::error::Result;
+use crate::error::{ExecutionError, Result};
 use crate::{
     execution::physical_plan::{common::RecordBatchIterator, ExecutionPlan},
     logicalplan::StringifiedPlan,
@@ -34,7 +34,7 @@ use std::sync::{Arc, Mutex};
 /// Explain execution plan operator. This operator contains the string
 /// values of the various plans it has when it is created, and passes
 /// them to its output.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ExplainExec {
     /// The schema that this exec plan node outputs
     schema: SchemaRef,
@@ -58,16 +58,39 @@ impl ExecutionPlan for ExplainExec {
         self.schema.clone()
     }
 
+    fn children(&self) -> Vec<Arc<dyn ExecutionPlan>> {
+        // this is a leaf node and has no children
+        vec![]
+    }
+
     /// Get the output partitioning of this plan
     fn output_partitioning(&self) -> Partitioning {
         Partitioning::UnknownPartitioning(1)
     }
 
+    fn with_new_children(
+        &self,
+        children: Vec<Arc<dyn ExecutionPlan>>,
+    ) -> Result<Arc<dyn ExecutionPlan>> {
+        if children.is_empty() {
+            Ok(Arc::new(self.clone()))
+        } else {
+            Err(ExecutionError::General(format!(
+                "Children cannot be replaced in {:?}",
+                self
+            )))
+        }
+    }
     fn execute(
         &self,
         partition: usize,
     ) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
-        assert_eq!(0, partition);
+        if 0 != partition {
+            return Err(ExecutionError::General(format!(
+                "ExplainExec invalid partition {}",
+                partition
+            )));
+        }
 
         let mut type_builder = StringArray::builder(self.stringified_plans.len());
         let mut plan_builder = StringArray::builder(self.stringified_plans.len());

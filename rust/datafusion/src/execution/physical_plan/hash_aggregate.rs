@@ -23,7 +23,7 @@ use std::sync::{Arc, Mutex};
 
 use crate::error::{ExecutionError, Result};
 use crate::execution::physical_plan::{
-    Accumulator, AggregateExpr, ExecutionPlan, Partitioning, PhysicalExpr,
+    Accumulator, AggregateExpr, Distribution, ExecutionPlan, Partitioning, PhysicalExpr,
 };
 
 use arrow::array::{
@@ -44,11 +44,21 @@ use crate::execution::physical_plan::expressions::col;
 use crate::logicalplan::ScalarValue;
 use fnv::FnvHashMap;
 
+/// Hash aggregate modes
+#[derive(Debug, Copy, Clone)]
+pub enum AggregateMode {
+    /// Partial aggregate that can be applied in parallel across input partitions
+    Partial,
+    /// Final aggregate that produces a single partition of output
+    Final,
+}
+
 /// Hash aggregate execution plan
 #[derive(Debug)]
 pub struct HashAggregateExec {
-    group_expr: Vec<Arc<dyn PhysicalExpr>>,
-    aggr_expr: Vec<Arc<dyn AggregateExpr>>,
+    mode: AggregateMode,
+    group_expr: Vec<(Arc<dyn PhysicalExpr>, String)>,
+    aggr_expr: Vec<(Arc<dyn AggregateExpr>, String)>,
     input: Arc<dyn ExecutionPlan>,
     schema: SchemaRef,
 }
@@ -56,6 +66,7 @@ pub struct HashAggregateExec {
 impl HashAggregateExec {
     /// Create a new hash aggregate execution plan
     pub fn try_new(
+        mode: AggregateMode,
         group_expr: Vec<(Arc<dyn PhysicalExpr>, String)>,
         aggr_expr: Vec<(Arc<dyn AggregateExpr>, String)>,
         input: Arc<dyn ExecutionPlan>,
@@ -80,8 +91,9 @@ impl HashAggregateExec {
         let schema = Arc::new(Schema::new(fields));
 
         Ok(HashAggregateExec {
-            group_expr: group_expr.iter().map(|x| x.0.clone()).collect(),
-            aggr_expr: aggr_expr.iter().map(|x| x.0.clone()).collect(),
+            mode,
+            group_expr,
+            aggr_expr,
             input,
             schema,
         })
@@ -99,7 +111,7 @@ impl HashAggregateExec {
             .collect();
 
         let final_aggr: Vec<Arc<dyn AggregateExpr>> = (0..self.aggr_expr.len())
-            .map(|i| self.aggr_expr[i].create_reducer(&agg_names[i]))
+            .map(|i| self.aggr_expr[i].0.create_reducer(&agg_names[i]))
             .collect();
 
         (final_group, final_aggr)
@@ -109,6 +121,17 @@ impl HashAggregateExec {
 impl ExecutionPlan for HashAggregateExec {
     fn schema(&self) -> SchemaRef {
         self.schema.clone()
+    }
+
+    fn children(&self) -> Vec<Arc<dyn ExecutionPlan>> {
+        vec![self.input.clone()]
+    }
+
+    fn required_child_distribution(&self) -> Distribution {
+        match &self.mode {
+            AggregateMode::Partial => Distribution::UnspecifiedDistribution,
+            AggregateMode::Final => Distribution::SinglePartition,
+        }
     }
 
     /// Get the output partitioning of this plan
@@ -121,19 +144,38 @@ impl ExecutionPlan for HashAggregateExec {
         partition: usize,
     ) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
         let input = self.input.execute(partition)?;
+        let group_expr = self.group_expr.iter().map(|x| x.0.clone()).collect();
+        let aggr_expr = self.aggr_expr.iter().map(|x| x.0.clone()).collect();
         if self.group_expr.is_empty() {
             Ok(Arc::new(Mutex::new(HashAggregateIterator::new(
                 self.schema.clone(),
-                self.aggr_expr.clone(),
+                aggr_expr,
                 input,
             ))))
         } else {
             Ok(Arc::new(Mutex::new(GroupedHashAggregateIterator::new(
                 self.schema.clone(),
-                self.group_expr.clone(),
-                self.aggr_expr.clone(),
+                group_expr,
+                aggr_expr,
                 input,
             ))))
+        }
+    }
+
+    fn with_new_children(
+        &self,
+        children: Vec<Arc<dyn ExecutionPlan>>,
+    ) -> Result<Arc<dyn ExecutionPlan>> {
+        match children.len() {
+            1 => Ok(Arc::new(HashAggregateExec::try_new(
+                self.mode,
+                self.group_expr.clone(),
+                self.aggr_expr.clone(),
+                children[0].clone(),
+            )?)),
+            _ => Err(ExecutionError::General(
+                "HashAggregateExec wrong number of children".to_string(),
+            )),
         }
     }
 }
@@ -689,23 +731,23 @@ mod tests {
         let aggregates: Vec<(Arc<dyn AggregateExpr>, String)> =
             vec![(sum(col("c4")), "SUM(c4)".to_string())];
 
-        let partition_aggregate = Arc::new(HashAggregateExec::try_new(
+        let partial_aggregate = Arc::new(HashAggregateExec::try_new(
+            AggregateMode::Partial,
             groups.clone(),
             aggregates.clone(),
             Arc::new(csv),
         )?);
 
-        let schema = partition_aggregate.schema();
-
         // construct the expressions for the final aggregation
-        let (final_group, final_aggr) = partition_aggregate.make_final_expr(
+        let (final_group, final_aggr) = partial_aggregate.make_final_expr(
             groups.iter().map(|x| x.1.clone()).collect(),
             aggregates.iter().map(|x| x.1.clone()).collect(),
         );
 
-        let merge = Arc::new(MergeExec::new(schema.clone(), partition_aggregate, 2));
+        let merge = Arc::new(MergeExec::new(partial_aggregate, 2));
 
         let merged_aggregate = Arc::new(HashAggregateExec::try_new(
+            AggregateMode::Final,
             final_group
                 .iter()
                 .enumerate()

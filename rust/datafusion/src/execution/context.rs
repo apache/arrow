@@ -339,7 +339,6 @@ impl ExecutionContext {
             _ => {
                 // merge into a single partition
                 let plan = MergeExec::new(
-                    plan.schema().clone(),
                     plan.clone(),
                     self.state
                         .lock()

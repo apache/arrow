@@ -35,7 +35,7 @@ use fmt::Debug;
 use parquet::arrow::{ArrowReader, ParquetFileArrowReader};
 
 /// Execution plan for scanning a Parquet file
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ParquetExec {
     /// Path to directory containing partitioned Parquet files with the same schema
     filenames: Vec<String>,
@@ -91,9 +91,28 @@ impl ExecutionPlan for ParquetExec {
         self.schema.clone()
     }
 
+    fn children(&self) -> Vec<Arc<dyn ExecutionPlan>> {
+        // this is a leaf node and has no children
+        vec![]
+    }
+
     /// Get the output partitioning of this plan
     fn output_partitioning(&self) -> Partitioning {
         Partitioning::UnknownPartitioning(self.filenames.len())
+    }
+
+    fn with_new_children(
+        &self,
+        children: Vec<Arc<dyn ExecutionPlan>>,
+    ) -> Result<Arc<dyn ExecutionPlan>> {
+        if children.is_empty() {
+            Ok(Arc::new(self.clone()))
+        } else {
+            Err(ExecutionError::General(format!(
+                "Children cannot be replaced in {:?}",
+                self
+            )))
+        }
     }
 
     fn execute(

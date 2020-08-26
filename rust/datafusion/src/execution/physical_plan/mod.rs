@@ -50,6 +50,20 @@ pub trait ExecutionPlan: Debug + Send + Sync {
     fn schema(&self) -> SchemaRef;
     /// Specifies the output partitioning scheme of this plan
     fn output_partitioning(&self) -> Partitioning;
+    /// Specifies the data distribution requirements of all the children for this operator
+    fn required_child_distribution(&self) -> Distribution {
+        Distribution::UnspecifiedDistribution
+    }
+    /// Get a list of child execution plans that provide the input for this plan. The returned list
+    /// will be empty for leaf nodes, will contain a single value for unary nodes, or two
+    /// values for binary nodes (such as joins).
+    fn children(&self) -> Vec<Arc<dyn ExecutionPlan>>;
+    /// Returns a new plan where all children were replaced by new plans.
+    /// The size of `children` must be equal to the size of `ExecutionPlan::children()`.
+    fn with_new_children(
+        &self,
+        children: Vec<Arc<dyn ExecutionPlan>>,
+    ) -> Result<Arc<dyn ExecutionPlan>>;
     /// Execute one partition and return an iterator over RecordBatch
     fn execute(
         &self,
@@ -72,6 +86,15 @@ impl Partitioning {
             UnknownPartitioning(n) => *n,
         }
     }
+}
+
+/// Distribution schemes
+#[derive(Debug, Clone)]
+pub enum Distribution {
+    /// Unspecified distribution
+    UnspecifiedDistribution,
+    /// A single partition is required
+    SinglePartition,
 }
 
 /// Expression that can be evaluated against a RecordBatch

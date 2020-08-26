@@ -64,9 +64,28 @@ impl ExecutionPlan for FilterExec {
         self.input.schema()
     }
 
+    fn children(&self) -> Vec<Arc<dyn ExecutionPlan>> {
+        vec![self.input.clone()]
+    }
+
     /// Get the output partitioning of this plan
     fn output_partitioning(&self) -> Partitioning {
         self.input.output_partitioning()
+    }
+
+    fn with_new_children(
+        &self,
+        children: Vec<Arc<dyn ExecutionPlan>>,
+    ) -> Result<Arc<dyn ExecutionPlan>> {
+        match children.len() {
+            1 => Ok(Arc::new(FilterExec::try_new(
+                self.predicate.clone(),
+                children[0].clone(),
+            )?)),
+            _ => Err(ExecutionError::General(
+                "FilterExec wrong number of children".to_string(),
+            )),
+        }
     }
 
     fn execute(

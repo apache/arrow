@@ -33,9 +33,7 @@ use arrow::record_batch::{RecordBatch, RecordBatchReader};
 /// partition. No guarantees are made about the order of the resulting partition.
 #[derive(Debug)]
 pub struct MergeExec {
-    /// Input schema
-    schema: SchemaRef,
-    /// Input partitions
+    /// Input execution plan
     input: Arc<dyn ExecutionPlan>,
     /// Maximum number of concurrent threads
     concurrency: usize,
@@ -43,13 +41,8 @@ pub struct MergeExec {
 
 impl MergeExec {
     /// Create a new MergeExec
-    pub fn new(
-        schema: SchemaRef,
-        input: Arc<dyn ExecutionPlan>,
-        max_concurrency: usize,
-    ) -> Self {
+    pub fn new(input: Arc<dyn ExecutionPlan>, max_concurrency: usize) -> Self {
         MergeExec {
-            schema,
             input,
             concurrency: max_concurrency,
         }
@@ -58,7 +51,11 @@ impl MergeExec {
 
 impl ExecutionPlan for MergeExec {
     fn schema(&self) -> SchemaRef {
-        self.schema.clone()
+        self.input.schema()
+    }
+
+    fn children(&self) -> Vec<Arc<dyn ExecutionPlan>> {
+        vec![self.input.clone()]
     }
 
     /// Get the output partitioning of this plan
@@ -66,12 +63,32 @@ impl ExecutionPlan for MergeExec {
         Partitioning::UnknownPartitioning(1)
     }
 
+    fn with_new_children(
+        &self,
+        children: Vec<Arc<dyn ExecutionPlan>>,
+    ) -> Result<Arc<dyn ExecutionPlan>> {
+        match children.len() {
+            1 => Ok(Arc::new(MergeExec::new(
+                children[0].clone(),
+                self.concurrency,
+            ))),
+            _ => Err(ExecutionError::General(
+                "MergeExec wrong number of children".to_string(),
+            )),
+        }
+    }
+
     fn execute(
         &self,
         partition: usize,
     ) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
         // MergeExec produces a single partition
-        assert_eq!(0, partition);
+        if 0 != partition {
+            return Err(ExecutionError::General(format!(
+                "MergeExec invalid partition {}",
+                partition
+            )));
+        }
 
         let input_partitions = self.input.output_partitioning().partition_count();
         match input_partitions {
@@ -110,7 +127,7 @@ impl ExecutionPlan for MergeExec {
                 }
 
                 Ok(Arc::new(Mutex::new(RecordBatchIterator::new(
-                    self.schema.clone(),
+                    self.input.schema(),
                     combined_results,
                 ))))
             }
@@ -158,7 +175,7 @@ mod tests {
         // input should have 4 partitions
         assert_eq!(csv.output_partitioning().partition_count(), num_partitions);
 
-        let merge = MergeExec::new(schema.clone(), Arc::new(csv), 2);
+        let merge = MergeExec::new(Arc::new(csv), 2);
 
         // output of MergeExec should have a single partition
         assert_eq!(merge.output_partitioning().partition_count(), 1);
