@@ -216,11 +216,12 @@ public class TestDecimalVector {
   }
 
   /**
-   * Test {@link DecimalVector#setBigEndian(int, byte[])} which takes BE layout input and stores in LE layout.
+   * Test {@link DecimalVector#setBigEndian(int, byte[])} which takes BE layout input and stores in native-endian (NE)
+   * layout.
    * Cases to cover: input byte array in different lengths in range [1-16] and negative values.
    */
   @Test
-  public void decimalBE2LE() {
+  public void decimalBE2NE() {
     try (DecimalVector decimalVector = TestUtils.newVector(DecimalVector.class, "decimal",
         new ArrowType.Decimal(21, 2, 128), allocator)) {
       decimalVector.allocateNew();
@@ -270,7 +271,7 @@ public class TestDecimalVector {
   }
 
   @Test
-  public void setUsingArrowBufOfLEInts() {
+  public void setUsingArrowBufOfInts() {
     try (DecimalVector decimalVector = TestUtils.newVector(DecimalVector.class, "decimal",
             new ArrowType.Decimal(5, 2, 128), allocator);
          ArrowBuf buf = allocator.buffer(8);) {
@@ -299,7 +300,7 @@ public class TestDecimalVector {
   }
 
   @Test
-  public void setUsingArrowLongLEBytes() {
+  public void setUsingArrowLongBytes() {
     try (DecimalVector decimalVector = TestUtils.newVector(DecimalVector.class, "decimal",
             new ArrowType.Decimal(18, 0, 128), allocator);
          ArrowBuf buf = allocator.buffer(16);) {

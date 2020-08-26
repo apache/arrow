@@ -62,10 +62,10 @@ public class MessageSerializer {
   public static final int IPC_CONTINUATION_TOKEN = -1;
 
   /**
-   * Convert an array of 4 bytes to a little endian i32 value.
+   * Convert an array of 4 bytes in little-endian to an native-endian i32 value.
    *
-   * @param bytes byte array with minimum length of 4
-   * @return converted little endian 32-bit integer
+   * @param bytes byte array with minimum length of 4 in little-endian
+   * @return converted an native-endian 32-bit integer
    */
   public static int bytesToInt(byte[] bytes) {
     return ((bytes[3] & 255) << 24) +
