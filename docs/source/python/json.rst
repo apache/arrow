@@ -38,6 +38,9 @@ The features currently offered are the following:
   such as ``my_data.json.gz``)
 * sophisticated type inference (see below)
 
+.. note::
+   Currently only the line-delimited JSON (LDJSON) format is supported.
+
 
 Usage
 -----
