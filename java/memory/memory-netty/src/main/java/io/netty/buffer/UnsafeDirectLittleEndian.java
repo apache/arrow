@@ -33,7 +33,6 @@ import io.netty.util.internal.PlatformDependent;
 public class UnsafeDirectLittleEndian extends WrappedByteBuf {
 
   public static final boolean ASSERT_ENABLED;
-  private static final boolean NATIVE_ORDER = ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN;
   private static final AtomicLong ID_GENERATOR = new AtomicLong(0);
 
   static {
@@ -60,9 +59,6 @@ public class UnsafeDirectLittleEndian extends WrappedByteBuf {
 
   private UnsafeDirectLittleEndian(AbstractByteBuf buf, boolean fake) {
     super(buf);
-    if (!NATIVE_ORDER || buf.order() != ByteOrder.BIG_ENDIAN) {
-      throw new IllegalStateException("Arrow only runs on LittleEndian systems.");
-    }
 
     this.wrapped = buf;
     this.memoryAddress = buf.memoryAddress();
