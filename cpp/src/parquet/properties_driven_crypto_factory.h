@@ -195,7 +195,7 @@ class PARQUET_EXPORT PropertiesDrivenCryptoFactory {
       std::shared_ptr<DecryptionConfiguration> decryption_config);
 
  private:
-  static constexpr int32_t ACCEPTABLE_DATA_KEY_LENGTHS[] = {128, 192, 256};
+  static constexpr int32_t kAcceptableDataKeyLengths[] = {128, 192, 256};
 
   ColumnPathToEncryptionPropertiesMap GetColumnEncryptionProperties(
       int dek_length, const std::string column_keys, FileKeyWrapper& key_wrapper);

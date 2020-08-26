@@ -42,12 +42,12 @@ using encryption::KmsClientFactory;
 using encryption::KmsConnectionConfig;
 using encryption::PropertiesDrivenCryptoFactory;
 
-const char FOOTER_MASTER_KEY[] = "0123456789112345";
-const char* const COLUMN_MASTER_KEYS[] = {"1234567890123450", "1234567890123451",
-                                          "1234567890123452", "1234567890123453",
-                                          "1234567890123454", "1234567890123455"};
-const char* const COLUMN_MASTER_KEY_IDS[] = {"kc1", "kc2", "kc3", "kc4", "kc5", "kc6"};
-const char FOOTER_MASTER_KEY_ID[] = "kf";
+const char kFooterMasterKey[] = "0123456789112345";
+const char* const kColumnMasterKeys[] = {"1234567890123450", "1234567890123451",
+                                         "1234567890123452", "1234567890123453",
+                                         "1234567890123454", "1234567890123455"};
+const char* const kColumnMasterKeyIds[] = {"kc1", "kc2", "kc3", "kc4", "kc5", "kc6"};
+const char kFooterMasterKeyId[] = "kf";
 
 std::map<std::string, std::string> BuildKeyMap(const char* const* column_ids,
                                                const char* const* column_keys,
@@ -66,20 +66,20 @@ std::map<std::string, std::string> BuildKeyMap(const char* const* column_ids,
 
 std::string BuildColumnKeyMapping() {
   std::ostringstream stream;
-  stream << COLUMN_MASTER_KEY_IDS[0] << ":" << DOUBLE_FIELD_NAME << ";"
-         << COLUMN_MASTER_KEY_IDS[1] << ":" << FLOAT_FIELD_NAME << ";"
-         << COLUMN_MASTER_KEY_IDS[2] << ":" << BOOLEAN_FIELD_NAME << ";"
-         << COLUMN_MASTER_KEY_IDS[3] << ":" << INT32_FIELD_NAME << ";"
-         << COLUMN_MASTER_KEY_IDS[4] << ":" << BA_FIELD_NAME << ";"
-         << COLUMN_MASTER_KEY_IDS[5] << ":" << FLBA_FIELD_NAME << ";";
+  stream << kColumnMasterKeyIds[0] << ":" << DOUBLE_FIELD_NAME << ";"
+         << kColumnMasterKeyIds[1] << ":" << FLOAT_FIELD_NAME << ";"
+         << kColumnMasterKeyIds[2] << ":" << BOOLEAN_FIELD_NAME << ";"
+         << kColumnMasterKeyIds[3] << ":" << INT32_FIELD_NAME << ";"
+         << kColumnMasterKeyIds[4] << ":" << BA_FIELD_NAME << ";"
+         << kColumnMasterKeyIds[5] << ":" << FLBA_FIELD_NAME << ";";
   return stream.str();
 }
 
 class TestEncrytionKeyManagement : public ::testing::Test {
  public:
   void SetUp() {
-    key_list_ = BuildKeyMap(COLUMN_MASTER_KEY_IDS, COLUMN_MASTER_KEYS,
-                            FOOTER_MASTER_KEY_ID, FOOTER_MASTER_KEY);
+    key_list_ = BuildKeyMap(kColumnMasterKeyIds, kColumnMasterKeys, kFooterMasterKeyId,
+                            kFooterMasterKey);
     column_key_mapping_ = BuildColumnKeyMapping();
 
     kms_connection_config_.refreshable_key_access_token =
@@ -133,23 +133,23 @@ class TestEncrytionKeyManagement : public ::testing::Test {
     std::vector<EncryptionConfiguration::Builder*> config_builders;
 
     // encrypt some columns and footer, different keys
-    EncryptionConfiguration::Builder builder1(FOOTER_MASTER_KEY_ID);
+    EncryptionConfiguration::Builder builder1(kFooterMasterKeyId);
     builder1.column_keys(column_key_mapping_);
     config_builders.push_back(&builder1);
 
     // encrypt columns, plaintext footer, different keys
-    EncryptionConfiguration::Builder builder2(FOOTER_MASTER_KEY_ID);
+    EncryptionConfiguration::Builder builder2(kFooterMasterKeyId);
     builder2.column_keys(column_key_mapping_)->plaintext_footer(true);
     config_builders.push_back(&builder2);
 
     // encrypt some columns and footer, same key
-    EncryptionConfiguration::Builder builder3(FOOTER_MASTER_KEY_ID);
+    EncryptionConfiguration::Builder builder3(kFooterMasterKeyId);
     builder3.uniform_encryption();
     config_builders.push_back(&builder3);
 
     // Encrypt two columns and the footer, with different keys.
     // Use AES_GCM_CTR_V1 algorithm.
-    EncryptionConfiguration::Builder builder4(FOOTER_MASTER_KEY_ID);
+    EncryptionConfiguration::Builder builder4(kFooterMasterKeyId);
     builder4.column_keys(column_key_mapping_)
         ->encryption_algorithm(ParquetCipher::AES_GCM_CTR_V1);
     config_builders.push_back(&builder4);

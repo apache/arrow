@@ -26,10 +26,10 @@
 namespace parquet {
 namespace encryption {
 
-constexpr char RemoteKmsClient::LOCAL_WRAP_NO_KEY_VERSION[];
+constexpr char RemoteKmsClient::kLocalWrapNoKeyVersion[];
 
-constexpr char RemoteKmsClient::LocalKeyWrap::LOCAL_WRAP_KEY_VERSION_FIELD[];
-constexpr char RemoteKmsClient::LocalKeyWrap::LOCAL_WRAP_ENCRYPTED_KEY_FIELD[];
+constexpr char RemoteKmsClient::LocalKeyWrap::kLocalWrapKeyVersionField[];
+constexpr char RemoteKmsClient::LocalKeyWrap::kLocalWrapEncryptedKeyField[];
 
 RemoteKmsClient::LocalKeyWrap::LocalKeyWrap(const std::string& master_key_version,
                                             const std::string& encrypted_encoded_key)
@@ -42,11 +42,11 @@ std::string RemoteKmsClient::LocalKeyWrap::CreateSerialized(
   auto& allocator = d.GetAllocator();
   rapidjson::Value root(rapidjson::kObjectType);
 
-  root.AddMember(LOCAL_WRAP_KEY_VERSION_FIELD, LOCAL_WRAP_NO_KEY_VERSION, allocator);
+  root.AddMember(kLocalWrapKeyVersionField, kLocalWrapNoKeyVersion, allocator);
 
   rapidjson::Value value(rapidjson::kStringType);
   value.SetString(encrypted_encoded_key.c_str(), allocator);
-  root.AddMember(LOCAL_WRAP_ENCRYPTED_KEY_FIELD, value, allocator);
+  root.AddMember(kLocalWrapEncryptedKeyField, value, allocator);
 
   rapidjson::StringBuffer buffer;
   rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
@@ -63,9 +63,9 @@ RemoteKmsClient::LocalKeyWrap RemoteKmsClient::LocalKeyWrap::Parse(
     throw ParquetException("Failed to parse local key wrap json " + wrapped_key);
   }
   std::string master_key_version =
-      key_wrap_document[LOCAL_WRAP_KEY_VERSION_FIELD].GetString();
+      key_wrap_document[kLocalWrapKeyVersionField].GetString();
   std::string encrypted_encoded_key =
-      key_wrap_document[LOCAL_WRAP_ENCRYPTED_KEY_FIELD].GetString();
+      key_wrap_document[kLocalWrapEncryptedKeyField].GetString();
 
   return RemoteKmsClient::LocalKeyWrap(master_key_version, encrypted_encoded_key);
 }
@@ -79,7 +79,7 @@ void RemoteKmsClient::Initialize(const KmsConnectionConfig& kms_connection_confi
   }
 
   is_default_token_ =
-      kms_connection_config_.key_access_token() == KmsClient::KEY_ACCESS_TOKEN_DEFAULT;
+      kms_connection_config_.key_access_token() == KmsClient::kKeyAccessTokenDefault;
 
   InitializeInternal();
 }
@@ -106,7 +106,7 @@ std::string RemoteKmsClient::UnwrapKey(const std::string& wrapped_key,
   if (is_wrap_locally_) {
     LocalKeyWrap key_wrap = LocalKeyWrap::Parse(wrapped_key);
     const std::string& master_key_version = key_wrap.master_key_version();
-    if (LOCAL_WRAP_NO_KEY_VERSION != master_key_version) {
+    if (kLocalWrapNoKeyVersion != master_key_version) {
       throw ParquetException(
           "Master key versions are not supported for local wrapping: " +
           master_key_version);

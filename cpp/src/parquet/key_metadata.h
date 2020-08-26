@@ -52,8 +52,8 @@ namespace encryption {
 // keeps additional fields, described in the KeyMaterial class.
 class KeyMetadata {
  public:
-  static constexpr char KEY_MATERIAL_INTERNAL_STORAGE_FIELD[] = "internalStorage";
-  static constexpr char KEY_REFERENCE_FIELD[] = "keyReference";
+  static constexpr char kKeyMaterialInternalStorageField[] = "internalStorage";
+  static constexpr char kKeyReferenceField[] = "keyReference";
 
   static KeyMetadata Parse(const std::string& key_metadata_bytes);
 

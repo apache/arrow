@@ -25,8 +25,8 @@
 namespace parquet {
 namespace encryption {
 
-constexpr char KeyMetadata::KEY_MATERIAL_INTERNAL_STORAGE_FIELD[];
-constexpr char KeyMetadata::KEY_REFERENCE_FIELD[];
+constexpr char KeyMetadata::kKeyMaterialInternalStorageField[];
+constexpr char KeyMetadata::kKeyReferenceField[];
 
 KeyMetadata::KeyMetadata(const std::string& key_reference)
     : is_internal_storage_(false), key_reference_(key_reference) {}
@@ -44,15 +44,15 @@ KeyMetadata KeyMetadata::Parse(const std::string& key_metadata) {
 
   // 1. Extract "key material type", and make sure it is supported
   std::string key_material_type =
-      document[KeyMaterial::KEY_MATERIAL_TYPE_FIELD].GetString();
-  if (key_material_type != KeyMaterial::KEY_MATERIAL_TYPE1) {
+      document[KeyMaterial::kKeyMaterialTypeField].GetString();
+  if (key_material_type != KeyMaterial::kKeyMaterialType1) {
     throw ParquetException("Wrong key material type: " + key_material_type + " vs " +
-                           KeyMaterial::KEY_MATERIAL_TYPE1);
+                           KeyMaterial::kKeyMaterialType1);
   }
 
   // 2. Check if "key material" is stored internally in Parquet file key metadata, or is
   // stored externally
-  bool is_internal_storage = document[KEY_MATERIAL_INTERNAL_STORAGE_FIELD].GetBool();
+  bool is_internal_storage = document[kKeyMaterialInternalStorageField].GetBool();
 
   if (is_internal_storage) {
     // 3.1 "key material" is stored internally, inside "key metadata" - parse it
@@ -60,7 +60,7 @@ KeyMetadata KeyMetadata::Parse(const std::string& key_metadata) {
     return KeyMetadata(key_material);
   } else {
     // 3.2 "key material" is stored externally. "key metadata" keeps a reference to it
-    std::string key_reference = document[KEY_REFERENCE_FIELD].GetString();
+    std::string key_reference = document[kKeyReferenceField].GetString();
     return KeyMetadata(key_reference);
   }
 }
@@ -73,13 +73,13 @@ std::string KeyMetadata::CreateSerializedForExternalMaterial(
   auto& allocator = d.GetAllocator();
   rapidjson::Value key_metadata_map(rapidjson::kObjectType);
 
-  key_metadata_map.AddMember(KeyMaterial::KEY_MATERIAL_TYPE_FIELD,
-                             KeyMaterial::KEY_MATERIAL_TYPE1, allocator);
-  key_metadata_map.AddMember(KEY_MATERIAL_INTERNAL_STORAGE_FIELD, false, allocator);
+  key_metadata_map.AddMember(KeyMaterial::kKeyMaterialTypeField,
+                             KeyMaterial::kKeyMaterialType1, allocator);
+  key_metadata_map.AddMember(kKeyMaterialInternalStorageField, false, allocator);
 
   rapidjson::Value value(rapidjson::kStringType);
   value.SetString(key_reference.c_str(), allocator);
-  key_metadata_map.AddMember(KEY_REFERENCE_FIELD, value, allocator);
+  key_metadata_map.AddMember(kKeyReferenceField, value, allocator);
 
   rapidjson::StringBuffer buffer;
   rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);

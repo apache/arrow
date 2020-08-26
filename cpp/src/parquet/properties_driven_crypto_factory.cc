@@ -29,7 +29,7 @@
 namespace parquet {
 namespace encryption {
 
-constexpr int32_t PropertiesDrivenCryptoFactory::ACCEPTABLE_DATA_KEY_LENGTHS[];
+constexpr int32_t PropertiesDrivenCryptoFactory::kAcceptableDataKeyLengths[];
 
 EncryptionConfiguration::Builder* EncryptionConfiguration::Builder::column_keys(
     const std::string& column_keys) {
@@ -157,9 +157,9 @@ PropertiesDrivenCryptoFactory::GetFileEncryptionProperties(
 
   int32_t dek_length_bits = encryption_config->data_key_length_bits();
   int32_t* found_key_length = std::find(
-      const_cast<int32_t*>(ACCEPTABLE_DATA_KEY_LENGTHS),
-      const_cast<int32_t*>(std::end(ACCEPTABLE_DATA_KEY_LENGTHS)), dek_length_bits);
-  if (found_key_length == std::end(ACCEPTABLE_DATA_KEY_LENGTHS)) {
+      const_cast<int32_t*>(kAcceptableDataKeyLengths),
+      const_cast<int32_t*>(std::end(kAcceptableDataKeyLengths)), dek_length_bits);
+  if (found_key_length == std::end(kAcceptableDataKeyLengths)) {
     std::ostringstream ss;
     ss << "Wrong data key length : " << dek_length_bits;
     throw ParquetException(ss.str());

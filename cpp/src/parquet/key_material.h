@@ -59,20 +59,20 @@ namespace encryption {
 // double wrapping mode.
 class KeyMaterial {
  public:
-  static constexpr char KEY_MATERIAL_TYPE_FIELD[] = "keyMaterialType";
-  static constexpr char KEY_MATERIAL_TYPE1[] = "PKMT1";
+  static constexpr char kKeyMaterialTypeField[] = "keyMaterialType";
+  static constexpr char kKeyMaterialType1[] = "PKMT1";
 
-  static constexpr char FOOTER_KEY_ID_IN_FILE[] = "footerKey";
-  static constexpr char COLUMN_KEY_ID_IN_FILE_PREFIX[] = "columnKey";
+  static constexpr char kFooterKeyIdInFile[] = "footerKey";
+  static constexpr char kColumnKeyIdInFilePrefix[] = "columnKey";
 
-  static constexpr char IS_FOOTER_KEY_FIELD[] = "isFooterKey";
-  static constexpr char DOUBLE_WRAPPING_FIELD[] = "doubleWrapping";
-  static constexpr char KMS_INSTANCE_ID_FIELD[] = "kmsInstanceID";
-  static constexpr char KMS_INSTANCE_URL_FIELD[] = "kmsInstanceURL";
-  static constexpr char MASTER_KEY_ID_FIELD[] = "masterKeyID";
-  static constexpr char WRAPPED_DEK_FIELD[] = "wrappedDEK";
-  static constexpr char KEK_ID_FIELD[] = "keyEncryptionKeyID";
-  static constexpr char WRAPPED_KEK_FIELD[] = "wrappedKEK";
+  static constexpr char kIsFooterKeyField[] = "isFooterKey";
+  static constexpr char kDoubleWrappingField[] = "doubleWrapping";
+  static constexpr char kKmsInstanceIdField[] = "kmsInstanceID";
+  static constexpr char kKmsInstanceUrlField[] = "kmsInstanceURL";
+  static constexpr char kMasterKeyIdField[] = "masterKeyID";
+  static constexpr char kWrappedDataEncryptionKeyField[] = "wrappedDEK";
+  static constexpr char kKeyEncryptionKeyIdField[] = "keyEncryptionKeyID";
+  static constexpr char kWrappedKeyEncryptionKeyField[] = "wrappedKEK";
 
  public:
   KeyMaterial() = default;

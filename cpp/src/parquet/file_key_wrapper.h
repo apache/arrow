@@ -57,8 +57,8 @@ class FileKeyWrapper {
   std::shared_ptr<KmsClient> kms_client_;
   KmsConnectionConfig kms_connection_config_;
   std::shared_ptr<FileKeyMaterialStore> key_material_store_;
-  uint64_t cache_entry_lifetime_ms_;
-  bool double_wrapping_;
+  const uint64_t cache_entry_lifetime_ms_;
+  const bool double_wrapping_;
 };
 
 }  // namespace encryption
