@@ -403,14 +403,38 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
             },
             SQLExpr::Value(Value::SingleQuotedString(ref s)) => Ok(lit(s.clone())),
 
-            SQLExpr::Identifier(ref id) => match schema.field_with_name(&id.value) {
-                Ok(field) => Ok(Expr::Column(field.name().clone())),
-                Err(_) => Err(ExecutionError::ExecutionError(format!(
-                    "Invalid identifier '{}' for schema {}",
-                    id,
-                    schema.to_string()
-                ))),
-            },
+            SQLExpr::Identifier(ref id) => {
+                if &id.value[0..1] == "@" {
+                    let variable_names = vec![id.value.clone()];
+                    Ok(Expr::ScalarVariable(variable_names))
+                } else {
+                    match schema.field_with_name(&id.value) {
+                        Ok(field) => Ok(Expr::Column(field.name().clone())),
+                        Err(_) => Err(ExecutionError::ExecutionError(format!(
+                            "Invalid identifier '{}' for schema {}",
+                            id,
+                            schema.to_string()
+                        ))),
+                    }
+                }
+            }
+
+            SQLExpr::CompoundIdentifier(ids) => {
+                let mut variable_names = vec![];
+                for i in 0..ids.len() {
+                    let id = ids[i].clone();
+                    variable_names.push(id.value);
+                }
+                if &variable_names[0][0..1] == "@" {
+                    Ok(Expr::ScalarVariable(variable_names))
+                } else {
+                    Err(ExecutionError::ExecutionError(format!(
+                        "Invalid compound identifier '{:?}' for schema {}",
+                        variable_names,
+                        schema.to_string()
+                    )))
+                }
+            }
 
             SQLExpr::Wildcard => Ok(Expr::Wildcard),
 
