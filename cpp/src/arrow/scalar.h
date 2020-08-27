@@ -28,6 +28,7 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/compare.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
@@ -61,7 +62,8 @@ struct ARROW_EXPORT Scalar : public util::EqualityComparable<Scalar> {
 
   using util::EqualityComparable<Scalar>::operator==;
   using util::EqualityComparable<Scalar>::Equals;
-  bool Equals(const Scalar& other) const;
+  bool Equals(const Scalar& other,
+              const EqualOptions& options = EqualOptions::Defaults()) const;
 
   struct ARROW_EXPORT Hash {
     size_t operator()(const Scalar& scalar) const { return hash(scalar); }
