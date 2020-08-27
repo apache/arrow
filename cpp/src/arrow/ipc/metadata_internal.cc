@@ -153,27 +153,12 @@ Status FloatFromFlatbuffer(const flatbuf::FloatingPoint* float_data,
   return Status::OK();
 }
 
-// Forward declaration
-Status FieldToFlatbuffer(FBB& fbb, const std::shared_ptr<Field>& field,
-                         DictionaryMemo* dictionary_memo, FieldOffset* offset);
-
 Offset IntToFlatbuffer(FBB& fbb, int bitWidth, bool is_signed) {
   return flatbuf::CreateInt(fbb, bitWidth, is_signed).Union();
 }
 
 Offset FloatToFlatbuffer(FBB& fbb, flatbuf::Precision precision) {
   return flatbuf::CreateFloatingPoint(fbb, precision).Union();
-}
-
-Status AppendChildFields(FBB& fbb, const DataType& type,
-                         std::vector<FieldOffset>* out_children,
-                         DictionaryMemo* dictionary_memo) {
-  FieldOffset field;
-  for (int i = 0; i < type.num_fields(); ++i) {
-    RETURN_NOT_OK(FieldToFlatbuffer(fbb, type.field(i), dictionary_memo, &field));
-    out_children->push_back(field);
-  }
-  return Status::OK();
 }
 
 // ----------------------------------------------------------------------
@@ -439,11 +424,8 @@ Status TensorTypeToFlatbuffer(FBB& fbb, const DataType& type, flatbuf::Type* out
 }
 
 static Status GetDictionaryEncoding(FBB& fbb, const std::shared_ptr<Field>& field,
-                                    const DictionaryType& type, DictionaryMemo* memo,
+                                    const DictionaryType& type, int64_t dictionary_id,
                                     DictionaryOffset* out) {
-  int64_t dictionary_id = -1;
-  RETURN_NOT_OK(memo->GetOrAssignId(field, &dictionary_id));
-
   // We assume that the dictionary index type (as an integer) has already been
   // validated elsewhere, and can safely assume we are dealing with signed
   // integers
@@ -452,7 +434,6 @@ static Status GetDictionaryEncoding(FBB& fbb, const std::shared_ptr<Field>& fiel
   auto index_type_offset =
       flatbuf::CreateInt(fbb, index_type.bit_width(), index_type.is_signed());
 
-  // TODO(wesm): ordered dictionaries
   *out = flatbuf::CreateDictionaryEncoding(fbb, dictionary_id, index_type_offset,
                                            type.ordered());
   return Status::OK();
@@ -473,8 +454,9 @@ static void AppendKeyValueMetadata(FBB& fbb, const KeyValueMetadata& metadata,
 
 class FieldToFlatbufferVisitor {
  public:
-  FieldToFlatbufferVisitor(FBB& fbb, DictionaryMemo* dictionary_memo)
-      : fbb_(fbb), dictionary_memo_(dictionary_memo) {}
+  FieldToFlatbufferVisitor(FBB& fbb, const DictionaryFieldMapper& mapper,
+                           const FieldPosition& field_pos)
+      : fbb_(fbb), mapper_(mapper), field_pos_(field_pos) {}
 
   Status VisitType(const DataType& type) { return VisitTypeInline(type, this); }
 
@@ -622,42 +604,42 @@ class FieldToFlatbufferVisitor {
 
   Status Visit(const ListType& type) {
     fb_type_ = flatbuf::Type::List;
-    RETURN_NOT_OK(AppendChildFields(fbb_, type, &children_, dictionary_memo_));
+    RETURN_NOT_OK(VisitChildFields(type));
     type_offset_ = flatbuf::CreateList(fbb_).Union();
     return Status::OK();
   }
 
   Status Visit(const LargeListType& type) {
     fb_type_ = flatbuf::Type::LargeList;
-    RETURN_NOT_OK(AppendChildFields(fbb_, type, &children_, dictionary_memo_));
+    RETURN_NOT_OK(VisitChildFields(type));
     type_offset_ = flatbuf::CreateLargeList(fbb_).Union();
     return Status::OK();
   }
 
   Status Visit(const MapType& type) {
     fb_type_ = flatbuf::Type::Map;
-    RETURN_NOT_OK(AppendChildFields(fbb_, type, &children_, dictionary_memo_));
+    RETURN_NOT_OK(VisitChildFields(type));
     type_offset_ = flatbuf::CreateMap(fbb_, type.keys_sorted()).Union();
     return Status::OK();
   }
 
   Status Visit(const FixedSizeListType& type) {
     fb_type_ = flatbuf::Type::FixedSizeList;
-    RETURN_NOT_OK(AppendChildFields(fbb_, type, &children_, dictionary_memo_));
+    RETURN_NOT_OK(VisitChildFields(type));
     type_offset_ = flatbuf::CreateFixedSizeList(fbb_, type.list_size()).Union();
     return Status::OK();
   }
 
   Status Visit(const StructType& type) {
     fb_type_ = flatbuf::Type::Struct_;
-    RETURN_NOT_OK(AppendChildFields(fbb_, type, &children_, dictionary_memo_));
+    RETURN_NOT_OK(VisitChildFields(type));
     type_offset_ = flatbuf::CreateStruct_(fbb_).Union();
     return Status::OK();
   }
 
   Status Visit(const UnionType& type) {
     fb_type_ = flatbuf::Type::Union;
-    RETURN_NOT_OK(AppendChildFields(fbb_, type, &children_, dictionary_memo_));
+    RETURN_NOT_OK(VisitChildFields(type));
 
     const auto& union_type = checked_cast<const UnionType&>(type);
 
@@ -691,10 +673,18 @@ class FieldToFlatbufferVisitor {
     return Status::OK();
   }
 
+  Status VisitChildFields(const DataType& type) {
+    for (int i = 0; i < type.num_fields(); ++i) {
+      FieldOffset child_offset;
+      FieldToFlatbufferVisitor child_visitor(fbb_, mapper_, field_pos_.child(i));
+      RETURN_NOT_OK(child_visitor.GetResult(type.field(i), &child_offset));
+      children_.push_back(child_offset);
+    }
+    return Status::OK();
+  }
+
   Status GetResult(const std::shared_ptr<Field>& field, FieldOffset* offset) {
-    auto fb_name = fbb_.CreateString(field->name());
     RETURN_NOT_OK(VisitType(*field->type()));
-    auto fb_children = fbb_.CreateVector(children_.data(), children_.size());
 
     DictionaryOffset dictionary = 0;
     const DataType* storage_type = field->type().get();
@@ -703,13 +693,11 @@ class FieldToFlatbufferVisitor {
           checked_cast<const ExtensionType&>(*storage_type).storage_type().get();
     }
     if (storage_type->id() == Type::DICTIONARY) {
-      // Note we're emitting the dictionary encoding after potentially
-      // emitting any nested dictionaries in VisitType() above,
-      // so the outer dictionaries will naturally get an id larger than any
-      // inner dictionaries.
+      ARROW_ASSIGN_OR_RAISE(const auto dictionary_id,
+                            mapper_.GetFieldId(field_pos_.path()));
       RETURN_NOT_OK(GetDictionaryEncoding(
-          fbb_, field, checked_cast<const DictionaryType&>(*storage_type),
-          dictionary_memo_, &dictionary));
+          fbb_, field, checked_cast<const DictionaryType&>(*storage_type), dictionary_id,
+          &dictionary));
     }
 
     auto metadata = field->metadata();
@@ -727,6 +715,9 @@ class FieldToFlatbufferVisitor {
     if (key_values.size() > 0) {
       fb_custom_metadata = fbb_.CreateVector(key_values);
     }
+
+    auto fb_name = fbb_.CreateString(field->name());
+    auto fb_children = fbb_.CreateVector(children_.data(), children_.size());
     *offset =
         flatbuf::CreateField(fbb_, fb_name, field->nullable(), fb_type_, type_offset_,
                              dictionary, fb_children, fb_custom_metadata);
@@ -735,21 +726,16 @@ class FieldToFlatbufferVisitor {
 
  private:
   FBB& fbb_;
-  DictionaryMemo* dictionary_memo_;
+  const DictionaryFieldMapper& mapper_;
+  FieldPosition field_pos_;
   flatbuf::Type fb_type_;
   Offset type_offset_;
   std::vector<FieldOffset> children_;
   std::unordered_map<std::string, std::string> extra_type_metadata_;
 };
 
-Status FieldToFlatbuffer(FBB& fbb, const std::shared_ptr<Field>& field,
-                         DictionaryMemo* dictionary_memo, FieldOffset* offset) {
-  FieldToFlatbufferVisitor field_visitor(fbb, dictionary_memo);
-  return field_visitor.GetResult(field, offset);
-}
-
-Status FieldFromFlatbuffer(const flatbuf::Field* field, DictionaryMemo* dictionary_memo,
-                           std::shared_ptr<Field>* out) {
+Status FieldFromFlatbuffer(const flatbuf::Field* field, FieldPosition field_pos,
+                           DictionaryMemo* dictionary_memo, std::shared_ptr<Field>* out) {
   std::shared_ptr<DataType> type;
 
   std::shared_ptr<KeyValueMetadata> metadata;
@@ -761,8 +747,8 @@ Status FieldFromFlatbuffer(const flatbuf::Field* field, DictionaryMemo* dictiona
   CHECK_FLATBUFFERS_NOT_NULL(children, "Field.children");
   std::vector<std::shared_ptr<Field>> child_fields(children->size());
   for (int i = 0; i < static_cast<int>(children->size()); ++i) {
-    RETURN_NOT_OK(
-        FieldFromFlatbuffer(children->Get(i), dictionary_memo, &child_fields[i]));
+    RETURN_NOT_OK(FieldFromFlatbuffer(children->Get(i), field_pos.child(i),
+                                      dictionary_memo, &child_fields[i]));
   }
 
   // 2. Top-level concrete data type
@@ -773,6 +759,7 @@ Status FieldFromFlatbuffer(const flatbuf::Field* field, DictionaryMemo* dictiona
 
   // 3. Is it a dictionary type?
   int64_t dictionary_id = -1;
+  std::shared_ptr<DataType> dict_value_type;
   const flatbuf::DictionaryEncoding* encoding = field->dictionary();
   if (encoding != nullptr) {
     // The field is dictionary-encoded. Construct the DictionaryType
@@ -782,6 +769,7 @@ Status FieldFromFlatbuffer(const flatbuf::Field* field, DictionaryMemo* dictiona
     auto int_data = encoding->indexType();
     CHECK_FLATBUFFERS_NOT_NULL(int_data, "DictionaryEncoding.indexType");
     RETURN_NOT_OK(IntFromFlatbuffer(int_data, &index_type));
+    dict_value_type = type;
     ARROW_ASSIGN_OR_RAISE(type,
                           DictionaryType::Make(index_type, type, encoding->isOrdered()));
     dictionary_id = encoding->id();
@@ -816,7 +804,12 @@ Status FieldFromFlatbuffer(const flatbuf::Field* field, DictionaryMemo* dictiona
   *out =
       ::arrow::field(std::move(field_name), type, field->nullable(), std::move(metadata));
   if (dictionary_id != -1) {
-    RETURN_NOT_OK(dictionary_memo->AddField(dictionary_id, *out));
+    // We need both the id -> type mapping (to find the value type when
+    // reading a dictionary batch)
+    // and the field path -> id mapping (to find the dictionary when
+    // reading a record batch)
+    RETURN_NOT_OK(dictionary_memo->fields().AddField(dictionary_id, field_pos.path()));
+    RETURN_NOT_OK(dictionary_memo->AddDictionaryType(dictionary_id, dict_value_type));
   }
   return Status::OK();
 }
@@ -844,13 +837,15 @@ flatbuffers::Offset<KVVector> SerializeCustomMetadata(
   }
 }
 
-Status SchemaToFlatbuffer(FBB& fbb, const Schema& schema, DictionaryMemo* dictionary_memo,
+Status SchemaToFlatbuffer(FBB& fbb, const Schema& schema,
+                          const DictionaryFieldMapper& mapper,
                           flatbuffers::Offset<flatbuf::Schema>* out) {
-  /// Fields
   std::vector<FieldOffset> field_offsets;
+  FieldPosition pos;
   for (int i = 0; i < schema.num_fields(); ++i) {
     FieldOffset offset;
-    RETURN_NOT_OK(FieldToFlatbuffer(fbb, schema.field(i), dictionary_memo, &offset));
+    FieldToFlatbufferVisitor field_visitor(fbb, mapper, pos.child(i));
+    RETURN_NOT_OK(field_visitor.GetResult(schema.field(i), &offset));
     field_offsets.push_back(offset);
   }
 
@@ -1169,11 +1164,11 @@ Status GetKeyValueMetadata(const KVVector* fb_metadata,
   return Status::OK();
 }
 
-Status WriteSchemaMessage(const Schema& schema, DictionaryMemo* dictionary_memo,
+Status WriteSchemaMessage(const Schema& schema, const DictionaryFieldMapper& mapper,
                           const IpcWriteOptions& options, std::shared_ptr<Buffer>* out) {
   FBB fbb;
   flatbuffers::Offset<flatbuf::Schema> fb_schema;
-  RETURN_NOT_OK(SchemaToFlatbuffer(fbb, schema, dictionary_memo, &fb_schema));
+  RETURN_NOT_OK(SchemaToFlatbuffer(fbb, schema, mapper, &fb_schema));
   return WriteFBMessage(fbb, flatbuf::MessageHeader::Schema, fb_schema.Union(),
                         /*body_length=*/0, options.metadata_version)
       .Value(out);
@@ -1271,8 +1266,8 @@ Status WriteFileFooter(const Schema& schema, const std::vector<FileBlock>& dicti
   FBB fbb;
 
   flatbuffers::Offset<flatbuf::Schema> fb_schema;
-  DictionaryMemo dictionary_memo;  // unused
-  RETURN_NOT_OK(SchemaToFlatbuffer(fbb, schema, &dictionary_memo, &fb_schema));
+  DictionaryFieldMapper mapper(schema);
+  RETURN_NOT_OK(SchemaToFlatbuffer(fbb, schema, mapper, &fb_schema));
 
 #ifndef NDEBUG
   for (size_t i = 0; i < dictionaries.size(); ++i) {
@@ -1312,12 +1307,15 @@ Status GetSchema(const void* opaque_schema, DictionaryMemo* dictionary_memo,
   CHECK_FLATBUFFERS_NOT_NULL(schema->fields(), "Schema.fields");
   int num_fields = static_cast<int>(schema->fields()->size());
 
+  FieldPosition field_pos;
+
   std::vector<std::shared_ptr<Field>> fields(num_fields);
   for (int i = 0; i < num_fields; ++i) {
     const flatbuf::Field* field = schema->fields()->Get(i);
     // XXX I don't think this check is necessary (AP)
     CHECK_FLATBUFFERS_NOT_NULL(field, "DictionaryEncoding.indexType");
-    RETURN_NOT_OK(FieldFromFlatbuffer(field, dictionary_memo, &fields[i]));
+    RETURN_NOT_OK(
+        FieldFromFlatbuffer(field, field_pos.child(i), dictionary_memo, &fields[i]));
   }
 
   std::shared_ptr<KeyValueMetadata> metadata;

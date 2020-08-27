@@ -18,7 +18,6 @@
 #include "./arrow_types.h"
 
 #if defined(ARROW_R_WITH_ARROW)
-#include <arrow/ipc/reader.h>
 #include <arrow/ipc/writer.h>
 #include <arrow/type.h>
 #include <arrow/util/key_value_metadata.h>
@@ -108,8 +107,7 @@ std::shared_ptr<arrow::Schema> Schema__WithMetadata(
 
 // [[arrow::export]]
 cpp11::writable::raws Schema__serialize(const std::shared_ptr<arrow::Schema>& schema) {
-  arrow::ipc::DictionaryMemo empty_memo;
-  auto out = ValueOrStop(arrow::ipc::SerializeSchema(*schema, &empty_memo));
+  auto out = ValueOrStop(arrow::ipc::SerializeSchema(*schema));
   auto n = out->size();
   return cpp11::writable::raws(out->data(), out->data() + n);
 }

@@ -1441,8 +1441,7 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
         const CIpcReadOptions& options)
 
     CResult[shared_ptr[CBuffer]] SerializeSchema(
-        const CSchema& schema, CDictionaryMemo* dictionary_memo,
-        CMemoryPool* pool)
+        const CSchema& schema, CMemoryPool* pool)
 
     CResult[shared_ptr[CBuffer]] SerializeRecordBatch(
         const CRecordBatch& schema, const CIpcWriteOptions& options)

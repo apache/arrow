@@ -596,7 +596,7 @@ TEST_F(TestCudaArrowIpc, DictionaryWriteRead) {
   ASSERT_OK(ipc::test::MakeDictionary(&batch));
 
   ipc::DictionaryMemo dictionary_memo;
-  ASSERT_OK(ipc::CollectDictionaries(*batch, &dictionary_memo));
+  ASSERT_OK(ipc::internal::CollectDictionaries(*batch, &dictionary_memo));
 
   std::shared_ptr<CudaBuffer> device_serialized;
   ASSERT_OK_AND_ASSIGN(device_serialized, SerializeRecordBatch(*batch, context_.get()));

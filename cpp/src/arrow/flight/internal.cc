@@ -465,11 +465,9 @@ Status FromProto(const pb::SchemaResult& pb_result, std::string* result) {
 }
 
 Status SchemaToString(const Schema& schema, std::string* out) {
-  // TODO(wesm): Do we care about better memory efficiency here?
   ipc::DictionaryMemo unused_dict_memo;
-  ARROW_ASSIGN_OR_RAISE(
-      std::shared_ptr<Buffer> serialized_schema,
-      ipc::SerializeSchema(schema, &unused_dict_memo, default_memory_pool()));
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> serialized_schema,
+                        ipc::SerializeSchema(schema));
   *out = std::string(reinterpret_cast<const char*>(serialized_schema->data()),
                      static_cast<size_t>(serialized_schema->size()));
   return Status::OK();
