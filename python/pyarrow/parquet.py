@@ -1408,6 +1408,7 @@ class _ParquetDatasetV2:
             if not _is_path_like(path_or_paths):
                 fragment = parquet_format.make_fragment(path_or_paths)
                 self._dataset = ds.FileSystemDataset(
+                    fragment.filesystem,
                     [fragment], schema=fragment.physical_schema,
                     format=parquet_format
                 )

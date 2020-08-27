@@ -78,6 +78,12 @@ std::shared_ptr<ds::FileFormat> dataset___FileSystemDataset__format(
 }
 
 // [[arrow::export]]
+std::shared_ptr<fs::FileSystem> dataset___FileSystemDataset__filesystem(
+    const std::shared_ptr<ds::FileSystemDataset>& dataset) {
+  return dataset->filesystem();
+}
+
+// [[arrow::export]]
 std::vector<std::string> dataset___FileSystemDataset__files(
     const std::shared_ptr<ds::FileSystemDataset>& dataset) {
   return dataset->files();

@@ -467,12 +467,13 @@ cdef class FileSystemDataset(Dataset):
     cdef:
         CFileSystemDataset* filesystem_dataset
 
-    def __init__(self, fragments, Schema schema, FileFormat format,
+    def __init__(self, filesystem, fragments, Schema schema, FileFormat format,
                  root_partition=None):
         cdef:
             FileFragment fragment
             vector[shared_ptr[CFileFragment]] c_fragments
             CResult[shared_ptr[CDataset]] result
+            shared_ptr[CFileSystem] c_filesystem
 
         root_partition = root_partition or _true
         if not isinstance(root_partition, Expression):
@@ -486,13 +487,21 @@ cdef class FileSystemDataset(Dataset):
                 static_pointer_cast[CFileFragment, CFragment](
                     fragment.unwrap()))
 
+        if filesystem is not None:
+            c_filesystem = (<FileSystem> filesystem).unwrap()
+
         result = CFileSystemDataset.Make(
             pyarrow_unwrap_schema(schema),
             (<Expression> root_partition).unwrap(),
             (<FileFormat> format).unwrap(),
+            c_filesystem,
             c_fragments
         )
         self.init(GetResultValue(result))
+
+    @property
+    def filesystem(self):
+        return FileSystem.wrap(self.filesystem_dataset.filesystem())
 
     cdef void init(self, const shared_ptr[CDataset]& sp):
         Dataset.init(self, sp)
@@ -500,6 +509,7 @@ cdef class FileSystemDataset(Dataset):
 
     def __reduce__(self):
         return FileSystemDataset, (
+            self.filesystem,
             list(self.get_fragments()),
             self.schema,
             self.format,
@@ -539,7 +549,7 @@ cdef class FileSystemDataset(Dataset):
         ]:
             if not isinstance(arg, class_):
                 raise TypeError(
-                    "Argument '{0}' has incorrect type (expected {1}, "
+                    "Argument '{0}' wtf has incorrect type (expected {1}, "
                     "got {2})".format(name, class_.__name__, type(arg))
                 )
 
@@ -555,7 +565,8 @@ cdef class FileSystemDataset(Dataset):
             format.make_fragment(path, filesystem, partitions[i])
             for i, path in enumerate(paths)
         ]
-        return FileSystemDataset(fragments, schema, format, root_partition)
+        return FileSystemDataset(filesystem, fragments, schema, format,
+                                 root_partition)
 
     @property
     def files(self):
