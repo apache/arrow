@@ -778,6 +778,52 @@ test_that("Writing a dataset: Parquet->IPC", {
   )
 })
 
+test_that("Writing a dataset: CSV->Parquet", {
+  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
+  ds <- open_dataset(csv_dir, partitioning = "part", format = "csv")
+  dst_dir <- make_temp_dir()
+  write_dataset(ds, dst_dir, format = "parquet", partitioning = "int")
+  expect_true(dir.exists(dst_dir))
+  expect_identical(dir(dst_dir), sort(paste("int", c(1:10, 101:110), sep = "=")))
+
+  new_ds <- open_dataset(dst_dir)
+
+  expect_equivalent(
+    new_ds %>%
+      select(string = chr, integer = int) %>%
+      filter(integer > 6 & integer < 11) %>%
+      collect() %>%
+      summarize(mean = mean(integer)),
+    df1 %>%
+      select(string = chr, integer = int) %>%
+      filter(integer > 6) %>%
+      summarize(mean = mean(integer))
+  )
+})
+
+test_that("Writing a dataset: Parquet->Parquet (default)", {
+  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
+  ds <- open_dataset(hive_dir)
+  dst_dir <- make_temp_dir()
+  write_dataset(ds, dst_dir, partitioning = "int")
+  expect_true(dir.exists(dst_dir))
+  expect_identical(dir(dst_dir), sort(paste("int", c(1:10, 101:110), sep = "=")))
+
+  new_ds <- open_dataset(dst_dir)
+
+  expect_equivalent(
+    new_ds %>%
+      select(string = chr, integer = int, group) %>%
+      filter(integer > 6 & group == 1) %>%
+      collect() %>%
+      summarize(mean = mean(integer)),
+    df1 %>%
+      select(string = chr, integer = int) %>%
+      filter(integer > 6) %>%
+      summarize(mean = mean(integer))
+  )
+})
+
 test_that("Dataset writing: dplyr methods", {
   skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
   ds <- open_dataset(hive_dir)
@@ -876,7 +922,7 @@ test_that("Dataset writing: unsupported features/input validation", {
 
   ds <- open_dataset(hive_dir)
 
-  expect_error(write_dataset(ds, format = "csv"), "Unsupported format")
+  expect_error(write_dataset(ds, tempfile(), format = "csv"))
   expect_error(
     filter(ds, int == 4) %>% write_dataset(ds),
     "Writing a filtered dataset is not yet supported"

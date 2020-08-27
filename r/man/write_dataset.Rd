@@ -24,8 +24,9 @@ are not currently supported, and \code{select}-ed columns may not be renamed.}
 \item{path}{string path to a directory to write to (directory will be
 created if it does not exist)}
 
-\item{format}{file format to write the dataset to. Currently only "feather"
-(aka "ipc") is supported.}
+\item{format}{file format to write the dataset to. Currently supported
+formats are "feather" (aka "ipc") and "parquet". Default is to write to the
+same format as \code{dataset}.}
 
 \item{schema}{\link{Schema} containing a subset of columns, possibly reordered,
 in \code{dataset}. Default is \code{dataset$schema}, i.e. all columns.}
