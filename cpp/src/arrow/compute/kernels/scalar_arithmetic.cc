@@ -15,9 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <cfenv>
-#include <cmath>
-
 #include "arrow/compute/kernels/common.h"
 #include "arrow/util/int_util_internal.h"
 #include "arrow/util/macros.h"
@@ -193,11 +190,7 @@ struct MultiplyChecked {
 struct Divide {
   template <typename T, typename Arg0, typename Arg1>
   static enable_if_floating_point<T> Call(KernelContext* ctx, Arg0 left, Arg1 right) {
-    fenv_t original_env;
-    std::feholdexcept(&original_env);
-    T result = left / right;
-    std::fesetenv(&original_env);
-    return result;
+    return left / right;
   }
 
   template <typename T, typename Arg0, typename Arg1>
