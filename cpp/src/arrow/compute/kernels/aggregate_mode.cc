@@ -40,6 +40,9 @@ struct ModeState<ArrowType, enable_if_t<(sizeof(typename ArrowType::c_type) > 1)
       auto count = value_count.second;
       this->value_counts[value] += count;
     }
+    if (is_floating_type<ArrowType>::value) {
+      this->nan_count += state.nan_count;
+    }
   }
 
   template <typename ArrowType_ = ArrowType>
@@ -49,7 +52,9 @@ struct ModeState<ArrowType, enable_if_t<(sizeof(typename ArrowType::c_type) > 1)
 
   template <typename ArrowType_ = ArrowType>
   enable_if_t<is_floating_type<ArrowType_>::value> MergeOne(T value) {
-    if (!std::isnan(value)) {
+    if (std::isnan(value)) {
+      ++this->nan_count;
+    } else {
       ++this->value_counts[value];
     }
   }
@@ -66,9 +71,14 @@ struct ModeState<ArrowType, enable_if_t<(sizeof(typename ArrowType::c_type) > 1)
         mode = this_value;
       }
     }
+    if (is_floating_type<ArrowType>::value && this->nan_count > count) {
+      count = this->nan_count;
+      mode = static_cast<T>(NAN);
+    }
     return std::make_pair(mode, count);
   }
 
+  int64_t nan_count = 0;  // only make sense to floating types
   std::unordered_map<T, int64_t> value_counts{};
 };
 
