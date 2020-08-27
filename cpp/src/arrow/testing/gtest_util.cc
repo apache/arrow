@@ -135,11 +135,6 @@ void AssertArraysEqual(const Array& expected, const Array& actual, bool verbose)
       });
 }
 
-void AssertArraysApproxEqual(const Array& expected, const Array& actual, bool verbose) {
-  const EqualOptions options;
-  return AssertArraysApproxEqual(expected, actual, verbose, options);
-}
-
 void AssertArraysApproxEqual(const Array& expected, const Array& actual, bool verbose,
                              const EqualOptions& option) {
   return AssertArraysEqualWith(
@@ -164,11 +159,6 @@ void AssertScalarsEqual(const Scalar& expected, const Scalar& actual, bool verbo
     }
     FAIL() << diff.str();
   }
-}
-
-void AssertScalarsEqual(const Scalar& expected, const Scalar& actual, bool verbose) {
-  const EqualOptions options;
-  AssertScalarsEqual(expected, actual, verbose, options);
 }
 
 void AssertBatchesEqual(const RecordBatch& expected, const RecordBatch& actual,

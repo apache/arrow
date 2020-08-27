@@ -44,8 +44,6 @@ bool Scalar::Equals(const Scalar& other, const EqualOptions& options) const {
   return ScalarEquals(*this, other, options);
 }
 
-bool Scalar::Equals(const Scalar& other) const { return ScalarEquals(*this, other); }
-
 struct ScalarHashImpl {
   static std::hash<std::string> string_hash;
 

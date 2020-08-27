@@ -171,12 +171,12 @@ class TestBinaryArithmetic : public TestBase {
 
   void SetOverflowCheck(bool value = true) { options_.check_overflow = value; }
 
-  void SetNansEqual(bool value = false) {
+  void SetNansEqual(bool value = true) {
     this->equal_options_ = equal_options_.nans_equal(value);
   }
 
   ArithmeticOptions options_ = ArithmeticOptions();
-  EqualOptions equal_options_ = EqualOptions();
+  EqualOptions equal_options_ = EqualOptions::Defaults();
 };
 
 template <typename... Elements>
@@ -516,6 +516,9 @@ TYPED_TEST(TestBinaryArithmeticFloating, Div) {
                       "[null, 0.1, 0.25, null, 0.2, 0.5]");
     // Array with infinity
     this->AssertBinop(Divide, "[3.4, Inf, -Inf]", "[1, 2, 3]", "[3.4, Inf, -Inf]");
+    // Array with NaN
+    this->SetNansEqual(true);
+    this->AssertBinop(Divide, "[3.4, NaN, 2.0]", "[1, 2, 2.0]", "[3.4, NaN, 1.0]");
     // Scalar divides by scalar
     this->AssertBinop(Divide, 21.0F, 3.0F, 7.0F);
   }

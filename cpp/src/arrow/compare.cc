@@ -862,10 +862,8 @@ class TypeEqualsVisitor {
 
 class ScalarEqualsVisitor {
  public:
-  explicit ScalarEqualsVisitor(const Scalar& right)
-      : right_(right), result_(false), options_(EqualOptions()) {}
-
-  explicit ScalarEqualsVisitor(const Scalar& right, const EqualOptions& opts)
+  explicit ScalarEqualsVisitor(const Scalar& right,
+                               const EqualOptions& opts = EqualOptions::Defaults())
       : right_(right), result_(false), options_(opts) {}
 
   Status Visit(const NullScalar& left) {
@@ -989,7 +987,7 @@ class ScalarEqualsVisitor {
  protected:
   const Scalar& right_;
   bool result_;
-  EqualOptions options_;
+  const EqualOptions options_;
 };
 
 Status PrintDiff(const Array& left, const Array& right, std::ostream* os) {
@@ -1423,11 +1421,6 @@ bool ScalarEquals(const Scalar& left, const Scalar& right, const EqualOptions& o
     are_equal = visitor.result();
   }
   return are_equal;
-}
-
-bool ScalarEquals(const Scalar& left, const Scalar& right) {
-  const EqualOptions options;
-  return ScalarEquals(left, right, options);
 }
 
 }  // namespace arrow
