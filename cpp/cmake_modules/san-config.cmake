@@ -35,14 +35,17 @@ endif()
 # - disable 'vptr' because of RTTI issues across shared libraries (?)
 # - disable 'alignment' because unaligned access is really OK on Nehalem and we do it
 #   all over the place.
-# - disable 'function' because it appears to give a false positive https://github.com/google/sanitizers/issues/911
+# - disable 'function' because it appears to give a false positive
+#   (https://github.com/google/sanitizers/issues/911)
+# - disable 'float-divide-by-zero' on clang, which considers it UB
+#   (https://bugs.llvm.org/show_bug.cgi?id=17000#c1)
 #   Note: GCC does not support the 'function' flag.
 if(${ARROW_USE_UBSAN})
   if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang"
      OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     set(
       CMAKE_CXX_FLAGS
-      "${CMAKE_CXX_FLAGS} -fsanitize=undefined -fno-sanitize=alignment,vptr,function -fno-sanitize-recover=all"
+      "${CMAKE_CXX_FLAGS} -fsanitize=undefined -fno-sanitize=alignment,vptr,function,float-divide-by-zero -fno-sanitize-recover=all"
       )
   elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU"
          AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL "5.1")

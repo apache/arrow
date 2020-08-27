@@ -190,10 +190,6 @@ struct MultiplyChecked {
 struct Divide {
   template <typename T, typename Arg0, typename Arg1>
   static enable_if_floating_point<T> Call(KernelContext* ctx, Arg0 left, Arg1 right) {
-    if (ARROW_PREDICT_FALSE(right == 0)) {
-      ctx->SetStatus(Status::Invalid("divide by zero"));
-      return 0;
-    }
     return left / right;
   }
 

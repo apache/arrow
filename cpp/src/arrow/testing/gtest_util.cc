@@ -135,22 +135,24 @@ void AssertArraysEqual(const Array& expected, const Array& actual, bool verbose)
       });
 }
 
-void AssertArraysApproxEqual(const Array& expected, const Array& actual, bool verbose) {
+void AssertArraysApproxEqual(const Array& expected, const Array& actual, bool verbose,
+                             const EqualOptions& option) {
   return AssertArraysEqualWith(
       expected, actual, verbose,
-      [](const Array& expected, const Array& actual, std::stringstream* diff) {
-        return expected.ApproxEquals(actual, EqualOptions().diff_sink(diff));
+      [&option](const Array& expected, const Array& actual, std::stringstream* diff) {
+        return expected.ApproxEquals(actual, option.diff_sink(diff));
       });
 }
 
-void AssertScalarsEqual(const Scalar& expected, const Scalar& actual, bool verbose) {
+void AssertScalarsEqual(const Scalar& expected, const Scalar& actual, bool verbose,
+                        const EqualOptions& options) {
   std::stringstream diff;
   // ARROW-8956, ScalarEquals returns false when both are null
   if (!expected.is_valid && !actual.is_valid) {
     // We consider both being null to be equal in this function
     return;
   }
-  if (!expected.Equals(actual)) {
+  if (!expected.Equals(actual, options)) {
     if (verbose) {
       diff << "Expected:\n" << expected.ToString();
       diff << "\nActual:\n" << actual.ToString();

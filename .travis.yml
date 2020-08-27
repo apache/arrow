@@ -56,6 +56,13 @@ jobs:
         UBUNTU: "20.04"
         cares_SOURCE: "BUNDLED"
         gRPC_SOURCE: "BUNDLED"
+    - name: "Go on s390x"
+      os: linux
+      arch: s390x
+      env:
+        ARCH: s390x
+        ARROW_CI_MODULES: "GO"
+        DOCKER_IMAGE_ID: debian-go
   allow_failures:
     - arch: s390x
 
