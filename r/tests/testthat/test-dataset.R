@@ -88,6 +88,8 @@ test_that("Setup (putting data in the dir)", {
 
 test_that("Simple interface for datasets", {
   ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
+  expect_is(ds$format, "ParquetFileFormat")
+  expect_is(ds$filesystem, "LocalFileSystem")
   expect_is(ds, "Dataset")
   expect_equivalent(
     ds %>%
@@ -223,6 +225,8 @@ test_that("Partitioning inference", {
 
 test_that("IPC/Feather format data", {
   ds <- open_dataset(ipc_dir, partitioning = "part", format = "feather")
+  expect_is(ds$format, "IpcFileFormat")
+  expect_is(ds$filesystem, "LocalFileSystem")
   expect_identical(names(ds), c(names(df1), "part"))
   expect_warning(
     expect_identical(dim(ds), c(NA, 7L))
@@ -249,6 +253,8 @@ test_that("IPC/Feather format data", {
 
 test_that("CSV dataset", {
   ds <- open_dataset(csv_dir, partitioning = "part", format = "csv")
+  expect_is(ds$format, "CsvFileFormat")
+  expect_is(ds$filesystem, "LocalFileSystem")
   expect_identical(names(ds), c(names(df1), "part"))
   expect_warning(
     expect_identical(dim(ds), c(NA, 7L))
