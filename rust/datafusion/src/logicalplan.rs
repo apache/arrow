@@ -671,9 +671,7 @@ impl fmt::Debug for Expr {
                 write!(f, "{}", var_names.join("."))
             }
             Expr::Literal(v) => write!(f, "{:?}", v),
-            Expr::Cast { expr, data_type } => {
-                write!(f, "CAST({:?} AS {:?})", expr, data_type)
-            }
+            Expr::Cast { expr, data_type } => { write!(f, "CAST({:?} AS {:?})", expr, data_type) }
             Expr::Not(expr) => write!(f, "NOT {:?}", expr),
             Expr::IsNull(expr) => write!(f, "{:?} IS NULL", expr),
             Expr::IsNotNull(expr) => write!(f, "{:?} IS NOT NULL", expr),
@@ -1295,9 +1293,9 @@ mod tests {
             &employee_schema(),
             Some(vec![0, 3]),
         )?
-        .filter(col("state").eq(lit("CO")))?
-        .project(vec![col("id")])?
-        .build()?;
+            .filter(col("state").eq(lit("CO")))?
+            .project(vec![col("id")])?
+            .build()?;
 
         let expected = "Projection: #id\
         \n  Filter: #state Eq Utf8(\"CO\")\
@@ -1315,9 +1313,9 @@ mod tests {
             CsvReadOptions::new().schema(&employee_schema()),
             Some(vec![0, 3]),
         )?
-        .filter(col("state").eq(lit("CO")))?
-        .project(vec![col("id")])?
-        .build()?;
+            .filter(col("state").eq(lit("CO")))?
+            .project(vec![col("id")])?
+            .build()?;
 
         let expected = "Projection: #id\
         \n  Filter: #state Eq Utf8(\"CO\")\
@@ -1336,12 +1334,12 @@ mod tests {
             &employee_schema(),
             Some(vec![3, 4]),
         )?
-        .aggregate(
-            vec![col("state")],
-            vec![aggregate_expr("SUM", col("salary")).alias("total_salary")],
-        )?
-        .project(vec![col("state"), col("total_salary")])?
-        .build()?;
+            .aggregate(
+                vec![col("state")],
+                vec![aggregate_expr("SUM", col("salary")).alias("total_salary")],
+            )?
+            .project(vec![col("state"), col("total_salary")])?
+            .build()?;
 
         let expected = "Projection: #state, #total_salary\
         \n  Aggregate: groupBy=[[#state]], aggr=[[SUM(#salary) AS total_salary]]\
@@ -1361,19 +1359,19 @@ mod tests {
             &employee_schema(),
             Some(vec![3, 4]),
         )?
-        .sort(vec![
-            Expr::Sort {
-                expr: Box::new(col("state")),
-                asc: true,
-                nulls_first: true,
-            },
-            Expr::Sort {
-                expr: Box::new(col("total_salary")),
-                asc: false,
-                nulls_first: false,
-            },
-        ])?
-        .build()?;
+            .sort(vec![
+                Expr::Sort {
+                    expr: Box::new(col("state")),
+                    asc: true,
+                    nulls_first: true,
+                },
+                Expr::Sort {
+                    expr: Box::new(col("total_salary")),
+                    asc: false,
+                    nulls_first: false,
+                },
+            ])?
+            .build()?;
 
         let expected = "Sort: #state ASC NULLS FIRST, #total_salary DESC NULLS LAST\
         \n  TableScan: employee.csv projection=Some([3, 4])";
