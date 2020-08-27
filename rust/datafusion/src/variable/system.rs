@@ -15,21 +15,24 @@
 // specific language governing permissions and limitations
 // under the License.
 
+//! System variable provider
+
 use crate::error::Result;
 use crate::logicalplan::ScalarValue;
 use crate::variable::VarProvider;
 
-// System variable
+/// System variable
 pub struct SystemVar {}
 
 impl SystemVar {
-    // new system variable
+    /// new system variable
     pub fn new() -> Self {
         Self {}
     }
 }
 
 impl VarProvider for SystemVar {
+    /// get system variable value
     fn get_value(&self, var_names: Vec<String>) -> Result<ScalarValue> {
         let s = format!("{}-{}", "test".to_string(), var_names.concat());
         Ok(ScalarValue::Utf8(s))

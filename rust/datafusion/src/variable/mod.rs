@@ -15,10 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
+//! Variable provider
+
 use crate::error::Result;
 use crate::logicalplan::ScalarValue;
 
-// Variable type, system/user defiend
+/// Variable type, system/user defiend
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub enum VarType {
     /// System variable, like @@version

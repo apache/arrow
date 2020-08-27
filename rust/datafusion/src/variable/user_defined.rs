@@ -15,21 +15,24 @@
 // specific language governing permissions and limitations
 // under the License.
 
+//! User defined variable provider
+
 use crate::error::Result;
 use crate::logicalplan::ScalarValue;
 use crate::variable::VarProvider;
 
-// user defined variable
+/// user defined variable
 pub struct UserDefinedVar {}
 
 impl UserDefinedVar {
-    // new user defined variable
+    /// new user defined variable
     pub fn new() -> Self {
         Self {}
     }
 }
 
 impl VarProvider for UserDefinedVar {
+    /// Get user defined variable value
     fn get_value(&self, var_names: Vec<String>) -> Result<ScalarValue> {
         let s = format!("{}-{}", "test".to_string(), var_names.concat());
         Ok(ScalarValue::Utf8(s))
