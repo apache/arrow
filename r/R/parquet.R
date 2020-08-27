@@ -126,7 +126,7 @@ write_parquet <- function(x,
                           chunk_size = NULL,
                           # writer properties
                           version = NULL,
-                          compression = NULL,
+                          compression = default_parquet_compression(),
                           compression_level = NULL,
                           use_dictionary = NULL,
                           write_statistics = NULL,
@@ -161,18 +161,25 @@ write_parquet <- function(x,
     abort("sink must be a file path or an OutputStream")
   }
 
-  schema <- x$schema
-  # Match the pyarrow default (overriding the C++ default)
-  if (is.null(compression) && codec_is_available("snappy")) {
-    compression <- "snappy"
-  }
-  # Note: `properties` and `arrow_properties` are not actually $create()-ed
-  # until the next line, so the compression change is applied.
-  writer <- ParquetFileWriter$create(schema, sink, properties = properties, arrow_properties = arrow_properties)
+  writer <- ParquetFileWriter$create(
+    x$schema,
+    sink,
+    properties = properties,
+    arrow_properties = arrow_properties
+  )
   writer$WriteTable(x, chunk_size = chunk_size %||% x$num_rows)
   writer$Close()
 
   invisible(x_out)
+}
+
+default_parquet_compression <- function() {
+  # Match the pyarrow default (overriding the C++ default)
+  if (codec_is_available("snappy")) {
+    "snappy"
+  } else {
+    NULL
+  }
 }
 
 ParquetArrowWriterProperties <- R6Class("ParquetArrowWriterProperties", inherit = ArrowObject)
@@ -317,7 +324,7 @@ ParquetWriterPropertiesBuilder <- R6Class("ParquetWriterPropertiesBuilder", inhe
 
 ParquetWriterProperties$create <- function(table,
                                            version = NULL,
-                                           compression = NULL,
+                                           compression = default_parquet_compression(),
                                            compression_level = NULL,
                                            use_dictionary = NULL,
                                            write_statistics = NULL,
