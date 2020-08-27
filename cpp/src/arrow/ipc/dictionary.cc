@@ -46,6 +46,8 @@ using internal::checked_cast;
 
 namespace ipc {
 
+using internal::FieldPosition;
+
 // ----------------------------------------------------------------------
 // DictionaryFieldMapper implementation
 

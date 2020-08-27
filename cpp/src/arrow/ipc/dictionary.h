@@ -33,6 +33,8 @@
 namespace arrow {
 namespace ipc {
 
+namespace internal {
+
 class FieldPosition {
  public:
   FieldPosition() : parent_(NULLPTR), index_(-1), depth_(0) {}
@@ -58,10 +60,13 @@ class FieldPosition {
   int depth_;
 };
 
+}  // namespace internal
+
 /// \brief Map fields in a schema to dictionary ids
 ///
 /// The mapping is structural, i.e. the field path (as a vector of indices)
-/// is associated to the dictionary id.
+/// is associated to the dictionary id.  A dictionary id may be associated
+/// to multiple fields.
 class ARROW_EXPORT DictionaryFieldMapper {
  public:
   DictionaryFieldMapper();

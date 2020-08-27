@@ -54,7 +54,7 @@ using internal::ParseValue;
 
 using ipc::DictionaryFieldMapper;
 using ipc::DictionaryMemo;
-using ipc::FieldPosition;
+using ipc::internal::FieldPosition;
 
 namespace testing {
 namespace json {

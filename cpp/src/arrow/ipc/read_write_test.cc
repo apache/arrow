@@ -59,6 +59,9 @@ using internal::checked_cast;
 using internal::GetByteWidth;
 
 namespace ipc {
+
+using internal::FieldPosition;
+
 namespace test {
 
 using BatchVector = std::vector<std::shared_ptr<RecordBatch>>;
