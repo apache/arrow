@@ -428,15 +428,15 @@ void CpuInfo::ParseUserSimdLevel() {
 
   int level = USER_SIMD_MAX;
   // Parse the level
-  if (0 == strcmp("avx512", user)) {
+  if (0 == strcmp("AVX512", user) || 0 == strcmp("avx512", user)) {
     level = USER_SIMD_AVX512;
-  } else if (0 == strcmp("avx2", user)) {
+  } else if (0 == strcmp("AVX2", user) || 0 == strcmp("avx2", user)) {
     level = USER_SIMD_AVX2;
-  } else if (0 == strcmp("avx", user)) {
+  } else if (0 == strcmp("AVX", user) || 0 == strcmp("avx", user)) {
     level = USER_SIMD_AVX;
-  } else if (0 == strcmp("sse4_2", user)) {
+  } else if (0 == strcmp("SSE4_2", user) || 0 == strcmp("sse4_2", user)) {
     level = USER_SIMD_SSE4_2;
-  } else if (0 == strcmp("none", user)) {
+  } else if (0 == strcmp("NONE", user) || 0 == strcmp("none", user)) {
     level = USER_SIMD_NONE;
   }
 
