@@ -127,6 +127,7 @@ TEST(TestArithmeticOps, TestBitwiseOps) {
   EXPECT_EQ(bitwise_xor_int64_int64(0x563672F83, 0x0D9FCF85B), 0x5BA9BD7D8);
   EXPECT_EQ(bitwise_xor_int64_int64(0xFFFFFFFFFFDA8F6A, 0xFFFFFFFFFFFF791C), 0X25F676);
   EXPECT_EQ(bitwise_xor_int64_int64(0x6A5B1, 0x00000), 0x6A5B1);
+  EXPECT_EQ(bitwise_xor_int64_int64(0x6A5B1, 0x6A5B1), 0x00000);
 
   // bitwise NOT
   EXPECT_EQ(bitwise_not_int32(0x00017159), 0xFFFE8EA6);
