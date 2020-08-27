@@ -2286,6 +2286,7 @@ impl<'a, K: ArrowPrimitiveType> DictionaryArray<K> {
         }
     }
 
+    /// Returns an array view of the keys of this dictionary
     pub fn keys_array(&self) -> PrimitiveArray<K> {
         let data = self.data_ref();
         let keys_data = ArrayData::new(
