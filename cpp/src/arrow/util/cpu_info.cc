@@ -39,6 +39,7 @@
 #endif
 
 #include <algorithm>
+#include <cctype>
 #include <cerrno>
 #include <cstdint>
 #include <fstream>
