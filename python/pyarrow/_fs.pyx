@@ -405,10 +405,11 @@ cdef class FileSystem(_Weakrefable):
 
         Parameters
         ----------
-        paths_or_selector: FileSelector or list of path-likes
-            Either a selector object or a list of path-like objects.
-            The selector's base directory will not be part of the results, even
-            if it exists. If it doesn't exist, use `allow_not_found`.
+        paths_or_selector: FileSelector, path-like or list of path-likes
+            Either a selector object, a path-like object or a list of
+            path-like objects. The selector's base directory will not be
+            part of the results, even if it exists. If it doesn't exist,
+            use `allow_not_found`.
 
         Returns
         -------
@@ -419,17 +420,27 @@ cdef class FileSystem(_Weakrefable):
             vector[c_string] paths
             CFileSelector selector
 
+        single_path = False
         if isinstance(paths_or_selector, FileSelector):
             with nogil:
                 selector = (<FileSelector>paths_or_selector).selector
                 infos = GetResultValue(self.fs.GetFileInfo(selector))
-        elif isinstance(paths_or_selector, (list, tuple)):
-            paths = [_path_as_bytes(s) for s in paths_or_selector]
+        else:
+            if isinstance(paths_or_selector, (list, tuple)):
+                paths = [_path_as_bytes(s) for s in paths_or_selector]
+            else:
+                try:
+                    paths = [_path_as_bytes(paths_or_selector)]
+                except TypeError:
+                    raise TypeError(
+                        "Must pass either path(s) or a FileSelector"
+                    )
+                single_path = True
             with nogil:
                 infos = GetResultValue(self.fs.GetFileInfo(paths))
-        else:
-            raise TypeError('Must pass either paths or a FileSelector')
 
+        if single_path:
+            return [FileInfo.wrap(info) for info in infos][0]
         return [FileInfo.wrap(info) for info in infos]
 
     def create_dir(self, path, *, bint recursive=True):

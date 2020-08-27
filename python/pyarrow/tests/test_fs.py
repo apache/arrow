@@ -650,6 +650,11 @@ def test_get_file_info(fs, pathfn):
     assert 'FileType.NotFound' in repr(zzz_info)
     check_mtime_absent(zzz_info)
 
+    # with single path
+    aaa_info2 = fs.get_file_info(aaa)
+    assert aaa_info.path == aaa_info2.path
+    assert aaa_info.type == aaa_info2.type
+
 
 def test_get_file_info_with_selector(fs, pathfn):
     skip_fsspec_s3fs(fs)
