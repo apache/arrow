@@ -1393,7 +1393,7 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
             " arrow::ipc::RecordBatchStreamReader"(CRecordBatchReader):
         @staticmethod
         CResult[shared_ptr[CRecordBatchReader]] Open(
-            const CInputStream* stream, const CIpcReadOptions& options)
+            const shared_ptr[CInputStream], const CIpcReadOptions&)
 
         @staticmethod
         CResult[shared_ptr[CRecordBatchReader]] Open2" Open"(
@@ -2064,6 +2064,9 @@ cdef extern from 'arrow/c/abi.h':
     cdef struct ArrowArray:
         pass
 
+    cdef struct ArrowArrayStream:
+        pass
+
 cdef extern from 'arrow/c/bridge.h' namespace 'arrow' nogil:
     CStatus ExportType(CDataType&, ArrowSchema* out)
     CResult[shared_ptr[CDataType]] ImportType(ArrowSchema*)
@@ -2084,3 +2087,8 @@ cdef extern from 'arrow/c/bridge.h' namespace 'arrow' nogil:
                                                         shared_ptr[CSchema])
     CResult[shared_ptr[CRecordBatch]] ImportRecordBatch(ArrowArray*,
                                                         ArrowSchema*)
+
+    CStatus ExportRecordBatchReader(shared_ptr[CRecordBatchReader],
+                                    ArrowArrayStream*)
+    CResult[shared_ptr[CRecordBatchReader]] ImportRecordBatchReader(
+        ArrowArrayStream*)

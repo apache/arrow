@@ -1618,9 +1618,7 @@ namespace {
 
 class ArrayStreamBatchReader : public RecordBatchReader {
  public:
-  explicit ArrayStreamBatchReader(struct ArrowArrayStream* stream) : stream_(stream) {
-    DCHECK(!ArrowArrayStreamIsReleased(stream_));
-  }
+  explicit ArrayStreamBatchReader(struct ArrowArrayStream* stream) : stream_(stream) {}
 
   ~ArrayStreamBatchReader() { ArrowArrayStreamRelease(stream_); }
 
@@ -1629,7 +1627,13 @@ class ArrayStreamBatchReader : public RecordBatchReader {
   Status ReadNext(std::shared_ptr<RecordBatch>* batch) override {
     struct ArrowArray c_array;
     RETURN_NOT_OK(StatusFromCError(stream_->get_next(stream_, &c_array)));
-    return ImportRecordBatch(&c_array, CacheSchema()).Value(batch);
+    if (ArrowArrayIsReleased(&c_array)) {
+      // End of stream
+      batch->reset();
+      return Status::OK();
+    } else {
+      return ImportRecordBatch(&c_array, CacheSchema()).Value(batch);
+    }
   }
 
  private:
@@ -1667,6 +1671,9 @@ class ArrayStreamBatchReader : public RecordBatchReader {
 
 Result<std::shared_ptr<RecordBatchReader>> ImportRecordBatchReader(
     struct ArrowArrayStream* stream) {
+  if (ArrowArrayStreamIsReleased(stream)) {
+    return Status::Invalid("Cannot import released ArrowArrayStream");
+  }
   // XXX should we call get_schema() here to avoid crashing on error?
   return std::make_shared<ArrayStreamBatchReader>(stream);
 }
