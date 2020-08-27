@@ -19,9 +19,11 @@ use crate::error::Result;
 use crate::logicalplan::ScalarValue;
 use crate::variable::VarProvider;
 
+// System variable
 pub struct SystemVar {}
 
 impl SystemVar {
+    // new system variable
     pub fn new() -> Self {
         Self {}
     }

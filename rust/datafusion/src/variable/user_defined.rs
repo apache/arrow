@@ -19,9 +19,11 @@ use crate::error::Result;
 use crate::logicalplan::ScalarValue;
 use crate::variable::VarProvider;
 
+// user defined variable
 pub struct UserDefinedVar {}
 
 impl UserDefinedVar {
+    // new user defined variable
     pub fn new() -> Self {
         Self {}
     }
