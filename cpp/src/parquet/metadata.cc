@@ -485,6 +485,8 @@ int64_t RowGroupMetaData::num_rows() const { return impl_->num_rows(); }
 
 int64_t RowGroupMetaData::total_byte_size() const { return impl_->total_byte_size(); }
 
+int64_t RowGroupMetaData::file_offset() const { return impl_->file_offset(); }
+
 const SchemaDescriptor* RowGroupMetaData::schema() const { return impl_->schema(); }
 
 std::unique_ptr<ColumnChunkMetaData> RowGroupMetaData::ColumnChunk(int i) const {
