@@ -64,7 +64,9 @@ def __getattr__(name):
     )
 
 
-def _ensure_filesystem(filesystem, use_mmap=False):
+def _ensure_filesystem(
+    filesystem, use_mmap=False, allow_legacy_filesystem=False
+):
     if isinstance(filesystem, FileSystem):
         return filesystem
 
@@ -81,16 +83,23 @@ def _ensure_filesystem(filesystem, use_mmap=False):
             return PyFileSystem(FSSpecHandler(filesystem))
 
     # map old filesystems to new ones
-    from pyarrow.filesystem import LocalFileSystem as LegacyLocalFileSystem
+    from pyarrow.filesystem import (
+        FileSystem as LegacyFileSystem,
+        LocalFileSystem as LegacyLocalFileSystem
+    )
 
     if isinstance(filesystem, LegacyLocalFileSystem):
         return LocalFileSystem(use_mmap=use_mmap)
     # TODO handle HDFS?
+    if allow_legacy_filesystem and isinstance(filesystem, LegacyFileSystem):
+        return filesystem
 
     raise TypeError("Unrecognized filesystem: {}".format(type(filesystem)))
 
 
-def _resolve_filesystem_and_path(path, filesystem=None):
+def _resolve_filesystem_and_path(
+    path, filesystem=None, allow_legacy_filesystem=False
+):
     """
     Return filesystem/path from path which could be an URI or a plain
     filesystem path.
@@ -104,7 +113,10 @@ def _resolve_filesystem_and_path(path, filesystem=None):
     path = _stringify_path(path)
 
     if filesystem is not None:
-        return _ensure_filesystem(filesystem), path
+        filesystem = _ensure_filesystem(
+            filesystem, allow_legacy_filesystem=allow_legacy_filesystem
+        )
+        return filesystem, path
     else:
         return FileSystem.from_uri(path)
 
