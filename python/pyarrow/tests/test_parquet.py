@@ -3511,6 +3511,7 @@ def test_parquet_file_pass_directory_instead_of_file(tempdir):
         pq.ParquetFile(path)
 
 
+@pytest.mark.pandas
 @pytest.mark.parametrize("filesystem", [
     None,
     LocalFileSystem.get_instance(),
@@ -3546,6 +3547,8 @@ def s3_example_fs(s3_connection, s3_server):
     yield fs, uri, path
 
 
+@pytest.mark.pandas
+@pytest.mark.s3
 def test_parquet_writer_filesystem_s3(s3_example_fs):
     df = _test_dataframe(100)
     table = pa.Table.from_pandas(df, preserve_index=False)
@@ -3561,6 +3564,7 @@ def test_parquet_writer_filesystem_s3(s3_example_fs):
     tm.assert_frame_equal(result, df)
 
 
+@pytest.mark.pandas
 def test_parquet_writer_filesystem_buffer_raises():
     df = _test_dataframe(100)
     table = pa.Table.from_pandas(df, preserve_index=False)
