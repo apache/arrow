@@ -2830,7 +2830,7 @@ def _test_write_to_dataset_with_partitions(base_path,
     pq.write_to_dataset(output_table, base_path, partition_by,
                         filesystem=filesystem)
 
-    metadata_path = os.path.join(base_path, '_common_metadata')
+    metadata_path = os.path.join(str(base_path), '_common_metadata')
 
     if filesystem is not None:
         with filesystem.open(metadata_path, 'wb') as f:
@@ -2888,7 +2888,7 @@ def _test_write_to_dataset_no_partitions(base_path,
     for i in range(n):
         pq.write_to_dataset(output_table, base_path,
                             filesystem=filesystem)
-    output_files = [file for file in filesystem.ls(base_path)
+    output_files = [file for file in filesystem.ls(str(base_path))
                     if file.endswith(".parquet")]
     assert len(output_files) == n
 
