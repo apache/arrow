@@ -488,7 +488,7 @@ Status ListToSchemaField(const GroupNode& group, LevelInfo current_levels,
         "Non-repeated nodes in a LIST-annotated group are not supported.");
   }
 
-  int16_t repeated_ancesor_def_level = current_levels.IncrementRepeated();
+  int16_t repeated_ancestor_def_level = current_levels.IncrementRepeated();
   if (list_node.is_group()) {
     // Resolve 3-level encoding
     //
@@ -543,7 +543,7 @@ Status ListToSchemaField(const GroupNode& group, LevelInfo current_levels,
   out->level_info = current_levels;
   // At this point current levels contains the def level for this list,
   // we need to reset to the prior parent.
-  out->level_info.repeated_ancestor_def_level = repeated_ancesor_def_level;
+  out->level_info.repeated_ancestor_def_level = repeated_ancestor_def_level;
   return Status::OK();
 }
 
@@ -567,6 +567,8 @@ Status GroupToSchemaField(const GroupNode& node, LevelInfo current_levels,
     RETURN_NOT_OK(GroupToStruct(node, current_levels, ctx, out, &out->children[0]));
     out->field = ::arrow::field(node.name(), ::arrow::list(out->children[0].field),
                                 /*nullable=*/false, FieldIdMetadata(node.field_id()));
+
+    ctx->LinkParent(&out->children[0], out);
     out->level_info = current_levels;
     // At this point current_levels contains this list as the def level, we need to
     // use the previous ancenstor of thi slist.

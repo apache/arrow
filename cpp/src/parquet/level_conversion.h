@@ -28,11 +28,11 @@ namespace internal {
 struct PARQUET_EXPORT LevelInfo {
   LevelInfo()
       : null_slot_usage(1), def_level(0), rep_level(0), repeated_ancestor_def_level(0) {}
-  LevelInfo(int32_t null_slots, int32_t definition_level, int32_t repitition_level,
+  LevelInfo(int32_t null_slots, int32_t definition_level, int32_t repetition_level,
             int32_t repeated_ancestor_definition_level)
       : null_slot_usage(null_slots),
         def_level(definition_level),
-        rep_level(repitition_level),
+        rep_level(repetition_level),
         repeated_ancestor_def_level(repeated_ancestor_definition_level) {}
 
   bool operator==(const LevelInfo& b) const {
@@ -41,30 +41,32 @@ struct PARQUET_EXPORT LevelInfo {
            repeated_ancestor_def_level == b.repeated_ancestor_def_level;
   }
 
-  // How many slots a null element consumes.
+  // How many slots an undefined but present (i.e. null element) in
+  // parquet consumes when decoding to Arrow.
+  // "Slot" is used in the same context
+  // of the Arrow specification (i.e. a value holder).
   // This is only ever >1 for descendents of
   // FixedSizeList.
   int32_t null_slot_usage = 1;
 
   // The definition level at which the value for the field
   // is considered not null (definition levels greater than
-  // or equal to indicate this value indicate a not-null
+  // or equal to this value indicate a not-null
   // value for the field). For list fields definition levels
-  // greater then or equal to this field indicate a present
-  // , possibly null, element.
+  // greater than or equal to this field indicate a present,
+  // possibly null, element.
   int16_t def_level = 0;
 
   // The repetition level corresponding to this element
   // or the closest repeated ancestor.  Any repetition
   // level less than this indicates either a new list OR
   // an empty list (which is determined in conjunction
-  // definition_level).
+  // definition levels).
   int16_t rep_level = 0;
 
   // The definition level indicating the level at which the closest
-  // repeated ancestor was not empty.  This is used to discriminate
-  // between a value less than |definition_level|
-  // being null or excluded entirely.
+  // repeated ancestor is not empty.  This is used to discriminate
+  // between a value less than |def_level| being null or excluded entirely.
   // For instance if we have an arrow schema like:
   // list(struct(f0: int)).  Then then there are the following
   // definition levels:
