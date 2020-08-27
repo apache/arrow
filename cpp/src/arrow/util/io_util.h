@@ -31,6 +31,7 @@
 #endif
 
 #include "arrow/io/interfaces.h"
+#include "arrow/status.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/windows_fixup.h"

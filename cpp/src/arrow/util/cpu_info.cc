@@ -39,6 +39,7 @@
 #endif
 
 #include <algorithm>
+#include <cctype>
 #include <cerrno>
 #include <cstdint>
 #include <fstream>
@@ -46,6 +47,8 @@
 #include <mutex>
 #include <string>
 
+#include "arrow/result.h"
+#include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/string.h"
 
@@ -420,24 +423,29 @@ void CpuInfo::SetDefaultCacheSize() {
 }
 
 void CpuInfo::ParseUserSimdLevel() {
-  const char* user = std::getenv("ARROW_USER_SIMD_LEVEL");
-  if (!user) {
+  auto maybe_env_var = GetEnvVar("ARROW_USER_SIMD_LEVEL");
+  if (!maybe_env_var.ok()) {
     // No user settings
     return;
   }
+  std::string s = *std::move(maybe_env_var);
+  std::transform(s.begin(), s.end(), s.begin(),
+                 [](unsigned char c) { return std::toupper(c); });
 
   int level = USER_SIMD_MAX;
   // Parse the level
-  if (0 == strcmp("avx512", user)) {
+  if (s == "AVX512") {
     level = USER_SIMD_AVX512;
-  } else if (0 == strcmp("avx2", user)) {
+  } else if (s == "AVX2") {
     level = USER_SIMD_AVX2;
-  } else if (0 == strcmp("avx", user)) {
+  } else if (s == "AVX") {
     level = USER_SIMD_AVX;
-  } else if (0 == strcmp("sse4_2", user)) {
+  } else if (s == "SSE4_2") {
     level = USER_SIMD_SSE4_2;
-  } else if (0 == strcmp("none", user)) {
+  } else if (s == "NONE") {
     level = USER_SIMD_NONE;
+  } else if (!s.empty()) {
+    ARROW_LOG(WARNING) << "Invalid value for ARROW_USER_SIMD_LEVEL: " << s;
   }
 
   // Disable feature as the level
