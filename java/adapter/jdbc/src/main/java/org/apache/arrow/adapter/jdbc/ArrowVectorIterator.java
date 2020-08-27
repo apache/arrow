@@ -64,8 +64,17 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot>, AutoClos
   private void initialize() throws SQLException {
     // create consumers
     for (int i = 1; i <= consumers.length; i++) {
-      consumers[i - 1] = JdbcToArrowUtils.getConsumer(resultSet, i, resultSet.getMetaData().getColumnType(i),
-          null, config);
+      try {
+        consumers[i - 1] = JdbcToArrowUtils.getConsumer(resultSet, i, rsmd.getColumnType(i),
+                null, config);
+      } catch (UnsupportedOperationException e) {
+
+        String msg = "Error creating consumer for column, " +
+                rsmd.getColumnName(i) +
+                ", with data type, " +
+                rsmd.getColumnTypeName(i);
+        throw new UnsupportedOperationException(msg, e);
+      }
     }
 
     load(createVectorSchemaRoot());

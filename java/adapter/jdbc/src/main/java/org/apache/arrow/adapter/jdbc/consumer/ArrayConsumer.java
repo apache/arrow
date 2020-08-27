@@ -22,6 +22,7 @@ import java.sql.Array;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
+import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.complex.ListVector;
 
@@ -60,8 +61,10 @@ public abstract class ArrayConsumer extends BaseConsumer<ListVector> {
 
   @Override
   public void close() throws Exception {
-    this.vector.close();
-    this.delegate.close();
+    if (this.vector != null) {
+      this.vector.close();
+    }
+    AutoCloseables.close(this.delegate);
   }
 
   void ensureInnerVectorCapacity(int targetCapacity) {

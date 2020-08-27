@@ -22,6 +22,7 @@ import java.sql.Blob;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
+import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.VarBinaryVector;
 
 /**
@@ -62,7 +63,7 @@ public class BlobConsumer extends BaseConsumer<VarBinaryVector> {
 
   @Override
   public void close() throws Exception {
-    delegate.close();
+    AutoCloseables.close(delegate);
   }
 
   @Override

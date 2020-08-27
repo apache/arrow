@@ -43,7 +43,9 @@ public abstract class BaseConsumer<V extends ValueVector> implements JdbcConsume
 
   @Override
   public void close() throws Exception {
-    this.vector.close();
+    if (this.vector != null) {
+      this.vector.close();
+    }
   }
 
   @Override
