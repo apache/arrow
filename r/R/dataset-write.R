@@ -75,7 +75,14 @@ write_dataset <- function(dataset,
   }
 
   if (!inherits(format, "FileFormat")) {
-    format <- FileFormat$create(format, ...)
+    if (identical(format, "parquet")) {
+      # We have to do some special massaging of properties
+      writer_props <- ParquetWriterProperties$create(dataset, ...)
+      arrow_writer_props <- ParquetArrowWriterProperties$create(...)
+      format <- ParquetFileFormat$create(writer_properties = writer_props, arrow_writer_properties = arrow_writer_props)
+    } else {
+      format <- FileFormat$create(format, ...)
+    }
   }
 
   if (!inherits(partitioning, "Partitioning")) {

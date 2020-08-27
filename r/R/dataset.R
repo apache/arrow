@@ -163,7 +163,7 @@ Dataset <- R6Class("Dataset", inherit = ArrowObject,
     # @return A [ScannerBuilder]
     NewScan = function() unique_ptr(ScannerBuilder, dataset___Dataset__NewScan(self)),
     ToString = function() self$schema$ToString(),
-    write = function(path, filesystem = NULL, schema = self$schema, format, partitioning) {
+    write = function(path, filesystem = NULL, schema = self$schema, format, partitioning, ...) {
       if (!inherits(filesystem, "FileSystem")) {
         if (grepl("://", path)) {
           fs_from_uri <- FileSystem$from_uri(path)

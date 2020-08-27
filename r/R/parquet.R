@@ -178,7 +178,8 @@ write_parquet <- function(x,
 ParquetArrowWriterProperties <- R6Class("ParquetArrowWriterProperties", inherit = ArrowObject)
 ParquetArrowWriterProperties$create <- function(use_deprecated_int96_timestamps = FALSE,
                                                 coerce_timestamps = NULL,
-                                                allow_truncated_timestamps = FALSE) {
+                                                allow_truncated_timestamps = FALSE,
+                                                ...) {
   if (is.null(coerce_timestamps)) {
     timestamp_unit <- -1L # null sentinel value
   } else {
@@ -320,7 +321,8 @@ ParquetWriterProperties$create <- function(table,
                                            compression_level = NULL,
                                            use_dictionary = NULL,
                                            write_statistics = NULL,
-                                           data_page_size = NULL) {
+                                           data_page_size = NULL,
+                                           ...) {
   builder <- shared_ptr(
     ParquetWriterPropertiesBuilder,
     parquet___WriterProperties___Builder__create()
@@ -360,7 +362,7 @@ ParquetWriterProperties$create <- function(table,
 #' takes the following arguments:
 #'
 #' - `schema` A [Schema]
-#' - `sink` An [arrow::io::OutputStream][OutputStream] or a string which is interpreted as a file path
+#' - `sink` An [arrow::io::OutputStream][OutputStream]
 #' - `properties` An instance of [ParquetWriterProperties]
 #' - `arrow_properties` An instance of `ParquetArrowWriterProperties`
 #' @export
