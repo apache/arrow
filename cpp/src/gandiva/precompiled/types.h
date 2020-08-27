@@ -185,6 +185,7 @@ gdv_date32 castDATE_int32(gdv_int32 date);
 gdv_timestamp castTIMESTAMP_utf8(int64_t execution_context, const char* input,
                                  gdv_int32 length);
 gdv_timestamp castTIMESTAMP_date64(gdv_date64);
+gdv_timestamp castTIMESTAMP_int64(gdv_int64);
 gdv_date64 castDATE_timestamp(gdv_timestamp);
 const char* castVARCHAR_timestamp_int64(int64_t, gdv_timestamp, gdv_int64, gdv_int32*);
 
