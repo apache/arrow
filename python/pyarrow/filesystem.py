@@ -475,6 +475,6 @@ def resolve_filesystem_and_path(where, filesystem=None):
     else:
         # Input is local path such as /home/user/myfile.parquet
         fs = LocalFileSystem.get_instance()
-        fs_path = where
+        fs_path = path
 
     return fs, fs_path

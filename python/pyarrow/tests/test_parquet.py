@@ -2936,7 +2936,16 @@ def test_write_to_dataset_with_partitions_and_index_name(
 @pytest.mark.pandas
 @parametrize_legacy_dataset
 def test_write_to_dataset_no_partitions(tempdir, use_legacy_dataset):
-    _test_write_to_dataset_no_partitions(str(tempdir))
+    _test_write_to_dataset_no_partitions(str(tempdir), use_legacy_dataset)
+
+
+@pytest.mark.pandas
+@parametrize_legacy_dataset
+def test_write_to_dataset_pathlib(tempdir, use_legacy_dataset):
+    _test_write_to_dataset_with_partitions(
+        tempdir / "test1", use_legacy_dataset)
+    _test_write_to_dataset_no_partitions(
+        tempdir / "test2", use_legacy_dataset)
 
 
 @pytest.mark.pandas

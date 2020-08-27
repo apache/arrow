@@ -1751,7 +1751,7 @@ def write_to_dataset(table, root_path, partition_cols=None,
     Parameters
     ----------
     table : pyarrow.Table
-    root_path : str,
+    root_path : str, pathlib.Path
         The root directory of the dataset
     filesystem : FileSystem, default None
         If nothing passed, paths assumed to be found in the local on-disk
