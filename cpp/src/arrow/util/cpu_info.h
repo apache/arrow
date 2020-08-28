@@ -78,7 +78,7 @@ class ARROW_EXPORT CpuInfo {
   /// Returns all the flags for this cpu
   int64_t hardware_flags();
 
-  /// Returns whether of not the cpu supports the flags
+  /// Returns whether of not the cpu supports all the flags
   bool IsSupported(int64_t flags) const { return (hardware_flags_ & flags) == flags; }
 
   /// \brief The processor supports SSE4.2 and the Arrow libraries are built
