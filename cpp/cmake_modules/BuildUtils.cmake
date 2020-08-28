@@ -30,6 +30,22 @@ set(ARROW_LIBRARY_PATH_SUFFIXES
     "Library/bin")
 set(ARROW_INCLUDE_PATH_SUFFIXES "include" "Library" "Library/include")
 
+set(ARROW_BOOST_PROCESS_COMPILE_DEFINITIONS)
+if(WIN32 AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+  # boost/process/detail/windows/handle_workaround.hpp doesn't work
+  # without BOOST_USE_WINDOWS_H with MinGW because MinGW doesn't
+  # provide __kernel_entry without winternl.h.
+  #
+  # See also:
+  # https://github.com/boostorg/process/blob/develop/include/boost/process/detail/windows/handle_workaround.hpp
+  #
+  # You can use this like the following:
+  #
+  #   target_compile_definitions(target PRIVATE
+  #                              ${ARROW_BOOST_PROCESS_COMPILE_DEFINITIONS})
+  list(APPEND ARROW_BOOST_PROCESS_COMPILE_DEFINITIONS "BOOST_USE_WINDOWS_H=1")
+endif()
+
 function(ADD_THIRDPARTY_LIB LIB_NAME)
   set(options)
   set(one_value_args SHARED_LIB STATIC_LIB)

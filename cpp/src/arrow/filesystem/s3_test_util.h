@@ -22,12 +22,9 @@
 #include <string>
 #include <utility>
 
-// boost/process/detail/windows/handle_workaround.hpp doesn't work
-// without BOOST_USE_WINDOWS_H with MinGW because MinGW doesn't
-// provide __kernel_entry without winternl.h.
-//
-// See also:
-// https://github.com/boostorg/process/blob/develop/include/boost/process/detail/windows/handle_workaround.hpp
+// We need BOOST_USE_WINDOWS_H definition with MinGW when we use
+// boost/process.hpp. See ARROW_BOOST_PROCESS_COMPILE_DEFINITIONS in
+// cpp/cmake_modules/BuildUtils.cmake for details.
 #include <boost/process.hpp>
 
 #include <gtest/gtest.h>

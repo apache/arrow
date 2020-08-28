@@ -22,15 +22,23 @@
 #include <utility>
 #include <vector>
 
-// boost/process/detail/windows/handle_workaround.hpp doesn't work
-// without BOOST_USE_WINDOWS_H with MinGW because MinGW doesn't
-// provide __kernel_entry without winternl.h.
+// This boost/asio/io_context.hpp include is needless for no MinGW
+// build.
 //
-// See also:
-// https://github.com/boostorg/process/blob/develop/include/boost/process/detail/windows/handle_workaround.hpp
-#include <gtest/gtest.h>
-
+// This is for including boost/asio/detail/socket_types.hpp before any
+// "#include <windows.h>". boost/asio/detail/socket_types.hpp doesn't
+// work if windows.h is already included. boost/process.h ->
+// boost/process/args.hpp -> boost/process/detail/basic_cmd.hpp
+// includes windows.h. boost/process/args.hpp is included before
+// boost/process/async.h that includes
+// boost/asio/detail/socket_types.hpp implicitly is included.
+#include <boost/asio/io_context.hpp>
+// We need BOOST_USE_WINDOWS_H definition with MinGW when we use
+// boost/process.hpp. See ARROW_BOOST_PROCESS_COMPILE_DEFINITIONS in
+// cpp/cmake_modules/BuildUtils.cmake for details.
 #include <boost/process.hpp>
+
+#include <gtest/gtest.h>
 
 #ifdef _WIN32
 // Undefine preprocessor macros that interfere with AWS function / method names

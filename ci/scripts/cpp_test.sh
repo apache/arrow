@@ -62,6 +62,18 @@ case "$(uname)" in
       exclude_tests="${exclude_tests}|gandiva-literal-test"
       exclude_tests="${exclude_tests}|gandiva-null-validity-test"
     fi
+    # TODO: Enable this when we can use aws-sdk-cpp as a shared
+    # library. The current aws-sdk-cpp MSYS2 package provides only
+    # static library. If we use aws-sdk-cpp as a static library, we
+    # can't use aws-sdk-cpp directly in
+    # cpp/src/arrow/filesystem/s3fs_test.c. Because aws-sdk-cpp uses
+    # static variables to keep process wide objects. If we aws-sdk-cpp
+    # as a static library, we have two aws-sdk-cpp libraries (in
+    # libarrow.dll and
+    # arrow-s3fs-test.exe). arrow::fs::EnsureS3Initialized() only
+    # initializes aws-sdk-cpp in libarrow.dll. It doesn't initialize
+    # aws-sdk-cpp in arrow-s3fs-test.exe.
+    exclude_tests="${exclude_tests}|arrow-s3fs-test"
     ctest_options+=(--exclude-regex "${exclude_tests}")
     ;;
   *)
