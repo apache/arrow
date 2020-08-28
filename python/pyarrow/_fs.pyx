@@ -422,7 +422,6 @@ cdef class FileSystem(_Weakrefable):
             vector[c_string] paths
             CFileSelector selector
 
-        single_path = False
         if isinstance(paths_or_selector, FileSelector):
             with nogil:
                 selector = (<FileSelector>paths_or_selector).selector
@@ -437,7 +436,7 @@ cdef class FileSystem(_Weakrefable):
                 info = GetResultValue(self.fs.GetFileInfo(path))
             return FileInfo.wrap(info)
         else:
-            raise TypeError("Must pass either path(s) or a FileSelector")
+            raise TypeError('Must pass either path(s) or a FileSelector')
 
         return [FileInfo.wrap(info) for info in infos]
 
