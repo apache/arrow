@@ -88,6 +88,7 @@ jobs:
         ARCH: s390x
         ARROW_CI_MODULES: "JAVA"
         DOCKER_IMAGE_ID: debian-java
+        JDK: 11
 
   allow_failures:
     - arch: s390x
