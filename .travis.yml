@@ -55,13 +55,13 @@ jobs:
         ARCH: s390x
         ARROW_CI_MODULES: "CPP"
         DOCKER_IMAGE_ID: ubuntu-cpp
-        # CMAKE_UNITIFY_BUILD=OFF is for avoiding compiler crash
+        # Can't use CMAKE_UNITIFY_BUILD=ON because of compiler crash
         DOCKER_RUN_ARGS: >-
           "
           -e ARROW_BUILD_STATIC=OFF
           -e ARROW_FLIGHT=ON
+          -e ARROW_ORC=OFF
           -e ARROW_PARQUET=OFF
-          -e CMAKE_UNITY_BUILD=OFF
           -e PARQUET_BUILD_EXAMPLES=OFF
           -e PARQUET_BUILD_EXECUTABLES=OFF
           -e Protobuf_SOURCE=BUNDLED
