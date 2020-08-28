@@ -39,12 +39,11 @@ namespace encryption {
 // KeyMetadata class writes (and reads) the "key metadata" field as a flat json object,
 // with the following fields:
 // 1. "keyMaterialType" - a String, with the type of  key material. In the current
-// version, only one value is allowed - "PKMT1" (stands
-//     for "parquet key management tools, version 1")
+// version, only one value is allowed - "PKMT1" (stands for "parquet key management tools,
+// version 1")
 // 2. "internalStorage" - a boolean. If true, means that "key material" is kept inside the
-// "key metadata" field. If false, "key material"
-//     is kept externally (outside Parquet files) - in this case, "key metadata" keeps a
-//     reference to the external "key material".
+// "key metadata" field. If false, "key material" is kept externally (outside Parquet
+// files) - in this case, "key metadata" keeps a reference to the external "key material".
 // 3. "keyReference" - a String, with the reference to the external "key material".
 // Written only if internalStorage is false.
 //

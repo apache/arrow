@@ -88,6 +88,10 @@ static constexpr char INT96_FIELD_NAME[] = "int96_field";
 static constexpr char BA_FIELD_NAME[] = "ba_field";
 static constexpr char FLBA_FIELD_NAME[] = "flba_field";
 
+// FileEncryptor and FileDecryptor are helper classes to write/read an encrypted parquet
+// file corresponding to each pair of FileEncryptionProperties/FileDecryptionProperties.
+// FileEncryptor writes the file with fixed data values and FileDecryptor reads the file
+// and verify the correctness of data values.
 class FileEncryptor {
  public:
   FileEncryptor();

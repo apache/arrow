@@ -58,7 +58,7 @@ KeyWithMasterId FileKeyUnwrapper::GetDataEncryptionKey(
   if (!double_wrapping) {
     data_key = kms_client->UnwrapKey(encoded_wrapped_dek, master_key_id);
   } else {
-    // Get KEK
+    // Get Key Encryption Key
     const std::string& encoded_kek_id = key_material.kek_id();
     const std::string& encoded_wrapped_kek = key_material.wrapped_kek();
 

@@ -27,6 +27,9 @@
 namespace parquet {
 namespace encryption {
 
+// This class wraps the key access token of a KMS server. If your token changes over time,
+// you should keep the reference to the KeyAccessToken object and call Refresh() method
+// every time you have a new token.
 class PARQUET_EXPORT KeyAccessToken {
  public:
   KeyAccessToken() = default;

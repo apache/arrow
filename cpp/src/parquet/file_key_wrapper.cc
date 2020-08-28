@@ -53,13 +53,6 @@ FileKeyWrapper::FileKeyWrapper(std::shared_ptr<KmsClientFactory> kms_client_fact
 std::string FileKeyWrapper::GetEncryptionKeyMetadata(const std::string& data_key,
                                                      const std::string& master_key_id,
                                                      bool is_footer_key) {
-  return GetEncryptionKeyMetadata(data_key, master_key_id, is_footer_key, "");
-}
-
-std::string FileKeyWrapper::GetEncryptionKeyMetadata(const std::string& data_key,
-                                                     const std::string& master_key_id,
-                                                     bool is_footer_key,
-                                                     std::string key_id_in_file) {
   if (kms_client_ == NULL) {
     throw ParquetException("No KMS client available. See previous errors.");
   }

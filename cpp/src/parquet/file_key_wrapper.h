@@ -29,11 +29,27 @@
 namespace parquet {
 namespace encryption {
 
+// This class will generate "key metadata" from "data encryption key" and "master key",
+// following these steps:
+// 1. Wrap "data encryption key". There are 2 modes:
+// 1.1. single wrapping: encrypt "data encryption key" directly with "master encryption
+// key" 1.2. double wrapping: 2 steps: 1.2.1. "key encryption key" is randomized (see
+// structure of KeyEncryptionKey class) 1.2.2. "data encryption key" is encrypted with the
+// above "key encryption key"
+// 2. Create "key material" (see structure in KeyMaterial class)
+// 3. Create "key metadata" with "key material" inside or a reference to outside "key
+// material" (see structure in KeyMetadata class).
+//    Currently we don't support the case "key material" stores outside "key metadata"
+//    yet.
 class FileKeyWrapper {
  public:
   static constexpr int kKeyEncryptionKeyLength = 16;
   static constexpr int kKeyEncryptionKeyIdLength = 16;
 
+  /// kms_client_factory and kms_connection_config is to create KmsClient if it's not in
+  /// the cache yet. cache_entry_lifetime_seconds is life time of KmsClient in the cache.
+  /// key_material_store is to store "key material" outside parquet file, NULL if "key
+  /// material" is stored inside parquet file.
   FileKeyWrapper(std::shared_ptr<KmsClientFactory> kms_client_factory,
                  const KmsConnectionConfig& kms_connection_config,
                  std::shared_ptr<FileKeyMaterialStore> key_material_store,
@@ -43,10 +59,6 @@ class FileKeyWrapper {
   std::string GetEncryptionKeyMetadata(const std::string& data_key,
                                        const std::string& master_key_id,
                                        bool is_footer_key);
-
-  std::string GetEncryptionKeyMetadata(const std::string& data_key,
-                                       const std::string& master_key_id,
-                                       bool is_footer_key, std::string key_id_in_file);
 
  private:
   KeyEncryptionKey CreateKeyEncryptionKey(const std::string& master_key_id);
