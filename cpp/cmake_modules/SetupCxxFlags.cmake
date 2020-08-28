@@ -48,10 +48,10 @@ if(ARROW_CPU_FLAG STREQUAL "x86")
     set(ARROW_SSE4_2_FLAG "-msse4.2")
     set(ARROW_AVX2_FLAG "-march=haswell")
     # skylake-avx512 consists of AVX512F,AVX512BW,AVX512VL,AVX512CD,AVX512DQ
-    # Append the avx512 subset option also, see issue ARROW-9877
+    set(ARROW_AVX512_FLAG "-march=skylake-avx512 -mbmi2")
+    # Append the avx512 subset option also, fix issue ARROW-9877
     set(ARROW_AVX512_FLAG
-        "-march=skylake-avx512 -mavx512f -mavx512cd -mavx512vl -mavx512dq -mavx512bw -mbmi2"
-    )
+        "${ARROW_AVX512_FLAG} -mavx512f -mavx512cd -mavx512vl -mavx512dq -mavx512bw")
     check_cxx_compiler_flag(${ARROW_SSE4_2_FLAG} CXX_SUPPORTS_SSE4_2)
   endif()
   check_cxx_compiler_flag(${ARROW_AVX2_FLAG} CXX_SUPPORTS_AVX2)
