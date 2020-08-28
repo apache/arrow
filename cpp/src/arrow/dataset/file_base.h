@@ -195,9 +195,11 @@ class ARROW_DS_EXPORT FileSystemDataset : public Dataset {
   /// \param[in] schema the schema of the dataset
   /// \param[in] root_partition the partition expression of the dataset
   /// \param[in] format the format of each FileFragment.
+  /// \param[in] filesystem the filesystem of each FileFragment, or nullptr if the
+  ///            fragments wrap buffers.
   /// \param[in] fragments list of fragments to create the dataset from.
   ///
-  /// Note that fragments wrapping files resident in a differing filesystems is not
+  /// Note that fragments wrapping files resident in differing filesystems are not
   /// permitted; to work with multiple filesystems use a UnionDataset.
   ///
   /// \return A constructed dataset.

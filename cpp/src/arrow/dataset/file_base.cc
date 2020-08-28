@@ -93,13 +93,6 @@ Result<std::shared_ptr<FileSystemDataset>> FileSystemDataset::Make(
     std::shared_ptr<Schema> schema, std::shared_ptr<Expression> root_partition,
     std::shared_ptr<FileFormat> format, std::shared_ptr<fs::FileSystem> filesystem,
     std::vector<std::shared_ptr<FileFragment>> fragments) {
-  for (const auto& fragment : fragments) {
-    if ((filesystem == nullptr && fragment->source().filesystem() != nullptr) ||
-        (filesystem != nullptr &&
-         !fragment->source().filesystem()->Equals(*filesystem))) {
-      return Status::Invalid("FileSystemDataset's filesystem differed from a fragment's");
-    }
-  }
   return std::shared_ptr<FileSystemDataset>(new FileSystemDataset(
       std::move(schema), std::move(root_partition), std::move(format),
       std::move(filesystem), std::move(fragments)));

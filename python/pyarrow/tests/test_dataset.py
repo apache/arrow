@@ -235,8 +235,8 @@ def test_filesystem_dataset(mockfs):
     root_partition = ds.field('level') == ds.scalar(1337)
 
     dataset_from_fragments = ds.FileSystemDataset(
-        mockfs, fragments, schema=schema, format=file_format,
-        root_partition=root_partition,
+        fragments, schema=schema, format=file_format,
+        filesystem=mockfs, root_partition=root_partition,
     )
     dataset_from_paths = ds.FileSystemDataset.from_paths(
         paths, schema=schema, format=file_format, filesystem=mockfs,
@@ -268,7 +268,7 @@ def test_filesystem_dataset(mockfs):
 
     # the root_partition keyword has a default
     dataset = ds.FileSystemDataset(
-        mockfs, fragments, schema=schema, format=file_format
+        fragments, schema=schema, format=file_format, filesystem=mockfs
     )
     assert dataset.partition_expression.equals(ds.scalar(True))
 
@@ -282,10 +282,10 @@ def test_filesystem_dataset(mockfs):
 
     # validation of required arguments
     with pytest.raises(TypeError, match="incorrect type"):
-        ds.FileSystemDataset(mockfs, fragments, file_format, schema)
+        ds.FileSystemDataset(fragments, file_format, schema)
     # validation of root_partition
     with pytest.raises(TypeError, match="incorrect type"):
-        ds.FileSystemDataset(mockfs, fragments, schema=schema,
+        ds.FileSystemDataset(fragments, schema=schema,
                              format=file_format, root_partition=1)
     # missing required argument in from_paths
     with pytest.raises(TypeError, match="incorrect type"):

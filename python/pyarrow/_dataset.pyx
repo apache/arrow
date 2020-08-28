@@ -460,6 +460,8 @@ cdef class FileSystemDataset(Dataset):
     format : FileFormat
         File format of the fragments, currently only ParquetFileFormat,
         IpcFileFormat, and CsvFileFormat are supported.
+    filesystem : FileSystem
+        FileSystem of the fragments.
     root_partition : Expression, optional
         The top-level partition of the DataDataset.
     """
@@ -467,10 +469,10 @@ cdef class FileSystemDataset(Dataset):
     cdef:
         CFileSystemDataset* filesystem_dataset
 
-    def __init__(self, filesystem, fragments, Schema schema, FileFormat format,
-                 root_partition=None):
+    def __init__(self, fragments, Schema schema, FileFormat format,
+                 FileSystem filesystem=None, root_partition=None):
         cdef:
-            FileFragment fragment
+            FileFragment fragment=None
             vector[shared_ptr[CFileFragment]] c_fragments
             CResult[shared_ptr[CDataset]] result
             shared_ptr[CFileSystem] c_filesystem
@@ -487,13 +489,16 @@ cdef class FileSystemDataset(Dataset):
                 static_pointer_cast[CFileFragment, CFragment](
                     fragment.unwrap()))
 
+            if filesystem is None:
+                filesystem = fragment.filesystem
+
         if filesystem is not None:
-            c_filesystem = (<FileSystem> filesystem).unwrap()
+            c_filesystem = filesystem.unwrap()
 
         result = CFileSystemDataset.Make(
             pyarrow_unwrap_schema(schema),
             (<Expression> root_partition).unwrap(),
-            (<FileFormat> format).unwrap(),
+            format.unwrap(),
             c_filesystem,
             c_fragments
         )
@@ -509,10 +514,10 @@ cdef class FileSystemDataset(Dataset):
 
     def __reduce__(self):
         return FileSystemDataset, (
-            self.filesystem,
             list(self.get_fragments()),
             self.schema,
             self.format,
+            self.filesystem,
             self.partition_expression
         )
 
@@ -549,7 +554,7 @@ cdef class FileSystemDataset(Dataset):
         ]:
             if not isinstance(arg, class_):
                 raise TypeError(
-                    "Argument '{0}' wtf has incorrect type (expected {1}, "
+                    "Argument '{0}' has incorrect type (expected {1}, "
                     "got {2})".format(name, class_.__name__, type(arg))
                 )
 
@@ -565,8 +570,8 @@ cdef class FileSystemDataset(Dataset):
             format.make_fragment(path, filesystem, partitions[i])
             for i, path in enumerate(paths)
         ]
-        return FileSystemDataset(filesystem, fragments, schema, format,
-                                 root_partition)
+        return FileSystemDataset(fragments, schema, format,
+                                 filesystem, root_partition)
 
     @property
     def files(self):
