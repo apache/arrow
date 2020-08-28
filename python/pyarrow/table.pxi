@@ -160,6 +160,8 @@ cdef class ChunkedArray(_PandasConvertible):
             return _normalize_slice(self, key)
         elif isinstance(key, int):
             return self.getitem(key)
+        elif np.isscalar(key) and np.issubdtype(key.dtype, np.integer):
+            return self.getitem(key)
         else:
             raise TypeError("key must either be a slice or integer")
 
