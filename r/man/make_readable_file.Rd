@@ -4,7 +4,7 @@
 \alias{make_readable_file}
 \title{Handle a range of possible input sources}
 \usage{
-make_readable_file(file, mmap = TRUE, compression = NULL)
+make_readable_file(file, mmap = TRUE, compression = NULL, filesystem = NULL)
 }
 \arguments{
 \item{file}{A character file name, \code{raw} vector, or an Arrow input stream}
