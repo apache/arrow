@@ -40,10 +40,13 @@ jobs:
         ARCH: arm64v8
         ARROW_CI_MODULES: "CPP"
         DOCKER_IMAGE_ID: ubuntu-cpp
+        # ARROW_USE_GLOG=OFF is needed to avoid build error caused by
+        # glog and CMAKE_UNITY_BUILD=ON.
         DOCKER_RUN_ARGS: >-
           "
           -e ARROW_BUILD_STATIC=OFF
           -e ARROW_ORC=OFF
+          -e ARROW_USE_GLOG=OFF
           -e CMAKE_UNITY_BUILD=ON
           "
         UBUNTU: "20.04"
