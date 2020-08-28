@@ -917,9 +917,6 @@ test_that("Dataset writing: from RecordBatch", {
   )
 })
 
-
-# parquet___ArrowWriterProperties___create
-
 test_that("Writing a dataset: Parquet format options", {
   skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
   ds <- open_dataset(csv_dir, partitioning = "part", format = "csv")

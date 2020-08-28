@@ -38,7 +38,8 @@ use the current \code{group_by()} columns.}
 \item{hive_style}{logical: write partition segments as Hive-style
 (\code{key1=value1/key2=value2/file.ext}) or as just bare values. Default is \code{TRUE}.}
 
-\item{...}{additional arguments, passed to \code{dataset$write()}}
+\item{...}{additional format-specific arguments. For available Parquet
+options, see \code{\link[=write_parquet]{write_parquet()}}.}
 }
 \value{
 The input \code{dataset}, invisibly

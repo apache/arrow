@@ -61,7 +61,6 @@ read_parquet <- function(file,
 #' @param x An [arrow::Table][Table], or an object convertible to it.
 #' @param sink an [arrow::io::OutputStream][OutputStream] or a string which is interpreted as a file path
 #' @param chunk_size chunk size in number of rows. If NULL, the total number of rows is used.
-#'
 #' @param version parquet version, "1.0" or "2.0". Default "1.0". Numeric values
 #'   are coerced to character.
 #' @param compression compression algorithm. Default "snappy". See details.
@@ -70,23 +69,12 @@ read_parquet <- function(file,
 #' @param write_statistics Specify if we should write statistics. Default `TRUE`
 #' @param data_page_size Set a target threshold for the approximate encoded
 #'    size of data pages within a column chunk (in bytes). Default 1 MiB.
-#' @param properties properties for parquet writer, derived from arguments
-#'   `version`, `compression`, `compression_level`, `use_dictionary`,
-#'   `write_statistics` and `data_page_size`. You should not specify any of
-#'    these arguments if you also provide a `properties` argument, as they will
-#'    be ignored.
-#'
 #' @param use_deprecated_int96_timestamps Write timestamps to INT96 Parquet format. Default `FALSE`.
 #' @param coerce_timestamps Cast timestamps a particular resolution. Can be
 #'   `NULL`, "ms" or "us". Default `NULL` (no casting)
 #' @param allow_truncated_timestamps Allow loss of data when coercing timestamps to a
 #'    particular resolution. E.g. if microsecond or nanosecond data is lost when coercing
 #'    to "ms", do not raise an exception
-#'
-#' @param arrow_properties arrow specific writer properties, derived from arguments
-#'   `use_deprecated_int96_timestamps`, `coerce_timestamps` and `allow_truncated_timestamps`
-#'    You should not specify any of these arguments if you also provide a `properties`
-#'    argument, as they will be ignored.
 #'
 #' @details The parameters `compression`, `compression_level`, `use_dictionary` and
 #'   `write_statistics` support various patterns:
@@ -131,24 +119,10 @@ write_parquet <- function(x,
                           use_dictionary = NULL,
                           write_statistics = NULL,
                           data_page_size = NULL,
-                          properties = ParquetWriterProperties$create(
-                            x,
-                            version = version,
-                            compression = compression,
-                            compression_level = compression_level,
-                            use_dictionary = use_dictionary,
-                            write_statistics = write_statistics,
-                            data_page_size = data_page_size
-                          ),
                           # arrow writer properties
                           use_deprecated_int96_timestamps = FALSE,
                           coerce_timestamps = NULL,
-                          allow_truncated_timestamps = FALSE,
-                          arrow_properties = ParquetArrowWriterProperties$create(
-                            use_deprecated_int96_timestamps = use_deprecated_int96_timestamps,
-                            coerce_timestamps = coerce_timestamps,
-                            allow_truncated_timestamps = allow_truncated_timestamps
-                          )) {
+                          allow_truncated_timestamps = FALSE) {
   x_out <- x
   if (is.data.frame(x)) {
     x <- Table$create(x)
@@ -164,8 +138,20 @@ write_parquet <- function(x,
   writer <- ParquetFileWriter$create(
     x$schema,
     sink,
-    properties = properties,
-    arrow_properties = arrow_properties
+    properties = ParquetWriterProperties$create(
+      x,
+      version = version,
+      compression = compression,
+      compression_level = compression_level,
+      use_dictionary = use_dictionary,
+      write_statistics = write_statistics,
+      data_page_size = data_page_size
+    ),
+    arrow_properties = ParquetArrowWriterProperties$create(
+      use_deprecated_int96_timestamps = use_deprecated_int96_timestamps,
+      coerce_timestamps = coerce_timestamps,
+      allow_truncated_timestamps = allow_truncated_timestamps
+    )
   )
   writer$WriteTable(x, chunk_size = chunk_size %||% x$num_rows)
   writer$Close()

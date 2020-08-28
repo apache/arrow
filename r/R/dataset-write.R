@@ -38,7 +38,8 @@
 #' use the current `group_by()` columns.
 #' @param hive_style logical: write partition segments as Hive-style
 #' (`key1=value1/key2=value2/file.ext`) or as just bare values. Default is `TRUE`.
-#' @param ... additional arguments, passed to `dataset$write()`
+#' @param ... additional format-specific arguments. For available Parquet
+#' options, see [write_parquet()].
 #' @return The input `dataset`, invisibly
 #' @export
 write_dataset <- function(dataset,
