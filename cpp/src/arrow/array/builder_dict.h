@@ -93,6 +93,10 @@ class ARROW_EXPORT DictionaryMemoTable {
   std::unique_ptr<DictionaryMemoTableImpl> impl_;
 };
 
+/// \brief Check array's value type by DCHECK
+ARROW_EXPORT void CheckArrayType(const std::shared_ptr<DataType>& expected_type,
+                                 const Array& array, const std::string& message);
+
 /// \brief Array builder for created encoded DictionaryArray from
 /// dense array
 ///
@@ -248,6 +252,10 @@ class DictionaryBuilderBase : public ArrayBuilder {
       const Array& array) {
     using ArrayType = typename TypeTraits<T>::ArrayType;
 
+#ifndef NDEBUG
+    CheckArrayType(value_type_, array, "Wrong value type of array to be appended");
+#endif
+
     const auto& concrete_array = static_cast<const ArrayType&>(array);
     for (int64_t i = 0; i < array.length(); i++) {
       if (array.IsNull(i)) {
@@ -261,10 +269,10 @@ class DictionaryBuilderBase : public ArrayBuilder {
 
   template <typename T1 = T>
   enable_if_fixed_size_binary<T1, Status> AppendArray(const Array& array) {
-    if (!value_type_->Equals(*array.type())) {
-      return Status::Invalid(
-          "Cannot append FixedSizeBinary array with non-matching type");
-    }
+#ifndef NDEBUG
+    CheckArrayType(value_type_, array,
+                   "Cannot append FixedSizeBinary array with non-matching type");
+#endif
 
     const auto& concrete_array = static_cast<const FixedSizeBinaryArray&>(array);
     for (int64_t i = 0; i < array.length(); i++) {
@@ -406,6 +414,9 @@ class DictionaryBuilderBase<BuilderType, NullType> : public ArrayBuilder {
 
   /// \brief Append a whole dense array to the builder
   Status AppendArray(const Array& array) {
+#ifndef NDEBUG
+    CheckArrayType(null(), array, "Wrong value type of array to be appended");
+#endif
     for (int64_t i = 0; i < array.length(); i++) {
       ARROW_RETURN_NOT_OK(AppendNull());
     }

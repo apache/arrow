@@ -825,7 +825,8 @@ TEST(TestFixedSizeBinaryDictionaryBuilder, InvalidTypeAppend) {
   std::shared_ptr<Array> fsb_array;
   ASSERT_OK(fsb_builder.Finish(&fsb_array));
 
-  ASSERT_RAISES(Invalid, builder.AppendArray(*fsb_array));
+  ASSERT_DEBUG_DEATH({ (void)builder.AppendArray(*fsb_array); },
+                     "Cannot append FixedSizeBinary array with non-matching type");
 }
 
 TEST(TestDecimalDictionaryBuilder, Basic) {
@@ -931,6 +932,18 @@ TEST(TestNullDictionaryBuilder, Basic) {
   AssertTypeEqual(*dict_type, *result->type());
   ASSERT_EQ(11, result->length());
   ASSERT_EQ(11, result->null_count());
+}
+
+TEST(TestNullDictionaryBuilder, AppendArrayTypeMismatch) {
+  // MakeBuilder
+  auto dict_type = dictionary(int8(), null());
+  std::unique_ptr<ArrayBuilder> boxed_builder;
+  ASSERT_OK(MakeBuilder(default_memory_pool(), dict_type, &boxed_builder));
+  auto& builder = checked_cast<DictionaryBuilder<NullType>&>(*boxed_builder);
+
+  auto int8_array = ArrayFromJSON(int8(), "[0, 1, 0, null]");
+  ASSERT_DEBUG_DEATH({ (void)builder.AppendArray(*int8_array); },
+                     "Wrong value type of array to be appended");
 }
 
 // ----------------------------------------------------------------------
