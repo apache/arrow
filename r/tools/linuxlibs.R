@@ -298,10 +298,17 @@ build_libarrow <- function(src_dir, dst_dir) {
     # CXXFLAGS = R_CMD_config("CXX11FLAGS"), # We don't want the same debug symbols
     LDFLAGS = R_CMD_config("LDFLAGS")
   )
-  env_vars <- paste(
-    names(env_var_list), dQuote(env_var_list, FALSE),
-    sep = "=", collapse = " "
-  )
+  if (as.numeric(strsplit(R.version$minor, ".", fixed = T)[[1]][1]) >= 6) {
+    env_vars <- paste(
+      names(env_var_list), dQuote(env_var_list, FALSE),
+      sep = "=", collapse = " "
+    )
+  } else {
+    options(useFancyQuotes = FALSE)
+    env_vars <- paste(
+      names(env_var_list), dQuote(env_var_list),
+      sep = "=", collapse = " "
+  }
   cat("**** arrow", ifelse(quietly, "", paste("with", env_vars)), "\n")
   status <- system(
     paste(env_vars, "inst/build_arrow_static.sh"),
