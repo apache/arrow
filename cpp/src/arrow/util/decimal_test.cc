@@ -313,13 +313,18 @@ TEST(Decimal128Test, PrintMinValue) {
   ASSERT_EQ(string_value, printed_value);
 }
 
-struct ToStringTestData {
+struct ToStringTestParam {
   int64_t test_value;
   int32_t scale;
   std::string expected_string;
+
+  // Avoid Valgrind uninitialized memory reads with the default GTest print routine.
+  friend std::ostream& operator<<(std::ostream& os, const ToStringTestParam& param) {
+    return os << "<value: " << param.test_value << ">";
+  }
 };
 
-static const ToStringTestData kToStringTestData[] = {
+static const ToStringTestParam kToStringTestData[] = {
     {0, -1, "0.E+1"},
     {0, 0, "0"},
     {0, 1, "0.0"},
@@ -384,13 +389,13 @@ static const ToStringTestData kToStringTestData[] = {
     {-1234567890123456789LL, 25, "-1.234567890123456789E-7"},
 };
 
-class Decimal128ToStringTest : public ::testing::TestWithParam<ToStringTestData> {};
+class Decimal128ToStringTest : public ::testing::TestWithParam<ToStringTestParam> {};
 
 TEST_P(Decimal128ToStringTest, ToString) {
-  const ToStringTestData& data = GetParam();
-  const Decimal128 value(data.test_value);
-  const std::string printed_value = value.ToString(data.scale);
-  ASSERT_EQ(data.expected_string, printed_value);
+  const ToStringTestParam& param = GetParam();
+  const Decimal128 value(param.test_value);
+  const std::string printed_value = value.ToString(param.scale);
+  ASSERT_EQ(param.expected_string, printed_value);
 }
 
 INSTANTIATE_TEST_SUITE_P(Decimal128ToStringTest, Decimal128ToStringTest,
@@ -464,8 +469,7 @@ struct FromRealTestParam {
   int32_t scale;
   std::string expected;
 
-  // Weird, but we need to define this to avoid Valgrind issues
-  // with the default GTest print routine.
+  // Avoid Valgrind uninitialized memory reads with the default GTest print routine.
   friend std::ostream& operator<<(std::ostream& os,
                                   const FromRealTestParam<Real>& param) {
     return os << "<real: " << param.real << ">";
