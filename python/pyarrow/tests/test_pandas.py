@@ -19,6 +19,7 @@ import gc
 import decimal
 import json
 import multiprocessing as mp
+import re
 import sys
 
 from collections import OrderedDict
@@ -2460,7 +2461,8 @@ class TestConvertMisc:
     )
     def test_mixed_types_fails(self, data, error_type):
         df = pd.DataFrame(data)
-        with pytest.raises(error_type):
+        msg = "Conversion failed for column a with type object"
+        with pytest.raises(error_type, match=msg):
             pa.Table.from_pandas(df)
 
     def test_strided_data_import(self):
@@ -3537,7 +3539,6 @@ def test_dictionary_from_pandas_specified_type():
     typ = pa.dictionary(index_type=pa.int8(), value_type=pa.int64())
     with pytest.raises(pa.ArrowInvalid):
         result = pa.array(cat, type=typ)
-    assert result.to_pylist() == ["a", "b"]
 
     # mismatching order -> raise error (for now a deprecation warning)
     typ = pa.dictionary(
