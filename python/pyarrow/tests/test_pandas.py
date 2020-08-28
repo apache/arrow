@@ -19,7 +19,6 @@ import gc
 import decimal
 import json
 import multiprocessing as mp
-import re
 import sys
 
 from collections import OrderedDict
