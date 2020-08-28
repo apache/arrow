@@ -416,6 +416,8 @@ cdef class FileSystem(_Weakrefable):
         file_infos : list of FileInfo
         """
         cdef:
+            CFileInfo info
+            c_string path
             vector[CFileInfo] infos
             vector[c_string] paths
             CFileSelector selector
@@ -425,22 +427,18 @@ cdef class FileSystem(_Weakrefable):
             with nogil:
                 selector = (<FileSelector>paths_or_selector).selector
                 infos = GetResultValue(self.fs.GetFileInfo(selector))
-        else:
-            if isinstance(paths_or_selector, (list, tuple)):
-                paths = [_path_as_bytes(s) for s in paths_or_selector]
-            else:
-                try:
-                    paths = [_path_as_bytes(paths_or_selector)]
-                except TypeError:
-                    raise TypeError(
-                        "Must pass either path(s) or a FileSelector"
-                    )
-                single_path = True
+        elif isinstance(paths_or_selector, (list, tuple)):
+            paths = [_path_as_bytes(s) for s in paths_or_selector]
             with nogil:
                 infos = GetResultValue(self.fs.GetFileInfo(paths))
+        elif isinstance(paths_or_selector, (bytes, str)):
+            path =_path_as_bytes(paths_or_selector)
+            with nogil:
+                info = GetResultValue(self.fs.GetFileInfo(path))
+            return FileInfo.wrap(info)
+        else:
+            raise TypeError("Must pass either path(s) or a FileSelector")
 
-        if single_path:
-            return [FileInfo.wrap(info) for info in infos][0]
         return [FileInfo.wrap(info) for info in infos]
 
     def create_dir(self, path, *, bint recursive=True):
