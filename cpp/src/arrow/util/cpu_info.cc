@@ -126,10 +126,12 @@ static struct {
   int64_t flag;
 } flag_mappings[] = {
 #if (defined(__i386) || defined(_M_IX86) || defined(__x86_64__) || defined(_M_X64))
-    {"ssse3", CpuInfo::SSSE3},    {"sse4_1", CpuInfo::SSE4_1},
-    {"sse4_2", CpuInfo::SSE4_2},  {"popcnt", CpuInfo::POPCNT},
-    {"avx", CpuInfo::AVX},        {"avx2", CpuInfo::AVX2},
-    {"avx512f", CpuInfo::AVX512}, {"bmi1", CpuInfo::BMI1},
+    {"ssse3", CpuInfo::SSSE3},       {"sse4_1", CpuInfo::SSE4_1},
+    {"sse4_2", CpuInfo::SSE4_2},     {"popcnt", CpuInfo::POPCNT},
+    {"avx", CpuInfo::AVX},           {"avx2", CpuInfo::AVX2},
+    {"avx512f", CpuInfo::AVX512F},   {"avx512cd", CpuInfo::AVX512CD},
+    {"avx512vl", CpuInfo::AVX512VL}, {"avx512dq", CpuInfo::AVX512DQ},
+    {"avx512bw", CpuInfo::AVX512BW}, {"bmi1", CpuInfo::BMI1},
     {"bmi2", CpuInfo::BMI2},
 #endif
 #if defined(__aarch64__)
@@ -254,7 +256,11 @@ bool RetrieveCPUInfo(int64_t* hardware_flags, std::string* model_name) {
     if (features_EBX[3]) *hardware_flags |= CpuInfo::BMI1;
     if (features_EBX[5]) *hardware_flags |= CpuInfo::AVX2;
     if (features_EBX[8]) *hardware_flags |= CpuInfo::BMI2;
-    if (features_EBX[16]) *hardware_flags |= CpuInfo::AVX512;
+    if (features_EBX[16]) *hardware_flags |= CpuInfo::AVX512F;
+    if (features_EBX[17]) *hardware_flags |= CpuInfo::AVX512DQ;
+    if (features_EBX[28]) *hardware_flags |= CpuInfo::AVX512CD;
+    if (features_EBX[30]) *hardware_flags |= CpuInfo::AVX512BW;
+    if (features_EBX[31]) *hardware_flags |= CpuInfo::AVX512VL;
   }
 
   return true;
