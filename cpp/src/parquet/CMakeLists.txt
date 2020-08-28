@@ -206,7 +206,8 @@ if(PARQUET_REQUIRE_ENCRYPTION)
   set(PARQUET_SRCS ${PARQUET_SRCS} encryption_internal.cc)
 
   # these source files are for encryption key management
-  set(PARQUET_SRCS ${PARQUET_SRCS}
+  set(PARQUET_SRCS
+      ${PARQUET_SRCS}
       file_key_unwrapper.cc
       file_key_wrapper.cc
       in_memory_kms.cc
@@ -215,8 +216,7 @@ if(PARQUET_REQUIRE_ENCRYPTION)
       key_toolkit.cc
       kms_client.cc
       properties_driven_crypto_factory.cc
-      remote_kms_client.cc
-      string_util.cc)
+      remote_kms_client.cc)
 else()
   set(PARQUET_SRCS ${PARQUET_SRCS} encryption_internal_nossl.cc)
 endif()
@@ -384,6 +384,7 @@ if(PARQUET_REQUIRE_ENCRYPTION)
                    encryption_properties_test.cc
                    test_encryption_util.cc
                    test_util.cc)
+
   add_parquet_test(encryption-key-management-test
                    SOURCES
                    encryption_key_management_test.cc

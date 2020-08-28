@@ -23,7 +23,6 @@
 #include "parquet/kms_client_factory.h"
 #include "parquet/platform.h"
 #include "parquet/remote_kms_client.h"
-#include "parquet/string_util.h"
 
 namespace parquet {
 namespace encryption {

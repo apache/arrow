@@ -22,7 +22,6 @@
 #include "parquet/key_toolkit.h"
 #include "parquet/kms_client_factory.h"
 #include "parquet/remote_kms_client.h"
-#include "parquet/string_util.h"
 
 using parquet::encryption::KeyToolkit;
 using parquet::encryption::KmsClient;
