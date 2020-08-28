@@ -255,18 +255,22 @@ fn take_dict<T>(values: &ArrayRef, indices: &UInt32Array) -> Result<ArrayRef>
 where
     T: ArrowPrimitiveType,
 {
-    let keys: ArrayRef = Arc::new(PrimitiveArray::<T>::from(values.data()));
+    let dict = values
+        .as_any()
+        .downcast_ref::<DictionaryArray<T>>()
+        .unwrap();
+    let keys: ArrayRef = Arc::new(dict.keys_array());
     let new_keys = take_primitive::<T>(&keys, indices)?;
     let new_keys_data = new_keys.data_ref();
 
     let data = Arc::new(ArrayData::new(
-        values.data_type().clone(),
+        dict.data_type().clone(),
         new_keys.len(),
         Some(new_keys_data.null_count()),
         new_keys_data.null_buffer().cloned(),
         0,
         new_keys_data.buffers().to_vec(),
-        values.data().child_data().to_vec(),
+        dict.data().child_data().to_vec(),
     ));
 
     Ok(Arc::new(DictionaryArray::<T>::from(data)))

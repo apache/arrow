@@ -3511,7 +3511,7 @@ mod tests {
         assert_eq!(array.is_null(1), true);
         assert_eq!(array.is_valid(1), false);
 
-        let keys: Int16Array = array.data().into();
+        let keys = array.keys_array();
 
         assert_eq!(keys.value(0), 1);
         assert_eq!(keys.is_null(1), true);
