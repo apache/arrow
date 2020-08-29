@@ -25,10 +25,14 @@
 namespace parquet {
 namespace encryption {
 
+// In the double wrapping mode, each DEK is encrypted with a “key encryption key” (KEK),
+// that in turn is encrypted with a "master encryption key" (MEK). In a writer process, a
+// random KEK is generated for each MEK ID, and cached in a <MEK-ID : KEK> map. This
+// allows to perform an interaction with a KMS server only once for each MEK, in order to
+// wrap its KEK. "Data encryption key" (DEK) wrapping is performed locally, and does not
+// involve an interaction with a KMS server.
 class KeyEncryptionKey {
  public:
-  KeyEncryptionKey() = default;
-
   KeyEncryptionKey(const std::string& kek_bytes, const std::string& kek_id,
                    const std::string& encoded_wrapped_kek)
       : kek_bytes_(kek_bytes),

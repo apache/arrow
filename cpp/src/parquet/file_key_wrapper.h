@@ -63,7 +63,7 @@ class FileKeyWrapper {
  private:
   KeyEncryptionKey CreateKeyEncryptionKey(const std::string& master_key_id);
 
-  // A map of MEK_ID -> KeyEncryptionKey, for the current token
+  // A map of Master Encryption Key ID -> KeyEncryptionKey, for the current token
   std::map<std::string, KeyEncryptionKey> kek_per_master_key_id_;
 
   std::shared_ptr<KmsClient> kms_client_;
