@@ -991,48 +991,36 @@ impl fmt::Display for BinaryExpr {
     }
 }
 
-// Returns a formatted error about being impossible to coerce types for the binary operator.
-fn coercion_error<T>(
-    lhs_type: &DataType,
-    op: &Operator,
-    rhs_type: &DataType,
-) -> Result<T> {
+// Returns a formatted error about being impossible to coerce types to a common type
+fn coercion_error<T>(lhs_type: &DataType, rhs_type: &DataType) -> Result<T> {
     Err(ExecutionError::General(
         format!(
-            "The binary operator '{}' can't evaluate with lhs = '{:?}' and rhs = '{:?}'",
-            op, lhs_type, rhs_type
+            "It is not possible to coerce types '{:?}' and '{:?}' into a common type",
+            lhs_type, rhs_type
         )
         .to_string(),
     ))
 }
 
 // the type that both lhs and rhs can be casted to for the purpose of a string computation
-fn string_coercion(
-    lhs_type: &DataType,
-    op: &Operator,
-    rhs_type: &DataType,
-) -> Result<DataType> {
+fn string_coercion(lhs_type: &DataType, rhs_type: &DataType) -> Result<DataType> {
     use arrow::datatypes::DataType::*;
     match (lhs_type, rhs_type) {
         (Utf8, Utf8) => Ok(Utf8),
         (LargeUtf8, Utf8) => Ok(LargeUtf8),
         (Utf8, LargeUtf8) => Ok(LargeUtf8),
         (LargeUtf8, LargeUtf8) => Ok(LargeUtf8),
-        _ => coercion_error(lhs_type, op, rhs_type),
+        _ => coercion_error(lhs_type, rhs_type),
     }
 }
 
-/// coercion rule for numerical values
-pub fn numerical_coercion(
-    lhs_type: &DataType,
-    op: &Operator,
-    rhs_type: &DataType,
-) -> Result<DataType> {
+/// coercion rule for numerical types
+pub fn numerical_coercion(lhs_type: &DataType, rhs_type: &DataType) -> Result<DataType> {
     use arrow::datatypes::DataType::*;
 
     // error on any non-numeric type
     if !is_numeric(lhs_type) || !is_numeric(rhs_type) {
-        return coercion_error(lhs_type, op, rhs_type);
+        return coercion_error(lhs_type, rhs_type);
     };
 
     // same type => all good
@@ -1073,39 +1061,31 @@ pub fn numerical_coercion(
         (UInt8, _) => Ok(UInt8),
         (_, UInt8) => Ok(UInt8),
 
-        _ => coercion_error(lhs_type, op, rhs_type),
+        _ => coercion_error(lhs_type, rhs_type),
     }
 }
 
-// coercion rules for `equal` and `not equal`. This is a superset of all numerical coercion rules.
-fn eq_coercion(
-    lhs_type: &DataType,
-    op: &Operator,
-    rhs_type: &DataType,
-) -> Result<DataType> {
+// coercion rules for equality operations. This is a superset of all numerical coercion rules.
+fn eq_coercion(lhs_type: &DataType, rhs_type: &DataType) -> Result<DataType> {
     if lhs_type == rhs_type {
         // same type => equality is possible
         return Ok(lhs_type.clone());
     }
-    numerical_coercion(lhs_type, op, rhs_type)
+    numerical_coercion(lhs_type, rhs_type)
 }
 
-// coercion rules for operators that assume an ordered set, such as "less than".
+// coercion rules that assume an ordered set, such as "less than".
 // These are the union of all numerical coercion rules and all string coercion rules
-fn order_coercion(
-    lhs_type: &DataType,
-    op: &Operator,
-    rhs_type: &DataType,
-) -> Result<DataType> {
+fn order_coercion(lhs_type: &DataType, rhs_type: &DataType) -> Result<DataType> {
     if lhs_type == rhs_type {
         // same type => all good
         return Ok(lhs_type.clone());
     }
 
-    match numerical_coercion(lhs_type, op, rhs_type) {
+    match numerical_coercion(lhs_type, rhs_type) {
         Err(_) => {
             // strings are naturally ordered, and thus ordering can be applied to them.
-            string_coercion(lhs_type, op, rhs_type)
+            string_coercion(lhs_type, rhs_type)
         }
         t => t,
     }
@@ -1122,20 +1102,20 @@ fn common_binary_type(
         Operator::And | Operator::Or => match (lhs_type, rhs_type) {
             // logical binary boolean operators can only be evaluated in bools
             (DataType::Boolean, DataType::Boolean) => Ok(DataType::Boolean),
-            _ => coercion_error(lhs_type, op, rhs_type),
+            _ => coercion_error(lhs_type, rhs_type),
         },
         // logical equality operators have their own rules, and always return a boolean
-        Operator::Eq | Operator::NotEq => eq_coercion(lhs_type, op, rhs_type),
+        Operator::Eq | Operator::NotEq => eq_coercion(lhs_type, rhs_type),
         // "like" operators operate on strings and always return a boolean
-        Operator::Like | Operator::NotLike => string_coercion(lhs_type, op, rhs_type),
+        Operator::Like | Operator::NotLike => string_coercion(lhs_type, rhs_type),
         // order-comparison operators have their own rules
         Operator::Lt | Operator::Gt | Operator::GtEq | Operator::LtEq => {
-            order_coercion(lhs_type, op, rhs_type)
+            order_coercion(lhs_type, rhs_type)
         }
         // for math expressions, the final value of the coercion is also the return type
         // because coercion favours higher information types
         Operator::Plus | Operator::Minus | Operator::Divide | Operator::Multiply => {
-            numerical_coercion(lhs_type, op, rhs_type)
+            numerical_coercion(lhs_type, rhs_type)
         }
         Operator::Modulus => Err(ExecutionError::NotImplemented(
             "Modulus operator is still not supported".to_string(),
