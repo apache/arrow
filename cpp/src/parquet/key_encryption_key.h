@@ -38,7 +38,7 @@ class KeyEncryptionKey {
       : kek_bytes_(kek_bytes),
         kek_id_(kek_id),
         encoded_wrapped_kek_(encoded_wrapped_kek) {
-    encoded_kek_id_ = arrow::util::base64_encode(reinterpret_cast<uint8_t*>(&kek_id_[0]),
+    encoded_kek_id_ = arrow::util::base64_encode(reinterpret_cast<const uint8_t*>(kek_id_.data()),
                                                  kek_id_.size());
   }
 

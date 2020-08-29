@@ -50,9 +50,9 @@ std::string KeyToolkit::EncryptKeyLocally(const std::string& key_bytes,
   int encrypted_key_len = key_bytes.size() + key_encryptor.CiphertextSizeDelta();
   std::string encrypted_key(encrypted_key_len, '\0');
   encrypted_key_len = key_encryptor.Encrypt(
-      reinterpret_cast<const uint8_t*>(&key_bytes[0]), key_bytes.size(),
-      reinterpret_cast<const uint8_t*>(&master_key[0]), master_key.size(),
-      reinterpret_cast<const uint8_t*>(&aad[0]), aad.size(),
+      reinterpret_cast<const uint8_t*>(key_bytes.data()), key_bytes.size(),
+      reinterpret_cast<const uint8_t*>(master_key.data()), master_key.size(),
+      reinterpret_cast<const uint8_t*>(aad.data()), aad.size(),
       reinterpret_cast<uint8_t*>(&encrypted_key[0]));
 
   std::string encoded_encrypted_key = arrow::util::base64_encode(
@@ -70,9 +70,9 @@ std::string KeyToolkit::DecryptKeyLocally(const std::string& encoded_encrypted_k
   int decrypted_key_len = encrypted_key.size() - key_decryptor.CiphertextSizeDelta();
   std::string decrypted_key(decrypted_key_len, '\0');
   decrypted_key_len = key_decryptor.Decrypt(
-      reinterpret_cast<const uint8_t*>(&encrypted_key[0]), encrypted_key.size(),
-      reinterpret_cast<const uint8_t*>(&master_key[0]), master_key.size(),
-      reinterpret_cast<const uint8_t*>(&aad[0]), aad.size(),
+      reinterpret_cast<const uint8_t*>(encrypted_key.data()), encrypted_key.size(),
+      reinterpret_cast<const uint8_t*>(master_key.data()), master_key.size(),
+      reinterpret_cast<const uint8_t*>(aad.data()), aad.size(),
       reinterpret_cast<uint8_t*>(&decrypted_key[0]));
 
   return decrypted_key;
