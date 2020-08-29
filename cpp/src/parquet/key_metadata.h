@@ -19,6 +19,8 @@
 
 #include <string>
 
+#include "arrow/util/variant.h"
+
 #include "parquet/key_material.h"
 
 namespace parquet {
@@ -34,7 +36,8 @@ namespace encryption {
 // management and to generation of the "key metadata" fields. This approach, based on the
 // "envelope encryption" pattern, allows integration with KMS servers. It keeps the actual
 // material, required to recover a key, in a "key material" object (see the KeyMaterial
-// class for details). This class is implemented to support version 1 of the parquet key management tools specification.
+// class for details). This class is implemented to support version 1 of the parquet key
+// management tools specification.
 //
 // KeyMetadata writes (and reads) the "key metadata" field as a flat json object,
 // with the following fields:
@@ -65,14 +68,14 @@ class KeyMetadata {
     if (!is_internal_storage_) {
       throw ParquetException("key material is stored externally.");
     }
-    return key_material_;
+    return arrow::util::get<0>(key_material_or_reference_);
   }
 
   const std::string& key_reference() const {
     if (is_internal_storage_) {
       throw ParquetException("key material is stored internally.");
     }
-    return key_reference_;
+    return arrow::util::get<1>(key_material_or_reference_);
   }
 
  private:
@@ -80,10 +83,9 @@ class KeyMetadata {
   explicit KeyMetadata(const std::string& key_reference);
 
   bool is_internal_storage_;
-  // set if is_internal_storage_ is false
-  std::string key_reference_;
-  // set if is_internal_storage_ is true
-  KeyMaterial key_material_;
+  // If is_internal_storage_ is true, KeyMaterial is set,
+  // else a string referencing to an outside "key material" is set.
+  arrow::util::variant<KeyMaterial, std::string> key_material_or_reference_;
 };
 
 }  // namespace encryption

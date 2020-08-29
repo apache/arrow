@@ -29,10 +29,10 @@ constexpr const char KeyMetadata::kKeyMaterialInternalStorageField[];
 constexpr const char KeyMetadata::kKeyReferenceField[];
 
 KeyMetadata::KeyMetadata(const std::string& key_reference)
-    : is_internal_storage_(false), key_reference_(key_reference) {}
+    : is_internal_storage_(false), key_material_or_reference_(key_reference) {}
 
 KeyMetadata::KeyMetadata(const KeyMaterial& key_material)
-    : is_internal_storage_(true), key_material_(key_material) {}
+    : is_internal_storage_(true), key_material_or_reference_(key_material) {}
 
 KeyMetadata KeyMetadata::Parse(const std::string& key_metadata) {
   rapidjson::Document document;
