@@ -963,7 +963,6 @@ test_that("Dataset writing: unsupported features/input validation", {
 
   ds <- open_dataset(hive_dir)
 
-  expect_error(write_dataset(ds, tempfile(), format = "csv"))
   expect_error(
     filter(ds, int == 4) %>% write_dataset(ds),
     "Writing a filtered dataset is not yet supported"
