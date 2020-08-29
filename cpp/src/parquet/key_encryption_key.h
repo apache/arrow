@@ -25,12 +25,12 @@
 namespace parquet {
 namespace encryption {
 
-// In the double wrapping mode, each DEK is encrypted with a “key encryption key” (KEK),
-// that in turn is encrypted with a "master encryption key" (MEK). In a writer process, a
-// random KEK is generated for each MEK ID, and cached in a <MEK-ID : KEK> map. This
-// allows to perform an interaction with a KMS server only once for each MEK, in order to
-// wrap its KEK. "Data encryption key" (DEK) wrapping is performed locally, and does not
-// involve an interaction with a KMS server.
+// In the double wrapping mode, each "data encryption key" (DEK) is encrypted with a “key
+// encryption key” (KEK), that in turn is encrypted with a "master encryption key" (MEK).
+// In a writer process, a random KEK is generated for each MEK ID, and cached in a <MEK-ID
+// : KEK> map. This allows to perform an interaction with a KMS server only once for each
+// MEK, in order to wrap its KEK. "Data encryption key" (DEK) wrapping is performed
+// locally, and does not involve an interaction with a KMS server.
 class KeyEncryptionKey {
  public:
   KeyEncryptionKey(const std::string& kek_bytes, const std::string& kek_id,
@@ -38,8 +38,9 @@ class KeyEncryptionKey {
       : kek_bytes_(kek_bytes),
         kek_id_(kek_id),
         encoded_wrapped_kek_(encoded_wrapped_kek) {
-    encoded_kek_id_ = arrow::util::base64_encode(reinterpret_cast<const uint8_t*>(kek_id_.data()),
-                                                 kek_id_.size());
+    encoded_kek_id_ =
+        arrow::util::base64_encode(reinterpret_cast<const uint8_t*>(kek_id_.data()),
+                                   static_cast<uint32_t>(kek_id_.size()));
   }
 
   const std::string& kek_bytes() const { return kek_bytes_; }

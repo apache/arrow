@@ -59,6 +59,7 @@ namespace encryption {
 // double wrapping mode.
 class KeyMaterial {
  public:
+  // these fields are defined in a specification and should never be changed
   static constexpr const char kKeyMaterialTypeField[] = "keyMaterialType";
   static constexpr const char kKeyMaterialType1[] = "PKMT1";
 
