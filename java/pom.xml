@@ -193,7 +193,7 @@
           <target>1.8</target>
           <maxmem>2048m</maxmem>
           <useIncrementalCompilation>false</useIncrementalCompilation>
-          <fork>false</fork>
+          <fork>true</fork>
         </configuration>
       </plugin>
       <plugin>
