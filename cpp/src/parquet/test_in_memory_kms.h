@@ -29,7 +29,7 @@ namespace encryption {
 
 // This is a mock class, built for testing only. Don't use it as an example of KmsClient
 // implementation.
-class PARQUET_EXPORT InMemoryKms : public RemoteKmsClient {
+class PARQUET_EXPORT TestOnlyInMemoryKms : public RemoteKmsClient {
  public:
   static void InitializeMasterKeys(
       const std::map<std::string, std::string>& master_keys_map);
@@ -49,17 +49,18 @@ class PARQUET_EXPORT InMemoryKms : public RemoteKmsClient {
   static std::map<std::string, std::string> master_key_map_;
 };
 
-class PARQUET_EXPORT InMemoryKmsClientFactory : public KmsClientFactory {
+class PARQUET_EXPORT TestOnlyInMemoryKmsClientFactory : public KmsClientFactory {
  public:
-  InMemoryKmsClientFactory(bool wrap_locally,
-                           const std::map<std::string, std::string>& master_keys_map)
+  TestOnlyInMemoryKmsClientFactory(
+      bool wrap_locally, const std::map<std::string, std::string>& master_keys_map)
       : KmsClientFactory(wrap_locally) {
-    InMemoryKms::InitializeMasterKeys(master_keys_map);
+    TestOnlyInMemoryKms::InitializeMasterKeys(master_keys_map);
   }
 
   std::shared_ptr<KmsClient> CreateKmsClient(
       const KmsConnectionConfig& kms_connection_config) {
-    std::shared_ptr<InMemoryKms> in_memory_kms = std::make_shared<InMemoryKms>();
+    std::shared_ptr<TestOnlyInMemoryKms> in_memory_kms =
+        std::make_shared<TestOnlyInMemoryKms>();
     in_memory_kms->Initialize(kms_connection_config, wrap_locally_);
     return in_memory_kms;
   }

@@ -210,7 +210,7 @@ if(PARQUET_REQUIRE_ENCRYPTION)
       ${PARQUET_SRCS}
       file_key_unwrapper.cc
       file_key_wrapper.cc
-      in_memory_kms.cc
+      test_in_memory_kms.cc
       key_material.cc
       key_metadata.cc
       key_toolkit.cc

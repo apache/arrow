@@ -22,10 +22,10 @@
 
 #include "arrow/testing/util.h"
 
-#include "parquet/in_memory_kms.h"
 #include "parquet/key_toolkit.h"
 #include "parquet/properties_driven_crypto_factory.h"
 #include "parquet/test_encryption_util.h"
+#include "parquet/test_in_memory_kms.h"
 #include "parquet/test_util.h"
 
 namespace parquet {
@@ -34,13 +34,13 @@ namespace test {
 
 using encryption::DecryptionConfiguration;
 using encryption::EncryptionConfiguration;
-using encryption::InMemoryKmsClientFactory;
 using encryption::KeyAccessToken;
 using encryption::KeyToolkit;
 using encryption::KmsClient;
 using encryption::KmsClientFactory;
 using encryption::KmsConnectionConfig;
 using encryption::PropertiesDrivenCryptoFactory;
+using encryption::TestOnlyInMemoryKmsClientFactory;
 
 const char kFooterMasterKey[] = "0123456789112345";
 const char* const kColumnMasterKeys[] = {"1234567890123450", "1234567890123451",
@@ -98,7 +98,7 @@ class TestEncrytionKeyManagement : public ::testing::Test {
                           bool wrap_locally) {
     KeyToolkit::RemoveCacheEntriesForAllTokens();
     std::shared_ptr<KmsClientFactory> kms_client_factory =
-        std::make_shared<InMemoryKmsClientFactory>(wrap_locally, key_list_);
+        std::make_shared<TestOnlyInMemoryKmsClientFactory>(wrap_locally, key_list_);
     crypto_factory.kms_client_factory(kms_client_factory);
   }
 
