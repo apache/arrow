@@ -94,7 +94,6 @@ func processStream(w io.Writer, rin io.Reader) error {
 			}
 			return err
 		}
-		defer r.Release()
 
 		fmt.Fprintf(w, "%v\n", r.Schema())
 
@@ -103,6 +102,7 @@ func processStream(w io.Writer, rin io.Reader) error {
 			nrecs++
 		}
 		fmt.Fprintf(w, "records: %d\n", nrecs)
+		r.Release()
 	}
 	return nil
 }
