@@ -28,7 +28,7 @@ namespace parquet {
 namespace encryption {
 
 // This is a mock class, built for testing only. Don't use it as an example of KmsClient
-// implementation. (VaultClient is the sample implementation).
+// implementation.
 class PARQUET_EXPORT InMemoryKms : public RemoteKmsClient {
  public:
   static void InitializeMasterKeys(

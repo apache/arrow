@@ -26,10 +26,10 @@
 namespace parquet {
 namespace encryption {
 
-constexpr char RemoteKmsClient::kLocalWrapNoKeyVersion[];
+constexpr const char RemoteKmsClient::kLocalWrapNoKeyVersion[];
 
-constexpr char RemoteKmsClient::LocalKeyWrap::kLocalWrapKeyVersionField[];
-constexpr char RemoteKmsClient::LocalKeyWrap::kLocalWrapEncryptedKeyField[];
+constexpr const char RemoteKmsClient::LocalKeyWrap::kLocalWrapKeyVersionField[];
+constexpr const char RemoteKmsClient::LocalKeyWrap::kLocalWrapEncryptedKeyField[];
 
 RemoteKmsClient::LocalKeyWrap::LocalKeyWrap(const std::string& master_key_version,
                                             const std::string& encrypted_encoded_key)

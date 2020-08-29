@@ -79,14 +79,14 @@ inline arrow::Result<std::unique_ptr<TemporaryDir>> temp_data_dir() {
   return dir;
 }
 
-static constexpr char DOUBLE_FIELD_NAME[] = "double_field";
-static constexpr char FLOAT_FIELD_NAME[] = "float_field";
-static constexpr char BOOLEAN_FIELD_NAME[] = "boolean_field";
-static constexpr char INT32_FIELD_NAME[] = "int32_field";
-static constexpr char INT64_FIELD_NAME[] = "int64_field";
-static constexpr char INT96_FIELD_NAME[] = "int96_field";
-static constexpr char BA_FIELD_NAME[] = "ba_field";
-static constexpr char FLBA_FIELD_NAME[] = "flba_field";
+static constexpr const char kDoubleFieldName[] = "double_field";
+static constexpr const char kFloatFieldName[] = "float_field";
+static constexpr const char kBooleanFieldName[] = "boolean_field";
+static constexpr const char kInt32FieldName[] = "int32_field";
+static constexpr const char kInt64FieldName[] = "int64_field";
+static constexpr const char kInt96FieldName[] = "int96_field";
+static constexpr const char kByteArrayFieldName[] = "ba_field";
+static constexpr const char kFixedLenByteArrayFieldName[] = "flba_field";
 
 // FileEncryptor and FileDecryptor are helper classes to write/read an encrypted parquet
 // file corresponding to each pair of FileEncryptionProperties/FileDecryptionProperties.

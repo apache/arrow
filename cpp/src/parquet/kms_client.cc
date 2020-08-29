@@ -20,9 +20,9 @@
 namespace parquet {
 namespace encryption {
 
-constexpr char KmsClient::kKmsInstanceIdDefault[];
-constexpr char KmsClient::kKmsInstanceUrlDefault[];
-constexpr char KmsClient::kKeyAccessTokenDefault[];
+constexpr const char KmsClient::kKmsInstanceIdDefault[];
+constexpr const char KmsClient::kKmsInstanceUrlDefault[];
+constexpr const char KmsClient::kKeyAccessTokenDefault[];
 
 void KeyAccessToken::SetDefaultIfEmpty() {
   if (value_.empty()) {

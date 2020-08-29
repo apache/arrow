@@ -25,8 +25,8 @@
 namespace parquet {
 namespace encryption {
 
-constexpr char KeyMetadata::kKeyMaterialInternalStorageField[];
-constexpr char KeyMetadata::kKeyReferenceField[];
+constexpr const char KeyMetadata::kKeyMaterialInternalStorageField[];
+constexpr const char KeyMetadata::kKeyReferenceField[];
 
 KeyMetadata::KeyMetadata(const std::string& key_reference)
     : is_internal_storage_(false), key_reference_(key_reference) {}

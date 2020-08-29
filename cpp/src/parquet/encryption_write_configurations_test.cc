@@ -74,8 +74,8 @@ class TestEncryptionConfiguration : public ::testing::Test {
  protected:
   FileEncryptor encryptor_;
 
-  std::string path_to_double_field_ = DOUBLE_FIELD_NAME;
-  std::string path_to_float_field_ = FLOAT_FIELD_NAME;
+  std::string path_to_double_field_ = kDoubleFieldName;
+  std::string path_to_float_field_ = kFloatFieldName;
   std::string file_name_;
   std::string kFooterEncryptionKey_ = std::string(kFooterEncryptionKey);
   std::string kColumnEncryptionKey1_ = std::string(kColumnEncryptionKey1);

@@ -26,20 +26,20 @@
 namespace parquet {
 namespace encryption {
 
-constexpr char KeyMaterial::kKeyMaterialTypeField[];
-constexpr char KeyMaterial::kKeyMaterialType1[];
+constexpr const char KeyMaterial::kKeyMaterialTypeField[];
+constexpr const char KeyMaterial::kKeyMaterialType1[];
 
-constexpr char KeyMaterial::kFooterKeyIdInFile[];
-constexpr char KeyMaterial::kColumnKeyIdInFilePrefix[];
+constexpr const char KeyMaterial::kFooterKeyIdInFile[];
+constexpr const char KeyMaterial::kColumnKeyIdInFilePrefix[];
 
-constexpr char KeyMaterial::kIsFooterKeyField[];
-constexpr char KeyMaterial::kDoubleWrappingField[];
-constexpr char KeyMaterial::kKmsInstanceIdField[];
-constexpr char KeyMaterial::kKmsInstanceUrlField[];
-constexpr char KeyMaterial::kMasterKeyIdField[];
-constexpr char KeyMaterial::kWrappedDataEncryptionKeyField[];
-constexpr char KeyMaterial::kKeyEncryptionKeyIdField[];
-constexpr char KeyMaterial::kWrappedKeyEncryptionKeyField[];
+constexpr const char KeyMaterial::kIsFooterKeyField[];
+constexpr const char KeyMaterial::kDoubleWrappingField[];
+constexpr const char KeyMaterial::kKmsInstanceIdField[];
+constexpr const char KeyMaterial::kKmsInstanceUrlField[];
+constexpr const char KeyMaterial::kMasterKeyIdField[];
+constexpr const char KeyMaterial::kWrappedDataEncryptionKeyField[];
+constexpr const char KeyMaterial::kKeyEncryptionKeyIdField[];
+constexpr const char KeyMaterial::kWrappedKeyEncryptionKeyField[];
 
 KeyMaterial::KeyMaterial(bool is_footer_key, const std::string& kms_instance_id,
                          const std::string& kms_instance_url,

@@ -44,7 +44,7 @@ namespace encryption {
 // (base64-encoded).
 class PARQUET_EXPORT RemoteKmsClient : public KmsClient {
  public:
-  static constexpr char kLocalWrapNoKeyVersion[] = "NO_VERSION";
+  static constexpr const char kLocalWrapNoKeyVersion[] = "NO_VERSION";
 
   void Initialize(const KmsConnectionConfig& kms_connection_config, bool is_wrap_locally);
 
@@ -74,8 +74,8 @@ class PARQUET_EXPORT RemoteKmsClient : public KmsClient {
  private:
   class LocalKeyWrap {
    public:
-    static constexpr char kLocalWrapKeyVersionField[] = "masterKeyVersion";
-    static constexpr char kLocalWrapEncryptedKeyField[] = "encryptedKey";
+    static constexpr const char kLocalWrapKeyVersionField[] = "masterKeyVersion";
+    static constexpr const char kLocalWrapEncryptedKeyField[] = "encryptedKey";
 
     LocalKeyWrap(const std::string& master_key_version,
                  const std::string& encrypted_encoded_key);

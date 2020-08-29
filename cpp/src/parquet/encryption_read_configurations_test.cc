@@ -91,8 +91,8 @@ class TestDecryptionConfiguration
 
  protected:
   FileDecryptor decryptor_;
-  std::string path_to_double_field_ = DOUBLE_FIELD_NAME;
-  std::string path_to_float_field_ = FLOAT_FIELD_NAME;
+  std::string path_to_double_field_ = kDoubleFieldName;
+  std::string path_to_float_field_ = kFloatFieldName;
   // This vector will hold various decryption configurations.
   std::vector<std::shared_ptr<parquet::FileDecryptionProperties>>
       vector_of_decryption_configurations_;
@@ -136,8 +136,8 @@ class TestDecryptionConfiguration
 
     // Decryption configuration 3: Decrypt using explicit column and footer keys. Supply
     // aad_prefix.
-    std::string path_float_ptr = FLOAT_FIELD_NAME;
-    std::string path_double_ptr = DOUBLE_FIELD_NAME;
+    std::string path_float_ptr = kFloatFieldName;
+    std::string path_double_ptr = kDoubleFieldName;
     std::map<std::string, std::shared_ptr<parquet::ColumnDecryptionProperties>>
         decryption_cols;
     parquet::ColumnDecryptionProperties::Builder decryption_col_builder31(

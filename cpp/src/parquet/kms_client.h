@@ -65,9 +65,9 @@ struct PARQUET_EXPORT KmsConnectionConfig {
 
 class PARQUET_EXPORT KmsClient {
  public:
-  static constexpr char kKmsInstanceIdDefault[] = "DEFAULT";
-  static constexpr char kKmsInstanceUrlDefault[] = "DEFAULT";
-  static constexpr char kKeyAccessTokenDefault[] = "DEFAULT";
+  static constexpr const char kKmsInstanceIdDefault[] = "DEFAULT";
+  static constexpr const char kKmsInstanceUrlDefault[] = "DEFAULT";
+  static constexpr const char kKeyAccessTokenDefault[] = "DEFAULT";
 
   // Wraps a key - encrypts it with the master key, encodes the result
   // and potentially adds a KMS-specific metadata.

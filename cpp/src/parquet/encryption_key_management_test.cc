@@ -66,12 +66,12 @@ std::map<std::string, std::string> BuildKeyMap(const char* const* column_ids,
 
 std::string BuildColumnKeyMapping() {
   std::ostringstream stream;
-  stream << kColumnMasterKeyIds[0] << ":" << DOUBLE_FIELD_NAME << ";"
-         << kColumnMasterKeyIds[1] << ":" << FLOAT_FIELD_NAME << ";"
-         << kColumnMasterKeyIds[2] << ":" << BOOLEAN_FIELD_NAME << ";"
-         << kColumnMasterKeyIds[3] << ":" << INT32_FIELD_NAME << ";"
-         << kColumnMasterKeyIds[4] << ":" << BA_FIELD_NAME << ";"
-         << kColumnMasterKeyIds[5] << ":" << FLBA_FIELD_NAME << ";";
+  stream << kColumnMasterKeyIds[0] << ":" << kDoubleFieldName << ";"
+         << kColumnMasterKeyIds[1] << ":" << kFloatFieldName << ";"
+         << kColumnMasterKeyIds[2] << ":" << kBooleanFieldName << ";"
+         << kColumnMasterKeyIds[3] << ":" << kInt32FieldName << ";"
+         << kColumnMasterKeyIds[4] << ":" << kByteArrayFieldName << ";"
+         << kColumnMasterKeyIds[5] << ":" << kFixedLenByteArrayFieldName << ";";
   return stream.str();
 }
 

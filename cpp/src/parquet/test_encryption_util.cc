@@ -31,49 +31,40 @@ using FileClass = ::arrow::io::FileOutputStream;
 namespace parquet {
 namespace test {
 
-// constexpr char DOUBLE_FIELD_NAME[];
-// constexpr char FLOAT_FIELD_NAME[];
-// constexpr char BOOLEAN_FIELD_NAME[];
-// constexpr char INT32_FIELD_NAME[];
-// constexpr char INT64_FIELD_NAME[];
-// constexpr char INT96_FIELD_NAME[];
-// constexpr char BA_FIELD_NAME[];
-// constexpr char FLBA_FIELD_NAME[];
-
 FileEncryptor::FileEncryptor() { schema_ = SetupEncryptionSchema(); }
 
 std::shared_ptr<GroupNode> FileEncryptor::SetupEncryptionSchema() {
   parquet::schema::NodeVector fields;
   // Create a primitive node named 'boolean_field' with type:BOOLEAN,
   // repetition:REQUIRED
-  fields.push_back(PrimitiveNode::Make(BOOLEAN_FIELD_NAME, Repetition::REQUIRED,
+  fields.push_back(PrimitiveNode::Make(kBooleanFieldName, Repetition::REQUIRED,
                                        Type::BOOLEAN, ConvertedType::NONE));
 
   // Create a primitive node named 'int32_field' with type:INT32, repetition:REQUIRED,
   // logical type:TIME_MILLIS
-  fields.push_back(PrimitiveNode::Make(INT32_FIELD_NAME, Repetition::REQUIRED,
-                                       Type::INT32, ConvertedType::TIME_MILLIS));
+  fields.push_back(PrimitiveNode::Make(kInt32FieldName, Repetition::REQUIRED, Type::INT32,
+                                       ConvertedType::TIME_MILLIS));
 
   // Create a primitive node named 'int64_field' with type:INT64, repetition:REPEATED
-  fields.push_back(PrimitiveNode::Make(INT64_FIELD_NAME, Repetition::REPEATED,
-                                       Type::INT64, ConvertedType::NONE));
+  fields.push_back(PrimitiveNode::Make(kInt64FieldName, Repetition::REPEATED, Type::INT64,
+                                       ConvertedType::NONE));
 
-  fields.push_back(PrimitiveNode::Make(INT96_FIELD_NAME, Repetition::REQUIRED,
-                                       Type::INT96, ConvertedType::NONE));
+  fields.push_back(PrimitiveNode::Make(kInt96FieldName, Repetition::REQUIRED, Type::INT96,
+                                       ConvertedType::NONE));
 
-  fields.push_back(PrimitiveNode::Make(FLOAT_FIELD_NAME, Repetition::REQUIRED,
-                                       Type::FLOAT, ConvertedType::NONE));
+  fields.push_back(PrimitiveNode::Make(kFloatFieldName, Repetition::REQUIRED, Type::FLOAT,
+                                       ConvertedType::NONE));
 
-  fields.push_back(PrimitiveNode::Make(DOUBLE_FIELD_NAME, Repetition::REQUIRED,
+  fields.push_back(PrimitiveNode::Make(kDoubleFieldName, Repetition::REQUIRED,
                                        Type::DOUBLE, ConvertedType::NONE));
 
   // Create a primitive node named 'ba_field' with type:BYTE_ARRAY, repetition:OPTIONAL
-  fields.push_back(PrimitiveNode::Make(BA_FIELD_NAME, Repetition::OPTIONAL,
+  fields.push_back(PrimitiveNode::Make(kByteArrayFieldName, Repetition::OPTIONAL,
                                        Type::BYTE_ARRAY, ConvertedType::NONE));
 
   // Create a primitive node named 'flba_field' with type:FIXED_LEN_BYTE_ARRAY,
   // repetition:REQUIRED, field_length = kFixedLength
-  fields.push_back(PrimitiveNode::Make(FLBA_FIELD_NAME, Repetition::REQUIRED,
+  fields.push_back(PrimitiveNode::Make(kFixedLenByteArrayFieldName, Repetition::REQUIRED,
                                        Type::FIXED_LEN_BYTE_ARRAY, ConvertedType::NONE,
                                        kFixedLength));
 
