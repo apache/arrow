@@ -668,6 +668,14 @@ pub fn length(e: Expr) -> Expr {
     }
 }
 
+/// returns the concatenation of string expressions
+pub fn concat(args: Vec<Expr>) -> Expr {
+    Expr::ScalarFunction {
+        fun: functions::ScalarFunction::Concat,
+        args,
+    }
+}
+
 /// Create an aggregate expression
 pub fn aggregate_expr(name: &str, expr: Expr) -> Expr {
     Expr::AggregateFunction {

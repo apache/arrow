@@ -697,6 +697,32 @@ fn query_length() -> Result<()> {
 }
 
 #[test]
+fn query_concat() -> Result<()> {
+    let schema = Arc::new(Schema::new(vec![
+        Field::new("c1", DataType::Utf8, false),
+        Field::new("c2", DataType::Int32, true),
+    ]));
+
+    let data = RecordBatch::try_new(
+        schema.clone(),
+        vec![
+            Arc::new(StringArray::from(vec!["", "a", "aa", "aaa"])),
+            Arc::new(Int32Array::from(vec![Some(0), Some(1), None, Some(3)])),
+        ],
+    )?;
+
+    let table = MemTable::new(schema, vec![vec![data]])?;
+
+    let mut ctx = ExecutionContext::new();
+    ctx.register_table("test", Box::new(table));
+    let sql = "SELECT concat(c1, '-hi-', cast(c2 as varchar)) FROM test";
+    let actual = execute(&mut ctx, sql);
+    let expected = vec!["\"-hi-0\"", "\"a-hi-1\"", "\"\"", "\"aaa-hi-3\""];
+    assert_eq!(expected, actual);
+    Ok(())
+}
+
+#[test]
 fn csv_query_sum_cast() {
     let mut ctx = ExecutionContext::new();
     register_aggregate_csv_by_sql(&mut ctx);
