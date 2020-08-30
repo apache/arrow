@@ -131,6 +131,7 @@ pub trait Accumulator: Debug {
 }
 
 pub mod aggregates;
+pub mod array_expressions;
 pub mod common;
 pub mod csv;
 pub mod datetime_expressions;

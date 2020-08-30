@@ -623,6 +623,14 @@ pub fn concat(args: Vec<Expr>) -> Expr {
     }
 }
 
+/// returns an array of fixed size with each argument on it.
+pub fn array(args: Vec<Expr>) -> Expr {
+    Expr::ScalarFunction {
+        fun: functions::BuiltinScalarFunction::Array,
+        args,
+    }
+}
+
 /// Creates a new UDF with a specific signature and specific return type.
 /// This is a helper function to create a new UDF.
 /// The function `create_udf` returns a subset of all possible `ScalarFunction`:
