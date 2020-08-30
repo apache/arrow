@@ -19,20 +19,18 @@
 //! This module contains built-in functions' enumeration and metadata.
 //!
 //! Generally, a function has:
-//! * a set of valid argument types
-//! * a return type function of an incoming argument types
-//! * the computation valid for all sets of valid argument types
+//! * a signature
+//! * a return type, that is a function of the incoming argument's types
+//! * the computation, that must accept each valid signature
 //!
-//! * Argument types: the number of arguments and set of valid types. For example, [[f32, f32], [f64, f64]] is a function of two arguments only accepting f32 or f64 on each of its arguments.
+//! * Signature: see `Signature`
 //! * Return type: a function `(arg_types) -> return_type`. E.g. for sqrt, ([f32]) -> f32, ([f64]) -> f64.
-//!
-//! Currently, this implementation supports only a single argument and a single signature.
 //!
 //! This module also has a set of coercion rules to improve user experience: if an argument i32 is passed
 //! to a function that supports f64, it is coerced to f64.
 
 use super::{
-    expressions::{cast, is_numeric},
+    type_coercion::{coerce, data_types},
     PhysicalExpr,
 };
 use crate::error::{ExecutionError, Result};
@@ -44,6 +42,22 @@ use arrow::{
 };
 use std::{fmt, str::FromStr, sync::Arc};
 use udf::ScalarUdf;
+
+/// A function's signature, which defines the function's supported argument types.
+#[derive(Debug)]
+pub enum Signature {
+    /// arbitrary number of arguments of an uniform type out of a list of valid types
+    // A function such as `concat` is `Many(vec![DataType::Utf8, DataType::LargeUtf8])`
+    Many(Vec<DataType>),
+    /// arbitrary number of arguments of an arbitrary but uniform type
+    // A function such as `array` is `ManyUniform`
+    // The first argument decides the type used for coercion
+    ManyUniform,
+    /// fixed number of arguments of an uniform type out of a list of valid types
+    // A function of one argument of f64 is `Fixed(1, vec![DataType::Float64])`
+    // A function of two arguments of f64 or f32 is `Fixed(1, vec![DataType::Float32, DataType::Float64])`
+    Uniform(usize, Vec<DataType>),
+}
 
 /// Enum of all built-in scalar functions
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -130,17 +144,8 @@ pub fn return_type(fun: &ScalarFunction, arg_types: &Vec<DataType>) -> Result<Da
     // Note that this function *must* return the same type that the respective physical expression returns
     // or the execution panics.
 
-    if arg_types.len() != 1 {
-        // for now, every function expects a single argument, and thus this is enough
-        return Err(ExecutionError::General(format!(
-            "The function \"{}\" expected 1 argument, but received \"{}\"",
-            fun,
-            arg_types.len()
-        )));
-    }
-
-    // verify that this is a valid type for this function
-    coerce(fun, &arg_types[0])?;
+    // verify that this is a valid set of data types for this function
+    data_types(&arg_types, &signature(fun))?;
 
     // the return type after coercion.
     // for now, this is type-independent, but there will be built-in functions whose return type
@@ -178,72 +183,31 @@ pub fn function(
         ScalarFunction::Signum => math_expressions::signum,
         ScalarFunction::Length => |args| Ok(Arc::new(length(args[0].as_ref())?)),
     });
-    let data_types = args
+    // coerce
+    let args = coerce(args, input_schema, &signature(fun))?;
+
+    let arg_types = args
         .iter()
         .map(|e| e.data_type(input_schema))
         .collect::<Result<Vec<_>>>()?;
-
-    // coerce type
-    // for now, this supports a single type.
-    assert!(args.len() == 1);
-    assert!(data_types.len() == 1);
-    let arg_type = coerce(fun, &data_types[0])?;
-    let args = vec![cast(args[0].clone(), input_schema, arg_type.clone())?];
 
     Ok(Arc::new(udf::ScalarFunctionExpr::new(
         &format!("{}", fun),
         fun_expr,
         args,
-        &return_type(&fun, &vec![arg_type])?,
+        &return_type(&fun, &arg_types)?,
     )))
 }
 
-/// the type supported by the function `fun`.
-fn valid_type(fun: &ScalarFunction) -> DataType {
+/// the signatures supported by the function `fun`.
+fn signature(fun: &ScalarFunction) -> Signature {
     // note: the physical expression must accept the type returned by this function or the execution panics.
 
     // for now, the list is small, as we do not have many built-in functions.
     match fun {
-        ScalarFunction::Length => DataType::Utf8,
-        // math expressions expect f64
-        _ => DataType::Float64,
-    }
-}
-
-/// coercion rules for all built-in functions.
-/// Returns a DataType coerced from `arg_type` that is accepted by `fun`.
-/// Errors when `arg_type` can't be coerced to a valid return type of `fun`.
-fn coerce(fun: &ScalarFunction, arg_type: &DataType) -> Result<DataType> {
-    let valid_type = valid_type(fun);
-    if *arg_type == valid_type {
-        // same type => all good
-        return Ok(arg_type.clone());
-    }
-    match fun {
-        ScalarFunction::Length => match arg_type {
-            // cast does not support LargeUtf8 -> Utf8 yet: every type errors.
-            _ => Err(ExecutionError::General(
-                format!(
-                    "The function '{}' can't evaluate type '{:?}'",
-                    fun, arg_type
-                )
-                .to_string(),
-            )),
-        },
-        // all other numerical types: float64
-        _ => {
-            if is_numeric(arg_type) {
-                Ok(DataType::Float64)
-            } else {
-                Err(ExecutionError::General(
-                    format!(
-                        "The function '{}' can't evaluate type '{:?}'",
-                        fun, arg_type
-                    )
-                    .to_string(),
-                ))
-            }
-        }
+        ScalarFunction::Length => Signature::Uniform(1, vec![DataType::Utf8]),
+        // math expressions expect 1 argument of type f64
+        _ => Signature::Uniform(1, vec![DataType::Float64]),
     }
 }
 
@@ -260,30 +224,7 @@ mod tests {
         record_batch::RecordBatch,
     };
 
-    #[test]
-    fn test_coerce_math() -> Result<()> {
-        // valid cases
-        let cases = vec![
-            // (observed, expected coercion to)
-            (DataType::Float64, DataType::Float64),
-            (DataType::Float32, DataType::Float64),
-            (DataType::Int8, DataType::Float64),
-            (DataType::UInt32, DataType::Float64),
-        ];
-        for case in cases {
-            let result = coerce(&ScalarFunction::Sqrt, &case.0)?;
-            assert_eq!(result, case.1)
-        }
-        // invalid math types
-        let cases = vec![DataType::Utf8, DataType::Boolean, DataType::LargeUtf8];
-        for case in cases {
-            let result = coerce(&ScalarFunction::Sqrt, &case);
-            assert!(result.is_err())
-        }
-        Ok(())
-    }
-
-    fn generic_test_math(value: ScalarValue) -> Result<()> {
+    fn generic_test_math(value: ScalarValue, expected: &str) -> Result<()> {
         // any type works here: we evaluate against a literal of `value`
         let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
         let columns: Vec<ArrayRef> = vec![Arc::new(Int32Array::from(vec![1]))];
@@ -303,17 +244,18 @@ mod tests {
         let result = result.as_any().downcast_ref::<Float64Array>().unwrap();
 
         // value is correct
-        assert_eq!(format!("{}", result.value(0)), "2.718281828459045"); // = exp(1)
+        assert_eq!(format!("{}", result.value(0)), expected); // = exp(1)
 
         Ok(())
     }
 
     #[test]
     fn test_math_function() -> Result<()> {
-        generic_test_math(ScalarValue::Int32(1i32))?;
-        generic_test_math(ScalarValue::UInt32(1u32))?;
-        generic_test_math(ScalarValue::Float64(1f64))?;
-        generic_test_math(ScalarValue::Float32(1f32))?;
+        let exp_f64 = "2.718281828459045";
+        generic_test_math(ScalarValue::Int32(1i32), exp_f64)?;
+        generic_test_math(ScalarValue::UInt32(1u32), exp_f64)?;
+        generic_test_math(ScalarValue::Float64(1f64), exp_f64)?;
+        generic_test_math(ScalarValue::Float32(1f32), exp_f64)?;
         Ok(())
     }
 }

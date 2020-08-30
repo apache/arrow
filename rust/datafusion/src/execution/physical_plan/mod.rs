@@ -145,4 +145,5 @@ pub mod parquet;
 pub mod planner;
 pub mod projection;
 pub mod sort;
+pub mod type_coercion;
 pub mod udf;
