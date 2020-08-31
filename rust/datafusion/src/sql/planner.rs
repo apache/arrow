@@ -128,7 +128,7 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
             FileType::NdJson => {}
         };
 
-        let schema = Box::new(self.build_schema(&columns)?);
+        let schema = SchemaRef::new(self.build_schema(&columns)?);
 
         Ok(LogicalPlan::CreateExternalTable {
             schema,
