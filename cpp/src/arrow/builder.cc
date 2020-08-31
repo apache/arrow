@@ -136,8 +136,7 @@ Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
       const auto& dict_type = static_cast<const DictionaryType&>(*type);
       DictionaryBuilderCase visitor = {pool, dict_type.index_type(),
                                        dict_type.value_type(), nullptr, out};
-      auto status = visitor.Make();
-      return status;
+      return visitor.Make();
     }
 
     case Type::LIST: {
