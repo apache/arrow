@@ -949,12 +949,13 @@ TEST_F(TestConvertArrowSchema, ParquetMaps) {
   std::vector<NodePtr> parquet_fields;
   std::vector<std::shared_ptr<Field>> arrow_fields;
 
-  //  optional group my_map (MAP) {
-  //      repeated group key_value {
-  //          required binary key (UTF8);
-  //          optional binary value (UTF8);
-  //	}
-  //  }
+  // // Map<String, String> (map and map values nullable)
+  // optional group my_map (MAP) {
+  //   repeated group key_value {
+  //     required binary key (UTF8);
+  //     optional binary value (UTF8);
+  //   }
+  // }
   {
     auto key = PrimitiveNode::Make("key", Repetition::REQUIRED, ParquetType::BYTE_ARRAY,
                                    ConvertedType::UTF8);
@@ -970,12 +971,13 @@ TEST_F(TestConvertArrowSchema, ParquetMaps) {
     arrow_fields.push_back(::arrow::field("my_map", arrow_map, /*nullable=*/true));
   }
 
-  //  required group my_map (MAP) {
-  //      repeated group key_value {
-  //          required binary key (UTF8);
-  //          required binary value (UTF8);
-  //	}
-  //  }
+  // // Map<String, String> (non-nullable)
+  // required group my_map (MAP) {
+  //   repeated group key_value {
+  //     required binary key (UTF8);
+  //     required binary value (UTF8);
+  //   }
+  // }
   {
     auto key = PrimitiveNode::Make("key", Repetition::REQUIRED, ParquetType::BYTE_ARRAY,
                                    ConvertedType::UTF8);
@@ -1002,7 +1004,7 @@ TEST_F(TestConvertArrowSchema, ParquetOtherLists) {
 
   // parquet_arrow will always generate 3-level LIST encodings
 
-  // // List<String> (list non-null, elements nullable)
+  // // LargeList<String> (list-like non-null, elements nullable)
   // required group my_list (LIST) {
   //   repeated group list {
   //     optional binary element (UTF8);
@@ -1018,6 +1020,12 @@ TEST_F(TestConvertArrowSchema, ParquetOtherLists) {
     auto arrow_list = ::arrow::large_list(arrow_element);
     arrow_fields.push_back(::arrow::field("my_list", arrow_list, false));
   }
+  // // FixedSizeList[10]<String> (list-like non-null, elements nullable)
+  // required group my_list (LIST) {
+  //   repeated group list {
+  //     optional binary element (UTF8);
+  //   }
+  // }
   {
     auto element = PrimitiveNode::Make("string", Repetition::OPTIONAL,
                                        ParquetType::BYTE_ARRAY, ConvertedType::UTF8);
@@ -1143,6 +1151,11 @@ TEST(TestFromParquetSchema, CorruptMetadata) {
   ArrowReaderProperties props;
   ASSERT_RAISES(IOError, FromParquetSchema(parquet_schema, props, &arrow_schema));
 }
+
+//
+// Test LevelInfo computation from a Parquet schema
+// (for Parquet -> Arrow reading).
+//
 
 ::arrow::Result<std::deque<LevelInfo>> RootToTreeLeafLevels(
     const SchemaManifest& manifest, int column_number) {
