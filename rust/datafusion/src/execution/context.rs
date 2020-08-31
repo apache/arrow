@@ -249,7 +249,11 @@ impl ExecutionContext {
 
     /// Register a table using a custom TableProvider so that it can be referenced from SQL
     /// statements executed against this context.
-    pub fn register_table(&mut self, name: &str, provider: Box<dyn TableProvider>) {
+    pub fn register_table(
+        &mut self,
+        name: &str,
+        provider: Box<dyn TableProvider + Send + Sync>,
+    ) {
         self.state
             .datasources
             .insert(name.to_string(), provider.into());
@@ -383,7 +387,7 @@ pub struct ExecutionConfig {
     /// Default batch size when reading data sources
     pub batch_size: usize,
     /// Optional physical planner to override the default physical planner
-    physical_planner: Option<Arc<dyn PhysicalPlanner>>,
+    physical_planner: Option<Arc<dyn PhysicalPlanner + Send + Sync>>,
 }
 
 impl ExecutionConfig {
@@ -415,7 +419,7 @@ impl ExecutionConfig {
     /// Optional physical planner to override the default physical planner
     pub fn with_physical_planner(
         mut self,
-        physical_planner: Arc<dyn PhysicalPlanner>,
+        physical_planner: Arc<dyn PhysicalPlanner + Send + Sync>,
     ) -> Self {
         self.physical_planner = Some(physical_planner);
         self
@@ -426,7 +430,7 @@ impl ExecutionConfig {
 #[derive(Clone)]
 pub struct ExecutionContextState {
     /// Data sources that are registered with the context
-    pub datasources: HashMap<String, Arc<dyn TableProvider>>,
+    pub datasources: HashMap<String, Arc<dyn TableProvider + Send + Sync>>,
     /// Scalar functions that are registered with the context
     pub scalar_functions: HashMap<String, Arc<ScalarFunction>>,
     /// Context configuration
@@ -456,7 +460,7 @@ mod tests {
     use arrow::array::{ArrayRef, Int32Array};
     use arrow::compute::add;
     use std::fs::File;
-    use std::io::prelude::*;
+    use std::{io::prelude::*, sync::Mutex};
     use tempdir::TempDir;
     use test::*;
 
@@ -921,6 +925,33 @@ mod tests {
         assert_eq!(results[0].num_rows(), 1);
         assert_eq!(test::format_batch(&results[0]), vec!["10,110,20"]);
 
+        Ok(())
+    }
+
+    #[test]
+    fn send_context_to_threads() -> Result<()> {
+        // ensure ExecutionContexts can be used in a multi-threaded
+        // environment. Usecase is for concurrent planing.
+        let tmp_dir = TempDir::new("send_context_to_threads")?;
+        let partition_count = 4;
+        let ctx = Arc::new(Mutex::new(create_ctx(&tmp_dir, partition_count)?));
+
+        let threads: Vec<JoinHandle<Result<_>>> = (0..2)
+            .map(|_| ctx.clone())
+            .map(|ctx_clone| {
+                thread::spawn(move || {
+                    let mut ctx = ctx_clone.lock().expect("Locked context");
+                    // Ensure we can create logical plan code on a separate thread.
+                    ctx.create_logical_plan(
+                        "SELECT c1, c2 FROM test WHERE c1 > 0 AND c1 < 3",
+                    )
+                })
+            })
+            .collect();
+
+        for thread in threads {
+            thread.join().expect("Failed to join thread")?;
+        }
         Ok(())
     }
 
