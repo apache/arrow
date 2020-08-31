@@ -1585,8 +1585,12 @@ class ExportedArrayStream {
     switch (status.code()) {
       case StatusCode::IOError:
         return EIO;
+      case StatusCode::NotImplemented:
+        return ENOSYS;
+      case StatusCode::OutOfMemory:
+        return ENOMEM;
       default:
-        return EINVAL;  // Most likely?
+        return EINVAL;  // Fallback for Invalid, TypeError, etc.
     }
   }
 
@@ -1618,15 +1622,21 @@ namespace {
 
 class ArrayStreamBatchReader : public RecordBatchReader {
  public:
-  explicit ArrayStreamBatchReader(struct ArrowArrayStream* stream) : stream_(stream) {}
+  explicit ArrayStreamBatchReader(struct ArrowArrayStream* stream) {
+    ArrowArrayStreamMove(stream, &stream_);
+    DCHECK(!ArrowArrayStreamIsReleased(&stream_));
+  }
 
-  ~ArrayStreamBatchReader() { ArrowArrayStreamRelease(stream_); }
+  ~ArrayStreamBatchReader() {
+    ArrowArrayStreamRelease(&stream_);
+    DCHECK(ArrowArrayStreamIsReleased(&stream_));
+  }
 
   std::shared_ptr<Schema> schema() const override { return CacheSchema(); }
 
   Status ReadNext(std::shared_ptr<RecordBatch>* batch) override {
     struct ArrowArray c_array;
-    RETURN_NOT_OK(StatusFromCError(stream_->get_next(stream_, &c_array)));
+    RETURN_NOT_OK(StatusFromCError(stream_.get_next(&stream_, &c_array)));
     if (ArrowArrayIsReleased(&c_array)) {
       // End of stream
       batch->reset();
@@ -1640,7 +1650,7 @@ class ArrayStreamBatchReader : public RecordBatchReader {
   std::shared_ptr<Schema> CacheSchema() const {
     if (!schema_) {
       struct ArrowSchema c_schema;
-      ARROW_CHECK_OK(StatusFromCError(stream_->get_schema(stream_, &c_schema)));
+      ARROW_CHECK_OK(StatusFromCError(stream_.get_schema(&stream_, &c_schema)));
       schema_ = ImportSchema(&c_schema).ValueOrDie();
     }
     return schema_;
@@ -1652,18 +1662,25 @@ class ArrayStreamBatchReader : public RecordBatchReader {
     }
     StatusCode code;
     switch (errno_like) {
+      case EDOM:
       case EINVAL:
+      case ERANGE:
         code = StatusCode::Invalid;
         break;
+      case ENOMEM:
+        code = StatusCode::OutOfMemory;
+        break;
+      case ENOSYS:
+        code = StatusCode::NotImplemented;
       default:
         code = StatusCode::IOError;
         break;
     }
-    const char* last_error = stream_->get_last_error(stream_);
+    const char* last_error = stream_.get_last_error(&stream_);
     return Status(code, last_error ? std::string(last_error) : "");
   }
 
-  struct ArrowArrayStream* stream_;
+  mutable struct ArrowArrayStream stream_;
   mutable std::shared_ptr<Schema> schema_;
 };
 

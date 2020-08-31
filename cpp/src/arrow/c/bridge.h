@@ -160,11 +160,18 @@ ARROW_EXPORT
 Result<std::shared_ptr<RecordBatch>> ImportRecordBatch(struct ArrowArray* array,
                                                        struct ArrowSchema* schema);
 
-// EXPERIMENTAL: array stream APIs
-
+/// \brief EXPERIMENTAL: Export C++ RecordBatchReader using the C stream interface.
+///
+/// \param[in] reader RecordBatchReader object to export
+/// \param[out] out C struct where to export the stream
 ARROW_EXPORT
 Status ExportRecordBatchReader(std::shared_ptr<RecordBatchReader> reader,
                                struct ArrowArrayStream* out);
+
+/// \brief EXPERIMENTAL: Import C++ RecordBatchReader from the C stream interface.
+///
+/// \param[in,out] stream C stream interface struct
+/// \return Imported RecordBatchReader object
 ARROW_EXPORT
 Result<std::shared_ptr<RecordBatchReader>> ImportRecordBatchReader(
     struct ArrowArrayStream* stream);

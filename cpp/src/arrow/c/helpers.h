@@ -92,6 +92,18 @@ inline void ArrowArrayStreamMarkReleased(struct ArrowArrayStream* stream) {
   stream->release = NULL;
 }
 
+/// Move the C array stream from `src` to `dest`
+///
+/// Note `dest` must *not* point to a valid stream already, otherwise there
+/// will be a memory leak.
+inline void ArrowArrayStreamMove(struct ArrowArrayStream* src,
+                                 struct ArrowArrayStream* dest) {
+  assert(dest != src);
+  assert(!ArrowArrayStreamIsReleased(src));
+  memcpy(dest, src, sizeof(struct ArrowArrayStream));
+  ArrowArrayStreamMarkReleased(src);
+}
+
 /// Release the C array stream, if necessary, by calling its release callback
 inline void ArrowArrayStreamRelease(struct ArrowArrayStream* stream) {
   if (!ArrowArrayStreamIsReleased(stream)) {
