@@ -44,7 +44,7 @@ pub struct ExplainExec {
 }
 
 impl ExplainExec {
-    /// Create a new MergeExec
+    /// Create a new ExplainExec
     pub fn new(schema: SchemaRef, stringified_plans: Vec<StringifiedPlan>) -> Self {
         ExplainExec {
             schema,

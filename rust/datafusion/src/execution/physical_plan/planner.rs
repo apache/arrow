@@ -19,7 +19,7 @@
 
 use std::sync::Arc;
 
-use super::{expressions::binary, functions};
+use super::{empty::EmptyExec, expressions::binary, functions};
 use crate::error::{ExecutionError, Result};
 use crate::execution::context::ExecutionContextState;
 use crate::execution::physical_plan::csv::{CsvExec, CsvReadOptions};
@@ -278,6 +278,9 @@ impl DefaultPhysicalPlanner {
                     ctx_state.config.concurrency,
                 )?))
             }
+            LogicalPlan::EmptyRelation { schema } => {
+                Ok(Arc::new(EmptyExec::new(Arc::new(schema.as_ref().clone()))))
+            }
             LogicalPlan::Limit { input, n, .. } => {
                 let limit = *n;
                 let input = self.create_physical_plan(input, ctx_state)?;
@@ -296,6 +299,15 @@ impl DefaultPhysicalPlanner {
                     limit,
                     ctx_state.config.concurrency,
                 )))
+            }
+            LogicalPlan::CreateExternalTable { .. } => {
+                // There is no default plan for "CREATE EXTERNAL
+                // TABLE" -- it must be handled at a higher level (so
+                // that the appropriate table can be registered with
+                // the context)
+                Err(ExecutionError::General(
+                    "Unsupported logical plan: CreateExternalTable".to_string(),
+                ))
             }
             LogicalPlan::Explain {
                 verbose,
@@ -318,12 +330,9 @@ impl DefaultPhysicalPlanner {
                         format!("{:#?}", input),
                     ));
                 }
-                let schema_ref = Arc::new((**schema).clone());
+                let schema_ref = Arc::new(schema.as_ref().clone());
                 Ok(Arc::new(ExplainExec::new(schema_ref, stringified_plans)))
             }
-            _ => Err(ExecutionError::General(
-                "Unsupported logical plan variant".to_string(),
-            )),
         }
     }
 
