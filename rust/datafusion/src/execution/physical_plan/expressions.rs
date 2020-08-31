@@ -1811,7 +1811,7 @@ mod tests {
     }
 
     #[test]
-    fn test_cast_i65_t64() -> Result<()> {
+    fn test_cast_i64_t64() -> Result<()> {
         let original = vec![1, 2, 3, 4, 5];
         let expected: Vec<i64> = original
             .iter()
