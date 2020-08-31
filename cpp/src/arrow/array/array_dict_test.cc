@@ -958,9 +958,7 @@ void AssertIndexByteWidth(const std::shared_ptr<DataType>& value_type =
   std::unique_ptr<ArrayBuilder> builder;
   ASSERT_OK(MakeBuilder(default_memory_pool(), dict_type, &builder));
   auto builder_dict_type = checked_pointer_cast<DictionaryType>(builder->type());
-  ASSERT_TRUE(dict_type->index_type()->Equals(builder_dict_type->index_type()))
-      << "builder's index type is " << builder_dict_type->index_type()->ToString()
-      << ", but " << dict_type->index_type()->ToString() << " is expected";
+  AssertTypeEqual(dict_type->index_type(), builder_dict_type->index_type());
 }
 
 typedef ::testing::Types<Int8Type, Int16Type, Int32Type, Int64Type> IndexTypes;

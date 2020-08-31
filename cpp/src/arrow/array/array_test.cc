@@ -2322,7 +2322,7 @@ TEST_F(TestAdaptiveUIntBuilder, TestAppendNulls) {
 TEST(TestAdaptiveUIntBuilderWithStartIntSize, TestReset) {
   auto builder = std::make_shared<AdaptiveUIntBuilder>(
       static_cast<uint8_t>(sizeof(uint16_t)), default_memory_pool());
-  ASSERT_TRUE(uint16()->Equals(*builder->type()));
+  AssertTypeEqual(uint16(), builder->type());
 
   ASSERT_OK(
       builder->Append(static_cast<uint64_t>(std::numeric_limits<uint16_t>::max()) + 1));
