@@ -2286,6 +2286,21 @@ impl<'a, K: ArrowPrimitiveType> DictionaryArray<K> {
         }
     }
 
+    /// Returns an array view of the keys of this dictionary
+    pub fn keys_array(&self) -> PrimitiveArray<K> {
+        let data = self.data_ref();
+        let keys_data = ArrayData::new(
+            K::get_data_type(),
+            data.len(),
+            Some(data.null_count()),
+            data.null_buffer().cloned(),
+            data.offset(),
+            data.buffers().to_vec(),
+            vec![],
+        );
+        PrimitiveArray::<K>::from(Arc::new(keys_data))
+    }
+
     /// Returns the lookup key by doing reverse dictionary lookup
     pub fn lookup_key(&self, value: &str) -> Option<K::Native> {
         let rd_buf: &StringArray =
@@ -4123,5 +4138,37 @@ mod tests {
 
         assert_eq!(array.lookup_key("t1"), Some(2));
         assert_eq!(array.lookup_key("non-existent"), None);
+    }
+
+    #[test]
+    fn test_dictionary_keys_as_primitive_array() {
+        let test = vec!["a", "b", "c", "a"];
+        let array: DictionaryArray<Int8Type> = test.into_iter().collect();
+
+        let keys = array.keys_array();
+        assert_eq!(&DataType::Int8, keys.data_type());
+        assert_eq!(0, keys.null_count());
+        assert_eq!(&[0, 1, 2, 0], keys.value_slice(0, keys.len()));
+    }
+
+    #[test]
+    fn test_dictionary_keys_as_primitive_array_with_null() {
+        let test = vec![Some("a"), None, Some("b"), None, None, Some("a")];
+        let array: DictionaryArray<Int32Type> = test.into_iter().collect();
+
+        let keys = array.keys_array();
+        assert_eq!(&DataType::Int32, keys.data_type());
+        assert_eq!(3, keys.null_count());
+
+        assert_eq!(true, keys.is_valid(0));
+        assert_eq!(false, keys.is_valid(1));
+        assert_eq!(true, keys.is_valid(2));
+        assert_eq!(false, keys.is_valid(3));
+        assert_eq!(false, keys.is_valid(4));
+        assert_eq!(true, keys.is_valid(5));
+
+        assert_eq!(0, keys.value(0));
+        assert_eq!(1, keys.value(2));
+        assert_eq!(0, keys.value(5));
     }
 }
