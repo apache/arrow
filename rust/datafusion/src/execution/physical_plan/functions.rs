@@ -158,7 +158,7 @@ pub fn return_type(fun: &ScalarFunction, arg_types: &Vec<DataType>) -> Result<Da
 
 /// Create a physical (function) expression.
 /// This function errors when `args`' can't be coerced to a valid argument type of the function.
-pub fn function(
+pub fn create_physical_expr(
     fun: &ScalarFunction,
     args: &Vec<Arc<dyn PhysicalExpr>>,
     input_schema: &Schema,
@@ -231,7 +231,7 @@ mod tests {
 
         let arg = lit(value);
 
-        let expr = function(&ScalarFunction::Exp, &vec![arg], &schema)?;
+        let expr = create_physical_expr(&ScalarFunction::Exp, &vec![arg], &schema)?;
 
         // type is correct
         assert_eq!(expr.data_type(&schema)?, DataType::Float64);

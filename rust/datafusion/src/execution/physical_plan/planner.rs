@@ -357,17 +357,13 @@ impl DefaultPhysicalPlanner {
                 data_type.clone(),
             ),
             Expr::ScalarFunction { fun, args } => {
-                let mut physical_args = vec![];
-                let mut types = Vec::with_capacity(args.len());
-                for e in args {
-                    physical_args.push(self.create_physical_expr(
-                        e,
-                        input_schema,
-                        ctx_state.clone(),
-                    )?);
-                    types.push(e.get_type(input_schema)?)
-                }
-                functions::function(fun, &physical_args, input_schema)
+                let physical_args = args
+                    .iter()
+                    .map(|e| {
+                        self.create_physical_expr(e, input_schema, ctx_state.clone())
+                    })
+                    .collect::<Result<Vec<_>>>()?;
+                functions::create_physical_expr(fun, &physical_args, input_schema)
             }
             Expr::ScalarUDF {
                 name,
