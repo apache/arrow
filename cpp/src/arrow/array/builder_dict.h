@@ -95,7 +95,7 @@ class ARROW_EXPORT DictionaryMemoTable {
 
 /// \brief Check array's value type by DCHECK
 ARROW_EXPORT void CheckArrayType(const std::shared_ptr<DataType>& expected_type,
-                                 const Array& array, const std::string& message);
+                                 const Array& array, const char* message);
 
 /// \brief Array builder for created encoded DictionaryArray from
 /// dense array
