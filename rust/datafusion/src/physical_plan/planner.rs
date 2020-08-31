@@ -19,7 +19,7 @@
 
 use std::sync::Arc;
 
-use super::{empty::EmptyExec, expressions::binary, functions};
+use super::{aggregates, empty::EmptyExec, expressions::binary, functions};
 use crate::error::{ExecutionError, Result};
 use crate::execution::context::ExecutionContextState;
 use crate::logical_plan::{
@@ -27,9 +27,7 @@ use crate::logical_plan::{
 };
 use crate::physical_plan::csv::{CsvExec, CsvReadOptions};
 use crate::physical_plan::explain::ExplainExec;
-use crate::physical_plan::expressions::{
-    Avg, Column, Count, Literal, Max, Min, PhysicalSortExpr, Sum,
-};
+use crate::physical_plan::expressions::{Column, Literal, PhysicalSortExpr};
 use crate::physical_plan::filter::FilterExec;
 use crate::physical_plan::hash_aggregate::{AggregateMode, HashAggregateExec};
 use crate::physical_plan::limit::{GlobalLimitExec, LocalLimitExec};
@@ -477,38 +475,12 @@ impl DefaultPhysicalPlanner {
         ctx_state: &ExecutionContextState,
     ) -> Result<Arc<dyn AggregateExpr>> {
         match e {
-            Expr::AggregateFunction { name, args, .. } => {
-                match name.to_lowercase().as_ref() {
-                    "sum" => Ok(Arc::new(Sum::new(self.create_physical_expr(
-                        &args[0],
-                        input_schema,
-                        ctx_state,
-                    )?))),
-                    "avg" => Ok(Arc::new(Avg::new(self.create_physical_expr(
-                        &args[0],
-                        input_schema,
-                        ctx_state,
-                    )?))),
-                    "max" => Ok(Arc::new(Max::new(self.create_physical_expr(
-                        &args[0],
-                        input_schema,
-                        ctx_state,
-                    )?))),
-                    "min" => Ok(Arc::new(Min::new(self.create_physical_expr(
-                        &args[0],
-                        input_schema,
-                        ctx_state,
-                    )?))),
-                    "count" => Ok(Arc::new(Count::new(self.create_physical_expr(
-                        &args[0],
-                        input_schema,
-                        ctx_state,
-                    )?))),
-                    other => Err(ExecutionError::NotImplemented(format!(
-                        "Unsupported aggregate function '{}'",
-                        other
-                    ))),
-                }
+            Expr::AggregateFunction { fun, args, .. } => {
+                let args = args
+                    .iter()
+                    .map(|e| self.create_physical_expr(e, input_schema, ctx_state))
+                    .collect::<Result<Vec<_>>>()?;
+                aggregates::create_aggregate_expr(fun, &args, input_schema)
             }
             other => Err(ExecutionError::General(format!(
                 "Invalid aggregate expression '{:?}'",
@@ -561,7 +533,7 @@ impl ExtensionPlanner for DefaultExtensionPlanner {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::logical_plan::{aggregate_expr, col, lit, LogicalPlanBuilder};
+    use crate::logical_plan::{col, lit, sum, LogicalPlanBuilder};
     use crate::physical_plan::{csv::CsvReadOptions, Partitioning};
     use crate::{prelude::ExecutionConfig, test::arrow_testdata_path};
     use arrow::{
@@ -596,7 +568,7 @@ mod tests {
             // filter clause needs the type coercion rule applied
             .filter(col("c7").lt(lit(5_u8)))?
             .project(vec![col("c1"), col("c2")])?
-            .aggregate(vec![col("c1")], vec![aggregate_expr("SUM", col("c2"))])?
+            .aggregate(vec![col("c1")], vec![sum(col("c2"))])?
             .sort(vec![col("c1").sort(true, true)])?
             .limit(10)?
             .build()?;

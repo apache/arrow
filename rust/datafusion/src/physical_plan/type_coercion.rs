@@ -67,6 +67,16 @@ pub fn data_types(
                 .collect()]
         }
         Signature::Exact(valid_types) => vec![valid_types.clone()],
+        Signature::Any(number) => {
+            if current_types.len() != *number {
+                return Err(ExecutionError::General(format!(
+                    "The function expected {} arguments but received {}",
+                    number,
+                    current_types.len()
+                )));
+            }
+            vec![(0..*number).map(|i| current_types[i].clone()).collect()]
+        }
     };
 
     if valid_types.contains(current_types) {
@@ -276,6 +286,12 @@ mod tests {
                 Signature::Variadic(vec![DataType::UInt32, DataType::UInt64]),
                 vec![DataType::UInt64, DataType::UInt64],
             )?,
+            // f32 -> f32
+            case(
+                vec![DataType::Float32],
+                Signature::Any(1),
+                vec![DataType::Float32],
+            )?,
         ];
 
         for case in cases {
@@ -304,6 +320,8 @@ mod tests {
                 Signature::Variadic(vec![DataType::UInt32]),
                 vec![],
             )?,
+            // expected two arguments
+            case(vec![DataType::UInt32], Signature::Any(2), vec![])?,
         ];
 
         for case in cases {

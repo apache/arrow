@@ -107,22 +107,27 @@ impl Sum {
     }
 }
 
+/// function return type of a sum
+pub fn sum_return_type(arg_type: &DataType) -> Result<DataType> {
+    match arg_type {
+        DataType::Int8 | DataType::Int16 | DataType::Int32 | DataType::Int64 => {
+            Ok(DataType::Int64)
+        }
+        DataType::UInt8 | DataType::UInt16 | DataType::UInt32 | DataType::UInt64 => {
+            Ok(DataType::UInt64)
+        }
+        DataType::Float32 => Ok(DataType::Float32),
+        DataType::Float64 => Ok(DataType::Float64),
+        other => Err(ExecutionError::General(format!(
+            "SUM does not support type \"{:?}\"",
+            other
+        ))),
+    }
+}
+
 impl AggregateExpr for Sum {
     fn data_type(&self, input_schema: &Schema) -> Result<DataType> {
-        match self.expr.data_type(input_schema)? {
-            DataType::Int8 | DataType::Int16 | DataType::Int32 | DataType::Int64 => {
-                Ok(DataType::Int64)
-            }
-            DataType::UInt8 | DataType::UInt16 | DataType::UInt32 | DataType::UInt64 => {
-                Ok(DataType::UInt64)
-            }
-            DataType::Float32 => Ok(DataType::Float32),
-            DataType::Float64 => Ok(DataType::Float64),
-            other => Err(ExecutionError::General(format!(
-                "SUM does not support {:?}",
-                other
-            ))),
-        }
+        sum_return_type(&self.expr.data_type(input_schema)?)
     }
 
     fn nullable(&self, _input_schema: &Schema) -> Result<bool> {
@@ -306,24 +311,29 @@ impl Avg {
     }
 }
 
+/// function return type of an average
+pub fn avg_return_type(arg_type: &DataType) -> Result<DataType> {
+    match arg_type {
+        DataType::Int8
+        | DataType::Int16
+        | DataType::Int32
+        | DataType::Int64
+        | DataType::UInt8
+        | DataType::UInt16
+        | DataType::UInt32
+        | DataType::UInt64
+        | DataType::Float32
+        | DataType::Float64 => Ok(DataType::Float64),
+        other => Err(ExecutionError::General(format!(
+            "AVG does not support {:?}",
+            other
+        ))),
+    }
+}
+
 impl AggregateExpr for Avg {
     fn data_type(&self, input_schema: &Schema) -> Result<DataType> {
-        match self.expr.data_type(input_schema)? {
-            DataType::Int8
-            | DataType::Int16
-            | DataType::Int32
-            | DataType::Int64
-            | DataType::UInt8
-            | DataType::UInt16
-            | DataType::UInt32
-            | DataType::UInt64
-            | DataType::Float32
-            | DataType::Float64 => Ok(DataType::Float64),
-            other => Err(ExecutionError::General(format!(
-                "AVG does not support {:?}",
-                other
-            ))),
-        }
+        avg_return_type(&self.expr.data_type(input_schema)?)
     }
 
     fn nullable(&self, _input_schema: &Schema) -> Result<bool> {
