@@ -52,7 +52,7 @@ pub fn data_types(
     signature: &Signature,
 ) -> Result<Vec<DataType>> {
     let valid_types = match signature {
-        Signature::Many(valid_types) => valid_types
+        Signature::Variadic(valid_types) => valid_types
             .iter()
             .map(|valid_type| current_types.iter().map(|_| valid_type.clone()).collect())
             .collect(),
@@ -60,7 +60,7 @@ pub fn data_types(
             .iter()
             .map(|valid_type| (0..*number).map(|_| valid_type.clone()).collect())
             .collect(),
-        Signature::ManyUniform => {
+        Signature::VariadicEqual => {
             // one entry with the same len as current_types, whose type is `current_types[0]`.
             vec![current_types
                 .iter()
@@ -215,13 +215,13 @@ mod tests {
             // u32 -> f32
             case(
                 vec![DataType::UInt32, DataType::UInt32],
-                Signature::Many(vec![DataType::Float32]),
+                Signature::Variadic(vec![DataType::Float32]),
                 vec![DataType::Float32, DataType::Float32],
             )?,
             // u32 -> f32
             case(
                 vec![DataType::Float32, DataType::UInt32],
-                Signature::ManyUniform,
+                Signature::VariadicEqual,
                 vec![DataType::Float32, DataType::Float32],
             )?,
         ];
@@ -243,13 +243,13 @@ mod tests {
             // u32 and bool are not uniform
             case(
                 vec![DataType::UInt32, DataType::Boolean],
-                Signature::ManyUniform,
+                Signature::VariadicEqual,
                 vec![],
             )?,
             // bool is not castable to u32
             case(
                 vec![DataType::Boolean, DataType::Boolean],
-                Signature::Many(vec![DataType::UInt32]),
+                Signature::Variadic(vec![DataType::UInt32]),
                 vec![],
             )?,
         ];

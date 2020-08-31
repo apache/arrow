@@ -46,16 +46,16 @@ use udf::ScalarUdf;
 /// A function's signature, which defines the function's supported argument types.
 #[derive(Debug)]
 pub enum Signature {
-    /// arbitrary number of arguments of an uniform type out of a list of valid types
-    // A function such as `concat` is `Many(vec![DataType::Utf8, DataType::LargeUtf8])`
-    Many(Vec<DataType>),
-    /// arbitrary number of arguments of an arbitrary but uniform type
-    // A function such as `array` is `ManyUniform`
+    /// arbitrary number of arguments of an common type out of a list of valid types
+    // A function such as `concat` is `Variadic(vec![DataType::Utf8, DataType::LargeUtf8])`
+    Variadic(Vec<DataType>),
+    /// arbitrary number of arguments of an arbitrary but equal type
+    // A function such as `array` is `VariadicEqual`
     // The first argument decides the type used for coercion
-    ManyUniform,
-    /// fixed number of arguments of an uniform type out of a list of valid types
-    // A function of one argument of f64 is `Fixed(1, vec![DataType::Float64])`
-    // A function of two arguments of f64 or f32 is `Fixed(1, vec![DataType::Float32, DataType::Float64])`
+    VariadicEqual,
+    /// fixed number of arguments of an arbitrary but equal type out of a list of valid types
+    // A function of one argument of f64 is `Uniform(1, vec![DataType::Float64])`
+    // A function of two arguments of f64 or f32 is `Uniform(1, vec![DataType::Float32, DataType::Float64])`
     Uniform(usize, Vec<DataType>),
 }
 
