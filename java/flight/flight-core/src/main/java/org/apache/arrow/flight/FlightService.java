@@ -39,7 +39,6 @@ import org.apache.arrow.vector.VectorUnloader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.grpc.Status;
 import io.grpc.stub.ServerCallStreamObserver;
 import io.grpc.stub.StreamObserver;
 
@@ -192,9 +191,11 @@ class FlightService extends FlightServiceImplBase {
 
     final StreamPipe<PutResult, Flight.PutResult> ackStream = StreamPipe
         .wrap(responseObserver, PutResult::toProtocol, this::handleExceptionWithMiddleware);
-    final FlightStream fs = new FlightStream(allocator, PENDING_REQUESTS, (String message, Throwable cause) -> {
-      ackStream.onError(Status.CANCELLED.withCause(cause).withDescription(message).asException());
-    }, responseObserver::request);
+    final FlightStream fs = new FlightStream(
+        allocator,
+        PENDING_REQUESTS,
+        /* server-upload streams are not cancellable */null,
+        responseObserver::request);
     // When the ackStream is completed, the FlightStream will be closed with it
     ackStream.setAutoCloseable(fs);
     final StreamObserver<ArrowMessage> observer = fs.asObserver();
@@ -324,17 +325,10 @@ class FlightService extends FlightServiceImplBase {
     final FlightStream fs = new FlightStream(
         allocator,
         PENDING_REQUESTS,
-        (String message, Throwable cause) -> {
-          listener.error(Status.CANCELLED.withCause(cause).withDescription(message).asException());
-        },
+        /* server-upload streams are not cancellable */null,
         responseObserver::request);
     // When service completes the call, this cleans up the FlightStream
-    listener.resource = () -> {
-      // Force the stream to "complete" so it will close without incident. At this point, we don't care since
-      // we are about to end the call. (Normally it will raise an error.)
-      fs.completed.complete(null);
-      fs.close();
-    };
+    listener.resource = fs;
     responseObserver.disableAutoInboundFlowControl();
     responseObserver.request(1);
     final StreamObserver<ArrowMessage> observer = fs.asObserver();
