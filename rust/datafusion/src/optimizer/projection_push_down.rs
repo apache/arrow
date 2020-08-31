@@ -60,7 +60,7 @@ fn get_projected_schema(
     projection: &Option<Vec<usize>>,
     required_columns: &HashSet<String>,
     has_projection: bool,
-) -> Result<(Vec<usize>, Schema)> {
+) -> Result<(Vec<usize>, SchemaRef)> {
     if projection.is_some() {
         return Err(ExecutionError::General(
             "Cannot run projection push-down rule more than once".to_string(),
@@ -103,7 +103,7 @@ fn get_projected_schema(
         projected_fields.push(schema.fields()[*i].clone());
     }
 
-    Ok((projection, Schema::new(projected_fields)))
+    Ok((projection, SchemaRef::new(Schema::new(projected_fields))))
 }
 
 /// Recursively transverses the logical plan removing expressions and that are not needed.
@@ -234,7 +234,7 @@ fn optimize_plan(
                 table_name: table_name.to_string(),
                 table_schema: table_schema.clone(),
                 projection: Some(projection),
-                projected_schema: SchemaRef::new(projected_schema),
+                projected_schema: projected_schema,
             })
         }
         LogicalPlan::InMemoryScan {
@@ -253,7 +253,7 @@ fn optimize_plan(
                 data: data.clone(),
                 schema: schema.clone(),
                 projection: Some(projection),
-                projected_schema: SchemaRef::new(projected_schema),
+                projected_schema: projected_schema,
             })
         }
         LogicalPlan::CsvScan {
@@ -277,7 +277,7 @@ fn optimize_plan(
                 schema: schema.clone(),
                 delimiter: *delimiter,
                 projection: Some(projection),
-                projected_schema: SchemaRef::new(projected_schema),
+                projected_schema: projected_schema,
             })
         }
         LogicalPlan::ParquetScan {
@@ -297,7 +297,7 @@ fn optimize_plan(
                 path: path.to_owned(),
                 schema: schema.clone(),
                 projection: Some(projection),
-                projected_schema: SchemaRef::new(projected_schema),
+                projected_schema: projected_schema,
             })
         }
         LogicalPlan::Explain {
