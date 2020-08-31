@@ -19,6 +19,7 @@
 #include <limits>
 #include <memory>
 #include <type_traits>
+#include <unordered_map>
 #include <utility>
 
 #include <gtest/gtest.h>
@@ -840,6 +841,53 @@ TYPED_TEST(TestFloatingModeKernel, Floats) {
 TEST_F(TestInt8ModeKernelValueRange, Basics) {
   this->AssertModeIs("[0, 127, -128, -128]", -128, 2);
   this->AssertModeIs("[127, 127, 127]", 127, 3);
+}
+
+class TestCountingModeKernel : public ::testing::Test {};
+
+// Test counting based mode kernel (long integer array with small value range)
+TEST_F(TestCountingModeKernel, RandomArrayMode) {
+  using ArrowType = Int32Type;
+  using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
+  using CTYPE = typename ArrowType::c_type;
+  using ModeType = typename TypeTraits<ArrowType>::ScalarType;
+  using CountType = typename TypeTraits<Int64Type>::ScalarType;
+
+  auto rand = random::RandomArrayGenerator(0x5487655);
+  // 256K items within -100 ~ 100, 10% null
+  auto array = rand.Numeric<ArrowType>(256 * 1024, -100, 100, 0.1);
+  ASSERT_OK_AND_ASSIGN(Datum out, Mode(array));
+  const StructScalar& value = out.scalar_as<StructScalar>();
+  const auto& out_mode = checked_cast<const ModeType&>(*value.value[0]);
+  const auto& out_count = checked_cast<const CountType&>(*value.value[1]);
+
+  // caculate mode naively
+  std::unordered_map<CTYPE, int64_t> value_counts;
+  const auto& array_numeric = reinterpret_cast<const ArrayType&>(*array);
+  const auto values = array_numeric.raw_values();
+  internal::BitmapReader reader(array->null_bitmap_data(), array->offset(),
+                                array->length());
+  for (int64_t i = 0; i < array->length(); ++i) {
+    if (reader.IsSet()) {
+      ++value_counts[values[i]];
+    }
+    reader.Next();
+  }
+
+  CTYPE expected_mode = std::numeric_limits<CTYPE>::min();
+  int64_t expected_count = 0;
+  for (const auto& value_count : value_counts) {
+    auto value = value_count.first;
+    auto count = value_count.second;
+    if (count > expected_count || (count == expected_count && value < expected_mode)) {
+      expected_count = count;
+      expected_mode = value;
+    }
+  }
+
+  // validate mode
+  ASSERT_EQ(expected_mode, out_mode.value);
+  ASSERT_EQ(expected_count, out_count.value);
 }
 
 }  // namespace compute

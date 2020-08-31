@@ -26,36 +26,163 @@ namespace aggregate {
 
 namespace {
 
+// Count values and return value:count map
+template <typename T>
+struct ValueCounter {
+  virtual void CountOne(T value) = 0;
+  virtual int64_t nan_count() = 0;
+  virtual std::unordered_map<T, int64_t>& value_counts() = 0;
+  virtual ~ValueCounter() = default;
+};
+
+// Count values by map. For floating points and general integers.
+template <typename T>
+class ValueCounterMap final : public ValueCounter<T> {
+ public:
+  void CountOne(T value) override {
+    if (std::is_floating_point<T>::value && std::isnan(value)) {
+      ++nan_count_;
+    } else {
+      ++value_counts_map_[value];
+    }
+  }
+
+  int64_t nan_count() override { return nan_count_; }
+  std::unordered_map<T, int64_t>& value_counts() override { return value_counts_map_; }
+
+ private:
+  int64_t nan_count_ = 0;
+  std::unordered_map<T, int64_t> value_counts_map_;
+};
+
+// Count values by value indexed array. For integers in small value range.
+template <typename T>
+class ValueCounterVector final : public ValueCounter<T> {
+ public:
+  ValueCounterVector(T min, T max)
+      : min_(min),
+        value_counts_vector_(max - min + 1),
+        value_counts_map_((max - min + 1) * 9 / 8) {}  // reserver 12.5% extra map buckets
+
+  void CountOne(T value) override { ++value_counts_vector_[value - min_]; }
+
+  int64_t nan_count() override { return 0; }
+
+  // transfer to a value:count map
+  std::unordered_map<T, int64_t>& value_counts() override {
+    for (int i = 0; i < static_cast<int>(value_counts_vector_.size()); ++i) {
+      T value = static_cast<T>(i + min_);
+      int64_t count = value_counts_vector_[i];
+      if (count) {
+        value_counts_map_[value] = count;
+      }
+    }
+    return value_counts_map_;
+  }
+
+ private:
+  T min_;
+  std::vector<int64_t> value_counts_vector_;
+  std::unordered_map<T, int64_t> value_counts_map_;
+};
+
+// Calculate mode per data type and value range
 template <typename ArrowType, typename Enable = void>
-struct ModeState {};
+struct ModeConsumer {};
+
+// Use vector based volume counter for small integer types
+template <typename ArrowType>
+struct ModeConsumer<ArrowType, enable_if_t<is_boolean_type<ArrowType>::value ||
+                                           (is_integer_type<ArrowType>::value &&
+                                            sizeof(typename ArrowType::c_type) == 1)>> {
+  using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
+  using T = typename ArrowType::c_type;
+  using Limits = std::numeric_limits<T>;
+
+  explicit ModeConsumer(const ArrayType&) {}
+
+  std::unique_ptr<ValueCounterVector<T>> value_counter{
+      new ValueCounterVector<T>(Limits::min(), Limits::max())};
+};
+
+// Use map based volume counter for floating points
+template <typename ArrowType>
+struct ModeConsumer<ArrowType, enable_if_t<is_floating_type<ArrowType>::value>> {
+  using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
+  using T = typename ArrowType::c_type;
+
+  explicit ModeConsumer(const ArrayType&) {}
+
+  std::unique_ptr<ValueCounterMap<T>> value_counter{new ValueCounterMap<T>()};
+};
+
+// Select map or vector based volume counter for integers per value range
+template <typename ArrowType>
+struct ModeConsumer<ArrowType, enable_if_t<is_integer_type<ArrowType>::value &&
+                                           (sizeof(typename ArrowType::c_type) > 1)>> {
+  using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
+  using T = typename ArrowType::c_type;
+
+  explicit ModeConsumer(const ArrayType& array) {
+    // see https://issues.apache.org/jira/browse/ARROW-9873
+    static constexpr int kMinArraySize = 8192 / sizeof(T);
+    static constexpr int kMaxValueRange = 16384;
+
+    if ((array.length() - array.null_count()) >= kMinArraySize) {
+      T min, max;
+      std::tie(min, max) = MinMax(array);
+      if (static_cast<uint64_t>(max) - static_cast<uint64_t>(min) <= kMaxValueRange) {
+        this->value_counter.reset(new ValueCounterVector<T>(min, max));
+        return;
+      }
+    }
+    this->value_counter.reset(new ValueCounterMap<T>());
+  }
+
+  std::pair<T, T> MinMax(const ArrayType& array) {
+    T min = std::numeric_limits<T>::max();
+    T max = std::numeric_limits<T>::min();
+
+    const auto values = array.raw_values();
+    if (array.null_count() > 0) {
+      BitmapReader reader(array.null_bitmap_data(), array.offset(), array.length());
+      for (int64_t i = 0; i < array.length(); ++i) {
+        if (reader.IsSet()) {
+          min = std::min(min, values[i]);
+          max = std::max(max, values[i]);
+        }
+        reader.Next();
+      }
+    } else {
+      for (int64_t i = 0; i < array.length(); ++i) {
+        min = std::min(min, values[i]);
+        max = std::max(max, values[i]);
+      }
+    }
+
+    return std::make_pair(min, max);
+  }
+
+  std::unique_ptr<ValueCounter<T>> value_counter;
+};
 
 template <typename ArrowType>
-struct ModeState<ArrowType, enable_if_t<(sizeof(typename ArrowType::c_type) > 1)>> {
+struct ModeState {
   using ThisType = ModeState<ArrowType>;
   using T = typename ArrowType::c_type;
 
   void MergeFrom(const ThisType& state) {
-    for (const auto& value_count : state.value_counts) {
-      auto value = value_count.first;
-      auto count = value_count.second;
-      this->value_counts[value] += count;
+    if (this->value_counts.empty()) {
+      this->value_counts = state.value_counts;
+    } else {
+      for (const auto& value_count : state.value_counts) {
+        auto value = value_count.first;
+        auto count = value_count.second;
+        this->value_counts[value] += count;
+      }
     }
     if (is_floating_type<ArrowType>::value) {
       this->nan_count += state.nan_count;
-    }
-  }
-
-  template <typename ArrowType_ = ArrowType>
-  enable_if_t<!is_floating_type<ArrowType_>::value> MergeOne(T value) {
-    ++this->value_counts[value];
-  }
-
-  template <typename ArrowType_ = ArrowType>
-  enable_if_t<is_floating_type<ArrowType_>::value> MergeOne(T value) {
-    if (std::isnan(value)) {
-      ++this->nan_count;
-    } else {
-      ++this->value_counts[value];
     }
   }
 
@@ -79,42 +206,7 @@ struct ModeState<ArrowType, enable_if_t<(sizeof(typename ArrowType::c_type) > 1)
   }
 
   int64_t nan_count = 0;  // only make sense to floating types
-  std::unordered_map<T, int64_t> value_counts{};
-};
-
-// Use array to count small integers(bool, int8, uint8), improves performance 2x ~ 6x
-template <typename ArrowType>
-struct ModeState<ArrowType, enable_if_t<(sizeof(typename ArrowType::c_type) == 1)>> {
-  using ThisType = ModeState<ArrowType>;
-  using T = typename ArrowType::c_type;
-  using Limits = std::numeric_limits<T>;
-
-  ModeState() : value_counts(Limits::max() - Limits::min() + 1) {}
-
-  void MergeFrom(const ThisType& state) {
-    std::transform(this->value_counts.cbegin(), this->value_counts.cend(),
-                   state.value_counts.cbegin(), this->value_counts.begin(),
-                   std::plus<int64_t>{});
-  }
-
-  void MergeOne(T value) { ++this->value_counts[value - Limits::min()]; }
-
-  std::pair<T, int64_t> Finalize() {
-    T mode = Limits::min();
-    int64_t count = 0;
-
-    for (int i = 0; i <= Limits::max() - Limits::min(); ++i) {
-      T this_value = static_cast<T>(i + Limits::min());
-      int64_t this_count = this->value_counts[i];
-      if (this_count > count || (this_count == count && this_value < mode)) {
-        count = this_count;
-        mode = this_value;
-      }
-    }
-    return std::make_pair(mode, count);
-  }
-
-  std::vector<int64_t> value_counts;
+  std::unordered_map<T, int64_t> value_counts;
 };
 
 template <typename ArrowType>
@@ -125,23 +217,24 @@ struct ModeImpl : public ScalarAggregator {
   explicit ModeImpl(const std::shared_ptr<DataType>& out_type) : out_type(out_type) {}
 
   void Consume(KernelContext*, const ExecBatch& batch) override {
-    ModeState<ArrowType> local_state;
     ArrayType arr(batch[0].array());
+    ModeConsumer<ArrowType> consumer(arr);
 
     if (arr.null_count() > 0) {
       BitmapReader reader(arr.null_bitmap_data(), arr.offset(), arr.length());
       for (int64_t i = 0; i < arr.length(); i++) {
         if (reader.IsSet()) {
-          local_state.MergeOne(arr.Value(i));
+          consumer.value_counter->CountOne(arr.Value(i));
         }
         reader.Next();
       }
     } else {
       for (int64_t i = 0; i < arr.length(); i++) {
-        local_state.MergeOne(arr.Value(i));
+        consumer.value_counter->CountOne(arr.Value(i));
       }
     }
-    this->state = std::move(local_state);
+    this->state.nan_count = consumer.value_counter->nan_count();
+    this->state.value_counts = std::move(consumer.value_counter->value_counts());
   }
 
   void MergeFrom(KernelContext*, const KernelState& src) override {
