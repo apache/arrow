@@ -81,4 +81,5 @@ Status ConvertPySequence(PyObject* obj, const PyConversionOptions& options,
                          std::shared_ptr<ChunkedArray>* out);
 
 }  // namespace py
+
 }  // namespace arrow

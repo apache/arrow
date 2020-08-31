@@ -182,6 +182,7 @@ set(ARROW_SRCS
     util/bitmap_ops.cc
     util/bpacking.cc
     util/compression.cc
+    util/converter.cc
     util/cpu_info.cc
     util/decimal.cc
     util/delimiting.cc
