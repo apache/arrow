@@ -1815,7 +1815,7 @@ mod tests {
         let original = vec![1, 2, 3, 4, 5];
         let expected: Vec<i64> = original
             .iter()
-            .map(|i| Time64NanosecondArray::from(vec![i.clone()]).value(0))
+            .map(|i| Time64NanosecondArray::from(vec![*i]).value(0))
             .collect();
         generic_test_cast!(
             Int64Array,
