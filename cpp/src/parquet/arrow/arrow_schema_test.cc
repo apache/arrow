@@ -1286,6 +1286,22 @@ TEST_F(TestLevels, TestRepeatedGroups) {
                   LevelInfo{/*null_slot_usage=*/1, /*def_level=*/3, /*rep_level=*/1,
                             /*ancestor_list_def_level*/ 2}));
 
+  // Arrow schema: list(bool) not null
+  SetParquetSchema(GroupNode::Make(
+      "child_list", Repetition::REQUIRED,
+      {GroupNode::Make(
+          "list", Repetition::REPEATED,
+          {PrimitiveNode::Make("element", Repetition::OPTIONAL, ParquetType::BOOLEAN)})},
+      LogicalType::List()));
+
+  ASSERT_OK_AND_ASSIGN(levels, RootToTreeLeafLevels(*manifest_, /*column_number=*/0));
+  EXPECT_THAT(
+      levels,
+      ElementsAre(LevelInfo{/*null_slot_usage=*/1, /*def_level=*/1, /*rep_level=*/1,
+                            /*ancestor_list_def_level*/ 0},
+                  LevelInfo{/*null_slot_usage=*/1, /*def_level=*/2, /*rep_level=*/1,
+                            /*ancestor_list_def_level*/ 1}));
+
   // Arrow schema: list(bool not null)
   SetParquetSchema(GroupNode::Make(
       "child_list", Repetition::OPTIONAL,

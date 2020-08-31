@@ -957,8 +957,8 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
 
   int64_t Close() override { return ColumnWriterImpl::Close(); }
 
-  void WriteBatch(int64_t num_values, const int16_t* def_levels,
-                  const int16_t* rep_levels, const T* values) override {
+  int64_t WriteBatch(int64_t num_values, const int16_t* def_levels,
+                     const int16_t* rep_levels, const T* values) override {
     // We check for DataPage limits only after we have inserted the values. If a user
     // writes a large number of values, the DataPage size can be much above the limit.
     // The purpose of this chunking is to bound this. Even if a user writes large number
@@ -981,6 +981,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
       CheckDictionarySizeLimit();
     };
     DoInBatches(num_values, properties_->write_batch_size(), WriteChunk);
+    return value_offset;
   }
 
   void WriteBatchSpaced(int64_t num_values, const int16_t* def_levels,
