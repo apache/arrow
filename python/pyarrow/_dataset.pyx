@@ -460,6 +460,8 @@ cdef class FileSystemDataset(Dataset):
     format : FileFormat
         File format of the fragments, currently only ParquetFileFormat,
         IpcFileFormat, and CsvFileFormat are supported.
+    filesystem : FileSystem
+        FileSystem of the fragments.
     root_partition : Expression, optional
         The top-level partition of the DataDataset.
     """
@@ -468,11 +470,12 @@ cdef class FileSystemDataset(Dataset):
         CFileSystemDataset* filesystem_dataset
 
     def __init__(self, fragments, Schema schema, FileFormat format,
-                 root_partition=None):
+                 FileSystem filesystem=None, root_partition=None):
         cdef:
-            FileFragment fragment
+            FileFragment fragment=None
             vector[shared_ptr[CFileFragment]] c_fragments
             CResult[shared_ptr[CDataset]] result
+            shared_ptr[CFileSystem] c_filesystem
 
         root_partition = root_partition or _true
         if not isinstance(root_partition, Expression):
@@ -486,13 +489,24 @@ cdef class FileSystemDataset(Dataset):
                 static_pointer_cast[CFileFragment, CFragment](
                     fragment.unwrap()))
 
+            if filesystem is None:
+                filesystem = fragment.filesystem
+
+        if filesystem is not None:
+            c_filesystem = filesystem.unwrap()
+
         result = CFileSystemDataset.Make(
             pyarrow_unwrap_schema(schema),
             (<Expression> root_partition).unwrap(),
-            (<FileFormat> format).unwrap(),
+            format.unwrap(),
+            c_filesystem,
             c_fragments
         )
         self.init(GetResultValue(result))
+
+    @property
+    def filesystem(self):
+        return FileSystem.wrap(self.filesystem_dataset.filesystem())
 
     cdef void init(self, const shared_ptr[CDataset]& sp):
         Dataset.init(self, sp)
@@ -503,6 +517,7 @@ cdef class FileSystemDataset(Dataset):
             list(self.get_fragments()),
             self.schema,
             self.format,
+            self.filesystem,
             self.partition_expression
         )
 
@@ -555,7 +570,8 @@ cdef class FileSystemDataset(Dataset):
             format.make_fragment(path, filesystem, partitions[i])
             for i, path in enumerate(paths)
         ]
-        return FileSystemDataset(fragments, schema, format, root_partition)
+        return FileSystemDataset(fragments, schema, format,
+                                 filesystem, root_partition)
 
     @property
     def files(self):

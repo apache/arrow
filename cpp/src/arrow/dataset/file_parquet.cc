@@ -788,7 +788,7 @@ Result<std::shared_ptr<Dataset>> ParquetDatasetFactory::Finish(FinishOptions opt
   auto properties = MakeArrowReaderProperties(*format_, *metadata_);
   ARROW_ASSIGN_OR_RAISE(auto fragments,
                         CollectParquetFragments(*metadata_, properties, *partitioning));
-  return FileSystemDataset::Make(std::move(schema), scalar(true), format_,
+  return FileSystemDataset::Make(std::move(schema), scalar(true), format_, filesystem_,
                                  std::move(fragments));
 }
 

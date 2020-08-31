@@ -231,6 +231,11 @@ FileSystemDataset <- R6Class("FileSystemDataset", inherit = Dataset,
     format = function() {
       shared_ptr(FileFormat, dataset___FileSystemDataset__format(self))$..dispatch()
     },
+    # @description
+    # Return the filesystem of files in this `Dataset`
+    filesystem = function() {
+      shared_ptr(FileSystem, dataset___FileSystemDataset__filesystem(self))$..dispatch()
+    },
     num_rows = function() {
       if (inherits(self$format, "ParquetFileFormat")) {
         # It's generally fast enough to skim the files directly

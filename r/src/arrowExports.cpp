@@ -1397,6 +1397,21 @@ extern "C" SEXP _arrow_dataset___FileSystemDataset__format(SEXP dataset_sexp){
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<fs::FileSystem> dataset___FileSystemDataset__filesystem(const std::shared_ptr<ds::FileSystemDataset>& dataset);
+extern "C" SEXP _arrow_dataset___FileSystemDataset__filesystem(SEXP dataset_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<ds::FileSystemDataset>&>::type dataset(dataset_sexp);
+	return cpp11::as_sexp(dataset___FileSystemDataset__filesystem(dataset));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_dataset___FileSystemDataset__filesystem(SEXP dataset_sexp){
+	Rf_error("Cannot call dataset___FileSystemDataset__filesystem(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// dataset.cpp
+#if defined(ARROW_R_WITH_ARROW)
 std::vector<std::string> dataset___FileSystemDataset__files(const std::shared_ptr<ds::FileSystemDataset>& dataset);
 extern "C" SEXP _arrow_dataset___FileSystemDataset__files(SEXP dataset_sexp){
 BEGIN_CPP11
@@ -6069,6 +6084,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_dataset___InMemoryDataset__create", (DL_FUNC) &_arrow_dataset___InMemoryDataset__create, 1}, 
 		{ "_arrow_dataset___UnionDataset__children", (DL_FUNC) &_arrow_dataset___UnionDataset__children, 1}, 
 		{ "_arrow_dataset___FileSystemDataset__format", (DL_FUNC) &_arrow_dataset___FileSystemDataset__format, 1}, 
+		{ "_arrow_dataset___FileSystemDataset__filesystem", (DL_FUNC) &_arrow_dataset___FileSystemDataset__filesystem, 1}, 
 		{ "_arrow_dataset___FileSystemDataset__files", (DL_FUNC) &_arrow_dataset___FileSystemDataset__files, 1}, 
 		{ "_arrow_dataset___DatasetFactory__Finish1", (DL_FUNC) &_arrow_dataset___DatasetFactory__Finish1, 2}, 
 		{ "_arrow_dataset___DatasetFactory__Finish2", (DL_FUNC) &_arrow_dataset___DatasetFactory__Finish2, 2}, 

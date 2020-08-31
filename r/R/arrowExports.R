@@ -356,6 +356,10 @@ dataset___FileSystemDataset__format <- function(dataset){
     .Call(`_arrow_dataset___FileSystemDataset__format` , dataset)
 }
 
+dataset___FileSystemDataset__filesystem <- function(dataset){
+    .Call(`_arrow_dataset___FileSystemDataset__filesystem` , dataset)
+}
+
 dataset___FileSystemDataset__files <- function(dataset){
     .Call(`_arrow_dataset___FileSystemDataset__files` , dataset)
 }
