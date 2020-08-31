@@ -160,7 +160,7 @@ Result<ScanTaskIterator> IpcFileFormat::ScanFile(std::shared_ptr<ScanOptions> op
 }
 
 Status IpcFileFormat::WriteFragment(RecordBatchReader* batches,
-                                    io::OutputStream* destination) {
+                                    io::OutputStream* destination) const {
   ARROW_ASSIGN_OR_RAISE(auto writer, ipc::NewFileWriter(destination, batches->schema()));
 
   for (;;) {
