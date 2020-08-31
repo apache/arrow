@@ -1543,18 +1543,34 @@ extern "C" SEXP _arrow_dataset___FileFormat__type_name(SEXP format_sexp){
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<ds::ParquetFileFormat> dataset___ParquetFileFormat__Make(bool use_buffered_stream, int64_t buffer_size, cpp11::strings dict_columns);
-extern "C" SEXP _arrow_dataset___ParquetFileFormat__Make(SEXP use_buffered_stream_sexp, SEXP buffer_size_sexp, SEXP dict_columns_sexp){
+std::shared_ptr<ds::ParquetFileFormat> dataset___ParquetFileFormat__MakeRead(bool use_buffered_stream, int64_t buffer_size, cpp11::strings dict_columns);
+extern "C" SEXP _arrow_dataset___ParquetFileFormat__MakeRead(SEXP use_buffered_stream_sexp, SEXP buffer_size_sexp, SEXP dict_columns_sexp){
 BEGIN_CPP11
 	arrow::r::Input<bool>::type use_buffered_stream(use_buffered_stream_sexp);
 	arrow::r::Input<int64_t>::type buffer_size(buffer_size_sexp);
 	arrow::r::Input<cpp11::strings>::type dict_columns(dict_columns_sexp);
-	return cpp11::as_sexp(dataset___ParquetFileFormat__Make(use_buffered_stream, buffer_size, dict_columns));
+	return cpp11::as_sexp(dataset___ParquetFileFormat__MakeRead(use_buffered_stream, buffer_size, dict_columns));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_dataset___ParquetFileFormat__Make(SEXP use_buffered_stream_sexp, SEXP buffer_size_sexp, SEXP dict_columns_sexp){
-	Rf_error("Cannot call dataset___ParquetFileFormat__Make(). Please use arrow::install_arrow() to install required runtime libraries. ");
+extern "C" SEXP _arrow_dataset___ParquetFileFormat__MakeRead(SEXP use_buffered_stream_sexp, SEXP buffer_size_sexp, SEXP dict_columns_sexp){
+	Rf_error("Cannot call dataset___ParquetFileFormat__MakeRead(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// dataset.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<ds::ParquetFileFormat> dataset___ParquetFileFormat__MakeWrite(const std::shared_ptr<parquet::WriterProperties>& writer_props, const std::shared_ptr<parquet::ArrowWriterProperties>& arrow_props);
+extern "C" SEXP _arrow_dataset___ParquetFileFormat__MakeWrite(SEXP writer_props_sexp, SEXP arrow_props_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<parquet::WriterProperties>&>::type writer_props(writer_props_sexp);
+	arrow::r::Input<const std::shared_ptr<parquet::ArrowWriterProperties>&>::type arrow_props(arrow_props_sexp);
+	return cpp11::as_sexp(dataset___ParquetFileFormat__MakeWrite(writer_props, arrow_props));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_dataset___ParquetFileFormat__MakeWrite(SEXP writer_props_sexp, SEXP arrow_props_sexp){
+	Rf_error("Cannot call dataset___ParquetFileFormat__MakeWrite(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -6062,7 +6078,8 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_dataset___FileSystemDatasetFactory__Make1", (DL_FUNC) &_arrow_dataset___FileSystemDatasetFactory__Make1, 3}, 
 		{ "_arrow_dataset___FileSystemDatasetFactory__Make3", (DL_FUNC) &_arrow_dataset___FileSystemDatasetFactory__Make3, 4}, 
 		{ "_arrow_dataset___FileFormat__type_name", (DL_FUNC) &_arrow_dataset___FileFormat__type_name, 1}, 
-		{ "_arrow_dataset___ParquetFileFormat__Make", (DL_FUNC) &_arrow_dataset___ParquetFileFormat__Make, 3}, 
+		{ "_arrow_dataset___ParquetFileFormat__MakeRead", (DL_FUNC) &_arrow_dataset___ParquetFileFormat__MakeRead, 3}, 
+		{ "_arrow_dataset___ParquetFileFormat__MakeWrite", (DL_FUNC) &_arrow_dataset___ParquetFileFormat__MakeWrite, 2}, 
 		{ "_arrow_dataset___IpcFileFormat__Make", (DL_FUNC) &_arrow_dataset___IpcFileFormat__Make, 0}, 
 		{ "_arrow_dataset___CsvFileFormat__Make", (DL_FUNC) &_arrow_dataset___CsvFileFormat__Make, 1}, 
 		{ "_arrow_dataset___DirectoryPartitioning", (DL_FUNC) &_arrow_dataset___DirectoryPartitioning, 1}, 

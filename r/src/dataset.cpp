@@ -165,7 +165,7 @@ std::string dataset___FileFormat__type_name(
 }
 
 // [[arrow::export]]
-std::shared_ptr<ds::ParquetFileFormat> dataset___ParquetFileFormat__Make(
+std::shared_ptr<ds::ParquetFileFormat> dataset___ParquetFileFormat__MakeRead(
     bool use_buffered_stream, int64_t buffer_size, cpp11::strings dict_columns) {
   auto fmt = std::make_shared<ds::ParquetFileFormat>();
 
@@ -176,6 +176,18 @@ std::shared_ptr<ds::ParquetFileFormat> dataset___ParquetFileFormat__Make(
   auto& d = fmt->reader_options.dict_columns;
   std::move(dict_columns_vector.begin(), dict_columns_vector.end(),
             std::inserter(d, d.end()));
+
+  return fmt;
+}
+
+// [[arrow::export]]
+std::shared_ptr<ds::ParquetFileFormat> dataset___ParquetFileFormat__MakeWrite(
+    const std::shared_ptr<parquet::WriterProperties>& writer_props,
+    const std::shared_ptr<parquet::ArrowWriterProperties>& arrow_props) {
+  auto fmt = std::make_shared<ds::ParquetFileFormat>();
+
+  fmt->writer_properties = writer_props;
+  fmt->arrow_writer_properties = arrow_props;
 
   return fmt;
 }

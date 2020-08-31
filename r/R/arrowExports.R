@@ -392,8 +392,12 @@ dataset___FileFormat__type_name <- function(format){
     .Call(`_arrow_dataset___FileFormat__type_name` , format)
 }
 
-dataset___ParquetFileFormat__Make <- function(use_buffered_stream, buffer_size, dict_columns){
-    .Call(`_arrow_dataset___ParquetFileFormat__Make` , use_buffered_stream, buffer_size, dict_columns)
+dataset___ParquetFileFormat__MakeRead <- function(use_buffered_stream, buffer_size, dict_columns){
+    .Call(`_arrow_dataset___ParquetFileFormat__MakeRead` , use_buffered_stream, buffer_size, dict_columns)
+}
+
+dataset___ParquetFileFormat__MakeWrite <- function(writer_props, arrow_props){
+    .Call(`_arrow_dataset___ParquetFileFormat__MakeWrite` , writer_props, arrow_props)
 }
 
 dataset___IpcFileFormat__Make <- function(){

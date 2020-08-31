@@ -28,8 +28,9 @@
 #' are not currently supported, and `select`-ed columns may not be renamed.
 #' @param path string path to a directory to write to (directory will be
 #' created if it does not exist)
-#' @param format file format to write the dataset to. Currently only "feather"
-#' (aka "ipc") is supported.
+#' @param format file format to write the dataset to. Currently supported
+#' formats are "feather" (aka "ipc") and "parquet". Default is to write to the
+#' same format as `dataset`.
 #' @param schema [Schema] containing a subset of columns, possibly reordered,
 #' in `dataset`. Default is `dataset$schema`, i.e. all columns.
 #' @param partitioning `Partitioning` or a character vector of columns to
@@ -37,7 +38,8 @@
 #' use the current `group_by()` columns.
 #' @param hive_style logical: write partition segments as Hive-style
 #' (`key1=value1/key2=value2/file.ext`) or as just bare values. Default is `TRUE`.
-#' @param ... additional arguments, passed to `dataset$write()`
+#' @param ... additional format-specific arguments. For available Parquet
+#' options, see [write_parquet()].
 #' @return The input `dataset`, invisibly
 #' @export
 write_dataset <- function(dataset,
@@ -74,13 +76,14 @@ write_dataset <- function(dataset,
   }
 
   if (!inherits(format, "FileFormat")) {
-    format <- FileFormat$create(format, ...)
-  }
-  if (!inherits(format, "IpcFileFormat")) {
-    stop(
-      "Unsupported format; datasets currently can only be written to IPC/Feather format",
-      call. = FALSE
-    )
+    if (identical(format, "parquet")) {
+      # We have to do some special massaging of properties
+      writer_props <- ParquetWriterProperties$create(dataset, ...)
+      arrow_writer_props <- ParquetArrowWriterProperties$create(...)
+      format <- ParquetFileFormat$create(writer_properties = writer_props, arrow_writer_properties = arrow_writer_props)
+    } else {
+      format <- FileFormat$create(format, ...)
+    }
   }
 
   if (!inherits(partitioning, "Partitioning")) {
