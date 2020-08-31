@@ -189,10 +189,5 @@ Status DictionaryMemoTable::InsertValues(const Array& array) {
 
 int32_t DictionaryMemoTable::size() const { return impl_->size(); }
 
-void CheckArrayType(const std::shared_ptr<DataType>& expected_type, const Array& array,
-                    const char* message) {
-  DCHECK(expected_type->Equals(*array.type())) << message;
-}
-
 }  // namespace internal
 }  // namespace arrow
