@@ -51,6 +51,7 @@ using parquet::ConvertedType;
 using parquet::LogicalType;
 
 using parquet::internal::DecimalSize;
+using parquet::internal::LevelInfo;
 
 namespace parquet {
 
@@ -410,21 +411,20 @@ bool IsDictionaryReadSupported(const ArrowType& type) {
   return storage_type;
 }
 
-Status NodeToSchemaField(const Node& node, int16_t max_def_level, int16_t max_rep_level,
+Status NodeToSchemaField(const Node& node, LevelInfo current_levels,
                          SchemaTreeContext* ctx, const SchemaField* parent,
                          SchemaField* out);
 
-Status GroupToSchemaField(const GroupNode& node, int16_t max_def_level,
-                          int16_t max_rep_level, SchemaTreeContext* ctx,
-                          const SchemaField* parent, SchemaField* out);
+Status GroupToSchemaField(const GroupNode& node, LevelInfo current_levels,
+                          SchemaTreeContext* ctx, const SchemaField* parent,
+                          SchemaField* out);
 
 Status PopulateLeaf(int column_index, const std::shared_ptr<Field>& field,
-                    int16_t max_def_level, int16_t max_rep_level, SchemaTreeContext* ctx,
+                    LevelInfo current_levels, SchemaTreeContext* ctx,
                     const SchemaField* parent, SchemaField* out) {
   out->field = field;
   out->column_index = column_index;
-  out->definition_level = max_def_level;
-  out->repetition_level = max_rep_level;
+  out->level_info = current_levels;
   ctx->RecordLeaf(out);
   ctx->LinkParent(out, parent);
   return Status::OK();
@@ -442,31 +442,38 @@ std::shared_ptr<::arrow::KeyValueMetadata> FieldIdMetadata(int field_id) {
   return ::arrow::key_value_metadata({"PARQUET:field_id"}, {std::to_string(field_id)});
 }
 
-Status GroupToStruct(const GroupNode& node, int16_t current_def_level,
-                     int16_t current_rep_level, SchemaTreeContext* ctx,
-                     const SchemaField* parent, SchemaField* out) {
+Status GroupToStruct(const GroupNode& node, LevelInfo current_levels,
+                     SchemaTreeContext* ctx, const SchemaField* parent,
+                     SchemaField* out) {
   std::vector<std::shared_ptr<Field>> arrow_fields;
   out->children.resize(node.field_count());
+
+  // All level increments for the node are expected to happen by callers.
+  // This is required because repeated elements need to have there own
+  // SchemaField.
+
   for (int i = 0; i < node.field_count(); i++) {
-    RETURN_NOT_OK(NodeToSchemaField(*node.field(i), current_def_level, current_rep_level,
-                                    ctx, out, &out->children[i]));
+    RETURN_NOT_OK(
+        NodeToSchemaField(*node.field(i), current_levels, ctx, out, &out->children[i]));
     arrow_fields.push_back(out->children[i].field);
   }
   auto struct_type = ::arrow::struct_(arrow_fields);
   out->field = ::arrow::field(node.name(), struct_type, node.is_optional(),
                               FieldIdMetadata(node.field_id()));
-  out->definition_level = current_def_level;
-  out->repetition_level = current_rep_level;
+  out->level_info = current_levels;
   return Status::OK();
 }
 
-Status ListToSchemaField(const GroupNode& group, int16_t current_def_level,
-                         int16_t current_rep_level, SchemaTreeContext* ctx,
-                         const SchemaField* parent, SchemaField* out) {
+Status ListToSchemaField(const GroupNode& group, LevelInfo current_levels,
+                         SchemaTreeContext* ctx, const SchemaField* parent,
+                         SchemaField* out) {
   if (group.field_count() != 1) {
-    return Status::NotImplemented(
-        "Only LIST-annotated groups with a single child can be handled.");
+    return Status::Invalid("LIST-annotated groups must have a single child.");
   }
+  if (group.is_repeated()) {
+    return Status::Invalid("LIST-annotated groups must not be repeated.");
+  }
+  current_levels.Increment(group);
 
   out->children.resize(group.field_count());
   SchemaField* child_field = &out->children[0];
@@ -477,12 +484,11 @@ Status ListToSchemaField(const GroupNode& group, int16_t current_def_level,
   const Node& list_node = *group.field(0);
 
   if (!list_node.is_repeated()) {
-    return Status::NotImplemented(
+    return Status::Invalid(
         "Non-repeated nodes in a LIST-annotated group are not supported.");
   }
 
-  ++current_def_level;
-  ++current_rep_level;
+  int16_t repeated_ancestor_def_level = current_levels.IncrementRepeated();
   if (list_node.is_group()) {
     // Resolve 3-level encoding
     //
@@ -494,7 +500,7 @@ Status ListToSchemaField(const GroupNode& group, int16_t current_def_level,
     //
     // yields list<item: TYPE ?nullable> ?nullable
     //
-    // We distinguish the special base that we have
+    // We distinguish the special case that we have
     //
     // required/optional group name=whatever {
     //   repeated group name=array or $SOMETHING_tuple {
@@ -512,11 +518,10 @@ Status ListToSchemaField(const GroupNode& group, int16_t current_def_level,
     //   even for single child elements.
     if (list_group.field_count() == 1 && !HasStructListName(list_group)) {
       // List of primitive type
-      RETURN_NOT_OK(NodeToSchemaField(*list_group.field(0), current_def_level,
-                                      current_rep_level, ctx, out, child_field));
+      RETURN_NOT_OK(
+          NodeToSchemaField(*list_group.field(0), current_levels, ctx, out, child_field));
     } else {
-      RETURN_NOT_OK(GroupToStruct(list_group, current_def_level, current_rep_level, ctx,
-                                  out, child_field));
+      RETURN_NOT_OK(GroupToStruct(list_group, current_levels, ctx, out, child_field));
     }
   } else {
     // Two-level list encoding
@@ -530,22 +535,23 @@ Status ListToSchemaField(const GroupNode& group, int16_t current_def_level,
                     GetTypeForNode(column_index, primitive_node, ctx));
     auto item_field = ::arrow::field(list_node.name(), type, /*nullable=*/false,
                                      FieldIdMetadata(list_node.field_id()));
-    RETURN_NOT_OK(PopulateLeaf(column_index, item_field, current_def_level,
-                               current_rep_level, ctx, out, child_field));
+    RETURN_NOT_OK(
+        PopulateLeaf(column_index, item_field, current_levels, ctx, out, child_field));
   }
   out->field = ::arrow::field(group.name(), ::arrow::list(child_field->field),
                               group.is_optional(), FieldIdMetadata(group.field_id()));
-  out->definition_level = current_def_level;
-  out->repetition_level = current_rep_level;
+  out->level_info = current_levels;
+  // At this point current levels contains the def level for this list,
+  // we need to reset to the prior parent.
+  out->level_info.repeated_ancestor_def_level = repeated_ancestor_def_level;
   return Status::OK();
 }
 
-Status GroupToSchemaField(const GroupNode& node, int16_t current_def_level,
-                          int16_t current_rep_level, SchemaTreeContext* ctx,
-                          const SchemaField* parent, SchemaField* out) {
+Status GroupToSchemaField(const GroupNode& node, LevelInfo current_levels,
+                          SchemaTreeContext* ctx, const SchemaField* parent,
+                          SchemaField* out) {
   if (node.logical_type()->is_list()) {
-    return ListToSchemaField(node, current_def_level, current_rep_level, ctx, parent,
-                             out);
+    return ListToSchemaField(node, current_levels, ctx, parent, out);
   }
   std::shared_ptr<ArrowType> type;
   if (node.is_repeated()) {
@@ -556,39 +562,37 @@ Status GroupToSchemaField(const GroupNode& node, int16_t current_def_level,
     //   r/o TYPE[1] f1
     // }
     out->children.resize(1);
-    RETURN_NOT_OK(GroupToStruct(node, current_def_level, current_rep_level, ctx, out,
-                                &out->children[0]));
+
+    int16_t repeated_ancestor_def_level = current_levels.IncrementRepeated();
+    RETURN_NOT_OK(GroupToStruct(node, current_levels, ctx, out, &out->children[0]));
     out->field = ::arrow::field(node.name(), ::arrow::list(out->children[0].field),
-                                node.is_optional(), FieldIdMetadata(node.field_id()));
-    out->definition_level = current_def_level;
-    out->repetition_level = current_rep_level;
+                                /*nullable=*/false, FieldIdMetadata(node.field_id()));
+
+    ctx->LinkParent(&out->children[0], out);
+    out->level_info = current_levels;
+    // At this point current_levels contains this list as the def level, we need to
+    // use the previous ancenstor of thi slist.
+    out->level_info.repeated_ancestor_def_level = repeated_ancestor_def_level;
     return Status::OK();
   } else {
-    return GroupToStruct(node, current_def_level, current_rep_level, ctx, parent, out);
+    current_levels.Increment(node);
+    return GroupToStruct(node, current_levels, ctx, parent, out);
   }
 }
 
-Status NodeToSchemaField(const Node& node, int16_t current_def_level,
-                         int16_t current_rep_level, SchemaTreeContext* ctx,
-                         const SchemaField* parent, SchemaField* out) {
+Status NodeToSchemaField(const Node& node, LevelInfo current_levels,
+                         SchemaTreeContext* ctx, const SchemaField* parent,
+                         SchemaField* out) {
   /// Workhorse function for converting a Parquet schema node to an Arrow
   /// type. Handles different conventions for nested data
-  if (node.is_optional()) {
-    ++current_def_level;
-  } else if (node.is_repeated()) {
-    // Repeated fields add both a repetition and definition level. This is used
-    // to distinguish between an empty list and a list with an item in it.
-    ++current_rep_level;
-    ++current_def_level;
-  }
 
   ctx->LinkParent(out, parent);
 
   // Now, walk the schema and create a ColumnDescriptor for each leaf node
   if (node.is_group()) {
     // A nested field, but we don't know what kind yet
-    return GroupToSchemaField(static_cast<const GroupNode&>(node), current_def_level,
-                              current_rep_level, ctx, parent, out);
+    return GroupToSchemaField(static_cast<const GroupNode&>(node), current_levels, ctx,
+                              parent, out);
   } else {
     // Either a normal flat primitive type, or a list type encoded with 1-level
     // list encoding. Note that the 3-level encoding is the form recommended by
@@ -606,23 +610,26 @@ Status NodeToSchemaField(const Node& node, int16_t current_def_level,
     if (node.is_repeated()) {
       // One-level list encoding, e.g.
       // a: repeated int32;
+      int16_t repeated_ancestor_def_level = current_levels.IncrementRepeated();
       out->children.resize(1);
       auto child_field = ::arrow::field(node.name(), type, /*nullable=*/false);
-      RETURN_NOT_OK(PopulateLeaf(column_index, child_field, current_def_level,
-                                 current_rep_level, ctx, out, &out->children[0]));
+      RETURN_NOT_OK(PopulateLeaf(column_index, child_field, current_levels, ctx, out,
+                                 &out->children[0]));
 
       out->field = ::arrow::field(node.name(), ::arrow::list(child_field),
                                   /*nullable=*/false, FieldIdMetadata(node.field_id()));
-      // Is this right?
-      out->definition_level = current_def_level;
-      out->repetition_level = current_rep_level;
+      out->level_info = current_levels;
+      // At this point current_levels has consider this list the ancestor so restore
+      // the actual ancenstor.
+      out->level_info.repeated_ancestor_def_level = repeated_ancestor_def_level;
       return Status::OK();
     } else {
+      current_levels.Increment(node);
       // A normal (required/optional) primitive node
       return PopulateLeaf(column_index,
                           ::arrow::field(node.name(), type, node.is_optional(),
                                          FieldIdMetadata(node.field_id())),
-                          current_def_level, current_rep_level, ctx, parent, out);
+                          current_levels, ctx, parent, out);
     }
   }
 }
@@ -802,7 +809,7 @@ Status SchemaManifest::Make(const SchemaDescriptor* schema,
   manifest->schema_fields.resize(schema_node.field_count());
   for (int i = 0; i < static_cast<int>(schema_node.field_count()); ++i) {
     SchemaField* out_field = &manifest->schema_fields[i];
-    RETURN_NOT_OK(NodeToSchemaField(*schema_node.field(i), 0, 0, &ctx,
+    RETURN_NOT_OK(NodeToSchemaField(*schema_node.field(i), LevelInfo(), &ctx,
                                     /*parent=*/nullptr, out_field));
 
     // TODO(wesm): as follow up to ARROW-3246, we should really pass the origin
