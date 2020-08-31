@@ -48,7 +48,7 @@ std::shared_ptr<arrow::ipc::RecordBatchWriter> ipc___RecordBatchFileWriter__Open
   auto options = arrow::ipc::IpcWriteOptions::Defaults();
   options.write_legacy_ipc_format = use_legacy_format;
   options.metadata_version = metadata_version;
-  return ValueOrStop(arrow::ipc::NewFileWriter(stream.get(), schema, options));
+  return ValueOrStop(arrow::ipc::MakeFileWriter(stream, schema, options));
 }
 
 // [[arrow::export]]
@@ -59,7 +59,7 @@ std::shared_ptr<arrow::ipc::RecordBatchWriter> ipc___RecordBatchStreamWriter__Op
   auto options = arrow::ipc::IpcWriteOptions::Defaults();
   options.write_legacy_ipc_format = use_legacy_format;
   options.metadata_version = metadata_version;
-  return ValueOrStop(NewStreamWriter(stream.get(), schema, options));
+  return ValueOrStop(MakeStreamWriter(stream, schema, options));
 }
 
 #endif

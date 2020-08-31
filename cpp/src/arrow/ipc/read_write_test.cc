@@ -408,7 +408,7 @@ class IpcTestFixture : public io::MemoryMapFixture, public ExtensionTypesMixin {
     options.allow_64bit = true;
 
     ARROW_ASSIGN_OR_RAISE(auto file_writer,
-                          NewFileWriter(mmap_.get(), batch.schema(), options));
+                          MakeFileWriter(mmap_, batch.schema(), options));
     RETURN_NOT_OK(file_writer->WriteRecordBatch(batch));
     RETURN_NOT_OK(file_writer->Close());
 
@@ -903,7 +903,8 @@ struct FileWriterHelper {
 
     ARROW_ASSIGN_OR_RAISE(buffer_, AllocateResizableBuffer(0));
     sink_.reset(new io::BufferOutputStream(buffer_));
-    ARROW_ASSIGN_OR_RAISE(writer_, NewFileWriter(sink_.get(), schema, options, metadata));
+    ARROW_ASSIGN_OR_RAISE(writer_,
+                          MakeFileWriter(sink_.get(), schema, options, metadata));
     return Status::OK();
   }
 
@@ -968,7 +969,7 @@ struct StreamWriterHelper {
   Status Init(const std::shared_ptr<Schema>& schema, const IpcWriteOptions& options) {
     ARROW_ASSIGN_OR_RAISE(buffer_, AllocateResizableBuffer(0));
     sink_.reset(new io::BufferOutputStream(buffer_));
-    ARROW_ASSIGN_OR_RAISE(writer_, NewStreamWriter(sink_.get(), schema, options));
+    ARROW_ASSIGN_OR_RAISE(writer_, MakeStreamWriter(sink_.get(), schema, options));
     return Status::OK();
   }
 
@@ -1589,7 +1590,7 @@ TEST(TestRecordBatchStreamReader, EmptyStreamWithDictionaries) {
 
   ASSERT_OK_AND_ASSIGN(auto stream, io::BufferOutputStream::Create(0));
 
-  ASSERT_OK_AND_ASSIGN(auto writer, NewStreamWriter(stream.get(), schema));
+  ASSERT_OK_AND_ASSIGN(auto writer, MakeStreamWriter(stream, schema));
   ASSERT_OK(writer->Close());
 
   ASSERT_OK_AND_ASSIGN(auto buffer, stream->Finish());
@@ -1646,7 +1647,7 @@ TEST(TestRecordBatchStreamReader, NotEnoughDictionaries) {
   ASSERT_OK(MakeDictionaryFlat(&batch));
 
   ASSERT_OK_AND_ASSIGN(auto out, io::BufferOutputStream::Create(0));
-  ASSERT_OK_AND_ASSIGN(auto writer, NewStreamWriter(out.get(), batch->schema()));
+  ASSERT_OK_AND_ASSIGN(auto writer, MakeStreamWriter(out, batch->schema()));
   ASSERT_OK(writer->WriteRecordBatch(*batch));
   ASSERT_OK(writer->Close());
 

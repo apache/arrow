@@ -1397,12 +1397,12 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
             unique_ptr[CMessageReader] message_reader,
             const CIpcReadOptions& options)
 
-    CResult[shared_ptr[CRecordBatchWriter]] NewStreamWriter(
-        COutputStream* sink, const shared_ptr[CSchema]& schema,
+    CResult[shared_ptr[CRecordBatchWriter]] MakeStreamWriter(
+        shared_ptr[COutputStream] sink, const shared_ptr[CSchema]& schema,
         CIpcWriteOptions& options)
 
-    CResult[shared_ptr[CRecordBatchWriter]] NewFileWriter(
-        COutputStream* sink, const shared_ptr[CSchema]& schema,
+    CResult[shared_ptr[CRecordBatchWriter]] MakeFileWriter(
+        shared_ptr[COutputStream] sink, const shared_ptr[CSchema]& schema,
         CIpcWriteOptions& options)
 
     cdef cppclass CRecordBatchFileReader \

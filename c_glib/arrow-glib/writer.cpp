@@ -235,10 +235,10 @@ garrow_record_batch_stream_writer_new(GArrowOutputStream *sink,
                                       GArrowSchema *schema,
                                       GError **error)
 {
-  auto arrow_sink = garrow_output_stream_get_raw(sink).get();
+  auto arrow_sink = garrow_output_stream_get_raw(sink);
   auto arrow_schema = garrow_schema_get_raw(schema);
   auto arrow_writer_result =
-    arrow::ipc::NewStreamWriter(arrow_sink, arrow_schema);
+    arrow::ipc::MakeStreamWriter(arrow_sink, arrow_schema);
   if (garrow::check(error,
                     arrow_writer_result,
                     "[record-batch-stream-writer][open]")) {
@@ -280,11 +280,11 @@ garrow_record_batch_file_writer_new(GArrowOutputStream *sink,
                        GArrowSchema *schema,
                        GError **error)
 {
-  auto arrow_sink = garrow_output_stream_get_raw(sink).get();
+  auto arrow_sink = garrow_output_stream_get_raw(sink);
   auto arrow_schema = garrow_schema_get_raw(schema);
   std::shared_ptr<arrow::ipc::RecordBatchWriter> arrow_writer;
   auto arrow_writer_result =
-    arrow::ipc::NewFileWriter(arrow_sink, arrow_schema);
+    arrow::ipc::MakeFileWriter(arrow_sink, arrow_schema);
   if (garrow::check(error,
                     arrow_writer_result,
                     "[record-batch-file-writer][open]")) {
