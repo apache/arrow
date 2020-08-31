@@ -150,10 +150,12 @@ message ActionGetPreparedStatementResult {
   // Opaque handle for the prepared statement on the server.
   bytes preparedStatementHandle = 1;
 
+  // If a result set generating query was provided, datasetSchema contains the 
   // schema of the dataset as described in Schema.fbs::Schema.
   bytes datasetSchema = 2;
 
-  // schema of the expected parameters, if any existed, as described in Schema.fbs::Schema.
+  // If the query provided contained parameters, parameterSchema contains the 
+  // Schema of the expected parameters as described in Schema.fbs::Schema.
   bytes parameterSchema = 3;
 }
 
@@ -178,7 +180,7 @@ message ActionClosePreparedStatementRequest {
  */
 message CommandStatementQuery {
   // The SQL syntax.
-  string query = 2;
+  string query = 1;
 }
 
 /*
@@ -189,9 +191,9 @@ message CommandStatementQuery {
  */
 message CommandPreparedStatementQuery {
   // Unique identifier for the instance of the prepared statement to execute.
-  bytes clientExecutionHandle = 2; 
+  bytes clientExecutionHandle = 1; 
   // Opaque handle for the prepared statement on the server.
-  bytes preparedStatementHandle = 3;
+  bytes preparedStatementHandle = 2;
 }
 
 /*
@@ -201,7 +203,7 @@ message CommandPreparedStatementQuery {
  */
 message CommandStatementUpdate {
   // The SQL syntax.
-  string query = 2;
+  string query = 1;
 }
 
 /*
@@ -211,16 +213,18 @@ message CommandStatementUpdate {
  */
 message CommandPreparedStatementUpdate {
   // Unique identifier for the instance of the prepared statement to execute.
-  bytes clientExecutionHandle = 2; 
+  bytes clientExecutionHandle = 1; 
   // Opaque handle for the prepared statement on the server.
-  bytes preparedStatementHandle = 3;
+  bytes preparedStatementHandle = 2;
 }
 
 /*
  * Returned from the RPC call DoPut when a CommandStatementUpdate
  * CommandPreparedStatementUpdate was in the request, containing
- * results from the update.
+ * results from the update. 
  */
 message DoPutUpdateResult {
+  // The number of records updated. A return value of -1 represents 
+  // an unknown updated record count.
   int64 recordCount = 1; 
 }
