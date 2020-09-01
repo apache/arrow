@@ -67,10 +67,10 @@ to read or write from. For example, the :meth:`pyarrow.parquet.read_table`
 function can be used in the following ways::
 
    # using a URI -> filesystem is inferred
-   pq.read_table("s3://my-bucket")
+   pq.read_table("s3://my-bucket/data.parquet")
    # using a path and filesystem
    s3 = fs.S3FileSystem(..)
-   pq.read_table("my-bucket", filesystem=s3)
+   pq.read_table("my-bucket/data.parquet", filesystem=s3)
 
 The filesystem interface further allows to open files for reading (input) or
 writing (output) directly, which can be combined with functions that work with
@@ -106,7 +106,7 @@ paths)::
    <FileInfo for 'test.arrow': type=FileType.File, size=3250>
 
    >>> local.get_file_info('non_existent')
-   [<FileInfo for 'non_existent': type=FileType.NotFound>]
+   <FileInfo for 'non_existent': type=FileType.NotFound>
 
 S3
 --
@@ -138,6 +138,11 @@ Example how you can read contents from a S3 bucket::
    >>> f = s3.open_input_stream('my-test-bucket/Dir1/File2')
    >>> f.readall()
    b'some data'
+
+.. seealso::
+
+   See the `AWS docs <https://docs.aws.amazon.com/sdk-for-cpp/v1/developer-guide/credentials.html>`__
+   for the different ways to configure the AWS credentials.
 
 
 Hadoop File System (HDFS)
@@ -186,7 +191,7 @@ used in PyArrow as well.
 Functions accepting a filesystem object will also accept an fsspec subclass.
 For example::
 
-   # creating an ffspec-based filesystem object for Google Cloud Storage
+   # creating an fsspec-based filesystem object for Google Cloud Storage
    import gcsfs
    fs = gcsfs.GCSFileSystem(project='my-google-project')
 
