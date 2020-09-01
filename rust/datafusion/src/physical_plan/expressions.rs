@@ -1098,7 +1098,7 @@ fn common_binary_type(
     rhs_type: &DataType,
 ) -> Result<DataType> {
     // This result MUST be compatible with `binary_coerce`
-    match op {
+    let result = match op {
         Operator::And | Operator::Or => match (lhs_type, rhs_type) {
             // logical binary boolean operators can only be evaluated in bools
             (DataType::Boolean, DataType::Boolean) => Ok(DataType::Boolean),
@@ -1123,6 +1123,18 @@ fn common_binary_type(
         Operator::Not => Err(ExecutionError::InternalError(
             "Trying to coerce a unary operator".to_string(),
         )),
+    };
+
+    // re-write the error message of failed coercions to include the operator's information
+    match result {
+        Err(ExecutionError::General(_)) => Err(ExecutionError::General(
+            format!(
+                "'{:?} {} {:?}' can't be evaluated because there isn't a common type to coerce the types to",
+                lhs_type, op, rhs_type
+            )
+            .to_string(),
+        )),
+        t => t
     }
 }
 
@@ -1703,6 +1715,35 @@ mod tests {
             vec![true, false]
         );
         Ok(())
+    }
+
+    #[test]
+    fn test_coersion_error() -> Result<()> {
+        let expr =
+            common_binary_type(&DataType::Float32, &Operator::Plus, &DataType::Utf8);
+
+        if let Err(ExecutionError::General(e)) = expr {
+            assert_eq!(e, "'Float32 + Utf8' can't be evaluated because there isn't a common type to coerce the types to");
+            Ok(())
+        } else {
+            Err(ExecutionError::General(
+                "Coercion should have returned an ExecutionError::General".to_string(),
+            ))
+        }
+    }
+
+    #[test]
+    fn test_coersion_invalid() -> Result<()> {
+        let expr =
+            common_binary_type(&DataType::Float32, &Operator::Not, &DataType::Utf8);
+        if let Err(ExecutionError::InternalError(_)) = expr {
+            Ok(())
+        } else {
+            Err(ExecutionError::General(
+                "Coercion should have returned an ExecutionError::InternalError"
+                    .to_string(),
+            ))
+        }
     }
 
     // runs an end-to-end test of physical type cast
