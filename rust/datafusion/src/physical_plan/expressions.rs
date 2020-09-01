@@ -991,99 +991,88 @@ impl fmt::Display for BinaryExpr {
     }
 }
 
-// Returns a formatted error about being impossible to coerce types to a common type
-fn coercion_error<T>(lhs_type: &DataType, rhs_type: &DataType) -> Result<T> {
-    Err(ExecutionError::General(
-        format!(
-            "It is not possible to coerce types '{:?}' and '{:?}' into a common type",
-            lhs_type, rhs_type
-        )
-        .to_string(),
-    ))
-}
-
 // the type that both lhs and rhs can be casted to for the purpose of a string computation
-fn string_coercion(lhs_type: &DataType, rhs_type: &DataType) -> Result<DataType> {
+fn string_coercion(lhs_type: &DataType, rhs_type: &DataType) -> Option<DataType> {
     use arrow::datatypes::DataType::*;
     match (lhs_type, rhs_type) {
-        (Utf8, Utf8) => Ok(Utf8),
-        (LargeUtf8, Utf8) => Ok(LargeUtf8),
-        (Utf8, LargeUtf8) => Ok(LargeUtf8),
-        (LargeUtf8, LargeUtf8) => Ok(LargeUtf8),
-        _ => coercion_error(lhs_type, rhs_type),
+        (Utf8, Utf8) => Some(Utf8),
+        (LargeUtf8, Utf8) => Some(LargeUtf8),
+        (Utf8, LargeUtf8) => Some(LargeUtf8),
+        (LargeUtf8, LargeUtf8) => Some(LargeUtf8),
+        _ => None,
     }
 }
 
 /// coercion rule for numerical types
-pub fn numerical_coercion(lhs_type: &DataType, rhs_type: &DataType) -> Result<DataType> {
+pub fn numerical_coercion(lhs_type: &DataType, rhs_type: &DataType) -> Option<DataType> {
     use arrow::datatypes::DataType::*;
 
     // error on any non-numeric type
     if !is_numeric(lhs_type) || !is_numeric(rhs_type) {
-        return coercion_error(lhs_type, rhs_type);
+        return None;
     };
 
     // same type => all good
     if lhs_type == rhs_type {
-        return Ok(lhs_type.clone());
+        return Some(lhs_type.clone());
     }
 
     // these are ordered from most informative to least informative so
     // that the coercion removes the least amount of information
     match (lhs_type, rhs_type) {
-        (Float64, _) => Ok(Float64),
-        (_, Float64) => Ok(Float64),
+        (Float64, _) => Some(Float64),
+        (_, Float64) => Some(Float64),
 
-        (_, Float32) => Ok(Float32),
-        (Float32, _) => Ok(Float32),
+        (_, Float32) => Some(Float32),
+        (Float32, _) => Some(Float32),
 
-        (Int64, _) => Ok(Int64),
-        (_, Int64) => Ok(Int64),
+        (Int64, _) => Some(Int64),
+        (_, Int64) => Some(Int64),
 
-        (Int32, _) => Ok(Int32),
-        (_, Int32) => Ok(Int32),
+        (Int32, _) => Some(Int32),
+        (_, Int32) => Some(Int32),
 
-        (Int16, _) => Ok(Int16),
-        (_, Int16) => Ok(Int16),
+        (Int16, _) => Some(Int16),
+        (_, Int16) => Some(Int16),
 
-        (Int8, _) => Ok(Int8),
-        (_, Int8) => Ok(Int8),
+        (Int8, _) => Some(Int8),
+        (_, Int8) => Some(Int8),
 
-        (UInt64, _) => Ok(UInt64),
-        (_, UInt64) => Ok(UInt64),
+        (UInt64, _) => Some(UInt64),
+        (_, UInt64) => Some(UInt64),
 
-        (UInt32, _) => Ok(UInt32),
-        (_, UInt32) => Ok(UInt32),
+        (UInt32, _) => Some(UInt32),
+        (_, UInt32) => Some(UInt32),
 
-        (UInt16, _) => Ok(UInt16),
-        (_, UInt16) => Ok(UInt16),
+        (UInt16, _) => Some(UInt16),
+        (_, UInt16) => Some(UInt16),
 
-        (UInt8, _) => Ok(UInt8),
-        (_, UInt8) => Ok(UInt8),
+        (UInt8, _) => Some(UInt8),
+        (_, UInt8) => Some(UInt8),
 
-        _ => coercion_error(lhs_type, rhs_type),
+        _ => None,
     }
 }
 
 // coercion rules for equality operations. This is a superset of all numerical coercion rules.
-fn eq_coercion(lhs_type: &DataType, rhs_type: &DataType) -> Result<DataType> {
+fn eq_coercion(lhs_type: &DataType, rhs_type: &DataType) -> Option<DataType> {
     if lhs_type == rhs_type {
         // same type => equality is possible
-        return Ok(lhs_type.clone());
+        return Some(lhs_type.clone());
     }
     numerical_coercion(lhs_type, rhs_type)
 }
 
 // coercion rules that assume an ordered set, such as "less than".
 // These are the union of all numerical coercion rules and all string coercion rules
-fn order_coercion(lhs_type: &DataType, rhs_type: &DataType) -> Result<DataType> {
+fn order_coercion(lhs_type: &DataType, rhs_type: &DataType) -> Option<DataType> {
     if lhs_type == rhs_type {
         // same type => all good
-        return Ok(lhs_type.clone());
+        return Some(lhs_type.clone());
     }
 
     match numerical_coercion(lhs_type, rhs_type) {
-        Err(_) => {
+        None => {
             // strings are naturally ordered, and thus ordering can be applied to them.
             string_coercion(lhs_type, rhs_type)
         }
@@ -1101,8 +1090,8 @@ fn common_binary_type(
     let result = match op {
         Operator::And | Operator::Or => match (lhs_type, rhs_type) {
             // logical binary boolean operators can only be evaluated in bools
-            (DataType::Boolean, DataType::Boolean) => Ok(DataType::Boolean),
-            _ => coercion_error(lhs_type, rhs_type),
+            (DataType::Boolean, DataType::Boolean) => Some(DataType::Boolean),
+            _ => None,
         },
         // logical equality operators have their own rules, and always return a boolean
         Operator::Eq | Operator::NotEq => eq_coercion(lhs_type, rhs_type),
@@ -1117,24 +1106,28 @@ fn common_binary_type(
         Operator::Plus | Operator::Minus | Operator::Divide | Operator::Multiply => {
             numerical_coercion(lhs_type, rhs_type)
         }
-        Operator::Modulus => Err(ExecutionError::NotImplemented(
-            "Modulus operator is still not supported".to_string(),
-        )),
-        Operator::Not => Err(ExecutionError::InternalError(
-            "Trying to coerce a unary operator".to_string(),
-        )),
+        Operator::Modulus => {
+            return Err(ExecutionError::NotImplemented(
+                "Modulus operator is still not supported".to_string(),
+            ))
+        }
+        Operator::Not => {
+            return Err(ExecutionError::InternalError(
+                "Trying to coerce a unary operator".to_string(),
+            ))
+        }
     };
 
     // re-write the error message of failed coercions to include the operator's information
     match result {
-        Err(ExecutionError::General(_)) => Err(ExecutionError::General(
+        None => Err(ExecutionError::General(
             format!(
                 "'{:?} {} {:?}' can't be evaluated because there isn't a common type to coerce the types to",
                 lhs_type, op, rhs_type
             )
             .to_string(),
         )),
-        t => t
+        Some(t) => Ok(t)
     }
 }
 

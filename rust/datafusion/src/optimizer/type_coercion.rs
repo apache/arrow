@@ -74,7 +74,7 @@ where
                             if &actual_type != required_type {
                                 // attempt to coerce using numerical coercion
                                 // todo: also try string coercion.
-                                if let Ok(cast_to_type) =
+                                if let Some(cast_to_type) =
                                     numerical_coercion(&actual_type, required_type)
                                 {
                                     expressions[i] =

@@ -103,7 +103,7 @@ fn maybe_data_types(
         } else {
             // attempt to coerce using numerical coercion
             // todo: also try string coercion.
-            if let Ok(cast_to_type) = numerical_coercion(&current_type, valid_type) {
+            if let Some(cast_to_type) = numerical_coercion(&current_type, valid_type) {
                 new_type.push(cast_to_type)
             } else {
                 // not possible
