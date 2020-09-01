@@ -188,7 +188,7 @@ public class FlightSQLExample extends FlightSQLProducer implements AutoCloseable
 
     if (includeSchema) {
       final Schema pojoSchema = buildSchema(catalog, schema, table);
-      builder.setSchemaMetadata(ByteString.copyFrom(pojoSchema.toByteArray()));
+      builder.setArrowMetadata(ByteString.copyFrom(pojoSchema.toByteArray()));
     }
 
     return new Result(Any.pack(builder.build()).toByteArray());
