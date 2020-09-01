@@ -1740,65 +1740,91 @@ mod tests {
         Ok(())
     }
 
+    // runs an end-to-end test of physical type cast
+    // 1. construct a record batch with a column "a" of type A
+    // 2. construct a physical expression of CAST(a AS B)
+    // 3. evaluate the expression
+    // 4. verify that the resulting expression is of type B
+    // 5. verify that the resulting values are downcastable and correct
+    macro_rules! generic_test_cast {
+        ($A_ARRAY:ident, $A_TYPE:expr, $A_VEC:expr, $TYPEARRAY:ident, $TYPE:expr, $VEC:expr) => {{
+            let schema = Schema::new(vec![Field::new("a", $A_TYPE, false)]);
+            let a = $A_ARRAY::from($A_VEC);
+            let batch =
+                RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
+
+            // verify that we can construct the expression
+            let expression = cast(col("a"), &schema, $TYPE)?;
+
+            // verify that its display is correct
+            assert_eq!(format!("CAST(a AS {:?})", $TYPE), format!("{}", expression));
+
+            // verify that the expression's type is correct
+            assert_eq!(expression.data_type(&schema)?, $TYPE);
+
+            // compute
+            let result = expression.evaluate(&batch)?;
+
+            // verify that the array's data_type is correct
+            assert_eq!(*result.data_type(), $TYPE);
+
+            // verify that the len is correct
+            assert_eq!(result.len(), $A_VEC.len());
+
+            // verify that the data itself is downcastable
+            let result = result
+                .as_any()
+                .downcast_ref::<$TYPEARRAY>()
+                .expect("failed to downcast");
+
+            // verify that the result itself is correct
+            for (i, x) in $VEC.iter().enumerate() {
+                assert_eq!(result.value(i), *x);
+            }
+        }};
+    }
+
     #[test]
-    fn cast_i32_to_u32() -> Result<()> {
-        let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
-        let a = Int32Array::from(vec![1, 2, 3, 4, 5]);
-        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
-
-        let cast = cast(col("a"), &schema, DataType::UInt32)?;
-        assert_eq!("CAST(a AS UInt32)", format!("{}", cast));
-        let result = cast.evaluate(&batch)?;
-        assert_eq!(result.len(), 5);
-
-        let result = result
-            .as_any()
-            .downcast_ref::<UInt32Array>()
-            .expect("failed to downcast to UInt32Array");
-        assert_eq!(result.value(0), 1_u32);
-
+    fn test_cast_i32_u32() -> Result<()> {
+        generic_test_cast!(
+            Int32Array,
+            DataType::Int32,
+            vec![1, 2, 3, 4, 5],
+            UInt32Array,
+            DataType::UInt32,
+            vec![1_u32, 2_u32, 3_u32, 4_u32, 5_u32]
+        );
         Ok(())
     }
 
     #[test]
-    fn cast_i32_to_utf8() -> Result<()> {
-        let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
-        let a = Int32Array::from(vec![1, 2, 3, 4, 5]);
-        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
-
-        let cast = cast(col("a"), &schema, DataType::Utf8)?;
-        let result = cast.evaluate(&batch)?;
-        assert_eq!(result.len(), 5);
-
-        let result = result
-            .as_any()
-            .downcast_ref::<StringArray>()
-            .expect("failed to downcast to StringArray");
-        assert_eq!(result.value(0), "1");
-
+    fn test_cast_i32_utf8() -> Result<()> {
+        generic_test_cast!(
+            Int32Array,
+            DataType::Int32,
+            vec![1, 2, 3, 4, 5],
+            StringArray,
+            DataType::Utf8,
+            vec!["1", "2", "3", "4", "5"]
+        );
         Ok(())
     }
 
     #[test]
-    fn cast_i64_to_timestamp_nanoseconds() -> Result<()> {
-        let schema = Schema::new(vec![Field::new("a", DataType::Int64, false)]);
-        let a = Int64Array::from(vec![1, 2, 3, 4, 5]);
-        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
-
-        let cast = cast(
-            col("a"),
-            &schema,
+    fn test_cast_i64_t64() -> Result<()> {
+        let original = vec![1, 2, 3, 4, 5];
+        let expected: Vec<i64> = original
+            .iter()
+            .map(|i| Time64NanosecondArray::from(vec![*i]).value(0))
+            .collect();
+        generic_test_cast!(
+            Int64Array,
+            DataType::Int64,
+            original.clone(),
+            TimestampNanosecondArray,
             DataType::Timestamp(TimeUnit::Nanosecond, None),
-        )?;
-        let result = cast.evaluate(&batch)?;
-        assert_eq!(result.len(), 5);
-        let expected_result = Time64NanosecondArray::from(vec![1, 2, 3, 4]);
-        let result = result
-            .as_any()
-            .downcast_ref::<TimestampNanosecondArray>()
-            .expect("failed to downcast to TimestampNanosecondArray");
-        assert_eq!(result.value(0), expected_result.value(0));
-
+            expected
+        );
         Ok(())
     }
 
