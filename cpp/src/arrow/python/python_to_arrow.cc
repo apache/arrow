@@ -267,8 +267,8 @@ struct ValueConverter<Type, enable_if_integer<Type>> {
       if (!numpy_type->Equals(type)) {
         // TODO(kszucs): the message should highlight the received numpy dtype
         // TODO(kszucs): it also validates the unit, so add the unit to the error message
-        return Status::Invalid("Expected np.datetime64 but got: ",
-                               numpy_type->ToString());
+        return Status::NotImplemented("Expected np.datetime64 but got: ",
+                                      numpy_type->ToString());
       }
       return reinterpret_cast<PyDatetimeScalarObject*>(obj)->obval;
     } else {
@@ -304,8 +304,8 @@ struct ValueConverter<Type, enable_if_integer<Type>> {
       if (!numpy_type->Equals(type)) {
         // TODO(kszucs): the message should highlight the received numpy dtype
         // TODO(kszucs): it also validates the unit, so add the unit to the error message
-        return Status::Invalid("Expected np.timedelta64 but got: ",
-                               numpy_type->ToString());
+        return Status::NotImplemented("Expected np.timedelta64 but got: ",
+                                      numpy_type->ToString());
       }
       return reinterpret_cast<PyTimedeltaScalarObject*>(obj)->obval;
     } else {
