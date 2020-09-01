@@ -39,7 +39,6 @@ use crate::execution::physical_plan::common;
 use crate::execution::physical_plan::csv::CsvReadOptions;
 use crate::execution::physical_plan::merge::MergeExec;
 use crate::execution::physical_plan::planner::DefaultPhysicalPlanner;
-use crate::execution::physical_plan::scalar_functions;
 use crate::execution::physical_plan::udf::ScalarFunction;
 use crate::execution::physical_plan::ExecutionPlan;
 use crate::execution::physical_plan::PhysicalPlanner;
@@ -105,16 +104,13 @@ impl ExecutionContext {
 
     /// Create a new execution context using the provided configuration
     pub fn with_config(config: ExecutionConfig) -> Self {
-        let mut ctx = Self {
+        let ctx = Self {
             state: Arc::new(Mutex::new(ExecutionContextState {
                 datasources: HashMap::new(),
                 scalar_functions: HashMap::new(),
                 config,
             })),
         };
-        for udf in scalar_functions() {
-            ctx.register_udf(udf);
-        }
         ctx
     }
 

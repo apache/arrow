@@ -19,7 +19,7 @@
 
 use std::sync::Arc;
 
-use super::expressions::binary;
+use super::{expressions::binary, functions};
 use crate::error::{ExecutionError, Result};
 use crate::execution::context::ExecutionContextState;
 use crate::execution::physical_plan::csv::{CsvExec, CsvReadOptions};
@@ -356,7 +356,16 @@ impl DefaultPhysicalPlanner {
                 input_schema,
                 data_type.clone(),
             ),
-            Expr::ScalarFunction {
+            Expr::ScalarFunction { fun, args } => {
+                let physical_args = args
+                    .iter()
+                    .map(|e| {
+                        self.create_physical_expr(e, input_schema, ctx_state.clone())
+                    })
+                    .collect::<Result<Vec<_>>>()?;
+                functions::create_physical_expr(fun, &physical_args, input_schema)
+            }
+            Expr::ScalarUDF {
                 name,
                 args,
                 return_type,
@@ -372,7 +381,7 @@ impl DefaultPhysicalPlanner {
                     }
                     Ok(Arc::new(ScalarFunctionExpr::new(
                         name,
-                        Box::new(f.fun.clone()),
+                        f.fun.clone(),
                         physical_args,
                         return_type,
                     )))

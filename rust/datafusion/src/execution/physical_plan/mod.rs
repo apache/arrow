@@ -27,11 +27,7 @@ use crate::execution::context::ExecutionContextState;
 use crate::logicalplan::{LogicalPlan, ScalarValue};
 use arrow::array::ArrayRef;
 use arrow::datatypes::{DataType, Schema, SchemaRef};
-use arrow::{
-    compute::kernels::length::length,
-    record_batch::{RecordBatch, RecordBatchReader},
-};
-use udf::ScalarFunction;
+use arrow::record_batch::{RecordBatch, RecordBatchReader};
 
 /// Physical query planner that converts a `LogicalPlan` to an
 /// `ExecutionPlan` suitable for execution.
@@ -134,23 +130,12 @@ pub trait Accumulator: Debug {
     fn get_value(&self) -> Result<Option<ScalarValue>>;
 }
 
-/// Vector of scalar functions declared in this module
-pub fn scalar_functions() -> Vec<ScalarFunction> {
-    let mut udfs = vec![ScalarFunction::new(
-        "length",
-        vec![DataType::Utf8],
-        DataType::UInt32,
-        Arc::new(|args: &[ArrayRef]| Ok(Arc::new(length(args[0].as_ref())?))),
-    )];
-    udfs.append(&mut math_expressions::scalar_functions());
-    udfs
-}
-
 pub mod common;
 pub mod csv;
 pub mod explain;
 pub mod expressions;
 pub mod filter;
+pub mod functions;
 pub mod hash_aggregate;
 pub mod limit;
 pub mod math_expressions;
@@ -160,4 +145,5 @@ pub mod parquet;
 pub mod planner;
 pub mod projection;
 pub mod sort;
+pub mod type_coercion;
 pub mod udf;
