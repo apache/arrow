@@ -2123,3 +2123,190 @@ def test_dataset_project_only_partition_columns(tempdir):
     part_only = dataset.to_table(columns=['part'], use_threads=False)
 
     assert all_cols.column('part').equals(part_only.column('part'))
+
+
+def _check_dataset_roundtrip(dataset, base_dir, expected_files,
+                             base_dir_path=None, partitioning=None):
+    base_dir_path = base_dir_path or base_dir
+
+    ds.write_dataset(
+        dataset, base_dir, format="feather", partitioning=partitioning
+    )
+
+    # check that all files are present
+    file_paths = list(base_dir_path.rglob("*"))
+    assert set(file_paths) == set(expected_files)
+
+    # check that reading back in as dataset gives the same result
+    dataset2 = ds.dataset(
+        base_dir_path, format="feather", partitioning=partitioning)
+    assert dataset2.to_table().equals(dataset.to_table())
+
+
+@pytest.mark.parquet
+def test_write_dataset(tempdir):
+    # manually create a written dataset and read as dataset object
+    directory = tempdir / 'single-file'
+    directory.mkdir()
+    _ = _create_single_file(directory)
+    dataset = ds.dataset(directory)
+
+    # full string path
+    target = tempdir / 'single-file-target'
+    expected_files = [target / "dat_0.ipc"]
+    _check_dataset_roundtrip(dataset, str(target), expected_files, target)
+
+    # pathlib path object
+    target = tempdir / 'single-file-target2'
+    expected_files = [target / "dat_0.ipc"]
+    _check_dataset_roundtrip(dataset, target, expected_files, target)
+
+    # TODO
+    # # relative path
+    # target = tempdir / 'single-file-target3'
+    # expected_files = [target / "dat_0.ipc"]
+    # _check_dataset_roundtrip(
+    #     dataset, './single-file-target3', expected_files, target)
+
+    # Directory of files
+    directory = tempdir / 'single-directory'
+    directory.mkdir()
+    _ = _create_directory_of_files(directory)
+    dataset = ds.dataset(directory)
+
+    target = tempdir / 'single-directory-target'
+    expected_files = [target / "dat_0.ipc", target / "dat_1.ipc"]
+    _check_dataset_roundtrip(dataset, str(target), expected_files, target)
+
+
+@pytest.mark.parquet
+@pytest.mark.pandas
+def test_write_dataset_partitioned(tempdir):
+    directory = tempdir / "partitioned"
+    _ = _create_parquet_dataset_partitioned(directory)
+    partitioning = ds.partitioning(flavor="hive")
+    dataset = ds.dataset(directory, partitioning=partitioning)
+
+    # hive partitioning
+    target = tempdir / 'partitioned-hive-target'
+    expected_paths = [
+        target / "part=a", target / "part=a" / "dat_0.ipc",
+        target / "part=b", target / "part=b" / "dat_1.ipc"
+    ]
+    partitioning_schema = ds.partitioning(
+        pa.schema([("part", pa.string())]), flavor="hive")
+    _check_dataset_roundtrip(
+        dataset, str(target), expected_paths, target,
+        partitioning=partitioning_schema)
+
+    # directory partitioning
+    target = tempdir / 'partitioned-dir-target'
+    expected_paths = [
+        target / "a", target / "a" / "dat_0.ipc",
+        target / "b", target / "b" / "dat_1.ipc"
+    ]
+    partitioning_schema = ds.partitioning(
+        pa.schema([("part", pa.string())]))
+    _check_dataset_roundtrip(
+        dataset, str(target), expected_paths, target,
+        partitioning=partitioning_schema)
+
+
+@pytest.mark.parquet
+@pytest.mark.pandas
+def test_write_dataset_use_threads(tempdir):
+    directory = tempdir / "partitioned"
+    _ = _create_parquet_dataset_partitioned(directory)
+    dataset = ds.dataset(directory, partitioning="hive")
+
+    partitioning = ds.partitioning(
+        pa.schema([("part", pa.string())]), flavor="hive")
+
+    target1 = tempdir / 'partitioned1'
+    ds.write_dataset(
+        dataset, target1, format="feather", partitioning=partitioning,
+        use_threads=True
+    )
+    target2 = tempdir / 'partitioned2'
+    ds.write_dataset(
+        dataset, target2, format="feather", partitioning=partitioning,
+        use_threads=False
+    )
+
+    # check that all files are the same in both cases
+    paths1 = [p.relative_to(target1) for p in target1.rglob("*")]
+    paths2 = [p.relative_to(target2) for p in target2.rglob("*")]
+    assert set(paths1) == set(paths2)
+
+    # check that reading in gives same result
+    result1 = ds.dataset(target1, format="feather", partitioning=partitioning)
+    result2 = ds.dataset(target2, format="feather", partitioning=partitioning)
+    assert result1.to_table().equals(result2.to_table())
+
+
+def test_write_table(tempdir):
+    table = pa.table([
+        pa.array(range(20)), pa.array(np.random.randn(20)),
+        pa.array(np.repeat(['a', 'b'], 10))
+    ], names=["f1", "f2", "part"])
+
+    base_dir = tempdir / 'single'
+    ds.write_dataset(table, base_dir, format="feather")
+    # check that all files are present
+    file_paths = list(base_dir.rglob("*"))
+    expected_paths = [base_dir / "dat_0.ipc"]
+    assert set(file_paths) == set(expected_paths)
+    # check Table roundtrip
+    result = ds.dataset(base_dir, format="ipc").to_table()
+    assert result.equals(table)
+
+    # with partitioning
+    base_dir = tempdir / 'partitioned'
+    partitioning = ds.partitioning(
+        pa.schema([("part", pa.string())]), flavor="hive")
+    ds.write_dataset(
+        table, base_dir, format="feather", partitioning=partitioning)
+    file_paths = list(base_dir.rglob("*"))
+    expected_paths = [
+        base_dir / "part=a", base_dir / "part=a" / "dat_0.ipc",
+        base_dir / "part=b", base_dir / "part=b" / "dat_0.ipc"
+    ]
+    assert set(file_paths) == set(expected_paths)
+    result = ds.dataset(base_dir, format="ipc", partitioning=partitioning)
+    assert result.to_table().equals(table)
+
+
+def test_write_table_multiple_fragments(tempdir):
+    table = pa.table([
+        pa.array(range(10)), pa.array(np.random.randn(10)),
+        pa.array(np.repeat(['a', 'b'], 5))
+    ], names=["f1", "f2", "part"])
+    table = pa.concat_tables([table]*2)
+
+    # Table with multiple batches written as single Fragment by default
+    base_dir = tempdir / 'single'
+    ds.write_dataset(table, base_dir, format="feather")
+    assert set(base_dir.rglob("*")) == set([base_dir / "dat_0.ipc"])
+    assert ds.dataset(base_dir, format="ipc").to_table().equals(table)
+
+    # Same for single-element list of Table
+    base_dir = tempdir / 'single-list'
+    ds.write_dataset([table], base_dir, format="feather")
+    assert set(base_dir.rglob("*")) == set([base_dir / "dat_0.ipc"])
+    assert ds.dataset(base_dir, format="ipc").to_table().equals(table)
+
+    # Provide list of batches to write multiple fragments
+    base_dir = tempdir / 'multiple'
+    ds.write_dataset(table.to_batches(), base_dir, format="feather")
+    assert set(base_dir.rglob("*")) == set(
+        [base_dir / "dat_0.ipc", base_dir / "dat_1.ipc"])
+    assert ds.dataset(base_dir, format="ipc").to_table().equals(table)
+
+    # Provide list of tables to write multiple fragments
+    base_dir = tempdir / 'multiple-table'
+    ds.write_dataset([table, table], base_dir, format="feather")
+    assert set(base_dir.rglob("*")) == set(
+        [base_dir / "dat_0.ipc", base_dir / "dat_1.ipc"])
+    assert ds.dataset(base_dir, format="ipc").to_table().equals(
+        pa.concat_tables([table]*2)
+    )

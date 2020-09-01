@@ -126,6 +126,11 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
     ctypedef CIterator[shared_ptr[CFragment]] CFragmentIterator \
         "arrow::dataset::FragmentIterator"
 
+    cdef cppclass CInMemoryFragment "arrow::dataset::InMemoryFragment"(
+            CFragment):
+        CInMemoryFragment(vector[shared_ptr[CRecordBatch]] record_batches,
+                          shared_ptr[CExpression] partition_expression)
+
     cdef cppclass CScanner "arrow::dataset::Scanner":
         CScanner(shared_ptr[CDataset], shared_ptr[CScanOptions],
                  shared_ptr[CScanContext])
@@ -247,6 +252,17 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
             shared_ptr[CFileFormat] format,
             shared_ptr[CFileSystem] filesystem,
             vector[shared_ptr[CFileFragment]] fragments)
+
+        @staticmethod
+        CStatus Write(
+            shared_ptr[CSchema] schema,
+            shared_ptr[CFileFormat] format,
+            shared_ptr[CFileSystem] filesystem,
+            c_string base_dir,
+            shared_ptr[CPartitioning] partitioning,
+            shared_ptr[CScanContext] scan_context,
+            CFragmentIterator fragments)
+
         c_string type()
         vector[c_string] files()
         const shared_ptr[CFileFormat]& format() const

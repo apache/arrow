@@ -2038,3 +2038,71 @@ def _get_partition_keys(Expression partition_expression):
         frombytes(name_val.first): pyarrow_wrap_scalar(name_val.second).as_py()
         for name_val in GetResultValue(CGetPartitionKeys(deref(expr.get())))
     }
+
+
+def _filesystemdataset_write(
+    data, object base_dir, Schema schema not None,
+    FileFormat format not None, FileSystem filesystem not None,
+    Partitioning partitioning not None, bint use_threads=True,
+):
+    """
+    CFileSystemDataset.Write wrapper
+    """
+    cdef:
+        c_string c_base_dir
+        shared_ptr[CSchema] c_schema
+        shared_ptr[CFileFormat] c_format
+        shared_ptr[CFileSystem] c_filesystem
+        shared_ptr[CPartitioning] c_partitioning
+        shared_ptr[CScanContext] c_context
+        # to create iterator of InMemory fragments
+        vector[shared_ptr[CRecordBatch]] c_batches
+        shared_ptr[CFragment] c_fragment
+        vector[shared_ptr[CFragment]] c_fragment_vector
+
+    c_base_dir = tobytes(_stringify_path(base_dir))
+    c_schema = pyarrow_unwrap_schema(schema)
+    c_format = format.unwrap()
+    c_filesystem = filesystem.unwrap()
+    c_partitioning = partitioning.unwrap()
+    c_context = _build_scan_context(use_threads=use_threads)
+
+    if isinstance(data, Dataset):
+        with nogil:
+            check_status(
+                CFileSystemDataset.Write(
+                    c_schema,
+                    c_format,
+                    c_filesystem,
+                    c_base_dir,
+                    c_partitioning,
+                    c_context,
+                    (<Dataset> data).dataset.GetFragments()
+                )
+            )
+    else:
+        # data is list of batches/tables, one element per fragment
+        for table in data:
+            if isinstance(table, Table):
+                for batch in table.to_batches():
+                    c_batches.push_back((<RecordBatch> batch).sp_batch)
+            else:
+                c_batches.push_back((<RecordBatch> table).sp_batch)
+
+            c_fragment = shared_ptr[CFragment](
+                new CInMemoryFragment(c_batches, _true.unwrap()))
+            c_batches.clear()
+            c_fragment_vector.push_back(c_fragment)
+
+        with nogil:
+            check_status(
+                CFileSystemDataset.Write(
+                    c_schema,
+                    c_format,
+                    c_filesystem,
+                    c_base_dir,
+                    c_partitioning,
+                    c_context,
+                    MakeVectorIterator(move(c_fragment_vector))
+                )
+            )

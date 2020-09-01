@@ -2032,6 +2032,7 @@ cdef extern from 'arrow/util/iterator.h' namespace 'arrow' nogil:
             bint operator!=(RangeIterator) const
         RangeIterator begin()
         RangeIterator end()
+    CIterator[T] MakeVectorIterator[T](vector[T] v)
 
 cdef extern from 'arrow/util/thread_pool.h' namespace 'arrow' nogil:
     int GetCpuThreadPoolCapacity()
