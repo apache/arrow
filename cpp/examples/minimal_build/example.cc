@@ -52,7 +52,7 @@ Status RunMain(int argc, char** argv) {
   ARROW_ASSIGN_OR_RAISE(auto output_file,
                         arrow::io::FileOutputStream::Open(arrow_filename));
   ARROW_ASSIGN_OR_RAISE(auto batch_writer,
-                        arrow::ipc::MakeFileWriter(output_file.get(),
+                        arrow::ipc::MakeFileWriter(output_file,
                                                    table->schema()));
   ARROW_RETURN_NOT_OK(batch_writer->WriteTable(*table));
   ARROW_RETURN_NOT_OK(batch_writer->Close());
