@@ -20,8 +20,8 @@
 use std::sync::{Arc, Mutex};
 
 use crate::error::{ExecutionError, Result};
-use crate::execution::physical_plan::memory::MemoryIterator;
-use crate::execution::physical_plan::{Distribution, ExecutionPlan, Partitioning};
+use crate::physical_plan::memory::MemoryIterator;
+use crate::physical_plan::{Distribution, ExecutionPlan, Partitioning};
 use arrow::datatypes::SchemaRef;
 use arrow::record_batch::RecordBatchReader;
 
@@ -92,7 +92,7 @@ impl ExecutionPlan for EmptyExec {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::execution::physical_plan::common;
+    use crate::physical_plan::common;
     use crate::test;
 
     #[test]

@@ -15,8 +15,8 @@
 //! Filter Push Down optimizer rule ensures that filters are applied as early as possible in the plan
 
 use crate::error::Result;
-use crate::logicalplan::Expr;
-use crate::logicalplan::{and, LogicalPlan};
+use crate::logical_plan::Expr;
+use crate::logical_plan::{and, LogicalPlan};
 use crate::optimizer::optimizer::OptimizerRule;
 use crate::optimizer::utils;
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -299,8 +299,8 @@ fn rewrite(expr: &Expr, projection: &HashMap<String, Expr>) -> Result<Expr> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::logicalplan::col;
-    use crate::logicalplan::{aggregate_expr, lit, Expr, LogicalPlanBuilder, Operator};
+    use crate::logical_plan::col;
+    use crate::logical_plan::{aggregate_expr, lit, Expr, LogicalPlanBuilder, Operator};
     use crate::test::*;
 
     fn assert_optimized_plan_eq(plan: &LogicalPlan, expected: &str) {

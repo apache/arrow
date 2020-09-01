@@ -34,8 +34,8 @@ use super::{
     PhysicalExpr,
 };
 use crate::error::{ExecutionError, Result};
-use crate::execution::physical_plan::math_expressions;
-use crate::execution::physical_plan::udf;
+use crate::physical_plan::math_expressions;
+use crate::physical_plan::udf;
 use arrow::{
     compute::kernels::length::length,
     datatypes::{DataType, Schema},
@@ -215,8 +215,7 @@ fn signature(fun: &ScalarFunction) -> Signature {
 mod tests {
     use super::*;
     use crate::{
-        error::Result, execution::physical_plan::expressions::lit,
-        logicalplan::ScalarValue,
+        error::Result, logical_plan::ScalarValue, physical_plan::expressions::lit,
     };
     use arrow::{
         array::{ArrayRef, Float64Array, Int32Array},

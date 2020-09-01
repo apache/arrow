@@ -22,7 +22,7 @@ use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 
 use crate::error::{ExecutionError, Result};
-use crate::execution::physical_plan::{
+use crate::physical_plan::{
     Accumulator, AggregateExpr, Distribution, ExecutionPlan, Partitioning, PhysicalExpr,
 };
 
@@ -40,8 +40,8 @@ use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
 use arrow::error::Result as ArrowResult;
 use arrow::record_batch::{RecordBatch, RecordBatchReader};
 
-use crate::execution::physical_plan::expressions::col;
-use crate::logicalplan::ScalarValue;
+use crate::logical_plan::ScalarValue;
+use crate::physical_plan::expressions::col;
 use fnv::FnvHashMap;
 
 /// Hash aggregate modes
@@ -710,9 +710,9 @@ fn create_key(
 mod tests {
 
     use super::*;
-    use crate::execution::physical_plan::csv::{CsvExec, CsvReadOptions};
-    use crate::execution::physical_plan::expressions::{col, sum};
-    use crate::execution::physical_plan::merge::MergeExec;
+    use crate::physical_plan::csv::{CsvExec, CsvReadOptions};
+    use crate::physical_plan::expressions::{col, sum};
+    use crate::physical_plan::merge::MergeExec;
     use crate::test;
 
     #[test]

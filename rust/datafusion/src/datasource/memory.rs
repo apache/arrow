@@ -26,8 +26,8 @@ use arrow::record_batch::RecordBatch;
 
 use crate::datasource::TableProvider;
 use crate::error::{ExecutionError, Result};
-use crate::execution::physical_plan::memory::MemoryExec;
-use crate::execution::physical_plan::ExecutionPlan;
+use crate::physical_plan::memory::MemoryExec;
+use crate::physical_plan::ExecutionPlan;
 
 /// In-memory table
 pub struct MemTable {

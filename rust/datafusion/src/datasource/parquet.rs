@@ -24,8 +24,8 @@ use arrow::datatypes::*;
 
 use crate::datasource::TableProvider;
 use crate::error::Result;
-use crate::execution::physical_plan::parquet::ParquetExec;
-use crate::execution::physical_plan::ExecutionPlan;
+use crate::physical_plan::parquet::ParquetExec;
+use crate::physical_plan::ExecutionPlan;
 
 /// Table-based representation of a `ParquetFile`.
 pub struct ParquetTable {

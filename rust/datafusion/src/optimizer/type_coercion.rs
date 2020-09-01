@@ -23,13 +23,13 @@
 use arrow::datatypes::Schema;
 
 use crate::error::{ExecutionError, Result};
-use crate::execution::physical_plan::{
-    expressions::numerical_coercion, udf::ScalarFunctionRegistry,
-};
-use crate::logicalplan::Expr;
-use crate::logicalplan::{LogicalPlan, Operator};
+use crate::logical_plan::Expr;
+use crate::logical_plan::{LogicalPlan, Operator};
 use crate::optimizer::optimizer::OptimizerRule;
 use crate::optimizer::utils;
+use crate::physical_plan::{
+    expressions::numerical_coercion, udf::ScalarFunctionRegistry,
+};
 use utils::optimize_explain;
 
 /// Optimizer that applies coercion rules to expressions in the logical plan.

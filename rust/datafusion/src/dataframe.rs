@@ -19,7 +19,7 @@
 
 use crate::arrow::record_batch::RecordBatch;
 use crate::error::Result;
-use crate::logicalplan::{Expr, LogicalPlan};
+use crate::logical_plan::{Expr, LogicalPlan};
 use arrow::datatypes::Schema;
 use std::sync::Arc;
 
@@ -129,7 +129,7 @@ pub trait DataFrame {
     fn limit(&self, n: usize) -> Result<Arc<dyn DataFrame>>;
 
     /// Sort the DataFrame by the specified sorting expressions. Any expression can be turned into
-    /// a sort expression by calling its [sort](../logicalplan/enum.Expr.html#method.sort) method.
+    /// a sort expression by calling its [sort](../logical_plan/enum.Expr.html#method.sort) method.
     ///
     /// ```
     /// # use datafusion::prelude::*;

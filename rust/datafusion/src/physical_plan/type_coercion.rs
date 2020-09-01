@@ -23,8 +23,8 @@ use arrow::datatypes::{DataType, Schema};
 
 use super::{functions::Signature, PhysicalExpr};
 use crate::error::{ExecutionError, Result};
-use crate::execution::physical_plan::expressions::{cast, numerical_coercion};
-use crate::logicalplan::Operator;
+use crate::logical_plan::Operator;
+use crate::physical_plan::expressions::{cast, numerical_coercion};
 
 /// Returns expressions constructed by casting `expressions` to types compatible with `signatures`.
 pub fn coerce(
@@ -124,7 +124,7 @@ fn maybe_data_types(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::execution::physical_plan::expressions::col;
+    use crate::physical_plan::expressions::col;
     use arrow::datatypes::{DataType, Field, Schema};
 
     #[test]

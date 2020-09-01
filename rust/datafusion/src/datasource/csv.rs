@@ -44,9 +44,9 @@ use std::sync::Arc;
 
 use crate::datasource::TableProvider;
 use crate::error::{ExecutionError, Result};
-use crate::execution::physical_plan::csv::CsvExec;
-pub use crate::execution::physical_plan::csv::CsvReadOptions;
-use crate::execution::physical_plan::{common, ExecutionPlan};
+use crate::physical_plan::csv::CsvExec;
+pub use crate::physical_plan::csv::CsvReadOptions;
+use crate::physical_plan::{common, ExecutionPlan};
 
 /// Represents a CSV file with a provided schema
 pub struct CsvFile {

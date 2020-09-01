@@ -23,8 +23,8 @@ use std::sync::{Arc, Mutex};
 use std::{fmt, thread};
 
 use crate::error::{ExecutionError, Result};
-use crate::execution::physical_plan::ExecutionPlan;
-use crate::execution::physical_plan::{common, Partitioning};
+use crate::physical_plan::ExecutionPlan;
+use crate::physical_plan::{common, Partitioning};
 use arrow::datatypes::{Schema, SchemaRef};
 use arrow::error::{ArrowError, Result as ArrowResult};
 use arrow::record_batch::{RecordBatch, RecordBatchReader};

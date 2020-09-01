@@ -23,7 +23,7 @@ use arrow::datatypes::Schema;
 
 use super::optimizer::OptimizerRule;
 use crate::error::{ExecutionError, Result};
-use crate::logicalplan::{Expr, LogicalPlan, PlanType, StringifiedPlan};
+use crate::logical_plan::{Expr, LogicalPlan, PlanType, StringifiedPlan};
 
 /// Recursively walk a list of expression trees, collecting the unique set of column
 /// names referenced in the expression
@@ -263,7 +263,7 @@ pub fn rewrite_expression(expr: &Expr, expressions: &Vec<Expr>) -> Result<Expr> 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::logicalplan::{col, LogicalPlanBuilder};
+    use crate::logical_plan::{col, LogicalPlanBuilder};
     use arrow::datatypes::DataType;
     use std::collections::HashSet;
 

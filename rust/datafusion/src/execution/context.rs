@@ -30,26 +30,26 @@ use arrow::csv;
 use arrow::datatypes::*;
 use arrow::record_batch::RecordBatch;
 
-use super::physical_plan::udf::ScalarFunctionRegistry;
 use crate::dataframe::DataFrame;
 use crate::datasource::csv::CsvFile;
 use crate::datasource::parquet::ParquetTable;
 use crate::datasource::TableProvider;
 use crate::error::{ExecutionError, Result};
 use crate::execution::dataframe_impl::DataFrameImpl;
-use crate::execution::physical_plan::common;
-use crate::execution::physical_plan::csv::CsvReadOptions;
-use crate::execution::physical_plan::merge::MergeExec;
-use crate::execution::physical_plan::planner::DefaultPhysicalPlanner;
-use crate::execution::physical_plan::udf::ScalarFunction;
-use crate::execution::physical_plan::ExecutionPlan;
-use crate::execution::physical_plan::PhysicalPlanner;
-use crate::logicalplan::{LogicalPlan, LogicalPlanBuilder};
+use crate::logical_plan::{LogicalPlan, LogicalPlanBuilder};
 use crate::optimizer::optimizer::OptimizerRule;
 use crate::optimizer::projection_push_down::ProjectionPushDown;
 use crate::optimizer::{
     filter_push_down::FilterPushDown, type_coercion::TypeCoercionRule,
 };
+use crate::physical_plan::common;
+use crate::physical_plan::csv::CsvReadOptions;
+use crate::physical_plan::merge::MergeExec;
+use crate::physical_plan::planner::DefaultPhysicalPlanner;
+use crate::physical_plan::udf::ScalarFunction;
+use crate::physical_plan::udf::ScalarFunctionRegistry;
+use crate::physical_plan::ExecutionPlan;
+use crate::physical_plan::PhysicalPlanner;
 use crate::sql::{
     parser::{DFParser, FileType},
     planner::{SchemaProvider, SqlToRel},
@@ -450,8 +450,8 @@ mod tests {
 
     use super::*;
     use crate::datasource::MemTable;
-    use crate::execution::physical_plan::udf::ScalarUdf;
-    use crate::logicalplan::{aggregate_expr, col, scalar_function};
+    use crate::logical_plan::{aggregate_expr, col, scalar_function};
+    use crate::physical_plan::udf::ScalarUdf;
     use crate::test;
     use arrow::array::{ArrayRef, Int32Array};
     use arrow::compute::add;

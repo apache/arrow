@@ -62,8 +62,9 @@ pub mod dataframe;
 pub mod datasource;
 pub mod error;
 pub mod execution;
-pub mod logicalplan;
+pub mod logical_plan;
 pub mod optimizer;
+pub mod physical_plan;
 pub mod prelude;
 pub mod sql;
 

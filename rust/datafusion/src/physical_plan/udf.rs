@@ -23,7 +23,7 @@ use arrow::array::ArrayRef;
 use arrow::datatypes::{DataType, Schema};
 
 use crate::error::Result;
-use crate::execution::physical_plan::PhysicalExpr;
+use crate::physical_plan::PhysicalExpr;
 
 use arrow::record_batch::RecordBatch;
 use fmt::{Debug, Formatter};

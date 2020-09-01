@@ -19,8 +19,8 @@
 
 use crate::error::{ExecutionError, Result};
 use crate::{
-    execution::physical_plan::{common::RecordBatchIterator, ExecutionPlan},
-    logicalplan::StringifiedPlan,
+    logical_plan::StringifiedPlan,
+    physical_plan::{common::RecordBatchIterator, ExecutionPlan},
 };
 use arrow::{
     array::StringArray,
@@ -28,7 +28,7 @@ use arrow::{
     record_batch::{RecordBatch, RecordBatchReader},
 };
 
-use crate::execution::physical_plan::Partitioning;
+use crate::physical_plan::Partitioning;
 use std::sync::{Arc, Mutex};
 
 /// Explain execution plan operator. This operator contains the string
