@@ -520,8 +520,9 @@ fn register_aggregate_csv_by_sql(ctx: &mut ExecutionContext) {
 
     // TODO: The following c9 should be migrated to UInt32 and c10 should be UInt64 once
     // unsigned is supported.
-    ctx.sql(&format!(
-        "
+    let df = ctx
+        .sql(&format!(
+            "
     CREATE EXTERNAL TABLE aggregate_test_100 (
         c1  VARCHAR NOT NULL,
         c2  INT NOT NULL,
@@ -541,9 +542,17 @@ fn register_aggregate_csv_by_sql(ctx: &mut ExecutionContext) {
     WITH HEADER ROW
     LOCATION '{}/csv/aggregate_test_100.csv'
     ",
-        testdata
-    ))
-    .unwrap();
+            testdata
+        ))
+        .expect("Creating dataframe for CREATE EXTERNAL TABLE");
+
+    // Mimic the CLI and execute the resulting plan -- even though it
+    // is effectively a no-op (returns zero rows)
+    let results = df.collect().expect("Executing CREATE EXTERNAL TABLE");
+    assert!(
+        results.is_empty(),
+        "Expected no rows from executing CREATE EXTERNAL TABLE"
+    );
 }
 
 fn register_aggregate_csv(ctx: &mut ExecutionContext) -> Result<()> {

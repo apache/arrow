@@ -132,6 +132,7 @@ pub trait Accumulator: Debug {
 
 pub mod common;
 pub mod csv;
+pub mod empty;
 pub mod explain;
 pub mod expressions;
 pub mod filter;
