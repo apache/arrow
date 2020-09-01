@@ -22,25 +22,23 @@ use std::sync::Arc;
 use super::{empty::EmptyExec, expressions::binary, functions};
 use crate::error::{ExecutionError, Result};
 use crate::execution::context::ExecutionContextState;
-use crate::execution::physical_plan::csv::{CsvExec, CsvReadOptions};
-use crate::execution::physical_plan::explain::ExplainExec;
-use crate::execution::physical_plan::expressions::{
+use crate::logical_plan::{Expr, LogicalPlan, PlanType, StringifiedPlan};
+use crate::physical_plan::csv::{CsvExec, CsvReadOptions};
+use crate::physical_plan::explain::ExplainExec;
+use crate::physical_plan::expressions::{
     Avg, Column, Count, Literal, Max, Min, PhysicalSortExpr, Sum,
 };
-use crate::execution::physical_plan::filter::FilterExec;
-use crate::execution::physical_plan::hash_aggregate::{AggregateMode, HashAggregateExec};
-use crate::execution::physical_plan::limit::{GlobalLimitExec, LocalLimitExec};
-use crate::execution::physical_plan::memory::MemoryExec;
-use crate::execution::physical_plan::merge::MergeExec;
-use crate::execution::physical_plan::parquet::ParquetExec;
-use crate::execution::physical_plan::projection::ProjectionExec;
-use crate::execution::physical_plan::sort::SortExec;
-use crate::execution::physical_plan::udf::ScalarFunctionExpr;
-use crate::execution::physical_plan::{expressions, Distribution};
-use crate::execution::physical_plan::{
-    AggregateExpr, ExecutionPlan, PhysicalExpr, PhysicalPlanner,
-};
-use crate::logicalplan::{Expr, LogicalPlan, PlanType, StringifiedPlan};
+use crate::physical_plan::filter::FilterExec;
+use crate::physical_plan::hash_aggregate::{AggregateMode, HashAggregateExec};
+use crate::physical_plan::limit::{GlobalLimitExec, LocalLimitExec};
+use crate::physical_plan::memory::MemoryExec;
+use crate::physical_plan::merge::MergeExec;
+use crate::physical_plan::parquet::ParquetExec;
+use crate::physical_plan::projection::ProjectionExec;
+use crate::physical_plan::sort::SortExec;
+use crate::physical_plan::udf::ScalarFunctionExpr;
+use crate::physical_plan::{expressions, Distribution};
+use crate::physical_plan::{AggregateExpr, ExecutionPlan, PhysicalExpr, PhysicalPlanner};
 use arrow::compute::SortOptions;
 use arrow::datatypes::Schema;
 
@@ -478,8 +476,8 @@ fn tuple_err<T, R>(value: (Result<T>, Result<R>)) -> Result<(T, R)> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::execution::physical_plan::csv::CsvReadOptions;
-    use crate::logicalplan::{aggregate_expr, col, lit, LogicalPlanBuilder};
+    use crate::logical_plan::{aggregate_expr, col, lit, LogicalPlanBuilder};
+    use crate::physical_plan::csv::CsvReadOptions;
     use crate::{prelude::ExecutionConfig, test::arrow_testdata_path};
     use std::collections::HashMap;
 

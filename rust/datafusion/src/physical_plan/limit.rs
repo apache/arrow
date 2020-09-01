@@ -20,8 +20,8 @@
 use std::sync::{Arc, Mutex};
 
 use crate::error::{ExecutionError, Result};
-use crate::execution::physical_plan::memory::MemoryIterator;
-use crate::execution::physical_plan::{Distribution, ExecutionPlan, Partitioning};
+use crate::physical_plan::memory::MemoryIterator;
+use crate::physical_plan::{Distribution, ExecutionPlan, Partitioning};
 use arrow::array::ArrayRef;
 use arrow::compute::limit;
 use arrow::datatypes::SchemaRef;
@@ -215,9 +215,9 @@ fn collect_with_limit(
 mod tests {
 
     use super::*;
-    use crate::execution::physical_plan::common;
-    use crate::execution::physical_plan::csv::{CsvExec, CsvReadOptions};
-    use crate::execution::physical_plan::merge::MergeExec;
+    use crate::physical_plan::common;
+    use crate::physical_plan::csv::{CsvExec, CsvReadOptions};
+    use crate::physical_plan::merge::MergeExec;
     use crate::test;
 
     #[test]

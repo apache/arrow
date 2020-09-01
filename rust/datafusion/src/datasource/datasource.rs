@@ -21,7 +21,7 @@ use std::sync::Arc;
 
 use crate::arrow::datatypes::SchemaRef;
 use crate::error::Result;
-use crate::execution::physical_plan::ExecutionPlan;
+use crate::physical_plan::ExecutionPlan;
 
 /// Source table
 pub trait TableProvider {

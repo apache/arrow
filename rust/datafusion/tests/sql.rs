@@ -28,8 +28,8 @@ use arrow::record_batch::RecordBatch;
 use datafusion::datasource::{csv::CsvReadOptions, MemTable};
 use datafusion::error::Result;
 use datafusion::execution::context::ExecutionContext;
-use datafusion::execution::physical_plan::udf::ScalarFunction;
-use datafusion::logicalplan::LogicalPlan;
+use datafusion::logical_plan::LogicalPlan;
+use datafusion::physical_plan::udf::ScalarFunction;
 
 #[test]
 fn nyc() -> Result<()> {

@@ -21,8 +21,8 @@ use std::fs::File;
 use std::sync::{Arc, Mutex};
 
 use crate::error::{ExecutionError, Result};
-use crate::execution::physical_plan::ExecutionPlan;
-use crate::execution::physical_plan::{common, Partitioning};
+use crate::physical_plan::ExecutionPlan;
+use crate::physical_plan::{common, Partitioning};
 use arrow::csv;
 use arrow::datatypes::{Schema, SchemaRef};
 use arrow::error::Result as ArrowResult;

@@ -21,14 +21,14 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use crate::error::{ExecutionError, Result};
-use crate::logicalplan::Expr::Alias;
-use crate::logicalplan::{
+use crate::logical_plan::Expr::Alias;
+use crate::logical_plan::{
     lit, Expr, LogicalPlan, LogicalPlanBuilder, Operator, PlanType, ScalarValue,
     StringifiedPlan,
 };
 use crate::{
-    execution::physical_plan::functions,
-    execution::physical_plan::udf::ScalarFunction,
+    physical_plan::functions,
+    physical_plan::udf::ScalarFunction,
     sql::parser::{CreateExternalTable, FileType, Statement as DFStatement},
 };
 

@@ -30,7 +30,7 @@ use crate::datasource::parquet::ParquetTable;
 use crate::datasource::TableProvider;
 use crate::error::{ExecutionError, Result};
 use crate::{
-    execution::physical_plan::{expressions::binary_operator_data_type, functions},
+    physical_plan::{expressions::binary_operator_data_type, functions},
     sql::parser::FileType,
 };
 use arrow::record_batch::RecordBatch;
@@ -523,7 +523,7 @@ impl Expr {
     /// Create a sort expression from an existing expression.
     ///
     /// ```
-    /// # use datafusion::logicalplan::col;
+    /// # use datafusion::logical_plan::col;
     /// let sort_expr = col("foo").sort(true, true); // SORT ASC NULLS_FIRST
     /// ```
     pub fn sort(&self, asc: bool, nulls_first: bool) -> Expr {

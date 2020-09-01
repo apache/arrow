@@ -23,9 +23,9 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use crate::error::{ExecutionError, Result};
-use crate::execution::physical_plan::common::get_scalar_value;
-use crate::execution::physical_plan::{Accumulator, AggregateExpr, PhysicalExpr};
-use crate::logicalplan::{Operator, ScalarValue};
+use crate::logical_plan::{Operator, ScalarValue};
+use crate::physical_plan::common::get_scalar_value;
+use crate::physical_plan::{Accumulator, AggregateExpr, PhysicalExpr};
 use arrow::array::{
     ArrayRef, BooleanArray, Float32Array, Float64Array, Int16Array, Int32Array,
     Int64Array, Int8Array, StringArray, TimestampNanosecondArray, UInt16Array,
@@ -1527,7 +1527,7 @@ impl PhysicalSortExpr {
 mod tests {
     use super::*;
     use crate::error::Result;
-    use crate::execution::physical_plan::common::get_scalar_value;
+    use crate::physical_plan::common::get_scalar_value;
     use arrow::array::{
         LargeStringArray, PrimitiveArray, StringArray, Time64NanosecondArray,
     };

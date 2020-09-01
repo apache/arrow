@@ -26,11 +26,9 @@ use arrow::datatypes::SchemaRef;
 use arrow::record_batch::{RecordBatch, RecordBatchReader};
 
 use crate::error::{ExecutionError, Result};
-use crate::execution::physical_plan::common::RecordBatchIterator;
-use crate::execution::physical_plan::expressions::PhysicalSortExpr;
-use crate::execution::physical_plan::{
-    common, Distribution, ExecutionPlan, Partitioning,
-};
+use crate::physical_plan::common::RecordBatchIterator;
+use crate::physical_plan::expressions::PhysicalSortExpr;
+use crate::physical_plan::{common, Distribution, ExecutionPlan, Partitioning};
 
 /// Sort execution plan
 #[derive(Debug)]
@@ -169,9 +167,9 @@ impl ExecutionPlan for SortExec {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::execution::physical_plan::csv::{CsvExec, CsvReadOptions};
-    use crate::execution::physical_plan::expressions::col;
-    use crate::execution::physical_plan::merge::MergeExec;
+    use crate::physical_plan::csv::{CsvExec, CsvReadOptions};
+    use crate::physical_plan::expressions::col;
+    use crate::physical_plan::merge::MergeExec;
     use crate::test;
     use arrow::array::*;
     use arrow::datatypes::*;

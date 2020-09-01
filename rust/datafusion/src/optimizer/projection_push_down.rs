@@ -19,7 +19,7 @@
 //! loaded into memory
 
 use crate::error::{ExecutionError, Result};
-use crate::logicalplan::LogicalPlan;
+use crate::logical_plan::LogicalPlan;
 use crate::optimizer::optimizer::OptimizerRule;
 use crate::optimizer::utils;
 use arrow::datatypes::{Field, Schema};
@@ -336,8 +336,8 @@ fn optimize_plan(
 mod tests {
 
     use super::*;
-    use crate::logicalplan::{col, lit};
-    use crate::logicalplan::{Expr, LogicalPlanBuilder};
+    use crate::logical_plan::{col, lit};
+    use crate::logical_plan::{Expr, LogicalPlanBuilder};
     use crate::test::*;
     use arrow::datatypes::DataType;
 

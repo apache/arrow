@@ -23,7 +23,7 @@ use crate::arrow::record_batch::RecordBatch;
 use crate::dataframe::*;
 use crate::error::Result;
 use crate::execution::context::{ExecutionContext, ExecutionContextState};
-use crate::logicalplan::{col, Expr, LogicalPlan, LogicalPlanBuilder};
+use crate::logical_plan::{col, Expr, LogicalPlan, LogicalPlanBuilder};
 use arrow::datatypes::Schema;
 
 /// Implementation of DataFrame API
@@ -131,7 +131,7 @@ mod tests {
     use super::*;
     use crate::datasource::csv::CsvReadOptions;
     use crate::execution::context::ExecutionContext;
-    use crate::logicalplan::*;
+    use crate::logical_plan::*;
     use crate::test;
 
     #[test]
