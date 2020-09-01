@@ -43,7 +43,7 @@ Concrete Subclasses
    HadoopFileSystem
    SubTreeFileSystem
 
-To define filesystems with behavior implemented in Python.
+To define filesystems with behavior implemented in Python:
 
 .. autosummary::
    :toctree: ../generated/

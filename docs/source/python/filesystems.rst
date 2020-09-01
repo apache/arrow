@@ -63,10 +63,10 @@ Reading and writing files
 
 Several of the IO-related functions in PyArrow accept either a URI (and infer
 the filesystem) or an explicit ``filesystem`` argument to specify the filesystem
-to read or write from. For example the :meth:`pyarrow.parquet.read_table`
+to read or write from. For example, the :meth:`pyarrow.parquet.read_table`
 function can be used in the following ways::
 
-   # using a URI
+   # using a URI -> filesystem is inferred
    pq.read_table("s3://my-bucket")
    # using a path and filesystem
    s3 = fs.S3FileSystem(..)
@@ -75,6 +75,8 @@ function can be used in the following ways::
 The filesystem interface further allows to open files for reading (input) or
 writing (output) directly, which can be combined with functions that work with
 file-like objects. For example::
+
+   local = fs.LocalFileSystem()
 
    with local.open_output_stream("test.arrow") as file:
       with pa.RecordBatchFileWriter(file, table.schema) as writer:
@@ -85,8 +87,8 @@ Listing files
 ~~~~~~~~~~~~~
 
 Inspecting the directories and files on a filesystem can be done with the
-:meth:`FileSystem.get_file_info` method. To list the the contents of a
-directory, use the :class`FileSelector` object to specify the selection::
+:meth:`FileSystem.get_file_info` method. To list the contents of a directory,
+use the :class:`FileSelector` object to specify the selection::
 
    >>> local.get_file_info(fs.FileSelector("dataset/", recursive=True))
    [<FileInfo for 'dataset/part=B': type=FileType.Directory>,
@@ -100,19 +102,20 @@ the type (file or directory), the size, the date last modified, etc.
 You can also get this information for a single explicit path (or list of
 paths)::
 
-   >>> local.get_file_info(['test.arrow'])[0]
+   >>> local.get_file_info('test.arrow')
    <FileInfo for 'test.arrow': type=FileType.File, size=3250>
 
-   >>> local.get_file_info(['non_existent'])
+   >>> local.get_file_info('non_existent')
    [<FileInfo for 'non_existent': type=FileType.NotFound>]
 
 S3
 --
 
 The :class:`S3FileSystem` constructor has several options to configure the S3
-connection. In addition, it will also read configured S3 credentials (for
-example by setting the ``AWS_ACCESS_KEY_ID`` and ``AWS_SECRET_ACCESS_KEY``
-environment variables).
+connection (e.g. credentials, the region, an endpoint override, etc). In
+addition, the constructor will also inspect configured S3 credentials as
+supported by AWS (for example the ``AWS_ACCESS_KEY_ID`` and
+``AWS_SECRET_ACCESS_KEY`` environment variables).
 
 Example how you can read contents from a S3 bucket::
 
@@ -142,16 +145,16 @@ Hadoop File System (HDFS)
 
 PyArrow comes with bindings to the Hadoop File System (based on C++ bindings
 using ``libhdfs``, a JNI-based interface to the Java Hadoop client). You connect
-using the `class`:HadoopFileSystem: constructor::
+using the :class:`HadoopFileSystem` constructor::
 
 .. code-block:: python
 
    from pyarrow import fs
    hdfs = fs.HadoopFileSystem(host, port, user=user, kerb_ticket=ticket_cache_path)
 
-The ``libhdfs`` library is loaded **at runtime**
-(rather than at link / library load time, since the library may not be in your
-LD_LIBRARY_PATH), and relies on some environment variables.
+The ``libhdfs`` library is loaded **at runtime** (rather than at link / library
+load time, since the library may not be in your LD_LIBRARY_PATH), and relies on
+some environment variables.
 
 * ``HADOOP_HOME``: the root of your installed Hadoop distribution. Often has
   `lib/native/libhdfs.so`.
