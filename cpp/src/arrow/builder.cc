@@ -40,6 +40,7 @@ struct DictionaryBuilderCase {
     return CreateFor<ValueType>();
   }
 
+  Status Visit(const NullType&) { return CreateFor<NullType>(); }
   Status Visit(const BinaryType&) { return Create<BinaryDictionaryBuilder>(); }
   Status Visit(const StringType&) { return Create<StringDictionaryBuilder>(); }
   Status Visit(const FixedSizeBinaryType&) { return CreateFor<FixedSizeBinaryType>(); }
@@ -59,17 +60,21 @@ struct DictionaryBuilderCase {
 
   template <typename BuilderType>
   Status Create() {
+    BuilderType* builder;
     if (dictionary != nullptr) {
-      out->reset(new BuilderType(dictionary, pool));
+      builder = new BuilderType(dictionary, pool);
     } else {
-      out->reset(new BuilderType(value_type, pool));
+      auto start_int_size = internal::GetByteWidth(*index_type);
+      builder = new BuilderType(start_int_size, value_type, pool);
     }
+    out->reset(builder);
     return Status::OK();
   }
 
   Status Make() { return VisitTypeInline(*value_type, this); }
 
   MemoryPool* pool;
+  const std::shared_ptr<DataType>& index_type;
   const std::shared_ptr<DataType>& value_type;
   const std::shared_ptr<Array>& dictionary;
   std::unique_ptr<ArrayBuilder>* out;
@@ -129,7 +134,8 @@ Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
 
     case Type::DICTIONARY: {
       const auto& dict_type = static_cast<const DictionaryType&>(*type);
-      DictionaryBuilderCase visitor = {pool, dict_type.value_type(), nullptr, out};
+      DictionaryBuilderCase visitor = {pool, dict_type.index_type(),
+                                       dict_type.value_type(), nullptr, out};
       return visitor.Make();
     }
 
@@ -199,7 +205,8 @@ Status MakeDictionaryBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& 
                              const std::shared_ptr<Array>& dictionary,
                              std::unique_ptr<ArrayBuilder>* out) {
   const auto& dict_type = static_cast<const DictionaryType&>(*type);
-  DictionaryBuilderCase visitor = {pool, dict_type.value_type(), dictionary, out};
+  DictionaryBuilderCase visitor = {pool, dict_type.index_type(), dict_type.value_type(),
+                                   dictionary, out};
   return visitor.Make();
 }
 
