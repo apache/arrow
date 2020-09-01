@@ -656,7 +656,11 @@ fn result_str(results: &[RecordBatch]) -> Vec<String> {
                     DataType::Utf8 => {
                         let array =
                             column.as_any().downcast_ref::<StringArray>().unwrap();
-                        let s = array.value(row_index);
+                        let s = if array.is_null(row_index) {
+                            "NULL"
+                        } else {
+                            array.value(row_index)
+                        };
 
                         str.push_str(&format!("{:?}", s));
                     }
@@ -717,7 +721,7 @@ fn query_concat() -> Result<()> {
     ctx.register_table("test", Box::new(table));
     let sql = "SELECT concat(c1, '-hi-', cast(c2 as varchar)) FROM test";
     let actual = execute(&mut ctx, sql);
-    let expected = vec!["\"-hi-0\"", "\"a-hi-1\"", "\"\"", "\"aaa-hi-3\""];
+    let expected = vec!["\"-hi-0\"", "\"a-hi-1\"", "\"NULL\"", "\"aaa-hi-3\""];
     assert_eq!(expected, actual);
     Ok(())
 }
