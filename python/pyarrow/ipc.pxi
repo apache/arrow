@@ -358,7 +358,6 @@ cdef class _CRecordBatchWriter(_Weakrefable):
 
 cdef class _RecordBatchStreamWriter(_CRecordBatchWriter):
     cdef:
-        shared_ptr[COutputStream] sink
         CIpcWriteOptions options
         bint closed
 
@@ -378,14 +377,17 @@ cdef class _RecordBatchStreamWriter(_CRecordBatchWriter):
         # For testing (see test_ipc.py)
         return _wrap_metadata_version(self.options.metadata_version)
 
-    def _open(self, sink, Schema schema,
+    def _open(self, sink, Schema schema not None,
               IpcWriteOptions options=IpcWriteOptions()):
+        cdef:
+            shared_ptr[COutputStream] c_sink
+
         self.options = options.c_options
-        get_writer(sink, &self.sink)
+        get_writer(sink, &c_sink)
         with nogil:
             self.writer = GetResultValue(
-                NewStreamWriter(self.sink.get(), schema.sp_schema,
-                                self.options))
+                MakeStreamWriter(c_sink, schema.sp_schema,
+                                 self.options))
 
 
 cdef _get_input_stream(object source, shared_ptr[CInputStream]* out):
@@ -474,13 +476,16 @@ cdef class _RecordBatchStreamReader(_CRecordBatchReader):
 
 cdef class _RecordBatchFileWriter(_RecordBatchStreamWriter):
 
-    def _open(self, sink, Schema schema,
+    def _open(self, sink, Schema schema not None,
               IpcWriteOptions options=IpcWriteOptions()):
+        cdef:
+            shared_ptr[COutputStream] c_sink
+
         self.options = options.c_options
-        get_writer(sink, &self.sink)
+        get_writer(sink, &c_sink)
         with nogil:
             self.writer = GetResultValue(
-                NewFileWriter(self.sink.get(), schema.sp_schema, self.options))
+                MakeFileWriter(c_sink, schema.sp_schema, self.options))
 
 
 cdef class _RecordBatchFileReader(_Weakrefable):

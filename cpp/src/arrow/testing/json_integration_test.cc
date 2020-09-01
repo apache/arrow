@@ -84,8 +84,8 @@ static Status ConvertJsonToArrow(const std::string& json_path,
               << reader->schema()->ToString(/* show_metadata = */ true) << std::endl;
   }
 
-  ARROW_ASSIGN_OR_RAISE(auto writer, ipc::NewFileWriter(out_file.get(), reader->schema(),
-                                                        IpcWriteOptions::Defaults()));
+  ARROW_ASSIGN_OR_RAISE(auto writer, ipc::MakeFileWriter(out_file, reader->schema(),
+                                                         IpcWriteOptions::Defaults()));
   for (int i = 0; i < reader->num_record_batches(); ++i) {
     std::shared_ptr<RecordBatch> batch;
     RETURN_NOT_OK(reader->ReadRecordBatch(i, &batch));
