@@ -413,7 +413,9 @@ cdef class FileSystem(_Weakrefable):
 
         Returns
         -------
-        file_infos : list of FileInfo
+        FileInfo or list of FileInfo
+            Single FileInfo object is returned for a single path, otherwise
+            a list of FileInfo objects is returned.
         """
         cdef:
             CFileInfo info
