@@ -330,7 +330,7 @@ TEST(BuiltinConversionTest, TestMixedTypeFails) {
   ASSERT_EQ(PyList_SetItem(list, 2, doub), 0);
 
   std::shared_ptr<ChunkedArray> arr;
-  ASSERT_RAISES(TypeError, ConvertPySequence(list, {}, &arr));
+  ASSERT_RAISES(TypeError, ConvertPySequence(list, nullptr, {}, &arr));
 }
 
 TEST_F(DecimalTest, FromPythonDecimalRescaleNotTruncateable) {
@@ -424,10 +424,10 @@ TEST_F(DecimalTest, TestNoneAndNaN) {
 
   std::shared_ptr<ChunkedArray> arr, arr_from_pandas;
   PyConversionOptions options;
-  ASSERT_RAISES(TypeError, ConvertPySequence(list, options, &arr));
+  ASSERT_RAISES(TypeError, ConvertPySequence(list, nullptr, options, &arr));
 
   options.from_pandas = true;
-  ASSERT_OK(ConvertPySequence(list, options, &arr_from_pandas));
+  ASSERT_OK(ConvertPySequence(list, nullptr, options, &arr_from_pandas));
   auto c0 = arr_from_pandas->chunk(0);
   ASSERT_TRUE(c0->IsValid(0));
   ASSERT_TRUE(c0->IsNull(1));
@@ -452,7 +452,7 @@ TEST_F(DecimalTest, TestMixedPrecisionAndScale) {
   }
 
   std::shared_ptr<ChunkedArray> arr;
-  ASSERT_OK(ConvertPySequence(list, {}, &arr));
+  ASSERT_OK(ConvertPySequence(list, nullptr, {}, &arr));
   const auto& type = checked_cast<const DecimalType&>(*arr->type());
 
   int32_t expected_precision = 9;
@@ -477,7 +477,7 @@ TEST_F(DecimalTest, TestMixedPrecisionAndScaleSequenceConvert) {
   ASSERT_EQ(PyList_SetItem(list, 1, value2), 0);
 
   std::shared_ptr<ChunkedArray> arr;
-  ASSERT_OK(ConvertPySequence(list, {}, &arr));
+  ASSERT_OK(ConvertPySequence(list, nullptr, {}, &arr));
 
   const auto& type = checked_cast<const Decimal128Type&>(*arr->type());
   ASSERT_EQ(3, type.precision());

@@ -60,6 +60,8 @@ struct PyConversionOptions {
   /// timezone bugs (see ARROW-9528).  Should be removed
   /// after Arrow 2.0 release.
   bool ignore_timezone = false;
+
+  bool strict = false;
 };
 
 /// \brief Convert sequence (list, generator, NumPy array with dtype object) of
@@ -74,10 +76,6 @@ struct PyConversionOptions {
 ARROW_PYTHON_EXPORT
 Status ConvertPySequence(PyObject* obj, PyObject* mask,
                          const PyConversionOptions& options,
-                         std::shared_ptr<ChunkedArray>* out);
-
-ARROW_PYTHON_EXPORT
-Status ConvertPySequence(PyObject* obj, const PyConversionOptions& options,
                          std::shared_ptr<ChunkedArray>* out);
 
 }  // namespace py

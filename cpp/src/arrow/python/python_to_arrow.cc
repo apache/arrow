@@ -333,18 +333,30 @@ struct ValueConverter<Type, enable_if_integer<Type>> {
     }
   }
 
-  static Result<util::string_view> Convert(const StringType& type, const O& options,
-                                           I obj) {
-    // strict conversion, force output to be unicode / utf8 and validate that
-    // any binary values are utf8
+  template <typename T>
+  static enable_if_string_like<T, Result<std::pair<util::string_view, bool>>> Convert(
+      const T& type, const O& options, I obj) {
     bool is_utf8 = false;
     PyBytesView view;
-    RETURN_NOT_OK(view.FromString(obj, &is_utf8));
-    // TODO(kszucs): pass strict conversion in options
-    if (!is_utf8) {
-      return internal::InvalidValue(obj, "was not a utf8 string");
+    if (options.strict) {
+      // Strict conversion, force output to be unicode / utf8 and validate that
+      // any binary values are utf8
+      RETURN_NOT_OK(view.FromString(obj, &is_utf8));
+      if (!is_utf8) {
+        return internal::InvalidValue(obj, "was not a utf8 string");
+      }
+    } else {
+      // Non-strict conversion; keep track of whether values are unicode or bytes
+      if (PyUnicode_Check(obj)) {
+        is_utf8 = true;
+        RETURN_NOT_OK(view.FromUnicode(obj));
+      } else {
+        // If not unicode or bytes, FromBinary will error
+        is_utf8 = false;
+        RETURN_NOT_OK(view.FromBinary(obj));
+      }
     }
-    return util::string_view(view.bytes, view.size);
+    return std::make_pair(util::string_view(view.bytes, view.size), is_utf8);
   }
 
   static Result<bool> Convert(const DataType&, const O&, I obj) {
@@ -418,6 +430,44 @@ class PyPrimitiveArrayConverter<
       }
     }
   }
+};
+
+// For String/UTF8, if strict_conversions enabled, we reject any non-UTF8, otherwise we
+// allow but return results as BinaryArray
+template <typename T>
+class PyPrimitiveArrayConverter<T, enable_if_string_like<T>>
+    : public TypedArrayConverter<T, PyArrayConverter> {
+ public:
+  using TypedArrayConverter<T, PyArrayConverter>::TypedArrayConverter;
+
+  Status Append(PyObject* value) override {
+    if (PyValue::IsNull(this->type_, this->options_, value)) {
+      return this->builder_->AppendNull();
+    } else {
+      ARROW_ASSIGN_OR_RAISE(auto pair,
+                            PyValue::Convert(this->type_, this->options_, value));
+      if (!pair.second) {
+        // observed binary value
+        observed_binary_ = true;
+      }
+      return this->builder_->Append(pair.first);
+    }
+  }
+
+  Result<std::shared_ptr<Array>> Finish() override {
+    ARROW_ASSIGN_OR_RAISE(auto array,
+                          (TypedArrayConverter<T, PyArrayConverter>::Finish()));
+    if (observed_binary_) {
+      // If we saw any non-unicode, cast results to BinaryArray
+      auto binary_type = TypeTraits<typename T::PhysicalType>::type_singleton();
+      return array->View(binary_type);
+    } else {
+      return array;
+    }
+  }
+
+ protected:
+  bool observed_binary_ = false;
 };
 
 // If the value type does not match the expected NumPy dtype, then fall through
@@ -750,24 +800,25 @@ Status ConvertToSequenceAndInferSize(PyObject* obj, PyObject** seq, int64_t* siz
   return Status::OK();
 }
 
-Status ConvertPySequence(PyObject* sequence_source, PyObject* mask,
-                         const PyConversionOptions& options,
+Status ConvertPySequence(PyObject* obj, PyObject* mask, const PyConversionOptions& opts,
                          std::shared_ptr<ChunkedArray>* out) {
   PyAcquireGIL lock;
 
   PyObject* seq;
   OwnedRef tmp_seq_nanny;
+  PyConversionOptions options = opts;  // copy options struct since we modify it below
 
   std::shared_ptr<DataType> real_type;
 
   int64_t size = options.size;
-  RETURN_NOT_OK(ConvertToSequenceAndInferSize(sequence_source, &seq, &size));
+  RETURN_NOT_OK(ConvertToSequenceAndInferSize(obj, &seq, &size));
   tmp_seq_nanny.reset(seq);
 
   // In some cases, type inference may be "loose", like strings. If the user
   // passed pa.string(), then we will error if we encounter any non-UTF8
   // value. If not, then we will allow the result to be a BinaryArray
-  bool strict_conversions = false;
+  auto copied_options = options;
+  options.strict = false;
 
   if (options.type == nullptr) {
     RETURN_NOT_OK(InferArrowType(seq, mask, options.from_pandas, &real_type));
@@ -778,7 +829,7 @@ Status ConvertPySequence(PyObject* sequence_source, PyObject* mask,
     // }
   } else {
     real_type = options.type;
-    strict_conversions = true;
+    options.strict = true;
   }
   DCHECK_GE(size, 0);
 
@@ -798,11 +849,6 @@ Status ConvertPySequence(PyObject* sequence_source, PyObject* mask,
   ArrayVector chunks{result};
   *out = std::make_shared<ChunkedArray>(chunks, real_type);
   return Status::OK();
-}
-
-Status ConvertPySequence(PyObject* obj, const PyConversionOptions& options,
-                         std::shared_ptr<ChunkedArray>* out) {
-  return ConvertPySequence(obj, nullptr, options, out);
 }
 
 }  // namespace py
