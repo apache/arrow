@@ -99,7 +99,7 @@ public class TestFlightSQL {
             .setSchema("APP")
             .setTable("INTTABLE")
             .setTableType("TABLE")
-            .setSchemaMetadata(ByteString.copyFrom(SCHEMA_INT_TABLE.toByteArray()))
+            .setArrowMetadata(ByteString.copyFrom(SCHEMA_INT_TABLE.toByteArray()))
             .build();
 
     // Act
@@ -125,7 +125,7 @@ public class TestFlightSQL {
             .setSchema("APP")
             .setTable("INTTABLE")
             .setTableType("TABLE")
-            .setSchemaMetadata(ByteString.copyFrom(SCHEMA_INT_TABLE.toByteArray()))
+            .setArrowMetadata(ByteString.copyFrom(SCHEMA_INT_TABLE.toByteArray()))
             .build();
 
     // Act

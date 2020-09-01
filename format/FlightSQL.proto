@@ -25,8 +25,9 @@ package arrow.flight.protocol.sql;
  * Wrap the result of a "GetSQLCapabilities" action.
  */
 message ActionGetSQLCapabilitiesResult{
-  string identifierQuoteString = 1;
-  bool supportsExpressionsInOrderBy = 2;
+  map<string, bytes> custom_fields = 1;
+  string identifier_quote_string = 2;
+  bool supports_expressions_in_order_by = 3;
   // TODO add more capabilities.
 }
 
@@ -37,17 +38,16 @@ message ActionGetSQLCapabilitiesResult{
  */
 message ActionGetCatalogsRequest {
   /*
-   * True will ensure results are ordered alphabetically.
-   * False will not enforce ordering.
+   * Specifies the order of result values.
    */ 
-  bool orderResultsAlphabetically = 1;
+  ResultsOrder order = 1;
 }
 
 /*
  * Wrap the result of a "GetCatalogs" action.
  */
 message ActionGetCatalogsResult {
-  repeated string catalogNames = 1;
+  repeated string catalog = 1;
 }
 
 /*
@@ -57,10 +57,11 @@ message ActionGetCatalogsResult {
  */
 message ActionGetSchemasRequest {
   /*
-   * True will ensure results are ordered alphabetically.
-   * False will not enforce ordering.
-   */ 
-  bool orderResultsAlphabetically = 1;
+   * Specifies the order of result values with prescendence:
+   *  - catalog
+   *  - schema
+   */
+  ResultsOrder order = 1;
 
   /*
    * Specifies the Catalog to search for schemas.
@@ -68,7 +69,7 @@ message ActionGetSchemasRequest {
   string catalog = 2;
 
   // Specifies a filter pattern for schemas to search for.
-  string schemaFilterPattern = 3;
+  string schema_filter_pattern = 3;
 }
 
 /*
@@ -86,25 +87,28 @@ message ActionGetSchemasResult {
  */
 message ActionGetTablesRequest {
   /*
-   * True will ensure results are ordered alphabetically.
-   * False will not enforce ordering.
-   */ 
-  bool orderResultsAlphabetically = 1;
+   * Specifies the order of result values with prescendence:
+   *  - catalog
+   *  - schema
+   *  - table_type
+   *  - table
+   */
+  ResultsOrder order = 1;
 
   // Specifies the Catalog to search for schemas.
   string catalog = 2;
 
   // Specifies a filter pattern for schemas to search for.
-  string schemaFilterPattern = 3;
+  string schema_filter_pattern = 3;
 
   // Specifies a filter pattern for tables to search for.
-  string tableNameFilterPattern = 4;
+  string table_name_filter_pattern = 4;
 
   // Specifies a filter of table types which must match.
-  repeated string tableTypes = 5;
+  repeated string table_types = 5;
 
   // Specifies if the schema should be returned for found tables.
-  bool includeSchema = 6; 
+  bool include_schema = 6; 
 }
 
 /*
@@ -114,20 +118,20 @@ message ActionGetTablesResult {
   string catalog = 1;
   string schema = 2;
   string table = 3;
-  string tableType = 4;
+  string table_type = 4;
 
   /*
    * Schema of the dataset as described in Schema.fbs::Schema,
    * Null if includeSchema on request is false.
    */
-  bytes schemaMetadata = 5; 
+  bytes arrow_metadata = 5; 
 }
 
 /*
  * Wrap the result of a "GetTableTypes" action.
  */
 message ActionGetTableTypesResult {
-  string tableType = 1;
+  string table_type = 1;
 }
 
 // SQL Execution Action Messages
@@ -148,15 +152,15 @@ message ActionGetPreparedStatementRequest {
 message ActionGetPreparedStatementResult {
 
   // Opaque handle for the prepared statement on the server.
-  bytes preparedStatementHandle = 1;
+  bytes prepared_statement_handle = 1;
 
   // If a result set generating query was provided, datasetSchema contains the 
   // schema of the dataset as described in Schema.fbs::Schema.
-  bytes datasetSchema = 2;
+  bytes dataset_schema = 2;
 
   // If the query provided contained parameters, parameterSchema contains the 
   // Schema of the expected parameters as described in Schema.fbs::Schema.
-  bytes parameterSchema = 3;
+  bytes parameter_schema = 3;
 }
 
 /*
@@ -166,7 +170,7 @@ message ActionGetPreparedStatementResult {
  */
 message ActionClosePreparedStatementRequest {
   // Opaque handle for the prepared statement on the server.
-  string preparedStatementHandle = 1;
+  string prepared_statement_handle = 1;
 }
 
 
@@ -191,9 +195,9 @@ message CommandStatementQuery {
  */
 message CommandPreparedStatementQuery {
   // Unique identifier for the instance of the prepared statement to execute.
-  bytes clientExecutionHandle = 1; 
+  bytes client_execution_handle = 1; 
   // Opaque handle for the prepared statement on the server.
-  bytes preparedStatementHandle = 2;
+  bytes prepared_statement_handle = 2;
 }
 
 /*
@@ -213,9 +217,9 @@ message CommandStatementUpdate {
  */
 message CommandPreparedStatementUpdate {
   // Unique identifier for the instance of the prepared statement to execute.
-  bytes clientExecutionHandle = 1; 
+  bytes client_execution_handle = 1; 
   // Opaque handle for the prepared statement on the server.
-  bytes preparedStatementHandle = 2;
+  bytes prepared_statement_handle = 2;
 }
 
 /*
@@ -226,5 +230,19 @@ message CommandPreparedStatementUpdate {
 message DoPutUpdateResult {
   // The number of records updated. A return value of -1 represents 
   // an unknown updated record count.
-  int64 recordCount = 1; 
+  int64 record_count = 1; 
+}
+
+enum ResultsOrder {
+  // Protobuf pattern, not used.
+  UNKNOWN = 0;
+
+  // No ordering enforcement.
+  UNORDERED = 1;
+
+  // Order results by ascending value order.
+  ASCENDING = 2;
+
+  // Order results by descending value order.
+  DESCENDING = 3;
 }
