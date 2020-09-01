@@ -1598,7 +1598,7 @@ def read_table(source, columns=None, use_threads=True, metadata=None,
             from pyarrow.fs import _resolve_filesystem_and_path
             filesystem, path = _resolve_filesystem_and_path(source, filesystem)
             if filesystem is not None:
-                source = filesystem.open_output_stream(path)
+                source = filesystem.open_input_file(path)
             # TODO test that source is not a directory or a list
             dataset = ParquetFile(
                 source, metadata=metadata, read_dictionary=read_dictionary,
