@@ -2326,10 +2326,10 @@ TEST(TestAdaptiveUIntBuilderWithStartIntSize, TestReset) {
 
   ASSERT_OK(
       builder->Append(static_cast<uint64_t>(std::numeric_limits<uint16_t>::max()) + 1));
-  ASSERT_TRUE(uint32()->Equals(*builder->type()));
+  AssertTypeEqual(uint32(), builder->type());
 
   builder->Reset();
-  ASSERT_TRUE(uint16()->Equals(*builder->type()));
+  AssertTypeEqual(uint16(), builder->type());
 }
 
 // ----------------------------------------------------------------------

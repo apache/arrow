@@ -29,9 +29,20 @@
 
 namespace arrow {
 
-void ArrayBuilder::CheckArrayType(const std::shared_ptr<DataType>& expected_type,
-                                  const Array& array, const char* message) {
-  DCHECK(expected_type->Equals(*array.type())) << message;
+Status ArrayBuilder::CheckArrayType(const std::shared_ptr<DataType>& expected_type,
+                                    const Array& array, const char* message) {
+  if (!expected_type->Equals(*array.type())) {
+    return Status::TypeError(message);
+  }
+  return Status::OK();
+}
+
+Status ArrayBuilder::CheckArrayType(Type::type expected_type, const Array& array,
+                                    const char* message) {
+  if (array.type_id() != expected_type) {
+    return Status::TypeError(message);
+  }
+  return Status::OK();
 }
 
 Status ArrayBuilder::TrimBuffer(const int64_t bytes_filled, ResizableBuffer* buffer) {

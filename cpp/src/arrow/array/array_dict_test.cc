@@ -814,20 +814,17 @@ TEST(TestFixedSizeBinaryDictionaryBuilder, DoubleTableSize) {
   ASSERT_TRUE(expected.Equals(result));
 }
 
-TEST(TestFixedSizeBinaryDictionaryBuilder, InvalidTypeAppend) {
+#ifndef NDEBUG
+TEST(TestFixedSizeBinaryDictionaryBuilder, AppendArrayInvalidType) {
   // Build the dictionary Array
-  auto value_type = arrow::fixed_size_binary(4);
+  auto value_type = fixed_size_binary(4);
   DictionaryBuilder<FixedSizeBinaryType> builder(value_type);
   // Build an array with different byte width
-  FixedSizeBinaryBuilder fsb_builder(arrow::fixed_size_binary(5));
-  std::vector<uint8_t> value{100, 1, 1, 1, 1};
-  ASSERT_OK(fsb_builder.Append(value.data()));
-  std::shared_ptr<Array> fsb_array;
-  ASSERT_OK(fsb_builder.Finish(&fsb_array));
+  auto fsb_array = ArrayFromJSON(fixed_size_binary(3), R"(["foo", "bar"])");
 
-  ASSERT_DEBUG_DEATH({ (void)builder.AppendArray(*fsb_array); },
-                     "Cannot append FixedSizeBinary array with non-matching type");
+  ASSERT_RAISES(TypeError, builder.AppendArray(*fsb_array));
 }
+#endif
 
 TEST(TestDecimalDictionaryBuilder, Basic) {
   // Build the dictionary Array
@@ -934,7 +931,8 @@ TEST(TestNullDictionaryBuilder, Basic) {
   ASSERT_EQ(11, result->null_count());
 }
 
-TEST(TestNullDictionaryBuilder, AppendArrayTypeMismatch) {
+#ifndef NDEBUG
+TEST(TestNullDictionaryBuilder, AppendArrayInvalidType) {
   // MakeBuilder
   auto dict_type = dictionary(int8(), null());
   std::unique_ptr<ArrayBuilder> boxed_builder;
@@ -942,9 +940,9 @@ TEST(TestNullDictionaryBuilder, AppendArrayTypeMismatch) {
   auto& builder = checked_cast<DictionaryBuilder<NullType>&>(*boxed_builder);
 
   auto int8_array = ArrayFromJSON(int8(), "[0, 1, 0, null]");
-  ASSERT_DEBUG_DEATH({ (void)builder.AppendArray(*int8_array); },
-                     "Wrong value type of array to be appended");
+  ASSERT_RAISES(TypeError, builder.AppendArray(*int8_array));
 }
+#endif
 
 // ----------------------------------------------------------------------
 // Index byte width tests
