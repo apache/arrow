@@ -1595,8 +1595,11 @@ def read_table(source, columns=None, use_threads=True, metadata=None,
                     "the 'partitioning' keyword is not supported when the "
                     "pyarrow.dataset module is not available"
                 )
+            from pyarrow.fs import _resolve_filesystem_and_path
+            filesystem, path = _resolve_filesystem_and_path(source, filesystem)
+            if filesystem is not None:
+                source = filesystem.open_output_stream(path)
             # TODO test that source is not a directory or a list
-            # TODO check filesystem?
             dataset = ParquetFile(
                 source, metadata=metadata, read_dictionary=read_dictionary,
                 memory_map=memory_map, buffer_size=buffer_size)
