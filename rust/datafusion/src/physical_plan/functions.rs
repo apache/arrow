@@ -151,6 +151,14 @@ pub fn return_type(fun: &ScalarFunction, arg_types: &Vec<DataType>) -> Result<Da
     // verify that this is a valid set of data types for this function
     data_types(&arg_types, &signature(fun))?;
 
+    if arg_types.len() == 0 {
+        // functions currently cannot be evaluated without arguments, as they can't
+        // know the number of rows to return.
+        return Err(ExecutionError::General(
+            format!("Function '{}' requires at least one argument", fun).to_string(),
+        ));
+    }
+
     // the return type after coercion.
     // for now, this is type-independent, but there will be built-in functions whose return type
     // depends on the incoming type.
@@ -305,5 +313,17 @@ mod tests {
     #[test]
     fn test_concat_utf8() -> Result<()> {
         test_concat(ScalarValue::Utf8("aa".to_string()), "aaaa")
+    }
+
+    #[test]
+    fn test_concat_error() -> Result<()> {
+        let result = return_type(&ScalarFunction::Concat, &vec![]);
+        if let Ok(_) = result {
+            Err(ExecutionError::General(
+                "Function 'concat' cannot accept zero arguments".to_string(),
+            ))
+        } else {
+            Ok(())
+        }
     }
 }
