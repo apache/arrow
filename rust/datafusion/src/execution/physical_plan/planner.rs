@@ -345,23 +345,19 @@ impl DefaultPhysicalPlanner {
             }
             Expr::Literal(value) => Ok(Arc::new(Literal::new(value.clone()))),
             Expr::BinaryExpr { left, op, right } => {
-                let lhs =
-                    self.create_physical_expr(left, input_schema, ctx_state.clone())?;
-                let rhs =
-                    self.create_physical_expr(right, input_schema, ctx_state.clone())?;
+                let lhs = self.create_physical_expr(left, input_schema, ctx_state)?;
+                let rhs = self.create_physical_expr(right, input_schema, ctx_state)?;
                 binary(lhs, op.clone(), rhs, input_schema)
             }
             Expr::Cast { expr, data_type } => expressions::cast(
-                self.create_physical_expr(expr, input_schema, ctx_state.clone())?,
+                self.create_physical_expr(expr, input_schema, ctx_state)?,
                 input_schema,
                 data_type.clone(),
             ),
             Expr::ScalarFunction { fun, args } => {
                 let physical_args = args
                     .iter()
-                    .map(|e| {
-                        self.create_physical_expr(e, input_schema, ctx_state.clone())
-                    })
+                    .map(|e| self.create_physical_expr(e, input_schema, ctx_state))
                     .collect::<Result<Vec<_>>>()?;
                 functions::create_physical_expr(fun, &physical_args, input_schema)
             }
@@ -376,7 +372,7 @@ impl DefaultPhysicalPlanner {
                         physical_args.push(self.create_physical_expr(
                             e,
                             input_schema,
-                            ctx_state.clone(),
+                            ctx_state,
                         )?);
                     }
                     Ok(Arc::new(ScalarFunctionExpr::new(

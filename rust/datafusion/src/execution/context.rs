@@ -21,8 +21,10 @@ use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::Path;
 use std::string::String;
-use std::sync::{Arc, Mutex};
-use std::thread::{self, JoinHandle};
+use std::{
+    sync::Arc,
+    thread::{self, JoinHandle},
+};
 
 use arrow::csv;
 use arrow::datatypes::*;
@@ -93,7 +95,7 @@ use crate::sql::{
 /// ```
 pub struct ExecutionContext {
     /// Internal state for the context
-    pub state: Arc<Mutex<ExecutionContextState>>,
+    pub state: ExecutionContextState,
 }
 
 impl ExecutionContext {
@@ -105,27 +107,23 @@ impl ExecutionContext {
     /// Create a new execution context using the provided configuration
     pub fn with_config(config: ExecutionConfig) -> Self {
         let ctx = Self {
-            state: Arc::new(Mutex::new(ExecutionContextState {
+            state: ExecutionContextState {
                 datasources: HashMap::new(),
                 scalar_functions: HashMap::new(),
                 config,
-            })),
+            },
         };
         ctx
     }
 
     /// Create a context from existing context state
-    pub(crate) fn from(state: Arc<Mutex<ExecutionContextState>>) -> Self {
+    pub(crate) fn from(state: ExecutionContextState) -> Self {
         Self { state }
     }
 
     /// Get the configuration of this execution context
-    pub fn config(&self) -> ExecutionConfig {
-        self.state
-            .lock()
-            .expect("failed to lock mutex")
-            .config
-            .clone()
+    pub fn config(&self) -> &ExecutionConfig {
+        &self.state.config
     }
 
     /// Execute a SQL query and produce a Relation (a schema-aware iterator over a series
@@ -178,15 +176,15 @@ impl ExecutionContext {
         }
 
         // create a query planner
-        let state = self.state.lock().expect("failed to lock mutex");
-        let query_planner = SqlToRel::new(&*state);
+        let query_planner = SqlToRel::new(&self.state);
         Ok(query_planner.statement_to_plan(&statements[0])?)
     }
 
     /// Register a scalar UDF
     pub fn register_udf(&mut self, f: ScalarFunction) {
-        let mut state = self.state.lock().expect("failed to lock mutex");
-        state.scalar_functions.insert(f.name.clone(), Arc::new(f));
+        self.state
+            .scalar_functions
+            .insert(f.name.clone(), Arc::new(f));
     }
 
     /// Creates a DataFrame for reading a CSV data source.
@@ -251,26 +249,17 @@ impl ExecutionContext {
 
     /// Register a table using a custom TableProvider so that it can be referenced from SQL
     /// statements executed against this context.
-    pub fn register_table(
-        &mut self,
-        name: &str,
-        provider: Box<dyn TableProvider + Send + Sync>,
-    ) {
-        let mut ctx_state = self.state.lock().expect("failed to lock mutex");
-        ctx_state.datasources.insert(name.to_string(), provider);
+    pub fn register_table(&mut self, name: &str, provider: Box<dyn TableProvider>) {
+        self.state
+            .datasources
+            .insert(name.to_string(), provider.into());
     }
 
     /// Retrieves a DataFrame representing a table previously registered by calling the
     /// register_table function. An Err result will be returned if no table has been
     /// registered with the provided name.
     pub fn table(&mut self, table_name: &str) -> Result<Arc<dyn DataFrame>> {
-        match self
-            .state
-            .lock()
-            .expect("failed to lock mutex")
-            .datasources
-            .get(table_name)
-        {
+        match self.state.datasources.get(table_name) {
             Some(provider) => {
                 let schema = provider.schema().as_ref().clone();
                 let table_scan = LogicalPlan::TableScan {
@@ -294,13 +283,7 @@ impl ExecutionContext {
 
     /// The set of available tables. Use `table` to get a specific table.
     pub fn tables(&self) -> HashSet<String> {
-        self.state
-            .lock()
-            .expect("failed to lock mutex")
-            .datasources
-            .keys()
-            .cloned()
-            .collect()
+        self.state.datasources.keys().cloned().collect()
     }
 
     /// Optimize the logical plan by applying optimizer rules
@@ -316,12 +299,12 @@ impl ExecutionContext {
         &self,
         logical_plan: &LogicalPlan,
     ) -> Result<Arc<dyn ExecutionPlan>> {
-        let planner: Arc<dyn PhysicalPlanner> = match self.config().physical_planner {
-            Some(planner) => planner,
-            None => Arc::new(DefaultPhysicalPlanner::default()),
-        };
-        let ctx_state = self.state.lock().expect("Failed to aquire lock");
-        planner.create_physical_plan(logical_plan, &ctx_state)
+        if let Some(planner) = &self.config().physical_planner {
+            planner.create_physical_plan(logical_plan, &self.state)
+        } else {
+            let planner = DefaultPhysicalPlanner::default();
+            planner.create_physical_plan(logical_plan, &self.state)
+        }
     }
 
     /// Execute a physical plan and collect the results in memory
@@ -334,14 +317,7 @@ impl ExecutionContext {
             }
             _ => {
                 // merge into a single partition
-                let plan = MergeExec::new(
-                    plan.clone(),
-                    self.state
-                        .lock()
-                        .expect("failed to lock mutex")
-                        .config
-                        .concurrency,
-                );
+                let plan = MergeExec::new(plan.clone(), self.state.config.concurrency);
                 // MergeExec must produce a single partition
                 assert_eq!(1, plan.output_partitioning().partition_count());
                 common::collect(plan.execute(0)?)
@@ -395,11 +371,7 @@ impl ExecutionContext {
 
 impl ScalarFunctionRegistry for ExecutionContext {
     fn lookup(&self, name: &str) -> Option<Arc<ScalarFunction>> {
-        self.state
-            .lock()
-            .expect("failed to lock mutex")
-            .scalar_functions
-            .lookup(name)
+        self.state.scalar_functions.lookup(name)
     }
 }
 
@@ -451,9 +423,10 @@ impl ExecutionConfig {
 }
 
 /// Execution context for registering data sources and executing queries
+#[derive(Clone)]
 pub struct ExecutionContextState {
     /// Data sources that are registered with the context
-    pub datasources: HashMap<String, Box<dyn TableProvider + Send + Sync>>,
+    pub datasources: HashMap<String, Arc<dyn TableProvider>>,
     /// Scalar functions that are registered with the context
     pub scalar_functions: HashMap<String, Arc<ScalarFunction>>,
     /// Context configuration
@@ -578,14 +551,7 @@ mod tests {
         let tmp_dir = TempDir::new("execute")?;
         let ctx = create_ctx(&tmp_dir, 1)?;
 
-        let schema = ctx
-            .state
-            .lock()
-            .expect("failed to lock mutex")
-            .datasources
-            .get("test")
-            .unwrap()
-            .schema();
+        let schema = ctx.state.datasources.get("test").unwrap().schema();
         assert_eq!(schema.field_with_name("c1")?.is_nullable(), false);
 
         let plan = LogicalPlanBuilder::scan("default", "test", schema.as_ref(), None)?

@@ -17,7 +17,7 @@
 
 //! Implementation of DataFrame API
 
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use crate::arrow::record_batch::RecordBatch;
 use crate::dataframe::*;
@@ -28,13 +28,13 @@ use arrow::datatypes::Schema;
 
 /// Implementation of DataFrame API
 pub struct DataFrameImpl {
-    ctx_state: Arc<Mutex<ExecutionContextState>>,
+    ctx_state: ExecutionContextState,
     plan: LogicalPlan,
 }
 
 impl DataFrameImpl {
     /// Create a new Table based on an existing logical plan
-    pub fn new(ctx_state: Arc<Mutex<ExecutionContextState>>, plan: &LogicalPlan) -> Self {
+    pub fn new(ctx_state: ExecutionContextState, plan: &LogicalPlan) -> Self {
         Self {
             ctx_state,
             plan: plan.clone(),
