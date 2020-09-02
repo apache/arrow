@@ -43,12 +43,12 @@ message ActionGetSQLInfoResult {
  */
 message TGetSQLInfoValue {
   oneof value {
-    string stringValue = 1;
-    int32 integerValue = 2;
-    int32 integerBitmask = 3;
-    int32 integerFlag = 4;
-    bytes binaryValue = 5;
-    int64 longValue = 6;
+    string string_value = 1;
+    int32 integer_value = 2;
+    int32 integer_bitmask = 3;
+    int32 integer_flag = 4;
+    bytes binary_value = 5;
+    int64 long_value = 6;
   }
 }
 
