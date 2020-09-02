@@ -84,7 +84,7 @@ class ARROW_EXPORT CpuInfo {
   /// Returns all the flags for this cpu
   int64_t hardware_flags();
 
-  /// Returns whether of not the cpu supports all the flags
+  /// Returns whether or not the cpu supports all the flags
   bool IsSupported(int64_t flags) const { return (hardware_flags_ & flags) == flags; }
 
   /// \brief The processor supports SSE4.2 and the Arrow libraries are built
@@ -107,6 +107,7 @@ class ARROW_EXPORT CpuInfo {
   /// Returns the model name of the cpu (e.g. Intel i7-2600)
   std::string model_name();
 
+  /// Returns whether or not the cpu is provided by this vendor.
   bool IsVendor(Vendor vendor) const { return vendor == vendor_; }
 
  private:
