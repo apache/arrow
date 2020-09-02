@@ -175,11 +175,11 @@ message ActionGetPreparedStatementResult {
   // Opaque handle for the prepared statement on the server.
   bytes prepared_statement_handle = 1;
 
-  // If a result set generating query was provided, datasetSchema contains the 
+  // If a result set generating query was provided, dataset_schema contains the 
   // schema of the dataset as described in Schema.fbs::Schema.
   bytes dataset_schema = 2;
 
-  // If the query provided contained parameters, parameterSchema contains the 
+  // If the query provided contained parameters, parameter_schema contains the 
   // Schema of the expected parameters as described in Schema.fbs::Schema.
   bytes parameter_schema = 3;
 }
