@@ -164,6 +164,9 @@ fn topk_plan() -> Result<()> {
     let explain_query = format!("EXPLAIN VERBOSE {}", QUERY);
     let actual_output = exec_sql(&mut ctx, &explain_query)?;
 
+    // normalize newlines (output on windows uses \r\n)
+    let actual_output = actual_output.replace("\r\n", "\n");
+
     assert!(actual_output.contains(&expected) , "Expected output not present in actual output\nExpected:\n---------\n{}\nActual:\n--------\n{}", expected, actual_output);
     Ok(())
 }
