@@ -43,43 +43,43 @@ public final class FlightSQLUtils {
   private static final boolean IS_SIGNED_FALSE = false;
   private static final boolean IS_SIGNED_TRUE = true;
 
-  public static final ActionType FLIGHT_SQL_GETSQLCAPABILITIES = new ActionType("GetSQLCapabilities",
+  public static final ActionType FLIGHT_SQL_GETSQLINFO = new ActionType("GetSQLINFO",
           "Retrieves details of SQL capabilities of the Flight server. \n" +
                   "Request Message: N/A\n" +
-                  "Response Message: SQLCapabilitiesResult");
+                  "Response Message: ActionGetSQLInfoResult");
 
   public static final ActionType FLIGHT_SQL_GETCATALOGS = new ActionType("GetCatalogs",
           "Retrieves a list of all catalogs available on the server. \n" +
-                  "Request Message: GetCatalogsRequest\n" +
-                  "Response Message: GetCatalogsResult");
+                  "Request Message: ActionGetCatalogsRequest\n" +
+                  "Response Message: ActionGetCatalogsResult");
 
   public static final ActionType FLIGHT_SQL_GETSCHEMAS = new ActionType("GetSchemas",
           "Retrieves a list of schemas available on the server. \n" +
-                  "Request Message: GetSchemasRequest\n" +
-                  "Response Message: GetSchemasResult");
+                  "Request Message: ActionGetSchemasRequest\n" +
+                  "Response Message: ActionGetSchemasResult");
 
   public static final ActionType FLIGHT_SQL_GETTABLES = new ActionType("GetTables",
           "Retrieves a list of tables available on the server. \n" +
-                  "Request Message: GetTablesRequest\n" +
-                  "Response Message: GetTablesResult");
+                  "Request Message: ActionGetTablesRequest\n" +
+                  "Response Message: ActionGetTablesResult");
 
   public static final ActionType FLIGHT_SQL_GETTABLETYPES = new ActionType("GetTableTypes",
           "Retrieves a list of table types available on the server. \n" +
                   "Request Message: N/A\n" +
-                  "Response Message: GetTableTypesResult");
+                  "Response Message: ActionGetTableTypesResult");
 
   public static final ActionType FLIGHT_SQL_GETPREPAREDSTATEMENT = new ActionType("GetPreparedStatement",
           "Creates a reusable prepared statement resource on the server. \n" +
-                  "Request Message: ActionRequestGetPreparedStatement\n" +
-                  "Response Message: ActionResponseGetPreparedStatement");
+                  "Request Message: ActionGetPreparedStatementRequest\n" +
+                  "Response Message: ActionGetPreparedStatementResult");
 
   public static final ActionType FLIGHT_SQL_CLOSEPREPAREDSTATEMENT = new ActionType("ClosePreparedStatement",
           "Closes a reusable prepared statement resource on the server. \n" +
-                  "Request Message: ActionRequestClosePreparedStatement\n" +
+                  "Request Message: ActionClosePreparedStatementRequest\n" +
                   "Response Message: N/A");
 
   public static final List<ActionType> FLIGHT_SQL_ACTIONS = ImmutableList.of(
-          FLIGHT_SQL_GETSQLCAPABILITIES,
+          FLIGHT_SQL_GETSQLINFO,
           FLIGHT_SQL_GETCATALOGS,
           FLIGHT_SQL_GETSCHEMAS,
           FLIGHT_SQL_GETTABLES,
