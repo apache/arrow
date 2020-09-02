@@ -59,6 +59,12 @@ class ARROW_EXPORT CpuInfo {
     L3_CACHE = 2,
   };
 
+  enum Vendor {
+    VENDOR_UNKNOWN = 0,
+    VENDOR_INTEL,
+    VENDOR_AMD,
+  };
+
   /// The SIMD level set by user
   enum UserSimdLevel {
     USER_SIMD_NONE = 0,
@@ -101,6 +107,8 @@ class ARROW_EXPORT CpuInfo {
   /// Returns the model name of the cpu (e.g. Intel i7-2600)
   std::string model_name();
 
+  bool IsVendor(Vendor vendor) const { return vendor == vendor_; }
+
  private:
   CpuInfo();
 
@@ -118,6 +126,7 @@ class ARROW_EXPORT CpuInfo {
   int64_t cycles_per_ms_;
   int num_cores_;
   std::string model_name_;
+  Vendor vendor_;
 };
 
 }  // namespace internal
