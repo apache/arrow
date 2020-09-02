@@ -104,7 +104,7 @@ class ARROW_EXPORT CpuInfo {
   std::string model_name();
 
   /// Returns the vendor of the cpu.
-  Vendor vendor() const { return vendor_; };
+  Vendor vendor() const { return vendor_; }
 
  private:
   CpuInfo();
