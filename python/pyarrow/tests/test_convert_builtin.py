@@ -1664,3 +1664,85 @@ def test_map_from_tuples():
     for entry in [[(5,)], [()], [('5', 'foo', True)]]:
         with pytest.raises(ValueError, match="(?i)tuple size"):
             pa.array([entry], type=pa.map_('i4', 'i4'))
+
+
+def test_dictionary_from_boolean():
+    typ = pa.dictionary(pa.int8(), value_type=pa.bool_())
+    a = pa.array([False, False, True, False, True], type=typ)
+    assert isinstance(a.type, pa.DictionaryType)
+    assert a.type.equals(typ)
+
+    expected_indices = pa.array([0, 0, 1, 0, 1], type=pa.int8())
+    expected_dictionary = pa.array([False, True], type=pa.bool_())
+    assert a.indices.equals(expected_indices)
+    assert a.dictionary.equals(expected_dictionary)
+
+
+@pytest.mark.parametrize('value_type', [
+    pa.int8(),
+    pa.int16(),
+    pa.int32(),
+    pa.int64(),
+    pa.uint8(),
+    pa.uint16(),
+    pa.uint32(),
+    pa.uint64(),
+    pa.float32(),
+    pa.float64(),
+    pa.date32(),
+    pa.date64(),
+])
+def test_dictionary_from_integers(value_type):
+    typ = pa.dictionary(pa.int8(), value_type=value_type)
+    a = pa.array([1, 2, 1, 1, 2, 3], type=typ)
+    assert isinstance(a.type, pa.DictionaryType)
+    assert a.type.equals(typ)
+
+    expected_indices = pa.array([0, 1, 0, 0, 1, 2], type=pa.int8())
+    expected_dictionary = pa.array([1, 2, 3], type=value_type)
+    assert a.indices.equals(expected_indices)
+    assert a.dictionary.equals(expected_dictionary)
+
+
+# @pytest.mark.parametrize('input_index_type', [
+#     pa.int8(),
+#     pa.int16(),
+#     pa.int32(),
+#     pa.int64()
+# ])
+# def test_dictionary_is_always_adaptive(input_index_type):
+#     # dictionary array is constructed using adaptive index type builder,
+#     # meaning that the input index type is ignored since the output index
+#     # type depends on the input data
+#     typ = pa.dictionary(input_index_type, value_type=pa.int64())
+
+#     a = pa.array(range(2**7), type=typ)
+#     expected = pa.dictionary(pa.int8(), pa.int64())
+#     assert a.type.equals(expected)
+
+#     a = pa.array(range(2**7 + 1), type=typ)
+#     expected = pa.dictionary(pa.int16(), pa.int64())
+#     assert a.type.equals(expected)
+
+
+def test_dictionary_from_strings():
+    for value_type in [pa.binary(), pa.string()]:
+        typ = pa.dictionary(pa.int8(), value_type)
+        a = pa.array(["", "a", "bb", "a", "bb", "ccc"], type=typ)
+
+        assert isinstance(a.type, pa.DictionaryType)
+
+        expected_indices = pa.array([0, 1, 2, 1, 2, 3], type=pa.int8())
+        expected_dictionary = pa.array(["", "a", "bb", "ccc"], type=value_type)
+        assert a.indices.equals(expected_indices)
+        assert a.dictionary.equals(expected_dictionary)
+
+    # fixed size binary type
+    typ = pa.dictionary(pa.int8(), pa.binary(3))
+    a = pa.array(["aaa", "aaa", "bbb", "ccc", "bbb"], type=typ)
+    assert isinstance(a.type, pa.DictionaryType)
+
+    expected_indices = pa.array([0, 0, 1, 2, 1], type=pa.int8())
+    expected_dictionary = pa.array(["aaa", "bbb", "ccc"], type=pa.binary(3))
+    assert a.indices.equals(expected_indices)
+    assert a.dictionary.equals(expected_dictionary)

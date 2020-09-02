@@ -49,18 +49,12 @@ class ArrayConverter {
   const std::shared_ptr<DataType>& type() const { return sp_type_; }
   Options options() const { return options_; }
 
-  virtual Status Init() { return Status::OK(); };
+  virtual Status Init() { return Status::OK(); }
   virtual Status Reserve(int64_t additional_capacity) = 0;
-
   virtual Status Append(Input value) = 0;
   virtual Status AppendNull() = 0;
-
   virtual Status Extend(Input seq, int64_t size) = 0;
-
   virtual Result<std::shared_ptr<Array>> Finish() = 0;
-
-  // virtual Result<std::shared_ptr<Array>> ToArray(I value);
-  // virtual Result<std::shared_ptr<ChunkedArray>> ToChunkedArray(I value);
 
  protected:
   const std::shared_ptr<DataType> sp_type_;
@@ -68,11 +62,11 @@ class ArrayConverter {
   Options options_;
 };
 
-template <typename T, typename ArrayConverter>
+template <typename T, typename ArrayConverter,
+          typename BuilderType = typename TypeTraits<T>::BuilderType>
 class TypedArrayConverter : public ArrayConverter {
  public:
   using ArrayConverterType = ArrayConverter;
-  using BuilderType = typename TypeTraits<T>::BuilderType;
 
   TypedArrayConverter(const std::shared_ptr<DataType>& type,
                       std::shared_ptr<ArrayBuilder> builder,
@@ -92,6 +86,29 @@ class TypedArrayConverter : public ArrayConverter {
  protected:
   const T& type_;
   BuilderType* builder_;
+};
+
+// mostly for convenience
+template <typename T, typename ArrayConverter>
+class PrimitiveArrayConverter : public TypedArrayConverter<T, ArrayConverter> {
+ public:
+  using TypedArrayConverter<T, ArrayConverter>::TypedArrayConverter;
+};
+
+template <typename T, typename ArrayConverter>
+class DictionaryArrayConverter
+    : public TypedArrayConverter<DictionaryType, ArrayConverter, DictionaryBuilder<T>> {
+ public:
+  DictionaryArrayConverter(const std::shared_ptr<DataType>& type,
+                           std::shared_ptr<ArrayBuilder> builder,
+                           typename ArrayConverter::OptionsType options)
+      : TypedArrayConverter<DictionaryType, ArrayConverter, DictionaryBuilder<T>>(
+            type, builder, options),
+        value_type_(checked_cast<const T&>(
+            *checked_cast<const DictionaryType&>(*type).value_type())) {}
+
+ protected:
+  const T& value_type_;
 };
 
 template <typename T, typename ArrayConverter>
@@ -122,13 +139,21 @@ class StructArrayConverter : public TypedArrayConverter<T, ArrayConverter> {
   std::vector<std::shared_ptr<ArrayConverter>> child_converters_;
 };
 
+#define DICTIONARY_CASE(TYPE_ENUM, TYPE_CLASS)                                        \
+  case Type::TYPE_ENUM:                                                               \
+    out->reset(                                                                       \
+        new DictionaryArrayConverter<TYPE_CLASS>(type, std::move(builder), options)); \
+    break;
+
 template <typename Options, typename ArrayConverter,
           template <typename...> class PrimitiveArrayConverter,
+          template <typename...> class DictionaryArrayConverter,
           template <typename...> class ListArrayConverter,
           template <typename...> class StructArrayConverter>
 struct ArrayConverterBuilder {
   using Self = ArrayConverterBuilder<Options, ArrayConverter, PrimitiveArrayConverter,
-                                     ListArrayConverter, StructArrayConverter>;
+                                     DictionaryArrayConverter, ListArrayConverter,
+                                     StructArrayConverter>;
 
   Status Visit(const NullType& t) {
     // TODO: merge with the primitive c_type variant below, requires a NullType ctor which
@@ -195,6 +220,35 @@ struct ArrayConverterBuilder {
 
     out->reset(
         new MapConverter(type, std::move(builder), std::move(struct_converter), options));
+    return Status::OK();
+  }
+
+  Status Visit(const DictionaryType& t) {
+    std::unique_ptr<ArrayBuilder> builder;
+    ARROW_RETURN_NOT_OK(MakeDictionaryBuilder(pool, type, nullptr, &builder));
+
+    switch (t.value_type()->id()) {
+      DICTIONARY_CASE(BOOL, BooleanType);
+      DICTIONARY_CASE(INT8, Int8Type);
+      DICTIONARY_CASE(INT16, Int16Type);
+      DICTIONARY_CASE(INT32, Int32Type);
+      DICTIONARY_CASE(INT64, Int64Type);
+      DICTIONARY_CASE(UINT8, UInt8Type);
+      DICTIONARY_CASE(UINT16, UInt16Type);
+      DICTIONARY_CASE(UINT32, UInt32Type);
+      DICTIONARY_CASE(UINT64, UInt64Type);
+      DICTIONARY_CASE(HALF_FLOAT, HalfFloatType);
+      DICTIONARY_CASE(FLOAT, FloatType);
+      DICTIONARY_CASE(DOUBLE, DoubleType);
+      DICTIONARY_CASE(DATE32, Date32Type);
+      DICTIONARY_CASE(DATE64, Date64Type);
+      DICTIONARY_CASE(BINARY, BinaryType);
+      DICTIONARY_CASE(STRING, StringType);
+      DICTIONARY_CASE(FIXED_SIZE_BINARY, FixedSizeBinaryType);
+      default:
+        return Status::NotImplemented("DictionaryArray converter for type ", t.ToString(),
+                                      " not implemented");
+    }
     return Status::OK();
   }
 

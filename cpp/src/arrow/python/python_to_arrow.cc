@@ -359,8 +359,8 @@ struct ValueConverter<Type, enable_if_integer<Type>> {
     return std::make_pair(util::string_view(view.bytes, view.size), is_utf8);
   }
 
-  static Result<bool> Convert(const DataType&, const O&, I obj) {
-    return Status::NotImplemented("");
+  static Result<bool> Convert(const DataType& type, const O&, I obj) {
+    return Status::NotImplemented("PyValue::Convert is not implemented for type ", type);
   }
 };
 
@@ -395,9 +395,9 @@ class PyArrayConverter : public ArrayConverter<PyObject*, PyConversionOptions> {
 };
 
 template <typename T, typename Enable = void>
-class PyPrimitiveArrayConverter : public TypedArrayConverter<T, PyArrayConverter> {
+class PyPrimitiveArrayConverter : public PrimitiveArrayConverter<T, PyArrayConverter> {
  public:
-  using TypedArrayConverter<T, PyArrayConverter>::TypedArrayConverter;
+  using PrimitiveArrayConverter<T, PyArrayConverter>::PrimitiveArrayConverter;
 
   Status Append(PyObject* value) override {
     if (PyValue::IsNull(this->type_, this->options_, value)) {
@@ -413,9 +413,9 @@ class PyPrimitiveArrayConverter : public TypedArrayConverter<T, PyArrayConverter
 template <typename T>
 class PyPrimitiveArrayConverter<
     T, enable_if_t<is_timestamp_type<T>::value || is_duration_type<T>::value>>
-    : public TypedArrayConverter<T, PyArrayConverter> {
+    : public PrimitiveArrayConverter<T, PyArrayConverter> {
  public:
-  using TypedArrayConverter<T, PyArrayConverter>::TypedArrayConverter;
+  using PrimitiveArrayConverter<T, PyArrayConverter>::PrimitiveArrayConverter;
 
   Status Append(PyObject* value) override {
     if (PyValue::IsNull(this->type_, this->options_, value)) {
@@ -436,9 +436,9 @@ class PyPrimitiveArrayConverter<
 // allow but return results as BinaryArray
 template <typename T>
 class PyPrimitiveArrayConverter<T, enable_if_string_like<T>>
-    : public TypedArrayConverter<T, PyArrayConverter> {
+    : public PrimitiveArrayConverter<T, PyArrayConverter> {
  public:
-  using TypedArrayConverter<T, PyArrayConverter>::TypedArrayConverter;
+  using PrimitiveArrayConverter<T, PyArrayConverter>::PrimitiveArrayConverter;
 
   Status Append(PyObject* value) override {
     if (PyValue::IsNull(this->type_, this->options_, value)) {
@@ -463,6 +463,46 @@ class PyPrimitiveArrayConverter<T, enable_if_string_like<T>>
       return array->View(binary_type);
     } else {
       return array;
+    }
+  }
+
+ protected:
+  bool observed_binary_ = false;
+};
+
+template <typename T, typename Enable = void>
+class PyDictionaryArrayConverter : public DictionaryArrayConverter<T, PyArrayConverter> {
+ public:
+  using DictionaryArrayConverter<T, PyArrayConverter>::DictionaryArrayConverter;
+
+  Status Append(PyObject* value) override {
+    if (PyValue::IsNull(this->type_, this->options_, value)) {
+      return this->builder_->AppendNull();
+    } else {
+      ARROW_ASSIGN_OR_RAISE(auto converted,
+                            PyValue::Convert(this->value_type_, this->options_, value));
+      return this->builder_->Append(converted);
+    }
+  }
+};
+
+template <typename T>
+class PyDictionaryArrayConverter<T, enable_if_string_like<T>>
+    : public DictionaryArrayConverter<T, PyArrayConverter> {
+ public:
+  using DictionaryArrayConverter<T, PyArrayConverter>::DictionaryArrayConverter;
+
+  Status Append(PyObject* value) override {
+    if (PyValue::IsNull(this->value_type_, this->options_, value)) {
+      return this->builder_->AppendNull();
+    } else {
+      ARROW_ASSIGN_OR_RAISE(auto pair,
+                            PyValue::Convert(this->value_type_, this->options_, value));
+      if (!pair.second) {
+        // observed binary value
+        observed_binary_ = true;
+      }
+      return this->builder_->Append(pair.first);
     }
   }
 
@@ -754,8 +794,8 @@ class PyStructArrayConverter : public StructArrayConverter<T, PyArrayConverter> 
 // TODO(kszucs): find a better name
 using PyArrayConverterBuilder =
     ArrayConverterBuilder<PyConversionOptions, PyArrayConverter,
-                          PyPrimitiveArrayConverter, PyListArrayConverter,
-                          PyStructArrayConverter>;
+                          PyPrimitiveArrayConverter, PyDictionaryArrayConverter,
+                          PyListArrayConverter, PyStructArrayConverter>;
 
 // Convert *obj* to a sequence if necessary
 // Fill *size* to its length.  If >= 0 on entry, *size* is an upper size
