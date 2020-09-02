@@ -22,7 +22,7 @@ import static org.apache.arrow.flight.sql.FlightSQLUtils.FLIGHT_SQL_CLOSEPREPARE
 import static org.apache.arrow.flight.sql.FlightSQLUtils.FLIGHT_SQL_GETCATALOGS;
 import static org.apache.arrow.flight.sql.FlightSQLUtils.FLIGHT_SQL_GETPREPAREDSTATEMENT;
 import static org.apache.arrow.flight.sql.FlightSQLUtils.FLIGHT_SQL_GETSCHEMAS;
-import static org.apache.arrow.flight.sql.FlightSQLUtils.FLIGHT_SQL_GETSQLCAPABILITIES;
+import static org.apache.arrow.flight.sql.FlightSQLUtils.FLIGHT_SQL_GETSQLINFO;
 import static org.apache.arrow.flight.sql.FlightSQLUtils.FLIGHT_SQL_GETTABLES;
 import static org.apache.arrow.flight.sql.FlightSQLUtils.FLIGHT_SQL_GETTABLETYPES;
 
@@ -181,7 +181,7 @@ public abstract class FlightSQLProducer implements FlightProducer, AutoCloseable
   @Override
   public void doAction(CallContext context, Action action, StreamListener<Result> listener) {
 
-    if (action.getType().equals(FLIGHT_SQL_GETSQLCAPABILITIES.getType())) {
+    if (action.getType().equals(FLIGHT_SQL_GETSQLINFO.getType())) {
       getSqlCapabilities(context, listener);
 
     } else if (action.getType().equals(FLIGHT_SQL_GETCATALOGS.getType())) {

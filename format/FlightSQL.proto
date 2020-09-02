@@ -22,13 +22,34 @@ option java_package = "org.apache.arrow.flight.sql.impl";
 package arrow.flight.protocol.sql;
 
 /*
- * Wrap the result of a "GetSQLCapabilities" action.
+ * Wrap the result of a "GetSQLInfo" action.
  */
-message ActionGetSQLCapabilitiesResult{
-  map<string, bytes> custom_fields = 1;
-  string identifier_quote_string = 2;
-  bool supports_expressions_in_order_by = 3;
-  // TODO add more capabilities.
+message ActionGetSQLInfoResult {
+  /*
+   * Values are based on Apache Hive's Thrift Service and
+   * ODBC's CLIGetInfo() function. Possible types include:
+   *  - CLI_IDENTIFIER_QUOTE_CHAR
+   *  - CLI_ORDER_BY_COLUMNS_IN_SELECT
+   *  - TODO add more info types.
+   */
+  map<string, TGetSQLInfoValue> flight_sql_info = 1;
+
+  // Implementation specific custom SQLInfo values.
+  map<string, TGetSQLInfoValue> custom_info = 2;
+}
+
+/*
+ * Wrapper for values returned in ActionGetSQLInfoResult.
+ */
+message TGetSQLInfoValue {
+  oneof value {
+    string stringValue = 1;
+    int32 integerValue = 2;
+    int32 integerBitmask = 3;
+    int32 integerFlag = 4;
+    bytes binaryValue = 5;
+    int64 longValue = 6;
+  }
 }
 
 /*
@@ -233,16 +254,18 @@ message DoPutUpdateResult {
   int64 record_count = 1; 
 }
 
-enum ResultsOrder {
-  // Protobuf pattern, not used.
-  UNKNOWN = 0;
+message ResultsOrder {
+  enum orders {
+    // Protobuf pattern, not used.
+    UNKNOWN = 0;
 
-  // No ordering enforcement.
-  UNORDERED = 1;
+    // No ordering enforcement.
+    UNORDERED = 1;
 
-  // Order results by ascending value order.
-  ASCENDING = 2;
+    // Order results by ascending value order.
+    ASCENDING = 2;
 
-  // Order results by descending value order.
-  DESCENDING = 3;
+    // Order results by descending value order.
+    DESCENDING = 3;
+  }
 }
