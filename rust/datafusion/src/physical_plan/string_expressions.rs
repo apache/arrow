@@ -36,7 +36,12 @@ pub fn concatenate(args: &[ArrayRef]) -> Result<StringArray> {
     // downcast all arguments to strings
     let args = downcast_vec!(args, StringArray).collect::<Result<Vec<&StringArray>>>()?;
     // do not accept 0 arguments.
-    assert!(args.len() != 0);
+    if args.len() == 0 {
+        return Err(ExecutionError::InternalError(
+            "Concatenate was called with 0 arguments. It requires at least one."
+                .to_string(),
+        ));
+    }
 
     let mut builder = StringBuilder::new(args.len());
     // for each entry in the array
