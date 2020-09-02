@@ -991,129 +991,148 @@ impl fmt::Display for BinaryExpr {
     }
 }
 
-// Returns a formatted error about being impossible to coerce types for the binary operator.
-fn coercion_error<T>(
-    lhs_type: &DataType,
-    op: &Operator,
-    rhs_type: &DataType,
-) -> Result<T> {
-    Err(ExecutionError::General(
-        format!(
-            "The binary operator '{}' can't evaluate with lhs = '{:?}' and rhs = '{:?}'",
-            op, lhs_type, rhs_type
-        )
-        .to_string(),
-    ))
-}
-
 // the type that both lhs and rhs can be casted to for the purpose of a string computation
-fn string_coercion(
-    lhs_type: &DataType,
-    op: &Operator,
-    rhs_type: &DataType,
-) -> Result<DataType> {
+fn string_coercion(lhs_type: &DataType, rhs_type: &DataType) -> Option<DataType> {
     use arrow::datatypes::DataType::*;
     match (lhs_type, rhs_type) {
-        (Utf8, Utf8) => Ok(Utf8),
-        (LargeUtf8, Utf8) => Ok(LargeUtf8),
-        (Utf8, LargeUtf8) => Ok(LargeUtf8),
-        (LargeUtf8, LargeUtf8) => Ok(LargeUtf8),
-        _ => coercion_error(lhs_type, op, rhs_type),
+        (Utf8, Utf8) => Some(Utf8),
+        (LargeUtf8, Utf8) => Some(LargeUtf8),
+        (Utf8, LargeUtf8) => Some(LargeUtf8),
+        (LargeUtf8, LargeUtf8) => Some(LargeUtf8),
+        _ => None,
     }
 }
 
-/// coercion rule for numerical values
-pub fn numerical_coercion(
-    lhs_type: &DataType,
-    op: &Operator,
-    rhs_type: &DataType,
-) -> Result<DataType> {
+/// coercion rule for numerical types
+pub fn numerical_coercion(lhs_type: &DataType, rhs_type: &DataType) -> Option<DataType> {
     use arrow::datatypes::DataType::*;
 
     // error on any non-numeric type
     if !is_numeric(lhs_type) || !is_numeric(rhs_type) {
-        return coercion_error(lhs_type, op, rhs_type);
+        return None;
     };
 
     // same type => all good
     if lhs_type == rhs_type {
-        return Ok(lhs_type.clone());
+        return Some(lhs_type.clone());
     }
 
     // these are ordered from most informative to least informative so
     // that the coercion removes the least amount of information
     match (lhs_type, rhs_type) {
-        (Float64, _) => Ok(Float64),
-        (_, Float64) => Ok(Float64),
+        (Float64, _) => Some(Float64),
+        (_, Float64) => Some(Float64),
 
-        (_, Float32) => Ok(Float32),
-        (Float32, _) => Ok(Float32),
+        (_, Float32) => Some(Float32),
+        (Float32, _) => Some(Float32),
 
-        (Int64, _) => Ok(Int64),
-        (_, Int64) => Ok(Int64),
+        (Int64, _) => Some(Int64),
+        (_, Int64) => Some(Int64),
 
-        (Int32, _) => Ok(Int32),
-        (_, Int32) => Ok(Int32),
+        (Int32, _) => Some(Int32),
+        (_, Int32) => Some(Int32),
 
-        (Int16, _) => Ok(Int16),
-        (_, Int16) => Ok(Int16),
+        (Int16, _) => Some(Int16),
+        (_, Int16) => Some(Int16),
 
-        (Int8, _) => Ok(Int8),
-        (_, Int8) => Ok(Int8),
+        (Int8, _) => Some(Int8),
+        (_, Int8) => Some(Int8),
 
-        (UInt64, _) => Ok(UInt64),
-        (_, UInt64) => Ok(UInt64),
+        (UInt64, _) => Some(UInt64),
+        (_, UInt64) => Some(UInt64),
 
-        (UInt32, _) => Ok(UInt32),
-        (_, UInt32) => Ok(UInt32),
+        (UInt32, _) => Some(UInt32),
+        (_, UInt32) => Some(UInt32),
 
-        (UInt16, _) => Ok(UInt16),
-        (_, UInt16) => Ok(UInt16),
+        (UInt16, _) => Some(UInt16),
+        (_, UInt16) => Some(UInt16),
 
-        (UInt8, _) => Ok(UInt8),
-        (_, UInt8) => Ok(UInt8),
+        (UInt8, _) => Some(UInt8),
+        (_, UInt8) => Some(UInt8),
 
-        _ => coercion_error(lhs_type, op, rhs_type),
+        _ => None,
     }
 }
 
-// coercion rules for `equal` and `not equal`. This is a superset of all numerical coercion rules.
-fn eq_coercion(
-    lhs_type: &DataType,
-    op: &Operator,
-    rhs_type: &DataType,
-) -> Result<DataType> {
+// coercion rules for equality operations. This is a superset of all numerical coercion rules.
+fn eq_coercion(lhs_type: &DataType, rhs_type: &DataType) -> Option<DataType> {
     if lhs_type == rhs_type {
         // same type => equality is possible
-        return Ok(lhs_type.clone());
+        return Some(lhs_type.clone());
     }
-    numerical_coercion(lhs_type, op, rhs_type)
+    numerical_coercion(lhs_type, rhs_type)
 }
 
-// coercion rules for operators that assume an ordered set, such as "less than".
+// coercion rules that assume an ordered set, such as "less than".
 // These are the union of all numerical coercion rules and all string coercion rules
-fn order_coercion(
-    lhs_type: &DataType,
-    op: &Operator,
-    rhs_type: &DataType,
-) -> Result<DataType> {
+fn order_coercion(lhs_type: &DataType, rhs_type: &DataType) -> Option<DataType> {
     if lhs_type == rhs_type {
         // same type => all good
-        return Ok(lhs_type.clone());
+        return Some(lhs_type.clone());
     }
 
-    match numerical_coercion(lhs_type, op, rhs_type) {
-        Err(_) => {
+    match numerical_coercion(lhs_type, rhs_type) {
+        None => {
             // strings are naturally ordered, and thus ordering can be applied to them.
-            string_coercion(lhs_type, op, rhs_type)
+            string_coercion(lhs_type, rhs_type)
         }
         t => t,
     }
 }
 
-/// Returns the return type of a binary operator or an error
-/// when the binary operator cannot correctly perform the computation between the argument's types, even after
-/// trying to coerce them.
+/// coercion rules for all binary operators
+fn common_binary_type(
+    lhs_type: &DataType,
+    op: &Operator,
+    rhs_type: &DataType,
+) -> Result<DataType> {
+    // This result MUST be compatible with `binary_coerce`
+    let result = match op {
+        Operator::And | Operator::Or => match (lhs_type, rhs_type) {
+            // logical binary boolean operators can only be evaluated in bools
+            (DataType::Boolean, DataType::Boolean) => Some(DataType::Boolean),
+            _ => None,
+        },
+        // logical equality operators have their own rules, and always return a boolean
+        Operator::Eq | Operator::NotEq => eq_coercion(lhs_type, rhs_type),
+        // "like" operators operate on strings and always return a boolean
+        Operator::Like | Operator::NotLike => string_coercion(lhs_type, rhs_type),
+        // order-comparison operators have their own rules
+        Operator::Lt | Operator::Gt | Operator::GtEq | Operator::LtEq => {
+            order_coercion(lhs_type, rhs_type)
+        }
+        // for math expressions, the final value of the coercion is also the return type
+        // because coercion favours higher information types
+        Operator::Plus | Operator::Minus | Operator::Divide | Operator::Multiply => {
+            numerical_coercion(lhs_type, rhs_type)
+        }
+        Operator::Modulus => {
+            return Err(ExecutionError::NotImplemented(
+                "Modulus operator is still not supported".to_string(),
+            ))
+        }
+        Operator::Not => {
+            return Err(ExecutionError::InternalError(
+                "Trying to coerce a unary operator".to_string(),
+            ))
+        }
+    };
+
+    // re-write the error message of failed coercions to include the operator's information
+    match result {
+        None => Err(ExecutionError::General(
+            format!(
+                "'{:?} {} {:?}' can't be evaluated because there isn't a common type to coerce the types to",
+                lhs_type, op, rhs_type
+            )
+            .to_string(),
+        )),
+        Some(t) => Ok(t)
+    }
+}
+
+/// Returns the return type of a binary operator or an error when the binary operator cannot
+/// perform the computation between the argument's types, even after type coercion.
 ///
 /// This function makes some assumptions about the underlying available computations.
 pub fn binary_operator_data_type(
@@ -1121,35 +1140,25 @@ pub fn binary_operator_data_type(
     op: &Operator,
     rhs_type: &DataType,
 ) -> Result<DataType> {
-    // This result MUST be compatible with `binary_coerce`
+    // validate that it is possible to perform the operation on incoming types.
+    // (or the return datatype cannot be infered)
+    let common_type = common_binary_type(lhs_type, op, rhs_type)?;
+
     match op {
-        // logical binary boolean operators can only be evaluated in bools
-        Operator::And | Operator::Or => match (lhs_type, rhs_type) {
-            (DataType::Boolean, DataType::Boolean) => Ok(DataType::Boolean),
-            _ => coercion_error(lhs_type, op, rhs_type),
-        },
-        // logical equality operators have their own rules, and always return a boolean
-        Operator::Eq | Operator::NotEq => {
-            // validate that the types are valid
-            eq_coercion(lhs_type, op, rhs_type)?;
-            Ok(DataType::Boolean)
-        }
-        // "like" operators operate on strings and always return a boolean
-        Operator::Like | Operator::NotLike => {
-            // validate that the types are valid
-            string_coercion(lhs_type, op, rhs_type)?;
-            Ok(DataType::Boolean)
-        }
-        // order-comparison operators have their own rules
-        Operator::Lt | Operator::Gt | Operator::GtEq | Operator::LtEq => {
-            // validate that the types are valid
-            order_coercion(lhs_type, op, rhs_type)?;
-            Ok(DataType::Boolean)
-        }
-        // for math expressions, the final value of the coercion is also the return type
-        // because coercion favours higher information types
+        // operators that return a boolean
+        Operator::Eq
+        | Operator::NotEq
+        | Operator::And
+        | Operator::Or
+        | Operator::Like
+        | Operator::NotLike
+        | Operator::Lt
+        | Operator::Gt
+        | Operator::GtEq
+        | Operator::LtEq => Ok(DataType::Boolean),
+        // math operations return the same value as the common coerced type
         Operator::Plus | Operator::Minus | Operator::Divide | Operator::Multiply => {
-            numerical_coercion(lhs_type, op, rhs_type)
+            Ok(common_type)
         }
         Operator::Modulus => Err(ExecutionError::NotImplemented(
             "Modulus operator is still not supported".to_string(),
@@ -1160,12 +1169,9 @@ pub fn binary_operator_data_type(
     }
 }
 
-/// return a binary physical expression that includes any necessary coercion of its arguments.
-/// The coercion rule depends on the operator.
-// This function MUST be compatible with `binary_operator_data_type` in that the resulting type
-// from this function's expression must match `binary_operator_data_type` type:
-//      binary_coerce(lhs, op, rhs, schema).type === binary_operator_data_type(lhs.type, op, rhs.type)
-fn binary_coerce(
+/// return two physical expressions that are optionally coerced to a
+/// common type that the binary operator supports.
+fn binary_cast(
     lhs: Arc<dyn PhysicalExpr>,
     op: &Operator,
     rhs: Arc<dyn PhysicalExpr>,
@@ -1174,48 +1180,12 @@ fn binary_coerce(
     let lhs_type = &lhs.data_type(input_schema)?;
     let rhs_type = &rhs.data_type(input_schema)?;
 
-    match op {
-        // logical binary boolean operators can only be evaluated in bools
-        Operator::And | Operator::Or => match (lhs_type, rhs_type) {
-            (DataType::Boolean, DataType::Boolean) => Ok((lhs.clone(), rhs.clone())),
-            _ => coercion_error(lhs_type, op, rhs_type),
-        },
-        Operator::Eq | Operator::NotEq => {
-            // validate that the types are valid
-            let cast_type = eq_coercion(lhs_type, op, rhs_type)?;
-            Ok((
-                cast(lhs, input_schema, cast_type.clone())?,
-                cast(rhs, input_schema, cast_type)?,
-            ))
-        }
-        Operator::Like | Operator::NotLike => {
-            let cast_type = string_coercion(lhs_type, op, rhs_type)?;
-            Ok((
-                cast(lhs, input_schema, cast_type.clone())?,
-                cast(rhs, input_schema, cast_type)?,
-            ))
-        }
-        Operator::Lt | Operator::Gt | Operator::GtEq | Operator::LtEq => {
-            let cast_type = order_coercion(lhs_type, op, rhs_type)?;
-            Ok((
-                cast(lhs, input_schema, cast_type.clone())?,
-                cast(rhs, input_schema, cast_type)?,
-            ))
-        }
-        Operator::Plus | Operator::Minus | Operator::Divide | Operator::Multiply => {
-            let cast_type = numerical_coercion(lhs_type, op, rhs_type)?;
-            Ok((
-                cast(lhs, input_schema, cast_type.clone())?,
-                cast(rhs, input_schema, cast_type)?,
-            ))
-        }
-        Operator::Modulus => Err(ExecutionError::NotImplemented(
-            "Modulus operator is still not supported".to_string(),
-        )),
-        Operator::Not => Err(ExecutionError::InternalError(
-            "Trying to coerce a unary operator ".to_string(),
-        )),
-    }
+    let cast_type = common_binary_type(lhs_type, op, rhs_type)?;
+
+    Ok((
+        cast(lhs, input_schema, cast_type.clone())?,
+        cast(rhs, input_schema, cast_type)?,
+    ))
 }
 
 impl PhysicalExpr for BinaryExpr {
@@ -1298,7 +1268,7 @@ pub fn binary(
     rhs: Arc<dyn PhysicalExpr>,
     input_schema: &Schema,
 ) -> Result<Arc<dyn PhysicalExpr>> {
-    let (l, r) = binary_coerce(lhs, &op, rhs, input_schema)?;
+    let (l, r) = binary_cast(lhs, &op, rhs, input_schema)?;
     Ok(Arc::new(BinaryExpr::new(l, op, r)))
 }
 
@@ -1738,6 +1708,35 @@ mod tests {
             vec![true, false]
         );
         Ok(())
+    }
+
+    #[test]
+    fn test_coersion_error() -> Result<()> {
+        let expr =
+            common_binary_type(&DataType::Float32, &Operator::Plus, &DataType::Utf8);
+
+        if let Err(ExecutionError::General(e)) = expr {
+            assert_eq!(e, "'Float32 + Utf8' can't be evaluated because there isn't a common type to coerce the types to");
+            Ok(())
+        } else {
+            Err(ExecutionError::General(
+                "Coercion should have returned an ExecutionError::General".to_string(),
+            ))
+        }
+    }
+
+    #[test]
+    fn test_coersion_invalid() -> Result<()> {
+        let expr =
+            common_binary_type(&DataType::Float32, &Operator::Not, &DataType::Utf8);
+        if let Err(ExecutionError::InternalError(_)) = expr {
+            Ok(())
+        } else {
+            Err(ExecutionError::General(
+                "Coercion should have returned an ExecutionError::InternalError"
+                    .to_string(),
+            ))
+        }
     }
 
     // runs an end-to-end test of physical type cast

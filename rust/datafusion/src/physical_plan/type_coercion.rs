@@ -23,7 +23,6 @@ use arrow::datatypes::{DataType, Schema};
 
 use super::{functions::Signature, PhysicalExpr};
 use crate::error::{ExecutionError, Result};
-use crate::logical_plan::Operator;
 use crate::physical_plan::expressions::{cast, numerical_coercion};
 
 /// Returns expressions constructed by casting `expressions` to types compatible with `signatures`.
@@ -104,13 +103,7 @@ fn maybe_data_types(
         } else {
             // attempt to coerce using numerical coercion
             // todo: also try string coercion.
-            if let Ok(cast_to_type) = numerical_coercion(
-                &current_type,
-                // assume that the function behaves like plus
-                // plus is not special here; this function is just trying its best...
-                &Operator::Plus,
-                valid_type,
-            ) {
+            if let Some(cast_to_type) = numerical_coercion(&current_type, valid_type) {
                 new_type.push(cast_to_type)
             } else {
                 // not possible

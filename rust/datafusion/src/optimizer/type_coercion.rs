@@ -24,7 +24,7 @@ use arrow::datatypes::Schema;
 
 use crate::error::{ExecutionError, Result};
 use crate::logical_plan::Expr;
-use crate::logical_plan::{LogicalPlan, Operator};
+use crate::logical_plan::LogicalPlan;
 use crate::optimizer::optimizer::OptimizerRule;
 use crate::optimizer::utils;
 use crate::physical_plan::{
@@ -74,13 +74,9 @@ where
                             if &actual_type != required_type {
                                 // attempt to coerce using numerical coercion
                                 // todo: also try string coercion.
-                                if let Ok(cast_to_type) = numerical_coercion(
-                                    &actual_type,
-                                    // assume that the function behaves like plus
-                                    // plus is not special here; the optimizer is just trying its best...
-                                    &Operator::Plus,
-                                    required_type,
-                                ) {
+                                if let Some(cast_to_type) =
+                                    numerical_coercion(&actual_type, required_type)
+                                {
                                     expressions[i] =
                                         expressions[i].cast_to(&cast_to_type, schema)?
                                 };
