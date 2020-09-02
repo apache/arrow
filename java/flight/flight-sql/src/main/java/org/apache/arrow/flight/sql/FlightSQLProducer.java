@@ -182,7 +182,7 @@ public abstract class FlightSQLProducer implements FlightProducer, AutoCloseable
   public void doAction(CallContext context, Action action, StreamListener<Result> listener) {
 
     if (action.getType().equals(FLIGHT_SQL_GETSQLINFO.getType())) {
-      getSqlCapabilities(context, listener);
+      getSqlInfo(context, listener);
 
     } else if (action.getType().equals(FLIGHT_SQL_GETCATALOGS.getType())) {
       final ActionGetCatalogsRequest request = FlightSQLUtils.unpackAndParseOrThrow(action.getBody(),
@@ -215,13 +215,13 @@ public abstract class FlightSQLProducer implements FlightProducer, AutoCloseable
   }
 
   /**
-   * Returns the SQL Capabilities of the server by returning a
-   * {@link org.apache.arrow.flight.sql.impl.FlightSQL.ActionGetSQLCapabilitiesResult} in a {@link Result}.
+   * Returns the SQL Info of the server by returning a
+   * {@link org.apache.arrow.flight.sql.impl.FlightSQL.ActionGetSQLInfoResult} in a {@link Result}.
    *
    * @param context  Per-call context.
    * @param listener A stream of responses.
    */
-  public abstract void getSqlCapabilities(CallContext context, StreamListener<Result> listener);
+  public abstract void getSqlInfo(CallContext context, StreamListener<Result> listener);
 
   /**
    * Returns the available catalogs by returning a stream of
