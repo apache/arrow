@@ -23,6 +23,7 @@ extern "C" {
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
 #include "./types.h"
 
 FORCE_INLINE
@@ -1439,19 +1440,26 @@ const char* binary_string(gdv_int64 context, const char* text, gdv_int32 text_le
   return ret;
 }
 
-#define CAST_NUMERIC_FROM_STRING(OUT_TYPE, ARROW_TYPE, TYPE_NAME)                       \
-  FORCE_INLINE                                                                          \
-  gdv_##OUT_TYPE cast##TYPE_NAME##_utf8(int64_t context, const char* data,              \
-                                        int32_t len) {                                  \
-    gdv_##OUT_TYPE val = 0;                                                             \
-    int32_t trimmed_len;                                                                \
-    data = btrim_utf8(context, data, len, &trimmed_len);                                \
-    if (!arrow::internal::ParseValue<ARROW_TYPE>(data, trimmed_len, &val)) {            \
-      std::string err = "Failed to cast the string " + std::string(data, trimmed_len) + \
-                        " to " #OUT_TYPE;                                               \
-      gdv_fn_context_set_error_msg(context, err.c_str());                               \
-    }                                                                                   \
-    return val;                                                                         \
+#define CAST_NUMERIC_FROM_STRING(OUT_TYPE, ARROW_TYPE, TYPE_NAME)            \
+  FORCE_INLINE                                                               \
+  gdv_##OUT_TYPE cast##TYPE_NAME##_utf8(int64_t context, const char* data,   \
+                                        int32_t len) {                       \
+    gdv_##OUT_TYPE val = 0;                                                  \
+    int32_t trimmed_len;                                                     \
+    data = btrim_utf8(context, data, len, &trimmed_len);                     \
+    if (!arrow::internal::ParseValue<ARROW_TYPE>(data, trimmed_len, &val)) { \
+      const char* err_str =                                                  \
+          "Failed to cast the string "                                       \
+          " to " #OUT_TYPE;                                                  \
+      int msg_len = static_cast<int>(strlen(err_str)) + trimmed_len + 1;     \
+      char* err = reinterpret_cast<char*>(malloc(msg_len));                  \
+      strcpy(err, "Failed to cast the string ");                             \
+      strncat(err, data, trimmed_len);                                       \
+      strcat(err, " to " #OUT_TYPE);                                         \
+      gdv_fn_context_set_error_msg(context, err);                            \
+      free(err);                                                             \
+    }                                                                        \
+    return val;                                                              \
   }
 
 CAST_NUMERIC_FROM_STRING(int32, arrow::Int32Type, INT)
@@ -1459,7 +1467,6 @@ CAST_NUMERIC_FROM_STRING(int64, arrow::Int64Type, BIGINT)
 CAST_NUMERIC_FROM_STRING(float32, arrow::FloatType, FLOAT4)
 CAST_NUMERIC_FROM_STRING(float64, arrow::DoubleType, FLOAT8)
 
-#undef CAST_INT_FROM_STRING
-#undef CAST_FLOAT_FROM_STRING
+#undef CAST_NUMERIC_FROM_STRING
 
 }  // extern "C"
