@@ -387,6 +387,14 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUriOrPath(
 
 /// @}
 
+/// \brief Copy files from one FileSystem to another
+ARROW_EXPORT
+Status CopyFiles(const std::shared_ptr<FileSystem>& src_fs,
+                 const std::vector<std::string>& src_paths,
+                 const std::shared_ptr<FileSystem>& dest_fs,
+                 const std::vector<std::string>& dest_paths,
+                 int64_t chunk_size = 1024 * 1024, bool use_threads = true);
+
 struct FileSystemGlobalOptions {
   /// Path to a single PEM file holding all TLS CA certificates
   ///

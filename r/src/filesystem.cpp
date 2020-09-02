@@ -230,6 +230,17 @@ cpp11::writable::list fs___FileSystemFromUri(const std::string& path) {
   return cpp11::writable::list({"fs"_nm = file_system, "path"_nm = out_path});
 }
 
+// [[arrow::export]]
+void fs___CopyFiles(const std::shared_ptr<FileSystem>& src_fs,
+                    const std::vector<std::string>& src_paths,
+                    const std::shared_ptr<FileSystem>& dest_fs,
+                    const std::vector<std::string>& dest_paths, int64_t chunk_size,
+                    bool use_threads) {
+  //
+  StopIfNotOk(
+      fs::CopyFiles(src_fs, src_paths, dest_fs, dest_paths, chunk_size, use_threads));
+}
+
 #endif
 
 #if defined(ARROW_R_WITH_S3)
