@@ -225,10 +225,10 @@ bool RetrieveCPUInfo(int64_t* hardware_flags, std::string* model_name,
   // HEX of "AuthenticAMD": 41757468 656E7469 63414D44
   if (cpu_info[1] == 0x756e6547 && cpu_info[2] == 0x49656e69 &&
       cpu_info[3] == 0x6c65746e) {
-    *vendor = CpuInfo::VENDOR_INTEL;
+    *vendor = CpuInfo::Vendor::Intel;
   } else if (cpu_info[1] == 0x68747541 && cpu_info[2] == 0x69746e65 &&
              cpu_info[3] == 0x444d4163) {
-    *vendor = CpuInfo::VENDOR_AMD;
+    *vendor = CpuInfo::Vendor::AMD;
   }
 
   if (highest_valid_id <= register_EAX_id) return false;
@@ -281,7 +281,7 @@ CpuInfo::CpuInfo()
     : hardware_flags_(0),
       num_cores_(1),
       model_name_("unknown"),
-      vendor_(VENDOR_UNKNOWN) {}
+      vendor_(Vendor::Unknown) {}
 
 std::unique_ptr<CpuInfo> g_cpu_info;
 static std::once_flag cpuinfo_initialized;
@@ -337,9 +337,9 @@ void CpuInfo::Init() {
         model_name_ = value;
       } else if (name.compare("vendor_id") == 0) {
         if (value.compare("GenuineIntel") == 0) {
-          vendor_ = VENDOR_INTEL;
+          vendor_ = Vendor::Intel;
         } else if (value.compare("AuthenticAMD") == 0) {
-          vendor_ = VENDOR_AMD;
+          vendor_ = Vendor::AMD;
         }
       }
     }

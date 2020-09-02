@@ -59,11 +59,7 @@ class ARROW_EXPORT CpuInfo {
     L3_CACHE = 2,
   };
 
-  enum Vendor {
-    VENDOR_UNKNOWN = 0,
-    VENDOR_INTEL,
-    VENDOR_AMD,
-  };
+  enum class Vendor : int { Unknown = 0, Intel, AMD };
 
   /// The SIMD level set by user
   enum UserSimdLevel {
@@ -107,8 +103,8 @@ class ARROW_EXPORT CpuInfo {
   /// Returns the model name of the cpu (e.g. Intel i7-2600)
   std::string model_name();
 
-  /// Returns whether or not the cpu is provided by this vendor.
-  bool IsVendor(Vendor vendor) const { return vendor == vendor_; }
+  /// Returns the vendor of the cpu.
+  Vendor vendor() const { return vendor_; };
 
  private:
   CpuInfo();
