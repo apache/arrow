@@ -698,12 +698,12 @@ void ValidateMinMax(const Array& array) {
   if (expected.is_valid) {
     ASSERT_TRUE(out_min.is_valid);
     ASSERT_TRUE(out_max.is_valid);
+    ASSERT_EQ(expected.min, out_min.value);
+    ASSERT_EQ(expected.max, out_max.value);
   } else {  // All null values
     ASSERT_FALSE(out_min.is_valid);
     ASSERT_FALSE(out_max.is_valid);
   }
-  ASSERT_EQ(expected.min, out_min.value);
-  ASSERT_EQ(expected.max, out_max.value);
 }
 
 template <typename ArrowType>
@@ -712,13 +712,14 @@ class TestRandomNumericMinMaxKernel : public ::testing::Test {};
 TYPED_TEST_SUITE(TestRandomNumericMinMaxKernel, NumericArrowTypes);
 TYPED_TEST(TestRandomNumericMinMaxKernel, RandomArrayMinMax) {
   auto rand = random::RandomArrayGenerator(0x8afc055);
-  // Test size up to 1<<13 (8192).
-  for (size_t i = 3; i < 14; i += 2) {
-    for (auto null_probability : {0.0, 0.001, 0.1, 0.5, 0.999, 1.0}) {
+  // Test size up to 1<<11 (2048).
+  for (size_t i = 3; i < 12; i += 2) {
+    for (auto null_probability : {0.0, 0.01, 0.1, 0.5, 0.99, 1.0}) {
+      int64_t base_length = (1UL << i) + 2;
+      auto array = rand.Numeric<TypeParam>(base_length, 0, 100, null_probability);
       for (auto length_adjust : {-2, -1, 0, 1, 2}) {
         int64_t length = (1UL << i) + length_adjust;
-        auto array = rand.Numeric<TypeParam>(length, 0, 100, null_probability);
-        ValidateMinMax<TypeParam>(*array);
+        ValidateMinMax<TypeParam>(*array->Slice(0, length));
       }
     }
   }
