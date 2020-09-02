@@ -798,10 +798,10 @@ pub trait ExtensionPlanNode: Debug {
     /// For example: `TopK: k=10`
     fn fmt_for_explain(&self, f: &mut fmt::Formatter) -> fmt::Result;
 
-    /// Create a new LogicalPlanNode with the specified children and
-    /// expressions. This is used during plan optimization when the
-    /// plan is being rewritten and a new instance of the
-    /// `LogicalPlanNode` must be created.
+    /// Create a new `ExtensionPlanNode` with the specified children
+    /// and expressions. This function is used during optimization
+    /// when the plan is being rewritten and a new instance of the
+    /// `ExtensionPlanNode` must be created.
     ///
     /// Note that exprs and inputs are in the same order as the result
     /// of self.inputs and self.exprs.
@@ -814,7 +814,7 @@ pub trait ExtensionPlanNode: Debug {
     ) -> Arc<dyn ExtensionPlanNode + Send + Sync>;
 }
 
-/// The LogicalPlan represents the different types of relational
+/// A LogicalPlan represents the different types of relational
 /// operators (such as Projection, Filter, etc) and can be created by
 /// the SQL query planner and the DataFrame API.
 ///

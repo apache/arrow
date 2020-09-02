@@ -393,8 +393,6 @@ impl ScalarFunctionRegistry for ExecutionContext {
 /// Because OptimizerRule's themselves need
 /// to be mutable to conform to the OptimizerRuleTrait, they
 /// must be instantiated every time a plan is optimized
-/// ExecutionContext::optimize doesn't have a mutable reference to
-/// &self....
 pub trait OptimizerRuleSource {
     /// Return the OptimizerRules to apply to a LogicalPlan. The rules
     /// are applied in the order they are returned in the Vec.

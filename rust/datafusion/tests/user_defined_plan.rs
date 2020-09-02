@@ -395,11 +395,13 @@ impl ExecutionPlan for TopKExec {
 
 // A very specialized TopK implementation
 struct TopKReader {
+    /// The input to read data from
     input: Arc<Mutex<dyn RecordBatchReader + Send + Sync>>,
+    /// Maximum number of output values
     k: usize,
     /// Hard coded implementation for sales / customer_id example
     top_values: BTreeMap<i64, String>,
-
+    /// Have we produced the output yet?
     done: bool,
 }
 
@@ -408,7 +410,6 @@ impl TopKReader {
     /// is the top values we have seen so far.
     fn add_row(&mut self, customer_id: &str, revenue: i64) {
         self.top_values.insert(revenue, customer_id.into());
-
         // only keep top k
         while self.top_values.len() > self.k {
             self.remove_lowest_value()
@@ -437,7 +438,7 @@ impl RecordBatchReader for TopKReader {
             return Ok(None);
         }
 
-        // use loop so that we release the mutex once we have read each input
+        // use a loop so that we release the mutex once we have read each input_batch
         loop {
             let input_batch = self
                 .input
