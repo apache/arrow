@@ -695,10 +695,10 @@ void ValidateMinMax(const Array& array) {
   const auto& out_min = checked_cast<const ScalarType&>(*value.value[0]);
   const auto& out_max = checked_cast<const ScalarType&>(*value.value[1]);
 
-  if (expected.is_valid) {  // All null values
+  if (expected.is_valid) {
     ASSERT_TRUE(out_min.is_valid);
     ASSERT_TRUE(out_max.is_valid);
-  } else {
+  } else {  // All null values
     ASSERT_FALSE(out_min.is_valid);
     ASSERT_FALSE(out_max.is_valid);
   }
