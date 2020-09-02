@@ -201,16 +201,21 @@ fn csv_query_avg_sqrt() -> Result<()> {
     Ok(())
 }
 
+/// sqrt(f32) is sligthly different than sqrt(CAST(f32 AS double)))
 #[test]
-fn csv_query_sqrt_f32() -> Result<()> {
+fn sqrt_f32_vs_f64() -> Result<()> {
     let mut ctx = create_ctx()?;
     register_aggregate_csv(&mut ctx)?;
     // sqrt(f32)'s plan passes
     let sql = "SELECT avg(sqrt(c11)) FROM aggregate_test_100";
-    let mut actual = execute(&mut ctx, sql);
-    actual.sort();
+    let actual = &execute(&mut ctx, sql)[0];
+    let expected = "0.6584408485889435".to_string();
+
+    assert_eq!(*actual, expected);
+    let sql = "SELECT avg(sqrt(CAST(c11 AS double))) FROM aggregate_test_100";
+    let actual = &execute(&mut ctx, sql)[0];
     let expected = "0.6584408483418833".to_string();
-    assert_eq!(actual.join("\n"), expected);
+    assert_eq!(*actual, expected);
     Ok(())
 }
 

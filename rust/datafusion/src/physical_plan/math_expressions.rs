@@ -19,32 +19,57 @@
 
 use crate::error::{ExecutionError, Result};
 
-use arrow::array::{Array, ArrayRef, Float64Array, Float64Builder};
+use arrow::array::{Array, ArrayRef, Float32Array, Float64Array, Float64Builder};
+
+use arrow::datatypes::DataType;
 
 use std::sync::Arc;
 
+macro_rules! compute_op {
+    ($ARRAY:expr, $FUNC:ident, $TYPE:ident) => {{
+        let mut builder = Float64Builder::new($ARRAY.len());
+        for i in 0..$ARRAY.len() {
+            if $ARRAY.is_null(i) {
+                builder.append_null()?;
+            } else {
+                builder.append_value($ARRAY.value(i).$FUNC() as f64)?;
+            }
+        }
+        Ok(Arc::new(builder.finish()))
+    }};
+}
+
+macro_rules! downcast_compute_op {
+    ($ARRAY:expr, $NAME:expr, $FUNC:ident, $TYPE:ident) => {{
+        let n = $ARRAY.as_any().downcast_ref::<$TYPE>();
+        match n {
+            Some(array) => compute_op!(array, $FUNC, $TYPE),
+            _ => Err(ExecutionError::General(format!(
+                "Invalid data type for {}",
+                $NAME
+            ))),
+        }
+    }};
+}
+
+macro_rules! unary_primitive_array_op {
+    ($ARRAY:expr, $NAME:expr, $FUNC:ident) => {{
+        match ($ARRAY).data_type() {
+            DataType::Float32 => downcast_compute_op!($ARRAY, $NAME, $FUNC, Float32Array),
+            DataType::Float64 => downcast_compute_op!($ARRAY, $NAME, $FUNC, Float64Array),
+            other => Err(ExecutionError::General(format!(
+                "Unsupported data type {:?} for function {}",
+                other, $NAME,
+            ))),
+        }
+    }};
+}
+
 macro_rules! math_unary_function {
     ($NAME:expr, $FUNC:ident) => {
-        /// mathematical function
+        /// mathematical function that accepts f32 or f64 and returns f64
         pub fn $FUNC(args: &[ArrayRef]) -> Result<ArrayRef> {
-            let n = &args[0].as_any().downcast_ref::<Float64Array>();
-            match n {
-                Some(array) => {
-                    let mut builder = Float64Builder::new(array.len());
-                    for i in 0..array.len() {
-                        if array.is_null(i) {
-                            builder.append_null()?;
-                        } else {
-                            builder.append_value(array.value(i).$FUNC())?;
-                        }
-                    }
-                    Ok(Arc::new(builder.finish()))
-                }
-                _ => Err(ExecutionError::General(format!(
-                    "Invalid data type for {}",
-                    $NAME
-                ))),
-            }
+            unary_primitive_array_op!(args[0], $NAME, $FUNC)
         }
     };
 }

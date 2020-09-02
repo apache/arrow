@@ -206,8 +206,12 @@ fn signature(fun: &ScalarFunction) -> Signature {
     // for now, the list is small, as we do not have many built-in functions.
     match fun {
         ScalarFunction::Length => Signature::Uniform(1, vec![DataType::Utf8]),
-        // math expressions expect 1 argument of type f64
-        _ => Signature::Uniform(1, vec![DataType::Float64]),
+        // math expressions expect 1 argument of type f64 or f32
+        // priority is given to f64 because e.g. `sqrt(1i32)` is in IR (real numbers) and thus we
+        // return the best approximation for it (in f64).
+        // We accept f32 because in this case it is clear that the best approximation
+        // will be as good as the number of digits in the number
+        _ => Signature::Uniform(1, vec![DataType::Float64, DataType::Float32]),
     }
 }
 
@@ -243,18 +247,21 @@ mod tests {
         let result = result.as_any().downcast_ref::<Float64Array>().unwrap();
 
         // value is correct
-        assert_eq!(format!("{}", result.value(0)), expected); // = exp(1)
+        assert_eq!(format!("{}", result.value(0)), expected);
 
         Ok(())
     }
 
     #[test]
     fn test_math_function() -> Result<()> {
+        // 2.71828182845904523536... : https://oeis.org/A001113
         let exp_f64 = "2.718281828459045";
+        let exp_f32 = "2.7182817459106445";
         generic_test_math(ScalarValue::Int32(1i32), exp_f64)?;
         generic_test_math(ScalarValue::UInt32(1u32), exp_f64)?;
+        generic_test_math(ScalarValue::UInt64(1u64), exp_f64)?;
         generic_test_math(ScalarValue::Float64(1f64), exp_f64)?;
-        generic_test_math(ScalarValue::Float32(1f32), exp_f64)?;
+        generic_test_math(ScalarValue::Float32(1f32), exp_f32)?;
         Ok(())
     }
 }
