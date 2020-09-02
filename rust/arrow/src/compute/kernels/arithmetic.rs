@@ -37,7 +37,7 @@ use crate::bitmap::Bitmap;
 use crate::buffer::Buffer;
 #[cfg(feature = "simd")]
 use crate::buffer::MutableBuffer;
-use crate::compute::util::apply_bin_op_to_option_bitmap;
+use crate::compute::util::combine_option_bitmap;
 #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
 use crate::compute::util::simd_load_set_invalid;
 use crate::datatypes;
@@ -63,11 +63,8 @@ where
         ));
     }
 
-    let null_bit_buffer = apply_bin_op_to_option_bitmap(
-        left.data().null_bitmap(),
-        right.data().null_bitmap(),
-        |a, b| a & b,
-    )?;
+    let null_bit_buffer =
+        combine_option_bitmap(left.data_ref(), right.data_ref(), left.len())?;
 
     let mut values = Vec::with_capacity(left.len());
     if let Some(b) = &null_bit_buffer {
@@ -91,7 +88,7 @@ where
         left.len(),
         None,
         null_bit_buffer,
-        left.offset(),
+        0,
         vec![Buffer::from(values.to_byte_slice())],
         vec![],
     );
@@ -119,11 +116,8 @@ where
         ));
     }
 
-    let null_bit_buffer = apply_bin_op_to_option_bitmap(
-        left.data().null_bitmap(),
-        right.data().null_bitmap(),
-        |a, b| a & b,
-    )?;
+    let null_bit_buffer =
+        combine_option_bitmap(left.data_ref(), right.data_ref(), left.len())?;
 
     let lanes = T::lanes();
     let buffer_size = left.len() * mem::size_of::<T::Native>();
@@ -148,7 +142,7 @@ where
         left.len(),
         None,
         null_bit_buffer,
-        left.offset(),
+        0,
         vec![result.freeze()],
         vec![],
     );
@@ -174,11 +168,8 @@ where
     }
 
     // Create the combined `Bitmap`
-    let null_bit_buffer = apply_bin_op_to_option_bitmap(
-        left.data().null_bitmap(),
-        right.data().null_bitmap(),
-        |a, b| a & b,
-    )?;
+    let null_bit_buffer =
+        combine_option_bitmap(left.data_ref(), right.data_ref(), left.len())?;
     let bitmap = null_bit_buffer.map(Bitmap::from);
 
     let lanes = T::lanes();
@@ -213,7 +204,7 @@ where
         left.len(),
         None,
         null_bit_buffer,
-        left.offset(),
+        0,
         vec![result.freeze()],
         vec![],
     );
@@ -330,6 +321,27 @@ mod tests {
     }
 
     #[test]
+    fn test_primitive_array_add_sliced() {
+        let a = Int32Array::from(vec![0, 0, 0, 5, 6, 7, 8, 9, 0]);
+        let b = Int32Array::from(vec![0, 0, 0, 6, 7, 8, 9, 8, 0]);
+        let a = a.slice(3, 5);
+        let b = b.slice(3, 5);
+        let a = a.as_any().downcast_ref::<Int32Array>().unwrap();
+        let b = b.as_any().downcast_ref::<Int32Array>().unwrap();
+
+        assert_eq!(5, a.value(0));
+        assert_eq!(6, b.value(0));
+
+        let c = add(&a, &b).unwrap();
+        assert_eq!(5, c.len());
+        assert_eq!(11, c.value(0));
+        assert_eq!(13, c.value(1));
+        assert_eq!(15, c.value(2));
+        assert_eq!(17, c.value(3));
+        assert_eq!(17, c.value(4));
+    }
+
+    #[test]
     fn test_primitive_array_add_mismatched_length() {
         let a = Int32Array::from(vec![5, 6, 7, 8, 9]);
         let b = Int32Array::from(vec![6, 7, 8]);
@@ -379,10 +391,81 @@ mod tests {
     }
 
     #[test]
+    fn test_primitive_array_divide_sliced() {
+        let a = Int32Array::from(vec![0, 0, 0, 15, 15, 8, 1, 9, 0]);
+        let b = Int32Array::from(vec![0, 0, 0, 5, 6, 8, 9, 1, 0]);
+        let a = a.slice(3, 5);
+        let b = b.slice(3, 5);
+        let a = a.as_any().downcast_ref::<Int32Array>().unwrap();
+        let b = b.as_any().downcast_ref::<Int32Array>().unwrap();
+
+        let c = divide(&a, &b).unwrap();
+        assert_eq!(5, c.len());
+        assert_eq!(3, c.value(0));
+        assert_eq!(2, c.value(1));
+        assert_eq!(1, c.value(2));
+        assert_eq!(0, c.value(3));
+        assert_eq!(9, c.value(4));
+    }
+
+    #[test]
     fn test_primitive_array_divide_with_nulls() {
         let a = Int32Array::from(vec![Some(15), None, Some(8), Some(1), Some(9), None]);
         let b = Int32Array::from(vec![Some(5), Some(6), Some(8), Some(9), None, None]);
         let c = divide(&a, &b).unwrap();
+        assert_eq!(3, c.value(0));
+        assert_eq!(true, c.is_null(1));
+        assert_eq!(1, c.value(2));
+        assert_eq!(0, c.value(3));
+        assert_eq!(true, c.is_null(4));
+        assert_eq!(true, c.is_null(5));
+    }
+
+    #[test]
+    fn test_primitive_array_divide_with_nulls_sliced() {
+        let a = Int32Array::from(vec![
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            Some(15),
+            None,
+            Some(8),
+            Some(1),
+            Some(9),
+            None,
+            None,
+        ]);
+        let b = Int32Array::from(vec![
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            Some(5),
+            Some(6),
+            Some(8),
+            Some(9),
+            None,
+            None,
+            None,
+        ]);
+
+        let a = a.slice(8, 6);
+        let a = a.as_any().downcast_ref::<Int32Array>().unwrap();
+
+        let b = b.slice(8, 6);
+        let b = b.as_any().downcast_ref::<Int32Array>().unwrap();
+
+        let c = divide(&a, &b).unwrap();
+        assert_eq!(6, c.len());
         assert_eq!(3, c.value(0));
         assert_eq!(true, c.is_null(1));
         assert_eq!(1, c.value(2));

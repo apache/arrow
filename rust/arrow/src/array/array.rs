@@ -2718,6 +2718,47 @@ mod tests {
     }
 
     #[test]
+    fn test_boolean_array_slice() {
+        let arr = BooleanArray::from(vec![
+            Some(true),
+            None,
+            Some(false),
+            None,
+            Some(true),
+            Some(false),
+            Some(true),
+            Some(false),
+            None,
+            Some(true),
+        ]);
+
+        assert_eq!(10, arr.len());
+        assert_eq!(0, arr.offset());
+        assert_eq!(3, arr.null_count());
+
+        let arr2 = arr.slice(3, 5);
+        assert_eq!(5, arr2.len());
+        assert_eq!(3, arr2.offset());
+        assert_eq!(1, arr2.null_count());
+
+        let bool_arr = arr2.as_any().downcast_ref::<BooleanArray>().unwrap();
+
+        assert_eq!(false, bool_arr.is_valid(0));
+
+        assert_eq!(true, bool_arr.is_valid(1));
+        assert_eq!(true, bool_arr.value(1));
+
+        assert_eq!(true, bool_arr.is_valid(2));
+        assert_eq!(false, bool_arr.value(2));
+
+        assert_eq!(true, bool_arr.is_valid(3));
+        assert_eq!(true, bool_arr.value(3));
+
+        assert_eq!(true, bool_arr.is_valid(4));
+        assert_eq!(false, bool_arr.value(4));
+    }
+
+    #[test]
     fn test_value_slice_no_bounds_check() {
         let arr = Int32Array::from(vec![2, 3, 4]);
         let _slice = arr.value_slice(0, 4);
