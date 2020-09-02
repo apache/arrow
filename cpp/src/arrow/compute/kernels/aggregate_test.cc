@@ -595,7 +595,13 @@ TYPED_TEST(TestFloatingMinMaxKernel, DefaultOptions) {
 }
 
 template <typename ArrowType>
-using MinMaxResult = std::pair<typename ArrowType::c_type, typename ArrowType::c_type>;
+struct MinMaxResult {
+  using T = typename ArrowType::c_type;
+
+  T min = 0;
+  T max = 0;
+  bool is_valid = false;
+};
 
 template <typename ArrowType>
 static enable_if_integer<ArrowType, MinMaxResult<ArrowType>> NaiveMinMax(
@@ -603,11 +609,13 @@ static enable_if_integer<ArrowType, MinMaxResult<ArrowType>> NaiveMinMax(
   using T = typename ArrowType::c_type;
   using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
 
+  MinMaxResult<ArrowType> result;
+
   const auto& array_numeric = reinterpret_cast<const ArrayType&>(array);
   const auto values = array_numeric.raw_values();
 
   if (array.length() <= array.null_count()) {  // All null values
-    return {static_cast<T>(0), static_cast<T>(0)};
+    return result;
   }
 
   T min = std::numeric_limits<T>::max();
@@ -629,7 +637,10 @@ static enable_if_integer<ArrowType, MinMaxResult<ArrowType>> NaiveMinMax(
     }
   }
 
-  return {min, max};
+  result.min = min;
+  result.max = max;
+  result.is_valid = true;
+  return result;
 }
 
 template <typename ArrowType>
@@ -638,11 +649,13 @@ static enable_if_floating_point<ArrowType, MinMaxResult<ArrowType>> NaiveMinMax(
   using T = typename ArrowType::c_type;
   using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
 
+  MinMaxResult<ArrowType> result;
+
   const auto& array_numeric = reinterpret_cast<const ArrayType&>(array);
   const auto values = array_numeric.raw_values();
 
   if (array.length() <= array.null_count()) {  // All null values
-    return {static_cast<T>(0), static_cast<T>(0)};
+    return result;
   }
 
   T min = std::numeric_limits<T>::infinity();
@@ -664,7 +677,10 @@ static enable_if_floating_point<ArrowType, MinMaxResult<ArrowType>> NaiveMinMax(
     }
   }
 
-  return {min, max};
+  result.min = min;
+  result.max = max;
+  result.is_valid = true;
+  return result;
 }
 
 template <typename ArrowType>
@@ -677,10 +693,17 @@ void ValidateMinMax(const Array& array) {
 
   auto expected = NaiveMinMax<ArrowType>(array);
   const auto& out_min = checked_cast<const ScalarType&>(*value.value[0]);
-  ASSERT_EQ(expected.first, out_min.value);
-
   const auto& out_max = checked_cast<const ScalarType&>(*value.value[1]);
-  ASSERT_EQ(expected.second, out_max.value);
+
+  if (expected.is_valid) {  // All null values
+    ASSERT_TRUE(out_min.is_valid);
+    ASSERT_TRUE(out_max.is_valid);
+  } else {
+    ASSERT_FALSE(out_min.is_valid);
+    ASSERT_FALSE(out_max.is_valid);
+  }
+  ASSERT_EQ(expected.min, out_min.value);
+  ASSERT_EQ(expected.max, out_max.value);
 }
 
 template <typename ArrowType>
