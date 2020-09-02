@@ -594,6 +594,137 @@ TYPED_TEST(TestFloatingMinMaxKernel, DefaultOptions) {
   AssertDatumsEqual(explicit_defaults, no_options_provided);
 }
 
+template <typename ArrowType>
+struct MinMaxResult {
+  using T = typename ArrowType::c_type;
+
+  T min = 0;
+  T max = 0;
+  bool is_valid = false;
+};
+
+template <typename ArrowType>
+static enable_if_integer<ArrowType, MinMaxResult<ArrowType>> NaiveMinMax(
+    const Array& array) {
+  using T = typename ArrowType::c_type;
+  using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
+
+  MinMaxResult<ArrowType> result;
+
+  const auto& array_numeric = reinterpret_cast<const ArrayType&>(array);
+  const auto values = array_numeric.raw_values();
+
+  if (array.length() <= array.null_count()) {  // All null values
+    return result;
+  }
+
+  T min = std::numeric_limits<T>::max();
+  T max = std::numeric_limits<T>::min();
+  if (array.null_count() != 0) {  // Some values are null
+    internal::BitmapReader reader(array.null_bitmap_data(), array.offset(),
+                                  array.length());
+    for (int64_t i = 0; i < array.length(); i++) {
+      if (reader.IsSet()) {
+        min = std::min(min, values[i]);
+        max = std::max(max, values[i]);
+      }
+      reader.Next();
+    }
+  } else {  // All true values
+    for (int64_t i = 0; i < array.length(); i++) {
+      min = std::min(min, values[i]);
+      max = std::max(max, values[i]);
+    }
+  }
+
+  result.min = min;
+  result.max = max;
+  result.is_valid = true;
+  return result;
+}
+
+template <typename ArrowType>
+static enable_if_floating_point<ArrowType, MinMaxResult<ArrowType>> NaiveMinMax(
+    const Array& array) {
+  using T = typename ArrowType::c_type;
+  using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
+
+  MinMaxResult<ArrowType> result;
+
+  const auto& array_numeric = reinterpret_cast<const ArrayType&>(array);
+  const auto values = array_numeric.raw_values();
+
+  if (array.length() <= array.null_count()) {  // All null values
+    return result;
+  }
+
+  T min = std::numeric_limits<T>::infinity();
+  T max = -std::numeric_limits<T>::infinity();
+  if (array.null_count() != 0) {  // Some values are null
+    internal::BitmapReader reader(array.null_bitmap_data(), array.offset(),
+                                  array.length());
+    for (int64_t i = 0; i < array.length(); i++) {
+      if (reader.IsSet()) {
+        min = std::fmin(min, values[i]);
+        max = std::fmax(max, values[i]);
+      }
+      reader.Next();
+    }
+  } else {  // All true values
+    for (int64_t i = 0; i < array.length(); i++) {
+      min = std::fmin(min, values[i]);
+      max = std::fmax(max, values[i]);
+    }
+  }
+
+  result.min = min;
+  result.max = max;
+  result.is_valid = true;
+  return result;
+}
+
+template <typename ArrowType>
+void ValidateMinMax(const Array& array) {
+  using Traits = TypeTraits<ArrowType>;
+  using ScalarType = typename Traits::ScalarType;
+
+  ASSERT_OK_AND_ASSIGN(Datum out, MinMax(array));
+  const StructScalar& value = out.scalar_as<StructScalar>();
+
+  auto expected = NaiveMinMax<ArrowType>(array);
+  const auto& out_min = checked_cast<const ScalarType&>(*value.value[0]);
+  const auto& out_max = checked_cast<const ScalarType&>(*value.value[1]);
+
+  if (expected.is_valid) {
+    ASSERT_TRUE(out_min.is_valid);
+    ASSERT_TRUE(out_max.is_valid);
+    ASSERT_EQ(expected.min, out_min.value);
+    ASSERT_EQ(expected.max, out_max.value);
+  } else {  // All null values
+    ASSERT_FALSE(out_min.is_valid);
+    ASSERT_FALSE(out_max.is_valid);
+  }
+}
+
+template <typename ArrowType>
+class TestRandomNumericMinMaxKernel : public ::testing::Test {};
+
+TYPED_TEST_SUITE(TestRandomNumericMinMaxKernel, NumericArrowTypes);
+TYPED_TEST(TestRandomNumericMinMaxKernel, RandomArrayMinMax) {
+  auto rand = random::RandomArrayGenerator(0x8afc055);
+  // Test size up to 1<<11 (2048).
+  for (size_t i = 3; i < 12; i += 2) {
+    for (auto null_probability : {0.0, 0.01, 0.1, 0.5, 0.99, 1.0}) {
+      int64_t base_length = (1UL << i) + 2;
+      auto array = rand.Numeric<TypeParam>(base_length, 0, 100, null_probability);
+      for (auto length_adjust : {-2, -1, 0, 1, 2}) {
+        int64_t length = (1UL << i) + length_adjust;
+        ValidateMinMax<TypeParam>(*array->Slice(0, length));
+      }
+    }
+  }
+}
+
 //
 // Mode
 //

@@ -130,23 +130,6 @@ Result<Datum> MinMax(const Datum& value,
                      const MinMaxOptions& options = MinMaxOptions::Defaults(),
                      ExecContext* ctx = NULLPTR);
 
-/// \brief Calculate the min / max of a numeric array.
-///
-/// This function returns both the min and max as a collection. The resulting
-/// datum thus consists of two scalar datums: {Datum(min), Datum(max)}
-///
-/// \param[in] array input array
-/// \param[in] options see MinMaxOptions for more information
-/// \param[in] ctx the function execution context, optional
-/// \return resulting datum containing a {min, max} collection
-///
-/// \since 1.0.0
-/// \note API not yet finalized
-ARROW_EXPORT
-Result<Datum> MinMax(const Array& array,
-                     const MinMaxOptions& options = MinMaxOptions::Defaults(),
-                     ExecContext* ctx = NULLPTR);
-
 /// \brief Calculate the modal (most common) value of a numeric array
 ///
 /// This function returns both mode and count as a struct scalar, with type
