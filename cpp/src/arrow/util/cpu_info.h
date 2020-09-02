@@ -59,6 +59,8 @@ class ARROW_EXPORT CpuInfo {
     L3_CACHE = 2,
   };
 
+  enum class Vendor : int { Unknown = 0, Intel, AMD };
+
   /// The SIMD level set by user
   enum UserSimdLevel {
     USER_SIMD_NONE = 0,
@@ -78,7 +80,7 @@ class ARROW_EXPORT CpuInfo {
   /// Returns all the flags for this cpu
   int64_t hardware_flags();
 
-  /// Returns whether of not the cpu supports all the flags
+  /// Returns whether or not the cpu supports all the flags
   bool IsSupported(int64_t flags) const { return (hardware_flags_ & flags) == flags; }
 
   /// \brief The processor supports SSE4.2 and the Arrow libraries are built
@@ -101,6 +103,9 @@ class ARROW_EXPORT CpuInfo {
   /// Returns the model name of the cpu (e.g. Intel i7-2600)
   std::string model_name();
 
+  /// Returns the vendor of the cpu.
+  Vendor vendor() const { return vendor_; }
+
  private:
   CpuInfo();
 
@@ -118,6 +123,7 @@ class ARROW_EXPORT CpuInfo {
   int64_t cycles_per_ms_;
   int num_cores_;
   std::string model_name_;
+  Vendor vendor_;
 };
 
 }  // namespace internal

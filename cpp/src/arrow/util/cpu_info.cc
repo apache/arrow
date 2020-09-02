@@ -207,8 +207,9 @@ bool RetrieveCacheSize(int64_t* cache_sizes) {
 }
 
 // Source: https://en.wikipedia.org/wiki/CPUID
-bool RetrieveCPUInfo(int64_t* hardware_flags, std::string* model_name) {
-  if (!hardware_flags || !model_name) {
+bool RetrieveCPUInfo(int64_t* hardware_flags, std::string* model_name,
+                     CpuInfo::Vendor* vendor) {
+  if (!hardware_flags || !model_name || !vendor) {
     return false;
   }
   int register_EAX_id = 1;
@@ -220,6 +221,15 @@ bool RetrieveCPUInfo(int64_t* hardware_flags, std::string* model_name) {
   // Get highest valid id
   __cpuid(cpu_info.data(), 0);
   highest_valid_id = cpu_info[0];
+  // HEX of "GenuineIntel": 47656E75 696E6549 6E74656C
+  // HEX of "AuthenticAMD": 41757468 656E7469 63414D44
+  if (cpu_info[1] == 0x756e6547 && cpu_info[2] == 0x49656e69 &&
+      cpu_info[3] == 0x6c65746e) {
+    *vendor = CpuInfo::Vendor::Intel;
+  } else if (cpu_info[1] == 0x68747541 && cpu_info[2] == 0x69746e65 &&
+             cpu_info[3] == 0x444d4163) {
+    *vendor = CpuInfo::Vendor::AMD;
+  }
 
   if (highest_valid_id <= register_EAX_id) return false;
 
@@ -267,7 +277,11 @@ bool RetrieveCPUInfo(int64_t* hardware_flags, std::string* model_name) {
 }
 #endif
 
-CpuInfo::CpuInfo() : hardware_flags_(0), num_cores_(1), model_name_("unknown") {}
+CpuInfo::CpuInfo()
+    : hardware_flags_(0),
+      num_cores_(1),
+      model_name_("unknown"),
+      vendor_(Vendor::Unknown) {}
 
 std::unique_ptr<CpuInfo> g_cpu_info;
 static std::once_flag cpuinfo_initialized;
@@ -321,6 +335,12 @@ void CpuInfo::Init() {
         ++num_cores;
       } else if (name.compare("model name") == 0) {
         model_name_ = value;
+      } else if (name.compare("vendor_id") == 0) {
+        if (value.compare("GenuineIntel") == 0) {
+          vendor_ = Vendor::Intel;
+        } else if (value.compare("AuthenticAMD") == 0) {
+          vendor_ = Vendor::AMD;
+        }
       }
     }
   }
@@ -341,7 +361,7 @@ void CpuInfo::Init() {
   if (!RetrieveCacheSize(cache_sizes_)) {
     SetDefaultCacheSize();
   }
-  RetrieveCPUInfo(&hardware_flags_, &model_name_);
+  RetrieveCPUInfo(&hardware_flags_, &model_name_, &vendor_);
 #else
   SetDefaultCacheSize();
 #endif
