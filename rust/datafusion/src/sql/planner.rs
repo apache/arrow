@@ -154,7 +154,7 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
         )];
 
         let schema = LogicalPlan::explain_schema();
-        let plan = Box::new(plan);
+        let plan = Arc::new(plan);
 
         Ok(LogicalPlan::Explain {
             verbose,

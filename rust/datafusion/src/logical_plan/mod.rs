@@ -773,7 +773,7 @@ pub enum LogicalPlan {
         /// The list of expressions
         expr: Vec<Expr>,
         /// The incoming logical plan
-        input: Box<LogicalPlan>,
+        input: Arc<LogicalPlan>,
         /// The schema description of the output
         schema: Box<Schema>,
     },
@@ -789,13 +789,13 @@ pub enum LogicalPlan {
         /// The predicate expression, which must have Boolean type.
         predicate: Expr,
         /// The incoming logical plan
-        input: Box<LogicalPlan>,
+        input: Arc<LogicalPlan>,
     },
     /// Aggregates its input based on a set of grouping and aggregate
     /// expressions (e.g. SUM).
     Aggregate {
         /// The incoming logical plan
-        input: Box<LogicalPlan>,
+        input: Arc<LogicalPlan>,
         /// Grouping expressions
         group_expr: Vec<Expr>,
         /// Aggregate expressions
@@ -808,7 +808,7 @@ pub enum LogicalPlan {
         /// The sort expressions
         expr: Vec<Expr>,
         /// The incoming logical plan
-        input: Box<LogicalPlan>,
+        input: Arc<LogicalPlan>,
     },
     /// Produces rows from a table that has been registered on a
     /// context
@@ -871,7 +871,7 @@ pub enum LogicalPlan {
         /// The limit
         n: usize,
         /// The logical plan
-        input: Box<LogicalPlan>,
+        input: Arc<LogicalPlan>,
     },
     /// Creates an external table.
     CreateExternalTable {
@@ -892,7 +892,7 @@ pub enum LogicalPlan {
         /// Should extra (detailed, intermediate plans) be included?
         verbose: bool,
         /// The logical plan that is being EXPLAIN'd
-        plan: Box<LogicalPlan>,
+        plan: Arc<LogicalPlan>,
         /// Represent the various stages plans have gone through
         stringified_plans: Vec<StringifiedPlan>,
         /// The output schema of the explain (2 columns of text)
@@ -1203,7 +1203,7 @@ impl LogicalPlanBuilder {
 
         Ok(Self::from(&LogicalPlan::Projection {
             expr: projected_expr,
-            input: Box::new(self.plan.clone()),
+            input: Arc::new(self.plan.clone()),
             schema: Box::new(schema),
         }))
     }
@@ -1212,7 +1212,7 @@ impl LogicalPlanBuilder {
     pub fn filter(&self, expr: Expr) -> Result<Self> {
         Ok(Self::from(&LogicalPlan::Filter {
             predicate: expr,
-            input: Box::new(self.plan.clone()),
+            input: Arc::new(self.plan.clone()),
         }))
     }
 
@@ -1220,7 +1220,7 @@ impl LogicalPlanBuilder {
     pub fn limit(&self, n: usize) -> Result<Self> {
         Ok(Self::from(&LogicalPlan::Limit {
             n,
-            input: Box::new(self.plan.clone()),
+            input: Arc::new(self.plan.clone()),
         }))
     }
 
@@ -1228,7 +1228,7 @@ impl LogicalPlanBuilder {
     pub fn sort(&self, expr: Vec<Expr>) -> Result<Self> {
         Ok(Self::from(&LogicalPlan::Sort {
             expr,
-            input: Box::new(self.plan.clone()),
+            input: Arc::new(self.plan.clone()),
         }))
     }
 
@@ -1240,7 +1240,7 @@ impl LogicalPlanBuilder {
         let aggr_schema = Schema::new(exprlist_to_fields(&all_expr, self.plan.schema())?);
 
         Ok(Self::from(&LogicalPlan::Aggregate {
-            input: Box::new(self.plan.clone()),
+            input: Arc::new(self.plan.clone()),
             group_expr,
             aggr_expr,
             schema: Box::new(aggr_schema),
@@ -1258,7 +1258,7 @@ impl LogicalPlanBuilder {
 
         Ok(Self::from(&LogicalPlan::Explain {
             verbose,
-            plan: Box::new(self.plan.clone()),
+            plan: Arc::new(self.plan.clone()),
             stringified_plans,
             schema,
         }))
