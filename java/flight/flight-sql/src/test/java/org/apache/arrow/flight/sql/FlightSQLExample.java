@@ -539,7 +539,7 @@ public class FlightSQLExample extends FlightSQLProducer implements AutoCloseable
   }
 
   @Override
-  public void getSqlCapabilities(CallContext context, StreamListener<Result> listener) {
+  public void getSqlInfo(CallContext context, StreamListener<Result> listener) {
     // TODO - build example implementation
     throw Status.UNIMPLEMENTED.asRuntimeException();
   }
