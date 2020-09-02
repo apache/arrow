@@ -213,7 +213,7 @@ def read_json(input_file, read_options=None, parse_options=None,
     Parameters
     ----------
     input_file: string, path or file-like object
-        The location of JSON data. Currently only line-delimited (JSON-LD)
+        The location of JSON data. Currently only the line-delimited JSON
         format is supported.
     read_options: pyarrow.json.ReadOptions, optional
         Options for the JSON reader (see ReadOptions constructor for defaults)

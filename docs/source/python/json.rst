@@ -39,7 +39,7 @@ The features currently offered are the following:
 * sophisticated type inference (see below)
 
 .. note::
-   Currently only the line-delimited JSON (JSON-LD) format is supported.
+   Currently only the line-delimited JSON format is supported.
 
 
 Usage
