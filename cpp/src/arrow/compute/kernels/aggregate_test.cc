@@ -683,14 +683,6 @@ void ValidateMinMax(const Array& array) {
   ASSERT_EQ(expected.second, out_max.value);
 }
 
-void ValidateMinMaxIsNull(const Array& array) {
-  ASSERT_OK_AND_ASSIGN(Datum out, MinMax(array));
-  const StructScalar& value = out.scalar_as<StructScalar>();
-  for (const auto& val : value.value) {
-    ASSERT_FALSE(val->is_valid);
-  }
-}
-
 template <typename ArrowType>
 class TestRandomNumericMinMaxKernel : public ::testing::Test {};
 
@@ -699,25 +691,12 @@ TYPED_TEST(TestRandomNumericMinMaxKernel, RandomArrayMinMax) {
   auto rand = random::RandomArrayGenerator(0x8afc055);
   // Test size up to 1<<13 (8192).
   for (size_t i = 3; i < 14; i += 2) {
-    for (auto null_probability : {0.0, 0.001, 0.1, 0.5, 0.999}) {
+    for (auto null_probability : {0.0, 0.001, 0.1, 0.5, 0.999, 1.0}) {
       for (auto length_adjust : {-2, -1, 0, 1, 2}) {
         int64_t length = (1UL << i) + length_adjust;
         auto array = rand.Numeric<TypeParam>(length, 0, 100, null_probability);
         ValidateMinMax<TypeParam>(*array);
       }
-    }
-  }
-}
-
-TYPED_TEST_SUITE(TestRandomNumericMinMaxKernel, NumericArrowTypes);
-TYPED_TEST(TestRandomNumericMinMaxKernel, RandomNullArrayMinMax) {
-  auto rand = random::RandomArrayGenerator(0x8afc055);
-  // Test size up to 1<<10 (1024).
-  for (size_t i = 3; i < 11; i += 2) {
-    for (auto length_adjust : {-2, -1, 0, 1, 2}) {
-      int64_t length = (1UL << i) + length_adjust;
-      auto array = rand.Numeric<TypeParam>(length, 0, 100, 1.0);
-      ValidateMinMaxIsNull(*array);
     }
   }
 }
