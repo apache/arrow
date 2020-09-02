@@ -26,150 +26,133 @@ namespace aggregate {
 
 namespace {
 
-// Count values and return value:count map
-template <typename T>
-struct ValueCounter {
-  virtual void CountOne(T value) = 0;
-  virtual int64_t nan_count() = 0;
-  virtual std::unordered_map<T, int64_t>& value_counts() = 0;
-  virtual ~ValueCounter() = default;
-};
+template <typename ArrayType, typename Visitor>
+inline void VisitArrayInline(const ArrayType& array, Visitor&& visitor) {
+  if (array.length() == array.null_count()) {
+    return;
+  }
+  if (array.null_count() > 0) {
+    BitmapReader reader(array.null_bitmap_data(), array.offset(), array.length());
+    for (int64_t i = 0; i < array.length(); ++i) {
+      if (reader.IsSet()) {
+        visitor(array.Value(i));
+      }
+      reader.Next();
+    }
+  } else {
+    for (int64_t i = 0; i < array.length(); ++i) {
+      visitor(array.Value(i));
+    }
+  }
+}
 
-// Count values by map. For floating points and general integers.
-template <typename T>
-class ValueCounterMap final : public ValueCounter<T> {
- public:
-  void CountOne(T value) override {
-    if (std::is_floating_point<T>::value && std::isnan(value)) {
-      ++nan_count_;
+// {value:count} map
+template <typename CType>
+using CounterMap = std::unordered_map<CType, int64_t>;
+
+// map based counter for floating points
+template <typename ArrayType, typename CType = typename ArrayType::TypeClass::c_type>
+enable_if_t<std::is_floating_point<CType>::value, CounterMap<CType>> CountValuesByMap(
+    const ArrayType& array, int64_t& nan_count) {
+  CounterMap<CType> value_counts_map;
+
+  nan_count = 0;
+  VisitArrayInline(array, [&](CType value) {
+    if (std::isnan(value)) {
+      ++nan_count;
     } else {
-      ++value_counts_map_[value];
+      ++value_counts_map[value];
+    }
+  });
+
+  return value_counts_map;
+}
+
+// map base counter for non floating points
+template <typename ArrayType, typename CType = typename ArrayType::TypeClass::c_type>
+enable_if_t<!std::is_floating_point<CType>::value, CounterMap<CType>> CountValuesByMap(
+    const ArrayType& array) {
+  CounterMap<CType> value_counts_map;
+
+  VisitArrayInline(array, [&](CType value) { ++value_counts_map[value]; });
+
+  return value_counts_map;
+}
+
+// vector based counter for bool/int8 or integers with small value range
+template <typename ArrayType, typename CType = typename ArrayType::TypeClass::c_type>
+CounterMap<CType> CountValuesByVector(const ArrayType& array, CType min, CType max) {
+  const int range = static_cast<int>(max - min);
+  DCHECK(range >= 0 && range < 64 * 1024 * 1024);
+
+  std::vector<int64_t> value_counts_vector(range + 1);
+  VisitArrayInline(array, [&](CType value) { ++value_counts_vector[value - min]; });
+
+  // Transfer value counts to a map to be consistent with other chunks
+  CounterMap<CType> value_counts_map(range + 1);
+  for (int i = 0; i <= range; ++i) {
+    CType value = static_cast<CType>(i + min);
+    int64_t count = value_counts_vector[i];
+    if (count) {
+      value_counts_map[value] = count;
     }
   }
 
-  int64_t nan_count() override { return nan_count_; }
-  std::unordered_map<T, int64_t>& value_counts() override { return value_counts_map_; }
+  return value_counts_map;
+}
 
- private:
-  int64_t nan_count_ = 0;
-  std::unordered_map<T, int64_t> value_counts_map_;
-};
+// map or vector based counter for int16/32/64 per value range
+template <typename ArrayType, typename CType = typename ArrayType::TypeClass::c_type>
+CounterMap<CType> CountValuesByMapOrVector(const ArrayType& array) {
+  // see https://issues.apache.org/jira/browse/ARROW-9873
+  static constexpr int kMinArraySize = 8192 / sizeof(CType);
+  static constexpr int kMaxValueRange = 16384;
 
-// Count values by value indexed array. For integers in small value range.
-template <typename T>
-class ValueCounterVector final : public ValueCounter<T> {
- public:
-  ValueCounterVector(T min, T max)
-      : min_(min),
-        value_counts_vector_(max - min + 1),
-        value_counts_map_((max - min + 1) * 9 / 8) {}  // reserver 12.5% extra map buckets
+  if ((array.length() - array.null_count()) >= kMinArraySize) {
+    CType min = std::numeric_limits<CType>::max();
+    CType max = std::numeric_limits<CType>::min();
 
-  void CountOne(T value) override { ++value_counts_vector_[value - min_]; }
+    VisitArrayInline(array, [&](CType value) {
+      min = std::min(min, value);
+      max = std::max(max, value);
+    });
 
-  int64_t nan_count() override { return 0; }
-
-  // transfer to a value:count map
-  std::unordered_map<T, int64_t>& value_counts() override {
-    for (int i = 0; i < static_cast<int>(value_counts_vector_.size()); ++i) {
-      T value = static_cast<T>(i + min_);
-      int64_t count = value_counts_vector_[i];
-      if (count) {
-        value_counts_map_[value] = count;
-      }
+    if (static_cast<uint64_t>(max) - static_cast<uint64_t>(min) <= kMaxValueRange) {
+      return CountValuesByVector(array, min, max);
     }
-    return value_counts_map_;
   }
+  return CountValuesByMap(array);
+}
 
- private:
-  T min_;
-  std::vector<int64_t> value_counts_vector_;
-  std::unordered_map<T, int64_t> value_counts_map_;
-};
+// bool, int8
+template <typename ArrayType, typename CType = typename ArrayType::TypeClass::c_type>
+enable_if_t<std::is_integral<CType>::value && sizeof(CType) == 1, CounterMap<CType>>
+CountValues(const ArrayType& array, int64_t& nan_count) {
+  using Limits = std::numeric_limits<CType>;
+  nan_count = 0;
+  return CountValuesByVector(array, Limits::min(), Limits::max());
+}
 
-// Calculate mode per data type and value range
-template <typename ArrowType, typename Enable = void>
-struct ModeConsumer {};
+// int16/32/64
+template <typename ArrayType, typename CType = typename ArrayType::TypeClass::c_type>
+enable_if_t<std::is_integral<CType>::value && (sizeof(CType) > 1), CounterMap<CType>>
+CountValues(const ArrayType& array, int64_t& nan_count) {
+  nan_count = 0;
+  return CountValuesByMapOrVector(array);
+}
 
-// Use vector based volume counter for small integer types
-template <typename ArrowType>
-struct ModeConsumer<ArrowType, enable_if_t<is_boolean_type<ArrowType>::value ||
-                                           (is_integer_type<ArrowType>::value &&
-                                            sizeof(typename ArrowType::c_type) == 1)>> {
-  using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
-  using T = typename ArrowType::c_type;
-  using Limits = std::numeric_limits<T>;
-
-  explicit ModeConsumer(const ArrayType&) {}
-
-  std::unique_ptr<ValueCounterVector<T>> value_counter{
-      new ValueCounterVector<T>(Limits::min(), Limits::max())};
-};
-
-// Use map based volume counter for floating points
-template <typename ArrowType>
-struct ModeConsumer<ArrowType, enable_if_t<is_floating_type<ArrowType>::value>> {
-  using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
-  using T = typename ArrowType::c_type;
-
-  explicit ModeConsumer(const ArrayType&) {}
-
-  std::unique_ptr<ValueCounterMap<T>> value_counter{new ValueCounterMap<T>()};
-};
-
-// Select map or vector based volume counter for integers per value range
-template <typename ArrowType>
-struct ModeConsumer<ArrowType, enable_if_t<is_integer_type<ArrowType>::value &&
-                                           (sizeof(typename ArrowType::c_type) > 1)>> {
-  using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
-  using T = typename ArrowType::c_type;
-
-  explicit ModeConsumer(const ArrayType& array) {
-    // see https://issues.apache.org/jira/browse/ARROW-9873
-    static constexpr int kMinArraySize = 8192 / sizeof(T);
-    static constexpr int kMaxValueRange = 16384;
-
-    if ((array.length() - array.null_count()) >= kMinArraySize) {
-      T min, max;
-      std::tie(min, max) = MinMax(array);
-      if (static_cast<uint64_t>(max) - static_cast<uint64_t>(min) <= kMaxValueRange) {
-        this->value_counter.reset(new ValueCounterVector<T>(min, max));
-        return;
-      }
-    }
-    this->value_counter.reset(new ValueCounterMap<T>());
-  }
-
-  std::pair<T, T> MinMax(const ArrayType& array) {
-    T min = std::numeric_limits<T>::max();
-    T max = std::numeric_limits<T>::min();
-
-    const auto values = array.raw_values();
-    if (array.null_count() > 0) {
-      BitmapReader reader(array.null_bitmap_data(), array.offset(), array.length());
-      for (int64_t i = 0; i < array.length(); ++i) {
-        if (reader.IsSet()) {
-          min = std::min(min, values[i]);
-          max = std::max(max, values[i]);
-        }
-        reader.Next();
-      }
-    } else {
-      for (int64_t i = 0; i < array.length(); ++i) {
-        min = std::min(min, values[i]);
-        max = std::max(max, values[i]);
-      }
-    }
-
-    return std::make_pair(min, max);
-  }
-
-  std::unique_ptr<ValueCounter<T>> value_counter;
-};
+// float/double
+template <typename ArrayType, typename CType = typename ArrayType::TypeClass::c_type>
+enable_if_t<(std::is_floating_point<CType>::value), CounterMap<CType>>  // NOLINT format
+CountValues(const ArrayType& array, int64_t& nan_count) {
+  nan_count = 0;
+  return CountValuesByMap(array, nan_count);
+}
 
 template <typename ArrowType>
 struct ModeState {
   using ThisType = ModeState<ArrowType>;
-  using T = typename ArrowType::c_type;
+  using CType = typename ArrowType::c_type;
 
   void MergeFrom(const ThisType& state) {
     if (this->value_counts.empty()) {
@@ -186,8 +169,8 @@ struct ModeState {
     }
   }
 
-  std::pair<T, int64_t> Finalize() {
-    T mode = std::numeric_limits<T>::min();
+  std::pair<CType, int64_t> Finalize() {
+    CType mode = std::numeric_limits<CType>::min();
     int64_t count = 0;
 
     for (const auto& value_count : this->value_counts) {
@@ -200,13 +183,13 @@ struct ModeState {
     }
     if (is_floating_type<ArrowType>::value && this->nan_count > count) {
       count = this->nan_count;
-      mode = static_cast<T>(NAN);
+      mode = static_cast<CType>(NAN);
     }
     return std::make_pair(mode, count);
   }
 
   int64_t nan_count = 0;  // only make sense to floating types
-  std::unordered_map<T, int64_t> value_counts;
+  CounterMap<CType> value_counts;
 };
 
 template <typename ArrowType>
@@ -217,24 +200,8 @@ struct ModeImpl : public ScalarAggregator {
   explicit ModeImpl(const std::shared_ptr<DataType>& out_type) : out_type(out_type) {}
 
   void Consume(KernelContext*, const ExecBatch& batch) override {
-    ArrayType arr(batch[0].array());
-    ModeConsumer<ArrowType> consumer(arr);
-
-    if (arr.null_count() > 0) {
-      BitmapReader reader(arr.null_bitmap_data(), arr.offset(), arr.length());
-      for (int64_t i = 0; i < arr.length(); i++) {
-        if (reader.IsSet()) {
-          consumer.value_counter->CountOne(arr.Value(i));
-        }
-        reader.Next();
-      }
-    } else {
-      for (int64_t i = 0; i < arr.length(); i++) {
-        consumer.value_counter->CountOne(arr.Value(i));
-      }
-    }
-    this->state.nan_count = consumer.value_counter->nan_count();
-    this->state.value_counts = std::move(consumer.value_counter->value_counts());
+    ArrayType array(batch[0].array());
+    this->state.value_counts = CountValues(array, this->state.nan_count);
   }
 
   void MergeFrom(KernelContext*, const KernelState& src) override {
