@@ -24,7 +24,7 @@ use crate::optimizer::optimizer::OptimizerRule;
 use crate::optimizer::utils;
 use arrow::datatypes::{Field, Schema};
 use arrow::error::Result as ArrowResult;
-use std::collections::HashSet;
+use std::{collections::HashSet, sync::Arc};
 use utils::optimize_explain;
 
 /// Optimizer that removes unused projections and aggregations from plans
@@ -153,7 +153,7 @@ fn optimize_plan(
             } else {
                 Ok(LogicalPlan::Projection {
                     expr: new_expr,
-                    input: Box::new(new_input),
+                    input: Arc::new(new_input),
                     schema: Box::new(Schema::new(new_fields)),
                 })
             }
@@ -203,7 +203,7 @@ fn optimize_plan(
             Ok(LogicalPlan::Aggregate {
                 group_expr: group_expr.clone(),
                 aggr_expr: new_aggr_expr,
-                input: Box::new(optimize_plan(
+                input: Arc::new(optimize_plan(
                     optimizer,
                     &input,
                     &new_required_columns,

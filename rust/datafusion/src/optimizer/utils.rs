@@ -17,7 +17,7 @@
 
 //! Collection of utility functions that are leveraged by the query optimizer rules
 
-use std::collections::HashSet;
+use std::{collections::HashSet, sync::Arc};
 
 use arrow::datatypes::Schema;
 
@@ -82,7 +82,7 @@ pub fn optimize_explain(
     // These are the fields of LogicalPlan::Explain It might be nice
     // to transform that enum Variant into its own struct and avoid
     // passing the fields individually
-    let plan = Box::new(optimizer.optimize(plan)?);
+    let plan = Arc::new(optimizer.optimize(plan)?);
     let mut stringified_plans = stringified_plans.clone();
     let optimizer_name = optimizer.name().into();
     stringified_plans.push(StringifiedPlan::new(
@@ -154,28 +154,28 @@ pub fn from_plan(
     match plan {
         LogicalPlan::Projection { schema, .. } => Ok(LogicalPlan::Projection {
             expr: expr.clone(),
-            input: Box::new(inputs[0].clone()),
+            input: Arc::new(inputs[0].clone()),
             schema: schema.clone(),
         }),
         LogicalPlan::Filter { .. } => Ok(LogicalPlan::Filter {
             predicate: expr[0].clone(),
-            input: Box::new(inputs[0].clone()),
+            input: Arc::new(inputs[0].clone()),
         }),
         LogicalPlan::Aggregate {
             group_expr, schema, ..
         } => Ok(LogicalPlan::Aggregate {
             group_expr: expr[0..group_expr.len()].to_vec(),
             aggr_expr: expr[group_expr.len()..].to_vec(),
-            input: Box::new(inputs[0].clone()),
+            input: Arc::new(inputs[0].clone()),
             schema: schema.clone(),
         }),
         LogicalPlan::Sort { .. } => Ok(LogicalPlan::Sort {
             expr: expr.clone(),
-            input: Box::new(inputs[0].clone()),
+            input: Arc::new(inputs[0].clone()),
         }),
         LogicalPlan::Limit { n, .. } => Ok(LogicalPlan::Limit {
             n: *n,
-            input: Box::new(inputs[0].clone()),
+            input: Arc::new(inputs[0].clone()),
         }),
         LogicalPlan::EmptyRelation { .. }
         | LogicalPlan::TableScan { .. }

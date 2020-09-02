@@ -19,7 +19,10 @@ use crate::logical_plan::Expr;
 use crate::logical_plan::{and, LogicalPlan};
 use crate::optimizer::optimizer::OptimizerRule;
 use crate::optimizer::utils;
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::{
+    collections::{BTreeMap, HashMap, HashSet},
+    sync::Arc,
+};
 
 /// Filter Push Down optimizer rule pushes filter clauses down the plan
 ///
@@ -268,7 +271,7 @@ fn optimize_plan(
     if let Some(expr) = new_filters.get(&depth) {
         return Ok(LogicalPlan::Filter {
             predicate: expr.clone(),
-            input: Box::new(new_plan),
+            input: Arc::new(new_plan),
         });
     } else {
         Ok(new_plan)
