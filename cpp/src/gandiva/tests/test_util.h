@@ -19,6 +19,7 @@
 #include <memory>
 #include <utility>
 #include <vector>
+
 #include "arrow/testing/gtest_util.h"
 #include "gandiva/arrow.h"
 #include "gandiva/configuration.h"
@@ -76,6 +77,7 @@ static inline ArrayPtr MakeArrowTypeArray(const std::shared_ptr<arrow::DataType>
 #define MakeArrowArrayUint64 MakeArrowArray<arrow::UInt64Type, uint64_t>
 #define MakeArrowArrayFloat32 MakeArrowArray<arrow::FloatType, float>
 #define MakeArrowArrayFloat64 MakeArrowArray<arrow::DoubleType, double>
+#define MakeArrowArrayDate64 MakeArrowArray<arrow::Date64Type, int64_t>
 #define MakeArrowArrayUtf8 MakeArrowArray<arrow::StringType, std::string>
 #define MakeArrowArrayBinary MakeArrowArray<arrow::BinaryType, std::string>
 #define MakeArrowArrayDecimal MakeArrowArray<arrow::Decimal128Type, arrow::Decimal128>
