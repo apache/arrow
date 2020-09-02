@@ -44,28 +44,28 @@ namespace arrow {
 using internal::checked_cast;
 using internal::checked_pointer_cast;
 
-template <typename I, typename O>
+template <typename Input, typename Options>
 class ARROW_EXPORT ArrayConverter {
  public:
-  using InputType = I;
-  using OptionsType = O;
+  using InputType = Input;
+  using OptionsType = Options;
 
   ArrayConverter(const std::shared_ptr<DataType>& type,
-                 std::shared_ptr<ArrayBuilder> builder, O options)
+                 std::shared_ptr<ArrayBuilder> builder, Options options)
       : sp_type_(type), sp_builder_(builder), options_(options) {}
 
   virtual ~ArrayConverter() = default;
-  std::shared_ptr<ArrayBuilder> builder() { return sp_builder_; }
-  std::shared_ptr<ArrayBuilder> type() { return sp_type_; }
-  O options() { return options_; }
+  const std::shared_ptr<ArrayBuilder>& builder() const { return sp_builder_; }
+  const std::shared_ptr<DataType>& type() const { return sp_type_; }
+  Options options() const { return options_; }
 
   virtual Status Init() { return Status::OK(); };
   virtual Status Reserve(int64_t additional_capacity) = 0;
 
-  virtual Status Append(I value) = 0;
+  virtual Status Append(Input value) = 0;
   virtual Status AppendNull() = 0;
 
-  virtual Status Extend(I seq, int64_t size) = 0;
+  virtual Status Extend(Input seq, int64_t size) = 0;
 
   virtual Result<std::shared_ptr<Array>> Finish() = 0;
 
@@ -75,19 +75,19 @@ class ARROW_EXPORT ArrayConverter {
  protected:
   const std::shared_ptr<DataType> sp_type_;
   std::shared_ptr<ArrayBuilder> sp_builder_;
-  O options_;
+  Options options_;
 };
 
-template <typename T, typename AC>
-class ARROW_EXPORT TypedArrayConverter : public AC {
+template <typename T, typename ArrayConverter>
+class ARROW_EXPORT TypedArrayConverter : public ArrayConverter {
  public:
-  using ArrayConverter = AC;
+  using ArrayConverterType = ArrayConverter;
   using BuilderType = typename TypeTraits<T>::BuilderType;
 
   TypedArrayConverter(const std::shared_ptr<DataType>& type,
                       std::shared_ptr<ArrayBuilder> builder,
-                      typename AC::OptionsType options)
-      : AC(type, builder, options),
+                      typename ArrayConverter::OptionsType options)
+      : ArrayConverter(type, builder, options),
         type_(checked_cast<const T&>(*type)),
         builder_(checked_cast<BuilderType*>(builder.get())) {}
 
@@ -108,50 +108,53 @@ class ARROW_EXPORT TypedArrayConverter : public AC {
   BuilderType* builder_;
 };
 
-template <typename T, typename AC>
-class ARROW_EXPORT ListArrayConverter : public TypedArrayConverter<T, AC> {
+template <typename T, typename ArrayConverter>
+class ARROW_EXPORT ListArrayConverter : public TypedArrayConverter<T, ArrayConverter> {
  public:
   ListArrayConverter(const std::shared_ptr<DataType>& type,
                      std::shared_ptr<ArrayBuilder> builder,
-                     std::shared_ptr<AC> value_converter,
-                     typename AC::OptionsType options)
-      : TypedArrayConverter<T, AC>(type, builder, options),
+                     std::shared_ptr<ArrayConverter> value_converter,
+                     typename ArrayConverter::OptionsType options)
+      : TypedArrayConverter<T, ArrayConverter>(type, builder, options),
         value_converter_(std::move(value_converter)) {}
 
  protected:
-  std::shared_ptr<AC> value_converter_;
+  std::shared_ptr<ArrayConverter> value_converter_;
 };
 
-template <typename T, typename AC>
-class ARROW_EXPORT StructArrayConverter : public TypedArrayConverter<T, AC> {
+template <typename T, typename ArrayConverter>
+class ARROW_EXPORT StructArrayConverter : public TypedArrayConverter<T, ArrayConverter> {
  public:
   StructArrayConverter(const std::shared_ptr<DataType>& type,
                        std::shared_ptr<ArrayBuilder> builder,
-                       std::vector<std::shared_ptr<AC>> child_converters,
-                       typename AC::OptionsType options)
-      : TypedArrayConverter<T, AC>(type, builder, options),
+                       std::vector<std::shared_ptr<ArrayConverter>> child_converters,
+                       typename ArrayConverter::OptionsType options)
+      : TypedArrayConverter<T, ArrayConverter>(type, builder, options),
         child_converters_(std::move(child_converters)) {}
 
  protected:
-  std::vector<std::shared_ptr<AC>> child_converters_;
+  std::vector<std::shared_ptr<ArrayConverter>> child_converters_;
 };
 
-template <typename O, typename AC, template <typename...> class PAC,
-          template <typename...> class LAC, template <typename...> class SAC>
+template <typename Options, typename ArrayConverter,
+          template <typename...> class PrimitiveArrayConverter,
+          template <typename...> class ListArrayConverter,
+          template <typename...> class StructArrayConverter>
 struct ArrayConverterBuilder {
-  using Self = ArrayConverterBuilder<O, AC, PAC, LAC, SAC>;
+  using Self = ArrayConverterBuilder<Options, ArrayConverter, PrimitiveArrayConverter,
+                                     ListArrayConverter, StructArrayConverter>;
 
   Status Visit(const NullType& t) {
     // TODO: merge with the primitive c_type variant below, requires a NullType ctor which
     // accepts a type instance
-    using T = NullType;
-    using BuilderType = typename TypeTraits<T>::BuilderType;
-    using PrimitiveConverter = PAC<T>;
-    static_assert(std::is_same<typename PrimitiveConverter::ArrayConverter, AC>::value,
-                  "");
+    using BuilderType = typename TypeTraits<NullType>::BuilderType;
+    using NullConverter = PrimitiveArrayConverter<NullType>;
+    static_assert(
+        std::is_same<typename NullConverter::ArrayConverterType, ArrayConverter>::value,
+        "");
 
     auto builder = std::make_shared<BuilderType>(pool);
-    out->reset(new PrimitiveConverter(type, std::move(builder), options));
+    out->reset(new NullConverter(type, std::move(builder), options));
     return Status::OK();
   }
 
@@ -161,8 +164,9 @@ struct ArrayConverterBuilder {
               Status>
   Visit(const T& t) {
     using BuilderType = typename TypeTraits<T>::BuilderType;
-    using PrimitiveConverter = PAC<T>;
-    static_assert(std::is_same<typename PrimitiveConverter::ArrayConverter, AC>::value,
+    using PrimitiveConverter = PrimitiveArrayConverter<T>;
+    static_assert(std::is_same<typename PrimitiveConverter::ArrayConverterType,
+                               ArrayConverter>::value,
                   "");
 
     auto builder = std::make_shared<BuilderType>(type, pool);
@@ -174,8 +178,10 @@ struct ArrayConverterBuilder {
   enable_if_t<is_list_like_type<T>::value && !std::is_same<T, MapType>::value, Status>
   Visit(const T& t) {
     using BuilderType = typename TypeTraits<T>::BuilderType;
-    using ListConverter = LAC<T>;
-    static_assert(std::is_same<typename ListConverter::ArrayConverter, AC>::value, "");
+    using ListConverter = ListArrayConverter<T>;
+    static_assert(
+        std::is_same<typename ListConverter::ArrayConverterType, ArrayConverter>::value,
+        "");
 
     ARROW_ASSIGN_OR_RAISE(auto child_converter,
                           (Self::Make(t.value_type(), pool, options)));
@@ -186,9 +192,10 @@ struct ArrayConverterBuilder {
   }
 
   Status Visit(const MapType& t) {
-    using T = MapType;
-    using ListConverter = LAC<T>;
-    static_assert(std::is_same<typename ListConverter::ArrayConverter, AC>::value, "");
+    using MapConverter = ListArrayConverter<MapType>;
+    static_assert(
+        std::is_same<typename MapConverter::ArrayConverterType, ArrayConverter>::value,
+        "");
 
     // TODO(kszucs): seems like builders not respect field nullability
     std::vector<std::shared_ptr<Field>> struct_fields{t.key_field(), t.item_field()};
@@ -200,18 +207,19 @@ struct ArrayConverterBuilder {
     auto item_builder = struct_builder->child_builder(1);
     auto builder = std::make_shared<MapBuilder>(pool, key_builder, item_builder, type);
 
-    out->reset(new ListConverter(type, std::move(builder), std::move(struct_converter),
-                                 options));
+    out->reset(
+        new MapConverter(type, std::move(builder), std::move(struct_converter), options));
     return Status::OK();
   }
 
   Status Visit(const StructType& t) {
-    using T = StructType;
-    using StructConverter = SAC<T>;
-    static_assert(std::is_same<typename StructConverter::ArrayConverter, AC>::value, "");
+    using StructConverter = StructArrayConverter<StructType>;
+    static_assert(
+        std::is_same<typename StructConverter::ArrayConverterType, ArrayConverter>::value,
+        "");
 
-    std::shared_ptr<AC> child_converter;
-    std::vector<std::shared_ptr<AC>> child_converters;
+    std::shared_ptr<ArrayConverter> child_converter;
+    std::vector<std::shared_ptr<ArrayConverter>> child_converters;
     std::vector<std::shared_ptr<ArrayBuilder>> child_builders;
 
     for (const auto& field : t.fields()) {
@@ -230,9 +238,9 @@ struct ArrayConverterBuilder {
 
   Status Visit(const DataType& t) { return Status::NotImplemented(t.name()); }
 
-  static Result<std::shared_ptr<AC>> Make(std::shared_ptr<DataType> type,
-                                          MemoryPool* pool, O options) {
-    std::shared_ptr<AC> out;
+  static Result<std::shared_ptr<ArrayConverter>> Make(std::shared_ptr<DataType> type,
+                                                      MemoryPool* pool, Options options) {
+    std::shared_ptr<ArrayConverter> out;
     Self visitor = {type, pool, options, &out};
     RETURN_NOT_OK(VisitTypeInline(*type, &visitor));
     RETURN_NOT_OK(out->Init());
@@ -241,8 +249,8 @@ struct ArrayConverterBuilder {
 
   const std::shared_ptr<DataType>& type;
   MemoryPool* pool;
-  O options;
-  std::shared_ptr<AC>* out;
+  Options options;
+  std::shared_ptr<ArrayConverter>* out;
 };
 
 }  // namespace arrow
