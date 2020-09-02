@@ -35,6 +35,7 @@ use super::{
 };
 use crate::error::{ExecutionError, Result};
 use crate::physical_plan::math_expressions;
+use crate::physical_plan::string_expressions;
 use crate::physical_plan::udf;
 use arrow::{
     compute::kernels::length::length,
@@ -98,6 +99,8 @@ pub enum ScalarFunction {
     Signum,
     /// length
     Length,
+    /// concat
+    Concat,
 }
 
 impl fmt::Display for ScalarFunction {
@@ -129,6 +132,7 @@ impl FromStr for ScalarFunction {
             "abs" => ScalarFunction::Abs,
             "signum" => ScalarFunction::Signum,
             "length" => ScalarFunction::Length,
+            "concat" => ScalarFunction::Concat,
             _ => {
                 return Err(ExecutionError::General(format!(
                     "There is no built-in function named {}",
@@ -147,11 +151,20 @@ pub fn return_type(fun: &ScalarFunction, arg_types: &Vec<DataType>) -> Result<Da
     // verify that this is a valid set of data types for this function
     data_types(&arg_types, &signature(fun))?;
 
+    if arg_types.len() == 0 {
+        // functions currently cannot be evaluated without arguments, as they can't
+        // know the number of rows to return.
+        return Err(ExecutionError::General(
+            format!("Function '{}' requires at least one argument", fun).to_string(),
+        ));
+    }
+
     // the return type after coercion.
     // for now, this is type-independent, but there will be built-in functions whose return type
     // depends on the incoming type.
     match fun {
         ScalarFunction::Length => Ok(DataType::UInt32),
+        ScalarFunction::Concat => Ok(DataType::Utf8),
         _ => Ok(DataType::Float64),
     }
 }
@@ -182,6 +195,9 @@ pub fn create_physical_expr(
         ScalarFunction::Abs => math_expressions::abs,
         ScalarFunction::Signum => math_expressions::signum,
         ScalarFunction::Length => |args| Ok(Arc::new(length(args[0].as_ref())?)),
+        ScalarFunction::Concat => {
+            |args| Ok(Arc::new(string_expressions::concatenate(args)?))
+        }
     });
     // coerce
     let args = coerce(args, input_schema, &signature(fun))?;
@@ -206,6 +222,7 @@ fn signature(fun: &ScalarFunction) -> Signature {
     // for now, the list is small, as we do not have many built-in functions.
     match fun {
         ScalarFunction::Length => Signature::Uniform(1, vec![DataType::Utf8]),
+        ScalarFunction::Concat => Signature::Variadic(vec![DataType::Utf8]),
         // math expressions expect 1 argument of type f64 or f32
         // priority is given to f64 because e.g. `sqrt(1i32)` is in IR (real numbers) and thus we
         // return the best approximation for it (in f64).
@@ -222,7 +239,7 @@ mod tests {
         error::Result, logical_plan::ScalarValue, physical_plan::expressions::lit,
     };
     use arrow::{
-        array::{ArrayRef, Float64Array, Int32Array},
+        array::{ArrayRef, Float64Array, Int32Array, StringArray},
         datatypes::Field,
         record_batch::RecordBatch,
     };
@@ -263,5 +280,50 @@ mod tests {
         generic_test_math(ScalarValue::Float64(1f64), exp_f64)?;
         generic_test_math(ScalarValue::Float32(1f32), exp_f32)?;
         Ok(())
+    }
+
+    fn test_concat(value: ScalarValue, expected: &str) -> Result<()> {
+        // any type works here: we evaluate against a literal of `value`
+        let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
+        let columns: Vec<ArrayRef> = vec![Arc::new(Int32Array::from(vec![1]))];
+
+        // concat(value, value)
+        let expr = create_physical_expr(
+            &ScalarFunction::Concat,
+            &vec![lit(value.clone()), lit(value)],
+            &schema,
+        )?;
+
+        // type is correct
+        assert_eq!(expr.data_type(&schema)?, DataType::Utf8);
+
+        // evaluate works
+        let result =
+            expr.evaluate(&RecordBatch::try_new(Arc::new(schema.clone()), columns)?)?;
+
+        // downcast works
+        let result = result.as_any().downcast_ref::<StringArray>().unwrap();
+
+        // value is correct
+        assert_eq!(format!("{}", result.value(0)), expected);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_concat_utf8() -> Result<()> {
+        test_concat(ScalarValue::Utf8("aa".to_string()), "aaaa")
+    }
+
+    #[test]
+    fn test_concat_error() -> Result<()> {
+        let result = return_type(&ScalarFunction::Concat, &vec![]);
+        if let Ok(_) = result {
+            Err(ExecutionError::General(
+                "Function 'concat' cannot accept zero arguments".to_string(),
+            ))
+        } else {
+            Ok(())
+        }
     }
 }

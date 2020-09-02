@@ -656,7 +656,11 @@ fn result_str(results: &[RecordBatch]) -> Vec<String> {
                     DataType::Utf8 => {
                         let array =
                             column.as_any().downcast_ref::<StringArray>().unwrap();
-                        let s = array.value(row_index);
+                        let s = if array.is_null(row_index) {
+                            "NULL"
+                        } else {
+                            array.value(row_index)
+                        };
 
                         str.push_str(&format!("{:?}", s));
                     }
@@ -692,6 +696,32 @@ fn query_length() -> Result<()> {
     let sql = "SELECT length(c1) FROM test";
     let actual = execute(&mut ctx, sql).join("\n");
     let expected = "0\n1\n2\n3".to_string();
+    assert_eq!(expected, actual);
+    Ok(())
+}
+
+#[test]
+fn query_concat() -> Result<()> {
+    let schema = Arc::new(Schema::new(vec![
+        Field::new("c1", DataType::Utf8, false),
+        Field::new("c2", DataType::Int32, true),
+    ]));
+
+    let data = RecordBatch::try_new(
+        schema.clone(),
+        vec![
+            Arc::new(StringArray::from(vec!["", "a", "aa", "aaa"])),
+            Arc::new(Int32Array::from(vec![Some(0), Some(1), None, Some(3)])),
+        ],
+    )?;
+
+    let table = MemTable::new(schema, vec![vec![data]])?;
+
+    let mut ctx = ExecutionContext::new();
+    ctx.register_table("test", Box::new(table));
+    let sql = "SELECT concat(c1, '-hi-', cast(c2 as varchar)) FROM test";
+    let actual = execute(&mut ctx, sql);
+    let expected = vec!["\"-hi-0\"", "\"a-hi-1\"", "\"NULL\"", "\"aaa-hi-3\""];
     assert_eq!(expected, actual);
     Ok(())
 }
