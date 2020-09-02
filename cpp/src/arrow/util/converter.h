@@ -15,13 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <datetime.h>
-
-#include <algorithm>
-#include <iostream>
-#include <limits>
-#include <map>
-#include <sstream>
 #include <string>
 #include <utility>
 #include <vector>
@@ -33,9 +26,6 @@
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/decimal.h"
-#include "arrow/util/int_util_internal.h"
-#include "arrow/util/logging.h"
 
 #include "arrow/visitor_inline.h"
 
@@ -45,7 +35,7 @@ using internal::checked_cast;
 using internal::checked_pointer_cast;
 
 template <typename Input, typename Options>
-class ARROW_EXPORT ArrayConverter {
+class ArrayConverter {
  public:
   using InputType = Input;
   using OptionsType = Options;
@@ -79,7 +69,7 @@ class ARROW_EXPORT ArrayConverter {
 };
 
 template <typename T, typename ArrayConverter>
-class ARROW_EXPORT TypedArrayConverter : public ArrayConverter {
+class TypedArrayConverter : public ArrayConverter {
  public:
   using ArrayConverterType = ArrayConverter;
   using BuilderType = typename TypeTraits<T>::BuilderType;
@@ -97,11 +87,7 @@ class ARROW_EXPORT TypedArrayConverter : public ArrayConverter {
 
   Status AppendNull() override { return this->builder_->AppendNull(); }
 
-  Result<std::shared_ptr<Array>> Finish() override {
-    std::shared_ptr<Array> out;
-    RETURN_NOT_OK(builder_->Finish(&out));
-    return out;
-  }
+  Result<std::shared_ptr<Array>> Finish() override { return builder_->Finish(); };
 
  protected:
   const T& type_;
@@ -109,7 +95,7 @@ class ARROW_EXPORT TypedArrayConverter : public ArrayConverter {
 };
 
 template <typename T, typename ArrayConverter>
-class ARROW_EXPORT ListArrayConverter : public TypedArrayConverter<T, ArrayConverter> {
+class ListArrayConverter : public TypedArrayConverter<T, ArrayConverter> {
  public:
   ListArrayConverter(const std::shared_ptr<DataType>& type,
                      std::shared_ptr<ArrayBuilder> builder,
@@ -123,7 +109,7 @@ class ARROW_EXPORT ListArrayConverter : public TypedArrayConverter<T, ArrayConve
 };
 
 template <typename T, typename ArrayConverter>
-class ARROW_EXPORT StructArrayConverter : public TypedArrayConverter<T, ArrayConverter> {
+class StructArrayConverter : public TypedArrayConverter<T, ArrayConverter> {
  public:
   StructArrayConverter(const std::shared_ptr<DataType>& type,
                        std::shared_ptr<ArrayBuilder> builder,
@@ -242,8 +228,8 @@ struct ArrayConverterBuilder {
                                                       MemoryPool* pool, Options options) {
     std::shared_ptr<ArrayConverter> out;
     Self visitor = {type, pool, options, &out};
-    RETURN_NOT_OK(VisitTypeInline(*type, &visitor));
-    RETURN_NOT_OK(out->Init());
+    ARROW_RETURN_NOT_OK(VisitTypeInline(*type, &visitor));
+    ARROW_RETURN_NOT_OK(out->Init());
     return out;
   }
 
