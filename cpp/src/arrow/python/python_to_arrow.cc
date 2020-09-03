@@ -390,37 +390,65 @@ class PyPrimitiveArrayConverter : public PrimitiveArrayConverter<T, PyArrayConve
  public:
   using PrimitiveArrayConverter<T, PyArrayConverter>::PrimitiveArrayConverter;
 
+  Status Append(PyObject* value) override;
+};
+
+template <typename T>
+class PyPrimitiveArrayConverter<
+    T, enable_if_t<is_null_type<T>::value || is_boolean_type<T>::value ||
+                   is_number_type<T>::value || is_decimal_type<T>::value || is_date_type<T>::value ||
+                   is_time_type<T>::value>>
+    : public PrimitiveArrayConverter<T, PyArrayConverter> {
+ public:
+  using PrimitiveArrayConverter<T, PyArrayConverter>::PrimitiveArrayConverter;
+
   Status Append(PyObject* value) override {
     if (PyValue::IsNull(this->options_, value)) {
       return this->builder_->AppendNull();
     } else {
-      return AppendValue(this->type_, value);
-    }
-  }
-
-  Status AppendValue(const DataType&, PyObject* value) {
-    ARROW_ASSIGN_OR_RAISE(auto converted,
-                          PyValue::Convert(this->type_, this->options_, value));
-    return this->builder_->Append(converted);
-  }
-
-  template <typename U = T>
-  enable_if_t<is_timestamp_type<U>::value || is_duration_type<U>::value, Status>
-  AppendValue(const U&, PyObject* value) {
-    ARROW_ASSIGN_OR_RAISE(auto converted,
-                          PyValue::Convert(this->type_, this->options_, value));
-    if (PyArray_CheckAnyScalarExact(value) && PyValue::IsNaT(this->type_, converted)) {
-      return this->builder_->AppendNull();
-    } else {
+      ARROW_ASSIGN_OR_RAISE(auto converted,
+                            PyValue::Convert(this->type_, this->options_, value));
       return this->builder_->Append(converted);
     }
   }
+};
 
-  template <typename U = T>
-  enable_if_has_string_view<U, Status> AppendValue(const U&, PyObject* value) {
-    ARROW_ASSIGN_OR_RAISE(auto view,
-                          PyValue::Convert(this->type_, this->options_, value));
-    return this->builder_->Append(util::string_view(view.bytes, view.size));
+template <typename T>
+class PyPrimitiveArrayConverter<
+    T, enable_if_t<is_timestamp_type<T>::value || is_duration_type<T>::value>>
+    : public PrimitiveArrayConverter<T, PyArrayConverter> {
+ public:
+  using PrimitiveArrayConverter<T, PyArrayConverter>::PrimitiveArrayConverter;
+
+  Status Append(PyObject* value) override {
+    if (PyValue::IsNull(this->options_, value)) {
+      return this->builder_->AppendNull();
+    } else {
+      ARROW_ASSIGN_OR_RAISE(auto converted,
+                            PyValue::Convert(this->type_, this->options_, value));
+      if (PyArray_CheckAnyScalarExact(value) && PyValue::IsNaT(this->type_, converted)) {
+        return this->builder_->AppendNull();
+      } else {
+        return this->builder_->Append(converted);
+      }
+    }
+  }
+};
+
+template <typename T>
+class PyPrimitiveArrayConverter<T, enable_if_binary<T>>
+    : public PrimitiveArrayConverter<T, PyArrayConverter> {
+ public:
+  using PrimitiveArrayConverter<T, PyArrayConverter>::PrimitiveArrayConverter;
+
+  Status Append(PyObject* value) override {
+    if (PyValue::IsNull(this->options_, value)) {
+      return this->builder_->AppendNull();
+    } else {
+      ARROW_ASSIGN_OR_RAISE(auto view,
+                            PyValue::Convert(this->type_, this->options_, value));
+      return this->builder_->Append(util::string_view(view.bytes, view.size));
+    }
   }
 };
 
@@ -440,7 +468,7 @@ class PyPrimitiveArrayConverter<T, enable_if_string<T>>
         // observed binary value
         observed_binary_ = true;
       }
-      return this->builder_->Append(util::string_view(view.bytes, view.size));
+      return this->builder_->Append(view.bytes, view.size);
     }
   }
 
@@ -460,8 +488,17 @@ class PyPrimitiveArrayConverter<T, enable_if_string<T>>
   bool observed_binary_ = false;
 };
 
-template <typename T>
+template <typename T, typename Enable = void>
 class PyDictionaryArrayConverter : public DictionaryArrayConverter<T, PyArrayConverter> {
+ public:
+  using DictionaryArrayConverter<T, PyArrayConverter>::DictionaryArrayConverter;
+
+  Status Append(PyObject* value) override;
+};
+
+template <typename T>
+class PyDictionaryArrayConverter<T, enable_if_has_c_type<T>>
+    : public DictionaryArrayConverter<T, PyArrayConverter> {
  public:
   using DictionaryArrayConverter<T, PyArrayConverter>::DictionaryArrayConverter;
 
@@ -469,21 +506,27 @@ class PyDictionaryArrayConverter : public DictionaryArrayConverter<T, PyArrayCon
     if (PyValue::IsNull(this->options_, value)) {
       return this->builder_->AppendNull();
     } else {
-      return AppendValue(this->value_type_, value);
+      ARROW_ASSIGN_OR_RAISE(auto converted,
+                            PyValue::Convert(this->value_type_, this->options_, value));
+      return this->builder_->Append(converted);
     }
   }
+};
 
-  Status AppendValue(const DataType&, PyObject* value) {
-    ARROW_ASSIGN_OR_RAISE(auto converted,
-                          PyValue::Convert(this->value_type_, this->options_, value));
-    return this->builder_->Append(converted);
-  }
+template <typename T>
+class PyDictionaryArrayConverter<T, enable_if_has_string_view<T>>
+    : public DictionaryArrayConverter<T, PyArrayConverter> {
+ public:
+  using DictionaryArrayConverter<T, PyArrayConverter>::DictionaryArrayConverter;
 
-  template <typename U = T>
-  enable_if_has_string_view<U, Status> AppendValue(const U&, PyObject* value) {
-    ARROW_ASSIGN_OR_RAISE(auto view,
-                          PyValue::Convert(this->value_type_, this->options_, value));
-    return this->builder_->Append(util::string_view(view.bytes, view.size));
+  Status Append(PyObject* value) override {
+    if (PyValue::IsNull(this->options_, value)) {
+      return this->builder_->AppendNull();
+    } else {
+      ARROW_ASSIGN_OR_RAISE(auto view,
+                            PyValue::Convert(this->value_type_, this->options_, value));
+      return this->builder_->Append(util::string_view(view.bytes, view.size));
+    }
   }
 };
 
