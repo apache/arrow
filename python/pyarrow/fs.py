@@ -83,15 +83,12 @@ def _ensure_filesystem(
             return PyFileSystem(FSSpecHandler(filesystem))
 
     # map old filesystems to new ones
-    from pyarrow.filesystem import (
-        FileSystem as LegacyFileSystem,
-        LocalFileSystem as LegacyLocalFileSystem
-    )
+    import pyarrow.filesystem as legacyfs
 
-    if isinstance(filesystem, LegacyLocalFileSystem):
+    if isinstance(filesystem, legacyfs.LocalFileSystem):
         return LocalFileSystem(use_mmap=use_mmap)
     # TODO handle HDFS?
-    if allow_legacy_filesystem and isinstance(filesystem, LegacyFileSystem):
+    if allow_legacy_filesystem and isinstance(filesystem, legacyfs.FileSystem):
         return filesystem
 
     raise TypeError("Unrecognized filesystem: {}".format(type(filesystem)))
@@ -106,8 +103,10 @@ def _resolve_filesystem_and_path(
     """
     if not _is_path_like(path):
         if filesystem is not None:
-            raise ValueError("filesystem passed but where is file-like, so"
-                             " there is nothing to open with filesystem.")
+            raise ValueError(
+                "'filesystem' passed but the specified path is file-like, so"
+                " there is nothing to open with 'filesystem'."
+            )
         return filesystem, path
 
     path = _stringify_path(path)

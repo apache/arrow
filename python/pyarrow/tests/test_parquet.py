@@ -3565,19 +3565,31 @@ def test_parquet_writer_filesystem_s3(s3_example_fs):
 
 
 @pytest.mark.pandas
+@pytest.mark.s3
+def test_parquet_writer_filesystem_s3_uri(s3_example_fs):
+    df = _test_dataframe(100)
+    table = pa.Table.from_pandas(df, preserve_index=False)
+
+    fs, uri, path = s3_example_fs
+
+    with pq.ParquetWriter(uri, table.schema, version='2.0') as writer:
+        writer.write_table(table)
+
+    result = _read_table(path, filesystem=fs).to_pandas()
+    tm.assert_frame_equal(result, df)
+
+
+@pytest.mark.pandas
 def test_parquet_writer_filesystem_buffer_raises():
     df = _test_dataframe(100)
     table = pa.Table.from_pandas(df, preserve_index=False)
     filesystem = fs.LocalFileSystem()
 
     # Should raise ValueError when filesystem is passed with file-like object
-    with pytest.raises(ValueError) as err_info:
+    with pytest.raises(ValueError, match="specified path is file-like"):
         pq.ParquetWriter(
             pa.BufferOutputStream(), table.schema, filesystem=filesystem
         )
-        expected_msg = ("filesystem passed but where is file-like, so"
-                        " there is nothing to open with filesystem.")
-        assert str(err_info) == expected_msg
 
 
 @pytest.mark.pandas
