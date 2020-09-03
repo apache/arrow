@@ -31,6 +31,8 @@
 namespace parquet {
 namespace encryption {
 
+// "data encryption key" and "master key identifier" are paired together as the input to
+// generate "key metadata" and as an output when parsing from "key material"
 class KeyWithMasterId {
  public:
   KeyWithMasterId(const std::string& key_bytes, const std::string& master_id)
@@ -40,10 +42,13 @@ class KeyWithMasterId {
   const std::string& master_id() const { return master_id_; }
 
  private:
-  std::string key_bytes_;
-  std::string master_id_;
+  const std::string key_bytes_;
+  const std::string master_id_;
 };
 
+// KeyToolkit is a utility that keeps various tools for key management (such as key
+// rotation, kms client instantiation, cache control, etc), plus a number of auxiliary
+// classes for internal use.
 class PARQUET_EXPORT KeyToolkit {
  public:
   class KmsClientCache {
@@ -58,10 +63,10 @@ class PARQUET_EXPORT KeyToolkit {
     TwoLevelCacheWithExpiration<std::shared_ptr<KmsClient>> cache_;
   };
 
-  class KEKWriteCache {
+  class KeyEncryptionKeyWriteCache {
    public:
-    static KEKWriteCache& GetInstance() {
-      static KEKWriteCache instance;
+    static KeyEncryptionKeyWriteCache& GetInstance() {
+      static KeyEncryptionKeyWriteCache instance;
       return instance;
     }
     TwoLevelCacheWithExpiration<KeyEncryptionKey>& cache() { return cache_; }
@@ -70,10 +75,10 @@ class PARQUET_EXPORT KeyToolkit {
     TwoLevelCacheWithExpiration<KeyEncryptionKey> cache_;
   };
 
-  class KEKReadCache {
+  class KeyEncryptionKeyReadCache {
    public:
-    static KEKReadCache& GetInstance() {
-      static KEKReadCache instance;
+    static KeyEncryptionKeyReadCache& GetInstance() {
+      static KeyEncryptionKeyReadCache instance;
       return instance;
     }
     TwoLevelCacheWithExpiration<std::string>& cache() { return cache_; }
@@ -88,14 +93,16 @@ class PARQUET_EXPORT KeyToolkit {
     return KmsClientCache::GetInstance().cache();
   }
 
-  // KEK two level cache for wrapping: token -> MEK_ID -> KeyEncryptionKey
+  // Key encryption key two level cache for wrapping: token -> MasterEncryptionKeyId ->
+  // KeyEncryptionKey
   static TwoLevelCacheWithExpiration<KeyEncryptionKey>& kek_write_cache_per_token() {
-    return KEKWriteCache::GetInstance().cache();
+    return KeyEncryptionKeyWriteCache::GetInstance().cache();
   }
 
-  // KEK two level cache for unwrapping: token -> KEK_ID -> KEK bytes
+  // Key encryption key two level cache for unwrapping: token -> KeyEncryptionKeyId ->
+  // KeyEncryptionKeyBytes
   static TwoLevelCacheWithExpiration<std::string>& kek_read_cache_per_token() {
-    return KEKReadCache::GetInstance().cache();
+    return KeyEncryptionKeyReadCache::GetInstance().cache();
   }
 
   static std::shared_ptr<KmsClient> GetKmsClient(

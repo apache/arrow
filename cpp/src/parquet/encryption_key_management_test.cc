@@ -182,7 +182,8 @@ class TestEncrytionKeyManagement : public ::testing::Test {
         bool double_wrapping = (j == 0);
         auto encryption_configs =
             this->GetEncryptionConfigurations(double_wrapping, wrap_locally);
-        for (size_t encryption_no = 0; encryption_no < encryption_configs.size();
+        for (int encryption_no = 0;
+             encryption_no < static_cast<int>(encryption_configs.size());
              encryption_no++) {
           std::string file_name =
               GetFileName(double_wrapping, wrap_locally, encryption_no);
