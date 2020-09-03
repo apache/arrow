@@ -19,7 +19,7 @@
 
 use crate::arrow::record_batch::RecordBatch;
 use crate::error::Result;
-use crate::logical_plan::{Expr, LogicalPlan, Registry};
+use crate::logical_plan::{Expr, FunctionRegistry, LogicalPlan};
 use arrow::datatypes::Schema;
 use std::sync::Arc;
 
@@ -189,7 +189,7 @@ pub trait DataFrame {
     /// ```
     fn explain(&self, verbose: bool) -> Result<Arc<dyn DataFrame>>;
 
-    /// Return a `Registry` used to plan udf's calls
+    /// Return a `FunctionRegistry` used to plan udf's calls
     ///
     /// ```
     /// # use datafusion::prelude::*;
@@ -202,5 +202,5 @@ pub trait DataFrame {
     /// # Ok(())
     /// # }
     /// ```
-    fn registry(&self) -> &dyn Registry;
+    fn registry(&self) -> &dyn FunctionRegistry;
 }

@@ -23,7 +23,7 @@ use crate::arrow::record_batch::RecordBatch;
 use crate::dataframe::*;
 use crate::error::Result;
 use crate::execution::context::{ExecutionContext, ExecutionContextState};
-use crate::logical_plan::{col, Expr, LogicalPlan, LogicalPlanBuilder, Registry};
+use crate::logical_plan::{col, Expr, FunctionRegistry, LogicalPlan, LogicalPlanBuilder};
 use arrow::datatypes::Schema;
 
 /// Implementation of DataFrame API
@@ -125,7 +125,7 @@ impl DataFrame for DataFrameImpl {
         Ok(Arc::new(DataFrameImpl::new(self.ctx_state.clone(), &plan)))
     }
 
-    fn registry(&self) -> &dyn Registry {
+    fn registry(&self) -> &dyn FunctionRegistry {
         &self.ctx_state
     }
 }

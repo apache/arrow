@@ -1029,7 +1029,7 @@ impl fmt::Debug for LogicalPlan {
 }
 
 /// A registry knows how to build logical expressions out of user-defined function' names
-pub trait Registry {
+pub trait FunctionRegistry {
     /// Set of all available udfs.
     fn udfs(&self) -> HashSet<String>;
 

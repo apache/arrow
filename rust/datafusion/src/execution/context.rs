@@ -36,7 +36,7 @@ use crate::datasource::parquet::ParquetTable;
 use crate::datasource::TableProvider;
 use crate::error::{ExecutionError, Result};
 use crate::execution::dataframe_impl::DataFrameImpl;
-use crate::logical_plan::{Expr, LogicalPlan, LogicalPlanBuilder, Registry};
+use crate::logical_plan::{Expr, FunctionRegistry, LogicalPlan, LogicalPlanBuilder};
 use crate::optimizer::filter_push_down::FilterPushDown;
 use crate::optimizer::optimizer::OptimizerRule;
 use crate::optimizer::projection_push_down::ProjectionPushDown;
@@ -372,7 +372,7 @@ impl ExecutionContext {
     }
 
     /// get the registry, that allows to construct logical expressions of UDFs
-    pub fn registry(&self) -> &dyn Registry {
+    pub fn registry(&self) -> &dyn FunctionRegistry {
         &self.state
     }
 }
@@ -453,7 +453,7 @@ impl SchemaProvider for ExecutionContextState {
     }
 }
 
-impl Registry for ExecutionContextState {
+impl FunctionRegistry for ExecutionContextState {
     fn udfs(&self) -> HashSet<String> {
         self.scalar_functions.keys().cloned().collect()
     }
