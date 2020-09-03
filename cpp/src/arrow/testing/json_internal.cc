@@ -1625,7 +1625,7 @@ Status ReadRecordBatch(const rj::Value& json_obj, const std::shared_ptr<Schema>&
                           ReadArrayData(pool, json_columns[i], schema->field(i)));
   }
 
-  RETURN_NOT_OK(ResolveDictionaries(columns, *dictionary_memo));
+  RETURN_NOT_OK(ResolveDictionaries(columns, *dictionary_memo, pool));
 
   *batch = RecordBatch::Make(schema, num_rows, columns);
   return Status::OK();
