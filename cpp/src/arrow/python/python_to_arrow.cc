@@ -386,18 +386,13 @@ class PyArrayConverter : public ArrayConverter<PyObject*, PyConversionOptions> {
 };
 
 template <typename T, typename Enable = void>
-class PyPrimitiveArrayConverter : public PrimitiveArrayConverter<T, PyArrayConverter> {
- public:
-  using PrimitiveArrayConverter<T, PyArrayConverter>::PrimitiveArrayConverter;
-
-  Status Append(PyObject* value) override;
-};
+class PyPrimitiveArrayConverter : public PrimitiveArrayConverter<T, PyArrayConverter> {};
 
 template <typename T>
 class PyPrimitiveArrayConverter<
     T, enable_if_t<is_null_type<T>::value || is_boolean_type<T>::value ||
-                   is_number_type<T>::value || is_decimal_type<T>::value || is_date_type<T>::value ||
-                   is_time_type<T>::value>>
+                   is_number_type<T>::value || is_decimal_type<T>::value ||
+                   is_date_type<T>::value || is_time_type<T>::value>>
     : public PrimitiveArrayConverter<T, PyArrayConverter> {
  public:
   using PrimitiveArrayConverter<T, PyArrayConverter>::PrimitiveArrayConverter;
@@ -489,12 +484,7 @@ class PyPrimitiveArrayConverter<T, enable_if_string<T>>
 };
 
 template <typename T, typename Enable = void>
-class PyDictionaryArrayConverter : public DictionaryArrayConverter<T, PyArrayConverter> {
- public:
-  using DictionaryArrayConverter<T, PyArrayConverter>::DictionaryArrayConverter;
-
-  Status Append(PyObject* value) override;
-};
+class PyDictionaryArrayConverter : public DictionaryArrayConverter<T, PyArrayConverter> {};
 
 template <typename T>
 class PyDictionaryArrayConverter<T, enable_if_has_c_type<T>>
