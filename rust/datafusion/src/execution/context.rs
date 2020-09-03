@@ -197,11 +197,11 @@ impl ExecutionContext {
 
         let table_scan = LogicalPlan::CsvScan {
             path: filename.to_string(),
-            schema: Box::new(csv.schema().as_ref().to_owned()),
+            schema: csv.schema().clone(),
             has_header: options.has_header,
             delimiter: Some(options.delimiter),
             projection: None,
-            projected_schema: Box::new(csv.schema().as_ref().to_owned()),
+            projected_schema: csv.schema().clone(),
         };
 
         Ok(Arc::new(DataFrameImpl::new(
@@ -216,9 +216,9 @@ impl ExecutionContext {
 
         let table_scan = LogicalPlan::ParquetScan {
             path: filename.to_string(),
-            schema: Box::new(parquet.schema().as_ref().to_owned()),
+            schema: parquet.schema().clone(),
             projection: None,
-            projected_schema: Box::new(parquet.schema().as_ref().to_owned()),
+            projected_schema: parquet.schema().clone(),
         };
 
         Ok(Arc::new(DataFrameImpl::new(
@@ -265,12 +265,12 @@ impl ExecutionContext {
     pub fn table(&mut self, table_name: &str) -> Result<Arc<dyn DataFrame>> {
         match self.state.datasources.get(table_name) {
             Some(provider) => {
-                let schema = provider.schema().as_ref().clone();
+                let schema = provider.schema().clone();
                 let table_scan = LogicalPlan::TableScan {
                     schema_name: "".to_string(),
                     table_name: table_name.to_string(),
-                    table_schema: Box::new(schema.to_owned()),
-                    projected_schema: Box::new(schema),
+                    table_schema: schema.clone(),
+                    projected_schema: schema,
                     projection: None,
                 };
                 Ok(Arc::new(DataFrameImpl::new(
@@ -578,18 +578,19 @@ mod tests {
             Field::new("b", DataType::Int32, false),
             Field::new("c", DataType::Int32, false),
         ]);
+        let schema = SchemaRef::new(schema);
         let plan = LogicalPlanBuilder::from(&LogicalPlan::InMemoryScan {
             data: vec![vec![RecordBatch::try_new(
-                Arc::new(schema.clone()),
+                schema.clone(),
                 vec![
                     Arc::new(Int32Array::from(vec![1, 10, 10, 100])),
                     Arc::new(Int32Array::from(vec![2, 12, 12, 120])),
                     Arc::new(Int32Array::from(vec![3, 12, 12, 120])),
                 ],
             )?]],
-            schema: Box::new(schema.clone()),
+            schema: schema.clone(),
             projection: None,
-            projected_schema: Box::new(schema.clone()),
+            projected_schema: schema.clone(),
         })
         .project(vec![col("b")])?
         .build()?;

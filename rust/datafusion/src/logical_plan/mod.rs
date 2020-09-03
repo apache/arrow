@@ -23,7 +23,7 @@
 
 use std::{fmt, sync::Arc};
 
-use arrow::datatypes::{DataType, Field, Schema};
+use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
 
 use crate::datasource::csv::{CsvFile, CsvReadOptions};
 use crate::datasource::parquet::ParquetTable;
@@ -775,7 +775,7 @@ pub enum LogicalPlan {
         /// The incoming logical plan
         input: Arc<LogicalPlan>,
         /// The schema description of the output
-        schema: Box<Schema>,
+        schema: SchemaRef,
     },
     /// Filters rows from its input that do not match an
     /// expression (essentially a WHERE clause with a predicate
@@ -801,7 +801,7 @@ pub enum LogicalPlan {
         /// Aggregate expressions
         aggr_expr: Vec<Expr>,
         /// The schema description of the aggregate output
-        schema: Box<Schema>,
+        schema: SchemaRef,
     },
     /// Sorts its input according to a list of sort expressions.
     Sort {
@@ -818,40 +818,40 @@ pub enum LogicalPlan {
         /// The name of the table
         table_name: String,
         /// The schema of the CSV file(s)
-        table_schema: Box<Schema>,
+        table_schema: SchemaRef,
         /// Optional column indices to use as a projection
         projection: Option<Vec<usize>>,
         /// The schema description of the output
-        projected_schema: Box<Schema>,
+        projected_schema: SchemaRef,
     },
     /// Produces rows that come from a `Vec` of in memory `RecordBatch`es
     InMemoryScan {
         /// Record batch partitions
         data: Vec<Vec<RecordBatch>>,
         /// The schema of the record batches
-        schema: Box<Schema>,
+        schema: SchemaRef,
         /// Optional column indices to use as a projection
         projection: Option<Vec<usize>>,
         /// The schema description of the output
-        projected_schema: Box<Schema>,
+        projected_schema: SchemaRef,
     },
     /// Produces rows by scanning Parquet file(s)
     ParquetScan {
         /// The path to the files
         path: String,
         /// The schema of the Parquet file(s)
-        schema: Box<Schema>,
+        schema: SchemaRef,
         /// Optional column indices to use as a projection
         projection: Option<Vec<usize>>,
         /// The schema description of the output
-        projected_schema: Box<Schema>,
+        projected_schema: SchemaRef,
     },
     /// Produces rows by scanning a CSV file(s)
     CsvScan {
         /// The path to the files
         path: String,
         /// The underlying table schema
-        schema: Box<Schema>,
+        schema: SchemaRef,
         /// Whether the CSV file(s) have a header containing column names
         has_header: bool,
         /// An optional column delimiter. Defaults to `b','`
@@ -859,12 +859,12 @@ pub enum LogicalPlan {
         /// Optional column indices to use as a projection
         projection: Option<Vec<usize>>,
         /// The schema description of the output
-        projected_schema: Box<Schema>,
+        projected_schema: SchemaRef,
     },
     /// Produces no rows: An empty relation with an empty schema
     EmptyRelation {
         /// The schema description of the output
-        schema: Box<Schema>,
+        schema: SchemaRef,
     },
     /// Produces the first `n` tuples from its input and discards the rest.
     Limit {
@@ -876,7 +876,7 @@ pub enum LogicalPlan {
     /// Creates an external table.
     CreateExternalTable {
         /// The table schema
-        schema: Box<Schema>,
+        schema: SchemaRef,
         /// The table name
         name: String,
         /// The physical location
@@ -896,13 +896,13 @@ pub enum LogicalPlan {
         /// Represent the various stages plans have gone through
         stringified_plans: Vec<StringifiedPlan>,
         /// The output schema of the explain (2 columns of text)
-        schema: Box<Schema>,
+        schema: SchemaRef,
     },
 }
 
 impl LogicalPlan {
     /// Get a reference to the logical plan's schema
-    pub fn schema(&self) -> &Box<Schema> {
+    pub fn schema(&self) -> &SchemaRef {
         match self {
             LogicalPlan::EmptyRelation { schema } => &schema,
             LogicalPlan::InMemoryScan {
@@ -928,8 +928,8 @@ impl LogicalPlan {
     }
 
     /// Returns the (fixed) output schema for explain plans
-    pub fn explain_schema() -> Box<Schema> {
-        Box::new(Schema::new(vec![
+    pub fn explain_schema() -> SchemaRef {
+        SchemaRef::new(Schema::new(vec![
             Field::new("plan_type", DataType::Utf8, false),
             Field::new("plan", DataType::Utf8, false),
         ]))
@@ -1103,7 +1103,7 @@ impl LogicalPlanBuilder {
     /// Create an empty relation
     pub fn empty() -> Self {
         Self::from(&LogicalPlan::EmptyRelation {
-            schema: Box::new(Schema::empty()),
+            schema: SchemaRef::new(Schema::empty()),
         })
     }
 
@@ -1123,7 +1123,7 @@ impl LogicalPlanBuilder {
                 .to_owned(),
         };
 
-        let projected_schema = Box::new(
+        let projected_schema = SchemaRef::new(
             projection
                 .clone()
                 .map(|p| {
@@ -1135,8 +1135,8 @@ impl LogicalPlanBuilder {
 
         Ok(Self::from(&LogicalPlan::CsvScan {
             path: path.to_owned(),
-            schema: Box::new(schema),
-            has_header: has_header,
+            schema: SchemaRef::new(schema),
+            has_header,
             delimiter: Some(delimiter),
             projection,
             projected_schema,
@@ -1146,17 +1146,19 @@ impl LogicalPlanBuilder {
     /// Scan a Parquet data source
     pub fn scan_parquet(path: &str, projection: Option<Vec<usize>>) -> Result<Self> {
         let p = ParquetTable::try_new(path)?;
-        let schema = p.schema().as_ref().to_owned();
+        let schema = p.schema().clone();
+
         let projected_schema = projection
             .clone()
             .map(|p| Schema::new(p.iter().map(|i| schema.field(*i).clone()).collect()));
+        let projected_schema =
+            projected_schema.map_or(schema.clone(), |s| SchemaRef::new(s));
+
         Ok(Self::from(&LogicalPlan::ParquetScan {
             path: path.to_owned(),
-            schema: Box::new(schema.clone()),
+            schema,
             projection,
-            projected_schema: Box::new(
-                projected_schema.or(Some(schema.clone())).unwrap(),
-            ),
+            projected_schema,
         }))
     }
 
@@ -1167,16 +1169,18 @@ impl LogicalPlanBuilder {
         table_schema: &Schema,
         projection: Option<Vec<usize>>,
     ) -> Result<Self> {
+        let table_schema = SchemaRef::new(table_schema.clone());
         let projected_schema = projection.clone().map(|p| {
             Schema::new(p.iter().map(|i| table_schema.field(*i).clone()).collect())
         });
+        let projected_schema =
+            projected_schema.map_or(table_schema.clone(), |s| SchemaRef::new(s));
+
         Ok(Self::from(&LogicalPlan::TableScan {
             schema_name: schema_name.to_owned(),
             table_name: table_name.to_owned(),
-            table_schema: Box::new(table_schema.clone()),
-            projected_schema: Box::new(
-                projected_schema.or(Some(table_schema.clone())).unwrap(),
-            ),
+            table_schema,
+            projected_schema,
             projection,
         }))
     }
@@ -1204,7 +1208,7 @@ impl LogicalPlanBuilder {
         Ok(Self::from(&LogicalPlan::Projection {
             expr: projected_expr,
             input: Arc::new(self.plan.clone()),
-            schema: Box::new(schema),
+            schema: SchemaRef::new(schema),
         }))
     }
 
@@ -1243,7 +1247,7 @@ impl LogicalPlanBuilder {
             input: Arc::new(self.plan.clone()),
             group_expr,
             aggr_expr,
-            schema: Box::new(aggr_schema),
+            schema: SchemaRef::new(aggr_schema),
         }))
     }
 
