@@ -476,7 +476,7 @@ class PyDictionaryArrayConverter : public DictionaryArrayConverter<T, PyArrayCon
   using DictionaryArrayConverter<T, PyArrayConverter>::DictionaryArrayConverter;
 
   Status Append(PyObject* value) override {
-    if (PyValue::IsNull(this->type_, this->options_, value)) {
+    if (PyValue::IsNull(this->value_type_, this->options_, value)) {
       return this->builder_->AppendNull();
     } else {
       ARROW_ASSIGN_OR_RAISE(auto converted,
@@ -503,6 +503,20 @@ class PyDictionaryArrayConverter<T, enable_if_string_like<T>>
         observed_binary_ = true;
       }
       return this->builder_->Append(pair.first);
+    }
+  }
+
+  Result<std::shared_ptr<Array>> Finish() override {
+    ARROW_ASSIGN_OR_RAISE(auto array,
+                          (DictionaryArrayConverter<T, PyArrayConverter>::Finish()));
+    if (observed_binary_) {
+      // If we saw any non-unicode, cast results to a dictionary with binary value type
+      const auto& current_type = checked_cast<const DictionaryType&>(*array->type());
+      auto binary_type = TypeTraits<typename T::PhysicalType>::type_singleton();
+      auto new_type = dictionary(current_type.index_type(), binary_type, current_type.ordered());
+      return array->View(new_type);
+    } else {
+      return array;
     }
   }
 
