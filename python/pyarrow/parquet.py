@@ -1048,8 +1048,8 @@ class _ParquetDatasetMetadata:
 
 
 def _open_dataset_file(dataset, path, meta=None):
-    if (dataset.fs is not None
-            and not isinstance(dataset.fs, legacyfs.LocalFileSystem)):
+    if (dataset.fs is not None and
+            not isinstance(dataset.fs, legacyfs.LocalFileSystem)):
         path = dataset.fs.open(path, mode='rb')
     return ParquetFile(
         path,
