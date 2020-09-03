@@ -17,9 +17,9 @@
 
 #pragma once
 
-#include <map>
 #include <memory>
 #include <string>
+#include <unordered_map>
 
 #include "parquet/file_key_material_store.h"
 #include "parquet/key_encryption_key.h"
@@ -64,7 +64,7 @@ class FileKeyWrapper {
   KeyEncryptionKey CreateKeyEncryptionKey(const std::string& master_key_id);
 
   // A map of Master Encryption Key ID -> KeyEncryptionKey, for the current token
-  std::map<std::string, KeyEncryptionKey> kek_per_master_key_id_;
+  std::unordered_map<std::string, KeyEncryptionKey> kek_per_master_key_id_;
 
   std::shared_ptr<KmsClient> kms_client_;
   KmsConnectionConfig kms_connection_config_;

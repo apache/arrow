@@ -18,7 +18,7 @@
 #pragma once
 
 #include <chrono>
-#include <map>
+#include <unordered_map>
 
 namespace parquet {
 namespace encryption {
@@ -31,20 +31,21 @@ static inline TimePoint CurrentTimePoint() { return std::chrono::system_clock::n
 // Two-level cache with expiration of internal caches according to token lifetime.
 // External cache is per token, internal is per string key.
 // Wrapper class around:
-//    std::map<std::string, ExpiringCacheEntry<std::map<std::string, V>>>
+//    std::unordered_map<std::string, ExpiringCacheEntry<std::unordered_map<std::string,
+//    V>>>
 template <typename V>
 class TwoLevelCacheWithExpiration {
  public:
   TwoLevelCacheWithExpiration() { last_cache_cleanup_timestamp_ = CurrentTimePoint(); }
 
-  std::map<std::string, V>& GetOrCreateInternalCache(const std::string& access_token,
-                                                     uint64_t cache_entry_lifetime_ms) {
+  std::unordered_map<std::string, V>& GetOrCreateInternalCache(
+      const std::string& access_token, uint64_t cache_entry_lifetime_ms) {
     auto external_cache_entry = cache_.find(access_token);
     if (external_cache_entry == cache_.end() ||
         external_cache_entry->second.IsExpired()) {
-      cache_.insert(
-          {access_token, ExpiringCacheEntry<std::map<std::string, V>>(
-                             std::map<std::string, V>(), cache_entry_lifetime_ms)});
+      cache_.insert({access_token,
+                     ExpiringCacheEntry<std::unordered_map<std::string, V>>(
+                         std::unordered_map<std::string, V>(), cache_entry_lifetime_ms)});
     }
 
     return cache_[access_token].cached_item();
@@ -107,7 +108,8 @@ class TwoLevelCacheWithExpiration {
     E cached_item_;
   };
 
-  std::map<std::string, ExpiringCacheEntry<std::map<std::string, V>>> cache_;
+  std::unordered_map<std::string, ExpiringCacheEntry<std::unordered_map<std::string, V>>>
+      cache_;
   TimePoint last_cache_cleanup_timestamp_;
 };
 
