@@ -231,9 +231,9 @@ cpp11::writable::list fs___FileSystemFromUri(const std::string& path) {
 }
 
 // [[arrow::export]]
-void fs___CopyFiles(const std::shared_ptr<FileSystem>& src_fs,
+void fs___CopyFiles(const std::shared_ptr<fs::FileSystem>& src_fs,
                     const std::vector<std::string>& src_paths,
-                    const std::shared_ptr<FileSystem>& dest_fs,
+                    const std::shared_ptr<fs::FileSystem>& dest_fs,
                     const std::vector<std::string>& dest_paths, int64_t chunk_size,
                     bool use_threads) {
   //
