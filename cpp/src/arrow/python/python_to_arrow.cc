@@ -484,7 +484,8 @@ class PyPrimitiveArrayConverter<T, enable_if_string<T>>
 };
 
 template <typename T, typename Enable = void>
-class PyDictionaryArrayConverter : public DictionaryArrayConverter<T, PyArrayConverter> {};
+class PyDictionaryArrayConverter : public DictionaryArrayConverter<T, PyArrayConverter> {
+};
 
 template <typename T>
 class PyDictionaryArrayConverter<T, enable_if_has_c_type<T>>
