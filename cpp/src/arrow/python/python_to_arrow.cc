@@ -64,7 +64,7 @@ class PyValue {
   using I = PyObject*;
   using O = PyConversionOptions;
 
-  static bool IsNull(const DataType&, const O& options, I obj) {
+  static bool IsNull(const O& options, I obj) {
     if (options.from_pandas) {
       return internal::PandasObjectIsNull(obj);
     } else {
@@ -317,16 +317,14 @@ struct ValueConverter<Type, enable_if_integer<Type>> {
     return value;
   }
 
-  static Result<util::string_view> Convert(const BaseBinaryType&, const O&, I obj) {
-    ARROW_ASSIGN_OR_RAISE(auto view, PyBytesView::FromString(obj));
-    return util::string_view(view.bytes, view.size);
+  static Result<PyBytesView> Convert(const BaseBinaryType&, const O&, I obj) {
+    return PyBytesView::FromString(obj);
   }
 
-  static Result<util::string_view> Convert(const FixedSizeBinaryType& type, const O&,
-                                           I obj) {
+  static Result<PyBytesView> Convert(const FixedSizeBinaryType& type, const O&, I obj) {
     ARROW_ASSIGN_OR_RAISE(auto view, PyBytesView::FromString(obj));
     if (ARROW_PREDICT_TRUE(view.size == type.byte_width())) {
-      return util::string_view(view.bytes, view.size);
+      return view;
     } else {
       std::stringstream ss;
       ss << "expected to be length " << type.byte_width() << " was " << view.size;
@@ -335,20 +333,20 @@ struct ValueConverter<Type, enable_if_integer<Type>> {
   }
 
   template <typename T>
-  static enable_if_string_like<T, Result<std::pair<util::string_view, bool>>> Convert(
-      const T& type, const O& options, I obj) {
+  static enable_if_string<T, Result<PyBytesView>> Convert(const T& type, const O& options,
+                                                          I obj) {
     if (options.strict) {
       // Strict conversion, force output to be unicode / utf8 and validate that
       // any binary values are utf8
       ARROW_ASSIGN_OR_RAISE(auto view, PyBytesView::FromString(obj, true));
+      // TODO(kszucs): revisit this one
       if (!view.is_utf8) {
         return internal::InvalidValue(obj, "was not a utf8 string");
       }
-      return std::make_pair(util::string_view(view.bytes, view.size), view.is_utf8);
+      return view;
     } else {
       // Non-strict conversion; keep track of whether values are unicode or bytes
-      ARROW_ASSIGN_OR_RAISE(auto view, PyBytesView::FromString(obj));
-      return std::make_pair(util::string_view(view.bytes, view.size), view.is_utf8);
+      return PyBytesView::FromString(obj);
     }
   }
 
@@ -393,57 +391,56 @@ class PyPrimitiveArrayConverter : public PrimitiveArrayConverter<T, PyArrayConve
   using PrimitiveArrayConverter<T, PyArrayConverter>::PrimitiveArrayConverter;
 
   Status Append(PyObject* value) override {
-    if (PyValue::IsNull(this->type_, this->options_, value)) {
+    if (PyValue::IsNull(this->options_, value)) {
       return this->builder_->AppendNull();
     } else {
-      ARROW_ASSIGN_OR_RAISE(auto converted,
-                            PyValue::Convert(this->type_, this->options_, value));
+      return AppendValue(this->type_, value);
+    }
+  }
+
+  Status AppendValue(const DataType&, PyObject* value) {
+    ARROW_ASSIGN_OR_RAISE(auto converted,
+                          PyValue::Convert(this->type_, this->options_, value));
+    return this->builder_->Append(converted);
+  }
+
+  template <typename U = T>
+  enable_if_t<is_timestamp_type<U>::value || is_duration_type<U>::value, Status>
+  AppendValue(const U&, PyObject* value) {
+    ARROW_ASSIGN_OR_RAISE(auto converted,
+                          PyValue::Convert(this->type_, this->options_, value));
+    if (PyArray_CheckAnyScalarExact(value) && PyValue::IsNaT(this->type_, converted)) {
+      return this->builder_->AppendNull();
+    } else {
       return this->builder_->Append(converted);
     }
   }
-};
 
-template <typename T>
-class PyPrimitiveArrayConverter<
-    T, enable_if_t<is_timestamp_type<T>::value || is_duration_type<T>::value>>
-    : public PrimitiveArrayConverter<T, PyArrayConverter> {
- public:
-  using PrimitiveArrayConverter<T, PyArrayConverter>::PrimitiveArrayConverter;
-
-  Status Append(PyObject* value) override {
-    if (PyValue::IsNull(this->type_, this->options_, value)) {
-      return this->builder_->AppendNull();
-    } else {
-      ARROW_ASSIGN_OR_RAISE(auto converted,
-                            PyValue::Convert(this->type_, this->options_, value));
-      if (PyArray_CheckAnyScalarExact(value) && PyValue::IsNaT(this->type_, converted)) {
-        return this->builder_->AppendNull();
-      } else {
-        return this->builder_->Append(converted);
-      }
-    }
+  template <typename U = T>
+  enable_if_has_string_view<U, Status> AppendValue(const U&, PyObject* value) {
+    ARROW_ASSIGN_OR_RAISE(auto view,
+                          PyValue::Convert(this->type_, this->options_, value));
+    return this->builder_->Append(util::string_view(view.bytes, view.size));
   }
 };
 
-// For String/UTF8, if strict_conversions enabled, we reject any non-UTF8, otherwise we
-// allow but return results as BinaryArray
 template <typename T>
-class PyPrimitiveArrayConverter<T, enable_if_string_like<T>>
+class PyPrimitiveArrayConverter<T, enable_if_string<T>>
     : public PrimitiveArrayConverter<T, PyArrayConverter> {
  public:
   using PrimitiveArrayConverter<T, PyArrayConverter>::PrimitiveArrayConverter;
 
   Status Append(PyObject* value) override {
-    if (PyValue::IsNull(this->type_, this->options_, value)) {
+    if (PyValue::IsNull(this->options_, value)) {
       return this->builder_->AppendNull();
     } else {
-      ARROW_ASSIGN_OR_RAISE(auto pair,
+      ARROW_ASSIGN_OR_RAISE(auto view,
                             PyValue::Convert(this->type_, this->options_, value));
-      if (!pair.second) {
+      if (!view.is_utf8) {
         // observed binary value
         observed_binary_ = true;
       }
-      return this->builder_->Append(pair.first);
+      return this->builder_->Append(util::string_view(view.bytes, view.size));
     }
   }
 
@@ -463,59 +460,31 @@ class PyPrimitiveArrayConverter<T, enable_if_string_like<T>>
   bool observed_binary_ = false;
 };
 
-template <typename T, typename Enable = void>
+template <typename T>
 class PyDictionaryArrayConverter : public DictionaryArrayConverter<T, PyArrayConverter> {
  public:
   using DictionaryArrayConverter<T, PyArrayConverter>::DictionaryArrayConverter;
 
   Status Append(PyObject* value) override {
-    if (PyValue::IsNull(this->value_type_, this->options_, value)) {
+    if (PyValue::IsNull(this->options_, value)) {
       return this->builder_->AppendNull();
     } else {
-      ARROW_ASSIGN_OR_RAISE(auto converted,
-                            PyValue::Convert(this->value_type_, this->options_, value));
-      return this->builder_->Append(converted);
-    }
-  }
-};
-
-template <typename T>
-class PyDictionaryArrayConverter<T, enable_if_string_like<T>>
-    : public DictionaryArrayConverter<T, PyArrayConverter> {
- public:
-  using DictionaryArrayConverter<T, PyArrayConverter>::DictionaryArrayConverter;
-
-  Status Append(PyObject* value) override {
-    if (PyValue::IsNull(this->value_type_, this->options_, value)) {
-      return this->builder_->AppendNull();
-    } else {
-      ARROW_ASSIGN_OR_RAISE(auto pair,
-                            PyValue::Convert(this->value_type_, this->options_, value));
-      if (!pair.second) {
-        // observed binary value
-        observed_binary_ = true;
-      }
-      return this->builder_->Append(pair.first);
+      return AppendValue(this->value_type_, value);
     }
   }
 
-  Result<std::shared_ptr<Array>> Finish() override {
-    ARROW_ASSIGN_OR_RAISE(auto array,
-                          (DictionaryArrayConverter<T, PyArrayConverter>::Finish()));
-    if (observed_binary_) {
-      // If we saw any non-unicode, cast results to a dictionary with binary value type
-      const auto& current_type = checked_cast<const DictionaryType&>(*array->type());
-      auto binary_type = TypeTraits<typename T::PhysicalType>::type_singleton();
-      auto new_type =
-          dictionary(current_type.index_type(), binary_type, current_type.ordered());
-      return array->View(new_type);
-    } else {
-      return array;
-    }
+  Status AppendValue(const DataType&, PyObject* value) {
+    ARROW_ASSIGN_OR_RAISE(auto converted,
+                          PyValue::Convert(this->value_type_, this->options_, value));
+    return this->builder_->Append(converted);
   }
 
- protected:
-  bool observed_binary_ = false;
+  template <typename U = T>
+  enable_if_has_string_view<U, Status> AppendValue(const U&, PyObject* value) {
+    ARROW_ASSIGN_OR_RAISE(auto view,
+                          PyValue::Convert(this->value_type_, this->options_, value));
+    return this->builder_->Append(util::string_view(view.bytes, view.size));
+  }
 };
 
 // If the value type does not match the expected NumPy dtype, then fall through
@@ -562,7 +531,7 @@ class PyListArrayConverter : public ListArrayConverter<T, PyArrayConverter> {
   Status ValidateSize(const BaseListType&, int64_t size) { return Status::OK(); }
 
   Status Append(PyObject* value) override {
-    if (PyValue::IsNull(this->type_, this->options_, value)) {
+    if (PyValue::IsNull(this->options_, value)) {
       return this->builder_->AppendNull();
     }
 
@@ -706,7 +675,7 @@ class PyStructArrayConverter : public StructArrayConverter<T, PyArrayConverter> 
   }
 
   Status Append(PyObject* value) override {
-    if (PyValue::IsNull(this->type_, this->options_, value)) {
+    if (PyValue::IsNull(this->options_, value)) {
       return this->builder_->AppendNull();
     }
     RETURN_NOT_OK(InferInputKind(value));

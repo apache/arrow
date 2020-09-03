@@ -530,12 +530,21 @@ using enable_if_base_binary = enable_if_t<is_base_binary_type<T>::value, R>;
 
 // Any binary excludes string from Base binary
 template <typename T>
-using is_any_binary_type =
+using is_binary_type =
     std::integral_constant<bool, std::is_same<BinaryType, T>::value ||
-                                     std::is_same<LargeBinaryType, T>::value>;
+                                     std::is_same<LargeBinaryType, T>::value ||
+                                     std::is_same<FixedSizeBinaryType, T>::value>;
 
 template <typename T, typename R = void>
-using enable_if_any_binary = enable_if_t<is_any_binary_type<T>::value, R>;
+using enable_if_binary = enable_if_t<is_binary_type<T>::value, R>;
+
+template <typename T>
+using is_string_type =
+    std::integral_constant<bool, std::is_same<StringType, T>::value ||
+                                     std::is_same<LargeStringType, T>::value>;
+
+template <typename T, typename R = void>
+using enable_if_string = enable_if_t<is_string_type<T>::value, R>;
 
 template <typename T>
 using is_string_like_type =
@@ -697,8 +706,12 @@ template <typename T, typename R = void>
 using enable_if_has_c_type = enable_if_t<has_c_type<T>::value, R>;
 
 template <typename T>
-using has_string_view = std::integral_constant<bool, is_binary_like_type<T>::value ||
-                                                         is_string_like_type<T>::value>;
+using has_string_view =
+    std::integral_constant<bool, std::is_same<BinaryType, T>::value ||
+                                     std::is_same<LargeBinaryType, T>::value ||
+                                     std::is_same<StringType, T>::value ||
+                                     std::is_same<LargeStringType, T>::value ||
+                                     std::is_same<FixedSizeBinaryType, T>::value>;
 
 template <typename T, typename R = void>
 using enable_if_has_string_view = enable_if_t<has_string_view<T>::value, R>;

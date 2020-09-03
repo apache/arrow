@@ -1710,19 +1710,19 @@ def test_dictionary_from_integers(value_type):
 #     pa.int32(),
 #     pa.int64()
 # ])
-# def test_dictionary_is_always_adaptive(input_index_type):
-#     # dictionary array is constructed using adaptive index type builder,
-#     # meaning that the input index type is ignored since the output index
-#     # type depends on the input data
-#     typ = pa.dictionary(input_index_type, value_type=pa.int64())
+def test_dictionary_is_always_adaptive():
+    # dictionary array is constructed using adaptive index type builder,
+    # meaning that the output index type may be wider than the given index type
+    # since it depends on the input data
+    typ = pa.dictionary(pa.int8(), value_type=pa.int64())
 
-#     a = pa.array(range(2**7), type=typ)
-#     expected = pa.dictionary(pa.int8(), pa.int64())
-#     assert a.type.equals(expected)
+    a = pa.array(range(2**7), type=typ)
+    expected = pa.dictionary(pa.int8(), pa.int64())
+    assert a.type.equals(expected)
 
-#     a = pa.array(range(2**7 + 1), type=typ)
-#     expected = pa.dictionary(pa.int16(), pa.int64())
-#     assert a.type.equals(expected)
+    a = pa.array(range(2**7 + 1), type=typ)
+    expected = pa.dictionary(pa.int16(), pa.int64())
+    assert a.type.equals(expected)
 
 
 def test_dictionary_from_strings():
