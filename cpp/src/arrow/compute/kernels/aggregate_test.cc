@@ -19,6 +19,7 @@
 #include <limits>
 #include <memory>
 #include <type_traits>
+#include <unordered_map>
 #include <utility>
 
 #include <gtest/gtest.h>
@@ -594,18 +595,150 @@ TYPED_TEST(TestFloatingMinMaxKernel, DefaultOptions) {
   AssertDatumsEqual(explicit_defaults, no_options_provided);
 }
 
+template <typename ArrowType>
+struct MinMaxResult {
+  using T = typename ArrowType::c_type;
+
+  T min = 0;
+  T max = 0;
+  bool is_valid = false;
+};
+
+template <typename ArrowType>
+static enable_if_integer<ArrowType, MinMaxResult<ArrowType>> NaiveMinMax(
+    const Array& array) {
+  using T = typename ArrowType::c_type;
+  using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
+
+  MinMaxResult<ArrowType> result;
+
+  const auto& array_numeric = reinterpret_cast<const ArrayType&>(array);
+  const auto values = array_numeric.raw_values();
+
+  if (array.length() <= array.null_count()) {  // All null values
+    return result;
+  }
+
+  T min = std::numeric_limits<T>::max();
+  T max = std::numeric_limits<T>::min();
+  if (array.null_count() != 0) {  // Some values are null
+    internal::BitmapReader reader(array.null_bitmap_data(), array.offset(),
+                                  array.length());
+    for (int64_t i = 0; i < array.length(); i++) {
+      if (reader.IsSet()) {
+        min = std::min(min, values[i]);
+        max = std::max(max, values[i]);
+      }
+      reader.Next();
+    }
+  } else {  // All true values
+    for (int64_t i = 0; i < array.length(); i++) {
+      min = std::min(min, values[i]);
+      max = std::max(max, values[i]);
+    }
+  }
+
+  result.min = min;
+  result.max = max;
+  result.is_valid = true;
+  return result;
+}
+
+template <typename ArrowType>
+static enable_if_floating_point<ArrowType, MinMaxResult<ArrowType>> NaiveMinMax(
+    const Array& array) {
+  using T = typename ArrowType::c_type;
+  using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
+
+  MinMaxResult<ArrowType> result;
+
+  const auto& array_numeric = reinterpret_cast<const ArrayType&>(array);
+  const auto values = array_numeric.raw_values();
+
+  if (array.length() <= array.null_count()) {  // All null values
+    return result;
+  }
+
+  T min = std::numeric_limits<T>::infinity();
+  T max = -std::numeric_limits<T>::infinity();
+  if (array.null_count() != 0) {  // Some values are null
+    internal::BitmapReader reader(array.null_bitmap_data(), array.offset(),
+                                  array.length());
+    for (int64_t i = 0; i < array.length(); i++) {
+      if (reader.IsSet()) {
+        min = std::fmin(min, values[i]);
+        max = std::fmax(max, values[i]);
+      }
+      reader.Next();
+    }
+  } else {  // All true values
+    for (int64_t i = 0; i < array.length(); i++) {
+      min = std::fmin(min, values[i]);
+      max = std::fmax(max, values[i]);
+    }
+  }
+
+  result.min = min;
+  result.max = max;
+  result.is_valid = true;
+  return result;
+}
+
+template <typename ArrowType>
+void ValidateMinMax(const Array& array) {
+  using Traits = TypeTraits<ArrowType>;
+  using ScalarType = typename Traits::ScalarType;
+
+  ASSERT_OK_AND_ASSIGN(Datum out, MinMax(array));
+  const StructScalar& value = out.scalar_as<StructScalar>();
+
+  auto expected = NaiveMinMax<ArrowType>(array);
+  const auto& out_min = checked_cast<const ScalarType&>(*value.value[0]);
+  const auto& out_max = checked_cast<const ScalarType&>(*value.value[1]);
+
+  if (expected.is_valid) {
+    ASSERT_TRUE(out_min.is_valid);
+    ASSERT_TRUE(out_max.is_valid);
+    ASSERT_EQ(expected.min, out_min.value);
+    ASSERT_EQ(expected.max, out_max.value);
+  } else {  // All null values
+    ASSERT_FALSE(out_min.is_valid);
+    ASSERT_FALSE(out_max.is_valid);
+  }
+}
+
+template <typename ArrowType>
+class TestRandomNumericMinMaxKernel : public ::testing::Test {};
+
+TYPED_TEST_SUITE(TestRandomNumericMinMaxKernel, NumericArrowTypes);
+TYPED_TEST(TestRandomNumericMinMaxKernel, RandomArrayMinMax) {
+  auto rand = random::RandomArrayGenerator(0x8afc055);
+  // Test size up to 1<<11 (2048).
+  for (size_t i = 3; i < 12; i += 2) {
+    for (auto null_probability : {0.0, 0.01, 0.1, 0.5, 0.99, 1.0}) {
+      int64_t base_length = (1UL << i) + 2;
+      auto array = rand.Numeric<TypeParam>(base_length, 0, 100, null_probability);
+      for (auto length_adjust : {-2, -1, 0, 1, 2}) {
+        int64_t length = (1UL << i) + length_adjust;
+        ValidateMinMax<TypeParam>(*array->Slice(0, length));
+      }
+    }
+  }
+}
+
 //
 // Mode
 //
 
-template <typename ArrowType>
+template <typename T>
 class TestPrimitiveModeKernel : public ::testing::Test {
+ public:
+  using ArrowType = T;
   using Traits = TypeTraits<ArrowType>;
   using c_type = typename ArrowType::c_type;
   using ModeType = typename Traits::ScalarType;
   using CountType = typename TypeTraits<Int64Type>::ScalarType;
 
- public:
   void AssertModeIs(const Datum& array, c_type expected_mode, int64_t expected_count) {
     ASSERT_OK_AND_ASSIGN(Datum out, Mode(array));
     const StructScalar& value = out.scalar_as<StructScalar>();
@@ -666,6 +799,8 @@ class TestBooleanModeKernel : public TestPrimitiveModeKernel<BooleanType> {};
 
 class TestInt8ModeKernelValueRange : public TestPrimitiveModeKernel<Int8Type> {};
 
+class TestInt32ModeKernel : public TestPrimitiveModeKernel<Int32Type> {};
+
 TEST_F(TestBooleanModeKernel, Basics) {
   this->AssertModeIs("[false, false]", false, 2);
   this->AssertModeIs("[false, false, true, true, true]", true, 3);
@@ -709,6 +844,74 @@ TYPED_TEST(TestFloatingModeKernel, Floats) {
 TEST_F(TestInt8ModeKernelValueRange, Basics) {
   this->AssertModeIs("[0, 127, -128, -128]", -128, 2);
   this->AssertModeIs("[127, 127, 127]", 127, 3);
+}
+
+template <typename ArrowType>
+struct ModeResult {
+  using T = typename ArrowType::c_type;
+
+  T mode = std::numeric_limits<T>::min();
+  int64_t count = 0;
+};
+
+template <typename ArrowType>
+ModeResult<ArrowType> NaiveMode(const Array& array) {
+  using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
+  using CTYPE = typename ArrowType::c_type;
+
+  std::unordered_map<CTYPE, int64_t> value_counts;
+
+  const auto& array_numeric = reinterpret_cast<const ArrayType&>(array);
+  const auto values = array_numeric.raw_values();
+  internal::BitmapReader reader(array.null_bitmap_data(), array.offset(), array.length());
+  for (int64_t i = 0; i < array.length(); ++i) {
+    if (reader.IsSet()) {
+      ++value_counts[values[i]];
+    }
+    reader.Next();
+  }
+
+  ModeResult<ArrowType> result;
+  for (const auto& value_count : value_counts) {
+    auto value = value_count.first;
+    auto count = value_count.second;
+    if (count > result.count || (count == result.count && value < result.mode)) {
+      result.count = count;
+      result.mode = value;
+    }
+  }
+
+  return result;
+}
+
+template <typename ArrowType, typename CTYPE = typename ArrowType::c_type>
+void CheckModeWithRange(CTYPE range_min, CTYPE range_max) {
+  using ModeScalar = typename TypeTraits<ArrowType>::ScalarType;
+  using CountScalar = typename TypeTraits<Int64Type>::ScalarType;
+
+  auto rand = random::RandomArrayGenerator(0x5487655);
+  // 32K items (>= counting mode cutoff) within range, 10% null
+  auto array = rand.Numeric<ArrowType>(32 * 1024, range_min, range_max, 0.1);
+
+  auto expected = NaiveMode<ArrowType>(*array);
+  ASSERT_OK_AND_ASSIGN(Datum out, Mode(array));
+  const StructScalar& value = out.scalar_as<StructScalar>();
+
+  ASSERT_TRUE(value.is_valid);
+  const auto& out_mode = checked_cast<const ModeScalar&>(*value.value[0]);
+  const auto& out_count = checked_cast<const CountScalar&>(*value.value[1]);
+  ASSERT_EQ(out_mode.value, expected.mode);
+  ASSERT_EQ(out_count.value, expected.count);
+}
+
+TEST_F(TestInt32ModeKernel, SmallValueRange) {
+  // Small value range => should exercise counter-based Mode implementation
+  CheckModeWithRange<ArrowType>(-100, 100);
+}
+
+TEST_F(TestInt32ModeKernel, LargeValueRange) {
+  // Large value range => should exercise hashmap-based Mode implementation
+  CheckModeWithRange<ArrowType>(-10000000, 10000000);
 }
 
 }  // namespace compute

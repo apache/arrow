@@ -91,9 +91,18 @@ FileFormat$create <- function(format, ...) {
 ParquetFileFormat <- R6Class("ParquetFileFormat", inherit = FileFormat)
 ParquetFileFormat$create <- function(use_buffered_stream = FALSE,
                                      buffer_size = 8196,
-                                     dict_columns = character(0)) {
-  shared_ptr(ParquetFileFormat, dataset___ParquetFileFormat__Make(
-    use_buffered_stream, buffer_size, dict_columns))
+                                     dict_columns = character(0),
+                                     writer_properties = NULL,
+                                     arrow_writer_properties = NULL) {
+  if (is.null(writer_properties) && is.null(arrow_writer_properties)) {
+    shared_ptr(ParquetFileFormat, dataset___ParquetFileFormat__MakeRead(
+      use_buffered_stream, buffer_size, dict_columns))
+  } else {
+    writer_properties = writer_properties %||% ParquetWriterProperties$create()
+    arrow_writer_properties = arrow_writer_properties %||% ParquetArrowWriterProperties$create()
+    shared_ptr(ParquetFileFormat, dataset___ParquetFileFormat__MakeWrite(
+      writer_properties, arrow_writer_properties))
+  }
 }
 
 #' @usage NULL

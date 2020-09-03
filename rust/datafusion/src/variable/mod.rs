@@ -18,7 +18,7 @@
 //! Variable provider
 
 use crate::error::Result;
-use crate::logicalplan::ScalarValue;
+use crate::logical_plan::ScalarValue;
 
 /// Variable type, system/user defiend
 #[derive(Debug, PartialEq, Eq, Hash)]
@@ -34,8 +34,3 @@ pub trait VarProvider: Send + Sync {
     /// Get variable value
     fn get_value(&self, var_names: Vec<String>) -> Result<ScalarValue>;
 }
-
-// system
-pub mod system;
-// user defined
-pub mod user_defined;

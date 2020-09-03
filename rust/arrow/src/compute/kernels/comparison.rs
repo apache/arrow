@@ -27,7 +27,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use crate::array::*;
-use crate::compute::util::apply_bin_op_to_option_bitmap;
+use crate::compute::util::combine_option_bitmap;
 use crate::datatypes::{ArrowNumericType, BooleanType, DataType};
 use crate::error::{ArrowError, Result};
 
@@ -42,11 +42,8 @@ macro_rules! compare_op {
             ));
         }
 
-        let null_bit_buffer = apply_bin_op_to_option_bitmap(
-            $left.data().null_bitmap(),
-            $right.data().null_bitmap(),
-            |a, b| a & b,
-        )?;
+        let null_bit_buffer =
+            combine_option_bitmap($left.data_ref(), $right.data_ref(), $left.len())?;
 
         let mut result = BooleanBufferBuilder::new($left.len());
         for i in 0..$left.len() {
@@ -120,11 +117,8 @@ pub fn like_utf8(left: &StringArray, right: &StringArray) -> Result<BooleanArray
         ));
     }
 
-    let null_bit_buffer = apply_bin_op_to_option_bitmap(
-        left.data().null_bitmap(),
-        right.data().null_bitmap(),
-        |a, b| a & b,
-    )?;
+    let null_bit_buffer =
+        combine_option_bitmap(left.data_ref(), right.data_ref(), left.len())?;
 
     let mut result = BooleanBufferBuilder::new(left.len());
     for i in 0..left.len() {
@@ -168,11 +162,8 @@ pub fn nlike_utf8(left: &StringArray, right: &StringArray) -> Result<BooleanArra
         ));
     }
 
-    let null_bit_buffer = apply_bin_op_to_option_bitmap(
-        left.data().null_bitmap(),
-        right.data().null_bitmap(),
-        |a, b| a & b,
-    )?;
+    let null_bit_buffer =
+        combine_option_bitmap(left.data_ref(), right.data_ref(), left.len())?;
 
     let mut result = BooleanBufferBuilder::new(left.len());
     for i in 0..left.len() {
@@ -279,11 +270,7 @@ where
         ));
     }
 
-    let null_bit_buffer = apply_bin_op_to_option_bitmap(
-        left.data().null_bitmap(),
-        right.data().null_bitmap(),
-        |a, b| a & b,
-    )?;
+    let null_bit_buffer = combine_option_bitmap(left.data_ref(), right.data_ref(), len)?;
 
     let lanes = T::lanes();
     let mut result = MutableBuffer::new(left.len() * mem::size_of::<bool>());

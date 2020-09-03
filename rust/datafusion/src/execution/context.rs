@@ -43,7 +43,7 @@ use crate::execution::physical_plan::scalar_functions;
 use crate::execution::physical_plan::udf::ScalarFunction;
 use crate::execution::physical_plan::ExecutionPlan;
 use crate::execution::physical_plan::PhysicalPlanner;
-use crate::logicalplan::{LogicalPlan, LogicalPlanBuilder};
+use crate::logical_plan::{LogicalPlan, LogicalPlanBuilder};
 use crate::optimizer::optimizer::OptimizerRule;
 use crate::optimizer::projection_push_down::ProjectionPushDown;
 use crate::optimizer::{
@@ -498,10 +498,8 @@ mod tests {
     use crate::execution::physical_plan::udf::ScalarUdf;
     use crate::logicalplan::{aggregate_expr, col, scalar_function};
     use crate::test;
-    use crate::variable::system::SystemVar;
-    use crate::variable::user_defined::UserDefinedVar;
     use crate::variable::VarType;
-    use arrow::array::{ArrayRef, Int32Array, StringArray};
+    use arrow::array::{ArrayRef, Int32Array};
     use arrow::compute::add;
     use std::fs::File;
     use std::io::prelude::*;
@@ -533,9 +531,9 @@ mod tests {
         let partition_count = 4;
         let mut ctx = create_ctx(&tmp_dir, partition_count)?;
 
-        let variable_provider = SystemVar::new();
+        let variable_provider = test::variable_system::SystemVar::new();
         ctx.register_variable(VarType::System, Box::new(variable_provider));
-        let variable_provider = UserDefinedVar::new();
+        let variable_provider = test::variable_user_defined::UserDefinedVar::new();
         ctx.register_variable(VarType::UserDefined, Box::new(variable_provider));
 
         let provider = test::create_table_dual();

@@ -20,8 +20,8 @@
 use crate::datasource::{MemTable, TableProvider};
 use crate::error::Result;
 use crate::execution::context::ExecutionContext;
-use crate::execution::physical_plan::ExecutionPlan;
-use crate::logicalplan::{Expr, LogicalPlan, LogicalPlanBuilder};
+use crate::logical_plan::{Expr, LogicalPlan, LogicalPlanBuilder};
+use crate::physical_plan::ExecutionPlan;
 use arrow::array;
 use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
 use arrow::record_batch::RecordBatch;
@@ -255,3 +255,6 @@ pub fn min(expr: Expr) -> Expr {
         args: vec![expr],
     }
 }
+
+pub mod variable_system;
+pub mod variable_user_defined;

@@ -68,6 +68,17 @@ std::unique_ptr<KernelState> MeanInitAvx512(KernelContext* ctx,
   return visitor.Create();
 }
 
+// ----------------------------------------------------------------------
+// MinMax implementation
+
+std::unique_ptr<KernelState> MinMaxInitAvx512(KernelContext* ctx,
+                                              const KernelInitArgs& args) {
+  MinMaxInitState<SimdLevel::AVX512> visitor(
+      ctx, *args.inputs[0].type, args.kernel->signature->out_type().type(),
+      static_cast<const MinMaxOptions&>(*args.options));
+  return visitor.Create();
+}
+
 void AddSumAvx512AggKernels(ScalarAggregateFunction* func) {
   AddBasicAggKernels(SumInitAvx512, internal::SignedIntTypes(), int64(), func,
                      SimdLevel::AVX512);
@@ -80,6 +91,12 @@ void AddSumAvx512AggKernels(ScalarAggregateFunction* func) {
 void AddMeanAvx512AggKernels(ScalarAggregateFunction* func) {
   aggregate::AddBasicAggKernels(MeanInitAvx512, internal::NumericTypes(), float64(), func,
                                 SimdLevel::AVX512);
+}
+
+void AddMinMaxAvx512AggKernels(ScalarAggregateFunction* func) {
+  // Enable 32/64 int types for avx512 variants, no advantage on 8/16 int.
+  AddMinMaxKernels(MinMaxInitAvx512, {int32(), uint32(), int64(), uint64()}, func,
+                   SimdLevel::AVX512);
 }
 
 }  // namespace aggregate

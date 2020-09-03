@@ -1408,7 +1408,7 @@ struct SerializeImpl {
     ARROW_ASSIGN_OR_RAISE(auto array, SerializeImpl{}.ToArray(expr));
     ARROW_ASSIGN_OR_RAISE(auto batch, RecordBatch::FromStructArray(array));
     ARROW_ASSIGN_OR_RAISE(auto stream, io::BufferOutputStream::Create());
-    ARROW_ASSIGN_OR_RAISE(auto writer, ipc::NewFileWriter(stream.get(), batch->schema()));
+    ARROW_ASSIGN_OR_RAISE(auto writer, ipc::MakeFileWriter(stream, batch->schema()));
     RETURN_NOT_OK(writer->WriteRecordBatch(*batch));
     RETURN_NOT_OK(writer->Close());
     return stream->Finish();

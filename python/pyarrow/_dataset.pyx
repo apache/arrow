@@ -460,6 +460,8 @@ cdef class FileSystemDataset(Dataset):
     format : FileFormat
         File format of the fragments, currently only ParquetFileFormat,
         IpcFileFormat, and CsvFileFormat are supported.
+    filesystem : FileSystem
+        FileSystem of the fragments.
     root_partition : Expression, optional
         The top-level partition of the DataDataset.
     """
@@ -468,11 +470,12 @@ cdef class FileSystemDataset(Dataset):
         CFileSystemDataset* filesystem_dataset
 
     def __init__(self, fragments, Schema schema, FileFormat format,
-                 root_partition=None):
+                 FileSystem filesystem=None, root_partition=None):
         cdef:
-            FileFragment fragment
+            FileFragment fragment=None
             vector[shared_ptr[CFileFragment]] c_fragments
             CResult[shared_ptr[CDataset]] result
+            shared_ptr[CFileSystem] c_filesystem
 
         root_partition = root_partition or _true
         if not isinstance(root_partition, Expression):
@@ -486,13 +489,24 @@ cdef class FileSystemDataset(Dataset):
                 static_pointer_cast[CFileFragment, CFragment](
                     fragment.unwrap()))
 
+            if filesystem is None:
+                filesystem = fragment.filesystem
+
+        if filesystem is not None:
+            c_filesystem = filesystem.unwrap()
+
         result = CFileSystemDataset.Make(
             pyarrow_unwrap_schema(schema),
             (<Expression> root_partition).unwrap(),
-            (<FileFormat> format).unwrap(),
+            format.unwrap(),
+            c_filesystem,
             c_fragments
         )
         self.init(GetResultValue(result))
+
+    @property
+    def filesystem(self):
+        return FileSystem.wrap(self.filesystem_dataset.filesystem())
 
     cdef void init(self, const shared_ptr[CDataset]& sp):
         Dataset.init(self, sp)
@@ -503,6 +517,7 @@ cdef class FileSystemDataset(Dataset):
             list(self.get_fragments()),
             self.schema,
             self.format,
+            self.filesystem,
             self.partition_expression
         )
 
@@ -555,7 +570,8 @@ cdef class FileSystemDataset(Dataset):
             format.make_fragment(path, filesystem, partitions[i])
             for i, path in enumerate(paths)
         ]
-        return FileSystemDataset(fragments, schema, format, root_partition)
+        return FileSystemDataset(fragments, schema, format,
+                                 filesystem, root_partition)
 
     @property
     def files(self):
@@ -2022,3 +2038,71 @@ def _get_partition_keys(Expression partition_expression):
         frombytes(name_val.first): pyarrow_wrap_scalar(name_val.second).as_py()
         for name_val in GetResultValue(CGetPartitionKeys(deref(expr.get())))
     }
+
+
+def _filesystemdataset_write(
+    data, object base_dir, Schema schema not None,
+    FileFormat format not None, FileSystem filesystem not None,
+    Partitioning partitioning not None, bint use_threads=True,
+):
+    """
+    CFileSystemDataset.Write wrapper
+    """
+    cdef:
+        c_string c_base_dir
+        shared_ptr[CSchema] c_schema
+        shared_ptr[CFileFormat] c_format
+        shared_ptr[CFileSystem] c_filesystem
+        shared_ptr[CPartitioning] c_partitioning
+        shared_ptr[CScanContext] c_context
+        # to create iterator of InMemory fragments
+        vector[shared_ptr[CRecordBatch]] c_batches
+        shared_ptr[CFragment] c_fragment
+        vector[shared_ptr[CFragment]] c_fragment_vector
+
+    c_base_dir = tobytes(_stringify_path(base_dir))
+    c_schema = pyarrow_unwrap_schema(schema)
+    c_format = format.unwrap()
+    c_filesystem = filesystem.unwrap()
+    c_partitioning = partitioning.unwrap()
+    c_context = _build_scan_context(use_threads=use_threads)
+
+    if isinstance(data, Dataset):
+        with nogil:
+            check_status(
+                CFileSystemDataset.Write(
+                    c_schema,
+                    c_format,
+                    c_filesystem,
+                    c_base_dir,
+                    c_partitioning,
+                    c_context,
+                    (<Dataset> data).dataset.GetFragments()
+                )
+            )
+    else:
+        # data is list of batches/tables, one element per fragment
+        for table in data:
+            if isinstance(table, Table):
+                for batch in table.to_batches():
+                    c_batches.push_back((<RecordBatch> batch).sp_batch)
+            else:
+                c_batches.push_back((<RecordBatch> table).sp_batch)
+
+            c_fragment = shared_ptr[CFragment](
+                new CInMemoryFragment(c_batches, _true.unwrap()))
+            c_batches.clear()
+            c_fragment_vector.push_back(c_fragment)
+
+        with nogil:
+            check_status(
+                CFileSystemDataset.Write(
+                    c_schema,
+                    c_format,
+                    c_filesystem,
+                    c_base_dir,
+                    c_partitioning,
+                    c_context,
+                    MakeVectorIterator(move(c_fragment_vector))
+                )
+            )

@@ -200,6 +200,12 @@ class ARROW_EXPORT ArrayBuilder {
     return Status::OK();
   }
 
+  // Check for array type
+  Status CheckArrayType(const std::shared_ptr<DataType>& expected_type,
+                        const Array& array, const char* message);
+  Status CheckArrayType(Type::type expected_type, const Array& array,
+                        const char* message);
+
   MemoryPool* pool_;
 
   TypedBufferBuilder<bool> null_bitmap_builder_;

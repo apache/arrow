@@ -153,7 +153,8 @@ class ARROW_DS_EXPORT FileFormat : public std::enable_shared_from_this<FileForma
 
   /// \brief Write a fragment.
   /// FIXME(bkietz) make this pure virtual
-  virtual Status WriteFragment(RecordBatchReader* batches, io::OutputStream* destination);
+  virtual Status WriteFragment(RecordBatchReader* batches,
+                               io::OutputStream* destination) const = 0;
 };
 
 /// \brief A Fragment that is stored in a file with a known format
@@ -195,15 +196,17 @@ class ARROW_DS_EXPORT FileSystemDataset : public Dataset {
   /// \param[in] schema the schema of the dataset
   /// \param[in] root_partition the partition expression of the dataset
   /// \param[in] format the format of each FileFragment.
-  /// \param[in] fragments list of fragments to create the dataset from
+  /// \param[in] filesystem the filesystem of each FileFragment, or nullptr if the
+  ///            fragments wrap buffers.
+  /// \param[in] fragments list of fragments to create the dataset from.
   ///
-  /// Note that all fragment must be of `FileFragment` type. The type are
-  /// erased to simplify callers.
+  /// Note that fragments wrapping files resident in differing filesystems are not
+  /// permitted; to work with multiple filesystems use a UnionDataset.
   ///
   /// \return A constructed dataset.
   static Result<std::shared_ptr<FileSystemDataset>> Make(
       std::shared_ptr<Schema> schema, std::shared_ptr<Expression> root_partition,
-      std::shared_ptr<FileFormat> format,
+      std::shared_ptr<FileFormat> format, std::shared_ptr<fs::FileSystem> filesystem,
       std::vector<std::shared_ptr<FileFragment>> fragments);
 
   /// \brief Write a dataset.
@@ -234,6 +237,9 @@ class ARROW_DS_EXPORT FileSystemDataset : public Dataset {
   /// \brief Return the format.
   const std::shared_ptr<FileFormat>& format() const { return format_; }
 
+  /// \brief Return the filesystem. May be nullptr if the fragments wrap buffers.
+  const std::shared_ptr<fs::FileSystem>& filesystem() const { return filesystem_; }
+
   std::string ToString() const;
 
  protected:
@@ -242,9 +248,11 @@ class ARROW_DS_EXPORT FileSystemDataset : public Dataset {
   FileSystemDataset(std::shared_ptr<Schema> schema,
                     std::shared_ptr<Expression> root_partition,
                     std::shared_ptr<FileFormat> format,
+                    std::shared_ptr<fs::FileSystem> filesystem,
                     std::vector<std::shared_ptr<FileFragment>> fragments);
 
   std::shared_ptr<FileFormat> format_;
+  std::shared_ptr<fs::FileSystem> filesystem_;
   std::vector<std::shared_ptr<FileFragment>> fragments_;
 };
 

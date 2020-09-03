@@ -405,16 +405,21 @@ cdef class FileSystem(_Weakrefable):
 
         Parameters
         ----------
-        paths_or_selector: FileSelector or list of path-likes
-            Either a selector object or a list of path-like objects.
-            The selector's base directory will not be part of the results, even
-            if it exists. If it doesn't exist, use `allow_not_found`.
+        paths_or_selector: FileSelector, path-like or list of path-likes
+            Either a selector object, a path-like object or a list of
+            path-like objects. The selector's base directory will not be
+            part of the results, even if it exists. If it doesn't exist,
+            use `allow_not_found`.
 
         Returns
         -------
-        file_infos : list of FileInfo
+        FileInfo or list of FileInfo
+            Single FileInfo object is returned for a single path, otherwise
+            a list of FileInfo objects is returned.
         """
         cdef:
+            CFileInfo info
+            c_string path
             vector[CFileInfo] infos
             vector[c_string] paths
             CFileSelector selector
@@ -427,8 +432,13 @@ cdef class FileSystem(_Weakrefable):
             paths = [_path_as_bytes(s) for s in paths_or_selector]
             with nogil:
                 infos = GetResultValue(self.fs.GetFileInfo(paths))
+        elif isinstance(paths_or_selector, (bytes, str)):
+            path =_path_as_bytes(paths_or_selector)
+            with nogil:
+                info = GetResultValue(self.fs.GetFileInfo(path))
+            return FileInfo.wrap(info)
         else:
-            raise TypeError('Must pass either paths or a FileSelector')
+            raise TypeError('Must pass either path(s) or a FileSelector')
 
         return [FileInfo.wrap(info) for info in infos]
 

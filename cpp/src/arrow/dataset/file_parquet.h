@@ -21,6 +21,7 @@
 
 #include <memory>
 #include <string>
+#include <unordered_map>
 #include <unordered_set>
 #include <utility>
 #include <vector>
@@ -29,14 +30,20 @@
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
+#include "arrow/util/optional.h"
 
 namespace parquet {
 class ParquetFileReader;
 class RowGroupMetaData;
 class FileMetaData;
 class FileDecryptionProperties;
+class FileEncryptionProperties;
+
 class ReaderProperties;
 class ArrowReaderProperties;
+class WriterProperties;
+class ArrowWriterProperties;
+
 namespace arrow {
 class FileReader;
 }  // namespace arrow
@@ -50,7 +57,7 @@ class RowGroupInfo;
 /// \brief A FileFormat implementation that reads from Parquet files
 class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
  public:
-  ParquetFileFormat() = default;
+  ParquetFileFormat();
 
   /// Convenience constructor which copies properties from a parquet::ReaderProperties.
   /// memory_pool will be ignored.
@@ -60,9 +67,6 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
 
   bool splittable() const override { return true; }
 
-  // Note: the default values are exposed in the python bindings and documented
-  //       in the docstrings, if any of the default values gets changed please
-  //       update there as well.
   struct ReaderOptions {
     /// \defgroup parquet-file-format-reader-properties properties which correspond to
     /// members of parquet::ReaderProperties.
@@ -88,6 +92,10 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
     std::unordered_set<std::string> dict_columns;
     /// @}
   } reader_options;
+
+  std::shared_ptr<parquet::WriterProperties> writer_properties;
+
+  std::shared_ptr<parquet::ArrowWriterProperties> arrow_writer_properties;
 
   Result<bool> IsSupported(const FileSource& source) const override;
 
@@ -115,6 +123,9 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
   /// \brief Return a FileReader on the given source.
   Result<std::unique_ptr<parquet::arrow::FileReader>> GetReader(
       const FileSource& source, ScanOptions* = NULLPTR, ScanContext* = NULLPTR) const;
+
+  Status WriteFragment(RecordBatchReader* batches,
+                       io::OutputStream* destination) const override;
 };
 
 /// \brief Represents a parquet's RowGroup with extra information.

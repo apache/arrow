@@ -19,12 +19,12 @@
 //! loaded into memory
 
 use crate::error::{ExecutionError, Result};
-use crate::logicalplan::LogicalPlan;
+use crate::logical_plan::LogicalPlan;
 use crate::optimizer::optimizer::OptimizerRule;
 use crate::optimizer::utils;
-use arrow::datatypes::{Field, Schema};
+use arrow::datatypes::{Field, Schema, SchemaRef};
 use arrow::error::Result as ArrowResult;
-use std::collections::HashSet;
+use std::{collections::HashSet, sync::Arc};
 use utils::optimize_explain;
 
 /// Optimizer that removes unused projections and aggregations from plans
@@ -60,7 +60,7 @@ fn get_projected_schema(
     projection: &Option<Vec<usize>>,
     required_columns: &HashSet<String>,
     has_projection: bool,
-) -> Result<(Vec<usize>, Schema)> {
+) -> Result<(Vec<usize>, SchemaRef)> {
     if projection.is_some() {
         return Err(ExecutionError::General(
             "Cannot run projection push-down rule more than once".to_string(),
@@ -103,7 +103,7 @@ fn get_projected_schema(
         projected_fields.push(schema.fields()[*i].clone());
     }
 
-    Ok((projection, Schema::new(projected_fields)))
+    Ok((projection, SchemaRef::new(Schema::new(projected_fields))))
 }
 
 /// Recursively transverses the logical plan removing expressions and that are not needed.
@@ -153,8 +153,8 @@ fn optimize_plan(
             } else {
                 Ok(LogicalPlan::Projection {
                     expr: new_expr,
-                    input: Box::new(new_input),
-                    schema: Box::new(Schema::new(new_fields)),
+                    input: Arc::new(new_input),
+                    schema: SchemaRef::new(Schema::new(new_fields)),
                 })
             }
         }
@@ -203,13 +203,13 @@ fn optimize_plan(
             Ok(LogicalPlan::Aggregate {
                 group_expr: group_expr.clone(),
                 aggr_expr: new_aggr_expr,
-                input: Box::new(optimize_plan(
+                input: Arc::new(optimize_plan(
                     optimizer,
                     &input,
                     &new_required_columns,
                     true,
                 )?),
-                schema: Box::new(new_schema),
+                schema: SchemaRef::new(new_schema),
             })
         }
         // scans:
@@ -234,7 +234,7 @@ fn optimize_plan(
                 table_name: table_name.to_string(),
                 table_schema: table_schema.clone(),
                 projection: Some(projection),
-                projected_schema: Box::new(projected_schema),
+                projected_schema: projected_schema,
             })
         }
         LogicalPlan::InMemoryScan {
@@ -253,7 +253,7 @@ fn optimize_plan(
                 data: data.clone(),
                 schema: schema.clone(),
                 projection: Some(projection),
-                projected_schema: Box::new(projected_schema),
+                projected_schema: projected_schema,
             })
         }
         LogicalPlan::CsvScan {
@@ -277,7 +277,7 @@ fn optimize_plan(
                 schema: schema.clone(),
                 delimiter: *delimiter,
                 projection: Some(projection),
-                projected_schema: Box::new(projected_schema),
+                projected_schema: projected_schema,
             })
         }
         LogicalPlan::ParquetScan {
@@ -297,7 +297,7 @@ fn optimize_plan(
                 path: path.to_owned(),
                 schema: schema.clone(),
                 projection: Some(projection),
-                projected_schema: Box::new(projected_schema),
+                projected_schema: projected_schema,
             })
         }
         LogicalPlan::Explain {
@@ -336,8 +336,8 @@ fn optimize_plan(
 mod tests {
 
     use super::*;
-    use crate::logicalplan::{col, lit};
-    use crate::logicalplan::{Expr, LogicalPlanBuilder};
+    use crate::logical_plan::{col, lit};
+    use crate::logical_plan::{Expr, LogicalPlanBuilder};
     use crate::test::*;
     use arrow::datatypes::DataType;
 

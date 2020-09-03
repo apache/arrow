@@ -21,7 +21,7 @@
 use std::sync::{Arc, Mutex};
 
 use crate::error::{ExecutionError, Result};
-use crate::execution::physical_plan::{ExecutionPlan, Partitioning, PhysicalExpr};
+use crate::physical_plan::{ExecutionPlan, Partitioning, PhysicalExpr};
 use arrow::array::BooleanArray;
 use arrow::compute::filter;
 use arrow::datatypes::{DataType, SchemaRef};
@@ -157,10 +157,10 @@ impl RecordBatchReader for FilterExecIter {
 mod tests {
 
     use super::*;
-    use crate::execution::physical_plan::csv::{CsvExec, CsvReadOptions};
-    use crate::execution::physical_plan::expressions::*;
-    use crate::execution::physical_plan::ExecutionPlan;
-    use crate::logicalplan::{Operator, ScalarValue};
+    use crate::logical_plan::{Operator, ScalarValue};
+    use crate::physical_plan::csv::{CsvExec, CsvReadOptions};
+    use crate::physical_plan::expressions::*;
+    use crate::physical_plan::ExecutionPlan;
     use crate::test;
     use std::iter::Iterator;
 

@@ -65,10 +65,6 @@ Result<std::shared_ptr<FileFragment>> FileFormat::MakeFragment(
       new FileFragment(std::move(source), shared_from_this(),
                        std::move(partition_expression), std::move(physical_schema)));
 }
-Status FileFormat::WriteFragment(RecordBatchReader* batches,
-                                 io::OutputStream* destination) {
-  return Status::NotImplemented("writing fragment of format ", type_name());
-}
 
 Result<std::shared_ptr<Schema>> FileFragment::ReadPhysicalSchemaImpl() {
   return format_->Inspect(source_);
@@ -82,25 +78,27 @@ Result<ScanTaskIterator> FileFragment::Scan(std::shared_ptr<ScanOptions> options
 FileSystemDataset::FileSystemDataset(std::shared_ptr<Schema> schema,
                                      std::shared_ptr<Expression> root_partition,
                                      std::shared_ptr<FileFormat> format,
+                                     std::shared_ptr<fs::FileSystem> filesystem,
                                      std::vector<std::shared_ptr<FileFragment>> fragments)
     : Dataset(std::move(schema), std::move(root_partition)),
       format_(std::move(format)),
+      filesystem_(std::move(filesystem)),
       fragments_(std::move(fragments)) {}
 
 Result<std::shared_ptr<FileSystemDataset>> FileSystemDataset::Make(
     std::shared_ptr<Schema> schema, std::shared_ptr<Expression> root_partition,
-    std::shared_ptr<FileFormat> format,
+    std::shared_ptr<FileFormat> format, std::shared_ptr<fs::FileSystem> filesystem,
     std::vector<std::shared_ptr<FileFragment>> fragments) {
-  return std::shared_ptr<FileSystemDataset>(
-      new FileSystemDataset(std::move(schema), std::move(root_partition),
-                            std::move(format), std::move(fragments)));
+  return std::shared_ptr<FileSystemDataset>(new FileSystemDataset(
+      std::move(schema), std::move(root_partition), std::move(format),
+      std::move(filesystem), std::move(fragments)));
 }
 
 Result<std::shared_ptr<Dataset>> FileSystemDataset::ReplaceSchema(
     std::shared_ptr<Schema> schema) const {
   RETURN_NOT_OK(CheckProjectable(*schema_, *schema));
   return std::shared_ptr<Dataset>(new FileSystemDataset(
-      std::move(schema), partition_expression_, format_, fragments_));
+      std::move(schema), partition_expression_, format_, filesystem_, fragments_));
 }
 
 std::vector<std::string> FileSystemDataset::files() const {

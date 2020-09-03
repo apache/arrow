@@ -26,7 +26,7 @@ use arrow::util::pretty;
 use datafusion::error::Result;
 use datafusion::execution::context::{ExecutionConfig, ExecutionContext};
 
-use datafusion::execution::physical_plan::csv::CsvReadOptions;
+use datafusion::physical_plan::csv::CsvReadOptions;
 use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]

@@ -70,6 +70,10 @@ name = "builder"
 harness = false
 
 [[bench]]
+name = "buffer_bit_ops"
+harness = false
+
+[[bench]]
 name = "boolean_kernels"
 harness = false
 

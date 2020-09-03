@@ -104,7 +104,7 @@ jobs:
     runs-on: ${{ matrix.runner }}
     if: github.event_name == 'push'
     defaults:
-      # to use certain environment variables are set by .bashrc an interactive
+      # To use certain environment variables set by .bashrc, an interactive
       # bash shell must be used
       run:
         shell: bash -i {0}
@@ -319,6 +319,7 @@ jobs:
       ARROW_JEMALLOC: OFF
       ARROW_PARQUET: ON
       ARROW_PYTHON: ON
+      ARROW_S3: ON
       ARROW_USE_GLOG: OFF
       ARROW_VERBOSE_THIRDPARTY_BUILD: OFF
       ARROW_WITH_BROTLI: ON

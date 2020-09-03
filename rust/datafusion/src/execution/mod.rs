@@ -19,4 +19,3 @@
 
 pub mod context;
 pub mod dataframe_impl;
-pub mod physical_plan;

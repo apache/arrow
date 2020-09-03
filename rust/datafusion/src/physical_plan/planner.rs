@@ -19,28 +19,26 @@
 
 use std::sync::Arc;
 
-use super::expressions::binary;
+use super::{empty::EmptyExec, expressions::binary, functions};
 use crate::error::{ExecutionError, Result};
 use crate::execution::context::ExecutionContextState;
-use crate::execution::physical_plan::csv::{CsvExec, CsvReadOptions};
-use crate::execution::physical_plan::explain::ExplainExec;
-use crate::execution::physical_plan::expressions::{
+use crate::logical_plan::{Expr, LogicalPlan, PlanType, StringifiedPlan};
+use crate::physical_plan::csv::{CsvExec, CsvReadOptions};
+use crate::physical_plan::explain::ExplainExec;
+use crate::physical_plan::expressions::{
     Avg, Column, Count, Literal, Max, Min, PhysicalSortExpr, Sum,
 };
-use crate::execution::physical_plan::filter::FilterExec;
-use crate::execution::physical_plan::hash_aggregate::{AggregateMode, HashAggregateExec};
-use crate::execution::physical_plan::limit::{GlobalLimitExec, LocalLimitExec};
-use crate::execution::physical_plan::memory::MemoryExec;
-use crate::execution::physical_plan::merge::MergeExec;
-use crate::execution::physical_plan::parquet::ParquetExec;
-use crate::execution::physical_plan::projection::ProjectionExec;
-use crate::execution::physical_plan::sort::SortExec;
-use crate::execution::physical_plan::udf::ScalarFunctionExpr;
-use crate::execution::physical_plan::{expressions, Distribution};
-use crate::execution::physical_plan::{
-    AggregateExpr, ExecutionPlan, PhysicalExpr, PhysicalPlanner,
-};
-use crate::logicalplan::{Expr, LogicalPlan, PlanType, StringifiedPlan};
+use crate::physical_plan::filter::FilterExec;
+use crate::physical_plan::hash_aggregate::{AggregateMode, HashAggregateExec};
+use crate::physical_plan::limit::{GlobalLimitExec, LocalLimitExec};
+use crate::physical_plan::memory::MemoryExec;
+use crate::physical_plan::merge::MergeExec;
+use crate::physical_plan::parquet::ParquetExec;
+use crate::physical_plan::projection::ProjectionExec;
+use crate::physical_plan::sort::SortExec;
+use crate::physical_plan::udf::ScalarFunctionExpr;
+use crate::physical_plan::{expressions, Distribution};
+use crate::physical_plan::{AggregateExpr, ExecutionPlan, PhysicalExpr, PhysicalPlanner};
 use crate::variable::VarType;
 use arrow::compute::SortOptions;
 use arrow::datatypes::Schema;
@@ -279,6 +277,9 @@ impl DefaultPhysicalPlanner {
                     ctx_state.config.concurrency,
                 )?))
             }
+            LogicalPlan::EmptyRelation { schema } => {
+                Ok(Arc::new(EmptyExec::new(Arc::new(schema.as_ref().clone()))))
+            }
             LogicalPlan::Limit { input, n, .. } => {
                 let limit = *n;
                 let input = self.create_physical_plan(input, ctx_state)?;
@@ -297,6 +298,15 @@ impl DefaultPhysicalPlanner {
                     limit,
                     ctx_state.config.concurrency,
                 )))
+            }
+            LogicalPlan::CreateExternalTable { .. } => {
+                // There is no default plan for "CREATE EXTERNAL
+                // TABLE" -- it must be handled at a higher level (so
+                // that the appropriate table can be registered with
+                // the context)
+                Err(ExecutionError::General(
+                    "Unsupported logical plan: CreateExternalTable".to_string(),
+                ))
             }
             LogicalPlan::Explain {
                 verbose,
@@ -319,7 +329,7 @@ impl DefaultPhysicalPlanner {
                         format!("{:#?}", input),
                     ));
                 }
-                let schema_ref = Arc::new((**schema).clone());
+                let schema_ref = Arc::new(schema.as_ref().clone());
                 Ok(Arc::new(ExplainExec::new(schema_ref, stringified_plans)))
             }
             _ => Err(ExecutionError::General(
@@ -344,6 +354,7 @@ impl DefaultPhysicalPlanner {
                 input_schema.field_with_name(&name)?;
                 Ok(Arc::new(Column::new(name)))
             }
+            Expr::Literal(value) => Ok(Arc::new(Literal::new(value.clone()))),
             Expr::ScalarVariable(variable_names) => {
                 if &variable_names[0][0..2] == "@@" {
                     match ctx_state.var_provider.get(&VarType::System) {
@@ -369,20 +380,24 @@ impl DefaultPhysicalPlanner {
                     }
                 }
             }
-            Expr::Literal(value) => Ok(Arc::new(Literal::new(value.clone()))),
             Expr::BinaryExpr { left, op, right } => {
-                let lhs =
-                    self.create_physical_expr(left, input_schema, ctx_state.clone())?;
-                let rhs =
-                    self.create_physical_expr(right, input_schema, ctx_state.clone())?;
+                let lhs = self.create_physical_expr(left, input_schema, ctx_state)?;
+                let rhs = self.create_physical_expr(right, input_schema, ctx_state)?;
                 binary(lhs, op.clone(), rhs, input_schema)
             }
             Expr::Cast { expr, data_type } => expressions::cast(
-                self.create_physical_expr(expr, input_schema, ctx_state.clone())?,
+                self.create_physical_expr(expr, input_schema, ctx_state)?,
                 input_schema,
                 data_type.clone(),
             ),
-            Expr::ScalarFunction {
+            Expr::ScalarFunction { fun, args } => {
+                let physical_args = args
+                    .iter()
+                    .map(|e| self.create_physical_expr(e, input_schema, ctx_state))
+                    .collect::<Result<Vec<_>>>()?;
+                functions::create_physical_expr(fun, &physical_args, input_schema)
+            }
+            Expr::ScalarUDF {
                 name,
                 args,
                 return_type,
@@ -393,12 +408,12 @@ impl DefaultPhysicalPlanner {
                         physical_args.push(self.create_physical_expr(
                             e,
                             input_schema,
-                            ctx_state.clone(),
+                            ctx_state,
                         )?);
                     }
                     Ok(Arc::new(ScalarFunctionExpr::new(
                         name,
-                        Box::new(f.fun.clone()),
+                        f.fun.clone(),
                         physical_args,
                         return_type,
                     )))
@@ -490,8 +505,8 @@ fn tuple_err<T, R>(value: (Result<T>, Result<R>)) -> Result<(T, R)> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::execution::physical_plan::csv::CsvReadOptions;
-    use crate::logicalplan::{aggregate_expr, col, lit, LogicalPlanBuilder};
+    use crate::logical_plan::{aggregate_expr, col, lit, LogicalPlanBuilder};
+    use crate::physical_plan::csv::CsvReadOptions;
     use crate::{prelude::ExecutionConfig, test::arrow_testdata_path};
     use std::collections::HashMap;
 

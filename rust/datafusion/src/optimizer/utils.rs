@@ -17,13 +17,13 @@
 
 //! Collection of utility functions that are leveraged by the query optimizer rules
 
-use std::collections::HashSet;
+use std::{collections::HashSet, sync::Arc};
 
-use arrow::datatypes::Schema;
+use arrow::datatypes::{Schema, SchemaRef};
 
 use super::optimizer::OptimizerRule;
 use crate::error::{ExecutionError, Result};
-use crate::logicalplan::{Expr, LogicalPlan, PlanType, StringifiedPlan};
+use crate::logical_plan::{Expr, LogicalPlan, PlanType, StringifiedPlan};
 
 /// Recursively walk a list of expression trees, collecting the unique set of column
 /// names referenced in the expression
@@ -66,6 +66,7 @@ pub fn expr_to_column_names(expr: &Expr, accum: &mut HashSet<String>) -> Result<
         Expr::Sort { expr, .. } => expr_to_column_names(expr, accum),
         Expr::AggregateFunction { args, .. } => exprlist_to_column_names(args, accum),
         Expr::ScalarFunction { args, .. } => exprlist_to_column_names(args, accum),
+        Expr::ScalarUDF { args, .. } => exprlist_to_column_names(args, accum),
         Expr::Wildcard => Err(ExecutionError::General(
             "Wildcard expressions are not valid in a logical query plan".to_owned(),
         )),
@@ -85,14 +86,14 @@ pub fn optimize_explain(
     // These are the fields of LogicalPlan::Explain It might be nice
     // to transform that enum Variant into its own struct and avoid
     // passing the fields individually
-    let plan = Box::new(optimizer.optimize(plan)?);
+    let plan = Arc::new(optimizer.optimize(plan)?);
     let mut stringified_plans = stringified_plans.clone();
     let optimizer_name = optimizer.name().into();
     stringified_plans.push(StringifiedPlan::new(
         PlanType::OptimizedLogicalPlan { optimizer_name },
         format!("{:#?}", plan),
     ));
-    let schema = Box::new(schema.clone());
+    let schema = SchemaRef::new(schema.clone());
 
     Ok(LogicalPlan::Explain {
         verbose,
@@ -157,28 +158,28 @@ pub fn from_plan(
     match plan {
         LogicalPlan::Projection { schema, .. } => Ok(LogicalPlan::Projection {
             expr: expr.clone(),
-            input: Box::new(inputs[0].clone()),
+            input: Arc::new(inputs[0].clone()),
             schema: schema.clone(),
         }),
         LogicalPlan::Filter { .. } => Ok(LogicalPlan::Filter {
             predicate: expr[0].clone(),
-            input: Box::new(inputs[0].clone()),
+            input: Arc::new(inputs[0].clone()),
         }),
         LogicalPlan::Aggregate {
             group_expr, schema, ..
         } => Ok(LogicalPlan::Aggregate {
             group_expr: expr[0..group_expr.len()].to_vec(),
             aggr_expr: expr[group_expr.len()..].to_vec(),
-            input: Box::new(inputs[0].clone()),
+            input: Arc::new(inputs[0].clone()),
             schema: schema.clone(),
         }),
         LogicalPlan::Sort { .. } => Ok(LogicalPlan::Sort {
             expr: expr.clone(),
-            input: Box::new(inputs[0].clone()),
+            input: Arc::new(inputs[0].clone()),
         }),
         LogicalPlan::Limit { n, .. } => Ok(LogicalPlan::Limit {
             n: *n,
-            input: Box::new(inputs[0].clone()),
+            input: Arc::new(inputs[0].clone()),
         }),
         LogicalPlan::EmptyRelation { .. }
         | LogicalPlan::TableScan { .. }
@@ -198,6 +199,7 @@ pub fn expr_sub_expressions(expr: &Expr) -> Result<Vec<&Expr>> {
         Expr::IsNull(e) => Ok(vec![e]),
         Expr::IsNotNull(e) => Ok(vec![e]),
         Expr::ScalarFunction { args, .. } => Ok(args.iter().collect()),
+        Expr::ScalarUDF { args, .. } => Ok(args.iter().collect()),
         Expr::AggregateFunction { args, .. } => Ok(args.iter().collect()),
         Expr::Cast { expr, .. } => Ok(vec![expr]),
         Expr::Column(_) => Ok(vec![]),
@@ -224,9 +226,13 @@ pub fn rewrite_expression(expr: &Expr, expressions: &Vec<Expr>) -> Result<Expr> 
         }),
         Expr::IsNull(_) => Ok(Expr::IsNull(Box::new(expressions[0].clone()))),
         Expr::IsNotNull(_) => Ok(Expr::IsNotNull(Box::new(expressions[0].clone()))),
-        Expr::ScalarFunction {
+        Expr::ScalarFunction { fun, .. } => Ok(Expr::ScalarFunction {
+            fun: fun.clone(),
+            args: expressions.clone(),
+        }),
+        Expr::ScalarUDF {
             name, return_type, ..
-        } => Ok(Expr::ScalarFunction {
+        } => Ok(Expr::ScalarUDF {
             name: name.clone(),
             return_type: return_type.clone(),
             args: expressions.clone(),
@@ -263,7 +269,7 @@ pub fn rewrite_expression(expr: &Expr, expressions: &Vec<Expr>) -> Result<Expr> 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::logicalplan::{col, LogicalPlanBuilder};
+    use crate::logical_plan::{col, LogicalPlanBuilder};
     use arrow::datatypes::DataType;
     use std::collections::HashSet;
 

@@ -67,6 +67,17 @@ std::unique_ptr<KernelState> MeanInitAvx2(KernelContext* ctx,
   return visitor.Create();
 }
 
+// ----------------------------------------------------------------------
+// MinMax implementation
+
+std::unique_ptr<KernelState> MinMaxInitAvx2(KernelContext* ctx,
+                                            const KernelInitArgs& args) {
+  MinMaxInitState<SimdLevel::AVX2> visitor(
+      ctx, *args.inputs[0].type, args.kernel->signature->out_type().type(),
+      static_cast<const MinMaxOptions&>(*args.options));
+  return visitor.Create();
+}
+
 void AddSumAvx2AggKernels(ScalarAggregateFunction* func) {
   AddBasicAggKernels(SumInitAvx2, internal::SignedIntTypes(), int64(), func,
                      SimdLevel::AVX2);
@@ -79,6 +90,12 @@ void AddSumAvx2AggKernels(ScalarAggregateFunction* func) {
 void AddMeanAvx2AggKernels(ScalarAggregateFunction* func) {
   AddBasicAggKernels(MeanInitAvx2, internal::NumericTypes(), float64(), func,
                      SimdLevel::AVX2);
+}
+
+void AddMinMaxAvx2AggKernels(ScalarAggregateFunction* func) {
+  // Enable int types for AVX2 variants.
+  // No auto vectorize for float/double as it use fmin/fmax which has NaN handling.
+  AddMinMaxKernels(MinMaxInitAvx2, internal::IntTypes(), func, SimdLevel::AVX2);
 }
 
 }  // namespace aggregate

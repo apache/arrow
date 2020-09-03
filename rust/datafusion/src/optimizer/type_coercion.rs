@@ -23,13 +23,13 @@
 use arrow::datatypes::Schema;
 
 use crate::error::{ExecutionError, Result};
-use crate::execution::physical_plan::{
-    expressions::numerical_coercion, udf::ScalarFunctionRegistry,
-};
-use crate::logicalplan::Expr;
-use crate::logicalplan::{LogicalPlan, Operator};
+use crate::logical_plan::Expr;
+use crate::logical_plan::LogicalPlan;
 use crate::optimizer::optimizer::OptimizerRule;
 use crate::optimizer::utils;
+use crate::physical_plan::{
+    expressions::numerical_coercion, udf::ScalarFunctionRegistry,
+};
 use utils::optimize_explain;
 
 /// Optimizer that applies coercion rules to expressions in the logical plan.
@@ -64,7 +64,7 @@ where
 
         // modify `expressions` by introducing casts when necessary
         match expr {
-            Expr::ScalarFunction { name, .. } => {
+            Expr::ScalarUDF { name, .. } => {
                 // cast the inputs of scalar functions to the appropriate type where possible
                 match self.scalar_functions.lookup(name) {
                     Some(func_meta) => {
@@ -74,13 +74,9 @@ where
                             if &actual_type != required_type {
                                 // attempt to coerce using numerical coercion
                                 // todo: also try string coercion.
-                                if let Ok(cast_to_type) = numerical_coercion(
-                                    &actual_type,
-                                    // assume that the function behaves like plus
-                                    // plus is not special here; the optimizer is just trying its best...
-                                    &Operator::Plus,
-                                    required_type,
-                                ) {
+                                if let Some(cast_to_type) =
+                                    numerical_coercion(&actual_type, required_type)
+                                {
                                     expressions[i] =
                                         expressions[i].cast_to(&cast_to_type, schema)?
                                 };

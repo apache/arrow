@@ -23,7 +23,7 @@ use arrow::array::ArrayRef;
 use arrow::datatypes::{DataType, Schema};
 
 use crate::error::Result;
-use crate::execution::physical_plan::PhysicalExpr;
+use crate::physical_plan::PhysicalExpr;
 
 use arrow::record_batch::RecordBatch;
 use fmt::{Debug, Formatter};
@@ -87,7 +87,7 @@ impl ScalarFunction {
 
 /// Scalar UDF Physical Expression
 pub struct ScalarFunctionExpr {
-    fun: Box<ScalarUdf>,
+    fun: ScalarUdf,
     name: String,
     args: Vec<Arc<dyn PhysicalExpr>>,
     return_type: DataType,
@@ -108,7 +108,7 @@ impl ScalarFunctionExpr {
     /// Create a new Scalar function
     pub fn new(
         name: &str,
-        fun: Box<ScalarUdf>,
+        fun: ScalarUdf,
         args: Vec<Arc<dyn PhysicalExpr>>,
         return_type: &DataType,
     ) -> Self {

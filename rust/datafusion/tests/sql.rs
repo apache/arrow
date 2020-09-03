@@ -28,8 +28,8 @@ use arrow::record_batch::RecordBatch;
 use datafusion::datasource::{csv::CsvReadOptions, MemTable};
 use datafusion::error::Result;
 use datafusion::execution::context::ExecutionContext;
-use datafusion::execution::physical_plan::udf::ScalarFunction;
-use datafusion::logicalplan::LogicalPlan;
+use datafusion::logical_plan::LogicalPlan;
+use datafusion::physical_plan::udf::ScalarFunction;
 
 #[test]
 fn nyc() -> Result<()> {
@@ -198,6 +198,35 @@ fn csv_query_avg_sqrt() -> Result<()> {
     actual.sort();
     let expected = "0.6706002946036462".to_string();
     assert_eq!(actual.join("\n"), expected);
+    Ok(())
+}
+
+/// sqrt(f32) is sligthly different than sqrt(CAST(f32 AS double)))
+#[test]
+fn sqrt_f32_vs_f64() -> Result<()> {
+    let mut ctx = create_ctx()?;
+    register_aggregate_csv(&mut ctx)?;
+    // sqrt(f32)'s plan passes
+    let sql = "SELECT avg(sqrt(c11)) FROM aggregate_test_100";
+    let actual = &execute(&mut ctx, sql)[0];
+    let expected = "0.6584408485889435".to_string();
+
+    assert_eq!(*actual, expected);
+    let sql = "SELECT avg(sqrt(CAST(c11 AS double))) FROM aggregate_test_100";
+    let actual = &execute(&mut ctx, sql)[0];
+    let expected = "0.6584408483418833".to_string();
+    assert_eq!(*actual, expected);
+    Ok(())
+}
+
+#[test]
+fn csv_query_error() -> Result<()> {
+    // sin(utf8) should error
+    let mut ctx = create_ctx()?;
+    register_aggregate_csv(&mut ctx)?;
+    let sql = "SELECT sin(c1) FROM aggregate_test_100";
+    let plan = ctx.create_logical_plan(&sql);
+    assert!(plan.is_err());
     Ok(())
 }
 
@@ -496,8 +525,9 @@ fn register_aggregate_csv_by_sql(ctx: &mut ExecutionContext) {
 
     // TODO: The following c9 should be migrated to UInt32 and c10 should be UInt64 once
     // unsigned is supported.
-    ctx.sql(&format!(
-        "
+    let df = ctx
+        .sql(&format!(
+            "
     CREATE EXTERNAL TABLE aggregate_test_100 (
         c1  VARCHAR NOT NULL,
         c2  INT NOT NULL,
@@ -517,9 +547,17 @@ fn register_aggregate_csv_by_sql(ctx: &mut ExecutionContext) {
     WITH HEADER ROW
     LOCATION '{}/csv/aggregate_test_100.csv'
     ",
-        testdata
-    ))
-    .unwrap();
+            testdata
+        ))
+        .expect("Creating dataframe for CREATE EXTERNAL TABLE");
+
+    // Mimic the CLI and execute the resulting plan -- even though it
+    // is effectively a no-op (returns zero rows)
+    let results = df.collect().expect("Executing CREATE EXTERNAL TABLE");
+    assert!(
+        results.is_empty(),
+        "Expected no rows from executing CREATE EXTERNAL TABLE"
+    );
 }
 
 fn register_aggregate_csv(ctx: &mut ExecutionContext) -> Result<()> {
@@ -618,7 +656,11 @@ fn result_str(results: &[RecordBatch]) -> Vec<String> {
                     DataType::Utf8 => {
                         let array =
                             column.as_any().downcast_ref::<StringArray>().unwrap();
-                        let s = array.value(row_index);
+                        let s = if array.is_null(row_index) {
+                            "NULL"
+                        } else {
+                            array.value(row_index)
+                        };
 
                         str.push_str(&format!("{:?}", s));
                     }
@@ -654,6 +696,32 @@ fn query_length() -> Result<()> {
     let sql = "SELECT length(c1) FROM test";
     let actual = execute(&mut ctx, sql).join("\n");
     let expected = "0\n1\n2\n3".to_string();
+    assert_eq!(expected, actual);
+    Ok(())
+}
+
+#[test]
+fn query_concat() -> Result<()> {
+    let schema = Arc::new(Schema::new(vec![
+        Field::new("c1", DataType::Utf8, false),
+        Field::new("c2", DataType::Int32, true),
+    ]));
+
+    let data = RecordBatch::try_new(
+        schema.clone(),
+        vec![
+            Arc::new(StringArray::from(vec!["", "a", "aa", "aaa"])),
+            Arc::new(Int32Array::from(vec![Some(0), Some(1), None, Some(3)])),
+        ],
+    )?;
+
+    let table = MemTable::new(schema, vec![vec![data]])?;
+
+    let mut ctx = ExecutionContext::new();
+    ctx.register_table("test", Box::new(table));
+    let sql = "SELECT concat(c1, '-hi-', cast(c2 as varchar)) FROM test";
+    let actual = execute(&mut ctx, sql);
+    let expected = vec!["\"-hi-0\"", "\"a-hi-1\"", "\"NULL\"", "\"aaa-hi-3\""];
     assert_eq!(expected, actual);
     Ok(())
 }

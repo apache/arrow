@@ -88,6 +88,8 @@ test_that("Setup (putting data in the dir)", {
 
 test_that("Simple interface for datasets", {
   ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
+  expect_is(ds$format, "ParquetFileFormat")
+  expect_is(ds$filesystem, "LocalFileSystem")
   expect_is(ds, "Dataset")
   expect_equivalent(
     ds %>%
@@ -223,6 +225,8 @@ test_that("Partitioning inference", {
 
 test_that("IPC/Feather format data", {
   ds <- open_dataset(ipc_dir, partitioning = "part", format = "feather")
+  expect_is(ds$format, "IpcFileFormat")
+  expect_is(ds$filesystem, "LocalFileSystem")
   expect_identical(names(ds), c(names(df1), "part"))
   expect_warning(
     expect_identical(dim(ds), c(NA, 7L))
@@ -249,6 +253,8 @@ test_that("IPC/Feather format data", {
 
 test_that("CSV dataset", {
   ds <- open_dataset(csv_dir, partitioning = "part", format = "csv")
+  expect_is(ds$format, "CsvFileFormat")
+  expect_is(ds$filesystem, "LocalFileSystem")
   expect_identical(names(ds), c(names(df1), "part"))
   expect_warning(
     expect_identical(dim(ds), c(NA, 7L))
@@ -778,6 +784,52 @@ test_that("Writing a dataset: Parquet->IPC", {
   )
 })
 
+test_that("Writing a dataset: CSV->Parquet", {
+  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
+  ds <- open_dataset(csv_dir, partitioning = "part", format = "csv")
+  dst_dir <- make_temp_dir()
+  write_dataset(ds, dst_dir, format = "parquet", partitioning = "int")
+  expect_true(dir.exists(dst_dir))
+  expect_identical(dir(dst_dir), sort(paste("int", c(1:10, 101:110), sep = "=")))
+
+  new_ds <- open_dataset(dst_dir)
+
+  expect_equivalent(
+    new_ds %>%
+      select(string = chr, integer = int) %>%
+      filter(integer > 6 & integer < 11) %>%
+      collect() %>%
+      summarize(mean = mean(integer)),
+    df1 %>%
+      select(string = chr, integer = int) %>%
+      filter(integer > 6) %>%
+      summarize(mean = mean(integer))
+  )
+})
+
+test_that("Writing a dataset: Parquet->Parquet (default)", {
+  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
+  ds <- open_dataset(hive_dir)
+  dst_dir <- make_temp_dir()
+  write_dataset(ds, dst_dir, partitioning = "int")
+  expect_true(dir.exists(dst_dir))
+  expect_identical(dir(dst_dir), sort(paste("int", c(1:10, 101:110), sep = "=")))
+
+  new_ds <- open_dataset(dst_dir)
+
+  expect_equivalent(
+    new_ds %>%
+      select(string = chr, integer = int, group) %>%
+      filter(integer > 6 & group == 1) %>%
+      collect() %>%
+      summarize(mean = mean(integer)),
+    df1 %>%
+      select(string = chr, integer = int) %>%
+      filter(integer > 6) %>%
+      summarize(mean = mean(integer))
+  )
+})
+
 test_that("Dataset writing: dplyr methods", {
   skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
   ds <- open_dataset(hive_dir)
@@ -871,12 +923,52 @@ test_that("Dataset writing: from RecordBatch", {
   )
 })
 
+test_that("Writing a dataset: Parquet format options", {
+  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
+  ds <- open_dataset(csv_dir, partitioning = "part", format = "csv")
+  dst_dir <- make_temp_dir()
+
+  # Use trace() to confirm that options are passed in
+  trace(
+    "parquet___ArrowWriterProperties___create",
+    tracer = quote(warning("allow_truncated_timestamps == ", allow_truncated_timestamps)),
+    print = FALSE,
+    where = write_dataset
+  )
+  expect_warning(
+    write_dataset(ds, make_temp_dir(), format = "parquet", partitioning = "int"),
+    "allow_truncated_timestamps == FALSE"
+  )
+  expect_warning(
+    write_dataset(ds, dst_dir, format = "parquet", partitioning = "int", allow_truncated_timestamps = TRUE),
+    "allow_truncated_timestamps == TRUE"
+  )
+  untrace("parquet___ArrowWriterProperties___create", where = write_dataset)
+
+  # Now confirm we can read back what we sent
+  expect_true(dir.exists(dst_dir))
+  expect_identical(dir(dst_dir), sort(paste("int", c(1:10, 101:110), sep = "=")))
+
+  new_ds <- open_dataset(dst_dir)
+
+  expect_equivalent(
+    new_ds %>%
+      select(string = chr, integer = int) %>%
+      filter(integer > 6 & integer < 11) %>%
+      collect() %>%
+      summarize(mean = mean(integer)),
+    df1 %>%
+      select(string = chr, integer = int) %>%
+      filter(integer > 6) %>%
+      summarize(mean = mean(integer))
+  )
+})
+
 test_that("Dataset writing: unsupported features/input validation", {
   expect_error(write_dataset(4), "'dataset' must be a Dataset")
 
   ds <- open_dataset(hive_dir)
 
-  expect_error(write_dataset(ds, format = "csv"), "Unsupported format")
   expect_error(
     filter(ds, int == 4) %>% write_dataset(ds),
     "Writing a filtered dataset is not yet supported"

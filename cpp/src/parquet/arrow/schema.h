@@ -28,6 +28,7 @@
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
 
+#include "parquet/level_conversion.h"
 #include "parquet/platform.h"
 #include "parquet/schema.h"
 
@@ -93,17 +94,7 @@ struct PARQUET_EXPORT SchemaField {
   // Only set for leaf nodes
   int column_index = -1;
 
-  // The definition level at which the value for the field
-  // is considered not null (definition levels greater than
-  // or equal to indicate this value indicate a not-null
-  // value for the field).
-  int16_t definition_level;
-  // The repetition level corresponding to this element
-  // or the closest repeated ancestor.  Any repetition
-  // level less than this indicates either a new list OR
-  // an empty list (which is determined in conjunction
-  // definition_level).
-  int16_t repetition_level;
+  parquet::internal::LevelInfo level_info;
 
   bool IsStruct() const { return field->type()->id() == ::arrow::Type::STRUCT; }
   bool IsRepeated() const {
@@ -112,13 +103,6 @@ struct PARQUET_EXPORT SchemaField {
            field->type()->id() == ::arrow::Type::LARGE_LIST ||
            field->type()->id() == ::arrow::Type::MAP;
   }
-
-  // The definition level indicating the level at which the closest
-  // repeated ancestor was not empty.  This is used to discrimate
-  // between a value less than |definition_level|
-  // being null or excluded entirely.
-  // TODO(ARROW-8493): Populate this value.
-  int16_t repeated_ancestor_definition_level = 0;
 
   bool is_leaf() const { return column_index != -1; }
 };

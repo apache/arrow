@@ -21,15 +21,14 @@ use std::sync::Arc;
 
 use crate::arrow::datatypes::SchemaRef;
 use crate::error::Result;
-use crate::execution::physical_plan::ExecutionPlan;
+use crate::physical_plan::ExecutionPlan;
 
 /// Source table
 pub trait TableProvider {
     /// Get a reference to the schema for this table
     fn schema(&self) -> SchemaRef;
 
-    /// Perform a scan of a table and return a sequence of iterators over the data (one
-    /// iterator per partition)
+    /// Create an ExecutionPlan that will scan the table.
     fn scan(
         &self,
         projection: &Option<Vec<usize>>,

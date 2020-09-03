@@ -24,8 +24,9 @@ are not currently supported, and \code{select}-ed columns may not be renamed.}
 \item{path}{string path to a directory to write to (directory will be
 created if it does not exist)}
 
-\item{format}{file format to write the dataset to. Currently only "feather"
-(aka "ipc") is supported.}
+\item{format}{file format to write the dataset to. Currently supported
+formats are "feather" (aka "ipc") and "parquet". Default is to write to the
+same format as \code{dataset}.}
 
 \item{schema}{\link{Schema} containing a subset of columns, possibly reordered,
 in \code{dataset}. Default is \code{dataset$schema}, i.e. all columns.}
@@ -37,7 +38,8 @@ use the current \code{group_by()} columns.}
 \item{hive_style}{logical: write partition segments as Hive-style
 (\code{key1=value1/key2=value2/file.ext}) or as just bare values. Default is \code{TRUE}.}
 
-\item{...}{additional arguments, passed to \code{dataset$write()}}
+\item{...}{additional format-specific arguments. For available Parquet
+options, see \code{\link[=write_parquet]{write_parquet()}}.}
 }
 \value{
 The input \code{dataset}, invisibly

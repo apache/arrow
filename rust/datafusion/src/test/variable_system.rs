@@ -18,7 +18,7 @@
 //! System variable provider
 
 use crate::error::Result;
-use crate::logicalplan::ScalarValue;
+use crate::logical_plan::ScalarValue;
 use crate::variable::VarProvider;
 
 /// System variable

@@ -469,7 +469,7 @@ Result<std::shared_ptr<RecordBatch>> LoadRecordBatchSubset(
 
   // Dictionary resolution needs to happen on the unfiltered columns,
   // because fields are mapped structurally (by path in the original schema).
-  RETURN_NOT_OK(ResolveDictionaries(columns, *dictionary_memo));
+  RETURN_NOT_OK(ResolveDictionaries(columns, *dictionary_memo, options.memory_pool));
 
   if (inclusion_mask) {
     filtered_schema = ::arrow::schema(std::move(filtered_fields), schema->metadata());
@@ -711,7 +711,7 @@ Status ReadDictionary(const Buffer& metadata, DictionaryMemo* dictionary_memo,
   }
 
   if (dictionary_batch->isDelta()) {
-    return dictionary_memo->AddDictionaryDelta(id, dict_data, options.memory_pool);
+    return dictionary_memo->AddDictionaryDelta(id, dict_data);
   }
   return dictionary_memo->AddOrReplaceDictionary(id, dict_data);
 }

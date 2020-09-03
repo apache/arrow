@@ -143,6 +143,12 @@ class TestParquetFileFormat : public ArrowParquetWriterMixin {
                                     kBatchRepetitions);
   }
 
+  Result<std::shared_ptr<io::BufferOutputStream>> GetFileSink() {
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ResizableBuffer> buffer,
+                          AllocateResizableBuffer(0));
+    return std::make_shared<io::BufferOutputStream>(buffer);
+  }
+
   RecordBatchIterator Batches(ScanTaskIterator scan_task_it) {
     return MakeFlattenIterator(MakeMaybeMapIterator(
         [](std::shared_ptr<ScanTask> scan_task) { return scan_task->Execute(); },
@@ -538,6 +544,77 @@ TEST_F(TestParquetFileFormat, ExplicitRowGroupSelection) {
       IndexError,
       testing::HasSubstr("only has " + std::to_string(kNumRowGroups) + " row groups"),
       row_groups_fragment({kNumRowGroups + 1})->Scan(opts_, ctx_));
+}
+
+TEST_F(TestParquetFileFormat, WriteRecordBatchReader) {
+  std::shared_ptr<RecordBatchReader> reader = GetRecordBatchReader();
+  auto source = GetFileSource(reader.get());
+  reader = GetRecordBatchReader();
+
+  opts_ = ScanOptions::Make(reader->schema());
+
+  EXPECT_OK_AND_ASSIGN(auto sink, GetFileSink());
+
+  ASSERT_OK(format_->WriteFragment(reader.get(), sink.get()));
+
+  EXPECT_OK_AND_ASSIGN(auto written, sink->Finish());
+
+  AssertBufferEqual(*written, *source->buffer());
+}
+
+TEST_F(TestParquetFileFormat, WriteRecordBatchReaderCustomOptions) {
+  TimeUnit::type coerce_timestamps_to = TimeUnit::MICRO,
+                 coerce_timestamps_from = TimeUnit::NANO;
+
+  std::shared_ptr<RecordBatchReader> reader =
+      GetRecordBatchReader(schema({field("ts", timestamp(coerce_timestamps_from))}));
+
+  opts_ = ScanOptions::Make(reader->schema());
+
+  EXPECT_OK_AND_ASSIGN(auto sink, GetFileSink());
+
+  format_->writer_properties = parquet::WriterProperties::Builder()
+                                   .created_by("TestParquetFileFormat")
+                                   ->disable_statistics()
+                                   ->build();
+
+  format_->arrow_writer_properties = parquet::ArrowWriterProperties::Builder()
+                                         .coerce_timestamps(coerce_timestamps_to)
+                                         ->build();
+
+  ASSERT_OK(format_->WriteFragment(reader.get(), sink.get()));
+  EXPECT_OK_AND_ASSIGN(auto written, sink->Finish());
+  EXPECT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(FileSource{written}));
+
+  EXPECT_OK_AND_ASSIGN(auto actual_schema, fragment->ReadPhysicalSchema());
+  AssertSchemaEqual(Schema({field("ts", timestamp(coerce_timestamps_to))}),
+                    *actual_schema);
+}
+
+class TestParquetFileSystemDataset : public WriteFileSystemDatasetMixin,
+                                     public testing::Test {
+ public:
+  void SetUp() override {
+    MakeSourceDataset();
+    check_metadata_ = false;
+    format_ = std::make_shared<ParquetFileFormat>();
+  }
+};
+
+TEST_F(TestParquetFileSystemDataset, WriteWithIdenticalPartitioningSchema) {
+  TestWriteWithIdenticalPartitioningSchema();
+}
+
+TEST_F(TestParquetFileSystemDataset, WriteWithUnrelatedPartitioningSchema) {
+  TestWriteWithUnrelatedPartitioningSchema();
+}
+
+TEST_F(TestParquetFileSystemDataset, WriteWithSupersetPartitioningSchema) {
+  TestWriteWithSupersetPartitioningSchema();
+}
+
+TEST_F(TestParquetFileSystemDataset, WriteWithEmptyPartitioningSchema) {
+  TestWriteWithEmptyPartitioningSchema();
 }
 
 }  // namespace dataset

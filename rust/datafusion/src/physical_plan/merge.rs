@@ -22,9 +22,9 @@ use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 
 use crate::error::{ExecutionError, Result};
-use crate::execution::physical_plan::common::RecordBatchIterator;
-use crate::execution::physical_plan::Partitioning;
-use crate::execution::physical_plan::{common, ExecutionPlan};
+use crate::physical_plan::common::RecordBatchIterator;
+use crate::physical_plan::Partitioning;
+use crate::physical_plan::{common, ExecutionPlan};
 
 use arrow::datatypes::SchemaRef;
 use arrow::record_batch::{RecordBatch, RecordBatchReader};
@@ -157,8 +157,8 @@ fn collect_from_thread(
 mod tests {
 
     use super::*;
-    use crate::execution::physical_plan::common;
-    use crate::execution::physical_plan::csv::{CsvExec, CsvReadOptions};
+    use crate::physical_plan::common;
+    use crate::physical_plan::csv::{CsvExec, CsvReadOptions};
     use crate::test;
 
     #[test]

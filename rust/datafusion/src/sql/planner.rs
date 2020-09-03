@@ -17,16 +17,18 @@
 
 //! SQL Query Planner (produces logical plan from SQL AST)
 
+use std::str::FromStr;
 use std::sync::Arc;
 
 use crate::error::{ExecutionError, Result};
-use crate::logicalplan::Expr::Alias;
-use crate::logicalplan::{
+use crate::logical_plan::Expr::Alias;
+use crate::logical_plan::{
     lit, Expr, LogicalPlan, LogicalPlanBuilder, Operator, PlanType, ScalarValue,
     StringifiedPlan,
 };
 use crate::{
-    execution::physical_plan::udf::ScalarFunction,
+    physical_plan::functions,
+    physical_plan::udf::ScalarFunction,
     sql::parser::{CreateExternalTable, FileType, Statement as DFStatement},
 };
 
@@ -126,7 +128,7 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
             FileType::NdJson => {}
         };
 
-        let schema = Box::new(self.build_schema(&columns)?);
+        let schema = SchemaRef::new(self.build_schema(&columns)?);
 
         Ok(LogicalPlan::CreateExternalTable {
             schema,
@@ -152,7 +154,7 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
         )];
 
         let schema = LogicalPlan::explain_schema();
-        let plan = Box::new(plan);
+        let plan = Arc::new(plan);
 
         Ok(LogicalPlan::Explain {
             verbose,
@@ -503,8 +505,20 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
             }
 
             SQLExpr::Function(function) => {
-                //TODO: fix this hack
                 let name: String = function.name.to_string();
+
+                // first, scalar built-in
+                if let Ok(fun) = functions::ScalarFunction::from_str(&name) {
+                    let args = function
+                        .args
+                        .iter()
+                        .map(|a| self.sql_to_rex(a, schema))
+                        .collect::<Result<Vec<Expr>>>()?;
+
+                    return Ok(Expr::ScalarFunction { fun, args });
+                };
+
+                //TODO: fix this hack
                 match name.to_lowercase().as_ref() {
                     "min" | "max" | "sum" | "avg" => {
                         let rex_args = function
@@ -534,6 +548,7 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
                             args: rex_args,
                         })
                     }
+                    // finally, built-in scalar functions
                     _ => match self.schema_provider.get_function_meta(&name) {
                         Some(fm) => {
                             let rex_args = function
@@ -548,7 +563,7 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
                                     .push(rex_args[i].cast_to(&fm.arg_types[i], schema)?);
                             }
 
-                            Ok(Expr::ScalarFunction {
+                            Ok(Expr::ScalarUDF {
                                 name: name.clone(),
                                 args: safe_args,
                                 return_type: fm.return_type.clone(),
@@ -616,7 +631,7 @@ mod tests {
     fn select_scalar_func_with_literal_no_relation() {
         quick_test(
             "SELECT sqrt(9)",
-            "Projection: sqrt(CAST(Int64(9) AS Float64))\
+            "Projection: sqrt(Int64(9))\
              \n  EmptyRelation",
         );
     }
@@ -754,7 +769,7 @@ mod tests {
     #[test]
     fn select_scalar_func() {
         let sql = "SELECT sqrt(age) FROM person";
-        let expected = "Projection: sqrt(CAST(#age AS Float64))\
+        let expected = "Projection: sqrt(#age)\
                         \n  TableScan: person projection=None";
         quick_test(sql, expected);
     }
@@ -762,7 +777,7 @@ mod tests {
     #[test]
     fn select_aliased_scalar_func() {
         let sql = "SELECT sqrt(age) AS square_people FROM person";
-        let expected = "Projection: sqrt(CAST(#age AS Float64)) AS square_people\
+        let expected = "Projection: sqrt(#age) AS square_people\
                         \n  TableScan: person projection=None";
         quick_test(sql, expected);
     }
@@ -928,8 +943,8 @@ mod tests {
 
         fn get_function_meta(&self, name: &str) -> Option<Arc<ScalarFunction>> {
             match name {
-                "sqrt" => Some(Arc::new(ScalarFunction::new(
-                    "sqrt",
+                "my_sqrt" => Some(Arc::new(ScalarFunction::new(
+                    "my_sqrt",
                     vec![DataType::Float64],
                     DataType::Float64,
                     Arc::new(|_| Err(ExecutionError::NotImplemented("".to_string()))),
