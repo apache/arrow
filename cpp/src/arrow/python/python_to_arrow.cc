@@ -49,6 +49,9 @@
 #include "arrow/python/type_traits.h"
 #include "arrow/visitor_inline.h"
 
+// store PyBytesView.is_utf8
+// use util::optional for post conversion null sentinel checking
+
 namespace arrow {
 
 using internal::checked_cast;
@@ -315,15 +318,13 @@ struct ValueConverter<Type, enable_if_integer<Type>> {
   }
 
   static Result<util::string_view> Convert(const BaseBinaryType&, const O&, I obj) {
-    PyBytesView view;
-    RETURN_NOT_OK(view.FromString(obj));
+    ARROW_ASSIGN_OR_RAISE(auto view, PyBytesView::FromString(obj));
     return util::string_view(view.bytes, view.size);
   }
 
   static Result<util::string_view> Convert(const FixedSizeBinaryType& type, const O&,
                                            I obj) {
-    PyBytesView view;
-    RETURN_NOT_OK(view.FromString(obj));
+    ARROW_ASSIGN_OR_RAISE(auto view, PyBytesView::FromString(obj));
     if (ARROW_PREDICT_TRUE(view.size == type.byte_width())) {
       return util::string_view(view.bytes, view.size);
     } else {
@@ -336,27 +337,19 @@ struct ValueConverter<Type, enable_if_integer<Type>> {
   template <typename T>
   static enable_if_string_like<T, Result<std::pair<util::string_view, bool>>> Convert(
       const T& type, const O& options, I obj) {
-    bool is_utf8 = false;
-    PyBytesView view;
     if (options.strict) {
       // Strict conversion, force output to be unicode / utf8 and validate that
       // any binary values are utf8
-      RETURN_NOT_OK(view.FromString(obj, &is_utf8));
-      if (!is_utf8) {
+      ARROW_ASSIGN_OR_RAISE(auto view, PyBytesView::FromString(obj, true));
+      if (!view.is_utf8) {
         return internal::InvalidValue(obj, "was not a utf8 string");
       }
+      return std::make_pair(util::string_view(view.bytes, view.size), view.is_utf8);
     } else {
       // Non-strict conversion; keep track of whether values are unicode or bytes
-      if (PyUnicode_Check(obj)) {
-        is_utf8 = true;
-        RETURN_NOT_OK(view.FromUnicode(obj));
-      } else {
-        // If not unicode or bytes, FromBinary will error
-        is_utf8 = false;
-        RETURN_NOT_OK(view.FromBinary(obj));
-      }
+      ARROW_ASSIGN_OR_RAISE(auto view, PyBytesView::FromString(obj));
+      return std::make_pair(util::string_view(view.bytes, view.size), view.is_utf8);
     }
-    return std::make_pair(util::string_view(view.bytes, view.size), is_utf8);
   }
 
   static Result<bool> Convert(const DataType& type, const O&, I obj) {
@@ -513,7 +506,8 @@ class PyDictionaryArrayConverter<T, enable_if_string_like<T>>
       // If we saw any non-unicode, cast results to a dictionary with binary value type
       const auto& current_type = checked_cast<const DictionaryType&>(*array->type());
       auto binary_type = TypeTraits<typename T::PhysicalType>::type_singleton();
-      auto new_type = dictionary(current_type.index_type(), binary_type, current_type.ordered());
+      auto new_type =
+          dictionary(current_type.index_type(), binary_type, current_type.ordered());
       return array->View(new_type);
     } else {
       return array;
