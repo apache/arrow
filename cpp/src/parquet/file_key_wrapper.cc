@@ -81,11 +81,11 @@ std::string FileKeyWrapper::GetEncryptionKeyMetadata(const std::string& data_key
 
   bool store_key_material_internally = (NULL == key_material_store_);
 
-  std::string serialized_key_material = KeyMaterial::CreateSerialized(
-      is_footer_key, kms_connection_config_.kms_instance_id,
-      kms_connection_config_.kms_instance_url, master_key_id, double_wrapping_,
-      encoded_kek_id, encoded_wrapped_kek, encoded_wrapped_dek,
-      store_key_material_internally);
+  std::string serialized_key_material =
+      KeyMaterial::SerializeToJson(is_footer_key, kms_connection_config_.kms_instance_id,
+                                   kms_connection_config_.kms_instance_url, master_key_id,
+                                   double_wrapping_, encoded_kek_id, encoded_wrapped_kek,
+                                   encoded_wrapped_dek, store_key_material_internally);
 
   // Internal key material storage: key metadata and key material are the same
   if (store_key_material_internally) {

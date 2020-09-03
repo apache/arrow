@@ -87,20 +87,20 @@ class PARQUET_EXPORT KeyToolkit {
     TwoLevelCacheWithExpiration<std::string> cache_;
   };
 
-  // KMS client two level cache: token -> KMSInstanceId -> KmsClient
+  /// KMS client two level cache: token -> KMSInstanceId -> KmsClient
   static TwoLevelCacheWithExpiration<std::shared_ptr<KmsClient>>&
   kms_client_cache_per_token() {
     return KmsClientCache::GetInstance().cache();
   }
 
-  // Key encryption key two level cache for wrapping: token -> MasterEncryptionKeyId ->
-  // KeyEncryptionKey
+  /// Key encryption key two level cache for wrapping: token -> MasterEncryptionKeyId ->
+  /// KeyEncryptionKey
   static TwoLevelCacheWithExpiration<KeyEncryptionKey>& kek_write_cache_per_token() {
     return KeyEncryptionKeyWriteCache::GetInstance().cache();
   }
 
-  // Key encryption key two level cache for unwrapping: token -> KeyEncryptionKeyId ->
-  // KeyEncryptionKeyBytes
+  /// Key encryption key two level cache for unwrapping: token -> KeyEncryptionKeyId ->
+  /// KeyEncryptionKeyBytes
   static TwoLevelCacheWithExpiration<std::string>& kek_read_cache_per_token() {
     return KeyEncryptionKeyReadCache::GetInstance().cache();
   }
@@ -110,17 +110,17 @@ class PARQUET_EXPORT KeyToolkit {
       const KmsConnectionConfig& kms_connection_config, bool is_wrap_locally,
       uint64_t cache_entry_lifetime_ms);
 
-  // Encrypts "key" with "master_key", using AES-GCM and the "aad"
+  /// Encrypts "key" with "master_key", using AES-GCM and the "aad"
   static std::string EncryptKeyLocally(const std::string& key,
                                        const std::string& master_key,
                                        const std::string& aad);
 
-  // Decrypts encrypted key with "master_key", using AES-GCM and the "aad"
+  /// Decrypts encrypted key with "master_key", using AES-GCM and the "aad"
   static std::string DecryptKeyLocally(const std::string& encoded_encrypted_key,
                                        const std::string& master_key,
                                        const std::string& aad);
 
-  // Flush any caches that are tied to the (compromised) access_token
+  /// Flush any caches that are tied to the (compromised) access_token
   static void RemoveCacheEntriesForToken(const std::string& access_token);
 
   static void RemoveCacheEntriesForAllTokens();

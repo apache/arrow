@@ -105,7 +105,7 @@ KeyMaterial KeyMaterial::Parse(const rapidjson::Document& key_material_json) {
                      is_double_wrapped, kek_id, encoded_wrapped_kek, encoded_wrapped_dek);
 }
 
-std::string KeyMaterial::CreateSerialized(
+std::string KeyMaterial::SerializeToJson(
     bool is_footer_key, const std::string& kms_instance_id,
     const std::string& kms_instance_url, const std::string& master_key_id,
     bool is_double_wrapped, const std::string& kek_id,

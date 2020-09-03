@@ -52,7 +52,7 @@ class PARQUET_EXPORT FileKeyUnwrapper : public DecryptionKeyRetriever {
   std::shared_ptr<KmsClient> GetKmsClientFromConfigOrKeyMaterial(
       const KeyMaterial& key_material) const;
 
-  // A map of Key Encryption Key (KEK) ID -> KEK bytes, for the current token
+  /// A map of Key Encryption Key (KEK) ID -> KEK bytes, for the current token
   mutable std::unordered_map<std::string, std::string> kek_per_kek_id_;
   std::shared_ptr<KmsClientFactory> kms_client_factory_;
   mutable KmsConnectionConfig kms_connection_config_;

@@ -82,14 +82,16 @@ class KeyMaterial {
 
   static KeyMaterial Parse(const rapidjson::Document& key_material_json);
 
-  static std::string CreateSerialized(bool is_footer_key,
-                                      const std::string& kms_instance_id,
-                                      const std::string& kms_instance_url,
-                                      const std::string& master_key_id,
-                                      bool is_double_wrapped, const std::string& kek_id,
-                                      const std::string& encoded_wrapped_kek,
-                                      const std::string& encoded_wrapped_dek,
-                                      bool is_internal_storage);
+  /// This method returns a json string that will be stored either inside a parquet file
+  /// or in a key material store outside the parquet file.
+  static std::string SerializeToJson(bool is_footer_key,
+                                     const std::string& kms_instance_id,
+                                     const std::string& kms_instance_url,
+                                     const std::string& master_key_id,
+                                     bool is_double_wrapped, const std::string& kek_id,
+                                     const std::string& encoded_wrapped_kek,
+                                     const std::string& encoded_wrapped_dek,
+                                     bool is_internal_storage);
 
   bool is_footer_key() const { return is_footer_key_; }
   bool is_double_wrapped() const { return is_double_wrapped_; }

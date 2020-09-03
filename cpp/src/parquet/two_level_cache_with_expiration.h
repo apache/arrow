@@ -99,8 +99,6 @@ class TwoLevelCacheWithExpiration {
       return (now > expiration_timestamp_);
     }
 
-    // const E& cached_item() const { return cached_item_; }
-
     E& cached_item() { return cached_item_; }
 
    private:

@@ -83,8 +83,8 @@ class KeyMetadata {
   explicit KeyMetadata(const std::string& key_reference);
 
   bool is_internal_storage_;
-  // If is_internal_storage_ is true, KeyMaterial is set,
-  // else a string referencing to an outside "key material" is set.
+  /// If is_internal_storage_ is true, KeyMaterial is set,
+  /// else a string referencing to an outside "key material" is set.
   arrow::util::variant<KeyMaterial, std::string> key_material_or_reference_;
 };
 
