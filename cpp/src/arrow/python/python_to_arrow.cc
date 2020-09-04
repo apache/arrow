@@ -324,7 +324,7 @@ struct ValueConverter<Type, enable_if_integer<Type>> {
   static Result<PyBytesView> Convert(const FixedSizeBinaryType& type, const O&, I obj) {
     ARROW_ASSIGN_OR_RAISE(auto view, PyBytesView::FromString(obj));
     if (ARROW_PREDICT_TRUE(view.size == type.byte_width())) {
-      return view;
+      return std::move(view);
     } else {
       std::stringstream ss;
       ss << "expected to be length " << type.byte_width() << " was " << view.size;
@@ -343,7 +343,7 @@ struct ValueConverter<Type, enable_if_integer<Type>> {
       if (!view.is_utf8) {
         return internal::InvalidValue(obj, "was not a utf8 string");
       }
-      return view;
+      return std::move(view);
     } else {
       // Non-strict conversion; keep track of whether values are unicode or bytes
       return PyBytesView::FromString(obj);

@@ -207,7 +207,7 @@ struct PyBytesView {
           result.is_utf8 = false;
         }
       }
-      return result;
+      return std::move(result);
     }
   }
 
