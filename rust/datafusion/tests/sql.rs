@@ -29,7 +29,7 @@ use datafusion::datasource::{csv::CsvReadOptions, MemTable};
 use datafusion::error::Result;
 use datafusion::execution::context::ExecutionContext;
 use datafusion::logical_plan::LogicalPlan;
-use datafusion::physical_plan::udf::ScalarFunction;
+use datafusion::prelude::create_udf;
 
 #[test]
 fn nyc() -> Result<()> {
@@ -201,6 +201,20 @@ fn csv_query_avg_sqrt() -> Result<()> {
     Ok(())
 }
 
+/// test that casting happens on udfs.
+/// c11 is f32, but `custom_sqrt` requires f64. Casting happens but the logical plan and
+/// physical plan have the same schema.
+#[test]
+fn csv_query_custom_udf_with_cast() -> Result<()> {
+    let mut ctx = create_ctx()?;
+    register_aggregate_csv(&mut ctx)?;
+    let sql = "SELECT avg(custom_sqrt(c11)) FROM aggregate_test_100";
+    let actual = execute(&mut ctx, sql);
+    let expected = "0.6584408483418833".to_string();
+    assert_eq!(actual.join("\n"), expected);
+    Ok(())
+}
+
 /// sqrt(f32) is sligthly different than sqrt(CAST(f32 AS double)))
 #[test]
 fn sqrt_f32_vs_f64() -> Result<()> {
@@ -247,10 +261,10 @@ fn create_ctx() -> Result<ExecutionContext> {
     let mut ctx = ExecutionContext::new();
 
     // register a custom UDF
-    ctx.register_udf(ScalarFunction::new(
+    ctx.register_udf(create_udf(
         "custom_sqrt",
         vec![DataType::Float64],
-        DataType::Float64,
+        Arc::new(DataType::Float64),
         Arc::new(custom_sqrt),
     ));
 
@@ -498,7 +512,6 @@ fn csv_explain_verbose() {
     // pain). Instead just check for a few key pieces.
     assert!(actual.contains("logical_plan"), "Actual: '{}'", actual);
     assert!(actual.contains("physical_plan"), "Actual: '{}'", actual);
-    assert!(actual.contains("type_coercion"), "Actual: '{}'", actual);
     assert!(actual.contains("#c2 Gt Int64(10)"), "Actual: '{}'", actual);
 }
 

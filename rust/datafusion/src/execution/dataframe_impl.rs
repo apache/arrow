@@ -136,10 +136,7 @@ mod tests {
     use crate::datasource::csv::CsvReadOptions;
     use crate::execution::context::ExecutionContext;
     use crate::logical_plan::*;
-    use crate::{
-        physical_plan::udf::{ScalarFunction, ScalarUdf},
-        test,
-    };
+    use crate::{physical_plan::functions::ScalarFunctionImplementation, test};
     use arrow::{
         array::{ArrayRef, Float64Array},
         compute::add,
@@ -250,7 +247,7 @@ mod tests {
         register_aggregate_csv(&mut ctx)?;
 
         // declare the udf
-        let my_add: ScalarUdf = Arc::new(|args: &[ArrayRef]| {
+        let my_add: ScalarFunctionImplementation = Arc::new(|args: &[ArrayRef]| {
             let l = &args[0]
                 .as_any()
                 .downcast_ref::<Float64Array>()
@@ -262,15 +259,13 @@ mod tests {
             Ok(Arc::new(add(l, r)?))
         });
 
-        let my_add = ScalarFunction::new(
+        // create and register the udf
+        ctx.register_udf(create_udf(
             "my_add",
             vec![DataType::Float64],
-            DataType::Float64,
+            Arc::new(DataType::Float64),
             my_add,
-        );
-
-        // register the udf
-        ctx.register_udf(my_add);
+        ));
 
         // build query with a UDF using DataFrame API
         let df = ctx.table("aggregate_test_100")?;

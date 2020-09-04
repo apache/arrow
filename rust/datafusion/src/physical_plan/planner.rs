@@ -38,7 +38,7 @@ use crate::physical_plan::merge::MergeExec;
 use crate::physical_plan::parquet::ParquetExec;
 use crate::physical_plan::projection::ProjectionExec;
 use crate::physical_plan::sort::SortExec;
-use crate::physical_plan::udf::ScalarFunctionExpr;
+use crate::physical_plan::udf;
 use crate::physical_plan::{expressions, Distribution};
 use crate::physical_plan::{AggregateExpr, ExecutionPlan, PhysicalExpr, PhysicalPlanner};
 use arrow::compute::SortOptions;
@@ -429,12 +429,12 @@ impl DefaultPhysicalPlanner {
                         ctx_state,
                     )?);
                 }
-                Ok(Arc::new(ScalarFunctionExpr::new(
-                    &fun.name,
-                    fun.fun.clone(),
-                    physical_args,
-                    &fun.return_type,
-                )))
+
+                udf::create_physical_expr(
+                    fun.clone().as_ref(),
+                    &physical_args,
+                    input_schema,
+                )
             }
             other => Err(ExecutionError::NotImplemented(format!(
                 "Physical plan does not support logical expression {:?}",
