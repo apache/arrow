@@ -19,6 +19,9 @@
 
 #include <cstdint>
 
+#include "arrow/util/bitmap.h"
+#include "arrow/util/optional.h"
+#include "arrow/util/variant.h"
 #include "parquet/platform.h"
 #include "parquet/schema.h"
 
@@ -40,6 +43,8 @@ struct PARQUET_EXPORT LevelInfo {
            rep_level == b.rep_level &&
            repeated_ancestor_def_level == b.repeated_ancestor_def_level;
   }
+
+  bool HasNullableValues() const { return repeated_ancestor_def_level < def_level; }
 
   // How many slots an undefined but present (i.e. null) element in
   // parquet consumes when decoding to Arrow.
@@ -132,43 +137,48 @@ struct PARQUET_EXPORT LevelInfo {
   }
 };
 
-void PARQUET_EXPORT DefinitionLevelsToBitmap(
-    const int16_t* def_levels, int64_t num_def_levels, const int16_t max_definition_level,
-    const int16_t max_repetition_level, int64_t* values_read, int64_t* null_count,
-    uint8_t* valid_bits, int64_t valid_bits_offset);
+/// Converts def_levels to validity bitmaps for non-list arrays.
+/// TODO: use input/output parameter below instead of individual return variables.
+void PARQUET_EXPORT DefinitionLevelsToBitmap(const int16_t* def_levels,
+                                             int64_t num_def_levels, LevelInfo level_info,
+                                             int64_t* values_read, int64_t* null_count,
+                                             uint8_t* valid_bits,
+                                             int64_t valid_bits_offset);
 
-// These APIs are likely to be revised as part of ARROW-8494 to reduce duplicate code.
-// They currently represent minimal functionality for vectorized computation of definition
-// levels.
+/// Input/Output structure for reconstructed validity bitmaps.
+struct PARQUET_EXPORT ValidityBitmapInputOutput {
+  /// The number of values added to the bitmap.
+  int64_t values_read = 0;
+  /// The number of nulls encountered.
+  int64_t null_count = 0;
+  // The validity bitmp to populate. Can only be null
+  // for DefRepLevelsToListInfo (if all that is needed is list lengths).
+  uint8_t* valid_bits = NULLPTR;
+  /// Input only, offset into valid_bits to start at.
+  int64_t valid_bits_offset = 0;
+};
 
-#if defined(ARROW_LITTLE_ENDIAN)
-/// Builds a bitmap by applying predicate to the level vector provided.
-///
-/// \param[in] levels Rep or def level array.
-/// \param[in] num_levels The number of levels to process (must be [0, 64])
-/// \param[in] predicate The predicate to apply (must have the signature `bool
-/// predicate(int16_t)`.
-/// \returns The bitmap using least significant "bit" ordering.
-///
-/// N.B. Correct byte ordering is dependent on little-endian architectures.
-///
-template <typename Predicate>
-uint64_t LevelsToBitmap(const int16_t* levels, int64_t num_levels, Predicate predicate) {
-  // Both clang and GCC can vectorize this automatically with SSE4/AVX2.
-  uint64_t mask = 0;
-  for (int x = 0; x < num_levels; x++) {
-    mask |= static_cast<uint64_t>(predicate(levels[x]) ? 1 : 0) << x;
-  }
-  return mask;
-}
+/// Reconstructs a validity bitmap and list lengths for a ListArray based on
+/// def/rep levels.
+void PARQUET_EXPORT ConvertDefRepLevelsToList(
+    const int16_t* def_levels, const int16_t* rep_levels, int64_t num_def_levels,
+    LevelInfo level_info, ValidityBitmapInputOutput* output,
+    ::arrow::util::variant<int32_t*, int64_t*> lengths);
 
-/// Builds a  bitmap where each set bit indicates the corresponding level is greater
-/// than rhs.
-static inline uint64_t GreaterThanBitmap(const int16_t* levels, int64_t num_levels,
-                                         int16_t rhs) {
-  return LevelsToBitmap(levels, num_levels, [rhs](int16_t value) { return value > rhs; });
-}
+/// Reconstructs a validity bitmap for a struct that has nested children.
+void PARQUET_EXPORT ConvertDefRepLevelsToBitmap(const int16_t* def_levels,
+                                                const int16_t* rep_levels,
+                                                int64_t num_def_levels,
+                                                LevelInfo level_info,
+                                                ValidityBitmapInputOutput* output);
 
+uint64_t RunBasedExtract(uint64_t bitmap, uint64_t selection);
+
+#if defined(ARROW_HAVE_RUNTIME_BMI2)
+void PARQUET_EXPORT DefinitionLevelsToBitmapBmi2WithRepeatedParent(
+    const int16_t* def_levels, int64_t num_def_levels, LevelInfo level_info,
+    int64_t* values_read, int64_t* null_count, uint8_t* valid_bits,
+    int64_t valid_bits_offset);
 #endif
 
 }  // namespace internal
