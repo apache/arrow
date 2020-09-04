@@ -65,6 +65,7 @@ pub fn expr_to_column_names(expr: &Expr, accum: &mut HashSet<String>) -> Result<
         Expr::Cast { expr, .. } => expr_to_column_names(expr, accum),
         Expr::Sort { expr, .. } => expr_to_column_names(expr, accum),
         Expr::AggregateFunction { args, .. } => exprlist_to_column_names(args, accum),
+        Expr::AggregateUDF { args, .. } => exprlist_to_column_names(args, accum),
         Expr::ScalarFunction { args, .. } => exprlist_to_column_names(args, accum),
         Expr::ScalarUDF { args, .. } => exprlist_to_column_names(args, accum),
         Expr::Wildcard => Err(ExecutionError::General(
@@ -206,6 +207,7 @@ pub fn expr_sub_expressions(expr: &Expr) -> Result<Vec<&Expr>> {
         Expr::ScalarFunction { args, .. } => Ok(args.iter().collect()),
         Expr::ScalarUDF { args, .. } => Ok(args.iter().collect()),
         Expr::AggregateFunction { args, .. } => Ok(args.iter().collect()),
+        Expr::AggregateUDF { args, .. } => Ok(args.iter().collect()),
         Expr::Cast { expr, .. } => Ok(vec![expr]),
         Expr::Column(_) => Ok(vec![]),
         Expr::Alias(expr, ..) => Ok(vec![expr]),
@@ -240,6 +242,10 @@ pub fn rewrite_expression(expr: &Expr, expressions: &Vec<Expr>) -> Result<Expr> 
             args: expressions.clone(),
         }),
         Expr::AggregateFunction { fun, .. } => Ok(Expr::AggregateFunction {
+            fun: fun.clone(),
+            args: expressions.clone(),
+        }),
+        Expr::AggregateUDF { fun, .. } => Ok(Expr::AggregateUDF {
             fun: fun.clone(),
             args: expressions.clone(),
         }),

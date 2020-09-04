@@ -51,7 +51,8 @@ use arrow::{
     datatypes::Field,
 };
 
-fn format_state_name(name: &str, state_name: &str) -> String {
+/// returns the name of the state
+pub fn format_state_name(name: &str, state_name: &str) -> String {
     format!("{}[{}]", name, state_name)
 }
 

@@ -30,7 +30,6 @@ use arrow::csv;
 use arrow::datatypes::*;
 use arrow::record_batch::RecordBatch;
 
-use crate::dataframe::DataFrame;
 use crate::datasource::csv::CsvFile;
 use crate::datasource::parquet::ParquetTable;
 use crate::datasource::TableProvider;
@@ -52,6 +51,7 @@ use crate::sql::{
     planner::{SchemaProvider, SqlToRel},
 };
 use crate::variable::{VarProvider, VarType};
+use crate::{dataframe::DataFrame, physical_plan::udaf::AggregateUDF};
 
 /// ExecutionContext is the main interface for executing queries with DataFusion. The context
 /// provides the following functionality:
@@ -109,6 +109,7 @@ impl ExecutionContext {
                 datasources: HashMap::new(),
                 scalar_functions: HashMap::new(),
                 var_provider: HashMap::new(),
+                aggregate_functions: HashMap::new(),
                 config,
             },
         };
@@ -192,6 +193,13 @@ impl ExecutionContext {
     pub fn register_udf(&mut self, f: ScalarUDF) {
         self.state
             .scalar_functions
+            .insert(f.name.clone(), Arc::new(f));
+    }
+
+    /// Register a aggregate UDF
+    pub fn register_udaf(&mut self, f: AggregateUDF) {
+        self.state
+            .aggregate_functions
             .insert(f.name.clone(), Arc::new(f));
     }
 
@@ -473,6 +481,8 @@ pub struct ExecutionContextState {
     pub scalar_functions: HashMap<String, Arc<ScalarUDF>>,
     /// Variable provider that are registered with the context
     pub var_provider: HashMap<VarType, Arc<dyn VarProvider + Send + Sync>>,
+    /// Aggregate functions registered in the context
+    pub aggregate_functions: HashMap<String, Arc<AggregateUDF>>,
     /// Context configuration
     pub config: ExecutionConfig,
 }
@@ -499,6 +509,18 @@ impl FunctionRegistry for ExecutionContextState {
         if result.is_none() {
             Err(ExecutionError::General(
                 format!("There is no UDF named \"{}\" in the registry", name).to_string(),
+            ))
+        } else {
+            Ok(result.unwrap())
+        }
+    }
+
+    fn udaf(&self, name: &str) -> Result<&AggregateUDF> {
+        let result = self.aggregate_functions.get(name);
+        if result.is_none() {
+            Err(ExecutionError::General(
+                format!("There is no UDAF named \"{}\" in the registry", name)
+                    .to_string(),
             ))
         } else {
             Ok(result.unwrap())
