@@ -256,5 +256,4 @@ pub fn min(expr: Expr) -> Expr {
     }
 }
 
-pub mod variable_system;
-pub mod variable_user_defined;
+pub mod variable;

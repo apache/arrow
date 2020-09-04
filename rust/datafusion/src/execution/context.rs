@@ -21,34 +21,35 @@ use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::Path;
 use std::string::String;
-use std::sync::{Arc, Mutex};
-use std::thread::{self, JoinHandle};
+use std::{
+    sync::Arc,
+    thread::{self, JoinHandle},
+};
 
 use arrow::csv;
 use arrow::datatypes::*;
 use arrow::record_batch::RecordBatch;
 
-use super::physical_plan::udf::ScalarFunctionRegistry;
 use crate::dataframe::DataFrame;
 use crate::datasource::csv::CsvFile;
 use crate::datasource::parquet::ParquetTable;
 use crate::datasource::TableProvider;
 use crate::error::{ExecutionError, Result};
 use crate::execution::dataframe_impl::DataFrameImpl;
-use crate::execution::physical_plan::common;
-use crate::execution::physical_plan::csv::CsvReadOptions;
-use crate::execution::physical_plan::merge::MergeExec;
-use crate::execution::physical_plan::planner::DefaultPhysicalPlanner;
-use crate::execution::physical_plan::scalar_functions;
-use crate::execution::physical_plan::udf::ScalarFunction;
-use crate::execution::physical_plan::ExecutionPlan;
-use crate::execution::physical_plan::PhysicalPlanner;
 use crate::logical_plan::{LogicalPlan, LogicalPlanBuilder};
 use crate::optimizer::optimizer::OptimizerRule;
 use crate::optimizer::projection_push_down::ProjectionPushDown;
 use crate::optimizer::{
     filter_push_down::FilterPushDown, type_coercion::TypeCoercionRule,
 };
+use crate::physical_plan::common;
+use crate::physical_plan::csv::CsvReadOptions;
+use crate::physical_plan::merge::MergeExec;
+use crate::physical_plan::planner::DefaultPhysicalPlanner;
+use crate::physical_plan::udf::ScalarFunction;
+use crate::physical_plan::udf::ScalarFunctionRegistry;
+use crate::physical_plan::ExecutionPlan;
+use crate::physical_plan::PhysicalPlanner;
 use crate::sql::{
     parser::{DFParser, FileType},
     planner::{SchemaProvider, SqlToRel},
@@ -95,7 +96,7 @@ use crate::variable::{VarProvider, VarType};
 /// ```
 pub struct ExecutionContext {
     /// Internal state for the context
-    pub state: Arc<Mutex<ExecutionContextState>>,
+    pub state: ExecutionContextState,
 }
 
 impl ExecutionContext {
@@ -106,32 +107,25 @@ impl ExecutionContext {
 
     /// Create a new execution context using the provided configuration
     pub fn with_config(config: ExecutionConfig) -> Self {
-        let mut ctx = Self {
-            state: Arc::new(Mutex::new(ExecutionContextState {
+        let ctx = Self {
+            state: ExecutionContextState {
                 datasources: HashMap::new(),
                 scalar_functions: HashMap::new(),
                 var_provider: HashMap::new(),
                 config,
-            })),
+            },
         };
-        for udf in scalar_functions() {
-            ctx.register_udf(udf);
-        }
         ctx
     }
 
     /// Create a context from existing context state
-    pub(crate) fn from(state: Arc<Mutex<ExecutionContextState>>) -> Self {
+    pub(crate) fn from(state: ExecutionContextState) -> Self {
         Self { state }
     }
 
     /// Get the configuration of this execution context
-    pub fn config(&self) -> ExecutionConfig {
-        self.state
-            .lock()
-            .expect("failed to lock mutex")
-            .config
-            .clone()
+    pub fn config(&self) -> &ExecutionConfig {
+        &self.state.config
     }
 
     /// Execute a SQL query and produce a Relation (a schema-aware iterator over a series
@@ -184,8 +178,7 @@ impl ExecutionContext {
         }
 
         // create a query planner
-        let state = self.state.lock().expect("failed to lock mutex");
-        let query_planner = SqlToRel::new(&*state);
+        let query_planner = SqlToRel::new(&self.state);
         Ok(query_planner.statement_to_plan(&statements[0])?)
     }
 
@@ -193,16 +186,16 @@ impl ExecutionContext {
     pub fn register_variable(
         &mut self,
         variable_type: VarType,
-        provider: Box<dyn VarProvider + Send + Sync>,
+        provider: Arc<dyn VarProvider + Send + Sync>,
     ) {
-        let mut state = self.state.lock().expect("failed to lock mutex");
-        state.var_provider.insert(variable_type, provider);
+        self.state.var_provider.insert(variable_type, provider);
     }
 
     /// Register a scalar UDF
     pub fn register_udf(&mut self, f: ScalarFunction) {
-        let mut state = self.state.lock().expect("failed to lock mutex");
-        state.scalar_functions.insert(f.name.clone(), Arc::new(f));
+        self.state
+            .scalar_functions
+            .insert(f.name.clone(), Arc::new(f));
     }
 
     /// Creates a DataFrame for reading a CSV data source.
@@ -215,11 +208,11 @@ impl ExecutionContext {
 
         let table_scan = LogicalPlan::CsvScan {
             path: filename.to_string(),
-            schema: Box::new(csv.schema().as_ref().to_owned()),
+            schema: csv.schema().clone(),
             has_header: options.has_header,
             delimiter: Some(options.delimiter),
             projection: None,
-            projected_schema: Box::new(csv.schema().as_ref().to_owned()),
+            projected_schema: csv.schema().clone(),
         };
 
         Ok(Arc::new(DataFrameImpl::new(
@@ -234,9 +227,9 @@ impl ExecutionContext {
 
         let table_scan = LogicalPlan::ParquetScan {
             path: filename.to_string(),
-            schema: Box::new(parquet.schema().as_ref().to_owned()),
+            schema: parquet.schema().clone(),
             projection: None,
-            projected_schema: Box::new(parquet.schema().as_ref().to_owned()),
+            projected_schema: parquet.schema().clone(),
         };
 
         Ok(Arc::new(DataFrameImpl::new(
@@ -272,28 +265,23 @@ impl ExecutionContext {
         name: &str,
         provider: Box<dyn TableProvider + Send + Sync>,
     ) {
-        let mut ctx_state = self.state.lock().expect("failed to lock mutex");
-        ctx_state.datasources.insert(name.to_string(), provider);
+        self.state
+            .datasources
+            .insert(name.to_string(), provider.into());
     }
 
     /// Retrieves a DataFrame representing a table previously registered by calling the
     /// register_table function. An Err result will be returned if no table has been
     /// registered with the provided name.
     pub fn table(&mut self, table_name: &str) -> Result<Arc<dyn DataFrame>> {
-        match self
-            .state
-            .lock()
-            .expect("failed to lock mutex")
-            .datasources
-            .get(table_name)
-        {
+        match self.state.datasources.get(table_name) {
             Some(provider) => {
-                let schema = provider.schema().as_ref().clone();
+                let schema = provider.schema().clone();
                 let table_scan = LogicalPlan::TableScan {
                     schema_name: "".to_string(),
                     table_name: table_name.to_string(),
-                    table_schema: Box::new(schema.to_owned()),
-                    projected_schema: Box::new(schema),
+                    table_schema: schema.clone(),
+                    projected_schema: schema,
                     projection: None,
                 };
                 Ok(Arc::new(DataFrameImpl::new(
@@ -310,13 +298,7 @@ impl ExecutionContext {
 
     /// The set of available tables. Use `table` to get a specific table.
     pub fn tables(&self) -> HashSet<String> {
-        self.state
-            .lock()
-            .expect("failed to lock mutex")
-            .datasources
-            .keys()
-            .cloned()
-            .collect()
+        self.state.datasources.keys().cloned().collect()
     }
 
     /// Optimize the logical plan by applying optimizer rules
@@ -332,12 +314,12 @@ impl ExecutionContext {
         &self,
         logical_plan: &LogicalPlan,
     ) -> Result<Arc<dyn ExecutionPlan>> {
-        let planner: Arc<dyn PhysicalPlanner> = match self.config().physical_planner {
-            Some(planner) => planner,
-            None => Arc::new(DefaultPhysicalPlanner::default()),
-        };
-        let ctx_state = self.state.lock().expect("Failed to aquire lock");
-        planner.create_physical_plan(logical_plan, &ctx_state)
+        if let Some(planner) = &self.config().physical_planner {
+            planner.create_physical_plan(logical_plan, &self.state)
+        } else {
+            let planner = DefaultPhysicalPlanner::default();
+            planner.create_physical_plan(logical_plan, &self.state)
+        }
     }
 
     /// Execute a physical plan and collect the results in memory
@@ -350,14 +332,7 @@ impl ExecutionContext {
             }
             _ => {
                 // merge into a single partition
-                let plan = MergeExec::new(
-                    plan.clone(),
-                    self.state
-                        .lock()
-                        .expect("failed to lock mutex")
-                        .config
-                        .concurrency,
-                );
+                let plan = MergeExec::new(plan.clone(), self.state.config.concurrency);
                 // MergeExec must produce a single partition
                 assert_eq!(1, plan.output_partitioning().partition_count());
                 common::collect(plan.execute(0)?)
@@ -411,11 +386,7 @@ impl ExecutionContext {
 
 impl ScalarFunctionRegistry for ExecutionContext {
     fn lookup(&self, name: &str) -> Option<Arc<ScalarFunction>> {
-        self.state
-            .lock()
-            .expect("failed to lock mutex")
-            .scalar_functions
-            .lookup(name)
+        self.state.scalar_functions.lookup(name)
     }
 }
 
@@ -427,7 +398,7 @@ pub struct ExecutionConfig {
     /// Default batch size when reading data sources
     pub batch_size: usize,
     /// Optional physical planner to override the default physical planner
-    physical_planner: Option<Arc<dyn PhysicalPlanner>>,
+    physical_planner: Option<Arc<dyn PhysicalPlanner + Send + Sync>>,
 }
 
 impl ExecutionConfig {
@@ -459,7 +430,7 @@ impl ExecutionConfig {
     /// Optional physical planner to override the default physical planner
     pub fn with_physical_planner(
         mut self,
-        physical_planner: Arc<dyn PhysicalPlanner>,
+        physical_planner: Arc<dyn PhysicalPlanner + Send + Sync>,
     ) -> Self {
         self.physical_planner = Some(physical_planner);
         self
@@ -467,13 +438,14 @@ impl ExecutionConfig {
 }
 
 /// Execution context for registering data sources and executing queries
+#[derive(Clone)]
 pub struct ExecutionContextState {
     /// Data sources that are registered with the context
-    pub datasources: HashMap<String, Box<dyn TableProvider + Send + Sync>>,
+    pub datasources: HashMap<String, Arc<dyn TableProvider + Send + Sync>>,
     /// Scalar functions that are registered with the context
     pub scalar_functions: HashMap<String, Arc<ScalarFunction>>,
     /// Variable provider that are registered with the context
-    pub var_provider: HashMap<VarType, Box<dyn VarProvider + Send + Sync>>,
+    pub var_provider: HashMap<VarType, Arc<dyn VarProvider + Send + Sync>>,
     /// Context configuration
     pub config: ExecutionConfig,
 }
@@ -495,14 +467,14 @@ mod tests {
 
     use super::*;
     use crate::datasource::MemTable;
-    use crate::execution::physical_plan::udf::ScalarUdf;
-    use crate::logicalplan::{aggregate_expr, col, scalar_function};
+    use crate::logical_plan::{aggregate_expr, col, scalar_function};
+    use crate::physical_plan::udf::ScalarUdf;
     use crate::test;
     use crate::variable::VarType;
-    use arrow::array::{ArrayRef, Int32Array};
+    use arrow::array::{ArrayRef, Int32Array, StringArray};
     use arrow::compute::add;
     use std::fs::File;
-    use std::io::prelude::*;
+    use std::{io::prelude::*, sync::Mutex};
     use tempdir::TempDir;
     use test::*;
 
@@ -531,10 +503,10 @@ mod tests {
         let partition_count = 4;
         let mut ctx = create_ctx(&tmp_dir, partition_count)?;
 
-        let variable_provider = test::variable_system::SystemVar::new();
-        ctx.register_variable(VarType::System, Box::new(variable_provider));
-        let variable_provider = test::variable_user_defined::UserDefinedVar::new();
-        ctx.register_variable(VarType::UserDefined, Box::new(variable_provider));
+        let variable_provider = test::variable::SystemVar::new();
+        ctx.register_variable(VarType::System, Arc::new(variable_provider));
+        let variable_provider = test::variable::UserDefinedVar::new();
+        ctx.register_variable(VarType::UserDefined, Arc::new(variable_provider));
 
         let provider = test::create_table_dual();
         ctx.register_table("dual", provider);
@@ -635,14 +607,7 @@ mod tests {
         let tmp_dir = TempDir::new("execute")?;
         let ctx = create_ctx(&tmp_dir, 1)?;
 
-        let schema = ctx
-            .state
-            .lock()
-            .expect("failed to lock mutex")
-            .datasources
-            .get("test")
-            .unwrap()
-            .schema();
+        let schema = ctx.state.datasources.get("test").unwrap().schema();
         assert_eq!(schema.field_with_name("c1")?.is_nullable(), false);
 
         let plan = LogicalPlanBuilder::scan("default", "test", schema.as_ref(), None)?
@@ -665,18 +630,19 @@ mod tests {
             Field::new("b", DataType::Int32, false),
             Field::new("c", DataType::Int32, false),
         ]);
+        let schema = SchemaRef::new(schema);
         let plan = LogicalPlanBuilder::from(&LogicalPlan::InMemoryScan {
             data: vec![vec![RecordBatch::try_new(
-                Arc::new(schema.clone()),
+                schema.clone(),
                 vec![
                     Arc::new(Int32Array::from(vec![1, 10, 10, 100])),
                     Arc::new(Int32Array::from(vec![2, 12, 12, 120])),
                     Arc::new(Int32Array::from(vec![3, 12, 12, 120])),
                 ],
             )?]],
-            schema: Box::new(schema.clone()),
+            schema: schema.clone(),
             projection: None,
-            projected_schema: Box::new(schema.clone()),
+            projected_schema: schema.clone(),
         })
         .project(vec![col("b")])?
         .build()?;
@@ -1012,6 +978,33 @@ mod tests {
         assert_eq!(results[0].num_rows(), 1);
         assert_eq!(test::format_batch(&results[0]), vec!["10,110,20"]);
 
+        Ok(())
+    }
+
+    #[test]
+    fn send_context_to_threads() -> Result<()> {
+        // ensure ExecutionContexts can be used in a multi-threaded
+        // environment. Usecase is for concurrent planing.
+        let tmp_dir = TempDir::new("send_context_to_threads")?;
+        let partition_count = 4;
+        let ctx = Arc::new(Mutex::new(create_ctx(&tmp_dir, partition_count)?));
+
+        let threads: Vec<JoinHandle<Result<_>>> = (0..2)
+            .map(|_| ctx.clone())
+            .map(|ctx_clone| {
+                thread::spawn(move || {
+                    let mut ctx = ctx_clone.lock().expect("Locked context");
+                    // Ensure we can create logical plan code on a separate thread.
+                    ctx.create_logical_plan(
+                        "SELECT c1, c2 FROM test WHERE c1 > 0 AND c1 < 3",
+                    )
+                })
+            })
+            .collect();
+
+        for thread in threads {
+            thread.join().expect("Failed to join thread")?;
+        }
         Ok(())
     }
 

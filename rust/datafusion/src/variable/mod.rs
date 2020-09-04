@@ -21,7 +21,7 @@ use crate::error::Result;
 use crate::logical_plan::ScalarValue;
 
 /// Variable type, system/user defiend
-#[derive(Debug, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum VarType {
     /// System variable, like @@version
     System,
@@ -30,7 +30,7 @@ pub enum VarType {
 }
 
 /// A var provider for @variable
-pub trait VarProvider: Send + Sync {
+pub trait VarProvider {
     /// Get variable value
     fn get_value(&self, var_names: Vec<String>) -> Result<ScalarValue>;
 }
