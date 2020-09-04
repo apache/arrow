@@ -131,6 +131,7 @@ Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
       BUILDER_CASE(LargeBinary);
       BUILDER_CASE(FixedSizeBinary);
       BUILDER_CASE(Decimal128);
+      BUILDER_CASE(Decimal256);
 
     case Type::DICTIONARY: {
       const auto& dict_type = static_cast<const DictionaryType&>(*type);

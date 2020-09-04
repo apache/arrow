@@ -70,6 +70,8 @@ constexpr Type::type StructType::type_id;
 
 constexpr Type::type Decimal128Type::type_id;
 
+constexpr Type::type Decimal256Type::type_id;
+
 constexpr Type::type SparseUnionType::type_id;
 
 constexpr Type::type DenseUnionType::type_id;
@@ -131,6 +133,7 @@ std::string ToString(Type::type id) {
     TO_STRING_CASE(FLOAT)
     TO_STRING_CASE(DOUBLE)
     TO_STRING_CASE(DECIMAL)
+    TO_STRING_CASE(DECIMAL256)
     TO_STRING_CASE(DATE32)
     TO_STRING_CASE(DATE64)
     TO_STRING_CASE(TIME32)
@@ -758,6 +761,22 @@ Result<std::shared_ptr<DataType>> Decimal128Type::Make(int32_t precision, int32_
     return Status::Invalid("Decimal precision out of range: ", precision);
   }
   return std::make_shared<Decimal128Type>(precision, scale);
+}
+
+// ----------------------------------------------------------------------
+// Decimal256 type
+
+Decimal256Type::Decimal256Type(int32_t precision, int32_t scale)
+    : DecimalType(32, precision, scale) {
+  ARROW_CHECK_GE(precision, kMinPrecision);
+  ARROW_CHECK_LE(precision, kMaxPrecision);
+}
+
+Result<std::shared_ptr<DataType>> Decimal256Type::Make(int32_t precision, int32_t scale) {
+  if (precision < kMinPrecision || precision > kMaxPrecision) {
+    return Status::Invalid("Decimal precision out of range: ", precision);
+  }
+  return std::make_shared<Decimal256Type>(precision, scale);
 }
 
 // ----------------------------------------------------------------------
@@ -2144,6 +2163,12 @@ std::shared_ptr<DataType> decimal(int32_t precision, int32_t scale) {
 std::string Decimal128Type::ToString() const {
   std::stringstream s;
   s << "decimal(" << precision_ << ", " << scale_ << ")";
+  return s.str();
+}
+
+std::string Decimal256Type::ToString() const {
+  std::stringstream s;
+  s << "decimal256(" << precision_ << ", " << scale_ << ")";
   return s.str();
 }
 

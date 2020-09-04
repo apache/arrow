@@ -896,6 +896,26 @@ class ARROW_EXPORT Decimal128Type : public DecimalType {
   static constexpr int32_t kMaxPrecision = 38;
 };
 
+/// \brief Concrete type class for 256-bit decimal data
+class ARROW_EXPORT Decimal256Type : public DecimalType {
+ public:
+  static constexpr Type::type type_id = Type::DECIMAL256;
+
+  static constexpr const char* type_name() { return "decimal256"; }
+
+  /// Decimal256Type constructor that aborts on invalid input.
+  explicit Decimal256Type(int32_t precision, int32_t scale);
+
+  /// Decimal256Type constructor that returns an error on invalid input.
+  static Result<std::shared_ptr<DataType>> Make(int32_t precision, int32_t scale);
+
+  std::string ToString() const override;
+  std::string name() const override { return "decimal256"; }
+
+  static constexpr int32_t kMinPrecision = 1;
+  static constexpr int32_t kMaxPrecision = 76;
+};
+
 /// \brief Concrete type class for union data
 class ARROW_EXPORT UnionType : public NestedType {
  public:

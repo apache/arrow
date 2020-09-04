@@ -347,6 +347,17 @@ struct ARROW_EXPORT Decimal128Scalar : public Scalar {
   Decimal128 value;
 };
 
+struct ARROW_EXPORT Decimal256Scalar : public Scalar {
+  using Scalar::Scalar;
+  using TypeClass = Decimal256Type;
+  using ValueType = Decimal256;
+
+  Decimal256Scalar(Decimal256 value, std::shared_ptr<DataType> type)
+      : Scalar(std::move(type), true), value(value) {}
+
+  Decimal256 value;
+};
+
 struct ARROW_EXPORT BaseListScalar : public Scalar {
   using Scalar::Scalar;
   using ValueType = std::shared_ptr<Array>;

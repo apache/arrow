@@ -143,11 +143,16 @@ class StructBuilder;
 struct StructScalar;
 
 class Decimal128;
+class Decimal256;
 class DecimalType;
 class Decimal128Type;
+class Decimal256Type;
 class Decimal128Array;
+class Decimal256Array;
 class Decimal128Builder;
+class Decimal256Builder;
 struct Decimal128Scalar;
+struct Decimal256Scalar;
 
 struct UnionMode {
   enum type { SPARSE, DENSE };
@@ -326,9 +331,14 @@ struct Type {
     /// DAY_TIME interval in SQL style
     INTERVAL_DAY_TIME,
 
-    /// Precision- and scale-based decimal type. Storage type depends on the
-    /// parameters.
-    DECIMAL,
+    /// Precision- and scale-based decimal type with 128 bits.
+    DECIMAL128,
+
+    /// Defined for backward-compatibility.
+    DECIMAL = DECIMAL128,
+
+    /// Precision- and scale-based decimal type with 256 bits.
+    DECIMAL256,
 
     /// A list of some logical data type
     LIST,
