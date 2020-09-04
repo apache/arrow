@@ -2994,7 +2994,6 @@ TEST_P(TestArrowReaderAdHocSparkAndHvr, ReadDecimals) {
     ASSERT_OK(builder.Append(value));
   }
   ASSERT_OK(builder.Finish(&expected_array));
-
   AssertArraysEqual(*expected_array, *chunk);
 }
 

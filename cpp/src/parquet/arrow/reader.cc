@@ -373,13 +373,14 @@ class RowGroupReaderImpl : public RowGroupReader {
 class LeafReader : public ColumnReaderImpl {
  public:
   LeafReader(std::shared_ptr<ReaderContext> ctx, std::shared_ptr<Field> field,
-             std::unique_ptr<FileColumnIterator> input)
+             std::unique_ptr<FileColumnIterator> input,
+             ::parquet::internal::LevelInfo leaf_info)
       : ctx_(std::move(ctx)),
         field_(std::move(field)),
         input_(std::move(input)),
         descr_(input_->descr()) {
     record_reader_ = RecordReader::Make(
-        descr_, ctx_->pool, field_->type()->id() == ::arrow::Type::DICTIONARY);
+        descr_, leaf_info, ctx_->pool, field_->type()->id() == ::arrow::Type::DICTIONARY);
     NextRowGroup();
   }
 
@@ -694,7 +695,7 @@ Status GetReader(const SchemaField& field, const std::shared_ptr<ReaderContext>&
     }
     std::unique_ptr<FileColumnIterator> input(
         ctx->iterator_factory(field.column_index, ctx->reader));
-    out->reset(new LeafReader(ctx, field.field, std::move(input)));
+    out->reset(new LeafReader(ctx, field.field, std::move(input), field.level_info));
   } else if (type_id == ::arrow::Type::LIST) {
     // We can only read lists-of-lists or structs at the moment
     auto list_field = field.field;

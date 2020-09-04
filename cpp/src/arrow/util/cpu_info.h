@@ -106,6 +106,11 @@ class ARROW_EXPORT CpuInfo {
   /// Returns the vendor of the cpu.
   Vendor vendor() const { return vendor_; }
 
+  bool HasEfficientBmi2() const {
+    // BMI2 (pext, pdep) is only efficient on Intel X86 processors.
+    return vendor() == Vendor::Intel && IsSupported(BMI2);
+  }
+
  private:
   CpuInfo();
 
