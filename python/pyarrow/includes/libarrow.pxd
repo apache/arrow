@@ -970,8 +970,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         CResult[shared_ptr[CScalar]] field(CFieldRef ref) const
 
     cdef cppclass CDictionaryValue "arrow::DictionaryScalar::ValueType":
-         shared_ptr[CScalar] index
-         shared_ptr[CArray] dictionary
+        shared_ptr[CScalar] index
+        shared_ptr[CArray] dictionary
 
     cdef cppclass CDictionaryScalar" arrow::DictionaryScalar"(CScalar):
         CDictionaryScalar(CDictionaryValue value, shared_ptr[CDataType],
