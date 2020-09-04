@@ -463,7 +463,7 @@ class PyPrimitiveArrayConverter<T, enable_if_string<T>>
         // observed binary value
         observed_binary_ = true;
       }
-      return this->builder_->Append(view.bytes, view.size);
+      return this->builder_->Append(util::string_view(view.bytes, view.size));
     }
   }
 
