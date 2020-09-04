@@ -71,12 +71,10 @@ struct PyConversionOptions {
 /// values in the sequence are null (true) or not null (false). This parameter
 /// may be null
 /// \param[in] options various conversion options
-/// \param[out] out a ChunkedArray containing one or more chunks
-/// \return Status
+/// \return Result Array
 ARROW_PYTHON_EXPORT
-Status ConvertPySequence(PyObject* obj, PyObject* mask,
-                         const PyConversionOptions& options,
-                         std::shared_ptr<ChunkedArray>* out);
+Result<std::shared_ptr<Array>> ConvertPySequence(PyObject* obj, PyObject* mask,
+                                                 const PyConversionOptions& options);
 
 }  // namespace py
 

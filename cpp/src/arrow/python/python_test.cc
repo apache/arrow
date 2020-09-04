@@ -329,8 +329,7 @@ TEST(BuiltinConversionTest, TestMixedTypeFails) {
   ASSERT_EQ(PyList_SetItem(list, 1, integer), 0);
   ASSERT_EQ(PyList_SetItem(list, 2, doub), 0);
 
-  std::shared_ptr<ChunkedArray> arr;
-  ASSERT_RAISES(TypeError, ConvertPySequence(list, nullptr, {}, &arr));
+  ASSERT_RAISES(TypeError, ConvertPySequence(list, nullptr, {}));
 }
 
 TEST_F(DecimalTest, FromPythonDecimalRescaleNotTruncateable) {
@@ -422,17 +421,15 @@ TEST_F(DecimalTest, TestNoneAndNaN) {
   ASSERT_EQ(0, PyList_SetItem(list, 2, missing_value2));
   ASSERT_EQ(0, PyList_SetItem(list, 3, missing_value3));
 
-  std::shared_ptr<ChunkedArray> arr, arr_from_pandas;
   PyConversionOptions options;
-  ASSERT_RAISES(TypeError, ConvertPySequence(list, nullptr, options, &arr));
+  ASSERT_RAISES(TypeError, ConvertPySequence(list, nullptr, options));
 
   options.from_pandas = true;
-  ASSERT_OK(ConvertPySequence(list, nullptr, options, &arr_from_pandas));
-  auto c0 = arr_from_pandas->chunk(0);
-  ASSERT_TRUE(c0->IsValid(0));
-  ASSERT_TRUE(c0->IsNull(1));
-  ASSERT_TRUE(c0->IsNull(2));
-  ASSERT_TRUE(c0->IsNull(3));
+  auto arr = ConvertPySequence(list, nullptr, options).ValueOrDie();
+  ASSERT_TRUE(arr->IsValid(0));
+  ASSERT_TRUE(arr->IsNull(1));
+  ASSERT_TRUE(arr->IsNull(2));
+  ASSERT_TRUE(arr->IsNull(3));
 }
 
 TEST_F(DecimalTest, TestMixedPrecisionAndScale) {
@@ -451,8 +448,7 @@ TEST_F(DecimalTest, TestMixedPrecisionAndScale) {
     ASSERT_EQ(0, result);
   }
 
-  std::shared_ptr<ChunkedArray> arr;
-  ASSERT_OK(ConvertPySequence(list, nullptr, {}, &arr));
+  auto arr = ConvertPySequence(list, nullptr, {}).ValueOrDie();
   const auto& type = checked_cast<const DecimalType&>(*arr->type());
 
   int32_t expected_precision = 9;
@@ -476,8 +472,7 @@ TEST_F(DecimalTest, TestMixedPrecisionAndScaleSequenceConvert) {
   ASSERT_EQ(PyList_SetItem(list, 0, value1), 0);
   ASSERT_EQ(PyList_SetItem(list, 1, value2), 0);
 
-  std::shared_ptr<ChunkedArray> arr;
-  ASSERT_OK(ConvertPySequence(list, nullptr, {}, &arr));
+  auto arr = ConvertPySequence(list, nullptr, {}).ValueOrDie();
 
   const auto& type = checked_cast<const Decimal128Type&>(*arr->type());
   ASSERT_EQ(3, type.precision());

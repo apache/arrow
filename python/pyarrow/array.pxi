@@ -21,8 +21,10 @@ import warnings
 
 cdef _sequence_to_array(object sequence, object mask, object size,
                         DataType type, CMemoryPool* pool, c_bool from_pandas):
-    cdef int64_t c_size
-    cdef PyConversionOptions options
+    cdef:
+        int64_t c_size
+        PyConversionOptions options
+        shared_ptr[CArray] result
 
     if type is not None:
         options.type = type.sp_type
@@ -37,12 +39,9 @@ cdef _sequence_to_array(object sequence, object mask, object size,
     cdef shared_ptr[CChunkedArray] out
 
     with nogil:
-        check_status(ConvertPySequence(sequence, mask, options, &out))
+        result = GetResultValue(ConvertPySequence(sequence, mask, options))
 
-    if out.get().num_chunks() == 1:
-        return pyarrow_wrap_array(out.get().chunk(0))
-    else:
-        return pyarrow_wrap_chunked_array(out)
+    return pyarrow_wrap_array(result)
 
 
 cdef inline _is_array_like(obj):

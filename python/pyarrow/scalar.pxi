@@ -873,7 +873,6 @@ def scalar(value, type=None, *, from_pandas=None, MemoryPool memory_pool=None):
         PyConversionOptions options
         shared_ptr[CScalar] scalar
         shared_ptr[CArray] array
-        shared_ptr[CChunkedArray] chunked
         bint is_pandas_object = False
 
     type = ensure_type(type, allow_none=True)
@@ -895,9 +894,7 @@ def scalar(value, type=None, *, from_pandas=None, MemoryPool memory_pool=None):
 
     value = [value]
     with nogil:
-        check_status(ConvertPySequence(value, None, options, &chunked))
+        array = GetResultValue(ConvertPySequence(value, None, options))
 
-    assert chunked.get().num_chunks() == 1
-    array = chunked.get().chunk(0)
     scalar = GetResultValue(array.get().GetScalar(0))
     return Scalar.wrap(scalar)

@@ -1769,9 +1769,8 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
 
     # TODO Some functions below are not actually "nogil"
 
-    CStatus ConvertPySequence(object obj, object mask,
-                              const PyConversionOptions& options,
-                              shared_ptr[CChunkedArray]* out)
+    CResult[shared_ptr[CArray]] ConvertPySequence(
+        object obj, object mask, const PyConversionOptions& options)
 
     CStatus NumPyDtypeToArrow(object dtype, shared_ptr[CDataType]* type)
 
