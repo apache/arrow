@@ -523,14 +523,14 @@ mod tests {
             .as_any()
             .downcast_ref::<StringArray>()
             .expect("failed to cast version");
-        assert_eq!(version.value(0), "test-@@version");
+        assert_eq!(version.value(0), "system-var-@@version");
 
         let name = batch
             .column(1)
             .as_any()
             .downcast_ref::<StringArray>()
             .expect("failed to cast name");
-        assert_eq!(name.value(0), "test-@name");
+        assert_eq!(name.value(0), "user-defined-var-@name");
 
         Ok(())
     }
