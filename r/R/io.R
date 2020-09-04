@@ -224,6 +224,9 @@ mmap_open <- function(path, mode = c("read", "write", "readwrite")) {
 #' with this compression codec, either a [Codec] or the string name of one.
 #' If `NULL` (default) and `file` is a string file name, the function will try
 #' to infer compression from the file extension.
+#' @param filesystem If not `NULL`, `file` will be opened via the
+#' `filesystem$OpenInputFile()` filesystem method, rather than the `io` module's
+#' `MemoryMappedFile` or `ReadableFile` constructors.
 #' @return An `InputStream` or a subclass of one.
 #' @keywords internal
 make_readable_file <- function(file, mmap = TRUE, compression = NULL, filesystem = NULL) {

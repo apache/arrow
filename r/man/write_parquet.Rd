@@ -22,7 +22,8 @@ write_parquet(
 \arguments{
 \item{x}{An \link[=Table]{arrow::Table}, or an object convertible to it.}
 
-\item{sink}{an \link[=OutputStream]{arrow::io::OutputStream} or a string which is interpreted as a file path}
+\item{sink}{an \link[=OutputStream]{arrow::io::OutputStream} or a string
+interpreted as a file path or URI}
 
 \item{chunk_size}{chunk size in number of rows. If NULL, the total number of rows is used.}
 

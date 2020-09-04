@@ -163,7 +163,7 @@ Dataset <- R6Class("Dataset", inherit = ArrowObject,
     # @return A [ScannerBuilder]
     NewScan = function() unique_ptr(ScannerBuilder, dataset___Dataset__NewScan(self)),
     ToString = function() self$schema$ToString(),
-write = function(path, filesystem = NULL, schema = self$schema, format, partitioning, ...) {
+    write = function(path, filesystem = NULL, schema = self$schema, format, partitioning, ...) {
       path_and_fs <- get_path_and_filesystem(path, filesystem)
       dataset___Dataset__Write(self, schema, format, path_and_fs$fs, path_and_fs$path, partitioning)
       invisible(self)

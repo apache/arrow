@@ -24,7 +24,7 @@
 #' and the version 2 specification, which is the Apache Arrow IPC file format.
 #'
 #' @param x `data.frame`, [RecordBatch], or [Table]
-#' @param sink A string file path or [OutputStream]
+#' @param sink A string file path, URI, or [OutputStream]
 #' @param version integer Feather file version. Version 2 is the current.
 #' Version 1 is the more limited legacy format.
 #' @param chunk_size For V2 files, the number of rows that each chunk of data

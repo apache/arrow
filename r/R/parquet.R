@@ -59,7 +59,8 @@ read_parquet <- function(file,
 #' This function enables you to write Parquet files from R.
 #'
 #' @param x An [arrow::Table][Table], or an object convertible to it.
-#' @param sink an [arrow::io::OutputStream][OutputStream] or a string which is interpreted as a file path
+#' @param sink an [arrow::io::OutputStream][OutputStream] or a string
+#'   interpreted as a file path or URI
 #' @param chunk_size chunk size in number of rows. If NULL, the total number of rows is used.
 #' @param version parquet version, "1.0" or "2.0". Default "1.0". Numeric values
 #'   are coerced to character.

@@ -41,7 +41,7 @@ write_ipc_stream <- function(x, sink, ...) {
     x <- Table$create(x)
   }
   if (is.string(sink)) {
-    sink <- FileOutputStream$create(sink)
+    sink <- make_output_stream(sink)
     on.exit(sink$close())
   }
   assert_is(sink, "OutputStream")
@@ -82,10 +82,10 @@ write_to_raw <- function(x, format = c("stream", "file")) {
 #' `read_arrow()`, a wrapper around `read_ipc_stream()` and `read_feather()`,
 #' is deprecated. You should explicitly choose
 #' the function that will read the desired IPC format (stream or file) since
-#' a file or `InputStream` may contain either. 
+#' a file or `InputStream` may contain either.
 #'
-#' @param file A character file name, `raw` vector, or an Arrow input stream.
-#' If a file name, a memory-mapped Arrow [InputStream] will be opened and
+#' @param file A character file name or URI, `raw` vector, or an Arrow input stream.
+#' If a file name or URI, an Arrow [InputStream] will be opened and
 #' closed when finished. If an input stream is provided, it will be left
 #' open.
 #' @param as_data_frame Should the function return a `data.frame` (default) or
