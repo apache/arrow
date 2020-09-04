@@ -234,6 +234,9 @@ TEST_F(TestArray, SliceRecomputeNullCount) {
   slice = array->Slice(4);
   ASSERT_EQ(4, slice->null_count());
 
+  auto slice2 = slice->Slice(0);
+  ASSERT_EQ(4, slice2->null_count());
+
   slice = array->Slice(0);
   ASSERT_EQ(5, slice->null_count());
 
