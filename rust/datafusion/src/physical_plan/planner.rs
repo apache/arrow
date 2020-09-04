@@ -332,9 +332,6 @@ impl DefaultPhysicalPlanner {
                 let schema_ref = Arc::new(schema.as_ref().clone());
                 Ok(Arc::new(ExplainExec::new(schema_ref, stringified_plans)))
             }
-            _ => Err(ExecutionError::General(
-                "Unsupported logical plan variant".to_string(),
-            )),
         }
     }
 
