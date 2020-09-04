@@ -1704,12 +1704,21 @@ def test_dictionary_from_integers(value_type):
     assert a.dictionary.equals(expected_dictionary)
 
 
-# @pytest.mark.parametrize('input_index_type', [
-#     pa.int8(),
-#     pa.int16(),
-#     pa.int32(),
-#     pa.int64()
-# ])
+@pytest.mark.parametrize('input_index_type', [
+    pa.int8(),
+    pa.int16(),
+    pa.int32(),
+    pa.int64()
+])
+def test_dictionary_index_type(input_index_type):
+    # dictionary array is constructed using adaptive index type builder,
+    # but the input index type is considered as the minimal width type to use
+
+    typ = pa.dictionary(input_index_type, value_type=pa.int64())
+    arr = pa.array(range(10), type=typ)
+    assert arr.type.equals(typ)
+
+
 def test_dictionary_is_always_adaptive():
     # dictionary array is constructed using adaptive index type builder,
     # meaning that the output index type may be wider than the given index type
