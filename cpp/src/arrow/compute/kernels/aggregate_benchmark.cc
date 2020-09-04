@@ -405,7 +405,7 @@ static void CountKernelBenchInt64(benchmark::State& state) {
   auto array = rand.Numeric<Int64Type>(array_size, -100, 100, args.null_proportion);
 
   for (auto _ : state) {
-    ABORT_NOT_OK(Count(array).status());
+    ABORT_NOT_OK(Count(array->Slice(1, array_size)).status());
   }
 }
 BENCHMARK(CountKernelBenchInt64)->Args({1 * 1024 * 1024, 2});  // 1M with 50% null.
