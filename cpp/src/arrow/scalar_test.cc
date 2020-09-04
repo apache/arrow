@@ -627,6 +627,9 @@ TEST(TestDictionaryScalar, Basics) {
     gamma.dictionary = dict;
 
     auto scalar_null = MakeNullScalar(ty);
+    auto& dict_scalar_null = checked_cast<DictionaryScalar&>(*scalar_null);
+    dict_scalar_null.value.dictionary = dict;
+
     auto scalar_alpha = DictionaryScalar(alpha, ty);
     auto scalar_gamma = DictionaryScalar(gamma, ty);
 
