@@ -240,7 +240,7 @@ struct PyBytesView {
 
  protected:
   PyBytesView(const char* bytes, Py_ssize_t size, bool is_utf8 = false,
-              PyObject* obj = nullptr)
+              PyObject* obj = NULLPTR)
       : bytes(bytes), size(size), is_utf8(is_utf8), ref(obj) {}
 
   OwnedRef ref;
