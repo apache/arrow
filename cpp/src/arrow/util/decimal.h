@@ -193,6 +193,9 @@ class ARROW_EXPORT Decimal256 : public BasicDecimal256 {
   /// \brief constructor creates a Decimal256 from a BasicDecimal128.
   constexpr Decimal256(const BasicDecimal256& value) noexcept : BasicDecimal256(value) {}
 
+  /// \brief Parse the number from a base 10 string representation.
+  explicit Decimal256(const std::string& value);
+
   /// \brief Empty constructor creates a Decimal256 with a value of 0.
   // This is required on some older compilers.
   constexpr Decimal256() noexcept : BasicDecimal256() {}
@@ -203,6 +206,18 @@ class ARROW_EXPORT Decimal256 : public BasicDecimal256 {
 
   /// \brief Convert the value to an integer string
   std::string ToIntegerString() const;
+
+  /// \brief Convert a decimal string to a Decimal256 value, optionally including
+  /// precision and scale if they're passed in and not null.
+  static Status FromString(const util::string_view& s, Decimal256* out,
+                           int32_t* precision, int32_t* scale = NULLPTR);
+  static Status FromString(const std::string& s, Decimal256* out, int32_t* precision,
+                           int32_t* scale = NULLPTR);
+  static Status FromString(const char* s, Decimal256* out, int32_t* precision,
+                           int32_t* scale = NULLPTR);
+  static Result<Decimal256> FromString(const util::string_view& s);
+  static Result<Decimal256> FromString(const std::string& s);
+  static Result<Decimal256> FromString(const char* s);
 };
 
 }  // namespace arrow
