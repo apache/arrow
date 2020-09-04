@@ -82,3 +82,37 @@ This library currently supports the following SQL constructs:
 * `WHERE` to filter
 * `GROUP BY` together with one of the following aggregations: `MIN`, `MAX`, `COUNT`, `SUM`, `AVG`
 * `ORDER BY` together with an expression and optional `DESC`
+
+## Supported Data Types
+
+DataFusion uses Arrow, and thus the Arrow type system, for query
+execution. The SQL types from
+[sqlparser-rs](https://github.com/ballista-compute/sqlparser-rs/blob/main/src/ast/data_type.rs#L57)
+are mapped to Arrow types according to the following table
+
+
+| SQL Data Type   | Arrow DataType                   |
+| --------------- | -------------------------------- |
+| `CHAR`          | `Utf8`                           |
+| `VARCHAR`       | `Utf8`                           |
+| `UUID`          | *Not yet supported*              |
+| `CLOB`          | *Not yet supported*              |
+| `BINARY`        | *Not yet supported*              |
+| `VARBINARY`     | *Not yet supported*              |
+| `DECIMAL`       | `Float64`                        |
+| `FLOAT`         | `Float32`                        |
+| `SMALLINT`      | `Int16`                          |
+| `INT`           | `Int32`                          |
+| `BIGINT`        | `Int64`                          |
+| `REAL`          | `Float64`                        |
+| `DOUBLE`        | `Float64`                        |
+| `BOOLEAN`       | `Boolean`                        |
+| `DATE`          | `Date64(DateUnit::Day)`          |
+| `TIME`          | `Time64(TimeUnit::Millisecond)`  |
+| `TIMESTAMP`     | `Date64(DateUnit::Millisecond)`  |
+| `INTERVAL`      | *Not yet supported*              |
+| `REGCLASS`      | *Not yet supported*              |
+| `TEXT`          | *Not yet supported*              |
+| `BYTEA`         | *Not yet supported*              |
+| `CUSTOM`        | *Not yet supported*              |
+| `ARRAY`         | *Not yet supported*              |
