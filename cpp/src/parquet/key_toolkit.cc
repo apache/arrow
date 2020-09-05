@@ -53,10 +53,11 @@ std::string KeyToolkit::EncryptKeyLocally(const std::string& key_bytes,
       static_cast<int>(key_bytes.size()) + key_encryptor.CiphertextSizeDelta();
   std::string encrypted_key(encrypted_key_len, '\0');
   encrypted_key_len = key_encryptor.Encrypt(
-      reinterpret_cast<const uint8_t*>(key_bytes.data()), key_bytes.size(),
-      reinterpret_cast<const uint8_t*>(master_key.data()), master_key.size(),
-      reinterpret_cast<const uint8_t*>(aad.data()), aad.size(),
-      reinterpret_cast<uint8_t*>(&encrypted_key[0]));
+      reinterpret_cast<const uint8_t*>(key_bytes.data()),
+      static_cast<int>(key_bytes.size()),
+      reinterpret_cast<const uint8_t*>(master_key.data()),
+      static_cast<int>(master_key.size()), reinterpret_cast<const uint8_t*>(aad.data()),
+      static_cast<int>(aad.size()), reinterpret_cast<uint8_t*>(&encrypted_key[0]));
 
   std::string encoded_encrypted_key = arrow::util::base64_encode(
       reinterpret_cast<const uint8_t*>(&encrypted_key[0]), encrypted_key_len);

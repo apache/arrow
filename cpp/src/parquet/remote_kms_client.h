@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include <map>
+#include <unordered_map>
 #include <vector>
 
 #include "parquet/kms_client.h"
@@ -99,7 +99,7 @@ class PARQUET_EXPORT RemoteKmsClient : public KmsClient {
   KmsConnectionConfig kms_connection_config_;
   bool is_wrap_locally_;
   bool is_default_token_;
-  std::map<std::string, std::string> master_key_cache_;
+  std::unordered_map<std::string, std::string> master_key_cache_;
 };
 
 }  // namespace encryption

@@ -32,10 +32,10 @@ using parquet::encryption::RemoteKmsClient;
 namespace parquet {
 namespace encryption {
 
-std::map<std::string, std::string> TestOnlyInMemoryKms::master_key_map_;
+std::unordered_map<std::string, std::string> TestOnlyInMemoryKms::master_key_map_;
 
 void TestOnlyInMemoryKms::InitializeMasterKeys(
-    const std::map<std::string, std::string>& master_keys_map) {
+    const std::unordered_map<std::string, std::string>& master_keys_map) {
   master_key_map_ = master_keys_map;
 }
 

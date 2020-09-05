@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include <unordered_map>
+
 #include "arrow/util/base64.h"
 
 #include "parquet/key_toolkit.h"
@@ -32,7 +34,7 @@ namespace encryption {
 class PARQUET_EXPORT TestOnlyInMemoryKms : public RemoteKmsClient {
  public:
   static void InitializeMasterKeys(
-      const std::map<std::string, std::string>& master_keys_map);
+      const std::unordered_map<std::string, std::string>& master_keys_map);
 
  protected:
   void InitializeInternal() override;
@@ -46,13 +48,14 @@ class PARQUET_EXPORT TestOnlyInMemoryKms : public RemoteKmsClient {
   std::string GetMasterKeyFromServer(const std::string& master_key_identifier) override;
 
  private:
-  static std::map<std::string, std::string> master_key_map_;
+  static std::unordered_map<std::string, std::string> master_key_map_;
 };
 
 class PARQUET_EXPORT TestOnlyInMemoryKmsClientFactory : public KmsClientFactory {
  public:
   TestOnlyInMemoryKmsClientFactory(
-      bool wrap_locally, const std::map<std::string, std::string>& master_keys_map)
+      bool wrap_locally,
+      const std::unordered_map<std::string, std::string>& master_keys_map)
       : KmsClientFactory(wrap_locally) {
     TestOnlyInMemoryKms::InitializeMasterKeys(master_keys_map);
   }

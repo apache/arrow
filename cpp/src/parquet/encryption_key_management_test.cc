@@ -19,6 +19,7 @@
 
 #include <iostream>
 #include <string>
+#include <unordered_map>
 
 #include "arrow/testing/util.h"
 
@@ -49,11 +50,11 @@ const char* const kColumnMasterKeys[] = {"1234567890123450", "1234567890123451",
 const char* const kColumnMasterKeyIds[] = {"kc1", "kc2", "kc3", "kc4", "kc5", "kc6"};
 const char kFooterMasterKeyId[] = "kf";
 
-std::map<std::string, std::string> BuildKeyMap(const char* const* column_ids,
-                                               const char* const* column_keys,
-                                               const char* footer_id,
-                                               const char* footer_key) {
-  std::map<std::string, std::string> key_map;
+std::unordered_map<std::string, std::string> BuildKeyMap(const char* const* column_ids,
+                                                         const char* const* column_keys,
+                                                         const char* footer_id,
+                                                         const char* footer_key) {
+  std::unordered_map<std::string, std::string> key_map;
   // add column keys
   for (int i = 0; i < 6; i++) {
     key_map.insert({column_ids[i], column_keys[i]});
@@ -90,7 +91,7 @@ class TestEncrytionKeyManagement : public ::testing::Test {
   FileEncryptor encryptor_;
   FileDecryptor decryptor_;
 
-  std::map<std::string, std::string> key_list_;
+  std::unordered_map<std::string, std::string> key_list_;
   std::string column_key_mapping_;
   KmsConnectionConfig kms_connection_config_;
 
@@ -211,7 +212,7 @@ class TestEncrytionKeyManagement : public ::testing::Test {
       auto decryption_config = this->GetDecryptionConfiguration(wrap_locally);
       for (int j = 0; j < 2; j++) {
         bool double_wrapping = (j == 0);
-        for (size_t encryption_no = 0; encryption_no < 5; encryption_no++) {
+        for (int encryption_no = 0; encryption_no < 5; encryption_no++) {
           std::string file_name =
               GetFileName(double_wrapping, wrap_locally, encryption_no);
           std::cout << "Reading file: " << file_name << std::endl;

@@ -56,6 +56,8 @@ class FileKeyWrapper {
                  uint64_t cache_entry_lifetime_seconds, bool double_wrapping,
                  bool is_wrap_locally);
 
+  /// Creates key_metadata field for a given data key, via wrapping the key with the
+  /// master key
   std::string GetEncryptionKeyMetadata(const std::string& data_key,
                                        const std::string& master_key_id,
                                        bool is_footer_key);
