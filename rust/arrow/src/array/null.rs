@@ -82,7 +82,7 @@ impl Array for NullArray {
     /// Returns the total number of null values in this array.
     /// The null count of a `NullArray` always equals its length.
     fn null_count(&self) -> usize {
-        self.data().len()
+        self.data_ref().len()
     }
 
     /// Returns the total number of bytes of memory occupied by the buffers owned by this [NullArray].
