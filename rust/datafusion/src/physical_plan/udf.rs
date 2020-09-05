@@ -23,7 +23,7 @@ use std::fmt;
 use arrow::datatypes::Schema;
 
 use crate::error::Result;
-use crate::physical_plan::PhysicalExpr;
+use crate::{logical_plan::Expr, physical_plan::PhysicalExpr};
 
 use super::{
     functions::{
@@ -69,6 +69,15 @@ impl ScalarUDF {
             signature: signature.clone(),
             return_type: return_type.clone(),
             fun: fun.clone(),
+        }
+    }
+
+    /// creates a logical expression with a call of the UDF
+    /// This utility allows using the UDF without requiring access to the registry.
+    pub fn call(&self, args: Vec<Expr>) -> Expr {
+        Expr::ScalarUDF {
+            fun: Arc::new(self.clone()),
+            args,
         }
     }
 }
