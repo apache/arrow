@@ -44,7 +44,7 @@ use crate::physical_plan::common;
 use crate::physical_plan::csv::CsvReadOptions;
 use crate::physical_plan::merge::MergeExec;
 use crate::physical_plan::planner::DefaultPhysicalPlanner;
-use crate::physical_plan::udf::ScalarFunction;
+use crate::physical_plan::udf::ScalarUDF;
 use crate::physical_plan::ExecutionPlan;
 use crate::physical_plan::PhysicalPlanner;
 use crate::sql::{
@@ -178,7 +178,7 @@ impl ExecutionContext {
     }
 
     /// Register a scalar UDF
-    pub fn register_udf(&mut self, f: ScalarFunction) {
+    pub fn register_udf(&mut self, f: ScalarUDF) {
         self.state
             .scalar_functions
             .insert(f.name.clone(), Arc::new(f));
@@ -459,7 +459,7 @@ pub struct ExecutionContextState {
     /// Data sources that are registered with the context
     pub datasources: HashMap<String, Arc<dyn TableProvider + Send + Sync>>,
     /// Scalar functions that are registered with the context
-    pub scalar_functions: HashMap<String, Arc<ScalarFunction>>,
+    pub scalar_functions: HashMap<String, Arc<ScalarUDF>>,
     /// Context configuration
     pub config: ExecutionConfig,
 }
@@ -469,7 +469,7 @@ impl SchemaProvider for ExecutionContextState {
         self.datasources.get(name).map(|ds| ds.schema().clone())
     }
 
-    fn get_function_meta(&self, name: &str) -> Option<Arc<ScalarFunction>> {
+    fn get_function_meta(&self, name: &str) -> Option<Arc<ScalarUDF>> {
         self.scalar_functions
             .get(name)
             .and_then(|func| Some(func.clone()))

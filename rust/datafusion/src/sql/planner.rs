@@ -28,7 +28,7 @@ use crate::logical_plan::{
 };
 use crate::{
     physical_plan::functions,
-    physical_plan::udf::ScalarFunction,
+    physical_plan::udf::ScalarUDF,
     sql::parser::{CreateExternalTable, FileType, Statement as DFStatement},
 };
 
@@ -48,7 +48,7 @@ pub trait SchemaProvider {
     /// Getter for a field description
     fn get_table_meta(&self, name: &str) -> Option<SchemaRef>;
     /// Getter for a UDF description
-    fn get_function_meta(&self, name: &str) -> Option<Arc<ScalarFunction>>;
+    fn get_function_meta(&self, name: &str) -> Option<Arc<ScalarUDF>>;
 }
 
 /// SQL query planner
@@ -912,7 +912,7 @@ mod tests {
             }
         }
 
-        fn get_function_meta(&self, name: &str) -> Option<Arc<ScalarFunction>> {
+        fn get_function_meta(&self, name: &str) -> Option<Arc<ScalarUDF>> {
             let f: ScalarFunctionImplementation =
                 Arc::new(|_| Err(ExecutionError::NotImplemented("".to_string())));
             match name {

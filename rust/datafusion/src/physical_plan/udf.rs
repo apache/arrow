@@ -35,7 +35,7 @@ use std::sync::Arc;
 
 /// Logical representation of a UDF.
 #[derive(Clone)]
-pub struct ScalarFunction {
+pub struct ScalarUDF {
     /// name
     pub name: String,
     /// signature
@@ -46,9 +46,9 @@ pub struct ScalarFunction {
     pub fun: ScalarFunctionImplementation,
 }
 
-impl Debug for ScalarFunction {
+impl Debug for ScalarUDF {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        f.debug_struct("ScalarFunction")
+        f.debug_struct("ScalarUDF")
             .field("name", &self.name)
             .field("signature", &self.signature)
             .field("fun", &"<FUNC>")
@@ -56,8 +56,8 @@ impl Debug for ScalarFunction {
     }
 }
 
-impl ScalarFunction {
-    /// Create a new ScalarFunction
+impl ScalarUDF {
+    /// Create a new ScalarUDF
     pub fn new(
         name: &str,
         signature: &Signature,
@@ -76,7 +76,7 @@ impl ScalarFunction {
 /// Create a physical expression of the UDF.
 /// This function errors when `args`' can't be coerced to a valid argument type of the UDF.
 pub fn create_physical_expr(
-    fun: &ScalarFunction,
+    fun: &ScalarUDF,
     args: &Vec<Arc<dyn PhysicalExpr>>,
     input_schema: &Schema,
 ) -> Result<Arc<dyn PhysicalExpr>> {

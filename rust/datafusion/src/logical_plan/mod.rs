@@ -33,7 +33,7 @@ use crate::error::{ExecutionError, Result};
 use crate::{
     physical_plan::{
         expressions::binary_operator_data_type, functions,
-        type_coercion::can_coerce_from, udf::ScalarFunction,
+        type_coercion::can_coerce_from, udf::ScalarUDF,
     },
     sql::parser::FileType,
 };
@@ -280,7 +280,7 @@ pub enum Expr {
     /// scalar udf.
     ScalarUDF {
         /// The function
-        fun: Arc<ScalarFunction>,
+        fun: Arc<ScalarUDF>,
         /// List of expressions to feed to the functions as arguments
         args: Vec<Expr>,
     },
@@ -703,9 +703,9 @@ pub fn create_udf(
     input_types: Vec<DataType>,
     return_type: Arc<DataType>,
     fun: ScalarFunctionImplementation,
-) -> ScalarFunction {
+) -> ScalarUDF {
     let return_type: ReturnTypeFunction = Arc::new(move |_| Ok(return_type.clone()));
-    ScalarFunction::new(name, &Signature::Exact(input_types), &return_type, &fun)
+    ScalarUDF::new(name, &Signature::Exact(input_types), &return_type, &fun)
 }
 
 impl fmt::Debug for Expr {
