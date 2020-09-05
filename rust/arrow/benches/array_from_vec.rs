@@ -24,7 +24,6 @@ extern crate arrow;
 use arrow::array::*;
 use arrow::buffer::Buffer;
 use arrow::datatypes::*;
-use std::convert::TryFrom;
 
 fn array_from_vec(n: usize) {
     let mut v: Vec<u8> = Vec::with_capacity(n);
@@ -46,7 +45,7 @@ fn array_string_from_vec(n: usize) {
             v.push(None);
         }
     }
-    criterion::black_box(StringArray::try_from(v).unwrap());
+    criterion::black_box(StringArray::from(v));
 }
 
 fn criterion_benchmark(c: &mut Criterion) {

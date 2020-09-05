@@ -2316,7 +2316,7 @@ where
     /// use arrow::array::{StringArray, StringDictionaryBuilder, PrimitiveBuilder};
     /// use std::convert::TryFrom;
     ///
-    /// let dictionary_values = StringArray::try_from(vec![None, Some("abc"), Some("def")]).unwrap();
+    /// let dictionary_values = StringArray::from(vec![None, Some("abc"), Some("def")]);
     ///
     /// let mut builder = StringDictionaryBuilder::new_with_dictionary(PrimitiveBuilder::<Int16Type>::new(3), &dictionary_values).unwrap();
     /// builder.append("def").unwrap();
@@ -2449,7 +2449,6 @@ mod tests {
 
     use crate::array::Array;
     use crate::bitmap::Bitmap;
-    use std::convert::TryFrom;
 
     #[test]
     fn test_builder_i32_empty() {
@@ -3465,8 +3464,7 @@ mod tests {
 
     #[test]
     fn test_string_dictionary_builder_with_existing_dictionary() {
-        let dictionary =
-            StringArray::try_from(vec![None, Some("def"), Some("abc")]).unwrap();
+        let dictionary = StringArray::from(vec![None, Some("def"), Some("abc")]);
 
         let key_builder = PrimitiveBuilder::<Int8Type>::new(6);
         let mut builder =
@@ -3496,7 +3494,8 @@ mod tests {
 
     #[test]
     fn test_string_dictionary_builder_with_reserved_null_value() {
-        let dictionary = StringArray::try_from(vec![None]).unwrap();
+        let dictionary: Vec<Option<&str>> = vec![None];
+        let dictionary = StringArray::from(dictionary);
 
         let key_builder = PrimitiveBuilder::<Int16Type>::new(4);
         let mut builder =
@@ -3807,14 +3806,14 @@ mod tests {
         builder.append(true)?;
         builder.append(false)?;
 
-        let string_array = StringArray::try_from(vec![
+        let string_array = StringArray::from(vec![
             Some("alpha"),
             Some("beta"),
             None,
             Some("gamma"),
             Some("delta"),
             None,
-        ])?;
+        ]);
         let list_value_offsets = Buffer::from(&[0, 2, 3, 6].to_byte_slice());
         let list_data = ArrayData::new(
             DataType::List(Box::new(DataType::Utf8)),
@@ -3833,7 +3832,7 @@ mod tests {
         ])?;
         let finished = builder.finish();
 
-        let expected_string_array = StringArray::try_from(vec![
+        let expected_string_array = StringArray::from(vec![
             Some("Hello"),
             Some("Arrow"),
             // list_array
@@ -3849,7 +3848,7 @@ mod tests {
             Some("delta"),
             None,
             // slice(0, 0) returns nothing
-        ])?;
+        ]);
         let list_value_offsets = Buffer::from(&[0, 2, 2, 4, 5, 8, 9, 12].to_byte_slice());
         let expected_list_data = ArrayData::new(
             DataType::List(Box::new(DataType::Utf8)),

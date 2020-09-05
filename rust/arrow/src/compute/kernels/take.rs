@@ -279,7 +279,6 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::convert::TryFrom;
 
     fn test_take_primitive_arrays<'a, T>(
         data: Vec<Option<T::Native>>,
@@ -739,7 +738,7 @@ mod tests {
         let result_values: StringArray = result.values().data().into();
 
         // dictionary values should stay the same
-        let expected_values = StringArray::try_from(vec!["foo", "bar", ""]).unwrap();
+        let expected_values = StringArray::from(vec!["foo", "bar", ""]);
         assert_eq!(&expected_values, dict_values);
         assert_eq!(&expected_values, &result_values);
 
