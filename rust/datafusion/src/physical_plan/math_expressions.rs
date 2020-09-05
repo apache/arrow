@@ -19,7 +19,7 @@
 
 use crate::error::{ExecutionError, Result};
 
-use arrow::array::{Array, ArrayRef, Float32Array, Float64Array, Float64Builder};
+use arrow::array::{Array, ArrayRef, Float32Array, Float64Array};
 
 use arrow::datatypes::DataType;
 
@@ -27,15 +27,17 @@ use std::sync::Arc;
 
 macro_rules! compute_op {
     ($ARRAY:expr, $FUNC:ident, $TYPE:ident) => {{
-        let mut builder = Float64Builder::new($ARRAY.len());
-        for i in 0..$ARRAY.len() {
-            if $ARRAY.is_null(i) {
-                builder.append_null()?;
-            } else {
-                builder.append_value($ARRAY.value(i).$FUNC() as f64)?;
-            }
-        }
-        Ok(Arc::new(builder.finish()))
+        let result: Float64Array = (0..$ARRAY.len())
+            .map(|i| {
+                if $ARRAY.is_null(i) {
+                    None
+                } else {
+                    Some($ARRAY.value(i).$FUNC() as f64)
+                }
+            })
+            .collect::<Vec<Option<f64>>>()
+            .into();
+        Ok(Arc::new(result))
     }};
 }
 
