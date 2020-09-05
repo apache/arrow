@@ -185,9 +185,9 @@ def sum(array):
 
 def mode(array):
     """
-    Return the mode (most common value) of a passed numerical 
+    Return the mode (most common value) of a passed numerical
     (chunked) array. If there is more than one such value, only
-    the smallest is returned. 
+    the smallest is returned.
 
     Parameters
     ----------
@@ -206,8 +206,7 @@ def mode(array):
     <pyarrow.StructScalar: {'mode': 2, 'count': 5}>
 
     """
-    return call_function('mode', [array])
-
+    return call_function("mode", [array])
 
 
 def filter(data, mask, null_selection_behavior='drop'):

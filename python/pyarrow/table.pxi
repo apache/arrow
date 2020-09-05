@@ -343,7 +343,6 @@ cdef class ChunkedArray(_PandasConvertible):
         """
         return _pc().call_function('mode', [self])
 
-
     def slice(self, offset=0, length=None):
         """
         Compute zero-copy slice of this ChunkedArray
