@@ -16,7 +16,9 @@
 # under the License.
 
 from functools import lru_cache
+import itertools
 import numpy as np
+import pandas as pd
 import pytest
 
 import pyarrow as pa
@@ -107,6 +109,76 @@ def test_sum_chunked_array(arrow_type):
     arr = pa.chunked_array((), type=arrow_type)
     assert arr.num_chunks == 0
     assert pc.sum(arr).as_py() is None  # noqa: E711
+
+
+@pytest.mark.parametrize('arrow_type', numerical_arrow_types)
+def test_mode_array(arrow_type):
+    # ARROW-9917
+
+    arr = pa.array([1, 1, 3, 4, 3, 5], type=arrow_type)
+
+    expected = {'mode': 1, 'count': 2}
+    assert pc.mode(arr).as_py() == {'mode': 1, 'count': 2}
+    assert arr.mode().as_py() == {'mode': 1, 'count': 2}
+
+    arr = pa.array([], type=arrow_type)
+
+    expected = {'mode': None, 'count': None}
+    assert pc.mode(arr).as_py() == expected
+    assert arr.mode().as_py() == expected
+
+
+@pytest.mark.parametrize('arrow_type', numerical_arrow_types)
+def test_mode_chunked_array(arrow_type):
+    # ARROW-9917
+
+    expected = {'mode': 1, 'count': 2}
+
+    arr = pa.chunked_array([pa.array([1, 1, 3, 4, 3, 5], type=arrow_type)])
+    assert pc.mode(arr).as_py() == expected
+    assert arr.mode().as_py() == expected
+
+    arr = pa.chunked_array([
+        pa.array([1, 1, 3], type=arrow_type), pa.array([4, 3, 5], type=arrow_type)
+    ])
+    assert pc.mode(arr).as_py() == expected
+    assert arr.mode().as_py() == expected
+
+    arr = pa.chunked_array([
+        pa.array([1, 1, 3], type=arrow_type),
+        pa.array([], type=arrow_type),
+        pa.array([4, 3, 5], type=arrow_type)
+    ])
+    assert pc.mode(arr).as_py() == expected
+    assert arr.mode().as_py() == expected
+
+    
+    expected = {'mode': None, 'count': None}
+    arr = pa.chunked_array((), type=arrow_type)
+    assert arr.num_chunks == 0
+    assert pc.mode(arr).as_py() == expected
+    assert arr.mode().as_py() == expected
+
+
+def test_mode_array_with_nan():
+    # ARROW-9917
+
+    arr = pa.array([1, 1, 3, 4, 3, 5, np.nan], type='float')
+
+    expected = {'mode': 1, 'count': 2}
+    assert pc.mode(arr).as_py() == {'mode': 1, 'count': 2}
+    assert arr.mode().as_py() == {'mode': 1, 'count': 2}
+
+
+    arr = pa.array([1, 1, 3, 4, np.nan, 3, 5, np.nan, np.nan], type='float')
+
+    result = pc.mode(arr).as_py()
+    assert pd.isna(result['mode']) is True
+    assert result['count'] == 3
+
+    result = arr.mode().as_py()
+    assert pd.isna(result['mode']) is True
+    assert result['count'] == 3
 
 
 def test_match_substring():
