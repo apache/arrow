@@ -70,3 +70,7 @@ harness = false
 [[bench]]
 name = "sort_limit_query_sql"
 harness = false
+
+[[bench]]
+name = "math_query_sql"
+harness = false
