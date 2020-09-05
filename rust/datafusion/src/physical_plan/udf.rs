@@ -31,7 +31,7 @@ use super::{
     },
     type_coercion::coerce,
 };
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 
 /// Logical representation of a UDF.
 #[derive(Clone)]
@@ -44,18 +44,6 @@ pub struct ScalarFunction {
     pub return_type: ReturnTypeFunction,
     /// actual implementation
     pub fun: ScalarFunctionImplementation,
-}
-
-/// Something which provides information for particular scalar functions
-pub trait ScalarFunctionRegistry {
-    /// Return ScalarFunction for `name`
-    fn lookup(&self, name: &str) -> Option<Arc<ScalarFunction>>;
-}
-
-impl ScalarFunctionRegistry for HashMap<String, Arc<ScalarFunction>> {
-    fn lookup(&self, name: &str) -> Option<Arc<ScalarFunction>> {
-        self.get(name).and_then(|func| Some(func.clone()))
-    }
 }
 
 impl Debug for ScalarFunction {

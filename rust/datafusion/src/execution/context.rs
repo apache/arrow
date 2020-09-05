@@ -45,7 +45,6 @@ use crate::physical_plan::csv::CsvReadOptions;
 use crate::physical_plan::merge::MergeExec;
 use crate::physical_plan::planner::DefaultPhysicalPlanner;
 use crate::physical_plan::udf::ScalarFunction;
-use crate::physical_plan::udf::ScalarFunctionRegistry;
 use crate::physical_plan::ExecutionPlan;
 use crate::physical_plan::PhysicalPlanner;
 use crate::sql::{
@@ -372,12 +371,6 @@ impl ExecutionContext {
     /// get the registry, that allows to construct logical expressions of UDFs
     pub fn registry(&self) -> &dyn FunctionRegistry {
         &self.state
-    }
-}
-
-impl ScalarFunctionRegistry for ExecutionContext {
-    fn lookup(&self, name: &str) -> Option<Arc<ScalarFunction>> {
-        self.state.scalar_functions.lookup(name)
     }
 }
 
