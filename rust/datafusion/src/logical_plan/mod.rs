@@ -273,7 +273,7 @@ pub enum Expr {
     /// scalar function.
     ScalarFunction {
         /// The function
-        fun: functions::BuiltinFunction,
+        fun: functions::BuiltinScalarFunction,
         /// List of expressions to feed to the functions as arguments
         args: Vec<Expr>,
     },
@@ -643,7 +643,7 @@ macro_rules! unary_math_expr {
         #[allow(missing_docs)]
         pub fn $FUNC(e: Expr) -> Expr {
             Expr::ScalarFunction {
-                fun: functions::BuiltinFunction::$ENUM,
+                fun: functions::BuiltinScalarFunction::$ENUM,
                 args: vec![e],
             }
         }
@@ -672,7 +672,7 @@ unary_math_expr!(Log10, log10);
 /// returns the length of a string in bytes
 pub fn length(e: Expr) -> Expr {
     Expr::ScalarFunction {
-        fun: functions::BuiltinFunction::Length,
+        fun: functions::BuiltinScalarFunction::Length,
         args: vec![e],
     }
 }
@@ -680,7 +680,7 @@ pub fn length(e: Expr) -> Expr {
 /// returns the concatenation of string expressions
 pub fn concat(args: Vec<Expr>) -> Expr {
     Expr::ScalarFunction {
-        fun: functions::BuiltinFunction::Concat,
+        fun: functions::BuiltinScalarFunction::Concat,
         args,
     }
 }

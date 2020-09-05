@@ -73,7 +73,7 @@ pub type ReturnTypeFunction =
 
 /// Enum of all built-in scalar functions
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum BuiltinFunction {
+pub enum BuiltinScalarFunction {
     /// sqrt
     Sqrt,
     /// sin
@@ -114,36 +114,36 @@ pub enum BuiltinFunction {
     Concat,
 }
 
-impl fmt::Display for BuiltinFunction {
+impl fmt::Display for BuiltinScalarFunction {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         // lowercase of the debug.
         write!(f, "{}", format!("{:?}", self).to_lowercase())
     }
 }
 
-impl FromStr for BuiltinFunction {
+impl FromStr for BuiltinScalarFunction {
     type Err = ExecutionError;
-    fn from_str(name: &str) -> Result<BuiltinFunction> {
+    fn from_str(name: &str) -> Result<BuiltinScalarFunction> {
         Ok(match name {
-            "sqrt" => BuiltinFunction::Sqrt,
-            "sin" => BuiltinFunction::Sin,
-            "cos" => BuiltinFunction::Cos,
-            "tan" => BuiltinFunction::Tan,
-            "asin" => BuiltinFunction::Asin,
-            "acos" => BuiltinFunction::Acos,
-            "atan" => BuiltinFunction::Atan,
-            "exp" => BuiltinFunction::Exp,
-            "log" => BuiltinFunction::Log,
-            "log2" => BuiltinFunction::Log2,
-            "log10" => BuiltinFunction::Log10,
-            "floor" => BuiltinFunction::Floor,
-            "ceil" => BuiltinFunction::Ceil,
-            "round" => BuiltinFunction::Round,
-            "truc" => BuiltinFunction::Trunc,
-            "abs" => BuiltinFunction::Abs,
-            "signum" => BuiltinFunction::Signum,
-            "length" => BuiltinFunction::Length,
-            "concat" => BuiltinFunction::Concat,
+            "sqrt" => BuiltinScalarFunction::Sqrt,
+            "sin" => BuiltinScalarFunction::Sin,
+            "cos" => BuiltinScalarFunction::Cos,
+            "tan" => BuiltinScalarFunction::Tan,
+            "asin" => BuiltinScalarFunction::Asin,
+            "acos" => BuiltinScalarFunction::Acos,
+            "atan" => BuiltinScalarFunction::Atan,
+            "exp" => BuiltinScalarFunction::Exp,
+            "log" => BuiltinScalarFunction::Log,
+            "log2" => BuiltinScalarFunction::Log2,
+            "log10" => BuiltinScalarFunction::Log10,
+            "floor" => BuiltinScalarFunction::Floor,
+            "ceil" => BuiltinScalarFunction::Ceil,
+            "round" => BuiltinScalarFunction::Round,
+            "truc" => BuiltinScalarFunction::Trunc,
+            "abs" => BuiltinScalarFunction::Abs,
+            "signum" => BuiltinScalarFunction::Signum,
+            "length" => BuiltinScalarFunction::Length,
+            "concat" => BuiltinScalarFunction::Concat,
             _ => {
                 return Err(ExecutionError::General(format!(
                     "There is no built-in function named {}",
@@ -155,7 +155,10 @@ impl FromStr for BuiltinFunction {
 }
 
 /// Returns the datatype of the scalar function
-pub fn return_type(fun: &BuiltinFunction, arg_types: &Vec<DataType>) -> Result<DataType> {
+pub fn return_type(
+    fun: &BuiltinScalarFunction,
+    arg_types: &Vec<DataType>,
+) -> Result<DataType> {
     // Note that this function *must* return the same type that the respective physical expression returns
     // or the execution panics.
 
@@ -174,8 +177,8 @@ pub fn return_type(fun: &BuiltinFunction, arg_types: &Vec<DataType>) -> Result<D
     // for now, this is type-independent, but there will be built-in functions whose return type
     // depends on the incoming type.
     match fun {
-        BuiltinFunction::Length => Ok(DataType::UInt32),
-        BuiltinFunction::Concat => Ok(DataType::Utf8),
+        BuiltinScalarFunction::Length => Ok(DataType::UInt32),
+        BuiltinScalarFunction::Concat => Ok(DataType::Utf8),
         _ => Ok(DataType::Float64),
     }
 }
@@ -183,30 +186,30 @@ pub fn return_type(fun: &BuiltinFunction, arg_types: &Vec<DataType>) -> Result<D
 /// Create a physical (function) expression.
 /// This function errors when `args`' can't be coerced to a valid argument type of the function.
 pub fn create_physical_expr(
-    fun: &BuiltinFunction,
+    fun: &BuiltinScalarFunction,
     args: &Vec<Arc<dyn PhysicalExpr>>,
     input_schema: &Schema,
 ) -> Result<Arc<dyn PhysicalExpr>> {
     let fun_expr: ScalarFunctionImplementation = Arc::new(match fun {
-        BuiltinFunction::Sqrt => math_expressions::sqrt,
-        BuiltinFunction::Sin => math_expressions::sin,
-        BuiltinFunction::Cos => math_expressions::cos,
-        BuiltinFunction::Tan => math_expressions::tan,
-        BuiltinFunction::Asin => math_expressions::asin,
-        BuiltinFunction::Acos => math_expressions::acos,
-        BuiltinFunction::Atan => math_expressions::atan,
-        BuiltinFunction::Exp => math_expressions::exp,
-        BuiltinFunction::Log => math_expressions::ln,
-        BuiltinFunction::Log2 => math_expressions::log2,
-        BuiltinFunction::Log10 => math_expressions::log10,
-        BuiltinFunction::Floor => math_expressions::floor,
-        BuiltinFunction::Ceil => math_expressions::ceil,
-        BuiltinFunction::Round => math_expressions::round,
-        BuiltinFunction::Trunc => math_expressions::trunc,
-        BuiltinFunction::Abs => math_expressions::abs,
-        BuiltinFunction::Signum => math_expressions::signum,
-        BuiltinFunction::Length => |args| Ok(Arc::new(length(args[0].as_ref())?)),
-        BuiltinFunction::Concat => {
+        BuiltinScalarFunction::Sqrt => math_expressions::sqrt,
+        BuiltinScalarFunction::Sin => math_expressions::sin,
+        BuiltinScalarFunction::Cos => math_expressions::cos,
+        BuiltinScalarFunction::Tan => math_expressions::tan,
+        BuiltinScalarFunction::Asin => math_expressions::asin,
+        BuiltinScalarFunction::Acos => math_expressions::acos,
+        BuiltinScalarFunction::Atan => math_expressions::atan,
+        BuiltinScalarFunction::Exp => math_expressions::exp,
+        BuiltinScalarFunction::Log => math_expressions::ln,
+        BuiltinScalarFunction::Log2 => math_expressions::log2,
+        BuiltinScalarFunction::Log10 => math_expressions::log10,
+        BuiltinScalarFunction::Floor => math_expressions::floor,
+        BuiltinScalarFunction::Ceil => math_expressions::ceil,
+        BuiltinScalarFunction::Round => math_expressions::round,
+        BuiltinScalarFunction::Trunc => math_expressions::trunc,
+        BuiltinScalarFunction::Abs => math_expressions::abs,
+        BuiltinScalarFunction::Signum => math_expressions::signum,
+        BuiltinScalarFunction::Length => |args| Ok(Arc::new(length(args[0].as_ref())?)),
+        BuiltinScalarFunction::Concat => {
             |args| Ok(Arc::new(string_expressions::concatenate(args)?))
         }
     });
@@ -227,13 +230,13 @@ pub fn create_physical_expr(
 }
 
 /// the signatures supported by the function `fun`.
-fn signature(fun: &BuiltinFunction) -> Signature {
+fn signature(fun: &BuiltinScalarFunction) -> Signature {
     // note: the physical expression must accept the type returned by this function or the execution panics.
 
     // for now, the list is small, as we do not have many built-in functions.
     match fun {
-        BuiltinFunction::Length => Signature::Uniform(1, vec![DataType::Utf8]),
-        BuiltinFunction::Concat => Signature::Variadic(vec![DataType::Utf8]),
+        BuiltinScalarFunction::Length => Signature::Uniform(1, vec![DataType::Utf8]),
+        BuiltinScalarFunction::Concat => Signature::Variadic(vec![DataType::Utf8]),
         // math expressions expect 1 argument of type f64 or f32
         // priority is given to f64 because e.g. `sqrt(1i32)` is in IR (real numbers) and thus we
         // return the best approximation for it (in f64).
@@ -336,7 +339,8 @@ mod tests {
 
         let arg = lit(value);
 
-        let expr = create_physical_expr(&BuiltinFunction::Exp, &vec![arg], &schema)?;
+        let expr =
+            create_physical_expr(&BuiltinScalarFunction::Exp, &vec![arg], &schema)?;
 
         // type is correct
         assert_eq!(expr.data_type(&schema)?, DataType::Float64);
@@ -374,7 +378,7 @@ mod tests {
 
         // concat(value, value)
         let expr = create_physical_expr(
-            &BuiltinFunction::Concat,
+            &BuiltinScalarFunction::Concat,
             &vec![lit(value.clone()), lit(value)],
             &schema,
         )?;
@@ -402,7 +406,7 @@ mod tests {
 
     #[test]
     fn test_concat_error() -> Result<()> {
-        let result = return_type(&BuiltinFunction::Concat, &vec![]);
+        let result = return_type(&BuiltinScalarFunction::Concat, &vec![]);
         if let Ok(_) = result {
             Err(ExecutionError::General(
                 "Function 'concat' cannot accept zero arguments".to_string(),

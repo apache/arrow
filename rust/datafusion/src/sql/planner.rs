@@ -485,7 +485,7 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
                 let name: String = function.name.to_string();
 
                 // first, scalar built-in
-                if let Ok(fun) = functions::BuiltinFunction::from_str(&name) {
+                if let Ok(fun) = functions::BuiltinScalarFunction::from_str(&name) {
                     let args = function
                         .args
                         .iter()
