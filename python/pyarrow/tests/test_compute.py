@@ -17,7 +17,6 @@
 
 from functools import lru_cache
 import numpy as np
-import pandas as pd
 import pytest
 
 import pyarrow as pa
@@ -173,11 +172,11 @@ def test_mode_array_with_nan():
     arr = pa.array([1, 1, 3, 4, np.nan, 3, 5, np.nan, np.nan], type="float")
 
     result = pc.mode(arr).as_py()
-    assert pd.isna(result["mode"]) is True
+    assert np.isnan(result["mode"])
     assert result["count"] == 3
 
     result = arr.mode().as_py()
-    assert pd.isna(result["mode"]) is True
+    assert np.isnan(result["mode"])
     assert result["count"] == 3
 
 
