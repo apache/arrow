@@ -111,7 +111,7 @@ pub trait Array: fmt::Debug + Send + Sync + ArrayEqual + JsonEqual {
     /// assert!(array_slice.equals(&Int32Array::from(vec![2, 3, 4])));
     /// ```
     fn slice(&self, offset: usize, length: usize) -> ArrayRef {
-        make_array(slice_data(self.data(), offset, length))
+        make_array(slice_data(self.data_ref(), offset, length))
     }
 
     /// Returns the length (i.e., number of elements) of this array.
@@ -126,7 +126,7 @@ pub trait Array: fmt::Debug + Send + Sync + ArrayEqual + JsonEqual {
     /// assert_eq!(array.len(), 5);
     /// ```
     fn len(&self) -> usize {
-        self.data().len()
+        self.data_ref().len()
     }
 
     /// Returns whether this array is empty.
@@ -141,7 +141,7 @@ pub trait Array: fmt::Debug + Send + Sync + ArrayEqual + JsonEqual {
     /// assert_eq!(array.is_empty(), false);
     /// ```
     fn is_empty(&self) -> bool {
-        self.data().is_empty()
+        self.data_ref().is_empty()
     }
 
     /// Returns the offset into the underlying data used by this array(-slice).
@@ -161,7 +161,7 @@ pub trait Array: fmt::Debug + Send + Sync + ArrayEqual + JsonEqual {
     /// assert_eq!(array_slice.offset(), 1);
     /// ```
     fn offset(&self) -> usize {
-        self.data().offset()
+        self.data_ref().offset()
     }
 
     /// Returns whether the element at `index` is null.
@@ -178,7 +178,8 @@ pub trait Array: fmt::Debug + Send + Sync + ArrayEqual + JsonEqual {
     /// assert_eq!(array.is_null(1), true);
     /// ```
     fn is_null(&self, index: usize) -> bool {
-        self.data().is_null(self.data().offset() + index)
+        let data = self.data_ref();
+        data.is_null(data.offset() + index)
     }
 
     /// Returns whether the element at `index` is not null.
@@ -195,7 +196,8 @@ pub trait Array: fmt::Debug + Send + Sync + ArrayEqual + JsonEqual {
     /// assert_eq!(array.is_valid(1), false);
     /// ```
     fn is_valid(&self, index: usize) -> bool {
-        self.data().is_valid(self.data().offset() + index)
+        let data = self.data_ref();
+        data.is_valid(data.offset() + index)
     }
 
     /// Returns the total number of null values in this array.
@@ -211,7 +213,7 @@ pub trait Array: fmt::Debug + Send + Sync + ArrayEqual + JsonEqual {
     /// assert_eq!(array.null_count(), 2);
     /// ```
     fn null_count(&self) -> usize {
-        self.data().null_count()
+        self.data_ref().null_count()
     }
 
     /// Returns the total number of bytes of memory occupied by the buffers owned by this array.
@@ -337,7 +339,7 @@ pub fn make_array(data: ArrayDataRef) -> ArrayRef {
 /// # Panics
 ///
 /// Panics if `offset + length > data.len()`.
-fn slice_data(data: ArrayDataRef, mut offset: usize, length: usize) -> ArrayDataRef {
+fn slice_data(data: &ArrayDataRef, mut offset: usize, length: usize) -> ArrayDataRef {
     assert!((offset + length) <= data.len());
 
     let mut new_data = data.as_ref().clone();
@@ -1046,7 +1048,7 @@ impl ListArray {
 
     /// Returns a clone of the value type of this list.
     pub fn value_type(&self) -> DataType {
-        self.values.data().data_type().clone()
+        self.values.data_ref().data_type().clone()
     }
 
     /// Returns ith value of this list array.
@@ -1086,7 +1088,7 @@ impl LargeListArray {
 
     /// Returns a clone of the value type of this list.
     pub fn value_type(&self) -> DataType {
-        self.values.data().data_type().clone()
+        self.values.data_ref().data_type().clone()
     }
 
     /// Returns ith value of this list array.
@@ -1290,7 +1292,7 @@ impl FixedSizeListArray {
 
     /// Returns a clone of the value type of this list.
     pub fn value_type(&self) -> DataType {
-        self.values.data().data_type().clone()
+        self.values.data_ref().data_type().clone()
     }
 
     /// Returns ith value of this list array.
@@ -1806,24 +1808,24 @@ impl<'a> TryFrom<Vec<Option<&'a str>>> for LargeStringArray {
 impl From<ListArray> for BinaryArray {
     fn from(v: ListArray) -> Self {
         assert_eq!(
-            v.data().child_data()[0].child_data().len(),
+            v.data_ref().child_data()[0].child_data().len(),
             0,
             "BinaryArray can only be created from list array of u8 values \
              (i.e. List<PrimitiveArray<u8>>)."
         );
         assert_eq!(
-            v.data().child_data()[0].data_type(),
+            v.data_ref().child_data()[0].data_type(),
             &DataType::UInt8,
             "BinaryArray can only be created from List<u8> arrays, mismatched data types."
         );
 
         let mut builder = ArrayData::builder(DataType::Binary)
             .len(v.len())
-            .add_buffer(v.data().buffers()[0].clone())
-            .add_buffer(v.data().child_data()[0].buffers()[0].clone());
-        if let Some(bitmap) = v.data().null_bitmap() {
+            .add_buffer(v.data_ref().buffers()[0].clone())
+            .add_buffer(v.data_ref().child_data()[0].buffers()[0].clone());
+        if let Some(bitmap) = v.data_ref().null_bitmap() {
             builder = builder
-                .null_count(v.data().null_count())
+                .null_count(v.data_ref().null_count())
                 .null_bit_buffer(bitmap.bits.clone())
         }
 
@@ -1842,18 +1844,18 @@ impl From<ListArray> for StringArray {
              (i.e. List<PrimitiveArray<u8>>)."
         );
         assert_eq!(
-            v.data().child_data()[0].data_type(),
+            v.data_ref().child_data()[0].data_type(),
             &DataType::UInt8,
             "StringArray can only be created from List<u8> arrays, mismatched data types."
         );
 
         let mut builder = ArrayData::builder(DataType::Utf8)
             .len(v.len())
-            .add_buffer(v.data().buffers()[0].clone())
-            .add_buffer(v.data().child_data()[0].buffers()[0].clone());
+            .add_buffer(v.data_ref().buffers()[0].clone())
+            .add_buffer(v.data_ref().child_data()[0].buffers()[0].clone());
         if let Some(bitmap) = v.data().null_bitmap() {
             builder = builder
-                .null_count(v.data().null_count())
+                .null_count(v.data_ref().null_count())
                 .null_bit_buffer(bitmap.bits.clone())
         }
 
@@ -1866,24 +1868,24 @@ impl From<ListArray> for StringArray {
 impl From<LargeListArray> for LargeBinaryArray {
     fn from(v: LargeListArray) -> Self {
         assert_eq!(
-            v.data().child_data()[0].child_data().len(),
+            v.data_ref().child_data()[0].child_data().len(),
             0,
             "LargeBinaryArray can only be created from list array of u8 values \
              (i.e. LargeList<PrimitiveArray<u8>>)."
         );
         assert_eq!(
-            v.data().child_data()[0].data_type(),
+            v.data_ref().child_data()[0].data_type(),
             &DataType::UInt8,
             "LargeBinaryArray can only be created from LargeList<u8> arrays, mismatched data types."
         );
 
         let mut builder = ArrayData::builder(DataType::LargeBinary)
             .len(v.len())
-            .add_buffer(v.data().buffers()[0].clone())
-            .add_buffer(v.data().child_data()[0].buffers()[0].clone());
+            .add_buffer(v.data_ref().buffers()[0].clone())
+            .add_buffer(v.data_ref().child_data()[0].buffers()[0].clone());
         if let Some(bitmap) = v.data().null_bitmap() {
             builder = builder
-                .null_count(v.data().null_count())
+                .null_count(v.data_ref().null_count())
                 .null_bit_buffer(bitmap.bits.clone())
         }
 
@@ -1896,24 +1898,24 @@ impl From<LargeListArray> for LargeBinaryArray {
 impl From<LargeListArray> for LargeStringArray {
     fn from(v: LargeListArray) -> Self {
         assert_eq!(
-            v.data().child_data()[0].child_data().len(),
+            v.data_ref().child_data()[0].child_data().len(),
             0,
             "LargeStringArray can only be created from list array of u8 values \
              (i.e. LargeList<PrimitiveArray<u8>>)."
         );
         assert_eq!(
-            v.data().child_data()[0].data_type(),
+            v.data_ref().child_data()[0].data_type(),
             &DataType::UInt8,
             "LargeStringArray can only be created from LargeList<u8> arrays, mismatched data types."
         );
 
         let mut builder = ArrayData::builder(DataType::LargeUtf8)
             .len(v.len())
-            .add_buffer(v.data().buffers()[0].clone())
-            .add_buffer(v.data().child_data()[0].buffers()[0].clone());
-        if let Some(bitmap) = v.data().null_bitmap() {
+            .add_buffer(v.data_ref().buffers()[0].clone())
+            .add_buffer(v.data_ref().child_data()[0].buffers()[0].clone());
+        if let Some(bitmap) = v.data_ref().null_bitmap() {
             builder = builder
-                .null_count(v.data().null_count())
+                .null_count(v.data_ref().null_count())
                 .null_bit_buffer(bitmap.bits.clone())
         }
 
@@ -1926,23 +1928,23 @@ impl From<LargeListArray> for LargeStringArray {
 impl From<FixedSizeListArray> for FixedSizeBinaryArray {
     fn from(v: FixedSizeListArray) -> Self {
         assert_eq!(
-            v.data().child_data()[0].child_data().len(),
+            v.data_ref().child_data()[0].child_data().len(),
             0,
             "FixedSizeBinaryArray can only be created from list array of u8 values \
              (i.e. FixedSizeList<PrimitiveArray<u8>>)."
         );
         assert_eq!(
-            v.data().child_data()[0].data_type(),
+            v.data_ref().child_data()[0].data_type(),
             &DataType::UInt8,
             "FixedSizeBinaryArray can only be created from FixedSizeList<u8> arrays, mismatched data types."
         );
 
         let mut builder = ArrayData::builder(DataType::FixedSizeBinary(v.value_length()))
             .len(v.len())
-            .add_buffer(v.data().child_data()[0].buffers()[0].clone());
-        if let Some(bitmap) = v.data().null_bitmap() {
+            .add_buffer(v.data_ref().child_data()[0].buffers()[0].clone());
+        if let Some(bitmap) = v.data_ref().null_bitmap() {
             builder = builder
-                .null_count(v.data().null_count())
+                .null_count(v.data_ref().null_count())
                 .null_bit_buffer(bitmap.bits.clone())
         }
 
@@ -2078,7 +2080,7 @@ impl From<ArrayDataRef> for StructArray {
         let mut boxed_fields = vec![];
         for cd in data.child_data() {
             let child_data = if data.offset != 0 || data.len != cd.len {
-                slice_data(cd.clone(), data.offset, data.len)
+                slice_data(&cd, data.offset, data.len)
             } else {
                 cd.clone()
             };
@@ -2103,7 +2105,7 @@ impl Array for StructArray {
 
     /// Returns the length (i.e., number of elements) of this array
     fn len(&self) -> usize {
-        self.data().len()
+        self.data_ref().len()
     }
 
     /// Returns the total number of bytes of memory occupied by the buffers owned by this [StructArray].
@@ -2319,7 +2321,7 @@ impl<'a, K: ArrowPrimitiveType> DictionaryArray<K> {
 
     /// Returns a clone of the value type of this list.
     pub fn value_type(&self) -> DataType {
-        self.values.data().data_type().clone()
+        self.values.data_ref().data_type().clone()
     }
 
     /// The length of the dictionary is the length of the keys array.
