@@ -432,6 +432,9 @@ ParquetFileReader <- R6Class("ParquetFileReader",
   active = list(
     num_rows = function() {
       as.integer(parquet___arrow___FileReader__num_rows(self))
+    },
+    num_columns = function() {
+      parquet___arrow___FileReader__num_columns(self)
     }
   ),
   public = list(
@@ -444,6 +447,9 @@ ParquetFileReader <- R6Class("ParquetFileReader",
         indices <- match(vars_select(all_vars, !!col_select), all_vars) - 1L
         shared_ptr(Table, parquet___arrow___FileReader__ReadTable2(self, indices))
       }
+    },
+    ReadColumn = function(i) {
+      shared_ptr(ChunkedArray, parquet___arrow___FileReader__ReadColumn(self, i))
     },
     GetSchema = function() {
       shared_ptr(Schema, parquet___arrow___FileReader__GetSchema(self))

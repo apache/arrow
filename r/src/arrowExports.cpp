@@ -4438,6 +4438,37 @@ extern "C" SEXP _arrow_parquet___arrow___FileReader__num_rows(SEXP reader_sexp){
 
 // parquet.cpp
 #if defined(ARROW_R_WITH_ARROW)
+int parquet___arrow___FileReader__num_columns(const std::shared_ptr<parquet::arrow::FileReader>& reader);
+extern "C" SEXP _arrow_parquet___arrow___FileReader__num_columns(SEXP reader_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<parquet::arrow::FileReader>&>::type reader(reader_sexp);
+	return cpp11::as_sexp(parquet___arrow___FileReader__num_columns(reader));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_parquet___arrow___FileReader__num_columns(SEXP reader_sexp){
+	Rf_error("Cannot call parquet___arrow___FileReader__num_columns(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// parquet.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::ChunkedArray> parquet___arrow___FileReader__ReadColumn(const std::shared_ptr<parquet::arrow::FileReader>& reader, int i);
+extern "C" SEXP _arrow_parquet___arrow___FileReader__ReadColumn(SEXP reader_sexp, SEXP i_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<parquet::arrow::FileReader>&>::type reader(reader_sexp);
+	arrow::r::Input<int>::type i(i_sexp);
+	return cpp11::as_sexp(parquet___arrow___FileReader__ReadColumn(reader, i));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_parquet___arrow___FileReader__ReadColumn(SEXP reader_sexp, SEXP i_sexp){
+	Rf_error("Cannot call parquet___arrow___FileReader__ReadColumn(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// parquet.cpp
+#if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<parquet::ArrowWriterProperties> parquet___ArrowWriterProperties___create(bool allow_truncated_timestamps, bool use_deprecated_int96_timestamps, int timestamp_unit);
 extern "C" SEXP _arrow_parquet___ArrowWriterProperties___create(SEXP allow_truncated_timestamps_sexp, SEXP use_deprecated_int96_timestamps_sexp, SEXP timestamp_unit_sexp){
 BEGIN_CPP11
@@ -6301,6 +6332,8 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_parquet___arrow___FileReader__ReadTable1", (DL_FUNC) &_arrow_parquet___arrow___FileReader__ReadTable1, 1}, 
 		{ "_arrow_parquet___arrow___FileReader__ReadTable2", (DL_FUNC) &_arrow_parquet___arrow___FileReader__ReadTable2, 2}, 
 		{ "_arrow_parquet___arrow___FileReader__num_rows", (DL_FUNC) &_arrow_parquet___arrow___FileReader__num_rows, 1}, 
+		{ "_arrow_parquet___arrow___FileReader__num_columns", (DL_FUNC) &_arrow_parquet___arrow___FileReader__num_columns, 1}, 
+		{ "_arrow_parquet___arrow___FileReader__ReadColumn", (DL_FUNC) &_arrow_parquet___arrow___FileReader__ReadColumn, 2}, 
 		{ "_arrow_parquet___ArrowWriterProperties___create", (DL_FUNC) &_arrow_parquet___ArrowWriterProperties___create, 3}, 
 		{ "_arrow_parquet___WriterProperties___Builder__create", (DL_FUNC) &_arrow_parquet___WriterProperties___Builder__create, 0}, 
 		{ "_arrow_parquet___WriterProperties___Builder__version", (DL_FUNC) &_arrow_parquet___WriterProperties___Builder__version, 2}, 

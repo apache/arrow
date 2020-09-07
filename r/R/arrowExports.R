@@ -1140,6 +1140,14 @@ parquet___arrow___FileReader__num_rows <- function(reader){
     .Call(`_arrow_parquet___arrow___FileReader__num_rows` , reader)
 }
 
+parquet___arrow___FileReader__num_columns <- function(reader){
+    .Call(`_arrow_parquet___arrow___FileReader__num_columns` , reader)
+}
+
+parquet___arrow___FileReader__ReadColumn <- function(reader, i){
+    .Call(`_arrow_parquet___arrow___FileReader__ReadColumn` , reader, i)
+}
+
 parquet___ArrowWriterProperties___create <- function(allow_truncated_timestamps, use_deprecated_int96_timestamps, timestamp_unit){
     .Call(`_arrow_parquet___ArrowWriterProperties___create` , allow_truncated_timestamps, use_deprecated_int96_timestamps, timestamp_unit)
 }
