@@ -300,7 +300,7 @@ garrow_function_find(const gchar *name)
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: (nullable) (transfer full):
- *   A return value of the execution as #GArrowData on success, %NULL on error.
+ *   A return value of the execution as #GArrowDatum on success, %NULL on error.
  *
  * Since: 1.0.0
  */
