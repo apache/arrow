@@ -52,8 +52,24 @@ int64_t CountSetBits(const uint8_t* data, int64_t bit_offset, int64_t length) {
     DCHECK_EQ(reinterpret_cast<size_t>(u64_data) & 7, 0);
     const uint64_t* end = u64_data + p.aligned_words;
 
-    for (auto iter = u64_data; iter < end; ++iter) {
-      count += BitUtil::PopCount(*iter);
+    constexpr int64_t kCountUnrollFactor = 4;
+    const int64_t words_rounded = BitUtil::RoundDown(p.aligned_words, kCountUnrollFactor);
+    int64_t count_unroll[kCountUnrollFactor] = {0};
+
+    // Unroll the loop for better performance
+    for (int64_t i = 0; i < words_rounded; i += kCountUnrollFactor) {
+      for (int64_t k = 0; k < kCountUnrollFactor; k++) {
+        count_unroll[k] += BitUtil::PopCount(u64_data[k]);
+      }
+      u64_data += kCountUnrollFactor;
+    }
+    for (int64_t k = 0; k < kCountUnrollFactor; k++) {
+      count += count_unroll[k];
+    }
+
+    // The trailing part
+    for (; u64_data < end; ++u64_data) {
+      count += BitUtil::PopCount(*u64_data);
     }
   }
 
