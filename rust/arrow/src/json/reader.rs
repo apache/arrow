@@ -483,6 +483,27 @@ impl<R: Read> Reader<R> {
                         self.build_primitive_array::<UInt16Type>(rows, field.name())
                     }
                     DataType::UInt8 => self.build_primitive_array::<UInt8Type>(rows, field.name()),
+                    DataType::Timestamp(unit, _) =>
+                        match unit {
+                            TimeUnit::Second => self.build_primitive_array::<TimestampSecondType>(rows, field.name()),
+                            TimeUnit::Microsecond => self.build_primitive_array::<TimestampMicrosecondType>(rows, field.name()),
+                            TimeUnit::Millisecond => self.build_primitive_array::<TimestampMillisecondType>(rows, field.name()),
+                            TimeUnit::Nanosecond => self.build_primitive_array::<TimestampNanosecondType>(rows, field.name()),
+                        },
+                    DataType::Date64(_) => self.build_primitive_array::<Date64Type>(rows, field.name()),
+                    DataType::Date32(_) => self.build_primitive_array::<Date32Type>(rows, field.name()),
+                    DataType::Time64(unit) =>
+                        match unit {
+                            TimeUnit::Microsecond => self.build_primitive_array::<Time64MicrosecondType>(rows, field.name()),
+                            TimeUnit::Nanosecond => self.build_primitive_array::<Time64NanosecondType>(rows, field.name()),
+                            _ => unimplemented!(),
+                        },
+                    DataType::Time32(unit) =>
+                        match unit {
+                            TimeUnit::Second => self.build_primitive_array::<Time32SecondType>(rows, field.name()),
+                            TimeUnit::Millisecond => self.build_primitive_array::<Time32MillisecondType>(rows, field.name()),
+                            _ => unimplemented!(),
+                        },
                     DataType::Utf8 => {
                         let mut builder = StringBuilder::new(rows.len());
                         for row in rows {
@@ -569,7 +590,8 @@ impl<R: Read> Reader<R> {
                             Err(ArrowError::JsonError("dictionary types other than UTF-8 not yet supported".to_string()))
                         }
                     }
-                    _ => Err(ArrowError::JsonError("struct types are not yet supported".to_string())),
+                    DataType::Struct(_) => Err(ArrowError::JsonError("struct types are not yet supported".to_string())),
+                    _ => Err(ArrowError::JsonError(format!("{:?} type is not supported", field.data_type()))),
                 }
             })
             .collect();
@@ -1493,5 +1515,167 @@ mod tests {
         let inferred_schema = infer_json_schema(&mut reader, None).unwrap();
 
         assert_eq!(inferred_schema, Arc::new(schema));
+    }
+
+    #[test]
+    fn test_timestamp_from_json_seconds() {
+        let schema = Schema::new(vec![Field::new(
+            "a",
+            DataType::Timestamp(TimeUnit::Second, None),
+            true,
+        )]);
+
+        let builder = ReaderBuilder::new()
+            .with_schema(Arc::new(schema))
+            .with_batch_size(64);
+        let mut reader: Reader<File> = builder
+            .build::<File>(File::open("test/data/basic_nulls.json").unwrap())
+            .unwrap();
+        let batch = reader.next().unwrap().unwrap();
+
+        assert_eq!(1, batch.num_columns());
+        assert_eq!(12, batch.num_rows());
+
+        let schema = reader.schema();
+        let batch_schema = batch.schema();
+        assert_eq!(schema, batch_schema);
+
+        let a = schema.column_with_name("a").unwrap();
+        assert_eq!(
+            &DataType::Timestamp(TimeUnit::Second, None),
+            a.1.data_type()
+        );
+
+        let aa = batch
+            .column(a.0)
+            .as_any()
+            .downcast_ref::<TimestampSecondArray>()
+            .unwrap();
+        assert_eq!(true, aa.is_valid(0));
+        assert_eq!(false, aa.is_valid(1));
+        assert_eq!(false, aa.is_valid(2));
+        assert_eq!(1, aa.value(0));
+        assert_eq!(1, aa.value(3));
+        assert_eq!(5, aa.value(7));
+    }
+
+    #[test]
+    fn test_timestamp_from_json_milliseconds() {
+        let schema = Schema::new(vec![Field::new(
+            "a",
+            DataType::Timestamp(TimeUnit::Millisecond, None),
+            true,
+        )]);
+
+        let builder = ReaderBuilder::new()
+            .with_schema(Arc::new(schema))
+            .with_batch_size(64);
+        let mut reader: Reader<File> = builder
+            .build::<File>(File::open("test/data/basic_nulls.json").unwrap())
+            .unwrap();
+        let batch = reader.next().unwrap().unwrap();
+
+        assert_eq!(1, batch.num_columns());
+        assert_eq!(12, batch.num_rows());
+
+        let schema = reader.schema();
+        let batch_schema = batch.schema();
+        assert_eq!(schema, batch_schema);
+
+        let a = schema.column_with_name("a").unwrap();
+        assert_eq!(
+            &DataType::Timestamp(TimeUnit::Millisecond, None),
+            a.1.data_type()
+        );
+
+        let aa = batch
+            .column(a.0)
+            .as_any()
+            .downcast_ref::<TimestampMillisecondArray>()
+            .unwrap();
+        assert_eq!(true, aa.is_valid(0));
+        assert_eq!(false, aa.is_valid(1));
+        assert_eq!(false, aa.is_valid(2));
+        assert_eq!(1, aa.value(0));
+        assert_eq!(1, aa.value(3));
+        assert_eq!(5, aa.value(7));
+    }
+
+    #[test]
+    fn test_date_from_json_milliseconds() {
+        let schema = Schema::new(vec![Field::new(
+            "a",
+            DataType::Date64(DateUnit::Millisecond),
+            true,
+        )]);
+
+        let builder = ReaderBuilder::new()
+            .with_schema(Arc::new(schema))
+            .with_batch_size(64);
+        let mut reader: Reader<File> = builder
+            .build::<File>(File::open("test/data/basic_nulls.json").unwrap())
+            .unwrap();
+        let batch = reader.next().unwrap().unwrap();
+
+        assert_eq!(1, batch.num_columns());
+        assert_eq!(12, batch.num_rows());
+
+        let schema = reader.schema();
+        let batch_schema = batch.schema();
+        assert_eq!(schema, batch_schema);
+
+        let a = schema.column_with_name("a").unwrap();
+        assert_eq!(&DataType::Date64(DateUnit::Millisecond), a.1.data_type());
+
+        let aa = batch
+            .column(a.0)
+            .as_any()
+            .downcast_ref::<Date64Array>()
+            .unwrap();
+        assert_eq!(true, aa.is_valid(0));
+        assert_eq!(false, aa.is_valid(1));
+        assert_eq!(false, aa.is_valid(2));
+        assert_eq!(1, aa.value(0));
+        assert_eq!(1, aa.value(3));
+        assert_eq!(5, aa.value(7));
+    }
+
+    #[test]
+    fn test_time_from_json_nanoseconds() {
+        let schema = Schema::new(vec![Field::new(
+            "a",
+            DataType::Time64(TimeUnit::Nanosecond),
+            true,
+        )]);
+
+        let builder = ReaderBuilder::new()
+            .with_schema(Arc::new(schema))
+            .with_batch_size(64);
+        let mut reader: Reader<File> = builder
+            .build::<File>(File::open("test/data/basic_nulls.json").unwrap())
+            .unwrap();
+        let batch = reader.next().unwrap().unwrap();
+
+        assert_eq!(1, batch.num_columns());
+        assert_eq!(12, batch.num_rows());
+
+        let schema = reader.schema();
+        let batch_schema = batch.schema();
+        assert_eq!(schema, batch_schema);
+
+        let a = schema.column_with_name("a").unwrap();
+        assert_eq!(&DataType::Time64(TimeUnit::Nanosecond), a.1.data_type());
+
+        let aa = batch
+            .column(a.0)
+            .as_any()
+            .downcast_ref::<Time64NanosecondArray>()
+            .unwrap();
+        assert_eq!(true, aa.is_valid(0));
+        assert_eq!(false, aa.is_valid(1));
+        assert_eq!(false, aa.is_valid(2));
+        assert_eq!(1, aa.value(0));
+        assert_eq!(1, aa.value(3));
+        assert_eq!(5, aa.value(7));
     }
 }
