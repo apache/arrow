@@ -122,7 +122,12 @@ class CrossbowCommentFormatter:
             title='Appveyor',
             url='https://ci.appveyor.com/project/{repo}/history',
             badge='https://img.shields.io/appveyor/ci/{repo}/{branch}.svg'
-        )
+        ),
+        'drone': _markdown_badge.format(
+            title='Drone',
+            url='https://cloud.drone.io/{repo}',
+            badge='https://img.shields.io/drone/build/{repo}/{branch}.svg'
+        ),
     }
 
     def __init__(self, crossbow_repo):
