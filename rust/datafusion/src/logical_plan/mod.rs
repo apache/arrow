@@ -30,7 +30,9 @@ use crate::datasource::parquet::ParquetTable;
 use crate::datasource::TableProvider;
 use crate::error::{ExecutionError, Result};
 use crate::{
-    physical_plan::{expressions::binary_operator_data_type, functions},
+    physical_plan::{
+        expressions::binary_operator_data_type, functions, type_coercion::can_coerce_from,
+    },
     sql::parser::FileType,
 };
 use arrow::record_batch::RecordBatch;
@@ -1033,59 +1035,6 @@ impl LogicalPlan {
 impl fmt::Debug for LogicalPlan {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.fmt_with_indent(f, 0)
-    }
-}
-
-/// Verify a given type cast can be performed
-pub fn can_coerce_from(type_into: &DataType, type_from: &DataType) -> bool {
-    use self::DataType::*;
-    match type_into {
-        Int8 => match type_from {
-            Int8 => true,
-            _ => false,
-        },
-        Int16 => match type_from {
-            Int8 | Int16 | UInt8 => true,
-            _ => false,
-        },
-        Int32 => match type_from {
-            Int8 | Int16 | Int32 | UInt8 | UInt16 => true,
-            _ => false,
-        },
-        Int64 => match type_from {
-            Int8 | Int16 | Int32 | Int64 | UInt8 | UInt16 | UInt32 => true,
-            _ => false,
-        },
-        UInt8 => match type_from {
-            UInt8 => true,
-            _ => false,
-        },
-        UInt16 => match type_from {
-            UInt8 | UInt16 => true,
-            _ => false,
-        },
-        UInt32 => match type_from {
-            UInt8 | UInt16 | UInt32 => true,
-            _ => false,
-        },
-        UInt64 => match type_from {
-            UInt8 | UInt16 | UInt32 | UInt64 => true,
-            _ => false,
-        },
-        Float32 => match type_from {
-            Int8 | Int16 | Int32 | Int64 => true,
-            UInt8 | UInt16 | UInt32 | UInt64 => true,
-            Float32 => true,
-            _ => false,
-        },
-        Float64 => match type_from {
-            Int8 | Int16 | Int32 | Int64 => true,
-            UInt8 | UInt16 | UInt32 | UInt64 => true,
-            Float32 | Float64 => true,
-            _ => false,
-        },
-        Utf8 => true,
-        _ => false,
     }
 }
 
