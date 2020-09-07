@@ -36,21 +36,11 @@ class TestListArray < Test::Unit::TestCase
   end
 
   def test_value
-    field = Arrow::Field.new("value", Arrow::Int8DataType.new)
-    data_type = Arrow::ListDataType.new(field)
-    builder = Arrow::ListArrayBuilder.new(data_type)
-    value_builder = builder.value_builder
-
-    builder.append_value
-    value_builder.append_value(-29)
-    value_builder.append_value(29)
-
-    builder.append_value
-    value_builder.append_value(-1)
-    value_builder.append_value(0)
-    value_builder.append_value(1)
-
-    array = builder.finish
+    array = build_list_array(Arrow::Int8DataType.new,
+                             [
+                               [-29, 29],
+                               [-1, 0, 1],
+                             ])
     value = array.get_value(1)
     assert_equal([-1, 0, 1],
                  value.length.times.collect {|i| value.get_value(i)})
@@ -62,5 +52,46 @@ class TestListArray < Test::Unit::TestCase
     builder = Arrow::ListArrayBuilder.new(data_type)
     array = builder.finish
     assert_equal(Arrow::Int8DataType.new, array.value_type)
+  end
+
+  def test_values
+    array = build_list_array(Arrow::Int8DataType.new,
+                             [
+                               [-29, 29],
+                               [-1, 0, 1],
+                             ])
+    values = array.values
+    assert_equal([-29, 29, -1, 0, 1],
+                 values.length.times.collect {|i| values.get_value(i)})
+  end
+
+  def test_value_offset
+    array = build_list_array(Arrow::Int8DataType.new,
+                             [
+                               [-29, 29],
+                               [-1, 0, 1],
+                             ])
+    assert_equal([0, 2],
+                 array.length.times.collect {|i| array.get_value_offset(i)})
+  end
+
+  def test_value_length
+    array = build_list_array(Arrow::Int8DataType.new,
+                             [
+                               [-29, 29],
+                               [-1, 0, 1],
+                             ])
+    assert_equal([2, 3],
+                 array.length.times.collect {|i| array.get_value_length(i)})
+  end
+
+  def test_value_offsets
+    array = build_list_array(Arrow::Int8DataType.new,
+                             [
+                               [-29, 29],
+                               [-1, 0, 1],
+                             ])
+    assert_equal([0, 2, 5],
+                 array.value_offsets)
   end
 end

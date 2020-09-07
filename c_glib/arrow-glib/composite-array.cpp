@@ -140,6 +140,53 @@ garrow_base_list_array_get_value(GArrowArray *array,
                               "parent", array,
                               NULL);
 };
+
+template <typename LIST_ARRAY_CLASS>
+GArrowArray *
+garrow_base_list_array_get_values(GArrowArray *array)
+{
+  auto arrow_array = garrow_array_get_raw(array);
+  auto arrow_list_array =
+    std::static_pointer_cast<LIST_ARRAY_CLASS>(arrow_array);
+  auto arrow_values = arrow_list_array->values();
+  return garrow_array_new_raw(&arrow_values,
+                              "array", &arrow_values,
+                              "parent", array,
+                              NULL);
+};
+
+template <typename LIST_ARRAY_CLASS>
+typename LIST_ARRAY_CLASS::offset_type
+garrow_base_list_array_get_value_offset(GArrowArray *array, gint64 i)
+{
+  auto arrow_array = garrow_array_get_raw(array);
+  auto arrow_list_array =
+    std::static_pointer_cast<LIST_ARRAY_CLASS>(arrow_array);
+  return arrow_list_array->value_offset(i);
+};
+
+template <typename LIST_ARRAY_CLASS>
+typename LIST_ARRAY_CLASS::offset_type
+garrow_base_list_array_get_value_length(GArrowArray *array, gint64 i)
+{
+  auto arrow_array = garrow_array_get_raw(array);
+  auto arrow_list_array =
+    std::static_pointer_cast<LIST_ARRAY_CLASS>(arrow_array);
+  return arrow_list_array->value_length(i);
+};
+
+template <typename LIST_ARRAY_CLASS>
+const typename LIST_ARRAY_CLASS::offset_type *
+garrow_base_list_array_get_value_offsets(GArrowArray *array, gint64 *n_offsets)
+{
+  auto arrow_array = garrow_array_get_raw(array);
+  *n_offsets = arrow_array->length() + 1;
+  auto arrow_list_array =
+    std::static_pointer_cast<LIST_ARRAY_CLASS>(arrow_array);
+  return arrow_list_array->raw_value_offsets();
+};
+
+
 G_BEGIN_DECLS
 
 static void
@@ -277,6 +324,70 @@ garrow_list_array_get_value(GArrowListArray *array,
 {
   return garrow_base_list_array_get_value<arrow::ListArray>(
     GARROW_ARRAY(array), i);
+}
+
+/**
+ * garrow_list_array_get_values:
+ * @array: A #GArrowListArray.
+ *
+ * Returns: (transfer full): The array containing the list's values.
+ *
+ * Since: 2.0.0
+ */
+GArrowArray *
+garrow_list_array_get_values(GArrowListArray *array)
+{
+  return garrow_base_list_array_get_values<arrow::ListArray>(
+    GARROW_ARRAY(array));
+}
+
+/**
+ * garrow_list_array_get_offset:
+ * @array: A #GArrowListArray.
+ * @i: The index of the offset of the target value.
+ *
+ * Returns: The target offset in the array containing the list's values.
+ *
+ * Since: 2.0.0
+ */
+gint32
+garrow_list_array_get_value_offset(GArrowListArray *array, gint64 i)
+{
+  return garrow_base_list_array_get_value_offset<arrow::ListArray>(
+    GARROW_ARRAY(array), i);
+}
+
+/**
+ * garrow_list_array_get_value_length:
+ * @array: A #GArrowListArray.
+ * @i: The index of the length of the target value.
+ *
+ * Returns: The target length in the array containing the list's values.
+ *
+ * Since: 2.0.0
+ */
+gint32
+garrow_list_array_get_value_length(GArrowListArray *array, gint64 i)
+{
+  return garrow_base_list_array_get_value_length<arrow::ListArray>(
+    GARROW_ARRAY(array), i);
+}
+
+/**
+ * garrow_list_array_get_value_offsets:
+ * @array: A #GArrowListArray.
+ * @n_offsets: The number of offsets to be returned.
+ *
+ * Returns: (array length=n_offsets): The target offsets in the array
+ * containing the list's values.
+ *
+ * Since: 2.0.0
+ */
+const gint32 *
+garrow_list_array_get_value_offsets(GArrowListArray *array, gint64 *n_offsets)
+{
+  return garrow_base_list_array_get_value_offsets<arrow::ListArray>(
+    GARROW_ARRAY(array), n_offsets);
 }
 
 
@@ -432,6 +543,71 @@ garrow_large_list_array_get_value(GArrowLargeListArray *array,
   return garrow_base_list_array_get_value<arrow::LargeListArray>(
     GARROW_ARRAY(array),
     i);
+}
+
+/**
+ * garrow_large_list_array_get_values:
+ * @array: A #GArrowLargeListArray.
+ *
+ * Returns: (transfer full): The array containing the list's values.
+ *
+ * Since: 2.0.0
+ */
+GArrowArray *
+garrow_large_list_array_get_values(GArrowLargeListArray *array)
+{
+  return garrow_base_list_array_get_values<arrow::LargeListArray>(
+    GARROW_ARRAY(array));
+}
+
+/**
+ * garrow_large_list_array_get_value_offset:
+ * @array: A #GArrowLargeListArray.
+ * @i: The index of the offset of the target value.
+ *
+ * Returns: The target offset in the array containing the list's values.
+ *
+ * Since: 2.0.0
+ */
+gint64
+garrow_large_list_array_get_value_offset(GArrowLargeListArray *array, gint64 i)
+{
+  return garrow_base_list_array_get_value_offset<arrow::LargeListArray>(
+    GARROW_ARRAY(array), i);
+}
+
+/**
+ * garrow_large_list_array_get_length:
+ * @array: A #GArrowLargeListArray.
+ * @i: The index of the length of the target value.
+ *
+ * Returns: The target length in the array containing the list's values.
+ *
+ * Since: 2.0.0
+ */
+gint64
+garrow_large_list_array_get_value_length(GArrowLargeListArray *array, gint64 i)
+{
+  return garrow_base_list_array_get_value_length<arrow::LargeListArray>(
+    GARROW_ARRAY(array), i);
+}
+
+/**
+ * garrow_large_list_array_get_value_offsets:
+ * @array: A #GArrowLargeListArray.
+ * @n_offsets: The number of offsets to be returned.
+ *
+ * Returns: (array length=n_offsets): The target offsets in the array
+ * containing the list's values.
+ *
+ * Since: 2.0.0
+ */
+const gint64 *
+garrow_large_list_array_get_value_offsets(GArrowLargeListArray *array,
+                                          gint64 *n_offsets)
+{
+  return garrow_base_list_array_get_value_offsets<arrow::LargeListArray>(
+    GARROW_ARRAY(array), n_offsets);
 }
 
 
