@@ -69,7 +69,7 @@ jobs:
           git remote add upstream https://github.com/apache/arrow
           git fetch upstream
           changed() {
-            git diff --name-only HEAD^..upstream/master | grep -e "$1" >/dev/null 2>&1
+            git diff --name-only HEAD..upstream/master | grep -e "$1" >/dev/null 2>&1
           }
           if changed '^r/.*\.R$'; then
             echo "::set-env name=R_DOCS::true"
@@ -84,10 +84,11 @@ jobs:
             echo "::set-env name=CLANG_FORMAT_R::true"
           fi
       - name: Run cmake_format
-        if: false
-        # TODO: make this work https://issues.apache.org/jira/browse/ARROW-8489
-        # if: env.CMAKE_FORMAT == 'true' || endsWith(github.event.comment.body, 'everything')
+        if: env.CMAKE_FORMAT == 'true' || endsWith(github.event.comment.body, 'everything')
         run: |
+          set -ex
+          export PATH=/home/runner/.local/bin:$PATH
+          python3 -m pip install --upgrade pip setuptools wheel
           python3 -m pip install -r dev/archery/requirements-lint.txt
           python3 run-cmake-format.py
       - name: Run clang-format on cpp
