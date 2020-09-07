@@ -649,7 +649,9 @@ Status StructReader::NextBatch(int64_t records_to_read,
   // Gather children arrays and def levels
   for (auto& child : children_) {
     if (child->type() == ColumnReaderImpl::LIST) {
-      return Status::Invalid("Mix of struct and list types not yet supported");
+      return Status::NotImplemented(
+          "Reading structs of lists from Parquet files not yet supported: ",
+          field()->ToString());
     }
 
     std::shared_ptr<ChunkedArray> field;
