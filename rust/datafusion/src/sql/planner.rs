@@ -525,7 +525,7 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
                             args: rex_args,
                         })
                     }
-                    // finally, built-in scalar functions
+                    // finally, user-defined functions
                     _ => match self.schema_provider.get_function_meta(&name) {
                         Some(fm) => {
                             let rex_args = function
@@ -541,9 +541,8 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
                             }
 
                             Ok(Expr::ScalarUDF {
-                                name: name.clone(),
+                                fun: fm.clone(),
                                 args: safe_args,
-                                return_type: fm.return_type.clone(),
                             })
                         }
                         _ => Err(ExecutionError::General(format!(

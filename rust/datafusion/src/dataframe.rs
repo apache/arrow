@@ -19,7 +19,7 @@
 
 use crate::arrow::record_batch::RecordBatch;
 use crate::error::Result;
-use crate::logical_plan::{Expr, LogicalPlan};
+use crate::logical_plan::{Expr, FunctionRegistry, LogicalPlan};
 use arrow::datatypes::Schema;
 use std::sync::Arc;
 
@@ -188,4 +188,19 @@ pub trait DataFrame {
     /// # }
     /// ```
     fn explain(&self, verbose: bool) -> Result<Arc<dyn DataFrame>>;
+
+    /// Return a `FunctionRegistry` used to plan udf's calls
+    ///
+    /// ```
+    /// # use datafusion::prelude::*;
+    /// # use datafusion::error::Result;
+    /// # fn main() -> Result<()> {
+    /// let mut ctx = ExecutionContext::new();
+    /// let df = ctx.read_csv("tests/example.csv", CsvReadOptions::new())?;
+    /// let f = df.registry();
+    /// // use f.udf("name", vec![...]) to use the udf
+    /// # Ok(())
+    /// # }
+    /// ```
+    fn registry(&self) -> &dyn FunctionRegistry;
 }

@@ -36,12 +36,11 @@ use crate::datasource::parquet::ParquetTable;
 use crate::datasource::TableProvider;
 use crate::error::{ExecutionError, Result};
 use crate::execution::dataframe_impl::DataFrameImpl;
-use crate::logical_plan::{LogicalPlan, LogicalPlanBuilder};
+use crate::logical_plan::{Expr, FunctionRegistry, LogicalPlan, LogicalPlanBuilder};
+use crate::optimizer::filter_push_down::FilterPushDown;
 use crate::optimizer::optimizer::OptimizerRule;
 use crate::optimizer::projection_push_down::ProjectionPushDown;
-use crate::optimizer::{
-    filter_push_down::FilterPushDown, type_coercion::TypeCoercionRule,
-};
+use crate::optimizer::type_coercion::TypeCoercionRule;
 use crate::physical_plan::common;
 use crate::physical_plan::csv::CsvReadOptions;
 use crate::physical_plan::merge::MergeExec;
@@ -294,7 +293,7 @@ impl ExecutionContext {
     pub fn optimize(&self, plan: &LogicalPlan) -> Result<LogicalPlan> {
         let plan = ProjectionPushDown::new().optimize(&plan)?;
         let plan = FilterPushDown::new().optimize(&plan)?;
-        let plan = TypeCoercionRule::new(self).optimize(&plan)?;
+        let plan = TypeCoercionRule::new().optimize(&plan)?;
         Ok(plan)
     }
 
@@ -371,6 +370,11 @@ impl ExecutionContext {
 
         Ok(())
     }
+
+    /// get the registry, that allows to construct logical expressions of UDFs
+    pub fn registry(&self) -> &dyn FunctionRegistry {
+        &self.state
+    }
 }
 
 impl ScalarFunctionRegistry for ExecutionContext {
@@ -445,7 +449,27 @@ impl SchemaProvider for ExecutionContextState {
     fn get_function_meta(&self, name: &str) -> Option<Arc<ScalarFunction>> {
         self.scalar_functions
             .get(name)
-            .and_then(|func| Some(Arc::new(func.as_ref().clone())))
+            .and_then(|func| Some(func.clone()))
+    }
+}
+
+impl FunctionRegistry for ExecutionContextState {
+    fn udfs(&self) -> HashSet<String> {
+        self.scalar_functions.keys().cloned().collect()
+    }
+
+    fn udf(&self, name: &str, args: Vec<Expr>) -> Result<Expr> {
+        let result = self.scalar_functions.get(name);
+        if result.is_none() {
+            Err(ExecutionError::General(
+                format!("There is no UDF named \"{}\" in the registry", name).to_string(),
+            ))
+        } else {
+            Ok(Expr::ScalarUDF {
+                fun: result.unwrap().clone(),
+                args,
+            })
+        }
     }
 }
 
@@ -454,7 +478,7 @@ mod tests {
 
     use super::*;
     use crate::datasource::MemTable;
-    use crate::logical_plan::{aggregate_expr, col, scalar_function};
+    use crate::logical_plan::{aggregate_expr, col};
     use crate::physical_plan::udf::ScalarUdf;
     use crate::test;
     use arrow::array::{ArrayRef, Int32Array};
@@ -997,13 +1021,16 @@ mod tests {
 
         ctx.register_udf(my_add);
 
+        // from here on, we may be in a different scope. We would still like to be able
+        // to call UDFs.
+
         let t = ctx.table("t")?;
 
         let plan = LogicalPlanBuilder::from(&t.to_logical_plan())
             .project(vec![
                 col("a"),
                 col("b"),
-                scalar_function("my_add", vec![col("a"), col("b")], DataType::Int32),
+                ctx.registry().udf("my_add", vec![col("a"), col("b")])?,
             ])?
             .build()?;
 
