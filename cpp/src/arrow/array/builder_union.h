@@ -117,22 +117,23 @@ class ARROW_EXPORT DenseUnionBuilder : public BasicUnionBuilder {
     return child_builder->AppendNull();
   }
 
-  Status AppendEmpty() final {
+  Status AppendEmptyValue() final {
     const int8_t first_child_code = type_codes_[0];
     ArrayBuilder* child_builder = type_id_to_children_[first_child_code];
     ARROW_RETURN_NOT_OK(types_builder_.Append(first_child_code));
     ARROW_RETURN_NOT_OK(
         offsets_builder_.Append(static_cast<int32_t>(child_builder->length())));
-    return child_builder->AppendEmpty();
+    // Append a empty value to the first child
+    return child_builder->AppendEmptyValue();
   }
 
-  Status AppendEmpties(int64_t length) final {
+  Status AppendEmptyValues(int64_t length) final {
     const int8_t first_child_code = type_codes_[0];
     ArrayBuilder* child_builder = type_id_to_children_[first_child_code];
     ARROW_RETURN_NOT_OK(types_builder_.Append(length, first_child_code));
     ARROW_RETURN_NOT_OK(
         offsets_builder_.Append(length, static_cast<int32_t>(child_builder->length())));
-    return child_builder->AppendEmpty();
+    return child_builder->AppendEmptyValues(length);
   }
 
   /// \brief Append an element to the UnionArray. This must be followed
@@ -198,18 +199,19 @@ class ARROW_EXPORT SparseUnionBuilder : public BasicUnionBuilder {
     return Status::OK();
   }
 
-  Status AppendEmpty() final {
+  Status AppendEmptyValue() final {
     ARROW_RETURN_NOT_OK(types_builder_.Append(type_codes_[0]));
     for (int8_t code : type_codes_) {
-      ARROW_RETURN_NOT_OK(type_id_to_children_[code]->AppendEmpty());
+      ARROW_RETURN_NOT_OK(type_id_to_children_[code]->AppendEmptyValue());
     }
     return Status::OK();
   }
 
-  Status AppendEmpties(int64_t length) final {
+  Status AppendEmptyValues(int64_t length) final {
     ARROW_RETURN_NOT_OK(types_builder_.Append(length, type_codes_[0]));
+    // Append empties to children
     for (int8_t code : type_codes_) {
-      ARROW_RETURN_NOT_OK(type_id_to_children_[code]->AppendEmpties(length));
+      ARROW_RETURN_NOT_OK(type_id_to_children_[code]->AppendEmptyValues(length));
     }
     return Status::OK();
   }

@@ -100,8 +100,8 @@ class ARROW_EXPORT ArrayBuilder {
   virtual Status AppendNull() = 0;
   virtual Status AppendNulls(int64_t length) = 0;
 
-  virtual Status AppendEmpty() = 0;
-  virtual Status AppendEmpties(int64_t length) = 0;
+  virtual Status AppendEmptyValue() = 0;
+  virtual Status AppendEmptyValues(int64_t length) = 0;
 
   /// For cases where raw data was memcpy'd into the internal buffers, allows us
   /// to advance the length of the builder. It is your responsibility to use

@@ -27,8 +27,8 @@ class StructArrayBuilderTest < Test::Unit::TestCase
       @builder.append_value(nil)
       array = @builder.finish
       assert_equal([
-                     [nil],
-                     [nil],
+                     [false],
+                     [0],
                    ],
                    [
                      array.find_field(0).to_a,
@@ -87,8 +87,8 @@ class StructArrayBuilderTest < Test::Unit::TestCase
       @builder.append_values([nil])
       array = @builder.finish
       assert_equal([
-                     [nil],
-                     [nil],
+                     [false],
+                     [0],
                    ],
                    [
                      array.find_field(0).to_a,
@@ -130,8 +130,8 @@ class StructArrayBuilderTest < Test::Unit::TestCase
                              ])
       array = @builder.finish
       assert_equal([
-                     [nil, true, false],
-                     [nil, 1, 2],
+                     [false, true, false],
+                     [0, 1, 2],
                    ],
                    [
                      array.find_field(0).to_a,
@@ -152,8 +152,8 @@ class StructArrayBuilderTest < Test::Unit::TestCase
                              ])
       array = @builder.finish
       assert_equal([
-                     [true, nil, true],
-                     [1, nil, 3],
+                     [true, false, true],
+                     [1, 0, 3],
                    ],
                    [
                      array.find_field(0).to_a,

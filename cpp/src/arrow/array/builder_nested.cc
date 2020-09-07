@@ -123,19 +123,19 @@ Status MapBuilder::AppendNulls(int64_t length) {
   return Status::OK();
 }
 
-Status MapBuilder::AppendEmpty() {
+Status MapBuilder::AppendEmptyValue() {
   DCHECK_EQ(item_builder_->length(), key_builder_->length());
   RETURN_NOT_OK(AdjustStructBuilderLength());
-  RETURN_NOT_OK(list_builder_->AppendEmpty());
+  RETURN_NOT_OK(list_builder_->AppendEmptyValue());
   length_ = list_builder_->length();
   null_count_ = list_builder_->null_count();
   return Status::OK();
 }
 
-Status MapBuilder::AppendEmpties(int64_t length) {
+Status MapBuilder::AppendEmptyValues(int64_t length) {
   DCHECK_EQ(item_builder_->length(), key_builder_->length());
   RETURN_NOT_OK(AdjustStructBuilderLength());
-  RETURN_NOT_OK(list_builder_->AppendNulls(length));
+  RETURN_NOT_OK(list_builder_->AppendEmptyValues(length));
   length_ = list_builder_->length();
   null_count_ = list_builder_->null_count();
   return Status::OK();
@@ -212,20 +212,16 @@ Status FixedSizeListBuilder::ValidateOverflow(int64_t new_elements) {
   }
   return Status::OK();
 
-Status FixedSizeListBuilder::AppendEmpty() {
+Status FixedSizeListBuilder::AppendEmptyValue() {
   RETURN_NOT_OK(Reserve(1));
-  null_bitmap_builder_.Forward(1);
-  ++length_;
-  ++null_count_;
-  return value_builder_->AppendEmpties(list_size_);
+  UnsafeAppendToBitmap(true);
+  return value_builder_->AppendEmptyValues(list_size_);
 }
 
-Status FixedSizeListBuilder::AppendEmpties(int64_t length) {
+Status FixedSizeListBuilder::AppendEmptyValues(int64_t length) {
   RETURN_NOT_OK(Reserve(length));
-  null_bitmap_builder_.Forward(length);
-  length_ += length;
-  null_count_ += length;
-  return value_builder_->AppendEmpties(list_size_ * length);
+  UnsafeAppendToBitmap(length, true);
+  return value_builder_->AppendEmptyValues(list_size_ * length);
 }
 
 Status FixedSizeListBuilder::Resize(int64_t capacity) {
@@ -267,7 +263,7 @@ void StructBuilder::Reset() {
 
 Status StructBuilder::AppendNulls(int64_t length) {
   for (const auto& field : children_) {
-    RETURN_NOT_OK(field->AppendEmpties(length));
+    RETURN_NOT_OK(field->AppendEmptyValues(length));
   }
   ARROW_RETURN_NOT_OK(Reserve(length));
   UnsafeAppendToBitmap(length, false);

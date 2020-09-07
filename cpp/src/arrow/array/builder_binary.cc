@@ -73,21 +73,17 @@ Status FixedSizeBinaryBuilder::AppendNulls(int64_t length) {
   return Status::OK();
 }
 
-Status FixedSizeBinaryBuilder::AppendEmpty() {
+Status FixedSizeBinaryBuilder::AppendEmptyValue() {
   RETURN_NOT_OK(Reserve(1));
-  byte_builder_.UnsafeAppend(byte_width_, 0);
-  null_bitmap_builder_.Forward(1);
-  ++length_;
-  ++null_count_;
+  UnsafeAppendToBitmap(true);
+  byte_builder_.UnsafeAppend(/*num_copies=*/byte_width_, 0);
   return Status::OK();
 }
 
-Status FixedSizeBinaryBuilder::AppendEmpties(int64_t length) {
+Status FixedSizeBinaryBuilder::AppendEmptyValues(int64_t length) {
   RETURN_NOT_OK(Reserve(length));
+  UnsafeAppendToBitmap(length, true);
   byte_builder_.UnsafeAppend(/*num_copies=*/length * byte_width_, 0);
-  null_bitmap_builder_.Forward(length);
-  length_ += length;
-  null_count_ += length;
   return Status::OK();
 }
 

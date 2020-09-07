@@ -46,13 +46,13 @@ class ARROW_EXPORT NullBuilder : public ArrayBuilder {
   /// \brief Append a single null element
   Status AppendNull() final { return AppendNulls(1); }
 
-  Status AppendEmpties(int64_t length) final {
+  Status AppendEmptyValues(int64_t length) final {
     if (length < 0) return Status::Invalid("length must be positive");
     length_ += length;
     return Status::OK();
   }
 
-  Status AppendEmpty() final { return AppendEmpties(1); }
+  Status AppendEmptyValue() final { return AppendEmptyValues(1); }
 
   Status Append(std::nullptr_t) { return AppendNull(); }
 
@@ -109,22 +109,18 @@ class NumericBuilder : public ArrayBuilder {
   }
 
   /// \brief Append a empty element
-  Status AppendEmpty() final {
+  Status AppendEmptyValue() final {
     ARROW_RETURN_NOT_OK(Reserve(1));
     data_builder_.UnsafeAppend(value_type{});  // zero
-    null_bitmap_builder_.Forward(1);
-    ++length_;
-    ++null_count_;
+    UnsafeAppendToBitmap(true);
     return Status::OK();
   }
 
   /// \brief Append several empty elements
-  Status AppendEmpties(int64_t length) final {
+  Status AppendEmptyValues(int64_t length) final {
     ARROW_RETURN_NOT_OK(Reserve(length));
     data_builder_.UnsafeAppend(length, value_type{});  // zero
-    null_bitmap_builder_.Forward(length);
-    length_ += length;
-    null_count_ += length;
+    UnsafeSetNotNull(length);
     return Status::OK();
   }
 
@@ -325,21 +321,17 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
     return Status::OK();
   }
 
-  Status AppendEmpty() final {
+  Status AppendEmptyValue() final {
     ARROW_RETURN_NOT_OK(Reserve(1));
+    UnsafeSetNotNull(1);
     data_builder_.UnsafeAppend(false);
-    null_bitmap_builder_.Forward(1);
-    ++length_;
-    ++null_count_;
     return Status::OK();
   }
 
-  Status AppendEmpties(int64_t length) final {
+  Status AppendEmptyValues(int64_t length) final {
     ARROW_RETURN_NOT_OK(Reserve(length));
     data_builder_.UnsafeAppend(length, false);
-    null_bitmap_builder_.Forward(length);
-    length_ += length;
-    null_count_ += length;
+    UnsafeSetNotNull(length);
     return Status::OK();
   }
 

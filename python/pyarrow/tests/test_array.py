@@ -2146,12 +2146,12 @@ def test_buffers_nested():
     assert bytearray(null_bitmap)[0] == 0b00000101
     # The child buffers: 'a'
     null_bitmap = buffers[1].to_pybytes()
-    assert bytearray(null_bitmap)[0] == 0b00000001
+    assert bytearray(null_bitmap)[0] == 0b00000011
     values = buffers[2].to_pybytes()
     assert struct.unpack('bxx', values) == (42,)
     # The child buffers: 'b'
     null_bitmap = buffers[3].to_pybytes()
-    assert bytearray(null_bitmap)[0] == 0b00000100
+    assert bytearray(null_bitmap)[0] == 0b00000110
     values = buffers[4].to_pybytes()
     assert struct.unpack('4xh', values) == (43,)
 

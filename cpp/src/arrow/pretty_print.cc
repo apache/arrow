@@ -339,17 +339,6 @@ class ArrayPrinter : public PrettyPrinter {
     children.reserve(array.num_fields());
     for (int i = 0; i < array.num_fields(); ++i) {
       children.emplace_back(array.field(i));
-      // set field array null at index which parent struct is null,
-      // because StructBuilder#AppendNull dosen't set child null bitmap.
-      auto field_null_buf = array.field(i)->null_bitmap();
-      if (field_null_buf != nullptr) {
-        uint8_t* field_null_data = field_null_buf->mutable_data();
-        for (int k = 0; k < array.length(); k++) {
-          if (array.IsNull(k)) {
-            BitUtil::SetBitTo(field_null_data, k, false);
-          }
-        }
-      }
     }
     return PrintChildren(children, 0, array.length());
   }

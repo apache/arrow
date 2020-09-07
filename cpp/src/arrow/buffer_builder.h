@@ -292,11 +292,6 @@ class TypedBufferBuilder<bool> {
     return Status::OK();
   }
 
-  void Forward(int64_t num_elements) {
-    false_count_ += num_elements;
-    bit_length_ += num_elements;
-  }
-
   void UnsafeAppend(bool value) {
     BitUtil::SetBitTo(mutable_data(), bit_length_, value);
     if (!value) {

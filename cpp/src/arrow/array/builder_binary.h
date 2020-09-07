@@ -94,16 +94,14 @@ class BaseBinaryBuilder : public ArrayBuilder {
     return Status::OK();
   }
 
-  Status AppendEmpty() final {
+  Status AppendEmptyValue() final {
     ARROW_RETURN_NOT_OK(AppendNextOffset());
     ARROW_RETURN_NOT_OK(Reserve(1));
-    null_bitmap_builder_.Forward(1);
-    ++null_count_;
-    ++length_;
+    UnsafeAppendToBitmap(true);
     return Status::OK();
   }
 
-  Status AppendEmpties(int64_t length) final {
+  Status AppendEmptyValues(int64_t length) final {
     const int64_t num_bytes = value_data_builder_.length();
     if (ARROW_PREDICT_FALSE(num_bytes > memory_limit())) {
       return AppendOverflow(num_bytes);
@@ -112,9 +110,7 @@ class BaseBinaryBuilder : public ArrayBuilder {
     for (int64_t i = 0; i < length; ++i) {
       offsets_builder_.UnsafeAppend(static_cast<offset_type>(num_bytes));
     }
-    null_bitmap_builder_.Forward(length);
-    null_count_ += length;
-    length_ += length;
+    UnsafeAppendToBitmap(length, true);
     return Status::OK();
   }
 
@@ -464,8 +460,8 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
 
   Status AppendNulls(int64_t length) final;
 
-  Status AppendEmpty() final;
-  Status AppendEmpties(int64_t length) final;
+  Status AppendEmptyValue() final;
+  Status AppendEmptyValues(int64_t length) final;
 
   void UnsafeAppend(const uint8_t* value) {
     UnsafeAppendToBitmap(true);
