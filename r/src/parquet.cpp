@@ -96,7 +96,8 @@ int parquet___arrow___FileReader__num_columns(
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::ChunkedArray> parquet___arrow___FileReader__ReadColumn(const std::shared_ptr<parquet::arrow::FileReader>& reader, int i) {
+std::shared_ptr<arrow::ChunkedArray> parquet___arrow___FileReader__ReadColumn(
+    const std::shared_ptr<parquet::arrow::FileReader>& reader, int i) {
   std::shared_ptr<arrow::ChunkedArray> array;
   PARQUET_THROW_NOT_OK(reader->ReadColumn(i - 1, &array));
   return array;
