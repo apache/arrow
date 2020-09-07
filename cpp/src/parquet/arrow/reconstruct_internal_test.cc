@@ -240,7 +240,7 @@ class TestReconstructColumn : public testing::Test {
     tester_->CheckColumn(column_index, expected);
   }
 
-  void CheckColumn(const Array& expected) { CheckColumn(0, expected); }
+  void CheckColumn(const Array& expected) { CheckColumn(/*column_index=*/0, expected); }
 
   // One-column shortcut
   template <ParquetType TYPE, typename C_TYPE = typename ParquetTraits<TYPE>::value_type>
@@ -248,7 +248,7 @@ class TestReconstructColumn : public testing::Test {
                          const LevelVector& rep_levels,
                          const std::vector<C_TYPE>& values) {
     ASSERT_OK((WriteColumn<TYPE, C_TYPE>(def_levels, rep_levels, values)));
-    CheckColumn(0, expected);
+    CheckColumn(/*column_index=*/0, expected);
   }
 
   ::arrow::Status MaybeSetParquetSchema(const NodePtr& column) {
@@ -344,7 +344,8 @@ TEST_F(TestReconstructColumn, NestedRequiredRequired) {
   LevelVector rep_levels = {};
   std::vector<int32_t> values = {4, 5, 6};
 
-  auto expected = ArrayFromJSON(OneFieldStruct("a", int32(), false), "[[4], [5], [6]]");
+  auto expected = ArrayFromJSON(OneFieldStruct("a", int32(), false),
+                                R"([{"a": 4}, {"a": 5}, {"a": 6}])");
   AssertReconstruct<ParquetType::INT32>(*expected, def_levels, rep_levels, values);
 }
 
@@ -358,8 +359,8 @@ TEST_F(TestReconstructColumn, FAILING(NestedOptionalRequired)) {
   LevelVector rep_levels = {};
   std::vector<int32_t> values = {4, 5, 6};
 
-  auto expected =
-      ArrayFromJSON(OneFieldStruct("a", int32(), false), "[null, [4], [5], [6]]");
+  auto expected = ArrayFromJSON(OneFieldStruct("a", int32(), false),
+                                R"([null, {"a": 4}, {"a": 5}, {"a": 6}])");
   AssertReconstruct<ParquetType::INT32>(*expected, def_levels, rep_levels, values);
 }
 
@@ -373,7 +374,8 @@ TEST_F(TestReconstructColumn, NestedRequiredOptional) {
   LevelVector rep_levels = {};
   std::vector<int32_t> values = {4, 5, 6};
 
-  auto expected = ArrayFromJSON(OneFieldStruct("a", int32()), "[[null], [4], [5], [6]]");
+  auto expected = ArrayFromJSON(OneFieldStruct("a", int32()),
+                                R"([{"a": null}, {"a": 4}, {"a": 5}, {"a": 6}])");
   AssertReconstruct<ParquetType::INT32>(*expected, def_levels, rep_levels, values);
 }
 
@@ -387,7 +389,8 @@ TEST_F(TestReconstructColumn, NestedOptionalOptional) {
   LevelVector rep_levels = {};
   std::vector<int32_t> values = {4, 5};
 
-  auto expected = ArrayFromJSON(OneFieldStruct("a", int32()), "[null, [null], [4], [5]]");
+  auto expected = ArrayFromJSON(OneFieldStruct("a", int32()),
+                                R"([null, {"a": null}, {"a": 4}, {"a": 5}])");
   AssertReconstruct<ParquetType::INT32>(*expected, def_levels, rep_levels, values);
 }
 
@@ -409,11 +412,14 @@ TEST_F(TestReconstructColumn, NestedRequiredRequiredRequired) {
 
   auto expected =
       ArrayFromJSON(OneFieldStruct("a", OneFieldStruct("b", int32(), false), false),
-                    "[[[4]], [[5]], [[6]]]");
+                    R"([{"a": {"b": 4}},
+                        {"a": {"b": 5}},
+                        {"a": {"b": 6}}
+                        ])");
   AssertReconstruct<ParquetType::INT32>(*expected, def_levels, rep_levels, values);
 }
 
-TEST_F(TestReconstructColumn, NestedRequiredOptionalRequired) {
+TEST_F(TestReconstructColumn, FAILING(NestedRequiredOptionalRequired)) {
   // Arrow schema: struct(a: struct(b: int32 not null)) not null
   SetParquetSchema(GroupNode::Make(
       "parent", Repetition::REQUIRED,
@@ -426,7 +432,11 @@ TEST_F(TestReconstructColumn, NestedRequiredOptionalRequired) {
   std::vector<int32_t> values = {4, 5, 6};
 
   auto expected = ArrayFromJSON(OneFieldStruct("a", OneFieldStruct("b", int32(), false)),
-                                "[[[4]], [[null]], [[5]], [[6]]]");
+                                R"([{"a": {"b": 4}},
+                                    {"a": null},
+                                    {"a": {"b": 5}},
+                                    {"a": {"b": 6}}
+                                    ])");
   AssertReconstruct<ParquetType::INT32>(*expected, def_levels, rep_levels, values);
 }
 
@@ -443,7 +453,12 @@ TEST_F(TestReconstructColumn, FAILING(NestedOptionalRequiredOptional)) {
   std::vector<int32_t> values = {4, 5, 6};
 
   auto expected = ArrayFromJSON(OneFieldStruct("a", OneFieldStruct("b", int32()), false),
-                                "[[[null]], [[4]], null, [[5]], [[6]]]");
+                                R"([{"a": {"b": null}},
+                                    {"a": {"b": 4}},
+                                    null,
+                                    {"a": {"b": 5}},
+                                    {"a": {"b": 6}}
+                                    ])");
   AssertReconstruct<ParquetType::INT32>(*expected, def_levels, rep_levels, values);
 }
 
@@ -460,7 +475,13 @@ TEST_F(TestReconstructColumn, NestedOptionalOptionalOptional) {
   std::vector<int32_t> values = {4, 5, 6};
 
   auto expected = ArrayFromJSON(OneFieldStruct("a", OneFieldStruct("b", int32())),
-                                "[[null], [[null]], null, [[4]], [[5]], [[6]]]");
+                                R"([{"a": null},
+                                    {"a": {"b": null}},
+                                    null,
+                                    {"a": {"b": 4}},
+                                    {"a": {"b": 5}},
+                                    {"a": {"b": 6}}
+                                    ])");
   AssertReconstruct<ParquetType::INT32>(*expected, def_levels, rep_levels, values);
 }
 
@@ -480,9 +501,11 @@ TEST_F(TestReconstructColumn, NestedTwoFields1) {
 
   auto type = struct_(
       {field("a", int32(), /*nullable=*/false), field("b", int64(), /*nullable=*/false)});
-  auto expected = ArrayFromJSON(type, "[[4, 7], [5, 8], [6, 9]]");
+  auto expected = ArrayFromJSON(type, R"([{"a": 4, "b": 7},
+                                          {"a": 5, "b": 8},
+                                          {"a": 6, "b": 9}])");
 
-  CheckColumn(0, *expected);
+  CheckColumn(/*column_index=*/0, *expected);
 }
 
 TEST_F(TestReconstructColumn, NestedTwoFields2) {
@@ -496,9 +519,11 @@ TEST_F(TestReconstructColumn, NestedTwoFields2) {
   ASSERT_OK(WriteInt64Column(DefLevels{0, 1, 1}, RepLevels{}, Int64Vector{7, 8}));
 
   auto type = struct_({field("a", int32(), /*nullable=*/false), field("b", int64())});
-  auto expected = ArrayFromJSON(type, "[[4, null], [5, 7], [6, 8]]");
+  auto expected = ArrayFromJSON(type, R"([{"a": 4, "b": null},
+                                          {"a": 5, "b": 7},
+                                          {"a": 6, "b": 8}])");
 
-  CheckColumn(0, *expected);
+  CheckColumn(/*column_index=*/0, *expected);
 }
 
 TEST_F(TestReconstructColumn, FAILING(NestedTwoFields3)) {
@@ -513,9 +538,11 @@ TEST_F(TestReconstructColumn, FAILING(NestedTwoFields3)) {
 
   auto type = struct_(
       {field("a", int32(), /*nullable=*/false), field("b", int64(), /*nullable=*/false)});
-  auto expected = ArrayFromJSON(type, "[null, [4, 7], [5, 8]]");
+  auto expected = ArrayFromJSON(type, R"([null,
+                                         {"a": 4, "b": 7},
+                                         {"a": 5, "b": 8}])");
 
-  CheckColumn(0, *expected);
+  CheckColumn(/*column_index=*/0, *expected);
 }
 
 TEST_F(TestReconstructColumn, NestedTwoFields4) {
@@ -529,9 +556,11 @@ TEST_F(TestReconstructColumn, NestedTwoFields4) {
   ASSERT_OK(WriteInt64Column(DefLevels{0, 1, 1}, RepLevels{}, Int64Vector{7, 8}));
 
   auto type = struct_({field("a", int32()), field("b", int64(), /*nullable=*/false)});
-  auto expected = ArrayFromJSON(type, "[null, [null, 7], [4, 8]]");
+  auto expected = ArrayFromJSON(type, R"([null,
+                                         {"a": null, "b": 7},
+                                         {"a": 4, "b": 8}])");
 
-  CheckColumn(0, *expected);
+  CheckColumn(/*column_index=*/0, *expected);
 }
 
 TEST_F(TestReconstructColumn, NestedTwoFields5) {
@@ -545,9 +574,11 @@ TEST_F(TestReconstructColumn, NestedTwoFields5) {
   ASSERT_OK(WriteInt64Column(DefLevels{0, 2, 1}, RepLevels{}, Int64Vector{7}));
 
   auto type = struct_({field("a", int32()), field("b", int64())});
-  auto expected = ArrayFromJSON(type, "[null, [null, 7], [4, null]]");
+  auto expected = ArrayFromJSON(type, R"([null,
+                                         {"a": null, "b": 7},
+                                         {"a": 4, "b": null}])");
 
-  CheckColumn(0, *expected);
+  CheckColumn(/*column_index=*/0, *expected);
 }
 
 //
@@ -578,9 +609,11 @@ TEST_F(TestReconstructColumn, NestedNestedTwoFields1) {
                                       field("ab", int64(), /*nullable=*/false)}),
                              /*nullable=*/false),
                        field("b", int32(), /*nullable=*/false)});
-  auto expected = ArrayFromJSON(type, "[[[4, 7], 10], [[5, 8], 11], [[6, 9], 12]]");
+  auto expected = ArrayFromJSON(type, R"([{"a": {"aa": 4, "ab": 7}, "b": 10},
+                                          {"a": {"aa": 5, "ab": 8}, "b": 11},
+                                          {"a": {"aa": 6, "ab": 9}, "b": 12}])");
 
-  CheckColumn(0, *expected);
+  CheckColumn(/*column_index=*/0, *expected);
 }
 
 TEST_F(TestReconstructColumn, NestedNestedTwoFields2) {
@@ -607,9 +640,11 @@ TEST_F(TestReconstructColumn, NestedNestedTwoFields2) {
              struct_({field("aa", int32()), field("ab", int64(), /*nullable=*/false)}),
              /*nullable=*/false),
        field("b", int32(), /*nullable=*/false)});
-  auto expected = ArrayFromJSON(type, "[[[4, 7], 10], [[null, 8], 11], [[5, 9], 12]]");
+  auto expected = ArrayFromJSON(type, R"([{"a": {"aa": 4, "ab": 7}, "b": 10},
+                                          {"a": {"aa": null, "ab": 8}, "b": 11},
+                                          {"a": {"aa": 5, "ab": 9}, "b": 12}])");
 
-  CheckColumn(0, *expected);
+  CheckColumn(/*column_index=*/0, *expected);
 }
 
 TEST_F(TestReconstructColumn, NestedNestedTwoFields3) {
@@ -636,9 +671,11 @@ TEST_F(TestReconstructColumn, NestedNestedTwoFields3) {
              struct_({field("aa", int32(), /*nullable=*/false), field("ab", int64())}),
              /*nullable=*/false),
        field("b", int32())});
-  auto expected = ArrayFromJSON(type, "[[[4, null], 10], [[5, 7], null], [[6, 8], 11]]");
+  auto expected = ArrayFromJSON(type, R"([{"a": {"aa": 4, "ab": null}, "b": 10},
+                                          {"a": {"aa": 5, "ab": 7}, "b": null},
+                                          {"a": {"aa": 6, "ab": 8}, "b": 11}])");
 
-  CheckColumn(0, *expected);
+  CheckColumn(/*column_index=*/0, *expected);
 }
 
 TEST_F(TestReconstructColumn, NestedNestedTwoFields4) {
@@ -663,9 +700,11 @@ TEST_F(TestReconstructColumn, NestedNestedTwoFields4) {
   auto type = struct_({field("a", struct_({field("aa", int32(), /*nullable=*/false),
                                            field("ab", int64())})),
                        field("b", int32(), /*nullable=*/false)});
-  auto expected = ArrayFromJSON(type, "[[null, 10], [[4, null], 11], [[5, 7], 12]]");
+  auto expected = ArrayFromJSON(type, R"([{"a": null, "b": 10},
+                                          {"a": {"aa": 4, "ab": null}, "b": 11},
+                                          {"a": {"aa": 5, "ab": 7}, "b": 12}])");
 
-  CheckColumn(0, *expected);
+  CheckColumn(/*column_index=*/0, *expected);
 }
 
 TEST_F(TestReconstructColumn, NestedNestedTwoFields5) {
@@ -692,9 +731,11 @@ TEST_F(TestReconstructColumn, NestedNestedTwoFields5) {
              struct_({field("aa", int32(), /*nullable=*/false), field("ab", int64())}),
              /*nullable=*/false),
        field("b", int32())});
-  auto expected = ArrayFromJSON(type, "[null, [[4, null], 10], [[5, 7], null]]");
+  auto expected = ArrayFromJSON(type, R"([null,
+                                          {"a": {"aa": 4, "ab": null}, "b": 10},
+                                          {"a": {"aa": 5, "ab": 7}, "b": null}])");
 
-  CheckColumn(0, *expected);
+  CheckColumn(/*column_index=*/0, *expected);
 }
 
 TEST_F(TestReconstructColumn, NestedNestedTwoFields6) {
@@ -719,10 +760,12 @@ TEST_F(TestReconstructColumn, NestedNestedTwoFields6) {
   auto type = struct_({field("a", struct_({field("aa", int32(), /*nullable=*/false),
                                            field("ab", int64())})),
                        field("b", int32())});
-  auto expected =
-      ArrayFromJSON(type, "[null, [null, 10], [[4, null], null], [[5, 7], 11]]");
+  auto expected = ArrayFromJSON(type, R"([null,
+                                          {"a": null, "b": 10},
+                                          {"a": {"aa": 4, "ab": null}, "b": null},
+                                          {"a": {"aa": 5, "ab": 7}, "b": 11}])");
 
-  CheckColumn(0, *expected);
+  CheckColumn(/*column_index=*/0, *expected);
 }
 
 //
@@ -858,7 +901,9 @@ TEST_F(TestReconstructColumn, FAILING(NestedList1)) {
 
   auto type = OneFieldStruct("a", List(int32(), /*nullable=*/false),
                              /*nullable=*/false);
-  auto expected = ArrayFromJSON(type, "[[[]], [[4, 5]], [[6]]]");
+  auto expected = ArrayFromJSON(type, R"([{"a": []},
+                                          {"a": [4, 5]},
+                                          {"a": [6]}])");
   AssertReconstruct<ParquetType::INT32>(*expected, def_levels, rep_levels, values);
 }
 
@@ -879,7 +924,10 @@ TEST_F(TestReconstructColumn, FAILING(NestedList2)) {
 
   auto type = OneFieldStruct("a", List(int32(), /*nullable=*/false),
                              /*nullable=*/false);
-  auto expected = ArrayFromJSON(type, "[null, [[]], [[4, 5]], [[6]]]");
+  auto expected = ArrayFromJSON(type, R"([null,
+                                          {"a": []},
+                                          {"a": [4, 5]},
+                                          {"a": [6]}])");
   AssertReconstruct<ParquetType::INT32>(*expected, def_levels, rep_levels, values);
 }
 
@@ -899,7 +947,10 @@ TEST_F(TestReconstructColumn, FAILING(NestedList3)) {
   std::vector<int32_t> values = {4, 5, 6};
 
   auto type = OneFieldStruct("a", List(int32()));
-  auto expected = ArrayFromJSON(type, "[[null], [[]], [[4, 5]], [[6]]]");
+  auto expected = ArrayFromJSON(type, R"([{"a": null},
+                                          {"a": []},
+                                          {"a": [4, 5]},
+                                          {"a": [6]}])");
   AssertReconstruct<ParquetType::INT32>(*expected, def_levels, rep_levels, values);
 }
 
@@ -919,7 +970,11 @@ TEST_F(TestReconstructColumn, FAILING(NestedList4)) {
   std::vector<int32_t> values = {4, 5, 6};
 
   auto type = OneFieldStruct("a", List(int32()));
-  auto expected = ArrayFromJSON(type, "[null, [null], [[]], [[4, 5]], [[6]]]");
+  auto expected = ArrayFromJSON(type, R"([null,
+                                          {"a": null},
+                                          {"a": []},
+                                          {"a": [4, 5]},
+                                          {"a": [6]}])");
   AssertReconstruct<ParquetType::INT32>(*expected, def_levels, rep_levels, values);
 }
 
@@ -939,7 +994,10 @@ TEST_F(TestReconstructColumn, FAILING(NestedList5)) {
   std::vector<int32_t> values = {4, 5, 6};
 
   auto type = OneFieldStruct("a", List(int32()), /*nullable=*/false);
-  auto expected = ArrayFromJSON(type, "[null, [[]], [[4, null]], [[5, 6]]]");
+  auto expected = ArrayFromJSON(type, R"([null,
+                                          {"a": []},
+                                          {"a": [4, null]},
+                                          {"a": [5, 6]}])");
   AssertReconstruct<ParquetType::INT32>(*expected, def_levels, rep_levels, values);
 }
 
@@ -959,7 +1017,11 @@ TEST_F(TestReconstructColumn, FAILING(NestedList6)) {
   std::vector<int32_t> values = {4, 5, 6};
 
   auto type = OneFieldStruct("a", List(int32()));
-  auto expected = ArrayFromJSON(type, "[null, [null], [[]], [[4, null]], [[5, 6]]]");
+  auto expected = ArrayFromJSON(type, R"([null,
+                                          {"a": null},
+                                          {"a": []},
+                                          {"a": [4, null]},
+                                          {"a": [5, 6]}])");
   AssertReconstruct<ParquetType::INT32>(*expected, def_levels, rep_levels, values);
 }
 
@@ -983,7 +1045,10 @@ TEST_F(TestReconstructColumn, FAILING(ListNested1)) {
 
   auto type = List(OneFieldStruct("a", int32(), /*nullable=*/false),
                    /*nullable=*/false);
-  auto expected = ArrayFromJSON(type, "[[], [[4], [5]], [[6]]]");
+  auto expected = ArrayFromJSON(type,
+                                R"([[],
+                                    [{"a": 4}, {"a": 5}],
+                                    [{"a": 6}]])");
   AssertReconstruct<ParquetType::INT32>(*expected, def_levels, rep_levels, values);
 }
 
@@ -1003,7 +1068,11 @@ TEST_F(TestReconstructColumn, FAILING(ListNested2)) {
 
   auto type = List(OneFieldStruct("a", int32(), /*nullable=*/false),
                    /*nullable=*/false);
-  auto expected = ArrayFromJSON(type, "[null, [], [[4], [5]], [[6]]]");
+  auto expected = ArrayFromJSON(type,
+                                R"([null,
+                                    [],
+                                    [{"a": 4}, {"a": 5}],
+                                    [{"a": 6}]])");
   AssertReconstruct<ParquetType::INT32>(*expected, def_levels, rep_levels, values);
 }
 
@@ -1022,7 +1091,10 @@ TEST_F(TestReconstructColumn, FAILING(ListNested3)) {
   std::vector<int32_t> values = {4, 5, 6};
 
   auto type = List(OneFieldStruct("a", int32(), /*nullable=*/false));
-  auto expected = ArrayFromJSON(type, "[[], [null, [4], [5]], [[6]]]");
+  auto expected = ArrayFromJSON(type,
+                                R"([[],
+                                    [null, {"a": 4}, {"a": 5}],
+                                    [{"a": 6}]])");
   AssertReconstruct<ParquetType::INT32>(*expected, def_levels, rep_levels, values);
 }
 
@@ -1041,7 +1113,11 @@ TEST_F(TestReconstructColumn, FAILING(ListNested4)) {
   std::vector<int32_t> values = {4, 5, 6};
 
   auto type = List(OneFieldStruct("a", int32(), /*nullable=*/false));
-  auto expected = ArrayFromJSON(type, "[null, [], [null, [4], [5]], [[6]]]");
+  auto expected = ArrayFromJSON(type,
+                                R"([null,
+                                    [],
+                                    [null, {"a": 4}, {"a": 5}],
+                                    [{"a": 6}]])");
   AssertReconstruct<ParquetType::INT32>(*expected, def_levels, rep_levels, values);
 }
 
@@ -1061,7 +1137,11 @@ TEST_F(TestReconstructColumn, FAILING(ListNested5)) {
 
   auto type = List(OneFieldStruct("a", int32()),
                    /*nullable=*/false);
-  auto expected = ArrayFromJSON(type, "[null, [], [[null], [4]], [[5], [6]]]");
+  auto expected = ArrayFromJSON(type,
+                                R"([null,
+                                    [],
+                                    [{"a": null}, {"a": 4}],
+                                    [{"a": 5}, {"a": 6}]])");
   AssertReconstruct<ParquetType::INT32>(*expected, def_levels, rep_levels, values);
 }
 
@@ -1080,7 +1160,11 @@ TEST_F(TestReconstructColumn, FAILING(ListNested6)) {
   std::vector<int32_t> values = {4, 5, 6};
 
   auto type = List(OneFieldStruct("a", int32()));
-  auto expected = ArrayFromJSON(type, "[null, [], [null, [null], [4]], [[5], [6]]]");
+  auto expected = ArrayFromJSON(type,
+                                R"([null,
+                                    [],
+                                    [null, {"a": null}, {"a": 4}],
+                                    [{"a": 5}, {"a": 6}]])");
   AssertReconstruct<ParquetType::INT32>(*expected, def_levels, rep_levels, values);
 }
 
@@ -1111,8 +1195,11 @@ TEST_F(TestReconstructColumn, FAILING(ListNestedTwoFields1)) {
   auto type = List(struct_({field("a", int32(), /*nullable=*/false),
                             field("b", int64(), /*nullable=*/false)}),
                    /*nullable=*/false);
-  auto expected = ArrayFromJSON(type, "[[], [[4, 7], [5, 8]], [[6, 9]]]");
-  CheckColumn(0, *expected);
+  auto expected = ArrayFromJSON(type,
+                                R"([[],
+                                    [{"a": 4, "b": 7}, {"a": 5, "b": 8}],
+                                    [{"a": 6, "b": 9}]])");
+  CheckColumn(/*column_index=*/0, *expected);
 }
 
 TEST_F(TestReconstructColumn, FAILING(ListNestedTwoFields2)) {
@@ -1138,8 +1225,11 @@ TEST_F(TestReconstructColumn, FAILING(ListNestedTwoFields2)) {
   auto type =
       List(struct_({field("a", int32()), field("b", int64(), /*nullable=*/false)}),
            /*nullable=*/false);
-  auto expected = ArrayFromJSON(type, "[[], [[4, 7], [null, 8]], [[5, 9]]]");
-  CheckColumn(0, *expected);
+  auto expected = ArrayFromJSON(type,
+                                R"([[],
+                                    [{"a": 4, "b": 7}, {"a": null, "b": 8}],
+                                    [{"a": 5, "b": 9}]])");
+  CheckColumn(/*column_index=*/0, *expected);
 }
 
 TEST_F(TestReconstructColumn, FAILING(ListNestedTwoFields3)) {
@@ -1164,8 +1254,11 @@ TEST_F(TestReconstructColumn, FAILING(ListNestedTwoFields3)) {
 
   auto type = List(struct_({field("a", int32(), /*nullable=*/false),
                             field("b", int64(), /*nullable=*/false)}));
-  auto expected = ArrayFromJSON(type, "[[], [null, [4, 7], [5, 8]], [[6, 9]]]");
-  CheckColumn(0, *expected);
+  auto expected = ArrayFromJSON(type,
+                                R"([[],
+                                    [null, {"a": 4, "b": 7}, {"a": 5, "b": 8}],
+                                    [{"a": 6, "b": 9}]])");
+  CheckColumn(/*column_index=*/0, *expected);
 }
 
 TEST_F(TestReconstructColumn, FAILING(ListNestedTwoFields4)) {
@@ -1191,8 +1284,12 @@ TEST_F(TestReconstructColumn, FAILING(ListNestedTwoFields4)) {
   auto type =
       List(struct_({field("a", int32()), field("b", int64(), /*nullable=*/false)}),
            /*nullable=*/false);
-  auto expected = ArrayFromJSON(type, "[null, [], [[4, 7], [null, 8]], [[5, 9]]]");
-  CheckColumn(0, *expected);
+  auto expected = ArrayFromJSON(type,
+                                R"([null,
+                                    [],
+                                    [{"a": 4, "b": 7}, {"a": null, "b": 8}],
+                                    [{"a": 5, "b": 9}]])");
+  CheckColumn(/*column_index=*/0, *expected);
 }
 
 TEST_F(TestReconstructColumn, FAILING(ListNestedTwoFields5)) {
@@ -1218,8 +1315,12 @@ TEST_F(TestReconstructColumn, FAILING(ListNestedTwoFields5)) {
   auto type =
       List(struct_({field("a", int32()), field("b", int64(), /*nullable=*/false)}),
            /*nullable=*/false);
-  auto expected = ArrayFromJSON(type, "[null, [], [[4, 7], null], [[null, 8]]]");
-  CheckColumn(0, *expected);
+  auto expected = ArrayFromJSON(type,
+                                R"([null,
+                                    [],
+                                    [{"a": 4, "b": 7}, null],
+                                    [{"a": null, "b": 8}]])");
+  CheckColumn(/*column_index=*/0, *expected);
 }
 
 TEST_F(TestReconstructColumn, FAILING(ListNestedTwoFields6)) {
@@ -1245,8 +1346,12 @@ TEST_F(TestReconstructColumn, FAILING(ListNestedTwoFields6)) {
   auto type =
       List(struct_({field("a", int32()), field("b", int64(), /*nullable=*/false)}),
            /*nullable=*/false);
-  auto expected = ArrayFromJSON(type, "[null, [], [[4, null], null], [[null, 7]]]");
-  CheckColumn(0, *expected);
+  auto expected = ArrayFromJSON(type,
+                                R"([null,
+                                    [],
+                                    [{"a": 4, "b": null}, null],
+                                    [{"a": null, "b": 7}]])");
+  CheckColumn(/*column_index=*/0, *expected);
 }
 
 //
@@ -1276,8 +1381,11 @@ TEST_F(TestReconstructColumn, FAILING(NestedTwoFieldsList1)) {
   auto type =
       struct_({field("a", int64(), /*nullable=*/false),
                field("b", List(int32(), /*nullable=*/false), /*nullable=*/false)});
-  auto expected = ArrayFromJSON(type, "[[4, []], [5, [7, 8]], [6, [9]]]");
-  CheckColumn(0, *expected);
+  auto expected = ArrayFromJSON(type,
+                                R"([{"a": 4, "b": []},
+                                    {"a": 5, "b": [7, 8]},
+                                    {"a": 6, "b": [9]}])");
+  CheckColumn(/*column_index=*/0, *expected);
 }
 
 TEST_F(TestReconstructColumn, FAILING(NestedTwoFieldsList2)) {
@@ -1302,8 +1410,12 @@ TEST_F(TestReconstructColumn, FAILING(NestedTwoFieldsList2)) {
 
   auto type = struct_({field("a", int64(), /*nullable=*/false),
                        field("b", List(int32(), /*nullable=*/false))});
-  auto expected = ArrayFromJSON(type, "[[3, null], [4, []], [5, [7, 8]], [6, [9]]]");
-  CheckColumn(0, *expected);
+  auto expected = ArrayFromJSON(type,
+                                R"([{"a": 3, "b": null},
+                                    {"a": 4, "b": []},
+                                    {"a": 5, "b": [7, 8]},
+                                    {"a": 6, "b": [9]}])");
+  CheckColumn(/*column_index=*/0, *expected);
 }
 
 TEST_F(TestReconstructColumn, FAILING(NestedTwoFieldsList3)) {
@@ -1328,8 +1440,12 @@ TEST_F(TestReconstructColumn, FAILING(NestedTwoFieldsList3)) {
 
   auto type =
       struct_({field("a", int64()), field("b", List(int32(), /*nullable=*/false))});
-  auto expected = ArrayFromJSON(type, "[[4, null], [5, []], [null, [7, 8]], [6, [9]]]");
-  CheckColumn(0, *expected);
+  auto expected = ArrayFromJSON(type,
+                                R"([{"a": 4, "b": null},
+                                    {"a": 5, "b": []},
+                                    {"a": null, "b": [7, 8]},
+                                    {"a": 6, "b": [9]}])");
+  CheckColumn(/*column_index=*/0, *expected);
 }
 
 TEST_F(TestReconstructColumn, FAILING(NestedTwoFieldsList4)) {
@@ -1355,9 +1471,13 @@ TEST_F(TestReconstructColumn, FAILING(NestedTwoFieldsList4)) {
 
   auto type =
       struct_({field("a", int64()), field("b", List(int32(), /*nullable=*/false))});
-  auto expected =
-      ArrayFromJSON(type, "[null, [4, null], [5, []], [null, [7, 8]], [6, [9]]]");
-  CheckColumn(0, *expected);
+  auto expected = ArrayFromJSON(type,
+                                R"([null,
+                                    {"a": 4, "b": null},
+                                    {"a": 5, "b": []},
+                                    {"a": null, "b": [7, 8]},
+                                    {"a": 6, "b": [9]}])");
+  CheckColumn(/*column_index=*/0, *expected);
 }
 
 TEST_F(TestReconstructColumn, FAILING(NestedTwoFieldsList5)) {
@@ -1381,9 +1501,13 @@ TEST_F(TestReconstructColumn, FAILING(NestedTwoFieldsList5)) {
 
   auto type =
       struct_({field("a", int64()), field("b", List(int32(), /*nullable=*/false))});
-  auto expected =
-      ArrayFromJSON(type, "[null, [4, null], [5, []], [null, [7, null]], [6, [8]]]");
-  CheckColumn(0, *expected);
+  auto expected = ArrayFromJSON(type,
+                                R"([null,
+                                    {"a": 4, "b": null},
+                                    {"a": 5, "b": []},
+                                    {"a": null, "b": [7, null]},
+                                    {"a": 6, "b": [8]}])");
+  CheckColumn(/*column_index=*/0, *expected);
 }
 
 //
