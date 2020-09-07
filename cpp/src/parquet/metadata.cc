@@ -883,8 +883,9 @@ ApplicationVersion::ApplicationVersion(const std::string& application, int major
     : application_(application), version{major, minor, patch, "", "", ""} {}
 
 ApplicationVersion::ApplicationVersion(const std::string& created_by) {
-  regex app_regex{ApplicationVersion::APPLICATION_FORMAT};
-  regex ver_regex{ApplicationVersion::VERSION_FORMAT};
+  // Use singletons to compile only once (ARROW-9863)
+  static regex app_regex{ApplicationVersion::APPLICATION_FORMAT};
+  static regex ver_regex{ApplicationVersion::VERSION_FORMAT};
   smatch app_matches;
   smatch ver_matches;
 

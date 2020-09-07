@@ -141,11 +141,8 @@ mod tests {
 
         assert_eq!(4096, result.len()); // 2^12
 
-        let mut builder = UInt32Builder::new(expected.len());
-        for e in expected {
-            builder.append_value(e)?
-        }
-        assert_eq!(builder.finish(), result);
+        let expected: UInt32Array = expected.into();
+        assert_eq!(expected, result);
         Ok(())
     }
 
@@ -162,12 +159,7 @@ mod tests {
         let a = length(&array)?;
         assert_eq!(a.len(), array.len());
 
-        let mut expected = UInt32Builder::new(4);
-        expected.append_value(3)?;
-        expected.append_null()?;
-        expected.append_value(5)?;
-        expected.append_value(4)?;
-        let expected = expected.finish();
+        let expected: UInt32Array = vec![Some(3), None, Some(5), Some(4)].into();
 
         assert_eq!(expected.data(), a.data());
         Ok(())
@@ -176,9 +168,7 @@ mod tests {
     /// Tests that length is not valid for u64.
     #[test]
     fn wrong_type() -> Result<()> {
-        let mut builder = UInt64Builder::new(1);
-        builder.append_value(1)?;
-        let array = builder.finish();
+        let array: UInt64Array = vec![1u64].into();
 
         assert!(length(&array).is_err());
         Ok(())

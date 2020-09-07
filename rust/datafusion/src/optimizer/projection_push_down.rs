@@ -22,7 +22,7 @@ use crate::error::{ExecutionError, Result};
 use crate::logical_plan::LogicalPlan;
 use crate::optimizer::optimizer::OptimizerRule;
 use crate::optimizer::utils;
-use arrow::datatypes::{Field, Schema};
+use arrow::datatypes::{Field, Schema, SchemaRef};
 use arrow::error::Result as ArrowResult;
 use std::{collections::HashSet, sync::Arc};
 use utils::optimize_explain;
@@ -60,7 +60,7 @@ fn get_projected_schema(
     projection: &Option<Vec<usize>>,
     required_columns: &HashSet<String>,
     has_projection: bool,
-) -> Result<(Vec<usize>, Schema)> {
+) -> Result<(Vec<usize>, SchemaRef)> {
     if projection.is_some() {
         return Err(ExecutionError::General(
             "Cannot run projection push-down rule more than once".to_string(),
@@ -103,7 +103,7 @@ fn get_projected_schema(
         projected_fields.push(schema.fields()[*i].clone());
     }
 
-    Ok((projection, Schema::new(projected_fields)))
+    Ok((projection, SchemaRef::new(Schema::new(projected_fields))))
 }
 
 /// Recursively transverses the logical plan removing expressions and that are not needed.
@@ -154,7 +154,7 @@ fn optimize_plan(
                 Ok(LogicalPlan::Projection {
                     expr: new_expr,
                     input: Arc::new(new_input),
-                    schema: Box::new(Schema::new(new_fields)),
+                    schema: SchemaRef::new(Schema::new(new_fields)),
                 })
             }
         }
@@ -209,7 +209,7 @@ fn optimize_plan(
                     &new_required_columns,
                     true,
                 )?),
-                schema: Box::new(new_schema),
+                schema: SchemaRef::new(new_schema),
             })
         }
         // scans:
@@ -234,7 +234,7 @@ fn optimize_plan(
                 table_name: table_name.to_string(),
                 table_schema: table_schema.clone(),
                 projection: Some(projection),
-                projected_schema: Box::new(projected_schema),
+                projected_schema: projected_schema,
             })
         }
         LogicalPlan::InMemoryScan {
@@ -253,7 +253,7 @@ fn optimize_plan(
                 data: data.clone(),
                 schema: schema.clone(),
                 projection: Some(projection),
-                projected_schema: Box::new(projected_schema),
+                projected_schema: projected_schema,
             })
         }
         LogicalPlan::CsvScan {
@@ -277,7 +277,7 @@ fn optimize_plan(
                 schema: schema.clone(),
                 delimiter: *delimiter,
                 projection: Some(projection),
-                projected_schema: Box::new(projected_schema),
+                projected_schema: projected_schema,
             })
         }
         LogicalPlan::ParquetScan {
@@ -297,7 +297,7 @@ fn optimize_plan(
                 path: path.to_owned(),
                 schema: schema.clone(),
                 projection: Some(projection),
-                projected_schema: Box::new(projected_schema),
+                projected_schema: projected_schema,
             })
         }
         LogicalPlan::Explain {

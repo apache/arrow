@@ -19,7 +19,7 @@
 
 use std::{collections::HashSet, sync::Arc};
 
-use arrow::datatypes::Schema;
+use arrow::datatypes::{Schema, SchemaRef};
 
 use super::optimizer::OptimizerRule;
 use crate::error::{ExecutionError, Result};
@@ -89,7 +89,7 @@ pub fn optimize_explain(
         PlanType::OptimizedLogicalPlan { optimizer_name },
         format!("{:#?}", plan),
     ));
-    let schema = Box::new(schema.clone());
+    let schema = SchemaRef::new(schema.clone());
 
     Ok(LogicalPlan::Explain {
         verbose,

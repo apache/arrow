@@ -1543,8 +1543,6 @@ impl PartialEq<Value> for NullArray {
 mod tests {
     use super::*;
 
-    use std::convert::TryFrom;
-
     use crate::error::Result;
 
     #[test]
@@ -1795,49 +1793,27 @@ mod tests {
 
         // Test the case where null_count > 0
 
-        let a = StringArray::try_from(vec![
-            Some("hello"),
-            None,
-            None,
-            Some("world"),
-            None,
-            None,
-        ])
-        .unwrap();
+        let a =
+            StringArray::from(vec![Some("hello"), None, None, Some("world"), None, None]);
 
-        let b = StringArray::try_from(vec![
-            Some("hello"),
-            None,
-            None,
-            Some("world"),
-            None,
-            None,
-        ])
-        .unwrap();
+        let b =
+            StringArray::from(vec![Some("hello"), None, None, Some("world"), None, None]);
         assert!(a.equals(&b));
         assert!(b.equals(&a));
 
-        let b = StringArray::try_from(vec![
+        let b = StringArray::from(vec![
             Some("hello"),
             Some("foo"),
             None,
             Some("world"),
             None,
             None,
-        ])
-        .unwrap();
+        ]);
         assert!(!a.equals(&b));
         assert!(!b.equals(&a));
 
-        let b = StringArray::try_from(vec![
-            Some("hello"),
-            None,
-            None,
-            Some("arrow"),
-            None,
-            None,
-        ])
-        .unwrap();
+        let b =
+            StringArray::from(vec![Some("hello"), None, None, Some("arrow"), None, None]);
         assert!(!a.equals(&b));
         assert!(!b.equals(&a));
 
@@ -1872,49 +1848,45 @@ mod tests {
 
         // Test the case where null_count > 0
 
-        let a = LargeStringArray::try_from(vec![
+        let a = LargeStringArray::from(vec![
             Some("hello"),
             None,
             None,
             Some("world"),
             None,
             None,
-        ])
-        .unwrap();
+        ]);
 
-        let b = LargeStringArray::try_from(vec![
+        let b = LargeStringArray::from(vec![
             Some("hello"),
             None,
             None,
             Some("world"),
             None,
             None,
-        ])
-        .unwrap();
+        ]);
         assert!(a.equals(&b));
         assert!(b.equals(&a));
 
-        let b = LargeStringArray::try_from(vec![
+        let b = LargeStringArray::from(vec![
             Some("hello"),
             Some("foo"),
             None,
             Some("world"),
             None,
             None,
-        ])
-        .unwrap();
+        ]);
         assert!(!a.equals(&b));
         assert!(!b.equals(&a));
 
-        let b = LargeStringArray::try_from(vec![
+        let b = LargeStringArray::from(vec![
             Some("hello"),
             None,
             None,
             Some("arrow"),
             None,
             None,
-        ])
-        .unwrap();
+        ]);
         assert!(!a.equals(&b));
         assert!(!b.equals(&a));
 
@@ -2201,15 +2173,8 @@ mod tests {
     #[test]
     fn test_string_json_equal() {
         // Test the equal case
-        let arrow_array = StringArray::try_from(vec![
-            Some("hello"),
-            None,
-            None,
-            Some("world"),
-            None,
-            None,
-        ])
-        .unwrap();
+        let arrow_array =
+            StringArray::from(vec![Some("hello"), None, None, Some("world"), None, None]);
         let json_array: Value = serde_json::from_str(
             r#"
             [
@@ -2227,15 +2192,8 @@ mod tests {
         assert!(json_array.eq(&arrow_array));
 
         // Test unequal case
-        let arrow_array = StringArray::try_from(vec![
-            Some("hello"),
-            None,
-            None,
-            Some("world"),
-            None,
-            None,
-        ])
-        .unwrap();
+        let arrow_array =
+            StringArray::from(vec![Some("hello"), None, None, Some("world"), None, None]);
         let json_array: Value = serde_json::from_str(
             r#"
             [
@@ -2254,8 +2212,7 @@ mod tests {
 
         // Test unequal length case
         let arrow_array =
-            StringArray::try_from(vec![Some("hello"), None, None, Some("world"), None])
-                .unwrap();
+            StringArray::from(vec![Some("hello"), None, None, Some("world"), None]);
         let json_array: Value = serde_json::from_str(
             r#"
             [
@@ -2274,8 +2231,7 @@ mod tests {
 
         // Test incorrect type case
         let arrow_array =
-            StringArray::try_from(vec![Some("hello"), None, None, Some("world"), None])
-                .unwrap();
+            StringArray::from(vec![Some("hello"), None, None, Some("world"), None]);
         let json_array: Value = serde_json::from_str(
             r#"
             {
@@ -2289,8 +2245,7 @@ mod tests {
 
         // Test incorrect value type case
         let arrow_array =
-            StringArray::try_from(vec![Some("hello"), None, None, Some("world"), None])
-                .unwrap();
+            StringArray::from(vec![Some("hello"), None, None, Some("world"), None]);
         let json_array: Value = serde_json::from_str(
             r#"
             [
@@ -2311,15 +2266,8 @@ mod tests {
     #[test]
     fn test_binary_json_equal() {
         // Test the equal case
-        let arrow_array = StringArray::try_from(vec![
-            Some("hello"),
-            None,
-            None,
-            Some("world"),
-            None,
-            None,
-        ])
-        .unwrap();
+        let arrow_array =
+            StringArray::from(vec![Some("hello"), None, None, Some("world"), None, None]);
         let arrow_array = BinaryArray::from(arrow_array.data());
         let json_array: Value = serde_json::from_str(
             r#"
@@ -2338,15 +2286,8 @@ mod tests {
         assert!(json_array.eq(&arrow_array));
 
         // Test unequal case
-        let arrow_array = StringArray::try_from(vec![
-            Some("hello"),
-            None,
-            None,
-            Some("world"),
-            None,
-            None,
-        ])
-        .unwrap();
+        let arrow_array =
+            StringArray::from(vec![Some("hello"), None, None, Some("world"), None, None]);
         let json_array: Value = serde_json::from_str(
             r#"
             [
@@ -2365,8 +2306,7 @@ mod tests {
 
         // Test unequal length case
         let arrow_array =
-            StringArray::try_from(vec![Some("hello"), None, None, Some("world"), None])
-                .unwrap();
+            StringArray::from(vec![Some("hello"), None, None, Some("world"), None]);
         let json_array: Value = serde_json::from_str(
             r#"
             [
@@ -2385,8 +2325,7 @@ mod tests {
 
         // Test incorrect type case
         let arrow_array =
-            StringArray::try_from(vec![Some("hello"), None, None, Some("world"), None])
-                .unwrap();
+            StringArray::from(vec![Some("hello"), None, None, Some("world"), None]);
         let json_array: Value = serde_json::from_str(
             r#"
             {
@@ -2400,8 +2339,7 @@ mod tests {
 
         // Test incorrect value type case
         let arrow_array =
-            StringArray::try_from(vec![Some("hello"), None, None, Some("world"), None])
-                .unwrap();
+            StringArray::from(vec![Some("hello"), None, None, Some("world"), None]);
         let json_array: Value = serde_json::from_str(
             r#"
             [

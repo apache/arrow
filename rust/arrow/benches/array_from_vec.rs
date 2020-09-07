@@ -36,10 +36,32 @@ fn array_from_vec(n: usize) {
     criterion::black_box(Int32Array::from(arr_data));
 }
 
+fn array_string_from_vec(n: usize) {
+    let mut v: Vec<Option<&str>> = Vec::with_capacity(n);
+    for i in 0..n {
+        if i % 2 == 0 {
+            v.push(Some("hello world"));
+        } else {
+            v.push(None);
+        }
+    }
+    criterion::black_box(StringArray::from(v));
+}
+
 fn criterion_benchmark(c: &mut Criterion) {
     c.bench_function("array_from_vec 128", |b| b.iter(|| array_from_vec(128)));
     c.bench_function("array_from_vec 256", |b| b.iter(|| array_from_vec(256)));
     c.bench_function("array_from_vec 512", |b| b.iter(|| array_from_vec(512)));
+
+    c.bench_function("array_string_from_vec 128", |b| {
+        b.iter(|| array_string_from_vec(128))
+    });
+    c.bench_function("array_string_from_vec 256", |b| {
+        b.iter(|| array_string_from_vec(256))
+    });
+    c.bench_function("array_string_from_vec 512", |b| {
+        b.iter(|| array_string_from_vec(512))
+    });
 }
 
 criterion_group!(benches, criterion_benchmark);

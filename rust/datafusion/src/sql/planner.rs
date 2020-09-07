@@ -128,7 +128,7 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
             FileType::NdJson => {}
         };
 
-        let schema = Box::new(self.build_schema(&columns)?);
+        let schema = SchemaRef::new(self.build_schema(&columns)?);
 
         Ok(LogicalPlan::CreateExternalTable {
             schema,
@@ -179,6 +179,7 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
         Ok(Schema::new(fields))
     }
 
+    /// Maps the SQL type to the corresponding Arrow `DataType`
     fn make_data_type(&self, sql_type: &SQLDataType) -> Result<DataType> {
         match sql_type {
             SQLDataType::BigInt => Ok(DataType::Int64),
