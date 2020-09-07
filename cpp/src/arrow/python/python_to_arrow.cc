@@ -51,8 +51,14 @@
 
 namespace arrow {
 
+using internal::ArrayConverter;
+using internal::ArrayConverterBuilder;
 using internal::checked_cast;
 using internal::checked_pointer_cast;
+using internal::DictionaryArrayConverter;
+using internal::ListArrayConverter;
+using internal::PrimitiveArrayConverter;
+using internal::StructArrayConverter;
 
 namespace py {
 
@@ -356,7 +362,7 @@ class PyArrayConverter : public ArrayConverter<PyObject*, PyConversionOptions> {
  public:
   using ArrayConverter<PyObject*, PyConversionOptions>::ArrayConverter;
 
-  Status Extend(PyObject* values, int64_t size) override {
+  Status Extend(PyObject* values, int64_t size) {
     /// Ensure we've allocated enough space
     RETURN_NOT_OK(this->Reserve(size));
     // Iterate over the items adding each one
@@ -466,7 +472,7 @@ class PyPrimitiveArrayConverter<T, enable_if_string<T>>
 
   Result<std::shared_ptr<Array>> Finish() override {
     ARROW_ASSIGN_OR_RAISE(auto array,
-                          (TypedArrayConverter<T, PyArrayConverter>::Finish()));
+                          (PrimitiveArrayConverter<T, PyArrayConverter>::Finish()));
     if (observed_binary_) {
       // If we saw any non-unicode, cast results to BinaryArray
       auto binary_type = TypeTraits<typename T::PhysicalType>::type_singleton();

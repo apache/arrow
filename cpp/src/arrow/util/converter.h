@@ -30,6 +30,7 @@
 #include "arrow/visitor_inline.h"
 
 namespace arrow {
+namespace internal {
 
 using internal::checked_cast;
 using internal::checked_pointer_cast;
@@ -277,4 +278,5 @@ struct ArrayConverterBuilder {
   std::shared_ptr<BaseConverter>* out;
 };
 
+}  // namespace internal
 }  // namespace arrow
