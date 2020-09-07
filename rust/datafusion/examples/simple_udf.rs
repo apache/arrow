@@ -99,7 +99,7 @@ fn main() -> Result<()> {
     });
 
     // Next:
-    // * git it a name (so that it shows nicely when the plan is printed)
+    // * give it a name so that it shows nicely when the plan is printed
     // * declare what input it expects
     // * declare its return type
     let pow = create_udf(
