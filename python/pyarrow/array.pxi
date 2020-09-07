@@ -802,12 +802,6 @@ cdef class Array(_PandasConvertible):
         """
         return _pc().call_function('sum', [self])
 
-    def mode(self):
-        """
-        Compute the mode of valuesd in a numerical array.
-        """
-        return _pc().call_function('mode', [self])
-
     def unique(self):
         """
         Compute distinct elements in array.
