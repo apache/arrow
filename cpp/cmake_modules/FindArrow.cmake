@@ -39,7 +39,7 @@ endif()
 include(FindPkgConfig)
 include(FindPackageHandleStandardArgs)
 
-if (WIN32 AND NOT MINGW)
+if(WIN32 AND NOT MINGW)
   # This is used to handle builds using e.g. clang in an MSVC setting.
   set(MSVC_TOOLCHAIN TRUE)
 else()

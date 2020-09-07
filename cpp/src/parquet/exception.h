@@ -122,11 +122,17 @@ class ParquetStatusException : public ParquetException {
 // This class exists for the purpose of detecting an invalid or corrupted file.
 class ParquetInvalidOrCorruptedFileException : public ParquetStatusException {
  public:
-  ParquetInvalidOrCorruptedFileException(const ParquetInvalidOrCorruptedFileException&) = default;
+  ParquetInvalidOrCorruptedFileException(const ParquetInvalidOrCorruptedFileException&) =
+      default;
 
-  template <typename Arg, typename std::enable_if<!std::is_base_of<ParquetInvalidOrCorruptedFileException, Arg>::value, int>::type = 0, typename... Args>
+  template <typename Arg,
+            typename std::enable_if<
+                !std::is_base_of<ParquetInvalidOrCorruptedFileException, Arg>::value,
+                int>::type = 0,
+            typename... Args>
   explicit ParquetInvalidOrCorruptedFileException(Arg arg, Args&&... args)
-      : ParquetStatusException(::arrow::Status::Invalid(std::forward<Arg>(arg), std::forward<Args>(args)...)) {}
+      : ParquetStatusException(::arrow::Status::Invalid(std::forward<Arg>(arg),
+                                                        std::forward<Args>(args)...)) {}
 };
 
 template <typename StatusReturnBlock>

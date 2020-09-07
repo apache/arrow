@@ -178,13 +178,13 @@ struct arrow_traits<Type::BOOL> {
   typedef typename npy_traits<NPY_BOOL>::value_type T;
 };
 
-#define INT_DECL(TYPE)                                     \
-  template <>                                              \
-  struct arrow_traits<Type::TYPE> {                        \
-    static constexpr int npy_type = NPY_##TYPE;            \
-    static constexpr bool supports_nulls = false;          \
-    static constexpr double na_value = std::numeric_limits<double>::quiet_NaN();        \
-    typedef typename npy_traits<NPY_##TYPE>::value_type T; \
+#define INT_DECL(TYPE)                                                           \
+  template <>                                                                    \
+  struct arrow_traits<Type::TYPE> {                                              \
+    static constexpr int npy_type = NPY_##TYPE;                                  \
+    static constexpr bool supports_nulls = false;                                \
+    static constexpr double na_value = std::numeric_limits<double>::quiet_NaN(); \
+    typedef typename npy_traits<NPY_##TYPE>::value_type T;                       \
   };
 
 INT_DECL(INT8);
