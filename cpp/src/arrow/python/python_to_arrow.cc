@@ -49,9 +49,6 @@
 #include "arrow/python/type_traits.h"
 #include "arrow/visitor_inline.h"
 
-// store PyBytesView.is_utf8
-// use util::optional for post conversion null sentinel checking
-
 namespace arrow {
 
 using internal::checked_cast;

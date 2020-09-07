@@ -425,7 +425,7 @@ TEST_F(DecimalTest, TestNoneAndNaN) {
   ASSERT_RAISES(TypeError, ConvertPySequence(list, nullptr, options));
 
   options.from_pandas = true;
-  auto arr = ConvertPySequence(list, nullptr, options).ValueOrDie();
+  ASSERT_OK_AND_ASSIGN(auto arr, ConvertPySequence(list, nullptr, options))
   ASSERT_TRUE(arr->IsValid(0));
   ASSERT_TRUE(arr->IsNull(1));
   ASSERT_TRUE(arr->IsNull(2));
@@ -448,7 +448,7 @@ TEST_F(DecimalTest, TestMixedPrecisionAndScale) {
     ASSERT_EQ(0, result);
   }
 
-  auto arr = ConvertPySequence(list, nullptr, {}).ValueOrDie();
+  ASSERT_OK_AND_ASSIGN(auto arr, ConvertPySequence(list, nullptr, {}))
   const auto& type = checked_cast<const DecimalType&>(*arr->type());
 
   int32_t expected_precision = 9;
@@ -472,8 +472,7 @@ TEST_F(DecimalTest, TestMixedPrecisionAndScaleSequenceConvert) {
   ASSERT_EQ(PyList_SetItem(list, 0, value1), 0);
   ASSERT_EQ(PyList_SetItem(list, 1, value2), 0);
 
-  auto arr = ConvertPySequence(list, nullptr, {}).ValueOrDie();
-
+  ASSERT_OK_AND_ASSIGN(auto arr, ConvertPySequence(list, nullptr, {}));
   const auto& type = checked_cast<const Decimal128Type&>(*arr->type());
   ASSERT_EQ(3, type.precision());
   ASSERT_EQ(3, type.scale());

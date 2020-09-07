@@ -53,7 +53,6 @@ class ArrayConverter {
   virtual Status Reserve(int64_t additional_capacity) = 0;
   virtual Status Append(InputType value) = 0;
   virtual Status AppendNull() = 0;
-  virtual Status Extend(Input seq, int64_t size) = 0;
   virtual Result<std::shared_ptr<Array>> Finish() = 0;
 
  protected:
