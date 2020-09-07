@@ -134,7 +134,6 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::convert::TryFrom;
     use std::sync::Arc;
 
     #[test]
@@ -152,10 +151,11 @@ mod tests {
                 Some(2),
                 None,
             ])) as ArrayRef,
-            Arc::new(
-                StringArray::try_from(vec![Some("hello"), Some("bar"), Some("world")])
-                    .expect("Unable to create string array"),
-            ) as ArrayRef,
+            Arc::new(StringArray::from(vec![
+                Some("hello"),
+                Some("bar"),
+                Some("world"),
+            ])) as ArrayRef,
         ]);
         assert!(re.is_err());
         Ok(())
@@ -164,31 +164,27 @@ mod tests {
     #[test]
     fn test_concat_string_arrays() -> Result<()> {
         let arr = concat(&vec![
-            Arc::new(
-                StringArray::try_from(vec![Some("hello"), Some("world")])
-                    .expect("Unable to create string array"),
-            ) as ArrayRef,
+            Arc::new(StringArray::from(vec![Some("hello"), Some("world")])) as ArrayRef,
             Arc::new(StringArray::from(vec!["1", "2", "3", "4", "6"])).slice(1, 3),
-            Arc::new(
-                StringArray::try_from(vec![Some("foo"), Some("bar"), None, Some("baz")])
-                    .expect("Unable to create string array"),
-            ) as ArrayRef,
-        ])?;
-
-        let expected_output = Arc::new(
-            StringArray::try_from(vec![
-                Some("hello"),
-                Some("world"),
-                Some("2"),
-                Some("3"),
-                Some("4"),
+            Arc::new(StringArray::from(vec![
                 Some("foo"),
                 Some("bar"),
                 None,
                 Some("baz"),
-            ])
-            .expect("Unable to create string array"),
-        ) as ArrayRef;
+            ])) as ArrayRef,
+        ])?;
+
+        let expected_output = Arc::new(StringArray::from(vec![
+            Some("hello"),
+            Some("world"),
+            Some("2"),
+            Some("3"),
+            Some("4"),
+            Some("foo"),
+            Some("bar"),
+            None,
+            Some("baz"),
+        ])) as ArrayRef;
 
         assert!(
             arr.equals(&(*expected_output)),

@@ -540,7 +540,6 @@ fn json_from_fixed_size_list_col(
 mod tests {
     use super::*;
 
-    use std::convert::TryFrom;
     use std::fs::File;
     use std::io::Read;
     use std::sync::Arc;
@@ -732,7 +731,7 @@ mod tests {
             vec![None, None, Some(-6473623571954960143)],
             nanos_tz,
         );
-        let utf8s = StringArray::try_from(vec![Some("aa"), None, Some("bbb")]).unwrap();
+        let utf8s = StringArray::from(vec![Some("aa"), None, Some("bbb")]);
 
         let value_data = Int32Array::from(vec![None, Some(2), None, None]);
         let value_offsets = Buffer::from(&[0, 3, 4, 4].to_byte_slice());
@@ -745,8 +744,7 @@ mod tests {
         let lists = ListArray::from(list_data);
 
         let structs_int32s = Int32Array::from(vec![None, Some(-2), None]);
-        let structs_utf8s =
-            StringArray::try_from(vec![None, None, Some("aaaaaa")]).unwrap();
+        let structs_utf8s = StringArray::from(vec![None, None, Some("aaaaaa")]);
         let structs = StructArray::from(vec![
             (
                 Field::new("int32s", DataType::Int32, true),
