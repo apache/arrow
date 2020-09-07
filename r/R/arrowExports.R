@@ -1504,8 +1504,8 @@ Table__GetColumnByName <- function(table, name){
     .Call(`_arrow_Table__GetColumnByName` , table, name)
 }
 
-Table__select <- function(table, indices){
-    .Call(`_arrow_Table__select` , table, indices)
+Table__SelectColumns <- function(table, indices){
+    .Call(`_arrow_Table__SelectColumns` , table, indices)
 }
 
 all_record_batches <- function(lst){

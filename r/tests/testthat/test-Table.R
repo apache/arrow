@@ -349,3 +349,12 @@ test_that("Table unifies dictionary on conversion back to R (ARROW-8374)", {
 
   expect_identical(as.data.frame(tab), res)
 })
+
+test_that("Table$SelectColumns()", {
+  tab <- Table$create(x = 1:10, y = 1:10)
+
+  expect_equal(tab$SelectColumns(0L), Table$create(x = 1:10))
+
+  expect_error(tab$SelectColumns(2:4))
+  expect_error(tab$SelectColumns(""))
+})
