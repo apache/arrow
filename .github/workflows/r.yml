@@ -181,6 +181,7 @@ jobs:
           r-version: '3.6'
           Ncpus: 2
       - name: Turn on LTO for R
+        if: ${{ matrix.rtools != 35 }}
         shell: Rscript {0}
         run: |
           dir.create("~/.R")
