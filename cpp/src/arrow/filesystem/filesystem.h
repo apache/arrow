@@ -134,6 +134,12 @@ struct ARROW_EXPORT FileSelector {
   FileSelector() {}
 };
 
+/// \brief FileSystem, path pair
+struct ARROW_EXPORT FileLocator {
+  std::shared_ptr<FileSystem> filesystem;
+  std::string path;
+};
+
 /// \brief Abstract file system API
 class ARROW_EXPORT FileSystem : public std::enable_shared_from_this<FileSystem> {
  public:
@@ -389,10 +395,8 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUriOrPath(
 
 /// \brief Copy files from one FileSystem to another
 ARROW_EXPORT
-Status CopyFiles(const std::shared_ptr<FileSystem>& src_fs,
-                 const std::vector<std::string>& src_paths,
-                 const std::shared_ptr<FileSystem>& dest_fs,
-                 const std::vector<std::string>& dest_paths,
+Status CopyFiles(const std::vector<FileLocator>& sources,
+                 const std::vector<FileLocator>& destinations,
                  int64_t chunk_size = 1024 * 1024, bool use_threads = true);
 
 struct FileSystemGlobalOptions {

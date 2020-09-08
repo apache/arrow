@@ -3609,6 +3609,27 @@ extern "C" SEXP _arrow_fs___FileSystemFromUri(SEXP path_sexp){
 #endif
 
 // filesystem.cpp
+#if defined(ARROW_R_WITH_ARROW)
+void fs___CopyFiles(const std::shared_ptr<fs::FileSystem>& src_fs, const std::vector<std::string>& src_paths, const std::shared_ptr<fs::FileSystem>& dest_fs, const std::vector<std::string>& dest_paths, int64_t chunk_size, bool use_threads);
+extern "C" SEXP _arrow_fs___CopyFiles(SEXP src_fs_sexp, SEXP src_paths_sexp, SEXP dest_fs_sexp, SEXP dest_paths_sexp, SEXP chunk_size_sexp, SEXP use_threads_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<fs::FileSystem>&>::type src_fs(src_fs_sexp);
+	arrow::r::Input<const std::vector<std::string>&>::type src_paths(src_paths_sexp);
+	arrow::r::Input<const std::shared_ptr<fs::FileSystem>&>::type dest_fs(dest_fs_sexp);
+	arrow::r::Input<const std::vector<std::string>&>::type dest_paths(dest_paths_sexp);
+	arrow::r::Input<int64_t>::type chunk_size(chunk_size_sexp);
+	arrow::r::Input<bool>::type use_threads(use_threads_sexp);
+	fs___CopyFiles(src_fs, src_paths, dest_fs, dest_paths, chunk_size, use_threads);
+	return R_NilValue;
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_fs___CopyFiles(SEXP src_fs_sexp, SEXP src_paths_sexp, SEXP dest_fs_sexp, SEXP dest_paths_sexp, SEXP chunk_size_sexp, SEXP use_threads_sexp){
+	Rf_error("Cannot call fs___CopyFiles(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// filesystem.cpp
 #if defined(ARROW_R_WITH_S3)
 void fs___EnsureS3Initialized();
 extern "C" SEXP _arrow_fs___EnsureS3Initialized(){
@@ -6227,6 +6248,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_fs___LocalFileSystem__create", (DL_FUNC) &_arrow_fs___LocalFileSystem__create, 0}, 
 		{ "_arrow_fs___SubTreeFileSystem__create", (DL_FUNC) &_arrow_fs___SubTreeFileSystem__create, 2}, 
 		{ "_arrow_fs___FileSystemFromUri", (DL_FUNC) &_arrow_fs___FileSystemFromUri, 1}, 
+		{ "_arrow_fs___CopyFiles", (DL_FUNC) &_arrow_fs___CopyFiles, 6}, 
 		{ "_arrow_fs___EnsureS3Initialized", (DL_FUNC) &_arrow_fs___EnsureS3Initialized, 0}, 
 		{ "_arrow_fs___S3FileSystem__create", (DL_FUNC) &_arrow_fs___S3FileSystem__create, 0}, 
 		{ "_arrow_io___Readable__Read", (DL_FUNC) &_arrow_io___Readable__Read, 2}, 
