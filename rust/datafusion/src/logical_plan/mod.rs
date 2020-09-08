@@ -762,7 +762,7 @@ impl fmt::Debug for Expr {
 /// See the example in
 /// [user_defined_plan.rs](../../tests/user_defined_plan.rs) for an
 /// example of how to use this extenison API
-pub trait ExtensionPlanNode: Debug {
+pub trait UserDefinedLogicalNode: Debug {
     /// Return a reference to self as Any, to support dynamic downcasting
     fn as_any(&self) -> &dyn Any;
 
@@ -811,7 +811,7 @@ pub trait ExtensionPlanNode: Debug {
         &self,
         exprs: &Vec<Expr>,
         inputs: &Vec<LogicalPlan>,
-    ) -> Arc<dyn ExtensionPlanNode + Send + Sync>;
+    ) -> Arc<dyn UserDefinedLogicalNode + Send + Sync>;
 }
 
 /// A LogicalPlan represents the different types of relational
@@ -958,7 +958,7 @@ pub enum LogicalPlan {
     /// Extension operator defined outside of DataFusion
     Extension {
         /// The runtime extension operator
-        node: Arc<dyn ExtensionPlanNode + Send + Sync>,
+        node: Arc<dyn UserDefinedLogicalNode + Send + Sync>,
     },
 }
 

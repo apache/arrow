@@ -68,7 +68,7 @@ use arrow::{
 use datafusion::{
     error::{ExecutionError, Result},
     execution::context::{ExecutionContextState, OptimizerRuleSource},
-    logical_plan::{Expr, ExtensionPlanNode, LogicalPlan},
+    logical_plan::{Expr, UserDefinedLogicalNode, LogicalPlan},
     optimizer::{optimizer::OptimizerRule, utils::optimize_explain},
     physical_plan::{
         planner::{DefaultPhysicalPlanner, ExtensionPlanner},
@@ -264,7 +264,7 @@ impl Debug for TopKPlanNode {
     }
 }
 
-impl ExtensionPlanNode for TopKPlanNode {
+impl UserDefinedLogicalNode for TopKPlanNode {
     fn as_any(&self) -> &dyn Any {
         self
     }
@@ -291,7 +291,7 @@ impl ExtensionPlanNode for TopKPlanNode {
         &self,
         exprs: &Vec<Expr>,
         inputs: &Vec<LogicalPlan>,
-    ) -> Arc<dyn ExtensionPlanNode + Send + Sync> {
+    ) -> Arc<dyn UserDefinedLogicalNode + Send + Sync> {
         assert_eq!(inputs.len(), 1, "input size inconistent");
         assert_eq!(exprs.len(), 1, "expression size inconistent");
         Arc::new(TopKPlanNode {
@@ -309,7 +309,7 @@ impl ExtensionPlanner for TopKPlanner {
     /// Create a physical plan for an extension node
     fn plan_extension(
         &self,
-        node: &dyn ExtensionPlanNode,
+        node: &dyn UserDefinedLogicalNode,
         inputs: Vec<Arc<dyn ExecutionPlan>>,
         _ctx_state: &ExecutionContextState,
     ) -> Result<Arc<dyn ExecutionPlan>> {

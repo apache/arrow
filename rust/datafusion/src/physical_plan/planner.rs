@@ -23,7 +23,7 @@ use super::{empty::EmptyExec, expressions::binary, functions};
 use crate::error::{ExecutionError, Result};
 use crate::execution::context::ExecutionContextState;
 use crate::logical_plan::{
-    Expr, ExtensionPlanNode, LogicalPlan, PlanType, StringifiedPlan,
+    Expr, UserDefinedLogicalNode, LogicalPlan, PlanType, StringifiedPlan,
 };
 use crate::physical_plan::csv::{CsvExec, CsvReadOptions};
 use crate::physical_plan::explain::ExplainExec;
@@ -50,7 +50,7 @@ pub trait ExtensionPlanner {
     /// Create a physical plan for an extension node
     fn plan_extension(
         &self,
-        node: &dyn ExtensionPlanNode,
+        node: &dyn UserDefinedLogicalNode,
         inputs: Vec<Arc<dyn ExecutionPlan>>,
         ctx_state: &ExecutionContextState,
     ) -> Result<Arc<dyn ExecutionPlan>>;
@@ -504,7 +504,7 @@ struct DefaultExtensionPlanner {}
 impl ExtensionPlanner for DefaultExtensionPlanner {
     fn plan_extension(
         &self,
-        node: &dyn ExtensionPlanNode,
+        node: &dyn UserDefinedLogicalNode,
         _inputs: Vec<Arc<dyn ExecutionPlan>>,
         _ctx_state: &ExecutionContextState,
     ) -> Result<Arc<dyn ExecutionPlan>> {
@@ -649,7 +649,7 @@ mod tests {
         }
     }
 
-    impl ExtensionPlanNode for NoOpExtensionNode {
+    impl UserDefinedLogicalNode for NoOpExtensionNode {
         fn as_any(&self) -> &dyn Any {
             self
         }
@@ -676,7 +676,7 @@ mod tests {
             &self,
             _exprs: &Vec<Expr>,
             _inputs: &Vec<LogicalPlan>,
-        ) -> Arc<dyn ExtensionPlanNode + Send + Sync> {
+        ) -> Arc<dyn UserDefinedLogicalNode + Send + Sync> {
             unimplemented!("NoOp");
         }
     }
