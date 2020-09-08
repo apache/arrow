@@ -360,6 +360,16 @@ class TestS3FS : public S3TestMixin {
     ASSERT_OK_AND_ASSIGN(stream, fs_->OpenOutputStream("bucket/newfile1"));
     ASSERT_OK(stream->Close());
     AssertObjectContents(client_.get(), "bucket", "newfile1", "");
+
+    // Open file and then lose filesystem reference
+    ASSERT_EQ(fs_.use_count(), 1);  // needed for test to work
+    std::weak_ptr<S3FileSystem> weak_fs(fs_);
+    ASSERT_OK_AND_ASSIGN(stream, fs_->OpenOutputStream("bucket/newfile5"));
+    fs_.reset();
+    ASSERT_FALSE(weak_fs.expired());
+    ASSERT_OK(stream->Write("some data"));
+    ASSERT_OK(stream->Close());
+    ASSERT_TRUE(weak_fs.expired());
   }
 
   void TestOpenOutputStreamAbort() {
@@ -682,11 +692,23 @@ TEST_F(TestS3FS, OpenInputStream) {
   AssertBufferEqual(*buf, "sub data");
   ASSERT_OK_AND_ASSIGN(buf, stream->Read(100));
   AssertBufferEqual(*buf, "");
+  ASSERT_OK(stream->Close());
 
   // "Directories"
   ASSERT_RAISES(IOError, fs_->OpenInputStream("bucket/emptydir"));
   ASSERT_RAISES(IOError, fs_->OpenInputStream("bucket/somedir"));
   ASSERT_RAISES(IOError, fs_->OpenInputStream("bucket"));
+
+  // Open file and then lose filesystem reference
+  ASSERT_EQ(fs_.use_count(), 1);  // needed for test to work
+  std::weak_ptr<S3FileSystem> weak_fs(fs_);
+  ASSERT_OK_AND_ASSIGN(stream, fs_->OpenInputStream("bucket/somefile"));
+  fs_.reset();
+  ASSERT_FALSE(weak_fs.expired());
+  ASSERT_OK_AND_ASSIGN(buf, stream->Read(10));
+  AssertBufferEqual(*buf, "some data");
+  ASSERT_OK(stream->Close());
+  ASSERT_TRUE(weak_fs.expired());
 }
 
 TEST_F(TestS3FS, OpenInputFile) {
