@@ -306,13 +306,14 @@ fn optimize_plan(
             stringified_plans,
             schema,
         } => optimize_explain(optimizer, *verbose, &*plan, stringified_plans, &*schema),
-        // all other nodes:
-        // * gather all used columns as required columns
+        // all other nodes: Add any additional columns used by
+        // expressions in this node to the list of required columns
         LogicalPlan::Limit { .. }
         | LogicalPlan::Filter { .. }
         | LogicalPlan::EmptyRelation { .. }
         | LogicalPlan::Sort { .. }
-        | LogicalPlan::CreateExternalTable { .. } => {
+        | LogicalPlan::CreateExternalTable { .. }
+        | LogicalPlan::Extension { .. } => {
             let expr = utils::expressions(plan);
             // collect all required columns by this plan
             let mut new_required_columns = required_columns.clone();

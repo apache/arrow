@@ -115,7 +115,7 @@ impl DataFrame for DataFrameImpl {
 
     /// Returns the schema from the logical plan
     fn schema(&self) -> &Schema {
-        self.plan.schema().as_ref()
+        self.plan.schema()
     }
 
     fn explain(&self, verbose: bool) -> Result<Arc<dyn DataFrame>> {

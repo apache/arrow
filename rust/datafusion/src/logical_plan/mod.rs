@@ -21,7 +21,7 @@
 //! Logical query plans can then be optimized and executed directly, or translated into
 //! physical query plans and executed.
 
-use std::{collections::HashSet, fmt, sync::Arc};
+use std::{any::Any, collections::HashSet, fmt, sync::Arc};
 
 use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
 
@@ -37,6 +37,7 @@ use crate::{
     sql::parser::FileType,
 };
 use arrow::record_batch::RecordBatch;
+use fmt::Debug;
 
 /// Operators applied to expressions
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -755,8 +756,72 @@ impl fmt::Debug for Expr {
     }
 }
 
-/// The LogicalPlan represents different types of relations (such as Projection,
-/// Filter, etc) and can be created by the SQL query planner and the DataFrame API.
+/// This defines the interface for `LogicalPlan` nodes that can be
+/// used to extend DataFusion with custom relational operators.
+///
+/// See the example in
+/// [user_defined_plan.rs](../../tests/user_defined_plan.rs) for an
+/// example of how to use this extenison API
+pub trait UserDefinedLogicalNode: Debug {
+    /// Return a reference to self as Any, to support dynamic downcasting
+    fn as_any(&self) -> &dyn Any;
+
+    /// Return the the logical plan's inputs
+    fn inputs(&self) -> Vec<&LogicalPlan>;
+
+    /// Return the output schema of this logical plan node
+    fn schema(&self) -> &SchemaRef;
+
+    /// returns all expressions in the current logical plan node. This
+    /// should not include expressions of any inputs (aka
+    /// non-recursively) These expressions are used for optimizer
+    /// passes and rewrites.
+    fn expressions(&self) -> Vec<Expr>;
+
+    /// A list of output columns (e.g. the names of columns in
+    /// self.schema()) for which predicates can not be pushed below
+    /// this node without changing the output.
+    ///
+    /// By default, this returns all columns and thus prevents any
+    /// predicates from being pushed below this node.
+    fn prevent_predicate_push_down_columns(&self) -> HashSet<String> {
+        // default (safe) is all columns in the schema.
+        self.schema()
+            .fields()
+            .iter()
+            .map(|f| f.name().clone())
+            .collect()
+    }
+
+    /// Write a single line, human readable string to `f` for use in explain plan
+    ///
+    /// For example: `TopK: k=10`
+    fn fmt_for_explain(&self, f: &mut fmt::Formatter) -> fmt::Result;
+
+    /// Create a new `ExtensionPlanNode` with the specified children
+    /// and expressions. This function is used during optimization
+    /// when the plan is being rewritten and a new instance of the
+    /// `ExtensionPlanNode` must be created.
+    ///
+    /// Note that exprs and inputs are in the same order as the result
+    /// of self.inputs and self.exprs.
+    ///
+    /// So, `self.from_template(exprs, ..).expressions() == exprs
+    fn from_template(
+        &self,
+        exprs: &Vec<Expr>,
+        inputs: &Vec<LogicalPlan>,
+    ) -> Arc<dyn UserDefinedLogicalNode + Send + Sync>;
+}
+
+/// A LogicalPlan represents the different types of relational
+/// operators (such as Projection, Filter, etc) and can be created by
+/// the SQL query planner and the DataFrame API.
+///
+/// A LogicalPlan represents transforming an input relation (table) to
+/// an output relation (table) with a (potentially) different
+/// schema. A plan represents a dataflow tree where data flows
+/// from leaves up to the root to produce the query result.
 #[derive(Clone)]
 pub enum LogicalPlan {
     /// Evaluates an arbitrary list of expressions (essentially a
@@ -890,6 +955,11 @@ pub enum LogicalPlan {
         /// The output schema of the explain (2 columns of text)
         schema: SchemaRef,
     },
+    /// Extension operator defined outside of DataFusion
+    Extension {
+        /// The runtime extension operator
+        node: Arc<dyn UserDefinedLogicalNode + Send + Sync>,
+    },
 }
 
 impl LogicalPlan {
@@ -916,6 +986,7 @@ impl LogicalPlan {
             LogicalPlan::Limit { input, .. } => input.schema(),
             LogicalPlan::CreateExternalTable { schema, .. } => &schema,
             LogicalPlan::Explain { schema, .. } => &schema,
+            LogicalPlan::Extension { node } => &node.schema(),
         }
     }
 
@@ -1017,6 +1088,13 @@ impl LogicalPlan {
             LogicalPlan::Explain { ref plan, .. } => {
                 write!(f, "Explain")?;
                 plan.fmt_with_indent(f, indent + 1)
+            }
+            LogicalPlan::Extension { ref node } => {
+                node.fmt_for_explain(f)?;
+                node.inputs()
+                    .iter()
+                    .map(|input| input.fmt_with_indent(f, indent + 1))
+                    .collect()
             }
         }
     }
@@ -1145,8 +1223,7 @@ impl LogicalPlanBuilder {
             _ => projected_expr.push(expr[i].clone()),
         });
 
-        let schema =
-            Schema::new(exprlist_to_fields(&projected_expr, input_schema.as_ref())?);
+        let schema = Schema::new(exprlist_to_fields(&projected_expr, input_schema)?);
 
         Ok(Self::from(&LogicalPlan::Projection {
             expr: projected_expr,

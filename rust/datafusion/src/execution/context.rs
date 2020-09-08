@@ -291,10 +291,12 @@ impl ExecutionContext {
 
     /// Optimize the logical plan by applying optimizer rules
     pub fn optimize(&self, plan: &LogicalPlan) -> Result<LogicalPlan> {
-        let plan = ProjectionPushDown::new().optimize(&plan)?;
-        let plan = FilterPushDown::new().optimize(&plan)?;
-        let plan = TypeCoercionRule::new().optimize(&plan)?;
-        Ok(plan)
+        // Apply standard rewrites and optimizations
+        let mut plan = ProjectionPushDown::new().optimize(&plan)?;
+        plan = FilterPushDown::new().optimize(&plan)?;
+        plan = TypeCoercionRule::new().optimize(&plan)?;
+
+        self.state.config.query_planner.rewrite_logical_plan(plan)
     }
 
     /// Create a physical plan from a logical plan
@@ -302,12 +304,10 @@ impl ExecutionContext {
         &self,
         logical_plan: &LogicalPlan,
     ) -> Result<Arc<dyn ExecutionPlan>> {
-        if let Some(planner) = &self.config().physical_planner {
-            planner.create_physical_plan(logical_plan, &self.state)
-        } else {
-            let planner = DefaultPhysicalPlanner::default();
-            planner.create_physical_plan(logical_plan, &self.state)
-        }
+        self.state
+            .config
+            .query_planner
+            .create_physical_plan(logical_plan, &self.state)
     }
 
     /// Execute a physical plan and collect the results in memory
@@ -383,6 +383,38 @@ impl ScalarFunctionRegistry for ExecutionContext {
     }
 }
 
+/// A planner used to add extensions to DataFusion logical and phusical plans.
+pub trait QueryPlanner {
+    /// Given a `LogicalPlan`, create a new, modified `LogicalPlan`
+    /// plan. This method is run after built in `OptimizerRule`s. By
+    /// default returns the `plan` unmodified.
+    fn rewrite_logical_plan(&self, plan: LogicalPlan) -> Result<LogicalPlan> {
+        Ok(plan)
+    }
+
+    /// Given a `LogicalPlan`, create an `ExecutionPlan` suitable for execution
+    fn create_physical_plan(
+        &self,
+        logical_plan: &LogicalPlan,
+        ctx_state: &ExecutionContextState,
+    ) -> Result<Arc<dyn ExecutionPlan>>;
+}
+
+/// The query planner used if no user defined planner is provided
+struct DefaultQueryPlanner {}
+
+impl QueryPlanner for DefaultQueryPlanner {
+    /// Given a `LogicalPlan`, create an `ExecutionPlan` suitable for execution
+    fn create_physical_plan(
+        &self,
+        logical_plan: &LogicalPlan,
+        ctx_state: &ExecutionContextState,
+    ) -> Result<Arc<dyn ExecutionPlan>> {
+        let planner = DefaultPhysicalPlanner::default();
+        planner.create_physical_plan(logical_plan, ctx_state)
+    }
+}
+
 /// Configuration options for execution context
 #[derive(Clone)]
 pub struct ExecutionConfig {
@@ -390,17 +422,17 @@ pub struct ExecutionConfig {
     pub concurrency: usize,
     /// Default batch size when reading data sources
     pub batch_size: usize,
-    /// Optional physical planner to override the default physical planner
-    physical_planner: Option<Arc<dyn PhysicalPlanner + Send + Sync>>,
+    /// Responsible for planning `LogicalPlan`s, and `ExecutionPlan`
+    query_planner: Arc<dyn QueryPlanner + Send + Sync>,
 }
 
 impl ExecutionConfig {
-    /// Create an execution config with default settings
+    /// Create an execution config with default setting
     pub fn new() -> Self {
         Self {
             concurrency: num_cpus::get(),
             batch_size: 4096,
-            physical_planner: None,
+            query_planner: Arc::new(DefaultQueryPlanner {}),
         }
     }
 
@@ -420,12 +452,12 @@ impl ExecutionConfig {
         self
     }
 
-    /// Optional physical planner to override the default physical planner
-    pub fn with_physical_planner(
+    /// Replace the default query planner
+    pub fn with_query_planner(
         mut self,
-        physical_planner: Arc<dyn PhysicalPlanner + Send + Sync>,
+        query_planner: Arc<dyn QueryPlanner + Send + Sync>,
     ) -> Self {
-        self.physical_planner = Some(physical_planner);
+        self.query_planner = query_planner;
         self
     }
 }
@@ -1075,10 +1107,11 @@ mod tests {
     }
 
     #[test]
-    fn custom_physical_planner() -> Result<()> {
+    fn custom_query_planner() -> Result<()> {
         let mut ctx = ExecutionContext::with_config(
-            ExecutionConfig::new().with_physical_planner(Arc::new(MyPhysicalPlanner {})),
+            ExecutionConfig::new().with_query_planner(Arc::new(MyQueryPlanner {})),
         );
+
         let df = ctx.sql("SELECT 1")?;
         df.collect().expect_err("query not supported");
         Ok(())
@@ -1095,6 +1128,19 @@ mod tests {
             Err(ExecutionError::NotImplemented(
                 "query not supported".to_string(),
             ))
+        }
+    }
+
+    struct MyQueryPlanner {}
+
+    impl QueryPlanner for MyQueryPlanner {
+        fn create_physical_plan(
+            &self,
+            logical_plan: &LogicalPlan,
+            ctx_state: &ExecutionContextState,
+        ) -> Result<Arc<dyn ExecutionPlan>> {
+            let physical_planner = MyPhysicalPlanner {};
+            physical_planner.create_physical_plan(logical_plan, ctx_state)
         }
     }
 

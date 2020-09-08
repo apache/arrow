@@ -583,11 +583,11 @@ fn register_alltypes_parquet(ctx: &mut ExecutionContext) {
 /// Execute query and return result set as tab delimited string
 fn execute(ctx: &mut ExecutionContext, sql: &str) -> Vec<String> {
     let plan = ctx.create_logical_plan(&sql).unwrap();
-    let logical_schema = plan.schema().clone();
+    let logical_schema = plan.schema();
     let plan = ctx.optimize(&plan).unwrap();
-    let optimized_logical_schema = plan.schema().clone();
+    let optimized_logical_schema = plan.schema();
     let plan = ctx.create_physical_plan(&plan).unwrap();
-    let physical_schema = plan.schema().clone();
+    let physical_schema = plan.schema();
     let results = ctx.collect(plan).unwrap();
 
     assert_eq!(logical_schema.as_ref(), optimized_logical_schema.as_ref());

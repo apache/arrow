@@ -17,6 +17,7 @@
 
 //! Query optimizer traits
 
+use super::utils;
 use crate::error::Result;
 use crate::logical_plan::LogicalPlan;
 
@@ -27,4 +28,18 @@ pub trait OptimizerRule {
     fn optimize(&mut self, plan: &LogicalPlan) -> Result<LogicalPlan>;
     /// Produce a human readable name for this optimizer rule
     fn name(&self) -> &str;
+
+    /// Convenience rule for writing optimizers: recursively invoke
+    /// optimize on plan's children and then return a node of the same
+    /// type. Useful for optimizer rules which want to leave the type
+    /// of plan unchanged but still apply to the children.
+    fn optimize_children(&mut self, plan: &LogicalPlan) -> Result<LogicalPlan> {
+        let new_exprs = utils::expressions(&plan);
+        let new_inputs = utils::inputs(&plan)
+            .into_iter()
+            .map(|plan| self.optimize(plan))
+            .collect::<Result<Vec<_>>>()?;
+
+        utils::from_plan(plan, &new_exprs, &new_inputs)
+    }
 }

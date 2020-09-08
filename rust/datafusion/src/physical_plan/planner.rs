@@ -22,7 +22,9 @@ use std::sync::Arc;
 use super::{empty::EmptyExec, expressions::binary, functions};
 use crate::error::{ExecutionError, Result};
 use crate::execution::context::ExecutionContextState;
-use crate::logical_plan::{Expr, LogicalPlan, PlanType, StringifiedPlan};
+use crate::logical_plan::{
+    Expr, LogicalPlan, PlanType, StringifiedPlan, UserDefinedLogicalNode,
+};
 use crate::physical_plan::csv::{CsvExec, CsvReadOptions};
 use crate::physical_plan::explain::ExplainExec;
 use crate::physical_plan::expressions::{
@@ -42,14 +44,30 @@ use crate::physical_plan::{AggregateExpr, ExecutionPlan, PhysicalExpr, PhysicalP
 use arrow::compute::SortOptions;
 use arrow::datatypes::Schema;
 
+/// This trait permits the `DefaultPhysicalPlanner` to create plans for
+/// user defined `ExtensionPlanNode`s
+pub trait ExtensionPlanner {
+    /// Create a physical plan for an extension node
+    fn plan_extension(
+        &self,
+        node: &dyn UserDefinedLogicalNode,
+        inputs: Vec<Arc<dyn ExecutionPlan>>,
+        ctx_state: &ExecutionContextState,
+    ) -> Result<Arc<dyn ExecutionPlan>>;
+}
+
 /// Default single node physical query planner that converts a
 /// `LogicalPlan` to an `ExecutionPlan` suitable for execution.
-pub struct DefaultPhysicalPlanner {}
+pub struct DefaultPhysicalPlanner {
+    extension_planner: Arc<dyn ExtensionPlanner + Send + Sync>,
+}
 
 impl Default for DefaultPhysicalPlanner {
-    /// Create an implementation of the physical planner
+    /// Create an implementation of the default physical planner
     fn default() -> Self {
-        Self {}
+        Self {
+            extension_planner: Arc::new(DefaultExtensionPlanner {}),
+        }
     }
 }
 
@@ -66,6 +84,14 @@ impl PhysicalPlanner for DefaultPhysicalPlanner {
 }
 
 impl DefaultPhysicalPlanner {
+    /// Create a physical planner that uses `extension_planner` to
+    /// plan extension nodes.
+    pub fn with_extension_planner(
+        extension_planner: Arc<dyn ExtensionPlanner + Send + Sync>,
+    ) -> Self {
+        Self { extension_planner }
+    }
+
     /// Create a physical plan from a logical plan
     fn optimize_plan(
         &self,
@@ -331,6 +357,32 @@ impl DefaultPhysicalPlanner {
                 let schema_ref = Arc::new(schema.as_ref().clone());
                 Ok(Arc::new(ExplainExec::new(schema_ref, stringified_plans)))
             }
+            LogicalPlan::Extension { node } => {
+                let inputs = node
+                    .inputs()
+                    .into_iter()
+                    .map(|input_plan| self.create_physical_plan(input_plan, ctx_state))
+                    .collect::<Result<Vec<_>>>()?;
+
+                let plan = self.extension_planner.plan_extension(
+                    node.as_ref(),
+                    inputs,
+                    ctx_state,
+                )?;
+
+                // Ensure the ExecutionPlan's  schema matches the
+                // declared logical schema to catch and warn about
+                // logic errors when creating user defined plans.
+                if plan.schema() != *node.schema() {
+                    Err(ExecutionError::General(format!(
+                        "Extension planner for {:?} created an ExecutionPlan with mismatched schema. \
+                         LogicalPlan schema: {:?}, ExecutionPlan schema: {:?}",
+                        node, node.schema(), plan.schema()
+                    )))
+                } else {
+                    Ok(plan)
+                }
+            }
         }
     }
 
@@ -463,23 +515,48 @@ fn tuple_err<T, R>(value: (Result<T>, Result<R>)) -> Result<(T, R)> {
     }
 }
 
+struct DefaultExtensionPlanner {}
+
+impl ExtensionPlanner for DefaultExtensionPlanner {
+    fn plan_extension(
+        &self,
+        node: &dyn UserDefinedLogicalNode,
+        _inputs: Vec<Arc<dyn ExecutionPlan>>,
+        _ctx_state: &ExecutionContextState,
+    ) -> Result<Arc<dyn ExecutionPlan>> {
+        Err(ExecutionError::NotImplemented(format!(
+            "DefaultPhysicalPlanner does not know how to plan {:?}. \
+                     Provide a custom ExtensionPlanNodePlanner that does",
+            node
+        )))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::logical_plan::{aggregate_expr, col, lit, LogicalPlanBuilder};
-    use crate::physical_plan::csv::CsvReadOptions;
+    use crate::physical_plan::{csv::CsvReadOptions, Partitioning};
     use crate::{prelude::ExecutionConfig, test::arrow_testdata_path};
-    use std::collections::HashMap;
+    use arrow::{
+        datatypes::{DataType, Field, SchemaRef},
+        record_batch::RecordBatchReader,
+    };
+    use fmt::Debug;
+    use std::{any::Any, collections::HashMap, fmt, sync::Mutex};
 
-    fn plan(logical_plan: &LogicalPlan) -> Result<Arc<dyn ExecutionPlan>> {
-        let ctx_state = ExecutionContextState {
+    fn make_ctx_state() -> ExecutionContextState {
+        ExecutionContextState {
             datasources: HashMap::new(),
             scalar_functions: HashMap::new(),
             config: ExecutionConfig::new(),
-        };
+        }
+    }
 
-        let planer = DefaultPhysicalPlanner {};
-        planer.create_physical_plan(logical_plan, &ctx_state)
+    fn plan(logical_plan: &LogicalPlan) -> Result<Arc<dyn ExecutionPlan>> {
+        let ctx_state = make_ctx_state();
+        let planner = DefaultPhysicalPlanner::default();
+        planner.create_physical_plan(logical_plan, &ctx_state)
     }
 
     #[test]
@@ -558,5 +635,164 @@ mod tests {
             };
         }
         Ok(())
+    }
+
+    #[test]
+    fn default_extension_planner() -> Result<()> {
+        let ctx_state = make_ctx_state();
+        let planner = DefaultPhysicalPlanner::default();
+        let logical_plan = LogicalPlan::Extension {
+            node: Arc::new(NoOpExtensionNode::default()),
+        };
+        let plan = planner.create_physical_plan(&logical_plan, &ctx_state);
+
+        let expected_error = "DefaultPhysicalPlanner does not know how to plan NoOp";
+        match plan {
+            Ok(_) => assert!(false, "Expected planning failure"),
+            Err(e) => assert!(
+                e.to_string().contains(expected_error),
+                "Error '{}' did not contain expected error '{}'",
+                e.to_string(),
+                expected_error
+            ),
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn bad_extension_planner() -> Result<()> {
+        // Test that creating an execution plan whose schema doesn't
+        // match the logical plan's schema generates an error.
+        let ctx_state = make_ctx_state();
+        let planner = DefaultPhysicalPlanner::with_extension_planner(Arc::new(
+            BadExtensionPlanner {},
+        ));
+
+        let logical_plan = LogicalPlan::Extension {
+            node: Arc::new(NoOpExtensionNode::default()),
+        };
+        let plan = planner.create_physical_plan(&logical_plan, &ctx_state);
+
+        let expected_error = "Extension planner for NoOp created an ExecutionPlan with mismatched schema. LogicalPlan schema: Schema { fields: [Field { name: \"a\", data_type: Int32, nullable: false, dict_id: 0, dict_is_ordered: false }], metadata: {} }, ExecutionPlan schema: Schema { fields: [Field { name: \"b\", data_type: Int32, nullable: false, dict_id: 0, dict_is_ordered: false }], metadata: {} }";
+
+        match plan {
+            Ok(_) => assert!(false, "Expected planning failure"),
+            Err(e) => assert!(
+                e.to_string().contains(expected_error),
+                "Error '{}' did not contain expected error '{}'",
+                e.to_string(),
+                expected_error
+            ),
+        }
+        Ok(())
+    }
+
+    /// An example extension node that doesn't do anything
+    struct NoOpExtensionNode {
+        schema: SchemaRef,
+    }
+
+    impl Default for NoOpExtensionNode {
+        fn default() -> Self {
+            Self {
+                schema: SchemaRef::new(Schema::new(vec![Field::new(
+                    "a",
+                    DataType::Int32,
+                    false,
+                )])),
+            }
+        }
+    }
+
+    impl Debug for NoOpExtensionNode {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            write!(f, "NoOp")
+        }
+    }
+
+    impl UserDefinedLogicalNode for NoOpExtensionNode {
+        fn as_any(&self) -> &dyn Any {
+            self
+        }
+
+        fn inputs(&self) -> Vec<&LogicalPlan> {
+            vec![]
+        }
+
+        fn schema(&self) -> &SchemaRef {
+            &self.schema
+        }
+
+        fn expressions(&self) -> Vec<Expr> {
+            vec![]
+        }
+
+        fn fmt_for_explain(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            write!(f, "NoOp")
+        }
+
+        fn from_template(
+            &self,
+            _exprs: &Vec<Expr>,
+            _inputs: &Vec<LogicalPlan>,
+        ) -> Arc<dyn UserDefinedLogicalNode + Send + Sync> {
+            unimplemented!("NoOp");
+        }
+    }
+
+    #[derive(Debug)]
+    struct NoOpExecutionPlan {
+        schema: SchemaRef,
+    }
+
+    impl ExecutionPlan for NoOpExecutionPlan {
+        fn schema(&self) -> SchemaRef {
+            self.schema.clone()
+        }
+
+        fn output_partitioning(&self) -> Partitioning {
+            Partitioning::UnknownPartitioning(1)
+        }
+
+        fn children(&self) -> Vec<Arc<dyn ExecutionPlan>> {
+            vec![]
+        }
+
+        fn with_new_children(
+            &self,
+            _children: Vec<Arc<dyn ExecutionPlan>>,
+        ) -> Result<Arc<dyn ExecutionPlan>> {
+            unimplemented!("NoOpExecutionPlan::with_new_children");
+        }
+
+        /// Execute one partition and return an iterator over RecordBatch
+        fn execute(
+            &self,
+            _partition: usize,
+        ) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
+            unimplemented!("NoOpExecutionPlan::execute");
+        }
+    }
+
+    //  Produces an execution plan where the schema is mismatched from
+    //  the logical plan node.
+    struct BadExtensionPlanner {}
+
+    impl ExtensionPlanner for BadExtensionPlanner {
+        /// Create a physical plan for an extension node
+        fn plan_extension(
+            &self,
+            _node: &dyn UserDefinedLogicalNode,
+            _inputs: Vec<Arc<dyn ExecutionPlan>>,
+            _ctx_state: &ExecutionContextState,
+        ) -> Result<Arc<dyn ExecutionPlan>> {
+            Ok(Arc::new(NoOpExecutionPlan {
+                schema: SchemaRef::new(Schema::new(vec![Field::new(
+                    "b",
+                    DataType::Int32,
+                    false,
+                )])),
+            }))
+        }
     }
 }
