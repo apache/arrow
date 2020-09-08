@@ -184,7 +184,7 @@ jobs:
         shell: Rscript {0}
         run: |
           dir.create("~/.R")
-          writeLines("CPPFLAGS=-flto", file = "~/.R/Makevars")
+          writeLines("CPPFLAGS=-flto", "~/.R/Makevars")
       - name: Build Arrow C++
         shell: bash
         env:
