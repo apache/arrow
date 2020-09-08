@@ -17,27 +17,30 @@
 
 //! Math expressions
 
-use crate::error::{ExecutionError, Result};
-
-use arrow::array::{Array, ArrayRef, Float32Array, Float64Array};
-
-use arrow::datatypes::DataType;
-
 use std::sync::Arc;
+
+use arrow::array::{make_array, Array, ArrayData, ArrayRef, Float32Array, Float64Array};
+use arrow::buffer::Buffer;
+use arrow::datatypes::{DataType, ToByteSlice};
+
+use crate::error::{ExecutionError, Result};
 
 macro_rules! compute_op {
     ($ARRAY:expr, $FUNC:ident, $TYPE:ident) => {{
-        let result: Float64Array = (0..$ARRAY.len())
-            .map(|i| {
-                if $ARRAY.is_null(i) {
-                    None
-                } else {
-                    Some($ARRAY.value(i).$FUNC() as f64)
-                }
-            })
-            .collect::<Vec<Option<f64>>>()
-            .into();
-        Ok(Arc::new(result))
+        let len = $ARRAY.len();
+        let result = (0..len)
+            .map(|i| $ARRAY.value(i).$FUNC() as f64)
+            .collect::<Vec<f64>>();
+        let data = ArrayData::new(
+            DataType::Float64,
+            len,
+            Some($ARRAY.null_count()),
+            $ARRAY.data().null_buffer().cloned(),
+            0,
+            vec![Buffer::from(result.to_byte_slice())],
+            vec![],
+        );
+        Ok(make_array(Arc::new(data)))
     }};
 }
 
