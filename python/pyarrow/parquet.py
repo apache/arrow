@@ -1770,7 +1770,7 @@ def write_to_dataset(table, root_path, partition_cols=None,
         file metadata instances of dataset pieces. The file paths in the
         ColumnChunkMetaData will be set relative to `root_path`.
     """
-    fs, root_path = _get_filesystem_and_path(filesystem, root_path)
+    fs, root_path = legacyfs.resolve_filesystem_and_path(root_path, filesystem)
 
     _mkdir_if_not_exists(fs, root_path)
 

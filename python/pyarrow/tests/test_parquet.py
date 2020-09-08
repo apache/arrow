@@ -2170,7 +2170,10 @@ def s3_example_s3fs(s3_connection, s3_server, s3_bucket):
 
     fs.mkdir(bucket_uri)
     yield fs, bucket_uri
-    fs.rm(bucket_uri, recursive=True)
+    try:
+        fs.rm(bucket_uri, recursive=True)
+    except FileNotFoundError:
+        pass
 
 
 @pytest.mark.pandas
@@ -2946,6 +2949,24 @@ def test_write_to_dataset_pathlib(tempdir, use_legacy_dataset):
         tempdir / "test1", use_legacy_dataset)
     _test_write_to_dataset_no_partitions(
         tempdir / "test2", use_legacy_dataset)
+
+
+@pytest.mark.pandas
+@pytest.mark.s3
+@parametrize_legacy_dataset
+def test_write_to_dataset_pathlib_nonlocal(
+    tempdir, s3_example_s3fs, use_legacy_dataset
+):
+    # pathlib paths are only accepted for local files
+    fs, _ = s3_example_s3fs
+
+    with pytest.raises(TypeError, match="path-like objects are only allowed"):
+        _test_write_to_dataset_with_partitions(
+            tempdir / "test1", use_legacy_dataset, filesystem=fs)
+
+    with pytest.raises(TypeError, match="path-like objects are only allowed"):
+        _test_write_to_dataset_no_partitions(
+            tempdir / "test2", use_legacy_dataset, filesystem=fs)
 
 
 @pytest.mark.pandas
