@@ -185,6 +185,7 @@ fn create_name(e: &Expr, input_schema: &Schema) -> Result<String> {
     match e {
         Expr::Alias(_, name) => Ok(name.clone()),
         Expr::Column(name) => Ok(name.clone()),
+        Expr::ScalarVariable(variable_names) => Ok(variable_names.join(".")),
         Expr::Literal(value) => Ok(format!("{:?}", value)),
         Expr::BinaryExpr { left, op, right } => {
             let left = create_name(left, input_schema)?;
@@ -235,6 +236,8 @@ pub enum Expr {
     Alias(Box<Expr>, String),
     /// column of a table scan
     Column(String),
+    /// scalar variable like @@version
+    ScalarVariable(Vec<String>),
     /// literal value
     Literal(ScalarValue),
     /// binary expression e.g. "age > 21"
@@ -301,6 +304,7 @@ impl Expr {
         match self {
             Expr::Alias(expr, _) => expr.get_type(schema),
             Expr::Column(name) => Ok(schema.field_with_name(name)?.data_type().clone()),
+            Expr::ScalarVariable(_) => Ok(DataType::Utf8),
             Expr::Literal(l) => l.get_datatype(),
             Expr::Cast { data_type, .. } => Ok(data_type.clone()),
             Expr::ScalarUDF { fun, args } => {
@@ -388,6 +392,7 @@ impl Expr {
                 ScalarValue::Null => Ok(true),
                 _ => Ok(false),
             },
+            Expr::ScalarVariable(_) => Ok(true),
             Expr::Cast { expr, .. } => expr.nullable(input_schema),
             Expr::ScalarFunction { .. } => Ok(true),
             Expr::ScalarUDF { .. } => Ok(true),
@@ -713,6 +718,7 @@ impl fmt::Debug for Expr {
         match self {
             Expr::Alias(expr, alias) => write!(f, "{:?} AS {}", expr, alias),
             Expr::Column(name) => write!(f, "#{}", name),
+            Expr::ScalarVariable(var_names) => write!(f, "{}", var_names.join(".")),
             Expr::Literal(v) => write!(f, "{:?}", v),
             Expr::Cast { expr, data_type } => {
                 write!(f, "CAST({:?} AS {:?})", expr, data_type)

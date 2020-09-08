@@ -67,6 +67,7 @@ pub mod optimizer;
 pub mod physical_plan;
 pub mod prelude;
 pub mod sql;
+pub mod variable;
 
 #[cfg(test)]
 pub mod test;

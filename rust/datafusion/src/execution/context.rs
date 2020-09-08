@@ -51,6 +51,7 @@ use crate::sql::{
     parser::{DFParser, FileType},
     planner::{SchemaProvider, SqlToRel},
 };
+use crate::variable::{VarProvider, VarType};
 
 /// ExecutionContext is the main interface for executing queries with DataFusion. The context
 /// provides the following functionality:
@@ -107,6 +108,7 @@ impl ExecutionContext {
             state: ExecutionContextState {
                 datasources: HashMap::new(),
                 scalar_functions: HashMap::new(),
+                var_provider: HashMap::new(),
                 config,
             },
         };
@@ -175,6 +177,15 @@ impl ExecutionContext {
         // create a query planner
         let query_planner = SqlToRel::new(&self.state);
         Ok(query_planner.statement_to_plan(&statements[0])?)
+    }
+
+    /// Register variable
+    pub fn register_variable(
+        &mut self,
+        variable_type: VarType,
+        provider: Arc<dyn VarProvider + Send + Sync>,
+    ) {
+        self.state.var_provider.insert(variable_type, provider);
     }
 
     /// Register a scalar UDF
@@ -460,6 +471,8 @@ pub struct ExecutionContextState {
     pub datasources: HashMap<String, Arc<dyn TableProvider + Send + Sync>>,
     /// Scalar functions that are registered with the context
     pub scalar_functions: HashMap<String, Arc<ScalarUDF>>,
+    /// Variable provider that are registered with the context
+    pub var_provider: HashMap<VarType, Arc<dyn VarProvider + Send + Sync>>,
     /// Context configuration
     pub config: ExecutionConfig,
 }
@@ -504,7 +517,8 @@ mod tests {
     use crate::logical_plan::{aggregate_expr, col, create_udf};
     use crate::physical_plan::functions::ScalarFunctionImplementation;
     use crate::test;
-    use arrow::array::{ArrayRef, Int32Array};
+    use crate::variable::VarType;
+    use arrow::array::{ArrayRef, Int32Array, StringArray};
     use arrow::compute::add;
     use std::fs::File;
     use std::{io::prelude::*, sync::Mutex};
@@ -526,6 +540,44 @@ mod tests {
 
             assert_eq!(field_names(batch), vec!["c1", "c2"]);
         }
+
+        Ok(())
+    }
+
+    #[test]
+    fn create_variable_expr() -> Result<()> {
+        let tmp_dir = TempDir::new("variable_expr")?;
+        let partition_count = 4;
+        let mut ctx = create_ctx(&tmp_dir, partition_count)?;
+
+        let variable_provider = test::variable::SystemVar::new();
+        ctx.register_variable(VarType::System, Arc::new(variable_provider));
+        let variable_provider = test::variable::UserDefinedVar::new();
+        ctx.register_variable(VarType::UserDefined, Arc::new(variable_provider));
+
+        let provider = test::create_table_dual();
+        ctx.register_table("dual", provider);
+
+        let results = collect(&mut ctx, "SELECT @@version, @name FROM dual")?;
+
+        let batch = &results[0];
+        assert_eq!(2, batch.num_columns());
+        assert_eq!(1, batch.num_rows());
+        assert_eq!(field_names(batch), vec!["@@version", "@name"]);
+
+        let version = batch
+            .column(0)
+            .as_any()
+            .downcast_ref::<StringArray>()
+            .expect("failed to cast version");
+        assert_eq!(version.value(0), "system-var-@@version");
+
+        let name = batch
+            .column(1)
+            .as_any()
+            .downcast_ref::<StringArray>()
+            .expect("failed to cast name");
+        assert_eq!(name.value(0), "user-defined-var-@name");
 
         Ok(())
     }
