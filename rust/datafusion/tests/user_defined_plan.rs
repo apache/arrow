@@ -68,7 +68,7 @@ use arrow::{
 use datafusion::{
     error::{ExecutionError, Result},
     execution::context::{ExecutionContextState, OptimizerRuleSource},
-    logical_plan::{Expr, UserDefinedLogicalNode, LogicalPlan},
+    logical_plan::{Expr, LogicalPlan, UserDefinedLogicalNode},
     optimizer::{optimizer::OptimizerRule, utils::optimize_explain},
     physical_plan::{
         planner::{DefaultPhysicalPlanner, ExtensionPlanner},
