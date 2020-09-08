@@ -277,13 +277,18 @@ Result<std::unique_ptr<ResizableBuffer>> AllocateResizableBuffer(const int64_t s
 }
 
 Result<std::shared_ptr<Buffer>> AllocateBitmap(int64_t length, MemoryPool* pool) {
-  return AllocateBuffer(BitUtil::BytesForBits(length), pool);
+  ARROW_ASSIGN_OR_RAISE(auto buf, AllocateBuffer(BitUtil::BytesForBits(length), pool));
+  // Zero out any trailing bits
+  if (buf->size() > 0) {
+    buf->mutable_data()[buf->size() - 1] = 0;
+  }
+  return std::move(buf);
 }
 
 Result<std::shared_ptr<Buffer>> AllocateEmptyBitmap(int64_t length, MemoryPool* pool) {
-  ARROW_ASSIGN_OR_RAISE(auto buf, AllocateBitmap(length, pool));
+  ARROW_ASSIGN_OR_RAISE(auto buf, AllocateBuffer(BitUtil::BytesForBits(length), pool));
   memset(buf->mutable_data(), 0, static_cast<size_t>(buf->size()));
-  return buf;
+  return std::move(buf);
 }
 
 Status AllocateEmptyBitmap(int64_t length, std::shared_ptr<Buffer>* out) {
