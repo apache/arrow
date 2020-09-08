@@ -67,12 +67,13 @@ use arrow::{
 };
 use datafusion::{
     error::{ExecutionError, Result},
-    execution::context::{ExecutionContextState, OptimizerRuleSource},
+    execution::context::ExecutionContextState,
+    execution::context::QueryPlanner,
     logical_plan::{Expr, LogicalPlan, UserDefinedLogicalNode},
     optimizer::{optimizer::OptimizerRule, utils::optimize_explain},
     physical_plan::{
         planner::{DefaultPhysicalPlanner, ExtensionPlanner},
-        Distribution, ExecutionPlan, Partitioning,
+        Distribution, ExecutionPlan, Partitioning, PhysicalPlanner,
     },
     prelude::{ExecutionConfig, ExecutionContext},
 };
@@ -172,23 +173,32 @@ fn topk_plan() -> Result<()> {
 }
 
 fn make_topk_context() -> ExecutionContext {
-    let physical_planner = Arc::new(DefaultPhysicalPlanner::with_extension_planner(
-        Arc::new(TopKPlanner {}),
-    ));
-
-    let config = ExecutionConfig::new()
-        .with_optimizer_rule_source(Arc::new(TopKOptimizerRuleSource {}))
-        .with_physical_planner(physical_planner);
+    let config = ExecutionConfig::new().with_query_planner(Arc::new(TopKQueryPlanner {}));
 
     ExecutionContext::with_config(config)
 }
 
 // ------ The implementation of the TopK code follows -----
 
-struct TopKOptimizerRuleSource {}
-impl OptimizerRuleSource for TopKOptimizerRuleSource {
-    fn rules(&self) -> Vec<Box<dyn OptimizerRule + Send + Sync>> {
-        vec![Box::new(TopKOptimizerRule {})]
+struct TopKQueryPlanner {}
+
+impl QueryPlanner for TopKQueryPlanner {
+    fn rewrite_logical_plan(&self, plan: LogicalPlan) -> Result<LogicalPlan> {
+        TopKOptimizerRule {}.optimize(&plan)
+    }
+
+    /// Given a `LogicalPlan` created from above, create an
+    /// `ExecutionPlan` suitable for execution
+    fn create_physical_plan(
+        &self,
+        logical_plan: &LogicalPlan,
+        ctx_state: &ExecutionContextState,
+    ) -> Result<Arc<dyn ExecutionPlan>> {
+        // Teach the default physical planner how to plan TopK nodes.
+        let physical_planner =
+            DefaultPhysicalPlanner::with_extension_planner(Arc::new(TopKPlanner {}));
+        // Delegate most work of physical planning to the default physical planner
+        physical_planner.create_physical_plan(logical_plan, ctx_state)
     }
 }
 
