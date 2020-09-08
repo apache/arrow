@@ -449,10 +449,20 @@ def resolve_filesystem_and_path(where, filesystem=None):
                              " there is nothing to open with filesystem.")
         return filesystem, where
 
-    path = _stringify_path(where)
-
     if filesystem is not None:
-        return _ensure_filesystem(filesystem), path
+        filesystem = _ensure_filesystem(filesystem)
+        if isinstance(filesystem, LocalFileSystem):
+            path = _stringify_path(where)
+        elif not isinstance(where, str):
+            raise TypeError(
+                "Expected string path; path-like objects are only allowed "
+                "with a local filesystem"
+            )
+        else:
+            path = where
+        return filesystem, path
+
+    path = _stringify_path(where)
 
     parsed_uri = urllib.parse.urlparse(path)
     if parsed_uri.scheme == 'hdfs' or parsed_uri.scheme == 'viewfs':
@@ -475,6 +485,6 @@ def resolve_filesystem_and_path(where, filesystem=None):
     else:
         # Input is local path such as /home/user/myfile.parquet
         fs = LocalFileSystem.get_instance()
-        fs_path = where
+        fs_path = path
 
     return fs, fs_path

@@ -2170,7 +2170,10 @@ def s3_example_s3fs(s3_connection, s3_server, s3_bucket):
 
     fs.mkdir(bucket_uri)
     yield fs, bucket_uri
-    fs.rm(bucket_uri, recursive=True)
+    try:
+        fs.rm(bucket_uri, recursive=True)
+    except FileNotFoundError:
+        pass
 
 
 @pytest.mark.pandas
@@ -2830,7 +2833,7 @@ def _test_write_to_dataset_with_partitions(base_path,
     pq.write_to_dataset(output_table, base_path, partition_by,
                         filesystem=filesystem)
 
-    metadata_path = os.path.join(base_path, '_common_metadata')
+    metadata_path = os.path.join(str(base_path), '_common_metadata')
 
     if filesystem is not None:
         with filesystem.open(metadata_path, 'wb') as f:
@@ -2888,7 +2891,7 @@ def _test_write_to_dataset_no_partitions(base_path,
     for i in range(n):
         pq.write_to_dataset(output_table, base_path,
                             filesystem=filesystem)
-    output_files = [file for file in filesystem.ls(base_path)
+    output_files = [file for file in filesystem.ls(str(base_path))
                     if file.endswith(".parquet")]
     assert len(output_files) == n
 
@@ -2936,7 +2939,34 @@ def test_write_to_dataset_with_partitions_and_index_name(
 @pytest.mark.pandas
 @parametrize_legacy_dataset
 def test_write_to_dataset_no_partitions(tempdir, use_legacy_dataset):
-    _test_write_to_dataset_no_partitions(str(tempdir))
+    _test_write_to_dataset_no_partitions(str(tempdir), use_legacy_dataset)
+
+
+@pytest.mark.pandas
+@parametrize_legacy_dataset
+def test_write_to_dataset_pathlib(tempdir, use_legacy_dataset):
+    _test_write_to_dataset_with_partitions(
+        tempdir / "test1", use_legacy_dataset)
+    _test_write_to_dataset_no_partitions(
+        tempdir / "test2", use_legacy_dataset)
+
+
+@pytest.mark.pandas
+@pytest.mark.s3
+@parametrize_legacy_dataset
+def test_write_to_dataset_pathlib_nonlocal(
+    tempdir, s3_example_s3fs, use_legacy_dataset
+):
+    # pathlib paths are only accepted for local files
+    fs, _ = s3_example_s3fs
+
+    with pytest.raises(TypeError, match="path-like objects are only allowed"):
+        _test_write_to_dataset_with_partitions(
+            tempdir / "test1", use_legacy_dataset, filesystem=fs)
+
+    with pytest.raises(TypeError, match="path-like objects are only allowed"):
+        _test_write_to_dataset_no_partitions(
+            tempdir / "test2", use_legacy_dataset, filesystem=fs)
 
 
 @pytest.mark.pandas
