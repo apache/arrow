@@ -113,7 +113,7 @@ TEST(DecimalTest, TestStringRoundTrip) {
       (1ull << 63),
       std::numeric_limits<uint64_t>::max(),
   };
-  static constexpr int32_t kScales[] = {-10, -1, 0, 1, 10};
+  static constexpr int32_t kScales[] = {0, 1, 10};
   for (uint64_t high_bits : kTestBits) {
     for (uint64_t low_bits : kTestBits) {
       // When high_bits = 1ull << 63 or std::numeric_limits<uint64_t>::max(), decimal is

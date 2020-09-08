@@ -100,6 +100,8 @@ std::shared_ptr<ArrayData> ArrayData::Slice(int64_t off, int64_t len) const {
   copy->offset = off;
   if (null_count == length) {
     copy->null_count = len;
+  } else if (off == offset && len == length) {  // A copy of current.
+    copy->null_count = null_count.load();
   } else {
     copy->null_count = null_count != 0 ? kUnknownNullCount : 0;
   }

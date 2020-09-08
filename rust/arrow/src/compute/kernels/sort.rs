@@ -257,13 +257,13 @@ pub struct SortColumn {
 ///         options: None,
 ///     },
 ///     SortColumn {
-///         values: Arc::new(StringArray::try_from(vec![
+///         values: Arc::new(StringArray::from(vec![
 ///             Some("hello"),
 ///             Some("world"),
 ///             Some(","),
 ///             Some("foobar"),
 ///             Some("!"),
-///         ]).unwrap()) as ArrayRef,
+///         ])) as ArrayRef,
 ///         options: Some(SortOptions {
 ///             descending: true,
 ///             nulls_first: false,
@@ -373,7 +373,7 @@ pub fn lexsort_to_indices(columns: &[SortColumn]) -> Result<UInt32Array> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::{convert::TryFrom, sync::Arc};
+    use std::sync::Arc;
 
     fn test_sort_to_indices_primitive_arrays<T>(
         data: Vec<Option<T::Native>>,
@@ -409,7 +409,7 @@ mod tests {
         options: Option<SortOptions>,
         expected_data: Vec<u32>,
     ) {
-        let output = StringArray::try_from(data).expect("Unable to create string array");
+        let output = StringArray::from(data);
         let expected = UInt32Array::from(expected_data);
         let output = sort_to_indices(&(Arc::new(output) as ArrayRef), options).unwrap();
         assert!(output.equals(&expected))
@@ -420,9 +420,8 @@ mod tests {
         options: Option<SortOptions>,
         expected_data: Vec<Option<&str>>,
     ) {
-        let output = StringArray::try_from(data).expect("Unable to create string array");
-        let expected =
-            StringArray::try_from(expected_data).expect("Unable to create string array");
+        let output = StringArray::from(data);
+        let expected = StringArray::from(expected_data);
         let output = sort(&(Arc::new(output) as ArrayRef), options).unwrap();
         let output = output.as_any().downcast_ref::<StringArray>().unwrap();
         assert!(output.equals(&expected))
@@ -984,10 +983,7 @@ mod tests {
                 options: None,
             },
             SortColumn {
-                values: Arc::new(
-                    StringArray::try_from(vec![Some("foo")])
-                        .expect("Unable to create string array"),
-                ) as ArrayRef,
+                values: Arc::new(StringArray::from(vec![Some("foo")])) as ArrayRef,
                 options: None,
             },
         ];
@@ -1065,15 +1061,12 @@ mod tests {
                 }),
             },
             SortColumn {
-                values: Arc::new(
-                    StringArray::try_from(vec![
-                        Some("foo"),
-                        Some("9"),
-                        Some("7"),
-                        Some("bar"),
-                    ])
-                    .expect("Unable to create string array"),
-                ) as ArrayRef,
+                values: Arc::new(StringArray::from(vec![
+                    Some("foo"),
+                    Some("9"),
+                    Some("7"),
+                    Some("bar"),
+                ])) as ArrayRef,
                 options: Some(SortOptions {
                     descending: true,
                     nulls_first: true,
@@ -1087,15 +1080,12 @@ mod tests {
                 Some(0),
                 Some(-1),
             ])) as ArrayRef,
-            Arc::new(
-                StringArray::try_from(vec![
-                    Some("9"),
-                    Some("foo"),
-                    Some("bar"),
-                    Some("7"),
-                ])
-                .expect("Unable to create string array"),
-            ) as ArrayRef,
+            Arc::new(StringArray::from(vec![
+                Some("9"),
+                Some("foo"),
+                Some("bar"),
+                Some("7"),
+            ])) as ArrayRef,
         ];
         test_lex_sort_arrays(input, expected);
 
@@ -1114,15 +1104,12 @@ mod tests {
                 }),
             },
             SortColumn {
-                values: Arc::new(
-                    StringArray::try_from(vec![
-                        Some("foo"),
-                        Some("world"),
-                        Some("hello"),
-                        None,
-                    ])
-                    .expect("Unable to create string array"),
-                ) as ArrayRef,
+                values: Arc::new(StringArray::from(vec![
+                    Some("foo"),
+                    Some("world"),
+                    Some("hello"),
+                    None,
+                ])) as ArrayRef,
                 options: Some(SortOptions {
                     descending: true,
                     nulls_first: true,
@@ -1136,15 +1123,12 @@ mod tests {
                 Some(2),
                 Some(-1),
             ])) as ArrayRef,
-            Arc::new(
-                StringArray::try_from(vec![
-                    None,
-                    Some("foo"),
-                    Some("hello"),
-                    Some("world"),
-                ])
-                .expect("Unable to create string array"),
-            ) as ArrayRef,
+            Arc::new(StringArray::from(vec![
+                None,
+                Some("foo"),
+                Some("hello"),
+                Some("world"),
+            ])) as ArrayRef,
         ];
         test_lex_sort_arrays(input, expected);
 
@@ -1163,15 +1147,12 @@ mod tests {
                 }),
             },
             SortColumn {
-                values: Arc::new(
-                    StringArray::try_from(vec![
-                        Some("foo"),
-                        Some("world"),
-                        Some("hello"),
-                        None,
-                    ])
-                    .expect("Unable to create string array"),
-                ) as ArrayRef,
+                values: Arc::new(StringArray::from(vec![
+                    Some("foo"),
+                    Some("world"),
+                    Some("hello"),
+                    None,
+                ])) as ArrayRef,
                 options: Some(SortOptions {
                     descending: true,
                     nulls_first: false,
@@ -1185,15 +1166,12 @@ mod tests {
                 None,
                 None,
             ])) as ArrayRef,
-            Arc::new(
-                StringArray::try_from(vec![
-                    Some("hello"),
-                    Some("world"),
-                    Some("foo"),
-                    None,
-                ])
-                .expect("Unable to create string array"),
-            ) as ArrayRef,
+            Arc::new(StringArray::from(vec![
+                Some("hello"),
+                Some("world"),
+                Some("foo"),
+                None,
+            ])) as ArrayRef,
         ];
         test_lex_sort_arrays(input, expected);
 
@@ -1213,16 +1191,13 @@ mod tests {
                 }),
             },
             SortColumn {
-                values: Arc::new(
-                    StringArray::try_from(vec![
-                        Some("foo"),
-                        Some("bar"),
-                        Some("world"),
-                        Some("hello"),
-                        None,
-                    ])
-                    .expect("Unable to create string array"),
-                ) as ArrayRef,
+                values: Arc::new(StringArray::from(vec![
+                    Some("foo"),
+                    Some("bar"),
+                    Some("world"),
+                    Some("hello"),
+                    None,
+                ])) as ArrayRef,
                 options: Some(SortOptions {
                     descending: true,
                     nulls_first: true,
@@ -1237,16 +1212,13 @@ mod tests {
                 None,
                 None,
             ])) as ArrayRef,
-            Arc::new(
-                StringArray::try_from(vec![
-                    Some("hello"),
-                    Some("bar"),
-                    Some("world"),
-                    None,
-                    Some("foo"),
-                ])
-                .expect("Unable to create string array"),
-            ) as ArrayRef,
+            Arc::new(StringArray::from(vec![
+                Some("hello"),
+                Some("bar"),
+                Some("world"),
+                None,
+                Some("foo"),
+            ])) as ArrayRef,
         ];
         test_lex_sort_arrays(input, expected);
     }

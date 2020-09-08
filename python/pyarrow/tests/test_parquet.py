@@ -31,6 +31,7 @@ from pyarrow.pandas_compat import _pandas_api
 from pyarrow.tests import util
 from pyarrow.util import guid
 from pyarrow.filesystem import LocalFileSystem, FileSystem
+from pyarrow import fs
 
 
 try:
@@ -2152,7 +2153,7 @@ def s3_bucket(request, s3_connection, s3_server):
 
 
 @pytest.fixture
-def s3_example(s3_connection, s3_server, s3_bucket):
+def s3_example_s3fs(s3_connection, s3_server, s3_bucket):
     s3fs = pytest.importorskip('s3fs')
 
     host, port, access_key, secret_key = s3_connection
@@ -2175,10 +2176,10 @@ def s3_example(s3_connection, s3_server, s3_bucket):
 @pytest.mark.pandas
 @pytest.mark.s3
 @parametrize_legacy_dataset
-def test_read_partitioned_directory_s3fs(s3_example, use_legacy_dataset):
+def test_read_partitioned_directory_s3fs(s3_example_s3fs, use_legacy_dataset):
     from pyarrow.filesystem import S3FSWrapper
 
-    fs, bucket_uri = s3_example
+    fs, bucket_uri = s3_example_s3fs
     wrapper = S3FSWrapper(fs)
     _partition_test_for_filesystem(wrapper, bucket_uri)
 
@@ -3508,6 +3509,88 @@ def test_parquet_file_pass_directory_instead_of_file(tempdir):
 
     with pytest.raises(IOError, match="Expected file path"):
         pq.ParquetFile(path)
+
+
+@pytest.mark.pandas
+@pytest.mark.parametrize("filesystem", [
+    None,
+    LocalFileSystem.get_instance(),
+    fs.LocalFileSystem(),
+])
+def test_parquet_writer_filesystem_local(tempdir, filesystem):
+    df = _test_dataframe(100)
+    table = pa.Table.from_pandas(df, preserve_index=False)
+    path = str(tempdir / 'data.parquet')
+
+    with pq.ParquetWriter(
+        path, table.schema, filesystem=filesystem, version='2.0'
+    ) as writer:
+        writer.write_table(table)
+
+    result = _read_table(path).to_pandas()
+    tm.assert_frame_equal(result, df)
+
+
+@pytest.fixture
+def s3_example_fs(s3_connection, s3_server):
+    from pyarrow.fs import FileSystem
+
+    host, port, access_key, secret_key = s3_connection
+    uri = (
+        "s3://{}:{}@mybucket/data.parquet?scheme=http&endpoint_override={}:{}"
+        .format(access_key, secret_key, host, port)
+    )
+    fs, path = FileSystem.from_uri(uri)
+
+    fs.create_dir("mybucket")
+
+    yield fs, uri, path
+
+
+@pytest.mark.pandas
+@pytest.mark.s3
+def test_parquet_writer_filesystem_s3(s3_example_fs):
+    df = _test_dataframe(100)
+    table = pa.Table.from_pandas(df, preserve_index=False)
+
+    fs, uri, path = s3_example_fs
+
+    with pq.ParquetWriter(
+        path, table.schema, filesystem=fs, version='2.0'
+    ) as writer:
+        writer.write_table(table)
+
+    result = _read_table(uri).to_pandas()
+    tm.assert_frame_equal(result, df)
+
+
+# TODO segfaulting (ARROW-9814?)
+# @pytest.mark.pandas
+# @pytest.mark.s3
+# def test_parquet_writer_filesystem_s3_uri(s3_example_fs):
+#     df = _test_dataframe(100)
+#     table = pa.Table.from_pandas(df, preserve_index=False)
+
+#     fs, uri, path = s3_example_fs
+
+#     with pq.ParquetWriter(uri, table.schema, version='2.0') as writer:
+#         writer.write_table(table)
+
+#     result = _read_table(path, filesystem=fs).to_pandas()
+#     tm.assert_frame_equal(result, df)
+
+
+@pytest.mark.pandas
+def test_parquet_writer_filesystem_buffer_raises():
+    df = _test_dataframe(100)
+    table = pa.Table.from_pandas(df, preserve_index=False)
+    filesystem = fs.LocalFileSystem()
+
+    # Should raise ValueError when filesystem is passed with file-like object
+    with pytest.raises(ValueError, match="specified path is file-like"):
+        pq.ParquetWriter(
+            pa.BufferOutputStream(), table.schema, filesystem=filesystem
+        )
 
 
 @pytest.mark.pandas

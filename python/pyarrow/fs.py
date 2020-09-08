@@ -19,6 +19,8 @@
 FileSystem abstraction to interact with various local and remote filesystems.
 """
 
+from pyarrow.util import _is_path_like, _stringify_path
+
 from pyarrow._fs import (  # noqa
     FileSelector,
     FileType,
@@ -62,7 +64,9 @@ def __getattr__(name):
     )
 
 
-def _ensure_filesystem(filesystem, use_mmap=False):
+def _ensure_filesystem(
+    filesystem, use_mmap=False, allow_legacy_filesystem=False
+):
     if isinstance(filesystem, FileSystem):
         return filesystem
 
@@ -79,13 +83,41 @@ def _ensure_filesystem(filesystem, use_mmap=False):
             return PyFileSystem(FSSpecHandler(filesystem))
 
     # map old filesystems to new ones
-    from pyarrow.filesystem import LocalFileSystem as LegacyLocalFileSystem
+    import pyarrow.filesystem as legacyfs
 
-    if isinstance(filesystem, LegacyLocalFileSystem):
+    if isinstance(filesystem, legacyfs.LocalFileSystem):
         return LocalFileSystem(use_mmap=use_mmap)
     # TODO handle HDFS?
+    if allow_legacy_filesystem and isinstance(filesystem, legacyfs.FileSystem):
+        return filesystem
 
     raise TypeError("Unrecognized filesystem: {}".format(type(filesystem)))
+
+
+def _resolve_filesystem_and_path(
+    path, filesystem=None, allow_legacy_filesystem=False
+):
+    """
+    Return filesystem/path from path which could be an URI or a plain
+    filesystem path.
+    """
+    if not _is_path_like(path):
+        if filesystem is not None:
+            raise ValueError(
+                "'filesystem' passed but the specified path is file-like, so"
+                " there is nothing to open with 'filesystem'."
+            )
+        return filesystem, path
+
+    path = _stringify_path(path)
+
+    if filesystem is not None:
+        filesystem = _ensure_filesystem(
+            filesystem, allow_legacy_filesystem=allow_legacy_filesystem
+        )
+        return filesystem, path
+    else:
+        return FileSystem.from_uri(path)
 
 
 class FSSpecHandler(FileSystemHandler):

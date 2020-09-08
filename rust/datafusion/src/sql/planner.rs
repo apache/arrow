@@ -179,6 +179,7 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
         Ok(Schema::new(fields))
     }
 
+    /// Maps the SQL type to the corresponding Arrow `DataType`
     fn make_data_type(&self, sql_type: &SQLDataType) -> Result<DataType> {
         match sql_type {
             SQLDataType::BigInt => Ok(DataType::Int64),
@@ -548,7 +549,7 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
                             args: rex_args,
                         })
                     }
-                    // finally, built-in scalar functions
+                    // finally, user-defined functions
                     _ => match self.schema_provider.get_function_meta(&name) {
                         Some(fm) => {
                             let rex_args = function
@@ -564,9 +565,8 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
                             }
 
                             Ok(Expr::ScalarUDF {
-                                name: name.clone(),
+                                fun: fm.clone(),
                                 args: safe_args,
-                                return_type: fm.return_type.clone(),
                             })
                         }
                         _ => Err(ExecutionError::General(format!(

@@ -21,7 +21,7 @@
 //! Logical query plans can then be optimized and executed directly, or translated into
 //! physical query plans and executed.
 
-use std::{fmt, sync::Arc};
+use std::{collections::HashSet, fmt, sync::Arc};
 
 use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
 
@@ -29,8 +29,11 @@ use crate::datasource::csv::{CsvFile, CsvReadOptions};
 use crate::datasource::parquet::ParquetTable;
 use crate::datasource::TableProvider;
 use crate::error::{ExecutionError, Result};
+use crate::physical_plan::udf;
 use crate::{
-    physical_plan::{expressions::binary_operator_data_type, functions},
+    physical_plan::{
+        expressions::binary_operator_data_type, functions, type_coercion::can_coerce_from,
+    },
     sql::parser::FileType,
 };
 use arrow::record_batch::RecordBatch;
@@ -198,12 +201,12 @@ fn create_name(e: &Expr, input_schema: &Schema) -> Result<String> {
             }
             Ok(format!("{}({})", fun, names.join(",")))
         }
-        Expr::ScalarUDF { name, args, .. } => {
+        Expr::ScalarUDF { fun, args, .. } => {
             let mut names = Vec::with_capacity(args.len());
             for e in args {
                 names.push(create_name(e, input_schema)?);
             }
-            Ok(format!("{}({})", name, names.join(",")))
+            Ok(format!("{}({})", fun.name, names.join(",")))
         }
         Expr::AggregateFunction { name, args, .. } => {
             let mut names = Vec::with_capacity(args.len());
@@ -225,7 +228,7 @@ pub fn exprlist_to_fields(expr: &[Expr], input_schema: &Schema) -> Result<Vec<Fi
 }
 
 /// Relation expression
-#[derive(Clone, PartialEq)]
+#[derive(Clone)]
 pub enum Expr {
     /// An aliased expression
     Alias(Box<Expr>, String),
@@ -277,12 +280,10 @@ pub enum Expr {
     },
     /// scalar udf.
     ScalarUDF {
-        /// The function's name
-        name: String,
+        /// The function
+        fun: Arc<udf::ScalarFunction>,
         /// List of expressions to feed to the functions as arguments
         args: Vec<Expr>,
-        /// The `DataType` the expression will yield
-        return_type: DataType,
     },
     /// aggregate function
     AggregateFunction {
@@ -304,7 +305,7 @@ impl Expr {
             Expr::ScalarVariable(_) => Ok(DataType::Utf8),
             Expr::Literal(l) => l.get_datatype(),
             Expr::Cast { data_type, .. } => Ok(data_type.clone()),
-            Expr::ScalarUDF { return_type, .. } => Ok(return_type.clone()),
+            Expr::ScalarUDF { fun, .. } => Ok(fun.return_type.clone()),
             Expr::ScalarFunction { fun, args } => {
                 let data_types = args
                     .iter()
@@ -689,15 +690,6 @@ pub fn aggregate_expr(name: &str, expr: Expr) -> Expr {
     }
 }
 
-/// call a scalar UDF
-pub fn scalar_function(name: &str, expr: Vec<Expr>, return_type: DataType) -> Expr {
-    Expr::ScalarUDF {
-        name: name.to_owned(),
-        args: expr,
-        return_type,
-    }
-}
-
 impl fmt::Debug for Expr {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
@@ -741,8 +733,8 @@ impl fmt::Debug for Expr {
 
                 write!(f, ")")
             }
-            Expr::ScalarUDF { name, ref args, .. } => {
-                write!(f, "{}(", name)?;
+            Expr::ScalarUDF { fun, ref args, .. } => {
+                write!(f, "{}(", fun.name)?;
                 for i in 0..args.len() {
                     if i > 0 {
                         write!(f, ", ")?;
@@ -1042,57 +1034,13 @@ impl fmt::Debug for LogicalPlan {
     }
 }
 
-/// Verify a given type cast can be performed
-pub fn can_coerce_from(type_into: &DataType, type_from: &DataType) -> bool {
-    use self::DataType::*;
-    match type_into {
-        Int8 => match type_from {
-            Int8 => true,
-            _ => false,
-        },
-        Int16 => match type_from {
-            Int8 | Int16 | UInt8 => true,
-            _ => false,
-        },
-        Int32 => match type_from {
-            Int8 | Int16 | Int32 | UInt8 | UInt16 => true,
-            _ => false,
-        },
-        Int64 => match type_from {
-            Int8 | Int16 | Int32 | Int64 | UInt8 | UInt16 | UInt32 => true,
-            _ => false,
-        },
-        UInt8 => match type_from {
-            UInt8 => true,
-            _ => false,
-        },
-        UInt16 => match type_from {
-            UInt8 | UInt16 => true,
-            _ => false,
-        },
-        UInt32 => match type_from {
-            UInt8 | UInt16 | UInt32 => true,
-            _ => false,
-        },
-        UInt64 => match type_from {
-            UInt8 | UInt16 | UInt32 | UInt64 => true,
-            _ => false,
-        },
-        Float32 => match type_from {
-            Int8 | Int16 | Int32 | Int64 => true,
-            UInt8 | UInt16 | UInt32 | UInt64 => true,
-            Float32 => true,
-            _ => false,
-        },
-        Float64 => match type_from {
-            Int8 | Int16 | Int32 | Int64 => true,
-            UInt8 | UInt16 | UInt32 | UInt64 => true,
-            Float32 | Float64 => true,
-            _ => false,
-        },
-        Utf8 => true,
-        _ => false,
-    }
+/// A registry knows how to build logical expressions out of user-defined function' names
+pub trait FunctionRegistry {
+    /// Set of all available udfs.
+    fn udfs(&self) -> HashSet<String>;
+
+    /// Constructs a logical expression with a call to the udf.
+    fn udf(&self, name: &str, args: Vec<Expr>) -> Result<Expr>;
 }
 
 /// Builder for logical plans
@@ -1194,19 +1142,14 @@ impl LogicalPlanBuilder {
     /// Apply a projection
     pub fn project(&self, expr: Vec<Expr>) -> Result<Self> {
         let input_schema = self.plan.schema();
-        let projected_expr = if expr.contains(&Expr::Wildcard) {
-            let mut expr_vec = vec![];
-            (0..expr.len()).for_each(|i| match &expr[i] {
-                Expr::Wildcard => {
-                    (0..input_schema.fields().len())
-                        .for_each(|i| expr_vec.push(col(input_schema.field(i).name())));
-                }
-                _ => expr_vec.push(expr[i].clone()),
-            });
-            expr_vec
-        } else {
-            expr.clone()
-        };
+        let mut projected_expr = vec![];
+        (0..expr.len()).for_each(|i| match &expr[i] {
+            Expr::Wildcard => {
+                (0..input_schema.fields().len())
+                    .for_each(|i| projected_expr.push(col(input_schema.field(i).name())));
+            }
+            _ => projected_expr.push(expr[i].clone()),
+        });
 
         let schema =
             Schema::new(exprlist_to_fields(&projected_expr, input_schema.as_ref())?);

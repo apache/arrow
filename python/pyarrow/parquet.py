@@ -35,8 +35,9 @@ from pyarrow._parquet import (ParquetReader, Statistics,  # noqa
                               FileMetaData, RowGroupMetaData,
                               ColumnChunkMetaData,
                               ParquetSchema, ColumnSchema)
-from pyarrow.filesystem import (LocalFileSystem, _ensure_filesystem,
-                                resolve_filesystem_and_path)
+from pyarrow.fs import (
+    LocalFileSystem, _resolve_filesystem_and_path, _ensure_filesystem)
+from pyarrow import filesystem as legacyfs
 from pyarrow.util import guid, _is_path_like, _stringify_path
 
 _URI_STRIP_SCHEMES = ('hdfs',)
@@ -55,9 +56,9 @@ def _parse_uri(path):
 
 def _get_filesystem_and_path(passed_filesystem, path):
     if passed_filesystem is None:
-        return resolve_filesystem_and_path(path, passed_filesystem)
+        return legacyfs.resolve_filesystem_and_path(path, passed_filesystem)
     else:
-        passed_filesystem = _ensure_filesystem(passed_filesystem)
+        passed_filesystem = legacyfs._ensure_filesystem(passed_filesystem)
         parsed_path = _parse_uri(path)
         return passed_filesystem, parsed_path
 
@@ -541,9 +542,16 @@ schema : arrow Schema
         # sure to close it when `self.close` is called.
         self.file_handle = None
 
-        filesystem, path = resolve_filesystem_and_path(where, filesystem)
+        filesystem, path = _resolve_filesystem_and_path(
+            where, filesystem, allow_legacy_filesystem=True
+        )
         if filesystem is not None:
-            sink = self.file_handle = filesystem.open(path, 'wb')
+            if isinstance(filesystem, legacyfs.FileSystem):
+                # legacy filesystem (eg custom subclass)
+                # TODO deprecate
+                sink = self.file_handle = filesystem.open(path, 'wb')
+            else:
+                sink = self.file_handle = filesystem.open_output_stream(path)
         else:
             sink = where
         self._metadata_collector = options.pop('metadata_collector', None)
@@ -1040,7 +1048,8 @@ class _ParquetDatasetMetadata:
 
 
 def _open_dataset_file(dataset, path, meta=None):
-    if dataset.fs is not None and not isinstance(dataset.fs, LocalFileSystem):
+    if (dataset.fs is not None and
+            not isinstance(dataset.fs, legacyfs.LocalFileSystem)):
         path = dataset.fs.open(path, mode='rb')
     return ParquetFile(
         path,
@@ -1378,7 +1387,6 @@ class _ParquetDatasetV2:
                  partitioning="hive", read_dictionary=None, buffer_size=None,
                  memory_map=False, ignore_prefixes=None, **kwargs):
         import pyarrow.dataset as ds
-        import pyarrow.fs
 
         # Raise error for not supported keywords
         for keyword, default in [
@@ -1422,12 +1430,12 @@ class _ParquetDatasetV2:
 
         # map old filesystems to new one
         if filesystem is not None:
-            filesystem = pyarrow.fs._ensure_filesystem(
+            filesystem = _ensure_filesystem(
                 filesystem, use_mmap=memory_map)
         elif filesystem is None and memory_map:
             # if memory_map is specified, assume local file system (string
             # path can in principle be URI for any filesystem)
-            filesystem = pyarrow.fs.LocalFileSystem(use_mmap=True)
+            filesystem = LocalFileSystem(use_mmap=True)
 
         self._dataset = ds.dataset(path_or_paths, filesystem=filesystem,
                                    format=parquet_format,
@@ -1586,8 +1594,10 @@ def read_table(source, columns=None, use_threads=True, metadata=None,
                     "the 'partitioning' keyword is not supported when the "
                     "pyarrow.dataset module is not available"
                 )
+            filesystem, path = _resolve_filesystem_and_path(source, filesystem)
+            if filesystem is not None:
+                source = filesystem.open_input_file(path)
             # TODO test that source is not a directory or a list
-            # TODO check filesystem?
             dataset = ParquetFile(
                 source, metadata=metadata, read_dictionary=read_dictionary,
                 memory_map=memory_map, buffer_size=buffer_size)

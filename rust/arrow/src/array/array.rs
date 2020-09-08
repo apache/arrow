@@ -16,7 +16,7 @@
 // under the License.
 
 use std::any::Any;
-use std::convert::{From, TryFrom};
+use std::convert::From;
 use std::fmt;
 use std::io::Write;
 use std::iter::{FromIterator, IntoIterator};
@@ -31,7 +31,6 @@ use crate::array::equal::JsonEqual;
 use crate::buffer::{Buffer, MutableBuffer};
 use crate::datatypes::DataType::Struct;
 use crate::datatypes::*;
-use crate::error::{ArrowError, Result};
 use crate::memory;
 use crate::util::bit_util;
 
@@ -1692,45 +1691,65 @@ impl From<ArrayDataRef> for FixedSizeBinaryArray {
     }
 }
 
-impl<'a> From<Vec<&'a str>> for StringArray {
-    fn from(v: Vec<&'a str>) -> Self {
-        let mut offsets = Vec::with_capacity(v.len() + 1);
-        let mut values = Vec::new();
-        let mut length_so_far = 0;
-        offsets.push(length_so_far);
-        for s in &v {
-            length_so_far += s.len() as i32;
-            offsets.push(length_so_far as i32);
-            values.extend_from_slice(s.as_bytes());
+macro_rules! def_string_from_vec {
+    ( $ty:ident, $native_ty:ident, $DATATYPE:expr ) => {
+        impl<'a> From<Vec<&'a str>> for $ty {
+            fn from(v: Vec<&'a str>) -> Self {
+                let mut offsets = Vec::with_capacity(v.len() + 1);
+                let mut values = Vec::new();
+                let mut length_so_far = 0;
+                offsets.push(length_so_far);
+                for s in &v {
+                    length_so_far += s.len() as $native_ty;
+                    offsets.push(length_so_far as $native_ty);
+                    values.extend_from_slice(s.as_bytes());
+                }
+                let array_data = ArrayData::builder($DATATYPE)
+                    .len(v.len())
+                    .add_buffer(Buffer::from(offsets.to_byte_slice()))
+                    .add_buffer(Buffer::from(&values[..]))
+                    .build();
+                $ty::from(array_data)
+            }
         }
-        let array_data = ArrayData::builder(DataType::Utf8)
-            .len(v.len())
-            .add_buffer(Buffer::from(offsets.to_byte_slice()))
-            .add_buffer(Buffer::from(&values[..]))
-            .build();
-        StringArray::from(array_data)
-    }
+
+        impl<'a> From<Vec<Option<&'a str>>> for $ty {
+            fn from(v: Vec<Option<&'a str>>) -> Self {
+                let mut offsets = Vec::with_capacity(v.len() + 1);
+                let mut values = Vec::new();
+                let num_bytes = bit_util::ceil(v.len(), 8);
+                let mut null_buf =
+                    MutableBuffer::new(num_bytes).with_bitset(num_bytes, false);
+                let mut length_so_far = 0;
+                offsets.push(length_so_far);
+                for (i, s) in v.iter().enumerate() {
+                    if let Some(s) = s {
+                        // set null bit
+                        let null_slice = null_buf.data_mut();
+                        bit_util::set_bit(null_slice, i);
+
+                        length_so_far += s.len() as $native_ty;
+                        offsets.push(length_so_far as $native_ty);
+                        values.extend_from_slice(s.as_bytes());
+                    } else {
+                        offsets.push(length_so_far);
+                        values.extend_from_slice("".as_bytes());
+                    }
+                }
+                let array_data = ArrayData::builder($DATATYPE)
+                    .len(v.len())
+                    .add_buffer(Buffer::from(offsets.to_byte_slice()))
+                    .add_buffer(Buffer::from(&values[..]))
+                    .null_bit_buffer(null_buf.freeze())
+                    .build();
+                $ty::from(array_data)
+            }
+        }
+    };
 }
 
-impl<'a> From<Vec<&'a str>> for LargeStringArray {
-    fn from(v: Vec<&'a str>) -> Self {
-        let mut offsets = Vec::with_capacity(v.len() + 1);
-        let mut values = Vec::new();
-        let mut length_so_far = 0;
-        offsets.push(length_so_far);
-        for s in &v {
-            length_so_far += s.len() as i64;
-            offsets.push(length_so_far as i64);
-            values.extend_from_slice(s.as_bytes());
-        }
-        let array_data = ArrayData::builder(DataType::LargeUtf8)
-            .len(v.len())
-            .add_buffer(Buffer::from(offsets.to_byte_slice()))
-            .add_buffer(Buffer::from(&values[..]))
-            .build();
-        LargeStringArray::from(array_data)
-    }
-}
+def_string_from_vec!(StringArray, i32, DataType::Utf8);
+def_string_from_vec!(LargeStringArray, i64, DataType::LargeUtf8);
 
 impl From<Vec<&[u8]>> for BinaryArray {
     fn from(v: Vec<&[u8]>) -> Self {
@@ -1769,38 +1788,6 @@ impl From<Vec<&[u8]>> for LargeBinaryArray {
             .add_buffer(Buffer::from(&values[..]))
             .build();
         LargeBinaryArray::from(array_data)
-    }
-}
-
-impl<'a> TryFrom<Vec<Option<&'a str>>> for StringArray {
-    type Error = ArrowError;
-
-    fn try_from(v: Vec<Option<&'a str>>) -> Result<Self> {
-        let mut builder = StringBuilder::new(v.len());
-        for val in v {
-            if let Some(s) = val {
-                builder.append_value(s)?;
-            } else {
-                builder.append(false)?;
-            }
-        }
-        Ok(builder.finish())
-    }
-}
-
-impl<'a> TryFrom<Vec<Option<&'a str>>> for LargeStringArray {
-    type Error = ArrowError;
-
-    fn try_from(v: Vec<Option<&'a str>>) -> Result<Self> {
-        let mut builder = LargeStringBuilder::new(v.len());
-        for val in v {
-            if let Some(s) = val {
-                builder.append_value(s)?;
-            } else {
-                builder.append(false)?;
-            }
-        }
-        Ok(builder.finish())
     }
 }
 

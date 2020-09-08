@@ -470,38 +470,39 @@ Status Decimal128::FromString(const util::string_view& s, Decimal128* out,
   if (first_non_zero != std::string::npos) {
     significant_digits += dec.whole_digits.size() - first_non_zero;
   }
+  int32_t parsed_precision = static_cast<int32_t>(significant_digits);
 
-  if (precision != nullptr) {
-    *precision = static_cast<int32_t>(significant_digits);
-  }
-
-  if (scale != nullptr) {
-    if (dec.has_exponent) {
-      auto adjusted_exponent = dec.exponent;
-      auto len = static_cast<int32_t>(significant_digits);
-      *scale = -adjusted_exponent + len - 1;
-    } else {
-      *scale = static_cast<int32_t>(dec.fractional_digits.size());
-    }
+  int32_t parsed_scale = 0;
+  if (dec.has_exponent) {
+    auto adjusted_exponent = dec.exponent;
+    auto len = static_cast<int32_t>(significant_digits);
+    parsed_scale = -adjusted_exponent + len - 1;
+  } else {
+    parsed_scale = static_cast<int32_t>(dec.fractional_digits.size());
   }
 
   if (out != nullptr) {
     *out = 0;
     StringToInteger(dec.whole_digits, dec.fractional_digits, out);
+    if (parsed_scale < 0) {
+      *out *= GetScaleMultiplier(-parsed_scale);
+    }
 
     if (dec.sign == '-') {
       out->Negate();
     }
+  }
 
-    if (scale != nullptr && *scale < 0) {
-      const int32_t abs_scale = std::abs(*scale);
-      *out *= GetScaleMultiplier(abs_scale);
+  if (parsed_scale < 0) {
+    parsed_precision -= parsed_scale;
+    parsed_scale = 0;
+  }
 
-      if (precision != nullptr) {
-        *precision += abs_scale;
-      }
-      *scale = 0;
-    }
+  if (precision != nullptr) {
+    *precision = parsed_precision;
+  }
+  if (scale != nullptr) {
+    *scale = parsed_scale;
   }
 
   return Status::OK();

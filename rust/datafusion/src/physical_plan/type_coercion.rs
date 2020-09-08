@@ -23,7 +23,7 @@ use arrow::datatypes::{DataType, Schema};
 
 use super::{functions::Signature, PhysicalExpr};
 use crate::error::{ExecutionError, Result};
-use crate::physical_plan::expressions::{cast, numerical_coercion};
+use crate::physical_plan::expressions::cast;
 
 /// Returns expressions constructed by casting `expressions` to types compatible with `signatures`.
 pub fn coerce(
@@ -101,10 +101,9 @@ fn maybe_data_types(
         if current_type == valid_type {
             new_type.push(current_type.clone())
         } else {
-            // attempt to coerce using numerical coercion
-            // todo: also try string coercion.
-            if let Some(cast_to_type) = numerical_coercion(&current_type, valid_type) {
-                new_type.push(cast_to_type)
+            // attempt to coerce
+            if can_coerce_from(valid_type, &current_type) {
+                new_type.push(valid_type.clone())
             } else {
                 // not possible
                 return None;
@@ -112,6 +111,59 @@ fn maybe_data_types(
         }
     }
     Some(new_type)
+}
+
+/// Verify that the type cast can be performed
+pub fn can_coerce_from(type_into: &DataType, type_from: &DataType) -> bool {
+    use self::DataType::*;
+    match type_into {
+        Int8 => match type_from {
+            Int8 => true,
+            _ => false,
+        },
+        Int16 => match type_from {
+            Int8 | Int16 | UInt8 => true,
+            _ => false,
+        },
+        Int32 => match type_from {
+            Int8 | Int16 | Int32 | UInt8 | UInt16 => true,
+            _ => false,
+        },
+        Int64 => match type_from {
+            Int8 | Int16 | Int32 | Int64 | UInt8 | UInt16 | UInt32 => true,
+            _ => false,
+        },
+        UInt8 => match type_from {
+            UInt8 => true,
+            _ => false,
+        },
+        UInt16 => match type_from {
+            UInt8 | UInt16 => true,
+            _ => false,
+        },
+        UInt32 => match type_from {
+            UInt8 | UInt16 | UInt32 => true,
+            _ => false,
+        },
+        UInt64 => match type_from {
+            UInt8 | UInt16 | UInt32 | UInt64 => true,
+            _ => false,
+        },
+        Float32 => match type_from {
+            Int8 | Int16 | Int32 | Int64 => true,
+            UInt8 | UInt16 | UInt32 | UInt64 => true,
+            Float32 => true,
+            _ => false,
+        },
+        Float64 => match type_from {
+            Int8 | Int16 | Int32 | Int64 => true,
+            UInt8 | UInt16 | UInt32 | UInt64 => true,
+            Float32 | Float64 => true,
+            _ => false,
+        },
+        Utf8 => true,
+        _ => false,
+    }
 }
 
 #[cfg(test)]
@@ -216,6 +268,12 @@ mod tests {
                 vec![DataType::Float32, DataType::UInt32],
                 Signature::VariadicEqual,
                 vec![DataType::Float32, DataType::Float32],
+            )?,
+            // common type is u64
+            case(
+                vec![DataType::UInt32, DataType::UInt64],
+                Signature::Variadic(vec![DataType::UInt32, DataType::UInt64]),
+                vec![DataType::UInt64, DataType::UInt64],
             )?,
         ];
 

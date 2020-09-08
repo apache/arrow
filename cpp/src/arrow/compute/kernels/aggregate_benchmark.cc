@@ -398,5 +398,17 @@ MINMAX_KERNEL_BENCHMARK(MinMaxKernelInt16, Int16Type);
 MINMAX_KERNEL_BENCHMARK(MinMaxKernelInt32, Int32Type);
 MINMAX_KERNEL_BENCHMARK(MinMaxKernelInt64, Int64Type);
 
+static void CountKernelBenchInt64(benchmark::State& state) {
+  RegressionArgs args(state);
+  const int64_t array_size = args.size / sizeof(int64_t);
+  auto rand = random::RandomArrayGenerator(1923);
+  auto array = rand.Numeric<Int64Type>(array_size, -100, 100, args.null_proportion);
+
+  for (auto _ : state) {
+    ABORT_NOT_OK(Count(array->Slice(1, array_size)).status());
+  }
+}
+BENCHMARK(CountKernelBenchInt64)->Args({1 * 1024 * 1024, 2});  // 1M with 50% null.
+
 }  // namespace compute
 }  // namespace arrow
