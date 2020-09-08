@@ -361,7 +361,7 @@ struct ValueConverter<Type, enable_if_integer<Type>> {
 template <typename T>
 class PyPrimitiveConverter;
 
-template <typename T, typename Enable = void>
+template <typename T>
 class PyDictionaryConverter;
 
 template <typename T>
@@ -412,23 +412,24 @@ class PyPrimitiveConverter : public PrimitiveConverter<T, PyConverter> {
     if (PyValue::IsNull(this->options_, value)) {
       return this->primitive_builder_->AppendNull();
     } else {
-      return AppendValue(this->primitive_type_, value);
+      return AppendValue(value);
     }
   }
 
-  Status AppendValue(const DataType*, PyObject* value) {
+  template <typename U = T>
+  enable_if_t<is_null_type<U>::value || is_boolean_type<U>::value ||
+                  is_number_type<U>::value || is_decimal_type<U>::value ||
+                  is_date_type<U>::value || is_time_type<U>::value,
+              Status>
+  AppendValue(PyObject* value) {
     ARROW_ASSIGN_OR_RAISE(auto converted,
                           PyValue::Convert(this->primitive_type_, this->options_, value));
     return this->primitive_builder_->Append(converted);
   }
 
-  Status AppendValue(const Decimal128Type*, PyObject* value) {
-    ARROW_ASSIGN_OR_RAISE(auto converted,
-                          PyValue::Convert(this->primitive_type_, this->options_, value));
-    return this->primitive_builder_->Append(converted);
-  }
-
-  Status AppendValue(const TimestampType*, PyObject* value) {
+  template <typename U = T>
+  enable_if_t<is_timestamp_type<U>::value || is_duration_type<U>::value, Status>
+  AppendValue(PyObject* value) {
     ARROW_ASSIGN_OR_RAISE(auto converted,
                           PyValue::Convert(this->primitive_type_, this->options_, value));
     if (PyArray_CheckAnyScalarExact(value) &&
@@ -439,36 +440,21 @@ class PyPrimitiveConverter : public PrimitiveConverter<T, PyConverter> {
     }
   }
 
-  Status AppendValue(const DurationType*, PyObject* value) {
-    ARROW_ASSIGN_OR_RAISE(auto converted,
-                          PyValue::Convert(this->primitive_type_, this->options_, value));
-    if (PyArray_CheckAnyScalarExact(value) &&
-        PyValue::IsNaT(this->primitive_type_, converted)) {
-      return this->primitive_builder_->AppendNull();
-    } else {
-      return this->primitive_builder_->Append(converted);
-    }
-  }
-
-  Status AppendValue(const BaseBinaryType*, PyObject* value) {
-    ARROW_ASSIGN_OR_RAISE(auto view,
-                          PyValue::Convert(this->primitive_type_, this->options_, value));
-    return this->primitive_builder_->Append(util::string_view(view.bytes, view.size));
-  }
-
-  Status AppendValue(const FixedSizeBinaryType*, PyObject* value) {
-    ARROW_ASSIGN_OR_RAISE(auto view,
-                          PyValue::Convert(this->primitive_type_, this->options_, value));
-    return this->primitive_builder_->Append(util::string_view(view.bytes, view.size));
-  }
-
-  Status AppendValue(const StringType*, PyObject* value) {
+  template <typename U = T>
+  enable_if_string<U, Status> AppendValue(PyObject* value) {
     ARROW_ASSIGN_OR_RAISE(auto view,
                           PyValue::Convert(this->primitive_type_, this->options_, value));
     if (!view.is_utf8) {
       // observed binary value
       observed_binary_ = true;
     }
+    return this->primitive_builder_->Append(util::string_view(view.bytes, view.size));
+  }
+
+  template <typename U = T>
+  enable_if_binary<U, Status> AppendValue(PyObject* value) {
+    ARROW_ASSIGN_OR_RAISE(auto view,
+                          PyValue::Convert(this->primitive_type_, this->options_, value));
     return this->primitive_builder_->Append(util::string_view(view.bytes, view.size));
   }
 
@@ -496,32 +482,28 @@ class PyPrimitiveConverter : public PrimitiveConverter<T, PyConverter> {
 };
 
 template <typename T>
-class PyDictionaryConverter<T, enable_if_has_c_type<T>>
-    : public DictionaryConverter<T, PyConverter> {
+class PyDictionaryConverter : public DictionaryConverter<T, PyConverter> {
  public:
   Status Append(PyObject* value) override {
     if (PyValue::IsNull(this->options_, value)) {
       return this->value_builder_->AppendNull();
     } else {
-      ARROW_ASSIGN_OR_RAISE(auto converted,
-                            PyValue::Convert(this->value_type_, this->options_, value));
-      return this->value_builder_->Append(converted);
+      return AppendValue(value);
     }
   }
-};
 
-template <typename T>
-class PyDictionaryConverter<T, enable_if_has_string_view<T>>
-    : public DictionaryConverter<T, PyConverter> {
- public:
-  Status Append(PyObject* value) override {
-    if (PyValue::IsNull(this->options_, value)) {
-      return this->value_builder_->AppendNull();
-    } else {
-      ARROW_ASSIGN_OR_RAISE(auto view,
-                            PyValue::Convert(this->value_type_, this->options_, value));
-      return this->value_builder_->Append(util::string_view(view.bytes, view.size));
-    }
+  template <typename U = T>
+  enable_if_has_c_type<U, Status> AppendValue(PyObject* value) {
+    ARROW_ASSIGN_OR_RAISE(auto converted,
+                          PyValue::Convert(this->value_type_, this->options_, value));
+    return this->value_builder_->Append(converted);
+  }
+
+  template <typename U = T>
+  enable_if_has_string_view<U, Status> AppendValue(PyObject* value) {
+    ARROW_ASSIGN_OR_RAISE(auto view,
+                          PyValue::Convert(this->value_type_, this->options_, value));
+    return this->value_builder_->Append(util::string_view(view.bytes, view.size));
   }
 };
 
