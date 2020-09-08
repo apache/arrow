@@ -2165,13 +2165,12 @@ def s3_example_s3fs(s3_connection, s3_server, s3_bucket):
         }
     )
 
-    test_dir = guid()
-    bucket_uri = 's3://{}/{}'.format(s3_bucket, test_dir)
+    test_path = '{}/{}'.format(s3_bucket, guid())
 
-    fs.mkdir(bucket_uri)
-    yield fs, bucket_uri
+    fs.mkdir(test_path)
+    yield fs, test_path
     try:
-        fs.rm(bucket_uri, recursive=True)
+        fs.rm(test_path, recursive=True)
     except FileNotFoundError:
         pass
 
@@ -2182,13 +2181,13 @@ def s3_example_s3fs(s3_connection, s3_server, s3_bucket):
 def test_read_partitioned_directory_s3fs(s3_example_s3fs, use_legacy_dataset):
     from pyarrow.filesystem import S3FSWrapper
 
-    fs, bucket_uri = s3_example_s3fs
+    fs, path = s3_example_s3fs
     wrapper = S3FSWrapper(fs)
-    _partition_test_for_filesystem(wrapper, bucket_uri)
+    _partition_test_for_filesystem(wrapper, path)
 
     # Check that we can auto-wrap
     dataset = pq.ParquetDataset(
-        bucket_uri, filesystem=fs, use_legacy_dataset=use_legacy_dataset
+        path, filesystem=fs, use_legacy_dataset=use_legacy_dataset
     )
     dataset.read()
 
