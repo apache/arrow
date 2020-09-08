@@ -21,9 +21,9 @@ use std::sync::Arc;
 extern crate arrow;
 extern crate datafusion;
 
-use arrow::array::*;
 use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
 use arrow::record_batch::RecordBatch;
+use arrow::{array::*, datatypes::TimeUnit};
 
 use datafusion::datasource::{csv::CsvReadOptions, MemTable};
 use datafusion::error::Result;
@@ -758,6 +758,42 @@ fn like() -> Result<()> {
     let actual = execute(&mut ctx, sql).join("\n");
 
     let expected = "1".to_string();
+    assert_eq!(expected, actual);
+    Ok(())
+}
+
+fn make_timestamp_nano_table() -> Result<Box<MemTable>> {
+    let schema = Arc::new(Schema::new(vec![
+        Field::new("ts", DataType::Timestamp(TimeUnit::Nanosecond, None), false),
+        Field::new("value", DataType::Int32, true),
+    ]));
+
+    let mut builder = TimestampNanosecondArray::builder(3);
+
+    builder.append_value(1599572549190855000)?; // 2020-09-08T13:42:29.190855+00:00
+    builder.append_value(1599568949190855000)?; // 2020-09-08T12:42:29.190855+00:00
+    builder.append_value(1599565349190855000)?; // 2020-09-08T11:42:29.190855+00:00
+
+    let data = RecordBatch::try_new(
+        schema.clone(),
+        vec![
+            Arc::new(builder.finish()),
+            Arc::new(Int32Array::from(vec![Some(1), Some(2), Some(3)])),
+        ],
+    )?;
+    let table = MemTable::new(schema, vec![vec![data]])?;
+    Ok(Box::new(table))
+}
+
+#[test]
+fn to_timstamp() -> Result<()> {
+    let mut ctx = ExecutionContext::new();
+    ctx.register_table("ts_data", make_timestamp_nano_table()?);
+
+    let sql = "SELECT COUNT(*) FROM ts_data where ts > to_timestamp('2020-09-08T12:00:00+00:00')";
+    let actual = execute(&mut ctx, sql).join("\n");
+
+    let expected = "2".to_string();
     assert_eq!(expected, actual);
     Ok(())
 }
