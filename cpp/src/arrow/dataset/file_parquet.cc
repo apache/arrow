@@ -385,12 +385,25 @@ Result<ScanTaskIterator> ParquetFileFormat::ScanFile(std::shared_ptr<ScanOptions
                         GetReader(fragment->source(), options.get(), context.get()));
 
   if (!parquet_fragment->HasCompleteMetadata()) {
-    // row groups were not already filtered; do this now
-    RETURN_NOT_OK(parquet_fragment->EnsureCompleteMetadata(reader.get()));
-    ARROW_ASSIGN_OR_RAISE(row_groups,
-                          parquet_fragment->FilterRowGroups(*options->filter));
-    if (row_groups.empty()) {
-      return MakeEmptyIterator<std::shared_ptr<ScanTask>>();
+    // row groups were not already filtered; do this now (if there is a filter)
+    if (!options->filter->Equals(true)) {
+      RETURN_NOT_OK(parquet_fragment->EnsureCompleteMetadata(reader.get()));
+      ARROW_ASSIGN_OR_RAISE(row_groups,
+                            parquet_fragment->FilterRowGroups(*options->filter));
+      if (row_groups.empty()) {
+        return MakeEmptyIterator<std::shared_ptr<ScanTask>>();
+      }
+    } else {
+      // since we are not scanning this fragment with a filter, don't bother loading
+      // statistics
+      row_groups = parquet_fragment->row_groups();
+      if (row_groups.empty()) {
+        // empty vector represents all row groups
+        std::shared_ptr<parquet::FileMetaData> metadata =
+            reader->parquet_reader()->metadata();
+        int num_row_groups = metadata->num_row_groups();
+        row_groups = RowGroupInfo::FromCount(num_row_groups);
+      }
     }
   }
 
