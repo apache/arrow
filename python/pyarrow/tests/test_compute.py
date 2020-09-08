@@ -109,6 +109,31 @@ def test_sum_chunked_array(arrow_type):
     assert pc.sum(arr).as_py() is None  # noqa: E711
 
 
+def test_mode_array():
+    # ARROW-9917
+
+    arr = pa.array([1, 1, 3, 4, 3, 5], type='int64')
+    expected = {"mode": 1, "count": 2}
+    assert pc.mode(arr).as_py() == {"mode": 1, "count": 2}
+
+    arr = pa.array([], type='int64')
+    expected = {"mode": None, "count": None}
+    assert pc.mode(arr).as_py() == expected
+
+
+def test_mode_chunked_array():
+    # ARROW-9917
+
+    arr = pa.chunked_array([pa.array([1, 1, 3, 4, 3, 5], type='int64')])
+    expected = {"mode": 1, "count": 2}
+    assert pc.mode(arr).as_py() == expected
+
+    arr = pa.chunked_array((), type='int64')
+    expected = {"mode": None, "count": None}
+    assert arr.num_chunks == 0
+    assert pc.mode(arr).as_py() == expected
+
+
 def test_match_substring():
     arr = pa.array(["ab", "abc", "ba", None])
     result = pc.match_substring(arr, "ab")

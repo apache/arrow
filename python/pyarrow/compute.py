@@ -183,6 +183,32 @@ def sum(array):
     return call_function('sum', [array])
 
 
+def mode(array):
+    """
+    Return the mode (most common value) of a passed numerical
+    (chunked) array. If there is more than one such value, only
+    the smallest is returned.
+
+    Parameters
+    ----------
+    array : pyarrow.Array or pyarrow.ChunkedArray
+
+    Returns
+    -------
+    mode : pyarrow.StructScalar
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> import pyarrow.compute as pc
+    >>> arr = pa.array([1, 1, 2, 2, 3, 2, 2, 2])
+    >>> pc.mode(arr)
+    <pyarrow.StructScalar: {'mode': 2, 'count': 5}>
+
+    """
+    return call_function("mode", [array])
+
+
 def filter(data, mask, null_selection_behavior='drop'):
     """
     Select values (or records) from array- or table-like data given boolean
