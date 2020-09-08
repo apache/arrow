@@ -2615,6 +2615,17 @@ def test_concat_array_different_types():
         pa.concat_arrays([pa.array([1]), pa.array([2.])])
 
 
+def test_concat_array_invalid_type():
+    # ARROW-9920 - do not segfault on non-array input
+
+    with pytest.raises(TypeError, match="should contain Array objects"):
+        pa.concat_arrays([None])
+
+    arr = pa.chunked_array([[0, 1], [3, 4]])
+    with pytest.raises(TypeError, match="should contain Array objects"):
+        pa.concat_arrays(arr)
+
+
 @pytest.mark.pandas
 def test_to_pandas_timezone():
     # https://issues.apache.org/jira/browse/ARROW-6652

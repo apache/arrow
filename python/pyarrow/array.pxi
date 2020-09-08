@@ -2306,6 +2306,9 @@ def concat_arrays(arrays, MemoryPool memory_pool=None):
         CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
 
     for array in arrays:
+        if not isinstance(array, Array):
+            raise TypeError("Iterable should contain Array objects, "
+                            "got {0} instead".format(type(array)))
         c_arrays.push_back(pyarrow_unwrap_array(array))
 
     with nogil:
