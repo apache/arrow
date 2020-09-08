@@ -35,131 +35,146 @@ namespace internal {
 using internal::checked_cast;
 using internal::checked_pointer_cast;
 
-template <typename Input, typename Options>
-class ArrayConverter {
+template <typename T, typename BaseConverter>
+class PrimitiveConverter : public BaseConverter {
+ public:
+  using BuilderType = typename TypeTraits<T>::BuilderType;
+
+  Status Init() override {
+    primitive_type_ = checked_cast<const T*>(this->type_.get());
+    primitive_builder_ = checked_cast<BuilderType*>(this->builder_.get());
+    return Status::OK();
+  }
+
+ protected:
+  const T* primitive_type_;
+  BuilderType* primitive_builder_;
+  typename BaseConverter::OptionsType opts_;
+};
+
+template <typename T, typename BaseConverter>
+class ListConverter : public BaseConverter {
+ public:
+  using BuilderType = typename TypeTraits<T>::BuilderType;
+
+  Status Init() override {
+    list_type_ = checked_cast<const T*>(this->type_.get());
+    list_builder_ = checked_cast<BuilderType*>(this->builder_.get());
+    value_converter_ = this->children_[0];
+    return Status::OK();
+  }
+
+ protected:
+  const T* list_type_;
+  BuilderType* list_builder_;
+  std::shared_ptr<BaseConverter> value_converter_;
+};
+
+template <typename BaseConverter>
+class StructConverter : public BaseConverter {
+ public:
+  Status Init() override {
+    struct_type_ = checked_cast<const StructType*>(this->type_.get());
+    struct_builder_ = checked_cast<StructBuilder*>(this->builder_.get());
+    return Status::OK();
+  }
+
+ protected:
+  const StructType* struct_type_;
+  StructBuilder* struct_builder_;
+};
+
+template <typename U, typename BaseConverter>
+class DictionaryConverter : public BaseConverter {
+ public:
+  using BuilderType = DictionaryBuilder<U>;
+
+  Status Init() override {
+    dict_type_ = checked_cast<const DictionaryType*>(this->type_.get());
+    value_type_ = checked_cast<const U*>(dict_type_->value_type().get());
+    value_builder_ = checked_cast<BuilderType*>(this->builder_.get());
+    return Status::OK();
+  }
+
+ protected:
+  const DictionaryType* dict_type_;
+  const U* value_type_;
+  BuilderType* value_builder_;
+};
+
+template <typename Converter>
+struct MakeConverterImpl;
+
+template <typename Input, typename Options, typename Self>
+class Converter {
  public:
   using InputType = Input;
   using OptionsType = Options;
 
-  ArrayConverter(const std::shared_ptr<DataType>& type,
-                 std::shared_ptr<ArrayBuilder> builder, Options options)
-      : sp_type_(type), sp_builder_(builder), options_(options) {}
+  template <typename T>
+  using PrimitiveConverter = PrimitiveConverter<T, Self>;
+  template <typename T>
+  using ListConverter = ListConverter<T, Self>;
+  template <typename T>
+  using DictionaryConveter = DictionaryConverter<T, Self>;
+  using StructConverter = StructConverter<Self>;
 
-  virtual ~ArrayConverter() = default;
-  const std::shared_ptr<ArrayBuilder>& builder() const { return sp_builder_; }
-  const std::shared_ptr<DataType>& type() const { return sp_type_; }
-  Options options() const { return options_; }
-
-  virtual Status Init() { return Status::OK(); }
-  virtual Status Reserve(int64_t additional_capacity) = 0;
-  virtual Status Append(InputType value) = 0;
-  virtual Status AppendNull() = 0;
-  virtual Result<std::shared_ptr<Array>> Finish() = 0;
-
- protected:
-  const std::shared_ptr<DataType> sp_type_;
-  std::shared_ptr<ArrayBuilder> sp_builder_;
-  Options options_;
-};
-
-template <typename T, typename BaseConverter,
-          typename BuilderType = typename TypeTraits<T>::BuilderType>
-class TypedArrayConverter : public BaseConverter {
- public:
-  TypedArrayConverter(const std::shared_ptr<DataType>& type,
-                      std::shared_ptr<ArrayBuilder> builder,
-                      typename BaseConverter::OptionsType options)
-      : BaseConverter(type, builder, options),
-        type_(checked_cast<const T&>(*type)),
-        builder_(checked_cast<BuilderType*>(builder.get())) {}
-
-  Status Reserve(int64_t additional_capacity) override {
-    return this->builder_->Reserve(additional_capacity);
+  static Result<std::shared_ptr<Self>> Make(std::shared_ptr<DataType> type,
+                                            MemoryPool* pool, OptionsType options) {
+    std::shared_ptr<Self> out;
+    MakeConverterImpl<Self> visitor = {type, pool, options, &out};
+    ARROW_RETURN_NOT_OK(VisitTypeInline(*type, &visitor));
+    ARROW_RETURN_NOT_OK(out->Init());
+    return out;
   }
 
-  Status AppendNull() override { return this->builder_->AppendNull(); }
+  virtual ~Converter() = default;
 
-  Result<std::shared_ptr<Array>> Finish() override { return builder_->Finish(); };
+  virtual Status Init() { return Status::OK(); };
 
- protected:
-  const T& type_;
-  BuilderType* builder_;
-};
+  virtual Status Append(InputType value) {
+    return Status::NotImplemented("Converter not implemented for type ",
+                                  type()->ToString());
+  }
 
-template <typename T, typename BaseConverter>
-class PrimitiveArrayConverter : public TypedArrayConverter<T, BaseConverter> {
- public:
-  using TypedArrayConverter<T, BaseConverter>::TypedArrayConverter;
-};
+  const std::shared_ptr<ArrayBuilder>& builder() const { return builder_; }
 
-template <typename T, typename BaseConverter>
-class DictionaryArrayConverter
-    : public TypedArrayConverter<DictionaryType, BaseConverter, DictionaryBuilder<T>> {
- public:
-  DictionaryArrayConverter(const std::shared_ptr<DataType>& type,
-                           std::shared_ptr<ArrayBuilder> builder,
-                           typename BaseConverter::OptionsType options)
-      : TypedArrayConverter<DictionaryType, BaseConverter, DictionaryBuilder<T>>(
-            type, builder, options),
-        value_type_(checked_cast<const T&>(
-            *checked_cast<const DictionaryType&>(*type).value_type())) {}
+  const std::shared_ptr<DataType>& type() const { return type_; }
+
+  OptionsType options() const { return options_; }
+
+  virtual Status Reserve(int64_t additional_capacity) {
+    return builder_->Reserve(additional_capacity);
+  }
+
+  virtual Status AppendNull() { return builder_->AppendNull(); }
+
+  virtual Result<std::shared_ptr<Array>> Finish() { return builder_->Finish(); };
 
  protected:
-  const T& value_type_;
+  friend struct MakeConverterImpl<Self>;
+
+  std::shared_ptr<DataType> type_;
+  std::shared_ptr<ArrayBuilder> builder_;
+  std::vector<std::shared_ptr<Self>> children_;
+  OptionsType options_;
+  OptionsType opts_;
 };
 
-template <typename T, typename BaseConverter>
-class ListArrayConverter : public TypedArrayConverter<T, BaseConverter> {
- public:
-  ListArrayConverter(const std::shared_ptr<DataType>& type,
-                     std::shared_ptr<ArrayBuilder> builder,
-                     std::shared_ptr<BaseConverter> value_converter,
-                     typename BaseConverter::OptionsType options)
-      : TypedArrayConverter<T, BaseConverter>(type, builder, options),
-        value_converter_(std::move(value_converter)) {}
-
- protected:
-  std::shared_ptr<BaseConverter> value_converter_;
-};
-
-template <typename T, typename BaseConverter>
-class StructArrayConverter : public TypedArrayConverter<T, BaseConverter> {
- public:
-  StructArrayConverter(const std::shared_ptr<DataType>& type,
-                       std::shared_ptr<ArrayBuilder> builder,
-                       std::vector<std::shared_ptr<BaseConverter>> child_converters,
-                       typename BaseConverter::OptionsType options)
-      : TypedArrayConverter<T, BaseConverter>(type, builder, options),
-        child_converters_(std::move(child_converters)) {}
-
- protected:
-  std::vector<std::shared_ptr<BaseConverter>> child_converters_;
-};
-
-#define DICTIONARY_CASE(TYPE_ENUM, TYPE_CLASS)                                          \
-  case Type::TYPE_ENUM:                                                                 \
-    out->reset(new DictionaryConverter<TYPE_CLASS>(type, std::move(builder), options)); \
+#define DICTIONARY_CASE(TYPE_ENUM, TYPE_CLASS)                                   \
+  case Type::TYPE_ENUM:                                                          \
+    return Finish<typename Converter::template DictionaryConverter<TYPE_CLASS>>( \
+        std::move(builder), {});                                                 \
     break;
 
-template <typename Options, typename BaseConverter,
-          template <typename...> class PrimitiveConverter,
-          template <typename...> class DictionaryConverter,
-          template <typename...> class ListConverter,
-          template <typename...> class StructConverter>
-struct ArrayConverterBuilder {
-  using Self = ArrayConverterBuilder<Options, BaseConverter, PrimitiveConverter,
-                                     DictionaryConverter, ListConverter, StructConverter>;
-
+template <typename Converter>
+struct MakeConverterImpl {
   Status Visit(const NullType& t) {
-    // TODO: merge with the primitive c_type variant below, requires a NullType ctor which
-    // accepts a type instance
     using BuilderType = typename TypeTraits<NullType>::BuilderType;
-    using ConverterType = PrimitiveConverter<NullType>;
-    static_assert(std::is_base_of<BaseConverter, ConverterType>::value, "");
+    using ConverterType = typename Converter::template PrimitiveConverter<NullType>;
 
     auto builder = std::make_shared<BuilderType>(pool);
-    out->reset(new ConverterType(type, std::move(builder), options));
-    return Status::OK();
+    return Finish<ConverterType>(std::move(builder), {});
   }
 
   template <typename T>
@@ -168,46 +183,39 @@ struct ArrayConverterBuilder {
               Status>
   Visit(const T& t) {
     using BuilderType = typename TypeTraits<T>::BuilderType;
-    using ConverterType = PrimitiveConverter<T>;
-    static_assert(std::is_base_of<BaseConverter, ConverterType>::value, "");
+    using ConverterType = typename Converter::template PrimitiveConverter<T>;
 
     auto builder = std::make_shared<BuilderType>(type, pool);
-    out->reset(new ConverterType(type, std::move(builder), options));
-    return Status::OK();
+    return Finish<ConverterType>(std::move(builder), {});
   }
 
   template <typename T>
   enable_if_t<is_list_like_type<T>::value && !std::is_same<T, MapType>::value, Status>
   Visit(const T& t) {
     using BuilderType = typename TypeTraits<T>::BuilderType;
-    using ConverterType = ListConverter<T>;
-    static_assert(std::is_base_of<BaseConverter, ConverterType>::value, "");
+    using ConverterType = typename Converter::template ListConverter<T>;
 
     ARROW_ASSIGN_OR_RAISE(auto child_converter,
-                          (Self::Make(t.value_type(), pool, options)));
+                          Converter::Make(t.value_type(), pool, options));
     auto builder = std::make_shared<BuilderType>(pool, child_converter->builder(), type);
-    out->reset(
-        new ConverterType(type, std::move(builder), std::move(child_converter), options));
-    return Status::OK();
+    return Finish<ConverterType>(std::move(builder), {std::move(child_converter)});
   }
 
   Status Visit(const MapType& t) {
-    using ConverterType = ListConverter<MapType>;
-    static_assert(std::is_base_of<BaseConverter, ConverterType>::value, "");
+    using ConverterType = typename Converter::template ListConverter<MapType>;
 
     // TODO(kszucs): seems like builders not respect field nullability
     std::vector<std::shared_ptr<Field>> struct_fields{t.key_field(), t.item_field()};
     auto struct_type = std::make_shared<StructType>(struct_fields);
-    ARROW_ASSIGN_OR_RAISE(auto struct_converter, Self::Make(struct_type, pool, options));
+    ARROW_ASSIGN_OR_RAISE(auto struct_converter,
+                          Converter::Make(struct_type, pool, options));
 
     auto struct_builder = struct_converter->builder();
     auto key_builder = struct_builder->child_builder(0);
     auto item_builder = struct_builder->child_builder(1);
     auto builder = std::make_shared<MapBuilder>(pool, key_builder, item_builder, type);
 
-    out->reset(new ConverterType(type, std::move(builder), std::move(struct_converter),
-                                 options));
-    return Status::OK();
+    return Finish<ConverterType>(std::move(builder), {std::move(struct_converter)});
   }
 
   Status Visit(const DictionaryType& t) {
@@ -236,19 +244,18 @@ struct ArrayConverterBuilder {
         return Status::NotImplemented("DictionaryArray converter for type ", t.ToString(),
                                       " not implemented");
     }
-    return Status::OK();
   }
 
   Status Visit(const StructType& t) {
-    using ConverterType = StructConverter<StructType>;
-    static_assert(std::is_base_of<BaseConverter, ConverterType>::value, "");
+    using ConverterType = typename Converter::StructConverter;
 
-    std::shared_ptr<BaseConverter> child_converter;
-    std::vector<std::shared_ptr<BaseConverter>> child_converters;
+    std::shared_ptr<Converter> child_converter;
+    std::vector<std::shared_ptr<Converter>> child_converters;
     std::vector<std::shared_ptr<ArrayBuilder>> child_builders;
 
     for (const auto& field : t.fields()) {
-      ARROW_ASSIGN_OR_RAISE(child_converter, Self::Make(field->type(), pool, options));
+      ARROW_ASSIGN_OR_RAISE(child_converter,
+                            Converter::Make(field->type(), pool, options));
 
       // TODO: use move
       child_converters.push_back(child_converter);
@@ -256,26 +263,27 @@ struct ArrayConverterBuilder {
     }
 
     auto builder = std::make_shared<StructBuilder>(type, pool, child_builders);
-    out->reset(new ConverterType(type, std::move(builder), std::move(child_converters),
-                                 options));
-    return Status::OK();
+    return Finish<ConverterType>(std::move(builder), std::move(child_converters));
   }
 
   Status Visit(const DataType& t) { return Status::NotImplemented(t.name()); }
 
-  static Result<std::shared_ptr<BaseConverter>> Make(std::shared_ptr<DataType> type,
-                                                     MemoryPool* pool, Options options) {
-    std::shared_ptr<BaseConverter> out;
-    Self visitor = {type, pool, options, &out};
-    ARROW_RETURN_NOT_OK(VisitTypeInline(*type, &visitor));
-    ARROW_RETURN_NOT_OK(out->Init());
-    return out;
+  template <typename ConverterType>
+  Status Finish(std::shared_ptr<ArrayBuilder> builder,
+                std::vector<std::shared_ptr<Converter>> children) {
+    auto converter = new ConverterType();
+    converter->type_ = std::move(type);
+    converter->builder_ = std::move(builder);
+    converter->options_ = options;
+    converter->children_ = std::move(children);
+    out->reset(converter);
+    return Status::OK();
   }
 
-  const std::shared_ptr<DataType>& type;
+  const std::shared_ptr<DataType> type;
   MemoryPool* pool;
-  Options options;
-  std::shared_ptr<BaseConverter>* out;
+  typename Converter::OptionsType options;
+  std::shared_ptr<Converter>* out;
 };
 
 }  // namespace internal
