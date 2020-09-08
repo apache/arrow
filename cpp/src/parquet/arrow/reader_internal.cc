@@ -30,7 +30,6 @@
 #include "arrow/array.h"
 #include "arrow/builder.h"
 #include "arrow/datum.h"
-#include "arrow/extension_type.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/reader.h"
 #include "arrow/ipc/writer.h"
@@ -662,25 +661,6 @@ Status TransferDecimal(RecordReader* reader, MemoryPool* pool,
   return Status::OK();
 }
 
-Status TransferExtension(RecordReader* reader, std::shared_ptr<DataType> value_type,
-                         const ColumnDescriptor* descr, MemoryPool* pool, Datum* out) {
-  std::shared_ptr<ChunkedArray> result;
-  auto ext_type = std::static_pointer_cast<::arrow::ExtensionType>(value_type);
-  auto storage_type = ext_type->storage_type();
-  RETURN_NOT_OK(TransferColumnData(reader, storage_type, descr, pool, &result));
-
-  ::arrow::ArrayVector out_chunks(result->num_chunks());
-  for (int i = 0; i < result->num_chunks(); i++) {
-    auto chunk = result->chunk(i);
-    auto ext_data = chunk->data()->Copy();
-    ext_data->type = ext_type;
-    auto ext_result = ext_type->MakeArray(ext_data);
-    out_chunks[i] = ext_result;
-  }
-  *out = std::make_shared<ChunkedArray>(out_chunks);
-  return Status::OK();
-}
-
 #define TRANSFER_INT32(ENUM, ArrowType)                                              \
   case ::arrow::Type::ENUM: {                                                        \
     Status s = TransferInt<ArrowType, Int32Type>(reader, pool, value_type, &result); \
@@ -775,9 +755,6 @@ Status TransferColumnData(RecordReader* reader, std::shared_ptr<DataType> value_
         default:
           return Status::NotImplemented("TimeUnit not supported");
       }
-    } break;
-    case ::arrow::Type::EXTENSION: {
-      RETURN_NOT_OK(TransferExtension(reader, value_type, descr, pool, &result));
     } break;
     default:
       return Status::NotImplemented("No support for reading columns of type ",

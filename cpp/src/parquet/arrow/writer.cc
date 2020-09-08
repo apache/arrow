@@ -31,9 +31,11 @@
 #include "arrow/table.h"
 #include "arrow/type.h"
 #include "arrow/util/base64.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/make_unique.h"
 #include "arrow/visitor_inline.h"
+
 #include "parquet/arrow/path_internal.h"
 #include "parquet/arrow/reader_internal.h"
 #include "parquet/arrow/schema.h"
@@ -50,10 +52,11 @@ using arrow::ChunkedArray;
 using arrow::DataType;
 using arrow::Decimal128Array;
 using arrow::DictionaryArray;
+using arrow::ExtensionArray;
+using arrow::ExtensionType;
 using arrow::Field;
 using arrow::FixedSizeBinaryArray;
 using Int16BufferBuilder = arrow::TypedBufferBuilder<int16_t>;
-using arrow::ExtensionArray;
 using arrow::ListArray;
 using arrow::MemoryPool;
 using arrow::NumericArray;
@@ -62,6 +65,8 @@ using arrow::ResizableBuffer;
 using arrow::Status;
 using arrow::Table;
 using arrow::TimeUnit;
+
+using arrow::internal::checked_cast;
 
 using parquet::ParquetFileWriter;
 using parquet::ParquetVersion;
@@ -72,15 +77,18 @@ namespace arrow {
 
 namespace {
 
-int CalculateLeafCount(const DataType& type) {
-  if (type.num_fields() == 0) {
+int CalculateLeafCount(const DataType* type) {
+  if (type->id() == ::arrow::Type::EXTENSION) {
+    type = checked_cast<const ExtensionType&>(*type).storage_type().get();
+  }
+  if (type->num_fields() == 0) {
     // Primitive type.
     return 1;
   }
 
   int num_leaves = 0;
-  for (std::shared_ptr<Field> field : type.fields()) {
-    num_leaves += CalculateLeafCount(*(field->type()));
+  for (const auto& field : type->fields()) {
+    num_leaves += CalculateLeafCount(field->type().get());
   }
   return num_leaves;
 }
@@ -163,7 +171,7 @@ class ArrowColumnWriterV2 {
     if (data.length() == 0) {
       return ::arrow::internal::make_unique<ArrowColumnWriterV2>(
           std::vector<std::unique_ptr<MultipathLevelBuilder>>{},
-          CalculateLeafCount(*data.type()), row_group_writer);
+          CalculateLeafCount(data.type().get()), row_group_writer);
     }
     while (chunk_index < data.num_chunks() && absolute_position < offset) {
       const int64_t chunk_length = data.chunk(chunk_index)->length();
@@ -184,7 +192,7 @@ class ArrowColumnWriterV2 {
 
     int64_t values_written = 0;
     std::vector<std::unique_ptr<MultipathLevelBuilder>> builders;
-    const int leaf_count = CalculateLeafCount(*data.type());
+    const int leaf_count = CalculateLeafCount(data.type().get());
     bool is_nullable = false;
     // The row_group_writer hasn't been advanced yet so add 1 to the current
     // which is the one this instance will start writing for.

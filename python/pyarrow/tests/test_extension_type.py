@@ -56,6 +56,27 @@ class ParamExtType(pa.PyExtensionType):
         return ParamExtType, (self.width,)
 
 
+class MyStructType(pa.PyExtensionType):
+    storage_type = pa.struct([('left', pa.int64()),
+                              ('right', pa.int64())])
+
+    def __init__(self):
+        pa.PyExtensionType.__init__(self, self.storage_type)
+
+    def __reduce__(self):
+        return MyStructType, ()
+
+
+class MyListType(pa.PyExtensionType):
+    storage_type = pa.list_(pa.int32())
+
+    def __init__(self):
+        pa.PyExtensionType.__init__(self, self.storage_type)
+
+    def __reduce__(self):
+        return MyListType, ()
+
+
 def ipc_write_batch(batch):
     stream = pa.BufferOutputStream()
     writer = pa.RecordBatchStreamWriter(stream, batch.schema)
@@ -424,8 +445,8 @@ def test_generic_ext_type_register(registered_period_type):
 
 
 @pytest.mark.parquet
-def test_parquet(tmpdir, registered_period_type):
-    # Parquet support for extension types
+def test_parquet_period(tmpdir, registered_period_type):
+    # Parquet support for primitive extension types
     period_type, period_class = registered_period_type
     storage = pa.array([1, 2, 3, 4], pa.int64())
     arr = pa.ExtensionArray.from_storage(period_type, storage)
@@ -433,7 +454,7 @@ def test_parquet(tmpdir, registered_period_type):
 
     import pyarrow.parquet as pq
 
-    filename = tmpdir / 'extension_type.parquet'
+    filename = tmpdir / 'period_extension_type.parquet'
     pq.write_table(table, filename)
 
     # Stored in parquet as storage type but with extension metadata saved
@@ -467,6 +488,54 @@ def test_parquet(tmpdir, registered_period_type):
         b'ARROW:extension:name': b'test.period',
         b'PARQUET:field_id': b'1',
     }
+
+
+@pytest.mark.parquet
+def test_parquet_nested_storage(tmpdir):
+    # Parquet support for extension types with nested storage type
+    import pyarrow.parquet as pq
+
+    struct_array = pa.StructArray.from_arrays(
+        [pa.array([0, 1], type="int64"), pa.array([4, 5], type="int64")],
+        names=["left", "right"])
+    list_array = pa.array([[1, 2, 3], [4, 5]], type=pa.list_(pa.int32()))
+
+    mystruct_array = pa.ExtensionArray.from_storage(MyStructType(),
+                                                    struct_array)
+    mylist_array = pa.ExtensionArray.from_storage(MyListType(),
+                                                  list_array)
+
+    orig_table = pa.table({'structs': mystruct_array,
+                           'lists': mylist_array})
+    filename = tmpdir / 'nested_extension_storage.parquet'
+    pq.write_table(orig_table, filename)
+
+    table = pq.read_table(filename)
+    assert table.column(0).type == mystruct_array.type
+    assert table.column(1).type == mylist_array.type
+    assert table == orig_table
+
+
+@pytest.mark.xfail(reason="Need recursive metadata application (ARROW-9943)")
+@pytest.mark.parquet
+def test_parquet_nested_extension(tmpdir):
+    # Parquet support for extension types nested in struct or list
+    import pyarrow.parquet as pq
+
+    ext_type = IntegerType()
+    storage = pa.array([4, 5, 6, 7], type=pa.int64())
+    ext_array = pa.ExtensionArray.from_storage(ext_type, storage)
+    struct_array = pa.StructArray.from_arrays(
+        [storage, ext_array],
+        names=['ints', 'exts'])
+
+    orig_table = pa.table({'structs': struct_array})
+    filename = tmpdir / 'nested_extension_type.parquet'
+    pq.write_table(orig_table, filename)
+
+    table = pq.read_table(filename)
+    assert table.column(0).type == struct_array.type
+    assert table == orig_table
 
 
 def test_to_numpy():

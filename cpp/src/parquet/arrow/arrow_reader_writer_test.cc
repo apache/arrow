@@ -3257,8 +3257,7 @@ TEST(TestArrowWriteDictionaries, AutoReadAsDictionary) {
 }
 
 TEST(TestArrowWriteDictionaries, NestedSubfield) {
-  // ARROW-3246: Automatic decoding of dictionary subfields left as followup
-  // work
+  // FIXME (ARROW-9943): Automatic decoding of dictionary subfields
   auto offsets = ::arrow::ArrayFromJSON(::arrow::int32(), "[0, 0, 2, 3]");
   auto indices = ::arrow::ArrayFromJSON(::arrow::int32(), "[0, 0, 0]");
   auto dict = ::arrow::ArrayFromJSON(::arrow::utf8(), "[\"foo\"]");
