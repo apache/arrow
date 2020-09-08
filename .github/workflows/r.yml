@@ -180,6 +180,11 @@ jobs:
           rtools-version: 35
           r-version: '3.6'
           Ncpus: 2
+      - name: Turn on LTO for R
+        shell: Rscript {0}
+        run: |
+          dir.create("~/.R")
+          writeLines("CPPFLAGS=-flto", file = "~/.R/Makevars")
       - name: Build Arrow C++
         shell: bash
         env:
