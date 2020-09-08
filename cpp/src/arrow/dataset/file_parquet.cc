@@ -394,6 +394,8 @@ Result<ScanTaskIterator> ParquetFileFormat::ScanFile(std::shared_ptr<ScanOptions
         return MakeEmptyIterator<std::shared_ptr<ScanTask>>();
       }
     } else {
+      // since we are not scanning this fragment with a filter, don't bother loading
+      // statistics
       row_groups = parquet_fragment->row_groups();
       if (row_groups.empty()) {
         // empty vector represents all row groups
