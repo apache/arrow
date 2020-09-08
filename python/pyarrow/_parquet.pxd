@@ -471,3 +471,21 @@ cdef extern from "parquet/arrow/writer.h" namespace "parquet::arrow" nogil:
     CStatus WriteMetaDataFile(
         const CFileMetaData& file_metadata,
         const COutputStream* sink)
+
+
+cdef shared_ptr[WriterProperties] _create_writer_properties(
+    use_dictionary=*,
+    compression=*,
+    version=*,
+    write_statistics=*,
+    data_page_size=*,
+    compression_level=*,
+    use_byte_stream_split=*,
+    data_page_version=*) except *
+
+
+cdef shared_ptr[ArrowWriterProperties] _create_arrow_writer_properties(
+    use_deprecated_int96_timestamps=*,
+    coerce_timestamps=*,
+    allow_truncated_timestamps=*,
+    writer_engine_version=*) except *

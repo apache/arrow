@@ -1188,28 +1188,19 @@ cdef class ParquetReader(_Weakrefable):
         return pyarrow_wrap_chunked_array(out)
 
 
-cdef (shared_ptr[WriterProperties], shared_ptr[ArrowWriterProperties]) \
-    _create_parquet_properties(
-        object use_dictionary=None,
+cdef shared_ptr[WriterProperties] _create_writer_properties(
+        use_dictionary=None,
         compression=None,
         version=None,
         write_statistics=None,
-        use_deprecated_int96_timestamps=False,
-        coerce_timestamps=None,
         data_page_size=None,
-        allow_truncated_timestamps=False,
         compression_level=None,
         use_byte_stream_split=False,
-        writer_engine_version=None,
         data_page_version=None) except *:
-    """test"""
+    """General writer properties"""
     cdef:
         shared_ptr[WriterProperties] properties
-        shared_ptr[ArrowWriterProperties] arrow_properties
-
-    # # General writer properties
-
-    cdef WriterProperties.Builder props
+        WriterProperties.Builder props
 
     # data_page_version
 
@@ -1290,9 +1281,18 @@ cdef (shared_ptr[WriterProperties], shared_ptr[ArrowWriterProperties]) \
 
     properties = props.build()
 
-    # # Arrow writer properties
+    return properties
 
-    cdef ArrowWriterProperties.Builder arrow_props
+
+cdef shared_ptr[ArrowWriterProperties] _create_arrow_writer_properties(
+        use_deprecated_int96_timestamps=False,
+        coerce_timestamps=None,
+        allow_truncated_timestamps=False,
+        writer_engine_version=None) except *:
+    """Arrow writer properties"""
+    cdef:
+        shared_ptr[ArrowWriterProperties] arrow_properties
+        ArrowWriterProperties.Builder arrow_props
 
     # Store the original Arrow schema so things like dictionary types can
     # be automatically reconstructed
@@ -1332,7 +1332,7 @@ cdef (shared_ptr[WriterProperties], shared_ptr[ArrowWriterProperties]) \
 
     arrow_properties = arrow_props.build()
 
-    return properties, arrow_properties
+    return arrow_properties
 
 
 cdef class ParquetWriter(_Weakrefable):
@@ -1385,19 +1385,21 @@ cdef class ParquetWriter(_Weakrefable):
                 self.sink = GetResultValue(FileOutputStream.Open(c_where))
             self.own_sink = True
 
-        properties, arrow_properties = _create_parquet_properties(
+        properties = _create_writer_properties(
             use_dictionary=use_dictionary,
             compression=compression,
             version=version,
             write_statistics=write_statistics,
-            use_deprecated_int96_timestamps=use_deprecated_int96_timestamps,
-            coerce_timestamps=coerce_timestamps,
             data_page_size=data_page_size,
-            allow_truncated_timestamps=allow_truncated_timestamps,
             compression_level=compression_level,
             use_byte_stream_split=use_byte_stream_split,
-            writer_engine_version=writer_engine_version,
             data_page_version=data_page_version
+        )
+        arrow_properties = _create_arrow_writer_properties(
+            use_deprecated_int96_timestamps=use_deprecated_int96_timestamps,
+            coerce_timestamps=coerce_timestamps,
+            allow_truncated_timestamps=allow_truncated_timestamps,
+            writer_engine_version=writer_engine_version
         )
 
         pool = maybe_unbox_memory_pool(memory_pool)
