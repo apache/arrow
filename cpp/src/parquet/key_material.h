@@ -20,7 +20,7 @@
 #include <map>
 #include <string>
 
-#include <rapidjson/document.h>
+#include "arrow/json/object_parser.h"
 
 namespace parquet {
 namespace encryption {
@@ -80,7 +80,7 @@ class KeyMaterial {
 
   static KeyMaterial Parse(const std::string& key_material_string);
 
-  static KeyMaterial Parse(const rapidjson::Document& key_material_json);
+  static KeyMaterial Parse(const arrow::json::ObjectParser& key_material_json);
 
   /// This method returns a json string that will be stored either inside a parquet file
   /// or in a key material store outside the parquet file.

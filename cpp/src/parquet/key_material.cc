@@ -15,13 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <rapidjson/document.h>
-#include <rapidjson/stringbuffer.h>
-#include <rapidjson/writer.h>
+#include "arrow/json/object_writer.h"
 
 #include "parquet/exception.h"
 #include "parquet/key_material.h"
 #include "parquet/key_metadata.h"
+
+using arrow::json::ObjectParser;
+using arrow::json::ObjectWriter;
 
 namespace parquet {
 namespace encryption {
@@ -57,48 +58,57 @@ KeyMaterial::KeyMaterial(bool is_footer_key, const std::string& kms_instance_id,
       encoded_wrapped_dek_(encoded_wrapped_dek) {}
 
 KeyMaterial KeyMaterial::Parse(const std::string& key_material_string) {
-  rapidjson::Document document;
-  document.Parse(key_material_string.c_str());
-
-  if (document.HasParseError() || !document.IsObject()) {
-    throw ParquetException("Failed to parse key metadata " + key_material_string);
+  ObjectParser json_parser;
+  if (!json_parser.Parse(key_material_string)) {
+    throw ParquetException("Failed to parse key material " + key_material_string);
   }
 
   // External key material - extract "key material type", and make sure it is supported
-  std::string key_material_type = document[kKeyMaterialTypeField].GetString();
+  std::string key_material_type;
+  PARQUET_ASSIGN_OR_THROW(key_material_type,
+                          json_parser.GetString(kKeyMaterialTypeField));
   if (kKeyMaterialType1 != key_material_type) {
     throw ParquetException("Wrong key material type: " + key_material_type + " vs " +
                            kKeyMaterialType1);
   }
   // Parse other fields (common to internal and external key material)
-  return Parse(document);
+  return Parse(json_parser);
 }
 
-KeyMaterial KeyMaterial::Parse(const rapidjson::Document& key_material_json) {
+KeyMaterial KeyMaterial::Parse(const ObjectParser& key_material_json) {
   // 2. Check if "key material" belongs to file footer key
-  bool is_footer_key = key_material_json[kIsFooterKeyField].GetBool();
+  bool is_footer_key;
+  PARQUET_ASSIGN_OR_THROW(is_footer_key, key_material_json.GetBool(kIsFooterKeyField));
   std::string kms_instance_id;
   std::string kms_instance_url;
   if (is_footer_key) {
     // 3.  For footer key, extract KMS Instance ID
-    kms_instance_id = key_material_json[kKmsInstanceIdField].GetString();
+    PARQUET_ASSIGN_OR_THROW(kms_instance_id,
+                            key_material_json.GetString(kKmsInstanceIdField));
     // 4.  For footer key, extract KMS Instance URL
-    kms_instance_url = key_material_json[kKmsInstanceUrlField].GetString();
+    PARQUET_ASSIGN_OR_THROW(kms_instance_url,
+                            key_material_json.GetString(kKmsInstanceUrlField));
   }
   // 5. Extract master key ID
-  std::string master_key_id = key_material_json[kMasterKeyIdField].GetString();
+  std::string master_key_id;
+  PARQUET_ASSIGN_OR_THROW(master_key_id, key_material_json.GetString(kMasterKeyIdField));
   // 6. Extract wrapped DEK
-  std::string encoded_wrapped_dek =
-      key_material_json[kWrappedDataEncryptionKeyField].GetString();
+  std::string encoded_wrapped_dek;
+  PARQUET_ASSIGN_OR_THROW(encoded_wrapped_dek,
+                          key_material_json.GetString(kWrappedDataEncryptionKeyField));
   std::string kek_id;
   std::string encoded_wrapped_kek;
   // 7. Check if "key material" was generated in double wrapping mode
-  bool is_double_wrapped = key_material_json[kDoubleWrappingField].GetBool();
+  bool is_double_wrapped;
+  PARQUET_ASSIGN_OR_THROW(is_double_wrapped,
+                          key_material_json.GetBool(kDoubleWrappingField));
   if (is_double_wrapped) {
     // 8. In double wrapping mode, extract KEK ID
-    kek_id = key_material_json[kKeyEncryptionKeyIdField].GetString();
+    PARQUET_ASSIGN_OR_THROW(kek_id,
+                            key_material_json.GetString(kKeyEncryptionKeyIdField));
     // 9. In double wrapping mode, extract wrapped KEK
-    encoded_wrapped_kek = key_material_json[kWrappedKeyEncryptionKeyField].GetString();
+    PARQUET_ASSIGN_OR_THROW(encoded_wrapped_kek,
+                            key_material_json.GetString(kWrappedKeyEncryptionKeyField));
   }
 
   return KeyMaterial(is_footer_key, kms_instance_id, kms_instance_url, master_key_id,
@@ -111,51 +121,36 @@ std::string KeyMaterial::SerializeToJson(
     bool is_double_wrapped, const std::string& kek_id,
     const std::string& encoded_wrapped_kek, const std::string& encoded_wrapped_dek,
     bool is_internal_storage) {
-  rapidjson::Document d;
-  auto& allocator = d.GetAllocator();
-  rapidjson::Value key_material_map(rapidjson::kObjectType);
-  rapidjson::Value str_value(rapidjson::kStringType);
-
-  key_material_map.AddMember(kKeyMaterialTypeField, kKeyMaterialType1, allocator);
+  ObjectWriter json_writer;
+  json_writer.SetString(kKeyMaterialTypeField, kKeyMaterialType1);
 
   if (is_internal_storage) {
     // 1. for internal storage, key material and key metadata are the same.
     // adding the "internalStorage" field that belongs to KeyMetadata.
-    key_material_map.AddMember(KeyMetadata::kKeyMaterialInternalStorageField, true,
-                               allocator);
+    json_writer.SetBool(KeyMetadata::kKeyMaterialInternalStorageField, true);
   }
   // 2. Write isFooterKey
-  key_material_map.AddMember(kIsFooterKeyField, is_footer_key, allocator);
+  json_writer.SetBool(kIsFooterKeyField, is_footer_key);
   if (is_footer_key) {
     // 3. For footer key, write KMS Instance ID
-    str_value.SetString(kms_instance_id.c_str(), allocator);
-    key_material_map.AddMember(kKmsInstanceIdField, str_value, allocator);
+    json_writer.SetString(kKmsInstanceIdField, kms_instance_id);
     // 4. For footer key, write KMS Instance URL
-    str_value.SetString(kms_instance_url.c_str(), allocator);
-    key_material_map.AddMember(kKmsInstanceUrlField, str_value, allocator);
+    json_writer.SetString(kKmsInstanceUrlField, kms_instance_url);
   }
   // 5. Write master key ID
-  str_value.SetString(master_key_id.c_str(), allocator);
-  key_material_map.AddMember(kMasterKeyIdField, str_value, allocator);
+  json_writer.SetString(kMasterKeyIdField, master_key_id);
   // 6. Write wrapped DEK
-  str_value.SetString(encoded_wrapped_dek.c_str(), allocator);
-  key_material_map.AddMember(kWrappedDataEncryptionKeyField, str_value, allocator);
+  json_writer.SetString(kWrappedDataEncryptionKeyField, encoded_wrapped_dek);
   // 7. Write isDoubleWrapped
-  key_material_map.AddMember(kDoubleWrappingField, is_double_wrapped, allocator);
+  json_writer.SetBool(kDoubleWrappingField, is_double_wrapped);
   if (is_double_wrapped) {
     // 8. In double wrapping mode, write KEK ID
-    str_value.SetString(kek_id.c_str(), allocator);
-    key_material_map.AddMember(kKeyEncryptionKeyIdField, str_value, allocator);
+    json_writer.SetString(kKeyEncryptionKeyIdField, kek_id);
     // 9. In double wrapping mode, write wrapped KEK
-    str_value.SetString(encoded_wrapped_kek.c_str(), allocator);
-    key_material_map.AddMember(kWrappedKeyEncryptionKeyField, str_value, allocator);
+    json_writer.SetString(kWrappedKeyEncryptionKeyField, encoded_wrapped_kek);
   }
 
-  rapidjson::StringBuffer buffer;
-  rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
-  key_material_map.Accept(writer);
-
-  return buffer.GetString();
+  return json_writer.Serialize();
 }
 
 }  // namespace encryption

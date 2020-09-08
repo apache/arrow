@@ -15,13 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "rapidjson/document.h"
-#include "rapidjson/stringbuffer.h"
-#include "rapidjson/writer.h"
+#include "arrow/json/object_parser.h"
+#include "arrow/json/object_writer.h"
 
 #include "parquet/exception.h"
 #include "parquet/key_toolkit.h"
 #include "parquet/remote_kms_client.h"
+
+using arrow::json::ObjectParser;
+using arrow::json::ObjectWriter;
 
 namespace parquet {
 namespace encryption {
@@ -38,34 +40,27 @@ RemoteKmsClient::LocalKeyWrap::LocalKeyWrap(const std::string& master_key_versio
 
 std::string RemoteKmsClient::LocalKeyWrap::CreateSerialized(
     const std::string& encrypted_encoded_key) {
-  rapidjson::Document d;
-  auto& allocator = d.GetAllocator();
-  rapidjson::Value root(rapidjson::kObjectType);
+  ObjectWriter json_writer;
 
-  root.AddMember(kLocalWrapKeyVersionField, kLocalWrapNoKeyVersion, allocator);
+  json_writer.SetString(kLocalWrapKeyVersionField, kLocalWrapNoKeyVersion);
+  json_writer.SetString(kLocalWrapEncryptedKeyField, encrypted_encoded_key);
 
-  rapidjson::Value value(rapidjson::kStringType);
-  value.SetString(encrypted_encoded_key.c_str(), allocator);
-  root.AddMember(kLocalWrapEncryptedKeyField, value, allocator);
-
-  rapidjson::StringBuffer buffer;
-  rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
-  root.Accept(writer);
-
-  return buffer.GetString();
+  return json_writer.Serialize();
 }
 
 RemoteKmsClient::LocalKeyWrap RemoteKmsClient::LocalKeyWrap::Parse(
     const std::string& wrapped_key) {
-  rapidjson::Document key_wrap_document;
-  key_wrap_document.Parse(wrapped_key.c_str());
-  if (key_wrap_document.HasParseError() || !key_wrap_document.IsObject()) {
+  ObjectParser json_parser;
+  if (!json_parser.Parse(wrapped_key)) {
     throw ParquetException("Failed to parse local key wrap json " + wrapped_key);
   }
-  std::string master_key_version =
-      key_wrap_document[kLocalWrapKeyVersionField].GetString();
-  std::string encrypted_encoded_key =
-      key_wrap_document[kLocalWrapEncryptedKeyField].GetString();
+  std::string master_key_version;
+  PARQUET_ASSIGN_OR_THROW(master_key_version,
+                          json_parser.GetString(kLocalWrapKeyVersionField));
+
+  std::string encrypted_encoded_key;
+  PARQUET_ASSIGN_OR_THROW(encrypted_encoded_key,
+                          json_parser.GetString(kLocalWrapEncryptedKeyField));
 
   return RemoteKmsClient::LocalKeyWrap(master_key_version, encrypted_encoded_key);
 }
