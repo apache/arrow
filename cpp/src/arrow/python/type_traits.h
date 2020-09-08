@@ -106,7 +106,7 @@ struct npy_traits<NPY_FLOAT32> {
   using BuilderClass = FloatBuilder;
 
   // We need to use quiet_NaN here instead of the NAN macro as on Windows
-  // the NAN macro leads to "divison-by-zero" compile-time error with clang.
+  // the NAN macro leads to "division-by-zero" compile-time error with clang.
   static constexpr float na_sentinel = std::numeric_limits<float>::quiet_NaN();
 
   static constexpr bool supports_nulls = true;
