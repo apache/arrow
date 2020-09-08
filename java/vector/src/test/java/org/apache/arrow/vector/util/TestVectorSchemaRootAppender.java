@@ -28,6 +28,8 @@ import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.testing.ValueVectorDataPopulator;
+import org.apache.arrow.vector.types.Types;
+import org.apache.arrow.vector.types.pojo.FieldType;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -111,7 +113,8 @@ public class TestVectorSchemaRootAppender {
          VarCharVector targetChild2 = new VarCharVector("t2", allocator);
          BigIntVector targetChild3 = new BigIntVector("t3", allocator);
 
-         IntVector deltaChild1 = new IntVector("d1", allocator);
+         IntVector deltaChild1 =
+             new IntVector("d1", FieldType.nonNullable(Types.MinorType.INT.getType()), allocator);
          VarCharVector deltaChild2 = new VarCharVector("d2", allocator)) {
 
       ValueVectorDataPopulator.setVector(targetChild1, 0, 1, null, 3, 4);

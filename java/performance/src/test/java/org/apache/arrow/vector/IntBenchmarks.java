@@ -23,6 +23,8 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.complex.impl.IntWriterImpl;
 import org.apache.arrow.vector.holders.NullableIntHolder;
+import org.apache.arrow.vector.types.Types;
+import org.apache.arrow.vector.types.pojo.FieldType;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Mode;
@@ -53,8 +55,11 @@ public class IntBenchmarks {
   @Setup
   public void prepare() {
     allocator = new RootAllocator(ALLOCATOR_CAPACITY);
-    vector = new IntVector("vector", allocator);
+    vector = new IntVector("vector", FieldType.nonNullable(Types.MinorType.INT.getType()), allocator);
     vector.allocateNew(VECTOR_LENGTH);
+    for (int i = 0; i < VECTOR_LENGTH; i++) {
+      vector.set(i, i);
+    }
     vector.setValueCount(VECTOR_LENGTH);
   }
 
@@ -66,7 +71,7 @@ public class IntBenchmarks {
 
   @Benchmark
   @BenchmarkMode(Mode.AverageTime)
-  @OutputTimeUnit(TimeUnit.MICROSECONDS)
+  @OutputTimeUnit(TimeUnit.NANOSECONDS)
   public void setWithValueHolder() {
     for (int i = 0; i < VECTOR_LENGTH; i++) {
       NullableIntHolder holder = new NullableIntHolder();
@@ -80,7 +85,7 @@ public class IntBenchmarks {
 
   @Benchmark
   @BenchmarkMode(Mode.AverageTime)
-  @OutputTimeUnit(TimeUnit.MICROSECONDS)
+  @OutputTimeUnit(TimeUnit.NANOSECONDS)
   public void setIntDirectly() {
     for (int i = 0; i < VECTOR_LENGTH; i++) {
       vector.setSafe(i, i % 3 == 0 ? 0 : 1, i);
@@ -89,7 +94,29 @@ public class IntBenchmarks {
 
   @Benchmark
   @BenchmarkMode(Mode.AverageTime)
-  @OutputTimeUnit(TimeUnit.MICROSECONDS)
+  @OutputTimeUnit(TimeUnit.NANOSECONDS)
+  public int getInt() {
+    int sum = 0;
+    for (int i = 0; i < VECTOR_LENGTH; i++) {
+      sum += vector.get(i);
+    }
+    return sum;
+  }
+
+  @Benchmark
+  @BenchmarkMode(Mode.AverageTime)
+  @OutputTimeUnit(TimeUnit.NANOSECONDS)
+  public boolean isNull() {
+    boolean sum = false;
+    for (int i = 0; i < VECTOR_LENGTH; i++) {
+      sum |= vector.isNull(i);
+    }
+    return sum;
+  }
+
+  @Benchmark
+  @BenchmarkMode(Mode.AverageTime)
+  @OutputTimeUnit(TimeUnit.NANOSECONDS)
   public void setWithWriter() {
     IntWriterImpl writer = new IntWriterImpl(vector);
     for (int i = 0; i < VECTOR_LENGTH; i++) {

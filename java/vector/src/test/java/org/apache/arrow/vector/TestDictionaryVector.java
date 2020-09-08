@@ -381,8 +381,10 @@ public class TestDictionaryVector {
   @Test
   public void testIntEquals() {
     //test Int
-    try (final IntVector vector1 = new IntVector("int", allocator);
-         final IntVector vector2 = new IntVector("int", allocator)) {
+    try (final IntVector vector1 =
+             new IntVector("int", FieldType.nonNullable(Types.MinorType.INT.getType()), allocator);
+         final IntVector vector2 =
+             new IntVector("int", FieldType.nonNullable(Types.MinorType.INT.getType()), allocator)) {
 
       Dictionary dict1 = new Dictionary(vector1, new DictionaryEncoding(1L, false, null));
       Dictionary dict2 = new Dictionary(vector2, new DictionaryEncoding(1L, false, null));

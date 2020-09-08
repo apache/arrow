@@ -51,8 +51,15 @@ public abstract class BaseValueVector implements ValueVector {
 
   protected final BufferAllocator allocator;
 
+  protected final boolean nullable;
+
   protected BaseValueVector(BufferAllocator allocator) {
+    this(allocator, true);
+  }
+
+  protected BaseValueVector(BufferAllocator allocator, boolean nullable) {
     this.allocator = Preconditions.checkNotNull(allocator, "allocator cannot be null");
+    this.nullable = nullable;
   }
 
   @Override

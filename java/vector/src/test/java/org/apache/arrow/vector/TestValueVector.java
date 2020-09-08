@@ -26,6 +26,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
@@ -2020,7 +2021,8 @@ public class TestValueVector {
 
   @Test /* IntVector */
   public void testGetBufferAddress2() {
-    try (final IntVector vector = new IntVector("myvector", allocator)) {
+    try (final IntVector vector =
+             new IntVector("myvector", FieldType.nonNullable(MinorType.INT.getType()), allocator)) {
       boolean error = false;
       vector.allocateNew(16);
 
@@ -2394,7 +2396,8 @@ public class TestValueVector {
 
   @Test
   public void testIntVectorEqualsWithNull() {
-    try (final IntVector vector1 = new IntVector("int", allocator);
+    try (final IntVector vector1 =
+             new IntVector("int", FieldType.nonNullable(MinorType.INT.getType()), allocator);
          final IntVector vector2 = new IntVector("int", allocator)) {
 
       setVector(vector1, 1, 2);
@@ -2678,8 +2681,10 @@ public class TestValueVector {
 
   @Test(expected = IllegalArgumentException.class)
   public void testEqualsWithIndexOutOfRange() {
-    try (final IntVector vector1 = new IntVector("int", allocator);
-         final IntVector vector2 = new IntVector("int", allocator)) {
+    try (final IntVector vector1 =
+             new IntVector("int", FieldType.nonNullable(MinorType.INT.getType()), allocator);
+         final IntVector vector2 =
+             new IntVector("int", FieldType.nonNullable(MinorType.INT.getType()), allocator)) {
 
       setVector(vector1, 1, 2);
       setVector(vector2, 1, 2);
@@ -2732,7 +2737,8 @@ public class TestValueVector {
 
   @Test
   public void testToString() {
-    try (final IntVector intVector = new IntVector("intVector", allocator);
+    try (final IntVector intVector =
+             new IntVector("intVector", FieldType.nonNullable(MinorType.INT.getType()), allocator);
          final ListVector listVector = ListVector.empty("listVector", allocator);
          final StructVector structVector = StructVector.empty("structVector", allocator)) {
 
@@ -3018,6 +3024,28 @@ public class TestValueVector {
       long expected = UInt4Vector.MAX_UINT4 & UInt4Vector.PROMOTION_MASK;
       assertEquals(expected, vector.getValueAsLong(0));
       assertEquals(expected, vector.getValueAsLong(1));
+    }
+  }
+
+  @Test
+  public void testNonNullableIntVector() {
+    try (IntVector vector = new IntVector("vec", FieldType.nonNullable(MinorType.INT.getType()), allocator)) {
+      setVector(vector, 1, 2, 3, 4, 5);
+
+      if (NonNullableVectorOption.NON_NULLABLE_VECTORS_ENABLED) {
+        // assertTrue(vector.getValidityBuffer() == allocator.getEmpty());
+
+        for (int i = 0; i < vector.getValueCount(); i++) {
+          assertFalse(vector.isNull(i));
+        }
+
+        assertEquals(vector.getValueCount() * vector.getTypeWidth(), vector.getBufferSize());
+
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> {
+          vector.setNull(0);
+        });
+        assertEquals("The vector is non-nullable", e.getMessage());
+      }
     }
   }
 }

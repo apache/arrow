@@ -23,6 +23,8 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.testing.ValueVectorDataPopulator;
+import org.apache.arrow.vector.types.Types;
+import org.apache.arrow.vector.types.pojo.FieldType;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -49,9 +51,9 @@ public class TestVectorBatchAppender {
     final int length1 = 10;
     final int length2 = 5;
     final int length3 = 7;
-    try (IntVector target = new IntVector("", allocator);
-         IntVector delta1 = new IntVector("", allocator);
-         IntVector delta2 = new IntVector("", allocator)) {
+    try (IntVector target = new IntVector("", FieldType.nonNullable(Types.MinorType.INT.getType()), allocator);
+         IntVector delta1 = new IntVector("", FieldType.nonNullable(Types.MinorType.INT.getType()), allocator);
+         IntVector delta2 = new IntVector("", FieldType.nonNullable(Types.MinorType.INT.getType()), allocator)) {
 
       target.allocateNew(length1);
       delta1.allocateNew(length2);

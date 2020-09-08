@@ -395,6 +395,7 @@
               <java.io.tmpdir>${project.build.directory}</java.io.tmpdir>
               <io.netty.tryReflectionSetAccessible>true</io.netty.tryReflectionSetAccessible>
               <user.timezone>UTC</user.timezone>
+              <arrow.enable_non_nullable_vectors>true</arrow.enable_non_nullable_vectors>
             </systemPropertyVariables>
             <!-- Note: changing the below configuration might increase the max allocation size for a vector
             which in turn can cause OOM. -->

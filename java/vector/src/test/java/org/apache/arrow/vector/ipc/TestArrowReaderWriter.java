@@ -69,6 +69,7 @@ import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.ipc.message.IpcOption;
 import org.apache.arrow.vector.ipc.message.MessageSerializer;
+import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.types.pojo.Field;
@@ -672,7 +673,7 @@ public class TestArrowReaderWriter {
   @Test
   public void testLegacyIpcBackwardsCompatibility() throws Exception {
     Schema schema = new Schema(asList(Field.nullable("field", new ArrowType.Int(32, true))));
-    IntVector vector = new IntVector("vector", allocator);
+    IntVector vector = new IntVector("vector", FieldType.nonNullable(Types.MinorType.INT.getType()), allocator);
     final int valueCount = 2;
     vector.setValueCount(valueCount);
     vector.setSafe(0, 1);

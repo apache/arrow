@@ -20,6 +20,8 @@ package org.apache.arrow.vector;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.OutOfMemoryException;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.types.Types;
+import org.apache.arrow.vector.types.pojo.FieldType;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -54,14 +56,16 @@ public class TestOutOfMemoryForValueVector {
 
   @Test(expected = OutOfMemoryException.class)
   public void fixedWidthVectorAllocateNew() {
-    try (IntVector vector = new IntVector(EMPTY_SCHEMA_PATH, allocator)) {
+    try (IntVector vector = new IntVector(EMPTY_SCHEMA_PATH,
+        FieldType.nonNullable(Types.MinorType.INT.getType()), allocator)) {
       vector.allocateNew();
     }
   }
 
   @Test(expected = OutOfMemoryException.class)
   public void fixedWidthVectorAllocateNewCustom() {
-    try (IntVector vector = new IntVector(EMPTY_SCHEMA_PATH, allocator)) {
+    try (IntVector vector = new IntVector(EMPTY_SCHEMA_PATH,
+        FieldType.nonNullable(Types.MinorType.INT.getType()), allocator)) {
       vector.allocateNew(2342);
     }
   }

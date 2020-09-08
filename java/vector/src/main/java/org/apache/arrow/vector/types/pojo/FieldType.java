@@ -40,6 +40,10 @@ public class FieldType {
     return new FieldType(true, type, null, null);
   }
 
+  public static FieldType nonNullable(ArrowType type) {
+    return new FieldType(false, type, null, null);
+  }
+
   private final boolean nullable;
   private final ArrowType type;
   private final DictionaryEncoding dictionary;

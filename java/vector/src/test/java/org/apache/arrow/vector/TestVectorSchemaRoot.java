@@ -31,6 +31,7 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.impl.UnionListWriter;
+import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
@@ -56,7 +57,8 @@ public class TestVectorSchemaRoot {
   public void testResetRowCount() {
     final int size = 20;
     try (final BitVector vec1 = new BitVector("bit", allocator);
-         final IntVector vec2 = new IntVector("int", allocator)) {
+         final IntVector vec2 =
+             new IntVector("int", FieldType.nonNullable(Types.MinorType.INT.getType()), allocator)) {
       VectorSchemaRoot vsr = VectorSchemaRoot.of(vec1, vec2);
 
       vsr.allocateNew();
@@ -173,9 +175,10 @@ public class TestVectorSchemaRoot {
 
   @Test
   public void testRemoveVector() {
-    try (final IntVector intVector1 = new IntVector("intVector1", allocator);
-        final IntVector intVector2 = new IntVector("intVector2", allocator);
-        final IntVector intVector3 = new IntVector("intVector3", allocator);) {
+    try (final IntVector intVector1 =
+             new IntVector("intVector1", FieldType.nonNullable(Types.MinorType.INT.getType()), allocator);
+         final IntVector intVector2 = new IntVector("intVector2", allocator);
+         final IntVector intVector3 = new IntVector("intVector3", allocator);) {
 
       VectorSchemaRoot original =
           new VectorSchemaRoot(Arrays.asList(intVector1, intVector2, intVector3));
@@ -193,7 +196,8 @@ public class TestVectorSchemaRoot {
 
   @Test
   public void testSlice() {
-    try (final IntVector intVector = new IntVector("intVector", allocator);
+    try (final IntVector intVector =
+             new IntVector("intVector", FieldType.nonNullable(Types.MinorType.INT.getType()), allocator);
          final Float4Vector float4Vector = new Float4Vector("float4Vector", allocator)) {
       intVector.setValueCount(10);
       float4Vector.setValueCount(10);
@@ -223,7 +227,8 @@ public class TestVectorSchemaRoot {
 
   @Test(expected = IllegalArgumentException.class)
   public void testSliceWithInvalidParam() {
-    try (final IntVector intVector = new IntVector("intVector", allocator);
+    try (final IntVector intVector =
+             new IntVector("intVector", FieldType.nonNullable(Types.MinorType.INT.getType()), allocator);
          final Float4Vector float4Vector = new Float4Vector("float4Vector", allocator)) {
       intVector.setValueCount(10);
       float4Vector.setValueCount(10);
@@ -239,9 +244,12 @@ public class TestVectorSchemaRoot {
 
   @Test
   public void testEquals() {
-    try (final IntVector intVector1 = new IntVector("intVector1", allocator);
-         final IntVector intVector2 = new IntVector("intVector2", allocator);
-         final IntVector intVector3 = new IntVector("intVector3", allocator);) {
+    try (final IntVector intVector1 =
+             new IntVector("intVector1", FieldType.nonNullable(Types.MinorType.INT.getType()), allocator);
+         final IntVector intVector2 =
+             new IntVector("intVector2", FieldType.nonNullable(Types.MinorType.INT.getType()), allocator);
+         final IntVector intVector3 =
+             new IntVector("intVector3", FieldType.nonNullable(Types.MinorType.INT.getType()), allocator);) {
 
       intVector1.setValueCount(5);
       for (int i = 0; i < 5; i++) {

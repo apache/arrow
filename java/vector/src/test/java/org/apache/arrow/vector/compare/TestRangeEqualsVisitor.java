@@ -78,7 +78,8 @@ public class TestRangeEqualsVisitor {
 
   @Test
   public void testIntVectorEqualsWithNull() {
-    try (final IntVector vector1 = new IntVector("int", allocator);
+    try (final IntVector vector1 = new IntVector("int",
+        FieldType.nonNullable(Types.MinorType.INT.getType()), allocator);
          final IntVector vector2 = new IntVector("int", allocator)) {
 
       setVector(vector1, 1, 2);
@@ -90,8 +91,10 @@ public class TestRangeEqualsVisitor {
 
   @Test
   public void testEqualsWithTypeChange() {
-    try (final IntVector vector1 = new IntVector("vector", allocator);
-         final IntVector vector2 = new IntVector("vector", allocator);
+    try (final IntVector vector1 =
+             new IntVector("vector", FieldType.nonNullable(Types.MinorType.INT.getType()), allocator);
+         final IntVector vector2 =
+             new IntVector("vector", FieldType.nonNullable(Types.MinorType.INT.getType()), allocator);
          final BigIntVector vector3 = new BigIntVector("vector", allocator)) {
 
       setVector(vector1, 1, 2);
@@ -107,8 +110,10 @@ public class TestRangeEqualsVisitor {
 
   @Test
   public void testBaseFixedWidthVectorRangeEqual() {
-    try (final IntVector vector1 = new IntVector("int", allocator);
-         final IntVector vector2 = new IntVector("int", allocator)) {
+    try (final IntVector vector1 =
+             new IntVector("int", FieldType.nonNullable(Types.MinorType.INT.getType()), allocator);
+         final IntVector vector2 =
+             new IntVector("int", FieldType.nonNullable(Types.MinorType.INT.getType()), allocator)) {
 
       setVector(vector1, 1, 2, 3, 4, 5);
       setVector(vector2, 11, 2, 3, 4, 55);
