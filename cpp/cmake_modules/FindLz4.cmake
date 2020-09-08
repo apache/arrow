@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-if(MSVC AND NOT DEFINED LZ4_MSVC_LIB_PREFIX)
+if(MSVC_TOOLCHAIN AND NOT DEFINED LZ4_MSVC_LIB_PREFIX)
   set(LZ4_MSVC_LIB_PREFIX "lib")
 endif()
 set(LZ4_LIB_NAME_BASE "${LZ4_MSVC_LIB_PREFIX}lz4")

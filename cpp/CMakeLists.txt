@@ -148,6 +148,13 @@ if(APPLE)
   endif()
 endif()
 
+if(WIN32 AND NOT MINGW)
+  # This is used to handle builds using e.g. clang in an MSVC setting.
+  set(MSVC_TOOLCHAIN TRUE)
+else()
+  set(MSVC_TOOLCHAIN FALSE)
+endif()
+
 find_package(ClangTools)
 find_package(InferTools)
 if("$ENV{CMAKE_EXPORT_COMPILE_COMMANDS}" STREQUAL "1" OR CLANG_TIDY_FOUND OR INFER_FOUND)
@@ -343,7 +350,7 @@ if(ARROW_PYTHON)
   set(ARROW_JSON ON)
 endif()
 
-if(MSVC)
+if(MSVC_TOOLCHAIN)
   # ORC doesn't build on windows
   set(ARROW_ORC OFF)
   # Plasma using glog is not fully tested on windows.
@@ -741,7 +748,7 @@ add_dependencies(arrow_test_dependencies toolchain-tests)
 if(ARROW_STATIC_LINK_LIBS)
   add_dependencies(arrow_dependencies ${ARROW_STATIC_LINK_LIBS})
   if(ARROW_ORC)
-    if(NOT MSVC)
+    if(NOT MSVC_TOOLCHAIN)
       list(APPEND ARROW_STATIC_LINK_LIBS ${CMAKE_DL_LIBS})
       list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${CMAKE_DL_LIBS})
     endif()
@@ -755,7 +762,7 @@ if(((ARROW_FLIGHT OR ARROW_S3) AND (ARROW_BUILD_TESTS OR ARROW_BUILD_INTEGRATION
   list(APPEND ARROW_TEST_LINK_LIBS ${BOOST_FILESYSTEM_LIBRARY} ${BOOST_SYSTEM_LIBRARY})
 endif()
 
-if(NOT MSVC)
+if(NOT MSVC_TOOLCHAIN)
   list(APPEND ARROW_LINK_LIBS ${CMAKE_DL_LIBS})
   list(APPEND ARROW_SHARED_INSTALL_INTERFACE_LIBS ${CMAKE_DL_LIBS})
 endif()

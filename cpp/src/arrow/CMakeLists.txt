@@ -463,7 +463,7 @@ if(ARROW_ORC)
   list(APPEND ARROW_SRCS adapters/orc/adapter.cc adapters/orc/adapter_util.cc)
 endif()
 
-if(NOT APPLE AND NOT MSVC)
+if(NOT APPLE AND NOT MSVC_TOOLCHAIN)
   # Localize thirdparty symbols using a linker version script. This hides them
   # from the client application. The OS X linker does not support the
   # version-script option.

@@ -39,6 +39,13 @@ endif()
 include(FindPkgConfig)
 include(FindPackageHandleStandardArgs)
 
+if(WIN32 AND NOT MINGW)
+  # This is used to handle builds using e.g. clang in an MSVC setting.
+  set(MSVC_TOOLCHAIN TRUE)
+else()
+  set(MSVC_TOOLCHAIN FALSE)
+endif()
+
 set(ARROW_SEARCH_LIB_PATH_SUFFIXES)
 if(CMAKE_LIBRARY_ARCHITECTURE)
   list(APPEND ARROW_SEARCH_LIB_PATH_SUFFIXES "lib/${CMAKE_LIBRARY_ARCHITECTURE}")
@@ -61,7 +68,7 @@ if(CMAKE_BUILD_TYPE)
 endif()
 
 if(NOT DEFINED ARROW_MSVC_STATIC_LIB_SUFFIX)
-  if(MSVC)
+  if(MSVC_TOOLCHAIN)
     set(ARROW_MSVC_STATIC_LIB_SUFFIX "_static")
   else()
     set(ARROW_MSVC_STATIC_LIB_SUFFIX "")
@@ -147,7 +154,7 @@ macro(arrow_find_package_home)
   set(include_dir "${${prefix}_include_dir}")
   set(${prefix}_INCLUDE_DIR "${include_dir}" PARENT_SCOPE)
 
-  if(MSVC)
+  if(MSVC_TOOLCHAIN)
     set(CMAKE_SHARED_LIBRARY_SUFFIXES_ORIGINAL ${CMAKE_FIND_LIBRARY_SUFFIXES})
     # .dll isn't found by find_library with MSVC because .dll isn't included in
     # CMAKE_FIND_LIBRARY_SUFFIXES.
@@ -158,7 +165,7 @@ macro(arrow_find_package_home)
                PATHS "${home}"
                PATH_SUFFIXES ${ARROW_SEARCH_LIB_PATH_SUFFIXES}
                NO_DEFAULT_PATH)
-  if(MSVC)
+  if(MSVC_TOOLCHAIN)
     set(CMAKE_SHARED_LIBRARY_SUFFIXES ${CMAKE_FIND_LIBRARY_SUFFIXES_ORIGINAL})
   endif()
   set(shared_lib "${${prefix}_shared_lib}")

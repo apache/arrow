@@ -440,7 +440,7 @@ function(ADD_ARROW_LIB LIB_NAME)
       target_include_directories(${LIB_NAME}_static PRIVATE ${ARG_PRIVATE_INCLUDES})
     endif()
 
-    if(MSVC)
+    if(MSVC_TOOLCHAIN)
       set(LIB_NAME_STATIC ${LIB_NAME}_static)
     else()
       set(LIB_NAME_STATIC ${LIB_NAME})

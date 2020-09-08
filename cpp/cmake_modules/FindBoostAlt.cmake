@@ -52,7 +52,7 @@ endif()
 
 if(Boost_FOUND)
   set(BoostAlt_FOUND ON)
-  if(MSVC)
+  if(MSVC_TOOLCHAIN)
     # disable autolinking in boost
     add_definitions(-DBOOST_ALL_NO_LIB)
     if(ARROW_BOOST_USE_SHARED)
