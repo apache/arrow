@@ -22,6 +22,8 @@
 from cpython.object cimport Py_LT, Py_EQ, Py_GT, Py_LE, Py_NE, Py_GE
 from cython.operator cimport dereference as deref
 
+import os
+
 import pyarrow as pa
 from pyarrow.lib cimport *
 from pyarrow.lib import frombytes, tobytes
@@ -30,6 +32,10 @@ from pyarrow._fs cimport FileSystem, FileInfo, FileSelector
 from pyarrow._csv cimport ParseOptions
 from pyarrow._compute cimport CastOptions
 from pyarrow.util import _is_path_like, _stringify_path
+
+from pyarrow._parquet cimport (
+    _create_writer_properties, _create_arrow_writer_properties
+)
 
 
 def _forbid_instantiation(klass, subclasses_instead=True):
@@ -1041,11 +1047,16 @@ cdef class ParquetFileFormat(FileFormat):
 
     cdef:
         CParquetFileFormat* parquet_format
+        object _write_options
 
-    def __init__(self, read_options=None):
+    def __init__(self, read_options=None, dict write_options=None):
         cdef:
             shared_ptr[CParquetFileFormat] wrapped
             CParquetFileFormatReaderOptions* options
+            shared_ptr[ArrowWriterProperties] arrow_properties
+            shared_ptr[WriterProperties] properties
+
+        # Read options
 
         if read_options is None:
             read_options = ParquetReadOptions()
@@ -1063,6 +1074,34 @@ cdef class ParquetFileFormat(FileFormat):
             for column in read_options.dictionary_columns:
                 options.dict_columns.insert(tobytes(column))
 
+        # Write options
+
+        self._write_options = {}
+        if write_options is not None:
+            self._write_options = write_options
+            properties = _create_writer_properties(
+                use_dictionary=write_options.get("use_dictionary", True),
+                compression=write_options.get("compression", "snappy"),
+                version=write_options.get("version", "1.0"),
+                write_statistics=write_options.get("write_statistics", None),
+                data_page_size=write_options.get("data_page_size", None),
+                compression_level=write_options.get("compression_level", None),
+                use_byte_stream_split=write_options.get(
+                    "use_byte_stream_split", False),
+                data_page_version=write_options.get("data_page_version", "1.0")
+            )
+            arrow_properties = _create_arrow_writer_properties(
+                use_deprecated_int96_timestamps=write_options.get(
+                    "use_deprecated_int96_timestamps", False),
+                coerce_timestamps=write_options.get("coerce_timestamps", None),
+                allow_truncated_timestamps=write_options.get(
+                    "allow_truncated_timestamps", False),
+                writer_engine_version=os.environ.get(
+                    "ARROW_PARQUET_WRITER_ENGINE", "V2")
+            )
+            wrapped.get().writer_properties = properties
+            wrapped.get().arrow_writer_properties = arrow_properties
+
         self.init(<shared_ptr[CFileFormat]> wrapped)
 
     cdef void init(self, const shared_ptr[CFileFormat]& sp):
@@ -1079,11 +1118,18 @@ cdef class ParquetFileFormat(FileFormat):
             dictionary_columns={frombytes(col) for col in options.dict_columns}
         )
 
+    @property
+    def write_options(self):
+        return self._write_options
+
     def equals(self, ParquetFileFormat other):
-        return self.read_options.equals(other.read_options)
+        return (
+            self.read_options.equals(other.read_options) and
+            self.write_options == other.write_options
+        )
 
     def __reduce__(self):
-        return ParquetFileFormat, (self.read_options,)
+        return ParquetFileFormat, (self.read_options, self.write_options)
 
     def make_fragment(self, file, filesystem=None,
                       Expression partition_expression=None, row_groups=None):

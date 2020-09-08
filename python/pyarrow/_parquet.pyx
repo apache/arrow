@@ -1188,6 +1188,153 @@ cdef class ParquetReader(_Weakrefable):
         return pyarrow_wrap_chunked_array(out)
 
 
+cdef shared_ptr[WriterProperties] _create_writer_properties(
+        use_dictionary=None,
+        compression=None,
+        version=None,
+        write_statistics=None,
+        data_page_size=None,
+        compression_level=None,
+        use_byte_stream_split=False,
+        data_page_version=None) except *:
+    """General writer properties"""
+    cdef:
+        shared_ptr[WriterProperties] properties
+        WriterProperties.Builder props
+
+    # data_page_version
+
+    if data_page_version is not None:
+        if data_page_version == "1.0":
+            props.data_page_version(ParquetDataPageVersion_V1)
+        elif data_page_version == "2.0":
+            props.data_page_version(ParquetDataPageVersion_V2)
+        else:
+            raise ValueError("Unsupported Parquet data page version: {0}"
+                             .format(data_page_version))
+
+    # version
+
+    if version is not None:
+        if version == "1.0":
+            props.version(ParquetVersion_V1)
+        elif version == "2.0":
+            props.version(ParquetVersion_V2)
+        else:
+            raise ValueError("Unsupported Parquet format version: {0}"
+                             .format(version))
+
+    # compression
+
+    if isinstance(compression, basestring):
+        check_compression_name(compression)
+        props.compression(compression_from_name(compression))
+    elif compression is not None:
+        for column, codec in compression.iteritems():
+            check_compression_name(codec)
+            props.compression(column, compression_from_name(codec))
+
+    if isinstance(compression_level, int):
+        props.compression_level(compression_level)
+    elif compression_level is not None:
+        for column, level in compression_level.iteritems():
+            props.compression_level(tobytes(column), level)
+
+    # use_dictionary
+
+    if isinstance(use_dictionary, bool):
+        if use_dictionary:
+            props.enable_dictionary()
+        else:
+            props.disable_dictionary()
+    elif use_dictionary is not None:
+        # Deactivate dictionary encoding by default
+        props.disable_dictionary()
+        for column in use_dictionary:
+            props.enable_dictionary(tobytes(column))
+
+    # write_statistics
+
+    if isinstance(write_statistics, bool):
+        if write_statistics:
+            props.enable_statistics()
+        else:
+            props.disable_statistics()
+    elif write_statistics is not None:
+        # Deactivate statistics by default and enable for specified columns
+        props.disable_statistics()
+        for column in write_statistics:
+            props.enable_statistics(tobytes(column))
+
+    # use_byte_stream_split
+
+    if isinstance(use_byte_stream_split, bool):
+        if use_byte_stream_split:
+            props.encoding(ParquetEncoding_BYTE_STREAM_SPLIT)
+    elif use_byte_stream_split is not None:
+        for column in use_byte_stream_split:
+            props.encoding(tobytes(column),
+                           ParquetEncoding_BYTE_STREAM_SPLIT)
+
+    if data_page_size is not None:
+        props.data_pagesize(data_page_size)
+
+    properties = props.build()
+
+    return properties
+
+
+cdef shared_ptr[ArrowWriterProperties] _create_arrow_writer_properties(
+        use_deprecated_int96_timestamps=False,
+        coerce_timestamps=None,
+        allow_truncated_timestamps=False,
+        writer_engine_version=None) except *:
+    """Arrow writer properties"""
+    cdef:
+        shared_ptr[ArrowWriterProperties] arrow_properties
+        ArrowWriterProperties.Builder arrow_props
+
+    # Store the original Arrow schema so things like dictionary types can
+    # be automatically reconstructed
+    arrow_props.store_schema()
+
+    # int96 support
+
+    if use_deprecated_int96_timestamps:
+        arrow_props.enable_deprecated_int96_timestamps()
+    else:
+        arrow_props.disable_deprecated_int96_timestamps()
+
+    # coerce_timestamps
+
+    if coerce_timestamps == 'ms':
+        arrow_props.coerce_timestamps(TimeUnit_MILLI)
+    elif coerce_timestamps == 'us':
+        arrow_props.coerce_timestamps(TimeUnit_MICRO)
+    elif coerce_timestamps is not None:
+        raise ValueError('Invalid value for coerce_timestamps: {0}'
+                         .format(coerce_timestamps))
+
+    # allow_truncated_timestamps
+
+    if allow_truncated_timestamps:
+        arrow_props.allow_truncated_timestamps()
+    else:
+        arrow_props.disallow_truncated_timestamps()
+
+    # writer_engine_version
+
+    if writer_engine_version == "V1":
+        arrow_props.set_engine_version(ArrowWriterEngineVersion.V1)
+    elif writer_engine_version != "V2":
+        raise ValueError("Unsupported Writer Engine Version: {0}"
+                         .format(writer_engine_version))
+
+    arrow_properties = arrow_props.build()
+
+    return arrow_properties
+
+
 cdef class ParquetWriter(_Weakrefable):
     cdef:
         unique_ptr[FileWriter] writer
@@ -1223,6 +1370,7 @@ cdef class ParquetWriter(_Weakrefable):
                   data_page_version=None):
         cdef:
             shared_ptr[WriterProperties] properties
+            shared_ptr[ArrowWriterProperties] arrow_properties
             c_string c_where
             CMemoryPool* pool
 
@@ -1237,43 +1385,22 @@ cdef class ParquetWriter(_Weakrefable):
                 self.sink = GetResultValue(FileOutputStream.Open(c_where))
             self.own_sink = True
 
-        self.use_dictionary = use_dictionary
-        self.compression = compression
-        self.compression_level = compression_level
-        self.version = version
-        self.write_statistics = write_statistics
-        self.use_deprecated_int96_timestamps = use_deprecated_int96_timestamps
-        self.coerce_timestamps = coerce_timestamps
-        self.allow_truncated_timestamps = allow_truncated_timestamps
-        self.use_byte_stream_split = use_byte_stream_split
-        self.writer_engine_version = writer_engine_version
-        self.data_page_version = data_page_version
-
-        cdef WriterProperties.Builder properties_builder
-        self._set_data_page_version(&properties_builder)
-        self._set_version(&properties_builder)
-        self._set_compression_props(&properties_builder)
-        self._set_dictionary_props(&properties_builder)
-        self._set_statistics_props(&properties_builder)
-        self._set_byte_stream_split_props(&properties_builder)
-
-        if data_page_size is not None:
-            properties_builder.data_pagesize(data_page_size)
-
-        properties = properties_builder.build()
-
-        cdef ArrowWriterProperties.Builder arrow_properties_builder
-
-        # Store the original Arrow schema so things like dictionary types can
-        # be automatically reconstructed
-        arrow_properties_builder.store_schema()
-
-        self._set_int96_support(&arrow_properties_builder)
-        self._set_coerce_timestamps(&arrow_properties_builder)
-        self._set_allow_truncated_timestamps(&arrow_properties_builder)
-        self._set_writer_engine_version(&arrow_properties_builder)
-
-        arrow_properties = arrow_properties_builder.build()
+        properties = _create_writer_properties(
+            use_dictionary=use_dictionary,
+            compression=compression,
+            version=version,
+            write_statistics=write_statistics,
+            data_page_size=data_page_size,
+            compression_level=compression_level,
+            use_byte_stream_split=use_byte_stream_split,
+            data_page_version=data_page_version
+        )
+        arrow_properties = _create_arrow_writer_properties(
+            use_deprecated_int96_timestamps=use_deprecated_int96_timestamps,
+            coerce_timestamps=coerce_timestamps,
+            allow_truncated_timestamps=allow_truncated_timestamps,
+            writer_engine_version=writer_engine_version
+        )
 
         pool = maybe_unbox_memory_pool(memory_pool)
         with nogil:
@@ -1281,110 +1408,6 @@ cdef class ParquetWriter(_Weakrefable):
                 FileWriter.Open(deref(schema.schema), pool,
                                 self.sink, properties, arrow_properties,
                                 &self.writer))
-
-    cdef void _set_int96_support(self, ArrowWriterProperties.Builder* props):
-        if self.use_deprecated_int96_timestamps:
-            props.enable_deprecated_int96_timestamps()
-        else:
-            props.disable_deprecated_int96_timestamps()
-
-    cdef int _set_coerce_timestamps(
-            self, ArrowWriterProperties.Builder* props) except -1:
-        if self.coerce_timestamps == 'ms':
-            props.coerce_timestamps(TimeUnit_MILLI)
-        elif self.coerce_timestamps == 'us':
-            props.coerce_timestamps(TimeUnit_MICRO)
-        elif self.coerce_timestamps is not None:
-            raise ValueError('Invalid value for coerce_timestamps: {0}'
-                             .format(self.coerce_timestamps))
-
-    cdef void _set_allow_truncated_timestamps(
-            self, ArrowWriterProperties.Builder* props):
-        if self.allow_truncated_timestamps:
-            props.allow_truncated_timestamps()
-        else:
-            props.disallow_truncated_timestamps()
-
-    cdef int _set_writer_engine_version(
-            self, ArrowWriterProperties.Builder* props) except -1:
-        if self.writer_engine_version == "V1":
-            props.set_engine_version(ArrowWriterEngineVersion.V1)
-        elif self.writer_engine_version != "V2":
-            raise ValueError("Unsupported Writer Engine Version: {0}"
-                             .format(self.writer_engine_version))
-
-    cdef int _set_version(self, WriterProperties.Builder* props) except -1:
-        if self.version is not None:
-            if self.version == "1.0":
-                props.version(ParquetVersion_V1)
-            elif self.version == "2.0":
-                props.version(ParquetVersion_V2)
-            else:
-                raise ValueError("Unsupported Parquet format version: {0}"
-                                 .format(self.version))
-
-    cdef int _set_data_page_version(self, WriterProperties.Builder* props) \
-            except -1:
-        if self.data_page_version is not None:
-            if self.data_page_version == "1.0":
-                props.data_page_version(ParquetDataPageVersion_V1)
-            elif self.data_page_version == "2.0":
-                props.data_page_version(ParquetDataPageVersion_V2)
-            else:
-                raise ValueError("Unsupported Parquet data page version: {0}"
-                                 .format(self.data_page_version))
-
-    cdef void _set_compression_props(self, WriterProperties.Builder* props) \
-            except *:
-        if isinstance(self.compression, basestring):
-            check_compression_name(self.compression)
-            props.compression(compression_from_name(self.compression))
-        elif self.compression is not None:
-            for column, codec in self.compression.iteritems():
-                check_compression_name(codec)
-                props.compression(column, compression_from_name(codec))
-
-        if isinstance(self.compression_level, int):
-            props.compression_level(self.compression_level)
-        elif self.compression_level is not None:
-            for column, level in self.compression_level.iteritems():
-                props.compression_level(tobytes(column), level)
-
-    cdef void _set_dictionary_props(self, WriterProperties.Builder* props) \
-            except *:
-        if isinstance(self.use_dictionary, bool):
-            if self.use_dictionary:
-                props.enable_dictionary()
-            else:
-                props.disable_dictionary()
-        elif self.use_dictionary is not None:
-            # Deactivate dictionary encoding by default
-            props.disable_dictionary()
-            for column in self.use_dictionary:
-                props.enable_dictionary(tobytes(column))
-
-    cdef void _set_byte_stream_split_props(
-            self, WriterProperties.Builder* props) except *:
-        if isinstance(self.use_byte_stream_split, bool):
-            if self.use_byte_stream_split:
-                props.encoding(ParquetEncoding_BYTE_STREAM_SPLIT)
-        elif self.use_byte_stream_split is not None:
-            for column in self.use_byte_stream_split:
-                props.encoding(tobytes(column),
-                               ParquetEncoding_BYTE_STREAM_SPLIT)
-
-    cdef void _set_statistics_props(self, WriterProperties.Builder* props) \
-            except *:
-        if isinstance(self.write_statistics, bool):
-            if self.write_statistics:
-                props.enable_statistics()
-            else:
-                props.disable_statistics()
-        elif self.write_statistics is not None:
-            # Deactivate statistics by default and enable for specified columns
-            props.disable_statistics()
-            for column in self.write_statistics:
-                props.enable_statistics(tobytes(column))
 
     def close(self):
         with nogil:
