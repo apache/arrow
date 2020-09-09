@@ -973,7 +973,34 @@ TEST(TestStruct, SimpleStruct) {
   ASSERT_OK(actual->ValidateFull());
   AssertArraysEqual(*expected, *actual);
 
-  // With nulls
+  // With nulls only in parent
+  ArrayFromVector<Int8Type>({4, 5, 6}, &a);
+  ArrayFromVector<BooleanType, bool>({true, false, false}, &b);
+  children.assign({a, b});
+  BitmapFromVector<bool>({true, false, true}, &null_bitmap);
+  expected = std::make_shared<StructArray>(type, 3, children, null_bitmap, 1);
+
+  ASSERT_OK(ArrayFromJSON(type, "[[4, true], null, [6, false]]", &actual));
+  ASSERT_OK(actual->ValidateFull());
+  AssertArraysEqual(*expected, *actual);
+  ASSERT_OK(ArrayFromJSON(
+      type, "[{\"a\": 4, \"b\": true}, null, {\"b\": false, \"a\": 6}]", &actual));
+  ASSERT_OK(actual->ValidateFull());
+  AssertArraysEqual(*expected, *actual);
+
+  // With nulls only in children
+  is_valid = {false, true, true};
+  ArrayFromVector<Int8Type>(is_valid, {0, 5, 6}, &a);
+  is_valid = {true, false, true};
+  ArrayFromVector<BooleanType, bool>(is_valid, {true, true, true}, &b);
+  children.assign({a, b});
+  expected = std::make_shared<StructArray>(type, 3, children);
+
+  ASSERT_OK(ArrayFromJSON(type, "[[null, true], [5, null], [6, true]]", &actual));
+  ASSERT_OK(actual->ValidateFull());
+  AssertArraysEqual(*expected, *actual);
+
+  // With nulls in both
   is_valid = {false, true, false, false};
   ArrayFromVector<Int8Type>(is_valid, {0, 5, 6, 0}, &a);
   is_valid = {false, false, true, false};
