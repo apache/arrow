@@ -57,9 +57,17 @@ const char kFooterEncryptionKey[] = "0123456789012345";  // 128bit/16
 const char kColumnEncryptionKey1[] = "1234567890123450";
 const char kColumnEncryptionKey2[] = "1234567890123451";
 const char kFileName[] = "tester";
+const char kTempDir[] = "/tmp";
 
 inline std::string data_file(const char* file) {
   std::string dir_string(test::get_data_dir());
+  std::stringstream ss;
+  ss << dir_string << "/" << file;
+  return ss.str();
+}
+
+inline std::string temp_data_file(const char* file) {
+  std::string dir_string(kTempDir);
   std::stringstream ss;
   ss << dir_string << "/" << file;
   return ss.str();

@@ -488,12 +488,12 @@ TEST_P(TestDecryptionConfiguration, TestDecryption) {
   int encryption_config_num = std::get<0>(GetParam());
   const char* param_file_name = std::get<1>(GetParam());
   // Decrypt parquet file that was generated in encryption-write-configurations-test.cc
-  // test.
+  // test. The file resides in /tmp directory.
   std::string tmp_file_name = "tmp_" + std::string(param_file_name);
-  std::string file_name = data_file(tmp_file_name.c_str());
+  std::string file_name = temp_data_file(tmp_file_name.c_str());
   if (!fexists(file_name)) {
     std::stringstream ss;
-    ss << "File " << file_name << " is missing from parquet-testing repo.";
+    ss << "File " << file_name << " is missing from /tmp dir.";
     throw ParquetTestException(ss.str());
   }
 
