@@ -17,7 +17,6 @@
 
 #include <algorithm>
 #include <array>
-#include <boost/multiprecision/cpp_int.hpp>
 #include <climits>
 #include <cmath>
 #include <cstdint>
@@ -33,6 +32,7 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/formatting.h"
+#include "arrow/util/int128_internal.h"
 #include "arrow/util/int_util_internal.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
@@ -42,8 +42,7 @@ namespace arrow {
 
 using internal::SafeLeftShift;
 using internal::SafeSignedAdd;
-
-using boost::multiprecision::uint128_t;
+using internal::uint128_t;
 
 Decimal128::Decimal128(const std::string& str) : Decimal128() {
   *this = Decimal128::FromString(str).ValueOrDie();
@@ -367,20 +366,11 @@ static inline void ShiftAndAdd(const util::string_view& input, uint64_t out[],
       uint128_t tmp = out[i];
       tmp *= multiple;
       tmp += chunk;
-      out[i] = static_cast<uint64_t>(tmp);
+      out[i] = static_cast<uint64_t>(tmp & 0xFFFFFFFFFFFFFFFFULL);
       chunk = static_cast<uint64_t>(tmp >> 64);
     }
     posn += group_size;
   }
-}
-
-static void StringToInteger(util::string_view whole_digits,
-                            util::string_view fractional_digits, Decimal128* out) {
-  DCHECK_NE(out, nullptr) << "Decimal128 output variable cannot be nullptr";
-  std::array<uint64_t, 2> little_endian_array = {0, 0};
-  ShiftAndAdd(whole_digits, little_endian_array.data(), little_endian_array.size());
-  ShiftAndAdd(fractional_digits, little_endian_array.data(), little_endian_array.size());
-  *out = Decimal128(static_cast<int64_t>(little_endian_array[1]), little_endian_array[0]);
 }
 
 namespace {
@@ -486,7 +476,12 @@ Status Decimal128::FromString(const util::string_view& s, Decimal128* out,
   }
 
   if (out != nullptr) {
-    StringToInteger(dec.whole_digits, dec.fractional_digits, out);
+    std::array<uint64_t, 2> little_endian_array = {0, 0};
+    ShiftAndAdd(dec.whole_digits, little_endian_array.data(), little_endian_array.size());
+    ShiftAndAdd(dec.fractional_digits, little_endian_array.data(),
+                little_endian_array.size());
+    *out =
+        Decimal128(static_cast<int64_t>(little_endian_array[1]), little_endian_array[0]);
     if (parsed_scale < 0) {
       *out *= GetScaleMultiplier(-parsed_scale);
     }
