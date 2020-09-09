@@ -315,9 +315,10 @@ Status NumPyConverter::Convert() {
     py_options.type = type_;
     py_options.from_pandas = from_pandas_;
     ARROW_ASSIGN_OR_RAISE(
-        auto result, ConvertPySequence(reinterpret_cast<PyObject*>(arr_),
-                                       reinterpret_cast<PyObject*>(mask_), py_options));
-    out_arrays_.push_back(result);
+        auto chunked_array,
+        ConvertPySequence(reinterpret_cast<PyObject*>(arr_),
+                          reinterpret_cast<PyObject*>(mask_), py_options));
+    out_arrays_ = chunked_array->chunks();
     return Status::OK();
   }
 

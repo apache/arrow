@@ -73,8 +73,8 @@ struct PyConversionOptions {
 /// \param[in] options various conversion options
 /// \return Result Array
 ARROW_PYTHON_EXPORT
-Result<std::shared_ptr<Array>> ConvertPySequence(PyObject* obj, PyObject* mask,
-                                                 const PyConversionOptions& options);
+Result<std::shared_ptr<ChunkedArray>> ConvertPySequence(
+    PyObject* obj, PyObject* mask, const PyConversionOptions& options);
 
 }  // namespace py
 

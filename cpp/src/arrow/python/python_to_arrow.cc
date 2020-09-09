@@ -54,6 +54,7 @@ namespace arrow {
 using internal::checked_cast;
 using internal::checked_pointer_cast;
 
+using internal::Chunker;
 using internal::Converter;
 using internal::DictionaryConverter;
 using internal::ListConverter;
@@ -477,8 +478,8 @@ class PyPrimitiveConverter<T, enable_if_string_like<T>>
     }
   }
 
-  Result<std::shared_ptr<Array>> Finish() override {
-    ARROW_ASSIGN_OR_RAISE(auto array, (PrimitiveConverter<T, PyConverter>::Finish()));
+  Result<std::shared_ptr<Array>> ToArray() override {
+    ARROW_ASSIGN_OR_RAISE(auto array, (PrimitiveConverter<T, PyConverter>::ToArray()));
     if (observed_binary_) {
       // If we saw any non-unicode, cast results to BinaryArray
       auto binary_type = TypeTraits<typename T::PhysicalType>::type_singleton();
@@ -915,8 +916,8 @@ Status ConvertToSequenceAndInferSize(PyObject* obj, PyObject** seq, int64_t* siz
   return Status::OK();
 }
 
-Result<std::shared_ptr<Array>> ConvertPySequence(PyObject* obj, PyObject* mask,
-                                                 const PyConversionOptions& opts) {
+Result<std::shared_ptr<ChunkedArray>> ConvertPySequence(PyObject* obj, PyObject* mask,
+                                                        const PyConversionOptions& opts) {
   PyAcquireGIL lock;
 
   PyObject* seq;
@@ -950,14 +951,15 @@ Result<std::shared_ptr<Array>> ConvertPySequence(PyObject* obj, PyObject* mask,
 
   ARROW_ASSIGN_OR_RAISE(auto converter,
                         PyConverter::Make(real_type, options.pool, options));
+  ARROW_ASSIGN_OR_RAISE(auto chunked_converter, Chunker<PyConverter>::Make(converter));
 
   // Convert values
   if (mask != nullptr && mask != Py_None) {
-    RETURN_NOT_OK(converter->ExtendMasked(seq, mask, size));
+    RETURN_NOT_OK(chunked_converter->ExtendMasked(seq, mask, size));
   } else {
-    RETURN_NOT_OK(converter->Extend(seq, size));
+    RETURN_NOT_OK(chunked_converter->Extend(seq, size));
   }
-  return converter->Finish();
+  return chunked_converter->ToChunkedArray();
 }
 
 }  // namespace py

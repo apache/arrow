@@ -425,7 +425,10 @@ TEST_F(DecimalTest, TestNoneAndNaN) {
   ASSERT_RAISES(TypeError, ConvertPySequence(list, nullptr, options));
 
   options.from_pandas = true;
-  ASSERT_OK_AND_ASSIGN(auto arr, ConvertPySequence(list, nullptr, options))
+  ASSERT_OK_AND_ASSIGN(auto chunked, ConvertPySequence(list, nullptr, options));
+  ASSERT_EQ(chunked->num_chunks(), 1);
+
+  auto arr = chunked->chunk(0);
   ASSERT_TRUE(arr->IsValid(0));
   ASSERT_TRUE(arr->IsNull(1));
   ASSERT_TRUE(arr->IsNull(2));

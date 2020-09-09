@@ -24,7 +24,7 @@ cdef _sequence_to_array(object sequence, object mask, object size,
     cdef:
         int64_t c_size
         PyConversionOptions options
-        shared_ptr[CArray] result
+        shared_ptr[CChunkedArray] chunked
 
     if type is not None:
         options.type = type.sp_type
@@ -39,9 +39,12 @@ cdef _sequence_to_array(object sequence, object mask, object size,
     cdef shared_ptr[CChunkedArray] out
 
     with nogil:
-        result = GetResultValue(ConvertPySequence(sequence, mask, options))
+        chunked = GetResultValue(ConvertPySequence(sequence, mask, options))
 
-    return pyarrow_wrap_array(result)
+    if chunked.get().num_chunks() == 1:
+        return pyarrow_wrap_array(chunked.get().chunk(0))
+    else:
+        return pyarrow_wrap_chunked_array(chunked)
 
 
 cdef inline _is_array_like(obj):

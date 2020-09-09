@@ -148,7 +148,13 @@ class Converter {
 
   virtual Status AppendNull() { return builder_->AppendNull(); }
 
-  virtual Result<std::shared_ptr<Array>> Finish() { return builder_->Finish(); };
+  virtual Result<std::shared_ptr<Array>> ToArray() { return builder_->Finish(); };
+
+  virtual Result<std::shared_ptr<Array>> ToArray(int64_t length) {
+    // RETURN_NOT_OK(builder_->Resize(length));
+    ARROW_ASSIGN_OR_RAISE(auto arr, this->ToArray());
+    return arr->Slice(0, length);
+  }
 
  protected:
   friend struct MakeConverterImpl<Self>;
@@ -157,7 +163,6 @@ class Converter {
   std::shared_ptr<ArrayBuilder> builder_;
   std::vector<std::shared_ptr<Self>> children_;
   OptionsType options_;
-  OptionsType opts_;
 };
 
 #define DICTIONARY_CASE(TYPE_ENUM, TYPE_CLASS)                                   \
@@ -283,6 +288,63 @@ struct MakeConverterImpl {
   MemoryPool* pool;
   typename Converter::OptionsType options;
   std::shared_ptr<Converter>* out;
+};
+
+template <typename BaseConverter>
+class Chunker : public BaseConverter {
+ public:
+  using Self = Chunker<BaseConverter>;
+  using InputType = typename BaseConverter::InputType;
+
+  static Result<std::shared_ptr<Self>> Make(std::shared_ptr<BaseConverter> converter) {
+    auto result = std::make_shared<Self>();
+    result->type_ = converter->type();
+    result->builder_ = converter->builder();
+    // result->options_ = converter->options_;
+    // result->children_ = converter->children_;
+    result->converter_ = std::move(converter);
+    return result;
+  }
+
+  Status AppendNull() override {
+    auto status = converter_->AppendNull();
+    if (status.ok()) {
+      length_ = this->builder_->length();
+    } else if (status.IsCapacityError()) {
+      RETURN_NOT_OK(FinishChunk());
+      return converter_->AppendNull();
+    }
+    return status;
+  }
+
+  Status Append(InputType value) override {
+    auto status = converter_->Append(value);
+    if (status.ok()) {
+      length_ = this->builder_->length();
+    } else if (status.IsCapacityError()) {
+      RETURN_NOT_OK(FinishChunk());
+      return converter_->Append(value);
+    }
+    return status;
+  }
+
+  Status FinishChunk() {
+    ARROW_ASSIGN_OR_RAISE(auto chunk, this->ToArray(length_));
+    this->builder_->Reset();
+    length_ = 0;
+    chunks_.push_back(chunk);
+    return Status::OK();
+  }
+
+  Result<std::shared_ptr<ChunkedArray>> ToChunkedArray() {
+    RETURN_NOT_OK(FinishChunk());
+    return std::make_shared<ChunkedArray>(chunks_);
+  }
+
+ protected:
+  int64_t length_ = 0;
+  std::shared_ptr<BaseConverter> converter_;
+  std::vector<std::shared_ptr<Array>> chunks_;
 };
 
 }  // namespace internal
