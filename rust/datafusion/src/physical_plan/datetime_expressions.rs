@@ -17,8 +17,14 @@
 
 //! DateTime expressions
 
+use std::sync::Arc;
+
 use crate::error::{ExecutionError, Result};
-use arrow::array::{Array, ArrayRef, StringArray, TimestampNanosecondArray};
+use arrow::{
+    array::{Array, ArrayData, ArrayRef, StringArray, TimestampNanosecondArray},
+    buffer::Buffer,
+    datatypes::{DataType, TimeUnit, ToByteSlice},
+};
 use chrono::prelude::*;
 
 #[inline]
@@ -75,7 +81,6 @@ fn string_to_timestamp_nanos(s: &str) -> Result<i64> {
 /// convert an array of strings into `Timestamp(Nanosecond, None)`
 pub fn to_timestamp(args: &[ArrayRef]) -> Result<TimestampNanosecondArray> {
     let num_rows = args[0].len();
-    let mut ts_builder = TimestampNanosecondArray::builder(num_rows);
     let string_args =
         &args[0]
             .as_any()
@@ -86,15 +91,30 @@ pub fn to_timestamp(args: &[ArrayRef]) -> Result<TimestampNanosecondArray> {
                 ))
             })?;
 
-    for i in 0..string_args.len() {
-        if string_args.is_null(i) {
-            ts_builder.append_null()?
-        } else {
-            ts_builder.append_value(string_to_timestamp_nanos(string_args.value(i))?)?;
-        }
-    }
+    let result = (0..num_rows)
+        .map(|i| {
+            if string_args.is_null(i) {
+                // NB: Since we use the same null bitset as the input,
+                // the output for this value will be ignored, but we
+                // need some value in the array we are building.
+                Ok(0)
+            } else {
+                string_to_timestamp_nanos(string_args.value(i))
+            }
+        })
+        .collect::<Result<Vec<_>>>()?;
 
-    Ok(ts_builder.finish())
+    let data = ArrayData::new(
+        DataType::Timestamp(TimeUnit::Nanosecond, None),
+        num_rows,
+        Some(string_args.null_count()),
+        string_args.data().null_buffer().cloned(),
+        0,
+        vec![Buffer::from(result.to_byte_slice())],
+        vec![],
+    );
+
+    Ok(TimestampNanosecondArray::from(Arc::new(data)))
 }
 
 #[cfg(test)]
