@@ -66,7 +66,10 @@ fn string_to_timestamp_nanos(s: &str) -> Result<i64> {
     // strings and we don't know which the user was trying to
     // match. Ths any of the specific error messages is likely to be
     // be more confusing than helpful
-    Err(ExecutionError::General("Timestamp parse error".into()))
+    Err(ExecutionError::General(format!(
+        "Error parsing '{}' as timestamp",
+        s
+    )))
 }
 
 /// convert an array of strings into `Timestamp(Nanosecond, None)`
@@ -165,11 +168,11 @@ mod tests {
         // Test parsing invalid formats
 
         // It would be nice to make these messages better
-        expect_timestamp_parse_error("", "Timestamp parse error");
-        expect_timestamp_parse_error("SS", "Timestamp parse error");
+        expect_timestamp_parse_error("", "Error parsing '' as timestamp");
+        expect_timestamp_parse_error("SS", "Error parsing 'SS' as timestamp");
         expect_timestamp_parse_error(
             "Wed, 18 Feb 2015 23:16:09 GMT",
-            "Timestamp parse error",
+            "Error parsing 'Wed, 18 Feb 2015 23:16:09 GMT' as timestamp",
         );
 
         Ok(())
