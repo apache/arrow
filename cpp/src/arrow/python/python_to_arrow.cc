@@ -358,7 +358,7 @@ struct ValueConverter<Type, enable_if_integer<Type>> {
   }
 };
 
-template <typename T>
+template <typename T, typename Enable = void>
 class PyPrimitiveConverter;
 
 template <typename T>
@@ -406,67 +406,78 @@ class PyConverter : public Converter<PyObject*, PyConversionOptions, PyConverter
 };
 
 template <typename T>
-class PyPrimitiveConverter : public PrimitiveConverter<T, PyConverter> {
+class PyPrimitiveConverter<
+    T, enable_if_t<is_null_type<T>::value || is_boolean_type<T>::value ||
+                   is_number_type<T>::value || is_decimal_type<T>::value ||
+                   is_date_type<T>::value || is_time_type<T>::value>>
+    : public PrimitiveConverter<T, PyConverter> {
  public:
   Status Append(PyObject* value) override {
     if (PyValue::IsNull(this->options_, value)) {
       return this->primitive_builder_->AppendNull();
     } else {
-      return AppendValue(value);
-    }
-  }
-
-  template <typename U = T>
-  enable_if_t<is_null_type<U>::value || is_boolean_type<U>::value ||
-                  is_number_type<U>::value || is_decimal_type<U>::value ||
-                  is_date_type<U>::value || is_time_type<U>::value,
-              Status>
-  AppendValue(PyObject* value) {
-    ARROW_ASSIGN_OR_RAISE(auto converted,
-                          PyValue::Convert(this->primitive_type_, this->options_, value));
-    return this->primitive_builder_->Append(converted);
-  }
-
-  template <typename U = T>
-  enable_if_t<is_timestamp_type<U>::value || is_duration_type<U>::value, Status>
-  AppendValue(PyObject* value) {
-    ARROW_ASSIGN_OR_RAISE(auto converted,
-                          PyValue::Convert(this->primitive_type_, this->options_, value));
-    if (PyArray_CheckAnyScalarExact(value) &&
-        PyValue::IsNaT(this->primitive_type_, converted)) {
-      return this->primitive_builder_->AppendNull();
-    } else {
+      ARROW_ASSIGN_OR_RAISE(
+          auto converted, PyValue::Convert(this->primitive_type_, this->options_, value));
       return this->primitive_builder_->Append(converted);
     }
   }
+};
 
-  template <typename U = T>
-  enable_if_string<U, Status> AppendValue(PyObject* value) {
-    ARROW_ASSIGN_OR_RAISE(auto view,
-                          PyValue::Convert(this->primitive_type_, this->options_, value));
-    if (!view.is_utf8) {
-      // observed binary value
-      observed_binary_ = true;
+template <typename T>
+class PyPrimitiveConverter<
+    T, enable_if_t<is_timestamp_type<T>::value || is_duration_type<T>::value>>
+    : public PrimitiveConverter<T, PyConverter> {
+ public:
+  Status Append(PyObject* value) override {
+    if (PyValue::IsNull(this->options_, value)) {
+      return this->primitive_builder_->AppendNull();
+    } else {
+      ARROW_ASSIGN_OR_RAISE(
+          auto converted, PyValue::Convert(this->primitive_type_, this->options_, value));
+      if (PyArray_CheckAnyScalarExact(value) &&
+          PyValue::IsNaT(this->primitive_type_, converted)) {
+        return this->primitive_builder_->AppendNull();
+      } else {
+        return this->primitive_builder_->Append(converted);
+      }
     }
-    return this->primitive_builder_->Append(util::string_view(view.bytes, view.size));
   }
+};
 
-  template <typename U = T>
-  enable_if_binary<U, Status> AppendValue(PyObject* value) {
-    ARROW_ASSIGN_OR_RAISE(auto view,
-                          PyValue::Convert(this->primitive_type_, this->options_, value));
-    return this->primitive_builder_->Append(util::string_view(view.bytes, view.size));
+template <typename T>
+class PyPrimitiveConverter<T, enable_if_binary<T>>
+    : public PrimitiveConverter<T, PyConverter> {
+ public:
+  Status Append(PyObject* value) override {
+    if (PyValue::IsNull(this->options_, value)) {
+      return this->primitive_builder_->AppendNull();
+    } else {
+      ARROW_ASSIGN_OR_RAISE(
+          auto view, PyValue::Convert(this->primitive_type_, this->options_, value));
+      return this->primitive_builder_->Append(util::string_view(view.bytes, view.size));
+    }
+  }
+};
+
+template <typename T>
+class PyPrimitiveConverter<T, enable_if_string_like<T>>
+    : public PrimitiveConverter<T, PyConverter> {
+ public:
+  Status Append(PyObject* value) override {
+    if (PyValue::IsNull(this->options_, value)) {
+      return this->primitive_builder_->AppendNull();
+    } else {
+      ARROW_ASSIGN_OR_RAISE(
+          auto view, PyValue::Convert(this->primitive_type_, this->options_, value));
+      if (!view.is_utf8) {
+        // observed binary value
+        observed_binary_ = true;
+      }
+      return this->primitive_builder_->Append(util::string_view(view.bytes, view.size));
+    }
   }
 
   Result<std::shared_ptr<Array>> Finish() override {
-    return FinishInternal(this->primitive_type_);
-  }
-
-  Result<std::shared_ptr<Array>> FinishInternal(const DataType*) {
-    return PrimitiveConverter<T, PyConverter>::Finish();
-  }
-
-  Result<std::shared_ptr<Array>> FinishInternal(const StringType*) {
     ARROW_ASSIGN_OR_RAISE(auto array, (PrimitiveConverter<T, PyConverter>::Finish()));
     if (observed_binary_) {
       // If we saw any non-unicode, cast results to BinaryArray
@@ -526,6 +537,8 @@ class PyDictionaryConverter : public DictionaryConverter<T, PyConverter> {
 template <typename T>
 class PyListConverter : public ListConverter<T, PyConverter> {
  public:
+  Status ValidateSize(const BaseListType*, int64_t size) { return Status::OK(); }
+
   Status ValidateSize(const FixedSizeListType* type, int64_t size) {
     // TODO(kszucs): perhaps this should be handled somewhere else
     if (type->list_size() != size) {
@@ -536,6 +549,8 @@ class PyListConverter : public ListConverter<T, PyConverter> {
     }
   }
 
+  Status ValidateBuilder(const BaseListType*) { return Status::OK(); }
+
   Status ValidateBuilder(const MapType*) {
     // TODO(kszucs): perhaps this should be handled somewhere else
     if (this->list_builder_->key_builder()->null_count() > 0) {
@@ -544,9 +559,6 @@ class PyListConverter : public ListConverter<T, PyConverter> {
       return Status::OK();
     }
   }
-
-  Status ValidateBuilder(const BaseListType*) { return Status::OK(); }
-  Status ValidateSize(const BaseListType*, int64_t size) { return Status::OK(); }
 
   Status Append(PyObject* value) override {
     if (PyValue::IsNull(this->options_, value)) {
@@ -562,6 +574,7 @@ class PyListConverter : public ListConverter<T, PyConverter> {
       return internal::InvalidType(
           value, "was not a sequence or recognized null for conversion to list type");
     }
+
     return ValidateBuilder(this->list_type_);
   }
 

@@ -49,7 +49,6 @@ class PrimitiveConverter : public BaseConverter {
  protected:
   const T* primitive_type_;
   BuilderType* primitive_builder_;
-  typename BaseConverter::OptionsType opts_;
 };
 
 template <typename T, typename BaseConverter>
