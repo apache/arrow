@@ -21,6 +21,7 @@
 //! Logical query plans can then be optimized and executed directly, or translated into
 //! physical query plans and executed.
 
+use fmt::Debug;
 use std::{any::Any, collections::HashSet, fmt, sync::Arc};
 
 use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
@@ -29,15 +30,15 @@ use crate::datasource::csv::{CsvFile, CsvReadOptions};
 use crate::datasource::parquet::ParquetTable;
 use crate::datasource::TableProvider;
 use crate::error::{ExecutionError, Result};
-use crate::physical_plan::udf;
 use crate::{
     physical_plan::{
-        expressions::binary_operator_data_type, functions, type_coercion::can_coerce_from,
+        expressions::binary_operator_data_type, functions,
+        type_coercion::can_coerce_from, udf::ScalarUDF,
     },
     sql::parser::FileType,
 };
 use arrow::record_batch::RecordBatch;
-use fmt::Debug;
+use functions::{ReturnTypeFunction, ScalarFunctionImplementation, Signature};
 
 /// Operators applied to expressions
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -272,14 +273,14 @@ pub enum Expr {
     /// scalar function.
     ScalarFunction {
         /// The function
-        fun: functions::ScalarFunction,
+        fun: functions::BuiltinScalarFunction,
         /// List of expressions to feed to the functions as arguments
         args: Vec<Expr>,
     },
     /// scalar udf.
     ScalarUDF {
         /// The function
-        fun: Arc<udf::ScalarFunction>,
+        fun: Arc<ScalarUDF>,
         /// List of expressions to feed to the functions as arguments
         args: Vec<Expr>,
     },
@@ -302,7 +303,13 @@ impl Expr {
             Expr::Column(name) => Ok(schema.field_with_name(name)?.data_type().clone()),
             Expr::Literal(l) => l.get_datatype(),
             Expr::Cast { data_type, .. } => Ok(data_type.clone()),
-            Expr::ScalarUDF { fun, .. } => Ok(fun.return_type.clone()),
+            Expr::ScalarUDF { fun, args } => {
+                let data_types = args
+                    .iter()
+                    .map(|e| e.get_type(schema))
+                    .collect::<Result<Vec<_>>>()?;
+                Ok((fun.return_type)(&data_types)?.as_ref().clone())
+            }
             Expr::ScalarFunction { fun, args } => {
                 let data_types = args
                     .iter()
@@ -636,7 +643,7 @@ macro_rules! unary_math_expr {
         #[allow(missing_docs)]
         pub fn $FUNC(e: Expr) -> Expr {
             Expr::ScalarFunction {
-                fun: functions::ScalarFunction::$ENUM,
+                fun: functions::BuiltinScalarFunction::$ENUM,
                 args: vec![e],
             }
         }
@@ -665,7 +672,7 @@ unary_math_expr!(Log10, log10);
 /// returns the length of a string in bytes
 pub fn length(e: Expr) -> Expr {
     Expr::ScalarFunction {
-        fun: functions::ScalarFunction::Length,
+        fun: functions::BuiltinScalarFunction::Length,
         args: vec![e],
     }
 }
@@ -673,7 +680,7 @@ pub fn length(e: Expr) -> Expr {
 /// returns the concatenation of string expressions
 pub fn concat(args: Vec<Expr>) -> Expr {
     Expr::ScalarFunction {
-        fun: functions::ScalarFunction::Concat,
+        fun: functions::BuiltinScalarFunction::Concat,
         args,
     }
 }
@@ -684,6 +691,21 @@ pub fn aggregate_expr(name: &str, expr: Expr) -> Expr {
         name: name.to_owned(),
         args: vec![expr],
     }
+}
+
+/// Creates a new UDF with a specific signature and specific return type.
+/// This is a helper function to create a new UDF.
+/// The function `create_udf` returns a subset of all possible `ScalarFunction`:
+/// * the UDF has a fixed return type
+/// * the UDF has a fixed signature (e.g. [f64, f64])
+pub fn create_udf(
+    name: &str,
+    input_types: Vec<DataType>,
+    return_type: Arc<DataType>,
+    fun: ScalarFunctionImplementation,
+) -> ScalarUDF {
+    let return_type: ReturnTypeFunction = Arc::new(move |_| Ok(return_type.clone()));
+    ScalarUDF::new(name, &Signature::Exact(input_types), &return_type, &fun)
 }
 
 impl fmt::Debug for Expr {

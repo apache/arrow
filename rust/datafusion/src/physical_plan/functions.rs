@@ -36,16 +36,17 @@ use super::{
 use crate::error::{ExecutionError, Result};
 use crate::physical_plan::math_expressions;
 use crate::physical_plan::string_expressions;
-use crate::physical_plan::udf;
 use arrow::{
+    array::ArrayRef,
     compute::kernels::length::length,
     datatypes::{DataType, Schema},
+    record_batch::RecordBatch,
 };
+use fmt::{Debug, Formatter};
 use std::{fmt, str::FromStr, sync::Arc};
-use udf::ScalarUdf;
 
 /// A function's signature, which defines the function's supported argument types.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Signature {
     /// arbitrary number of arguments of an common type out of a list of valid types
     // A function such as `concat` is `Variadic(vec![DataType::Utf8, DataType::LargeUtf8])`
@@ -58,11 +59,21 @@ pub enum Signature {
     // A function of one argument of f64 is `Uniform(1, vec![DataType::Float64])`
     // A function of two arguments of f64 or f32 is `Uniform(1, vec![DataType::Float32, DataType::Float64])`
     Uniform(usize, Vec<DataType>),
+    /// exact number of arguments of an exact type
+    Exact(Vec<DataType>),
 }
+
+/// Scalar function
+pub type ScalarFunctionImplementation =
+    Arc<dyn Fn(&[ArrayRef]) -> Result<ArrayRef> + Send + Sync>;
+
+/// A function's return type
+pub type ReturnTypeFunction =
+    Arc<dyn Fn(&[DataType]) -> Result<Arc<DataType>> + Send + Sync>;
 
 /// Enum of all built-in scalar functions
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ScalarFunction {
+pub enum BuiltinScalarFunction {
     /// sqrt
     Sqrt,
     /// sin
@@ -103,36 +114,36 @@ pub enum ScalarFunction {
     Concat,
 }
 
-impl fmt::Display for ScalarFunction {
+impl fmt::Display for BuiltinScalarFunction {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         // lowercase of the debug.
         write!(f, "{}", format!("{:?}", self).to_lowercase())
     }
 }
 
-impl FromStr for ScalarFunction {
+impl FromStr for BuiltinScalarFunction {
     type Err = ExecutionError;
-    fn from_str(name: &str) -> Result<ScalarFunction> {
+    fn from_str(name: &str) -> Result<BuiltinScalarFunction> {
         Ok(match name {
-            "sqrt" => ScalarFunction::Sqrt,
-            "sin" => ScalarFunction::Sin,
-            "cos" => ScalarFunction::Cos,
-            "tan" => ScalarFunction::Tan,
-            "asin" => ScalarFunction::Asin,
-            "acos" => ScalarFunction::Acos,
-            "atan" => ScalarFunction::Atan,
-            "exp" => ScalarFunction::Exp,
-            "log" => ScalarFunction::Log,
-            "log2" => ScalarFunction::Log2,
-            "log10" => ScalarFunction::Log10,
-            "floor" => ScalarFunction::Floor,
-            "ceil" => ScalarFunction::Ceil,
-            "round" => ScalarFunction::Round,
-            "truc" => ScalarFunction::Trunc,
-            "abs" => ScalarFunction::Abs,
-            "signum" => ScalarFunction::Signum,
-            "length" => ScalarFunction::Length,
-            "concat" => ScalarFunction::Concat,
+            "sqrt" => BuiltinScalarFunction::Sqrt,
+            "sin" => BuiltinScalarFunction::Sin,
+            "cos" => BuiltinScalarFunction::Cos,
+            "tan" => BuiltinScalarFunction::Tan,
+            "asin" => BuiltinScalarFunction::Asin,
+            "acos" => BuiltinScalarFunction::Acos,
+            "atan" => BuiltinScalarFunction::Atan,
+            "exp" => BuiltinScalarFunction::Exp,
+            "log" => BuiltinScalarFunction::Log,
+            "log2" => BuiltinScalarFunction::Log2,
+            "log10" => BuiltinScalarFunction::Log10,
+            "floor" => BuiltinScalarFunction::Floor,
+            "ceil" => BuiltinScalarFunction::Ceil,
+            "round" => BuiltinScalarFunction::Round,
+            "truc" => BuiltinScalarFunction::Trunc,
+            "abs" => BuiltinScalarFunction::Abs,
+            "signum" => BuiltinScalarFunction::Signum,
+            "length" => BuiltinScalarFunction::Length,
+            "concat" => BuiltinScalarFunction::Concat,
             _ => {
                 return Err(ExecutionError::General(format!(
                     "There is no built-in function named {}",
@@ -144,7 +155,10 @@ impl FromStr for ScalarFunction {
 }
 
 /// Returns the datatype of the scalar function
-pub fn return_type(fun: &ScalarFunction, arg_types: &Vec<DataType>) -> Result<DataType> {
+pub fn return_type(
+    fun: &BuiltinScalarFunction,
+    arg_types: &Vec<DataType>,
+) -> Result<DataType> {
     // Note that this function *must* return the same type that the respective physical expression returns
     // or the execution panics.
 
@@ -163,8 +177,8 @@ pub fn return_type(fun: &ScalarFunction, arg_types: &Vec<DataType>) -> Result<Da
     // for now, this is type-independent, but there will be built-in functions whose return type
     // depends on the incoming type.
     match fun {
-        ScalarFunction::Length => Ok(DataType::UInt32),
-        ScalarFunction::Concat => Ok(DataType::Utf8),
+        BuiltinScalarFunction::Length => Ok(DataType::UInt32),
+        BuiltinScalarFunction::Concat => Ok(DataType::Utf8),
         _ => Ok(DataType::Float64),
     }
 }
@@ -172,30 +186,30 @@ pub fn return_type(fun: &ScalarFunction, arg_types: &Vec<DataType>) -> Result<Da
 /// Create a physical (function) expression.
 /// This function errors when `args`' can't be coerced to a valid argument type of the function.
 pub fn create_physical_expr(
-    fun: &ScalarFunction,
+    fun: &BuiltinScalarFunction,
     args: &Vec<Arc<dyn PhysicalExpr>>,
     input_schema: &Schema,
 ) -> Result<Arc<dyn PhysicalExpr>> {
-    let fun_expr: ScalarUdf = Arc::new(match fun {
-        ScalarFunction::Sqrt => math_expressions::sqrt,
-        ScalarFunction::Sin => math_expressions::sin,
-        ScalarFunction::Cos => math_expressions::cos,
-        ScalarFunction::Tan => math_expressions::tan,
-        ScalarFunction::Asin => math_expressions::asin,
-        ScalarFunction::Acos => math_expressions::acos,
-        ScalarFunction::Atan => math_expressions::atan,
-        ScalarFunction::Exp => math_expressions::exp,
-        ScalarFunction::Log => math_expressions::ln,
-        ScalarFunction::Log2 => math_expressions::log2,
-        ScalarFunction::Log10 => math_expressions::log10,
-        ScalarFunction::Floor => math_expressions::floor,
-        ScalarFunction::Ceil => math_expressions::ceil,
-        ScalarFunction::Round => math_expressions::round,
-        ScalarFunction::Trunc => math_expressions::trunc,
-        ScalarFunction::Abs => math_expressions::abs,
-        ScalarFunction::Signum => math_expressions::signum,
-        ScalarFunction::Length => |args| Ok(Arc::new(length(args[0].as_ref())?)),
-        ScalarFunction::Concat => {
+    let fun_expr: ScalarFunctionImplementation = Arc::new(match fun {
+        BuiltinScalarFunction::Sqrt => math_expressions::sqrt,
+        BuiltinScalarFunction::Sin => math_expressions::sin,
+        BuiltinScalarFunction::Cos => math_expressions::cos,
+        BuiltinScalarFunction::Tan => math_expressions::tan,
+        BuiltinScalarFunction::Asin => math_expressions::asin,
+        BuiltinScalarFunction::Acos => math_expressions::acos,
+        BuiltinScalarFunction::Atan => math_expressions::atan,
+        BuiltinScalarFunction::Exp => math_expressions::exp,
+        BuiltinScalarFunction::Log => math_expressions::ln,
+        BuiltinScalarFunction::Log2 => math_expressions::log2,
+        BuiltinScalarFunction::Log10 => math_expressions::log10,
+        BuiltinScalarFunction::Floor => math_expressions::floor,
+        BuiltinScalarFunction::Ceil => math_expressions::ceil,
+        BuiltinScalarFunction::Round => math_expressions::round,
+        BuiltinScalarFunction::Trunc => math_expressions::trunc,
+        BuiltinScalarFunction::Abs => math_expressions::abs,
+        BuiltinScalarFunction::Signum => math_expressions::signum,
+        BuiltinScalarFunction::Length => |args| Ok(Arc::new(length(args[0].as_ref())?)),
+        BuiltinScalarFunction::Concat => {
             |args| Ok(Arc::new(string_expressions::concatenate(args)?))
         }
     });
@@ -207,7 +221,7 @@ pub fn create_physical_expr(
         .map(|e| e.data_type(input_schema))
         .collect::<Result<Vec<_>>>()?;
 
-    Ok(Arc::new(udf::ScalarFunctionExpr::new(
+    Ok(Arc::new(ScalarFunctionExpr::new(
         &format!("{}", fun),
         fun_expr,
         args,
@@ -216,19 +230,93 @@ pub fn create_physical_expr(
 }
 
 /// the signatures supported by the function `fun`.
-fn signature(fun: &ScalarFunction) -> Signature {
+fn signature(fun: &BuiltinScalarFunction) -> Signature {
     // note: the physical expression must accept the type returned by this function or the execution panics.
 
     // for now, the list is small, as we do not have many built-in functions.
     match fun {
-        ScalarFunction::Length => Signature::Uniform(1, vec![DataType::Utf8]),
-        ScalarFunction::Concat => Signature::Variadic(vec![DataType::Utf8]),
+        BuiltinScalarFunction::Length => Signature::Uniform(1, vec![DataType::Utf8]),
+        BuiltinScalarFunction::Concat => Signature::Variadic(vec![DataType::Utf8]),
         // math expressions expect 1 argument of type f64 or f32
         // priority is given to f64 because e.g. `sqrt(1i32)` is in IR (real numbers) and thus we
         // return the best approximation for it (in f64).
         // We accept f32 because in this case it is clear that the best approximation
         // will be as good as the number of digits in the number
         _ => Signature::Uniform(1, vec![DataType::Float64, DataType::Float32]),
+    }
+}
+
+/// Physical expression of a scalar function
+pub struct ScalarFunctionExpr {
+    fun: ScalarFunctionImplementation,
+    name: String,
+    args: Vec<Arc<dyn PhysicalExpr>>,
+    return_type: DataType,
+}
+
+impl Debug for ScalarFunctionExpr {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ScalarFunctionExpr")
+            .field("fun", &"<FUNC>")
+            .field("name", &self.name)
+            .field("args", &self.args)
+            .field("return_type", &self.return_type)
+            .finish()
+    }
+}
+
+impl ScalarFunctionExpr {
+    /// Create a new Scalar function
+    pub fn new(
+        name: &str,
+        fun: ScalarFunctionImplementation,
+        args: Vec<Arc<dyn PhysicalExpr>>,
+        return_type: &DataType,
+    ) -> Self {
+        Self {
+            fun,
+            name: name.to_owned(),
+            args,
+            return_type: return_type.clone(),
+        }
+    }
+}
+
+impl fmt::Display for ScalarFunctionExpr {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{}({})",
+            self.name,
+            self.args
+                .iter()
+                .map(|e| format!("{}", e))
+                .collect::<Vec<String>>()
+                .join(", ")
+        )
+    }
+}
+
+impl PhysicalExpr for ScalarFunctionExpr {
+    fn data_type(&self, _input_schema: &Schema) -> Result<DataType> {
+        Ok(self.return_type.clone())
+    }
+
+    fn nullable(&self, _input_schema: &Schema) -> Result<bool> {
+        Ok(true)
+    }
+
+    fn evaluate(&self, batch: &RecordBatch) -> Result<ArrayRef> {
+        // evaluate the arguments
+        let inputs = self
+            .args
+            .iter()
+            .map(|e| e.evaluate(batch))
+            .collect::<Result<Vec<_>>>()?;
+
+        // evaluate the function
+        let fun = self.fun.as_ref();
+        (fun)(&inputs)
     }
 }
 
@@ -251,7 +339,8 @@ mod tests {
 
         let arg = lit(value);
 
-        let expr = create_physical_expr(&ScalarFunction::Exp, &vec![arg], &schema)?;
+        let expr =
+            create_physical_expr(&BuiltinScalarFunction::Exp, &vec![arg], &schema)?;
 
         // type is correct
         assert_eq!(expr.data_type(&schema)?, DataType::Float64);
@@ -289,7 +378,7 @@ mod tests {
 
         // concat(value, value)
         let expr = create_physical_expr(
-            &ScalarFunction::Concat,
+            &BuiltinScalarFunction::Concat,
             &vec![lit(value.clone()), lit(value)],
             &schema,
         )?;
@@ -317,7 +406,7 @@ mod tests {
 
     #[test]
     fn test_concat_error() -> Result<()> {
-        let result = return_type(&ScalarFunction::Concat, &vec![]);
+        let result = return_type(&BuiltinScalarFunction::Concat, &vec![]);
         if let Ok(_) = result {
             Err(ExecutionError::General(
                 "Function 'concat' cannot accept zero arguments".to_string(),

@@ -136,15 +136,8 @@ mod tests {
     use crate::datasource::csv::CsvReadOptions;
     use crate::execution::context::ExecutionContext;
     use crate::logical_plan::*;
-    use crate::{
-        physical_plan::udf::{ScalarFunction, ScalarUdf},
-        test,
-    };
-    use arrow::{
-        array::{ArrayRef, Float64Array},
-        compute::add,
-        datatypes::DataType,
-    };
+    use crate::{physical_plan::functions::ScalarFunctionImplementation, test};
+    use arrow::{array::ArrayRef, datatypes::DataType};
 
     #[test]
     fn select_columns() -> Result<()> {
@@ -250,39 +243,28 @@ mod tests {
         register_aggregate_csv(&mut ctx)?;
 
         // declare the udf
-        let my_add: ScalarUdf = Arc::new(|args: &[ArrayRef]| {
-            let l = &args[0]
-                .as_any()
-                .downcast_ref::<Float64Array>()
-                .expect("cast failed");
-            let r = &args[1]
-                .as_any()
-                .downcast_ref::<Float64Array>()
-                .expect("cast failed");
-            Ok(Arc::new(add(l, r)?))
-        });
+        let my_fn: ScalarFunctionImplementation =
+            Arc::new(|_: &[ArrayRef]| unimplemented!("my_fn is not implemented"));
 
-        let my_add = ScalarFunction::new(
-            "my_add",
+        // create and register the udf
+        ctx.register_udf(create_udf(
+            "my_fn",
             vec![DataType::Float64],
-            DataType::Float64,
-            my_add,
-        );
-
-        // register the udf
-        ctx.register_udf(my_add);
+            Arc::new(DataType::Float64),
+            my_fn,
+        ));
 
         // build query with a UDF using DataFrame API
         let df = ctx.table("aggregate_test_100")?;
 
         let f = df.registry();
 
-        let df = df.select(vec![f.udf("my_add", vec![col("c12")])?])?;
+        let df = df.select(vec![f.udf("my_fn", vec![col("c12")])?])?;
         let plan = df.to_logical_plan();
 
         // build query using SQL
         let sql_plan =
-            ctx.create_logical_plan("SELECT my_add(c12) FROM aggregate_test_100")?;
+            ctx.create_logical_plan("SELECT my_fn(c12) FROM aggregate_test_100")?;
 
         // the two plans should be identical
         assert_same_plan(&plan, &sql_plan);

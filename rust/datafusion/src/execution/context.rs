@@ -40,13 +40,11 @@ use crate::logical_plan::{Expr, FunctionRegistry, LogicalPlan, LogicalPlanBuilde
 use crate::optimizer::filter_push_down::FilterPushDown;
 use crate::optimizer::optimizer::OptimizerRule;
 use crate::optimizer::projection_push_down::ProjectionPushDown;
-use crate::optimizer::type_coercion::TypeCoercionRule;
 use crate::physical_plan::common;
 use crate::physical_plan::csv::CsvReadOptions;
 use crate::physical_plan::merge::MergeExec;
 use crate::physical_plan::planner::DefaultPhysicalPlanner;
-use crate::physical_plan::udf::ScalarFunction;
-use crate::physical_plan::udf::ScalarFunctionRegistry;
+use crate::physical_plan::udf::ScalarUDF;
 use crate::physical_plan::ExecutionPlan;
 use crate::physical_plan::PhysicalPlanner;
 use crate::sql::{
@@ -180,7 +178,7 @@ impl ExecutionContext {
     }
 
     /// Register a scalar UDF
-    pub fn register_udf(&mut self, f: ScalarFunction) {
+    pub fn register_udf(&mut self, f: ScalarUDF) {
         self.state
             .scalar_functions
             .insert(f.name.clone(), Arc::new(f));
@@ -294,7 +292,6 @@ impl ExecutionContext {
         // Apply standard rewrites and optimizations
         let mut plan = ProjectionPushDown::new().optimize(&plan)?;
         plan = FilterPushDown::new().optimize(&plan)?;
-        plan = TypeCoercionRule::new().optimize(&plan)?;
 
         self.state.config.query_planner.rewrite_logical_plan(plan)
     }
@@ -374,12 +371,6 @@ impl ExecutionContext {
     /// get the registry, that allows to construct logical expressions of UDFs
     pub fn registry(&self) -> &dyn FunctionRegistry {
         &self.state
-    }
-}
-
-impl ScalarFunctionRegistry for ExecutionContext {
-    fn lookup(&self, name: &str) -> Option<Arc<ScalarFunction>> {
-        self.state.scalar_functions.lookup(name)
     }
 }
 
@@ -468,7 +459,7 @@ pub struct ExecutionContextState {
     /// Data sources that are registered with the context
     pub datasources: HashMap<String, Arc<dyn TableProvider + Send + Sync>>,
     /// Scalar functions that are registered with the context
-    pub scalar_functions: HashMap<String, Arc<ScalarFunction>>,
+    pub scalar_functions: HashMap<String, Arc<ScalarUDF>>,
     /// Context configuration
     pub config: ExecutionConfig,
 }
@@ -478,7 +469,7 @@ impl SchemaProvider for ExecutionContextState {
         self.datasources.get(name).map(|ds| ds.schema().clone())
     }
 
-    fn get_function_meta(&self, name: &str) -> Option<Arc<ScalarFunction>> {
+    fn get_function_meta(&self, name: &str) -> Option<Arc<ScalarUDF>> {
         self.scalar_functions
             .get(name)
             .and_then(|func| Some(func.clone()))
@@ -510,8 +501,8 @@ mod tests {
 
     use super::*;
     use crate::datasource::MemTable;
-    use crate::logical_plan::{aggregate_expr, col};
-    use crate::physical_plan::udf::ScalarUdf;
+    use crate::logical_plan::{aggregate_expr, col, create_udf};
+    use crate::physical_plan::functions::ScalarFunctionImplementation;
     use crate::test;
     use arrow::array::{ArrayRef, Int32Array};
     use arrow::compute::add;
@@ -1032,7 +1023,7 @@ mod tests {
         let provider = MemTable::new(Arc::new(schema), vec![vec![batch]])?;
         ctx.register_table("t", Box::new(provider));
 
-        let myfunc: ScalarUdf = Arc::new(|args: &[ArrayRef]| {
+        let myfunc: ScalarFunctionImplementation = Arc::new(|args: &[ArrayRef]| {
             let l = &args[0]
                 .as_any()
                 .downcast_ref::<Int32Array>()
@@ -1044,14 +1035,12 @@ mod tests {
             Ok(Arc::new(add(l, r)?))
         });
 
-        let my_add = ScalarFunction::new(
+        ctx.register_udf(create_udf(
             "my_add",
             vec![DataType::Int32, DataType::Int32],
-            DataType::Int32,
+            Arc::new(DataType::Int32),
             myfunc,
-        );
-
-        ctx.register_udf(my_add);
+        ));
 
         // from here on, we may be in a different scope. We would still like to be able
         // to call UDFs.

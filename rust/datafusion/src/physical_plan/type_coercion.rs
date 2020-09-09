@@ -66,6 +66,7 @@ pub fn data_types(
                 .map(|_| current_types[0].clone())
                 .collect()]
         }
+        Signature::Exact(valid_types) => vec![valid_types.clone()],
     };
 
     if valid_types.contains(current_types) {

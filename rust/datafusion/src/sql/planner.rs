@@ -28,7 +28,7 @@ use crate::logical_plan::{
 };
 use crate::{
     physical_plan::functions,
-    physical_plan::udf::ScalarFunction,
+    physical_plan::udf::ScalarUDF,
     sql::parser::{CreateExternalTable, FileType, Statement as DFStatement},
 };
 
@@ -48,7 +48,7 @@ pub trait SchemaProvider {
     /// Getter for a field description
     fn get_table_meta(&self, name: &str) -> Option<SchemaRef>;
     /// Getter for a UDF description
-    fn get_function_meta(&self, name: &str) -> Option<Arc<ScalarFunction>>;
+    fn get_function_meta(&self, name: &str) -> Option<Arc<ScalarUDF>>;
 }
 
 /// SQL query planner
@@ -485,7 +485,7 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
                 let name: String = function.name.to_string();
 
                 // first, scalar built-in
-                if let Ok(fun) = functions::ScalarFunction::from_str(&name) {
+                if let Ok(fun) = functions::BuiltinScalarFunction::from_str(&name) {
                     let args = function
                         .args
                         .iter()
@@ -528,21 +528,15 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
                     // finally, user-defined functions
                     _ => match self.schema_provider.get_function_meta(&name) {
                         Some(fm) => {
-                            let rex_args = function
+                            let args = function
                                 .args
                                 .iter()
                                 .map(|a| self.sql_to_rex(a, schema))
                                 .collect::<Result<Vec<Expr>>>()?;
 
-                            let mut safe_args: Vec<Expr> = vec![];
-                            for i in 0..rex_args.len() {
-                                safe_args
-                                    .push(rex_args[i].cast_to(&fm.arg_types[i], schema)?);
-                            }
-
                             Ok(Expr::ScalarUDF {
                                 fun: fm.clone(),
-                                args: safe_args,
+                                args,
                             })
                         }
                         _ => Err(ExecutionError::General(format!(
@@ -592,7 +586,8 @@ pub fn convert_data_type(sql: &SQLDataType) -> Result<DataType> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::sql::parser::DFParser;
+    use crate::{logical_plan::create_udf, sql::parser::DFParser};
+    use functions::ScalarFunctionImplementation;
 
     #[test]
     fn select_no_relation() {
@@ -917,13 +912,15 @@ mod tests {
             }
         }
 
-        fn get_function_meta(&self, name: &str) -> Option<Arc<ScalarFunction>> {
+        fn get_function_meta(&self, name: &str) -> Option<Arc<ScalarUDF>> {
+            let f: ScalarFunctionImplementation =
+                Arc::new(|_| Err(ExecutionError::NotImplemented("".to_string())));
             match name {
-                "my_sqrt" => Some(Arc::new(ScalarFunction::new(
+                "my_sqrt" => Some(Arc::new(create_udf(
                     "my_sqrt",
                     vec![DataType::Float64],
-                    DataType::Float64,
-                    Arc::new(|_| Err(ExecutionError::NotImplemented("".to_string()))),
+                    Arc::new(DataType::Float64),
+                    f,
                 ))),
                 _ => None,
             }
