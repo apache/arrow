@@ -14,7 +14,9 @@
 // limitations under the License.
 
 using System;
+using System.Buffers;
 using System.IO;
+using System.Runtime.InteropServices;
 
 namespace Apache.Arrow
 {
@@ -24,6 +26,27 @@ namespace Apache.Arrow
         public static int Read(this Stream stream, Memory<byte> buffer)
         {
             return stream.Read(buffer.Span);
+        }
+
+        public static void Write(this Stream stream, ReadOnlyMemory<byte> buffer)
+        {
+            if (MemoryMarshal.TryGetArray(buffer, out ArraySegment<byte> array))
+            {
+                stream.Write(array.Array, array.Offset, array.Count);
+            }
+            else
+            {
+                byte[] sharedBuffer = ArrayPool<byte>.Shared.Rent(buffer.Length);
+                try
+                {
+                    buffer.Span.CopyTo(sharedBuffer);
+                    stream.Write(sharedBuffer, 0, buffer.Length);
+                }
+                finally
+                {
+                    ArrayPool<byte>.Shared.Return(sharedBuffer);
+                }
+            }
         }
     }
 }
