@@ -496,6 +496,23 @@ def test_struct():
     assert s['y'].as_py() is None
 
 
+def test_struct_duplicate_field_name():
+    fields = [
+        pa.field('x', pa.int64()),
+        pa.field('x', pa.string())
+    ]
+    ty = pa.struct(fields)
+
+    arr = pa.StructArray.from_arrays([
+        pa.array([1, 2, 3]),
+        pa.array(["a", "b", "c"])
+    ], fields=fields)
+
+    assert arr[0] == pa.scalar([('x', 1), ('x', 'a')], type=ty)
+    assert arr[1] == pa.scalar([('x', 2), ('x', 'b')], type=ty)
+    assert arr[2] == pa.scalar([('x', 3), ('x', 'c')], type=ty)
+
+
 def test_map():
     ty = pa.map_(pa.string(), pa.int8())
     v = [('a', 1), ('b', 2)]

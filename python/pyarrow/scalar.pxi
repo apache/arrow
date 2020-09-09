@@ -16,9 +16,6 @@
 # under the License.
 
 
-import collections
-
-
 cdef class Scalar(_Weakrefable):
     """
     The base class for scalars.
@@ -580,7 +577,7 @@ cdef class LargeListScalar(ListScalar):
     pass
 
 
-cdef class StructScalar(Scalar, collections.abc.Mapping):
+cdef class StructScalar(Scalar):
     """
     Concrete class for struct scalars.
     """
@@ -588,16 +585,6 @@ cdef class StructScalar(Scalar, collections.abc.Mapping):
     def __len__(self):
         cdef CStructScalar* sp = <CStructScalar*> self.wrapped.get()
         return sp.value.size()
-
-    def __iter__(self):
-        cdef:
-            CStructScalar* sp = <CStructScalar*> self.wrapped.get()
-            CStructType* dtype = <CStructType*> sp.type.get()
-            vector[shared_ptr[CField]] fields = dtype.fields()
-
-        if sp.is_valid:
-            for i in range(dtype.num_fields()):
-                yield frombytes(fields[i].get().name())
 
     def __contains__(self, key):
         try:
@@ -639,12 +626,21 @@ cdef class StructScalar(Scalar, collections.abc.Mapping):
             else:
                 raise KeyError(key)
 
+    def __iter__(self):
+        cdef StructType type = self.type
+        if self.is_valid:
+            for i in range(len(self)):
+                yield (type.field(i).name, self[i])
+
+    def items(self):
+        return list(self)
+
     def as_py(self):
         """
         Return this value as a Python dict.
         """
         if self.is_valid:
-            return {k: v.as_py() for k, v in self.items()}
+            return [(k, v.as_py()) for k, v in self]
         else:
             return None
 

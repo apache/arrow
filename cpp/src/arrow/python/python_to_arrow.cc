@@ -361,7 +361,7 @@ struct ValueConverter<Type, enable_if_integer<Type>> {
 template <typename T, typename Enable = void>
 class PyPrimitiveConverter;
 
-template <typename T>
+template <typename T, typename Enable = void>
 class PyDictionaryConverter;
 
 template <typename T>
@@ -493,28 +493,32 @@ class PyPrimitiveConverter<T, enable_if_string_like<T>>
 };
 
 template <typename T>
-class PyDictionaryConverter : public DictionaryConverter<T, PyConverter> {
+class PyDictionaryConverter<T, enable_if_has_c_type<T>>
+    : public DictionaryConverter<T, PyConverter> {
  public:
   Status Append(PyObject* value) override {
     if (PyValue::IsNull(this->options_, value)) {
       return this->value_builder_->AppendNull();
     } else {
-      return AppendValue(value);
+      ARROW_ASSIGN_OR_RAISE(auto converted,
+                            PyValue::Convert(this->value_type_, this->options_, value));
+      return this->value_builder_->Append(converted);
     }
   }
+};
 
-  template <typename U = T>
-  enable_if_has_c_type<U, Status> AppendValue(PyObject* value) {
-    ARROW_ASSIGN_OR_RAISE(auto converted,
-                          PyValue::Convert(this->value_type_, this->options_, value));
-    return this->value_builder_->Append(converted);
-  }
-
-  template <typename U = T>
-  enable_if_has_string_view<U, Status> AppendValue(PyObject* value) {
-    ARROW_ASSIGN_OR_RAISE(auto view,
-                          PyValue::Convert(this->value_type_, this->options_, value));
-    return this->value_builder_->Append(util::string_view(view.bytes, view.size));
+template <typename T>
+class PyDictionaryConverter<T, enable_if_has_string_view<T>>
+    : public DictionaryConverter<T, PyConverter> {
+ public:
+  Status Append(PyObject* value) override {
+    if (PyValue::IsNull(this->options_, value)) {
+      return this->value_builder_->AppendNull();
+    } else {
+      ARROW_ASSIGN_OR_RAISE(auto view,
+                            PyValue::Convert(this->value_type_, this->options_, value));
+      return this->value_builder_->Append(util::string_view(view.bytes, view.size));
+    }
   }
 };
 
@@ -690,16 +694,16 @@ class PyStructConverter : public StructConverter<PyConverter> {
 
   Status InferInputKind(PyObject* value) {
     // Infer input object's type, note that heterogeneous sequences are not allowed
-    if (ARROW_PREDICT_FALSE(input_kind_ == InputKind::UNKNOWN)) {
-      if (PyDict_Check(value)) {
-        input_kind_ = InputKind::DICTS;
-      } else if (PyTuple_Check(value)) {
-        input_kind_ = InputKind::TUPLES;
-      } else {
-        return internal::InvalidType(value,
-                                     "was not a dict, tuple, or recognized null value "
-                                     "for conversion to struct type");
-      }
+    if (PyDict_Check(value)) {
+      input_kind_ = InputKind::DICT;
+    } else if (PyTuple_Check(value)) {
+      input_kind_ = InputKind::TUPLE;
+    } else if (PySequence_Check(value)) {
+      input_kind_ = InputKind::ITEMS;
+    } else {
+      return internal::InvalidType(value,
+                                   "was not a dict, tuple, or recognized null value "
+                                   "for conversion to struct type");
     }
     return Status::OK();
   }
@@ -708,9 +712,27 @@ class PyStructConverter : public StructConverter<PyConverter> {
     if (PyValue::IsNull(this->options_, value)) {
       return this->struct_builder_->AppendNull();
     }
-    RETURN_NOT_OK(InferInputKind(value));
-    RETURN_NOT_OK(this->struct_builder_->Append());
-    return (input_kind_ == InputKind::DICTS) ? AppendDict(value) : AppendTuple(value);
+    switch (input_kind_) {
+      case InputKind::DICT:
+        RETURN_NOT_OK(this->struct_builder_->Append());
+        return AppendDict(value);
+      case InputKind::TUPLE:
+        RETURN_NOT_OK(this->struct_builder_->Append());
+        return AppendTuple(value);
+      case InputKind::ITEMS:
+        RETURN_NOT_OK(this->struct_builder_->Append());
+        return AppendItems(value);
+      default:
+        RETURN_NOT_OK(InferInputKind(value));
+        return Append(value);
+    }
+  }
+
+  Status AppendEmpty() {
+    for (int i = 0; i < num_fields_; i++) {
+      RETURN_NOT_OK(this->children_[i]->Append(Py_None));
+    }
+    return Status::OK();
   }
 
   Status AppendTuple(PyObject* tuple) {
@@ -727,45 +749,55 @@ class PyStructConverter : public StructConverter<PyConverter> {
     return Status::OK();
   }
 
-  Status InferDictKeyKind(PyObject* dict) {
-    if (ARROW_PREDICT_FALSE(dict_key_kind_ == DictKeyKind::UNKNOWN)) {
-      for (int i = 0; i < num_fields_; i++) {
-        PyObject* name = PyList_GET_ITEM(unicode_field_names_.obj(), i);
-        PyObject* value = PyDict_GetItem(dict, name);
-        if (value != NULL) {
-          dict_key_kind_ = DictKeyKind::UNICODE;
-          return Status::OK();
-        }
+  Status InferKeyKind(PyObject* items) {
+    // TODO: iterate over the items instead
+    for (int i = 0; i < num_fields_; i++) {
+      PyObject* tuple = PySequence_GetItem(items, i);
+      if (tuple == NULL) {
         RETURN_IF_PYERROR();
-        // Unicode key not present, perhaps bytes key is?
-        name = PyList_GET_ITEM(bytes_field_names_.obj(), i);
-        value = PyDict_GetItem(dict, name);
-        if (value != NULL) {
-          dict_key_kind_ = DictKeyKind::BYTES;
-          return Status::OK();
-        }
+      }
+      PyObject* key = PyTuple_GET_ITEM(tuple, 0);
+      if (key == NULL) {
         RETURN_IF_PYERROR();
+      }
+      // check equality with unicode field name
+      PyObject* name = PyList_GET_ITEM(unicode_field_names_.obj(), i);
+      bool are_equal = PyObject_RichCompareBool(key, name, Py_EQ);
+      RETURN_IF_PYERROR();
+      if (are_equal) {
+        key_kind_ = KeyKind::UNICODE;
+        return Status::OK();
+      }
+      // check equality with bytes field name
+      name = PyList_GET_ITEM(bytes_field_names_.obj(), i);
+      are_equal = PyObject_RichCompareBool(key, name, Py_EQ);
+      RETURN_IF_PYERROR();
+      if (are_equal) {
+        key_kind_ = KeyKind::BYTES;
+        return Status::OK();
       }
     }
     return Status::OK();
+    // return internal::Invalid(value, "was unable to infer key type");
   }
 
   Status AppendDict(PyObject* dict) {
     if (!PyDict_Check(dict)) {
       return internal::InvalidType(dict, "was expecting a dict");
     }
-    RETURN_NOT_OK(InferDictKeyKind(dict));
-
-    if (dict_key_kind_ == DictKeyKind::UNICODE) {
-      return AppendDict(dict, unicode_field_names_.obj());
-    } else if (dict_key_kind_ == DictKeyKind::BYTES) {
-      return AppendDict(dict, bytes_field_names_.obj());
-    } else {
-      // If we come here, it means all keys are absent
-      for (int i = 0; i < num_fields_; i++) {
-        RETURN_NOT_OK(this->children_[i]->Append(Py_None));
-      }
-      return Status::OK();
+    switch (key_kind_) {
+      case KeyKind::UNICODE:
+        return AppendDict(dict, unicode_field_names_.obj());
+      case KeyKind::BYTES:
+        return AppendDict(dict, bytes_field_names_.obj());
+      default:
+        RETURN_NOT_OK(InferKeyKind(PyDict_Items(dict)));
+        if (key_kind_ == KeyKind::UNKNOWN) {
+          // was unable to infer the type which means that all keys are absent
+          return AppendEmpty();
+        } else {
+          return AppendDict(dict);
+        }
     }
   }
 
@@ -782,15 +814,57 @@ class PyStructConverter : public StructConverter<PyConverter> {
     return Status::OK();
   }
 
+  Status AppendItems(PyObject* items) {
+    if (!PySequence_Check(items)) {
+      return internal::InvalidType(items, "was expecting a sequence of key-value items");
+    }
+    // if (PySequence_GET_SIZE(items) != num_fields_) {
+    //   return Status::Invalid("Sequence size must be equal to number of struct fields");
+    // }
+    switch (key_kind_) {
+      case KeyKind::UNICODE:
+        return AppendItems(items, unicode_field_names_.obj());
+      case KeyKind::BYTES:
+        return AppendItems(items, bytes_field_names_.obj());
+      default:
+        RETURN_NOT_OK(InferKeyKind(items));
+        if (key_kind_ == KeyKind::UNKNOWN) {
+          // was unable to infer the type which means that all keys are absent
+          return AppendEmpty();
+        } else {
+          return AppendItems(items);
+        }
+    }
+  }
+
+  Status AppendItems(PyObject* items, PyObject* field_names) {
+    for (int i = 0; i < num_fields_; i++) {
+      PyObject* tuple = PySequence_GetItem(items, i);
+      if (tuple == NULL) {
+        RETURN_IF_PYERROR();
+      }
+      PyObject* key = PyTuple_GET_ITEM(tuple, 0);
+      PyObject* value = PyTuple_GET_ITEM(tuple, 1);
+      if (key == NULL || value == NULL) {
+        RETURN_IF_PYERROR();
+      }
+      PyObject* name = PyList_GET_ITEM(field_names, i);
+      bool are_equal = PyObject_RichCompareBool(key, name, Py_EQ);
+      RETURN_IF_PYERROR();
+      if (are_equal) {
+        RETURN_NOT_OK(this->children_[i]->Append(value));
+      } else {
+        return Status::Invalid("Key not equal to the expected field name");
+      }
+    }
+    return Status::OK();
+  }
+
  protected:
-  // Whether we're converting from a sequence of dicts or tuples
-  enum class InputKind { UNKNOWN, DICTS, TUPLES } input_kind_ = InputKind::UNKNOWN;
+  // Whether we're converting from a sequence of dicts or tuples or list of pairs
+  enum class InputKind { UNKNOWN, DICT, TUPLE, ITEMS } input_kind_ = InputKind::UNKNOWN;
   // Whether the input dictionary keys' type is python bytes or unicode
-  enum class DictKeyKind {
-    UNKNOWN,
-    BYTES,
-    UNICODE
-  } dict_key_kind_ = DictKeyKind::UNKNOWN;
+  enum class KeyKind { UNKNOWN, BYTES, UNICODE } key_kind_ = KeyKind::UNKNOWN;
   // Store the field names as a PyObjects for dict matching
   OwnedRef bytes_field_names_;
   OwnedRef unicode_field_names_;

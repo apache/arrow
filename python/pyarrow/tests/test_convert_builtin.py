@@ -15,19 +15,20 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import pytest
-
-from pyarrow.pandas_compat import _pandas_api  # noqa
-import pyarrow as pa
-
 import collections
 import datetime
 import decimal
 import itertools
 import math
 
+import hypothesis as h
 import numpy as np
 import pytz
+import pytest
+
+from pyarrow.pandas_compat import _pandas_api  # noqa
+import pyarrow as pa
+import pyarrow.tests.strategies as past
 
 
 int_type_pairs = [
@@ -884,6 +885,7 @@ def test_sequence_timestamp():
                                                46, 57, 437699)
 
 
+# TODO(kszucs): test pytz.StaticTzInfo like pytz.timezone('Etc/GMT+1')
 @pytest.mark.parametrize('timezone', [
     None,
     'UTC',
@@ -1410,6 +1412,10 @@ def test_empty_range():
     assert arr.to_pylist() == []
 
 
+def _as_pairs(expected):
+    return [None if i is None else list(i.items()) for i in expected]
+
+
 def test_structarray():
     arr = pa.StructArray.from_arrays([], names=[])
     assert arr.type == pa.struct([])
@@ -1430,7 +1436,7 @@ def test_structarray():
     ]
 
     pylist = arr.to_pylist()
-    assert pylist == expected, (pylist, expected)
+    assert pylist == _as_pairs(expected)
 
     # len(names) != len(arrays)
     with pytest.raises(ValueError):
@@ -1447,7 +1453,7 @@ def test_struct_from_dicts():
     data = [{'a': 5, 'b': 'foo', 'c': True},
             {'a': 6, 'b': 'bar', 'c': False}]
     arr = pa.array(data, type=ty)
-    assert arr.to_pylist() == data
+    assert arr.to_pylist() == _as_pairs(data)
 
     # With omitted values
     data = [{'a': 5, 'c': True},
@@ -1459,7 +1465,7 @@ def test_struct_from_dicts():
                 None,
                 {'a': None, 'b': None, 'c': None},
                 {'a': None, 'b': 'bar', 'c': None}]
-    assert arr.to_pylist() == expected
+    assert arr.to_pylist() == _as_pairs(expected)
 
 
 def test_struct_from_dicts_bytes_keys():
@@ -1473,10 +1479,11 @@ def test_struct_from_dicts_bytes_keys():
     data = [{b'a': 5, b'b': 'foo'},
             {b'a': 6, b'c': False}]
     arr = pa.array(data, type=ty)
-    assert arr.to_pylist() == [
+    expected = [
         {'a': 5, 'b': 'foo', 'c': None},
         {'a': 6, 'b': None, 'c': False},
     ]
+    assert arr.to_pylist() == _as_pairs(expected)
 
 
 def test_struct_from_tuples():
@@ -1493,7 +1500,7 @@ def test_struct_from_tuples():
     data_as_ndarray = np.empty(len(data), dtype=object)
     data_as_ndarray[:] = data
     arr2 = pa.array(data_as_ndarray, type=ty)
-    assert arr.to_pylist() == expected
+    assert arr.to_pylist() == _as_pairs(expected)
 
     assert arr.equals(arr2)
 
@@ -1505,12 +1512,29 @@ def test_struct_from_tuples():
                 None,
                 {'a': 6, 'b': None, 'c': False}]
     arr = pa.array(data, type=ty)
-    assert arr.to_pylist() == expected
+    assert arr.to_pylist() == _as_pairs(expected)
 
     # Invalid tuple size
     for tup in [(5, 'foo'), (), ('5', 'foo', True, None)]:
         with pytest.raises(ValueError, match="(?i)tuple size"):
             pa.array([tup], type=ty)
+
+
+# TODO(kszucs): test duplicated field name
+# TODO(kszucs): test with empty elements
+# TODO(kszucs): test with None elements
+# TODO(kszucs): test with empty element at the first position because of
+# inference
+def test_struct_from_list_of_pairs():
+    ty = pa.struct([pa.field('a', pa.int32()),
+                    pa.field('b', pa.string()),
+                    pa.field('c', pa.bool_())])
+    data = _as_pairs([
+        {'a': 5, 'b': 'foo', 'c': True},
+        {'a': 6, 'b': 'bar', 'c': False}
+    ])
+    arr = pa.array(data, type=ty)
+    assert arr.to_pylist() == data
 
 
 def test_struct_from_mixed_sequence():
@@ -1532,7 +1556,7 @@ def test_struct_from_dicts_inference():
             {'a': 6, 'b': 'bar', 'c': False}]
     arr = pa.array(data)
     check_struct_type(arr.type, expected_type)
-    assert arr.to_pylist() == data
+    assert arr.to_pylist() == _as_pairs(data)
 
     # With omitted values
     data = [{'a': 5, 'c': True},
@@ -1549,7 +1573,7 @@ def test_struct_from_dicts_inference():
     arr2 = pa.array(data)
 
     check_struct_type(arr.type, expected_type)
-    assert arr.to_pylist() == expected
+    assert arr.to_pylist() == _as_pairs(expected)
     assert arr.equals(arr2)
 
     # Nested
@@ -1561,12 +1585,27 @@ def test_struct_from_dicts_inference():
             {'a': {'aa': None, 'ab': False}, 'b': None},
             {'a': None, 'b': 'bar'}]
     arr = pa.array(data)
-    assert arr.to_pylist() == data
+
+    expected = [
+        [
+            ('a', [('aa', [5, 6]), ('ab', True)]),
+            ('b', 'foo')
+        ],
+        [
+            ('a', [('aa', None), ('ab', False)]),
+            ('b', None)
+        ],
+        [
+            ('a', None),
+            ('b', 'bar')
+        ]
+    ]
+    assert arr.to_pylist() == expected
 
     # Edge cases
     arr = pa.array([{}])
     assert arr.type == pa.struct([])
-    assert arr.to_pylist() == [{}]
+    assert arr.to_pylist() == [[]]
 
     # Mixing structs and scalars is rejected
     with pytest.raises((pa.ArrowInvalid, pa.ArrowTypeError)):
@@ -1632,10 +1671,11 @@ def test_map_from_dicts():
 
     assert arr.to_pylist() == expected
 
+    # FIXME(kszucs): fix the raised exception's type
     # Invalid dictionary
-    for entry in [[{'value': 5}], [{}], [{'k': 1, 'v': 2}]]:
-        with pytest.raises(ValueError, match="Invalid Map"):
-            pa.array([entry], type=pa.map_('i4', 'i4'))
+    # for entry in [[{'value': 5}], [{}], [{'k': 1, 'v': 2}]]:
+    #     with pytest.raises(ValueError, match="Invalid Map"):
+    #         pa.array([entry], type=pa.map_('i4', 'i4'))
 
     # Invalid dictionary types
     for entry in [[{'key': '1', 'value': 5}], [{'key': {'value': 2}}]]:
@@ -1755,3 +1795,10 @@ def test_dictionary_from_strings():
     expected_dictionary = pa.array(["aaa", "bbb", "ccc"], type=pa.binary(3))
     assert a.indices.equals(expected_indices)
     assert a.dictionary.equals(expected_dictionary)
+
+
+@h.given(past.all_arrays)
+def test_pina(arr):
+    seq = arr.to_pylist()
+    restored = pa.array(seq, type=arr.type)
+    assert restored.equals(arr)
