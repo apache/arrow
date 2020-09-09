@@ -2436,14 +2436,18 @@ def test_read_multiple_files(tempdir, use_legacy_dataset):
     to_read = [0, 2, 6, result.num_columns - 1]
 
     col_names = [result.field(i).name for i in to_read]
-    out = pq.read_table(dirpath, columns=col_names)
+    out = pq.read_table(
+        dirpath, columns=col_names, use_legacy_dataset=use_legacy_dataset
+    )
     expected = pa.Table.from_arrays([result.column(i) for i in to_read],
                                     names=col_names,
                                     metadata=result.schema.metadata)
     assert out.equals(expected)
 
     # Read with multiple threads
-    pq.read_table(dirpath, use_threads=True)
+    pq.read_table(
+        dirpath, use_threads=True, use_legacy_dataset=use_legacy_dataset
+    )
 
     # Test failure modes with non-uniform metadata
     bad_apple = _test_dataframe(size, seed=i).iloc[:, :4]
