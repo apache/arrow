@@ -76,10 +76,15 @@ fn string_to_timestamp_nanos(s: &str) -> Result<i64> {
 pub fn to_timestamp(args: &[ArrayRef]) -> Result<TimestampNanosecondArray> {
     let num_rows = args[0].len();
     let mut ts_builder = TimestampNanosecondArray::builder(num_rows);
-    let string_args = &args[0]
-        .as_any()
-        .downcast_ref::<StringArray>()
-        .expect("input cast to StringArray failed");
+    let string_args =
+        &args[0]
+            .as_any()
+            .downcast_ref::<StringArray>()
+            .ok_or_else(|| {
+                ExecutionError::General(format!(
+                    "Internal error: could not cast to_timestamp input to StringArray"
+                ))
+            })?;
 
     for i in 0..string_args.len() {
         if string_args.is_null(i) {
@@ -95,6 +100,8 @@ pub fn to_timestamp(args: &[ArrayRef]) -> Result<TimestampNanosecondArray> {
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
+
+    use arrow::array::Int64Array;
 
     use super::*;
 
@@ -223,6 +230,31 @@ mod tests {
 
         assert_eq!(parsed_timestamps.len(), 2);
         assert_eq!(expected_timestamps, parsed_timestamps);
+        Ok(())
+    }
+
+    #[test]
+    fn to_timestamp_invalid_input_type() -> Result<()> {
+        // pass the wrong type of input array to to_timestamp and test
+        // that we get an error.
+
+        let mut builder = Int64Array::builder(1);
+        builder.append_value(1)?;
+        let int64array = Arc::new(builder.finish());
+
+        let expected_err =
+            "Internal error: could not cast to_timestamp input to StringArray";
+        match to_timestamp(&[int64array]) {
+            Ok(_) => panic!("Expected error but got success"),
+            Err(e) => {
+                assert!(
+                    e.to_string().contains(expected_err),
+                    "Can not find expected error '{}'. Actual error '{}'",
+                    expected_err,
+                    e
+                );
+            }
+        }
         Ok(())
     }
 }
