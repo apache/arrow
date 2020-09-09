@@ -27,7 +27,8 @@
 
 ## Computation
 
-* Comparison (`==`, `>`, etc.) and boolean (`&`, `|`, `!`) operations, along with `is.na` and `%in%`, on Arrow Arrays and ChunkedArrays are now implemented in the C++ library.
+* Comparison (`==`, `>`, etc.) and boolean (`&`, `|`, `!`) operations, along with `is.na`, `%in%` and `match` (called `match_arrow()`), on Arrow Arrays and ChunkedArrays are now implemented in the C++ library.
+* Aggregation methods `min()`, `max()`, and `unique()` are implemented for Arrays and ChunkedArrays.
 * `dplyr` filter expressions on Arrow Tables and RecordBatches are now evaluated in the C++ library, rather than by pulling data into R and evaluating. This yields significant performance improvements.
 * `dim()` (`nrow`) for dplyr queries on Table/RecordBatch is now supported
 
