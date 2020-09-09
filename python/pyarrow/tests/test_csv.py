@@ -683,6 +683,33 @@ class BaseTestCSVRead:
         assert "In CSV column #1: " in err
         assert "CSV conversion error to float: invalid value 'XXX'" in err
 
+    def test_column_types_dict(self):
+        # Ask for dict-encoded column types in ConvertOptions
+        column_types = [
+            ('a', pa.dictionary(pa.int32(), pa.utf8())),
+            ('b', pa.dictionary(pa.int32(), pa.int64())),
+            ('c', pa.dictionary(pa.int32(), pa.decimal128(11, 2)))]
+
+        opts = ConvertOptions(column_types=dict(column_types))
+        rows = b"a,b,c\nabc,123456,1.0\ndefg,987654,0.5\nabc,123456,1.0\n"
+        table = self.read_bytes(rows, convert_options=opts)
+
+        schema = pa.schema(column_types)
+        expected = {
+            'a': ["abc", "defg", "abc"],
+            'b': [123456, 987654, 123456],
+            'c': [Decimal("1.00"), Decimal("0.50"), Decimal("1.00")]
+        }
+        assert table.schema == schema
+        assert table.to_pydict() == expected
+
+        # Unsupported index type
+        column_types[0] = ('a', pa.dictionary(pa.int8(), pa.utf8()))
+
+        opts = ConvertOptions(column_types=dict(column_types))
+        with pytest.raises(NotImplementedError):
+            table = self.read_bytes(rows, convert_options=opts)
+
     def test_column_types_with_column_names(self):
         # When both `column_names` and `column_types` are given, names
         # in `column_types` should refer to names in `column_names`

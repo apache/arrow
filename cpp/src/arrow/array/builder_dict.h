@@ -32,6 +32,7 @@
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/decimal.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
@@ -59,6 +60,11 @@ struct DictionaryScalar<StringType> {
 
 template <>
 struct DictionaryScalar<FixedSizeBinaryType> {
+  using type = util::string_view;
+};
+
+template <>
+struct DictionaryScalar<Decimal128Type> {
   using type = util::string_view;
 };
 
@@ -101,6 +107,7 @@ class ARROW_EXPORT DictionaryMemoTable {
 template <typename BuilderType, typename T>
 class DictionaryBuilderBase : public ArrayBuilder {
  public:
+  using TypeClass = DictionaryType;
   using Scalar = typename DictionaryScalar<T>::type;
 
   // WARNING: the type given below is the value type, not the DictionaryType.
@@ -216,6 +223,14 @@ class DictionaryBuilderBase : public ArrayBuilder {
   template <typename T1 = T>
   enable_if_string_like<T1, Status> Append(const char* value, int32_t length) {
     return Append(util::string_view(value, length));
+  }
+
+  /// \brief Append a decimal (only for Decimal128Type)
+  template <typename T1 = T>
+  enable_if_decimal<T1, Status> Append(const Decimal128& value) {
+    uint8_t data[16];
+    value.ToBytes(data);
+    return Append(data, 16);
   }
 
   /// \brief Append a scalar null value
