@@ -81,7 +81,7 @@ This library currently supports the following SQL constructs:
 * most mathematical unary and binary expressions such as `+`, `/`, `sqrt`, `tan`, `>=`.
 * `WHERE` to filter
 * `GROUP BY` together with one of the following aggregations: `MIN`, `MAX`, `COUNT`, `SUM`, `AVG`
-* `ORDER BY` together with an expression and optional `DESC`
+* `ORDER BY` together with an expression and optional `ASC` or `DESC` and also optional `NULLS FIRST` or `NULLS LAST`
 
 ## Supported Data Types
 

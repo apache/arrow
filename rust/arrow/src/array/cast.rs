@@ -30,6 +30,16 @@ where
         .expect("Unable to downcast to primitive array")
 }
 
+/// Force downcast ArrayRef to DictionaryArray<T>
+pub fn as_dictionary_array<T>(arr: &ArrayRef) -> &DictionaryArray<T>
+where
+    T: ArrowDictionaryKeyType,
+{
+    arr.as_any()
+        .downcast_ref::<DictionaryArray<T>>()
+        .expect("Unable to downcast to dictionary array")
+}
+
 macro_rules! array_downcast_fn {
     ($name: ident, $arrty: ty, $arrty_str:expr) => {
         #[doc = "Force downcast ArrayRef to "]

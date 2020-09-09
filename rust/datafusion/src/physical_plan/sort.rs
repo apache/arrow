@@ -169,6 +169,7 @@ mod tests {
     use super::*;
     use crate::physical_plan::csv::{CsvExec, CsvReadOptions};
     use crate::physical_plan::expressions::col;
+    use crate::physical_plan::memory::MemoryExec;
     use crate::physical_plan::merge::MergeExec;
     use crate::test;
     use arrow::array::*;
@@ -220,6 +221,108 @@ mod tests {
         let c7 = as_primitive_array::<UInt8Type>(&columns[6]);
         assert_eq!(c7.value(0), 15);
         assert_eq!(c7.value(c7.len() - 1), 254,);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_lex_sort_by_float() -> Result<()> {
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("a", DataType::Float32, true),
+            Field::new("b", DataType::Float64, true),
+        ]));
+
+        // define data.
+        let batch = RecordBatch::try_new(
+            schema.clone(),
+            vec![
+                Arc::new(Float32Array::from(vec![
+                    Some(f32::NAN),
+                    None,
+                    None,
+                    Some(f32::NAN),
+                    Some(1.0_f32),
+                    Some(1.0_f32),
+                    Some(2.0_f32),
+                    Some(3.0_f32),
+                ])),
+                Arc::new(Float64Array::from(vec![
+                    Some(200.0_f64),
+                    Some(20.0_f64),
+                    Some(10.0_f64),
+                    Some(100.0_f64),
+                    Some(f64::NAN),
+                    None,
+                    None,
+                    Some(f64::NAN),
+                ])),
+            ],
+        )?;
+
+        let sort_exec = Arc::new(SortExec::try_new(
+            vec![
+                PhysicalSortExpr {
+                    expr: col("a"),
+                    options: SortOptions {
+                        descending: true,
+                        nulls_first: true,
+                    },
+                },
+                PhysicalSortExpr {
+                    expr: col("b"),
+                    options: SortOptions {
+                        descending: false,
+                        nulls_first: false,
+                    },
+                },
+            ],
+            Arc::new(MemoryExec::try_new(&vec![vec![batch]], schema, None)?),
+            2,
+        )?);
+
+        assert_eq!(DataType::Float32, *sort_exec.schema().field(0).data_type());
+        assert_eq!(DataType::Float64, *sort_exec.schema().field(1).data_type());
+
+        let result: Vec<RecordBatch> = test::execute(sort_exec)?;
+        assert_eq!(result.len(), 1);
+
+        let columns = result[0].columns();
+
+        assert_eq!(DataType::Float32, *columns[0].data_type());
+        assert_eq!(DataType::Float64, *columns[1].data_type());
+
+        let a = as_primitive_array::<Float32Type>(&columns[0]);
+        let b = as_primitive_array::<Float64Type>(&columns[1]);
+
+        // convert result to strings to allow comparing to expected result containing NaN
+        let result: Vec<(Option<String>, Option<String>)> = (0..result[0].num_rows())
+            .map(|i| {
+                let aval = if a.is_valid(i) {
+                    Some(a.value(i).to_string())
+                } else {
+                    None
+                };
+                let bval = if b.is_valid(i) {
+                    Some(b.value(i).to_string())
+                } else {
+                    None
+                };
+                (aval, bval)
+            })
+            .collect();
+
+        let expected: Vec<(Option<String>, Option<String>)> = vec![
+            (None, Some("10".to_owned())),
+            (None, Some("20".to_owned())),
+            (Some("NaN".to_owned()), Some("100".to_owned())),
+            (Some("NaN".to_owned()), Some("200".to_owned())),
+            (Some("3".to_owned()), Some("NaN".to_owned())),
+            (Some("2".to_owned()), None),
+            (Some("1".to_owned()), Some("NaN".to_owned())),
+            (Some("1".to_owned()), None),
+        ];
+
+        assert_eq!(expected, result);
 
         Ok(())
     }
