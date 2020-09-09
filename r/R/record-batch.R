@@ -278,7 +278,10 @@ as.data.frame.RecordBatch <- function(x, row.names = NULL, optional = FALSE, ...
 apply_arrow_r_metadata <- function(x, r_metadata) {
   tryCatch({
     if (!is.null(r_metadata$attributes)) {
-      attributes(x) <- r_metadata$attributes
+      attributes(x)[names(r_metadata$attributes)] <- r_metadata$attributes
+      if (inherits(x, "POSIXlt")) {
+        attr(x, "row.names") <- NULL
+      }
     }
 
     columns_metadata <- r_metadata$columns

@@ -185,6 +185,36 @@ Table <- R6Class("Table", inherit = ArrowObject,
   )
 )
 
+bad_attributes <- function(x) {
+  UseMethod("bad_attributes")
+}
+
+bad_attributes.default <- function(x) character()
+bad_attributes.data.frame <- function(x) c("class", "row.names", "names")
+bad_attributes.factor <- function(x) c("class", "levels")
+bad_attributes.Date <- function(x) "class"
+bad_attributes.integer64 <- function(x) "class"
+bad_attributes.POSIXct <- function(x) c("class", "tzone")
+bad_attributes.hms <- function(x) c("class", "units")
+bad_attributes.difftime <- function(x) c("class", "units")
+
+arrow_attributes <- function(x, only_top_level = FALSE) {
+  att <- attributes(x)
+  att <- att[setdiff(names(att), bad_attributes(x))]
+  if (isTRUE(only_top_level)) {
+    return(att)
+  }
+
+  if (is.data.frame(x)) {
+    columns <- map(x, arrow_attributes)
+    if (length(att) || !all(map_lgl(columns, is.null))) {
+      list(attributes = att, columns = columns)
+    }
+  } else if (length(att)) {
+    list(attributes = att, columns = NULL)
+  }
+}
+
 Table$create <- function(..., schema = NULL) {
   dots <- list2(...)
   # making sure there are always names

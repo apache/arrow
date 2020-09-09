@@ -127,6 +127,7 @@ struct symbols {
   static SEXP ptype;
   static SEXP byte_width;
   static SEXP list_size;
+  static SEXP arrow_attributes;
 };
 
 struct data {

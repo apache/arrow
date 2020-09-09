@@ -126,3 +126,9 @@ test_that("Date/time type roundtrip", {
   expect_is(rb$schema$posixlt$type, "StructType")
   expect_identical(as.data.frame(rb), example_with_times)
 })
+
+test_that("metadata keeps attribute of top level data frame", {
+  df <- structure(data.frame(x = 1, y = 2), foo = "bar")
+  tab <- Table$create(df)
+  expect_equal(attr(as.data.frame(tab), "foo"), "bar")
+})
