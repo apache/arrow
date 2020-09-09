@@ -28,6 +28,55 @@ use arrow::{
 use chrono::prelude::*;
 
 #[inline]
+/// Accepts a string in RFC3339 / ISO8601 standard format and some
+/// variants and converts it to a nanosecond precision timestamp.
+///
+/// Implements the `to_timestamp` function to convert a string to a
+/// timestamp, following the model of spark SQL’s to_`timestamp`.
+///
+/// In addition to RFC3339 / ISO8601 standard tiemstamps, it also
+/// accepts strings that use a space ` ` to separate the date and time
+/// as well as strings that have no explicit timezone offset.
+///
+/// Examples of accepted inputs:
+/// * `1997-01-31T09:26:56.123Z`        # RCF3339
+/// * `1997-01-31T09:26:56.123-05:00`   # RCF3339
+/// * `1997-01-31 09:26:56.123-05:00`   # close to RCF3339 but with a space rather than T
+/// * `1997-01-31T09:26:56.123`         # close to RCF3339 but no timezone offset specified
+/// * `1997-01-31 09:26:56.123`         # close to RCF3339 but uses a space and no timezone offset
+//
+/// Internally, this function uses the `chrono` library for the
+/// datetime parsing
+///
+/// We hope to extend this function in the future with a second
+/// parameter to specifying the format string.
+///
+/// ## Timestamp Precision
+///
+/// DataFusion uses the maximum precision timestamps supported by
+/// Arrow (nanoseconds stored as a 64-bit integer) timestamps. This
+/// means the range of dates that timestamps can represent is ~1677 AD
+/// to 2262 AM
+///
+///
+/// ## Timezone / Offset Handling
+///
+/// By using the Arrow format, DataFusion inherits Arrow’s handling of
+/// timestamp values. Specifically, the stored numerical values of
+/// timestamps are stored compared to offset UTC.
+///
+/// This function intertprets strings without an explicit time zone as
+/// timestamps with offsets of the local time on the machine that ran
+/// the datafusion query
+///
+/// For example, `1997-01-31 09:26:56.123Z` is interpreted as UTC, as
+/// it has an explicit timezone specifier (“Z” for Zulu/UTC)
+///
+/// `1997-01-31T09:26:56.123` is interpreted as a local timestamp in
+/// the timezone of the machine that ran DataFusion. For example, if
+/// the system timezone is set to Americas/New_York (UTC-5) the
+/// timestamp will be interpreted as though it were
+/// `1997-01-31T09:26:56.123-05:00`
 fn string_to_timestamp_nanos(s: &str) -> Result<i64> {
     // Fast path:  RFC3339 timestamp (with a T)
     // Example: 2020-09-08T13:42:29.190855Z
