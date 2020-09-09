@@ -29,18 +29,23 @@ endif()
 # Compatibility with CMake 3.1
 # Only interpret if() arguments as variables or keywords when unquoted.
 if(POLICY CMP0054)
-  # https://www.cmake.org/cmake/help/v3.1/policy/CMP0054.html
+  # https://cmake.org/cmake/help/latest/policy/CMP0054.html
   cmake_policy(SET CMP0054 NEW)
 endif()
 
 if(POLICY CMP0068)
-  # https://cmake.org/cmake/help/v3.9/policy/CMP0068.html
+  # https://cmake.org/cmake/help/latest/policy/CMP0068.html
   cmake_policy(SET CMP0068 NEW)
+endif()
+
+if(POLICY CMP0069)
+  # https://cmake.org/cmake/help/latest/policy/CMP0069.html
+  cmake_policy(SET CMP0069 OLD)
 endif()
 
 # Don't ignore <PackageName>_ROOT variables in find_package
 if(POLICY CMP0074)
-  # https://cmake.org/cmake/help/v3.12/policy/CMP0074.html
+  # https://cmake.org/cmake/help/latest/policy/CMP0074.html
   cmake_policy(SET CMP0074 NEW)
 endif()
 
