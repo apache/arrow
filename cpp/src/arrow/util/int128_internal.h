@@ -23,6 +23,13 @@
 namespace arrow {
 namespace internal {
 
+// NOTE: __int128_t and boost::multiprecision::int128_t are not interchangeable.
+// For example, __int128_t does not have any member function, and does not have
+// operator<<(std::ostream, __int128_t). On the other hand, the behavior of
+// boost::multiprecision::int128_t might be surprising with some configs (e.g.,
+// static_cast<uint64_t>(boost::multiprecision::uint128_t) might return
+// ~uint64_t{0} instead of the lower 64 bits of the input).
+// Try to minimize the usage of int128_t and uint128_t.
 #ifdef __SIZEOF_INT128__
 using int128_t = __int128_t;
 using uint128_t = __uint128_t;

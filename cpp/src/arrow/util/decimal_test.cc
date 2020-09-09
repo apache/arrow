@@ -26,17 +26,17 @@
 #include <vector>
 
 #include <gtest/gtest.h>
-#include <boost/multiprecision/cpp_int.hpp>
 
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/util/decimal.h"
+#include "arrow/util/int128_internal.h"
 #include "arrow/util/macros.h"
 
-using boost::multiprecision::int128_t;
-
 namespace arrow {
+
+using internal::int128_t;
 
 class DecimalTestFixture : public ::testing::Test {
  public:
@@ -902,6 +902,11 @@ std::vector<CType> GetRandomNumbers(int32_t size) {
   return ret;
 }
 
+Decimal128 Decimal128FromInt128(int128_t value) {
+  return Decimal128(static_cast<int64_t>(value >> 64),
+                    static_cast<uint64_t>(value & 0xFFFFFFFFFFFFFFFFULL));
+}
+
 TEST(Decimal128Test, Multiply) {
   ASSERT_EQ(Decimal128(60501), Decimal128(301) * Decimal128(201));
 
@@ -924,8 +929,11 @@ TEST(Decimal128Test, Multiply) {
   for (auto x : std::vector<int128_t>{-INT64_MAX, -INT32_MAX, 0, INT32_MAX, INT64_MAX}) {
     for (auto y :
          std::vector<int128_t>{-INT32_MAX, -32, -2, -1, 0, 1, 2, 32, INT32_MAX}) {
-      Decimal128 result = Decimal128(x.str()) * Decimal128(y.str());
-      ASSERT_EQ(Decimal128((x * y).str()), result) << " x: " << x << " y: " << y;
+      Decimal128 decimal_x = Decimal128FromInt128(x);
+      Decimal128 decimal_y = Decimal128FromInt128(y);
+      Decimal128 result = decimal_x * decimal_y;
+      EXPECT_EQ(Decimal128FromInt128(x * y), result)
+          << " x: " << decimal_x << " y: " << decimal_y;
     }
   }
 }
@@ -955,8 +963,11 @@ TEST(Decimal128Test, Divide) {
   // Test some edge cases
   for (auto x : std::vector<int128_t>{-INT64_MAX, -INT32_MAX, 0, INT32_MAX, INT64_MAX}) {
     for (auto y : std::vector<int128_t>{-INT32_MAX, -32, -2, -1, 1, 2, 32, INT32_MAX}) {
-      Decimal128 result = Decimal128(x.str()) * Decimal128(y.str());
-      ASSERT_EQ(Decimal128((x * y).str()), result) << " x: " << x << " y: " << y;
+      Decimal128 decimal_x = Decimal128FromInt128(x);
+      Decimal128 decimal_y = Decimal128FromInt128(y);
+      Decimal128 result = decimal_x / decimal_y;
+      EXPECT_EQ(Decimal128FromInt128(x / y), result)
+          << " x: " << decimal_x << " y: " << decimal_y;
     }
   }
 }
@@ -986,8 +997,11 @@ TEST(Decimal128Test, Mod) {
   // Test some edge cases
   for (auto x : std::vector<int128_t>{-INT64_MAX, -INT32_MAX, 0, INT32_MAX, INT64_MAX}) {
     for (auto y : std::vector<int128_t>{-INT32_MAX, -32, -2, -1, 1, 2, 32, INT32_MAX}) {
-      Decimal128 result = Decimal128(x.str()) * Decimal128(y.str());
-      ASSERT_EQ(Decimal128((x * y).str()), result) << " x: " << x << " y: " << y;
+      Decimal128 decimal_x = Decimal128FromInt128(x);
+      Decimal128 decimal_y = Decimal128FromInt128(y);
+      Decimal128 result = decimal_x % decimal_y;
+      EXPECT_EQ(Decimal128FromInt128(x % y), result)
+          << " x: " << decimal_x << " y: " << decimal_y;
     }
   }
 }
