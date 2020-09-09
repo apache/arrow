@@ -1186,7 +1186,7 @@ TEST(Decimal256Test, TestToBytesRoundTrip) {
   for (const std::array<uint64_t, 4>& bits : kSortedDecimal256Bits) {
     Decimal256 decimal(bits);
     EXPECT_EQ(decimal, Decimal256(decimal.ToBytes().data()));
-  };
+  }
 }
 
 template <typename T>
