@@ -436,13 +436,11 @@ Result<S3Model::GetObjectResult> GetObjectRange(Aws::S3::S3Client* client,
 }
 
 // A RandomAccessFile that reads from a S3 object
-class ObjectInputFile : public io::RandomAccessFile {
+class ObjectInputFile final : public io::RandomAccessFile {
  public:
-  ObjectInputFile(Aws::S3::S3Client* client, const S3Path& path)
-      : client_(client), path_(path) {}
-
-  ObjectInputFile(Aws::S3::S3Client* client, const S3Path& path, int64_t size)
-      : client_(client), path_(path), content_length_(size) {}
+  ObjectInputFile(std::shared_ptr<FileSystem> fs, Aws::S3::S3Client* client,
+                  const S3Path& path, int64_t size = kNoSize)
+      : fs_(std::move(fs)), client_(client), path_(path), content_length_(size) {}
 
   Status Init() {
     // Issue a HEAD Object to get the content-length and ensure any
@@ -492,6 +490,8 @@ class ObjectInputFile : public io::RandomAccessFile {
   // RandomAccessFile APIs
 
   Status Close() override {
+    fs_.reset();
+    client_ = nullptr;
     closed_ = true;
     return Status::OK();
   }
@@ -566,6 +566,7 @@ class ObjectInputFile : public io::RandomAccessFile {
   }
 
  protected:
+  std::shared_ptr<FileSystem> fs_;  // Owner of S3Client
   Aws::S3::S3Client* client_;
   S3Path path_;
   bool closed_ = false;
@@ -580,14 +581,14 @@ class ObjectInputFile : public io::RandomAccessFile {
 static constexpr int64_t kMinimumPartUpload = 5 * 1024 * 1024;
 
 // An OutputStream that writes to a S3 object
-class ObjectOutputStream : public io::OutputStream {
+class ObjectOutputStream final : public io::OutputStream {
  protected:
   struct UploadState;
 
  public:
-  ObjectOutputStream(Aws::S3::S3Client* client, const S3Path& path,
-                     const S3Options& options)
-      : client_(client), path_(path), options_(options) {}
+  ObjectOutputStream(std::shared_ptr<FileSystem> fs, Aws::S3::S3Client* client,
+                     const S3Path& path, const S3Options& options)
+      : fs_(std::move(fs)), client_(client), path_(path), options_(options) {}
 
   ~ObjectOutputStream() override {
     // For compliance with the rest of the IO stack, Close rather than Abort,
@@ -632,6 +633,8 @@ class ObjectOutputStream : public io::OutputStream {
           outcome.GetError());
     }
     current_part_.reset();
+    fs_.reset();
+    client_ = nullptr;
     closed_ = true;
     return Status::OK();
   }
@@ -677,6 +680,8 @@ class ObjectOutputStream : public io::OutputStream {
           outcome.GetError());
     }
 
+    fs_.reset();
+    client_ = nullptr;
     closed_ = true;
     return Status::OK();
   }
@@ -849,6 +854,7 @@ class ObjectOutputStream : public io::OutputStream {
   }
 
  protected:
+  std::shared_ptr<FileSystem> fs_;  // Owner of S3Client
   Aws::S3::S3Client* client_;
   S3Path path_;
   const S3Options& options_;
@@ -1273,6 +1279,35 @@ class S3FileSystem::Impl {
     }
     return Status::OK();
   }
+
+  Result<std::shared_ptr<ObjectInputFile>> OpenInputFile(const std::string& s,
+                                                         S3FileSystem* fs) {
+    ARROW_ASSIGN_OR_RAISE(auto path, S3Path::FromString(s));
+    RETURN_NOT_OK(ValidateFilePath(path));
+
+    auto ptr =
+        std::make_shared<ObjectInputFile>(fs->shared_from_this(), client_.get(), path);
+    RETURN_NOT_OK(ptr->Init());
+    return ptr;
+  }
+
+  Result<std::shared_ptr<ObjectInputFile>> OpenInputFile(const FileInfo& info,
+                                                         S3FileSystem* fs) {
+    if (info.type() == FileType::NotFound) {
+      return ::arrow::fs::internal::PathNotFound(info.path());
+    }
+    if (info.type() != FileType::File && info.type() != FileType::Unknown) {
+      return ::arrow::fs::internal::NotAFile(info.path());
+    }
+
+    ARROW_ASSIGN_OR_RAISE(auto path, S3Path::FromString(info.path()));
+    RETURN_NOT_OK(ValidateFilePath(path));
+
+    auto ptr = std::make_shared<ObjectInputFile>(fs->shared_from_this(), client_.get(),
+                                                 path, info.size());
+    RETURN_NOT_OK(ptr->Init());
+    return ptr;
+  }
 };
 
 S3FileSystem::S3FileSystem(const S3Options& options) : impl_(new Impl{options}) {}
@@ -1528,56 +1563,22 @@ Status S3FileSystem::CopyFile(const std::string& src, const std::string& dest) {
 
 Result<std::shared_ptr<io::InputStream>> S3FileSystem::OpenInputStream(
     const std::string& s) {
-  ARROW_ASSIGN_OR_RAISE(auto path, S3Path::FromString(s));
-  RETURN_NOT_OK(ValidateFilePath(path));
-
-  auto ptr = std::make_shared<ObjectInputFile>(impl_->client_.get(), path);
-  RETURN_NOT_OK(ptr->Init());
-  return ptr;
+  return impl_->OpenInputFile(s, this);
 }
 
 Result<std::shared_ptr<io::InputStream>> S3FileSystem::OpenInputStream(
     const FileInfo& info) {
-  if (info.type() == FileType::NotFound) {
-    return ::arrow::fs::internal::PathNotFound(info.path());
-  }
-  if (info.type() != FileType::File && info.type() != FileType::Unknown) {
-    return ::arrow::fs::internal::NotAFile(info.path());
-  }
-
-  ARROW_ASSIGN_OR_RAISE(auto path, S3Path::FromString(info.path()));
-  RETURN_NOT_OK(ValidateFilePath(path));
-
-  auto ptr = std::make_shared<ObjectInputFile>(impl_->client_.get(), path, info.size());
-  RETURN_NOT_OK(ptr->Init());
-  return ptr;
+  return impl_->OpenInputFile(info, this);
 }
 
 Result<std::shared_ptr<io::RandomAccessFile>> S3FileSystem::OpenInputFile(
     const std::string& s) {
-  ARROW_ASSIGN_OR_RAISE(auto path, S3Path::FromString(s));
-  RETURN_NOT_OK(ValidateFilePath(path));
-
-  auto ptr = std::make_shared<ObjectInputFile>(impl_->client_.get(), path);
-  RETURN_NOT_OK(ptr->Init());
-  return ptr;
+  return impl_->OpenInputFile(s, this);
 }
 
 Result<std::shared_ptr<io::RandomAccessFile>> S3FileSystem::OpenInputFile(
     const FileInfo& info) {
-  if (info.type() == FileType::NotFound) {
-    return ::arrow::fs::internal::PathNotFound(info.path());
-  }
-  if (info.type() != FileType::File && info.type() != FileType::Unknown) {
-    return ::arrow::fs::internal::NotAFile(info.path());
-  }
-
-  ARROW_ASSIGN_OR_RAISE(auto path, S3Path::FromString(info.path()));
-  RETURN_NOT_OK(ValidateFilePath(path));
-
-  auto ptr = std::make_shared<ObjectInputFile>(impl_->client_.get(), path, info.size());
-  RETURN_NOT_OK(ptr->Init());
-  return ptr;
+  return impl_->OpenInputFile(info, this);
 }
 
 Result<std::shared_ptr<io::OutputStream>> S3FileSystem::OpenOutputStream(
@@ -1585,8 +1586,8 @@ Result<std::shared_ptr<io::OutputStream>> S3FileSystem::OpenOutputStream(
   ARROW_ASSIGN_OR_RAISE(auto path, S3Path::FromString(s));
   RETURN_NOT_OK(ValidateFilePath(path));
 
-  auto ptr =
-      std::make_shared<ObjectOutputStream>(impl_->client_.get(), path, impl_->options_);
+  auto ptr = std::make_shared<ObjectOutputStream>(
+      shared_from_this(), impl_->client_.get(), path, impl_->options_);
   RETURN_NOT_OK(ptr->Init());
   return ptr;
 }

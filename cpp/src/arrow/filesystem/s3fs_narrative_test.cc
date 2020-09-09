@@ -87,7 +87,7 @@ void PrintError(const std::string& context_msg, const Result<T>& result) {
 void ClearBucket(int argc, char** argv) {
   auto fs = MakeFileSystem();
 
-  ASSERT_OK(fs->DeleteDirContents(""));
+  ASSERT_OK(fs->DeleteRootDirContents());
 }
 
 void TestBucket(int argc, char** argv) {
