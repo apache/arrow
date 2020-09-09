@@ -210,3 +210,13 @@ def changed_environ(name, value):
             del os.environ[name]
         else:
             os.environ[name] = orig_value
+
+
+@contextlib.contextmanager
+def change_cwd(path):
+    curdir = os.getcwd()
+    os.chdir(str(path))
+    try:
+        yield
+    finally:
+        os.chdir(curdir)

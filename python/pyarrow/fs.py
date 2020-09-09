@@ -116,8 +116,32 @@ def _resolve_filesystem_and_path(
             filesystem, allow_legacy_filesystem=allow_legacy_filesystem
         )
         return filesystem, path
+
+    # if filesystem is not given, try to automatically determine one
+    # first check if the file exists as a local (relative) file path
+    # if not then try to parse the path as an URI
+    filesystem = LocalFileSystem()
+    try:
+        file_info = filesystem.get_file_info(path)
+    except OSError:
+        file_info = None
+        exists_locally = False
     else:
-        return FileSystem.from_uri(path)
+        exists_locally = (file_info.type != FileType.NotFound)
+
+    # if the file or directory doesn't exists locally, then assume that
+    # the path is an URI describing the file system as well
+    if not exists_locally:
+        try:
+            filesystem, path = FileSystem.from_uri(path)
+        except ValueError as e:
+            # neither an URI nor a locally existing path, so assume that
+            # local path was given and propagate a nicer file not found error
+            # instead of a more confusing scheme parsing error
+            if "empty scheme" not in str(e):
+                raise
+
+    return filesystem, path
 
 
 class FSSpecHandler(FileSystemHandler):

@@ -497,6 +497,35 @@ def test_multiple_path_types(tempdir, use_legacy_dataset):
     tm.assert_frame_equal(df, df_read)
 
 
+@parametrize_legacy_dataset
+@pytest.mark.parametrize("filesystem", [
+    None, fs.LocalFileSystem(), LocalFileSystem.get_instance()
+])
+def test_relative_paths(tempdir, use_legacy_dataset, filesystem):
+    # reading and writing from relative paths
+    table = pa.table({"a": [1, 2, 3]})
+
+    # reading
+    pq.write_table(table, str(tempdir / "data.parquet"))
+    with util.change_cwd(tempdir):
+        result = pq.read_table("data.parquet", filesystem=filesystem,
+                               use_legacy_dataset=use_legacy_dataset)
+    assert result.equals(table)
+
+    # writing
+    with util.change_cwd(tempdir):
+        pq.write_table(table, "data2.parquet", filesystem=filesystem)
+    result = pq.read_table(tempdir / "data2.parquet")
+    assert result.equals(table)
+
+
+@parametrize_legacy_dataset
+def test_read_non_existing_file(use_legacy_dataset):
+    # ensure we have a proper error message
+    with pytest.raises(FileNotFoundError):
+        pq.read_table('i-am-not-existing.parquet')
+
+
 # TODO(dataset) duplicate column selection actually gives duplicate columns now
 @pytest.mark.pandas
 @parametrize_legacy_dataset_not_supported

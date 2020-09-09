@@ -27,6 +27,7 @@ import pytest
 import pyarrow as pa
 import pyarrow.csv
 import pyarrow.fs as fs
+from pyarrow.tests.util import change_cwd
 
 try:
     import pandas as pd
@@ -41,16 +42,6 @@ except ImportError:
 # Marks all of the tests in this module
 # Ignore these with pytest ... -m 'not dataset'
 pytestmark = pytest.mark.dataset
-
-
-@contextlib.contextmanager
-def change_cwd(path):
-    curdir = os.getcwd()
-    os.chdir(str(path))
-    try:
-        yield
-    finally:
-        os.chdir(curdir)
 
 
 def _generate_data(n):
