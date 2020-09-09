@@ -20,6 +20,7 @@ import os
 import inspect
 import posixpath
 import urllib.parse
+import warnings
 
 from os.path import join as pjoin
 
@@ -237,11 +238,27 @@ class LocalFileSystem(FileSystem):
 
     _instance = None
 
+    def __init__(self):
+        warnings.warn(
+            "pyarrow.filesystem.LocalFileSystem is deprecated as of 2.0.0, "
+            "please use pyarrow.fs.LocalFileSystem instead",
+            DeprecationWarning, stacklevel=2)
+        super().__init__()
+
+    @classmethod
+    def _get_instance(cls):
+        if cls._instance is None:
+            with warnings.catch_warnings():
+                cls._instance = LocalFileSystem()
+        return cls._instance
+
     @classmethod
     def get_instance(cls):
-        if cls._instance is None:
-            cls._instance = LocalFileSystem()
-        return cls._instance
+        warnings.warn(
+            "pyarrow.filesystem.LocalFileSystem is deprecated as of 2.0.0, "
+            "please use pyarrow.fs.LocalFileSystem instead",
+            DeprecationWarning, stacklevel=2)
+        return cls._get_instance()
 
     @implements(FileSystem.ls)
     def ls(self, path):
@@ -480,11 +497,11 @@ def resolve_filesystem_and_path(where, filesystem=None):
         fs_path = parsed_uri.path
     elif parsed_uri.scheme == 'file':
         # Input is local URI such as file:///home/user/myfile.parquet
-        fs = LocalFileSystem.get_instance()
+        fs = LocalFileSystem._get_instance()
         fs_path = parsed_uri.path
     else:
         # Input is local path such as /home/user/myfile.parquet
-        fs = LocalFileSystem.get_instance()
+        fs = LocalFileSystem._get_instance()
         fs_path = path
 
     return fs, fs_path

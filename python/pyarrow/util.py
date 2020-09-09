@@ -52,7 +52,8 @@ def _deprecate_class(old_name, new_class, next_version,
         def __instancecheck__(self, other):
             warnings.warn(
                 msg.format(old_name, next_version, new_class.__name__),
-                FutureWarning
+                FutureWarning,
+                stacklevel=2
             )
             return isinstance(other, new_class)
 
