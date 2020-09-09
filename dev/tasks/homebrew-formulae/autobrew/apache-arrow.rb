@@ -36,6 +36,7 @@ class ApacheArrow < Formula
   depends_on "lz4"
   depends_on "snappy"
   depends_on "thrift"
+  depends_on "zstd"
 
   def install
     ENV.cxx11
@@ -56,6 +57,7 @@ class ApacheArrow < Formula
       -DARROW_WITH_ZLIB=ON
       -DARROW_WITH_SNAPPY=ON
       -DARROW_WITH_UTF8PROC=OFF
+      -DARROW_WITH_ZSTD=ON
       -DARROW_BUILD_UTILITIES=ON
       -DARROW_VERBOSE_THIRDPARTY_BUILD=ON
       -DCMAKE_UNITY_BUILD=OFF
