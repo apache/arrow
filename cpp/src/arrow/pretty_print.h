@@ -117,6 +117,15 @@ ARROW_EXPORT
 Status PrettyPrint(const Schema& schema, const PrettyPrintOptions& options,
                    std::string* result);
 
+/// \brief Print human-readable representation of Scalar
+ARROW_EXPORT
+Status PrettyPrint(const Scalar& scalar, const PrettyPrintOptions& options,
+                   std::ostream* sink);
+
+ARROW_EXPORT
+Status PrettyPrint(const Scalar& scalar, const PrettyPrintOptions& options,
+                   std::string* result);
+
 ARROW_EXPORT
 Status DebugPrint(const Array& arr, int indent);
 

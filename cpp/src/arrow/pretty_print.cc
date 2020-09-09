@@ -44,6 +44,7 @@
 namespace arrow {
 
 using internal::checked_cast;
+using internal::checked_pointer_cast;
 
 class PrettyPrinter {
  public:
@@ -111,6 +112,160 @@ void PrettyPrinter::Indent() {
   }
 }
 
+static arrow_vendored::date::sys_days epoch_ =
+    arrow_vendored::date::sys_days{arrow_vendored::date::jan / 1 / 1970};
+
+template <typename Unit>
+static void FormatDateTime(std::ostream* sink, const char* fmt, int64_t value,
+                           bool add_epoch) {
+  if (add_epoch) {
+    (*sink) << arrow_vendored::date::format(fmt, epoch_ + Unit{value});
+  } else {
+    (*sink) << arrow_vendored::date::format(fmt, Unit{value});
+  }
+}
+
+static void FormatDateTime(std::ostream* sink, TimeUnit::type unit, const char* fmt,
+                           int64_t value, bool add_epoch) {
+  switch (unit) {
+    case TimeUnit::NANO:
+      FormatDateTime<std::chrono::nanoseconds>(sink, fmt, value, add_epoch);
+      break;
+    case TimeUnit::MICRO:
+      FormatDateTime<std::chrono::microseconds>(sink, fmt, value, add_epoch);
+      break;
+    case TimeUnit::MILLI:
+      FormatDateTime<std::chrono::milliseconds>(sink, fmt, value, add_epoch);
+      break;
+    case TimeUnit::SECOND:
+      FormatDateTime<std::chrono::seconds>(sink, fmt, value, add_epoch);
+      break;
+  }
+}
+
+class ScalarPrinter : public PrettyPrinter {
+ public:
+  ScalarPrinter(const PrettyPrintOptions& options, std::ostream* sink)
+      : PrettyPrinter(options, sink) {}
+
+  Status Print(const Scalar& scalar) {
+    if (scalar.is_valid == false) {
+      (*sink_) << "null";
+    } else {
+      RETURN_NOT_OK(VisitScalarInline(scalar, this));
+      Flush();
+    }
+    return Status::OK();
+  }
+
+  template <typename T>
+  enable_if_integer<typename T::TypeClass, Status> Visit(const T& scalar) {
+    (*sink_) << internal::UpcastInt(scalar.value);
+    return Status::OK();
+  }
+
+  template <typename T>
+  typename std::enable_if<std::is_base_of<HalfFloatScalar, T>::value ||
+                              std::is_base_of<FloatScalar, T>::value ||
+                              std::is_base_of<DoubleScalar, T>::value ||
+                              std::is_base_of<DurationScalar, T>::value ||
+                              std::is_base_of<MonthIntervalScalar, T>::value,
+                          Status>::type
+  Visit(const T& scalar) {
+    (*sink_) << scalar.value;
+    return Status::OK();
+  }
+
+  template <typename T>
+  enable_if_string_like<typename T::TypeClass, Status> Visit(const T& scalar) {
+    (*sink_) << "\"" << scalar.value->ToString() << "\"";
+    return Status::OK();
+  }
+
+  template <typename T>
+  enable_if_binary_like<typename T::TypeClass, Status> Visit(const T& scalar) {
+    (*sink_) << HexEncode(scalar.value->ToString());
+    return Status::OK();
+  }
+
+  template <typename T>
+  enable_if_date<typename T::TypeClass, Status> Visit(const T& scalar) {
+    using unit = typename std::conditional<std::is_same<T, Date32Scalar>::value,
+                                           arrow_vendored::date::days,
+                                           std::chrono::milliseconds>::type;
+    FormatDateTime<unit>(sink_, "%F", scalar.value, true);
+    return Status::OK();
+  }
+
+  template <typename T>
+  enable_if_time<typename T::TypeClass, Status> Visit(const T& scalar) {
+    const auto type = static_cast<const TimeType*>(scalar.type.get());
+    FormatDateTime(sink_, type->unit(), "%T", scalar.value, false);
+    return Status::OK();
+  }
+
+  Status Visit(const TimestampScalar& scalar) {
+    const auto type = static_cast<const TimestampType*>(scalar.type.get());
+    FormatDateTime(sink_, type->unit(), "%F %T", scalar.value, true);
+    return Status::OK();
+  }
+
+  Status Visit(const DayTimeIntervalScalar& scalar) {
+    auto day_millis = scalar.value;
+    (*sink_) << day_millis.days << "d" << day_millis.milliseconds << "ms";
+    return Status::OK();
+  }
+
+  Status Visit(const BooleanScalar& scalar) {
+    (*sink_) << (scalar.value == true ? "true" : "false");
+    return Status::OK();
+  }
+
+  Status Visit(const Decimal128Scalar& scalar) {
+    auto type = checked_pointer_cast<Decimal128Type>(scalar.type);
+    (*sink_) << scalar.value.ToString(type->scale());
+    return Status::OK();
+  }
+
+  Status Visit(const BaseListScalar& scalar) {
+    (*sink_) << scalar.value->ToString();
+    return Status::OK();
+  }
+
+  Status Visit(const MapScalar& scalar) {
+    auto inner_array = checked_pointer_cast<StructArray>(scalar.value);
+    (*sink_) << "keys:\n";
+    (*sink_) << inner_array->field(0)->ToString();
+    (*sink_) << "values:\n";
+    (*sink_) << inner_array->field(1)->ToString();
+    return Status::OK();
+  }
+
+  Status Visit(const StructScalar& scalar) {
+    std::vector<std::shared_ptr<Scalar>> scalars = scalar.value;
+    (*sink_) << "{";
+    for (size_t i = 0; i < scalars.size(); i++) {
+      ScalarPrinter printer(options_, sink_);
+      printer.Print(*scalars[i]);
+      if (i != scalars.size() - 1) {
+        (*sink_) << ", ";
+      }
+    }
+    (*sink_) << "}";
+    return Status::OK();
+  }
+
+  Status Visit(const UnionScalar& scalar) {
+    ScalarPrinter printer(options_, sink_);
+    printer.Print(*(scalar.value));
+    return Status::OK();
+  }
+
+  Status Visit(const Scalar& scalar) {
+    return Status::NotImplemented("Not implemented type:" + scalar.type->ToString());
+  }
+};
+
 class ArrayPrinter : public PrettyPrinter {
  public:
   ArrayPrinter(const PrettyPrintOptions& options, std::ostream* sink)
@@ -166,7 +321,8 @@ class ArrayPrinter : public PrettyPrinter {
     using unit = typename std::conditional<std::is_same<T, Date32Array>::value,
                                            arrow_vendored::date::days,
                                            std::chrono::milliseconds>::type;
-    WriteValues(array, [&](int64_t i) { FormatDateTime<unit>("%F", data[i], true); });
+    WriteValues(array,
+                [&](int64_t i) { FormatDateTime<unit>(sink_, "%F", data[i], true); });
     return Status::OK();
   }
 
@@ -174,16 +330,18 @@ class ArrayPrinter : public PrettyPrinter {
   enable_if_time<typename T::TypeClass, Status> WriteDataValues(const T& array) {
     const auto data = array.raw_values();
     const auto type = static_cast<const TimeType*>(array.type().get());
-    WriteValues(array,
-                [&](int64_t i) { FormatDateTime(type->unit(), "%T", data[i], false); });
+    WriteValues(array, [&](int64_t i) {
+      FormatDateTime(sink_, type->unit(), "%T", data[i], false);
+    });
     return Status::OK();
   }
 
   Status WriteDataValues(const TimestampArray& array) {
     const int64_t* data = array.raw_values();
     const auto type = static_cast<const TimestampType*>(array.type().get());
-    WriteValues(array,
-                [&](int64_t i) { FormatDateTime(type->unit(), "%F %T", data[i], true); });
+    WriteValues(array, [&](int64_t i) {
+      FormatDateTime(sink_, type->unit(), "%F %T", data[i], true);
+    });
     return Status::OK();
   }
 
@@ -385,40 +543,7 @@ class ArrayPrinter : public PrettyPrinter {
     Flush();
     return Status::OK();
   }
-
- private:
-  template <typename Unit>
-  void FormatDateTime(const char* fmt, int64_t value, bool add_epoch) {
-    if (add_epoch) {
-      (*sink_) << arrow_vendored::date::format(fmt, epoch_ + Unit{value});
-    } else {
-      (*sink_) << arrow_vendored::date::format(fmt, Unit{value});
-    }
-  }
-
-  void FormatDateTime(TimeUnit::type unit, const char* fmt, int64_t value,
-                      bool add_epoch) {
-    switch (unit) {
-      case TimeUnit::NANO:
-        FormatDateTime<std::chrono::nanoseconds>(fmt, value, add_epoch);
-        break;
-      case TimeUnit::MICRO:
-        FormatDateTime<std::chrono::microseconds>(fmt, value, add_epoch);
-        break;
-      case TimeUnit::MILLI:
-        FormatDateTime<std::chrono::milliseconds>(fmt, value, add_epoch);
-        break;
-      case TimeUnit::SECOND:
-        FormatDateTime<std::chrono::seconds>(fmt, value, add_epoch);
-        break;
-    }
-  }
-
-  static arrow_vendored::date::sys_days epoch_;
 };
-
-arrow_vendored::date::sys_days ArrayPrinter::epoch_ =
-    arrow_vendored::date::sys_days{arrow_vendored::date::jan / 1 / 1970};
 
 Status ArrayPrinter::WriteValidityBitmap(const Array& array) {
   Indent();
@@ -452,6 +577,20 @@ Status PrettyPrint(const Array& arr, const PrettyPrintOptions& options,
                    std::string* result) {
   std::ostringstream sink;
   RETURN_NOT_OK(PrettyPrint(arr, options, &sink));
+  *result = sink.str();
+  return Status::OK();
+}
+
+Status PrettyPrint(const Scalar& scalar, const PrettyPrintOptions& options,
+                   std::ostream* sink) {
+  ScalarPrinter printer(options, sink);
+  return printer.Print(scalar);
+}
+
+Status PrettyPrint(const Scalar& scalar, const PrettyPrintOptions& options,
+                   std::string* result) {
+  std::ostringstream sink;
+  RETURN_NOT_OK(PrettyPrint(scalar, options, &sink));
   *result = sink.str();
   return Status::OK();
 }

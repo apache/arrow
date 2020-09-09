@@ -15,14 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <gtest/gtest.h>
+
 #include <cstdint>
 #include <cstring>
 #include <memory>
 #include <sstream>
 #include <string>
 #include <vector>
-
-#include <gtest/gtest.h>
 
 #include "arrow/array.h"
 #include "arrow/builder.h"
@@ -738,6 +738,198 @@ TEST_F(TestPrettyPrint, SchemaIndentation) {
 
   PrettyPrintOptions options(/*indent=*/4);
   Check(*sch, options, expected);
+}
+
+TEST_F(TestPrettyPrint, NullScalar) {
+  PrettyPrintOptions options;
+
+  auto ty = decimal(3, 2);
+  auto null = MakeNullScalar(ty);
+
+  Check(*null, options, "null");
+}
+
+TEST_F(TestPrettyPrint, BooleanScalar) {
+  PrettyPrintOptions options;
+
+  auto bool_scalar = BooleanScalar(true);
+  Check(bool_scalar, options, "true");
+  bool_scalar.is_valid = false;
+  Check(bool_scalar, options, "null");
+}
+
+TEST_F(TestPrettyPrint, NumericScalar) {
+  PrettyPrintOptions options;
+  std::shared_ptr<Scalar> scalar;
+
+  scalar = std::make_shared<Int8Scalar>((int8_t)12);
+  Check(*scalar, options, "12");
+  scalar = std::make_shared<Int16Scalar>(34);
+  Check(*scalar, options, "34");
+  scalar = std::make_shared<Int32Scalar>(56);
+  Check(*scalar, options, "56");
+  scalar = std::make_shared<Int64Scalar>(78);
+  Check(*scalar, options, "78");
+
+  scalar = std::make_shared<UInt8Scalar>((uint8_t)12);
+  Check(*scalar, options, "12");
+  scalar = std::make_shared<UInt16Scalar>(34);
+  Check(*scalar, options, "34");
+  scalar = std::make_shared<UInt32Scalar>(56);
+  Check(*scalar, options, "56");
+  scalar = std::make_shared<UInt64Scalar>(78);
+  Check(*scalar, options, "78");
+
+  scalar = std::make_shared<FloatScalar>(2.2);
+  Check(*scalar, options, "2.2");
+  scalar = std::make_shared<DoubleScalar>(3.3);
+  Check(*scalar, options, "3.3");
+}
+
+TEST_F(TestPrettyPrint, StringScalar) {
+  PrettyPrintOptions options;
+  std::shared_ptr<Scalar> scalar;
+  auto buffer = Buffer::FromString("test data");
+
+  scalar = std::make_shared<StringScalar>("hello");
+  Check(*scalar, options, "\"hello\"");
+  scalar = std::make_shared<LargeStringScalar>("world");
+  Check(*scalar, options, "\"world\"");
+}
+
+TEST_F(TestPrettyPrint, BinaryScalar) {
+  PrettyPrintOptions options;
+  std::shared_ptr<Scalar> scalar;
+  auto buffer = Buffer::FromString("test data");
+
+  scalar = std::make_shared<BinaryScalar>(buffer);
+  Check(*scalar, options, "746573742064617461");
+  scalar = std::make_shared<LargeBinaryScalar>(buffer);
+  Check(*scalar, options, "746573742064617461");
+  scalar = std::make_shared<FixedSizeBinaryScalar>(buffer, fixed_size_binary(9));
+  Check(*scalar, options, "746573742064617461");
+}
+
+TEST_F(TestPrettyPrint, DateScalar) {
+  PrettyPrintOptions options;
+  std::shared_ptr<Scalar> scalar;
+
+  scalar = std::make_shared<Date32Scalar>(12345);
+  Check(*scalar, options, "2003-10-20");
+
+  scalar = std::make_shared<Date64Scalar>(1599636094000);
+  Check(*scalar, options, "2020-09-09");
+}
+
+TEST_F(TestPrettyPrint, TimeScalar) {
+  PrettyPrintOptions options;
+  std::shared_ptr<Scalar> scalar;
+
+  scalar = std::make_shared<Time32Scalar>(12345, time32(TimeUnit::MILLI));
+  Check(*scalar, options, "00:00:12.345");
+  scalar = std::make_shared<Time32Scalar>(12345, time32(TimeUnit::SECOND));
+  Check(*scalar, options, "03:25:45");
+
+  scalar = std::make_shared<Time64Scalar>(12345678, time64(TimeUnit::MICRO));
+  Check(*scalar, options, "00:00:12.345678");
+  scalar = std::make_shared<Time64Scalar>(12345678, time64(TimeUnit::NANO));
+  Check(*scalar, options, "00:00:00.012345678");
+}
+
+TEST_F(TestPrettyPrint, TimestampScalar) {
+  PrettyPrintOptions options;
+  std::shared_ptr<Scalar> scalar;
+
+  scalar = std::make_shared<TimestampScalar>(1599637102445, timestamp(TimeUnit::MILLI));
+  Check(*scalar, options, "2020-09-09 07:38:22.445");
+
+  scalar = std::make_shared<TimestampScalar>(1599637102, timestamp(TimeUnit::SECOND));
+  Check(*scalar, options, "2020-09-09 07:38:22");
+}
+
+TEST_F(TestPrettyPrint, IntervalScalar) {
+  PrettyPrintOptions options;
+  std::shared_ptr<Scalar> scalar;
+
+  scalar = std::make_shared<MonthIntervalScalar>(63);
+  Check(*scalar, options, "63");
+
+  DayTimeIntervalType::DayMilliseconds daytime_val = {1, 2};
+  scalar = std::make_shared<DayTimeIntervalScalar>(daytime_val);
+  Check(*scalar, options, "1d2ms");
+}
+
+TEST_F(TestPrettyPrint, DurationScalar) {
+  PrettyPrintOptions options;
+  std::shared_ptr<Scalar> scalar;
+
+  scalar = std::make_shared<DurationScalar>(12, duration(TimeUnit::MILLI));
+  Check(*scalar, options, "12");
+
+  scalar = std::make_shared<DurationScalar>(34, duration(TimeUnit::SECOND));
+  Check(*scalar, options, "34");
+}
+
+TEST_F(TestPrettyPrint, Decimal128Scalar) {
+  PrettyPrintOptions options;
+
+  auto ty = decimal(3, 2);
+  auto pi = Decimal128Scalar(Decimal128("3.14"), ty);
+  auto null = MakeNullScalar(ty);
+
+  Check(pi, options, "3.14");
+}
+
+TEST_F(TestPrettyPrint, ListScalar) {
+  PrettyPrintOptions options;
+
+  auto type = list(utf8());
+  auto array = ArrayFromJSON(utf8(), R"(["hello", "world"])");
+  auto scalar = ListScalar(std::move(array), type);
+
+  Check(scalar, options, "[\n  \"hello\",\n  \"world\"\n]");
+}
+
+TEST_F(TestPrettyPrint, MapScalar) {
+  PrettyPrintOptions options;
+
+  auto type = map(utf8(), int64());
+  auto array = ArrayFromJSON(type->field(0)->type(), R"([["hello", 12], ["k2", 34]])");
+  auto scalar = MapScalar(std::move(array), map(utf8(), int64()));
+
+  Check(scalar, options, "keys:\n[\n  \"hello\",\n  \"k2\"\n]values:\n[\n  12,\n  34\n]");
+}
+
+TEST_F(TestPrettyPrint, StructScalar) {
+  PrettyPrintOptions options;
+
+  std::vector<std::shared_ptr<Scalar>> scalars;
+  scalars.reserve(2);
+  scalars.emplace_back(std::make_shared<StringScalar>("hello"));
+  scalars.emplace_back(std::make_shared<Int64Scalar>(123));
+
+  auto scalar =
+      StructScalar(scalars, struct_({field("f1", utf8()), field("f2", int64())}));
+
+  Check(scalar, options, "{\"hello\", 123}");
+}
+
+TEST_F(TestPrettyPrint, UnionScalar) {
+  PrettyPrintOptions options;
+  std::shared_ptr<Scalar> scalar;
+  std::shared_ptr<DataType> type;
+
+  type = sparse_union({field("string", utf8()), field("number", uint64())});
+  scalar =
+      std::make_shared<SparseUnionScalar>(std::make_shared<StringScalar>("sparse"), type);
+  Check(*scalar, options, "\"sparse\"");
+  scalar = std::make_shared<SparseUnionScalar>(std::make_shared<Int64Scalar>(12), type);
+  Check(*scalar, options, "12");
+
+  type = dense_union({field("string", utf8()), field("number", uint64())});
+  scalar =
+      std::make_shared<DenseUnionScalar>(std::make_shared<StringScalar>("dense"), type);
+  Check(*scalar, options, "\"dense\"");
 }
 
 }  // namespace arrow
