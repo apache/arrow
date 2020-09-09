@@ -25,7 +25,7 @@ SystemRequirements: C++11
 Biarch: true
 Imports:
     assertthat,
-    bit64,
+    bit64 (>= 0.9-7),
     methods,
     purrr,
     R6,
