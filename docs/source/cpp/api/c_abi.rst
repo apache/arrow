@@ -19,6 +19,10 @@
 C Interfaces
 ============
 
+.. seealso::
+   The :ref:`C data interface <c-data-interface>` and
+   :ref:`C stream interface <c-stream-interface>` specifications.
+
 ABI Structures
 ==============
 
