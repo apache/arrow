@@ -19,7 +19,7 @@
 
 use std::ops::Add;
 
-use crate::array::{Array, LargeStringArray, PrimitiveArray, StringArray};
+use crate::array::{Array, LargeStringArray, StringArrayOps, PrimitiveArray, StringArray};
 use crate::datatypes::ArrowNumericType;
 
 /// Helper macro to perform min/max of strings

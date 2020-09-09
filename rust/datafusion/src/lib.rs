@@ -66,6 +66,7 @@ pub mod logical_plan;
 pub mod optimizer;
 pub mod physical_plan;
 pub mod prelude;
+pub mod scalar;
 pub mod sql;
 pub mod variable;
 

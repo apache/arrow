@@ -849,6 +849,24 @@ mod tests {
     }
 
     #[test]
+    fn aggregate_grouped_empty() -> Result<()> {
+        let results =
+            execute("SELECT c1, AVG(c2) FROM test WHERE c1 = 123 GROUP BY c1", 4)?;
+        assert_eq!(results.len(), 1);
+
+        let batch = &results[0];
+
+        assert_eq!(field_names(batch), vec!["c1", "AVG(c2)"]);
+
+        let expected: Vec<&str> = vec![];
+        let mut rows = test::format_batch(&batch);
+        rows.sort();
+        assert_eq!(rows, expected);
+
+        Ok(())
+    }
+
+    #[test]
     fn aggregate_grouped_max() -> Result<()> {
         let results = execute("SELECT c1, MAX(c2) FROM test GROUP BY c1", 4)?;
         assert_eq!(results.len(), 1);

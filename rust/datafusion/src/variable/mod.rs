@@ -18,7 +18,7 @@
 //! Variable provider
 
 use crate::error::Result;
-use crate::logical_plan::ScalarValue;
+use crate::scalar::ScalarValue;
 
 /// Variable type, system/user defiend
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
