@@ -2224,7 +2224,7 @@ class TestConvertStructTypes:
             ys = data['y']
             for i, obj in enumerate(iter_chunked_array(arr)):
                 try:
-                    d = obj.as_py()
+                    d = dict(obj.as_py()) if obj.is_valid else obj.as_py()
                     if mask is not None and mask[i]:
                         assert d is None
                     else:
