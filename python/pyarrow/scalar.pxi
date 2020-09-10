@@ -627,20 +627,25 @@ cdef class StructScalar(Scalar):
                 raise KeyError(key)
 
     def __iter__(self):
-        cdef StructType type = self.type
         if self.is_valid:
-            for i in range(len(self)):
-                yield (type.field(i).name, self[i])
+            for field in self.type:
+                yield field.name
+
+    def keys(self):
+        return list(self)
+
+    def values(self):
+        return [self[key] for key in self]
 
     def items(self):
-        return list(self)
+        return [(key, self[key]) for key in self]
 
     def as_py(self):
         """
         Return this value as a Python dict.
         """
         if self.is_valid:
-            return [(k, v.as_py()) for k, v in self]
+            return [(key, self[key].as_py()) for key in self]
         else:
             return None
 

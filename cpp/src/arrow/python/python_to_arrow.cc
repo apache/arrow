@@ -455,7 +455,8 @@ class PyPrimitiveConverter<T, enable_if_binary<T>>
     } else {
       ARROW_ASSIGN_OR_RAISE(
           auto view, PyValue::Convert(this->primitive_type_, this->options_, value));
-      return this->primitive_builder_->Append(util::string_view(view.bytes, view.size));
+      return this->primitive_builder_->AppendSafe(
+          util::string_view(view.bytes, view.size));
     }
   }
 };
@@ -474,7 +475,9 @@ class PyPrimitiveConverter<T, enable_if_string_like<T>>
         // observed binary value
         observed_binary_ = true;
       }
-      return this->primitive_builder_->Append(util::string_view(view.bytes, view.size));
+      // TODO(kszucs): add CheckOverflow method to binary builders and call it here
+      return this->primitive_builder_->AppendSafe(
+          util::string_view(view.bytes, view.size));
     }
   }
 
@@ -503,6 +506,7 @@ class PyDictionaryConverter<T, enable_if_has_c_type<T>>
     } else {
       ARROW_ASSIGN_OR_RAISE(auto converted,
                             PyValue::Convert(this->value_type_, this->options_, value));
+      // TODO(kszucs): use AppendSafe with checking memory limit BEFORE actual append
       return this->value_builder_->Append(converted);
     }
   }
@@ -518,6 +522,7 @@ class PyDictionaryConverter<T, enable_if_has_string_view<T>>
     } else {
       ARROW_ASSIGN_OR_RAISE(auto view,
                             PyValue::Convert(this->value_type_, this->options_, value));
+      // TODO(kszucs): use AppendSafe with checking memory limit BEFORE actual append
       return this->value_builder_->Append(util::string_view(view.bytes, view.size));
     }
   }
@@ -570,6 +575,8 @@ class PyListConverter : public ListConverter<T, PyConverter> {
       return this->list_builder_->AppendNull();
     }
 
+    // TODO(kszucs): raise CapacityError if it wouldn't fit in the list builder's
+    // memory limit
     RETURN_NOT_OK(this->list_builder_->Append());
     if (PyArray_Check(value)) {
       RETURN_NOT_OK(AppendNdarray(value));

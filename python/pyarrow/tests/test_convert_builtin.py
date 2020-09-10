@@ -1798,7 +1798,63 @@ def test_dictionary_from_strings():
 
 
 @h.given(past.all_arrays)
-def test_pina(arr):
+def test_array_to_pylist_roundtrip(arr):
     seq = arr.to_pylist()
     restored = pa.array(seq, type=arr.type)
     assert restored.equals(arr)
+
+
+@pytest.mark.large_memory
+def test_auto_chunking():
+    v1 = b'x' * 100000000
+    v2 = b'x' * 147483646
+    data = [v1] * 20 + [v2]
+    arr = pa.array(data, type=pa.binary())
+    assert isinstance(arr, pa.Array)
+
+    data += ['x'] * 1
+    arr = pa.array(data, type=pa.binary())
+    assert isinstance(arr, pa.ChunkedArray)
+    assert len(arr.chunk(0)) == 21
+    assert len(arr.chunk(1)) == 1
+    assert arr.chunk(1).to_pylist() == [b'x']
+
+
+@pytest.mark.large_memory
+def test_nested_auto_chunking():
+    v1 = b'x' * 100000000
+    v2 = b'x' * 147483646
+
+    ty = pa.struct([
+        pa.field('bool', pa.bool_()),
+        pa.field('integer', pa.int64()),
+        pa.field('binary', pa.binary()),
+    ])
+
+    data = [{'bool': True, 'integer': 1, 'binary': v1}] * 20
+    data.append({'bool': True, 'integer': 1, 'binary': v2})
+    arr = pa.array(data, type=ty)
+    assert isinstance(arr, pa.Array)
+
+    data.append({'bool': True, 'integer': 1, 'binary': b'x'})
+    arr = pa.array(data, type=ty)
+    assert isinstance(arr, pa.ChunkedArray)
+    assert len(arr.chunk(0)) == 21
+    assert len(arr.chunk(1)) == 1
+
+    assert arr.chunk(1)[0].as_py() == [
+        ('bool', True),
+        ('integer', 1),
+        ('binary', b'x')
+    ]
+
+
+# FIXME(kszucs)
+@pytest.mark.skip
+def test_dictionary_conversion():
+    data = [
+        {"page_type": 1},
+        {"record_type": 1},
+        {"non_consecutive_home": 0},
+    ]
+    pa.array(data, type=None, from_pandas=True, safe=True)

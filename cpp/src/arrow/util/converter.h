@@ -151,7 +151,6 @@ class Converter {
   virtual Result<std::shared_ptr<Array>> ToArray() { return builder_->Finish(); };
 
   virtual Result<std::shared_ptr<Array>> ToArray(int64_t length) {
-    // RETURN_NOT_OK(builder_->Resize(length));
     ARROW_ASSIGN_OR_RAISE(auto arr, this->ToArray());
     return arr->Slice(0, length);
   }
@@ -290,6 +289,7 @@ struct MakeConverterImpl {
   std::shared_ptr<Converter>* out;
 };
 
+// TODO(kszucs): rename to AutoChunker
 template <typename BaseConverter>
 class Chunker : public BaseConverter {
  public:
@@ -323,13 +323,13 @@ class Chunker : public BaseConverter {
       length_ = this->builder_->length();
     } else if (status.IsCapacityError()) {
       RETURN_NOT_OK(FinishChunk());
-      return converter_->Append(value);
+      return Append(value);
     }
     return status;
   }
 
   Status FinishChunk() {
-    ARROW_ASSIGN_OR_RAISE(auto chunk, this->ToArray(length_));
+    ARROW_ASSIGN_OR_RAISE(auto chunk, converter_->ToArray(length_));
     this->builder_->Reset();
     length_ = 0;
     chunks_.push_back(chunk);

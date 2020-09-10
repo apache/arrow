@@ -76,6 +76,16 @@ class BaseBinaryBuilder : public ArrayBuilder {
     return Append(value.data(), static_cast<offset_type>(value.size()));
   }
 
+  Status AppendSafe(util::string_view value) {
+    auto size = static_cast<offset_type>(value.size());
+    auto num_bytes = value_data_builder_.length() + size;
+    if (ARROW_PREDICT_TRUE(num_bytes <= memory_limit())) {
+      return Append(value.data(), size);
+    } else {
+      return AppendOverflow(num_bytes);
+    }
+  }
+
   Status AppendNulls(int64_t length) final {
     const int64_t num_bytes = value_data_builder_.length();
     if (ARROW_PREDICT_FALSE(num_bytes > memory_limit())) {
@@ -420,6 +430,17 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
     ARROW_RETURN_NOT_OK(Reserve(1));
     UnsafeAppend(view);
     return Status::OK();
+  }
+
+  Status AppendSafe(util::string_view value) {
+    auto num_bytes = byte_builder_.length() + byte_width_;
+    if (ARROW_PREDICT_TRUE(num_bytes <= memory_limit())) {
+      return Append(value.data());
+    } else {
+      return Status::CapacityError("array cannot contain more than ", memory_limit(),
+                                   " bytes, have ", num_bytes);
+      ;
+    }
   }
 
   Status Append(const std::string& s) {

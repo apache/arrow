@@ -69,7 +69,12 @@ import pyarrow as pa
 def test_basics(value, ty, klass, deprecated):
     s = pa.scalar(value, type=ty)
     assert isinstance(s, klass)
-    assert s.as_py() == value
+
+    if isinstance(s, pa.StructScalar) and isinstance(value, dict):
+        assert s.as_py() == list(value.items())
+    else:
+        assert s.as_py() == value
+
     assert s == pa.scalar(value, type=ty)
     assert s != value
     assert s != "else"
@@ -471,9 +476,10 @@ def test_struct():
     assert 'y' in s
     assert 'z' not in s
 
-    assert s.as_py() == v
-    assert repr(s) != repr(v)
-    assert repr(s.as_py()) == repr(v)
+    items = list(v.items())
+    assert s.as_py() == items
+    assert repr(s) != repr(items)
+    assert repr(s.as_py()) == repr(items)
     assert len(s) == 2
     assert isinstance(s['x'], pa.Int16Scalar)
     assert isinstance(s['y'], pa.FloatScalar)
@@ -523,8 +529,8 @@ def test_map():
     assert isinstance(s.values, pa.Array)
     assert repr(s) == "<pyarrow.MapScalar: [('a', 1), ('b', 2)]>"
     assert s.values.to_pylist() == [
-        {'key': 'a', 'value': 1},
-        {'key': 'b', 'value': 2}
+        [('key', 'a'), ('value', 1)],
+        [('key', 'b'), ('value', 2)]
     ]
 
     # test iteration

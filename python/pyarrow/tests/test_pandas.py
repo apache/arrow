@@ -2135,12 +2135,17 @@ class TestConvertStructTypes:
 
         data = np.array([(42, True), (43, False)], dtype=dt)
         arr = pa.array(data, type=ty)
-        assert arr.to_pylist() == [{'x': 42, 'y': True},
-                                   {'x': 43, 'y': False}]
+        assert arr.to_pylist() == [
+            [('x', 42), ('y', True)],
+            [('x', 43), ('y', False)]
+        ]
 
         # With mask
         arr = pa.array(data, mask=np.bool_([False, True]), type=ty)
-        assert arr.to_pylist() == [{'x': 42, 'y': True}, None]
+        assert arr.to_pylist() == [
+            [('x', 42), ('y', True)],
+            None
+        ]
 
         # Trivial struct type
         dt = np.dtype([])
@@ -2152,7 +2157,7 @@ class TestConvertStructTypes:
 
         data = np.array([(), ()], dtype=dt)
         arr = pa.array(data, type=ty)
-        assert arr.to_pylist() == [{}, {}]
+        assert arr.to_pylist() == [[], []]
 
     def test_from_numpy_nested(self):
         # Note: an object field inside a struct
@@ -2175,9 +2180,20 @@ class TestConvertStructTypes:
             ((1, True), 2, 'foo'),
             ((3, False), 4, 'bar')], dtype=dt)
         arr = pa.array(data, type=ty)
-        assert arr.to_pylist() == [
-            {'x': {'xx': 1, 'yy': True}, 'y': 2, 'z': 'foo'},
-            {'x': {'xx': 3, 'yy': False}, 'y': 4, 'z': 'bar'}]
+
+        expected = [
+            [
+                ('x', [('xx', 1), ('yy', True)]),
+                ('y', 2),
+                ('z', 'foo')
+            ],
+            [
+                ('x', [('xx', 3), ('yy', False)]),
+                ('y', 4),
+                ('z', 'bar')
+            ]
+        ]
+        assert arr.to_pylist() == expected
 
     @pytest.mark.large_memory
     def test_from_numpy_large(self):
