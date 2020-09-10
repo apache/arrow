@@ -1754,7 +1754,8 @@ def _mkdir_if_not_exists(fs, path):
 
 
 def write_to_dataset(table, root_path, partition_cols=None,
-                     partition_filename_cb=None, filesystem=None, **kwargs):
+                     partition_filename_cb=None, filesystem=None,
+                     use_threads=True, use_legacy_dataset=False, **kwargs):
     """Wrapper around parquet.write_table for writing a Table to
     Parquet format by partitions.
     For each combination of partition columns and values,
@@ -1795,6 +1796,29 @@ def write_to_dataset(table, root_path, partition_cols=None,
         file metadata instances of dataset pieces. The file paths in the
         ColumnChunkMetaData will be set relative to `root_path`.
     """
+    if not use_legacy_dataset:
+        import pyarrow.dataset as ds
+
+        schema = kwargs.pop("schema", None)
+
+        # map format arguments
+        parquet_format = ds.ParquetFileFormat(write_options=kwargs)
+        
+        # map old filesystems to new one
+        if filesystem is not None:
+            filesystem = _ensure_filesystem(filesystem)
+
+        partitioning = None
+        if partition_cols:
+            part_schema= table.select(partition_cols).schema
+            partitioning = ds.partitioning(part_schema, flavor="hive")
+
+        ds.write_dataset(
+            table, root_path, filesystem=filesystem,
+            format=parquet_format, schema=schema,
+            partitioning=partitioning, use_threads=use_threads)
+        return
+
     fs, root_path = legacyfs.resolve_filesystem_and_path(root_path, filesystem)
 
     _mkdir_if_not_exists(fs, root_path)
