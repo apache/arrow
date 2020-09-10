@@ -24,7 +24,7 @@
 #' and the version 2 specification, which is the Apache Arrow IPC file format.
 #'
 #' @param x `data.frame`, [RecordBatch], or [Table]
-#' @param sink A string file path or [OutputStream]
+#' @param sink A string file path, URI, or [OutputStream]
 #' @param version integer Feather file version. Version 2 is the current.
 #' Version 1 is the more limited legacy format.
 #' @param chunk_size For V2 files, the number of rows that each chunk of data
@@ -106,7 +106,7 @@ write_feather <- function(x,
   assert_is(x, "Table")
 
   if (is.string(sink)) {
-    sink <- FileOutputStream$create(sink)
+    sink <- make_output_stream(sink)
     on.exit(sink$close())
   }
   assert_is(sink, "OutputStream")
@@ -142,7 +142,7 @@ write_feather <- function(x,
 #' df <- read_feather(tf, col_select = starts_with("d"))
 #' }
 read_feather <- function(file, col_select = NULL, as_data_frame = TRUE, ...) {
-  if (!inherits(file, "InputStream")) {
+  if (!inherits(file, "RandomAccessFile")) {
     file <- make_readable_file(file)
     on.exit(file$close())
   }

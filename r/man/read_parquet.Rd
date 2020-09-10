@@ -13,8 +13,8 @@ read_parquet(
 )
 }
 \arguments{
-\item{file}{A character file name, \code{raw} vector, or an Arrow input stream.
-If a file name, a memory-mapped Arrow \link{InputStream} will be opened and
+\item{file}{A character file name or URI, \code{raw} vector, or an Arrow input stream.
+If a file name or URI, an Arrow \link{InputStream} will be opened and
 closed when finished. If an input stream is provided, it will be left
 open.}
 

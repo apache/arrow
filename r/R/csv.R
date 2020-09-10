@@ -32,7 +32,7 @@
 #' `parse_options`, `convert_options`, or `read_options` arguments, or you can
 #' use [CsvTableReader] directly for lower-level access.
 #'
-#' @param file A character file name, `raw` vector, or an Arrow input stream.
+#' @param file A character file name or URI, `raw` vector, or an Arrow input stream.
 #' If a file name, a memory-mapped Arrow [InputStream] will be opened and
 #' closed when finished; compression will be detected from the file extension
 #' and handled automatically. If an input stream is provided, it will be left

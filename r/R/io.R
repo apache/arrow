@@ -224,15 +224,25 @@ mmap_open <- function(path, mode = c("read", "write", "readwrite")) {
 #' with this compression codec, either a [Codec] or the string name of one.
 #' If `NULL` (default) and `file` is a string file name, the function will try
 #' to infer compression from the file extension.
+#' @param filesystem If not `NULL`, `file` will be opened via the
+#' `filesystem$OpenInputFile()` filesystem method, rather than the `io` module's
+#' `MemoryMappedFile` or `ReadableFile` constructors.
 #' @return An `InputStream` or a subclass of one.
 #' @keywords internal
-make_readable_file <- function(file, mmap = TRUE, compression = NULL) {
+make_readable_file <- function(file, mmap = TRUE, compression = NULL, filesystem = NULL) {
   if (is.string(file)) {
+    if (is_url(file)) {
+      fs_and_path <- FileSystem$from_uri(file)
+      filesystem <- fs_and_path$fs
+      file <- fs_and_path$path
+    }
     if (is.null(compression)) {
       # Infer compression from the file path
       compression <- detect_compression(file)
     }
-    if (isTRUE(mmap)) {
+    if (!is.null(filesystem)) {
+      file <- filesystem$OpenInputFile(file)
+    } else if (isTRUE(mmap)) {
       file <- mmap_open(file)
     } else {
       file <- ReadableFile$create(file)
@@ -245,6 +255,15 @@ make_readable_file <- function(file, mmap = TRUE, compression = NULL) {
   }
   assert_is(file, "InputStream")
   file
+}
+
+make_output_stream <- function(x) {
+  if (is_url(x)) {
+    fs_and_path <- FileSystem$from_uri(x)
+    fs_and_path$fs$OpenOutputStream(fs_and_path$path)
+  } else {
+    FileOutputStream$create(x)
+  }
 }
 
 detect_compression <- function(path) {

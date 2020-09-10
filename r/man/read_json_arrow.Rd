@@ -7,7 +7,7 @@
 read_json_arrow(file, col_select = NULL, as_data_frame = TRUE, ...)
 }
 \arguments{
-\item{file}{A character file name, \code{raw} vector, or an Arrow input stream.
+\item{file}{A character file name or URI, \code{raw} vector, or an Arrow input stream.
 If a file name, a memory-mapped Arrow \link{InputStream} will be opened and
 closed when finished; compression will be detected from the file extension
 and handled automatically. If an input stream is provided, it will be left
