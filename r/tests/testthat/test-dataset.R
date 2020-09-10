@@ -890,6 +890,7 @@ test_that("Dataset writing: from data.frame", {
       select(string = chr, integer = int) %>%
       filter(integer > 6 & integer < 11) %>%
       collect() %>%
+      ungroup() %>%
       summarize(mean = mean(integer)),
     df1 %>%
       select(string = chr, integer = int) %>%
