@@ -185,22 +185,25 @@ Table <- R6Class("Table", inherit = ArrowObject,
   )
 )
 
-bad_attributes <- function(x) {
-  UseMethod("bad_attributes")
-}
-
-bad_attributes.default <- function(x) character()
-bad_attributes.data.frame <- function(x) c("class", "row.names", "names")
-bad_attributes.factor <- function(x) c("class", "levels")
-bad_attributes.Date <- function(x) "class"
-bad_attributes.integer64 <- function(x) "class"
-bad_attributes.POSIXct <- function(x) c("class", "tzone")
-bad_attributes.hms <- function(x) c("class", "units")
-bad_attributes.difftime <- function(x) c("class", "units")
-
 arrow_attributes <- function(x, only_top_level = FALSE) {
   att <- attributes(x)
-  att <- att[setdiff(names(att), bad_attributes(x))]
+
+  removed_attributes <- character()
+  if (identical(class(x), c("tbl_df", "tbl", "data.frame"))) {
+    removed_attributes <- c("class", "row.names", "names")
+  } else if (inherits(x, "data.frame")) {
+    removed_attributes <- c("row.names", "names")
+  } else if (inherits(x, "factor")) {
+    removed_attributes <- c("class", "levels")
+  } else if (inherits(x, "integer64") || inherits(x, "Date")) {
+    removed_attributes <- c("class")
+  } else if (inherits(x, "POSIXct")) {
+    removed_attributes <- c("class", "tzone")
+  } else if (inherits(x, "hms") || inherits(x, "difftime")) {
+    removed_attributes <- c("class", "units")
+  }
+
+  att <- att[setdiff(names(att), removed_attributes)]
   if (isTRUE(only_top_level)) {
     return(att)
   }
