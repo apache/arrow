@@ -1464,8 +1464,6 @@ const char* binary_string(gdv_int64 context, const char* text, gdv_int32 text_le
 
 CAST_NUMERIC_FROM_STRING(int32, arrow::Int32Type, INT)
 CAST_NUMERIC_FROM_STRING(int64, arrow::Int64Type, BIGINT)
-CAST_NUMERIC_FROM_STRING(float32, arrow::FloatType, FLOAT4)
-CAST_NUMERIC_FROM_STRING(float64, arrow::DoubleType, FLOAT8)
 
 #undef CAST_NUMERIC_FROM_STRING
 

@@ -17,6 +17,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+
 #include "gandiva/execution_context.h"
 #include "gandiva/precompiled/types.h"
 
@@ -1002,7 +1003,7 @@ TEST(TestStringOps, TestSplitPart) {
   EXPECT_EQ(std::string(out_str, out_len), "ååçåå");
 }
 
-TEST(TestArithmeticOps, TestCastINT) {
+TEST(TestStringOps, TestCastINT) {
   gandiva::ExecutionContext ctx;
 
   int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
@@ -1046,7 +1047,7 @@ TEST(TestArithmeticOps, TestCastINT) {
   ctx.Reset();
 }
 
-TEST(TestArithmeticOps, TestCastBIGINT) {
+TEST(TestStringOps, TestCastBIGINT) {
   gandiva::ExecutionContext ctx;
 
   int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
@@ -1091,48 +1092,6 @@ TEST(TestArithmeticOps, TestCastBIGINT) {
   castBIGINT_utf8(ctx_ptr, "-", 1);
   EXPECT_THAT(ctx.get_error(),
               ::testing::HasSubstr("Failed to cast the string - to int64"));
-  ctx.Reset();
-}
-
-TEST(TestArithmeticOps, TestCastFloat4) {
-  gandiva::ExecutionContext ctx;
-
-  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
-
-  EXPECT_EQ(castFLOAT4_utf8(ctx_ptr, "-45.34", 6), -45.34f);
-  EXPECT_EQ(castFLOAT4_utf8(ctx_ptr, "0", 1), 0.0f);
-  EXPECT_EQ(castFLOAT4_utf8(ctx_ptr, "5", 1), 5.0f);
-  EXPECT_EQ(castFLOAT4_utf8(ctx_ptr, " 3.4 ", 5), 3.4f);
-
-  castFLOAT4_utf8(ctx_ptr, "", 0);
-  EXPECT_THAT(ctx.get_error(),
-              ::testing::HasSubstr("Failed to cast the string  to float32"));
-  ctx.Reset();
-
-  castFLOAT4_utf8(ctx_ptr, "e", 1);
-  EXPECT_THAT(ctx.get_error(),
-              ::testing::HasSubstr("Failed to cast the string e to float32"));
-  ctx.Reset();
-}
-
-TEST(TestParseStringHolder, TestCastFloat8) {
-  gandiva::ExecutionContext ctx;
-
-  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
-
-  EXPECT_EQ(castFLOAT8_utf8(ctx_ptr, "-45.34", 6), -45.34);
-  EXPECT_EQ(castFLOAT8_utf8(ctx_ptr, "0", 1), 0.0);
-  EXPECT_EQ(castFLOAT8_utf8(ctx_ptr, "5", 1), 5.0);
-  EXPECT_EQ(castFLOAT8_utf8(ctx_ptr, " 3.4 ", 5), 3.4);
-
-  castFLOAT8_utf8(ctx_ptr, "", 0);
-  EXPECT_THAT(ctx.get_error(),
-              ::testing::HasSubstr("Failed to cast the string  to float64"));
-  ctx.Reset();
-
-  castFLOAT8_utf8(ctx_ptr, "e", 1);
-  EXPECT_THAT(ctx.get_error(),
-              ::testing::HasSubstr("Failed to cast the string e to float64"));
   ctx.Reset();
 }
 
