@@ -18,7 +18,7 @@
 #[macro_use]
 extern crate criterion;
 use criterion::Criterion;
-use rand;
+
 use rand::distributions::{Alphanumeric, Distribution, Standard};
 use rand::prelude::random;
 use rand::Rng;
