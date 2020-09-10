@@ -24,7 +24,6 @@ use std::sync::Arc;
 extern crate arrow;
 
 use arrow::array::*;
-use arrow::compute::kernels::aggregate::*;
 use arrow::compute::kernels::arithmetic::*;
 use arrow::compute::kernels::limit::*;
 
@@ -60,11 +59,6 @@ fn bench_divide(arr_a: &ArrayRef, arr_b: &ArrayRef) {
     criterion::black_box(divide(&arr_a, &arr_b).unwrap());
 }
 
-fn bench_sum(arr_a: &ArrayRef) {
-    let arr_a = arr_a.as_any().downcast_ref::<Float32Array>().unwrap();
-    criterion::black_box(sum(&arr_a).unwrap());
-}
-
 fn bench_limit(arr_a: &ArrayRef, max: usize) {
     criterion::black_box(limit(arr_a, max).unwrap());
 }
@@ -81,7 +75,6 @@ fn add_benchmark(c: &mut Criterion) {
         b.iter(|| bench_multiply(&arr_a, &arr_b))
     });
     c.bench_function("divide 512", |b| b.iter(|| bench_divide(&arr_a, &arr_b)));
-    c.bench_function("sum 512", |b| b.iter(|| bench_sum(&arr_a)));
     c.bench_function("limit 512, 512", |b| b.iter(|| bench_limit(&arr_a, 512)));
 }
 
