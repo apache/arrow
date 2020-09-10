@@ -417,6 +417,10 @@ if(ARROW_TEST_MEMCHECK)
   add_definitions(-DARROW_VALGRIND)
 endif()
 
+if(ARROW_USE_UBSAN)
+  add_definitions(-DARROW_UBSAN)
+endif()
+
 #
 # Compiler flags
 #

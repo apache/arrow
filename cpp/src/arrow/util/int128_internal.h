@@ -16,7 +16,13 @@
 // under the License.
 #pragma once
 
-#ifndef __SIZEOF_INT128__
+#include "arrow/util/macros.h"
+
+// NOTE: Avoid native int128_t on clang with UBSan as it produces linker errors
+// (such as "undefined reference to '__muloti4'")
+#if defined(__SIZEOF_INT128__) && !defined(ARROW_UBSAN)
+#define ARROW_USE_NATIVE_INT128
+#else
 #include <boost/multiprecision/cpp_int.hpp>
 #endif
 
@@ -30,7 +36,7 @@ namespace internal {
 // static_cast<uint64_t>(boost::multiprecision::uint128_t) might return
 // ~uint64_t{0} instead of the lower 64 bits of the input).
 // Try to minimize the usage of int128_t and uint128_t.
-#ifdef __SIZEOF_INT128__
+#ifdef ARROW_USE_NATIVE_INT128
 using int128_t = __int128_t;
 using uint128_t = __uint128_t;
 #else
