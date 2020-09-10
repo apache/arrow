@@ -32,6 +32,7 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/formatting.h"
+#include "arrow/util/int128_internal.h"
 #include "arrow/util/int_util_internal.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
@@ -41,6 +42,7 @@ namespace arrow {
 
 using internal::SafeLeftShift;
 using internal::SafeSignedAdd;
+using internal::uint128_t;
 
 Decimal128::Decimal128(const std::string& str) : Decimal128() {
   *this = Decimal128::FromString(str).ValueOrDie();
@@ -49,27 +51,27 @@ Decimal128::Decimal128(const std::string& str) : Decimal128() {
 static constexpr auto kInt64DecimalDigits =
     static_cast<size_t>(std::numeric_limits<int64_t>::digits10);
 
-static constexpr int64_t kInt64PowersOfTen[kInt64DecimalDigits + 1] = {
+static constexpr uint64_t kUInt64PowersOfTen[kInt64DecimalDigits + 1] = {
     // clang-format off
-    1LL,
-    10LL,
-    100LL,
-    1000LL,
-    10000LL,
-    100000LL,
-    1000000LL,
-    10000000LL,
-    100000000LL,
-    1000000000LL,
-    10000000000LL,
-    100000000000LL,
-    1000000000000LL,
-    10000000000000LL,
-    100000000000000LL,
-    1000000000000000LL,
-    10000000000000000LL,
-    100000000000000000LL,
-    1000000000000000000LL
+    1ULL,
+    10ULL,
+    100ULL,
+    1000ULL,
+    10000ULL,
+    100000ULL,
+    1000000ULL,
+    10000000ULL,
+    100000000ULL,
+    1000000000ULL,
+    10000000000ULL,
+    100000000000ULL,
+    1000000000000ULL,
+    10000000000000ULL,
+    100000000000000ULL,
+    1000000000000000ULL,
+    10000000000000000ULL,
+    100000000000000000ULL,
+    1000000000000000000ULL
     // clang-format on
 };
 
@@ -348,35 +350,27 @@ std::string Decimal128::ToString(int32_t scale) const {
   return str;
 }
 
-// Iterates over data and for each group of kInt64DecimalDigits multiple out by
+// Iterates over input and for each group of kInt64DecimalDigits multiple out by
 // the appropriate power of 10 necessary to add source parsed as uint64 and
 // then adds the parsed value of source.
-static inline void ShiftAndAdd(const char* data, size_t length, Decimal128* out) {
-  for (size_t posn = 0; posn < length;) {
-    const size_t group_size = std::min(kInt64DecimalDigits, length - posn);
-    const int64_t multiple = kInt64PowersOfTen[group_size];
-    int64_t chunk = 0;
-    ARROW_CHECK(internal::ParseValue<Int64Type>(data + posn, group_size, &chunk));
+static inline void ShiftAndAdd(const util::string_view& input, uint64_t out[],
+                               size_t out_size) {
+  for (size_t posn = 0; posn < input.size();) {
+    const size_t group_size = std::min(kInt64DecimalDigits, input.size() - posn);
+    const uint64_t multiple = kUInt64PowersOfTen[group_size];
+    uint64_t chunk = 0;
+    ARROW_CHECK(
+        internal::ParseValue<UInt64Type>(input.data() + posn, group_size, &chunk));
 
-    *out *= multiple;
-    *out += chunk;
+    for (size_t i = 0; i < out_size; ++i) {
+      uint128_t tmp = out[i];
+      tmp *= multiple;
+      tmp += chunk;
+      out[i] = static_cast<uint64_t>(tmp & 0xFFFFFFFFFFFFFFFFULL);
+      chunk = static_cast<uint64_t>(tmp >> 64);
+    }
     posn += group_size;
   }
-}
-
-static void StringToInteger(const util::string_view whole_digits,
-                            util::string_view fractional_digits, Decimal128* out) {
-  using std::size_t;
-
-  DCHECK_NE(out, nullptr) << "Decimal128 output variable cannot be nullptr";
-  DCHECK_EQ(*out, 0)
-      << "When converting a string to Decimal128 the initial output must be 0";
-
-  DCHECK_GT(whole_digits.size() + fractional_digits.size(), 0)
-      << "length of parsed decimal string should be greater than 0";
-
-  ShiftAndAdd(whole_digits.data(), whole_digits.length(), out);
-  ShiftAndAdd(fractional_digits.data(), fractional_digits.length(), out);
 }
 
 namespace {
@@ -482,8 +476,12 @@ Status Decimal128::FromString(const util::string_view& s, Decimal128* out,
   }
 
   if (out != nullptr) {
-    *out = 0;
-    StringToInteger(dec.whole_digits, dec.fractional_digits, out);
+    std::array<uint64_t, 2> little_endian_array = {0, 0};
+    ShiftAndAdd(dec.whole_digits, little_endian_array.data(), little_endian_array.size());
+    ShiftAndAdd(dec.fractional_digits, little_endian_array.data(),
+                little_endian_array.size());
+    *out =
+        Decimal128(static_cast<int64_t>(little_endian_array[1]), little_endian_array[0]);
     if (parsed_scale < 0) {
       *out *= GetScaleMultiplier(-parsed_scale);
     }
