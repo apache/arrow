@@ -1671,11 +1671,11 @@ def test_map_from_dicts():
 
     assert arr.to_pylist() == expected
 
-    # FIXME(kszucs): fix the raised exception's type
     # Invalid dictionary
-    # for entry in [[{'value': 5}], [{}], [{'k': 1, 'v': 2}]]:
-    #     with pytest.raises(ValueError, match="Invalid Map"):
-    #         pa.array([entry], type=pa.map_('i4', 'i4'))
+    for entry in [[{'value': 5}], [{}], [{'k': 1, 'v': 2}]]:
+        print(entry)
+        with pytest.raises(ValueError, match="Invalid Map"):
+            pa.array([entry], type=pa.map_('i4', 'i4'))
 
     # Invalid dictionary types
     for entry in [[{'key': '1', 'value': 5}], [{'key': {'value': 2}}]]:
@@ -1849,8 +1849,6 @@ def test_nested_auto_chunking():
     ]
 
 
-# FIXME(kszucs)
-@pytest.mark.skip
 def test_dictionary_conversion():
     data = [
         {"page_type": 1},

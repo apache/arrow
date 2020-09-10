@@ -758,8 +758,8 @@ class PyStructConverter : public StructConverter<PyConverter> {
   }
 
   Status InferKeyKind(PyObject* items) {
-    // TODO: iterate over the items instead
-    for (int i = 0; i < num_fields_; i++) {
+    for (int i = 0; i < PySequence_Length(items); i++) {
+      // retrieve the key from the passed key-value pairs
       PyObject* tuple = PySequence_GetItem(items, i);
       if (tuple == NULL) {
         RETURN_IF_PYERROR();
@@ -768,25 +768,24 @@ class PyStructConverter : public StructConverter<PyConverter> {
       if (key == NULL) {
         RETURN_IF_PYERROR();
       }
-      // check equality with unicode field name
-      PyObject* name = PyList_GET_ITEM(unicode_field_names_.obj(), i);
-      bool are_equal = PyObject_RichCompareBool(key, name, Py_EQ);
+
+      // check key exists between the unicode field names
+      bool do_contain = PySequence_Contains(unicode_field_names_.obj(), key);
       RETURN_IF_PYERROR();
-      if (are_equal) {
+      if (do_contain) {
         key_kind_ = KeyKind::UNICODE;
         return Status::OK();
       }
-      // check equality with bytes field name
-      name = PyList_GET_ITEM(bytes_field_names_.obj(), i);
-      are_equal = PyObject_RichCompareBool(key, name, Py_EQ);
+
+      // check key exists between the bytes field names
+      do_contain = PySequence_Contains(bytes_field_names_.obj(), key);
       RETURN_IF_PYERROR();
-      if (are_equal) {
+      if (do_contain) {
         key_kind_ = KeyKind::BYTES;
         return Status::OK();
       }
     }
     return Status::OK();
-    // return internal::Invalid(value, "was unable to infer key type");
   }
 
   Status AppendDict(PyObject* dict) {
@@ -826,6 +825,7 @@ class PyStructConverter : public StructConverter<PyConverter> {
     if (!PySequence_Check(items)) {
       return internal::InvalidType(items, "was expecting a sequence of key-value items");
     }
+    // TODO(kszucs): cover with tests
     // if (PySequence_GET_SIZE(items) != num_fields_) {
     //   return Status::Invalid("Sequence size must be equal to number of struct fields");
     // }
