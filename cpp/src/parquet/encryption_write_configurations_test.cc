@@ -32,7 +32,7 @@
 /*
  * This file contains unit-tests for writing encrypted Parquet files with
  * different encryption configurations.
- * The files are saved in parquet-testing/data folder and will be deleted after reading
+ * The files are saved in temporary folder and will be deleted after reading
  * them in encryption-read-configurations-test.cc test.
  *
  * A detailed description of the Parquet Modular Encryption specification can be found
@@ -65,12 +65,15 @@ namespace test {
 
 using FileClass = ::arrow::io::FileOutputStream;
 
+std::unique_ptr<TemporaryDir> temp_dir;
+
 class TestEncryptionConfiguration : public ::testing::Test {
  public:
   void SetUp() {
     // Setup the parquet schema
     schema_ = SetupEncryptionSchema();
   }
+  static void SetUpTestCase();
 
  protected:
   std::string path_to_double_field_ = "double_field";
@@ -87,7 +90,7 @@ class TestEncryptionConfiguration : public ::testing::Test {
   void EncryptFile(
       std::shared_ptr<parquet::FileEncryptionProperties> encryption_configurations,
       std::string file_name) {
-    std::string file = data_file(file_name.c_str());
+    std::string file = temp_dir->path().ToString() + file_name;
 
     WriterProperties::Builder prop_builder;
     prop_builder.compression(parquet::Compression::SNAPPY);
@@ -381,6 +384,10 @@ TEST_F(TestEncryptionConfiguration, EncryptTwoColumnsAndFooterUseAES_GCM_CTR) {
                             ->build(),
                         "tmp_encrypt_columns_and_footer_ctr.parquet.encrypted"));
 }
+
+// Set temp_dir before running the write/read tests. The encrypted files will
+// be written/read from this directory.
+void TestEncryptionConfiguration::SetUpTestCase() { temp_dir = *temp_data_dir(); }
 
 }  // namespace test
 }  // namespace parquet
