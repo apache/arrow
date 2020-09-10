@@ -73,10 +73,10 @@ def test_exported_functions():
     functions = exported_functions
     assert len(functions) >= 10
     for func in functions:
-        args = [None] * func.__arrow_compute_function__['arity']
+        args = [object()] * func.__arrow_compute_function__['arity']
         with pytest.raises(TypeError,
                            match="Got unexpected argument type "
-                                 "<class 'NoneType'> for compute function"):
+                                 "<class 'object'> for compute function"):
             func(*args)
 
 
@@ -154,6 +154,18 @@ def test_function_attributes():
         repr(func)
         for ker in kernels:
             repr(ker)
+
+
+def test_input_type_conversion():
+    # Automatic array conversion from Python
+    arr = pc.add([1, 2], [4, None])
+    assert arr.to_pylist() == [5, None]
+    # Automatic scalar conversion from Python
+    arr = pc.add([1, 2], 4)
+    assert arr.to_pylist() == [5, 6]
+    # Other scalar type
+    assert pc.equal(["foo", "bar", None],
+                    "foo").to_pylist() == [True, False, None]
 
 
 @pytest.mark.parametrize('arrow_type', numerical_arrow_types)

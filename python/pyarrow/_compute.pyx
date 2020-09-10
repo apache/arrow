@@ -354,17 +354,32 @@ cdef _pack_compute_args(object values, vector[CDatum]* out):
 
         if isinstance(val, Array):
             out.push_back(CDatum((<Array> val).sp_array))
+            continue
         elif isinstance(val, ChunkedArray):
             out.push_back(CDatum((<ChunkedArray> val).sp_chunked_array))
+            continue
         elif isinstance(val, Scalar):
             out.push_back(CDatum((<Scalar> val).unwrap()))
+            continue
         elif isinstance(val, RecordBatch):
             out.push_back(CDatum((<RecordBatch> val).sp_batch))
+            continue
         elif isinstance(val, Table):
             out.push_back(CDatum((<Table> val).sp_table))
+            continue
         else:
-            raise TypeError("Got unexpected argument type {} "
-                            "for compute function".format(type(val)))
+            # Is it a Python scalar?
+            try:
+                scal = lib.scalar(val)
+            except Exception:
+                # Raise dedicated error below
+                pass
+            else:
+                out.push_back(CDatum((<Scalar> scal).unwrap()))
+                continue
+
+        raise TypeError("Got unexpected argument type {} "
+                        "for compute function".format(type(val)))
 
 
 cdef class FunctionRegistry(_Weakrefable):
