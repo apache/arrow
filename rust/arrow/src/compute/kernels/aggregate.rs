@@ -102,8 +102,9 @@ where
         let mut n: T::Native = T::default_value();
         let data = array.data();
         let m = array.value_slice(0, data.len());
+        let nulls = data.null_bitmap().as_ref().unwrap();
         for (i, item) in m.iter().enumerate() {
-            if data.is_valid(i) {
+            if nulls.is_set(i) {
                 n = n + *item;
             }
         }
