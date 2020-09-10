@@ -45,7 +45,12 @@ read_parquet <- function(file,
     on.exit(file$close())
   }
   reader <- ParquetFileReader$create(file, props = props, ...)
-  tab <- reader$ReadTable(!!enquo(col_select))
+  tab <- reader$ReadTable()
+
+  col_select <- enquo(col_select)
+  if (!quo_is_null(col_select)) {
+    tab <- tab[vars_select(names(tab), !!col_select)]
+  }
 
   if (as_data_frame) {
     tab <- as.data.frame(tab)
@@ -409,10 +414,10 @@ ParquetFileWriter$create <- function(schema,
 #'
 #' @section Methods:
 #'
-#' - `$ReadTable(col_select)`: get an `arrow::Table` from the file, possibly
-#'    with columns filtered by a character vector of column names or a
-#'    `tidyselect` specification.
+#' - `$ReadTable(column_indices)`: get an `arrow::Table` from the file. The optional
+#'    `column_indices=` argument is a 0-based integer vector indicating which columns to retain.
 #' - `$GetSchema()`: get the `arrow::Schema` of the data in the file
+#' - `$ReadColumn(i)`: read the `i`th column (0-based) as a [ChunkedArray].
 #'
 #' @export
 #' @examples
@@ -422,7 +427,7 @@ ParquetFileWriter$create <- function(schema,
 #' pq$GetSchema()
 #' if (codec_is_available("snappy")) {
 #'   # This file has compressed data columns
-#'   tab <- pq$ReadTable(starts_with("c"))
+#'   tab <- pq$ReadTable()
 #'   tab$schema
 #' }
 #' }
@@ -438,14 +443,11 @@ ParquetFileReader <- R6Class("ParquetFileReader",
     }
   ),
   public = list(
-    ReadTable = function(col_select = NULL) {
-      col_select <- enquo(col_select)
-      if (quo_is_null(col_select)) {
+    ReadTable = function(column_indices = NULL) {
+      if (is.null(column_indices)) {
         shared_ptr(Table, parquet___arrow___FileReader__ReadTable1(self))
-      } else {
-        all_vars <- shared_ptr(Schema, parquet___arrow___FileReader__GetSchema(self))$names
-        indices <- match(vars_select(all_vars, !!col_select), all_vars) - 1L
-        shared_ptr(Table, parquet___arrow___FileReader__ReadTable2(self, indices))
+      } else if (is_integerish(column_indices)) {
+        shared_ptr(Table, parquet___arrow___FileReader__ReadTable2(self, as.integer(column_indices)))
       }
     },
     ReadColumn = function(i) {

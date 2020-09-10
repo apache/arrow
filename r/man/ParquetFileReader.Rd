@@ -24,10 +24,10 @@ takes the following arguments:
 \section{Methods}{
 
 \itemize{
-\item \verb{$ReadTable(col_select)}: get an \code{arrow::Table} from the file, possibly
-with columns filtered by a character vector of column names or a
-\code{tidyselect} specification.
+\item \verb{$ReadTable(column_indices)}: get an \code{arrow::Table} from the file. The optional
+\verb{column_indices=} argument is a 0-based integer vector indicating which columns to retain.
 \item \verb{$GetSchema()}: get the \code{arrow::Schema} of the data in the file
+\item \verb{$ReadColumn(i)}: read the \code{i}th column (0-based) as a \link{ChunkedArray}.
 }
 }
 
@@ -38,7 +38,7 @@ pq <- ParquetFileReader$create(f)
 pq$GetSchema()
 if (codec_is_available("snappy")) {
   # This file has compressed data columns
-  tab <- pq$ReadTable(starts_with("c"))
+  tab <- pq$ReadTable()
   tab$schema
 }
 }
