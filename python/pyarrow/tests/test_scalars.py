@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import collections
 import datetime
 import decimal
 import pickle
@@ -62,7 +63,8 @@ import pyarrow as pa
      pa.Time32Scalar, pa.Time32Value),
     (datetime.datetime.now().time(), None, pa.Time64Scalar, pa.Time64Value),
     (datetime.timedelta(days=1), None, pa.DurationScalar, pa.DurationValue),
-    ({'a': 1, 'b': [1, 2]}, None, pa.StructScalar, pa.StructValue),
+    (collections.OrderedDict([('a', 1), ('b', [1, 2])]), None, pa.StructScalar,
+     pa.StructValue),
     ([('a', 1), ('b', 2)], pa.map_(pa.string(), pa.int8()), pa.MapScalar,
      pa.MapValue),
 ])
@@ -461,7 +463,7 @@ def test_struct():
         pa.field('y', pa.float32())
     ])
 
-    v = {'x': 2, 'y': 3.5}
+    v = collections.OrderedDict([('x', 2), ('y', 3.5)])
     s = pa.scalar(v, type=ty)
     assert list(s) == list(s.keys()) == ['x', 'y']
     assert list(s.values()) == [

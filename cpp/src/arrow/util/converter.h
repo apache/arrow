@@ -129,7 +129,7 @@ class Converter {
 
   virtual ~Converter() = default;
 
-  virtual Status Init() { return Status::OK(); };
+  virtual Status Init() { return Status::OK(); }
 
   virtual Status Append(InputType value) {
     return Status::NotImplemented("Converter not implemented for type ",
@@ -148,7 +148,7 @@ class Converter {
 
   virtual Status AppendNull() { return builder_->AppendNull(); }
 
-  virtual Result<std::shared_ptr<Array>> ToArray() { return builder_->Finish(); };
+  virtual Result<std::shared_ptr<Array>> ToArray() { return builder_->Finish(); }
 
   virtual Result<std::shared_ptr<Array>> ToArray(int64_t length) {
     ARROW_ASSIGN_OR_RAISE(auto arr, this->ToArray());
