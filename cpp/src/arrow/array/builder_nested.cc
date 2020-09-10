@@ -170,6 +170,19 @@ Status FixedSizeListBuilder::AppendNulls(int64_t length) {
   return value_builder_->AppendNulls(list_size_ * length);
 }
 
+Status FixedSizeListBuilder::ValidateOverflow(int64_t new_elements) {
+  auto new_length = value_builder_->length() + new_elements;
+  if (new_elements != list_size_) {
+    return Status::Invalid("Length of item not correct: expected ", list_size_,
+                           " but got array of size ", new_elements);
+  }
+  if (new_length > maximum_elements()) {
+    return Status::CapacityError("array cannot contain more than ", maximum_elements(),
+                                 " elements, have ", new_elements);
+  }
+  return Status::OK();
+}
+
 Status FixedSizeListBuilder::Resize(int64_t capacity) {
   RETURN_NOT_OK(CheckCapacity(capacity));
   return ArrayBuilder::Resize(capacity);

@@ -131,6 +131,16 @@ class BaseListBuilder : public ArrayBuilder {
     return Status::OK();
   }
 
+  Status ValidateOverflow(int64_t new_elements) {
+    auto new_length = value_builder_->length() + new_elements;
+    if (ARROW_PREDICT_FALSE(new_length > maximum_elements())) {
+      return Status::CapacityError("array cannot contain more than ", maximum_elements(),
+                                   " elements, have ", new_elements);
+    } else {
+      return Status::OK();
+    }
+  }
+
   ArrayBuilder* value_builder() const { return value_builder_.get(); }
 
   // Cannot make this a static attribute because of linking issues
@@ -343,10 +353,17 @@ class ARROW_EXPORT FixedSizeListBuilder : public ArrayBuilder {
   /// automatically.
   Status AppendNulls(int64_t length) final;
 
+  Status ValidateOverflow(int64_t new_elements);
+
   ArrayBuilder* value_builder() const { return value_builder_.get(); }
 
   std::shared_ptr<DataType> type() const override {
     return fixed_size_list(value_field_->WithType(value_builder_->type()), list_size_);
+  }
+
+  // Cannot make this a static attribute because of linking issues
+  static constexpr int64_t maximum_elements() {
+    return std::numeric_limits<FixedSizeListType::offset_type>::max() - 1;
   }
 
  protected:

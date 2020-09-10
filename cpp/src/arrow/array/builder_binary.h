@@ -76,21 +76,21 @@ class BaseBinaryBuilder : public ArrayBuilder {
     return Append(value.data(), static_cast<offset_type>(value.size()));
   }
 
-  Status AppendSafe(util::string_view value) {
-    auto size = static_cast<offset_type>(value.size());
-    auto num_bytes = value_data_builder_.length() + size;
-    if (ARROW_PREDICT_TRUE(num_bytes <= memory_limit())) {
-      return Append(value.data(), size);
+  Status ValidateOverflow() { return ValidateOverflow(0); }
+
+  Status ValidateOverflow(int64_t new_bytes) {
+    auto new_size = value_data_builder_.length() + new_bytes;
+    if (ARROW_PREDICT_FALSE(new_size > memory_limit())) {
+      return Status::CapacityError("array cannot contain more than ", memory_limit(),
+                                   " bytes, have ", new_size);
     } else {
-      return AppendOverflow(num_bytes);
+      return Status::OK();
     }
   }
 
   Status AppendNulls(int64_t length) final {
     const int64_t num_bytes = value_data_builder_.length();
-    if (ARROW_PREDICT_FALSE(num_bytes > memory_limit())) {
-      return AppendOverflow(num_bytes);
-    }
+    RETURN_NOT_OK(ValidateOverflow());
     ARROW_RETURN_NOT_OK(Reserve(length));
     for (int64_t i = 0; i < length; ++i) {
       offsets_builder_.UnsafeAppend(static_cast<offset_type>(num_bytes));
@@ -327,16 +327,9 @@ class BaseBinaryBuilder : public ArrayBuilder {
   TypedBufferBuilder<offset_type> offsets_builder_;
   TypedBufferBuilder<uint8_t> value_data_builder_;
 
-  Status AppendOverflow(int64_t num_bytes) {
-    return Status::CapacityError("array cannot contain more than ", memory_limit(),
-                                 " bytes, have ", num_bytes);
-  }
-
   Status AppendNextOffset() {
     const int64_t num_bytes = value_data_builder_.length();
-    if (ARROW_PREDICT_FALSE(num_bytes > memory_limit())) {
-      return AppendOverflow(num_bytes);
-    }
+    ARROW_RETURN_NOT_OK(ValidateOverflow());
     return offsets_builder_.Append(static_cast<offset_type>(num_bytes));
   }
 
@@ -432,14 +425,15 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
     return Status::OK();
   }
 
-  Status AppendSafe(util::string_view value) {
-    auto num_bytes = byte_builder_.length() + byte_width_;
-    if (ARROW_PREDICT_TRUE(num_bytes <= memory_limit())) {
-      return Append(value.data());
-    } else {
+  Status ValidateOverflow() { return ValidateOverflow(0); }
+
+  Status ValidateOverflow(int64_t new_bytes) {
+    auto new_size = byte_builder_.length() + new_bytes;
+    if (ARROW_PREDICT_FALSE(new_size > memory_limit())) {
       return Status::CapacityError("array cannot contain more than ", memory_limit(),
-                                   " bytes, have ", num_bytes);
-      ;
+                                   " bytes, have ", new_size);
+    } else {
+      return Status::OK();
     }
   }
 

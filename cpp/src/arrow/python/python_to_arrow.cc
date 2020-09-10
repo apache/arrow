@@ -455,8 +455,8 @@ class PyPrimitiveConverter<T, enable_if_binary<T>>
     } else {
       ARROW_ASSIGN_OR_RAISE(
           auto view, PyValue::Convert(this->primitive_type_, this->options_, value));
-      return this->primitive_builder_->AppendSafe(
-          util::string_view(view.bytes, view.size));
+      ARROW_RETURN_NOT_OK(this->primitive_builder_->ValidateOverflow(view.size));
+      return this->primitive_builder_->Append(util::string_view(view.bytes, view.size));
     }
   }
 };
@@ -475,9 +475,8 @@ class PyPrimitiveConverter<T, enable_if_string_like<T>>
         // observed binary value
         observed_binary_ = true;
       }
-      // TODO(kszucs): add CheckOverflow method to binary builders and call it here
-      return this->primitive_builder_->AppendSafe(
-          util::string_view(view.bytes, view.size));
+      ARROW_RETURN_NOT_OK(this->primitive_builder_->ValidateOverflow(view.size));
+      return this->primitive_builder_->Append(util::string_view(view.bytes, view.size));
     }
   }
 
@@ -547,19 +546,11 @@ class PyDictionaryConverter<T, enable_if_has_string_view<T>>
 template <typename T>
 class PyListConverter : public ListConverter<T, PyConverter> {
  public:
-  Status ValidateSize(const BaseListType*, int64_t size) { return Status::OK(); }
+  Status ValidateOverflow(const MapType*, int64_t size) { return Status::OK(); }
 
-  Status ValidateSize(const FixedSizeListType* type, int64_t size) {
-    // TODO(kszucs): perhaps this should be handled somewhere else
-    if (type->list_size() != size) {
-      return Status::Invalid("Length of item not correct: expected ", type->list_size(),
-                             " but got array of size ", size);
-    } else {
-      return Status::OK();
-    }
+  Status ValidateOverflow(const BaseListType*, int64_t size) {
+    return this->list_builder_->ValidateOverflow(size);
   }
-
-  Status ValidateBuilder(const BaseListType*) { return Status::OK(); }
 
   Status ValidateBuilder(const MapType*) {
     // TODO(kszucs): perhaps this should be handled somewhere else
@@ -570,13 +561,13 @@ class PyListConverter : public ListConverter<T, PyConverter> {
     }
   }
 
+  Status ValidateBuilder(const BaseListType*) { return Status::OK(); }
+
   Status Append(PyObject* value) override {
     if (PyValue::IsNull(this->options_, value)) {
       return this->list_builder_->AppendNull();
     }
 
-    // TODO(kszucs): raise CapacityError if it wouldn't fit in the list builder's
-    // memory limit
     RETURN_NOT_OK(this->list_builder_->Append());
     if (PyArray_Check(value)) {
       RETURN_NOT_OK(AppendNdarray(value));
@@ -592,7 +583,7 @@ class PyListConverter : public ListConverter<T, PyConverter> {
 
   Status AppendSequence(PyObject* value) {
     int64_t size = static_cast<int64_t>(PySequence_Size(value));
-    RETURN_NOT_OK(this->ValidateSize(this->list_type_, size));
+    RETURN_NOT_OK(ValidateOverflow(this->list_type_, size));
     return this->value_converter_->Extend(value, size);
   }
 
@@ -602,7 +593,7 @@ class PyListConverter : public ListConverter<T, PyConverter> {
       return Status::Invalid("Can only convert 1-dimensional array values");
     }
     const int64_t size = PyArray_SIZE(ndarray);
-    RETURN_NOT_OK(this->ValidateSize(this->list_type_, size));
+    RETURN_NOT_OK(ValidateOverflow(this->list_type_, size));
 
     const auto value_type = this->value_converter_->builder()->type();
     switch (value_type->id()) {
