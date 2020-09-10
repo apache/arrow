@@ -80,7 +80,7 @@ where
         let mut n: T::Native = T::default_value();
         let data = array.data();
         let m = array.value_slice(0, data.len());
-        for item in m.iter().take(data.len()) {
+        for item in m {
             n = n + *item;
         }
         Some(n)
