@@ -212,6 +212,8 @@ arrow_attributes <- function(x, only_top_level = FALSE) {
     }
   } else if (length(att)) {
     list(attributes = att, columns = NULL)
+  } else {
+    NULL
   }
 }
 
