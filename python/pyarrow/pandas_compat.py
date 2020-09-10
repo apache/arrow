@@ -978,7 +978,7 @@ def _extract_index_level(table, result_table, field_name,
         # non-writeable arrays when calling MultiIndex.from_arrays
         values = values.copy()
 
-    if isinstance(col.type, pa.lib.TimestampType):
+    if isinstance(col.type, pa.lib.TimestampType) and col.type.tz is not None:
         index_level = make_tz_aware(pd.Series(values), col.type.tz)
     else:
         index_level = pd.Series(values, dtype=values.dtype)
