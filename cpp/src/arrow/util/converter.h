@@ -311,7 +311,7 @@ class Chunker : public BaseConverter {
     if (status.ok()) {
       length_ = this->builder_->length();
     } else if (status.IsCapacityError()) {
-      RETURN_NOT_OK(FinishChunk());
+      ARROW_RETURN_NOT_OK(FinishChunk());
       return converter_->AppendNull();
     }
     return status;
@@ -322,7 +322,7 @@ class Chunker : public BaseConverter {
     if (status.ok()) {
       length_ = this->builder_->length();
     } else if (status.IsCapacityError()) {
-      RETURN_NOT_OK(FinishChunk());
+      ARROW_RETURN_NOT_OK(FinishChunk());
       return Append(value);
     }
     return status;
@@ -337,7 +337,7 @@ class Chunker : public BaseConverter {
   }
 
   Result<std::shared_ptr<ChunkedArray>> ToChunkedArray() {
-    RETURN_NOT_OK(FinishChunk());
+    ARROW_RETURN_NOT_OK(FinishChunk());
     return std::make_shared<ChunkedArray>(chunks_);
   }
 
