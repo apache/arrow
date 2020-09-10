@@ -163,6 +163,9 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
     representation).  Timezone-naive data will be implicitly interpreted as
     UTC.
 
+    TODO(kszucs): describe the adaptive nature of the dictionary array's index
+                  type
+
     Examples
     --------
     >>> import pandas as pd

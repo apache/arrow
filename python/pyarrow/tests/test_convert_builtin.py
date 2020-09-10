@@ -1673,7 +1673,6 @@ def test_map_from_dicts():
 
     # Invalid dictionary
     for entry in [[{'value': 5}], [{}], [{'k': 1, 'v': 2}]]:
-        print(entry)
         with pytest.raises(ValueError, match="Invalid Map"):
             pa.array([entry], type=pa.map_('i4', 'i4'))
 

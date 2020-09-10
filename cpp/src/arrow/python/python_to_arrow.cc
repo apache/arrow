@@ -373,12 +373,12 @@ class PyStructConverter;
 class PyConverter : public Converter<PyObject*, PyConversionOptions, PyConverter> {
  public:
   template <typename T>
-  using PrimitiveConverter = PyPrimitiveConverter<T>;
+  using Primitive = PyPrimitiveConverter<T>;
   template <typename T>
-  using DictionaryConverter = PyDictionaryConverter<T>;
+  using Dictionary = PyDictionaryConverter<T>;
   template <typename T>
-  using ListConverter = PyListConverter<T>;
-  using StructConverter = PyStructConverter;
+  using List = PyListConverter<T>;
+  using Struct = PyStructConverter;
 
   Status Extend(PyObject* values, int64_t size) {
     /// Ensure we've allocated enough space

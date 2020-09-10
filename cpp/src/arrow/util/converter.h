@@ -111,12 +111,12 @@ class Converter {
   using OptionsType = Options;
 
   template <typename T>
-  using PrimitiveConverter = PrimitiveConverter<T, Self>;
+  using Primitive = PrimitiveConverter<T, Self>;
   template <typename T>
-  using ListConverter = ListConverter<T, Self>;
+  using List = ListConverter<T, Self>;
   template <typename T>
-  using DictionaryConveter = DictionaryConverter<T, Self>;
-  using StructConverter = StructConverter<Self>;
+  using Dictionary = DictionaryConverter<T, Self>;
+  using Struct = StructConverter<Self>;
 
   static Result<std::shared_ptr<Self>> Make(std::shared_ptr<DataType> type,
                                             MemoryPool* pool, OptionsType options) {
@@ -164,17 +164,17 @@ class Converter {
   OptionsType options_;
 };
 
-#define DICTIONARY_CASE(TYPE_ENUM, TYPE_CLASS)                                   \
-  case Type::TYPE_ENUM:                                                          \
-    return Finish<typename Converter::template DictionaryConverter<TYPE_CLASS>>( \
-        std::move(builder), {});                                                 \
+#define DICTIONARY_CASE(TYPE_ENUM, TYPE_CLASS)                          \
+  case Type::TYPE_ENUM:                                                 \
+    return Finish<typename Converter::template Dictionary<TYPE_CLASS>>( \
+        std::move(builder), {});                                        \
     break;
 
 template <typename Converter>
 struct MakeConverterImpl {
   Status Visit(const NullType& t) {
     using BuilderType = typename TypeTraits<NullType>::BuilderType;
-    using ConverterType = typename Converter::template PrimitiveConverter<NullType>;
+    using ConverterType = typename Converter::template Primitive<NullType>;
 
     auto builder = std::make_shared<BuilderType>(pool);
     return Finish<ConverterType>(std::move(builder), {});
@@ -186,7 +186,7 @@ struct MakeConverterImpl {
               Status>
   Visit(const T& t) {
     using BuilderType = typename TypeTraits<T>::BuilderType;
-    using ConverterType = typename Converter::template PrimitiveConverter<T>;
+    using ConverterType = typename Converter::template Primitive<T>;
 
     auto builder = std::make_shared<BuilderType>(type, pool);
     return Finish<ConverterType>(std::move(builder), {});
@@ -196,7 +196,7 @@ struct MakeConverterImpl {
   enable_if_t<is_list_like_type<T>::value && !std::is_same<T, MapType>::value, Status>
   Visit(const T& t) {
     using BuilderType = typename TypeTraits<T>::BuilderType;
-    using ConverterType = typename Converter::template ListConverter<T>;
+    using ConverterType = typename Converter::template List<T>;
 
     ARROW_ASSIGN_OR_RAISE(auto child_converter,
                           Converter::Make(t.value_type(), pool, options));
@@ -205,7 +205,7 @@ struct MakeConverterImpl {
   }
 
   Status Visit(const MapType& t) {
-    using ConverterType = typename Converter::template ListConverter<MapType>;
+    using ConverterType = typename Converter::template List<MapType>;
 
     // TODO(kszucs): seems like builders not respect field nullability
     std::vector<std::shared_ptr<Field>> struct_fields{t.key_field(), t.item_field()};
@@ -250,7 +250,7 @@ struct MakeConverterImpl {
   }
 
   Status Visit(const StructType& t) {
-    using ConverterType = typename Converter::StructConverter;
+    using ConverterType = typename Converter::Struct;
 
     std::shared_ptr<Converter> child_converter;
     std::vector<std::shared_ptr<Converter>> child_converters;
