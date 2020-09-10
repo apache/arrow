@@ -546,7 +546,7 @@ mod tests {
 
     #[test]
     fn create_variable_expr() -> Result<()> {
-        let tmp_dir = TempDir::new("variable_expr")?;
+        let tmp_dir = TempDir::new()?;
         let partition_count = 4;
         let mut ctx = create_ctx(&tmp_dir, partition_count)?;
 
@@ -1032,7 +1032,7 @@ mod tests {
     fn send_context_to_threads() -> Result<()> {
         // ensure ExecutionContexts can be used in a multi-threaded
         // environment. Usecase is for concurrent planing.
-        let tmp_dir = TempDir::new("send_context_to_threads")?;
+        let tmp_dir = TempDir::new()?;
         let partition_count = 4;
         let ctx = Arc::new(Mutex::new(create_ctx(&tmp_dir, partition_count)?));
 
