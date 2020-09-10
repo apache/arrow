@@ -110,8 +110,8 @@ def check_example_file(orc_path, expected_df, need_fix=False):
     assert json_pos == orc_file.nrows
 
 
-
-#FIXME(kszucs)
+# FIXME(kszucs): need to update the expected format to contain list of pairs
+# instead of a dictionary
 @pytest.mark.skip
 @pytest.mark.pandas
 @pytest.mark.parametrize('filename', [
