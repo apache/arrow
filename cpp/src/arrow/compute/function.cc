@@ -103,6 +103,9 @@ Result<const KernelType*> DispatchExactImpl(const Function& func,
 
 Result<Datum> Function::Execute(const std::vector<Datum>& args,
                                 const FunctionOptions* options, ExecContext* ctx) const {
+  if (options == nullptr) {
+    options = default_options();
+  }
   if (ctx == nullptr) {
     ExecContext default_ctx;
     return Execute(args, options, &default_ctx);

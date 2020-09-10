@@ -1707,6 +1707,17 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
             " arrow::compute::TakeOptions"(CFunctionOptions):
         c_bool boundscheck
 
+    enum CMinMaxMode \
+            "arrow::compute::MinMaxOptions::Mode":
+        CMinMaxMode_SKIP \
+            "arrow::compute::MinMaxOptions::SKIP"
+        CMinMaxMode_EMIT_NULL \
+            "arrow::compute::MinMaxOptions::EMIT_NULL"
+
+    cdef cppclass CMinMaxOptions \
+            "arrow::compute::MinMaxOptions"(CFunctionOptions):
+        CMinMaxMode null_handling
+
     enum DatumType" arrow::Datum::type":
         DatumType_NONE" arrow::Datum::NONE"
         DatumType_SCALAR" arrow::Datum::SCALAR"
