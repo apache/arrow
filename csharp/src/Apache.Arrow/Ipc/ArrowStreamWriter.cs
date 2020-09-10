@@ -222,41 +222,8 @@ namespace Apache.Arrow.Ipc
                 HasWrittenSchema = true;
             }
 
-            Builder.Clear();
-
-            // Serialize field nodes
-
-            int fieldCount = Schema.Fields.Count;
-
-            Flatbuf.RecordBatch.StartNodesVector(Builder, CountAllNodes());
-
-            // flatbuffer struct vectors have to be created in reverse order
-            for (int i = fieldCount - 1; i >= 0; i--)
-            {
-                CreateSelfAndChildrenFieldNodes(recordBatch.Column(i).Data);
-            }
-
-            VectorOffset fieldNodesVectorOffset = Builder.EndVector();
-
-            // Serialize buffers
-
-            var recordBatchBuilder = new ArrowRecordBatchFlatBufferBuilder();
-            for (int i = 0; i < fieldCount; i++)
-            {
-                IArrowArray fieldArray = recordBatch.Column(i);
-                fieldArray.Accept(recordBatchBuilder);
-            }
-
-            IReadOnlyList<ArrowRecordBatchFlatBufferBuilder.Buffer> buffers = recordBatchBuilder.Buffers;
-
-            Flatbuf.RecordBatch.StartBuffersVector(Builder, buffers.Count);
-
-            // flatbuffer struct vectors have to be created in reverse order
-            for (int i = buffers.Count - 1; i >= 0; i--)
-            {
-                Flatbuf.Buffer.CreateBuffer(Builder,
-                    buffers[i].Offset, buffers[i].DataBuffer.Length);
-            }
+            (ArrowRecordBatchFlatBufferBuilder recordBatchBuilder, VectorOffset fieldNodesVectorOffset) =
+                PreparingWritingRecordBatch(recordBatch);
 
             VectorOffset buffersVectorOffset = Builder.EndVector();
 
@@ -272,6 +239,8 @@ namespace Apache.Arrow.Ipc
                 recordBatchOffset, recordBatchBuilder.TotalLength);
 
             // Write buffer data
+
+            IReadOnlyList<ArrowRecordBatchFlatBufferBuilder.Buffer> buffers = recordBatchBuilder.Buffers;
 
             long bodyLength = 0;
 
@@ -313,6 +282,58 @@ namespace Apache.Arrow.Ipc
                 HasWrittenSchema = true;
             }
 
+            (ArrowRecordBatchFlatBufferBuilder recordBatchBuilder, VectorOffset fieldNodesVectorOffset) =
+                PreparingWritingRecordBatch(recordBatch);
+
+            VectorOffset buffersVectorOffset = Builder.EndVector();
+
+            // Serialize record batch
+
+            StartingWritingRecordBatch();
+
+            Offset<Flatbuf.RecordBatch> recordBatchOffset = Flatbuf.RecordBatch.CreateRecordBatch(Builder, recordBatch.Length,
+                fieldNodesVectorOffset,
+                buffersVectorOffset);
+
+            long metadataLength = await WriteMessageAsync(Flatbuf.MessageHeader.RecordBatch,
+                recordBatchOffset, recordBatchBuilder.TotalLength,
+                cancellationToken).ConfigureAwait(false);
+
+            // Write buffer data
+
+            IReadOnlyList<ArrowRecordBatchFlatBufferBuilder.Buffer> buffers = recordBatchBuilder.Buffers;
+
+            long bodyLength = 0;
+
+            for (int i = 0; i < buffers.Count; i++)
+            {
+                ArrowBuffer buffer = buffers[i].DataBuffer;
+                if (buffer.IsEmpty)
+                    continue;
+
+                await WriteBufferAsync(buffer, cancellationToken).ConfigureAwait(false);
+
+                int paddedLength = checked((int)BitUtility.RoundUpToMultipleOf8(buffer.Length));
+                int padding = paddedLength - buffer.Length;
+                if (padding > 0)
+                {
+                    await WritePaddingAsync(padding).ConfigureAwait(false);
+                }
+
+                bodyLength += paddedLength;
+            }
+
+            // Write padding so the record batch message body length is a multiple of 8 bytes
+
+            int bodyPaddingLength = CalculatePadding(bodyLength);
+
+            await WritePaddingAsync(bodyPaddingLength).ConfigureAwait(false);
+
+            FinishedWritingRecordBatch(bodyLength + bodyPaddingLength, metadataLength);
+        }
+
+        private Tuple<ArrowRecordBatchFlatBufferBuilder, VectorOffset> PreparingWritingRecordBatch(RecordBatch recordBatch)
+        {
             Builder.Clear();
 
             // Serialize field nodes
@@ -349,49 +370,7 @@ namespace Apache.Arrow.Ipc
                     buffers[i].Offset, buffers[i].DataBuffer.Length);
             }
 
-            VectorOffset buffersVectorOffset = Builder.EndVector();
-
-            // Serialize record batch
-
-            StartingWritingRecordBatch();
-
-            Offset<Flatbuf.RecordBatch> recordBatchOffset = Flatbuf.RecordBatch.CreateRecordBatch(Builder, recordBatch.Length,
-                fieldNodesVectorOffset,
-                buffersVectorOffset);
-
-            long metadataLength = await WriteMessageAsync(Flatbuf.MessageHeader.RecordBatch,
-                recordBatchOffset, recordBatchBuilder.TotalLength,
-                cancellationToken).ConfigureAwait(false);
-
-            // Write buffer data
-
-            long bodyLength = 0;
-
-            for (int i = 0; i < buffers.Count; i++)
-            {
-                ArrowBuffer buffer = buffers[i].DataBuffer;
-                if (buffer.IsEmpty)
-                    continue;
-
-                await WriteBufferAsync(buffer, cancellationToken).ConfigureAwait(false);
-
-                int paddedLength = checked((int)BitUtility.RoundUpToMultipleOf8(buffer.Length));
-                int padding = paddedLength - buffer.Length;
-                if (padding > 0)
-                {
-                    await WritePaddingAsync(padding).ConfigureAwait(false);
-                }
-
-                bodyLength += paddedLength;
-            }
-
-            // Write padding so the record batch message body length is a multiple of 8 bytes
-
-            int bodyPaddingLength = CalculatePadding(bodyLength);
-
-            await WritePaddingAsync(bodyPaddingLength).ConfigureAwait(false);
-
-            FinishedWritingRecordBatch(bodyLength + bodyPaddingLength, metadataLength);
+            return Tuple.Create(recordBatchBuilder, fieldNodesVectorOffset);
         }
 
         private protected virtual void WriteEndInternal()
@@ -596,6 +575,13 @@ namespace Apache.Arrow.Ipc
             {
                 return _options.SizeOfIpcLength + messageData.Length + messagePaddingLength;
             }
+        }
+
+        private protected void WriteFlatBuffer()
+        {
+            ReadOnlyMemory<byte> segment = Builder.DataBuffer.ToReadOnlyMemory(Builder.DataBuffer.Position, Builder.Offset);
+
+            BaseStream.Write(segment);
         }
 
         private protected async ValueTask WriteFlatBufferAsync(CancellationToken cancellationToken = default)

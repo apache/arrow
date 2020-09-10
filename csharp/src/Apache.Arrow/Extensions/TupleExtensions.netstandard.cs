@@ -14,21 +14,16 @@
 // limitations under the License.
 
 using System;
-using System.IO;
 
 namespace Apache.Arrow
 {
-    // Helpers to read from Stream to Memory<byte> on netcoreapp
-    internal static partial class StreamExtensions
+    // Helpers to Deconstruct Tuples on netstandard
+    internal static partial class TupleExtensions
     {
-        public static int Read(this Stream stream, Memory<byte> buffer)
+        public static void Deconstruct<T1, T2>(this Tuple<T1, T2> value, out T1 item1, out T2 item2)
         {
-            return stream.Read(buffer.Span);
-        }
-
-        public static void Write(this Stream stream, ReadOnlyMemory<byte> buffer)
-        {
-            stream.Write(buffer.Span);
+            item1 = value.Item1;
+            item2 = value.Item2;
         }
     }
 }
