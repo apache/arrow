@@ -742,6 +742,11 @@ Status ReadDictionary(const Buffer& metadata, const IpcReadContext& context,
     RETURN_NOT_OK(DecompressBuffers(compression, context.options, &dict_fields));
   }
 
+  // swap endian in dict_data if necessary (swap_endian == true)
+  if (context.swap_endian) {
+    SwapEndianArrayData(dict_data);
+  }
+
   if (dictionary_batch->isDelta()) {
     if (context.kind != nullptr) {
       *context.kind = DictionaryKind::Delta;
