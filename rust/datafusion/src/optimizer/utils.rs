@@ -46,6 +46,10 @@ pub fn expr_to_column_names(expr: &Expr, accum: &mut HashSet<String>) -> Result<
             accum.insert(name.clone());
             Ok(())
         }
+        Expr::ScalarVariable(var_names) => {
+            accum.insert(var_names.join("."));
+            Ok(())
+        }
         Expr::Literal(_) => {
             // not needed
             Ok(())
@@ -206,6 +210,7 @@ pub fn expr_sub_expressions(expr: &Expr) -> Result<Vec<&Expr>> {
         Expr::Column(_) => Ok(vec![]),
         Expr::Alias(expr, ..) => Ok(vec![expr]),
         Expr::Literal(_) => Ok(vec![]),
+        Expr::ScalarVariable(_) => Ok(vec![]),
         Expr::Not(expr) => Ok(vec![expr]),
         Expr::Sort { expr, .. } => Ok(vec![expr]),
         Expr::Wildcard { .. } => Err(ExecutionError::General(
@@ -248,6 +253,7 @@ pub fn rewrite_expression(expr: &Expr, expressions: &Vec<Expr>) -> Result<Expr> 
         Expr::Not(_) => Ok(Expr::Not(Box::new(expressions[0].clone()))),
         Expr::Column(_) => Ok(expr.clone()),
         Expr::Literal(_) => Ok(expr.clone()),
+        Expr::ScalarVariable(_) => Ok(expr.clone()),
         Expr::Sort {
             asc, nulls_first, ..
         } => Ok(Expr::Sort {

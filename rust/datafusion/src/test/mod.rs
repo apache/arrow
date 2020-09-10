@@ -17,6 +17,7 @@
 
 //! Common unit test utility methods
 
+use crate::datasource::{MemTable, TableProvider};
 use crate::error::Result;
 use crate::execution::context::ExecutionContext;
 use crate::logical_plan::{Expr, LogicalPlan, LogicalPlanBuilder};
@@ -30,6 +31,23 @@ use std::io::prelude::*;
 use std::io::{BufReader, BufWriter};
 use std::sync::Arc;
 use tempdir::TempDir;
+
+pub fn create_table_dual() -> Box<dyn TableProvider + Send + Sync> {
+    let dual_schema = Arc::new(Schema::new(vec![
+        Field::new("id", DataType::Int32, false),
+        Field::new("name", DataType::Utf8, false),
+    ]));
+    let batch = RecordBatch::try_new(
+        dual_schema.clone(),
+        vec![
+            Arc::new(array::Int32Array::from(vec![1])),
+            Arc::new(array::StringArray::from(vec!["a"])),
+        ],
+    )
+    .unwrap();
+    let provider = MemTable::new(dual_schema.clone(), vec![vec![batch.clone()]]).unwrap();
+    Box::new(provider)
+}
 
 /// Get the value of the ARROW_TEST_DATA environment variable
 pub fn arrow_testdata_path() -> String {
@@ -237,3 +255,5 @@ pub fn min(expr: Expr) -> Expr {
         args: vec![expr],
     }
 }
+
+pub mod variable;
