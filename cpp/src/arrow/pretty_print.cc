@@ -246,7 +246,7 @@ class ScalarPrinter : public PrettyPrinter {
     (*sink_) << "{";
     for (size_t i = 0; i < scalars.size(); i++) {
       ScalarPrinter printer(options_, sink_);
-      printer.Print(*scalars[i]);
+      RETURN_NOT_OK(printer.Print(*scalars[i]));
       if (i != scalars.size() - 1) {
         (*sink_) << ", ";
       }
@@ -257,7 +257,7 @@ class ScalarPrinter : public PrettyPrinter {
 
   Status Visit(const UnionScalar& scalar) {
     ScalarPrinter printer(options_, sink_);
-    printer.Print(*(scalar.value));
+    RETURN_NOT_OK(printer.Print(*(scalar.value)));
     return Status::OK();
   }
 

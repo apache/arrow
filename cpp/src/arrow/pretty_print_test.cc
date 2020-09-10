@@ -780,7 +780,7 @@ TEST_F(TestPrettyPrint, NumericScalar) {
   scalar = std::make_shared<UInt64Scalar>(78);
   Check(*scalar, options, "78");
 
-  scalar = std::make_shared<FloatScalar>(2.2);
+  scalar = std::make_shared<FloatScalar>(2.2f);
   Check(*scalar, options, "2.2");
   scalar = std::make_shared<DoubleScalar>(3.3);
   Check(*scalar, options, "3.3");
