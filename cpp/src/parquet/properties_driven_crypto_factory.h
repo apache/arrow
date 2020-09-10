@@ -185,7 +185,7 @@ class PARQUET_EXPORT DecryptionConfiguration {
 
 class PARQUET_EXPORT PropertiesDrivenCryptoFactory {
  public:
-  void kms_client_factory(std::shared_ptr<KmsClientFactory> kms_client_factory);
+  void register_kms_client_factory(std::shared_ptr<KmsClientFactory> kms_client_factory);
 
   std::shared_ptr<FileEncryptionProperties> GetFileEncryptionProperties(
       const KmsConnectionConfig& kms_connection_config,

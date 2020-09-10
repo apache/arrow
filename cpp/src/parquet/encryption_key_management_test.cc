@@ -100,7 +100,7 @@ class TestEncrytionKeyManagement : public ::testing::Test {
     KeyToolkit::RemoveCacheEntriesForAllTokens();
     std::shared_ptr<KmsClientFactory> kms_client_factory =
         std::make_shared<TestOnlyInMemoryKmsClientFactory>(wrap_locally, key_list_);
-    crypto_factory.kms_client_factory(kms_client_factory);
+    crypto_factory.register_kms_client_factory(kms_client_factory);
   }
 
   std::string GetFileName(bool double_wrapping, bool wrap_locally, int encryption_no) {

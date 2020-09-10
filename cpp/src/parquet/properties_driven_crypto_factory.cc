@@ -125,8 +125,11 @@ std::shared_ptr<DecryptionConfiguration> DecryptionConfiguration::Builder::build
                                                    cache_lifetime_seconds_);
 }
 
-void PropertiesDrivenCryptoFactory::kms_client_factory(
+void PropertiesDrivenCryptoFactory::register_kms_client_factory(
     std::shared_ptr<KmsClientFactory> kms_client_factory) {
+  if (kms_client_factory_ != NULL) {
+    throw ParquetException("KMS client factory has already been registered.");
+  }
   kms_client_factory_ = kms_client_factory;
 }
 
