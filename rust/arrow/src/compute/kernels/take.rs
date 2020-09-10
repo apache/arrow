@@ -19,12 +19,12 @@
 
 use std::sync::Arc;
 
-use crate::array::*;
 use crate::buffer::{Buffer, MutableBuffer};
 use crate::compute::util::take_value_indices_from_list;
 use crate::datatypes::*;
 use crate::error::{ArrowError, Result};
 use crate::util::bit_util;
+use crate::{array::*, buffer::buffer_bin_and};
 
 use TimeUnit::*;
 
@@ -166,42 +166,83 @@ fn take_primitive<T>(values: &ArrayRef, indices: &UInt32Array) -> Result<ArrayRe
 where
     T: ArrowPrimitiveType,
 {
-    let mut builder = PrimitiveBuilder::<T>::new(indices.len());
-    let a = values.as_any().downcast_ref::<PrimitiveArray<T>>().unwrap();
-    for i in 0..indices.len() {
-        if indices.is_null(i) {
-            // populate with null if index is null
-            builder.append_null()?;
-        } else {
-            // get index value to use in looking up the value from `values`
-            let ix = indices.value(i) as usize;
-            if a.is_valid(ix) {
-                builder.append_value(a.value(ix))?;
-            } else {
-                builder.append_null()?;
+    let data_len = indices.len();
+
+    let array = values.as_any().downcast_ref::<PrimitiveArray<T>>().unwrap();
+
+    let num_bytes = bit_util::ceil(data_len, 8);
+    let mut null_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, false);
+
+    let null_slice = null_buf.data_mut();
+
+    let new_values: Vec<T::Native> = (0..data_len)
+        .map(|i| {
+            let index = indices.value(i) as usize;
+            if array.is_valid(index) {
+                bit_util::set_bit(null_slice, index)
             }
-        }
-    }
-    Ok(Arc::new(builder.finish()) as ArrayRef)
+            array.value(index)
+        })
+        .collect();
+
+    let nulls = match indices.data_ref().null_buffer() {
+        Some(buffer) => buffer_bin_and(buffer, 0, &null_buf.freeze(), 0, indices.len()),
+        None => null_buf.freeze(),
+    };
+
+    let data = ArrayData::new(
+        T::get_data_type(),
+        indices.len(),
+        None,
+        Some(nulls),
+        0,
+        vec![Buffer::from(new_values.to_byte_slice())],
+        vec![],
+    );
+    return Ok(Arc::new(PrimitiveArray::<T>::from(Arc::new(data))));
 }
 
 /// `take` implementation for string arrays
 fn take_string(values: &ArrayRef, indices: &UInt32Array) -> Result<ArrayRef> {
-    let mut builder = StringBuilder::new(indices.len());
-    let a = values.as_any().downcast_ref::<StringArray>().unwrap();
-    for i in 0..indices.len() {
-        if indices.is_null(i) {
-            builder.append(false)?;
-        } else {
-            let ix = indices.value(i) as usize;
-            if a.is_null(ix) {
-                builder.append(false)?;
-            } else {
-                builder.append_value(a.value(ix))?;
-            }
+    let data_len = indices.len();
+
+    let array = values.as_any().downcast_ref::<StringArray>().unwrap();
+
+    let num_bytes = bit_util::ceil(data_len, 8);
+    let mut null_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, false);
+
+    let mut offsets = Vec::with_capacity(data_len + 1);
+    let mut values = Vec::with_capacity(data_len);
+    let mut length_so_far = 0;
+
+    offsets.push(length_so_far);
+    for i in 0..data_len {
+        let index = indices.value(i) as usize;
+
+        let s = array.value(index);
+        length_so_far += s.len() as i32;
+        offsets.push(length_so_far as i32);
+        values.extend_from_slice(s.as_bytes());
+
+        if array.is_valid(index) {
+            // set null bit
+            let null_slice = null_buf.data_mut();
+            bit_util::set_bit(null_slice, i);
         }
     }
-    Ok(Arc::new(builder.finish()) as ArrayRef)
+
+    let nulls = match indices.data_ref().null_buffer() {
+        Some(buffer) => buffer_bin_and(buffer, 0, &null_buf.freeze(), 0, data_len),
+        None => null_buf.freeze(),
+    };
+
+    let data = ArrayData::builder(DataType::Utf8)
+        .len(data_len)
+        .null_bit_buffer(nulls)
+        .add_buffer(Buffer::from(offsets.to_byte_slice()))
+        .add_buffer(Buffer::from(&values[..]))
+        .build();
+    return Ok(Arc::new(StringArray::from(data)));
 }
 
 /// `take` implementation for list arrays
