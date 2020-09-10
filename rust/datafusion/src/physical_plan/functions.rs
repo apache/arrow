@@ -34,11 +34,13 @@ use super::{
     PhysicalExpr,
 };
 use crate::error::{ExecutionError, Result};
+use crate::physical_plan::datetime_expressions;
 use crate::physical_plan::math_expressions;
 use crate::physical_plan::string_expressions;
 use arrow::{
     array::ArrayRef,
     compute::kernels::length::length,
+    datatypes::TimeUnit,
     datatypes::{DataType, Schema},
     record_batch::RecordBatch,
 };
@@ -112,6 +114,8 @@ pub enum BuiltinScalarFunction {
     Length,
     /// concat
     Concat,
+    /// to_timestamp
+    ToTimestamp,
 }
 
 impl fmt::Display for BuiltinScalarFunction {
@@ -144,6 +148,7 @@ impl FromStr for BuiltinScalarFunction {
             "signum" => BuiltinScalarFunction::Signum,
             "length" => BuiltinScalarFunction::Length,
             "concat" => BuiltinScalarFunction::Concat,
+            "to_timestamp" => BuiltinScalarFunction::ToTimestamp,
             _ => {
                 return Err(ExecutionError::General(format!(
                     "There is no built-in function named {}",
@@ -173,12 +178,15 @@ pub fn return_type(
         ));
     }
 
-    // the return type after coercion.
-    // for now, this is type-independent, but there will be built-in functions whose return type
-    // depends on the incoming type.
+    // the return type of the built in function. Eventually there
+    // will be built-in functions whose return type depends on the
+    // incoming type.
     match fun {
         BuiltinScalarFunction::Length => Ok(DataType::UInt32),
         BuiltinScalarFunction::Concat => Ok(DataType::Utf8),
+        BuiltinScalarFunction::ToTimestamp => {
+            Ok(DataType::Timestamp(TimeUnit::Nanosecond, None))
+        }
         _ => Ok(DataType::Float64),
     }
 }
@@ -212,6 +220,9 @@ pub fn create_physical_expr(
         BuiltinScalarFunction::Concat => {
             |args| Ok(Arc::new(string_expressions::concatenate(args)?))
         }
+        BuiltinScalarFunction::ToTimestamp => {
+            |args| Ok(Arc::new(datetime_expressions::to_timestamp(args)?))
+        }
     });
     // coerce
     let args = coerce(args, input_schema, &signature(fun))?;
@@ -237,6 +248,7 @@ fn signature(fun: &BuiltinScalarFunction) -> Signature {
     match fun {
         BuiltinScalarFunction::Length => Signature::Uniform(1, vec![DataType::Utf8]),
         BuiltinScalarFunction::Concat => Signature::Variadic(vec![DataType::Utf8]),
+        BuiltinScalarFunction::ToTimestamp => Signature::Uniform(1, vec![DataType::Utf8]),
         // math expressions expect 1 argument of type f64 or f32
         // priority is given to f64 because e.g. `sqrt(1i32)` is in IR (real numbers) and thus we
         // return the best approximation for it (in f64).
