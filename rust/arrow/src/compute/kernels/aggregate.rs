@@ -27,7 +27,7 @@ pub fn min<T>(array: &PrimitiveArray<T>) -> Option<T::Native>
 where
     T: ArrowNumericType,
 {
-    min_max_helper(array, |a, b| a < b)
+    min_max_helper(array, |a, b| a > b)
 }
 
 /// Returns the maximum value in the array, according to the natural order.
@@ -35,32 +35,46 @@ pub fn max<T>(array: &PrimitiveArray<T>) -> Option<T::Native>
 where
     T: ArrowNumericType,
 {
-    min_max_helper(array, |a, b| a > b)
+    min_max_helper(array, |a, b| a < b)
 }
 
 /// Helper function to perform min/max lambda function on values from a numeric array.
 fn min_max_helper<T, F>(array: &PrimitiveArray<T>, cmp: F) -> Option<T::Native>
 where
     T: ArrowNumericType,
-    F: Fn(T::Native, T::Native) -> bool,
+    F: Fn(&T::Native, &T::Native) -> bool,
 {
-    let mut n: Option<T::Native> = None;
-    let data = array.data();
-    for i in 0..data.len() {
-        if data.is_null(i) {
-            continue;
-        }
-        let m = array.value(i);
-        match n {
-            None => n = Some(m),
-            Some(nn) => {
-                if cmp(m, nn) {
-                    n = Some(m)
-                }
+    let null_count = array.null_count();
+
+    if null_count == array.len() {
+        None
+    } else if null_count == 0 {
+        // optimized path for arrays without null values
+        let mut n: T::Native = T::default_value();
+        let mut has_value = false;
+        let data = array.data();
+        let m = array.value_slice(0, data.len());
+        for item in m {
+            if !has_value || cmp(&n, item) {
+                has_value = true;
+                n = *item
             }
         }
+        Some(n)
+    } else {
+        // optimized path for arrays without null values
+        let mut n: T::Native = T::default_value();
+        let mut has_value = false;
+        let data = array.data();
+        let m = array.value_slice(0, data.len());
+        for (i, item) in m.iter().enumerate() {
+            if !has_value || data.is_valid(i) && cmp(&n, item) {
+                has_value = true;
+                n = *item
+            }
+        }
+        Some(n)
     }
-    n
 }
 
 /// Returns the sum of values in the array.
