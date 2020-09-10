@@ -72,7 +72,18 @@ class ARROW_EXPORT AdaptiveIntBuilderBase : public ArrayBuilder {
     return Status::OK();
   }
 
-  Status AppendEmptyValue() final { return AppendEmptyValues(1); }
+  Status AppendEmptyValue() final {
+    pending_data_[pending_pos_] = 0;
+    pending_valid_[pending_pos_] = 1;
+    pending_has_nulls_ = false;
+    ++pending_pos_;
+    ++length_;
+
+    if (ARROW_PREDICT_FALSE(pending_pos_ >= pending_size_)) {
+      return CommitPendingData();
+    }
+    return Status::OK();
+  }
 
   void Reset() override;
   Status Resize(int64_t capacity) override;

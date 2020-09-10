@@ -46,11 +46,7 @@ class ARROW_EXPORT NullBuilder : public ArrayBuilder {
   /// \brief Append a single null element
   Status AppendNull() final { return AppendNulls(1); }
 
-  Status AppendEmptyValues(int64_t length) final {
-    if (length < 0) return Status::Invalid("length must be positive");
-    length_ += length;
-    return Status::OK();
-  }
+  Status AppendEmptyValues(int64_t length) final { return AppendNulls(length); }
 
   Status AppendEmptyValue() final { return AppendEmptyValues(1); }
 

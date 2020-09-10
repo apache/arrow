@@ -431,7 +431,7 @@ class ARROW_EXPORT StructBuilder : public ArrayBuilder {
     return Status::OK();
   }
 
-  /// \brief Append a null value. Automatically appends a empty to each child
+  /// \brief Append a null value. Automatically appends an empty value to each child
   /// builder.
   Status AppendNull() final {
     for (const auto& field : children_) {
@@ -440,7 +440,7 @@ class ARROW_EXPORT StructBuilder : public ArrayBuilder {
     return Append(false);
   }
 
-  /// \brief Append multiple null values. Automatically appends empties to each
+  /// \brief Append multiple null values. Automatically appends empty values to each
   /// child builder.
   Status AppendNulls(int64_t length) final;
 
