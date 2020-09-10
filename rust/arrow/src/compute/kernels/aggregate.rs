@@ -47,34 +47,31 @@ where
     let null_count = array.null_count();
 
     if null_count == array.len() {
-        None
-    } else if null_count == 0 {
+        return None;
+    }
+
+    let mut n: T::Native = T::default_value();
+    let mut has_value = false;
+    let data = array.data();
+    let m = array.value_slice(0, data.len());
+
+    if null_count == 0 {
         // optimized path for arrays without null values
-        let mut n: T::Native = T::default_value();
-        let mut has_value = false;
-        let data = array.data();
-        let m = array.value_slice(0, data.len());
         for item in m {
             if !has_value || cmp(&n, item) {
                 has_value = true;
                 n = *item
             }
         }
-        Some(n)
     } else {
-        // optimized path for arrays without null values
-        let mut n: T::Native = T::default_value();
-        let mut has_value = false;
-        let data = array.data();
-        let m = array.value_slice(0, data.len());
         for (i, item) in m.iter().enumerate() {
             if !has_value || data.is_valid(i) && cmp(&n, item) {
                 has_value = true;
                 n = *item
             }
         }
-        Some(n)
     }
+    Some(n)
 }
 
 /// Returns the sum of values in the array.
@@ -88,28 +85,26 @@ where
     let null_count = array.null_count();
 
     if null_count == array.len() {
-        None
-    } else if null_count == 0 {
+        return None;
+    }
+
+    let mut n: T::Native = T::default_value();
+    let data = array.data();
+    let m = array.value_slice(0, data.len());
+
+    if null_count == 0 {
         // optimized path for arrays without null values
-        let mut n: T::Native = T::default_value();
-        let data = array.data();
-        let m = array.value_slice(0, data.len());
-        for item in m {
+        for item in m.iter().take(data.len()) {
             n = n + *item;
         }
-        Some(n)
     } else {
-        let mut n: T::Native = T::default_value();
-        let data = array.data();
-        let m = array.value_slice(0, data.len());
-        let nulls = data.null_bitmap().as_ref().unwrap();
         for (i, item) in m.iter().enumerate() {
-            if nulls.is_set(i) {
+            if data.is_valid(i) {
                 n = n + *item;
             }
         }
-        Some(n)
     }
+    Some(n)
 }
 
 #[cfg(test)]
