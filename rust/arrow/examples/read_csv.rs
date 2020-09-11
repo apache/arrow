@@ -36,10 +36,10 @@ fn main() -> Result<()> {
     let file = File::open("test/data/uk_cities.csv").unwrap();
 
     let mut csv = csv::Reader::new(file, Arc::new(schema), false, None, 1024, None);
-    let batch = csv.next().unwrap().unwrap();
+    let _batch = csv.next().unwrap().unwrap();
     #[cfg(feature = "prettyprint")]
     {
-        print_batches(&[batch]).unwrap();
+        print_batches(&[_batch]).unwrap();
     }
     Ok(())
 }
