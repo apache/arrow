@@ -184,16 +184,13 @@ test_that("read_csv_arrow(schema=)", {
   expect_identical(df, tibble::tibble(int = as.numeric(tbl$int)))
 })
 
-test_that("read_csv_arrow(col_types=<list>)", {
+test_that("read_csv_arrow(col_types = <Schema>)", {
   tbl <- example_data[, "int"]
   tf <- tempfile(); on.exit(unlink(tf))
   write.csv(tbl, tf, row.names = FALSE)
 
-  df <- read_csv_arrow(tf, col_types = list(int = float64()))
+  df <- read_csv_arrow(tf, col_types = schema(int = float64()))
   expect_identical(df, tibble::tibble(int = as.numeric(tbl$int)))
-
-  expect_error(read_csv_arrow(tf, col_types = list(float64())))
-  expect_error(read_csv_arrow(tf, col_types = list(int = numeric())))
 })
 
 test_that("read_csv_arrow(col_types=string, col_names)", {
@@ -215,7 +212,7 @@ test_that("read_csv_arrow() can read timestamps", {
   tf <- tempfile(); on.exit(unlink(tf))
   write.csv(tbl, tf, row.names = FALSE)
 
-  df <- read_csv_arrow(tf, col_types = list(time = timestamp()))
+  df <- read_csv_arrow(tf, col_types = schema(time = timestamp()))
   expect_equal(tbl, df)
 
   df <- read_csv_arrow(tf, col_types = "t", col_names = "time", skip = 1)

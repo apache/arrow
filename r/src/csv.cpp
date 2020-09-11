@@ -82,21 +82,13 @@ std::shared_ptr<arrow::csv::ConvertOptions> csv___ConvertOptions__initialize(
   // std::vector<std::string> false_values;
 
   SEXP col_types = options["col_types"];
-  if (!Rf_isNull(col_types)) {
-    // checks have been done on the R side, here we can assume
-    // this is a named list of types
-    R_xlen_t n = XLENGTH(col_types);
-    SEXP names = PROTECT(Rf_getAttrib(col_types, R_NamesSymbol));
+  if (Rf_inherits(col_types, "Schema")) {
+    auto schema = cpp11::as_cpp<std::shared_ptr<arrow::Schema>>(col_types);
     std::unordered_map<std::string, std::shared_ptr<arrow::DataType>> column_types;
-
-    for (R_xlen_t i = 0; i < n; i++) {
-      std::string name(CHAR(STRING_ELT(names, i)));
-      auto type =
-          cpp11::as_cpp<std::shared_ptr<arrow::DataType>>(VECTOR_ELT(col_types, i));
-      column_types.insert(std::make_pair(name, type));
+    for (const auto& field: schema->fields()) {
+      column_types.insert(std::make_pair(field->name(), field->type()));
     }
     res->column_types = column_types;
-    UNPROTECT(1);
   }
 
   return res;

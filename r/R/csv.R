@@ -108,7 +108,7 @@ read_delim_arrow <- function(file,
                              as_data_frame = TRUE) {
   if (inherits(schema, "Schema")) {
     col_names <- names(schema)
-    col_types <- set_names(map(schema$fields, function(.x) .x$type), col_names)
+    col_types <- schema
   }
   if (is.null(parse_options)) {
     parse_options <- readr_to_csv_parse_options(
@@ -158,6 +158,7 @@ read_delim_arrow <- function(file,
         )
       }))
       col_types <- keep(col_types, ~!is.null(.x))
+      col_types <- schema(!!!col_types)
     }
 
     convert_options <- readr_to_csv_convert_options(na, quoted_na, col_types = col_types)
@@ -436,21 +437,11 @@ CsvConvertOptions$create <- function(check_utf8 = TRUE,
                                      null_values = c("", "NA"),
                                      strings_can_be_null = FALSE,
                                      col_types = NULL) {
-  if (vctrs::vec_is_list(col_types)) {
-    col_types_names <- names(col_types)
-    if (is.null(col_types_names)) {
-      abort("`col_types` is an unnamed list")
-    }
 
-    for (i in seq_along(col_types)) {
-      if (!inherits(col_types[[i]], "DataType")) {
-        abort(paste("col_types[['", col_types_names[i], "']] is not a `DataType`"))
-      }
-    }
-  } else if (!is.null(col_types)) {
+  if (!is.null(col_types) && !inherits(col_types, "Schema")) {
     abort(c(
       "Unsupported `col_types` specification.",
-      i = "`col_types` must be NULL or a list of <DataType>. "
+      i = "`col_types` must be NULL, or a <Schema>."
     ))
   }
 
