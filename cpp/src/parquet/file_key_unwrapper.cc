@@ -20,6 +20,7 @@
 #include "parquet/file_key_unwrapper.h"
 #include "parquet/key_metadata.h"
 #include "parquet/key_toolkit.h"
+#include "parquet/key_toolkit_internal.h"
 
 namespace parquet {
 namespace encryption {
@@ -71,7 +72,7 @@ KeyWithMasterId FileKeyUnwrapper::GetDataEncryptionKey(
 
     // Decrypt the data key
     std::string aad = arrow::util::base64_decode(encoded_kek_id);
-    data_key = KeyToolkit::DecryptKeyLocally(encoded_wrapped_dek, kek_bytes, aad);
+    data_key = internal::DecryptKeyLocally(encoded_wrapped_dek, kek_bytes, aad);
   }
 
   return KeyWithMasterId(data_key, master_key_id);

@@ -21,6 +21,7 @@
 #include "parquet/key_material.h"
 #include "parquet/key_metadata.h"
 #include "parquet/key_toolkit.h"
+#include "parquet/key_toolkit_internal.h"
 
 namespace parquet {
 namespace encryption {
@@ -74,7 +75,7 @@ std::string FileKeyWrapper::GetEncryptionKeyMetadata(const std::string& data_key
     // Encrypt DEK with KEK
     const std::string& aad = key_encryption_key.kek_id();
     const std::string& kek_bytes = key_encryption_key.kek_bytes();
-    encoded_wrapped_dek = KeyToolkit::EncryptKeyLocally(data_key, kek_bytes, aad);
+    encoded_wrapped_dek = internal::EncryptKeyLocally(data_key, kek_bytes, aad);
     encoded_kek_id = key_encryption_key.encoded_kek_id();
     encoded_wrapped_kek = key_encryption_key.encoded_wrapped_kek();
   }

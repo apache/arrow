@@ -19,7 +19,7 @@
 #include "arrow/json/object_writer.h"
 
 #include "parquet/exception.h"
-#include "parquet/key_toolkit.h"
+#include "parquet/key_toolkit_internal.h"
 #include "parquet/remote_kms_client.h"
 
 using arrow::json::ObjectParser;
@@ -89,7 +89,7 @@ std::string RemoteKmsClient::WrapKey(const std::string& key_bytes,
     std::string aad = master_key_identifier;
 
     std::string encrypted_encoded_key =
-        KeyToolkit::EncryptKeyLocally(key_bytes, master_key, aad);
+        internal::EncryptKeyLocally(key_bytes, master_key, aad);
     return LocalKeyWrap::CreateSerialized(encrypted_encoded_key);
   } else {
     return WrapKeyInServer(key_bytes, master_key_identifier);
@@ -113,7 +113,7 @@ std::string RemoteKmsClient::UnwrapKey(const std::string& wrapped_key,
     const std::string& master_key = master_key_cache_[master_key_identifier];
     std::string aad = master_key_identifier;
 
-    return KeyToolkit::DecryptKeyLocally(encrypted_encoded_key, master_key, aad);
+    return internal::DecryptKeyLocally(encrypted_encoded_key, master_key, aad);
   } else {
     return UnwrapKeyInServer(wrapped_key, master_key_identifier);
   }

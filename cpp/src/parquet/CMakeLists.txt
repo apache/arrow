@@ -214,6 +214,7 @@ if(PARQUET_REQUIRE_ENCRYPTION)
       key_material.cc
       key_metadata.cc
       key_toolkit.cc
+      key_toolkit_internal.cc
       kms_client.cc
       properties_driven_crypto_factory.cc
       remote_kms_client.cc)

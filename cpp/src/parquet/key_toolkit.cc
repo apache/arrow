@@ -16,54 +16,9 @@
 // under the License.
 
 #include "parquet/key_toolkit.h"
-#include "parquet/encryption_internal.h"
-
-#include "arrow/util/base64.h"
 
 namespace parquet {
 namespace encryption {
-
-std::string KeyToolkit::EncryptKeyLocally(const std::string& key_bytes,
-                                          const std::string& master_key,
-                                          const std::string& aad) {
-  AesEncryptor key_encryptor(ParquetCipher::AES_GCM_V1,
-                             static_cast<int>(master_key.size()), false);
-
-  int encrypted_key_len =
-      static_cast<int>(key_bytes.size()) + key_encryptor.CiphertextSizeDelta();
-  std::string encrypted_key(encrypted_key_len, '\0');
-  encrypted_key_len = key_encryptor.Encrypt(
-      reinterpret_cast<const uint8_t*>(key_bytes.data()),
-      static_cast<int>(key_bytes.size()),
-      reinterpret_cast<const uint8_t*>(master_key.data()),
-      static_cast<int>(master_key.size()), reinterpret_cast<const uint8_t*>(aad.data()),
-      static_cast<int>(aad.size()), reinterpret_cast<uint8_t*>(&encrypted_key[0]));
-
-  std::string encoded_encrypted_key = arrow::util::base64_encode(
-      reinterpret_cast<const uint8_t*>(&encrypted_key[0]), encrypted_key_len);
-  return encoded_encrypted_key;
-}
-
-std::string KeyToolkit::DecryptKeyLocally(const std::string& encoded_encrypted_key,
-                                          const std::string& master_key,
-                                          const std::string& aad) {
-  std::string encrypted_key = arrow::util::base64_decode(encoded_encrypted_key);
-
-  AesDecryptor key_decryptor(ParquetCipher::AES_GCM_V1,
-                             static_cast<int>(master_key.size()), false);
-
-  int decrypted_key_len =
-      static_cast<int>(encrypted_key.size()) - key_decryptor.CiphertextSizeDelta();
-  std::string decrypted_key(decrypted_key_len, '\0');
-  decrypted_key_len = key_decryptor.Decrypt(
-      reinterpret_cast<const uint8_t*>(encrypted_key.data()),
-      static_cast<int>(encrypted_key.size()),
-      reinterpret_cast<const uint8_t*>(master_key.data()),
-      static_cast<int>(master_key.size()), reinterpret_cast<const uint8_t*>(aad.data()),
-      static_cast<int>(aad.size()), reinterpret_cast<uint8_t*>(&decrypted_key[0]));
-
-  return decrypted_key;
-}
 
 std::shared_ptr<KmsClient> KeyToolkit::GetKmsClient(
     const KmsConnectionConfig& kms_connection_config, bool is_wrap_locally,

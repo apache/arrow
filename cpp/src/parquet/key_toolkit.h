@@ -17,10 +17,8 @@
 
 #pragma once
 
-#include <cstdint>
 #include <memory>
 #include <string>
-#include <vector>
 
 #include "parquet/key_encryption_key.h"
 #include "parquet/kms_client.h"
@@ -51,16 +49,6 @@ class KeyWithMasterId {
 // classes for internal use.
 class PARQUET_EXPORT KeyToolkit {
  public:
-  /// Encrypts "key" with "master_key", using AES-GCM and the "aad"
-  static std::string EncryptKeyLocally(const std::string& key,
-                                       const std::string& master_key,
-                                       const std::string& aad);
-
-  /// Decrypts encrypted key with "master_key", using AES-GCM and the "aad"
-  static std::string DecryptKeyLocally(const std::string& encoded_encrypted_key,
-                                       const std::string& master_key,
-                                       const std::string& aad);
-
   /// KMS client two level cache: token -> KMSInstanceId -> KmsClient
   TwoLevelCacheWithExpiration<std::shared_ptr<KmsClient>>& kms_client_cache_per_token() {
     return kms_client_cache_;

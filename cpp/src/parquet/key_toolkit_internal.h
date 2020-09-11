@@ -18,6 +18,7 @@
 #pragma once
 
 #include <chrono>
+#include <string>
 
 namespace parquet {
 namespace encryption {
@@ -50,6 +51,14 @@ class ExpiringCacheEntry {
   TimePoint expiration_timestamp_;
   E cached_item_;
 };
+
+/// Encrypts "key" with "master_key", using AES-GCM and the "aad"
+std::string EncryptKeyLocally(const std::string& key, const std::string& master_key,
+                              const std::string& aad);
+
+/// Decrypts encrypted key with "master_key", using AES-GCM and the "aad"
+std::string DecryptKeyLocally(const std::string& encoded_encrypted_key,
+                              const std::string& master_key, const std::string& aad);
 
 }  // namespace internal
 }  // namespace encryption

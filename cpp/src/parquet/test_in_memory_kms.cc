@@ -18,16 +18,10 @@
 #include "arrow/util/base64.h"
 
 #include "parquet/exception.h"
-#include "parquet/key_toolkit.h"
+#include "parquet/key_toolkit_internal.h"
 #include "parquet/kms_client_factory.h"
 #include "parquet/remote_kms_client.h"
 #include "parquet/test_in_memory_kms.h"
-
-using parquet::encryption::KeyToolkit;
-using parquet::encryption::KmsClient;
-using parquet::encryption::KmsClientFactory;
-using parquet::encryption::KmsConnectionConfig;
-using parquet::encryption::RemoteKmsClient;
 
 namespace parquet {
 namespace encryption {
@@ -50,7 +44,7 @@ std::string TestOnlyInMemoryKms::WrapKeyInServer(
   const std::string& master_key = master_key_map_.at(master_key_identifier);
 
   std::string aad = master_key_identifier;
-  return KeyToolkit::EncryptKeyLocally(key_bytes, master_key, aad);
+  return internal::EncryptKeyLocally(key_bytes, master_key, aad);
 }
 
 std::string TestOnlyInMemoryKms::UnwrapKeyInServer(
@@ -61,7 +55,7 @@ std::string TestOnlyInMemoryKms::UnwrapKeyInServer(
   const std::string& master_key = master_key_map_.at(master_key_identifier);
 
   std::string aad = master_key_identifier;
-  return KeyToolkit::DecryptKeyLocally(wrapped_key, master_key, aad);
+  return internal::DecryptKeyLocally(wrapped_key, master_key, aad);
 }
 
 std::string TestOnlyInMemoryKms::GetMasterKeyFromServer(
