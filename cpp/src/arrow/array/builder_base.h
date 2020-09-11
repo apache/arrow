@@ -100,6 +100,11 @@ class ARROW_EXPORT ArrayBuilder {
   virtual Status AppendNull() = 0;
   virtual Status AppendNulls(int64_t length) = 0;
 
+  /// Append an empty value to builder with null bitmap slot set to true.
+  /// Now it's mainly used in StructBuilder#AppendNull.
+  /// For Struct<utf8, int32> [{"joe", 1}, {null, 2}, null, {"mark", 4}] constructed with
+  /// StructBuilder, it's child arrays are: utf8 ["joe", null, "", "mark"], int32 [1, 2,
+  /// 0, 4]
   virtual Status AppendEmptyValue() = 0;
   virtual Status AppendEmptyValues(int64_t length) = 0;
 
