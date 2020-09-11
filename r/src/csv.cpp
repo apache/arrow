@@ -85,7 +85,7 @@ std::shared_ptr<arrow::csv::ConvertOptions> csv___ConvertOptions__initialize(
   if (Rf_inherits(col_types, "Schema")) {
     auto schema = cpp11::as_cpp<std::shared_ptr<arrow::Schema>>(col_types);
     std::unordered_map<std::string, std::shared_ptr<arrow::DataType>> column_types;
-    for (const auto& field: schema->fields()) {
+    for (const auto& field : schema->fields()) {
       column_types.insert(std::make_pair(field->name(), field->type()));
     }
     res->column_types = column_types;
