@@ -159,7 +159,7 @@ impl TreeBuilder {
                     if Reader::is_element_type(&repeated_field) {
                         // Support for backward compatible lists
                         let reader = self.reader_tree(
-                            repeated_field.clone(),
+                            repeated_field,
                             &mut path,
                             curr_def_level,
                             curr_rep_level,
@@ -658,7 +658,7 @@ impl<'a> RowIter<'a> {
             file_reader,
             tree_builder,
             num_row_groups,
-            row_iter: row_iter,
+            row_iter,
             current_row_group: 0,
         }
     }

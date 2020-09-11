@@ -152,7 +152,7 @@ impl<W: ParquetWriter> SerializedFileWriter<W> {
 
     /// Writes magic bytes at the beginning of the file.
     fn start_file(buf: &mut W) -> Result<()> {
-        buf.write(&PARQUET_MAGIC)?;
+        buf.write_all(&PARQUET_MAGIC)?;
         Ok(())
     }
 
@@ -176,7 +176,7 @@ impl<W: ParquetWriter> SerializedFileWriter<W> {
             row_groups: self
                 .row_groups
                 .as_slice()
-                .into_iter()
+                .iter()
                 .map(|v| v.to_thrift())
                 .collect(),
             key_value_metadata: self.props.key_value_metadata().to_owned(),
@@ -197,8 +197,8 @@ impl<W: ParquetWriter> SerializedFileWriter<W> {
         let mut footer_buffer: [u8; FOOTER_SIZE] = [0; FOOTER_SIZE];
         let metadata_len = (end_pos - start_pos) as i32;
         LittleEndian::write_i32(&mut footer_buffer, metadata_len);
-        (&mut footer_buffer[4..]).write(&PARQUET_MAGIC)?;
-        self.buf.write(&footer_buffer)?;
+        (&mut footer_buffer[4..]).write_all(&PARQUET_MAGIC)?;
+        self.buf.write_all(&footer_buffer)?;
         Ok(())
     }
 

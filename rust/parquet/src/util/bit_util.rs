@@ -956,13 +956,13 @@ mod tests {
             .iter()
             .map(|v| v & ((1 << num_bits) - 1))
             .collect();
-        for i in 0..total {
+        (0..total).for_each(|i| {
             assert!(
                 writer.put_value(values[i] as u64, num_bits),
                 "[{}]: put_value() failed",
                 i
             );
-        }
+        });
 
         let mut reader = BitReader::from(writer.consume());
         for i in 0..total {

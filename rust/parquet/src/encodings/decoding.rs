@@ -940,6 +940,7 @@ impl Decoder<FixedLenByteArrayType> for DeltaByteArrayDecoder<FixedLenByteArrayT
 }
 
 #[cfg(test)]
+#[allow(clippy::approx_constant)]
 mod tests {
     use super::{super::encoding::*, *};
 
@@ -1163,7 +1164,7 @@ mod tests {
     #[should_panic(expected = "RleValueEncoder only supports BoolType")]
     fn test_rle_value_encode_int32_not_supported() {
         let mut encoder = RleValueEncoder::<Int32Type>::new();
-        encoder.put(&vec![1, 2, 3, 4]).unwrap();
+        encoder.put(&[1, 2, 3, 4]).unwrap();
     }
 
     #[test]
@@ -1402,8 +1403,7 @@ mod tests {
         let expected: Vec<T::T> = data.iter().flat_map(|s| s.clone()).collect();
 
         // Decode data and compare with original
-        let mut decoder =
-            get_decoder::<T>(col_descr.clone(), encoding).expect("get decoder");
+        let mut decoder = get_decoder::<T>(col_descr, encoding).expect("get decoder");
 
         let mut result = vec![T::T::default(); expected.len()];
         decoder

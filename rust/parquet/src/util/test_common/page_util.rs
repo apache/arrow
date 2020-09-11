@@ -212,7 +212,7 @@ impl Iterator for InMemoryPageIterator {
     type Item = Result<Box<dyn PageReader>>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.page_readers.next().map(|page_reader| Ok(page_reader))
+        self.page_readers.next().map(Ok)
     }
 }
 
@@ -290,7 +290,7 @@ pub fn make_pages<T: DataType>(
             Encoding::PLAIN => {
                 pb.add_values::<T>(encoding, &values[value_range]);
             }
-            enc @ _ => panic!("Unexpected encoding {}", enc),
+            enc => panic!("Unexpected encoding {}", enc),
         }
 
         let data_page = pb.consume();

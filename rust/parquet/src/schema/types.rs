@@ -546,7 +546,7 @@ impl ColumnPath {
     /// path.append(vec!["d".to_string(), "e".to_string()]);
     /// assert_eq!(&path.string(), "a.b.c.d.e");
     /// ```
-    pub fn append(&mut self, mut tail: Vec<String>) -> () {
+    pub fn append(&mut self, mut tail: Vec<String>) {
         self.parts.append(&mut tail);
     }
 }
@@ -674,7 +674,7 @@ impl ColumnDescriptor {
     /// Note that it will panic if called on a non-primitive type.
     pub fn physical_type(&self) -> PhysicalType {
         match self.primitive_type.as_ref() {
-            &Type::PrimitiveType { physical_type, .. } => physical_type,
+            Type::PrimitiveType { physical_type, .. } => *physical_type,
             _ => panic!("Expected primitive type!"),
         }
     }
@@ -683,7 +683,7 @@ impl ColumnDescriptor {
     /// Note that it will panic if called on a non-primitive type.
     pub fn type_length(&self) -> i32 {
         match self.primitive_type.as_ref() {
-            &Type::PrimitiveType { type_length, .. } => type_length,
+            Type::PrimitiveType { type_length, .. } => *type_length,
             _ => panic!("Expected primitive type!"),
         }
     }
@@ -692,7 +692,7 @@ impl ColumnDescriptor {
     /// Note that it will panic if called on a non-primitive type.
     pub fn type_precision(&self) -> i32 {
         match self.primitive_type.as_ref() {
-            &Type::PrimitiveType { precision, .. } => precision,
+            Type::PrimitiveType { precision, .. } => *precision,
             _ => panic!("Expected primitive type!"),
         }
     }
@@ -701,7 +701,7 @@ impl ColumnDescriptor {
     /// Note that it will panic if called on a non-primitive type.
     pub fn type_scale(&self) -> i32 {
         match self.primitive_type.as_ref() {
-            &Type::PrimitiveType { scale, .. } => scale,
+            Type::PrimitiveType { scale, .. } => *scale,
             _ => panic!("Expected primitive type!"),
         }
     }
@@ -943,7 +943,7 @@ fn from_thrift_helper(
             Ok((index + 1, Rc::new(builder.build()?)))
         }
         Some(n) => {
-            let repetition = elements[index].repetition_type.map(|r| Repetition::from(r));
+            let repetition = elements[index].repetition_type.map(Repetition::from);
             let mut fields = vec![];
             let mut next_index = index + 1;
             for _ in 0..n {

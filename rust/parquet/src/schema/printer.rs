@@ -56,11 +56,11 @@ use crate::schema::types::Type;
 #[allow(unused_must_use)]
 pub fn print_parquet_metadata(out: &mut io::Write, metadata: &ParquetMetaData) {
     print_file_metadata(out, &metadata.file_metadata());
-    writeln!(out, "");
-    writeln!(out, "");
+    writeln!(out);
+    writeln!(out);
     writeln!(out, "num of row groups: {}", metadata.num_row_groups());
     writeln!(out, "row groups:");
-    writeln!(out, "");
+    writeln!(out);
     for (i, rg) in metadata.row_groups().iter().enumerate() {
         writeln!(out, "row group {}:", i);
         print_dashes(out, 80);
@@ -109,11 +109,11 @@ pub fn print_schema(out: &mut io::Write, tp: &Type) {
 fn print_row_group_metadata(out: &mut io::Write, rg_metadata: &RowGroupMetaData) {
     writeln!(out, "total byte size: {}", rg_metadata.total_byte_size());
     writeln!(out, "num of rows: {}", rg_metadata.num_rows());
-    writeln!(out, "");
+    writeln!(out);
     writeln!(out, "num of columns: {}", rg_metadata.num_columns());
     writeln!(out, "columns: ");
     for (i, cc) in rg_metadata.columns().iter().enumerate() {
-        writeln!(out, "");
+        writeln!(out);
         writeln!(out, "column {}:", i);
         print_dashes(out, 80);
         print_column_chunk_metadata(out, cc);
@@ -163,7 +163,7 @@ fn print_column_chunk_metadata(out: &mut io::Write, cc_metadata: &ColumnChunkMet
         Some(stats) => stats.to_string(),
     };
     writeln!(out, "statistics: {}", statistics_str);
-    writeln!(out, "");
+    writeln!(out);
 }
 
 #[allow(unused_must_use)]
@@ -171,7 +171,7 @@ fn print_dashes(out: &mut io::Write, num: i32) {
     for _ in 0..num {
         write!(out, "-");
     }
-    writeln!(out, "");
+    writeln!(out);
 }
 
 const INDENT_WIDTH: i32 = 2;
@@ -257,7 +257,7 @@ impl<'a> Printer<'a> {
                 self.indent += INDENT_WIDTH;
                 for c in fields {
                     self.print(&c);
-                    writeln!(self.output, "");
+                    writeln!(self.output);
                 }
                 self.indent -= INDENT_WIDTH;
                 self.print_indent();

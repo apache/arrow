@@ -821,7 +821,7 @@ mod tests {
     #[test]
     fn test_file_reader_into_iter() -> Result<()> {
         let path = get_test_path("alltypes_plain.parquet");
-        let vec = vec![path.clone(), path.clone()]
+        let vec = vec![path.clone(), path]
             .iter()
             .map(|p| SerializedFileReader::try_from(p.as_path()).unwrap())
             .flat_map(|r| r.into_iter())
@@ -1086,8 +1086,7 @@ mod tests {
 
         let row_group_indices = Box::new(0..1);
         let mut page_iterator =
-            FilePageIterator::with_row_groups(0, row_group_indices, file_reader.clone())
-                .unwrap();
+            FilePageIterator::with_row_groups(0, row_group_indices, file_reader).unwrap();
 
         // read first page
         let page = page_iterator.next();

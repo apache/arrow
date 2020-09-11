@@ -415,9 +415,7 @@ mod tests {
 
         let path = get_temp_filename();
 
-        let schema = parse_message_type(message_type)
-            .map(|t| Rc::new(t))
-            .unwrap();
+        let schema = parse_message_type(message_type).map(Rc::new).unwrap();
 
         generate_single_column_file_with_data::<T>(&values, path.as_path(), schema)
             .unwrap();
@@ -462,14 +460,14 @@ mod tests {
     }
 
     fn generate_single_column_file_with_data<T: DataType>(
-        values: &Vec<Vec<T::T>>,
+        values: &[Vec<T::T>],
         path: &Path,
         schema: TypePtr,
     ) -> Result<()> {
         let file = File::create(path)?;
         let writer_props = Rc::new(WriterProperties::builder().build());
 
-        let mut writer = SerializedFileWriter::new(file, schema, writer_props.clone())?;
+        let mut writer = SerializedFileWriter::new(file, schema, writer_props)?;
 
         for v in values {
             let mut row_group_writer = writer.next_row_group()?;

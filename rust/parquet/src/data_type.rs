@@ -629,10 +629,12 @@ impl FromBytes for ByteArray {
 }
 
 #[cfg(test)]
+#[allow(clippy::float_cmp, clippy::approx_constant)]
 mod tests {
     use super::*;
 
     #[test]
+    #[allow(clippy::string_lit_as_bytes)]
     fn test_as_bytes() {
         assert_eq!(false.as_bytes(), &[0]);
         assert_eq!(true.as_bytes(), &[1]);

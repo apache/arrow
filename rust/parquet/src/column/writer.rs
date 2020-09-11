@@ -466,10 +466,8 @@ impl<T: DataType> ColumnWriterImpl<T> {
             for &level in levels {
                 if level == self.descr.max_def_level() {
                     values_to_write += 1;
-                } else {
-                    if calculate_page_stats {
-                        self.num_page_nulls += 1
-                    };
+                } else if calculate_page_stats {
+                    self.num_page_nulls += 1
                 }
             }
 
@@ -1589,8 +1587,8 @@ mod tests {
 
     #[test]
     fn test_column_writer_small_write_batch_size() {
-        for i in vec![1, 2, 5, 10, 11, 1023] {
-            let props = WriterProperties::builder().set_write_batch_size(i).build();
+        for i in &[1usize, 2, 5, 10, 11, 1023] {
+            let props = WriterProperties::builder().set_write_batch_size(*i).build();
 
             column_roundtrip_random::<Int32Type>(
                 "test_col_writer_rnd_5",

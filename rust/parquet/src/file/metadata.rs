@@ -654,7 +654,7 @@ mod tests {
 
         let row_group_exp = row_group_meta.to_thrift();
         let row_group_res =
-            RowGroupMetaData::from_thrift(schema_descr.clone(), row_group_exp.clone())
+            RowGroupMetaData::from_thrift(schema_descr, row_group_exp.clone())
                 .unwrap()
                 .to_thrift();
 
@@ -665,7 +665,7 @@ mod tests {
     fn test_row_group_metadata_thrift_conversion_empty() {
         let schema_descr = get_test_schema_descr();
 
-        let row_group_meta = RowGroupMetaData::builder(schema_descr.clone()).build();
+        let row_group_meta = RowGroupMetaData::builder(schema_descr).build();
 
         assert!(row_group_meta.is_err());
         if let Err(e) = row_group_meta {
@@ -696,7 +696,7 @@ mod tests {
         let col_chunk_exp = col_metadata.to_thrift();
 
         let col_chunk_res =
-            ColumnChunkMetaData::from_thrift(column_descr.clone(), col_chunk_exp.clone())
+            ColumnChunkMetaData::from_thrift(column_descr, col_chunk_exp.clone())
                 .unwrap()
                 .to_thrift();
 
@@ -713,7 +713,7 @@ mod tests {
 
         let col_chunk_exp = col_metadata.to_thrift();
         let col_chunk_res =
-            ColumnChunkMetaData::from_thrift(column_descr.clone(), col_chunk_exp.clone())
+            ColumnChunkMetaData::from_thrift(column_descr, col_chunk_exp.clone())
                 .unwrap()
                 .to_thrift();
 

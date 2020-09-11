@@ -385,7 +385,7 @@ mod tests {
         let mut record_reader = RecordReader::<T>::new(desc.clone());
 
         // Prepare record reader
-        let mut pb = DataPageBuilderImpl::new(desc.clone(), 4, true);
+        let mut pb = DataPageBuilderImpl::new(desc, 4, true);
         if rep_levels.is_some() {
             pb.add_rep_levels(max_rep_level, rep_levels.unwrap());
         }
