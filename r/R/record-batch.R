@@ -48,9 +48,8 @@
 #' - `$names()`: Get all column names (called by `names(batch)`)
 #' - `$GetColumnByName(name)`: Extract an `Array` by string name
 #' - `$RemoveColumn(i)`: Drops a column from the batch by integer position
-#' - `$select(spec)`: Return a new record batch with a selection of columns.
-#'    This supports the usual `character`, `numeric`, and `logical` selection
-#'    methods as well as "tidy select" expressions.
+#' - `$selectColumns(indices)`: Return a new record batch with a selection of columns. Supports
+#'    0-based integer indices and character vectors.
 #' - `$Slice(offset, length = NULL)`: Create a zero-copy view starting at the
 #'    indicated integer offset and going for the given length, or to the end
 #'    of the table if `NULL`, the default.
@@ -84,21 +83,15 @@ RecordBatch <- R6Class("RecordBatch", inherit = ArrowObject,
       assert_that(is.string(name))
       shared_ptr(Array, RecordBatch__GetColumnByName(self, name))
     },
-    select = function(spec) {
-      spec <- enquo(spec)
-      if (quo_is_null(spec)) {
-        self
-      } else {
-        all_vars <- self$names()
-        vars <- vars_select(all_vars, !!spec)
-        indices <- match(vars, all_vars)
-        shared_ptr(RecordBatch, RecordBatch__select(self, indices))
+    SelectColumns = function(indices) {
+      if (is.character(indices)) {
+        indices <- match(indices, self$names()) - 1L
       }
+      shared_ptr(RecordBatch, RecordBatch__SelectColumns(self, indices))
     },
     RemoveColumn = function(i){
       shared_ptr(RecordBatch, RecordBatch__RemoveColumn(self, i))
     },
-
     Slice = function(offset, length = NULL) {
       if (is.null(length)) {
         shared_ptr(RecordBatch, RecordBatch__Slice1(self, offset))
@@ -218,7 +211,14 @@ names.RecordBatch <- function(x) x$names()
   if (!missing(j)) {
     # Selecting columns is cheaper than filtering rows, so do it first.
     # That way, if we're filtering too, we have fewer arrays to filter/slice/take
-    x <- x$select(j)
+    j <- enquo(j)
+    if (!quo_is_null(j)) {
+      all_vars <- names(x)
+      vars <- vars_select(all_vars, !!j)
+      indices <- match(vars, all_vars) - 1L
+      x <- x$SelectColumns(indices)
+    }
+
     if (drop && ncol(x) == 1L) {
       x <- x$column(0)
     }

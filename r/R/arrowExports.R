@@ -1260,8 +1260,8 @@ RecordBatch__GetColumnByName <- function(batch, name){
     .Call(`_arrow_RecordBatch__GetColumnByName` , batch, name)
 }
 
-RecordBatch__select <- function(batch, indices){
-    .Call(`_arrow_RecordBatch__select` , batch, indices)
+RecordBatch__SelectColumns <- function(batch, indices){
+    .Call(`_arrow_RecordBatch__SelectColumns` , batch, indices)
 }
 
 RecordBatch__Equals <- function(self, other, check_metadata){

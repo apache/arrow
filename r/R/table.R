@@ -55,11 +55,8 @@
 #' - `$ColumnNames()`: Get all column names (called by `names(tab)`)
 #' - `$GetColumnByName(name)`: Extract a `ChunkedArray` by string name
 #' - `$field(i)`: Extract a `Field` from the table schema by integer position
-#' - `$SelectColumns(indices)`: Return new `Table` with specified columns, given as
-#'    0-based indices.
-#' - `$select(spec)`: Return a new table with a selection of columns.
-#'    This supports the usual `character`, `numeric`, and `logical` selection
-#'    methods as well as "tidy select" expressions.
+#' - `$SelectColumns(indices)`: Return new `Table` with specified columns. Supports
+#'    0-based integer indices and character vectors.
 #' - `$Slice(offset, length = NULL)`: Create a zero-copy view starting at the
 #'    indicated integer offset and going for the given length, or to the end
 #'    of the table if `NULL`, the default.
@@ -118,19 +115,10 @@ Table <- R6Class("Table", inherit = ArrowObject,
     },
 
     SelectColumns = function(indices) {
-      shared_ptr(Table, Table__SelectColumns(self, indices))
-    },
-
-    select = function(spec) {
-      spec <- enquo(spec)
-      if (quo_is_null(spec)) {
-        self
-      } else {
-        all_vars <- self$ColumnNames()
-        vars <- vars_select(all_vars, !!spec)
-        indices <- match(vars, all_vars) - 1L
-        self$SelectColumns(indices)
+      if (is.character(indices)) {
+        indices <- match(indices, self$ColumnNames()) - 1L
       }
+      shared_ptr(Table, Table__SelectColumns(self, indices))
     },
 
     Slice = function(offset, length = NULL) {

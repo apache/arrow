@@ -77,7 +77,7 @@ std::shared_ptr<arrow::Array> RecordBatch__GetColumnByName(
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::RecordBatch> RecordBatch__select(
+std::shared_ptr<arrow::RecordBatch> RecordBatch__SelectColumns(
     const std::shared_ptr<arrow::RecordBatch>& batch, cpp11::integers indices) {
   R_xlen_t n = indices.size();
   auto nrows = batch->num_rows();
@@ -86,7 +86,7 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__select(
   std::vector<std::shared_ptr<arrow::Array>> columns(n);
 
   for (R_xlen_t i = 0; i < n; i++) {
-    int pos = indices[i] - 1;
+    int pos = indices[i];
     fields[i] = batch->schema()->field(pos);
     columns[i] = batch->column(pos);
   }
