@@ -23,26 +23,6 @@
 namespace parquet {
 namespace encryption {
 
-std::shared_ptr<KmsClient> KeyToolkit::GetKmsClient(
-    std::shared_ptr<KmsClientFactory> kms_client_factory,
-    const KmsConnectionConfig& kms_connection_config, bool is_wrap_locally,
-    uint64_t cache_entry_lifetime_ms) {
-  std::unordered_map<std::string, std::shared_ptr<KmsClient>>&
-      kms_client_per_kms_instance_cache =
-          kms_client_cache_per_token().GetOrCreateInternalCache(
-              kms_connection_config.key_access_token(), cache_entry_lifetime_ms);
-
-  if (kms_client_per_kms_instance_cache.find(kms_connection_config.kms_instance_id) ==
-      kms_client_per_kms_instance_cache.end()) {
-    std::shared_ptr<KmsClient> kms_client =
-        kms_client_factory->CreateKmsClient(kms_connection_config);
-    kms_client_per_kms_instance_cache.insert(
-        {kms_connection_config.kms_instance_id, kms_client});
-  }
-
-  return kms_client_per_kms_instance_cache[kms_connection_config.kms_instance_id];
-}
-
 std::string KeyToolkit::EncryptKeyLocally(const std::string& key_bytes,
                                           const std::string& master_key,
                                           const std::string& aad) {
@@ -83,6 +63,28 @@ std::string KeyToolkit::DecryptKeyLocally(const std::string& encoded_encrypted_k
       static_cast<int>(aad.size()), reinterpret_cast<uint8_t*>(&decrypted_key[0]));
 
   return decrypted_key;
+}
+
+std::shared_ptr<KmsClient> KeyToolkit::GetKmsClient(
+    const KmsConnectionConfig& kms_connection_config, bool is_wrap_locally,
+    uint64_t cache_entry_lifetime_ms) {
+  if (kms_client_factory_ == NULL) {
+    throw ParquetException("No KmsClientFactory is registered.");
+  }
+  std::unordered_map<std::string, std::shared_ptr<KmsClient>>&
+      kms_client_per_kms_instance_cache =
+          kms_client_cache_per_token().GetOrCreateInternalCache(
+              kms_connection_config.key_access_token(), cache_entry_lifetime_ms);
+
+  if (kms_client_per_kms_instance_cache.find(kms_connection_config.kms_instance_id) ==
+      kms_client_per_kms_instance_cache.end()) {
+    std::shared_ptr<KmsClient> kms_client =
+        kms_client_factory_->CreateKmsClient(kms_connection_config);
+    kms_client_per_kms_instance_cache.insert(
+        {kms_connection_config.kms_instance_id, kms_client});
+  }
+
+  return kms_client_per_kms_instance_cache[kms_connection_config.kms_instance_id];
 }
 
 // Flush any caches that are tied to the (compromised) access_token

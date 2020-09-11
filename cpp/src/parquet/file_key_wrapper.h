@@ -23,6 +23,7 @@
 
 #include "parquet/file_key_material_store.h"
 #include "parquet/key_encryption_key.h"
+#include "parquet/key_toolkit.h"
 #include "parquet/kms_client.h"
 #include "parquet/kms_client_factory.h"
 
@@ -50,7 +51,7 @@ class FileKeyWrapper {
   /// the cache yet. cache_entry_lifetime_seconds is life time of KmsClient in the cache.
   /// key_material_store is to store "key material" outside parquet file, NULL if "key
   /// material" is stored inside parquet file.
-  FileKeyWrapper(std::shared_ptr<KmsClientFactory> kms_client_factory,
+  FileKeyWrapper(KeyToolkit* key_toolkit,
                  const KmsConnectionConfig& kms_connection_config,
                  std::shared_ptr<FileKeyMaterialStore> key_material_store,
                  uint64_t cache_entry_lifetime_seconds, bool double_wrapping,

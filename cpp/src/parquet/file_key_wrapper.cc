@@ -25,7 +25,7 @@
 namespace parquet {
 namespace encryption {
 
-FileKeyWrapper::FileKeyWrapper(std::shared_ptr<KmsClientFactory> kms_client_factory,
+FileKeyWrapper::FileKeyWrapper(KeyToolkit* key_toolkit,
                                const KmsConnectionConfig& kms_connection_config,
                                std::shared_ptr<FileKeyMaterialStore> key_material_store,
                                uint64_t cache_entry_lifetime_seconds,
@@ -36,16 +36,16 @@ FileKeyWrapper::FileKeyWrapper(std::shared_ptr<KmsClientFactory> kms_client_fact
       double_wrapping_(double_wrapping) {
   kms_connection_config_.SetDefaultIfEmpty();
   // Check caches upon each file writing (clean once in cache_entry_lifetime_ms_)
-  KeyToolkit::kms_client_cache_per_token().CheckCacheForExpiredTokens(
+  key_toolkit->kms_client_cache_per_token().CheckCacheForExpiredTokens(
       cache_entry_lifetime_ms_);
-  kms_client_ = KeyToolkit::GetKmsClient(kms_client_factory, kms_connection_config,
-                                         is_wrap_locally, cache_entry_lifetime_ms_);
+  kms_client_ = key_toolkit->GetKmsClient(kms_connection_config, is_wrap_locally,
+                                          cache_entry_lifetime_ms_);
 
   if (double_wrapping) {
-    KeyToolkit::kek_write_cache_per_token().CheckCacheForExpiredTokens(
+    key_toolkit->kek_write_cache_per_token().CheckCacheForExpiredTokens(
         cache_entry_lifetime_ms_);
     kek_per_master_key_id_ =
-        KeyToolkit::kek_write_cache_per_token().GetOrCreateInternalCache(
+        key_toolkit->kek_write_cache_per_token().GetOrCreateInternalCache(
             kms_connection_config.key_access_token(), cache_entry_lifetime_ms_);
   }
 }

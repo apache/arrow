@@ -125,12 +125,9 @@ std::shared_ptr<DecryptionConfiguration> DecryptionConfiguration::Builder::build
                                                    cache_lifetime_seconds_);
 }
 
-void PropertiesDrivenCryptoFactory::register_kms_client_factory(
+void PropertiesDrivenCryptoFactory::RegisterKmsClientFactory(
     std::shared_ptr<KmsClientFactory> kms_client_factory) {
-  if (kms_client_factory_ != NULL) {
-    throw ParquetException("KMS client factory has already been registered.");
-  }
-  kms_client_factory_ = kms_client_factory;
+  key_toolkit_.RegisterKmsClientFactory(kms_client_factory);
 }
 
 std::shared_ptr<FileEncryptionProperties>
@@ -149,14 +146,10 @@ PropertiesDrivenCryptoFactory::GetFileEncryptionProperties(
     throw ParquetException("External key material store is not supported yet.");
   }
 
-  if (kms_client_factory_ == NULL) {
-    throw ParquetException("No KmsClientFactory is registered.");
-  }
-
-  FileKeyWrapper key_wrapper(
-      kms_client_factory_, kms_connection_config, key_material_store,
-      encryption_config->cache_lifetime_seconds(), encryption_config->double_wrapping(),
-      encryption_config->wrap_locally());
+  FileKeyWrapper key_wrapper(&key_toolkit_, kms_connection_config, key_material_store,
+                             encryption_config->cache_lifetime_seconds(),
+                             encryption_config->double_wrapping(),
+                             encryption_config->wrap_locally());
 
   int32_t dek_length_bits = encryption_config->data_key_length_bits();
   int32_t* found_key_length = std::find(
@@ -268,8 +261,8 @@ PropertiesDrivenCryptoFactory::GetFileDecryptionProperties(
     const KmsConnectionConfig& kms_connection_config,
     std::shared_ptr<DecryptionConfiguration> decryption_config) {
   std::shared_ptr<DecryptionKeyRetriever> key_retriever(new FileKeyUnwrapper(
-      kms_client_factory_, kms_connection_config,
-      decryption_config->cache_lifetime_seconds(), decryption_config->wrap_locally()));
+      &key_toolkit_, kms_connection_config, decryption_config->cache_lifetime_seconds(),
+      decryption_config->wrap_locally()));
 
   return FileDecryptionProperties::Builder()
       .key_retriever(key_retriever)

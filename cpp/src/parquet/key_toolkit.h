@@ -51,65 +51,6 @@ class KeyWithMasterId {
 // classes for internal use.
 class PARQUET_EXPORT KeyToolkit {
  public:
-  class KmsClientCache {
-   public:
-    static KmsClientCache& GetInstance() {
-      static KmsClientCache instance;
-      return instance;
-    }
-    TwoLevelCacheWithExpiration<std::shared_ptr<KmsClient>>& cache() { return cache_; }
-
-   private:
-    TwoLevelCacheWithExpiration<std::shared_ptr<KmsClient>> cache_;
-  };
-
-  class KeyEncryptionKeyWriteCache {
-   public:
-    static KeyEncryptionKeyWriteCache& GetInstance() {
-      static KeyEncryptionKeyWriteCache instance;
-      return instance;
-    }
-    TwoLevelCacheWithExpiration<KeyEncryptionKey>& cache() { return cache_; }
-
-   private:
-    TwoLevelCacheWithExpiration<KeyEncryptionKey> cache_;
-  };
-
-  class KeyEncryptionKeyReadCache {
-   public:
-    static KeyEncryptionKeyReadCache& GetInstance() {
-      static KeyEncryptionKeyReadCache instance;
-      return instance;
-    }
-    TwoLevelCacheWithExpiration<std::string>& cache() { return cache_; }
-
-   private:
-    TwoLevelCacheWithExpiration<std::string> cache_;
-  };
-
-  /// KMS client two level cache: token -> KMSInstanceId -> KmsClient
-  static TwoLevelCacheWithExpiration<std::shared_ptr<KmsClient>>&
-  kms_client_cache_per_token() {
-    return KmsClientCache::GetInstance().cache();
-  }
-
-  /// Key encryption key two level cache for wrapping: token -> MasterEncryptionKeyId ->
-  /// KeyEncryptionKey
-  static TwoLevelCacheWithExpiration<KeyEncryptionKey>& kek_write_cache_per_token() {
-    return KeyEncryptionKeyWriteCache::GetInstance().cache();
-  }
-
-  /// Key encryption key two level cache for unwrapping: token -> KeyEncryptionKeyId ->
-  /// KeyEncryptionKeyBytes
-  static TwoLevelCacheWithExpiration<std::string>& kek_read_cache_per_token() {
-    return KeyEncryptionKeyReadCache::GetInstance().cache();
-  }
-
-  static std::shared_ptr<KmsClient> GetKmsClient(
-      std::shared_ptr<KmsClientFactory> kms_client_factory,
-      const KmsConnectionConfig& kms_connection_config, bool is_wrap_locally,
-      uint64_t cache_entry_lifetime_ms);
-
   /// Encrypts "key" with "master_key", using AES-GCM and the "aad"
   static std::string EncryptKeyLocally(const std::string& key,
                                        const std::string& master_key,
@@ -120,10 +61,43 @@ class PARQUET_EXPORT KeyToolkit {
                                        const std::string& master_key,
                                        const std::string& aad);
 
-  /// Flush any caches that are tied to the (compromised) access_token
-  static void RemoveCacheEntriesForToken(const std::string& access_token);
+  /// KMS client two level cache: token -> KMSInstanceId -> KmsClient
+  TwoLevelCacheWithExpiration<std::shared_ptr<KmsClient>>& kms_client_cache_per_token() {
+    return kms_client_cache_;
+  }
+  /// Key encryption key two level cache for wrapping: token -> MasterEncryptionKeyId ->
+  /// KeyEncryptionKey
+  TwoLevelCacheWithExpiration<KeyEncryptionKey>& kek_write_cache_per_token() {
+    return key_encryption_key_write_cache_;
+  }
 
-  static void RemoveCacheEntriesForAllTokens();
+  /// Key encryption key two level cache for unwrapping: token -> KeyEncryptionKeyId ->
+  /// KeyEncryptionKeyBytes
+  TwoLevelCacheWithExpiration<std::string>& kek_read_cache_per_token() {
+    return key_encryption_key_read_cache_;
+  }
+
+  std::shared_ptr<KmsClient> GetKmsClient(
+      const KmsConnectionConfig& kms_connection_config, bool is_wrap_locally,
+      uint64_t cache_entry_lifetime_ms);
+
+  /// Flush any caches that are tied to the (compromised) access_token
+  void RemoveCacheEntriesForToken(const std::string& access_token);
+
+  void RemoveCacheEntriesForAllTokens();
+
+  void RegisterKmsClientFactory(std::shared_ptr<KmsClientFactory> kms_client_factory) {
+    if (kms_client_factory_ != NULL) {
+      throw ParquetException("KMS client factory has already been registered.");
+    }
+    kms_client_factory_ = kms_client_factory;
+  }
+
+ private:
+  TwoLevelCacheWithExpiration<std::shared_ptr<KmsClient>> kms_client_cache_;
+  TwoLevelCacheWithExpiration<KeyEncryptionKey> key_encryption_key_write_cache_;
+  TwoLevelCacheWithExpiration<std::string> key_encryption_key_read_cache_;
+  std::shared_ptr<KmsClientFactory> kms_client_factory_;
 };
 
 }  // namespace encryption

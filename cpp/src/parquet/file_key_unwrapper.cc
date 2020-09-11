@@ -24,10 +24,10 @@
 namespace parquet {
 namespace encryption {
 
-FileKeyUnwrapper::FileKeyUnwrapper(std::shared_ptr<KmsClientFactory> kms_client_factory,
+FileKeyUnwrapper::FileKeyUnwrapper(KeyToolkit* key_toolkit,
                                    const KmsConnectionConfig& kms_connection_config,
                                    uint64_t cache_lifetime_seconds, bool is_wrap_locally)
-    : kms_client_factory_(kms_client_factory),
+    : key_toolkit_(key_toolkit),
       kms_connection_config_(kms_connection_config),
       cache_entry_lifetime_ms_(1000 * cache_lifetime_seconds),
       is_wrap_locally_(is_wrap_locally) {
@@ -99,8 +99,8 @@ std::shared_ptr<KmsClient> FileKeyUnwrapper::GetKmsClientFromConfigOrKeyMaterial
     }
   }
 
-  return KeyToolkit::GetKmsClient(kms_client_factory_, kms_connection_config_,
-                                  is_wrap_locally_, cache_entry_lifetime_ms_);
+  return key_toolkit_->GetKmsClient(kms_connection_config_, is_wrap_locally_,
+                                    cache_entry_lifetime_ms_);
 }
 
 }  // namespace encryption

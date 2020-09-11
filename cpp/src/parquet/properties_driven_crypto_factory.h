@@ -21,6 +21,7 @@
 
 #include "parquet/encryption.h"
 #include "parquet/file_key_wrapper.h"
+#include "parquet/key_toolkit.h"
 #include "parquet/kms_client_factory.h"
 #include "parquet/platform.h"
 
@@ -185,7 +186,7 @@ class PARQUET_EXPORT DecryptionConfiguration {
 
 class PARQUET_EXPORT PropertiesDrivenCryptoFactory {
  public:
-  void register_kms_client_factory(std::shared_ptr<KmsClientFactory> kms_client_factory);
+  void RegisterKmsClientFactory(std::shared_ptr<KmsClientFactory> kms_client_factory);
 
   std::shared_ptr<FileEncryptionProperties> GetFileEncryptionProperties(
       const KmsConnectionConfig& kms_connection_config,
@@ -195,6 +196,8 @@ class PARQUET_EXPORT PropertiesDrivenCryptoFactory {
       const KmsConnectionConfig& kms_connection_config,
       std::shared_ptr<DecryptionConfiguration> decryption_config);
 
+  KeyToolkit& key_toolkit() { return key_toolkit_; }
+
  private:
   /// Acceptable data key length in number of bits
   static constexpr const int32_t kAcceptableDataKeyLengths[] = {128, 192, 256};
@@ -202,7 +205,8 @@ class PARQUET_EXPORT PropertiesDrivenCryptoFactory {
   ColumnPathToEncryptionPropertiesMap GetColumnEncryptionProperties(
       int dek_length, const std::string column_keys, FileKeyWrapper& key_wrapper);
 
-  std::shared_ptr<KmsClientFactory> kms_client_factory_;
+  /// key utilities object for kms client initialzation and cache control
+  KeyToolkit key_toolkit_;
 };
 
 }  // namespace encryption

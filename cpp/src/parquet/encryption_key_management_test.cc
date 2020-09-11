@@ -99,10 +99,9 @@ class TestEncrytionKeyManagement : public ::testing::Test {
 
   void SetupCryptoFactory(PropertiesDrivenCryptoFactory& crypto_factory,
                           bool wrap_locally) {
-    KeyToolkit::RemoveCacheEntriesForAllTokens();
     std::shared_ptr<KmsClientFactory> kms_client_factory =
         std::make_shared<TestOnlyInMemoryKmsClientFactory>(wrap_locally, key_list_);
-    crypto_factory.register_kms_client_factory(kms_client_factory);
+    crypto_factory.RegisterKmsClientFactory(kms_client_factory);
   }
 
   std::string GetFileName(bool double_wrapping, bool wrap_locally, int encryption_no) {
@@ -232,7 +231,6 @@ class TestEncrytionKeyManagement : public ::testing::Test {
 };
 
 TEST_F(TestEncrytionKeyManagement, TestWriteReadEncryptedParquetFiles) {
-  KeyToolkit::RemoveCacheEntriesForAllTokens();
   this->WriteEncryptedParquetFiles();
   this->ReadEncryptedParquetFiles();
 }
