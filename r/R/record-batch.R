@@ -208,6 +208,10 @@ names.RecordBatch <- function(x) x$names()
     # Selecting columns is cheaper than filtering rows, so do it first.
     # That way, if we're filtering too, we have fewer arrays to filter/slice/take
     if (is_integerish(j)) {
+      if (all(j < 0)) {
+        # in R, negative j means "everything but j"
+        j <- setdiff(seq_len(x$num_columns), -1 * j)
+      }
       x <- x$SelectColumns(as.integer(j) - 1L)
     } else if (is.character(j)) {
       x <- x$SelectColumns(match(j, names(x)) - 1L)
