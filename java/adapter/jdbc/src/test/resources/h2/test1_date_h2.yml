@@ -28,6 +28,7 @@ data:
   - 'INSERT INTO table1 VALUES (''2018-02-12'');'
   - 'INSERT INTO table1 VALUES (''2018-02-12'');'
   - 'INSERT INTO table1 VALUES (''2018-02-12'');'
+  - 'INSERT INTO table1 VALUES (''1969-01-01'');'
 
 query: 'select date_field10 from table1;'
 
@@ -44,3 +45,4 @@ values:
  - '17574'
  - '17574'
  - '17574'
+ - '-365'

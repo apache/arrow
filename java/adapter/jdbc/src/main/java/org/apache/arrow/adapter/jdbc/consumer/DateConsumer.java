@@ -85,13 +85,13 @@ public class DateConsumer {
       Date date = calendar == null ? resultSet.getDate(columnIndexInResultSet) :
           resultSet.getDate(columnIndexInResultSet, calendar);
       if (!resultSet.wasNull()) {
-        int day = (int) TimeUnit.MILLISECONDS.toDays(date.getTime());
-        if (day < 0 || day > MAX_DAY) {
+        long day = TimeUnit.MILLISECONDS.toDays(date.getTime());
+        if (day < Integer.MIN_VALUE || day > MAX_DAY) {
           throw new IllegalArgumentException("Day overflow: " + day);
         }
         // for fixed width vectors, we have allocated enough memory proactively,
         // so there is no need to call the setSafe method here.
-        vector.set(currentIndex, day);
+        vector.set(currentIndex, (int) day);
       }
       currentIndex++;
     }
@@ -123,13 +123,13 @@ public class DateConsumer {
     public void consume(ResultSet resultSet) throws SQLException {
       Date date = calendar == null ? resultSet.getDate(columnIndexInResultSet) :
           resultSet.getDate(columnIndexInResultSet, calendar);
-      int day = (int) TimeUnit.MILLISECONDS.toDays(date.getTime());
-      if (day < 0 || day > MAX_DAY) {
+      long day = TimeUnit.MILLISECONDS.toDays(date.getTime());
+      if (day < Integer.MIN_VALUE || day > MAX_DAY) {
         throw new IllegalArgumentException("Day overflow: " + day);
       }
       // for fixed width vectors, we have allocated enough memory proactively,
       // so there is no need to call the setSafe method here.
-      vector.set(currentIndex, day);
+      vector.set(currentIndex, (int) day);
       currentIndex++;
     }
   }
