@@ -31,17 +31,5 @@ void DefinitionLevelsToBitmapBmi2WithRepeatedParent(
       valid_bits_offset);
 }
 
-void ResolveNestedValidityBitmapBmi2(const NestedValidityBitmaps& bitmaps,
-                                     int null_slot_count,
-                                     ValidityBitmapInputOutput* output) {
-  bmi2::ResolveNestedValidityBitmap(bitmaps, null_slot_count, output);
-}
-
-::arrow::util::variant<int32_t*, int64_t*> PopulateListLengthsBmi2(
-    const ListLengthBitmaps& bitmaps,
-    ::arrow::util::variant<int32_t*, int64_t*> lengths) {
-  return bmi2::PopulateListLengthsListTypeDispatch(bitmaps, lengths);
-}
-
 }  // namespace internal
 }  // namespace parquet

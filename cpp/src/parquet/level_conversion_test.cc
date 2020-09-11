@@ -156,47 +156,6 @@ void DefRepLevelsToListLengths(const int16_t* def_levels, const int16_t* rep_lev
 
 class MultiLevelTestData {
  public:
-  MultiLevelTestData() { Reset(); }
-  void Reset() {
-    level_count_ = def_levels_.size();
-    auto populate_bitmaps = [](const std::vector<int16_t>& levels,
-                               std::vector<std::vector<uint8_t>>* bitmaps_out) {
-      std::vector<std::vector<uint8_t>>& bitmaps = *bitmaps_out;
-      bitmaps.clear();
-      int16_t max_level = FindMinMax(levels.data(), levels.size()).max;
-
-      int64_t required_bytes =
-          ::arrow::BitUtil::RoundUp(::arrow::BitUtil::BytesForBits(levels.size()), 8);
-      for (int rhs = 0; rhs < max_level; rhs++) {
-        bitmaps.emplace_back();
-        bitmaps.back().resize(required_bytes);
-        int64_t offset = 0;
-        for (uint8_t* ptr = bitmaps.back().data();
-             offset < static_cast<int64_t>(levels.size()); ptr += 8, offset += 64) {
-          uint64_t gt_bitmap = GreaterThanBitmap(
-              levels.data() + offset,
-              std::min(static_cast<int64_t>(levels.size() - offset), int64_t{64}), rhs);
-          ::arrow::util::SafeStore(ptr, gt_bitmap);
-        }
-      }
-    };
-    populate_bitmaps(def_levels_, &gt_def_level_bitmaps_);
-    populate_bitmaps(rep_levels_, &gt_rep_level_bitmaps_);
-  }
-
-  Bitmap DefBitmapAtIndex(int index) const {
-    return Bitmap(gt_def_level_bitmaps_[index].data(),
-                  /*offset=*/0, level_count_);
-  }
-
-  Bitmap RepBitmapAtIndex(int index) const {
-    return Bitmap(gt_rep_level_bitmaps_[index].data(),
-                  /*offset=*/0, level_count_);
-  }
-
-  std::vector<std::vector<uint8_t>> gt_def_level_bitmaps_;
-  std::vector<std::vector<uint8_t>> gt_rep_level_bitmaps_;
-  int64_t level_count_;
   // Triply nested list values borrow from write_path
   // [null, [[1 , null, 3], []], []],
   // [[[]], [[], [1, 2]], null, [[3]]],
@@ -230,56 +189,8 @@ struct RepDefLevelConverter {
   }
 };
 
-// Use greater-than bitmaps to reconstruct lists.
-template <typename ListType>
-struct BitmapConverter {
-  using ListLengthType = ListType;
-  ListLengthType* ComputeListInfo(const MultiLevelTestData& test_data,
-                                  LevelInfo level_info, ValidityBitmapInputOutput* output,
-                                  ListType* lengths) {
-    ListLengthBitmaps bitmaps;
-    // > rep_level - 1 implies >= rep_level
-    bitmaps.ge_rep_level = test_data.RepBitmapAtIndex(level_info.rep_level - 1);
-    bitmaps.ge_def_level = test_data.DefBitmapAtIndex(level_info.def_level - 1);
-    if (level_info.repeated_ancestor_def_level > 0) {
-      bitmaps.ge_rep_ancestor_def_level =
-          test_data.DefBitmapAtIndex(level_info.repeated_ancestor_def_level - 1);
-    }
-    if (level_info.rep_level <=
-        static_cast<int16_t>(test_data.gt_rep_level_bitmaps_.size() - 1)) {
-      // This is not the inner most list so we need to account for rep levels
-      // greater than it.
-      bitmaps.gt_rep_level = test_data.RepBitmapAtIndex(level_info.rep_level);
-    }
-
-    auto next_position = PopulateListLengths(bitmaps, lengths);
-
-    NestedValidityBitmaps validity_bitmaps;
-    // nullable lists have def_level equal to a present element. So we care
-    // about the prior definition level to determine if is actually null.
-    // The same argument about greater than bitmaps applies here as well so
-    // we end up subtracting 2.
-    validity_bitmaps.ge_def_level = test_data.DefBitmapAtIndex(level_info.def_level - 2);
-    if (level_info.rep_level > 0) {
-      // > rep_level - 1 implies  >= rep_level
-      validity_bitmaps.ge_rep_level =
-          test_data.RepBitmapAtIndex(level_info.rep_level - 1);
-    }
-    if (level_info.repeated_ancestor_def_level > 0) {
-      validity_bitmaps.ge_rep_ancestor_def_level =
-          test_data.DefBitmapAtIndex(level_info.repeated_ancestor_def_level - 1);
-    }
-
-    ResolveNestedValidityBitmap(validity_bitmaps, level_info.null_slot_usage, output);
-
-    return arrow::util::get<ListType*>(next_position);
-  }
-};
-
 using ConverterTypes =
-    ::testing::Types<BitmapConverter</*list_length_type=*/int32_t>,
-                     BitmapConverter</*list_length_type=*/int64_t>,
-                     RepDefLevelConverter</*list_length_type=*/int32_t>,
+    ::testing::Types<RepDefLevelConverter</*list_length_type=*/int32_t>,
                      RepDefLevelConverter</*list_length_type=*/int64_t>>;
 TYPED_TEST_CASE(NestedListTest, ConverterTypes);
 
@@ -380,7 +291,6 @@ TYPED_TEST(NestedListTest, SimpleLongList) {
     this->test_data_.rep_levels_.insert(this->test_data_.rep_levels_.end(), 8,
                                         /*rep_level=*/1);
   }
-  this->test_data_.Reset();
 
   std::vector<typename TypeParam::ListLengthType> lengths(66, -1);
   std::vector<typename TypeParam::ListLengthType> expected_lengths(66, 9);

@@ -143,36 +143,8 @@ void DefinitionLevelsToBitmap(const int16_t* def_levels, int64_t num_def_levels,
   }
 }
 
-void ResolveNestedValidityBitmap(const NestedValidityBitmaps& bitmaps,
-                                 int null_slot_count, ValidityBitmapInputOutput* output) {
-#if defined(ARROW_HAVE_RUNTIME_BMI2)
-
-  using FunctionType = decltype(&standard::ResolveNestedValidityBitmap);
-  static FunctionType fn = CpuInfo::GetInstance()->HasEfficientBmi2()
-                               ? ResolveNestedValidityBitmapBmi2
-                               : standard::ResolveNestedValidityBitmap;
-  fn(bitmaps, null_slot_count, output);
-#else
-  standard::ResolveNestedValidityBitmap(bitmaps, null_slot_count, output);
-#endif
-}
-
 uint64_t RunBasedExtract(uint64_t bitmap, uint64_t select_bitmap) {
   return standard::RunBasedExtractImpl(bitmap, select_bitmap);
-}
-
-::arrow::util::variant<int32_t*, int64_t*> PARQUET_EXPORT
-PopulateListLengths(const ListLengthBitmaps& bitmaps,
-                    ::arrow::util::variant<int32_t*, int64_t*> lengths) {
-#if defined(ARROW_HAVE_RUNTIME_BMI2)
-  using FunctionType = decltype(&standard::PopulateListLengthsListTypeDispatch);
-  static FunctionType fn = CpuInfo::GetInstance()->HasEfficientBmi2()
-                               ? PopulateListLengthsBmi2
-                               : standard::PopulateListLengthsListTypeDispatch;
-  return fn(bitmaps, lengths);
-#else
-  return standard::PopulateListLengthsListTypeDispatch(bitmaps, lengths);
-#endif
 }
 
 void ConvertDefRepLevelsToList(const int16_t* def_levels, const int16_t* rep_levels,

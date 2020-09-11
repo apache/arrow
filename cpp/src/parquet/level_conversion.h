@@ -138,7 +138,7 @@ struct PARQUET_EXPORT LevelInfo {
 };
 
 /// Converts def_levels to validity bitmaps for non-list arrays.
-/// TODO: use input/output parameter below instead of individual calls.
+/// TODO: use input/output parameter below instead of individual return variables.
 void PARQUET_EXPORT DefinitionLevelsToBitmap(const int16_t* def_levels,
                                              int64_t num_def_levels, LevelInfo level_info,
                                              int64_t* values_read, int64_t* null_count,
@@ -165,62 +165,13 @@ void PARQUET_EXPORT ConvertDefRepLevelsToList(
     LevelInfo level_info, ValidityBitmapInputOutput* output,
     ::arrow::util::variant<int32_t*, int64_t*> lengths);
 
-/// Bitmaps needed to resolve validity bitmaps for Arrow arrays with nested
-/// parquet data.
-struct PARQUET_EXPORT NestedValidityBitmaps {
-  /// >= Bitmap for definition levels that indicate an element is defined (not-null).
-  ///
-  /// N.B. For nullable lists the definition level LevelInfo.def_level - 1, because
-  /// LevelInfo.def_level is the definition level indicating an element in the list
-  /// ist present.
-  ::arrow::internal::Bitmap ge_def_level;
-  /// >= Bitmap for repetition level a target nullable list.
-  ::arrow::util::optional<::arrow::internal::Bitmap> ge_rep_level;
-  /// >= Bitmap for the definition level that indicates the immediately prior
-  /// list has present elements (not missing).
-  ///
-  /// Needed for arrays (leaf, structs, lists) nested within another list.
-  ::arrow::util::optional<::arrow::internal::Bitmap> ge_rep_ancestor_def_level;
-};
-
-/// \brief Outputs a new validity bitmap for fields nested below a list.
-void PARQUET_EXPORT ResolveNestedValidityBitmap(const NestedValidityBitmaps& bitmaps,
-                                                int null_slot_count,
-                                                ValidityBitmapInputOutput* output);
-
-/// Bitmaps necessary to calculate list lengths.
-struct PARQUET_EXPORT ListLengthBitmaps {
-  /// >= bitmap for the repetition level for list that lengths needed to be extract for.
-  ::arrow::internal::Bitmap ge_rep_level;
-  /// >= bitmap for definition level that indicates a element is in the list.
-  ::arrow::internal::Bitmap ge_def_level;
-  /// > bitmap for the target repetition level.
-  ///
-  /// Only needed for intermediate repeated elements
-  /// when there are two more more nested repeated fields.
-  ::arrow::util::optional<::arrow::internal::Bitmap> gt_rep_level;
-  /// >= bitmap for the definition level that indicates an element is present (not empty)
-  /// in a the last list before this one.
-  ///
-  /// Only needed for lists that are nested within other lists.
-  ::arrow::util::optional<::arrow::internal::Bitmap> ge_rep_ancestor_def_level;
-};
-
-::arrow::util::variant<int32_t*, int64_t*> PARQUET_EXPORT PopulateListLengths(
-    const ListLengthBitmaps& bitmaps, ::arrow::util::variant<int32_t*, int64_t*> lengths);
-
 uint64_t RunBasedExtract(uint64_t bitmap, uint64_t selection);
+
 #if defined(ARROW_HAVE_RUNTIME_BMI2)
 void PARQUET_EXPORT DefinitionLevelsToBitmapBmi2WithRepeatedParent(
     const int16_t* def_levels, int64_t num_def_levels, LevelInfo level_info,
     int64_t* values_read, int64_t* null_count, uint8_t* valid_bits,
     int64_t valid_bits_offset);
-void PARQUET_EXPORT ResolveNestedValidityBitmapBmi2(const NestedValidityBitmaps& bitmaps,
-                                                    int null_slot_count,
-                                                    ValidityBitmapInputOutput* output);
-
-::arrow::util::variant<int32_t*, int64_t*> PARQUET_EXPORT PopulateListLengthsBmi2(
-    const ListLengthBitmaps& bitmaps, ::arrow::util::variant<int32_t*, int64_t*> lengths);
 #endif
 
 }  // namespace internal
