@@ -131,7 +131,8 @@ class ARROW_EXPORT Codec {
 
   /// \brief Create a codec for the given compression algorithm
   static Result<std::unique_ptr<Codec>> Create(
-      Compression::type codec, int compression_level = kUseDefaultCompressionLevel);
+      Compression::type codec, int compression_level = kUseDefaultCompressionLevel,
+      std::string plugin_name = std::string());
 
   /// \brief Return true if support for indicated codec has been enabled
   static bool IsAvailable(Compression::type codec);

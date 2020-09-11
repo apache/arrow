@@ -88,9 +88,17 @@ Result<Compression::type> Codec::GetCompressionType(const std::string& name) {
 }
 
 Result<std::unique_ptr<Codec>> Codec::Create(Compression::type codec_type,
-                                             int compression_level) {
+                                             int compression_level,
+                                             std::string plugin_name) {
   std::unique_ptr<Codec> codec;
   const bool compression_level_set{compression_level != kUseDefaultCompressionLevel};
+#ifdef ARROW_WITH_PLUGIN
+  if (!plugin_name.empty()) {
+    codec = internal::MakePluginCodec(plugin_name, compression_level);
+    RETURN_NOT_OK(codec->Init());
+    return std::move(codec);
+  }
+#endif
   switch (codec_type) {
     case Compression::UNCOMPRESSED:
       if (compression_level_set) {

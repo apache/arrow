@@ -290,6 +290,14 @@ if(ARROW_WITH_ZSTD)
   list(APPEND ARROW_SRCS util/compression_zstd.cc)
 endif()
 
+if(ARROW_WITH_PLUGIN)
+  add_definitions(-DARROW_WITH_PLUGIN)
+  list(APPEND ARROW_SRCS util/dynamic_library.cc)
+  list(APPEND ARROW_SRCS util/plugin_manager.cc)
+  list(APPEND ARROW_SRCS util/plugin.cc)
+  list(APPEND ARROW_SRCS util/compression_plugin.cc)
+endif()
+
 set(ARROW_TESTING_SRCS
     io/test_common.cc
     ipc/test_common.cc
