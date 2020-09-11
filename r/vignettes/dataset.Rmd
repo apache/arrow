@@ -26,9 +26,27 @@ The total file size is around 37 gigabytes, even in the efficient Parquet file f
 That's bigger than memory on most people's computers,
 so we can't just read it all in and stack it into a single data frame.
 
-In a future release, you'll be able to point your R session at S3 and query
-the dataset from there. For now, datasets need to be on your local file system.
-To download the files,
+If you've installed a binary macOS or Windows `arrow` package, you should have
+support for S3 built in. If you do, you can query datasets directly on S3 without
+first copying the files locally. To check, run
+
+```{r}
+arrow::arrow_with_s3()
+```
+
+Even with S3 support enabled, unless your machine is located in the same AWS
+region as the data, network speed will be a bottleneck. So, for this vignette,
+we assume that the NYC taxi dataset has been downloaded locally in a "nyc-taxi"
+directory.
+
+If your `arrow` build has S3 support, you can sync the data locally with:
+
+```{r, eval = FALSE}
+arrow::fs_copy("s3://ursa-labs-taxi-data", "nyc-taxi")
+```
+
+If your `arrow` build doesn't have S3 support, you can download the files
+with some additional code:
 
 ```{r, eval = FALSE}
 bucket <- "https://ursa-labs-taxi-data.s3.us-east-2.amazonaws.com"
@@ -55,7 +73,7 @@ for (year in 2009:2019) {
 }
 ```
 
-Note that the vignette will not execute that code chunk: if you want to run
+Note that these download steps in the vignette are not executed: if you want to run
 with live data, you'll have to do it yourself separately.
 Given the size, if you're running this locally and don't have a fast connection,
 feel free to grab only a year or two of data.
