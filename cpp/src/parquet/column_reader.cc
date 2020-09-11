@@ -178,7 +178,8 @@ class SerializedPageReader : public PageReader {
  public:
   SerializedPageReader(std::shared_ptr<ArrowInputStream> stream, int64_t total_num_rows,
                        Compression::type codec, ::arrow::MemoryPool* pool,
-                       const CryptoContext* crypto_ctx)
+                       const CryptoContext* crypto_ctx,
+                       const std::string& plugin = std::string())
       : stream_(std::move(stream)),
         decompression_buffer_(AllocateBuffer(pool, 0)),
         page_ordinal_(0),
@@ -190,7 +191,7 @@ class SerializedPageReader : public PageReader {
       InitDecryption();
     }
     max_page_header_size_ = kDefaultMaxPageHeaderSize;
-    decompressor_ = internal::GetReadCodec(codec);
+    decompressor_ = internal::GetReadCodec(codec, plugin);
   }
 
   // Implement the PageReader interface
@@ -442,9 +443,11 @@ std::unique_ptr<PageReader> PageReader::Open(std::shared_ptr<ArrowInputStream> s
                                              int64_t total_num_rows,
                                              Compression::type codec,
                                              ::arrow::MemoryPool* pool,
-                                             const CryptoContext* ctx) {
+                                             const CryptoContext* ctx,
+                                             const std::string &plugin) {
   return std::unique_ptr<PageReader>(
-      new SerializedPageReader(std::move(stream), total_num_rows, codec, pool, ctx));
+      new SerializedPageReader(std::move(stream), total_num_rows,
+                               codec, pool, ctx, plugin));
 }
 
 // ----------------------------------------------------------------------

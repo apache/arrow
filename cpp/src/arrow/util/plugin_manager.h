@@ -25,7 +25,6 @@
 #include "arrow/status.h"
 #include "arrow/result.h"
 #include "arrow/util/dynamic_library.h"
-#include "arrow/util/arrow_plugin.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {

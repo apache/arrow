@@ -141,6 +141,11 @@ class SerializedRowGroup : public RowGroupReader::Contents {
   std::unique_ptr<PageReader> GetColumnPageReader(int i) override {
     // Read column chunk from the file
     auto col = row_group_metadata_->ColumnChunk(i);
+    auto key_value_metadata = col->key_value_metadata();
+    std::string plugin("");
+    if (key_value_metadata) {
+      plugin = key_value_metadata->Get("compressed_by_plugin").ValueOr("");
+    }
 
     arrow::io::ReadRange col_range =
         ComputeColumnChunkRange(file_metadata_, source_size_, row_group_ordinal_, i);
@@ -159,7 +164,8 @@ class SerializedRowGroup : public RowGroupReader::Contents {
     // Column is encrypted only if crypto_metadata exists.
     if (!crypto_metadata) {
       return PageReader::Open(stream, col->num_values(), col->compression(),
-                              properties_.memory_pool());
+                              properties_.memory_pool(),
+                              NULLPTR, plugin);
     }
 
     if (file_decryptor_ == nullptr) {
@@ -181,7 +187,7 @@ class SerializedRowGroup : public RowGroupReader::Contents {
       CryptoContext ctx(col->has_dictionary_page(), row_group_ordinal_,
                         static_cast<int16_t>(i), meta_decryptor, data_decryptor);
       return PageReader::Open(stream, col->num_values(), col->compression(),
-                              properties_.memory_pool(), &ctx);
+                              properties_.memory_pool(), &ctx, plugin);
     }
 
     // The column is encrypted with its own key
@@ -196,7 +202,7 @@ class SerializedRowGroup : public RowGroupReader::Contents {
     CryptoContext ctx(col->has_dictionary_page(), row_group_ordinal_,
                       static_cast<int16_t>(i), meta_decryptor, data_decryptor);
     return PageReader::Open(stream, col->num_values(), col->compression(),
-                            properties_.memory_pool(), &ctx);
+                            properties_.memory_pool(), &ctx, plugin);
   }
 
  private:
