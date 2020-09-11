@@ -17,14 +17,17 @@
 
 #pragma once
 
+#include "arrow/json/rapidjson_defs.h"  // IWYU pragma: keep
+
 #include <rapidjson/document.h>
 
 #include "arrow/util/string_view.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
-
 namespace json {
+
+namespace rj = arrow::rapidjson;
 
 class ARROW_EXPORT ObjectWriter {
  public:
@@ -36,10 +39,9 @@ class ARROW_EXPORT ObjectWriter {
   std::string Serialize();
 
  private:
-  rapidjson::Document _document;
-  rapidjson::Value _root;
+  rj::Document _document;
+  rj::Value _root;
 };
 
 }  // namespace json
-
 }  // namespace arrow

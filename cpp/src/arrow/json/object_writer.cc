@@ -15,43 +15,41 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/json/object_writer.h"
+
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
 
-#include "arrow/json/object_writer.h"
-
 namespace arrow {
-
 namespace json {
 
-ObjectWriter::ObjectWriter() : _root(rapidjson::kObjectType) {}
+ObjectWriter::ObjectWriter() : _root(rj::kObjectType) {}
 
 void ObjectWriter::SetString(arrow::util::string_view key,
                              arrow::util::string_view value) {
-  rapidjson::Document::AllocatorType& allocator = _document.GetAllocator();
+  rj::Document::AllocatorType& allocator = _document.GetAllocator();
 
-  rapidjson::Value str_key(key.data(), allocator);
-  rapidjson::Value str_value(value.data(), allocator);
+  rj::Value str_key(key.data(), allocator);
+  rj::Value str_value(value.data(), allocator);
 
   _root.AddMember(str_key, str_value, allocator);
 }
 
 void ObjectWriter::SetBool(arrow::util::string_view key, bool value) {
-  rapidjson::Document::AllocatorType& allocator = _document.GetAllocator();
+  rj::Document::AllocatorType& allocator = _document.GetAllocator();
 
-  rapidjson::Value str_key(key.data(), allocator);
+  rj::Value str_key(key.data(), allocator);
 
   _root.AddMember(str_key, value, allocator);
 }
 
 std::string ObjectWriter::Serialize() {
-  rapidjson::StringBuffer buffer;
-  rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+  rj::StringBuffer buffer;
+  rj::Writer<rj::StringBuffer> writer(buffer);
   _root.Accept(writer);
 
   return buffer.GetString();
 }
 
 }  // namespace json
-
 }  // namespace arrow

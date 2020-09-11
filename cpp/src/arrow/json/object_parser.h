@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include "arrow/json/rapidjson_defs.h"  // IWYU pragma: keep
+
 #include <rapidjson/document.h>
 
 #include "arrow/result.h"
@@ -24,8 +26,9 @@
 #include "arrow/util/visibility.h"
 
 namespace arrow {
-
 namespace json {
+
+namespace rj = arrow::rapidjson;
 
 class ARROW_EXPORT ObjectParser {
  public:
@@ -35,9 +38,8 @@ class ARROW_EXPORT ObjectParser {
   Result<bool> GetBool(const char* key) const;
 
  private:
-  rapidjson::Document _document;
+  rj::Document _document;
 };
 
 }  // namespace json
-
 }  // namespace arrow

@@ -17,6 +17,8 @@
 
 #include <iostream>
 
+#include "arrow/util/utf8.h"
+
 #include "parquet/file_key_unwrapper.h"
 #include "parquet/key_metadata.h"
 #include "parquet/key_toolkit.h"
@@ -36,6 +38,13 @@ FileKeyUnwrapper::FileKeyUnwrapper(KeyToolkit* key_toolkit,
 }
 
 std::string FileKeyUnwrapper::GetKey(const std::string& key_metadata_bytes) const {
+  // key_metadata is expected to be in UTF8 encoding
+  arrow::util::InitializeUTF8();
+  if (!arrow::util::ValidateUTF8(
+          reinterpret_cast<const uint8_t*>(key_metadata_bytes.data()),
+          key_metadata_bytes.size())) {
+    throw ParquetException("key metadata should be in UTF8 encoding");
+  }
   KeyMetadata key_metadata = KeyMetadata::Parse(key_metadata_bytes);
 
   if (!key_metadata.key_material_stored_internally()) {
