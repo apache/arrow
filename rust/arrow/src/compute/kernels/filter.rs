@@ -597,9 +597,8 @@ mod tests {
     #[test]
     fn test_filter_array_low_density() {
         // this test exercises the all 0's branch of the filter algorithm
-        let mut data_values = (1..=65).into_iter().collect::<Vec<i32>>();
+        let mut data_values = (1..=65).collect::<Vec<i32>>();
         let mut filter_values = (1..=65)
-            .into_iter()
             .map(|i| match i % 65 {
                 0 => true,
                 _ => false,
@@ -620,9 +619,8 @@ mod tests {
     #[test]
     fn test_filter_array_high_density() {
         // this test exercises the all 1's branch of the filter algorithm
-        let mut data_values = (1..=65).into_iter().map(|x| Some(x)).collect::<Vec<_>>();
+        let mut data_values = (1..=65).map(Some).collect::<Vec<_>>();
         let mut filter_values = (1..=65)
-            .into_iter()
             .map(|i| match i % 65 {
                 0 => false,
                 _ => true,
@@ -687,7 +685,7 @@ mod tests {
     #[test]
     fn test_filter_dictionary_array() {
         let values = vec![Some("hello"), None, Some("world"), Some("!")];
-        let a: Int8DictionaryArray = values.iter().map(|&x| x).collect();
+        let a: Int8DictionaryArray = values.iter().copied().collect();
         let b = BooleanArray::from(vec![false, true, true, false]);
         let c = filter(&a, &b).unwrap();
         let d = c

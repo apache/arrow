@@ -111,10 +111,10 @@ mod tests {
 
         // Construct a list array from the above two
         let list_data_type = DataType::List(Box::new(DataType::Int32));
-        let list_data = ArrayData::builder(list_data_type.clone())
+        let list_data = ArrayData::builder(list_data_type)
             .len(9)
-            .add_buffer(value_offsets.clone())
-            .add_child_data(value_data.clone())
+            .add_buffer(value_offsets)
+            .add_child_data(value_data)
             .null_bit_buffer(Buffer::from(null_bits))
             .build();
         let list_array: ArrayRef = Arc::new(ListArray::from(list_data));

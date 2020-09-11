@@ -51,7 +51,7 @@ fn create_random_index(size: usize) -> UInt32Array {
     )
 }
 
-fn take_numeric<T>(size: usize, index_len: usize) -> ()
+fn take_numeric<T>(size: usize, index_len: usize)
 where
     T: ArrowNumericType,
     Standard: Distribution<T::Native>,
@@ -63,7 +63,7 @@ where
     criterion::black_box(take(&array, &index, None).unwrap());
 }
 
-fn take_boolean(size: usize, index_len: usize) -> () {
+fn take_boolean(size: usize, index_len: usize) {
     let array = Arc::new(BooleanArray::from(vec![random::<bool>(); size])) as ArrayRef;
     let index = create_random_index(index_len);
     criterion::black_box(take(&array, &index, None).unwrap());

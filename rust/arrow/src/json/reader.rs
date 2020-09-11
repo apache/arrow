@@ -908,8 +908,8 @@ mod tests {
             .as_any()
             .downcast_ref::<Float64Array>()
             .unwrap();
-        assert_eq!(2.0, bb.value(0));
-        assert_eq!(-3.5, bb.value(1));
+        assert!(2.0 - bb.value(0) < f64::EPSILON);
+        assert!(-3.5 - bb.value(1) < f64::EPSILON);
         let cc = batch
             .column(c.0)
             .as_any()
@@ -1031,8 +1031,8 @@ mod tests {
             .as_any()
             .downcast_ref::<Float32Array>()
             .unwrap();
-        assert_eq!(2.0, bb.value(0));
-        assert_eq!(-3.5, bb.value(1));
+        assert!(2.0 - bb.value(0) < f32::EPSILON);
+        assert!(-3.5 - bb.value(1) < f32::EPSILON);
     }
 
     #[test]
@@ -1057,7 +1057,7 @@ mod tests {
             Field::new("a", DataType::Int32, false),
             Field::new("c", DataType::Boolean, false),
         ]));
-        assert_eq!(reader_schema.clone(), expected_schema);
+        assert_eq!(reader_schema, expected_schema);
 
         let batch = reader.next().unwrap().unwrap();
 
@@ -1119,8 +1119,8 @@ mod tests {
         let bb = bb.values();
         let bb = bb.as_any().downcast_ref::<Float64Array>().unwrap();
         assert_eq!(9, bb.len());
-        assert_eq!(2.0, bb.value(0));
-        assert_eq!(-6.1, bb.value(5));
+        assert!(2.0 - bb.value(0) < f64::EPSILON);
+        assert!(-6.1 - bb.value(5) < f64::EPSILON);
         assert_eq!(false, bb.is_valid(7));
 
         let cc = batch
@@ -1215,7 +1215,7 @@ mod tests {
             let bb = bb.values();
             let bb = bb.as_any().downcast_ref::<Float64Array>().unwrap();
             assert_eq!(10, bb.len());
-            assert_eq!(4.0, bb.value(9));
+            assert!(4.0 - bb.value(9) < f64::EPSILON);
 
             let cc = batch
                 .column(c.0)

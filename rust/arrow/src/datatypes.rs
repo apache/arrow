@@ -1621,7 +1621,6 @@ pub type SchemaRef = Arc<Schema>;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json;
     use serde_json::Number;
     use serde_json::Value::{Bool, Number as VNumber};
     use std::f32::NAN;
@@ -2461,7 +2460,7 @@ mod tests {
 
     #[test]
     fn test_schema_merge() -> Result<()> {
-        let merged = Schema::try_merge(&vec![
+        let merged = Schema::try_merge(&[
             Schema::new(vec![
                 Field::new("first_name", DataType::Utf8, false),
                 Field::new("last_name", DataType::Utf8, false),
@@ -2520,7 +2519,7 @@ mod tests {
 
         // support merge union fields
         assert_eq!(
-            Schema::try_merge(&vec![
+            Schema::try_merge(&[
                 Schema::new(vec![Field::new(
                     "c1",
                     DataType::Union(vec![
@@ -2550,17 +2549,17 @@ mod tests {
         );
 
         // incompatible field should throw error
-        assert!(Schema::try_merge(&vec![
+        assert!(Schema::try_merge(&[
             Schema::new(vec![
                 Field::new("first_name", DataType::Utf8, false),
                 Field::new("last_name", DataType::Utf8, false),
             ]),
-            Schema::new(vec![Field::new("last_name", DataType::Int64, false),]),
+            Schema::new(vec![Field::new("last_name", DataType::Int64, false),])
         ])
         .is_err());
 
         // incompatible metadata should throw error
-        assert!(Schema::try_merge(&vec![
+        assert!(Schema::try_merge(&[
             Schema::new_with_metadata(
                 vec![Field::new("first_name", DataType::Utf8, false)],
                 [("foo".to_string(), "bar".to_string()),]
@@ -2574,7 +2573,7 @@ mod tests {
                     .iter()
                     .cloned()
                     .collect::<HashMap<String, String>>()
-            ),
+            )
         ])
         .is_err());
 

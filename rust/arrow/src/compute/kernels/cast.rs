@@ -766,11 +766,11 @@ mod tests {
         let array = Arc::new(a) as ArrayRef;
         let b = cast(&array, &DataType::Float64).unwrap();
         let c = b.as_any().downcast_ref::<Float64Array>().unwrap();
-        assert_eq!(5.0, c.value(0));
-        assert_eq!(6.0, c.value(1));
-        assert_eq!(7.0, c.value(2));
-        assert_eq!(8.0, c.value(3));
-        assert_eq!(9.0, c.value(4));
+        assert!(5.0 - c.value(0) < f64::EPSILON);
+        assert!(6.0 - c.value(1) < f64::EPSILON);
+        assert!(7.0 - c.value(2) < f64::EPSILON);
+        assert!(8.0 - c.value(3) < f64::EPSILON);
+        assert!(9.0 - c.value(4) < f64::EPSILON);
     }
 
     #[test]
@@ -891,10 +891,10 @@ mod tests {
         let values = arr.values();
         let c = values.as_any().downcast_ref::<Float64Array>().unwrap();
         assert_eq!(1, c.null_count());
-        assert_eq!(7.0, c.value(0));
-        assert_eq!(8.0, c.value(1));
+        assert!(7.0 - c.value(0) < f64::EPSILON);
+        assert!(8.0 - c.value(1) < f64::EPSILON);
         assert_eq!(false, c.is_valid(2));
-        assert_eq!(10.0, c.value(3));
+        assert!(10.0 - c.value(3) < f64::EPSILON);
     }
 
     #[test]
@@ -927,8 +927,8 @@ mod tests {
         let array = Arc::new(a) as ArrayRef;
         let b = cast(&array, &DataType::Float64).unwrap();
         let c = b.as_any().downcast_ref::<Float64Array>().unwrap();
-        assert_eq!(1.0, c.value(0));
-        assert_eq!(0.0, c.value(1));
+        assert!(1.0 - c.value(0) < f64::EPSILON);
+        assert!(0.0 - c.value(1) < f64::EPSILON);
         assert_eq!(false, c.is_valid(2));
     }
 
@@ -951,10 +951,10 @@ mod tests {
 
         // Construct a list array from the above two
         let list_data_type = DataType::List(Box::new(DataType::Int32));
-        let list_data = ArrayData::builder(list_data_type.clone())
+        let list_data = ArrayData::builder(list_data_type)
             .len(3)
-            .add_buffer(value_offsets.clone())
-            .add_child_data(value_data.clone())
+            .add_buffer(value_offsets)
+            .add_child_data(value_data)
             .build();
         let list_array = Arc::new(ListArray::from(list_data)) as ArrayRef;
 
@@ -1006,10 +1006,10 @@ mod tests {
 
         // Construct a list array from the above two
         let list_data_type = DataType::List(Box::new(DataType::Int32));
-        let list_data = ArrayData::builder(list_data_type.clone())
+        let list_data = ArrayData::builder(list_data_type)
             .len(3)
-            .add_buffer(value_offsets.clone())
-            .add_child_data(value_data.clone())
+            .add_buffer(value_offsets)
+            .add_child_data(value_data)
             .build();
         let list_array = Arc::new(ListArray::from(list_data)) as ArrayRef;
 
@@ -1131,7 +1131,7 @@ mod tests {
             std::u32::MAX as f64,
             std::u64::MAX as f64,
         ];
-        let f64_array: ArrayRef = Arc::new(Float64Array::from(f64_values.clone()));
+        let f64_array: ArrayRef = Arc::new(Float64Array::from(f64_values));
 
         let f64_expected = vec![
             "-9223372036854776000.0",
@@ -1275,7 +1275,7 @@ mod tests {
             std::u32::MAX as f32,
             std::u32::MAX as f32,
         ];
-        let f32_array: ArrayRef = Arc::new(Float32Array::from(f32_values.clone()));
+        let f32_array: ArrayRef = Arc::new(Float32Array::from(f32_values));
 
         let f64_expected = vec![
             "-2147483648.0",
@@ -1407,7 +1407,7 @@ mod tests {
             std::u32::MAX as u64,
             std::u64::MAX,
         ];
-        let u64_array: ArrayRef = Arc::new(UInt64Array::from(u64_values.clone()));
+        let u64_array: ArrayRef = Arc::new(UInt64Array::from(u64_values));
 
         let f64_expected = vec![
             "0.0",
@@ -1491,7 +1491,7 @@ mod tests {
             std::u16::MAX as u32,
             std::u32::MAX as u32,
         ];
-        let u32_array: ArrayRef = Arc::new(UInt32Array::from(u32_values.clone()));
+        let u32_array: ArrayRef = Arc::new(UInt32Array::from(u32_values));
 
         let f64_expected = vec!["0.0", "255.0", "65535.0", "4294967295.0"];
         assert_eq!(
@@ -1557,7 +1557,7 @@ mod tests {
     #[test]
     fn test_cast_from_uint16() {
         let u16_values: Vec<u16> = vec![0, std::u8::MAX as u16, std::u16::MAX as u16];
-        let u16_array: ArrayRef = Arc::new(UInt16Array::from(u16_values.clone()));
+        let u16_array: ArrayRef = Arc::new(UInt16Array::from(u16_values));
 
         let f64_expected = vec!["0.0", "255.0", "65535.0"];
         assert_eq!(
@@ -1623,7 +1623,7 @@ mod tests {
     #[test]
     fn test_cast_from_uint8() {
         let u8_values: Vec<u8> = vec![0, std::u8::MAX];
-        let u8_array: ArrayRef = Arc::new(UInt8Array::from(u8_values.clone()));
+        let u8_array: ArrayRef = Arc::new(UInt8Array::from(u8_values));
 
         let f64_expected = vec!["0.0", "255.0"];
         assert_eq!(
@@ -1699,7 +1699,7 @@ mod tests {
             std::i32::MAX as i64,
             std::i64::MAX,
         ];
-        let i64_array: ArrayRef = Arc::new(Int64Array::from(i64_values.clone()));
+        let i64_array: ArrayRef = Arc::new(Int64Array::from(i64_values));
 
         let f64_expected = vec![
             "-9223372036854776000.0",
@@ -1841,7 +1841,7 @@ mod tests {
             std::i16::MAX as i32,
             std::i32::MAX as i32,
         ];
-        let i32_array: ArrayRef = Arc::new(Int32Array::from(i32_values.clone()));
+        let i32_array: ArrayRef = Arc::new(Int32Array::from(i32_values));
 
         let f64_expected = vec![
             "-2147483648.0",
@@ -1919,7 +1919,7 @@ mod tests {
             std::i8::MAX as i16,
             std::i16::MAX,
         ];
-        let i16_array: ArrayRef = Arc::new(Int16Array::from(i16_values.clone()));
+        let i16_array: ArrayRef = Arc::new(Int16Array::from(i16_values));
 
         let f64_expected = vec!["-32768.0", "-128.0", "0.0", "127.0", "32767.0"];
         assert_eq!(
@@ -1985,7 +1985,7 @@ mod tests {
     #[test]
     fn test_cast_from_int8() {
         let i8_values: Vec<i8> = vec![std::i8::MIN, 0, std::i8::MAX];
-        let i8_array: ArrayRef = Arc::new(Int8Array::from(i8_values.clone()));
+        let i8_array: ArrayRef = Arc::new(Int8Array::from(i8_values));
 
         let f64_expected = vec!["-128.0", "0.0", "127.0"];
         assert_eq!(

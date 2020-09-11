@@ -85,14 +85,14 @@ pub fn create_partitioned_csv(filename: &str, partitions: usize) -> Result<Strin
         if i == 0 {
             // write header to all partitions
             for w in writers.iter_mut() {
-                w.write(line.as_bytes()).unwrap();
-                w.write(b"\n").unwrap();
+                w.write_all(line.as_bytes()).unwrap();
+                w.write_all(b"\n").unwrap();
             }
         } else {
             // write data line to single partition
             let partition = i % partitions;
-            writers[partition].write(line.as_bytes()).unwrap();
-            writers[partition].write(b"\n").unwrap();
+            writers[partition].write_all(line.as_bytes()).unwrap();
+            writers[partition].write_all(b"\n").unwrap();
         }
 
         i += 1;
