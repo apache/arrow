@@ -55,8 +55,7 @@
 #' - `$ColumnNames()`: Get all column names (called by `names(tab)`)
 #' - `$GetColumnByName(name)`: Extract a `ChunkedArray` by string name
 #' - `$field(i)`: Extract a `Field` from the table schema by integer position
-#' - `$SelectColumns(indices)`: Return new `Table` with specified columns. Supports
-#'    0-based integer indices and character vectors.
+#' - `$SelectColumns(indices)`: Return new `Table` with specified columns, expressed as 0-based integers.
 #' - `$Slice(offset, length = NULL)`: Create a zero-copy view starting at the
 #'    indicated integer offset and going for the given length, or to the end
 #'    of the table if `NULL`, the default.
@@ -115,9 +114,6 @@ Table <- R6Class("Table", inherit = ArrowObject,
     },
 
     SelectColumns = function(indices) {
-      if (is.character(indices)) {
-        indices <- match(indices, self$ColumnNames()) - 1L
-      }
       shared_ptr(Table, Table__SelectColumns(self, indices))
     },
 

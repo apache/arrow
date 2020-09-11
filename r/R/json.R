@@ -40,9 +40,7 @@ read_json_arrow <- function(file, col_select = NULL, as_data_frame = TRUE, ...) 
 
   col_select <- enquo(col_select)
   if (!quo_is_null(col_select)) {
-    tab <- tab$SelectColumns(
-      vars_select(names(tab), !!col_select)
-    )
+    tab <- tab[vars_select(names(tab), !!col_select)]
   }
 
   if (isTRUE(as_data_frame)) {

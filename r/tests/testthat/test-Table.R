@@ -130,16 +130,16 @@ test_that("[, [[, $ for Table", {
   expect_null(tab[["asdf"]])
   # List-like column slicing
   expect_data_frame(tab[2:4], tbl[2:4])
-  expect_data_frame(tab[c(1, 0)], tbl[c(1, 0)])
+  expect_data_frame(tab[c(2, 1)], tbl[c(2, 1)])
 
   expect_error(tab[[c(4, 3)]])
   expect_error(tab[[NA]], "'i' must be character or numeric, not logical")
   expect_error(tab[[NULL]], "'i' must be character or numeric, not NULL")
   expect_error(tab[[c("asdf", "jkl;")]], 'length(name) not equal to 1', fixed = TRUE)
-  expect_error(tab[-3], "Selections can't have negative value") # From tidyselect
-  expect_error(tab[-3:3], "Selections can't have negative value") # From tidyselect
-  expect_error(tab[1000]) # This is caught in vctrs, assert more specifically when it stabilizes
-  expect_error(tab[1:1000]) # same as ^
+  expect_error(tab[-3], "Invalid column index")
+  expect_error(tab[-3:3], "Invalid column index")
+  expect_error(tab[1000],  "Invalid column index")
+  expect_error(tab[1:1000], "Invalid column index")
 
   skip("Table with 0 cols doesn't know how many rows it should have")
   expect_data_frame(tab[0], tbl[0])

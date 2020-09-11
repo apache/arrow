@@ -48,8 +48,7 @@
 #' - `$names()`: Get all column names (called by `names(batch)`)
 #' - `$GetColumnByName(name)`: Extract an `Array` by string name
 #' - `$RemoveColumn(i)`: Drops a column from the batch by integer position
-#' - `$selectColumns(indices)`: Return a new record batch with a selection of columns. Supports
-#'    0-based integer indices and character vectors.
+#' - `$selectColumns(indices)`: Return a new record batch with a selection of columns, expressed as 0-based integers.
 #' - `$Slice(offset, length = NULL)`: Create a zero-copy view starting at the
 #'    indicated integer offset and going for the given length, or to the end
 #'    of the table if `NULL`, the default.
@@ -84,9 +83,6 @@ RecordBatch <- R6Class("RecordBatch", inherit = ArrowObject,
       shared_ptr(Array, RecordBatch__GetColumnByName(self, name))
     },
     SelectColumns = function(indices) {
-      if (is.character(indices)) {
-        indices <- match(indices, self$names()) - 1L
-      }
       shared_ptr(RecordBatch, RecordBatch__SelectColumns(self, indices))
     },
     RemoveColumn = function(i){
@@ -211,12 +207,10 @@ names.RecordBatch <- function(x) x$names()
   if (!missing(j)) {
     # Selecting columns is cheaper than filtering rows, so do it first.
     # That way, if we're filtering too, we have fewer arrays to filter/slice/take
-    j <- enquo(j)
-    if (!quo_is_null(j)) {
-      all_vars <- names(x)
-      vars <- vars_select(all_vars, !!j)
-      indices <- match(vars, all_vars) - 1L
-      x <- x$SelectColumns(indices)
+    if (is_integerish(j)) {
+      x <- x$SelectColumns(as.integer(j) - 1L)
+    } else if (is.character(j)) {
+      x <- x$SelectColumns(match(j, names(x)) - 1L)
     }
 
     if (drop && ncol(x) == 1L) {
