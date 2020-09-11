@@ -57,9 +57,9 @@ class PARQUET_EXPORT EncryptionConfiguration {
     /// List of columns to encrypt, with master key IDs (see HIVE-21848).
     /// Format: "masterKeyID:colName,colName;masterKeyID:colName..."
     /// Either
-    /// ::column_keys(const std::string&)
+    /// column_keys(const std::string&)
     /// or
-    /// ::uniform_encryption()
+    /// uniform_encryption()
     /// must be called. If none are called, or if both are called, an exception will be
     /// thrown.
     Builder* column_keys(const std::string& column_keys);
@@ -186,26 +186,33 @@ class PARQUET_EXPORT DecryptionConfiguration {
 
 class PARQUET_EXPORT PropertiesDrivenCryptoFactory {
  public:
+  /// KmsClientFactory must be registered before calling
+  /// GetFileEncryptionProperties()/GetFileDecryptionProperties() methods.
   void RegisterKmsClientFactory(std::shared_ptr<KmsClientFactory> kms_client_factory);
 
   std::shared_ptr<FileEncryptionProperties> GetFileEncryptionProperties(
       const KmsConnectionConfig& kms_connection_config,
       std::shared_ptr<EncryptionConfiguration> encryption_config);
 
+  /// The returned FileDecryptionProperties object will use the cache inside this
+  /// PropertiesDrivenCryptoFactory object, so please keep this
+  /// PropertiesDrivenCryptoFactory object alive along with the returned
+  /// FileDecryptionProperties object.
   std::shared_ptr<FileDecryptionProperties> GetFileDecryptionProperties(
       const KmsConnectionConfig& kms_connection_config,
       std::shared_ptr<DecryptionConfiguration> decryption_config);
 
+  /// KeyToolkit is public for cache control
   KeyToolkit& key_toolkit() { return key_toolkit_; }
 
  private:
-  /// Acceptable data key length in number of bits
+  /// Acceptable data key lengths in number of bits
   static constexpr const int32_t kAcceptableDataKeyLengths[] = {128, 192, 256};
 
   ColumnPathToEncryptionPropertiesMap GetColumnEncryptionProperties(
       int dek_length, const std::string column_keys, FileKeyWrapper& key_wrapper);
 
-  /// key utilities object for kms client initialzation and cache control
+  /// Key utilities object for kms client initialization and cache control
   KeyToolkit key_toolkit_;
 };
 

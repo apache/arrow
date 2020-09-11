@@ -222,7 +222,7 @@ class TestEncrytionKeyManagement : public ::testing::Test {
               crypto_factory.GetFileDecryptionProperties(kms_connection_config_,
                                                          decryption_config);
 
-          std::string file = data_file(file_name.c_str());
+          std::string file = temp_dir->path().ToString() + file_name;
           decryptor_.DecryptFile(file, file_decryption_properties);
         }
       }
