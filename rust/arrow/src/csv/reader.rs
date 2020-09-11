@@ -621,7 +621,7 @@ mod tests {
             .as_any()
             .downcast_ref::<Float64Array>()
             .unwrap();
-        assert_eq!(57.653484, lat.value(0));
+        assert!(57.653484 - lat.value(0) < f64::EPSILON);
 
         // access data from a string array (ListArray<u8>)
         let city = batch
@@ -683,7 +683,7 @@ mod tests {
             .as_any()
             .downcast_ref::<Float64Array>()
             .unwrap();
-        assert_eq!(57.653484, lat.value(0));
+        assert!(57.653484 - lat.value(0) < f64::EPSILON);
 
         // access data from a string array (ListArray<u8>)
         let city = batch
@@ -721,7 +721,7 @@ mod tests {
             .as_any()
             .downcast_ref::<Float64Array>()
             .unwrap();
-        assert_eq!(57.653484, lat.value(0));
+        assert!(57.653484 - lat.value(0) < f64::EPSILON);
 
         // access data from a string array (ListArray<u8>)
         let city = batch
@@ -749,7 +749,7 @@ mod tests {
             Field::new("city", DataType::Utf8, false),
             Field::new("lat", DataType::Float64, false),
         ]));
-        assert_eq!(projected_schema.clone(), csv.schema());
+        assert_eq!(projected_schema, csv.schema());
         let batch = csv.next().unwrap().unwrap();
         assert_eq!(projected_schema, batch.schema());
         assert_eq!(37, batch.num_rows());
@@ -867,7 +867,7 @@ mod tests {
         writeln!(csv4, "10,\"foo\",")?;
 
         let schema = infer_schema_from_files(
-            &vec![
+            &[
                 csv3.path().to_str().unwrap().to_string(),
                 csv1.path().to_str().unwrap().to_string(),
                 csv2.path().to_str().unwrap().to_string(),

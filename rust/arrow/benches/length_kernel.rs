@@ -42,7 +42,7 @@ fn bench_length() {
 }
 
 fn add_benchmark(c: &mut Criterion) {
-    c.bench_function("length", |b| b.iter(|| bench_length()));
+    c.bench_function("length", |b| b.iter(bench_length));
 }
 
 criterion_group!(benches, add_benchmark);

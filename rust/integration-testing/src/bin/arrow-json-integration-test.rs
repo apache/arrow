@@ -500,7 +500,7 @@ fn validate(arrow_name: &str, json_name: &str, verbose: bool) -> Result<()> {
         }
     }
 
-    if let Some(_) = arrow_reader.next_batch()? {
+    if arrow_reader.next_batch()?.is_some() {
         return Err(ArrowError::ComputeError(
             "no more json batches left".to_owned(),
         ));

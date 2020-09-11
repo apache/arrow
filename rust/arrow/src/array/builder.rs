@@ -2531,8 +2531,8 @@ mod tests {
     #[test]
     fn test_append_slice() {
         let mut b = UInt8BufferBuilder::new(0);
-        b.append_slice("Hello, ".as_bytes()).unwrap();
-        b.append_slice("World!".as_bytes()).unwrap();
+        b.append_slice(b"Hello, ").unwrap();
+        b.append_slice(b"World!").unwrap();
         let buffer = b.finish();
         assert_eq!(13, buffer.len());
 
@@ -3099,9 +3099,7 @@ mod tests {
         builder.append_byte(b'd').unwrap();
         builder.append(true).unwrap();
 
-        let array = builder.finish();
-
-        let binary_array = BinaryArray::from(array);
+        let binary_array = builder.finish();
 
         assert_eq!(3, binary_array.len());
         assert_eq!(0, binary_array.null_count());
@@ -3130,9 +3128,7 @@ mod tests {
         builder.append_byte(b'd').unwrap();
         builder.append(true).unwrap();
 
-        let array = builder.finish();
-
-        let binary_array = LargeBinaryArray::from(array);
+        let binary_array = builder.finish();
 
         assert_eq!(3, binary_array.len());
         assert_eq!(0, binary_array.null_count());
@@ -3151,9 +3147,7 @@ mod tests {
         builder.append(true).unwrap();
         builder.append_value("world").unwrap();
 
-        let array = builder.finish();
-
-        let string_array = StringArray::from(array);
+        let string_array = builder.finish();
 
         assert_eq!(3, string_array.len());
         assert_eq!(0, string_array.null_count());
@@ -3210,9 +3204,7 @@ mod tests {
         builder.append(true).unwrap();
         builder.append_value("world").unwrap();
 
-        let array = builder.finish();
-
-        let string_array = StringArray::from(array);
+        let string_array = builder.finish();
 
         assert_eq!(3, string_array.len());
         assert_eq!(0, string_array.null_count());
@@ -3274,7 +3266,7 @@ mod tests {
             .null_count(2)
             .null_bit_buffer(Buffer::from(&[9_u8]))
             .add_buffer(Buffer::from(&[0, 3, 3, 3, 7].to_byte_slice()))
-            .add_buffer(Buffer::from("joemark".as_bytes()))
+            .add_buffer(Buffer::from(b"joemark"))
             .build();
 
         let expected_int_data = ArrayData::builder(DataType::Int32)

@@ -121,7 +121,7 @@ mod tests {
     #[test]
     fn test_primitive_array_float_sum() {
         let a = Float64Array::from(vec![1.1, 2.2, 3.3, 4.4, 5.5]);
-        assert_eq!(16.5, sum(&a).unwrap());
+        assert!(16.5 - sum(&a).unwrap() < f64::EPSILON);
     }
 
     #[test]

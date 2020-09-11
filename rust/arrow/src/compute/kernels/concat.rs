@@ -138,14 +138,14 @@ mod tests {
 
     #[test]
     fn test_concat_empty_vec() -> Result<()> {
-        let re = concat(&vec![]);
+        let re = concat(&[]);
         assert!(re.is_err());
         Ok(())
     }
 
     #[test]
     fn test_concat_incompatible_datatypes() -> Result<()> {
-        let re = concat(&vec![
+        let re = concat(&[
             Arc::new(PrimitiveArray::<Int64Type>::from(vec![
                 Some(-1),
                 Some(2),
@@ -163,7 +163,7 @@ mod tests {
 
     #[test]
     fn test_concat_string_arrays() -> Result<()> {
-        let arr = concat(&vec![
+        let arr = concat(&[
             Arc::new(StringArray::from(vec![Some("hello"), Some("world")])) as ArrayRef,
             Arc::new(StringArray::from(vec!["1", "2", "3", "4", "6"])).slice(1, 3),
             Arc::new(StringArray::from(vec![
@@ -198,7 +198,7 @@ mod tests {
 
     #[test]
     fn test_concat_primitive_arrays() -> Result<()> {
-        let arr = concat(&vec![
+        let arr = concat(&[
             Arc::new(PrimitiveArray::<Int64Type>::from(vec![
                 Some(-1),
                 Some(-1),
@@ -246,7 +246,7 @@ mod tests {
 
     #[test]
     fn test_concat_boolean_primitive_arrays() -> Result<()> {
-        let arr = concat(&vec![
+        let arr = concat(&[
             Arc::new(PrimitiveArray::<BooleanType>::from(vec![
                 Some(true),
                 Some(true),

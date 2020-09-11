@@ -19,8 +19,13 @@
 
 #![allow(non_snake_case)]
 
+#[allow(clippy::all)]
 pub mod File;
+#[allow(clippy::all)]
 pub mod Message;
+#[allow(clippy::all)]
 pub mod Schema;
+#[allow(clippy::all)]
 pub mod SparseTensor;
+#[allow(clippy::all)]
 pub mod Tensor;

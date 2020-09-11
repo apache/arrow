@@ -148,14 +148,14 @@ mod tests {
 
         // define data.
         let batch = RecordBatch::try_new(
-            schema.clone(),
+            schema,
             vec![
                 Arc::new(array::StringArray::from(vec!["a", "b", "c", "d"])),
                 Arc::new(array::Int32Array::from(vec![1, 10, 10, 100])),
             ],
         )?;
 
-        let table = pretty_format_batches(&vec![batch])?;
+        let table = pretty_format_batches(&[batch])?;
 
         let expected = vec![
             "+---+-----+",
