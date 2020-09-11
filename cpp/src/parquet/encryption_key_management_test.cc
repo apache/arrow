@@ -30,7 +30,6 @@
 #include "parquet/test_util.h"
 
 namespace parquet {
-
 namespace test {
 
 using encryption::DecryptionConfiguration;
@@ -76,6 +75,8 @@ std::string BuildColumnKeyMapping() {
   return stream.str();
 }
 
+std::unique_ptr<TemporaryDir> temp_dir;
+
 class TestEncrytionKeyManagement : public ::testing::Test {
  public:
   void SetUp() {
@@ -86,6 +87,7 @@ class TestEncrytionKeyManagement : public ::testing::Test {
     kms_connection_config_.refreshable_key_access_token =
         std::make_shared<KeyAccessToken>();
   }
+  static void SetUpTestCase();
 
  protected:
   FileEncryptor encryptor_;
@@ -195,7 +197,7 @@ class TestEncrytionKeyManagement : public ::testing::Test {
               crypto_factory.GetFileEncryptionProperties(kms_connection_config_,
                                                          encryption_config);
 
-          std::string file = data_file(file_name.c_str());
+          std::string file = temp_dir->path().ToString() + file_name;
           encryptor_.EncryptFile(file, file_encryption_properties);
         }
       }
@@ -235,6 +237,9 @@ TEST_F(TestEncrytionKeyManagement, TestWriteReadEncryptedParquetFiles) {
   this->ReadEncryptedParquetFiles();
 }
 
-}  // namespace test
+// Set temp_dir before running the write/read tests. The encrypted files will
+// be written/read from this directory.
+void TestEncrytionKeyManagement::SetUpTestCase() { temp_dir = *temp_data_dir(); }
 
+}  // namespace test
 }  // namespace parquet
