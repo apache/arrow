@@ -115,21 +115,9 @@ std::shared_ptr<arrow::ChunkedArray> Table__GetColumnByName(
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Table> Table__select(const std::shared_ptr<arrow::Table>& table,
-                                            cpp11::integers indices) {
-  R_xlen_t n = indices.size();
-
-  std::vector<std::shared_ptr<arrow::Field>> fields(n);
-  std::vector<std::shared_ptr<arrow::ChunkedArray>> columns(n);
-
-  for (R_xlen_t i = 0; i < n; i++) {
-    int pos = indices[i] - 1;
-    fields[i] = table->schema()->field(pos);
-    columns[i] = table->column(pos);
-  }
-
-  auto schema = std::make_shared<arrow::Schema>(std::move(fields));
-  return arrow::Table::Make(schema, columns);
+std::shared_ptr<arrow::Table> Table__SelectColumns(
+    const std::shared_ptr<arrow::Table>& table, const std::vector<int>& indices) {
+  return ValueOrStop(table->SelectColumns(indices));
 }
 
 namespace arrow {

@@ -129,7 +129,12 @@ read_delim_arrow <- function(file,
     convert_options = convert_options
   )
 
-  tab <- reader$Read()$select(!!enquo(col_select))
+  tab <- reader$Read()
+
+  col_select <- enquo(col_select)
+  if (!quo_is_null(col_select)) {
+    tab <- tab[vars_select(names(tab), !!col_select)]
+  }
 
   if (isTRUE(as_data_frame)) {
     tab <- as.data.frame(tab)

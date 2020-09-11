@@ -4946,17 +4946,17 @@ extern "C" SEXP _arrow_RecordBatch__GetColumnByName(SEXP batch_sexp, SEXP name_s
 
 // recordbatch.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::RecordBatch> RecordBatch__select(const std::shared_ptr<arrow::RecordBatch>& batch, cpp11::integers indices);
-extern "C" SEXP _arrow_RecordBatch__select(SEXP batch_sexp, SEXP indices_sexp){
+std::shared_ptr<arrow::RecordBatch> RecordBatch__SelectColumns(const std::shared_ptr<arrow::RecordBatch>& batch, cpp11::integers indices);
+extern "C" SEXP _arrow_RecordBatch__SelectColumns(SEXP batch_sexp, SEXP indices_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::RecordBatch>&>::type batch(batch_sexp);
 	arrow::r::Input<cpp11::integers>::type indices(indices_sexp);
-	return cpp11::as_sexp(RecordBatch__select(batch, indices));
+	return cpp11::as_sexp(RecordBatch__SelectColumns(batch, indices));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_RecordBatch__select(SEXP batch_sexp, SEXP indices_sexp){
-	Rf_error("Cannot call RecordBatch__select(). Please use arrow::install_arrow() to install required runtime libraries. ");
+extern "C" SEXP _arrow_RecordBatch__SelectColumns(SEXP batch_sexp, SEXP indices_sexp){
+	Rf_error("Cannot call RecordBatch__SelectColumns(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -5901,17 +5901,17 @@ extern "C" SEXP _arrow_Table__GetColumnByName(SEXP table_sexp, SEXP name_sexp){
 
 // table.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::Table> Table__select(const std::shared_ptr<arrow::Table>& table, cpp11::integers indices);
-extern "C" SEXP _arrow_Table__select(SEXP table_sexp, SEXP indices_sexp){
+std::shared_ptr<arrow::Table> Table__SelectColumns(const std::shared_ptr<arrow::Table>& table, const std::vector<int>& indices);
+extern "C" SEXP _arrow_Table__SelectColumns(SEXP table_sexp, SEXP indices_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
-	arrow::r::Input<cpp11::integers>::type indices(indices_sexp);
-	return cpp11::as_sexp(Table__select(table, indices));
+	arrow::r::Input<const std::vector<int>&>::type indices(indices_sexp);
+	return cpp11::as_sexp(Table__SelectColumns(table, indices));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_Table__select(SEXP table_sexp, SEXP indices_sexp){
-	Rf_error("Cannot call Table__select(). Please use arrow::install_arrow() to install required runtime libraries. ");
+extern "C" SEXP _arrow_Table__SelectColumns(SEXP table_sexp, SEXP indices_sexp){
+	Rf_error("Cannot call Table__SelectColumns(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -6332,7 +6332,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_RecordBatch__columns", (DL_FUNC) &_arrow_RecordBatch__columns, 1}, 
 		{ "_arrow_RecordBatch__column", (DL_FUNC) &_arrow_RecordBatch__column, 2}, 
 		{ "_arrow_RecordBatch__GetColumnByName", (DL_FUNC) &_arrow_RecordBatch__GetColumnByName, 2}, 
-		{ "_arrow_RecordBatch__select", (DL_FUNC) &_arrow_RecordBatch__select, 2}, 
+		{ "_arrow_RecordBatch__SelectColumns", (DL_FUNC) &_arrow_RecordBatch__SelectColumns, 2}, 
 		{ "_arrow_RecordBatch__Equals", (DL_FUNC) &_arrow_RecordBatch__Equals, 3}, 
 		{ "_arrow_RecordBatch__RemoveColumn", (DL_FUNC) &_arrow_RecordBatch__RemoveColumn, 2}, 
 		{ "_arrow_RecordBatch__column_name", (DL_FUNC) &_arrow_RecordBatch__column_name, 2}, 
@@ -6393,7 +6393,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_Table__Validate", (DL_FUNC) &_arrow_Table__Validate, 1}, 
 		{ "_arrow_Table__ValidateFull", (DL_FUNC) &_arrow_Table__ValidateFull, 1}, 
 		{ "_arrow_Table__GetColumnByName", (DL_FUNC) &_arrow_Table__GetColumnByName, 2}, 
-		{ "_arrow_Table__select", (DL_FUNC) &_arrow_Table__select, 2}, 
+		{ "_arrow_Table__SelectColumns", (DL_FUNC) &_arrow_Table__SelectColumns, 2}, 
 		{ "_arrow_all_record_batches", (DL_FUNC) &_arrow_all_record_batches, 1}, 
 		{ "_arrow_Table__from_record_batches", (DL_FUNC) &_arrow_Table__from_record_batches, 2}, 
 		{ "_arrow_Table__from_dots", (DL_FUNC) &_arrow_Table__from_dots, 2}, 
