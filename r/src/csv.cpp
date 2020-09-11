@@ -73,13 +73,9 @@ std::shared_ptr<arrow::csv::ConvertOptions> csv___ConvertOptions__initialize(
   // If true, then strings in "null_values" are considered null for string columns.
   // If false, then all strings are valid string values.
   res->strings_can_be_null = cpp11::as_cpp<bool>(options["strings_can_be_null"]);
-  // TODO: there are more conversion options available:
-  // // Optional per-column types (disabling type inference on those columns)
-  // std::unordered_map<std::string, std::shared_ptr<DataType>> column_types;
 
-  // // Recognized spellings for boolean values
-  // std::vector<std::string> true_values;
-  // std::vector<std::string> false_values;
+  res->true_values = cpp11::as_cpp<std::vector<std::string>>(options["true_values"]);
+  res->false_values = cpp11::as_cpp<std::vector<std::string>>(options["false_values"]);
 
   SEXP col_types = options["col_types"];
   if (Rf_inherits(col_types, "Schema")) {
@@ -90,6 +86,13 @@ std::shared_ptr<arrow::csv::ConvertOptions> csv___ConvertOptions__initialize(
     }
     res->column_types = column_types;
   }
+
+  res->auto_dict_encode = cpp11::as_cpp<bool>(options["auto_dict_encode"]);
+  res->auto_dict_max_cardinality =
+      cpp11::as_cpp<int>(options["auto_dict_max_cardinality"]);
+  res->include_columns =
+      cpp11::as_cpp<std::vector<std::string>>(options["include_columns"]);
+  res->include_missing_columns = cpp11::as_cpp<bool>(options["include_missing_columns"]);
 
   return res;
 }

@@ -435,8 +435,14 @@ readr_to_csv_parse_options <- function(delim = ",",
 CsvConvertOptions <- R6Class("CsvConvertOptions", inherit = ArrowObject)
 CsvConvertOptions$create <- function(check_utf8 = TRUE,
                                      null_values = c("", "NA"),
+                                     true_values = c("T", "true", "TRUE"),
+                                     false_values= c("F", "false", "FALSE"),
                                      strings_can_be_null = FALSE,
-                                     col_types = NULL) {
+                                     col_types = NULL,
+                                     auto_dict_encode = FALSE,
+                                     auto_dict_max_cardinality = 50L,
+                                     include_columns = character(),
+                                     include_missing_columns = FALSE) {
 
   if (!is.null(col_types) && !inherits(col_types, "Schema")) {
     abort(c(
@@ -445,17 +451,18 @@ CsvConvertOptions$create <- function(check_utf8 = TRUE,
     ))
   }
 
-  # TODO: there are more conversion options available:
-  # // Recognized spellings for boolean values
-  # std::vector<std::string> true_values;
-  # std::vector<std::string> false_values;
-
   shared_ptr(CsvConvertOptions, csv___ConvertOptions__initialize(
     list(
       check_utf8 = check_utf8,
       null_values = null_values,
       strings_can_be_null = strings_can_be_null,
-      col_types = col_types
+      col_types = col_types,
+      true_values = true_values,
+      false_values = false_values,
+      auto_dict_encode = auto_dict_encode,
+      auto_dict_max_cardinality = auto_dict_max_cardinality,
+      include_columns = include_columns,
+      include_missing_columns = include_missing_columns
     )
   ))
 }
