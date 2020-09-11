@@ -26,6 +26,7 @@
 #include "arrow/io/caching.h"
 #include "arrow/type.h"
 #include "arrow/util/compression.h"
+#include "arrow/util/plugin_manager.h"
 #include "parquet/encryption.h"
 #include "parquet/exception.h"
 #include "parquet/parquet_version.h"
@@ -126,7 +127,8 @@ class PARQUET_EXPORT ColumnProperties {
         dictionary_enabled_(dictionary_enabled),
         statistics_enabled_(statistics_enabled),
         max_stats_size_(max_stats_size),
-        compression_level_(Codec::UseDefaultCompressionLevel()) {}
+        compression_level_(Codec::UseDefaultCompressionLevel()),
+        compression_plugin_() {}
 
   void set_encoding(Encoding::type encoding) { encoding_ = encoding; }
 
@@ -148,6 +150,15 @@ class PARQUET_EXPORT ColumnProperties {
     compression_level_ = compression_level;
   }
 
+  void set_compression_plugin(const std::string& compression_plugin) {
+    PARQUET_ASSIGN_OR_THROW(auto plugin_manager,
+                            ::arrow::util::PluginManager::GetPluginManager());
+    auto result = plugin_manager->RegisterPlugin(compression_plugin);
+    if (result.ok()) {
+      compression_plugin_ = result.ValueOrDie();
+    }
+  }
+
   Encoding::type encoding() const { return encoding_; }
 
   Compression::type compression() const { return codec_; }
@@ -160,6 +171,8 @@ class PARQUET_EXPORT ColumnProperties {
 
   int compression_level() const { return compression_level_; }
 
+  std::string compression_plugin() const { return compression_plugin_; }
+
  private:
   Encoding::type encoding_;
   Compression::type codec_;
@@ -167,6 +180,7 @@ class PARQUET_EXPORT ColumnProperties {
   bool statistics_enabled_;
   size_t max_stats_size_;
   int compression_level_;
+  std::string compression_plugin_;
 };
 
 class PARQUET_EXPORT WriterProperties {
@@ -364,6 +378,21 @@ class PARQUET_EXPORT WriterProperties {
       return this->compression_level(path->ToDotString(), compression_level);
     }
 
+    Builder* compression_plugin(const std::string& compression_plugin) {
+      default_column_properties_.set_compression_plugin(compression_plugin);
+      return this;
+    }
+
+    Builder* compression_plugin(const std::string& path, const std::string plugin) {
+      codecs_plugin_[path] = plugin;
+      return this;
+    }
+
+    Builder* compression_plugin(const std::shared_ptr<schema::ColumnPath>& path,
+                                const std::string& plugin) {
+      return this->compression_plugin(path->ToDotString(), plugin);
+    }
+
     Builder* encryption(
         std::shared_ptr<FileEncryptionProperties> file_encryption_properties) {
       file_encryption_properties_ = std::move(file_encryption_properties);
@@ -412,6 +441,8 @@ class PARQUET_EXPORT WriterProperties {
       for (const auto& item : codecs_) get(item.first).set_compression(item.second);
       for (const auto& item : codecs_compression_level_)
         get(item.first).set_compression_level(item.second);
+      for (const auto& item : codecs_plugin_)
+        get(item.first).set_compression_plugin(item.second);
       for (const auto& item : dictionary_enabled_)
         get(item.first).set_dictionary_enabled(item.second);
       for (const auto& item : statistics_enabled_)
@@ -440,6 +471,7 @@ class PARQUET_EXPORT WriterProperties {
     std::unordered_map<std::string, Encoding::type> encodings_;
     std::unordered_map<std::string, Compression::type> codecs_;
     std::unordered_map<std::string, int32_t> codecs_compression_level_;
+    std::unordered_map<std::string, std::string> codecs_plugin_;
     std::unordered_map<std::string, bool> dictionary_enabled_;
     std::unordered_map<std::string, bool> statistics_enabled_;
   };
@@ -495,6 +527,10 @@ class PARQUET_EXPORT WriterProperties {
 
   int compression_level(const std::shared_ptr<schema::ColumnPath>& path) const {
     return column_properties(path).compression_level();
+  }
+
+  std::string compression_plugin(const std::shared_ptr<schema::ColumnPath>& path) const {
+    return column_properties(path).compression_plugin();
   }
 
   bool dictionary_enabled(const std::shared_ptr<schema::ColumnPath>& path) const {
