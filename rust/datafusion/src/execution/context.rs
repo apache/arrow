@@ -522,7 +522,7 @@ mod tests {
     use arrow::compute::add;
     use std::fs::File;
     use std::{io::prelude::*, sync::Mutex};
-    use tempdir::TempDir;
+    use tempfile::TempDir;
     use test::*;
 
     #[test]
@@ -546,7 +546,7 @@ mod tests {
 
     #[test]
     fn create_variable_expr() -> Result<()> {
-        let tmp_dir = TempDir::new("variable_expr")?;
+        let tmp_dir = TempDir::new()?;
         let partition_count = 4;
         let mut ctx = create_ctx(&tmp_dir, partition_count)?;
 
@@ -584,7 +584,7 @@ mod tests {
 
     #[test]
     fn parallel_query_with_filter() -> Result<()> {
-        let tmp_dir = TempDir::new("parallel_query_with_filter")?;
+        let tmp_dir = TempDir::new()?;
         let partition_count = 4;
         let mut ctx = create_ctx(&tmp_dir, partition_count)?;
 
@@ -607,7 +607,7 @@ mod tests {
 
     #[test]
     fn projection_on_table_scan() -> Result<()> {
-        let tmp_dir = TempDir::new("projection_on_table_scan")?;
+        let tmp_dir = TempDir::new()?;
         let partition_count = 4;
         let mut ctx = create_ctx(&tmp_dir, partition_count)?;
 
@@ -651,7 +651,7 @@ mod tests {
 
     #[test]
     fn preserve_nullability_on_projection() -> Result<()> {
-        let tmp_dir = TempDir::new("execute")?;
+        let tmp_dir = TempDir::new()?;
         let ctx = create_ctx(&tmp_dir, 1)?;
 
         let schema = ctx.state.datasources.get("test").unwrap().schema();
@@ -932,7 +932,7 @@ mod tests {
 
     #[test]
     fn aggregate_with_alias() -> Result<()> {
-        let tmp_dir = TempDir::new("execute")?;
+        let tmp_dir = TempDir::new()?;
         let ctx = create_ctx(&tmp_dir, 1)?;
 
         let schema = Arc::new(Schema::new(vec![
@@ -959,7 +959,7 @@ mod tests {
     #[test]
     fn write_csv_results() -> Result<()> {
         // create partitioned input file and context
-        let tmp_dir = TempDir::new("write_csv_results_temp")?;
+        let tmp_dir = TempDir::new()?;
         let mut ctx = create_ctx(&tmp_dir, 4)?;
 
         // execute a simple query and write the results to CSV
@@ -1005,7 +1005,7 @@ mod tests {
 
     #[test]
     fn query_csv_with_custom_partition_extension() -> Result<()> {
-        let tmp_dir = TempDir::new("query_csv_with_custom_partition_extension")?;
+        let tmp_dir = TempDir::new()?;
 
         // The main stipulation of this test: use a file extension that isn't .csv.
         let file_extension = ".tst";
@@ -1032,7 +1032,7 @@ mod tests {
     fn send_context_to_threads() -> Result<()> {
         // ensure ExecutionContexts can be used in a multi-threaded
         // environment. Usecase is for concurrent planing.
-        let tmp_dir = TempDir::new("send_context_to_threads")?;
+        let tmp_dir = TempDir::new()?;
         let partition_count = 4;
         let ctx = Arc::new(Mutex::new(create_ctx(&tmp_dir, partition_count)?));
 
@@ -1204,7 +1204,7 @@ mod tests {
 
     /// Execute SQL and return results
     fn execute(sql: &str, partition_count: usize) -> Result<Vec<RecordBatch>> {
-        let tmp_dir = TempDir::new("execute")?;
+        let tmp_dir = TempDir::new()?;
         let mut ctx = create_ctx(&tmp_dir, partition_count)?;
         collect(&mut ctx, sql)
     }

@@ -30,7 +30,7 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::io::{BufReader, BufWriter};
 use std::sync::Arc;
-use tempdir::TempDir;
+use tempfile::TempDir;
 
 pub fn create_table_dual() -> Box<dyn TableProvider + Send + Sync> {
     let dual_schema = Arc::new(Schema::new(vec![
@@ -65,7 +65,7 @@ pub fn create_partitioned_csv(filename: &str, partitions: usize) -> Result<Strin
     let testdata = arrow_testdata_path();
     let path = format!("{}/csv/{}", testdata, filename);
 
-    let tmp_dir = TempDir::new("create_partitioned_csv")?;
+    let tmp_dir = TempDir::new()?;
 
     let mut writers = vec![];
     for i in 0..partitions {
