@@ -17,8 +17,9 @@
 
 #pragma once
 
-#include <mutex>
 #include <unordered_map>
+
+#include "arrow/util/mutex.h"
 
 #include "parquet/key_toolkit_internal.h"
 
@@ -40,7 +41,7 @@ class TwoLevelCacheWithExpiration {
 
   std::unordered_map<std::string, V>& GetOrCreateInternalCache(
       const std::string& access_token, uint64_t cache_entry_lifetime_ms) {
-    std::lock_guard<std::mutex> lock(mutex_);
+    auto lock = mutex_.Lock();
 
     auto external_cache_entry = cache_.find(access_token);
     if (external_cache_entry == cache_.end() ||
@@ -54,17 +55,17 @@ class TwoLevelCacheWithExpiration {
   }
 
   void RemoveCacheEntriesForToken(const std::string& access_token) {
-    std::lock_guard<std::mutex> lock(mutex_);
+    auto lock = mutex_.Lock();
     cache_.erase(access_token);
   }
 
   void RemoveCacheEntriesForAllTokens() {
-    std::lock_guard<std::mutex> lock(mutex_);
+    auto lock = mutex_.Lock();
     cache_.clear();
   }
 
   void CheckCacheForExpiredTokens(uint64_t cache_cleanup_period) {
-    std::lock_guard<std::mutex> lock(mutex_);
+    auto lock = mutex_.Lock();
 
     internal::TimePoint now = internal::CurrentTimePoint();
 
@@ -77,18 +78,18 @@ class TwoLevelCacheWithExpiration {
   }
 
   void RemoveExpiredEntriesFromCache() {
-    std::lock_guard<std::mutex> lock(mutex_);
+    auto lock = mutex_.Lock();
 
     RemoveExpiredEntriesNoMutex();
   }
 
   void Remove(const std::string& access_token) {
-    std::lock_guard<std::mutex> lock(mutex_);
+    auto lock = mutex_.Lock();
     cache_.remove(access_token);
   }
 
   void Clear() {
-    std::lock_guard<std::mutex> lock(mutex_);
+    auto lock = mutex_.Lock();
     cache_.clear();
   }
 
@@ -106,7 +107,7 @@ class TwoLevelCacheWithExpiration {
                      internal::ExpiringCacheEntry<std::unordered_map<std::string, V>>>
       cache_;
   internal::TimePoint last_cache_cleanup_timestamp_;
-  std::mutex mutex_;
+  arrow::util::Mutex mutex_;
 };
 
 }  // namespace encryption
