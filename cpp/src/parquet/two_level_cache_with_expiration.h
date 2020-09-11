@@ -17,26 +17,24 @@
 
 #pragma once
 
-#include <chrono>
 #include <unordered_map>
+
+#include "parquet/key_toolkit_internal.h"
 
 namespace parquet {
 namespace encryption {
 
-// in miliseconds
-using TimePoint = std::chrono::system_clock::time_point;
-
-static inline TimePoint CurrentTimePoint() { return std::chrono::system_clock::now(); }
-
 // Two-level cache with expiration of internal caches according to token lifetime.
 // External cache is per token, internal is per string key.
 // Wrapper class around:
-//    std::unordered_map<std::string, ExpiringCacheEntry<std::unordered_map<std::string,
-//    V>>>
+//    std::unordered_map<std::string,
+//    internal::ExpiringCacheEntry<std::unordered_map<std::string, V>>>
 template <typename V>
 class TwoLevelCacheWithExpiration {
  public:
-  TwoLevelCacheWithExpiration() { last_cache_cleanup_timestamp_ = CurrentTimePoint(); }
+  TwoLevelCacheWithExpiration() {
+    last_cache_cleanup_timestamp_ = internal::CurrentTimePoint();
+  }
 
   std::unordered_map<std::string, V>& GetOrCreateInternalCache(
       const std::string& access_token, uint64_t cache_entry_lifetime_ms) {
@@ -44,7 +42,7 @@ class TwoLevelCacheWithExpiration {
     if (external_cache_entry == cache_.end() ||
         external_cache_entry->second.IsExpired()) {
       cache_.insert({access_token,
-                     ExpiringCacheEntry<std::unordered_map<std::string, V>>(
+                     internal::ExpiringCacheEntry<std::unordered_map<std::string, V>>(
                          std::unordered_map<std::string, V>(), cache_entry_lifetime_ms)});
     }
 
@@ -58,7 +56,7 @@ class TwoLevelCacheWithExpiration {
   void RemoveCacheEntriesForAllTokens() { cache_.clear(); }
 
   void CheckCacheForExpiredTokens(uint64_t cache_cleanup_period) {
-    TimePoint now = CurrentTimePoint();
+    internal::TimePoint now = internal::CurrentTimePoint();
 
     if (now > (last_cache_cleanup_timestamp_ +
                std::chrono::milliseconds(cache_cleanup_period))) {
@@ -83,32 +81,10 @@ class TwoLevelCacheWithExpiration {
   void Clear() { cache_.clear(); }
 
  private:
-  template <typename E>
-  class ExpiringCacheEntry {
-   public:
-    ExpiringCacheEntry() = default;
-
-    ExpiringCacheEntry(const E& cached_item, uint64_t expiration_interval_millis)
-        : cached_item_(cached_item) {
-      expiration_timestamp_ =
-          CurrentTimePoint() + std::chrono::milliseconds(expiration_interval_millis);
-    }
-
-    bool IsExpired() {
-      auto now = CurrentTimePoint();
-      return (now > expiration_timestamp_);
-    }
-
-    E& cached_item() { return cached_item_; }
-
-   private:
-    TimePoint expiration_timestamp_;
-    E cached_item_;
-  };
-
-  std::unordered_map<std::string, ExpiringCacheEntry<std::unordered_map<std::string, V>>>
+  std::unordered_map<std::string,
+                     internal::ExpiringCacheEntry<std::unordered_map<std::string, V>>>
       cache_;
-  TimePoint last_cache_cleanup_timestamp_;
+  internal::TimePoint last_cache_cleanup_timestamp_;
 };
 
 }  // namespace encryption
