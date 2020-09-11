@@ -134,6 +134,12 @@ struct ARROW_EXPORT FileSelector {
   FileSelector() {}
 };
 
+/// \brief FileSystem, path pair
+struct ARROW_EXPORT FileLocator {
+  std::shared_ptr<FileSystem> filesystem;
+  std::string path;
+};
+
 /// \brief Abstract file system API
 class ARROW_EXPORT FileSystem : public std::enable_shared_from_this<FileSystem> {
  public:
@@ -386,6 +392,12 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUriOrPath(
     const std::string& uri, std::string* out_path = NULLPTR);
 
 /// @}
+
+/// \brief Copy files from one FileSystem to another
+ARROW_EXPORT
+Status CopyFiles(const std::vector<FileLocator>& sources,
+                 const std::vector<FileLocator>& destinations,
+                 int64_t chunk_size = 1024 * 1024, bool use_threads = true);
 
 struct FileSystemGlobalOptions {
   /// Path to a single PEM file holding all TLS CA certificates

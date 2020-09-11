@@ -595,6 +595,28 @@ TEST_F(TestSubTreeFileSystem, CopyFile) {
               {"sub/tree/cd", time_, "data"}});
 }
 
+TEST_F(TestSubTreeFileSystem, CopyFiles) {
+  CreateFile("ab", "ab");
+  CreateFile("cd", "cd");
+  CreateFile("ef", "ef");
+
+  ASSERT_OK(fs_->CreateDir("sub/copy"));
+  auto dest_fs = std::make_shared<SubTreeFileSystem>("sub/copy", fs_);
+
+  ASSERT_OK(
+      CopyFiles({{subfs_, "ab"}, {subfs_, "cd"}, {subfs_, "ef"}},
+                {{dest_fs, "AB/ab"}, {dest_fs, "CD/CD/cd"}, {dest_fs, "EF/EF/EF/ef"}}));
+
+  CheckFiles({
+      {"sub/copy/AB/ab", time_, "ab"},
+      {"sub/copy/CD/CD/cd", time_, "cd"},
+      {"sub/copy/EF/EF/EF/ef", time_, "ef"},
+      {"sub/tree/ab", time_, "ab"},
+      {"sub/tree/cd", time_, "cd"},
+      {"sub/tree/ef", time_, "ef"},
+  });
+}
+
 TEST_F(TestSubTreeFileSystem, OpenInputStream) {
   std::shared_ptr<io::InputStream> stream;
   CreateFile("ab", "data");

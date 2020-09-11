@@ -35,6 +35,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/parallel.h"
 #include "arrow/util/uri.h"
 #include "arrow/util/windows_fixup.h"
 
@@ -437,6 +438,35 @@ Result<std::shared_ptr<io::OutputStream>> SlowFileSystem::OpenAppendStream(
     const std::string& path) {
   latencies_->Sleep();
   return base_fs_->OpenAppendStream(path);
+}
+
+Status CopyFiles(const std::vector<FileLocator>& sources,
+                 const std::vector<FileLocator>& destinations, int64_t chunk_size,
+                 bool use_threads) {
+  if (sources.size() != destinations.size()) {
+    return Status::Invalid("Trying to copy ", sources.size(), " files into ",
+                           destinations.size(), " paths.");
+  }
+
+  return ::arrow::internal::OptionalParallelFor(
+      use_threads, static_cast<int>(sources.size()), [&](int i) {
+        if (sources[i].filesystem->Equals(destinations[i].filesystem)) {
+          return sources[i].filesystem->CopyFile(sources[i].path, destinations[i].path);
+        }
+
+        ARROW_ASSIGN_OR_RAISE(auto source,
+                              sources[i].filesystem->OpenInputStream(sources[i].path));
+
+        auto dest_dir = internal::GetAbstractPathParent(destinations[i].path).first;
+        if (!dest_dir.empty()) {
+          RETURN_NOT_OK(destinations[i].filesystem->CreateDir(dest_dir));
+        }
+
+        ARROW_ASSIGN_OR_RAISE(
+            auto destination,
+            destinations[i].filesystem->OpenOutputStream(destinations[i].path));
+        return internal::CopyStream(source, destination, chunk_size);
+      });
 }
 
 namespace {
