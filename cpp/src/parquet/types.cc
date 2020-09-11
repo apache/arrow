@@ -80,8 +80,10 @@ std::unique_ptr<Codec> GetReadCodec(Compression::type codec,
                   /*for_writing=*/false, plugin);
 }
 
-std::unique_ptr<Codec> GetWriteCodec(Compression::type codec, int compression_level) {
-  return GetCodec(codec, compression_level, /*for_writing=*/true);
+std::unique_ptr<Codec> GetWriteCodec(Compression::type codec,
+                                     int compression_level,
+                                     const std::string& plugin) {
+  return GetCodec(codec, compression_level, /*for_writing=*/true, plugin);
 }
 
 }  // namespace internal

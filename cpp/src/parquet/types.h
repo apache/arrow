@@ -469,7 +469,8 @@ namespace internal {
 // ARROW-9424: Separate functions for reading and writing so we can disable LZ4
 // on writing
 std::unique_ptr<Codec> GetReadCodec(Compression::type codec, const std::string& plugin);
-std::unique_ptr<Codec> GetWriteCodec(Compression::type codec, int compression_level);
+std::unique_ptr<Codec> GetWriteCodec(Compression::type codec, int compression_level,
+                                     const std::string& plugin);
 
 }  // namespace internal
 
