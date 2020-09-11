@@ -505,7 +505,6 @@ class PyDictionaryConverter<T, enable_if_has_c_type<T>>
     } else {
       ARROW_ASSIGN_OR_RAISE(auto converted,
                             PyValue::Convert(this->value_type_, this->options_, value));
-      // TODO(kszucs): use AppendSafe with checking memory limit BEFORE actual append
       return this->value_builder_->Append(converted);
     }
   }
@@ -521,7 +520,6 @@ class PyDictionaryConverter<T, enable_if_has_string_view<T>>
     } else {
       ARROW_ASSIGN_OR_RAISE(auto view,
                             PyValue::Convert(this->value_type_, this->options_, value));
-      // TODO(kszucs): use AppendSafe with checking memory limit BEFORE actual append
       return this->value_builder_->Append(util::string_view(view.bytes, view.size));
     }
   }

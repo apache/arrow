@@ -1854,23 +1854,27 @@ def test_auto_chunking():
 
 
 @pytest.mark.large_memory
-def test_nested_auto_chunking():
-    v1 = b'x' * 100000000
-    v2 = b'x' * 147483646
+@pytest.mark.parametrize(('ty', 'char'), [
+    (pa.string(), 'x'),
+    (pa.binary(), b'x'),
+])
+def test_nested_auto_chunking(ty, char):
+    v1 = char * 100000000
+    v2 = char * 147483646
 
-    ty = pa.struct([
+    struct_type = pa.struct([
         pa.field('bool', pa.bool_()),
         pa.field('integer', pa.int64()),
-        pa.field('binary', pa.binary()),
+        pa.field('string-like', ty),
     ])
 
-    data = [{'bool': True, 'integer': 1, 'binary': v1}] * 20
-    data.append({'bool': True, 'integer': 1, 'binary': v2})
-    arr = pa.array(data, type=ty)
+    data = [{'bool': True, 'integer': 1, 'string-like': v1}] * 20
+    data.append({'bool': True, 'integer': 1, 'string-like': v2})
+    arr = pa.array(data, type=struct_type)
     assert isinstance(arr, pa.Array)
 
-    data.append({'bool': True, 'integer': 1, 'binary': b'x'})
-    arr = pa.array(data, type=ty)
+    data.append({'bool': True, 'integer': 1, 'string-like': char})
+    arr = pa.array(data, type=struct_type)
     assert isinstance(arr, pa.ChunkedArray)
     assert len(arr.chunk(0)) == 21
     assert len(arr.chunk(1)) == 1
@@ -1878,7 +1882,7 @@ def test_nested_auto_chunking():
     assert arr.chunk(1)[0].as_py() == [
         ('bool', True),
         ('integer', 1),
-        ('binary', b'x')
+        ('string-like', char)
     ]
 
 

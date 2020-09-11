@@ -626,6 +626,7 @@ cdef class StructScalar(Scalar):
             else:
                 raise KeyError(key)
 
+    # TODO(kszucs): consider to remove __iter__, keys and values
     def __iter__(self):
         if self.is_valid:
             for field in self.type:
@@ -635,17 +636,17 @@ cdef class StructScalar(Scalar):
         return list(self)
 
     def values(self):
-        return [self[key] for key in self]
+        return [self[i] for i, _ in enumerate(self)]
 
     def items(self):
-        return [(key, self[key]) for key in self]
+        return [(key, self[i]) for i, key in enumerate(self)]
 
     def as_py(self):
         """
         Return this value as a Python dict.
         """
         if self.is_valid:
-            return [(key, self[key].as_py()) for key in self]
+            return [(key, self[i].as_py()) for i, key in enumerate(self)]
         else:
             return None
 
