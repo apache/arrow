@@ -516,7 +516,8 @@ mod tests {
     use crate::test;
     use crate::variable::VarType;
     use arrow::array::{
-        ArrayRef, Int32Array, PrimitiveArrayOps, StringArray, StringArrayOps,
+        ArrayRef, Float64Array, Int32Array, PrimitiveArrayOps, StringArray,
+        StringArrayOps,
     };
     use arrow::compute::add;
     use std::fs::File;
@@ -1143,6 +1144,41 @@ mod tests {
             assert_eq!(a.value(i) + b.value(i), sum.value(i));
         }
 
+        Ok(())
+    }
+
+    #[test]
+    fn simple_avg() -> Result<()> {
+        let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
+
+        let batch1 = RecordBatch::try_new(
+            Arc::new(schema.clone()),
+            vec![Arc::new(Int32Array::from(vec![1, 2, 3]))],
+        )?;
+        let batch2 = RecordBatch::try_new(
+            Arc::new(schema.clone()),
+            vec![Arc::new(Int32Array::from(vec![4, 5]))],
+        )?;
+
+        let mut ctx = ExecutionContext::new();
+
+        let provider = MemTable::new(Arc::new(schema), vec![vec![batch1], vec![batch2]])?;
+        ctx.register_table("t", Box::new(provider));
+
+        let result = collect(&mut ctx, "SELECT AVG(a) FROM t")?;
+
+        let batch = &result[0];
+        assert_eq!(1, batch.num_columns());
+        assert_eq!(1, batch.num_rows());
+
+        let values = batch
+            .column(0)
+            .as_any()
+            .downcast_ref::<Float64Array>()
+            .expect("failed to cast version");
+        assert_eq!(values.len(), 1);
+        // avg(1,2,3,4,5) = 3.0
+        assert_eq!(values.value(0), 3.0_f64);
         Ok(())
     }
 
