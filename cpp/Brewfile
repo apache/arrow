@@ -34,7 +34,9 @@ brew "openssl@1.1"
 brew "protobuf"
 brew "python"
 brew "rapidjson"
-brew "re2"
+# grpc bundles re2 and causes a conflict when Homebrew tries to install it,
+# so temporarily skip installing re2. See ARROW-9972.
+# brew "re2"
 brew "snappy"
 brew "thrift"
 brew "wget"
