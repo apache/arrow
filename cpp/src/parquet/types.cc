@@ -52,7 +52,8 @@ bool IsCodecSupported(Compression::type codec) {
 namespace internal {
 
 std::unique_ptr<Codec> GetCodec(Compression::type codec, int compression_level,
-                                bool for_writing) {
+                                bool for_writing,
+                                const std::string& plugin = std::string()) {
   std::unique_ptr<Codec> result;
   if (for_writing && (codec == Compression::LZ4 || codec == Compression::LZ4_FRAME)) {
     throw ParquetException(
@@ -69,12 +70,14 @@ std::unique_ptr<Codec> GetCodec(Compression::type codec, int compression_level,
     throw ParquetException(ss.str());
   }
 
-  PARQUET_ASSIGN_OR_THROW(result, Codec::Create(codec, compression_level));
+  PARQUET_ASSIGN_OR_THROW(result, Codec::Create(codec, compression_level, plugin));
   return result;
 }
 
-std::unique_ptr<Codec> GetReadCodec(Compression::type codec) {
-  return GetCodec(codec, Codec::UseDefaultCompressionLevel(), /*for_writing=*/false);
+std::unique_ptr<Codec> GetReadCodec(Compression::type codec,
+                                    const std::string& plugin) {
+  return GetCodec(codec, Codec::UseDefaultCompressionLevel(),
+                  /*for_writing=*/false, plugin);
 }
 
 std::unique_ptr<Codec> GetWriteCodec(Compression::type codec, int compression_level) {
