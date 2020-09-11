@@ -168,6 +168,7 @@ class PARQUET_EXPORT ColumnChunkMetaData {
   int64_t total_compressed_size() const;
   int64_t total_uncompressed_size() const;
   std::unique_ptr<ColumnCryptoMetaData> crypto_metadata() const;
+  const std::shared_ptr<const KeyValueMetadata>& key_value_metadata() const;
 
  private:
   explicit ColumnChunkMetaData(

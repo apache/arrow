@@ -246,6 +246,7 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
                                  encoding_stats.count});
     }
     possible_stats_ = nullptr;
+    InitKeyValueMetadata();
   }
   // column chunk
   inline int64_t file_offset() const { return column_->file_offset; }
@@ -323,6 +324,10 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
     }
   }
 
+  inline const std::shared_ptr<const KeyValueMetadata>& key_value_metadata() const {
+    return key_value_metadata_;
+  }
+
  private:
   mutable std::shared_ptr<Statistics> possible_stats_;
   std::vector<Encoding::type> encodings_;
@@ -332,6 +337,18 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
   format::ColumnMetaData decrypted_metadata_;
   const ColumnDescriptor* descr_;
   const ApplicationVersion* writer_version_;
+  std::shared_ptr<const KeyValueMetadata> key_value_metadata_;
+
+  void InitKeyValueMetadata() {
+    std::shared_ptr<KeyValueMetadata> metadata = nullptr;
+    if (column_metadata_->__isset.key_value_metadata) {
+      metadata = std::make_shared<KeyValueMetadata>();
+      for (const auto& it : column_metadata_->key_value_metadata) {
+        metadata->Append(it.key, it.value);
+      }
+    }
+    key_value_metadata_ = std::move(metadata);
+  }
 };
 
 std::unique_ptr<ColumnChunkMetaData> ColumnChunkMetaData::Make(
@@ -415,6 +432,10 @@ int64_t ColumnChunkMetaData::total_compressed_size() const {
 
 std::unique_ptr<ColumnCryptoMetaData> ColumnChunkMetaData::crypto_metadata() const {
   return impl_->crypto_metadata();
+}
+
+const std::shared_ptr<const KeyValueMetadata>& ColumnChunkMetaData::key_value_metadata() const {
+  return impl_->key_value_metadata();
 }
 
 // row-group metadata
@@ -1145,6 +1166,14 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
     column_chunk_->meta_data.__set_path_in_schema(column_->path()->ToDotVector());
     column_chunk_->meta_data.__set_codec(
         ToThrift(properties_->compression(column_->path())));
+    std::string plugin = properties_->compression_plugin(column_->path());
+    if (!plugin.empty()) {
+      format::KeyValue kv_pair;
+      kv_pair.__set_key("compressed_by_plugin");
+      kv_pair.__set_value(plugin);
+      column_chunk_->meta_data.key_value_metadata.push_back(kv_pair);
+      column_chunk_->meta_data.__isset.key_value_metadata = true;
+    }
   }
 
   format::ColumnChunk* column_chunk_;
