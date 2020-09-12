@@ -303,7 +303,7 @@ struct SchemaExporter {
     return SetFormat("w:" + std::to_string(type.byte_width()));
   }
 
-  Status Visit(const Decimal128Type& type) {
+  Status Visit(const DecimalType& type) {
     return SetFormat("d:" + std::to_string(type.precision()) + "," +
                      std::to_string(type.scale()));
   }

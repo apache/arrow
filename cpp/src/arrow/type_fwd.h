@@ -433,9 +433,17 @@ std::shared_ptr<DataType> ARROW_EXPORT date64();
 ARROW_EXPORT
 std::shared_ptr<DataType> fixed_size_binary(int32_t byte_width);
 
-/// \brief Create a Decimal128Type instance
+/// \brief Create a Decimal128Type or Decimal256Type instance depending on the precision
 ARROW_EXPORT
 std::shared_ptr<DataType> decimal(int32_t precision, int32_t scale);
+
+/// \brief Create a Decimal128Type instance
+ARROW_EXPORT
+std::shared_ptr<DataType> decimal128(int32_t precision, int32_t scale);
+
+/// \brief Create a Decimal256Type instance
+ARROW_EXPORT
+std::shared_ptr<DataType> decimal256(int32_t precision, int32_t scale);
 
 /// \brief Create a ListType instance from its child Field type
 ARROW_EXPORT

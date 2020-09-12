@@ -838,7 +838,8 @@ static inline bool is_dictionary(Type::type type_id) {
 
 static inline bool is_fixed_size_binary(Type::type type_id) {
   switch (type_id) {
-    case Type::DECIMAL:
+    case Type::DECIMAL128:
+    case Type::DECIMAL256:
     case Type::FIXED_SIZE_BINARY:
       return true;
     default:

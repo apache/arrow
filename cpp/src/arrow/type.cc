@@ -2157,7 +2157,16 @@ std::shared_ptr<Field> field(std::string name, std::shared_ptr<DataType> type,
 }
 
 std::shared_ptr<DataType> decimal(int32_t precision, int32_t scale) {
+  return precision <= Decimal128Type::kMaxPrecision ? decimal128(precision, scale)
+                                                    : decimal256(precision, scale);
+}
+
+std::shared_ptr<DataType> decimal128(int32_t precision, int32_t scale) {
   return std::make_shared<Decimal128Type>(precision, scale);
+}
+
+std::shared_ptr<DataType> decimal256(int32_t precision, int32_t scale) {
+  return std::make_shared<Decimal256Type>(precision, scale);
 }
 
 std::string Decimal128Type::ToString() const {

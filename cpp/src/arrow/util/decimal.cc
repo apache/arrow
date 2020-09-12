@@ -624,6 +624,10 @@ std::ostream& operator<<(std::ostream& os, const Decimal128& decimal) {
   return os;
 }
 
+Decimal256::Decimal256(const std::string& str) : Decimal256() {
+  *this = Decimal256::FromString(str).ValueOrDie();
+}
+
 std::string Decimal256::ToIntegerString() const {
   std::string result;
   if (static_cast<int64_t>(little_endian_array()[3]) < 0) {
