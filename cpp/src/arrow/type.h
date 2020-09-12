@@ -861,10 +861,9 @@ class ARROW_EXPORT StructType : public NestedType {
 /// \brief Base type class for (fixed-size) decimal data
 class ARROW_EXPORT DecimalType : public FixedSizeBinaryType {
  public:
-  explicit DecimalType(int32_t byte_width, int32_t precision, int32_t scale)
-      : FixedSizeBinaryType(byte_width, Type::DECIMAL),
-        precision_(precision),
-        scale_(scale) {}
+  explicit DecimalType(Type::type type_id, int32_t byte_width, int32_t precision,
+                       int32_t scale)
+      : FixedSizeBinaryType(byte_width, type_id), precision_(precision), scale_(scale) {}
 
   int32_t precision() const { return precision_; }
   int32_t scale() const { return scale_; }
@@ -879,7 +878,7 @@ class ARROW_EXPORT DecimalType : public FixedSizeBinaryType {
 /// \brief Concrete type class for 128-bit decimal data
 class ARROW_EXPORT Decimal128Type : public DecimalType {
  public:
-  static constexpr Type::type type_id = Type::DECIMAL;
+  static constexpr Type::type type_id = Type::DECIMAL128;
 
   static constexpr const char* type_name() { return "decimal"; }
 

@@ -1770,7 +1770,7 @@ TEST(TestDictionaryType, UnifyLarge) {
 TEST(TypesTest, TestDecimal128Small) {
   Decimal128Type t1(8, 4);
 
-  EXPECT_EQ(t1.id(), Type::DECIMAL);
+  EXPECT_EQ(t1.id(), Type::DECIMAL128);
   EXPECT_EQ(t1.precision(), 8);
   EXPECT_EQ(t1.scale(), 4);
 
@@ -1784,7 +1784,7 @@ TEST(TypesTest, TestDecimal128Small) {
 TEST(TypesTest, TestDecimal128Medium) {
   Decimal128Type t1(12, 5);
 
-  EXPECT_EQ(t1.id(), Type::DECIMAL);
+  EXPECT_EQ(t1.id(), Type::DECIMAL128);
   EXPECT_EQ(t1.precision(), 12);
   EXPECT_EQ(t1.scale(), 5);
 
@@ -1798,7 +1798,7 @@ TEST(TypesTest, TestDecimal128Medium) {
 TEST(TypesTest, TestDecimal128Large) {
   Decimal128Type t1(27, 7);
 
-  EXPECT_EQ(t1.id(), Type::DECIMAL);
+  EXPECT_EQ(t1.id(), Type::DECIMAL128);
   EXPECT_EQ(t1.precision(), 27);
   EXPECT_EQ(t1.scale(), 7);
 
@@ -1812,7 +1812,7 @@ TEST(TypesTest, TestDecimal128Large) {
 TEST(TypesTest, TestDecimal256Small) {
   Decimal256Type t1(8, 4);
 
-  EXPECT_EQ(t1.id(), Type::DECIMAL);
+  EXPECT_EQ(t1.id(), Type::DECIMAL256);
   EXPECT_EQ(t1.precision(), 8);
   EXPECT_EQ(t1.scale(), 4);
 
@@ -1826,7 +1826,7 @@ TEST(TypesTest, TestDecimal256Small) {
 TEST(TypesTest, TestDecimal256Medium) {
   Decimal256Type t1(12, 5);
 
-  EXPECT_EQ(t1.id(), Type::DECIMAL);
+  EXPECT_EQ(t1.id(), Type::DECIMAL256);
   EXPECT_EQ(t1.precision(), 12);
   EXPECT_EQ(t1.scale(), 5);
 
@@ -1840,7 +1840,7 @@ TEST(TypesTest, TestDecimal256Medium) {
 TEST(TypesTest, TestDecimal256Large) {
   Decimal256Type t1(76, 38);
 
-  EXPECT_EQ(t1.id(), Type::DECIMAL);
+  EXPECT_EQ(t1.id(), Type::DECIMAL256);
   EXPECT_EQ(t1.precision(), 76);
   EXPECT_EQ(t1.scale(), 38);
 

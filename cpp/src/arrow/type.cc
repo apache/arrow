@@ -751,7 +751,7 @@ std::vector<std::shared_ptr<Field>> StructType::GetAllFieldsByName(
 // Decimal128 type
 
 Decimal128Type::Decimal128Type(int32_t precision, int32_t scale)
-    : DecimalType(16, precision, scale) {
+    : DecimalType(type_id, 16, precision, scale) {
   ARROW_CHECK_GE(precision, kMinPrecision);
   ARROW_CHECK_LE(precision, kMaxPrecision);
 }
@@ -767,7 +767,7 @@ Result<std::shared_ptr<DataType>> Decimal128Type::Make(int32_t precision, int32_
 // Decimal256 type
 
 Decimal256Type::Decimal256Type(int32_t precision, int32_t scale)
-    : DecimalType(32, precision, scale) {
+    : DecimalType(type_id, 32, precision, scale) {
   ARROW_CHECK_GE(precision, kMinPrecision);
   ARROW_CHECK_LE(precision, kMaxPrecision);
 }
