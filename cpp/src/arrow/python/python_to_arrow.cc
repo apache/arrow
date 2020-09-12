@@ -1111,10 +1111,10 @@ class StructConverter : public TypedConverter<StructType, null_coding> {
   bool ignore_timezone_;
 };
 
-template <NullCoding null_coding>
-class DecimalConverter : public TypedConverter<arrow::Decimal128Type, null_coding> {
+template <NullCoding null_coding, class DecimalSubtype, class DecimalValue>
+class DecimalConverter : public TypedConverter<DecimalSubtype, null_coding> {
  public:
-  using BASE = TypedConverter<arrow::Decimal128Type, null_coding>;
+  using BASE = TypedConverter<DecimalSubtype, null_coding>;
 
   Status Init(ArrayBuilder* builder) override {
     RETURN_NOT_OK(BASE::Init(builder));
@@ -1123,7 +1123,7 @@ class DecimalConverter : public TypedConverter<arrow::Decimal128Type, null_codin
   }
 
   Status AppendValue(PyObject* obj) override {
-    Decimal128 value;
+    DecimalValue value;
     RETURN_NOT_OK(internal::DecimalFromPyObject(obj, *decimal_type_, &value));
     return this->typed_builder_->Append(value);
   }
@@ -1131,6 +1131,14 @@ class DecimalConverter : public TypedConverter<arrow::Decimal128Type, null_codin
  private:
   std::shared_ptr<DecimalType> decimal_type_;
 };
+
+template <NullCoding null_coding>
+using Decimal128Converter =
+    DecimalConverter<null_coding, arrow::Decimal128Type, Decimal128>;
+
+template <NullCoding null_coding>
+using Decimal256Converter =
+    DecimalConverter<null_coding, arrow::Decimal256Type, Decimal256>;
 
 #define PRIMITIVE(TYPE_ENUM, TYPE)                                                   \
   case Type::TYPE_ENUM:                                                              \
@@ -1162,7 +1170,8 @@ Status GetConverterFlat(const std::shared_ptr<DataType>& type, bool strict_conve
     PRIMITIVE(DOUBLE, DoubleType);
     PRIMITIVE(DATE32, Date32Type);
     PRIMITIVE(DATE64, Date64Type);
-    SIMPLE_CONVERTER_CASE(DECIMAL, DecimalConverter);
+    SIMPLE_CONVERTER_CASE(DECIMAL128, Decimal128Converter);
+    SIMPLE_CONVERTER_CASE(DECIMAL256, Decimal256Converter);
     case Type::BINARY:
       *out =
           std::unique_ptr<SeqConverter>(new BinaryConverter<BinaryType, null_coding>());

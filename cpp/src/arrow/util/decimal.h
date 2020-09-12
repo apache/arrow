@@ -218,6 +218,18 @@ class ARROW_EXPORT Decimal256 : public BasicDecimal256 {
   static Result<Decimal256> FromString(const util::string_view& s);
   static Result<Decimal256> FromString(const std::string& s);
   static Result<Decimal256> FromString(const char* s);
+
+  /// \brief Convert Decimal256 from one scale to another
+  Result<Decimal256> Rescale(int32_t original_scale, int32_t new_scale) const {
+    Decimal256 out;
+    auto dstatus = BasicDecimal256::Rescale(original_scale, new_scale, &out);
+    ARROW_RETURN_NOT_OK(ToArrowStatus(dstatus));
+    return std::move(out);
+  }
+
+ private:
+  /// Converts internal error code to Status
+  Status ToArrowStatus(DecimalStatus dstatus) const;
 };
 
 }  // namespace arrow

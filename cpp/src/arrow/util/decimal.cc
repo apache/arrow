@@ -445,6 +445,24 @@ bool ParseDecimalComponents(const char* s, size_t size, DecimalComponents* out) 
   return pos == size;
 }
 
+inline Status ToArrowStatus(DecimalStatus dstatus, int num_bits) {
+  switch (dstatus) {
+    case DecimalStatus::kSuccess:
+      return Status::OK();
+
+    case DecimalStatus::kDivideByZero:
+      return Status::Invalid("Division by 0 in Decimal", num_bits);
+
+    case DecimalStatus::kOverflow:
+      return Status::Invalid("Overflow occurred during Decimal", num_bits, " operation.");
+
+    case DecimalStatus::kRescaleDataLoss:
+      return Status::Invalid("Rescaling Decimal", num_bits,
+                             " value would cause data loss");
+  }
+  return Status::OK();
+}
+
 }  // namespace
 
 Status Decimal128::FromString(const util::string_view& s, Decimal128* out,
@@ -598,26 +616,7 @@ Result<Decimal128> Decimal128::FromBigEndian(const uint8_t* bytes, int32_t lengt
 }
 
 Status Decimal128::ToArrowStatus(DecimalStatus dstatus) const {
-  Status status;
-
-  switch (dstatus) {
-    case DecimalStatus::kSuccess:
-      status = Status::OK();
-      break;
-
-    case DecimalStatus::kDivideByZero:
-      status = Status::Invalid("Division by 0 in Decimal128");
-      break;
-
-    case DecimalStatus::kOverflow:
-      status = Status::Invalid("Overflow occurred during Decimal128 operation.");
-      break;
-
-    case DecimalStatus::kRescaleDataLoss:
-      status = Status::Invalid("Rescaling decimal value would cause data loss");
-      break;
-  }
-  return status;
+  return arrow::ToArrowStatus(dstatus, 128);
 }
 
 std::ostream& operator<<(std::ostream& os, const Decimal128& decimal) {
@@ -713,5 +712,9 @@ Result<Decimal256> Decimal256::FromString(const std::string& s) {
 
 Result<Decimal256> Decimal256::FromString(const char* s) {
   return FromString(util::string_view(s));
+}
+
+Status Decimal256::ToArrowStatus(DecimalStatus dstatus) const {
+  return arrow::ToArrowStatus(dstatus, 256);
 }
 }  // namespace arrow

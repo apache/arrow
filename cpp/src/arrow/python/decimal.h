@@ -25,6 +25,7 @@
 namespace arrow {
 
 class Decimal128;
+class Decimal256;
 
 namespace py {
 
@@ -71,6 +72,23 @@ Status DecimalFromPythonDecimal(PyObject* python_decimal, const DecimalType& arr
 // \return The status of the operation
 ARROW_PYTHON_EXPORT
 Status DecimalFromPyObject(PyObject* obj, const DecimalType& arrow_type, Decimal128* out);
+
+// \brief Convert a Python decimal to an Arrow Decimal256 object
+// \param[in] python_decimal A Python decimal.Decimal instance
+// \param[in] arrow_type An instance of arrow::DecimalType
+// \param[out] out A pointer to a Decimal256
+// \return The status of the operation
+ARROW_PYTHON_EXPORT
+Status DecimalFromPythonDecimal(PyObject* python_decimal, const DecimalType& arrow_type,
+                                Decimal256* out);
+
+// \brief Convert a Python object to an Arrow Decimal256 object
+// \param[in] python_decimal A Python int or decimal.Decimal instance
+// \param[in] arrow_type An instance of arrow::DecimalType
+// \param[out] out A pointer to a Decimal256
+// \return The status of the operation
+ARROW_PYTHON_EXPORT
+Status DecimalFromPyObject(PyObject* obj, const DecimalType& arrow_type, Decimal256* out);
 
 // \brief Check whether obj is an instance of Decimal
 ARROW_PYTHON_EXPORT

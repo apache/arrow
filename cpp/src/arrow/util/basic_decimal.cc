@@ -771,6 +771,12 @@ void BasicDecimal256::ToBytes(uint8_t* out) const {
 #endif
 }
 
+DecimalStatus BasicDecimal256::Rescale(int32_t original_scale, int32_t new_scale,
+                                       BasicDecimal256* out) const {
+  // TODO: implement.
+  return DecimalStatus::kSuccess;
+}
+
 bool operator==(const BasicDecimal256& left, const BasicDecimal256& right) {
   return left.little_endian_array() == right.little_endian_array();
 }

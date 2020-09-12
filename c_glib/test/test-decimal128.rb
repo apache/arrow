@@ -214,7 +214,7 @@ class TestDecimal128 < Test::Unit::TestCase
     decimal = Arrow::Decimal128.new(10)
     message =
       "[decimal128][rescale]: Invalid: " +
-      "Rescaling decimal value would cause data loss"
+      "Rescaling Decimal128 value would cause data loss"
     assert_raise(Arrow::Error::Invalid.new(message)) do
       decimal.rescale(1, -1)
     end

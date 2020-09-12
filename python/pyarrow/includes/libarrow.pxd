@@ -49,6 +49,11 @@ cdef extern from "arrow/util/decimal.h" namespace "arrow" nogil:
         c_string ToString(int32_t scale) const
 
 
+cdef extern from "arrow/util/decimal.h" namespace "arrow" nogil:
+    cdef cppclass CDecimal256" arrow::Decimal256":
+        c_string ToString(int32_t scale) const
+
+
 cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     cdef cppclass CBuildInfo "arrow::BuildInfo":
@@ -86,7 +91,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         _Type_FLOAT" arrow::Type::FLOAT"
         _Type_DOUBLE" arrow::Type::DOUBLE"
 
-        _Type_DECIMAL" arrow::Type::DECIMAL"
+        _Type_DECIMAL128" arrow::Type::DECIMAL128"
+        _Type_DECIMAL256" arrow::Type::DECIMAL256"
 
         _Type_DATE32" arrow::Type::DATE32"
         _Type_DATE64" arrow::Type::DATE64"
@@ -356,6 +362,12 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         int precision()
         int scale()
 
+    cdef cppclass CDecimal256Type \
+            " arrow::Decimal256Type"(CFixedSizeBinaryType):
+        CDecimal256Type(int precision, int scale)
+        int precision()
+        int scale()
+
     cdef cppclass CField" arrow::Field":
         cppclass CMergeOptions "arrow::Field::MergeOptions":
             c_bool promote_nullability
@@ -537,6 +549,11 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         const uint8_t* GetValue(int i)
 
     cdef cppclass CDecimal128Array" arrow::Decimal128Array"(
+        CFixedSizeBinaryArray
+    ):
+        c_string FormatValue(int i)
+
+    cdef cppclass CDecimal256Array" arrow::Decimal256Array"(
         CFixedSizeBinaryArray
     ):
         c_string FormatValue(int i)
@@ -934,6 +951,9 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     cdef cppclass CDecimal128Scalar" arrow::Decimal128Scalar"(CScalar):
         CDecimal128 value
+
+    cdef cppclass CDecimal256Scalar" arrow::Decimal256Scalar"(CScalar):
+        CDecimal256 value
 
     cdef cppclass CDate32Scalar" arrow::Date32Scalar"(CScalar):
         int32_t value

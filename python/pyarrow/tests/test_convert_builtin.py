@@ -1395,9 +1395,9 @@ def test_sequence_decimal_from_integers():
 
 
 def test_sequence_decimal_too_high_precision():
-    # ARROW-6989 python decimal created from float has too high precision
+    # ARROW-6989 python decimal has too high precision
     with pytest.raises(ValueError, match="precision out of range"):
-        pa.array([decimal.Decimal(123.234)])
+        pa.array([decimal.Decimal('1' * 80)])
 
 
 def test_range_types():
