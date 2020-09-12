@@ -1139,8 +1139,8 @@ pub trait FunctionRegistry {
     /// Set of all available udfs.
     fn udfs(&self) -> HashSet<String>;
 
-    /// Constructs a logical expression with a call to the udf.
-    fn udf(&self, name: &str, args: Vec<Expr>) -> Result<Expr>;
+    /// Returns a reference to the udf named `name`.
+    fn udf(&self, name: &str) -> Result<&ScalarUDF>;
 }
 
 /// Builder for logical plans

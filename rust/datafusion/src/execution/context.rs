@@ -36,7 +36,7 @@ use crate::datasource::parquet::ParquetTable;
 use crate::datasource::TableProvider;
 use crate::error::{ExecutionError, Result};
 use crate::execution::dataframe_impl::DataFrameImpl;
-use crate::logical_plan::{Expr, FunctionRegistry, LogicalPlan, LogicalPlanBuilder};
+use crate::logical_plan::{FunctionRegistry, LogicalPlan, LogicalPlanBuilder};
 use crate::optimizer::filter_push_down::FilterPushDown;
 use crate::optimizer::optimizer::OptimizerRule;
 use crate::optimizer::projection_push_down::ProjectionPushDown;
@@ -494,17 +494,14 @@ impl FunctionRegistry for ExecutionContextState {
         self.scalar_functions.keys().cloned().collect()
     }
 
-    fn udf(&self, name: &str, args: Vec<Expr>) -> Result<Expr> {
+    fn udf(&self, name: &str) -> Result<&ScalarUDF> {
         let result = self.scalar_functions.get(name);
         if result.is_none() {
             Err(ExecutionError::General(
                 format!("There is no UDF named \"{}\" in the registry", name).to_string(),
             ))
         } else {
-            Ok(Expr::ScalarUDF {
-                fun: result.unwrap().clone(),
-                args,
-            })
+            Ok(result.unwrap())
         }
     }
 }
@@ -1103,7 +1100,7 @@ mod tests {
             .project(vec![
                 col("a"),
                 col("b"),
-                ctx.registry().udf("my_add", vec![col("a"), col("b")])?,
+                ctx.registry().udf("my_add")?.call(vec![col("a"), col("b")]),
             ])?
             .build()?;
 
