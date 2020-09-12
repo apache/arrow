@@ -80,7 +80,7 @@ func (s *server) Serve() error {
 	s.done = make(chan bool)
 	go func() {
 		select {
-		case sig := <-s.sigChannel:
+		case <-s.sigChannel:
 			s.server.GracefulStop()
 		case <-s.done:
 		}
