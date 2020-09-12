@@ -47,7 +47,7 @@ macro_rules! min_max_string_helper {
         } else {
             for i in 0..data.len() {
                 let item = $array.value(i);
-                if !has_value || data.is_valid(i) && (&n $cmp &item) {
+                if data.is_valid(i) && (!has_value || (&n $cmp &item)) {
                     has_value = true;
                     n = item;
                 }
@@ -120,7 +120,7 @@ where
         }
     } else {
         for (i, item) in m.iter().enumerate() {
-            if !has_value || data.is_valid(i) && cmp(&n, item) {
+            if data.is_valid(i) && (!has_value || cmp(&n, item)) {
                 has_value = true;
                 n = *item
             }
@@ -206,6 +206,13 @@ mod tests {
     }
 
     #[test]
+    fn test_buffer_min_max_1() {
+        let a = Int32Array::from(vec![None, None, Some(5), Some(2)]);
+        assert_eq!(Some(2), min(&a));
+        assert_eq!(Some(5), max(&a));
+    }
+
+    #[test]
     fn test_string_min_max_with_nulls() {
         let a = StringArray::from(vec![Some("b"), None, None, Some("a"), Some("c")]);
         assert_eq!("a", min_string(&a).unwrap());
@@ -217,5 +224,12 @@ mod tests {
         let a = StringArray::from(vec![None, None]);
         assert_eq!(None, min_string(&a));
         assert_eq!(None, max_string(&a));
+    }
+
+    #[test]
+    fn test_string_min_max_1() {
+        let a = StringArray::from(vec![None, None, Some("b"), Some("a")]);
+        assert_eq!(Some("a"), min_string(&a));
+        assert_eq!(Some("b"), max_string(&a));
     }
 }
