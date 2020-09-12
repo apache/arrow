@@ -10,6 +10,10 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+// ClientAuthHandler defines an interface for the Flight client to perform
+// the authentication handshake. The token that is retrieved from GetToken
+// will be sent as part of the context metadata in subsequent requests after
+// authentication is performed using the key "auth-token-bin".
 type ClientAuthHandler interface {
 	Authenticate(AuthConn) error
 	GetToken() (string, error)
