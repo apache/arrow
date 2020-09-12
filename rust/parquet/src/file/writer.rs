@@ -445,8 +445,8 @@ impl<T: Write + Position> PageWriter for SerializedPageWriter<T> {
             data_page_header_v2: None,
         };
 
-        match page.compressed_page() {
-            &Page::DataPage {
+        match *page.compressed_page() {
+            Page::DataPage {
                 def_level_encoding,
                 rep_level_encoding,
                 ref statistics,
@@ -461,7 +461,7 @@ impl<T: Write + Position> PageWriter for SerializedPageWriter<T> {
                 };
                 page_header.data_page_header = Some(data_page_header);
             }
-            &Page::DataPageV2 {
+            Page::DataPageV2 {
                 num_nulls,
                 num_rows,
                 def_levels_byte_len,
@@ -482,7 +482,7 @@ impl<T: Write + Position> PageWriter for SerializedPageWriter<T> {
                 };
                 page_header.data_page_header_v2 = Some(data_page_header_v2);
             }
-            &Page::DictionaryPage { is_sorted, .. } => {
+            Page::DictionaryPage { is_sorted, .. } => {
                 let dictionary_page_header = parquet::DictionaryPageHeader {
                     num_values: num_values as i32,
                     encoding: encoding.into(),
@@ -824,8 +824,8 @@ mod tests {
         for page in pages {
             let uncompressed_len = page.buffer().len();
 
-            let compressed_page = match page {
-                &Page::DataPage {
+            let compressed_page = match *page {
+                Page::DataPage {
                     ref buf,
                     num_values,
                     encoding,
@@ -848,7 +848,7 @@ mod tests {
                         ),
                     }
                 }
-                &Page::DataPageV2 {
+                Page::DataPageV2 {
                     ref buf,
                     num_values,
                     encoding,
@@ -881,7 +881,7 @@ mod tests {
                         ),
                     }
                 }
-                &Page::DictionaryPage {
+                Page::DictionaryPage {
                     ref buf,
                     num_values,
                     encoding,

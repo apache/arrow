@@ -841,7 +841,7 @@ fn build_tree(
     }
 
     match tp.as_ref() {
-        &Type::PrimitiveType { .. } => {
+        Type::PrimitiveType { .. } => {
             let mut path: Vec<String> = vec![];
             path.extend_from_slice(&path_so_far[..]);
             leaves.push(Rc::new(ColumnDescriptor::new(
@@ -853,7 +853,7 @@ fn build_tree(
             )));
             leaf_to_base.insert(leaves.len() - 1, base_tp);
         }
-        &Type::GroupType { ref fields, .. } => {
+        Type::GroupType { ref fields, .. } => {
             for f in fields {
                 build_tree(
                     f.clone(),
@@ -1085,7 +1085,7 @@ mod tests {
                 Type::PrimitiveType { physical_type, .. } => {
                     assert_eq!(physical_type, PhysicalType::INT32);
                 }
-                _ => assert!(false),
+                _ => panic!(),
             }
         }
 

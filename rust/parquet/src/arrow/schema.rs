@@ -253,7 +253,7 @@ fn arrow_to_parquet_type(field: &Field) -> Result<Type> {
         DataType::Struct(fields) => {
             // recursively convert children to types/nodes
             let fields: Result<Vec<TypePtr>> = fields
-                .into_iter()
+                .iter()
                 .map(|f| arrow_to_parquet_type(f).map(Rc::new))
                 .collect();
             Type::group_type_builder(name)

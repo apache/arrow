@@ -195,11 +195,7 @@ pub fn from_thrift(
 
 // Convert Statistics into Thrift definition.
 pub fn to_thrift(stats: Option<&Statistics>) -> Option<TStatistics> {
-    if stats.is_none() {
-        return None;
-    }
-
-    let stats = stats.unwrap();
+    let stats = stats?;
 
     let mut thrift_stats = TStatistics {
         max: None,

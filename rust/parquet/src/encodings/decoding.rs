@@ -530,14 +530,14 @@ impl<T: DataType> DeltaBitPackDecoder<T> {
         self.min_delta = self
             .bit_reader
             .get_zigzag_vlq_int()
-            .ok_or(eof_err!("Not enough data to decode 'min_delta'"))?;
+            .ok_or_else(|| eof_err!("Not enough data to decode 'min_delta'"))?;
 
         let mut widths = vec![];
         for _ in 0..self.num_mini_blocks {
             let w = self
                 .bit_reader
                 .get_aligned::<u8>(1)
-                .ok_or(eof_err!("Not enough data to decode 'width'"))?;
+                .ok_or_else(|| eof_err!("Not enough data to decode 'width'"))?;
             widths.push(w);
         }
 
@@ -569,7 +569,7 @@ impl<T: DataType> DeltaBitPackDecoder<T> {
                 let delta = self
                     .bit_reader
                     .get_value::<T::T>(self.delta_bit_width as usize)
-                    .ok_or(eof_err!("Not enough data to decode 'delta'"))?;
+                    .ok_or_else(|| eof_err!("Not enough data to decode 'delta'"))?;
                 self.deltas_in_mini_block.push(delta);
             }
         }
@@ -591,20 +591,20 @@ where
         let block_size = self
             .bit_reader
             .get_vlq_int()
-            .ok_or(eof_err!("Not enough data to decode 'block_size'"))?;
+            .ok_or_else(|| eof_err!("Not enough data to decode 'block_size'"))?;
         self.num_mini_blocks = self
             .bit_reader
             .get_vlq_int()
-            .ok_or(eof_err!("Not enough data to decode 'num_mini_blocks'"))?;
+            .ok_or_else(|| eof_err!("Not enough data to decode 'num_mini_blocks'"))?;
         self.num_values = self
             .bit_reader
             .get_vlq_int()
-            .ok_or(eof_err!("Not enough data to decode 'num_values'"))?
+            .ok_or_else(|| eof_err!("Not enough data to decode 'num_values'"))?
             as usize;
         self.first_value = self
             .bit_reader
             .get_zigzag_vlq_int()
-            .ok_or(eof_err!("Not enough data to decode 'first_value'"))?;
+            .ok_or_else(|| eof_err!("Not enough data to decode 'first_value'"))?;
 
         // Reset decoding state
         self.first_value_read = false;

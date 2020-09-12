@@ -1247,7 +1247,7 @@ mod tests {
                 Encoding::PLAIN_DICTIONARY | Encoding::RLE_DICTIONARY => {
                     Self::test_dict_internal(total, type_length)
                 }
-                enc @ _ => Self::test_internal(enc, total, type_length),
+                enc => Self::test_internal(enc, total, type_length),
             };
 
             assert!(

@@ -88,7 +88,7 @@ impl RandGen<ByteArrayType> for ByteArrayType {
         let mut value = vec![];
         let len = rng.gen_range(0, 128);
         for _ in 0..len {
-            value.push(rng.gen_range(0, 255) & 0xFF);
+            value.push(rng.gen_range(0, 255));
         }
         result.set_data(ByteBufferPtr::new(value));
         result
@@ -112,7 +112,7 @@ pub fn random_bytes(n: usize) -> Vec<u8> {
     let mut result = vec![];
     let mut rng = thread_rng();
     for _ in 0..n {
-        result.push(rng.gen_range(0, 255) & 0xFF);
+        result.push(rng.gen_range(0, 255));
     }
     result
 }

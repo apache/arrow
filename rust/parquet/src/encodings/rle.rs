@@ -249,7 +249,7 @@ impl RleEncoder {
     #[inline]
     fn flush_rle_run(&mut self) -> Result<()> {
         assert!(self.repeat_count > 0);
-        let indicator_value = self.repeat_count << 1 | 0;
+        let indicator_value = self.repeat_count << 1;
         let mut result = self.bit_writer.put_vlq_int(indicator_value as u64);
         result &= self.bit_writer.put_aligned(
             self.current_value,
@@ -390,7 +390,7 @@ impl RleDecoder {
             let bit_reader = self.bit_reader.as_mut().expect("bit_reader should be Some");
             let bit_packed_value = bit_reader
                 .get_value(self.bit_width as usize)
-                .ok_or(eof_err!("Not enough data for 'bit_packed_value'"))?;
+                .ok_or_else(|| eof_err!("Not enough data for 'bit_packed_value'"))?;
             self.bit_packed_left -= 1;
             bit_packed_value
         };
@@ -510,7 +510,7 @@ impl RleDecoder {
                 return false;
             }
         }
-        return false;
+        false
     }
 }
 
@@ -647,9 +647,8 @@ mod tests {
         if expected_len != -1 {
             assert_eq!(buffer.len(), expected_len as usize);
         }
-        match expected_encoding {
-            Some(b) => assert_eq!(buffer.as_ref(), b),
-            _ => (),
+        if let Some(b) = expected_encoding {
+            assert_eq!(buffer.as_ref(), b);
         }
 
         // Verify read

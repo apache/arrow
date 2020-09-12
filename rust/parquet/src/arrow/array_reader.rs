@@ -100,11 +100,8 @@ impl<T: DataType> PrimitiveArrayReader<T> {
             .clone();
 
         let mut record_reader = RecordReader::<T>::new(column_desc.clone());
-        match pages.next() {
-            Some(page_reader) => {
-                record_reader.set_page_reader(page_reader?)?;
-            }
-            None => {}
+        if let Some(page_reader) = pages.next() {
+            record_reader.set_page_reader(page_reader?)?;
         }
 
         Ok(Self {

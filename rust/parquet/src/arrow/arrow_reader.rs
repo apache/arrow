@@ -189,7 +189,7 @@ impl ParquetRecordBatchReader {
             .ok_or_else(|| general_err!("The input must be struct array reader!"))?;
 
         let schema = match array_reader.get_data_type() {
-            &ArrowType::Struct(ref fields) => Schema::new(fields.clone()),
+            ArrowType::Struct(ref fields) => Schema::new(fields.clone()),
             _ => unreachable!("Struct array reader's data type is not struct!"),
         };
 

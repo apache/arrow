@@ -199,8 +199,8 @@ impl<'a> Printer<'a> {
 impl<'a> Printer<'a> {
     pub fn print(&mut self, tp: &Type) {
         self.print_indent();
-        match tp {
-            &Type::PrimitiveType {
+        match *tp {
+            Type::PrimitiveType {
                 ref basic_info,
                 physical_type,
                 type_length,
@@ -239,7 +239,7 @@ impl<'a> Printer<'a> {
                     logical_type_str
                 );
             }
-            &Type::GroupType {
+            Type::GroupType {
                 ref basic_info,
                 ref fields,
             } => {
@@ -291,14 +291,14 @@ mod tests {
         let mut s = String::new();
         {
             let mut p = Printer::new(&mut s);
-            let foo = Type::primitive_type_builder("foo", PhysicalType::INT32)
+            let field = Type::primitive_type_builder("field", PhysicalType::INT32)
                 .with_repetition(Repetition::REQUIRED)
                 .with_logical_type(LogicalType::INT_32)
                 .build()
                 .unwrap();
-            p.print(&foo);
+            p.print(&field);
         }
-        assert_eq!(&mut s, "REQUIRED INT32 foo (INT_32);");
+        assert_eq!(&mut s, "REQUIRED INT32 field (INT_32);");
     }
 
     #[test]
@@ -306,13 +306,13 @@ mod tests {
         let mut s = String::new();
         {
             let mut p = Printer::new(&mut s);
-            let foo = Type::primitive_type_builder("foo", PhysicalType::DOUBLE)
+            let field = Type::primitive_type_builder("field", PhysicalType::DOUBLE)
                 .with_repetition(Repetition::REQUIRED)
                 .build()
                 .unwrap();
-            p.print(&foo);
+            p.print(&field);
         }
-        assert_eq!(&mut s, "REQUIRED DOUBLE foo;");
+        assert_eq!(&mut s, "REQUIRED DOUBLE field;");
     }
 
     #[test]
@@ -339,14 +339,14 @@ mod tests {
             let mut struct_fields = Vec::new();
             struct_fields.push(Rc::new(f1.unwrap()));
             struct_fields.push(Rc::new(f2.unwrap()));
-            let foo = Type::group_type_builder("foo")
+            let field = Type::group_type_builder("field")
                 .with_repetition(Repetition::OPTIONAL)
                 .with_fields(&mut struct_fields)
                 .with_id(1)
                 .build()
                 .unwrap();
             let mut fields = Vec::new();
-            fields.push(Rc::new(foo));
+            fields.push(Rc::new(field));
             fields.push(Rc::new(f3.unwrap()));
             let message = Type::group_type_builder("schema")
                 .with_fields(&mut fields)
@@ -356,7 +356,7 @@ mod tests {
             p.print(&message);
         }
         let expected = "message schema {
-  OPTIONAL group foo {
+  OPTIONAL group field {
     REQUIRED INT32 f1 (INT_32);
     OPTIONAL BYTE_ARRAY f2 (UTF8);
   }
@@ -432,7 +432,7 @@ mod tests {
             .build()
             .unwrap();
 
-        let foo = Type::group_type_builder("foo")
+        let field = Type::group_type_builder("field")
             .with_repetition(Repetition::OPTIONAL)
             .with_fields(&mut vec![Rc::new(f1), Rc::new(f2)])
             .build()
@@ -446,7 +446,7 @@ mod tests {
             .unwrap();
 
         let message = Type::group_type_builder("schema")
-            .with_fields(&mut vec![Rc::new(foo), Rc::new(f3)])
+            .with_fields(&mut vec![Rc::new(field), Rc::new(f3)])
             .build()
             .unwrap();
 

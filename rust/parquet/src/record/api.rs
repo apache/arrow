@@ -45,6 +45,7 @@ pub struct Row {
     fields: Vec<(String, Field)>,
 }
 
+#[allow(clippy::len_without_is_empty)]
 impl Row {
     /// Get the number of fields in this row.
     pub fn len(&self) -> usize {
@@ -231,6 +232,7 @@ pub struct List {
     elements: Vec<Field>,
 }
 
+#[allow(clippy::len_without_is_empty)]
 impl List {
     /// Get the number of fields in this row
     pub fn len(&self) -> usize {
@@ -348,6 +350,7 @@ pub struct Map {
     entries: Vec<(Field, Field)>,
 }
 
+#[allow(clippy::len_without_is_empty)]
 impl Map {
     /// Get the number of fields in this row
     pub fn len(&self) -> usize {
@@ -756,7 +759,7 @@ fn convert_decimal_to_string(decimal: &Decimal) -> String {
 }
 
 #[cfg(test)]
-#[allow(clippy::approx_constant)]
+#[allow(clippy::approx_constant, clippy::many_single_char_names)]
 mod tests {
     use super::*;
 
@@ -1596,7 +1599,7 @@ mod tests {
         for i in 0..5 {
             assert_eq!((i + 1) as i32, map.get_keys().get_int(i).unwrap());
             assert_eq!(
-                &((i as u8 + 'a' as u8) as char).to_string(),
+                &((i as u8 + b'a') as char).to_string(),
                 map.get_values().get_string(i).unwrap()
             );
         }

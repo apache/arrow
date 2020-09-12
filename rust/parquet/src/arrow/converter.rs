@@ -387,10 +387,22 @@ mod tests {
         // Prepare record reader
         let mut pb = DataPageBuilderImpl::new(desc, 4, true);
         if rep_levels.is_some() {
-            pb.add_rep_levels(max_rep_level, rep_levels.unwrap());
+            pb.add_rep_levels(
+                max_rep_level,
+                match rep_levels {
+                    Some(a) => a,
+                    _ => unreachable!(),
+                },
+            );
         }
         if def_levels.is_some() {
-            pb.add_def_levels(max_def_level, def_levels.unwrap());
+            pb.add_def_levels(
+                max_def_level,
+                match def_levels {
+                    Some(a) => a,
+                    _ => unreachable!(),
+                },
+            );
         }
         pb.add_values::<T>(Encoding::PLAIN, &values);
         let page = pb.consume();

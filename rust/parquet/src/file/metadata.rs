@@ -260,7 +260,7 @@ impl RowGroupMetaData {
     /// Method to convert to Thrift.
     pub fn to_thrift(&self) -> RowGroup {
         RowGroup {
-            columns: self.columns().into_iter().map(|v| v.to_thrift()).collect(),
+            columns: self.columns().iter().map(|v| v.to_thrift()).collect(),
             total_byte_size: self.total_byte_size,
             num_rows: self.num_rows,
             sorting_columns: None,
@@ -484,7 +484,7 @@ impl ColumnChunkMetaData {
     pub fn to_thrift(&self) -> ColumnChunk {
         let column_metadata = ColumnMetaData {
             type_: self.column_type.into(),
-            encodings: self.encodings().into_iter().map(|&v| v.into()).collect(),
+            encodings: self.encodings().iter().map(|&v| v.into()).collect(),
             path_in_schema: Vec::from(self.column_path.as_ref()),
             codec: self.compression.into(),
             num_values: self.num_values,
@@ -499,7 +499,7 @@ impl ColumnChunkMetaData {
         };
 
         ColumnChunk {
-            file_path: self.file_path().map(|v| v.clone()),
+            file_path: self.file_path().cloned(),
             file_offset: self.file_offset,
             meta_data: Some(column_metadata),
             offset_index_offset: None,

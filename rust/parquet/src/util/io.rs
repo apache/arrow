@@ -202,10 +202,10 @@ mod tests {
     fn test_io_read_pos() {
         let mut src = FileSource::new(&get_test_file("alltypes_plain.parquet"), 0, 4);
 
-        src.read_exact(&mut [0; 1]).unwrap();
+        let _ = src.read(&mut [0; 1]).unwrap();
         assert_eq!(src.pos(), 1);
 
-        src.read_exact(&mut [0; 4]).unwrap();
+        let _ = src.read(&mut [0; 4]).unwrap();
         assert_eq!(src.pos(), 4);
     }
 
@@ -214,7 +214,7 @@ mod tests {
         let mut src = FileSource::new(&get_test_file("alltypes_plain.parquet"), 0, 4);
 
         // Read all bytes from source
-        src.read_exact(&mut [0; 128]).unwrap();
+        let _ = src.read(&mut [0; 128]).unwrap();
         assert_eq!(src.pos(), 4);
 
         // Try reading again, should return 0 bytes.
