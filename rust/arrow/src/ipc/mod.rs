@@ -36,3 +36,4 @@ pub use self::gen::SparseTensor::*;
 pub use self::gen::Tensor::*;
 
 static ARROW_MAGIC: [u8; 6] = [b'A', b'R', b'R', b'O', b'W', b'1'];
+static CONTINUATION_MARKER: [u8; 4] = [0xff; 4];
