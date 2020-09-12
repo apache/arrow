@@ -21,16 +21,19 @@ import (
 
 	"github.com/apache/arrow/go/arrow"
 	"github.com/apache/arrow/go/arrow/array"
+	"github.com/apache/arrow/go/arrow/arrio"
 	"github.com/apache/arrow/go/arrow/bitutil"
 	"github.com/apache/arrow/go/arrow/flight"
 	"github.com/apache/arrow/go/arrow/memory"
 	"golang.org/x/xerrors"
 )
 
+// FlightDataStreamWriter wraps a grpc stream for sending FlightData
 type FlightDataStreamWriter interface {
 	Send(*flight.FlightData) error
 }
 
+// FlightDataWriter is a stream writer for writing with Flight RPC
 type FlightDataWriter struct {
 	w   FlightDataStreamWriter
 	fd  flight.FlightData
@@ -41,6 +44,7 @@ type FlightDataWriter struct {
 	schema  *arrow.Schema
 }
 
+// NewFlightDataWriter returns a writer for writing array Records to a flight data stream.
 func NewFlightDataWriter(w FlightDataStreamWriter, opts ...Option) *FlightDataWriter {
 	cfg := newConfig(opts...)
 	return &FlightDataWriter{
@@ -73,6 +77,7 @@ func (w *FlightDataWriter) Close() (err error) {
 	return err
 }
 
+// Write the provided record to the underlying stream
 func (w *FlightDataWriter) Write(rec array.Record) error {
 	if !w.started {
 		err := w.start()
@@ -130,3 +135,7 @@ func (w *FlightDataWriter) writePayload(data *payload) (err error) {
 	w.fd.DataBody = tmp.Bytes()
 	return w.w.Send(&w.fd)
 }
+
+var (
+	_ arrio.Writer = (*FlightDataWriter)(nil)
+)
