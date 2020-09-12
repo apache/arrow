@@ -318,6 +318,11 @@ impl<T> BufferPtr<T> {
         self.len
     }
 
+    /// Returns whether this buffer is empty
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
     /// Returns `true` if this buffer has memory tracker, `false` otherwise.
     pub fn is_mem_tracked(&self) -> bool {
         self.mem_tracker.is_some()
@@ -330,7 +335,7 @@ impl<T> BufferPtr<T> {
             data: self.data.clone(),
             start: self.start,
             len: self.len,
-            mem_tracker: self.mem_tracker.as_ref().map(|p| p.clone()),
+            mem_tracker: self.mem_tracker.as_ref().cloned(),
         }
     }
 
@@ -341,7 +346,7 @@ impl<T> BufferPtr<T> {
             data: self.data.clone(),
             start: self.start + start,
             len: self.len - start,
-            mem_tracker: self.mem_tracker.as_ref().map(|p| p.clone()),
+            mem_tracker: self.mem_tracker.as_ref().cloned(),
         }
     }
 
@@ -352,7 +357,7 @@ impl<T> BufferPtr<T> {
             data: self.data.clone(),
             start: self.start + start,
             len,
-            mem_tracker: self.mem_tracker.as_ref().map(|p| p.clone()),
+            mem_tracker: self.mem_tracker.as_ref().cloned(),
         }
     }
 }

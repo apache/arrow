@@ -546,9 +546,9 @@ mod tests {
     fn test_writer_properties_dictionary_encoding() {
         // dictionary encoding is not configurable, and it should be the same for both
         // writer version 1 and 2.
-        for version in vec![WriterVersion::PARQUET_1_0, WriterVersion::PARQUET_2_0] {
+        for version in &[WriterVersion::PARQUET_1_0, WriterVersion::PARQUET_2_0] {
             let props = WriterProperties::builder()
-                .set_writer_version(version)
+                .set_writer_version(*version)
                 .build();
             assert_eq!(props.dictionary_page_encoding(), Encoding::PLAIN);
             assert_eq!(

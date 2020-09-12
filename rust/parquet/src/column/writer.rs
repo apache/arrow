@@ -224,7 +224,7 @@ impl<T: DataType> ColumnWriterImpl<T> {
             descr.clone(),
             props
                 .encoding(descr.path())
-                .unwrap_or(Self::fallback_encoding(&props)),
+                .unwrap_or_else(|| Self::fallback_encoding(&props)),
             Rc::new(MemTracker::new()),
         )
         .unwrap();
@@ -441,8 +441,14 @@ impl<T: DataType> ColumnWriterImpl<T> {
         // Check if number of definition levels is the same as number of repetition
         // levels.
         if def_levels.is_some() && rep_levels.is_some() {
-            let def = def_levels.unwrap();
-            let rep = rep_levels.unwrap();
+            let def = match def_levels {
+                Some(a) => a,
+                _ => unreachable!(),
+            };
+            let rep = match rep_levels {
+                Some(a) => a,
+                _ => unreachable!(),
+            };
             if def.len() != rep.len() {
                 return Err(general_err!(
                     "Inconsistent length of definition and repetition levels: {} != {}",
@@ -466,10 +472,8 @@ impl<T: DataType> ColumnWriterImpl<T> {
             for &level in levels {
                 if level == self.descr.max_def_level() {
                     values_to_write += 1;
-                } else {
-                    if calculate_page_stats {
-                        self.num_page_nulls += 1
-                    };
+                } else if calculate_page_stats {
+                    self.num_page_nulls += 1
                 }
             }
 
@@ -608,13 +612,13 @@ impl<T: DataType> ColumnWriterImpl<T> {
         let max_def_level = self.descr.max_def_level();
         let max_rep_level = self.descr.max_rep_level();
 
-        let mut page_statistics: Option<Statistics> = None;
-
-        if calculate_page_stat {
+        let page_statistics = if calculate_page_stat {
             self.update_column_min_max();
             self.num_column_nulls += self.num_page_nulls;
-            page_statistics = Some(self.make_page_statistics());
-        }
+            Some(self.make_page_statistics())
+        } else {
+            None
+        };
 
         let compressed_page = match self.props.writer_version() {
             WriterVersion::PARQUET_1_0 => {
@@ -929,12 +933,8 @@ impl<T: DataType> ColumnWriterImpl<T> {
             Type::FLOAT => gen_stats_section!(f32, float, min, max, distinct, nulls),
             Type::DOUBLE => gen_stats_section!(f64, double, min, max, distinct, nulls),
             Type::BYTE_ARRAY | Type::FIXED_LEN_BYTE_ARRAY => {
-                let min = min
-                    .as_ref()
-                    .and_then(|v| Some(ByteArray::from(v.as_bytes().to_vec())));
-                let max = max
-                    .as_ref()
-                    .and_then(|v| Some(ByteArray::from(v.as_bytes().to_vec())));
+                let min = min.as_ref().map(|v| ByteArray::from(v.as_bytes().to_vec()));
+                let max = max.as_ref().map(|v| ByteArray::from(v.as_bytes().to_vec()));
                 Statistics::byte_array(min, max, distinct, nulls, false)
             }
         }
@@ -1471,10 +1471,10 @@ mod tests {
                 assert_eq!(stats.min(), &1);
                 assert_eq!(stats.max(), &4);
             } else {
-                assert!(false, "expecting Statistics::Int32");
+                panic!("expecting Statistics::Int32");
             }
         } else {
-            assert!(false, "metadata missing statistics");
+            panic!("metadata missing statistics");
         }
     }
 
@@ -1515,10 +1515,10 @@ mod tests {
                 assert_eq!(stats.min(), &-17);
                 assert_eq!(stats.max(), &9000);
             } else {
-                assert!(false, "expecting Statistics::Int32");
+                panic!("expecting Statistics::Int32");
             }
         } else {
-            assert!(false, "metadata missing statistics");
+            panic!("metadata missing statistics");
         }
     }
 
@@ -1589,8 +1589,8 @@ mod tests {
 
     #[test]
     fn test_column_writer_small_write_batch_size() {
-        for i in vec![1, 2, 5, 10, 11, 1023] {
-            let props = WriterProperties::builder().set_write_batch_size(i).build();
+        for i in &[1usize, 2, 5, 10, 11, 1023] {
+            let props = WriterProperties::builder().set_write_batch_size(*i).build();
 
             column_roundtrip_random::<Int32Type>(
                 "test_col_writer_rnd_5",
@@ -1720,8 +1720,8 @@ mod tests {
     /// Performs write-read roundtrip with randomly generated values and levels.
     /// `max_size` is maximum number of values or levels (if `max_def_level` > 0) to write
     /// for a column.
-    fn column_roundtrip_random<'a, T: DataType>(
-        file_name: &'a str,
+    fn column_roundtrip_random<T: DataType>(
+        file_name: &str,
         props: WriterProperties,
         max_size: usize,
         min_value: T::T,
