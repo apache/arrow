@@ -116,29 +116,88 @@ pub fn create_aggregate_expr(
     })
 }
 
+static NUMERICS: &'static [DataType] = &[
+    DataType::Int8,
+    DataType::Int16,
+    DataType::Int32,
+    DataType::Int64,
+    DataType::UInt8,
+    DataType::UInt16,
+    DataType::UInt32,
+    DataType::UInt64,
+    DataType::Float32,
+    DataType::Float64,
+];
+
 /// the signatures supported by the function `fun`.
 fn signature(fun: &AggregateFunction) -> Signature {
     // note: the physical expression must accept the type returned by this function or the execution panics.
-
     match fun {
         AggregateFunction::Count => Signature::Any(1),
-        AggregateFunction::Min
-        | AggregateFunction::Max
-        | AggregateFunction::Avg
-        | AggregateFunction::Sum => Signature::Uniform(
-            1,
-            vec![
-                DataType::Int8,
-                DataType::Int16,
-                DataType::Int32,
-                DataType::Int64,
-                DataType::UInt8,
-                DataType::UInt16,
-                DataType::UInt32,
-                DataType::UInt64,
-                DataType::Float32,
-                DataType::Float64,
-            ],
-        ),
+        AggregateFunction::Min | AggregateFunction::Max => {
+            let mut valid = vec![DataType::Utf8];
+            valid.extend_from_slice(NUMERICS);
+            Signature::Uniform(1, valid)
+        }
+        AggregateFunction::Avg | AggregateFunction::Sum => {
+            Signature::Uniform(1, NUMERICS.to_vec())
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::error::Result;
+
+    #[test]
+    fn test_min_max() -> Result<()> {
+        let observed = return_type(&AggregateFunction::Min, &vec![DataType::Utf8])?;
+        assert_eq!(DataType::Utf8, observed);
+
+        let observed = return_type(&AggregateFunction::Max, &vec![DataType::Int32])?;
+        assert_eq!(DataType::Int32, observed);
+        Ok(())
+    }
+
+    #[test]
+    fn test_sum_no_utf8() -> Result<()> {
+        let observed = return_type(&AggregateFunction::Sum, &vec![DataType::Utf8]);
+        assert!(observed.is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn test_sum_upcasts() -> Result<()> {
+        let observed = return_type(&AggregateFunction::Sum, &vec![DataType::UInt32])?;
+        assert_eq!(DataType::UInt64, observed);
+        Ok(())
+    }
+
+    #[test]
+    fn test_count_return_type() -> Result<()> {
+        let observed = return_type(&AggregateFunction::Count, &vec![DataType::Utf8])?;
+        assert_eq!(DataType::UInt64, observed);
+
+        let observed = return_type(&AggregateFunction::Count, &vec![DataType::Int8])?;
+        assert_eq!(DataType::UInt64, observed);
+        Ok(())
+    }
+
+    #[test]
+    fn test_avg_return_type() -> Result<()> {
+        let observed = return_type(&AggregateFunction::Avg, &vec![DataType::Float32])?;
+        assert_eq!(DataType::Float64, observed);
+
+        let observed = return_type(&AggregateFunction::Avg, &vec![DataType::Float64])?;
+        assert_eq!(DataType::Float64, observed);
+        Ok(())
+    }
+
+    #[test]
+    fn test_avg_no_utf8() -> Result<()> {
+        let observed = return_type(&AggregateFunction::Avg, &vec![DataType::Utf8]);
+        assert!(observed.is_err());
+        Ok(())
     }
 }
