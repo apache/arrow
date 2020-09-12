@@ -364,6 +364,19 @@ fn create_list_array(
                 .null_bit_buffer(buffers[0].clone())
         }
         make_array(builder.build())
+    } else if let DataType::LargeList(_) = *data_type {
+        let null_count = field_node.null_count() as usize;
+        let mut builder = ArrayData::builder(data_type.clone())
+            .len(field_node.length() as usize)
+            .buffers(buffers[1..2].to_vec())
+            .offset(0)
+            .child_data(vec![child_array.data()]);
+        if null_count > 0 {
+            builder = builder
+                .null_count(null_count)
+                .null_bit_buffer(buffers[0].clone())
+        }
+        make_array(builder.build())
     } else if let DataType::FixedSizeList(_, _) = *data_type {
         let null_count = field_node.null_count() as usize;
         let mut builder = ArrayData::builder(data_type.clone())
