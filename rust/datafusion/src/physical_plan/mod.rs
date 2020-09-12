@@ -130,6 +130,7 @@ pub trait Accumulator: Debug {
     fn get_value(&self) -> Result<Option<ScalarValue>>;
 }
 
+pub mod aggregates;
 pub mod common;
 pub mod csv;
 pub mod datetime_expressions;

@@ -511,7 +511,7 @@ mod tests {
 
     use super::*;
     use crate::datasource::MemTable;
-    use crate::logical_plan::{aggregate_expr, col, create_udf};
+    use crate::logical_plan::{col, create_udf, sum};
     use crate::physical_plan::functions::ScalarFunctionImplementation;
     use crate::test;
     use crate::variable::VarType;
@@ -938,7 +938,7 @@ mod tests {
         ]));
 
         let plan = LogicalPlanBuilder::scan("default", "test", schema.as_ref(), None)?
-            .aggregate(vec![col("c1")], vec![aggregate_expr("SUM", col("c2"))])?
+            .aggregate(vec![col("c1")], vec![sum(col("c2"))])?
             .project(vec![col("c1"), col("SUM(c2)").alias("total_salary")])?
             .build()?;
 

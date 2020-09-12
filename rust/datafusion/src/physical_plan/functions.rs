@@ -63,6 +63,8 @@ pub enum Signature {
     Uniform(usize, Vec<DataType>),
     /// exact number of arguments of an exact type
     Exact(Vec<DataType>),
+    /// fixed number of arguments of arbitrary types
+    Any(usize),
 }
 
 /// Scalar function

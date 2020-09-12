@@ -32,7 +32,7 @@ use crate::datasource::TableProvider;
 use crate::error::{ExecutionError, Result};
 use crate::{
     physical_plan::{
-        expressions::binary_operator_data_type, functions,
+        aggregates, expressions::binary_operator_data_type, functions,
         type_coercion::can_coerce_from, udf::ScalarUDF,
     },
     sql::parser::FileType,
@@ -210,12 +210,12 @@ fn create_name(e: &Expr, input_schema: &Schema) -> Result<String> {
             }
             Ok(format!("{}({})", fun.name, names.join(",")))
         }
-        Expr::AggregateFunction { name, args, .. } => {
+        Expr::AggregateFunction { fun, args, .. } => {
             let mut names = Vec::with_capacity(args.len());
             for e in args {
                 names.push(create_name(e, input_schema)?);
             }
-            Ok(format!("{}({})", name, names.join(",")))
+            Ok(format!("{}({})", fun, names.join(",")))
         }
         other => Err(ExecutionError::NotImplemented(format!(
             "Physical plan does not support logical expression {:?}",
@@ -290,7 +290,7 @@ pub enum Expr {
     /// aggregate function
     AggregateFunction {
         /// Name of the function
-        name: String,
+        fun: aggregates::AggregateFunction,
         /// List of expressions to feed to the functions as arguments
         args: Vec<Expr>,
     },
@@ -321,47 +321,12 @@ impl Expr {
                     .collect::<Result<Vec<_>>>()?;
                 functions::return_type(fun, &data_types)
             }
-            Expr::AggregateFunction { name, args, .. } => {
-                match name.to_uppercase().as_str() {
-                    "MIN" | "MAX" => args[0].get_type(schema),
-                    "SUM" => match args[0].get_type(schema)? {
-                        DataType::Int8
-                        | DataType::Int16
-                        | DataType::Int32
-                        | DataType::Int64 => Ok(DataType::Int64),
-                        DataType::UInt8
-                        | DataType::UInt16
-                        | DataType::UInt32
-                        | DataType::UInt64 => Ok(DataType::UInt64),
-                        DataType::Float32 => Ok(DataType::Float32),
-                        DataType::Float64 => Ok(DataType::Float64),
-                        other => Err(ExecutionError::General(format!(
-                            "SUM does not support {:?}",
-                            other
-                        ))),
-                    },
-                    "AVG" => match args[0].get_type(schema)? {
-                        DataType::Int8
-                        | DataType::Int16
-                        | DataType::Int32
-                        | DataType::Int64
-                        | DataType::UInt8
-                        | DataType::UInt16
-                        | DataType::UInt32
-                        | DataType::UInt64
-                        | DataType::Float32
-                        | DataType::Float64 => Ok(DataType::Float64),
-                        other => Err(ExecutionError::General(format!(
-                            "AVG does not support {:?}",
-                            other
-                        ))),
-                    },
-                    "COUNT" => Ok(DataType::UInt64),
-                    other => Err(ExecutionError::General(format!(
-                        "Invalid aggregate function '{:?}'",
-                        other
-                    ))),
-                }
+            Expr::AggregateFunction { fun, args, .. } => {
+                let data_types = args
+                    .iter()
+                    .map(|e| e.get_type(schema))
+                    .collect::<Result<Vec<_>>>()?;
+                aggregates::return_type(fun, &data_types)
             }
             Expr::Not(_) => Ok(DataType::Boolean),
             Expr::IsNull(_) => Ok(DataType::Boolean),
@@ -573,27 +538,42 @@ pub fn col(name: &str) -> Expr {
 
 /// Create an expression to represent the min() aggregate function
 pub fn min(expr: Expr) -> Expr {
-    aggregate_expr("MIN", expr)
+    Expr::AggregateFunction {
+        fun: aggregates::AggregateFunction::Min,
+        args: vec![expr],
+    }
 }
 
 /// Create an expression to represent the max() aggregate function
 pub fn max(expr: Expr) -> Expr {
-    aggregate_expr("MAX", expr)
+    Expr::AggregateFunction {
+        fun: aggregates::AggregateFunction::Max,
+        args: vec![expr],
+    }
 }
 
 /// Create an expression to represent the sum() aggregate function
 pub fn sum(expr: Expr) -> Expr {
-    aggregate_expr("SUM", expr)
+    Expr::AggregateFunction {
+        fun: aggregates::AggregateFunction::Sum,
+        args: vec![expr],
+    }
 }
 
 /// Create an expression to represent the avg() aggregate function
 pub fn avg(expr: Expr) -> Expr {
-    aggregate_expr("AVG", expr)
+    Expr::AggregateFunction {
+        fun: aggregates::AggregateFunction::Avg,
+        args: vec![expr],
+    }
 }
 
 /// Create an expression to represent the count() aggregate function
 pub fn count(expr: Expr) -> Expr {
-    aggregate_expr("COUNT", expr)
+    Expr::AggregateFunction {
+        fun: aggregates::AggregateFunction::Count,
+        args: vec![expr],
+    }
 }
 
 /// Whether it can be represented as a literal expression
@@ -690,14 +670,6 @@ pub fn concat(args: Vec<Expr>) -> Expr {
     }
 }
 
-/// Create an aggregate expression
-pub fn aggregate_expr(name: &str, expr: Expr) -> Expr {
-    Expr::AggregateFunction {
-        name: name.to_owned(),
-        args: vec![expr],
-    }
-}
-
 /// Creates a new UDF with a specific signature and specific return type.
 /// This is a helper function to create a new UDF.
 /// The function `create_udf` returns a subset of all possible `ScalarFunction`:
@@ -767,8 +739,8 @@ impl fmt::Debug for Expr {
 
                 write!(f, ")")
             }
-            Expr::AggregateFunction { name, ref args, .. } => {
-                write!(f, "{}(", name)?;
+            Expr::AggregateFunction { fun, ref args, .. } => {
+                write!(f, "{}(", fun)?;
                 for i in 0..args.len() {
                     if i > 0 {
                         write!(f, ", ")?;
@@ -1429,7 +1401,7 @@ mod tests {
         )?
         .aggregate(
             vec![col("state")],
-            vec![aggregate_expr("SUM", col("salary")).alias("total_salary")],
+            vec![sum(col("salary")).alias("total_salary")],
         )?
         .project(vec![col("state"), col("total_salary")])?
         .build()?;

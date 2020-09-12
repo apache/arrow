@@ -338,7 +338,7 @@ mod tests {
 
     use super::*;
     use crate::logical_plan::{col, lit};
-    use crate::logical_plan::{Expr, LogicalPlanBuilder};
+    use crate::logical_plan::{max, min, Expr, LogicalPlanBuilder};
     use crate::test::*;
     use arrow::datatypes::DataType;
 

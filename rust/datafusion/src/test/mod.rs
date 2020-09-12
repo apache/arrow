@@ -20,7 +20,7 @@
 use crate::datasource::{MemTable, TableProvider};
 use crate::error::Result;
 use crate::execution::context::ExecutionContext;
-use crate::logical_plan::{Expr, LogicalPlan, LogicalPlanBuilder};
+use crate::logical_plan::{LogicalPlan, LogicalPlanBuilder};
 use crate::physical_plan::ExecutionPlan;
 use arrow::array;
 use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
@@ -240,20 +240,6 @@ pub fn assert_fields_eq(plan: &LogicalPlan, expected: Vec<&str>) {
         .map(|f| f.name().clone())
         .collect();
     assert_eq!(actual, expected);
-}
-
-pub fn max(expr: Expr) -> Expr {
-    Expr::AggregateFunction {
-        name: "MAX".to_owned(),
-        args: vec![expr],
-    }
-}
-
-pub fn min(expr: Expr) -> Expr {
-    Expr::AggregateFunction {
-        name: "MIN".to_owned(),
-        args: vec![expr],
-    }
 }
 
 pub mod variable;
