@@ -227,15 +227,15 @@ mod tests {
     fn test_compute_row_major_strides() {
         assert_eq!(
             vec![48, 8],
-            compute_row_major_strides::<Int64Type>(&vec![4_usize, 6])
+            compute_row_major_strides::<Int64Type>(&[4_usize, 6])
         );
         assert_eq!(
             vec![24, 4],
-            compute_row_major_strides::<Int32Type>(&vec![4_usize, 6])
+            compute_row_major_strides::<Int32Type>(&[4_usize, 6])
         );
         assert_eq!(
             vec![6, 1],
-            compute_row_major_strides::<Int8Type>(&vec![4_usize, 6])
+            compute_row_major_strides::<Int8Type>(&[4_usize, 6])
         );
     }
 
@@ -243,15 +243,15 @@ mod tests {
     fn test_compute_column_major_strides() {
         assert_eq!(
             vec![8, 32],
-            compute_column_major_strides::<Int64Type>(&vec![4_usize, 6])
+            compute_column_major_strides::<Int64Type>(&[4_usize, 6])
         );
         assert_eq!(
             vec![4, 16],
-            compute_column_major_strides::<Int32Type>(&vec![4_usize, 6])
+            compute_column_major_strides::<Int32Type>(&[4_usize, 6])
         );
         assert_eq!(
             vec![1, 4],
-            compute_column_major_strides::<Int8Type>(&vec![4_usize, 6])
+            compute_column_major_strides::<Int8Type>(&[4_usize, 6])
         );
     }
 

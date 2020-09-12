@@ -30,7 +30,7 @@ use arrow::compute::cast;
 use arrow::datatypes::*;
 
 // cast array from specified primitive array type to desired data type
-fn cast_array<FROM>(size: usize, to_type: DataType) -> ()
+fn cast_array<FROM>(size: usize, to_type: DataType)
 where
     FROM: ArrowNumericType,
     Standard: Distribution<FROM::Native>,
@@ -44,7 +44,7 @@ where
 }
 
 // cast timestamp array from specified primitive array type to desired data type
-fn cast_timestamp_array<FROM>(size: usize, to_type: DataType) -> ()
+fn cast_timestamp_array<FROM>(size: usize, to_type: DataType)
 where
     FROM: ArrowTimestampType,
     Standard: Distribution<i64>,

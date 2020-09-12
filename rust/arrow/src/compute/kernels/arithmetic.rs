@@ -487,9 +487,9 @@ mod tests {
         let a = Float64Array::from(vec![15.0, 15.0, 8.0]);
         let b = Float64Array::from(vec![5.0, 6.0, 8.0]);
         let c = divide(&a, &b).unwrap();
-        assert_eq!(3.0, c.value(0));
-        assert_eq!(2.5, c.value(1));
-        assert_eq!(1.0, c.value(2));
+        assert!(3.0 - c.value(0) < f64::EPSILON);
+        assert!(2.5 - c.value(1) < f64::EPSILON);
+        assert!(1.0 - c.value(2) < f64::EPSILON);
     }
 
     #[test]

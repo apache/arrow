@@ -442,7 +442,7 @@ pub fn read_record_batch(
         arrays.push(triple.0);
     }
 
-    RecordBatch::try_new(schema, arrays).map(|batch| Some(batch))
+    RecordBatch::try_new(schema, arrays).map(Some)
 }
 
 // Linear search for the first dictionary field with a dictionary id.

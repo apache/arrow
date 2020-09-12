@@ -97,7 +97,7 @@ where
 
     result_chunks
         .into_remainder()
-        .into_iter()
+        .iter_mut()
         .zip(
             left_chunks
                 .remainder()

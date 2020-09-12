@@ -401,7 +401,7 @@ fn write_buffer(
 }
 
 /// Calculate an 8-byte boundary and return the number of bytes needed to pad to 8 bytes
-fn pad_to_8<'a>(len: u32) -> usize {
+fn pad_to_8(len: u32) -> usize {
     match len % 8 {
         0 => 0 as usize,
         v => 8 - v as usize,

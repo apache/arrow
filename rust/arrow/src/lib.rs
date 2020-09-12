@@ -26,6 +26,7 @@
 #![allow(non_camel_case_types)]
 #![allow(bare_trait_objects)]
 #![warn(missing_debug_implementations)]
+#![deny(clippy::redundant_clone)]
 
 pub mod array;
 pub mod bitmap;
@@ -34,11 +35,6 @@ pub mod compute;
 pub mod csv;
 pub mod datatypes;
 pub mod error;
-#[allow(clippy::redundant_closure)]
-#[allow(clippy::needless_lifetimes)]
-#[allow(clippy::extra_unused_lifetimes)]
-#[allow(clippy::redundant_static_lifetimes)]
-#[allow(clippy::redundant_field_names)]
 pub mod ipc;
 pub mod json;
 pub mod memory;

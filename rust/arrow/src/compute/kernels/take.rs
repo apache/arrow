@@ -280,7 +280,7 @@ where
 mod tests {
     use super::*;
 
-    fn test_take_primitive_arrays<'a, T>(
+    fn test_take_primitive_arrays<T>(
         data: Vec<Option<T::Native>>,
         index: &UInt32Array,
         options: Option<TakeOptions>,
@@ -482,7 +482,7 @@ mod tests {
         // construct offsets
         let expected_offsets = Buffer::from(&[0, 2, 2, 5, 7, 10].to_byte_slice());
         // construct list array from the two
-        let expected_list_data = ArrayData::builder(list_data_type.clone())
+        let expected_list_data = ArrayData::builder(list_data_type)
             .len(5)
             .null_count(1)
             // null buffer remains the same as only the indices have nulls
@@ -546,7 +546,7 @@ mod tests {
         // construct offsets
         let expected_offsets = Buffer::from(&[0, 1, 1, 4, 6, 9].to_byte_slice());
         // construct list array from the two
-        let expected_list_data = ArrayData::builder(list_data_type.clone())
+        let expected_list_data = ArrayData::builder(list_data_type)
             .len(5)
             .null_count(1)
             // null buffer remains the same as only the indices have nulls
@@ -612,7 +612,7 @@ mod tests {
         bit_util::set_bit(&mut null_bits, 2);
         bit_util::set_bit(&mut null_bits, 3);
         bit_util::set_bit(&mut null_bits, 4);
-        let expected_list_data = ArrayData::builder(list_data_type.clone())
+        let expected_list_data = ArrayData::builder(list_data_type)
             .len(5)
             .null_count(2)
             // null buffer must be recalculated as both values and indices have nulls
