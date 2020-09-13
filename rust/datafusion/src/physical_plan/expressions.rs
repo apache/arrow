@@ -1121,11 +1121,6 @@ fn common_binary_type(
                 "Modulus operator is still not supported".to_string(),
             ))
         }
-        Operator::Not => {
-            return Err(ExecutionError::InternalError(
-                "Trying to coerce a unary operator".to_string(),
-            ))
-        }
     };
 
     // re-write the error message of failed coercions to include the operator's information
@@ -1172,9 +1167,6 @@ pub fn binary_operator_data_type(
         }
         Operator::Modulus => Err(ExecutionError::NotImplemented(
             "Modulus operator is still not supported".to_string(),
-        )),
-        Operator::Not => Err(ExecutionError::InternalError(
-            "Trying to coerce a unary operator".to_string(),
         )),
     }
 }
@@ -1262,9 +1254,6 @@ impl PhysicalExpr for BinaryExpr {
             Operator::Modulus => Err(ExecutionError::NotImplemented(
                 "Modulus operator is still not supported".to_string(),
             )),
-            Operator::Not => {
-                Err(ExecutionError::General("Unsupported operator".to_string()))
-            }
         }
     }
 }
@@ -1731,20 +1720,6 @@ mod tests {
         } else {
             Err(ExecutionError::General(
                 "Coercion should have returned an ExecutionError::General".to_string(),
-            ))
-        }
-    }
-
-    #[test]
-    fn test_coersion_invalid() -> Result<()> {
-        let expr =
-            common_binary_type(&DataType::Float32, &Operator::Not, &DataType::Utf8);
-        if let Err(ExecutionError::InternalError(_)) = expr {
-            Ok(())
-        } else {
-            Err(ExecutionError::General(
-                "Coercion should have returned an ExecutionError::InternalError"
-                    .to_string(),
             ))
         }
     }
