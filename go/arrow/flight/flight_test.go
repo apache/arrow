@@ -20,27 +20,72 @@ import (
 	context "context"
 	"errors"
 	"io"
-	"log"
 	"testing"
 
+	"github.com/apache/arrow/go/arrow/array"
 	"github.com/apache/arrow/go/arrow/flight"
 	"github.com/apache/arrow/go/arrow/internal/arrdata"
 	"github.com/apache/arrow/go/arrow/ipc"
+	"github.com/apache/arrow/go/arrow/memory"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
-type flightServer struct{}
+type flightServer struct {
+	mem memory.Allocator
+}
+
+func (f *flightServer) getmem() memory.Allocator {
+	if f.mem == nil {
+		f.mem = memory.NewGoAllocator()
+	}
+
+	return f.mem
+}
 
 func (f *flightServer) ListFlights(c *flight.Criteria, fs flight.FlightService_ListFlightsServer) error {
-	ctx := fs.Context()
-	md, ok := metadata.FromIncomingContext(ctx)
-	log.Println(md, ok)
+	expr := string(c.GetExpression())
+	for _, name := range arrdata.RecordNames {
+		if expr != "" && expr != name {
+			continue
+		}
+
+		recs := arrdata.Records[name]
+		totalRows := int64(0)
+		for _, r := range recs {
+			totalRows += r.NumRows()
+		}
+
+		fs.Send(&flight.FlightInfo{
+			Schema: ipc.FlightInfoSchemaBytes(recs[0].Schema(), f.getmem()),
+			FlightDescriptor: &flight.FlightDescriptor{
+				Type: flight.FlightDescriptor_PATH,
+				Path: []string{name},
+			},
+			TotalRecords: totalRows,
+			TotalBytes:   -1,
+		})
+	}
+
 	return nil
 }
 
-func (f *flightServer) DoGet(_ *flight.Ticket, fs flight.FlightService_DoGetServer) error {
-	recs := arrdata.Records["primitives"]
+func (f *flightServer) GetSchema(_ context.Context, in *flight.FlightDescriptor) (*flight.SchemaResult, error) {
+	if in == nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid flight descriptor")
+	}
+
+	recs, ok := arrdata.Records[in.Path[0]]
+	if !ok {
+		return nil, status.Error(codes.NotFound, "flight not found")
+	}
+
+	return &flight.SchemaResult{Schema: ipc.FlightInfoSchemaBytes(recs[0].Schema(), f.getmem())}, nil
+}
+
+func (f *flightServer) DoGet(tkt *flight.Ticket, fs flight.FlightService_DoGetServer) error {
+	recs := arrdata.Records[string(tkt.GetTicket())]
 
 	w := ipc.NewFlightDataWriter(fs, ipc.WithSchema(recs[0].Schema()))
 	for _, r := range recs {
@@ -53,7 +98,7 @@ func (f *flightServer) DoGet(_ *flight.Ticket, fs flight.FlightService_DoGetServ
 type servAuth struct{}
 
 func (a *servAuth) Authenticate(c flight.AuthConn) error {
-	in, err := c.Read()
+	_, err := c.Read()
 	if err == io.EOF {
 		return nil
 	}
@@ -62,7 +107,6 @@ func (a *servAuth) Authenticate(c flight.AuthConn) error {
 		return err
 	}
 
-	log.Println(string(in))
 	return c.Send([]byte("baz"))
 }
 
@@ -80,13 +124,104 @@ func (a *clientAuth) Authenticate(c flight.AuthConn) error {
 		return err
 	}
 
-	in, err := c.Read()
-	log.Println(in)
+	_, err := c.Read()
 	return err
 }
 
 func (a *clientAuth) GetToken() (string, error) {
 	return "baz", nil
+}
+
+func TestListFlights(t *testing.T) {
+	s := flight.NewFlightServer(nil)
+	s.Init("localhost:0")
+	f := &flightServer{}
+	s.RegisterFlightService(&flight.FlightServiceService{
+		ListFlights: f.ListFlights,
+	})
+
+	go s.Serve()
+	defer s.Shutdown()
+
+	client, err := flight.NewFlightClient(s.Addr().String(), nil, grpc.WithInsecure())
+	if err != nil {
+		t.Error(err)
+	}
+	defer client.Close()
+
+	flightStream, err := client.ListFlights(context.Background(), &flight.Criteria{})
+	if err != nil {
+		t.Error(err)
+	}
+
+	for {
+		info, err := flightStream.Recv()
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			t.Error(err)
+		}
+
+		fname := info.GetFlightDescriptor().GetPath()[0]
+		recs, ok := arrdata.Records[fname]
+		if !ok {
+			t.Fatalf("got unknown flight info: %s", fname)
+		}
+
+		sc, err := ipc.SchemaFromFlightInfo(info.GetSchema())
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if !recs[0].Schema().Equal(sc) {
+			t.Fatalf("flight info schema transfer failed: \ngot = %#v\nwant = %#v\n", sc, recs[0].Schema())
+		}
+
+		var total int64 = 0
+		for _, r := range recs {
+			total += r.NumRows()
+		}
+
+		if info.TotalRecords != total {
+			t.Fatalf("got wrong number of total records: got = %d, wanted = %d", info.TotalRecords, total)
+		}
+	}
+}
+
+func TestGetSchema(t *testing.T) {
+	s := flight.NewFlightServer(nil)
+	s.Init("localhost:0")
+	f := &flightServer{}
+	s.RegisterFlightService(&flight.FlightServiceService{
+		GetSchema: f.GetSchema,
+	})
+
+	go s.Serve()
+	defer s.Shutdown()
+
+	client, err := flight.NewFlightClient(s.Addr().String(), nil, grpc.WithInsecure())
+	if err != nil {
+		t.Error(err)
+	}
+	defer client.Close()
+
+	for name, testrecs := range arrdata.Records {
+		t.Run("flight get schema: "+name, func(t *testing.T) {
+			res, err := client.GetSchema(context.Background(), &flight.FlightDescriptor{Path: []string{name}})
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			schema, err := ipc.SchemaFromFlightInfo(res.GetSchema())
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if !testrecs[0].Schema().Equal(schema) {
+				t.Fatalf("schema not match: \ngot = %#v\nwant = %#v\n", schema, testrecs[0].Schema())
+			}
+		})
+	}
 }
 
 func TestServer(t *testing.T) {
@@ -99,8 +234,6 @@ func TestServer(t *testing.T) {
 	s := flight.NewFlightServer(&servAuth{})
 	s.Init("localhost:0")
 	s.RegisterFlightService(service)
-
-	log.Println(s.Addr())
 
 	go s.Serve()
 	defer s.Shutdown()
@@ -116,15 +249,17 @@ func TestServer(t *testing.T) {
 		t.Error(err)
 	}
 
-	fistream, err := client.ListFlights(context.Background(), &flight.Criteria{})
+	fistream, err := client.ListFlights(context.Background(), &flight.Criteria{Expression: []byte("decimal128")})
 	if err != nil {
 		t.Error(err)
 	}
 
 	fi, err := fistream.Recv()
-	log.Println(fi, err)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	fdata, err := client.DoGet(context.Background(), &flight.Ticket{})
+	fdata, err := client.DoGet(context.Background(), &flight.Ticket{Ticket: []byte("decimal128")})
 	if err != nil {
 		t.Error(err)
 	}
@@ -134,6 +269,9 @@ func TestServer(t *testing.T) {
 		t.Error(err)
 	}
 
+	expected := arrdata.Records["decimal128"]
+	idx := 0
+	var numRows int64 = 0
 	for {
 		rec, err := r.Read()
 		if err != nil {
@@ -143,6 +281,14 @@ func TestServer(t *testing.T) {
 			t.Error(err)
 		}
 
-		log.Println(rec)
+		numRows += rec.NumRows()
+		if !array.RecordEqual(expected[idx], rec) {
+			t.Errorf("flight data stream records don't match: \ngot = %#v\nwant = %#v", rec, expected[idx])
+		}
+		idx++
+	}
+
+	if numRows != fi.TotalRecords {
+		t.Fatalf("got %d, want %d", numRows, fi.TotalRecords)
 	}
 }

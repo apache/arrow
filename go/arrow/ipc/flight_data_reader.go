@@ -198,6 +198,12 @@ func (f *FlightDataReader) Err() error { return f.err }
 // first message received.
 func (f *FlightDataReader) Schema() *arrow.Schema { return f.schema }
 
+func SchemaFromFlightInfo(b []byte) (*arrow.Schema, error) {
+	fb := flatbuf.GetRootAsSchema(b, 0)
+	dict := newMemo()
+	return schemaFromFB(fb, &dict)
+}
+
 var (
 	_ array.RecordReader = (*FlightDataReader)(nil)
 	_ arrio.Reader       = (*FlightDataReader)(nil)

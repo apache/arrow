@@ -25,6 +25,7 @@ import (
 	"github.com/apache/arrow/go/arrow/bitutil"
 	"github.com/apache/arrow/go/arrow/flight"
 	"github.com/apache/arrow/go/arrow/memory"
+	flatbuffers "github.com/google/flatbuffers/go"
 	"golang.org/x/xerrors"
 )
 
@@ -134,6 +135,14 @@ func (w *FlightDataWriter) writePayload(data *payload) (err error) {
 
 	w.fd.DataBody = tmp.Bytes()
 	return w.w.Send(&w.fd)
+}
+
+func FlightInfoSchemaBytes(schema *arrow.Schema, mem memory.Allocator) []byte {
+	dict := newMemo()
+	b := flatbuffers.NewBuilder(1024)
+	offset := schemaToFB(b, schema, &dict)
+	b.Finish(offset)
+	return b.FinishedBytes()
 }
 
 var (
