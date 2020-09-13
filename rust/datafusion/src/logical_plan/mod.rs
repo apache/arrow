@@ -179,6 +179,18 @@ impl fmt::Display for ScalarValue {
     }
 }
 
+fn create_function_name(
+    fun: &String,
+    args: &[Expr],
+    input_schema: &Schema,
+) -> Result<String> {
+    let names: Vec<String> = args
+        .iter()
+        .map(|e| create_name(e, input_schema))
+        .collect::<Result<_>>()?;
+    Ok(format!("{}({})", fun, names.join(",")))
+}
+
 /// Returns a readable name of an expression based on the input schema.
 /// This function recursively transverses the expression for names such as "CAST(a > 2)".
 fn create_name(e: &Expr, input_schema: &Schema) -> Result<String> {
@@ -197,25 +209,13 @@ fn create_name(e: &Expr, input_schema: &Schema) -> Result<String> {
             Ok(format!("CAST({} as {:?})", expr, data_type))
         }
         Expr::ScalarFunction { fun, args, .. } => {
-            let mut names = Vec::with_capacity(args.len());
-            for e in args {
-                names.push(create_name(e, input_schema)?);
-            }
-            Ok(format!("{}({})", fun, names.join(",")))
+            create_function_name(&fun.to_string(), args, input_schema)
         }
         Expr::ScalarUDF { fun, args, .. } => {
-            let mut names = Vec::with_capacity(args.len());
-            for e in args {
-                names.push(create_name(e, input_schema)?);
-            }
-            Ok(format!("{}({})", fun.name, names.join(",")))
+            create_function_name(&fun.name, args, input_schema)
         }
         Expr::AggregateFunction { fun, args, .. } => {
-            let mut names = Vec::with_capacity(args.len());
-            for e in args {
-                names.push(create_name(e, input_schema)?);
-            }
-            Ok(format!("{}({})", fun, names.join(",")))
+            create_function_name(&fun.to_string(), args, input_schema)
         }
         other => Err(ExecutionError::NotImplemented(format!(
             "Physical plan does not support logical expression {:?}",
@@ -685,6 +685,11 @@ pub fn create_udf(
     ScalarUDF::new(name, &Signature::Exact(input_types), &return_type, &fun)
 }
 
+fn fmt_function(f: &mut fmt::Formatter, fun: &String, args: &Vec<Expr>) -> fmt::Result {
+    let args: Vec<String> = args.iter().map(|arg| format!("{:?}", arg)).collect();
+    write!(f, "{}({})", fun, args.join(", "))
+}
+
 impl fmt::Debug for Expr {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
@@ -717,38 +722,12 @@ impl fmt::Debug for Expr {
                     write!(f, " NULLS LAST")
                 }
             }
-            Expr::ScalarFunction { fun, ref args, .. } => {
-                write!(f, "{}(", fun)?;
-                for i in 0..args.len() {
-                    if i > 0 {
-                        write!(f, ", ")?;
-                    }
-                    write!(f, "{:?}", args[i])?;
-                }
-
-                write!(f, ")")
+            Expr::ScalarFunction { fun, args, .. } => {
+                fmt_function(f, &fun.to_string(), args)
             }
-            Expr::ScalarUDF { fun, ref args, .. } => {
-                write!(f, "{}(", fun.name)?;
-                for i in 0..args.len() {
-                    if i > 0 {
-                        write!(f, ", ")?;
-                    }
-                    write!(f, "{:?}", args[i])?;
-                }
-
-                write!(f, ")")
-            }
+            Expr::ScalarUDF { fun, ref args, .. } => fmt_function(f, &fun.name, args),
             Expr::AggregateFunction { fun, ref args, .. } => {
-                write!(f, "{}(", fun)?;
-                for i in 0..args.len() {
-                    if i > 0 {
-                        write!(f, ", ")?;
-                    }
-                    write!(f, "{:?}", args[i])?;
-                }
-
-                write!(f, ")")
+                fmt_function(f, &fun.to_string(), args)
             }
             Expr::Wildcard => write!(f, "*"),
             Expr::Nested(expr) => write!(f, "({:?})", expr),
