@@ -561,21 +561,28 @@ class PARQUET_NO_EXPORT StructReader : public ColumnReaderImpl {
   explicit StructReader(std::shared_ptr<ReaderContext> ctx,
                         std::shared_ptr<Field> filtered_field,
                         ::parquet::internal::LevelInfo level_info,
-                        std::vector<std::unique_ptr<ColumnReaderImpl>>&& children)
+                        std::vector<std::unique_ptr<ColumnReaderImpl>> children)
       : ctx_(std::move(ctx)),
         filtered_field_(std::move(filtered_field)),
         level_info_(level_info),
         children_(std::move(children)) {
-    has_repeated_child_ = IsOrHasRepeatedChild();
+    // There could be a mix of children some might be repeated some might not be.
+    // If possible use one that isn't since that will be guaranteed to have the least
+    // number of rep/def levels.
+    auto result = std::find_if(children_.begin(), children_.end(),
+                               [](const std::unique_ptr<ColumnReaderImpl>& child) {
+                                 return !child->IsOrHasRepeatedChild();
+                               });
+    if (result != children_.end()) {
+      def_rep_level_child_ = result->get();
+      has_repeated_child_ = false;
+    } else if (!children_.empty()) {
+      def_rep_level_child_ = children_.front().get();
+      has_repeated_child_ = true;
+    }
   }
 
-  bool IsOrHasRepeatedChild() const final {
-    if (children_.empty()) {
-      return false;
-    }
-    // Needs to be kept consistent with how rep/def levels are chosen.
-    return children_.front()->IsOrHasRepeatedChild();
-  }
+  bool IsOrHasRepeatedChild() const final { return has_repeated_child_; }
 
   Status LoadBatch(int64_t records_to_read) override {
     for (const std::unique_ptr<ColumnReaderImpl>& reader : children_) {
@@ -593,6 +600,7 @@ class PARQUET_NO_EXPORT StructReader : public ColumnReaderImpl {
   const std::shared_ptr<Field> filtered_field_;
   const ::parquet::internal::LevelInfo level_info_;
   const std::vector<std::unique_ptr<ColumnReaderImpl>> children_;
+  ColumnReaderImpl* def_rep_level_child_ = nullptr;
   bool has_repeated_child_;
 };
 
@@ -604,13 +612,10 @@ Status StructReader::GetDefLevels(const int16_t** data, int64_t* length) {
   }
 
   // This method should only be called when this struct or one of its parents
-  // are optional/repeated.  Meaning all children must have rep/def levels associated
-  // with them. Furthermore, it shouldn't matter which definition levels we
-  // choose at this point, because callers sitting above this on the call graph
-  // should all have identical levels for the purposes of decoding (technically
-  // we could optimize by choosing a child with the least number of rep/def levels
-  // but we can leave that for future work).
-  RETURN_NOT_OK(children_[0]->GetDefLevels(data, length));
+  // are optional/repeated or it has a repeated child.
+  // Meaning all children must have rep/def levels associated
+  // with them.
+  RETURN_NOT_OK(def_rep_level_child_->GetDefLevels(data, length));
 
   if (*data == nullptr) {
     // Only happens if there are actually 0 rows available.
@@ -628,11 +633,10 @@ Status StructReader::GetRepLevels(const int16_t** data, int64_t* length) {
   }
 
   // This method should only be called when this struct or one of its parents
-  // are optional/repeated.  Meaning all children must have rep/def levels associated
-  // with them. Furthermore, it shouldn't matter which repetition levels we
-  // choose at this point, because callers sitting above this on the call graph
-  // should all have identical levels for the purposes of decoding them.
-  RETURN_NOT_OK(children_[0]->GetRepLevels(data, length));
+  // are optional/repeated or it has repeated child.
+  // Meaning all children must have rep/def levels associated
+  // with them.
+  RETURN_NOT_OK(def_rep_level_child_->GetRepLevels(data, length));
 
   if (data == nullptr) {
     // Only happens if there are actually 0 rows available.
@@ -659,14 +663,14 @@ Status StructReader::BuildArray(int64_t records_to_read,
   if (has_repeated_child_) {
     ARROW_ASSIGN_OR_RAISE(null_bitmap, AllocateBitmap(records_to_read, ctx_->pool));
     validity_io.valid_bits = null_bitmap->mutable_data();
-    RETURN_NOT_OK(children_.front()->GetDefLevels(&def_levels, &num_levels));
-    RETURN_NOT_OK(children_.front()->GetRepLevels(&rep_levels, &num_levels));
+    RETURN_NOT_OK(GetDefLevels(&def_levels, &num_levels));
+    RETURN_NOT_OK(GetRepLevels(&rep_levels, &num_levels));
     ConvertDefRepLevelsToBitmap(def_levels, rep_levels, num_levels, level_info_,
                                 &validity_io);
   } else if (filtered_field_->nullable()) {
     ARROW_ASSIGN_OR_RAISE(null_bitmap, AllocateBitmap(records_to_read, ctx_->pool));
     validity_io.valid_bits = null_bitmap->mutable_data();
-    RETURN_NOT_OK(children_.front()->GetDefLevels(&def_levels, &num_levels));
+    RETURN_NOT_OK(GetDefLevels(&def_levels, &num_levels));
     DefinitionLevelsToBitmap(def_levels, num_levels, level_info_, &validity_io);
   }
 
