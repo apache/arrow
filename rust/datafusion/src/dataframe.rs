@@ -71,7 +71,7 @@ pub trait DataFrame {
     /// # fn main() -> Result<()> {
     /// let mut ctx = ExecutionContext::new();
     /// let df = ctx.read_csv("tests/example.csv", CsvReadOptions::new())?;
-    /// let df = df.select(vec![col("a").multiply(col("b")), col("c")])?;
+    /// let df = df.select(vec![col("a") * col("b"), col("c")])?;
     /// # Ok(())
     /// # }
     /// ```

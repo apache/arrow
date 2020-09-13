@@ -40,66 +40,8 @@ use crate::{
 use arrow::record_batch::RecordBatch;
 use functions::{ReturnTypeFunction, ScalarFunctionImplementation, Signature};
 
-/// Operators applied to expressions
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Operator {
-    /// Expressions are equal
-    Eq,
-    /// Expressions are not equal
-    NotEq,
-    /// Left side is smaller than right side
-    Lt,
-    /// Left side is smaller or equal to right side
-    LtEq,
-    /// Left side is greater than right side
-    Gt,
-    /// Left side is greater or equal to right side
-    GtEq,
-    /// Addition
-    Plus,
-    /// Subtraction
-    Minus,
-    /// Multiplication operator, like `*`
-    Multiply,
-    /// Division operator, like `/`
-    Divide,
-    /// Remainder operator, like `%`
-    Modulus,
-    /// Logical AND, like `&&`
-    And,
-    /// Logical OR, like `||`
-    Or,
-    /// Logical NOT, like `!`
-    Not,
-    /// Matches a wildcard pattern
-    Like,
-    /// Does not match a wildcard pattern
-    NotLike,
-}
-
-impl fmt::Display for Operator {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let display = match &self {
-            Operator::Eq => "=",
-            Operator::NotEq => "!=",
-            Operator::Lt => "<",
-            Operator::LtEq => "<=",
-            Operator::Gt => ">",
-            Operator::GtEq => ">=",
-            Operator::Plus => "+",
-            Operator::Minus => "-",
-            Operator::Multiply => "*",
-            Operator::Divide => "/",
-            Operator::Modulus => "%",
-            Operator::And => "AND",
-            Operator::Or => "OR",
-            Operator::Not => "NOT",
-            Operator::Like => "LIKE",
-            Operator::NotLike => "NOT LIKE",
-        };
-        write!(f, "{}", display)
-    }
-}
+mod operators;
+pub use operators::Operator;
 
 /// ScalarValue enumeration
 #[derive(Debug, Clone, PartialEq)]
@@ -457,26 +399,6 @@ impl Expr {
     /// Not
     pub fn not(&self) -> Expr {
         Expr::Not(Box::new(self.clone()))
-    }
-
-    /// Add the specified expression
-    pub fn plus(&self, other: Expr) -> Expr {
-        binary_expr(self.clone(), Operator::Plus, other.clone())
-    }
-
-    /// Subtract the specified expression
-    pub fn minus(&self, other: Expr) -> Expr {
-        binary_expr(self.clone(), Operator::Minus, other.clone())
-    }
-
-    /// Multiply by the specified expression
-    pub fn multiply(&self, other: Expr) -> Expr {
-        binary_expr(self.clone(), Operator::Multiply, other.clone())
-    }
-
-    /// Divide by the specified expression
-    pub fn divide(&self, other: Expr) -> Expr {
-        binary_expr(self.clone(), Operator::Divide, other.clone())
     }
 
     /// Calculate the modulus of two expressions
