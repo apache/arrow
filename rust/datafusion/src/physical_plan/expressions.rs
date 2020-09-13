@@ -183,92 +183,111 @@ impl SumAccumulator {
 }
 
 // returns the new value after sum with the new values, taking nullability into account
-macro_rules! typed_sum_accumulate {
-    ($OLD_VALUE:expr, $NEW_VALUES:expr, $ARRAYTYPE:ident, $SCALAR:ident, $TYPE:ident) => {{
-        let array = $NEW_VALUES.as_any().downcast_ref::<$ARRAYTYPE>().unwrap();
+macro_rules! typed_sum_delta_batch {
+    ($VALUES:expr, $ARRAYTYPE:ident, $SCALAR:ident) => {{
+        let array = $VALUES.as_any().downcast_ref::<$ARRAYTYPE>().unwrap();
         let delta = compute::sum(array);
-        if $OLD_VALUE.is_none() {
-            ScalarValue::$SCALAR(delta.and_then(|e| Some(e as $TYPE)))
-        } else {
-            let delta = delta.and_then(|e| Some(e as $TYPE)).unwrap_or(0 as $TYPE);
-            ScalarValue::from($OLD_VALUE.unwrap() + delta)
-        }
+        ScalarValue::$SCALAR(delta)
     }};
 }
 
-// given an existing value `old` and an `array` of new values,
-// performs a sum, returning the new value.
-fn sum_accumulate(old: &ScalarValue, array: &ArrayRef) -> Result<ScalarValue> {
-    Ok(match old {
-        ScalarValue::Float64(sum) => match array.data_type() {
-            DataType::Float64 => {
-                typed_sum_accumulate!(sum, array, Float64Array, Float64, f64)
-            }
-            DataType::Float32 => {
-                typed_sum_accumulate!(sum, array, Float32Array, Float64, f64)
-            }
-            DataType::Int64 => {
-                typed_sum_accumulate!(sum, array, Int64Array, Float64, f64)
-            }
-            DataType::Int32 => {
-                typed_sum_accumulate!(sum, array, Int32Array, Float64, f64)
-            }
-            DataType::Int16 => {
-                typed_sum_accumulate!(sum, array, Int16Array, Float64, f64)
-            }
-            DataType::Int8 => typed_sum_accumulate!(sum, array, Int8Array, Float64, f64),
-            DataType::UInt64 => {
-                typed_sum_accumulate!(sum, array, UInt64Array, Float64, f64)
-            }
-            DataType::UInt32 => {
-                typed_sum_accumulate!(sum, array, UInt32Array, Float64, f64)
-            }
-            DataType::UInt16 => {
-                typed_sum_accumulate!(sum, array, UInt16Array, Float64, f64)
-            }
-            DataType::UInt8 => {
-                typed_sum_accumulate!(sum, array, UInt8Array, Float64, f64)
-            }
-            dt => {
-                return Err(ExecutionError::InternalError(format!(
-                    "Sum f64 does not expect to receive type {:?}",
-                    dt
-                )))
-            }
-        },
-        ScalarValue::Float32(sum) => {
-            typed_sum_accumulate!(sum, array, Float32Array, Float32, f32)
+// sums the array and returns a ScalarValue of its corresponding type.
+fn sum_batch(values: &ArrayRef) -> Result<ScalarValue> {
+    Ok(match values.data_type() {
+        DataType::Float64 => typed_sum_delta_batch!(values, Float64Array, Float64),
+        DataType::Float32 => typed_sum_delta_batch!(values, Float32Array, Float32),
+        DataType::Int64 => typed_sum_delta_batch!(values, Int64Array, Int64),
+        DataType::Int32 => typed_sum_delta_batch!(values, Int32Array, Int32),
+        DataType::Int16 => typed_sum_delta_batch!(values, Int16Array, Int16),
+        DataType::Int8 => typed_sum_delta_batch!(values, Int8Array, Int8),
+        DataType::UInt64 => typed_sum_delta_batch!(values, UInt64Array, UInt64),
+        DataType::UInt32 => typed_sum_delta_batch!(values, UInt32Array, UInt32),
+        DataType::UInt16 => typed_sum_delta_batch!(values, UInt16Array, UInt16),
+        DataType::UInt8 => typed_sum_delta_batch!(values, UInt8Array, UInt8),
+        e => {
+            return Err(ExecutionError::InternalError(format!(
+                "Sum is not expected to receive the type {:?}",
+                e
+            )))
         }
-        ScalarValue::UInt64(sum) => match array.data_type() {
-            DataType::UInt64 => {
-                typed_sum_accumulate!(sum, array, UInt64Array, UInt64, u64)
-            }
-            DataType::UInt32 => {
-                typed_sum_accumulate!(sum, array, UInt32Array, UInt64, u64)
-            }
-            DataType::UInt16 => {
-                typed_sum_accumulate!(sum, array, UInt16Array, UInt64, u64)
-            }
-            DataType::UInt8 => typed_sum_accumulate!(sum, array, UInt8Array, UInt64, u64),
-            dt => {
-                return Err(ExecutionError::InternalError(format!(
-                    "Sum is not expected to receive type {:?}",
-                    dt
-                )))
-            }
-        },
-        ScalarValue::Int64(sum) => match array.data_type() {
-            DataType::Int64 => typed_sum_accumulate!(sum, array, Int64Array, Int64, i64),
-            DataType::Int32 => typed_sum_accumulate!(sum, array, Int32Array, Int64, i64),
-            DataType::Int16 => typed_sum_accumulate!(sum, array, Int16Array, Int64, i64),
-            DataType::Int8 => typed_sum_accumulate!(sum, array, Int8Array, Int64, i64),
-            dt => {
-                return Err(ExecutionError::InternalError(format!(
-                    "Sum is not expected to receive type {:?}",
-                    dt
-                )))
-            }
-        },
+    })
+}
+
+// returns the sum of two scalar values, including coercion into $TYPE.
+macro_rules! typed_sum {
+    ($OLD_VALUE:expr, $DELTA:expr, $SCALAR:ident, $TYPE:ident) => {{
+        ScalarValue::$SCALAR(match ($OLD_VALUE, $DELTA) {
+            (None, None) => None,
+            (Some(a), None) => Some(a.clone()),
+            (None, Some(b)) => Some(b.clone() as $TYPE),
+            (Some(a), Some(b)) => Some(a + (*b as $TYPE)),
+        })
+    }};
+}
+
+fn sum(lhs: &ScalarValue, rhs: &ScalarValue) -> Result<ScalarValue> {
+    Ok(match (lhs, rhs) {
+        // float64 coerces everything to f64
+        (ScalarValue::Float64(lhs), ScalarValue::Float64(rhs)) => {
+            typed_sum!(lhs, rhs, Float64, f64)
+        }
+        (ScalarValue::Float64(lhs), ScalarValue::Float32(rhs)) => {
+            typed_sum!(lhs, rhs, Float64, f64)
+        }
+        (ScalarValue::Float64(lhs), ScalarValue::Int64(rhs)) => {
+            typed_sum!(lhs, rhs, Float64, f64)
+        }
+        (ScalarValue::Float64(lhs), ScalarValue::Int32(rhs)) => {
+            typed_sum!(lhs, rhs, Float64, f64)
+        }
+        (ScalarValue::Float64(lhs), ScalarValue::Int16(rhs)) => {
+            typed_sum!(lhs, rhs, Float64, f64)
+        }
+        (ScalarValue::Float64(lhs), ScalarValue::Int8(rhs)) => {
+            typed_sum!(lhs, rhs, Float64, f64)
+        }
+        (ScalarValue::Float64(lhs), ScalarValue::UInt64(rhs)) => {
+            typed_sum!(lhs, rhs, Float64, f64)
+        }
+        (ScalarValue::Float64(lhs), ScalarValue::UInt32(rhs)) => {
+            typed_sum!(lhs, rhs, Float64, f64)
+        }
+        (ScalarValue::Float64(lhs), ScalarValue::UInt16(rhs)) => {
+            typed_sum!(lhs, rhs, Float64, f64)
+        }
+        (ScalarValue::Float64(lhs), ScalarValue::UInt8(rhs)) => {
+            typed_sum!(lhs, rhs, Float64, f64)
+        }
+        // float32 has no cast
+        (ScalarValue::Float32(lhs), ScalarValue::Float32(rhs)) => {
+            typed_sum!(lhs, rhs, Float32, f32)
+        }
+        // u64 coerces u* to u64
+        (ScalarValue::UInt64(lhs), ScalarValue::UInt64(rhs)) => {
+            typed_sum!(lhs, rhs, UInt64, u64)
+        }
+        (ScalarValue::UInt64(lhs), ScalarValue::UInt32(rhs)) => {
+            typed_sum!(lhs, rhs, UInt64, u64)
+        }
+        (ScalarValue::UInt64(lhs), ScalarValue::UInt16(rhs)) => {
+            typed_sum!(lhs, rhs, UInt64, u64)
+        }
+        (ScalarValue::UInt64(lhs), ScalarValue::UInt8(rhs)) => {
+            typed_sum!(lhs, rhs, UInt64, u64)
+        }
+        // i64 coerces i* to u64
+        (ScalarValue::Int64(lhs), ScalarValue::Int64(rhs)) => {
+            typed_sum!(lhs, rhs, Int64, i64)
+        }
+        (ScalarValue::Int64(lhs), ScalarValue::Int32(rhs)) => {
+            typed_sum!(lhs, rhs, Int64, i64)
+        }
+        (ScalarValue::Int64(lhs), ScalarValue::Int16(rhs)) => {
+            typed_sum!(lhs, rhs, Int64, i64)
+        }
+        (ScalarValue::Int64(lhs), ScalarValue::Int8(rhs)) => {
+            typed_sum!(lhs, rhs, Int64, i64)
+        }
         e => {
             return Err(ExecutionError::InternalError(format!(
                 "Sum is not expected to receive a scalar {:?}",
@@ -279,17 +298,21 @@ fn sum_accumulate(old: &ScalarValue, array: &ArrayRef) -> Result<ScalarValue> {
 }
 
 impl Accumulator for SumAccumulator {
-    fn update(&mut self, values: &Vec<ArrayRef>) -> Result<()> {
+    fn update_batch(&mut self, values: &Vec<ArrayRef>) -> Result<()> {
+        let values = &values[0];
+        self.sum = sum(&self.sum, &sum_batch(values)?)?;
+        Ok(())
+    }
+
+    fn update(&mut self, values: &Vec<ScalarValue>) -> Result<()> {
         // sum(v1, v2, v3) = v1 + v2 + v3
-        self.sum = sum_accumulate(&self.sum, &values[0])?;
+        self.sum = sum(&self.sum, &values[0])?;
         Ok(())
     }
 
     fn merge(&mut self, states: &Vec<ArrayRef>) -> Result<()> {
-        let state = &states[0];
         // sum(sum1, sum2, sum3) = sum1 + sum2 + sum3
-        self.sum = sum_accumulate(&self.sum, state)?;
-        Ok(())
+        self.update_batch(states)
     }
 
     fn state(&self) -> Result<Vec<ScalarValue>> {
@@ -391,11 +414,20 @@ impl AvgAccumulator {
 }
 
 impl Accumulator for AvgAccumulator {
-    fn update(&mut self, values: &Vec<ArrayRef>) -> Result<()> {
+    fn update(&mut self, values: &Vec<ScalarValue>) -> Result<()> {
+        let values = &values[0];
+
+        self.count += (!values.is_null()) as u64;
+        self.sum = sum(&self.sum, values)?;
+
+        Ok(())
+    }
+
+    fn update_batch(&mut self, values: &Vec<ArrayRef>) -> Result<()> {
         let values = &values[0];
 
         self.count += (values.len() - values.data().null_count()) as u64;
-        self.sum = sum_accumulate(&self.sum, values)?;
+        self.sum = sum(&self.sum, &sum_batch(values)?)?;
         Ok(())
     }
 
@@ -403,7 +435,7 @@ impl Accumulator for AvgAccumulator {
         let counts = states[0].as_any().downcast_ref::<UInt64Array>().unwrap();
         self.count += compute::sum(counts).unwrap_or(0);
 
-        self.sum = sum_accumulate(&self.sum, &states[1])?;
+        self.sum = sum(&self.sum, &sum_batch(&states[1])?)?;
         Ok(())
     }
 
@@ -473,83 +505,155 @@ impl AggregateExpr for Max {
     }
 }
 
-macro_rules! min_max_accumulate {
-    ($VALUE:expr, $VALUES:expr, $ARRAY_TYPE:ident, $TYPE:ident, $SCALAR:ident, $OP:ident) => {{
-        let array = $VALUES.as_any().downcast_ref::<$ARRAY_TYPE>().unwrap();
-        // delta is the variation in `array`
-        let delta = compute::$OP(array);
-        if $VALUE.is_none() {
-            delta
-                .and_then(|delta| Some(ScalarValue::from(delta as $TYPE)))
-                .unwrap_or(ScalarValue::$SCALAR(None))
-        } else {
-            let value = $VALUE.unwrap();
-            let delta = delta.unwrap_or(value);
-            ScalarValue::from(value.$OP(delta))
-        }
+// Statically-typed version of min/max(array) -> ScalarValue for string types.
+macro_rules! typed_min_max_batch_string {
+    ($VALUES:expr, $ARRAYTYPE:ident, $SCALAR:ident, $OP:ident) => {{
+        let array = $VALUES.as_any().downcast_ref::<$ARRAYTYPE>().unwrap();
+        let value = compute::$OP(array);
+        let value = value.and_then(|e| Some(e.to_string()));
+        ScalarValue::$SCALAR(value)
     }};
 }
 
-macro_rules! min_max_accumulate_string {
-    ($VALUE:expr, $VALUES:expr, $ARRAY_TYPE:ident, $TYPE:ident, $SCALAR:ident, $OP:ident, $OP_ARRAY:ident) => {{
-        let array = $VALUES.as_any().downcast_ref::<$ARRAY_TYPE>().unwrap();
-        // delta is the variation in `array`
-        let delta = compute::$OP_ARRAY(array);
-        if $VALUE.is_none() {
-            delta
-                .and_then(|delta| Some(ScalarValue::$SCALAR(Some(delta.to_string()))))
-                .unwrap_or(ScalarValue::$SCALAR(None))
-        } else {
-            let value = $VALUE.unwrap();
-            let delta = delta.unwrap_or(&value);
-            ScalarValue::$SCALAR(Some(value.$OP(&delta.to_string()).to_string()))
-        }
+// Statically-typed version of min/max(array) -> ScalarValue for non-string types.
+macro_rules! typed_min_max_batch {
+    ($VALUES:expr, $ARRAYTYPE:ident, $SCALAR:ident, $OP:ident) => {{
+        let array = $VALUES.as_any().downcast_ref::<$ARRAYTYPE>().unwrap();
+        let value = compute::$OP(array);
+        ScalarValue::$SCALAR(value)
     }};
 }
 
-// "dynamic-typed" min(ScalarValue, ArrayRef)
-macro_rules! min_max_accumulate_dynamic {
-    ($OLD_VALUE:expr, $NEW_VALUES:expr, $OP:ident) => {{
-        match $OLD_VALUE {
+// Statically-typed version of min/max(array) -> ScalarValue  for non-string types.
+// this is a macro to support both operations (min and max).
+macro_rules! min_max_batch {
+    ($VALUES:expr, $OP:ident) => {{
+        match $VALUES.data_type() {
             // all types that have a natural order
-            ScalarValue::Float64(value) => {
-                min_max_accumulate!(value, $NEW_VALUES, Float64Array, f64, Float64, $OP)
-            }
-            ScalarValue::Float32(value) => {
-                min_max_accumulate!(value, $NEW_VALUES, Float32Array, f32, Float32, $OP)
-            }
-            ScalarValue::Int64(value) => {
-                min_max_accumulate!(value, $NEW_VALUES, Int64Array, i64, Int64, $OP)
-            }
-            ScalarValue::Int32(value) => {
-                min_max_accumulate!(value, $NEW_VALUES, Int32Array, i32, Int32, $OP)
-            }
-            ScalarValue::Int16(value) => {
-                min_max_accumulate!(value, $NEW_VALUES, Int16Array, i16, Int16, $OP)
-            }
-            ScalarValue::Int8(value) => {
-                min_max_accumulate!(value, $NEW_VALUES, Int8Array, i8, Int8, $OP)
-            }
-            ScalarValue::UInt64(value) => {
-                min_max_accumulate!(value, $NEW_VALUES, UInt64Array, u64, UInt64, $OP)
-            }
-            ScalarValue::UInt32(value) => {
-                min_max_accumulate!(value, $NEW_VALUES, UInt32Array, u32, UInt32, $OP)
-            }
-            ScalarValue::UInt16(value) => {
-                min_max_accumulate!(value, $NEW_VALUES, UInt16Array, u16, UInt16, $OP)
-            }
-            ScalarValue::UInt8(value) => {
-                min_max_accumulate!(value, $NEW_VALUES, UInt8Array, u8, UInt8, $OP)
-            }
-            _ => {
+            DataType::Float64 => typed_min_max_batch!($VALUES, Float64Array, Float64, $OP),
+            DataType::Float32 => typed_min_max_batch!($VALUES, Float32Array, Float32, $OP),
+            DataType::Int64 => typed_min_max_batch!($VALUES, Int64Array, Int64, $OP),
+            DataType::Int32 => typed_min_max_batch!($VALUES, Int32Array, Int32, $OP),
+            DataType::Int16 => typed_min_max_batch!($VALUES, Int16Array, Int16, $OP),
+            DataType::Int8 => typed_min_max_batch!($VALUES, Int8Array, Int8, $OP),
+            DataType::UInt64 => typed_min_max_batch!($VALUES, UInt64Array, UInt64, $OP),
+            DataType::UInt32 => typed_min_max_batch!($VALUES, UInt32Array, UInt32, $OP),
+            DataType::UInt16 => typed_min_max_batch!($VALUES, UInt16Array, UInt16, $OP),
+            DataType::UInt8 => typed_min_max_batch!($VALUES, UInt8Array, UInt8, $OP),
+            other => {
                 return Err(ExecutionError::NotImplemented(format!(
-                    "Min/Max accumulator not implemented for {:?}",
-                    $NEW_VALUES.data_type()
+                    "Min/Max accumulator not implemented for type {:?}",
+                    other
                 )))
             }
         }
     }};
+}
+
+/// dynamically-typed min(array) -> ScalarValue
+fn min_batch(values: &ArrayRef) -> Result<ScalarValue> {
+    Ok(match values.data_type() {
+        DataType::Utf8 => typed_min_max_batch_string!(values, StringArray, Utf8, min_string),
+        DataType::LargeUtf8 => {
+            typed_min_max_batch_string!(values, LargeStringArray, LargeUtf8, min_large_string)
+        }
+        _ => min_max_batch!(values, min),
+    })
+}
+
+/// dynamically-typed max(array) -> ScalarValue
+fn max_batch(values: &ArrayRef) -> Result<ScalarValue> {
+    Ok(match values.data_type() {
+        DataType::Utf8 => typed_min_max_batch_string!(values, StringArray, Utf8, max_string),
+        DataType::LargeUtf8 => {
+            typed_min_max_batch_string!(values, LargeStringArray, LargeUtf8, max_large_string)
+        }
+        _ => min_max_batch!(values, max),
+    })
+}
+
+// min/max of two non-string scalar values.
+macro_rules! typed_min_max {
+    ($VALUE:expr, $DELTA:expr, $SCALAR:ident, $OP:ident) => {{
+        ScalarValue::$SCALAR(match ($VALUE, $DELTA) {
+            (None, None) => None,
+            (Some(a), None) => Some(a.clone()),
+            (None, Some(b)) => Some(b.clone()),
+            (Some(a), Some(b)) => Some((*a).$OP(*b)),
+        })
+    }};
+}
+
+// min/max of two scalar string values.
+macro_rules! typed_min_max_string {
+    ($VALUE:expr, $DELTA:expr, $SCALAR:ident, $OP:ident) => {{
+        ScalarValue::$SCALAR(match ($VALUE, $DELTA) {
+            (None, None) => None,
+            (Some(a), None) => Some(a.clone()),
+            (None, Some(b)) => Some(b.clone()),
+            (Some(a), Some(b)) => Some((a).$OP(b).clone()),
+        })
+    }};
+}
+
+// min/max of two scalar values of the same type
+macro_rules! min_max {
+    ($VALUE:expr, $DELTA:expr, $OP:ident) => {{
+        Ok(match ($VALUE, $DELTA) {
+            (ScalarValue::Float64(lhs), ScalarValue::Float64(rhs)) => {
+                typed_min_max!(lhs, rhs, Float64, $OP)
+            }
+            (ScalarValue::Float32(lhs), ScalarValue::Float32(rhs)) => {
+                typed_min_max!(lhs, rhs, Float32, $OP)
+            }
+            (ScalarValue::UInt64(lhs), ScalarValue::UInt64(rhs)) => {
+                typed_min_max!(lhs, rhs, UInt64, $OP)
+            }
+            (ScalarValue::UInt32(lhs), ScalarValue::UInt32(rhs)) => {
+                typed_min_max!(lhs, rhs, UInt32, $OP)
+            }
+            (ScalarValue::UInt16(lhs), ScalarValue::UInt16(rhs)) => {
+                typed_min_max!(lhs, rhs, UInt16, $OP)
+            }
+            (ScalarValue::UInt8(lhs), ScalarValue::UInt8(rhs)) => {
+                typed_min_max!(lhs, rhs, UInt8, $OP)
+            }
+            (ScalarValue::Int64(lhs), ScalarValue::Int64(rhs)) => {
+                typed_min_max!(lhs, rhs, Int64, $OP)
+            }
+            (ScalarValue::Int32(lhs), ScalarValue::Int32(rhs)) => {
+                typed_min_max!(lhs, rhs, Int32, $OP)
+            }
+            (ScalarValue::Int16(lhs), ScalarValue::Int16(rhs)) => {
+                typed_min_max!(lhs, rhs, Int16, $OP)
+            }
+            (ScalarValue::Int8(lhs), ScalarValue::Int8(rhs)) => {
+                typed_min_max!(lhs, rhs, Int8, $OP)
+            }
+            (ScalarValue::Utf8(lhs), ScalarValue::Utf8(rhs)) => {
+                typed_min_max_string!(lhs, rhs, Utf8, $OP)
+            }
+            (ScalarValue::LargeUtf8(lhs), ScalarValue::LargeUtf8(rhs)) => {
+                typed_min_max_string!(lhs, rhs, LargeUtf8, $OP)
+            }
+            e => {
+                return Err(ExecutionError::InternalError(format!(
+                    "MIN/MAX is not expected to receive a scalar {:?}",
+                    e
+                )))
+            }
+        })
+    }};
+}
+
+/// the minimum of two scalar values
+fn min(lhs: &ScalarValue, rhs: &ScalarValue) -> Result<ScalarValue> {
+    min_max!(lhs, rhs, min)
+}
+
+/// the maximum of two scalar values
+fn max(lhs: &ScalarValue, rhs: &ScalarValue) -> Result<ScalarValue> {
+    min_max!(lhs, rhs, max)
 }
 
 #[derive(Debug)]
@@ -567,34 +671,21 @@ impl MaxAccumulator {
 }
 
 impl Accumulator for MaxAccumulator {
-    fn update(&mut self, values: &Vec<ArrayRef>) -> Result<()> {
+    fn update_batch(&mut self, values: &Vec<ArrayRef>) -> Result<()> {
+        let values = &values[0];
+        let delta = &max_batch(values)?;
+        self.max = max(&self.max, delta)?;
+        Ok(())
+    }
+
+    fn update(&mut self, values: &Vec<ScalarValue>) -> Result<()> {
         let value = &values[0];
-        self.max = match &self.max {
-            ScalarValue::Utf8(max) => min_max_accumulate_string!(
-                max.as_ref(),
-                value,
-                StringArray,
-                String,
-                Utf8,
-                max,
-                max_string
-            ),
-            ScalarValue::LargeUtf8(max) => min_max_accumulate_string!(
-                max.as_ref(),
-                value,
-                LargeStringArray,
-                String,
-                LargeUtf8,
-                max,
-                max_large_string
-            ),
-            other => min_max_accumulate_dynamic!(other, value, max),
-        };
+        self.max = max(&self.max, value)?;
         Ok(())
     }
 
     fn merge(&mut self, states: &Vec<ArrayRef>) -> Result<()> {
-        self.update(states)
+        self.update_batch(states)
     }
 
     fn state(&self) -> Result<Vec<ScalarValue>> {
@@ -670,34 +761,21 @@ impl MinAccumulator {
 }
 
 impl Accumulator for MinAccumulator {
-    fn update(&mut self, values: &Vec<ArrayRef>) -> Result<()> {
+    fn update_batch(&mut self, values: &Vec<ArrayRef>) -> Result<()> {
+        let values = &values[0];
+        let delta = &min_batch(values)?;
+        self.min = min(&self.min, delta)?;
+        Ok(())
+    }
+
+    fn update(&mut self, values: &Vec<ScalarValue>) -> Result<()> {
         let value = &values[0];
-        self.min = match &self.min {
-            ScalarValue::Utf8(min) => min_max_accumulate_string!(
-                min.as_ref(),
-                value,
-                StringArray,
-                String,
-                Utf8,
-                min,
-                min_string
-            ),
-            ScalarValue::LargeUtf8(min) => min_max_accumulate_string!(
-                min.as_ref(),
-                value,
-                LargeStringArray,
-                String,
-                LargeUtf8,
-                min,
-                min_large_string
-            ),
-            other => min_max_accumulate_dynamic!(other, value, min),
-        };
+        self.min = min(&self.min, value)?;
         Ok(())
     }
 
     fn merge(&mut self, states: &Vec<ArrayRef>) -> Result<()> {
-        self.update(states)
+        self.update_batch(states)
     }
 
     fn state(&self) -> Result<Vec<ScalarValue>> {
@@ -787,7 +865,7 @@ impl CountAccumulator {
 }
 
 impl Accumulator for CountAccumulator {
-    fn update(&mut self, values: &Vec<ArrayRef>) -> Result<()> {
+    fn update_batch(&mut self, values: &Vec<ArrayRef>) -> Result<()> {
         let array = &values[0];
         let delta = if array.len() == array.data().null_count() {
             None
@@ -795,6 +873,21 @@ impl Accumulator for CountAccumulator {
             Some((array.len() - array.data().null_count()) as u64)
         };
         self.update_from_option(delta)
+    }
+
+    fn update(&mut self, values: &Vec<ScalarValue>) -> Result<()> {
+        let value = &values[0];
+        self.count = match (&self.count, value.is_null()) {
+            (ScalarValue::UInt64(None), false) => ScalarValue::from(1u64),
+            (ScalarValue::UInt64(Some(count)), false) => ScalarValue::from(count + 1),
+            (e, true) => e.clone(),
+            (_, false) => {
+                return Err(ExecutionError::InternalError(
+                    "Count is always of type u64".to_string(),
+                ))
+            }
+        };
+        Ok(())
     }
 
     fn merge(&mut self, states: &Vec<ArrayRef>) -> Result<()> {
@@ -2302,7 +2395,7 @@ mod tests {
             .map(|e| e.evaluate(batch))
             .collect::<Result<Vec<_>>>()?;
         let mut accum = accum.borrow_mut();
-        accum.update(&values)?;
+        accum.update_batch(&values)?;
         accum.evaluate()
     }
 

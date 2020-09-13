@@ -135,7 +135,10 @@ pub trait AggregateExpr: Send + Sync + Debug {
 /// * compute the final value from its internal state via `evaluate`
 pub trait Accumulator: Send + Sync + Debug {
     /// updates the accumulator's state from a vector of arrays.
-    fn update(&mut self, values: &Vec<ArrayRef>) -> Result<()>;
+    fn update_batch(&mut self, values: &Vec<ArrayRef>) -> Result<()>;
+
+    /// updates the accumulator's state from a vector of scalars.
+    fn update(&mut self, values: &Vec<ScalarValue>) -> Result<()>;
 
     /// updates the accumulator's state from a vector of states.
     fn merge(&mut self, states: &Vec<ArrayRef>) -> Result<()>;
