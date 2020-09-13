@@ -8,10 +8,11 @@ TASK_BRANCH=$3
 TASK_TAG=$4
 UPLOAD_TO_ANACONDA=$5
 
+conda install -y mamba
 $FEEDSTOCK_ROOT/build_steps.sh ${OUTPUT_DIR}
 
 # Upload as Github release
-conda install -y click github3.py jinja2 jira pygit2 ruamel.yaml setuptools_scm toolz anaconda-client shyaml -c conda-forge
+mamba install -y click github3.py jinja2 jira pygit2 ruamel.yaml setuptools_scm toolz anaconda-client shyaml -c conda-forge
 pushd $DRONE_WORKSPACE
 python arrow/dev/tasks/crossbow.py \
   --queue-path . \
