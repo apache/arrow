@@ -143,13 +143,39 @@ pub trait Accumulator: Send + Sync + Debug {
     fn update(&mut self, values: &Vec<ScalarValue>) -> Result<()>;
 
     /// updates the accumulator's state from a vector of arrays.
-    fn update_batch(&mut self, values: &Vec<ArrayRef>) -> Result<()>;
+    fn update_batch(&mut self, values: &Vec<ArrayRef>) -> Result<()> {
+        if values.len() == 0 {
+            return Ok(());
+        };
+        (0..values[0].len())
+            .map(|index| {
+                let v = values
+                    .iter()
+                    .map(|array| ScalarValue::try_from_array(array, index))
+                    .collect::<Result<Vec<_>>>()?;
+                self.update(&v)
+            })
+            .collect::<Result<_>>()
+    }
 
     /// updates the accumulator's state from a vector of scalars.
     fn merge(&mut self, states: &Vec<ScalarValue>) -> Result<()>;
 
     /// updates the accumulator's state from a vector of states.
-    fn merge_batch(&mut self, states: &Vec<ArrayRef>) -> Result<()>;
+    fn merge_batch(&mut self, states: &Vec<ArrayRef>) -> Result<()> {
+        if states.len() == 0 {
+            return Ok(());
+        };
+        (0..states[0].len())
+            .map(|index| {
+                let v = states
+                    .iter()
+                    .map(|array| ScalarValue::try_from_array(array, index))
+                    .collect::<Result<Vec<_>>>()?;
+                self.merge(&v)
+            })
+            .collect::<Result<_>>()
+    }
 
     /// returns its value based on its current state.
     fn evaluate(&self) -> Result<ScalarValue>;

@@ -20,7 +20,7 @@
 use std::{convert::TryFrom, fmt, sync::Arc};
 
 use arrow::array::{
-    BooleanArray, Float32Array, Float64Array, Int16Array, Int32Array, Int64Array,
+    Array, BooleanArray, Float32Array, Float64Array, Int16Array, Int32Array, Int64Array,
     Int8Array, LargeStringArray, StringArray, UInt16Array, UInt32Array, UInt64Array,
     UInt8Array,
 };
@@ -58,6 +58,16 @@ pub enum ScalarValue {
     Utf8(Option<String>),
     /// utf-8 encoded string representing a LargeString's arrow type.
     LargeUtf8(Option<String>),
+}
+
+macro_rules! typed_cast {
+    ($array:expr, $index:expr, $ARRAYTYPE:ident, $SCALAR:ident) => {{
+        let array = $array.as_any().downcast_ref::<$ARRAYTYPE>().unwrap();
+        ScalarValue::$SCALAR(match array.is_null($index) {
+            true => None,
+            false => Some(array.value($index).into()),
+        })
+    }};
 }
 
 impl ScalarValue {
@@ -119,6 +129,31 @@ impl ScalarValue {
                 Arc::new(LargeStringArray::from(vec![e.as_deref()]))
             }
         }
+    }
+
+    /// Converts a value in `array` at `index` into a ScalarValue
+    pub fn try_from_array(array: &ArrayRef, index: usize) -> Result<Self> {
+        Ok(match array.data_type() {
+            DataType::Boolean => typed_cast!(array, index, BooleanArray, Boolean),
+            DataType::Float64 => typed_cast!(array, index, Float64Array, Float64),
+            DataType::Float32 => typed_cast!(array, index, Float32Array, Float32),
+            DataType::UInt64 => typed_cast!(array, index, UInt64Array, UInt64),
+            DataType::UInt32 => typed_cast!(array, index, UInt32Array, UInt32),
+            DataType::UInt16 => typed_cast!(array, index, UInt16Array, UInt16),
+            DataType::UInt8 => typed_cast!(array, index, UInt8Array, UInt8),
+            DataType::Int64 => typed_cast!(array, index, Int64Array, Int64),
+            DataType::Int32 => typed_cast!(array, index, Int32Array, Int32),
+            DataType::Int16 => typed_cast!(array, index, Int16Array, Int16),
+            DataType::Int8 => typed_cast!(array, index, Int8Array, Int8),
+            DataType::Utf8 => typed_cast!(array, index, StringArray, Utf8),
+            DataType::LargeUtf8 => typed_cast!(array, index, LargeStringArray, LargeUtf8),
+            other => {
+                return Err(ExecutionError::NotImplemented(format!(
+                    "Can't create a scalar of array of type \"{:?}\"",
+                    other
+                )))
+            }
+        })
     }
 }
 
