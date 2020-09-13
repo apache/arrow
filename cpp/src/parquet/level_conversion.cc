@@ -38,12 +38,12 @@ using ::arrow::internal::CpuInfo;
 
 #if !defined(ARROW_HAVE_RUNTIME_BMI2)
 void DefinitionLevelsToBitmapScalar(const int16_t* def_levels, int64_t num_def_levels,
-                                    LevelInfo level_info, int64_t* values_read,
+                                    LevelInfo level_info,
                                     ValidityBitmapInputOutput* output) {
   ::arrow::internal::FirstTimeBitmapWriter valid_bits_writer(
       output->valid_bits,
       /*start_offset=*/output->valid_bits_offset,
-      /*length=*/output->num_def_levels);
+      /*length=*/num_def_levels);
   for (int x = 0; x < num_def_levels; x++) {
     if (def_levels[x] < level_info.repeated_ancestor_def_level) {
       continue;
@@ -108,9 +108,9 @@ void DefRepLevelsToListInfo(const int16_t* def_levels, const int16_t* rep_levels
       // filtered out above).
       if (lengths != nullptr) {
         ++lengths;
-	// Use cumulative lengths because this is what the more common
-	// Arrow list types expect.
-        *lengths = ((def_levels[x] >= level_info.def_level) ? 1 : 0) + *(lengths-1);
+        // Use cumulative lengths because this is what the more common
+        // Arrow list types expect.
+        *lengths = ((def_levels[x] >= level_info.def_level) ? 1 : 0) + *(lengths - 1);
       }
 
       if (valid_bits_writer != nullptr) {

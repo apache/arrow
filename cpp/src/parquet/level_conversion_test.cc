@@ -281,7 +281,7 @@ TYPED_TEST(NestedListTest, SimpleLongList) {
   std::vector<typename TypeParam::ListLengthType> lengths(66, 0);
   std::vector<typename TypeParam::ListLengthType> expected_lengths(66, 0);
   for (size_t x = 1; x < expected_lengths.size(); x++) {
-   expected_lengths[x] = x * 9;
+    expected_lengths[x] = x * 9;
   }
   std::vector<uint8_t> validity_output(9, 0);
   ValidityBitmapInputOutput validity_io;
