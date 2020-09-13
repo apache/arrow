@@ -345,7 +345,7 @@ pub(crate) fn get_fb_field_type<'a: 'b, 'b>(
         Null => FBFieldType {
             type_type: ipc::Type::Null,
             type_: ipc::NullBuilder::new(fbb).finish().as_union_value(),
-            children: None,
+            children: Some(fbb.create_vector(&empty_fields[..])),
         },
         Boolean => FBFieldType {
             type_type: ipc::Type::Bool,
