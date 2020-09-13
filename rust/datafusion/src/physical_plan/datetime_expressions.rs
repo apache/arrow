@@ -44,6 +44,7 @@ use chrono::{prelude::*, LocalResult};
 /// * `1997-01-31 09:26:56.123-05:00`   # close to RCF3339 but with a space rather than T
 /// * `1997-01-31T09:26:56.123`         # close to RCF3339 but no timezone offset specified
 /// * `1997-01-31 09:26:56.123`         # close to RCF3339 but uses a space and no timezone offset
+/// * `1997-01-31 09:26:56`             # close to RCF3339, no fractional seconds
 //
 /// Internally, this function uses the `chrono` library for the
 /// datetime parsing
@@ -110,9 +111,23 @@ fn string_to_timestamp_nanos(s: &str) -> Result<i64> {
         return naive_datetime_to_timestamp(s, ts);
     }
 
+    // without a timezone specifier as a local time, using T as a
+    // separator, no fractional seconds
+    // Example: 2020-09-08T13:42:29
+    if let Ok(ts) = NaiveDateTime::parse_from_str(s, "%Y-%m-%dT%H:%M:%S") {
+        return naive_datetime_to_timestamp(s, ts);
+    }
+
     // without a timezone specifier as a local time, using ' ' as a separator
     // Example: 2020-09-08 13:42:29.190855
     if let Ok(ts) = NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S.%f") {
+        return naive_datetime_to_timestamp(s, ts);
+    }
+
+    // without a timezone specifier as a local time, using ' ' as a
+    // separator, no fractional seconds
+    // Example: 2020-09-08 13:42:29
+    if let Ok(ts) = NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S") {
         return naive_datetime_to_timestamp(s, ts);
     }
 
@@ -242,38 +257,62 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn string_to_timestamp_no_timezone() -> Result<()> {
-        // This test is designed to succeed in regardless of the local
-        // timezone the test machine is running. Thus it is still
-        // somewhat suceptable to bugs in the use of chrono
-        let naive_date_time = NaiveDateTime::new(
-            NaiveDate::from_ymd(2020, 09, 08),
-            NaiveTime::from_hms_nano(13, 42, 29, 190855),
-        );
-
+    /// Interprets a naive_datetime (with no explicit timzone offset)
+    /// using the local timezone and returns the timestamp in UTC (0
+    /// offset)
+    fn naive_datetime_to_timestamp(naive_datetime: &NaiveDateTime) -> i64 {
         // Note: Use chrono APIs that are different than
         // naive_datetime_to_timestamp to compute the utc offset to
         // try and double check the logic
-        let utc_offset_secs = match Local.offset_from_local_datetime(&naive_date_time) {
+        let utc_offset_secs = match Local.offset_from_local_datetime(&naive_datetime) {
             LocalResult::Single(local_offset) => {
                 local_offset.fix().local_minus_utc() as i64
             }
             _ => panic!("Unexpected failure converting to local datetime"),
         };
         let utc_offset_nanos = utc_offset_secs * 1_000_000_000;
-        let expected_date_time = naive_date_time.timestamp_nanos() - utc_offset_nanos;
+        naive_datetime.timestamp_nanos() - utc_offset_nanos
+    }
+
+    #[test]
+    fn string_to_timestamp_no_timezone() -> Result<()> {
+        // This test is designed to succeed in regardless of the local
+        // timezone the test machine is running. Thus it is still
+        // somewhat suceptable to bugs in the use of chrono
+        let naive_datetime = NaiveDateTime::new(
+            NaiveDate::from_ymd(2020, 09, 08),
+            NaiveTime::from_hms_nano(13, 42, 29, 190855),
+        );
 
         // Ensure both T and ' ' variants work
         assert_eq!(
-            expected_date_time,
+            naive_datetime_to_timestamp(&naive_datetime),
             parse_timestamp("2020-09-08T13:42:29.190855")?
         );
 
         assert_eq!(
-            expected_date_time,
+            naive_datetime_to_timestamp(&naive_datetime),
             parse_timestamp("2020-09-08 13:42:29.190855")?
         );
+
+        // Also ensure that parsing timestamps with no fractional
+        // second part works as well
+        let naive_datetime_whole_secs = NaiveDateTime::new(
+            NaiveDate::from_ymd(2020, 09, 08),
+            NaiveTime::from_hms(13, 42, 29),
+        );
+
+        // Ensure both T and ' ' variants work
+        assert_eq!(
+            naive_datetime_to_timestamp(&naive_datetime_whole_secs),
+            parse_timestamp("2020-09-08T13:42:29")?
+        );
+
+        assert_eq!(
+            naive_datetime_to_timestamp(&naive_datetime_whole_secs),
+            parse_timestamp("2020-09-08 13:42:29")?
+        );
+
         Ok(())
     }
 
