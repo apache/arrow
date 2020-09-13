@@ -21,8 +21,12 @@
 #include <algorithm>
 #include <limits>
 #if defined(ARROW_HAVE_BMI2)
+#if defined(_MSC_VER)
+#include <immintrin.h>
+#else
 #include <x86intrin.h>
-#endif
+#endif  // _MSC_VER
+#endif  // ARROW_HAVE_BMI2
 
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bit_util.h"

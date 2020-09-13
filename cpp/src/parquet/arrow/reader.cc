@@ -446,7 +446,6 @@ class LeafReader : public ColumnReaderImpl {
                              std::shared_ptr<::arrow::ChunkedArray>* out) final {
     *out = out_;
     return Status::OK();
-    ;
   }
 
   const std::shared_ptr<Field> field() override { return field_; }
@@ -525,7 +524,9 @@ class ListReader : public ColumnReaderImpl {
       // + 1  because arrays lengths are values + 1
       std::fill(length_data + validity_io.values_read + 1,
                 length_data + number_of_slots + 1, 0);
-      if (validity_io.valid_bits != nullptr) {
+      if (validity_io.valid_bits != nullptr &&
+          BitUtil::BytesForBits(validity_io.values_read) <
+              BitUtil::BytesForBits(number_of_slots)) {
         std::fill(validity_io.valid_bits + BitUtil::BytesForBits(validity_io.values_read),
                   validity_io.valid_bits + BitUtil::BytesForBits(number_of_slots), 0);
       }
