@@ -22,13 +22,12 @@
 
 namespace parquet {
 namespace internal {
-void DefinitionLevelsToBitmapBmi2WithRepeatedParent(
-    const int16_t* def_levels, int64_t num_def_levels, LevelInfo level_info,
-    int64_t* values_read, int64_t* null_count, uint8_t* valid_bits,
-    int64_t valid_bits_offset) {
+void DefinitionLevelsToBitmapBmi2WithRepeatedParent(const int16_t* def_levels,
+                                                    int64_t num_def_levels,
+                                                    LevelInfo level_info,
+                                                    ValidityBitmapInputOutput* output) {
   bmi2::DefinitionLevelsToBitmapSimd</*has_repeated_parent=*/true>(
-      def_levels, num_def_levels, level_info, values_read, null_count, valid_bits,
-      valid_bits_offset);
+      def_levels, num_def_levels, level_info, output);
 }
 
 }  // namespace internal

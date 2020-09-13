@@ -39,27 +39,32 @@ using ::arrow::internal::CpuInfo;
 #if !defined(ARROW_HAVE_RUNTIME_BMI2)
 void DefinitionLevelsToBitmapScalar(const int16_t* def_levels, int64_t num_def_levels,
                                     LevelInfo level_info, int64_t* values_read,
-                                    int64_t* null_count, uint8_t* valid_bits,
-                                    int64_t valid_bits_offset) {
+                                    ValidityBitmapInputOutput* output) {
   ::arrow::internal::FirstTimeBitmapWriter valid_bits_writer(
-      valid_bits,
-      /*start_offset=*/valid_bits_offset,
-      /*length=*/num_def_levels);
+      output->valid_bits,
+      /*start_offset=*/output->valid_bits_offset,
+      /*length=*/output->num_def_levels);
   for (int x = 0; x < num_def_levels; x++) {
     if (def_levels[x] < level_info.repeated_ancestor_def_level) {
       continue;
+    }
+    if (ARROW_PREDICT_FALSE(valid_bits_writer.position() >
+                            output->values_read_upper_bound)) {
+      std::stringstream ss;
+      ss << "Definition levels exceeded upper bound: " << output->values_read_upper_bound;
+      throw ParquetException(ss.str());
     }
     if (def_levels[x] >= level_info.def_level) {
       valid_bits_writer.Set();
     } else {
       valid_bits_writer.Clear();
-      *null_count += 1;
+      output->null_count += 1;
     }
     valid_bits_writer.Next();
   }
   valid_bits_writer.Finish();
-  *values_read = valid_bits_writer.position();
-  if (*null_count > 0 && level_info.null_slot_usage > 1) {
+  output->values_read = valid_bits_writer.position();
+  if (output->null_count > 0 && level_info.null_slot_usage > 1) {
     throw ParquetException(
         "Null values with null_slot_usage > 1 not supported."
         "(i.e. FixedSizeLists with null values are not supported");
@@ -83,6 +88,16 @@ void DefRepLevelsToListInfo(const int16_t* def_levels, const int16_t* rep_levels
         rep_levels[x] > level_info.rep_level) {
       continue;
     }
+
+    if (ARROW_PREDICT_FALSE(
+            (valid_bits_writer != nullptr &&
+             valid_bits_writer->position() > output->values_read_upper_bound) ||
+            (lengths - orig_pos) > output->values_read_upper_bound)) {
+      std::stringstream ss;
+      ss << "Definition levels exceeded upper bound: " << output->values_read_upper_bound;
+      throw ParquetException(ss.str());
+    }
+
     if (rep_levels[x] == level_info.rep_level) {
       // A continuation of an existing list.
       if (lengths != nullptr) {
@@ -127,9 +142,7 @@ void DefRepLevelsToListInfo(const int16_t* def_levels, const int16_t* rep_levels
 }  // namespace
 
 void DefinitionLevelsToBitmap(const int16_t* def_levels, int64_t num_def_levels,
-                              LevelInfo level_info, int64_t* values_read,
-                              int64_t* null_count, uint8_t* valid_bits,
-                              int64_t valid_bits_offset) {
+                              LevelInfo level_info, ValidityBitmapInputOutput* output) {
   if (level_info.rep_level > 0) {
 #if defined(ARROW_HAVE_RUNTIME_BMI2)
     using FunctionType = decltype(&standard::DefinitionLevelsToBitmapSimd<true>);
@@ -137,17 +150,14 @@ void DefinitionLevelsToBitmap(const int16_t* def_levels, int64_t num_def_levels,
         CpuInfo::GetInstance()->HasEfficientBmi2()
             ? DefinitionLevelsToBitmapBmi2WithRepeatedParent
             : standard::DefinitionLevelsToBitmapSimd</*has_repeated_parent=*/true>;
-    fn(def_levels, num_def_levels, level_info, values_read, null_count, valid_bits,
-       valid_bits_offset);
+    fn(def_levels, num_def_levels, level_info, output);
 #else
-    DefinitionLevelsToBitmapScalar(def_levels, num_def_levels, level_info, values_read,
-                                   null_count, valid_bits, valid_bits_offset);
+    DefinitionLevelsToBitmapScalar(def_levels, num_def_levels, level_info, output);
 
 #endif
   } else {
     standard::DefinitionLevelsToBitmapSimd</*has_repeated_parent=*/false>(
-        def_levels, num_def_levels, level_info, values_read, null_count, valid_bits,
-        valid_bits_offset);
+        def_levels, num_def_levels, level_info, output);
   }
 }
 

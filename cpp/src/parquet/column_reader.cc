@@ -930,8 +930,17 @@ int64_t TypedColumnReaderImpl<DType>::ReadBatchSpaced(
       info.repeated_ancestor_def_level = this->max_def_level_ - 1;
       info.def_level = this->max_def_level_;
       info.rep_level = this->max_rep_level_;
-      internal::DefinitionLevelsToBitmap(def_levels, num_def_levels, info, values_read,
-                                         &null_count, valid_bits, valid_bits_offset);
+      internal::ValidityBitmapInputOutput validity_io;
+      validity_io.values_read_upper_bound = num_def_levels;
+      validity_io.valid_bits = valid_bits;
+      validity_io.valid_bits_offset = valid_bits_offset;
+      validity_io.null_count = null_count;
+      validity_io.values_read = *values_read;
+
+      internal::DefinitionLevelsToBitmap(def_levels, num_def_levels, info, &validity_io);
+      null_count = validity_io.null_count;
+      *values_read = validity_io.values_read;
+
       total_values =
           this->ReadValuesSpaced(*values_read, values, static_cast<int>(null_count),
                                  valid_bits, valid_bits_offset);
@@ -1369,14 +1378,18 @@ class TypedRecordReader : public ColumnReaderImplBase<DType>,
 
     int64_t null_count = 0;
     if (leaf_info_.HasNullableValues()) {
-      int64_t values_with_nulls = 0;
+      ValidityBitmapInputOutput validity_io;
+      validity_io.values_read_upper_bound = levels_position_ - start_levels_position;
+      validity_io.valid_bits = valid_bits_->mutable_data();
+      validity_io.valid_bits_offset = values_written_;
+
       DefinitionLevelsToBitmap(def_levels() + start_levels_position,
                                levels_position_ - start_levels_position, leaf_info_,
-                               &values_with_nulls, &null_count,
-                               valid_bits_->mutable_data(), values_written_);
-      values_to_read = values_with_nulls - null_count;
+                               &validity_io);
+      values_to_read = validity_io.values_read - validity_io.null_count;
+      null_count = validity_io.null_count;
       DCHECK_GE(values_to_read, 0);
-      ReadValuesSpaced(values_with_nulls, null_count);
+      ReadValuesSpaced(validity_io.values_read, null_count);
     } else {
       DCHECK_GE(values_to_read, 0);
       ReadValuesDense(values_to_read);

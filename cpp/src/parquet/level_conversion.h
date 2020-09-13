@@ -137,16 +137,13 @@ struct PARQUET_EXPORT LevelInfo {
   }
 };
 
-/// Converts def_levels to validity bitmaps for non-list arrays.
-/// TODO: use input/output parameter below instead of individual return variables.
-void PARQUET_EXPORT DefinitionLevelsToBitmap(const int16_t* def_levels,
-                                             int64_t num_def_levels, LevelInfo level_info,
-                                             int64_t* values_read, int64_t* null_count,
-                                             uint8_t* valid_bits,
-                                             int64_t valid_bits_offset);
-
 /// Input/Output structure for reconstructed validity bitmaps.
 struct PARQUET_EXPORT ValidityBitmapInputOutput {
+  /// The maximum number of values_read expected (actual
+  /// values read must be less than or equal to this value.
+  /// If this number is exceeded methods will throw a
+  /// ParquetException.
+  int64_t values_read_upper_bound = 0;
   /// The number of values added to the bitmap.
   int64_t values_read = 0;
   /// The number of nulls encountered.
@@ -157,6 +154,11 @@ struct PARQUET_EXPORT ValidityBitmapInputOutput {
   /// Input only, offset into valid_bits to start at.
   int64_t valid_bits_offset = 0;
 };
+
+/// Converts def_levels to validity bitmaps for non-list arrays.
+void PARQUET_EXPORT DefinitionLevelsToBitmap(const int16_t* def_levels,
+                                             int64_t num_def_levels, LevelInfo level_info,
+                                             ValidityBitmapInputOutput* output);
 
 /// Reconstructs a validity bitmap and list lengths for a ListArray based on
 /// def/rep levels.
@@ -177,8 +179,7 @@ uint64_t RunBasedExtract(uint64_t bitmap, uint64_t selection);
 #if defined(ARROW_HAVE_RUNTIME_BMI2)
 void PARQUET_EXPORT DefinitionLevelsToBitmapBmi2WithRepeatedParent(
     const int16_t* def_levels, int64_t num_def_levels, LevelInfo level_info,
-    int64_t* values_read, int64_t* null_count, uint8_t* valid_bits,
-    int64_t valid_bits_offset);
+    ValidityBitmapInputOutput* output);
 #endif
 
 }  // namespace internal

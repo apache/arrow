@@ -52,22 +52,22 @@ TEST(TestColumnReader, DefinitionLevelsToBitmap) {
   level_info.def_level = 3;
   level_info.rep_level = 1;
 
-  int64_t values_read = -1;
-  int64_t null_count = 0;
-  internal::DefinitionLevelsToBitmap(def_levels.data(), 9, level_info, &values_read,
-                                     &null_count, valid_bits.data(),
-                                     0 /* valid_bits_offset */);
-  ASSERT_EQ(9, values_read);
-  ASSERT_EQ(1, null_count);
+  ValidityBitmapInputOutput io;
+  io.values_read_upper_bound = def_levels.size();
+  io.values_read = -1;
+  io.valid_bits = valid_bits.data();
+
+  internal::DefinitionLevelsToBitmap(def_levels.data(), 9, level_info, &io);
+  ASSERT_EQ(9, io.values_read);
+  ASSERT_EQ(1, io.null_count);
 
   // Call again with 0 definition levels, make sure that valid_bits is unmodified
   const uint8_t current_byte = valid_bits[1];
-  null_count = 0;
-  internal::DefinitionLevelsToBitmap(def_levels.data(), 0, level_info, &values_read,
-                                     &null_count, valid_bits.data(),
-                                     9 /* valid_bits_offset */);
-  ASSERT_EQ(0, values_read);
-  ASSERT_EQ(0, null_count);
+  io.null_count = 0;
+  internal::DefinitionLevelsToBitmap(def_levels.data(), 0, level_info, &io);
+
+  ASSERT_EQ(0, io.values_read);
+  ASSERT_EQ(0, io.null_count);
   ASSERT_EQ(current_byte, valid_bits[1]);
 }
 
@@ -82,15 +82,15 @@ TEST(TestColumnReader, DefinitionLevelsToBitmapPowerOfTwo) {
   level_info.rep_level = 1;
   level_info.def_level = 3;
 
-  int64_t values_read = -1;
-  int64_t null_count = 0;
+  ValidityBitmapInputOutput io;
+  io.values_read_upper_bound = def_levels.size();
+  io.values_read = -1;
+  io.valid_bits = valid_bits.data();
 
   // Read the latter half of the validity bitmap
-  internal::DefinitionLevelsToBitmap(def_levels.data() + 4, 4, level_info, &values_read,
-                                     &null_count, valid_bits.data(),
-                                     4 /* valid_bits_offset */);
-  ASSERT_EQ(4, values_read);
-  ASSERT_EQ(0, null_count);
+  internal::DefinitionLevelsToBitmap(def_levels.data() + 4, 4, level_info, &io);
+  ASSERT_EQ(4, io.values_read);
+  ASSERT_EQ(0, io.null_count);
 }
 
 #if defined(ARROW_LITTLE_ENDIAN)
@@ -113,8 +113,13 @@ TEST(GreaterThanBitmap, GeneratesExpectedBitmasks) {
 
 TEST(DefinitionLevelsToBitmap, WithRepetitionLevelFiltersOutEmptyListValues) {
   std::vector<uint8_t> validity_bitmap(/*count*/ 8, 0);
-  int64_t null_count = 5;
-  int64_t values_read = 1;
+
+  ValidityBitmapInputOutput io;
+  io.values_read_upper_bound = 64;
+  io.values_read = 1;
+  io.null_count = 5;
+  io.valid_bits = validity_bitmap.data();
+  io.valid_bits_offset = 1;
 
   LevelInfo level_info;
   level_info.repeated_ancestor_def_level = 1;
@@ -122,16 +127,14 @@ TEST(DefinitionLevelsToBitmap, WithRepetitionLevelFiltersOutEmptyListValues) {
   level_info.rep_level = 1;
   // All zeros should be ignored, ones should be unset in the bitmp and 2 should be set.
   std::vector<int16_t> def_levels = {0, 0, 0, 2, 2, 1, 0, 2};
-  DefinitionLevelsToBitmap(def_levels.data(), def_levels.size(), level_info, &values_read,
-                           &null_count, validity_bitmap.data(),
-                           /*valid_bits_offset=*/1);
+  DefinitionLevelsToBitmap(def_levels.data(), def_levels.size(), level_info, &io);
 
   EXPECT_EQ(BitmapToString(validity_bitmap, /*bit_count=*/8), "01101000");
   for (size_t x = 1; x < validity_bitmap.size(); x++) {
     EXPECT_EQ(validity_bitmap[x], 0) << "index: " << x;
   }
-  EXPECT_EQ(null_count, /*5 + 1 =*/6);
-  EXPECT_EQ(values_read, 4);  // value should get overwritten.
+  EXPECT_EQ(io.null_count, /*5 + 1 =*/6);
+  EXPECT_EQ(io.values_read, 4);  // value should get overwritten.
 }
 
 template <typename LengthType>
@@ -207,6 +210,7 @@ TYPED_TEST(NestedListTest, OuterMostTest) {
   std::vector<typename TypeParam::ListLengthType> lengths(5, -1);
   uint64_t validity_output;
   ValidityBitmapInputOutput validity_io;
+  validity_io.values_read_upper_bound = 4;
   validity_io.valid_bits = reinterpret_cast<uint8_t*>(&validity_output);
   typename TypeParam::ListLengthType* next_position = this->converter_.ComputeListInfo(
       this->test_data_, level_info, &validity_io, lengths.data());
@@ -236,6 +240,7 @@ TYPED_TEST(NestedListTest, MiddleListTest) {
   std::vector<typename TypeParam::ListLengthType> lengths(8, -1);
   uint64_t validity_output;
   ValidityBitmapInputOutput validity_io;
+  validity_io.values_read_upper_bound = 7;
   validity_io.valid_bits = reinterpret_cast<uint8_t*>(&validity_output);
   typename TypeParam::ListLengthType* next_position = this->converter_.ComputeListInfo(
       this->test_data_, level_info, &validity_io, lengths.data());
@@ -265,6 +270,7 @@ TYPED_TEST(NestedListTest, InnerMostListTest) {
   std::vector<typename TypeParam::ListLengthType> lengths(7, -1);
   uint64_t validity_output;
   ValidityBitmapInputOutput validity_io;
+  validity_io.values_read_upper_bound = 6;
   validity_io.valid_bits = reinterpret_cast<uint8_t*>(&validity_output);
   typename TypeParam::ListLengthType* next_position = this->converter_.ComputeListInfo(
       this->test_data_, level_info, &validity_io, lengths.data());
@@ -297,6 +303,7 @@ TYPED_TEST(NestedListTest, SimpleLongList) {
   expected_lengths[0] = -1;
   std::vector<uint8_t> validity_output(9, 0);
   ValidityBitmapInputOutput validity_io;
+  validity_io.values_read_upper_bound = 65;
   validity_io.valid_bits = validity_output.data();
   typename TypeParam::ListLengthType* next_position = this->converter_.ComputeListInfo(
       this->test_data_, level_info, &validity_io, lengths.data());

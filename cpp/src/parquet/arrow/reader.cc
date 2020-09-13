@@ -498,6 +498,7 @@ class ListReader : public ColumnReaderImpl {
     RETURN_NOT_OK(item_reader_->GetRepLevels(&rep_levels, &num_levels));
     std::shared_ptr<Buffer> validity_buffer;
     ::parquet::internal::ValidityBitmapInputOutput validity_io;
+    validity_io.values_read_upper_bound = number_of_slots;
     if (field_->nullable()) {
       ARROW_ASSIGN_OR_RAISE(validity_buffer, AllocateBitmap(number_of_slots, ctx_->pool));
 
@@ -648,8 +649,10 @@ Status StructReader::BuildArray(int64_t records_to_read,
                                 std::shared_ptr<ChunkedArray>* out) {
   std::vector<std::shared_ptr<ArrayData>> children_array_data;
   std::shared_ptr<Buffer> null_bitmap;
-  int64_t null_count = 0;
-  int64_t values_read = records_to_read;
+
+  ::parquet::internal::ValidityBitmapInputOutput validity_io;
+  validity_io.values_read_upper_bound = records_to_read;
+  validity_io.values_read = records_to_read;
 
   BEGIN_PARQUET_CATCH_EXCEPTIONS
   const int16_t* def_levels;
@@ -658,46 +661,45 @@ Status StructReader::BuildArray(int64_t records_to_read,
 
   if (has_repeated_child_) {
     ARROW_ASSIGN_OR_RAISE(null_bitmap, AllocateBitmap(records_to_read, ctx_->pool));
+    validity_io.valid_bits = null_bitmap->mutable_data();
     RETURN_NOT_OK(children_.front()->GetDefLevels(&def_levels, &num_levels));
     RETURN_NOT_OK(children_.front()->GetRepLevels(&rep_levels, &num_levels));
-
-    ::parquet::internal::ValidityBitmapInputOutput validity_io;
-    validity_io.valid_bits = null_bitmap->mutable_data();
     ConvertDefRepLevelsToBitmap(def_levels, rep_levels, num_levels, level_info_,
                                 &validity_io);
-    null_count = validity_io.null_count;
-    values_read = validity_io.values_read;
   } else if (filtered_field_->nullable()) {
     ARROW_ASSIGN_OR_RAISE(null_bitmap, AllocateBitmap(records_to_read, ctx_->pool));
+    validity_io.valid_bits = null_bitmap->mutable_data();
     RETURN_NOT_OK(children_.front()->GetDefLevels(&def_levels, &num_levels));
-    DefinitionLevelsToBitmap(def_levels, num_levels, level_info_, &values_read,
-                             &null_count, null_bitmap->mutable_data(),
-                             /*valid_bits_offset=*/0);
-    // Ensure all values are initialized
+    DefinitionLevelsToBitmap(def_levels, num_levels, level_info_, &validity_io);
   }
-  if (BitUtil::BytesForBits(values_read) < BitUtil::BytesForBits(records_to_read)) {
-    std::fill(null_bitmap->mutable_data() + BitUtil::BytesForBits(values_read),
-              null_bitmap->mutable_data() + BitUtil::BytesForBits(records_to_read), 0);
+
+  // Ensure all values are initialized.
+  if (null_bitmap && BitUtil::BytesForBits(validity_io.values_read) <
+                         BitUtil::BytesForBits(records_to_read)) {
+    std::fill(
+        null_bitmap->mutable_data() + BitUtil::BytesForBits(validity_io.values_read),
+        null_bitmap->mutable_data() + BitUtil::BytesForBits(records_to_read), 0);
   }
 
   END_PARQUET_CATCH_EXCEPTIONS
   // Gather children arrays and def levels
   for (auto& child : children_) {
     std::shared_ptr<ChunkedArray> field;
-    RETURN_NOT_OK(child->BuildArray(values_read, &field));
+    RETURN_NOT_OK(child->BuildArray(validity_io.values_read, &field));
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ArrayData> array_data, ChunksToSingle(*field));
     children_array_data.push_back(std::move(array_data));
   }
 
   if (!filtered_field_->nullable() && !has_repeated_child_) {
-    values_read = children_array_data.front()->length;
+    validity_io.values_read = children_array_data.front()->length;
   }
 
   std::vector<std::shared_ptr<Buffer>> buffers{
-      null_count > 0 ? null_bitmap : std::shared_ptr<Buffer>()};
-  auto data = std::make_shared<ArrayData>(filtered_field_->type(),
-                                          /*length=*/values_read, std::move(buffers),
-                                          std::move(children_array_data));
+      validity_io.null_count > 0 ? null_bitmap : std::shared_ptr<Buffer>()};
+  auto data =
+      std::make_shared<ArrayData>(filtered_field_->type(),
+                                  /*length=*/validity_io.values_read, std::move(buffers),
+                                  std::move(children_array_data));
   std::shared_ptr<Array> result = ::arrow::MakeArray(data);
   RETURN_NOT_OK(result->Validate());
 
