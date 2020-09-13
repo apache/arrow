@@ -58,31 +58,25 @@ pub enum ScalarValue {
     Utf8(Option<String>),
     /// utf-8 encoded string representing a LargeString's arrow type.
     LargeUtf8(Option<String>),
-    /// List of scalars packed as a struct
-    Struct(Option<Vec<ScalarValue>>),
 }
 
 impl ScalarValue {
     /// Getter for the `DataType` of the value
-    pub fn get_datatype(&self) -> Result<DataType> {
+    pub fn get_datatype(&self) -> DataType {
         match *self {
-            ScalarValue::Boolean(_) => Ok(DataType::Boolean),
-            ScalarValue::UInt8(_) => Ok(DataType::UInt8),
-            ScalarValue::UInt16(_) => Ok(DataType::UInt16),
-            ScalarValue::UInt32(_) => Ok(DataType::UInt32),
-            ScalarValue::UInt64(_) => Ok(DataType::UInt64),
-            ScalarValue::Int8(_) => Ok(DataType::Int8),
-            ScalarValue::Int16(_) => Ok(DataType::Int16),
-            ScalarValue::Int32(_) => Ok(DataType::Int32),
-            ScalarValue::Int64(_) => Ok(DataType::Int64),
-            ScalarValue::Float32(_) => Ok(DataType::Float32),
-            ScalarValue::Float64(_) => Ok(DataType::Float64),
-            ScalarValue::Utf8(_) => Ok(DataType::Utf8),
-            ScalarValue::LargeUtf8(_) => Ok(DataType::LargeUtf8),
-            _ => Err(ExecutionError::General(format!(
-                "Cannot treat {:?} as scalar value",
-                self
-            ))),
+            ScalarValue::Boolean(_) => DataType::Boolean,
+            ScalarValue::UInt8(_) => DataType::UInt8,
+            ScalarValue::UInt16(_) => DataType::UInt16,
+            ScalarValue::UInt32(_) => DataType::UInt32,
+            ScalarValue::UInt64(_) => DataType::UInt64,
+            ScalarValue::Int8(_) => DataType::Int8,
+            ScalarValue::Int16(_) => DataType::Int16,
+            ScalarValue::Int32(_) => DataType::Int32,
+            ScalarValue::Int64(_) => DataType::Int64,
+            ScalarValue::Float32(_) => DataType::Float32,
+            ScalarValue::Float64(_) => DataType::Float64,
+            ScalarValue::Utf8(_) => DataType::Utf8,
+            ScalarValue::LargeUtf8(_) => DataType::LargeUtf8,
         }
     }
 
@@ -101,38 +95,29 @@ impl ScalarValue {
             | ScalarValue::Float32(None)
             | ScalarValue::Float64(None)
             | ScalarValue::Utf8(None)
-            | ScalarValue::LargeUtf8(None)
-            | ScalarValue::Struct(None) => true,
+            | ScalarValue::LargeUtf8(None) => true,
             _ => false,
         }
     }
 
     /// Converts a scalar value into an 1-row array.
-    pub fn to_array(&self) -> Result<ArrayRef> {
+    pub fn to_array(&self) -> ArrayRef {
         match self {
-            ScalarValue::Boolean(e) => {
-                Ok(Arc::new(BooleanArray::from(vec![*e])) as ArrayRef)
-            }
-            ScalarValue::Float64(e) => {
-                Ok(Arc::new(Float64Array::from(vec![*e])) as ArrayRef)
-            }
-            ScalarValue::Float32(e) => Ok(Arc::new(Float32Array::from(vec![*e]))),
-            ScalarValue::Int8(e) => Ok(Arc::new(Int8Array::from(vec![*e]))),
-            ScalarValue::Int16(e) => Ok(Arc::new(Int16Array::from(vec![*e]))),
-            ScalarValue::Int32(e) => Ok(Arc::new(Int32Array::from(vec![*e]))),
-            ScalarValue::Int64(e) => Ok(Arc::new(Int64Array::from(vec![*e]))),
-            ScalarValue::UInt8(e) => Ok(Arc::new(UInt8Array::from(vec![*e]))),
-            ScalarValue::UInt16(e) => Ok(Arc::new(UInt16Array::from(vec![*e]))),
-            ScalarValue::UInt32(e) => Ok(Arc::new(UInt32Array::from(vec![*e]))),
-            ScalarValue::UInt64(e) => Ok(Arc::new(UInt64Array::from(vec![*e]))),
-            ScalarValue::Utf8(e) => Ok(Arc::new(StringArray::from(vec![e.as_deref()]))),
+            ScalarValue::Boolean(e) => Arc::new(BooleanArray::from(vec![*e])) as ArrayRef,
+            ScalarValue::Float64(e) => Arc::new(Float64Array::from(vec![*e])) as ArrayRef,
+            ScalarValue::Float32(e) => Arc::new(Float32Array::from(vec![*e])),
+            ScalarValue::Int8(e) => Arc::new(Int8Array::from(vec![*e])),
+            ScalarValue::Int16(e) => Arc::new(Int16Array::from(vec![*e])),
+            ScalarValue::Int32(e) => Arc::new(Int32Array::from(vec![*e])),
+            ScalarValue::Int64(e) => Arc::new(Int64Array::from(vec![*e])),
+            ScalarValue::UInt8(e) => Arc::new(UInt8Array::from(vec![*e])),
+            ScalarValue::UInt16(e) => Arc::new(UInt16Array::from(vec![*e])),
+            ScalarValue::UInt32(e) => Arc::new(UInt32Array::from(vec![*e])),
+            ScalarValue::UInt64(e) => Arc::new(UInt64Array::from(vec![*e])),
+            ScalarValue::Utf8(e) => Arc::new(StringArray::from(vec![e.as_deref()])),
             ScalarValue::LargeUtf8(e) => {
-                Ok(Arc::new(LargeStringArray::from(vec![e.as_deref()])))
+                Arc::new(LargeStringArray::from(vec![e.as_deref()]))
             }
-            ScalarValue::Struct(_) => Err(ExecutionError::NotImplemented(format!(
-                "Cannot convert scalar {:?} to array",
-                self
-            ))),
         }
     }
 }
@@ -170,6 +155,12 @@ impl From<i32> for ScalarValue {
 impl From<i64> for ScalarValue {
     fn from(value: i64) -> Self {
         ScalarValue::Int64(Some(value))
+    }
+}
+
+impl From<bool> for ScalarValue {
+    fn from(value: bool) -> Self {
+        ScalarValue::Boolean(Some(value))
     }
 }
 
@@ -250,7 +241,6 @@ impl fmt::Display for ScalarValue {
             ScalarValue::UInt64(e) => format_option!(f, e)?,
             ScalarValue::Utf8(e) => format_option!(f, e)?,
             ScalarValue::LargeUtf8(e) => format_option!(f, e)?,
-            ScalarValue::Struct(_) => format_option!(f, Some("Struct"))?,
         };
         Ok(())
     }
@@ -272,7 +262,6 @@ impl fmt::Debug for ScalarValue {
             ScalarValue::UInt64(_) => write!(f, "UInt64({})", self),
             ScalarValue::Utf8(_) => write!(f, "Utf8(\"{}\")", self),
             ScalarValue::LargeUtf8(_) => write!(f, "LargeUtf8(\"{}\")", self),
-            ScalarValue::Struct(_) => write!(f, "Struct({})", self),
         }
     }
 }

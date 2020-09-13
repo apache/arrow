@@ -593,9 +593,7 @@ fn finalize_aggregation(
                 .map(|accumulator| accumulator.borrow_mut().state())
                 .map(|value| {
                     value.and_then(|e| {
-                        e.iter()
-                            .map(|v| v.to_array())
-                            .collect::<Result<Vec<ArrayRef>>>()
+                        Ok(e.iter().map(|v| v.to_array()).collect::<Vec<ArrayRef>>())
                     })
                 })
                 .collect::<Result<Vec<_>>>()?;
@@ -609,7 +607,7 @@ fn finalize_aggregation(
                     accumulator
                         .borrow_mut()
                         .evaluate()
-                        .and_then(|v| v.to_array())
+                        .and_then(|v| Ok(v.to_array()))
                 })
                 .collect::<Result<Vec<ArrayRef>>>()
         }
