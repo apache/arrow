@@ -346,7 +346,7 @@ impl RecordBatchReader for GroupedHashAggregateIterator {
                             }
                             AggregateMode::Final => {
                                 // note: the aggregation here is over states, not values, thus the merge
-                                accumulator.borrow_mut().merge(&values)
+                                accumulator.borrow_mut().merge_batch(&values)
                             }
                         })
                         .collect::<Result<()>>()
@@ -490,7 +490,7 @@ impl RecordBatchReader for HashAggregateIterator {
                     // 1.3
                     match self.mode {
                         AggregateMode::Partial => accum.borrow_mut().update_batch(values),
-                        AggregateMode::Final => accum.borrow_mut().merge(values),
+                        AggregateMode::Final => accum.borrow_mut().merge_batch(values),
                     }
                 })
                 .collect::<Result<()>>()

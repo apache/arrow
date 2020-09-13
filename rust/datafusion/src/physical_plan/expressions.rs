@@ -310,8 +310,13 @@ impl Accumulator for SumAccumulator {
         Ok(())
     }
 
-    fn merge(&mut self, states: &Vec<ArrayRef>) -> Result<()> {
-        // sum(sum1, sum2, sum3) = sum1 + sum2 + sum3
+    fn merge(&mut self, states: &Vec<ScalarValue>) -> Result<()> {
+        // sum(sum1, sum2) = sum1 + sum2
+        self.update(states)
+    }
+
+    fn merge_batch(&mut self, states: &Vec<ArrayRef>) -> Result<()> {
+        // sum(sum1, sum2, sum3, ...) = sum1 + sum2 + sum3 + ...
         self.update_batch(states)
     }
 
@@ -414,6 +419,10 @@ impl AvgAccumulator {
 }
 
 impl Accumulator for AvgAccumulator {
+    fn state(&self) -> Result<Vec<ScalarValue>> {
+        Ok(vec![ScalarValue::from(self.count), self.sum.clone()])
+    }
+
     fn update(&mut self, values: &Vec<ScalarValue>) -> Result<()> {
         let values = &values[0];
 
@@ -431,16 +440,28 @@ impl Accumulator for AvgAccumulator {
         Ok(())
     }
 
-    fn merge(&mut self, states: &Vec<ArrayRef>) -> Result<()> {
-        let counts = states[0].as_any().downcast_ref::<UInt64Array>().unwrap();
-        self.count += compute::sum(counts).unwrap_or(0);
+    fn merge(&mut self, states: &Vec<ScalarValue>) -> Result<()> {
+        let count = &states[0];
+        // counts are summed
+        if let ScalarValue::UInt64(Some(c)) = count {
+            self.count += c
+        } else {
+            unreachable!()
+        };
 
-        self.sum = sum(&self.sum, &sum_batch(&states[1])?)?;
+        // sums are summed
+        self.sum = sum(&self.sum, &states[1])?;
         Ok(())
     }
 
-    fn state(&self) -> Result<Vec<ScalarValue>> {
-        Ok(vec![ScalarValue::from(self.count), self.sum.clone()])
+    fn merge_batch(&mut self, states: &Vec<ArrayRef>) -> Result<()> {
+        let counts = states[0].as_any().downcast_ref::<UInt64Array>().unwrap();
+        // counts are summed
+        self.count += compute::sum(counts).unwrap_or(0);
+
+        // sums are summed
+        self.sum = sum(&self.sum, &sum_batch(&states[1])?)?;
+        Ok(())
     }
 
     fn evaluate(&self) -> Result<ScalarValue> {
@@ -530,8 +551,12 @@ macro_rules! min_max_batch {
     ($VALUES:expr, $OP:ident) => {{
         match $VALUES.data_type() {
             // all types that have a natural order
-            DataType::Float64 => typed_min_max_batch!($VALUES, Float64Array, Float64, $OP),
-            DataType::Float32 => typed_min_max_batch!($VALUES, Float32Array, Float32, $OP),
+            DataType::Float64 => {
+                typed_min_max_batch!($VALUES, Float64Array, Float64, $OP)
+            }
+            DataType::Float32 => {
+                typed_min_max_batch!($VALUES, Float32Array, Float32, $OP)
+            }
             DataType::Int64 => typed_min_max_batch!($VALUES, Int64Array, Int64, $OP),
             DataType::Int32 => typed_min_max_batch!($VALUES, Int32Array, Int32, $OP),
             DataType::Int16 => typed_min_max_batch!($VALUES, Int16Array, Int16, $OP),
@@ -553,10 +578,15 @@ macro_rules! min_max_batch {
 /// dynamically-typed min(array) -> ScalarValue
 fn min_batch(values: &ArrayRef) -> Result<ScalarValue> {
     Ok(match values.data_type() {
-        DataType::Utf8 => typed_min_max_batch_string!(values, StringArray, Utf8, min_string),
-        DataType::LargeUtf8 => {
-            typed_min_max_batch_string!(values, LargeStringArray, LargeUtf8, min_large_string)
+        DataType::Utf8 => {
+            typed_min_max_batch_string!(values, StringArray, Utf8, min_string)
         }
+        DataType::LargeUtf8 => typed_min_max_batch_string!(
+            values,
+            LargeStringArray,
+            LargeUtf8,
+            min_large_string
+        ),
         _ => min_max_batch!(values, min),
     })
 }
@@ -564,10 +594,15 @@ fn min_batch(values: &ArrayRef) -> Result<ScalarValue> {
 /// dynamically-typed max(array) -> ScalarValue
 fn max_batch(values: &ArrayRef) -> Result<ScalarValue> {
     Ok(match values.data_type() {
-        DataType::Utf8 => typed_min_max_batch_string!(values, StringArray, Utf8, max_string),
-        DataType::LargeUtf8 => {
-            typed_min_max_batch_string!(values, LargeStringArray, LargeUtf8, max_large_string)
+        DataType::Utf8 => {
+            typed_min_max_batch_string!(values, StringArray, Utf8, max_string)
         }
+        DataType::LargeUtf8 => typed_min_max_batch_string!(
+            values,
+            LargeStringArray,
+            LargeUtf8,
+            max_large_string
+        ),
         _ => min_max_batch!(values, max),
     })
 }
@@ -684,7 +719,11 @@ impl Accumulator for MaxAccumulator {
         Ok(())
     }
 
-    fn merge(&mut self, states: &Vec<ArrayRef>) -> Result<()> {
+    fn merge(&mut self, states: &Vec<ScalarValue>) -> Result<()> {
+        self.update(states)
+    }
+
+    fn merge_batch(&mut self, states: &Vec<ArrayRef>) -> Result<()> {
         self.update_batch(states)
     }
 
@@ -761,6 +800,10 @@ impl MinAccumulator {
 }
 
 impl Accumulator for MinAccumulator {
+    fn state(&self) -> Result<Vec<ScalarValue>> {
+        Ok(vec![self.min.clone()])
+    }
+
     fn update_batch(&mut self, values: &Vec<ArrayRef>) -> Result<()> {
         let values = &values[0];
         let delta = &min_batch(values)?;
@@ -774,12 +817,12 @@ impl Accumulator for MinAccumulator {
         Ok(())
     }
 
-    fn merge(&mut self, states: &Vec<ArrayRef>) -> Result<()> {
-        self.update_batch(states)
+    fn merge(&mut self, states: &Vec<ScalarValue>) -> Result<()> {
+        self.update(states)
     }
 
-    fn state(&self) -> Result<Vec<ScalarValue>> {
-        Ok(vec![self.min.clone()])
+    fn merge_batch(&mut self, states: &Vec<ArrayRef>) -> Result<()> {
+        self.update_batch(states)
     }
 
     fn evaluate(&self) -> Result<ScalarValue> {
@@ -848,10 +891,10 @@ impl CountAccumulator {
         }
     }
 
-    fn update_from_option(&mut self, delta: Option<u64>) -> Result<()> {
+    fn update_from_option(&mut self, delta: &Option<u64>) -> Result<()> {
         self.count = ScalarValue::UInt64(match (&self.count, delta) {
             (ScalarValue::UInt64(None), None) => None,
-            (ScalarValue::UInt64(None), Some(rhs)) => Some(rhs),
+            (ScalarValue::UInt64(None), Some(rhs)) => Some(rhs.clone()),
             (ScalarValue::UInt64(Some(lhs)), None) => Some(lhs.clone()),
             (ScalarValue::UInt64(Some(lhs)), Some(rhs)) => Some(lhs + rhs),
             _ => {
@@ -872,7 +915,7 @@ impl Accumulator for CountAccumulator {
         } else {
             Some((array.len() - array.data().null_count()) as u64)
         };
-        self.update_from_option(delta)
+        self.update_from_option(&delta)
     }
 
     fn update(&mut self, values: &Vec<ScalarValue>) -> Result<()> {
@@ -880,6 +923,7 @@ impl Accumulator for CountAccumulator {
         self.count = match (&self.count, value.is_null()) {
             (ScalarValue::UInt64(None), false) => ScalarValue::from(1u64),
             (ScalarValue::UInt64(Some(count)), false) => ScalarValue::from(count + 1),
+            // value is null => no change in count
             (e, true) => e.clone(),
             (_, false) => {
                 return Err(ExecutionError::InternalError(
@@ -890,9 +934,18 @@ impl Accumulator for CountAccumulator {
         Ok(())
     }
 
-    fn merge(&mut self, states: &Vec<ArrayRef>) -> Result<()> {
+    fn merge(&mut self, states: &Vec<ScalarValue>) -> Result<()> {
+        let count = &states[0];
+        if let ScalarValue::UInt64(delta) = count {
+            self.update_from_option(delta)
+        } else {
+            unreachable!()
+        }
+    }
+
+    fn merge_batch(&mut self, states: &Vec<ArrayRef>) -> Result<()> {
         let counts = states[0].as_any().downcast_ref::<UInt64Array>().unwrap();
-        let delta = compute::sum(counts);
+        let delta = &compute::sum(counts);
         self.update_from_option(delta)
     }
 
