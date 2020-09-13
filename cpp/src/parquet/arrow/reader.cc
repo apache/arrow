@@ -516,9 +516,6 @@ class ListReader : public ColumnReaderImpl {
     ::parquet::internal::ConvertDefRepLevelsToList(
         def_levels, rep_levels, num_levels, level_info_, &validity_io, length_data);
     END_PARQUET_CATCH_EXCEPTIONS
-    for (int x = 1; x <= validity_io.values_read; x++) {
-      length_data[x] += length_data[x - 1];
-    }
     // We might return less then the requested slot (i.e. reaching an end of a file)
     // ensure we've set all the bits here.
     if (validity_io.values_read < number_of_slots) {

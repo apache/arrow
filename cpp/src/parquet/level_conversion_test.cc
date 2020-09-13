@@ -137,26 +137,6 @@ TEST(DefinitionLevelsToBitmap, WithRepetitionLevelFiltersOutEmptyListValues) {
   EXPECT_EQ(io.values_read, 4);  // value should get overwritten.
 }
 
-template <typename LengthType>
-void DefRepLevelsToListLengths(const int16_t* def_levels, const int16_t* rep_levels,
-                               int64_t num_def_levels, LevelInfo level_info,
-                               LengthType* lengths) {
-  for (int x = 0; x < num_def_levels; x++) {
-    if (rep_levels[x] < level_info.rep_level) {
-      // A value less than the current rep_level indicates either a start of a
-      // new list or an empty list.
-      if (def_levels[x] >= level_info.repeated_ancestor_def_level) {
-        ++lengths;
-        *lengths = def_levels[x] >= level_info.def_level ? 1 : 0;
-      }
-    } else {
-      // The current list length only increases when the rep level is equal
-      // to the current one (greater rep levels belong to the next length list.
-      lengths += rep_levels[x] == level_info.rep_level ? 1 : 0;
-    }
-  }
-}
-
 class MultiLevelTestData {
  public:
   // Triply nested list values borrow from write_path
@@ -207,7 +187,7 @@ TYPED_TEST(NestedListTest, OuterMostTest) {
   level_info.rep_level = 1;
   level_info.def_level = 2;
 
-  std::vector<typename TypeParam::ListLengthType> lengths(5, -1);
+  std::vector<typename TypeParam::ListLengthType> lengths(5, 0);
   uint64_t validity_output;
   ValidityBitmapInputOutput validity_io;
   validity_io.values_read_upper_bound = 4;
@@ -216,7 +196,7 @@ TYPED_TEST(NestedListTest, OuterMostTest) {
       this->test_data_, level_info, &validity_io, lengths.data());
 
   EXPECT_THAT(next_position, lengths.data() + 4);
-  EXPECT_THAT(lengths, testing::ElementsAre(-1, 3, 4, 0, 0));
+  EXPECT_THAT(lengths, testing::ElementsAre(0, 3, 7, 7, 7));
 
   EXPECT_EQ(validity_io.values_read, 4);
   EXPECT_EQ(validity_io.null_count, 1);
@@ -237,7 +217,7 @@ TYPED_TEST(NestedListTest, MiddleListTest) {
   level_info.def_level = 4;
   level_info.repeated_ancestor_def_level = 2;
 
-  std::vector<typename TypeParam::ListLengthType> lengths(8, -1);
+  std::vector<typename TypeParam::ListLengthType> lengths(8, 0);
   uint64_t validity_output;
   ValidityBitmapInputOutput validity_io;
   validity_io.values_read_upper_bound = 7;
@@ -246,7 +226,7 @@ TYPED_TEST(NestedListTest, MiddleListTest) {
       this->test_data_, level_info, &validity_io, lengths.data());
 
   EXPECT_THAT(next_position, lengths.data() + 7);
-  EXPECT_THAT(lengths, testing::ElementsAre(-1, 0, 2, 0, 1, 2, 0, 1));
+  EXPECT_THAT(lengths, testing::ElementsAre(0, 0, 2, 2, 3, 5, 5, 6));
 
   EXPECT_EQ(validity_io.values_read, 7);
   EXPECT_EQ(validity_io.null_count, 2);
@@ -267,7 +247,7 @@ TYPED_TEST(NestedListTest, InnerMostListTest) {
   level_info.def_level = 6;
   level_info.repeated_ancestor_def_level = 4;
 
-  std::vector<typename TypeParam::ListLengthType> lengths(7, -1);
+  std::vector<typename TypeParam::ListLengthType> lengths(7, 0);
   uint64_t validity_output;
   ValidityBitmapInputOutput validity_io;
   validity_io.values_read_upper_bound = 6;
@@ -276,7 +256,7 @@ TYPED_TEST(NestedListTest, InnerMostListTest) {
       this->test_data_, level_info, &validity_io, lengths.data());
 
   EXPECT_THAT(next_position, lengths.data() + 6);
-  EXPECT_THAT(lengths, testing::ElementsAre(-1, 3, 0, 0, 0, 2, 1));
+  EXPECT_THAT(lengths, testing::ElementsAre(0, 3, 3, 3, 3, 5, 6));
 
   EXPECT_EQ(validity_io.values_read, 6);
   EXPECT_EQ(validity_io.null_count, 0);
@@ -298,9 +278,11 @@ TYPED_TEST(NestedListTest, SimpleLongList) {
                                         /*rep_level=*/1);
   }
 
-  std::vector<typename TypeParam::ListLengthType> lengths(66, -1);
-  std::vector<typename TypeParam::ListLengthType> expected_lengths(66, 9);
-  expected_lengths[0] = -1;
+  std::vector<typename TypeParam::ListLengthType> lengths(66, 0);
+  std::vector<typename TypeParam::ListLengthType> expected_lengths(66, 0);
+  for (size_t x = 1; x < expected_lengths.size(); x++) {
+   expected_lengths[x] = x * 9;
+  }
   std::vector<uint8_t> validity_output(9, 0);
   ValidityBitmapInputOutput validity_io;
   validity_io.values_read_upper_bound = 65;

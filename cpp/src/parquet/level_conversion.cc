@@ -108,7 +108,9 @@ void DefRepLevelsToListInfo(const int16_t* def_levels, const int16_t* rep_levels
       // filtered out above).
       if (lengths != nullptr) {
         ++lengths;
-        *lengths = (def_levels[x] >= level_info.def_level) ? 1 : 0;
+	// Use cumulative lengths because this is what the more common
+	// Arrow list types expect.
+        *lengths = ((def_levels[x] >= level_info.def_level) ? 1 : 0) + *(lengths-1);
       }
 
       if (valid_bits_writer != nullptr) {
