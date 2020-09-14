@@ -17,6 +17,7 @@
 
 #include "parquet/level_conversion.h"
 #include "parquet/level_comparison.h"
+#include "parquet/test_util.h"
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -305,6 +306,37 @@ TYPED_TEST(NestedListTest, SimpleLongList) {
             "11111111 "
             "11111111 "
             "1");
+}
+
+TYPED_TEST(NestedListTest, TestOverflow) {
+  LevelInfo level_info;
+  level_info.rep_level = 1;
+  level_info.def_level = 2;
+  level_info.repeated_ancestor_def_level = 0;
+
+  // No empty lists.
+  this->test_data_.def_levels_ = std::vector<int16_t>{2};
+  this->test_data_.rep_levels_ = std::vector<int16_t>{0};
+
+  std::vector<typename TypeParam::ListLengthType> lengths(
+      2, std::numeric_limits<typename TypeParam::ListLengthType>::max());
+
+  std::vector<uint8_t> validity_output(1, 0);
+  ValidityBitmapInputOutput validity_io;
+  validity_io.values_read_upper_bound = 1;
+  validity_io.valid_bits = validity_output.data();
+  ASSERT_THROW(this->converter_.ComputeListInfo(this->test_data_, level_info,
+                                                &validity_io, lengths.data()),
+               ParquetException);
+
+  // Same thing should happen if the list already existed.
+  this->test_data_.rep_levels_ = std::vector<int16_t>{1};
+  ASSERT_THROW(this->converter_.ComputeListInfo(this->test_data_, level_info,
+                                                &validity_io, lengths.data()),
+               ParquetException);
+
+  // Should be OK because it shouldn't increment.
+  this->test_data_.def_levels_ = std::vector<int16_t>{0};
 }
 
 TEST(RunBasedExtract, BasicTest) {

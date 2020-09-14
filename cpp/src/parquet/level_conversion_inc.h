@@ -74,7 +74,7 @@ inline uint64_t RunBasedExtractImpl(uint64_t bitmap, uint64_t select_bitmap) {
 }
 
 inline uint64_t ExtractBits(uint64_t bitmap, uint64_t select_bitmap) {
-#if defined(ARROW_HAVE_BMI2)
+#if defined(ARROW_HAVE_BMI2) && !defined(__MINGW32__)
   return _pext_u64(bitmap, select_bitmap);
 #else
   return RunBasedExtractImpl(bitmap, select_bitmap);

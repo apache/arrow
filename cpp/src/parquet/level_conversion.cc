@@ -101,6 +101,9 @@ void DefRepLevelsToListInfo(const int16_t* def_levels, const int16_t* rep_levels
     if (rep_levels[x] == level_info.rep_level) {
       // A continuation of an existing list.
       if (lengths != nullptr) {
+        if (ARROW_PREDICT_FALSE(*lengths == std::numeric_limits<LengthType>::max())) {
+          throw ParquetException("List index overflow.");
+        }
         *lengths += 1;
       }
     } else {
@@ -110,7 +113,13 @@ void DefRepLevelsToListInfo(const int16_t* def_levels, const int16_t* rep_levels
         ++lengths;
         // Use cumulative lengths because this is what the more common
         // Arrow list types expect.
-        *lengths = ((def_levels[x] >= level_info.def_level) ? 1 : 0) + *(lengths - 1);
+        *lengths = *(lengths - 1);
+        if (def_levels[x] >= level_info.def_level) {
+          if (ARROW_PREDICT_FALSE(*lengths == std::numeric_limits<LengthType>::max())) {
+            throw ParquetException("List index overflow.");
+          }
+          *lengths += 1;
+        }
       }
 
       if (valid_bits_writer != nullptr) {
