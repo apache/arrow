@@ -201,7 +201,7 @@ class ConcatenateImpl {
   }
 
   Status Visit(const FixedWidthType& fixed) {
-    // Handles numbers, decimal128, fixed_size_binary
+    // Handles numbers, decimal128, decimal256, fixed_size_binary
     ARROW_ASSIGN_OR_RAISE(auto buffers, Buffers(1, fixed));
     return ConcatenateBuffers(buffers, pool_).Value(&out_->buffers[1]);
   }
