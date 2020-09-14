@@ -87,7 +87,6 @@ outputs:
       run:
         - {{ pin_compatible('numpy', lower_bound='1.16') }}
         - aws-sdk-cpp
-        - boost-cpp
         - brotli
         - c-ares
         - gflags
@@ -193,9 +192,7 @@ outputs:
       run:
         - {{ pin_subpackage('arrow-cpp', exact=True) }}
         - {{ pin_compatible('numpy', lower_bound='1.16') }}
-        - boost-cpp
         - glog
-        - pandas
         # empty parquet-cpp metapackage, force old versions to be uninstalled
         - parquet-cpp 1.5.1.*
         - python
