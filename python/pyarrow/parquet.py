@@ -481,11 +481,6 @@ use_byte_stream_split: bool or list, default False
     enabled, then dictionary is preferred.
     The byte_stream_split encoding is valid only for floating-point data types
     and should be combined with a compression codec.
-writer_engine_version: str, default "V2"
-    The engine version to use when writing out Arrow data.  V2 supports
-    all nested types. V1 is legacy and will be removed in a future release.
-    Setting the environment variable ARROW_PARQUET_WRITER_ENGINE will
-    override the default.
 data_page_version : {"1.0", "2.0"}, default "1.0"
     The serialized Parquet data page format version to write, defaults to
     1.0. This does not impact the file schema logical types and Arrow to
@@ -555,7 +550,7 @@ schema : arrow Schema
         else:
             sink = where
         self._metadata_collector = options.pop('metadata_collector', None)
-        engine_version = os.environ.get('ARROW_PARQUET_WRITER_ENGINE', 'V2')
+        engine_version = 'V2'
         self.writer = _parquet.ParquetWriter(
             sink, schema,
             version=version,
