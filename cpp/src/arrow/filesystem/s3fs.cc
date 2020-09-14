@@ -279,7 +279,7 @@ Result<S3Options> S3Options::FromUri(const Uri& uri, std::string* out_path) {
     } else if (kv.first == "endpoint_override") {
       options.endpoint_override = kv.second;
     } else {
-      return Status::Invalid("Unexpected option in S3 URI: '", kv.first, "'");
+      return Status::Invalid("Unexpected query parameter in S3 URI: '", kv.first, "'");
     }
   }
 
