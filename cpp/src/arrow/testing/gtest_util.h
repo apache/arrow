@@ -254,7 +254,7 @@ ARROW_TESTING_EXPORT void TestInitialized(const Array& array);
 
 template <typename BuilderType>
 void FinishAndCheckPadding(BuilderType* builder, std::shared_ptr<Array>* out) {
-  ASSERT_OK(builder->Finish(out));
+  ASSERT_OK_AND_ASSIGN(*out, builder->Finish());
   AssertZeroPadded(**out);
   TestInitialized(**out);
 }

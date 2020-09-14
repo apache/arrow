@@ -657,6 +657,12 @@ TEST(TestDictionaryScalar, Basics) {
     ASSERT_TRUE(first->Equals(scalar_gamma));
     ASSERT_TRUE(second->Equals(scalar_alpha));
     ASSERT_TRUE(last->Equals(scalar_null));
+
+    auto first_dict_scalar = checked_cast<const DictionaryScalar&>(*first);
+    ASSERT_TRUE(first_dict_scalar.value.dictionary->Equals(arr.dictionary()));
+
+    auto second_dict_scalar = checked_cast<const DictionaryScalar&>(*second);
+    ASSERT_TRUE(second_dict_scalar.value.dictionary->Equals(arr.dictionary()));
   }
 }
 
