@@ -192,6 +192,9 @@ Result<Datum> MetaFunction::Execute(const std::vector<Datum>& args,
                                     const FunctionOptions* options,
                                     ExecContext* ctx) const {
   RETURN_NOT_OK(CheckArity(static_cast<int>(args.size())));
+  if (options == nullptr) {
+    options = default_options();
+  }
   return ExecuteImpl(args, options, ctx);
 }
 

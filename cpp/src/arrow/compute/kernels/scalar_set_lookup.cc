@@ -404,7 +404,9 @@ class IsInMetaBinary : public MetaFunction {
   Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
                             const FunctionOptions* options,
                             ExecContext* ctx) const override {
-    DCHECK_EQ(options, nullptr);
+    if (options != nullptr) {
+      return Status::Invalid("Unexpected options for 'is_in_meta_binary' function");
+    }
     return IsIn(args[0], args[1], ctx);
   }
 };
@@ -417,7 +419,9 @@ class IndexInMetaBinary : public MetaFunction {
   Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
                             const FunctionOptions* options,
                             ExecContext* ctx) const override {
-    DCHECK_EQ(options, nullptr);
+    if (options != nullptr) {
+      return Status::Invalid("Unexpected options for 'index_in_meta_binary' function");
+    }
     return IndexIn(args[0], args[1], ctx);
   }
 };
