@@ -83,7 +83,7 @@ Some functions accept or require an options structure that determines the
 exact semantics of the function::
 
    MinMaxOptions options;
-   options.null_handling = MinMaxOptions::OUTPUT_NULL;
+   options.null_handling = MinMaxOptions::EMIT_NULL;
 
    std::shared_ptr<arrow::Array> array = ...;
    arrow::Datum min_max_datum;

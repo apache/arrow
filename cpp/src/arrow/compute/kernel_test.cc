@@ -141,6 +141,15 @@ TEST(InputType, Constructors) {
 
   InputType ty7(match::TimestampTypeUnit(TimeUnit::MICRO));
   ASSERT_EQ("any[timestamp(us)]", ty7.ToString());
+
+  InputType ty8;
+  InputType ty9(ValueDescr::ANY);
+  InputType ty10(ValueDescr::ARRAY);
+  InputType ty11(ValueDescr::SCALAR);
+  ASSERT_EQ("any[any]", ty8.ToString());
+  ASSERT_EQ("any[any]", ty9.ToString());
+  ASSERT_EQ("array[any]", ty10.ToString());
+  ASSERT_EQ("scalar[any]", ty11.ToString());
 }
 
 TEST(InputType, Equals) {

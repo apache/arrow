@@ -16,8 +16,11 @@
 # under the License.
 
 from functools import lru_cache
-import numpy as np
+import pickle
 import pytest
+import textwrap
+
+import numpy as np
 
 import pyarrow as pa
 import pyarrow.compute as pc
@@ -70,11 +73,99 @@ def test_exported_functions():
     functions = exported_functions
     assert len(functions) >= 10
     for func in functions:
-        args = [None] * func.__arrow_compute_function__['arity']
+        args = [object()] * func.__arrow_compute_function__['arity']
         with pytest.raises(TypeError,
                            match="Got unexpected argument type "
-                                 "<class 'NoneType'> for compute function"):
+                                 "<class 'object'> for compute function"):
             func(*args)
+
+
+def test_list_functions():
+    assert len(pc.list_functions()) > 10
+    assert "add" in pc.list_functions()
+
+
+def _check_get_function(name, expected_func_cls, expected_ker_cls,
+                        min_num_kernels=1):
+    func = pc.get_function(name)
+    assert isinstance(func, expected_func_cls)
+    n = func.num_kernels
+    assert n >= min_num_kernels
+    assert n == len(func.kernels)
+    assert all(isinstance(ker, expected_ker_cls) for ker in func.kernels)
+
+
+def test_get_function_scalar():
+    _check_get_function("add", pc.ScalarFunction, pc.ScalarKernel, 8)
+
+
+def test_get_function_vector():
+    _check_get_function("unique", pc.VectorFunction, pc.VectorKernel, 8)
+
+
+def test_get_function_aggregate():
+    _check_get_function("mean", pc.ScalarAggregateFunction,
+                        pc.ScalarAggregateKernel, 8)
+
+
+def test_call_function_with_memory_pool():
+    arr = pa.array(["foo", "bar", "baz"])
+    indices = np.array([2, 2, 1])
+    result1 = arr.take(indices)
+    result2 = pc.call_function('take', [arr, indices],
+                               memory_pool=pa.default_memory_pool())
+    expected = pa.array(["baz", "baz", "bar"])
+    assert result1.equals(expected)
+    assert result2.equals(expected)
+
+    result3 = pc.take(arr, indices, memory_pool=pa.default_memory_pool())
+    assert result3.equals(expected)
+
+
+def test_pickle_functions():
+    # Pickle registered functions
+    for name in pc.list_functions():
+        func = pc.get_function(name)
+        reconstructed = pickle.loads(pickle.dumps(func))
+        assert type(reconstructed) is type(func)
+        assert reconstructed.name == func.name
+        assert reconstructed.arity == func.arity
+        assert reconstructed.num_kernels == func.num_kernels
+
+
+def test_pickle_global_functions():
+    # Pickle global wrappers (manual or automatic) of registered functions
+    for name in pc.list_functions():
+        func = getattr(pc, name)
+        reconstructed = pickle.loads(pickle.dumps(func))
+        assert reconstructed is func
+
+
+def test_function_attributes():
+    # Sanity check attributes of registered functions
+    for name in pc.list_functions():
+        func = pc.get_function(name)
+        assert isinstance(func, pc.Function)
+        assert func.name == name
+        kernels = func.kernels
+        assert func.num_kernels == len(kernels)
+        assert all(isinstance(ker, pc.Kernel) for ker in kernels)
+        assert func.arity >= 1  # no varargs functions for now
+        repr(func)
+        for ker in kernels:
+            repr(ker)
+
+
+def test_input_type_conversion():
+    # Automatic array conversion from Python
+    arr = pc.add([1, 2], [4, None])
+    assert arr.to_pylist() == [5, None]
+    # Automatic scalar conversion from Python
+    arr = pc.add([1, 2], 4)
+    assert arr.to_pylist() == [5, 6]
+    # Other scalar type
+    assert pc.equal(["foo", "bar", None],
+                    "foo").to_pylist() == [True, False, None]
 
 
 @pytest.mark.parametrize('arrow_type', numerical_arrow_types)
@@ -111,7 +202,6 @@ def test_sum_chunked_array(arrow_type):
 
 def test_mode_array():
     # ARROW-9917
-
     arr = pa.array([1, 1, 3, 4, 3, 5], type='int64')
     expected = {"mode": 1, "count": 2}
     assert pc.mode(arr).as_py() == {"mode": 1, "count": 2}
@@ -123,7 +213,6 @@ def test_mode_array():
 
 def test_mode_chunked_array():
     # ARROW-9917
-
     arr = pa.chunked_array([pa.array([1, 1, 3, 4, 3, 5], type='int64')])
     expected = {"mode": 1, "count": 2}
     assert pc.mode(arr).as_py() == expected
@@ -139,6 +228,75 @@ def test_match_substring():
     result = pc.match_substring(arr, "ab")
     expected = pa.array([True, True, False, None])
     assert expected.equals(result)
+
+
+def test_min_max():
+    # An example generated function wrapper with possible options
+    data = [4, 5, 6, None, 1]
+    s = pc.min_max(data)
+    assert s.as_py() == {'min': 1, 'max': 6}
+    s = pc.min_max(data, options=pc.MinMaxOptions())
+    assert s.as_py() == {'min': 1, 'max': 6}
+    s = pc.min_max(data, options=pc.MinMaxOptions(null_handling='skip'))
+    assert s.as_py() == {'min': 1, 'max': 6}
+    s = pc.min_max(data, options=pc.MinMaxOptions(null_handling='emit_null'))
+    assert s.as_py() == {'min': None, 'max': None}
+
+    # Options as dict of kwargs
+    s = pc.min_max(data, options={'null_handling': 'emit_null'})
+    assert s.as_py() == {'min': None, 'max': None}
+    # Options as named functions arguments
+    s = pc.min_max(data, null_handling='emit_null')
+    assert s.as_py() == {'min': None, 'max': None}
+
+    # Both options and named arguments
+    with pytest.raises(TypeError):
+        s = pc.min_max(data, options=pc.MinMaxOptions(),
+                       null_handling='emit_null')
+
+    # Wrong options type
+    options = pc.TakeOptions()
+    with pytest.raises(TypeError):
+        s = pc.min_max(data, options=options)
+
+
+def test_is_valid():
+    # An example generated function wrapper without options
+    data = [4, 5, None]
+    assert pc.is_valid(data).to_pylist() == [True, True, False]
+
+    with pytest.raises(TypeError):
+        pc.is_valid(data, options=None)
+
+
+def test_generated_docstrings():
+    assert pc.min_max.__doc__ == textwrap.dedent("""\
+        Call compute function 'min_max' with the given argument.
+
+        Parameters
+        ----------
+        arg : Array-like or scalar-like
+            Argument to compute function
+        memory_pool : pyarrow.MemoryPool, optional
+            If not passed, will allocate memory from the default memory pool.
+        options : pyarrow.compute.MinMaxOptions, optional
+            Parameters altering compute function semantics
+        **kwargs: optional
+            Parameters for MinMaxOptions constructor.  Either `options`
+            or `**kwargs` can be passed, but not both at the same time.
+        """)
+    assert pc.add.__doc__ == textwrap.dedent("""\
+        Call compute function 'add' with the given arguments.
+
+        Parameters
+        ----------
+        left : Array-like or scalar-like
+            First argument to compute function
+        right : Array-like or scalar-like
+            Second argument to compute function
+        memory_pool : pyarrow.MemoryPool, optional
+            If not passed, will allocate memory from the default memory pool.
+        """)
 
 
 # We use isprintable to find about codepoints that Python doesn't know, but
@@ -259,11 +417,13 @@ def test_string_py_compat_boolean(function_name, variant):
         # the issues we know of, we skip
         if i in ignore:
             continue
+        # Compare results with the equivalent Python predicate
+        # (except "is_space" where functions are known to be incompatible)
         c = chr(i)
-        if hasattr(pc, arrow_name):
+        if hasattr(pc, arrow_name) and function_name != 'is_space':
             ar = pa.array([c])
-            assert getattr(pc, arrow_name)(
-                ar)[0].as_py() == getattr(c, py_name)()
+            arrow_func = getattr(pc, arrow_name)
+            assert arrow_func(ar)[0].as_py() == getattr(c, py_name)()
 
 
 @pytest.mark.parametrize(('ty', 'values'), all_array_types)
@@ -345,17 +505,6 @@ def test_take_on_chunked_array():
         ]
     ])
     assert result.equals(expected)
-
-
-def test_call_function_with_memory_pool():
-    arr = pa.array(["foo", "bar", "baz"])
-    indices = np.array([2, 2, 1])
-    result1 = arr.take(indices)
-    result2 = pc.call_function('take', [arr, indices],
-                               memory_pool=pa.default_memory_pool())
-    expected = pa.array(["baz", "baz", "bar"])
-    assert result1.equals(expected)
-    assert result2.equals(expected)
 
 
 @pytest.mark.parametrize('ordered', [False, True])

@@ -418,7 +418,7 @@ struct MinMaxImpl : public ScalarAggregator {
     local.has_nulls = null_count > 0;
     local.has_values = (arr.length() - null_count) > 0;
 
-    if (local.has_nulls && options.null_handling == MinMaxOptions::OUTPUT_NULL) {
+    if (local.has_nulls && options.null_handling == MinMaxOptions::EMIT_NULL) {
       this->state = local;
       return;
     }
@@ -443,7 +443,7 @@ struct MinMaxImpl : public ScalarAggregator {
 
     std::vector<std::shared_ptr<Scalar>> values;
     if (!state.has_values ||
-        (state.has_nulls && options.null_handling == MinMaxOptions::OUTPUT_NULL)) {
+        (state.has_nulls && options.null_handling == MinMaxOptions::EMIT_NULL)) {
       // (null, null)
       values = {std::make_shared<ScalarType>(), std::make_shared<ScalarType>()};
     } else {
@@ -533,7 +533,7 @@ struct BooleanMinMaxImpl : public MinMaxImpl<BooleanType, SimdLevel> {
 
     local.has_nulls = null_count > 0;
     local.has_values = valid_count > 0;
-    if (local.has_nulls && options.null_handling == MinMaxOptions::OUTPUT_NULL) {
+    if (local.has_nulls && options.null_handling == MinMaxOptions::EMIT_NULL) {
       this->state = local;
       return;
     }

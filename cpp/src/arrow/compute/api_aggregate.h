@@ -66,7 +66,7 @@ struct ARROW_EXPORT MinMaxOptions : public FunctionOptions {
     /// Skip null values
     SKIP = 0,
     /// Any nulls will result in null output
-    OUTPUT_NULL
+    EMIT_NULL
   };
 
   explicit MinMaxOptions(enum Mode null_handling = SKIP) : null_handling(null_handling) {}

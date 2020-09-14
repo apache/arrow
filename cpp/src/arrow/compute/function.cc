@@ -103,6 +103,9 @@ Result<const KernelType*> DispatchExactImpl(const Function& func,
 
 Result<Datum> Function::Execute(const std::vector<Datum>& args,
                                 const FunctionOptions* options, ExecContext* ctx) const {
+  if (options == nullptr) {
+    options = default_options();
+  }
   if (ctx == nullptr) {
     ExecContext default_ctx;
     return Execute(args, options, &default_ctx);
@@ -189,6 +192,9 @@ Result<Datum> MetaFunction::Execute(const std::vector<Datum>& args,
                                     const FunctionOptions* options,
                                     ExecContext* ctx) const {
   RETURN_NOT_OK(CheckArity(static_cast<int>(args.size())));
+  if (options == nullptr) {
+    options = default_options();
+  }
   return ExecuteImpl(args, options, ctx);
 }
 

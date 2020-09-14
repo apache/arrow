@@ -404,7 +404,9 @@ class IsInMetaBinary : public MetaFunction {
   Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
                             const FunctionOptions* options,
                             ExecContext* ctx) const override {
-    DCHECK_EQ(options, nullptr);
+    if (options != nullptr) {
+      return Status::Invalid("Unexpected options for 'is_in_meta_binary' function");
+    }
     return IsIn(args[0], args[1], ctx);
   }
 };
@@ -417,7 +419,9 @@ class IndexInMetaBinary : public MetaFunction {
   Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
                             const FunctionOptions* options,
                             ExecContext* ctx) const override {
-    DCHECK_EQ(options, nullptr);
+    if (options != nullptr) {
+      return Status::Invalid("Unexpected options for 'index_in_meta_binary' function");
+    }
     return IndexIn(args[0], args[1], ctx);
   }
 };
@@ -444,17 +448,18 @@ void RegisterScalarSetLookup(FunctionRegistry* registry) {
 
   // IndexIn uses Int32Builder and so is responsible for all its own allocation
   {
-    ScalarKernel match_base;
-    match_base.init = InitSetLookup;
-    match_base.exec = ExecIndexIn;
-    match_base.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
-    match_base.mem_allocation = MemAllocation::NO_PREALLOCATE;
-    auto match = std::make_shared<ScalarFunction>("index_in", Arity::Unary());
-    AddBasicSetLookupKernels(match_base, /*output_type=*/int32(), match.get());
+    ScalarKernel index_in_base;
+    index_in_base.init = InitSetLookup;
+    index_in_base.exec = ExecIndexIn;
+    index_in_base.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
+    index_in_base.mem_allocation = MemAllocation::NO_PREALLOCATE;
+    auto index_in = std::make_shared<ScalarFunction>("index_in", Arity::Unary());
 
-    match_base.signature = KernelSignature::Make({null()}, int32());
-    DCHECK_OK(match->AddKernel(match_base));
-    DCHECK_OK(registry->AddFunction(match));
+    AddBasicSetLookupKernels(index_in_base, /*output_type=*/int32(), index_in.get());
+
+    index_in_base.signature = KernelSignature::Make({null()}, int32());
+    DCHECK_OK(index_in->AddKernel(index_in_base));
+    DCHECK_OK(registry->AddFunction(index_in));
 
     DCHECK_OK(registry->AddFunction(std::make_shared<IndexInMetaBinary>()));
   }

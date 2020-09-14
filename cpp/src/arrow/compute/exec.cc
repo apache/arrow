@@ -952,9 +952,6 @@ Result<Datum> CallFunction(const std::string& func_name, const std::vector<Datum
   }
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<const Function> func,
                         ctx->func_registry()->GetFunction(func_name));
-  if (options == nullptr) {
-    options = func->default_options();
-  }
   return func->Execute(args, options, ctx);
 }
 
