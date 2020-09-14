@@ -692,14 +692,6 @@ def test_pandas_can_write_nested_data(tempdir):
     # This succeeds under V2
     _write_table(arrow_table, imos)
 
-    # Under V1 it fails.
-    with pytest.raises(ValueError):
-        import os
-        os.environ['ARROW_PARQUET_WRITER_ENGINE'] = 'V1'
-        imos = pa.BufferOutputStream()
-        _write_table(arrow_table, imos)
-    del os.environ['ARROW_PARQUET_WRITER_ENGINE']
-
 
 @pytest.mark.pandas
 @parametrize_legacy_dataset
