@@ -36,14 +36,15 @@ Below are a few simple examples:
    >>> a = pa.array([1, 1, 2, 3])
    >>> pc.sum(a)
    <pyarrow.Int64Scalar: 7>
-   >>> b = pa.array([4, 5, 8, 2])
-   <pyarrow.lib.Int64Array object at 0x7f43382d2130>
+   >>> b = pa.array([4, 1, 2, 8])
+   >>> pc.equal(a, b)
+   <pyarrow.lib.BooleanArray object at 0x7f686e4eef30>
    [
-     4,
-     5,
-     16,
-     6
-   ]    
+     false,
+     true,
+     true,
+     false
+   ]   
    >>> x, y = pa.scalar(7.8), pa.scalar(9.3)
    >>> pc.multiply(x, y)
    <pyarrow.DoubleScalar: 72.54>

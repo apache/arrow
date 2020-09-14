@@ -37,8 +37,8 @@ Arithmetic Functions
 --------------------
 
 By default these functions do not detect overflow. Each function is also
-available in an overflow-checking variant, suffixed `_checked`, which 
-throws an `ArrowInvalid` exception when overflow is detected.
+available in an overflow-checking variant, suffixed ``_checked``, which 
+throws an ``ArrowInvalid`` exception when overflow is detected.
 
 .. autosummary::
    :toctree: ../generated/
@@ -56,7 +56,7 @@ Comparisons
 -----------
 
 These functions expect two inputs of the same type. If one of the inputs is `null`
-they return `null`.
+they return ``null``.
 
 .. autosummary::
    :toctree: ../generated/
@@ -73,7 +73,7 @@ Logical Functions
 -----------
 
 These functions normally emit a null when one of the inputs is null. However, Kleene
-logic variants are provided (suffixed `_kleene`). See User Guide for details.
+logic variants are provided (suffixed ``_kleene``). See User Guide for details.
 
 .. autosummary::
    :toctree: ../generated/
@@ -89,7 +89,7 @@ String Predicates
 -----------------
 
 In these functions an empty string emits false in the output. For ASCII 
-variants (prefixed `ascii_`) a string element with non-ASCII characters
+variants (prefixed ``ascii_``) a string element with non-ASCII characters
 emits false in the output.
 
 The first set of functions emit true if the input contains only 
@@ -140,7 +140,6 @@ String Transforms
 
    ascii_lower
    ascii_upper
-   binary_length
    utf8_lower
    utf8_upper
 
@@ -201,6 +200,7 @@ Structural Transforms
    fill_null
    is_null
    is_valid
+   binary_length
    list_value_length
    list_flatten
    list_parent_indices
