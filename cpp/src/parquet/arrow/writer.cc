@@ -296,8 +296,8 @@ class FileWriterImpl : public FileWriter {
 
   Status WriteColumnChunk(const std::shared_ptr<ChunkedArray>& data, int64_t offset,
                           int64_t size) override {
-    if (arrow_properties_->engine_version() == ArrowWriterProperties::V2
-	|| arrow_properties_->engine_version() == ArrowWriterProperties::V1) {
+    if (arrow_properties_->engine_version() == ArrowWriterProperties::V2 ||
+        arrow_properties_->engine_version() == ArrowWriterProperties::V1) {
       ARROW_ASSIGN_OR_RAISE(
           std::unique_ptr<ArrowColumnWriterV2> writer,
           ArrowColumnWriterV2::Make(*data, offset, size, schema_manifest_,
