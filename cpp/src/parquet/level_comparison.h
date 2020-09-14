@@ -51,7 +51,7 @@ inline uint64_t LevelsToBitmap(const int16_t* levels, int64_t num_levels,
 
 /// Builds a  bitmap where each set bit indicates the corresponding level is greater
 /// than rhs.
-uint64_t GreaterThanBitmap(const int16_t* levels, int64_t num_levels, int16_t rhs);
+uint64_t PARQUET_EXPORT GreaterThanBitmap(const int16_t* levels, int64_t num_levels, int16_t rhs);
 
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
 uint64_t GreaterThanBitmapAvx2(const int16_t* levels, int64_t num_levels, int16_t rhs);
