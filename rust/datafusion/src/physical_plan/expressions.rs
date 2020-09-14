@@ -1295,18 +1295,11 @@ impl PhysicalExpr for NotExpr {
     }
 
     fn nullable(&self, _input_schema: &Schema) -> Result<bool> {
-        // !Null == true
-        Ok(false)
+        Ok(true)
     }
 
     fn evaluate(&self, batch: &RecordBatch) -> Result<ArrayRef> {
         let arg = self.arg.evaluate(batch)?;
-        if arg.data_type() != &DataType::Boolean {
-            return Err(ExecutionError::General(format!(
-                "Cannot evaluate \"not\" expression with type {:?}",
-                arg.data_type(),
-            )));
-        }
         let arg = arg
             .as_any()
             .downcast_ref::<BooleanArray>()
@@ -1315,9 +1308,27 @@ impl PhysicalExpr for NotExpr {
     }
 }
 
-/// Create a unary expression
-pub fn not(arg: Arc<dyn PhysicalExpr>) -> Arc<dyn PhysicalExpr> {
-    Arc::new(NotExpr::new(arg))
+/// Creates a unary expression NOT
+///
+/// # Errors
+///
+/// This function errors when the argument's type is not boolean
+pub fn not(
+    arg: Arc<dyn PhysicalExpr>,
+    input_schema: &Schema,
+) -> Result<Arc<dyn PhysicalExpr>> {
+    let data_type = arg.data_type(input_schema)?;
+    if data_type != DataType::Boolean {
+        Err(ExecutionError::General(
+            format!(
+                "NOT '{:?}' can't be evaluated because the expression's type is {:?}, not boolean",
+                arg, data_type,
+            )
+            .to_string(),
+        ))
+    } else {
+        Ok(Arc::new(NotExpr::new(arg)))
+    }
 }
 
 /// CAST expression casts an expression to a specific data type
@@ -2455,22 +2466,34 @@ mod tests {
     #[test]
     fn neg_op() -> Result<()> {
         let schema = Schema::new(vec![Field::new("a", DataType::Boolean, true)]);
-        let a = BooleanArray::from(vec![true, false]);
-        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
 
-        // expression: "!a"
-        let lt = not(col("a"));
-        let result = lt.evaluate(&batch)?;
-        assert_eq!(result.len(), 2);
+        let expr = not(col("a"), &schema)?;
+        assert_eq!(expr.data_type(&schema)?, DataType::Boolean);
+        assert_eq!(expr.nullable(&schema)?, true);
 
-        let expected = vec![false, true];
+        let input = BooleanArray::from(vec![Some(true), None, Some(false)]);
+        let expected = &BooleanArray::from(vec![Some(false), None, Some(true)]);
+
+        let batch =
+            RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(input)])?;
+
+        let result = expr.evaluate(&batch)?;
         let result = result
             .as_any()
             .downcast_ref::<BooleanArray>()
             .expect("failed to downcast to BooleanArray");
-        for i in 0..2 {
-            assert_eq!(result.value(i), expected[i]);
-        }
+        assert_eq!(result, expected);
+
+        Ok(())
+    }
+
+    /// verify that expression errors when the input expression is not a boolean.
+    #[test]
+    fn neg_op_not_null() -> Result<()> {
+        let schema = Schema::new(vec![Field::new("a", DataType::Utf8, true)]);
+
+        let expr = not(col("a"), &schema);
+        assert!(expr.is_err());
 
         Ok(())
     }
