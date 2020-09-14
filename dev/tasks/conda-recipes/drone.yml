@@ -9,7 +9,7 @@ platform:
 # Omit double builds with crossbow
 trigger:
   event:
-    - tag
+    - push
 
 steps:
 - name: Install and build
