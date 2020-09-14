@@ -43,6 +43,8 @@ import pyarrow as pa
     (np.float16(1.0), pa.float16(), pa.HalfFloatScalar, pa.HalfFloatValue),
     (1.0, pa.float32(), pa.FloatScalar, pa.FloatValue),
     (decimal.Decimal("1.123"), None, pa.Decimal128Scalar, pa.Decimal128Value),
+    (decimal.Decimal("1.1234567890123456789012345678901234567890"),
+     None, pa.Decimal256Scalar, pa.Decimal256Value),
     ("string", None, pa.StringScalar, pa.StringValue),
     (b"bytes", None, pa.BinaryScalar, pa.BinaryValue),
     ("largestring", pa.large_string(), pa.LargeStringScalar,
@@ -176,7 +178,7 @@ def test_numerics():
     assert s.as_py() == 0.5
 
 
-def test_decimal():
+def test_decimal128():
     v = decimal.Decimal("1.123")
     s = pa.scalar(v)
     assert isinstance(s, pa.Decimal128Scalar)
@@ -191,6 +193,25 @@ def test_decimal():
 
     s = pa.scalar(v, type=pa.decimal128(5, scale=4))
     assert isinstance(s, pa.Decimal128Scalar)
+    assert s.as_py() == v
+
+
+def test_decimal256():
+    v = decimal.Decimal("1234567890123456789012345678901234567890.123")
+    s = pa.scalar(v)
+    assert isinstance(s, pa.Decimal256Scalar)
+    assert s.as_py() == v
+    assert s.type == pa.decimal256(43, 3)
+
+    v = decimal.Decimal("1.1234")
+    with pytest.raises(pa.ArrowInvalid):
+        pa.scalar(v, type=pa.decimal256(4, scale=3))
+    # TODO: Add the following after implementing Decimal256 scaling.
+    # with pytest.raises(pa.ArrowInvalid):
+    #     pa.scalar(v, type=pa.decimal256(5, scale=3))
+
+    s = pa.scalar(v, type=pa.decimal256(5, scale=4))
+    assert isinstance(s, pa.Decimal256Scalar)
     assert s.as_py() == v
 
 
