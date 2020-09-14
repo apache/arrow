@@ -30,8 +30,8 @@ Derive also has some support for the chrono time library. You must must enable t
 Add this to your Cargo.toml:
 ```toml
 [dependencies]
-parquet = "0.13.0"
-parquet_derive = "0.13.0"
+parquet = "2.0.0-SNAPSHOT"
+parquet_derive = "2.0.0-SNAPSHOT"
 ```
 
 and this to your crate root:
