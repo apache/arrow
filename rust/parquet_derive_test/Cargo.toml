@@ -15,14 +15,13 @@
 # specific language governing permissions and limitations
 # under the License.
 
-[workspace]
-members = [
-        "arrow",
-        "parquet",
-        "parquet_derive",
-        "parquet_derive_test",
-        "datafusion",
-        "arrow-flight",
-        "integration-testing",
-	"benchmarks",
-]
+[package]
+name = "parquet_derive_test"
+version = "2.0.0-SNAPSHOT"
+authors = ["Apache Arrow <dev@arrow.apache.org>"]
+keywords = [ "parquet" ]
+edition = "2018"
+
+[dependencies]
+parquet = { path = "../parquet", version = "2.0.0-SNAPSHOT" }
+parquet_derive = { path = "../parquet_derive", version = "2.0.0-SNAPSHOT" }
