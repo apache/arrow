@@ -218,6 +218,9 @@ TEST_F(S3OptionsTest, FromUri) {
 
   // Missing bucket name
   ASSERT_RAISES(Invalid, S3Options::FromUri("s3:///foo/bar/", &path));
+
+  // Invalid option
+  ASSERT_RAISES(Invalid, S3Options::FromUri("s3://mybucket/?xxx=zzz", &path));
 }
 
 TEST_F(S3OptionsTest, FromAccessKey) {
