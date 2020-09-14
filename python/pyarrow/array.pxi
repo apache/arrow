@@ -158,27 +158,44 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
     Notes
     -----
     Localized timestamps will currently be returned as UTC (pandas's native
-    representation).  Timezone-naive data will be implicitly interpreted as
+    representation). Timezone-naive data will be implicitly interpreted as
     UTC.
 
-    TODO(kszucs): describe the adaptive nature of the dictionary array's index
-                  type
+    Converting to dictionary array will choose to use a larger integer type for
+    the indices if the number of distict values wouldn't fit to the range of
+    the passed type. This adaptive nature means that if there are more than 127
+    values the returned dictionary array's key type is going to be pa.int16()
+    even if pa.int8() was passed to the function. Note that smaller key type
+    than the passed one won't be chosed.
 
     Examples
     --------
     >>> import pandas as pd
     >>> import pyarrow as pa
     >>> pa.array(pd.Series([1, 2]))
-    <pyarrow.array.Int64Array object at 0x7f674e4c0e10>
+    <pyarrow.lib.Int64Array object at 0x7f674e4c0e10>
     [
       1,
       2
     ]
 
+    >>> pa.array(["a", "b", "a"], type=pa.dictionary(pa.int8(), pa.string()))
+    <pyarrow.lib.DictionaryArray object at 0x7feb288d9040>
+    -- dictionary:
+    [
+      "a",
+      "b"
+    ]
+    -- indices:
+    [
+      0,
+      1,
+      0
+    ]
+
     >>> import numpy as np
-    >>> pa.array(pd.Series([1, 2]), np.array([0, 1],
-    ... dtype=bool))
-    <pyarrow.array.Int64Array object at 0x7f9019e11208>
+    >>> pa.array(pd.Series([1, 2]), np.array([0, 1], dtype=bool))
+    <pyarrow.lib.Int64Array object at 0x7f9019e11208>
     [
       1,
       null

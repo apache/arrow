@@ -268,7 +268,6 @@ struct ValueConverter<Type, enable_if_integer<Type>> {
       std::shared_ptr<DataType> numpy_type;
       RETURN_NOT_OK(NumPyDtypeToArrow(PyArray_DescrFromScalar(obj), &numpy_type));
       if (!numpy_type->Equals(*type)) {
-        // TODO(kszucs): it also validates the unit, so add the unit to the error message
         return Status::NotImplemented("Expected np.datetime64 but got: ",
                                       numpy_type->ToString());
       }
@@ -304,7 +303,6 @@ struct ValueConverter<Type, enable_if_integer<Type>> {
       std::shared_ptr<DataType> numpy_type;
       RETURN_NOT_OK(NumPyDtypeToArrow(PyArray_DescrFromScalar(obj), &numpy_type));
       if (!numpy_type->Equals(*type)) {
-        // TODO(kszucs): it also validates the unit, so add the unit to the error message
         return Status::NotImplemented("Expected np.timedelta64 but got: ",
                                       numpy_type->ToString());
       }
