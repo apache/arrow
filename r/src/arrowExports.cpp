@@ -3646,14 +3646,15 @@ extern "C" SEXP _arrow_fs___EnsureS3Initialized(){
 
 // filesystem.cpp
 #if defined(ARROW_R_WITH_S3)
-std::shared_ptr<fs::S3FileSystem> fs___S3FileSystem__create();
-extern "C" SEXP _arrow_fs___S3FileSystem__create(){
+std::shared_ptr<fs::S3FileSystem> fs___S3FileSystem__create(cpp11::list options);
+extern "C" SEXP _arrow_fs___S3FileSystem__create(SEXP options_sexp){
 BEGIN_CPP11
-	return cpp11::as_sexp(fs___S3FileSystem__create());
+	arrow::r::Input<cpp11::list>::type options(options_sexp);
+	return cpp11::as_sexp(fs___S3FileSystem__create(options));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_fs___S3FileSystem__create(){
+extern "C" SEXP _arrow_fs___S3FileSystem__create(SEXP options_sexp){
 	Rf_error("Cannot call fs___S3FileSystem__create(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
@@ -6250,7 +6251,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_fs___FileSystemFromUri", (DL_FUNC) &_arrow_fs___FileSystemFromUri, 1}, 
 		{ "_arrow_fs___CopyFiles", (DL_FUNC) &_arrow_fs___CopyFiles, 6}, 
 		{ "_arrow_fs___EnsureS3Initialized", (DL_FUNC) &_arrow_fs___EnsureS3Initialized, 0}, 
-		{ "_arrow_fs___S3FileSystem__create", (DL_FUNC) &_arrow_fs___S3FileSystem__create, 0}, 
+		{ "_arrow_fs___S3FileSystem__create", (DL_FUNC) &_arrow_fs___S3FileSystem__create, 1}, 
 		{ "_arrow_io___Readable__Read", (DL_FUNC) &_arrow_io___Readable__Read, 2}, 
 		{ "_arrow_io___InputStream__Close", (DL_FUNC) &_arrow_io___InputStream__Close, 1}, 
 		{ "_arrow_io___OutputStream__Close", (DL_FUNC) &_arrow_io___OutputStream__Close, 1}, 

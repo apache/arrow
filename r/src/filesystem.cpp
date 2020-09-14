@@ -256,9 +256,51 @@ void fs___CopyFiles(const std::shared_ptr<fs::FileSystem>& src_fs,
 void fs___EnsureS3Initialized() { StopIfNotOk(fs::EnsureS3Initialized()); }
 
 // [[s3::export]]
-std::shared_ptr<fs::S3FileSystem> fs___S3FileSystem__create() {
-  auto opts = fs::S3Options::Defaults();
-  return ValueOrStop(fs::S3FileSystem::Make(opts));
+std::shared_ptr<fs::S3FileSystem> fs___S3FileSystem__create(cpp11::list options) {
+  auto s3_opts = fs::S3Options::Defaults();
+
+  // Handle auth keys
+  SEXP access_key = options["access_key"];
+  SEXP secret_key = options["secret_key"];
+  SEXP session_token = options["session_token"];
+  if (!Rf_isNull(access_key) && !Rf_isNull(secret_key)) {
+    std::string token = "";
+    if (!Rf_isNull(session_token)) {
+      token = cpp11::as_cpp<std::string>(session_token);
+    }
+    s3_opts.ConfigureAccessKey(cpp11::as_cpp<std::string>(access_key),
+                               cpp11::as_cpp<std::string>(secret_key), token);
+  } else if (!Rf_isNull(access_key)) {
+    cpp11::stop("If you provide an access_key, you must also provide a secret_key");
+  } else if (!Rf_isNull(secret_key)) {
+    cpp11::stop("If you provide a secret_key, you must also provide an access_key");
+  }
+  // TODO: implement ARN/STS
+
+  // Now handle the rest of the options
+  /// AWS region to connect to (default "us-east-1")
+  SEXP region = options["region"];
+  if (!Rf_isNull(region)) {
+    s3_opts.region = cpp11::as_cpp<std::string>(region);
+  }
+  /// If non-empty, override region with a connect string such as "localhost:9000"
+  SEXP endpoint_override = options["endpoint_override"];
+  if (!Rf_isNull(endpoint_override)) {
+    s3_opts.endpoint_override = cpp11::as_cpp<std::string>(endpoint_override);
+  }
+  /// S3 connection transport, default "https"
+  SEXP scheme = options["scheme"];
+  if (!Rf_isNull(scheme)) {
+    s3_opts.scheme = cpp11::as_cpp<std::string>(scheme);
+  }
+  /// Whether OutputStream writes will be issued in the background, without blocking
+  /// default true
+  SEXP background_writes = options["background_writes"];
+  if (!Rf_isNull(background_writes)) {
+    s3_opts.background_writes = cpp11::as_cpp<bool>(background_writes);
+  }
+
+  return ValueOrStop(fs::S3FileSystem::Make(s3_opts));
 }
 
 #endif
