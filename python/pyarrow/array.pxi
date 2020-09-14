@@ -32,14 +32,12 @@ cdef _sequence_to_array(object sequence, object mask, object size,
     if size is not None:
         options.size = size
 
-    options.pool = pool
     options.from_pandas = from_pandas
-    options.ignore_timezone = os.environ.get('PYARROW_IGNORE_TIMEZONE', False)
-
-    cdef shared_ptr[CChunkedArray] out
 
     with nogil:
-        chunked = GetResultValue(ConvertPySequence(sequence, mask, options))
+        chunked = GetResultValue(
+            ConvertPySequence(sequence, mask, options, pool)
+        )
 
     if chunked.get().num_chunks() == 1:
         return pyarrow_wrap_array(chunked.get().chunk(0))

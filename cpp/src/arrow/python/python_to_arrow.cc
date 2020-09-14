@@ -913,7 +913,8 @@ Status ConvertToSequenceAndInferSize(PyObject* obj, PyObject** seq, int64_t* siz
 }
 
 Result<std::shared_ptr<ChunkedArray>> ConvertPySequence(PyObject* obj, PyObject* mask,
-                                                        const PyConversionOptions& opts) {
+                                                        const PyConversionOptions& opts,
+                                                        MemoryPool* pool) {
   PyAcquireGIL lock;
 
   PyObject* seq;
@@ -945,8 +946,7 @@ Result<std::shared_ptr<ChunkedArray>> ConvertPySequence(PyObject* obj, PyObject*
   }
   DCHECK_GE(size, 0);
 
-  ARROW_ASSIGN_OR_RAISE(auto converter,
-                        PyConverter::Make(real_type, options.pool, options));
+  ARROW_ASSIGN_OR_RAISE(auto converter, PyConverter::Make(real_type, pool, options));
   ARROW_ASSIGN_OR_RAISE(auto chunked_converter, Chunker<PyConverter>::Make(converter));
 
   // Convert values

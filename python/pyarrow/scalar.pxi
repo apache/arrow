@@ -877,14 +877,15 @@ def scalar(value, type=None, *, from_pandas=None, MemoryPool memory_pool=None):
         shared_ptr[CArray] array
         shared_ptr[CChunkedArray] chunked
         bint is_pandas_object = False
+        CMemoryPool* pool
 
     type = ensure_type(type, allow_none=True)
+    pool = maybe_unbox_memory_pool(memory_pool)
 
     if _is_array_like(value):
         value = get_values(value, &is_pandas_object)
 
     options.size = 1
-    options.pool = maybe_unbox_memory_pool(memory_pool)
 
     if type is not None:
         ty = ensure_type(type)
@@ -897,7 +898,7 @@ def scalar(value, type=None, *, from_pandas=None, MemoryPool memory_pool=None):
 
     value = [value]
     with nogil:
-        chunked = GetResultValue(ConvertPySequence(value, None, options))
+        chunked = GetResultValue(ConvertPySequence(value, None, options, pool))
 
     # get the first chunk
     assert chunked.get().num_chunks() == 1

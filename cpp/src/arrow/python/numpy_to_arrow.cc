@@ -317,7 +317,7 @@ Status NumPyConverter::Convert() {
     ARROW_ASSIGN_OR_RAISE(
         auto chunked_array,
         ConvertPySequence(reinterpret_cast<PyObject*>(arr_),
-                          reinterpret_cast<PyObject*>(mask_), py_options));
+                          reinterpret_cast<PyObject*>(mask_), py_options, pool_));
     out_arrays_ = chunked_array->chunks();
     return Status::OK();
   }

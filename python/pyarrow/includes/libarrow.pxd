@@ -1766,11 +1766,12 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
         CMemoryPool* pool
         c_bool from_pandas
         c_bool ignore_timezone
+        c_bool strict
 
     # TODO Some functions below are not actually "nogil"
 
     CResult[shared_ptr[CChunkedArray]] ConvertPySequence(
-        object obj, object mask, const PyConversionOptions& options)
+        object obj, object mask, const PyConversionOptions& options, CMemoryPool* pool)
 
     CStatus NumPyDtypeToArrow(object dtype, shared_ptr[CDataType]* type)
 

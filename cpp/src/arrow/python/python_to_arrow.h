@@ -39,20 +39,17 @@ class Status;
 namespace py {
 
 struct PyConversionOptions {
-  PyConversionOptions() : type(NULLPTR), size(-1), pool(NULLPTR), from_pandas(false) {}
+  PyConversionOptions() : type(NULLPTR), size(-1), from_pandas(false) {}
 
   PyConversionOptions(const std::shared_ptr<DataType>& type, int64_t size,
                       MemoryPool* pool, bool from_pandas)
-      : type(type), size(size), pool(default_memory_pool()), from_pandas(from_pandas) {}
+      : type(type), size(size), from_pandas(from_pandas) {}
 
   // Set to null if to be inferred
   std::shared_ptr<DataType> type;
 
   // Default is -1: infer from data
   int64_t size;
-
-  // Memory pool to use for allocations
-  MemoryPool* pool;
 
   bool from_pandas = false;
 
@@ -74,7 +71,8 @@ struct PyConversionOptions {
 /// \return Result Array
 ARROW_PYTHON_EXPORT
 Result<std::shared_ptr<ChunkedArray>> ConvertPySequence(
-    PyObject* obj, PyObject* mask, const PyConversionOptions& options);
+    PyObject* obj, PyObject* mask, const PyConversionOptions& options,
+    MemoryPool* pool = default_memory_pool());
 
 }  // namespace py
 
