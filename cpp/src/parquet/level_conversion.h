@@ -174,7 +174,7 @@ void PARQUET_EXPORT ConvertDefRepLevelsToBitmap(const int16_t* def_levels,
                                                 LevelInfo level_info,
                                                 ValidityBitmapInputOutput* output);
 
-uint64_t RunBasedExtract(uint64_t bitmap, uint64_t selection);
+uint64_t PARQUET_EXPORT RunBasedExtract(uint64_t bitmap, uint64_t selection);
 
 #if defined(ARROW_HAVE_RUNTIME_BMI2)
 void PARQUET_EXPORT DefinitionLevelsToBitmapBmi2WithRepeatedParent(
