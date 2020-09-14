@@ -49,11 +49,20 @@ std::string TextRangeToString(const UriTextRangeStructA& range) {
 bool IsTextRangeSet(const UriTextRangeStructA& range) { return range.first != nullptr; }
 
 #ifdef _WIN32
-bool IsDriveSpec(util::string_view s) {
+bool IsDriveSpec(const util::string_view s) {
   return (s.length() >= 2 && s[1] == ':' &&
           ((s[0] >= 'A' && s[0] <= 'Z') || (s[0] >= 'a' && s[0] <= 'z')));
 }
 #endif
+
+std::string UriUnescape(const util::string_view s) {
+  std::string result(s);
+  if (!result.empty()) {
+    auto end = uriUnescapeInPlaceA(&result[0]);
+    result.resize(end - &result[0]);
+  }
+  return result;
+}
 
 }  // namespace
 
@@ -125,9 +134,9 @@ std::string Uri::username() const {
   auto userpass = TextRangeToView(impl_->uri_.userInfo);
   auto sep_pos = userpass.find_first_of(':');
   if (sep_pos == util::string_view::npos) {
-    return std::string(userpass);
+    return UriUnescape(userpass);
   } else {
-    return std::string(userpass.substr(0, sep_pos));
+    return UriUnescape(userpass.substr(0, sep_pos));
   }
 }
 
@@ -137,7 +146,7 @@ std::string Uri::password() const {
   if (sep_pos == util::string_view::npos) {
     return std::string();
   } else {
-    return std::string(userpass.substr(sep_pos + 1));
+    return UriUnescape(userpass.substr(sep_pos + 1));
   }
 }
 

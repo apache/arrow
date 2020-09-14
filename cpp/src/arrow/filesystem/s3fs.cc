@@ -271,17 +271,16 @@ Result<S3Options> S3Options::FromUri(const Uri& uri, std::string* out_path) {
     options.ConfigureDefaultCredentials();
   }
 
-  auto it = options_map.find("region");
-  if (it != options_map.end()) {
-    options.region = it->second;
-  }
-  it = options_map.find("scheme");
-  if (it != options_map.end()) {
-    options.scheme = it->second;
-  }
-  it = options_map.find("endpoint_override");
-  if (it != options_map.end()) {
-    options.endpoint_override = it->second;
+  for (const auto& kv : options_map) {
+    if (kv.first == "region") {
+      options.region = kv.second;
+    } else if (kv.first == "scheme") {
+      options.scheme = kv.second;
+    } else if (kv.first == "endpoint_override") {
+      options.endpoint_override = kv.second;
+    } else {
+      return Status::Invalid("Unexpected query parameter in S3 URI: '", kv.first, "'");
+    }
   }
 
   return options;
