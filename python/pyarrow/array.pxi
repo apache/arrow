@@ -463,7 +463,7 @@ def infer_type(values, mask=None, from_pandas=False):
     if mask is not None and not isinstance(mask, np.ndarray):
         mask = np.array(mask, dtype=bool)
 
-    check_status(InferArrowType(values, mask, use_pandas_sentinels, &out))
+    out = GetResultValue(InferArrowType(values, mask, use_pandas_sentinels))
     return pyarrow_wrap_data_type(out)
 
 

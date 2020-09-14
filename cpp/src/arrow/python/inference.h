@@ -44,15 +44,9 @@ namespace py {
 /// \param[in] mask an optional mask where True values are null. May
 /// be nullptr
 /// \param[in] pandas_null_sentinels use pandas's null value markers
-/// \param[out] out_type the inferred type
 ARROW_PYTHON_EXPORT
-arrow::Status InferArrowType(PyObject* obj, PyObject* mask, bool pandas_null_sentinels,
-                             std::shared_ptr<arrow::DataType>* out_type);
-
-ARROW_PYTHON_EXPORT
-arrow::Status InferArrowTypeAndSize(PyObject* obj, PyObject* mask,
-                                    bool pandas_null_sentinels, int64_t* size,
-                                    std::shared_ptr<arrow::DataType>* out_type);
+Result<std::shared_ptr<arrow::DataType>> InferArrowType(PyObject* obj, PyObject* mask,
+                                                        bool pandas_null_sentinels);
 
 /// Checks whether the passed Python object is a boolean scalar
 ARROW_PYTHON_EXPORT

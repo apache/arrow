@@ -196,7 +196,6 @@ struct ValueConverter<Type, enable_if_integer<Type>> {
   static Result<int32_t> Convert(const Time32Type* type, const O&, I obj) {
     int32_t value;
     if (PyTime_Check(obj)) {
-      // TODO(kszucs): consider to raise if a timezone aware time object is encountered
       switch (type->unit()) {
         case TimeUnit::SECOND:
           value = static_cast<int32_t>(internal::PyTime_to_s(obj));
@@ -208,7 +207,6 @@ struct ValueConverter<Type, enable_if_integer<Type>> {
           return Status::UnknownError("Invalid time unit");
       }
     } else {
-      // TODO(kszucs): validate maximum value?
       RETURN_NOT_OK(internal::CIntFromPython(obj, &value, "Integer too large for int32"));
     }
     return value;
@@ -217,7 +215,6 @@ struct ValueConverter<Type, enable_if_integer<Type>> {
   static Result<int64_t> Convert(const Time64Type* type, const O&, I obj) {
     int64_t value;
     if (PyTime_Check(obj)) {
-      // TODO(kszucs): consider to raise if a timezone aware time object is encountered
       switch (type->unit()) {
         case TimeUnit::MICRO:
           value = internal::PyTime_to_us(obj);
@@ -229,7 +226,6 @@ struct ValueConverter<Type, enable_if_integer<Type>> {
           return Status::UnknownError("Invalid time unit");
       }
     } else {
-      // TODO(kszucs): validate maximum value?
       RETURN_NOT_OK(internal::CIntFromPython(obj, &value, "Integer too large for int64"));
     }
     return value;
@@ -272,7 +268,6 @@ struct ValueConverter<Type, enable_if_integer<Type>> {
       std::shared_ptr<DataType> numpy_type;
       RETURN_NOT_OK(NumPyDtypeToArrow(PyArray_DescrFromScalar(obj), &numpy_type));
       if (!numpy_type->Equals(*type)) {
-        // TODO(kszucs): the message should highlight the received numpy dtype
         // TODO(kszucs): it also validates the unit, so add the unit to the error message
         return Status::NotImplemented("Expected np.datetime64 but got: ",
                                       numpy_type->ToString());
@@ -309,7 +304,6 @@ struct ValueConverter<Type, enable_if_integer<Type>> {
       std::shared_ptr<DataType> numpy_type;
       RETURN_NOT_OK(NumPyDtypeToArrow(PyArray_DescrFromScalar(obj), &numpy_type));
       if (!numpy_type->Equals(*type)) {
-        // TODO(kszucs): the message should highlight the received numpy dtype
         // TODO(kszucs): it also validates the unit, so add the unit to the error message
         return Status::NotImplemented("Expected np.timedelta64 but got: ",
                                       numpy_type->ToString());
@@ -343,7 +337,6 @@ struct ValueConverter<Type, enable_if_integer<Type>> {
       // Strict conversion, force output to be unicode / utf8 and validate that
       // any binary values are utf8
       ARROW_ASSIGN_OR_RAISE(auto view, PyBytesView::FromString(obj, true));
-      // TODO(kszucs): revisit this one
       if (!view.is_utf8) {
         return internal::InvalidValue(obj, "was not a utf8 string");
       }
@@ -551,7 +544,6 @@ class PyListConverter : public ListConverter<T, PyConverter> {
   }
 
   Status ValidateBuilder(const MapType*) {
-    // TODO(kszucs): perhaps this should be handled somewhere else
     if (this->list_builder_->key_builder()->null_count() > 0) {
       return Status::Invalid("Invalid Map: key field can not contain null values");
     } else {
@@ -921,8 +913,6 @@ Result<std::shared_ptr<ChunkedArray>> ConvertPySequence(PyObject* obj, PyObject*
   OwnedRef tmp_seq_nanny;
   PyConversionOptions options = opts;  // copy options struct since we modify it below
 
-  std::shared_ptr<DataType> real_type;
-
   int64_t size = options.size;
   RETURN_NOT_OK(ConvertToSequenceAndInferSize(obj, &seq, &size));
   tmp_seq_nanny.reset(seq);
@@ -930,23 +920,15 @@ Result<std::shared_ptr<ChunkedArray>> ConvertPySequence(PyObject* obj, PyObject*
   // In some cases, type inference may be "loose", like strings. If the user
   // passed pa.string(), then we will error if we encounter any non-UTF8
   // value. If not, then we will allow the result to be a BinaryArray
-  auto copied_options = options;
-  options.strict = false;
-
   if (options.type == nullptr) {
-    RETURN_NOT_OK(InferArrowType(seq, mask, options.from_pandas, &real_type));
-    // TODO(kszucs): remove this
-    // if (options.ignore_timezone && real_type->id() == Type::TIMESTAMP) {
-    //   const auto& ts_type = checked_cast<const TimestampType&>(*real_type);
-    //   real_type = timestamp(ts_type.unit());
-    // }
+    ARROW_ASSIGN_OR_RAISE(options.type, InferArrowType(seq, mask, options.from_pandas));
+    options.strict = false;
   } else {
-    real_type = options.type;
     options.strict = true;
   }
   DCHECK_GE(size, 0);
 
-  ARROW_ASSIGN_OR_RAISE(auto converter, PyConverter::Make(real_type, pool, options));
+  ARROW_ASSIGN_OR_RAISE(auto converter, PyConverter::Make(options.type, pool, options));
   ARROW_ASSIGN_OR_RAISE(auto chunked_converter, Chunker<PyConverter>::Make(converter));
 
   // Convert values
