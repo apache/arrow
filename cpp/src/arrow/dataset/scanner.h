@@ -73,7 +73,7 @@ class ARROW_DS_EXPORT ScanOptions {
   RecordBatchProjector projector;
 
   // Maximum row count for scanned batches.
-  int64_t batch_size = 1 << 15;
+  int64_t batch_size = 1 << 20;
 
   // Return a vector of fields that requires materialization.
   //

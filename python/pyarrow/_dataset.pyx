@@ -1070,6 +1070,7 @@ cdef class ParquetFileFormat(FileFormat):
         options = &(wrapped.get().reader_options)
         options.use_buffered_stream = read_options.use_buffered_stream
         options.buffer_size = read_options.buffer_size
+        options.enable_parallel_column_conversion = True
         if read_options.dictionary_columns is not None:
             for column in read_options.dictionary_columns:
                 options.dict_columns.insert(tobytes(column))
@@ -1898,7 +1899,7 @@ cdef shared_ptr[CScanContext] _build_scan_context(bint use_threads=True,
 
 cdef void _populate_builder(const shared_ptr[CScannerBuilder]& ptr,
                             list columns=None, Expression filter=None,
-                            int batch_size=32*2**10) except *:
+                            int batch_size=2**20) except *:
     cdef:
         CScannerBuilder *builder
 

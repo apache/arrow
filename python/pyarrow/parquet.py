@@ -1474,6 +1474,11 @@ class _ParquetDatasetV2:
                 ]
                 columns = columns + list(set(index_columns) - set(columns))
 
+        if len(list(self._dataset.get_fragments())) <= 1:
+            # Allow per-column parallelism; would otherwise cause contention
+            # in the presence of per-file parallelism.
+            use_threads = False
+
         table = self._dataset.to_table(
             columns=columns, filter=self._filter_expression,
             use_threads=use_threads
