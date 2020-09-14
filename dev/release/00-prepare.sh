@@ -151,6 +151,7 @@ update_versions() {
     -e "s/^(arrow = .* version = )\".*\"(( .*)|(, features = .*))$/\\1\"${version}\"\\2/g" \
     -e "s/^(arrow-flight = .* version = )\".+\"( .*)/\\1\"${version}\"\\2/g" \
     -e "s/^(parquet = .* version = )\".*\"(( .*)|(, features = .*))$/\\1\"${version}\"\\2/g" \
+    -e "s/^(parquet_derive = .* version = )\".*\"(( .*)|(, features = .*))$/\\1\"${version}\"\\2/g" \
     */Cargo.toml
   rm -f */Cargo.toml.bak
   git add */Cargo.toml
