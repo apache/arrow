@@ -458,11 +458,10 @@ class BufferedPageWriter : public PageWriter {
                      const std::string& compression_plugin = std::string())
       : final_sink_(std::move(sink)), metadata_(metadata), has_dictionary_pages_(false) {
     in_memory_sink_ = CreateOutputStream(pool);
-    pager_ = std::unique_ptr<SerializedPageWriter>(
-        new SerializedPageWriter(in_memory_sink_, codec, compression_level, metadata,
-                                 row_group_ordinal, current_column_ordinal, pool,
-                                 std::move(meta_encryptor), std::move(data_encryptor),
-                                 compression_plugin));
+    pager_ = std::unique_ptr<SerializedPageWriter>(new SerializedPageWriter(
+        in_memory_sink_, codec, compression_level, metadata, row_group_ordinal,
+        current_column_ordinal, pool, std::move(meta_encryptor),
+        std::move(data_encryptor), compression_plugin));
   }
 
   int64_t WriteDictionaryPage(const DictionaryPage& page) override {
@@ -518,17 +517,15 @@ std::unique_ptr<PageWriter> PageWriter::Open(
     bool buffered_row_group, std::shared_ptr<Encryptor> meta_encryptor,
     std::shared_ptr<Encryptor> data_encryptor, const std::string& compression_plugin) {
   if (buffered_row_group) {
-    return std::unique_ptr<PageWriter>(
-        new BufferedPageWriter(std::move(sink), codec, compression_level, metadata,
-                               row_group_ordinal, column_chunk_ordinal, pool,
-                               std::move(meta_encryptor), std::move(data_encryptor),
-                               compression_plugin));
+    return std::unique_ptr<PageWriter>(new BufferedPageWriter(
+        std::move(sink), codec, compression_level, metadata, row_group_ordinal,
+        column_chunk_ordinal, pool, std::move(meta_encryptor), std::move(data_encryptor),
+        compression_plugin));
   } else {
-    return std::unique_ptr<PageWriter>(
-        new SerializedPageWriter(std::move(sink), codec, compression_level, metadata,
-                                 row_group_ordinal, column_chunk_ordinal, pool,
-                                 std::move(meta_encryptor), std::move(data_encryptor),
-                                 compression_plugin));
+    return std::unique_ptr<PageWriter>(new SerializedPageWriter(
+        std::move(sink), codec, compression_level, metadata, row_group_ordinal,
+        column_chunk_ordinal, pool, std::move(meta_encryptor), std::move(data_encryptor),
+        compression_plugin));
   }
 }
 

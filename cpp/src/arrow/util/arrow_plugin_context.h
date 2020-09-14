@@ -20,8 +20,7 @@
 #include <stdint.h>
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 /**
@@ -34,16 +33,14 @@ typedef struct ArrowPluginContext {
 /**
  * @brief Signature of a callback function that compress block of data.
  **/
-typedef int64_t (*ArrowPluginCompressCallback)(int64_t input_len,
-                                               const uint8_t* input,
+typedef int64_t (*ArrowPluginCompressCallback)(int64_t input_len, const uint8_t* input,
                                                int64_t output_buffer_len,
                                                uint8_t* output_buffer);
 
 /**
  * @brief Signature of a callback function that decompress block of data.
  **/
-typedef int64_t (*ArrowPluginDecompressCallback)(int64_t input_len,
-                                                 const uint8_t* input,
+typedef int64_t (*ArrowPluginDecompressCallback)(int64_t input_len, const uint8_t* input,
                                                  int64_t output_buffer_len,
                                                  uint8_t* output_buffer);
 
@@ -62,6 +59,6 @@ typedef struct ArrowPluginCompressionContext {
   ArrowPluginGetNameCallback getNameCallback;
 } ArrowPluginCompressionContext;
 
-#ifdef  __cplusplus
+#ifdef __cplusplus
 }
 #endif

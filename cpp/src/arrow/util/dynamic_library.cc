@@ -30,8 +30,7 @@
 namespace arrow {
 namespace util {
 
-DynamicLibrary::DynamicLibrary(const std::string& path)
-    : library_(nullptr), path_(path) {
+DynamicLibrary::DynamicLibrary(const std::string& path) : library_(nullptr), path_(path) {
 #ifdef _WIN32
   library_ = LoadLibraryW(path_.c_str());
   if (library_ == nullptr) {
@@ -64,8 +63,7 @@ DynamicLibrary::~DynamicLibrary() {
 void* DynamicLibrary::GetFunction(const std::string& name) {
   if (library_ == nullptr) return nullptr;
 #ifdef _WIN32
-  void* result =
-      reinterpret_cast<void*>(GetProcAddress((HMODULE)library_, name.c_str()));
+  void* result = reinterpret_cast<void*>(GetProcAddress((HMODULE)library_, name.c_str()));
 #else
   void* result = dlsym(library_, name.c_str());
 #endif

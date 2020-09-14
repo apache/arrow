@@ -18,12 +18,12 @@
 #pragma once
 
 #include <memory>
-#include <string>
 #include <mutex>
+#include <string>
 #include <unordered_map>
 
-#include "arrow/status.h"
 #include "arrow/result.h"
+#include "arrow/status.h"
 #include "arrow/util/dynamic_library.h"
 #include "arrow/util/visibility.h"
 
@@ -45,7 +45,7 @@ class ARROW_EXPORT PluginManager {
   /// UnRegister plugin
   Status UnregisterPlugin(const std::string& name);
 
-  //void ListPlugins(std::list<std::string>& result) const;
+  // void ListPlugins(std::list<std::string>& result) const;
 
   bool HasPlugin(const std::string& name);
 
@@ -54,7 +54,7 @@ class ARROW_EXPORT PluginManager {
   /// \return shared plugin
   Result<std::shared_ptr<Plugin>> GetPlugin(const std::string& name);
 
-  virtual  ~PluginManager();
+  virtual ~PluginManager();
 
  private:
   PluginManager() = default;

@@ -77,8 +77,7 @@ std::unique_ptr<Codec> MakeZSTDCodec(
 // XXX level = 1 probably doesn't compress very much
 constexpr int kPluginDefaultCompressionLevel = 1;
 std::unique_ptr<Codec> MakePluginCodec(
-    std::string plugin_name,
-    int compression_level = kPluginDefaultCompressionLevel);
+    std::string plugin_name, int compression_level = kPluginDefaultCompressionLevel);
 
 }  // namespace internal
 }  // namespace util

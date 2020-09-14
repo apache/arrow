@@ -164,8 +164,7 @@ class SerializedRowGroup : public RowGroupReader::Contents {
     // Column is encrypted only if crypto_metadata exists.
     if (!crypto_metadata) {
       return PageReader::Open(stream, col->num_values(), col->compression(),
-                              properties_.memory_pool(),
-                              NULLPTR, plugin);
+                              properties_.memory_pool(), NULLPTR, plugin);
     }
 
     if (file_decryptor_ == nullptr) {

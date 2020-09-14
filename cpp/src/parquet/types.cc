@@ -74,14 +74,12 @@ std::unique_ptr<Codec> GetCodec(Compression::type codec, int compression_level,
   return result;
 }
 
-std::unique_ptr<Codec> GetReadCodec(Compression::type codec,
-                                    const std::string& plugin) {
+std::unique_ptr<Codec> GetReadCodec(Compression::type codec, const std::string& plugin) {
   return GetCodec(codec, Codec::UseDefaultCompressionLevel(),
                   /*for_writing=*/false, plugin);
 }
 
-std::unique_ptr<Codec> GetWriteCodec(Compression::type codec,
-                                     int compression_level,
+std::unique_ptr<Codec> GetWriteCodec(Compression::type codec, int compression_level,
                                      const std::string& plugin) {
   return GetCodec(codec, compression_level, /*for_writing=*/true, plugin);
 }

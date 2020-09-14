@@ -434,7 +434,8 @@ std::unique_ptr<ColumnCryptoMetaData> ColumnChunkMetaData::crypto_metadata() con
   return impl_->crypto_metadata();
 }
 
-const std::shared_ptr<const KeyValueMetadata>& ColumnChunkMetaData::key_value_metadata() const {
+const std::shared_ptr<const KeyValueMetadata>& ColumnChunkMetaData::key_value_metadata()
+    const {
   return impl_->key_value_metadata();
 }
 

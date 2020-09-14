@@ -444,10 +444,9 @@ std::unique_ptr<PageReader> PageReader::Open(std::shared_ptr<ArrowInputStream> s
                                              Compression::type codec,
                                              ::arrow::MemoryPool* pool,
                                              const CryptoContext* ctx,
-                                             const std::string &plugin) {
-  return std::unique_ptr<PageReader>(
-      new SerializedPageReader(std::move(stream), total_num_rows,
-                               codec, pool, ctx, plugin));
+                                             const std::string& plugin) {
+  return std::unique_ptr<PageReader>(new SerializedPageReader(
+      std::move(stream), total_num_rows, codec, pool, ctx, plugin));
 }
 
 // ----------------------------------------------------------------------

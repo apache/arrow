@@ -44,7 +44,7 @@ class ARROW_EXPORT DynamicLibrary {
 
   DynamicLibrary() = delete;
 
-  void *library_;
+  void* library_;
 
   std::string path_;
 };

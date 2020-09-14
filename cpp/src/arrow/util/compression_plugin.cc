@@ -23,12 +23,12 @@
 #include <limits>
 #include <memory>
 
-#include "arrow/util/plugin.h"
-#include "arrow/util/plugin_manager.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/plugin.h"
+#include "arrow/util/plugin_manager.h"
 
 namespace arrow {
 namespace util {
@@ -42,8 +42,7 @@ namespace {
 class PluginCodec : public Codec {
  public:
   explicit PluginCodec(int compression_level, std::string plugin_name)
-      : plugin_name_(plugin_name),
-        plugin_(nullptr) {
+      : plugin_name_(plugin_name), plugin_(nullptr) {
     compression_level_ = compression_level == kUseDefaultCompressionLevel
                              ? kGZipDefaultCompressionLevel
                              : compression_level;
@@ -59,10 +58,8 @@ class PluginCodec : public Codec {
                              int64_t output_buffer_length, uint8_t* output) override {
     ArrowPluginCompressionContext* context =
         static_cast<ArrowPluginCompressionContext*>(plugin_->GetPluginPrivContext());
-    int64_t decompressed_size = context->decompressCallback(input_length,
-                                                            input,
-                                                            output_buffer_length,
-                                                            output);
+    int64_t decompressed_size =
+        context->decompressCallback(input_length, input, output_buffer_length, output);
     if (decompressed_size == 0) {
       return Status::IOError("");
     } else {
@@ -81,8 +78,7 @@ class PluginCodec : public Codec {
     ArrowPluginCompressionContext* context =
         static_cast<ArrowPluginCompressionContext*>(plugin_->GetPluginPrivContext());
     int64_t compressed_size =
-        context->compressCallback(input_length, input,
-                                  output_buffer_length, output);
+        context->compressCallback(input_length, input, output_buffer_length, output);
     return compressed_size;
   }
 

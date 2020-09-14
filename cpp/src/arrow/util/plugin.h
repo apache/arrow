@@ -20,8 +20,8 @@
 #include <string>
 
 #include "arrow/status.h"
-#include "arrow/util/dynamic_library.h"
 #include "arrow/util/arrow_plugin_context.h"
+#include "arrow/util/dynamic_library.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -31,7 +31,7 @@ class ARROW_EXPORT Plugin {
  public:
   Plugin(const std::string& path);
 
-  DynamicLibrary& GetLibrary() { return library_;}
+  DynamicLibrary& GetLibrary() { return library_; }
 
   ArrowPluginContext& GetContext() { return context_; }
 

@@ -113,10 +113,10 @@ Status Plugin::Cleanup() {
 }
 
 bool Plugin::IsArrowPlugin() {
-  return (library_.HasFunction("ArrowPluginInitialize")
-          && library_.HasFunction("ArrowPluginCleanup")
-          && library_.HasFunction("ArrowPluginGetName")
-          && library_.HasFunction("ArrowPluginGetVersion"));
+  return (library_.HasFunction("ArrowPluginInitialize") &&
+          library_.HasFunction("ArrowPluginCleanup") &&
+          library_.HasFunction("ArrowPluginGetName") &&
+          library_.HasFunction("ArrowPluginGetVersion"));
 }
 
 }  // namespace util

@@ -19,8 +19,8 @@
 
 #include <atomic>
 
-#include "arrow/util/plugin.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/plugin.h"
 
 namespace arrow {
 namespace util {
@@ -67,8 +67,8 @@ Result<std::string> PluginManager::RegisterPlugin(const std::string& path) {
     return Status::Invalid("Plugin '", name, "' already registered");
   }
 
-  ARROW_LOG(INFO) << "Registering plugin: '" << name
-                  << "', version: '" << plugin->GetVersion() << "'";
+  ARROW_LOG(INFO) << "Registering plugin: '" << name << "', version: '"
+                  << plugin->GetVersion() << "'";
 
   plugin->Initialize();
 
