@@ -16,6 +16,7 @@
 // under the License.
 
 #include <sstream>
+#include <unordered_set>
 #include <utility>
 
 #include "arrow/filesystem/filesystem.h"
@@ -448,6 +449,13 @@ Status CopyFiles(const std::vector<FileLocator>& sources,
                            destinations.size(), " paths.");
   }
 
+  RETURN_NOT_OK(::arrow::internal::OptionalParallelFor(
+      use_threads, static_cast<int>(sources.size()), [&](int i) {
+        auto dest_dir = internal::GetAbstractPathParent(destinations[i].path).first;
+        return dest_dir.empty() ? Status::OK()
+                                : destinations[i].filesystem->CreateDir(dest_dir);
+      }));
+
   return ::arrow::internal::OptionalParallelFor(
       use_threads, static_cast<int>(sources.size()), [&](int i) {
         if (sources[i].filesystem->Equals(destinations[i].filesystem)) {
@@ -456,11 +464,6 @@ Status CopyFiles(const std::vector<FileLocator>& sources,
 
         ARROW_ASSIGN_OR_RAISE(auto source,
                               sources[i].filesystem->OpenInputStream(sources[i].path));
-
-        auto dest_dir = internal::GetAbstractPathParent(destinations[i].path).first;
-        if (!dest_dir.empty()) {
-          RETURN_NOT_OK(destinations[i].filesystem->CreateDir(dest_dir));
-        }
 
         ARROW_ASSIGN_OR_RAISE(
             auto destination,

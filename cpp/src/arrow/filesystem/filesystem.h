@@ -393,7 +393,11 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUriOrPath(
 
 /// @}
 
-/// \brief Copy files from one FileSystem to another
+/// \brief Copy files, including from one FileSystem to another
+///
+/// If a source and destination are resident in the same FileSystem FileSystem::CopyFile
+/// will be used, otherwise the file will be opened as a stream in both FileSystems and
+/// chunks copied from the source to the destination. Parent directories will be created.
 ARROW_EXPORT
 Status CopyFiles(const std::vector<FileLocator>& sources,
                  const std::vector<FileLocator>& destinations,

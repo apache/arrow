@@ -599,13 +599,16 @@ TEST_F(TestSubTreeFileSystem, CopyFiles) {
   CreateFile("ab", "ab");
   CreateFile("cd", "cd");
   CreateFile("ef", "ef");
+  CreateFile("same", "same");
 
   ASSERT_OK(fs_->CreateDir("sub/copy"));
   auto dest_fs = std::make_shared<SubTreeFileSystem>("sub/copy", fs_);
 
-  ASSERT_OK(
-      CopyFiles({{subfs_, "ab"}, {subfs_, "cd"}, {subfs_, "ef"}},
-                {{dest_fs, "AB/ab"}, {dest_fs, "CD/CD/cd"}, {dest_fs, "EF/EF/EF/ef"}}));
+  ASSERT_OK(CopyFiles({{subfs_, "ab"}, {subfs_, "cd"}, {subfs_, "ef"}, {subfs_, "same"}},
+                      {{dest_fs, "AB/ab"},
+                       {dest_fs, "CD/CD/cd"},
+                       {dest_fs, "EF/EF/EF/ef"},
+                       {subfs_, "same_copy/same"}}));
 
   CheckFiles({
       {"sub/copy/AB/ab", time_, "ab"},
@@ -614,6 +617,8 @@ TEST_F(TestSubTreeFileSystem, CopyFiles) {
       {"sub/tree/ab", time_, "ab"},
       {"sub/tree/cd", time_, "cd"},
       {"sub/tree/ef", time_, "ef"},
+      {"sub/tree/same", time_, "same"},
+      {"sub/tree/same_copy/same", time_, "same"},
   });
 }
 
