@@ -184,6 +184,7 @@ cdef class Function(_Weakrefable):
     * "aggregate" functions reduce the dimensionality of the inputs by
       applying a reduction function.  Examples: sum, minmax, mode...
 
+    * "meta" functions dispatch to other functions.
     """
     cdef:
         shared_ptr[CFunction] sp_func
