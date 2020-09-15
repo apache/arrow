@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import collections
 import datetime
 import decimal
 import pickle
@@ -63,20 +62,14 @@ import pyarrow as pa
      pa.Time32Scalar, pa.Time32Value),
     (datetime.datetime.now().time(), None, pa.Time64Scalar, pa.Time64Value),
     (datetime.timedelta(days=1), None, pa.DurationScalar, pa.DurationValue),
-    (collections.OrderedDict([('a', 1), ('b', [1, 2])]), None, pa.StructScalar,
-     pa.StructValue),
+    ({'a': 1, 'b': [1, 2]}, None, pa.StructScalar, pa.StructValue),
     ([('a', 1), ('b', 2)], pa.map_(pa.string(), pa.int8()), pa.MapScalar,
      pa.MapValue),
 ])
 def test_basics(value, ty, klass, deprecated):
     s = pa.scalar(value, type=ty)
     assert isinstance(s, klass)
-
-    if isinstance(s, pa.StructScalar) and isinstance(value, dict):
-        assert s.as_py() == list(value.items())
-    else:
-        assert s.as_py() == value
-
+    assert s.as_py() == value
     assert s == pa.scalar(value, type=ty)
     assert s != value
     assert s != "else"
@@ -463,7 +456,7 @@ def test_struct():
         pa.field('y', pa.float32())
     ])
 
-    v = collections.OrderedDict([('x', 2), ('y', 3.5)])
+    v = {'x': 2, 'y': 3.5}
     s = pa.scalar(v, type=ty)
     assert list(s) == list(s.keys()) == ['x', 'y']
     assert list(s.values()) == [
@@ -478,10 +471,9 @@ def test_struct():
     assert 'y' in s
     assert 'z' not in s
 
-    items = list(v.items())
-    assert s.as_py() == items
-    assert repr(s) != repr(items)
-    assert repr(s.as_py()) == repr(items)
+    assert s.as_py() == v
+    assert repr(s) != repr(v)
+    assert repr(s.as_py()) == repr(v)
     assert len(s) == 2
     assert isinstance(s['x'], pa.Int16Scalar)
     assert isinstance(s['y'], pa.FloatScalar)
@@ -504,23 +496,6 @@ def test_struct():
     assert s['y'].as_py() is None
 
 
-def test_struct_duplicate_field_name():
-    fields = [
-        pa.field('x', pa.int64()),
-        pa.field('x', pa.string())
-    ]
-    ty = pa.struct(fields)
-
-    arr = pa.StructArray.from_arrays([
-        pa.array([1, 2, 3]),
-        pa.array(["a", "b", "c"])
-    ], fields=fields)
-
-    assert arr[0] == pa.scalar([('x', 1), ('x', 'a')], type=ty)
-    assert arr[1] == pa.scalar([('x', 2), ('x', 'b')], type=ty)
-    assert arr[2] == pa.scalar([('x', 3), ('x', 'c')], type=ty)
-
-
 def test_map():
     ty = pa.map_(pa.string(), pa.int8())
     v = [('a', 1), ('b', 2)]
@@ -531,8 +506,8 @@ def test_map():
     assert isinstance(s.values, pa.Array)
     assert repr(s) == "<pyarrow.MapScalar: [('a', 1), ('b', 2)]>"
     assert s.values.to_pylist() == [
-        [('key', 'a'), ('value', 1)],
-        [('key', 'b'), ('value', 2)]
+        {'key': 'a', 'value': 1},
+        {'key': 'b', 'value': 2}
     ]
 
     # test iteration

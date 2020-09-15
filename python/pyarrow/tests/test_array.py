@@ -482,8 +482,8 @@ def test_struct_array_slice():
     ty = pa.struct([pa.field('a', pa.int8()),
                     pa.field('b', pa.float32())])
     arr = pa.array([(1, 2.5), (3, 4.5), (5, 6.5)], type=ty)
-    assert arr[1:].to_pylist() == [[('a', 3), ('b', 4.5)],
-                                   [('a', 5), ('b', 6.5)]]
+    assert arr[1:].to_pylist() == [{'a': 3, 'b': 4.5},
+                                   {'a': 5, 'b': 6.5}]
 
 
 def test_array_factory_invalid_type():
@@ -619,11 +619,10 @@ def test_struct_from_arrays():
     a = pa.array([4, 5, 6], type=pa.int64())
     b = pa.array(["bar", None, ""])
     c = pa.array([[1, 2], None, [3, None]])
-
     expected_list = [
-        [('a', 4), ('b', 'bar'), ('c', [1, 2])],
-        [('a', 5), ('b', None), ('c', None)],
-        [('a', 6), ('b', ''), ('c', [3, None])],
+        {'a': 4, 'b': 'bar', 'c': [1, 2]},
+        {'a': 5, 'b': None, 'c': None},
+        {'a': 6, 'b': '', 'c': [3, None]},
     ]
 
     # From field names

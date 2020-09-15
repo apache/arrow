@@ -204,21 +204,21 @@ def test_mode_array():
     # ARROW-9917
     arr = pa.array([1, 1, 3, 4, 3, 5], type='int64')
     expected = {"mode": 1, "count": 2}
-    assert pc.mode(arr).as_py() == [("mode", 1), ("count", 2)]
+    assert pc.mode(arr).as_py() == {"mode": 1, "count": 2}
 
     arr = pa.array([], type='int64')
-    expected = [("mode", None), ("count", None)]
+    expected = {"mode": None, "count": None}
     assert pc.mode(arr).as_py() == expected
 
 
 def test_mode_chunked_array():
     # ARROW-9917
     arr = pa.chunked_array([pa.array([1, 1, 3, 4, 3, 5], type='int64')])
-    expected = [("mode", 1), ("count", 2)]
+    expected = {"mode": 1, "count": 2}
     assert pc.mode(arr).as_py() == expected
 
     arr = pa.chunked_array((), type='int64')
-    expected = [("mode", None), ("count", None)]
+    expected = {"mode": None, "count": None}
     assert arr.num_chunks == 0
     assert pc.mode(arr).as_py() == expected
 
@@ -234,20 +234,20 @@ def test_min_max():
     # An example generated function wrapper with possible options
     data = [4, 5, 6, None, 1]
     s = pc.min_max(data)
-    assert s.as_py() == [('min', 1), ('max', 6)]
+    assert s.as_py() == {'min': 1, 'max': 6}
     s = pc.min_max(data, options=pc.MinMaxOptions())
-    assert s.as_py() == [('min', 1), ('max', 6)]
+    assert s.as_py() == {'min': 1, 'max': 6}
     s = pc.min_max(data, options=pc.MinMaxOptions(null_handling='skip'))
-    assert s.as_py() == [('min', 1), ('max', 6)]
+    assert s.as_py() == {'min': 1, 'max': 6}
     s = pc.min_max(data, options=pc.MinMaxOptions(null_handling='emit_null'))
-    assert s.as_py() == [('min', None), ('max', None)]
+    assert s.as_py() == {'min': None, 'max': None}
 
     # Options as dict of kwargs
     s = pc.min_max(data, options={'null_handling': 'emit_null'})
-    assert s.as_py() == [('min', None), ('max', None)]
+    assert s.as_py() == {'min': None, 'max': None}
     # Options as named functions arguments
     s = pc.min_max(data, null_handling='emit_null')
-    assert s.as_py() == [('min', None), ('max', None)]
+    assert s.as_py() == {'min': None, 'max': None}
 
     # Both options and named arguments
     with pytest.raises(TypeError):

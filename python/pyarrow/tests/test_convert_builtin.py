@@ -1430,13 +1430,13 @@ def test_structarray():
         ['ints', 'strs', 'bools'])
 
     expected = [
-        [('ints', None), ('strs', 'a'), ('bools', True)],
-        [('ints', 2), ('strs', None), ('bools', False)],
-        [('ints', 3), ('strs', 'c'), ('bools', None)],
+        {'ints': None, 'strs': 'a', 'bools': True},
+        {'ints': 2, 'strs': None, 'bools': False},
+        {'ints': 3, 'strs': 'c', 'bools': None},
     ]
 
     pylist = arr.to_pylist()
-    assert pylist == expected
+    assert pylist == expected, (pylist, expected)
 
     # len(names) != len(arrays)
     with pytest.raises(ValueError):
@@ -1450,27 +1450,21 @@ def test_struct_from_dicts():
     arr = pa.array([], type=ty)
     assert arr.to_pylist() == []
 
-    data = [
-        collections.OrderedDict([('a', 5), ('b', 'foo'), ('c', True)]),
-        collections.OrderedDict([('a', 6), ('b', 'bar'), ('c', False)])
-    ]
+    data = [{'a': 5, 'b': 'foo', 'c': True},
+            {'a': 6, 'b': 'bar', 'c': False}]
     arr = pa.array(data, type=ty)
-    assert arr.to_pylist() == _as_pairs(data)
+    assert arr.to_pylist() == data
 
     # With omitted values
-    data = [
-        collections.OrderedDict([('a', 5), ('c', True)]),
-        None,
-        collections.OrderedDict([]),
-        collections.OrderedDict([('a', None), ('b', 'bar')])
-    ]
+    data = [{'a': 5, 'c': True},
+            None,
+            {},
+            {'a': None, 'b': 'bar'}]
     arr = pa.array(data, type=ty)
-    expected = [
-        [('a', 5), ('b', None), ('c', True)],
-        None,
-        [('a', None), ('b', None), ('c', None)],
-        [('a', None), ('b', 'bar'), ('c', None)]
-    ]
+    expected = [{'a': 5, 'b': None, 'c': True},
+                None,
+                {'a': None, 'b': None, 'c': None},
+                {'a': None, 'b': 'bar', 'c': None}]
     assert arr.to_pylist() == expected
 
 
@@ -1482,16 +1476,13 @@ def test_struct_from_dicts_bytes_keys():
     arr = pa.array([], type=ty)
     assert arr.to_pylist() == []
 
-    data = [
-        collections.OrderedDict([(b'a', 5), (b'b', 'foo')]),
-        collections.OrderedDict([(b'a', 6), (b'c', False)]),
-    ]
+    data = [{b'a': 5, b'b': 'foo'},
+            {b'a': 6, b'c': False}]
     arr = pa.array(data, type=ty)
-    expected = [
-        [('a', 5), ('b', 'foo'), ('c', None)],
-        [('a', 6), ('b', None), ('c', False)],
+    assert arr.to_pylist() == [
+        {'a': 5, 'b': 'foo', 'c': None},
+        {'a': 6, 'b': None, 'c': False},
     ]
-    assert arr.to_pylist() == expected
 
 
 def test_struct_from_tuples():
@@ -1501,10 +1492,8 @@ def test_struct_from_tuples():
 
     data = [(5, 'foo', True),
             (6, 'bar', False)]
-    expected = [
-        [('a', 5), ('b', 'foo'), ('c', True)],
-        [('a', 6), ('b', 'bar'), ('c', False)]
-    ]
+    expected = [{'a': 5, 'b': 'foo', 'c': True},
+                {'a': 6, 'b': 'bar', 'c': False}]
     arr = pa.array(data, type=ty)
 
     data_as_ndarray = np.empty(len(data), dtype=object)
@@ -1515,16 +1504,12 @@ def test_struct_from_tuples():
     assert arr.equals(arr2)
 
     # With omitted values
-    data = [
-        (5, 'foo', None),
-        None,
-        (6, None, False)
-    ]
-    expected = [
-        [('a', 5), ('b', 'foo'), ('c', None)],
-        None,
-        [('a', 6), ('b', None), ('c', False)],
-    ]
+    data = [(5, 'foo', None),
+            None,
+            (6, None, False)]
+    expected = [{'a': 5, 'b': 'foo', 'c': None},
+                None,
+                {'a': 6, 'b': None, 'c': False}]
     arr = pa.array(data, type=ty)
     assert arr.to_pylist() == expected
 
@@ -1546,7 +1531,11 @@ def test_struct_from_list_of_pairs():
         None
     ]
     arr = pa.array(data, type=ty)
-    assert arr.to_pylist() == data
+    assert arr.to_pylist() == [
+        {'a': 5, 'b': 'foo', 'c': True},
+        {'a': 6, 'b': 'bar', 'c': False},
+        None
+    ]
 
     # test with duplicated field names
     ty = pa.struct([
@@ -1559,7 +1548,9 @@ def test_struct_from_list_of_pairs():
         [('a', 6), ('a', 'bar'), ('b', False)],
     ]
     arr = pa.array(data, type=ty)
-    assert arr.to_pylist() == data
+    with pytest.raises(KeyError):
+        # TODO(kszucs): ARROW-9997
+        arr.to_pylist()
 
     # test with empty elements
     ty = pa.struct([
@@ -1574,10 +1565,10 @@ def test_struct_from_list_of_pairs():
         [('a', 1), ('b', 'bar'), ('c', False), ('d', 'julia')],
     ]
     expected = [
-        [('a', None), ('b', None), ('c', None)],
-        [('a', 5), ('b', 'foo'), ('c', True)],
-        [('a', 2), ('b', 'baz'), ('c', None)],
-        [('a', 1), ('b', 'bar'), ('c', False)],
+        {'a': None, 'b': None, 'c': None},
+        {'a': 5, 'b': 'foo', 'c': True},
+        {'a': 2, 'b': 'baz', 'c': None},
+        {'a': 1, 'b': 'bar', 'c': False},
     ]
     arr = pa.array(data, type=ty)
     assert arr.to_pylist() == expected
@@ -1632,16 +1623,11 @@ def test_struct_from_list_of_pairs_errors():
 
 def test_struct_from_mixed_sequence():
     # It is forbidden to mix dicts and tuples when initializing a struct array
-    ty = pa.struct([
-        pa.field('a', pa.int32()),
-        pa.field('b', pa.string()),
-        pa.field('c', pa.bool_())
-    ])
-    data = [
-        (5, 'foo', True),
-        None,
-        {'a': 6, 'b': 'bar', 'c': False}
-    ]
+    ty = pa.struct([pa.field('a', pa.int32()),
+                    pa.field('b', pa.string()),
+                    pa.field('c', pa.bool_())])
+    data = [(5, 'foo', True),
+            {'a': 6, 'b': 'bar', 'c': False}]
     with pytest.raises(TypeError):
         pa.array(data, type=ty)
 
@@ -1650,29 +1636,22 @@ def test_struct_from_dicts_inference():
     expected_type = pa.struct([pa.field('a', pa.int64()),
                                pa.field('b', pa.string()),
                                pa.field('c', pa.bool_())])
-    data = [
-        collections.OrderedDict([('a', 5), ('b', 'foo'), ('c', True)]),
-        collections.OrderedDict([('a', 6), ('b', 'bar'), ('c', False)])
-    ]
-    expected = [list(d.items()) for d in data]
+    data = [{'a': 5, 'b': 'foo', 'c': True},
+            {'a': 6, 'b': 'bar', 'c': False}]
 
     arr = pa.array(data)
     check_struct_type(arr.type, expected_type)
-    assert arr.to_pylist() == expected
+    assert arr.to_pylist() == data
 
     # With omitted values
-    data = [
-        collections.OrderedDict([('a', 5), ('c', True)]),
-        None,
-        collections.OrderedDict([]),
-        collections.OrderedDict([('a', None), ('b', 'bar')])
-    ]
-    expected = [
-        [('a', 5), ('b', None), ('c', True)],
-        None,
-        [('a', None), ('b', None), ('c', None)],
-        [('a', None), ('b', 'bar'), ('c', None)]
-    ]
+    data = [{'a': 5, 'c': True},
+            None,
+            {},
+            {'a': None, 'b': 'bar'}]
+    expected = [{'a': 5, 'b': None, 'c': True},
+                None,
+                {'a': None, 'b': None, 'c': None},
+                {'a': None, 'b': 'bar', 'c': None}]
 
     arr = pa.array(data)
     data_as_ndarray = np.empty(len(data), dtype=object)
@@ -1688,42 +1667,17 @@ def test_struct_from_dicts_inference():
         pa.field('a', pa.struct([pa.field('aa', pa.list_(pa.int64())),
                                  pa.field('ab', pa.bool_())])),
         pa.field('b', pa.string())])
-    data = [
-        collections.OrderedDict([
-            ('a', collections.OrderedDict([('aa', [5, 6]), ('ab', True)])),
-            ('b', 'foo')
-        ]),
-        collections.OrderedDict([
-            ('a', collections.OrderedDict([('aa', None), ('ab', False)])),
-            ('b', None),
-        ]),
-        collections.OrderedDict([
-            ('a', None),
-            ('b', 'bar')
-        ])
-    ]
+    data = [{'a': {'aa': [5, 6], 'ab': True}, 'b': 'foo'},
+            {'a': {'aa': None, 'ab': False}, 'b': None},
+            {'a': None, 'b': 'bar'}]
     arr = pa.array(data)
 
-    expected = [
-        [
-            ('a', [('aa', [5, 6]), ('ab', True)]),
-            ('b', 'foo')
-        ],
-        [
-            ('a', [('aa', None), ('ab', False)]),
-            ('b', None)
-        ],
-        [
-            ('a', None),
-            ('b', 'bar')
-        ]
-    ]
-    assert arr.to_pylist() == expected
+    assert arr.to_pylist() == data
 
     # Edge cases
     arr = pa.array([{}])
     assert arr.type == pa.struct([])
-    assert arr.to_pylist() == [[]]
+    assert arr.to_pylist() == [{}]
 
     # Mixing structs and scalars is rejected
     with pytest.raises((pa.ArrowInvalid, pa.ArrowTypeError)):

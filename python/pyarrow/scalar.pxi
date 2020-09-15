@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import collections
+
 
 cdef class Scalar(_Weakrefable):
     """
@@ -577,7 +579,7 @@ cdef class LargeListScalar(ListScalar):
     pass
 
 
-cdef class StructScalar(Scalar):
+cdef class StructScalar(Scalar, collections.abc.Mapping):
     """
     Concrete class for struct scalars.
     """
@@ -585,6 +587,16 @@ cdef class StructScalar(Scalar):
     def __len__(self):
         cdef CStructScalar* sp = <CStructScalar*> self.wrapped.get()
         return sp.value.size()
+
+    def __iter__(self):
+        cdef:
+            CStructScalar* sp = <CStructScalar*> self.wrapped.get()
+            CStructType* dtype = <CStructType*> sp.type.get()
+            vector[shared_ptr[CField]] fields = dtype.fields()
+
+        if sp.is_valid:
+            for i in range(dtype.num_fields()):
+                yield frombytes(fields[i].get().name())
 
     def __contains__(self, key):
         try:
@@ -597,12 +609,10 @@ cdef class StructScalar(Scalar):
     def __getitem__(self, key):
         """
         Return the child value for the given field.
-
         Parameters
         ----------
         index : Union[int, str]
             Index / position or name of the field.
-
         Returns
         -------
         result : Scalar
@@ -626,27 +636,12 @@ cdef class StructScalar(Scalar):
             else:
                 raise KeyError(key)
 
-    # TODO(kszucs): consider to remove __iter__, keys and values
-    def __iter__(self):
-        if self.is_valid:
-            for field in self.type:
-                yield field.name
-
-    def keys(self):
-        return list(self)
-
-    def values(self):
-        return [self[i] for i, _ in enumerate(self)]
-
-    def items(self):
-        return [(key, self[i]) for i, key in enumerate(self)]
-
     def as_py(self):
         """
         Return this value as a Python dict.
         """
         if self.is_valid:
-            return [(key, self[i].as_py()) for i, key in enumerate(self)]
+            return {k: v.as_py() for k, v in self.items()}
         else:
             return None
 
