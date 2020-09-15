@@ -197,7 +197,7 @@ TYPED_TEST(NestedListTest, OuterMostTest) {
   typename TypeParam::ListLengthType* next_position = this->converter_.ComputeListInfo(
       this->test_data_, level_info, &validity_io, offsets.data());
 
-  EXPECT_THAT(next_position, offsets.data() + 4);
+  EXPECT_EQ(next_position, offsets.data() + 4);
   EXPECT_THAT(offsets, testing::ElementsAre(0, 3, 7, 7, 7));
 
   EXPECT_EQ(validity_io.values_read, 4);
@@ -227,7 +227,7 @@ TYPED_TEST(NestedListTest, MiddleListTest) {
   typename TypeParam::ListLengthType* next_position = this->converter_.ComputeListInfo(
       this->test_data_, level_info, &validity_io, offsets.data());
 
-  EXPECT_THAT(next_position, offsets.data() + 7);
+  EXPECT_EQ(next_position, offsets.data() + 7);
   EXPECT_THAT(offsets, testing::ElementsAre(0, 0, 2, 2, 3, 5, 5, 6));
 
   EXPECT_EQ(validity_io.values_read, 7);
@@ -257,7 +257,7 @@ TYPED_TEST(NestedListTest, InnerMostListTest) {
   typename TypeParam::ListLengthType* next_position = this->converter_.ComputeListInfo(
       this->test_data_, level_info, &validity_io, offsets.data());
 
-  EXPECT_THAT(next_position, offsets.data() + 6);
+  EXPECT_EQ(next_position, offsets.data() + 6);
   EXPECT_THAT(offsets, testing::ElementsAre(0, 3, 3, 3, 3, 5, 6));
 
   EXPECT_EQ(validity_io.values_read, 6);
@@ -292,7 +292,7 @@ TYPED_TEST(NestedListTest, SimpleLongList) {
   typename TypeParam::ListLengthType* next_position = this->converter_.ComputeListInfo(
       this->test_data_, level_info, &validity_io, offsets.data());
 
-  EXPECT_THAT(next_position, offsets.data() + 65);
+  EXPECT_EQ(next_position, offsets.data() + 65);
   EXPECT_THAT(offsets, testing::ElementsAreArray(expected_offsets));
 
   EXPECT_EQ(validity_io.values_read, 65);
