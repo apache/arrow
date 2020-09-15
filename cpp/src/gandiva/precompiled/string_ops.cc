@@ -1395,10 +1395,15 @@ FORCE_INLINE
 gdv_binary binary_string(gdv_int64 context, const char* text, gdv_int32 text_len, gdv_int32* out_len) {
   gdv_binary ret = reinterpret_cast<gdv_binary>(gdv_fn_context_arena_malloc(context, text_len));
 
-  if (ret == nullptr || text_len == 0) {
-      gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
-      *out_len = 0;
-      return (gdv_binary)"";
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return (gdv_binary)"";
+  }
+
+  if(text_len == 0) {
+    *out_len = 0;
+    return (gdv_binary)"";
   }
 
   //converting hex encoded string to normal string
