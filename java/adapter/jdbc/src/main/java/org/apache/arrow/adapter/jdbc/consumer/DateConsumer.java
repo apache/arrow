@@ -105,14 +105,9 @@ public class DateConsumer {
     public void consume(ResultSet resultSet) throws SQLException {
       Date date = calendar == null ? resultSet.getDate(columnIndexInResultSet) :
           resultSet.getDate(columnIndexInResultSet, calendar);
-      long dayLong = TimeUnit.MILLISECONDS.toDays(date.getTime());
-      int day = (int) dayLong;
-      if (day != dayLong) {
-        throw new IllegalArgumentException("Day overflow: " + dayLong);
-      }
       // for fixed width vectors, we have allocated enough memory proactively,
       // so there is no need to call the setSafe method here.
-      vector.set(currentIndex, day);
+      vector.set(currentIndex, Math.toIntExact(TimeUnit.MILLISECONDS.toDays(date.getTime())));
       currentIndex++;
     }
   }
