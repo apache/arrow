@@ -1435,7 +1435,8 @@ cdef class ServerCallContext(_Weakrefable):
 
     def peer(self):
         """Get the address of the peer."""
-        return frombytes(self.context.peer())
+        # Set safe=True as gRPC on Windows sometimes gives garbage bytes
+        return frombytes(self.context.peer(), safe=True)
 
     def get_middleware(self, key):
         """

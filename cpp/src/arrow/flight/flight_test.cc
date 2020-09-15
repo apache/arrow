@@ -1417,7 +1417,7 @@ TEST_F(TestFlightClient, GenericOptions) {
   std::unique_ptr<FlightClient> client;
   auto options = FlightClientOptions::Defaults();
   // Set a very low limit at the gRPC layer to fail all calls
-  options.generic_options.emplace_back(GRPC_ARG_MAX_RECEIVE_MESSAGE_LENGTH, 32);
+  options.generic_options.emplace_back(GRPC_ARG_MAX_RECEIVE_MESSAGE_LENGTH, 4);
   Location location;
   ASSERT_OK(Location::ForGrpcTcp("localhost", server_->port(), &location));
   ASSERT_OK(FlightClient::Connect(location, options, &client));
