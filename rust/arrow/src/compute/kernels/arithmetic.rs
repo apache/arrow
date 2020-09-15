@@ -31,7 +31,6 @@ use std::sync::Arc;
 
 use num::{One, Zero};
 
-use crate::array::*;
 #[cfg(feature = "simd")]
 use crate::bitmap::Bitmap;
 use crate::buffer::Buffer;
@@ -43,10 +42,15 @@ use crate::compute::util::simd_load_set_invalid;
 use crate::datatypes;
 use crate::datatypes::ToByteSlice;
 use crate::error::{ArrowError, Result};
+use crate::{array::*, util::bit_util};
 
 /// Helper function to perform math lambda function on values from two arrays. If either
 /// left or right value is null then the output value is also null, so `1 + null` is
 /// `null`.
+///
+/// # Errors
+///
+/// This function errors if the arrays have different lengths
 pub fn math_op<T, F>(
     left: &PrimitiveArray<T>,
     right: &PrimitiveArray<T>,
@@ -54,7 +58,7 @@ pub fn math_op<T, F>(
 ) -> Result<PrimitiveArray<T>>
 where
     T: datatypes::ArrowNumericType,
-    F: Fn(T::Native, T::Native) -> Result<T::Native>,
+    F: Fn(T::Native, T::Native) -> T::Native,
 {
     if left.len() != right.len() {
         return Err(ArrowError::ComputeError(
@@ -67,7 +71,72 @@ where
 
     let values = (0..left.len())
         .map(|i| op(left.value(i), right.value(i)))
-        .collect::<Result<Vec<T::Native>>>()?;
+        .collect::<Vec<T::Native>>();
+
+    let data = ArrayData::new(
+        T::get_data_type(),
+        left.len(),
+        None,
+        null_bit_buffer,
+        0,
+        vec![Buffer::from(values.to_byte_slice())],
+        vec![],
+    );
+    Ok(PrimitiveArray::<T>::from(Arc::new(data)))
+}
+
+/// Helper function to divide two arrays.
+///
+/// # Errors
+///
+/// This function errors if:
+/// * the arrays have different lengths
+/// * a division by zero is found
+fn math_divide<T>(
+    left: &PrimitiveArray<T>,
+    right: &PrimitiveArray<T>,
+) -> Result<PrimitiveArray<T>>
+where
+    T: datatypes::ArrowNumericType,
+    T::Native: Div<Output = T::Native> + Zero,
+{
+    if left.len() != right.len() {
+        return Err(ArrowError::ComputeError(
+            "Cannot perform math operation on arrays of different length".to_string(),
+        ));
+    }
+
+    let null_bit_buffer =
+        combine_option_bitmap(left.data_ref(), right.data_ref(), left.len())?;
+
+    let mut values = Vec::with_capacity(left.len());
+    if let Some(b) = &null_bit_buffer {
+        // some value is null
+        for i in 0..left.len() {
+            values.push(unsafe {
+                if bit_util::get_bit_raw(b.raw_data(), i) {
+                    let right_value = right.value(i);
+                    if right_value.is_zero() {
+                        return Err(ArrowError::DivideByZero);
+                    } else {
+                        left.value(i) / right_value
+                    }
+                } else {
+                    T::default_value()
+                }
+            });
+        }
+    } else {
+        // no value is null
+        for i in 0..left.len() {
+            let right_value = right.value(i);
+            values.push(if right_value.is_zero() {
+                return Err(ArrowError::DivideByZero);
+            } else {
+                left.value(i) / right_value
+            });
+        }
+    };
 
     let data = ArrayData::new(
         T::get_data_type(),
@@ -211,7 +280,7 @@ where
     return simd_math_op(&left, &right, |a, b| a + b);
 
     #[allow(unreachable_code)]
-    math_op(left, right, |a, b| Ok(a + b))
+    math_op(left, right, |a, b| a + b)
 }
 
 /// Perform `left - right` operation on two arrays. If either left or right value is null
@@ -232,7 +301,7 @@ where
     return simd_math_op(&left, &right, |a, b| a - b);
 
     #[allow(unreachable_code)]
-    math_op(left, right, |a, b| Ok(a - b))
+    math_op(left, right, |a, b| a - b)
 }
 
 /// Perform `left * right` operation on two arrays. If either left or right value is null
@@ -253,7 +322,7 @@ where
     return simd_math_op(&left, &right, |a, b| a * b);
 
     #[allow(unreachable_code)]
-    math_op(left, right, |a, b| Ok(a * b))
+    math_op(left, right, |a, b| a * b)
 }
 
 /// Perform `left / right` operation on two arrays. If either left or right value is null
@@ -276,13 +345,7 @@ where
     return simd_divide(&left, &right);
 
     #[allow(unreachable_code)]
-    math_op(left, right, |a, b| {
-        if b.is_zero() {
-            Err(ArrowError::DivideByZero)
-        } else {
-            Ok(a / b)
-        }
-    })
+    math_divide(&left, &right)
 }
 
 #[cfg(test)]
