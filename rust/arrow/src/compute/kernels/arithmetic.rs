@@ -170,7 +170,7 @@ where
     // Create the combined `Bitmap`
     let null_bit_buffer =
         combine_option_bitmap(left.data_ref(), right.data_ref(), left.len())?;
-    let bitmap = null_bit_buffer.map(Bitmap::from);
+    let bitmap = null_bit_buffer.clone().map(Bitmap::from);
 
     let lanes = T::lanes();
     let buffer_size = left.len() * mem::size_of::<T::Native>();
@@ -183,8 +183,6 @@ where
         if T::mask_any(is_zero) {
             return Err(ArrowError::DivideByZero);
         }
-        let right_no_invalid_zeros =
-            unsafe { simd_load_set_invalid(right, &bitmap, i, lanes, T::Native::one()) };
         let simd_left = T::load(left.value_slice(i, lanes));
         let simd_result = T::bin_op(simd_left, right_no_invalid_zeros, |a, b| a / b);
 
@@ -196,8 +194,6 @@ where
         };
         T::write(simd_result, result_slice);
     }
-
-    let null_bit_buffer = bitmap.map(|b| b.bits);
 
     let data = ArrayData::new(
         T::get_data_type(),
