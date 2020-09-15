@@ -1868,8 +1868,18 @@ def test_dictionary_from_strings():
     assert a.dictionary.equals(expected_dictionary)
 
 
+def _has_unique_field_names(ty):
+    if isinstance(ty, pa.StructType):
+        field_names = [field.name for field in ty]
+        return len(set(field_names)) == len(field_names)
+    else:
+        return True
+
+
 @h.given(past.all_arrays)
 def test_array_to_pylist_roundtrip(arr):
+    # TODO(kszucs): ARROW-9997
+    h.assume(_has_unique_field_names(arr.type))
     seq = arr.to_pylist()
     restored = pa.array(seq, type=arr.type)
     assert restored.equals(arr)
