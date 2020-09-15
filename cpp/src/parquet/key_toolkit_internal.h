@@ -52,6 +52,21 @@ class ExpiringCacheEntry {
   E cached_item_;
 };
 
+// "data encryption key" and "master key identifier" are paired together as output when
+// parsing from "key material"
+class KeyWithMasterId {
+ public:
+  KeyWithMasterId(const std::string& key_bytes, const std::string& master_id)
+      : key_bytes_(key_bytes), master_id_(master_id) {}
+
+  const std::string& data_key() const { return key_bytes_; }
+  const std::string& master_id() const { return master_id_; }
+
+ private:
+  const std::string key_bytes_;
+  const std::string master_id_;
+};
+
 /// Encrypts "key" with "master_key", using AES-GCM and the "aad"
 std::string EncryptKeyLocally(const std::string& key, const std::string& master_key,
                               const std::string& aad);

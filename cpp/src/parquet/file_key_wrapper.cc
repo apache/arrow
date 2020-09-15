@@ -20,7 +20,6 @@
 #include "parquet/exception.h"
 #include "parquet/key_material.h"
 #include "parquet/key_metadata.h"
-#include "parquet/key_toolkit.h"
 #include "parquet/key_toolkit_internal.h"
 
 namespace parquet {

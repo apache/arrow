@@ -21,11 +21,11 @@
 
 #include "parquet/file_key_unwrapper.h"
 #include "parquet/key_metadata.h"
-#include "parquet/key_toolkit.h"
-#include "parquet/key_toolkit_internal.h"
 
 namespace parquet {
 namespace encryption {
+
+using internal::KeyWithMasterId;
 
 FileKeyUnwrapper::FileKeyUnwrapper(KeyToolkit* key_toolkit,
                                    const KmsConnectionConfig& kms_connection_config,

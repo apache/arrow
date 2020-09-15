@@ -20,8 +20,8 @@
 #include "parquet/encryption.h"
 #include "parquet/key_material.h"
 #include "parquet/key_toolkit.h"
+#include "parquet/key_toolkit_internal.h"
 #include "parquet/kms_client.h"
-#include "parquet/kms_client_factory.h"
 #include "parquet/platform.h"
 
 namespace parquet {
@@ -48,7 +48,7 @@ class PARQUET_EXPORT FileKeyUnwrapper : public DecryptionKeyRetriever {
   std::string GetKey(const std::string& key_metadata) const override;
 
  private:
-  KeyWithMasterId GetDataEncryptionKey(const KeyMaterial& key_material) const;
+  internal::KeyWithMasterId GetDataEncryptionKey(const KeyMaterial& key_material) const;
   std::shared_ptr<KmsClient> GetKmsClientFromConfigOrKeyMaterial(
       const KeyMaterial& key_material) const;
 

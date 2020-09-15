@@ -25,7 +25,6 @@
 #include "parquet/key_encryption_key.h"
 #include "parquet/key_toolkit.h"
 #include "parquet/kms_client.h"
-#include "parquet/kms_client_factory.h"
 
 namespace parquet {
 namespace encryption {
@@ -40,8 +39,8 @@ namespace encryption {
 // 2. Create "key material" (see structure in KeyMaterial class)
 // 3. Create "key metadata" with "key material" inside or a reference to outside "key
 // material" (see structure in KeyMetadata class).
-//    Currently we don't support the case "key material" stores outside "key metadata"
-//    yet.
+// Currently we don't support the case "key material" stores outside "key metadata"
+// yet.
 class FileKeyWrapper {
  public:
   static constexpr int kKeyEncryptionKeyLength = 16;

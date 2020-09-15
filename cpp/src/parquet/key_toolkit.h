@@ -29,21 +29,6 @@
 namespace parquet {
 namespace encryption {
 
-// "data encryption key" and "master key identifier" are paired together as the input to
-// generate "key metadata" and as an output when parsing from "key material"
-class KeyWithMasterId {
- public:
-  KeyWithMasterId(const std::string& key_bytes, const std::string& master_id)
-      : key_bytes_(key_bytes), master_id_(master_id) {}
-
-  const std::string& data_key() const { return key_bytes_; }
-  const std::string& master_id() const { return master_id_; }
-
- private:
-  const std::string key_bytes_;
-  const std::string master_id_;
-};
-
 // KeyToolkit is a utility that keeps various tools for key management (such as key
 // rotation, kms client instantiation, cache control, etc), plus a number of auxiliary
 // classes for internal use.
