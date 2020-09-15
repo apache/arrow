@@ -2360,7 +2360,6 @@ TEST(ArrowReadWrite, SingleColumnNullableStruct) {
       3);
 }
 
-// Disabled until implementation can be finished.
 TEST(TestArrowReadWrite, CanonicalNestedRoundTrip) {
   auto doc_id = field("DocId", ::arrow::int64(), /*nullable=*/false);
   auto links = field(
