@@ -63,7 +63,7 @@ endif()
 find_package_handle_standard_args(RE2 REQUIRED_VARS RE2_LIB RE2_INCLUDE_DIR)
 
 if(RE2_FOUND)
-  if (NOT TARGET RE2::re2)
+  if(NOT TARGET RE2::re2)
     add_library(RE2::re2 UNKNOWN IMPORTED)
     set_target_properties(RE2::re2
                           PROPERTIES IMPORTED_LOCATION "${RE2_LIB}"
