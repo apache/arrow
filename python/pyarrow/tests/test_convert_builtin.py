@@ -1917,8 +1917,8 @@ def test_nested_auto_chunking(ty, char):
     assert len(arr.chunk(0)) == 21
     assert len(arr.chunk(1)) == 1
 
-    assert arr.chunk(1)[0].as_py() == [
-        ('bool', True),
-        ('integer', 1),
-        ('string-like', char)
-    ]
+    assert arr.chunk(1)[0].as_py() == {
+        'bool': True,
+        'integer': 1,
+        'string-like': char
+    }
