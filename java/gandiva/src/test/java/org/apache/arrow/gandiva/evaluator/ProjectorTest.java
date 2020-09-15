@@ -1741,6 +1741,55 @@ public class ProjectorTest extends BaseEvaluatorTest {
     releaseValueVectors(output);
   }
 
+  @Test
+  public void testCastInt() throws Exception {
+    Field inField = Field.nullable("input", new ArrowType.Utf8());
+    TreeNode inNode = TreeBuilder.makeField(inField);
+    TreeNode castINTFn = TreeBuilder.makeFunction("castINT", Lists.newArrayList(inNode),
+        int32);
+    Field resultField = Field.nullable("result", int32);
+    List<ExpressionTree> exprs =
+        Lists.newArrayList(
+            TreeBuilder.makeExpression(castINTFn, resultField));
+    Schema schema = new Schema(Lists.newArrayList(inField));
+    Projector eval = Projector.make(schema, exprs);
+    int numRows = 5;
+    byte[] validity = new byte[] {(byte) 255};
+    String[] values =
+        new String[] {
+            "0", "123", "-123", "-1", "1"
+        };
+    int[] expValues =
+        new int[] {
+            0, 123, -123, -1, 1
+        };
+    ArrowBuf bufValidity = buf(validity);
+    List<ArrowBuf> bufData = stringBufs(values);
+    ArrowFieldNode fieldNode = new ArrowFieldNode(numRows, 0);
+    ArrowRecordBatch batch =
+        new ArrowRecordBatch(
+            numRows,
+            Lists.newArrayList(fieldNode),
+            Lists.newArrayList(bufValidity, bufData.get(0), bufData.get(1)));
+    List<ValueVector> output = new ArrayList<>();
+    for (int i = 0; i < exprs.size(); i++) {
+      IntVector intVector = new IntVector(EMPTY_SCHEMA_PATH, allocator);
+      intVector.allocateNew(numRows);
+      output.add(intVector);
+    }
+    eval.evaluate(batch, output);
+    eval.close();
+    for (ValueVector valueVector : output) {
+      IntVector intVector = (IntVector) valueVector;
+      for (int j = 0; j < numRows; j++) {
+        assertFalse(intVector.isNull(j));
+        assertTrue(expValues[j] == intVector.get(j));
+      }
+    }
+    releaseRecordBatch(batch);
+    releaseValueVectors(output);
+  }
+
   @Test(expected = GandivaException.class)
   public void testCastIntInvalidValue() throws Exception {
     Field inField = Field.nullable("input", new ArrowType.Utf8());

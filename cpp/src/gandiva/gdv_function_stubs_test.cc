@@ -24,6 +24,100 @@
 
 namespace gandiva {
 
+TEST(TestGdvFnStubs, TestCastINT) {
+  gandiva::ExecutionContext ctx;
+
+  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+
+  EXPECT_EQ(gdv_fn_castINT_utf8(ctx_ptr, "-45", 3), -45);
+  EXPECT_EQ(gdv_fn_castINT_utf8(ctx_ptr, "0", 1), 0);
+  EXPECT_EQ(gdv_fn_castINT_utf8(ctx_ptr, "2147483647", 10), 2147483647);
+  EXPECT_EQ(gdv_fn_castINT_utf8(ctx_ptr, "02147483647", 11), 2147483647);
+  EXPECT_EQ(gdv_fn_castINT_utf8(ctx_ptr, "-2147483648", 11), -2147483648LL);
+  EXPECT_EQ(gdv_fn_castINT_utf8(ctx_ptr, "-02147483648", 12), -2147483648LL);
+  EXPECT_EQ(gdv_fn_castINT_utf8(ctx_ptr, " 12 ", 4), 12);
+
+  gdv_fn_castINT_utf8(ctx_ptr, "2147483648", 10);
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr("Failed to cast the string 2147483648 to int32"));
+  ctx.Reset();
+
+  gdv_fn_castINT_utf8(ctx_ptr, "-2147483649", 11);
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr("Failed to cast the string -2147483649 to int32"));
+  ctx.Reset();
+
+  gdv_fn_castINT_utf8(ctx_ptr, "12.34", 5);
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr("Failed to cast the string 12.34 to int32"));
+  ctx.Reset();
+
+  gdv_fn_castINT_utf8(ctx_ptr, "abc", 3);
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr("Failed to cast the string abc to int32"));
+  ctx.Reset();
+
+  gdv_fn_castINT_utf8(ctx_ptr, "", 0);
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr("Failed to cast the string  to int32"));
+  ctx.Reset();
+
+  gdv_fn_castINT_utf8(ctx_ptr, "-", 1);
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr("Failed to cast the string - to int32"));
+  ctx.Reset();
+}
+
+TEST(TestGdvFnStubs, TestCastBIGINT) {
+  gandiva::ExecutionContext ctx;
+
+  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+
+  EXPECT_EQ(gdv_fn_castBIGINT_utf8(ctx_ptr, "-45", 3), -45);
+  EXPECT_EQ(gdv_fn_castBIGINT_utf8(ctx_ptr, "0", 1), 0);
+  EXPECT_EQ(gdv_fn_castBIGINT_utf8(ctx_ptr, "9223372036854775807", 19),
+            9223372036854775807LL);
+  EXPECT_EQ(gdv_fn_castBIGINT_utf8(ctx_ptr, "09223372036854775807", 20),
+            9223372036854775807LL);
+  EXPECT_EQ(gdv_fn_castBIGINT_utf8(ctx_ptr, "-9223372036854775808", 20),
+            -9223372036854775807LL - 1);
+  EXPECT_EQ(gdv_fn_castBIGINT_utf8(ctx_ptr, "-009223372036854775808", 22),
+            -9223372036854775807LL - 1);
+  EXPECT_EQ(gdv_fn_castBIGINT_utf8(ctx_ptr, " 12 ", 4), 12);
+
+  gdv_fn_castBIGINT_utf8(ctx_ptr, "9223372036854775808", 19);
+  EXPECT_THAT(
+      ctx.get_error(),
+      ::testing::HasSubstr("Failed to cast the string 9223372036854775808 to int64"));
+  ctx.Reset();
+
+  gdv_fn_castBIGINT_utf8(ctx_ptr, "-9223372036854775809", 20);
+  EXPECT_THAT(
+      ctx.get_error(),
+      ::testing::HasSubstr("Failed to cast the string -9223372036854775809 to int64"));
+  ctx.Reset();
+
+  gdv_fn_castBIGINT_utf8(ctx_ptr, "12.34", 5);
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr("Failed to cast the string 12.34 to int64"));
+  ctx.Reset();
+
+  gdv_fn_castBIGINT_utf8(ctx_ptr, "abc", 3);
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr("Failed to cast the string abc to int64"));
+  ctx.Reset();
+
+  gdv_fn_castBIGINT_utf8(ctx_ptr, "", 0);
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr("Failed to cast the string  to int64"));
+  ctx.Reset();
+
+  gdv_fn_castBIGINT_utf8(ctx_ptr, "-", 1);
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr("Failed to cast the string - to int64"));
+  ctx.Reset();
+}
+
 TEST(TestGdvFnStubs, TestCastFloat4) {
   gandiva::ExecutionContext ctx;
 

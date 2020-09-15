@@ -152,7 +152,8 @@ char* gdv_fn_dec_to_string(int64_t context, int64_t x_high, uint64_t x_low,
   return ret;
 }
 
-#define CAST_FLOAT_FROM_STRING(OUT_TYPE, ARROW_TYPE, TYPE_NAME)                      \
+#define CAST_NUMERIC_FROM_STRING(OUT_TYPE, ARROW_TYPE, TYPE_NAME)                    \
+  GANDIVA_EXPORT                                                                     \
   OUT_TYPE gdv_fn_cast##TYPE_NAME##_utf8(int64_t context, const char* data,          \
                                          int32_t len) {                              \
     OUT_TYPE val = 0;                                                                \
@@ -175,10 +176,12 @@ char* gdv_fn_dec_to_string(int64_t context, int64_t x_high, uint64_t x_low,
     return val;                                                                      \
   }
 
-CAST_FLOAT_FROM_STRING(float, arrow::FloatType, FLOAT4)
-CAST_FLOAT_FROM_STRING(double, arrow::DoubleType, FLOAT8)
+CAST_NUMERIC_FROM_STRING(int32_t, arrow::Int32Type, INT)
+CAST_NUMERIC_FROM_STRING(int64_t, arrow::Int64Type, BIGINT)
+CAST_NUMERIC_FROM_STRING(float, arrow::FloatType, FLOAT4)
+CAST_NUMERIC_FROM_STRING(double, arrow::DoubleType, FLOAT8)
 
-#undef CAST_FLOAT_FROM_STRING
+#undef CAST_NUMERIC_FROM_STRING
 }
 
 namespace gandiva {
@@ -306,6 +309,20 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
   args = {types->i64_type(), types->i32_type(), types->i1_type()};
   engine->AddGlobalMappingForFunc("gdv_fn_random_with_seed", types->double_type(), args,
                                   reinterpret_cast<void*>(gdv_fn_random_with_seed));
+
+  args = {types->i64_type(),     // int64_t context_ptr
+          types->i8_ptr_type(),  // const char* data
+          types->i32_type()};    // int32_t lenr
+
+  engine->AddGlobalMappingForFunc("gdv_fn_castINT_utf8", types->i32_type(), args,
+                                  reinterpret_cast<void*>(gdv_fn_castINT_utf8));
+
+  args = {types->i64_type(),     // int64_t context_ptr
+          types->i8_ptr_type(),  // const char* data
+          types->i32_type()};    // int32_t lenr
+
+  engine->AddGlobalMappingForFunc("gdv_fn_castBIGINT_utf8", types->i64_type(), args,
+                                  reinterpret_cast<void*>(gdv_fn_castBIGINT_utf8));
 
   args = {types->i64_type(),     // int64_t context_ptr
           types->i8_ptr_type(),  // const char* data
