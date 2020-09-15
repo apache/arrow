@@ -18,6 +18,7 @@
 from functools import lru_cache
 import pickle
 import pytest
+import sys
 import textwrap
 
 import numpy as np
@@ -822,3 +823,29 @@ def test_fill_null_chunked_array(arrow_type):
 
     result = arr.fill_null(pa.scalar(5, type='int8'))
     assert result.equals(expected)
+
+
+def test_logical():
+
+    a = pa.array([True, False, False, None])
+    b = pa.array([True, True, False, True])
+
+    assert pc.and_(a, b) == pa.array([True, False, False, None])
+    assert pc.and_kleene(a, b) == pa.array([True, False, False, None])
+
+    assert pc.or_(a, b) == pa.array([True, True, False, None])
+    assert pc.and_kleene(a, b) == pa.array([True, False, False, None])
+
+    assert pc.xor(a, b) == pa.array([False, True, False, None])
+
+    assert pc.invert(a) == pa.array([False, True, True, None])
+
+
+def test_cast():
+
+    a = pa.array([sys.maxsize], type='int64')
+
+    with pytest.raises(pa.ArrowInvalid):
+        pc.cast(a, 'int32')
+
+    assert pc.cast(a, 'int32', safe=False) == pa.array([-1], type='int32')

@@ -293,9 +293,10 @@ def mode(array):
     """
     return call_function("mode", [array])
 
+
 def and_(x1, x2):
     """
-    Compute the truth value of two boolean (chunked) arrays x1 AND x2 
+    Compute the truth value of two boolean (chunked) arrays x1 AND x2
     element-wise. x1 and x2 must have the same length. The truth value
     of two null elements is null. See `and_kleene` for an implementation
     with alternative null handling.
@@ -311,6 +312,7 @@ def and_(x1, x2):
 
     """
     return call_function("and", [x1, x2])
+
 
 def or_(x1, x2):
     """
