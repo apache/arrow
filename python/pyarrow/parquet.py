@@ -1400,15 +1400,19 @@ class _ParquetDatasetV2:
                                 buffer_size=buffer_size)
         if read_dictionary is not None:
             read_options.update(dictionary_columns=read_dictionary)
-        parquet_format = ds.ParquetFileFormat(read_options=read_options)
 
         # map filters to Expressions
         self._filters = filters
         self._filter_expression = filters and _filters_to_expression(filters)
 
         # check for single NativeFile dataset
+        self._enable_parallel_column_conversion = False
         if not isinstance(path_or_paths, list):
             if not _is_path_like(path_or_paths):
+                self._enable_parallel_column_conversion = True
+                read_options.update(enable_parallel_column_conversion=True)
+                parquet_format = ds.ParquetFileFormat(
+                    read_options=read_options)
                 fragment = parquet_format.make_fragment(path_or_paths)
                 self._dataset = ds.FileSystemDataset(
                     [fragment], schema=fragment.physical_schema,
@@ -1416,6 +1420,8 @@ class _ParquetDatasetV2:
                     filesystem=fragment.filesystem
                 )
                 return
+
+        parquet_format = ds.ParquetFileFormat(read_options=read_options)
 
         # check partitioning to enable dictionary encoding
         if partitioning == "hive":
@@ -1474,10 +1480,14 @@ class _ParquetDatasetV2:
                 ]
                 columns = columns + list(set(index_columns) - set(columns))
 
-        if len(list(self._dataset.get_fragments())) <= 1:
-            # Allow per-column parallelism; would otherwise cause contention
-            # in the presence of per-file parallelism.
-            use_threads = False
+        if self._enable_parallel_column_conversion:
+            if use_threads and len(list(self._dataset.get_fragments())) <= 1:
+                # Allow per-column parallelism; would otherwise cause
+                # contention in the presence of per-file parallelism.
+                use_threads = False
+
+        print("Column-level parallelism: ", self._enable_parallel_column_conversion)
+        print("File-level parallelism: ", use_threads)
 
         table = self._dataset.to_table(
             columns=columns, filter=self._filter_expression,
