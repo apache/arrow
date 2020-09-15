@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+from datetime import datetime
 from functools import lru_cache
 import pickle
 import pytest
@@ -837,15 +838,23 @@ def test_logical():
     assert pc.and_kleene(a, b) == pa.array([True, False, False, None])
 
     assert pc.xor(a, b) == pa.array([False, True, False, None])
-
+    
     assert pc.invert(a) == pa.array([False, True, True, None])
-
 
 def test_cast():
 
-    a = pa.array([sys.maxsize], type='int64')
+    arr = pa.array([sys.maxsize], type='int64')
 
     with pytest.raises(pa.ArrowInvalid):
-        pc.cast(a, 'int32')
+        pc.cast(arr, 'int32')
 
-    assert pc.cast(a, 'int32', safe=False) == pa.array([-1], type='int32')
+    assert pc.cast(arr, 'int32', safe=False) == pa.array([-1], type='int32')
+
+    arr = pa.array([datetime(2010, 1, 1), datetime(2015, 1, 1)])
+    expected = pa.array([1262304000000, 1420070400000], type='timestamp[ms]') 
+    assert pc.cast(arr, 'timestamp[ms]') == expected
+
+def test_sort_partition():
+
+    arr = pa.array([100, 99, 150, 200, 1])
+    assert pc.sort_indices(arr) == pa.array([4, 1, 0, 2, 3])
