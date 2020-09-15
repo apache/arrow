@@ -1420,7 +1420,7 @@ class _ParquetDatasetV2:
                 single_file = path_or_paths[0]
         else:
             if _is_path_like(path_or_paths):
-                if filesystem.get_file_info(path_or_paths).is_file:
+                if filesystem.get_file_info(str(path_or_paths)).is_file:
                     single_file = path_or_paths
             else:
                 single_file = path_or_paths
