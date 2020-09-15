@@ -187,6 +187,33 @@ tasks:
       - arrow-cpp-{no_rc_version}-py38(h[a-z0-9]+)_0_cuda.tar.bz2
       - pyarrow-{no_rc_version}-py38(h[a-z0-9]+)_0_cuda.tar.bz2
 
+  conda-linux-gcc-py36-aarch64:
+    ci: drone
+    template: conda-recipes/drone.yml
+    params:
+      config: linux_aarch64_python3.6.____cpython
+    artifacts:
+      - arrow-cpp-{no_rc_version}-py36(h[a-z0-9]+)_0_cpu.tar.bz2
+      - pyarrow-{no_rc_version}-py36(h[a-z0-9]+)_0_cpu.tar.bz2
+
+  conda-linux-gcc-py37-aarch64:
+    ci: drone
+    template: conda-recipes/drone.yml
+    params:
+      config: linux_aarch64_python3.7.____cpython
+    artifacts:
+      - arrow-cpp-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.tar.bz2
+      - pyarrow-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.tar.bz2
+
+  conda-linux-gcc-py38-aarch64:
+    ci: drone
+    template: conda-recipes/drone.yml
+    params:
+      config: linux_aarch64_python3.8.____cpython
+    artifacts:
+      - arrow-cpp-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.tar.bz2
+      - pyarrow-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.tar.bz2
+
   ############################## Conda OSX ####################################
 
   conda-osx-clang-py36:

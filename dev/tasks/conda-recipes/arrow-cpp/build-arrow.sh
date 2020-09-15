@@ -67,6 +67,7 @@ cmake \
     -DCMAKE_INSTALL_PREFIX=$PREFIX \
     -DCMAKE_RANLIB=${RANLIB} \
     -DLLVM_TOOLS_BINARY_DIR=$PREFIX/bin \
+    -DCMAKE_UNITY_BUILD=ON \
     -GNinja \
     ${EXTRA_CMAKE_ARGS} \
     ..
