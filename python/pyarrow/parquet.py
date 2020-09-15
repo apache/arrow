@@ -1405,21 +1405,41 @@ class _ParquetDatasetV2:
         self._filters = filters
         self._filter_expression = filters and _filters_to_expression(filters)
 
-        # check for single NativeFile dataset
-        self._enable_parallel_column_conversion = False
-        if not isinstance(path_or_paths, list):
-            if not _is_path_like(path_or_paths):
-                self._enable_parallel_column_conversion = True
-                read_options.update(enable_parallel_column_conversion=True)
-                parquet_format = ds.ParquetFileFormat(
-                    read_options=read_options)
-                fragment = parquet_format.make_fragment(path_or_paths)
-                self._dataset = ds.FileSystemDataset(
-                    [fragment], schema=fragment.physical_schema,
-                    format=parquet_format,
-                    filesystem=fragment.filesystem
-                )
-                return
+        # map old filesystems to new one
+        if filesystem is not None:
+            filesystem = _ensure_filesystem(
+                filesystem, use_mmap=memory_map)
+        else:
+            # assume local file system
+            filesystem = LocalFileSystem(use_mmap=memory_map)
+
+        # check for single fragment dataset
+        single_file = None
+        if isinstance(path_or_paths, list):
+            if len(path_or_paths) == 1:
+                single_file = path_or_paths[0]
+        else:
+            if _is_path_like(path_or_paths):
+                if filesystem.get_file_info(path_or_paths).is_file:
+                    single_file = path_or_paths
+            else:
+                single_file = path_or_paths
+
+        if single_file is not None:
+            self._enable_parallel_column_conversion = True
+            read_options.update(enable_parallel_column_conversion=True)
+
+            parquet_format = ds.ParquetFileFormat(read_options=read_options)
+            fragment = parquet_format.make_fragment(single_file, filesystem)
+
+            self._dataset = ds.FileSystemDataset(
+                [fragment], schema=fragment.physical_schema,
+                format=parquet_format,
+                filesystem=fragment.filesystem
+            )
+            return
+        else:
+            self._enable_parallel_column_conversion = False
 
         parquet_format = ds.ParquetFileFormat(read_options=read_options)
 
@@ -1428,15 +1448,6 @@ class _ParquetDatasetV2:
             partitioning = ds.HivePartitioning.discover(
                 max_partition_dictionary_size=-1
             )
-
-        # map old filesystems to new one
-        if filesystem is not None:
-            filesystem = _ensure_filesystem(
-                filesystem, use_mmap=memory_map)
-        elif filesystem is None and memory_map:
-            # if memory_map is specified, assume local file system (string
-            # path can in principle be URI for any filesystem)
-            filesystem = LocalFileSystem(use_mmap=True)
 
         self._dataset = ds.dataset(path_or_paths, filesystem=filesystem,
                                    format=parquet_format,
@@ -1481,13 +1492,10 @@ class _ParquetDatasetV2:
                 columns = columns + list(set(index_columns) - set(columns))
 
         if self._enable_parallel_column_conversion:
-            if use_threads and len(list(self._dataset.get_fragments())) <= 1:
+            if use_threads:
                 # Allow per-column parallelism; would otherwise cause
                 # contention in the presence of per-file parallelism.
                 use_threads = False
-
-        print("Column-level parallelism: ", self._enable_parallel_column_conversion)
-        print("File-level parallelism: ", use_threads)
 
         table = self._dataset.to_table(
             columns=columns, filter=self._filter_expression,

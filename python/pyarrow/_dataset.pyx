@@ -359,7 +359,7 @@ cdef class Dataset(_Weakrefable):
             partition information or internal metadata found in the data
             source, e.g. Parquet statistics. Otherwise filters the loaded
             RecordBatches before yielding them.
-        batch_size : int, default 32K
+        batch_size : int, default 1M
             The maximum row count for scanned record batches. If scanned
             record batches are overflowing memory then this method can be
             called to reduce their size.
@@ -754,7 +754,7 @@ cdef class Fragment(_Weakrefable):
             partition information or internal metadata found in the data
             source, e.g. Parquet statistics. Otherwise filters the loaded
             RecordBatches before yielding them.
-        batch_size : int, default 32K
+        batch_size : int, default 1M
             The maximum row count for scanned record batches. If scanned
             record batches are overflowing memory then this method can be
             called to reduce their size.
@@ -1947,7 +1947,7 @@ cdef class Scanner(_Weakrefable):
         partition information or internal metadata found in the data
         source, e.g. Parquet statistics. Otherwise filters the loaded
         RecordBatches before yielding them.
-    batch_size : int, default 32K
+    batch_size : int, default 1M
         The maximum row count for scanned record batches. If scanned
         record batches are overflowing memory then this method can be
         called to reduce their size.
@@ -1983,7 +1983,7 @@ cdef class Scanner(_Weakrefable):
     def from_dataset(Dataset dataset not None,
                      bint use_threads=True, MemoryPool memory_pool=None,
                      list columns=None, Expression filter=None,
-                     int batch_size=32*2**10):
+                     int batch_size=2**20):
         cdef:
             shared_ptr[CScanContext] context
             shared_ptr[CScannerBuilder] builder
@@ -2002,7 +2002,7 @@ cdef class Scanner(_Weakrefable):
     def from_fragment(Fragment fragment not None, Schema schema=None,
                       bint use_threads=True, MemoryPool memory_pool=None,
                       list columns=None, Expression filter=None,
-                      int batch_size=32*2**10):
+                      int batch_size=2**20):
         cdef:
             shared_ptr[CScanContext] context
             shared_ptr[CScannerBuilder] builder
