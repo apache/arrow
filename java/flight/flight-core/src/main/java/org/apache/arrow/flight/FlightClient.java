@@ -321,7 +321,7 @@ public class FlightClient implements AutoCloseable {
       final ClientCallStreamObserver<ArrowMessage> observer = (ClientCallStreamObserver<ArrowMessage>)
               ClientCalls.asyncBidiStreamingCall(call, stream.asObserver());
       final ClientStreamListener writer = new PutObserver(
-          descriptor, observer, stream.completed::isDone,
+          descriptor, observer, stream.cancelled::isDone,
           () -> {
             try {
               stream.completed.get();
