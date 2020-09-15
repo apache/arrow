@@ -20,8 +20,6 @@
 #include <cstdint>
 
 #include "arrow/util/bitmap.h"
-#include "arrow/util/optional.h"
-#include "arrow/util/variant.h"
 #include "parquet/platform.h"
 #include "parquet/schema.h"
 
@@ -137,50 +135,65 @@ struct PARQUET_EXPORT LevelInfo {
   }
 };
 
-/// Input/Output structure for reconstructed validity bitmaps.
+// Input/Output structure for reconstructed validity bitmaps.
 struct PARQUET_EXPORT ValidityBitmapInputOutput {
-  /// The maximum number of values_read expected (actual
-  /// values read must be less than or equal to this value.
-  /// If this number is exceeded methods will throw a
-  /// ParquetException.
+  // Input only.
+  // The maximum number of values_read expected (actual
+  // values read must be less than or equal to this value.
+  // If this number is exceeded methods will throw a
+  // ParquetException. Exceeding this limit indicates
+  // either a corrupt or incorrectly written file.
   int64_t values_read_upper_bound = 0;
-  /// The number of values added to the bitmap.
+  // Output only. The number of values added to the encountered
+  // (this is logicallyt he count of the number of elements
+  // for an Arrow array).
   int64_t values_read = 0;
-  /// The number of nulls encountered.
+  // Input/Output. The number of nulls encountered.
   int64_t null_count = 0;
-  // The validity bitmp to populate. Can only be null
-  // for DefRepLevelsToListInfo (if all that is needed is list lengths).
+  // Output only. The validity bitmap to populate. May be be null only
+  // for DefRepLevelsToListInfo (if all that is needed is list offsets).
   uint8_t* valid_bits = NULLPTR;
-  /// Input only, offset into valid_bits to start at.
+  // Input only, offset into valid_bits to start at.
   int64_t valid_bits_offset = 0;
 };
 
-/// Converts def_levels to validity bitmaps for non-list arrays.
-void PARQUET_EXPORT DefinitionLevelsToBitmap(const int16_t* def_levels,
-                                             int64_t num_def_levels, LevelInfo level_info,
-                                             ValidityBitmapInputOutput* output);
+//  Converts def_levels to validity bitmaps for non-list arrays and structs that have
+//  at least one member that is not a list and has no list descendents.
+//  For lists use DefRepLevelsToList and structs where all descendants contain
+//  a list use DefRepLevelsToBitmap.
+void PARQUET_EXPORT DefLevelsToBitmap(const int16_t* def_levels, int64_t num_def_levels,
+                                      LevelInfo level_info,
+                                      ValidityBitmapInputOutput* output);
 
-/// Reconstructs a validity bitmap and list lengths for a ListArray based on
-/// def/rep levels.
-void PARQUET_EXPORT ConvertDefRepLevelsToList(
-    const int16_t* def_levels, const int16_t* rep_levels, int64_t num_def_levels,
-    LevelInfo level_info, ValidityBitmapInputOutput* output,
-    ::arrow::util::variant<int32_t*, int64_t*> lengths);
+// Reconstructs a validity bitmap and list offsets for a list arrays based on
+// def/rep levels. The first element of offsets will not be modified if rep_levels
+// starts with a new list.  The first element of offsets will be used when calculating
+// the next offset.  See documentation onf DefLevelsToBitmap for when to use this
+// method vs the other ones in this file for reconstruction.
+//
+// Offsets must be size to 1 + values_read_upper_bound.
+void PARQUET_EXPORT DefRepLevelsToList(const int16_t* def_levels,
+                                       const int16_t* rep_levels, int64_t num_def_levels,
+                                       LevelInfo level_info,
+                                       ValidityBitmapInputOutput* output,
+                                       int32_t* offsets);
+void PARQUET_EXPORT DefRepLevelsToList(const int16_t* def_levels,
+                                       const int16_t* rep_levels, int64_t num_def_levels,
+                                       LevelInfo level_info,
+                                       ValidityBitmapInputOutput* output,
+                                       int64_t* offsets);
 
-/// Reconstructs a validity bitmap for a struct that has nested children.
-void PARQUET_EXPORT ConvertDefRepLevelsToBitmap(const int16_t* def_levels,
-                                                const int16_t* rep_levels,
-                                                int64_t num_def_levels,
-                                                LevelInfo level_info,
-                                                ValidityBitmapInputOutput* output);
+// Reconstructs a validity bitmap for a struct every member is a list or has
+// a list descendant.  See documentation on DefLevelsToBitmap for when more
+// details on this method compared to the other ones defined above.
+void PARQUET_EXPORT DefRepLevelsToBitmap(const int16_t* def_levels,
+                                         const int16_t* rep_levels,
+                                         int64_t num_def_levels, LevelInfo level_info,
+                                         ValidityBitmapInputOutput* output);
 
-uint64_t PARQUET_EXPORT RunBasedExtract(uint64_t bitmap, uint64_t selection);
-
-#if defined(ARROW_HAVE_RUNTIME_BMI2)
-void PARQUET_EXPORT DefinitionLevelsToBitmapBmi2WithRepeatedParent(
-    const int16_t* def_levels, int64_t num_def_levels, LevelInfo level_info,
-    ValidityBitmapInputOutput* output);
-#endif
+// This is exposed to ensure we can properly test a software simulated pext function
+// (i.e. it isn't hidden by runtime dispatch).
+uint64_t PARQUET_EXPORT TestOnlyRunBasedExtract(uint64_t bitmap, uint64_t selection);
 
 }  // namespace internal
 }  // namespace parquet

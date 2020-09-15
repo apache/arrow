@@ -24,11 +24,11 @@
 #include "arrow/util/cpu_info.h"
 #include "arrow/util/logging.h"
 #include "parquet/exception.h"
-#include "parquet/level_comparison.h"
 
-#define BMI_RUNTIME_VERSION standard
+#define PARQUET_IMPL_NAMESPACE standard
+#include "parquet/level_comparison.h"
 #include "parquet/level_conversion_inc.h"
-#undef BMI_RUNTIME_VERSION
+#undef PARQUET_IMPL_NAMESPACE
 
 namespace parquet {
 namespace internal {
@@ -37,14 +37,15 @@ namespace {
 using ::arrow::internal::CpuInfo;
 
 #if !defined(ARROW_HAVE_RUNTIME_BMI2)
-void DefinitionLevelsToBitmapScalar(const int16_t* def_levels, int64_t num_def_levels,
-                                    LevelInfo level_info,
-                                    ValidityBitmapInputOutput* output) {
+void DefLevelsToBitmapScalar(const int16_t* def_levels, int64_t num_def_levels,
+                             LevelInfo level_info, ValidityBitmapInputOutput* output) {
   ::arrow::internal::FirstTimeBitmapWriter valid_bits_writer(
       output->valid_bits,
       /*start_offset=*/output->valid_bits_offset,
       /*length=*/num_def_levels);
   for (int x = 0; x < num_def_levels; x++) {
+    // This indicates that a parent repeated element has zero
+    // length so the def level is not applicable to this column.
     if (def_levels[x] < level_info.repeated_ancestor_def_level) {
       continue;
     }
@@ -72,18 +73,18 @@ void DefinitionLevelsToBitmapScalar(const int16_t* def_levels, int64_t num_def_l
 }
 #endif
 
-template <typename LengthType>
+template <typename OffsetType>
 void DefRepLevelsToListInfo(const int16_t* def_levels, const int16_t* rep_levels,
                             int64_t num_def_levels, LevelInfo level_info,
-                            ValidityBitmapInputOutput* output, LengthType* lengths) {
-  LengthType* orig_pos = lengths;
+                            ValidityBitmapInputOutput* output, OffsetType* offsets) {
+  OffsetType* orig_pos = offsets;
   std::unique_ptr<::arrow::internal::FirstTimeBitmapWriter> valid_bits_writer;
   if (output->valid_bits) {
     valid_bits_writer.reset(new ::arrow::internal::FirstTimeBitmapWriter(
         output->valid_bits, output->valid_bits_offset, num_def_levels));
   }
   for (int x = 0; x < num_def_levels; x++) {
-    // Skip items that belong to empty ancenstor lists and futher nested lists.
+    // Skip items that belong to empty or null ancestor lists and further nested lists.
     if (def_levels[x] < level_info.repeated_ancestor_def_level ||
         rep_levels[x] > level_info.rep_level) {
       continue;
@@ -92,7 +93,7 @@ void DefRepLevelsToListInfo(const int16_t* def_levels, const int16_t* rep_levels
     if (ARROW_PREDICT_FALSE(
             (valid_bits_writer != nullptr &&
              valid_bits_writer->position() > output->values_read_upper_bound) ||
-            (lengths - orig_pos) > output->values_read_upper_bound)) {
+            (offsets - orig_pos) > output->values_read_upper_bound)) {
       std::stringstream ss;
       ss << "Definition levels exceeded upper bound: " << output->values_read_upper_bound;
       throw ParquetException(ss.str());
@@ -100,25 +101,30 @@ void DefRepLevelsToListInfo(const int16_t* def_levels, const int16_t* rep_levels
 
     if (rep_levels[x] == level_info.rep_level) {
       // A continuation of an existing list.
-      if (lengths != nullptr) {
-        if (ARROW_PREDICT_FALSE(*lengths == std::numeric_limits<LengthType>::max())) {
+      // offsets can be null for structs with repeated children (we don't need to know
+      // offsets until we get to the children).
+      if (offsets != nullptr) {
+        if (ARROW_PREDICT_FALSE(*offsets == std::numeric_limits<OffsetType>::max())) {
           throw ParquetException("List index overflow.");
         }
-        *lengths += 1;
+        *offsets += 1;
       }
     } else {
-      // current_rep < list rep_level i.e. start of a list (ancenstor empty lists are
+      // current_rep < list rep_level i.e. start of a list (ancestor empty lists are
       // filtered out above).
-      if (lengths != nullptr) {
-        ++lengths;
-        // Use cumulative lengths because this is what the more common
-        // Arrow list types expect.
-        *lengths = *(lengths - 1);
+      // offsets can be null for structs with repeated children (we don't need to know
+      // offsets until we get to the children).
+      if (offsets != nullptr) {
+        ++offsets;
+        // Use cumulative offsets because variable size lists are more common then
+        // fixed size lists so it should be cheaper to make these cumulative and
+        // subtract when validating fixed size lists.
+        *offsets = *(offsets - 1);
         if (def_levels[x] >= level_info.def_level) {
-          if (ARROW_PREDICT_FALSE(*lengths == std::numeric_limits<LengthType>::max())) {
+          if (ARROW_PREDICT_FALSE(*offsets == std::numeric_limits<OffsetType>::max())) {
             throw ParquetException("List index overflow.");
           }
-          *lengths += 1;
+          *offsets += 1;
         }
       }
 
@@ -138,8 +144,8 @@ void DefRepLevelsToListInfo(const int16_t* def_levels, const int16_t* rep_levels
   if (valid_bits_writer != nullptr) {
     valid_bits_writer->Finish();
   }
-  if (lengths != nullptr) {
-    output->values_read = lengths - orig_pos;
+  if (offsets != nullptr) {
+    output->values_read = offsets - orig_pos;
   } else if (valid_bits_writer != nullptr) {
     output->values_read = valid_bits_writer->position();
   }
@@ -152,56 +158,64 @@ void DefRepLevelsToListInfo(const int16_t* def_levels, const int16_t* rep_levels
 
 }  // namespace
 
-void DefinitionLevelsToBitmap(const int16_t* def_levels, int64_t num_def_levels,
-                              LevelInfo level_info, ValidityBitmapInputOutput* output) {
+#if defined(ARROW_HAVE_RUNTIME_BMI2)
+// defined in level_conversion_bmi2.cc for dynamic dispatch.
+void DefLevelsToBitmapBmi2WithRepeatedParent(const int16_t* def_levels,
+                                             int64_t num_def_levels, LevelInfo level_info,
+                                             ValidityBitmapInputOutput* output);
+#endif
+
+void DefLevelsToBitmap(const int16_t* def_levels, int64_t num_def_levels,
+                       LevelInfo level_info, ValidityBitmapInputOutput* output) {
+  // It is simpler to rely on rep_level here until PARQUET-1899 is done and the code
+  // is deleted in a follow-up release.
   if (level_info.rep_level > 0) {
 #if defined(ARROW_HAVE_RUNTIME_BMI2)
-    using FunctionType = decltype(&standard::DefinitionLevelsToBitmapSimd<true>);
+    using FunctionType = decltype(&standard::DefLevelsToBitmapSimd<true>);
     static FunctionType fn =
         CpuInfo::GetInstance()->HasEfficientBmi2()
-            ? DefinitionLevelsToBitmapBmi2WithRepeatedParent
-            : standard::DefinitionLevelsToBitmapSimd</*has_repeated_parent=*/true>;
+            ? DefLevelsToBitmapBmi2WithRepeatedParent
+            : standard::DefLevelsToBitmapSimd</*has_repeated_parent=*/true>;
     fn(def_levels, num_def_levels, level_info, output);
 #else
-    DefinitionLevelsToBitmapScalar(def_levels, num_def_levels, level_info, output);
-
+    // This indicates we are likely on a big-endian platformat which don't have a
+    // pext function and the current implementation of BitRunReader is always linear
+    // in bits, so this method will likely be the fastest alternative.
+    DefLevelsToBitmapScalar(def_levels, num_def_levels, level_info, output);
 #endif
   } else {
-    standard::DefinitionLevelsToBitmapSimd</*has_repeated_parent=*/false>(
+    standard::DefLevelsToBitmapSimd</*has_repeated_parent=*/false>(
         def_levels, num_def_levels, level_info, output);
   }
 }
 
-uint64_t RunBasedExtract(uint64_t bitmap, uint64_t select_bitmap) {
+uint64_t TestOnlyRunBasedExtract(uint64_t bitmap, uint64_t select_bitmap) {
   return standard::RunBasedExtractImpl(bitmap, select_bitmap);
 }
 
-void ConvertDefRepLevelsToList(const int16_t* def_levels, const int16_t* rep_levels,
-                               int64_t num_def_levels, LevelInfo level_info,
-                               ValidityBitmapInputOutput* output,
-                               ::arrow::util::variant<int32_t*, int64_t*> lengths) {
-  if (arrow::util::holds_alternative<int32_t*>(lengths)) {
-    auto int32_lengths = ::arrow::util::get<int32_t*>(lengths);
-    DefRepLevelsToListInfo<int32_t>(def_levels, rep_levels, num_def_levels, level_info,
-                                    output, int32_lengths);
-  } else if (arrow::util::holds_alternative<int64_t*>(lengths)) {
-    auto int64_lengths = ::arrow::util::get<int64_t*>(lengths);
-    DefRepLevelsToListInfo<int64_t>(def_levels, rep_levels, num_def_levels, level_info,
-                                    output, int64_lengths);
-  } else {
-    throw ParquetException("Unrecognized variant");
-  }
+void DefRepLevelsToList(const int16_t* def_levels, const int16_t* rep_levels,
+                        int64_t num_def_levels, LevelInfo level_info,
+                        ValidityBitmapInputOutput* output, int32_t* offsets) {
+  DefRepLevelsToListInfo<int32_t>(def_levels, rep_levels, num_def_levels, level_info,
+                                  output, offsets);
 }
 
-void ConvertDefRepLevelsToBitmap(const int16_t* def_levels, const int16_t* rep_levels,
-                                 int64_t num_def_levels, LevelInfo level_info,
-                                 ValidityBitmapInputOutput* output) {
+void DefRepLevelsToList(const int16_t* def_levels, const int16_t* rep_levels,
+                        int64_t num_def_levels, LevelInfo level_info,
+                        ValidityBitmapInputOutput* output, int64_t* offsets) {
+  DefRepLevelsToListInfo<int64_t>(def_levels, rep_levels, num_def_levels, level_info,
+                                  output, offsets);
+}
+
+void DefRepLevelsToBitmap(const int16_t* def_levels, const int16_t* rep_levels,
+                          int64_t num_def_levels, LevelInfo level_info,
+                          ValidityBitmapInputOutput* output) {
   // DefReplevelsToListInfo assumes it for the actual list method and this
   // method is for parent structs, so we need to bump def and ref level.
   level_info.rep_level += 1;
   level_info.def_level += 1;
   DefRepLevelsToListInfo<int32_t>(def_levels, rep_levels, num_def_levels, level_info,
-                                  output, /*lengths=*/nullptr);
+                                  output, /*offsets=*/nullptr);
 }
 
 }  // namespace internal

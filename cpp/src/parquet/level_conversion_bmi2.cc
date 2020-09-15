@@ -16,18 +16,17 @@
 // under the License.
 #include "parquet/level_conversion.h"
 
-#define BMI_RUNTIME_VERSION bmi2
+#define PARQUET_IMPL_NAMESPACE bmi2
 #include "parquet/level_conversion_inc.h"
-#undef BMI_RUNTIME_VERSION
+#undef PARQUET_IMPL_NAMESPACE
 
 namespace parquet {
 namespace internal {
-void DefinitionLevelsToBitmapBmi2WithRepeatedParent(const int16_t* def_levels,
-                                                    int64_t num_def_levels,
-                                                    LevelInfo level_info,
-                                                    ValidityBitmapInputOutput* output) {
-  bmi2::DefinitionLevelsToBitmapSimd</*has_repeated_parent=*/true>(
-      def_levels, num_def_levels, level_info, output);
+void DefLevelsToBitmapBmi2WithRepeatedParent(const int16_t* def_levels,
+                                             int64_t num_def_levels, LevelInfo level_info,
+                                             ValidityBitmapInputOutput* output) {
+  bmi2::DefLevelsToBitmapSimd</*has_repeated_parent=*/true>(def_levels, num_def_levels,
+                                                            level_info, output);
 }
 
 }  // namespace internal

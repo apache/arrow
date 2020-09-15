@@ -937,7 +937,7 @@ int64_t TypedColumnReaderImpl<DType>::ReadBatchSpaced(
       validity_io.null_count = null_count;
       validity_io.values_read = *values_read;
 
-      internal::DefinitionLevelsToBitmap(def_levels, num_def_levels, info, &validity_io);
+      internal::DefLevelsToBitmap(def_levels, num_def_levels, info, &validity_io);
       null_count = validity_io.null_count;
       *values_read = validity_io.values_read;
 
@@ -1383,9 +1383,9 @@ class TypedRecordReader : public ColumnReaderImplBase<DType>,
       validity_io.valid_bits = valid_bits_->mutable_data();
       validity_io.valid_bits_offset = values_written_;
 
-      DefinitionLevelsToBitmap(def_levels() + start_levels_position,
-                               levels_position_ - start_levels_position, leaf_info_,
-                               &validity_io);
+      DefLevelsToBitmap(def_levels() + start_levels_position,
+                        levels_position_ - start_levels_position, leaf_info_,
+                        &validity_io);
       values_to_read = validity_io.values_read - validity_io.null_count;
       null_count = validity_io.null_count;
       DCHECK_GE(values_to_read, 0);

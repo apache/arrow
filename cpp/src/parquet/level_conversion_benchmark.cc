@@ -41,10 +41,12 @@ std::vector<uint8_t> RunDefinitionLevelsToBitmap(const std::vector<int16_t>& def
   parquet::internal::LevelInfo info;
   info.def_level = kHasRepeatedElements;
   info.repeated_ancestor_def_level = kPresentDefLevel;
+  parquet::internal::ValidityBitmapInputOutput validity_io;
+  io.values_read_upper_bound = def_levels.size();
+  io.valid_bits = bitmap.data();
   for (auto _ : *state) {
-    parquet::internal::DefinitionLevelsToBitmap(
-        def_levels.data(), def_levels.size(), info, &values_read, &null_count,
-        bitmap.data(), /*valid_bits_offset=*/(rep++ % 8) * def_levels.size());
+    parquet::internal::DefinitionLevelsToBitmap(def_levels.data(), def_levels.size(),
+                                                info, &validity_io);
   }
   state->SetBytesProcessed(int64_t(state->iterations()) * def_levels.size());
   return bitmap;

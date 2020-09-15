@@ -15,9 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#define IMPL_NAMESPACE avx2
-#include "parquet/level_comparison.h"
-#undef IMPL_NAMESPACE
+#define PARQUET_IMPL_NAMESPACE avx2
+#include "parquet/level_comparison_inc.h"
+#undef PARQUET_IMPL_NAMESPACE
 
 namespace parquet {
 namespace internal {
@@ -29,5 +29,6 @@ uint64_t GreaterThanBitmapAvx2(const int16_t* levels, int64_t num_levels, int16_
 MinMax FindMinMaxAvx2(const int16_t* levels, int64_t num_levels) {
   return avx2::FindMinMaxImpl(levels, num_levels);
 }
+
 }  // namespace internal
 }  // namespace parquet

@@ -878,7 +878,7 @@ TEST_F(TestReconstructColumn, TwoLevelListOptional) {
 TEST_F(TestReconstructColumn, NestedList1) {
   // Arrow schema: struct(a: list(int32 not null) not null) not null
   SetParquetSchema(GroupNode::Make(
-      "a", Repetition::REQUIRED,  // this
+      "a", Repetition::REQUIRED,
       {GroupNode::Make(
           "p", Repetition::REQUIRED,
           {GroupNode::Make("list", Repetition::REPEATED,

@@ -31,6 +31,7 @@
 
 #if defined(ARROW_HAVE_AVX2) || defined(ARROW_HAVE_AVX512)
 #include <immintrin.h>
+#include <x86intrin.h>
 #elif defined(ARROW_HAVE_SSE4_2)
 #include <nmmintrin.h>
 #endif

@@ -513,8 +513,8 @@ class ListReader : public ColumnReaderImpl {
     IndexType* length_data = reinterpret_cast<IndexType*>(lengths_buffer->mutable_data());
     std::fill(length_data, length_data + 2, 0);
     BEGIN_PARQUET_CATCH_EXCEPTIONS
-    ::parquet::internal::ConvertDefRepLevelsToList(
-        def_levels, rep_levels, num_levels, level_info_, &validity_io, length_data);
+    ::parquet::internal::DefRepLevelsToList(def_levels, rep_levels, num_levels,
+                                            level_info_, &validity_io, length_data);
     END_PARQUET_CATCH_EXCEPTIONS
     // We might return less then the requested slot (i.e. reaching an end of a file)
     // ensure we've set all the bits here.
@@ -665,13 +665,12 @@ Status StructReader::BuildArray(int64_t records_to_read,
     validity_io.valid_bits = null_bitmap->mutable_data();
     RETURN_NOT_OK(GetDefLevels(&def_levels, &num_levels));
     RETURN_NOT_OK(GetRepLevels(&rep_levels, &num_levels));
-    ConvertDefRepLevelsToBitmap(def_levels, rep_levels, num_levels, level_info_,
-                                &validity_io);
+    DefRepLevelsToBitmap(def_levels, rep_levels, num_levels, level_info_, &validity_io);
   } else if (filtered_field_->nullable()) {
     ARROW_ASSIGN_OR_RAISE(null_bitmap, AllocateBitmap(records_to_read, ctx_->pool));
     validity_io.valid_bits = null_bitmap->mutable_data();
     RETURN_NOT_OK(GetDefLevels(&def_levels, &num_levels));
-    DefinitionLevelsToBitmap(def_levels, num_levels, level_info_, &validity_io);
+    DefLevelsToBitmap(def_levels, num_levels, level_info_, &validity_io);
   }
 
   // Ensure all values are initialized.

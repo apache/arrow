@@ -20,26 +20,20 @@
 
 #include <algorithm>
 #include <limits>
-#if defined(ARROW_HAVE_BMI2)
-#if defined(_MSC_VER)
-#include <immintrin.h>
-#else
-#include <x86intrin.h>
-#endif  // _MSC_VER
-#endif  // ARROW_HAVE_BMI2
 
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/simd.h"
 #include "parquet/exception.h"
 #include "parquet/level_comparison.h"
 
 namespace parquet {
 namespace internal {
-namespace BMI_RUNTIME_VERSION {
-
-using ::arrow::internal::BitRun;
-using ::arrow::internal::BitRunReader;
+#ifndef PARQUET_IMPL_NAMESPACE
+#error "PARQUET_IMPL_NAMESPACE must be defined"
+#endif
+namespace PARQUET_IMPL_NAMESPACE {
 
 /// Algorithm to simulate pext using BitRunReader for cases where all bits
 /// not set or set.
@@ -82,9 +76,9 @@ inline uint64_t ExtractBits(uint64_t bitmap, uint64_t select_bitmap) {
 }
 
 template <bool has_repeated_parent>
-int64_t DefinitionLevelsBatchToBitmap(const int16_t* def_levels, const int64_t batch_size,
-                                      int64_t upper_bound_remaining, LevelInfo level_info,
-                                      ::arrow::internal::FirstTimeBitmapWriter* writer) {
+int64_t DefLevelsBatchToBitmap(const int16_t* def_levels, const int64_t batch_size,
+                               int64_t upper_bound_remaining, LevelInfo level_info,
+                               ::arrow::internal::FirstTimeBitmapWriter* writer) {
   // Greater than level_info.def_level - 1 implies >= the def_level
   uint64_t defined_bitmap =
       internal::GreaterThanBitmap(def_levels, batch_size, level_info.def_level - 1);
@@ -92,7 +86,7 @@ int64_t DefinitionLevelsBatchToBitmap(const int16_t* def_levels, const int64_t b
   DCHECK_LE(batch_size, 64);
   if (has_repeated_parent) {
     // Greater than level_info.repeated_ancestor_def_level - 1 implies >= the
-    // repeated_ancenstor_def_level
+    // repeated_ancestor_def_level
     uint64_t present_bitmap = internal::GreaterThanBitmap(
         def_levels, batch_size, level_info.repeated_ancestor_def_level - 1);
     uint64_t selected_bits = ExtractBits(defined_bitmap, present_bitmap);
@@ -115,9 +109,8 @@ int64_t DefinitionLevelsBatchToBitmap(const int16_t* def_levels, const int64_t b
 }
 
 template <bool has_repeated_parent>
-void DefinitionLevelsToBitmapSimd(const int16_t* def_levels, int64_t num_def_levels,
-                                  LevelInfo level_info,
-                                  ValidityBitmapInputOutput* output) {
+void DefLevelsToBitmapSimd(const int16_t* def_levels, int64_t num_def_levels,
+                           LevelInfo level_info, ValidityBitmapInputOutput* output) {
   constexpr int64_t kBitMaskSize = 64;
   ::arrow::internal::FirstTimeBitmapWriter writer(
       output->valid_bits,
@@ -127,13 +120,13 @@ void DefinitionLevelsToBitmapSimd(const int16_t* def_levels, int64_t num_def_lev
   output->values_read = 0;
   int64_t values_read_remaining = output->values_read_upper_bound;
   while (num_def_levels > kBitMaskSize) {
-    set_count += DefinitionLevelsBatchToBitmap<has_repeated_parent>(
+    set_count += DefLevelsBatchToBitmap<has_repeated_parent>(
         def_levels, kBitMaskSize, values_read_remaining, level_info, &writer);
     def_levels += kBitMaskSize;
     num_def_levels -= kBitMaskSize;
     values_read_remaining = output->values_read_upper_bound - writer.position();
   }
-  set_count += DefinitionLevelsBatchToBitmap<has_repeated_parent>(
+  set_count += DefLevelsBatchToBitmap<has_repeated_parent>(
       def_levels, num_def_levels, values_read_remaining, level_info, &writer);
 
   output->values_read = writer.position();
@@ -141,6 +134,6 @@ void DefinitionLevelsToBitmapSimd(const int16_t* def_levels, int64_t num_def_lev
   writer.Finish();
 }
 
-}  // namespace BMI_RUNTIME_VERSION
+}  // namespace PARQUET_IMPL_NAMESPACE
 }  // namespace internal
 }  // namespace parquet
