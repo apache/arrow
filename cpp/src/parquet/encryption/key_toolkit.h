@@ -20,11 +20,11 @@
 #include <memory>
 #include <string>
 
-#include "parquet/key_encryption_key.h"
-#include "parquet/kms_client.h"
-#include "parquet/kms_client_factory.h"
+#include "parquet/encryption/key_encryption_key.h"
+#include "parquet/encryption/kms_client.h"
+#include "parquet/encryption/kms_client_factory.h"
+#include "parquet/encryption/two_level_cache_with_expiration.h"
 #include "parquet/platform.h"
-#include "parquet/two_level_cache_with_expiration.h"
 
 namespace parquet {
 namespace encryption {

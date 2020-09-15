@@ -21,7 +21,7 @@
 
 #include "arrow/util/mutex.h"
 
-#include "parquet/key_toolkit_internal.h"
+#include "parquet/encryption/key_toolkit_internal.h"
 
 namespace parquet {
 namespace encryption {

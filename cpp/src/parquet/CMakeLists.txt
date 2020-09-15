@@ -183,11 +183,11 @@ set(PARQUET_SRCS
     column_writer.cc
     deprecated_io.cc
     encoding.cc
-    encryption.cc
+    encryption/encryption.cc
+    encryption/internal_file_decryptor.cc
+    encryption/internal_file_encryptor.cc
     file_reader.cc
     file_writer.cc
-    internal_file_decryptor.cc
-    internal_file_encryptor.cc
     level_conversion.cc
     metadata.cc
     murmur3.cc
@@ -203,23 +203,23 @@ set(PARQUET_SRCS
     types.cc)
 
 if(PARQUET_REQUIRE_ENCRYPTION)
-  set(PARQUET_SRCS ${PARQUET_SRCS} encryption_internal.cc)
+  set(PARQUET_SRCS ${PARQUET_SRCS} encryption/encryption_internal.cc)
 
   # these source files are for encryption key management
   set(PARQUET_SRCS
       ${PARQUET_SRCS}
-      file_key_unwrapper.cc
-      file_key_wrapper.cc
-      test_in_memory_kms.cc
-      key_material.cc
-      key_metadata.cc
-      key_toolkit.cc
-      key_toolkit_internal.cc
-      kms_client.cc
-      properties_driven_crypto_factory.cc
-      remote_kms_client.cc)
+      encryption/file_key_unwrapper.cc
+      encryption/file_key_wrapper.cc
+      encryption/test_in_memory_kms.cc
+      encryption/key_material.cc
+      encryption/key_metadata.cc
+      encryption/key_toolkit.cc
+      encryption/key_toolkit_internal.cc
+      encryption/kms_client.cc
+      encryption/properties_driven_crypto_factory.cc
+      encryption/remote_kms_client.cc)
 else()
-  set(PARQUET_SRCS ${PARQUET_SRCS} encryption_internal_nossl.cc)
+  set(PARQUET_SRCS ${PARQUET_SRCS} encryption/encryption_internal_nossl.cc)
 endif()
 
 if(NOT PARQUET_MINIMAL_DEPENDENCY)
@@ -380,16 +380,16 @@ add_parquet_test(arrow-internals-test
 if(PARQUET_REQUIRE_ENCRYPTION)
   add_parquet_test(encryption-test
                    SOURCES
-                   encryption_write_configurations_test.cc
-                   encryption_read_configurations_test.cc
-                   encryption_properties_test.cc
-                   test_encryption_util.cc
+                   encryption/encryption_write_configurations_test.cc
+                   encryption/encryption_read_configurations_test.cc
+                   encryption/encryption_properties_test.cc
+                   encryption/test_encryption_util.cc
                    test_util.cc)
 
   add_parquet_test(encryption-key-management-test
                    SOURCES
-                   encryption_key_management_test.cc
-                   test_encryption_util.cc
+                   encryption/encryption_key_management_test.cc
+                   encryption/test_encryption_util.cc
                    test_util.cc)
 endif()
 

@@ -19,8 +19,8 @@
 
 #include "arrow/util/utf8.h"
 
-#include "parquet/file_key_unwrapper.h"
-#include "parquet/key_metadata.h"
+#include "parquet/encryption/file_key_unwrapper.h"
+#include "parquet/encryption/key_metadata.h"
 
 namespace parquet {
 namespace encryption {

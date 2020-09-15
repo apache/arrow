@@ -21,7 +21,8 @@
 
 #include "arrow/util/variant.h"
 
-#include "parquet/key_material.h"
+#include "parquet/encryption/key_material.h"
+#include "parquet/exception.h"
 
 namespace parquet {
 namespace encryption {

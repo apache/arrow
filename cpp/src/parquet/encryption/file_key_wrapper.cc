@@ -15,12 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "parquet/file_key_wrapper.h"
-#include "parquet/encryption_internal.h"
+#include "parquet/encryption/file_key_wrapper.h"
+#include "parquet/encryption/encryption_internal.h"
+#include "parquet/encryption/key_material.h"
+#include "parquet/encryption/key_metadata.h"
+#include "parquet/encryption/key_toolkit_internal.h"
 #include "parquet/exception.h"
-#include "parquet/key_material.h"
-#include "parquet/key_metadata.h"
-#include "parquet/key_toolkit_internal.h"
 
 namespace parquet {
 namespace encryption {

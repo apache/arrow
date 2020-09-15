@@ -26,9 +26,9 @@
 #include <vector>
 
 #include "arrow/util/logging.h"
-#include "parquet/encryption_internal.h"
+#include "parquet/encryption/encryption_internal.h"
+#include "parquet/encryption/internal_file_decryptor.h"
 #include "parquet/exception.h"
-#include "parquet/internal_file_decryptor.h"
 #include "parquet/schema.h"
 #include "parquet/schema_internal.h"
 #include "parquet/statistics.h"

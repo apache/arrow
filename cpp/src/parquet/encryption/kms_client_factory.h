@@ -15,33 +15,28 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "parquet/kms_client.h"
+#pragma once
+
+#include "parquet/encryption/kms_client.h"
+#include "parquet/platform.h"
 
 namespace parquet {
 namespace encryption {
 
-constexpr const char KmsClient::kKmsInstanceIdDefault[];
-constexpr const char KmsClient::kKmsInstanceUrlDefault[];
-constexpr const char KmsClient::kKeyAccessTokenDefault[];
+class PARQUET_EXPORT KmsClientFactory {
+ public:
+  explicit KmsClientFactory(bool wrap_locally) : wrap_locally_(wrap_locally) {}
 
-void KeyAccessToken::SetDefaultIfEmpty() {
-  if (value_.empty()) {
-    value_ = KmsClient::kKeyAccessTokenDefault;
-  }
-}
+  KmsClientFactory() : KmsClientFactory(false) {}
 
-void KmsConnectionConfig::SetDefaultIfEmpty() {
-  if (kms_instance_id.empty()) {
-    kms_instance_id = KmsClient::kKmsInstanceIdDefault;
-  }
-  if (kms_instance_url.empty()) {
-    kms_instance_url = KmsClient::kKmsInstanceUrlDefault;
-  }
-  if (refreshable_key_access_token == NULL) {
-    refreshable_key_access_token = std::make_shared<KeyAccessToken>();
-  }
-  refreshable_key_access_token->SetDefaultIfEmpty();
-}
+  virtual ~KmsClientFactory() {}
+
+  virtual std::shared_ptr<KmsClient> CreateKmsClient(
+      const KmsConnectionConfig& kms_connection_config) = 0;
+
+ protected:
+  bool wrap_locally_;
+};
 
 }  // namespace encryption
 }  // namespace parquet

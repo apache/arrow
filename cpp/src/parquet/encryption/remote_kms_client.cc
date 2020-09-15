@@ -18,9 +18,9 @@
 #include "arrow/json/object_parser.h"
 #include "arrow/json/object_writer.h"
 
+#include "parquet/encryption/key_toolkit_internal.h"
+#include "parquet/encryption/remote_kms_client.h"
 #include "parquet/exception.h"
-#include "parquet/key_toolkit_internal.h"
-#include "parquet/remote_kms_client.h"
 
 using arrow::json::ObjectParser;
 using arrow::json::ObjectWriter;

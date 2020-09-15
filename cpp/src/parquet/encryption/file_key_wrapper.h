@@ -21,10 +21,10 @@
 #include <string>
 #include <unordered_map>
 
-#include "parquet/file_key_material_store.h"
-#include "parquet/key_encryption_key.h"
-#include "parquet/key_toolkit.h"
-#include "parquet/kms_client.h"
+#include "parquet/encryption/file_key_material_store.h"
+#include "parquet/encryption/key_encryption_key.h"
+#include "parquet/encryption/key_toolkit.h"
+#include "parquet/encryption/kms_client.h"
 
 namespace parquet {
 namespace encryption {

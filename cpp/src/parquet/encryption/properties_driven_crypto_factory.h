@@ -19,10 +19,10 @@
 
 #include <memory>
 
-#include "parquet/encryption.h"
-#include "parquet/file_key_wrapper.h"
-#include "parquet/key_toolkit.h"
-#include "parquet/kms_client_factory.h"
+#include "parquet/encryption/encryption.h"
+#include "parquet/encryption/file_key_wrapper.h"
+#include "parquet/encryption/key_toolkit.h"
+#include "parquet/encryption/kms_client_factory.h"
 #include "parquet/platform.h"
 
 namespace parquet {

@@ -20,7 +20,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "parquet/kms_client.h"
+#include "parquet/encryption/kms_client.h"
 #include "parquet/platform.h"
 
 namespace parquet {

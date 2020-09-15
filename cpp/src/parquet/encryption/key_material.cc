@@ -17,9 +17,9 @@
 
 #include "arrow/json/object_writer.h"
 
+#include "parquet/encryption/key_material.h"
+#include "parquet/encryption/key_metadata.h"
 #include "parquet/exception.h"
-#include "parquet/key_material.h"
-#include "parquet/key_metadata.h"
 
 using arrow::json::ObjectParser;
 using arrow::json::ObjectWriter;

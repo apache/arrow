@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "parquet/key_toolkit.h"
+#include "parquet/encryption/key_toolkit.h"
 
 namespace parquet {
 namespace encryption {

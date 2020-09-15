@@ -23,24 +23,15 @@
 
 #include "arrow/testing/util.h"
 
-#include "parquet/key_toolkit.h"
-#include "parquet/properties_driven_crypto_factory.h"
-#include "parquet/test_encryption_util.h"
-#include "parquet/test_in_memory_kms.h"
+#include "parquet/encryption/key_toolkit.h"
+#include "parquet/encryption/properties_driven_crypto_factory.h"
+#include "parquet/encryption/test_encryption_util.h"
+#include "parquet/encryption/test_in_memory_kms.h"
 #include "parquet/test_util.h"
 
 namespace parquet {
+namespace encryption {
 namespace test {
-
-using encryption::DecryptionConfiguration;
-using encryption::EncryptionConfiguration;
-using encryption::KeyAccessToken;
-using encryption::KeyToolkit;
-using encryption::KmsClient;
-using encryption::KmsClientFactory;
-using encryption::KmsConnectionConfig;
-using encryption::PropertiesDrivenCryptoFactory;
-using encryption::TestOnlyInMemoryKmsClientFactory;
 
 const char kFooterMasterKey[] = "0123456789112345";
 const char* const kColumnMasterKeys[] = {"1234567890123450", "1234567890123451",
@@ -240,4 +231,5 @@ TEST_F(TestEncrytionKeyManagement, TestWriteReadEncryptedParquetFiles) {
 void TestEncrytionKeyManagement::SetUpTestCase() { temp_dir = *temp_data_dir(); }
 
 }  // namespace test
+}  // namespace encryption
 }  // namespace parquet

@@ -21,14 +21,15 @@
 
 #include <arrow/io/file.h>
 
+#include "parquet/encryption/test_encryption_util.h"
 #include "parquet/file_reader.h"
 #include "parquet/file_writer.h"
 #include "parquet/properties.h"
-#include "parquet/test_encryption_util.h"
 
 using FileClass = ::arrow::io::FileOutputStream;
 
 namespace parquet {
+namespace encryption {
 namespace test {
 
 FileEncryptor::FileEncryptor() { schema_ = SetupEncryptionSchema(); }
@@ -476,4 +477,5 @@ void FileDecryptor::DecryptFile(
 }
 
 }  // namespace test
+}  // namespace encryption
 }  // namespace parquet

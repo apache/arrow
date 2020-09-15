@@ -40,11 +40,12 @@
 #include "parquet/column_reader.h"
 #include "parquet/column_writer.h"
 #include "parquet/encoding.h"
-#include "parquet/encryption.h"
+#include "parquet/encryption/encryption.h"
 #include "parquet/platform.h"
 #include "parquet/test_util.h"
 
 namespace parquet {
+namespace encryption {
 namespace test {
 
 using arrow::internal::TemporaryDir;
@@ -64,7 +65,7 @@ const char kColumnEncryptionKey2[] = "1234567890123451";
 const char kFileName[] = "tester";
 
 inline std::string data_file(const char* file) {
-  std::string dir_string(test::get_data_dir());
+  std::string dir_string(parquet::test::get_data_dir());
   std::stringstream ss;
   ss << dir_string << "/" << file;
   return ss.str();
@@ -115,4 +116,5 @@ class FileDecryptor {
 };
 
 }  // namespace test
+}  // namespace encryption
 }  // namespace parquet

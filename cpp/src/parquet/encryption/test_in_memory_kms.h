@@ -21,10 +21,10 @@
 
 #include "arrow/util/base64.h"
 
-#include "parquet/key_toolkit.h"
-#include "parquet/kms_client_factory.h"
+#include "parquet/encryption/key_toolkit.h"
+#include "parquet/encryption/kms_client_factory.h"
+#include "parquet/encryption/remote_kms_client.h"
 #include "parquet/platform.h"
-#include "parquet/remote_kms_client.h"
 
 namespace parquet {
 namespace encryption {

@@ -25,8 +25,8 @@
 
 #include "parquet/column_reader.h"
 #include "parquet/column_writer.h"
+#include "parquet/encryption/test_encryption_util.h"
 #include "parquet/file_reader.h"
-#include "parquet/test_encryption_util.h"
 #include "parquet/test_util.h"
 
 /*
@@ -82,7 +82,10 @@
  */
 
 namespace parquet {
+namespace encryption {
 namespace test {
+
+using parquet::test::ParquetTestException;
 
 class TestDecryptionConfiguration
     : public testing::TestWithParam<std::tuple<int, const char*>> {
@@ -265,4 +268,5 @@ INSTANTIATE_TEST_SUITE_P(
         std::make_tuple(6, "encrypt_columns_and_footer_ctr.parquet.encrypted")));
 
 }  // namespace test
+}  // namespace encryption
 }  // namespace parquet

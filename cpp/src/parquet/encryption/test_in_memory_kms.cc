@@ -17,11 +17,11 @@
 
 #include "arrow/util/base64.h"
 
+#include "parquet/encryption/key_toolkit_internal.h"
+#include "parquet/encryption/kms_client_factory.h"
+#include "parquet/encryption/remote_kms_client.h"
+#include "parquet/encryption/test_in_memory_kms.h"
 #include "parquet/exception.h"
-#include "parquet/key_toolkit_internal.h"
-#include "parquet/kms_client_factory.h"
-#include "parquet/remote_kms_client.h"
-#include "parquet/test_in_memory_kms.h"
 
 namespace parquet {
 namespace encryption {

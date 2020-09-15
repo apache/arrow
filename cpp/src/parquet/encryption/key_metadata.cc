@@ -18,8 +18,8 @@
 #include "arrow/json/object_parser.h"
 #include "arrow/json/object_writer.h"
 
+#include "parquet/encryption/key_metadata.h"
 #include "parquet/exception.h"
-#include "parquet/key_metadata.h"
 
 using arrow::json::ObjectParser;
 using arrow::json::ObjectWriter;

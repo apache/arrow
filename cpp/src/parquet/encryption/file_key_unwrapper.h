@@ -17,11 +17,11 @@
 
 #pragma once
 
-#include "parquet/encryption.h"
-#include "parquet/key_material.h"
-#include "parquet/key_toolkit.h"
-#include "parquet/key_toolkit_internal.h"
-#include "parquet/kms_client.h"
+#include "parquet/encryption/encryption.h"
+#include "parquet/encryption/key_material.h"
+#include "parquet/encryption/key_toolkit.h"
+#include "parquet/encryption/key_toolkit_internal.h"
+#include "parquet/encryption/kms_client.h"
 #include "parquet/platform.h"
 
 namespace parquet {

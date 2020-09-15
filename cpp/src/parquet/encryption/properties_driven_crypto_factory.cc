@@ -21,10 +21,10 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/string.h"
 
-#include "parquet/encryption_internal.h"
-#include "parquet/file_key_material_store.h"
-#include "parquet/file_key_unwrapper.h"
-#include "parquet/properties_driven_crypto_factory.h"
+#include "parquet/encryption/encryption_internal.h"
+#include "parquet/encryption/file_key_material_store.h"
+#include "parquet/encryption/file_key_unwrapper.h"
+#include "parquet/encryption/properties_driven_crypto_factory.h"
 
 namespace parquet {
 namespace encryption {

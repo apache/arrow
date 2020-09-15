@@ -23,10 +23,10 @@
 
 #include "parquet/column_reader.h"
 #include "parquet/column_writer.h"
+#include "parquet/encryption/test_encryption_util.h"
 #include "parquet/file_reader.h"
 #include "parquet/file_writer.h"
 #include "parquet/platform.h"
-#include "parquet/test_encryption_util.h"
 #include "parquet/test_util.h"
 
 /*
@@ -61,6 +61,7 @@
  */
 
 namespace parquet {
+namespace encryption {
 namespace test {
 
 using FileClass = ::arrow::io::FileOutputStream;
@@ -229,4 +230,5 @@ TEST_F(TestEncryptionConfiguration, EncryptTwoColumnsAndFooterUseAES_GCM_CTR) {
 void TestEncryptionConfiguration::SetUpTestCase() { temp_dir = *temp_data_dir(); }
 
 }  // namespace test
+}  // namespace encryption
 }  // namespace parquet
