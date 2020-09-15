@@ -27,5 +27,6 @@ pub mod filter;
 pub mod length;
 pub mod limit;
 pub mod sort;
+pub mod substring;
 pub mod take;
 pub mod temporal;
