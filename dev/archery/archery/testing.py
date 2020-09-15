@@ -21,6 +21,19 @@ from unittest import mock
 import re
 
 
+class DotDict(dict):
+
+    def __getattr__(self, key):
+        try:
+            item = self[key]
+        except KeyError:
+            raise AttributeError(key)
+        if isinstance(item, dict):
+            return DotDict(item)
+        else:
+            return item
+
+
 class PartialEnv(dict):
 
     def __eq__(self, other):
