@@ -43,29 +43,34 @@ namespace arrow {
 
 namespace internal {
 
-template <typename T>
-struct DictionaryScalar {
+// Separate typed wrappers for string_view to convey whether the underlying type
+// has normal or large offsets.
+struct BinaryValue : public util::string_view {
+  explicit BinaryValue(util::string_view v) : util::string_view(v) {}
+};
+
+struct LargeBinaryValue : public util::string_view {
+  explicit LargeBinaryValue(util::string_view v) : util::string_view(v) {}
+};
+
+template <typename T, typename Enable = void>
+struct DictionaryValue {
   using type = typename T::c_type;
 };
 
-template <>
-struct DictionaryScalar<BinaryType> {
-  using type = util::string_view;
+template <typename T>
+struct DictionaryValue<T, enable_if_t<std::is_base_of<BinaryType, T>::value>> {
+  using type = BinaryValue;
 };
 
-template <>
-struct DictionaryScalar<StringType> {
-  using type = util::string_view;
+template <typename T>
+struct DictionaryValue<T, enable_if_t<std::is_base_of<LargeBinaryType, T>::value>> {
+  using type = LargeBinaryValue;
 };
 
-template <>
-struct DictionaryScalar<FixedSizeBinaryType> {
-  using type = util::string_view;
-};
-
-template <>
-struct DictionaryScalar<Decimal128Type> {
-  using type = util::string_view;
+template <typename T>
+struct DictionaryValue<T, enable_if_fixed_size_binary<T>> {
+  using type = BinaryValue;
 };
 
 class ARROW_EXPORT DictionaryMemoTable {
@@ -74,6 +79,9 @@ class ARROW_EXPORT DictionaryMemoTable {
   DictionaryMemoTable(MemoryPool* pool, const std::shared_ptr<Array>& dictionary);
   ~DictionaryMemoTable();
 
+  // We want to keep the DictionaryMemoTable implementation private, also we can't
+  // use extern template classes because of compiler issues (MinGW?).  Instead,
+  // we expose explicit function overrides for each supported physical type.
   Status GetOrInsert(bool value, int32_t* out);
   Status GetOrInsert(int8_t value, int32_t* out);
   Status GetOrInsert(int16_t value, int32_t* out);
@@ -85,7 +93,8 @@ class ARROW_EXPORT DictionaryMemoTable {
   Status GetOrInsert(uint64_t value, int32_t* out);
   Status GetOrInsert(float value, int32_t* out);
   Status GetOrInsert(double value, int32_t* out);
-  Status GetOrInsert(util::string_view value, int32_t* out);
+  Status GetOrInsert(BinaryValue value, int32_t* out);
+  Status GetOrInsert(LargeBinaryValue value, int32_t* out);
 
   Status GetArrayData(int64_t start_offset, std::shared_ptr<ArrayData>* out);
 
@@ -108,7 +117,7 @@ template <typename BuilderType, typename T>
 class DictionaryBuilderBase : public ArrayBuilder {
  public:
   using TypeClass = DictionaryType;
-  using Scalar = typename DictionaryScalar<T>::type;
+  using Value = typename DictionaryValue<T>::type;
 
   // WARNING: the type given below is the value type, not the DictionaryType.
   // The DictionaryType is instantiated on the Finish() call.
@@ -184,7 +193,7 @@ class DictionaryBuilderBase : public ArrayBuilder {
   int64_t dictionary_length() const { return memo_table_->size(); }
 
   /// \brief Append a scalar value
-  Status Append(const Scalar& value) {
+  Status Append(const Value& value) {
     ARROW_RETURN_NOT_OK(Reserve(1));
 
     int32_t memo_index;
@@ -193,6 +202,12 @@ class DictionaryBuilderBase : public ArrayBuilder {
     length_ += 1;
 
     return Status::OK();
+  }
+
+  /// \brief Append a string view (only for binary- and string-like types)
+  template <typename T1 = T>
+  enable_if_has_string_view<T1, Status> Append(util::string_view value) {
+    return Append(Value(value));
   }
 
   /// \brief Append a fixed-width string (only for FixedSizeBinaryType)

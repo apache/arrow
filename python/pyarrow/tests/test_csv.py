@@ -688,17 +688,22 @@ class BaseTestCSVRead:
         column_types = [
             ('a', pa.dictionary(pa.int32(), pa.utf8())),
             ('b', pa.dictionary(pa.int32(), pa.int64())),
-            ('c', pa.dictionary(pa.int32(), pa.decimal128(11, 2)))]
+            ('c', pa.dictionary(pa.int32(), pa.decimal128(11, 2))),
+            ('d', pa.dictionary(pa.int32(), pa.large_utf8()))]
 
         opts = ConvertOptions(column_types=dict(column_types))
-        rows = b"a,b,c\nabc,123456,1.0\ndefg,987654,0.5\nabc,123456,1.0\n"
+        rows = (b"a,b,c,d\n"
+                b"abc,123456,1.0,zz\n"
+                b"defg,123456,0.5,xx\n"
+                b"abc,N/A,1.0,xx\n")
         table = self.read_bytes(rows, convert_options=opts)
 
         schema = pa.schema(column_types)
         expected = {
             'a': ["abc", "defg", "abc"],
-            'b': [123456, 987654, 123456],
-            'c': [Decimal("1.00"), Decimal("0.50"), Decimal("1.00")]
+            'b': [123456, 123456, None],
+            'c': [Decimal("1.00"), Decimal("0.50"), Decimal("1.00")],
+            'd': ["zz", "xx", "xx"],
         }
         assert table.schema == schema
         assert table.to_pydict() == expected

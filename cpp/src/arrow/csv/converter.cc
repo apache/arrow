@@ -647,6 +647,7 @@ Result<std::shared_ptr<DictionaryConverter>> DictionaryConverter::Make(
     CONVERTER_CASE(Type::FIXED_SIZE_BINARY, FixedSizeBinaryType,
                    FixedSizeBinaryValueDecoder)
     CONVERTER_CASE(Type::BINARY, BinaryType, BinaryValueDecoder<false>)
+    CONVERTER_CASE(Type::LARGE_BINARY, LargeBinaryType, BinaryValueDecoder<false>)
 
     case Type::STRING:
       if (options.check_utf8) {
@@ -654,6 +655,16 @@ Result<std::shared_ptr<DictionaryConverter>> DictionaryConverter::Make(
             type, options, pool);
       } else {
         ptr = new TypedDictionaryConverter<StringType, BinaryValueDecoder<false>>(
+            type, options, pool);
+      }
+      break;
+
+    case Type::LARGE_STRING:
+      if (options.check_utf8) {
+        ptr = new TypedDictionaryConverter<LargeStringType, BinaryValueDecoder<true>>(
+            type, options, pool);
+      } else {
+        ptr = new TypedDictionaryConverter<LargeStringType, BinaryValueDecoder<false>>(
             type, options, pool);
       }
       break;

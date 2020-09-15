@@ -35,6 +35,25 @@ namespace arrow {
 
 namespace internal {
 
+namespace {
+
+template <typename T>
+struct DictionaryCTraits {
+  using ArrowType = typename CTypeTraits<T>::ArrowType;
+};
+
+template <>
+struct DictionaryCTraits<BinaryValue> {
+  using ArrowType = BinaryType;
+};
+
+template <>
+struct DictionaryCTraits<LargeBinaryValue> {
+  using ArrowType = LargeBinaryType;
+};
+
+}  // namespace
+
 class DictionaryMemoTable::DictionaryMemoTableImpl {
   // Type-dependent visitor for memo table initialization
   struct MemoTableInitializer {
@@ -68,21 +87,20 @@ class DictionaryMemoTable::DictionaryMemoTableImpl {
     }
 
    private:
-    template <typename DType, typename ArrayType>
-    enable_if_no_memoize<DType, Status> InsertValues(const DType& type,
-                                                     const ArrayType&) {
+    template <typename T, typename ArrayType>
+    enable_if_no_memoize<T, Status> InsertValues(const T& type, const ArrayType&) {
       return Status::NotImplemented("Inserting array values of ", type,
                                     " is not implemented");
     }
 
-    template <typename DType, typename ArrayType>
-    enable_if_memoize<DType, Status> InsertValues(const DType&, const ArrayType& array) {
+    template <typename T, typename ArrayType>
+    enable_if_memoize<T, Status> InsertValues(const T&, const ArrayType& array) {
       if (array.null_count() > 0) {
         return Status::Invalid("Cannot insert dictionary values containing nulls");
       }
       for (int64_t i = 0; i < array.length(); ++i) {
         int32_t unused_memo_index;
-        RETURN_NOT_OK(impl_->GetOrInsert(array.GetView(i), &unused_memo_index));
+        RETURN_NOT_OK(impl_->GetOrInsertTyped<T>(array.GetView(i), &unused_memo_index));
       }
       return Status::OK();
     }
@@ -127,9 +145,16 @@ class DictionaryMemoTable::DictionaryMemoTableImpl {
     return VisitTypeInline(*array.type(), &visitor);
   }
 
-  template <typename T>
-  Status GetOrInsert(const T& value, int32_t* out) {
-    using ConcreteMemoTable = typename DictionaryCTraits<T>::MemoTableType;
+  template <typename CType>
+  Status GetOrInsert(const CType& value, int32_t* out) {
+    // Find back physical Arrow type based on C value type
+    using T = typename DictionaryCTraits<CType>::ArrowType;
+    return GetOrInsertTyped<T>(value, out);
+  }
+
+  template <typename T, typename CType>
+  Status GetOrInsertTyped(const CType& value, int32_t* out) {
+    using ConcreteMemoTable = typename DictionaryTraits<T>::MemoTableType;
     return checked_cast<ConcreteMemoTable*>(memo_table_.get())->GetOrInsert(value, out);
   }
 
@@ -174,7 +199,8 @@ GET_OR_INSERT(uint32_t)
 GET_OR_INSERT(uint64_t)
 GET_OR_INSERT(float)
 GET_OR_INSERT(double)
-GET_OR_INSERT(util::string_view)
+GET_OR_INSERT(BinaryValue)
+GET_OR_INSERT(LargeBinaryValue)
 
 #undef GET_OR_INSERT
 

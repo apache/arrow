@@ -500,7 +500,8 @@ class TestStringDictConverter : public ::testing::Test {
   }
 };
 
-using StringDictConversionTypes = ::testing::Types<BinaryType, StringType>;
+using StringDictConversionTypes =
+    ::testing::Types<BinaryType, LargeBinaryType, StringType, LargeStringType>;
 
 TYPED_TEST_SUITE(TestStringDictConverter, StringDictConversionTypes);
 

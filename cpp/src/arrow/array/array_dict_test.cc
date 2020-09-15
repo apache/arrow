@@ -448,13 +448,14 @@ TEST(TestStringDictionaryBuilder, ArrayInit) {
   AssertArraysEqual(expected, *result);
 }
 
-TEST(TestStringDictionaryBuilder, MakeBuilder) {
-  auto dict_array = ArrayFromJSON(utf8(), R"(["test", "test2"])");
-  auto dict_type = dictionary(int8(), utf8());
+template <typename BuilderType>
+void TestStringDictionaryMakeBuilder(const std::shared_ptr<DataType>& value_type) {
+  auto dict_array = ArrayFromJSON(value_type, R"(["test", "test2"])");
+  auto dict_type = dictionary(int8(), value_type);
   auto int_array = ArrayFromJSON(int8(), "[0, 1, 0]");
   std::unique_ptr<ArrayBuilder> boxed_builder;
   ASSERT_OK(MakeBuilder(default_memory_pool(), dict_type, &boxed_builder));
-  auto& builder = checked_cast<StringDictionaryBuilder&>(*boxed_builder);
+  auto& builder = checked_cast<BuilderType&>(*boxed_builder);
 
   // Build the dictionary Array
   ASSERT_OK(builder.Append("test"));
@@ -468,6 +469,14 @@ TEST(TestStringDictionaryBuilder, MakeBuilder) {
   DictionaryArray expected(dict_type, int_array, dict_array);
 
   AssertArraysEqual(expected, *result);
+}
+
+TEST(TestStringDictionaryBuilder, MakeBuilder) {
+  TestStringDictionaryMakeBuilder<DictionaryBuilder<StringType>>(utf8());
+}
+
+TEST(TestLargeStringDictionaryBuilder, MakeBuilder) {
+  TestStringDictionaryMakeBuilder<DictionaryBuilder<LargeStringType>>(large_utf8());
 }
 
 // ARROW-4367

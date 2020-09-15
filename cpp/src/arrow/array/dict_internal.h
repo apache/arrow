@@ -189,16 +189,5 @@ struct DictionaryTraits<T, enable_if_fixed_size_binary<T>> {
   }
 };
 
-template <typename T>
-struct DictionaryCTraits {
-  using ArrowType = typename CTypeTraits<T>::ArrowType;
-  using MemoTableType = typename DictionaryTraits<ArrowType>::MemoTableType;
-};
-
-template <>
-struct DictionaryCTraits<util::string_view> {
-  using MemoTableType = DictionaryTraits<BinaryType>::MemoTableType;
-};
-
 }  // namespace internal
 }  // namespace arrow
