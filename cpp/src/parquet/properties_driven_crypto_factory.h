@@ -202,8 +202,11 @@ class PARQUET_EXPORT PropertiesDrivenCryptoFactory {
       const KmsConnectionConfig& kms_connection_config,
       std::shared_ptr<DecryptionConfiguration> decryption_config);
 
-  /// KeyToolkit is public for cache control
-  KeyToolkit& key_toolkit() { return key_toolkit_; }
+  void RemoveCacheEntriesForToken(const std::string& access_token) {
+    key_toolkit_.RemoveCacheEntriesForToken(access_token);
+  }
+
+  void RemoveCacheEntriesForAllTokens() { key_toolkit_.RemoveCacheEntriesForAllTokens(); }
 
  private:
   /// Acceptable data key lengths in number of bits
