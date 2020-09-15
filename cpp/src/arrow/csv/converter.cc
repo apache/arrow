@@ -505,20 +505,23 @@ class TypedDictionaryConverter : public ConcreteDictionaryConverter {
 //
 
 template <template <typename, typename> class ConverterType>
-Converter* MakeTimestampConverter(const std::shared_ptr<DataType>& type,
-                                  const ConvertOptions& options, MemoryPool* pool) {
+std::shared_ptr<Converter> MakeTimestampConverter(const std::shared_ptr<DataType>& type,
+                                                  const ConvertOptions& options,
+                                                  MemoryPool* pool) {
   if (options.timestamp_parsers.size() == 0) {
     // Default to ISO-8601
-    return new ConverterType<TimestampType, InlineISO8601ValueDecoder>(type, options,
-                                                                       pool);
+    return std::make_shared<ConverterType<TimestampType, InlineISO8601ValueDecoder>>(
+        type, options, pool);
   } else if (options.timestamp_parsers.size() == 1) {
     // Single user-supplied converter
-    return new ConverterType<TimestampType, SingleParserTimestampValueDecoder>(
-        type, options, pool);
+    return std::make_shared<
+        ConverterType<TimestampType, SingleParserTimestampValueDecoder>>(type, options,
+                                                                         pool);
   } else {
     // Multiple converters, must iterate for each value
-    return new ConverterType<TimestampType, MultipleParsersTimestampValueDecoder>(
-        type, options, pool);
+    return std::make_shared<
+        ConverterType<TimestampType, MultipleParsersTimestampValueDecoder>>(type, options,
+                                                                            pool);
   }
 }
 
@@ -539,12 +542,12 @@ DictionaryConverter::DictionaryConverter(const std::shared_ptr<DataType>& value_
 Result<std::shared_ptr<Converter>> Converter::Make(const std::shared_ptr<DataType>& type,
                                                    const ConvertOptions& options,
                                                    MemoryPool* pool) {
-  Converter* ptr;
+  std::shared_ptr<Converter> ptr;
 
   switch (type->id()) {
-#define CONVERTER_CASE(TYPE_ID, CONVERTER_TYPE)    \
-  case TYPE_ID:                                    \
-    ptr = new CONVERTER_TYPE(type, options, pool); \
+#define CONVERTER_CASE(TYPE_ID, CONVERTER_TYPE)         \
+  case TYPE_ID:                                         \
+    ptr.reset(new CONVERTER_TYPE(type, options, pool)); \
     break;
 
     CONVERTER_CASE(Type::NA, NullConverter)
@@ -584,21 +587,23 @@ Result<std::shared_ptr<Converter>> Converter::Make(const std::shared_ptr<DataTyp
 
     case Type::STRING:
       if (options.check_utf8) {
-        ptr = new PrimitiveConverter<StringType, BinaryValueDecoder<true>>(type, options,
-                                                                           pool);
+        ptr = std::make_shared<PrimitiveConverter<StringType, BinaryValueDecoder<true>>>(
+            type, options, pool);
       } else {
-        ptr = new PrimitiveConverter<StringType, BinaryValueDecoder<false>>(type, options,
-                                                                            pool);
+        ptr = std::make_shared<PrimitiveConverter<StringType, BinaryValueDecoder<false>>>(
+            type, options, pool);
       }
       break;
 
     case Type::LARGE_STRING:
       if (options.check_utf8) {
-        ptr = new PrimitiveConverter<LargeStringType, BinaryValueDecoder<true>>(
-            type, options, pool);
+        ptr = std::make_shared<
+            PrimitiveConverter<LargeStringType, BinaryValueDecoder<true>>>(type, options,
+                                                                           pool);
       } else {
-        ptr = new PrimitiveConverter<LargeStringType, BinaryValueDecoder<false>>(
-            type, options, pool);
+        ptr = std::make_shared<
+            PrimitiveConverter<LargeStringType, BinaryValueDecoder<false>>>(type, options,
+                                                                            pool);
       }
       break;
 
@@ -620,20 +625,20 @@ Result<std::shared_ptr<Converter>> Converter::Make(const std::shared_ptr<DataTyp
 
 #undef CONVERTER_CASE
   }
-  std::shared_ptr<Converter> result(ptr);
-  RETURN_NOT_OK(result->Initialize());
-  return result;
+  RETURN_NOT_OK(ptr->Initialize());
+  return ptr;
 }
 
 Result<std::shared_ptr<DictionaryConverter>> DictionaryConverter::Make(
     const std::shared_ptr<DataType>& type, const ConvertOptions& options,
     MemoryPool* pool) {
-  DictionaryConverter* ptr;
+  std::shared_ptr<DictionaryConverter> ptr;
 
   switch (type->id()) {
-#define CONVERTER_CASE(TYPE_ID, TYPE, VALUE_DECODER_TYPE)                              \
-  case TYPE_ID:                                                                        \
-    ptr = new TypedDictionaryConverter<TYPE, VALUE_DECODER_TYPE>(type, options, pool); \
+#define CONVERTER_CASE(TYPE_ID, TYPE, VALUE_DECODER_TYPE)                             \
+  case TYPE_ID:                                                                       \
+    ptr.reset(                                                                        \
+        new TypedDictionaryConverter<TYPE, VALUE_DECODER_TYPE>(type, options, pool)); \
     break;
 
     // XXX Are 32-bit types useful?
@@ -651,20 +656,24 @@ Result<std::shared_ptr<DictionaryConverter>> DictionaryConverter::Make(
 
     case Type::STRING:
       if (options.check_utf8) {
-        ptr = new TypedDictionaryConverter<StringType, BinaryValueDecoder<true>>(
-            type, options, pool);
+        ptr = std::make_shared<
+            TypedDictionaryConverter<StringType, BinaryValueDecoder<true>>>(type, options,
+                                                                            pool);
       } else {
-        ptr = new TypedDictionaryConverter<StringType, BinaryValueDecoder<false>>(
+        ptr = std::make_shared<
+            TypedDictionaryConverter<StringType, BinaryValueDecoder<false>>>(
             type, options, pool);
       }
       break;
 
     case Type::LARGE_STRING:
       if (options.check_utf8) {
-        ptr = new TypedDictionaryConverter<LargeStringType, BinaryValueDecoder<true>>(
+        ptr = std::make_shared<
+            TypedDictionaryConverter<LargeStringType, BinaryValueDecoder<true>>>(
             type, options, pool);
       } else {
-        ptr = new TypedDictionaryConverter<LargeStringType, BinaryValueDecoder<false>>(
+        ptr = std::make_shared<
+            TypedDictionaryConverter<LargeStringType, BinaryValueDecoder<false>>>(
             type, options, pool);
       }
       break;
@@ -676,9 +685,8 @@ Result<std::shared_ptr<DictionaryConverter>> DictionaryConverter::Make(
 
 #undef CONVERTER_CASE
   }
-  std::shared_ptr<DictionaryConverter> result(ptr);
-  RETURN_NOT_OK(result->Initialize());
-  return result;
+  RETURN_NOT_OK(ptr->Initialize());
+  return ptr;
 }
 
 }  // namespace csv
