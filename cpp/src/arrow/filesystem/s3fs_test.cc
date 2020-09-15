@@ -38,6 +38,7 @@
 // cpp/cmake_modules/BuildUtils.cmake for details.
 #include <boost/process.hpp>
 
+#include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
 
 #ifdef _WIN32
@@ -113,6 +114,17 @@ namespace bp = boost::process;
   ARROW_AWS_ASSIGN_OR_FAIL_IMPL(             \
       ARROW_AWS_ASSIGN_OR_FAIL_NAME(_aws_error_or_value, __COUNTER__), lhs, rexpr);
 
+class AwsTestMixin : public ::testing::Test {
+ public:
+  void SetUp() {
+    // we set this environment variable to speed up tests by ensuring
+    // DefaultAWSCredentialsProviderChain does not query (inaccessible)
+    // EC2 metadata endpoint
+    ASSERT_OK(SetEnvVar("AWS_EC2_METADATA_DISABLED", "true"));
+  }
+  void TearDown() { ASSERT_OK(DelEnvVar("AWS_EC2_METADATA_DISABLED")); }
+};
+
 class S3TestMixin : public ::testing::Test {
  public:
   void SetUp() override {
@@ -164,16 +176,7 @@ void AssertObjectContents(Aws::S3::S3Client* client, const std::string& bucket,
 ////////////////////////////////////////////////////////////////////////////
 // S3Options tests
 
-class S3OptionsTest : public ::testing::Test {
- public:
-  void SetUp() {
-    // we set this environment variable to speed up tests by ensuring
-    // DefaultAWSCredentialsProviderChain does not query (inaccessible)
-    // EC2 metadata endpoint
-    ASSERT_OK(SetEnvVar("AWS_EC2_METADATA_DISABLED", "true"));
-  }
-  void TearDown() { ASSERT_OK(DelEnvVar("AWS_EC2_METADATA_DISABLED")); }
-};
+class S3OptionsTest : public AwsTestMixin {};
 
 TEST_F(S3OptionsTest, FromUri) {
   std::string path;
@@ -252,6 +255,34 @@ TEST_F(S3OptionsTest, FromAssumeRole) {
   std::shared_ptr<Aws::STS::STSClient> sts_client =
       std::make_shared<Aws::STS::STSClient>(Aws::STS::STSClient(test_creds));
   options = S3Options::FromAssumeRole("my_role_arn", "session", "id", 42, sts_client);
+}
+
+////////////////////////////////////////////////////////////////////////////
+// Region resolution test
+
+class S3RegionResolutionTest : public AwsTestMixin {};
+
+TEST_F(S3RegionResolutionTest, PublicBucket) {
+  ASSERT_OK_AND_EQ("us-east-2", ResolveBucketRegion("ursa-labs-taxi-data"));
+
+  // Taken from a registry of open S3-hosted datasets
+  // at https://github.com/awslabs/open-data-registry
+  ASSERT_OK_AND_EQ("eu-west-2", ResolveBucketRegion("aws-earth-mo-atmospheric-ukv-prd"));
+  // Same again, cached
+  ASSERT_OK_AND_EQ("eu-west-2", ResolveBucketRegion("aws-earth-mo-atmospheric-ukv-prd"));
+}
+
+TEST_F(S3RegionResolutionTest, RestrictedBucket) {
+  ASSERT_OK_AND_EQ("us-west-2", ResolveBucketRegion("ursa-labs-r-test"));
+  // Same again, cached
+  ASSERT_OK_AND_EQ("us-west-2", ResolveBucketRegion("ursa-labs-r-test"));
+}
+
+TEST_F(S3RegionResolutionTest, NonExistentBucket) {
+  auto maybe_region = ResolveBucketRegion("ursa-labs-non-existent-bucket");
+  ASSERT_RAISES(IOError, maybe_region);
+  ASSERT_THAT(maybe_region.status().message(),
+              ::testing::HasSubstr("Bucket 'ursa-labs-non-existent-bucket' not found"));
 }
 
 ////////////////////////////////////////////////////////////////////////////
