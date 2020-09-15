@@ -110,10 +110,6 @@ class PyValue {
     }
   }
 
-template <typename Type>
-struct ValueConverter<Type, enable_if_integer<Type>> {
-  using ValueType = typename Type::c_type;
-
   template <typename T>
   static enable_if_integer<T, Result<typename T::c_type>> Convert(const T*, const O&,
                                                                   I obj) {
