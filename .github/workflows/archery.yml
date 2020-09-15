@@ -44,21 +44,25 @@ jobs:
           fetch-depth: 0
       - name: Git Debug
         shell: bash
-        run: git log --oneline apache-arrow-1.0.0..apache-arrow-0.17.0
-      - name: Free Up Disk Space
-        run: ci/scripts/util_cleanup.sh
-      - name: Setup Python
-        uses: actions/setup-python@v1
-        with:
-          python-version: '3.5'
-      - name: Install Archery, Crossbow- and Test Dependencies
-        working-directory: dev/archery
-        run: pip install pytest responses toolz jinja2 -e .[all]
-      - name: Archery Unittests
-        working-directory: dev/archery
-        run: pytest -v archery
-      - name: Archery Docker Validation
-        run: archery docker
-      - name: Crossbow Check Config
-        working-directory: dev/tasks
-        run: python crossbow.py check-config
+        run: |
+          git status
+          git tag -l
+          git branch -a
+          git log --oneline apache-arrow-1.0.0..apache-arrow-0.17.0
+      # - name: Free Up Disk Space
+      #   run: ci/scripts/util_cleanup.sh
+      # - name: Setup Python
+      #   uses: actions/setup-python@v1
+      #   with:
+      #     python-version: '3.5'
+      # - name: Install Archery, Crossbow- and Test Dependencies
+      #   working-directory: dev/archery
+      #   run: pip install pytest responses toolz jinja2 -e .[all]
+      # - name: Archery Unittests
+      #   working-directory: dev/archery
+      #   run: pytest -v archery
+      # - name: Archery Docker Validation
+      #   run: archery docker
+      # - name: Crossbow Check Config
+      #   working-directory: dev/tasks
+      #   run: python crossbow.py check-config
