@@ -106,7 +106,12 @@ struct ValueConverter<Type, enable_if_integer<Type>> {
 
   static inline Result<ValueType> FromPython(PyObject* obj) {
     ValueType value;
-    RETURN_NOT_OK(internal::CIntFromPython(obj, &value));
+    arrow::Status s_ = internal::CIntFromPython(obj, &value);
+    if (!s_.ok() && !internal::PyIntScalar_Check(obj)) {
+      return internal::InvalidValue(obj, "tried to convert to int");
+    } else {
+      RETURN_NOT_OK(s_);
+    }
     return value;
   }
 };

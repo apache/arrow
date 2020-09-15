@@ -736,7 +736,7 @@ def test_is_null():
 def test_fill_null():
     arr = pa.array([1, 2, None, 4], type=pa.int8())
     fill_value = pa.array([5], type=pa.int8())
-    with pytest.raises(TypeError):
+    with pytest.raises(pa.ArrowInvalid, match="tried to convert to int"):
         arr.fill_null(fill_value)
 
     arr = pa.array([None, None, None, None], type=pa.null())
