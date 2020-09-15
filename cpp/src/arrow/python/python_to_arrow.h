@@ -68,7 +68,8 @@ struct PyConversionOptions {
 /// values in the sequence are null (true) or not null (false). This parameter
 /// may be null
 /// \param[in] options various conversion options
-/// \return Result Array
+/// \param[in] pool MemoryPool to use for allocations
+/// \return Result ChunkedArray
 ARROW_PYTHON_EXPORT
 Result<std::shared_ptr<ChunkedArray>> ConvertPySequence(
     PyObject* obj, PyObject* mask, const PyConversionOptions& options,
