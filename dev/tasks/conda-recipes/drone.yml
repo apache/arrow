@@ -41,4 +41,3 @@ steps:
     - pushd arrow && git fetch -t {{ arrow.remote }} {{ arrow.branch }} && git checkout FETCH_HEAD && git submodule update --init --recursive && popd
     - mkdir -p $(pwd)/build_artifacts && chmod a+rwx $(pwd)/build_artifacts
     - /opt/docker/bin/entrypoint $FEEDSTOCK_ROOT/drone-steps.sh $(pwd)/build_artifacts {{ queue_remote_url }} {{ task.branch }} {{ task.tag }} {% if arrow.branch == 'master' %}1{% else %}0{% endif %}
-    # TODO: Upload to anaconda and github releases
