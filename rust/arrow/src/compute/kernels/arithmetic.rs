@@ -43,7 +43,6 @@ use crate::compute::util::simd_load_set_invalid;
 use crate::datatypes;
 use crate::datatypes::ToByteSlice;
 use crate::error::{ArrowError, Result};
-use crate::util::bit_util;
 
 /// Helper function to perform math lambda function on values from two arrays. If either
 /// left or right value is null then the output value is also null, so `1 + null` is
@@ -66,22 +65,9 @@ where
     let null_bit_buffer =
         combine_option_bitmap(left.data_ref(), right.data_ref(), left.len())?;
 
-    let mut values = Vec::with_capacity(left.len());
-    if let Some(b) = &null_bit_buffer {
-        for i in 0..left.len() {
-            unsafe {
-                if bit_util::get_bit_raw(b.raw_data(), i) {
-                    values.push(op(left.value(i), right.value(i))?);
-                } else {
-                    values.push(T::default_value())
-                }
-            }
-        }
-    } else {
-        for i in 0..left.len() {
-            values.push(op(left.value(i), right.value(i))?);
-        }
-    }
+    let values = (0..left.len())
+        .map(|i| op(left.value(i), right.value(i)))
+        .collect::<Result<Vec<T::Native>>>()?;
 
     let data = ArrayData::new(
         T::get_data_type(),
