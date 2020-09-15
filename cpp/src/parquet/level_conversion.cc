@@ -25,8 +25,8 @@
 #include "arrow/util/logging.h"
 #include "parquet/exception.h"
 
-#define PARQUET_IMPL_NAMESPACE standard
 #include "parquet/level_comparison.h"
+#define PARQUET_IMPL_NAMESPACE standard
 #include "parquet/level_conversion_inc.h"
 #undef PARQUET_IMPL_NAMESPACE
 
@@ -49,7 +49,7 @@ void DefLevelsToBitmapScalar(const int16_t* def_levels, int64_t num_def_levels,
     if (def_levels[x] < level_info.repeated_ancestor_def_level) {
       continue;
     }
-    if (ARROW_PREDICT_FALSE(valid_bits_writer.position() >
+    if (ARROW_PREDICT_FALSE(valid_bits_writer.position() >=
                             output->values_read_upper_bound)) {
       std::stringstream ss;
       ss << "Definition levels exceeded upper bound: " << output->values_read_upper_bound;
@@ -90,15 +90,6 @@ void DefRepLevelsToListInfo(const int16_t* def_levels, const int16_t* rep_levels
       continue;
     }
 
-    if (ARROW_PREDICT_FALSE(
-            (valid_bits_writer != nullptr &&
-             valid_bits_writer->position() > output->values_read_upper_bound) ||
-            (offsets - orig_pos) > output->values_read_upper_bound)) {
-      std::stringstream ss;
-      ss << "Definition levels exceeded upper bound: " << output->values_read_upper_bound;
-      throw ParquetException(ss.str());
-    }
-
     if (rep_levels[x] == level_info.rep_level) {
       // A continuation of an existing list.
       // offsets can be null for structs with repeated children (we don't need to know
@@ -110,6 +101,16 @@ void DefRepLevelsToListInfo(const int16_t* def_levels, const int16_t* rep_levels
         *offsets += 1;
       }
     } else {
+      if (ARROW_PREDICT_FALSE(
+              (valid_bits_writer != nullptr &&
+               valid_bits_writer->position() >= output->values_read_upper_bound) ||
+              (offsets - orig_pos) >= output->values_read_upper_bound)) {
+        std::stringstream ss;
+        ss << "Definition levels exceeded upper bound: "
+           << output->values_read_upper_bound;
+        throw ParquetException(ss.str());
+      }
+
       // current_rep < list rep_level i.e. start of a list (ancestor empty lists are
       // filtered out above).
       // offsets can be null for structs with repeated children (we don't need to know

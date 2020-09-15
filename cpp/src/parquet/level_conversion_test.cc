@@ -17,9 +17,7 @@
 
 #include "parquet/level_conversion.h"
 
-#define PARQUET_IMPL_NAMESPACE test
 #include "parquet/level_comparison.h"
-#undef PARQUET_IMPL_NAMESPACE
 #include "parquet/test_util.h"
 
 #include <gmock/gmock.h>
