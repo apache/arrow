@@ -1968,12 +1968,3 @@ def test_nested_auto_chunking(ty, char):
         ('integer', 1),
         ('string-like', char)
     ]
-
-
-def test_dictionary_conversion():
-    data = [
-        {"page_type": 1},
-        {"record_type": 1},
-        {"non_consecutive_home": 0},
-    ]
-    pa.array(data, type=None, from_pandas=True, safe=True)

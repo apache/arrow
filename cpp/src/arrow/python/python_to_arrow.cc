@@ -63,11 +63,15 @@ using internal::StructConverter;
 
 namespace py {
 
+// Utility for converting single python objects to their intermediate C representations
+// which can be fed to the typed builders
 class PyValue {
  public:
+  // Type aliases for shorter signature definitions
   using I = PyObject*;
   using O = PyConversionOptions;
 
+  // Used for null checking before actually converting the values
   static bool IsNull(const O& options, I obj) {
     if (options.from_pandas) {
       return internal::PandasObjectIsNull(obj);
@@ -76,10 +80,12 @@ class PyValue {
     }
   }
 
+  // Used for post-conversion numpy NaT sentinel checking
   static bool IsNaT(const TimestampType*, int64_t value) {
     return internal::npy_traits<NPY_DATETIME>::isnull(value);
   }
 
+  // Used for post-conversion numpy NaT sentinel checking
   static bool IsNaT(const DurationType*, int64_t value) {
     return internal::npy_traits<NPY_TIMEDELTA>::isnull(value);
   }
@@ -313,6 +319,11 @@ struct ValueConverter<Type, enable_if_integer<Type>> {
     return value;
   }
 
+  // The binary-like intermediate representation is PyBytesView because it keeps temporary
+  // python objects alive (non-contiguous memoryview) and stores whether the original
+  // object was unicode encoded or not, which is used for unicode -> bytes coersion if
+  // there is a non-unicode object observed.
+
   static Result<PyBytesView> Convert(const BaseBinaryType*, const O&, I obj) {
     return PyBytesView::FromString(obj);
   }
@@ -350,6 +361,9 @@ struct ValueConverter<Type, enable_if_integer<Type>> {
   }
 };
 
+// Forward-declare the type-family specific converters to inject them to the PyConverter
+// base class as type aliases.
+
 template <typename T, typename Enable = void>
 class PyPrimitiveConverter;
 
@@ -361,8 +375,10 @@ class PyListConverter;
 
 class PyStructConverter;
 
+// The base Converter class is a mixin with predefined behavior and constructors.
 class PyConverter : public Converter<PyObject*, PyConversionOptions, PyConverter> {
  public:
+  // Type aliases used by the parent Converter mixin's factory.
   template <typename T>
   using Primitive = PyPrimitiveConverter<T>;
   template <typename T>
@@ -371,6 +387,7 @@ class PyConverter : public Converter<PyObject*, PyConversionOptions, PyConverter
   using List = PyListConverter<T>;
   using Struct = PyStructConverter;
 
+  // Convert and append a sequence of values
   Status Extend(PyObject* values, int64_t size) {
     /// Ensure we've allocated enough space
     RETURN_NOT_OK(this->Reserve(size));
@@ -380,6 +397,7 @@ class PyConverter : public Converter<PyObject*, PyConversionOptions, PyConverter
     });
   }
 
+  // Convert and append a sequence of values masked with a numpy array
   Status ExtendMasked(PyObject* values, PyObject* mask, int64_t size) {
     /// Ensure we've allocated enough space
     RETURN_NOT_OK(this->Reserve(size));
@@ -426,6 +444,7 @@ class PyPrimitiveConverter<
     } else {
       ARROW_ASSIGN_OR_RAISE(
           auto converted, PyValue::Convert(this->primitive_type_, this->options_, value));
+      // Numpy NaT sentinels can be checked after the conversion
       if (PyArray_CheckAnyScalarExact(value) &&
           PyValue::IsNaT(this->primitive_type_, converted)) {
         return this->primitive_builder_->AppendNull();
@@ -474,7 +493,7 @@ class PyPrimitiveConverter<T, enable_if_string_like<T>>
   Result<std::shared_ptr<Array>> ToArray() override {
     ARROW_ASSIGN_OR_RAISE(auto array, (PrimitiveConverter<T, PyConverter>::ToArray()));
     if (observed_binary_) {
-      // If we saw any non-unicode, cast results to BinaryArray
+      // if we saw any non-unicode, cast results to BinaryArray
       auto binary_type = TypeTraits<typename T::PhysicalType>::type_singleton();
       return array->View(binary_type);
     } else {

@@ -142,6 +142,8 @@ class Converter {
 
   OptionsType options() const { return options_; }
 
+  const std::vector<std::shared_ptr<Self>> children() const { return children_; }
+
   virtual Status Reserve(int64_t additional_capacity) {
     return builder_->Reserve(additional_capacity);
   }
@@ -300,8 +302,8 @@ class Chunker : public BaseConverter {
     auto result = std::make_shared<Self>();
     result->type_ = converter->type();
     result->builder_ = converter->builder();
-    // result->options_ = converter->options_;
-    // result->children_ = converter->children_;
+    result->options_ = converter->options();
+    result->children_ = converter->children();
     result->converter_ = std::move(converter);
     return result;
   }
