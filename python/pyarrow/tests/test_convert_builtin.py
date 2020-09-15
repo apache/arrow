@@ -889,10 +889,10 @@ def test_sequence_timestamp():
                                                46, 57, 437699)
 
 
-# TODO(kszucs): test pytz.StaticTzInfo like pytz.timezone('Etc/GMT+1')
 @pytest.mark.parametrize('timezone', [
     None,
     'UTC',
+    'Etc/GMT-1',
     'Europe/Budapest',
 ])
 @pytest.mark.parametrize('unit', [
@@ -1534,30 +1534,114 @@ def test_struct_from_tuples():
             pa.array([tup], type=ty)
 
 
-# TODO(kszucs): test duplicated field name
-# TODO(kszucs): test with empty elements
-# TODO(kszucs): test with None elements
-# TODO(kszucs): test with empty element at the first position because of
-# inference
 def test_struct_from_list_of_pairs():
-    ty = pa.struct([pa.field('a', pa.int32()),
-                    pa.field('b', pa.string()),
-                    pa.field('c', pa.bool_())])
+    ty = pa.struct([
+        pa.field('a', pa.int32()),
+        pa.field('b', pa.string()),
+        pa.field('c', pa.bool_())
+    ])
     data = [
         [('a', 5), ('b', 'foo'), ('c', True)],
         [('a', 6), ('b', 'bar'), ('c', False)],
+        None
     ]
     arr = pa.array(data, type=ty)
     assert arr.to_pylist() == data
 
+    # test with duplicated field names
+    ty = pa.struct([
+        pa.field('a', pa.int32()),
+        pa.field('a', pa.string()),
+        pa.field('b', pa.bool_())
+    ])
+    data = [
+        [('a', 5), ('a', 'foo'), ('b', True)],
+        [('a', 6), ('a', 'bar'), ('b', False)],
+    ]
+    arr = pa.array(data, type=ty)
+    assert arr.to_pylist() == data
+
+    # test with empty elements
+    ty = pa.struct([
+        pa.field('a', pa.int32()),
+        pa.field('b', pa.string()),
+        pa.field('c', pa.bool_())
+    ])
+    data = [
+        [],
+        [('a', 5), ('b', 'foo'), ('c', True)],
+        [('a', 2), ('b', 'baz')],
+        [('a', 1), ('b', 'bar'), ('c', False), ('d', 'julia')],
+    ]
+    expected = [
+        [('a', None), ('b', None), ('c', None)],
+        [('a', 5), ('b', 'foo'), ('c', True)],
+        [('a', 2), ('b', 'baz'), ('c', None)],
+        [('a', 1), ('b', 'bar'), ('c', False)],
+    ]
+    arr = pa.array(data, type=ty)
+    assert arr.to_pylist() == expected
+
+
+def test_struct_from_list_of_pairs_errors():
+    ty = pa.struct([
+        pa.field('a', pa.int32()),
+        pa.field('b', pa.string()),
+        pa.field('c', pa.bool_())
+    ])
+
+    # test that it raises if the key doesn't match the expected field name
+    data = [
+        [],
+        [('a', 5), ('c', True), ('b', None)],
+    ]
+    msg = "The expected field name is `b` but `c` was given"
+    with pytest.raises(ValueError, match=msg):
+        pa.array(data, type=ty)
+
+    # test various errors both at the first position and after because of key
+    # type inference
+    template = (
+        r"Could not convert {} with type {}: was expecting tuple of "
+        r"\(key, value\) pair"
+    )
+    cases = [
+        tuple(),  # empty key-value pair
+        tuple('a',),  # missing value
+        tuple('unknown-key',),  # not known field name
+        'string',  # not a tuple
+    ]
+    for key_value_pair in cases:
+        msg = template.format(
+            str(key_value_pair).replace('(', r'\(').replace(')', r'\)'),
+            type(key_value_pair).__name__
+        )
+
+        with pytest.raises(TypeError, match=msg):
+            pa.array([
+                [key_value_pair],
+                [('a', 5), ('b', 'foo'), ('c', None)],
+            ], type=ty)
+
+        with pytest.raises(TypeError, match=msg):
+            pa.array([
+                [('a', 5), ('b', 'foo'), ('c', None)],
+                [key_value_pair],
+            ], type=ty)
+
 
 def test_struct_from_mixed_sequence():
     # It is forbidden to mix dicts and tuples when initializing a struct array
-    ty = pa.struct([pa.field('a', pa.int32()),
-                    pa.field('b', pa.string()),
-                    pa.field('c', pa.bool_())])
-    data = [(5, 'foo', True),
-            {'a': 6, 'b': 'bar', 'c': False}]
+    ty = pa.struct([
+        pa.field('a', pa.int32()),
+        pa.field('b', pa.string()),
+        pa.field('c', pa.bool_())
+    ])
+    data = [
+        (5, 'foo', True),
+        None,
+        {'a': 6, 'b': 'bar', 'c': False}
+    ]
     with pytest.raises(TypeError):
         pa.array(data, type=ty)
 

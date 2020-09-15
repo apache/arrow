@@ -695,6 +695,30 @@ class PyStructConverter : public StructConverter<PyConverter> {
     return Status::OK();
   }
 
+  Status InferKeyKind(PyObject* items) {
+    for (int i = 0; i < PySequence_Length(items); i++) {
+      // retrieve the key from the passed key-value pairs
+      ARROW_ASSIGN_OR_RAISE(auto pair, GetKeyValuePair(items, i));
+
+      // check key exists between the unicode field names
+      bool do_contain = PySequence_Contains(unicode_field_names_.obj(), pair.first);
+      RETURN_IF_PYERROR();
+      if (do_contain) {
+        key_kind_ = KeyKind::UNICODE;
+        return Status::OK();
+      }
+
+      // check key exists between the bytes field names
+      do_contain = PySequence_Contains(bytes_field_names_.obj(), pair.first);
+      RETURN_IF_PYERROR();
+      if (do_contain) {
+        key_kind_ = KeyKind::BYTES;
+        return Status::OK();
+      }
+    }
+    return Status::OK();
+  }
+
   Status Append(PyObject* value) override {
     if (PyValue::IsNull(this->options_, value)) {
       return this->struct_builder_->AppendNull();
@@ -736,37 +760,6 @@ class PyStructConverter : public StructConverter<PyConverter> {
     return Status::OK();
   }
 
-  Status InferKeyKind(PyObject* items) {
-    for (int i = 0; i < PySequence_Length(items); i++) {
-      // retrieve the key from the passed key-value pairs
-      PyObject* tuple = PySequence_GetItem(items, i);
-      if (tuple == NULL) {
-        RETURN_IF_PYERROR();
-      }
-      PyObject* key = PyTuple_GET_ITEM(tuple, 0);
-      if (key == NULL) {
-        RETURN_IF_PYERROR();
-      }
-
-      // check key exists between the unicode field names
-      bool do_contain = PySequence_Contains(unicode_field_names_.obj(), key);
-      RETURN_IF_PYERROR();
-      if (do_contain) {
-        key_kind_ = KeyKind::UNICODE;
-        return Status::OK();
-      }
-
-      // check key exists between the bytes field names
-      do_contain = PySequence_Contains(bytes_field_names_.obj(), key);
-      RETURN_IF_PYERROR();
-      if (do_contain) {
-        key_kind_ = KeyKind::BYTES;
-        return Status::OK();
-      }
-    }
-    return Status::OK();
-  }
-
   Status AppendDict(PyObject* dict) {
     if (!PyDict_Check(dict)) {
       return internal::InvalidType(dict, "was expecting a dict");
@@ -787,27 +780,10 @@ class PyStructConverter : public StructConverter<PyConverter> {
     }
   }
 
-  Status AppendDict(PyObject* dict, PyObject* field_names) {
-    // NOTE we're ignoring any extraneous dict items
-    for (int i = 0; i < num_fields_; i++) {
-      PyObject* name = PyList_GET_ITEM(field_names, i);  // borrowed
-      PyObject* value = PyDict_GetItem(dict, name);      // borrowed
-      if (value == NULL) {
-        RETURN_IF_PYERROR();
-      }
-      RETURN_NOT_OK(this->children_[i]->Append(value ? value : Py_None));
-    }
-    return Status::OK();
-  }
-
   Status AppendItems(PyObject* items) {
     if (!PySequence_Check(items)) {
       return internal::InvalidType(items, "was expecting a sequence of key-value items");
     }
-    // TODO(kszucs): cover with tests
-    // if (PySequence_GET_SIZE(items) != num_fields_) {
-    //   return Status::Invalid("Sequence size must be equal to number of struct fields");
-    // }
     switch (key_kind_) {
       case KeyKind::UNICODE:
         return AppendItems(items, unicode_field_names_.obj());
@@ -824,25 +800,59 @@ class PyStructConverter : public StructConverter<PyConverter> {
     }
   }
 
-  Status AppendItems(PyObject* items, PyObject* field_names) {
+  Status AppendDict(PyObject* dict, PyObject* field_names) {
+    // NOTE we're ignoring any extraneous dict items
     for (int i = 0; i < num_fields_; i++) {
-      PyObject* tuple = PySequence_GetItem(items, i);
-      if (tuple == NULL) {
+      PyObject* name = PyList_GET_ITEM(field_names, i);  // borrowed
+      PyObject* value = PyDict_GetItem(dict, name);      // borrowed
+      if (value == NULL) {
         RETURN_IF_PYERROR();
       }
-      PyObject* key = PyTuple_GET_ITEM(tuple, 0);
-      PyObject* value = PyTuple_GET_ITEM(tuple, 1);
-      if (key == NULL || value == NULL) {
-        RETURN_IF_PYERROR();
-      }
+      RETURN_NOT_OK(this->children_[i]->Append(value ? value : Py_None));
+    }
+    return Status::OK();
+  }
+
+  Result<std::pair<PyObject*, PyObject*>> GetKeyValuePair(PyObject* seq, int index) {
+    PyObject* pair = PySequence_GetItem(seq, index);
+    RETURN_IF_PYERROR();
+    if (!PyTuple_Check(pair) || PyTuple_Size(pair) != 2) {
+      return internal::InvalidType(pair, "was expecting tuple of (key, value) pair");
+    }
+    PyObject* key = PyTuple_GetItem(pair, 0);
+    RETURN_IF_PYERROR();
+    PyObject* value = PyTuple_GetItem(pair, 1);
+    RETURN_IF_PYERROR();
+    return std::make_pair(key, value);
+  }
+
+  Status AppendItems(PyObject* items, PyObject* field_names) {
+    auto length = static_cast<int>(PySequence_Size(items));
+    RETURN_IF_PYERROR();
+
+    // append the values for the defined fields
+    for (int i = 0; i < std::min(num_fields_, length); i++) {
+      // retrieve the key-value pair
+      ARROW_ASSIGN_OR_RAISE(auto pair, GetKeyValuePair(items, i));
+
+      // validate that the key and the field name are equal
       PyObject* name = PyList_GET_ITEM(field_names, i);
-      bool are_equal = PyObject_RichCompareBool(key, name, Py_EQ);
+      bool are_equal = PyObject_RichCompareBool(pair.first, name, Py_EQ);
       RETURN_IF_PYERROR();
+
+      // finally append to the respective child builder
       if (are_equal) {
-        RETURN_NOT_OK(this->children_[i]->Append(value));
+        RETURN_NOT_OK(this->children_[i]->Append(pair.second));
       } else {
-        return Status::Invalid("Key not equal to the expected field name");
+        ARROW_ASSIGN_OR_RAISE(auto key_view, PyBytesView::FromString(pair.first));
+        ARROW_ASSIGN_OR_RAISE(auto name_view, PyBytesView::FromString(name));
+        return Status::Invalid("The expected field name is `", name_view.bytes, "` but `",
+                               key_view.bytes, "` was given");
       }
+    }
+    // insert null values for missing fields
+    for (int i = length; i < num_fields_; i++) {
+      RETURN_NOT_OK(this->children_[i]->AppendNull());
     }
     return Status::OK();
   }

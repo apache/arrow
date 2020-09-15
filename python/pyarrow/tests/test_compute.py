@@ -234,20 +234,20 @@ def test_min_max():
     # An example generated function wrapper with possible options
     data = [4, 5, 6, None, 1]
     s = pc.min_max(data)
-    assert s.as_py() == {'min': 1, 'max': 6}
+    assert s.as_py() == [('min', 1), ('max', 6)]
     s = pc.min_max(data, options=pc.MinMaxOptions())
-    assert s.as_py() == {'min': 1, 'max': 6}
+    assert s.as_py() == [('min', 1), ('max', 6)]
     s = pc.min_max(data, options=pc.MinMaxOptions(null_handling='skip'))
-    assert s.as_py() == {'min': 1, 'max': 6}
+    assert s.as_py() == [('min', 1), ('max', 6)]
     s = pc.min_max(data, options=pc.MinMaxOptions(null_handling='emit_null'))
-    assert s.as_py() == {'min': None, 'max': None}
+    assert s.as_py() == [('min', None), ('max', None)]
 
     # Options as dict of kwargs
     s = pc.min_max(data, options={'null_handling': 'emit_null'})
-    assert s.as_py() == {'min': None, 'max': None}
+    assert s.as_py() == [('min', None), ('max', None)]
     # Options as named functions arguments
     s = pc.min_max(data, null_handling='emit_null')
-    assert s.as_py() == {'min': None, 'max': None}
+    assert s.as_py() == [('min', None), ('max', None)]
 
     # Both options and named arguments
     with pytest.raises(TypeError):
