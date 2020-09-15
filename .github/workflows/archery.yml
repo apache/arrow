@@ -34,7 +34,7 @@ on:
 jobs:
 
   test:
-    # if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     name: Archery Unittests and Crossbow Check Config
     runs-on: ubuntu-latest
     steps:
