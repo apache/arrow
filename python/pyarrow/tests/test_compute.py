@@ -838,8 +838,9 @@ def test_logical():
     assert pc.and_kleene(a, b) == pa.array([True, False, False, None])
 
     assert pc.xor(a, b) == pa.array([False, True, False, None])
-    
+
     assert pc.invert(a) == pa.array([False, True, True, None])
+
 
 def test_cast():
 
@@ -851,8 +852,9 @@ def test_cast():
     assert pc.cast(arr, 'int32', safe=False) == pa.array([-1], type='int32')
 
     arr = pa.array([datetime(2010, 1, 1), datetime(2015, 1, 1)])
-    expected = pa.array([1262304000000, 1420070400000], type='timestamp[ms]') 
+    expected = pa.array([1262304000000, 1420070400000], type='timestamp[ms]')
     assert pc.cast(arr, 'timestamp[ms]') == expected
+
 
 def test_sort_partition():
 
