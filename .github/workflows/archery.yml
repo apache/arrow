@@ -42,9 +42,9 @@ jobs:
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
-      - name: Fetch Submodules and Tags
+      - name: Git Debug
         shell: bash
-        run: ci/scripts/util_checkout.sh
+        run: git log --oneline apache-arrow-1.0.0..apache-arrow-0.17.0
       - name: Free Up Disk Space
         run: ci/scripts/util_cleanup.sh
       - name: Setup Python
