@@ -90,9 +90,32 @@ Status InitializeTrie(const std::vector<std::string>& inputs, Trie* trie) {
   return Status::OK();
 }
 
-class ConcreteConverterMixin {
- protected:
-  Status InitializeNullTrie(const ConvertOptions& options);
+// Presize a builder based on parser contents
+template <typename BuilderType>
+enable_if_t<!is_base_binary_type<typename BuilderType::TypeClass>::value, Status>
+PresizeBuilder(const BlockParser& parser, BuilderType* builder) {
+  return builder->Resize(parser.num_rows());
+}
+
+// Same, for variable-sized binary builders
+template <typename T>
+Status PresizeBuilder(const BlockParser& parser, BaseBinaryBuilder<T>* builder) {
+  RETURN_NOT_OK(builder->Resize(parser.num_rows()));
+  return builder->ReserveData(parser.num_bytes());
+}
+
+/////////////////////////////////////////////////////////////////////////
+// Per-type value decoders
+
+struct ValueDecoder {
+  explicit ValueDecoder(const std::shared_ptr<DataType>& type,
+                        const ConvertOptions& options)
+      : type_(type), options_(options) {}
+
+  Status Initialize() {
+    // TODO no need to build a separate Trie for each instance
+    return InitializeTrie(options_.null_values, &null_trie_);
+  }
 
   bool IsNull(const uint8_t* data, uint32_t size, bool quoted) {
     if (quoted) {
@@ -102,44 +125,272 @@ class ConcreteConverterMixin {
                util::string_view(reinterpret_cast<const char*>(data), size)) >= 0;
   }
 
+ protected:
   Trie null_trie_;
+  std::shared_ptr<DataType> type_;
+  const ConvertOptions& options_;
 };
 
-Status ConcreteConverterMixin::InitializeNullTrie(const ConvertOptions& options) {
-  // TODO no need to build a separate Trie for each Converter instance
-  return InitializeTrie(options.null_values, &null_trie_);
-}
+//
+// Value decoder for fixed-size binary
+//
 
-class ConcreteConverter : public Converter, public ConcreteConverterMixin {
- public:
-  using Converter::Converter;
+struct FixedSizeBinaryValueDecoder : public ValueDecoder {
+  using value_type = const uint8_t*;
+
+  explicit FixedSizeBinaryValueDecoder(const std::shared_ptr<DataType>& type,
+                                       const ConvertOptions& options)
+      : ValueDecoder(type, options),
+        byte_width_(checked_cast<const FixedSizeBinaryType&>(*type).byte_width()) {}
+
+  Status Decode(const uint8_t* data, uint32_t size, bool quoted, value_type* out) {
+    if (ARROW_PREDICT_FALSE(size != byte_width_)) {
+      return Status::Invalid("CSV conversion error to ", type_->ToString(), ": got a ",
+                             size, "-byte long string");
+    }
+    *out = data;
+    return Status::OK();
+  }
+
+  bool IsNull(const uint8_t* data, uint32_t size, bool quoted) { return false; }
 
  protected:
-  Status Initialize() override { return InitializeNullTrie(options_); }
+  const uint32_t byte_width_;
 };
 
-class ConcreteDictionaryConverter : public DictionaryConverter,
-                                    public ConcreteConverterMixin {
- public:
-  using DictionaryConverter::DictionaryConverter;
+//
+// Value decoder for variable-size binary
+//
+
+template <bool CheckUTF8>
+struct BinaryValueDecoder : public ValueDecoder {
+  using value_type = util::string_view;
+
+  using ValueDecoder::ValueDecoder;
+
+  Status Initialize() {
+    util::InitializeUTF8();
+    return ValueDecoder::Initialize();
+  }
+
+  Status Decode(const uint8_t* data, uint32_t size, bool quoted, value_type* out) {
+    if (CheckUTF8 && ARROW_PREDICT_FALSE(!util::ValidateUTF8(data, size))) {
+      return Status::Invalid("CSV conversion error to ", type_->ToString(),
+                             ": invalid UTF8 data");
+    }
+    *out = {reinterpret_cast<const char*>(data), size};
+    return Status::OK();
+  }
+
+  bool IsNull(const uint8_t* data, uint32_t size, bool quoted) {
+    return options_.strings_can_be_null &&
+           ValueDecoder::IsNull(data, size, false /* quoted */);
+  }
+};
+
+//
+// Value decoder for integers and floats
+//
+
+template <typename T>
+struct NumericValueDecoder : public ValueDecoder {
+  using value_type = typename T::c_type;
+
+  using ValueDecoder::ValueDecoder;
+
+  Status Decode(const uint8_t* data, uint32_t size, bool quoted, value_type* out) {
+    // XXX should quoted values be allowed at all?
+    TrimWhiteSpace(&data, &size);
+    if (ARROW_PREDICT_FALSE(
+            !internal::ParseValue<T>(reinterpret_cast<const char*>(data), size, out))) {
+      return GenericConversionError(type_, data, size);
+    }
+    return Status::OK();
+  }
+};
+
+//
+// Value decoder for booleans
+//
+
+struct BooleanValueDecoder : public ValueDecoder {
+  using value_type = bool;
+
+  using ValueDecoder::ValueDecoder;
+
+  Status Initialize() {
+    // TODO no need to build separate Tries for each instance
+    RETURN_NOT_OK(InitializeTrie(options_.true_values, &true_trie_));
+    RETURN_NOT_OK(InitializeTrie(options_.false_values, &false_trie_));
+    return ValueDecoder::Initialize();
+  }
+
+  Status Decode(const uint8_t* data, uint32_t size, bool quoted, value_type* out) {
+    // XXX should quoted values be allowed at all?
+    if (false_trie_.Find(util::string_view(reinterpret_cast<const char*>(data), size)) >=
+        0) {
+      *out = false;
+      return Status::OK();
+    }
+    if (ARROW_PREDICT_TRUE(true_trie_.Find(util::string_view(
+                               reinterpret_cast<const char*>(data), size)) >= 0)) {
+      *out = true;
+      return Status::OK();
+    }
+    return GenericConversionError(type_, data, size);
+  }
 
  protected:
-  Status Initialize() override { return InitializeNullTrie(options_); }
+  Trie true_trie_;
+  Trie false_trie_;
+};
+
+//
+// Value decoder for decimals
+//
+
+struct DecimalValueDecoder : public ValueDecoder {
+  using value_type = Decimal128;
+
+  explicit DecimalValueDecoder(const std::shared_ptr<DataType>& type,
+                               const ConvertOptions& options)
+      : ValueDecoder(type, options),
+        decimal_type_(internal::checked_cast<const DecimalType&>(*type_)),
+        type_precision_(decimal_type_.precision()),
+        type_scale_(decimal_type_.scale()) {}
+
+  Status Decode(const uint8_t* data, uint32_t size, bool quoted, value_type* out) {
+    TrimWhiteSpace(&data, &size);
+    Decimal128 decimal;
+    int32_t precision, scale;
+    util::string_view view(reinterpret_cast<const char*>(data), size);
+    RETURN_NOT_OK(Decimal128::FromString(view, &decimal, &precision, &scale));
+    if (precision > type_precision_) {
+      return Status::Invalid("Error converting '", view, "' to ", type_->ToString(),
+                             ": precision not supported by type.");
+    }
+    if (scale != type_scale_) {
+      ARROW_ASSIGN_OR_RAISE(*out, decimal.Rescale(scale, type_scale_));
+    } else {
+      *out = std::move(decimal);
+    }
+    return Status::OK();
+  }
+
+ protected:
+  const DecimalType& decimal_type_;
+  const int32_t type_precision_;
+  const int32_t type_scale_;
+};
+
+//
+// Value decoders for timestamps
+//
+
+struct InlineISO8601ValueDecoder : public ValueDecoder {
+  using value_type = int64_t;
+
+  explicit InlineISO8601ValueDecoder(const std::shared_ptr<DataType>& type,
+                                     const ConvertOptions& options)
+      : ValueDecoder(type, options),
+        unit_(checked_cast<const TimestampType&>(*type_).unit()) {}
+
+  Status Decode(const uint8_t* data, uint32_t size, bool quoted, value_type* out) {
+    if (ARROW_PREDICT_FALSE(!internal::ParseTimestampISO8601(
+            reinterpret_cast<const char*>(data), size, unit_, out))) {
+      return GenericConversionError(type_, data, size);
+    }
+    return Status::OK();
+  }
+
+ protected:
+  TimeUnit::type unit_;
+};
+
+struct SingleParserTimestampValueDecoder : public ValueDecoder {
+  using value_type = int64_t;
+
+  explicit SingleParserTimestampValueDecoder(const std::shared_ptr<DataType>& type,
+                                             const ConvertOptions& options)
+      : ValueDecoder(type, options),
+        unit_(checked_cast<const TimestampType&>(*type_).unit()),
+        parser_(*options_.timestamp_parsers[0]) {}
+
+  Status Decode(const uint8_t* data, uint32_t size, bool quoted, value_type* out) {
+    if (ARROW_PREDICT_FALSE(
+            !parser_(reinterpret_cast<const char*>(data), size, unit_, out))) {
+      return GenericConversionError(type_, data, size);
+    }
+    return Status::OK();
+  }
+
+ protected:
+  TimeUnit::type unit_;
+  const TimestampParser& parser_;
+};
+
+struct MultipleParsersTimestampValueDecoder : public ValueDecoder {
+  using value_type = int64_t;
+
+  explicit MultipleParsersTimestampValueDecoder(const std::shared_ptr<DataType>& type,
+                                                const ConvertOptions& options)
+      : ValueDecoder(type, options),
+        unit_(checked_cast<const TimestampType&>(*type_).unit()),
+        parsers_(GetParsers(options_)) {}
+
+  Status Decode(const uint8_t* data, uint32_t size, bool quoted, value_type* out) {
+    for (const auto& parser : parsers_) {
+      if (parser->operator()(reinterpret_cast<const char*>(data), size, unit_, out)) {
+        return Status::OK();
+      }
+    }
+    return GenericConversionError(type_, data, size);
+  }
+
+ protected:
+  using ParserVector = std::vector<const TimestampParser*>;
+
+  static ParserVector GetParsers(const ConvertOptions& options) {
+    ParserVector parsers(options.timestamp_parsers.size());
+    for (size_t i = 0; i < options.timestamp_parsers.size(); ++i) {
+      parsers[i] = options.timestamp_parsers[i].get();
+    }
+    return parsers;
+  }
+
+  TimeUnit::type unit_;
+  std::vector<const TimestampParser*> parsers_;
 };
 
 /////////////////////////////////////////////////////////////////////////
-// Concrete Converter for null values
+// Concrete Converter hierarchy
+
+class ConcreteConverter : public Converter {
+ public:
+  using Converter::Converter;
+};
+
+class ConcreteDictionaryConverter : public DictionaryConverter {
+ public:
+  using DictionaryConverter::DictionaryConverter;
+};
+
+//
+// Concrete Converter for nulls
+//
 
 class NullConverter : public ConcreteConverter {
  public:
-  using ConcreteConverter::ConcreteConverter;
+  NullConverter(const std::shared_ptr<DataType>& type, const ConvertOptions& options,
+                MemoryPool* pool)
+      : ConcreteConverter(type, options, pool), decoder_(type_, options_) {}
 
   Result<std::shared_ptr<Array>> Convert(const BlockParser& parser,
                                          int32_t col_index) override {
     NullBuilder builder(pool_);
 
     auto visit = [&](const uint8_t* data, uint32_t size, bool quoted) -> Status {
-      if (ARROW_PREDICT_TRUE(IsNull(data, size, quoted))) {
+      if (ARROW_PREDICT_TRUE(decoder_.IsNull(data, size, quoted))) {
         return builder.AppendNull();
       } else {
         return GenericConversionError(type_, data, size);
@@ -150,46 +401,42 @@ class NullConverter : public ConcreteConverter {
     RETURN_NOT_OK(builder.Finish(&res));
     return res;
   }
+
+ protected:
+  Status Initialize() override { return decoder_.Initialize(); }
+
+  ValueDecoder decoder_;
 };
 
-/////////////////////////////////////////////////////////////////////////
-// Concrete Converter for var-sized binary strings
+//
+// Concrete Converter for primitives
+//
 
-template <typename T, bool CheckUTF8>
-class BinaryConverter : public ConcreteConverter {
+template <typename T, typename ValueDecoderType>
+class PrimitiveConverter : public ConcreteConverter {
  public:
-  using ConcreteConverter::ConcreteConverter;
+  PrimitiveConverter(const std::shared_ptr<DataType>& type, const ConvertOptions& options,
+                     MemoryPool* pool)
+      : ConcreteConverter(type, options, pool), decoder_(type_, options_) {}
 
   Result<std::shared_ptr<Array>> Convert(const BlockParser& parser,
                                          int32_t col_index) override {
     using BuilderType = typename TypeTraits<T>::BuilderType;
-    BuilderType builder(pool_);
+    using value_type = typename ValueDecoderType::value_type;
 
-    auto visit_non_null = [&](const uint8_t* data, uint32_t size, bool quoted) -> Status {
-      if (CheckUTF8 && ARROW_PREDICT_FALSE(!util::ValidateUTF8(data, size))) {
-        return Status::Invalid("CSV conversion error to ", type_->ToString(),
-                               ": invalid UTF8 data");
+    BuilderType builder(type_, pool_);
+    RETURN_NOT_OK(PresizeBuilder(parser, &builder));
+
+    auto visit = [&](const uint8_t* data, uint32_t size, bool quoted) -> Status {
+      if (decoder_.IsNull(data, size, quoted /* quoted */)) {
+        return builder.AppendNull();
       }
-      builder.UnsafeAppend(data, size);
+      value_type value;
+      RETURN_NOT_OK(decoder_.Decode(data, size, quoted, &value));
+      builder.UnsafeAppend(value);
       return Status::OK();
     };
-
-    RETURN_NOT_OK(builder.Resize(parser.num_rows()));
-    RETURN_NOT_OK(builder.ReserveData(parser.num_bytes()));
-
-    if (options_.strings_can_be_null) {
-      auto visit = [&](const uint8_t* data, uint32_t size, bool quoted) -> Status {
-        if (IsNull(data, size, false /* quoted */)) {
-          builder.UnsafeAppendNull();
-          return Status::OK();
-        } else {
-          return visit_non_null(data, size, quoted);
-        }
-      };
-      RETURN_NOT_OK(parser.VisitColumn(col_index, visit));
-    } else {
-      RETURN_NOT_OK(parser.VisitColumn(col_index, visit_non_null));
-    }
+    RETURN_NOT_OK(parser.VisitColumn(col_index, visit));
 
     std::shared_ptr<Array> res;
     RETURN_NOT_OK(builder.Finish(&res));
@@ -197,50 +444,44 @@ class BinaryConverter : public ConcreteConverter {
   }
 
  protected:
-  Status Initialize() override {
-    util::InitializeUTF8();
-    return ConcreteConverter::Initialize();
-  }
+  Status Initialize() override { return decoder_.Initialize(); }
+
+  ValueDecoderType decoder_;
 };
 
-template <typename T, bool CheckUTF8>
-class DictionaryBinaryConverter : public ConcreteDictionaryConverter {
+//
+// Concrete Converter for dictionaries
+//
+
+template <typename T, typename ValueDecoderType>
+class TypedDictionaryConverter : public ConcreteDictionaryConverter {
  public:
-  using ConcreteDictionaryConverter::ConcreteDictionaryConverter;
+  TypedDictionaryConverter(const std::shared_ptr<DataType>& value_type,
+                           const ConvertOptions& options, MemoryPool* pool)
+      : ConcreteDictionaryConverter(value_type, options, pool),
+        decoder_(value_type, options_) {}
 
   Result<std::shared_ptr<Array>> Convert(const BlockParser& parser,
                                          int32_t col_index) override {
     // We use a fixed index width so that all column chunks get the same index type
     using BuilderType = Dictionary32Builder<T>;
-    BuilderType builder(value_type_, pool_);
+    using value_type = typename ValueDecoderType::value_type;
 
-    auto visit_non_null = [&](const uint8_t* data, uint32_t size, bool quoted) -> Status {
-      if (CheckUTF8 && ARROW_PREDICT_FALSE(!util::ValidateUTF8(data, size))) {
-        return Status::Invalid("CSV conversion error to ", value_type_->ToString(),
-                               ": invalid UTF8 data");
+    BuilderType builder(value_type_, pool_);
+    RETURN_NOT_OK(PresizeBuilder(parser, &builder));
+
+    auto visit = [&](const uint8_t* data, uint32_t size, bool quoted) -> Status {
+      if (decoder_.IsNull(data, size, quoted /* quoted */)) {
+        return builder.AppendNull();
       }
-      RETURN_NOT_OK(
-          builder.Append(util::string_view(reinterpret_cast<const char*>(data), size)));
       if (ARROW_PREDICT_FALSE(builder.dictionary_length() > max_cardinality_)) {
         return Status::IndexError("Dictionary length exceeded max cardinality");
       }
-      return Status::OK();
+      value_type value;
+      RETURN_NOT_OK(decoder_.Decode(data, size, quoted, &value));
+      return builder.Append(value);
     };
-
-    RETURN_NOT_OK(builder.Resize(parser.num_rows()));
-
-    if (options_.strings_can_be_null) {
-      auto visit = [&](const uint8_t* data, uint32_t size, bool quoted) -> Status {
-        if (IsNull(data, size, false /* quoted */)) {
-          return builder.AppendNull();
-        } else {
-          return visit_non_null(data, size, quoted);
-        }
-      };
-      RETURN_NOT_OK(parser.VisitColumn(col_index, visit));
-    } else {
-      RETURN_NOT_OK(parser.VisitColumn(col_index, visit_non_null));
-    }
+    RETURN_NOT_OK(parser.VisitColumn(col_index, visit));
 
     std::shared_ptr<Array> res;
     RETURN_NOT_OK(builder.Finish(&res));
@@ -252,277 +493,37 @@ class DictionaryBinaryConverter : public ConcreteDictionaryConverter {
  protected:
   Status Initialize() override {
     util::InitializeUTF8();
-    return ConcreteDictionaryConverter::Initialize();
+    return decoder_.Initialize();
   }
 
+  ValueDecoderType decoder_;
   int32_t max_cardinality_ = std::numeric_limits<int32_t>::max();
 };
 
-/////////////////////////////////////////////////////////////////////////
-// Concrete Converter for fixed-sized binary strings
+//
+// Concrete Converter factory for timestamps
+//
 
-class FixedSizeBinaryConverter : public ConcreteConverter {
- public:
-  using ConcreteConverter::ConcreteConverter;
-
-  Result<std::shared_ptr<Array>> Convert(const BlockParser& parser,
-                                         int32_t col_index) override {
-    FixedSizeBinaryBuilder builder(type_, pool_);
-    const uint32_t byte_width = static_cast<uint32_t>(builder.byte_width());
-
-    // TODO do we accept nulls here?
-
-    auto visit = [&](const uint8_t* data, uint32_t size, bool quoted) -> Status {
-      if (ARROW_PREDICT_FALSE(size != byte_width)) {
-        return Status::Invalid("CSV conversion error to ", type_->ToString(), ": got a ",
-                               size, "-byte long string");
-      }
-      return builder.Append(data);
-    };
-    RETURN_NOT_OK(builder.Resize(parser.num_rows()));
-    RETURN_NOT_OK(parser.VisitColumn(col_index, visit));
-
-    std::shared_ptr<Array> res;
-    RETURN_NOT_OK(builder.Finish(&res));
-    return res;
+template <template <typename, typename> class ConverterType>
+std::shared_ptr<Converter> MakeTimestampConverter(const std::shared_ptr<DataType>& type,
+                                                  const ConvertOptions& options,
+                                                  MemoryPool* pool) {
+  if (options.timestamp_parsers.size() == 0) {
+    // Default to ISO-8601
+    return std::make_shared<ConverterType<TimestampType, InlineISO8601ValueDecoder>>(
+        type, options, pool);
+  } else if (options.timestamp_parsers.size() == 1) {
+    // Single user-supplied converter
+    return std::make_shared<
+        ConverterType<TimestampType, SingleParserTimestampValueDecoder>>(type, options,
+                                                                         pool);
+  } else {
+    // Multiple converters, must iterate for each value
+    return std::make_shared<
+        ConverterType<TimestampType, MultipleParsersTimestampValueDecoder>>(type, options,
+                                                                            pool);
   }
-};
-
-/////////////////////////////////////////////////////////////////////////
-// Concrete Converter for booleans
-
-class BooleanConverter : public ConcreteConverter {
- public:
-  using ConcreteConverter::ConcreteConverter;
-
-  Result<std::shared_ptr<Array>> Convert(const BlockParser& parser,
-                                         int32_t col_index) override {
-    BooleanBuilder builder(type_, pool_);
-
-    auto visit = [&](const uint8_t* data, uint32_t size, bool quoted) -> Status {
-      // XXX should quoted values be allowed at all?
-      if (IsNull(data, size, quoted)) {
-        builder.UnsafeAppendNull();
-        return Status::OK();
-      }
-      if (false_trie_.Find(
-              util::string_view(reinterpret_cast<const char*>(data), size)) >= 0) {
-        builder.UnsafeAppend(false);
-        return Status::OK();
-      }
-      if (true_trie_.Find(util::string_view(reinterpret_cast<const char*>(data), size)) >=
-          0) {
-        builder.UnsafeAppend(true);
-        return Status::OK();
-      }
-      return GenericConversionError(type_, data, size);
-    };
-    RETURN_NOT_OK(builder.Resize(parser.num_rows()));
-    RETURN_NOT_OK(parser.VisitColumn(col_index, visit));
-
-    std::shared_ptr<Array> res;
-    RETURN_NOT_OK(builder.Finish(&res));
-    return res;
-  }
-
- protected:
-  Status Initialize() override {
-    // TODO no need to build separate Tries for each BooleanConverter instance
-    RETURN_NOT_OK(InitializeTrie(options_.true_values, &true_trie_));
-    RETURN_NOT_OK(InitializeTrie(options_.false_values, &false_trie_));
-    return ConcreteConverter::Initialize();
-  }
-
-  Trie true_trie_;
-  Trie false_trie_;
-};
-
-/////////////////////////////////////////////////////////////////////////
-// Concrete Converter for numbers
-
-template <typename T>
-class NumericConverter : public ConcreteConverter {
- public:
-  using ConcreteConverter::ConcreteConverter;
-
-  Result<std::shared_ptr<Array>> Convert(const BlockParser& parser,
-                                         int32_t col_index) override {
-    using BuilderType = typename TypeTraits<T>::BuilderType;
-    using value_type = typename T::c_type;
-
-    BuilderType builder(type_, pool_);
-
-    auto visit = [&](const uint8_t* data, uint32_t size, bool quoted) -> Status {
-      // XXX should quoted values be allowed at all?
-      value_type value = 0;
-      if (IsNull(data, size, quoted)) {
-        builder.UnsafeAppendNull();
-        return Status::OK();
-      }
-      if (!std::is_same<BooleanType, T>::value) {
-        TrimWhiteSpace(&data, &size);
-      }
-      if (ARROW_PREDICT_FALSE(!internal::ParseValue<T>(
-              reinterpret_cast<const char*>(data), size, &value))) {
-        return GenericConversionError(type_, data, size);
-      }
-      builder.UnsafeAppend(value);
-      return Status::OK();
-    };
-    RETURN_NOT_OK(builder.Resize(parser.num_rows()));
-    RETURN_NOT_OK(parser.VisitColumn(col_index, visit));
-
-    std::shared_ptr<Array> res;
-    RETURN_NOT_OK(builder.Finish(&res));
-    return res;
-  }
-};
-
-/////////////////////////////////////////////////////////////////////////
-// Concrete Converter for timestamps
-
-namespace {
-
-struct InlineISO8601 {
-  TimeUnit::type unit;
-
-  explicit InlineISO8601(TimeUnit::type unit) : unit(unit) {}
-
-  bool operator()(const char* s, size_t length, int64_t* out) const {
-    return internal::ParseTimestampISO8601(s, length, unit, out);
-  }
-};
-
-struct SingleTimestampParser {
-  const TimestampParser& parser;
-  TimeUnit::type unit;
-
-  SingleTimestampParser(const TimestampParser& parser, TimeUnit::type unit)
-      : parser(parser), unit(unit) {}
-
-  bool operator()(const char* s, size_t length, int64_t* out) const {
-    return this->parser(s, length, this->unit, out);
-  }
-};
-
-struct MultipleTimestampParsers {
-  std::vector<const TimestampParser*> parsers;
-  TimeUnit::type unit;
-
-  MultipleTimestampParsers(const std::vector<std::shared_ptr<TimestampParser>>& parsers,
-                           TimeUnit::type unit)
-      : unit(unit) {
-    for (const auto& parser : parsers) {
-      this->parsers.push_back(parser.get());
-    }
-  }
-
-  bool operator()(const char* s, size_t length, int64_t* out) const {
-    for (const auto& parser : this->parsers) {
-      if (parser->operator()(s, length, this->unit, out)) {
-        return true;
-      }
-    }
-    return false;
-  }
-};
-
-}  // namespace
-
-class TimestampConverter : public ConcreteConverter {
- public:
-  using ConcreteConverter::ConcreteConverter;
-
-  template <typename ConvertValue>
-  Status ConvertValuesWith(const BlockParser& parser, int32_t col_index,
-                           const ConvertValue& converter, TimestampBuilder* builder) {
-    using value_type = TimestampType::c_type;
-    auto visit = [&](const uint8_t* data, uint32_t size, bool quoted) -> Status {
-      value_type value = 0;
-      if (IsNull(data, size, quoted)) {
-        builder->UnsafeAppendNull();
-        return Status::OK();
-      }
-
-      if (ARROW_PREDICT_FALSE(
-              !converter(reinterpret_cast<const char*>(data), size, &value))) {
-        return GenericConversionError(type_, data, size);
-      }
-      builder->UnsafeAppend(value);
-      return Status::OK();
-    };
-    return parser.VisitColumn(col_index, visit);
-  }
-
-  Result<std::shared_ptr<Array>> Convert(const BlockParser& parser,
-                                         int32_t col_index) override {
-    TimestampBuilder builder(type_, pool_);
-    RETURN_NOT_OK(builder.Resize(parser.num_rows()));
-
-    TimeUnit::type unit = checked_cast<const TimestampType&>(*type_).unit();
-    if (options_.timestamp_parsers.size() == 0) {
-      // Default to ISO-8601
-      InlineISO8601 converter(unit);
-      RETURN_NOT_OK(ConvertValuesWith(parser, col_index, converter, &builder));
-    } else if (options_.timestamp_parsers.size() == 1) {
-      // Single user-supplied converter
-      SingleTimestampParser converter(*options_.timestamp_parsers[0], unit);
-      RETURN_NOT_OK(ConvertValuesWith(parser, col_index, converter, &builder));
-    } else {
-      // Multiple converters, must iterate for each value
-      MultipleTimestampParsers converter(options_.timestamp_parsers, unit);
-      RETURN_NOT_OK(ConvertValuesWith(parser, col_index, converter, &builder));
-    }
-
-    std::shared_ptr<Array> res;
-    RETURN_NOT_OK(builder.Finish(&res));
-    return res;
-  }
-};
-
-/////////////////////////////////////////////////////////////////////////
-// Concrete Converter for Decimals
-
-class DecimalConverter : public ConcreteConverter {
- public:
-  using ConcreteConverter::ConcreteConverter;
-
-  Result<std::shared_ptr<Array>> Convert(const BlockParser& parser,
-                                         int32_t col_index) override {
-    Decimal128Builder builder(type_, pool_);
-
-    auto visit = [&](const uint8_t* data, uint32_t size, bool quoted) -> Status {
-      if (IsNull(data, size, quoted)) {
-        builder.UnsafeAppendNull();
-        return Status::OK();
-      }
-      TrimWhiteSpace(&data, &size);
-      Decimal128 decimal;
-      int32_t precision, scale;
-      util::string_view view(reinterpret_cast<const char*>(data), size);
-      RETURN_NOT_OK(Decimal128::FromString(view, &decimal, &precision, &scale));
-      DecimalType& type = *internal::checked_cast<DecimalType*>(type_.get());
-      if (precision > type.precision()) {
-        return Status::Invalid("Error converting ", view, " to ", type_->ToString(),
-                               " precision not supported by type.");
-      }
-      if (scale != type.scale()) {
-        Decimal128 scaled;
-        ARROW_ASSIGN_OR_RAISE(scaled, decimal.Rescale(scale, type.scale()));
-        builder.UnsafeAppend(scaled);
-      } else {
-        builder.UnsafeAppend(decimal);
-      }
-      return Status::OK();
-    };
-    RETURN_NOT_OK(builder.Resize(parser.num_rows()));
-    RETURN_NOT_OK(parser.VisitColumn(col_index, visit));
-
-    std::shared_ptr<Array> res;
-    RETURN_NOT_OK(builder.Finish(&res));
-    return res;
-  }
-};
+}
 
 }  // namespace
 
@@ -541,47 +542,81 @@ DictionaryConverter::DictionaryConverter(const std::shared_ptr<DataType>& value_
 Result<std::shared_ptr<Converter>> Converter::Make(const std::shared_ptr<DataType>& type,
                                                    const ConvertOptions& options,
                                                    MemoryPool* pool) {
-  Converter* ptr;
+  std::shared_ptr<Converter> ptr;
 
   switch (type->id()) {
-#define CONVERTER_CASE(TYPE_ID, CONVERTER_TYPE)    \
-  case TYPE_ID:                                    \
-    ptr = new CONVERTER_TYPE(type, options, pool); \
+#define CONVERTER_CASE(TYPE_ID, CONVERTER_TYPE)         \
+  case TYPE_ID:                                         \
+    ptr.reset(new CONVERTER_TYPE(type, options, pool)); \
     break;
 
     CONVERTER_CASE(Type::NA, NullConverter)
-    CONVERTER_CASE(Type::INT8, NumericConverter<Int8Type>)
-    CONVERTER_CASE(Type::INT16, NumericConverter<Int16Type>)
-    CONVERTER_CASE(Type::INT32, NumericConverter<Int32Type>)
-    CONVERTER_CASE(Type::INT64, NumericConverter<Int64Type>)
-    CONVERTER_CASE(Type::UINT8, NumericConverter<UInt8Type>)
-    CONVERTER_CASE(Type::UINT16, NumericConverter<UInt16Type>)
-    CONVERTER_CASE(Type::UINT32, NumericConverter<UInt32Type>)
-    CONVERTER_CASE(Type::UINT64, NumericConverter<UInt64Type>)
-    CONVERTER_CASE(Type::FLOAT, NumericConverter<FloatType>)
-    CONVERTER_CASE(Type::DOUBLE, NumericConverter<DoubleType>)
-    CONVERTER_CASE(Type::BOOL, BooleanConverter)
-    CONVERTER_CASE(Type::TIMESTAMP, TimestampConverter)
-    CONVERTER_CASE(Type::BINARY, (BinaryConverter<BinaryType, false>))
-    CONVERTER_CASE(Type::LARGE_BINARY, (BinaryConverter<LargeBinaryType, false>))
-    CONVERTER_CASE(Type::FIXED_SIZE_BINARY, FixedSizeBinaryConverter)
-    CONVERTER_CASE(Type::DECIMAL, DecimalConverter)
+    CONVERTER_CASE(Type::INT8,
+                   (PrimitiveConverter<Int8Type, NumericValueDecoder<Int8Type>>))
+    CONVERTER_CASE(Type::INT16,
+                   (PrimitiveConverter<Int16Type, NumericValueDecoder<Int16Type>>))
+    CONVERTER_CASE(Type::INT32,
+                   (PrimitiveConverter<Int32Type, NumericValueDecoder<Int32Type>>))
+    CONVERTER_CASE(Type::INT64,
+                   (PrimitiveConverter<Int64Type, NumericValueDecoder<Int64Type>>))
+    CONVERTER_CASE(Type::UINT8,
+                   (PrimitiveConverter<UInt8Type, NumericValueDecoder<UInt8Type>>))
+    CONVERTER_CASE(Type::UINT16,
+                   (PrimitiveConverter<UInt16Type, NumericValueDecoder<UInt16Type>>))
+    CONVERTER_CASE(Type::UINT32,
+                   (PrimitiveConverter<UInt32Type, NumericValueDecoder<UInt32Type>>))
+    CONVERTER_CASE(Type::UINT64,
+                   (PrimitiveConverter<UInt64Type, NumericValueDecoder<UInt64Type>>))
+    CONVERTER_CASE(Type::FLOAT,
+                   (PrimitiveConverter<FloatType, NumericValueDecoder<FloatType>>))
+    CONVERTER_CASE(Type::DOUBLE,
+                   (PrimitiveConverter<DoubleType, NumericValueDecoder<DoubleType>>))
+    CONVERTER_CASE(Type::BOOL, (PrimitiveConverter<BooleanType, BooleanValueDecoder>))
+    CONVERTER_CASE(Type::BINARY,
+                   (PrimitiveConverter<BinaryType, BinaryValueDecoder<false>>))
+    CONVERTER_CASE(Type::LARGE_BINARY,
+                   (PrimitiveConverter<LargeBinaryType, BinaryValueDecoder<false>>))
+    CONVERTER_CASE(Type::FIXED_SIZE_BINARY,
+                   (PrimitiveConverter<FixedSizeBinaryType, FixedSizeBinaryValueDecoder>))
+    CONVERTER_CASE(Type::DECIMAL,
+                   (PrimitiveConverter<Decimal128Type, DecimalValueDecoder>))
+
+    case Type::TIMESTAMP:
+      ptr = MakeTimestampConverter<PrimitiveConverter>(type, options, pool);
+      break;
 
     case Type::STRING:
       if (options.check_utf8) {
-        ptr = new BinaryConverter<StringType, true>(type, options, pool);
+        ptr = std::make_shared<PrimitiveConverter<StringType, BinaryValueDecoder<true>>>(
+            type, options, pool);
       } else {
-        ptr = new BinaryConverter<StringType, false>(type, options, pool);
+        ptr = std::make_shared<PrimitiveConverter<StringType, BinaryValueDecoder<false>>>(
+            type, options, pool);
       }
       break;
 
     case Type::LARGE_STRING:
       if (options.check_utf8) {
-        ptr = new BinaryConverter<LargeStringType, true>(type, options, pool);
+        ptr = std::make_shared<
+            PrimitiveConverter<LargeStringType, BinaryValueDecoder<true>>>(type, options,
+                                                                           pool);
       } else {
-        ptr = new BinaryConverter<LargeStringType, false>(type, options, pool);
+        ptr = std::make_shared<
+            PrimitiveConverter<LargeStringType, BinaryValueDecoder<false>>>(type, options,
+                                                                            pool);
       }
       break;
+
+    case Type::DICTIONARY: {
+      const auto& dict_type = checked_cast<const DictionaryType&>(*type);
+      if (dict_type.index_type()->id() != Type::INT32) {
+        return Status::NotImplemented(
+            "CSV conversion to dictionary only supported for int32 indices, "
+            "got ",
+            type->ToString());
+      }
+      return DictionaryConverter::Make(dict_type.value_type(), options, pool);
+    }
 
     default: {
       return Status::NotImplemented("CSV conversion to ", type->ToString(),
@@ -590,29 +625,56 @@ Result<std::shared_ptr<Converter>> Converter::Make(const std::shared_ptr<DataTyp
 
 #undef CONVERTER_CASE
   }
-  std::shared_ptr<Converter> result(ptr);
-  RETURN_NOT_OK(result->Initialize());
-  return result;
+  RETURN_NOT_OK(ptr->Initialize());
+  return ptr;
 }
 
 Result<std::shared_ptr<DictionaryConverter>> DictionaryConverter::Make(
     const std::shared_ptr<DataType>& type, const ConvertOptions& options,
     MemoryPool* pool) {
-  DictionaryConverter* ptr;
+  std::shared_ptr<DictionaryConverter> ptr;
 
   switch (type->id()) {
-#define CONVERTER_CASE(TYPE_ID, CONVERTER_TYPE)    \
-  case TYPE_ID:                                    \
-    ptr = new CONVERTER_TYPE(type, options, pool); \
+#define CONVERTER_CASE(TYPE_ID, TYPE, VALUE_DECODER_TYPE)                             \
+  case TYPE_ID:                                                                       \
+    ptr.reset(                                                                        \
+        new TypedDictionaryConverter<TYPE, VALUE_DECODER_TYPE>(type, options, pool)); \
     break;
 
-    CONVERTER_CASE(Type::BINARY, (DictionaryBinaryConverter<BinaryType, false>))
+    // XXX Are 32-bit types useful?
+    CONVERTER_CASE(Type::INT32, Int32Type, NumericValueDecoder<Int32Type>)
+    CONVERTER_CASE(Type::INT64, Int64Type, NumericValueDecoder<Int64Type>)
+    CONVERTER_CASE(Type::UINT32, UInt32Type, NumericValueDecoder<UInt32Type>)
+    CONVERTER_CASE(Type::UINT64, UInt64Type, NumericValueDecoder<UInt64Type>)
+    CONVERTER_CASE(Type::FLOAT, FloatType, NumericValueDecoder<FloatType>)
+    CONVERTER_CASE(Type::DOUBLE, DoubleType, NumericValueDecoder<DoubleType>)
+    CONVERTER_CASE(Type::DECIMAL, Decimal128Type, DecimalValueDecoder)
+    CONVERTER_CASE(Type::FIXED_SIZE_BINARY, FixedSizeBinaryType,
+                   FixedSizeBinaryValueDecoder)
+    CONVERTER_CASE(Type::BINARY, BinaryType, BinaryValueDecoder<false>)
+    CONVERTER_CASE(Type::LARGE_BINARY, LargeBinaryType, BinaryValueDecoder<false>)
 
     case Type::STRING:
       if (options.check_utf8) {
-        ptr = new DictionaryBinaryConverter<StringType, true>(type, options, pool);
+        ptr = std::make_shared<
+            TypedDictionaryConverter<StringType, BinaryValueDecoder<true>>>(type, options,
+                                                                            pool);
       } else {
-        ptr = new DictionaryBinaryConverter<StringType, false>(type, options, pool);
+        ptr = std::make_shared<
+            TypedDictionaryConverter<StringType, BinaryValueDecoder<false>>>(
+            type, options, pool);
+      }
+      break;
+
+    case Type::LARGE_STRING:
+      if (options.check_utf8) {
+        ptr = std::make_shared<
+            TypedDictionaryConverter<LargeStringType, BinaryValueDecoder<true>>>(
+            type, options, pool);
+      } else {
+        ptr = std::make_shared<
+            TypedDictionaryConverter<LargeStringType, BinaryValueDecoder<false>>>(
+            type, options, pool);
       }
       break;
 
@@ -623,9 +685,8 @@ Result<std::shared_ptr<DictionaryConverter>> DictionaryConverter::Make(
 
 #undef CONVERTER_CASE
   }
-  std::shared_ptr<DictionaryConverter> result(ptr);
-  RETURN_NOT_OK(result->Initialize());
-  return result;
+  RETURN_NOT_OK(ptr->Initialize());
+  return ptr;
 }
 
 }  // namespace csv

@@ -250,7 +250,8 @@ TEST(NullConversion, Basics) {
   std::shared_ptr<Array> array;
   std::shared_ptr<DataType> type = null();
 
-  ASSERT_OK_AND_ASSIGN(converter, Converter::Make(type, ConvertOptions::Defaults()));
+  auto options = ConvertOptions::Defaults();
+  ASSERT_OK_AND_ASSIGN(converter, Converter::Make(type, options));
 
   MakeCSVParser({"NA,z\n", ",0\n"}, &parser);
   ASSERT_OK_AND_ASSIGN(array, converter->Convert(*parser, 0));
@@ -452,7 +453,45 @@ TEST(DecimalConversion, OverflowFails) {
 // DictionaryConverter tests
 
 template <typename T>
-class TestDictConverter : public ::testing::Test {
+class TestNumericDictConverter : public ::testing::Test {
+ public:
+  std::shared_ptr<DataType> type() const { return TypeTraits<T>::type_singleton(); }
+};
+
+using NumericDictConversionTypes =
+    ::testing::Types<Int32Type, UInt32Type, Int64Type, UInt64Type, FloatType, DoubleType>;
+
+TYPED_TEST_SUITE(TestNumericDictConverter, NumericDictConversionTypes);
+
+TYPED_TEST(TestNumericDictConverter, Basics) {
+  auto expected_dict = ArrayFromJSON(this->type(), "[4, 5]");
+  auto expected_indices = ArrayFromJSON(int32(), "[0, 1, 0, 0]");
+
+  AssertDictConversion("4\n5\n4\n4\n", expected_indices, expected_dict);
+}
+
+TYPED_TEST(TestNumericDictConverter, Nulls) {
+  auto expected_dict = ArrayFromJSON(this->type(), "[4, 5]");
+  auto expected_indices = ArrayFromJSON(int32(), "[0, 1, null, 0]");
+
+  AssertDictConversion("4\n5\nN/A\n4\n", expected_indices, expected_dict);
+}
+
+TYPED_TEST(TestNumericDictConverter, Errors) {
+  auto value_type = this->type();
+  ASSERT_RAISES(Invalid, DictConversion(value_type, "xxx\n"));
+
+  // Overflow
+  if (is_integer(value_type->id())) {
+    ASSERT_RAISES(Invalid, DictConversion(value_type, "99999999999999999999999\n"));
+  }
+  if (is_unsigned_integer(value_type->id())) {
+    ASSERT_RAISES(Invalid, DictConversion(value_type, "-1\n"));
+  }
+}
+
+template <typename T>
+class TestStringDictConverter : public ::testing::Test {
  public:
   std::shared_ptr<DataType> type() const { return TypeTraits<T>::type_singleton(); }
 
@@ -461,18 +500,19 @@ class TestDictConverter : public ::testing::Test {
   }
 };
 
-using DictConversionTypes = ::testing::Types<BinaryType, StringType>;
+using StringDictConversionTypes =
+    ::testing::Types<BinaryType, LargeBinaryType, StringType, LargeStringType>;
 
-TYPED_TEST_SUITE(TestDictConverter, DictConversionTypes);
+TYPED_TEST_SUITE(TestStringDictConverter, StringDictConversionTypes);
 
-TYPED_TEST(TestDictConverter, Basics) {
+TYPED_TEST(TestStringDictConverter, Basics) {
   auto expected_dict = ArrayFromJSON(this->type(), R"(["ab", "cdé", ""])");
   auto expected_indices = ArrayFromJSON(int32(), "[0, 1, 2, 0]");
 
   AssertDictConversion("ab\ncdé\n\nab\n", expected_indices, expected_dict);
 }
 
-TYPED_TEST(TestDictConverter, Nulls) {
+TYPED_TEST(TestStringDictConverter, Nulls) {
   auto expected_dict = ArrayFromJSON(this->type(), R"(["ab", "N/A", ""])");
   auto expected_indices = ArrayFromJSON(int32(), "[0, 1, 2, 0]");
 
@@ -485,7 +525,7 @@ TYPED_TEST(TestDictConverter, Nulls) {
   AssertDictConversion("ab\nN/A\n\nab\n", expected_indices, expected_dict, -1, options);
 }
 
-TYPED_TEST(TestDictConverter, NonUTF8) {
+TYPED_TEST(TestStringDictConverter, NonUTF8) {
   auto expected_indices = ArrayFromJSON(int32(), "[0, 1, 2, 0]");
   std::shared_ptr<Array> expected_dict;
   ArrayFromVector<TypeParam, std::string>({"ab", "cd\xff", ""}, &expected_dict);
@@ -503,13 +543,46 @@ TYPED_TEST(TestDictConverter, NonUTF8) {
   }
 }
 
-TYPED_TEST(TestDictConverter, MaxCardinality) {
+TYPED_TEST(TestStringDictConverter, MaxCardinality) {
   auto expected_dict = ArrayFromJSON(this->type(), R"(["ab", "cd", "ef"])");
   auto expected_indices = ArrayFromJSON(int32(), "[0, 1, 2, 1]");
   std::string csv_string = "ab\ncd\nef\ncd\n";
 
   AssertDictConversion(csv_string, expected_indices, expected_dict, 3);
   ASSERT_RAISES(IndexError, DictConversion(this->type(), csv_string, 2));
+}
+
+TEST(TestFixedSizeBinaryDictConverter, Basics) {
+  auto value_type = fixed_size_binary(3);
+
+  auto expected_dict = ArrayFromJSON(value_type, R"(["abc", "def"])");
+  auto expected_indices = ArrayFromJSON(int32(), "[0, 1, 0, 1]");
+
+  AssertDictConversion("abc\ndef\nabc\ndef\n", expected_indices, expected_dict);
+}
+
+TEST(TestFixedSizeBinaryDictConverter, Errors) {
+  auto value_type = fixed_size_binary(3);
+
+  // Invalid string size
+  ASSERT_RAISES(Invalid, DictConversion(value_type, "abc\nde\n"));
+}
+
+TEST(TestDecimalDictConverter, Basics) {
+  auto value_type = decimal(9, 3);
+
+  auto expected_dict = ArrayFromJSON(value_type, R"(["1.234", "456.789"])");
+  auto expected_indices = ArrayFromJSON(int32(), "[0, 1, null, 1]");
+
+  AssertDictConversion("1.234\n456.789\nN/A\n4.56789e2\n", expected_indices,
+                       expected_dict);
+}
+
+TEST(TestDecimalDictConverter, Errors) {
+  auto value_type = decimal(9, 3);
+
+  // Overflow
+  ASSERT_RAISES(Invalid, DictConversion(value_type, "1e10\n"));
 }
 
 }  // namespace csv

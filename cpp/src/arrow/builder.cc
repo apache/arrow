@@ -43,6 +43,12 @@ struct DictionaryBuilderCase {
   Status Visit(const NullType&) { return CreateFor<NullType>(); }
   Status Visit(const BinaryType&) { return Create<BinaryDictionaryBuilder>(); }
   Status Visit(const StringType&) { return Create<StringDictionaryBuilder>(); }
+  Status Visit(const LargeBinaryType&) {
+    return Create<DictionaryBuilder<LargeBinaryType>>();
+  }
+  Status Visit(const LargeStringType&) {
+    return Create<DictionaryBuilder<LargeStringType>>();
+  }
   Status Visit(const FixedSizeBinaryType&) { return CreateFor<FixedSizeBinaryType>(); }
 
   Status Visit(const DataType& value_type) { return NotImplemented(value_type); }
