@@ -419,7 +419,7 @@ impl<T: ArrowPrimitiveType> PrimitiveArrayOps<T> for PrimitiveArray<T> {
 
     fn value(&self, i: usize) -> T::Native {
         let offset = i + self.offset();
-        T::index(self.raw_values.get(), offset)
+        unsafe { T::index(self.raw_values.get(), offset) }
     }
 }
 

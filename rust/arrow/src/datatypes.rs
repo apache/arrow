@@ -223,8 +223,11 @@ pub trait ArrowPrimitiveType: 'static {
 
     /// Returns a value offset from the given pointer by the given index. The default
     /// implementation (used for all non-boolean types) is simply equivalent to pointer-arithmetic.
-    fn index(raw_ptr: *const Self::Native, i: usize) -> Self::Native {
-        unsafe { *(raw_ptr.add(i)) }
+    /// # Safety
+    /// Just like array-access in C: the raw_ptr must be the start of a valid array, and the index
+    /// must be less than the size of the array.
+    unsafe fn index(raw_ptr: *const Self::Native, i: usize) -> Self::Native {
+        *(raw_ptr.add(i))
     }
 }
 
@@ -374,8 +377,11 @@ impl ArrowPrimitiveType for BooleanType {
         1
     }
 
-    fn index(raw_ptr: *const Self::Native, i: usize) -> Self::Native {
-        unsafe { bit_util::get_bit_raw(raw_ptr as *const u8, i) }
+    /// # Safety
+    /// The pointer must be part of a bit-packed boolean array, and the index must be less than the
+    /// size of the array.
+    unsafe fn index(raw_ptr: *const Self::Native, i: usize) -> Self::Native {
+        bit_util::get_bit_raw(raw_ptr as *const u8, i)
     }
 }
 
