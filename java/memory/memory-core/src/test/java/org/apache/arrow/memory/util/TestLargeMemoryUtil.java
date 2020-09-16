@@ -52,7 +52,7 @@ public class TestLargeMemoryUtil {
     return (int) method.invoke(null, value);
   }
 
-  @Test(expected = ArithmeticException.class)
+  @Test
   public void testEnableLargeMemoryUtilCheck() throws Exception {
     String savedNewProperty = System.getProperty("arrow.enable_unsafe_memory_access");
     System.setProperty("arrow.enable_unsafe_memory_access", "false");
@@ -64,7 +64,10 @@ public class TestLargeMemoryUtil {
         Assert.fail();
       }
     } catch (InvocationTargetException e) {
-      throw (Exception) e.getCause();
+      Throwable cause = e.getCause();
+      if (!(cause instanceof ArithmeticException)) {
+        throw (Exception) cause;
+      }
     } finally {
       // restore system property
       if (savedNewProperty != null) {
