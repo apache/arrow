@@ -24,7 +24,8 @@ namespace arrow {
 namespace json {
 
 bool ObjectParser::Parse(arrow::util::string_view json) {
-  _document.Parse(json.data());
+  _document.Parse(reinterpret_cast<const rj::Document::Ch*>(json.data()),
+                  static_cast<size_t>(json.size()));
 
   if (_document.HasParseError() || !_document.IsObject()) {
     return false;
