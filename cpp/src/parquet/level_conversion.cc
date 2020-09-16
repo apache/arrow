@@ -36,7 +36,7 @@ namespace {
 
 using ::arrow::internal::CpuInfo;
 
-#if !defined(ARROW_HAVE_RUNTIME_BMI2)
+#if !ARROW_LITTLE_ENDIAN
 void DefLevelsToBitmapScalar(const int16_t* def_levels, int64_t num_def_levels,
                              LevelInfo level_info, ValidityBitmapInputOutput* output) {
   ::arrow::internal::FirstTimeBitmapWriter valid_bits_writer(
