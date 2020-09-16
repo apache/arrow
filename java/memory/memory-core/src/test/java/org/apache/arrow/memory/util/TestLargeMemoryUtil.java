@@ -23,6 +23,7 @@ import java.net.URLClassLoader;
 
 import org.junit.Assert;
 import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
 
 public class TestLargeMemoryUtil {
 
@@ -52,6 +53,17 @@ public class TestLargeMemoryUtil {
     return (int) method.invoke(null, value);
   }
 
+  private void checkExpectedOverflow(ClassLoader classLoader, long value) throws Exception {
+    try {
+      checkedCastToInt(classLoader, value);
+      Assert.fail();
+    } catch (InvocationTargetException e) {
+      Assertions.assertThrows(ArithmeticException.class, () -> {
+        throw e.getCause();
+      }, "integer overflow");
+    }
+  }
+
   @Test
   public void testEnableLargeMemoryUtilCheck() throws Exception {
     String savedNewProperty = System.getProperty("arrow.enable_unsafe_memory_access");
@@ -60,13 +72,8 @@ public class TestLargeMemoryUtil {
       ClassLoader classLoader = copyClassLoader();
       if (classLoader != null) {
         Assert.assertEquals(Integer.MAX_VALUE, checkedCastToInt(classLoader, Integer.MAX_VALUE));
-        checkedCastToInt(classLoader, Integer.MAX_VALUE + 1L);
-        Assert.fail();
-      }
-    } catch (InvocationTargetException e) {
-      Throwable cause = e.getCause();
-      if (!(cause instanceof ArithmeticException)) {
-        throw (Exception) cause;
+        checkExpectedOverflow(classLoader, Integer.MAX_VALUE + 1L);
+        checkExpectedOverflow(classLoader, Integer.MIN_VALUE - 1L);
       }
     } finally {
       // restore system property
