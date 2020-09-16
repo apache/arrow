@@ -122,11 +122,29 @@ FileSelector$create <- function(base_dir, allow_not_found = FALSE, recursive = F
 #'
 #' @section Factory:
 #'
-#' The `$create()` factory methods instantiate the `FileSystem` object and
-#' take the following arguments, depending on the subclass:
+#' `LocalFileSystem$create()` returns the object and takes no arguments.
 #'
-#' - no argument is needed for instantiating a `LocalFileSystem`
-#' - `base_path` and `base_fs` for instantiating a `SubTreeFileSystem`
+#' `SubTreeFileSystem$create()` takes the following arguments:
+#'
+#' - `base_path`, a string path
+#' - `base_fs`, a `FileSystem` object
+#'
+#' `S3FileSystem$create()` optionally takes arguments:
+#'
+#' - `anonymous`: logical, default `FALSE`. If true, will not attempt to look up
+#'    credentials using standard AWS configuration methods.
+#' - `access_key`, `secret_key`: authentication credentials. If one is provided,
+#'    the other must be as well. If both are provided, they will override any
+#'    AWS configuration set at the environment level.
+#' - `session_token`: optional string for authentication along with
+#'    `access_key` and `secret_key`
+#' - `region`: AWS region to connect to (default "us-east-1")
+#' - `endpoint_override`: If non-empty, override region with a connect string
+#'    such as "localhost:9000". This is useful for connecting to file systems
+#'    that emulate S3.
+#' - `scheme`: S3 connection transport (default "https")
+#' - `background_writes`: logical, whether `OutputStream` writes will be issued
+#'    in the background, without blocking (default `TRUE`)
 #'
 #' @section Methods:
 #'
@@ -281,9 +299,29 @@ LocalFileSystem$create <- function() {
 #' @rdname FileSystem
 #' @export
 S3FileSystem <- R6Class("S3FileSystem", inherit = FileSystem)
-S3FileSystem$create <- function(...) {
+S3FileSystem$create <- function(anonymous = FALSE, ...) {
+  args <- list(...)
+  if (anonymous) {
+    invalid_args <- intersect(c("access_key", "secret_key", "session_token"), names(args))
+    if (length(invalid_args)) {
+      stop("Cannot specify ", oxford_paste(invalid_args), " when anonymous = TRUE", call. = FALSE)
+    }
+  } else {
+    keys_present <- length(intersect(c("access_key", "secret_key"), names(args)))
+    if (keys_present == 1) {
+      stop("Key authentication requires both access_key and secret_key", call. = FALSE)
+    }
+    if ("session_token" %in% names(args) && keys_present != 2) {
+      stop(
+        "In order to initialize a session with temporary credentials, ",
+        "both secret_key and access_key must be provided ",
+        "in addition to session_token.",
+        call. = FALSE
+      )
+    }
+  }
   fs___EnsureS3Initialized()
-  shared_ptr(S3FileSystem, fs___S3FileSystem__create(list(...)))
+  shared_ptr(S3FileSystem, fs___S3FileSystem__create(anonymous, args))
 }
 
 arrow_with_s3 <- function() {

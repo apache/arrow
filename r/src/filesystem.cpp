@@ -256,24 +256,28 @@ void fs___CopyFiles(const std::shared_ptr<fs::FileSystem>& src_fs,
 void fs___EnsureS3Initialized() { StopIfNotOk(fs::EnsureS3Initialized()); }
 
 // [[s3::export]]
-std::shared_ptr<fs::S3FileSystem> fs___S3FileSystem__create(cpp11::list options) {
-  auto s3_opts = fs::S3Options::Defaults();
-
-  // Handle auth keys
-  SEXP access_key = options["access_key"];
-  SEXP secret_key = options["secret_key"];
-  SEXP session_token = options["session_token"];
-  if (!Rf_isNull(access_key) && !Rf_isNull(secret_key)) {
-    std::string token = "";
-    if (!Rf_isNull(session_token)) {
-      token = cpp11::as_cpp<std::string>(session_token);
+std::shared_ptr<fs::S3FileSystem> fs___S3FileSystem__create(bool anonymous,
+                                                            cpp11::list options) {
+  fs::S3Options s3_opts;
+  // Handle auth (anonymous, keys, default)
+  // (validation/internal coherence handled in R)
+  if (anonymous) {
+    s3_opts = fs::S3Options::Anonymous();
+  } else {
+    SEXP access_key = options["access_key"];
+    SEXP secret_key = options["secret_key"];
+    if (!Rf_isNull(access_key) && !Rf_isNull(secret_key)) {
+      std::string token = "";
+      SEXP session_token = options["session_token"];
+      if (!Rf_isNull(session_token)) {
+        token = cpp11::as_cpp<std::string>(session_token);
+      }
+      s3_opts =
+          fs::S3Options::FromAccessKey(cpp11::as_cpp<std::string>(access_key),
+                                       cpp11::as_cpp<std::string>(secret_key), token);
+    } else {
+      s3_opts = fs::S3Options::Defaults();
     }
-    s3_opts.ConfigureAccessKey(cpp11::as_cpp<std::string>(access_key),
-                               cpp11::as_cpp<std::string>(secret_key), token);
-  } else if (!Rf_isNull(access_key)) {
-    cpp11::stop("If you provide an access_key, you must also provide a secret_key");
-  } else if (!Rf_isNull(secret_key)) {
-    cpp11::stop("If you provide a secret_key, you must also provide an access_key");
   }
   // TODO: implement ARN/STS
 

@@ -60,4 +60,27 @@ if (run_these) {
     write_parquet(example_data, minio_uri(now, "test.parquet"))
     expect_identical(read_parquet(minio_uri(now, "test.parquet")), example_data)
   })
+
+  test_that("S3FileSystem input validation", {
+    expect_error(
+      S3FileSystem$create(access_key = "foo"),
+      "Key authentication requires both access_key and secret_key"
+    )
+    expect_error(
+      S3FileSystem$create(secret_key = "foo"),
+      "Key authentication requires both access_key and secret_key"
+    )
+    expect_error(
+      S3FileSystem$create(session_token = "foo"),
+      paste0(
+        "In order to initialize a session with temporary credentials, ",
+        "both secret_key and access_key must be provided ",
+        "in addition to session_token."
+      )
+    )
+    expect_error(
+      S3FileSystem$create(access_key = "foo", secret_key = "asdf", anonymous = TRUE),
+      'Cannot specify "access_key" and "secret_key" when anonymous = TRUE'
+    )
+  })
 }

@@ -936,8 +936,8 @@ fs___EnsureS3Initialized <- function(){
     invisible(.Call(`_arrow_fs___EnsureS3Initialized` ))
 }
 
-fs___S3FileSystem__create <- function(options){
-    .Call(`_arrow_fs___S3FileSystem__create` , options)
+fs___S3FileSystem__create <- function(anonymous, options){
+    .Call(`_arrow_fs___S3FileSystem__create` , anonymous, options)
 }
 
 io___Readable__Read <- function(x, nbytes){
