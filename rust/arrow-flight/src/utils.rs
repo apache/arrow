@@ -29,12 +29,13 @@ use arrow::record_batch::RecordBatch;
 /// Convert a `RecordBatch` to `FlightData` by getting the header and body as bytes
 impl From<&RecordBatch> for FlightData {
     fn from(batch: &RecordBatch) -> Self {
-        let (header, body) = writer::record_batch_to_bytes(batch);
+        let options = writer::IpcWriteOptions::default();
+        let data = writer::record_batch_to_bytes(batch, &options);
         Self {
             flight_descriptor: None,
             app_metadata: vec![],
-            data_header: header,
-            data_body: body,
+            data_header: data.ipc_message,
+            data_body: data.arrow_data,
         }
     }
 }
@@ -42,8 +43,9 @@ impl From<&RecordBatch> for FlightData {
 /// Convert a `Schema` to `SchemaResult` by converting to an IPC message
 impl From<&Schema> for SchemaResult {
     fn from(schema: &Schema) -> Self {
+        let options = writer::IpcWriteOptions::default();
         Self {
-            schema: writer::schema_to_bytes(schema),
+            schema: writer::schema_to_bytes(schema, &options).ipc_message,
         }
     }
 }
@@ -51,11 +53,12 @@ impl From<&Schema> for SchemaResult {
 /// Convert a `Schema` to `FlightData` by converting to an IPC message
 impl From<&Schema> for FlightData {
     fn from(schema: &Schema) -> Self {
-        let schema = writer::schema_to_bytes(schema);
+        let options = writer::IpcWriteOptions::default();
+        let schema = writer::schema_to_bytes(schema, &options);
         Self {
             flight_descriptor: None,
             app_metadata: vec![],
-            data_header: schema,
+            data_header: schema.ipc_message,
             data_body: vec![],
         }
     }
