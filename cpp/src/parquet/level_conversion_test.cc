@@ -139,37 +139,59 @@ TEST(DefLevelsToBitmap, WithRepetitionLevelFiltersOutEmptyListValues) {
   EXPECT_EQ(io.values_read, 4);  // value should get overwritten.
 }
 
-class MultiLevelTestData {
+struct MultiLevelTestData {
  public:
+  std::vector<int16_t> def_levels;
+  std::vector<int16_t> rep_levels;
+};
+
+MultiLevelTestData TriplyNestedList() {
   // Triply nested list values borrow from write_path
   // [null, [[1 , null, 3], []], []],
   // [[[]], [[], [1, 2]], null, [[3]]],
   // null,
   // []
-  std::vector<int16_t> def_levels_{2, 7, 6, 7, 5, 3,  // first row
-                                   5, 5, 7, 7, 2, 7,  // second row
-                                   0,                 // third row
-                                   1};
-  std::vector<int16_t> rep_levels_{0, 1, 3, 3, 2, 1,  // first row
-                                   0, 1, 2, 3, 1, 1,  // second row
-                                   0, 0};
-};
+  return MultiLevelTestData{
+      /*def_levels=*/std::vector<int16_t>{2, 7, 6, 7, 5, 3,  // first row
+                                          5, 5, 7, 7, 2, 7,  // second row
+                                          0,                 // third row
+                                          1},
+      /*rep_levels=*/std::vector<int16_t>{0, 1, 3, 3, 2, 1,  // first row
+                                          0, 1, 2, 3, 1, 1,  // second row
+                                          0, 0}};
+}
 
 template <typename ConverterType>
 class NestedListTest : public testing::Test {
  public:
-  MultiLevelTestData test_data_;
+  void InitForLength(int length) {
+    this->validity_bits_.clear();
+    this->validity_bits_.insert(this->validity_bits_.end(), length, 0);
+    validity_io_.valid_bits = validity_bits_.data();
+    validity_io_.values_read_upper_bound = length;
+    offsets_.clear();
+    offsets_.insert(offsets_.end(), length + 1, 0);
+  }
+
+  typename ConverterType::OffsetsType* Run(const MultiLevelTestData& test_data,
+                                           LevelInfo level_info) {
+    return this->converter_.ComputeListInfo(test_data, level_info, &validity_io_,
+                                            offsets_.data());
+  }
+
   ConverterType converter_;
+  ValidityBitmapInputOutput validity_io_;
+  std::vector<uint8_t> validity_bits_;
+  std::vector<typename ConverterType::OffsetsType> offsets_;
 };
 
-template <typename ListType>
+template <typename IndexType>
 struct RepDefLevelConverter {
-  using ListLengthType = ListType;
-  ListLengthType* ComputeListInfo(const MultiLevelTestData& test_data,
-                                  LevelInfo level_info, ValidityBitmapInputOutput* output,
-                                  ListType* offsets) {
-    DefRepLevelsToList(test_data.def_levels_.data(), test_data.rep_levels_.data(),
-                       test_data.def_levels_.size(), level_info, output, offsets);
+  using OffsetsType = IndexType;
+  OffsetsType* ComputeListInfo(const MultiLevelTestData& test_data, LevelInfo level_info,
+                               ValidityBitmapInputOutput* output, IndexType* offsets) {
+    DefRepLevelsToList(test_data.def_levels.data(), test_data.rep_levels.data(),
+                       test_data.def_levels.size(), level_info, output, offsets);
     return offsets + output->values_read;
   }
 };
@@ -189,20 +211,16 @@ TYPED_TEST(NestedListTest, OuterMostTest) {
   level_info.rep_level = 1;
   level_info.def_level = 2;
 
-  std::vector<typename TypeParam::ListLengthType> offsets(5, 0);
-  uint64_t validity_output;
-  ValidityBitmapInputOutput validity_io;
-  validity_io.values_read_upper_bound = 4;
-  validity_io.valid_bits = reinterpret_cast<uint8_t*>(&validity_output);
-  typename TypeParam::ListLengthType* next_position = this->converter_.ComputeListInfo(
-      this->test_data_, level_info, &validity_io, offsets.data());
+  this->InitForLength(4);
+  typename TypeParam::OffsetsType* next_position =
+      this->Run(TriplyNestedList(), level_info);
 
-  EXPECT_EQ(next_position, offsets.data() + 4);
-  EXPECT_THAT(offsets, testing::ElementsAre(0, 3, 7, 7, 7));
+  EXPECT_EQ(next_position, this->offsets_.data() + 4);
+  EXPECT_THAT(this->offsets_, testing::ElementsAre(0, 3, 7, 7, 7));
 
-  EXPECT_EQ(validity_io.values_read, 4);
-  EXPECT_EQ(validity_io.null_count, 1);
-  EXPECT_EQ(BitmapToString(validity_io.valid_bits, /*length=*/4), "1101");
+  EXPECT_EQ(this->validity_io_.values_read, 4);
+  EXPECT_EQ(this->validity_io_.null_count, 1);
+  EXPECT_EQ(BitmapToString(this->validity_io_.valid_bits, /*length=*/4), "1101");
 }
 
 TYPED_TEST(NestedListTest, MiddleListTest) {
@@ -219,20 +237,16 @@ TYPED_TEST(NestedListTest, MiddleListTest) {
   level_info.def_level = 4;
   level_info.repeated_ancestor_def_level = 2;
 
-  std::vector<typename TypeParam::ListLengthType> offsets(8, 0);
-  uint64_t validity_output;
-  ValidityBitmapInputOutput validity_io;
-  validity_io.values_read_upper_bound = 7;
-  validity_io.valid_bits = reinterpret_cast<uint8_t*>(&validity_output);
-  typename TypeParam::ListLengthType* next_position = this->converter_.ComputeListInfo(
-      this->test_data_, level_info, &validity_io, offsets.data());
+  this->InitForLength(7);
+  typename TypeParam::OffsetsType* next_position =
+      this->Run(TriplyNestedList(), level_info);
 
-  EXPECT_EQ(next_position, offsets.data() + 7);
-  EXPECT_THAT(offsets, testing::ElementsAre(0, 0, 2, 2, 3, 5, 5, 6));
+  EXPECT_EQ(next_position, this->offsets_.data() + 7);
+  EXPECT_THAT(this->offsets_, testing::ElementsAre(0, 0, 2, 2, 3, 5, 5, 6));
 
-  EXPECT_EQ(validity_io.values_read, 7);
-  EXPECT_EQ(validity_io.null_count, 2);
-  EXPECT_EQ(BitmapToString(validity_io.valid_bits, /*length=*/7), "0111101");
+  EXPECT_EQ(this->validity_io_.values_read, 7);
+  EXPECT_EQ(this->validity_io_.null_count, 2);
+  EXPECT_EQ(BitmapToString(this->validity_io_.valid_bits, /*length=*/7), "0111101");
 }
 
 TYPED_TEST(NestedListTest, InnerMostListTest) {
@@ -249,20 +263,16 @@ TYPED_TEST(NestedListTest, InnerMostListTest) {
   level_info.def_level = 6;
   level_info.repeated_ancestor_def_level = 4;
 
-  std::vector<typename TypeParam::ListLengthType> offsets(7, 0);
-  uint64_t validity_output;
-  ValidityBitmapInputOutput validity_io;
-  validity_io.values_read_upper_bound = 6;
-  validity_io.valid_bits = reinterpret_cast<uint8_t*>(&validity_output);
-  typename TypeParam::ListLengthType* next_position = this->converter_.ComputeListInfo(
-      this->test_data_, level_info, &validity_io, offsets.data());
+  this->InitForLength(6);
+  typename TypeParam::OffsetsType* next_position =
+      this->Run(TriplyNestedList(), level_info);
 
-  EXPECT_EQ(next_position, offsets.data() + 6);
-  EXPECT_THAT(offsets, testing::ElementsAre(0, 3, 3, 3, 3, 5, 6));
+  EXPECT_EQ(next_position, this->offsets_.data() + 6);
+  EXPECT_THAT(this->offsets_, testing::ElementsAre(0, 3, 3, 3, 3, 5, 6));
 
-  EXPECT_EQ(validity_io.values_read, 6);
-  EXPECT_EQ(validity_io.null_count, 0);
-  EXPECT_EQ(BitmapToString(validity_io.valid_bits, /*length=*/6), "111111");
+  EXPECT_EQ(this->validity_io_.values_read, 6);
+  EXPECT_EQ(this->validity_io_.null_count, 0);
+  EXPECT_EQ(BitmapToString(this->validity_io_.valid_bits, /*length=*/6), "111111");
 }
 
 TYPED_TEST(NestedListTest, SimpleLongList) {
@@ -271,33 +281,28 @@ TYPED_TEST(NestedListTest, SimpleLongList) {
   level_info.def_level = 2;
   level_info.repeated_ancestor_def_level = 0;
 
+  MultiLevelTestData test_data;
   // No empty lists.
-  this->test_data_.def_levels_ = std::vector<int16_t>(65 * 9, 2);
-  this->test_data_.rep_levels_.clear();
+  test_data.def_levels = std::vector<int16_t>(65 * 9, 2);
   for (int x = 0; x < 65; x++) {
-    this->test_data_.rep_levels_.push_back(0);
-    this->test_data_.rep_levels_.insert(this->test_data_.rep_levels_.end(), 8,
-                                        /*rep_level=*/1);
+    test_data.rep_levels.push_back(0);
+    test_data.rep_levels.insert(test_data.rep_levels.end(), 8,
+                                /*rep_level=*/1);
   }
 
-  std::vector<typename TypeParam::ListLengthType> offsets(66, 0);
-  std::vector<typename TypeParam::ListLengthType> expected_offsets(66, 0);
+  std::vector<typename TypeParam::OffsetsType> expected_offsets(66, 0);
   for (size_t x = 1; x < expected_offsets.size(); x++) {
     expected_offsets[x] = x * 9;
   }
-  std::vector<uint8_t> validity_output(9, 0);
-  ValidityBitmapInputOutput validity_io;
-  validity_io.values_read_upper_bound = 65;
-  validity_io.valid_bits = validity_output.data();
-  typename TypeParam::ListLengthType* next_position = this->converter_.ComputeListInfo(
-      this->test_data_, level_info, &validity_io, offsets.data());
+  this->InitForLength(65);
+  typename TypeParam::OffsetsType* next_position = this->Run(test_data, level_info);
 
-  EXPECT_EQ(next_position, offsets.data() + 65);
-  EXPECT_THAT(offsets, testing::ElementsAreArray(expected_offsets));
+  EXPECT_EQ(next_position, this->offsets_.data() + 65);
+  EXPECT_THAT(this->offsets_, testing::ElementsAreArray(expected_offsets));
 
-  EXPECT_EQ(validity_io.values_read, 65);
-  EXPECT_EQ(validity_io.null_count, 0);
-  EXPECT_EQ(BitmapToString(validity_io.valid_bits, /*length=*/65),
+  EXPECT_EQ(this->validity_io_.values_read, 65);
+  EXPECT_EQ(this->validity_io_.null_count, 0);
+  EXPECT_EQ(BitmapToString(this->validity_io_.valid_bits, /*length=*/65),
             "11111111 "
             "11111111 "
             "11111111 "
@@ -315,35 +320,28 @@ TYPED_TEST(NestedListTest, TestOverflow) {
   level_info.def_level = 2;
   level_info.repeated_ancestor_def_level = 0;
 
-  // No empty lists.
-  this->test_data_.def_levels_ = std::vector<int16_t>{2};
-  this->test_data_.rep_levels_ = std::vector<int16_t>{0};
+  MultiLevelTestData test_data;
+  test_data.def_levels = std::vector<int16_t>{2};
+  test_data.rep_levels = std::vector<int16_t>{0};
 
+  this->InitForLength(2);
   // Offsets is populated as the cumulative sum of all elements,
   // so populating the offsets[0] with max-value impacts the
   // other values populated.
-  std::vector<typename TypeParam::ListLengthType> offsets(
-      2, std::numeric_limits<typename TypeParam::ListLengthType>::max());
+  this->offsets_[0] = std::numeric_limits<typename TypeParam::OffsetsType>::max();
+  this->offsets_[1] = std::numeric_limits<typename TypeParam::OffsetsType>::max();
+  ASSERT_THROW(this->Run(test_data, level_info), ParquetException);
 
-  std::vector<uint8_t> validity_output(1, 0);
-  ValidityBitmapInputOutput validity_io;
-  validity_io.values_read_upper_bound = 1;
-  validity_io.valid_bits = validity_output.data();
-  ASSERT_THROW(this->converter_.ComputeListInfo(this->test_data_, level_info,
-                                                &validity_io, offsets.data()),
-               ParquetException);
+  ASSERT_THROW(this->Run(test_data, level_info), ParquetException);
 
   // Same thing should happen if the list already existed.
-  this->test_data_.rep_levels_ = std::vector<int16_t>{1};
-  ASSERT_THROW(this->converter_.ComputeListInfo(this->test_data_, level_info,
-                                                &validity_io, offsets.data()),
-               ParquetException);
+  test_data.rep_levels = std::vector<int16_t>{1};
+  ASSERT_THROW(this->Run(test_data, level_info), ParquetException);
 
   // Should be OK because it shouldn't increment.
-  this->test_data_.def_levels_ = std::vector<int16_t>{0};
-  this->test_data_.rep_levels_ = std::vector<int16_t>{0};
-  this->converter_.ComputeListInfo(this->test_data_, level_info, &validity_io,
-                                   offsets.data());
+  test_data.def_levels = std::vector<int16_t>{0};
+  test_data.rep_levels = std::vector<int16_t>{0};
+  this->Run(test_data, level_info);
 }
 
 TEST(TestOnlyRunBasedExtract, BasicTest) {
