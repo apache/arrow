@@ -1294,8 +1294,8 @@ impl PhysicalExpr for NotExpr {
         return Ok(DataType::Boolean);
     }
 
-    fn nullable(&self, _input_schema: &Schema) -> Result<bool> {
-        Ok(true)
+    fn nullable(&self, input_schema: &Schema) -> Result<bool> {
+        self.arg.nullable(input_schema)
     }
 
     fn evaluate(&self, batch: &RecordBatch) -> Result<ArrayRef> {
