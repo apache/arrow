@@ -49,7 +49,7 @@
 //! ```
 //! extern crate arrow;
 //!
-//! use arrow::array::Int16Array;
+//! use arrow::array::{Int16Array, PrimitiveArrayOps};
 //!
 //! // Create a new builder with a capacity of 100
 //! let mut builder = Int16Array::builder(100);
