@@ -43,8 +43,8 @@ public class TestLargeMemoryUtil {
 
   /**
    * Use the checkedCastToInt method from the current classloader.
-   * @param classLoader the class loader from which to get the flag value.
-   * @return value of the flag.
+   * @param classLoader the class loader from which to call the method.
+   * @return the return value of the method.
    */
   private int checkedCastToInt(ClassLoader classLoader, long value) throws Exception {
     Class<?> clazz = classLoader.loadClass("org.apache.arrow.memory.util.LargeMemoryUtil");
