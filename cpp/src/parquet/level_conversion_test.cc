@@ -292,7 +292,7 @@ TYPED_TEST(NestedListTest, SimpleLongList) {
 
   std::vector<typename TypeParam::OffsetsType> expected_offsets(66, 0);
   for (size_t x = 1; x < expected_offsets.size(); x++) {
-    expected_offsets[x] = x * 9;
+    expected_offsets[x] = static_cast<typename TypeParam::OffsetsType>(x) * 9;
   }
   this->InitForLength(65);
   typename TypeParam::OffsetsType* next_position = this->Run(test_data, level_info);
