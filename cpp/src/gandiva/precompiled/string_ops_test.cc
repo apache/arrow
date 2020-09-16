@@ -921,22 +921,30 @@ TEST(TestStringOps, TestBinaryString) {
   gdv_binary out_str;
 
   out_str = binary_string(ctx_ptr, "TestString", 10, &out_len);
-  std::string output = std::string(convert_fromUTF8_binary(ctx_ptr, out_str, out_len, &temp_len), temp_len);
+  std::string output = std::string(
+      convert_fromUTF8_binary(ctx_ptr, out_str, out_len, &temp_len), temp_len);
+
   EXPECT_EQ(output, "TestString");
 
   out_str = binary_string(ctx_ptr, "", 0, &out_len);
   EXPECT_EQ(out_str, "");
 
   out_str = binary_string(ctx_ptr, "T", 1, &out_len);
-  output = std::string(convert_fromUTF8_binary(ctx_ptr, out_str, out_len, &temp_len), temp_len);
+  output = std::string(
+      convert_fromUTF8_binary(ctx_ptr, out_str, out_len, &temp_len), temp_len);
+
   EXPECT_EQ(output, "T");
 
-  out_str = binary_string(ctx_ptr, "\\x41\\x42\\x43", 12, &out_len);
-  output = std::string(convert_fromUTF8_binary(ctx_ptr, out_str, out_len, &temp_len), temp_len);
+  out_str = binary_string(ctx_ptr, "\\x41\\x42\\x43", 12,
+                          &out_len);
+  output = std::string(
+      convert_fromUTF8_binary(ctx_ptr, out_str, out_len, &temp_len), temp_len);
+
   EXPECT_EQ(output, "ABC");
 
   out_str = binary_string(ctx_ptr, "\\x41", 4, &out_len);
-  output = std::string(convert_fromUTF8_binary(ctx_ptr, out_str, out_len, &temp_len), temp_len);
+  output = std::string(convert_fromUTF8_binary(ctx_ptr, out_str, out_len,
+                                               &temp_len), temp_len);
   EXPECT_EQ(output, "A");
 }
 
