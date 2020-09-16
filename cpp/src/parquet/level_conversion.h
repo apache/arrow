@@ -19,7 +19,6 @@
 
 #include <cstdint>
 
-#include "arrow/util/bitmap.h"
 #include "parquet/platform.h"
 #include "parquet/schema.h"
 
@@ -171,7 +170,7 @@ void PARQUET_EXPORT DefLevelsToBitmap(const int16_t* def_levels, int64_t num_def
 // the next offset.  See documentation onf DefLevelsToBitmap for when to use this
 // method vs the other ones in this file for reconstruction.
 //
-// Offsets must be size to 1 + values_read_upper_bound.
+// Offsets must be sized to 1 + values_read_upper_bound.
 void PARQUET_EXPORT DefRepLevelsToList(const int16_t* def_levels,
                                        const int16_t* rep_levels, int64_t num_def_levels,
                                        LevelInfo level_info,

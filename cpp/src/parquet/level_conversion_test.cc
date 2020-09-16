@@ -319,6 +319,9 @@ TYPED_TEST(NestedListTest, TestOverflow) {
   this->test_data_.def_levels_ = std::vector<int16_t>{2};
   this->test_data_.rep_levels_ = std::vector<int16_t>{0};
 
+  // Offsets is populated as the cumulative sum of all elements,
+  // so populating the offsets[0] with max-value impacts the 
+  // other values populated.
   std::vector<typename TypeParam::ListLengthType> offsets(
       2, std::numeric_limits<typename TypeParam::ListLengthType>::max());
 

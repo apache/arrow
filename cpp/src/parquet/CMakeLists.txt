@@ -207,13 +207,17 @@ if(CXX_SUPPORTS_AVX2)
   # AVX2 is used as a proxy for BMI2.
   list(APPEND PARQUET_SRCS level_comparison_avx2.cc level_conversion_bmi2.cc)
   set_source_files_properties(level_comparison_avx2.cc
-                              level_conversion_bmi2.cc
                               PROPERTIES
                               SKIP_PRECOMPILE_HEADERS
                               ON
                               COMPILE_FLAGS
-                              "${ARROW_AVX2_FLAG} -DARROW_HAVE_BMI2")
-
+                              "${ARROW_AVX2_FLAG}")
+  set_source_files_properties(level_conversion_bmi2.cc
+                              PROPERTIES
+                              SKIP_PRECOMPILE_HEADERS
+                              ON
+                              COMPILE_FLAGS
+                              "${ARROW_AVX2_FLAG} -DARROW_HAVE_BMI2 -mbmi2")
 endif()
 
 if(PARQUET_REQUIRE_ENCRYPTION)

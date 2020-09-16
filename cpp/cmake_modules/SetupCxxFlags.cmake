@@ -50,7 +50,7 @@ if(ARROW_CPU_FLAG STREQUAL "x86")
     # skylake-avx512 consists of AVX512F,AVX512BW,AVX512VL,AVX512CD,AVX512DQ
     set(ARROW_AVX512_FLAG "-march=skylake-avx512 -mbmi2")
     # Append the avx2/avx512 subset option also, fix issue ARROW-9877 for homebrew-cpp
-    set(ARROW_AVX2_FLAG "${ARROW_AVX2_FLAG} -mavx2 -mbmi2")
+    set(ARROW_AVX2_FLAG "${ARROW_AVX2_FLAG} -mavx2")
     set(ARROW_AVX512_FLAG
         "${ARROW_AVX512_FLAG} -mavx512f -mavx512cd -mavx512vl -mavx512dq -mavx512bw")
     check_cxx_compiler_flag(${ARROW_SSE4_2_FLAG} CXX_SUPPORTS_SSE4_2)

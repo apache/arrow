@@ -68,6 +68,7 @@ inline uint64_t RunBasedExtractImpl(uint64_t bitmap, uint64_t select_bitmap) {
 }
 
 inline uint64_t ExtractBits(uint64_t bitmap, uint64_t select_bitmap) {
+// MING32 doesn't support 64-bit pext.
 #if defined(ARROW_HAVE_BMI2) && !defined(__MINGW32__)
   return _pext_u64(bitmap, select_bitmap);
 #else

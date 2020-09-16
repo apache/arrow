@@ -178,13 +178,18 @@ void DefLevelsToBitmap(const int16_t* def_levels, int64_t num_def_levels,
             ? DefLevelsToBitmapBmi2WithRepeatedParent
             : standard::DefLevelsToBitmapSimd</*has_repeated_parent=*/true>;
     fn(def_levels, num_def_levels, level_info, output);
+#elif ARROW_LITTLE_ENDIAN
+   standard::DefLevelsToBitmapSimd</*has_repeated_parent=*/true>(def_levels, num_def_levels, level_info, output);
 #else
-    // This indicates we are likely on a big-endian platformat which don't have a
+    // Big-endian platforms don't have a
     // pext function and the current implementation of BitRunReader is always linear
     // in bits, so this method will likely be the fastest alternative.
     DefLevelsToBitmapScalar(def_levels, num_def_levels, level_info, output);
 #endif
   } else {
+    // SIMD here applies to all platforms because the only operation that
+    // happens is def_levels->bitmap which should have good SIMD options
+    // on all platforms.
     standard::DefLevelsToBitmapSimd</*has_repeated_parent=*/false>(
         def_levels, num_def_levels, level_info, output);
   }
