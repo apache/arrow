@@ -94,6 +94,7 @@ public class TestLargeMemoryUtil {
       if (classLoader != null) {
         Assert.assertEquals(Integer.MAX_VALUE, checkedCastToInt(classLoader, Integer.MAX_VALUE));
         Assert.assertEquals(Integer.MIN_VALUE, checkedCastToInt(classLoader, Integer.MAX_VALUE + 1L));
+        Assert.assertEquals(Integer.MAX_VALUE, checkedCastToInt(classLoader, Integer.MIN_VALUE - 1L));
       }
     } finally {
       // restore system property
