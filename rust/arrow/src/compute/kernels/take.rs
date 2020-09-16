@@ -249,7 +249,7 @@ fn take_string(values: &ArrayRef, indices: &UInt32Array) -> Result<ArrayRef> {
     let array = values.as_any().downcast_ref::<StringArray>().unwrap();
 
     let num_bytes = bit_util::ceil(data_len, 8);
-    let mut null_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, false);
+    let mut null_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, true);
     let null_slice = null_buf.data_mut();
 
     let mut offsets = Vec::with_capacity(data_len + 1);
@@ -261,14 +261,14 @@ fn take_string(values: &ArrayRef, indices: &UInt32Array) -> Result<ArrayRef> {
         let index = indices.value(i) as usize;
 
         if array.is_valid(index) && indices.is_valid(i) {
-            // set null bit
-            bit_util::set_bit(null_slice, i);
-
             let s = array.value(index);
 
             length_so_far += s.len() as i32;
             values.extend_from_slice(s.as_bytes());
-        };
+        } else {
+            // set null bit
+            bit_util::unset_bit(null_slice, i);
+        }
         offsets.push(length_so_far);
     }
 
