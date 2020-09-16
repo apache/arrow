@@ -1360,7 +1360,7 @@ impl PhysicalExpr for IsNullExpr {
 
     fn evaluate(&self, batch: &RecordBatch) -> Result<ArrayRef> {
         let arg = self.arg.evaluate(batch)?;
-        return Ok(Arc::new(arrow::compute::kernels::boolean::is_null(&arg)?));
+        return Ok(Arc::new(arrow::compute::is_null(&arg)?));
     }
 }
 
@@ -1398,9 +1398,7 @@ impl PhysicalExpr for IsNotNullExpr {
 
     fn evaluate(&self, batch: &RecordBatch) -> Result<ArrayRef> {
         let arg = self.arg.evaluate(batch)?;
-        return Ok(Arc::new(arrow::compute::kernels::boolean::is_not_null(
-            &arg,
-        )?));
+        return Ok(Arc::new(arrow::compute::is_not_null(&arg)?));
     }
 }
 
