@@ -1125,7 +1125,9 @@ cdef class ParquetFileFormat(FileFormat):
         return ParquetReadOptions(
             use_buffered_stream=options.use_buffered_stream,
             buffer_size=options.buffer_size,
-            dictionary_columns={frombytes(col) for col in options.dict_columns}
+            dictionary_columns={frombytes(col) for col in options.dict_columns},
+            enable_parallel_column_conversion=
+            options.enable_parallel_column_conversion
         )
 
     @property
