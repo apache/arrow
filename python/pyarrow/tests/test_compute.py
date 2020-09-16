@@ -854,9 +854,3 @@ def test_cast():
     arr = pa.array([datetime(2010, 1, 1), datetime(2015, 1, 1)])
     expected = pa.array([1262304000000, 1420070400000], type='timestamp[ms]')
     assert pc.cast(arr, 'timestamp[ms]') == expected
-
-
-def test_sort_partition():
-
-    arr = pa.array([100, 99, 150, 200, 1])
-    assert pc.sort_indices(arr) == pa.array([4, 1, 0, 2, 3])
