@@ -30,9 +30,8 @@ fi
 eval "$($CONDA_HOME/bin/conda shell.bash hook)"
 
 conda activate $ASV_ENV_DIR
-echo "== Conda Prefix for benchmarks: " $CONDA_PREFIX " ======================="
 
-which python
+echo "== Conda Prefix for benchmarks: " $CONDA_PREFIX " =="
 
 # Build Arrow C++ libraries
 export ARROW_HOME=$CONDA_PREFIX
@@ -42,6 +41,7 @@ export PROTOBUF_HOME=$CONDA_PREFIX
 export BOOST_ROOT=$CONDA_PREFIX
 
 pushd ../cpp
+rm -rf build
 mkdir -p build
 pushd build
 
@@ -64,7 +64,7 @@ popd
 popd
 
 # Build pyarrow wrappers
-export SETUPTOOLS_SCM_PRETEND_VERSION=0.0.1
+export PYARROW_CMAKE_GENERATOR=Ninja
 export PYARROW_BUILD_TYPE=release
 export PYARROW_PARALLEL=8
 export PYARROW_WITH_FLIGHT=1
@@ -72,6 +72,5 @@ export PYARROW_WITH_ORC=1
 export PYARROW_WITH_PARQUET=1
 export PYARROW_WITH_PLASMA=1
 
-python setup.py clean
-find pyarrow -name "*.so" -delete
+export SETUPTOOLS_SCM_PRETEND_VERSION=1.0.0
 python setup.py develop

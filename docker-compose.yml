@@ -87,6 +87,7 @@ x-hierarchy:
     - conda-cpp-valgrind
     - conda-integration
     - conda-python:
+      - conda-python-benchmark
       - conda-python-pandas
       - conda-python-dask
       - conda-python-hdfs
@@ -493,6 +494,26 @@ services:
       ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/python_build.sh /arrow /build &&
         /arrow/ci/scripts/python_test.sh /arrow"]
+
+  conda-python-benchmark:
+    image: ${REPO}:${ARCH}-conda-python-${PYTHON}-benchmark
+    build:
+      context: .
+      dockerfile: ci/docker/conda-python-benchmark.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-conda-python-${PYTHON}-benchmark
+      args:
+        repo: ${REPO}
+        arch: ${ARCH}
+        python: ${PYTHON}
+    shm_size: *shm-size
+    environment:
+      <<: *ccache
+    volumes: *conda-volumes
+    # mount .asv-machine.json
+    # mount asv results directory
+    command:
+      ["/arrow/ci/scripts/python_benchmark.sh /arrow"]
 
   ubuntu-cuda-python:
     # Usage:

@@ -58,7 +58,7 @@
     // variable.
     "environment_type": "conda",
     // Avoid conda-forge to avoid C++ ABI issues
-    "conda_channels": ["defaults"],
+    "conda_channels": ["conda-forge", "defaults"],
 
     // the base URL to show a commit for the project.
     "show_commit_url": "https://github.com/apache/arrow/commit/",
@@ -84,24 +84,33 @@
     // },
     "matrix": {
         // Use older boost since it works on more editions of the project
+        "compilers": [],
+        "gflags": [],
+        "make": [],
+        "setuptools_scm": [],
         "aws-sdk-cpp": [],
-        "boost-cpp": ["1.68.0"],
+        "boost-cpp": [],
         "brotli": [],
+        "bzip2": [],
+        "c-ares": [],
         "cmake": [],
         "cython": [],
         "flatbuffers": [],
         "grpc-cpp": [],
         "libprotobuf": [],
+        "libutf8proc": [],
         "lz4-c": [],
         "ninja": [],
         "numpy": [],
-        "pandas": ["0.25.1"],
+        "pandas": [],
         "pip+setuptools_scm": [],
         "rapidjson": [],
         "re2": [],
+        "orc": [],
         "snappy": [],
         "thrift-cpp": [],
-        "zstd": [],
+        "zlib": [],
+        "zstd": []
     },
 
     // Combinations of libraries/python versions can be excluded/included
@@ -143,7 +152,7 @@
 
     // The directory (relative to the current directory) to cache the Python
     // environments in.  If not provided, defaults to "env"
-    "env_dir": ".asv/env",
+    "env_dir": "../../build/env",  // TODO(kszucs): restore this value to .asv/env and create a docker configuration file
 
     // The directory (relative to the current directory) that raw benchmark
     // results are stored in.  If not provided, defaults to "results".
