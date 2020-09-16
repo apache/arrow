@@ -322,6 +322,7 @@ endif()
 
 add_subdirectory(api)
 add_subdirectory(arrow)
+add_subdirectory(encryption)
 
 arrow_install_all_headers("parquet")
 
