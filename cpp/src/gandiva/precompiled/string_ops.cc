@@ -1392,30 +1392,30 @@ const char* split_part(gdv_int64 context, const char* text, gdv_int32 text_len,
 }
 
 FORCE_INLINE
-gdv_binary binary_string(gdv_int64 context, const char* text,
-                         gdv_int32 text_len, gdv_int32* out_len) {
-  gdv_binary ret = reinterpret_cast<gdv_binary>(gdv_fn_context_arena_malloc(context,
-                                                                            text_len));
+gdv_binary binary_string(gdv_int64 context, const char* text, gdv_int32 text_len,
+                         gdv_int32* out_len) {
+  gdv_binary ret =
+      reinterpret_cast<gdv_binary>(gdv_fn_context_arena_malloc(context, text_len));
 
   if (ret == nullptr) {
     gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
     *out_len = 0;
-    return (gdv_binary)"";
+    return (gdv_binary) "";
   }
 
   if (text_len == 0) {
     *out_len = 0;
-    return (gdv_binary)"";
+    return (gdv_binary) "";
   }
 
   // converting hex encoded string to normal string
   int j = 0;
   for (int i = 0; i < text_len; i++, j++) {
-    if (text[i] == '\\' && i + 3 < text_len
-        && (text[i+1] == 'x' || text[i+1] == 'X')) {
+    if (text[i] == '\\' && i + 3 < text_len &&
+        (text[i + 1] == 'x' || text[i + 1] == 'X')) {
       // take next 2 hex digits.
-      char hd1 = text[i+2];
-      char hd2 = text[i+3];
+      char hd1 = text[i + 2];
+      char hd2 = text[i + 3];
       if (isxdigit(hd1) && isxdigit(hd2)) {
         // [a-fA-F0-9]
         ret[j] = (hd1 - '0') * 16 + (hd2 - '0');
