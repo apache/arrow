@@ -206,7 +206,7 @@ class PoolBuffer : public ResizableBuffer {
   }
 
   Status Resize(const int64_t new_size, bool shrink_to_fit = true) override {
-    if (new_size < 0) {
+    if (ARROW_PREDICT_FALSE(new_size < 0)) {
       return Status::Invalid("Negative buffer resize: ", new_size);
     }
     if (mutable_data_ && shrink_to_fit && new_size <= size_) {

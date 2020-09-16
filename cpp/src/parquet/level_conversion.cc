@@ -179,7 +179,8 @@ void DefLevelsToBitmap(const int16_t* def_levels, int64_t num_def_levels,
             : standard::DefLevelsToBitmapSimd</*has_repeated_parent=*/true>;
     fn(def_levels, num_def_levels, level_info, output);
 #elif ARROW_LITTLE_ENDIAN
-   standard::DefLevelsToBitmapSimd</*has_repeated_parent=*/true>(def_levels, num_def_levels, level_info, output);
+    standard::DefLevelsToBitmapSimd</*has_repeated_parent=*/true>(
+        def_levels, num_def_levels, level_info, output);
 #else
     // Big-endian platforms don't have a
     // pext function and the current implementation of BitRunReader is always linear
