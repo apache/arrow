@@ -18,6 +18,7 @@
 #include "arrow/array/builder_dict.h"
 
 #include <cstdint>
+#include <utility>
 
 #include "arrow/array/dict_internal.h"
 #include "arrow/status.h"
@@ -34,25 +35,6 @@ namespace arrow {
 // DictionaryBuilder
 
 namespace internal {
-
-namespace {
-
-template <typename T>
-struct DictionaryCTraits {
-  using ArrowType = typename CTypeTraits<T>::ArrowType;
-};
-
-template <>
-struct DictionaryCTraits<BinaryValue> {
-  using ArrowType = BinaryType;
-};
-
-template <>
-struct DictionaryCTraits<LargeBinaryValue> {
-  using ArrowType = LargeBinaryType;
-};
-
-}  // namespace
 
 class DictionaryMemoTable::DictionaryMemoTableImpl {
   // Type-dependent visitor for memo table initialization
@@ -100,7 +82,7 @@ class DictionaryMemoTable::DictionaryMemoTableImpl {
       }
       for (int64_t i = 0; i < array.length(); ++i) {
         int32_t unused_memo_index;
-        RETURN_NOT_OK(impl_->GetOrInsertTyped<T>(array.GetView(i), &unused_memo_index));
+        RETURN_NOT_OK(impl_->GetOrInsert<T>(array.GetView(i), &unused_memo_index));
       }
       return Status::OK();
     }
@@ -130,8 +112,8 @@ class DictionaryMemoTable::DictionaryMemoTableImpl {
   };
 
  public:
-  DictionaryMemoTableImpl(MemoryPool* pool, const std::shared_ptr<DataType>& type)
-      : pool_(pool), type_(type), memo_table_(nullptr) {
+  DictionaryMemoTableImpl(MemoryPool* pool, std::shared_ptr<DataType> type)
+      : pool_(pool), type_(std::move(type)), memo_table_(nullptr) {
     MemoTableInitializer visitor{type_, pool_, &memo_table_};
     ARROW_CHECK_OK(VisitTypeInline(*type_, &visitor));
   }
@@ -145,16 +127,10 @@ class DictionaryMemoTable::DictionaryMemoTableImpl {
     return VisitTypeInline(*array.type(), &visitor);
   }
 
-  template <typename CType>
-  Status GetOrInsert(const CType& value, int32_t* out) {
-    // Find back physical Arrow type based on C value type
-    using T = typename DictionaryCTraits<CType>::ArrowType;
-    return GetOrInsertTyped<T>(value, out);
-  }
-
-  template <typename T, typename CType>
-  Status GetOrInsertTyped(const CType& value, int32_t* out) {
-    using ConcreteMemoTable = typename DictionaryTraits<T>::MemoTableType;
+  template <typename PhysicalType,
+            typename CType = typename DictionaryValue<PhysicalType>::type>
+  Status GetOrInsert(CType value, int32_t* out) {
+    using ConcreteMemoTable = typename DictionaryTraits<PhysicalType>::MemoTableType;
     return checked_cast<ConcreteMemoTable*>(memo_table_.get())->GetOrInsert(value, out);
   }
 
@@ -183,9 +159,10 @@ DictionaryMemoTable::DictionaryMemoTable(MemoryPool* pool,
 
 DictionaryMemoTable::~DictionaryMemoTable() = default;
 
-#define GET_OR_INSERT(C_TYPE)                                           \
-  Status DictionaryMemoTable::GetOrInsert(C_TYPE value, int32_t* out) { \
-    return impl_->GetOrInsert(value, out);                              \
+#define GET_OR_INSERT(C_TYPE)                                                       \
+  Status DictionaryMemoTable::GetOrInsert(                                          \
+      const typename CTypeTraits<C_TYPE>::ArrowType*, C_TYPE value, int32_t* out) { \
+    return impl_->GetOrInsert<typename CTypeTraits<C_TYPE>::ArrowType>(value, out); \
   }
 
 GET_OR_INSERT(bool)
@@ -199,10 +176,18 @@ GET_OR_INSERT(uint32_t)
 GET_OR_INSERT(uint64_t)
 GET_OR_INSERT(float)
 GET_OR_INSERT(double)
-GET_OR_INSERT(BinaryValue)
-GET_OR_INSERT(LargeBinaryValue)
 
 #undef GET_OR_INSERT
+
+Status DictionaryMemoTable::GetOrInsert(const BinaryType*, util::string_view value,
+                                        int32_t* out) {
+  return impl_->GetOrInsert<BinaryType>(value, out);
+}
+
+Status DictionaryMemoTable::GetOrInsert(const LargeBinaryType*, util::string_view value,
+                                        int32_t* out) {
+  return impl_->GetOrInsert<LargeBinaryType>(value, out);
+}
 
 Status DictionaryMemoTable::GetArrayData(int64_t start_offset,
                                          std::shared_ptr<ArrayData>* out) {
