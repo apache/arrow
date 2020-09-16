@@ -23,6 +23,7 @@
 
 #include "parquet/encryption/key_material.h"
 #include "parquet/exception.h"
+#include "parquet/platform.h"
 
 namespace parquet {
 namespace encryption {
@@ -51,7 +52,7 @@ namespace encryption {
 //
 // If internalStorage is true, "key material" is a part of "key metadata", and the json
 // keeps additional fields, described in the KeyMaterial class.
-class KeyMetadata {
+class PARQUET_EXPORT KeyMetadata {
  public:
   static constexpr const char kKeyMaterialInternalStorageField[] = "internalStorage";
   static constexpr const char kKeyReferenceField[] = "keyReference";

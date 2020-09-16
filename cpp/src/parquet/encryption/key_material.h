@@ -22,6 +22,8 @@
 
 #include "arrow/json/object_parser.h"
 
+#include "parquet/platform.h"
+
 namespace parquet {
 namespace encryption {
 
@@ -57,7 +59,7 @@ namespace encryption {
 // material. Written only in double wrapping mode.
 // 9. "wrappedKEK" - a String, with the wrapped KEK (base64 encoding). Written only in
 // double wrapping mode.
-class KeyMaterial {
+class PARQUET_EXPORT KeyMaterial {
  public:
   // these fields are defined in a specification and should never be changed
   static constexpr const char kKeyMaterialTypeField[] = "keyMaterialType";
