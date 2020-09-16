@@ -211,7 +211,7 @@ pub trait ArrowPrimitiveType: 'static {
 
     /// Returns the bit width of this primitive type.
     fn get_bit_width() -> usize {
-        size_of::<Self::Native>()
+        size_of::<Self::Native>() * 8
     }
 
     /// Returns a default value of this primitive type.
