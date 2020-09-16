@@ -35,15 +35,18 @@ namespace dataset {
 
 RadosFragment::RadosFragment(std::shared_ptr<Schema> schema, 
                              std::string object_id)
-    : object_id_(std::move(object_id)) {}
+    : Fragment(std::move(schema)), object_id_(std::move(object_id)) {}
 
 Result<ScanTaskIterator> RadosFragment::Scan(std::shared_ptr<ScanOptions> options,
-                                                std::shared_ptr<ScanContext> context) {
+                                             std::shared_ptr<ScanContext> context) {
+  
   auto ranges_it = MakeVectorIterator(std::vector<std::string>{object_id_});
+  
   auto fn = [=](std::shared_ptr<std::string> object_id_) -> std::shared_ptr<ScanTask> {
     return ::arrow::internal::make_unique<RadosScanTask>(
         std::move(object_id_), std::move(options), std::move(context));
   };
+  
   return MakeMapIterator(fn, std::move(ranges_it));
 }
 
@@ -57,13 +60,14 @@ RadosDataset::RadosDataset(std::shared_ptr<Schema> schema, std::string pool_name
   rintf.connect();
 }
 
-FragmentIterator RadosDataset::GetFragments(uint32_t start_object, uint32_t num_objects) {
+FragmentIterator RadosDataset::GetFragments(int32_t start_object, int32_t num_objects) {
   auto schema = this->schema();
   auto create_fragment =
       [schema](std::string object_id) -> Result<std::shared_ptr<Fragment>> {
         return std::make_shared<RadosFragment>(schema, object_id);
-    };
-
+  };
+  
+  // Generate the vector of object ids
   std::vector<std::string> object_ids;
   for (uint32_t i = 0; i < num_objects; i++) {
     object_ids.push_back(pool_name_ + "." + (start_object + i))
@@ -73,14 +77,13 @@ FragmentIterator RadosDataset::GetFragments(uint32_t start_object, uint32_t num_
 }
 
 Result<RecordBatchIterator> RadosScanTask::Execute() {
-  rados_ioctx_t io;
-  librados::ceph::buffer::list in, out;
-  uint32_t e = io.exec(object_id_, "arrow", "read_object", in, out);
+  IoCtxInterface ioctx_intf;
+  // TODO: librados::ceph::buffer::list in, out;
+  uint32_t e = ioctx_intf.exec(object_id_, "arrow", "read_object", in, out);
   if (e != 0) {
     std::cout << "Failed to read from object";
     exit(EXIT_FAILURE);
   } else {
-    using RecordBatchVector = std::vector<std::shared_ptr<RecordBatch>>;
     return MakeVectorIterator(RecordBatchVector{out});
   }
 }
