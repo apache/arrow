@@ -30,7 +30,9 @@ fi
 eval "$($CONDA_HOME/bin/conda shell.bash hook)"
 
 conda activate $ASV_ENV_DIR
-echo "== Conda Prefix for benchmarks: " $CONDA_PREFIX " =="
+echo "== Conda Prefix for benchmarks: " $CONDA_PREFIX " ======================="
+
+which python
 
 # Build Arrow C++ libraries
 export ARROW_HOME=$CONDA_PREFIX
@@ -47,14 +49,14 @@ cmake -GNinja \
       -DCMAKE_BUILD_TYPE=release \
       -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
       -DARROW_CXXFLAGS=$CXXFLAGS \
-      -DARROW_USE_GLOG=off \
-      -DARROW_FLIGHT=on \
-      -DARROW_ORC=on \
-      -DARROW_PARQUET=on \
-      -DARROW_PYTHON=on \
-      -DARROW_PLASMA=on \
-      -DARROW_S3=on \
-      -DARROW_BUILD_TESTS=off \
+      -DARROW_USE_GLOG=OFF \
+      -DARROW_FLIGHT=ON \
+      -DARROW_ORC=ON \
+      -DARROW_PARQUET=ON \
+      -DARROW_PYTHON=ON \
+      -DARROW_PLASMA=ON \
+      -DARROW_S3=ON \
+      -DARROW_BUILD_TESTS=OFF \
       ..
 cmake --build . --target install
 
