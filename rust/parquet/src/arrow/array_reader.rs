@@ -939,7 +939,9 @@ mod tests {
         DataPageBuilder, DataPageBuilderImpl, InMemoryPageIterator,
     };
     use crate::util::test_common::{get_test_file, make_pages};
-    use arrow::array::{Array, ArrayRef, PrimitiveArray, StringArray, StructArray};
+    use arrow::array::{
+        Array, ArrayRef, PrimitiveArray, StringArray, StringArrayOps, StructArray,
+    };
     use arrow::datatypes::{
         DataType as ArrowType, Date32Type as ArrowDate32, Field, Int32Type as ArrowInt32,
         TimestampMicrosecondType as ArrowTimestampMicrosecondType,

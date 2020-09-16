@@ -17,7 +17,7 @@
 
 //! Defines take kernel for `ArrayRef`
 
-use std::sync::Arc;
+use std::{ops::AddAssign, sync::Arc};
 
 use crate::buffer::{Buffer, MutableBuffer};
 use crate::compute::util::take_value_indices_from_list;
@@ -26,6 +26,7 @@ use crate::error::{ArrowError, Result};
 use crate::util::bit_util;
 use crate::{array::*, buffer::buffer_bin_and};
 
+use num::Zero;
 use TimeUnit::*;
 
 /// Take elements from `ArrayRef` by supplying an array of indices.
@@ -106,7 +107,8 @@ pub fn take(
         DataType::Duration(TimeUnit::Nanosecond) => {
             take_primitive::<DurationNanosecondType>(values, indices)
         }
-        DataType::Utf8 => take_string(values, indices),
+        DataType::Utf8 => take_string::<i32, StringArray>(values, indices),
+        DataType::LargeUtf8 => take_string::<i64, LargeStringArray>(values, indices),
         DataType::List(_) => take_list(values, indices),
         DataType::Struct(fields) => {
             let struct_: &StructArray =
@@ -243,10 +245,17 @@ fn take_boolean(values: &ArrayRef, indices: &UInt32Array) -> Result<ArrayRef> {
 }
 
 /// `take` implementation for string arrays
-fn take_string(values: &ArrayRef, indices: &UInt32Array) -> Result<ArrayRef> {
+fn take_string<T, K: 'static>(
+    values: &ArrayRef,
+    indices: &UInt32Array,
+) -> Result<ArrayRef>
+where
+    T: Zero + AddAssign + ToByteSlice + ArrowNativeType,
+    K: Array + From<ArrayDataRef> + StringArrayOps,
+{
     let data_len = indices.len();
 
-    let array = values.as_any().downcast_ref::<StringArray>().unwrap();
+    let array = values.as_any().downcast_ref::<K>().unwrap();
 
     let num_bytes = bit_util::ceil(data_len, 8);
     let mut null_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, true);
@@ -254,7 +263,7 @@ fn take_string(values: &ArrayRef, indices: &UInt32Array) -> Result<ArrayRef> {
 
     let mut offsets = Vec::with_capacity(data_len + 1);
     let mut values = Vec::with_capacity(data_len);
-    let mut length_so_far = 0i32;
+    let mut length_so_far = T::zero();
 
     offsets.push(length_so_far);
     for i in 0..data_len {
@@ -263,7 +272,7 @@ fn take_string(values: &ArrayRef, indices: &UInt32Array) -> Result<ArrayRef> {
         if array.is_valid(index) && indices.is_valid(i) {
             let s = array.value(index);
 
-            length_so_far += s.len() as i32;
+            length_so_far += T::from_usize(s.len()).unwrap();
             values.extend_from_slice(s.as_bytes());
         } else {
             // set null bit
@@ -283,7 +292,7 @@ fn take_string(values: &ArrayRef, indices: &UInt32Array) -> Result<ArrayRef> {
         .add_buffer(Buffer::from(offsets.to_byte_slice()))
         .add_buffer(Buffer::from(&values[..]))
         .build();
-    Ok(Arc::new(StringArray::from(data)))
+    Ok(Arc::new(K::from(data)))
 }
 
 /// `take` implementation for list arrays
@@ -511,11 +520,13 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_take_string() {
+    fn _test_take_string<'a, K: 'static>()
+    where
+        K: Array + From<Vec<Option<&'a str>>> + StringArrayOps,
+    {
         let index = UInt32Array::from(vec![Some(3), None, Some(1), Some(3), Some(4)]);
 
-        let array = StringArray::from(vec![
+        let array = K::from(vec![
             Some("one"),
             None,
             Some("three"),
@@ -527,15 +538,25 @@ mod tests {
         let actual = take(&array, &index, None).unwrap();
         assert_eq!(actual.len(), index.len());
 
-        let actual = actual.as_any().downcast_ref::<StringArray>().unwrap();
+        let actual = actual.as_any().downcast_ref::<K>().unwrap();
 
         let expected =
-            StringArray::from(vec![Some("four"), None, None, Some("four"), Some("five")]);
+            K::from(vec![Some("four"), None, None, Some("four"), Some("five")]);
 
         for i in 0..index.len() {
             assert_eq!(actual.is_null(i), expected.is_null(i));
             assert_eq!(actual.value(i), expected.value(i));
         }
+    }
+
+    #[test]
+    fn test_take_string() {
+        _test_take_string::<StringArray>()
+    }
+
+    #[test]
+    fn test_take_large_string() {
+        _test_take_string::<LargeStringArray>()
     }
 
     #[test]

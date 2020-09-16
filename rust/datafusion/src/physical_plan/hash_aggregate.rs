@@ -28,8 +28,8 @@ use crate::physical_plan::{
 
 use arrow::array::{
     ArrayBuilder, ArrayRef, Float32Array, Float64Array, Int16Array, Int32Array,
-    Int64Array, Int8Array, StringArray, UInt16Array, UInt32Array, UInt64Array,
-    UInt8Array,
+    Int64Array, Int8Array, StringArray, StringArrayOps, UInt16Array, UInt32Array,
+    UInt64Array, UInt8Array,
 };
 use arrow::array::{
     Float32Builder, Float64Builder, Int16Builder, Int32Builder, Int64Builder,

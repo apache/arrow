@@ -24,7 +24,7 @@ use std::sync::{Arc, Mutex};
 use crate::error::{ExecutionError, Result};
 
 use crate::logical_plan::ScalarValue;
-use arrow::array::{self, ArrayRef};
+use arrow::array::{self, ArrayRef, StringArrayOps};
 use arrow::datatypes::{DataType, SchemaRef};
 use arrow::error::Result as ArrowResult;
 use arrow::record_batch::{RecordBatch, RecordBatchReader};

@@ -1515,9 +1515,14 @@ impl LargeBinaryArray {
     }
 }
 
-impl StringArray {
+/// Common operations on string arrays
+pub trait StringArrayOps {
     /// Returns the element at index `i` as a string slice.
-    pub fn value(&self, i: usize) -> &str {
+    fn value(&self, i: usize) -> &str;
+}
+
+impl StringArrayOps for StringArray {
+    fn value(&self, i: usize) -> &str {
         assert!(i < self.data.len(), "StringArray out of bounds access");
         let offset = i.checked_add(self.data.offset()).unwrap();
         unsafe {
@@ -1530,16 +1535,17 @@ impl StringArray {
             std::str::from_utf8_unchecked(slice)
         }
     }
+}
 
+impl StringArray {
     /// Returns a new string array builder
     pub fn builder(capacity: usize) -> StringBuilder {
         StringBuilder::new(capacity)
     }
 }
 
-impl LargeStringArray {
-    /// Returns the element at index `i` as a string slice.
-    pub fn value(&self, i: usize) -> &str {
+impl StringArrayOps for LargeStringArray {
+    fn value(&self, i: usize) -> &str {
         assert!(i < self.data.len(), "LargeStringArray out of bounds access");
         let offset = i.checked_add(self.data.offset()).unwrap();
         unsafe {
@@ -1552,7 +1558,9 @@ impl LargeStringArray {
             std::str::from_utf8_unchecked(slice)
         }
     }
+}
 
+impl LargeStringArray {
     // Returns a new large string array builder
     pub fn builder(capacity: usize) -> LargeStringBuilder {
         LargeStringBuilder::new(capacity)
