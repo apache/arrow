@@ -69,6 +69,14 @@ struct ScalarHashImpl {
     return StdHash(s.value.low_bits()) & StdHash(s.value.high_bits());
   }
 
+  Status Visit(const Decimal256Scalar& s) {
+    Status status = Status::OK();
+    for (uint64_t elem : s.value.little_endian_array()) {
+      status &= StdHash(elem);
+    }
+    return status;
+  }
+
   Status Visit(const BaseListScalar& s) { return ArrayHash(*s.value); }
 
   Status Visit(const StructScalar& s) {

@@ -353,6 +353,10 @@ class RangeEqualsVisitor {
     return Visit(checked_cast<const FixedSizeBinaryArray&>(left));
   }
 
+  Status Visit(const Decimal256Array& left) {
+    return Visit(checked_cast<const FixedSizeBinaryArray&>(left));
+  }
+
   Status Visit(const NullArray& left) {
     ARROW_UNUSED(left);
     result_ = true;
@@ -806,6 +810,12 @@ class TypeEqualsVisitor {
     return Status::OK();
   }
 
+  Status Visit(const Decimal256Type& left) {
+    const auto& right = checked_cast<const Decimal256Type&>(right_);
+    result_ = left.precision() == right.precision() && left.scale() == right.scale();
+    return Status::OK();
+  }
+
   template <typename T>
   enable_if_t<is_list_like_type<T>::value || is_struct_type<T>::value, Status> Visit(
       const T& left) {
@@ -915,6 +925,12 @@ class ScalarEqualsVisitor {
 
   Status Visit(const Decimal128Scalar& left) {
     const auto& right = checked_cast<const Decimal128Scalar&>(right_);
+    result_ = left.value == right.value;
+    return Status::OK();
+  }
+
+  Status Visit(const Decimal256Scalar& left) {
+    const auto& right = checked_cast<const Decimal256Scalar&>(right_);
     result_ = left.value == right.value;
     return Status::OK();
   }

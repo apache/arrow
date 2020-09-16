@@ -64,6 +64,13 @@ struct ValidateArrayVisitor {
     return Status::OK();
   }
 
+  Status Visit(const Decimal256Array& array) {
+    if (array.length() > 0 && array.values() == nullptr) {
+      return Status::Invalid("values is null");
+    }
+    return Status::OK();
+  }
+
   Status Visit(const StringArray& array) { return ValidateBinaryArray(array); }
 
   Status Visit(const BinaryArray& array) { return ValidateBinaryArray(array); }

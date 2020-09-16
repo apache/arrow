@@ -136,6 +136,7 @@ struct CompareVisitor {
   }
 
   Status Visit(const Decimal128Type&) { return CompareValues<Decimal128Type>(); }
+  Status Visit(const Decimal256Type&) { return CompareValues<Decimal256Type>(); }
 
   // Explicit because it falls under `physical_unsigned_integer`.
   // TODO(bkietz) whenever we vendor a float16, this can be implemented

@@ -274,12 +274,16 @@ class FloatConverter final : public ConcreteConverter<FloatConverter<Type>> {
 // ------------------------------------------------------------------------
 // Converter for decimal arrays
 
-class DecimalConverter final : public ConcreteConverter<DecimalConverter> {
+template <typename DecimalSubtype, typename DecimalValue>
+class DecimalConverter final
+    : public ConcreteConverter<DecimalConverter<DecimalSubtype, DecimalValue>> {
  public:
+  using BuilderType = typename TypeTraits<DecimalSubtype>::BuilderType;
+
   explicit DecimalConverter(const std::shared_ptr<DataType>& type) {
     this->type_ = type;
-    decimal_type_ = checked_cast<Decimal128Type*>(type.get());
-    builder_ = std::make_shared<DecimalBuilder>(type);
+    decimal_type_ = checked_cast<DecimalSubtype*>(type.get());
+    builder_ = std::make_shared<BuilderType>(type);
   }
 
   Status AppendValue(const rj::Value& json_obj) override {
@@ -288,9 +292,9 @@ class DecimalConverter final : public ConcreteConverter<DecimalConverter> {
     }
     if (json_obj.IsString()) {
       int32_t precision, scale;
-      Decimal128 d;
+      DecimalValue d;
       auto view = util::string_view(json_obj.GetString(), json_obj.GetStringLength());
-      RETURN_NOT_OK(Decimal128::FromString(view, &d, &precision, &scale));
+      RETURN_NOT_OK(DecimalValue::FromString(view, &d, &precision, &scale));
       if (scale != decimal_type_->scale()) {
         return Status::Invalid("Invalid scale for decimal: expected ",
                                decimal_type_->scale(), ", got ", scale);
@@ -303,9 +307,12 @@ class DecimalConverter final : public ConcreteConverter<DecimalConverter> {
   std::shared_ptr<ArrayBuilder> builder() override { return builder_; }
 
  private:
-  std::shared_ptr<DecimalBuilder> builder_;
-  Decimal128Type* decimal_type_;
+  std::shared_ptr<BuilderType> builder_;
+  DecimalSubtype* decimal_type_;
 };
+
+using Decimal128Converter = DecimalConverter<Decimal128Type, Decimal128>;
+using Decimal256Converter = DecimalConverter<Decimal256Type, Decimal256>;
 
 // ------------------------------------------------------------------------
 // Converter for timestamp arrays
@@ -764,7 +771,8 @@ Status GetConverter(const std::shared_ptr<DataType>& type,
     SIMPLE_CONVERTER_CASE(Type::LARGE_STRING, StringConverter<LargeStringType>)
     SIMPLE_CONVERTER_CASE(Type::LARGE_BINARY, StringConverter<LargeBinaryType>)
     SIMPLE_CONVERTER_CASE(Type::FIXED_SIZE_BINARY, FixedSizeBinaryConverter)
-    SIMPLE_CONVERTER_CASE(Type::DECIMAL, DecimalConverter)
+    SIMPLE_CONVERTER_CASE(Type::DECIMAL128, Decimal128Converter)
+    SIMPLE_CONVERTER_CASE(Type::DECIMAL256, Decimal256Converter)
     SIMPLE_CONVERTER_CASE(Type::SPARSE_UNION, UnionConverter)
     SIMPLE_CONVERTER_CASE(Type::DENSE_UNION, UnionConverter)
     SIMPLE_CONVERTER_CASE(Type::INTERVAL_MONTHS, IntegerConverter<MonthIntervalType>)
