@@ -47,4 +47,20 @@ class ARROW_EXPORT Decimal128Array : public FixedSizeBinaryArray {
 // Backward compatibility
 using DecimalArray = Decimal128Array;
 
+// ----------------------------------------------------------------------
+// Decimal256Array
+
+/// Concrete Array class for 256-bit decimal data
+class ARROW_EXPORT Decimal256Array : public FixedSizeBinaryArray {
+ public:
+  using TypeClass = Decimal256Type;
+
+  using FixedSizeBinaryArray::FixedSizeBinaryArray;
+
+  /// \brief Construct Decimal256Array from ArrayData instance
+  explicit Decimal256Array(const std::shared_ptr<ArrayData>& data);
+
+  std::string FormatValue(int64_t i) const;
+};
+
 }  // namespace arrow

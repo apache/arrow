@@ -1118,6 +1118,31 @@ struct ObjectWriterVisitor {
     return Status::OK();
   }
 
+  Status Visit(const Decimal256Type& type) {
+    OwnedRef decimal;
+    OwnedRef Decimal;
+    RETURN_NOT_OK(internal::ImportModule("decimal", &decimal));
+    RETURN_NOT_OK(internal::ImportFromModule(decimal.obj(), "Decimal", &Decimal));
+    PyObject* decimal_constructor = Decimal.obj();
+
+    for (int c = 0; c < data.num_chunks(); c++) {
+      const auto& arr = checked_cast<const arrow::Decimal256Array&>(*data.chunk(c));
+
+      for (int64_t i = 0; i < arr.length(); ++i) {
+        if (arr.IsNull(i)) {
+          Py_INCREF(Py_None);
+          *out_values++ = Py_None;
+        } else {
+          *out_values++ =
+              internal::DecimalFromString(decimal_constructor, arr.FormatValue(i));
+          RETURN_IF_PYERROR();
+        }
+      }
+    }
+
+    return Status::OK();
+  }
+
   template <typename T>
   enable_if_t<is_fixed_size_list_type<T>::value || is_var_length_list_type<T>::value,
               Status>

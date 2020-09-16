@@ -775,4 +775,85 @@ int32_t BasicDecimal128::CountLeadingBinaryZeros() const {
   }
 }
 
+#if ARROW_LITTLE_ENDIAN
+BasicDecimal256::BasicDecimal256(const uint8_t* bytes)
+    : little_endian_array_(
+          std::array<uint64_t, 4>({reinterpret_cast<const uint64_t*>(bytes)[0],
+                                   reinterpret_cast<const uint64_t*>(bytes)[1],
+                                   reinterpret_cast<const uint64_t*>(bytes)[2],
+                                   reinterpret_cast<const uint64_t*>(bytes)[3]})) {}
+#else
+BasicDecimal256::BasicDecimal256(const uint8_t* bytes)
+    : little_endian_array_(
+          std::array<uint64_t, 4>({reinterpret_cast<const uint64_t*>(bytes)[3],
+                                   reinterpret_cast<const uint64_t*>(bytes)[2],
+                                   reinterpret_cast<const uint64_t*>(bytes)[1],
+                                   reinterpret_cast<const uint64_t*>(bytes)[0]})) {
+#endif
+
+BasicDecimal256& BasicDecimal256::Negate() {
+  uint64_t carry = 1;
+  for (uint64_t& elem : little_endian_array_) {
+    elem = ~elem + carry;
+    carry &= (elem == 0);
+  }
+  return *this;
+}
+
+std::array<uint8_t, 32> BasicDecimal256::ToBytes() const {
+  std::array<uint8_t, 32> out{{0}};
+  ToBytes(out.data());
+  return out;
+}
+
+void BasicDecimal256::ToBytes(uint8_t* out) const {
+  DCHECK_NE(out, nullptr);
+#if ARROW_LITTLE_ENDIAN
+  reinterpret_cast<int64_t*>(out)[0] = little_endian_array_[0];
+  reinterpret_cast<int64_t*>(out)[1] = little_endian_array_[1];
+  reinterpret_cast<int64_t*>(out)[2] = little_endian_array_[2];
+  reinterpret_cast<int64_t*>(out)[3] = little_endian_array_[3];
+#else
+    reinterpret_cast<int64_t*>(out)[0] = little_endian_array_[3];
+    reinterpret_cast<int64_t*>(out)[1] = little_endian_array_[2];
+    reinterpret_cast<int64_t*>(out)[2] = little_endian_array_[1];
+    reinterpret_cast<int64_t*>(out)[3] = little_endian_array_[0];
+#endif
+}
+
+DecimalStatus BasicDecimal256::Rescale(int32_t original_scale, int32_t new_scale,
+                                       BasicDecimal256* out) const {
+  // TODO: implement.
+  return DecimalStatus::kSuccess;
+}
+
+bool operator==(const BasicDecimal256& left, const BasicDecimal256& right) {
+  return left.little_endian_array() == right.little_endian_array();
+}
+
+bool operator!=(const BasicDecimal256& left, const BasicDecimal256& right) {
+  return left.little_endian_array() != right.little_endian_array();
+}
+
+bool operator<(const BasicDecimal256& left, const BasicDecimal256& right) {
+  const std::array<uint64_t, 4>& lhs = left.little_endian_array();
+  const std::array<uint64_t, 4>& rhs = right.little_endian_array();
+  return lhs[3] != rhs[3]
+             ? static_cast<int64_t>(lhs[3]) < static_cast<int64_t>(rhs[3])
+             : lhs[2] != rhs[2] ? lhs[2] < rhs[2]
+                                : lhs[1] != rhs[1] ? lhs[1] < rhs[1] : lhs[0] < rhs[0];
+}
+
+bool operator<=(const BasicDecimal256& left, const BasicDecimal256& right) {
+  return !operator>(left, right);
+}
+
+bool operator>(const BasicDecimal256& left, const BasicDecimal256& right) {
+  return operator<(right, left);
+}
+
+bool operator>=(const BasicDecimal256& left, const BasicDecimal256& right) {
+  return !operator<(left, right);
+}
+
 }  // namespace arrow

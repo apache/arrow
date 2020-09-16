@@ -135,6 +135,11 @@ cdef class Decimal128Type(FixedSizeBinaryType):
         const CDecimal128Type* decimal128_type
 
 
+cdef class Decimal256Type(FixedSizeBinaryType):
+    cdef:
+        const CDecimal256Type* decimal256_type
+
+
 cdef class BaseExtensionType(DataType):
     cdef:
         const CExtensionType* ext_type
@@ -342,6 +347,10 @@ cdef class FixedSizeBinaryArray(Array):
 
 
 cdef class Decimal128Array(FixedSizeBinaryArray):
+    pass
+
+
+cdef class Decimal256Array(FixedSizeBinaryArray):
     pass
 
 

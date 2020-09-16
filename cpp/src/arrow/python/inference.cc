@@ -450,9 +450,16 @@ class TypeInferrer {
     } else if (struct_count_) {
       RETURN_NOT_OK(GetStructType(out));
     } else if (decimal_count_) {
-      // the default constructor does not validate the precision and scale
-      ARROW_ASSIGN_OR_RAISE(*out, Decimal128Type::Make(max_decimal_metadata_.precision(),
-                                                       max_decimal_metadata_.scale()));
+      if (max_decimal_metadata_.precision() > Decimal128Type::kMaxPrecision) {
+        // the default constructor does not validate the precision and scale
+        ARROW_ASSIGN_OR_RAISE(*out,
+                              Decimal256Type::Make(max_decimal_metadata_.precision(),
+                                                   max_decimal_metadata_.scale()));
+      } else {
+        ARROW_ASSIGN_OR_RAISE(*out,
+                              Decimal128Type::Make(max_decimal_metadata_.precision(),
+                                                   max_decimal_metadata_.scale()));
+      }
     } else if (float_count_) {
       // Prioritize floats before integers
       *out = float64();

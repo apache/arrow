@@ -73,6 +73,10 @@ struct ScalarFromArraySlotImpl {
     return Finish(Decimal128(a.GetValue(index_)));
   }
 
+  Status Visit(const Decimal256Array& a) {
+    return Finish(Decimal256(a.GetValue(index_)));
+  }
+
   template <typename T>
   Status Visit(const BaseBinaryArray<T>& a) {
     return Finish(a.GetString(index_));

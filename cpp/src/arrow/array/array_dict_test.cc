@@ -835,13 +835,13 @@ TEST(TestFixedSizeBinaryDictionaryBuilder, AppendArrayInvalidType) {
 }
 #endif
 
-TEST(TestDecimalDictionaryBuilder, Basic) {
+template <typename DecimalValue>
+void TestDecimalDictionaryBuilderBasic(std::shared_ptr<DataType> decimal_type) {
   // Build the dictionary Array
-  auto decimal_type = arrow::decimal(2, 0);
   DictionaryBuilder<FixedSizeBinaryType> builder(decimal_type);
 
   // Test data
-  std::vector<Decimal128> test{12, 12, 11, 12};
+  std::vector<DecimalValue> test{12, 12, 11, 12};
   for (const auto& value : test) {
     ASSERT_OK(builder.Append(value.ToBytes().data()));
   }
@@ -857,40 +857,48 @@ TEST(TestDecimalDictionaryBuilder, Basic) {
   ASSERT_TRUE(expected.Equals(result));
 }
 
-TEST(TestDecimalDictionaryBuilder, DoubleTableSize) {
-  const auto& decimal_type = arrow::decimal(21, 0);
+TEST(TestDecimal128DictionaryBuilder, Basic) {
+  TestDecimalDictionaryBuilderBasic<Decimal128>(arrow::decimal128(2, 0));
+}
 
+TEST(TestDecimal256DictionaryBuilder, Basic) {
+  TestDecimalDictionaryBuilderBasic<Decimal256>(arrow::decimal256(76, 0));
+}
+
+void TestDecimalDictionaryBuilderDoubleTableSize(
+    std::shared_ptr<DataType> decimal_type, FixedSizeBinaryBuilder& decimal_builder) {
   // Build the dictionary Array
   DictionaryBuilder<FixedSizeBinaryType> dict_builder(decimal_type);
 
   // Build expected data
-  Decimal128Builder decimal_builder(decimal_type);
   Int16Builder int_builder;
 
   // Fill with 1024 different values
   for (int64_t i = 0; i < 1024; i++) {
-    const uint8_t bytes[] = {0,
-                             0,
-                             0,
-                             0,
-                             0,
-                             0,
-                             0,
-                             0,
-                             0,
-                             0,
-                             0,
-                             0,
-                             12,
-                             12,
-                             static_cast<uint8_t>(i / 128),
-                             static_cast<uint8_t>(i % 128)};
+    // Decimal256Builder takes 32 bytes, while Decimal128Builder takes only the first 16
+    // bytes.
+    const uint8_t bytes[32] = {0,
+                               0,
+                               0,
+                               0,
+                               0,
+                               0,
+                               0,
+                               0,
+                               0,
+                               0,
+                               0,
+                               0,
+                               12,
+                               12,
+                               static_cast<uint8_t>(i / 128),
+                               static_cast<uint8_t>(i % 128)};
     ASSERT_OK(dict_builder.Append(bytes));
     ASSERT_OK(decimal_builder.Append(bytes));
     ASSERT_OK(int_builder.Append(static_cast<uint16_t>(i)));
   }
   // Fill with an already existing value
-  const uint8_t known_value[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 12, 12, 0, 1};
+  const uint8_t known_value[32] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 12, 12, 0, 1};
   for (int64_t i = 0; i < 1024; i++) {
     ASSERT_OK(dict_builder.Append(known_value));
     ASSERT_OK(int_builder.Append(1));
@@ -909,6 +917,18 @@ TEST(TestDecimalDictionaryBuilder, DoubleTableSize) {
 
   DictionaryArray expected(dictionary(int16(), decimal_type), int_array, decimal_array);
   ASSERT_TRUE(expected.Equals(result));
+}
+
+TEST(TestDecimal128DictionaryBuilder, DoubleTableSize) {
+  const auto& decimal_type = arrow::decimal128(21, 0);
+  Decimal128Builder decimal_builder(decimal_type);
+  TestDecimalDictionaryBuilderDoubleTableSize(decimal_type, decimal_builder);
+}
+
+TEST(TestDecimal256DictionaryBuilder, DoubleTableSize) {
+  const auto& decimal_type = arrow::decimal256(21, 0);
+  Decimal256Builder decimal_builder(decimal_type);
+  TestDecimalDictionaryBuilderDoubleTableSize(decimal_type, decimal_builder);
 }
 
 TEST(TestNullDictionaryBuilder, Basic) {

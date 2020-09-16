@@ -1283,7 +1283,7 @@ def test_decimal_to_int_non_integer():
 
     for case in non_integer_cases:
         # test safe casting raises
-        msg_regexp = 'Rescaling decimal value would cause data loss'
+        msg_regexp = 'Rescaling Decimal128 value would cause data loss'
         with pytest.raises(pa.ArrowInvalid, match=msg_regexp):
             _check_cast_case(case)
 
@@ -1302,8 +1302,8 @@ def test_decimal_to_decimal():
     )
     assert result.equals(expected)
 
-    with pytest.raises(pa.ArrowInvalid,
-                       match='Rescaling decimal value would cause data loss'):
+    msg_regexp = 'Rescaling Decimal128 value would cause data loss'
+    with pytest.raises(pa.ArrowInvalid, match=msg_regexp):
         result = arr.cast(pa.decimal128(9, 1))
 
     result = arr.cast(pa.decimal128(9, 1), safe=False)

@@ -227,6 +227,11 @@ class ArrayPrinter : public PrettyPrinter {
     return Status::OK();
   }
 
+  Status WriteDataValues(const Decimal256Array& array) {
+    WriteValues(array, [&](int64_t i) { (*sink_) << array.FormatValue(i); });
+    return Status::OK();
+  }
+
   template <typename T>
   enable_if_list_like<typename T::TypeClass, Status> WriteDataValues(const T& array) {
     bool skip_comma = true;
