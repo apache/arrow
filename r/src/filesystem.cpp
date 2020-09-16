@@ -235,7 +235,7 @@ void fs___CopyFiles(const std::shared_ptr<fs::FileSystem>& src_fs,
                     const std::vector<std::string>& src_paths,
                     const std::shared_ptr<fs::FileSystem>& dest_fs,
                     const std::vector<std::string>& dest_paths, int64_t chunk_size,
-                    bool use_threads) {
+                    bool use_threads, bool create_directories) {
   std::vector<fs::FileLocator> sources(src_paths.size()), destinations(dest_paths.size());
 
   for (size_t i = 0; i < src_paths.size(); ++i) {
@@ -243,7 +243,8 @@ void fs___CopyFiles(const std::shared_ptr<fs::FileSystem>& src_fs,
     destinations[i] = {dest_fs, dest_paths[i]};
   }
 
-  StopIfNotOk(fs::CopyFiles(sources, destinations, chunk_size, use_threads));
+  StopIfNotOk(
+      fs::CopyFiles(sources, destinations, chunk_size, use_threads, create_directories));
 }
 
 #endif

@@ -442,18 +442,20 @@ Result<std::shared_ptr<io::OutputStream>> SlowFileSystem::OpenAppendStream(
 
 Status CopyFiles(const std::vector<FileLocator>& sources,
                  const std::vector<FileLocator>& destinations, int64_t chunk_size,
-                 bool use_threads) {
+                 bool use_threads, bool create_directories) {
   if (sources.size() != destinations.size()) {
     return Status::Invalid("Trying to copy ", sources.size(), " files into ",
                            destinations.size(), " paths.");
   }
 
-  RETURN_NOT_OK(::arrow::internal::OptionalParallelFor(
-      use_threads, static_cast<int>(sources.size()), [&](int i) {
-        auto dest_dir = internal::GetAbstractPathParent(destinations[i].path).first;
-        return dest_dir.empty() ? Status::OK()
-                                : destinations[i].filesystem->CreateDir(dest_dir);
-      }));
+  if (create_directories) {
+    RETURN_NOT_OK(::arrow::internal::OptionalParallelFor(
+        use_threads, static_cast<int>(sources.size()), [&](int i) {
+          auto dest_dir = internal::GetAbstractPathParent(destinations[i].path).first;
+          return dest_dir.empty() ? Status::OK()
+                                  : destinations[i].filesystem->CreateDir(dest_dir);
+        }));
+  }
 
   return ::arrow::internal::OptionalParallelFor(
       use_threads, static_cast<int>(sources.size()), [&](int i) {

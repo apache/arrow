@@ -309,10 +309,11 @@ SubTreeFileSystem$create <- function(base_path, base_fs) {
 #' @param chunk_size The maximum size of block to read before flushing
 #' to the destination file. A larger chunk_size will use more memory while
 #' copying but may help accommodate high latency FileSystems.
+#' @param create_directories Create parent directories of destination files.
 copy_files <- function(src_fs, src_paths, dest_fs, dest_paths,
-                       chunk_size = 1024L * 1024L) {
+                       chunk_size = 1024L * 1024L, create_directories = TRUE) {
   fs___CopyFiles(src_fs, src_paths, dest_fs, dest_paths,
-                 chunk_size, option_use_threads())
+                 chunk_size, option_use_threads(), create_directories)
 }
 
 clean_path_abs <- function(path) {

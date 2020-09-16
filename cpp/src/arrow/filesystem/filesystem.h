@@ -401,7 +401,8 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUriOrPath(
 ARROW_EXPORT
 Status CopyFiles(const std::vector<FileLocator>& sources,
                  const std::vector<FileLocator>& destinations,
-                 int64_t chunk_size = 1024 * 1024, bool use_threads = true);
+                 int64_t chunk_size = 1024 * 1024, bool use_threads = true,
+                 bool create_directories = false);
 
 struct FileSystemGlobalOptions {
   /// Path to a single PEM file holding all TLS CA certificates

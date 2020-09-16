@@ -608,7 +608,9 @@ TEST_F(TestSubTreeFileSystem, CopyFiles) {
                       {{dest_fs, "AB/ab"},
                        {dest_fs, "CD/CD/cd"},
                        {dest_fs, "EF/EF/EF/ef"},
-                       {subfs_, "same_copy/same"}}));
+                       {subfs_, "same_copy/same"}},
+                      /*chunk_size=*/16, /*use_threads=*/true,
+                      /*create_directories=*/true));
 
   CheckFiles({
       {"sub/copy/AB/ab", time_, "ab"},
