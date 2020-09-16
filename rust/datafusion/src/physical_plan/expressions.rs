@@ -1331,6 +1331,84 @@ pub fn not(
     }
 }
 
+/// IS NULL expression
+#[derive(Debug)]
+pub struct IsNullExpr {
+    arg: Arc<dyn PhysicalExpr>,
+}
+
+impl IsNullExpr {
+    /// Create new not expression
+    pub fn new(arg: Arc<dyn PhysicalExpr>) -> Self {
+        Self { arg }
+    }
+}
+
+impl fmt::Display for IsNullExpr {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{} IS NULL", self.arg)
+    }
+}
+impl PhysicalExpr for IsNullExpr {
+    fn data_type(&self, _input_schema: &Schema) -> Result<DataType> {
+        return Ok(DataType::Boolean);
+    }
+
+    fn nullable(&self, _input_schema: &Schema) -> Result<bool> {
+        Ok(false)
+    }
+
+    fn evaluate(&self, batch: &RecordBatch) -> Result<ArrayRef> {
+        let arg = self.arg.evaluate(batch)?;
+        return Ok(Arc::new(arrow::compute::kernels::boolean::is_null(&arg)?));
+    }
+}
+
+/// Create an IS NULL expression
+pub fn is_null(arg: Arc<dyn PhysicalExpr>) -> Result<Arc<dyn PhysicalExpr>> {
+    Ok(Arc::new(IsNullExpr::new(arg)))
+}
+
+/// IS NULL expression
+#[derive(Debug)]
+pub struct IsNotNullExpr {
+    arg: Arc<dyn PhysicalExpr>,
+}
+
+impl IsNotNullExpr {
+    /// Create new not expression
+    pub fn new(arg: Arc<dyn PhysicalExpr>) -> Self {
+        Self { arg }
+    }
+}
+
+impl fmt::Display for IsNotNullExpr {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{} IS NULL", self.arg)
+    }
+}
+impl PhysicalExpr for IsNotNullExpr {
+    fn data_type(&self, _input_schema: &Schema) -> Result<DataType> {
+        return Ok(DataType::Boolean);
+    }
+
+    fn nullable(&self, _input_schema: &Schema) -> Result<bool> {
+        Ok(false)
+    }
+
+    fn evaluate(&self, batch: &RecordBatch) -> Result<ArrayRef> {
+        let arg = self.arg.evaluate(batch)?;
+        return Ok(Arc::new(arrow::compute::kernels::boolean::is_not_null(
+            &arg,
+        )?));
+    }
+}
+
+/// Create an IS NULL expression
+pub fn is_not_null(arg: Arc<dyn PhysicalExpr>) -> Result<Arc<dyn PhysicalExpr>> {
+    Ok(Arc::new(IsNotNullExpr::new(arg)))
+}
+
 /// CAST expression casts an expression to a specific data type
 #[derive(Debug)]
 pub struct CastExpr {
@@ -1509,8 +1587,8 @@ mod tests {
     use crate::error::Result;
     use crate::physical_plan::common::get_scalar_value;
     use arrow::array::{
-        LargeStringArray, PrimitiveArray, PrimitiveArrayOps, StringArray, StringArrayOps,
-        Time64NanosecondArray,
+        Array, LargeStringArray, PrimitiveArray, PrimitiveArrayOps, StringArray,
+        StringArrayOps, Time64NanosecondArray,
     };
     use arrow::datatypes::*;
 
@@ -1584,7 +1662,6 @@ mod tests {
             .downcast_ref::<BooleanArray>()
             .expect("failed to downcast to BooleanArray");
         for i in 0..5 {
-            print!("{}", i);
             assert_eq!(result.value(i), expected[i]);
         }
 
@@ -2495,6 +2572,58 @@ mod tests {
 
         let expr = not(col("a"), &schema);
         assert!(expr.is_err());
+
+        Ok(())
+    }
+
+    #[test]
+    fn is_null_op() -> Result<()> {
+        let schema = Schema::new(vec![Field::new("a", DataType::Utf8, true)]);
+        let a = StringArray::from(vec![Some("foo"), None]);
+        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
+
+        // expression: "a is null"
+        let expr = is_null(col("a")).unwrap();
+        let result = expr.evaluate(&batch)?;
+
+        let expected = vec![false, true];
+
+        let result = result
+            .as_any()
+            .downcast_ref::<BooleanArray>()
+            .expect("failed to downcast to BooleanArray");
+
+        assert_eq!(result.len(), expected.len());
+
+        for i in 0..expected.len() {
+            assert_eq!(result.value(i), expected[i]);
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn is_not_null_op() -> Result<()> {
+        let schema = Schema::new(vec![Field::new("a", DataType::Utf8, true)]);
+        let a = StringArray::from(vec![Some("foo"), None]);
+        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
+
+        // expression: "a is null"
+        let expr = is_not_null(col("a")).unwrap();
+        let result = expr.evaluate(&batch)?;
+
+        let expected = vec![true, false];
+
+        let result = result
+            .as_any()
+            .downcast_ref::<BooleanArray>()
+            .expect("failed to downcast to BooleanArray");
+
+        assert_eq!(result.len(), expected.len());
+
+        for i in 0..expected.len() {
+            assert_eq!(result.value(i), expected[i]);
+        }
 
         Ok(())
     }

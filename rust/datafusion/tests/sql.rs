@@ -825,3 +825,51 @@ fn to_timstamp() -> Result<()> {
     assert_eq!(expected, actual);
     Ok(())
 }
+
+#[test]
+fn query_is_null() -> Result<()> {
+    let schema = Arc::new(Schema::new(vec![Field::new("c1", DataType::Float64, true)]));
+
+    let data = RecordBatch::try_new(
+        schema.clone(),
+        vec![Arc::new(Float64Array::from(vec![
+            Some(1.0),
+            None,
+            Some(f64::NAN),
+        ]))],
+    )?;
+
+    let table = MemTable::new(schema, vec![vec![data]])?;
+
+    let mut ctx = ExecutionContext::new();
+    ctx.register_table("test", Box::new(table));
+    let sql = "SELECT c1 IS NULL FROM test";
+    let actual = execute(&mut ctx, sql).join("\n");
+    let expected = "false\ntrue\nfalse".to_string();
+    assert_eq!(expected, actual);
+    Ok(())
+}
+
+#[test]
+fn query_is_not_null() -> Result<()> {
+    let schema = Arc::new(Schema::new(vec![Field::new("c1", DataType::Float64, true)]));
+
+    let data = RecordBatch::try_new(
+        schema.clone(),
+        vec![Arc::new(Float64Array::from(vec![
+            Some(1.0),
+            None,
+            Some(f64::NAN),
+        ]))],
+    )?;
+
+    let table = MemTable::new(schema, vec![vec![data]])?;
+
+    let mut ctx = ExecutionContext::new();
+    ctx.register_table("test", Box::new(table));
+    let sql = "SELECT c1 IS NOT NULL FROM test";
+    let actual = execute(&mut ctx, sql).join("\n");
+    let expected = "true\nfalse\ntrue".to_string();
+    assert_eq!(expected, actual);
+    Ok(())
+}
