@@ -349,8 +349,9 @@ static void BM_ReadListColumn(::benchmark::State& state) {
 
   ::arrow::random::RandomArrayGenerator rng(42);
 
-  auto values = rng.Int64(kNumValues, -5, 5, null_probability);
-  auto offsets = rng.Offsets(kNumValues / 10, 0, values->length(), null_probability);
+  auto values = rng.Int64(kNumValues, /*min=*/-5, /*max=*/5, null_probability);
+  auto offsets = rng.Offsets(kNumValues / 10, 0, static_cast<int32_t>(values->length()),
+                             null_probability);
 
   const int64_t kBytesPerValue = sizeof(int64_t);
 
