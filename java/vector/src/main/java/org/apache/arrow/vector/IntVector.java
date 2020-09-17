@@ -17,7 +17,6 @@
 
 package org.apache.arrow.vector;
 
-import static org.apache.arrow.vector.NonNullableVectorOption.NON_NULLABLE_VECTORS_ENABLED;
 import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
 
 import org.apache.arrow.memory.ArrowBuf;
@@ -165,7 +164,7 @@ public final class IntVector extends BaseFixedWidthVector implements BaseIntVect
    * @param value value of element
    */
   public void set(int index, int value) {
-    if (!NON_NULLABLE_VECTORS_ENABLED || nullable) {
+    if (nullable) {
       BitVectorHelper.setBit(validityBuffer, index);
     }
     setValue(index, value);
@@ -183,11 +182,11 @@ public final class IntVector extends BaseFixedWidthVector implements BaseIntVect
     if (holder.isSet < 0) {
       throw new IllegalArgumentException();
     } else if (holder.isSet > 0) {
-      if (!NON_NULLABLE_VECTORS_ENABLED || nullable) {
+      if (nullable) {
         BitVectorHelper.setBit(validityBuffer, index);
       }
       setValue(index, holder.value);
-    } else if (!NON_NULLABLE_VECTORS_ENABLED || nullable) {
+    } else if (nullable) {
       BitVectorHelper.unsetBit(validityBuffer, index);
     }
   }
@@ -199,7 +198,7 @@ public final class IntVector extends BaseFixedWidthVector implements BaseIntVect
    * @param holder data holder for value of element
    */
   public void set(int index, IntHolder holder) {
-    if (!NON_NULLABLE_VECTORS_ENABLED || nullable) {
+    if (nullable) {
       BitVectorHelper.setBit(validityBuffer, index);
     }
     setValue(index, holder.value);
@@ -255,7 +254,7 @@ public final class IntVector extends BaseFixedWidthVector implements BaseIntVect
   public void set(int index, int isSet, int value) {
     if (isSet > 0) {
       set(index, value);
-    } else if (!NON_NULLABLE_VECTORS_ENABLED || nullable) {
+    } else if (nullable) {
       BitVectorHelper.unsetBit(validityBuffer, index);
     }
   }

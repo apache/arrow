@@ -18,7 +18,6 @@
 package org.apache.arrow.vector;
 
 import static org.apache.arrow.memory.util.LargeMemoryUtil.capAtMaxInt;
-import static org.apache.arrow.vector.NonNullableVectorOption.NON_NULLABLE_VECTORS_ENABLED;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -184,7 +183,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
   @Override
   public int getValueCapacity() {
     int valueCapacity = getValueBufferValueCapacity();
-    return NON_NULLABLE_VECTORS_ENABLED && !nullable ? valueCapacity :
+    return !nullable ? valueCapacity :
         Math.min(valueCapacity, getValidityBufferValueCapacity());
   }
 
@@ -344,7 +343,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
    * always slice for the target vector.
    */
   private void allocateValidityBuffer(final int validityBufferSize) {
-    validityBuffer = NON_NULLABLE_VECTORS_ENABLED && !nullable ? allocator.getEmpty() :
+    validityBuffer = !nullable ? allocator.getEmpty() :
         allocator.buffer(validityBufferSize);
     validityBuffer.readerIndex(0);
   }
@@ -374,7 +373,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
       return 0;
     }
     return (valueCount * typeWidth) +
-        (NON_NULLABLE_VECTORS_ENABLED && !nullable ? 0 : getValidityBufferSizeFromCount(valueCount));
+        (!nullable ? 0 : getValidityBufferSizeFromCount(valueCount));
   }
 
   /**
@@ -493,7 +492,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
     ArrowBuf bitBuffer = ownBuffers.get(0);
     ArrowBuf dataBuffer = ownBuffers.get(1);
 
-    if (!NON_NULLABLE_VECTORS_ENABLED || nullable) {
+    if (nullable) {
       validityBuffer.getReferenceManager().release();
       validityBuffer = BitVectorHelper.loadValidityBuffer(fieldNode, bitBuffer, allocator);
     }
@@ -527,7 +526,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
       validityBuffer.writerIndex(0);
       valueBuffer.writerIndex(0);
     } else {
-      if (!NON_NULLABLE_VECTORS_ENABLED || nullable) {
+      if (nullable) {
         validityBuffer.writerIndex(getValidityBufferSizeFromCount(valueCount));
       }
       if (typeWidth == 0) {
@@ -630,10 +629,10 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
         if (target.validityBuffer != null) {
           target.validityBuffer.getReferenceManager().release();
         }
-        target.validityBuffer = NON_NULLABLE_VECTORS_ENABLED && !nullable ? allocator.getEmpty() :
+        target.validityBuffer = !nullable ? allocator.getEmpty() :
             validityBuffer.slice(firstByteSource, byteSizeTarget);
         target.validityBuffer.getReferenceManager().retain(1);
-      } else if (!NON_NULLABLE_VECTORS_ENABLED || nullable) {
+      } else if (nullable) {
         /* Copy data
          * When the first bit starts from the middle of a byte (offset != 0),
          * copy data from src BitVector.
@@ -691,7 +690,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
    */
   @Override
   public int getNullCount() {
-    return NON_NULLABLE_VECTORS_ENABLED && !nullable ? 0 : BitVectorHelper.getNullCount(validityBuffer, valueCount);
+    return !nullable ? 0 : BitVectorHelper.getNullCount(validityBuffer, valueCount);
   }
 
   /**
@@ -772,7 +771,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
    */
   @Override
   public boolean isNull(int index) {
-    return NON_NULLABLE_VECTORS_ENABLED && !nullable ? false : (isSet(index) == 0);
+    return !nullable ? false : (isSet(index) == 0);
   }
 
   /**
@@ -782,7 +781,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
    * @return 1 if element at given index is not null, 0 otherwise
    */
   public int isSet(int index) {
-    if (NON_NULLABLE_VECTORS_ENABLED && !nullable) {
+    if (!nullable) {
       return 1;
     }
     final int byteIndex = index >> 3;
@@ -798,7 +797,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
    */
   @Override
   public void setIndexDefined(int index) {
-    if (NON_NULLABLE_VECTORS_ENABLED && !nullable) {
+    if (!nullable) {
       return;
     }
     handleSafe(index);
@@ -878,7 +877,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
    * @param index position of element
    */
   public void setNull(int index) {
-    if (NON_NULLABLE_VECTORS_ENABLED && !nullable) {
+    if (!nullable) {
       throw new IllegalArgumentException("The vector is non-nullable");
     }
     handleSafe(index);
