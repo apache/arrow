@@ -73,6 +73,7 @@ mod tests {
         BinaryArray, BooleanArray, Float32Array, Float64Array, Int32Array,
         TimestampNanosecondArray,
     };
+    use arrow::array::PrimitiveArrayOps;
     use arrow::record_batch::RecordBatch;
     use std::env;
 
