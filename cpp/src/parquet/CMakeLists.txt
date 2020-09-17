@@ -390,7 +390,6 @@ if(PARQUET_REQUIRE_ENCRYPTION)
   add_parquet_test(encryption-key-management-test
                    SOURCES
                    encryption/encryption_key_management_test.cc
-                   encryption/key_metadata_test.cc
                    encryption/test_encryption_util.cc
                    test_util.cc)
 endif()
