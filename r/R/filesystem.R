@@ -333,9 +333,12 @@ arrow_with_s3 <- function() {
 #' @rdname FileSystem
 #' @export
 SubTreeFileSystem <- R6Class("SubTreeFileSystem", inherit = FileSystem)
-SubTreeFileSystem$create <- function(base_path, base_fs) {
-  xp <- fs___SubTreeFileSystem__create(clean_path_rel(base_path), base_fs)
-  shared_ptr(SubTreeFileSystem, xp)
+SubTreeFileSystem$create <- function(base_path, base_fs = NULL) {
+  fs_and_path <- get_path_and_filesystem(base_path, base_fs)
+  shared_ptr(
+    SubTreeFileSystem,
+    fs___SubTreeFileSystem__create(fs_and_path$path, fs_and_path$fs)
+  )
 }
 
 #' Copy files between FileSystems
