@@ -493,16 +493,11 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
                     ))),
                 }?;
 
-                match operator {
-                    Operator::Not => Err(ExecutionError::InternalError(format!(
-                        "SQL unary operator \"NOT\" cannot be interpreted as a binary operator"
-                    ))),
-                    _ => Ok(Expr::BinaryExpr {
-                        left: Box::new(self.sql_to_rex(&left, &schema)?),
-                        op: operator,
-                        right: Box::new(self.sql_to_rex(&right, &schema)?),
-                    })
-                }
+                Ok(Expr::BinaryExpr {
+                    left: Box::new(self.sql_to_rex(&left, &schema)?),
+                    op: operator,
+                    right: Box::new(self.sql_to_rex(&right, &schema)?),
+                })
             }
 
             SQLExpr::Function(function) => {

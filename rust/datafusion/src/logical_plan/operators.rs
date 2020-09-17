@@ -48,8 +48,6 @@ pub enum Operator {
     And,
     /// Logical OR, like `||`
     Or,
-    /// Logical NOT, like `!`
-    Not,
     /// Matches a wildcard pattern
     Like,
     /// Does not match a wildcard pattern
@@ -72,7 +70,6 @@ impl fmt::Display for Operator {
             Operator::Modulus => "%",
             Operator::And => "AND",
             Operator::Or => "OR",
-            Operator::Not => "NOT",
             Operator::Like => "LIKE",
             Operator::NotLike => "NOT LIKE",
         };

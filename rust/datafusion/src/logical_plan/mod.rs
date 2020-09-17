@@ -150,6 +150,10 @@ fn create_name(e: &Expr, input_schema: &Schema) -> Result<String> {
             let expr = create_name(expr, input_schema)?;
             Ok(format!("CAST({} as {:?})", expr, data_type))
         }
+        Expr::Not(expr) => {
+            let expr = create_name(expr, input_schema)?;
+            Ok(format!("NOT {}", expr))
+        }
         Expr::ScalarFunction { fun, args, .. } => {
             create_function_name(&fun.to_string(), args, input_schema)
         }

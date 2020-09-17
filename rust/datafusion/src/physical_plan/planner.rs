@@ -437,6 +437,10 @@ impl DefaultPhysicalPlanner {
                 input_schema,
                 data_type.clone(),
             ),
+            Expr::Not(expr) => expressions::not(
+                self.create_physical_expr(expr, input_schema, ctx_state)?,
+                input_schema,
+            ),
             Expr::ScalarFunction { fun, args } => {
                 let physical_args = args
                     .iter()
@@ -534,7 +538,7 @@ impl ExtensionPlanner for DefaultExtensionPlanner {
 mod tests {
     use super::*;
     use crate::logical_plan::{col, lit, sum, LogicalPlanBuilder};
-    use crate::physical_plan::{csv::CsvReadOptions, Partitioning};
+    use crate::physical_plan::{csv::CsvReadOptions, expressions, Partitioning};
     use crate::{prelude::ExecutionConfig, test::arrow_testdata_path};
     use arrow::{
         datatypes::{DataType, Field, SchemaRef},
@@ -578,6 +582,21 @@ mod tests {
         // verify that the plan correctly casts u8 to i64
         let expected = "BinaryExpr { left: Column { name: \"c7\" }, op: Lt, right: CastExpr { expr: Literal { value: UInt8(5) }, cast_type: Int64 } }";
         assert!(format!("{:?}", plan).contains(expected));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_create_not() -> Result<()> {
+        let schema = Schema::new(vec![Field::new("a", DataType::Boolean, true)]);
+
+        let planner = DefaultPhysicalPlanner::default();
+
+        let expr =
+            planner.create_physical_expr(&col("a").not(), &schema, &make_ctx_state())?;
+        let expected = expressions::not(expressions::col("a"), &schema)?;
+
+        assert_eq!(format!("{:?}", expr), format!("{:?}", expected));
 
         Ok(())
     }

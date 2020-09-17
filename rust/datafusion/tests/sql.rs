@@ -680,9 +680,13 @@ fn result_str(results: &[RecordBatch]) -> Vec<String> {
                     DataType::Boolean => {
                         let array =
                             column.as_any().downcast_ref::<BooleanArray>().unwrap();
-                        let s = array.value(row_index);
+                        let s = if array.is_null(row_index) {
+                            "NULL".to_string()
+                        } else {
+                            format!("{:?}", array.value(row_index))
+                        };
 
-                        str.push_str(&format!("{:?}", s));
+                        str.push_str(&s);
                     }
                     _ => str.push_str("???"),
                 }
@@ -709,6 +713,30 @@ fn query_length() -> Result<()> {
     let sql = "SELECT length(c1) FROM test";
     let actual = execute(&mut ctx, sql).join("\n");
     let expected = "0\n1\n2\n3".to_string();
+    assert_eq!(expected, actual);
+    Ok(())
+}
+
+#[test]
+fn query_not() -> Result<()> {
+    let schema = Arc::new(Schema::new(vec![Field::new("c1", DataType::Boolean, true)]));
+
+    let data = RecordBatch::try_new(
+        schema.clone(),
+        vec![Arc::new(BooleanArray::from(vec![
+            Some(false),
+            None,
+            Some(true),
+        ]))],
+    )?;
+
+    let table = MemTable::new(schema, vec![vec![data]])?;
+
+    let mut ctx = ExecutionContext::new();
+    ctx.register_table("test", Box::new(table));
+    let sql = "SELECT NOT c1 FROM test";
+    let actual = execute(&mut ctx, sql).join("\n");
+    let expected = "true\nNULL\nfalse".to_string();
     assert_eq!(expected, actual);
     Ok(())
 }
