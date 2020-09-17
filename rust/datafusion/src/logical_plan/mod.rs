@@ -185,7 +185,7 @@ pub fn exprlist_to_fields(expr: &[Expr], input_schema: &Schema) -> Result<Vec<Fi
 /// # use datafusion::logical_plan::Expr;
 /// # use datafusion::error::Result;
 /// # fn main() -> Result<()> {
-/// let expr = Expr::Column("c1".to_string()).plus(Expr::Column("c2".to_string()));
+/// let expr = Expr::Column("c1".to_string()) + Expr::Column("c2".to_string());
 /// println!("{:?}", expr);
 /// # Ok(())
 /// # }
