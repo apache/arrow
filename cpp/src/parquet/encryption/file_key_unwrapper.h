@@ -39,8 +39,9 @@ namespace encryption {
 // "key encryption key"
 class PARQUET_EXPORT FileKeyUnwrapper : public DecryptionKeyRetriever {
  public:
-  /// kms_client_factory and kms_connection_config is to create KmsClient if it's not in
-  /// the cache yet. cache_entry_lifetime_seconds is life time of KmsClient in the cache.
+  /// key_toolkit and kms_connection_config is to get KmsClient from cache or create
+  /// KmsClient if it's not in the cache yet. cache_entry_lifetime_seconds is life time of
+  /// KmsClient in the cache.
   FileKeyUnwrapper(KeyToolkit* key_toolkit,
                    const KmsConnectionConfig& kms_connection_config,
                    uint64_t cache_lifetime_seconds, bool is_wrap_locally);

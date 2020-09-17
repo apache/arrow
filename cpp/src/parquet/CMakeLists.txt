@@ -391,6 +391,7 @@ if(PARQUET_REQUIRE_ENCRYPTION)
                    SOURCES
                    encryption/encryption_key_management_test.cc
                    encryption/key_metadata_test.cc
+                   encryption/key_wrapping_test.cc
                    encryption/test_encryption_util.cc
                    test_util.cc)
 endif()

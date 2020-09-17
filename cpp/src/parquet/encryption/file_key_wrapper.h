@@ -25,6 +25,7 @@
 #include "parquet/encryption/key_encryption_key.h"
 #include "parquet/encryption/key_toolkit.h"
 #include "parquet/encryption/kms_client.h"
+#include "parquet/platform.h"
 
 namespace parquet {
 namespace encryption {
@@ -41,15 +42,15 @@ namespace encryption {
 // material" (see structure in KeyMetadata class).
 // Currently we don't support the case "key material" stores outside "key metadata"
 // yet.
-class FileKeyWrapper {
+class PARQUET_EXPORT FileKeyWrapper {
  public:
   static constexpr int kKeyEncryptionKeyLength = 16;
   static constexpr int kKeyEncryptionKeyIdLength = 16;
 
-  /// kms_client_factory and kms_connection_config is to create KmsClient if it's not in
-  /// the cache yet. cache_entry_lifetime_seconds is life time of KmsClient in the cache.
-  /// key_material_store is to store "key material" outside parquet file, NULL if "key
-  /// material" is stored inside parquet file.
+  /// key_toolkit and kms_connection_config is to get KmsClient from the cache or create
+  /// KmsClient if it's not in the cache yet. cache_entry_lifetime_seconds is life time of
+  /// KmsClient in the cache. key_material_store is to store "key material" outside
+  /// parquet file, NULL if "key material" is stored inside parquet file.
   FileKeyWrapper(KeyToolkit* key_toolkit,
                  const KmsConnectionConfig& kms_connection_config,
                  std::shared_ptr<FileKeyMaterialStore> key_material_store,

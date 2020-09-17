@@ -33,39 +33,6 @@ namespace parquet {
 namespace encryption {
 namespace test {
 
-const char kFooterMasterKey[] = "0123456789112345";
-const char* const kColumnMasterKeys[] = {"1234567890123450", "1234567890123451",
-                                         "1234567890123452", "1234567890123453",
-                                         "1234567890123454", "1234567890123455"};
-const char* const kColumnMasterKeyIds[] = {"kc1", "kc2", "kc3", "kc4", "kc5", "kc6"};
-const char kFooterMasterKeyId[] = "kf";
-
-std::unordered_map<std::string, std::string> BuildKeyMap(const char* const* column_ids,
-                                                         const char* const* column_keys,
-                                                         const char* footer_id,
-                                                         const char* footer_key) {
-  std::unordered_map<std::string, std::string> key_map;
-  // add column keys
-  for (int i = 0; i < 6; i++) {
-    key_map.insert({column_ids[i], column_keys[i]});
-  }
-  // add footer key
-  key_map.insert({footer_id, footer_key});
-
-  return key_map;
-}
-
-std::string BuildColumnKeyMapping() {
-  std::ostringstream stream;
-  stream << kColumnMasterKeyIds[0] << ":" << kDoubleFieldName << ";"
-         << kColumnMasterKeyIds[1] << ":" << kFloatFieldName << ";"
-         << kColumnMasterKeyIds[2] << ":" << kBooleanFieldName << ";"
-         << kColumnMasterKeyIds[3] << ":" << kInt32FieldName << ";"
-         << kColumnMasterKeyIds[4] << ":" << kByteArrayFieldName << ";"
-         << kColumnMasterKeyIds[5] << ":" << kFixedLenByteArrayFieldName << ";";
-  return stream.str();
-}
-
 std::unique_ptr<TemporaryDir> temp_dir;
 
 class TestEncrytionKeyManagement : public ::testing::Test {
