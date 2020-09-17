@@ -35,13 +35,13 @@
 #' serialize data to a buffer.
 #' [RecordBatchWriter] for a lower-level interface.
 #' @export
-write_ipc_stream <- function(x, sink, ...) {
+write_ipc_stream <- function(x, sink, filesystem = NULL, ...) {
   x_out <- x # So we can return the data we got
   if (is.data.frame(x)) {
     x <- Table$create(x)
   }
   if (is.string(sink)) {
-    sink <- make_output_stream(sink)
+    sink <- make_output_stream(sink, filesystem)
     on.exit(sink$close())
   }
   assert_is(sink, "OutputStream")
@@ -90,6 +90,8 @@ write_to_raw <- function(x, format = c("stream", "file")) {
 #' open.
 #' @param as_data_frame Should the function return a `data.frame` (default) or
 #' an Arrow [Table]?
+#' @param filesystem A [FileSystem] where `file` can be found if it is a
+#' string file path; default is the local file system
 #' @param ... extra parameters passed to `read_feather()`.
 #'
 #' @return A `data.frame` if `as_data_frame` is `TRUE` (the default), or an
@@ -97,9 +99,9 @@ write_to_raw <- function(x, format = c("stream", "file")) {
 #' @seealso [read_feather()] for writing IPC files. [RecordBatchReader] for a
 #' lower-level interface.
 #' @export
-read_ipc_stream <- function(file, as_data_frame = TRUE, ...) {
+read_ipc_stream <- function(file, as_data_frame = TRUE, filesystem = NULL, ...) {
   if (!inherits(file, "InputStream")) {
-    file <- make_readable_file(file)
+    file <- make_readable_file(file, filesystem = filesystem)
     on.exit(file$close())
   }
 

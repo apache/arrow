@@ -7,6 +7,7 @@
 write_feather(
   x,
   sink,
+  filesystem = NULL,
   version = 2,
   chunk_size = 65536L,
   compression = c("default", "lz4", "uncompressed", "zstd"),
@@ -17,6 +18,9 @@ write_feather(
 \item{x}{\code{data.frame}, \link{RecordBatch}, or \link{Table}}
 
 \item{sink}{A string file path, URI, or \link{OutputStream}}
+
+\item{filesystem}{A \link{FileSystem} where \code{sink} should be written if it is a
+string file path; default is the local file system}
 
 \item{version}{integer Feather file version. Version 2 is the current.
 Version 1 is the more limited legacy format.}

@@ -27,9 +27,9 @@ run_these <- tryCatch({
     # Helper function for minio URIs
     minio_uri <- function(...) {
       template <- "s3://%s:%s@%s?scheme=http&endpoint_override=localhost%s%s"
-      segments <- paste(..., sep = "/")
-      sprintf(template, minio_key, minio_secret, segments, "%3A", minio_port)
+      sprintf(template, minio_key, minio_secret, minio_path(...), "%3A", minio_port)
     }
+    minio_path <- function(...) paste(now, ..., sep = "/")
 
     # Create a "bucket" on minio for this test run, which we'll delete when done.
     fs <- S3FileSystem$create(
@@ -52,13 +52,78 @@ run_these <- tryCatch({
 
 if (run_these) {
   test_that("read/write Feather on minio", {
-    write_feather(example_data, minio_uri(now, "test.feather"))
-    expect_identical(read_feather(minio_uri(now, "test.feather")), example_data)
+    write_feather(example_data, minio_uri("test.feather"))
+    expect_identical(read_feather(minio_uri("test.feather")), example_data)
+  })
+
+  test_that("read/write Feather by filesystem, not URI", {
+    write_feather(example_data, minio_path("test2.feather"), filesystem = fs)
+    expect_identical(
+      read_feather(minio_path("test2.feather"), filesystem = fs),
+      example_data
+    )
+  })
+
+  test_that("read/write stream", {
+    write_ipc_stream(example_data, minio_path("test3.ipc"), filesystem = fs)
+    expect_identical(
+      read_ipc_stream(minio_path("test3.ipc"), filesystem = fs),
+      example_data
+    )
   })
 
   test_that("read/write Parquet on minio", {
-    write_parquet(example_data, minio_uri(now, "test.parquet"))
-    expect_identical(read_parquet(minio_uri(now, "test.parquet")), example_data)
+    write_parquet(example_data, minio_uri("test.parquet"))
+    expect_identical(read_parquet(minio_uri("test.parquet")), example_data)
+  })
+
+  # Dataset test setup, cf. test-dataset.R
+  library(dplyr)
+  first_date <- lubridate::ymd_hms("2015-04-29 03:12:39")
+  df1 <- tibble(
+    int = 1:10,
+    dbl = as.numeric(1:10),
+    lgl = rep(c(TRUE, FALSE, NA, TRUE, FALSE), 2),
+    chr = letters[1:10],
+    fct = factor(LETTERS[1:10]),
+    ts = first_date + lubridate::days(1:10)
+  )
+
+  second_date <- lubridate::ymd_hms("2017-03-09 07:01:02")
+  df2 <- tibble(
+    int = 101:110,
+    dbl = as.numeric(51:60),
+    lgl = rep(c(TRUE, FALSE, NA, TRUE, FALSE), 2),
+    chr = letters[10:1],
+    fct = factor(LETTERS[10:1]),
+    ts = second_date + lubridate::days(10:1)
+  )
+
+  # This is also to set up the dataset tests
+  test_that("write_parquet with filesystem arg", {
+    fs$CreateDir(minio_path("hive_dir", "group=1", "other=xxx"))
+    fs$CreateDir(minio_path("hive_dir", "group=2", "other=yyy"))
+    expect_length(fs$GetFileInfo(FileSelector$create(minio_path("hive_dir"))), 2)
+    write_parquet(df1, minio_path("hive_dir", "group=1", "other=xxx", "file1.parquet"), filesystem = fs)
+    write_parquet(df2, minio_path("hive_dir", "group=2", "other=yyy", "file2.parquet"), filesystem = fs)
+    expect_identical(
+      read_parquet(minio_path("hive_dir", "group=1", "other=xxx", "file1.parquet"), filesystem = fs),
+      df1
+    )
+  })
+
+  test_that("open_dataset with fs", {
+    ds <- open_dataset(minio_path("hive_dir"), filesystem = fs)
+    expect_identical(
+      ds %>% select(dbl, lgl) %>% collect(),
+      rbind(df1[, c("dbl", "lgl")], df2[, c("dbl", "lgl")])
+    )
+  })
+
+  test_that("write_dataset with fs", {
+    ds <- open_dataset(minio_path("hive_dir"), filesystem = fs)
+    write_dataset(ds, minio_path("new_dataset_dir"), filesystem = fs)
+    expect_length(fs$GetFileInfo(FileSelector$create(minio_path("new_dataset_dir"))), 2)
   })
 
   test_that("S3FileSystem input validation", {
