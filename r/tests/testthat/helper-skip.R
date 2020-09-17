@@ -43,3 +43,8 @@ skip_if_not_running_large_memory_tests <- function() {
     "environment variable ARROW_LARGE_MEMORY_TESTS"
   )
 }
+
+process_is_running <- function(x) {
+  cmd <- sprintf("ps aux | grep '%s' | grep -v grep", x)
+  tryCatch(system(cmd, ignore.stdout = TRUE) == 0, error = function(e) FALSE)
+}

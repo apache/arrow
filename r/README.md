@@ -172,6 +172,24 @@ isn’t found, you can explicitly provide the path to it like
 this by installing LLVM via Homebrew and running the script as
 `CLANG_FORMAT=$(brew --prefix llvm@8)/bin/clang-format ./lint.sh`
 
+### Running tests
+
+Some tests are conditionally enabled based on the availability of certain
+features in the package build (S3 support, compression libraries, etc.).
+Others are generally skipped by default but can be enabled with environment
+variables or other settings:
+
+* Some tests are disabled unless `ARROW_R_DEV=TRUE`
+* Tests that require allocating >2GB of memory to test Large types are disabled
+  unless `ARROW_LARGE_MEMORY_TESTS=TRUE`
+* Integration tests against a real S3 bucket are disabled unless credentials
+  are set in `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`; these are available
+  on request
+* S3 tests using [MinIO](https://min.io/) locally are enabled if the
+  `minio server` process is found running. If you're running MinIO with custom
+  settings, you can set `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY`, and
+  `MINIO_PORT` to override the defaults.
+
 ### Useful functions
 
 Within an R session, these can help with package development:

@@ -17,20 +17,20 @@
 
 context("S3 tests using local minio")
 
-run_these <- tryCatch({
-  if (arrow_with_s3() && nzchar(Sys.which("minio"))) {
-    # Get minio config, with expected defaults
-    minio_key <- Sys.getenv("MINIO_ACCESS_KEY", "minioadmin")
-    minio_secret <- Sys.getenv("MINIO_SECRET_KEY", "minioadmin")
-    minio_port <- Sys.getenv("MINIO_PORT", "9000")
+if (arrow_with_s3() && process_is_running("minio server")) {
+  # Get minio config, with expected defaults
+  minio_key <- Sys.getenv("MINIO_ACCESS_KEY", "minioadmin")
+  minio_secret <- Sys.getenv("MINIO_SECRET_KEY", "minioadmin")
+  minio_port <- Sys.getenv("MINIO_PORT", "9000")
 
-    # Helper function for minio URIs
-    minio_uri <- function(...) {
-      template <- "s3://%s:%s@%s?scheme=http&endpoint_override=localhost%s%s"
-      sprintf(template, minio_key, minio_secret, minio_path(...), "%3A", minio_port)
-    }
-    minio_path <- function(...) paste(now, ..., sep = "/")
+  # Helper function for minio URIs
+  minio_uri <- function(...) {
+    template <- "s3://%s:%s@%s?scheme=http&endpoint_override=localhost%s%s"
+    sprintf(template, minio_key, minio_secret, minio_path(...), "%3A", minio_port)
+  }
+  minio_path <- function(...) paste(now, ..., sep = "/")
 
+  test_that("minio setup", {
     # Create a "bucket" on minio for this test run, which we'll delete when done.
     fs <- S3FileSystem$create(
       access_key = minio_key,
@@ -38,19 +38,15 @@ run_these <- tryCatch({
       scheme = "http",
       endpoint_override = paste0("localhost:", minio_port)
     )
+    expect_is(fs, "S3FileSystem")
     now <- as.character(as.numeric(Sys.time()))
     # If minio isn't running, this will hang for a few seconds and fail with a
     # curl timeout, causing `run_these` to be set to FALSE and skipping the tests
     fs$CreateDir(now)
+    # Clean up when we're all done
     on.exit(fs$DeleteDir(now))
-    TRUE
-  } else {
-    FALSE
-  }
-}, error = function(e) FALSE)
+  })
 
-
-if (run_these) {
   test_that("read/write Feather on minio", {
     write_feather(example_data, minio_uri("test.feather"))
     expect_identical(read_feather(minio_uri("test.feather")), example_data)
@@ -147,5 +143,11 @@ if (run_these) {
       S3FileSystem$create(access_key = "foo", secret_key = "asdf", anonymous = TRUE),
       'Cannot specify "access_key" and "secret_key" when anonymous = TRUE'
     )
+  })
+} else {
+  # Kinda hacky, let's put a skipped test here, just so we note that the tests
+  # didn't run
+  test_that("S3FileSystem tests with Minio", {
+    skip("Minio is not running")
   })
 }
