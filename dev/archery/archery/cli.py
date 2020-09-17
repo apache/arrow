@@ -424,7 +424,7 @@ def benchmark_list(ctx, rev_or_path, src, preserve, output, cmake_extras,
         conf = CppBenchmarkRunner.default_configuration(
             cmake_extras=cmake_extras, **kwargs)
 
-        runner_base = BenchmarkRunner.from_rev_or_path(
+        runner_base = CppBenchmarkRunner.from_rev_or_path(
             src, root, rev_or_path, conf)
 
         for b in runner_base.list_benchmarks:
@@ -480,7 +480,7 @@ def benchmark_run(ctx, rev_or_path, src, preserve, output, cmake_extras,
         conf = CppBenchmarkRunner.default_configuration(
             cmake_extras=cmake_extras, **kwargs)
 
-        runner_base = BenchmarkRunner.from_rev_or_path(
+        runner_base = CppBenchmarkRunner.from_rev_or_path(
             src, root, rev_or_path, conf,
             repetitions=repetitions,
             suite_filter=suite_filter, benchmark_filter=benchmark_filter)
@@ -598,12 +598,12 @@ def benchmark_diff_cpp(ctx, src, preserve, output, language, cmake_extras,
         conf = CppBenchmarkRunner.default_configuration(
             cmake_extras=cmake_extras, **kwargs)
 
-        runner_cont = BenchmarkRunner.from_rev_or_path(
+        runner_cont = CppBenchmarkRunner.from_rev_or_path(
             src, root, contender, conf,
             repetitions=repetitions,
             suite_filter=suite_filter,
             benchmark_filter=benchmark_filter)
-        runner_base = BenchmarkRunner.from_rev_or_path(
+        runner_base = CppBenchmarkRunner.from_rev_or_path(
             src, root, baseline, conf,
             repetitions=repetitions,
             suite_filter=suite_filter,

@@ -50,40 +50,7 @@ class BenchmarkRunner:
 
     @staticmethod
     def from_rev_or_path(src, root, rev_or_path, cmake_conf, **kwargs):
-        """ Returns a BenchmarkRunner from a path or a git revision.
-
-        First, it checks if `rev_or_path` is a valid path (or string) of a json
-        object that can deserialize to a BenchmarkRunner. If so, it initialize
-        a StaticBenchmarkRunner from it. This allows memoizing the result of a
-        run in a file or a string.
-
-        Second, it checks if `rev_or_path` points to a valid CMake build
-        directory.  If so, it creates a CppBenchmarkRunner with this existing
-        CMakeBuild.
-
-        Otherwise, it assumes `rev_or_path` is a revision and clone/checkout
-        the given revision and create a fresh CMakeBuild.
-        """
-        build = None
-        if StaticBenchmarkRunner.is_json_result(rev_or_path):
-            return StaticBenchmarkRunner.from_json(rev_or_path, **kwargs)
-        elif CMakeBuild.is_build_dir(rev_or_path):
-            build = CMakeBuild.from_path(rev_or_path)
-            return CppBenchmarkRunner(build, **kwargs)
-        else:
-            # Revisions can references remote via the `/` character, ensure
-            # that the revision is path friendly
-            path_rev = rev_or_path.replace("/", "_")
-            root_rev = os.path.join(root, path_rev)
-            os.mkdir(root_rev)
-
-            clone_dir = os.path.join(root_rev, "arrow")
-            # Possibly checkout the sources at given revision, no need to
-            # perform cleanup on cloned repository as root_rev is reclaimed.
-            src_rev, _ = src.at_revision(rev_or_path, clone_dir)
-            cmake_def = CppCMakeDefinition(src_rev.cpp, cmake_conf)
-            build_dir = os.path.join(root_rev, "build")
-            return CppBenchmarkRunner(cmake_def.build(build_dir), **kwargs)
+        raise NotImplementedError("BenchmarkRunner must implement from_rev_or_path")
 
 
 class StaticBenchmarkRunner(BenchmarkRunner):
@@ -210,3 +177,40 @@ class CppBenchmarkRunner(BenchmarkRunner):
                 continue
 
             yield suite
+
+    @staticmethod
+    def from_rev_or_path(src, root, rev_or_path, cmake_conf, **kwargs):
+        """ Returns a BenchmarkRunner from a path or a git revision.
+
+        First, it checks if `rev_or_path` is a valid path (or string) of a json
+        object that can deserialize to a BenchmarkRunner. If so, it initialize
+        a StaticBenchmarkRunner from it. This allows memoizing the result of a
+        run in a file or a string.
+
+        Second, it checks if `rev_or_path` points to a valid CMake build
+        directory.  If so, it creates a CppBenchmarkRunner with this existing
+        CMakeBuild.
+
+        Otherwise, it assumes `rev_or_path` is a revision and clone/checkout
+        the given revision and create a fresh CMakeBuild.
+        """
+        build = None
+        if StaticBenchmarkRunner.is_json_result(rev_or_path):
+            return StaticBenchmarkRunner.from_json(rev_or_path, **kwargs)
+        elif CMakeBuild.is_build_dir(rev_or_path):
+            build = CMakeBuild.from_path(rev_or_path)
+            return CppBenchmarkRunner(build, **kwargs)
+        else:
+            # Revisions can references remote via the `/` character, ensure
+            # that the revision is path friendly
+            path_rev = rev_or_path.replace("/", "_")
+            root_rev = os.path.join(root, path_rev)
+            os.mkdir(root_rev)
+
+            clone_dir = os.path.join(root_rev, "arrow")
+            # Possibly checkout the sources at given revision, no need to
+            # perform cleanup on cloned repository as root_rev is reclaimed.
+            src_rev, _ = src.at_revision(rev_or_path, clone_dir)
+            cmake_def = CppCMakeDefinition(src_rev.cpp, cmake_conf)
+            build_dir = os.path.join(root_rev, "build")
+            return CppBenchmarkRunner(cmake_def.build(build_dir), **kwargs)
