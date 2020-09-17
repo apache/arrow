@@ -1325,6 +1325,7 @@ cdef shared_ptr[ArrowWriterProperties] _create_arrow_writer_properties(
     # writer_engine_version
 
     if writer_engine_version == "V1":
+        warnings.warn("V1 parquet writer engine is a no-op.  Use V2.")
         arrow_props.set_engine_version(ArrowWriterEngineVersion.V1)
     elif writer_engine_version != "V2":
         raise ValueError("Unsupported Writer Engine Version: {0}"
