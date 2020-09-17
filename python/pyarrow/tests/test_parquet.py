@@ -499,7 +499,7 @@ def test_multiple_path_types(tempdir, use_legacy_dataset):
 
 @parametrize_legacy_dataset
 @pytest.mark.parametrize("filesystem", [
-    None, fs.LocalFileSystem(), LocalFileSystem.get_instance()
+    None, fs.LocalFileSystem(), LocalFileSystem._get_instance()
 ])
 def test_relative_paths(tempdir, use_legacy_dataset, filesystem):
     # reading and writing from relative paths

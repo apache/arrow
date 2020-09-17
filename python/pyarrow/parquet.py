@@ -1348,7 +1348,7 @@ def _make_manifest(path_or_paths, fs, pathsep='/', metadata_nthreads=1,
     if _is_path_like(path_or_paths) and fs.isdir(path_or_paths):
         manifest = ParquetManifest(path_or_paths, filesystem=fs,
                                    open_file_func=open_file_func,
-                                   pathsep=fs.pathsep,
+                                   pathsep=getattr(fs, "pathsep", "/"),
                                    metadata_nthreads=metadata_nthreads)
         common_metadata_path = manifest.common_metadata_path
         metadata_path = manifest.metadata_path

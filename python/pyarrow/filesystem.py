@@ -448,7 +448,18 @@ def _ensure_filesystem(fs):
             # In case its a simple LocalFileSystem (e.g. dask) use native arrow
             # FS
             elif mro.__name__ == 'LocalFileSystem':
-                return LocalFileSystem.get_instance()
+                return LocalFileSystem._get_instance()
+
+        try:
+            import fsspec
+        except ImportError:
+            pass
+        else:
+            if isinstance(fs, fsspec.AbstractFileSystem):
+                # for recent fsspec versions that stop inheriting from
+                # pyarrow.filesystem.FileSystem, still allow fsspec
+                # filesystems (which should be compatible with our legacy fs)
+                return fs
 
         raise OSError('Unrecognized filesystem: {}'.format(fs_type))
     else:
