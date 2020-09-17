@@ -515,7 +515,7 @@ mod tests {
     use crate::physical_plan::functions::ScalarFunctionImplementation;
     use crate::test;
     use crate::variable::VarType;
-    use arrow::array::{ArrayRef, Int32Array, StringArray};
+    use arrow::array::{ArrayRef, Int32Array, StringArray, StringArrayOps};
     use arrow::compute::add;
     use std::fs::File;
     use std::{io::prelude::*, sync::Mutex};

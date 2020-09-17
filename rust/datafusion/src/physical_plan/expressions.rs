@@ -1509,7 +1509,8 @@ mod tests {
     use crate::error::Result;
     use crate::physical_plan::common::get_scalar_value;
     use arrow::array::{
-        LargeStringArray, PrimitiveArray, StringArray, Time64NanosecondArray,
+        LargeStringArray, PrimitiveArray, StringArray, StringArrayOps,
+        Time64NanosecondArray,
     };
     use arrow::datatypes::*;
 

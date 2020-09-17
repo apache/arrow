@@ -341,7 +341,7 @@ mod tests {
         error::Result, logical_plan::ScalarValue, physical_plan::expressions::lit,
     };
     use arrow::{
-        array::{ArrayRef, Float64Array, Int32Array, StringArray},
+        array::{ArrayRef, Float64Array, Int32Array, StringArray, StringArrayOps},
         datatypes::Field,
         record_batch::RecordBatch,
     };

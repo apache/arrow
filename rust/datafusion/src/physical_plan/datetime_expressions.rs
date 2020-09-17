@@ -21,7 +21,9 @@ use std::sync::Arc;
 
 use crate::error::{ExecutionError, Result};
 use arrow::{
-    array::{Array, ArrayData, ArrayRef, StringArray, TimestampNanosecondArray},
+    array::{
+        Array, ArrayData, ArrayRef, StringArray, StringArrayOps, TimestampNanosecondArray,
+    },
     buffer::Buffer,
     datatypes::{DataType, TimeUnit, ToByteSlice},
 };

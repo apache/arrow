@@ -17,15 +17,16 @@
 
 //! Defines take kernel for `ArrayRef`
 
-use std::sync::Arc;
+use std::{ops::AddAssign, sync::Arc};
 
-use crate::array::*;
 use crate::buffer::{Buffer, MutableBuffer};
 use crate::compute::util::take_value_indices_from_list;
 use crate::datatypes::*;
 use crate::error::{ArrowError, Result};
 use crate::util::bit_util;
+use crate::{array::*, buffer::buffer_bin_and};
 
+use num::Zero;
 use TimeUnit::*;
 
 /// Take elements from `ArrayRef` by supplying an array of indices.
@@ -53,7 +54,7 @@ pub fn take(
         }
     }
     match values.data_type() {
-        DataType::Boolean => take_primitive::<BooleanType>(values, indices),
+        DataType::Boolean => take_boolean(values, indices),
         DataType::Int8 => take_primitive::<Int8Type>(values, indices),
         DataType::Int16 => take_primitive::<Int16Type>(values, indices),
         DataType::Int32 => take_primitive::<Int32Type>(values, indices),
@@ -106,7 +107,12 @@ pub fn take(
         DataType::Duration(TimeUnit::Nanosecond) => {
             take_primitive::<DurationNanosecondType>(values, indices)
         }
-        DataType::Utf8 => take_string(values, indices),
+        DataType::Utf8 => {
+            take_string::<i32, StringArray>(values, indices, DataType::Utf8)
+        }
+        DataType::LargeUtf8 => {
+            take_string::<i64, LargeStringArray>(values, indices, DataType::LargeUtf8)
+        }
         DataType::List(_) => take_list(values, indices),
         DataType::Struct(fields) => {
             let struct_: &StructArray =
@@ -153,7 +159,7 @@ impl Default for TakeOptions {
     }
 }
 
-/// `take` implementation for primitive arrays
+/// `take` implementation for all primitive arrays except boolean
 ///
 /// This checks if an `indices` slot is populated, and gets the value from `values`
 ///  as the populated index.
@@ -166,42 +172,133 @@ fn take_primitive<T>(values: &ArrayRef, indices: &UInt32Array) -> Result<ArrayRe
 where
     T: ArrowPrimitiveType,
 {
-    let mut builder = PrimitiveBuilder::<T>::new(indices.len());
-    let a = values.as_any().downcast_ref::<PrimitiveArray<T>>().unwrap();
-    for i in 0..indices.len() {
-        if indices.is_null(i) {
-            // populate with null if index is null
-            builder.append_null()?;
+    let data_len = indices.len();
+
+    let array = values.as_any().downcast_ref::<PrimitiveArray<T>>().unwrap();
+
+    let num_bytes = bit_util::ceil(data_len, 8);
+    let mut null_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, true);
+
+    let null_slice = null_buf.data_mut();
+
+    let new_values: Vec<T::Native> = (0..data_len)
+        .map(|i| {
+            let index = indices.value(i) as usize;
+            if array.is_null(index) {
+                bit_util::unset_bit(null_slice, i);
+            }
+            array.value(index)
+        })
+        .collect();
+
+    let nulls = match indices.data_ref().null_buffer() {
+        Some(buffer) => buffer_bin_and(buffer, 0, &null_buf.freeze(), 0, indices.len()),
+        None => null_buf.freeze(),
+    };
+
+    let data = ArrayData::new(
+        T::get_data_type(),
+        indices.len(),
+        None,
+        Some(nulls),
+        0,
+        vec![Buffer::from(new_values.to_byte_slice())],
+        vec![],
+    );
+    Ok(Arc::new(PrimitiveArray::<T>::from(Arc::new(data))))
+}
+
+/// `take` implementation for boolean arrays
+fn take_boolean(values: &ArrayRef, indices: &UInt32Array) -> Result<ArrayRef> {
+    let data_len = indices.len();
+
+    let array = values.as_any().downcast_ref::<BooleanArray>().unwrap();
+
+    let num_byte = bit_util::ceil(data_len, 8);
+    let mut null_buf = MutableBuffer::new(num_byte).with_bitset(num_byte, true);
+    let mut val_buf = MutableBuffer::new(num_byte).with_bitset(num_byte, false);
+
+    let null_slice = null_buf.data_mut();
+    let val_slice = val_buf.data_mut();
+
+    (0..data_len).for_each(|i| {
+        let index = indices.value(i) as usize;
+        if array.is_null(index) {
+            bit_util::unset_bit(null_slice, i);
         } else {
-            // get index value to use in looking up the value from `values`
-            let ix = indices.value(i) as usize;
-            if a.is_valid(ix) {
-                builder.append_value(a.value(ix))?;
-            } else {
-                builder.append_null()?;
+            if array.value(index) {
+                bit_util::set_bit(val_slice, i);
             }
         }
-    }
-    Ok(Arc::new(builder.finish()) as ArrayRef)
+    });
+
+    let nulls = match indices.data_ref().null_buffer() {
+        Some(buffer) => buffer_bin_and(buffer, 0, &null_buf.freeze(), 0, indices.len()),
+        None => null_buf.freeze(),
+    };
+
+    let data = ArrayData::new(
+        DataType::Boolean,
+        indices.len(),
+        None,
+        Some(nulls),
+        0,
+        vec![val_buf.freeze()],
+        vec![],
+    );
+    Ok(Arc::new(BooleanArray::from(Arc::new(data))))
 }
 
 /// `take` implementation for string arrays
-fn take_string(values: &ArrayRef, indices: &UInt32Array) -> Result<ArrayRef> {
-    let mut builder = StringBuilder::new(indices.len());
-    let a = values.as_any().downcast_ref::<StringArray>().unwrap();
-    for i in 0..indices.len() {
-        if indices.is_null(i) {
-            builder.append(false)?;
+fn take_string<T, K: 'static>(
+    values: &ArrayRef,
+    indices: &UInt32Array,
+    data_type: DataType,
+) -> Result<ArrayRef>
+where
+    T: Zero + AddAssign + ToByteSlice + ArrowNativeType,
+    K: Array + From<ArrayDataRef> + StringArrayOps,
+{
+    let data_len = indices.len();
+
+    let array = values.as_any().downcast_ref::<K>().unwrap();
+
+    let num_bytes = bit_util::ceil(data_len, 8);
+    let mut null_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, true);
+    let null_slice = null_buf.data_mut();
+
+    let mut offsets = Vec::with_capacity(data_len + 1);
+    let mut values = Vec::with_capacity(data_len);
+    let mut length_so_far = T::zero();
+
+    offsets.push(length_so_far);
+    for i in 0..data_len {
+        let index = indices.value(i) as usize;
+
+        if array.is_valid(index) && indices.is_valid(i) {
+            let s = array.value(index);
+
+            length_so_far += T::from_usize(s.len()).unwrap();
+            values.extend_from_slice(s.as_bytes());
         } else {
-            let ix = indices.value(i) as usize;
-            if a.is_null(ix) {
-                builder.append(false)?;
-            } else {
-                builder.append_value(a.value(ix))?;
-            }
+            // set null bit
+            bit_util::unset_bit(null_slice, i);
         }
+        offsets.push(length_so_far);
     }
-    Ok(Arc::new(builder.finish()) as ArrayRef)
+
+    let nulls = match indices.data_ref().null_buffer() {
+        Some(buffer) => buffer_bin_and(buffer, 0, &null_buf.freeze(), 0, data_len),
+        None => null_buf.freeze(),
+    };
+
+    let data = ArrayData::builder(data_type)
+        .len(data_len)
+        .null_bit_buffer(nulls)
+        .add_buffer(Buffer::from(offsets.to_byte_slice()))
+        .add_buffer(Buffer::from(&values[..]))
+        .build();
+    Ok(Arc::new(K::from(data)))
 }
 
 /// `take` implementation for list arrays
@@ -218,17 +315,16 @@ fn take_list(values: &ArrayRef, indices: &UInt32Array) -> Result<ArrayRef> {
     // determine null count and null buffer, which are a function of `values` and `indices`
     let mut null_count = 0;
     let num_bytes = bit_util::ceil(indices.len(), 8);
-    let mut null_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, false);
+    let mut null_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, true);
     {
         let null_slice = null_buf.data_mut();
         offsets[..]
             .windows(2)
             .enumerate()
             .for_each(|(i, window): (usize, &[i32])| {
-                if window[0] != window[1] {
-                    // offsets are unequal, slot is not null
-                    bit_util::set_bit(null_slice, i);
-                } else {
+                if window[0] == window[1] {
+                    // offsets are equal, slot is null
+                    bit_util::unset_bit(null_slice, i);
                     null_count += 1;
                 }
             });
@@ -293,7 +389,10 @@ mod tests {
         let expected = PrimitiveArray::<T>::from(expected_data);
         let output = take(&(Arc::new(output) as ArrayRef), index, options).unwrap();
         let output = output.as_any().downcast_ref::<PrimitiveArray<T>>().unwrap();
-        assert!(output.equals(&expected))
+        assert!(
+            output.equals(&expected),
+            format!("{:?} =! {:?}", output.data(), expected.data())
+        )
     }
 
     // create a simple struct for testing purposes
@@ -412,7 +511,11 @@ mod tests {
             None,
             vec![Some(-3.1), None, None, Some(-3.1), Some(2.21)],
         );
+    }
 
+    #[test]
+    fn test_take_primitive_bool() {
+        let index = UInt32Array::from(vec![Some(3), None, Some(1), Some(3), Some(2)]);
         // boolean
         test_take_primitive_arrays::<BooleanType>(
             vec![Some(false), None, Some(true), Some(false), None],
@@ -422,25 +525,45 @@ mod tests {
         );
     }
 
+    fn _test_take_string<'a, K: 'static>()
+    where
+        K: Array + From<Vec<Option<&'a str>>> + StringArrayOps,
+    {
+        let index = UInt32Array::from(vec![Some(3), None, Some(1), Some(3), Some(4)]);
+
+        let array = K::from(vec![
+            Some("one"),
+            None,
+            Some("three"),
+            Some("four"),
+            Some("five"),
+        ]);
+        let array = Arc::new(array) as ArrayRef;
+
+        let actual = take(&array, &index, None).unwrap();
+        assert_eq!(actual.len(), index.len());
+
+        let actual = actual.as_any().downcast_ref::<K>().unwrap();
+
+        let expected =
+            K::from(vec![Some("four"), None, None, Some("four"), Some("five")]);
+
+        assert!(
+            actual.equals(&expected),
+            "{:?} != {:?}",
+            actual.data(),
+            expected.data()
+        );
+    }
+
     #[test]
     fn test_take_string() {
-        let index = UInt32Array::from(vec![Some(3), None, Some(1), Some(3), Some(4)]);
-        let mut builder: StringBuilder = StringBuilder::new(6);
-        builder.append_value("one").unwrap();
-        builder.append_null().unwrap();
-        builder.append_value("three").unwrap();
-        builder.append_value("four").unwrap();
-        builder.append_value("five").unwrap();
-        let array = Arc::new(builder.finish()) as ArrayRef;
-        let a = take(&array, &index, None).unwrap();
-        assert_eq!(a.len(), index.len());
-        builder.append_value("four").unwrap();
-        builder.append_null().unwrap();
-        builder.append_null().unwrap();
-        builder.append_value("four").unwrap();
-        builder.append_value("five").unwrap();
-        let b = builder.finish();
-        assert_eq!(a.data(), b.data());
+        _test_take_string::<StringArray>()
+    }
+
+    #[test]
+    fn test_take_large_string() {
+        _test_take_string::<LargeStringArray>()
     }
 
     #[test]
@@ -648,7 +771,10 @@ mod tests {
             .add_child_data(expected_int_data)
             .build();
         let struct_array = StructArray::from(struct_array_data);
-        assert!(a.equals(&struct_array));
+        assert!(
+            a.equals(&struct_array),
+            format!("{:?} =! {:?}", a.data(), struct_array.data())
+        );
     }
 
     #[test]
@@ -678,7 +804,10 @@ mod tests {
             .add_child_data(expected_int_data)
             .build();
         let struct_array = StructArray::from(struct_array_data);
-        assert!(a.equals(&struct_array));
+        assert!(
+            a.equals(&struct_array),
+            format!("{:?} =! {:?}", a.data(), struct_array.data())
+        );
     }
 
     #[test]
