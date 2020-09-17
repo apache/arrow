@@ -175,18 +175,32 @@ pub fn exprlist_to_fields(expr: &[Expr], input_schema: &Schema) -> Result<Vec<Fi
     expr.iter().map(|e| e.to_field(input_schema)).collect()
 }
 
-/// Relation expression
+/// `Expr` is a logical expression. A logical expression is something like `1 + 1`, or `CAST(c1 AS int)`.
+/// Logical expressions know how to compute its [arrow::datatypes::DataType] and nullability.
+/// `Expr` is a central struct of DataFusion's query API.
+///
+/// # Examples
+///
+/// ```
+/// # use datafusion::logical_plan::Expr;
+/// # use datafusion::error::Result;
+/// # fn main() -> Result<()> {
+/// let expr = Expr::Column("c1".to_string()).plus(Expr::Column("c2".to_string()));
+/// println!("{:?}", expr);
+/// # Ok(())
+/// # }
+/// ```
 #[derive(Clone)]
 pub enum Expr {
-    /// An aliased expression
+    /// An expression with a specific name.
     Alias(Box<Expr>, String),
-    /// column of a table scan
+    /// A named reference to a field in a schema.
     Column(String),
-    /// scalar variable like @@version
+    /// A named reference to a variable in a registry.
     ScalarVariable(Vec<String>),
-    /// literal value
+    /// A constant value.
     Literal(ScalarValue),
-    /// binary expression e.g. "age > 21"
+    /// A binary expression such as "age > 21"
     BinaryExpr {
         /// Left-hand side of the expression
         left: Box<Expr>,
@@ -195,22 +209,22 @@ pub enum Expr {
         /// Right-hand side of the expression
         right: Box<Expr>,
     },
-    /// Nested expression e.g. `(foo > bar)` or `(1)`
+    /// Parenthesized expression. E.g. `(foo > bar)` or `(1)`
     Nested(Box<Expr>),
-    /// unary NOT
+    /// Negation of an expression. The expression's type must be a boolean to make sense.
     Not(Box<Expr>),
-    /// unary IS NOT NULL
+    /// Whether an expression is not Null. This expression is never null.
     IsNotNull(Box<Expr>),
-    /// unary IS NULL
+    /// Whether an expression is Null. This expression is never null.
     IsNull(Box<Expr>),
-    /// cast a value to a different type
+    /// Casts the expression to a given type. This expression is guaranteed to have a fixed type.
     Cast {
         /// The expression being cast
         expr: Box<Expr>,
         /// The `DataType` the expression will yield
         data_type: DataType,
     },
-    /// sort expression
+    /// A sort expression, that can be used to sort values.
     Sort {
         /// The expression to sort on
         expr: Box<Expr>,
@@ -219,33 +233,39 @@ pub enum Expr {
         /// Whether to put Nulls before all other data values
         nulls_first: bool,
     },
-    /// scalar function.
+    /// Represents the call of a built-in scalar function with a set of arguments.
     ScalarFunction {
         /// The function
         fun: functions::BuiltinScalarFunction,
         /// List of expressions to feed to the functions as arguments
         args: Vec<Expr>,
     },
-    /// scalar udf.
+    /// Represents the call of a user-defined scalar function with arguments.
     ScalarUDF {
         /// The function
         fun: Arc<ScalarUDF>,
         /// List of expressions to feed to the functions as arguments
         args: Vec<Expr>,
     },
-    /// aggregate function
+    /// Represents the call of an aggregate built-in function with arguments.
     AggregateFunction {
         /// Name of the function
         fun: aggregates::AggregateFunction,
         /// List of expressions to feed to the functions as arguments
         args: Vec<Expr>,
     },
-    /// Wildcard
+    /// Represents a reference to all fields in a schema.
     Wildcard,
 }
 
 impl Expr {
-    /// Find the `DataType` for the expression
+    /// Returns the [arrow::datatypes::DataType] of the expression based on [arrow::datatypes::Schema].
+    ///
+    /// # Errors
+    ///
+    /// This function errors when it is not possible to compute its [arrow::datatypes::DataType].
+    /// This happens when e.g. the expression refers to a column that does not exist in the schema, or when
+    /// the expression is incorrectly typed (e.g. `[utf8] + [bool]`).
     pub fn get_type(&self, schema: &Schema) -> Result<DataType> {
         match self {
             Expr::Alias(expr, _) => expr.get_type(schema),
@@ -294,7 +314,12 @@ impl Expr {
         }
     }
 
-    /// return true if this expression might produce null values
+    /// Returns the nullability of the expression based on [arrow::datatypes::Schema].
+    ///
+    /// # Errors
+    ///
+    /// This function errors when it is not possible to compute its nullability.
+    /// This happens when the expression refers to a column that does not exist in the schema.
     pub fn nullable(&self, input_schema: &Schema) -> Result<bool> {
         match self {
             Expr::Alias(expr, _) => expr.nullable(input_schema),
@@ -324,14 +349,14 @@ impl Expr {
         }
     }
 
-    /// Return the name of this expression
+    /// Returns the name of this expression based on [arrow::datatypes::Schema].
     ///
     /// This represents how a column with this expression is named when no alias is chosen
     pub fn name(&self, input_schema: &Schema) -> Result<String> {
         create_name(self, input_schema)
     }
 
-    /// Create a Field representing this expression
+    /// Returns a [arrow::datatypes::Field] compatible with this expression.
     pub fn to_field(&self, input_schema: &Schema) -> Result<Field> {
         Ok(Field::new(
             &self.name(input_schema)?,
@@ -340,9 +365,11 @@ impl Expr {
         ))
     }
 
-    /// Perform a type cast on the expression value.
+    /// Wraps this expression in a cast to a target [arrow::datatypes::DataType].
     ///
-    /// Will `Err` if the type cast cannot be performed.
+    /// # Errors
+    ///
+    /// This function errors when it is impossible to cast the expression to the target [arrow::datatypes::DataType].
     pub fn cast_to(&self, cast_to_type: &DataType, schema: &Schema) -> Result<Expr> {
         let this_type = self.get_type(schema)?;
         if this_type == *cast_to_type {
