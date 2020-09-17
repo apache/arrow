@@ -53,15 +53,12 @@ public class TestLargeMemoryUtil {
     return (int) method.invoke(null, value);
   }
 
-  private void checkExpectedOverflow(ClassLoader classLoader, long value) throws Exception {
-    try {
+  private void checkExpectedOverflow(ClassLoader classLoader, long value) {
+    InvocationTargetException ex = Assertions.assertThrows(InvocationTargetException.class, () -> {
       checkedCastToInt(classLoader, value);
-      Assert.fail();
-    } catch (InvocationTargetException e) {
-      Assertions.assertThrows(ArithmeticException.class, () -> {
-        throw e.getCause();
-      }, "integer overflow");
-    }
+    });
+    Assert.assertTrue(ex.getCause() instanceof ArithmeticException);
+    Assert.assertEquals("integer overflow", ex.getCause().getMessage());
   }
 
   @Test
