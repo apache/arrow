@@ -729,10 +729,10 @@ impl fmt::Debug for PrimitiveArray<BooleanType> {
 // otherwise with both `From<Vec<T::Native>>` and `From<Vec<Option<T::Native>>>`.
 // We should revisit this in future.
 macro_rules! def_numeric_from_vec {
-    ( $ty:ident, $native_ty:ident, $ty_id:expr ) => {
-        impl From<Vec<$native_ty>> for PrimitiveArray<$ty> {
-            fn from(data: Vec<$native_ty>) -> Self {
-                let array_data = ArrayData::builder($ty_id)
+    ( $ty:ident ) => {
+        impl From<Vec<<$ty as ArrowPrimitiveType>::Native>> for PrimitiveArray<$ty> {
+            fn from(data: Vec<<$ty as ArrowPrimitiveType>::Native>) -> Self {
+                let array_data = ArrayData::builder($ty::get_data_type())
                     .len(data.len())
                     .add_buffer(Buffer::from(data.to_byte_slice()))
                     .build();
@@ -741,17 +741,21 @@ macro_rules! def_numeric_from_vec {
         }
 
         // Constructs a primitive array from a vector. Should only be used for testing.
-        impl From<Vec<Option<$native_ty>>> for PrimitiveArray<$ty> {
-            fn from(data: Vec<Option<$native_ty>>) -> Self {
+        impl From<Vec<Option<<$ty as ArrowPrimitiveType>::Native>>>
+            for PrimitiveArray<$ty>
+        {
+            fn from(data: Vec<Option<<$ty as ArrowPrimitiveType>::Native>>) -> Self {
                 let data_len = data.len();
                 let num_bytes = bit_util::ceil(data_len, 8);
                 let mut null_buf =
                     MutableBuffer::new(num_bytes).with_bitset(num_bytes, false);
-                let mut val_buf =
-                    MutableBuffer::new(data_len * mem::size_of::<$native_ty>());
+                let mut val_buf = MutableBuffer::new(
+                    data_len * mem::size_of::<<$ty as ArrowPrimitiveType>::Native>(),
+                );
 
                 {
-                    let null = vec![0; mem::size_of::<$native_ty>()];
+                    let null =
+                        vec![0; mem::size_of::<<$ty as ArrowPrimitiveType>::Native>()];
                     let null_slice = null_buf.data_mut();
                     for (i, v) in data.iter().enumerate() {
                         if let Some(n) = v {
@@ -765,7 +769,7 @@ macro_rules! def_numeric_from_vec {
                     }
                 }
 
-                let array_data = ArrayData::builder($ty_id)
+                let array_data = ArrayData::builder($ty::get_data_type())
                     .len(data_len)
                     .add_buffer(val_buf.freeze())
                     .null_bit_buffer(null_buf.freeze())
@@ -776,75 +780,31 @@ macro_rules! def_numeric_from_vec {
     };
 }
 
-def_numeric_from_vec!(Int8Type, i8, DataType::Int8);
-def_numeric_from_vec!(Int16Type, i16, DataType::Int16);
-def_numeric_from_vec!(Int32Type, i32, DataType::Int32);
-def_numeric_from_vec!(Int64Type, i64, DataType::Int64);
-def_numeric_from_vec!(UInt8Type, u8, DataType::UInt8);
-def_numeric_from_vec!(UInt16Type, u16, DataType::UInt16);
-def_numeric_from_vec!(UInt32Type, u32, DataType::UInt32);
-def_numeric_from_vec!(UInt64Type, u64, DataType::UInt64);
-def_numeric_from_vec!(Float32Type, f32, DataType::Float32);
-def_numeric_from_vec!(Float64Type, f64, DataType::Float64);
+def_numeric_from_vec!(Int8Type);
+def_numeric_from_vec!(Int16Type);
+def_numeric_from_vec!(Int32Type);
+def_numeric_from_vec!(Int64Type);
+def_numeric_from_vec!(UInt8Type);
+def_numeric_from_vec!(UInt16Type);
+def_numeric_from_vec!(UInt32Type);
+def_numeric_from_vec!(UInt64Type);
+def_numeric_from_vec!(Float32Type);
+def_numeric_from_vec!(Float64Type);
 
-def_numeric_from_vec!(Date32Type, i32, DataType::Date32(DateUnit::Day));
-def_numeric_from_vec!(Date64Type, i64, DataType::Date64(DateUnit::Millisecond));
-def_numeric_from_vec!(Time32SecondType, i32, DataType::Time32(TimeUnit::Second));
-def_numeric_from_vec!(
-    Time32MillisecondType,
-    i32,
-    DataType::Time32(TimeUnit::Millisecond)
-);
-def_numeric_from_vec!(
-    Time64MicrosecondType,
-    i64,
-    DataType::Time64(TimeUnit::Microsecond)
-);
-def_numeric_from_vec!(
-    Time64NanosecondType,
-    i64,
-    DataType::Time64(TimeUnit::Nanosecond)
-);
-def_numeric_from_vec!(
-    IntervalYearMonthType,
-    i32,
-    DataType::Interval(IntervalUnit::YearMonth)
-);
-def_numeric_from_vec!(
-    IntervalDayTimeType,
-    i64,
-    DataType::Interval(IntervalUnit::DayTime)
-);
-def_numeric_from_vec!(
-    DurationSecondType,
-    i64,
-    DataType::Duration(TimeUnit::Second)
-);
-def_numeric_from_vec!(
-    DurationMillisecondType,
-    i64,
-    DataType::Duration(TimeUnit::Millisecond)
-);
-def_numeric_from_vec!(
-    DurationMicrosecondType,
-    i64,
-    DataType::Duration(TimeUnit::Microsecond)
-);
-def_numeric_from_vec!(
-    DurationNanosecondType,
-    i64,
-    DataType::Duration(TimeUnit::Nanosecond)
-);
-def_numeric_from_vec!(
-    TimestampMillisecondType,
-    i64,
-    DataType::Timestamp(TimeUnit::Millisecond, None)
-);
-def_numeric_from_vec!(
-    TimestampMicrosecondType,
-    i64,
-    DataType::Timestamp(TimeUnit::Microsecond, None)
-);
+def_numeric_from_vec!(Date32Type);
+def_numeric_from_vec!(Date64Type);
+def_numeric_from_vec!(Time32SecondType);
+def_numeric_from_vec!(Time32MillisecondType);
+def_numeric_from_vec!(Time64MicrosecondType);
+def_numeric_from_vec!(Time64NanosecondType);
+def_numeric_from_vec!(IntervalYearMonthType);
+def_numeric_from_vec!(IntervalDayTimeType);
+def_numeric_from_vec!(DurationSecondType);
+def_numeric_from_vec!(DurationMillisecondType);
+def_numeric_from_vec!(DurationMicrosecondType);
+def_numeric_from_vec!(DurationNanosecondType);
+def_numeric_from_vec!(TimestampMillisecondType);
+def_numeric_from_vec!(TimestampMicrosecondType);
 
 impl<T: ArrowTimestampType> PrimitiveArray<T> {
     /// Construct a timestamp array from a vec of i64 values and an optional timezone
