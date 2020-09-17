@@ -36,6 +36,7 @@ use arrow::array::{
     Int8Builder, StringBuilder, UInt16Builder, UInt32Builder, UInt64Builder,
     UInt8Builder,
 };
+use arrow::array::PrimitiveArrayOps;
 use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
 use arrow::error::Result as ArrowResult;
 use arrow::record_batch::{RecordBatch, RecordBatchReader};
