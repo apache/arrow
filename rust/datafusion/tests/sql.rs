@@ -665,10 +665,10 @@ fn array_str(array: &Arc<dyn Array>, row_index: usize) -> String {
         }
         DataType::FixedSizeList(_, n) => {
             let array = array.as_any().downcast_ref::<FixedSizeListArray>().unwrap();
+            let array = array.value(row_index);
 
             let mut r = Vec::with_capacity(*n as usize);
             for i in 0..*n {
-                let array = array.value(row_index);
                 r.push(array_str(&array, i as usize));
             }
             format!("[{}]", r.join(","))
