@@ -120,6 +120,15 @@ def cpp_toolchain_options(cmd):
     return _apply_options(cmd, options)
 
 
+def java_toolchain_options(cmd):
+    options = [
+        click.option("--java-home", metavar="<java_home>",
+                     help="Path to Java Developers Kit."),
+        click.option("--java-flags", help="java compiler flags."),
+    ]
+    return _apply_options(cmd, options)
+
+
 def _apply_options(cmd, options):
     for option in options:
         cmd = option(cmd)
@@ -357,6 +366,11 @@ def benchmark(ctx):
 
 
 def benchmark_common_options(cmd):
+    def check_language(ctx, param, value):
+        if value != "cpp" and value != "java":
+            raise click.BadParameter("cpp or java is supported now")
+        return value
+
     options = [
         click.option("--src", metavar="<arrow_src>", show_default=True,
                      default=None, callback=validate_arrow_sources,
@@ -367,11 +381,18 @@ def benchmark_common_options(cmd):
         click.option("--output", metavar="<output>",
                      type=click.File("w", encoding="utf8"), default="-",
                      help="Capture output result into file."),
+        click.option("--language", metavar="<lang>", type=str, default="cpp",
+                     show_default=True, callback=check_language,
+                     help="Specify target language for the benchmark"),
+        click.option("--mvn-extras", type=str, multiple=True,
+                     help="Extra flags/options to pass to mvn. "
+                     "Can be stacked"),
         click.option("--cmake-extras", type=str, multiple=True,
                      help="Extra flags/options to pass to cmake invocation. "
                      "Can be stacked"),
     ]
 
+    cmd = java_toolchain_options(cmd)
     cmd = cpp_toolchain_options(cmd)
     return _apply_options(cmd, options)
 
@@ -483,8 +504,8 @@ def benchmark_run(ctx, rev_or_path, src, preserve, output, cmake_extras,
 @click.argument("baseline", metavar="[<baseline>]]", default="origin/master",
                 required=False)
 @click.pass_context
-def benchmark_diff(ctx, src, preserve, output, cmake_extras,
-                   suite_filter, benchmark_filter, repetitions, no_counters,
+def benchmark_diff(ctx, src, preserve, output, language, cmake_extras,
+                   suite_filter, benchmark_filter, repitations, no_counters,
                    threshold, contender, baseline, **kwargs):
     """Compare (diff) benchmark runs.
 
@@ -556,6 +577,20 @@ def benchmark_diff(ctx, src, preserve, output, cmake_extras,
     # This should not recompute the benchmark from run.json
     archery --quiet benchmark diff WORKSPACE run.json > result.json
     """
+    if language == "cpp":
+        ctx.forward(benchmark_diff_cpp, **kwargs)
+    elif language == "java":
+        ctx.forward(benchmark_diff_jav, **kwargs)
+
+@benchmark.command(name="diff_cpp")
+@click.pass_context
+def benchmark_diff_cpp(ctx, src, preserve, output, language, cmake_extras,
+                       suite_filter, benchmark_filter,
+                       repetitions, threshold, contender, baseline,
+                       mvn_extras, java_home, java_flags,
+                       **kwargs):
+    """Compare (diff) cpp benchmark runs."""
+
     with tmpdir(preserve=preserve) as root:
         logger.debug("Comparing {} (contender) with {} (baseline)"
                      .format(contender, baseline))
@@ -582,6 +617,19 @@ def benchmark_diff(ctx, src, preserve, output, cmake_extras,
                                                     no_counters)
         output.write(formatted)
         output.write('\n')
+
+
+@benchmark.command(name="diff_java")
+@click.pass_context
+def benchmark_diff_java(ctx, src, preserve, output, language,
+                        suite_filter, benchmark_filter,
+                        repetitions, threshold, contender, baseline,
+                        cmake_extras, cc, cxx, cxx_flags, cxx_package_prefix,
+                        **kwargs):
+    """Compare (diff) cpp benchmark runs."""
+
+    print("Not supported yet")
+    exit(1)
 
 
 def _get_comparisons_as_json(comparisons):
