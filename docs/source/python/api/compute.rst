@@ -30,8 +30,8 @@ Aggregations
    count
    mean
    min_max
-   sum
    mode
+   sum
 
 Arithmetic Functions
 --------------------
@@ -45,12 +45,12 @@ throws an ``ArrowInvalid`` exception when overflow is detected.
 
    add
    add_checked
-   subtract
-   subtract_checked
-   multiply
-   multiply_checked
    divide
    divide_checked
+   multiply
+   multiply_checked
+   subtract
+   subtract_checked
 
 Comparisons
 -----------
@@ -62,12 +62,11 @@ they return ``null``.
    :toctree: ../generated/
 
    equal
-   not_equal
    greater
    greater_equal
    less
    less_equal
-
+   not_equal
 
 Logical Functions
 -----------
@@ -149,10 +148,9 @@ Containment tests
 .. autosummary::
    :toctree: ../generated/
 
-   match_substring
    index_in
    is_in
-
+   match_substring
 
 Conversions
 -----------
@@ -197,10 +195,10 @@ Structural Transforms
 .. autosummary::
    :toctree: ../generated/
 
+   binary_length
    fill_null
    is_null
    is_valid
-   binary_length
    list_value_length
    list_flatten
    list_parent_indices
