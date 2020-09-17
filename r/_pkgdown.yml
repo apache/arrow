@@ -116,6 +116,12 @@ reference:
   - DictionaryType
   - FixedWidthType
   - cast_options
+- title: Flight
+  contents:
+  - load_flight_server
+  - flight_connect
+  - push_data
+  - flight_get
 - title: Input/Output
   contents:
   - InputStream

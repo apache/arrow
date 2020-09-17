@@ -77,6 +77,7 @@ Collate:
     'feather.R'
     'field.R'
     'filesystem.R'
+    'flight.R'
     'install-arrow.R'
     'ipc_stream.R'
     'json.R'

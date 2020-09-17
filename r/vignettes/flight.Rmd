@@ -1,0 +1,78 @@
+---
+title: "Connecting to Flight RPC Servers"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Connecting to Flight RPC Servers}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+[**Flight**](https://arrow.apache.org/blog/2019/10/13/introducing-arrow-flight/)
+is a general-purpose client-server framework for high performance
+transport of large datasets over network interfaces, built as part of the
+[Apache Arrow](https://arrow.apache.org) project.
+The `arrow` package provides methods for connecting to Flight RPC servers
+to send and receive data.
+
+## Getting Started
+
+The `flight` functions in the package use `reticulate` to call methods in the
+`pyarrow` Python package. Before using them for the first time,
+you'll need to be sure you have `reticulate`, and you'll also need to
+install `pyarrow`:
+
+```r
+install.packages("reticulate")
+arrow::install_pyarrow()
+```
+
+See `vignette("python", package = "arrow")` for more details on setting up
+`pyarrow`.
+
+## Example
+
+The package includes methods for starting a Python-based Flight server, as well
+as methods for connecting to a Flight server running elsewhere.
+
+To illustrate both sides, in one process let's start a demo server:
+
+```r
+library(arrow)
+demo_server <- load_flight_server("demo_flight_server")
+server <- demo_server$DemoFlightServer(port = 8089)
+server$serve()
+```
+
+We'll leave that one running.
+
+In a different R process, let's connect to it and put some data in it.
+
+```r
+library(arrow)
+client <- flight_connect(port = 8089)
+# Upload some data to our server so there's something to demo
+push_data(client, iris, path = "test_data/iris")
+```
+
+Now, in a new R process, let's connect to the server and pull the data we
+put there:
+
+```r
+library(arrow)
+library(dplyr)
+client <- flight_connect(port = 8089)
+client %>%
+  flight_get("test_data/iris") %>%
+  group_by(Species) %>%
+  summarize(max_petal = max(Petal.Length))
+
+## # A tibble: 3 x 2
+##   Species    max_petal
+##   <fct>          <dbl>
+## 1 setosa           1.9
+## 2 versicolor       5.1
+## 3 virginica        6.9
+```
+
+Because `flight_get()` returns an Arrow data structure, we can directly pipe
+its result into a `dplyr` workflow.
