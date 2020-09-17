@@ -592,6 +592,15 @@ cdef class TakeOptions(FunctionOptions):
     cdef const CFunctionOptions* get_options(self) except NULL:
         return &self.take_options
 
+cdef class PartitionNthOptions(FunctionOptions):
+    cdef:
+        unique_ptr[CPartitionNthOptions] partition_nth_options
+
+    def __init__(self, pivot):
+        self.partition_nth_options.reset(new CPartitionNthOptions(pivot))
+
+    cdef const CFunctionOptions* get_options(self) except NULL:
+        return self.partition_nth_options.get()
 
 cdef class MinMaxOptions(FunctionOptions):
     cdef:
