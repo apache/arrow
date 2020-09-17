@@ -177,15 +177,15 @@ where
     let array = values.as_any().downcast_ref::<PrimitiveArray<T>>().unwrap();
 
     let num_bytes = bit_util::ceil(data_len, 8);
-    let mut null_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, false);
+    let mut null_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, true);
 
     let null_slice = null_buf.data_mut();
 
     let new_values: Vec<T::Native> = (0..data_len)
         .map(|i| {
             let index = indices.value(i) as usize;
-            if array.is_valid(index) {
-                bit_util::set_bit(null_slice, i);
+            if array.is_null(index) {
+                bit_util::unset_bit(null_slice, i);
             }
             array.value(index)
         })
@@ -215,7 +215,7 @@ fn take_boolean(values: &ArrayRef, indices: &UInt32Array) -> Result<ArrayRef> {
     let array = values.as_any().downcast_ref::<BooleanArray>().unwrap();
 
     let num_byte = bit_util::ceil(data_len, 8);
-    let mut null_buf = MutableBuffer::new(num_byte).with_bitset(num_byte, false);
+    let mut null_buf = MutableBuffer::new(num_byte).with_bitset(num_byte, true);
     let mut val_buf = MutableBuffer::new(num_byte).with_bitset(num_byte, false);
 
     let null_slice = null_buf.data_mut();
@@ -223,8 +223,9 @@ fn take_boolean(values: &ArrayRef, indices: &UInt32Array) -> Result<ArrayRef> {
 
     (0..data_len).for_each(|i| {
         let index = indices.value(i) as usize;
-        if array.is_valid(index) {
-            bit_util::set_bit(null_slice, i);
+        if array.is_null(index) {
+            bit_util::unset_bit(null_slice, i);
+        } else {
             if array.value(index) {
                 bit_util::set_bit(val_slice, i);
             }
@@ -314,17 +315,16 @@ fn take_list(values: &ArrayRef, indices: &UInt32Array) -> Result<ArrayRef> {
     // determine null count and null buffer, which are a function of `values` and `indices`
     let mut null_count = 0;
     let num_bytes = bit_util::ceil(indices.len(), 8);
-    let mut null_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, false);
+    let mut null_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, true);
     {
         let null_slice = null_buf.data_mut();
         offsets[..]
             .windows(2)
             .enumerate()
             .for_each(|(i, window): (usize, &[i32])| {
-                if window[0] != window[1] {
-                    // offsets are unequal, slot is not null
-                    bit_util::set_bit(null_slice, i);
-                } else {
+                if window[0] == window[1] {
+                    // offsets are equal, slot is null
+                    bit_util::unset_bit(null_slice, i);
                     null_count += 1;
                 }
             });
