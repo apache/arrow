@@ -431,16 +431,8 @@ make_type!(
     DataType::Timestamp(TimeUnit::Nanosecond, None)
 );
 make_type!(Date32Type, i32, DataType::Date32(DateUnit::Day));
-make_type!(
-    Date64Type,
-    i64,
-    DataType::Date64(DateUnit::Millisecond)
-);
-make_type!(
-    Time32SecondType,
-    i32,
-    DataType::Time32(TimeUnit::Second)
-);
+make_type!(Date64Type, i64, DataType::Date64(DateUnit::Millisecond));
+make_type!(Time32SecondType, i32, DataType::Time32(TimeUnit::Second));
 make_type!(
     Time32MillisecondType,
     i32,
