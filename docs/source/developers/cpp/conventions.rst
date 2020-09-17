@@ -15,6 +15,8 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
+.. highlight:: cpp
+
 ===========
 Conventions
 ===========
@@ -33,6 +35,25 @@ e.g. ``src/arrow/scalar_test.cc`` will be compiled into ``arrow-scalar-test``).
 C++ header files use the ``.h`` extension. Any header file name not
 containing ``internal`` is considered to be a public header, and will be
 automatically installed by the build.
+
+Comments and Docstrings
+=======================
+
+Regular comments start with ``//``.
+
+Doxygen docstrings start with ``///``, and Doxygen directives start with ``\``,
+like this::
+
+   /// \brief Allocate a fixed size mutable buffer from a memory pool, zero its padding.
+   ///
+   /// \param[in] size size of buffer to allocate
+   /// \param[in] pool a memory pool
+   ARROW_EXPORT
+   Result<std::unique_ptr<Buffer>> AllocateBuffer(const int64_t size,
+                                                  MemoryPool* pool = NULLPTR);
+
+The summary line of a docstring uses the infinitive, not the indicative
+(for example, "Allocate a buffer" rather than "Allocates a buffer").
 
 Memory Pools
 ============
