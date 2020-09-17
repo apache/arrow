@@ -107,8 +107,12 @@ pub fn take(
         DataType::Duration(TimeUnit::Nanosecond) => {
             take_primitive::<DurationNanosecondType>(values, indices)
         }
-        DataType::Utf8 => take_string::<i32, StringArray>(values, indices),
-        DataType::LargeUtf8 => take_string::<i64, LargeStringArray>(values, indices),
+        DataType::Utf8 => {
+            take_string::<i32, StringArray>(values, indices, DataType::Utf8)
+        }
+        DataType::LargeUtf8 => {
+            take_string::<i64, LargeStringArray>(values, indices, DataType::LargeUtf8)
+        }
         DataType::List(_) => take_list(values, indices),
         DataType::Struct(fields) => {
             let struct_: &StructArray =
@@ -248,6 +252,7 @@ fn take_boolean(values: &ArrayRef, indices: &UInt32Array) -> Result<ArrayRef> {
 fn take_string<T, K: 'static>(
     values: &ArrayRef,
     indices: &UInt32Array,
+    data_type: DataType,
 ) -> Result<ArrayRef>
 where
     T: Zero + AddAssign + ToByteSlice + ArrowNativeType,
@@ -286,7 +291,7 @@ where
         None => null_buf.freeze(),
     };
 
-    let data = ArrayData::builder(DataType::Utf8)
+    let data = ArrayData::builder(data_type)
         .len(data_len)
         .null_bit_buffer(nulls)
         .add_buffer(Buffer::from(offsets.to_byte_slice()))
@@ -543,10 +548,12 @@ mod tests {
         let expected =
             K::from(vec![Some("four"), None, None, Some("four"), Some("five")]);
 
-        for i in 0..index.len() {
-            assert_eq!(actual.is_null(i), expected.is_null(i));
-            assert_eq!(actual.value(i), expected.value(i));
-        }
+        assert!(
+            actual.equals(&expected),
+            "{:?} != {:?}",
+            actual.data(),
+            expected.data()
+        );
     }
 
     #[test]
