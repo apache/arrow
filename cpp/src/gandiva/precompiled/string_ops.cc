@@ -16,8 +16,8 @@
 // under the License.
 
 // String functions
+#include "arrow/util/string.h"
 #include "arrow/util/value_parsing.h"
-
 extern "C" {
 
 #include <limits.h>
@@ -1392,20 +1392,20 @@ const char* split_part(gdv_int64 context, const char* text, gdv_int32 text_len,
 }
 
 FORCE_INLINE
-gdv_binary binary_string(gdv_int64 context, const char* text, gdv_int32 text_len,
-                         gdv_int32* out_len) {
+const char* binary_string(gdv_int64 context, const char* text, gdv_int32 text_len,
+                          gdv_int32* out_len) {
   gdv_binary ret =
       reinterpret_cast<gdv_binary>(gdv_fn_context_arena_malloc(context, text_len));
 
   if (ret == nullptr) {
     gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
     *out_len = 0;
-    return (gdv_binary) "";
+    return "";
   }
 
   if (text_len == 0) {
     *out_len = 0;
-    return (gdv_binary) "";
+    return "";
   }
 
   // converting hex encoded string to normal string
@@ -1413,14 +1413,18 @@ gdv_binary binary_string(gdv_int64 context, const char* text, gdv_int32 text_len
   for (int i = 0; i < text_len; i++, j++) {
     if (text[i] == '\\' && i + 3 < text_len &&
         (text[i + 1] == 'x' || text[i + 1] == 'X')) {
-      // take next 2 hex digits.
-      char hd1 = text[i + 2];
-      char hd2 = text[i + 3];
-      if (isxdigit(hd1) && isxdigit(hd2)) {
-        // [a-fA-F0-9]
-        ret[j] = (hd1 - '0') * 16 + (hd2 - '0');
-        i += 3;
+      std::string hex_string;
+      hex_string.push_back(toupper(text[i + 2]));
+      hex_string.push_back(toupper(text[i + 3]));
+      uint8_t out;
+      arrow::Status st;
+      st = arrow::ParseHexValue(hex_string.c_str(), &out);
+      if (!st.ok()) {
+        gdv_fn_context_set_error_msg(context, ("Unable to parse " + hex_string).c_str());
+        return "";
       }
+      ret[j] = static_cast<char>(out);
+      i += 3;
     } else {
       ret[j] = text[i];
     }

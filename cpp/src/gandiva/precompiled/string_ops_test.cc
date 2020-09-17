@@ -918,7 +918,7 @@ TEST(TestStringOps, TestBinaryString) {
   uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
   gdv_int32 out_len = 0;
   gdv_int32 temp_len = 0;
-  gdv_binary out_str;
+  const char* out_str;
   const char* temp_str;
 
   out_str = binary_string(ctx_ptr, "TestString", 10, &out_len);
@@ -945,6 +945,25 @@ TEST(TestStringOps, TestBinaryString) {
   temp_str = convert_fromUTF8_binary(ctx_ptr, out_str, out_len, &temp_len);
   output = std::string(temp_str, temp_len);
   EXPECT_EQ(output, "A");
+
+  out_str = binary_string(ctx_ptr, "\\x6d\\x6D", 8, &out_len);
+  temp_str = convert_fromUTF8_binary(ctx_ptr, out_str, out_len, &temp_len);
+  output = std::string(temp_str, temp_len);
+  EXPECT_EQ(output, "mm");
+
+  out_str = binary_string(ctx_ptr, "\\x6f\\x6d", 8, &out_len);
+  temp_str = convert_fromUTF8_binary(ctx_ptr, out_str, out_len, &temp_len);
+  output = std::string(temp_str, temp_len);
+  EXPECT_EQ(output, "om");
+
+  out_str = binary_string(ctx_ptr, "\\x4f\\x4D", 8, &out_len);
+  temp_str = convert_fromUTF8_binary(ctx_ptr, out_str, out_len, &temp_len);
+  output = std::string(temp_str, temp_len);
+  EXPECT_EQ(output, "OM");
+
+  out_str = binary_string(ctx_ptr, "\\x6f\\xAR", 8, &out_len);
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Unable to parse AR"));
+  ctx.Reset();
 }
 
 TEST(TestStringOps, TestSplitPart) {
