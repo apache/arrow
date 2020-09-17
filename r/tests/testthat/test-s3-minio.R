@@ -143,6 +143,18 @@ if (arrow_with_s3() && process_is_running("minio server")) {
       S3FileSystem$create(access_key = "foo", secret_key = "asdf", anonymous = TRUE),
       'Cannot specify "access_key" and "secret_key" when anonymous = TRUE'
     )
+    expect_error(
+      S3FileSystem$create(access_key = "foo", secret_key = "asdf", role_arn = "qwer"),
+      "Cannot provide both key authentication and role_arn"
+    )
+    expect_error(
+      S3FileSystem$create(access_key = "foo", secret_key = "asdf", external_id = "qwer"),
+      'Cannot specify "external_id" without providing a role_arn string'
+    )
+    expect_error(
+      S3FileSystem$create(external_id = "foo"),
+      'Cannot specify "external_id" without providing a role_arn string'
+    )
   })
 } else {
   # Kinda hacky, let's put a skipped test here, just so we note that the tests

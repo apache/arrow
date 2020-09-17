@@ -255,6 +255,14 @@ void fs___CopyFiles(const std::shared_ptr<fs::FileSystem>& src_fs,
 // [[s3::export]]
 void fs___EnsureS3Initialized() { StopIfNotOk(fs::EnsureS3Initialized()); }
 
+std::string get_optional_string(SEXP x) {
+  std::string out = "";
+  if (!Rf_isNull(x)) {
+    out = cpp11::as_cpp<std::string>(x);
+  }
+  return out;
+}
+
 // [[s3::export]]
 std::shared_ptr<fs::S3FileSystem> fs___S3FileSystem__create(bool anonymous,
                                                             cpp11::list options) {
@@ -267,19 +275,26 @@ std::shared_ptr<fs::S3FileSystem> fs___S3FileSystem__create(bool anonymous,
     SEXP access_key = options["access_key"];
     SEXP secret_key = options["secret_key"];
     if (!Rf_isNull(access_key) && !Rf_isNull(secret_key)) {
-      std::string token = "";
-      SEXP session_token = options["session_token"];
-      if (!Rf_isNull(session_token)) {
-        token = cpp11::as_cpp<std::string>(session_token);
-      }
-      s3_opts =
-          fs::S3Options::FromAccessKey(cpp11::as_cpp<std::string>(access_key),
-                                       cpp11::as_cpp<std::string>(secret_key), token);
+      s3_opts = fs::S3Options::FromAccessKey(
+          cpp11::as_cpp<std::string>(access_key), cpp11::as_cpp<std::string>(secret_key),
+          get_optional_string(options["session_token"]));
     } else {
-      s3_opts = fs::S3Options::Defaults();
+      SEXP role_arn = options["role_arn"];
+      if (!Rf_isNull(role_arn)) {
+        int load_frequency = 900;
+        SEXP freq = options["load_frequency"];
+        if (!Rf_isNull(freq)) {
+          load_frequency = cpp11::as_cpp<int>(freq);
+        }
+        s3_opts =
+            fs::S3Options::FromAssumeRole(cpp11::as_cpp<std::string>(role_arn),
+                                          get_optional_string(options["session_name"]),
+                                          get_optional_string(options["external_id"]));
+      } else {
+        s3_opts = fs::S3Options::Defaults();
+      }
     }
   }
-  // TODO: implement ARN/STS
 
   // Now handle the rest of the options
   /// AWS region to connect to (default "us-east-1")
