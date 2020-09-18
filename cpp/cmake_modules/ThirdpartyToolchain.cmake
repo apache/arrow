@@ -2675,29 +2675,35 @@ endmacro()
 if(ARROW_S3)
   # See https://aws.amazon.com/blogs/developer/developer-experience-of-the-aws-sdk-for-c-now-simplified-by-cmake/
 
+  # Workaround to force AWS cmake configuration to look for shared libraries
+  if(DEFINED ENV{CONDA_PREFIX})
+    set(BUILD_SHARED_LIBS "ON")
+  endif()
+
   # Need to customize the find_package() call, so cannot call resolve_dependency()
   if(AWSSDK_SOURCE STREQUAL "AUTO")
-    set(BUILD_SHARED_LIBS "ON")
+
     find_package(AWSSDK
                  COMPONENTS config
                             s3
                             transfer
                             identity-management
                             sts)
-    unset(BUILD_SHARED_LIBS)
     if(NOT AWSSDK_FOUND)
       build_awssdk()
     endif()
   elseif(AWSSDK_SOURCE STREQUAL "BUNDLED")
     build_awssdk()
   elseif(AWSSDK_SOURCE STREQUAL "SYSTEM")
-    set(BUILD_SHARED_LIBS "ON")
     find_package(AWSSDK REQUIRED
                  COMPONENTS config
                             s3
                             transfer
                             identity-management
                             sts)
+  endif()
+
+  if(DEFINED ENV{CONDA_PREFIX})
     unset(BUILD_SHARED_LIBS)
   endif()
 
