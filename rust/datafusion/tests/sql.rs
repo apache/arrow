@@ -140,6 +140,39 @@ fn csv_query_with_predicate() -> Result<()> {
 }
 
 #[test]
+fn csv_query_with_negated_predicate() -> Result<()> {
+    let mut ctx = ExecutionContext::new();
+    register_aggregate_csv(&mut ctx)?;
+    let sql = "SELECT COUNT(1) FROM aggregate_test_100 WHERE NOT(c1 != 'a')";
+    let actual = execute(&mut ctx, sql).join("\n");
+    let expected = "21".to_string();
+    assert_eq!(expected, actual);
+    Ok(())
+}
+
+#[test]
+fn csv_query_with_is_not_null_predicate() -> Result<()> {
+    let mut ctx = ExecutionContext::new();
+    register_aggregate_csv(&mut ctx)?;
+    let sql = "SELECT COUNT(1) FROM aggregate_test_100 WHERE c1 IS NOT NULL";
+    let actual = execute(&mut ctx, sql).join("\n");
+    let expected = "100".to_string();
+    assert_eq!(expected, actual);
+    Ok(())
+}
+
+#[test]
+fn csv_query_with_is_null_predicate() -> Result<()> {
+    let mut ctx = ExecutionContext::new();
+    register_aggregate_csv(&mut ctx)?;
+    let sql = "SELECT COUNT(1) FROM aggregate_test_100 WHERE c1 IS NULL";
+    let actual = execute(&mut ctx, sql).join("\n");
+    let expected = "0".to_string();
+    assert_eq!(expected, actual);
+    Ok(())
+}
+
+#[test]
 fn csv_query_group_by_int_min_max() -> Result<()> {
     let mut ctx = ExecutionContext::new();
     register_aggregate_csv(&mut ctx)?;
