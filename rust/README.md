@@ -19,6 +19,8 @@
 
 # Native Rust implementation of Apache Arrow
 
+[![Coverage Status](https://codecov.io/gh/apache/arrow/rust/branch/master/graph/badge.svg)](https://codecov.io/gh/apache/arrow?branch=master)
+
 ## The Rust implementation of Arrow consists of the following crates
 
 | Crate     | Description | Documentation |

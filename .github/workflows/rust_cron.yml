@@ -29,7 +29,7 @@ on:
 
 jobs:
   coverage:
-    name: AMD64 Debian 10 Rust ${{ matrix.rust }}
+    name: AMD64 Debian 10 Rust ${{ matrix.rust }} Coverage
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') && github.repository == 'apache/arrow' }}
     strategy:
