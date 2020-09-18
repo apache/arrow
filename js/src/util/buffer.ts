@@ -141,12 +141,13 @@ export function* toArrayBufferViewIterator<T extends TypedArray>(ArrayCtor: Type
            : (source instanceof SharedArrayBuf) ? wrap(source)
     : !isIterable<ArrayBufferViewInput>(source) ? wrap(source) : source;
 
-    yield* pump((function* (it) {
+    yield* pump((function* (it: Iterator<ArrayBufferViewInput, any, number | undefined>): Generator<T, void, number | undefined> {
         let r: IteratorResult<any> = <any> null;
         do {
             r = it.next(yield toArrayBufferView(ArrayCtor, r));
         } while (!r.done);
     })(buffers[Symbol.iterator]()));
+    return new ArrayCtor();
 }
 
 /** @ignore */ export const toInt8ArrayIterator = (input: ArrayBufferViewIteratorInput) => toArrayBufferViewIterator(Int8Array, input);
@@ -163,7 +164,7 @@ export function* toArrayBufferViewIterator<T extends TypedArray>(ArrayCtor: Type
 type ArrayBufferViewAsyncIteratorInput = AsyncIterable<ArrayBufferViewInput> | Iterable<ArrayBufferViewInput> | PromiseLike<ArrayBufferViewInput> | ArrayBufferViewInput;
 
 /** @ignore */
-export async function* toArrayBufferViewAsyncIterator<T extends TypedArray>(ArrayCtor: TypedArrayConstructor<T>, source: ArrayBufferViewAsyncIteratorInput): AsyncIterableIterator<T> {
+export async function* toArrayBufferViewAsyncIterator<T extends TypedArray>(ArrayCtor: TypedArrayConstructor<T>, source: ArrayBufferViewAsyncIteratorInput): AsyncGenerator<T, T, number | undefined> {
 
     // if a Promise, unwrap the Promise and iterate the resolved value
     if (isPromise<ArrayBufferViewInput>(source)) {
@@ -189,12 +190,13 @@ export async function* toArrayBufferViewAsyncIterator<T extends TypedArray>(Arra
     : !isAsyncIterable<ArrayBufferViewInput>(source) ? wrap(source) // If not an AsyncIterable, treat as a sentinel and wrap in an AsyncIterableIterator
                                                      : source; // otherwise if AsyncIterable, use it
 
-    yield* pump((async function* (it) {
+    yield* pump((async function* (it: AsyncIterator<ArrayBufferViewInput, any, number | undefined>): AsyncGenerator<T, void, number | undefined> {
         let r: IteratorResult<any> = <any> null;
         do {
             r = await it.next(yield toArrayBufferView(ArrayCtor, r));
         } while (!r.done);
     })(buffers[Symbol.asyncIterator]()));
+    return new ArrayCtor();
 }
 
 /** @ignore */ export const toInt8ArrayAsyncIterator = (input: ArrayBufferViewAsyncIteratorInput) => toArrayBufferViewAsyncIterator(Int8Array, input);

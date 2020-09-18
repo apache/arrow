@@ -27,10 +27,10 @@ import { VectorBuilderOptionsAsync } from './index';
 export class Utf8Vector extends BaseVector<Utf8> {
     public static from<TNull = any>(input: Iterable<string | TNull>): Utf8Vector;
     public static from<TNull = any>(input: AsyncIterable<string | TNull>): Promise<Utf8Vector>;
-    public static from<TNull = any>(input: VectorBuilderOptions<Utf8, TNull>): Chunked<Utf8>;
-    public static from<TNull = any>(input: VectorBuilderOptionsAsync<Utf8, TNull>): Promise<Chunked<Utf8>>;
+    public static from<TNull = any>(input: VectorBuilderOptions<Utf8, string | TNull>): Chunked<Utf8>;
+    public static from<TNull = any>(input: VectorBuilderOptionsAsync<Utf8, string | TNull>): Promise<Chunked<Utf8>>;
     /** @nocollapse */
-    public static from<TNull = any>(input: Iterable<string | TNull> | AsyncIterable<string | TNull> | VectorBuilderOptions<Utf8, TNull> | VectorBuilderOptionsAsync<Utf8, TNull>) {
+    public static from<TNull = any>(input: Iterable<string | TNull> | AsyncIterable<string | TNull> | VectorBuilderOptions<Utf8, string | TNull> | VectorBuilderOptionsAsync<Utf8, string | TNull>) {
         return vectorFromValuesWithType(() => new Utf8(), input);
     }
     public asBinary() {

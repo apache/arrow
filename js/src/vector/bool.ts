@@ -26,10 +26,10 @@ import { VectorBuilderOptionsAsync } from './index';
 export class BoolVector extends BaseVector<Bool> {
     public static from<TNull = any>(input: Iterable<boolean | TNull>): BoolVector;
     public static from<TNull = any>(input: AsyncIterable<boolean | TNull>): Promise<BoolVector>;
-    public static from<TNull = any>(input: VectorBuilderOptions<Bool, TNull>): Chunked<Bool>;
-    public static from<TNull = any>(input: VectorBuilderOptionsAsync<Bool, TNull>): Promise<Chunked<Bool>>;
+    public static from<TNull = any>(input: VectorBuilderOptions<Bool, boolean | TNull>): Chunked<Bool>;
+    public static from<TNull = any>(input: VectorBuilderOptionsAsync<Bool, boolean | TNull>): Promise<Chunked<Bool>>;
     /** @nocollapse */
-    public static from<TNull = any>(input: Iterable<boolean | TNull> | AsyncIterable<boolean | TNull> | VectorBuilderOptions<Bool, TNull> | VectorBuilderOptionsAsync<Bool, TNull>) {
+    public static from<TNull = any>(input: Iterable<boolean | TNull> | AsyncIterable<boolean | TNull> | VectorBuilderOptions<Bool, boolean | TNull> | VectorBuilderOptionsAsync<Bool, boolean | TNull>) {
         return vectorFromValuesWithType(() => new Bool(), input);
     }
 }
