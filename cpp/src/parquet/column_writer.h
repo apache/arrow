@@ -144,7 +144,8 @@ class PARQUET_EXPORT ColumnWriter {
   /// writer type
   virtual ::arrow::Status WriteArrow(const int16_t* def_levels, const int16_t* rep_levels,
                                      int64_t num_levels, const ::arrow::Array& array,
-                                     ArrowWriteContext* ctx) = 0;
+                                     ArrowWriteContext* ctx, bool nested_array,
+                                     bool array_is_nullable) = 0;
 };
 
 // API to write values to a single column. This is the main client facing API.

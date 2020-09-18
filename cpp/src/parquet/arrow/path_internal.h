@@ -91,6 +91,9 @@ struct MultipathLevelBuilderResult {
   /// This allows for the parquet writing to determine which values ultimately
   /// needs to be written.
   std::vector<ElementRange> post_list_visited_elements;
+
+  /// Whether the leaf array is nullable.
+  bool leaf_is_nullable;
 };
 
 /// \brief Logic for being able to write out nesting (rep/def level) data that is
@@ -146,6 +149,8 @@ class PARQUET_EXPORT MultipathLevelBuilder {
   /// \param[out] write_leaf_callback Callback to receive the result.
   virtual ::arrow::Status Write(int leaf_index, ArrowWriteContext* context,
                                 CallbackFunction write_leaf_callback) = 0;
+
+  virtual bool Nested() const = 0;
 };
 
 }  // namespace arrow

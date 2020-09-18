@@ -525,6 +525,7 @@ struct PathInfo {
   int16_t max_def_level = 0;
   int16_t max_rep_level = 0;
   bool has_dictionary = false;
+  bool leaf_is_nullable = false;
 };
 
 /// Contains logic for writing a single leaf node to parquet.
@@ -540,6 +541,7 @@ Status WritePath(ElementRange root_range, PathInfo* path_info,
   std::vector<ElementRange> stack(path_info->path.size());
   MultipathLevelBuilderResult builder_result;
   builder_result.leaf_array = path_info->primitive_array;
+  builder_result.leaf_is_nullable = path_info->leaf_is_nullable;
 
   if (path_info->max_def_level == 0) {
     // This case only occurs when there are no nullable or repeated
@@ -706,6 +708,7 @@ class PathBuilder {
   explicit PathBuilder(bool start_nullable) : nullable_in_parent_(start_nullable) {}
   template <typename T>
   void AddTerminalInfo(const T& array) {
+    info_.leaf_is_nullable = nullable_in_parent_;
     if (nullable_in_parent_) {
       info_.max_def_level++;
     }
@@ -838,10 +841,13 @@ class PathBuilder {
 #undef NOT_IMPLEMENTED_VISIT
   std::vector<PathInfo>& paths() { return paths_; }
 
+  bool root_is_nullable() const { return root_is_nullable_; }
+
  private:
   PathInfo info_;
   std::vector<PathInfo> paths_;
   bool nullable_in_parent_;
+  bool root_is_nullable_;
 };
 
 Status PathBuilder::VisitInline(const Array& array) {
@@ -870,6 +876,8 @@ class MultipathLevelBuilderImpl : public MultipathLevelBuilder {
     return WritePath(root_range_, &path_builder_->paths()[leaf_index], context,
                      std::move(write_leaf_callback));
   }
+
+  bool Nested() const override { return !data_->child_data.empty(); }
 
  private:
   ElementRange root_range_;
