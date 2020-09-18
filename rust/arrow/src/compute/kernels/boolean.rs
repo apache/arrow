@@ -133,13 +133,14 @@ pub fn is_null(input: &ArrayRef) -> Result<BooleanArray> {
         ));
     }
 
+    let len_bytes = ceil(input.len(), 8);
+
     let output = match input.data_ref().null_buffer() {
-        None => MutableBuffer::new(input.len())
+        None => MutableBuffer::new(len_bytes)
             .with_bitset(input.len(), false)
             .freeze(),
         Some(buffer) => {
             let offset_bytes = input.offset() / 8;
-            let len_bytes = ceil(input.len(), 8);
 
             buffer_unary_not(buffer, offset_bytes, len_bytes)
         }
@@ -166,8 +167,10 @@ pub fn is_not_null(input: &ArrayRef) -> Result<BooleanArray> {
         ));
     }
 
+    let len_bytes = ceil(input.len(), 8);
+
     let output = match input.data_ref().null_buffer() {
-        None => MutableBuffer::new(input.len())
+        None => MutableBuffer::new(len_bytes)
             .with_bitset(input.len(), true)
             .freeze(),
         Some(buffer) => {
@@ -359,6 +362,8 @@ mod tests {
         let res = is_null(&a).unwrap();
 
         assert_eq!(4, res.len());
+        assert_eq!(0, res.null_count());
+        assert_eq!(&None, res.data_ref().null_bitmap());
         assert_eq!(false, res.value(0));
         assert_eq!(false, res.value(1));
         assert_eq!(false, res.value(2));
@@ -372,6 +377,8 @@ mod tests {
         let res = is_not_null(&a).unwrap();
 
         assert_eq!(4, res.len());
+        assert_eq!(0, res.null_count());
+        assert_eq!(&None, res.data_ref().null_bitmap());
         assert_eq!(true, res.value(0));
         assert_eq!(true, res.value(1));
         assert_eq!(true, res.value(2));
@@ -388,6 +395,8 @@ mod tests {
         let res = is_not_null(&a).unwrap();
 
         assert_eq!(4, res.len());
+        assert_eq!(0, res.null_count());
+        assert_eq!(&None, res.data_ref().null_bitmap());
         assert_eq!(true, res.value(0));
         assert_eq!(true, res.value(1));
         assert_eq!(true, res.value(2));
@@ -401,6 +410,8 @@ mod tests {
         let res = is_null(&a).unwrap();
 
         assert_eq!(4, res.len());
+        assert_eq!(0, res.null_count());
+        assert_eq!(&None, res.data_ref().null_bitmap());
         assert_eq!(false, res.value(0));
         assert_eq!(true, res.value(1));
         assert_eq!(false, res.value(2));
@@ -418,6 +429,7 @@ mod tests {
             None,
             None,
             None,
+            // offset 8, previous None values are skipped by the slice
             Some(1),
             None,
             Some(2),
@@ -432,6 +444,8 @@ mod tests {
         let res = is_null(&a).unwrap();
 
         assert_eq!(4, res.len());
+        assert_eq!(0, res.null_count());
+        assert_eq!(&None, res.data_ref().null_bitmap());
         assert_eq!(false, res.value(0));
         assert_eq!(true, res.value(1));
         assert_eq!(false, res.value(2));
@@ -445,6 +459,8 @@ mod tests {
         let res = is_not_null(&a).unwrap();
 
         assert_eq!(4, res.len());
+        assert_eq!(0, res.null_count());
+        assert_eq!(&None, res.data_ref().null_bitmap());
         assert_eq!(true, res.value(0));
         assert_eq!(false, res.value(1));
         assert_eq!(true, res.value(2));
@@ -462,6 +478,7 @@ mod tests {
             None,
             None,
             None,
+            // offset 8, previous None values are skipped by the slice
             Some(1),
             None,
             Some(2),
@@ -476,6 +493,8 @@ mod tests {
         let res = is_not_null(&a).unwrap();
 
         assert_eq!(4, res.len());
+        assert_eq!(0, res.null_count());
+        assert_eq!(&None, res.data_ref().null_bitmap());
         assert_eq!(true, res.value(0));
         assert_eq!(false, res.value(1));
         assert_eq!(true, res.value(2));

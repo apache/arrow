@@ -1384,7 +1384,7 @@ impl IsNotNullExpr {
 
 impl fmt::Display for IsNotNullExpr {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{} IS NULL", self.arg)
+        write!(f, "{} IS NOT NULL", self.arg)
     }
 }
 impl PhysicalExpr for IsNotNullExpr {
@@ -1402,7 +1402,7 @@ impl PhysicalExpr for IsNotNullExpr {
     }
 }
 
-/// Create an IS NULL expression
+/// Create an IS NOT NULL expression
 pub fn is_not_null(arg: Arc<dyn PhysicalExpr>) -> Result<Arc<dyn PhysicalExpr>> {
     Ok(Arc::new(IsNotNullExpr::new(arg)))
 }
