@@ -286,10 +286,10 @@ std::shared_ptr<fs::S3FileSystem> fs___S3FileSystem__create(bool anonymous,
         if (!Rf_isNull(freq)) {
           load_frequency = cpp11::as_cpp<int>(freq);
         }
-        s3_opts =
-            fs::S3Options::FromAssumeRole(cpp11::as_cpp<std::string>(role_arn),
-                                          get_optional_string(options["session_name"]),
-                                          get_optional_string(options["external_id"]));
+        s3_opts = fs::S3Options::FromAssumeRole(
+            cpp11::as_cpp<std::string>(role_arn),
+            get_optional_string(options["session_name"]),
+            get_optional_string(options["external_id"]), load_frequency);
       } else {
         s3_opts = fs::S3Options::Defaults();
       }
