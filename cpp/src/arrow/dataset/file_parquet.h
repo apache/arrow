@@ -92,8 +92,10 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
     std::unordered_set<std::string> dict_columns;
     /// @}
 
-    /// Parallelize conversion across columns. This option is ignored if a scan is already
-    /// parallelized across input files.
+    /// EXPERIMENTAL: Parallelize conversion across columns. This option is ignored if a
+    /// scan is already parallelized across input files to avoid thread contention. This
+    /// option will be removed after support is added for simultaneous parallelization
+    /// across files and columns.
     bool enable_parallel_column_conversion = false;
   } reader_options;
 

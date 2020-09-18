@@ -1014,8 +1014,10 @@ cdef class ParquetReadOptions(_Weakrefable):
         Names of columns which should be dictionary encoded as
         they are read.
     enable_parallel_column_conversion : bool, default False
-        Whether single files may be read in parallel (ignored when reading
-        multiple files to avoid thread contention).
+        EXPERIMENTAL: Parallelize conversion across columns. This option is
+        ignored if a scan is already parallelized across input files to avoid
+        thread contention. This option will be removed after support is added
+        for simultaneous parallelization across files and columns.
     """
 
     cdef public:
