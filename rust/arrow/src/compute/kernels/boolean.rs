@@ -346,6 +346,8 @@ mod tests {
         let res = is_null(&a).unwrap();
 
         assert_eq!(4, res.len());
+        assert_eq!(0, res.null_count());
+        assert_eq!(&None, res.data_ref().null_bitmap());
         assert_eq!(false, res.value(0));
         assert_eq!(false, res.value(1));
         assert_eq!(false, res.value(2));
