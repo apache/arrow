@@ -2606,7 +2606,7 @@ mod tests {
         let a = StringArray::from(vec![Some("foo"), None]);
         let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
 
-        // expression: "a is null"
+        // expression: "a is not null"
         let expr = is_not_null(col("a")).unwrap();
         let result = expr.evaluate(&batch)?;
 
