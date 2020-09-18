@@ -1909,9 +1909,12 @@ cdef shared_ptr[CScanContext] _build_scan_context(bint use_threads=True,
     return context
 
 
+_DEFAULT_BATCH_SIZE = 2**20
+
+
 cdef void _populate_builder(const shared_ptr[CScannerBuilder]& ptr,
                             list columns=None, Expression filter=None,
-                            int batch_size=2**20) except *:
+                            int batch_size=_DEFAULT_BATCH_SIZE) except *:
     cdef:
         CScannerBuilder *builder
 
@@ -1985,7 +1988,7 @@ cdef class Scanner(_Weakrefable):
     def from_dataset(Dataset dataset not None,
                      bint use_threads=True, MemoryPool memory_pool=None,
                      list columns=None, Expression filter=None,
-                     int batch_size=2**20):
+                     int batch_size=_DEFAULT_BATCH_SIZE):
         cdef:
             shared_ptr[CScanContext] context
             shared_ptr[CScannerBuilder] builder
@@ -2004,7 +2007,7 @@ cdef class Scanner(_Weakrefable):
     def from_fragment(Fragment fragment not None, Schema schema=None,
                       bint use_threads=True, MemoryPool memory_pool=None,
                       list columns=None, Expression filter=None,
-                      int batch_size=2**20):
+                      int batch_size=_DEFAULT_BATCH_SIZE):
         cdef:
             shared_ptr[CScanContext] context
             shared_ptr[CScannerBuilder] builder
