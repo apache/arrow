@@ -353,7 +353,10 @@ mod tests {
         error::Result, logical_plan::ScalarValue, physical_plan::expressions::lit,
     };
     use arrow::{
-        array::{ArrayRef, FixedSizeListArray, Float64Array, Int32Array, StringArray, PrimitiveArrayOps, StringArrayOps},
+        array::{
+            ArrayRef, FixedSizeListArray, Float64Array, Int32Array, PrimitiveArrayOps,
+            StringArray, StringArrayOps,
+        },
         datatypes::Field,
         record_batch::RecordBatch,
     };

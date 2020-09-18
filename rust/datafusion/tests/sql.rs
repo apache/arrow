@@ -609,7 +609,6 @@ fn execute(ctx: &mut ExecutionContext, sql: &str) -> Vec<String> {
     result_str(&results)
 }
 
-
 /// Converts an array's value at `row_index` to a string.
 fn array_str(array: &Arc<dyn Array>, row_index: usize) -> String {
     if array.is_null(row_index) {
