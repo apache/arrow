@@ -131,7 +131,7 @@ struct ARROW_EXPORT FileSelector {
   /// The maximum number of subdirectories to recurse into.
   int32_t max_recursion = INT32_MAX;
 
-  FileSelector() {}
+  FileSelector() = default;
 };
 
 /// \brief FileSystem, path pair
@@ -397,12 +397,21 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUriOrPath(
 ///
 /// If a source and destination are resident in the same FileSystem FileSystem::CopyFile
 /// will be used, otherwise the file will be opened as a stream in both FileSystems and
-/// chunks copied from the source to the destination. Parent directories will be created.
+/// chunks copied from the source to the destination. No directories will be created.
 ARROW_EXPORT
 Status CopyFiles(const std::vector<FileLocator>& sources,
                  const std::vector<FileLocator>& destinations,
-                 int64_t chunk_size = 1024 * 1024, bool use_threads = true,
-                 bool create_directories = false);
+                 int64_t chunk_size = 1024 * 1024, bool use_threads = true);
+
+/// \brief Copy selected files, including from one FileSystem to another
+///
+/// Directories will be created under the destination base directory as needed.
+ARROW_EXPORT
+Status CopyFiles(const std::shared_ptr<FileSystem>& source_fs,
+                 const FileSelector& source_sel,
+                 const std::shared_ptr<FileSystem>& destination_fs,
+                 const std::string& destination_base_dir,
+                 int64_t chunk_size = 1024 * 1024, bool use_threads = true);
 
 struct FileSystemGlobalOptions {
   /// Path to a single PEM file holding all TLS CA certificates

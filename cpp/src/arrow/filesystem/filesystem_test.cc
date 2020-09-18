@@ -596,31 +596,28 @@ TEST_F(TestSubTreeFileSystem, CopyFile) {
 }
 
 TEST_F(TestSubTreeFileSystem, CopyFiles) {
-  CreateFile("ab", "ab");
-  CreateFile("cd", "cd");
-  CreateFile("ef", "ef");
-  CreateFile("same", "same");
+  ASSERT_OK(subfs_->CreateDir("AB"));
+  ASSERT_OK(subfs_->CreateDir("CD/CD"));
+  ASSERT_OK(subfs_->CreateDir("EF/EF/EF"));
+
+  CreateFile("AB/ab", "ab");
+  CreateFile("CD/CD/cd", "cd");
+  CreateFile("EF/EF/EF/ef", "ef");
 
   ASSERT_OK(fs_->CreateDir("sub/copy"));
   auto dest_fs = std::make_shared<SubTreeFileSystem>("sub/copy", fs_);
 
-  ASSERT_OK(CopyFiles({{subfs_, "ab"}, {subfs_, "cd"}, {subfs_, "ef"}, {subfs_, "same"}},
-                      {{dest_fs, "AB/ab"},
-                       {dest_fs, "CD/CD/cd"},
-                       {dest_fs, "EF/EF/EF/ef"},
-                       {subfs_, "same_copy/same"}},
-                      /*chunk_size=*/16, /*use_threads=*/true,
-                      /*create_directories=*/true));
+  FileSelector sel;
+  sel.recursive = true;
+  ASSERT_OK(CopyFiles(subfs_, sel, dest_fs, ""));
 
   CheckFiles({
       {"sub/copy/AB/ab", time_, "ab"},
       {"sub/copy/CD/CD/cd", time_, "cd"},
       {"sub/copy/EF/EF/EF/ef", time_, "ef"},
-      {"sub/tree/ab", time_, "ab"},
-      {"sub/tree/cd", time_, "cd"},
-      {"sub/tree/ef", time_, "ef"},
-      {"sub/tree/same", time_, "same"},
-      {"sub/tree/same_copy/same", time_, "same"},
+      {"sub/tree/AB/ab", time_, "ab"},
+      {"sub/tree/CD/CD/cd", time_, "cd"},
+      {"sub/tree/EF/EF/EF/ef", time_, "ef"},
   });
 }
 
