@@ -253,72 +253,42 @@ void fs___CopyFiles(const std::shared_ptr<fs::FileSystem>& src_fs,
 #include <arrow/filesystem/s3fs.h>
 
 // [[s3::export]]
-void fs___EnsureS3Initialized() { StopIfNotOk(fs::EnsureS3Initialized()); }
-
-std::string get_optional_string(SEXP x) {
-  std::string out = "";
-  if (!Rf_isNull(x)) {
-    out = cpp11::as_cpp<std::string>(x);
-  }
-  return out;
-}
-
-// [[s3::export]]
-std::shared_ptr<fs::S3FileSystem> fs___S3FileSystem__create(bool anonymous,
-                                                            cpp11::list options) {
+std::shared_ptr<fs::S3FileSystem> fs___S3FileSystem__create(
+    bool anonymous = false, std::string access_key = "", std::string secret_key = "",
+    std::string session_token = "", std::string role_arn = "",
+    std::string session_name = "", std::string external_id = "", int load_frequency = 900,
+    std::string region = "", std::string endpoint_override = "", std::string scheme = "",
+    bool background_writes = true) {
   fs::S3Options s3_opts;
   // Handle auth (anonymous, keys, default)
   // (validation/internal coherence handled in R)
   if (anonymous) {
     s3_opts = fs::S3Options::Anonymous();
+  } else if (access_key != "" && secret_key != "") {
+    s3_opts = fs::S3Options::FromAccessKey(access_key, secret_key, session_token);
+  } else if (role_arn != "") {
+    s3_opts = fs::S3Options::FromAssumeRole(role_arn, session_name, external_id,
+                                            load_frequency);
   } else {
-    SEXP access_key = options["access_key"];
-    SEXP secret_key = options["secret_key"];
-    if (!Rf_isNull(access_key) && !Rf_isNull(secret_key)) {
-      s3_opts = fs::S3Options::FromAccessKey(
-          cpp11::as_cpp<std::string>(access_key), cpp11::as_cpp<std::string>(secret_key),
-          get_optional_string(options["session_token"]));
-    } else {
-      SEXP role_arn = options["role_arn"];
-      if (!Rf_isNull(role_arn)) {
-        int load_frequency = 900;
-        SEXP freq = options["load_frequency"];
-        if (!Rf_isNull(freq)) {
-          load_frequency = cpp11::as_cpp<int>(freq);
-        }
-        s3_opts = fs::S3Options::FromAssumeRole(
-            cpp11::as_cpp<std::string>(role_arn),
-            get_optional_string(options["session_name"]),
-            get_optional_string(options["external_id"]), load_frequency);
-      } else {
-        s3_opts = fs::S3Options::Defaults();
-      }
-    }
+    s3_opts = fs::S3Options::Defaults();
   }
 
   // Now handle the rest of the options
   /// AWS region to connect to (default "us-east-1")
-  SEXP region = options["region"];
-  if (!Rf_isNull(region)) {
-    s3_opts.region = cpp11::as_cpp<std::string>(region);
+  if (region != "") {
+    s3_opts.region = region;
   }
   /// If non-empty, override region with a connect string such as "localhost:9000"
-  SEXP endpoint_override = options["endpoint_override"];
-  if (!Rf_isNull(endpoint_override)) {
-    s3_opts.endpoint_override = cpp11::as_cpp<std::string>(endpoint_override);
-  }
+  s3_opts.endpoint_override = endpoint_override;
   /// S3 connection transport, default "https"
-  SEXP scheme = options["scheme"];
-  if (!Rf_isNull(scheme)) {
-    s3_opts.scheme = cpp11::as_cpp<std::string>(scheme);
+  if (scheme != "") {
+    s3_opts.scheme = scheme;
   }
   /// Whether OutputStream writes will be issued in the background, without blocking
   /// default true
-  SEXP background_writes = options["background_writes"];
-  if (!Rf_isNull(background_writes)) {
-    s3_opts.background_writes = cpp11::as_cpp<bool>(background_writes);
-  }
+  s3_opts.background_writes = background_writes;
 
+  StopIfNotOk(fs::EnsureS3Initialized());
   return ValueOrStop(fs::S3FileSystem::Make(s3_opts));
 }
 

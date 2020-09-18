@@ -305,10 +305,11 @@ LocalFileSystem$create <- function() {
 #' @usage NULL
 #' @format NULL
 #' @rdname FileSystem
+#' @importFrom utils modifyList
 #' @export
 S3FileSystem <- R6Class("S3FileSystem", inherit = FileSystem)
 S3FileSystem$create <- function(anonymous = FALSE, ...) {
-  args <- list(...)
+  args <- list2(...)
   if (anonymous) {
     invalid_args <- intersect(c("access_key", "secret_key", "session_token", "role_arn", "session_name", "external_id", "load_frequency"), names(args))
     if (length(invalid_args)) {
@@ -336,9 +337,23 @@ S3FileSystem$create <- function(anonymous = FALSE, ...) {
       stop("Cannot specify ", oxford_paste(arn_extras), " without providing a role_arn string", call. = FALSE)
     }
   }
-  fs___EnsureS3Initialized()
-  shared_ptr(S3FileSystem, fs___S3FileSystem__create(anonymous, args))
+  args <- c(modifyList(default_s3_options, args), anonymous = anonymous)
+  shared_ptr(S3FileSystem, exec(fs___S3FileSystem__create, !!!args))
 }
+
+default_s3_options <- list(
+  access_key = "",
+  secret_key = "",
+  session_token = "",
+  role_arn = "",
+  session_name = "",
+  external_id = "",
+  load_frequency = 900L,
+  region = "",
+  endpoint_override = "",
+  scheme = "",
+  background_writes = TRUE
+)
 
 arrow_with_s3 <- function() {
   .Call(`_s3_available`)

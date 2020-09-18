@@ -932,12 +932,8 @@ fs___CopyFiles <- function(src_fs, src_paths, dest_fs, dest_paths, chunk_size, u
     invisible(.Call(`_arrow_fs___CopyFiles` , src_fs, src_paths, dest_fs, dest_paths, chunk_size, use_threads))
 }
 
-fs___EnsureS3Initialized <- function(){
-    invisible(.Call(`_arrow_fs___EnsureS3Initialized` ))
-}
-
-fs___S3FileSystem__create <- function(anonymous, options){
-    .Call(`_arrow_fs___S3FileSystem__create` , anonymous, options)
+fs___S3FileSystem__create <- function(anonymous, access_key, secret_key, session_token, role_arn, session_name, external_id, load_frequency, region, endpoint_override, scheme, background_writes){
+    .Call(`_arrow_fs___S3FileSystem__create` , anonymous, access_key, secret_key, session_token, role_arn, session_name, external_id, load_frequency, region, endpoint_override, scheme, background_writes)
 }
 
 io___Readable__Read <- function(x, nbytes){
