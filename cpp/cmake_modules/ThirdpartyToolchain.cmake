@@ -2682,7 +2682,6 @@ if(ARROW_S3)
 
   # Need to customize the find_package() call, so cannot call resolve_dependency()
   if(AWSSDK_SOURCE STREQUAL "AUTO")
-
     find_package(AWSSDK
                  COMPONENTS config
                             s3
