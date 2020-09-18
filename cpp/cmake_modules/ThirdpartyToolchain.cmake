@@ -2677,24 +2677,28 @@ if(ARROW_S3)
 
   # Need to customize the find_package() call, so cannot call resolve_dependency()
   if(AWSSDK_SOURCE STREQUAL "AUTO")
+    set(BUILD_SHARED_LIBS "ON")
     find_package(AWSSDK
                  COMPONENTS config
                             s3
                             transfer
                             identity-management
                             sts)
+    unset(BUILD_SHARED_LIBS)
     if(NOT AWSSDK_FOUND)
       build_awssdk()
     endif()
   elseif(AWSSDK_SOURCE STREQUAL "BUNDLED")
     build_awssdk()
   elseif(AWSSDK_SOURCE STREQUAL "SYSTEM")
+    set(BUILD_SHARED_LIBS "ON")
     find_package(AWSSDK REQUIRED
                  COMPONENTS config
                             s3
                             transfer
                             identity-management
                             sts)
+    unset(BUILD_SHARED_LIBS)
   endif()
 
   include_directories(SYSTEM ${AWSSDK_INCLUDE_DIR})
