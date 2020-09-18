@@ -251,6 +251,10 @@ const char* replace_utf8_utf8_utf8(gdv_int64 context, const char* text,
                                    gdv_int32 from_str_len, const char* to_str,
                                    gdv_int32 to_str_len, gdv_int32* out_len);
 
+const char* split_part(gdv_int64 context, const char* text, gdv_int32 text_len,
+                       const char* splitter, gdv_int32 split_len, gdv_int32 index,
+                       gdv_int32* out_len);
+
 const char* castVARCHAR_int32_int64(int64_t context, int32_t value, int64_t len,
                                     int32_t* out_len);
 
