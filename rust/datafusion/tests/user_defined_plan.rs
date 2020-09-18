@@ -59,7 +59,7 @@
 //!
 
 use arrow::{
-    array::{Int64Array, StringArray, StringArrayOps},
+    array::{Int64Array, PrimitiveArrayOps, StringArray, StringArrayOps},
     datatypes::SchemaRef,
     error::ArrowError,
     record_batch::{RecordBatch, RecordBatchReader},

@@ -23,6 +23,7 @@ use crate::execution::context::ExecutionContext;
 use crate::logical_plan::{LogicalPlan, LogicalPlanBuilder};
 use crate::physical_plan::ExecutionPlan;
 use arrow::array;
+use arrow::array::PrimitiveArrayOps;
 use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
 use arrow::record_batch::RecordBatch;
 use std::env;

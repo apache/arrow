@@ -401,40 +401,25 @@ pub struct PrimitiveArray<T: ArrowPrimitiveType> {
 
 /// Common operations for primitive types, including numeric types and boolean type.
 pub trait PrimitiveArrayOps<T: ArrowPrimitiveType> {
+    /// Returns a `Buffer` holding all the values of this array.
+    ///
+    /// Note this doesn't take the offset of this array into account.
     fn values(&self) -> Buffer;
+
+    /// Returns the primitive value at index `i`.
+    ///
+    /// Note this doesn't do any bound checking, for performance reason.
     fn value(&self, i: usize) -> T::Native;
 }
 
-// This is necessary when caller wants to access `PrimitiveArrayOps`'s methods with
-// `ArrowPrimitiveType`. It doesn't have any implementation as the actual implementations
-// are delegated to that of `ArrowNumericType` and `BooleanType`.
 impl<T: ArrowPrimitiveType> PrimitiveArrayOps<T> for PrimitiveArray<T> {
-    default fn values(&self) -> Buffer {
-        unimplemented!()
-    }
-
-    default fn value(&self, _: usize) -> T::Native {
-        unimplemented!()
-    }
-}
-
-impl<T: ArrowNumericType> PrimitiveArrayOps<T> for PrimitiveArray<T> {
     fn values(&self) -> Buffer {
-        self.values()
+        self.data.buffers()[0].clone()
     }
 
     fn value(&self, i: usize) -> T::Native {
-        self.value(i)
-    }
-}
-
-impl PrimitiveArrayOps<BooleanType> for BooleanArray {
-    fn values(&self) -> Buffer {
-        self.values()
-    }
-
-    fn value(&self, i: usize) -> bool {
-        self.value(i)
+        let offset = i + self.offset();
+        unsafe { T::index(self.raw_values.get(), offset) }
     }
 }
 
@@ -475,13 +460,6 @@ impl<T: ArrowNumericType> PrimitiveArray<T> {
         PrimitiveArray::from(array_data)
     }
 
-    /// Returns a `Buffer` holding all the values of this array.
-    ///
-    /// Note this doesn't take the offset of this array into account.
-    pub fn values(&self) -> Buffer {
-        self.data.buffers()[0].clone()
-    }
-
     /// Returns the length of this array.
     pub fn len(&self) -> usize {
         self.data.len()
@@ -495,13 +473,6 @@ impl<T: ArrowNumericType> PrimitiveArray<T> {
     /// Returns a raw pointer to the values of this array.
     pub fn raw_values(&self) -> *const T::Native {
         unsafe { self.raw_values.get().add(self.data.offset()) }
-    }
-
-    /// Returns the primitive value at index `i`.
-    ///
-    /// Note this doesn't do any bound checking, for performance reason.
-    pub fn value(&self, i: usize) -> T::Native {
-        unsafe { *(self.raw_values().add(i)) }
     }
 
     /// Returns a slice for the given offset and length
@@ -693,20 +664,6 @@ impl PrimitiveArray<BooleanType> {
             .offset(offset)
             .build();
         BooleanArray::from(array_data)
-    }
-
-    /// Returns a `Buffer` holds all the values of this array.
-    ///
-    /// Note this doesn't take account into the offset of this array.
-    pub fn values(&self) -> Buffer {
-        self.data.buffers()[0].clone()
-    }
-
-    /// Returns the boolean value at index `i`.
-    pub fn value(&self, i: usize) -> bool {
-        assert!(i < self.data.len());
-        let offset = i + self.offset();
-        unsafe { bit_util::get_bit_raw(self.raw_values.get() as *const u8, offset) }
     }
 
     // Returns a new primitive array builder

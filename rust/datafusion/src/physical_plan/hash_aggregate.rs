@@ -26,6 +26,7 @@ use crate::physical_plan::{
     Accumulator, AggregateExpr, Distribution, ExecutionPlan, Partitioning, PhysicalExpr,
 };
 
+use arrow::array::PrimitiveArrayOps;
 use arrow::array::{
     ArrayBuilder, ArrayRef, Float32Array, Float64Array, Int16Array, Int32Array,
     Int64Array, Int8Array, StringArray, StringArrayOps, UInt16Array, UInt32Array,

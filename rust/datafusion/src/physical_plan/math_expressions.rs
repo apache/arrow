@@ -19,7 +19,9 @@
 
 use std::sync::Arc;
 
-use arrow::array::{make_array, Array, ArrayData, ArrayRef, Float32Array, Float64Array};
+use arrow::array::{
+    make_array, Array, ArrayData, ArrayRef, Float32Array, Float64Array, PrimitiveArrayOps,
+};
 use arrow::buffer::Buffer;
 use arrow::datatypes::{DataType, ToByteSlice};
 

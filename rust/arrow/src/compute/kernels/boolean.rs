@@ -126,6 +126,7 @@ pub fn not(left: &BooleanArray) -> Result<BooleanArray> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::array::PrimitiveArrayOps;
 
     #[test]
     fn test_bool_array_and() {

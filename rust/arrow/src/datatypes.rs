@@ -23,6 +23,7 @@
 //!  * [`DataType`](crate::datatypes::DataType) to describe the type of a field.
 
 use std::collections::HashMap;
+use std::default::Default;
 use std::fmt;
 use std::mem::size_of;
 #[cfg(feature = "simd")]
@@ -39,6 +40,7 @@ use serde_json::{
 };
 
 use crate::error::{ArrowError, Result};
+use crate::util::bit_util;
 
 /// The set of datatypes that are supported by this implementation of Apache Arrow.
 ///
@@ -184,7 +186,7 @@ pub struct Field {
 }
 
 pub trait ArrowNativeType:
-    fmt::Debug + Send + Sync + Copy + PartialOrd + FromStr + 'static
+    fmt::Debug + Send + Sync + Copy + PartialOrd + FromStr + Default + 'static
 {
     fn into_json_value(self) -> Option<Value>;
 
@@ -208,12 +210,25 @@ pub trait ArrowPrimitiveType: 'static {
     fn get_data_type() -> DataType;
 
     /// Returns the bit width of this primitive type.
-    fn get_bit_width() -> usize;
+    fn get_bit_width() -> usize {
+        size_of::<Self::Native>() * 8
+    }
 
     /// Returns a default value of this primitive type.
     ///
     /// This is useful for aggregate array ops like `sum()`, `mean()`.
-    fn default_value() -> Self::Native;
+    fn default_value() -> Self::Native {
+        Default::default()
+    }
+
+    /// Returns a value offset from the given pointer by the given index. The default
+    /// implementation (used for all non-boolean types) is simply equivalent to pointer-arithmetic.
+    /// # Safety
+    /// Just like array-access in C: the raw_ptr must be the start of a valid array, and the index
+    /// must be less than the size of the array.
+    unsafe fn index(raw_ptr: *const Self::Native, i: usize) -> Self::Native {
+        *(raw_ptr.add(i))
+    }
 }
 
 impl ArrowNativeType for bool {
@@ -346,8 +361,32 @@ impl ArrowNativeType for f64 {
     }
 }
 
+// BooleanType is special: its bit-width is not the size of the primitive type, and its `index`
+// operation assumes bit-packing.
+#[derive(Debug)]
+pub struct BooleanType {}
+
+impl ArrowPrimitiveType for BooleanType {
+    type Native = bool;
+
+    fn get_data_type() -> DataType {
+        DataType::Boolean
+    }
+
+    fn get_bit_width() -> usize {
+        1
+    }
+
+    /// # Safety
+    /// The pointer must be part of a bit-packed boolean array, and the index must be less than the
+    /// size of the array.
+    unsafe fn index(raw_ptr: *const Self::Native, i: usize) -> Self::Native {
+        bit_util::get_bit_raw(raw_ptr as *const u8, i)
+    }
+}
+
 macro_rules! make_type {
-    ($name:ident, $native_ty:ty, $data_ty:expr, $bit_width:expr, $default_val:expr) => {
+    ($name:ident, $native_ty:ty, $data_ty:expr) => {
         #[derive(Debug)]
         pub struct $name {}
 
@@ -357,134 +396,87 @@ macro_rules! make_type {
             fn get_data_type() -> DataType {
                 $data_ty
             }
-
-            fn get_bit_width() -> usize {
-                $bit_width
-            }
-
-            fn default_value() -> Self::Native {
-                $default_val
-            }
         }
     };
 }
 
-make_type!(BooleanType, bool, DataType::Boolean, 1, false);
-make_type!(Int8Type, i8, DataType::Int8, 8, 0i8);
-make_type!(Int16Type, i16, DataType::Int16, 16, 0i16);
-make_type!(Int32Type, i32, DataType::Int32, 32, 0i32);
-make_type!(Int64Type, i64, DataType::Int64, 64, 0i64);
-make_type!(UInt8Type, u8, DataType::UInt8, 8, 0u8);
-make_type!(UInt16Type, u16, DataType::UInt16, 16, 0u16);
-make_type!(UInt32Type, u32, DataType::UInt32, 32, 0u32);
-make_type!(UInt64Type, u64, DataType::UInt64, 64, 0u64);
-make_type!(Float32Type, f32, DataType::Float32, 32, 0.0f32);
-make_type!(Float64Type, f64, DataType::Float64, 64, 0.0f64);
+make_type!(Int8Type, i8, DataType::Int8);
+make_type!(Int16Type, i16, DataType::Int16);
+make_type!(Int32Type, i32, DataType::Int32);
+make_type!(Int64Type, i64, DataType::Int64);
+make_type!(UInt8Type, u8, DataType::UInt8);
+make_type!(UInt16Type, u16, DataType::UInt16);
+make_type!(UInt32Type, u32, DataType::UInt32);
+make_type!(UInt64Type, u64, DataType::UInt64);
+make_type!(Float32Type, f32, DataType::Float32);
+make_type!(Float64Type, f64, DataType::Float64);
 make_type!(
     TimestampSecondType,
     i64,
-    DataType::Timestamp(TimeUnit::Second, None),
-    64,
-    0i64
+    DataType::Timestamp(TimeUnit::Second, None)
 );
 make_type!(
     TimestampMillisecondType,
     i64,
-    DataType::Timestamp(TimeUnit::Millisecond, None),
-    64,
-    0i64
+    DataType::Timestamp(TimeUnit::Millisecond, None)
 );
 make_type!(
     TimestampMicrosecondType,
     i64,
-    DataType::Timestamp(TimeUnit::Microsecond, None),
-    64,
-    0i64
+    DataType::Timestamp(TimeUnit::Microsecond, None)
 );
 make_type!(
     TimestampNanosecondType,
     i64,
-    DataType::Timestamp(TimeUnit::Nanosecond, None),
-    64,
-    0i64
+    DataType::Timestamp(TimeUnit::Nanosecond, None)
 );
-make_type!(Date32Type, i32, DataType::Date32(DateUnit::Day), 32, 0i32);
-make_type!(
-    Date64Type,
-    i64,
-    DataType::Date64(DateUnit::Millisecond),
-    64,
-    0i64
-);
-make_type!(
-    Time32SecondType,
-    i32,
-    DataType::Time32(TimeUnit::Second),
-    32,
-    0i32
-);
+make_type!(Date32Type, i32, DataType::Date32(DateUnit::Day));
+make_type!(Date64Type, i64, DataType::Date64(DateUnit::Millisecond));
+make_type!(Time32SecondType, i32, DataType::Time32(TimeUnit::Second));
 make_type!(
     Time32MillisecondType,
     i32,
-    DataType::Time32(TimeUnit::Millisecond),
-    32,
-    0i32
+    DataType::Time32(TimeUnit::Millisecond)
 );
 make_type!(
     Time64MicrosecondType,
     i64,
-    DataType::Time64(TimeUnit::Microsecond),
-    64,
-    0i64
+    DataType::Time64(TimeUnit::Microsecond)
 );
 make_type!(
     Time64NanosecondType,
     i64,
-    DataType::Time64(TimeUnit::Nanosecond),
-    64,
-    0i64
+    DataType::Time64(TimeUnit::Nanosecond)
 );
 make_type!(
     IntervalYearMonthType,
     i32,
-    DataType::Interval(IntervalUnit::YearMonth),
-    32,
-    0i32
+    DataType::Interval(IntervalUnit::YearMonth)
 );
 make_type!(
     IntervalDayTimeType,
     i64,
-    DataType::Interval(IntervalUnit::DayTime),
-    64,
-    0i64
+    DataType::Interval(IntervalUnit::DayTime)
 );
 make_type!(
     DurationSecondType,
     i64,
-    DataType::Duration(TimeUnit::Second),
-    64,
-    0i64
+    DataType::Duration(TimeUnit::Second)
 );
 make_type!(
     DurationMillisecondType,
     i64,
-    DataType::Duration(TimeUnit::Millisecond),
-    64,
-    0i64
+    DataType::Duration(TimeUnit::Millisecond)
 );
 make_type!(
     DurationMicrosecondType,
     i64,
-    DataType::Duration(TimeUnit::Microsecond),
-    64,
-    0i64
+    DataType::Duration(TimeUnit::Microsecond)
 );
 make_type!(
     DurationNanosecondType,
     i64,
-    DataType::Duration(TimeUnit::Nanosecond),
-    64,
-    0i64
+    DataType::Duration(TimeUnit::Nanosecond)
 );
 
 /// A subtype of primitive type that represents legal dictionary keys.
