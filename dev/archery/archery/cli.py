@@ -27,7 +27,7 @@ import sys
 
 from .benchmark.codec import JsonEncoder
 from .benchmark.compare import RunnerComparator, DEFAULT_THRESHOLD
-from .benchmark.runner import BenchmarkRunner, CppBenchmarkRunner
+from .benchmark.runner import CppBenchmarkRunner
 from .lang.cpp import CppCMakeDefinition, CppConfiguration
 from .utils.lint import linter, python_numpydoc, LintValidationException
 from .utils.logger import logger, ctx as log_ctx
@@ -580,7 +580,8 @@ def benchmark_diff(ctx, src, preserve, output, language, cmake_extras,
     if language == "cpp":
         ctx.forward(benchmark_diff_cpp, **kwargs)
     elif language == "java":
-        ctx.forward(benchmark_diff_jav, **kwargs)
+        ctx.forward(benchmark_diff_java, **kwargs)
+
 
 @benchmark.command(name="diff_cpp")
 @click.pass_context
@@ -626,7 +627,7 @@ def benchmark_diff_java(ctx, src, preserve, output, language,
                         repetitions, threshold, contender, baseline,
                         cmake_extras, cc, cxx, cxx_flags, cxx_package_prefix,
                         **kwargs):
-    """Compare (diff) cpp benchmark runs."""
+    """Compare (diff) java benchmark runs."""
 
     print("Not supported yet")
     exit(1)

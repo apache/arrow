@@ -50,7 +50,8 @@ class BenchmarkRunner:
 
     @staticmethod
     def from_rev_or_path(src, root, rev_or_path, cmake_conf, **kwargs):
-        raise NotImplementedError("BenchmarkRunner must implement from_rev_or_path")
+        raise NotImplementedError(
+            "BenchmarkRunner must implement from_rev_or_path")
 
 
 class StaticBenchmarkRunner(BenchmarkRunner):
