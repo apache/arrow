@@ -687,7 +687,7 @@ cdef class DictionaryScalar(Scalar):
     @classmethod
     def _reconstruct(cls, type, is_valid, index, dictionary):
         cdef:
-            CDictionaryValue value
+            CDictionaryScalarIndexAndDictionary value
             shared_ptr[CDictionaryScalar] wrapped
             DataType type_
             Scalar index_

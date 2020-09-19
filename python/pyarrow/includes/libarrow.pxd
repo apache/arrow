@@ -969,14 +969,15 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         vector[shared_ptr[CScalar]] value
         CResult[shared_ptr[CScalar]] field(CFieldRef ref) const
 
-    cdef cppclass CDictionaryValue "arrow::DictionaryScalar::ValueType":
+    cdef cppclass CDictionaryScalarIndexAndDictionary \
+            "arrow::DictionaryScalar::ValueType":
         shared_ptr[CScalar] index
         shared_ptr[CArray] dictionary
 
     cdef cppclass CDictionaryScalar" arrow::DictionaryScalar"(CScalar):
-        CDictionaryScalar(CDictionaryValue value, shared_ptr[CDataType],
-                          c_bool is_valid)
-        CDictionaryValue value
+        CDictionaryScalar(CDictionaryScalarIndexAndDictionary value,
+                          shared_ptr[CDataType], c_bool is_valid)
+        CDictionaryScalarIndexAndDictionary value
         CResult[shared_ptr[CScalar]] GetEncodedValue()
 
     cdef cppclass CUnionScalar" arrow::UnionScalar"(CScalar):
