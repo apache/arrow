@@ -2055,7 +2055,7 @@ impl TryFrom<Vec<(&str, ArrayRef)>> for StructArray {
         }
         let len = len.unwrap();
 
-        let mut builder = ArrayData::builder(DataType::Struct(fields.clone()))
+        let mut builder = ArrayData::builder(DataType::Struct(fields))
             .len(len)
             .child_data(child_data);
         if let Some(null_buffer) = null {
