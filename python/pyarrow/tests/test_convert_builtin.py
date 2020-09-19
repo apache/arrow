@@ -1800,8 +1800,6 @@ def test_dictionary_from_boolean():
     pa.uint64(),
     pa.float32(),
     pa.float64(),
-    pa.date32(),
-    pa.date64(),
 ])
 def test_dictionary_from_integers(value_type):
     typ = pa.dictionary(pa.int8(), value_type=value_type)

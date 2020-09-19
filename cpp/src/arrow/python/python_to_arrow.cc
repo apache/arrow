@@ -54,13 +54,14 @@ namespace arrow {
 using internal::checked_cast;
 using internal::checked_pointer_cast;
 
-using internal::Chunker;
 using internal::Converter;
 using internal::DictionaryConverter;
 using internal::ListConverter;
-using internal::MakeConverter;
 using internal::PrimitiveConverter;
 using internal::StructConverter;
+
+using internal::MakeChunker;
+using internal::MakeConverter;
 
 namespace py {
 
@@ -960,7 +961,7 @@ Result<std::shared_ptr<ChunkedArray>> ConvertPySequence(PyObject* obj, PyObject*
 
   ARROW_ASSIGN_OR_RAISE(auto converter, (MakeConverter<PyConverter, PyConverterTrait>(
                                             options.type, pool, options)));
-  ARROW_ASSIGN_OR_RAISE(auto chunked_converter, Chunker<PyConverter>::Make(converter));
+  ARROW_ASSIGN_OR_RAISE(auto chunked_converter, MakeChunker(converter));
 
   // Convert values
   if (mask != nullptr && mask != Py_None) {

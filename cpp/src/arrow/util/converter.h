@@ -32,6 +32,60 @@
 namespace arrow {
 namespace internal {
 
+template <typename Input, typename Options, typename Self>
+class Converter {
+ public:
+  using InputType = Input;
+  using OptionsType = Options;
+
+  virtual ~Converter() = default;
+
+  virtual Status Initialize(std::shared_ptr<DataType> type,
+                            std::shared_ptr<ArrayBuilder> builder,
+                            const std::vector<std::shared_ptr<Self>>& children,
+                            OptionsType options) {
+    type_ = std::move(type);
+    builder_ = std::move(builder);
+    children_ = std::move(children);
+    options_ = std::move(options);
+    return Init();
+  }
+
+  virtual Status Init() { return Status::OK(); }
+
+  virtual Status Append(InputType value) {
+    return Status::NotImplemented("Converter not implemented for type ",
+                                  type()->ToString());
+  }
+
+  const std::shared_ptr<ArrayBuilder>& builder() const { return builder_; }
+
+  const std::shared_ptr<DataType>& type() const { return type_; }
+
+  OptionsType options() const { return options_; }
+
+  const std::vector<std::shared_ptr<Self>>& children() const { return children_; }
+
+  Status Reserve(int64_t additional_capacity) {
+    return builder_->Reserve(additional_capacity);
+  }
+
+  Status AppendNull() { return builder_->AppendNull(); }
+
+  virtual Result<std::shared_ptr<Array>> ToArray() { return builder_->Finish(); }
+
+  virtual Result<std::shared_ptr<Array>> ToArray(int64_t length) {
+    ARROW_ASSIGN_OR_RAISE(auto arr, this->ToArray());
+    return arr->Slice(0, length);
+  }
+
+ protected:
+  std::shared_ptr<DataType> type_;
+  std::shared_ptr<ArrayBuilder> builder_;
+  std::vector<std::shared_ptr<Self>> children_;
+  OptionsType options_;
+};
+
 template <typename T, typename BaseConverter>
 class PrimitiveConverter : public BaseConverter {
  public:
@@ -96,63 +150,6 @@ class DictionaryConverter : public BaseConverter {
   const DictionaryType* dict_type_;
   const U* value_type_;
   BuilderType* value_builder_;
-};
-
-template <typename Converter, template <typename...> class ConverterTrait>
-struct MakeConverterImpl;
-
-template <typename Input, typename Options, typename Self>
-class Converter {
- public:
-  using InputType = Input;
-  using OptionsType = Options;
-
-  virtual ~Converter() = default;
-
-  virtual Status Initialize(std::shared_ptr<DataType> type,
-                            std::shared_ptr<ArrayBuilder> builder,
-                            const std::vector<std::shared_ptr<Self>>& children,
-                            OptionsType options) {
-    type_ = std::move(type);
-    builder_ = std::move(builder);
-    children_ = std::move(children);
-    options_ = std::move(options);
-    return Init();
-  }
-
-  virtual Status Init() { return Status::OK(); }
-
-  virtual Status Append(InputType value) {
-    return Status::NotImplemented("Converter not implemented for type ",
-                                  type()->ToString());
-  }
-
-  const std::shared_ptr<ArrayBuilder>& builder() const { return builder_; }
-
-  const std::shared_ptr<DataType>& type() const { return type_; }
-
-  OptionsType options() const { return options_; }
-
-  const std::vector<std::shared_ptr<Self>>& children() const { return children_; }
-
-  Status Reserve(int64_t additional_capacity) {
-    return builder_->Reserve(additional_capacity);
-  }
-
-  Status AppendNull() { return builder_->AppendNull(); }
-
-  virtual Result<std::shared_ptr<Array>> ToArray() { return builder_->Finish(); }
-
-  virtual Result<std::shared_ptr<Array>> ToArray(int64_t length) {
-    ARROW_ASSIGN_OR_RAISE(auto arr, this->ToArray());
-    return arr->Slice(0, length);
-  }
-
- protected:
-  std::shared_ptr<DataType> type_;
-  std::shared_ptr<ArrayBuilder> builder_;
-  std::vector<std::shared_ptr<Self>> children_;
-  OptionsType options_;
 };
 
 template <typename Converter, template <typename...> class ConverterTrait>
@@ -294,11 +291,8 @@ class Chunker {
   using Self = Chunker<Converter>;
   using InputType = typename Converter::InputType;
 
-  static Result<std::shared_ptr<Self>> Make(std::shared_ptr<Converter> converter) {
-    auto result = std::make_shared<Self>();
-    result->converter_ = std::move(converter);
-    return result;
-  }
+  explicit Chunker(std::shared_ptr<Converter> converter)
+      : converter_(std::move(converter)) {}
 
   Status Reserve(int64_t additional_capacity) {
     return converter_->Reserve(additional_capacity);
@@ -344,6 +338,11 @@ class Chunker {
   std::shared_ptr<Converter> converter_;
   std::vector<std::shared_ptr<Array>> chunks_;
 };
+
+template <typename T>
+static Result<std::shared_ptr<Chunker<T>>> MakeChunker(std::shared_ptr<T> converter) {
+  return std::make_shared<Chunker<T>>(std::move(converter));
+}
 
 }  // namespace internal
 }  // namespace arrow
