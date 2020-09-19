@@ -24,6 +24,7 @@ extern crate arrow;
 use arrow::array::*;
 use arrow::buffer::Buffer;
 use arrow::datatypes::*;
+use std::{convert::TryFrom, sync::Arc};
 
 fn array_from_vec(n: usize) {
     let mut v: Vec<u8> = Vec::with_capacity(n);
@@ -48,66 +49,36 @@ fn array_string_from_vec(n: usize) {
     criterion::black_box(StringArray::from(v));
 }
 
-fn struct_array_values(n: usize) -> (Field, Vec<Option<&'static str>>, Field, Vec<Option<i32>>) {
+fn struct_array_values(
+    n: usize,
+) -> (
+    &'static str,
+    Vec<Option<&'static str>>,
+    &'static str,
+    Vec<Option<i32>>,
+) {
     let mut strings: Vec<Option<&str>> = Vec::with_capacity(n);
     let mut ints: Vec<Option<i32>> = Vec::with_capacity(n);
     for _ in 0..n / 4 {
         strings.extend_from_slice(&[Some("joe"), None, None, Some("mark")]);
         ints.extend_from_slice(&[Some(1), Some(2), None, Some(4)]);
     }
-    (Field::new("f1", DataType::Utf8, false),
-     strings, Field::new("f2", DataType::Int32, false), ints)
+    ("f1", strings, "f2", ints)
 }
 
-fn struct_array_from_vec(field1: &Field, strings: &Vec<Option<&str>>, field2: &Field, ints: &Vec<Option<i32>>) {
+fn struct_array_from_vec(
+    field1: &str,
+    strings: &Vec<Option<&str>>,
+    field2: &str,
+    ints: &Vec<Option<i32>>,
+) {
+    let strings: ArrayRef = Arc::new(StringArray::from(strings.clone()));
+    let ints: ArrayRef = Arc::new(Int32Array::from(ints.clone()));
 
-    criterion::black_box({
-        let len = strings.len();
-        // this cheats a bit, as the compiler knows the that they will be strings and i32, but well
-        let string_builder = StringBuilder::new(len);
-        let int_builder = Int32Builder::new(len);
-
-        let mut fields = Vec::new();
-        let mut field_builders = Vec::new();
-        fields.push(field1.clone());
-        field_builders.push(Box::new(string_builder) as Box<dyn ArrayBuilder>);
-        fields.push(field2.clone());
-        field_builders.push(Box::new(int_builder) as Box<dyn ArrayBuilder>);
-
-        let mut builder = StructBuilder::new(fields, field_builders);
-        assert_eq!(2, builder.num_fields());
-
-        let string_builder = builder
-            .field_builder::<StringBuilder>(0)
-            .expect("builder at field 0 should be string builder");
-        for string in strings {
-            if string.is_some() {
-                string_builder.append_value(string.unwrap()).unwrap();
-            } else {
-                string_builder.append_null().unwrap();
-            }
-        }
-
-        let int_builder = builder
-            .field_builder::<Int32Builder>(1)
-            .expect("builder at field 1 should be int builder");
-        for int in ints {
-            if int.is_some() {
-                int_builder.append_value(int.unwrap()).unwrap();
-            } else {
-                int_builder.append_null().unwrap();
-            }
-        }
-
-        for _ in 0..len / 4 {
-            builder.append(true).unwrap();
-            builder.append(true).unwrap();
-            builder.append_null().unwrap();
-            builder.append(true).unwrap();
-        }
-
-        builder.finish();
-    });
+    criterion::black_box(
+        StructArray::try_from(vec![(field1.clone(), strings), (field2.clone(), ints)])
+            .unwrap(),
+    );
 }
 
 fn criterion_benchmark(c: &mut Criterion) {
