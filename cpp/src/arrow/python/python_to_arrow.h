@@ -72,7 +72,7 @@ struct PyConversionOptions {
 /// \return Result ChunkedArray
 ARROW_PYTHON_EXPORT
 Result<std::shared_ptr<ChunkedArray>> ConvertPySequence(
-    PyObject* obj, PyObject* mask, const PyConversionOptions& options,
+    PyObject* obj, PyObject* mask, PyConversionOptions options,
     MemoryPool* pool = default_memory_pool());
 
 }  // namespace py

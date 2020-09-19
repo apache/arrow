@@ -382,34 +382,35 @@ class PyConverter : public Converter<PyObject*, PyConversionOptions, PyConverter
   template <typename T>
   using List = PyListConverter<T>;
   using Struct = PyStructConverter;
-
-  // Convert and append a sequence of values
-  Status Extend(PyObject* values, int64_t size) {
-    /// Ensure we've allocated enough space
-    RETURN_NOT_OK(this->Reserve(size));
-    // Iterate over the items adding each one
-    return internal::VisitSequence(values, [this](PyObject* item, bool* /* unused */) {
-      return this->Append(item);
-    });
-  }
-
-  // Convert and append a sequence of values masked with a numpy array
-  Status ExtendMasked(PyObject* values, PyObject* mask, int64_t size) {
-    /// Ensure we've allocated enough space
-    RETURN_NOT_OK(this->Reserve(size));
-    // Iterate over the items adding each one
-    return internal::VisitSequenceMasked(
-        values, mask, [this](PyObject* item, bool is_masked, bool* /* unused */) {
-          if (is_masked) {
-            return this->AppendNull();
-          } else {
-            // This will also apply the null-checking convention in the event
-            // that the value is not masked
-            return this->Append(item);  // perhaps use AppendValue instead?
-          }
-        });
-  }
 };
+
+// Convert and append a sequence of values
+Status Extend(PyConverter* converter, PyObject* values, int64_t size) {
+  /// Ensure we've allocated enough space
+  RETURN_NOT_OK(converter->Reserve(size));
+  // Iterate over the items adding each one
+  return internal::VisitSequence(values, [converter](PyObject* item, bool* /* unused */) {
+    return converter->Append(item);
+  });
+}
+
+// Convert and append a sequence of values masked with a numpy array
+Status ExtendMasked(PyConverter* converter, PyObject* values, PyObject* mask,
+                    int64_t size) {
+  /// Ensure we've allocated enough space
+  RETURN_NOT_OK(converter->Reserve(size));
+  // Iterate over the items adding each one
+  return internal::VisitSequenceMasked(
+      values, mask, [converter](PyObject* item, bool is_masked, bool* /* unused */) {
+        if (is_masked) {
+          return converter->AppendNull();
+        } else {
+          // This will also apply the null-checking convention in the event
+          // that the value is not masked
+          return converter->Append(item);  // perhaps use AppendValue instead?
+        }
+      });
+}
 
 template <typename T>
 class PyPrimitiveConverter<
@@ -533,18 +534,18 @@ class PyDictionaryConverter<T, enable_if_has_string_view<T>>
 
 // If the value type does not match the expected NumPy dtype, then fall through
 // to a slower PySequence-based path
-#define LIST_FAST_CASE(TYPE_ID, TYPE, NUMPY_TYPE)         \
-  case Type::TYPE_ID: {                                   \
-    if (PyArray_DESCR(ndarray)->type_num != NUMPY_TYPE) { \
-      return this->value_converter_->Extend(value, size); \
-    }                                                     \
-    return AppendNdarrayTyped<TYPE, NUMPY_TYPE>(ndarray); \
+#define LIST_FAST_CASE(TYPE_ID, TYPE, NUMPY_TYPE)               \
+  case Type::TYPE_ID: {                                         \
+    if (PyArray_DESCR(ndarray)->type_num != NUMPY_TYPE) {       \
+      return Extend(this->value_converter_.get(), value, size); \
+    }                                                           \
+    return AppendNdarrayTyped<TYPE, NUMPY_TYPE>(ndarray);       \
   }
 
 // Use internal::VisitSequence, fast for NPY_OBJECT but slower otherwise
-#define LIST_SLOW_CASE(TYPE_ID)                         \
-  case Type::TYPE_ID: {                                 \
-    return this->value_converter_->Extend(value, size); \
+#define LIST_SLOW_CASE(TYPE_ID)                               \
+  case Type::TYPE_ID: {                                       \
+    return Extend(this->value_converter_.get(), value, size); \
   }
 
 template <typename T>
@@ -587,7 +588,7 @@ class PyListConverter : public ListConverter<T, PyConverter> {
   Status AppendSequence(PyObject* value) {
     int64_t size = static_cast<int64_t>(PySequence_Size(value));
     RETURN_NOT_OK(ValidateOverflow(this->list_type_, size));
-    return this->value_converter_->Extend(value, size);
+    return Extend(this->value_converter_.get(), value, size);
   }
 
   Status AppendNdarray(PyObject* value) {
@@ -928,13 +929,12 @@ Status ConvertToSequenceAndInferSize(PyObject* obj, PyObject** seq, int64_t* siz
 }
 
 Result<std::shared_ptr<ChunkedArray>> ConvertPySequence(PyObject* obj, PyObject* mask,
-                                                        const PyConversionOptions& opts,
+                                                        PyConversionOptions options,
                                                         MemoryPool* pool) {
   PyAcquireGIL lock;
 
   PyObject* seq;
   OwnedRef tmp_seq_nanny;
-  PyConversionOptions options = opts;  // copy options struct since we modify it below
 
   int64_t size = options.size;
   RETURN_NOT_OK(ConvertToSequenceAndInferSize(obj, &seq, &size));
@@ -956,9 +956,9 @@ Result<std::shared_ptr<ChunkedArray>> ConvertPySequence(PyObject* obj, PyObject*
 
   // Convert values
   if (mask != nullptr && mask != Py_None) {
-    RETURN_NOT_OK(chunked_converter->ExtendMasked(seq, mask, size));
+    RETURN_NOT_OK(ExtendMasked(chunked_converter.get(), seq, mask, size));
   } else {
-    RETURN_NOT_OK(chunked_converter->Extend(seq, size));
+    RETURN_NOT_OK(Extend(chunked_converter.get(), seq, size));
   }
   return chunked_converter->ToChunkedArray();
 }

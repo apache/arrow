@@ -32,7 +32,6 @@
 namespace arrow {
 namespace internal {
 
-
 template <typename T, typename BaseConverter>
 class PrimitiveConverter : public BaseConverter {
  public:
@@ -264,7 +263,8 @@ struct MakeConverterImpl {
       child_converters.push_back(std::move(child_converter));
     }
 
-    auto builder = std::make_shared<StructBuilder>(std::move(type), pool, std::move(child_builders));
+    auto builder =
+        std::make_shared<StructBuilder>(std::move(type), pool, std::move(child_builders));
     return Finish<ConverterType>(std::move(builder), std::move(child_converters));
   }
 
