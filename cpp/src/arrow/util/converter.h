@@ -139,7 +139,7 @@ class Converter {
     return builder_->Reserve(additional_capacity);
   }
 
-  virtual Status AppendNull() { return builder_->AppendNull(); }
+  Status AppendNull() { return builder_->AppendNull(); }
 
   virtual Result<std::shared_ptr<Array>> ToArray() { return builder_->Finish(); }
 
@@ -288,27 +288,26 @@ struct MakeConverterImpl {
   std::shared_ptr<Converter>* out;
 };
 
-// TODO(kszucs): rename to AutoChunker
-template <typename BaseConverter>
-class Chunker : public BaseConverter {
+template <typename Converter>
+class Chunker {
  public:
-  using Self = Chunker<BaseConverter>;
-  using InputType = typename BaseConverter::InputType;
+  using Self = Chunker<Converter>;
+  using InputType = typename Converter::InputType;
 
-  static Result<std::shared_ptr<Self>> Make(std::shared_ptr<BaseConverter> converter) {
+  static Result<std::shared_ptr<Self>> Make(std::shared_ptr<Converter> converter) {
     auto result = std::make_shared<Self>();
-    result->type_ = converter->type();
-    result->builder_ = converter->builder();
-    result->options_ = converter->options();
-    result->children_ = converter->children();
     result->converter_ = std::move(converter);
     return result;
   }
 
-  Status AppendNull() override {
+  Status Reserve(int64_t additional_capacity) {
+    return converter_->Reserve(additional_capacity);
+  }
+
+  Status AppendNull() {
     auto status = converter_->AppendNull();
     if (status.ok()) {
-      length_ = this->builder_->length();
+      length_ = converter_->builder()->length();
     } else if (status.IsCapacityError()) {
       ARROW_RETURN_NOT_OK(FinishChunk());
       return converter_->AppendNull();
@@ -316,10 +315,10 @@ class Chunker : public BaseConverter {
     return status;
   }
 
-  Status Append(InputType value) override {
+  Status Append(InputType value) {
     auto status = converter_->Append(value);
     if (status.ok()) {
-      length_ = this->builder_->length();
+      length_ = converter_->builder()->length();
     } else if (status.IsCapacityError()) {
       ARROW_RETURN_NOT_OK(FinishChunk());
       return Append(value);
@@ -329,7 +328,7 @@ class Chunker : public BaseConverter {
 
   Status FinishChunk() {
     ARROW_ASSIGN_OR_RAISE(auto chunk, converter_->ToArray(length_));
-    this->builder_->Reset();
+    converter_->builder()->Reset();
     length_ = 0;
     chunks_.push_back(chunk);
     return Status::OK();
@@ -342,7 +341,7 @@ class Chunker : public BaseConverter {
 
  protected:
   int64_t length_ = 0;
-  std::shared_ptr<BaseConverter> converter_;
+  std::shared_ptr<Converter> converter_;
   std::vector<std::shared_ptr<Array>> chunks_;
 };
 
