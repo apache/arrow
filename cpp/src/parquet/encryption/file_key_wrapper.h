@@ -21,6 +21,8 @@
 #include <string>
 #include <unordered_map>
 
+#include "arrow/util/concurrent_map.h"
+
 #include "parquet/encryption/file_key_material_store.h"
 #include "parquet/encryption/key_encryption_key.h"
 #include "parquet/encryption/key_toolkit.h"
@@ -67,7 +69,7 @@ class PARQUET_EXPORT FileKeyWrapper {
   KeyEncryptionKey CreateKeyEncryptionKey(const std::string& master_key_id);
 
   /// A map of Master Encryption Key ID -> KeyEncryptionKey, for the current token
-  std::unordered_map<std::string, KeyEncryptionKey> kek_per_master_key_id_;
+  arrow::util::ConcurrentMap<KeyEncryptionKey>* kek_per_master_key_id_;
 
   std::shared_ptr<KmsClient> kms_client_;
   KmsConnectionConfig kms_connection_config_;

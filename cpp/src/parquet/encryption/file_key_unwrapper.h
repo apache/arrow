@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include "arrow/util/concurrent_map.h"
+
 #include "parquet/encryption/encryption.h"
 #include "parquet/encryption/key_material.h"
 #include "parquet/encryption/key_toolkit.h"
@@ -54,7 +56,7 @@ class PARQUET_EXPORT FileKeyUnwrapper : public DecryptionKeyRetriever {
       const KeyMaterial& key_material) const;
 
   /// A map of Key Encryption Key (KEK) ID -> KEK bytes, for the current token
-  mutable std::unordered_map<std::string, std::string> kek_per_kek_id_;
+  mutable arrow::util::ConcurrentMap<std::string>* kek_per_kek_id_;
   KeyToolkit* key_toolkit_;
   mutable KmsConnectionConfig kms_connection_config_;
   const uint64_t cache_entry_lifetime_ms_;

@@ -64,13 +64,10 @@ std::string FileKeyWrapper::GetEncryptionKeyMetadata(const std::string& data_key
     encoded_wrapped_dek = kms_client_->WrapKey(data_key, master_key_id);
   } else {
     // Find in cache, or generate KEK for Master Key ID
-    auto found = kek_per_master_key_id_.find(master_key_id);
-    if (found == kek_per_master_key_id_.end()) {
-      auto inserted = kek_per_master_key_id_.insert(
-          {master_key_id, CreateKeyEncryptionKey(master_key_id)});
-      found = inserted.first;
-    }
-    const KeyEncryptionKey& key_encryption_key = found->second;
+    KeyEncryptionKey key_encryption_key = kek_per_master_key_id_->AssignIfNotExist(
+        master_key_id, [this, master_key_id]() -> KeyEncryptionKey {
+          return this->CreateKeyEncryptionKey(master_key_id);
+        });
     // Encrypt DEK with KEK
     const std::string& aad = key_encryption_key.kek_id();
     const std::string& kek_bytes = key_encryption_key.kek_bytes();

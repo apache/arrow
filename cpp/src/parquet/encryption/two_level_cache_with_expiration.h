@@ -19,9 +19,13 @@
 
 #include <unordered_map>
 
+#include "arrow/util/concurrent_map.h"
 #include "arrow/util/mutex.h"
 
 #include "parquet/encryption/key_toolkit_internal.h"
+#include "parquet/platform.h"
+
+using arrow::util::ConcurrentMap;
 
 namespace parquet {
 namespace encryption {
@@ -38,8 +42,7 @@ class ExpiringCacheEntry {
  public:
   ExpiringCacheEntry() = default;
 
-  ExpiringCacheEntry(const E& cached_item, uint64_t expiration_interval_millis)
-      : cached_item_(cached_item) {
+  explicit ExpiringCacheEntry(uint64_t expiration_interval_millis) {
     expiration_timestamp_ =
         CurrentTimePoint() + std::chrono::milliseconds(expiration_interval_millis);
   }
@@ -49,7 +52,7 @@ class ExpiringCacheEntry {
     return (now > expiration_timestamp_);
   }
 
-  E& cached_item() { return cached_item_; }
+  E* cached_item() { return &cached_item_; }
 
  private:
   TimePoint expiration_timestamp_;
@@ -64,14 +67,14 @@ class ExpiringCacheMapEntry {
   ExpiringCacheMapEntry() = default;
 
   explicit ExpiringCacheMapEntry(uint64_t expiration_interval_millis)
-      : map_cache_(std::unordered_map<std::string, V>(), expiration_interval_millis) {}
+      : map_cache_(expiration_interval_millis) {}
 
   bool IsExpired() { return map_cache_.IsExpired(); }
 
-  std::unordered_map<std::string, V>& cached_item() { return map_cache_.cached_item(); }
+  ConcurrentMap<V>* cached_item() { return map_cache_.cached_item(); }
 
  private:
-  ExpiringCacheEntry<std::unordered_map<std::string, V>> map_cache_;
+  ExpiringCacheEntry<ConcurrentMap<V>> map_cache_;
 };
 
 }  // namespace internal
@@ -83,14 +86,14 @@ class ExpiringCacheMapEntry {
 //    internal::ExpiringCacheEntry<std::unordered_map<std::string, V>>>
 // This cache is safe to be shared between threads.
 template <typename V>
-class TwoLevelCacheWithExpiration {
+class PARQUET_EXPORT TwoLevelCacheWithExpiration {
  public:
   TwoLevelCacheWithExpiration() {
     last_cache_cleanup_timestamp_ = internal::CurrentTimePoint();
   }
 
-  std::unordered_map<std::string, V>& GetOrCreateInternalCache(
-      const std::string& access_token, uint64_t cache_entry_lifetime_ms) {
+  ConcurrentMap<V>* GetOrCreateInternalCache(const std::string& access_token,
+                                             uint64_t cache_entry_lifetime_ms) {
     auto lock = mutex_.Lock();
 
     auto external_cache_entry = cache_.find(access_token);
@@ -113,16 +116,16 @@ class TwoLevelCacheWithExpiration {
     cache_.clear();
   }
 
-  void CheckCacheForExpiredTokens(uint64_t cache_cleanup_period) {
+  void CheckCacheForExpiredTokens(uint64_t cache_cleanup_period_ms) {
     auto lock = mutex_.Lock();
 
     internal::TimePoint now = internal::CurrentTimePoint();
 
     if (now > (last_cache_cleanup_timestamp_ +
-               std::chrono::milliseconds(cache_cleanup_period))) {
+               std::chrono::milliseconds(cache_cleanup_period_ms))) {
       RemoveExpiredEntriesNoMutex();
       last_cache_cleanup_timestamp_ =
-          now + std::chrono::milliseconds(cache_cleanup_period);
+          now + std::chrono::milliseconds(cache_cleanup_period_ms);
     }
   }
 

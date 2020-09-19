@@ -26,20 +26,15 @@ std::shared_ptr<KmsClient> KeyToolkit::GetKmsClient(
   if (kms_client_factory_ == NULL) {
     throw ParquetException("No KmsClientFactory is registered.");
   }
-  std::unordered_map<std::string, std::shared_ptr<KmsClient>>&
+  ConcurrentMap<std::shared_ptr<parquet::encryption::KmsClient>>*
       kms_client_per_kms_instance_cache =
           kms_client_cache_per_token().GetOrCreateInternalCache(
               kms_connection_config.key_access_token(), cache_entry_lifetime_ms);
 
-  if (kms_client_per_kms_instance_cache.find(kms_connection_config.kms_instance_id) ==
-      kms_client_per_kms_instance_cache.end()) {
-    std::shared_ptr<KmsClient> kms_client =
-        kms_client_factory_->CreateKmsClient(kms_connection_config);
-    kms_client_per_kms_instance_cache.insert(
-        {kms_connection_config.kms_instance_id, kms_client});
-  }
-
-  return kms_client_per_kms_instance_cache[kms_connection_config.kms_instance_id];
+  return kms_client_per_kms_instance_cache->AssignIfNotExist(
+      kms_connection_config.kms_instance_id, [this, kms_connection_config]() {
+        return this->kms_client_factory_->CreateKmsClient(kms_connection_config);
+      });
 }
 
 // Flush any caches that are tied to the (compromised) access_token
