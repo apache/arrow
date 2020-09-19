@@ -163,10 +163,10 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
 
     Converting to dictionary array will promote to a wider integer type for
     indices if the number of distinct values cannot be represented, even if
-    the index type was explicitly set. This means that if there are more than 127
-    values the returned dictionary array's index type will be at least pa.int16()
-    even if pa.int8() was passed to the function. Note that an explicit index type
-    will not be demoted even if it is wider than required.
+    the index type was explicitly set. This means that if there are more than
+    127 values the returned dictionary array's index type will be at least
+    pa.int16() even if pa.int8() was passed to the function. Note that an
+    explicit index type will not be demoted even if it is wider than required.
 
     Examples
     --------
