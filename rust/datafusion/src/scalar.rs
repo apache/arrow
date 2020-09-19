@@ -24,7 +24,10 @@ use arrow::array::{
     Int8Array, LargeStringArray, StringArray, UInt16Array, UInt32Array, UInt64Array,
     UInt8Array,
 };
-use arrow::{array::ArrayRef, datatypes::DataType};
+use arrow::{
+    array::{ArrayRef, PrimitiveArrayOps, StringArrayOps},
+    datatypes::DataType,
+};
 
 use crate::error::{ExecutionError, Result};
 

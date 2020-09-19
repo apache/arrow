@@ -25,8 +25,8 @@ use crate::error::{ExecutionError, Result};
 
 use array::{
     BooleanArray, Float32Array, Float64Array, Int16Array, Int32Array, Int64Array,
-    Int8Array, LargeStringArray, StringArray,
-    UInt16Array, UInt32Array, UInt64Array, UInt8Array,
+    Int8Array, LargeStringArray, StringArray, UInt16Array, UInt32Array, UInt64Array,
+    UInt8Array,
 };
 use arrow::datatypes::{DataType, SchemaRef};
 use arrow::error::Result as ArrowResult;

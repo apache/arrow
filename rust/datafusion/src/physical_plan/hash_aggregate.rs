@@ -25,6 +25,7 @@ use crate::error::{ExecutionError, Result};
 use crate::physical_plan::{Accumulator, AggregateExpr};
 use crate::physical_plan::{Distribution, ExecutionPlan, Partitioning, PhysicalExpr};
 
+use crate::arrow::array::{PrimitiveArrayOps, StringArrayOps};
 use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
 use arrow::error::Result as ArrowResult;
 use arrow::record_batch::{RecordBatch, RecordBatchReader};
@@ -35,7 +36,6 @@ use arrow::{
     },
     compute,
 };
-use crate::arrow::array::{PrimitiveArrayOps, StringArrayOps};
 
 use fnv::FnvHashMap;
 
