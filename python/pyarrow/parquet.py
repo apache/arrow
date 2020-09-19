@@ -341,10 +341,10 @@ class ParquetFile:
             If True and file has custom pandas schema metadata, ensure that
             index columns are also loaded
 
-        Yields
-        ------
-        pyarrow.table.Table
-            Content of each batch as a table (of columns)
+        Returns
+        -------
+        iterator of pyarrow.RecordBatch
+            Contents of each batch as a record batch
         """
         if row_groups is None:
             row_groups = range(0, self.metadata.num_row_groups)
