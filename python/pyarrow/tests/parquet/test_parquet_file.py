@@ -190,30 +190,24 @@ def test_read_column_invalid_index():
 
 
 @pytest.mark.pandas
-@pytest.mark.parametrize('batch_size', [300, 1000])
+@pytest.mark.parametrize('batch_size', [300, 1000, 1300])
 def test_iter_batches_columns_reader(tempdir, batch_size):
     total_size = 3000
     chunk_size = 1000
-    df = alltypes_sample(size=total_size, categorical=True)
+    # TODO: Add categorical support
+    df = alltypes_sample(size=total_size)
 
     filename = tempdir / 'pandas_roundtrip.parquet'
     arrow_table = pa.Table.from_pandas(df)
     _write_table(arrow_table, filename, version="2.0",
                  coerce_timestamps='ms', chunk_size=chunk_size)
 
-    def expected_ranges(batch_size):
-        for chunk_start in range(0, total_size, chunk_size):
-            chunk_end = chunk_start + chunk_size
-            for batch_start in range(chunk_start, chunk_end, batch_size):
-                yield batch_start, min(batch_start + batch_size, chunk_end)
-
     file_ = pq.ParquetFile(filename)
     for columns in [df.columns[:10], df.columns[10:]]:
         batches = file_.iter_batches(batch_size=batch_size, columns=columns)
-        expected_idx_ranges = expected_ranges(batch_size)
 
-        for batch, inx_range in zip(batches, expected_idx_ranges):
-            start, end = inx_range
+        for batch, start in zip(batches, range(0, total_size+batch_size, batch_size)):
+            end = min(total_size, start + batch_size)
             tm.assert_frame_equal(
                 batch.to_pandas(),
                 df.iloc[start:end, :].loc[:, columns].reset_index(drop=True)
