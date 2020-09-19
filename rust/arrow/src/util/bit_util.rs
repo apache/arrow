@@ -351,9 +351,9 @@ mod tests {
             unsafe {
                 set_bits_raw(buf.as_mut_ptr(), start, end);
             }
-            for i in start..end {
+            (start..end).for_each(|i| {
                 expected[i] = true;
-            }
+            });
         }
 
         let raw_ptr = buf.as_ptr();
