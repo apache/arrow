@@ -39,7 +39,7 @@ class Status;
 namespace py {
 
 struct PyConversionOptions {
-  PyConversionOptions() : type(NULLPTR), size(-1), from_pandas(false) {}
+  PyConversionOptions() = default;
 
   PyConversionOptions(const std::shared_ptr<DataType>& type, int64_t size,
                       MemoryPool* pool, bool from_pandas)
@@ -48,8 +48,8 @@ struct PyConversionOptions {
   // Set to null if to be inferred
   std::shared_ptr<DataType> type;
 
-  // Default is -1: infer from data
-  int64_t size;
+  // Default is -1, which indicates the size should the same as the input sequence
+  int64_t size = -1;
 
   bool from_pandas = false;
 

@@ -32,8 +32,6 @@
 namespace arrow {
 namespace internal {
 
-using internal::checked_cast;
-using internal::checked_pointer_cast;
 
 template <typename T, typename BaseConverter>
 class PrimitiveConverter : public BaseConverter {
@@ -142,7 +140,7 @@ class Converter {
 
   OptionsType options() const { return options_; }
 
-  const std::vector<std::shared_ptr<Self>> children() const { return children_; }
+  const std::vector<std::shared_ptr<Self>>& children() const { return children_; }
 
   virtual Status Reserve(int64_t additional_capacity) {
     return builder_->Reserve(additional_capacity);
@@ -262,12 +260,11 @@ struct MakeConverterImpl {
       ARROW_ASSIGN_OR_RAISE(child_converter,
                             Converter::Make(field->type(), pool, options));
 
-      // TODO: use move
-      child_converters.push_back(child_converter);
       child_builders.push_back(child_converter->builder());
+      child_converters.push_back(std::move(child_converter));
     }
 
-    auto builder = std::make_shared<StructBuilder>(type, pool, child_builders);
+    auto builder = std::make_shared<StructBuilder>(std::move(type), pool, std::move(child_builders));
     return Finish<ConverterType>(std::move(builder), std::move(child_converters));
   }
 
@@ -279,13 +276,13 @@ struct MakeConverterImpl {
     auto converter = new ConverterType();
     converter->type_ = std::move(type);
     converter->builder_ = std::move(builder);
-    converter->options_ = options;
+    converter->options_ = std::move(options);
     converter->children_ = std::move(children);
     out->reset(converter);
     return Status::OK();
   }
 
-  const std::shared_ptr<DataType> type;
+  std::shared_ptr<DataType> type;
   MemoryPool* pool;
   typename Converter::OptionsType options;
   std::shared_ptr<Converter>* out;

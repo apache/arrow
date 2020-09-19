@@ -161,12 +161,12 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
     representation). Timezone-naive data will be implicitly interpreted as
     UTC.
 
-    Converting to dictionary array will choose to use a larger integer type for
-    the indices if the number of distict values wouldn't fit to the range of
-    the passed type. This adaptive nature means that if there are more than 127
-    values the returned dictionary array's key type is going to be pa.int16()
-    even if pa.int8() was passed to the function. Note that smaller key type
-    than the passed one won't be chosed.
+    Converting to dictionary array will promote to a wider integer type for
+    indices if the number of distinct values cannot be represented, even if
+    the index type was explicitly set. This means that if there are more than 127
+    values the returned dictionary array's index type will be at least pa.int16()
+    even if pa.int8() was passed to the function. Note that an explicit index type
+    will not be demoted even if it is wider than required.
 
     Examples
     --------
