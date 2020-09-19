@@ -135,7 +135,7 @@ class Converter {
 
   const std::vector<std::shared_ptr<Self>>& children() const { return children_; }
 
-  virtual Status Reserve(int64_t additional_capacity) {
+  Status Reserve(int64_t additional_capacity) {
     return builder_->Reserve(additional_capacity);
   }
 

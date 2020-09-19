@@ -482,12 +482,12 @@ class PyPrimitiveConverter<T, enable_if_string_like<T>>
   bool observed_binary_ = false;
 };
 
-template <typename T, typename Enable = void>
+template <typename U, typename Enable = void>
 class PyDictionaryConverter;
 
-template <typename T>
-class PyDictionaryConverter<T, enable_if_has_c_type<T>>
-    : public DictionaryConverter<T, PyConverter> {
+template <typename U>
+class PyDictionaryConverter<U, enable_if_has_c_type<U>>
+    : public DictionaryConverter<U, PyConverter> {
  public:
   Status Append(PyObject* value) override {
     if (PyValue::IsNull(this->options_, value)) {
@@ -500,9 +500,9 @@ class PyDictionaryConverter<T, enable_if_has_c_type<T>>
   }
 };
 
-template <typename T>
-class PyDictionaryConverter<T, enable_if_has_string_view<T>>
-    : public DictionaryConverter<T, PyConverter> {
+template <typename U>
+class PyDictionaryConverter<U, enable_if_has_string_view<U>>
+    : public DictionaryConverter<U, PyConverter> {
  public:
   Status Append(PyObject* value) override {
     if (PyValue::IsNull(this->options_, value)) {
