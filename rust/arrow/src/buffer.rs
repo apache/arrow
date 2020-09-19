@@ -38,6 +38,18 @@ use crate::util::bit_util;
 #[cfg(feature = "simd")]
 use std::borrow::BorrowMut;
 
+/// Used to trim offset bits
+const TRIM_OFFSET: [u8; 8] = [
+    0b00000001, 0b00000011, 0b00000111, 0b00001111, 0b00011111, 0b00111111, 0b01111111,
+    0b11111111,
+];
+
+/// Used to trim trailing bits
+const TRIM_TRAIL: [u8; 8] = [
+    0b10000000, 0b11000000, 0b11100000, 0b11110000, 0b11111000, 0b11111100, 0b11111110,
+    0b11111111,
+];
+
 /// Buffer is a contiguous memory region of fixed size and is aligned at a 64-byte
 /// boundary. Buffer is immutable.
 #[derive(PartialEq, Debug)]
@@ -225,6 +237,62 @@ impl Buffer {
             data: self.data.clone(),
             offset: self.offset + offset,
         }
+    }
+
+    /// Returns a slice of this buffer, starting from `offset` and with a length of `len`.
+    ///
+    /// Note that this is mostly useful when the offset is not a multiple of 8, as a
+    /// way of realigning the buffer.
+    pub(crate) fn slice_with_len(&self, offset: usize, len: usize) -> Self {
+        let mut arr = self.data().to_vec();
+        let mut arr: &mut [u8] = arr.as_mut();
+        let offset = self.offset + offset;
+        // shift by whole bytes
+        let pop_by = offset / 8;
+        let offset_rem = offset % 8;
+
+        let offset_diff = 8 - offset_rem;
+        arr = &mut arr[pop_by..];
+        let shift_by = bit_util::ceil(offset_rem + len, 8);
+        arr = &mut arr[..shift_by];
+
+        let mut left = 0u8;
+        // determine the length of the output buffer
+        let total_rem = (len + offset_rem) % 8;
+
+        // remove trailing bits at end of bytes
+        if total_rem > 0 {
+            if let Some(v) = arr.iter_mut().last() {
+                *v &= TRIM_OFFSET[total_rem - 1];
+            }
+        }
+
+        // shorter route if offset is div by 8
+        if offset_rem == 0 {
+            return Buffer::from(&arr[0..bit_util::ceil(len, 8)]);
+        } else {
+            // reverse array to enable carrying over
+            arr.reverse();
+            if let Some(v) = arr.iter_mut().last() {
+                *v &= TRIM_TRAIL[offset_diff - 1];
+            }
+        }
+
+        // replace bits from each byte in reverse order
+        arr.iter_mut().for_each(|byte| {
+            // assign the bits that we'll copy
+            let new_left = *byte & TRIM_OFFSET[offset_rem - 1];
+            // shift bytes to remove offset
+            *byte >>= offset_rem;
+            // add the bits copied from the previous byte
+            *byte |= left;
+            // shift the bytes we're copying to the next byte
+            left = new_left << offset_diff;
+        });
+
+        arr.reverse();
+
+        Buffer::from(&arr[0..bit_util::ceil(len, 8)])
     }
 
     /// Returns a raw pointer for this buffer.
@@ -894,6 +962,30 @@ mod tests {
         let buf1 = Buffer::from([1_u8, 1_u8]);
         let buf2 = Buffer::from([0b01001110]);
         let _buf3 = (&buf1 | &buf2).unwrap();
+    }
+
+    #[test]
+    fn test_buffer_slice_with_len() {
+        let buf1 = Buffer::from([0b11111111, 0b11111111]);
+        let buf2 = buf1.slice_with_len(3, 10);
+        let buf3 = Buffer::from([0b11111111, 0b00000011]);
+        assert_eq!(buf2, buf3);
+
+        let buf1 = Buffer::from([0b01001110, 0b01001111]);
+        let buf2 = buf1.slice_with_len(4, 9);
+        let buf3 = Buffer::from([0b11110100, 0b00000000]);
+        assert_eq!(buf2, buf3);
+
+        let buf1 = Buffer::from([0b01001110, 0b01001111, 0b11001111]);
+        let buf2 = buf1.slice_with_len(7, 17);
+        let buf3 = Buffer::from([0b10011110, 0b10011110, 0b00000001]);
+        assert_eq!(buf2, buf3);
+
+        // this should remove the first byte, and mask the 24th bit
+        let buf1 = Buffer::from([0b01001110, 0b01001111, 0b11111111]);
+        let buf2 = buf1.slice_with_len(0, 17);
+        let buf3 = Buffer::from([0b01001110, 0b01001111, 0b00000001]);
+        assert_eq!(buf2, buf3);
     }
 
     #[test]

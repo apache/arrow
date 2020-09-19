@@ -23,7 +23,7 @@ use crate::bitmap::Bitmap;
 use crate::buffer::{buffer_bin_and, Buffer};
 #[cfg(feature = "simd")]
 use crate::datatypes::*;
-use crate::error::{ArrowError, Result};
+use crate::error::Result;
 use crate::util::bit_util::ceil;
 #[cfg(feature = "simd")]
 use num::One;
@@ -38,19 +38,34 @@ pub(super) fn combine_option_bitmap(
     right_data: &ArrayDataRef,
     len_in_bits: usize,
 ) -> Result<Option<Buffer>> {
-    let left_offset_in_bits = left_data.offset();
-    let right_offset_in_bits = right_data.offset();
+    let mut left_offset_in_bits = left_data.offset();
+    let mut right_offset_in_bits = right_data.offset();
 
+    let left_rem = left_offset_in_bits % 8;
+    let right_rem = right_offset_in_bits % 8;
+
+    // check if offsets are aligned, and align as necessary
     let left = left_data.null_buffer();
     let right = right_data.null_buffer();
 
-    if (left.is_some() && left_offset_in_bits % 8 != 0)
-        || (right.is_some() && right_offset_in_bits % 8 != 0)
-    {
-        return Err(ArrowError::ComputeError(
-            "Cannot combine option bitmaps that are not byte-aligned.".to_string(),
-        ));
-    }
+    // if there are remainders, slice the buffers to realign them
+    let left = if left.is_some() && left_rem > 0 {
+        let b = left.cloned().unwrap();
+        let sliced = b.slice_with_len(left_offset_in_bits, len_in_bits);
+        left_offset_in_bits = 0;
+        Some(sliced)
+    } else {
+        left.cloned()
+    };
+
+    let right = if right.is_some() && right_rem > 0 {
+        let b = right.cloned().unwrap();
+        let sliced = b.slice_with_len(right_offset_in_bits, len_in_bits);
+        right_offset_in_bits = 0;
+        Some(sliced)
+    } else {
+        right.cloned()
+    };
 
     let left_offset = left_offset_in_bits / 8;
     let right_offset = right_offset_in_bits / 8;

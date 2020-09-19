@@ -46,21 +46,30 @@ where
         ));
     }
 
-    if left.offset() % 8 != 0 || right.offset() % 8 != 0 {
-        return Err(ArrowError::ComputeError(
-            "Cannot perform bitwise operation when offsets are not byte-aligned."
-                .to_string(),
-        ));
-    }
-
     let left_data = left.data_ref();
     let right_data = right.data_ref();
     let null_bit_buffer = combine_option_bitmap(&left_data, &right_data, left.len())?;
 
-    let left_buffer = &left_data.buffers()[0];
-    let right_buffer = &right_data.buffers()[0];
-    let left_offset = &left.offset() / 8;
-    let right_offset = &right.offset() / 8;
+    let mut left_offset = &left.offset() / 8;
+    let mut right_offset = &right.offset() / 8;
+
+    // A BooleanArray Buffer does not carry the data's offset, thus we offset with data's offset
+    let left_buffer = if left.offset() % 8 != 0 {
+        let b = &left_data.buffers()[0].clone();
+        let sliced = b.slice_with_len(left.offset(), left.len());
+        left_offset = 0;
+        sliced
+    } else {
+        left_data.buffers()[0].clone()
+    };
+    let right_buffer = if right.offset() % 8 != 0 {
+        let b = &right_data.buffers()[0].clone();
+        let sliced = b.slice_with_len(right.offset(), right.len());
+        right_offset = 0;
+        sliced
+    } else {
+        right_data.buffers()[0].clone()
+    };
 
     let len = ceil(left.len(), 8);
 
@@ -93,14 +102,7 @@ pub fn or(left: &BooleanArray, right: &BooleanArray) -> Result<BooleanArray> {
 /// Performs unary `NOT` operation on an arrays. If value is null then the result is also
 /// null.
 pub fn not(left: &BooleanArray) -> Result<BooleanArray> {
-    if left.offset() % 8 != 0 {
-        return Err(ArrowError::ComputeError(
-            "Cannot perform bitwise operation when offsets are not byte-aligned."
-                .to_string(),
-        ));
-    }
-
-    let left_offset = left.offset() / 8;
+    let mut left_offset = left.offset() / 8;
     let len = ceil(left.len(), 8);
 
     let data = left.data_ref();
@@ -109,7 +111,16 @@ pub fn not(left: &BooleanArray) -> Result<BooleanArray> {
         .as_ref()
         .map(|b| b.bits.slice(left_offset));
 
-    let values = buffer_unary_not(&data.buffers()[0], left_offset, len);
+    let buf = if left.offset() % 8 != 0 {
+        let b = &data.buffers()[0].clone();
+        let sliced = b.slice_with_len(left.offset(), left.len());
+        left_offset = 0;
+        sliced
+    } else {
+        data.buffers()[0].clone()
+    };
+
+    let values = buffer_unary_not(&buf, left_offset, len);
 
     let data = ArrayData::new(
         DataType::Boolean,
@@ -172,9 +183,48 @@ mod tests {
     }
 
     #[test]
+    fn test_bool_array_not_sliced() {
+        let a =
+            BooleanArray::from(vec![true, true, false, false, false, false, true, true]);
+        let a = a.slice(4, 4);
+        let a = a.as_any().downcast_ref::<BooleanArray>().unwrap();
+        let c = not(&a).unwrap();
+        assert_eq!(true, c.value(0));
+        assert_eq!(true, c.value(1));
+        assert_eq!(false, c.value(2));
+        assert_eq!(false, c.value(3));
+    }
+
+    #[test]
     fn test_bool_array_and_nulls() {
         let a = BooleanArray::from(vec![None, Some(false), None, Some(false)]);
         let b = BooleanArray::from(vec![None, None, Some(false), Some(false)]);
+        let c = and(&a, &b).unwrap();
+        assert_eq!(true, c.is_null(0));
+        assert_eq!(true, c.is_null(1));
+        assert_eq!(true, c.is_null(2));
+        assert_eq!(false, c.is_null(3));
+    }
+
+    #[test]
+    fn test_bool_array_and_nulls_and_offsets() {
+        let a =
+            BooleanArray::from(vec![Some(true), None, Some(false), None, Some(false)]);
+        let a = a.slice(1, 4);
+        let a = a.as_any().downcast_ref::<BooleanArray>().unwrap();
+
+        let b = BooleanArray::from(vec![
+            None,
+            Some(false),
+            None,
+            None,
+            None,
+            Some(false),
+            Some(false),
+        ]);
+        let b = b.slice(3, 4);
+        let b = b.as_any().downcast_ref::<BooleanArray>().unwrap();
+
         let c = and(&a, &b).unwrap();
         assert_eq!(true, c.is_null(0));
         assert_eq!(true, c.is_null(1));
@@ -233,12 +283,12 @@ mod tests {
     #[test]
     fn test_bool_array_and_sliced_offset1() {
         let a = BooleanArray::from(vec![
-            false, false, false, false, false, false, false, false, false, false, true,
-            true,
+            false, false, false, false, false, false, false, false, false, false, false,
+            true, true,
         ]);
         let b = BooleanArray::from(vec![false, true, false, true]);
 
-        let a = a.slice(8, 4);
+        let a = a.slice(9, 4);
         let a = a.as_any().downcast_ref::<BooleanArray>().unwrap();
 
         let c = and(&a, &b).unwrap();
@@ -253,18 +303,17 @@ mod tests {
     fn test_bool_array_and_sliced_offset2() {
         let a = BooleanArray::from(vec![false, false, true, true]);
         let b = BooleanArray::from(vec![
-            false, false, false, false, false, false, false, false, false, true, false,
-            true,
+            true, true, true, false, false, false, false, false, false, true, false, true,
         ]);
 
-        let b = b.slice(8, 4);
+        let b = b.slice(7, 4);
         let b = b.as_any().downcast_ref::<BooleanArray>().unwrap();
 
         let c = and(&a, &b).unwrap();
         assert_eq!(4, c.len());
         assert_eq!(false, c.value(0));
         assert_eq!(false, c.value(1));
-        assert_eq!(false, c.value(2));
-        assert_eq!(true, c.value(3));
+        assert_eq!(true, c.value(2));
+        assert_eq!(false, c.value(3));
     }
 }
