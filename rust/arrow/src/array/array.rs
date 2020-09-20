@@ -887,71 +887,14 @@ impl<T: ArrowPrimitiveType> From<ArrayDataRef> for PrimitiveArray<T> {
     }
 }
 
-/// Common operations for List types, currently `ListArray`, `FixedSizeListArray`, `BinaryArray`
-/// `StringArray` and `DictionaryArray`
-pub trait ListArrayOps {
-    fn value_offset_at(&self, i: usize) -> i32;
-}
-
-impl ListArrayOps for GenericListArray<i32> {
-    fn value_offset_at(&self, i: usize) -> i32 {
-        self.value_offset_at(i)
-    }
-}
-
-impl ListArrayOps for FixedSizeListArray {
-    fn value_offset_at(&self, i: usize) -> i32 {
-        self.value_offset_at(i)
-    }
-}
-
-impl ListArrayOps for BinaryArray {
-    fn value_offset_at(&self, i: usize) -> i32 {
-        self.value_offset_at(i)
-    }
-}
-
-impl ListArrayOps for StringArray {
-    fn value_offset_at(&self, i: usize) -> i32 {
-        self.value_offset_at(i)
-    }
-}
-
-impl ListArrayOps for FixedSizeBinaryArray {
-    fn value_offset_at(&self, i: usize) -> i32 {
-        self.value_offset_at(i)
-    }
-}
-
-/// Common operations for large List types, currently `LargeListArray`, `LargeBinaryArray`
-///  and `LargeStringArray`
-pub trait LargeListArrayOps {
-    fn value_offset_at(&self, i: usize) -> i64;
-}
-
-impl LargeListArrayOps for LargeBinaryArray {
-    fn value_offset_at(&self, i: usize) -> i64 {
-        self.value_offset_at(i)
-    }
-}
-
-impl LargeListArrayOps for LargeStringArray {
-    fn value_offset_at(&self, i: usize) -> i64 {
-        self.value_offset_at(i)
-    }
-}
-
-impl LargeListArrayOps for GenericListArray<i64> {
-    fn value_offset_at(&self, i: usize) -> i64 {
-        self.value_offset_at(i)
-    }
+/// Common operations for List types.
+pub trait ListArrayOps<OffsetSize: OffsetSizeTrait> {
+    fn value_offset_at(&self, i: usize) -> OffsetSize;
 }
 
 /// trait declaring an offset size, relevant for i32 vs i64 array types.
-pub(crate) trait OffsetSizeTrait: 'static + Num + fmt::Debug {
+pub trait OffsetSizeTrait: ArrowNativeType + Num {
     fn prefix() -> &'static str;
-
-    fn to_usize(&self) -> usize;
 
     fn to_isize(&self) -> isize;
 }
@@ -959,10 +902,6 @@ pub(crate) trait OffsetSizeTrait: 'static + Num + fmt::Debug {
 impl OffsetSizeTrait for i32 {
     fn prefix() -> &'static str {
         ""
-    }
-
-    fn to_usize(&self) -> usize {
-        num::ToPrimitive::to_usize(self).unwrap()
     }
 
     fn to_isize(&self) -> isize {
@@ -973,10 +912,6 @@ impl OffsetSizeTrait for i32 {
 impl OffsetSizeTrait for i64 {
     fn prefix() -> &'static str {
         "Large"
-    }
-
-    fn to_usize(&self) -> usize {
-        num::ToPrimitive::to_usize(self).unwrap()
     }
 
     fn to_isize(&self) -> isize {
@@ -1004,8 +939,8 @@ impl<OffsetSize: OffsetSizeTrait> GenericListArray<OffsetSize> {
     /// Returns ith value of this list array.
     pub fn value(&self, i: usize) -> ArrayRef {
         self.values.slice(
-            self.value_offset(i).to_usize(),
-            self.value_length(i).to_usize(),
+            self.value_offset(i).to_usize().unwrap(),
+            self.value_length(i).to_usize().unwrap(),
         )
     }
 
@@ -1032,7 +967,6 @@ impl<OffsetSize: OffsetSizeTrait> GenericListArray<OffsetSize> {
     }
 }
 
-/// Constructs a `GenericListArray` from an array data reference.
 impl<OffsetSize: OffsetSizeTrait> From<ArrayDataRef> for GenericListArray<OffsetSize> {
     fn from(data: ArrayDataRef) -> Self {
         assert_eq!(
@@ -1128,6 +1062,14 @@ impl<OffsetSize: OffsetSizeTrait> fmt::Debug for GenericListArray<OffsetSize> {
     }
 }
 
+impl<OffsetSize: OffsetSizeTrait> ListArrayOps<OffsetSize>
+    for GenericListArray<OffsetSize>
+{
+    fn value_offset_at(&self, i: usize) -> OffsetSize {
+        self.value_offset_at(i)
+    }
+}
+
 /// A list array where each element is a variable-sized sequence of values with the same
 /// type.
 pub type ListArray = GenericListArray<i32>;
@@ -1183,7 +1125,6 @@ impl FixedSizeListArray {
     }
 }
 
-/// Constructs a `FixedSizeListArray` from an array data reference.
 impl From<ArrayDataRef> for FixedSizeListArray {
     fn from(data: ArrayDataRef) -> Self {
         assert_eq!(
@@ -1303,7 +1244,7 @@ impl<OffsetSize: OffsetSizeTrait> GenericBinaryArray<OffsetSize> {
             let pos = self.value_offset_at(offset);
             std::slice::from_raw_parts(
                 self.value_data.get().offset(pos.to_isize()),
-                (self.value_offset_at(offset + 1) - pos).to_usize(),
+                (self.value_offset_at(offset + 1) - pos).to_usize().unwrap(),
             )
         }
     }
@@ -1311,7 +1252,7 @@ impl<OffsetSize: OffsetSizeTrait> GenericBinaryArray<OffsetSize> {
 
 impl<OffsetSize: OffsetSizeTrait> fmt::Debug for GenericBinaryArray<OffsetSize> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}\n[\n", OffsetSize::prefix())?;
+        write!(f, "{}BinaryArray\n[\n", OffsetSize::prefix())?;
         print_long_array(self, f, |array, index, f| {
             fmt::Debug::fmt(&array.value(index), f)
         })?;
@@ -1340,6 +1281,14 @@ impl<OffsetSize: OffsetSizeTrait> Array for GenericBinaryArray<OffsetSize> {
     /// Returns the total number of bytes of memory occupied physically by this [$name].
     fn get_array_memory_size(&self) -> usize {
         self.data.get_array_memory_size() + mem::size_of_val(self)
+    }
+}
+
+impl<OffsetSize: OffsetSizeTrait> ListArrayOps<OffsetSize>
+    for GenericBinaryArray<OffsetSize>
+{
+    fn value_offset_at(&self, i: usize) -> OffsetSize {
+        self.value_offset_at(i)
     }
 }
 
@@ -1399,7 +1348,7 @@ impl<OffsetSize: OffsetSizeTrait> GenericStringArray<OffsetSize> {
             let pos = self.value_offset_at(offset);
             let slice = std::slice::from_raw_parts(
                 self.value_data.get().offset(pos.to_isize()),
-                (self.value_offset_at(offset + 1) - pos).to_usize(),
+                (self.value_offset_at(offset + 1) - pos).to_usize().unwrap(),
             );
 
             std::str::from_utf8_unchecked(slice)
@@ -1409,7 +1358,7 @@ impl<OffsetSize: OffsetSizeTrait> GenericStringArray<OffsetSize> {
 
 impl<OffsetSize: OffsetSizeTrait> fmt::Debug for GenericStringArray<OffsetSize> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}\n[\n", OffsetSize::prefix())?;
+        write!(f, "{}StringArray\n[\n", OffsetSize::prefix())?;
         print_long_array(self, f, |array, index, f| {
             fmt::Debug::fmt(&array.value(index), f)
         })?;
@@ -1460,12 +1409,20 @@ impl<OffsetSize: OffsetSizeTrait> From<ArrayDataRef> for GenericStringArray<Offs
     }
 }
 
-/// A list array where each element is a variable-sized sequence of values with the same
-/// type.
+impl<OffsetSize: OffsetSizeTrait> ListArrayOps<OffsetSize>
+    for GenericStringArray<OffsetSize>
+{
+    fn value_offset_at(&self, i: usize) -> OffsetSize {
+        self.value_offset_at(i)
+    }
+}
+
+/// A string array where each element is a variable-sized sequence of bytes and whose offsets
+/// between are then as i32
 pub type StringArray = GenericStringArray<i32>;
 
-/// A list array where each element is a variable-sized sequence of values with the same
-/// type.
+/// A string array where each element is a variable-sized sequence of bytes and whose offsets
+/// between are then as i64
 pub type LargeStringArray = GenericStringArray<i64>;
 
 /// A type of `FixedSizeListArray` whose elements are binaries.
@@ -1516,6 +1473,12 @@ impl FixedSizeBinaryArray {
     #[inline]
     fn value_offset_at(&self, i: usize) -> i32 {
         self.length * i as i32
+    }
+}
+
+impl ListArrayOps<i32> for FixedSizeBinaryArray {
+    fn value_offset_at(&self, i: usize) -> i32 {
+        self.value_offset_at(i)
     }
 }
 

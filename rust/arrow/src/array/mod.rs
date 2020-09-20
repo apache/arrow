@@ -158,6 +158,7 @@ pub type DurationNanosecondArray = PrimitiveArray<DurationNanosecondType>;
 pub use self::array::GenericBinaryArray;
 pub use self::array::GenericListArray;
 pub use self::array::GenericStringArray;
+pub use self::array::OffsetSizeTrait;
 pub use self::array::PrimitiveArrayOps;
 
 // --------------------- Array Builder ---------------------

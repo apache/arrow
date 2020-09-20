@@ -19,7 +19,8 @@ use super::*;
 use crate::datatypes::*;
 use crate::util::bit_util;
 use array::{
-    Array, GenericBinaryArray, GenericListArray, GenericStringArray, OffsetSizeTrait,
+    Array, GenericBinaryArray, GenericListArray, GenericStringArray, ListArrayOps,
+    OffsetSizeTrait,
 };
 use hex::FromHex;
 use serde_json::value::Value::{Null as JNull, Object, String as JString};
@@ -175,9 +176,9 @@ impl<OffsetSize: OffsetSizeTrait> ArrayEqual for GenericListArray<OffsetSize> {
 
         if !self.values().range_equals(
             &*other.values(),
-            self.value_offset(0).to_usize(),
-            self.value_offset(self.len()).to_usize(),
-            other.value_offset(0).to_usize(),
+            self.value_offset(0).to_usize().unwrap(),
+            self.value_offset(self.len()).to_usize().unwrap(),
+            other.value_offset(0).to_usize().unwrap(),
         ) {
             return false;
         }
@@ -194,6 +195,11 @@ impl<OffsetSize: OffsetSizeTrait> ArrayEqual for GenericListArray<OffsetSize> {
     ) -> bool {
         assert!(other_start_idx + (end_idx - start_idx) <= other.len());
 
+        let other = other
+            .as_any()
+            .downcast_ref::<GenericListArray<OffsetSize>>()
+            .unwrap();
+
         let mut j = other_start_idx;
         for i in start_idx..end_idx {
             let is_null = self.is_null(i);
@@ -207,17 +213,17 @@ impl<OffsetSize: OffsetSizeTrait> ArrayEqual for GenericListArray<OffsetSize> {
                 continue;
             }
 
-            let start_offset = self.value_offset(i).to_usize();
-            let end_offset = self.value_offset(i + 1).to_usize();
-            let other_start_offset = other.value_offset(j).to_usize();
-            let other_end_offset = other.value_offset(j + 1).to_usize();
+            let start_offset = self.value_offset(i).to_usize().unwrap();
+            let end_offset = self.value_offset(i + 1).to_usize().unwrap();
+            let other_start_offset = other.value_offset(j).to_usize().unwrap();
+            let other_end_offset = other.value_offset(j + 1).to_usize().unwrap();
 
             if end_offset - start_offset != other_end_offset - other_start_offset {
                 return false;
             }
 
             if !self.values().range_equals(
-                &*other.values(),
+                other,
                 start_offset,
                 end_offset,
                 other_start_offset,
@@ -351,13 +357,14 @@ impl<OffsetSize: OffsetSizeTrait> ArrayEqual for GenericBinaryArray<OffsetSize> 
         if self.null_count() == 0 {
             // No offset in both - just do memcmp
             if self.offset() == 0 && other.offset() == 0 {
-                let len = self.value_offset(self.len()).to_usize();
+                let len = self.value_offset(self.len()).to_usize().unwrap();
                 return value_data[..len] == other_value_data[..len];
             } else {
-                let start = self.value_offset(0).to_usize();
-                let other_start = other.value_offset(0).to_usize();
-                let len =
-                    (self.value_offset(self.len()) - self.value_offset(0)).to_usize();
+                let start = self.value_offset(0).to_usize().unwrap();
+                let other_start = other.value_offset(0).to_usize().unwrap();
+                let len = (self.value_offset(self.len()) - self.value_offset(0))
+                    .to_usize()
+                    .unwrap();
                 return value_data[start..(start + len)]
                     == other_value_data[other_start..(other_start + len)];
             }
@@ -367,9 +374,9 @@ impl<OffsetSize: OffsetSizeTrait> ArrayEqual for GenericBinaryArray<OffsetSize> 
                     continue;
                 }
 
-                let start = self.value_offset(i).to_usize();
-                let other_start = other.value_offset(i).to_usize();
-                let len = self.value_length(i).to_usize();
+                let start = self.value_offset(i).to_usize().unwrap();
+                let other_start = other.value_offset(i).to_usize().unwrap();
+                let len = self.value_length(i).to_usize().unwrap();
                 if value_data[start..(start + len)]
                     != other_value_data[other_start..(other_start + len)]
                 {
@@ -389,7 +396,10 @@ impl<OffsetSize: OffsetSizeTrait> ArrayEqual for GenericBinaryArray<OffsetSize> 
         other_start_idx: usize,
     ) -> bool {
         assert!(other_start_idx + (end_idx - start_idx) <= other.len());
-        let other = other.as_any().downcast_ref::<BinaryArray>().unwrap();
+        let other = other
+            .as_any()
+            .downcast_ref::<GenericBinaryArray<OffsetSize>>()
+            .unwrap();
 
         let mut j = other_start_idx;
         for i in start_idx..end_idx {
@@ -404,10 +414,10 @@ impl<OffsetSize: OffsetSizeTrait> ArrayEqual for GenericBinaryArray<OffsetSize> 
                 continue;
             }
 
-            let start_offset = self.value_offset(i).to_usize();
-            let end_offset = self.value_offset(i + 1).to_usize();
-            let other_start_offset = OffsetSizeTrait::to_usize(&other.value_offset(j));
-            let other_end_offset = OffsetSizeTrait::to_usize(&other.value_offset(j + 1));
+            let start_offset = self.value_offset(i).to_usize().unwrap();
+            let end_offset = self.value_offset(i + 1).to_usize().unwrap();
+            let other_start_offset = other.value_offset(j).to_usize().unwrap();
+            let other_end_offset = other.value_offset(j + 1).to_usize().unwrap();
 
             if end_offset - start_offset != other_end_offset - other_start_offset {
                 return false;
@@ -459,12 +469,14 @@ impl<OffsetSize: OffsetSizeTrait> ArrayEqual for GenericStringArray<OffsetSize> 
         if self.null_count() == 0 {
             // No offset in both - just do memcmp
             if self.offset() == 0 && other.offset() == 0 {
-                let len = self.value_offset(self.len()) as usize;
+                let len = self.value_offset(self.len()).to_usize().unwrap();
                 return value_data[..len] == other_value_data[..len];
             } else {
-                let start = self.value_offset(0) as usize;
-                let other_start = other.value_offset(0) as usize;
-                let len = (self.value_offset(self.len()) - self.value_offset(0)) as usize;
+                let start = self.value_offset(0).to_usize().unwrap();
+                let other_start = other.value_offset(0).to_usize().unwrap();
+                let len = (self.value_offset(self.len()) - self.value_offset(0))
+                    .to_usize()
+                    .unwrap();
                 return value_data[start..(start + len)]
                     == other_value_data[other_start..(other_start + len)];
             }
@@ -474,9 +486,9 @@ impl<OffsetSize: OffsetSizeTrait> ArrayEqual for GenericStringArray<OffsetSize> 
                     continue;
                 }
 
-                let start = self.value_offset(i) as usize;
-                let other_start = other.value_offset(i) as usize;
-                let len = self.value_length(i) as usize;
+                let start = self.value_offset(i).to_usize().unwrap();
+                let other_start = other.value_offset(i).to_usize().unwrap();
+                let len = self.value_length(i).to_usize().unwrap();
                 if value_data[start..(start + len)]
                     != other_value_data[other_start..(other_start + len)]
                 {
@@ -496,7 +508,10 @@ impl<OffsetSize: OffsetSizeTrait> ArrayEqual for GenericStringArray<OffsetSize> 
         other_start_idx: usize,
     ) -> bool {
         assert!(other_start_idx + (end_idx - start_idx) <= other.len());
-        let other = other.as_any().downcast_ref::<StringArray>().unwrap();
+        let other = other
+            .as_any()
+            .downcast_ref::<GenericStringArray<OffsetSize>>()
+            .unwrap();
 
         let mut j = other_start_idx;
         for i in start_idx..end_idx {
@@ -511,10 +526,10 @@ impl<OffsetSize: OffsetSizeTrait> ArrayEqual for GenericStringArray<OffsetSize> 
                 continue;
             }
 
-            let start_offset = self.value_offset(i) as usize;
-            let end_offset = self.value_offset(i + 1) as usize;
-            let other_start_offset = other.value_offset(j) as usize;
-            let other_end_offset = other.value_offset(j + 1) as usize;
+            let start_offset = self.value_offset(i).to_usize().unwrap();
+            let end_offset = self.value_offset(i + 1).to_usize().unwrap();
+            let other_start_offset = other.value_offset(j).to_usize().unwrap();
+            let other_end_offset = other.value_offset(j + 1).to_usize().unwrap();
 
             if end_offset - start_offset != other_end_offset - other_start_offset {
                 return false;
@@ -552,7 +567,12 @@ impl ArrayEqual for FixedSizeBinaryArray {
             .downcast_ref::<FixedSizeBinaryArray>()
             .unwrap();
 
-        if !value_offset_equal(self, other) {
+        let this = self
+            .as_any()
+            .downcast_ref::<FixedSizeBinaryArray>()
+            .unwrap();
+
+        if !value_offset_equal(this, other) {
             return false;
         }
 
@@ -790,29 +810,10 @@ fn base_equal(this: &ArrayDataRef, other: &ArrayDataRef) -> bool {
 }
 
 // Compare if the value offsets are equal between the two list arrays
-fn value_offset_equal<T: Array + ListArrayOps>(this: &T, other: &T) -> bool {
-    // Check if offsets differ
-    if this.offset() == 0 && other.offset() == 0 {
-        let offset_data = &this.data_ref().buffers()[0];
-        let other_offset_data = &other.data_ref().buffers()[0];
-        return offset_data.data()[0..((this.len() + 1) * 4)]
-            == other_offset_data.data()[0..((other.len() + 1) * 4)];
-    }
-
-    // The expensive case
-    for i in 0..=this.len() {
-        if this.value_offset_at(i) - this.value_offset_at(0)
-            != other.value_offset_at(i) - other.value_offset_at(0)
-        {
-            return false;
-        }
-    }
-
-    true
-}
-
-// Compare if the value offsets are equal between the two list arrays
-fn large_value_offset_equal<T: Array + LargeListArrayOps>(this: &T, other: &T) -> bool {
+fn value_offset_equal<K: OffsetSizeTrait, T: Array + ListArrayOps<K>>(
+    this: &T,
+    other: &T,
+) -> bool {
     // Check if offsets differ
     if this.offset() == 0 && other.offset() == 0 {
         let offset_data = &this.data_ref().buffers()[0];
