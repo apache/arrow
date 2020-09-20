@@ -18,7 +18,8 @@
 /// In this example we will declare a single-type, single return type UDAF that computes the geometric mean.
 /// The geometric mean is described here: https://en.wikipedia.org/wiki/Geometric_mean
 use arrow::{
-    array::Float32Array, datatypes::DataType, record_batch::RecordBatch, util::pretty,
+    array::Float32Array, array::Float64Array, array::PrimitiveArrayOps,
+    datatypes::DataType, record_batch::RecordBatch,
 };
 
 use datafusion::{error::Result, logical_plan::create_udaf, physical_plan::Accumulator};
@@ -134,7 +135,7 @@ fn main() -> Result<()> {
         Arc::new(DataType::Float64),
         // This is the accumulator factory; DataFusion uses it to create new accumulators.
         Arc::new(|| Rc::new(RefCell::new(GeometricMean::new()))),
-        // This is the description of the state. `state()` and `states[0]` in `merge` must match the types here.
+        // This is the description of the state. `state()` must match the types here.
         Arc::new(vec![DataType::Float64, DataType::UInt32]),
     );
 
@@ -149,8 +150,15 @@ fn main() -> Result<()> {
     // execute the query
     let results = df.collect()?;
 
-    // print the results, FYI, the geometric mean of {2,4,8,64} = 8
-    pretty::print_batches(&results)?;
+    // downcast the array to the expected type
+    let result = results[0]
+        .column(0)
+        .as_any()
+        .downcast_ref::<Float64Array>()
+        .unwrap();
+
+    // verify that the calculation is correct: the geometric mean of {2,4,8,64} = 8
+    assert_eq!(result.value(0), 8.0);
 
     Ok(())
 }
