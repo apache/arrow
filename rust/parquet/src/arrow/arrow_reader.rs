@@ -143,12 +143,10 @@ pub struct ParquetRecordBatchReader {
     schema: SchemaRef,
 }
 
-impl RecordBatchReader for ParquetRecordBatchReader {
-    fn schema(&self) -> SchemaRef {
-        self.schema.clone()
-    }
+impl Iterator for ParquetRecordBatchReader {
+    type Item = ArrowResult<RecordBatch>;
 
-    fn next_batch(&mut self) -> Option<ArrowResult<RecordBatch>> {
+    fn next(&mut self) -> Option<Self::Item> {
         match self.array_reader.next_batch(self.batch_size) {
             Err(error) => Some(Err(error.into())),
             Ok(array) => {
@@ -175,6 +173,12 @@ impl RecordBatchReader for ParquetRecordBatchReader {
                 }
             }
         }
+    }
+}
+
+impl RecordBatchReader for ParquetRecordBatchReader {
+    fn schema(&self) -> SchemaRef {
+        self.schema.clone()
     }
 }
 
@@ -473,7 +477,7 @@ mod tests {
         for i in 0..opts.num_iterations {
             let start = i * opts.record_batch_size;
 
-            let batch = record_reader.next_batch();
+            let batch = record_reader.next();
             if start < expected_data.len() {
                 let end = min(start + opts.record_batch_size, expected_data.len());
                 assert!(batch.is_some());
@@ -556,7 +560,7 @@ mod tests {
     ) {
         for i in 0..20 {
             let array: Option<StructArray> = record_batch_reader
-                .next_batch()
+                .next()
                 .map(|r| r.expect("Failed to read record batch!").into());
 
             let (start, end) = (i * 60 as usize, (i + 1) * 60 as usize);

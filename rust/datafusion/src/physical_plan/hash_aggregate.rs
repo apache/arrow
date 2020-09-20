@@ -341,12 +341,10 @@ impl GroupedHashAggregateIterator {
 
 type AccumulatorSet = Vec<Rc<RefCell<dyn Accumulator>>>;
 
-impl RecordBatchReader for GroupedHashAggregateIterator {
-    fn schema(&self) -> SchemaRef {
-        self.schema.clone()
-    }
+impl Iterator for GroupedHashAggregateIterator {
+    type Item = ArrowResult<RecordBatch>;
 
-    fn next_batch(&mut self) -> Option<ArrowResult<RecordBatch>> {
+    fn next(&mut self) -> Option<Self::Item> {
         if self.finished {
             return None;
         }
@@ -371,16 +369,19 @@ impl RecordBatchReader for GroupedHashAggregateIterator {
         > = FnvHashMap::default();
 
         // iterate over all input batches and update the accumulators
-        let mut input = self.input.lock().unwrap();
-
-        // iterate over input and perform aggregation
-        while let Some(batch) = input.next_batch() {
-            match batch.map(|batch| {
-                self.aggregate_batch(&batch, &mut accumulators, &aggregate_expressions)
-            }) {
-                Err(e) => return Some(Err(e)),
-                Ok(_) => {}
-            }
+        match self
+            .input
+            .lock()
+            .unwrap()
+            .into_iter()
+            .map(|batch| {
+                self.aggregate_batch(&batch?, &mut accumulators, &aggregate_expressions)
+                    .map_err(ExecutionError::into_arrow_external_error)
+            })
+            .collect::<ArrowResult<()>>()
+        {
+            Err(e) => return Some(Err(e)),
+            Ok(_) => {}
         }
 
         Some(
@@ -392,6 +393,12 @@ impl RecordBatchReader for GroupedHashAggregateIterator {
             )
             .map_err(ExecutionError::into_arrow_external_error),
         )
+    }
+}
+
+impl RecordBatchReader for GroupedHashAggregateIterator {
+    fn schema(&self) -> SchemaRef {
+        self.schema.clone()
     }
 }
 
@@ -505,12 +512,10 @@ impl HashAggregateIterator {
     }
 }
 
-impl RecordBatchReader for HashAggregateIterator {
-    fn schema(&self) -> SchemaRef {
-        self.schema.clone()
-    }
+impl Iterator for HashAggregateIterator {
+    type Item = ArrowResult<RecordBatch>;
 
-    fn next_batch(&mut self) -> Option<ArrowResult<RecordBatch>> {
+    fn next(&mut self) -> Option<Self::Item> {
         if self.finished {
             return None;
         }
@@ -528,25 +533,34 @@ impl RecordBatchReader for HashAggregateIterator {
             Err(e) => return Some(Err(ExecutionError::into_arrow_external_error(e))),
         };
 
-        let mut input = self.input.lock().unwrap();
-
         // 1 for each batch, update / merge accumulators with the expressions' values
-        // 2 convert values to a record batch
-        while let Some(batch) = input.next_batch() {
-            match batch
-                .map(|batch| self.aggregate_batch(&batch, &accumulators, &expressions))
-            {
-                Err(e) => return Some(Err(e)),
-                Ok(_) => {}
-            }
+        match self
+            .input
+            .lock()
+            .unwrap()
+            .into_iter()
+            .map(|batch| {
+                self.aggregate_batch(&batch?, &accumulators, &expressions)
+                    .map_err(ExecutionError::into_arrow_external_error)
+            })
+            .collect::<ArrowResult<()>>()
+        {
+            Err(e) => return Some(Err(e)),
+            Ok(_) => {}
         }
 
-        // 2
+        // 2 convert values to a record batch
         Some(
             finalize_aggregation(&accumulators, &self.mode)
                 .map_err(ExecutionError::into_arrow_external_error)
                 .and_then(|columns| RecordBatch::try_new(self.schema.clone(), columns)),
         )
+    }
+}
+
+impl RecordBatchReader for HashAggregateIterator {
+    fn schema(&self) -> SchemaRef {
+        self.schema.clone()
     }
 }
 

@@ -54,12 +54,10 @@ impl RecordBatchIterator {
     }
 }
 
-impl RecordBatchReader for RecordBatchIterator {
-    fn schema(&self) -> SchemaRef {
-        self.schema.clone()
-    }
+impl Iterator for RecordBatchIterator {
+    type Item = ArrowResult<RecordBatch>;
 
-    fn next_batch(&mut self) -> Option<ArrowResult<RecordBatch>> {
+    fn next(&mut self) -> Option<Self::Item> {
         if self.index < self.batches.len() {
             self.index += 1;
             Some(Ok(self.batches[self.index - 1].as_ref().clone()))
@@ -69,24 +67,21 @@ impl RecordBatchReader for RecordBatchIterator {
     }
 }
 
+impl RecordBatchReader for RecordBatchIterator {
+    fn schema(&self) -> SchemaRef {
+        self.schema.clone()
+    }
+}
+
 /// Create a vector of record batches from an iterator
 pub fn collect(
     it: Arc<Mutex<dyn RecordBatchReader + Send + Sync>>,
 ) -> Result<Vec<RecordBatch>> {
-    let mut reader = it.lock().unwrap();
-    let mut results: Vec<RecordBatch> = vec![];
-    loop {
-        match reader.next_batch() {
-            Some(Ok(batch)) => {
-                results.push(batch);
-            }
-            None => {
-                // end of result set
-                return Ok(results);
-            }
-            Some(Err(e)) => return Err(ExecutionError::from(e)),
-        }
-    }
+    it.lock()
+        .unwrap()
+        .into_iter()
+        .collect::<ArrowResult<Vec<_>>>()
+        .map_err(|e| ExecutionError::from(e))
 }
 
 /// Recursively build a list of files in a directory with a given extension

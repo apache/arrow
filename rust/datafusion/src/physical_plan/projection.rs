@@ -126,16 +126,12 @@ struct ProjectionIterator {
     input: Arc<Mutex<dyn RecordBatchReader + Send + Sync>>,
 }
 
-impl RecordBatchReader for ProjectionIterator {
-    /// Get the schema
-    fn schema(&self) -> SchemaRef {
-        self.schema.clone()
-    }
+impl Iterator for ProjectionIterator {
+    type Item = ArrowResult<RecordBatch>;
 
-    /// Get the next batch
-    fn next_batch(&mut self) -> Option<ArrowResult<RecordBatch>> {
+    fn next(&mut self) -> Option<Self::Item> {
         let mut input = self.input.lock().unwrap();
-        match input.next_batch() {
+        match input.next() {
             Some(Ok(batch)) => Some(
                 self.expr
                     .iter()
@@ -148,6 +144,13 @@ impl RecordBatchReader for ProjectionIterator {
             ),
             other => other,
         }
+    }
+}
+
+impl RecordBatchReader for ProjectionIterator {
+    /// Get the schema
+    fn schema(&self) -> SchemaRef {
+        self.schema.clone()
     }
 }
 
@@ -179,10 +182,15 @@ mod tests {
             partition_count += 1;
             let iterator = projection.execute(partition).await?;
             let mut iterator = iterator.lock().unwrap();
-            while let Some(Ok(batch)) = iterator.next_batch() {
-                assert_eq!(1, batch.num_columns());
-                row_count += batch.num_rows();
-            }
+
+            row_count += iterator
+                .into_iter()
+                .map(|batch| {
+                    let batch = batch.unwrap();
+                    assert_eq!(1, batch.num_columns());
+                    batch.num_rows()
+                })
+                .sum::<usize>();
         }
         assert_eq!(partitions, partition_count);
         assert_eq!(100, row_count);

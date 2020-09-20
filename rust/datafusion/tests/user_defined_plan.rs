@@ -59,7 +59,6 @@
 //!
 
 use arrow::{
-    array::StringBuilder,
     array::{Int64Array, PrimitiveArrayOps, StringArray},
     datatypes::SchemaRef,
     error::ArrowError,
@@ -450,73 +449,69 @@ impl TopKReader {
             self.top_values.remove(&smallest_revenue);
         }
     }
+
+    // how we process a whole batch
+    fn accumulate_batch(&mut self, input_batch: &RecordBatch) -> Result<()> {
+        let num_rows = input_batch.num_rows();
+        // Assuming the input columns are
+        // column[0]: customer_id / UTF8
+        // column[1]: revenue: Int64
+        let customer_id = input_batch
+            .column(0)
+            .as_any()
+            .downcast_ref::<StringArray>()
+            .expect("Column 0 is not customer_id");
+
+        let revenue = input_batch
+            .column(1)
+            .as_any()
+            .downcast_ref::<Int64Array>()
+            .expect("Column 1 is not revenue");
+
+        for row in 0..num_rows {
+            self.add_row(customer_id.value(row), revenue.value(row));
+        }
+        Ok(())
+    }
+}
+
+impl Iterator for TopKReader {
+    type Item = std::result::Result<RecordBatch, ArrowError>;
+
+    /// Reads the next `RecordBatch`.
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.done {
+            return None;
+        }
+
+        self.input
+            .clone()
+            .lock()
+            .unwrap()
+            .into_iter()
+            .map(|batch| self.accumulate_batch(&batch?))
+            .collect::<Result<()>>()
+            .unwrap();
+
+        // make output by walking over the map backwards (so values are descending)
+        let (revenue, customer): (Vec<i64>, Vec<&String>) =
+            self.top_values.iter().rev().unzip();
+
+        let customer: Vec<&str> = customer.iter().map(|&s| &**s).collect();
+
+        self.done = true;
+        Some(RecordBatch::try_new(
+            self.schema().clone(),
+            vec![
+                Arc::new(StringArray::from(customer)),
+                Arc::new(Int64Array::from(revenue)),
+            ],
+        ))
+    }
 }
 
 impl RecordBatchReader for TopKReader {
     fn schema(&self) -> SchemaRef {
         self.input.lock().expect("locked input reader").schema()
-    }
-
-    /// Reads the next `RecordBatch`.
-    fn next_batch(&mut self) -> std::result::Result<Option<RecordBatch>, ArrowError> {
-        if self.done {
-            return Ok(None);
-        }
-
-        // use a loop so that we release the mutex once we have read each input_batch
-        loop {
-            let input_batch = self
-                .input
-                .lock()
-                .expect("locked input mutex")
-                .next_batch()?;
-
-            match input_batch {
-                Some(input_batch) => {
-                    println!("Got an input batch");
-                    let num_rows = input_batch.num_rows();
-
-                    // Assuming the input columns are
-                    // column[0]: customer_id / UTF8
-                    // column[1]: revenue: Int64
-                    let customer_id = input_batch
-                        .column(0)
-                        .as_any()
-                        .downcast_ref::<StringArray>()
-                        .expect("Column 0 is not customer_id");
-
-                    let revenue = input_batch
-                        .column(1)
-                        .as_any()
-                        .downcast_ref::<Int64Array>()
-                        .expect("Column 1 is not revenue");
-
-                    for row in 0..num_rows {
-                        self.add_row(customer_id.value(row), revenue.value(row));
-                    }
-                }
-                None => break,
-            }
-        }
-
-        let mut revenue_builder = Int64Array::builder(self.top_values.len());
-        let mut customer_id_builder = StringBuilder::new(self.top_values.len());
-
-        // make output by walking over the map backwards (so values are descending)
-        for (revenue, customer_id) in self.top_values.iter().rev() {
-            revenue_builder.append_value(*revenue)?;
-            customer_id_builder.append_value(customer_id)?;
-        }
-
-        let record_batch = RecordBatch::try_new(
-            self.schema().clone(),
-            vec![
-                Arc::new(customer_id_builder.finish()),
-                Arc::new(revenue_builder.finish()),
-            ],
-        )?;
-
-        self.done = true;
-        Ok(Some(record_batch))
     }
 }

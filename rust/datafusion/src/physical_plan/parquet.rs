@@ -176,7 +176,7 @@ fn read_file(
     let mut batch_reader =
         arrow_reader.get_record_reader_by_columns(projection.clone(), batch_size)?;
     loop {
-        match batch_reader.next_batch() {
+        match batch_reader.next() {
             Some(Ok(batch)) => send_result(&response_tx, Some(Ok(batch)))?,
             None => {
                 // finished reading file
@@ -204,17 +204,21 @@ struct ParquetIterator {
     response_rx: Receiver<Option<ArrowResult<RecordBatch>>>,
 }
 
-impl RecordBatchReader for ParquetIterator {
-    fn schema(&self) -> SchemaRef {
-        self.schema.clone()
-    }
+impl Iterator for ParquetIterator {
+    type Item = ArrowResult<RecordBatch>;
 
-    fn next_batch(&mut self) -> Option<ArrowResult<RecordBatch>> {
+    fn next(&mut self) -> Option<Self::Item> {
         match self.response_rx.recv() {
             Ok(batch) => batch,
             // RecvError means receiver has exited and closed the channel
             Err(RecvError) => None,
         }
+    }
+}
+
+impl RecordBatchReader for ParquetIterator {
+    fn schema(&self) -> SchemaRef {
+        self.schema.clone()
     }
 }
 
@@ -233,7 +237,7 @@ mod tests {
 
         let results = parquet_exec.execute(0).await?;
         let mut results = results.lock().unwrap();
-        let batch = results.next_batch().unwrap()?;
+        let batch = results.next().unwrap()?;
 
         assert_eq!(8, batch.num_rows());
         assert_eq!(3, batch.num_columns());
@@ -243,13 +247,13 @@ mod tests {
             schema.fields().iter().map(|f| f.name().as_str()).collect();
         assert_eq!(vec!["id", "bool_col", "tinyint_col"], field_names);
 
-        let batch = results.next_batch();
+        let batch = results.next();
         assert!(batch.is_none());
 
-        let batch = results.next_batch();
+        let batch = results.next();
         assert!(batch.is_none());
 
-        let batch = results.next_batch();
+        let batch = results.next();
         assert!(batch.is_none());
 
         Ok(())

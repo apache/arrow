@@ -724,23 +724,22 @@ impl<R: Read + Seek> FileReader<R> {
     }
 }
 
-impl<R: Read + Seek> RecordBatchReader for FileReader<R> {
-    fn schema(&self) -> SchemaRef {
-        self.schema.clone()
-    }
+impl<R: Read + Seek> Iterator for FileReader<R> {
+    type Item = Result<RecordBatch>;
 
-    fn next_batch(&mut self) -> Option<Result<RecordBatch>> {
+    fn next(&mut self) -> Option<Self::Item> {
         // get current block
         if self.current_block < self.total_blocks {
-            let result = self.maybe_next();
-            match result {
-                Ok(Some(e)) => Some(Ok(e)),
-                Ok(None) => None,
-                Err(error) => Some(Err(error)),
-            }
+            self.maybe_next().transpose()
         } else {
             None
         }
+    }
+}
+
+impl<R: Read + Seek> RecordBatchReader for FileReader<R> {
+    fn schema(&self) -> SchemaRef {
+        self.schema.clone()
     }
 }
 
@@ -882,17 +881,17 @@ impl<R: Read> StreamReader<R> {
     }
 }
 
+impl<R: Read> Iterator for StreamReader<R> {
+    type Item = Result<RecordBatch>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.maybe_next().transpose()
+    }
+}
+
 impl<R: Read> RecordBatchReader for StreamReader<R> {
     fn schema(&self) -> SchemaRef {
         self.schema.clone()
-    }
-
-    fn next_batch(&mut self) -> Option<Result<RecordBatch>> {
-        match self.maybe_next() {
-            Ok(Some(e)) => Some(Ok(e)),
-            Ok(None) => None,
-            Err(error) => Some(Err(error)),
-        }
     }
 }
 
@@ -960,7 +959,7 @@ mod tests {
             let arrow_json = read_gzip_json(path);
             assert!(arrow_json.equals_reader(&mut reader));
             // the next batch must be empty
-            assert!(reader.next_batch().is_none());
+            assert!(reader.next().is_none());
             // the stream must indicate that it's finished
             assert!(reader.is_finished());
         });
@@ -990,8 +989,10 @@ mod tests {
 
         // read stream back
         let file = File::open("target/debug/testdata/float.stream").unwrap();
-        let mut reader = StreamReader::try_new(file).unwrap();
-        while let Some(Ok(batch)) = reader.next_batch() {
+        let reader = StreamReader::try_new(file).unwrap();
+
+        reader.for_each(|batch| {
+            let batch = batch.unwrap();
             assert!(
                 batch
                     .column(0)
@@ -1010,7 +1011,7 @@ mod tests {
                     .value(0)
                     != 0.0
             );
-        }
+        })
     }
 
     /// Read gzipped JSON file

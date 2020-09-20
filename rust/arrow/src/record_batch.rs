@@ -217,15 +217,12 @@ impl Into<StructArray> for RecordBatch {
 }
 
 /// Trait for types that can read `RecordBatch`'s.
-pub trait RecordBatchReader {
+pub trait RecordBatchReader: Iterator<Item = Result<RecordBatch>> {
     /// Returns the schema of this `RecordBatchReader`.
     ///
     /// Implementation of this trait should guarantee that all `RecordBatch`'s returned by this
     /// reader should have the same schema as returned from this method.
     fn schema(&self) -> SchemaRef;
-
-    /// Reads the next `RecordBatch`.
-    fn next_batch(&mut self) -> Option<Result<RecordBatch>>;
 }
 
 #[cfg(test)]

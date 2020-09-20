@@ -120,16 +120,13 @@ struct FilterExecIter {
     input: Arc<Mutex<dyn RecordBatchReader + Send + Sync>>,
 }
 
-impl RecordBatchReader for FilterExecIter {
-    /// Get the schema
-    fn schema(&self) -> SchemaRef {
-        self.schema.clone()
-    }
+impl Iterator for FilterExecIter {
+    type Item = ArrowResult<RecordBatch>;
 
     /// Get the next batch
-    fn next_batch(&mut self) -> Option<ArrowResult<RecordBatch>> {
+    fn next(&mut self) -> Option<ArrowResult<RecordBatch>> {
         let mut input = self.input.lock().unwrap();
-        match input.next_batch() {
+        match input.next() {
             Some(Ok(batch)) => {
                 // evaluate the filter predicate to get a boolean array indicating which rows
                 // to include in the output
@@ -165,6 +162,13 @@ impl RecordBatchReader for FilterExecIter {
             }
             other => other,
         }
+    }
+}
+
+impl RecordBatchReader for FilterExecIter {
+    /// Get the schema
+    fn schema(&self) -> SchemaRef {
+        self.schema.clone()
     }
 }
 

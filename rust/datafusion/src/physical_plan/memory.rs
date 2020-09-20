@@ -126,14 +126,10 @@ impl MemoryIterator {
     }
 }
 
-impl RecordBatchReader for MemoryIterator {
-    /// Get the schema
-    fn schema(&self) -> SchemaRef {
-        self.schema.clone()
-    }
+impl Iterator for MemoryIterator {
+    type Item = ArrowResult<RecordBatch>;
 
-    /// Get the next RecordBatch
-    fn next_batch(&mut self) -> Option<ArrowResult<RecordBatch>> {
+    fn next(&mut self) -> Option<Self::Item> {
         if self.index < self.data.len() {
             self.index += 1;
             let batch = &self.data[self.index - 1];
@@ -148,5 +144,12 @@ impl RecordBatchReader for MemoryIterator {
         } else {
             None
         }
+    }
+}
+
+impl RecordBatchReader for MemoryIterator {
+    /// Get the schema
+    fn schema(&self) -> SchemaRef {
+        self.schema.clone()
     }
 }
