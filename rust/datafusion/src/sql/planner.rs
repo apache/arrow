@@ -343,7 +343,7 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
         match *limit {
             Some(ref limit_expr) => {
                 let n = match self.sql_to_rex(&limit_expr, &input.schema())? {
-                    Expr::Literal(ScalarValue::Int64(n)) => Ok(n.unwrap() as usize),
+                    Expr::Literal(ScalarValue::Int64(Some(n))) => Ok(n as usize),
                     _ => Err(ExecutionError::General(
                         "Unexpected expression for LIMIT clause".to_string(),
                     )),
