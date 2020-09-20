@@ -984,7 +984,7 @@ impl OffsetSizeTrait for i64 {
     }
 }
 
-pub(crate) struct GenericListArray<OffsetSize> {
+pub struct GenericListArray<OffsetSize> {
     data: ArrayDataRef,
     values: ArrayRef,
     value_offsets: RawPtrBox<OffsetSize>,
@@ -1256,7 +1256,7 @@ impl fmt::Debug for FixedSizeListArray {
     }
 }
 
-pub(crate) struct GenericBinaryArray<OffsetSize> {
+pub struct GenericBinaryArray<OffsetSize> {
     data: ArrayDataRef,
     value_offsets: RawPtrBox<OffsetSize>,
     value_data: RawPtrBox<u8>,
@@ -1351,134 +1351,128 @@ pub type BinaryArray = GenericBinaryArray<i32>;
 /// type.
 pub type LargeBinaryArray = GenericBinaryArray<i64>;
 
-macro_rules! make_binary_type {
-    ($name:ident, $offset_ty:ty) => {
-        pub struct $name {
-            data: ArrayDataRef,
-            value_offsets: RawPtrBox<$offset_ty>,
-            value_data: RawPtrBox<u8>,
-        }
-
-        impl $name {
-            /// Returns the offset for the element at index `i`.
-            ///
-            /// Note this doesn't do any bound checking, for performance reason.
-            #[inline]
-            pub fn value_offset(&self, i: usize) -> $offset_ty {
-                self.value_offset_at(self.data.offset() + i)
-            }
-
-            /// Returns the length for the element at index `i`.
-            ///
-            /// Note this doesn't do any bound checking, for performance reason.
-            #[inline]
-            pub fn value_length(&self, mut i: usize) -> $offset_ty {
-                i += self.data.offset();
-                self.value_offset_at(i + 1) - self.value_offset_at(i)
-            }
-
-            /// Returns a clone of the value offset buffer
-            pub fn value_offsets(&self) -> Buffer {
-                self.data.buffers()[0].clone()
-            }
-
-            /// Returns a clone of the value data buffer
-            pub fn value_data(&self) -> Buffer {
-                self.data.buffers()[1].clone()
-            }
-
-            #[inline]
-            fn value_offset_at(&self, i: usize) -> $offset_ty {
-                unsafe { *self.value_offsets.get().add(i) }
-            }
-        }
-
-        impl Array for $name {
-            fn as_any(&self) -> &Any {
-                self
-            }
-
-            fn data(&self) -> ArrayDataRef {
-                self.data.clone()
-            }
-
-            fn data_ref(&self) -> &ArrayDataRef {
-                &self.data
-            }
-
-            /// Returns the total number of bytes of memory occupied by the buffers owned by this [$name].
-            fn get_buffer_memory_size(&self) -> usize {
-                self.data.get_buffer_memory_size()
-            }
-
-            /// Returns the total number of bytes of memory occupied physically by this [$name].
-            fn get_array_memory_size(&self) -> usize {
-                self.data.get_array_memory_size() + mem::size_of_val(self)
-            }
-        }
-    };
+/// Generic struct for [Large]StringArray
+pub struct GenericStringArray<OffsetSize> {
+    data: ArrayDataRef,
+    value_offsets: RawPtrBox<OffsetSize>,
+    value_data: RawPtrBox<u8>,
 }
 
-make_binary_type!(StringArray, i32);
-make_binary_type!(LargeStringArray, i64);
+impl<OffsetSize: OffsetSizeTrait> GenericStringArray<OffsetSize> {
+    /// Returns the offset for the element at index `i`.
+    ///
+    /// Note this doesn't do any bound checking, for performance reason.
+    #[inline]
+    pub fn value_offset(&self, i: usize) -> OffsetSize {
+        self.value_offset_at(self.data.offset() + i)
+    }
+
+    /// Returns the length for the element at index `i`.
+    ///
+    /// Note this doesn't do any bound checking, for performance reason.
+    #[inline]
+    pub fn value_length(&self, mut i: usize) -> OffsetSize {
+        i += self.data.offset();
+        self.value_offset_at(i + 1) - self.value_offset_at(i)
+    }
+
+    /// Returns a clone of the value offset buffer
+    pub fn value_offsets(&self) -> Buffer {
+        self.data.buffers()[0].clone()
+    }
+
+    /// Returns a clone of the value data buffer
+    pub fn value_data(&self) -> Buffer {
+        self.data.buffers()[1].clone()
+    }
+
+    #[inline]
+    fn value_offset_at(&self, i: usize) -> OffsetSize {
+        unsafe { *self.value_offsets.get().add(i) }
+    }
+
+    /// Returns the element at index `i` as &str
+    pub fn value(&self, i: usize) -> &str {
+        assert!(i < self.data.len(), "StringArray out of bounds access");
+        let offset = i.checked_add(self.data.offset()).unwrap();
+        unsafe {
+            let pos = self.value_offset_at(offset);
+            let slice = std::slice::from_raw_parts(
+                self.value_data.get().offset(pos.to_isize()),
+                (self.value_offset_at(offset + 1) - pos).to_usize(),
+            );
+
+            std::str::from_utf8_unchecked(slice)
+        }
+    }
+}
+
+impl<OffsetSize: OffsetSizeTrait> fmt::Debug for GenericStringArray<OffsetSize> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}\n[\n", OffsetSize::prefix())?;
+        print_long_array(self, f, |array, index, f| {
+            fmt::Debug::fmt(&array.value(index), f)
+        })?;
+        write!(f, "]")
+    }
+}
+
+impl<OffsetSize: OffsetSizeTrait> Array for GenericStringArray<OffsetSize> {
+    fn as_any(&self) -> &Any {
+        self
+    }
+
+    fn data(&self) -> ArrayDataRef {
+        self.data.clone()
+    }
+
+    fn data_ref(&self) -> &ArrayDataRef {
+        &self.data
+    }
+
+    /// Returns the total number of bytes of memory occupied by the buffers owned by this [$name].
+    fn get_buffer_memory_size(&self) -> usize {
+        self.data.get_buffer_memory_size()
+    }
+
+    /// Returns the total number of bytes of memory occupied physically by this [$name].
+    fn get_array_memory_size(&self) -> usize {
+        self.data.get_array_memory_size() + mem::size_of_val(self)
+    }
+}
+
+impl<OffsetSize: OffsetSizeTrait> From<ArrayDataRef> for GenericStringArray<OffsetSize> {
+    fn from(data: ArrayDataRef) -> Self {
+        assert_eq!(
+            data.buffers().len(),
+            2,
+            "StringArray data should contain 2 buffers only (offsets and values)"
+        );
+        let raw_value_offsets = data.buffers()[0].raw_data();
+        let value_data = data.buffers()[1].raw_data();
+        Self {
+            data,
+            value_offsets: RawPtrBox::new(as_aligned_pointer::<OffsetSize>(
+                raw_value_offsets,
+            )),
+            value_data: RawPtrBox::new(value_data),
+        }
+    }
+}
+
+/// A list array where each element is a variable-sized sequence of values with the same
+/// type.
+pub type StringArray = GenericStringArray<i32>;
+
+/// A list array where each element is a variable-sized sequence of values with the same
+/// type.
+pub type LargeStringArray = GenericStringArray<i64>;
 
 /// A type of `FixedSizeListArray` whose elements are binaries.
 pub struct FixedSizeBinaryArray {
     data: ArrayDataRef,
     value_data: RawPtrBox<u8>,
     length: i32,
-}
-
-/// Common operations on string arrays
-pub trait StringArrayOps {
-    /// Returns the element at index `i` as a string slice.
-    fn value(&self, i: usize) -> &str;
-}
-
-impl StringArrayOps for StringArray {
-    fn value(&self, i: usize) -> &str {
-        assert!(i < self.data.len(), "StringArray out of bounds access");
-        let offset = i.checked_add(self.data.offset()).unwrap();
-        unsafe {
-            let pos = self.value_offset_at(offset);
-            let slice = std::slice::from_raw_parts(
-                self.value_data.get().offset(pos as isize),
-                (self.value_offset_at(offset + 1) - pos) as usize,
-            );
-
-            std::str::from_utf8_unchecked(slice)
-        }
-    }
-}
-
-impl StringArray {
-    /// Returns a new string array builder
-    pub fn builder(capacity: usize) -> StringBuilder {
-        StringBuilder::new(capacity)
-    }
-}
-
-impl StringArrayOps for LargeStringArray {
-    fn value(&self, i: usize) -> &str {
-        assert!(i < self.data.len(), "LargeStringArray out of bounds access");
-        let offset = i.checked_add(self.data.offset()).unwrap();
-        unsafe {
-            let pos = self.value_offset_at(offset);
-            let slice = std::slice::from_raw_parts(
-                self.value_data.get().offset(pos as isize),
-                (self.value_offset_at(offset + 1) - pos) as usize,
-            );
-
-            std::str::from_utf8_unchecked(slice)
-        }
-    }
-}
-
-impl LargeStringArray {
-    // Returns a new large string array builder
-    pub fn builder(capacity: usize) -> LargeStringBuilder {
-        LargeStringBuilder::new(capacity)
-    }
 }
 
 impl FixedSizeBinaryArray {
@@ -1548,40 +1542,6 @@ impl From<ArrayDataRef> for LargeBinaryArray {
             data.buffers().len(),
             2,
             "LargeBinaryArray data should contain 2 buffers only (offsets and values)"
-        );
-        let raw_value_offsets = data.buffers()[0].raw_data();
-        let value_data = data.buffers()[1].raw_data();
-        Self {
-            data,
-            value_offsets: RawPtrBox::new(as_aligned_pointer::<i64>(raw_value_offsets)),
-            value_data: RawPtrBox::new(value_data),
-        }
-    }
-}
-
-impl From<ArrayDataRef> for StringArray {
-    fn from(data: ArrayDataRef) -> Self {
-        assert_eq!(
-            data.buffers().len(),
-            2,
-            "StringArray data should contain 2 buffers only (offsets and values)"
-        );
-        let raw_value_offsets = data.buffers()[0].raw_data();
-        let value_data = data.buffers()[1].raw_data();
-        Self {
-            data,
-            value_offsets: RawPtrBox::new(as_aligned_pointer::<i32>(raw_value_offsets)),
-            value_data: RawPtrBox::new(value_data),
-        }
-    }
-}
-
-impl From<ArrayDataRef> for LargeStringArray {
-    fn from(data: ArrayDataRef) -> Self {
-        assert_eq!(
-            data.buffers().len(),
-            2,
-            "LargeStringArray data should contain 2 buffers only (offsets and values)"
         );
         let raw_value_offsets = data.buffers()[0].raw_data();
         let value_data = data.buffers()[1].raw_data();
@@ -1857,26 +1817,6 @@ impl From<FixedSizeListArray> for FixedSizeBinaryArray {
 
         let data = builder.build();
         Self::from(data)
-    }
-}
-
-impl fmt::Debug for StringArray {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "StringArray\n[\n")?;
-        print_long_array(self, f, |array, index, f| {
-            fmt::Debug::fmt(&array.value(index), f)
-        })?;
-        write!(f, "]")
-    }
-}
-
-impl fmt::Debug for LargeStringArray {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "LargeStringArray\n[\n")?;
-        print_long_array(self, f, |array, index, f| {
-            fmt::Debug::fmt(&array.value(index), f)
-        })?;
-        write!(f, "]")
     }
 }
 

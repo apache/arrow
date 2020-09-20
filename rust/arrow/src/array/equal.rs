@@ -18,7 +18,9 @@
 use super::*;
 use crate::datatypes::*;
 use crate::util::bit_util;
-use array::{Array, GenericBinaryArray, GenericListArray, OffsetSizeTrait};
+use array::{
+    Array, GenericBinaryArray, GenericListArray, GenericStringArray, OffsetSizeTrait,
+};
 use hex::FromHex;
 use serde_json::value::Value::{Null as JNull, Object, String as JString};
 use serde_json::Value;
@@ -138,19 +140,19 @@ impl PartialEq for BooleanArray {
     }
 }
 
-impl PartialEq for StringArray {
+impl<OffsetSize: OffsetSizeTrait> PartialEq for GenericStringArray<OffsetSize> {
+    fn eq(&self, other: &Self) -> bool {
+        self.equals(other)
+    }
+}
+
+impl<OffsetSize: OffsetSizeTrait> PartialEq for GenericBinaryArray<OffsetSize> {
     fn eq(&self, other: &Self) -> bool {
         self.equals(other)
     }
 }
 
 impl PartialEq for FixedSizeBinaryArray {
-    fn eq(&self, other: &Self) -> bool {
-        self.equals(other)
-    }
-}
-
-impl PartialEq for BinaryArray {
     fn eq(&self, other: &Self) -> bool {
         self.equals(other)
     }
@@ -432,13 +434,16 @@ impl<OffsetSize: OffsetSizeTrait> ArrayEqual for GenericBinaryArray<OffsetSize> 
     }
 }
 
-impl ArrayEqual for StringArray {
+impl<OffsetSize: OffsetSizeTrait> ArrayEqual for GenericStringArray<OffsetSize> {
     fn equals(&self, other: &dyn Array) -> bool {
         if !base_equal(&self.data(), &other.data()) {
             return false;
         }
 
-        let other = other.as_any().downcast_ref::<StringArray>().unwrap();
+        let other = other
+            .as_any()
+            .downcast_ref::<GenericStringArray<OffsetSize>>()
+            .unwrap();
 
         if !value_offset_equal(self, other) {
             return false;
@@ -492,110 +497,6 @@ impl ArrayEqual for StringArray {
     ) -> bool {
         assert!(other_start_idx + (end_idx - start_idx) <= other.len());
         let other = other.as_any().downcast_ref::<StringArray>().unwrap();
-
-        let mut j = other_start_idx;
-        for i in start_idx..end_idx {
-            let is_null = self.is_null(i);
-            let other_is_null = other.is_null(j);
-
-            if is_null != other_is_null {
-                return false;
-            }
-
-            if is_null {
-                continue;
-            }
-
-            let start_offset = self.value_offset(i) as usize;
-            let end_offset = self.value_offset(i + 1) as usize;
-            let other_start_offset = other.value_offset(j) as usize;
-            let other_end_offset = other.value_offset(j + 1) as usize;
-
-            if end_offset - start_offset != other_end_offset - other_start_offset {
-                return false;
-            }
-
-            let value_buf = self.value_data();
-            let other_value_buf = other.value_data();
-            let value_data = value_buf.data();
-            let other_value_data = other_value_buf.data();
-
-            if end_offset - start_offset > 0 {
-                let len = end_offset - start_offset;
-                if value_data[start_offset..(start_offset + len)]
-                    != other_value_data[other_start_offset..(other_start_offset + len)]
-                {
-                    return false;
-                }
-            }
-
-            j += 1;
-        }
-
-        true
-    }
-}
-
-impl ArrayEqual for LargeStringArray {
-    fn equals(&self, other: &dyn Array) -> bool {
-        if !base_equal(&self.data(), &other.data()) {
-            return false;
-        }
-
-        let other = other.as_any().downcast_ref::<LargeStringArray>().unwrap();
-
-        if !large_value_offset_equal(self, other) {
-            return false;
-        }
-
-        // TODO: handle null & length == 0 case?
-
-        let value_buf = self.value_data();
-        let other_value_buf = other.value_data();
-        let value_data = value_buf.data();
-        let other_value_data = other_value_buf.data();
-
-        if self.null_count() == 0 {
-            // No offset in both - just do memcmp
-            if self.offset() == 0 && other.offset() == 0 {
-                let len = self.value_offset(self.len()) as usize;
-                return value_data[..len] == other_value_data[..len];
-            } else {
-                let start = self.value_offset(0) as usize;
-                let other_start = other.value_offset(0) as usize;
-                let len = (self.value_offset(self.len()) - self.value_offset(0)) as usize;
-                return value_data[start..(start + len)]
-                    == other_value_data[other_start..(other_start + len)];
-            }
-        } else {
-            for i in 0..self.len() {
-                if self.is_null(i) {
-                    continue;
-                }
-
-                let start = self.value_offset(i) as usize;
-                let other_start = other.value_offset(i) as usize;
-                let len = self.value_length(i) as usize;
-                if value_data[start..(start + len)]
-                    != other_value_data[other_start..(other_start + len)]
-                {
-                    return false;
-                }
-            }
-        }
-
-        true
-    }
-
-    fn range_equals(
-        &self,
-        other: &dyn Array,
-        start_idx: usize,
-        end_idx: usize,
-        other_start_idx: usize,
-    ) -> bool {
-        assert!(other_start_idx + (end_idx - start_idx) <= other.len());
-        let other = other.as_any().downcast_ref::<LargeStringArray>().unwrap();
 
         let mut j = other_start_idx;
         for i in start_idx..end_idx {
@@ -991,7 +892,7 @@ impl<OffsetSize: OffsetSizeTrait> JsonEqual for GenericListArray<OffsetSize> {
     }
 }
 
-impl PartialEq<Value> for ListArray {
+impl<OffsetSize: OffsetSizeTrait> PartialEq<Value> for GenericListArray<OffsetSize> {
     fn eq(&self, json: &Value) -> bool {
         match json {
             Value::Array(json_array) => self.equals_json_values(json_array),
@@ -1000,26 +901,8 @@ impl PartialEq<Value> for ListArray {
     }
 }
 
-impl PartialEq<Value> for LargeListArray {
-    fn eq(&self, json: &Value) -> bool {
-        match json {
-            Value::Array(json_array) => self.equals_json_values(json_array),
-            _ => false,
-        }
-    }
-}
-
-impl PartialEq<ListArray> for Value {
-    fn eq(&self, arrow: &ListArray) -> bool {
-        match self {
-            Value::Array(json_array) => arrow.equals_json_values(json_array),
-            _ => false,
-        }
-    }
-}
-
-impl PartialEq<LargeListArray> for Value {
-    fn eq(&self, arrow: &LargeListArray) -> bool {
+impl<OffsetSize: OffsetSizeTrait> PartialEq<GenericListArray<OffsetSize>> for Value {
+    fn eq(&self, arrow: &GenericListArray<OffsetSize>) -> bool {
         match self {
             Value::Array(json_array) => arrow.equals_json_values(json_array),
             _ => false,
@@ -1179,7 +1062,7 @@ impl<OffsetSize: OffsetSizeTrait> PartialEq<GenericBinaryArray<OffsetSize>> for 
     }
 }
 
-impl JsonEqual for StringArray {
+impl<OffsetSize: OffsetSizeTrait> JsonEqual for GenericStringArray<OffsetSize> {
     fn equals_json(&self, json: &[&Value]) -> bool {
         if self.len() != json.len() {
             return false;
@@ -1193,7 +1076,7 @@ impl JsonEqual for StringArray {
     }
 }
 
-impl PartialEq<Value> for StringArray {
+impl<OffsetSize: OffsetSizeTrait> PartialEq<Value> for GenericStringArray<OffsetSize> {
     fn eq(&self, json: &Value) -> bool {
         match json {
             Value::Array(json_array) => self.equals_json_values(&json_array),
@@ -1202,40 +1085,8 @@ impl PartialEq<Value> for StringArray {
     }
 }
 
-impl PartialEq<StringArray> for Value {
-    fn eq(&self, arrow: &StringArray) -> bool {
-        match self {
-            Value::Array(json_array) => arrow.equals_json_values(&json_array),
-            _ => false,
-        }
-    }
-}
-
-impl JsonEqual for LargeStringArray {
-    fn equals_json(&self, json: &[&Value]) -> bool {
-        if self.len() != json.len() {
-            return false;
-        }
-
-        (0..self.len()).all(|i| match json[i] {
-            JString(s) => self.is_valid(i) && s.as_str() == self.value(i),
-            JNull => self.is_null(i),
-            _ => false,
-        })
-    }
-}
-
-impl PartialEq<Value> for LargeStringArray {
-    fn eq(&self, json: &Value) -> bool {
-        match json {
-            Value::Array(json_array) => self.equals_json_values(&json_array),
-            _ => false,
-        }
-    }
-}
-
-impl PartialEq<LargeStringArray> for Value {
-    fn eq(&self, arrow: &LargeStringArray) -> bool {
+impl<OffsetSize: OffsetSizeTrait> PartialEq<GenericStringArray<OffsetSize>> for Value {
+    fn eq(&self, arrow: &GenericStringArray<OffsetSize>) -> bool {
         match self {
             Value::Array(json_array) => arrow.equals_json_values(&json_array),
             _ => false,

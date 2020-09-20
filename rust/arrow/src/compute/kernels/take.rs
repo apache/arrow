@@ -250,18 +250,20 @@ fn take_boolean(values: &ArrayRef, indices: &UInt32Array) -> Result<ArrayRef> {
 }
 
 /// `take` implementation for string arrays
-fn take_string<T, K: 'static>(
+fn take_string<T>(
     values: &ArrayRef,
     indices: &UInt32Array,
     data_type: DataType,
 ) -> Result<ArrayRef>
 where
     T: Zero + AddAssign + ToByteSlice + ArrowNativeType,
-    K: Array + From<ArrayDataRef> + StringArrayOps,
 {
     let data_len = indices.len();
 
-    let array = values.as_any().downcast_ref::<K>().unwrap();
+    let array = values
+        .as_any()
+        .downcast_ref::<GenericStringArray<T>>()
+        .unwrap();
 
     let num_bytes = bit_util::ceil(data_len, 8);
     let mut null_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, true);
@@ -298,7 +300,7 @@ where
         .add_buffer(Buffer::from(offsets.to_byte_slice()))
         .add_buffer(Buffer::from(&values[..]))
         .build();
-    Ok(Arc::new(K::from(data)))
+    Ok(Arc::new(GenericStringArray::<T>::from(data)))
 }
 
 /// `take` implementation for list arrays
@@ -527,7 +529,7 @@ mod tests {
 
     fn _test_take_string<'a, K: 'static>()
     where
-        K: Array + From<Vec<Option<&'a str>>> + StringArrayOps,
+        K: Array + From<Vec<Option<&'a str>>>,
     {
         let index = UInt32Array::from(vec![Some(3), None, Some(1), Some(3), Some(4)]);
 
