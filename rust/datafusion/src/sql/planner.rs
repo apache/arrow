@@ -23,9 +23,9 @@ use std::sync::Arc;
 use crate::error::{ExecutionError, Result};
 use crate::logical_plan::Expr::Alias;
 use crate::logical_plan::{
-    lit, Expr, LogicalPlan, LogicalPlanBuilder, Operator, PlanType, ScalarValue,
-    StringifiedPlan,
+    lit, Expr, LogicalPlan, LogicalPlanBuilder, Operator, PlanType, StringifiedPlan,
 };
+use crate::scalar::ScalarValue;
 use crate::{
     physical_plan::udf::ScalarUDF,
     physical_plan::{aggregates, functions},
@@ -343,7 +343,7 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
         match *limit {
             Some(ref limit_expr) => {
                 let n = match self.sql_to_rex(&limit_expr, &input.schema())? {
-                    Expr::Literal(ScalarValue::Int64(n)) => Ok(n as usize),
+                    Expr::Literal(ScalarValue::Int64(Some(n))) => Ok(n as usize),
                     _ => Err(ExecutionError::General(
                         "Unexpected expression for LIMIT clause".to_string(),
                     )),

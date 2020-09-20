@@ -26,10 +26,13 @@ use std::{any::Any, collections::HashSet, fmt, sync::Arc};
 
 use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
 
-use crate::datasource::csv::{CsvFile, CsvReadOptions};
 use crate::datasource::parquet::ParquetTable;
 use crate::datasource::TableProvider;
 use crate::error::{ExecutionError, Result};
+use crate::{
+    datasource::csv::{CsvFile, CsvReadOptions},
+    scalar::ScalarValue,
+};
 use crate::{
     physical_plan::{
         aggregates, expressions::binary_operator_data_type, functions,
@@ -42,84 +45,6 @@ use functions::{ReturnTypeFunction, ScalarFunctionImplementation, Signature};
 
 mod operators;
 pub use operators::Operator;
-
-/// ScalarValue enumeration
-#[derive(Debug, Clone, PartialEq)]
-pub enum ScalarValue {
-    /// null value
-    Null,
-    /// true or false value
-    Boolean(bool),
-    /// 32bit float
-    Float32(f32),
-    /// 64bit float
-    Float64(f64),
-    /// signed 8bit int
-    Int8(i8),
-    /// signed 16bit int
-    Int16(i16),
-    /// signed 32bit int
-    Int32(i32),
-    /// signed 64bit int
-    Int64(i64),
-    /// unsigned 8bit int
-    UInt8(u8),
-    /// unsigned 16bit int
-    UInt16(u16),
-    /// unsigned 32bit int
-    UInt32(u32),
-    /// unsigned 64bit int
-    UInt64(u64),
-    /// utf-8 encoded string
-    Utf8(String),
-    /// List of scalars packed as a struct
-    Struct(Vec<ScalarValue>),
-}
-
-impl ScalarValue {
-    /// Getter for the `DataType` of the value
-    pub fn get_datatype(&self) -> Result<DataType> {
-        match *self {
-            ScalarValue::Boolean(_) => Ok(DataType::Boolean),
-            ScalarValue::UInt8(_) => Ok(DataType::UInt8),
-            ScalarValue::UInt16(_) => Ok(DataType::UInt16),
-            ScalarValue::UInt32(_) => Ok(DataType::UInt32),
-            ScalarValue::UInt64(_) => Ok(DataType::UInt64),
-            ScalarValue::Int8(_) => Ok(DataType::Int8),
-            ScalarValue::Int16(_) => Ok(DataType::Int16),
-            ScalarValue::Int32(_) => Ok(DataType::Int32),
-            ScalarValue::Int64(_) => Ok(DataType::Int64),
-            ScalarValue::Float32(_) => Ok(DataType::Float32),
-            ScalarValue::Float64(_) => Ok(DataType::Float64),
-            ScalarValue::Utf8(_) => Ok(DataType::Utf8),
-            _ => Err(ExecutionError::General(format!(
-                "Cannot treat {:?} as scalar value",
-                self
-            ))),
-        }
-    }
-}
-
-impl fmt::Display for ScalarValue {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            ScalarValue::Boolean(value) => write!(f, "{}", value),
-            ScalarValue::UInt8(value) => write!(f, "{}", value),
-            ScalarValue::UInt16(value) => write!(f, "{}", value),
-            ScalarValue::UInt32(value) => write!(f, "{}", value),
-            ScalarValue::UInt64(value) => write!(f, "{}", value),
-            ScalarValue::Int8(value) => write!(f, "{}", value),
-            ScalarValue::Int16(value) => write!(f, "{}", value),
-            ScalarValue::Int32(value) => write!(f, "{}", value),
-            ScalarValue::Int64(value) => write!(f, "{}", value),
-            ScalarValue::Float32(value) => write!(f, "{}", value),
-            ScalarValue::Float64(value) => write!(f, "{}", value),
-            ScalarValue::Utf8(value) => write!(f, "{}", value),
-            ScalarValue::Null => write!(f, "NULL"),
-            ScalarValue::Struct(_) => write!(f, "STRUCT"),
-        }
-    }
-}
 
 fn create_function_name(
     fun: &String,
@@ -148,7 +73,7 @@ fn create_name(e: &Expr, input_schema: &Schema) -> Result<String> {
         }
         Expr::Cast { expr, data_type } => {
             let expr = create_name(expr, input_schema)?;
-            Ok(format!("CAST({} as {:?})", expr, data_type))
+            Ok(format!("CAST({} AS {:?})", expr, data_type))
         }
         Expr::Not(expr) => {
             let expr = create_name(expr, input_schema)?;
@@ -271,7 +196,7 @@ impl Expr {
             Expr::Alias(expr, _) => expr.get_type(schema),
             Expr::Column(name) => Ok(schema.field_with_name(name)?.data_type().clone()),
             Expr::ScalarVariable(_) => Ok(DataType::Utf8),
-            Expr::Literal(l) => l.get_datatype(),
+            Expr::Literal(l) => Ok(l.get_datatype()),
             Expr::Cast { data_type, .. } => Ok(data_type.clone()),
             Expr::ScalarUDF { fun, args } => {
                 let data_types = args
@@ -324,10 +249,7 @@ impl Expr {
         match self {
             Expr::Alias(expr, _) => expr.nullable(input_schema),
             Expr::Column(name) => Ok(input_schema.field_with_name(name)?.is_nullable()),
-            Expr::Literal(value) => match value {
-                ScalarValue::Null => Ok(true),
-                _ => Ok(false),
-            },
+            Expr::Literal(value) => Ok(value.is_null()),
             Expr::ScalarVariable(_) => Ok(true),
             Expr::Cast { expr, .. } => expr.nullable(input_schema),
             Expr::ScalarFunction { .. } => Ok(true),
@@ -537,13 +459,13 @@ pub trait Literal {
 
 impl Literal for &str {
     fn lit(&self) -> Expr {
-        Expr::Literal(ScalarValue::Utf8((*self).to_owned()))
+        Expr::Literal(ScalarValue::Utf8(Some((*self).to_owned())))
     }
 }
 
 impl Literal for String {
     fn lit(&self) -> Expr {
-        Expr::Literal(ScalarValue::Utf8((*self).to_owned()))
+        Expr::Literal(ScalarValue::Utf8(Some((*self).to_owned())))
     }
 }
 
@@ -552,7 +474,7 @@ macro_rules! make_literal {
         #[allow(missing_docs)]
         impl Literal for $TYPE {
             fn lit(&self) -> Expr {
-                Expr::Literal(ScalarValue::$SCALAR(self.clone()))
+                Expr::Literal(ScalarValue::$SCALAR(Some(self.clone())))
             }
         }
     };

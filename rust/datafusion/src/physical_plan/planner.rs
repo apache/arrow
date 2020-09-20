@@ -42,6 +42,7 @@ use crate::physical_plan::{AggregateExpr, ExecutionPlan, PhysicalExpr, PhysicalP
 use crate::variable::VarType;
 use arrow::compute::SortOptions;
 use arrow::datatypes::Schema;
+use expressions::col;
 
 /// This trait permits the `DefaultPhysicalPlanner` to create plans for
 /// user defined `ExtensionPlanNode`s
@@ -216,32 +217,18 @@ impl DefaultPhysicalPlanner {
                     .collect::<Result<Vec<_>>>()?;
                 let aggregates = aggr_expr
                     .iter()
-                    .map(|e| {
-                        tuple_err((
-                            self.create_aggregate_expr(e, &input_schema, ctx_state),
-                            e.name(&input_schema),
-                        ))
-                    })
+                    .map(|e| self.create_aggregate_expr(e, &input_schema, ctx_state))
                     .collect::<Result<Vec<_>>>()?;
 
-                let initial_aggr = HashAggregateExec::try_new(
+                let initial_aggr = Arc::new(HashAggregateExec::try_new(
                     AggregateMode::Partial,
                     groups.clone(),
                     aggregates.clone(),
                     input,
-                )?;
+                )?);
 
-                if initial_aggr.output_partitioning().partition_count() == 1 {
-                    return Ok(Arc::new(initial_aggr));
-                }
-
-                let partial_aggr = Arc::new(initial_aggr);
-
-                // construct the expressions for the final aggregation
-                let (final_group, final_aggr) = partial_aggr.make_final_expr(
-                    groups.iter().map(|x| x.1.clone()).collect(),
-                    aggregates.iter().map(|x| x.1.clone()).collect(),
-                );
+                let final_group: Vec<Arc<dyn PhysicalExpr>> =
+                    (0..groups.len()).map(|i| col(&groups[i].1)).collect();
 
                 // construct a second aggregation, keeping the final column name equal to the first aggregation
                 // and the expressions corresponding to the respective aggregate
@@ -252,12 +239,8 @@ impl DefaultPhysicalPlanner {
                         .enumerate()
                         .map(|(i, expr)| (expr.clone(), groups[i].1.clone()))
                         .collect(),
-                    final_aggr
-                        .iter()
-                        .enumerate()
-                        .map(|(i, expr)| (expr.clone(), aggregates[i].1.clone()))
-                        .collect(),
-                    partial_aggr,
+                    aggregates,
+                    initial_aggr,
                 )?))
             }
             LogicalPlan::Filter {
@@ -484,7 +467,12 @@ impl DefaultPhysicalPlanner {
                     .iter()
                     .map(|e| self.create_physical_expr(e, input_schema, ctx_state))
                     .collect::<Result<Vec<_>>>()?;
-                aggregates::create_aggregate_expr(fun, &args, input_schema)
+                aggregates::create_aggregate_expr(
+                    fun,
+                    &args,
+                    input_schema,
+                    e.name(input_schema)?,
+                )
             }
             other => Err(ExecutionError::General(format!(
                 "Invalid aggregate expression '{:?}'",

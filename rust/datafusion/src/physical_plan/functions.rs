@@ -349,9 +349,7 @@ impl PhysicalExpr for ScalarFunctionExpr {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        error::Result, logical_plan::ScalarValue, physical_plan::expressions::lit,
-    };
+    use crate::{error::Result, physical_plan::expressions::lit, scalar::ScalarValue};
     use arrow::{
         array::{
             ArrayRef, FixedSizeListArray, Float64Array, Int32Array, PrimitiveArrayOps,
@@ -392,11 +390,11 @@ mod tests {
         // 2.71828182845904523536... : https://oeis.org/A001113
         let exp_f64 = "2.718281828459045";
         let exp_f32 = "2.7182817459106445";
-        generic_test_math(ScalarValue::Int32(1i32), exp_f64)?;
-        generic_test_math(ScalarValue::UInt32(1u32), exp_f64)?;
-        generic_test_math(ScalarValue::UInt64(1u64), exp_f64)?;
-        generic_test_math(ScalarValue::Float64(1f64), exp_f64)?;
-        generic_test_math(ScalarValue::Float32(1f32), exp_f32)?;
+        generic_test_math(ScalarValue::from(1i32), exp_f64)?;
+        generic_test_math(ScalarValue::from(1u32), exp_f64)?;
+        generic_test_math(ScalarValue::from(1u64), exp_f64)?;
+        generic_test_math(ScalarValue::from(1f64), exp_f64)?;
+        generic_test_math(ScalarValue::from(1f32), exp_f32)?;
         Ok(())
     }
 
@@ -430,7 +428,7 @@ mod tests {
 
     #[test]
     fn test_concat_utf8() -> Result<()> {
-        test_concat(ScalarValue::Utf8("aa".to_string()), "aaaa")
+        test_concat(ScalarValue::Utf8(Some("aa".to_string())), "aaaa")
     }
 
     #[test]
@@ -487,24 +485,24 @@ mod tests {
     #[test]
     fn test_array() -> Result<()> {
         generic_test_array(
-            ScalarValue::Utf8("aa".to_string()),
-            ScalarValue::Utf8("aa".to_string()),
+            ScalarValue::Utf8(Some("aa".to_string())),
+            ScalarValue::Utf8(Some("aa".to_string())),
             DataType::Utf8,
             "StringArray\n[\n  \"aa\",\n  \"aa\",\n]",
         )?;
 
         // different types, to validate that casting happens
         generic_test_array(
-            ScalarValue::UInt32(1),
-            ScalarValue::UInt64(1),
+            ScalarValue::from(1u32),
+            ScalarValue::from(1u64),
             DataType::UInt64,
             "PrimitiveArray<UInt64>\n[\n  1,\n  1,\n]",
         )?;
 
         // different types (another order), to validate that casting happens
         generic_test_array(
-            ScalarValue::UInt64(1),
-            ScalarValue::UInt32(1),
+            ScalarValue::from(1u64),
+            ScalarValue::from(1u32),
             DataType::UInt64,
             "PrimitiveArray<UInt64>\n[\n  1,\n  1,\n]",
         )

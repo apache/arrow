@@ -22,12 +22,12 @@ use std::fmt::{Debug, Display};
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 
-use crate::error::Result;
 use crate::execution::context::ExecutionContextState;
-use crate::logical_plan::{LogicalPlan, ScalarValue};
-use arrow::array::ArrayRef;
+use crate::logical_plan::LogicalPlan;
+use crate::{error::Result, scalar::ScalarValue};
 use arrow::datatypes::{DataType, Schema, SchemaRef};
 use arrow::record_batch::{RecordBatch, RecordBatchReader};
+use arrow::{array::ArrayRef, datatypes::Field};
 
 /// Physical query planner that converts a `LogicalPlan` to an
 /// `ExecutionPlan` suitable for execution.
@@ -104,30 +104,81 @@ pub trait PhysicalExpr: Send + Sync + Display + Debug {
     fn evaluate(&self, batch: &RecordBatch) -> Result<ArrayRef>;
 }
 
-/// Aggregate expression that can be evaluated against a RecordBatch
+/// An aggregate expression that:
+/// * knows its resulting field
+/// * knows how to create its accumulator
+/// * knows its accumulator's state's field
+/// * knows the expressions from whose its accumulator will receive values
 pub trait AggregateExpr: Send + Sync + Debug {
-    /// Get the data type of this expression, given the schema of the input
-    fn data_type(&self, input_schema: &Schema) -> Result<DataType>;
-    /// Determine whether this expression is nullable, given the schema of the input
-    fn nullable(&self, input_schema: &Schema) -> Result<bool>;
-    /// Evaluate the expression being aggregated
-    fn evaluate_input(&self, batch: &RecordBatch) -> Result<ArrayRef>;
-    /// Create an accumulator for this aggregate expression
-    fn create_accumulator(&self) -> Rc<RefCell<dyn Accumulator>>;
-    /// Create an aggregate expression for combining the results of accumulators from partitions.
-    /// For example, to combine the results of a parallel SUM we just need to do another SUM, but
-    /// to combine the results of parallel COUNT we would also use SUM.
-    fn create_reducer(&self, column_name: &str) -> Arc<dyn AggregateExpr>;
+    /// the field of the final result of this aggregation.
+    fn field(&self) -> Result<Field>;
+
+    /// the accumulator used to accumulate values from the expressions.
+    /// the accumulator expects the same number of arguments as `expressions` and must
+    /// return states with the same description as `state_fields`
+    fn create_accumulator(&self) -> Result<Rc<RefCell<dyn Accumulator>>>;
+
+    /// the fields that encapsulate the Accumulator's state
+    /// the number of fields here equals the number of states that the accumulator contains
+    fn state_fields(&self) -> Result<Vec<Field>>;
+
+    /// expressions that are passed to the Accumulator.
+    /// Single-column aggregations such as `sum` return a single value, others (e.g. `cov`) return many.
+    fn expressions(&self) -> Vec<Arc<dyn PhysicalExpr>>;
 }
 
-/// Aggregate accumulator
-pub trait Accumulator: Debug {
-    /// Update the accumulator based on a row in a batch
-    fn accumulate_scalar(&mut self, value: Option<ScalarValue>) -> Result<()>;
-    /// Update the accumulator based on an array in a batch
-    fn accumulate_batch(&mut self, array: &ArrayRef) -> Result<()>;
-    /// Get the final value for the accumulator
-    fn get_value(&self) -> Result<Option<ScalarValue>>;
+/// An accumulator represents a stateful object that lives throughout the evaluation of multiple rows and
+/// generically accumulates values. An accumulator knows how to:
+/// * update its state from inputs via `update`
+/// * convert its internal state to a vector of scalar values
+/// * update its state from multiple accumulators' states via `merge`
+/// * compute the final value from its internal state via `evaluate`
+pub trait Accumulator: Send + Sync + Debug {
+    /// Returns the state of the accumulator at the end of the accumulation.
+    // in the case of an average on which we track `sum` and `n`, this function should return a vector
+    // of two values, sum and n.
+    fn state(&self) -> Result<Vec<ScalarValue>>;
+
+    /// updates the accumulator's state from a vector of scalars.
+    fn update(&mut self, values: &Vec<ScalarValue>) -> Result<()>;
+
+    /// updates the accumulator's state from a vector of arrays.
+    fn update_batch(&mut self, values: &Vec<ArrayRef>) -> Result<()> {
+        if values.len() == 0 {
+            return Ok(());
+        };
+        (0..values[0].len())
+            .map(|index| {
+                let v = values
+                    .iter()
+                    .map(|array| ScalarValue::try_from_array(array, index))
+                    .collect::<Result<Vec<_>>>()?;
+                self.update(&v)
+            })
+            .collect::<Result<_>>()
+    }
+
+    /// updates the accumulator's state from a vector of scalars.
+    fn merge(&mut self, states: &Vec<ScalarValue>) -> Result<()>;
+
+    /// updates the accumulator's state from a vector of states.
+    fn merge_batch(&mut self, states: &Vec<ArrayRef>) -> Result<()> {
+        if states.len() == 0 {
+            return Ok(());
+        };
+        (0..states[0].len())
+            .map(|index| {
+                let v = states
+                    .iter()
+                    .map(|array| ScalarValue::try_from_array(array, index))
+                    .collect::<Result<Vec<_>>>()?;
+                self.merge(&v)
+            })
+            .collect::<Result<_>>()
+    }
+
+    /// returns its value based on its current state.
+    fn evaluate(&self) -> Result<ScalarValue>;
 }
 
 pub mod aggregates;

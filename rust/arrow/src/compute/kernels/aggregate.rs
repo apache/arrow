@@ -19,8 +19,43 @@
 
 use std::ops::Add;
 
-use crate::array::{Array, PrimitiveArray};
+use crate::array::{
+    Array, LargeStringArray, PrimitiveArray, StringArray, StringArrayOps,
+};
 use crate::datatypes::ArrowNumericType;
+
+/// Helper macro to perform min/max of strings
+macro_rules! min_max_string_helper {
+    ($array:expr, $cmp:tt) => {{
+        let null_count = $array.null_count();
+
+        if null_count == $array.len() {
+            return None
+        }
+        let mut n = "";
+        let mut has_value = false;
+        let data = $array.data();
+
+        if null_count == 0 {
+            for i in 0..data.len() {
+                let item = $array.value(i);
+                if !has_value || (&n $cmp &item) {
+                    has_value = true;
+                    n = item;
+                }
+            }
+        } else {
+            for i in 0..data.len() {
+                let item = $array.value(i);
+                if !has_value || data.is_valid(i) && (&n $cmp &item) {
+                    has_value = true;
+                    n = item;
+                }
+            }
+        }
+        Some(n)
+    }}
+}
 
 /// Returns the minimum value in the array, according to the natural order.
 pub fn min<T>(array: &PrimitiveArray<T>) -> Option<T::Native>
@@ -36,6 +71,26 @@ where
     T: ArrowNumericType,
 {
     min_max_helper(array, |a, b| a < b)
+}
+
+/// Returns the maximum value in the string array, according to the natural order.
+pub fn max_string(array: &StringArray) -> Option<&str> {
+    min_max_string_helper!(array, <)
+}
+
+/// Returns the minimum value in the string array, according to the natural order.
+pub fn min_string(array: &StringArray) -> Option<&str> {
+    min_max_string_helper!(array, >)
+}
+
+/// Returns the minimum value in the string array, according to the natural order.
+pub fn max_large_string(array: &LargeStringArray) -> Option<&str> {
+    min_max_string_helper!(array, <)
+}
+
+/// Returns the minimum value in the string array, according to the natural order.
+pub fn min_large_string(array: &LargeStringArray) -> Option<&str> {
+    min_max_string_helper!(array, >)
 }
 
 /// Helper function to perform min/max lambda function on values from a numeric array.
@@ -148,5 +203,19 @@ mod tests {
         let a = Int32Array::from(vec![Some(5), None, None, Some(8), Some(9)]);
         assert_eq!(5, min(&a).unwrap());
         assert_eq!(9, max(&a).unwrap());
+    }
+
+    #[test]
+    fn test_string_min_max_with_nulls() {
+        let a = StringArray::from(vec![Some("b"), None, None, Some("a"), Some("c")]);
+        assert_eq!("a", min_string(&a).unwrap());
+        assert_eq!("c", max_string(&a).unwrap());
+    }
+
+    #[test]
+    fn test_string_min_max_all_nulls() {
+        let a = StringArray::from(vec![None, None]);
+        assert_eq!(None, min_string(&a));
+        assert_eq!(None, max_string(&a));
     }
 }

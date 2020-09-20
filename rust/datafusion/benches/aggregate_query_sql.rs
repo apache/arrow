@@ -19,18 +19,26 @@
 extern crate criterion;
 use criterion::Criterion;
 
-use std::env;
+use rand::seq::SliceRandom;
+use rand::Rng;
 use std::sync::Arc;
 
 extern crate arrow;
 extern crate datafusion;
 
-use arrow::datatypes::{DataType, Field, Schema};
+use arrow::{
+    array::Float32Array,
+    array::Float64Array,
+    array::StringArray,
+    datatypes::{DataType, Field, Schema},
+    record_batch::RecordBatch,
+};
 
-use datafusion::datasource::{CsvFile, CsvReadOptions, MemTable};
+use datafusion::datasource::MemTable;
+use datafusion::error::Result;
 use datafusion::execution::context::ExecutionContext;
 
-fn aggregate_query(ctx: &mut ExecutionContext, sql: &str) {
+fn query(ctx: &mut ExecutionContext, sql: &str) {
     // execute the query
     let df = ctx.sql(&sql).unwrap();
     let results = df.collect().unwrap();
@@ -39,72 +47,107 @@ fn aggregate_query(ctx: &mut ExecutionContext, sql: &str) {
     for _batch in results {}
 }
 
-fn create_context() -> ExecutionContext {
-    // define schema for data source (csv file)
+fn create_data(size: usize, null_density: f64) -> Vec<Option<f64>> {
+    // use random numbers to avoid spurious compiler optimizations wrt to branching
+    let mut rng = rand::thread_rng();
+
+    (0..size)
+        .map(|_| {
+            if rng.gen::<f64>() > null_density {
+                None
+            } else {
+                Some(rng.gen::<f64>())
+            }
+        })
+        .collect()
+}
+
+fn create_context(
+    partitions_len: usize,
+    array_len: usize,
+    batch_size: usize,
+) -> Result<ExecutionContext> {
+    // define a schema.
     let schema = Arc::new(Schema::new(vec![
-        Field::new("c1", DataType::Utf8, false),
-        Field::new("c2", DataType::UInt32, false),
-        Field::new("c3", DataType::Int8, false),
-        Field::new("c4", DataType::Int16, false),
-        Field::new("c5", DataType::Int32, false),
-        Field::new("c6", DataType::Int64, false),
-        Field::new("c7", DataType::UInt8, false),
-        Field::new("c8", DataType::UInt16, false),
-        Field::new("c9", DataType::UInt32, false),
-        Field::new("c10", DataType::UInt64, false),
-        Field::new("c11", DataType::Float32, false),
-        Field::new("c12", DataType::Float64, false),
-        Field::new("c13", DataType::Utf8, false),
+        Field::new("utf8", DataType::Utf8, false),
+        Field::new("f32", DataType::Float32, false),
+        Field::new("f64", DataType::Float64, false),
     ]));
 
-    let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
+    // define data.
+    let partitions = (0..partitions_len)
+        .map(|_| {
+            (0..array_len / batch_size / partitions_len)
+                .map(|i| {
+                    // the 4 here is the number of different keys.
+                    // a higher number increase sparseness
+                    let vs = vec![0, 1, 2, 3];
+                    let keys: Vec<String> = (0..batch_size)
+                        .map(
+                            // use random numbers to avoid spurious compiler optimizations wrt to branching
+                            |_| format!("hi{:?}", vs.choose(&mut rand::thread_rng())),
+                        )
+                        .collect();
+                    let keys: Vec<&str> = keys.iter().map(|e| &**e).collect();
 
-    // create CSV data source
-    let csv = CsvFile::try_new(
-        &format!("{}/csv/aggregate_test_100.csv", testdata),
-        CsvReadOptions::new().schema(&schema),
-    )
-    .unwrap();
+                    let values = create_data(batch_size, 0.5);
 
-    let mem_table = MemTable::load(&csv).unwrap();
+                    RecordBatch::try_new(
+                        schema.clone(),
+                        vec![
+                            Arc::new(StringArray::from(keys)),
+                            Arc::new(Float32Array::from(vec![i as f32; batch_size])),
+                            Arc::new(Float64Array::from(values)),
+                        ],
+                    )
+                    .unwrap()
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect::<Vec<_>>();
 
-    // create local execution context
     let mut ctx = ExecutionContext::new();
-    ctx.register_table("aggregate_test_100", Box::new(mem_table));
-    ctx
+
+    // declare a table in memory. In spark API, this corresponds to createDataFrame(...).
+    let provider = MemTable::new(schema, partitions)?;
+    ctx.register_table("t", Box::new(provider));
+
+    Ok(ctx)
 }
 
 fn criterion_benchmark(c: &mut Criterion) {
-    c.bench_function("aggregate_query_no_group_by", |b| {
-        let mut ctx = create_context();
+    let partitions_len = 4;
+    let array_len = 32768; // 2^15
+    let batch_size = 2048; // 2^11
+    let mut ctx = create_context(partitions_len, array_len, batch_size).unwrap();
+
+    c.bench_function("aggregate_query_no_group_by 15 12", |b| {
         b.iter(|| {
-            aggregate_query(
+            query(
                 &mut ctx,
-                "SELECT MIN(c12), MAX(c12) \
-                 FROM aggregate_test_100",
+                "SELECT MIN(f64), AVG(f64), COUNT(f64) \
+                 FROM t",
             )
         })
     });
 
-    c.bench_function("aggregate_query_group_by", |b| {
-        let mut ctx = create_context();
+    c.bench_function("aggregate_query_group_by 15 12", |b| {
         b.iter(|| {
-            aggregate_query(
+            query(
                 &mut ctx,
-                "SELECT c1, MIN(c12), MAX(c12) \
-                 FROM aggregate_test_100 GROUP BY c1",
+                "SELECT utf8, MIN(f64), AVG(f64), COUNT(f64) \
+                 FROM t GROUP BY utf8",
             )
         })
     });
 
-    c.bench_function("aggregate_query_group_by_with_filter", |b| {
-        let mut ctx = create_context();
+    c.bench_function("aggregate_query_group_by_with_filter 15 12", |b| {
         b.iter(|| {
-            aggregate_query(
+            query(
                 &mut ctx,
-                "SELECT c1, MIN(c12), MAX(c12) \
-                 FROM aggregate_test_100 \
-                 WHERE c11 > 0.1 AND c11 < 0.9 GROUP BY c1",
+                "SELECT utf8, MIN(f64), AVG(f64), COUNT(f64) \
+                 FROM t \
+                 WHERE f32 > 10 AND f32 < 20 GROUP BY utf8",
             )
         })
     });
