@@ -353,7 +353,7 @@ mod tests {
     use arrow::{
         array::{
             ArrayRef, FixedSizeListArray, Float64Array, Int32Array, PrimitiveArrayOps,
-            StringArray, StringArrayOps,
+            StringArray,
         },
         datatypes::Field,
         record_batch::RecordBatch,

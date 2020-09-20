@@ -1604,7 +1604,7 @@ mod tests {
     use super::*;
     use crate::error::Result;
     use arrow::array::{
-        LargeStringArray, PrimitiveArray, PrimitiveArrayOps, StringArray, StringArrayOps,
+        LargeStringArray, PrimitiveArray, PrimitiveArrayOps, StringArray,
         Time64NanosecondArray,
     };
     use arrow::datatypes::*;

@@ -21,9 +21,7 @@ use std::sync::Arc;
 
 use crate::error::{ExecutionError, Result};
 use arrow::{
-    array::{
-        Array, ArrayData, ArrayRef, StringArray, StringArrayOps, TimestampNanosecondArray,
-    },
+    array::{Array, ArrayData, ArrayRef, StringArray, TimestampNanosecondArray},
     buffer::Buffer,
     datatypes::{DataType, TimeUnit, ToByteSlice},
 };
@@ -211,7 +209,7 @@ pub fn to_timestamp(args: &[ArrayRef]) -> Result<TimestampNanosecondArray> {
 mod tests {
     use std::sync::Arc;
 
-    use arrow::array::Int64Array;
+    use arrow::array::{Int64Array, StringBuilder};
 
     use super::*;
 
@@ -361,7 +359,7 @@ mod tests {
     fn to_timestamp_arrays_and_nulls() -> Result<()> {
         // ensure that arrow array implementation is wired up and handles nulls correctly
 
-        let mut string_builder = StringArray::builder(2);
+        let mut string_builder = StringBuilder::new(2);
         let mut ts_builder = TimestampNanosecondArray::builder(2);
 
         string_builder.append_value("2020-09-08T13:42:29.190855Z")?;

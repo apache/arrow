@@ -59,7 +59,8 @@
 //!
 
 use arrow::{
-    array::{Int64Array, PrimitiveArrayOps, StringArray, StringArrayOps},
+    array::StringBuilder,
+    array::{Int64Array, PrimitiveArrayOps, StringArray},
     datatypes::SchemaRef,
     error::ArrowError,
     record_batch::{RecordBatch, RecordBatchReader},
@@ -488,7 +489,7 @@ impl RecordBatchReader for TopKReader {
         }
 
         let mut revenue_builder = Int64Array::builder(self.top_values.len());
-        let mut customer_id_builder = StringArray::builder(self.top_values.len());
+        let mut customer_id_builder = StringBuilder::new(self.top_values.len());
 
         // make output by walking over the map backwards (so values are descending)
         for (revenue, customer_id) in self.top_values.iter().rev() {

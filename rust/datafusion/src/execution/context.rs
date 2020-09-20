@@ -517,7 +517,6 @@ mod tests {
     use crate::variable::VarType;
     use arrow::array::{
         ArrayRef, Float64Array, Int32Array, PrimitiveArrayOps, StringArray,
-        StringArrayOps,
     };
     use arrow::compute::add;
     use std::fs::File;

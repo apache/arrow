@@ -23,7 +23,7 @@ use crate::{
     physical_plan::{common::RecordBatchIterator, ExecutionPlan},
 };
 use arrow::{
-    array::StringArray,
+    array::StringBuilder,
     datatypes::SchemaRef,
     record_batch::{RecordBatch, RecordBatchReader},
 };
@@ -92,8 +92,8 @@ impl ExecutionPlan for ExplainExec {
             )));
         }
 
-        let mut type_builder = StringArray::builder(self.stringified_plans.len());
-        let mut plan_builder = StringArray::builder(self.stringified_plans.len());
+        let mut type_builder = StringBuilder::new(self.stringified_plans.len());
+        let mut plan_builder = StringBuilder::new(self.stringified_plans.len());
 
         for p in &self.stringified_plans {
             type_builder.append_value(&String::from(&p.plan_type))?;
