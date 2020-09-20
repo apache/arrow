@@ -18,7 +18,7 @@
 use super::*;
 use crate::datatypes::*;
 use crate::util::bit_util;
-use array::{Array, GenericListArray, OffsetSizeTrait};
+use array::{Array, GenericBinaryArray, GenericListArray, OffsetSizeTrait};
 use hex::FromHex;
 use serde_json::value::Value::{Null as JNull, Object, String as JString};
 use serde_json::Value;
@@ -324,13 +324,16 @@ impl ArrayEqual for FixedSizeListArray {
     }
 }
 
-impl ArrayEqual for BinaryArray {
+impl<OffsetSize: OffsetSizeTrait> ArrayEqual for GenericBinaryArray<OffsetSize> {
     fn equals(&self, other: &dyn Array) -> bool {
         if !base_equal(&self.data(), &other.data()) {
             return false;
         }
 
-        let other = other.as_any().downcast_ref::<BinaryArray>().unwrap();
+        let other = other
+            .as_any()
+            .downcast_ref::<GenericBinaryArray<OffsetSize>>()
+            .unwrap();
 
         if !value_offset_equal(self, other) {
             return false;
@@ -346,12 +349,13 @@ impl ArrayEqual for BinaryArray {
         if self.null_count() == 0 {
             // No offset in both - just do memcmp
             if self.offset() == 0 && other.offset() == 0 {
-                let len = self.value_offset(self.len()) as usize;
+                let len = self.value_offset(self.len()).to_usize();
                 return value_data[..len] == other_value_data[..len];
             } else {
-                let start = self.value_offset(0) as usize;
-                let other_start = other.value_offset(0) as usize;
-                let len = (self.value_offset(self.len()) - self.value_offset(0)) as usize;
+                let start = self.value_offset(0).to_usize();
+                let other_start = other.value_offset(0).to_usize();
+                let len =
+                    (self.value_offset(self.len()) - self.value_offset(0)).to_usize();
                 return value_data[start..(start + len)]
                     == other_value_data[other_start..(other_start + len)];
             }
@@ -361,9 +365,9 @@ impl ArrayEqual for BinaryArray {
                     continue;
                 }
 
-                let start = self.value_offset(i) as usize;
-                let other_start = other.value_offset(i) as usize;
-                let len = self.value_length(i) as usize;
+                let start = self.value_offset(i).to_usize();
+                let other_start = other.value_offset(i).to_usize();
+                let len = self.value_length(i).to_usize();
                 if value_data[start..(start + len)]
                     != other_value_data[other_start..(other_start + len)]
                 {
@@ -398,10 +402,10 @@ impl ArrayEqual for BinaryArray {
                 continue;
             }
 
-            let start_offset = self.value_offset(i) as usize;
-            let end_offset = self.value_offset(i + 1) as usize;
-            let other_start_offset = other.value_offset(j) as usize;
-            let other_end_offset = other.value_offset(j + 1) as usize;
+            let start_offset = self.value_offset(i).to_usize();
+            let end_offset = self.value_offset(i + 1).to_usize();
+            let other_start_offset = OffsetSizeTrait::to_usize(&other.value_offset(j));
+            let other_end_offset = OffsetSizeTrait::to_usize(&other.value_offset(j + 1));
 
             if end_offset - start_offset != other_end_offset - other_start_offset {
                 return false;
@@ -488,110 +492,6 @@ impl ArrayEqual for StringArray {
     ) -> bool {
         assert!(other_start_idx + (end_idx - start_idx) <= other.len());
         let other = other.as_any().downcast_ref::<StringArray>().unwrap();
-
-        let mut j = other_start_idx;
-        for i in start_idx..end_idx {
-            let is_null = self.is_null(i);
-            let other_is_null = other.is_null(j);
-
-            if is_null != other_is_null {
-                return false;
-            }
-
-            if is_null {
-                continue;
-            }
-
-            let start_offset = self.value_offset(i) as usize;
-            let end_offset = self.value_offset(i + 1) as usize;
-            let other_start_offset = other.value_offset(j) as usize;
-            let other_end_offset = other.value_offset(j + 1) as usize;
-
-            if end_offset - start_offset != other_end_offset - other_start_offset {
-                return false;
-            }
-
-            let value_buf = self.value_data();
-            let other_value_buf = other.value_data();
-            let value_data = value_buf.data();
-            let other_value_data = other_value_buf.data();
-
-            if end_offset - start_offset > 0 {
-                let len = end_offset - start_offset;
-                if value_data[start_offset..(start_offset + len)]
-                    != other_value_data[other_start_offset..(other_start_offset + len)]
-                {
-                    return false;
-                }
-            }
-
-            j += 1;
-        }
-
-        true
-    }
-}
-
-impl ArrayEqual for LargeBinaryArray {
-    fn equals(&self, other: &dyn Array) -> bool {
-        if !base_equal(&self.data(), &other.data()) {
-            return false;
-        }
-
-        let other = other.as_any().downcast_ref::<LargeBinaryArray>().unwrap();
-
-        if !large_value_offset_equal(self, other) {
-            return false;
-        }
-
-        // TODO: handle null & length == 0 case?
-
-        let value_buf = self.value_data();
-        let other_value_buf = other.value_data();
-        let value_data = value_buf.data();
-        let other_value_data = other_value_buf.data();
-
-        if self.null_count() == 0 {
-            // No offset in both - just do memcmp
-            if self.offset() == 0 && other.offset() == 0 {
-                let len = self.value_offset(self.len()) as usize;
-                return value_data[..len] == other_value_data[..len];
-            } else {
-                let start = self.value_offset(0) as usize;
-                let other_start = other.value_offset(0) as usize;
-                let len = (self.value_offset(self.len()) - self.value_offset(0)) as usize;
-                return value_data[start..(start + len)]
-                    == other_value_data[other_start..(other_start + len)];
-            }
-        } else {
-            for i in 0..self.len() {
-                if self.is_null(i) {
-                    continue;
-                }
-
-                let start = self.value_offset(i) as usize;
-                let other_start = other.value_offset(i) as usize;
-                let len = self.value_length(i) as usize;
-                if value_data[start..(start + len)]
-                    != other_value_data[other_start..(other_start + len)]
-                {
-                    return false;
-                }
-            }
-        }
-
-        true
-    }
-
-    fn range_equals(
-        &self,
-        other: &dyn Array,
-        start_idx: usize,
-        end_idx: usize,
-        other_start_idx: usize,
-    ) -> bool {
-        assert!(other_start_idx + (end_idx - start_idx) <= other.len());
-        let other = other.as_any().downcast_ref::<LargeBinaryArray>().unwrap();
 
         let mut j = other_start_idx;
         for i in start_idx..end_idx {
@@ -1241,7 +1141,7 @@ impl PartialEq<StructArray> for Value {
     }
 }
 
-impl JsonEqual for BinaryArray {
+impl<OffsetSize: OffsetSizeTrait> JsonEqual for GenericBinaryArray<OffsetSize> {
     fn equals_json(&self, json: &[&Value]) -> bool {
         if self.len() != json.len() {
             return false;
@@ -1261,7 +1161,7 @@ impl JsonEqual for BinaryArray {
     }
 }
 
-impl PartialEq<Value> for BinaryArray {
+impl<OffsetSize: OffsetSizeTrait> PartialEq<Value> for GenericBinaryArray<OffsetSize> {
     fn eq(&self, json: &Value) -> bool {
         match json {
             Value::Array(json_array) => self.equals_json_values(&json_array),
@@ -1270,46 +1170,8 @@ impl PartialEq<Value> for BinaryArray {
     }
 }
 
-impl PartialEq<BinaryArray> for Value {
-    fn eq(&self, arrow: &BinaryArray) -> bool {
-        match self {
-            Value::Array(json_array) => arrow.equals_json_values(&json_array),
-            _ => false,
-        }
-    }
-}
-
-impl JsonEqual for LargeBinaryArray {
-    fn equals_json(&self, json: &[&Value]) -> bool {
-        if self.len() != json.len() {
-            return false;
-        }
-
-        (0..self.len()).all(|i| match json[i] {
-            JString(s) => {
-                // binary data is sometimes hex encoded, this checks if bytes are equal,
-                // and if not converting to hex is attempted
-                self.is_valid(i)
-                    && (s.as_str().as_bytes() == self.value(i)
-                        || Vec::from_hex(s.as_str()) == Ok(self.value(i).to_vec()))
-            }
-            JNull => self.is_null(i),
-            _ => false,
-        })
-    }
-}
-
-impl PartialEq<Value> for LargeBinaryArray {
-    fn eq(&self, json: &Value) -> bool {
-        match json {
-            Value::Array(json_array) => self.equals_json_values(&json_array),
-            _ => false,
-        }
-    }
-}
-
-impl PartialEq<LargeBinaryArray> for Value {
-    fn eq(&self, arrow: &LargeBinaryArray) -> bool {
+impl<OffsetSize: OffsetSizeTrait> PartialEq<GenericBinaryArray<OffsetSize>> for Value {
+    fn eq(&self, arrow: &GenericBinaryArray<OffsetSize>) -> bool {
         match self {
             Value::Array(json_array) => arrow.equals_json_values(&json_array),
             _ => false,
