@@ -1248,6 +1248,51 @@ impl<OffsetSize: OffsetSizeTrait> GenericBinaryArray<OffsetSize> {
             )
         }
     }
+
+    fn from_vec(v: Vec<&[u8]>, data_type: DataType) -> Self {
+        let mut offsets = Vec::with_capacity(v.len() + 1);
+        let mut values = Vec::new();
+        let mut length_so_far: OffsetSize = OffsetSize::zero();
+        offsets.push(length_so_far);
+        for s in &v {
+            length_so_far = length_so_far + OffsetSize::from_usize(s.len()).unwrap();
+            offsets.push(length_so_far);
+            values.extend_from_slice(s);
+        }
+        let array_data = ArrayData::builder(data_type)
+            .len(v.len())
+            .add_buffer(Buffer::from(offsets.to_byte_slice()))
+            .add_buffer(Buffer::from(&values[..]))
+            .build();
+        GenericBinaryArray::<OffsetSize>::from(array_data)
+    }
+
+    fn from_list(v: GenericListArray<OffsetSize>, datatype: DataType) -> Self {
+        assert_eq!(
+            v.data_ref().child_data()[0].child_data().len(),
+            0,
+            "BinaryArray can only be created from list array of u8 values \
+             (i.e. List<PrimitiveArray<u8>>)."
+        );
+        assert_eq!(
+            v.data_ref().child_data()[0].data_type(),
+            &DataType::UInt8,
+            "BinaryArray can only be created from List<u8> arrays, mismatched data types."
+        );
+
+        let mut builder = ArrayData::builder(datatype)
+            .len(v.len())
+            .add_buffer(v.data_ref().buffers()[0].clone())
+            .add_buffer(v.data_ref().child_data()[0].buffers()[0].clone());
+        if let Some(bitmap) = v.data_ref().null_bitmap() {
+            builder = builder
+                .null_count(v.data_ref().null_count())
+                .null_bit_buffer(bitmap.bits.clone())
+        }
+
+        let data = builder.build();
+        Self::from(data)
+    }
 }
 
 impl<OffsetSize: OffsetSizeTrait> fmt::Debug for GenericBinaryArray<OffsetSize> {
@@ -1292,6 +1337,25 @@ impl<OffsetSize: OffsetSizeTrait> ListArrayOps<OffsetSize>
     }
 }
 
+impl<OffsetSize: OffsetSizeTrait> From<ArrayDataRef> for GenericBinaryArray<OffsetSize> {
+    fn from(data: ArrayDataRef) -> Self {
+        assert_eq!(
+            data.buffers().len(),
+            2,
+            "BinaryArray data should contain 2 buffers only (offsets and values)"
+        );
+        let raw_value_offsets = data.buffers()[0].raw_data();
+        let value_data = data.buffers()[1].raw_data();
+        Self {
+            data,
+            value_offsets: RawPtrBox::new(as_aligned_pointer::<OffsetSize>(
+                raw_value_offsets,
+            )),
+            value_data: RawPtrBox::new(value_data),
+        }
+    }
+}
+
 /// A list array where each element is a variable-sized sequence of values with the same
 /// type.
 pub type BinaryArray = GenericBinaryArray<i32>;
@@ -1299,6 +1363,30 @@ pub type BinaryArray = GenericBinaryArray<i32>;
 /// A list array where each element is a variable-sized sequence of values with the same
 /// type.
 pub type LargeBinaryArray = GenericBinaryArray<i64>;
+
+impl From<Vec<&[u8]>> for BinaryArray {
+    fn from(v: Vec<&[u8]>) -> Self {
+        BinaryArray::from_vec(v, DataType::Binary)
+    }
+}
+
+impl From<Vec<&[u8]>> for LargeBinaryArray {
+    fn from(v: Vec<&[u8]>) -> Self {
+        LargeBinaryArray::from_vec(v, DataType::LargeBinary)
+    }
+}
+
+impl From<ListArray> for BinaryArray {
+    fn from(v: ListArray) -> Self {
+        BinaryArray::from_list(v, DataType::Binary)
+    }
+}
+
+impl From<LargeListArray> for LargeBinaryArray {
+    fn from(v: LargeListArray) -> Self {
+        LargeBinaryArray::from_list(v, DataType::LargeBinary)
+    }
+}
 
 /// Generic struct for [Large]StringArray
 pub struct GenericStringArray<OffsetSize> {
@@ -1353,6 +1441,33 @@ impl<OffsetSize: OffsetSizeTrait> GenericStringArray<OffsetSize> {
 
             std::str::from_utf8_unchecked(slice)
         }
+    }
+
+    fn from_list(v: GenericListArray<OffsetSize>, data_type: DataType) -> Self {
+        assert_eq!(
+            v.data().child_data()[0].child_data().len(),
+            0,
+            "StringArray can only be created from list array of u8 values \
+             (i.e. List<PrimitiveArray<u8>>)."
+        );
+        assert_eq!(
+            v.data_ref().child_data()[0].data_type(),
+            &DataType::UInt8,
+            "StringArray can only be created from List<u8> arrays, mismatched data types."
+        );
+
+        let mut builder = ArrayData::builder(data_type)
+            .len(v.len())
+            .add_buffer(v.data_ref().buffers()[0].clone())
+            .add_buffer(v.data_ref().child_data()[0].buffers()[0].clone());
+        if let Some(bitmap) = v.data().null_bitmap() {
+            builder = builder
+                .null_count(v.data_ref().null_count())
+                .null_bit_buffer(bitmap.bits.clone())
+        }
+
+        let data = builder.build();
+        Self::from(data)
     }
 }
 
@@ -1425,6 +1540,18 @@ pub type StringArray = GenericStringArray<i32>;
 /// between are then as i64
 pub type LargeStringArray = GenericStringArray<i64>;
 
+impl From<ListArray> for StringArray {
+    fn from(v: ListArray) -> Self {
+        StringArray::from_list(v, DataType::Utf8)
+    }
+}
+
+impl From<LargeListArray> for LargeStringArray {
+    fn from(v: LargeListArray) -> Self {
+        LargeStringArray::from_list(v, DataType::LargeUtf8)
+    }
+}
+
 /// A type of `FixedSizeListArray` whose elements are binaries.
 pub struct FixedSizeBinaryArray {
     data: ArrayDataRef,
@@ -1479,40 +1606,6 @@ impl FixedSizeBinaryArray {
 impl ListArrayOps<i32> for FixedSizeBinaryArray {
     fn value_offset_at(&self, i: usize) -> i32 {
         self.value_offset_at(i)
-    }
-}
-
-impl From<ArrayDataRef> for BinaryArray {
-    fn from(data: ArrayDataRef) -> Self {
-        assert_eq!(
-            data.buffers().len(),
-            2,
-            "BinaryArray data should contain 2 buffers only (offsets and values)"
-        );
-        let raw_value_offsets = data.buffers()[0].raw_data();
-        let value_data = data.buffers()[1].raw_data();
-        Self {
-            data,
-            value_offsets: RawPtrBox::new(as_aligned_pointer::<i32>(raw_value_offsets)),
-            value_data: RawPtrBox::new(value_data),
-        }
-    }
-}
-
-impl From<ArrayDataRef> for LargeBinaryArray {
-    fn from(data: ArrayDataRef) -> Self {
-        assert_eq!(
-            data.buffers().len(),
-            2,
-            "LargeBinaryArray data should contain 2 buffers only (offsets and values)"
-        );
-        let raw_value_offsets = data.buffers()[0].raw_data();
-        let value_data = data.buffers()[1].raw_data();
-        Self {
-            data,
-            value_offsets: RawPtrBox::new(as_aligned_pointer::<i64>(raw_value_offsets)),
-            value_data: RawPtrBox::new(value_data),
-        }
     }
 }
 
@@ -1593,166 +1686,6 @@ macro_rules! def_string_from_vec {
 
 def_string_from_vec!(StringArray, i32, DataType::Utf8);
 def_string_from_vec!(LargeStringArray, i64, DataType::LargeUtf8);
-
-impl From<Vec<&[u8]>> for BinaryArray {
-    fn from(v: Vec<&[u8]>) -> Self {
-        let mut offsets = Vec::with_capacity(v.len() + 1);
-        let mut values = Vec::new();
-        let mut length_so_far = 0;
-        offsets.push(length_so_far);
-        for s in &v {
-            length_so_far += s.len() as i32;
-            offsets.push(length_so_far as i32);
-            values.extend_from_slice(s);
-        }
-        let array_data = ArrayData::builder(DataType::Binary)
-            .len(v.len())
-            .add_buffer(Buffer::from(offsets.to_byte_slice()))
-            .add_buffer(Buffer::from(&values[..]))
-            .build();
-        BinaryArray::from(array_data)
-    }
-}
-
-impl From<Vec<&[u8]>> for LargeBinaryArray {
-    fn from(v: Vec<&[u8]>) -> Self {
-        let mut offsets = Vec::with_capacity(v.len() + 1);
-        let mut values = Vec::new();
-        let mut length_so_far = 0;
-        offsets.push(length_so_far);
-        for s in &v {
-            length_so_far += s.len() as i64;
-            offsets.push(length_so_far as i64);
-            values.extend_from_slice(s);
-        }
-        let array_data = ArrayData::builder(DataType::LargeBinary)
-            .len(v.len())
-            .add_buffer(Buffer::from(offsets.to_byte_slice()))
-            .add_buffer(Buffer::from(&values[..]))
-            .build();
-        LargeBinaryArray::from(array_data)
-    }
-}
-
-/// Creates a `BinaryArray` from `List<u8>` array
-impl From<ListArray> for BinaryArray {
-    fn from(v: ListArray) -> Self {
-        assert_eq!(
-            v.data_ref().child_data()[0].child_data().len(),
-            0,
-            "BinaryArray can only be created from list array of u8 values \
-             (i.e. List<PrimitiveArray<u8>>)."
-        );
-        assert_eq!(
-            v.data_ref().child_data()[0].data_type(),
-            &DataType::UInt8,
-            "BinaryArray can only be created from List<u8> arrays, mismatched data types."
-        );
-
-        let mut builder = ArrayData::builder(DataType::Binary)
-            .len(v.len())
-            .add_buffer(v.data_ref().buffers()[0].clone())
-            .add_buffer(v.data_ref().child_data()[0].buffers()[0].clone());
-        if let Some(bitmap) = v.data_ref().null_bitmap() {
-            builder = builder
-                .null_count(v.data_ref().null_count())
-                .null_bit_buffer(bitmap.bits.clone())
-        }
-
-        let data = builder.build();
-        Self::from(data)
-    }
-}
-
-/// Creates a `StringArray` from `List<u8>` array
-impl From<ListArray> for StringArray {
-    fn from(v: ListArray) -> Self {
-        assert_eq!(
-            v.data().child_data()[0].child_data().len(),
-            0,
-            "StringArray can only be created from list array of u8 values \
-             (i.e. List<PrimitiveArray<u8>>)."
-        );
-        assert_eq!(
-            v.data_ref().child_data()[0].data_type(),
-            &DataType::UInt8,
-            "StringArray can only be created from List<u8> arrays, mismatched data types."
-        );
-
-        let mut builder = ArrayData::builder(DataType::Utf8)
-            .len(v.len())
-            .add_buffer(v.data_ref().buffers()[0].clone())
-            .add_buffer(v.data_ref().child_data()[0].buffers()[0].clone());
-        if let Some(bitmap) = v.data().null_bitmap() {
-            builder = builder
-                .null_count(v.data_ref().null_count())
-                .null_bit_buffer(bitmap.bits.clone())
-        }
-
-        let data = builder.build();
-        Self::from(data)
-    }
-}
-
-/// Creates a `LargeBinaryArray` from `LargeList<u8>` array
-impl From<LargeListArray> for LargeBinaryArray {
-    fn from(v: LargeListArray) -> Self {
-        assert_eq!(
-            v.data_ref().child_data()[0].child_data().len(),
-            0,
-            "LargeBinaryArray can only be created from list array of u8 values \
-             (i.e. LargeList<PrimitiveArray<u8>>)."
-        );
-        assert_eq!(
-            v.data_ref().child_data()[0].data_type(),
-            &DataType::UInt8,
-            "LargeBinaryArray can only be created from LargeList<u8> arrays, mismatched data types."
-        );
-
-        let mut builder = ArrayData::builder(DataType::LargeBinary)
-            .len(v.len())
-            .add_buffer(v.data_ref().buffers()[0].clone())
-            .add_buffer(v.data_ref().child_data()[0].buffers()[0].clone());
-        if let Some(bitmap) = v.data().null_bitmap() {
-            builder = builder
-                .null_count(v.data_ref().null_count())
-                .null_bit_buffer(bitmap.bits.clone())
-        }
-
-        let data = builder.build();
-        Self::from(data)
-    }
-}
-
-/// Creates a `LargeStringArray` from `LargeList<u8>` array
-impl From<LargeListArray> for LargeStringArray {
-    fn from(v: LargeListArray) -> Self {
-        assert_eq!(
-            v.data_ref().child_data()[0].child_data().len(),
-            0,
-            "LargeStringArray can only be created from list array of u8 values \
-             (i.e. LargeList<PrimitiveArray<u8>>)."
-        );
-        assert_eq!(
-            v.data_ref().child_data()[0].data_type(),
-            &DataType::UInt8,
-            "LargeStringArray can only be created from LargeList<u8> arrays, mismatched data types."
-        );
-
-        let mut builder = ArrayData::builder(DataType::LargeUtf8)
-            .len(v.len())
-            .add_buffer(v.data_ref().buffers()[0].clone())
-            .add_buffer(v.data_ref().child_data()[0].buffers()[0].clone());
-        if let Some(bitmap) = v.data_ref().null_bitmap() {
-            builder = builder
-                .null_count(v.data_ref().null_count())
-                .null_bit_buffer(bitmap.bits.clone())
-        }
-
-        let data = builder.build();
-        Self::from(data)
-    }
-}
 
 /// Creates a `FixedSizeBinaryArray` from `FixedSizeList<u8>` array
 impl From<FixedSizeListArray> for FixedSizeBinaryArray {
