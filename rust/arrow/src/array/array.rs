@@ -24,6 +24,7 @@ use std::mem;
 use std::sync::Arc;
 
 use chrono::prelude::*;
+use num::Num;
 
 use super::*;
 use crate::array::builder::StringDictionaryBuilder;
@@ -892,7 +893,7 @@ pub trait ListArrayOps {
     fn value_offset_at(&self, i: usize) -> i32;
 }
 
-impl ListArrayOps for ListArray {
+impl ListArrayOps for GenericListArray<i32> {
     fn value_offset_at(&self, i: usize) -> i32 {
         self.value_offset_at(i)
     }
@@ -940,29 +941,45 @@ impl LargeListArrayOps for LargeStringArray {
     }
 }
 
-impl LargeListArrayOps for LargeListArray {
+impl LargeListArrayOps for GenericListArray<i64> {
     fn value_offset_at(&self, i: usize) -> i64 {
         self.value_offset_at(i)
     }
 }
 
-/// A list array where each element is a variable-sized sequence of values with the same
-/// type.
-pub struct ListArray {
-    data: ArrayDataRef,
-    values: ArrayRef,
-    value_offsets: RawPtrBox<i32>,
+pub(crate) trait OffsetSizeTrait: 'static + Num + fmt::Debug {
+    fn prefix() -> &'static str;
+
+    fn to_usize(&self) -> usize;
 }
 
-/// A list array where each element is a variable-sized sequence of values with the same
-/// type.
-pub struct LargeListArray {
-    data: ArrayDataRef,
-    values: ArrayRef,
-    value_offsets: RawPtrBox<i64>,
+impl OffsetSizeTrait for i32 {
+    fn prefix() -> &'static str {
+        ""
+    }
+
+    fn to_usize(&self) -> usize {
+        num::ToPrimitive::to_usize(self).unwrap()
+    }
 }
 
-impl ListArray {
+impl OffsetSizeTrait for i64 {
+    fn prefix() -> &'static str {
+        "Large"
+    }
+
+    fn to_usize(&self) -> usize {
+        num::ToPrimitive::to_usize(self).unwrap()
+    }
+}
+
+pub(crate) struct GenericListArray<OffsetSize> {
+    data: ArrayDataRef,
+    values: ArrayRef,
+    value_offsets: RawPtrBox<OffsetSize>,
+}
+
+impl<OffsetSize: OffsetSizeTrait> GenericListArray<OffsetSize> {
     /// Returns a reference to the values of this list.
     pub fn values(&self) -> ArrayRef {
         self.values.clone()
@@ -975,15 +992,17 @@ impl ListArray {
 
     /// Returns ith value of this list array.
     pub fn value(&self, i: usize) -> ArrayRef {
-        self.values
-            .slice(self.value_offset(i) as usize, self.value_length(i) as usize)
+        self.values.slice(
+            self.value_offset(i).to_usize(),
+            self.value_length(i).to_usize(),
+        )
     }
 
     /// Returns the offset for value at index `i`.
     ///
     /// Note this doesn't do any bound checking, for performance reason.
     #[inline]
-    pub fn value_offset(&self, i: usize) -> i32 {
+    pub fn value_offset(&self, i: usize) -> OffsetSize {
         self.value_offset_at(self.data.offset() + i)
     }
 
@@ -991,59 +1010,19 @@ impl ListArray {
     ///
     /// Note this doesn't do any bound checking, for performance reason.
     #[inline]
-    pub fn value_length(&self, mut i: usize) -> i32 {
+    pub fn value_length(&self, mut i: usize) -> OffsetSize {
         i += self.data.offset();
         self.value_offset_at(i + 1) - self.value_offset_at(i)
     }
 
     #[inline]
-    fn value_offset_at(&self, i: usize) -> i32 {
+    fn value_offset_at(&self, i: usize) -> OffsetSize {
         unsafe { *self.value_offsets.get().add(i) }
     }
 }
 
-impl LargeListArray {
-    /// Returns a reference to the values of this list.
-    pub fn values(&self) -> ArrayRef {
-        self.values.clone()
-    }
-
-    /// Returns a clone of the value type of this list.
-    pub fn value_type(&self) -> DataType {
-        self.values.data_ref().data_type().clone()
-    }
-
-    /// Returns ith value of this list array.
-    pub fn value(&self, i: usize) -> ArrayRef {
-        self.values
-            .slice(self.value_offset(i) as usize, self.value_length(i) as usize)
-    }
-
-    /// Returns the offset for value at index `i`.
-    ///
-    /// Note this doesn't do any bound checking, for performance reason.
-    #[inline]
-    pub fn value_offset(&self, i: usize) -> i64 {
-        self.value_offset_at(self.data.offset() + i)
-    }
-
-    /// Returns the length for value at index `i`.
-    ///
-    /// Note this doesn't do any bound checking, for performance reason.
-    #[inline]
-    pub fn value_length(&self, mut i: usize) -> i64 {
-        i += self.data.offset();
-        self.value_offset_at(i + 1) - self.value_offset_at(i)
-    }
-
-    #[inline]
-    fn value_offset_at(&self, i: usize) -> i64 {
-        unsafe { *self.value_offsets.get().add(i) }
-    }
-}
-
-/// Constructs a `ListArray` from an array data reference.
-impl From<ArrayDataRef> for ListArray {
+/// Constructs a `GenericListArray` from an array data reference.
+impl<OffsetSize: OffsetSizeTrait> From<ArrayDataRef> for GenericListArray<OffsetSize> {
     fn from(data: ArrayDataRef) -> Self {
         assert_eq!(
             data.buffers().len(),
@@ -1057,9 +1036,12 @@ impl From<ArrayDataRef> for ListArray {
         );
         let values = make_array(data.child_data()[0].clone());
         let raw_value_offsets = data.buffers()[0].raw_data();
-        let value_offsets: *const i32 = as_aligned_pointer(raw_value_offsets);
+        let value_offsets: *const OffsetSize = as_aligned_pointer(raw_value_offsets);
         unsafe {
-            assert_eq!(*value_offsets.offset(0), 0, "offsets do not start at zero");
+            assert!(
+                (*value_offsets.offset(0)).is_zero(),
+                "offsets do not start at zero"
+            );
         }
         Self {
             data,
@@ -1069,34 +1051,7 @@ impl From<ArrayDataRef> for ListArray {
     }
 }
 
-/// Constructs a `LargeListArray` from an array data reference.
-impl From<ArrayDataRef> for LargeListArray {
-    fn from(data: ArrayDataRef) -> Self {
-        assert_eq!(
-            data.buffers().len(),
-            1,
-            "LargeListArray data should contain a single buffer only (value offsets)"
-        );
-        assert_eq!(
-            data.child_data().len(),
-            1,
-            "LargeListArray should contain a single child array (values array)"
-        );
-        let values = make_array(data.child_data()[0].clone());
-        let raw_value_offsets = data.buffers()[0].raw_data();
-        let value_offsets: *const i64 = as_aligned_pointer(raw_value_offsets);
-        unsafe {
-            assert_eq!(*value_offsets.offset(0), 0, "offsets do not start at zero");
-        }
-        Self {
-            data,
-            values,
-            value_offsets: RawPtrBox::new(value_offsets),
-        }
-    }
-}
-
-impl Array for ListArray {
+impl<OffsetSize: 'static + OffsetSizeTrait> Array for GenericListArray<OffsetSize> {
     fn as_any(&self) -> &Any {
         self
     }
@@ -1117,32 +1072,6 @@ impl Array for ListArray {
     /// Returns the total number of bytes of memory occupied physically by this [ListArray].
     fn get_array_memory_size(&self) -> usize {
         self.data.get_array_memory_size() + mem::size_of_val(self)
-    }
-}
-
-impl Array for LargeListArray {
-    fn as_any(&self) -> &Any {
-        self
-    }
-
-    fn data(&self) -> ArrayDataRef {
-        self.data.clone()
-    }
-
-    fn data_ref(&self) -> &ArrayDataRef {
-        &self.data
-    }
-
-    /// Returns the total number of bytes of memory occupied by the buffers owned by this [LargeListArray].
-    fn get_buffer_memory_size(&self) -> usize {
-        self.data.get_buffer_memory_size() + self.values().get_buffer_memory_size()
-    }
-
-    /// Returns the total number of bytes of memory occupied physically by this [LargeListArray].
-    fn get_array_memory_size(&self) -> usize {
-        self.data.get_array_memory_size()
-            + self.values().get_array_memory_size()
-            + mem::size_of_val(self)
     }
 }
 
@@ -1178,9 +1107,9 @@ where
     Ok(())
 }
 
-impl fmt::Debug for ListArray {
+impl<OffsetSize: OffsetSizeTrait> fmt::Debug for GenericListArray<OffsetSize> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "ListArray\n[\n")?;
+        write!(f, "{}ListArray\n[\n", OffsetSize::prefix())?;
         print_long_array(self, f, |array, index, f| {
             fmt::Debug::fmt(&array.value(index), f)
         })?;
@@ -1188,15 +1117,13 @@ impl fmt::Debug for ListArray {
     }
 }
 
-impl fmt::Debug for LargeListArray {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "LargeListArray\n[\n")?;
-        print_long_array(self, f, |array, index, f| {
-            fmt::Debug::fmt(&array.value(index), f)
-        })?;
-        write!(f, "]")
-    }
-}
+/// A list array where each element is a variable-sized sequence of values with the same
+/// type.
+pub type ListArray = GenericListArray<i32>;
+
+/// A list array where each element is a variable-sized sequence of values with the same
+/// type.
+pub type LargeListArray = GenericListArray<i64>;
 
 /// A list array where each element is a fixed-size sequence of values with the same
 /// type.

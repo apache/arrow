@@ -18,6 +18,7 @@
 use super::*;
 use crate::datatypes::*;
 use crate::util::bit_util;
+use array::{Array, GenericListArray, OffsetSizeTrait};
 use hex::FromHex;
 use serde_json::value::Value::{Null as JNull, Object, String as JString};
 use serde_json::Value;
@@ -155,13 +156,16 @@ impl PartialEq for BinaryArray {
     }
 }
 
-impl ArrayEqual for ListArray {
+impl<OffsetSize: OffsetSizeTrait> ArrayEqual for GenericListArray<OffsetSize> {
     fn equals(&self, other: &dyn Array) -> bool {
         if !base_equal(&self.data(), &other.data()) {
             return false;
         }
 
-        let other = other.as_any().downcast_ref::<ListArray>().unwrap();
+        let other = other
+            .as_any()
+            .downcast_ref::<GenericListArray<OffsetSize>>()
+            .unwrap();
 
         if !value_offset_equal(self, other) {
             return false;
@@ -169,9 +173,9 @@ impl ArrayEqual for ListArray {
 
         if !self.values().range_equals(
             &*other.values(),
-            self.value_offset(0) as usize,
-            self.value_offset(self.len()) as usize,
-            other.value_offset(0) as usize,
+            self.value_offset(0).to_usize(),
+            self.value_offset(self.len()).to_usize(),
+            other.value_offset(0).to_usize(),
         ) {
             return false;
         }
@@ -187,7 +191,6 @@ impl ArrayEqual for ListArray {
         other_start_idx: usize,
     ) -> bool {
         assert!(other_start_idx + (end_idx - start_idx) <= other.len());
-        let other = other.as_any().downcast_ref::<ListArray>().unwrap();
 
         let mut j = other_start_idx;
         for i in start_idx..end_idx {
@@ -202,82 +205,10 @@ impl ArrayEqual for ListArray {
                 continue;
             }
 
-            let start_offset = self.value_offset(i) as usize;
-            let end_offset = self.value_offset(i + 1) as usize;
-            let other_start_offset = other.value_offset(j) as usize;
-            let other_end_offset = other.value_offset(j + 1) as usize;
-
-            if end_offset - start_offset != other_end_offset - other_start_offset {
-                return false;
-            }
-
-            if !self.values().range_equals(
-                &*other.values(),
-                start_offset,
-                end_offset,
-                other_start_offset,
-            ) {
-                return false;
-            }
-
-            j += 1;
-        }
-
-        true
-    }
-}
-
-impl ArrayEqual for LargeListArray {
-    fn equals(&self, other: &dyn Array) -> bool {
-        if !base_equal(&self.data(), &other.data()) {
-            return false;
-        }
-
-        let other = other.as_any().downcast_ref::<LargeListArray>().unwrap();
-
-        if !large_value_offset_equal(self, other) {
-            return false;
-        }
-
-        if !self.values().range_equals(
-            &*other.values(),
-            self.value_offset(0) as usize,
-            self.value_offset(self.len()) as usize,
-            other.value_offset(0) as usize,
-        ) {
-            return false;
-        }
-
-        true
-    }
-
-    fn range_equals(
-        &self,
-        other: &dyn Array,
-        start_idx: usize,
-        end_idx: usize,
-        other_start_idx: usize,
-    ) -> bool {
-        assert!(other_start_idx + (end_idx - start_idx) <= other.len());
-        let other = other.as_any().downcast_ref::<LargeListArray>().unwrap();
-
-        let mut j = other_start_idx;
-        for i in start_idx..end_idx {
-            let is_null = self.is_null(i);
-            let other_is_null = other.is_null(j);
-
-            if is_null != other_is_null {
-                return false;
-            }
-
-            if is_null {
-                continue;
-            }
-
-            let start_offset = self.value_offset(i) as usize;
-            let end_offset = self.value_offset(i + 1) as usize;
-            let other_start_offset = other.value_offset(j) as usize;
-            let other_end_offset = other.value_offset(j + 1) as usize;
+            let start_offset = self.value_offset(i).to_usize();
+            let end_offset = self.value_offset(i + 1).to_usize();
+            let other_start_offset = other.value_offset(j).to_usize();
+            let other_end_offset = other.value_offset(j + 1).to_usize();
 
             if end_offset - start_offset != other_end_offset - other_start_offset {
                 return false;
@@ -1146,7 +1077,7 @@ impl<T: ArrowPrimitiveType> PartialEq<PrimitiveArray<T>> for Value {
     }
 }
 
-impl JsonEqual for ListArray {
+impl<OffsetSize: OffsetSizeTrait> JsonEqual for GenericListArray<OffsetSize> {
     fn equals_json(&self, json: &[&Value]) -> bool {
         if self.len() != json.len() {
             return false;
@@ -1154,21 +1085,7 @@ impl JsonEqual for ListArray {
 
         (0..self.len()).all(|i| match json[i] {
             Value::Array(v) => self.is_valid(i) && self.value(i).equals_json_values(v),
-            Value::Null => self.is_null(i) || self.value_length(i) == 0,
-            _ => false,
-        })
-    }
-}
-
-impl JsonEqual for LargeListArray {
-    fn equals_json(&self, json: &[&Value]) -> bool {
-        if self.len() != json.len() {
-            return false;
-        }
-
-        (0..self.len()).all(|i| match json[i] {
-            Value::Array(v) => self.is_valid(i) && self.value(i).equals_json_values(v),
-            Value::Null => self.is_null(i) || self.value_length(i) == 0,
+            Value::Null => self.is_null(i) || self.value_length(i).is_zero(),
             _ => false,
         })
     }
