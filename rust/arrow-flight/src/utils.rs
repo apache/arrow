@@ -129,21 +129,29 @@ impl TryFrom<&SchemaResult> for Schema {
 pub fn flight_data_to_arrow_batch(
     data: &FlightData,
     schema: SchemaRef,
-) -> Result<Option<RecordBatch>> {
+) -> Option<Result<RecordBatch>> {
     // check that the data_header is a record batch message
     let message = arrow::ipc::get_root_as_message(&data.data_header[..]);
     let dictionaries_by_field = Vec::new();
-    let batch_header = message.header_as_record_batch().ok_or_else(|| {
-        ArrowError::ParseError(
-            "Unable to convert flight data header to a record batch".to_string(),
+
+    message
+        .header_as_record_batch()
+        .ok_or_else(|| {
+            ArrowError::ParseError(
+                "Unable to convert flight data header to a record batch".to_string(),
+            )
+        })
+        .map_or_else(
+            |err| Some(Err(err)),
+            |batch| {
+                Some(reader::read_record_batch(
+                    &data.data_body,
+                    batch,
+                    schema,
+                    &dictionaries_by_field,
+                ))
+            },
         )
-    })?;
-    reader::read_record_batch(
-        &data.data_body,
-        batch_header,
-        schema,
-        &dictionaries_by_field,
-    )
 }
 
 // TODO: add more explicit conversion that expoess flight descriptor and metadata options

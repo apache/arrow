@@ -133,20 +133,20 @@ impl RecordBatchReader for MemoryIterator {
     }
 
     /// Get the next RecordBatch
-    fn next_batch(&mut self) -> ArrowResult<Option<RecordBatch>> {
+    fn next_batch(&mut self) -> Option<ArrowResult<RecordBatch>> {
         if self.index < self.data.len() {
             self.index += 1;
             let batch = &self.data[self.index - 1];
             // apply projection
             match &self.projection {
-                Some(columns) => Ok(Some(RecordBatch::try_new(
+                Some(columns) => Some(RecordBatch::try_new(
                     self.schema.clone(),
                     columns.iter().map(|i| batch.column(*i).clone()).collect(),
-                )?)),
-                None => Ok(Some(batch.clone())),
+                )),
+                None => Some(Ok(batch.clone())),
             }
         } else {
-            Ok(None)
+            None
         }
     }
 }

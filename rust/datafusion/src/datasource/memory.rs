@@ -65,7 +65,7 @@ impl MemTable {
             let it = exec.execute(partition).await?;
             let mut it = it.lock().unwrap();
             let mut partition_batches = vec![];
-            while let Ok(Some(batch)) = it.next_batch() {
+            while let Some(Ok(batch)) = it.next_batch() {
                 partition_batches.push(batch);
             }
             data.push(partition_batches);
@@ -148,7 +148,7 @@ mod tests {
         // scan with projection
         let exec = provider.scan(&Some(vec![2, 1]), 1024)?;
         let it = exec.execute(0).await?;
-        let batch2 = it.lock().expect("mutex lock").next_batch()?.unwrap();
+        let batch2 = it.lock().expect("mutex lock").next_batch().unwrap()?;
         assert_eq!(2, batch2.schema().fields().len());
         assert_eq!("c", batch2.schema().field(0).name());
         assert_eq!("b", batch2.schema().field(1).name());
@@ -178,7 +178,7 @@ mod tests {
 
         let exec = provider.scan(&None, 1024)?;
         let it = exec.execute(0).await?;
-        let batch1 = it.lock().expect("mutex lock").next_batch()?.unwrap();
+        let batch1 = it.lock().expect("mutex lock").next_batch().unwrap()?;
         assert_eq!(3, batch1.schema().fields().len());
         assert_eq!(3, batch1.num_columns());
 

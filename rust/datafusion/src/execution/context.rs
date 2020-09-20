@@ -365,13 +365,14 @@ impl ExecutionContext {
             let mut reader = reader.lock().unwrap();
             loop {
                 match reader.next_batch() {
-                    Ok(Some(batch)) => writer.write(&batch).unwrap(),
-                    Ok(None) => break,
-                    Err(e) => return Err(ExecutionError::from(e)),
+                    Some(Ok(batch)) => {
+                        writer.write(&batch)?;
+                    }
+                    None => break,
+                    Some(Err(e)) => return Err(ExecutionError::from(e)),
                 }
             }
         }
-
         Ok(())
     }
 

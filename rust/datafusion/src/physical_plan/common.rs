@@ -59,12 +59,12 @@ impl RecordBatchReader for RecordBatchIterator {
         self.schema.clone()
     }
 
-    fn next_batch(&mut self) -> ArrowResult<Option<RecordBatch>> {
+    fn next_batch(&mut self) -> Option<ArrowResult<RecordBatch>> {
         if self.index < self.batches.len() {
             self.index += 1;
-            Ok(Some(self.batches[self.index - 1].as_ref().clone()))
+            Some(Ok(self.batches[self.index - 1].as_ref().clone()))
         } else {
-            Ok(None)
+            None
         }
     }
 }
@@ -77,14 +77,14 @@ pub fn collect(
     let mut results: Vec<RecordBatch> = vec![];
     loop {
         match reader.next_batch() {
-            Ok(Some(batch)) => {
+            Some(Ok(batch)) => {
                 results.push(batch);
             }
-            Ok(None) => {
+            None => {
                 // end of result set
                 return Ok(results);
             }
-            Err(e) => return Err(ExecutionError::from(e)),
+            Some(Err(e)) => return Err(ExecutionError::from(e)),
         }
     }
 }

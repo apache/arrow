@@ -131,8 +131,8 @@ impl ExecutionPlan for ParquetExec {
         // because the parquet implementation is not thread-safe, it is necessary to execute
         // on a thread and communicate with channels
         let (response_tx, response_rx): (
-            Sender<ArrowResult<Option<RecordBatch>>>,
-            Receiver<ArrowResult<Option<RecordBatch>>>,
+            Sender<Option<ArrowResult<RecordBatch>>>,
+            Receiver<Option<ArrowResult<RecordBatch>>>,
         ) = bounded(2);
 
         let filename = self.filenames[partition].clone();
@@ -155,8 +155,8 @@ impl ExecutionPlan for ParquetExec {
 }
 
 fn send_result(
-    response_tx: &Sender<ArrowResult<Option<RecordBatch>>>,
-    result: ArrowResult<Option<RecordBatch>>,
+    response_tx: &Sender<Option<ArrowResult<RecordBatch>>>,
+    result: Option<ArrowResult<RecordBatch>>,
 ) -> Result<()> {
     response_tx
         .send(result)
@@ -168,7 +168,7 @@ fn read_file(
     filename: &str,
     projection: Vec<usize>,
     batch_size: usize,
-    response_tx: Sender<ArrowResult<Option<RecordBatch>>>,
+    response_tx: Sender<Option<ArrowResult<RecordBatch>>>,
 ) -> Result<()> {
     let file = File::open(&filename)?;
     let file_reader = Rc::new(SerializedFileReader::new(file)?);
@@ -177,19 +177,19 @@ fn read_file(
         arrow_reader.get_record_reader_by_columns(projection.clone(), batch_size)?;
     loop {
         match batch_reader.next_batch() {
-            Ok(Some(batch)) => send_result(&response_tx, Ok(Some(batch)))?,
-            Ok(None) => {
+            Some(Ok(batch)) => send_result(&response_tx, Some(Ok(batch)))?,
+            None => {
                 // finished reading file
-                send_result(&response_tx, Ok(None))?;
+                send_result(&response_tx, None)?;
                 break;
             }
-            Err(e) => {
+            Some(Err(e)) => {
                 let err_msg =
                     format!("Error reading batch from {}: {}", filename, e.to_string());
                 // send error to operator
                 send_result(
                     &response_tx,
-                    Err(ArrowError::ParquetError(err_msg.clone())),
+                    Some(Err(ArrowError::ParquetError(err_msg.clone()))),
                 )?;
                 // terminate thread with error
                 return Err(ExecutionError::ExecutionError(err_msg));
@@ -201,7 +201,7 @@ fn read_file(
 
 struct ParquetIterator {
     schema: SchemaRef,
-    response_rx: Receiver<ArrowResult<Option<RecordBatch>>>,
+    response_rx: Receiver<Option<ArrowResult<RecordBatch>>>,
 }
 
 impl RecordBatchReader for ParquetIterator {
@@ -209,11 +209,11 @@ impl RecordBatchReader for ParquetIterator {
         self.schema.clone()
     }
 
-    fn next_batch(&mut self) -> ArrowResult<Option<RecordBatch>> {
+    fn next_batch(&mut self) -> Option<ArrowResult<RecordBatch>> {
         match self.response_rx.recv() {
             Ok(batch) => batch,
             // RecvError means receiver has exited and closed the channel
-            Err(RecvError) => Ok(None),
+            Err(RecvError) => None,
         }
     }
 }
@@ -233,7 +233,7 @@ mod tests {
 
         let results = parquet_exec.execute(0).await?;
         let mut results = results.lock().unwrap();
-        let batch = results.next_batch()?.unwrap();
+        let batch = results.next_batch().unwrap()?;
 
         assert_eq!(8, batch.num_rows());
         assert_eq!(3, batch.num_columns());
@@ -243,13 +243,13 @@ mod tests {
             schema.fields().iter().map(|f| f.name().as_str()).collect();
         assert_eq!(vec!["id", "bool_col", "tinyint_col"], field_names);
 
-        let batch = results.next_batch()?;
+        let batch = results.next_batch();
         assert!(batch.is_none());
 
-        let batch = results.next_batch()?;
+        let batch = results.next_batch();
         assert!(batch.is_none());
 
-        let batch = results.next_batch()?;
+        let batch = results.next_batch();
         assert!(batch.is_none());
 
         Ok(())

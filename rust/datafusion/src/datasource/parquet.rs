@@ -86,7 +86,7 @@ mod tests {
         let mut it = it.lock().unwrap();
 
         let mut count = 0;
-        while let Some(batch) = it.next_batch()? {
+        while let Some(Ok(batch)) = it.next_batch() {
             assert_eq!(11, batch.num_columns());
             assert_eq!(2, batch.num_rows());
             count += 1;
@@ -304,8 +304,8 @@ mod tests {
         let exec = table.scan(projection, 1024)?;
         let it = exec.execute(0).await?;
         let mut it = it.lock().expect("failed to lock mutex");
-        Ok(it
-            .next_batch()?
-            .expect("should have received at least one batch"))
+        it.next_batch()
+            .expect("should have received at least one batch")
+            .map_err(|e| e.into())
     }
 }

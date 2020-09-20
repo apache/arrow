@@ -133,18 +133,20 @@ impl RecordBatchReader for ProjectionIterator {
     }
 
     /// Get the next batch
-    fn next_batch(&mut self) -> ArrowResult<Option<RecordBatch>> {
+    fn next_batch(&mut self) -> Option<ArrowResult<RecordBatch>> {
         let mut input = self.input.lock().unwrap();
-        match input.next_batch()? {
-            Some(batch) => {
-                let arrays: Result<Vec<_>> =
-                    self.expr.iter().map(|expr| expr.evaluate(&batch)).collect();
-                Ok(Some(RecordBatch::try_new(
-                    self.schema.clone(),
-                    arrays.map_err(ExecutionError::into_arrow_external_error)?,
-                )?))
-            }
-            None => Ok(None),
+        match input.next_batch() {
+            Some(Ok(batch)) => Some(
+                self.expr
+                    .iter()
+                    .map(|expr| expr.evaluate(&batch))
+                    .collect::<Result<Vec<_>>>()
+                    .map_or_else(
+                        |e| Err(ExecutionError::into_arrow_external_error(e)),
+                        |arrays| RecordBatch::try_new(self.schema.clone(), arrays),
+                    ),
+            ),
+            other => other,
         }
     }
 }
@@ -177,7 +179,7 @@ mod tests {
             partition_count += 1;
             let iterator = projection.execute(partition).await?;
             let mut iterator = iterator.lock().unwrap();
-            while let Some(batch) = iterator.next_batch()? {
+            while let Some(Ok(batch)) = iterator.next_batch() {
                 assert_eq!(1, batch.num_columns());
                 row_count += batch.num_rows();
             }
