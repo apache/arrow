@@ -8,6 +8,7 @@
 // Copyright (c) 2017 Florian Dang
 // Copyright (c) 2017 Paul Thompson
 // Copyright (c) 2018, 2019 Tomasz Kamiński
+// Copyright (c) 2019 Jiangang Zhuang
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -70,7 +71,9 @@
 
 #ifdef __GNUC__
 # pragma GCC diagnostic push
-# pragma GCC diagnostic ignored "-Wpedantic"
+# if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ > 7)
+#  pragma GCC diagnostic ignored "-Wpedantic"
+# endif
 # if __GNUC__ < 5
    // GCC 4.9 Bug 61489 Wrong warning with -Wmissing-field-initializers
 #  pragma GCC diagnostic ignored "-Wmissing-field-initializers"
@@ -137,7 +140,7 @@ namespace date
 #endif
 
 #ifndef HAS_UNCAUGHT_EXCEPTIONS
-#  if __cplusplus > 201703
+#  if __cplusplus > 201703 || (defined(_MSVC_LANG) && _MSVC_LANG > 201703L)
 #    define HAS_UNCAUGHT_EXCEPTIONS 1
 #  else
 #    define HAS_UNCAUGHT_EXCEPTIONS 0
@@ -145,7 +148,7 @@ namespace date
 #endif  // HAS_UNCAUGHT_EXCEPTIONS
 
 #ifndef HAS_VOID_T
-#  if __cplusplus >= 201703
+#  if __cplusplus >= 201703 || (defined(_MSVC_LANG) && _MSVC_LANG >= 201703L)
 #    define HAS_VOID_T 1
 #  else
 #    define HAS_VOID_T 0
@@ -157,6 +160,17 @@ namespace date
 #  undef sun
 #endif
 
+// Work around for a NVCC compiler bug which causes it to fail
+// to compile std::ratio_{multiply,divide} when used directly
+// in the std::chrono::duration template instantiations below
+namespace detail {
+template <typename R1, typename R2>
+using ratio_multiply = decltype(std::ratio_multiply<R1, R2>{});
+
+template <typename R1, typename R2>
+using ratio_divide = decltype(std::ratio_divide<R1, R2>{});
+}  // namespace detail
+
 //-----------+
 // Interface |
 //-----------+
@@ -164,16 +178,16 @@ namespace date
 // durations
 
 using days = std::chrono::duration
-    <int, std::ratio_multiply<std::ratio<24>, std::chrono::hours::period>>;
+    <int, detail::ratio_multiply<std::ratio<24>, std::chrono::hours::period>>;
 
 using weeks = std::chrono::duration
-    <int, std::ratio_multiply<std::ratio<7>, days::period>>;
+    <int, detail::ratio_multiply<std::ratio<7>, days::period>>;
 
 using years = std::chrono::duration
-    <int, std::ratio_multiply<std::ratio<146097, 400>, days::period>>;
+    <int, detail::ratio_multiply<std::ratio<146097, 400>, days::period>>;
 
 using months = std::chrono::duration
-    <int, std::ratio_divide<years::period, std::ratio<12>>>;
+    <int, detail::ratio_divide<years::period, std::ratio<12>>>;
 
 // time_point
 
@@ -406,8 +420,8 @@ public:
     CONSTCD11 explicit operator int() const NOEXCEPT;
     CONSTCD11 bool ok() const NOEXCEPT;
 
-    static CONSTCD11 year min() NOEXCEPT;
-    static CONSTCD11 year max() NOEXCEPT;
+    static CONSTCD11 year min() NOEXCEPT { return year{-32767}; }
+    static CONSTCD11 year max() NOEXCEPT { return year{32767}; }
 };
 
 CONSTCD11 bool operator==(const year& x, const year& y) NOEXCEPT;
@@ -1154,8 +1168,7 @@ private:
     static const std::intmax_t d1 = R1::den / gcd_d1_d2;
     static const std::intmax_t n2 = R2::num / gcd_n1_n2;
     static const std::intmax_t d2 = R2::den / gcd_d1_d2;
-    static const std::intmax_t max = -((std::intmax_t(1) <<
-                                       (sizeof(std::intmax_t) * CHAR_BIT - 1)) + 1);
+    static const std::intmax_t max = std::numeric_limits<std::intmax_t>::max();
 
     template <std::intmax_t Xp, std::intmax_t Yp, bool overflow>
     struct mul    // overflow == false
@@ -1356,7 +1369,7 @@ trunc(const std::chrono::time_point<Clock, FromDuration>& tp)
 
 // day
 
-CONSTCD11 inline day::day(unsigned d) NOEXCEPT : d_(static_cast<unsigned char>(d)) {}
+CONSTCD11 inline day::day(unsigned d) NOEXCEPT : d_(static_cast<decltype(d_)>(d)) {}
 CONSTCD14 inline day& day::operator++() NOEXCEPT {++d_; return *this;}
 CONSTCD14 inline day day::operator++(int) NOEXCEPT {auto tmp(*this); ++(*this); return tmp;}
 CONSTCD14 inline day& day::operator--() NOEXCEPT {--d_; return *this;}
@@ -1553,7 +1566,7 @@ inline
 month
 operator+(const month& x, const months& y) NOEXCEPT
 {
-    auto const mu = static_cast<long long>(static_cast<unsigned>(x)) + (y.count() - 1);
+    auto const mu = static_cast<long long>(static_cast<unsigned>(x)) + y.count() - 1;
     auto const yr = (mu >= 0 ? mu : mu-11) / 12;
     return month{static_cast<unsigned>(mu - yr * 12 + 1)};
 }
@@ -1617,22 +1630,6 @@ bool
 year::ok() const NOEXCEPT
 {
     return y_ != std::numeric_limits<short>::min();
-}
-
-CONSTCD11
-inline
-year
-year::min() NOEXCEPT
-{
-    return year{-32767};
-}
-
-CONSTCD11
-inline
-year
-year::max() NOEXCEPT
-{
-    return year{32767};
 }
 
 CONSTCD11
@@ -1724,6 +1721,7 @@ operator<<(std::basic_ostream<CharT, Traits>& os, const year& y)
     os.fill('0');
     os.flags(std::ios::dec | std::ios::internal);
     os.width(4 + (y < year{0}));
+    os.imbue(std::locale::classic());
     os << static_cast<int>(y);
     if (!y.ok())
         os << " is not a valid year";
@@ -2849,6 +2847,7 @@ operator<<(std::basic_ostream<CharT, Traits>& os, const year_month_day& ymd)
     detail::save_ostream<CharT, Traits> _(os);
     os.fill('0');
     os.flags(std::ios::dec | std::ios::right);
+    os.imbue(std::locale::classic());
     os << ymd.year() << '-';
     os.width(2);
     os << static_cast<unsigned>(ymd.month()) << '-';
@@ -3735,8 +3734,7 @@ public:
 
     CONSTCD11 explicit decimal_format_seconds(const Duration& d) NOEXCEPT
         : s_(std::chrono::duration_cast<std::chrono::seconds>(d))
-        , sub_s_(std::chrono::treat_as_floating_point<rep>::value ? d - s_ :
-                     std::chrono::duration_cast<precision>(d - s_))
+        , sub_s_(std::chrono::duration_cast<precision>(d - s_))
         {}
 
     CONSTCD14 std::chrono::seconds& seconds() NOEXCEPT {return s_;}
@@ -3789,6 +3787,8 @@ public:
 #else
             os << '.';
 #endif
+            date::detail::save_ostream<CharT, Traits> _s(os);
+            os.imbue(std::locale::classic());
             os.width(width);
             os << sub_s_.count();
         }
@@ -3860,7 +3860,7 @@ public:
 
     CONSTCD11 explicit operator  precision()   const NOEXCEPT {return to_duration();}
     CONSTCD11          precision to_duration() const NOEXCEPT
-        {return (h_ + m_ + s_.to_duration()) * (1-2*neg_);}
+        {return (s_.to_duration() + m_ + h_) * (1-2*neg_);}
 
     CONSTCD11 bool in_conventional_range() const NOEXCEPT
     {
@@ -3933,7 +3933,7 @@ make12(std::chrono::hours h) NOEXCEPT
     else
     {
         if (h != hours{12})
-            h -= hours{12};
+            h = h - hours{12};
     }
     return h;
 }
@@ -3947,7 +3947,7 @@ make24(std::chrono::hours h, bool is_pm) NOEXCEPT
     if (is_pm)
     {
         if (h != hours{12})
-            h += hours{12};
+            h = h + hours{12};
     }
     else if (h == hours{12})
         h = hours{0};
@@ -4150,10 +4150,10 @@ operator+(std::basic_string<CharT, Traits, Alloc> x, const string_literal<CharT,
                            && (!defined(__SUNPRO_CC) || __SUNPRO_CC > 0x5150)
 
 template <class CharT,
-          class = std::enable_if_t<std::is_same<CharT, char>{} ||
-                                   std::is_same<CharT, wchar_t>{} ||
-                                   std::is_same<CharT, char16_t>{} ||
-                                   std::is_same<CharT, char32_t>{}>>
+          class = std::enable_if_t<std::is_same<CharT, char>::value ||
+                                   std::is_same<CharT, wchar_t>::value ||
+                                   std::is_same<CharT, char16_t>::value ||
+                                   std::is_same<CharT, char32_t>::value>>
 CONSTCD14
 inline
 string_literal<CharT, 2>
@@ -5078,6 +5078,7 @@ to_stream(std::basic_ostream<CharT, Traits>& os, const CharT* fmt,
                         os.setstate(std::ios::failbit);
                     auto const& ymd = fds.ymd;
                     save_ostream<CharT, Traits> _(os);
+                    os.imbue(std::locale::classic());
                     os.fill('0');
                     os.flags(std::ios::dec | std::ios::right);
                     os.width(4);
@@ -5152,7 +5153,7 @@ to_stream(std::basic_ostream<CharT, Traits>& os, const CharT* fmt,
                     if (modified == CharT{})
 #endif
                     {
-                        auto h = *fmt == CharT{'I'} ? make12(hms.hours()) : hms.hours();
+                        auto h = *fmt == CharT{'I'} ? date::make12(hms.hours()) : hms.hours();
                         if (h < hours{10})
                             os << CharT{'0'};
                         os << h.count();
@@ -5308,7 +5309,7 @@ to_stream(std::basic_ostream<CharT, Traits>& os, const CharT* fmt,
                     tm.tm_hour = static_cast<int>(fds.tod.hours().count());
                     facet.put(os, os, os.fill(), &tm, std::begin(f), std::end(f));
 #else
-                    if (is_am(fds.tod.hours()))
+                    if (date::is_am(fds.tod.hours()))
                         os << ampm_names().first[0];
                     else
                         os << ampm_names().first[1];
@@ -5366,12 +5367,12 @@ to_stream(std::basic_ostream<CharT, Traits>& os, const CharT* fmt,
                     save_ostream<CharT, Traits> _(os);
                     os.fill('0');
                     os.width(2);
-                    os << make12(tod.hours()).count() << CharT{':'};
+                    os << date::make12(tod.hours()).count() << CharT{':'};
                     os.width(2);
                     os << tod.minutes().count() << CharT{':'};
                     os.width(2);
                     os << tod.seconds().count() << CharT{' '};
-                    if (is_am(tod.hours()))
+                    if (date::is_am(tod.hours()))
                         os << ampm_names().first[0];
                     else
                         os << ampm_names().first[1];
@@ -5752,6 +5753,8 @@ to_stream(std::basic_ostream<CharT, Traits>& os, const CharT* fmt,
                     if (modified == CharT{})
 #endif
                     {
+                        save_ostream<CharT, Traits> _(os);
+                        os.imbue(std::locale::classic());
                         os << y;
                     }
 #if !ONLY_C_LOCALE
@@ -6253,7 +6256,7 @@ read(std::basic_istream<CharT, Traits>& is, int a0, Args&& ...args)
     if (a0 != -1)
     {
         auto u = static_cast<unsigned>(a0);
-        CharT buf[std::numeric_limits<unsigned>::digits10+2] = {};
+        CharT buf[std::numeric_limits<unsigned>::digits10+2u] = {};
         auto e = buf;
         do
         {
@@ -6363,7 +6366,7 @@ from_stream(std::basic_istream<CharT, Traits>& is, const CharT* fmt,
         using detail::ru;
         using detail::rld;
         using detail::checked_set;
-        for (; *fmt && is.rdstate() == std::ios::goodbit; ++fmt)
+        for (; *fmt != CharT{} && !is.fail(); ++fmt)
         {
             switch (*fmt)
             {
@@ -7364,14 +7367,18 @@ from_stream(std::basic_istream<CharT, Traits>& is, const CharT* fmt,
                 else  // !command
                 {
                     if (isspace(static_cast<unsigned char>(*fmt)))
-                        ws(is); // space matches 0 or more white space characters
+                    {
+                        // space matches 0 or more white space characters
+                        if (is.good())
+                           ws(is);
+                    }
                     else
                         read(is, *fmt);
                 }
                 break;
             }
         }
-        // is.rdstate() != ios::goodbit || *fmt == CharT{}
+        // is.fail() || *fmt == CharT{}
         if (is.rdstate() == ios::goodbit && command)
         {
             if (modified == CharT{})
@@ -7379,8 +7386,6 @@ from_stream(std::basic_istream<CharT, Traits>& is, const CharT* fmt,
             else
                 read(is, CharT{'%'}, width, modified);
         }
-        if (is.rdstate() != ios::goodbit && *fmt != CharT{} && !is.fail())
-            is.setstate(ios::failbit);
         if (!is.fail())
         {
             if (y != not_a_2digit_year)
