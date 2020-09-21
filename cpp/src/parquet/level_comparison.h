@@ -14,37 +14,27 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
-
 #pragma once
 
-#ifdef _MSC_VER
-// MSVC x86_64/arm64
+#include <algorithm>
+#include <cstdint>
 
-#if defined(_M_AMD64) || defined(_M_X64)
-#include <intrin.h>
-#elif defined(_M_ARM64)
-#include <arm64_neon.h>
-#endif
+#include "parquet/platform.h"
 
-#else
-// gcc/clang (possibly others)
+namespace parquet {
+namespace internal {
 
-#if defined(ARROW_HAVE_BMI2)
-#include <x86intrin.h>
-#endif
+/// Builds a  bitmap where each set bit indicates the corresponding level is greater
+/// than rhs.
+uint64_t PARQUET_EXPORT GreaterThanBitmap(const int16_t* levels, int64_t num_levels,
+                                          int16_t rhs);
 
-#if defined(ARROW_HAVE_AVX2) || defined(ARROW_HAVE_AVX512)
-#include <immintrin.h>
-#elif defined(ARROW_HAVE_SSE4_2)
-#include <nmmintrin.h>
-#endif
+struct MinMax {
+  int16_t min;
+  int16_t max;
+};
 
-#ifdef ARROW_HAVE_NEON
-#include <arm_neon.h>
-#endif
+MinMax FindMinMax(const int16_t* levels, int64_t num_levels);
 
-#ifdef ARROW_HAVE_ARMV8_CRC
-#include <arm_acle.h>
-#endif
-
-#endif
+}  // namespace internal
+}  // namespace parquet

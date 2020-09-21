@@ -15,36 +15,20 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#pragma once
+#define PARQUET_IMPL_NAMESPACE avx2
+#include "parquet/level_comparison_inc.h"
+#undef PARQUET_IMPL_NAMESPACE
 
-#ifdef _MSC_VER
-// MSVC x86_64/arm64
+namespace parquet {
+namespace internal {
 
-#if defined(_M_AMD64) || defined(_M_X64)
-#include <intrin.h>
-#elif defined(_M_ARM64)
-#include <arm64_neon.h>
-#endif
+uint64_t GreaterThanBitmapAvx2(const int16_t* levels, int64_t num_levels, int16_t rhs) {
+  return avx2::GreaterThanBitmapImpl(levels, num_levels, rhs);
+}
 
-#else
-// gcc/clang (possibly others)
+MinMax FindMinMaxAvx2(const int16_t* levels, int64_t num_levels) {
+  return avx2::FindMinMaxImpl(levels, num_levels);
+}
 
-#if defined(ARROW_HAVE_BMI2)
-#include <x86intrin.h>
-#endif
-
-#if defined(ARROW_HAVE_AVX2) || defined(ARROW_HAVE_AVX512)
-#include <immintrin.h>
-#elif defined(ARROW_HAVE_SSE4_2)
-#include <nmmintrin.h>
-#endif
-
-#ifdef ARROW_HAVE_NEON
-#include <arm_neon.h>
-#endif
-
-#ifdef ARROW_HAVE_ARMV8_CRC
-#include <arm_acle.h>
-#endif
-
-#endif
+}  // namespace internal
+}  // namespace parquet
