@@ -62,7 +62,21 @@ Status RecordBatchBuilder::Flush(bool reset_builders,
     }
     length = fields[i]->length();
   }
-  *batch = RecordBatch::Make(schema_, length, std::move(fields));
+
+  // For certain types like dictionaries, types may not be fully
+  // determined before we have flushed. Make sure that the RecordBatch
+  // gets the correct types in schema.
+  // See: #ARROW-9969
+  std::vector<std::shared_ptr<Field>> schema_fields(schema_->fields());
+  for (int i = 0; i < this->num_fields(); ++i) {
+    if (!schema_fields[i]->type()->Equals(fields[i]->type())) {
+      schema_fields[i] = schema_fields[i]->WithType(fields[i]->type());
+    }
+  }
+  std::shared_ptr<Schema> schema =
+      std::make_shared<Schema>(schema_fields, schema_->metadata());
+
+  *batch = RecordBatch::Make(schema, length, std::move(fields));
   if (reset_builders) {
     return InitBuilders();
   } else {
