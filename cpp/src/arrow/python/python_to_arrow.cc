@@ -388,7 +388,7 @@ Status ExtendMasked(T* converter, PyObject* values, PyObject* mask, int64_t size
 }
 
 // The base Converter class is a mixin with predefined behavior and constructors.
-class PyConverter : public Converter<PyObject*, PyConversionOptions, PyConverter> {};
+using PyConverter = Converter<PyObject*, PyConversionOptions>;
 
 template <typename T, typename Enable = void>
 class PyPrimitiveConverter;
@@ -611,9 +611,7 @@ class PyListConverter : public ListConverter<T, PyConverter> {
           return Status::Invalid(
               "Can only convert list types from NumPy object array input");
         }
-        return internal::VisitSequence(value, [this](PyObject* item, bool*) {
-          return this->value_converter_->Append(item);
-        });
+        return Extend(this->value_converter_.get(), value, /*reserved=*/0);
       }
       default: {
         return Status::TypeError("Unknown list item type: ", value_type->ToString());
@@ -658,6 +656,27 @@ class PyListConverter : public ListConverter<T, PyConverter> {
 
 class PyStructConverter : public StructConverter<PyConverter> {
  public:
+  Status Append(PyObject* value) override {
+    if (PyValue::IsNull(this->options_, value)) {
+      return this->struct_builder_->AppendNull();
+    }
+    switch (input_kind_) {
+      case InputKind::DICT:
+        RETURN_NOT_OK(this->struct_builder_->Append());
+        return AppendDict(value);
+      case InputKind::TUPLE:
+        RETURN_NOT_OK(this->struct_builder_->Append());
+        return AppendTuple(value);
+      case InputKind::ITEMS:
+        RETURN_NOT_OK(this->struct_builder_->Append());
+        return AppendItems(value);
+      default:
+        RETURN_NOT_OK(InferInputKind(value));
+        return Append(value);
+    }
+  }
+
+ protected:
   Status Init() override {
     RETURN_NOT_OK(StructConverter<PyConverter>::Init());
 
@@ -717,26 +736,6 @@ class PyStructConverter : public StructConverter<PyConverter> {
       }
     }
     return Status::OK();
-  }
-
-  Status Append(PyObject* value) override {
-    if (PyValue::IsNull(this->options_, value)) {
-      return this->struct_builder_->AppendNull();
-    }
-    switch (input_kind_) {
-      case InputKind::DICT:
-        RETURN_NOT_OK(this->struct_builder_->Append());
-        return AppendDict(value);
-      case InputKind::TUPLE:
-        RETURN_NOT_OK(this->struct_builder_->Append());
-        return AppendTuple(value);
-      case InputKind::ITEMS:
-        RETURN_NOT_OK(this->struct_builder_->Append());
-        return AppendItems(value);
-      default:
-        RETURN_NOT_OK(InferInputKind(value));
-        return Append(value);
-    }
   }
 
   Status AppendEmpty() {
@@ -857,7 +856,6 @@ class PyStructConverter : public StructConverter<PyConverter> {
     return Status::OK();
   }
 
- protected:
   // Whether we're converting from a sequence of dicts or tuples or list of pairs
   enum class InputKind { UNKNOWN, DICT, TUPLE, ITEMS } input_kind_ = InputKind::UNKNOWN;
   // Whether the input dictionary keys' type is python bytes or unicode

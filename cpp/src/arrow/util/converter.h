@@ -32,26 +32,24 @@
 namespace arrow {
 namespace internal {
 
-template <typename Input, typename Options, typename Self>
+template <typename Input, typename Options>
 class Converter {
  public:
+  using Self = Converter<Input, Options>;
   using InputType = Input;
   using OptionsType = Options;
 
   virtual ~Converter() = default;
 
-  virtual Status Initialize(std::shared_ptr<DataType> type,
-                            std::shared_ptr<ArrayBuilder> builder,
-                            const std::vector<std::shared_ptr<Self>>& children,
-                            OptionsType options) {
+  Status Construct(std::shared_ptr<DataType> type, std::shared_ptr<ArrayBuilder> builder,
+                   const std::vector<std::shared_ptr<Self>>& children,
+                   OptionsType options) {
     type_ = std::move(type);
     builder_ = std::move(builder);
     children_ = std::move(children);
     options_ = std::move(options);
     return Init();
   }
-
-  virtual Status Init() { return Status::OK(); }
 
   virtual Status Append(InputType value) {
     return Status::NotImplemented("Converter not implemented for type ",
@@ -80,6 +78,8 @@ class Converter {
   }
 
  protected:
+  virtual Status Init() { return Status::OK(); }
+
   std::shared_ptr<DataType> type_;
   std::shared_ptr<ArrayBuilder> builder_;
   std::vector<std::shared_ptr<Self>> children_;
@@ -91,13 +91,13 @@ class PrimitiveConverter : public BaseConverter {
  public:
   using BuilderType = typename TypeTraits<T>::BuilderType;
 
+ protected:
   Status Init() override {
     primitive_type_ = checked_cast<const T*>(this->type_.get());
     primitive_builder_ = checked_cast<BuilderType*>(this->builder_.get());
     return Status::OK();
   }
 
- protected:
   const T* primitive_type_;
   BuilderType* primitive_builder_;
 };
@@ -107,6 +107,7 @@ class ListConverter : public BaseConverter {
  public:
   using BuilderType = typename TypeTraits<T>::BuilderType;
 
+ protected:
   Status Init() override {
     list_type_ = checked_cast<const T*>(this->type_.get());
     list_builder_ = checked_cast<BuilderType*>(this->builder_.get());
@@ -114,7 +115,6 @@ class ListConverter : public BaseConverter {
     return Status::OK();
   }
 
- protected:
   const T* list_type_;
   BuilderType* list_builder_;
   std::shared_ptr<BaseConverter> value_converter_;
@@ -123,13 +123,13 @@ class ListConverter : public BaseConverter {
 template <typename BaseConverter>
 class StructConverter : public BaseConverter {
  public:
+ protected:
   Status Init() override {
     struct_type_ = checked_cast<const StructType*>(this->type_.get());
     struct_builder_ = checked_cast<StructBuilder*>(this->builder_.get());
     return Status::OK();
   }
 
- protected:
   const StructType* struct_type_;
   StructBuilder* struct_builder_;
 };
@@ -139,6 +139,7 @@ class DictionaryConverter : public BaseConverter {
  public:
   using BuilderType = DictionaryBuilder<U>;
 
+ protected:
   Status Init() override {
     dict_type_ = checked_cast<const DictionaryType*>(this->type_.get());
     value_type_ = checked_cast<const U*>(dict_type_->value_type().get());
@@ -146,7 +147,6 @@ class DictionaryConverter : public BaseConverter {
     return Status::OK();
   }
 
- protected:
   const DictionaryType* dict_type_;
   const U* value_type_;
   BuilderType* value_builder_;
@@ -273,8 +273,8 @@ struct MakeConverterImpl {
   Status Finish(std::shared_ptr<ArrayBuilder> builder,
                 std::vector<std::shared_ptr<Converter>> children) {
     auto converter = new ConverterType();
-    ARROW_RETURN_NOT_OK(converter->Initialize(std::move(type), std::move(builder),
-                                              std::move(children), std::move(options)));
+    ARROW_RETURN_NOT_OK(converter->Construct(std::move(type), std::move(builder),
+                                             std::move(children), std::move(options)));
     out->reset(converter);
     return Status::OK();
   }
