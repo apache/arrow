@@ -45,5 +45,9 @@ Result<Datum> Mode(const Datum& value, ExecContext* ctx) {
   return CallFunction("mode", {value}, ctx);
 }
 
+Result<Datum> Stdev(const Datum& value, ExecContext* ctx) {
+  return CallFunction("stdev", {value}, ctx);
+}
+
 }  // namespace compute
 }  // namespace arrow

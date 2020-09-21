@@ -942,5 +942,106 @@ TEST_F(TestInt32ModeKernel, LargeValueRange) {
   CheckModeWithRange<ArrowType>(-10000000, 10000000);
 }
 
+//
+// Stdev
+//
+
+template <typename ArrowType>
+class TestPrimitiveStdevKernel : public ::testing::Test {
+ public:
+  using Traits = TypeTraits<ArrowType>;
+  using ScalarType = typename TypeTraits<DoubleType>::ScalarType;
+
+  void AssertStdevIs(const Datum& array, double expected, double diff = 0) {
+    ASSERT_OK_AND_ASSIGN(Datum out, Stdev(array));
+    auto value = checked_cast<const ScalarType*>(out.scalar().get());
+    ASSERT_TRUE(value->is_valid);
+    if (diff == 0) {
+      ASSERT_DOUBLE_EQ(value->value, expected);  // |diff| < 4ULP
+    } else {
+      ASSERT_NEAR(value->value, expected, diff);
+    }
+  }
+
+  void AssertStdevIs(const std::string& json, double expected) {
+    auto array = ArrayFromJSON(type_singleton(), json);
+    AssertStdevIs(array, expected);
+  }
+
+  void AssertStdevIs(const std::vector<std::string>& json, double expected) {
+    auto chunked = ChunkedArrayFromJSON(type_singleton(), json);
+    AssertStdevIs(chunked, expected);
+  }
+
+  void AssertStdevIsInvalid(const Datum& array) {
+    ASSERT_OK_AND_ASSIGN(Datum out, Stdev(array));
+    auto value = checked_cast<const ScalarType*>(out.scalar().get());
+    ASSERT_FALSE(value->is_valid);
+  }
+
+  void AssertStdevIsInvalid(const std::string& json) {
+    auto array = ArrayFromJSON(type_singleton(), json);
+    AssertStdevIsInvalid(array);
+  }
+
+  std::shared_ptr<DataType> type_singleton() { return Traits::type_singleton(); }
+};
+
+template <typename ArrowType>
+class TestNumericStdevKernel : public TestPrimitiveStdevKernel<ArrowType> {};
+
+TYPED_TEST_SUITE(TestNumericStdevKernel, NumericArrowTypes);
+TYPED_TEST(TestNumericStdevKernel, Basics) {
+  // Reference value from numpy.std
+  this->AssertStdevIs("[100]", 0);
+  this->AssertStdevIs("[1, 2, 3]", 0.816496580927726);
+  this->AssertStdevIs("[null, 1, 2, null, 3]", 0.816496580927726);
+
+  this->AssertStdevIs({"[]", "[1]", "[2]", "[null]", "[3]"}, 0.816496580927726);
+  this->AssertStdevIs({"[1, 2, 3]", "[4, 5, 6]", "[7, 8, 9]"}, 2.581988897471611);
+
+  this->AssertStdevIsInvalid("[null, null, null]");
+  this->AssertStdevIsInvalid("[]");
+}
+
+class TestStdevKernelStability : public TestPrimitiveStdevKernel<DoubleType> {};
+
+// Test numerical stability
+TEST_F(TestStdevKernelStability, Basics) {
+  this->AssertStdevIs("[100000004, 100000007, 100000013, 100000016]", 4.743416490252569);
+  this->AssertStdevIs("[1000000004, 1000000007, 1000000013, 1000000016]",
+                      4.743416490252569);
+}
+
+// Calculate reference stdev with welford online algorithm
+double WelfordStdev(const Array& array) {
+  const auto& array_numeric = reinterpret_cast<const DoubleArray&>(array);
+  const auto values = array_numeric.raw_values();
+  internal::BitmapReader reader(array.null_bitmap_data(), array.offset(), array.length());
+  double count = 0, mean = 0, m2 = 0;
+  for (int64_t i = 0; i < array.length(); ++i) {
+    if (reader.IsSet()) {
+      ++count;
+      double delta = values[i] - mean;
+      mean += delta / count;
+      double delta2 = values[i] - mean;
+      m2 += delta * delta2;
+    }
+    reader.Next();
+  }
+  return sqrt(m2 / count);
+}
+
+class TestStdevKernelRandom : public TestPrimitiveStdevKernel<DoubleType> {};
+
+TEST_F(TestStdevKernelRandom, Basics) {
+  auto rand = random::RandomArrayGenerator(0x5487656);
+  auto array = rand.Numeric<DoubleType>(40000, -10000.0, 1000000.0, 0.1);
+  auto chunked = *ChunkedArray::Make(
+      {array->Slice(0, 1000), array->Slice(1000, 9000), array->Slice(10000, 30000)});
+  double expected = WelfordStdev(*array);
+  this->AssertStdevIs(chunked, expected, 0.0000001);
+}
+
 }  // namespace compute
 }  // namespace arrow

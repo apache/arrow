@@ -145,5 +145,16 @@ Result<Datum> MinMax(const Datum& value,
 ARROW_EXPORT
 Result<Datum> Mode(const Datum& value, ExecContext* ctx = NULLPTR);
 
+/// \brief Calculate the population standard deviation of a numeric array
+///
+/// \param[in] value input datum, expecting Array or ChunkedArray
+/// \param[in] ctx the function execution context, optional
+/// \return datum of the computed stdev as a DoubleScalar
+///
+/// \since 2.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> Stdev(const Datum& value, ExecContext* ctx = NULLPTR);
+
 }  // namespace compute
 }  // namespace arrow
