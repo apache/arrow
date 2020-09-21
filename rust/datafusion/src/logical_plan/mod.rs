@@ -656,17 +656,7 @@ impl fmt::Debug for Expr {
             Expr::AggregateFunction { fun, ref args, .. } => {
                 fmt_function(f, &fun.to_string(), args)
             }
-            Expr::AggregateUDF { fun, ref args, .. } => {
-                write!(f, "{}(", fun.name)?;
-                for i in 0..args.len() {
-                    if i > 0 {
-                        write!(f, ", ")?;
-                    }
-                    write!(f, "{:?}", args[i])?;
-                }
-
-                write!(f, ")")
-            }
+            Expr::AggregateUDF { fun, ref args, .. } => fmt_function(f, &fun.name, args),
             Expr::Wildcard => write!(f, "*"),
             Expr::Nested(expr) => write!(f, "({:?})", expr),
         }

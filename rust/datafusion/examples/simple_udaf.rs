@@ -134,7 +134,7 @@ fn main() -> Result<()> {
         // the return type; DataFusion expects this to match the type returned by `evaluate`.
         Arc::new(DataType::Float64),
         // This is the accumulator factory; DataFusion uses it to create new accumulators.
-        Arc::new(|| Rc::new(RefCell::new(GeometricMean::new()))),
+        Arc::new(|| Ok(Rc::new(RefCell::new(GeometricMean::new())))),
         // This is the description of the state. `state()` must match the types here.
         Arc::new(vec![DataType::Float64, DataType::UInt32]),
     );

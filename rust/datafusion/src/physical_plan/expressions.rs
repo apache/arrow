@@ -403,8 +403,9 @@ impl AggregateExpr for Avg {
     }
 }
 
+/// An accumulator to compute the average
 #[derive(Debug)]
-struct AvgAccumulator {
+pub(crate) struct AvgAccumulator {
     // sum is used for null
     sum: ScalarValue,
     count: u64,

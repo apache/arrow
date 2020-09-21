@@ -39,9 +39,10 @@ use std::{cell::RefCell, fmt, rc::Rc, str::FromStr, sync::Arc};
 
 /// the implementation of an aggregate function
 pub type AccumulatorFunctionImplementation =
-    Arc<dyn Fn() -> Rc<RefCell<dyn Accumulator>> + Send + Sync>;
+    Arc<dyn Fn() -> Result<Rc<RefCell<dyn Accumulator>>> + Send + Sync>;
 
-/// A function's return type
+/// This signature corresponds to which types an aggregator serializes
+/// its state, given its return datatype.
 pub type StateTypeFunction =
     Arc<dyn Fn(&DataType) -> Result<Arc<Vec<DataType>>> + Send + Sync>;
 

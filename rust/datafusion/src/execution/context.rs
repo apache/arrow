@@ -532,17 +532,20 @@ impl FunctionRegistry for ExecutionContextState {
 mod tests {
 
     use super::*;
-    use crate::datasource::MemTable;
     use crate::logical_plan::{col, create_udf, sum};
     use crate::physical_plan::functions::ScalarFunctionImplementation;
     use crate::test;
     use crate::variable::VarType;
+    use crate::{
+        datasource::MemTable, logical_plan::create_udaf,
+        physical_plan::expressions::AvgAccumulator,
+    };
     use arrow::array::{
         ArrayRef, Float64Array, Int32Array, PrimitiveArrayOps, StringArray,
         StringArrayOps,
     };
     use arrow::compute::add;
-    use std::fs::File;
+    use std::{cell::RefCell, fs::File, rc::Rc};
     use std::{io::prelude::*, sync::Mutex};
     use tempfile::TempDir;
     use test::*;
@@ -1206,6 +1209,57 @@ mod tests {
         ctx.register_table("t", Box::new(provider));
 
         let result = collect(&mut ctx, "SELECT AVG(a) FROM t")?;
+
+        let batch = &result[0];
+        assert_eq!(1, batch.num_columns());
+        assert_eq!(1, batch.num_rows());
+
+        let values = batch
+            .column(0)
+            .as_any()
+            .downcast_ref::<Float64Array>()
+            .expect("failed to cast version");
+        assert_eq!(values.len(), 1);
+        // avg(1,2,3,4,5) = 3.0
+        assert_eq!(values.value(0), 3.0_f64);
+        Ok(())
+    }
+
+    /// tests the creation, registration and usage of a UDAF
+    #[test]
+    fn simple_udaf() -> Result<()> {
+        let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
+
+        let batch1 = RecordBatch::try_new(
+            Arc::new(schema.clone()),
+            vec![Arc::new(Int32Array::from(vec![1, 2, 3]))],
+        )?;
+        let batch2 = RecordBatch::try_new(
+            Arc::new(schema.clone()),
+            vec![Arc::new(Int32Array::from(vec![4, 5]))],
+        )?;
+
+        let mut ctx = ExecutionContext::new();
+
+        let provider = MemTable::new(Arc::new(schema), vec![vec![batch1], vec![batch2]])?;
+        ctx.register_table("t", Box::new(provider));
+
+        // define a udaf, using a DataFusion's aggregate function
+        let my_avg = create_udaf(
+            "MY_AVG",
+            DataType::Float64,
+            Arc::new(DataType::Float64),
+            Arc::new(|| {
+                Ok(Rc::new(RefCell::new(AvgAccumulator::try_new(
+                    &DataType::Float64,
+                )?)))
+            }),
+            Arc::new(vec![DataType::UInt32, DataType::Float64]),
+        );
+
+        ctx.register_udaf(my_avg);
+
+        let result = collect(&mut ctx, "SELECT MY_AVG(a) FROM t")?;
 
         let batch = &result[0];
         assert_eq!(1, batch.num_columns());

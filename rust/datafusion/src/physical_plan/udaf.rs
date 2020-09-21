@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! UDF support
+//! This module contains functions and structs supporting user-defined aggregate functions.
 
 use fmt::{Debug, Formatter};
 use std::{cell::RefCell, fmt, rc::Rc};
@@ -38,7 +38,8 @@ use super::{
 };
 use std::sync::Arc;
 
-/// Logical representation of a User-defined aggregate function.
+/// Logical representation of a user-defined aggregate function (UDAF)
+/// A UDAF is different from a UDF in that it is stateful across batches.
 #[derive(Clone)]
 pub struct AggregateUDF {
     /// name
@@ -49,7 +50,7 @@ pub struct AggregateUDF {
     pub return_type: ReturnTypeFunction,
     /// actual implementation
     pub accumulator: AccumulatorFunctionImplementation,
-    /// the state description of the
+    /// the accumulator's state's description as a function of the return type
     pub state_type: StateTypeFunction,
 }
 
@@ -91,8 +92,8 @@ impl AggregateUDF {
     }
 }
 
-/// Create a physical expression of the UDF.
-/// This function errors when `args`' can't be coerced to a valid argument type of the UDF.
+/// Creates a physical expression of the UDAF, that includes all necessary type coercion.
+/// This function errors when `args`' can't be coerced to a valid argument type of the UDAF.
 pub fn create_aggregate_expr(
     fun: &AggregateUDF,
     args: &Vec<Arc<dyn PhysicalExpr>>,
@@ -115,7 +116,7 @@ pub fn create_aggregate_expr(
     }))
 }
 
-/// Physical expression for an aggregate function.
+/// Physical aggregate expression of a UDAF.
 #[derive(Debug)]
 pub struct AggregateFunctionExpr {
     fun: AggregateUDF,
@@ -150,6 +151,6 @@ impl AggregateExpr for AggregateFunctionExpr {
     }
 
     fn create_accumulator(&self) -> Result<Rc<RefCell<dyn Accumulator>>> {
-        Ok((self.fun.accumulator)())
+        (self.fun.accumulator)()
     }
 }
