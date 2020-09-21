@@ -880,7 +880,12 @@ const char* split_part(gdv_int64 context, const char* text, gdv_int32 text_len,
         out_str = input.substr(i, end_pos - i);
         *out_len = out_str.size();
         ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
-        if(ret )
+        if (ret == nullptr) {
+          gdv_fn_context_set_error_msg(context,
+                                       "Could not allocate memory for output string");
+          *out_len = 0;
+          return "";
+        }
         memcpy(ret, out_str.c_str(), *out_len);
         return ret;
       } else {
