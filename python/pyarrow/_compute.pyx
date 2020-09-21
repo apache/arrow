@@ -596,7 +596,7 @@ cdef class PartitionNthOptions(FunctionOptions):
     cdef:
         unique_ptr[CPartitionNthOptions] partition_nth_options
 
-    def __init__(self, pivot):
+    def __cinit__(self, pivot):
         self.partition_nth_options.reset(new CPartitionNthOptions(pivot))
 
     cdef const CFunctionOptions* get_options(self) except NULL:
