@@ -236,7 +236,6 @@ static Result<std::shared_ptr<BaseConverter>> MakeConverter(
 template <typename Converter>
 class Chunker {
  public:
-  using Self = Chunker<Converter>;
   using InputType = typename Converter::InputType;
 
   explicit Chunker(std::shared_ptr<Converter> converter)

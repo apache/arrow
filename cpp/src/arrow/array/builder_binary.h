@@ -329,7 +329,7 @@ class BaseBinaryBuilder : public ArrayBuilder {
 
   Status AppendNextOffset() {
     const int64_t num_bytes = value_data_builder_.length();
-    ARROW_RETURN_NOT_OK(ValidateOverflow(num_bytes));
+    ARROW_RETURN_NOT_OK(ValidateOverflow());
     return offsets_builder_.Append(static_cast<offset_type>(num_bytes));
   }
 
