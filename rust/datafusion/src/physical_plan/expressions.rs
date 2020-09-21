@@ -1585,7 +1585,7 @@ mod tests {
     use crate::error::Result;
     use crate::physical_plan::common::get_scalar_value;
     use arrow::array::{
-        Array, LargeStringArray, PrimitiveArray, PrimitiveArrayOps, StringArray,
+        LargeStringArray, PrimitiveArray, PrimitiveArrayOps, StringArray,
         StringArrayOps, Time64NanosecondArray,
     };
     use arrow::datatypes::*;
