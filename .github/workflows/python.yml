@@ -166,7 +166,7 @@ jobs:
   benchmark:
     # NOTE: this job is specific for self-hosted runners
     name: AMD64 Conda Python 3.7 Benchmark
-    runs-on: [self-hosted, linux, ursa-dgx2]
+    runs-on: [self-hosted, linux, x64]
     # if: github.event_name == 'push'
     defaults:
       # To use certain environment variables set by .bashrc, an interactive
