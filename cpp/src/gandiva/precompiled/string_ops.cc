@@ -856,7 +856,7 @@ const char* split_part(gdv_int64 context, const char* text, gdv_int32 text_len,
   }
 
   if (delim_len == 0 || text_len == 0) {
-    //output will just be text if no delimiter is provided
+    // output will just be text if no delimiter is provided
     return text;
   }
 
