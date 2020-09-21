@@ -189,10 +189,10 @@ struct MakeConverterImpl {
 
   Status Visit(const DictionaryType& t) {
     switch (t.value_type()->id()) {
-#define DICTIONARY_CASE(TYPE)                                            \
-  case TYPE::type_id:                                                    \
-    out = std::make_shared<                                              \
-        typename ConverterTrait<DictionaryType>::template type<TYPE>>(); \
+#define DICTIONARY_CASE(TYPE)                                                       \
+  case TYPE::type_id:                                                               \
+    out = std::make_shared<                                                         \
+        typename ConverterTrait<DictionaryType>::template dictionary_type<TYPE>>(); \
     break;
       DICTIONARY_CASE(BooleanType);
       DICTIONARY_CASE(Int8Type);
@@ -208,6 +208,7 @@ struct MakeConverterImpl {
       DICTIONARY_CASE(BinaryType);
       DICTIONARY_CASE(StringType);
       DICTIONARY_CASE(FixedSizeBinaryType);
+#undef DICTIONARY_CASE
       default:
         return Status::NotImplemented("DictionaryArray converter for type ", t.ToString(),
                                       " not implemented");
@@ -228,7 +229,7 @@ static Result<std::shared_ptr<BaseConverter>> MakeConverter(
     std::shared_ptr<DataType> type, typename BaseConverter::OptionsType options,
     MemoryPool* pool) {
   MakeConverterImpl<BaseConverter, ConverterTrait> visitor{
-      std::move(type), std::move(options), pool, nullptr};
+      std::move(type), std::move(options), pool, NULLPTR};
   ARROW_RETURN_NOT_OK(VisitTypeInline(*visitor.type, &visitor));
   return std::move(visitor.out);
 }

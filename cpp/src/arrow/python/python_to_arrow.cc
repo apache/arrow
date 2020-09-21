@@ -424,7 +424,7 @@ struct PyConverterTrait<StructType> {
 template <>
 struct PyConverterTrait<DictionaryType> {
   template <typename T>
-  using type = PyDictionaryConverter<T>;
+  using dictionary_type = PyDictionaryConverter<T>;
 };
 
 template <typename T>
@@ -547,22 +547,6 @@ class PyDictionaryConverter<U, enable_if_has_string_view<U>>
   }
 };
 
-// If the value type does not match the expected NumPy dtype, then fall through
-// to a slower PySequence-based path
-#define LIST_FAST_CASE(TYPE_ID, TYPE, NUMPY_TYPE)               \
-  case Type::TYPE_ID: {                                         \
-    if (PyArray_DESCR(ndarray)->type_num != NUMPY_TYPE) {       \
-      return Extend(this->value_converter_.get(), value, size); \
-    }                                                           \
-    return AppendNdarrayTyped<TYPE, NUMPY_TYPE>(ndarray);       \
-  }
-
-// Use internal::VisitSequence, fast for NPY_OBJECT but slower otherwise
-#define LIST_SLOW_CASE(TYPE_ID)                               \
-  case Type::TYPE_ID: {                                       \
-    return Extend(this->value_converter_.get(), value, size); \
-  }
-
 template <typename T>
 class PyListConverter : public ListConverter<T, PyConverter, PyConverterTrait> {
  public:
@@ -585,7 +569,7 @@ class PyListConverter : public ListConverter<T, PyConverter, PyConverterTrait> {
   }
 
  protected:
-  Status ValidateOverflow(const MapType*, int64_t size) { return Status::OK(); }
+  //Status ValidateOverflow(const MapType*, int64_t size) { return Status::OK(); }
 
   Status ValidateOverflow(const BaseListType*, int64_t size) {
     return this->list_builder_->ValidateOverflow(size);
@@ -617,6 +601,20 @@ class PyListConverter : public ListConverter<T, PyConverter, PyConverterTrait> {
 
     const auto value_type = this->value_converter_->builder()->type();
     switch (value_type->id()) {
+// If the value type does not match the expected NumPy dtype, then fall through
+// to a slower PySequence-based path
+#define LIST_FAST_CASE(TYPE_ID, TYPE, NUMPY_TYPE)               \
+  case Type::TYPE_ID: {                                         \
+    if (PyArray_DESCR(ndarray)->type_num != NUMPY_TYPE) {       \
+      return Extend(this->value_converter_.get(), value, size); \
+    }                                                           \
+    return AppendNdarrayTyped<TYPE, NUMPY_TYPE>(ndarray);       \
+  }
+// Use internal::VisitSequence, fast for NPY_OBJECT but slower otherwise
+#define LIST_SLOW_CASE(TYPE_ID)                               \
+  case Type::TYPE_ID: {                                       \
+    return Extend(this->value_converter_.get(), value, size); \
+  }
       LIST_SLOW_CASE(NA)
       LIST_FAST_CASE(UINT8, UInt8Type, NPY_UINT8)
       LIST_FAST_CASE(INT8, Int8Type, NPY_INT8)
@@ -638,6 +636,8 @@ class PyListConverter : public ListConverter<T, PyConverter, PyConverterTrait> {
       LIST_SLOW_CASE(BINARY)
       LIST_SLOW_CASE(FIXED_SIZE_BINARY)
       LIST_SLOW_CASE(STRING)
+#undef LIST_FAST_CASE
+#undef LIST_SLOW_CASE
       case Type::LIST: {
         if (PyArray_DESCR(ndarray)->type_num != NPY_OBJECT) {
           return Status::Invalid(
