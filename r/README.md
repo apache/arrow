@@ -102,6 +102,43 @@ elsewhere, you’ll need to build it from source too.
 
 First, install the C++ library. See the [developer
 guide](https://arrow.apache.org/docs/developers/cpp/building.html) for details.
+It's recommended to make a `build` directory inside of the `cpp` directory of
+the Arrow git repository (it is git-ignored). Assuming you are inside `cpp/build`,
+you'll first call `cmake` to configure the build and then `make install`.
+For the R package, you'll need to enable several features in the C++ library
+using `-D` flags:
+
+```
+cmake
+  -DARROW_COMPUTE=ON \
+  -DARROW_CSV=ON \
+  -DARROW_DATASET=ON \
+  -DARROW_FILESYSTEM=ON \
+  -DARROW_JEMALLOC=ON \
+  -DARROW_JSON=ON \
+  -DARROW_PARQUET=ON \
+  -DCMAKE_BUILD_TYPE=release \
+  ..
+```
+
+where `..` is the path to the `cpp/` directory when you're in `cpp/build`.
+
+If you want to enable support for compression libraries, add some or all of these:
+
+```
+  -DARROW_WITH_BROTLI=ON \
+  -DARROW_WITH_BZ2=ON \
+  -DARROW_WITH_LZ4=ON \
+  -DARROW_WITH_SNAPPY=ON \
+  -DARROW_WITH_ZLIB=ON \
+  -DARROW_WITH_ZSTD=ON \
+```
+
+Other flags that may be useful:
+
+* `-DARROW_EXTRA_ERROR_CONTEXT=ON` makes errors coming from the C++ library point to files and line numbers
+* `-DARROW_INSTALL_NAME_RPATH=OFF` may be needed on macOS if there are problems at link time
+* `-DBOOST_SOURCE=BUNDLED`, for example, or any other dependency `*_SOURCE`, if you have a system version of a C++ dependency that doesn't work correctly with Arrow. This tells the build to compile its own version of the dependency from source.
 
 Note that after any change to the C++ library, you must reinstall it and
 run `make clean` or `git clean -fdx .` to remove any cached object code
