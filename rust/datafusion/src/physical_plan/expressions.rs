@@ -2583,19 +2583,14 @@ mod tests {
         // expression: "a is null"
         let expr = is_null(col("a")).unwrap();
         let result = expr.evaluate(&batch)?;
-
-        let expected = vec![false, true];
-
         let result = result
             .as_any()
             .downcast_ref::<BooleanArray>()
             .expect("failed to downcast to BooleanArray");
 
-        assert_eq!(result.len(), expected.len());
+        let expected = &BooleanArray::from(vec![false, true]);
 
-        for i in 0..expected.len() {
-            assert_eq!(result.value(i), expected[i]);
-        }
+        assert_eq!(expected, result);
 
         Ok(())
     }
@@ -2609,19 +2604,14 @@ mod tests {
         // expression: "a is not null"
         let expr = is_not_null(col("a")).unwrap();
         let result = expr.evaluate(&batch)?;
-
-        let expected = vec![true, false];
-
         let result = result
             .as_any()
             .downcast_ref::<BooleanArray>()
             .expect("failed to downcast to BooleanArray");
 
-        assert_eq!(result.len(), expected.len());
+        let expected = &BooleanArray::from(vec![true, false]);
 
-        for i in 0..expected.len() {
-            assert_eq!(result.value(i), expected[i]);
-        }
+        assert_eq!(expected, result);
 
         Ok(())
     }
