@@ -32,6 +32,11 @@
 namespace arrow {
 namespace internal {
 
+template <typename BaseConverter, template <typename...> class ConverterTrait>
+static Result<std::shared_ptr<BaseConverter>> MakeConverter(
+    std::shared_ptr<DataType> type, typename BaseConverter::OptionsType options,
+    MemoryPool* pool);
+
 template <typename Input, typename Options>
 class Converter {
  public:
@@ -41,14 +46,11 @@ class Converter {
 
   virtual ~Converter() = default;
 
-  Status Construct(std::shared_ptr<DataType> type, std::shared_ptr<ArrayBuilder> builder,
-                   const std::vector<std::shared_ptr<Self>>& children,
-                   OptionsType options) {
+  Status Construct(std::shared_ptr<DataType> type, OptionsType options,
+                   MemoryPool* pool) {
     type_ = std::move(type);
-    builder_ = std::move(builder);
-    children_ = std::move(children);
     options_ = std::move(options);
-    return Init();
+    return Init(pool);
   }
 
   virtual Status Append(InputType value) {
@@ -78,7 +80,7 @@ class Converter {
   }
 
  protected:
-  virtual Status Init() { return Status::OK(); }
+  virtual Status Init(MemoryPool* pool) { return Status::OK(); }
 
   std::shared_ptr<DataType> type_;
   std::shared_ptr<ArrayBuilder> builder_;
@@ -92,9 +94,10 @@ class PrimitiveConverter : public BaseConverter {
   using BuilderType = typename TypeTraits<T>::BuilderType;
 
  protected:
-  Status Init() override {
-    primitive_type_ = checked_cast<const T*>(this->type_.get());
-    primitive_builder_ = checked_cast<BuilderType*>(this->builder_.get());
+  Status Init(MemoryPool* pool) override {
+    this->builder_ = std::make_shared<BuilderType>(this->type_, pool);
+    this->primitive_type_ = checked_cast<const T*>(this->type_.get());
+    this->primitive_builder_ = checked_cast<BuilderType*>(this->builder_.get());
     return Status::OK();
   }
 
@@ -102,16 +105,22 @@ class PrimitiveConverter : public BaseConverter {
   BuilderType* primitive_builder_;
 };
 
-template <typename T, typename BaseConverter>
+template <typename T, typename BaseConverter, template <typename...> class ConverterTrait>
 class ListConverter : public BaseConverter {
  public:
   using BuilderType = typename TypeTraits<T>::BuilderType;
+  using ConverterType = typename ConverterTrait<T>::type;
 
  protected:
-  Status Init() override {
+  Status Init(MemoryPool* pool) override {
     list_type_ = checked_cast<const T*>(this->type_.get());
+    ARROW_ASSIGN_OR_RAISE(value_converter_,
+                          (MakeConverter<BaseConverter, ConverterTrait>(
+                              list_type_->value_type(), this->options_, pool)));
+    this->builder_ =
+        std::make_shared<BuilderType>(pool, value_converter_->builder(), this->type_);
+    this->children_ = {value_converter_};
     list_builder_ = checked_cast<BuilderType*>(this->builder_.get());
-    value_converter_ = this->children_[0];
     return Status::OK();
   }
 
@@ -120,13 +129,29 @@ class ListConverter : public BaseConverter {
   std::shared_ptr<BaseConverter> value_converter_;
 };
 
-template <typename BaseConverter>
+template <typename BaseConverter, template <typename...> class ConverterTrait>
 class StructConverter : public BaseConverter {
  public:
+  using ConverterType = typename ConverterTrait<StructType>::type;
+
  protected:
-  Status Init() override {
+  Status Init(MemoryPool* pool) override {
+    std::shared_ptr<BaseConverter> child_converter;
+    std::vector<std::shared_ptr<ArrayBuilder>> child_builders;
+
     struct_type_ = checked_cast<const StructType*>(this->type_.get());
+    for (const auto& field : struct_type_->fields()) {
+      ARROW_ASSIGN_OR_RAISE(child_converter,
+                            (MakeConverter<BaseConverter, ConverterTrait>(
+                                field->type(), this->options_, pool)));
+      child_builders.push_back(child_converter->builder());
+      this->children_.push_back(std::move(child_converter));
+    }
+
+    this->builder_ =
+        std::make_shared<StructBuilder>(this->type_, pool, std::move(child_builders));
     struct_builder_ = checked_cast<StructBuilder*>(this->builder_.get());
+
     return Status::OK();
   }
 
@@ -140,7 +165,10 @@ class DictionaryConverter : public BaseConverter {
   using BuilderType = DictionaryBuilder<U>;
 
  protected:
-  Status Init() override {
+  Status Init(MemoryPool* pool) override {
+    std::unique_ptr<ArrayBuilder> builder;
+    ARROW_RETURN_NOT_OK(MakeDictionaryBuilder(pool, this->type_, NULLPTR, &builder));
+    this->builder_ = std::move(builder);
     dict_type_ = checked_cast<const DictionaryType*>(this->type_.get());
     value_type_ = checked_cast<const U*>(dict_type_->value_type().get());
     value_builder_ = checked_cast<BuilderType*>(this->builder_.get());
@@ -152,138 +180,59 @@ class DictionaryConverter : public BaseConverter {
   BuilderType* value_builder_;
 };
 
-template <typename Converter, template <typename...> class ConverterTrait>
-struct MakeConverterImpl;
-
-template <typename Converter, template <typename...> class ConverterTrait>
-static Result<std::shared_ptr<Converter>> MakeConverter(
-    std::shared_ptr<DataType> type, MemoryPool* pool,
-    typename Converter::OptionsType options) {
-  std::shared_ptr<Converter> out;
-  MakeConverterImpl<Converter, ConverterTrait> visitor = {type, pool, options, &out};
-  ARROW_RETURN_NOT_OK(VisitTypeInline(*type, &visitor));
-  return out;
-}
-
-#define DICTIONARY_CASE(TYPE_ENUM, TYPE_CLASS)                                         \
-  case Type::TYPE_ENUM:                                                                \
-    return Finish<typename ConverterTrait<DictionaryType>::template type<TYPE_CLASS>>( \
-        std::move(builder), {});                                                       \
-    break;
-
-template <typename Converter, template <typename...> class ConverterTrait>
+template <typename BaseConverter, template <typename...> class ConverterTrait>
 struct MakeConverterImpl {
-  Status Visit(const NullType& t) {
-    using ConverterType = typename ConverterTrait<NullType>::type;
-
-    auto builder = std::make_shared<NullBuilder>(pool);
-    return Finish<ConverterType>(std::move(builder), {});
-  }
-
-  template <typename T>
-  enable_if_t<!is_nested_type<T>::value && !is_interval_type<T>::value &&
-                  !is_dictionary_type<T>::value && !is_extension_type<T>::value,
-              Status>
-  Visit(const T& t) {
-    using BuilderType = typename TypeTraits<T>::BuilderType;
-    using ConverterType = typename ConverterTrait<T>::type;
-
-    auto builder = std::make_shared<BuilderType>(type, pool);
-    return Finish<ConverterType>(std::move(builder), {});
-  }
-
-  template <typename T>
-  enable_if_t<is_list_like_type<T>::value && !std::is_same<T, MapType>::value, Status>
-  Visit(const T& t) {
-    using BuilderType = typename TypeTraits<T>::BuilderType;
-    using ConverterType = typename ConverterTrait<T>::type;
-
-    ARROW_ASSIGN_OR_RAISE(auto child_converter, (MakeConverter<Converter, ConverterTrait>(
-                                                    t.value_type(), pool, options)));
-    auto builder = std::make_shared<BuilderType>(pool, child_converter->builder(), type);
-    return Finish<ConverterType>(std::move(builder), {std::move(child_converter)});
-  }
-
-  Status Visit(const MapType& t) {
-    using ConverterType = typename ConverterTrait<MapType>::type;
-
-    // TODO(kszucs): seems like builders not respect field nullability
-    std::vector<std::shared_ptr<Field>> struct_fields{t.key_field(), t.item_field()};
-    auto struct_type = std::make_shared<StructType>(struct_fields);
-    ARROW_ASSIGN_OR_RAISE(
-        auto struct_converter,
-        (MakeConverter<Converter, ConverterTrait>(struct_type, pool, options)));
-
-    auto struct_builder = struct_converter->builder();
-    auto key_builder = struct_builder->child_builder(0);
-    auto item_builder = struct_builder->child_builder(1);
-    auto builder = std::make_shared<MapBuilder>(pool, key_builder, item_builder, type);
-
-    return Finish<ConverterType>(std::move(builder), {std::move(struct_converter)});
+  template <typename T, typename ConverterType = typename ConverterTrait<T>::type>
+  Status Visit(const T&) {
+    out.reset(new ConverterType());
+    return out->Construct(std::move(type), std::move(options), pool);
   }
 
   Status Visit(const DictionaryType& t) {
-    std::unique_ptr<ArrayBuilder> builder;
-    ARROW_RETURN_NOT_OK(MakeDictionaryBuilder(pool, type, NULLPTR, &builder));
-
     switch (t.value_type()->id()) {
-      DICTIONARY_CASE(BOOL, BooleanType);
-      DICTIONARY_CASE(INT8, Int8Type);
-      DICTIONARY_CASE(INT16, Int16Type);
-      DICTIONARY_CASE(INT32, Int32Type);
-      DICTIONARY_CASE(INT64, Int64Type);
-      DICTIONARY_CASE(UINT8, UInt8Type);
-      DICTIONARY_CASE(UINT16, UInt16Type);
-      DICTIONARY_CASE(UINT32, UInt32Type);
-      DICTIONARY_CASE(UINT64, UInt64Type);
-      DICTIONARY_CASE(FLOAT, FloatType);
-      DICTIONARY_CASE(DOUBLE, DoubleType);
-      DICTIONARY_CASE(BINARY, BinaryType);
-      DICTIONARY_CASE(STRING, StringType);
-      DICTIONARY_CASE(FIXED_SIZE_BINARY, FixedSizeBinaryType);
+#define DICTIONARY_CASE(TYPE)                                            \
+  case TYPE::type_id:                                                    \
+    out = std::make_shared<                                              \
+        typename ConverterTrait<DictionaryType>::template type<TYPE>>(); \
+    break;
+      DICTIONARY_CASE(BooleanType);
+      DICTIONARY_CASE(Int8Type);
+      DICTIONARY_CASE(Int16Type);
+      DICTIONARY_CASE(Int32Type);
+      DICTIONARY_CASE(Int64Type);
+      DICTIONARY_CASE(UInt8Type);
+      DICTIONARY_CASE(UInt16Type);
+      DICTIONARY_CASE(UInt32Type);
+      DICTIONARY_CASE(UInt64Type);
+      DICTIONARY_CASE(FloatType);
+      DICTIONARY_CASE(DoubleType);
+      DICTIONARY_CASE(BinaryType);
+      DICTIONARY_CASE(StringType);
+      DICTIONARY_CASE(FixedSizeBinaryType);
       default:
         return Status::NotImplemented("DictionaryArray converter for type ", t.ToString(),
                                       " not implemented");
     }
-  }
-
-  Status Visit(const StructType& t) {
-    using ConverterType = typename ConverterTrait<StructType>::type;
-
-    std::shared_ptr<Converter> child_converter;
-    std::vector<std::shared_ptr<Converter>> child_converters;
-    std::vector<std::shared_ptr<ArrayBuilder>> child_builders;
-
-    for (const auto& field : t.fields()) {
-      ARROW_ASSIGN_OR_RAISE(child_converter, (MakeConverter<Converter, ConverterTrait>(
-                                                 field->type(), pool, options)));
-
-      child_builders.push_back(child_converter->builder());
-      child_converters.push_back(std::move(child_converter));
-    }
-
-    auto builder =
-        std::make_shared<StructBuilder>(std::move(type), pool, std::move(child_builders));
-    return Finish<ConverterType>(std::move(builder), std::move(child_converters));
+    return out->Construct(std::move(type), std::move(options), pool);
   }
 
   Status Visit(const DataType& t) { return Status::NotImplemented(t.name()); }
 
-  template <typename ConverterType>
-  Status Finish(std::shared_ptr<ArrayBuilder> builder,
-                std::vector<std::shared_ptr<Converter>> children) {
-    auto converter = new ConverterType();
-    ARROW_RETURN_NOT_OK(converter->Construct(std::move(type), std::move(builder),
-                                             std::move(children), std::move(options)));
-    out->reset(converter);
-    return Status::OK();
-  }
-
   std::shared_ptr<DataType> type;
+  typename BaseConverter::OptionsType options;
   MemoryPool* pool;
-  typename Converter::OptionsType options;
-  std::shared_ptr<Converter>* out;
+  std::shared_ptr<BaseConverter> out;
 };
+
+template <typename BaseConverter, template <typename...> class ConverterTrait>
+static Result<std::shared_ptr<BaseConverter>> MakeConverter(
+    std::shared_ptr<DataType> type, typename BaseConverter::OptionsType options,
+    MemoryPool* pool) {
+  MakeConverterImpl<BaseConverter, ConverterTrait> visitor{
+      std::move(type), std::move(options), pool, nullptr};
+  ARROW_RETURN_NOT_OK(VisitTypeInline(*visitor.type, &visitor));
+  return std::move(visitor.out);
+}
 
 template <typename Converter>
 class Chunker {

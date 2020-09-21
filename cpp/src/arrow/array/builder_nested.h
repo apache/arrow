@@ -237,6 +237,9 @@ class ARROW_EXPORT MapBuilder : public ArrayBuilder {
   MapBuilder(MemoryPool* pool, const std::shared_ptr<ArrayBuilder>& key_builder,
              const std::shared_ptr<ArrayBuilder>& item_builder, bool keys_sorted = false);
 
+  MapBuilder(MemoryPool* pool, const std::shared_ptr<ArrayBuilder>& item_builder,
+             const std::shared_ptr<DataType>& type);
+
   Status Resize(int64_t capacity) override;
   void Reset() override;
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;

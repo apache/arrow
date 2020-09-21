@@ -394,6 +394,48 @@ template <typename T, typename Enable = void>
 class PyPrimitiveConverter;
 
 template <typename T>
+class PyListConverter;
+
+template <typename U, typename Enable = void>
+class PyDictionaryConverter;
+
+class PyStructConverter;
+
+template <typename T, typename Enable = void>
+struct PyConverterTrait;
+
+template <typename T>
+struct PyConverterTrait<T, enable_if_not_nested<T>> {
+  using type = PyPrimitiveConverter<T>;
+};
+
+template <typename T>
+struct PyConverterTrait<T, enable_if_extension<T>> {
+  using type = void;
+};
+
+template <typename T>
+struct PyConverterTrait<T, enable_if_interval<T>> {
+  using type = void;
+};
+
+template <typename T>
+struct PyConverterTrait<T, enable_if_list_like<T>> {
+  using type = PyListConverter<T>;
+};
+
+template <>
+struct PyConverterTrait<StructType> {
+  using type = PyStructConverter;
+};
+
+template <>
+struct PyConverterTrait<DictionaryType> {
+  template <typename T>
+  using type = PyDictionaryConverter<T>;
+};
+
+template <typename T>
 class PyPrimitiveConverter<
     T, enable_if_t<is_null_type<T>::value || is_boolean_type<T>::value ||
                    is_number_type<T>::value || is_decimal_type<T>::value ||
@@ -483,9 +525,6 @@ class PyPrimitiveConverter<T, enable_if_string_like<T>>
   bool observed_binary_ = false;
 };
 
-template <typename U, typename Enable = void>
-class PyDictionaryConverter;
-
 template <typename U>
 class PyDictionaryConverter<U, enable_if_has_c_type<U>>
     : public DictionaryConverter<U, PyConverter> {
@@ -533,7 +572,7 @@ class PyDictionaryConverter<U, enable_if_has_string_view<U>>
   }
 
 template <typename T>
-class PyListConverter : public ListConverter<T, PyConverter> {
+class PyListConverter : public ListConverter<T, PyConverter, PyConverterTrait> {
  public:
   Status Append(PyObject* value) override {
     if (PyValue::IsNull(this->options_, value)) {
@@ -655,7 +694,7 @@ class PyListConverter : public ListConverter<T, PyConverter> {
   }
 };
 
-class PyStructConverter : public StructConverter<PyConverter> {
+class PyStructConverter : public StructConverter<PyConverter, PyConverterTrait> {
  public:
   Status Append(PyObject* value) override {
     if (PyValue::IsNull(this->options_, value)) {
@@ -678,8 +717,8 @@ class PyStructConverter : public StructConverter<PyConverter> {
   }
 
  protected:
-  Status Init() override {
-    RETURN_NOT_OK(StructConverter<PyConverter>::Init());
+  Status Init(MemoryPool* pool) override {
+    RETURN_NOT_OK((StructConverter<PyConverter, PyConverterTrait>::Init(pool)));
 
     // Store the field names as a PyObjects for dict matching
     num_fields_ = this->struct_type_->num_fields();
@@ -868,30 +907,6 @@ class PyStructConverter : public StructConverter<PyConverter> {
   int num_fields_;
 };
 
-template <typename T, typename Enable = void>
-struct PyConverterTrait;
-
-template <typename T>
-struct PyConverterTrait<T, enable_if_not_nested<T>> {
-  using type = PyPrimitiveConverter<T>;
-};
-
-template <typename T>
-struct PyConverterTrait<T, enable_if_list_like<T>> {
-  using type = PyListConverter<T>;
-};
-
-template <>
-struct PyConverterTrait<StructType> {
-  using type = PyStructConverter;
-};
-
-template <>
-struct PyConverterTrait<DictionaryType> {
-  template <typename T>
-  using type = PyDictionaryConverter<T>;
-};
-
 // Convert *obj* to a sequence if necessary
 // Fill *size* to its length.  If >= 0 on entry, *size* is an upper size
 // bound that may lead to truncation.
@@ -959,7 +974,7 @@ Result<std::shared_ptr<ChunkedArray>> ConvertPySequence(PyObject* obj, PyObject*
   DCHECK_GE(size, 0);
 
   ARROW_ASSIGN_OR_RAISE(auto converter, (MakeConverter<PyConverter, PyConverterTrait>(
-                                            options.type, pool, options)));
+                                            options.type, options, pool)));
   ARROW_ASSIGN_OR_RAISE(auto chunked_converter, MakeChunker(converter));
 
   // Convert values
