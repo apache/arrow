@@ -380,9 +380,7 @@ ParquetFileWriter$create <- function(schema,
                                      sink,
                                      properties = ParquetWriterProperties$create(),
                                      arrow_properties = ParquetArrowWriterProperties$create()) {
-  if (!inherits(sink, "OutputStream")) {
-    abort("ParquetFileWriter sink must be an FileOutputStream or BufferOutputStream")
-  }
+  assert_is(sink, "OutputStream")
   shared_ptr(
     ParquetFileWriter,
     parquet___arrow___ParquetFileWriter__Open(schema, sink, properties, arrow_properties)
