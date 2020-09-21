@@ -191,3 +191,12 @@ test_that("write_parquet() handles version argument", {
     expect_error(write_parquet(df, tf, version = .x))
   })
 })
+
+test_that("ParquetFileWriter raises an error for non-OutputStream sink", {
+  sch = schema(a = float32())
+  # ARROW-9946
+  expect_error(
+    ParquetFileWriter$create(schema = sch, sink = tempfile()),
+    regex = "OutputStream"
+  )
+})

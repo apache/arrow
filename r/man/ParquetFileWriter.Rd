@@ -20,3 +20,12 @@ takes the following arguments:
 }
 }
 
+\section{Methods}{
+
+\itemize{
+\item \code{WriteTable} Write a \link{Table} to \code{sink}
+\item \code{Close} Close the writer. Note: does not close the \code{sink}.
+\link[=OutputStream]{arrow::io::OutputStream} has its own \code{close()} method.
+}
+}
+

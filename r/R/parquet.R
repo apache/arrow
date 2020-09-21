@@ -359,6 +359,13 @@ ParquetWriterProperties$create <- function(table,
 #' - `sink` An [arrow::io::OutputStream][OutputStream]
 #' - `properties` An instance of [ParquetWriterProperties]
 #' - `arrow_properties` An instance of `ParquetArrowWriterProperties`
+#'
+#' @section Methods:
+#'
+#' - `WriteTable` Write a [Table] to `sink`
+#' - `Close` Close the writer. Note: does not close the `sink`.
+#'   [arrow::io::OutputStream][OutputStream] has its own `close()` method.
+#'
 #' @export
 #' @include arrow-package.R
 ParquetFileWriter <- R6Class("ParquetFileWriter", inherit = ArrowObject,
@@ -373,6 +380,7 @@ ParquetFileWriter$create <- function(schema,
                                      sink,
                                      properties = ParquetWriterProperties$create(),
                                      arrow_properties = ParquetArrowWriterProperties$create()) {
+  assert_is(sink, "OutputStream")
   shared_ptr(
     ParquetFileWriter,
     parquet___arrow___ParquetFileWriter__Open(schema, sink, properties, arrow_properties)
