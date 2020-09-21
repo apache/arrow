@@ -43,7 +43,7 @@
 // required. On Windows, the names are never "Standard" so mapping is always required.
 // Technically any OS may use the mapping process but currently only Windows does use it.
 
-// NOTE(wesm): If this is not set, then the library will attempt to
+// NOTE(ARROW): If this is not set, then the library will attempt to
 // use libcurl to obtain a timezone database, and we do not yet have
 // curl in our build toolchain
 #ifndef _WIN32
