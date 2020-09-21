@@ -32,7 +32,7 @@ conda activate $ASV_ENV_DIR
 echo "== Conda Prefix for benchmarks: " $CONDA_PREFIX " =="
 
 # Build Arrow C++ libraries
-export ARROW_BUILD_TYPE=debug
+export ARROW_BUILD_TYPE=release
 export ARROW_DATASET=ON
 export ARROW_DEPENDENCY_SOURCE=CONDA
 export ARROW_FLIGHT=ON
