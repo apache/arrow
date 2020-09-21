@@ -515,7 +515,7 @@ services:
       - ./python/.asv/results:/asv/results
       - ~/.asv-machine.json:/root/.asv-machine.json
     command:
-      ["asv run --verbose --no-pull --show-stderr --config asv.conf.docker.json HEAD^!"]
+      ["asv run --verbose --no-pull --show-stderr --config asv.conf.docker.json ${ARROW_GIT_REF:-HEAD^!}"]
 
   ubuntu-cuda-python:
     # Usage:
