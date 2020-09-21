@@ -16,7 +16,7 @@
 // under the License.
 
 use std::any::Any;
-use std::convert::From;
+use std::convert::{From, TryFrom};
 use std::fmt;
 use std::io::Write;
 use std::iter::{FromIterator, IntoIterator};
@@ -28,11 +28,14 @@ use chrono::prelude::*;
 use super::*;
 use crate::array::builder::StringDictionaryBuilder;
 use crate::array::equal::JsonEqual;
-use crate::buffer::{Buffer, MutableBuffer};
+use crate::buffer::{buffer_bin_or, Buffer, MutableBuffer};
 use crate::datatypes::DataType::Struct;
 use crate::datatypes::*;
 use crate::memory;
-use crate::util::bit_util;
+use crate::{
+    error::{ArrowError, Result},
+    util::bit_util,
+};
 
 /// Number of seconds in a day
 const SECONDS_IN_DAY: i64 = 86_400;
@@ -358,6 +361,13 @@ fn slice_data(data: &ArrayDataRef, mut offset: usize, length: usize) -> ArrayDat
     };
 
     Arc::new(new_data)
+}
+
+// creates a new MutableBuffer initializes all falsed
+// this is useful to populate null bitmaps
+fn make_null_buffer(len: usize) -> MutableBuffer {
+    let num_bytes = bit_util::ceil(len, 8);
+    MutableBuffer::new(num_bytes).with_bitset(num_bytes, false)
 }
 
 /// ----------------------------------------------------------------------------
@@ -703,9 +713,7 @@ macro_rules! def_numeric_from_vec {
         {
             fn from(data: Vec<Option<<$ty as ArrowPrimitiveType>::Native>>) -> Self {
                 let data_len = data.len();
-                let num_bytes = bit_util::ceil(data_len, 8);
-                let mut null_buf =
-                    MutableBuffer::new(num_bytes).with_bitset(num_bytes, false);
+                let mut null_buf = make_null_buffer(data_len);
                 let mut val_buf = MutableBuffer::new(
                     data_len * mem::size_of::<<$ty as ArrowPrimitiveType>::Native>(),
                 );
@@ -780,8 +788,7 @@ impl<T: ArrowTimestampType> PrimitiveArray<T> {
     pub fn from_opt_vec(data: Vec<Option<i64>>, timezone: Option<Arc<String>>) -> Self {
         // TODO: duplicated from def_numeric_from_vec! macro, it looks possible to convert to generic
         let data_len = data.len();
-        let num_bytes = bit_util::ceil(data_len, 8);
-        let mut null_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, false);
+        let mut null_buf = make_null_buffer(data_len);
         let mut val_buf = MutableBuffer::new(data_len * mem::size_of::<i64>());
 
         {
@@ -812,8 +819,7 @@ impl<T: ArrowTimestampType> PrimitiveArray<T> {
 /// Constructs a boolean array from a vector. Should only be used for testing.
 impl From<Vec<bool>> for BooleanArray {
     fn from(data: Vec<bool>) -> Self {
-        let num_byte = bit_util::ceil(data.len(), 8);
-        let mut mut_buf = MutableBuffer::new(num_byte).with_bitset(num_byte, false);
+        let mut mut_buf = make_null_buffer(data.len());
         {
             let mut_slice = mut_buf.data_mut();
             for (i, b) in data.iter().enumerate() {
@@ -834,7 +840,7 @@ impl From<Vec<Option<bool>>> for BooleanArray {
     fn from(data: Vec<Option<bool>>) -> Self {
         let data_len = data.len();
         let num_byte = bit_util::ceil(data_len, 8);
-        let mut null_buf = MutableBuffer::new(num_byte).with_bitset(num_byte, false);
+        let mut null_buf = make_null_buffer(data.len());
         let mut val_buf = MutableBuffer::new(num_byte).with_bitset(num_byte, false);
 
         {
@@ -1642,9 +1648,7 @@ macro_rules! def_string_from_vec {
             fn from(v: Vec<Option<&'a str>>) -> Self {
                 let mut offsets = Vec::with_capacity(v.len() + 1);
                 let mut values = Vec::new();
-                let num_bytes = bit_util::ceil(v.len(), 8);
-                let mut null_buf =
-                    MutableBuffer::new(num_bytes).with_bitset(num_bytes, false);
+                let mut null_buf = make_null_buffer(v.len());
                 let mut length_so_far = 0;
                 offsets.push(length_so_far);
                 for (i, s) in v.iter().enumerate() {
@@ -1999,6 +2003,67 @@ impl From<ArrayDataRef> for StructArray {
             boxed_fields.push(make_array(child_data));
         }
         Self { data, boxed_fields }
+    }
+}
+
+impl TryFrom<Vec<(&str, ArrayRef)>> for StructArray {
+    type Error = ArrowError;
+
+    /// builds a StructArray from a vector of names and arrays.
+    /// This errors if the values have a different length.
+    /// An entry is set to Null when all values are null.
+    fn try_from(values: Vec<(&str, ArrayRef)>) -> Result<Self> {
+        let values_len = values.len();
+
+        // these will be populated
+        let mut fields = Vec::with_capacity(values_len);
+        let mut child_data = Vec::with_capacity(values_len);
+
+        // len: the size of the arrays.
+        let mut len: Option<usize> = None;
+        // null: the null mask of the arrays.
+        let mut null: Option<Buffer> = None;
+        for (field_name, array) in values {
+            let child_datum = array.data();
+            if let Some(len) = len {
+                if len != child_datum.len() {
+                    return Err(ArrowError::InvalidArgumentError(
+                        format!("Array of field \"{}\" has length {}, but previous elements have length {}. 
+                        All arrays in every entry in a struct array must have the same length.", field_name, child_datum.len(), len)
+                    ));
+                }
+            } else {
+                len = Some(child_datum.len())
+            }
+            child_data.push(child_datum.clone());
+            fields.push(Field::new(
+                field_name,
+                array.data_type().clone(),
+                child_datum.null_buffer().is_some(),
+            ));
+
+            if let Some(child_null_buffer) = child_datum.null_buffer() {
+                null = Some(if let Some(null_buffer) = &null {
+                    buffer_bin_or(null_buffer, 0, child_null_buffer, 0, null_buffer.len())
+                } else {
+                    child_null_buffer.clone()
+                });
+            } else if null.is_some() {
+                // when one of the fields has no nulls, them there is no null in the array
+                null = None;
+            }
+        }
+        let len = len.unwrap();
+
+        let mut builder = ArrayData::builder(DataType::Struct(fields))
+            .len(len)
+            .child_data(child_data);
+        if let Some(null_buffer) = null {
+            let null_count = len - bit_util::count_set_bits(null_buffer.data());
+            builder = builder.null_count(null_count).null_bit_buffer(null_buffer);
+        }
+
+        Ok(StructArray::from(builder.build()))
     }
 }
 
@@ -2382,7 +2447,7 @@ mod tests {
 
     use crate::buffer::Buffer;
     use crate::datatypes::{DataType, Field};
-    use crate::memory;
+    use crate::{bitmap::Bitmap, memory};
 
     #[test]
     fn test_primitive_array_from_vec() {
@@ -3856,6 +3921,92 @@ mod tests {
         assert_eq!(4, struct_array.len());
         assert_eq!(0, struct_array.null_count());
         assert_eq!(0, struct_array.offset());
+    }
+
+    /// validates that the in-memory representation follows [the spec](https://arrow.apache.org/docs/format/Columnar.html#struct-layout)
+    #[test]
+    fn test_struct_array_from_vec() {
+        let strings: ArrayRef = Arc::new(StringArray::from(vec![
+            Some("joe"),
+            None,
+            None,
+            Some("mark"),
+        ]));
+        let ints: ArrayRef =
+            Arc::new(Int32Array::from(vec![Some(1), Some(2), None, Some(4)]));
+
+        let arr =
+            StructArray::try_from(vec![("f1", strings.clone()), ("f2", ints.clone())])
+                .unwrap();
+
+        let struct_data = arr.data();
+        assert_eq!(4, struct_data.len());
+        assert_eq!(1, struct_data.null_count());
+        assert_eq!(
+            // 00001011
+            &Some(Bitmap::from(Buffer::from(&[11_u8]))),
+            struct_data.null_bitmap()
+        );
+
+        let expected_string_data = ArrayData::builder(DataType::Utf8)
+            .len(4)
+            .null_count(2)
+            .null_bit_buffer(Buffer::from(&[9_u8]))
+            .add_buffer(Buffer::from(&[0, 3, 3, 3, 7].to_byte_slice()))
+            .add_buffer(Buffer::from("joemark".as_bytes()))
+            .build();
+
+        let expected_int_data = ArrayData::builder(DataType::Int32)
+            .len(4)
+            .null_count(1)
+            .null_bit_buffer(Buffer::from(&[11_u8]))
+            .add_buffer(Buffer::from(&[1, 2, 0, 4].to_byte_slice()))
+            .build();
+
+        assert_eq!(expected_string_data, arr.column(0).data());
+
+        // TODO: implement equality for ArrayData
+        assert_eq!(expected_int_data.len(), arr.column(1).data().len());
+        assert_eq!(
+            expected_int_data.null_count(),
+            arr.column(1).data().null_count()
+        );
+        assert_eq!(
+            expected_int_data.null_bitmap(),
+            arr.column(1).data().null_bitmap()
+        );
+        let expected_value_buf = expected_int_data.buffers()[0].clone();
+        let actual_value_buf = arr.column(1).data().buffers()[0].clone();
+        for i in 0..expected_int_data.len() {
+            if !expected_int_data.is_null(i) {
+                assert_eq!(
+                    expected_value_buf.data()[i * 4..(i + 1) * 4],
+                    actual_value_buf.data()[i * 4..(i + 1) * 4]
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_struct_array_from_vec_error() {
+        let strings: ArrayRef = Arc::new(StringArray::from(vec![
+            Some("joe"),
+            None,
+            None,
+            // 3 elements, not 4
+        ]));
+        let ints: ArrayRef =
+            Arc::new(Int32Array::from(vec![Some(1), Some(2), None, Some(4)]));
+
+        let arr =
+            StructArray::try_from(vec![("f1", strings.clone()), ("f2", ints.clone())]);
+
+        match arr {
+            Err(ArrowError::InvalidArgumentError(e)) => {
+                assert!(e.starts_with("Array of field \"f2\" has length 4, but previous elements have length 3."));
+            }
+            _ => assert!(false, "This test got an unexpected error type"),
+        };
     }
 
     #[test]
