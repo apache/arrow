@@ -103,16 +103,26 @@ pub fn create_aggregate_expr(
     fun: &AggregateFunction,
     args: &Vec<Arc<dyn PhysicalExpr>>,
     input_schema: &Schema,
+    name: String,
 ) -> Result<Arc<dyn AggregateExpr>> {
     // coerce
     let arg = coerce(args, input_schema, &signature(fun))?[0].clone();
 
+    let arg_types = args
+        .iter()
+        .map(|e| e.data_type(input_schema))
+        .collect::<Result<Vec<_>>>()?;
+
+    let return_type = return_type(&fun, &arg_types)?;
+
     Ok(match fun {
-        AggregateFunction::Count => expressions::count(arg),
-        AggregateFunction::Sum => expressions::sum(arg),
-        AggregateFunction::Min => expressions::min(arg),
-        AggregateFunction::Max => expressions::max(arg),
-        AggregateFunction::Avg => expressions::avg(arg),
+        AggregateFunction::Count => {
+            Arc::new(expressions::Count::new(arg, name, return_type))
+        }
+        AggregateFunction::Sum => Arc::new(expressions::Sum::new(arg, name, return_type)),
+        AggregateFunction::Min => Arc::new(expressions::Min::new(arg, name, return_type)),
+        AggregateFunction::Max => Arc::new(expressions::Max::new(arg, name, return_type)),
+        AggregateFunction::Avg => Arc::new(expressions::Avg::new(arg, name, return_type)),
     })
 }
 
@@ -135,7 +145,7 @@ fn signature(fun: &AggregateFunction) -> Signature {
     match fun {
         AggregateFunction::Count => Signature::Any(1),
         AggregateFunction::Min | AggregateFunction::Max => {
-            let mut valid = vec![DataType::Utf8];
+            let mut valid = vec![DataType::Utf8, DataType::LargeUtf8];
             valid.extend_from_slice(NUMERICS);
             Signature::Uniform(1, valid)
         }

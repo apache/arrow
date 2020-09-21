@@ -23,11 +23,18 @@ use std::sync::{Arc, Mutex};
 
 use crate::error::{ExecutionError, Result};
 
-use crate::logical_plan::ScalarValue;
-use arrow::array::{self, ArrayRef, PrimitiveArrayOps, StringArrayOps};
+use array::{
+    BooleanArray, Float32Array, Float64Array, Int16Array, Int32Array, Int64Array,
+    Int8Array, LargeStringArray, StringArray, UInt16Array, UInt32Array, UInt64Array,
+    UInt8Array,
+};
 use arrow::datatypes::{DataType, SchemaRef};
 use arrow::error::Result as ArrowResult;
 use arrow::record_batch::{RecordBatch, RecordBatchReader};
+use arrow::{
+    array::{self, ArrayRef},
+    datatypes::Schema,
+};
 
 /// Iterator over a vector of record batches
 pub struct RecordBatchIterator {
@@ -109,99 +116,57 @@ pub fn build_file_list(dir: &str, filenames: &mut Vec<String>, ext: &str) -> Res
     Ok(())
 }
 
-/// Get a value from an array as a ScalarValue
-pub fn get_scalar_value(array: &ArrayRef, row: usize) -> Result<Option<ScalarValue>> {
-    if array.is_null(row) {
-        return Ok(None);
-    }
-    let value: Option<ScalarValue> = match array.data_type() {
-        DataType::UInt8 => {
-            let array = array
-                .as_any()
-                .downcast_ref::<array::UInt8Array>()
-                .expect("Failed to cast array");
-            Some(ScalarValue::UInt8(array.value(row)))
-        }
-        DataType::UInt16 => {
-            let array = array
-                .as_any()
-                .downcast_ref::<array::UInt16Array>()
-                .expect("Failed to cast array");
-            Some(ScalarValue::UInt16(array.value(row)))
-        }
-        DataType::UInt32 => {
-            let array = array
-                .as_any()
-                .downcast_ref::<array::UInt32Array>()
-                .expect("Failed to cast array");
-            Some(ScalarValue::UInt32(array.value(row)))
-        }
-        DataType::UInt64 => {
-            let array = array
-                .as_any()
-                .downcast_ref::<array::UInt64Array>()
-                .expect("Failed to cast array");
-            Some(ScalarValue::UInt64(array.value(row)))
-        }
-        DataType::Int8 => {
-            let array = array
-                .as_any()
-                .downcast_ref::<array::Int8Array>()
-                .expect("Failed to cast array");
-            Some(ScalarValue::Int8(array.value(row)))
-        }
-        DataType::Int16 => {
-            let array = array
-                .as_any()
-                .downcast_ref::<array::Int16Array>()
-                .expect("Failed to cast array");
-            Some(ScalarValue::Int16(array.value(row)))
-        }
-        DataType::Int32 => {
-            let array = array
-                .as_any()
-                .downcast_ref::<array::Int32Array>()
-                .expect("Failed to cast array");
-            Some(ScalarValue::Int32(array.value(row)))
-        }
-        DataType::Int64 => {
-            let array = array
-                .as_any()
-                .downcast_ref::<array::Int64Array>()
-                .expect("Failed to cast array");
-            Some(ScalarValue::Int64(array.value(row)))
-        }
-        DataType::Float32 => {
-            let array = array
-                .as_any()
-                .downcast_ref::<array::Float32Array>()
-                .unwrap();
-            Some(ScalarValue::Float32(array.value(row)))
-        }
-        DataType::Float64 => {
-            let array = array
-                .as_any()
-                .downcast_ref::<array::Float64Array>()
-                .unwrap();
-            Some(ScalarValue::Float64(array.value(row)))
-        }
-        DataType::Utf8 => {
-            let array = array.as_any().downcast_ref::<array::StringArray>().unwrap();
-            Some(ScalarValue::Utf8(array.value(row).to_string()))
-        }
-        DataType::LargeUtf8 => {
-            let array = array
-                .as_any()
-                .downcast_ref::<array::LargeStringArray>()
-                .unwrap();
-            Some(ScalarValue::Utf8(array.value(row).to_string()))
-        }
-        other => {
-            return Err(ExecutionError::ExecutionError(format!(
-                "Unsupported data type {:?} for result of aggregate expression",
-                other
-            )));
-        }
-    };
-    Ok(value)
+/// creates an empty record batch.
+pub fn create_batch_empty(schema: &Schema) -> ArrowResult<RecordBatch> {
+    let columns = schema
+        .fields()
+        .iter()
+        .map(|f| match f.data_type() {
+            DataType::Float32 => {
+                Ok(Arc::new(Float32Array::from(vec![] as Vec<f32>)) as ArrayRef)
+            }
+            DataType::Float64 => {
+                Ok(Arc::new(Float64Array::from(vec![] as Vec<f64>)) as ArrayRef)
+            }
+            DataType::Int64 => {
+                Ok(Arc::new(Int64Array::from(vec![] as Vec<i64>)) as ArrayRef)
+            }
+            DataType::Int32 => {
+                Ok(Arc::new(Int32Array::from(vec![] as Vec<i32>)) as ArrayRef)
+            }
+            DataType::Int16 => {
+                Ok(Arc::new(Int16Array::from(vec![] as Vec<i16>)) as ArrayRef)
+            }
+            DataType::Int8 => {
+                Ok(Arc::new(Int8Array::from(vec![] as Vec<i8>)) as ArrayRef)
+            }
+            DataType::UInt64 => {
+                Ok(Arc::new(UInt64Array::from(vec![] as Vec<u64>)) as ArrayRef)
+            }
+            DataType::UInt32 => {
+                Ok(Arc::new(UInt32Array::from(vec![] as Vec<u32>)) as ArrayRef)
+            }
+            DataType::UInt16 => {
+                Ok(Arc::new(UInt16Array::from(vec![] as Vec<u16>)) as ArrayRef)
+            }
+            DataType::UInt8 => {
+                Ok(Arc::new(UInt8Array::from(vec![] as Vec<u8>)) as ArrayRef)
+            }
+            DataType::Utf8 => {
+                Ok(Arc::new(StringArray::from(vec![] as Vec<&str>)) as ArrayRef)
+            }
+            DataType::LargeUtf8 => {
+                Ok(Arc::new(LargeStringArray::from(vec![] as Vec<&str>)) as ArrayRef)
+            }
+            DataType::Boolean => {
+                Ok(Arc::new(BooleanArray::from(vec![] as Vec<bool>)) as ArrayRef)
+            }
+            _ => Err(ExecutionError::NotImplemented(format!(
+                "Cannot convert datatype {:?} to array",
+                f.data_type()
+            ))),
+        })
+        .collect::<Result<_>>()
+        .map_err(ExecutionError::into_arrow_external_error)?;
+    RecordBatch::try_new(Arc::new(schema.to_owned()), columns)
 }

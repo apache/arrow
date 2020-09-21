@@ -157,10 +157,11 @@ impl RecordBatchReader for FilterExecIter {
 mod tests {
 
     use super::*;
-    use crate::logical_plan::{Operator, ScalarValue};
+    use crate::logical_plan::Operator;
     use crate::physical_plan::csv::{CsvExec, CsvReadOptions};
     use crate::physical_plan::expressions::*;
     use crate::physical_plan::ExecutionPlan;
+    use crate::scalar::ScalarValue;
     use crate::test;
     use std::iter::Iterator;
 
@@ -178,14 +179,14 @@ mod tests {
             binary(
                 col("c2"),
                 Operator::Gt,
-                lit(ScalarValue::UInt32(1)),
+                lit(ScalarValue::from(1u32)),
                 &schema,
             )?,
             Operator::And,
             binary(
                 col("c2"),
                 Operator::Lt,
-                lit(ScalarValue::UInt32(4)),
+                lit(ScalarValue::from(4u32)),
                 &schema,
             )?,
             &schema,

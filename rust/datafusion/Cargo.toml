@@ -56,6 +56,7 @@ num_cpus = "1.13.0"
 chrono = "0.4"
 
 [dev-dependencies]
+rand = "0.7"
 criterion = "0.3"
 tempfile = "3"
 futures = "0.3"
