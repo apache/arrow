@@ -1884,7 +1884,7 @@ def test_array_to_pylist_roundtrip(arr):
 
 
 @pytest.mark.large_memory
-def test_auto_chunking():
+def test_auto_chunking_binary_like():
     v1 = b'x' * 100000000
     v2 = b'x' * 147483646
     data = [v1] * 20 + [v2]
@@ -1897,6 +1897,20 @@ def test_auto_chunking():
     assert len(arr.chunk(0)) == 21
     assert len(arr.chunk(1)) == 1
     assert arr.chunk(1).to_pylist() == [b'x']
+
+
+@pytest.mark.slow
+@pytest.mark.large_memory
+def test_auto_chunking_list_like():
+    item = np.ones((2**28,), dtype='uint8')
+    data = [item] * (2**3 - 1)
+    arr = pa.array(data, type=pa.list_(pa.uint8()))
+    assert isinstance(arr, pa.Array)
+
+    item = np.ones((2**28,), dtype='uint8')
+    data = [item] * 2**3
+    arr = pa.array(data, type=pa.list_(pa.uint8()))
+    assert isinstance(arr, pa.ChunkedArray)
 
 
 @pytest.mark.large_memory

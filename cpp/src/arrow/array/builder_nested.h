@@ -289,6 +289,10 @@ class ARROW_EXPORT MapBuilder : public ArrayBuilder {
     return map(key_builder_->type(), item_builder_->type(), keys_sorted_);
   }
 
+  Status ValidateOverflow(int64_t new_elements) {
+    return list_builder_->ValidateOverflow(new_elements);
+  }
+
  protected:
   inline Status AdjustStructBuilderLength();
 

@@ -569,8 +569,6 @@ class PyListConverter : public ListConverter<T, PyConverter, PyConverterTrait> {
   }
 
  protected:
-  //Status ValidateOverflow(const MapType*, int64_t size) { return Status::OK(); }
-
   Status ValidateOverflow(const BaseListType*, int64_t size) {
     return this->list_builder_->ValidateOverflow(size);
   }
