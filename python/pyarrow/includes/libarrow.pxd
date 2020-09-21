@@ -1723,7 +1723,7 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
     cdef cppclass CPartitionNthOptions \
             "arrow::compute::PartitionNthOptions"(CFunctionOptions):
-        CPartitionNthOptions(pivot)
+        CPartitionNthOptions(int64_t pivot)
         int64_t pivot
 
     enum DatumType" arrow::Datum::type":
