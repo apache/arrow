@@ -2677,7 +2677,7 @@ if(ARROW_S3)
 
   # Workaround to force AWS cmake configuration to look for shared libraries
   if(DEFINED ENV{CONDA_PREFIX})
-    if (DEFINED BUILD_SHARED_LIBS)
+    if(DEFINED BUILD_SHARED_LIBS)
       set(BUILD_SHARED_LIBS_WAS_SET TRUE)
       set(BUILD_SHARED_LIBS_VALUE ${BUILD_SHARED_LIBS})
     else()
@@ -2710,7 +2710,7 @@ if(ARROW_S3)
 
   # Restore previous value of BUILD_SHARED_LIBS
   if(DEFINED ENV{CONDA_PREFIX})
-    if (BUILD_SHARED_LIBS_WAS_SET)
+    if(BUILD_SHARED_LIBS_WAS_SET)
       set(BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS_VALUE})
     else()
       unset(BUILD_SHARED_LIBS)
