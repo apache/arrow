@@ -96,6 +96,7 @@ x-hierarchy:
       - conda-python-kartothek
       - conda-python-spark
     - conda-r
+  - conda-python-benchmark
   - debian-cpp:
     - debian-c-glib:
       - debian-ruby
@@ -496,24 +497,25 @@ services:
         /arrow/ci/scripts/python_test.sh /arrow"]
 
   conda-python-benchmark:
-    image: ${REPO}:${ARCH}-conda-python-${PYTHON}-benchmark
+    image: ${REPO}:${ARCH}-conda-python-benchmark
     build:
       context: .
       dockerfile: ci/docker/conda-python-benchmark.dockerfile
       cache_from:
-        - ${REPO}:${ARCH}-conda-python-${PYTHON}-benchmark
+        - ${REPO}:${ARCH}-conda-python-benchmark
       args:
-        repo: ${REPO}
         arch: ${ARCH}
-        python: ${PYTHON}
+        prefix: /opt/conda
     shm_size: *shm-size
     environment:
       <<: *ccache
-    volumes: *conda-volumes
-    # mount .asv-machine.json
-    # mount asv results directory
+    volumes:
+      - .:/arrow:delegated
+      - ${DOCKER_VOLUME_DIRECTORY:-.docker}/${ARCH}-conda-ccache:/ccache:delegated
+      - ./python/.asv/results:/asv/results
+      - ~/.asv-machine.json:/root/.asv-machine.json
     command:
-      ["/arrow/ci/scripts/python_benchmark.sh /arrow"]
+      ["asv run --verbose --no-pull --show-stderr --config asv.conf.docker.json HEAD^!"]
 
   ubuntu-cuda-python:
     # Usage:

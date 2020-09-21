@@ -28,7 +28,7 @@
 !ci/**
 !c_glib/Gemfile
 !dev/archery/requirements*.txt
-!python/asv.conf.json
+!python/asv.conf.docker.json
 !python/requirements*.txt
 !python/manylinux1/**
 !python/manylinux2010/**

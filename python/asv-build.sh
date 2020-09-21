@@ -21,56 +21,34 @@ set -e
 
 # ASV doesn't activate its conda environment for us
 if [ -z "$ASV_ENV_DIR" ]; then exit 1; fi
-
 if [ -z "$CONDA_HOME" ]; then
   echo "Please set \$CONDA_HOME to point to your root conda installation"
   exit 1;
 fi
 
 eval "$($CONDA_HOME/bin/conda shell.bash hook)"
-
 conda activate $ASV_ENV_DIR
 
 echo "== Conda Prefix for benchmarks: " $CONDA_PREFIX " =="
 
 # Build Arrow C++ libraries
+export ARROW_BUILD_TYPE=debug
+export ARROW_DATASET=ON
+export ARROW_DEPENDENCY_SOURCE=CONDA
+export ARROW_FLIGHT=ON
+export ARROW_GANDIVA=OFF
 export ARROW_HOME=$CONDA_PREFIX
+export ARROW_PARQUET=ON
+export ARROW_PLASMA=ON
+export ARROW_PYTHON=ON
+export ARROW_S3=OFF
+export ARROW_USE_GLOG=OFF
+export ARROW_USE_CCACHE=ON
 export PARQUET_HOME=$CONDA_PREFIX
-export ORC_HOME=$CONDA_PREFIX
-export PROTOBUF_HOME=$CONDA_PREFIX
-export BOOST_ROOT=$CONDA_PREFIX
+export SETUPTOOLS_SCM_PRETEND_VERSION=2.0.0
 
-pushd ../cpp
-rm -rf build
-mkdir -p build
-pushd build
+source_dir="$( cd "$(dirname "$0")/.." >/dev/null 2>&1 ; pwd -P )"
+build_dir=$ASV_BUILD_DIR/build
 
-cmake -GNinja \
-      -DCMAKE_BUILD_TYPE=release \
-      -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
-      -DARROW_CXXFLAGS=$CXXFLAGS \
-      -DARROW_USE_GLOG=OFF \
-      -DARROW_FLIGHT=ON \
-      -DARROW_ORC=ON \
-      -DARROW_PARQUET=ON \
-      -DARROW_PYTHON=ON \
-      -DARROW_PLASMA=ON \
-      -DARROW_S3=ON \
-      -DARROW_BUILD_TESTS=OFF \
-      ..
-cmake --build . --target install
-
-popd
-popd
-
-# Build pyarrow wrappers
-export PYARROW_CMAKE_GENERATOR=Ninja
-export PYARROW_BUILD_TYPE=release
-export PYARROW_PARALLEL=8
-export PYARROW_WITH_FLIGHT=1
-export PYARROW_WITH_ORC=1
-export PYARROW_WITH_PARQUET=1
-export PYARROW_WITH_PLASMA=1
-
-export SETUPTOOLS_SCM_PRETEND_VERSION=1.0.0
-python setup.py develop
+"${source_dir}/ci/scripts/cpp_build.sh" ${source_dir} ${build_dir}
+"${source_dir}/ci/scripts/python_build.sh" ${source_dir} ${build_dir}

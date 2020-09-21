@@ -15,17 +15,35 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ARG repo
 ARG arch=amd64
-ARG python=3.6
-FROM ${repo}:${arch}-conda-python-${python}
+FROM ${arch}/ubuntu:18.04
 
-RUN conda install -y asv
+# arch is unset after the FROM statement, so need to define it again
+ARG arch=amd64
+ARG prefix=/opt/conda
 
-ENV CONDA_HOME=/opt/conda
-COPY python/asv.conf.json /arrow/python/
+# install build essentials
+RUN export DEBIAN_FRONTEND=noninteractive && \
+    apt-get update -y -q && \
+    apt-get install -y -q wget tzdata libc6-dbg \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV PATH=${prefix}/bin:$PATH \
+    CONDA_HOME=${prefix}
+COPY ci/scripts/install_conda.sh /arrow/ci/scripts/
+RUN /arrow/ci/scripts/install_conda.sh ${arch} linux latest ${prefix}
+
+# use login shell to activate arrow environment un the RUN commands
+SHELL [ "/bin/bash", "-c", "-l" ]
+
+# use login shell when running the container
+ENTRYPOINT [ "/bin/bash", "-c", "-l" ]
+
+RUN conda install -y asv git
+COPY python/asv.conf.docker.json /arrow/python/
 
 WORKDIR /arrow/python
 
 # returns with zero code 1 even on successful setup
-RUN asv setup -v || true
+RUN asv setup -v --config asv.conf.docker.json || true
