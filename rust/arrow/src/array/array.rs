@@ -2209,11 +2209,19 @@ pub struct DictionaryArray<K: ArrowPrimitiveType> {
 }
 
 #[derive(Debug)]
+enum Draining {
+    Ready,
+    Iterating,
+    Finished,
+}
+
+#[derive(Debug)]
 pub struct NullableIter<'a, T> {
     data: &'a ArrayDataRef, // TODO: Use a pointer to the null bitmap.
     ptr: *const T,
     i: usize,
     len: usize,
+    draining: Draining,
 }
 
 impl<'a, T> std::iter::Iterator for NullableIter<'a, T>
@@ -2254,6 +2262,45 @@ where
     }
 }
 
+impl<'a, T> std::iter::DoubleEndedIterator for NullableIter<'a, T>
+where
+    T: Clone,
+{
+    fn next_back(&mut self) -> Option<Self::Item> {
+        match self.draining {
+            Draining::Ready => {
+                self.draining = Draining::Iterating;
+                self.i = self.len - 1;
+                self.next_back()
+            }
+            Draining::Iterating => {
+                let i = self.i;
+                if i >= self.len {
+                    None
+                } else if self.data.is_null(i) {
+                    self.i = self.i.checked_sub(1).unwrap_or(0_usize);
+                    Some(None)
+                } else {
+                    match i.checked_sub(1) {
+                        Some(idx) => {
+                            self.i = idx;
+                            unsafe { Some(Some((&*self.ptr.add(i)).clone())) }
+                        }
+                        _ => {
+                            self.draining = Draining::Finished;
+                            unsafe { Some(Some((&*self.ptr).clone())) }
+                        }
+                    }
+                }
+            }
+            Draining::Finished => {
+                self.draining = Draining::Ready;
+                None
+            }
+        }
+    }
+}
+
 impl<'a, K: ArrowPrimitiveType> DictionaryArray<K> {
     /// Return an iterator to the keys of this dictionary.
     pub fn keys(&self) -> NullableIter<'_, K::Native> {
@@ -2262,6 +2309,7 @@ impl<'a, K: ArrowPrimitiveType> DictionaryArray<K> {
             ptr: unsafe { self.raw_values.get().add(self.data.offset()) },
             i: 0,
             len: self.data.len(),
+            draining: Draining::Ready,
         }
     }
 
@@ -3101,6 +3149,16 @@ mod tests {
 
         assert_eq!(
             dict_array.keys().collect::<Vec<Option<i16>>>(),
+            vec![Some(2), Some(3), Some(4)]
+        );
+
+        assert_eq!(
+            dict_array.keys().rev().collect::<Vec<Option<i16>>>(),
+            vec![Some(4), Some(3), Some(2)]
+        );
+
+        assert_eq!(
+            dict_array.keys().rev().rev().collect::<Vec<Option<i16>>>(),
             vec![Some(2), Some(3), Some(4)]
         );
 
