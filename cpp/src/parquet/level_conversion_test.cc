@@ -26,6 +26,7 @@
 #include <string>
 #include <vector>
 
+#include "arrow/testing/gtest_compat.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap.h"
 #include "arrow/util/ubsan.h"
@@ -199,7 +200,7 @@ struct RepDefLevelConverter {
 using ConverterTypes =
     ::testing::Types<RepDefLevelConverter</*list_length_type=*/int32_t>,
                      RepDefLevelConverter</*list_length_type=*/int64_t>>;
-TYPED_TEST_CASE(NestedListTest, ConverterTypes);
+TYPED_TEST_SUITE(NestedListTest, ConverterTypes);
 
 TYPED_TEST(NestedListTest, OuterMostTest) {
   // [null, [[1 , null, 3], []], []],

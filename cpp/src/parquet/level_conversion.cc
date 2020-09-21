@@ -36,7 +36,6 @@ namespace {
 
 using ::arrow::internal::CpuInfo;
 
-#if !ARROW_LITTLE_ENDIAN
 void DefLevelsToBitmapScalar(const int16_t* def_levels, int64_t num_def_levels,
                              LevelInfo level_info, ValidityBitmapInputOutput* output) {
   ::arrow::internal::FirstTimeBitmapWriter valid_bits_writer(
@@ -71,7 +70,6 @@ void DefLevelsToBitmapScalar(const int16_t* def_levels, int64_t num_def_levels,
         "(i.e. FixedSizeLists with null values are not supported");
   }
 }
-#endif
 
 template <typename OffsetType>
 void DefRepLevelsToListInfo(const int16_t* def_levels, const int16_t* rep_levels,
@@ -173,18 +171,13 @@ void DefLevelsToBitmap(const int16_t* def_levels, int64_t num_def_levels,
   if (level_info.rep_level > 0) {
 #if defined(ARROW_HAVE_RUNTIME_BMI2)
     using FunctionType = decltype(&standard::DefLevelsToBitmapSimd<true>);
-    static FunctionType fn =
-        CpuInfo::GetInstance()->HasEfficientBmi2()
-            ? DefLevelsToBitmapBmi2WithRepeatedParent
-            : standard::DefLevelsToBitmapSimd</*has_repeated_parent=*/true>;
+    // DefLevelsToBitmapSimd with emulated PEXT would be slow, so use the
+    // scalar version if BMI2 is unavailable.
+    static FunctionType fn = CpuInfo::GetInstance()->HasEfficientBmi2()
+                                 ? DefLevelsToBitmapBmi2WithRepeatedParent
+                                 : DefLevelsToBitmapScalar;
     fn(def_levels, num_def_levels, level_info, output);
-#elif ARROW_LITTLE_ENDIAN
-    standard::DefLevelsToBitmapSimd</*has_repeated_parent=*/true>(
-        def_levels, num_def_levels, level_info, output);
 #else
-    // Big-endian platforms don't have a
-    // pext function and the current implementation of BitRunReader is always linear
-    // in bits, so this method will likely be the fastest alternative.
     DefLevelsToBitmapScalar(def_levels, num_def_levels, level_info, output);
 #endif
   } else {

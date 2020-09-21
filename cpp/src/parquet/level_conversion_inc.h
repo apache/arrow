@@ -92,13 +92,13 @@ int64_t DefLevelsBatchToBitmap(const int16_t* def_levels, const int64_t batch_si
         def_levels, batch_size, level_info.repeated_ancestor_def_level - 1);
     uint64_t selected_bits = ExtractBits(defined_bitmap, present_bitmap);
     int64_t selected_count = ::arrow::BitUtil::PopCount(present_bitmap);
-    if (selected_count > upper_bound_remaining) {
+    if (ARROW_PREDICT_FALSE(selected_count > upper_bound_remaining)) {
       throw ParquetException("Values read exceeded upper bound");
     }
     writer->AppendWord(selected_bits, selected_count);
     return ::arrow::BitUtil::PopCount(selected_bits);
   } else {
-    if (batch_size > upper_bound_remaining) {
+    if (ARROW_PREDICT_FALSE(batch_size > upper_bound_remaining)) {
       std::stringstream ss;
       ss << "Values read exceeded upper bound";
       throw ParquetException(ss.str());
