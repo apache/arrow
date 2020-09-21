@@ -212,6 +212,10 @@ if(CXX_SUPPORTS_AVX2)
                               ON
                               COMPILE_FLAGS
                               "${ARROW_AVX2_FLAG}")
+  # WARNING: DO NOT BLINDLY COPY THIS CODE FOR OTHER BMI2 USE CASES.
+  # This code is always guarded by runtime dispatch which verifies
+  # BMI2 is present.  For a very small number of CPUs AVX2 does not
+  # imply BMI2.
   set_source_files_properties(level_conversion_bmi2.cc
                               PROPERTIES
                               SKIP_PRECOMPILE_HEADERS
