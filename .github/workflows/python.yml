@@ -178,6 +178,10 @@ jobs:
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
+      - name: Setup Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.7
       - name: Setup Archery
         run: pip install -U -e dev/archery[docker]
       - name: Execute Docker Build
