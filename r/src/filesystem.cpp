@@ -231,12 +231,12 @@ cpp11::writable::list fs___FileSystemFromUri(const std::string& path) {
 }
 
 // [[arrow::export]]
-void fs___CopyFiles(const std::shared_ptr<FileSystem>& source_fs,
-                    const FileSelector& source_sel,
-                    const std::shared_ptr<FileSystem>& destination_fs,
+void fs___CopyFiles(const std::shared_ptr<fs::FileSystem>& source_fs,
+                    const std::shared_ptr<fs::FileSelector>& source_sel,
+                    const std::shared_ptr<fs::FileSystem>& destination_fs,
                     const std::string& destination_base_dir,
                     int64_t chunk_size = 1024 * 1024, bool use_threads = true) {
-  StopIfNotOk(fs::CopyFiles(source_fs, source_sel, destination_fs, destination_base_dir,
+  StopIfNotOk(fs::CopyFiles(source_fs, *source_sel, destination_fs, destination_base_dir,
                             chunk_size, use_threads));
 }
 
