@@ -26,7 +26,6 @@
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
-
 #include "arrow/visitor_inline.h"
 
 namespace arrow {

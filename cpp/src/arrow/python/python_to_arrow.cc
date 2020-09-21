@@ -405,18 +405,10 @@ template <typename T, typename Enable = void>
 struct PyConverterTrait;
 
 template <typename T>
-struct PyConverterTrait<T, enable_if_not_nested<T>> {
+struct PyConverterTrait<
+    T, enable_if_t<!is_nested_type<T>::value && !is_interval_type<T>::value &&
+                   !is_extension_type<T>::value>> {
   using type = PyPrimitiveConverter<T>;
-};
-
-template <typename T>
-struct PyConverterTrait<T, enable_if_extension<T>> {
-  using type = void;
-};
-
-template <typename T>
-struct PyConverterTrait<T, enable_if_interval<T>> {
-  using type = void;
 };
 
 template <typename T>
