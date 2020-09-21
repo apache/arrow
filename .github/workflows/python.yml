@@ -187,7 +187,7 @@ jobs:
       - name: Execute Docker Build
         run: |
           ulimit -c unlimited
-          archery docker run -v ~/.asv/results:/asv/results conda-python-benchmark
+          archery docker run conda-python-benchmark
       - name: Docker Push
         if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
         continue-on-error: true
