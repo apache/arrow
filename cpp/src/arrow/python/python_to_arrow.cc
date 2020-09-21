@@ -535,22 +535,6 @@ class PyDictionaryConverter<U, enable_if_has_string_view<U>>
 template <typename T>
 class PyListConverter : public ListConverter<T, PyConverter> {
  public:
-  Status ValidateOverflow(const MapType*, int64_t size) { return Status::OK(); }
-
-  Status ValidateOverflow(const BaseListType*, int64_t size) {
-    return this->list_builder_->ValidateOverflow(size);
-  }
-
-  Status ValidateBuilder(const MapType*) {
-    if (this->list_builder_->key_builder()->null_count() > 0) {
-      return Status::Invalid("Invalid Map: key field can not contain null values");
-    } else {
-      return Status::OK();
-    }
-  }
-
-  Status ValidateBuilder(const BaseListType*) { return Status::OK(); }
-
   Status Append(PyObject* value) override {
     if (PyValue::IsNull(this->options_, value)) {
       return this->list_builder_->AppendNull();
@@ -568,6 +552,23 @@ class PyListConverter : public ListConverter<T, PyConverter> {
 
     return ValidateBuilder(this->list_type_);
   }
+
+ protected:
+  Status ValidateOverflow(const MapType*, int64_t size) { return Status::OK(); }
+
+  Status ValidateOverflow(const BaseListType*, int64_t size) {
+    return this->list_builder_->ValidateOverflow(size);
+  }
+
+  Status ValidateBuilder(const MapType*) {
+    if (this->list_builder_->key_builder()->null_count() > 0) {
+      return Status::Invalid("Invalid Map: key field can not contain null values");
+    } else {
+      return Status::OK();
+    }
+  }
+
+  Status ValidateBuilder(const BaseListType*) { return Status::OK(); }
 
   Status AppendSequence(PyObject* value) {
     int64_t size = static_cast<int64_t>(PySequence_Size(value));
