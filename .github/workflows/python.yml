@@ -162,3 +162,30 @@ jobs:
       - name: Test
         shell: bash
         run: ci/scripts/python_test.sh $(pwd) $(pwd)/build
+
+  benchmark:
+    # NOTE: this job is specific for self-hosted runners
+    name: AMD64 Conda Python 3.7 Benchmark
+    runs-on: [self-hosted, linux, ursa-dgx2]
+    # if: github.event_name == 'push'
+    defaults:
+      # To use certain environment variables set by .bashrc, an interactive
+      # bash shell must be used
+      run:
+        shell: bash -i {0}
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v2
+        with:
+          submodules: true
+          fetch-depth: 0
+      - name: Setup Archery
+        run: pip install -U -e dev/archery[docker]
+      - name: Execute Docker Build
+        run: |
+          ulimit -c unlimited
+          archery docker run conda-python-benchmark
+      - name: Docker Push
+        if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
+        continue-on-error: true
+        run: archery docker push ${{ matrix.image }}
