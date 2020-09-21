@@ -177,7 +177,6 @@ jobs:
       - name: Checkout Arrow
         uses: actions/checkout@v2
         with:
-          submodules: true
           fetch-depth: 0
       - name: Setup Archery
         run: pip install -U -e dev/archery[docker]
