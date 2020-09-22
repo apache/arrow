@@ -460,7 +460,8 @@ CsvConvertOptions$create <- function(check_utf8 = TRUE,
                                      auto_dict_encode = FALSE,
                                      auto_dict_max_cardinality = 50L,
                                      include_columns = character(),
-                                     include_missing_columns = FALSE) {
+                                     include_missing_columns = FALSE,
+                                     timestamp_parsers = NULL) {
 
   if (!is.null(col_types) && !inherits(col_types, "Schema")) {
     abort(c(
@@ -480,7 +481,8 @@ CsvConvertOptions$create <- function(check_utf8 = TRUE,
       auto_dict_encode = auto_dict_encode,
       auto_dict_max_cardinality = auto_dict_max_cardinality,
       include_columns = include_columns,
-      include_missing_columns = include_missing_columns
+      include_missing_columns = include_missing_columns,
+      timestamp_parsers = timestamp_parsers
     )
   ))
 }

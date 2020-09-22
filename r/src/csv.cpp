@@ -95,6 +95,19 @@ std::shared_ptr<arrow::csv::ConvertOptions> csv___ConvertOptions__initialize(
       cpp11::as_cpp<std::vector<std::string>>(options["include_columns"]);
   res->include_missing_columns = cpp11::as_cpp<bool>(options["include_missing_columns"]);
 
+  SEXP op_timestamp_parsers = options["timestamp_parsers"];
+  if (!Rf_isNull(op_timestamp_parsers)) {
+    // assume it's a list of TimestampParser R6 objects
+    cpp11::list parsers(op_timestamp_parsers);
+
+    std::vector<std::shared_ptr<arrow::TimestampParser>> timestamp_parsers;
+    for (SEXP x : parsers) {
+      timestamp_parsers.push_back(
+          cpp11::as_cpp<std::shared_ptr<arrow::TimestampParser>>(x));
+    }
+    res->timestamp_parsers = timestamp_parsers;
+  }
+
   return res;
 }
 
@@ -121,12 +134,14 @@ std::string TimestampParser__kind(const std::shared_ptr<arrow::TimestampParser>&
 }
 
 // [[arrow::export]]
-std::string TimestampParser__format(const std::shared_ptr<arrow::TimestampParser>& parser) {
+std::string TimestampParser__format(
+    const std::shared_ptr<arrow::TimestampParser>& parser) {
   return parser->format();
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::TimestampParser> TimestampParser__MakeStrptime(std::string format) {
+std::shared_ptr<arrow::TimestampParser> TimestampParser__MakeStrptime(
+    std::string format) {
   return arrow::TimestampParser::MakeStrptime(format);
 }
 
