@@ -1680,8 +1680,8 @@ mod tests {
     use super::*;
     use crate::error::Result;
     use arrow::array::{
-        LargeStringArray, PrimitiveArray, PrimitiveArrayOps, StringArray,
-        StringArrayOps, Time64NanosecondArray,
+        LargeStringArray, PrimitiveArray, PrimitiveArrayOps, StringArray, StringArrayOps,
+        Time64NanosecondArray,
     };
     use arrow::datatypes::*;
 
