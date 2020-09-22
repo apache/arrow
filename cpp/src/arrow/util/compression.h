@@ -38,9 +38,9 @@ struct Compression {
     ZSTD,
     LZ4,
     LZ4_FRAME,
-    LZ4_HADOOP,
     LZO,
-    BZ2
+    BZ2,
+    LZ4_HADOOP
   };
 
   static constexpr int kUseDefaultCompressionLevel = std::numeric_limits<int>::min();
