@@ -16,8 +16,8 @@
 // under the License.
 
 use std::any::Any;
-use std::convert::{From, TryFrom};
 use std::borrow::Borrow;
+use std::convert::{From, TryFrom};
 use std::fmt;
 use std::io::Write;
 use std::iter::{FromIterator, IntoIterator};
