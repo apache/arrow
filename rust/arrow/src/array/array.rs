@@ -1468,7 +1468,7 @@ impl<OffsetSize: OffsetSizeTrait> GenericStringArray<OffsetSize> {
         Self::from(data)
     }
 
-    fn from_vec(v: Vec<&str>, data_type: DataType) -> Self {
+    pub(crate) fn from_vec(v: Vec<&str>, data_type: DataType) -> Self {
         let mut offsets = Vec::with_capacity(v.len() + 1);
         let mut values = Vec::new();
         let mut length_so_far = OffsetSize::zero();
@@ -1486,7 +1486,7 @@ impl<OffsetSize: OffsetSizeTrait> GenericStringArray<OffsetSize> {
         Self::from(array_data)
     }
 
-    fn from_opt_vec(v: Vec<Option<&str>>, data_type: DataType) -> Self {
+    pub(crate) fn from_opt_vec(v: Vec<Option<&str>>, data_type: DataType) -> Self {
         let mut offsets = Vec::with_capacity(v.len() + 1);
         let mut values = Vec::new();
         let mut null_buf = make_null_buffer(v.len());

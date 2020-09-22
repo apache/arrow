@@ -1412,40 +1412,50 @@ mod tests {
         // assert!(b_slice.equals(&*a_slice));
     }
 
-    #[test]
-    fn test_string_equal() {
-        let a = StringArray::from(vec!["hello", "world"]);
-        let b = StringArray::from(vec!["hello", "world"]);
+    fn test_generic_string_equal<OffsetSize: OffsetSizeTrait>(datatype: DataType) {
+        let a = GenericStringArray::<OffsetSize>::from_vec(
+            vec!["hello", "world"],
+            datatype.clone(),
+        );
+        let b = GenericStringArray::<OffsetSize>::from_vec(
+            vec!["hello", "world"],
+            datatype.clone(),
+        );
         assert!(a.equals(&b));
         assert!(b.equals(&a));
 
-        let b = StringArray::from(vec!["hello", "arrow"]);
+        let b = GenericStringArray::<OffsetSize>::from_vec(
+            vec!["hello", "arrow"],
+            datatype.clone(),
+        );
         assert!(!a.equals(&b));
         assert!(!b.equals(&a));
 
         // Test the case where null_count > 0
 
-        let a =
-            StringArray::from(vec![Some("hello"), None, None, Some("world"), None, None]);
+        let a = GenericStringArray::<OffsetSize>::from_opt_vec(
+            vec![Some("hello"), None, None, Some("world"), None, None],
+            datatype.clone(),
+        );
 
-        let b =
-            StringArray::from(vec![Some("hello"), None, None, Some("world"), None, None]);
+        let b = GenericStringArray::<OffsetSize>::from_opt_vec(
+            vec![Some("hello"), None, None, Some("world"), None, None],
+            datatype.clone(),
+        );
         assert!(a.equals(&b));
         assert!(b.equals(&a));
 
-        let b = StringArray::from(vec![
-            Some("hello"),
-            Some("foo"),
-            None,
-            Some("world"),
-            None,
-            None,
-        ]);
+        let b = GenericStringArray::<OffsetSize>::from_opt_vec(
+            vec![Some("hello"), Some("foo"), None, Some("world"), None, None],
+            datatype.clone(),
+        );
         assert!(!a.equals(&b));
         assert!(!b.equals(&a));
 
-        let b =
-            StringArray::from(vec![Some("hello"), None, None, Some("arrow"), None, None]);
+        let b = GenericStringArray::<OffsetSize>::from_opt_vec(
+            vec![Some("hello"), None, None, Some("arrow"), None, None],
+            datatype.clone(),
+        );
         assert!(!a.equals(&b));
         assert!(!b.equals(&a));
 
@@ -1468,76 +1478,13 @@ mod tests {
     }
 
     #[test]
+    fn test_string_equal() {
+        test_generic_string_equal::<i32>(DataType::Utf8)
+    }
+
+    #[test]
     fn test_large_string_equal() {
-        let a = LargeStringArray::from(vec!["hello", "world"]);
-        let b = LargeStringArray::from(vec!["hello", "world"]);
-        assert!(a.equals(&b));
-        assert!(b.equals(&a));
-
-        let b = LargeStringArray::from(vec!["hello", "arrow"]);
-        assert!(!a.equals(&b));
-        assert!(!b.equals(&a));
-
-        // Test the case where null_count > 0
-
-        let a = LargeStringArray::from(vec![
-            Some("hello"),
-            None,
-            None,
-            Some("world"),
-            None,
-            None,
-        ]);
-
-        let b = LargeStringArray::from(vec![
-            Some("hello"),
-            None,
-            None,
-            Some("world"),
-            None,
-            None,
-        ]);
-        assert!(a.equals(&b));
-        assert!(b.equals(&a));
-
-        let b = LargeStringArray::from(vec![
-            Some("hello"),
-            Some("foo"),
-            None,
-            Some("world"),
-            None,
-            None,
-        ]);
-        assert!(!a.equals(&b));
-        assert!(!b.equals(&a));
-
-        let b = LargeStringArray::from(vec![
-            Some("hello"),
-            None,
-            None,
-            Some("arrow"),
-            None,
-            None,
-        ]);
-        assert!(!a.equals(&b));
-        assert!(!b.equals(&a));
-
-        // Test the case where offset != 0
-
-        let a_slice = a.slice(0, 3);
-        let b_slice = b.slice(0, 3);
-        assert!(a_slice.equals(&*b_slice));
-        assert!(b_slice.equals(&*a_slice));
-
-        let a_slice = a.slice(0, 5);
-        let b_slice = b.slice(0, 5);
-        assert!(!a_slice.equals(&*b_slice));
-        assert!(!b_slice.equals(&*a_slice));
-
-        let a_slice = a.slice(4, 1);
-        let b_slice = b.slice(4, 1);
-        assert!(a_slice.equals(&*b_slice));
-        assert!(b_slice.equals(&*a_slice));
+        test_generic_string_equal::<i64>(DataType::LargeUtf8)
     }
 
     #[test]
