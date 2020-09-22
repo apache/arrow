@@ -28,7 +28,7 @@ use crate::{
 use std::sync::Arc;
 
 macro_rules! substring {
-    ($array:expr, $start:expr, $length:expr, $native:ident, $datatype:expr) => {{
+    ($array:expr, $start:expr, $length:expr, $native:ident, $array_type:ident, $datatype:expr) => {{
         // compute current offsets
         let offsets = $array.data_ref().clone().buffers()[0].clone();
         let offsets: &[$native] = unsafe { offsets.typed_data::<$native>() };
@@ -82,7 +82,7 @@ macro_rules! substring {
             ],
             vec![],
         );
-        Ok(Arc::new(StringArray::from(Arc::new(data))))
+        Ok(Arc::new($array_type::from(Arc::new(data))))
     }};
 }
 
@@ -90,8 +90,17 @@ macro_rules! substring {
 /// `start` can be negative, in which case the start counts from the end of the string.
 pub fn substring(array: &Array, start: i64, length: &Option<u64>) -> Result<ArrayRef> {
     match array.data_type() {
-        DataType::LargeUtf8 => substring!(array, start, length, i64, DataType::LargeUtf8),
-        DataType::Utf8 => substring!(array, start, length, i32, DataType::Utf8),
+        DataType::LargeUtf8 => substring!(
+            array,
+            start,
+            length,
+            i64,
+            LargeStringArray,
+            DataType::LargeUtf8
+        ),
+        DataType::Utf8 => {
+            substring!(array, start, length, i32, StringArray, DataType::Utf8)
+        }
         _ => Err(ArrowError::ComputeError(format!(
             "substring does not support type {:?}",
             array.data_type()
