@@ -144,6 +144,8 @@ class PARQUET_EXPORT ColumnWriter {
   /// writer type.
   ///
   /// leaf_array is always a primitive (possibly dictionary encoded type).
+  /// Leaf_field_nullable indicates whether the leaf array is considered nullable
+  /// according to its schema in a Table or its parent array.
   virtual ::arrow::Status WriteArrow(const int16_t* def_levels, const int16_t* rep_levels,
                                      int64_t num_levels, const ::arrow::Array& leaf_array,
                                      ArrowWriteContext* ctx,
