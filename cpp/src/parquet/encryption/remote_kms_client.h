@@ -20,28 +20,14 @@
 #include <unordered_map>
 #include <vector>
 
+#include "arrow/util/concurrent_map.h"
+
 #include "parquet/encryption/kms_client.h"
 #include "parquet/platform.h"
 
 namespace parquet {
 namespace encryption {
 
-// KMS systems wrap keys by encrypting them by master keys, and attaching additional
-// information (such as the version number of the masker key) to the result of encryption.
-// The master key version is required in  key rotation. Currently, the local wrapping mode
-// does not support key rotation (because not all KMS systems allow to fetch a master key
-// by its ID and version number). Still, the local wrapping mode adds a placeholder for
-// the master key version, that will enable support for key rotation in this mode in the
-// future, with appropriate KMS systems. This will also enable backward compatibility,
-// where future readers will be able to extract master key version in the files written by
-// the current code.
-//
-// LocalKeyWrap class writes (and reads) the "key wrap" as a flat json with the following
-// fields:
-// 1. "masterKeyVersion" - a String, with the master key version. In the current version,
-// only one value is allowed - "NO_VERSION".
-// 2. "encryptedKey" - a String, with the key encrypted by the master key
-// (base64-encoded).
 class PARQUET_EXPORT RemoteKmsClient : public KmsClient {
  public:
   static constexpr const char kLocalWrapNoKeyVersion[] = "NO_VERSION";
@@ -55,23 +41,42 @@ class PARQUET_EXPORT RemoteKmsClient : public KmsClient {
                         const std::string& master_key_identifier) override;
 
  protected:
-  // Wrap a key with the master key in the remote KMS server.
+  /// Wrap a key with the master key in the remote KMS server.
+  /// Note: this function might be called by multiple threads
   virtual std::string WrapKeyInServer(const std::string& key_bytes,
                                       const std::string& master_key_identifier) = 0;
 
-  // Unwrap a key with the master key in the remote KMS server.
+  /// Unwrap a key with the master key in the remote KMS server.
+  /// Note: this function might be called by multiple threads
   virtual std::string UnwrapKeyInServer(const std::string& wrapped_key,
                                         const std::string& master_key_identifier) = 0;
 
-  // Get master key from the remote KMS server.
-  // Required only for local wrapping. No need to implement if KMS supports in-server
-  // wrapping/unwrapping.
+  /// Get master key from the remote KMS server.
+  /// Required only for local wrapping. No need to implement if KMS supports in-server
+  /// wrapping/unwrapping.
+  /// Note: this function might be called by multiple threads
   virtual std::string GetMasterKeyFromServer(
       const std::string& master_key_identifier) = 0;
 
   virtual void InitializeInternal() = 0;
 
  private:
+  /// KMS systems wrap keys by encrypting them by master keys, and attaching additional
+  /// information (such as the version number of the masker key) to the result of
+  /// encryption. The master key version is required in  key rotation. Currently, the
+  /// local wrapping mode does not support key rotation (because not all KMS systems allow
+  /// to fetch a master key by its ID and version number). Still, the local wrapping mode
+  /// adds a placeholder for the master key version, that will enable support for key
+  /// rotation in this mode in the future, with appropriate KMS systems. This will also
+  /// enable backward compatibility, where future readers will be able to extract master
+  /// key version in the files written by the current code.
+  ///
+  /// LocalKeyWrap class writes (and reads) the "key wrap" as a flat json with the
+  /// following fields:
+  /// 1. "masterKeyVersion" - a String, with the master key version. In the current
+  /// version, only one value is allowed - "NO_VERSION".
+  /// 2. "encryptedKey" - a String, with the key encrypted by the master key
+  /// (base64-encoded).
   class LocalKeyWrap {
    public:
     static constexpr const char kLocalWrapKeyVersionField[] = "masterKeyVersion";
@@ -97,9 +102,9 @@ class PARQUET_EXPORT RemoteKmsClient : public KmsClient {
 
  protected:
   KmsConnectionConfig kms_connection_config_;
-  bool is_wrap_locally_;
-  bool is_default_token_;
-  std::unordered_map<std::string, std::string> master_key_cache_;
+  std::atomic<bool> is_wrap_locally_;
+  std::atomic<bool> is_default_token_;
+  arrow::util::ConcurrentMap<std::string> master_key_cache_;
 };
 
 }  // namespace encryption

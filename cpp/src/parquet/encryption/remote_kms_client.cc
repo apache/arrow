@@ -70,7 +70,7 @@ void RemoteKmsClient::Initialize(const KmsConnectionConfig& kms_connection_confi
   kms_connection_config_ = kms_connection_config;
   is_wrap_locally_ = is_wrap_locally;
   if (is_wrap_locally_) {
-    master_key_cache_.clear();
+    master_key_cache_.Clear();
   }
 
   is_default_token_ =
@@ -82,10 +82,10 @@ void RemoteKmsClient::Initialize(const KmsConnectionConfig& kms_connection_confi
 std::string RemoteKmsClient::WrapKey(const std::string& key_bytes,
                                      const std::string& master_key_identifier) {
   if (is_wrap_locally_) {
-    if (master_key_cache_.find(master_key_identifier) == master_key_cache_.end()) {
-      master_key_cache_[master_key_identifier] = GetKeyFromServer(master_key_identifier);
-    }
-    const std::string& master_key = master_key_cache_[master_key_identifier];
+    std::string master_key = master_key_cache_.AssignIfNotExist(
+        master_key_identifier, [this, master_key_identifier]() -> std::string {
+          return this->GetKeyFromServer(master_key_identifier);
+        });
     std::string aad = master_key_identifier;
 
     std::string encrypted_encoded_key =
@@ -107,10 +107,10 @@ std::string RemoteKmsClient::UnwrapKey(const std::string& wrapped_key,
           master_key_version);
     }
     const std::string& encrypted_encoded_key = key_wrap.encrypted_encoded_key();
-    if (master_key_cache_.find(master_key_identifier) == master_key_cache_.end()) {
-      master_key_cache_[master_key_identifier] = GetKeyFromServer(master_key_identifier);
-    }
-    const std::string& master_key = master_key_cache_[master_key_identifier];
+    std::string master_key = master_key_cache_.AssignIfNotExist(
+        master_key_identifier, [this, master_key_identifier]() -> std::string {
+          return this->GetKeyFromServer(master_key_identifier);
+        });
     std::string aad = master_key_identifier;
 
     return internal::DecryptKeyLocally(encrypted_encoded_key, master_key, aad);
