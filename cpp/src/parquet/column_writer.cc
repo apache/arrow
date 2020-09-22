@@ -1045,31 +1045,28 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
   }
 
   Status WriteArrow(const int16_t* def_levels, const int16_t* rep_levels,
-                    int64_t num_levels, const ::arrow::Array& array,
-                    ArrowWriteContext* ctx, bool nested, bool array_nullable) override {
+                    int64_t num_levels, const ::arrow::Array& leaf_array,
+                    ArrowWriteContext* ctx, bool leaf_field_nullable) override {
     BEGIN_PARQUET_CATCH_EXCEPTIONS
-    bool leaf_is_not_nullable = !level_info_.HasNullableValues();
-    // Leaf nulls are canonical when there is only a single null element and it is at the
-    // leaf.
-    bool leaf_nulls_are_canonical =
+    // Leaf nulls are canonical when there is only a single null element after a list
+    // and it is at the leaf.
+    bool single_nullable_element =
         (level_info_.def_level == level_info_.repeated_ancestor_def_level + 1) &&
-        array_nullable;
-    bool maybe_parent_nulls =
-        nested && !(leaf_is_not_nullable || leaf_nulls_are_canonical);
+        leaf_field_nullable;
+    bool maybe_parent_nulls = level_info_.HasNullableValues() && !single_nullable_element;
     if (maybe_parent_nulls) {
       ARROW_ASSIGN_OR_RAISE(
           bits_buffer_,
           arrow::AllocateResizableBuffer(
               BitUtil::BytesForBits(properties_->write_batch_size()), ctx->memory_pool));
       bits_buffer_->ZeroPadding();
-      std::static_pointer_cast<ResizableBuffer>(AllocateBuffer(allocator_, 0));
     }
 
-    if (array.type()->id() == ::arrow::Type::DICTIONARY) {
-      return WriteArrowDictionary(def_levels, rep_levels, num_levels, array, ctx,
+    if (leaf_array.type()->id() == ::arrow::Type::DICTIONARY) {
+      return WriteArrowDictionary(def_levels, rep_levels, num_levels, leaf_array, ctx,
                                   maybe_parent_nulls);
     } else {
-      return WriteArrowDense(def_levels, rep_levels, num_levels, array, ctx,
+      return WriteArrowDense(def_levels, rep_levels, num_levels, leaf_array, ctx,
                              maybe_parent_nulls);
     }
     END_PARQUET_CATCH_EXCEPTIONS

@@ -874,8 +874,6 @@ class MultipathLevelBuilderImpl : public MultipathLevelBuilder {
                      std::move(write_leaf_callback));
   }
 
-  bool IsNested() const override { return !data_->child_data.empty(); }
-
  private:
   ElementRange root_range_;
   // Reference holder to ensure the data stays valid.
