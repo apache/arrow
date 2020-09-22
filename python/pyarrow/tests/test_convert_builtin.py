@@ -966,6 +966,38 @@ def test_sequence_timestamp_with_timezone(timezone, unit):
         assert arr[i].as_py() == expected_datetime_value(utcdata[i])
 
 
+@pytest.mark.parametrize('timezone', [
+    None,
+    'UTC',
+    'Etc/GMT-1',
+    'Europe/Budapest',
+])
+def test_pyarrow_ignore_timezone_environment_variable(monkeypatch, timezone):
+    # note that any non-empty value will evaluate to true
+    monkeypatch.setenv("PYARROW_IGNORE_TIMEZONE", "1")
+    data = [
+        datetime.datetime(2007, 7, 13, 8, 23, 34, 123456),  # naive
+        pytz.utc.localize(
+            datetime.datetime(2008, 1, 5, 5, 0, 0, 1000)
+        ),
+        pytz.timezone('US/Eastern').localize(
+            datetime.datetime(2006, 1, 13, 12, 34, 56, 432539)
+        ),
+        pytz.timezone('Europe/Moscow').localize(
+            datetime.datetime(2010, 8, 13, 5, 0, 0, 437699)
+        ),
+    ]
+
+    expected = [dt.replace(tzinfo=None) for dt in data]
+    if timezone is not None:
+        tzinfo = pytz.timezone(timezone)
+        expected = [tzinfo.fromutc(dt) for dt in expected]
+
+    ty = pa.timestamp('us', tz=timezone)
+    arr = pa.array(data, type=ty)
+    assert arr.to_pylist() == expected
+
+
 def test_sequence_timestamp_with_timezone_inference():
     data = [
         datetime.datetime(2007, 7, 13, 8, 23, 34, 123456),  # naive
@@ -1911,6 +1943,19 @@ def test_auto_chunking_list_like():
     data = [item] * 2**3
     arr = pa.array(data, type=pa.list_(pa.uint8()))
     assert isinstance(arr, pa.ChunkedArray)
+
+
+@pytest.mark.slow
+@pytest.mark.large_memory
+def test_auto_chunking_map_type():
+    # takes ~20 minutes locally
+    ty = pa.map_(pa.int8(), pa.int8())
+    item = [(1, 1)] * 2**28
+    data = [item] * 2**3
+    arr = pa.array(data, type=ty)
+    assert isinstance(arr, pa.ChunkedArray)
+    assert len(arr.chunk(0)) == 7
+    assert len(arr.chunk(1)) == 1
 
 
 @pytest.mark.large_memory

@@ -236,11 +236,12 @@ class PyValue {
   }
 
   static Result<int64_t> Convert(const TimestampType* type, const O& options, I obj) {
-    int64_t value;
+    int64_t value, offset;
     if (PyDateTime_Check(obj)) {
-      ARROW_ASSIGN_OR_RAISE(int64_t offset, internal::PyDateTime_utcoffset_s(obj));
-      if (options.ignore_timezone) {
+      if (ARROW_PREDICT_FALSE(options.ignore_timezone)) {
         offset = 0;
+      } else {
+        ARROW_ASSIGN_OR_RAISE(offset, internal::PyDateTime_utcoffset_s(obj));
       }
       auto dt = reinterpret_cast<PyDateTime_DateTime*>(obj);
       switch (type->unit()) {
@@ -569,10 +570,6 @@ class PyListConverter : public ListConverter<T, PyConverter, PyConverterTrait> {
   }
 
  protected:
-  Status ValidateOverflow(const BaseListType*, int64_t size) {
-    return this->list_builder_->ValidateOverflow(size);
-  }
-
   Status ValidateBuilder(const MapType*) {
     if (this->list_builder_->key_builder()->null_count() > 0) {
       return Status::Invalid("Invalid Map: key field can not contain null values");
@@ -585,7 +582,7 @@ class PyListConverter : public ListConverter<T, PyConverter, PyConverterTrait> {
 
   Status AppendSequence(PyObject* value) {
     int64_t size = static_cast<int64_t>(PySequence_Size(value));
-    RETURN_NOT_OK(ValidateOverflow(this->list_type_, size));
+    RETURN_NOT_OK(this->list_builder_->ValidateOverflow(size));
     return Extend(this->value_converter_.get(), value, size);
   }
 
@@ -595,7 +592,7 @@ class PyListConverter : public ListConverter<T, PyConverter, PyConverterTrait> {
       return Status::Invalid("Can only convert 1-dimensional array values");
     }
     const int64_t size = PyArray_SIZE(ndarray);
-    RETURN_NOT_OK(ValidateOverflow(this->list_type_, size));
+    RETURN_NOT_OK(this->list_builder_->ValidateOverflow(size));
 
     const auto value_type = this->value_converter_->builder()->type();
     switch (value_type->id()) {
