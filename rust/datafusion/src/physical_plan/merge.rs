@@ -111,9 +111,9 @@ impl ExecutionPlan for MergeExec {
                             let mut batches = vec![];
                             for partition in chunk {
                                 let it = input.execute(partition)?;
-                                common::collect(it).iter().for_each(|b| {
-                                    b.iter().for_each(|b| batches.push(b.clone()))
-                                });
+                                common::collect(it)?
+                                    .iter()
+                                    .for_each(|b| batches.push(b.clone()));
                             }
                             Ok(batches)
                         })
