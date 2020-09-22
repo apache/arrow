@@ -24,7 +24,7 @@ build_dir=${2}/python
 
 if [ ! -z "${CONDA_PREFIX}" ]; then
   echo -e "===\n=== Conda environment for build\n==="
-  conda list
+  conda list || true
 fi
 
 export PYARROW_CMAKE_GENERATOR=${CMAKE_GENERATOR:-Ninja}
