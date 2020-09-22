@@ -32,6 +32,8 @@ from pyarrow._compute import (  # noqa
     FilterOptions,
     MatchSubstringOptions,
     MinMaxOptions,
+    PartitionNthOptions,
+    SetLookupOptions,
     TakeOptions,
     # Functions
     function_registry,
@@ -96,8 +98,11 @@ _option_classes = {
     # (export the option class name from C++ metadata?)
     'cast': CastOptions,
     'filter': FilterOptions,
+    'index_in': SetLookupOptions,
+    'is_in': SetLookupOptions,
     'match_substring': MatchSubstringOptions,
     'min_max': MinMaxOptions,
+    'partition_nth_indices': PartitionNthOptions,
     'take': TakeOptions,
 }
 

@@ -17,6 +17,8 @@
 
 # cython: language_level = 3
 
+from cython.operator cimport dereference as deref
+
 from pyarrow.lib import frombytes, tobytes, ordered_dict
 from pyarrow.lib cimport *
 from pyarrow.includes.libarrow cimport *
@@ -618,3 +620,24 @@ cdef class MinMaxOptions(FunctionOptions):
 
     cdef const CFunctionOptions* get_options(self) except NULL:
         return &self.min_max_options
+
+cdef class SetLookupOptions(FunctionOptions):
+    cdef:
+        unique_ptr[CSetLookupOptions] set_lookup_options
+        unique_ptr[CDatum] valset
+
+    def __cinit__(self, *, value_set, c_bool skip_null):
+        if isinstance(value_set, Array):
+            self.valset.reset(new CDatum((<Array> value_set).sp_array))
+        elif isinstance(value_set, ChunkedArray):
+            self.valset.reset(new CDatum((<ChunkedArray> value_set).sp_chunked_array))
+        elif isinstance(value_set, Scalar):
+            self.valset.reset(new CDatum((<Scalar> value_set).unwrap()))
+        else:
+            raise ValueError('"{}" is not a valid value_set'.format(value_set))
+
+
+        self.set_lookup_options.reset(new CSetLookupOptions(deref(self.valset), skip_null))
+
+    cdef const CFunctionOptions* get_options(self) except NULL:
+        return self.set_lookup_options.get()

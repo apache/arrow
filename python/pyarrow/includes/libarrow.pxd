@@ -1751,6 +1751,12 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         shared_ptr[CTable] table()
         shared_ptr[CScalar] scalar()
 
+    cdef cppclass CSetLookupOptions \
+        "arrow::compute::SetLookupOptions"(CFunctionOptions):
+        CSetLookupOptions(CDatum value_set, c_bool skip_nulls)
+        CDatum value_set 
+        c_bool skip_nulls
+
 
 cdef extern from "arrow/python/api.h" namespace "arrow::py":
     # Requires GIL
