@@ -83,7 +83,7 @@ jobs:
         run: |
           sudo sysctl -w kernel.core_pattern="core.%e.%p"
           ulimit -c unlimited
-          archery docker run ubuntu-r
+          archery docker run -e ARROW_S3=ON ubuntu-r
       - name: Dump install logs
         run: cat r/check/arrow.Rcheck/00install.out
         if: always()
