@@ -155,7 +155,7 @@ struct ModeState {
   using ThisType = ModeState<ArrowType>;
   using CType = typename ArrowType::c_type;
 
-  void MergeFrom(ThisType& state) {
+  void MergeFrom(ThisType&& state) {
     if (this->value_counts.empty()) {
       this->value_counts = std::move(state.value_counts);
     } else {
@@ -205,9 +205,9 @@ struct ModeImpl : public ScalarAggregator {
     this->state.value_counts = CountValues(array, this->state.nan_count);
   }
 
-  void MergeFrom(KernelContext*, KernelState& src) override {
+  void MergeFrom(KernelContext*, KernelState&& src) override {
     auto& other = checked_cast<ThisType&>(src);
-    this->state.MergeFrom(other.state);
+    this->state.MergeFrom(std::move(other.state));
   }
 
   void Finalize(KernelContext*, Datum* out) override {

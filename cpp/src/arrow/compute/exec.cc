@@ -885,8 +885,7 @@ class ScalarAggExecutor : public FunctionExecutorImpl<ScalarAggregateFunction> {
     kernel_->consume(&batch_ctx, batch);
     ARROW_CTX_RETURN_IF_ERROR(&batch_ctx);
 
-    // merge() may mutate batch_state
-    kernel_->merge(&kernel_ctx_, *batch_state, state_.get());
+    kernel_->merge(&kernel_ctx_, std::move(*batch_state), state_.get());
     ARROW_CTX_RETURN_IF_ERROR(&kernel_ctx_);
     return Status::OK();
   }
