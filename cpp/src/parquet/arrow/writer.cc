@@ -134,9 +134,9 @@ class ArrowColumnWriterV2 {
               std::shared_ptr<Array> values_array =
                   result.leaf_array->Slice(range.start, range.Size());
 
-              PARQUET_CATCH_AND_RETURN(column_writer->WriteArrow(
+              return column_writer->WriteArrow(
                   result.def_levels, result.rep_levels, result.def_rep_level_count,
-                  *values_array, ctx, level_builder->Nested(), result.leaf_is_nullable));
+                  *values_array, ctx, level_builder->IsNested(), result.leaf_is_nullable);
             }));
       }
 

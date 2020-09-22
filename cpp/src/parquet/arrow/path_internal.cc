@@ -841,13 +841,10 @@ class PathBuilder {
 #undef NOT_IMPLEMENTED_VISIT
   std::vector<PathInfo>& paths() { return paths_; }
 
-  bool root_is_nullable() const { return root_is_nullable_; }
-
  private:
   PathInfo info_;
   std::vector<PathInfo> paths_;
   bool nullable_in_parent_;
-  bool root_is_nullable_;
 };
 
 Status PathBuilder::VisitInline(const Array& array) {
@@ -877,7 +874,7 @@ class MultipathLevelBuilderImpl : public MultipathLevelBuilder {
                      std::move(write_leaf_callback));
   }
 
-  bool Nested() const override { return !data_->child_data.empty(); }
+  bool IsNested() const override { return !data_->child_data.empty(); }
 
  private:
   ElementRange root_range_;

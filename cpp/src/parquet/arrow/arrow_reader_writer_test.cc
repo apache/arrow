@@ -2361,8 +2361,6 @@ TEST(ArrowReadWrite, SingleColumnNullableStruct) {
       3);
 }
 
-TEST(ArrowReadWrite, DisagreeingValidityBitmap) {}
-
 TEST(ArrowReadWrite, NestedRequiredField) {
   auto int_field = ::arrow::field("int_array", ::arrow::int32(), /*nullable=*/false);
   auto int_array = ::arrow::ArrayFromJSON(int_field->type(), "[0, 1, 2, 3, 4, 5, 7, 8]");
@@ -2372,37 +2370,29 @@ TEST(ArrowReadWrite, NestedRequiredField) {
   ASSERT_OK_AND_ASSIGN(validity_bitmap, ::arrow::AllocateBitmap(8));
   validity_bitmap->mutable_data()[0] = 0xCC;
 
-  auto struct_data = std::make_shared<ArrayData>(
-      struct_field->type(), /*length=*/8,
-      std::vector<std::shared_ptr<Buffer>>{validity_bitmap},
-      std::vector<std::shared_ptr<ArrayData>>{int_array->data()});
-  CheckSimpleRoundtrip(
-      ::arrow::Table::Make(
-          ::arrow::schema({struct_field}),
-          {std::make_shared<::arrow::ChunkedArray>(::arrow::MakeArray(struct_data))}),
-      /*row_group_size=*/8);
+  auto struct_data = ArrayData::Make(struct_field->type(), /*length=*/8,
+                                     {validity_bitmap}, {int_array->data()});
+  CheckSimpleRoundtrip(::arrow::Table::Make(::arrow::schema({struct_field}),
+                                            {::arrow::MakeArray(struct_data)}),
+                       /*row_group_size=*/8);
 }
 
 TEST(ArrowReadWrite, NestedNullableField) {
   auto int_field = ::arrow::field("int_array", ::arrow::int32());
-  auto int_array = ::arrow::ArrayFromJSON(int_field->type(), "[0, null, 2, null, 4, 5, null, 8]");
+  auto int_array =
+      ::arrow::ArrayFromJSON(int_field->type(), "[0, null, 2, null, 4, 5, null, 8]");
   auto struct_field =
       ::arrow::field("root", ::arrow::struct_({int_field}), /*nullable=*/true);
   std::shared_ptr<Buffer> validity_bitmap;
   ASSERT_OK_AND_ASSIGN(validity_bitmap, ::arrow::AllocateBitmap(8));
   validity_bitmap->mutable_data()[0] = 0xCC;
 
-  auto struct_data = std::make_shared<ArrayData>(
-      struct_field->type(), /*length=*/8,
-      std::vector<std::shared_ptr<Buffer>>{validity_bitmap},
-      std::vector<std::shared_ptr<ArrayData>>{int_array->data()});
-  CheckSimpleRoundtrip(
-      ::arrow::Table::Make(
-          ::arrow::schema({struct_field}),
-          {std::make_shared<::arrow::ChunkedArray>(::arrow::MakeArray(struct_data))}),
-      /*row_group_size=*/8);
+  auto struct_data = ArrayData::Make(struct_field->type(), /*length=*/8,
+                                     {validity_bitmap}, {int_array->data()});
+  CheckSimpleRoundtrip(::arrow::Table::Make(::arrow::schema({struct_field}),
+                                            {::arrow::MakeArray(struct_data)}),
+                       /*row_group_size=*/8);
 }
-
 
 TEST(TestArrowReadWrite, CanonicalNestedRoundTrip) {
   auto doc_id = field("DocId", ::arrow::int64(), /*nullable=*/false);

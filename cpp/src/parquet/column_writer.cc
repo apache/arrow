@@ -1047,14 +1047,16 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
   Status WriteArrow(const int16_t* def_levels, const int16_t* rep_levels,
                     int64_t num_levels, const ::arrow::Array& array,
                     ArrowWriteContext* ctx, bool nested, bool array_nullable) override {
+    BEGIN_PARQUET_CATCH_EXCEPTIONS
     bool leaf_is_not_nullable = !level_info_.HasNullableValues();
     // Leaf nulls are canonical when there is only a single null element and it is at the
     // leaf.
     bool leaf_nulls_are_canonical =
         (level_info_.def_level == level_info_.repeated_ancestor_def_level + 1) &&
         array_nullable;
-    bool maybe_has_nulls = nested && !(leaf_is_not_nullable || leaf_nulls_are_canonical);
-    if (maybe_has_nulls) {
+    bool maybe_parent_nulls =
+        nested && !(leaf_is_not_nullable || leaf_nulls_are_canonical);
+    if (maybe_parent_nulls) {
       ARROW_ASSIGN_OR_RAISE(
           bits_buffer_,
           arrow::AllocateResizableBuffer(
@@ -1065,11 +1067,12 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
 
     if (array.type()->id() == ::arrow::Type::DICTIONARY) {
       return WriteArrowDictionary(def_levels, rep_levels, num_levels, array, ctx,
-                                  maybe_has_nulls);
+                                  maybe_parent_nulls);
     } else {
       return WriteArrowDense(def_levels, rep_levels, num_levels, array, ctx,
-                             maybe_has_nulls);
+                             maybe_parent_nulls);
     }
+    END_PARQUET_CATCH_EXCEPTIONS
   }
 
   int64_t EstimatedBufferedValueBytes() const override {
@@ -1086,11 +1089,11 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
   // plain encoding is circumvented
   Status WriteArrowDictionary(const int16_t* def_levels, const int16_t* rep_levels,
                               int64_t num_levels, const ::arrow::Array& array,
-                              ArrowWriteContext* context, bool maybe_has_nulls);
+                              ArrowWriteContext* context, bool maybe_parent_nulls);
 
   Status WriteArrowDense(const int16_t* def_levels, const int16_t* rep_levels,
                          int64_t num_levels, const ::arrow::Array& array,
-                         ArrowWriteContext* context, bool maybe_has_nulls);
+                         ArrowWriteContext* context, bool maybe_parent_nulls);
 
   void WriteDictionaryPage() override {
     // We have to dynamic cast here because of TypedEncoder<Type> as
@@ -1221,14 +1224,15 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
     *null_count = io.null_count;
   }
 
-  std::shared_ptr<Array> MaybeUpdateArray(std::shared_ptr<Array> array,
-                                          int64_t new_null_count) {
+  std::shared_ptr<Array> MaybeReplaceValidity(std::shared_ptr<Array> array,
+                                              int64_t new_null_count) {
     if (bits_buffer_ == nullptr) {
       return array;
     }
     std::vector<std::shared_ptr<Buffer>> buffers = array->data()->buffers;
     buffers[0] = bits_buffer_;
-    DCHECK(array->num_fields() == 0);
+    // Should be a leaf array.
+    DCHECK_EQ(array->num_fields(), 0);
     return arrow::MakeArray(std::make_shared<ArrayData>(
         array->type(), array->length(), std::move(buffers), new_null_count));
   }
@@ -1327,7 +1331,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
 template <typename DType>
 Status TypedColumnWriterImpl<DType>::WriteArrowDictionary(
     const int16_t* def_levels, const int16_t* rep_levels, int64_t num_levels,
-    const ::arrow::Array& array, ArrowWriteContext* ctx, bool maybe_has_nulls) {
+    const ::arrow::Array& array, ArrowWriteContext* ctx, bool maybe_parent_nulls) {
   // If this is the first time writing a DictionaryArray, then there's
   // a few possible paths to take:
   //
@@ -1348,7 +1352,7 @@ Status TypedColumnWriterImpl<DType>::WriteArrowDictionary(
     RETURN_NOT_OK(
         ConvertDictionaryToDense(array, properties_->memory_pool(), &dense_array));
     return WriteArrowDense(def_levels, rep_levels, num_levels, *dense_array, ctx,
-                           maybe_has_nulls);
+                           maybe_parent_nulls);
   };
 
   if (!IsDictionaryEncoding(current_encoder_->encoding()) ||
@@ -1381,7 +1385,7 @@ Status TypedColumnWriterImpl<DType>::WriteArrowDictionary(
                       AddIfNotNull(rep_levels, offset));
     std::shared_ptr<Array> writeable_indices =
         indices->Slice(value_offset, batch_num_spaced_values);
-    writeable_indices = MaybeUpdateArray(writeable_indices, null_count);
+    writeable_indices = MaybeReplaceValidity(writeable_indices, null_count);
     dict_encoder->PutIndices(*writeable_indices);
     CommitWriteAndCheckPageLimit(batch_size, batch_num_values);
     value_offset += batch_num_spaced_values;
@@ -1434,7 +1438,7 @@ template <typename ParquetType, typename ArrowType>
 Status WriteArrowSerialize(const ::arrow::Array& array, int64_t num_levels,
                            const int16_t* def_levels, const int16_t* rep_levels,
                            ArrowWriteContext* ctx, TypedColumnWriter<ParquetType>* writer,
-                           bool maybe_has_nulls) {
+                           bool maybe_parent_nulls) {
   using ParquetCType = typename ParquetType::c_type;
   using ArrayType = typename ::arrow::TypeTraits<ArrowType>::ArrayType;
 
@@ -1445,7 +1449,7 @@ Status WriteArrowSerialize(const ::arrow::Array& array, int64_t num_levels,
   RETURN_NOT_OK(functor.Serialize(checked_cast<const ArrayType&>(array), ctx, buffer));
   bool no_nulls =
       writer->descr()->schema_node()->is_required() || (array.null_count() == 0);
-  if (!maybe_has_nulls && no_nulls) {
+  if (!maybe_parent_nulls && no_nulls) {
     PARQUET_CATCH_NOT_OK(writer->WriteBatch(num_levels, def_levels, rep_levels, buffer));
   } else {
     PARQUET_CATCH_NOT_OK(writer->WriteBatchSpaced(num_levels, def_levels, rep_levels,
@@ -1459,7 +1463,7 @@ template <typename ParquetType>
 Status WriteArrowZeroCopy(const ::arrow::Array& array, int64_t num_levels,
                           const int16_t* def_levels, const int16_t* rep_levels,
                           ArrowWriteContext* ctx, TypedColumnWriter<ParquetType>* writer,
-                          bool maybe_has_nulls) {
+                          bool maybe_parent_nulls) {
   using T = typename ParquetType::c_type;
   const auto& data = static_cast<const ::arrow::PrimitiveArray&>(array);
   const T* values = nullptr;
@@ -1472,7 +1476,7 @@ Status WriteArrowZeroCopy(const ::arrow::Array& array, int64_t num_levels,
   bool no_nulls =
       writer->descr()->schema_node()->is_required() || (array.null_count() == 0);
 
-  if (!maybe_has_nulls && no_nulls) {
+  if (!maybe_parent_nulls && no_nulls) {
     PARQUET_CATCH_NOT_OK(writer->WriteBatch(num_levels, def_levels, rep_levels, values));
   } else {
     PARQUET_CATCH_NOT_OK(writer->WriteBatchSpaced(num_levels, def_levels, rep_levels,
@@ -1485,12 +1489,12 @@ Status WriteArrowZeroCopy(const ::arrow::Array& array, int64_t num_levels,
 #define WRITE_SERIALIZE_CASE(ArrowEnum, ArrowType, ParquetType)  \
   case ::arrow::Type::ArrowEnum:                                 \
     return WriteArrowSerialize<ParquetType, ::arrow::ArrowType>( \
-        array, num_levels, def_levels, rep_levels, ctx, this, maybe_has_nulls);
+        array, num_levels, def_levels, rep_levels, ctx, this, maybe_parent_nulls);
 
 #define WRITE_ZERO_COPY_CASE(ArrowEnum, ArrowType, ParquetType)                       \
   case ::arrow::Type::ArrowEnum:                                                      \
     return WriteArrowZeroCopy<ParquetType>(array, num_levels, def_levels, rep_levels, \
-                                           ctx, this, maybe_has_nulls);
+                                           ctx, this, maybe_parent_nulls);
 
 #define ARROW_UNSUPPORTED()                                          \
   std::stringstream ss;                                              \
@@ -1514,12 +1518,12 @@ struct SerializeFunctor<BooleanType, ::arrow::BooleanType> {
 template <>
 Status TypedColumnWriterImpl<BooleanType>::WriteArrowDense(
     const int16_t* def_levels, const int16_t* rep_levels, int64_t num_levels,
-    const ::arrow::Array& array, ArrowWriteContext* ctx, bool maybe_has_nulls) {
+    const ::arrow::Array& array, ArrowWriteContext* ctx, bool maybe_parent_nulls) {
   if (array.type_id() != ::arrow::Type::BOOL) {
     ARROW_UNSUPPORTED();
   }
   return WriteArrowSerialize<BooleanType, ::arrow::BooleanType>(
-      array, num_levels, def_levels, rep_levels, ctx, this, maybe_has_nulls);
+      array, num_levels, def_levels, rep_levels, ctx, this, maybe_parent_nulls);
 }
 
 // ----------------------------------------------------------------------
@@ -1555,7 +1559,7 @@ struct SerializeFunctor<Int32Type, ::arrow::Time32Type> {
 template <>
 Status TypedColumnWriterImpl<Int32Type>::WriteArrowDense(
     const int16_t* def_levels, const int16_t* rep_levels, int64_t num_levels,
-    const ::arrow::Array& array, ArrowWriteContext* ctx, bool maybe_has_nulls) {
+    const ::arrow::Array& array, ArrowWriteContext* ctx, bool maybe_parent_nulls) {
   switch (array.type()->id()) {
     case ::arrow::Type::NA: {
       PARQUET_CATCH_NOT_OK(WriteBatch(num_levels, def_levels, rep_levels, nullptr));
@@ -1678,14 +1682,15 @@ struct SerializeFunctor<Int64Type, ::arrow::TimestampType> {
 Status WriteTimestamps(const ::arrow::Array& values, int64_t num_levels,
                        const int16_t* def_levels, const int16_t* rep_levels,
                        ArrowWriteContext* ctx, TypedColumnWriter<Int64Type>* writer,
-                       bool maybe_has_nulls) {
+                       bool maybe_parent_nulls) {
   const auto& source_type = static_cast<const ::arrow::TimestampType&>(*values.type());
 
   auto WriteCoerce = [&](const ArrowWriterProperties* properties) {
     ArrowWriteContext temp_ctx = *ctx;
     temp_ctx.properties = properties;
     return WriteArrowSerialize<Int64Type, ::arrow::TimestampType>(
-        values, num_levels, def_levels, rep_levels, &temp_ctx, writer, maybe_has_nulls);
+        values, num_levels, def_levels, rep_levels, &temp_ctx, writer,
+        maybe_parent_nulls);
   };
 
   if (ctx->properties->coerce_timestamps_enabled()) {
@@ -1693,7 +1698,7 @@ Status WriteTimestamps(const ::arrow::Array& values, int64_t num_levels,
     if (source_type.unit() == ctx->properties->coerce_timestamps_unit()) {
       // No data conversion necessary
       return WriteArrowZeroCopy<Int64Type>(values, num_levels, def_levels, rep_levels,
-                                           ctx, writer, maybe_has_nulls);
+                                           ctx, writer, maybe_parent_nulls);
     } else {
       return WriteCoerce(ctx->properties);
     }
@@ -1718,18 +1723,18 @@ Status WriteTimestamps(const ::arrow::Array& values, int64_t num_levels,
   } else {
     // No data conversion necessary
     return WriteArrowZeroCopy<Int64Type>(values, num_levels, def_levels, rep_levels, ctx,
-                                         writer, maybe_has_nulls);
+                                         writer, maybe_parent_nulls);
   }
 }
 
 template <>
 Status TypedColumnWriterImpl<Int64Type>::WriteArrowDense(
     const int16_t* def_levels, const int16_t* rep_levels, int64_t num_levels,
-    const ::arrow::Array& array, ArrowWriteContext* ctx, bool maybe_has_nulls) {
+    const ::arrow::Array& array, ArrowWriteContext* ctx, bool maybe_parent_nulls) {
   switch (array.type()->id()) {
     case ::arrow::Type::TIMESTAMP:
       return WriteTimestamps(array, num_levels, def_levels, rep_levels, ctx, this,
-                             maybe_has_nulls);
+                             maybe_parent_nulls);
       WRITE_ZERO_COPY_CASE(INT64, Int64Type, Int64Type)
       WRITE_SERIALIZE_CASE(UINT32, UInt32Type, Int64Type)
       WRITE_SERIALIZE_CASE(UINT64, UInt64Type, Int64Type)
@@ -1742,12 +1747,12 @@ Status TypedColumnWriterImpl<Int64Type>::WriteArrowDense(
 template <>
 Status TypedColumnWriterImpl<Int96Type>::WriteArrowDense(
     const int16_t* def_levels, const int16_t* rep_levels, int64_t num_levels,
-    const ::arrow::Array& array, ArrowWriteContext* ctx, bool maybe_has_nulls) {
+    const ::arrow::Array& array, ArrowWriteContext* ctx, bool maybe_parent_nulls) {
   if (array.type_id() != ::arrow::Type::TIMESTAMP) {
     ARROW_UNSUPPORTED();
   }
   return WriteArrowSerialize<Int96Type, ::arrow::TimestampType>(
-      array, num_levels, def_levels, rep_levels, ctx, this, maybe_has_nulls);
+      array, num_levels, def_levels, rep_levels, ctx, this, maybe_parent_nulls);
 }
 
 // ----------------------------------------------------------------------
@@ -1756,23 +1761,23 @@ Status TypedColumnWriterImpl<Int96Type>::WriteArrowDense(
 template <>
 Status TypedColumnWriterImpl<FloatType>::WriteArrowDense(
     const int16_t* def_levels, const int16_t* rep_levels, int64_t num_levels,
-    const ::arrow::Array& array, ArrowWriteContext* ctx, bool maybe_has_nulls) {
+    const ::arrow::Array& array, ArrowWriteContext* ctx, bool maybe_parent_nulls) {
   if (array.type_id() != ::arrow::Type::FLOAT) {
     ARROW_UNSUPPORTED();
   }
   return WriteArrowZeroCopy<FloatType>(array, num_levels, def_levels, rep_levels, ctx,
-                                       this, maybe_has_nulls);
+                                       this, maybe_parent_nulls);
 }
 
 template <>
 Status TypedColumnWriterImpl<DoubleType>::WriteArrowDense(
     const int16_t* def_levels, const int16_t* rep_levels, int64_t num_levels,
-    const ::arrow::Array& array, ArrowWriteContext* ctx, bool maybe_has_nulls) {
+    const ::arrow::Array& array, ArrowWriteContext* ctx, bool maybe_parent_nulls) {
   if (array.type_id() != ::arrow::Type::DOUBLE) {
     ARROW_UNSUPPORTED();
   }
   return WriteArrowZeroCopy<DoubleType>(array, num_levels, def_levels, rep_levels, ctx,
-                                        this, maybe_has_nulls);
+                                        this, maybe_parent_nulls);
 }
 
 // ----------------------------------------------------------------------
@@ -1781,7 +1786,7 @@ Status TypedColumnWriterImpl<DoubleType>::WriteArrowDense(
 template <>
 Status TypedColumnWriterImpl<ByteArrayType>::WriteArrowDense(
     const int16_t* def_levels, const int16_t* rep_levels, int64_t num_levels,
-    const ::arrow::Array& array, ArrowWriteContext* ctx, bool maybe_has_nulls) {
+    const ::arrow::Array& array, ArrowWriteContext* ctx, bool maybe_parent_nulls) {
   if (array.type()->id() != ::arrow::Type::BINARY &&
       array.type()->id() != ::arrow::Type::STRING) {
     ARROW_UNSUPPORTED();
@@ -1799,7 +1804,7 @@ Status TypedColumnWriterImpl<ByteArrayType>::WriteArrowDense(
                       AddIfNotNull(rep_levels, offset));
     std::shared_ptr<Array> data_slice =
         array.Slice(value_offset, batch_num_spaced_values);
-    data_slice = MaybeUpdateArray(data_slice, null_count);
+    data_slice = MaybeReplaceValidity(data_slice, null_count);
 
     current_encoder_->Put(*data_slice);
     if (page_statistics_ != nullptr) {
@@ -1901,7 +1906,7 @@ struct SerializeFunctor<ParquetType, ArrowType, ::arrow::enable_if_decimal<Arrow
 template <>
 Status TypedColumnWriterImpl<FLBAType>::WriteArrowDense(
     const int16_t* def_levels, const int16_t* rep_levels, int64_t num_levels,
-    const ::arrow::Array& array, ArrowWriteContext* ctx, bool maybe_has_nulls) {
+    const ::arrow::Array& array, ArrowWriteContext* ctx, bool maybe_parent_nulls) {
   switch (array.type()->id()) {
     WRITE_SERIALIZE_CASE(FIXED_SIZE_BINARY, FixedSizeBinaryType, FLBAType)
     WRITE_SERIALIZE_CASE(DECIMAL, Decimal128Type, FLBAType)

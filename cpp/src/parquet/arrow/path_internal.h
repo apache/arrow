@@ -150,7 +150,7 @@ class PARQUET_EXPORT MultipathLevelBuilder {
   virtual ::arrow::Status Write(int leaf_index, ArrowWriteContext* context,
                                 CallbackFunction write_leaf_callback) = 0;
 
-  virtual bool Nested() const = 0;
+  virtual bool IsNested() const = 0;
 };
 
 }  // namespace arrow
