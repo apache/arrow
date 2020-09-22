@@ -374,16 +374,23 @@ class Lz4HadoopCodec : public Lz4Codec {
 
   Result<int64_t> Compress(int64_t input_len, const uint8_t* input,
                            int64_t output_buffer_len, uint8_t* output_buffer) override {
-    ARROW_ASSIGN_OR_RAISE(int64_t output_len,
-                          Lz4Codec::Compress(input_len, input, output_buffer_len,
-                                             output_buffer + kPrefixLength));
+    if (output_buffer_len < kPrefixLength) {
+      return Status::Invalid("Output buffer too small for Lz4HadoopCodec compression");
+    }
+
+    ARROW_ASSIGN_OR_RAISE(
+        int64_t output_len,
+        Lz4Codec::Compress(input_len, input, output_buffer_len - kPrefixLength,
+                           output_buffer + kPrefixLength));
 
     // Prepend decompressed size in bytes and compressed size in bytes
     // to be compatible with Hadoop Lz4Codec
-    uint32_t decompressed_size = BitUtil::ToBigEndian((uint32_t)input_len);
-    uint32_t compressed_size = BitUtil::ToBigEndian((uint32_t)output_len);
-    memcpy(output_buffer, &decompressed_size, sizeof(uint32_t));
-    memcpy(output_buffer + sizeof(uint32_t), &compressed_size, sizeof(uint32_t));
+    const uint32_t decompressed_size =
+        BitUtil::ToBigEndian(static_cast<uint32_t>(input_len));
+    const uint32_t compressed_size =
+        BitUtil::ToBigEndian(static_cast<uint32_t>(output_len));
+    SafeStore(output_buffer, decompressed_size);
+    SafeStore(output_buffer + sizeof(uint32_t), compressed_size);
 
     return kPrefixLength + output_len;
   }
