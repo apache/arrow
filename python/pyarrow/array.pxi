@@ -1082,6 +1082,7 @@ cdef class Array(_PandasConvertible):
         if offset < 0:
             raise IndexError('Offset must be non-negative')
 
+        offset = min(len(self), offset)
         if length is None:
             result = self.ap.Slice(offset)
         else:

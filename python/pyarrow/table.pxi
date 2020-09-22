@@ -354,6 +354,7 @@ cdef class ChunkedArray(_PandasConvertible):
         if offset < 0:
             raise IndexError('Offset must be non-negative')
 
+        offset = min(len(self), offset)
         if length is None:
             result = self.chunked_array.Slice(offset)
         else:
@@ -773,6 +774,7 @@ cdef class RecordBatch(_PandasConvertible):
         if offset < 0:
             raise IndexError('Offset must be non-negative')
 
+        offset = min(len(self), offset)
         if length is None:
             result = self.batch.Slice(offset)
         else:
@@ -1142,6 +1144,7 @@ cdef class Table(_PandasConvertible):
         if offset < 0:
             raise IndexError('Offset must be non-negative')
 
+        offset = min(len(self), offset)
         if length is None:
             result = self.table.Slice(offset)
         else:
