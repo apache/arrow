@@ -33,17 +33,21 @@ fn create_context() -> Result<ExecutionContext> {
     // define a schema.
     let schema = Arc::new(Schema::new(vec![Field::new("a", DataType::Float32, false)]));
 
-    // define data.
-    let batch = RecordBatch::try_new(
+    // define data in two partitions
+    let batch1 = RecordBatch::try_new(
         schema.clone(),
-        vec![Arc::new(Float32Array::from(vec![2.0, 4.0, 8.0, 64.0]))],
+        vec![Arc::new(Float32Array::from(vec![2.0, 4.0, 8.0]))],
+    )?;
+    let batch2 = RecordBatch::try_new(
+        schema.clone(),
+        vec![Arc::new(Float32Array::from(vec![64.0]))],
     )?;
 
     // declare a new context. In spark API, this corresponds to a new spark SQLsession
     let mut ctx = ExecutionContext::new();
 
     // declare a table in memory. In spark API, this corresponds to createDataFrame(...).
-    let provider = MemTable::new(schema, vec![vec![batch]])?;
+    let provider = MemTable::new(schema, vec![vec![batch1], vec![batch2]])?;
     ctx.register_table("t", Box::new(provider));
     Ok(ctx)
 }
@@ -94,9 +98,8 @@ impl Accumulator for GeometricMean {
         Ok(())
     }
 
-    // this function receives a set the states (Vec<ScalarValue>) and it is used to merge accumulators together,
-    // e.g. when accumulators are computed in parallel over different partitions.
-    // DataFusion expects that this function updates this accumulator's state accordingly.
+    // this function receives states from other accumulators (Vec<ScalarValue>)
+    // and updates the accumulator.
     fn merge(&mut self, states: &Vec<ScalarValue>) -> Result<()> {
         let prod = &states[0];
         let n = &states[1];
@@ -119,7 +122,7 @@ impl Accumulator for GeometricMean {
 
     // Optimization hint: this trait also supports `update_batch` and `merge_batch`,
     // that can be used to perform these operations on arrays instead of single values.
-    // By default, these methods call `update` and `merge` row by row)
+    // By default, these methods call `update` and `merge` row by row
 }
 
 fn main() -> Result<()> {
@@ -140,6 +143,7 @@ fn main() -> Result<()> {
     );
 
     // get a DataFrame from the context
+    // this table has 1 column `a` f32 with values {2,4,8,64}, whose geometric mean is 8.0.
     let df = ctx.table("t")?;
 
     // perform the aggregation
@@ -157,7 +161,7 @@ fn main() -> Result<()> {
         .downcast_ref::<Float64Array>()
         .unwrap();
 
-    // verify that the calculation is correct: the geometric mean of {2,4,8,64} = 8
+    // verify that the calculation is correct
     assert_eq!(result.value(0), 8.0);
 
     Ok(())
