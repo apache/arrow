@@ -40,15 +40,6 @@
 #include "parquet/file_writer.h"
 #include "parquet/properties.h"
 
-// Set to 1 to see failures in failing tests
-#define RUN_FAILING_TESTS 0
-
-#if RUN_FAILING_TESTS
-#define FAILING(test_name) test_name
-#else
-#define FAILING(test_name) DISABLED_##test_name
-#endif
-
 using arrow::Array;
 using arrow::ArrayFromJSON;
 using arrow::AssertArraysEqual;
@@ -316,7 +307,7 @@ TEST_F(TestReconstructColumn, PrimitiveRequired) {
   AssertReconstruct<ParquetType::INT32>(*expected, def_levels, rep_levels, values);
 }
 
-TEST_F(TestReconstructColumn, FAILING(PrimitiveRepeated)) {
+TEST_F(TestReconstructColumn, PrimitiveRepeated) {
   // Arrow schema: list(int32 not null) not null
   this->SetParquetSchema(
       PrimitiveNode::Make("node_name", Repetition::REPEATED, ParquetType::INT32));
@@ -349,7 +340,7 @@ TEST_F(TestReconstructColumn, NestedRequiredRequired) {
   AssertReconstruct<ParquetType::INT32>(*expected, def_levels, rep_levels, values);
 }
 
-TEST_F(TestReconstructColumn, FAILING(NestedOptionalRequired)) {
+TEST_F(TestReconstructColumn, NestedOptionalRequired) {
   // Arrow schema: struct(a: int32 not null)
   SetParquetSchema(GroupNode::Make(
       "parent", Repetition::OPTIONAL,
@@ -419,7 +410,7 @@ TEST_F(TestReconstructColumn, NestedRequiredRequiredRequired) {
   AssertReconstruct<ParquetType::INT32>(*expected, def_levels, rep_levels, values);
 }
 
-TEST_F(TestReconstructColumn, FAILING(NestedRequiredOptionalRequired)) {
+TEST_F(TestReconstructColumn, NestedRequiredOptionalRequired) {
   // Arrow schema: struct(a: struct(b: int32 not null)) not null
   SetParquetSchema(GroupNode::Make(
       "parent", Repetition::REQUIRED,
@@ -440,7 +431,7 @@ TEST_F(TestReconstructColumn, FAILING(NestedRequiredOptionalRequired)) {
   AssertReconstruct<ParquetType::INT32>(*expected, def_levels, rep_levels, values);
 }
 
-TEST_F(TestReconstructColumn, FAILING(NestedOptionalRequiredOptional)) {
+TEST_F(TestReconstructColumn, NestedOptionalRequiredOptional) {
   // Arrow schema: struct(a: struct(b: int32) not null)
   SetParquetSchema(GroupNode::Make(
       "parent", Repetition::OPTIONAL,
@@ -526,7 +517,7 @@ TEST_F(TestReconstructColumn, NestedTwoFields2) {
   CheckColumn(/*column_index=*/0, *expected);
 }
 
-TEST_F(TestReconstructColumn, FAILING(NestedTwoFields3)) {
+TEST_F(TestReconstructColumn, NestedTwoFields3) {
   // Arrow schema: struct(a: int32 not null, b: int64 not null)
   SetParquetSchema(GroupNode::Make(
       "parent", Repetition::OPTIONAL,
@@ -847,7 +838,7 @@ TEST_F(TestReconstructColumn, ThreeLevelListOptionalOptional) {
 // Legacy list encodings
 //
 
-TEST_F(TestReconstructColumn, FAILING(TwoLevelListRequired)) {
+TEST_F(TestReconstructColumn, TwoLevelListRequired) {
   // Arrow schema: list(int32 not null) not null
   SetParquetSchema(GroupNode::Make(
       "parent", Repetition::REQUIRED,
@@ -860,11 +851,11 @@ TEST_F(TestReconstructColumn, FAILING(TwoLevelListRequired)) {
 
   // TODO should field name "element" (Parquet convention for List nodes)
   // be changed to "item" (Arrow convention for List types)?
-  auto expected = ArrayFromJSON(List(int32()), "[[], [4, 5], [6]]");
+  auto expected = ArrayFromJSON(List(int32(), /*nullable=*/false), "[[], [4, 5], [6]]");
   AssertReconstruct<ParquetType::INT32>(*expected, def_levels, rep_levels, values);
 }
 
-TEST_F(TestReconstructColumn, FAILING(TwoLevelListOptional)) {
+TEST_F(TestReconstructColumn, TwoLevelListOptional) {
   // Arrow schema: list(int32 not null)
   SetParquetSchema(GroupNode::Make(
       "parent", Repetition::OPTIONAL,
@@ -884,12 +875,12 @@ TEST_F(TestReconstructColumn, FAILING(TwoLevelListOptional)) {
 // List-in-struct
 //
 
-TEST_F(TestReconstructColumn, FAILING(NestedList1)) {
+TEST_F(TestReconstructColumn, NestedList1) {
   // Arrow schema: struct(a: list(int32 not null) not null) not null
   SetParquetSchema(GroupNode::Make(
       "a", Repetition::REQUIRED,
       {GroupNode::Make(
-          "parent", Repetition::REQUIRED,
+          "p", Repetition::REQUIRED,
           {GroupNode::Make("list", Repetition::REPEATED,
                            {PrimitiveNode::Make("element", Repetition::REQUIRED,
                                                 ParquetType::INT32)})},
@@ -899,20 +890,20 @@ TEST_F(TestReconstructColumn, FAILING(NestedList1)) {
   LevelVector rep_levels = {0, 0, 1, 0};
   std::vector<int32_t> values = {4, 5, 6};
 
-  auto type = OneFieldStruct("a", List(int32(), /*nullable=*/false),
+  auto type = OneFieldStruct("p", List(int32(), /*nullable=*/false),
                              /*nullable=*/false);
-  auto expected = ArrayFromJSON(type, R"([{"a": []},
-                                          {"a": [4, 5]},
-                                          {"a": [6]}])");
+  auto expected = ArrayFromJSON(type, R"([{"p": []},
+                                          {"p": [4, 5]},
+                                          {"p": [6]}])");
   AssertReconstruct<ParquetType::INT32>(*expected, def_levels, rep_levels, values);
 }
 
-TEST_F(TestReconstructColumn, FAILING(NestedList2)) {
+TEST_F(TestReconstructColumn, NestedList2) {
   // Arrow schema: struct(a: list(int32 not null) not null)
   SetParquetSchema(GroupNode::Make(
       "a", Repetition::OPTIONAL,
       {GroupNode::Make(
-          "parent", Repetition::REQUIRED,
+          "p", Repetition::REQUIRED,
           {GroupNode::Make("list", Repetition::REPEATED,
                            {PrimitiveNode::Make("element", Repetition::REQUIRED,
                                                 ParquetType::INT32)})},
@@ -922,21 +913,21 @@ TEST_F(TestReconstructColumn, FAILING(NestedList2)) {
   LevelVector rep_levels = {0, 0, 0, 1, 0};
   std::vector<int32_t> values = {4, 5, 6};
 
-  auto type = OneFieldStruct("a", List(int32(), /*nullable=*/false),
+  auto type = OneFieldStruct("p", List(int32(), /*nullable=*/false),
                              /*nullable=*/false);
   auto expected = ArrayFromJSON(type, R"([null,
-                                          {"a": []},
-                                          {"a": [4, 5]},
-                                          {"a": [6]}])");
+                                          {"p": []},
+                                          {"p": [4, 5]},
+                                          {"p": [6]}])");
   AssertReconstruct<ParquetType::INT32>(*expected, def_levels, rep_levels, values);
 }
 
-TEST_F(TestReconstructColumn, FAILING(NestedList3)) {
+TEST_F(TestReconstructColumn, NestedList3) {
   // Arrow schema: struct(a: list(int32 not null)) not null
   SetParquetSchema(GroupNode::Make(
-      "a", Repetition::REQUIRED,
+      "a", Repetition::REQUIRED,  // column name (column a is a struct of)
       {GroupNode::Make(
-          "parent", Repetition::OPTIONAL,
+          "p", Repetition::OPTIONAL,  // name in struct
           {GroupNode::Make("list", Repetition::REPEATED,
                            {PrimitiveNode::Make("element", Repetition::REQUIRED,
                                                 ParquetType::INT32)})},
@@ -946,20 +937,20 @@ TEST_F(TestReconstructColumn, FAILING(NestedList3)) {
   LevelVector rep_levels = {0, 0, 0, 1, 0};
   std::vector<int32_t> values = {4, 5, 6};
 
-  auto type = OneFieldStruct("a", List(int32()));
-  auto expected = ArrayFromJSON(type, R"([{"a": null},
-                                          {"a": []},
-                                          {"a": [4, 5]},
-                                          {"a": [6]}])");
+  auto type = OneFieldStruct("p", List(int32(), /*nullable=*/false));
+  auto expected = ArrayFromJSON(type, R"([{"p": null},
+                                          {"p": []},
+                                          {"p": [4, 5]},
+                                          {"p": [6]}])");
   AssertReconstruct<ParquetType::INT32>(*expected, def_levels, rep_levels, values);
 }
 
-TEST_F(TestReconstructColumn, FAILING(NestedList4)) {
+TEST_F(TestReconstructColumn, NestedList4) {
   // Arrow schema: struct(a: list(int32 not null))
   SetParquetSchema(GroupNode::Make(
       "a", Repetition::OPTIONAL,
       {GroupNode::Make(
-          "parent", Repetition::OPTIONAL,
+          "p", Repetition::OPTIONAL,
           {GroupNode::Make("list", Repetition::REPEATED,
                            {PrimitiveNode::Make("element", Repetition::REQUIRED,
                                                 ParquetType::INT32)})},
@@ -969,21 +960,21 @@ TEST_F(TestReconstructColumn, FAILING(NestedList4)) {
   LevelVector rep_levels = {0, 0, 0, 0, 1, 0};
   std::vector<int32_t> values = {4, 5, 6};
 
-  auto type = OneFieldStruct("a", List(int32()));
+  auto type = OneFieldStruct("p", List(int32(), /*nullable=*/false));
   auto expected = ArrayFromJSON(type, R"([null,
-                                          {"a": null},
-                                          {"a": []},
-                                          {"a": [4, 5]},
-                                          {"a": [6]}])");
+                                          {"p": null},
+                                          {"p": []},
+                                          {"p": [4, 5]},
+                                          {"p": [6]}])");
   AssertReconstruct<ParquetType::INT32>(*expected, def_levels, rep_levels, values);
 }
 
-TEST_F(TestReconstructColumn, FAILING(NestedList5)) {
+TEST_F(TestReconstructColumn, NestedList5) {
   // Arrow schema: struct(a: list(int32) not null)
   SetParquetSchema(GroupNode::Make(
       "a", Repetition::OPTIONAL,
       {GroupNode::Make(
-          "parent", Repetition::REQUIRED,
+          "p", Repetition::REQUIRED,
           {GroupNode::Make("list", Repetition::REPEATED,
                            {PrimitiveNode::Make("element", Repetition::OPTIONAL,
                                                 ParquetType::INT32)})},
@@ -993,20 +984,20 @@ TEST_F(TestReconstructColumn, FAILING(NestedList5)) {
   LevelVector rep_levels = {0, 0, 0, 1, 0, 1};
   std::vector<int32_t> values = {4, 5, 6};
 
-  auto type = OneFieldStruct("a", List(int32()), /*nullable=*/false);
+  auto type = OneFieldStruct("p", List(int32()), /*nullable=*/false);
   auto expected = ArrayFromJSON(type, R"([null,
-                                          {"a": []},
-                                          {"a": [4, null]},
-                                          {"a": [5, 6]}])");
+                                          {"p": []},
+                                          {"p": [4, null]},
+                                          {"p": [5, 6]}])");
   AssertReconstruct<ParquetType::INT32>(*expected, def_levels, rep_levels, values);
 }
 
-TEST_F(TestReconstructColumn, FAILING(NestedList6)) {
+TEST_F(TestReconstructColumn, NestedList6) {
   // Arrow schema: struct(a: list(int32))
   SetParquetSchema(GroupNode::Make(
       "a", Repetition::OPTIONAL,
       {GroupNode::Make(
-          "parent", Repetition::OPTIONAL,
+          "p", Repetition::OPTIONAL,
           {GroupNode::Make("list", Repetition::REPEATED,
                            {PrimitiveNode::Make("element", Repetition::OPTIONAL,
                                                 ParquetType::INT32)})},
@@ -1016,12 +1007,12 @@ TEST_F(TestReconstructColumn, FAILING(NestedList6)) {
   LevelVector rep_levels = {0, 0, 0, 0, 1, 0, 1};
   std::vector<int32_t> values = {4, 5, 6};
 
-  auto type = OneFieldStruct("a", List(int32()));
+  auto type = OneFieldStruct("p", List(int32()));
   auto expected = ArrayFromJSON(type, R"([null,
-                                          {"a": null},
-                                          {"a": []},
-                                          {"a": [4, null]},
-                                          {"a": [5, 6]}])");
+                                          {"p": null},
+                                          {"p": []},
+                                          {"p": [4, null]},
+                                          {"p": [5, 6]}])");
   AssertReconstruct<ParquetType::INT32>(*expected, def_levels, rep_levels, values);
 }
 
@@ -1029,7 +1020,7 @@ TEST_F(TestReconstructColumn, FAILING(NestedList6)) {
 // Struct-in-list
 //
 
-TEST_F(TestReconstructColumn, FAILING(ListNested1)) {
+TEST_F(TestReconstructColumn, ListNested1) {
   // Arrow schema: list(struct(a: int32 not null) not null) not null
   SetParquetSchema(GroupNode::Make(
       "parent", Repetition::REQUIRED,
@@ -1052,7 +1043,7 @@ TEST_F(TestReconstructColumn, FAILING(ListNested1)) {
   AssertReconstruct<ParquetType::INT32>(*expected, def_levels, rep_levels, values);
 }
 
-TEST_F(TestReconstructColumn, FAILING(ListNested2)) {
+TEST_F(TestReconstructColumn, ListNested2) {
   // Arrow schema: list(struct(a: int32 not null) not null)
   SetParquetSchema(GroupNode::Make(
       "parent", Repetition::OPTIONAL,
@@ -1076,7 +1067,7 @@ TEST_F(TestReconstructColumn, FAILING(ListNested2)) {
   AssertReconstruct<ParquetType::INT32>(*expected, def_levels, rep_levels, values);
 }
 
-TEST_F(TestReconstructColumn, FAILING(ListNested3)) {
+TEST_F(TestReconstructColumn, ListNested3) {
   // Arrow schema: list(struct(a: int32 not null)) not null
   SetParquetSchema(GroupNode::Make(
       "parent", Repetition::REQUIRED,
@@ -1098,7 +1089,7 @@ TEST_F(TestReconstructColumn, FAILING(ListNested3)) {
   AssertReconstruct<ParquetType::INT32>(*expected, def_levels, rep_levels, values);
 }
 
-TEST_F(TestReconstructColumn, FAILING(ListNested4)) {
+TEST_F(TestReconstructColumn, ListNested4) {
   // Arrow schema: list(struct(a: int32 not null))
   SetParquetSchema(GroupNode::Make(
       "parent", Repetition::OPTIONAL,
@@ -1121,7 +1112,7 @@ TEST_F(TestReconstructColumn, FAILING(ListNested4)) {
   AssertReconstruct<ParquetType::INT32>(*expected, def_levels, rep_levels, values);
 }
 
-TEST_F(TestReconstructColumn, FAILING(ListNested5)) {
+TEST_F(TestReconstructColumn, ListNested5) {
   // Arrow schema: list(struct(a: int32) not null)
   SetParquetSchema(GroupNode::Make(
       "parent", Repetition::OPTIONAL,
@@ -1145,7 +1136,7 @@ TEST_F(TestReconstructColumn, FAILING(ListNested5)) {
   AssertReconstruct<ParquetType::INT32>(*expected, def_levels, rep_levels, values);
 }
 
-TEST_F(TestReconstructColumn, FAILING(ListNested6)) {
+TEST_F(TestReconstructColumn, ListNested6) {
   // Arrow schema: list(struct(a: int32))
   SetParquetSchema(GroupNode::Make(
       "parent", Repetition::OPTIONAL,
@@ -1172,7 +1163,7 @@ TEST_F(TestReconstructColumn, FAILING(ListNested6)) {
 // Struct (two fields)-in-list
 //
 
-TEST_F(TestReconstructColumn, FAILING(ListNestedTwoFields1)) {
+TEST_F(TestReconstructColumn, ListNestedTwoFields1) {
   // Arrow schema: list(struct(a: int32 not null,
   //                           b: int64 not null) not null) not null
   SetParquetSchema(GroupNode::Make(
@@ -1202,7 +1193,7 @@ TEST_F(TestReconstructColumn, FAILING(ListNestedTwoFields1)) {
   CheckColumn(/*column_index=*/0, *expected);
 }
 
-TEST_F(TestReconstructColumn, FAILING(ListNestedTwoFields2)) {
+TEST_F(TestReconstructColumn, ListNestedTwoFields2) {
   // Arrow schema: list(struct(a: int32,
   //                           b: int64 not null) not null) not null
   SetParquetSchema(GroupNode::Make(
@@ -1232,7 +1223,7 @@ TEST_F(TestReconstructColumn, FAILING(ListNestedTwoFields2)) {
   CheckColumn(/*column_index=*/0, *expected);
 }
 
-TEST_F(TestReconstructColumn, FAILING(ListNestedTwoFields3)) {
+TEST_F(TestReconstructColumn, ListNestedTwoFields3) {
   // Arrow schema: list(struct(a: int32 not null,
   //                           b: int64 not null)) not null
   SetParquetSchema(GroupNode::Make(
@@ -1261,7 +1252,7 @@ TEST_F(TestReconstructColumn, FAILING(ListNestedTwoFields3)) {
   CheckColumn(/*column_index=*/0, *expected);
 }
 
-TEST_F(TestReconstructColumn, FAILING(ListNestedTwoFields4)) {
+TEST_F(TestReconstructColumn, ListNestedTwoFields4) {
   // Arrow schema: list(struct(a: int32,
   //                           b: int64 not null) not null)
   SetParquetSchema(GroupNode::Make(
@@ -1292,7 +1283,7 @@ TEST_F(TestReconstructColumn, FAILING(ListNestedTwoFields4)) {
   CheckColumn(/*column_index=*/0, *expected);
 }
 
-TEST_F(TestReconstructColumn, FAILING(ListNestedTwoFields5)) {
+TEST_F(TestReconstructColumn, ListNestedTwoFields5) {
   // Arrow schema: list(struct(a: int32,
   //                           b: int64 not null))
   SetParquetSchema(GroupNode::Make(
@@ -1313,8 +1304,7 @@ TEST_F(TestReconstructColumn, FAILING(ListNestedTwoFields5)) {
                              Int64Vector{7, 8}));
 
   auto type =
-      List(struct_({field("a", int32()), field("b", int64(), /*nullable=*/false)}),
-           /*nullable=*/false);
+      List(struct_({field("a", int32()), field("b", int64(), /*nullable=*/false)}));
   auto expected = ArrayFromJSON(type,
                                 R"([null,
                                     [],
@@ -1323,7 +1313,7 @@ TEST_F(TestReconstructColumn, FAILING(ListNestedTwoFields5)) {
   CheckColumn(/*column_index=*/0, *expected);
 }
 
-TEST_F(TestReconstructColumn, FAILING(ListNestedTwoFields6)) {
+TEST_F(TestReconstructColumn, ListNestedTwoFields6) {
   // Arrow schema: list(struct(a: int32,
   //                           b: int64))
   SetParquetSchema(GroupNode::Make(
@@ -1343,9 +1333,7 @@ TEST_F(TestReconstructColumn, FAILING(ListNestedTwoFields6)) {
   ASSERT_OK(WriteInt64Column(DefLevels{0, 1, 3, 2, 4}, RepLevels{0, 0, 0, 1, 0},
                              Int64Vector{7}));
 
-  auto type =
-      List(struct_({field("a", int32()), field("b", int64(), /*nullable=*/false)}),
-           /*nullable=*/false);
+  auto type = List(struct_({field("a", int32()), field("b", int64())}));
   auto expected = ArrayFromJSON(type,
                                 R"([null,
                                     [],
@@ -1358,7 +1346,7 @@ TEST_F(TestReconstructColumn, FAILING(ListNestedTwoFields6)) {
 // List-in-struct (two fields)
 //
 
-TEST_F(TestReconstructColumn, FAILING(NestedTwoFieldsList1)) {
+TEST_F(TestReconstructColumn, NestedTwoFieldsList1) {
   // Arrow schema: struct(a: int64 not null,
   //                      b: list(int32 not null) not null
   //                     ) not null
@@ -1388,7 +1376,7 @@ TEST_F(TestReconstructColumn, FAILING(NestedTwoFieldsList1)) {
   CheckColumn(/*column_index=*/0, *expected);
 }
 
-TEST_F(TestReconstructColumn, FAILING(NestedTwoFieldsList2)) {
+TEST_F(TestReconstructColumn, NestedTwoFieldsList2) {
   // Arrow schema: struct(a: int64 not null,
   //                      b: list(int32 not null)
   //                     ) not null
@@ -1418,7 +1406,7 @@ TEST_F(TestReconstructColumn, FAILING(NestedTwoFieldsList2)) {
   CheckColumn(/*column_index=*/0, *expected);
 }
 
-TEST_F(TestReconstructColumn, FAILING(NestedTwoFieldsList3)) {
+TEST_F(TestReconstructColumn, NestedTwoFieldsList3) {
   // Arrow schema: struct(a: int64,
   //                      b: list(int32 not null)
   //                     ) not null
@@ -1448,7 +1436,7 @@ TEST_F(TestReconstructColumn, FAILING(NestedTwoFieldsList3)) {
   CheckColumn(/*column_index=*/0, *expected);
 }
 
-TEST_F(TestReconstructColumn, FAILING(NestedTwoFieldsList4)) {
+TEST_F(TestReconstructColumn, NestedTwoFieldsList4) {
   // Arrow schema: struct(a: int64,
   //                      b: list(int32 not null)
   //                     )
@@ -1480,7 +1468,7 @@ TEST_F(TestReconstructColumn, FAILING(NestedTwoFieldsList4)) {
   CheckColumn(/*column_index=*/0, *expected);
 }
 
-TEST_F(TestReconstructColumn, FAILING(NestedTwoFieldsList5)) {
+TEST_F(TestReconstructColumn, NestedTwoFieldsList5) {
   // Arrow schema: struct(a: int64, b: list(int32))
   SetParquetSchema(GroupNode::Make(
       "parent", Repetition::OPTIONAL,
@@ -1499,8 +1487,7 @@ TEST_F(TestReconstructColumn, FAILING(NestedTwoFieldsList5)) {
   ASSERT_OK(WriteInt32Column(DefLevels{0, 1, 2, 4, 3, 4}, RepLevels{0, 0, 0, 0, 1, 0},
                              Int32Vector{7, 8}));
 
-  auto type =
-      struct_({field("a", int64()), field("b", List(int32(), /*nullable=*/false))});
+  auto type = struct_({field("a", int64()), field("b", List(int32()))});
   auto expected = ArrayFromJSON(type,
                                 R"([null,
                                     {"a": 4, "b": null},

@@ -212,3 +212,10 @@ cdef class S3FileSystem(FileSystem):
                 background_writes=opts.background_writes
             ),)
         )
+
+    @property
+    def region(self):
+        """
+        The AWS region this filesystem connects to.
+        """
+        return frombytes(self.s3fs.options().region)

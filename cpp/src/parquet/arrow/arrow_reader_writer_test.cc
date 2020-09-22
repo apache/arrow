@@ -416,7 +416,6 @@ void DoSimpleRoundtrip(const std::shared_ptr<Table>& table, bool use_threads,
                               ::arrow::default_memory_pool(), &reader));
 
   reader->set_use_threads(use_threads);
-
   if (column_subset.size() > 0) {
     ASSERT_OK_NO_THROW(reader->ReadTable(column_subset, out));
   } else {
@@ -2361,8 +2360,7 @@ TEST(ArrowReadWrite, SingleColumnNullableStruct) {
       3);
 }
 
-// Disabled until implementation can be finished.
-TEST(TestArrowReadWrite, DISABLED_CanonicalNestedRoundTrip) {
+TEST(TestArrowReadWrite, CanonicalNestedRoundTrip) {
   auto doc_id = field("DocId", ::arrow::int64(), /*nullable=*/false);
   auto links = field(
       "Links",
@@ -2391,7 +2389,7 @@ TEST(TestArrowReadWrite, DISABLED_CanonicalNestedRoundTrip) {
   // string literals implemented properly
   auto name_array = ::arrow::ArrayFromJSON(
       name->type(),
-      "([[{\"Language\": [{\"Code\": \"en_us\", \"Country\":\"us\"},"
+      "[[{\"Language\": [{\"Code\": \"en_us\", \"Country\":\"us\"},"
       "{\"Code\": \"en_us\", \"Country\": null}],"
       "\"Url\": \"http://A\"},"
       "{\"Url\": \"http://B\"},"
@@ -2810,12 +2808,6 @@ TEST_F(TestNestedSchemaRead, ReadTablePartial) {
   ASSERT_NO_FATAL_FAILURE(ValidateTableArrayTypes(*table));
 }
 
-TEST_F(TestNestedSchemaRead, StructAndListTogetherUnsupported) {
-  ASSERT_NO_FATAL_FAILURE(CreateSimpleNestedParquet(Repetition::REPEATED));
-  std::shared_ptr<Table> table;
-  ASSERT_RAISES(NotImplemented, reader_->ReadTable(&table));
-}
-
 TEST_P(TestNestedSchemaRead, DeepNestedSchemaRead) {
 #ifdef PARQUET_VALGRIND
   const int num_trees = 3;
@@ -2994,7 +2986,6 @@ TEST_P(TestArrowReaderAdHocSparkAndHvr, ReadDecimals) {
     ASSERT_OK(builder.Append(value));
   }
   ASSERT_OK(builder.Finish(&expected_array));
-
   AssertArraysEqual(*expected_array, *chunk);
 }
 

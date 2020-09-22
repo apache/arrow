@@ -43,6 +43,7 @@
 #include "parquet/schema.h"
 
 using arrow::Array;
+using arrow::ArrayData;
 using arrow::BooleanArray;
 using arrow::ChunkedArray;
 using arrow::DataType;
@@ -59,10 +60,6 @@ using arrow::Table;
 using arrow::TimestampArray;
 using arrow::internal::Iota;
 
-using parquet::schema::GroupNode;
-using parquet::schema::Node;
-using parquet::schema::PrimitiveNode;
-
 // Help reduce verbosity
 using ParquetReader = parquet::ParquetFileReader;
 
@@ -77,18 +74,47 @@ using parquet::internal::RecordReader;
 
 namespace parquet {
 namespace arrow {
+namespace {
+
+::arrow::Result<std::shared_ptr<ArrayData>> ChunksToSingle(const ChunkedArray& chunked) {
+  switch (chunked.num_chunks()) {
+    case 0: {
+      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> array,
+                            ::arrow::MakeArrayOfNull(chunked.type(), 0));
+      return array->data();
+    }
+    case 1:
+      return chunked.chunk(0)->data();
+    default:
+      // ARROW-3762(wesm): If item reader yields a chunked array, we reject as
+      // this is not yet implemented
+      return Status::NotImplemented(
+          "Nested data conversions not implemented for chunked array outputs");
+  }
+}
+
+}  // namespace
 
 class ColumnReaderImpl : public ColumnReader {
  public:
-  enum ReaderType { PRIMITIVE, LIST, STRUCT };
-
   virtual Status GetDefLevels(const int16_t** data, int64_t* length) = 0;
   virtual Status GetRepLevels(const int16_t** data, int64_t* length) = 0;
   virtual const std::shared_ptr<Field> field() = 0;
+  ::arrow::Status NextBatch(int64_t batch_size,
+                            std::shared_ptr<::arrow::ChunkedArray>* out) final {
+    RETURN_NOT_OK(LoadBatch(batch_size));
+    RETURN_NOT_OK(BuildArray(batch_size, out));
+    for (int x = 0; x < (*out)->num_chunks(); x++) {
+      RETURN_NOT_OK((*out)->chunk(x)->Validate());
+    }
+    return Status::OK();
+  }
 
-  virtual const ColumnDescriptor* descr() const = 0;
+  virtual ::arrow::Status LoadBatch(int64_t num_records) = 0;
 
-  virtual ReaderType type() const = 0;
+  virtual ::arrow::Status BuildArray(int64_t length_upper_bound,
+                                     std::shared_ptr<::arrow::ChunkedArray>* out) = 0;
+  virtual bool IsOrHasRepeatedChild() const = 0;
 };
 
 std::shared_ptr<std::unordered_set<int>> VectorToSharedSet(
@@ -373,30 +399,34 @@ class RowGroupReaderImpl : public RowGroupReader {
 class LeafReader : public ColumnReaderImpl {
  public:
   LeafReader(std::shared_ptr<ReaderContext> ctx, std::shared_ptr<Field> field,
-             std::unique_ptr<FileColumnIterator> input)
+             std::unique_ptr<FileColumnIterator> input,
+             ::parquet::internal::LevelInfo leaf_info)
       : ctx_(std::move(ctx)),
         field_(std::move(field)),
         input_(std::move(input)),
         descr_(input_->descr()) {
     record_reader_ = RecordReader::Make(
-        descr_, ctx_->pool, field_->type()->id() == ::arrow::Type::DICTIONARY);
+        descr_, leaf_info, ctx_->pool, field_->type()->id() == ::arrow::Type::DICTIONARY);
     NextRowGroup();
   }
 
-  Status GetDefLevels(const int16_t** data, int64_t* length) override {
+  Status GetDefLevels(const int16_t** data, int64_t* length) final {
     *data = record_reader_->def_levels();
     *length = record_reader_->levels_position();
     return Status::OK();
   }
 
-  Status GetRepLevels(const int16_t** data, int64_t* length) override {
+  Status GetRepLevels(const int16_t** data, int64_t* length) final {
     *data = record_reader_->rep_levels();
     *length = record_reader_->levels_position();
     return Status::OK();
   }
 
-  Status NextBatch(int64_t records_to_read, std::shared_ptr<ChunkedArray>* out) override {
+  bool IsOrHasRepeatedChild() const final { return false; }
+
+  Status LoadBatch(int64_t records_to_read) final {
     BEGIN_PARQUET_CATCH_EXCEPTIONS
+    out_ = nullptr;
     record_reader_->Reset();
     // Pre-allocation gives much better performance for flat columns
     record_reader_->Reserve(records_to_read);
@@ -411,17 +441,21 @@ class LeafReader : public ColumnReaderImpl {
       }
     }
     RETURN_NOT_OK(TransferColumnData(record_reader_.get(), field_->type(), descr_,
-                                     ctx_->pool, out));
+                                     ctx_->pool, &out_));
     return Status::OK();
     END_PARQUET_CATCH_EXCEPTIONS
   }
 
-  const std::shared_ptr<Field> field() override { return field_; }
-  const ColumnDescriptor* descr() const override { return descr_; }
+  ::arrow::Status BuildArray(int64_t length_upper_bound,
+                             std::shared_ptr<::arrow::ChunkedArray>* out) final {
+    *out = out_;
+    return Status::OK();
+  }
 
-  ReaderType type() const override { return PRIMITIVE; }
+  const std::shared_ptr<Field> field() override { return field_; }
 
  private:
+  std::shared_ptr<ChunkedArray> out_;
   void NextRowGroup() {
     std::unique_ptr<PageReader> page_reader = input_->NextChunk();
     record_reader_->SetPageReader(std::move(page_reader));
@@ -434,16 +468,16 @@ class LeafReader : public ColumnReaderImpl {
   std::shared_ptr<RecordReader> record_reader_;
 };
 
-class NestedListReader : public ColumnReaderImpl {
+template <typename IndexType>
+class ListReader : public ColumnReaderImpl {
  public:
-  NestedListReader(std::shared_ptr<ReaderContext> ctx, std::shared_ptr<Field> field,
-                   int16_t max_definition_level, int16_t max_repetition_level,
-                   std::unique_ptr<ColumnReaderImpl> item_reader)
+  ListReader(std::shared_ptr<ReaderContext> ctx, std::shared_ptr<Field> field,
+             ::parquet::internal::LevelInfo level_info,
+             std::unique_ptr<ColumnReaderImpl> child_reader)
       : ctx_(std::move(ctx)),
         field_(std::move(field)),
-        max_definition_level_(max_definition_level),
-        max_repetition_level_(max_repetition_level),
-        item_reader_(std::move(item_reader)) {}
+        level_info_(level_info),
+        item_reader_(std::move(child_reader)) {}
 
   Status GetDefLevels(const int16_t** data, int64_t* length) override {
     return item_reader_->GetDefLevels(data, length);
@@ -453,229 +487,211 @@ class NestedListReader : public ColumnReaderImpl {
     return item_reader_->GetRepLevels(data, length);
   }
 
-  Status NextBatch(int64_t records_to_read, std::shared_ptr<ChunkedArray>* out) override {
-    if (item_reader_->type() == ColumnReaderImpl::STRUCT) {
-      return Status::Invalid("Mix of struct and list types not yet supported");
-    }
+  bool IsOrHasRepeatedChild() const final { return true; }
 
-    RETURN_NOT_OK(item_reader_->NextBatch(records_to_read, out));
+  Status LoadBatch(int64_t number_of_records) final {
+    return item_reader_->LoadBatch(number_of_records);
+  }
 
-    std::shared_ptr<Array> item_chunk;
-    switch ((*out)->num_chunks()) {
-      case 0: {
-        ARROW_ASSIGN_OR_RAISE(item_chunk, ::arrow::MakeArrayOfNull((*out)->type(), 0));
-        break;
-      }
-      case 1:
-        item_chunk = (*out)->chunk(0);
-        break;
-      default:
-        // ARROW-3762(wesm): If item reader yields a chunked array, we reject as
-        // this is not yet implemented
-        return Status::NotImplemented(
-            "Nested data conversions not implemented for chunked array outputs");
-    }
-
+  Status BuildArray(int64_t length_upper_bound,
+                    std::shared_ptr<ChunkedArray>* out) override {
     const int16_t* def_levels;
     const int16_t* rep_levels;
     int64_t num_levels;
     RETURN_NOT_OK(item_reader_->GetDefLevels(&def_levels, &num_levels));
     RETURN_NOT_OK(item_reader_->GetRepLevels(&rep_levels, &num_levels));
-    std::shared_ptr<Array> result;
-    RETURN_NOT_OK(ReconstructNestedList(item_chunk, field_, max_definition_level_,
-                                        max_repetition_level_, def_levels, rep_levels,
-                                        num_levels, ctx_->pool, &result));
+    std::shared_ptr<ResizableBuffer> validity_buffer;
+    ::parquet::internal::ValidityBitmapInputOutput validity_io;
+    validity_io.values_read_upper_bound = length_upper_bound;
+    if (field_->nullable()) {
+      ARROW_ASSIGN_OR_RAISE(
+          validity_buffer,
+          AllocateResizableBuffer(BitUtil::BytesForBits(length_upper_bound), ctx_->pool));
+      validity_io.valid_bits = validity_buffer->mutable_data();
+    }
+    ARROW_ASSIGN_OR_RAISE(
+        std::shared_ptr<ResizableBuffer> offsets_buffer,
+        AllocateResizableBuffer(
+            sizeof(IndexType) * std::max(int64_t{1}, length_upper_bound + 1),
+            ctx_->pool));
+    // Ensure zero initialization in case we have reached a zero length list (and
+    // because first entry is always zero).
+    IndexType* offset_data = reinterpret_cast<IndexType*>(offsets_buffer->mutable_data());
+    offset_data[0] = 0;
+    BEGIN_PARQUET_CATCH_EXCEPTIONS
+    ::parquet::internal::DefRepLevelsToList(def_levels, rep_levels, num_levels,
+                                            level_info_, &validity_io, offset_data);
+    END_PARQUET_CATCH_EXCEPTIONS
+
+    RETURN_NOT_OK(item_reader_->BuildArray(offset_data[validity_io.values_read], out));
+
+    // Resize to actual number of elements returned.
+    RETURN_NOT_OK(
+        offsets_buffer->Resize((validity_io.values_read + 1) * sizeof(IndexType)));
+    if (validity_buffer != nullptr) {
+      RETURN_NOT_OK(
+          validity_buffer->Resize(BitUtil::BytesForBits(validity_io.values_read)));
+    }
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ArrayData> item_chunk, ChunksToSingle(**out));
+
+    std::vector<std::shared_ptr<Buffer>> buffers{
+        validity_io.null_count > 0 ? validity_buffer : nullptr, offsets_buffer};
+    auto data = std::make_shared<ArrayData>(
+        field_->type(),
+        /*length=*/validity_io.values_read, std::move(buffers),
+        std::vector<std::shared_ptr<ArrayData>>{item_chunk}, validity_io.null_count);
+
+    std::shared_ptr<Array> result = ::arrow::MakeArray(data);
     *out = std::make_shared<ChunkedArray>(result);
     return Status::OK();
   }
 
   const std::shared_ptr<Field> field() override { return field_; }
 
-  const ColumnDescriptor* descr() const override { return nullptr; }
-
-  ReaderType type() const override { return LIST; }
-
  private:
   std::shared_ptr<ReaderContext> ctx_;
   std::shared_ptr<Field> field_;
-  int16_t max_definition_level_;
-  int16_t max_repetition_level_;
+  ::parquet::internal::LevelInfo level_info_;
   std::unique_ptr<ColumnReaderImpl> item_reader_;
 };
 
 class PARQUET_NO_EXPORT StructReader : public ColumnReaderImpl {
  public:
   explicit StructReader(std::shared_ptr<ReaderContext> ctx,
-                        const SchemaField& schema_field,
                         std::shared_ptr<Field> filtered_field,
-                        std::vector<std::unique_ptr<ColumnReaderImpl>>&& children)
+                        ::parquet::internal::LevelInfo level_info,
+                        std::vector<std::unique_ptr<ColumnReaderImpl>> children)
       : ctx_(std::move(ctx)),
-        schema_field_(schema_field),
         filtered_field_(std::move(filtered_field)),
-        struct_def_level_(schema_field.level_info.def_level),
-        children_(std::move(children)) {}
+        level_info_(level_info),
+        children_(std::move(children)) {
+    // There could be a mix of children some might be repeated some might not be.
+    // If possible use one that isn't since that will be guaranteed to have the least
+    // number of levels to reconstruct a nullable bitmap.
+    auto result = std::find_if(children_.begin(), children_.end(),
+                               [](const std::unique_ptr<ColumnReaderImpl>& child) {
+                                 return !child->IsOrHasRepeatedChild();
+                               });
+    if (result != children_.end()) {
+      def_rep_level_child_ = result->get();
+      has_repeated_child_ = false;
+    } else if (!children_.empty()) {
+      def_rep_level_child_ = children_.front().get();
+      has_repeated_child_ = true;
+    }
+  }
 
-  Status NextBatch(int64_t records_to_read, std::shared_ptr<ChunkedArray>* out) override;
+  bool IsOrHasRepeatedChild() const final { return has_repeated_child_; }
+
+  Status LoadBatch(int64_t records_to_read) override {
+    for (const std::unique_ptr<ColumnReaderImpl>& reader : children_) {
+      RETURN_NOT_OK(reader->LoadBatch(records_to_read));
+    }
+    return Status::OK();
+  }
+  Status BuildArray(int64_t length_upper_bound,
+                    std::shared_ptr<ChunkedArray>* out) override;
   Status GetDefLevels(const int16_t** data, int64_t* length) override;
   Status GetRepLevels(const int16_t** data, int64_t* length) override;
   const std::shared_ptr<Field> field() override { return filtered_field_; }
-  const ColumnDescriptor* descr() const override { return nullptr; }
-  ReaderType type() const override { return STRUCT; }
 
  private:
-  std::shared_ptr<ReaderContext> ctx_;
-  SchemaField schema_field_;
-  std::shared_ptr<Field> filtered_field_;
-  int16_t struct_def_level_;
-  std::vector<std::unique_ptr<ColumnReaderImpl>> children_;
-  std::shared_ptr<ResizableBuffer> def_levels_buffer_;
-  Status DefLevelsToNullArray(std::shared_ptr<Buffer>* null_bitmap, int64_t* null_count);
+  const std::shared_ptr<ReaderContext> ctx_;
+  const std::shared_ptr<Field> filtered_field_;
+  const ::parquet::internal::LevelInfo level_info_;
+  const std::vector<std::unique_ptr<ColumnReaderImpl>> children_;
+  ColumnReaderImpl* def_rep_level_child_ = nullptr;
+  bool has_repeated_child_;
 };
 
-Status StructReader::DefLevelsToNullArray(std::shared_ptr<Buffer>* null_bitmap_out,
-                                          int64_t* null_count_out) {
-  auto null_count = 0;
-  const int16_t* def_levels_data;
-  int64_t def_levels_length;
-  RETURN_NOT_OK(GetDefLevels(&def_levels_data, &def_levels_length));
-  ARROW_ASSIGN_OR_RAISE(auto null_bitmap,
-                        AllocateEmptyBitmap(def_levels_length, ctx_->pool));
-  uint8_t* null_bitmap_ptr = null_bitmap->mutable_data();
-  for (int64_t i = 0; i < def_levels_length; i++) {
-    if (def_levels_data[i] < struct_def_level_) {
-      // Mark null
-      null_count += 1;
-    } else {
-      DCHECK_EQ(def_levels_data[i], struct_def_level_);
-      ::arrow::BitUtil::SetBit(null_bitmap_ptr, i);
-    }
-  }
-
-  *null_count_out = null_count;
-  *null_bitmap_out = (null_count == 0) ? nullptr : null_bitmap;
-  return Status::OK();
-}
-
-// TODO(itaiin): Consider caching the results of this calculation -
-//   note that this is only used once for each read for now
 Status StructReader::GetDefLevels(const int16_t** data, int64_t* length) {
   *data = nullptr;
   if (children_.size() == 0) {
-    // Empty struct
     *length = 0;
-    return Status::OK();
+    return Status::Invalid("StructReader had no children");
   }
 
-  // We have at least one child
-  const int16_t* child_def_levels;
-  int64_t child_length = 0;
-  bool found_nullable_child = false;
-  int16_t* result_levels = nullptr;
-
-  int child_index = 0;
-  while (child_index < static_cast<int>(children_.size())) {
-    if (!children_[child_index]->field()->nullable()) {
-      ++child_index;
-      continue;
-    }
-    RETURN_NOT_OK(children_[child_index]->GetDefLevels(&child_def_levels, &child_length));
-    auto size = child_length * sizeof(int16_t);
-    ARROW_ASSIGN_OR_RAISE(def_levels_buffer_, AllocateResizableBuffer(size, ctx_->pool));
-    // Initialize with the minimal def level
-    std::memset(def_levels_buffer_->mutable_data(), -1, size);
-    result_levels = reinterpret_cast<int16_t*>(def_levels_buffer_->mutable_data());
-    found_nullable_child = true;
-    break;
-  }
-
-  if (!found_nullable_child) {
-    *data = nullptr;
-    *length = 0;
-    return Status::OK();
-  }
-
-  // Look at the rest of the children
-
-  // When a struct is defined, all of its children def levels are at least at
-  // nesting level, and def level equals nesting level.
-  // When a struct is not defined, all of its children def levels are less than
-  // the nesting level, and the def level equals max(children def levels)
-  // All other possibilities are malformed definition data.
-  for (; child_index < static_cast<int>(children_.size()); ++child_index) {
-    // Child is non-nullable, and therefore has no definition levels
-    if (!children_[child_index]->field()->nullable()) {
-      continue;
-    }
-
-    auto& child = children_[child_index];
-    int64_t current_child_length;
-    RETURN_NOT_OK(child->GetDefLevels(&child_def_levels, &current_child_length));
-
-    if (child_length != current_child_length) {
-      std::stringstream ss;
-      ss << "Parquet struct decoding error. Expected to decode " << child_length
-         << " definition levels"
-         << " from child field \"" << child->field()->ToString() << "\" in parent \""
-         << this->field()->ToString() << "\" but was only able to decode "
-         << current_child_length;
-      return Status::IOError(ss.str());
-    }
-
-    DCHECK_EQ(child_length, current_child_length);
-    for (int64_t i = 0; i < child_length; i++) {
-      // Check that value is either uninitialized, or current
-      // and previous children def levels agree on the struct level
-      DCHECK((result_levels[i] == -1) || ((result_levels[i] >= struct_def_level_) ==
-                                          (child_def_levels[i] >= struct_def_level_)));
-      result_levels[i] =
-          std::max(result_levels[i], std::min(child_def_levels[i], struct_def_level_));
-    }
-  }
-  *data = reinterpret_cast<const int16_t*>(def_levels_buffer_->data());
-  *length = static_cast<int64_t>(child_length);
+  // This method should only be called when this struct or one of its parents
+  // are optional/repeated or it has a repeated child.
+  // Meaning all children must have rep/def levels associated
+  // with them.
+  RETURN_NOT_OK(def_rep_level_child_->GetDefLevels(data, length));
   return Status::OK();
 }
 
 Status StructReader::GetRepLevels(const int16_t** data, int64_t* length) {
-  return Status::NotImplemented("GetRepLevels is not implemented for struct");
+  *data = nullptr;
+  if (children_.size() == 0) {
+    *length = 0;
+    return Status::Invalid("StructReader had no childre");
+  }
+
+  // This method should only be called when this struct or one of its parents
+  // are optional/repeated or it has repeated child.
+  // Meaning all children must have rep/def levels associated
+  // with them.
+  RETURN_NOT_OK(def_rep_level_child_->GetRepLevels(data, length));
+  return Status::OK();
 }
 
-Status StructReader::NextBatch(int64_t records_to_read,
-                               std::shared_ptr<ChunkedArray>* out) {
-  std::vector<std::shared_ptr<Array>> children_arrays;
-  std::shared_ptr<Buffer> null_bitmap;
-  int64_t null_count;
+Status StructReader::BuildArray(int64_t length_upper_bound,
+                                std::shared_ptr<ChunkedArray>* out) {
+  std::vector<std::shared_ptr<ArrayData>> children_array_data;
+  std::shared_ptr<ResizableBuffer> null_bitmap;
 
+  ::parquet::internal::ValidityBitmapInputOutput validity_io;
+  validity_io.values_read_upper_bound = length_upper_bound;
+  // This simplifies accounting below.
+  validity_io.values_read = length_upper_bound;
+
+  BEGIN_PARQUET_CATCH_EXCEPTIONS
+  const int16_t* def_levels;
+  const int16_t* rep_levels;
+  int64_t num_levels;
+
+  if (has_repeated_child_) {
+    ARROW_ASSIGN_OR_RAISE(
+        null_bitmap,
+        AllocateResizableBuffer(BitUtil::BytesForBits(length_upper_bound), ctx_->pool));
+    validity_io.valid_bits = null_bitmap->mutable_data();
+    RETURN_NOT_OK(GetDefLevels(&def_levels, &num_levels));
+    RETURN_NOT_OK(GetRepLevels(&rep_levels, &num_levels));
+    DefRepLevelsToBitmap(def_levels, rep_levels, num_levels, level_info_, &validity_io);
+  } else if (filtered_field_->nullable()) {
+    ARROW_ASSIGN_OR_RAISE(
+        null_bitmap,
+        AllocateResizableBuffer(BitUtil::BytesForBits(length_upper_bound), ctx_->pool));
+    validity_io.valid_bits = null_bitmap->mutable_data();
+    RETURN_NOT_OK(GetDefLevels(&def_levels, &num_levels));
+    DefLevelsToBitmap(def_levels, num_levels, level_info_, &validity_io);
+  }
+
+  // Ensure all values are initialized.
+  if (null_bitmap) {
+    RETURN_NOT_OK(null_bitmap->Resize(BitUtil::BytesForBits(validity_io.values_read)));
+  }
+
+  END_PARQUET_CATCH_EXCEPTIONS
   // Gather children arrays and def levels
   for (auto& child : children_) {
-    if (child->type() == ColumnReaderImpl::LIST) {
-      return Status::NotImplemented(
-          "Reading structs of lists from Parquet files not yet supported: ",
-          field()->ToString());
-    }
-
     std::shared_ptr<ChunkedArray> field;
-    RETURN_NOT_OK(child->NextBatch(records_to_read, &field));
-
-    if (field->num_chunks() > 1) {
-      return Status::Invalid("Chunked field reads not yet supported with StructArray");
-    }
-    children_arrays.push_back(field->chunk(0));
+    RETURN_NOT_OK(child->BuildArray(validity_io.values_read, &field));
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ArrayData> array_data, ChunksToSingle(*field));
+    children_array_data.push_back(std::move(array_data));
   }
 
-  RETURN_NOT_OK(DefLevelsToNullArray(&null_bitmap, &null_count));
-
-  int64_t struct_length = children_arrays[0]->length();
-  for (size_t i = 1; i < children_arrays.size(); ++i) {
-    if (children_arrays[i]->length() != struct_length) {
-      // TODO(wesm): This should really only occur if the Parquet file is
-      // malformed. Should this be a DCHECK?
-      return Status::Invalid("Struct children had different lengths");
-    }
+  if (!filtered_field_->nullable() && !has_repeated_child_) {
+    validity_io.values_read = children_array_data.front()->length;
   }
 
-  auto result = std::make_shared<StructArray>(field()->type(), struct_length,
-                                              children_arrays, null_bitmap, null_count);
+  std::vector<std::shared_ptr<Buffer>> buffers{validity_io.null_count > 0 ? null_bitmap
+                                                                          : nullptr};
+  auto data =
+      std::make_shared<ArrayData>(filtered_field_->type(),
+                                  /*length=*/validity_io.values_read, std::move(buffers),
+                                  std::move(children_array_data));
+  std::shared_ptr<Array> result = ::arrow::MakeArray(data);
+
   *out = std::make_shared<ChunkedArray>(result);
   return Status::OK();
 }
@@ -692,40 +708,28 @@ Status GetReader(const SchemaField& field, const std::shared_ptr<ReaderContext>&
     if (!field.is_leaf()) {
       return Status::Invalid("Parquet non-leaf node has no children");
     }
-    std::unique_ptr<FileColumnIterator> input(
-        ctx->iterator_factory(field.column_index, ctx->reader));
-    out->reset(new LeafReader(ctx, field.field, std::move(input)));
-  } else if (type_id == ::arrow::Type::LIST) {
-    // We can only read lists-of-lists or structs at the moment
-    auto list_field = field.field;
-    auto child = &field.children[0];
-    while (child->field->type()->id() == ::arrow::Type::LIST) {
-      child = &child->children[0];
-    }
-    if (child->field->type()->id() == ::arrow::Type::STRUCT) {
-      return Status::NotImplemented(
-          "Reading lists of structs from Parquet files "
-          "not yet supported: ",
-          field.field->ToString());
-    }
-    if (!ctx->IncludesLeaf(child->column_index)) {
+    if (!ctx->IncludesLeaf(field.column_index)) {
       *out = nullptr;
       return Status::OK();
     }
+    std::unique_ptr<FileColumnIterator> input(
+        ctx->iterator_factory(field.column_index, ctx->reader));
+    out->reset(new LeafReader(ctx, field.field, std::move(input), field.level_info));
+  } else if (type_id == ::arrow::Type::LIST) {
+    auto list_field = field.field;
+    auto child = &field.children[0];
     std::unique_ptr<ColumnReaderImpl> child_reader;
     RETURN_NOT_OK(GetReader(*child, ctx, &child_reader));
-    // Use the max definition/repetition level of the leaf here
-    out->reset(new NestedListReader(ctx, list_field, child->level_info.def_level,
-                                    child->level_info.rep_level,
-                                    std::move(child_reader)));
+    if (child_reader == nullptr) {
+      *out = nullptr;
+      return Status::OK();
+    }
+    out->reset(new ListReader<int32_t>(ctx, list_field, field.level_info,
+                                       std::move(child_reader)));
   } else if (type_id == ::arrow::Type::STRUCT) {
     std::vector<std::shared_ptr<Field>> child_fields;
     std::vector<std::unique_ptr<ColumnReaderImpl>> child_readers;
     for (const auto& child : field.children) {
-      if (child.is_leaf() && !ctx->IncludesLeaf(child.column_index)) {
-        // Excluded leaf
-        continue;
-      }
       std::unique_ptr<ColumnReaderImpl> child_reader;
       RETURN_NOT_OK(GetReader(child, ctx, &child_reader));
       if (!child_reader) {
@@ -742,7 +746,8 @@ Status GetReader(const SchemaField& field, const std::shared_ptr<ReaderContext>&
     auto filtered_field =
         ::arrow::field(field.field->name(), ::arrow::struct_(child_fields),
                        field.field->nullable(), field.field->metadata());
-    out->reset(new StructReader(ctx, field, filtered_field, std::move(child_readers)));
+    out->reset(new StructReader(ctx, filtered_field, field.level_info,
+                                std::move(child_readers)));
   } else {
     return Status::Invalid("Unsupported nested type: ", field.field->ToString());
   }

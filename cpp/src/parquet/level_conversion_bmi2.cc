@@ -14,37 +14,20 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
+#include "parquet/level_conversion.h"
 
-#pragma once
+#define PARQUET_IMPL_NAMESPACE bmi2
+#include "parquet/level_conversion_inc.h"
+#undef PARQUET_IMPL_NAMESPACE
 
-#ifdef _MSC_VER
-// MSVC x86_64/arm64
+namespace parquet {
+namespace internal {
+void DefLevelsToBitmapBmi2WithRepeatedParent(const int16_t* def_levels,
+                                             int64_t num_def_levels, LevelInfo level_info,
+                                             ValidityBitmapInputOutput* output) {
+  bmi2::DefLevelsToBitmapSimd</*has_repeated_parent=*/true>(def_levels, num_def_levels,
+                                                            level_info, output);
+}
 
-#if defined(_M_AMD64) || defined(_M_X64)
-#include <intrin.h>
-#elif defined(_M_ARM64)
-#include <arm64_neon.h>
-#endif
-
-#else
-// gcc/clang (possibly others)
-
-#if defined(ARROW_HAVE_BMI2)
-#include <x86intrin.h>
-#endif
-
-#if defined(ARROW_HAVE_AVX2) || defined(ARROW_HAVE_AVX512)
-#include <immintrin.h>
-#elif defined(ARROW_HAVE_SSE4_2)
-#include <nmmintrin.h>
-#endif
-
-#ifdef ARROW_HAVE_NEON
-#include <arm_neon.h>
-#endif
-
-#ifdef ARROW_HAVE_ARMV8_CRC
-#include <arm_acle.h>
-#endif
-
-#endif
+}  // namespace internal
+}  // namespace parquet
