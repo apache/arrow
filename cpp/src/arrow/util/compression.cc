@@ -54,6 +54,8 @@ std::string Codec::GetCodecAsString(Compression::type t) {
       return "LZ4_RAW";
     case Compression::LZ4_FRAME:
       return "LZ4";
+    case Compression::LZ4_HADOOP:
+      return "LZ4_HADOOP";
     case Compression::ZSTD:
       return "ZSTD";
     case Compression::BZ2:
@@ -78,6 +80,8 @@ Result<Compression::type> Codec::GetCompressionType(const std::string& name) {
     return Compression::LZ4;
   } else if (name == "LZ4") {
     return Compression::LZ4_FRAME;
+  } else if (name == "LZ4_HADOOP") {
+    return Compression::LZ4_HADOOP;
   } else if (name == "ZSTD") {
     return Compression::ZSTD;
   } else if (name == "BZ2") {
@@ -146,6 +150,16 @@ Result<std::unique_ptr<Codec>> Codec::Create(Compression::type codec_type,
 #else
       return Status::NotImplemented("LZ4 codec support not built");
 #endif
+    case Compression::LZ4_HADOOP:
+#ifdef ARROW_WITH_LZ4
+      if (compression_level_set) {
+        return Status::Invalid("LZ4 doesn't support setting a compression level.");
+      }
+      codec = internal::MakeLz4HadoopRawCodec();
+      break;
+#else
+      return Status::NotImplemented("LZ4 codec support not built");
+#endif
     case Compression::ZSTD:
 #ifdef ARROW_WITH_ZSTD
       codec = internal::MakeZSTDCodec(compression_level);
@@ -194,6 +208,7 @@ bool Codec::IsAvailable(Compression::type codec_type) {
 #endif
     case Compression::LZ4:
     case Compression::LZ4_FRAME:
+    case Compression::LZ4_HADOOP:
 #ifdef ARROW_WITH_LZ4
       return true;
 #else

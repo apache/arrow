@@ -221,7 +221,7 @@ class SerializedPageReader : public PageReader {
       InitDecryption();
     }
     max_page_header_size_ = kDefaultMaxPageHeaderSize;
-    decompressor_ = internal::GetReadCodec(codec);
+    decompressor_ = GetCodec(codec);
   }
 
   // Implement the PageReader interface
