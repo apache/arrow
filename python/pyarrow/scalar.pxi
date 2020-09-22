@@ -609,6 +609,7 @@ cdef class StructScalar(Scalar, collections.abc.Mapping):
     def __getitem__(self, key):
         """
         Return the child value for the given field.
+
         Parameters
         ----------
         index : Union[int, str]

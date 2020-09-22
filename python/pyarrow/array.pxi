@@ -33,6 +33,7 @@ cdef _sequence_to_array(object sequence, object mask, object size,
         options.size = size
 
     options.from_pandas = from_pandas
+    options.ignore_timezone = os.environ.get('PYARROW_IGNORE_TIMEZONE', False)
 
     with nogil:
         chunked = GetResultValue(
@@ -194,7 +195,7 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
     ]
 
     >>> import numpy as np
-    >>> pa.array(pd.Series([1, 2]), np.array([0, 1], dtype=bool))
+    >>> pa.array(pd.Series([1, 2]), mask=np.array([0, 1], dtype=bool))
     <pyarrow.lib.Int64Array object at 0x7f9019e11208>
     [
       1,

@@ -285,7 +285,7 @@ def test_tzinfo_to_string_errors():
 
 
 @h.given(tzst.timezones())
-def test_timezone_roundtrip(tz):
+def test_pytz_timezone_roundtrip(tz):
     timezone_string = pa.lib.tzinfo_to_string(tz)
     timezone_tzinfo = pa.lib.string_to_tzinfo(timezone_string)
     assert timezone_tzinfo == tz

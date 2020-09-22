@@ -52,10 +52,7 @@ class Converter {
     return Init(pool);
   }
 
-  virtual Status Append(InputType value) {
-    return Status::NotImplemented("Converter not implemented for type ",
-                                  type()->ToString());
-  }
+  virtual Status Append(InputType value) = 0;
 
   const std::shared_ptr<ArrayBuilder>& builder() const { return builder_; }
 
