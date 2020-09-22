@@ -497,6 +497,12 @@ impl SchemaProvider for ExecutionContextState {
             .get(name)
             .and_then(|func| Some(func.clone()))
     }
+
+    fn get_aggregate_meta(&self, name: &str) -> Option<Arc<AggregateUDF>> {
+        self.aggregate_functions
+            .get(name)
+            .and_then(|func| Some(func.clone()))
+    }
 }
 
 impl FunctionRegistry for ExecutionContextState {
@@ -1244,7 +1250,7 @@ mod tests {
         let provider = MemTable::new(Arc::new(schema), vec![vec![batch1], vec![batch2]])?;
         ctx.register_table("t", Box::new(provider));
 
-        // define a udaf, using a DataFusion's aggregate function
+        // define a udaf, using a DataFusion's accumulator
         let my_avg = create_udaf(
             "MY_AVG",
             DataType::Float64,
@@ -1254,7 +1260,7 @@ mod tests {
                     &DataType::Float64,
                 )?)))
             }),
-            Arc::new(vec![DataType::UInt32, DataType::Float64]),
+            Arc::new(vec![DataType::UInt64, DataType::Float64]),
         );
 
         ctx.register_udaf(my_avg);
