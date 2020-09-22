@@ -328,6 +328,22 @@ csv___TableReader__Read <- function(table_reader){
     .Call(`_arrow_csv___TableReader__Read` , table_reader)
 }
 
+TimestampParser__kind <- function(parser){
+    .Call(`_arrow_TimestampParser__kind` , parser)
+}
+
+TimestampParser__format <- function(parser){
+    .Call(`_arrow_TimestampParser__format` , parser)
+}
+
+TimestampParser__MakeStrptime <- function(format){
+    .Call(`_arrow_TimestampParser__MakeStrptime` , format)
+}
+
+TimestampParser__MakeISO8601 <- function(){
+    .Call(`_arrow_TimestampParser__MakeISO8601` )
+}
+
 dataset___Dataset__NewScan <- function(ds){
     .Call(`_arrow_dataset___Dataset__NewScan` , ds)
 }

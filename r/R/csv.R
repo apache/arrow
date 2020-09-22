@@ -432,6 +432,24 @@ readr_to_csv_parse_options <- function(delim = ",",
 #' @format NULL
 #' @docType class
 #' @export
+TimestampParser <- R6Class("TimestampParser", inherit = ArrowObject,
+  public = list(
+    kind = function() TimestampParser__kind(self),
+    format = function() TimestampParser__format(self)
+  )
+)
+TimestampParser$MakeStrptime <- function(format) {
+  shared_ptr(TimestampParser, TimestampParser__MakeStrptime(format))
+}
+TimestampParser$MakeISO8601 <- function() {
+  shared_ptr(TimestampParser, TimestampParser__MakeISO8601())
+}
+
+#' @rdname CsvReadOptions
+#' @usage NULL
+#' @format NULL
+#' @docType class
+#' @export
 CsvConvertOptions <- R6Class("CsvConvertOptions", inherit = ArrowObject)
 CsvConvertOptions$create <- function(check_utf8 = TRUE,
                                      null_values = c("", "NA"),

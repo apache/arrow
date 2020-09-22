@@ -4,6 +4,7 @@
 \name{CsvReadOptions}
 \alias{CsvReadOptions}
 \alias{CsvParseOptions}
+\alias{TimestampParser}
 \alias{CsvConvertOptions}
 \alias{JsonReadOptions}
 \alias{JsonParseOptions}

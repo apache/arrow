@@ -20,6 +20,7 @@
 #if defined(ARROW_R_WITH_ARROW)
 
 #include <arrow/csv/reader.h>
+#include <arrow/util/value_parsing.h>
 
 // [[arrow::export]]
 std::shared_ptr<arrow::csv::ReadOptions> csv___ReadOptions__initialize(
@@ -112,6 +113,26 @@ std::shared_ptr<arrow::csv::TableReader> csv___TableReader__Make(
 std::shared_ptr<arrow::Table> csv___TableReader__Read(
     const std::shared_ptr<arrow::csv::TableReader>& table_reader) {
   return ValueOrStop(table_reader->Read());
+}
+
+// [[arrow::export]]
+std::string TimestampParser__kind(const std::shared_ptr<arrow::TimestampParser>& parser) {
+  return parser->kind();
+}
+
+// [[arrow::export]]
+std::string TimestampParser__format(const std::shared_ptr<arrow::TimestampParser>& parser) {
+  return parser->format();
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::TimestampParser> TimestampParser__MakeStrptime(std::string format) {
+  return arrow::TimestampParser::MakeStrptime(format);
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::TimestampParser> TimestampParser__MakeISO8601() {
+  return arrow::TimestampParser::MakeISO8601();
 }
 
 #endif

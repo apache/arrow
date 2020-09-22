@@ -29,6 +29,7 @@
 #include <arrow/status.h>
 #include <arrow/type_fwd.h>
 #include <arrow/util/compression.h>
+#include <arrow/util/value_parsing.h>
 
 namespace arrow {
 
