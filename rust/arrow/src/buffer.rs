@@ -34,7 +34,9 @@ use std::sync::Arc;
 use crate::datatypes::ArrowNativeType;
 use crate::error::{ArrowError, Result};
 use crate::memory;
+use crate::util::bit_chunk_iterator::BitChunks;
 use crate::util::bit_util;
+use crate::util::bit_util::ceil;
 #[cfg(feature = "simd")]
 use std::borrow::BorrowMut;
 
@@ -254,6 +256,21 @@ impl Buffer {
         )
     }
 
+    /// Returns a slice of this buffer starting at a certain bit offset.
+    /// If the offset is byte-aligned the returned buffer is a shallow clone,
+    /// otherwise a new buffer is allocated and filled with a copy of the bits in the range.
+    pub fn bit_slice(&self, offset: usize, len: usize) -> Self {
+        if offset % 8 == 0 && len % 8 == 0 {
+            return self.slice(offset / 8);
+        }
+
+        bitwise_unary_op_helper(&self, offset, len, |a| a)
+    }
+
+    pub fn bit_chunks(&self, offset: usize, len: usize) -> BitChunks {
+        BitChunks::new(&self, offset, len)
+    }
+
     /// Returns an empty buffer.
     pub fn empty() -> Self {
         unsafe { Self::from_raw_parts(BUFFER_INIT.as_ptr() as _, 0, 0) }
@@ -280,7 +297,7 @@ impl<T: AsRef<[u8]>> From<T> for Buffer {
         let buffer = memory::allocate_aligned(capacity);
         unsafe {
             memory::memcpy(buffer, slice.as_ptr(), len);
-            Buffer::from_raw_parts(buffer, len, capacity)
+            Buffer::build_with_arguments(buffer, len, capacity, true)
         }
     }
 }
@@ -371,50 +388,67 @@ where
 
 fn bitwise_bin_op_helper<F>(
     left: &Buffer,
-    left_offset: usize,
+    left_offset_in_bits: usize,
     right: &Buffer,
-    right_offset: usize,
-    len: usize,
+    right_offset_in_bits: usize,
+    len_in_bits: usize,
     op: F,
 ) -> Buffer
 where
-    F: Fn(u8, u8) -> u8,
+    F: Fn(u64, u64) -> u64,
 {
-    let mut result = MutableBuffer::new(len).with_bitset(len, false);
+    // reserve capacity and set length so we can get a typed view of u64 chunks
+    let mut result =
+        MutableBuffer::new(ceil(len_in_bits, 8)).with_bitset(len_in_bits / 64, false);
 
-    result
-        .data_mut()
-        .iter_mut()
-        .zip(
-            left.data()[left_offset..]
-                .iter()
-                .zip(right.data()[right_offset..].iter()),
-        )
+    let left_chunks = left.bit_chunks(left_offset_in_bits, len_in_bits);
+    let right_chunks = right.bit_chunks(right_offset_in_bits, len_in_bits);
+    let result_chunks = result.typed_data_mut::<u64>().iter_mut();
+
+    result_chunks
+        .zip(left_chunks.iter().zip(right_chunks.iter()))
         .for_each(|(res, (left, right))| {
-            *res = op(*left, *right);
+            *res = op(left, right);
         });
+
+    let remainder_bytes = ceil(left_chunks.remainder_len(), 8);
+    let rem = op(left_chunks.remainder_bits(), right_chunks.remainder_bits());
+    let rem = &rem.to_le_bytes()[0..remainder_bytes];
+    result
+        .write_all(rem)
+        .expect("not enough capacity in buffer");
 
     result.freeze()
 }
 
 fn bitwise_unary_op_helper<F>(
     left: &Buffer,
-    left_offset: usize,
-    len: usize,
+    offset_in_bits: usize,
+    len_in_bits: usize,
     op: F,
 ) -> Buffer
 where
-    F: Fn(u8) -> u8,
+    F: Fn(u64) -> u64,
 {
-    let mut result = MutableBuffer::new(len).with_bitset(len, false);
+    // reserve capacity and set length so we can get a typed view of u64 chunks
+    let mut result =
+        MutableBuffer::new(ceil(len_in_bits, 8)).with_bitset(len_in_bits / 64, false);
 
-    result
-        .data_mut()
-        .iter_mut()
-        .zip(left.data()[left_offset..].iter())
+    let left_chunks = left.bit_chunks(offset_in_bits, len_in_bits);
+    let result_chunks = result.typed_data_mut::<u64>().iter_mut();
+
+    result_chunks
+        .zip(left_chunks.iter())
         .for_each(|(res, left)| {
-            *res = op(*left);
+            *res = op(left);
         });
+
+    let remainder_bytes = ceil(left_chunks.remainder_len(), 8);
+    let rem = op(left_chunks.remainder_bits());
+    let rem = &rem.to_le_bytes()[0..remainder_bytes];
+    result
+        .write_all(rem)
+        .expect("not enough capacity in buffer");
 
     result.freeze()
 }
@@ -426,9 +460,9 @@ pub(super) fn buffer_bin_and(
     right_offset: usize,
     len: usize,
 ) -> Buffer {
-    // SIMD implementation if available
+    // SIMD implementation if available and byte-aligned
     #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
-    {
+    if left_offset % 8 == 0 && right_offset % 8 == 0 && len % 8 == 0 {
         return bitwise_bin_op_simd_helper(
             &left,
             left_offset,
@@ -448,20 +482,23 @@ pub(super) fn buffer_bin_and(
 
 pub(super) fn buffer_bin_or(
     left: &Buffer,
-    left_offset: usize,
+    left_offset_in_bits: usize,
     right: &Buffer,
-    right_offset: usize,
-    len: usize,
+    right_offset_in_bits: usize,
+    len_in_bits: usize,
 ) -> Buffer {
-    // SIMD implementation if available
+    // SIMD implementation if available and byte-aligned
     #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+    if left_offset_in_bits % 8 == 0
+        && right_offset_in_bits % 8 == 0
+        && len_in_bits % 8 == 0
     {
         return bitwise_bin_op_simd_helper(
             &left,
-            left_offset,
+            left_offset_in_bits / 8,
             &right,
-            right_offset,
-            len,
+            right_offset_in_bits / 8,
+            len_in_bits / 8,
             |a, b| a | b,
             |a, b| a | b,
         );
@@ -469,20 +506,37 @@ pub(super) fn buffer_bin_or(
     // Default implementation
     #[allow(unreachable_code)]
     {
-        bitwise_bin_op_helper(&left, left_offset, right, right_offset, len, |a, b| a | b)
+        bitwise_bin_op_helper(
+            &left,
+            left_offset_in_bits,
+            right,
+            right_offset_in_bits,
+            len_in_bits,
+            |a, b| a | b,
+        )
     }
 }
 
-pub(super) fn buffer_unary_not(left: &Buffer, left_offset: usize, len: usize) -> Buffer {
-    // SIMD implementation if available
+pub(super) fn buffer_unary_not(
+    left: &Buffer,
+    offset_in_bits: usize,
+    len_in_bits: usize,
+) -> Buffer {
+    // SIMD implementation if available and byte-aligned
     #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
-    {
-        return bitwise_unary_op_simd_helper(&left, left_offset, len, |a| !a, |a| !a);
+    if offset_in_bits % 8 == 0 && len_in_bits % 8 == 0 {
+        return bitwise_unary_op_simd_helper(
+            &left,
+            offset_in_bits / 8,
+            len_in_bits / 8,
+            |a| !a,
+            |a| !a,
+        );
     }
     // Default implementation
     #[allow(unreachable_code)]
     {
-        bitwise_unary_op_helper(&left, left_offset, len, |a| !a)
+        bitwise_unary_op_helper(&left, offset_in_bits, len_in_bits, |a| !a)
     }
 }
 
@@ -496,7 +550,8 @@ impl<'a, 'b> BitAnd<&'b Buffer> for &'a Buffer {
             ));
         }
 
-        Ok(buffer_bin_and(&self, 0, &rhs, 0, self.len()))
+        let len_in_bits = self.len() * 8;
+        Ok(buffer_bin_and(&self, 0, &rhs, 0, len_in_bits))
     }
 }
 
@@ -510,7 +565,9 @@ impl<'a, 'b> BitOr<&'b Buffer> for &'a Buffer {
             ));
         }
 
-        Ok(buffer_bin_or(&self, 0, &rhs, 0, self.len()))
+        let len_in_bits = self.len() * 8;
+
+        Ok(buffer_bin_or(&self, 0, &rhs, 0, len_in_bits))
     }
 }
 
@@ -518,7 +575,8 @@ impl Not for &Buffer {
     type Output = Buffer;
 
     fn not(self) -> Buffer {
-        buffer_unary_not(&self, 0, self.len())
+        let len_in_bits = self.len() * 8;
+        buffer_unary_not(&self, 0, len_in_bits)
     }
 }
 

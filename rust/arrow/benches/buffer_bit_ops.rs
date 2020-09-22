@@ -21,12 +21,15 @@ use criterion::Criterion;
 
 extern crate arrow;
 
+use arrow::bitmap::Bitmap;
 use arrow::buffer::{Buffer, MutableBuffer};
 use arrow::error::ArrowError;
 use arrow::error::Result;
 #[cfg(feature = "simd")]
 use arrow::util::bit_util;
+use arrow::util::bit_util::ceil;
 use std::borrow::BorrowMut;
+use std::io::Write;
 #[cfg(feature = "simd")]
 use std::slice::{from_raw_parts, from_raw_parts_mut};
 
