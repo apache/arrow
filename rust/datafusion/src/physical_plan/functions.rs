@@ -34,6 +34,7 @@ use super::{
     PhysicalExpr,
 };
 use crate::error::{ExecutionError, Result};
+use crate::physical_plan::array_expressions;
 use crate::physical_plan::datetime_expressions;
 use crate::physical_plan::math_expressions;
 use crate::physical_plan::string_expressions;
@@ -63,6 +64,8 @@ pub enum Signature {
     Uniform(usize, Vec<DataType>),
     /// exact number of arguments of an exact type
     Exact(Vec<DataType>),
+    /// fixed number of arguments of arbitrary types
+    Any(usize),
 }
 
 /// Scalar function
@@ -116,6 +119,8 @@ pub enum BuiltinScalarFunction {
     Concat,
     /// to_timestamp
     ToTimestamp,
+    /// construct an array from columns
+    Array,
 }
 
 impl fmt::Display for BuiltinScalarFunction {
@@ -149,6 +154,7 @@ impl FromStr for BuiltinScalarFunction {
             "length" => BuiltinScalarFunction::Length,
             "concat" => BuiltinScalarFunction::Concat,
             "to_timestamp" => BuiltinScalarFunction::ToTimestamp,
+            "array" => BuiltinScalarFunction::Array,
             _ => {
                 return Err(ExecutionError::General(format!(
                     "There is no built-in function named {}",
@@ -187,6 +193,10 @@ pub fn return_type(
         BuiltinScalarFunction::ToTimestamp => {
             Ok(DataType::Timestamp(TimeUnit::Nanosecond, None))
         }
+        BuiltinScalarFunction::Array => Ok(DataType::FixedSizeList(
+            Box::new(arg_types[0].clone()),
+            arg_types.len() as i32,
+        )),
         _ => Ok(DataType::Float64),
     }
 }
@@ -223,6 +233,7 @@ pub fn create_physical_expr(
         BuiltinScalarFunction::ToTimestamp => {
             |args| Ok(Arc::new(datetime_expressions::to_timestamp(args)?))
         }
+        BuiltinScalarFunction::Array => |args| Ok(array_expressions::array(args)?),
     });
     // coerce
     let args = coerce(args, input_schema, &signature(fun))?;
@@ -249,6 +260,9 @@ fn signature(fun: &BuiltinScalarFunction) -> Signature {
         BuiltinScalarFunction::Length => Signature::Uniform(1, vec![DataType::Utf8]),
         BuiltinScalarFunction::Concat => Signature::Variadic(vec![DataType::Utf8]),
         BuiltinScalarFunction::ToTimestamp => Signature::Uniform(1, vec![DataType::Utf8]),
+        BuiltinScalarFunction::Array => {
+            Signature::Variadic(array_expressions::SUPPORTED_ARRAY_TYPES.to_vec())
+        }
         // math expressions expect 1 argument of type f64 or f32
         // priority is given to f64 because e.g. `sqrt(1i32)` is in IR (real numbers) and thus we
         // return the best approximation for it (in f64).
@@ -335,11 +349,12 @@ impl PhysicalExpr for ScalarFunctionExpr {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        error::Result, logical_plan::ScalarValue, physical_plan::expressions::lit,
-    };
+    use crate::{error::Result, physical_plan::expressions::lit, scalar::ScalarValue};
     use arrow::{
-        array::{ArrayRef, Float64Array, Int32Array, StringArray},
+        array::{
+            ArrayRef, FixedSizeListArray, Float64Array, Int32Array, PrimitiveArrayOps,
+            StringArray, StringArrayOps,
+        },
         datatypes::Field,
         record_batch::RecordBatch,
     };
@@ -375,11 +390,11 @@ mod tests {
         // 2.71828182845904523536... : https://oeis.org/A001113
         let exp_f64 = "2.718281828459045";
         let exp_f32 = "2.7182817459106445";
-        generic_test_math(ScalarValue::Int32(1i32), exp_f64)?;
-        generic_test_math(ScalarValue::UInt32(1u32), exp_f64)?;
-        generic_test_math(ScalarValue::UInt64(1u64), exp_f64)?;
-        generic_test_math(ScalarValue::Float64(1f64), exp_f64)?;
-        generic_test_math(ScalarValue::Float32(1f32), exp_f32)?;
+        generic_test_math(ScalarValue::from(1i32), exp_f64)?;
+        generic_test_math(ScalarValue::from(1u32), exp_f64)?;
+        generic_test_math(ScalarValue::from(1u64), exp_f64)?;
+        generic_test_math(ScalarValue::from(1f64), exp_f64)?;
+        generic_test_math(ScalarValue::from(1f32), exp_f32)?;
         Ok(())
     }
 
@@ -413,7 +428,7 @@ mod tests {
 
     #[test]
     fn test_concat_utf8() -> Result<()> {
-        test_concat(ScalarValue::Utf8("aa".to_string()), "aaaa")
+        test_concat(ScalarValue::Utf8(Some("aa".to_string())), "aaaa")
     }
 
     #[test]
@@ -426,5 +441,70 @@ mod tests {
         } else {
             Ok(())
         }
+    }
+
+    fn generic_test_array(
+        value1: ScalarValue,
+        value2: ScalarValue,
+        expected_type: DataType,
+        expected: &str,
+    ) -> Result<()> {
+        // any type works here: we evaluate against a literal of `value`
+        let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
+        let columns: Vec<ArrayRef> = vec![Arc::new(Int32Array::from(vec![1]))];
+
+        let expr = create_physical_expr(
+            &BuiltinScalarFunction::Array,
+            &vec![lit(value1.clone()), lit(value2.clone())],
+            &schema,
+        )?;
+
+        // type is correct
+        assert_eq!(
+            expr.data_type(&schema)?,
+            // type equals to a common coercion
+            DataType::FixedSizeList(Box::new(expected_type), 2)
+        );
+
+        // evaluate works
+        let result =
+            expr.evaluate(&RecordBatch::try_new(Arc::new(schema.clone()), columns)?)?;
+
+        // downcast works
+        let result = result
+            .as_any()
+            .downcast_ref::<FixedSizeListArray>()
+            .unwrap();
+
+        // value is correct
+        assert_eq!(format!("{:?}", result.value(0)), expected);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_array() -> Result<()> {
+        generic_test_array(
+            ScalarValue::Utf8(Some("aa".to_string())),
+            ScalarValue::Utf8(Some("aa".to_string())),
+            DataType::Utf8,
+            "StringArray\n[\n  \"aa\",\n  \"aa\",\n]",
+        )?;
+
+        // different types, to validate that casting happens
+        generic_test_array(
+            ScalarValue::from(1u32),
+            ScalarValue::from(1u64),
+            DataType::UInt64,
+            "PrimitiveArray<UInt64>\n[\n  1,\n  1,\n]",
+        )?;
+
+        // different types (another order), to validate that casting happens
+        generic_test_array(
+            ScalarValue::from(1u64),
+            ScalarValue::from(1u32),
+            DataType::UInt64,
+            "PrimitiveArray<UInt64>\n[\n  1,\n  1,\n]",
+        )
     }
 }

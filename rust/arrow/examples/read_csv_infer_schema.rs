@@ -32,7 +32,7 @@ fn main() -> Result<()> {
     let _batch = csv.next().unwrap().unwrap();
     #[cfg(feature = "prettyprint")]
     {
-        print_batches(&vec![_batch]).unwrap();
+        print_batches(&[_batch]).unwrap();
     }
     Ok(())
 }

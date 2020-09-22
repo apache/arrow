@@ -22,6 +22,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
@@ -52,6 +53,7 @@ public class TestDoExchange {
   static byte[] EXCHANGE_ECHO = "echo".getBytes(StandardCharsets.UTF_8);
   static byte[] EXCHANGE_METADATA_ONLY = "only-metadata".getBytes(StandardCharsets.UTF_8);
   static byte[] EXCHANGE_TRANSFORM = "transform".getBytes(StandardCharsets.UTF_8);
+  static byte[] EXCHANGE_CANCEL = "cancel".getBytes(StandardCharsets.UTF_8);
 
   private BufferAllocator allocator;
   private FlightServer server;
@@ -117,7 +119,7 @@ public class TestDoExchange {
           value++;
         }
       }
-      assertEquals(10, value);
+      assertEquals(100, value);
     }
   }
 
@@ -247,7 +249,83 @@ public class TestDoExchange {
     }
   }
 
+  /** Have the server immediately cancel; ensure the client doesn't hang. */
+  @Test
+  public void testServerCancel() throws Exception {
+    try (final FlightClient.ExchangeReaderWriter stream =
+             client.doExchange(FlightDescriptor.command(EXCHANGE_CANCEL))) {
+      final FlightStream reader = stream.getReader();
+      final FlightClient.ClientStreamListener writer = stream.getWriter();
+
+      final FlightRuntimeException fre = assertThrows(FlightRuntimeException.class, reader::next);
+      assertEquals(FlightStatusCode.CANCELLED, fre.status().code());
+      assertEquals("expected", fre.status().description());
+
+      // Before, this would hang forever, because the writer checks if the stream is ready and not cancelled.
+      // However, the cancellation flag (was) only updated by reading, and the stream is never ready once the call ends.
+      // The test looks weird since normally, an application shouldn't try to write after the read fails. However,
+      // an application that isn't reading data wouldn't notice, and would instead get stuck on the write.
+      // Here, we read first to avoid a race condition in the test itself.
+      writer.putMetadata(allocator.getEmpty());
+    }
+  }
+
+  /** Have the server immediately cancel; ensure the server cleans up the FlightStream. */
+  @Test
+  public void testServerCancelLeak() throws Exception {
+    try (final FlightClient.ExchangeReaderWriter stream =
+             client.doExchange(FlightDescriptor.command(EXCHANGE_CANCEL))) {
+      final FlightStream reader = stream.getReader();
+      final FlightClient.ClientStreamListener writer = stream.getWriter();
+      try (final VectorSchemaRoot root = VectorSchemaRoot.create(Producer.SCHEMA, allocator)) {
+        writer.start(root);
+        final IntVector ints = (IntVector) root.getVector("a");
+        for (int i = 0; i < 128; i++) {
+          for (int row = 0; row < 1024; row++) {
+            ints.setSafe(row, row);
+          }
+          root.setRowCount(1024);
+          writer.putNext();
+        }
+      }
+
+      final FlightRuntimeException fre = assertThrows(FlightRuntimeException.class, reader::next);
+      assertEquals(FlightStatusCode.CANCELLED, fre.status().code());
+      assertEquals("expected", fre.status().description());
+    }
+  }
+
+  /** Have the client cancel without reading; ensure memory is not leaked. */
+  @Test
+  public void testClientCancel() throws Exception {
+    try (final FlightClient.ExchangeReaderWriter stream =
+             client.doExchange(FlightDescriptor.command(EXCHANGE_DO_GET))) {
+      final FlightStream reader = stream.getReader();
+      reader.cancel("", null);
+      // Cancel should be idempotent
+      reader.cancel("", null);
+    }
+  }
+
+  /** Have the client close the stream without reading; ensure memory is not leaked. */
+  @Test
+  public void testClientClose() throws Exception {
+    try (final FlightClient.ExchangeReaderWriter stream =
+             client.doExchange(FlightDescriptor.command(EXCHANGE_DO_GET))) {
+      assertEquals(Producer.SCHEMA, stream.getReader().getSchema());
+    }
+    // Intentionally leak the allocator in this test. gRPC has a bug where it does not wait for all calls to complete
+    // when shutting down the server, so this test will fail otherwise because it closes the allocator while the
+    // server-side call still has memory allocated.
+    // TODO(ARROW-9586): fix this once we track outstanding RPCs outside of gRPC.
+    // https://stackoverflow.com/questions/46716024/
+    allocator = null;
+    client = null;
+  }
+
   static class Producer extends NoOpFlightProducer {
+    static final Schema SCHEMA = new Schema(
+        Collections.singletonList(Field.nullable("a", new ArrowType.Int(32, true))));
     private final BufferAllocator allocator;
 
     Producer(BufferAllocator allocator) {
@@ -266,6 +344,8 @@ public class TestDoExchange {
         echo(context, reader, writer);
       } else if (Arrays.equals(reader.getDescriptor().getCommand(), EXCHANGE_TRANSFORM)) {
         transform(context, reader, writer);
+      } else if (Arrays.equals(reader.getDescriptor().getCommand(), EXCHANGE_CANCEL)) {
+        cancel(context, reader, writer);
       } else {
         writer.error(CallStatus.UNIMPLEMENTED.withDescription("Command not implemented").toRuntimeException());
       }
@@ -273,13 +353,12 @@ public class TestDoExchange {
 
     /** Emulate DoGet. */
     private void doGet(CallContext context, FlightStream reader, ServerStreamListener writer) {
-      final Schema schema = new Schema(Collections.singletonList(Field.nullable("a", new ArrowType.Int(32, true))));
-      try (VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator)) {
+      try (VectorSchemaRoot root = VectorSchemaRoot.create(SCHEMA, allocator)) {
         writer.start(root);
         root.allocateNew();
         IntVector iv = (IntVector) root.getVector("a");
 
-        for (int i = 0; i < 10; i += 2) {
+        for (int i = 0; i < 100; i += 2) {
           iv.set(0, i);
           iv.set(1, i + 1);
           root.setRowCount(2);
@@ -390,6 +469,11 @@ public class TestDoExchange {
       count.writeInt(batches);
       writer.putMetadata(count);
       writer.completed();
+    }
+
+    /** Immediately cancel the call. */
+    private void cancel(CallContext context, FlightStream reader, ServerStreamListener writer) {
+      writer.error(CallStatus.CANCELLED.withDescription("expected").toRuntimeException());
     }
   }
 }

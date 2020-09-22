@@ -69,6 +69,7 @@ impl TableProvider for ParquetTable {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use arrow::array::PrimitiveArrayOps;
     use arrow::array::{
         BinaryArray, BooleanArray, Float32Array, Float64Array, Int32Array,
         TimestampNanosecondArray,

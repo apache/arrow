@@ -22,7 +22,7 @@
 #include <type_traits>
 #include <vector>
 
-#include "arrow/type_fwd.h"
+#include "arrow/type.h"
 #include "arrow/util/bit_util.h"
 
 namespace arrow {
@@ -740,6 +740,32 @@ static inline bool is_integer(Type::type type_id) {
     case Type::INT32:
     case Type::UINT64:
     case Type::INT64:
+      return true;
+    default:
+      break;
+  }
+  return false;
+}
+
+static inline bool is_signed_integer(Type::type type_id) {
+  switch (type_id) {
+    case Type::INT8:
+    case Type::INT16:
+    case Type::INT32:
+    case Type::INT64:
+      return true;
+    default:
+      break;
+  }
+  return false;
+}
+
+static inline bool is_unsigned_integer(Type::type type_id) {
+  switch (type_id) {
+    case Type::UINT8:
+    case Type::UINT16:
+    case Type::UINT32:
+    case Type::UINT64:
       return true;
     default:
       break;

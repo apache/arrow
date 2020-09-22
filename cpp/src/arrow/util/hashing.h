@@ -44,17 +44,8 @@
 #include "arrow/util/ubsan.h"
 
 #define XXH_INLINE_ALL
-#define XXH_PRIVATE_API
-#define XXH_NAMESPACE arrow_hashing_
 
 #include "arrow/vendored/xxhash.h"  // IWYU pragma: keep
-
-// ARROW-9415: See https://github.com/Cyan4973/xxHash/pull/426. altivec.h on
-// gcc leaks the "bool" define which causes a compilation failure on Power9
-// architecture.
-#if XXH_VECTOR == XXH_VSX  // altivec
-#undef bool
-#endif
 
 namespace arrow {
 namespace internal {

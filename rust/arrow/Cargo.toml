@@ -62,6 +62,10 @@ flate2 = "1"
 tempfile = "3"
 
 [[bench]]
+name = "aggregate_kernels"
+harness = false
+
+[[bench]]
 name = "array_from_vec"
 harness = false
 

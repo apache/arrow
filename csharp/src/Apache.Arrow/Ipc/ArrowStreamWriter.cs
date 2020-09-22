@@ -212,6 +212,65 @@ namespace Apache.Arrow.Ipc
             count++;
         }
 
+        private protected void WriteRecordBatchInternal(RecordBatch recordBatch)
+        {
+            // TODO: Truncate buffers with extraneous padding / unused capacity
+
+            if (!HasWrittenSchema)
+            {
+                WriteSchema(Schema);
+                HasWrittenSchema = true;
+            }
+
+            (ArrowRecordBatchFlatBufferBuilder recordBatchBuilder, VectorOffset fieldNodesVectorOffset) =
+                PreparingWritingRecordBatch(recordBatch);
+
+            VectorOffset buffersVectorOffset = Builder.EndVector();
+
+            // Serialize record batch
+
+            StartingWritingRecordBatch();
+
+            Offset<Flatbuf.RecordBatch> recordBatchOffset = Flatbuf.RecordBatch.CreateRecordBatch(Builder, recordBatch.Length,
+                fieldNodesVectorOffset,
+                buffersVectorOffset);
+
+            long metadataLength = WriteMessage(Flatbuf.MessageHeader.RecordBatch,
+                recordBatchOffset, recordBatchBuilder.TotalLength);
+
+            // Write buffer data
+
+            IReadOnlyList<ArrowRecordBatchFlatBufferBuilder.Buffer> buffers = recordBatchBuilder.Buffers;
+
+            long bodyLength = 0;
+
+            for (int i = 0; i < buffers.Count; i++)
+            {
+                ArrowBuffer buffer = buffers[i].DataBuffer;
+                if (buffer.IsEmpty)
+                    continue;
+
+                WriteBuffer(buffer);
+
+                int paddedLength = checked((int)BitUtility.RoundUpToMultipleOf8(buffer.Length));
+                int padding = paddedLength - buffer.Length;
+                if (padding > 0)
+                {
+                    WritePadding(padding);
+                }
+
+                bodyLength += paddedLength;
+            }
+
+            // Write padding so the record batch message body length is a multiple of 8 bytes
+
+            int bodyPaddingLength = CalculatePadding(bodyLength);
+
+            WritePadding(bodyPaddingLength);
+
+            FinishedWritingRecordBatch(bodyLength + bodyPaddingLength, metadataLength);
+        }
+
         private protected async Task WriteRecordBatchInternalAsync(RecordBatch recordBatch,
             CancellationToken cancellationToken = default)
         {
@@ -223,6 +282,58 @@ namespace Apache.Arrow.Ipc
                 HasWrittenSchema = true;
             }
 
+            (ArrowRecordBatchFlatBufferBuilder recordBatchBuilder, VectorOffset fieldNodesVectorOffset) =
+                PreparingWritingRecordBatch(recordBatch);
+
+            VectorOffset buffersVectorOffset = Builder.EndVector();
+
+            // Serialize record batch
+
+            StartingWritingRecordBatch();
+
+            Offset<Flatbuf.RecordBatch> recordBatchOffset = Flatbuf.RecordBatch.CreateRecordBatch(Builder, recordBatch.Length,
+                fieldNodesVectorOffset,
+                buffersVectorOffset);
+
+            long metadataLength = await WriteMessageAsync(Flatbuf.MessageHeader.RecordBatch,
+                recordBatchOffset, recordBatchBuilder.TotalLength,
+                cancellationToken).ConfigureAwait(false);
+
+            // Write buffer data
+
+            IReadOnlyList<ArrowRecordBatchFlatBufferBuilder.Buffer> buffers = recordBatchBuilder.Buffers;
+
+            long bodyLength = 0;
+
+            for (int i = 0; i < buffers.Count; i++)
+            {
+                ArrowBuffer buffer = buffers[i].DataBuffer;
+                if (buffer.IsEmpty)
+                    continue;
+
+                await WriteBufferAsync(buffer, cancellationToken).ConfigureAwait(false);
+
+                int paddedLength = checked((int)BitUtility.RoundUpToMultipleOf8(buffer.Length));
+                int padding = paddedLength - buffer.Length;
+                if (padding > 0)
+                {
+                    await WritePaddingAsync(padding).ConfigureAwait(false);
+                }
+
+                bodyLength += paddedLength;
+            }
+
+            // Write padding so the record batch message body length is a multiple of 8 bytes
+
+            int bodyPaddingLength = CalculatePadding(bodyLength);
+
+            await WritePaddingAsync(bodyPaddingLength).ConfigureAwait(false);
+
+            FinishedWritingRecordBatch(bodyLength + bodyPaddingLength, metadataLength);
+        }
+
+        private Tuple<ArrowRecordBatchFlatBufferBuilder, VectorOffset> PreparingWritingRecordBatch(RecordBatch recordBatch)
+        {
             Builder.Clear();
 
             // Serialize field nodes
@@ -259,49 +370,12 @@ namespace Apache.Arrow.Ipc
                     buffers[i].Offset, buffers[i].DataBuffer.Length);
             }
 
-            VectorOffset buffersVectorOffset = Builder.EndVector();
+            return Tuple.Create(recordBatchBuilder, fieldNodesVectorOffset);
+        }
 
-            // Serialize record batch
-
-            StartingWritingRecordBatch();
-
-            Offset<Flatbuf.RecordBatch> recordBatchOffset = Flatbuf.RecordBatch.CreateRecordBatch(Builder, recordBatch.Length,
-                fieldNodesVectorOffset,
-                buffersVectorOffset);
-
-            long metadataLength = await WriteMessageAsync(Flatbuf.MessageHeader.RecordBatch,
-                recordBatchOffset, recordBatchBuilder.TotalLength,
-                cancellationToken).ConfigureAwait(false);
-
-            // Write buffer data
-
-            long bodyLength = 0;
-
-            for (int i = 0; i < buffers.Count; i++)
-            {
-                ArrowBuffer buffer = buffers[i].DataBuffer;
-                if (buffer.IsEmpty)
-                    continue;
-
-                await WriteBufferAsync(buffer, cancellationToken).ConfigureAwait(false);
-
-                int paddedLength = checked((int)BitUtility.RoundUpToMultipleOf8(buffer.Length));
-                int padding = paddedLength - buffer.Length;
-                if (padding > 0)
-                {
-                    await WritePaddingAsync(padding).ConfigureAwait(false);
-                }
-
-                bodyLength += paddedLength;
-            }
-
-            // Write padding so the record batch message body length is a multiple of 8 bytes
-
-            int bodyPaddingLength = CalculatePadding(bodyLength);
-
-            await WritePaddingAsync(bodyPaddingLength).ConfigureAwait(false);
-
-            FinishedWritingRecordBatch(bodyLength + bodyPaddingLength, metadataLength);
+        private protected virtual void WriteEndInternal()
+        {
+            WriteIpcMessageLength(length: 0);
         }
 
         private protected virtual ValueTask WriteEndInternalAsync(CancellationToken cancellationToken)
@@ -317,9 +391,23 @@ namespace Apache.Arrow.Ipc
         {
         }
 
+        public virtual void WriteRecordBatch(RecordBatch recordBatch)
+        {
+            WriteRecordBatchInternal(recordBatch);
+        }
+
         public virtual Task WriteRecordBatchAsync(RecordBatch recordBatch, CancellationToken cancellationToken = default)
         {
             return WriteRecordBatchInternalAsync(recordBatch, cancellationToken);
+        }
+
+        public void WriteEnd()
+        {
+            if (!HasWrittenEnd)
+            {
+                WriteEndInternal();
+                HasWrittenEnd = true;
+            }
         }
 
         public async Task WriteEndAsync(CancellationToken cancellationToken = default)
@@ -329,6 +417,11 @@ namespace Apache.Arrow.Ipc
                 await WriteEndInternalAsync(cancellationToken);
                 HasWrittenEnd = true;
             }
+        }
+
+        private void WriteBuffer(ArrowBuffer arrowBuffer)
+        {
+            BaseStream.Write(arrowBuffer.Memory);
         }
 
         private ValueTask WriteBufferAsync(ArrowBuffer arrowBuffer, CancellationToken cancellationToken = default)
@@ -391,6 +484,21 @@ namespace Apache.Arrow.Ipc
             return children;
         }
 
+        private Offset<Flatbuf.Schema> WriteSchema(Schema schema)
+        {
+            Builder.Clear();
+
+            // Build schema
+
+            Offset<Flatbuf.Schema> schemaOffset = SerializeSchema(schema);
+
+            // Build message
+
+            WriteMessage(Flatbuf.MessageHeader.Schema, schemaOffset, 0);
+
+            return schemaOffset;
+        }
+
         private async ValueTask<Offset<Flatbuf.Schema>> WriteSchemaAsync(Schema schema, CancellationToken cancellationToken)
         {
             Builder.Clear();
@@ -405,6 +513,36 @@ namespace Apache.Arrow.Ipc
                 .ConfigureAwait(false);
 
             return schemaOffset;
+        }
+
+        /// <summary>
+        /// Writes the message to the <see cref="BaseStream"/>.
+        /// </summary>
+        /// <returns>
+        /// The number of bytes written to the stream.
+        /// </returns>
+        private long WriteMessage<T>(
+            Flatbuf.MessageHeader headerType, Offset<T> headerOffset, int bodyLength)
+            where T : struct
+        {
+            Offset<Flatbuf.Message> messageOffset = Flatbuf.Message.CreateMessage(
+                Builder, CurrentMetadataVersion, headerType, headerOffset.Value,
+                bodyLength);
+
+            Builder.Finish(messageOffset.Value);
+
+            ReadOnlyMemory<byte> messageData = Builder.DataBuffer.ToReadOnlyMemory(Builder.DataBuffer.Position, Builder.Offset);
+            int messagePaddingLength = CalculatePadding(_options.SizeOfIpcLength + messageData.Length);
+
+            WriteIpcMessageLength(messageData.Length + messagePaddingLength);
+
+            BaseStream.Write(messageData);
+            WritePadding(messagePaddingLength);
+
+            checked
+            {
+                return _options.SizeOfIpcLength + messageData.Length + messagePaddingLength;
+            }
         }
 
         /// <summary>
@@ -439,11 +577,35 @@ namespace Apache.Arrow.Ipc
             }
         }
 
+        private protected void WriteFlatBuffer()
+        {
+            ReadOnlyMemory<byte> segment = Builder.DataBuffer.ToReadOnlyMemory(Builder.DataBuffer.Position, Builder.Offset);
+
+            BaseStream.Write(segment);
+        }
+
         private protected async ValueTask WriteFlatBufferAsync(CancellationToken cancellationToken = default)
         {
             ReadOnlyMemory<byte> segment = Builder.DataBuffer.ToReadOnlyMemory(Builder.DataBuffer.Position, Builder.Offset);
 
             await BaseStream.WriteAsync(segment, cancellationToken).ConfigureAwait(false);
+        }
+
+        private void WriteIpcMessageLength(int length)
+        {
+            Buffers.RentReturn(_options.SizeOfIpcLength, (buffer) =>
+            {
+                Memory<byte> currentBufferPosition = buffer;
+                if (!_options.WriteLegacyIpcFormat)
+                {
+                    BinaryPrimitives.WriteInt32LittleEndian(
+                        currentBufferPosition.Span, MessageSerializer.IpcContinuationToken);
+                    currentBufferPosition = currentBufferPosition.Slice(sizeof(int));
+                }
+
+                BinaryPrimitives.WriteInt32LittleEndian(currentBufferPosition.Span, length);
+                BaseStream.Write(buffer);
+            });
         }
 
         private async ValueTask WriteIpcMessageLengthAsync(int length, CancellationToken cancellationToken)
@@ -469,6 +631,14 @@ namespace Apache.Arrow.Ipc
             checked
             {
                 return (int)result;
+            }
+        }
+
+        private protected void WritePadding(int length)
+        {
+            if (length > 0)
+            {
+                BaseStream.Write(s_padding.AsMemory(0, Math.Min(s_padding.Length, length)));
             }
         }
 

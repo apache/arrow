@@ -26,13 +26,16 @@ use std::{any::Any, collections::HashSet, fmt, sync::Arc};
 
 use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
 
-use crate::datasource::csv::{CsvFile, CsvReadOptions};
 use crate::datasource::parquet::ParquetTable;
 use crate::datasource::TableProvider;
 use crate::error::{ExecutionError, Result};
 use crate::{
+    datasource::csv::{CsvFile, CsvReadOptions},
+    scalar::ScalarValue,
+};
+use crate::{
     physical_plan::{
-        expressions::binary_operator_data_type, functions,
+        aggregates, expressions::binary_operator_data_type, functions,
         type_coercion::can_coerce_from, udf::ScalarUDF,
     },
     sql::parser::FileType,
@@ -40,143 +43,19 @@ use crate::{
 use arrow::record_batch::RecordBatch;
 use functions::{ReturnTypeFunction, ScalarFunctionImplementation, Signature};
 
-/// Operators applied to expressions
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Operator {
-    /// Expressions are equal
-    Eq,
-    /// Expressions are not equal
-    NotEq,
-    /// Left side is smaller than right side
-    Lt,
-    /// Left side is smaller or equal to right side
-    LtEq,
-    /// Left side is greater than right side
-    Gt,
-    /// Left side is greater or equal to right side
-    GtEq,
-    /// Addition
-    Plus,
-    /// Subtraction
-    Minus,
-    /// Multiplication operator, like `*`
-    Multiply,
-    /// Division operator, like `/`
-    Divide,
-    /// Remainder operator, like `%`
-    Modulus,
-    /// Logical AND, like `&&`
-    And,
-    /// Logical OR, like `||`
-    Or,
-    /// Logical NOT, like `!`
-    Not,
-    /// Matches a wildcard pattern
-    Like,
-    /// Does not match a wildcard pattern
-    NotLike,
-}
+mod operators;
+pub use operators::Operator;
 
-impl fmt::Display for Operator {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let display = match &self {
-            Operator::Eq => "=",
-            Operator::NotEq => "!=",
-            Operator::Lt => "<",
-            Operator::LtEq => "<=",
-            Operator::Gt => ">",
-            Operator::GtEq => ">=",
-            Operator::Plus => "+",
-            Operator::Minus => "-",
-            Operator::Multiply => "*",
-            Operator::Divide => "/",
-            Operator::Modulus => "%",
-            Operator::And => "AND",
-            Operator::Or => "OR",
-            Operator::Not => "NOT",
-            Operator::Like => "LIKE",
-            Operator::NotLike => "NOT LIKE",
-        };
-        write!(f, "{}", display)
-    }
-}
-
-/// ScalarValue enumeration
-#[derive(Debug, Clone, PartialEq)]
-pub enum ScalarValue {
-    /// null value
-    Null,
-    /// true or false value
-    Boolean(bool),
-    /// 32bit float
-    Float32(f32),
-    /// 64bit float
-    Float64(f64),
-    /// signed 8bit int
-    Int8(i8),
-    /// signed 16bit int
-    Int16(i16),
-    /// signed 32bit int
-    Int32(i32),
-    /// signed 64bit int
-    Int64(i64),
-    /// unsigned 8bit int
-    UInt8(u8),
-    /// unsigned 16bit int
-    UInt16(u16),
-    /// unsigned 32bit int
-    UInt32(u32),
-    /// unsigned 64bit int
-    UInt64(u64),
-    /// utf-8 encoded string
-    Utf8(String),
-    /// List of scalars packed as a struct
-    Struct(Vec<ScalarValue>),
-}
-
-impl ScalarValue {
-    /// Getter for the `DataType` of the value
-    pub fn get_datatype(&self) -> Result<DataType> {
-        match *self {
-            ScalarValue::Boolean(_) => Ok(DataType::Boolean),
-            ScalarValue::UInt8(_) => Ok(DataType::UInt8),
-            ScalarValue::UInt16(_) => Ok(DataType::UInt16),
-            ScalarValue::UInt32(_) => Ok(DataType::UInt32),
-            ScalarValue::UInt64(_) => Ok(DataType::UInt64),
-            ScalarValue::Int8(_) => Ok(DataType::Int8),
-            ScalarValue::Int16(_) => Ok(DataType::Int16),
-            ScalarValue::Int32(_) => Ok(DataType::Int32),
-            ScalarValue::Int64(_) => Ok(DataType::Int64),
-            ScalarValue::Float32(_) => Ok(DataType::Float32),
-            ScalarValue::Float64(_) => Ok(DataType::Float64),
-            ScalarValue::Utf8(_) => Ok(DataType::Utf8),
-            _ => Err(ExecutionError::General(format!(
-                "Cannot treat {:?} as scalar value",
-                self
-            ))),
-        }
-    }
-}
-
-impl fmt::Display for ScalarValue {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            ScalarValue::Boolean(value) => write!(f, "{}", value),
-            ScalarValue::UInt8(value) => write!(f, "{}", value),
-            ScalarValue::UInt16(value) => write!(f, "{}", value),
-            ScalarValue::UInt32(value) => write!(f, "{}", value),
-            ScalarValue::UInt64(value) => write!(f, "{}", value),
-            ScalarValue::Int8(value) => write!(f, "{}", value),
-            ScalarValue::Int16(value) => write!(f, "{}", value),
-            ScalarValue::Int32(value) => write!(f, "{}", value),
-            ScalarValue::Int64(value) => write!(f, "{}", value),
-            ScalarValue::Float32(value) => write!(f, "{}", value),
-            ScalarValue::Float64(value) => write!(f, "{}", value),
-            ScalarValue::Utf8(value) => write!(f, "{}", value),
-            ScalarValue::Null => write!(f, "NULL"),
-            ScalarValue::Struct(_) => write!(f, "STRUCT"),
-        }
-    }
+fn create_function_name(
+    fun: &String,
+    args: &[Expr],
+    input_schema: &Schema,
+) -> Result<String> {
+    let names: Vec<String> = args
+        .iter()
+        .map(|e| create_name(e, input_schema))
+        .collect::<Result<_>>()?;
+    Ok(format!("{}({})", fun, names.join(",")))
 }
 
 /// Returns a readable name of an expression based on the input schema.
@@ -194,28 +73,20 @@ fn create_name(e: &Expr, input_schema: &Schema) -> Result<String> {
         }
         Expr::Cast { expr, data_type } => {
             let expr = create_name(expr, input_schema)?;
-            Ok(format!("CAST({} as {:?})", expr, data_type))
+            Ok(format!("CAST({} AS {:?})", expr, data_type))
+        }
+        Expr::Not(expr) => {
+            let expr = create_name(expr, input_schema)?;
+            Ok(format!("NOT {}", expr))
         }
         Expr::ScalarFunction { fun, args, .. } => {
-            let mut names = Vec::with_capacity(args.len());
-            for e in args {
-                names.push(create_name(e, input_schema)?);
-            }
-            Ok(format!("{}({})", fun, names.join(",")))
+            create_function_name(&fun.to_string(), args, input_schema)
         }
         Expr::ScalarUDF { fun, args, .. } => {
-            let mut names = Vec::with_capacity(args.len());
-            for e in args {
-                names.push(create_name(e, input_schema)?);
-            }
-            Ok(format!("{}({})", fun.name, names.join(",")))
+            create_function_name(&fun.name, args, input_schema)
         }
-        Expr::AggregateFunction { name, args, .. } => {
-            let mut names = Vec::with_capacity(args.len());
-            for e in args {
-                names.push(create_name(e, input_schema)?);
-            }
-            Ok(format!("{}({})", name, names.join(",")))
+        Expr::AggregateFunction { fun, args, .. } => {
+            create_function_name(&fun.to_string(), args, input_schema)
         }
         other => Err(ExecutionError::NotImplemented(format!(
             "Physical plan does not support logical expression {:?}",
@@ -229,18 +100,32 @@ pub fn exprlist_to_fields(expr: &[Expr], input_schema: &Schema) -> Result<Vec<Fi
     expr.iter().map(|e| e.to_field(input_schema)).collect()
 }
 
-/// Relation expression
+/// `Expr` is a logical expression. A logical expression is something like `1 + 1`, or `CAST(c1 AS int)`.
+/// Logical expressions know how to compute its [arrow::datatypes::DataType] and nullability.
+/// `Expr` is a central struct of DataFusion's query API.
+///
+/// # Examples
+///
+/// ```
+/// # use datafusion::logical_plan::Expr;
+/// # use datafusion::error::Result;
+/// # fn main() -> Result<()> {
+/// let expr = Expr::Column("c1".to_string()) + Expr::Column("c2".to_string());
+/// println!("{:?}", expr);
+/// # Ok(())
+/// # }
+/// ```
 #[derive(Clone)]
 pub enum Expr {
-    /// An aliased expression
+    /// An expression with a specific name.
     Alias(Box<Expr>, String),
-    /// column of a table scan
+    /// A named reference to a field in a schema.
     Column(String),
-    /// scalar variable like @@version
+    /// A named reference to a variable in a registry.
     ScalarVariable(Vec<String>),
-    /// literal value
+    /// A constant value.
     Literal(ScalarValue),
-    /// binary expression e.g. "age > 21"
+    /// A binary expression such as "age > 21"
     BinaryExpr {
         /// Left-hand side of the expression
         left: Box<Expr>,
@@ -249,22 +134,22 @@ pub enum Expr {
         /// Right-hand side of the expression
         right: Box<Expr>,
     },
-    /// Nested expression e.g. `(foo > bar)` or `(1)`
+    /// Parenthesized expression. E.g. `(foo > bar)` or `(1)`
     Nested(Box<Expr>),
-    /// unary NOT
+    /// Negation of an expression. The expression's type must be a boolean to make sense.
     Not(Box<Expr>),
-    /// unary IS NOT NULL
+    /// Whether an expression is not Null. This expression is never null.
     IsNotNull(Box<Expr>),
-    /// unary IS NULL
+    /// Whether an expression is Null. This expression is never null.
     IsNull(Box<Expr>),
-    /// cast a value to a different type
+    /// Casts the expression to a given type. This expression is guaranteed to have a fixed type.
     Cast {
         /// The expression being cast
         expr: Box<Expr>,
         /// The `DataType` the expression will yield
         data_type: DataType,
     },
-    /// sort expression
+    /// A sort expression, that can be used to sort values.
     Sort {
         /// The expression to sort on
         expr: Box<Expr>,
@@ -273,39 +158,45 @@ pub enum Expr {
         /// Whether to put Nulls before all other data values
         nulls_first: bool,
     },
-    /// scalar function.
+    /// Represents the call of a built-in scalar function with a set of arguments.
     ScalarFunction {
         /// The function
         fun: functions::BuiltinScalarFunction,
         /// List of expressions to feed to the functions as arguments
         args: Vec<Expr>,
     },
-    /// scalar udf.
+    /// Represents the call of a user-defined scalar function with arguments.
     ScalarUDF {
         /// The function
         fun: Arc<ScalarUDF>,
         /// List of expressions to feed to the functions as arguments
         args: Vec<Expr>,
     },
-    /// aggregate function
+    /// Represents the call of an aggregate built-in function with arguments.
     AggregateFunction {
         /// Name of the function
-        name: String,
+        fun: aggregates::AggregateFunction,
         /// List of expressions to feed to the functions as arguments
         args: Vec<Expr>,
     },
-    /// Wildcard
+    /// Represents a reference to all fields in a schema.
     Wildcard,
 }
 
 impl Expr {
-    /// Find the `DataType` for the expression
+    /// Returns the [arrow::datatypes::DataType] of the expression based on [arrow::datatypes::Schema].
+    ///
+    /// # Errors
+    ///
+    /// This function errors when it is not possible to compute its [arrow::datatypes::DataType].
+    /// This happens when e.g. the expression refers to a column that does not exist in the schema, or when
+    /// the expression is incorrectly typed (e.g. `[utf8] + [bool]`).
     pub fn get_type(&self, schema: &Schema) -> Result<DataType> {
         match self {
             Expr::Alias(expr, _) => expr.get_type(schema),
             Expr::Column(name) => Ok(schema.field_with_name(name)?.data_type().clone()),
             Expr::ScalarVariable(_) => Ok(DataType::Utf8),
-            Expr::Literal(l) => l.get_datatype(),
+            Expr::Literal(l) => Ok(l.get_datatype()),
             Expr::Cast { data_type, .. } => Ok(data_type.clone()),
             Expr::ScalarUDF { fun, args } => {
                 let data_types = args
@@ -321,47 +212,12 @@ impl Expr {
                     .collect::<Result<Vec<_>>>()?;
                 functions::return_type(fun, &data_types)
             }
-            Expr::AggregateFunction { name, args, .. } => {
-                match name.to_uppercase().as_str() {
-                    "MIN" | "MAX" => args[0].get_type(schema),
-                    "SUM" => match args[0].get_type(schema)? {
-                        DataType::Int8
-                        | DataType::Int16
-                        | DataType::Int32
-                        | DataType::Int64 => Ok(DataType::Int64),
-                        DataType::UInt8
-                        | DataType::UInt16
-                        | DataType::UInt32
-                        | DataType::UInt64 => Ok(DataType::UInt64),
-                        DataType::Float32 => Ok(DataType::Float32),
-                        DataType::Float64 => Ok(DataType::Float64),
-                        other => Err(ExecutionError::General(format!(
-                            "SUM does not support {:?}",
-                            other
-                        ))),
-                    },
-                    "AVG" => match args[0].get_type(schema)? {
-                        DataType::Int8
-                        | DataType::Int16
-                        | DataType::Int32
-                        | DataType::Int64
-                        | DataType::UInt8
-                        | DataType::UInt16
-                        | DataType::UInt32
-                        | DataType::UInt64
-                        | DataType::Float32
-                        | DataType::Float64 => Ok(DataType::Float64),
-                        other => Err(ExecutionError::General(format!(
-                            "AVG does not support {:?}",
-                            other
-                        ))),
-                    },
-                    "COUNT" => Ok(DataType::UInt64),
-                    other => Err(ExecutionError::General(format!(
-                        "Invalid aggregate function '{:?}'",
-                        other
-                    ))),
-                }
+            Expr::AggregateFunction { fun, args, .. } => {
+                let data_types = args
+                    .iter()
+                    .map(|e| e.get_type(schema))
+                    .collect::<Result<Vec<_>>>()?;
+                aggregates::return_type(fun, &data_types)
             }
             Expr::Not(_) => Ok(DataType::Boolean),
             Expr::IsNull(_) => Ok(DataType::Boolean),
@@ -383,15 +239,17 @@ impl Expr {
         }
     }
 
-    /// return true if this expression might produce null values
+    /// Returns the nullability of the expression based on [arrow::datatypes::Schema].
+    ///
+    /// # Errors
+    ///
+    /// This function errors when it is not possible to compute its nullability.
+    /// This happens when the expression refers to a column that does not exist in the schema.
     pub fn nullable(&self, input_schema: &Schema) -> Result<bool> {
         match self {
             Expr::Alias(expr, _) => expr.nullable(input_schema),
             Expr::Column(name) => Ok(input_schema.field_with_name(name)?.is_nullable()),
-            Expr::Literal(value) => match value {
-                ScalarValue::Null => Ok(true),
-                _ => Ok(false),
-            },
+            Expr::Literal(value) => Ok(value.is_null()),
             Expr::ScalarVariable(_) => Ok(true),
             Expr::Cast { expr, .. } => expr.nullable(input_schema),
             Expr::ScalarFunction { .. } => Ok(true),
@@ -413,14 +271,14 @@ impl Expr {
         }
     }
 
-    /// Return the name of this expression
+    /// Returns the name of this expression based on [arrow::datatypes::Schema].
     ///
     /// This represents how a column with this expression is named when no alias is chosen
     pub fn name(&self, input_schema: &Schema) -> Result<String> {
         create_name(self, input_schema)
     }
 
-    /// Create a Field representing this expression
+    /// Returns a [arrow::datatypes::Field] compatible with this expression.
     pub fn to_field(&self, input_schema: &Schema) -> Result<Field> {
         Ok(Field::new(
             &self.name(input_schema)?,
@@ -429,9 +287,11 @@ impl Expr {
         ))
     }
 
-    /// Perform a type cast on the expression value.
+    /// Wraps this expression in a cast to a target [arrow::datatypes::DataType].
     ///
-    /// Will `Err` if the type cast cannot be performed.
+    /// # Errors
+    ///
+    /// This function errors when it is impossible to cast the expression to the target [arrow::datatypes::DataType].
     pub fn cast_to(&self, cast_to_type: &DataType, schema: &Schema) -> Result<Expr> {
         let this_type = self.get_type(schema)?;
         if this_type == *cast_to_type {
@@ -494,26 +354,6 @@ impl Expr {
         Expr::Not(Box::new(self.clone()))
     }
 
-    /// Add the specified expression
-    pub fn plus(&self, other: Expr) -> Expr {
-        binary_expr(self.clone(), Operator::Plus, other.clone())
-    }
-
-    /// Subtract the specified expression
-    pub fn minus(&self, other: Expr) -> Expr {
-        binary_expr(self.clone(), Operator::Minus, other.clone())
-    }
-
-    /// Multiply by the specified expression
-    pub fn multiply(&self, other: Expr) -> Expr {
-        binary_expr(self.clone(), Operator::Multiply, other.clone())
-    }
-
-    /// Divide by the specified expression
-    pub fn divide(&self, other: Expr) -> Expr {
-        binary_expr(self.clone(), Operator::Divide, other.clone())
-    }
-
     /// Calculate the modulus of two expressions
     pub fn modulus(&self, other: Expr) -> Expr {
         binary_expr(self.clone(), Operator::Modulus, other.clone())
@@ -573,27 +413,42 @@ pub fn col(name: &str) -> Expr {
 
 /// Create an expression to represent the min() aggregate function
 pub fn min(expr: Expr) -> Expr {
-    aggregate_expr("MIN", expr)
+    Expr::AggregateFunction {
+        fun: aggregates::AggregateFunction::Min,
+        args: vec![expr],
+    }
 }
 
 /// Create an expression to represent the max() aggregate function
 pub fn max(expr: Expr) -> Expr {
-    aggregate_expr("MAX", expr)
+    Expr::AggregateFunction {
+        fun: aggregates::AggregateFunction::Max,
+        args: vec![expr],
+    }
 }
 
 /// Create an expression to represent the sum() aggregate function
 pub fn sum(expr: Expr) -> Expr {
-    aggregate_expr("SUM", expr)
+    Expr::AggregateFunction {
+        fun: aggregates::AggregateFunction::Sum,
+        args: vec![expr],
+    }
 }
 
 /// Create an expression to represent the avg() aggregate function
 pub fn avg(expr: Expr) -> Expr {
-    aggregate_expr("AVG", expr)
+    Expr::AggregateFunction {
+        fun: aggregates::AggregateFunction::Avg,
+        args: vec![expr],
+    }
 }
 
 /// Create an expression to represent the count() aggregate function
 pub fn count(expr: Expr) -> Expr {
-    aggregate_expr("COUNT", expr)
+    Expr::AggregateFunction {
+        fun: aggregates::AggregateFunction::Count,
+        args: vec![expr],
+    }
 }
 
 /// Whether it can be represented as a literal expression
@@ -604,13 +459,13 @@ pub trait Literal {
 
 impl Literal for &str {
     fn lit(&self) -> Expr {
-        Expr::Literal(ScalarValue::Utf8((*self).to_owned()))
+        Expr::Literal(ScalarValue::Utf8(Some((*self).to_owned())))
     }
 }
 
 impl Literal for String {
     fn lit(&self) -> Expr {
-        Expr::Literal(ScalarValue::Utf8((*self).to_owned()))
+        Expr::Literal(ScalarValue::Utf8(Some((*self).to_owned())))
     }
 }
 
@@ -619,7 +474,7 @@ macro_rules! make_literal {
         #[allow(missing_docs)]
         impl Literal for $TYPE {
             fn lit(&self) -> Expr {
-                Expr::Literal(ScalarValue::$SCALAR(self.clone()))
+                Expr::Literal(ScalarValue::$SCALAR(Some(self.clone())))
             }
         }
     };
@@ -690,11 +545,11 @@ pub fn concat(args: Vec<Expr>) -> Expr {
     }
 }
 
-/// Create an aggregate expression
-pub fn aggregate_expr(name: &str, expr: Expr) -> Expr {
-    Expr::AggregateFunction {
-        name: name.to_owned(),
-        args: vec![expr],
+/// returns an array of fixed size with each argument on it.
+pub fn array(args: Vec<Expr>) -> Expr {
+    Expr::ScalarFunction {
+        fun: functions::BuiltinScalarFunction::Array,
+        args,
     }
 }
 
@@ -711,6 +566,11 @@ pub fn create_udf(
 ) -> ScalarUDF {
     let return_type: ReturnTypeFunction = Arc::new(move |_| Ok(return_type.clone()));
     ScalarUDF::new(name, &Signature::Exact(input_types), &return_type, &fun)
+}
+
+fn fmt_function(f: &mut fmt::Formatter, fun: &String, args: &Vec<Expr>) -> fmt::Result {
+    let args: Vec<String> = args.iter().map(|arg| format!("{:?}", arg)).collect();
+    write!(f, "{}({})", fun, args.join(", "))
 }
 
 impl fmt::Debug for Expr {
@@ -745,38 +605,12 @@ impl fmt::Debug for Expr {
                     write!(f, " NULLS LAST")
                 }
             }
-            Expr::ScalarFunction { fun, ref args, .. } => {
-                write!(f, "{}(", fun)?;
-                for i in 0..args.len() {
-                    if i > 0 {
-                        write!(f, ", ")?;
-                    }
-                    write!(f, "{:?}", args[i])?;
-                }
-
-                write!(f, ")")
+            Expr::ScalarFunction { fun, args, .. } => {
+                fmt_function(f, &fun.to_string(), args)
             }
-            Expr::ScalarUDF { fun, ref args, .. } => {
-                write!(f, "{}(", fun.name)?;
-                for i in 0..args.len() {
-                    if i > 0 {
-                        write!(f, ", ")?;
-                    }
-                    write!(f, "{:?}", args[i])?;
-                }
-
-                write!(f, ")")
-            }
-            Expr::AggregateFunction { name, ref args, .. } => {
-                write!(f, "{}(", name)?;
-                for i in 0..args.len() {
-                    if i > 0 {
-                        write!(f, ", ")?;
-                    }
-                    write!(f, "{:?}", args[i])?;
-                }
-
-                write!(f, ")")
+            Expr::ScalarUDF { fun, ref args, .. } => fmt_function(f, &fun.name, args),
+            Expr::AggregateFunction { fun, ref args, .. } => {
+                fmt_function(f, &fun.to_string(), args)
             }
             Expr::Wildcard => write!(f, "*"),
             Expr::Nested(expr) => write!(f, "({:?})", expr),
@@ -1139,8 +973,8 @@ pub trait FunctionRegistry {
     /// Set of all available udfs.
     fn udfs(&self) -> HashSet<String>;
 
-    /// Constructs a logical expression with a call to the udf.
-    fn udf(&self, name: &str, args: Vec<Expr>) -> Result<Expr>;
+    /// Returns a reference to the udf named `name`.
+    fn udf(&self, name: &str) -> Result<&ScalarUDF>;
 }
 
 /// Builder for logical plans
@@ -1429,7 +1263,7 @@ mod tests {
         )?
         .aggregate(
             vec![col("state")],
-            vec![aggregate_expr("SUM", col("salary")).alias("total_salary")],
+            vec![sum(col("salary")).alias("total_salary")],
         )?
         .project(vec![col("state"), col("total_salary")])?
         .build()?;

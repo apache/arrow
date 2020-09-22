@@ -466,7 +466,7 @@ impl<T: DataType> ColumnReaderImpl<T> {
         let current_decoder = self
             .decoders
             .get_mut(&encoding)
-            .expect(format!("decoder for encoding {} should be set", encoding).as_str());
+            .unwrap_or_else(|| panic!("decoder for encoding {} should be set", encoding));
         current_decoder.get(buffer)
     }
 
@@ -902,48 +902,38 @@ mod tests {
 
     #[test]
     fn test_read_batch_values_only() {
-        test_read_batch_int32(16, &mut vec![0; 10], None, None); // < batch_size
-        test_read_batch_int32(16, &mut vec![0; 16], None, None); // == batch_size
-        test_read_batch_int32(16, &mut vec![0; 51], None, None); // > batch_size
+        test_read_batch_int32(16, &mut [0; 10], None, None); // < batch_size
+        test_read_batch_int32(16, &mut [0; 16], None, None); // == batch_size
+        test_read_batch_int32(16, &mut [0; 51], None, None); // > batch_size
     }
 
     #[test]
     fn test_read_batch_values_def_levels() {
-        test_read_batch_int32(16, &mut vec![0; 10], Some(&mut vec![0; 10]), None);
-        test_read_batch_int32(16, &mut vec![0; 16], Some(&mut vec![0; 16]), None);
-        test_read_batch_int32(16, &mut vec![0; 51], Some(&mut vec![0; 51]), None);
+        test_read_batch_int32(16, &mut [0; 10], Some(&mut [0; 10]), None);
+        test_read_batch_int32(16, &mut [0; 16], Some(&mut [0; 16]), None);
+        test_read_batch_int32(16, &mut [0; 51], Some(&mut [0; 51]), None);
     }
 
     #[test]
     fn test_read_batch_values_rep_levels() {
-        test_read_batch_int32(16, &mut vec![0; 10], None, Some(&mut vec![0; 10]));
-        test_read_batch_int32(16, &mut vec![0; 16], None, Some(&mut vec![0; 16]));
-        test_read_batch_int32(16, &mut vec![0; 51], None, Some(&mut vec![0; 51]));
+        test_read_batch_int32(16, &mut [0; 10], None, Some(&mut [0; 10]));
+        test_read_batch_int32(16, &mut [0; 16], None, Some(&mut [0; 16]));
+        test_read_batch_int32(16, &mut [0; 51], None, Some(&mut [0; 51]));
     }
 
     #[test]
     fn test_read_batch_different_buf_sizes() {
-        test_read_batch_int32(
-            16,
-            &mut vec![0; 8],
-            Some(&mut vec![0; 9]),
-            Some(&mut vec![0; 7]),
-        );
-        test_read_batch_int32(
-            16,
-            &mut vec![0; 1],
-            Some(&mut vec![0; 9]),
-            Some(&mut vec![0; 3]),
-        );
+        test_read_batch_int32(16, &mut [0; 8], Some(&mut [0; 9]), Some(&mut [0; 7]));
+        test_read_batch_int32(16, &mut [0; 1], Some(&mut [0; 9]), Some(&mut [0; 3]));
     }
 
     #[test]
     fn test_read_batch_values_def_rep_levels() {
         test_read_batch_int32(
             128,
-            &mut vec![0; 128],
-            Some(&mut vec![0; 128]),
-            Some(&mut vec![0; 128]),
+            &mut [0; 128],
+            Some(&mut [0; 128]),
+            Some(&mut [0; 128]),
         );
     }
 

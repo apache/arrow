@@ -513,7 +513,7 @@ TEST_F(TestBooleanMinMaxKernel, Basics) {
   this->AssertMinMaxIs(chunked_input2, false, false, options);
   this->AssertMinMaxIs(chunked_input3, false, true, options);
 
-  options = MinMaxOptions(MinMaxOptions::OUTPUT_NULL);
+  options = MinMaxOptions(MinMaxOptions::EMIT_NULL);
   this->AssertMinMaxIsNull("[]", options);
   this->AssertMinMaxIsNull("[null, null, null]", options);
   this->AssertMinMaxIsNull("[false, null, false]", options);
@@ -543,7 +543,7 @@ TYPED_TEST(TestIntegerMinMaxKernel, Basics) {
   this->AssertMinMaxIs(chunked_input2, 1, 9, options);
   this->AssertMinMaxIs(chunked_input3, 1, 9, options);
 
-  options = MinMaxOptions(MinMaxOptions::OUTPUT_NULL);
+  options = MinMaxOptions(MinMaxOptions::EMIT_NULL);
   this->AssertMinMaxIs("[5, 1, 2, 3, 4]", 1, 5, options);
   // output null
   this->AssertMinMaxIsNull("[5, null, 2, 3, 4]", options);
@@ -570,7 +570,7 @@ TYPED_TEST(TestFloatingMinMaxKernel, Floats) {
   this->AssertMinMaxIs(chunked_input2, 1, 9, options);
   this->AssertMinMaxIs(chunked_input3, 1, 9, options);
 
-  options = MinMaxOptions(MinMaxOptions::OUTPUT_NULL);
+  options = MinMaxOptions(MinMaxOptions::EMIT_NULL);
   this->AssertMinMaxIs("[5, 1, 2, 3, 4]", 1, 5, options);
   this->AssertMinMaxIs("[5, -Inf, 2, 3, 4]", -INFINITY, 5, options);
   // output null

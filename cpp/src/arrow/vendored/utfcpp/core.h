@@ -1,5 +1,3 @@
-// Vendored from v2.3.4 (http://utfcpp.sourceforge.net/)
-
 // Copyright 2006 Nemanja Trifunovic
 
 /*
@@ -32,6 +30,23 @@ DEALINGS IN THE SOFTWARE.
 
 #include <iterator>
 
+// Determine the C++ standard version.
+// If the user defines UTF_CPP_CPLUSPLUS, use that.
+// Otherwise, trust the unreliable predefined macro __cplusplus
+
+#if !defined UTF_CPP_CPLUSPLUS
+    #define UTF_CPP_CPLUSPLUS __cplusplus
+#endif
+
+#if UTF_CPP_CPLUSPLUS >= 201103L // C++ 11 or later
+    #define OVERRIDE override
+    #define NOEXCEPT noexcept
+#else // C++ 98/03
+    #define OVERRIDE
+    #define NOEXCEPT throw()
+#endif // C++ 11 or later
+
+
 namespace utf8
 {
     // The typedefs for 8-bit, 16-bit and 32-bit unsigned integers
@@ -51,8 +66,8 @@ namespace internal
     const uint16_t LEAD_SURROGATE_MAX  = 0xdbffu;
     const uint16_t TRAIL_SURROGATE_MIN = 0xdc00u;
     const uint16_t TRAIL_SURROGATE_MAX = 0xdfffu;
-    const uint16_t LEAD_OFFSET         = LEAD_SURROGATE_MIN - (0x10000 >> 10);
-    const uint32_t SURROGATE_OFFSET    = 0x10000u - (LEAD_SURROGATE_MIN << 10) - TRAIL_SURROGATE_MIN;
+    const uint16_t LEAD_OFFSET         = 0xd7c0u;       // LEAD_SURROGATE_MIN - (0x10000 >> 10)
+    const uint32_t SURROGATE_OFFSET    = 0xfca02400u;   // 0x10000u - (LEAD_SURROGATE_MIN << 10) - TRAIL_SURROGATE_MIN
 
     // Maximum valid value for a Unicode code point
     const uint32_t CODE_POINT_MAX      = 0x0010ffffu;
@@ -144,7 +159,7 @@ namespace internal
 
         if (!utf8::internal::is_trail(*it))
             return INCOMPLETE_SEQUENCE;
-        
+
         return UTF8_OK;
     }
 
@@ -167,7 +182,7 @@ namespace internal
     {
         if (it == end) 
             return NOT_ENOUGH_ROOM;
-        
+
         code_point = utf8::internal::mask8(*it);
 
         UTF8_CPP_INCREASE_AND_RETURN_ON_ERROR(it, end)
@@ -224,6 +239,9 @@ namespace internal
     template <typename octet_iterator>
     utf_error validate_next(octet_iterator& it, octet_iterator end, uint32_t& code_point)
     {
+        if (it == end)
+            return NOT_ENOUGH_ROOM;
+
         // Save the original value of it so we can go back in case of failure
         // Of course, it does not make much sense with i.e. stream iterators
         octet_iterator original_it = it;
@@ -236,7 +254,7 @@ namespace internal
         // Get trail octets and calculate the code point
         utf_error err = UTF8_OK;
         switch (length) {
-            case 0: 
+            case 0:
                 return INVALID_LEAD;
             case 1:
                 err = utf8::internal::get_sequence_1(it, end, cp);
@@ -312,18 +330,7 @@ namespace internal
             ((it != end) && (utf8::internal::mask8(*it++)) == bom[1]) &&
             ((it != end) && (utf8::internal::mask8(*it))   == bom[2])
            );
-    }
-	
-    //Deprecated in release 2.3 
-    template <typename octet_iterator>
-    inline bool is_bom (octet_iterator it)
-    {
-        return (
-            (utf8::internal::mask8(*it++)) == bom[0] &&
-            (utf8::internal::mask8(*it++)) == bom[1] &&
-            (utf8::internal::mask8(*it))   == bom[2]
-           );
-    }
+    }	
 } // namespace utf8
 
 #endif // header guard

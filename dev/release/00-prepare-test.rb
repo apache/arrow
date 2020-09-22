@@ -330,6 +330,35 @@ class PrepareTest < Test::Unit::TestCase
                         "+See [crate documentation](https://docs.rs/crate/parquet/#{@release_version}) on available API."],
                      ],
                    },
+                   {
+                     path: "rust/parquet_derive/Cargo.toml",
+                     hunks: [
+                       ["-version = \"#{@snapshot_version}\"",
+                        "+version = \"#{@release_version}\""],
+                       ["-parquet = { path = \"../parquet\", version = \"#{@snapshot_version}\" }",
+                        "+parquet = { path = \"../parquet\", version = \"#{@release_version}\" }"],
+                     ],
+                   },
+                   {
+                     path: "rust/parquet_derive/README.md",
+                     hunks: [
+                       ["-parquet = \"#{@snapshot_version}\"",
+                        "-parquet_derive = \"#{@snapshot_version}\"",
+                        "+parquet = \"#{@release_version}\"",
+                        "+parquet_derive = \"#{@release_version}\""],
+                     ],
+                   },
+                   {
+                     path: "rust/parquet_derive_test/Cargo.toml",
+                     hunks: [
+                       ["-version = \"#{@snapshot_version}\"",
+                        "+version = \"#{@release_version}\"",
+                        "-parquet = { path = \"../parquet\", version = \"#{@snapshot_version}\" }",
+                        "-parquet_derive = { path = \"../parquet_derive\", version = \"#{@snapshot_version}\" }",
+                        "+parquet = { path = \"../parquet\", version = \"#{@release_version}\" }",
+                        "+parquet_derive = { path = \"../parquet_derive\", version = \"#{@release_version}\" }"],
+                     ],
+                   },
                  ],
                  parse_patch(git("log", "-n", "1", "-p")))
   end
@@ -535,6 +564,35 @@ class PrepareTest < Test::Unit::TestCase
                         "+parquet = \"#{@next_snapshot_version}\""],
                        ["-See [crate documentation](https://docs.rs/crate/parquet/#{@release_version}) on available API.",
                         "+See [crate documentation](https://docs.rs/crate/parquet/#{@next_snapshot_version}) on available API."],
+                     ],
+                   },
+                   {
+                     path: "rust/parquet_derive/Cargo.toml",
+                     hunks: [
+                       ["-version = \"#{@release_version}\"",
+                        "+version = \"#{@next_snapshot_version}\""],
+                       ["-parquet = { path = \"../parquet\", version = \"#{@release_version}\" }",
+                        "+parquet = { path = \"../parquet\", version = \"#{@next_snapshot_version}\" }"],
+                     ],
+                   },
+                   {
+                     path: "rust/parquet_derive/README.md",
+                     hunks: [
+                       ["-parquet = \"#{@release_version}\"",
+                        "-parquet_derive = \"#{@release_version}\"",
+                        "+parquet = \"#{@next_snapshot_version}\"",
+                        "+parquet_derive = \"#{@next_snapshot_version}\""],
+                     ],
+                   },
+                   {
+                     path: "rust/parquet_derive_test/Cargo.toml",
+                     hunks: [
+                       ["-version = \"#{@release_version}\"",
+                        "+version = \"#{@next_snapshot_version}\"",
+                        "-parquet = { path = \"../parquet\", version = \"#{@release_version}\" }",
+                        "-parquet_derive = { path = \"../parquet_derive\", version = \"#{@release_version}\" }",
+                        "+parquet = { path = \"../parquet\", version = \"#{@next_snapshot_version}\" }",
+                        "+parquet_derive = { path = \"../parquet_derive\", version = \"#{@next_snapshot_version}\" }"],
                      ],
                    },
                  ],

@@ -48,9 +48,7 @@ the following R6 methods that map onto the underlying C++ methods:
 \item \verb{$names()}: Get all column names (called by \code{names(batch)})
 \item \verb{$GetColumnByName(name)}: Extract an \code{Array} by string name
 \item \verb{$RemoveColumn(i)}: Drops a column from the batch by integer position
-\item \verb{$select(spec)}: Return a new record batch with a selection of columns.
-This supports the usual \code{character}, \code{numeric}, and \code{logical} selection
-methods as well as "tidy select" expressions.
+\item \verb{$selectColumns(indices)}: Return a new record batch with a selection of columns, expressed as 0-based integers.
 \item \verb{$Slice(offset, length = NULL)}: Create a zero-copy view starting at the
 indicated integer offset and going for the given length, or to the end
 of the table if \code{NULL}, the default.

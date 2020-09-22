@@ -259,7 +259,7 @@ mod tests {
 
         let f = df.registry();
 
-        let df = df.select(vec![f.udf("my_fn", vec![col("c12")])?])?;
+        let df = df.select(vec![f.udf("my_fn")?.call(vec![col("c12")])])?;
         let plan = df.to_logical_plan();
 
         // build query using SQL

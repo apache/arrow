@@ -36,6 +36,8 @@
 namespace arrow {
 namespace random {
 
+namespace {
+
 template <typename ValueType, typename DistributionType>
 struct GenerateOptions {
   GenerateOptions(SeedType seed, ValueType min, ValueType max, double probability)
@@ -75,6 +77,21 @@ struct GenerateOptions {
   SeedType seed_;
   double probability_;
 };
+
+}  // namespace
+
+std::shared_ptr<Buffer> RandomArrayGenerator::NullBitmap(int64_t size,
+                                                         double null_probability) {
+  // The bitmap generator does not care about the value distribution since it
+  // only calls the GenerateBitmap method.
+  using GenOpt = GenerateOptions<int, std::uniform_int_distribution<int>>;
+
+  GenOpt null_gen(seed(), 0, 1, null_probability);
+  std::shared_ptr<Buffer> bitmap = *AllocateEmptyBitmap(size);
+  null_gen.GenerateBitmap(bitmap->mutable_data(), size, nullptr);
+
+  return bitmap;
+}
 
 std::shared_ptr<Array> RandomArrayGenerator::Boolean(int64_t size,
                                                      double true_probability,
@@ -250,11 +267,19 @@ std::shared_ptr<Array> RandomArrayGenerator::StringWithRepeats(int64_t size,
 }
 
 std::shared_ptr<Array> RandomArrayGenerator::Offsets(int64_t size, int32_t first_offset,
-                                                     int32_t last_offset) {
+                                                     int32_t last_offset,
+                                                     double null_probability) {
   using GenOpt = GenerateOptions<int32_t, std::uniform_int_distribution<int32_t>>;
-  GenOpt options(seed(), first_offset, last_offset, /*null_probability=*/0);
+  GenOpt options(seed(), first_offset, last_offset, null_probability);
 
   BufferVector buffers{2};
+
+  int64_t null_count = 0;
+  buffers[0] = *AllocateEmptyBitmap(size);
+  options.GenerateBitmap(buffers[0]->mutable_data(), size, &null_count);
+  // Make sure the first and last entry are non-null
+  arrow::BitUtil::SetBit(buffers[0]->mutable_data(), 0);
+  arrow::BitUtil::SetBit(buffers[0]->mutable_data(), size - 1);
 
   buffers[1] = *AllocateBuffer(sizeof(int32_t) * size);
   auto data = reinterpret_cast<int32_t*>(buffers[1]->mutable_data());
@@ -267,9 +292,11 @@ std::shared_ptr<Array> RandomArrayGenerator::Offsets(int64_t size, int32_t first
   data[0] = first_offset;
   data[size - 1] = last_offset;
 
-  auto array_data = ArrayData::Make(int32(), size, buffers, /*null_count=*/0);
+  auto array_data = ArrayData::Make(int32(), size, buffers, null_count);
   return std::make_shared<Int32Array>(array_data);
 }
+
+namespace {
 
 struct RandomArrayGeneratorOfImpl {
   Status Visit(const NullType&) {
@@ -352,6 +379,8 @@ struct RandomArrayGeneratorOfImpl {
   double null_probability_;
   std::shared_ptr<Array> out_;
 };
+
+}  // namespace
 
 std::shared_ptr<Array> RandomArrayGenerator::ArrayOf(std::shared_ptr<DataType> type,
                                                      int64_t size,

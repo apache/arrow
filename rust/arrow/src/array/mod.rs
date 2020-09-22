@@ -49,7 +49,7 @@
 //! ```
 //! extern crate arrow;
 //!
-//! use arrow::array::Int16Array;
+//! use arrow::array::{Int16Array, PrimitiveArrayOps};
 //!
 //! // Create a new builder with a capacity of 100
 //! let mut builder = Int16Array::builder(100);
@@ -158,6 +158,7 @@ pub type DurationNanosecondArray = PrimitiveArray<DurationNanosecondType>;
 pub use self::array::LargeListArrayOps;
 pub use self::array::ListArrayOps;
 pub use self::array::PrimitiveArrayOps;
+pub use self::array::StringArrayOps;
 
 // --------------------- Array Builder ---------------------
 

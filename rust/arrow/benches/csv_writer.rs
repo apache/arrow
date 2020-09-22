@@ -65,7 +65,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     c.bench(
         "record_batches_to_csv",
         Benchmark::new("record_batches_to_csv", move |b| {
-            b.iter(|| record_batches_to_csv())
+            b.iter(record_batches_to_csv)
         }),
     );
 }

@@ -34,11 +34,11 @@ import org.apache.arrow.flight.grpc.StatusUtils;
 import org.apache.arrow.flight.impl.Flight;
 import org.apache.arrow.flight.impl.FlightServiceGrpc.FlightServiceImplBase;
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.VectorUnloader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.grpc.Status;
 import io.grpc.stub.ServerCallStreamObserver;
 import io.grpc.stub.StreamObserver;
 
@@ -189,24 +189,22 @@ class FlightService extends FlightServiceImplBase {
     responseObserver.disableAutoInboundFlowControl();
     responseObserver.request(1);
 
-    final FlightStream fs = new FlightStream(allocator, PENDING_REQUESTS, (String message, Throwable cause) -> {
-      responseObserver.onError(Status.CANCELLED.withCause(cause).withDescription(message).asException());
-    }, responseObserver::request);
+    final StreamPipe<PutResult, Flight.PutResult> ackStream = StreamPipe
+        .wrap(responseObserver, PutResult::toProtocol, this::handleExceptionWithMiddleware);
+    final FlightStream fs = new FlightStream(
+        allocator,
+        PENDING_REQUESTS,
+        /* server-upload streams are not cancellable */null,
+        responseObserver::request);
+    // When the ackStream is completed, the FlightStream will be closed with it
+    ackStream.setAutoCloseable(fs);
     final StreamObserver<ArrowMessage> observer = fs.asObserver();
     executors.submit(() -> {
-      final StreamPipe<PutResult, Flight.PutResult> ackStream = StreamPipe
-          .wrap(responseObserver, PutResult::toProtocol, this::handleExceptionWithMiddleware);
       try {
         producer.acceptPut(makeContext(responseObserver), fs, ackStream).run();
       } catch (Exception ex) {
         ackStream.onError(ex);
       } finally {
-        // Close this stream before telling gRPC that the call is complete. That way we don't race with server shutdown.
-        try {
-          fs.close();
-        } catch (Exception e) {
-          handleExceptionWithMiddleware(e);
-        }
         // ARROW-6136: Close the stream if and only if acceptPut hasn't closed it itself
         // We don't do this for other streams since the implementation may be asynchronous
         ackStream.ensureCompleted();
@@ -236,7 +234,7 @@ class FlightService extends FlightServiceImplBase {
    */
   private void handleExceptionWithMiddleware(Throwable t) {
     final Map<Key<?>, FlightServerMiddleware> middleware = ServerInterceptorAdapter.SERVER_MIDDLEWARE_KEY.get();
-    if (middleware == null) {
+    if (middleware == null || middleware.isEmpty()) {
       logger.error("Uncaught exception in Flight method body", t);
       return;
     }
@@ -258,14 +256,14 @@ class FlightService extends FlightServiceImplBase {
 
   /** Ensures that other resources are cleaned up when the service finishes its call.  */
   private static class ExchangeListener extends GetListener {
-    private final AutoCloseable resource;
+
+    private AutoCloseable resource;
     private boolean closed = false;
     private Runnable onCancelHandler = null;
 
-    public ExchangeListener(ServerCallStreamObserver<ArrowMessage> responseObserver, Consumer<Throwable> errorHandler,
-                            AutoCloseable resource) {
+    public ExchangeListener(ServerCallStreamObserver<ArrowMessage> responseObserver, Consumer<Throwable> errorHandler) {
       super(responseObserver, errorHandler);
-      this.resource = resource;
+      this.resource = null;
       super.setOnCancelHandler(() -> {
         try {
           if (onCancelHandler != null) {
@@ -285,7 +283,7 @@ class FlightService extends FlightServiceImplBase {
       }
       closed = true;
       try {
-        this.resource.close();
+        AutoCloseables.close(resource);
       } catch (Exception e) {
         throw CallStatus.INTERNAL
             .withCause(e)
@@ -321,19 +319,16 @@ class FlightService extends FlightServiceImplBase {
   public StreamObserver<ArrowMessage> doExchangeCustom(StreamObserver<ArrowMessage> responseObserverSimple) {
     final ServerCallStreamObserver<ArrowMessage> responseObserver =
         (ServerCallStreamObserver<ArrowMessage>) responseObserverSimple;
-    final FlightStream fs = new FlightStream(allocator, PENDING_REQUESTS, (String message, Throwable cause) -> {
-      responseObserver.onError(Status.CANCELLED.withCause(cause).withDescription(message).asException());
-    }, responseObserver::request);
-    // When service completes the call, this cleans up the FlightStream
     final ExchangeListener listener = new ExchangeListener(
         responseObserver,
-        this::handleExceptionWithMiddleware,
-        () -> {
-          // Force the stream to "complete" so it will close without incident. At this point, we don't care since
-          // we are about to end the call. (Normally it will raise an error.)
-          fs.completed.complete(null);
-          fs.close();
-        });
+        this::handleExceptionWithMiddleware);
+    final FlightStream fs = new FlightStream(
+        allocator,
+        PENDING_REQUESTS,
+        /* server-upload streams are not cancellable */null,
+        responseObserver::request);
+    // When service completes the call, this cleans up the FlightStream
+    listener.resource = fs;
     responseObserver.disableAutoInboundFlowControl();
     responseObserver.request(1);
     final StreamObserver<ArrowMessage> observer = fs.asObserver();

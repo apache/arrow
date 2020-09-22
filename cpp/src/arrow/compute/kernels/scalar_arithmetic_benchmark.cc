@@ -55,6 +55,13 @@ static Result<Datum> MultiplyChecked(const Datum& left, const Datum& right,
   return Multiply(left, right, std::move(options), ctx);
 }
 
+static Result<Datum> DivideChecked(const Datum& left, const Datum& right,
+                                   ArithmeticOptions options = ArithmeticOptions(),
+                                   ExecContext* ctx = NULLPTR) {
+  options.check_overflow = true;
+  return Divide(left, right, std::move(options), ctx);
+}
+
 template <BinaryOp& Op, typename ArrowType, typename CType = typename ArrowType::c_type>
 static void ArrayScalarKernel(benchmark::State& state) {
   RegressionArgs args(state);
@@ -80,16 +87,18 @@ template <BinaryOp& Op, typename ArrowType, typename CType = typename ArrowType:
 static void ArrayArrayKernel(benchmark::State& state) {
   RegressionArgs args(state);
 
-  // Choose values so as to avoid overflow on all ops
+  // Choose values so as to avoid overflow on all ops and types
   const int64_t array_size = args.size / sizeof(CType);
-  auto min = static_cast<CType>(0);
-  auto max = static_cast<CType>(11);
+  auto rmin = static_cast<CType>(1);
+  auto rmax = static_cast<CType>(rmin + 6);  // 7
+  auto lmin = static_cast<CType>(rmax + 1);  // 8
+  auto lmax = static_cast<CType>(lmin + 6);  // 14
 
   auto rand = random::RandomArrayGenerator(kSeed);
   auto lhs = std::static_pointer_cast<NumericArray<ArrowType>>(
-      rand.Numeric<ArrowType>(array_size, min, max, args.null_proportion));
+      rand.Numeric<ArrowType>(array_size, lmin, lmax, args.null_proportion));
   auto rhs = std::static_pointer_cast<NumericArray<ArrowType>>(
-      rand.Numeric<ArrowType>(array_size, min, max, args.null_proportion));
+      rand.Numeric<ArrowType>(array_size, rmin, rmax, args.null_proportion));
 
   for (auto _ : state) {
     ABORT_NOT_OK(Op(lhs, rhs, ArithmeticOptions(), nullptr).status());
@@ -145,6 +154,8 @@ DECLARE_ARITHMETIC_CHECKED_BENCHMARKS(ArrayArrayKernel, SubtractChecked);
 DECLARE_ARITHMETIC_CHECKED_BENCHMARKS(ArrayScalarKernel, SubtractChecked);
 DECLARE_ARITHMETIC_CHECKED_BENCHMARKS(ArrayArrayKernel, MultiplyChecked);
 DECLARE_ARITHMETIC_CHECKED_BENCHMARKS(ArrayScalarKernel, MultiplyChecked);
+DECLARE_ARITHMETIC_CHECKED_BENCHMARKS(ArrayArrayKernel, DivideChecked);
+DECLARE_ARITHMETIC_CHECKED_BENCHMARKS(ArrayScalarKernel, DivideChecked);
 
 }  // namespace compute
 }  // namespace arrow

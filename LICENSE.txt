@@ -849,9 +849,9 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 --------------------------------------------------------------------------------
 
-The files in cpp/src/arrow/vendored/utf8cpp/ have the following license
+The files in cpp/src/arrow/vendored/utfcpp/ have the following license
 
-Copyright 2006 Nemanja Trifunovic
+Copyright 2006-2018 Nemanja Trifunovic
 
 Permission is hereby granted, free of charge, to any person or organization
 obtaining a copy of the software and accompanying documentation covered by

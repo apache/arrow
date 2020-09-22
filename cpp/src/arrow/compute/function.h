@@ -65,7 +65,8 @@ struct ARROW_EXPORT Arity {
   /// invoking the function
   static Arity VarArgs(int min_args = 0) { return Arity(min_args, true); }
 
-  explicit Arity(int num_args, bool is_varargs = false)
+  // NOTE: the 0-argument form (default constructor) is required for Cython
+  explicit Arity(int num_args = 0, bool is_varargs = false)
       : num_args(num_args), is_varargs(is_varargs) {}
 
   /// The number of required arguments (or the minimum number for varargs
@@ -124,8 +125,7 @@ class ARROW_EXPORT Function {
   /// kernel dispatch, batch iteration, and memory allocation details taken
   /// care of.
   ///
-  /// Function implementations may assume that options is non-null and valid
-  /// or to forgo options and accept only nullptr for that argument.
+  /// If the `options` pointer is null, then `default_options()` will be used.
   ///
   /// This function can be overridden in subclasses.
   virtual Result<Datum> Execute(const std::vector<Datum>& args,

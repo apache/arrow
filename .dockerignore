@@ -55,6 +55,8 @@
 !rust/arrow-flight/Cargo.toml
 !rust/parquet/Cargo.toml
 !rust/parquet/build.rs
+!rust/parquet_derive/Cargo.toml
+!rust/parquet_derive_test/Cargo.toml
 !rust/datafusion/Cargo.toml
 !rust/datafusion/benches
 !rust/integration-testing/Cargo.toml

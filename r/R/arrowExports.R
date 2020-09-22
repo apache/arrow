@@ -928,6 +928,10 @@ fs___FileSystemFromUri <- function(path){
     .Call(`_arrow_fs___FileSystemFromUri` , path)
 }
 
+fs___CopyFiles <- function(src_fs, src_paths, dest_fs, dest_paths, chunk_size, use_threads){
+    invisible(.Call(`_arrow_fs___CopyFiles` , src_fs, src_paths, dest_fs, dest_paths, chunk_size, use_threads))
+}
+
 fs___EnsureS3Initialized <- function(){
     invisible(.Call(`_arrow_fs___EnsureS3Initialized` ))
 }
@@ -1260,8 +1264,8 @@ RecordBatch__GetColumnByName <- function(batch, name){
     .Call(`_arrow_RecordBatch__GetColumnByName` , batch, name)
 }
 
-RecordBatch__select <- function(batch, indices){
-    .Call(`_arrow_RecordBatch__select` , batch, indices)
+RecordBatch__SelectColumns <- function(batch, indices){
+    .Call(`_arrow_RecordBatch__SelectColumns` , batch, indices)
 }
 
 RecordBatch__Equals <- function(self, other, check_metadata){
@@ -1504,8 +1508,8 @@ Table__GetColumnByName <- function(table, name){
     .Call(`_arrow_Table__GetColumnByName` , table, name)
 }
 
-Table__select <- function(table, indices){
-    .Call(`_arrow_Table__select` , table, indices)
+Table__SelectColumns <- function(table, indices){
+    .Call(`_arrow_Table__SelectColumns` , table, indices)
 }
 
 all_record_batches <- function(lst){

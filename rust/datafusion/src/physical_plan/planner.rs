@@ -19,7 +19,7 @@
 
 use std::sync::Arc;
 
-use super::{empty::EmptyExec, expressions::binary, functions};
+use super::{aggregates, empty::EmptyExec, expressions::binary, functions};
 use crate::error::{ExecutionError, Result};
 use crate::execution::context::ExecutionContextState;
 use crate::logical_plan::{
@@ -27,9 +27,7 @@ use crate::logical_plan::{
 };
 use crate::physical_plan::csv::{CsvExec, CsvReadOptions};
 use crate::physical_plan::explain::ExplainExec;
-use crate::physical_plan::expressions::{
-    Avg, Column, Count, Literal, Max, Min, PhysicalSortExpr, Sum,
-};
+use crate::physical_plan::expressions::{Column, Literal, PhysicalSortExpr};
 use crate::physical_plan::filter::FilterExec;
 use crate::physical_plan::hash_aggregate::{AggregateMode, HashAggregateExec};
 use crate::physical_plan::limit::{GlobalLimitExec, LocalLimitExec};
@@ -44,6 +42,7 @@ use crate::physical_plan::{AggregateExpr, ExecutionPlan, PhysicalExpr, PhysicalP
 use crate::variable::VarType;
 use arrow::compute::SortOptions;
 use arrow::datatypes::Schema;
+use expressions::col;
 
 /// This trait permits the `DefaultPhysicalPlanner` to create plans for
 /// user defined `ExtensionPlanNode`s
@@ -218,32 +217,18 @@ impl DefaultPhysicalPlanner {
                     .collect::<Result<Vec<_>>>()?;
                 let aggregates = aggr_expr
                     .iter()
-                    .map(|e| {
-                        tuple_err((
-                            self.create_aggregate_expr(e, &input_schema, ctx_state),
-                            e.name(&input_schema),
-                        ))
-                    })
+                    .map(|e| self.create_aggregate_expr(e, &input_schema, ctx_state))
                     .collect::<Result<Vec<_>>>()?;
 
-                let initial_aggr = HashAggregateExec::try_new(
+                let initial_aggr = Arc::new(HashAggregateExec::try_new(
                     AggregateMode::Partial,
                     groups.clone(),
                     aggregates.clone(),
                     input,
-                )?;
+                )?);
 
-                if initial_aggr.output_partitioning().partition_count() == 1 {
-                    return Ok(Arc::new(initial_aggr));
-                }
-
-                let partial_aggr = Arc::new(initial_aggr);
-
-                // construct the expressions for the final aggregation
-                let (final_group, final_aggr) = partial_aggr.make_final_expr(
-                    groups.iter().map(|x| x.1.clone()).collect(),
-                    aggregates.iter().map(|x| x.1.clone()).collect(),
-                );
+                let final_group: Vec<Arc<dyn PhysicalExpr>> =
+                    (0..groups.len()).map(|i| col(&groups[i].1)).collect();
 
                 // construct a second aggregation, keeping the final column name equal to the first aggregation
                 // and the expressions corresponding to the respective aggregate
@@ -254,12 +239,8 @@ impl DefaultPhysicalPlanner {
                         .enumerate()
                         .map(|(i, expr)| (expr.clone(), groups[i].1.clone()))
                         .collect(),
-                    final_aggr
-                        .iter()
-                        .enumerate()
-                        .map(|(i, expr)| (expr.clone(), aggregates[i].1.clone()))
-                        .collect(),
-                    partial_aggr,
+                    aggregates,
+                    initial_aggr,
                 )?))
             }
             LogicalPlan::Filter {
@@ -439,6 +420,10 @@ impl DefaultPhysicalPlanner {
                 input_schema,
                 data_type.clone(),
             ),
+            Expr::Not(expr) => expressions::not(
+                self.create_physical_expr(expr, input_schema, ctx_state)?,
+                input_schema,
+            ),
             Expr::ScalarFunction { fun, args } => {
                 let physical_args = args
                     .iter()
@@ -477,38 +462,17 @@ impl DefaultPhysicalPlanner {
         ctx_state: &ExecutionContextState,
     ) -> Result<Arc<dyn AggregateExpr>> {
         match e {
-            Expr::AggregateFunction { name, args, .. } => {
-                match name.to_lowercase().as_ref() {
-                    "sum" => Ok(Arc::new(Sum::new(self.create_physical_expr(
-                        &args[0],
-                        input_schema,
-                        ctx_state,
-                    )?))),
-                    "avg" => Ok(Arc::new(Avg::new(self.create_physical_expr(
-                        &args[0],
-                        input_schema,
-                        ctx_state,
-                    )?))),
-                    "max" => Ok(Arc::new(Max::new(self.create_physical_expr(
-                        &args[0],
-                        input_schema,
-                        ctx_state,
-                    )?))),
-                    "min" => Ok(Arc::new(Min::new(self.create_physical_expr(
-                        &args[0],
-                        input_schema,
-                        ctx_state,
-                    )?))),
-                    "count" => Ok(Arc::new(Count::new(self.create_physical_expr(
-                        &args[0],
-                        input_schema,
-                        ctx_state,
-                    )?))),
-                    other => Err(ExecutionError::NotImplemented(format!(
-                        "Unsupported aggregate function '{}'",
-                        other
-                    ))),
-                }
+            Expr::AggregateFunction { fun, args, .. } => {
+                let args = args
+                    .iter()
+                    .map(|e| self.create_physical_expr(e, input_schema, ctx_state))
+                    .collect::<Result<Vec<_>>>()?;
+                aggregates::create_aggregate_expr(
+                    fun,
+                    &args,
+                    input_schema,
+                    e.name(input_schema)?,
+                )
             }
             other => Err(ExecutionError::General(format!(
                 "Invalid aggregate expression '{:?}'",
@@ -561,8 +525,8 @@ impl ExtensionPlanner for DefaultExtensionPlanner {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::logical_plan::{aggregate_expr, col, lit, LogicalPlanBuilder};
-    use crate::physical_plan::{csv::CsvReadOptions, Partitioning};
+    use crate::logical_plan::{col, lit, sum, LogicalPlanBuilder};
+    use crate::physical_plan::{csv::CsvReadOptions, expressions, Partitioning};
     use crate::{prelude::ExecutionConfig, test::arrow_testdata_path};
     use arrow::{
         datatypes::{DataType, Field, SchemaRef},
@@ -596,7 +560,7 @@ mod tests {
             // filter clause needs the type coercion rule applied
             .filter(col("c7").lt(lit(5_u8)))?
             .project(vec![col("c1"), col("c2")])?
-            .aggregate(vec![col("c1")], vec![aggregate_expr("SUM", col("c2"))])?
+            .aggregate(vec![col("c1")], vec![sum(col("c2"))])?
             .sort(vec![col("c1").sort(true, true)])?
             .limit(10)?
             .build()?;
@@ -606,6 +570,21 @@ mod tests {
         // verify that the plan correctly casts u8 to i64
         let expected = "BinaryExpr { left: Column { name: \"c7\" }, op: Lt, right: CastExpr { expr: Literal { value: UInt8(5) }, cast_type: Int64 } }";
         assert!(format!("{:?}", plan).contains(expected));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_create_not() -> Result<()> {
+        let schema = Schema::new(vec![Field::new("a", DataType::Boolean, true)]);
+
+        let planner = DefaultPhysicalPlanner::default();
+
+        let expr =
+            planner.create_physical_expr(&col("a").not(), &schema, &make_ctx_state())?;
+        let expected = expressions::not(expressions::col("a"), &schema)?;
+
+        assert_eq!(format!("{:?}", expr), format!("{:?}", expected));
 
         Ok(())
     }

@@ -32,6 +32,8 @@
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/checked_cast.h"
+#include "arrow/util/decimal.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
@@ -42,24 +44,24 @@ namespace arrow {
 
 namespace internal {
 
-template <typename T>
-struct DictionaryScalar {
+template <typename T, typename Enable = void>
+struct DictionaryValue {
   using type = typename T::c_type;
+  using PhysicalType = T;
 };
 
-template <>
-struct DictionaryScalar<BinaryType> {
+template <typename T>
+struct DictionaryValue<T, enable_if_base_binary<T>> {
   using type = util::string_view;
+  using PhysicalType =
+      typename std::conditional<std::is_same<typename T::offset_type, int32_t>::value,
+                                BinaryType, LargeBinaryType>::type;
 };
 
-template <>
-struct DictionaryScalar<StringType> {
+template <typename T>
+struct DictionaryValue<T, enable_if_fixed_size_binary<T>> {
   using type = util::string_view;
-};
-
-template <>
-struct DictionaryScalar<FixedSizeBinaryType> {
-  using type = util::string_view;
+  using PhysicalType = BinaryType;
 };
 
 class ARROW_EXPORT DictionaryMemoTable {
@@ -68,19 +70,6 @@ class ARROW_EXPORT DictionaryMemoTable {
   DictionaryMemoTable(MemoryPool* pool, const std::shared_ptr<Array>& dictionary);
   ~DictionaryMemoTable();
 
-  Status GetOrInsert(bool value, int32_t* out);
-  Status GetOrInsert(int8_t value, int32_t* out);
-  Status GetOrInsert(int16_t value, int32_t* out);
-  Status GetOrInsert(int32_t value, int32_t* out);
-  Status GetOrInsert(int64_t value, int32_t* out);
-  Status GetOrInsert(uint8_t value, int32_t* out);
-  Status GetOrInsert(uint16_t value, int32_t* out);
-  Status GetOrInsert(uint32_t value, int32_t* out);
-  Status GetOrInsert(uint64_t value, int32_t* out);
-  Status GetOrInsert(float value, int32_t* out);
-  Status GetOrInsert(double value, int32_t* out);
-  Status GetOrInsert(util::string_view value, int32_t* out);
-
   Status GetArrayData(int64_t start_offset, std::shared_ptr<ArrayData>* out);
 
   /// \brief Insert new memo values
@@ -88,7 +77,31 @@ class ARROW_EXPORT DictionaryMemoTable {
 
   int32_t size() const;
 
+  template <typename T>
+  Status GetOrInsert(typename DictionaryValue<T>::type value, int32_t* out) {
+    // We want to keep the DictionaryMemoTable implementation private, also we can't
+    // use extern template classes because of compiler issues (MinGW?).  Instead,
+    // we expose explicit function overrides for each supported physical type.
+    const typename DictionaryValue<T>::PhysicalType* physical_type = NULLPTR;
+    return GetOrInsert(physical_type, value, out);
+  }
+
  private:
+  Status GetOrInsert(const BooleanType*, bool value, int32_t* out);
+  Status GetOrInsert(const Int8Type*, int8_t value, int32_t* out);
+  Status GetOrInsert(const Int16Type*, int16_t value, int32_t* out);
+  Status GetOrInsert(const Int32Type*, int32_t value, int32_t* out);
+  Status GetOrInsert(const Int64Type*, int64_t value, int32_t* out);
+  Status GetOrInsert(const UInt8Type*, uint8_t value, int32_t* out);
+  Status GetOrInsert(const UInt16Type*, uint16_t value, int32_t* out);
+  Status GetOrInsert(const UInt32Type*, uint32_t value, int32_t* out);
+  Status GetOrInsert(const UInt64Type*, uint64_t value, int32_t* out);
+  Status GetOrInsert(const FloatType*, float value, int32_t* out);
+  Status GetOrInsert(const DoubleType*, double value, int32_t* out);
+
+  Status GetOrInsert(const BinaryType*, util::string_view value, int32_t* out);
+  Status GetOrInsert(const LargeBinaryType*, util::string_view value, int32_t* out);
+
   class DictionaryMemoTableImpl;
   std::unique_ptr<DictionaryMemoTableImpl> impl_;
 };
@@ -101,7 +114,8 @@ class ARROW_EXPORT DictionaryMemoTable {
 template <typename BuilderType, typename T>
 class DictionaryBuilderBase : public ArrayBuilder {
  public:
-  using Scalar = typename DictionaryScalar<T>::type;
+  using TypeClass = DictionaryType;
+  using Value = typename DictionaryValue<T>::type;
 
   // WARNING: the type given below is the value type, not the DictionaryType.
   // The DictionaryType is instantiated on the Finish() call.
@@ -177,11 +191,11 @@ class DictionaryBuilderBase : public ArrayBuilder {
   int64_t dictionary_length() const { return memo_table_->size(); }
 
   /// \brief Append a scalar value
-  Status Append(const Scalar& value) {
+  Status Append(Value value) {
     ARROW_RETURN_NOT_OK(Reserve(1));
 
     int32_t memo_index;
-    ARROW_RETURN_NOT_OK(memo_table_->GetOrInsert(value, &memo_index));
+    ARROW_RETURN_NOT_OK(memo_table_->GetOrInsert<T>(value, &memo_index));
     ARROW_RETURN_NOT_OK(indices_builder_.Append(memo_index));
     length_ += 1;
 
@@ -216,6 +230,14 @@ class DictionaryBuilderBase : public ArrayBuilder {
   template <typename T1 = T>
   enable_if_string_like<T1, Status> Append(const char* value, int32_t length) {
     return Append(util::string_view(value, length));
+  }
+
+  /// \brief Append a decimal (only for Decimal128Type)
+  template <typename T1 = T>
+  enable_if_decimal<T1, Status> Append(const Decimal128& value) {
+    uint8_t data[16];
+    value.ToBytes(data);
+    return Append(data, 16);
   }
 
   /// \brief Append a scalar null value

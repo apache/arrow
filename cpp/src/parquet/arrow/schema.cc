@@ -447,7 +447,6 @@ Status GroupToStruct(const GroupNode& node, LevelInfo current_levels,
                      SchemaField* out) {
   std::vector<std::shared_ptr<Field>> arrow_fields;
   out->children.resize(node.field_count());
-
   // All level increments for the node are expected to happen by callers.
   // This is required because repeated elements need to have there own
   // SchemaField.

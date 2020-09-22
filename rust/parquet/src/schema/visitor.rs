@@ -203,7 +203,7 @@ mod tests {
                 .get_fields()
                 .iter()
                 .find(|t| t.name() == name)
-                .map(|t| t.clone())
+                .cloned()
                 .unwrap()
         }
     }

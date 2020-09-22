@@ -231,10 +231,10 @@ mod tests {
         let value_data = Int32Array::from((0..10).collect::<Vec<i32>>()).data();
         let value_offsets = Buffer::from(&[0, 2, 5, 10].to_byte_slice());
         let list_data_type = DataType::List(Box::new(DataType::Int32));
-        let list_data = ArrayData::builder(list_data_type.clone())
+        let list_data = ArrayData::builder(list_data_type)
             .len(3)
-            .add_buffer(value_offsets.clone())
-            .add_child_data(value_data.clone())
+            .add_buffer(value_offsets)
+            .add_child_data(value_data)
             .build();
         let array = Arc::new(ListArray::from(list_data)) as ArrayRef;
         let index = UInt32Array::from(vec![2, 0]);

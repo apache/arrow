@@ -2447,19 +2447,22 @@ class TestConvertMisc:
             expected = pd.DataFrame({'a': expected})
             tm.assert_frame_equal(result, expected)
 
-    def test_mixed_types_fails(self):
-        data = pd.DataFrame({'a': ['a', 1, 2.0]})
-        with pytest.raises(pa.ArrowTypeError):
-            pa.Table.from_pandas(data)
-
-        data = pd.DataFrame({'a': [1, True]})
-        with pytest.raises(pa.ArrowTypeError):
-            pa.Table.from_pandas(data)
-
-        data = pd.DataFrame({'a': ['a', 1, 2.0]})
-        expected_msg = 'Conversion failed for column a'
-        with pytest.raises(pa.ArrowTypeError, match=expected_msg):
-            pa.Table.from_pandas(data)
+    @pytest.mark.parametrize(
+        "data,error_type",
+        [
+            ({"a": ["a", 1, 2.0]}, pa.ArrowTypeError),
+            ({"a": ["a", 1, 2.0]}, pa.ArrowTypeError),
+            ({"a": [1, True]}, pa.ArrowTypeError),
+            ({"a": [True, "a"]}, pa.ArrowInvalid),
+            ({"a": [1, "a"]}, pa.ArrowInvalid),
+            ({"a": [1.0, "a"]}, pa.ArrowInvalid),
+        ],
+    )
+    def test_mixed_types_fails(self, data, error_type):
+        df = pd.DataFrame(data)
+        msg = "Conversion failed for column a with type object"
+        with pytest.raises(error_type, match=msg):
+            pa.Table.from_pandas(df)
 
     def test_strided_data_import(self):
         cases = []
@@ -3531,11 +3534,10 @@ def test_dictionary_from_pandas_specified_type():
     assert result.type.equals(typ)
     assert result.to_pylist() == ['a', 'b']
 
-    # mismatching values type -> raise error (for now a deprecation warning)
+    # mismatching values type -> raise error
     typ = pa.dictionary(index_type=pa.int8(), value_type=pa.int64())
-    with pytest.warns(FutureWarning):
+    with pytest.raises(pa.ArrowInvalid):
         result = pa.array(cat, type=typ)
-    assert result.to_pylist() == ['a', 'b']
 
     # mismatching order -> raise error (for now a deprecation warning)
     typ = pa.dictionary(

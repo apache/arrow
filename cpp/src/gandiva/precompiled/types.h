@@ -156,6 +156,8 @@ gdv_int32 bitwise_and_int32_int32(gdv_int32 in1, gdv_int32 in2);
 gdv_int64 bitwise_and_int64_int64(gdv_int64 in1, gdv_int64 in2);
 gdv_int32 bitwise_or_int32_int32(gdv_int32 in1, gdv_int32 in2);
 gdv_int64 bitwise_or_int64_int64(gdv_int64 in1, gdv_int64 in2);
+gdv_int32 bitwise_xor_int32_int32(gdv_int32 in1, gdv_int32 in2);
+gdv_int64 bitwise_xor_int64_int64(gdv_int64 in1, gdv_int64 in2);
 gdv_int32 bitwise_not_int32(gdv_int32);
 gdv_int64 bitwise_not_int64(gdv_int64);
 

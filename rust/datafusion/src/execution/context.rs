@@ -36,7 +36,7 @@ use crate::datasource::parquet::ParquetTable;
 use crate::datasource::TableProvider;
 use crate::error::{ExecutionError, Result};
 use crate::execution::dataframe_impl::DataFrameImpl;
-use crate::logical_plan::{Expr, FunctionRegistry, LogicalPlan, LogicalPlanBuilder};
+use crate::logical_plan::{FunctionRegistry, LogicalPlan, LogicalPlanBuilder};
 use crate::optimizer::filter_push_down::FilterPushDown;
 use crate::optimizer::optimizer::OptimizerRule;
 use crate::optimizer::projection_push_down::ProjectionPushDown;
@@ -494,17 +494,14 @@ impl FunctionRegistry for ExecutionContextState {
         self.scalar_functions.keys().cloned().collect()
     }
 
-    fn udf(&self, name: &str, args: Vec<Expr>) -> Result<Expr> {
+    fn udf(&self, name: &str) -> Result<&ScalarUDF> {
         let result = self.scalar_functions.get(name);
         if result.is_none() {
             Err(ExecutionError::General(
                 format!("There is no UDF named \"{}\" in the registry", name).to_string(),
             ))
         } else {
-            Ok(Expr::ScalarUDF {
-                fun: result.unwrap().clone(),
-                args,
-            })
+            Ok(result.unwrap())
         }
     }
 }
@@ -514,15 +511,18 @@ mod tests {
 
     use super::*;
     use crate::datasource::MemTable;
-    use crate::logical_plan::{aggregate_expr, col, create_udf};
+    use crate::logical_plan::{col, create_udf, sum};
     use crate::physical_plan::functions::ScalarFunctionImplementation;
     use crate::test;
     use crate::variable::VarType;
-    use arrow::array::{ArrayRef, Int32Array, StringArray};
+    use arrow::array::{
+        ArrayRef, Float64Array, Int32Array, PrimitiveArrayOps, StringArray,
+        StringArrayOps,
+    };
     use arrow::compute::add;
     use std::fs::File;
     use std::{io::prelude::*, sync::Mutex};
-    use tempdir::TempDir;
+    use tempfile::TempDir;
     use test::*;
 
     #[test]
@@ -546,7 +546,7 @@ mod tests {
 
     #[test]
     fn create_variable_expr() -> Result<()> {
-        let tmp_dir = TempDir::new("variable_expr")?;
+        let tmp_dir = TempDir::new()?;
         let partition_count = 4;
         let mut ctx = create_ctx(&tmp_dir, partition_count)?;
 
@@ -584,7 +584,7 @@ mod tests {
 
     #[test]
     fn parallel_query_with_filter() -> Result<()> {
-        let tmp_dir = TempDir::new("parallel_query_with_filter")?;
+        let tmp_dir = TempDir::new()?;
         let partition_count = 4;
         let mut ctx = create_ctx(&tmp_dir, partition_count)?;
 
@@ -607,7 +607,7 @@ mod tests {
 
     #[test]
     fn projection_on_table_scan() -> Result<()> {
-        let tmp_dir = TempDir::new("projection_on_table_scan")?;
+        let tmp_dir = TempDir::new()?;
         let partition_count = 4;
         let mut ctx = create_ctx(&tmp_dir, partition_count)?;
 
@@ -651,7 +651,7 @@ mod tests {
 
     #[test]
     fn preserve_nullability_on_projection() -> Result<()> {
-        let tmp_dir = TempDir::new("execute")?;
+        let tmp_dir = TempDir::new()?;
         let ctx = create_ctx(&tmp_dir, 1)?;
 
         let schema = ctx.state.datasources.get("test").unwrap().schema();
@@ -849,6 +849,24 @@ mod tests {
     }
 
     #[test]
+    fn aggregate_grouped_empty() -> Result<()> {
+        let results =
+            execute("SELECT c1, AVG(c2) FROM test WHERE c1 = 123 GROUP BY c1", 4)?;
+        assert_eq!(results.len(), 1);
+
+        let batch = &results[0];
+
+        assert_eq!(field_names(batch), vec!["c1", "AVG(c2)"]);
+
+        let expected: Vec<&str> = vec![];
+        let mut rows = test::format_batch(&batch);
+        rows.sort();
+        assert_eq!(rows, expected);
+
+        Ok(())
+    }
+
+    #[test]
     fn aggregate_grouped_max() -> Result<()> {
         let results = execute("SELECT c1, MAX(c2) FROM test GROUP BY c1", 4)?;
         assert_eq!(results.len(), 1);
@@ -932,7 +950,7 @@ mod tests {
 
     #[test]
     fn aggregate_with_alias() -> Result<()> {
-        let tmp_dir = TempDir::new("execute")?;
+        let tmp_dir = TempDir::new()?;
         let ctx = create_ctx(&tmp_dir, 1)?;
 
         let schema = Arc::new(Schema::new(vec![
@@ -941,7 +959,7 @@ mod tests {
         ]));
 
         let plan = LogicalPlanBuilder::scan("default", "test", schema.as_ref(), None)?
-            .aggregate(vec![col("c1")], vec![aggregate_expr("SUM", col("c2"))])?
+            .aggregate(vec![col("c1")], vec![sum(col("c2"))])?
             .project(vec![col("c1"), col("SUM(c2)").alias("total_salary")])?
             .build()?;
 
@@ -959,7 +977,7 @@ mod tests {
     #[test]
     fn write_csv_results() -> Result<()> {
         // create partitioned input file and context
-        let tmp_dir = TempDir::new("write_csv_results_temp")?;
+        let tmp_dir = TempDir::new()?;
         let mut ctx = create_ctx(&tmp_dir, 4)?;
 
         // execute a simple query and write the results to CSV
@@ -1005,7 +1023,7 @@ mod tests {
 
     #[test]
     fn query_csv_with_custom_partition_extension() -> Result<()> {
-        let tmp_dir = TempDir::new("query_csv_with_custom_partition_extension")?;
+        let tmp_dir = TempDir::new()?;
 
         // The main stipulation of this test: use a file extension that isn't .csv.
         let file_extension = ".tst";
@@ -1032,7 +1050,7 @@ mod tests {
     fn send_context_to_threads() -> Result<()> {
         // ensure ExecutionContexts can be used in a multi-threaded
         // environment. Usecase is for concurrent planing.
-        let tmp_dir = TempDir::new("send_context_to_threads")?;
+        let tmp_dir = TempDir::new()?;
         let partition_count = 4;
         let ctx = Arc::new(Mutex::new(create_ctx(&tmp_dir, partition_count)?));
 
@@ -1103,7 +1121,7 @@ mod tests {
             .project(vec![
                 col("a"),
                 col("b"),
-                ctx.registry().udf("my_add", vec![col("a"), col("b")])?,
+                ctx.registry().udf("my_add")?.call(vec![col("a"), col("b")]),
             ])?
             .build()?;
 
@@ -1144,6 +1162,41 @@ mod tests {
             assert_eq!(a.value(i) + b.value(i), sum.value(i));
         }
 
+        Ok(())
+    }
+
+    #[test]
+    fn simple_avg() -> Result<()> {
+        let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
+
+        let batch1 = RecordBatch::try_new(
+            Arc::new(schema.clone()),
+            vec![Arc::new(Int32Array::from(vec![1, 2, 3]))],
+        )?;
+        let batch2 = RecordBatch::try_new(
+            Arc::new(schema.clone()),
+            vec![Arc::new(Int32Array::from(vec![4, 5]))],
+        )?;
+
+        let mut ctx = ExecutionContext::new();
+
+        let provider = MemTable::new(Arc::new(schema), vec![vec![batch1], vec![batch2]])?;
+        ctx.register_table("t", Box::new(provider));
+
+        let result = collect(&mut ctx, "SELECT AVG(a) FROM t")?;
+
+        let batch = &result[0];
+        assert_eq!(1, batch.num_columns());
+        assert_eq!(1, batch.num_rows());
+
+        let values = batch
+            .column(0)
+            .as_any()
+            .downcast_ref::<Float64Array>()
+            .expect("failed to cast version");
+        assert_eq!(values.len(), 1);
+        // avg(1,2,3,4,5) = 3.0
+        assert_eq!(values.value(0), 3.0_f64);
         Ok(())
     }
 
@@ -1204,7 +1257,7 @@ mod tests {
 
     /// Execute SQL and return results
     fn execute(sql: &str, partition_count: usize) -> Result<Vec<RecordBatch>> {
-        let tmp_dir = TempDir::new("execute")?;
+        let tmp_dir = TempDir::new()?;
         let mut ctx = create_ctx(&tmp_dir, partition_count)?;
         collect(&mut ctx, sql)
     }

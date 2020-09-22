@@ -19,6 +19,8 @@
 
 # Native Rust implementation of Apache Arrow
 
+[![Coverage Status](https://codecov.io/gh/apache/arrow/rust/branch/master/graph/badge.svg)](https://codecov.io/gh/apache/arrow?branch=master)
+
 ## The Rust implementation of Arrow consists of the following crates
 
 | Crate     | Description | Documentation |
@@ -65,6 +67,25 @@ and check for lint issues:
 ```bash
 cargo +stable fmt --all -- --check
 ```
+
+## Clippy Lints
+
+We recommend using `clippy` for checking lints during development. While we do not yet enforce `clippy` checks, we recommend not introducing new `clippy` errors or warnings.
+
+Run the following to check for clippy lints.
+
+```
+cargo clippy
+```
+
+If you use Visual Studio Code with the `rust-analyzer` plugin, you can enable `clippy` to run each time you save a file. See https://users.rust-lang.org/t/how-to-use-clippy-in-vs-code-with-rust-analyzer/41881.
+
+One of the concerns with `clippy` is that it often produces a lot of false positives, or that some recommendations may hurt readability. We do not have a policy of which lints are ignored, but if you disagree with a `clippy` lint, you may disable the lint and briefly justify it.
+
+Search for `allow(clippy::` in the codebase to identify lints that are ignored/allowed. We currently prefer ignoring lints on the lowest unit possible.
+* If you are introducing a line that returns a lint warning or error, you may disable the lint on that line.
+* If you have several lints on a function or module, you may disable the lint on the function or module.
+* If a lint is pervasive across multiple modules, you may disable it at the crate level.
 
 ## CI and Dockerized builds
 

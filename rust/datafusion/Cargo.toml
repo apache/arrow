@@ -56,8 +56,9 @@ num_cpus = "1.13.0"
 chrono = "0.4"
 
 [dev-dependencies]
+rand = "0.7"
 criterion = "0.3"
-tempdir = "0.3"
+tempfile = "3"
 futures = "0.3"
 prost = "0.6"
 tokio = { version = "0.2", features = ["macros"] }

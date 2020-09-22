@@ -442,14 +442,7 @@ pub(super) fn buffer_bin_and(
     // Default implementation
     #[allow(unreachable_code)]
     {
-        return bitwise_bin_op_helper(
-            &left,
-            left_offset,
-            right,
-            right_offset,
-            len,
-            |a, b| a & b,
-        );
+        bitwise_bin_op_helper(&left, left_offset, right, right_offset, len, |a, b| a & b)
     }
 }
 
@@ -476,14 +469,7 @@ pub(super) fn buffer_bin_or(
     // Default implementation
     #[allow(unreachable_code)]
     {
-        return bitwise_bin_op_helper(
-            &left,
-            left_offset,
-            right,
-            right_offset,
-            len,
-            |a, b| a | b,
-        );
+        bitwise_bin_op_helper(&left, left_offset, right, right_offset, len, |a, b| a | b)
     }
 }
 
@@ -496,7 +482,7 @@ pub(super) fn buffer_unary_not(left: &Buffer, left_offset: usize, len: usize) ->
     // Default implementation
     #[allow(unreachable_code)]
     {
-        return bitwise_unary_op_helper(&left, left_offset, len, |a| !a);
+        bitwise_unary_op_helper(&left, left_offset, len, |a| !a)
     }
 }
 
@@ -820,7 +806,7 @@ mod tests {
     #[test]
     fn test_copy() {
         let buf = Buffer::from(&[0, 1, 2, 3, 4]);
-        let buf2 = buf.clone();
+        let buf2 = buf;
         assert_eq!(5, buf2.len());
         assert_eq!(64, buf2.capacity());
         assert!(!buf2.raw_data().is_null());
@@ -921,19 +907,19 @@ mod tests {
     #[test]
     fn test_mutable_write() {
         let mut buf = MutableBuffer::new(100);
-        buf.write("hello".as_bytes()).expect("Ok");
+        buf.write_all(b"hello").expect("Ok");
         assert_eq!(5, buf.len());
-        assert_eq!("hello".as_bytes(), buf.data());
+        assert_eq!(b"hello", buf.data());
 
-        buf.write(" world".as_bytes()).expect("Ok");
+        buf.write_all(b" world").expect("Ok");
         assert_eq!(11, buf.len());
-        assert_eq!("hello world".as_bytes(), buf.data());
+        assert_eq!(b"hello world", buf.data());
 
         buf.clear();
         assert_eq!(0, buf.len());
-        buf.write("hello arrow".as_bytes()).expect("Ok");
+        buf.write_all(b"hello arrow").expect("Ok");
         assert_eq!(11, buf.len());
-        assert_eq!("hello arrow".as_bytes(), buf.data());
+        assert_eq!(b"hello arrow", buf.data());
     }
 
     #[test]
@@ -942,7 +928,7 @@ mod tests {
         let mut buf = MutableBuffer::new(1);
         assert_eq!(64, buf.capacity());
         for _ in 0..10 {
-            buf.write(&[0, 0, 0, 0, 0, 0, 0, 0]).unwrap();
+            buf.write_all(&[0, 0, 0, 0, 0, 0, 0, 0]).unwrap();
         }
     }
 
@@ -991,16 +977,16 @@ mod tests {
     #[test]
     fn test_mutable_freeze() {
         let mut buf = MutableBuffer::new(1);
-        buf.write("aaaa bbbb cccc dddd".as_bytes())
+        buf.write_all(b"aaaa bbbb cccc dddd")
             .expect("write should be OK");
         assert_eq!(19, buf.len());
         assert_eq!(64, buf.capacity());
-        assert_eq!("aaaa bbbb cccc dddd".as_bytes(), buf.data());
+        assert_eq!(b"aaaa bbbb cccc dddd", buf.data());
 
         let immutable_buf = buf.freeze();
         assert_eq!(19, immutable_buf.len());
         assert_eq!(64, immutable_buf.capacity());
-        assert_eq!("aaaa bbbb cccc dddd".as_bytes(), immutable_buf.data());
+        assert_eq!(b"aaaa bbbb cccc dddd", immutable_buf.data());
     }
 
     #[test]
@@ -1008,11 +994,11 @@ mod tests {
         let mut buf = MutableBuffer::new(1);
         let mut buf2 = MutableBuffer::new(1);
 
-        buf.write(&[0xaa])?;
-        buf2.write(&[0xaa, 0xbb])?;
+        buf.write_all(&[0xaa])?;
+        buf2.write_all(&[0xaa, 0xbb])?;
         assert!(buf != buf2);
 
-        buf.write(&[0xbb])?;
+        buf.write_all(&[0xbb])?;
         assert_eq!(buf, buf2);
 
         buf2.reserve(65)?;
@@ -1029,7 +1015,7 @@ mod tests {
 
         let buffer_copy = thread::spawn(move || {
             // access buffer in another thread.
-            buffer.clone()
+            buffer
         })
         .join();
 
@@ -1046,6 +1032,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn test_as_typed_data() {
         check_as_typed_data!(&[1i8, 3i8, 6i8], i8);
         check_as_typed_data!(&[1u8, 3u8, 6u8], u8);

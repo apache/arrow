@@ -1096,8 +1096,7 @@ cdef class ParquetFileFormat(FileFormat):
                 coerce_timestamps=write_options.get("coerce_timestamps", None),
                 allow_truncated_timestamps=write_options.get(
                     "allow_truncated_timestamps", False),
-                writer_engine_version=os.environ.get(
-                    "ARROW_PARQUET_WRITER_ENGINE", "V2")
+                writer_engine_version="V2"
             )
             wrapped.get().writer_properties = properties
             wrapped.get().arrow_writer_properties = arrow_properties

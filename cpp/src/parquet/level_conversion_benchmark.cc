@@ -34,15 +34,17 @@ constexpr int16_t kHasRepeatedElements = 1;
 
 std::vector<uint8_t> RunDefinitionLevelsToBitmap(const std::vector<int16_t>& def_levels,
                                                  ::benchmark::State* state) {
-  int64_t values_read = 0;
-  int64_t null_count = 0;
   std::vector<uint8_t> bitmap(/*count=*/def_levels.size(), 0);
-  int rep = 0;
+  parquet::internal::LevelInfo info;
+  info.def_level = kHasRepeatedElements;
+  info.repeated_ancestor_def_level = kPresentDefLevel;
+  info.rep_level = 1;
+  parquet::internal::ValidityBitmapInputOutput validity_io;
+  validity_io.values_read_upper_bound = def_levels.size();
+  validity_io.valid_bits = bitmap.data();
   for (auto _ : *state) {
-    parquet::internal::DefinitionLevelsToBitmap(
-        def_levels.data(), def_levels.size(), /*max_definition_level=*/kPresentDefLevel,
-        /*max_repetition_level=*/kHasRepeatedElements, &values_read, &null_count,
-        bitmap.data(), /*valid_bits_offset=*/(rep++ % 8) * def_levels.size());
+    parquet::internal::DefLevelsToBitmap(def_levels.data(), def_levels.size(), info,
+                                         &validity_io);
   }
   state->SetBytesProcessed(int64_t(state->iterations()) * def_levels.size());
   return bitmap;

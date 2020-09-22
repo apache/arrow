@@ -36,7 +36,12 @@
 #'   df <- read_json_arrow(tf)
 #' }
 read_json_arrow <- function(file, col_select = NULL, as_data_frame = TRUE, ...) {
-  tab <- JsonTableReader$create(file, ...)$Read()$select(!!enquo(col_select))
+  tab <- JsonTableReader$create(file, ...)$Read()
+
+  col_select <- enquo(col_select)
+  if (!quo_is_null(col_select)) {
+    tab <- tab[vars_select(names(tab), !!col_select)]
+  }
 
   if (isTRUE(as_data_frame)) {
     tab <- as.data.frame(tab)

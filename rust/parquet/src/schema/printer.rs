@@ -56,11 +56,11 @@ use crate::schema::types::Type;
 #[allow(unused_must_use)]
 pub fn print_parquet_metadata(out: &mut io::Write, metadata: &ParquetMetaData) {
     print_file_metadata(out, &metadata.file_metadata());
-    writeln!(out, "");
-    writeln!(out, "");
+    writeln!(out);
+    writeln!(out);
     writeln!(out, "num of row groups: {}", metadata.num_row_groups());
     writeln!(out, "row groups:");
-    writeln!(out, "");
+    writeln!(out);
     for (i, rg) in metadata.row_groups().iter().enumerate() {
         writeln!(out, "row group {}:", i);
         print_dashes(out, 80);
@@ -109,11 +109,11 @@ pub fn print_schema(out: &mut io::Write, tp: &Type) {
 fn print_row_group_metadata(out: &mut io::Write, rg_metadata: &RowGroupMetaData) {
     writeln!(out, "total byte size: {}", rg_metadata.total_byte_size());
     writeln!(out, "num of rows: {}", rg_metadata.num_rows());
-    writeln!(out, "");
+    writeln!(out);
     writeln!(out, "num of columns: {}", rg_metadata.num_columns());
     writeln!(out, "columns: ");
     for (i, cc) in rg_metadata.columns().iter().enumerate() {
-        writeln!(out, "");
+        writeln!(out);
         writeln!(out, "column {}:", i);
         print_dashes(out, 80);
         print_column_chunk_metadata(out, cc);
@@ -163,7 +163,7 @@ fn print_column_chunk_metadata(out: &mut io::Write, cc_metadata: &ColumnChunkMet
         Some(stats) => stats.to_string(),
     };
     writeln!(out, "statistics: {}", statistics_str);
-    writeln!(out, "");
+    writeln!(out);
 }
 
 #[allow(unused_must_use)]
@@ -171,7 +171,7 @@ fn print_dashes(out: &mut io::Write, num: i32) {
     for _ in 0..num {
         write!(out, "-");
     }
-    writeln!(out, "");
+    writeln!(out);
 }
 
 const INDENT_WIDTH: i32 = 2;
@@ -199,8 +199,8 @@ impl<'a> Printer<'a> {
 impl<'a> Printer<'a> {
     pub fn print(&mut self, tp: &Type) {
         self.print_indent();
-        match tp {
-            &Type::PrimitiveType {
+        match *tp {
+            Type::PrimitiveType {
                 ref basic_info,
                 physical_type,
                 type_length,
@@ -239,7 +239,7 @@ impl<'a> Printer<'a> {
                     logical_type_str
                 );
             }
-            &Type::GroupType {
+            Type::GroupType {
                 ref basic_info,
                 ref fields,
             } => {
@@ -257,7 +257,7 @@ impl<'a> Printer<'a> {
                 self.indent += INDENT_WIDTH;
                 for c in fields {
                     self.print(&c);
-                    writeln!(self.output, "");
+                    writeln!(self.output);
                 }
                 self.indent -= INDENT_WIDTH;
                 self.print_indent();
@@ -291,14 +291,14 @@ mod tests {
         let mut s = String::new();
         {
             let mut p = Printer::new(&mut s);
-            let foo = Type::primitive_type_builder("foo", PhysicalType::INT32)
+            let field = Type::primitive_type_builder("field", PhysicalType::INT32)
                 .with_repetition(Repetition::REQUIRED)
                 .with_logical_type(LogicalType::INT_32)
                 .build()
                 .unwrap();
-            p.print(&foo);
+            p.print(&field);
         }
-        assert_eq!(&mut s, "REQUIRED INT32 foo (INT_32);");
+        assert_eq!(&mut s, "REQUIRED INT32 field (INT_32);");
     }
 
     #[test]
@@ -306,13 +306,13 @@ mod tests {
         let mut s = String::new();
         {
             let mut p = Printer::new(&mut s);
-            let foo = Type::primitive_type_builder("foo", PhysicalType::DOUBLE)
+            let field = Type::primitive_type_builder("field", PhysicalType::DOUBLE)
                 .with_repetition(Repetition::REQUIRED)
                 .build()
                 .unwrap();
-            p.print(&foo);
+            p.print(&field);
         }
-        assert_eq!(&mut s, "REQUIRED DOUBLE foo;");
+        assert_eq!(&mut s, "REQUIRED DOUBLE field;");
     }
 
     #[test]
@@ -339,14 +339,14 @@ mod tests {
             let mut struct_fields = Vec::new();
             struct_fields.push(Rc::new(f1.unwrap()));
             struct_fields.push(Rc::new(f2.unwrap()));
-            let foo = Type::group_type_builder("foo")
+            let field = Type::group_type_builder("field")
                 .with_repetition(Repetition::OPTIONAL)
                 .with_fields(&mut struct_fields)
                 .with_id(1)
                 .build()
                 .unwrap();
             let mut fields = Vec::new();
-            fields.push(Rc::new(foo));
+            fields.push(Rc::new(field));
             fields.push(Rc::new(f3.unwrap()));
             let message = Type::group_type_builder("schema")
                 .with_fields(&mut fields)
@@ -356,7 +356,7 @@ mod tests {
             p.print(&message);
         }
         let expected = "message schema {
-  OPTIONAL group foo {
+  OPTIONAL group field {
     REQUIRED INT32 f1 (INT_32);
     OPTIONAL BYTE_ARRAY f2 (UTF8);
   }
@@ -432,7 +432,7 @@ mod tests {
             .build()
             .unwrap();
 
-        let foo = Type::group_type_builder("foo")
+        let field = Type::group_type_builder("field")
             .with_repetition(Repetition::OPTIONAL)
             .with_fields(&mut vec![Rc::new(f1), Rc::new(f2)])
             .build()
@@ -446,7 +446,7 @@ mod tests {
             .unwrap();
 
         let message = Type::group_type_builder("schema")
-            .with_fields(&mut vec![Rc::new(foo), Rc::new(f3)])
+            .with_fields(&mut vec![Rc::new(field), Rc::new(f3)])
             .build()
             .unwrap();
 

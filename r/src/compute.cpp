@@ -168,7 +168,7 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
     using Options = arrow::compute::MinMaxOptions;
     auto out = std::make_shared<Options>(Options::Defaults());
     out->null_handling =
-        cpp11::as_cpp<bool>(options["na.rm"]) ? Options::SKIP : Options::OUTPUT_NULL;
+        cpp11::as_cpp<bool>(options["na.rm"]) ? Options::SKIP : Options::EMIT_NULL;
     return out;
   }
 

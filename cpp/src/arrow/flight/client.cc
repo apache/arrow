@@ -25,6 +25,7 @@
 #include <mutex>
 #include <sstream>
 #include <string>
+#include <unordered_map>
 #include <utility>
 
 #ifdef GRPCPP_PP_INCLUDE
@@ -867,13 +868,17 @@ class FlightClient::FlightClientImpl {
     }
 
     grpc::ChannelArguments args;
+    // We can't set the same config value twice, so for values where
+    // we want to set defaults, keep them in a map and update them;
+    // then update them all at once
+    std::unordered_map<std::string, int> default_args;
     // Try to reconnect quickly at first, in case the server is still starting up
-    args.SetInt(GRPC_ARG_INITIAL_RECONNECT_BACKOFF_MS, 100);
+    default_args[GRPC_ARG_INITIAL_RECONNECT_BACKOFF_MS] = 100;
     // Receive messages of any size
-    args.SetMaxReceiveMessageSize(-1);
+    default_args[GRPC_ARG_MAX_RECEIVE_MESSAGE_LENGTH] = -1;
     // Setting this arg enables each client to open it's own TCP connection to server,
     // not sharing one single connection, which becomes bottleneck under high load.
-    args.SetInt(GRPC_ARG_USE_LOCAL_SUBCHANNEL_POOL, 1);
+    default_args[GRPC_ARG_USE_LOCAL_SUBCHANNEL_POOL] = 1;
 
     if (options.override_hostname != "") {
       args.SetSslTargetNameOverride(options.override_hostname);
@@ -882,11 +887,14 @@ class FlightClient::FlightClientImpl {
     // Allow setting generic gRPC options.
     for (const auto& arg : options.generic_options) {
       if (util::holds_alternative<int>(arg.second)) {
-        args.SetInt(arg.first, util::get<int>(arg.second));
+        default_args[arg.first] = util::get<int>(arg.second);
       } else if (util::holds_alternative<std::string>(arg.second)) {
         args.SetString(arg.first, util::get<std::string>(arg.second));
       }
       // Otherwise unimplemented
+    }
+    for (const auto& pair : default_args) {
+      args.SetInt(pair.first, pair.second);
     }
 
     std::vector<std::unique_ptr<grpc::experimental::ClientInterceptorFactoryInterface>>

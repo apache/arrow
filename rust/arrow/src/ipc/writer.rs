@@ -32,9 +32,76 @@ use crate::ipc;
 use crate::record_batch::RecordBatch;
 use crate::util::bit_util;
 
+use ipc::CONTINUATION_MARKER;
+
+/// IPC write options used to control the behaviour of the writer
+#[derive(Debug)]
+pub struct IpcWriteOptions {
+    /// Write padding after memory buffers to this multiple of bytes.
+    /// Generally 8 or 64, defaults to 8
+    alignment: usize,
+    /// The legacy format is for releases before 0.15.0, and uses metadata V4
+    write_legacy_ipc_format: bool,
+    /// The metadata version to write. The Rust IPC writer supports V4+
+    metadata_version: ipc::MetadataVersion,
+}
+
+impl IpcWriteOptions {
+    /// Try create IpcWriteOptions, checking for incompatible settings
+    pub fn try_new(
+        alignment: usize,
+        write_legacy_ipc_format: bool,
+        metadata_version: ipc::MetadataVersion,
+    ) -> Result<Self> {
+        if alignment == 0 || alignment % 8 != 0 {
+            return Err(ArrowError::InvalidArgumentError(
+                "Alignment should be greater than 0 and be a multiple of 8".to_string(),
+            ));
+        }
+        match metadata_version {
+            ipc::MetadataVersion::V1
+            | ipc::MetadataVersion::V2
+            | ipc::MetadataVersion::V3 => Err(ArrowError::InvalidArgumentError(
+                "Writing IPC metadata version 3 and lower not supported".to_string(),
+            )),
+            ipc::MetadataVersion::V4 => Ok(Self {
+                alignment,
+                write_legacy_ipc_format,
+                metadata_version,
+            }),
+            ipc::MetadataVersion::V5 => {
+                if write_legacy_ipc_format {
+                    Err(ArrowError::InvalidArgumentError(
+                        "Legacy IPC format only supported on metadata version 4"
+                            .to_string(),
+                    ))
+                } else {
+                    Ok(Self {
+                        alignment,
+                        write_legacy_ipc_format,
+                        metadata_version,
+                    })
+                }
+            }
+        }
+    }
+}
+
+impl Default for IpcWriteOptions {
+    fn default() -> Self {
+        Self {
+            alignment: 8,
+            write_legacy_ipc_format: true,
+            metadata_version: ipc::MetadataVersion::V4,
+        }
+    }
+}
+
 pub struct FileWriter<W: Write> {
     /// The object to write to
     writer: BufWriter<W>,
+    /// IPC write options
+    write_options: IpcWriteOptions,
     /// A reference to the schema, used in validating record batches
     schema: Schema,
     /// The number of bytes between each block of bytes, as an offset for random access
@@ -50,17 +117,29 @@ pub struct FileWriter<W: Write> {
 impl<W: Write> FileWriter<W> {
     /// Try create a new writer, with the schema written as part of the header
     pub fn try_new(writer: W, schema: &Schema) -> Result<Self> {
+        let write_options = IpcWriteOptions::default();
+        Self::try_new_with_options(writer, schema, write_options)
+    }
+
+    /// Try create a new writer with IpcWriteOptions
+    pub fn try_new_with_options(
+        writer: W,
+        schema: &Schema,
+        write_options: IpcWriteOptions,
+    ) -> Result<Self> {
         let mut writer = BufWriter::new(writer);
         // write magic to header
         writer.write_all(&super::ARROW_MAGIC[..])?;
         // create an 8-byte boundary after the header
         writer.write_all(&[0, 0])?;
         // write the schema, set the written bytes to the schema + header
-        let written = write_schema(&mut writer, schema)? + 8;
+        let message = Message::Schema(schema, &write_options);
+        let (meta, data) = write_message(&mut writer, &message, &write_options)?;
         Ok(Self {
             writer,
+            write_options,
             schema: schema.clone(),
-            block_offsets: written,
+            block_offsets: meta + data + 8,
             dictionary_blocks: vec![],
             record_blocks: vec![],
             finished: false,
@@ -74,19 +153,25 @@ impl<W: Write> FileWriter<W> {
                 "Cannot write record batch to file writer as it is closed".to_string(),
             ));
         }
-        let (meta, data) = write_record_batch(&mut self.writer, batch, false)?;
+        let message = Message::RecordBatch(batch, &self.write_options);
+        let (meta, data) =
+            write_message(&mut self.writer, &message, &self.write_options)?;
         // add a record block for the footer
-        self.record_blocks.push(ipc::Block::new(
+        let block = ipc::Block::new(
             self.block_offsets as i64,
-            (meta as i32) + 4,
+            meta as i32, // TODO: is this still applicable?
             data as i64,
-        ));
+        );
+        self.record_blocks.push(block);
         self.block_offsets += meta + data;
         Ok(())
     }
 
     /// Write footer and closing tag, then mark the writer as done
     pub fn finish(&mut self) -> Result<()> {
+        // write EOS
+        write_continuation(&mut self.writer, &self.write_options, 0)?;
+
         let mut fbb = FlatBufferBuilder::new();
         let dictionaries = fbb.create_vector(&self.dictionary_blocks);
         let record_batches = fbb.create_vector(&self.record_blocks);
@@ -130,14 +215,17 @@ impl<W: Write> FileWriter<W> {
         };
         let root = {
             let mut footer_builder = ipc::FooterBuilder::new(&mut fbb);
-            footer_builder.add_version(ipc::MetadataVersion::V4);
+            footer_builder.add_version(self.write_options.metadata_version);
             footer_builder.add_schema(schema);
             footer_builder.add_dictionaries(dictionaries);
             footer_builder.add_recordBatches(record_batches);
             footer_builder.finish()
         };
         fbb.finish(root, None);
-        write_padded_data(&mut self.writer, fbb.finished_data(), WriteDataType::Footer)?;
+        let footer_data = fbb.finished_data();
+        self.writer.write_all(footer_data)?;
+        self.writer
+            .write_all(&(footer_data.len() as i32).to_le_bytes())?;
         self.writer.write_all(&super::ARROW_MAGIC)?;
         self.writer.flush()?;
         self.finished = true;
@@ -158,6 +246,8 @@ impl<W: Write> Drop for FileWriter<W> {
 pub struct StreamWriter<W: Write> {
     /// The object to write to
     writer: BufWriter<W>,
+    /// IPC write options
+    write_options: IpcWriteOptions,
     /// A reference to the schema, used in validating record batches
     schema: Schema,
     /// Whether the writer footer has been written, and the writer is finished
@@ -167,11 +257,22 @@ pub struct StreamWriter<W: Write> {
 impl<W: Write> StreamWriter<W> {
     /// Try create a new writer, with the schema written as part of the header
     pub fn try_new(writer: W, schema: &Schema) -> Result<Self> {
+        let write_options = IpcWriteOptions::default();
+        Self::try_new_with_options(writer, schema, write_options)
+    }
+
+    pub fn try_new_with_options(
+        writer: W,
+        schema: &Schema,
+        write_options: IpcWriteOptions,
+    ) -> Result<Self> {
         let mut writer = BufWriter::new(writer);
         // write the schema, set the written bytes to the schema
-        write_schema(&mut writer, schema)?;
+        let message = Message::Schema(schema, &write_options);
+        write_message(&mut writer, &message, &write_options)?;
         Ok(Self {
             writer,
+            write_options,
             schema: schema.clone(),
             finished: false,
         })
@@ -184,15 +285,14 @@ impl<W: Write> StreamWriter<W> {
                 "Cannot write record batch to stream writer as it is closed".to_string(),
             ));
         }
-        write_record_batch(&mut self.writer, batch, true)?;
+        let message = Message::RecordBatch(batch, &self.write_options);
+        write_message(&mut self.writer, &message, &self.write_options)?;
         Ok(())
     }
 
     /// Write continuation bytes, and mark the stream as done
     pub fn finish(&mut self) -> Result<()> {
-        self.writer.write_all(&[255u8, 255, 255, 255])?;
-        self.writer.write_all(&[0u8, 0, 0, 0])?;
-        self.writer.flush()?;
+        write_continuation(&mut self.writer, &self.write_options, 0)?;
 
         self.finished = true;
 
@@ -209,7 +309,15 @@ impl<W: Write> Drop for StreamWriter<W> {
     }
 }
 
-pub fn schema_to_bytes(schema: &Schema) -> Vec<u8> {
+/// Stores the encoded data, which is an ipc::Message, and optional Arrow data
+pub struct EncodedData {
+    /// An encoded ipc::Message
+    pub ipc_message: Vec<u8>,
+    /// Arrow buffers to be written, should be an empty vec for schema messages
+    pub arrow_data: Vec<u8>,
+}
+
+pub fn schema_to_bytes(schema: &Schema, write_options: &IpcWriteOptions) -> EncodedData {
     let mut fbb = FlatBufferBuilder::new();
     let schema = {
         let fb = ipc::convert::schema_to_fb_offset(&mut fbb, schema);
@@ -217,7 +325,7 @@ pub fn schema_to_bytes(schema: &Schema) -> Vec<u8> {
     };
 
     let mut message = ipc::MessageBuilder::new(&mut fbb);
-    message.add_version(ipc::MetadataVersion::V4);
+    message.add_version(write_options.metadata_version);
     message.add_header_type(ipc::MessageHeader::Schema);
     message.add_bodyLength(0);
     message.add_header(schema);
@@ -226,51 +334,101 @@ pub fn schema_to_bytes(schema: &Schema) -> Vec<u8> {
     fbb.finish(data, None);
 
     let data = fbb.finished_data();
-    data.to_vec()
+    EncodedData {
+        ipc_message: data.to_vec(),
+        arrow_data: vec![],
+    }
 }
 
-/// Convert the schema to its IPC representation, and write it to the `writer`
-fn write_schema<R: Write>(writer: &mut BufWriter<R>, schema: &Schema) -> Result<usize> {
-    let data = schema_to_bytes(schema);
-    write_padded_data(writer, &data[..], WriteDataType::Header)
+enum Message<'a> {
+    Schema(&'a Schema, &'a IpcWriteOptions),
+    RecordBatch(&'a RecordBatch, &'a IpcWriteOptions),
+    DictionaryBatch(&'a IpcWriteOptions),
 }
 
-/// The message type being written. This determines whether to write the data length or not.
-/// Data length is written before the header, after the footer, and never for the body.
-#[derive(PartialEq)]
-enum WriteDataType {
-    Header,
-    Body,
-    Footer,
+impl<'a> Message<'a> {
+    /// Encode message to a ipc::Message and return data as bytes
+    fn encode(&'a self) -> EncodedData {
+        match self {
+            Message::Schema(schema, options) => schema_to_bytes(*schema, *options),
+            Message::RecordBatch(batch, options) => {
+                record_batch_to_bytes(*batch, *options)
+            }
+            Message::DictionaryBatch(_) => {
+                unimplemented!("Writing dictionary batches not implemented")
+            }
+        }
+    }
 }
 
-/// Write a slice of data to the writer, ensuring that it is padded to 8 bytes
-fn write_padded_data<R: Write>(
-    writer: &mut BufWriter<R>,
-    data: &[u8],
-    data_type: WriteDataType,
-) -> Result<usize> {
+/// Write a message's IPC data and buffers, returning metadata and buffer data lengths written
+fn write_message<W: Write>(
+    mut writer: &mut BufWriter<W>,
+    message: &Message,
+    write_options: &IpcWriteOptions,
+) -> Result<(usize, usize)> {
+    let encoded = message.encode();
+    let arrow_data_len = encoded.arrow_data.len();
+    if arrow_data_len % 8 != 0 {
+        return Err(ArrowError::MemoryError(
+            "Arrow data not aligned".to_string(),
+        ));
+    }
+
+    let a = write_options.alignment - 1;
+    let buffer = encoded.ipc_message;
+    let flatbuf_size = buffer.len();
+    let prefix_size = if write_options.write_legacy_ipc_format {
+        4
+    } else {
+        8
+    };
+    let aligned_size = (flatbuf_size + prefix_size + a) & !a;
+    let padding_bytes = aligned_size - flatbuf_size - prefix_size;
+
+    write_continuation(
+        &mut writer,
+        &write_options,
+        (aligned_size - prefix_size) as i32,
+    )?;
+
+    // write the flatbuf
+    if flatbuf_size > 0 {
+        writer.write_all(&buffer)?;
+    }
+    // write padding
+    writer.write_all(&vec![0; padding_bytes])?;
+
+    // write arrow data
+    let body_len = if arrow_data_len > 0 {
+        write_body_buffers(&mut writer, &encoded.arrow_data)?
+    } else {
+        0
+    };
+
+    Ok((aligned_size, body_len))
+}
+
+fn write_body_buffers<W: Write>(writer: &mut BufWriter<W>, data: &[u8]) -> Result<usize> {
     let len = data.len() as u32;
     let pad_len = pad_to_8(len) as u32;
     let total_len = len + pad_len;
-    // write data length
-    if data_type == WriteDataType::Header {
-        writer.write_all(&total_len.to_le_bytes()[..])?;
-    }
-    // write flatbuffer data
+
+    // write body buffer
     writer.write_all(data)?;
     if pad_len > 0 {
         writer.write_all(&vec![0u8; pad_len as usize][..])?;
     }
-    if data_type == WriteDataType::Footer {
-        writer.write_all(&total_len.to_le_bytes()[..])?;
-    }
+
     writer.flush()?;
     Ok(total_len as usize)
 }
 
 /// Write a `RecordBatch` into a tuple of bytes, one for the header (ipc::Message) and the other for the batch's data
-pub fn record_batch_to_bytes(batch: &RecordBatch) -> (Vec<u8>, Vec<u8>) {
+pub fn record_batch_to_bytes(
+    batch: &RecordBatch,
+    write_options: &IpcWriteOptions,
+) -> EncodedData {
     let mut fbb = FlatBufferBuilder::new();
 
     let mut nodes: Vec<ipc::FieldNode> = vec![];
@@ -304,7 +462,7 @@ pub fn record_batch_to_bytes(batch: &RecordBatch) -> (Vec<u8>, Vec<u8>) {
     };
     // create an ipc::Message
     let mut message = ipc::MessageBuilder::new(&mut fbb);
-    message.add_version(ipc::MetadataVersion::V4);
+    message.add_version(write_options.metadata_version);
     message.add_header_type(ipc::MessageHeader::RecordBatch);
     message.add_bodyLength(arrow_data.len() as i64);
     message.add_header(root);
@@ -312,26 +470,46 @@ pub fn record_batch_to_bytes(batch: &RecordBatch) -> (Vec<u8>, Vec<u8>) {
     fbb.finish(root, None);
     let finished_data = fbb.finished_data();
 
-    (finished_data.to_vec(), arrow_data)
+    EncodedData {
+        ipc_message: finished_data.to_vec(),
+        arrow_data,
+    }
 }
 
 /// Write a record batch to the writer, writing the message size before the message
 /// if the record batch is being written to a stream
-fn write_record_batch<R: Write>(
-    writer: &mut BufWriter<R>,
-    batch: &RecordBatch,
-    is_stream: bool,
-) -> Result<(usize, usize)> {
-    let (meta_data, arrow_data) = record_batch_to_bytes(batch);
-    // write the length of data if writing to stream
-    if is_stream {
-        let total_len: u32 = meta_data.len() as u32;
-        writer.write_all(&total_len.to_le_bytes()[..])?;
-    }
-    let meta_written = write_padded_data(writer, &meta_data[..], WriteDataType::Body)?;
-    let arrow_data_written =
-        write_padded_data(writer, &arrow_data[..], WriteDataType::Body)?;
-    Ok((meta_written, arrow_data_written))
+fn write_continuation<W: Write>(
+    writer: &mut BufWriter<W>,
+    write_options: &IpcWriteOptions,
+    total_len: i32,
+) -> Result<usize> {
+    let mut written = 8;
+
+    // the version of the writer determines whether continuation markers should be added
+    match write_options.metadata_version {
+        ipc::MetadataVersion::V1
+        | ipc::MetadataVersion::V2
+        | ipc::MetadataVersion::V3 => {
+            unreachable!("Options with the metadata version cannot be created")
+        }
+        ipc::MetadataVersion::V4 => {
+            if !write_options.write_legacy_ipc_format {
+                // v0.15.0 format
+                writer.write_all(&CONTINUATION_MARKER)?;
+                written = 4;
+            }
+            writer.write_all(&total_len.to_le_bytes()[..])?;
+        }
+        ipc::MetadataVersion::V5 => {
+            // write continuation marker and message length
+            writer.write_all(&CONTINUATION_MARKER)?;
+            writer.write_all(&total_len.to_le_bytes()[..])?;
+        }
+    };
+
+    writer.flush()?;
+
+    Ok(written)
 }
 
 /// Write array data to a vector of bytes
@@ -383,7 +561,7 @@ fn write_array_data(
     offset
 }
 
-/// Write a buffer to a vector of bytes, and add its ipc Buffer to a vector
+/// Write a buffer to a vector of bytes, and add its ipc::Buffer to a vector
 fn write_buffer(
     buffer: &Buffer,
     buffers: &mut Vec<ipc::Buffer>,
@@ -401,11 +579,9 @@ fn write_buffer(
 }
 
 /// Calculate an 8-byte boundary and return the number of bytes needed to pad to 8 bytes
-fn pad_to_8<'a>(len: u32) -> usize {
-    match len % 8 {
-        0 => 0 as usize,
-        v => 8 - v as usize,
-    }
+#[inline]
+fn pad_to_8(len: u32) -> usize {
+    (((len + 7) & !7) - len) as usize
 }
 
 #[cfg(test)]

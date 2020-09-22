@@ -1544,6 +1544,7 @@ mod tests {
     use super::*;
 
     use crate::error::Result;
+    use std::{convert::TryFrom, sync::Arc};
 
     #[test]
     fn test_primitive_equal() {
@@ -1910,32 +1911,26 @@ mod tests {
 
     #[test]
     fn test_struct_equal() {
-        let string_builder = StringBuilder::new(5);
-        let int_builder = Int32Builder::new(5);
+        let strings: ArrayRef = Arc::new(StringArray::from(vec![
+            Some("joe"),
+            None,
+            None,
+            Some("mark"),
+            Some("doe"),
+        ]));
+        let ints: ArrayRef = Arc::new(Int32Array::from(vec![
+            Some(1),
+            Some(2),
+            None,
+            Some(4),
+            Some(5),
+        ]));
 
-        let mut fields = Vec::new();
-        let mut field_builders = Vec::new();
-        fields.push(Field::new("f1", DataType::Utf8, false));
-        field_builders.push(Box::new(string_builder) as Box<ArrayBuilder>);
-        fields.push(Field::new("f2", DataType::Int32, false));
-        field_builders.push(Box::new(int_builder) as Box<ArrayBuilder>);
+        let a =
+            StructArray::try_from(vec![("f1", strings.clone()), ("f2", ints.clone())])
+                .unwrap();
 
-        let mut builder = StructBuilder::new(fields, field_builders);
-
-        let a = create_struct_array(
-            &mut builder,
-            &[Some("joe"), None, None, Some("mark"), Some("doe")],
-            &[Some(1), Some(2), None, Some(4), Some(5)],
-            &[true, true, false, true, true],
-        )
-        .unwrap();
-        let b = create_struct_array(
-            &mut builder,
-            &[Some("joe"), None, None, Some("mark"), Some("doe")],
-            &[Some(1), Some(2), None, Some(4), Some(5)],
-            &[true, true, false, true, true],
-        )
-        .unwrap();
+        let b = StructArray::try_from(vec![("f1", strings), ("f2", ints)]).unwrap();
 
         assert!(a.equals(&b));
         assert!(b.equals(&a));
@@ -2440,26 +2435,24 @@ mod tests {
 
     #[test]
     fn test_struct_json_equal() {
-        // Test equal case
-        let string_builder = StringBuilder::new(5);
-        let int_builder = Int32Builder::new(5);
+        let strings: ArrayRef = Arc::new(StringArray::from(vec![
+            Some("joe"),
+            None,
+            None,
+            Some("mark"),
+            Some("doe"),
+        ]));
+        let ints: ArrayRef = Arc::new(Int32Array::from(vec![
+            Some(1),
+            Some(2),
+            None,
+            Some(4),
+            Some(5),
+        ]));
 
-        let mut fields = Vec::new();
-        let mut field_builders = Vec::new();
-        fields.push(Field::new("f1", DataType::Utf8, false));
-        field_builders.push(Box::new(string_builder) as Box<ArrayBuilder>);
-        fields.push(Field::new("f2", DataType::Int32, false));
-        field_builders.push(Box::new(int_builder) as Box<ArrayBuilder>);
-
-        let mut builder = StructBuilder::new(fields, field_builders);
-
-        let arrow_array = create_struct_array(
-            &mut builder,
-            &[Some("joe"), None, None, Some("mark"), Some("doe")],
-            &[Some(1), Some(2), None, Some(4), Some(5)],
-            &[true, true, false, true, true],
-        )
-        .unwrap();
+        let arrow_array =
+            StructArray::try_from(vec![("f1", strings.clone()), ("f2", ints.clone())])
+                .unwrap();
 
         let json_array: Value = serde_json::from_str(
             r#"
@@ -2543,42 +2536,6 @@ mod tests {
         .unwrap();
         assert!(arrow_array.ne(&json_array));
         assert!(json_array.ne(&arrow_array));
-    }
-
-    fn create_struct_array<
-        'a,
-        T: AsRef<[Option<&'a str>]>,
-        U: AsRef<[Option<i32>]>,
-        V: AsRef<[bool]>,
-    >(
-        builder: &'a mut StructBuilder,
-        first: T,
-        second: U,
-        is_valid: V,
-    ) -> Result<StructArray> {
-        let string_builder = builder.field_builder::<StringBuilder>(0).unwrap();
-        for v in first.as_ref() {
-            if let Some(s) = v {
-                string_builder.append_value(s)?;
-            } else {
-                string_builder.append_null()?;
-            }
-        }
-
-        let int_builder = builder.field_builder::<Int32Builder>(1).unwrap();
-        for v in second.as_ref() {
-            if let Some(i) = v {
-                int_builder.append_value(*i)?;
-            } else {
-                int_builder.append_null()?;
-            }
-        }
-
-        for v in is_valid.as_ref() {
-            builder.append(*v)?
-        }
-
-        Ok(builder.finish())
     }
 
     #[test]

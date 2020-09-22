@@ -20,9 +20,10 @@
 use crate::datasource::{MemTable, TableProvider};
 use crate::error::Result;
 use crate::execution::context::ExecutionContext;
-use crate::logical_plan::{Expr, LogicalPlan, LogicalPlanBuilder};
+use crate::logical_plan::{LogicalPlan, LogicalPlanBuilder};
 use crate::physical_plan::ExecutionPlan;
 use arrow::array;
+use arrow::array::PrimitiveArrayOps;
 use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
 use arrow::record_batch::RecordBatch;
 use std::env;
@@ -30,7 +31,7 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::io::{BufReader, BufWriter};
 use std::sync::Arc;
-use tempdir::TempDir;
+use tempfile::TempDir;
 
 pub fn create_table_dual() -> Box<dyn TableProvider + Send + Sync> {
     let dual_schema = Arc::new(Schema::new(vec![
@@ -65,7 +66,7 @@ pub fn create_partitioned_csv(filename: &str, partitions: usize) -> Result<Strin
     let testdata = arrow_testdata_path();
     let path = format!("{}/csv/{}", testdata, filename);
 
-    let tmp_dir = TempDir::new("create_partitioned_csv")?;
+    let tmp_dir = TempDir::new()?;
 
     let mut writers = vec![];
     for i in 0..partitions {
@@ -85,14 +86,14 @@ pub fn create_partitioned_csv(filename: &str, partitions: usize) -> Result<Strin
         if i == 0 {
             // write header to all partitions
             for w in writers.iter_mut() {
-                w.write(line.as_bytes()).unwrap();
-                w.write(b"\n").unwrap();
+                w.write_all(line.as_bytes()).unwrap();
+                w.write_all(b"\n").unwrap();
             }
         } else {
             // write data line to single partition
             let partition = i % partitions;
-            writers[partition].write(line.as_bytes()).unwrap();
-            writers[partition].write(b"\n").unwrap();
+            writers[partition].write_all(line.as_bytes()).unwrap();
+            writers[partition].write_all(b"\n").unwrap();
         }
 
         i += 1;
@@ -240,20 +241,6 @@ pub fn assert_fields_eq(plan: &LogicalPlan, expected: Vec<&str>) {
         .map(|f| f.name().clone())
         .collect();
     assert_eq!(actual, expected);
-}
-
-pub fn max(expr: Expr) -> Expr {
-    Expr::AggregateFunction {
-        name: "MAX".to_owned(),
-        args: vec![expr],
-    }
-}
-
-pub fn min(expr: Expr) -> Expr {
-    Expr::AggregateFunction {
-        name: "MIN".to_owned(),
-        args: vec![expr],
-    }
 }
 
 pub mod variable;

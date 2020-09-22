@@ -23,12 +23,12 @@ use std::sync::Arc;
 use crate::error::{ExecutionError, Result};
 use crate::logical_plan::Expr::Alias;
 use crate::logical_plan::{
-    lit, Expr, LogicalPlan, LogicalPlanBuilder, Operator, PlanType, ScalarValue,
-    StringifiedPlan,
+    lit, Expr, LogicalPlan, LogicalPlanBuilder, Operator, PlanType, StringifiedPlan,
 };
+use crate::scalar::ScalarValue;
 use crate::{
-    physical_plan::functions,
     physical_plan::udf::ScalarUDF,
+    physical_plan::{aggregates, functions},
     sql::parser::{CreateExternalTable, FileType, Statement as DFStatement},
 };
 
@@ -343,7 +343,7 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
         match *limit {
             Some(ref limit_expr) => {
                 let n = match self.sql_to_rex(&limit_expr, &input.schema())? {
-                    Expr::Literal(ScalarValue::Int64(n)) => Ok(n as usize),
+                    Expr::Literal(ScalarValue::Int64(Some(n))) => Ok(n as usize),
                     _ => Err(ExecutionError::General(
                         "Unexpected expression for LIMIT clause".to_string(),
                     )),
@@ -493,16 +493,11 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
                     ))),
                 }?;
 
-                match operator {
-                    Operator::Not => Err(ExecutionError::InternalError(format!(
-                        "SQL unary operator \"NOT\" cannot be interpreted as a binary operator"
-                    ))),
-                    _ => Ok(Expr::BinaryExpr {
-                        left: Box::new(self.sql_to_rex(&left, &schema)?),
-                        op: operator,
-                        right: Box::new(self.sql_to_rex(&right, &schema)?),
-                    })
-                }
+                Ok(Expr::BinaryExpr {
+                    left: Box::new(self.sql_to_rex(&left, &schema)?),
+                    op: operator,
+                    right: Box::new(self.sql_to_rex(&right, &schema)?),
+                })
             }
 
             SQLExpr::Function(function) => {
@@ -519,22 +514,10 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
                     return Ok(Expr::ScalarFunction { fun, args });
                 };
 
-                //TODO: fix this hack
-                match name.to_lowercase().as_ref() {
-                    "min" | "max" | "sum" | "avg" => {
-                        let rex_args = function
-                            .args
-                            .iter()
-                            .map(|a| self.sql_to_rex(a, schema))
-                            .collect::<Result<Vec<Expr>>>()?;
-
-                        Ok(Expr::AggregateFunction {
-                            name: name.clone(),
-                            args: rex_args,
-                        })
-                    }
-                    "count" => {
-                        let rex_args = function
+                // next, aggregate built-ins
+                if let Ok(fun) = aggregates::AggregateFunction::from_str(&name) {
+                    let args = if fun == aggregates::AggregateFunction::Count {
+                        function
                             .args
                             .iter()
                             .map(|a| match a {
@@ -542,32 +525,36 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
                                 SQLExpr::Wildcard => Ok(lit(1_u8)),
                                 _ => self.sql_to_rex(a, schema),
                             })
+                            .collect::<Result<Vec<Expr>>>()?
+                    } else {
+                        function
+                            .args
+                            .iter()
+                            .map(|a| self.sql_to_rex(a, schema))
+                            .collect::<Result<Vec<Expr>>>()?
+                    };
+
+                    return Ok(Expr::AggregateFunction { fun, args });
+                };
+
+                // finally, user-defined functions
+                match self.schema_provider.get_function_meta(&name) {
+                    Some(fm) => {
+                        let args = function
+                            .args
+                            .iter()
+                            .map(|a| self.sql_to_rex(a, schema))
                             .collect::<Result<Vec<Expr>>>()?;
 
-                        Ok(Expr::AggregateFunction {
-                            name: name.clone(),
-                            args: rex_args,
+                        Ok(Expr::ScalarUDF {
+                            fun: fm.clone(),
+                            args,
                         })
                     }
-                    // finally, user-defined functions
-                    _ => match self.schema_provider.get_function_meta(&name) {
-                        Some(fm) => {
-                            let args = function
-                                .args
-                                .iter()
-                                .map(|a| self.sql_to_rex(a, schema))
-                                .collect::<Result<Vec<Expr>>>()?;
-
-                            Ok(Expr::ScalarUDF {
-                                fun: fm.clone(),
-                                args,
-                            })
-                        }
-                        _ => Err(ExecutionError::General(format!(
-                            "Invalid function '{}'",
-                            name
-                        ))),
-                    },
+                    _ => Err(ExecutionError::General(format!(
+                        "Invalid function '{}'",
+                        name
+                    ))),
                 }
             }
 
