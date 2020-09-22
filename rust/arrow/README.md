@@ -29,7 +29,7 @@ Here you can find general information about this crate's content and its organiz
 
 ### DataType, Field, Schema and RecordBatch
 
-Every array in Arrow has a data type and a null bitmap, that specifies whether each value is null or not.
+Every array in Arrow has a data type, that specifies how the data should be layed in memory and casted, and an optional null bitmap, that specifies whether each value is null or not.
 Thus, a central enum of this crate is `arrow::datatypes::DataType`, that contains the set of valid
 DataTypes in the specification. For example, `arrow::datatypes::DataType::Utf8`.
 
@@ -37,16 +37,16 @@ Many (but not all) data types have an associated Rust native type. The trait tha
 this relationship is `arrow::datatypes::ArrowNativeType`, that most native types implement.
 
 `arrow::datatypes::Field` is a struct that contains an arrays' metadata (datatype and whether its values
-can be null), and a name. `arrow::datatypes::Schema` is just a vector of fields with some optional metadata.
+can be null), and a name. `arrow::datatypes::Schema` is a vector of fields with optional metadata.
 
 Finally, `arrow::record_batch::RecordBatch` is a struct with a `Schema` and a vector of `Array`s all with the same `len`. A record batch is the highest order struct that this crate currently offers.
 
 ### Array
 
 The central trait of this package is `arrow::array::Array`, a dynamically-typed trait that
-can be down-casted to specific implementations, such as `arrow::array::UInt32Array`.
+can be downcasted to specific implementations, such as `arrow::array::UInt32Array`.
 
-`Array` has `Array::len()`, `Array::data_type()`, and nullability of each of its entries, that can be obtained via `Array::is_null(index)`. As mentioned above, `Array` can be downcasted to specific implementations, via
+`Array` has `Array::len()`, `Array::data_type()`, and nullability of each of its entries, that can be obtained via `Array::is_null(index)`. To downcast an `Array` to a specific implementation, you can use
 
 ```rust
 let specific_array = array.as_any().downcast_ref<UInt32Array>().unwrap();
@@ -64,8 +64,8 @@ let value_at_0: u32 = specifcic_array.value(0)
 You can access the whole buffer of an `Array` via `Array::data()`, which returns an `arrow::data::ArrayData`. This struct holds the array's `DataType`, `arrow::buffer::Buffer`s, and `childs` (which are themselves `ArrayData`).
 
 The central structs that array implementations use to allocate and refer to memory
-aligned according to the specification are the `arrow::buffer::Buffer` and `arrow::buffer::MuttableBuffer`.
-These are the lowest abstraction level of this crate, and are used throughout the crate to 
+aligned according to the specification are the `arrow::buffer::Buffer` and `arrow::buffer::MutableBuffer`.
+These are the lowest abstractions of this crate, and are used throughout the crate to 
 efficiently allocate, write, read and deallocate memory.
 
 This implementation uses a architecture-dependent alignment of sizes that are multiples of 64 bytes.
