@@ -60,8 +60,10 @@ std::string nation_dict_truncated_data_page() {
   return data_file("nation.dict-malformed.parquet");
 }
 
+// Compressed using custom Hadoop LZ4 format (block LZ4 format + custom header)
 std::string hadoop_lz4_compressed() { return data_file("hadoop_lz4_compressed.parquet"); }
 
+// Compressed using block LZ4 format
 std::string non_hadoop_lz4_compressed() {
   return data_file("non_hadoop_lz4_compressed.parquet");
 }
@@ -513,18 +515,12 @@ TEST(TestFileReader, BufferedReads) {
 }
 
 struct CodecTestParam {
-  CodecTestParam(std::string data_file, uint32_t expected_metadata_size)
-      : data_file(data_file), expected_metadata_size(expected_metadata_size) {}
-
   std::string data_file;
-  uint32_t expected_metadata_size;
 };
 
 class TestCodec : public ::testing::TestWithParam<CodecTestParam> {
  protected:
   const std::string& GetDataFile() { return GetParam().data_file; }
-
-  uint32_t GetExpectedMetadataSize() { return GetParam().expected_metadata_size; }
 };
 
 TEST_P(TestCodec, FileMetadataAndValues) {
@@ -537,8 +533,6 @@ TEST_P(TestCodec, FileMetadataAndValues) {
   ASSERT_EQ(3, reader_->metadata()->num_columns());
   // This file only has 1 row group
   ASSERT_EQ(1, reader_->metadata()->num_row_groups());
-  // Size of the metadata is given by GetExpectedMetadataSize()
-  ASSERT_EQ(GetExpectedMetadataSize(), reader_->metadata()->size());
   // This row group must have 4 rows
   ASSERT_EQ(4, group->metadata()->num_rows());
 
@@ -561,9 +555,8 @@ TEST_P(TestCodec, FileMetadataAndValues) {
 
 #ifdef ARROW_WITH_LZ4
 INSTANTIATE_TEST_SUITE_P(Lz4CodecTests, TestCodec,
-                         ::testing::Values(CodecTestParam(hadoop_lz4_compressed(), 376),
-                                           CodecTestParam(non_hadoop_lz4_compressed(),
-                                                          2245)));
+                         ::testing::Values(CodecTestParam{hadoop_lz4_compressed()},
+                                           CodecTestParam{non_hadoop_lz4_compressed()}));
 #endif
 
 }  // namespace parquet
