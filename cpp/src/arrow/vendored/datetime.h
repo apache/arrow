@@ -20,7 +20,7 @@
 #include "arrow/vendored/datetime/date.h"  // IWYU pragma: export
 #include "arrow/vendored/datetime/tz.h"    // IWYU pragma: export
 
-// Can be defined by date.h
+// Can be defined by date.h.
 #ifdef NOEXCEPT
 #undef NOEXCEPT
 #endif
