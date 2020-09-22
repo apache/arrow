@@ -1136,12 +1136,32 @@ parquet___arrow___FileReader__ReadTable2 <- function(reader, column_indices){
     .Call(`_arrow_parquet___arrow___FileReader__ReadTable2` , reader, column_indices)
 }
 
+parquet___arrow___FileReader__ReadRowGroup1 <- function(reader, i){
+    .Call(`_arrow_parquet___arrow___FileReader__ReadRowGroup1` , reader, i)
+}
+
+parquet___arrow___FileReader__ReadRowGroup2 <- function(reader, i, column_indices){
+    .Call(`_arrow_parquet___arrow___FileReader__ReadRowGroup2` , reader, i, column_indices)
+}
+
+parquet___arrow___FileReader__ReadRowGroups1 <- function(reader, row_groups){
+    .Call(`_arrow_parquet___arrow___FileReader__ReadRowGroups1` , reader, row_groups)
+}
+
+parquet___arrow___FileReader__ReadRowGroups2 <- function(reader, row_groups, column_indices){
+    .Call(`_arrow_parquet___arrow___FileReader__ReadRowGroups2` , reader, row_groups, column_indices)
+}
+
 parquet___arrow___FileReader__num_rows <- function(reader){
     .Call(`_arrow_parquet___arrow___FileReader__num_rows` , reader)
 }
 
 parquet___arrow___FileReader__num_columns <- function(reader){
     .Call(`_arrow_parquet___arrow___FileReader__num_columns` , reader)
+}
+
+parquet___arrow___FileReader__num_row_groups <- function(reader){
+    .Call(`_arrow_parquet___arrow___FileReader__num_row_groups` , reader)
 }
 
 parquet___arrow___FileReader__ReadColumn <- function(reader, i){

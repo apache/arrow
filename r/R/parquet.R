@@ -416,8 +416,18 @@ ParquetFileWriter$create <- function(schema,
 #'
 #' - `$ReadTable(column_indices)`: get an `arrow::Table` from the file. The optional
 #'    `column_indices=` argument is a 0-based integer vector indicating which columns to retain.
+#' - `$ReadRowGroup(i, column_indices)`: get an `arrow::Table` by reading the `i`th row group.
+#'    The optional `column_indices=` argument is a 0-based integer vector indicating which columns to retain.
+#' - `$ReadRowGroups(row_groups, column_indices)`: get an `arrow::Table` by reading several row groups.
+#'    The optional `column_indices=` argument is a 0-based integer vector indicating which columns to retain.
 #' - `$GetSchema()`: get the `arrow::Schema` of the data in the file
 #' - `$ReadColumn(i)`: read the `i`th column (0-based) as a [ChunkedArray].
+#'
+#' @section Active bindings:
+#'
+#' - `$num_rows`: number of rows.
+#' - `$num_columns`: number of columns.
+#' - `$num_row_groups`: number of row groups.
 #'
 #' @export
 #' @examples
@@ -440,6 +450,9 @@ ParquetFileReader <- R6Class("ParquetFileReader",
     },
     num_columns = function() {
       parquet___arrow___FileReader__num_columns(self)
+    },
+    num_row_groups = function() {
+      parquet___arrow___FileReader__num_row_groups(self)
     }
   ),
   public = list(
@@ -448,6 +461,20 @@ ParquetFileReader <- R6Class("ParquetFileReader",
         shared_ptr(Table, parquet___arrow___FileReader__ReadTable1(self))
       } else if (is_integerish(column_indices)) {
         shared_ptr(Table, parquet___arrow___FileReader__ReadTable2(self, as.integer(column_indices)))
+      }
+    },
+    ReadRowGroup = function(i, column_indices = NULL) {
+      if (is.null(column_indices)) {
+        shared_ptr(Table, parquet___arrow___FileReader__ReadRowGroup1(self, as.integer(i)))
+      } else {
+        shared_ptr(Table, parquet___arrow___FileReader__ReadRowGroup2(self, as.integer(i), as.integer(column_indices)))
+      }
+    },
+    ReadRowGroups = function(row_groups, column_indices = NULL) {
+      if (is.null(column_indices)) {
+        shared_ptr(Table, parquet___arrow___FileReader__ReadRowGroups1(self, as.integer(row_groups)))
+      } else {
+        shared_ptr(Table, parquet___arrow___FileReader__ReadRowGroups2(self, as.integer(row_groups), as.integer(column_indices)))
       }
     },
     ReadColumn = function(i) {
