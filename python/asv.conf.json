@@ -36,9 +36,9 @@
     "repo_subdir": "python",
 
     // Custom build commands for Arrow.
-    "build_command": ["/bin/bash {build_dir}/asv-build.sh"],
-    "install_command": ["/bin/bash {build_dir}/asv-install.sh"],
-    "uninstall_command": ["/bin/bash {build_dir}/asv-uninstall.sh"],
+    "build_command": ["/bin/bash {conf_dir}/asv-build.sh"],
+    "install_command": ["/bin/bash {conf_dir}/asv-install.sh"],
+    "uninstall_command": ["/bin/bash {conf_dir}/asv-uninstall.sh"],
 
     // List of branches to benchmark. If not provided, defaults to "master"
     // (for git) or "default" (for mercurial).
