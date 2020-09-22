@@ -733,8 +733,8 @@ Status ApplyOriginalStorageMetadata(const Field& origin_field, SchemaField* infe
     }
   }
 
-  // TODO Should apply metadata recursively, but for that we need to move metadata
-  // application inside NodeToSchemaField (ARROW-9943)
+  // TODO Should apply metadata recursively to children, but for that we need
+  // to move metadata application inside NodeToSchemaField (ARROW-9943)
 
   return Status::OK();
 }
@@ -751,7 +751,8 @@ Status ApplyOriginalMetadata(const Field& origin_field, SchemaField* inferred) {
     RETURN_NOT_OK(ApplyOriginalStorageMetadata(*origin_storage_field, inferred));
     inferred->storage_field = inferred->field;
 
-    // Restore extension type, if the storage type is as read from Parquet
+    // Restore extension type, if the storage type is the same as inferred
+    // from the Parquet type
     if (ex_type.storage_type()->Equals(*inferred_type)) {
       inferred->field = inferred->field->WithType(origin_type);
     }
