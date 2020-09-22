@@ -1071,15 +1071,15 @@ impl<OffsetSize: OffsetSizeTrait> ListArrayOps<OffsetSize>
 }
 
 /// A list array where each element is a variable-sized sequence of values with the same
-/// type.
+/// type whose memory offsets between elements are represented by a i32.
 pub type ListArray = GenericListArray<i32>;
 
 /// A list array where each element is a variable-sized sequence of values with the same
-/// type.
+/// type whose memory offsets between elements are represented by a i64.
 pub type LargeListArray = GenericListArray<i64>;
 
 /// A list array where each element is a fixed-size sequence of values with the same
-/// type.
+/// type whose maximum length is represented by a i32.
 pub struct FixedSizeListArray {
     data: ArrayDataRef,
     values: ArrayRef,
@@ -1356,12 +1356,10 @@ impl<OffsetSize: OffsetSizeTrait> From<ArrayDataRef> for GenericBinaryArray<Offs
     }
 }
 
-/// A list array where each element is a variable-sized sequence of values with the same
-/// type.
+/// An array where each element is a byte whose maximum length is represented by a i32.
 pub type BinaryArray = GenericBinaryArray<i32>;
 
-/// A list array where each element is a variable-sized sequence of values with the same
-/// type.
+/// An array where each element is a byte whose maximum length is represented by a i64.
 pub type LargeBinaryArray = GenericBinaryArray<i64>;
 
 impl From<Vec<&[u8]>> for BinaryArray {
@@ -1532,12 +1530,12 @@ impl<OffsetSize: OffsetSizeTrait> ListArrayOps<OffsetSize>
     }
 }
 
-/// A string array where each element is a variable-sized sequence of bytes and whose offsets
-/// between are then as i32
+/// An array where each element is a variable-sized sequence of bytes representing a string
+/// whose maximum length (in bytes) is represented by a i32.
 pub type StringArray = GenericStringArray<i32>;
 
-/// A string array where each element is a variable-sized sequence of bytes and whose offsets
-/// between are then as i64
+/// An array where each element is a variable-sized sequence of bytes representing a string
+/// whose maximum length (in bytes) is represented by a i64.
 pub type LargeStringArray = GenericStringArray<i64>;
 
 impl From<ListArray> for StringArray {
