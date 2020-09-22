@@ -45,11 +45,17 @@ read_parquet <- function(file,
     on.exit(file$close())
   }
   reader <- ParquetFileReader$create(file, props = props, ...)
-  tab <- reader$ReadTable()
 
   col_select <- enquo(col_select)
   if (!quo_is_null(col_select)) {
-    tab <- tab[vars_select(names(tab), !!col_select)]
+    # infer which columns to keep from schema
+    schema <- reader$GetSchema()
+    names <- names(schema)
+    indices <- match(vars_select(names, !!col_select), names) - 1L
+    tab <- reader$ReadTable(indices)
+  } else {
+    # read all columns
+    tab <- reader$ReadTable()
   }
 
   if (as_data_frame) {

@@ -85,8 +85,7 @@ std::shared_ptr<arrow::Table> parquet___arrow___FileReader__ReadTable2(
 
 // [[arrow::export]]
 std::shared_ptr<arrow::Table> parquet___arrow___FileReader__ReadRowGroup1(
-    const std::shared_ptr<parquet::arrow::FileReader>& reader,
-    int i) {
+    const std::shared_ptr<parquet::arrow::FileReader>& reader, int i) {
   std::shared_ptr<arrow::Table> table;
   PARQUET_THROW_NOT_OK(reader->ReadRowGroup(i, &table));
   return table;
@@ -94,10 +93,8 @@ std::shared_ptr<arrow::Table> parquet___arrow___FileReader__ReadRowGroup1(
 
 // [[arrow::export]]
 std::shared_ptr<arrow::Table> parquet___arrow___FileReader__ReadRowGroup2(
-    const std::shared_ptr<parquet::arrow::FileReader>& reader,
-    int i,
-    const std::vector<int>& column_indices
-  ) {
+    const std::shared_ptr<parquet::arrow::FileReader>& reader, int i,
+    const std::vector<int>& column_indices) {
   std::shared_ptr<arrow::Table> table;
   PARQUET_THROW_NOT_OK(reader->ReadRowGroup(i, column_indices, &table));
   return table;
@@ -115,9 +112,7 @@ std::shared_ptr<arrow::Table> parquet___arrow___FileReader__ReadRowGroups1(
 // [[arrow::export]]
 std::shared_ptr<arrow::Table> parquet___arrow___FileReader__ReadRowGroups2(
     const std::shared_ptr<parquet::arrow::FileReader>& reader,
-    const std::vector<int>& row_groups,
-    const std::vector<int>& column_indices
-) {
+    const std::vector<int>& row_groups, const std::vector<int>& column_indices) {
   std::shared_ptr<arrow::Table> table;
   PARQUET_THROW_NOT_OK(reader->ReadRowGroups(row_groups, column_indices, &table));
   return table;
