@@ -1467,6 +1467,53 @@ impl<OffsetSize: OffsetSizeTrait> GenericStringArray<OffsetSize> {
         let data = builder.build();
         Self::from(data)
     }
+
+    fn from_vec(v: Vec<&str>, data_type: DataType) -> Self {
+        let mut offsets = Vec::with_capacity(v.len() + 1);
+        let mut values = Vec::new();
+        let mut length_so_far = OffsetSize::zero();
+        offsets.push(length_so_far);
+        for s in &v {
+            length_so_far = length_so_far + OffsetSize::from_usize(s.len()).unwrap();
+            offsets.push(length_so_far);
+            values.extend_from_slice(s.as_bytes());
+        }
+        let array_data = ArrayData::builder(data_type)
+            .len(v.len())
+            .add_buffer(Buffer::from(offsets.to_byte_slice()))
+            .add_buffer(Buffer::from(&values[..]))
+            .build();
+        Self::from(array_data)
+    }
+
+    fn from_opt_vec(v: Vec<Option<&str>>, data_type: DataType) -> Self {
+        let mut offsets = Vec::with_capacity(v.len() + 1);
+        let mut values = Vec::new();
+        let mut null_buf = make_null_buffer(v.len());
+        let mut length_so_far = OffsetSize::zero();
+        offsets.push(length_so_far);
+        for (i, s) in v.iter().enumerate() {
+            if let Some(s) = s {
+                // set null bit
+                let null_slice = null_buf.data_mut();
+                bit_util::set_bit(null_slice, i);
+
+                length_so_far = length_so_far + OffsetSize::from_usize(s.len()).unwrap();
+                offsets.push(length_so_far);
+                values.extend_from_slice(s.as_bytes());
+            } else {
+                offsets.push(length_so_far);
+                values.extend_from_slice("".as_bytes());
+            }
+        }
+        let array_data = ArrayData::builder(data_type)
+            .len(v.len())
+            .add_buffer(Buffer::from(offsets.to_byte_slice()))
+            .add_buffer(Buffer::from(&values[..]))
+            .null_bit_buffer(null_buf.freeze())
+            .build();
+        Self::from(array_data)
+    }
 }
 
 impl<OffsetSize: OffsetSizeTrait> fmt::Debug for GenericStringArray<OffsetSize> {
@@ -1550,6 +1597,30 @@ impl From<LargeListArray> for LargeStringArray {
     }
 }
 
+impl From<Vec<&str>> for StringArray {
+    fn from(v: Vec<&str>) -> Self {
+        StringArray::from_vec(v, DataType::Utf8)
+    }
+}
+
+impl From<Vec<&str>> for LargeStringArray {
+    fn from(v: Vec<&str>) -> Self {
+        LargeStringArray::from_vec(v, DataType::LargeUtf8)
+    }
+}
+
+impl From<Vec<Option<&str>>> for StringArray {
+    fn from(v: Vec<Option<&str>>) -> Self {
+        StringArray::from_opt_vec(v, DataType::Utf8)
+    }
+}
+
+impl From<Vec<Option<&str>>> for LargeStringArray {
+    fn from(v: Vec<Option<&str>>) -> Self {
+        LargeStringArray::from_opt_vec(v, DataType::LargeUtf8)
+    }
+}
+
 /// A type of `FixedSizeListArray` whose elements are binaries.
 pub struct FixedSizeBinaryArray {
     data: ArrayDataRef,
@@ -1626,64 +1697,6 @@ impl From<ArrayDataRef> for FixedSizeBinaryArray {
         }
     }
 }
-
-macro_rules! def_string_from_vec {
-    ( $ty:ident, $native_ty:ident, $DATATYPE:expr ) => {
-        impl<'a> From<Vec<&'a str>> for $ty {
-            fn from(v: Vec<&'a str>) -> Self {
-                let mut offsets = Vec::with_capacity(v.len() + 1);
-                let mut values = Vec::new();
-                let mut length_so_far = 0;
-                offsets.push(length_so_far);
-                for s in &v {
-                    length_so_far += s.len() as $native_ty;
-                    offsets.push(length_so_far as $native_ty);
-                    values.extend_from_slice(s.as_bytes());
-                }
-                let array_data = ArrayData::builder($DATATYPE)
-                    .len(v.len())
-                    .add_buffer(Buffer::from(offsets.to_byte_slice()))
-                    .add_buffer(Buffer::from(&values[..]))
-                    .build();
-                $ty::from(array_data)
-            }
-        }
-
-        impl<'a> From<Vec<Option<&'a str>>> for $ty {
-            fn from(v: Vec<Option<&'a str>>) -> Self {
-                let mut offsets = Vec::with_capacity(v.len() + 1);
-                let mut values = Vec::new();
-                let mut null_buf = make_null_buffer(v.len());
-                let mut length_so_far = 0;
-                offsets.push(length_so_far);
-                for (i, s) in v.iter().enumerate() {
-                    if let Some(s) = s {
-                        // set null bit
-                        let null_slice = null_buf.data_mut();
-                        bit_util::set_bit(null_slice, i);
-
-                        length_so_far += s.len() as $native_ty;
-                        offsets.push(length_so_far as $native_ty);
-                        values.extend_from_slice(s.as_bytes());
-                    } else {
-                        offsets.push(length_so_far);
-                        values.extend_from_slice("".as_bytes());
-                    }
-                }
-                let array_data = ArrayData::builder($DATATYPE)
-                    .len(v.len())
-                    .add_buffer(Buffer::from(offsets.to_byte_slice()))
-                    .add_buffer(Buffer::from(&values[..]))
-                    .null_bit_buffer(null_buf.freeze())
-                    .build();
-                $ty::from(array_data)
-            }
-        }
-    };
-}
-
-def_string_from_vec!(StringArray, i32, DataType::Utf8);
-def_string_from_vec!(LargeStringArray, i64, DataType::LargeUtf8);
 
 /// Creates a `FixedSizeBinaryArray` from `FixedSizeList<u8>` array
 impl From<FixedSizeListArray> for FixedSizeBinaryArray {
