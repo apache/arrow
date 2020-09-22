@@ -34,6 +34,7 @@ from pyarrow._compute import (  # noqa
     MinMaxOptions,
     PartitionNthOptions,
     SetLookupOptions,
+    StrptimeOptions,
     TakeOptions,
     # Functions
     function_registry,
@@ -94,8 +95,7 @@ def _decorate_compute_function(wrapper, exposed_name, func, option_class):
 
 
 _option_classes = {
-    # TODO this is not complete
-    # (export the option class name from C++ metadata?)
+    # TODO: export the option class name from C++ metadata?
     'cast': CastOptions,
     'filter': FilterOptions,
     'index_in': SetLookupOptions,
@@ -103,6 +103,7 @@ _option_classes = {
     'match_substring': MatchSubstringOptions,
     'min_max': MinMaxOptions,
     'partition_nth_indices': PartitionNthOptions,
+    'strptime': StrptimeOptions,
     'take': TakeOptions,
 }
 
