@@ -952,6 +952,8 @@ def test_http_basic_unauth():
             list(client.do_action(action))
 
 
+@pytest.mark.skipif(os.name == 'nt',
+                    reason="ARROW-10013: gRPC on Windows corrupts peer()")
 def test_http_basic_auth():
     """Test a Python implementation of HTTP basic authentication."""
     with EchoStreamFlightServer(auth_handler=basic_auth_handler) as server:
