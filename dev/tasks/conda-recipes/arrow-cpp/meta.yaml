@@ -1,9 +1,8 @@
 {% set version = ARROW_VERSION %}
 {% set number = "0" %}
 {% set cuda_enabled = cuda_compiler_version is not undefined and cuda_compiler_version == '9.2' %}
-{% set build_ext_version = "1.0.0" %}
+{% set build_ext_version = "1.0.1" %}
 {% set build_ext = "cuda" if cuda_enabled else "cpu" %}
-{% set build_string = "py{}h{}_{}_{}".format(CONDA_PY, PKG_HASH, number, build_ext) %}
 {% set proc_build_number = "1" %}
 
 package:
@@ -14,7 +13,7 @@ source:
   path: ../../../../
 
 build:
-  number: {{ number }}
+  number: 0
   skip: true  # [cuda_compiler_version not in (undefined, "None", "9.2")]
   run_exports:
     - {{ pin_subpackage("arrow-cpp", max_pin="x.x.x") }}
@@ -40,13 +39,14 @@ outputs:
     script: bld-arrow.bat   # [win]
     version: {{ version }}
     build:
-      number: {{ number }}
-      string: "{{ build_string }}"
+      string: py{{ CONDA_PY }}h{{ PKG_HASH }}_{{ PKG_BUILDNUM }}_{{ build_ext }}
       skip: true  # [cuda_compiler_version not in (undefined, "None", "9.2")]
       run_exports:
         - {{ pin_subpackage("arrow-cpp", max_pin="x.x.x") }}
       ignore_run_exports:
         - cudatoolkit
+        # Gandiva only needs headers
+        - boost-cpp
       track_features:
         {{ "- arrow-cuda" if cuda_enabled else "" }}
     requirements:
@@ -68,14 +68,11 @@ outputs:
         - glog
         - grpc-cpp
         - libprotobuf
+        - clangdev 10
+        - llvmdev 10
         - libutf8proc
-        - clangdev 10.* # [not win]
-        - llvmdev 10.* # [not win]
-        # llvmdev 9.* or later require Visual Studio 2017
-        - clangdev 8.* # [win]
-        - llvmdev 8.* # [win]
         - lz4-c
-        - numpy 1.16.*
+        - numpy
         - orc  # [unix]
         - python
         - rapidjson
@@ -164,8 +161,7 @@ outputs:
     script: bld-pyarrow.bat   # [win]
     version: {{ version }}
     build:
-      number: {{ number }}
-      string: "{{ build_string }}"
+      string: py{{ CONDA_PY }}h{{ PKG_HASH }}_{{ PKG_BUILDNUM }}_{{ build_ext }}
       skip: true  # [cuda_compiler_version not in (undefined, "None", "9.2")]
       ignore_run_exports:
         - cudatoolkit
@@ -182,7 +178,6 @@ outputs:
         - {{ compiler("cuda") }}  # [cuda_compiler_version not in (undefined, "None")]
       host:
         - {{ pin_subpackage('arrow-cpp', exact=True) }}
-        - boost-cpp
         - cython
         - numpy 1.16.*
         - python
@@ -192,11 +187,9 @@ outputs:
       run:
         - {{ pin_subpackage('arrow-cpp', exact=True) }}
         - {{ pin_compatible('numpy', lower_bound='1.16') }}
-        - glog
         # empty parquet-cpp metapackage, force old versions to be uninstalled
         - parquet-cpp 1.5.1.*
         - python
-        - six
       run_constrained:
         - arrow-cpp-proc * {{ build_ext }}
         - cudatoolkit >=9.2  # [cuda_compiler_version not in (undefined, "None")]
