@@ -89,20 +89,15 @@ PARQUET_EXPORT
 /// \brief Bridge between an arrow::Field and parquet column indices.
 struct PARQUET_EXPORT SchemaField {
   std::shared_ptr<::arrow::Field> field;
+  // If field has an extension type, an equivalent field with the storage type,
+  // otherwise the field itself.
+  std::shared_ptr<::arrow::Field> storage_field;
   std::vector<SchemaField> children;
 
   // Only set for leaf nodes
   int column_index = -1;
 
   parquet::internal::LevelInfo level_info;
-
-  bool IsStruct() const { return field->type()->id() == ::arrow::Type::STRUCT; }
-  bool IsRepeated() const {
-    // FixedSizeList will require special handling.
-    return field->type()->id() == ::arrow::Type::LIST ||
-           field->type()->id() == ::arrow::Type::LARGE_LIST ||
-           field->type()->id() == ::arrow::Type::MAP;
-  }
 
   bool is_leaf() const { return column_index != -1; }
 };

@@ -119,8 +119,5 @@ struct ReaderContext {
   }
 };
 
-Status GetReader(const SchemaField& field, const std::shared_ptr<ReaderContext>& context,
-                 std::unique_ptr<ColumnReaderImpl>* out);
-
 }  // namespace arrow
 }  // namespace parquet

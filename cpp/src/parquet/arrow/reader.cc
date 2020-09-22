@@ -25,6 +25,7 @@
 
 #include "arrow/array.h"
 #include "arrow/buffer.h"
+#include "arrow/extension_type.h"
 #include "arrow/io/memory.h"
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
@@ -47,6 +48,7 @@ using arrow::ArrayData;
 using arrow::BooleanArray;
 using arrow::ChunkedArray;
 using arrow::DataType;
+using arrow::ExtensionType;
 using arrow::Field;
 using arrow::Future;
 using arrow::Int32Array;
@@ -58,6 +60,8 @@ using arrow::Status;
 using arrow::StructArray;
 using arrow::Table;
 using arrow::TimestampArray;
+
+using arrow::internal::checked_cast;
 using arrow::internal::Iota;
 
 // Help reduce verbosity
@@ -100,6 +104,7 @@ class ColumnReaderImpl : public ColumnReader {
   virtual Status GetDefLevels(const int16_t** data, int64_t* length) = 0;
   virtual Status GetRepLevels(const int16_t** data, int64_t* length) = 0;
   virtual const std::shared_ptr<Field> field() = 0;
+
   ::arrow::Status NextBatch(int64_t batch_size,
                             std::shared_ptr<::arrow::ChunkedArray>* out) final {
     RETURN_NOT_OK(LoadBatch(batch_size));
@@ -117,12 +122,18 @@ class ColumnReaderImpl : public ColumnReader {
   virtual bool IsOrHasRepeatedChild() const = 0;
 };
 
+namespace {
+
 std::shared_ptr<std::unordered_set<int>> VectorToSharedSet(
     const std::vector<int>& values) {
   std::shared_ptr<std::unordered_set<int>> result(new std::unordered_set<int>());
   result->insert(values.begin(), values.end());
   return result;
 }
+
+// Forward declaration
+Status GetReader(const SchemaField& field, const std::shared_ptr<ReaderContext>& context,
+                 std::unique_ptr<ColumnReaderImpl>* out);
 
 // ----------------------------------------------------------------------
 // FileReaderImpl forward declaration
@@ -395,6 +406,9 @@ class RowGroupReaderImpl : public RowGroupReader {
   int row_group_index_;
 };
 
+// ----------------------------------------------------------------------
+// Column reader implementations
+
 // Leaf reader is for primitive arrays and primitive children of nested arrays
 class LeafReader : public ColumnReaderImpl {
  public:
@@ -466,6 +480,44 @@ class LeafReader : public ColumnReaderImpl {
   std::unique_ptr<FileColumnIterator> input_;
   const ColumnDescriptor* descr_;
   std::shared_ptr<RecordReader> record_reader_;
+};
+
+// Column reader for extension arrays
+class ExtensionReader : public ColumnReaderImpl {
+ public:
+  ExtensionReader(std::shared_ptr<Field> field,
+                  std::unique_ptr<ColumnReaderImpl> storage_reader)
+      : field_(std::move(field)), storage_reader_(std::move(storage_reader)) {}
+
+  Status GetDefLevels(const int16_t** data, int64_t* length) override {
+    return storage_reader_->GetDefLevels(data, length);
+  }
+
+  Status GetRepLevels(const int16_t** data, int64_t* length) override {
+    return storage_reader_->GetRepLevels(data, length);
+  }
+
+  Status LoadBatch(int64_t number_of_records) final {
+    return storage_reader_->LoadBatch(number_of_records);
+  }
+
+  Status BuildArray(int64_t length_upper_bound,
+                    std::shared_ptr<ChunkedArray>* out) override {
+    std::shared_ptr<ChunkedArray> storage;
+    RETURN_NOT_OK(storage_reader_->BuildArray(length_upper_bound, &storage));
+    *out = ExtensionType::WrapArray(field_->type(), storage);
+    return Status::OK();
+  }
+
+  bool IsOrHasRepeatedChild() const final {
+    return storage_reader_->IsOrHasRepeatedChild();
+  }
+
+  const std::shared_ptr<Field> field() override { return field_; }
+
+ private:
+  std::shared_ptr<Field> field_;
+  std::unique_ptr<ColumnReaderImpl> storage_reader_;
 };
 
 template <typename IndexType>
@@ -699,11 +751,13 @@ Status StructReader::BuildArray(int64_t length_upper_bound,
 // ----------------------------------------------------------------------
 // File reader implementation
 
-Status GetReader(const SchemaField& field, const std::shared_ptr<ReaderContext>& ctx,
-                 std::unique_ptr<ColumnReaderImpl>* out) {
+Status GetStorageReader(const SchemaField& field,
+                        const std::shared_ptr<ReaderContext>& ctx,
+                        std::unique_ptr<ColumnReaderImpl>* out) {
   BEGIN_PARQUET_CATCH_EXCEPTIONS
 
-  auto type_id = field.field->type()->id();
+  auto type_id = field.storage_field->type()->id();
+
   if (field.children.size() == 0) {
     if (!field.is_leaf()) {
       return Status::Invalid("Parquet non-leaf node has no children");
@@ -714,9 +768,10 @@ Status GetReader(const SchemaField& field, const std::shared_ptr<ReaderContext>&
     }
     std::unique_ptr<FileColumnIterator> input(
         ctx->iterator_factory(field.column_index, ctx->reader));
-    out->reset(new LeafReader(ctx, field.field, std::move(input), field.level_info));
+    out->reset(
+        new LeafReader(ctx, field.storage_field, std::move(input), field.level_info));
   } else if (type_id == ::arrow::Type::LIST) {
-    auto list_field = field.field;
+    auto list_field = field.storage_field;
     auto child = &field.children[0];
     std::unique_ptr<ColumnReaderImpl> child_reader;
     RETURN_NOT_OK(GetReader(*child, ctx, &child_reader));
@@ -744,17 +799,28 @@ Status GetReader(const SchemaField& field, const std::shared_ptr<ReaderContext>&
       return Status::OK();
     }
     auto filtered_field =
-        ::arrow::field(field.field->name(), ::arrow::struct_(child_fields),
-                       field.field->nullable(), field.field->metadata());
+        ::arrow::field(field.storage_field->name(), ::arrow::struct_(child_fields),
+                       field.storage_field->nullable(), field.storage_field->metadata());
     out->reset(new StructReader(ctx, filtered_field, field.level_info,
                                 std::move(child_readers)));
   } else {
-    return Status::Invalid("Unsupported nested type: ", field.field->ToString());
+    return Status::Invalid("Unsupported nested type: ", field.storage_field->ToString());
   }
   return Status::OK();
 
   END_PARQUET_CATCH_EXCEPTIONS
 }
+
+Status GetReader(const SchemaField& field, const std::shared_ptr<ReaderContext>& ctx,
+                 std::unique_ptr<ColumnReaderImpl>* out) {
+  RETURN_NOT_OK(GetStorageReader(field, ctx, out));
+  if (field.field->type()->id() == ::arrow::Type::EXTENSION) {
+    out->reset(new ExtensionReader(field.field, std::move(*out)));
+  }
+  return Status::OK();
+}
+
+}  // namespace
 
 Status FileReaderImpl::GetRecordBatchReader(const std::vector<int>& row_groups,
                                             const std::vector<int>& column_indices,
