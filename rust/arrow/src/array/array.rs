@@ -2278,7 +2278,10 @@ where
                 if i >= self.len {
                     None
                 } else if self.data.is_null(i) {
-                    self.i = self.i.checked_sub(1).unwrap_or(0_usize);
+                    self.i = self.i.checked_sub(1).unwrap_or_else(|| {
+                        self.draining = Draining::Finished;
+                        0_usize
+                    });
                     Some(None)
                 } else {
                     match i.checked_sub(1) {
@@ -3181,6 +3184,19 @@ mod tests {
         assert_eq!(
             dict_array.keys().collect::<Vec<Option<i16>>>(),
             vec![Some(3), Some(4)]
+        );
+    }
+
+    #[test]
+    fn test_dictionary_array_key_reverse() {
+        let test = vec!["a", "a", "b", "c"];
+        let array: DictionaryArray<Int8Type> = test
+            .iter()
+            .map(|&x| if x == "b" { None } else { Some(x) })
+            .collect();
+        assert_eq!(
+            array.keys().rev().collect::<Vec<Option<i8>>>(),
+            vec![Some(1), None, Some(0), Some(0)]
         );
     }
 
