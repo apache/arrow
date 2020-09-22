@@ -101,8 +101,7 @@ static inline Compression::type FromThriftUnsafe(format::CompressionCodec::type 
     case format::CompressionCodec::BROTLI:
       return Compression::BROTLI;
     case format::CompressionCodec::LZ4:
-      // ARROW-9424: Existing files use LZ4_RAW but this may need to change
-      return Compression::LZ4;
+      return Compression::LZ4_HADOOP;
     case format::CompressionCodec::ZSTD:
       return Compression::ZSTD;
     default:
@@ -280,7 +279,9 @@ static inline format::CompressionCodec::type ToThrift(Compression::type type) {
       return format::CompressionCodec::LZO;
     case Compression::BROTLI:
       return format::CompressionCodec::BROTLI;
+    // For compatibility with existing source code
     case Compression::LZ4:
+    case Compression::LZ4_HADOOP:
       return format::CompressionCodec::LZ4;
     case Compression::ZSTD:
       return format::CompressionCodec::ZSTD;

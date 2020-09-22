@@ -358,47 +358,13 @@ class Lz4HadoopCodec : public Lz4Codec {
  public:
   Result<int64_t> Decompress(int64_t input_len, const uint8_t* input,
                              int64_t output_buffer_len, uint8_t* output_buffer) override {
-    // The following variables only make sense if the parquet file being read was
-    // compressed using the Hadoop Lz4Codec.
-    //
-    // Parquet files written with the Hadoop Lz4Codec contain at the beginning
-    // of the input buffer two uint32_t's representing (in this order) expected
-    // decompressed size in bytes and expected compressed size in bytes.
-    //
-    // The Hadoop Lz4Codec source code can be found here:
-    // https://github.com/apache/hadoop/blob/trunk/hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-nativetask/src/main/native/src/codec/Lz4Codec.cc
-    uint32_t expected_decompressed_size =
-        BitUtil::FromBigEndian(SafeLoadAs<uint32_t>(input));
-    uint32_t expected_compressed_size =
-        BitUtil::FromBigEndian(SafeLoadAs<uint32_t>(input + sizeof(uint32_t)));
-    int64_t lz4_compressed_buffer_size = input_len - kPrefixLength;
-
-    // We use a heuristic to determine if the parquet file being read
-    // was compressed using the Hadoop Lz4Codec.
-    int64_t decompressed_size;
-    if (lz4_compressed_buffer_size != expected_compressed_size) {
-      // Parquet file was compressed without Hadoop Lz4Codec
-      ARROW_ASSIGN_OR_RAISE(
-          decompressed_size,
-          Lz4Codec::Decompress(input_len, input, output_buffer_len, output_buffer));
-    } else {
-      // Parquet file was likely compressed with Hadoop Lz4Codec
-      Result<int64_t> decompressed_size_result =
-          Lz4Codec::Decompress(lz4_compressed_buffer_size, input + kPrefixLength,
-                               output_buffer_len, output_buffer);
-
-      if (!decompressed_size_result.ok() ||
-          decompressed_size_result.ValueOrDie() != expected_decompressed_size) {
-        // Fall back on regular LZ4-block decompression
-        ARROW_ASSIGN_OR_RAISE(
-            decompressed_size,
-            Lz4Codec::Decompress(input_len, input, output_buffer_len, output_buffer));
-      } else {
-        decompressed_size = decompressed_size_result.ValueOrDie();
-      }
+    const int64_t decompressed_size =
+        TryDecompressHadoop(input_len, input, output_buffer_len, output_buffer);
+    if (decompressed_size != kNotHadoop) {
+      return decompressed_size;
     }
-
-    return decompressed_size;
+    // Fall back on raw LZ4 codec (for files produces by earlier versions of Parquet C++)
+    return Lz4Codec::Decompress(input_len, input, output_buffer_len, output_buffer);
   }
 
   int64_t MaxCompressedLen(int64_t input_len,
@@ -439,6 +405,44 @@ class Lz4HadoopCodec : public Lz4Codec {
  protected:
   // Offset starting at which page data can be read/written
   static const int64_t kPrefixLength = sizeof(uint32_t) * 2;
+
+  static const int64_t kNotHadoop = -1;
+
+  int64_t TryDecompressHadoop(int64_t input_len, const uint8_t* input,
+                              int64_t output_buffer_len, uint8_t* output_buffer) {
+    // Parquet files written with the Hadoop Lz4Codec contain at the beginning
+    // of the input buffer two uint32_t's representing (in this order) expected
+    // decompressed size in bytes and expected compressed size in bytes.
+    //
+    // The Hadoop Lz4Codec source code can be found here:
+    // https://github.com/apache/hadoop/blob/trunk/hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-nativetask/src/main/native/src/codec/Lz4Codec.cc
+    if (input_len < kPrefixLength) {
+      return kNotHadoop;
+    }
+
+    const uint32_t expected_decompressed_size =
+        BitUtil::FromBigEndian(SafeLoadAs<uint32_t>(input));
+    const uint32_t expected_compressed_size =
+        BitUtil::FromBigEndian(SafeLoadAs<uint32_t>(input + sizeof(uint32_t)));
+    const int64_t lz4_compressed_buffer_size = input_len - kPrefixLength;
+
+    // We use a heuristic to determine if the parquet file being read
+    // was compressed using the Hadoop Lz4Codec.
+    if (lz4_compressed_buffer_size == expected_compressed_size) {
+      // Parquet file was likely compressed with Hadoop Lz4Codec.
+      auto maybe_decompressed_size =
+          Lz4Codec::Decompress(lz4_compressed_buffer_size, input + kPrefixLength,
+                               output_buffer_len, output_buffer);
+
+      if (maybe_decompressed_size.ok() &&
+          *maybe_decompressed_size == expected_decompressed_size) {
+        return *maybe_decompressed_size;
+      }
+    }
+
+    // Parquet file was compressed without Hadoop Lz4Codec (or data is corrupt)
+    return kNotHadoop;
+  }
 };
 
 }  // namespace

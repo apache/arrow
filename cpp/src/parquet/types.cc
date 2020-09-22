@@ -30,7 +30,7 @@
 
 #include "generated/parquet_types.h"
 
-using ::arrow::internal::checked_cast;
+using arrow::internal::checked_cast;
 using arrow::util::Codec;
 
 namespace parquet {
@@ -43,6 +43,7 @@ bool IsCodecSupported(Compression::type codec) {
     case Compression::BROTLI:
     case Compression::ZSTD:
     case Compression::LZ4:
+    case Compression::LZ4_HADOOP:
       return true;
     default:
       return false;
@@ -60,6 +61,11 @@ std::unique_ptr<Codec> GetCodec(Compression::type codec, int compression_level) 
     ss << "Codec type " << Codec::GetCodecAsString(codec)
        << " not supported in Parquet format";
     throw ParquetException(ss.str());
+  }
+
+  if (codec == Compression::LZ4) {
+    // For compatibility with existing source code
+    codec = Compression::LZ4_HADOOP;
   }
 
   PARQUET_ASSIGN_OR_THROW(result, Codec::Create(codec, compression_level));

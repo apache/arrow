@@ -251,6 +251,7 @@ TEST_F(TestPageSerde, Compression) {
 
 #ifdef ARROW_WITH_LZ4
   codec_types.push_back(Compression::LZ4);
+  codec_types.push_back(Compression::LZ4_HADOOP);
 #endif
 
 #ifdef ARROW_WITH_ZSTD
@@ -260,7 +261,7 @@ TEST_F(TestPageSerde, Compression) {
   const int32_t num_rows = 32;  // dummy value
   data_page_header_.num_values = num_rows;
 
-  int num_pages = 10;
+  const int num_pages = 10;
 
   std::vector<std::vector<uint8_t>> faux_data;
   faux_data.resize(num_pages);
