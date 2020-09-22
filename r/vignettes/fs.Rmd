@@ -30,15 +30,13 @@ s3://[access_key:secret_key@]bucket/path[?region=]
 For example, one of the NYC taxi data files used in `vignette("dataset", package = "arrow")` is found at
 
 ```
-s3://ursa-labs-taxi-data/2019/06/data.parquet?region=us-east-2
+s3://ursa-labs-taxi-data/2019/06/data.parquet
 ```
-
-`region` defaults to `us-east-1` and can be omitted if the bucket is in that region.
 
 Given this URI, we can pass it to `read_parquet()` just as if it were a local file path:
 
 ```r
-df <- read_parquet("s3://ursa-labs-taxi-data/2019/06/data.parquet?region=us-east-2")
+df <- read_parquet("s3://ursa-labs-taxi-data/2019/06/data.parquet")
 ```
 
 Note that this will be slower to read than if the file were local,
@@ -61,7 +59,8 @@ df <- read_parquet("ursa-labs-taxi-data/2019/06/data.parquet", filesystem = fs)
 
 See the help for `FileSystem` for a list of options that `S3FileSystem$create()`
 can take. `region`, `scheme`, and `endpoint_override` can be encoded as query
-parameters in the URI, and `access_key` and `secret_key` can also be included,
+parameters in the URI (though `region` will be auto-detected the bucket URI if omitted),
+and `access_key` and `secret_key` can also be included,
 but other options are not supported in the URI.
 
 Using the `SubTreeFileSystem` class, you can represent an S3 bucket or
@@ -78,7 +77,7 @@ df <- read_parquet("2019/06/data.parquet", filesystem = bucket)
 `SubTreeFileSystem` can also be made from a URI:
 
 ```r
-bucket <- SubTreeFileSystem$create("s3://ursa-labs-taxi-data?region=us-east-2")
+bucket <- SubTreeFileSystem$create("s3://ursa-labs-taxi-data")
 ```
 
 ## Authentication
