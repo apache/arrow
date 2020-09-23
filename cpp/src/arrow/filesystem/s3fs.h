@@ -131,7 +131,11 @@ class ARROW_EXPORT S3FileSystem : public FileSystem {
   ~S3FileSystem() override;
 
   std::string type_name() const override { return "s3"; }
+
+  /// Return the original S3 options when constructing with filesystem
   S3Options options() const;
+  /// Return the actual region this filesystem connects to
+  std::string region() const;
 
   bool Equals(const FileSystem& other) const override;
 
