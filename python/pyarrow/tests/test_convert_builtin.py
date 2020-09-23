@@ -1927,6 +1927,17 @@ def test_auto_chunking_binary_like():
     assert arr.chunk(1).to_pylist() == [b'x']
 
 
+@pytest.mark.large_memory
+def test_auto_chunking_list_of_binary():
+    # ARROW-6281
+    vals = [['x' * 1024]] * ((2 << 20) + 1)
+    arr = pa.array(vals)
+    assert isinstance(arr, pa.ChunkedArray)
+    assert arr.num_chunks == 2
+    assert len(arr.chunk(0)) == 2**21 - 1
+    assert len(arr.chunk(1)) == 2
+
+
 @pytest.mark.slow
 @pytest.mark.large_memory
 def test_auto_chunking_list_like():
