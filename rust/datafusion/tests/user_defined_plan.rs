@@ -78,12 +78,7 @@ use datafusion::{
     prelude::{ExecutionConfig, ExecutionContext},
 };
 use fmt::Debug;
-use std::{
-    any::Any,
-    collections::BTreeMap,
-    fmt,
-    sync::{Arc, Mutex},
-};
+use std::{any::Any, collections::BTreeMap, fmt, sync::Arc};
 
 use async_trait::async_trait;
 
@@ -400,7 +395,7 @@ impl ExecutionPlan for TopKExec {
     async fn execute(
         &self,
         partition: usize,
-    ) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
+    ) -> Result<Box<dyn RecordBatchReader + Send>> {
         if 0 != partition {
             return Err(ExecutionError::General(format!(
                 "TopKExec invalid partition {}",
@@ -408,71 +403,74 @@ impl ExecutionPlan for TopKExec {
             )));
         }
 
-        Ok(Arc::new(Mutex::new(TopKReader {
+        Ok(Box::new(TopKReader {
             input: self.input.execute(partition).await?,
             k: self.k,
-            top_values: BTreeMap::new(),
             done: false,
-        })))
+        }))
     }
 }
 
 // A very specialized TopK implementation
 struct TopKReader {
     /// The input to read data from
-    input: Arc<Mutex<dyn RecordBatchReader + Send + Sync>>,
+    input: Box<dyn RecordBatchReader + Send>,
     /// Maximum number of output values
     k: usize,
-    /// Hard coded implementation for sales / customer_id example
-    top_values: BTreeMap<i64, String>,
     /// Have we produced the output yet?
     done: bool,
 }
 
-impl TopKReader {
-    /// Keeps track of the revenue from customer_id and stores if it
-    /// is the top values we have seen so far.
-    fn add_row(&mut self, customer_id: &str, revenue: i64) {
-        self.top_values.insert(revenue, customer_id.into());
-        // only keep top k
-        while self.top_values.len() > self.k {
-            self.remove_lowest_value()
-        }
+/// Keeps track of the revenue from customer_id and stores if it
+/// is the top values we have seen so far.
+fn add_row(
+    top_values: &mut BTreeMap<i64, String>,
+    customer_id: &str,
+    revenue: i64,
+    k: &usize,
+) {
+    top_values.insert(revenue, customer_id.into());
+    // only keep top k
+    while top_values.len() > *k {
+        remove_lowest_value(top_values)
     }
+}
 
-    fn remove_lowest_value(&mut self) {
-        if !self.top_values.is_empty() {
-            let smallest_revenue = {
-                let (revenue, _) = self.top_values.iter().next().unwrap();
-                *revenue
-            };
-            self.top_values.remove(&smallest_revenue);
-        }
+fn remove_lowest_value(top_values: &mut BTreeMap<i64, String>) {
+    if !top_values.is_empty() {
+        let smallest_revenue = {
+            let (revenue, _) = top_values.iter().next().unwrap();
+            *revenue
+        };
+        top_values.remove(&smallest_revenue);
     }
+}
 
-    // how we process a whole batch
-    fn accumulate_batch(&mut self, input_batch: &RecordBatch) -> Result<()> {
-        let num_rows = input_batch.num_rows();
-        // Assuming the input columns are
-        // column[0]: customer_id / UTF8
-        // column[1]: revenue: Int64
-        let customer_id = input_batch
-            .column(0)
-            .as_any()
-            .downcast_ref::<StringArray>()
-            .expect("Column 0 is not customer_id");
+fn accumulate_batch(
+    input_batch: &RecordBatch,
+    top_values: &mut BTreeMap<i64, String>,
+    k: &usize,
+) -> Result<()> {
+    let num_rows = input_batch.num_rows();
+    // Assuming the input columns are
+    // column[0]: customer_id / UTF8
+    // column[1]: revenue: Int64
+    let customer_id = input_batch
+        .column(0)
+        .as_any()
+        .downcast_ref::<StringArray>()
+        .expect("Column 0 is not customer_id");
 
-        let revenue = input_batch
-            .column(1)
-            .as_any()
-            .downcast_ref::<Int64Array>()
-            .expect("Column 1 is not revenue");
+    let revenue = input_batch
+        .column(1)
+        .as_any()
+        .downcast_ref::<Int64Array>()
+        .expect("Column 1 is not revenue");
 
-        for row in 0..num_rows {
-            self.add_row(customer_id.value(row), revenue.value(row));
-        }
-        Ok(())
+    for row in 0..num_rows {
+        add_row(top_values, customer_id.value(row), revenue.value(row), k);
     }
+    Ok(())
 }
 
 impl Iterator for TopKReader {
@@ -484,18 +482,22 @@ impl Iterator for TopKReader {
             return None;
         }
 
+        // Hard coded implementation for sales / customer_id example
+        let mut top_values: BTreeMap<i64, String> = BTreeMap::new();
+
+        // take this as immutable
+        let k = &self.k;
+
         self.input
-            .clone()
-            .lock()
-            .unwrap()
+            .as_mut()
             .into_iter()
-            .map(|batch| self.accumulate_batch(&batch?))
+            .map(|batch| accumulate_batch(&batch?, &mut top_values, k))
             .collect::<Result<()>>()
             .unwrap();
 
         // make output by walking over the map backwards (so values are descending)
         let (revenue, customer): (Vec<i64>, Vec<&String>) =
-            self.top_values.iter().rev().unzip();
+            top_values.iter().rev().unzip();
 
         let customer: Vec<&str> = customer.iter().map(|&s| &**s).collect();
 
@@ -512,6 +514,6 @@ impl Iterator for TopKReader {
 
 impl RecordBatchReader for TopKReader {
     fn schema(&self) -> SchemaRef {
-        self.input.lock().expect("locked input reader").schema()
+        self.input.schema()
     }
 }

@@ -18,19 +18,20 @@
 //! Defines the SORT plan
 
 use std::any::Any;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use arrow::array::ArrayRef;
 pub use arrow::compute::SortOptions;
 use arrow::compute::{concat, lexsort_to_indices, take, SortColumn, TakeOptions};
 use arrow::datatypes::SchemaRef;
-use arrow::record_batch::{RecordBatch, RecordBatchReader};
+use arrow::record_batch::RecordBatch;
 
 use crate::error::{ExecutionError, Result};
 use crate::physical_plan::common::RecordBatchIterator;
 use crate::physical_plan::expressions::PhysicalSortExpr;
 use crate::physical_plan::{common, Distribution, ExecutionPlan, Partitioning};
 
+use super::Source;
 use async_trait::async_trait;
 
 /// Sort execution plan
@@ -99,10 +100,7 @@ impl ExecutionPlan for SortExec {
         }
     }
 
-    async fn execute(
-        &self,
-        partition: usize,
-    ) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
+    async fn execute(&self, partition: usize) -> Result<Source> {
         if 0 != partition {
             return Err(ExecutionError::General(format!(
                 "SortExec invalid partition {}",
@@ -166,10 +164,10 @@ impl ExecutionPlan for SortExec {
                 .collect::<Result<Vec<ArrayRef>>>()?,
         )?;
 
-        Ok(Arc::new(Mutex::new(RecordBatchIterator::new(
+        Ok(Box::new(RecordBatchIterator::new(
             self.schema(),
             vec![Arc::new(sorted_batch)],
-        ))))
+        )))
     }
 }
 

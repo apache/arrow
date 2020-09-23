@@ -83,7 +83,6 @@ mod tests {
         let projection = None;
         let exec = table.scan(&projection, 2)?;
         let it = exec.execute(0).await?;
-        let mut it = it.lock().unwrap();
 
         let count = it
             .into_iter()
@@ -304,8 +303,7 @@ mod tests {
         projection: &Option<Vec<usize>>,
     ) -> Result<RecordBatch> {
         let exec = table.scan(projection, 1024)?;
-        let it = exec.execute(0).await?;
-        let mut it = it.lock().expect("failed to lock mutex");
+        let mut it = exec.execute(0).await?;
         it.next()
             .expect("should have received at least one batch")
             .map_err(|e| e.into())

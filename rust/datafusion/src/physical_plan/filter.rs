@@ -19,8 +19,9 @@
 //! include in its output batches.
 
 use std::any::Any;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
+use super::Source;
 use crate::error::{ExecutionError, Result};
 use crate::physical_plan::{ExecutionPlan, Partitioning, PhysicalExpr};
 use arrow::array::BooleanArray;
@@ -97,15 +98,12 @@ impl ExecutionPlan for FilterExec {
         }
     }
 
-    async fn execute(
-        &self,
-        partition: usize,
-    ) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
-        Ok(Arc::new(Mutex::new(FilterExecIter {
+    async fn execute(&self, partition: usize) -> Result<Source> {
+        Ok(Box::new(FilterExecIter {
             schema: self.input.schema().clone(),
             predicate: self.predicate.clone(),
             input: self.input.execute(partition).await?,
-        })))
+        }))
     }
 }
 
@@ -117,7 +115,7 @@ struct FilterExecIter {
     /// The expression to filter on. This expression must evaluate to a boolean value.
     predicate: Arc<dyn PhysicalExpr>,
     /// The input partition to filter.
-    input: Arc<Mutex<dyn RecordBatchReader + Send + Sync>>,
+    input: Source,
 }
 
 impl Iterator for FilterExecIter {
@@ -125,8 +123,7 @@ impl Iterator for FilterExecIter {
 
     /// Get the next batch
     fn next(&mut self) -> Option<ArrowResult<RecordBatch>> {
-        let mut input = self.input.lock().unwrap();
-        match input.next() {
+        match self.input.next() {
             Some(Ok(batch)) => {
                 // evaluate the filter predicate to get a boolean array indicating which rows
                 // to include in the output

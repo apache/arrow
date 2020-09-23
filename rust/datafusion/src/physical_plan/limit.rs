@@ -18,7 +18,7 @@
 //! Defines the LIMIT plan
 
 use std::any::Any;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use crate::error::{ExecutionError, Result};
 use crate::physical_plan::memory::MemoryIterator;
@@ -26,7 +26,9 @@ use crate::physical_plan::{Distribution, ExecutionPlan, Partitioning};
 use arrow::array::ArrayRef;
 use arrow::compute::limit;
 use arrow::datatypes::SchemaRef;
-use arrow::record_batch::{RecordBatch, RecordBatchReader};
+use arrow::record_batch::RecordBatch;
+
+use super::Source;
 
 use async_trait::async_trait;
 
@@ -92,10 +94,7 @@ impl ExecutionPlan for GlobalLimitExec {
         }
     }
 
-    async fn execute(
-        &self,
-        partition: usize,
-    ) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
+    async fn execute(&self, partition: usize) -> Result<Source> {
         // GlobalLimitExec has a single output partition
         if 0 != partition {
             return Err(ExecutionError::General(format!(
@@ -111,12 +110,12 @@ impl ExecutionPlan for GlobalLimitExec {
             ));
         }
 
-        let it = self.input.execute(0).await?;
-        Ok(Arc::new(Mutex::new(MemoryIterator::try_new(
-            collect_with_limit(it, self.limit)?,
+        let mut it = self.input.execute(0).await?;
+        Ok(Box::new(MemoryIterator::try_new(
+            collect_with_limit(&mut it, self.limit)?,
             self.input.schema(),
             None,
-        )?)))
+        )?))
     }
 }
 
@@ -168,16 +167,13 @@ impl ExecutionPlan for LocalLimitExec {
         }
     }
 
-    async fn execute(
-        &self,
-        partition: usize,
-    ) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
-        let it = self.input.execute(partition).await?;
-        Ok(Arc::new(Mutex::new(MemoryIterator::try_new(
-            collect_with_limit(it, self.limit)?,
+    async fn execute(&self, _: usize) -> Result<Source> {
+        let mut it = self.input.execute(0).await?;
+        Ok(Box::new(MemoryIterator::try_new(
+            collect_with_limit(&mut it, self.limit)?,
             self.input.schema(),
             None,
-        )?)))
+        )?))
     }
 }
 
@@ -194,15 +190,11 @@ pub fn truncate_batch(batch: &RecordBatch, n: usize) -> Result<RecordBatch> {
 }
 
 /// Create a vector of record batches from an iterator
-fn collect_with_limit(
-    reader: Arc<Mutex<dyn RecordBatchReader + Send + Sync>>,
-    limit: usize,
-) -> Result<Vec<RecordBatch>> {
+fn collect_with_limit(reader: &mut Source, limit: usize) -> Result<Vec<RecordBatch>> {
     let mut count = 0;
-    let mut reader = reader.lock().unwrap();
     let mut results: Vec<RecordBatch> = vec![];
     loop {
-        match reader.next() {
+        match reader.as_mut().next() {
             Some(Ok(batch)) => {
                 let capacity = limit - count;
                 if batch.num_rows() <= capacity {

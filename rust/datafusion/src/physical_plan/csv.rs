@@ -19,7 +19,7 @@
 
 use std::any::Any;
 use std::fs::File;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use crate::error::{ExecutionError, Result};
 use crate::physical_plan::ExecutionPlan;
@@ -29,6 +29,7 @@ use arrow::datatypes::{Schema, SchemaRef};
 use arrow::error::Result as ArrowResult;
 use arrow::record_batch::{RecordBatch, RecordBatchReader};
 
+use super::Source;
 use async_trait::async_trait;
 
 /// CSV file read option
@@ -217,18 +218,15 @@ impl ExecutionPlan for CsvExec {
         }
     }
 
-    async fn execute(
-        &self,
-        partition: usize,
-    ) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
-        Ok(Arc::new(Mutex::new(CsvIterator::try_new(
+    async fn execute(&self, partition: usize) -> Result<Source> {
+        Ok(Box::new(CsvIterator::try_new(
             &self.filenames[partition],
             self.schema.clone(),
             self.has_header,
             self.delimiter,
             &self.projection,
             self.batch_size,
-        )?)))
+        )?))
     }
 }
 
@@ -297,8 +295,7 @@ mod tests {
         assert_eq!(13, csv.schema.fields().len());
         assert_eq!(3, csv.projected_schema.fields().len());
         assert_eq!(3, csv.schema().fields().len());
-        let it = csv.execute(0).await?;
-        let mut it = it.lock().unwrap();
+        let mut it = csv.execute(0).await?;
         let batch = it.next().unwrap()?;
         assert_eq!(3, batch.num_columns());
         let batch_schema = batch.schema();
@@ -320,8 +317,7 @@ mod tests {
         assert_eq!(13, csv.schema.fields().len());
         assert_eq!(13, csv.projected_schema.fields().len());
         assert_eq!(13, csv.schema().fields().len());
-        let it = csv.execute(0).await?;
-        let mut it = it.lock().unwrap();
+        let mut it = csv.execute(0).await?;
         let batch = it.next().unwrap()?;
         assert_eq!(13, batch.num_columns());
         let batch_schema = batch.schema();

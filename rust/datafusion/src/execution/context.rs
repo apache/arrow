@@ -360,10 +360,9 @@ impl ExecutionContext {
             let plan = plan.clone();
             let filename = format!("part-{}.csv", i);
             let path = Path::new(&path).join(&filename);
-            let file = fs::File::create(path).unwrap();
+            let file = fs::File::create(path)?;
             let mut writer = csv::Writer::new(file);
-            let reader = plan.execute(i).await.unwrap();
-            let mut reader = reader.lock().unwrap();
+            let reader = plan.execute(i).await?;
 
             reader
                 .into_iter()

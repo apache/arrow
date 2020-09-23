@@ -18,13 +18,14 @@
 //! EmptyRelation execution plan
 
 use std::any::Any;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use crate::error::{ExecutionError, Result};
 use crate::physical_plan::memory::MemoryIterator;
 use crate::physical_plan::{Distribution, ExecutionPlan, Partitioning};
 use arrow::datatypes::SchemaRef;
-use arrow::record_batch::RecordBatchReader;
+
+use super::Source;
 
 use async_trait::async_trait;
 
@@ -77,10 +78,7 @@ impl ExecutionPlan for EmptyExec {
         }
     }
 
-    async fn execute(
-        &self,
-        partition: usize,
-    ) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
+    async fn execute(&self, partition: usize) -> Result<Source> {
         // GlobalLimitExec has a single output partition
         if 0 != partition {
             return Err(ExecutionError::General(format!(
@@ -90,11 +88,11 @@ impl ExecutionPlan for EmptyExec {
         }
 
         let data = vec![];
-        Ok(Arc::new(Mutex::new(MemoryIterator::try_new(
+        Ok(Box::new(MemoryIterator::try_new(
             data,
             self.schema.clone(),
             None,
-        )?)))
+        )?))
     }
 }
 

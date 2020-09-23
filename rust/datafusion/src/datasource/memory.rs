@@ -64,7 +64,6 @@ impl MemTable {
             Vec::with_capacity(exec.output_partitioning().partition_count());
         for partition in 0..exec.output_partitioning().partition_count() {
             let it = exec.execute(partition).await?;
-            let mut it = it.lock().unwrap();
             let partition_batches = it.into_iter().collect::<ArrowResult<Vec<_>>>()?;
             data.push(partition_batches);
         }
@@ -145,8 +144,8 @@ mod tests {
 
         // scan with projection
         let exec = provider.scan(&Some(vec![2, 1]), 1024)?;
-        let it = exec.execute(0).await?;
-        let batch2 = it.lock().expect("mutex lock").next().unwrap()?;
+        let mut it = exec.execute(0).await?;
+        let batch2 = it.next().unwrap()?;
         assert_eq!(2, batch2.schema().fields().len());
         assert_eq!("c", batch2.schema().field(0).name());
         assert_eq!("b", batch2.schema().field(1).name());
@@ -175,8 +174,8 @@ mod tests {
         let provider = MemTable::new(schema, vec![vec![batch]])?;
 
         let exec = provider.scan(&None, 1024)?;
-        let it = exec.execute(0).await?;
-        let batch1 = it.lock().expect("mutex lock").next().unwrap()?;
+        let mut it = exec.execute(0).await?;
+        let batch1 = it.next().unwrap()?;
         assert_eq!(3, batch1.schema().fields().len());
         assert_eq!(3, batch1.num_columns());
 

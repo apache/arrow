@@ -21,7 +21,7 @@
 //! projection expressions.
 
 use std::any::Any;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use crate::error::{ExecutionError, Result};
 use crate::physical_plan::{ExecutionPlan, Partitioning, PhysicalExpr};
@@ -29,6 +29,7 @@ use arrow::datatypes::{Field, Schema, SchemaRef};
 use arrow::error::Result as ArrowResult;
 use arrow::record_batch::{RecordBatch, RecordBatchReader};
 
+use super::Source;
 use async_trait::async_trait;
 
 /// Execution plan for a projection
@@ -107,15 +108,12 @@ impl ExecutionPlan for ProjectionExec {
         }
     }
 
-    async fn execute(
-        &self,
-        partition: usize,
-    ) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
-        Ok(Arc::new(Mutex::new(ProjectionIterator {
+    async fn execute(&self, partition: usize) -> Result<Source> {
+        Ok(Box::new(ProjectionIterator {
             schema: self.schema.clone(),
             expr: self.expr.iter().map(|x| x.0.clone()).collect(),
             input: self.input.execute(partition).await?,
-        })))
+        }))
     }
 }
 
@@ -123,15 +121,14 @@ impl ExecutionPlan for ProjectionExec {
 struct ProjectionIterator {
     schema: SchemaRef,
     expr: Vec<Arc<dyn PhysicalExpr>>,
-    input: Arc<Mutex<dyn RecordBatchReader + Send + Sync>>,
+    input: Source,
 }
 
 impl Iterator for ProjectionIterator {
     type Item = ArrowResult<RecordBatch>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let mut input = self.input.lock().unwrap();
-        match input.next() {
+        match self.input.next() {
             Some(Ok(batch)) => Some(
                 self.expr
                     .iter()
@@ -181,7 +178,6 @@ mod tests {
         for partition in 0..projection.output_partitioning().partition_count() {
             partition_count += 1;
             let iterator = projection.execute(partition).await?;
-            let mut iterator = iterator.lock().unwrap();
 
             row_count += iterator
                 .into_iter()

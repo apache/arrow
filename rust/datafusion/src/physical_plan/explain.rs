@@ -18,21 +18,18 @@
 //! Defines the EXPLAIN operator
 
 use std::any::Any;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use crate::error::{ExecutionError, Result};
 use crate::{
     logical_plan::StringifiedPlan,
     physical_plan::{common::RecordBatchIterator, ExecutionPlan},
 };
-use arrow::{
-    array::StringBuilder,
-    datatypes::SchemaRef,
-    record_batch::{RecordBatch, RecordBatchReader},
-};
+use arrow::{array::StringBuilder, datatypes::SchemaRef, record_batch::RecordBatch};
 
 use crate::physical_plan::Partitioning;
 
+use super::Source;
 use async_trait::async_trait;
 
 /// Explain execution plan operator. This operator contains the string
@@ -91,10 +88,8 @@ impl ExecutionPlan for ExplainExec {
             )))
         }
     }
-    async fn execute(
-        &self,
-        partition: usize,
-    ) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
+
+    async fn execute(&self, partition: usize) -> Result<Source> {
         if 0 != partition {
             return Err(ExecutionError::General(format!(
                 "ExplainExec invalid partition {}",
@@ -118,9 +113,9 @@ impl ExecutionPlan for ExplainExec {
             ],
         )?;
 
-        Ok(Arc::new(Mutex::new(RecordBatchIterator::new(
+        Ok(Box::new(RecordBatchIterator::new(
             self.schema.clone(),
             vec![Arc::new(record_batch)],
-        ))))
+        )))
     }
 }
