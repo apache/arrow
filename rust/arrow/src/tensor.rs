@@ -304,15 +304,15 @@ mod tests {
     fn test_compute_row_major_strides() {
         assert_eq!(
             vec![48_usize, 8],
-            compute_row_major_strides::<Int64Type>(&vec![4_usize, 6]).unwrap()
+            compute_row_major_strides::<Int64Type>(&[4_usize, 6]).unwrap()
         );
         assert_eq!(
             vec![24_usize, 4],
-            compute_row_major_strides::<Int32Type>(&vec![4_usize, 6]).unwrap()
+            compute_row_major_strides::<Int32Type>(&[4_usize, 6]).unwrap()
         );
         assert_eq!(
             vec![6_usize, 1],
-            compute_row_major_strides::<Int8Type>(&vec![4_usize, 6]).unwrap()
+            compute_row_major_strides::<Int8Type>(&[4_usize, 6]).unwrap()
         );
     }
 
@@ -320,15 +320,15 @@ mod tests {
     fn test_compute_column_major_strides() {
         assert_eq!(
             vec![8_usize, 32],
-            compute_column_major_strides::<Int64Type>(&vec![4_usize, 6]).unwrap()
+            compute_column_major_strides::<Int64Type>(&[4_usize, 6]).unwrap()
         );
         assert_eq!(
             vec![4_usize, 16],
-            compute_column_major_strides::<Int32Type>(&vec![4_usize, 6]).unwrap()
+            compute_column_major_strides::<Int32Type>(&[4_usize, 6]).unwrap()
         );
         assert_eq!(
             vec![1_usize, 4],
-            compute_column_major_strides::<Int8Type>(&vec![4_usize, 6]).unwrap()
+            compute_column_major_strides::<Int8Type>(&[4_usize, 6]).unwrap()
         );
     }
 
@@ -438,9 +438,8 @@ mod tests {
         let result =
             Int32Tensor::try_new(buf, Some(vec![2, 8]), Some(vec![2, 8, 1]), None);
 
-        match result {
-            Err(_) => assert!(true),
-            Ok(_) => assert!(false, "shape and stride dimensions are different"),
+        if result.is_ok() {
+            panic!("shape and stride dimensions are different")
         }
     }
 
@@ -459,9 +458,8 @@ mod tests {
             Some(vec!["1", "2", "3"]),
         );
 
-        match result {
-            Err(_) => assert!(true),
-            Ok(_) => assert!(false, "dimensions and names have different shape"),
+        if result.is_ok() {
+            panic!("dimensions and names have different shape")
         }
     }
 
@@ -475,9 +473,8 @@ mod tests {
 
         let result = Int32Tensor::try_new(buf, Some(vec![2, 6]), None, None);
 
-        match result {
-            Err(_) => assert!(true),
-            Ok(_) => assert!(false, "number of elements does not match for the shape"),
+        if result.is_ok() {
+            panic!("number of elements does not match for the shape")
         }
     }
 
@@ -491,9 +488,8 @@ mod tests {
 
         let result = Int32Tensor::try_new(buf, Some(vec![2, 8]), Some(vec![30, 4]), None);
 
-        match result {
-            Err(_) => assert!(true),
-            Ok(_) => assert!(false, "the input stride does not match the selected shape"),
+        if result.is_ok() {
+            panic!("the input stride does not match the selected shape")
         }
     }
 }
