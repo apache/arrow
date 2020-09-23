@@ -446,7 +446,7 @@ class ARROW_TESTING_EXPORT LocaleGuard {
   std::unique_ptr<Impl> impl_;
 };
 
-class ARROW_EXPORT EnvVarGuard {
+class ARROW_TESTING_EXPORT EnvVarGuard {
  public:
   EnvVarGuard(const std::string& name, const std::string& value);
   ~EnvVarGuard();
