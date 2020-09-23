@@ -424,6 +424,14 @@ impl DefaultPhysicalPlanner {
                 self.create_physical_expr(expr, input_schema, ctx_state)?,
                 input_schema,
             ),
+            Expr::IsNull(expr) => expressions::is_null(self.create_physical_expr(
+                expr,
+                input_schema,
+                ctx_state,
+            )?),
+            Expr::IsNotNull(expr) => expressions::is_not_null(
+                self.create_physical_expr(expr, input_schema, ctx_state)?,
+            ),
             Expr::ScalarFunction { fun, args } => {
                 let physical_args = args
                     .iter()

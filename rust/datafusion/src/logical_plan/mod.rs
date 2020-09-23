@@ -79,6 +79,14 @@ fn create_name(e: &Expr, input_schema: &Schema) -> Result<String> {
             let expr = create_name(expr, input_schema)?;
             Ok(format!("NOT {}", expr))
         }
+        Expr::IsNull(expr) => {
+            let expr = create_name(expr, input_schema)?;
+            Ok(format!("{} IS NULL", expr))
+        }
+        Expr::IsNotNull(expr) => {
+            let expr = create_name(expr, input_schema)?;
+            Ok(format!("{} IS NOT NULL", expr))
+        }
         Expr::ScalarFunction { fun, args, .. } => {
             create_function_name(&fun.to_string(), args, input_schema)
         }

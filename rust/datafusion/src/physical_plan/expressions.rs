@@ -1420,6 +1420,82 @@ pub fn not(
     }
 }
 
+/// IS NULL expression
+#[derive(Debug)]
+pub struct IsNullExpr {
+    arg: Arc<dyn PhysicalExpr>,
+}
+
+impl IsNullExpr {
+    /// Create new not expression
+    pub fn new(arg: Arc<dyn PhysicalExpr>) -> Self {
+        Self { arg }
+    }
+}
+
+impl fmt::Display for IsNullExpr {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{} IS NULL", self.arg)
+    }
+}
+impl PhysicalExpr for IsNullExpr {
+    fn data_type(&self, _input_schema: &Schema) -> Result<DataType> {
+        return Ok(DataType::Boolean);
+    }
+
+    fn nullable(&self, _input_schema: &Schema) -> Result<bool> {
+        Ok(false)
+    }
+
+    fn evaluate(&self, batch: &RecordBatch) -> Result<ArrayRef> {
+        let arg = self.arg.evaluate(batch)?;
+        return Ok(Arc::new(arrow::compute::is_null(&arg)?));
+    }
+}
+
+/// Create an IS NULL expression
+pub fn is_null(arg: Arc<dyn PhysicalExpr>) -> Result<Arc<dyn PhysicalExpr>> {
+    Ok(Arc::new(IsNullExpr::new(arg)))
+}
+
+/// IS NULL expression
+#[derive(Debug)]
+pub struct IsNotNullExpr {
+    arg: Arc<dyn PhysicalExpr>,
+}
+
+impl IsNotNullExpr {
+    /// Create new not expression
+    pub fn new(arg: Arc<dyn PhysicalExpr>) -> Self {
+        Self { arg }
+    }
+}
+
+impl fmt::Display for IsNotNullExpr {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{} IS NOT NULL", self.arg)
+    }
+}
+impl PhysicalExpr for IsNotNullExpr {
+    fn data_type(&self, _input_schema: &Schema) -> Result<DataType> {
+        return Ok(DataType::Boolean);
+    }
+
+    fn nullable(&self, _input_schema: &Schema) -> Result<bool> {
+        Ok(false)
+    }
+
+    fn evaluate(&self, batch: &RecordBatch) -> Result<ArrayRef> {
+        let arg = self.arg.evaluate(batch)?;
+        return Ok(Arc::new(arrow::compute::is_not_null(&arg)?));
+    }
+}
+
+/// Create an IS NOT NULL expression
+pub fn is_not_null(arg: Arc<dyn PhysicalExpr>) -> Result<Arc<dyn PhysicalExpr>> {
+    Ok(Arc::new(IsNotNullExpr::new(arg)))
+}
+
 /// CAST expression casts an expression to a specific data type
 #[derive(Debug)]
 pub struct CastExpr {
@@ -1679,7 +1755,6 @@ mod tests {
             .downcast_ref::<BooleanArray>()
             .expect("failed to downcast to BooleanArray");
         for i in 0..5 {
-            print!("{}", i);
             assert_eq!(result.value(i), expected[i]);
         }
 
@@ -2596,6 +2671,48 @@ mod tests {
 
         let expr = not(col("a"), &schema);
         assert!(expr.is_err());
+
+        Ok(())
+    }
+
+    #[test]
+    fn is_null_op() -> Result<()> {
+        let schema = Schema::new(vec![Field::new("a", DataType::Utf8, true)]);
+        let a = StringArray::from(vec![Some("foo"), None]);
+        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
+
+        // expression: "a is null"
+        let expr = is_null(col("a")).unwrap();
+        let result = expr.evaluate(&batch)?;
+        let result = result
+            .as_any()
+            .downcast_ref::<BooleanArray>()
+            .expect("failed to downcast to BooleanArray");
+
+        let expected = &BooleanArray::from(vec![false, true]);
+
+        assert_eq!(expected, result);
+
+        Ok(())
+    }
+
+    #[test]
+    fn is_not_null_op() -> Result<()> {
+        let schema = Schema::new(vec![Field::new("a", DataType::Utf8, true)]);
+        let a = StringArray::from(vec![Some("foo"), None]);
+        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
+
+        // expression: "a is not null"
+        let expr = is_not_null(col("a")).unwrap();
+        let result = expr.evaluate(&batch)?;
+        let result = result
+            .as_any()
+            .downcast_ref::<BooleanArray>()
+            .expect("failed to downcast to BooleanArray");
+
+        let expected = &BooleanArray::from(vec![true, false]);
+
+        assert_eq!(expected, result);
 
         Ok(())
     }
