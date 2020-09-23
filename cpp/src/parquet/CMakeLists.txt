@@ -415,6 +415,7 @@ if(PARQUET_REQUIRE_ENCRYPTION)
                    encryption/key_metadata_test.cc
                    encryption/key_wrapping_test.cc
                    encryption/test_encryption_util.cc
+                   encryption/two_level_cache_with_expiration_test.cc
                    test_util.cc)
 endif()
 
