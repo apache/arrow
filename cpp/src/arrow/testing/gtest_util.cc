@@ -47,6 +47,7 @@
 #include "arrow/table.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {
@@ -493,6 +494,26 @@ class LocaleGuard::Impl {
 LocaleGuard::LocaleGuard(const char* new_locale) : impl_(new Impl(new_locale)) {}
 
 LocaleGuard::~LocaleGuard() {}
+
+EnvVarGuard::EnvVarGuard(const std::string& name, const std::string& value)
+    : name_(name) {
+  auto maybe_value = arrow::internal::GetEnvVar(name);
+  if (maybe_value.ok()) {
+    was_set_ = true;
+    old_value_ = *std::move(maybe_value);
+  } else {
+    was_set_ = false;
+  }
+  ARROW_CHECK_OK(arrow::internal::SetEnvVar(name, value));
+}
+
+EnvVarGuard::~EnvVarGuard() {
+  if (was_set_) {
+    ARROW_CHECK_OK(arrow::internal::SetEnvVar(name_, old_value_));
+  } else {
+    ARROW_CHECK_OK(arrow::internal::DelEnvVar(name_));
+  }
+}
 
 namespace {
 

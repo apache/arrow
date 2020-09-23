@@ -218,4 +218,4 @@ cdef class S3FileSystem(FileSystem):
         """
         The AWS region this filesystem connects to.
         """
-        return frombytes(self.s3fs.options().region)
+        return frombytes(self.s3fs.region())

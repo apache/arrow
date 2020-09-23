@@ -99,8 +99,6 @@ using internal::OutcomeToStatus;
 using internal::ToAwsString;
 using internal::ToURLEncodedAwsString;
 
-const char* kS3DefaultRegion = "us-east-1";
-
 static const char kSep = '/';
 
 namespace {
@@ -465,11 +463,15 @@ class ClientBuilder {
  public:
   explicit ClientBuilder(S3Options options) : options_(std::move(options)) {}
 
+  const Aws::Client::ClientConfiguration& config() const { return client_config_; }
+
   Aws::Client::ClientConfiguration* mutable_config() { return &client_config_; }
 
   Result<std::unique_ptr<S3Client>> BuildClient() {
     credentials_provider_ = options_.credentials_provider;
-    client_config_.region = ToAwsString(options_.region);
+    if (!options_.region.empty()) {
+      client_config_.region = ToAwsString(options_.region);
+    }
     client_config_.endpointOverride = ToAwsString(options_.endpoint_override);
     if (options_.scheme == "http") {
       client_config_.scheme = Aws::Http::Scheme::HTTP;
@@ -1082,6 +1084,10 @@ class S3FileSystem::Impl {
 
   const S3Options& options() const { return builder_.options(); }
 
+  std::string region() const {
+    return std::string(FromAwsString(builder_.config().region));
+  }
+
   // Create a bucket.  Successful if bucket already exists.
   Status CreateBucket(const std::string& bucket) {
     S3Model::CreateBucketConfiguration config;
@@ -1477,6 +1483,8 @@ bool S3FileSystem::Equals(const FileSystem& other) const {
 }
 
 S3Options S3FileSystem::options() const { return impl_->options(); }
+
+std::string S3FileSystem::region() const { return impl_->region(); }
 
 Result<FileInfo> S3FileSystem::GetFileInfo(const std::string& s) {
   ARROW_ASSIGN_OR_RAISE(auto path, S3Path::FromString(s));

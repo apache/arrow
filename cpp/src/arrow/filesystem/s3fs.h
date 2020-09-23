@@ -40,12 +40,16 @@ class STSClient;
 namespace arrow {
 namespace fs {
 
-extern ARROW_EXPORT const char* kS3DefaultRegion;
-
 /// Options for the S3FileSystem implementation.
 struct ARROW_EXPORT S3Options {
-  /// AWS region to connect to (default "us-east-1")
-  std::string region = kS3DefaultRegion;
+  /// AWS region to connect to.
+  ///
+  /// If unset, the AWS SDK will choose a default value.  The exact algorithm
+  /// depends on the SDK version.  Before 1.8, the default is hardcoded
+  /// to "us-east-1".  Since 1.8, several heuristics are used to determine
+  /// the region (environment variables, configuration profile, EC2 metadata
+  /// server).
+  std::string region;
 
   /// If non-empty, override region with a connect string such as "localhost:9000"
   // XXX perhaps instead take a URL like "http://localhost:9000"?
@@ -131,7 +135,11 @@ class ARROW_EXPORT S3FileSystem : public FileSystem {
   ~S3FileSystem() override;
 
   std::string type_name() const override { return "s3"; }
+
+  /// Return the original S3 options when constructing the filesystem
   S3Options options() const;
+  /// Return the actual region this filesystem connects to
+  std::string region() const;
 
   bool Equals(const FileSystem& other) const override;
 

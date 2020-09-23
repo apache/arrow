@@ -52,6 +52,7 @@
 #endif
 
 #include <aws/core/Aws.h>
+#include <aws/core/Version.h>
 #include <aws/core/auth/AWSCredentials.h>
 #include <aws/core/auth/AWSCredentialsProvider.h>
 #include <aws/core/client/RetryStrategy.h>
@@ -71,6 +72,7 @@
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
@@ -78,9 +80,8 @@
 namespace arrow {
 namespace fs {
 
-using ::arrow::internal::DelEnvVar;
+using ::arrow::internal::checked_pointer_cast;
 using ::arrow::internal::PlatformFilename;
-using ::arrow::internal::SetEnvVar;
 using ::arrow::internal::UriEscape;
 
 using ::arrow::fs::internal::ConnectRetryStrategy;
@@ -116,16 +117,16 @@ namespace bp = boost::process;
 
 class AwsTestMixin : public ::testing::Test {
  public:
-  void SetUp() {
-    // we set this environment variable to speed up tests by ensuring
-    // DefaultAWSCredentialsProviderChain does not query (inaccessible)
-    // EC2 metadata endpoint
-    ASSERT_OK(SetEnvVar("AWS_EC2_METADATA_DISABLED", "true"));
-  }
-  void TearDown() { ASSERT_OK(DelEnvVar("AWS_EC2_METADATA_DISABLED")); }
+  // We set this environment variable to speed up tests by ensuring
+  // DefaultAWSCredentialsProviderChain does not query (inaccessible)
+  // EC2 metadata endpoint
+  AwsTestMixin() : ec2_metadata_disabled_guard_("AWS_EC2_METADATA_DISABLED", "true") {}
+
+ private:
+  EnvVarGuard ec2_metadata_disabled_guard_;
 };
 
-class S3TestMixin : public ::testing::Test {
+class S3TestMixin : public AwsTestMixin {
  public:
   void SetUp() override {
     ASSERT_OK(minio_.Start());
@@ -183,7 +184,7 @@ TEST_F(S3OptionsTest, FromUri) {
   S3Options options;
 
   ASSERT_OK_AND_ASSIGN(options, S3Options::FromUri("s3://", &path));
-  ASSERT_EQ(options.region, kS3DefaultRegion);
+  ASSERT_EQ(options.region, "");
   ASSERT_EQ(options.scheme, "https");
   ASSERT_EQ(options.endpoint_override, "");
   ASSERT_EQ(path, "");
@@ -198,17 +199,23 @@ TEST_F(S3OptionsTest, FromUri) {
   ASSERT_EQ(creds.GetAWSSecretKey(), "secret");
 
   ASSERT_OK_AND_ASSIGN(options, S3Options::FromUri("s3://mybucket/", &path));
-  ASSERT_EQ(options.region, kS3DefaultRegion);
+  ASSERT_NE(options.region, "");  // Some region was chosen
   ASSERT_EQ(options.scheme, "https");
   ASSERT_EQ(options.endpoint_override, "");
   ASSERT_EQ(path, "mybucket");
 
   ASSERT_OK_AND_ASSIGN(options, S3Options::FromUri("s3://mybucket/foo/bar/", &path));
-  ASSERT_EQ(options.region, kS3DefaultRegion);
+  ASSERT_NE(options.region, "");
   ASSERT_EQ(options.scheme, "https");
   ASSERT_EQ(options.endpoint_override, "");
   ASSERT_EQ(path, "mybucket/foo/bar");
 
+  // Region resolution with a well-known bucket
+  ASSERT_OK_AND_ASSIGN(
+      options, S3Options::FromUri("s3://aws-earth-mo-atmospheric-ukv-prd/", &path));
+  ASSERT_EQ(options.region, "eu-west-2");
+
+  // Explicit region override
   ASSERT_OK_AND_ASSIGN(
       options,
       S3Options::FromUri(
@@ -283,6 +290,31 @@ TEST_F(S3RegionResolutionTest, NonExistentBucket) {
   ASSERT_RAISES(IOError, maybe_region);
   ASSERT_THAT(maybe_region.status().message(),
               ::testing::HasSubstr("Bucket 'ursa-labs-non-existent-bucket' not found"));
+}
+
+////////////////////////////////////////////////////////////////////////////
+// S3FileSystem region test
+
+class S3FileSystemRegionTest : public AwsTestMixin {};
+
+TEST_F(S3FileSystemRegionTest, Default) {
+  ASSERT_OK_AND_ASSIGN(auto fs, FileSystemFromUri("s3://"));
+  auto s3fs = checked_pointer_cast<S3FileSystem>(fs);
+  ASSERT_EQ(s3fs->region(), "us-east-1");
+}
+
+TEST_F(S3FileSystemRegionTest, EnvironmentVariable) {
+  // Region override with environment variable (AWS SDK >= 1.8)
+  EnvVarGuard region_guard("AWS_DEFAULT_REGION", "eu-north-1");
+
+  ASSERT_OK_AND_ASSIGN(auto fs, FileSystemFromUri("s3://"));
+  auto s3fs = checked_pointer_cast<S3FileSystem>(fs);
+
+  if (Aws::Version::GetVersionMajor() > 1 || Aws::Version::GetVersionMinor() >= 8) {
+    ASSERT_EQ(s3fs->region(), "eu-north-1");
+  } else {
+    ASSERT_EQ(s3fs->region(), "us-east-1");
+  }
 }
 
 ////////////////////////////////////////////////////////////////////////////

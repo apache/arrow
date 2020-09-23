@@ -1321,6 +1321,8 @@ def test_s3_real_aws():
     from pyarrow.fs import S3FileSystem
     fs = S3FileSystem(anonymous=True)
     assert fs.region == 'us-east-1'  # default region
+
+    fs = S3FileSystem(anonymous=True, region='us-east-2')
     entries = fs.get_file_info(FileSelector('ursa-labs-taxi-data'))
     assert len(entries) > 0
 
