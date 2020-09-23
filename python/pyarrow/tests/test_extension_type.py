@@ -511,8 +511,8 @@ def test_parquet_nested_storage(tmpdir):
     pq.write_table(orig_table, filename)
 
     table = pq.read_table(filename)
-    assert table.column(0).type == mystruct_array.type
-    assert table.column(1).type == mylist_array.type
+    assert table.column('structs').type == mystruct_array.type
+    assert table.column('lists').type == mylist_array.type
     assert table == orig_table
 
 
