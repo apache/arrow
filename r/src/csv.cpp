@@ -97,13 +97,37 @@ std::shared_ptr<arrow::csv::ConvertOptions> csv___ConvertOptions__initialize(
 
   SEXP op_timestamp_parsers = options["timestamp_parsers"];
   if (!Rf_isNull(op_timestamp_parsers)) {
-    // assume it's a list of TimestampParser R6 objects
-    cpp11::list parsers(op_timestamp_parsers);
-
     std::vector<std::shared_ptr<arrow::TimestampParser>> timestamp_parsers;
-    for (SEXP x : parsers) {
-      timestamp_parsers.push_back(
-          cpp11::as_cpp<std::shared_ptr<arrow::TimestampParser>>(x));
+
+    // if we have a character vector, convert to arrow::TimestampParser
+    if (TYPEOF(op_timestamp_parsers) == STRSXP) {
+      cpp11::strings s_timestamp_parsers(op_timestamp_parsers);
+      for (cpp11::r_string s : s_timestamp_parsers) {
+        timestamp_parsers.push_back(arrow::TimestampParser::MakeStrptime(s));
+      }
+
+    } else if (TYPEOF(op_timestamp_parsers) == VECSXP) {
+      cpp11::list lst_parsers(op_timestamp_parsers);
+
+      for (SEXP x : lst_parsers) {
+        // handle sacalar string and TimestampParser instances
+        if (TYPEOF(x) == STRSXP && XLENGTH(x) == 1) {
+          timestamp_parsers.push_back(
+              arrow::TimestampParser::MakeStrptime(CHAR(STRING_ELT(x, 0))));
+        } else if (Rf_inherits(x, "TimestampParser")) {
+          timestamp_parsers.push_back(
+              cpp11::as_cpp<std::shared_ptr<arrow::TimestampParser>>(x));
+        } else {
+          cpp11::stop(
+              "unsupported timestamp parser, must be a scalar string or a "
+              "<TimestampParser> object");
+        }
+      }
+
+    } else {
+      cpp11::stop(
+          "unsupported timestamp parser, must be character vector of strptime "
+          "specifications, or a list of <TimestampParser> objects");
     }
     res->timestamp_parsers = timestamp_parsers;
   }

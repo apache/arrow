@@ -218,3 +218,16 @@ test_that("read_csv_arrow() can read timestamps", {
   df <- read_csv_arrow(tf, col_types = "t", col_names = "time", skip = 1)
   expect_equal(tbl, df)
 })
+
+test_that("read_csv_arrow(timestamp_parsers=)", {
+  tf <- tempfile(); on.exit(unlink(tf))
+  tbl <- tibble::tibble(time = "23/09/2020")
+  write.csv(tbl, tf, row.names = FALSE)
+
+  df <- read_csv_arrow(tf,
+                       col_types = schema(time = timestamp(timezone = "UTC")),
+                       timestamp_parsers = "%d/%m/%Y"
+                       )
+  expect_equal(df$time, as.POSIXct(tbl$time, format = "%d/%m/%Y", tz = "UTC"))
+})
+

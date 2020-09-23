@@ -66,6 +66,10 @@
 #' `TRUE`, blank rows will not be represented at all. If `FALSE`, they will be
 #' filled with missings.
 #' @param skip Number of lines to skip before reading data.
+#' @param timestamp_parsers timestamp parsers. Possible values are:
+#'  - NULL: the default which uses the default built-in ISO-8601 parser
+#'  - a character vector: each string creates a strptime parser with `TimestampParser$MkStrptime()`
+#'  - a list of [TimestampParser] objects, which can be created with `TimestampParser$MkStrptime()` or `TimestampParser$MakeISO8601()`
 #' @param parse_options see [file reader options][CsvReadOptions].
 #' If given, this overrides any
 #' parsing options provided in other arguments (e.g. `delim`, `quote`, etc.).
@@ -105,7 +109,9 @@ read_delim_arrow <- function(file,
                              convert_options = NULL,
                              read_options = NULL,
                              filesystem = NULL,
-                             as_data_frame = TRUE) {
+                             as_data_frame = TRUE,
+                             timestamp_parsers = NULL
+                             ) {
   if (inherits(schema, "Schema")) {
     col_names <- names(schema)
     col_types <- schema
@@ -161,7 +167,7 @@ read_delim_arrow <- function(file,
       col_types <- schema(!!!col_types)
     }
 
-    convert_options <- readr_to_csv_convert_options(na, quoted_na, col_types = col_types)
+    convert_options <- readr_to_csv_convert_options(na, quoted_na, col_types = col_types, timestamp_parsers = timestamp_parsers)
   }
 
   if (!inherits(file, "InputStream")) {
@@ -206,7 +212,8 @@ read_csv_arrow <- function(file,
                            parse_options = NULL,
                            convert_options = NULL,
                            read_options = NULL,
-                           as_data_frame = TRUE) {
+                           as_data_frame = TRUE,
+                           timestamp_parsers = NULL) {
 
   mc <- match.call()
   mc$delim <- ","
@@ -231,7 +238,8 @@ read_tsv_arrow <- function(file,
                            parse_options = NULL,
                            convert_options = NULL,
                            read_options = NULL,
-                           as_data_frame = TRUE) {
+                           as_data_frame = TRUE,
+                           timestamp_parsers = NULL) {
 
   mc <- match.call()
   mc$delim <- "\t"
@@ -487,6 +495,6 @@ CsvConvertOptions$create <- function(check_utf8 = TRUE,
   ))
 }
 
-readr_to_csv_convert_options <- function(na, quoted_na, col_types = NULL) {
-    CsvConvertOptions$create(null_values = na, strings_can_be_null = quoted_na, col_types = col_types)
+readr_to_csv_convert_options <- function(na, quoted_na, col_types = NULL, timestamp_parsers = NULL) {
+    CsvConvertOptions$create(null_values = na, strings_can_be_null = quoted_na, col_types = col_types, timestamp_parsers = timestamp_parsers)
 }

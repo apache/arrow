@@ -23,8 +23,8 @@ read_delim_arrow(
   parse_options = NULL,
   convert_options = NULL,
   read_options = NULL,
-  filesystem = NULL,
-  as_data_frame = TRUE
+  as_data_frame = TRUE,
+  timestamp_parsers = NULL
 )
 
 read_csv_arrow(
@@ -43,7 +43,8 @@ read_csv_arrow(
   parse_options = NULL,
   convert_options = NULL,
   read_options = NULL,
-  as_data_frame = TRUE
+  as_data_frame = TRUE,
+  timestamp_parsers = NULL
 )
 
 read_tsv_arrow(
@@ -62,7 +63,8 @@ read_tsv_arrow(
   parse_options = NULL,
   convert_options = NULL,
   read_options = NULL,
-  as_data_frame = TRUE
+  as_data_frame = TRUE,
+  timestamp_parsers = NULL
 )
 }
 \arguments{
@@ -126,6 +128,13 @@ string file path; default is the local file system}
 
 \item{as_data_frame}{Should the function return a \code{data.frame} (default) or
 an Arrow \link{Table}?}
+
+\item{timestamp_parsers}{timestamp parsers. Possible values are:
+\itemize{
+\item NULL: the default which uses the default built-in ISO-8601 parser
+\item a character vector: each string creates a strptime parser with \code{TimestampParser$MkStrptime()}
+\item a list of \link{TimestampParser} objects, which can be created with \code{TimestampParser$MkStrptime()} or \code{TimestampParser$MakeISO8601()}
+}}
 }
 \value{
 A \code{data.frame}, or a Table if \code{as_data_frame = FALSE}.
