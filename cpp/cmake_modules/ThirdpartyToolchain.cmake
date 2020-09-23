@@ -2627,19 +2627,10 @@ macro(build_awssdk)
     set(AWSSDK_BUILD_TYPE Release)
   endif()
 
-  set(AWSSDK_LIST_SEPARATOR "|")
-  string(JOIN
-        ${AWSSDK_LIST_SEPARATOR}
-        AWSSDK_BUILD_ONLY
-        s3
-        core
-        config
-        identity-management
-        sts)
   set(AWSSDK_CMAKE_ARGS
       -DCMAKE_BUILD_TYPE=Release
       -DCMAKE_INSTALL_LIBDIR=lib
-      -DBUILD_ONLY=${AWSSDK_BUILD_ONLY}
+      -DBUILD_ONLY=s3;core;config;identity-management;sts
       -DENABLE_UNITY_BUILD=on
       -DENABLE_TESTING=off
       "-DCMAKE_C_FLAGS=${EP_C_FLAGS}"
@@ -2668,8 +2659,7 @@ macro(build_awssdk)
                       ${EP_LOG_OPTIONS}
                       URL ${AWSSDK_SOURCE_URL}
                       CMAKE_ARGS ${AWSSDK_CMAKE_ARGS}
-                      BUILD_BYPRODUCTS ${AWSSDK_SHARED_LIBS}
-                      LIST_SEPARATOR ${AWSSDK_LIST_SEPARATOR})
+                      BUILD_BYPRODUCTS ${AWSSDK_SHARED_LIBS})
 
   file(MAKE_DIRECTORY ${AWSSDK_INCLUDE_DIR})
 
