@@ -2630,7 +2630,7 @@ macro(build_awssdk)
   set(AWSSDK_CMAKE_ARGS
       -DCMAKE_BUILD_TYPE=Release
       -DCMAKE_INSTALL_LIBDIR=lib
-      -DBUILD_ONLY=s3;core;config;identity-management;sts
+      -DBUILD_ONLY=s3\\$<SEMICOLON>core\\$<SEMICOLON>config\\$<SEMICOLON>identity-management\\$<SEMICOLON>sts
       -DENABLE_UNITY_BUILD=on
       -DENABLE_TESTING=off
       "-DCMAKE_C_FLAGS=${EP_C_FLAGS}"
