@@ -614,6 +614,7 @@ cdef class StructScalar(Scalar, collections.abc.Mapping):
         ----------
         index : Union[int, str]
             Index / position or name of the field.
+
         Returns
         -------
         result : Scalar
