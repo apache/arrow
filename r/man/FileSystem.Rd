@@ -33,7 +33,7 @@ the other must be as well. If both are provided, they will override any
 AWS configuration set at the environment level.
 \item \code{session_token}: optional string for authentication along with
 \code{access_key} and \code{secret_key}
-\item \code{role_arn}: string AWS Role ARN. If provided instead of \code{access_key} and
+\item \code{role_arn}: string AWS ARN of an AccessRole. If provided instead of \code{access_key} and
 \code{secret_key}, temporary credentials will be fetched by assuming this role.
 \item \code{session_name}: optional string identifier for the assumed role session.
 \item \code{external_id}: optional unique string identifier that might be required
@@ -41,7 +41,9 @@ when you assume a role in another account.
 \item \code{load_frequency}: integer, frequency (in seconds) with which temporary
 credentials from an assumed role session will be refreshed. Default is
 900 (i.e. 15 minutes)
-\item \code{region}: AWS region to connect to (default "us-east-1")
+\item \code{region}: AWS region to connect to. If omitted, the AWS library will
+provide a sensible default based on client configuration, falling back
+to "us-east-1" if no other alternatives are found.
 \item \code{endpoint_override}: If non-empty, override region with a connect string
 such as "localhost:9000". This is useful for connecting to file systems
 that emulate S3.

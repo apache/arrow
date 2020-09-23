@@ -47,8 +47,8 @@ the cost of reading the data over the network should be much lower.
 
 Another way to connect to S3 is to create an `S3FileSystem` object once and pass
 that to the read/write functions. This may be a convenience when dealing with
-long URIs, and it's necessary for some options that aren't supported in the URI
-format.
+long URIs, and it's necessary for some options and authentication methods
+that aren't supported in the URI format.
 
 In the previous example, this would look like:
 
@@ -82,7 +82,7 @@ bucket <- SubTreeFileSystem$create("s3://ursa-labs-taxi-data")
 
 ## Authentication
 
-To access private S3 buckets, you need two secret parameters:
+To access private S3 buckets, you need typically need two secret parameters:
 a `access_key`, which is like a user id,
 and `secret_key`, like a token.
 There are a few options for passing these credentials:
@@ -94,6 +94,9 @@ There are a few options for passing these credentials:
 3. Set them as environment variables named `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`, respectively.
 
 4. Define them in a `~/.aws/credentials` file, according to the [AWS documentation](https://docs.aws.amazon.com/sdk-for-cpp/v1/developer-guide/credentials.html).
+
+You can also use an [AccessRole](https://docs.aws.amazon.com/STS/latest/APIReference/API_AssumeRole.html)
+for temporary access by passing the `role_arn` identifier to `S3FileSystem$create()`.
 
 ## File systems that emulate S3
 

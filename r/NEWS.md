@@ -28,7 +28,7 @@
 ## AWS S3 support
 
 * S3 support is now enabled in binary macOS and Windows (Rtools40 only, i.e. R >= 4.0) packages. To enable it on Linux, you will need to build and install `aws-sdk-cpp` from source, then set the environment variable `EXTRA_CMAKE_FLAGS="-DARROW_S3=ON -DAWSSDK_SOURCE=SYSTEM"` prior to building the R package (with bundled C++ build, not with Arrow system libraries) from source.
-* File readers and writers (`read_parquet()`, `write_feather()`, et al.) now accept an `s3://` URI as the source or destination file, as do `open_dataset()` and `write_dataset()`. See `vignette("fs", package = "arrow")` for details.
+* File readers and writers (`read_parquet()`, `write_feather()`, et al.), as well as `open_dataset()` and `write_dataset()`, allow you to access resources on S3 (or on file systems that emulate S3) either by providing an `s3://` URI or by passing an additional `filesystem` argument. See `vignette("fs", package = "arrow")` for details.
 
 ## Computation
 

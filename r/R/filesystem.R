@@ -138,7 +138,7 @@ FileSelector$create <- function(base_dir, allow_not_found = FALSE, recursive = F
 #'    AWS configuration set at the environment level.
 #' - `session_token`: optional string for authentication along with
 #'    `access_key` and `secret_key`
-#' - `role_arn`: string AWS Role ARN. If provided instead of `access_key` and
+#' - `role_arn`: string AWS ARN of an AccessRole. If provided instead of `access_key` and
 #'    `secret_key`, temporary credentials will be fetched by assuming this role.
 #' - `session_name`: optional string identifier for the assumed role session.
 #' - `external_id`: optional unique string identifier that might be required
@@ -146,7 +146,9 @@ FileSelector$create <- function(base_dir, allow_not_found = FALSE, recursive = F
 #' - `load_frequency`: integer, frequency (in seconds) with which temporary
 #'    credentials from an assumed role session will be refreshed. Default is
 #'    900 (i.e. 15 minutes)
-#' - `region`: AWS region to connect to (default "us-east-1")
+#' - `region`: AWS region to connect to. If omitted, the AWS library will
+#'    provide a sensible default based on client configuration, falling back
+#'    to "us-east-1" if no other alternatives are found.
 #' - `endpoint_override`: If non-empty, override region with a connect string
 #'    such as "localhost:9000". This is useful for connecting to file systems
 #'    that emulate S3.

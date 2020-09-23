@@ -274,7 +274,7 @@ std::shared_ptr<fs::S3FileSystem> fs___S3FileSystem__create(
   }
 
   // Now handle the rest of the options
-  /// AWS region to connect to (default "us-east-1")
+  /// AWS region to connect to (default determined by AWS SDK)
   if (region != "") {
     s3_opts.region = region;
   }
