@@ -1913,18 +1913,31 @@ def test_array_to_pylist_roundtrip(arr):
 
 @pytest.mark.large_memory
 def test_auto_chunking_binary_like():
+    # single chunk
     v1 = b'x' * 100000000
     v2 = b'x' * 147483646
     data = [v1] * 20 + [v2]
     arr = pa.array(data, type=pa.binary())
     assert isinstance(arr, pa.Array)
 
-    data += ['x'] * 1
+    # two chunks
+    data = [v1] * 20 + [v2] + ['x'] * 1
     arr = pa.array(data, type=pa.binary())
     assert isinstance(arr, pa.ChunkedArray)
+    assert arr.num_chunks == 2
     assert len(arr.chunk(0)) == 21
     assert len(arr.chunk(1)) == 1
     assert arr.chunk(1).to_pylist() == [b'x']
+
+    # three chunks
+    data = ([v1] * 20 + [v2]) + ([v1] * 20 + [v2]) + ['x'] * 2
+    arr = pa.array(data, type=pa.binary())
+    assert isinstance(arr, pa.ChunkedArray)
+    assert arr.num_chunks == 3
+    assert len(arr.chunk(0)) == 21
+    assert len(arr.chunk(1)) == 21
+    assert len(arr.chunk(2)) == 2
+    assert arr.chunk(2).to_pylist() == [b'x', b'x']
 
 
 @pytest.mark.large_memory
@@ -1945,11 +1958,15 @@ def test_auto_chunking_list_like():
     data = [item] * (2**3 - 1)
     arr = pa.array(data, type=pa.list_(pa.uint8()))
     assert isinstance(arr, pa.Array)
+    assert len(arr) == 7
 
     item = np.ones((2**28,), dtype='uint8')
     data = [item] * 2**3
     arr = pa.array(data, type=pa.list_(pa.uint8()))
     assert isinstance(arr, pa.ChunkedArray)
+    assert arr.num_chunks == 2
+    assert len(arr.chunk(0)) == 7
+    assert len(arr.chunk(1)) == 1
 
 
 @pytest.mark.slow
@@ -1988,6 +2005,7 @@ def test_nested_auto_chunking(ty, char):
     data.append({'bool': True, 'integer': 1, 'string-like': char})
     arr = pa.array(data, type=struct_type)
     assert isinstance(arr, pa.ChunkedArray)
+    assert arr.num_chunks == 2
     assert len(arr.chunk(0)) == 21
     assert len(arr.chunk(1)) == 1
 
