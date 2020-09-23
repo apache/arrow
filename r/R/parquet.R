@@ -422,9 +422,9 @@ ParquetFileWriter$create <- function(schema,
 #'
 #' - `$ReadTable(column_indices)`: get an `arrow::Table` from the file. The optional
 #'    `column_indices=` argument is a 0-based integer vector indicating which columns to retain.
-#' - `$ReadRowGroup(i, column_indices)`: get an `arrow::Table` by reading the `i`th row group.
+#' - `$ReadRowGroup(i, column_indices)`: get an `arrow::Table` by reading the `i`th row group (0-based).
 #'    The optional `column_indices=` argument is a 0-based integer vector indicating which columns to retain.
-#' - `$ReadRowGroups(row_groups, column_indices)`: get an `arrow::Table` by reading several row groups.
+#' - `$ReadRowGroups(row_groups, column_indices)`: get an `arrow::Table` by reading several row groups (0-based integer vector).
 #'    The optional `column_indices=` argument is a 0-based integer vector indicating which columns to retain.
 #' - `$GetSchema()`: get the `arrow::Schema` of the data in the file
 #' - `$ReadColumn(i)`: read the `i`th column (0-based) as a [ChunkedArray].

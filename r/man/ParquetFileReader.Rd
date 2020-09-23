@@ -26,9 +26,9 @@ takes the following arguments:
 \itemize{
 \item \verb{$ReadTable(column_indices)}: get an \code{arrow::Table} from the file. The optional
 \verb{column_indices=} argument is a 0-based integer vector indicating which columns to retain.
-\item \verb{$ReadRowGroup(i, column_indices)}: get an \code{arrow::Table} by reading the \code{i}th row group.
+\item \verb{$ReadRowGroup(i, column_indices)}: get an \code{arrow::Table} by reading the \code{i}th row group (0-based).
 The optional \verb{column_indices=} argument is a 0-based integer vector indicating which columns to retain.
-\item \verb{$ReadRowGroups(row_groups, column_indices)}: get an \code{arrow::Table} by reading several row groups.
+\item \verb{$ReadRowGroups(row_groups, column_indices)}: get an \code{arrow::Table} by reading several row groups (0-based integer vector).
 The optional \verb{column_indices=} argument is a 0-based integer vector indicating which columns to retain.
 \item \verb{$GetSchema()}: get the \code{arrow::Schema} of the data in the file
 \item \verb{$ReadColumn(i)}: read the \code{i}th column (0-based) as a \link{ChunkedArray}.
