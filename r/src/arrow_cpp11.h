@@ -157,8 +157,15 @@ struct ns {
 
 template <typename Pointer>
 Pointer r6_to_pointer(SEXP self) {
-  return reinterpret_cast<Pointer>(
-      R_ExternalPtrAddr(Rf_findVarInFrame(self, arrow::r::symbols::xp)));
+  void* p = R_ExternalPtrAddr(Rf_findVarInFrame(self, arrow::r::symbols::xp));
+  if (p == nullptr) {
+    SEXP klass = Rf_getAttrib(self, R_ClassSymbol);
+    std::string first_class(Rf_isNull(klass) ? "ArrowObject"
+                                             : CHAR(STRING_ELT(klass, 0)));
+
+    cpp11::stop("Invalid <%s>, external pointer to null", first_class.c_str());
+  }
+  return reinterpret_cast<Pointer>(p);
 }
 
 // T is either std::shared_ptr<U> or std::unique_ptr<U>
