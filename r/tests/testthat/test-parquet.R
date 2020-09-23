@@ -221,8 +221,8 @@ test_that("ParquetFileReader $ReadRowGroup(s) methods", {
 
   ## -- with column_indices
   expect_true(reader$ReadRowGroup(0, 0) == Table$create(x = 1:10))
-  expect_error(reader$ReadRowGroup(0, 1), "not valid")
+  expect_error(reader$ReadRowGroup(0, 1))
 
   expect_true(reader$ReadRowGroups(c(0, 1), 0) == Table$create(x = 1:20))
-  expect_error(reader$ReadRowGroups(c(0, 1), 1), "not valid")
+  expect_error(reader$ReadRowGroups(c(0, 1), 1))
 })
