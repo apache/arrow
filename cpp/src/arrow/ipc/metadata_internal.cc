@@ -1154,7 +1154,7 @@ Status GetKeyValueMetadata(const KVVector* fb_metadata,
   auto metadata = std::make_shared<KeyValueMetadata>();
 
   metadata->reserve(fb_metadata->size());
-  for (const auto& pair : *fb_metadata) {
+  for (const auto pair : *fb_metadata) {
     CHECK_FLATBUFFERS_NOT_NULL(pair->key(), "custom_metadata.key");
     CHECK_FLATBUFFERS_NOT_NULL(pair->value(), "custom_metadata.value");
     metadata->Append(pair->key()->str(), pair->value()->str());

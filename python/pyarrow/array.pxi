@@ -201,6 +201,10 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
       1,
       null
     ]
+
+    >>> arr = pa.array(range(1024), type=pa.dictionary(pa.int8(), pa.int64()))
+    >>> arr.type.index_type
+    DataType(int16)
     """
     cdef:
         CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)

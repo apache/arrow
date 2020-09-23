@@ -169,7 +169,7 @@ std::string Uri::path() const {
     ss << "/";
   }
   bool first = true;
-  for (const auto seg : segments) {
+  for (const auto& seg : segments) {
     if (!first) {
       ss << "/";
     }

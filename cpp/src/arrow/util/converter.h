@@ -84,32 +84,33 @@ class Converter {
   OptionsType options_;
 };
 
-template <typename T, typename BaseConverter>
+template <typename ArrowType, typename BaseConverter>
 class PrimitiveConverter : public BaseConverter {
  public:
-  using BuilderType = typename TypeTraits<T>::BuilderType;
+  using BuilderType = typename TypeTraits<ArrowType>::BuilderType;
 
  protected:
   Status Init(MemoryPool* pool) override {
     this->builder_ = std::make_shared<BuilderType>(this->type_, pool);
-    this->primitive_type_ = checked_cast<const T*>(this->type_.get());
+    this->primitive_type_ = checked_cast<const ArrowType*>(this->type_.get());
     this->primitive_builder_ = checked_cast<BuilderType*>(this->builder_.get());
     return Status::OK();
   }
 
-  const T* primitive_type_;
+  const ArrowType* primitive_type_;
   BuilderType* primitive_builder_;
 };
 
-template <typename T, typename BaseConverter, template <typename...> class ConverterTrait>
+template <typename ArrowType, typename BaseConverter,
+          template <typename...> class ConverterTrait>
 class ListConverter : public BaseConverter {
  public:
-  using BuilderType = typename TypeTraits<T>::BuilderType;
-  using ConverterType = typename ConverterTrait<T>::type;
+  using BuilderType = typename TypeTraits<ArrowType>::BuilderType;
+  using ConverterType = typename ConverterTrait<ArrowType>::type;
 
  protected:
   Status Init(MemoryPool* pool) override {
-    list_type_ = checked_cast<const T*>(this->type_.get());
+    list_type_ = checked_cast<const ArrowType*>(this->type_.get());
     ARROW_ASSIGN_OR_RAISE(value_converter_,
                           (MakeConverter<BaseConverter, ConverterTrait>(
                               list_type_->value_type(), this->options_, pool)));
@@ -120,7 +121,7 @@ class ListConverter : public BaseConverter {
     return Status::OK();
   }
 
-  const T* list_type_;
+  const ArrowType* list_type_;
   BuilderType* list_builder_;
   std::shared_ptr<BaseConverter> value_converter_;
 };
@@ -155,10 +156,10 @@ class StructConverter : public BaseConverter {
   StructBuilder* struct_builder_;
 };
 
-template <typename U, typename BaseConverter>
+template <typename ValueType, typename BaseConverter>
 class DictionaryConverter : public BaseConverter {
  public:
-  using BuilderType = DictionaryBuilder<U>;
+  using BuilderType = DictionaryBuilder<ValueType>;
 
  protected:
   Status Init(MemoryPool* pool) override {
@@ -166,13 +167,13 @@ class DictionaryConverter : public BaseConverter {
     ARROW_RETURN_NOT_OK(MakeDictionaryBuilder(pool, this->type_, NULLPTR, &builder));
     this->builder_ = std::move(builder);
     dict_type_ = checked_cast<const DictionaryType*>(this->type_.get());
-    value_type_ = checked_cast<const U*>(dict_type_->value_type().get());
+    value_type_ = checked_cast<const ValueType*>(dict_type_->value_type().get());
     value_builder_ = checked_cast<BuilderType*>(this->builder_.get());
     return Status::OK();
   }
 
   const DictionaryType* dict_type_;
-  const U* value_type_;
+  const ValueType* value_type_;
   BuilderType* value_builder_;
 };
 
