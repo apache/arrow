@@ -24,7 +24,7 @@
 #' @keywords internal
 "_PACKAGE"
 
-#' @importFrom vctrs s3_register vec_size
+#' @importFrom vctrs s3_register vec_size vec_cast
 .onLoad <- function(...) {
   dplyr_methods <- paste0(
     "dplyr::",

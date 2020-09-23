@@ -424,7 +424,7 @@ ParquetFileWriter$create <- function(schema,
 #'    `column_indices=` argument is a 0-based integer vector indicating which columns to retain.
 #' - `$ReadRowGroup(i, column_indices)`: get an `arrow::Table` by reading the `i`th row group (0-based).
 #'    The optional `column_indices=` argument is a 0-based integer vector indicating which columns to retain.
-#' - `$ReadRowGroups(row_groups, column_indices)`: get an `arrow::Table` by reading several row groups (0-based integer vector).
+#' - `$ReadRowGroups(row_groups, column_indices)`: get an `arrow::Table` by reading several row groups (0-based integers).
 #'    The optional `column_indices=` argument is a 0-based integer vector indicating which columns to retain.
 #' - `$GetSchema()`: get the `arrow::Schema` of the data in the file
 #' - `$ReadColumn(i)`: read the `i`th column (0-based) as a [ChunkedArray].
@@ -466,24 +466,30 @@ ParquetFileReader <- R6Class("ParquetFileReader",
       if (is.null(column_indices)) {
         shared_ptr(Table, parquet___arrow___FileReader__ReadTable1(self))
       } else if (is_integerish(column_indices)) {
-        shared_ptr(Table, parquet___arrow___FileReader__ReadTable2(self, as.integer(column_indices)))
+        column_indices <- vec_cast(column_indices, integer())
+        shared_ptr(Table, parquet___arrow___FileReader__ReadTable2(self, column_indices))
       }
     },
     ReadRowGroup = function(i, column_indices = NULL) {
+      i <- vec_cast(i, integer())
       if (is.null(column_indices)) {
-        shared_ptr(Table, parquet___arrow___FileReader__ReadRowGroup1(self, as.integer(i)))
+        shared_ptr(Table, parquet___arrow___FileReader__ReadRowGroup1(self, i))
       } else {
-        shared_ptr(Table, parquet___arrow___FileReader__ReadRowGroup2(self, as.integer(i), as.integer(column_indices)))
+        column_indices <- vec_cast(column_indices, integer())
+        shared_ptr(Table, parquet___arrow___FileReader__ReadRowGroup2(self, i, column_indices))
       }
     },
     ReadRowGroups = function(row_groups, column_indices = NULL) {
+      row_groups <- vec_cast(row_groups, integer())
       if (is.null(column_indices)) {
-        shared_ptr(Table, parquet___arrow___FileReader__ReadRowGroups1(self, as.integer(row_groups)))
+        shared_ptr(Table, parquet___arrow___FileReader__ReadRowGroups1(self, row_groups))
       } else {
-        shared_ptr(Table, parquet___arrow___FileReader__ReadRowGroups2(self, as.integer(row_groups), as.integer(column_indices)))
+        column_indices <- vec_cast(column_indices, integer())
+        shared_ptr(Table, parquet___arrow___FileReader__ReadRowGroups2(self, row_groups, column_indices))
       }
     },
     ReadColumn = function(i) {
+      i <- vec_cast(i, integer())
       shared_ptr(ChunkedArray, parquet___arrow___FileReader__ReadColumn(self, i))
     },
     GetSchema = function() {
