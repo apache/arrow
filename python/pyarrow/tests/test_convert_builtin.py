@@ -133,10 +133,6 @@ def _as_tuple(xs):
     return tuple(xs)
 
 
-def _as_pairs(xs):
-    return [None if x is None else list(x.items()) for x in xs]
-
-
 def _as_deque(xs):
     # deque is a sequence while neither tuple nor list
     return collections.deque(xs)
