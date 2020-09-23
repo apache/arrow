@@ -115,8 +115,7 @@ class TestEncrytionKeyManagement : public ::testing::Test {
     config_builders.push_back(&builder4);
 
     for (EncryptionConfiguration::Builder* builder : config_builders) {
-      auto config =
-          builder->double_wrapping(double_wrapping)->wrap_locally(wrap_locally)->build();
+      auto config = builder->double_wrapping(double_wrapping)->build();
       configs.push_back(config);
     }
 
@@ -128,7 +127,7 @@ class TestEncrytionKeyManagement : public ::testing::Test {
 
   std::shared_ptr<DecryptionConfiguration> GetDecryptionConfiguration(bool wrap_locally) {
     DecryptionConfiguration::Builder builder;
-    return builder.wrap_locally(wrap_locally)->build();
+    return builder.build();
   }
 
   void WriteEncryptedParquetFiles() {

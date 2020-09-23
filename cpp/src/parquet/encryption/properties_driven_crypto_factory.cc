@@ -69,12 +69,6 @@ EncryptionConfiguration::Builder* EncryptionConfiguration::Builder::double_wrapp
   return this;
 }
 
-EncryptionConfiguration::Builder* EncryptionConfiguration::Builder::wrap_locally(
-    bool wrap_locally) {
-  wrap_locally_ = wrap_locally;
-  return this;
-}
-
 EncryptionConfiguration::Builder*
 EncryptionConfiguration::Builder::cache_lifetime_seconds(
     uint64_t cache_lifetime_seconds) {
@@ -101,16 +95,10 @@ std::shared_ptr<EncryptionConfiguration> EncryptionConfiguration::Builder::build
         "called.");
   }
 
-  return std::make_shared<EncryptionConfiguration>(
+  return std::shared_ptr<EncryptionConfiguration>(new EncryptionConfiguration(
       footer_key_, column_keys_, encryption_algorithm_, plaintext_footer_,
-      double_wrapping_, wrap_locally_, cache_lifetime_seconds_, internal_key_material_,
-      uniform_encryption_, data_key_length_bits_);
-}
-
-DecryptionConfiguration::Builder* DecryptionConfiguration::Builder::wrap_locally(
-    bool wrap_locally) {
-  wrap_locally_ = wrap_locally;
-  return this;
+      double_wrapping_, cache_lifetime_seconds_, internal_key_material_,
+      uniform_encryption_, data_key_length_bits_));
 }
 
 DecryptionConfiguration::Builder*
@@ -121,8 +109,8 @@ DecryptionConfiguration::Builder::cache_lifetime_seconds(
 }
 
 std::shared_ptr<DecryptionConfiguration> DecryptionConfiguration::Builder::build() {
-  return std::make_shared<DecryptionConfiguration>(wrap_locally_,
-                                                   cache_lifetime_seconds_);
+  return std::shared_ptr<DecryptionConfiguration>(
+      new DecryptionConfiguration(cache_lifetime_seconds_));
 }
 
 void PropertiesDrivenCryptoFactory::RegisterKmsClientFactory(
@@ -148,8 +136,7 @@ PropertiesDrivenCryptoFactory::GetFileEncryptionProperties(
 
   FileKeyWrapper key_wrapper(&key_toolkit_, kms_connection_config, key_material_store,
                              encryption_config->cache_lifetime_seconds(),
-                             encryption_config->double_wrapping(),
-                             encryption_config->wrap_locally());
+                             encryption_config->double_wrapping());
 
   int32_t dek_length_bits = encryption_config->data_key_length_bits();
   int32_t* found_key_length = std::find(
@@ -261,8 +248,7 @@ PropertiesDrivenCryptoFactory::GetFileDecryptionProperties(
     const KmsConnectionConfig& kms_connection_config,
     std::shared_ptr<DecryptionConfiguration> decryption_config) {
   std::shared_ptr<DecryptionKeyRetriever> key_retriever(new FileKeyUnwrapper(
-      &key_toolkit_, kms_connection_config, decryption_config->cache_lifetime_seconds(),
-      decryption_config->wrap_locally()));
+      &key_toolkit_, kms_connection_config, decryption_config->cache_lifetime_seconds()));
 
   return FileDecryptionProperties::Builder()
       .key_retriever(key_retriever)

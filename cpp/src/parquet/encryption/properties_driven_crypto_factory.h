@@ -48,7 +48,6 @@ class PARQUET_EXPORT EncryptionConfiguration {
           encryption_algorithm_(kDefaultEncryptionAlgorithm),
           plaintext_footer_(kDefaultPlaintextFooter),
           double_wrapping_(kDefaultDoubleWrapping),
-          wrap_locally_(kDefaultWrapLocally),
           cache_lifetime_seconds_(kDefaultCacheLifetimeSeconds),
           internal_key_material_(kDefaultInternalKeyMaterial),
           uniform_encryption_(kDefaultUniformEncryption),
@@ -77,10 +76,6 @@ class PARQUET_EXPORT EncryptionConfiguration {
     /// encryption keys (KEKs), which in turn are encrypted with master keys.
     Builder* double_wrapping(bool double_wrapping);
 
-    /// Wrap keys locally - master keys are fetched from the KMS server and used to
-    /// encrypt other keys (DEKs or KEKs).
-    Builder* wrap_locally(bool wrap_locally);
-
     /// Lifetime of cached entities (key encryption keys, local wrapping keys, KMS client
     /// objects).
     Builder* cache_lifetime_seconds(uint64_t cache_lifetime_seconds);
@@ -103,7 +98,6 @@ class PARQUET_EXPORT EncryptionConfiguration {
     ParquetCipher::type encryption_algorithm_;
     bool plaintext_footer_;
     bool double_wrapping_;
-    bool wrap_locally_;
     uint64_t cache_lifetime_seconds_;
     bool internal_key_material_;
     bool uniform_encryption_;
@@ -115,35 +109,32 @@ class PARQUET_EXPORT EncryptionConfiguration {
   ParquetCipher::type encryption_algorithm() const { return encryption_algorithm_; }
   bool plaintext_footer() const { return plaintext_footer_; }
   bool double_wrapping() const { return double_wrapping_; }
-  bool wrap_locally() const { return wrap_locally_; }
   uint64_t cache_lifetime_seconds() const { return cache_lifetime_seconds_; }
   bool internal_key_material() const { return internal_key_material_; }
   bool uniform_encryption() const { return uniform_encryption_; }
   int32_t data_key_length_bits() const { return data_key_length_bits_; }
 
+ private:
   EncryptionConfiguration(const std::string& footer_key, const std::string& column_keys,
                           ParquetCipher::type encryption_algorithm, bool plaintext_footer,
-                          bool double_wrapping, bool wrap_locally,
-                          uint64_t cache_lifetime_seconds, bool internal_key_material,
-                          bool uniform_encryption, int32_t data_key_length_bits)
+                          bool double_wrapping, uint64_t cache_lifetime_seconds,
+                          bool internal_key_material, bool uniform_encryption,
+                          int32_t data_key_length_bits)
       : footer_key_(footer_key),
         column_keys_(column_keys),
         encryption_algorithm_(encryption_algorithm),
         plaintext_footer_(plaintext_footer),
         double_wrapping_(double_wrapping),
-        wrap_locally_(wrap_locally),
         cache_lifetime_seconds_(cache_lifetime_seconds),
         internal_key_material_(internal_key_material),
         uniform_encryption_(uniform_encryption),
         data_key_length_bits_(data_key_length_bits) {}
 
- private:
   std::string footer_key_;
   std::string column_keys_;
   ParquetCipher::type encryption_algorithm_;
   bool plaintext_footer_;
   bool double_wrapping_;
-  bool wrap_locally_;
   uint64_t cache_lifetime_seconds_;
   bool internal_key_material_;
   bool uniform_encryption_;
@@ -154,13 +145,7 @@ class PARQUET_EXPORT DecryptionConfiguration {
  public:
   class PARQUET_EXPORT Builder {
    public:
-    Builder()
-        : wrap_locally_(kDefaultWrapLocally),
-          cache_lifetime_seconds_(kDefaultCacheLifetimeSeconds) {}
-
-    /// Wrap keys locally - master keys are fetched from the KMS server and used to
-    /// encrypt other keys (DEKs or KEKs).
-    Builder* wrap_locally(bool wrap_locally);
+    Builder() : cache_lifetime_seconds_(kDefaultCacheLifetimeSeconds) {}
 
     /// Lifetime of cached entities (key encryption keys, local wrapping keys, KMS client
     /// objects).
@@ -169,18 +154,15 @@ class PARQUET_EXPORT DecryptionConfiguration {
     std::shared_ptr<DecryptionConfiguration> build();
 
    private:
-    bool wrap_locally_;
     uint64_t cache_lifetime_seconds_;
   };
 
-  DecryptionConfiguration(bool wrap_locally, uint64_t cache_lifetime_seconds)
-      : wrap_locally_(wrap_locally), cache_lifetime_seconds_(cache_lifetime_seconds) {}
-
-  bool wrap_locally() const { return wrap_locally_; }
   uint64_t cache_lifetime_seconds() const { return cache_lifetime_seconds_; }
 
  private:
-  bool wrap_locally_;
+  explicit DecryptionConfiguration(uint64_t cache_lifetime_seconds)
+      : cache_lifetime_seconds_(cache_lifetime_seconds) {}
+
   uint64_t cache_lifetime_seconds_;
 };
 

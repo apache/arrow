@@ -32,6 +32,10 @@ class PARQUET_EXPORT RemoteKmsClient : public KmsClient {
  public:
   static constexpr const char kLocalWrapNoKeyVersion[] = "NO_VERSION";
 
+  /// If is_wrap_locally is true, master keys will be fetched from the KMS server and used
+  /// to encrypt other keys (DEKs or KEKs).
+  /// If is_wrap_locally is false, keys will be encrypted inside KMS server. This is
+  /// the preferred mode, since it is safer and also allows for key rotation.
   void Initialize(const KmsConnectionConfig& kms_connection_config, bool is_wrap_locally);
 
   std::string WrapKey(const std::string& key_bytes,

@@ -29,11 +29,10 @@ using internal::KeyWithMasterId;
 
 FileKeyUnwrapper::FileKeyUnwrapper(KeyToolkit* key_toolkit,
                                    const KmsConnectionConfig& kms_connection_config,
-                                   uint64_t cache_lifetime_seconds, bool is_wrap_locally)
+                                   uint64_t cache_lifetime_seconds)
     : key_toolkit_(key_toolkit),
       kms_connection_config_(kms_connection_config),
-      cache_entry_lifetime_ms_(1000 * cache_lifetime_seconds),
-      is_wrap_locally_(is_wrap_locally) {
+      cache_entry_lifetime_ms_(1000 * cache_lifetime_seconds) {
   kms_connection_config.refreshable_key_access_token->SetDefaultIfEmpty();
   kek_per_kek_id_ = key_toolkit_->kek_read_cache_per_token().GetOrCreateInternalCache(
       kms_connection_config.key_access_token(), cache_entry_lifetime_ms_);
@@ -111,8 +110,7 @@ std::shared_ptr<KmsClient> FileKeyUnwrapper::GetKmsClientFromConfigOrKeyMaterial
     }
   }
 
-  return key_toolkit_->GetKmsClient(kms_connection_config_, is_wrap_locally_,
-                                    cache_entry_lifetime_ms_);
+  return key_toolkit_->GetKmsClient(kms_connection_config_, cache_entry_lifetime_ms_);
 }
 
 }  // namespace encryption

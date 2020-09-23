@@ -45,8 +45,7 @@ class KeyWrappingTest : public ::testing::Test {
         std::make_shared<TestOnlyInMemoryKmsClientFactory>(is_wrap_locally, key_list_));
 
     FileKeyWrapper wrapper(&key_toolkit, kms_connection_config_, key_material_store,
-                           cache_entry_lifetime_seconds, double_wrapping,
-                           is_wrap_locally);
+                           cache_entry_lifetime_seconds, double_wrapping);
 
     std::string key_metadata_json_footer =
         wrapper.GetEncryptionKeyMetadata(kFooterEncryptionKey, kFooterMasterKeyId, true);
@@ -54,7 +53,7 @@ class KeyWrappingTest : public ::testing::Test {
         kColumnEncryptionKey1, kColumnMasterKeyIds[0], false);
 
     FileKeyUnwrapper unwrapper(&key_toolkit, kms_connection_config_,
-                               cache_entry_lifetime_seconds, is_wrap_locally);
+                               cache_entry_lifetime_seconds);
     std::string footer_key = unwrapper.GetKey(key_metadata_json_footer);
     ASSERT_EQ(footer_key, kFooterEncryptionKey);
 
@@ -76,7 +75,7 @@ class KeyWrappingTest : public ::testing::Test {
 
     FileKeyWrapper wrapper(&key_toolkit, kms_connection_config_,
                            unsupported_material_store, cache_entry_lifetime_seconds,
-                           double_wrapping, is_wrap_locally);
+                           double_wrapping);
 
     EXPECT_THROW(
         wrapper.GetEncryptionKeyMetadata(kFooterEncryptionKey, kFooterMasterKeyId, true),

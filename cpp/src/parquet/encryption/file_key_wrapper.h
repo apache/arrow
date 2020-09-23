@@ -56,8 +56,7 @@ class PARQUET_EXPORT FileKeyWrapper {
   FileKeyWrapper(KeyToolkit* key_toolkit,
                  const KmsConnectionConfig& kms_connection_config,
                  std::shared_ptr<FileKeyMaterialStore> key_material_store,
-                 uint64_t cache_entry_lifetime_seconds, bool double_wrapping,
-                 bool is_wrap_locally);
+                 uint64_t cache_entry_lifetime_seconds, bool double_wrapping);
 
   /// Creates key_metadata field for a given data key, via wrapping the key with the
   /// master key

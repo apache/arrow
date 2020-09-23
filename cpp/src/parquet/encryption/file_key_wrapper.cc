@@ -29,7 +29,7 @@ FileKeyWrapper::FileKeyWrapper(KeyToolkit* key_toolkit,
                                const KmsConnectionConfig& kms_connection_config,
                                std::shared_ptr<FileKeyMaterialStore> key_material_store,
                                uint64_t cache_entry_lifetime_seconds,
-                               bool double_wrapping, bool is_wrap_locally)
+                               bool double_wrapping)
     : kms_connection_config_(kms_connection_config),
       key_material_store_(key_material_store),
       cache_entry_lifetime_ms_(1000 * cache_entry_lifetime_seconds),
@@ -38,8 +38,8 @@ FileKeyWrapper::FileKeyWrapper(KeyToolkit* key_toolkit,
   // Check caches upon each file writing (clean once in cache_entry_lifetime_ms_)
   key_toolkit->kms_client_cache_per_token().CheckCacheForExpiredTokens(
       cache_entry_lifetime_ms_);
-  kms_client_ = key_toolkit->GetKmsClient(kms_connection_config, is_wrap_locally,
-                                          cache_entry_lifetime_ms_);
+  kms_client_ =
+      key_toolkit->GetKmsClient(kms_connection_config, cache_entry_lifetime_ms_);
 
   if (double_wrapping) {
     key_toolkit->kek_write_cache_per_token().CheckCacheForExpiredTokens(
