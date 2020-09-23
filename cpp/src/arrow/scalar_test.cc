@@ -567,7 +567,7 @@ TYPED_TEST(TestNumericScalar, Cast) {
     }
 
     ASSERT_OK_AND_ASSIGN(auto cast_from_string,
-                         StringScalar(repr.to_string()).CastTo(type));
+                         StringScalar(std::string(repr)).CastTo(type));
     ASSERT_EQ(*cast_from_string, *scalar);
 
     if (is_integer_type<TypeParam>::value) {

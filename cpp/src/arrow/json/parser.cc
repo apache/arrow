@@ -372,7 +372,7 @@ class RawArrayBuilder<Kind::kObject> {
       std::shared_ptr<Array> field_values;
       RETURN_NOT_OK(finish_child(field_builders_[i], &field_values));
       child_data[i] = field_values->data();
-      fields[i] = field(field_names[i].to_string(), field_values->type(),
+      fields[i] = field(std::string(field_names[i]), field_values->type(),
                         field_builders_[i].nullable, Kind::Tag(field_builders_[i].kind));
     }
 
