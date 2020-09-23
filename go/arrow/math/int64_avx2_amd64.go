@@ -27,13 +27,13 @@ import (
 )
 
 //go:noescape
-func _sum_int64_avx2(buf, len, res unsafe.Pointer)
+func _sum_int64_avx2(buf unsafe.Pointer, len uintptr, res unsafe.Pointer)
 
 func sum_int64_avx2(a *array.Int64) int64 {
 	buf := a.Int64Values()
 	var (
 		p1  = unsafe.Pointer(&buf[0])
-		p2  = unsafe.Pointer(uintptr(len(buf)))
+		p2  = uintptr(len(buf))
 		res int64
 	)
 	_sum_int64_avx2(p1, p2, unsafe.Pointer(&res))
