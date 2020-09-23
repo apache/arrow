@@ -116,7 +116,7 @@ public final class BitVector extends BaseFixedWidthVector {
     if (size * 2 > MAX_ALLOCATION_SIZE) {
       throw new OversizedAllocationException("Requested amount of memory is more than max allowed");
     }
-    lastValueCapacity = valueCount;
+    lastTargetValueCapacity = valueCount;
   }
 
   /**
@@ -126,7 +126,12 @@ public final class BitVector extends BaseFixedWidthVector {
    */
   @Override
   public int getValueCapacity() {
-    return capAtMaxInt(validityBuffer.capacity() * 8);
+    return actualValueCapacity;
+  }
+
+  @Override
+  protected void refreshValueCapacity() {
+    actualValueCapacity = capAtMaxInt(validityBuffer.capacity() * 8);
   }
 
   /**
@@ -171,6 +176,7 @@ public final class BitVector extends BaseFixedWidthVector {
             validityBuffer, target.validityBuffer);
     target.valueBuffer = splitAndTransferBuffer(startIndex, length, target,
             valueBuffer, target.valueBuffer);
+    target.refreshValueCapacity();
 
     target.setValueCount(length);
   }

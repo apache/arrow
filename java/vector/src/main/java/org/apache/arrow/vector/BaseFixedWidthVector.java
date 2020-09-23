@@ -48,7 +48,8 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
         implements FixedWidthVector, FieldVector, VectorDefinitionSetter {
   private final int typeWidth;
 
-  protected int lastValueCapacity;
+  protected int lastTargetValueCapacity;
+  protected int actualValueCapacity;
 
   protected final Field field;
   private int allocationMonitor;
@@ -71,7 +72,8 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
     allocationMonitor = 0;
     validityBuffer = allocator.getEmpty();
     valueBuffer = allocator.getEmpty();
-    lastValueCapacity = INITIAL_VALUE_ALLOCATION;
+    lastTargetValueCapacity = INITIAL_VALUE_ALLOCATION;
+    refreshValueCapacity();
   }
 
 
@@ -172,7 +174,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
   @Override
   public void setInitialCapacity(int valueCount) {
     computeAndCheckBufferSize(valueCount);
-    lastValueCapacity = valueCount;
+    lastTargetValueCapacity = valueCount;
   }
 
   /**
@@ -182,7 +184,14 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
    */
   @Override
   public int getValueCapacity() {
-    return Math.min(getValueBufferValueCapacity(), getValidityBufferValueCapacity());
+    return actualValueCapacity;
+  }
+
+  /**
+   * Call this if you change the capacity of valueBuffer or validityBuffer.
+   */
+  protected void refreshValueCapacity() {
+    actualValueCapacity = Math.min(getValueBufferValueCapacity(), getValidityBufferValueCapacity());
   }
 
   private int getValueBufferValueCapacity() {
@@ -238,6 +247,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
     valueCount = 0;
     validityBuffer = releaseBuffer(validityBuffer);
     valueBuffer = releaseBuffer(valueBuffer);
+    refreshValueCapacity();
   }
 
   /* used to step down the memory allocation */
@@ -261,7 +271,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
    */
   @Override
   public void allocateNew() {
-    allocateNew(lastValueCapacity);
+    allocateNew(lastTargetValueCapacity);
   }
 
   /**
@@ -275,7 +285,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
   @Override
   public boolean allocateNewSafe() {
     try {
-      allocateNew(lastValueCapacity);
+      allocateNew(lastTargetValueCapacity);
       return true;
     } catch (Exception e) {
       return false;
@@ -331,7 +341,8 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
     validityBuffer = buffers.getValidityBuf();
     zeroVector();
 
-    lastValueCapacity = getValueCapacity();
+    refreshValueCapacity();
+    lastTargetValueCapacity = getValueCapacity();
   }
 
   /**
@@ -343,6 +354,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
   private void allocateValidityBuffer(final int validityBufferSize) {
     validityBuffer = allocator.buffer(validityBufferSize);
     validityBuffer.readerIndex(0);
+    refreshValueCapacity();
   }
 
   /**
@@ -420,8 +432,8 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
   public void reAlloc() {
     int targetValueCount = getValueCapacity() * 2;
     if (targetValueCount == 0) {
-      if (lastValueCapacity > 0) {
-        targetValueCount = lastValueCapacity;
+      if (lastTargetValueCapacity > 0) {
+        targetValueCount = lastTargetValueCapacity;
       } else {
         targetValueCount = INITIAL_VALUE_ALLOCATION * 2;
       }
@@ -441,7 +453,8 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
     validityBuffer.getReferenceManager().release();
     validityBuffer = newValidityBuffer;
 
-    lastValueCapacity = getValueCapacity();
+    refreshValueCapacity();
+    lastTargetValueCapacity = getValueCapacity();
   }
 
   @Override
@@ -492,6 +505,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
     validityBuffer = BitVectorHelper.loadValidityBuffer(fieldNode, bitBuffer, allocator);
     valueBuffer.getReferenceManager().release();
     valueBuffer = dataBuffer.getReferenceManager().retain(dataBuffer, allocator);
+    refreshValueCapacity();
 
     valueCount = fieldNode.getLength();
   }
@@ -572,6 +586,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
     target.validityBuffer = transferBuffer(validityBuffer, target.allocator);
     target.valueBuffer = transferBuffer(valueBuffer, target.allocator);
     target.valueCount = valueCount;
+    target.refreshValueCapacity();
     clear();
   }
 
@@ -602,6 +617,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
     final int sliceLength = length * typeWidth;
     final ArrowBuf slicedBuffer = valueBuffer.slice(startPoint, sliceLength);
     target.valueBuffer = transferBuffer(slicedBuffer, target.allocator);
+    target.refreshValueCapacity();
   }
 
   /**
@@ -623,6 +639,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
         }
         target.validityBuffer = validityBuffer.slice(firstByteSource, byteSizeTarget);
         target.validityBuffer.getReferenceManager().retain(1);
+        target.refreshValueCapacity();
       } else {
         /* Copy data
          * When the first bit starts from the middle of a byte (offset != 0),
