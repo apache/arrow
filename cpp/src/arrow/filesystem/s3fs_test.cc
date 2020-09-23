@@ -184,7 +184,7 @@ TEST_F(S3OptionsTest, FromUri) {
   S3Options options;
 
   ASSERT_OK_AND_ASSIGN(options, S3Options::FromUri("s3://", &path));
-  ASSERT_EQ(options.region, kS3DefaultRegion);
+  ASSERT_EQ(options.region, "");
   ASSERT_EQ(options.scheme, "https");
   ASSERT_EQ(options.endpoint_override, "");
   ASSERT_EQ(path, "");
