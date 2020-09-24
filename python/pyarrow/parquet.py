@@ -36,7 +36,7 @@ from pyarrow._parquet import (ParquetReader, Statistics,  # noqa
                               ColumnChunkMetaData,
                               ParquetSchema, ColumnSchema)
 from pyarrow.fs import (
-    LocalFileSystem, _resolve_filesystem_and_path, _ensure_filesystem)
+    LocalFileSystem, FileSystem, _resolve_filesystem_and_path, _ensure_filesystem)
 from pyarrow import filesystem as legacyfs
 from pyarrow.util import guid, _is_path_like, _stringify_path
 
@@ -1409,8 +1409,9 @@ class _ParquetDatasetV2:
         if filesystem is not None:
             filesystem = _ensure_filesystem(
                 filesystem, use_mmap=memory_map)
-        else:
-            # assume local file system
+        elif filesystem is None and memory_map:
+            # if memory_map is specified, assume local file system (string
+            # path can in principle be URI for any filesystem)
             filesystem = LocalFileSystem(use_mmap=memory_map)
 
         # check for single fragment dataset
@@ -1420,8 +1421,15 @@ class _ParquetDatasetV2:
                 single_file = path_or_paths[0]
         else:
             if _is_path_like(path_or_paths):
-                if filesystem.get_file_info(str(path_or_paths)).is_file:
-                    single_file = path_or_paths
+                path = str(path_or_paths)
+                if filesystem is None:
+                    # path might be a URI describing the FileSystem as well
+                    try:
+                        filesystem, path = FileSystem.from_uri(path)
+                    except ValueError:
+                        filesystem = LocalFileSystem(use_mmap=memory_map)
+                if filesystem.get_file_info(path).is_file:
+                    single_file = path
             else:
                 single_file = path_or_paths
 

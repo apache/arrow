@@ -188,7 +188,7 @@ def _ensure_partitioning(scheme):
     """
     Validate input and return a Partitioning(Factory).
 
-    It passes None through if no partitioning scheme is defiend.
+    It passes None through if no partitioning scheme is defined.
     """
     if scheme is None:
         pass
