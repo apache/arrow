@@ -459,22 +459,20 @@ class S3Client : public Aws::S3::S3Client {
   }
 };
 
-// In AWS SDK < 1.8, Aws::Client::ClientConfiguration is a bool.
-// In AWS SDK >= 1.8, it's a Aws::Client::FollowRedirectsPolicy scoped enum.
-static constexpr bool HaveLegacyFollowRedirects =
-    std::is_same<bool,
-                 decltype(Aws::Client::ClientConfiguration().followRedirects)>::value;
-
-template <typename Config = Aws::Client::ClientConfiguration>
-void DisableRedirects(
-    typename std::enable_if<HaveLegacyFollowRedirects, Config*>::type config) {
-  config->followRedirects = false;
+// In AWS SDK < 1.8, Aws::Client::ClientConfiguration::followRedirects is a bool.
+template <bool Never = false>
+void DisableRedirectsImpl(bool* followRedirects) {
+  *followRedirects = false;
 }
 
-template <typename Config = Aws::Client::ClientConfiguration>
-void DisableRedirects(
-    typename std::enable_if<!HaveLegacyFollowRedirects, Config*>::type config) {
-  config->followRedirects = decltype(config->followRedirects)::NEVER;
+// In AWS SDK >= 1.8, it's a Aws::Client::FollowRedirectsPolicy scoped enum.
+template <typename PolicyEnum, PolicyEnum Never = PolicyEnum::NEVER>
+void DisableRedirectsImpl(PolicyEnum* followRedirects) {
+  *followRedirects = Never;
+}
+
+void DisableRedirects(Aws::Client::ClientConfiguration* c) {
+  DisableRedirectsImpl(&c->followRedirects);
 }
 
 class ClientBuilder {
