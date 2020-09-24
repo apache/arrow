@@ -49,6 +49,7 @@
 #include "arrow/type.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/io_util.h"
 #include "arrow/util/key_value_metadata.h"
 
 #include "generated/Message_generated.h"  // IWYU pragma: keep
@@ -57,6 +58,7 @@ namespace arrow {
 
 using internal::checked_cast;
 using internal::GetByteWidth;
+using internal::TemporaryDir;
 
 namespace ipc {
 
@@ -375,7 +377,14 @@ class ExtensionTypesMixin {
 
 class IpcTestFixture : public io::MemoryMapFixture, public ExtensionTypesMixin {
  public:
-  void SetUp() { options_ = IpcWriteOptions::Defaults(); }
+  void SetUp() {
+    options_ = IpcWriteOptions::Defaults();
+    ASSERT_OK_AND_ASSIGN(temp_dir_, TemporaryDir::Make("ipc-test-"));
+  }
+
+  std::string TempFile(util::string_view file) {
+    return temp_dir_->path().Join(std::string(file)).ValueOrDie().ToString();
+  }
 
   void DoSchemaRoundTrip(const Schema& schema, std::shared_ptr<Schema>* result) {
     ASSERT_OK_AND_ASSIGN(std::shared_ptr<Buffer> serialized_schema,
@@ -437,8 +446,8 @@ class IpcTestFixture : public io::MemoryMapFixture, public ExtensionTypesMixin {
                       int64_t buffer_size = 1 << 20) {
     std::stringstream ss;
     ss << "test-write-row-batch-" << g_file_number++;
-    ASSERT_OK_AND_ASSIGN(mmap_,
-                         io::MemoryMapFixture::InitMemoryMap(buffer_size, ss.str()));
+    ASSERT_OK_AND_ASSIGN(
+        mmap_, io::MemoryMapFixture::InitMemoryMap(buffer_size, TempFile(ss.str())));
 
     std::shared_ptr<Schema> schema_result;
     DoSchemaRoundTrip(*batch.schema(), &schema_result);
@@ -469,6 +478,7 @@ class IpcTestFixture : public io::MemoryMapFixture, public ExtensionTypesMixin {
  protected:
   std::shared_ptr<io::MemoryMappedFile> mmap_;
   IpcWriteOptions options_;
+  std::unique_ptr<TemporaryDir> temp_dir_;
 };
 
 TEST(MetadataVersion, ForwardsCompatCheck) {
@@ -644,10 +654,9 @@ TEST_F(TestWriteRecordBatch, SliceTruncatesBinaryOffsets) {
   auto batch = RecordBatch::Make(schema, array->length(), {array});
   auto sliced_batch = batch->Slice(0, 5);
 
-  std::stringstream ss;
-  ss << "test-truncate-offsets";
   ASSERT_OK_AND_ASSIGN(
-      mmap_, io::MemoryMapFixture::InitMemoryMap(/*buffer_size=*/1 << 20, ss.str()));
+      mmap_, io::MemoryMapFixture::InitMemoryMap(/*buffer_size=*/1 << 20,
+                                                 TempFile("test-truncate-offsets")));
   DictionaryMemo dictionary_memo;
   ASSERT_OK_AND_ASSIGN(
       auto result,
@@ -732,10 +741,9 @@ TEST_F(TestWriteRecordBatch, RoundtripPreservesBufferSizes) {
   auto arr = rg.String(length, 0, 10, 0.1);
   auto batch = RecordBatch::Make(::arrow::schema({field("f0", utf8())}), length, {arr});
 
-  std::stringstream ss;
-  ss << "test-roundtrip-buffer-sizes";
   ASSERT_OK_AND_ASSIGN(
-      mmap_, io::MemoryMapFixture::InitMemoryMap(/*buffer_size=*/1 << 20, ss.str()));
+      mmap_, io::MemoryMapFixture::InitMemoryMap(
+                 /*buffer_size=*/1 << 20, TempFile("test-roundtrip-buffer-sizes")));
   DictionaryMemo dictionary_memo;
   ASSERT_OK_AND_ASSIGN(
       auto result,
@@ -787,7 +795,15 @@ TEST_F(TestWriteRecordBatch, IntegerGetRecordBatchSize) {
 
 class RecursionLimits : public ::testing::Test, public io::MemoryMapFixture {
  public:
-  void SetUp() { pool_ = default_memory_pool(); }
+  void SetUp() {
+    pool_ = default_memory_pool();
+    ASSERT_OK_AND_ASSIGN(temp_dir_, TemporaryDir::Make("ipc-recursion-limits-test-"));
+  }
+
+  std::string TempFile(util::string_view file) {
+    return temp_dir_->path().Join(std::string(file)).ValueOrDie().ToString();
+  }
+
   void TearDown() { io::MemoryMapFixture::TearDown(); }
 
   Status WriteToMmap(int recursion_level, bool override_level, int32_t* metadata_length,
@@ -813,8 +829,8 @@ class RecursionLimits : public ::testing::Test, public io::MemoryMapFixture {
     std::stringstream ss;
     ss << "test-write-past-max-recursion-" << g_file_number++;
     const int memory_map_size = 1 << 20;
-    ARROW_ASSIGN_OR_RAISE(mmap_,
-                          io::MemoryMapFixture::InitMemoryMap(memory_map_size, ss.str()));
+    ARROW_ASSIGN_OR_RAISE(
+        mmap_, io::MemoryMapFixture::InitMemoryMap(memory_map_size, TempFile(ss.str())));
 
     auto options = IpcWriteOptions::Defaults();
     if (override_level) {
@@ -826,6 +842,7 @@ class RecursionLimits : public ::testing::Test, public io::MemoryMapFixture {
 
  protected:
   std::shared_ptr<io::MemoryMappedFile> mmap_;
+  std::unique_ptr<TemporaryDir> temp_dir_;
   MemoryPool* pool_;
 };
 
