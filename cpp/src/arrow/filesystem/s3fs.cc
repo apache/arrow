@@ -459,6 +459,22 @@ class S3Client : public Aws::S3::S3Client {
   }
 };
 
+// In AWS SDK < 1.8, Aws::Client::ClientConfiguration::followRedirects is a bool.
+template <bool Never = false>
+void DisableRedirectsImpl(bool* followRedirects) {
+  *followRedirects = false;
+}
+
+// In AWS SDK >= 1.8, it's a Aws::Client::FollowRedirectsPolicy scoped enum.
+template <typename PolicyEnum, PolicyEnum Never = PolicyEnum::NEVER>
+void DisableRedirectsImpl(PolicyEnum* followRedirects) {
+  *followRedirects = Never;
+}
+
+void DisableRedirects(Aws::Client::ClientConfiguration* c) {
+  DisableRedirectsImpl(&c->followRedirects);
+}
+
 class ClientBuilder {
  public:
   explicit ClientBuilder(S3Options options) : options_(std::move(options)) {}
@@ -558,6 +574,8 @@ class RegionResolver {
 
   Status Init() {
     DCHECK(builder_.options().endpoint_override.empty());
+    // On Windows with AWS SDK >= 1.8, it is necessary to disable redirects (ARROW-10085).
+    DisableRedirects(builder_.mutable_config());
     return builder_.BuildClient().Value(&client_);
   }
 

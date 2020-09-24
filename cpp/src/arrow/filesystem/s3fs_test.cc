@@ -303,6 +303,10 @@ TEST_F(S3FileSystemRegionTest, Default) {
   ASSERT_EQ(s3fs->region(), "us-east-1");
 }
 
+// Skipped on Windows, as the AWS SDK ignores runtime environment changes:
+// https://github.com/aws/aws-sdk-cpp/issues/1476
+
+#ifndef _WIN32
 TEST_F(S3FileSystemRegionTest, EnvironmentVariable) {
   // Region override with environment variable (AWS SDK >= 1.8)
   EnvVarGuard region_guard("AWS_DEFAULT_REGION", "eu-north-1");
@@ -316,6 +320,7 @@ TEST_F(S3FileSystemRegionTest, EnvironmentVariable) {
     ASSERT_EQ(s3fs->region(), "us-east-1");
   }
 }
+#endif
 
 ////////////////////////////////////////////////////////////////////////////
 // Basic test for the Minio test server.
