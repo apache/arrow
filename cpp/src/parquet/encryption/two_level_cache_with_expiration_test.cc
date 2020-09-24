@@ -32,12 +32,14 @@ class TwoLevelCacheWithExpirationTest : public ::testing::Test {
  public:
   void SetUp() {
     // lifetime is 1s
-    ConcurrentMap<int>* lifetime_1s = cache_.GetOrCreateInternalCache("lifetime1s", 1000);
+    std::shared_ptr<ConcurrentMap<int>> lifetime_1s =
+        cache_.GetOrCreateInternalCache("lifetime1s", 1000);
     lifetime_1s->Insert("item1", 1);
     lifetime_1s->Insert("item2", 2);
 
     // lifetime is 3s
-    ConcurrentMap<int>* lifetime_3s = cache_.GetOrCreateInternalCache("lifetime3s", 3000);
+    std::shared_ptr<ConcurrentMap<int>> lifetime_3s =
+        cache_.GetOrCreateInternalCache("lifetime3s", 3000);
     lifetime_3s->Insert("item21", 21);
     lifetime_3s->Insert("item22", 22);
   }
@@ -47,7 +49,7 @@ class TwoLevelCacheWithExpirationTest : public ::testing::Test {
     for (int i = 0; i < 20; i++) {
       std::string token = i % 2 == 0 ? "lifetime1s" : "lifetime3s";
       uint64_t lifetime_ms = i % 2 == 0 ? 1000 : 3000;
-      ConcurrentMap<int>* internal_cache =
+      std::shared_ptr<ConcurrentMap<int>> internal_cache =
           cache_.GetOrCreateInternalCache(token, lifetime_ms);
       std::stringstream ss;
       ss << "item_" << thread_no << "_" << i;
@@ -67,6 +69,10 @@ class TwoLevelCacheWithExpirationTest : public ::testing::Test {
 };
 
 TEST_F(TwoLevelCacheWithExpirationTest, RemoveExpiration) {
+  std::shared_ptr<ConcurrentMap<int>> lifetime_1s_before_expiration =
+      cache_.GetOrCreateInternalCache("lifetime1s", 1000);
+  ASSERT_EQ(lifetime_1s_before_expiration->size(), 2);
+
   // wait for 2s, we expect:
   // lifetime_1s will be expired
   // lifetime_3s will not be expired
@@ -76,11 +82,19 @@ TEST_F(TwoLevelCacheWithExpirationTest, RemoveExpiration) {
 
   // lifetime_1s (with 2 items) is expired and has been removed from the cache.
   // Now the cache create a new object which has no item.
-  ConcurrentMap<int>* lifetime_1s = cache_.GetOrCreateInternalCache("lifetime1s", 1000);
+  std::shared_ptr<ConcurrentMap<int>> lifetime_1s =
+      cache_.GetOrCreateInternalCache("lifetime1s", 1000);
+  ASSERT_EQ(lifetime_1s->size(), 0);
+
+  // However, lifetime_1s_before_expiration can still access normally and independently
+  // from the one in cache
+  lifetime_1s_before_expiration->Insert("item3", 3);
+  ASSERT_EQ(lifetime_1s_before_expiration->size(), 3);
   ASSERT_EQ(lifetime_1s->size(), 0);
 
   // lifetime_3s is not expired and still contains 2 items.
-  ConcurrentMap<int>* lifetime_3s = cache_.GetOrCreateInternalCache("lifetime3s", 3000);
+  std::shared_ptr<ConcurrentMap<int>> lifetime_3s =
+      cache_.GetOrCreateInternalCache("lifetime3s", 3000);
   ASSERT_EQ(lifetime_3s->size(), 2);
 }
 
@@ -95,11 +109,13 @@ TEST_F(TwoLevelCacheWithExpirationTest, CleanupPeriodTooBig) {
 
   // lifetime_1s (with 2 items) is expired but not removed from the cache, still contains
   // 2 items
-  ConcurrentMap<int>* lifetime_1s = cache_.GetOrCreateInternalCache("lifetime1s", 1000);
+  std::shared_ptr<ConcurrentMap<int>> lifetime_1s =
+      cache_.GetOrCreateInternalCache("lifetime1s", 1000);
   ASSERT_EQ(lifetime_1s->size(), 2);
 
   // lifetime_3s is not expired and still contains 2 items.
-  ConcurrentMap<int>* lifetime_3s = cache_.GetOrCreateInternalCache("lifetime3s", 3000);
+  std::shared_ptr<ConcurrentMap<int>> lifetime_3s =
+      cache_.GetOrCreateInternalCache("lifetime3s", 3000);
   ASSERT_EQ(lifetime_3s->size(), 2);
 }
 
@@ -115,11 +131,13 @@ TEST_F(TwoLevelCacheWithExpirationTest, CleanupPeriodOk) {
 
   // lifetime_1s (with 2 items) is expired and has been removed from the cache.
   // Now the cache create a new object which has no item.
-  ConcurrentMap<int>* lifetime_1s = cache_.GetOrCreateInternalCache("lifetime1s", 1000);
+  std::shared_ptr<ConcurrentMap<int>> lifetime_1s =
+      cache_.GetOrCreateInternalCache("lifetime1s", 1000);
   ASSERT_EQ(lifetime_1s->size(), 0);
 
   // lifetime_3s is not expired and still contains 2 items.
-  ConcurrentMap<int>* lifetime_3s = cache_.GetOrCreateInternalCache("lifetime3s", 3000);
+  std::shared_ptr<ConcurrentMap<int>> lifetime_3s =
+      cache_.GetOrCreateInternalCache("lifetime3s", 3000);
   ASSERT_EQ(lifetime_3s->size(), 2);
 }
 
@@ -128,15 +146,17 @@ TEST_F(TwoLevelCacheWithExpirationTest, RemoveByToken) {
 
   // lifetime_1s (with 2 items) has been removed from the cache.
   // Now the cache create a new object which has no item.
-  ConcurrentMap<int>* lifetime_1s = cache_.GetOrCreateInternalCache("lifetime1s", 1000);
+  std::shared_ptr<ConcurrentMap<int>> lifetime_1s =
+      cache_.GetOrCreateInternalCache("lifetime1s", 1000);
   ASSERT_EQ(lifetime_1s->size(), 0);
 
   // lifetime_3s is still contains 2 items.
-  ConcurrentMap<int>* lifetime_3s = cache_.GetOrCreateInternalCache("lifetime3s", 3000);
+  std::shared_ptr<ConcurrentMap<int>> lifetime_3s =
+      cache_.GetOrCreateInternalCache("lifetime3s", 3000);
   ASSERT_EQ(lifetime_3s->size(), 2);
 
   cache_.Remove("lifetime3s");
-  ConcurrentMap<int>* lifetime_3s_after_removed =
+  std::shared_ptr<ConcurrentMap<int>> lifetime_3s_after_removed =
       cache_.GetOrCreateInternalCache("lifetime3s", 3000);
   ASSERT_EQ(lifetime_3s_after_removed->size(), 0);
 }
@@ -146,10 +166,12 @@ TEST_F(TwoLevelCacheWithExpirationTest, RemoveAllTokens) {
 
   // All tokens has been removed from the cache.
   // Now the cache create a new object which has no item.
-  ConcurrentMap<int>* lifetime_1s = cache_.GetOrCreateInternalCache("lifetime1s", 1000);
+  std::shared_ptr<ConcurrentMap<int>> lifetime_1s =
+      cache_.GetOrCreateInternalCache("lifetime1s", 1000);
   ASSERT_EQ(lifetime_1s->size(), 0);
 
-  ConcurrentMap<int>* lifetime_3s = cache_.GetOrCreateInternalCache("lifetime3s", 3000);
+  std::shared_ptr<ConcurrentMap<int>> lifetime_3s =
+      cache_.GetOrCreateInternalCache("lifetime3s", 3000);
   ASSERT_EQ(lifetime_3s->size(), 0);
 }
 
@@ -158,10 +180,12 @@ TEST_F(TwoLevelCacheWithExpirationTest, Clear) {
 
   // All tokens has been removed from the cache.
   // Now the cache create a new object which has no item.
-  ConcurrentMap<int>* lifetime_1s = cache_.GetOrCreateInternalCache("lifetime1s", 1000);
+  std::shared_ptr<ConcurrentMap<int>> lifetime_1s =
+      cache_.GetOrCreateInternalCache("lifetime1s", 1000);
   ASSERT_EQ(lifetime_1s->size(), 0);
 
-  ConcurrentMap<int>* lifetime_3s = cache_.GetOrCreateInternalCache("lifetime3s", 3000);
+  std::shared_ptr<ConcurrentMap<int>> lifetime_3s =
+      cache_.GetOrCreateInternalCache("lifetime3s", 3000);
   ASSERT_EQ(lifetime_3s->size(), 0);
 }
 

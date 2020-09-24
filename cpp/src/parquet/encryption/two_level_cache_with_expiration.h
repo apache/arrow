@@ -42,7 +42,8 @@ class ExpiringCacheEntry {
  public:
   ExpiringCacheEntry() = default;
 
-  explicit ExpiringCacheEntry(uint64_t expiration_interval_millis) {
+  ExpiringCacheEntry(const E& cached_item, uint64_t expiration_interval_millis)
+      : cached_item_(cached_item) {
     expiration_timestamp_ =
         CurrentTimePoint() + std::chrono::milliseconds(expiration_interval_millis);
   }
@@ -52,7 +53,7 @@ class ExpiringCacheEntry {
     return (now > expiration_timestamp_);
   }
 
-  E* cached_item() { return &cached_item_; }
+  E cached_item() { return cached_item_; }
 
  private:
   TimePoint expiration_timestamp_;
@@ -66,15 +67,16 @@ class ExpiringCacheMapEntry {
  public:
   ExpiringCacheMapEntry() = default;
 
-  explicit ExpiringCacheMapEntry(uint64_t expiration_interval_millis)
-      : map_cache_(expiration_interval_millis) {}
+  explicit ExpiringCacheMapEntry(std::shared_ptr<ConcurrentMap<V>> cached_item,
+                                 uint64_t expiration_interval_millis)
+      : map_cache_(cached_item, expiration_interval_millis) {}
 
   bool IsExpired() { return map_cache_.IsExpired(); }
 
-  ConcurrentMap<V>* cached_item() { return map_cache_.cached_item(); }
+  std::shared_ptr<ConcurrentMap<V>> cached_item() { return map_cache_.cached_item(); }
 
  private:
-  ExpiringCacheEntry<ConcurrentMap<V>> map_cache_;
+  ExpiringCacheEntry<std::shared_ptr<ConcurrentMap<V>>> map_cache_;
 };
 
 }  // namespace internal
@@ -92,15 +94,17 @@ class PARQUET_EXPORT TwoLevelCacheWithExpiration {
     last_cache_cleanup_timestamp_ = internal::CurrentTimePoint();
   }
 
-  ConcurrentMap<V>* GetOrCreateInternalCache(const std::string& access_token,
-                                             uint64_t cache_entry_lifetime_ms) {
+  std::shared_ptr<ConcurrentMap<V>> GetOrCreateInternalCache(
+      const std::string& access_token, uint64_t cache_entry_lifetime_ms) {
     auto lock = mutex_.Lock();
 
     auto external_cache_entry = cache_.find(access_token);
     if (external_cache_entry == cache_.end() ||
         external_cache_entry->second.IsExpired()) {
       cache_.insert(
-          {access_token, internal::ExpiringCacheMapEntry<V>(cache_entry_lifetime_ms)});
+          {access_token, internal::ExpiringCacheMapEntry<V>(
+                             std::shared_ptr<ConcurrentMap<V>>(new ConcurrentMap<V>()),
+                             cache_entry_lifetime_ms)});
     }
 
     return cache_[access_token].cached_item();

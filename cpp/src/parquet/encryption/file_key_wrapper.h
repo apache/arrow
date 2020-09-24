@@ -68,7 +68,7 @@ class PARQUET_EXPORT FileKeyWrapper {
   KeyEncryptionKey CreateKeyEncryptionKey(const std::string& master_key_id);
 
   /// A map of Master Encryption Key ID -> KeyEncryptionKey, for the current token
-  arrow::util::ConcurrentMap<KeyEncryptionKey>* kek_per_master_key_id_;
+  std::shared_ptr<arrow::util::ConcurrentMap<KeyEncryptionKey>> kek_per_master_key_id_;
 
   std::shared_ptr<KmsClient> kms_client_;
   KmsConnectionConfig kms_connection_config_;

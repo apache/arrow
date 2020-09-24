@@ -56,7 +56,7 @@ class PARQUET_EXPORT FileKeyUnwrapper : public DecryptionKeyRetriever {
       const KeyMaterial& key_material) const;
 
   /// A map of Key Encryption Key (KEK) ID -> KEK bytes, for the current token
-  mutable arrow::util::ConcurrentMap<std::string>* kek_per_kek_id_;
+  mutable std::shared_ptr<arrow::util::ConcurrentMap<std::string>> kek_per_kek_id_;
   KeyToolkit* key_toolkit_;
   mutable KmsConnectionConfig kms_connection_config_;
   const uint64_t cache_entry_lifetime_ms_;
