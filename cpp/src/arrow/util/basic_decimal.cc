@@ -124,7 +124,6 @@ static const BasicDecimal128 ScaleMultipliersHalf[] = {
 static constexpr uint64_t kInt64Mask = 0xFFFFFFFFFFFFFFFF;
 #else
 static constexpr uint64_t kIntMask = 0xFFFFFFFF;
-#endif
 
 // same as ScaleMultipliers[38] - 1
 static constexpr BasicDecimal128 kMaxValue =
