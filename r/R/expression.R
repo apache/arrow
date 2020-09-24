@@ -20,14 +20,12 @@
 array_expression <- function(FUN,
                              ...,
                              args = list(...),
-                             options = empty_named_list(),
-                             result_class = .guess_result_class(args[[1]])) {
+                             options = empty_named_list()) {
   structure(
     list(
       fun = FUN,
       args = args,
-      options = options,
-      result_class = result_class
+      options = options
     ),
     class = "array_expression"
   )
@@ -36,7 +34,7 @@ array_expression <- function(FUN,
 #' @export
 Ops.Array <- function(e1, e2) {
   if (.Generic %in% names(.array_function_map)) {
-    expr <- build_array_expression(.Generic, e1, e2, result_class = "Array")
+    expr <- build_array_expression(.Generic, e1, e2)
     eval_array_expression(expr)
   } else {
     stop("Unsupported operation on Array: ", .Generic, call. = FALSE)
@@ -46,7 +44,7 @@ Ops.Array <- function(e1, e2) {
 #' @export
 Ops.ChunkedArray <- function(e1, e2) {
   if (.Generic %in% names(.array_function_map)) {
-    expr <- build_array_expression(.Generic, e1, e2, result_class = "ChunkedArray")
+    expr <- build_array_expression(.Generic, e1, e2)
     eval_array_expression(expr)
   } else {
     stop("Unsupported operation on ChunkedArray: ", .Generic, call. = FALSE)
@@ -56,9 +54,9 @@ Ops.ChunkedArray <- function(e1, e2) {
 #' @export
 Ops.array_expression <- function(e1, e2) {
   if (.Generic == "!") {
-    build_array_expression(.Generic, e1, result_class = e1$result_class)
+    build_array_expression(.Generic, e1)
   } else {
-    build_array_expression(.Generic, e1, e2, result_class = e1$result_class)
+    build_array_expression(.Generic, e1, e2)
   }
 }
 
@@ -104,17 +102,6 @@ build_array_expression <- function(.Generic, e1, e2, ...) {
 )
 
 .array_function_map <- c(.unary_function_map, .binary_function_map)
-
-.guess_result_class <- function(arg) {
-  # HACK HACK HACK delete this when call_function returns an ArrowObject itself
-  if (inherits(arg, "ArrowObject")) {
-    return(class(arg)[1])
-  } else if (inherits(arg, "array_expression")) {
-    return(arg$result_class)
-  } else {
-    stop("Not implemented")
-  }
-}
 
 eval_array_expression <- function(x) {
   x$args <- lapply(x$args, function (a) {
