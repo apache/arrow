@@ -120,7 +120,6 @@ static const BasicDecimal128 ScaleMultipliersHalf[] = {
     BasicDecimal128(2710505431213761085LL, 343699775700336640ULL)};
 
 static constexpr uint64_t kIntMask = 0xFFFFFFFF;
-static constexpr auto kCarryBit = static_cast<uint64_t>(1) << static_cast<uint64_t>(32);
 
 // same as ScaleMultipliers[38] - 1
 static constexpr BasicDecimal128 kMaxValue =
