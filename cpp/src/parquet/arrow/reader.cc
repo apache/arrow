@@ -178,10 +178,10 @@ class FileReaderImpl : public FileReader {
   Status BoundsCheck(const std::vector<int>& row_groups,
                      const std::vector<int>& column_indices) {
     for (int i : row_groups) {
-      return BoundsCheckRowGroup(i);
+      RETURN_NOT_OK(BoundsCheckRowGroup(i));
     }
     for (int i : column_indices) {
-      return BoundsCheckColumn(i);
+      RETURN_NOT_OK(BoundsCheckColumn(i));
     }
     return Status::OK();
   }

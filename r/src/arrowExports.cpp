@@ -4423,6 +4423,72 @@ extern "C" SEXP _arrow_parquet___arrow___FileReader__ReadTable2(SEXP reader_sexp
 
 // parquet.cpp
 #if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Table> parquet___arrow___FileReader__ReadRowGroup1(const std::shared_ptr<parquet::arrow::FileReader>& reader, int i);
+extern "C" SEXP _arrow_parquet___arrow___FileReader__ReadRowGroup1(SEXP reader_sexp, SEXP i_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<parquet::arrow::FileReader>&>::type reader(reader_sexp);
+	arrow::r::Input<int>::type i(i_sexp);
+	return cpp11::as_sexp(parquet___arrow___FileReader__ReadRowGroup1(reader, i));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_parquet___arrow___FileReader__ReadRowGroup1(SEXP reader_sexp, SEXP i_sexp){
+	Rf_error("Cannot call parquet___arrow___FileReader__ReadRowGroup1(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// parquet.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Table> parquet___arrow___FileReader__ReadRowGroup2(const std::shared_ptr<parquet::arrow::FileReader>& reader, int i, const std::vector<int>& column_indices);
+extern "C" SEXP _arrow_parquet___arrow___FileReader__ReadRowGroup2(SEXP reader_sexp, SEXP i_sexp, SEXP column_indices_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<parquet::arrow::FileReader>&>::type reader(reader_sexp);
+	arrow::r::Input<int>::type i(i_sexp);
+	arrow::r::Input<const std::vector<int>&>::type column_indices(column_indices_sexp);
+	return cpp11::as_sexp(parquet___arrow___FileReader__ReadRowGroup2(reader, i, column_indices));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_parquet___arrow___FileReader__ReadRowGroup2(SEXP reader_sexp, SEXP i_sexp, SEXP column_indices_sexp){
+	Rf_error("Cannot call parquet___arrow___FileReader__ReadRowGroup2(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// parquet.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Table> parquet___arrow___FileReader__ReadRowGroups1(const std::shared_ptr<parquet::arrow::FileReader>& reader, const std::vector<int>& row_groups);
+extern "C" SEXP _arrow_parquet___arrow___FileReader__ReadRowGroups1(SEXP reader_sexp, SEXP row_groups_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<parquet::arrow::FileReader>&>::type reader(reader_sexp);
+	arrow::r::Input<const std::vector<int>&>::type row_groups(row_groups_sexp);
+	return cpp11::as_sexp(parquet___arrow___FileReader__ReadRowGroups1(reader, row_groups));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_parquet___arrow___FileReader__ReadRowGroups1(SEXP reader_sexp, SEXP row_groups_sexp){
+	Rf_error("Cannot call parquet___arrow___FileReader__ReadRowGroups1(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// parquet.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Table> parquet___arrow___FileReader__ReadRowGroups2(const std::shared_ptr<parquet::arrow::FileReader>& reader, const std::vector<int>& row_groups, const std::vector<int>& column_indices);
+extern "C" SEXP _arrow_parquet___arrow___FileReader__ReadRowGroups2(SEXP reader_sexp, SEXP row_groups_sexp, SEXP column_indices_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<parquet::arrow::FileReader>&>::type reader(reader_sexp);
+	arrow::r::Input<const std::vector<int>&>::type row_groups(row_groups_sexp);
+	arrow::r::Input<const std::vector<int>&>::type column_indices(column_indices_sexp);
+	return cpp11::as_sexp(parquet___arrow___FileReader__ReadRowGroups2(reader, row_groups, column_indices));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_parquet___arrow___FileReader__ReadRowGroups2(SEXP reader_sexp, SEXP row_groups_sexp, SEXP column_indices_sexp){
+	Rf_error("Cannot call parquet___arrow___FileReader__ReadRowGroups2(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// parquet.cpp
+#if defined(ARROW_R_WITH_ARROW)
 int64_t parquet___arrow___FileReader__num_rows(const std::shared_ptr<parquet::arrow::FileReader>& reader);
 extern "C" SEXP _arrow_parquet___arrow___FileReader__num_rows(SEXP reader_sexp){
 BEGIN_CPP11
@@ -4433,6 +4499,52 @@ END_CPP11
 #else
 extern "C" SEXP _arrow_parquet___arrow___FileReader__num_rows(SEXP reader_sexp){
 	Rf_error("Cannot call parquet___arrow___FileReader__num_rows(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// parquet.cpp
+#if defined(ARROW_R_WITH_ARROW)
+int parquet___arrow___FileReader__num_columns(const std::shared_ptr<parquet::arrow::FileReader>& reader);
+extern "C" SEXP _arrow_parquet___arrow___FileReader__num_columns(SEXP reader_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<parquet::arrow::FileReader>&>::type reader(reader_sexp);
+	return cpp11::as_sexp(parquet___arrow___FileReader__num_columns(reader));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_parquet___arrow___FileReader__num_columns(SEXP reader_sexp){
+	Rf_error("Cannot call parquet___arrow___FileReader__num_columns(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// parquet.cpp
+#if defined(ARROW_R_WITH_ARROW)
+int parquet___arrow___FileReader__num_row_groups(const std::shared_ptr<parquet::arrow::FileReader>& reader);
+extern "C" SEXP _arrow_parquet___arrow___FileReader__num_row_groups(SEXP reader_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<parquet::arrow::FileReader>&>::type reader(reader_sexp);
+	return cpp11::as_sexp(parquet___arrow___FileReader__num_row_groups(reader));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_parquet___arrow___FileReader__num_row_groups(SEXP reader_sexp){
+	Rf_error("Cannot call parquet___arrow___FileReader__num_row_groups(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// parquet.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::ChunkedArray> parquet___arrow___FileReader__ReadColumn(const std::shared_ptr<parquet::arrow::FileReader>& reader, int i);
+extern "C" SEXP _arrow_parquet___arrow___FileReader__ReadColumn(SEXP reader_sexp, SEXP i_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<parquet::arrow::FileReader>&>::type reader(reader_sexp);
+	arrow::r::Input<int>::type i(i_sexp);
+	return cpp11::as_sexp(parquet___arrow___FileReader__ReadColumn(reader, i));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_parquet___arrow___FileReader__ReadColumn(SEXP reader_sexp, SEXP i_sexp){
+	Rf_error("Cannot call parquet___arrow___FileReader__ReadColumn(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -6300,7 +6412,14 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_parquet___arrow___FileReader__OpenFile", (DL_FUNC) &_arrow_parquet___arrow___FileReader__OpenFile, 2}, 
 		{ "_arrow_parquet___arrow___FileReader__ReadTable1", (DL_FUNC) &_arrow_parquet___arrow___FileReader__ReadTable1, 1}, 
 		{ "_arrow_parquet___arrow___FileReader__ReadTable2", (DL_FUNC) &_arrow_parquet___arrow___FileReader__ReadTable2, 2}, 
+		{ "_arrow_parquet___arrow___FileReader__ReadRowGroup1", (DL_FUNC) &_arrow_parquet___arrow___FileReader__ReadRowGroup1, 2}, 
+		{ "_arrow_parquet___arrow___FileReader__ReadRowGroup2", (DL_FUNC) &_arrow_parquet___arrow___FileReader__ReadRowGroup2, 3}, 
+		{ "_arrow_parquet___arrow___FileReader__ReadRowGroups1", (DL_FUNC) &_arrow_parquet___arrow___FileReader__ReadRowGroups1, 2}, 
+		{ "_arrow_parquet___arrow___FileReader__ReadRowGroups2", (DL_FUNC) &_arrow_parquet___arrow___FileReader__ReadRowGroups2, 3}, 
 		{ "_arrow_parquet___arrow___FileReader__num_rows", (DL_FUNC) &_arrow_parquet___arrow___FileReader__num_rows, 1}, 
+		{ "_arrow_parquet___arrow___FileReader__num_columns", (DL_FUNC) &_arrow_parquet___arrow___FileReader__num_columns, 1}, 
+		{ "_arrow_parquet___arrow___FileReader__num_row_groups", (DL_FUNC) &_arrow_parquet___arrow___FileReader__num_row_groups, 1}, 
+		{ "_arrow_parquet___arrow___FileReader__ReadColumn", (DL_FUNC) &_arrow_parquet___arrow___FileReader__ReadColumn, 2}, 
 		{ "_arrow_parquet___ArrowWriterProperties___create", (DL_FUNC) &_arrow_parquet___ArrowWriterProperties___create, 3}, 
 		{ "_arrow_parquet___WriterProperties___Builder__create", (DL_FUNC) &_arrow_parquet___WriterProperties___Builder__create, 0}, 
 		{ "_arrow_parquet___WriterProperties___Builder__version", (DL_FUNC) &_arrow_parquet___WriterProperties___Builder__version, 2}, 
