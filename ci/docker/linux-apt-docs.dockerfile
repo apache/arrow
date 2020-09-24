@@ -38,6 +38,7 @@ RUN apt-get update -y && \
         gobject-introspection \
         gtk-doc-tools \
         libcurl4-openssl-dev \
+        libfontconfig1-dev \
         libgirepository1.0-dev \
         libglib2.0-doc \
         libtool \
