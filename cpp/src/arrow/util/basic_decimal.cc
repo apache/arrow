@@ -285,7 +285,7 @@ void multiplyUint128(uint64_t x_hi, uint64_t x_lo, uint64_t y_hi, uint64_t y_lo,
 
 BasicDecimal128& BasicDecimal128::operator*=(const BasicDecimal128& right) {
   // Since the max value of BasicDecimal128 is supposed to be 1e38 - 1 and the
-  // min the negation,, taking the absolute values here should always be safe.
+  // min the negation taking the absolute values here should always be safe.
   bool negate = Sign() != right.Sign();
   BasicDecimal128 x = BasicDecimal128::Abs(*this);
   BasicDecimal128 y = BasicDecimal128::Abs(right);
