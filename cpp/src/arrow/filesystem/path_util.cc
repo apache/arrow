@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <algorithm>
+
 #include "arrow/filesystem/path_util.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
