@@ -772,7 +772,7 @@ class WriteFileSystemDatasetMixin : public MakeFileSystemDatasetMixin {
                 testing::UnorderedElementsAreArray(files));
 
     for (auto maybe_fragment : written_->GetFragments()) {
-      ASSERT_OK_AND_ASSIGN(auto fragment, std::move(maybe_fragment));
+      ASSERT_OK_AND_ASSIGN(auto fragment, maybe_fragment);
 
       ASSERT_OK_AND_ASSIGN(auto actual_physical_schema, fragment->ReadPhysicalSchema());
       AssertSchemaEqual(*expected_physical_schema_, *actual_physical_schema,
@@ -794,7 +794,7 @@ class WriteFileSystemDatasetMixin : public MakeFileSystemDatasetMixin {
 
       for (auto maybe_batch :
            IteratorFromReader(std::make_shared<TableBatchReader>(*actual_table))) {
-        ASSERT_OK_AND_ASSIGN(auto batch, std::move(maybe_batch));
+        ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
         ASSERT_OK_AND_ASSIGN(actual_struct, batch->ToStructArray());
       }
 

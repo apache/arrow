@@ -208,7 +208,7 @@ TEST(TestVectorIterator, RangeForLoop) {
   // also works with move only types
   ints_it = ints.begin();
   for (auto maybe_i_ptr : MakeVectorIterator(std::move(intptrs))) {
-    ASSERT_OK_AND_ASSIGN(std::unique_ptr<TestInt> i_ptr, std::move(maybe_i_ptr));
+    ASSERT_OK_AND_ASSIGN(std::unique_ptr<TestInt> i_ptr, maybe_i_ptr);
     ASSERT_EQ(*i_ptr, *ints_it++);
   }
   ASSERT_EQ(ints_it, ints.end());
