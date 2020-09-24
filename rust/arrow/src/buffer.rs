@@ -399,7 +399,7 @@ where
 {
     // reserve capacity and set length so we can get a typed view of u64 chunks
     let mut result =
-        MutableBuffer::new(ceil(len_in_bits, 8)).with_bitset(len_in_bits / 64, false);
+        MutableBuffer::new(ceil(len_in_bits, 8)).with_bitset(len_in_bits / 64 * 8, false);
 
     let left_chunks = left.bit_chunks(left_offset_in_bits, len_in_bits);
     let right_chunks = right.bit_chunks(right_offset_in_bits, len_in_bits);
@@ -432,7 +432,7 @@ where
 {
     // reserve capacity and set length so we can get a typed view of u64 chunks
     let mut result =
-        MutableBuffer::new(ceil(len_in_bits, 8)).with_bitset(len_in_bits / 64, false);
+        MutableBuffer::new(ceil(len_in_bits, 8)).with_bitset(len_in_bits / 64 * 8, false);
 
     let left_chunks = left.bit_chunks(offset_in_bits, len_in_bits);
     let result_chunks = result.typed_data_mut::<u64>().iter_mut();
