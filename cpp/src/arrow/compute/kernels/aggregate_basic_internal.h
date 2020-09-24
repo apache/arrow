@@ -31,7 +31,7 @@ namespace aggregate {
 
 struct ScalarAggregator : public KernelState {
   virtual void Consume(KernelContext* ctx, const ExecBatch& batch) = 0;
-  virtual void MergeFrom(KernelContext* ctx, const KernelState& src) = 0;
+  virtual void MergeFrom(KernelContext* ctx, KernelState&& src) = 0;
   virtual void Finalize(KernelContext* ctx, Datum* out) = 0;
 };
 
@@ -260,7 +260,7 @@ struct SumImpl : public ScalarAggregator {
     this->state.Consume(ArrayType(batch[0].array()));
   }
 
-  void MergeFrom(KernelContext*, const KernelState& src) override {
+  void MergeFrom(KernelContext*, KernelState&& src) override {
     const auto& other = checked_cast<const ThisType&>(src);
     this->state += other.state;
   }
@@ -433,7 +433,7 @@ struct MinMaxImpl : public ScalarAggregator {
     this->state = local;
   }
 
-  void MergeFrom(KernelContext*, const KernelState& src) override {
+  void MergeFrom(KernelContext*, KernelState&& src) override {
     const auto& other = checked_cast<const ThisType&>(src);
     this->state += other.state;
   }
