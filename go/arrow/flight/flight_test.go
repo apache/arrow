@@ -46,6 +46,13 @@ func (f *flightServer) getmem() memory.Allocator {
 
 func (f *flightServer) ListFlights(c *flight.Criteria, fs flight.FlightService_ListFlightsServer) error {
 	expr := string(c.GetExpression())
+
+	auth := ""
+	authVal := flight.AuthFromContext(fs.Context())
+	if authVal != nil {
+		auth = authVal.(string)
+	}
+
 	for _, name := range arrdata.RecordNames {
 		if expr != "" && expr != name {
 			continue
@@ -61,7 +68,7 @@ func (f *flightServer) ListFlights(c *flight.Criteria, fs flight.FlightService_L
 			Schema: ipc.FlightInfoSchemaBytes(recs[0].Schema(), f.getmem()),
 			FlightDescriptor: &flight.FlightDescriptor{
 				Type: flight.FlightDescriptor_PATH,
-				Path: []string{name},
+				Path: []string{name, auth},
 			},
 			TotalRecords: totalRows,
 			TotalBytes:   -1,
@@ -110,11 +117,11 @@ func (a *servAuth) Authenticate(c flight.AuthConn) error {
 	return c.Send([]byte("baz"))
 }
 
-func (a *servAuth) IsValid(token string) error {
+func (a *servAuth) IsValid(token string) (interface{}, error) {
 	if token == "baz" {
-		return nil
+		return "bar", nil
 	}
-	return errors.New("novalid")
+	return "", errors.New("novalid")
 }
 
 type clientAuth struct{}
@@ -257,6 +264,10 @@ func TestServer(t *testing.T) {
 	fi, err := fistream.Recv()
 	if err != nil {
 		t.Fatal(err)
+	}
+
+	if len(fi.FlightDescriptor.GetPath()) != 2 || fi.FlightDescriptor.GetPath()[1] != "bar" {
+		t.Fatalf("path should have auth info: want %s got %s", "bar", fi.FlightDescriptor.GetPath()[1])
 	}
 
 	fdata, err := client.DoGet(context.Background(), &flight.Ticket{Ticket: []byte("decimal128")})

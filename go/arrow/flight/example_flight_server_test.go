@@ -31,11 +31,11 @@ func (sa *serverAuth) Authenticate(c flight.AuthConn) error {
 	return c.Send([]byte("foobar"))
 }
 
-func (sa *serverAuth) IsValid(token string) error {
+func (sa *serverAuth) IsValid(token string) (interface{}, error) {
 	if token == "foobar" {
-		return nil
+		return "foo", nil
 	}
-	return status.Error(codes.PermissionDenied, "invalid auth token")
+	return "", status.Error(codes.PermissionDenied, "invalid auth token")
 }
 
 func Example_server() {

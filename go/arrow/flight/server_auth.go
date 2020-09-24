@@ -57,11 +57,25 @@ func (a *serverAuthConn) Send(b []byte) error {
 // ServerAuthHandler defines an interface for the server to perform the handshake.
 // The token is expected to be sent as part of the context metadata in subsequent
 // requests with a key of "auth-token-bin" which will then call IsValid to validate
-//
-// TODO: implement returning identifying information with the token
 type ServerAuthHandler interface {
 	Authenticate(AuthConn) error
-	IsValid(token string) error
+	IsValid(token string) (interface{}, error)
+}
+
+type authCtxKey struct{}
+
+type authWrappedStream struct {
+	grpc.ServerStream
+	ctx context.Context
+}
+
+func (a *authWrappedStream) Context() context.Context { return a.ctx }
+
+// AuthFromContext will return back whatever object was returned from `IsValid` for a
+// given request context allowing handlers to retrieve identifying information
+// for the current request for use.
+func AuthFromContext(ctx context.Context) interface{} {
+	return ctx.Value(authCtxKey{})
 }
 
 func createServerAuthUnaryInterceptor(auth ServerAuthHandler) grpc.UnaryServerInterceptor {
@@ -81,11 +95,12 @@ func createServerAuthUnaryInterceptor(auth ServerAuthHandler) grpc.UnaryServerIn
 			}
 		}
 
-		if err := auth.IsValid(authTok); err != nil {
+		peerIdentity, err := auth.IsValid(authTok)
+		if err != nil {
 			return nil, status.Errorf(codes.PermissionDenied, "auth-error: %s", err)
 		}
 
-		return handler(ctx, req)
+		return handler(context.WithValue(ctx, authCtxKey{}, peerIdentity), req)
 	}
 }
 
@@ -110,10 +125,12 @@ func createServerAuthStreamInterceptor(auth ServerAuthHandler) grpc.StreamServer
 			}
 		}
 
-		if err := auth.IsValid(authTok); err != nil {
+		peerIdentity, err := auth.IsValid(authTok)
+		if err != nil {
 			return status.Errorf(codes.Unauthenticated, "auth-error: %s", err)
 		}
 
+		stream = &authWrappedStream{ServerStream: stream, ctx: context.WithValue(stream.Context(), authCtxKey{}, peerIdentity)}
 		return handler(srv, stream)
 	}
 }
