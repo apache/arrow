@@ -23,5 +23,5 @@ python arrow/dev/tasks/crossbow.py \
   --pattern "${OUTPUT_DIR}/linux-aarch64/*.tar.bz2"
 
 if [[ "${UPLOAD_TO_ANACONDA}" == "1" ]]; then
-  anaconda -t $(CROSSBOW_ANACONDA_TOKEN) upload --force build_artifacts/linux-aarch64/*.tar.bz2
+  anaconda -t ${CROSSBOW_ANACONDA_TOKEN} upload --force build_artifacts/linux-aarch64/*.tar.bz2
 fi
