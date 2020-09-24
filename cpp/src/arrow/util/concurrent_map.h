@@ -67,7 +67,7 @@ class ConcurrentMap {
     return std::make_pair(false, V());
   }
 
-  int size() {
+  size_t size() {
     auto lock = mutex_.Lock();
     return map_.size();
   }
