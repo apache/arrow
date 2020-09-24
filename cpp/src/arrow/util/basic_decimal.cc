@@ -254,80 +254,43 @@ BasicDecimal128& BasicDecimal128::operator>>=(uint32_t bits) {
 
 namespace {
 
-// TODO: Remove this guard once it's used by BasicDecimal256
-#ifndef ARROW_USE_NATIVE_INT128
-// This method losslessly multiplies x and y into a 128 bit unsigned integer
-// whose high bits will be stored in hi and low bits in lo.
-void ExtendAndMultiplyUint64(uint64_t x, uint64_t y, uint64_t* hi, uint64_t* lo) {
-#ifdef ARROW_USE_NATIVE_INT128
-  const __uint128_t r = static_cast<__uint128_t>(x) * y;
-  *lo = r & kInt64Mask;
-  *hi = r >> 64;
-#else
-  // If we can't use a native fallback, perform multiplication
-  // by splitting up x and y into 32 bit high/low bit components,
-  // allowing us to represent the multiplication as
-  // x * y = x_lo * y_lo + x_hi * y_lo * 2^32 + y_hi * x_lo * 2^32
-  // + x_hi * y_hi * 2^64.
-  //
-  // Now, consider the final output as lo_lo || lo_hi || hi_lo || hi_hi.
-  // Therefore,
-  // lo_lo is (x_lo * y_lo)_lo,
-  // lo_hi is ((x_lo * y_lo)_hi + (x_hi * y_lo)_lo + (x_lo * y_hi)_lo)_lo,
-  // hi_lo is ((x_hi * y_hi)_lo + (x_hi * y_lo)_hi + (x_lo * y_hi)_hi)_hi,
-  // hi_hi is (x_hi * y_hi)_hi
-  const uint64_t x_lo = x & kIntMask;
-  const uint64_t y_lo = y & kIntMask;
-  const uint64_t x_hi = x >> 32;
-  const uint64_t y_hi = y >> 32;
+void extendAndMultiplyUint64(uint64_t x, uint64_t y, uint64_t *hi, uint64_t *lo) {
+  uint64_t x_lo = x & kIntMask;
+  uint64_t y_lo = y & kIntMask;
+  uint64_t x_hi = x >> 32;
+  uint64_t y_hi = y >> 32;
 
-  const uint64_t t = x_lo * y_lo;
-  const uint64_t t_lo = t & kIntMask;
-  const uint64_t t_hi = t >> 32;
+  uint64_t t = x_lo * y_lo;
+  uint64_t t_lo = t & kIntMask;
+  uint64_t t_hi = t >> 32;
 
-  const uint64_t u = x_hi * y_lo + t_hi;
-  const uint64_t u_lo = u & kIntMask;
-  const uint64_t u_hi = u >> 32;
+  uint64_t u = x_hi * y_lo + t_hi;
+  uint64_t u_lo = u & kIntMask;
+  uint64_t u_hi = u >> 32;
 
-  const uint64_t v = x_lo * y_hi + u_lo;
-  const uint64_t v_hi = v >> 32;
+  uint64_t v = x_lo * y_hi + u_lo;
+  uint64_t v_hi = v >> 32;
 
   *hi = x_hi * y_hi + u_hi + v_hi;
-  *lo = (v << 32) | t_lo;
-#endif
+  *lo = (v << 32) + t_lo;
 }
-#endif
 
-void MultiplyUint128(uint64_t x_hi, uint64_t x_lo, uint64_t y_hi, uint64_t y_lo,
-                     uint64_t* hi, uint64_t* lo) {
-#ifdef ARROW_USE_NATIVE_INT128
-  const __uint128_t x = (static_cast<__uint128_t>(x_hi) << 64) | x_lo;
-  const __uint128_t y = (static_cast<__uint128_t>(y_hi) << 64) | y_lo;
-  const __uint128_t r = x * y;
-  *lo = r & kInt64Mask;
-  *hi = r >> 64;
-#else
-  // To perform 128 bit multiplication without a native fallback
-  // we first perform lossless 64 bit multiplication of the low
-  // bits, and then add x_hi * y_lo and x_lo * y_hi to the high
-  // bits. Note that we can skip adding x_hi * y_hi because it
-  // always will be over 128 bits.
-  ExtendAndMultiplyUint64(x_lo, y_lo, hi, lo);
+void multiplyUint128(uint64_t x_hi, uint64_t x_lo, uint64_t y_hi, uint64_t y_lo,
+             uint64_t* hi, uint64_t* lo) {
+  extendAndMultiplyUint64(x_lo, y_lo, hi, lo);
   *hi += (x_hi * y_lo) + (x_lo * y_hi);
-#endif
 }
 
 }  // namespace
 
 BasicDecimal128& BasicDecimal128::operator*=(const BasicDecimal128& right) {
   // Since the max value of BasicDecimal128 is supposed to be 1e38 - 1 and the
-  // min the negation taking the absolute values here should always be safe.
-  const bool negate = Sign() != right.Sign();
+  // min the negation,, taking the absolute values here should always be safe.
+  bool negate = Sign() != right.Sign();
   BasicDecimal128 x = BasicDecimal128::Abs(*this);
   BasicDecimal128 y = BasicDecimal128::Abs(right);
   uint64_t hi;
-  MultiplyUint128(x.high_bits(), x.low_bits(), y.high_bits(), y.low_bits(), &hi,
-                  &low_bits_);
+  multiplyUint128(x.high_bits(), x.low_bits(), y.high_bits(), y.low_bits(), &hi, &low_bits_);
   high_bits_ = hi;
   if (negate) {
     Negate();
