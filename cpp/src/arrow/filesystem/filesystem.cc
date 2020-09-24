@@ -457,16 +457,50 @@ Status CopyFiles(const std::vector<FileLocator>& sources,
         ARROW_ASSIGN_OR_RAISE(auto source,
                               sources[i].filesystem->OpenInputStream(sources[i].path));
 
-        auto dest_dir = internal::GetAbstractPathParent(destinations[i].path).first;
-        if (!dest_dir.empty()) {
-          RETURN_NOT_OK(destinations[i].filesystem->CreateDir(dest_dir));
-        }
-
         ARROW_ASSIGN_OR_RAISE(
             auto destination,
             destinations[i].filesystem->OpenOutputStream(destinations[i].path));
         return internal::CopyStream(source, destination, chunk_size);
       });
+}
+
+Status CopyFiles(const std::shared_ptr<FileSystem>& source_fs,
+                 const FileSelector& source_sel,
+                 const std::shared_ptr<FileSystem>& destination_fs,
+                 const std::string& destination_base_dir, int64_t chunk_size,
+                 bool use_threads) {
+  ARROW_ASSIGN_OR_RAISE(auto source_infos, source_fs->GetFileInfo(source_sel));
+  if (source_infos.empty()) {
+    return Status::OK();
+  }
+
+  std::vector<FileLocator> sources, destinations;
+  std::vector<std::string> dirs;
+
+  for (const FileInfo& source_info : source_infos) {
+    auto relative = internal::RemoveAncestor(source_sel.base_dir, source_info.path());
+    if (!relative.has_value()) {
+      return Status::Invalid("GetFileInfo() yielded path '", source_info.path(),
+                             "', which is outside base dir '", source_sel.base_dir, "'");
+    }
+
+    auto destination_path =
+        internal::ConcatAbstractPath(destination_base_dir, relative->to_string());
+
+    if (source_info.IsDirectory()) {
+      dirs.push_back(destination_path);
+    } else if (source_info.IsFile()) {
+      sources.push_back({source_fs, source_info.path()});
+      destinations.push_back({destination_fs, destination_path});
+    }
+  }
+
+  dirs = internal::MinimalCreateDirSet(std::move(dirs));
+  RETURN_NOT_OK(::arrow::internal::OptionalParallelFor(
+      use_threads, static_cast<int>(dirs.size()),
+      [&](int i) { return destination_fs->CreateDir(dirs[i]); }));
+
+  return CopyFiles(sources, destinations, chunk_size, use_threads);
 }
 
 namespace {

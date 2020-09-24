@@ -300,18 +300,27 @@ SubTreeFileSystem$create <- function(base_path, base_fs) {
   shared_ptr(SubTreeFileSystem, xp)
 }
 
-#' Copy files between FileSystems
+#' Copy files, including between FileSystems
 #'
 #' @param src_fs The FileSystem from which files will be copied.
-#' @param src_paths The paths of files to be copied.
+#' @param src_sel A FileSelector indicating which files should be copied.
+#' A string may also be passed, which is used as the base dir for recursive
+#' selection.
 #' @param dest_fs The FileSystem into which files will be copied.
-#' @param dest_paths Where the copied files should be placed.
+#' @param dest_base_dir Where the copied files should be placed.
+#' Directories will be created as necessary.
 #' @param chunk_size The maximum size of block to read before flushing
 #' to the destination file. A larger chunk_size will use more memory while
 #' copying but may help accommodate high latency FileSystems.
-copy_files <- function(src_fs, src_paths, dest_fs, dest_paths,
+copy_files <- function(src_fs = LocalFileSystem$create(),
+                       src_sel,
+                       dest_fs = LocalFileSystem$create(),
+                       dest_base_dir,
                        chunk_size = 1024L * 1024L) {
-  fs___CopyFiles(src_fs, src_paths, dest_fs, dest_paths,
+  if (!inherits(src_sel, "FileSelector")) {
+    src_sel <- FileSelector$create(src_sel, recursive = TRUE)
+  }
+  fs___CopyFiles(src_fs, src_sel, dest_fs, dest_base_dir,
                  chunk_size, option_use_threads())
 }
 

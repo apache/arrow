@@ -928,8 +928,8 @@ fs___FileSystemFromUri <- function(path){
     .Call(`_arrow_fs___FileSystemFromUri` , path)
 }
 
-fs___CopyFiles <- function(src_fs, src_paths, dest_fs, dest_paths, chunk_size, use_threads){
-    invisible(.Call(`_arrow_fs___CopyFiles` , src_fs, src_paths, dest_fs, dest_paths, chunk_size, use_threads))
+fs___CopyFiles <- function(source_fs, source_sel, destination_fs, destination_base_dir, chunk_size, use_threads){
+    invisible(.Call(`_arrow_fs___CopyFiles` , source_fs, source_sel, destination_fs, destination_base_dir, chunk_size, use_threads))
 }
 
 fs___EnsureS3Initialized <- function(){
