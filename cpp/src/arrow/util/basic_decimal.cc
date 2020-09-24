@@ -250,21 +250,21 @@ BasicDecimal128& BasicDecimal128::operator>>=(uint32_t bits) {
 namespace {
 
 void extendAndMultiplyUint64(uint64_t x, uint64_t y, uint64_t* hi, uint64_t* lo) {
-  uint64_t x_lo = x & kIntMask;
-  uint64_t y_lo = y & kIntMask;
-  uint64_t x_hi = x >> 32;
-  uint64_t y_hi = y >> 32;
+  const uint64_t x_lo = x & kIntMask;
+  const uint64_t y_lo = y & kIntMask;
+  const uint64_t x_hi = x >> 32;
+  const uint64_t y_hi = y >> 32;
 
-  uint64_t t = x_lo * y_lo;
-  uint64_t t_lo = t & kIntMask;
-  uint64_t t_hi = t >> 32;
+  const uint64_t t = x_lo * y_lo;
+  const uint64_t t_lo = t & kIntMask;
+  const uint64_t t_hi = t >> 32;
 
-  uint64_t u = x_hi * y_lo + t_hi;
-  uint64_t u_lo = u & kIntMask;
-  uint64_t u_hi = u >> 32;
+  const uint64_t u = x_hi * y_lo + t_hi;
+  const uint64_t u_lo = u & kIntMask;
+  const uint64_t u_hi = u >> 32;
 
-  uint64_t v = x_lo * y_hi + u_lo;
-  uint64_t v_hi = v >> 32;
+  const uint64_t v = x_lo * y_hi + u_lo;
+  const uint64_t v_hi = v >> 32;
 
   *hi = x_hi * y_hi + u_hi + v_hi;
   *lo = (v << 32) + t_lo;
@@ -281,7 +281,7 @@ void multiplyUint128(uint64_t x_hi, uint64_t x_lo, uint64_t y_hi, uint64_t y_lo,
 BasicDecimal128& BasicDecimal128::operator*=(const BasicDecimal128& right) {
   // Since the max value of BasicDecimal128 is supposed to be 1e38 - 1 and the
   // min the negation taking the absolute values here should always be safe.
-  bool negate = Sign() != right.Sign();
+  const bool negate = Sign() != right.Sign();
   BasicDecimal128 x = BasicDecimal128::Abs(*this);
   BasicDecimal128 y = BasicDecimal128::Abs(right);
   uint64_t hi;
