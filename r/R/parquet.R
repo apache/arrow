@@ -465,7 +465,7 @@ ParquetFileReader <- R6Class("ParquetFileReader",
     ReadTable = function(column_indices = NULL) {
       if (is.null(column_indices)) {
         shared_ptr(Table, parquet___arrow___FileReader__ReadTable1(self))
-      } else if (is_integerish(column_indices)) {
+      } else {
         column_indices <- vec_cast(column_indices, integer())
         shared_ptr(Table, parquet___arrow___FileReader__ReadTable2(self, column_indices))
       }
