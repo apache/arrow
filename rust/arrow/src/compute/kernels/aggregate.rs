@@ -19,40 +19,41 @@
 
 use std::ops::Add;
 
-use crate::array::{Array, LargeStringArray, PrimitiveArray, StringArray};
+use crate::array::{Array, GenericStringArray, OffsetSizeTrait, PrimitiveArray};
 use crate::datatypes::ArrowNumericType;
 
 /// Helper macro to perform min/max of strings
-macro_rules! min_max_string_helper {
-    ($array:expr, $cmp:tt) => {{
-        let null_count = $array.null_count();
+fn min_max_string<T: OffsetSizeTrait, F: Fn(&str, &str) -> bool>(
+    array: &GenericStringArray<T>,
+    cmp: F,
+) -> Option<&str> {
+    let null_count = array.null_count();
 
-        if null_count == $array.len() {
-            return None
-        }
-        let mut n = "";
-        let mut has_value = false;
-        let data = $array.data();
+    if null_count == array.len() {
+        return None;
+    }
+    let mut n = "";
+    let mut has_value = false;
+    let data = array.data();
 
-        if null_count == 0 {
-            for i in 0..data.len() {
-                let item = $array.value(i);
-                if !has_value || (&n $cmp &item) {
-                    has_value = true;
-                    n = item;
-                }
-            }
-        } else {
-            for i in 0..data.len() {
-                let item = $array.value(i);
-                if data.is_valid(i) && (!has_value || (&n $cmp &item)) {
-                    has_value = true;
-                    n = item;
-                }
+    if null_count == 0 {
+        for i in 0..data.len() {
+            let item = array.value(i);
+            if !has_value || cmp(&n, item) {
+                has_value = true;
+                n = item;
             }
         }
-        Some(n)
-    }}
+    } else {
+        for i in 0..data.len() {
+            let item = array.value(i);
+            if data.is_valid(i) && (!has_value || cmp(&n, item)) {
+                has_value = true;
+                n = item;
+            }
+        }
+    }
+    Some(n)
 }
 
 /// Returns the minimum value in the array, according to the natural order.
@@ -72,23 +73,13 @@ where
 }
 
 /// Returns the maximum value in the string array, according to the natural order.
-pub fn max_string(array: &StringArray) -> Option<&str> {
-    min_max_string_helper!(array, <)
+pub fn max_string<T: OffsetSizeTrait>(array: &GenericStringArray<T>) -> Option<&str> {
+    min_max_string(array, |a, b| a < b)
 }
 
 /// Returns the minimum value in the string array, according to the natural order.
-pub fn min_string(array: &StringArray) -> Option<&str> {
-    min_max_string_helper!(array, >)
-}
-
-/// Returns the minimum value in the string array, according to the natural order.
-pub fn max_large_string(array: &LargeStringArray) -> Option<&str> {
-    min_max_string_helper!(array, <)
-}
-
-/// Returns the minimum value in the string array, according to the natural order.
-pub fn min_large_string(array: &LargeStringArray) -> Option<&str> {
-    min_max_string_helper!(array, >)
+pub fn min_string<T: OffsetSizeTrait>(array: &GenericStringArray<T>) -> Option<&str> {
+    min_max_string(array, |a, b| a > b)
 }
 
 /// Helper function to perform min/max lambda function on values from a numeric array.
