@@ -243,6 +243,9 @@ TEST(PathUtil, MinimalCreateDirSet) {
   ASSERT_EQ(MinimalCreateDirSet({"foo", "foo/bar", "foo/bar"}), V{"foo/bar"});
   ASSERT_EQ(MinimalCreateDirSet({"foo", "foo/bar", "foo", "foo/baz", "foo/baz/quux"}),
             V({"foo/bar", "foo/baz/quux"}));
+
+  ASSERT_EQ(MinimalCreateDirSet({""}), V{});
+  ASSERT_EQ(MinimalCreateDirSet({"", "/foo"}), V{"/foo"});
 }
 
 TEST(PathUtil, ToBackslashes) {

@@ -227,6 +227,11 @@ std::vector<std::string> MinimalCreateDirSet(std::vector<std::string> dirs) {
     ancestor = dirs.erase(ancestor, descendants_end - 1);
   }
 
+  // the root directory need not be created
+  if (dirs.size() == 1 && IsAncestorOf(dirs[0], "")) {
+    return {};
+  }
+
   return dirs;
 }
 

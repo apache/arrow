@@ -496,11 +496,9 @@ Status CopyFiles(const std::shared_ptr<FileSystem>& source_fs,
   }
 
   dirs = internal::MinimalCreateDirSet(std::move(dirs));
-
   RETURN_NOT_OK(::arrow::internal::OptionalParallelFor(
-      use_threads, static_cast<int>(dirs.size()), [&](int i) {
-        return dirs[i].empty() ? Status::OK() : destination_fs->CreateDir(dirs[i]);
-      }));
+      use_threads, static_cast<int>(dirs.size()),
+      [&](int i) { return destination_fs->CreateDir(dirs[i]); }));
 
   return CopyFiles(sources, destinations, chunk_size, use_threads);
 }
