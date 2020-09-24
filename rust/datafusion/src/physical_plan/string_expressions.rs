@@ -18,7 +18,7 @@
 //! String expressions
 
 use crate::error::{ExecutionError, Result};
-use arrow::array::{Array, ArrayRef, StringArray, StringArrayOps, StringBuilder};
+use arrow::array::{Array, ArrayRef, StringArray, StringBuilder};
 
 macro_rules! downcast_vec {
     ($ARGS:expr, $ARRAY_TYPE:ident) => {{

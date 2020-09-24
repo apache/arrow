@@ -25,7 +25,7 @@ use arrow::array::{
     UInt8Array,
 };
 use arrow::{
-    array::{ArrayRef, PrimitiveArrayOps, StringArrayOps},
+    array::{ArrayRef, PrimitiveArrayOps},
     datatypes::DataType,
 };
 

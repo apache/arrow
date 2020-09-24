@@ -53,7 +53,7 @@ pub fn concat(array_list: &[ArrayRef]) -> Result<ArrayRef> {
 
     match array_data_list[0].data_type() {
         DataType::Utf8 => {
-            let mut builder = StringArray::builder(0);
+            let mut builder = StringBuilder::new(0);
             builder.append_data(array_data_list)?;
             Ok(ArrayBuilder::finish(&mut builder))
         }
