@@ -17,7 +17,7 @@
 package flight
 
 import (
-	context "context"
+	"context"
 	"strings"
 
 	"google.golang.org/grpc"

@@ -17,7 +17,7 @@
 package flight_test
 
 import (
-	context "context"
+	"context"
 	"errors"
 	"io"
 	"testing"
