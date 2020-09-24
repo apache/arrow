@@ -55,6 +55,7 @@
 #include "parquet/test_util.h"
 
 using arrow::Array;
+using arrow::ArrayData;
 using arrow::ArrayVisitor;
 using arrow::Buffer;
 using arrow::ChunkedArray;
@@ -686,7 +687,7 @@ TYPED_TEST(TestParquetIO, SingleColumnTableRequiredWrite) {
   ASSERT_NO_FATAL_FAILURE(this->ReaderFromSink(&reader));
   ASSERT_NO_FATAL_FAILURE(this->ReadTableFromFile(std::move(reader), &out));
   ASSERT_EQ(1, out->num_columns());
-  ASSERT_EQ(100, out->num_rows());
+  EXPECT_EQ(100, out->num_rows());
 
   std::shared_ptr<ChunkedArray> chunked_array = out->column(0);
   ASSERT_EQ(1, chunked_array->num_chunks());
@@ -1085,8 +1086,8 @@ TEST_F(TestUInt32ParquetIO, Parquet_1_0_Compatibility) {
   }
 
   std::vector<std::shared_ptr<Buffer>> buffers{values->null_bitmap(), int64_data};
-  auto arr_data = std::make_shared<::arrow::ArrayData>(::arrow::int64(), values->length(),
-                                                       buffers, values->null_count());
+  auto arr_data = std::make_shared<ArrayData>(::arrow::int64(), values->length(), buffers,
+                                              values->null_count());
   std::shared_ptr<Array> expected_values = MakeArray(arr_data);
   ASSERT_NE(expected_values, NULLPTR);
 
@@ -2358,6 +2359,39 @@ TEST(ArrowReadWrite, SingleColumnNullableStruct) {
                                std::vector<std::shared_ptr<::arrow::Field>>{links}),
                            {links_id_array}),
       3);
+}
+
+TEST(ArrowReadWrite, NestedRequiredField) {
+  auto int_field = ::arrow::field("int_array", ::arrow::int32(), /*nullable=*/false);
+  auto int_array = ::arrow::ArrayFromJSON(int_field->type(), "[0, 1, 2, 3, 4, 5, 7, 8]");
+  auto struct_field =
+      ::arrow::field("root", ::arrow::struct_({int_field}), /*nullable=*/true);
+  std::shared_ptr<Buffer> validity_bitmap;
+  ASSERT_OK_AND_ASSIGN(validity_bitmap, ::arrow::AllocateBitmap(8));
+  validity_bitmap->mutable_data()[0] = 0xCC;
+
+  auto struct_data = ArrayData::Make(struct_field->type(), /*length=*/8,
+                                     {validity_bitmap}, {int_array->data()});
+  CheckSimpleRoundtrip(::arrow::Table::Make(::arrow::schema({struct_field}),
+                                            {::arrow::MakeArray(struct_data)}),
+                       /*row_group_size=*/8);
+}
+
+TEST(ArrowReadWrite, NestedNullableField) {
+  auto int_field = ::arrow::field("int_array", ::arrow::int32());
+  auto int_array =
+      ::arrow::ArrayFromJSON(int_field->type(), "[0, null, 2, null, 4, 5, null, 8]");
+  auto struct_field =
+      ::arrow::field("root", ::arrow::struct_({int_field}), /*nullable=*/true);
+  std::shared_ptr<Buffer> validity_bitmap;
+  ASSERT_OK_AND_ASSIGN(validity_bitmap, ::arrow::AllocateBitmap(8));
+  validity_bitmap->mutable_data()[0] = 0xCC;
+
+  auto struct_data = ArrayData::Make(struct_field->type(), /*length=*/8,
+                                     {validity_bitmap}, {int_array->data()});
+  CheckSimpleRoundtrip(::arrow::Table::Make(::arrow::schema({struct_field}),
+                                            {::arrow::MakeArray(struct_data)}),
+                       /*row_group_size=*/8);
 }
 
 TEST(TestArrowReadWrite, CanonicalNestedRoundTrip) {

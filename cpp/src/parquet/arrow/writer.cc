@@ -144,13 +144,12 @@ class ArrowColumnWriterV2 {
 
               return column_writer->WriteArrow(result.def_levels, result.rep_levels,
                                                result.def_rep_level_count, *values_array,
-                                               ctx);
+                                               ctx, result.leaf_is_nullable);
             }));
       }
 
       PARQUET_CATCH_NOT_OK(column_writer->Close());
     }
-
     return Status::OK();
   }
 

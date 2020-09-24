@@ -69,13 +69,6 @@ using ParquetReader = parquet::ParquetFileReader;
 
 using parquet::internal::RecordReader;
 
-#define BEGIN_PARQUET_CATCH_EXCEPTIONS try {
-#define END_PARQUET_CATCH_EXCEPTIONS             \
-  }                                              \
-  catch (const ::parquet::ParquetException& e) { \
-    return ::arrow::Status::IOError(e.what());   \
-  }
-
 namespace parquet {
 namespace arrow {
 namespace {

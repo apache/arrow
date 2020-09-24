@@ -140,4 +140,11 @@ void ThrowNotOk(StatusReturnBlock&& b) {
   PARQUET_THROW_NOT_OK(b());
 }
 
+#define BEGIN_PARQUET_CATCH_EXCEPTIONS try {
+#define END_PARQUET_CATCH_EXCEPTIONS             \
+  }                                              \
+  catch (const ::parquet::ParquetException& e) { \
+    return ::arrow::Status::IOError(e.what());   \
+  }
+
 }  // namespace parquet
