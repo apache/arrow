@@ -192,7 +192,7 @@ Result<std::shared_ptr<DatasetFactory>> FileSystemDatasetFactory::Make(
           return false;
         }
 
-        if (StartsWithAnyOf(relative->to_string(), options.selector_ignore_prefixes)) {
+        if (StartsWithAnyOf(std::string(*relative), options.selector_ignore_prefixes)) {
           return true;
         }
 

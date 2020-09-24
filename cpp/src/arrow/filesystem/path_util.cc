@@ -80,7 +80,7 @@ std::string GetAbstractPathExtension(const std::string& s) {
     // Empty extension
     return "";
   }
-  return basename.substr(dot + 1).to_string();
+  return std::string(basename.substr(dot + 1));
 }
 
 Status ValidateAbstractPathParts(const std::vector<std::string>& parts) {
@@ -100,7 +100,7 @@ std::string ConcatAbstractPath(const std::string& base, const std::string& stem)
   if (base.empty()) {
     return stem;
   }
-  return EnsureTrailingSlash(base) + RemoveLeadingSlash(stem).to_string();
+  return EnsureTrailingSlash(base) + std::string(RemoveLeadingSlash(stem));
 }
 
 std::string EnsureTrailingSlash(util::string_view v) {
@@ -186,7 +186,7 @@ std::vector<std::string> AncestorsFromBasePath(util::string_view base_path,
                                                util::string_view descendant) {
   std::vector<std::string> ancestry;
   if (auto relative = RemoveAncestor(base_path, descendant)) {
-    auto relative_segments = fs::internal::SplitAbstractPath(relative->to_string());
+    auto relative_segments = fs::internal::SplitAbstractPath(std::string(*relative));
 
     // the last segment indicates descendant
     relative_segments.pop_back();
@@ -198,7 +198,7 @@ std::vector<std::string> AncestorsFromBasePath(util::string_view base_path,
 
     for (auto&& relative_segment : relative_segments) {
       ancestry.push_back(JoinAbstractPath(
-          std::vector<std::string>{base_path.to_string(), std::move(relative_segment)}));
+          std::vector<std::string>{std::string(base_path), std::move(relative_segment)}));
       base_path = ancestry.back();
     }
   }

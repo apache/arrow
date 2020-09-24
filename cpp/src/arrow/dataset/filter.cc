@@ -1431,7 +1431,7 @@ struct DeserializeImpl {
     switch (expression_type) {
       case ExpressionType::FIELD: {
         ARROW_ASSIGN_OR_RAISE(auto name, GetView<StringType>(struct_array, 0));
-        return field_ref(name.to_string());
+        return field_ref(std::string(name));
       }
 
       case ExpressionType::SCALAR: {
