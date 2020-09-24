@@ -168,6 +168,11 @@ bool IsAncestorOf(util::string_view ancestor, util::string_view descendant) {
 
   descendant.remove_prefix(ancestor.size());
 
+  if (descendant.empty()) {
+    // "/hello" is an ancestor of "/hello"
+    return true;
+  }
+
   // "/hello/w" is not an ancestor of "/hello/world"
   return descendant.starts_with(std::string{kSep});
 }
@@ -203,6 +208,24 @@ std::vector<std::string> AncestorsFromBasePath(util::string_view base_path,
     }
   }
   return ancestry;
+}
+
+std::vector<std::string> MinimalCreateDirSet(std::vector<std::string> dirs) {
+  std::sort(dirs.begin(), dirs.end());
+
+  for (auto ancestor = dirs.begin(); ancestor != dirs.end(); ++ancestor) {
+    auto descendant = ancestor;
+    auto descendants_end = descendant + 1;
+
+    while (descendants_end != dirs.end() && IsAncestorOf(*descendant, *descendants_end)) {
+      ++descendant;
+      ++descendants_end;
+    }
+
+    ancestor = dirs.erase(ancestor, descendants_end - 1);
+  }
+
+  return dirs;
 }
 
 std::string ToBackslashes(util::string_view v) {

@@ -496,19 +496,7 @@ Status CopyFiles(const std::shared_ptr<FileSystem>& source_fs,
     }
   }
 
-  // remove directories with descendants since recursive directory creation will create
-  // them automatically
-  std::sort(dirs.begin(), dirs.end());
-  for (auto ancestor = dirs.begin(); ancestor != dirs.end(); ++ancestor) {
-    auto descendants_end = ancestor + 1;
-
-    while (descendants_end != dirs.end() &&
-           internal::IsAncestorOf(*ancestor, *descendants_end)) {
-      ++descendants_end;
-    }
-
-    dirs.erase(ancestor, descendants_end - 1);
-  }
+  dirs = internal::MinimalCreateDirSet(std::move(dirs));
 
   RETURN_NOT_OK(::arrow::internal::OptionalParallelFor(
       use_threads, static_cast<int>(dirs.size()), [&](int i) {

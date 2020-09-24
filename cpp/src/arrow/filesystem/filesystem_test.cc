@@ -188,6 +188,16 @@ TEST(PathUtil, RemoveLeadingSlash) {
   ASSERT_EQ("abc/def/", std::string(RemoveLeadingSlash("//abc/def/")));
 }
 
+TEST(PathUtil, IsAncestorOf) {
+  ASSERT_TRUE(IsAncestorOf("", ""));
+  ASSERT_TRUE(IsAncestorOf("", "/hello"));
+  ASSERT_TRUE(IsAncestorOf("/hello", "/hello"));
+  ASSERT_FALSE(IsAncestorOf("/hello", "/world"));
+  ASSERT_TRUE(IsAncestorOf("/hello", "/hello/world"));
+  ASSERT_TRUE(IsAncestorOf("/hello", "/hello/world/how/are/you"));
+  ASSERT_FALSE(IsAncestorOf("/hello/w", "/hello/world"));
+}
+
 TEST(PathUtil, MakeAbstractPathRelative) {
   ASSERT_OK_AND_EQ("", MakeAbstractPathRelative("/", "/"));
   ASSERT_OK_AND_EQ("foo/bar", MakeAbstractPathRelative("/", "/foo/bar"));
@@ -221,6 +231,18 @@ TEST(PathUtil, AncestorsFromBasePath) {
   ASSERT_EQ(AncestorsFromBasePath("foo", "foo/bar/baz"), V({"foo/bar"}));
   ASSERT_EQ(AncestorsFromBasePath("foo", "foo/bar/baz/quux"),
             V({"foo/bar", "foo/bar/baz"}));
+}
+
+TEST(PathUtil, MinimalCreateDirSet) {
+  using V = std::vector<std::string>;
+
+  ASSERT_EQ(MinimalCreateDirSet({}), V{});
+  ASSERT_EQ(MinimalCreateDirSet({"foo"}), V{"foo"});
+  ASSERT_EQ(MinimalCreateDirSet({"foo", "foo/bar"}), V{"foo/bar"});
+  ASSERT_EQ(MinimalCreateDirSet({"foo", "foo/bar/baz"}), V{"foo/bar/baz"});
+  ASSERT_EQ(MinimalCreateDirSet({"foo", "foo/bar", "foo/bar"}), V{"foo/bar"});
+  ASSERT_EQ(MinimalCreateDirSet({"foo", "foo/bar", "foo", "foo/baz", "foo/baz/quux"}),
+            V({"foo/bar", "foo/baz/quux"}));
 }
 
 TEST(PathUtil, ToBackslashes) {
