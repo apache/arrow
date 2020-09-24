@@ -56,3 +56,7 @@ test_that("arrow gracefully fails to load objects from other sessions (ARROW-100
   b <- readRDS(tf)
   expect_error(b$length(), "Invalid <Array>")
 })
+
+test_that("check for an ArrowObject in functions use std::shared_ptr", {
+  expect_error(Array__length(1), "Invalid R object")
+})
