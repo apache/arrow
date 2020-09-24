@@ -187,7 +187,8 @@ Result<std::shared_ptr<Buffer>> ReadRangeCache::Read(ReadRange range) {
         return entry.range.offset + entry.range.length < range.offset + range.length;
       });
   if (it != impl_->entries.end() && it->range.Contains(range)) {
-    ARROW_ASSIGN_OR_RAISE(auto buf, std::move(it->future).result());
+    auto maybe_buf = it->future.result();
+    ARROW_ASSIGN_OR_RAISE(auto buf, maybe_buf);
     return SliceBuffer(std::move(buf), range.offset - it->range.offset, range.length);
   }
   return Status::Invalid("ReadRangeCache did not find matching cache entry");
