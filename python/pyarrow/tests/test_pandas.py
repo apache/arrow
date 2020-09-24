@@ -2764,10 +2764,13 @@ def test_roundtrip_with_bytes_unicode(columns):
 
 
 def _check_serialize_components_roundtrip(pd_obj):
-    ctx = pa.default_serialization_context()
+    with pytest.warns(DeprecationWarning):
+        ctx = pa.default_serialization_context()
 
-    components = ctx.serialize(pd_obj).to_components()
-    deserialized = ctx.deserialize_components(components)
+    with pytest.warns(DeprecationWarning):
+        components = ctx.serialize(pd_obj).to_components()
+    with pytest.warns(DeprecationWarning):
+        deserialized = ctx.deserialize_components(components)
 
     if isinstance(pd_obj, pd.DataFrame):
         tm.assert_frame_equal(pd_obj, deserialized)

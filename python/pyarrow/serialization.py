@@ -16,6 +16,7 @@
 # under the License.
 
 import collections
+import warnings
 
 import numpy as np
 
@@ -483,6 +484,12 @@ def register_default_serialization_handlers(serialization_context):
 
 
 def default_serialization_context():
+    warnings.warn(
+        "'pyarrow.default_serialization_context' is deprecated and will be "
+        "removed in a future version. Use pickle or the pyarrow IPC "
+        "functionality instead.",
+        DeprecationWarning, stacklevel=2
+    )
     context = SerializationContext()
     register_default_serialization_handlers(context)
     return context

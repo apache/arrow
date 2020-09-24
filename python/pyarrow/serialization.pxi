@@ -17,6 +17,8 @@
 
 from cpython.ref cimport PyObject
 
+import warnings
+
 
 def is_named_tuple(cls):
     """
@@ -43,6 +45,7 @@ class DeserializationCallbackError(ArrowSerializationError):
         self.type_id = type_id
 
 
+# TODO deprecate accessing this class top-level
 cdef class SerializationContext(_Weakrefable):
     cdef:
         object type_to_type_id
@@ -369,6 +372,15 @@ def serialize(object value, SerializationContext context=None):
     serialized : SerializedPyObject
 
     """
+    warnings.warn(
+        "'pyarrow.serialize' is deprecated and will be removed in a future "
+        "version. Use pickle or the pyarrow IPC functionality instead.",
+        DeprecationWarning, stacklevel=2
+    )
+    return _serialize(value, context)
+
+
+def _serialize(object value, SerializationContext context=None):
     cdef SerializedPyObject serialized = SerializedPyObject()
     wrapped_value = [value]
 
@@ -394,7 +406,12 @@ def serialize_to(object value, sink, SerializationContext context=None):
         Custom serialization and deserialization context, uses a default
         context with some standard type handlers if not specified.
     """
-    serialized = serialize(value, context)
+    warnings.warn(
+        "'pyarrow.serialize_to' is deprecated and will be removed in a future "
+        "version. Use pickle or the pyarrow IPC functionality instead.",
+        DeprecationWarning, stacklevel=2
+    )
+    serialized = _serialize(value, context)
     serialized.write_to(sink)
 
 
@@ -414,6 +431,15 @@ def read_serialized(source, base=None):
     -------
     serialized : the serialized data
     """
+    warnings.warn(
+        "'pyarrow.read_serialized' is deprecated and will be removed in a "
+        "future version. Use pickle or the pyarrow IPC functionality instead.",
+        DeprecationWarning, stacklevel=2
+    )
+    return _read_serialized(source, base=base)
+
+
+def _read_serialized(source, base=None):
     cdef shared_ptr[CRandomAccessFile] stream
     get_reader(source, True, &stream)
 
@@ -447,7 +473,12 @@ def deserialize_from(source, object base, SerializationContext context=None):
     object
         Python object for the deserialized sequence.
     """
-    serialized = read_serialized(source, base=base)
+    warnings.warn(
+        "'pyarrow.deserialize_from' is deprecated and will be removed in a "
+        "future version. Use pickle or the pyarrow IPC functionality instead.",
+        DeprecationWarning, stacklevel=2
+    )
+    serialized = _read_serialized(source, base=base)
     return serialized.deserialize(context)
 
 
@@ -465,6 +496,12 @@ def deserialize_components(components, SerializationContext context=None):
     -------
     object : the Python object that was originally serialized
     """
+    warnings.warn(
+        "'pyarrow.deserialize_components' is deprecated and will be removed "
+        "in a future version. Use pickle or the pyarrow IPC functionality "
+        "instead.",
+        DeprecationWarning, stacklevel=2
+    )
     serialized = SerializedPyObject.from_components(components)
     return serialized.deserialize(context)
 
@@ -487,5 +524,15 @@ def deserialize(obj, SerializationContext context=None):
     -------
     deserialized : object
     """
+    warnings.warn(
+        "'pyarrow.deserialize' is deprecated and will be removed in a future "
+        "version. Use pickle or the pyarrow IPC functionality instead.",
+        DeprecationWarning, stacklevel=2
+    )
+    return _deserialize(obj, context=context)
+
+
+def _deserialize(obj, SerializationContext context=None):
     source = BufferReader(obj)
-    return deserialize_from(source, obj, context)
+    serialized = _read_serialized(source, base=obj)
+    return serialized.deserialize(context)
