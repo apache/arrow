@@ -248,40 +248,49 @@ BasicDecimal128& BasicDecimal128::operator>>=(uint32_t bits) {
   return *this;
 }
 
+namespace {
+
+void extendAndMultiplyUint64(uint64_t x, uint64_t y, uint64_t *hi, uint64_t *lo) {
+  uint64_t x_lo = x & kIntMask;
+  uint64_t y_lo = y & kIntMask;
+  uint64_t x_hi = x >> 32;
+  uint64_t y_hi = y >> 32;
+
+  uint64_t t = x_lo * y_lo;
+  uint64_t t_lo = t & kIntMask;
+  uint64_t t_hi = t >> 32;
+
+  uint64_t u = x_hi * y_lo + t_hi;
+  uint64_t u_lo = u & kIntMask;
+  uint64_t u_hi = u >> 32;
+
+  uint64_t v = x_lo * y_hi + u_lo;
+  uint64_t v_hi = v >> 32;
+
+  *hi = x_hi * y_hi + u_hi + v_hi;
+  *lo = (v << 32) + t_lo;
+}
+
+void multiplyUint128(uint64_t x_hi, uint64_t x_lo, uint64_t y_hi, uint64_t y_lo,
+             uint64_t* hi, uint64_t* lo) {
+  extendAndMultiplyUint64(x_lo, y_lo, hi, lo);
+  *hi += (x_hi * y_lo) + (x_lo * y_hi);
+}
+
+}  // namespace
+
 BasicDecimal128& BasicDecimal128::operator*=(const BasicDecimal128& right) {
-  // Break the left and right numbers into 32 bit chunks
-  // so that we can multiply them without overflow.
-  const uint64_t L0 = static_cast<uint64_t>(high_bits_) >> 32;
-  const uint64_t L1 = static_cast<uint64_t>(high_bits_) & kIntMask;
-  const uint64_t L2 = low_bits_ >> 32;
-  const uint64_t L3 = low_bits_ & kIntMask;
-
-  const uint64_t R0 = static_cast<uint64_t>(right.high_bits_) >> 32;
-  const uint64_t R1 = static_cast<uint64_t>(right.high_bits_) & kIntMask;
-  const uint64_t R2 = right.low_bits_ >> 32;
-  const uint64_t R3 = right.low_bits_ & kIntMask;
-
-  uint64_t product = L3 * R3;
-  low_bits_ = product & kIntMask;
-
-  uint64_t sum = product >> 32;
-
-  product = L2 * R3;
-  sum += product;
-  high_bits_ = static_cast<int64_t>(sum < product ? kCarryBit : 0);
-
-  product = L3 * R2;
-  sum += product;
-
-  low_bits_ += sum << 32;
-
-  if (sum < product) {
-    high_bits_ += kCarryBit;
+  // Since the max value of BasicDecimal128 is supposed to be 1e38 - 1 and the
+  // min the negation,, taking the absolute values here should always be safe.
+  bool negate = Sign() != right.Sign();
+  BasicDecimal128 x = BasicDecimal128::Abs(*this);
+  BasicDecimal128 y = BasicDecimal128::Abs(right);
+  uint64_t hi;
+  multiplyUint128(x.high_bits(), x.low_bits(), y.high_bits(), y.low_bits(), &hi, &low_bits_);
+  high_bits_ = hi;
+  if (negate) {
+    Negate();
   }
-
-  high_bits_ += static_cast<int64_t>(sum >> 32);
-  high_bits_ += L1 * R3 + L2 * R2 + L3 * R1;
-  high_bits_ += (L0 * R3 + L1 * R2 + L2 * R1 + L3 * R0) << 32;
   return *this;
 }
 
