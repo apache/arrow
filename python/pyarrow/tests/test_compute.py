@@ -518,6 +518,20 @@ def test_take_dictionary(ordered):
     assert result.type.ordered is ordered
 
 
+def test_take_null_type():
+    # ARROW-10027
+    arr = pa.array([None] * 10)
+    chunked_arr = pa.chunked_array([[None] * 5] * 2)
+    batch = pa.record_batch([arr], names=['a'])
+    table = pa.table({'a': arr})
+
+    indices = pa.array([1, 3, 7, None])
+    assert len(arr.take(indices)) == 4
+    assert len(chunked_arr.take(indices)) == 4
+    assert len(batch.take(indices).column(0)) == 4
+    assert len(table.take(indices).column(0)) == 4
+
+
 @pytest.mark.parametrize(('ty', 'values'), all_array_types)
 def test_filter(ty, values):
     arr = pa.array(values, type=ty)
@@ -611,6 +625,20 @@ def test_filter_errors():
         with pytest.raises(pa.ArrowInvalid,
                            match="must all be the same length"):
             obj.filter(mask)
+
+
+def test_filter_null_type():
+    # ARROW-10027
+    arr = pa.array([None] * 10)
+    chunked_arr = pa.chunked_array([[None] * 5] * 2)
+    batch = pa.record_batch([arr], names=['a'])
+    table = pa.table({'a': arr})
+
+    mask = pa.array([True, False] * 5)
+    assert len(arr.filter(mask)) == 5
+    assert len(chunked_arr.filter(mask)) == 5
+    assert len(batch.filter(mask).column(0)) == 5
+    assert len(table.filter(mask).column(0)) == 5
 
 
 @pytest.mark.parametrize("typ", ["array", "chunked_array"])

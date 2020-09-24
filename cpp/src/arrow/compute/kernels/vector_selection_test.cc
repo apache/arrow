@@ -928,6 +928,7 @@ class TestTakeKernel : public ::testing::Test {};
 
 TEST(TestTakeKernel, TakeNull) {
   AssertTakeNull("[null, null, null]", "[0, 1, 0]", "[null, null, null]");
+  AssertTakeNull("[null, null, null]", "[0, 2]", "[null, null]");
 
   std::shared_ptr<Array> arr;
   ASSERT_RAISES(IndexError,
