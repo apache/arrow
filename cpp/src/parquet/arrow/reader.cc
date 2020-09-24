@@ -856,6 +856,11 @@ Status FileReaderImpl::GetRecordBatchReader(const std::vector<int>& row_groups,
     return Status::OK();
   }
 
+  int64_t num_rows = 0;
+  for (int row_group : row_groups) {
+    num_rows += parquet_reader()->metadata()->RowGroup(row_group)->num_rows();
+  }
+
   using ::arrow::RecordBatchIterator;
 
   // NB: This lambda will be invoked outside the scope of this call to
@@ -863,13 +868,17 @@ Status FileReaderImpl::GetRecordBatchReader(const std::vector<int>& row_groups,
   // `this` is a non-owning pointer so we are relying on the parent FileReader outliving
   // this RecordBatchReader.
   ::arrow::Iterator<RecordBatchIterator> batches = ::arrow::MakeFunctionIterator(
-      [readers, batch_schema, this]() -> ::arrow::Result<RecordBatchIterator> {
+      [readers, batch_schema, num_rows,
+       this]() mutable -> ::arrow::Result<RecordBatchIterator> {
         ::arrow::ChunkedArrayVector columns(readers.size());
+
+        // don't reserve more rows than necessary
+        int64_t batch_size = std::min(properties().batch_size(), num_rows);
+        num_rows -= batch_size;
+
         RETURN_NOT_OK(::arrow::internal::OptionalParallelFor(
             reader_properties_.use_threads(), static_cast<int>(readers.size()),
-            [&](int i) {
-              return readers[i]->NextBatch(properties().batch_size(), &columns[i]);
-            }));
+            [&](int i) { return readers[i]->NextBatch(batch_size, &columns[i]); }));
 
         for (const auto& column : columns) {
           if (column == nullptr || column->length() == 0) {
