@@ -336,7 +336,7 @@ TEST(CreateDirDeleteDir, Basics) {
   std::unique_ptr<TemporaryDir> temp_dir;
   ASSERT_OK_AND_ASSIGN(temp_dir, TemporaryDir::Make("deletedirtest-"));
   const std::string BASE =
-      temp_dir->path().Join("xxx-io-util-test-dir2").ValueOrDie().ToNative();
+      temp_dir->path().Join("xxx-io-util-test-dir2").ValueOrDie().ToString();
   bool created, deleted;
   PlatformFilename parent, child;
 
@@ -385,7 +385,7 @@ TEST(DeleteDirContents, Basics) {
   std::unique_ptr<TemporaryDir> temp_dir;
   ASSERT_OK_AND_ASSIGN(temp_dir, TemporaryDir::Make("deletedirtest-"));
   const std::string BASE =
-      temp_dir->path().Join("xxx-io-util-test-dir2").ValueOrDie().ToNative();
+      temp_dir->path().Join("xxx-io-util-test-dir2").ValueOrDie().ToString();
   bool created, deleted;
   PlatformFilename parent, child1, child2;
 

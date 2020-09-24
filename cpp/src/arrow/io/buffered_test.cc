@@ -68,7 +68,7 @@ class FileTestFixture : public ::testing::Test {
     path_ = temp_dir_->path()
                 .Join("arrow-test-io-buffered-stream.txt")
                 .ValueOrDie()
-                .ToNative();
+                .ToString();
     EnsureFileDeleted();
   }
 

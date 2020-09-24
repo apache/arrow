@@ -383,7 +383,7 @@ class IpcTestFixture : public io::MemoryMapFixture, public ExtensionTypesMixin {
   }
 
   std::string TempFile(util::string_view file) {
-    return temp_dir_->path().Join(std::string(file)).ValueOrDie().ToNative();
+    return temp_dir_->path().Join(std::string(file)).ValueOrDie().ToString();
   }
 
   void DoSchemaRoundTrip(const Schema& schema, std::shared_ptr<Schema>* result) {
@@ -801,7 +801,7 @@ class RecursionLimits : public ::testing::Test, public io::MemoryMapFixture {
   }
 
   std::string TempFile(util::string_view file) {
-    return temp_dir_->path().Join(std::string(file)).ValueOrDie().ToNative();
+    return temp_dir_->path().Join(std::string(file)).ValueOrDie().ToString();
   }
 
   void TearDown() { io::MemoryMapFixture::TearDown(); }

@@ -67,7 +67,7 @@ class FileTestFixture : public ::testing::Test {
   }
 
   std::string TempFile(arrow::util::string_view path) {
-    return temp_dir_->path().Join(std::string(path)).ValueOrDie().ToNative();
+    return temp_dir_->path().Join(std::string(path)).ValueOrDie().ToString();
   }
 
   void TearDown() { EnsureFileDeleted(); }
@@ -570,7 +570,7 @@ class TestMemoryMappedFile : public ::testing::Test, public MemoryMapFixture {
   void TearDown() override { MemoryMapFixture::TearDown(); }
 
   std::string TempFile(arrow::util::string_view path) {
-    return temp_dir_->path().Join(std::string(path)).ValueOrDie().ToNative();
+    return temp_dir_->path().Join(std::string(path)).ValueOrDie().ToString();
   }
 
  protected:
