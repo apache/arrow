@@ -732,13 +732,14 @@ fn result_str(results: &[RecordBatch]) -> Vec<String> {
     result
 }
 
-#[tokio::test]
-async fn query_length() -> Result<()> {
-    let schema = Arc::new(Schema::new(vec![Field::new("c1", DataType::Utf8, false)]));
+async fn generic_query_length<T: 'static + Array + From<Vec<&'static str>>>(
+    datatype: DataType,
+) -> Result<()> {
+    let schema = Arc::new(Schema::new(vec![Field::new("c1", datatype, false)]));
 
     let data = RecordBatch::try_new(
         schema.clone(),
-        vec![Arc::new(StringArray::from(vec!["", "a", "aa", "aaa"]))],
+        vec![Arc::new(T::from(vec!["", "a", "aa", "aaa"]))],
     )?;
 
     let table = MemTable::new(schema, vec![vec![data]])?;
@@ -750,6 +751,16 @@ async fn query_length() -> Result<()> {
     let expected = "0\n1\n2\n3".to_string();
     assert_eq!(expected, actual);
     Ok(())
+}
+
+#[tokio::test]
+async fn query_length() -> Result<()> {
+    generic_query_length::<StringArray>(DataType::Utf8).await
+}
+
+#[tokio::test]
+async fn query_large_length() -> Result<()> {
+    generic_query_length::<LargeStringArray>(DataType::LargeUtf8).await
 }
 
 #[tokio::test]

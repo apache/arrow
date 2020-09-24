@@ -188,7 +188,16 @@ pub fn return_type(
     // will be built-in functions whose return type depends on the
     // incoming type.
     match fun {
-        BuiltinScalarFunction::Length => Ok(DataType::UInt32),
+        BuiltinScalarFunction::Length => Ok(match arg_types[0] {
+            DataType::LargeUtf8 => DataType::Int64,
+            DataType::Utf8 => DataType::Int32,
+            _ => {
+                // this error is internal as `data_types` should have captured this.
+                return Err(ExecutionError::InternalError(
+                    "The length function can only accept strings.".to_string(),
+                ));
+            }
+        }),
         BuiltinScalarFunction::Concat => Ok(DataType::Utf8),
         BuiltinScalarFunction::ToTimestamp => {
             Ok(DataType::Timestamp(TimeUnit::Nanosecond, None))
@@ -226,7 +235,7 @@ pub fn create_physical_expr(
         BuiltinScalarFunction::Trunc => math_expressions::trunc,
         BuiltinScalarFunction::Abs => math_expressions::abs,
         BuiltinScalarFunction::Signum => math_expressions::signum,
-        BuiltinScalarFunction::Length => |args| Ok(Arc::new(length(args[0].as_ref())?)),
+        BuiltinScalarFunction::Length => |args| Ok(length(args[0].as_ref())?),
         BuiltinScalarFunction::Concat => {
             |args| Ok(Arc::new(string_expressions::concatenate(args)?))
         }
@@ -257,7 +266,9 @@ fn signature(fun: &BuiltinScalarFunction) -> Signature {
 
     // for now, the list is small, as we do not have many built-in functions.
     match fun {
-        BuiltinScalarFunction::Length => Signature::Uniform(1, vec![DataType::Utf8]),
+        BuiltinScalarFunction::Length => {
+            Signature::Uniform(1, vec![DataType::Utf8, DataType::LargeUtf8])
+        }
         BuiltinScalarFunction::Concat => Signature::Variadic(vec![DataType::Utf8]),
         BuiltinScalarFunction::ToTimestamp => Signature::Uniform(1, vec![DataType::Utf8]),
         BuiltinScalarFunction::Array => {
