@@ -131,13 +131,13 @@ Table <- R6Class("Table", inherit = ArrowObject,
       if (is.integer(i)) {
         i <- Array$create(i)
       }
-      shared_ptr(Table, call_function("take", self, i))
+      call_function("take", self, i)
     },
     Filter = function(i, keep_na = TRUE) {
       if (is.logical(i)) {
         i <- Array$create(i)
       }
-      shared_ptr(Table, call_function("filter", self, i, options = list(keep_na = keep_na)))
+      call_function("filter", self, i, options = list(keep_na = keep_na))
     },
 
     Equals = function(other, check_metadata = FALSE, ...) {

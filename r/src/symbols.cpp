@@ -31,6 +31,8 @@ SEXP symbols::ptype = Rf_install("ptype");
 SEXP symbols::byte_width = Rf_install("byte_width");
 SEXP symbols::list_size = Rf_install("list_size");
 SEXP symbols::arrow_attributes = Rf_install("arrow_attributes");
+SEXP symbols::new_ = Rf_install("new");
+SEXP symbols::create = Rf_install("create");
 
 // persistently protect `x` and return it
 SEXP precious(SEXP x) {

@@ -131,20 +131,14 @@ Array <- R6Class("Array",
       if (is.integer(i)) {
         i <- Array$create(i)
       }
-      # ARROW-9001: autoboxing in call_function
-      result <- call_function("take", self, i)
-      if (inherits(i, "ChunkedArray")) {
-        return(shared_ptr(ChunkedArray, result))
-      } else {
-        Array$create(result)
-      }
+      call_function("take", self, i)
     },
     Filter = function(i, keep_na = TRUE) {
       if (is.logical(i)) {
         i <- Array$create(i)
       }
       assert_is(i, "Array")
-      Array$create(call_function("filter", self, i, options = list(keep_na = keep_na)))
+      call_function("filter", self, i, options = list(keep_na = keep_na))
     },
     RangeEquals = function(other, start_idx, end_idx, other_start_idx = 0L) {
       assert_is(other, "Array")
@@ -270,7 +264,7 @@ FixedSizeListArray <- R6Class("FixedSizeListArray", inherit = Array,
 length.Array <- function(x) x$length()
 
 #' @export
-is.na.Array <- function(x) shared_ptr(Array, call_function("is_null", x))
+is.na.Array <- function(x) call_function("is_null", x)
 
 #' @export
 as.vector.Array <- function(x, mode) x$as_vector()

@@ -75,13 +75,13 @@ ChunkedArray <- R6Class("ChunkedArray", inherit = ArrowObject,
       if (is.integer(i)) {
         i <- Array$create(i)
       }
-      shared_ptr(ChunkedArray, call_function("take", self, i))
+      call_function("take", self, i)
     },
     Filter = function(i, keep_na = TRUE) {
       if (is.logical(i)) {
         i <- Array$create(i)
       }
-      shared_ptr(ChunkedArray, call_function("filter", self, i, options = list(keep_na = keep_na)))
+      call_function("filter", self, i, options = list(keep_na = keep_na))
     },
     cast = function(target_type, safe = TRUE, options = cast_options(safe)) {
       assert_is(options, "CastOptions")
@@ -128,7 +128,7 @@ length.ChunkedArray <- function(x) x$length()
 as.vector.ChunkedArray <- function(x, mode) x$as_vector()
 
 #' @export
-is.na.ChunkedArray <- function(x) shared_ptr(ChunkedArray, call_function("is_null", x))
+is.na.ChunkedArray <- function(x) call_function("is_null", x)
 
 #' @export
 `[.ChunkedArray` <- filter_rows

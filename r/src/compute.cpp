@@ -129,19 +129,19 @@ arrow::Datum as_cpp<arrow::Datum>(SEXP x) {
 SEXP from_datum(arrow::Datum datum) {
   switch (datum.kind()) {
     case arrow::Datum::SCALAR:
-      return cpp11::as_sexp(datum.scalar());
+      return cpp11::R6_create(Rf_install("Scalar"), datum.scalar());
 
     case arrow::Datum::ARRAY:
-      return cpp11::as_sexp(datum.make_array());
+      return cpp11::R6_create(Rf_install("Array"), datum.make_array());
 
     case arrow::Datum::CHUNKED_ARRAY:
-      return cpp11::as_sexp(datum.chunked_array());
+      return cpp11::R6_new(Rf_install("ChunkedArray"), datum.chunked_array());
 
     case arrow::Datum::RECORD_BATCH:
-      return cpp11::as_sexp(datum.record_batch());
+      return cpp11::R6_new(Rf_install("RecordBatch"), datum.record_batch());
 
     case arrow::Datum::TABLE:
-      return cpp11::as_sexp(datum.table());
+      return cpp11::R6_new(Rf_install("Table"), datum.table());
 
     default:
       break;

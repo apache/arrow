@@ -124,8 +124,7 @@ eval_array_expression <- function(x) {
       a
     }
   })
-  ptr <- call_function(x$fun, args = x$args, options = x$options %||% empty_named_list())
-  shared_ptr(get(x$result_class), ptr)
+  call_function(x$fun, args = x$args, options = x$options %||% empty_named_list())
 }
 
 #' @export
@@ -248,7 +247,7 @@ make_expression <- function(operator, e1, e2) {
     # In doesn't take Scalar, it takes Array
     return(Expression$in_(e1, e2))
   }
-  
+
   # Handle unary functions before touching e2
   if (operator == "is.na") {
     return(is.na(e1))

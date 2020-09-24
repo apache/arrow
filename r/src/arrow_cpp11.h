@@ -130,6 +130,8 @@ struct symbols {
   static SEXP byte_width;
   static SEXP list_size;
   static SEXP arrow_attributes;
+  static SEXP new_;
+  static SEXP create;
 };
 
 struct data {
@@ -321,6 +323,34 @@ SEXP as_sexp(const std::vector<std::shared_ptr<T>>& vec) {
 template <typename E>
 enable_if_enum<E, SEXP> as_sexp(E e) {
   return as_sexp(static_cast<int>(e));
+}
+
+template <typename T>
+SEXP R6_make(SEXP symbol, SEXP fun_symbol, const std::shared_ptr<T>& x) {
+  if (x == nullptr) {
+    return R_NilValue;
+  }
+  cpp11::external_pointer<std::shared_ptr<T>> xp(new std::shared_ptr<T>(x));
+
+  // make call:  <symbol>$new(<x>)
+  SEXP call = PROTECT(Rf_lang3(R_DollarSymbol, symbol, fun_symbol));
+  SEXP call2 = PROTECT(Rf_lang2(call, xp));
+
+  // and then eval:
+  SEXP r6 = PROTECT(Rf_eval(call2, arrow::r::ns::arrow));
+
+  UNPROTECT(3);
+  return r6;
+}
+
+template <typename T>
+SEXP R6_new(SEXP symbol, const std::shared_ptr<T>& x) {
+  return R6_make(symbol, arrow::r::symbols::new_, x);
+}
+
+template <typename T>
+SEXP R6_create(SEXP symbol, const std::shared_ptr<T>& x) {
+  return R6_make(symbol, arrow::r::symbols::create, x);
 }
 
 }  // namespace cpp11
