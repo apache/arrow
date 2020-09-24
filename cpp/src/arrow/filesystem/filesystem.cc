@@ -15,8 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <algorithm>
 #include <sstream>
-#include <unordered_set>
 #include <utility>
 
 #include "arrow/filesystem/filesystem.h"
@@ -471,10 +471,12 @@ Status CopyFiles(const std::shared_ptr<FileSystem>& source_fs,
                  const std::string& destination_base_dir, int64_t chunk_size,
                  bool use_threads) {
   ARROW_ASSIGN_OR_RAISE(auto source_infos, source_fs->GetFileInfo(source_sel));
-  std::vector<FileLocator> sources, destinations;
+  if (source_infos.empty()) {
+    return Status::OK();
+  }
 
-  std::unordered_set<std::string> destination_dirs;
-  destination_dirs.insert(destination_base_dir);
+  std::vector<FileLocator> sources, destinations;
+  std::vector<std::string> dirs;
 
   for (const FileInfo& source_info : source_infos) {
     auto relative = internal::RemoveAncestor(source_sel.base_dir, source_info.path());
@@ -487,15 +489,27 @@ Status CopyFiles(const std::shared_ptr<FileSystem>& source_fs,
         internal::ConcatAbstractPath(destination_base_dir, relative->to_string());
 
     if (source_info.IsDirectory()) {
-      destination_dirs.insert(destination_path);
+      dirs.push_back(destination_path);
     } else if (source_info.IsFile()) {
       sources.push_back({source_fs, source_info.path()});
       destinations.push_back({destination_fs, destination_path});
     }
   }
 
-  std::vector<std::string> dirs(destination_dirs.size());
-  std::move(destination_dirs.begin(), destination_dirs.end(), dirs.begin());
+  // remove directories with descendants since recursive directory creation will create
+  // them automatically
+  std::sort(dirs.begin(), dirs.end());
+  for (auto ancestor = dirs.begin(); ancestor != dirs.end(); ++ancestor) {
+    auto descendants_end = ancestor + 1;
+
+    while (descendants_end != dirs.end() &&
+           internal::IsAncestorOf(*ancestor, *descendants_end)) {
+      ++descendants_end;
+    }
+
+    dirs.erase(ancestor, descendants_end - 1);
+  }
+
   RETURN_NOT_OK(::arrow::internal::OptionalParallelFor(
       use_threads, static_cast<int>(dirs.size()), [&](int i) {
         return dirs[i].empty() ? Status::OK() : destination_fs->CreateDir(dirs[i]);
