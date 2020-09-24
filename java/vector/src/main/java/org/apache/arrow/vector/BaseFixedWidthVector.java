@@ -48,7 +48,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
         implements FixedWidthVector, FieldVector, VectorDefinitionSetter {
   private final int typeWidth;
 
-  protected int lastTargetValueCapacity;
+  protected int lastValueCapacity;
   protected int actualValueCapacity;
 
   protected final Field field;
@@ -72,7 +72,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
     allocationMonitor = 0;
     validityBuffer = allocator.getEmpty();
     valueBuffer = allocator.getEmpty();
-    lastTargetValueCapacity = INITIAL_VALUE_ALLOCATION;
+    lastValueCapacity = INITIAL_VALUE_ALLOCATION;
     refreshValueCapacity();
   }
 
@@ -174,7 +174,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
   @Override
   public void setInitialCapacity(int valueCount) {
     computeAndCheckBufferSize(valueCount);
-    lastTargetValueCapacity = valueCount;
+    lastValueCapacity = valueCount;
   }
 
   /**
@@ -271,7 +271,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
    */
   @Override
   public void allocateNew() {
-    allocateNew(lastTargetValueCapacity);
+    allocateNew(lastValueCapacity);
   }
 
   /**
@@ -285,7 +285,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
   @Override
   public boolean allocateNewSafe() {
     try {
-      allocateNew(lastTargetValueCapacity);
+      allocateNew(lastValueCapacity);
       return true;
     } catch (Exception e) {
       return false;
@@ -342,7 +342,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
     zeroVector();
 
     refreshValueCapacity();
-    lastTargetValueCapacity = getValueCapacity();
+    lastValueCapacity = getValueCapacity();
   }
 
   /**
@@ -432,8 +432,8 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
   public void reAlloc() {
     int targetValueCount = getValueCapacity() * 2;
     if (targetValueCount == 0) {
-      if (lastTargetValueCapacity > 0) {
-        targetValueCount = lastTargetValueCapacity;
+      if (lastValueCapacity > 0) {
+        targetValueCount = lastValueCapacity;
       } else {
         targetValueCount = INITIAL_VALUE_ALLOCATION * 2;
       }
@@ -454,7 +454,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
     validityBuffer = newValidityBuffer;
 
     refreshValueCapacity();
-    lastTargetValueCapacity = getValueCapacity();
+    lastValueCapacity = getValueCapacity();
   }
 
   @Override
