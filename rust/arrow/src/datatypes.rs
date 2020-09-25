@@ -537,6 +537,9 @@ where
     /// Creates a new SIMD mask for this SIMD type filling it with `value`
     fn mask_init(value: bool) -> Self::SimdMask;
 
+    /// Creates a new SIMD mask for this SIMD type from the lower-most bits of the given `mask`
+    fn mask_from_u64(mask: u64) -> Self::SimdMask;
+
     /// Gets the value of a single lane in a SIMD mask
     fn mask_get(mask: &Self::SimdMask, idx: usize) -> bool;
 
@@ -597,22 +600,109 @@ macro_rules! make_numeric_type {
 
             type SimdMask = $simd_mask_ty;
 
+            #[inline]
             fn lanes() -> usize {
                 Self::Simd::lanes()
             }
 
+            #[inline]
             fn init(value: Self::Native) -> Self::Simd {
                 Self::Simd::splat(value)
             }
 
+            #[inline]
             fn load(slice: &[Self::Native]) -> Self::Simd {
                 unsafe { Self::Simd::from_slice_unaligned_unchecked(slice) }
             }
 
+            #[inline]
             fn mask_init(value: bool) -> Self::SimdMask {
                 Self::SimdMask::splat(value)
             }
 
+            #[inline]
+            fn mask_from_u64(mask: u64) -> Self::SimdMask {
+                match Self::lanes() {
+                    8 => {
+                        let vecidx = i64x8::new(128, 64, 32, 16, 8, 4, 2, 1);
+
+                        let vecmask = i64x8::splat((mask & 0xFF) as i64);
+                        let vecmask = (vecidx & vecmask).eq(vecidx);
+
+                        unsafe { std::mem::transmute(vecmask) }
+                    }
+                    16 => {
+                        let vecidx = i32x16::new(
+                            32768, 16384, 8192, 4096, 2048, 1024, 512, 256, 128, 64, 32,
+                            16, 8, 4, 2, 1,
+                        );
+
+                        let vecmask = i32x16::splat((mask & 0xFFFF) as i32);
+                        let vecmask = (vecidx & vecmask).eq(vecidx);
+
+                        unsafe { std::mem::transmute(vecmask) }
+                    }
+                    32 => {
+                        let tmp = &mut [0_i16; 32];
+
+                        let vecidx = i32x16::new(
+                            32768, 16384, 8192, 4096, 2048, 1024, 512, 256, 128, 64, 32,
+                            16, 8, 4, 2, 1,
+                        );
+
+                        let vecmask = i32x16::splat((mask & 0xFFFF) as i32);
+                        let vecmask = (vecidx & vecmask).eq(vecidx);
+
+                        i16x16::from_cast(vecmask)
+                            .write_to_slice_unaligned(&mut tmp[0..16]);
+
+                        let vecmask = i32x16::splat(((mask >> 16) & 0xFFFF) as i32);
+                        let vecmask = (vecidx & vecmask).eq(vecidx);
+
+                        i16x16::from_cast(vecmask)
+                            .write_to_slice_unaligned(&mut tmp[16..32]);
+
+                        unsafe { std::mem::transmute(i16x32::from_slice_unaligned(tmp)) }
+                    }
+                    64 => {
+                        let tmp = &mut [0_i8; 64];
+
+                        let vecidx = i32x16::new(
+                            32768, 16384, 8192, 4096, 2048, 1024, 512, 256, 128, 64, 32,
+                            16, 8, 4, 2, 1,
+                        );
+
+                        let vecmask = i32x16::splat((mask & 0xFFFF) as i32);
+                        let vecmask = (vecidx & vecmask).eq(vecidx);
+
+                        i8x16::from_cast(vecmask)
+                            .write_to_slice_unaligned(&mut tmp[0..16]);
+
+                        let vecmask = i32x16::splat(((mask >> 16) & 0xFFFF) as i32);
+                        let vecmask = (vecidx & vecmask).eq(vecidx);
+
+                        i8x16::from_cast(vecmask)
+                            .write_to_slice_unaligned(&mut tmp[16..32]);
+
+                        let vecmask = i32x16::splat(((mask >> 32) & 0xFFFF) as i32);
+                        let vecmask = (vecidx & vecmask).eq(vecidx);
+
+                        i8x16::from_cast(vecmask)
+                            .write_to_slice_unaligned(&mut tmp[32..48]);
+
+                        let vecmask = i32x16::splat(((mask >> 48) & 0xFFFF) as i32);
+                        let vecmask = (vecidx & vecmask).eq(vecidx);
+
+                        i8x16::from_cast(vecmask)
+                            .write_to_slice_unaligned(&mut tmp[48..64]);
+
+                        unsafe { std::mem::transmute(i8x64::from_slice_unaligned(tmp)) }
+                    }
+                    _ => panic!("Invalid number of vector lanes"),
+                }
+            }
+
+            #[inline]
             fn mask_get(mask: &Self::SimdMask, idx: usize) -> bool {
                 unsafe { mask.extract_unchecked(idx) }
             }
@@ -624,11 +714,13 @@ macro_rules! make_numeric_type {
                 action(mask.bitmask().to_byte_slice());
             }
 
+            #[inline]
             fn mask_set(mask: Self::SimdMask, idx: usize, value: bool) -> Self::SimdMask {
                 unsafe { mask.replace_unchecked(idx, value) }
             }
 
             /// Selects elements of `a` and `b` using `mask`
+            #[inline]
             fn mask_select(
                 mask: Self::SimdMask,
                 a: Self::Simd,
@@ -637,10 +729,12 @@ macro_rules! make_numeric_type {
                 mask.select(a, b)
             }
 
+            #[inline]
             fn mask_any(mask: Self::SimdMask) -> bool {
                 mask.any()
             }
 
+            #[inline]
             fn bin_op<F: Fn(Self::Simd, Self::Simd) -> Self::Simd>(
                 left: Self::Simd,
                 right: Self::Simd,
@@ -649,30 +743,37 @@ macro_rules! make_numeric_type {
                 op(left, right)
             }
 
+            #[inline]
             fn eq(left: Self::Simd, right: Self::Simd) -> Self::SimdMask {
                 left.eq(right)
             }
 
+            #[inline]
             fn ne(left: Self::Simd, right: Self::Simd) -> Self::SimdMask {
                 left.ne(right)
             }
 
+            #[inline]
             fn lt(left: Self::Simd, right: Self::Simd) -> Self::SimdMask {
                 left.lt(right)
             }
 
+            #[inline]
             fn le(left: Self::Simd, right: Self::Simd) -> Self::SimdMask {
                 left.le(right)
             }
 
+            #[inline]
             fn gt(left: Self::Simd, right: Self::Simd) -> Self::SimdMask {
                 left.gt(right)
             }
 
+            #[inline]
             fn ge(left: Self::Simd, right: Self::Simd) -> Self::SimdMask {
                 left.ge(right)
             }
 
+            #[inline]
             fn write(simd_result: Self::Simd, slice: &mut [Self::Native]) {
                 unsafe { simd_result.write_to_slice_unaligned_unchecked(slice) };
             }
@@ -2578,5 +2679,88 @@ mod tests {
         .is_err());
 
         Ok(())
+    }
+}
+
+#[cfg(all(
+    test,
+    any(target_arch = "x86", target_arch = "x86_64"),
+    feature = "simd"
+))]
+mod arrow_numeric_type_tests {
+    use crate::datatypes::{
+        ArrowNumericType, Float32Type, Float64Type, Int32Type, Int64Type, Int8Type,
+        UInt16Type,
+    };
+    use packed_simd::*;
+    use FromCast;
+
+    #[test]
+    fn test_mask_f64() {
+        let mask = Float64Type::mask_from_u64(0b10101010);
+
+        let expected =
+            m64x8::from_cast(i64x8::from_slice_unaligned(&[-1, 0, -1, 0, -1, 0, -1, 0]));
+
+        assert_eq!(expected, mask);
+    }
+
+    #[test]
+    fn test_mask_u64() {
+        let mask = Int64Type::mask_from_u64(0b01010101);
+
+        let expected =
+            m64x8::from_cast(i64x8::from_slice_unaligned(&[0, -1, 0, -1, 0, -1, 0, -1]));
+
+        assert_eq!(expected, mask);
+    }
+
+    #[test]
+    fn test_mask_f32() {
+        let mask = Float32Type::mask_from_u64(0b10101010_10101010);
+
+        let expected = m32x16::from_cast(i32x16::from_slice_unaligned(&[
+            -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0,
+        ]));
+
+        assert_eq!(expected, mask);
+    }
+
+    #[test]
+    fn test_mask_i32() {
+        let mask = Int32Type::mask_from_u64(0b01010101_01010101);
+
+        let expected = m32x16::from_cast(i32x16::from_slice_unaligned(&[
+            0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1,
+        ]));
+
+        assert_eq!(expected, mask);
+    }
+
+    #[test]
+    fn test_mask_u16() {
+        let mask = UInt16Type::mask_from_u64(0b01010101_01010101_10101010_10101010);
+
+        let expected = m16x32::from_cast(i16x32::from_slice_unaligned(&[
+            -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, 0, -1, 0, -1, 0, -1,
+            0, -1, 0, -1, 0, -1, 0, -1, 0, -1,
+        ]));
+
+        assert_eq!(expected, mask);
+    }
+
+    #[test]
+    fn test_mask_i8() {
+        let mask = Int8Type::mask_from_u64(
+            0b01010101_01010101_10101010_10101010_01010101_01010101_10101010_10101010,
+        );
+
+        let expected = m8x64::from_cast(i8x64::from_slice_unaligned(&[
+            -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, 0, -1, 0, -1, 0, -1,
+            0, -1, 0, -1, 0, -1, 0, -1, 0, -1, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0,
+            -1, 0, -1, 0, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1,
+        ]));
+
+        assert_eq!(expected, mask);
     }
 }
