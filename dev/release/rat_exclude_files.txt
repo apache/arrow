@@ -166,6 +166,7 @@ dev/tasks/linux-packages/apache-arrow/debian/source/format
 dev/tasks/linux-packages/apache-arrow/debian/watch
 dev/tasks/conda-recipes/*
 docs/requirements.txt
+go/arrow/flight/Flight_grpc.pb.go
 go/arrow/go.sum
 go/arrow/Gopkg.lock
 go/arrow/internal/cpu/*
