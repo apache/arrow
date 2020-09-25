@@ -539,6 +539,8 @@ template <typename T>
 class PyPrimitiveConverter<T, enable_if_string_like<T>>
     : public PrimitiveConverter<T, PyConverter> {
  public:
+  using OffsetType = typename T::offset_type;
+
   Status Append(PyObject* value) override {
     if (PyValue::IsNull(this->options_, value)) {
       this->primitive_builder_->UnsafeAppendNull();
@@ -550,7 +552,8 @@ class PyPrimitiveConverter<T, enable_if_string_like<T>>
         observed_binary_ = true;
       }
       ARROW_RETURN_NOT_OK(this->primitive_builder_->ReserveData(view_.size));
-      this->primitive_builder_->UnsafeAppend(view_.bytes, view_.size);
+      this->primitive_builder_->UnsafeAppend(view_.bytes,
+                                             static_cast<OffsetType>(view_.size));
     }
     return Status::OK();
   }
