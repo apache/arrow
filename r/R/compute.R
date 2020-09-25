@@ -131,12 +131,7 @@ match_arrow.Array <- function(x, table, ...) {
 }
 
 #' @export
-match_arrow.ChunkedArray <- function(x, table, ...) {
-  if (!inherits(table, c("Array", "ChunkedArray"))) {
-    table <- Array$create(table)
-  }
-  call_function("index_in_meta_binary", x, table)
-}
+match_arrow.ChunkedArray <- match_arrow.Array
 
 CastOptions <- R6Class("CastOptions", inherit = ArrowObject)
 
