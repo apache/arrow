@@ -247,12 +247,43 @@ void fs___CopyFiles(const std::shared_ptr<fs::FileSystem>& source_fs,
 #include <arrow/filesystem/s3fs.h>
 
 // [[s3::export]]
-void fs___EnsureS3Initialized() { StopIfNotOk(fs::EnsureS3Initialized()); }
+std::shared_ptr<fs::S3FileSystem> fs___S3FileSystem__create(
+    bool anonymous = false, std::string access_key = "", std::string secret_key = "",
+    std::string session_token = "", std::string role_arn = "",
+    std::string session_name = "", std::string external_id = "", int load_frequency = 900,
+    std::string region = "", std::string endpoint_override = "", std::string scheme = "",
+    bool background_writes = true) {
+  fs::S3Options s3_opts;
+  // Handle auth (anonymous, keys, default)
+  // (validation/internal coherence handled in R)
+  if (anonymous) {
+    s3_opts = fs::S3Options::Anonymous();
+  } else if (access_key != "" && secret_key != "") {
+    s3_opts = fs::S3Options::FromAccessKey(access_key, secret_key, session_token);
+  } else if (role_arn != "") {
+    s3_opts = fs::S3Options::FromAssumeRole(role_arn, session_name, external_id,
+                                            load_frequency);
+  } else {
+    s3_opts = fs::S3Options::Defaults();
+  }
 
-// [[s3::export]]
-std::shared_ptr<fs::S3FileSystem> fs___S3FileSystem__create() {
-  auto opts = fs::S3Options::Defaults();
-  return ValueOrStop(fs::S3FileSystem::Make(opts));
+  // Now handle the rest of the options
+  /// AWS region to connect to (default determined by AWS SDK)
+  if (region != "") {
+    s3_opts.region = region;
+  }
+  /// If non-empty, override region with a connect string such as "localhost:9000"
+  s3_opts.endpoint_override = endpoint_override;
+  /// S3 connection transport, default "https"
+  if (scheme != "") {
+    s3_opts.scheme = scheme;
+  }
+  /// Whether OutputStream writes will be issued in the background, without blocking
+  /// default true
+  s3_opts.background_writes = background_writes;
+
+  StopIfNotOk(fs::EnsureS3Initialized());
+  return ValueOrStop(fs::S3FileSystem::Make(s3_opts));
 }
 
 #endif

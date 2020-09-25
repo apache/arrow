@@ -39,9 +39,10 @@ read_parquet <- function(file,
                          col_select = NULL,
                          as_data_frame = TRUE,
                          props = ParquetReaderProperties$create(),
+                         filesystem = NULL,
                          ...) {
   if (is.string(file)) {
-    file <- make_readable_file(file)
+    file <- make_readable_file(file, filesystem = filesystem)
     on.exit(file$close())
   }
   reader <- ParquetFileReader$create(file, props = props, ...)
@@ -69,9 +70,10 @@ read_parquet <- function(file,
 #' [Parquet](https://parquet.apache.org/) is a columnar storage file format.
 #' This function enables you to write Parquet files from R.
 #'
-#' @param x An [arrow::Table][Table], or an object convertible to it.
-#' @param sink an [arrow::io::OutputStream][OutputStream] or a string
-#'   interpreted as a file path or URI
+#' @param x `data.frame`, [RecordBatch], or [Table]
+#' @param sink A string file path, URI, or [OutputStream]
+#' @param filesystem A [FileSystem] where `sink` should be written if it is a
+#' string file path; default is the local file system
 #' @param chunk_size chunk size in number of rows. If NULL, the total number of rows is used.
 #' @param version parquet version, "1.0" or "2.0". Default "1.0". Numeric values
 #'   are coerced to character.
@@ -123,6 +125,7 @@ read_parquet <- function(file,
 #' @export
 write_parquet <- function(x,
                           sink,
+                          filesystem = NULL,
                           chunk_size = NULL,
                           # writer properties
                           version = NULL,
@@ -141,7 +144,7 @@ write_parquet <- function(x,
   }
 
   if (is.string(sink)) {
-    sink <- make_output_stream(sink)
+    sink <- make_output_stream(sink, filesystem)
     on.exit(sink$close())
   } else if (!inherits(sink, "OutputStream")) {
     abort("sink must be a file path or an OutputStream")

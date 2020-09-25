@@ -4,7 +4,13 @@
 \alias{read_feather}
 \title{Read a Feather file}
 \usage{
-read_feather(file, col_select = NULL, as_data_frame = TRUE, ...)
+read_feather(
+  file,
+  col_select = NULL,
+  as_data_frame = TRUE,
+  filesystem = NULL,
+  ...
+)
 }
 \arguments{
 \item{file}{A character file name or URI, \code{raw} vector, or an Arrow input stream.
@@ -19,6 +25,9 @@ of columns, as used in \code{dplyr::select()}.}
 
 \item{as_data_frame}{Should the function return a \code{data.frame} (default) or
 an Arrow \link{Table}?}
+
+\item{filesystem}{A \link{FileSystem} where \code{file} can be found if it is a
+string file path; default is the local file system}
 
 \item{...}{additional parameters, passed to \link[=FeatherReader]{FeatherReader$create()}}
 }

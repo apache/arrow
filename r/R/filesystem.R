@@ -122,11 +122,39 @@ FileSelector$create <- function(base_dir, allow_not_found = FALSE, recursive = F
 #'
 #' @section Factory:
 #'
-#' The `$create()` factory methods instantiate the `FileSystem` object and
-#' take the following arguments, depending on the subclass:
+#' `LocalFileSystem$create()` returns the object and takes no arguments.
 #'
-#' - no argument is needed for instantiating a `LocalFileSystem`
-#' - `base_path` and `base_fs` for instantiating a `SubTreeFileSystem`
+#' `SubTreeFileSystem$create()` takes the following arguments:
+#'
+#' - `base_path`, a string path
+#' - `base_fs`, a `FileSystem` object
+#'
+#' `S3FileSystem$create()` optionally takes arguments:
+#'
+#' - `anonymous`: logical, default `FALSE`. If true, will not attempt to look up
+#'    credentials using standard AWS configuration methods.
+#' - `access_key`, `secret_key`: authentication credentials. If one is provided,
+#'    the other must be as well. If both are provided, they will override any
+#'    AWS configuration set at the environment level.
+#' - `session_token`: optional string for authentication along with
+#'    `access_key` and `secret_key`
+#' - `role_arn`: string AWS ARN of an AccessRole. If provided instead of `access_key` and
+#'    `secret_key`, temporary credentials will be fetched by assuming this role.
+#' - `session_name`: optional string identifier for the assumed role session.
+#' - `external_id`: optional unique string identifier that might be required
+#'    when you assume a role in another account.
+#' - `load_frequency`: integer, frequency (in seconds) with which temporary
+#'    credentials from an assumed role session will be refreshed. Default is
+#'    900 (i.e. 15 minutes)
+#' - `region`: AWS region to connect to. If omitted, the AWS library will
+#'    provide a sensible default based on client configuration, falling back
+#'    to "us-east-1" if no other alternatives are found.
+#' - `endpoint_override`: If non-empty, override region with a connect string
+#'    such as "localhost:9000". This is useful for connecting to file systems
+#'    that emulate S3.
+#' - `scheme`: S3 connection transport (default "https")
+#' - `background_writes`: logical, whether `OutputStream` writes will be issued
+#'    in the background, without blocking (default `TRUE`)
 #'
 #' @section Methods:
 #'
@@ -279,12 +307,55 @@ LocalFileSystem$create <- function() {
 #' @usage NULL
 #' @format NULL
 #' @rdname FileSystem
+#' @importFrom utils modifyList
 #' @export
 S3FileSystem <- R6Class("S3FileSystem", inherit = FileSystem)
-S3FileSystem$create <- function() {
-  fs___EnsureS3Initialized()
-  shared_ptr(S3FileSystem, fs___S3FileSystem__create())
+S3FileSystem$create <- function(anonymous = FALSE, ...) {
+  args <- list2(...)
+  if (anonymous) {
+    invalid_args <- intersect(c("access_key", "secret_key", "session_token", "role_arn", "session_name", "external_id", "load_frequency"), names(args))
+    if (length(invalid_args)) {
+      stop("Cannot specify ", oxford_paste(invalid_args), " when anonymous = TRUE", call. = FALSE)
+    }
+  } else {
+    keys_present <- length(intersect(c("access_key", "secret_key"), names(args)))
+    if (keys_present == 1) {
+      stop("Key authentication requires both access_key and secret_key", call. = FALSE)
+    }
+    if ("session_token" %in% names(args) && keys_present != 2) {
+      stop(
+        "In order to initialize a session with temporary credentials, ",
+        "both secret_key and access_key must be provided ",
+        "in addition to session_token.",
+        call. = FALSE
+      )
+    }
+    arn <- "role_arn" %in% names(args)
+    if (keys_present == 2 && arn) {
+      stop("Cannot provide both key authentication and role_arn", call. = FALSE)
+    }
+    arn_extras <- intersect(c("session_name", "external_id", "load_frequency"), names(args))
+    if (length(arn_extras) > 0 && !arn) {
+      stop("Cannot specify ", oxford_paste(arn_extras), " without providing a role_arn string", call. = FALSE)
+    }
+  }
+  args <- c(modifyList(default_s3_options, args), anonymous = anonymous)
+  shared_ptr(S3FileSystem, exec(fs___S3FileSystem__create, !!!args))
 }
+
+default_s3_options <- list(
+  access_key = "",
+  secret_key = "",
+  session_token = "",
+  role_arn = "",
+  session_name = "",
+  external_id = "",
+  load_frequency = 900L,
+  region = "",
+  endpoint_override = "",
+  scheme = "",
+  background_writes = TRUE
+)
 
 arrow_with_s3 <- function() {
   .Call(`_s3_available`)
@@ -295,9 +366,12 @@ arrow_with_s3 <- function() {
 #' @rdname FileSystem
 #' @export
 SubTreeFileSystem <- R6Class("SubTreeFileSystem", inherit = FileSystem)
-SubTreeFileSystem$create <- function(base_path, base_fs) {
-  xp <- fs___SubTreeFileSystem__create(clean_path_rel(base_path), base_fs)
-  shared_ptr(SubTreeFileSystem, xp)
+SubTreeFileSystem$create <- function(base_path, base_fs = NULL) {
+  fs_and_path <- get_path_and_filesystem(base_path, base_fs)
+  shared_ptr(
+    SubTreeFileSystem,
+    fs___SubTreeFileSystem__create(fs_and_path$path, fs_and_path$fs)
+  )
 }
 
 #' Copy files, including between FileSystems

@@ -35,7 +35,15 @@
 #'   ', tf, useBytes=TRUE)
 #'   df <- read_json_arrow(tf)
 #' }
-read_json_arrow <- function(file, col_select = NULL, as_data_frame = TRUE, ...) {
+read_json_arrow <- function(file,
+                            col_select = NULL,
+                            as_data_frame = TRUE,
+                            filesystem = NULL,
+                            ...) {
+  if (!inherits(file, "InputStream")) {
+    file <- make_readable_file(file, filesystem = filesystem)
+    on.exit(file$close())
+  }
   tab <- JsonTableReader$create(file, ...)$Read()
 
   col_select <- enquo(col_select)
@@ -64,8 +72,7 @@ JsonTableReader$create <- function(file,
                                    read_options = JsonReadOptions$create(),
                                    parse_options = JsonParseOptions$create(),
                                    ...) {
-
-  file <- make_readable_file(file)
+  assert_is(file, "InputStream")
   shared_ptr(
     JsonTableReader,
     json___TableReader__Make(file, read_options, parse_options)

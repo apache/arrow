@@ -19,41 +19,109 @@ using Arrow.
 ## URIs
 
 File readers and writers (`read_parquet()`, `write_feather()`, et al.)
-now accept an S3 URI as the source or destination file,
+accept an S3 URI as the source or destination file,
 as do `open_dataset()` and `write_dataset()`.
 An S3 URI looks like:
 
 ```
-s3://[id:secret@]bucket/path[?region=]
+s3://[access_key:secret_key@]bucket/path[?region=]
 ```
 
 For example, one of the NYC taxi data files used in `vignette("dataset", package = "arrow")` is found at
 
 ```
-s3://ursa-labs-taxi-data/2019/06/data.parquet?region=us-east-2
+s3://ursa-labs-taxi-data/2019/06/data.parquet
 ```
-
-`region` defaults to `us-east-1` and can be omitted if the bucket is in that region.
 
 Given this URI, we can pass it to `read_parquet()` just as if it were a local file path:
 
 ```r
-df <- read_parquet("s3://ursa-labs-taxi-data/2019/06/data.parquet?region=us-east-2")
+df <- read_parquet("s3://ursa-labs-taxi-data/2019/06/data.parquet")
 ```
 
 Note that this will be slower to read than if the file were local,
 though if you're running on a machine in the same AWS region as the file in S3,
 the cost of reading the data over the network should be much lower.
 
+## Creating a FileSystem object
+
+Another way to connect to S3 is to create an `S3FileSystem` object once and pass
+that to the read/write functions. This may be a convenience when dealing with
+long URIs, and it's necessary for some options and authentication methods
+that aren't supported in the URI format.
+
+In the previous example, this would look like:
+
+```r
+fs <- S3FileSystem$create(region = "us-east-2")
+df <- read_parquet("ursa-labs-taxi-data/2019/06/data.parquet", filesystem = fs)
+```
+
+See the help for `FileSystem` for a list of options that `S3FileSystem$create()`
+can take. `region`, `scheme`, and `endpoint_override` can be encoded as query
+parameters in the URI (though `region` will be auto-detected the bucket URI if omitted),
+and `access_key` and `secret_key` can also be included,
+but other options are not supported in the URI.
+
+Using the `SubTreeFileSystem` class, you can represent an S3 bucket or
+subdirectory inside of one.
+
+```r
+bucket <- SubTreeFileSystem$create(
+  "ursa-labs-taxi-data",
+  S3FileSystem$create(region = "us-east-2")
+)
+df <- read_parquet("2019/06/data.parquet", filesystem = bucket)
+```
+
+`SubTreeFileSystem` can also be made from a URI:
+
+```r
+bucket <- SubTreeFileSystem$create("s3://ursa-labs-taxi-data")
+```
+
 ## Authentication
 
-To access private S3 buckets, you need two secret parameters:
-a `AWS_ACCESS_KEY_ID`, which is like a user id,
-and `AWS_SECRET_ACCESS_KEY`, like a token.
+To access private S3 buckets, you need typically need two secret parameters:
+a `access_key`, which is like a user id,
+and `secret_key`, like a token.
 There are a few options for passing these credentials:
 
-1. Include them in the URI, like `s3://AWS_ACCESS_KEY_ID:AWS_SECRET_ACCESS_KEY@bucket-name/path/to/file`. Be sure to [URL-encode](https://en.wikipedia.org/wiki/Percent-encoding) your secrets if they contain special characters like "/".
+1. Include them in the URI, like `s3://access_key:secret_key@bucket-name/path/to/file`. Be sure to [URL-encode](https://en.wikipedia.org/wiki/Percent-encoding) your secrets if they contain special characters like "/".
 
-2. Set them as environment variables named `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`.
+2. Pass them as `access_key` and `secret_key` to `S3FileSystem$create()`
 
-3. Define them in a `~/.aws/credentials` file, according to the [AWS documentation](https://docs.aws.amazon.com/sdk-for-cpp/v1/developer-guide/credentials.html).
+3. Set them as environment variables named `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`, respectively.
+
+4. Define them in a `~/.aws/credentials` file, according to the [AWS documentation](https://docs.aws.amazon.com/sdk-for-cpp/v1/developer-guide/credentials.html).
+
+You can also use an [AccessRole](https://docs.aws.amazon.com/STS/latest/APIReference/API_AssumeRole.html)
+for temporary access by passing the `role_arn` identifier to `S3FileSystem$create()`.
+
+## File systems that emulate S3
+
+The `S3FileSystem` machinery enables you to work with any file system that
+provides an S3-compatible interface. For example, [MinIO](https://min.io/) is
+and object-storage server that emulates the S3 API. If you were to
+run `minio server` locally with its default settings, you could connect to
+it with `arrow` using `S3FileSystem` like this:
+
+```r
+minio <- S3FileSystem$create(
+  access_key = "minioadmin",
+  secret_key = "minioadmin",
+  scheme = "http",
+  endpoint_override = "localhost:9000"
+)
+```
+
+or, as a URI, it would be
+
+```
+s3://minioadmin:minioadmin@?scheme=http&endpoint_override=localhost%3A9000
+```
+
+(note the URL escaping of the `:` in `endpoint_override`).
+
+Among other applications, this can be useful for testing out code locally before
+running on a remote S3 bucket.

@@ -21,6 +21,7 @@ read_delim_arrow(
   parse_options = NULL,
   convert_options = NULL,
   read_options = NULL,
+  filesystem = NULL,
   as_data_frame = TRUE
 )
 
@@ -108,6 +109,9 @@ parsing options provided in other arguments (e.g. \code{delim}, \code{quote}, et
 \item{convert_options}{see \link[=CsvReadOptions]{file reader options}}
 
 \item{read_options}{see \link[=CsvReadOptions]{file reader options}}
+
+\item{filesystem}{A \link{FileSystem} where \code{file} can be found if it is a
+string file path; default is the local file system}
 
 \item{as_data_frame}{Should the function return a \code{data.frame} (default) or
 an Arrow \link{Table}?}

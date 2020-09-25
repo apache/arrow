@@ -257,12 +257,16 @@ make_readable_file <- function(file, mmap = TRUE, compression = NULL, filesystem
   file
 }
 
-make_output_stream <- function(x) {
+make_output_stream <- function(x, filesystem = NULL) {
   if (is_url(x)) {
     fs_and_path <- FileSystem$from_uri(x)
-    fs_and_path$fs$OpenOutputStream(fs_and_path$path)
-  } else {
+    filesystem = fs_and_path$fs
+    x <- fs_and_path$path
+  }
+  if (is.null(filesystem)) {
     FileOutputStream$create(x)
+  } else {
+    filesystem$OpenOutputStream(x)
   }
 }
 
