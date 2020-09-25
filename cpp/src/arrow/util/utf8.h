@@ -321,6 +321,18 @@ static inline bool Utf8IsContinuation(const uint8_t codeunit) {
   return (codeunit & 0xC0) == 0x80;  // upper two bits should be 10
 }
 
+static inline bool Utf8Is2ByteStart(const uint8_t codeunit) {
+  return (codeunit & 0xE0) == 0xC0;  // upper three bits should be 110
+}
+
+static inline bool Utf8Is3ByteStart(const uint8_t codeunit) {
+  return (codeunit & 0xF0) == 0xE0;  // upper four bits should be 1110
+}
+
+static inline bool Utf8Is4ByteStart(const uint8_t codeunit) {
+  return (codeunit & 0xF8) == 0xF0;  // upper five bits should be 11110
+}
+
 static inline uint8_t* UTF8Encode(uint8_t* str, uint32_t codepoint) {
   if (codepoint < 0x80) {
     *str++ = codepoint;
@@ -384,6 +396,45 @@ static inline bool UTF8Decode(const uint8_t** data, uint32_t* codepoint) {
         (code_unit_1 << 18) + (code_unit_2 << 12) + (code_unit_3 << 6) + code_unit_4;
   } else {  // invalid non-ascii char
     return false;
+  }
+  *data = str;
+  return true;
+}
+
+static inline bool UTF8DecodeReverse(const uint8_t** data, uint32_t* codepoint) {
+  const uint8_t* str = *data;
+  if (*str < 0x80) {  // ascci
+    *codepoint = *str--;
+  } else {
+    if (ARROW_PREDICT_FALSE(!Utf8IsContinuation(*str))) {
+      return false;
+    }
+    uint8_t code_unit_N = (*str--) & 0x3F;  // take last 6 bits
+    if (Utf8Is2ByteStart(*str)) {
+      uint8_t code_unit_1 = (*str--) & 0x1F;  // take last 5 bits
+      *codepoint = (code_unit_1 << 6) + code_unit_N;
+    } else {
+      if (ARROW_PREDICT_FALSE(!Utf8IsContinuation(*str))) {
+        return false;
+      }
+      uint8_t code_unit_Nmin1 = (*str--) & 0x3F;  // take last 6 bits
+      if (Utf8Is3ByteStart(*str)) {
+        uint8_t code_unit_1 = (*str--) & 0x0F;  // take last 4 bits
+        *codepoint = (code_unit_1 << 12) + (code_unit_Nmin1 << 6) + code_unit_N;
+      } else {
+        if (ARROW_PREDICT_FALSE(!Utf8IsContinuation(*str))) {
+          return false;
+        }
+        uint8_t code_unit_Nmin2 = (*str--) & 0x3F;  // take last 6 bits
+        if (ARROW_PREDICT_TRUE(Utf8Is4ByteStart(*str))) {
+          uint8_t code_unit_1 = (*str--) & 0x07;  // take last 3 bits
+          *codepoint = (code_unit_1 << 18) + (code_unit_Nmin2 << 12) +
+                       (code_unit_Nmin1 << 6) + code_unit_N;
+        } else {
+          return false;
+        }
+      }
+    }
   }
   *data = str;
   return true;

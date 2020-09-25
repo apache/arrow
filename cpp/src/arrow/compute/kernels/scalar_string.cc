@@ -23,6 +23,9 @@
 #include <utf8proc.h>
 #endif
 
+#include "arrow/array/builder_binary.h"
+#include "arrow/array/builder_nested.h"
+#include "arrow/buffer_builder.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/kernels/common.h"
 #include "arrow/util/utf8.h"
@@ -815,6 +818,394 @@ struct IsUpperAscii : CharacterPredicateAscii<IsUpperAscii> {
   }
 };
 
+// splitting
+
+template <typename Type, typename ListType, typename Options, typename Derived>
+struct SplitBaseTransform {
+  using string_offset_type = typename Type::offset_type;
+  using list_offset_type = typename ListType::offset_type;
+  using ArrayType = typename TypeTraits<Type>::ArrayType;
+  using ArrayListType = typename TypeTraits<ListType>::ArrayType;
+  using ListScalarType = typename TypeTraits<ListType>::ScalarType;
+  using ScalarType = typename TypeTraits<Type>::ScalarType;
+  using BuilderType = typename TypeTraits<Type>::BuilderType;
+  using ListOffsetsBuilderType = TypedBufferBuilder<list_offset_type>;
+  using State = OptionsWrapper<Options>;
+
+  std::vector<util::string_view> parts;
+  Options options;
+
+  explicit SplitBaseTransform(Options options) : options(options) {}
+
+  Status Split(const util::string_view& s, BuilderType* builder) {
+    const uint8_t* begin = reinterpret_cast<const uint8_t*>(s.data());
+    const uint8_t* end = begin + s.length();
+
+    int64_t max_splits = options.max_splits;
+    // if there is no max splits, reversing does not make sense (and is probably less
+    // efficient), but is useful for testing
+    if (options.reverse) {
+      // note that i points 1 further than the 'current'
+      const uint8_t* i = end;
+      // we will record the parts in reverse order
+      parts.clear();
+      if (max_splits > -1) {
+        parts.reserve(max_splits + 1);
+      }
+      while (max_splits != 0) {
+        const uint8_t *separator_begin, *separator_end;
+        // find with whatever algo the part we will 'cut out'
+        if (static_cast<Derived&>(*this).FindReverse(begin, i, &separator_begin,
+                                                     &separator_end, options)) {
+          parts.emplace_back(reinterpret_cast<const char*>(separator_end),
+                             i - separator_end);
+          i = separator_begin;
+          max_splits--;
+        } else {
+          // if we cannot find a separator, we're done
+          break;
+        }
+      }
+      parts.emplace_back(reinterpret_cast<const char*>(begin), i - begin);
+      // now we do the copying
+      for (auto it = parts.rbegin(); it != parts.rend(); ++it) {
+        RETURN_NOT_OK(builder->Append(*it));
+      }
+    } else {
+      const uint8_t* i = begin;
+      while (max_splits != 0) {
+        const uint8_t *separator_begin, *separator_end;
+        // find with whatever algo the part we will 'cut out'
+        if (static_cast<Derived&>(*this).Find(i, end, &separator_begin, &separator_end,
+                                              options)) {
+          // the part till the beginning of the 'cut'
+          RETURN_NOT_OK(
+              builder->Append(i, static_cast<string_offset_type>(separator_begin - i)));
+          i = separator_end;
+          max_splits--;
+        } else {
+          // if we cannot find a separator, we're done
+          break;
+        }
+      }
+      // trailing part
+      RETURN_NOT_OK(builder->Append(i, static_cast<string_offset_type>(end - i)));
+    }
+    return Status::OK();
+  }
+
+  static Status CheckOptions(const Options& options) { return Status::OK(); }
+
+  static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    Options options = State::Get(ctx);
+    Derived splitter(options);  // we make an instance to reuse the parts vectors
+    splitter.Split(ctx, batch, out);
+  }
+
+  void Split(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    EnsureLookupTablesFilled();  // only needed for unicode
+    KERNEL_RETURN_IF_ERROR(ctx, Derived::CheckOptions(options));
+
+    if (batch[0].kind() == Datum::ARRAY) {
+      const ArrayData& input = *batch[0].array();
+      ArrayType input_boxed(batch[0].array());
+
+      string_offset_type input_nstrings = static_cast<string_offset_type>(input.length);
+
+      BuilderType builder(input.type, ctx->memory_pool());
+      // a slight overestimate of the data needed
+      KERNEL_RETURN_IF_ERROR(ctx, builder.ReserveData(input_boxed.total_values_length()));
+      // the minimum amount of strings needed
+      KERNEL_RETURN_IF_ERROR(ctx, builder.Resize(input.length));
+
+      // ideally we do not allocate this, see
+      // https://issues.apache.org/jira/browse/ARROW-10207
+      ListOffsetsBuilderType list_offsets_builder(ctx->memory_pool());
+      KERNEL_RETURN_IF_ERROR(ctx, list_offsets_builder.Resize(input_nstrings));
+      ArrayData* output_list = out->mutable_array();
+      // // we use the same null values
+      output_list->buffers[0] = input.buffers[0];
+      // initial value
+      KERNEL_RETURN_IF_ERROR(
+          ctx, list_offsets_builder.Append(static_cast<list_offset_type>(0)));
+      KERNEL_RETURN_IF_ERROR(
+          ctx,
+          VisitArrayDataInline<Type>(
+              input,
+              [&](util::string_view s) {
+                RETURN_NOT_OK(Split(s, &builder));
+                if (ARROW_PREDICT_FALSE(builder.length() >
+                                        std::numeric_limits<list_offset_type>::max())) {
+                  return Status::CapacityError("List offset does not fit into 32 bit");
+                }
+                RETURN_NOT_OK(list_offsets_builder.Append(
+                    static_cast<list_offset_type>(builder.length())));
+                return Status::OK();
+              },
+              [&]() {
+                // null value is already taken from input
+                RETURN_NOT_OK(list_offsets_builder.Append(
+                    static_cast<list_offset_type>(builder.length())));
+                return Status::OK();
+              }));
+      // assign list indices
+      KERNEL_RETURN_IF_ERROR(ctx, list_offsets_builder.Finish(&output_list->buffers[1]));
+      // assign list child data
+      std::shared_ptr<Array> string_array;
+      KERNEL_RETURN_IF_ERROR(ctx, builder.Finish(&string_array));
+      output_list->child_data.push_back(string_array->data());
+
+    } else {
+      const auto& input = checked_cast<const ScalarType&>(*batch[0].scalar());
+      auto result = checked_pointer_cast<ListScalarType>(MakeNullScalar(out->type()));
+      if (input.is_valid) {
+        result->is_valid = true;
+        BuilderType builder(input.type, ctx->memory_pool());
+        util::string_view s = static_cast<util::string_view>(*input.value);
+        KERNEL_RETURN_IF_ERROR(ctx, Split(s, &builder));
+        KERNEL_RETURN_IF_ERROR(ctx, builder.Finish(&result->value));
+      }
+      out->value = result;
+    }
+  }
+};
+
+template <typename Type, typename ListType>
+struct SplitPatternTransform : SplitBaseTransform<Type, ListType, SplitPatternOptions,
+                                                  SplitPatternTransform<Type, ListType>> {
+  using Base = SplitBaseTransform<Type, ListType, SplitPatternOptions,
+                                  SplitPatternTransform<Type, ListType>>;
+  using ArrayType = typename TypeTraits<Type>::ArrayType;
+  using ScalarType = typename TypeTraits<Type>::ScalarType;
+  using string_offset_type = typename Type::offset_type;
+  using Base::Base;
+
+  static Status CheckOptions(const SplitPatternOptions& options) {
+    if (options.pattern.length() == 0) {
+      return Status::Invalid("Empty separator");
+    }
+    return Status::OK();
+  }
+  static bool Find(const uint8_t* begin, const uint8_t* end,
+                   const uint8_t** separator_begin, const uint8_t** separator_end,
+                   const SplitPatternOptions& options) {
+    const uint8_t* pattern = reinterpret_cast<const uint8_t*>(options.pattern.c_str());
+    const int64_t pattern_length = options.pattern.length();
+    const uint8_t* i = begin;
+    // this is O(n*m) complexity, we could use the Knuth-Morris-Pratt algorithm used in
+    // the match kernel
+    while ((i + pattern_length <= end)) {
+      i = std::search(i, end, pattern, pattern + pattern_length);
+      if (i != end) {
+        *separator_begin = i;
+        *separator_end = i + pattern_length;
+        return true;
+      }
+    }
+    return false;
+  }
+  static bool FindReverse(const uint8_t* begin, const uint8_t* end,
+                          const uint8_t** separator_begin, const uint8_t** separator_end,
+                          const SplitPatternOptions& options) {
+    const uint8_t* pattern = reinterpret_cast<const uint8_t*>(options.pattern.c_str());
+    const int64_t pattern_length = options.pattern.length();
+    // this is O(n*m) complexity, we could use the Knuth-Morris-Pratt algorithm used in
+    // the match kernel
+    std::reverse_iterator<const uint8_t*> ri(end);
+    std::reverse_iterator<const uint8_t*> rend(begin);
+    std::reverse_iterator<const uint8_t*> pattern_rbegin(pattern + pattern_length);
+    std::reverse_iterator<const uint8_t*> pattern_rend(pattern);
+    while (begin <= ri.base() - pattern_length) {
+      ri = std::search(ri, rend, pattern_rbegin, pattern_rend);
+      if (ri != rend) {
+        *separator_begin = ri.base() - pattern_length;
+        *separator_end = ri.base();
+        return true;
+      }
+    }
+    return false;
+  }
+};
+
+const FunctionDoc split_pattern_doc(
+    "Split string according to separator",
+    ("Split each string according to the exact `pattern` defined in\n"
+     "SplitPatternOptions.  The output for each string input is a list\n"
+     "of strings.\n"
+     "\n"
+     "The maximum number of splits and direction of splitting\n"
+     "(forward, reverse) can optionally be defined in SplitPatternOptions."),
+    {"strings"}, "SplitPatternOptions");
+
+const FunctionDoc ascii_split_whitespace_doc(
+    "Split string according to any ASCII whitespace",
+    ("Split each string according any non-zero length sequence of ASCII\n"
+     "whitespace characters.  The output for each string input is a list\n"
+     "of strings.\n"
+     "\n"
+     "The maximum number of splits and direction of splitting\n"
+     "(forward, reverse) can optionally be defined in SplitOptions."),
+    {"strings"}, "SplitOptions");
+
+const FunctionDoc utf8_split_whitespace_doc(
+    "Split string according to any Unicode whitespace",
+    ("Split each string according any non-zero length sequence of Unicode\n"
+     "whitespace characters.  The output for each string input is a list\n"
+     "of strings.\n"
+     "\n"
+     "The maximum number of splits and direction of splitting\n"
+     "(forward, reverse) can optionally be defined in SplitOptions."),
+    {"strings"}, "SplitOptions");
+
+void AddSplitPattern(FunctionRegistry* registry) {
+  auto func = std::make_shared<ScalarFunction>("split_pattern", Arity::Unary(),
+                                               &split_pattern_doc);
+  using t32 = SplitPatternTransform<StringType, ListType>;
+  using t64 = SplitPatternTransform<LargeStringType, ListType>;
+  DCHECK_OK(func->AddKernel({utf8()}, {list(utf8())}, t32::Exec, t32::State::Init));
+  DCHECK_OK(
+      func->AddKernel({large_utf8()}, {list(large_utf8())}, t64::Exec, t64::State::Init));
+  DCHECK_OK(registry->AddFunction(std::move(func)));
+}
+
+template <typename Type, typename ListType>
+struct SplitWhitespaceAsciiTransform
+    : SplitBaseTransform<Type, ListType, SplitOptions,
+                         SplitWhitespaceAsciiTransform<Type, ListType>> {
+  using Base = SplitBaseTransform<Type, ListType, SplitOptions,
+                                  SplitWhitespaceAsciiTransform<Type, ListType>>;
+  using ArrayType = typename TypeTraits<Type>::ArrayType;
+  using ScalarType = typename TypeTraits<Type>::ScalarType;
+  using string_offset_type = typename Type::offset_type;
+  using Base::Base;
+  static bool Find(const uint8_t* begin, const uint8_t* end,
+                   const uint8_t** separator_begin, const uint8_t** separator_end,
+                   const SplitOptions& options) {
+    const uint8_t* i = begin;
+    while ((i < end)) {
+      if (IsSpaceCharacterAscii(*i)) {
+        *separator_begin = i;
+        do {
+          i++;
+        } while (IsSpaceCharacterAscii(*i) && i < end);
+        *separator_end = i;
+        return true;
+      }
+      i++;
+    }
+    return false;
+  }
+  static bool FindReverse(const uint8_t* begin, const uint8_t* end,
+                          const uint8_t** separator_begin, const uint8_t** separator_end,
+                          const SplitOptions& options) {
+    const uint8_t* i = end - 1;
+    while ((i >= begin)) {
+      if (IsSpaceCharacterAscii(*i)) {
+        *separator_end = i + 1;
+        do {
+          i--;
+        } while (IsSpaceCharacterAscii(*i) && i >= begin);
+        *separator_begin = i + 1;
+        return true;
+      }
+      i--;
+    }
+    return false;
+  }
+};
+
+void AddSplitWhitespaceAscii(FunctionRegistry* registry) {
+  static const SplitOptions default_options{};
+  auto func =
+      std::make_shared<ScalarFunction>("ascii_split_whitespace", Arity::Unary(),
+                                       &ascii_split_whitespace_doc, &default_options);
+  using t32 = SplitWhitespaceAsciiTransform<StringType, ListType>;
+  using t64 = SplitWhitespaceAsciiTransform<LargeStringType, ListType>;
+  DCHECK_OK(func->AddKernel({utf8()}, {list(utf8())}, t32::Exec, t32::State::Init));
+  DCHECK_OK(
+      func->AddKernel({large_utf8()}, {list(large_utf8())}, t64::Exec, t64::State::Init));
+  DCHECK_OK(registry->AddFunction(std::move(func)));
+}
+
+#ifdef ARROW_WITH_UTF8PROC
+template <typename Type, typename ListType>
+struct SplitWhitespaceUtf8Transform
+    : SplitBaseTransform<Type, ListType, SplitOptions,
+                         SplitWhitespaceUtf8Transform<Type, ListType>> {
+  using Base = SplitBaseTransform<Type, ListType, SplitOptions,
+                                  SplitWhitespaceUtf8Transform<Type, ListType>>;
+  using ArrayType = typename TypeTraits<Type>::ArrayType;
+  using string_offset_type = typename Type::offset_type;
+  using ScalarType = typename TypeTraits<Type>::ScalarType;
+  using Base::Base;
+  static bool Find(const uint8_t* begin, const uint8_t* end,
+                   const uint8_t** separator_begin, const uint8_t** separator_end,
+                   const SplitOptions& options) {
+    const uint8_t* i = begin;
+    while ((i < end)) {
+      uint32_t codepoint = 0;
+      *separator_begin = i;
+      if (ARROW_PREDICT_FALSE(!arrow::util::UTF8Decode(&i, &codepoint))) {
+        return false;
+      }
+      if (IsSpaceCharacterUnicode(codepoint)) {
+        do {
+          *separator_end = i;
+          if (ARROW_PREDICT_FALSE(!arrow::util::UTF8Decode(&i, &codepoint))) {
+            return false;
+          }
+        } while (IsSpaceCharacterUnicode(codepoint) && i < end);
+        return true;
+      }
+    }
+    return false;
+  }
+  static bool FindReverse(const uint8_t* begin, const uint8_t* end,
+                          const uint8_t** separator_begin, const uint8_t** separator_end,
+                          const SplitOptions& options) {
+    const uint8_t* i = end - 1;
+    while ((i >= begin)) {
+      uint32_t codepoint = 0;
+      *separator_end = i + 1;
+      if (ARROW_PREDICT_FALSE(!arrow::util::UTF8DecodeReverse(&i, &codepoint))) {
+        return false;
+      }
+      if (IsSpaceCharacterUnicode(codepoint)) {
+        do {
+          *separator_begin = i + 1;
+          if (ARROW_PREDICT_FALSE(!arrow::util::UTF8DecodeReverse(&i, &codepoint))) {
+            return false;
+          }
+        } while (IsSpaceCharacterUnicode(codepoint) && i >= begin);
+        return true;
+      }
+    }
+    return false;
+  }
+};
+
+void AddSplitWhitespaceUTF8(FunctionRegistry* registry) {
+  static const SplitOptions default_options{};
+  auto func =
+      std::make_shared<ScalarFunction>("utf8_split_whitespace", Arity::Unary(),
+                                       &utf8_split_whitespace_doc, &default_options);
+  using t32 = SplitWhitespaceUtf8Transform<StringType, ListType>;
+  using t64 = SplitWhitespaceUtf8Transform<LargeStringType, ListType>;
+  DCHECK_OK(func->AddKernel({utf8()}, {list(utf8())}, t32::Exec, t32::State::Init));
+  DCHECK_OK(
+      func->AddKernel({large_utf8()}, {list(large_utf8())}, t64::Exec, t64::State::Init));
+  DCHECK_OK(registry->AddFunction(std::move(func)));
+}
+#endif
+
+void AddSplit(FunctionRegistry* registry) {
+  AddSplitPattern(registry);
+  AddSplitWhitespaceAscii(registry);
+#ifdef ARROW_WITH_UTF8PROC
+  AddSplitWhitespaceUTF8(registry);
+#endif
+}
+
 // ----------------------------------------------------------------------
 // strptime string parsing
 
@@ -1103,6 +1494,7 @@ void RegisterScalarStringAscii(FunctionRegistry* registry) {
   AddUnaryStringPredicate<IsUpperUnicode>("utf8_is_upper", registry, &utf8_is_upper_doc);
 #endif
 
+  AddSplit(registry);
   AddBinaryLength(registry);
   AddMatchSubstring(registry);
   AddStrptime(registry);
