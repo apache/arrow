@@ -332,7 +332,7 @@ SEXP R6_make(SEXP symbol, SEXP fun_symbol, const std::shared_ptr<T>& x) {
   }
   cpp11::external_pointer<std::shared_ptr<T>> xp(new std::shared_ptr<T>(x));
 
-  // make call:  <symbol>$new(<x>)
+  // make call:  <symbol>$<fun_symbol>(<x>)
   SEXP call = PROTECT(Rf_lang3(R_DollarSymbol, symbol, fun_symbol));
   SEXP call2 = PROTECT(Rf_lang2(call, xp));
 
