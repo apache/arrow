@@ -23,6 +23,7 @@ import static org.apache.arrow.vector.types.UnionMode.Dense;
 import static org.apache.arrow.vector.types.UnionMode.Sparse;
 
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.vector.BigDecimalVector;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.DateDayVector;
@@ -528,6 +529,20 @@ public class Types {
         return new DecimalWriterImpl((DecimalVector) vector);
       }
     },
+    BIGDECIMAL(null) {
+      @Override
+      public FieldVector getNewVector(
+          Field field,
+          BufferAllocator allocator,
+          CallBack schemaChangeCallback) {
+        return new BigDecimalVector(field, allocator);
+      }
+
+      @Override
+      public FieldWriter getNewFieldWriter(ValueVector vector) {
+        return new BigDecimalWriterImpl((BigDecimalVector) vector);
+      }
+    },
     FIXEDSIZEBINARY(null) {
       @Override
       public FieldVector getNewVector(
@@ -899,6 +914,9 @@ public class Types {
 
       @Override
       public MinorType visit(Decimal type) {
+        if (type.bitWidth == 256) {
+          return MinorType.BIGDECIMAL;
+        }
         return MinorType.DECIMAL;
       }
 

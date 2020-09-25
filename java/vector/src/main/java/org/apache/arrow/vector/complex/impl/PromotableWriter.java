@@ -30,6 +30,7 @@ import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.complex.writer.FieldWriter;
+import org.apache.arrow.vector.holders.BigDecimalHolder;
 import org.apache.arrow.vector.holders.DecimalHolder;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType;
@@ -336,6 +337,17 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
         ((ArrowType.Decimal) arrowType).getScale())).writeBigEndianBytesToDecimal(value, arrowType);
   }
 
+  @Override
+  public void write(BigDecimalHolder holder) {
+    getWriter(MinorType.BIG_DECIMAL, new ArrowType.Decimal(MAX_BIG_DECIMAL_PRECISION, holder.scale)).write(holder);
+  }
+
+  @Override
+  public void writeBigDecimal(int start, ArrowBuf buffer, ArrowType arrowType) {
+    getWriter(MinorType.BIG_DECIMAL, new ArrowType.Decimal(MAX_BIG_DECIMAL_PRECISION,
+        ((ArrowType.BigDecimal) arrowType).getScale())).writeDecimal(start, buffer, arrowType);
+  }
+ 
   @Override
   public void allocate() {
     getWriter().allocate();

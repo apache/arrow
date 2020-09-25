@@ -158,7 +158,7 @@ public final class DecimalVector extends BaseFixedWidthVector {
     if (isSet(index) == 0) {
       return null;
     } else {
-      return DecimalUtility.getBigDecimalFromArrowBuf(valueBuffer, index, scale);
+      return DecimalUtility.getBigDecimalFromArrowBuf(valueBuffer, index, scale, TYPE_WIDTH);
     }
   }
 
@@ -318,7 +318,7 @@ public final class DecimalVector extends BaseFixedWidthVector {
   public void set(int index, BigDecimal value) {
     BitVectorHelper.setBit(validityBuffer, index);
     DecimalUtility.checkPrecisionAndScale(value, precision, scale);
-    DecimalUtility.writeBigDecimalToArrowBuf(value, valueBuffer, index);
+    DecimalUtility.writeBigDecimalToArrowBuf(value, valueBuffer, index, TYPE_WIDTH);
   }
 
   /**

@@ -42,6 +42,7 @@ import java.util.Objects;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.Preconditions;
+import org.apache.arrow.vector.BigDecimalVector;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVectorHelper;
 import org.apache.arrow.vector.BufferLayout.BufferType;
@@ -446,6 +447,24 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
       }
     };
 
+    BufferReader BIG_DECIMAL = new BufferReader() {
+      @Override
+      protected ArrowBuf read(BufferAllocator allocator, int count) throws IOException {
+        final int size = count * BigDecimalVector.TYPE_WIDTH;
+        ArrowBuf buf = allocator.buffer(size);
+
+        for (int i = 0; i < count; i++) {
+          parser.nextToken();
+          BigDecimal decimalValue = new BigDecimal(parser.readValueAs(String.class));
+          DecimalUtility.writeBigDecimalToArrowBuf(decimalValue, buf, i, BigDecimal.TYPE_WIDTH);
+        }
+
+        buf.writerIndex(size);
+        return buf;
+      }
+    };
+
+
     BufferReader FIXEDSIZEBINARY = new BufferReader() {
       @Override
       protected ArrowBuf read(BufferAllocator allocator, int count) throws IOException {
@@ -614,6 +633,9 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
           break;
         case DECIMAL:
           reader = helper.DECIMAL;
+          break;
+        case BIG_DECIMAL:
+          reader = helper.BIG_DECIMAL;
           break;
         case FIXEDSIZEBINARY:
           reader = helper.FIXEDSIZEBINARY;
