@@ -185,7 +185,7 @@ jobs:
         shell: Rscript {0}
         run: |
           dir.create("~/.R")
-          writeLines("CPPFLAGS=-flto", "~/.R/Makevars")
+          writeLines(c("CPPFLAGS=-flto", "AR=gcc-ar", "NM=gcc-nm", "RANLIB=gcc-ranlib"), "~/.R/Makevars")
       - name: Build Arrow C++
         shell: bash
         env:
@@ -206,10 +206,7 @@ jobs:
         run: |
           Sys.setenv(
             RWINLIB_LOCAL = file.path(Sys.getenv("GITHUB_WORKSPACE"), "libarrow.zip"),
-            MAKEFLAGS = paste0("-j", parallel::detectCores()),
-            AR = "gcc-ar",
-            NM = "gcc-nm",
-            RANLIB = "gcc-ranlib"
+            MAKEFLAGS = paste0("-j", parallel::detectCores())
           )
           rcmdcheck::rcmdcheck("r",
             build_args = '--no-build-vignettes',
