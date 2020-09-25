@@ -19,7 +19,7 @@
 
 use std::sync::Arc;
 
-use super::{aggregates, empty::EmptyExec, expressions::binary, functions};
+use super::{aggregates, empty::EmptyExec, expressions::binary, functions, udaf};
 use crate::error::{ExecutionError, Result};
 use crate::execution::context::ExecutionContextState;
 use crate::logical_plan::{
@@ -482,6 +482,19 @@ impl DefaultPhysicalPlanner {
                     e.name(input_schema)?,
                 )
             }
+            Expr::AggregateUDF { fun, args, .. } => {
+                let args = args
+                    .iter()
+                    .map(|e| self.create_physical_expr(e, input_schema, ctx_state))
+                    .collect::<Result<Vec<_>>>()?;
+
+                udaf::create_aggregate_expr(
+                    fun,
+                    &args,
+                    input_schema,
+                    e.name(input_schema)?,
+                )
+            }
             other => Err(ExecutionError::General(format!(
                 "Invalid aggregate expression '{:?}'",
                 other
@@ -548,6 +561,7 @@ mod tests {
             datasources: HashMap::new(),
             scalar_functions: HashMap::new(),
             var_provider: HashMap::new(),
+            aggregate_functions: HashMap::new(),
             config: ExecutionConfig::new(),
         }
     }

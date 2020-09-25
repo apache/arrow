@@ -29,13 +29,22 @@
 use super::{
     functions::Signature,
     type_coercion::{coerce, data_types},
-    AggregateExpr, PhysicalExpr,
+    Accumulator, AggregateExpr, PhysicalExpr,
 };
 use crate::error::{ExecutionError, Result};
 use crate::physical_plan::expressions;
 use arrow::datatypes::{DataType, Schema};
 use expressions::{avg_return_type, sum_return_type};
-use std::{fmt, str::FromStr, sync::Arc};
+use std::{cell::RefCell, fmt, rc::Rc, str::FromStr, sync::Arc};
+
+/// the implementation of an aggregate function
+pub type AccumulatorFunctionImplementation =
+    Arc<dyn Fn() -> Result<Rc<RefCell<dyn Accumulator>>> + Send + Sync>;
+
+/// This signature corresponds to which types an aggregator serializes
+/// its state, given its return datatype.
+pub type StateTypeFunction =
+    Arc<dyn Fn(&DataType) -> Result<Arc<Vec<DataType>>> + Send + Sync>;
 
 /// Enum of all built-in scalar functions
 #[derive(Debug, Clone, PartialEq, Eq)]

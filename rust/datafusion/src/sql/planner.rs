@@ -20,12 +20,15 @@
 use std::str::FromStr;
 use std::sync::Arc;
 
-use crate::error::{ExecutionError, Result};
 use crate::logical_plan::Expr::Alias;
 use crate::logical_plan::{
     lit, Expr, LogicalPlan, LogicalPlanBuilder, Operator, PlanType, StringifiedPlan,
 };
 use crate::scalar::ScalarValue;
+use crate::{
+    error::{ExecutionError, Result},
+    physical_plan::udaf::AggregateUDF,
+};
 use crate::{
     physical_plan::udf::ScalarUDF,
     physical_plan::{aggregates, functions},
@@ -49,6 +52,8 @@ pub trait SchemaProvider {
     fn get_table_meta(&self, name: &str) -> Option<SchemaRef>;
     /// Getter for a UDF description
     fn get_function_meta(&self, name: &str) -> Option<Arc<ScalarUDF>>;
+    /// Getter for a UDAF description
+    fn get_aggregate_meta(&self, name: &str) -> Option<Arc<AggregateUDF>>;
 }
 
 /// SQL query planner
@@ -537,7 +542,7 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
                     return Ok(Expr::AggregateFunction { fun, args });
                 };
 
-                // finally, user-defined functions
+                // finally, user-defined functions (UDF) and UDAF
                 match self.schema_provider.get_function_meta(&name) {
                     Some(fm) => {
                         let args = function
@@ -551,10 +556,24 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
                             args,
                         })
                     }
-                    _ => Err(ExecutionError::General(format!(
-                        "Invalid function '{}'",
-                        name
-                    ))),
+                    None => match self.schema_provider.get_aggregate_meta(&name) {
+                        Some(fm) => {
+                            let args = function
+                                .args
+                                .iter()
+                                .map(|a| self.sql_to_rex(a, schema))
+                                .collect::<Result<Vec<Expr>>>()?;
+
+                            Ok(Expr::AggregateUDF {
+                                fun: fm.clone(),
+                                args,
+                            })
+                        }
+                        _ => Err(ExecutionError::General(format!(
+                            "Invalid function '{}'",
+                            name
+                        ))),
+                    },
                 }
             }
 
@@ -571,7 +590,7 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
 /// Determine if an expression is an aggregate expression or not
 fn is_aggregate_expr(e: &Expr) -> bool {
     match e {
-        Expr::AggregateFunction { .. } => true,
+        Expr::AggregateFunction { .. } | Expr::AggregateUDF { .. } => true,
         _ => false,
     }
 }
@@ -935,6 +954,10 @@ mod tests {
                 ))),
                 _ => None,
             }
+        }
+
+        fn get_aggregate_meta(&self, _name: &str) -> Option<Arc<AggregateUDF>> {
+            unimplemented!()
         }
     }
 }

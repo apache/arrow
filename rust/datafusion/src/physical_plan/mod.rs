@@ -202,4 +202,5 @@ pub mod projection;
 pub mod sort;
 pub mod string_expressions;
 pub mod type_coercion;
+pub mod udaf;
 pub mod udf;

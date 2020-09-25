@@ -24,6 +24,7 @@
 use fmt::Debug;
 use std::{any::Any, collections::HashSet, fmt, sync::Arc};
 
+use aggregates::{AccumulatorFunctionImplementation, StateTypeFunction};
 use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
 
 use crate::datasource::parquet::ParquetTable;
@@ -31,6 +32,7 @@ use crate::datasource::TableProvider;
 use crate::error::{ExecutionError, Result};
 use crate::{
     datasource::csv::{CsvFile, CsvReadOptions},
+    physical_plan::udaf::AggregateUDF,
     scalar::ScalarValue,
 };
 use crate::{
@@ -95,6 +97,13 @@ fn create_name(e: &Expr, input_schema: &Schema) -> Result<String> {
         }
         Expr::AggregateFunction { fun, args, .. } => {
             create_function_name(&fun.to_string(), args, input_schema)
+        }
+        Expr::AggregateUDF { fun, args } => {
+            let mut names = Vec::with_capacity(args.len());
+            for e in args {
+                names.push(create_name(e, input_schema)?);
+            }
+            Ok(format!("{}({})", fun.name, names.join(",")))
         }
         other => Err(ExecutionError::NotImplemented(format!(
             "Physical plan does not support logical expression {:?}",
@@ -187,6 +196,13 @@ pub enum Expr {
         /// List of expressions to feed to the functions as arguments
         args: Vec<Expr>,
     },
+    /// aggregate function
+    AggregateUDF {
+        /// The function
+        fun: Arc<AggregateUDF>,
+        /// List of expressions to feed to the functions as arguments
+        args: Vec<Expr>,
+    },
     /// Represents a reference to all fields in a schema.
     Wildcard,
 }
@@ -227,6 +243,13 @@ impl Expr {
                     .collect::<Result<Vec<_>>>()?;
                 aggregates::return_type(fun, &data_types)
             }
+            Expr::AggregateUDF { fun, args, .. } => {
+                let data_types = args
+                    .iter()
+                    .map(|e| e.get_type(schema))
+                    .collect::<Result<Vec<_>>>()?;
+                Ok((fun.return_type)(&data_types)?.as_ref().clone())
+            }
             Expr::Not(_) => Ok(DataType::Boolean),
             Expr::IsNull(_) => Ok(DataType::Boolean),
             Expr::IsNotNull(_) => Ok(DataType::Boolean),
@@ -263,6 +286,7 @@ impl Expr {
             Expr::ScalarFunction { .. } => Ok(true),
             Expr::ScalarUDF { .. } => Ok(true),
             Expr::AggregateFunction { .. } => Ok(true),
+            Expr::AggregateUDF { .. } => Ok(true),
             Expr::Not(expr) => expr.nullable(input_schema),
             Expr::IsNull(_) => Ok(false),
             Expr::IsNotNull(_) => Ok(false),
@@ -576,6 +600,26 @@ pub fn create_udf(
     ScalarUDF::new(name, &Signature::Exact(input_types), &return_type, &fun)
 }
 
+/// Creates a new UDAF with a specific signature, state type and return type.
+/// The signature and state type must match the `Acumulator's implementation`.
+pub fn create_udaf(
+    name: &str,
+    input_type: DataType,
+    return_type: Arc<DataType>,
+    accumulator: AccumulatorFunctionImplementation,
+    state_type: Arc<Vec<DataType>>,
+) -> AggregateUDF {
+    let return_type: ReturnTypeFunction = Arc::new(move |_| Ok(return_type.clone()));
+    let state_type: StateTypeFunction = Arc::new(move |_| Ok(state_type.clone()));
+    AggregateUDF::new(
+        name,
+        &Signature::Exact(vec![input_type]),
+        &return_type,
+        &accumulator,
+        &state_type,
+    )
+}
+
 fn fmt_function(f: &mut fmt::Formatter, fun: &String, args: &Vec<Expr>) -> fmt::Result {
     let args: Vec<String> = args.iter().map(|arg| format!("{:?}", arg)).collect();
     write!(f, "{}({})", fun, args.join(", "))
@@ -620,6 +664,7 @@ impl fmt::Debug for Expr {
             Expr::AggregateFunction { fun, ref args, .. } => {
                 fmt_function(f, &fun.to_string(), args)
             }
+            Expr::AggregateUDF { fun, ref args, .. } => fmt_function(f, &fun.name, args),
             Expr::Wildcard => write!(f, "*"),
             Expr::Nested(expr) => write!(f, "({:?})", expr),
         }
@@ -983,6 +1028,9 @@ pub trait FunctionRegistry {
 
     /// Returns a reference to the udf named `name`.
     fn udf(&self, name: &str) -> Result<&ScalarUDF>;
+
+    /// Returns a reference to the udaf named `name`.
+    fn udaf(&self, name: &str) -> Result<&AggregateUDF>;
 }
 
 /// Builder for logical plans
