@@ -273,7 +273,7 @@ class Chunker {
       return converter_->AppendNull();
     }
     ++length_;
-    return std::move(status);
+    return status;
   }
 
   Status Append(InputType value) {
@@ -283,7 +283,7 @@ class Chunker {
       return Append(value);
     }
     ++length_;
-    return std::move(status);
+    return status;
   }
 
   Status FinishChunk() {
