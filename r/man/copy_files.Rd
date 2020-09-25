@@ -2,23 +2,32 @@
 % Please edit documentation in R/filesystem.R
 \name{copy_files}
 \alias{copy_files}
-\title{Copy files between FileSystems}
+\title{Copy files, including between FileSystems}
 \usage{
-copy_files(src_fs, src_paths, dest_fs, dest_paths, chunk_size = 1024L * 1024L)
+copy_files(
+  src_fs = LocalFileSystem$create(),
+  src_sel,
+  dest_fs = LocalFileSystem$create(),
+  dest_base_dir,
+  chunk_size = 1024L * 1024L
+)
 }
 \arguments{
 \item{src_fs}{The FileSystem from which files will be copied.}
 
-\item{src_paths}{The paths of files to be copied.}
+\item{src_sel}{A FileSelector indicating which files should be copied.
+A string may also be passed, which is used as the base dir for recursive
+selection.}
 
 \item{dest_fs}{The FileSystem into which files will be copied.}
 
-\item{dest_paths}{Where the copied files should be placed.}
+\item{dest_base_dir}{Where the copied files should be placed.
+Directories will be created as necessary.}
 
 \item{chunk_size}{The maximum size of block to read before flushing
 to the destination file. A larger chunk_size will use more memory while
 copying but may help accommodate high latency FileSystems.}
 }
 \description{
-Copy files between FileSystems
+Copy files, including between FileSystems
 }
