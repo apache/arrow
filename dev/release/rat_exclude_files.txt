@@ -168,6 +168,8 @@ dev/tasks/conda-recipes/*
 docs/requirements.txt
 go/arrow/go.sum
 go/arrow/Gopkg.lock
+go/arrow/flight/Flight.pb.go
+go/arrow/flight/Flight_grpc.pb.go
 go/arrow/internal/cpu/*
 go/arrow/type_string.go
 go/*.tmpldata
