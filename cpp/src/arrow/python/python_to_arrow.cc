@@ -451,6 +451,8 @@ class PyPrimitiveConverter<
                    is_time_type<T>::value>> : public PrimitiveConverter<T, PyConverter> {
  public:
   Status Append(PyObject* value) override {
+    // Since the required space has been already allocated in the Extend functions we can
+    // rely on the Unsafe builder API which improves the performance.
     if (PyValue::IsNull(this->options_, value)) {
       this->primitive_builder_->UnsafeAppendNull();
     } else {
@@ -495,6 +497,9 @@ class PyPrimitiveConverter<T, enable_if_binary<T>>
     } else {
       ARROW_RETURN_NOT_OK(
           PyValue::Convert(this->primitive_type_, this->options_, value, view_));
+      // Since we don't know the varying length input size in advance, we need to
+      // reserve space in the value builder one by one. ReserveData raises CapacityError
+      // if the value would not fit into the array.
       ARROW_RETURN_NOT_OK(this->primitive_builder_->ReserveData(view_.size));
       this->primitive_builder_->UnsafeAppend(view_.bytes, view_.size);
     }
@@ -502,6 +507,8 @@ class PyPrimitiveConverter<T, enable_if_binary<T>>
   }
 
  protected:
+  // Create a single instance of PyBytesView here to prevent unnecessary object
+  // creation/destruction. This significantly improves the conversion performance.
   PyBytesView view_;
 };
 
@@ -1009,8 +1016,10 @@ Result<std::shared_ptr<ChunkedArray>> ConvertPySequence(PyObject* obj, PyObject*
   ARROW_ASSIGN_OR_RAISE(auto converter, (MakeConverter<PyConverter, PyConverterTrait>(
                                             options.type, options, pool)));
   if (converter->may_overflow()) {
+    // The converter hierarchy contains binary- or list-like builders which can overflow
+    // depending on the input values. Wrap the converter with a chunker which detects
+    // the overflow and automatically creates new chunks.
     ARROW_ASSIGN_OR_RAISE(auto chunked_converter, MakeChunker(std::move(converter)));
-    // Convert values
     if (mask != nullptr && mask != Py_None) {
       RETURN_NOT_OK(ExtendMasked(chunked_converter.get(), seq, mask, size));
     } else {
@@ -1018,7 +1027,8 @@ Result<std::shared_ptr<ChunkedArray>> ConvertPySequence(PyObject* obj, PyObject*
     }
     return chunked_converter->ToChunkedArray();
   } else {
-    // Convert values
+    // If the converter can't overflow spare the capacity error checking on the hot-path,
+    // this improves the performance roughly by ~10 for primitive types.
     if (mask != nullptr && mask != Py_None) {
       RETURN_NOT_OK(ExtendMasked(converter.get(), seq, mask, size));
     } else {
