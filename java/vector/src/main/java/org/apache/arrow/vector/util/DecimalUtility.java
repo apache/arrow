@@ -128,7 +128,7 @@ public class DecimalUtility {
    * Write the given long to the ArrowBuf at the given value index.
    */
   public static void writeLongToArrowBuf(long value, ArrowBuf bytebuf, int index) {
-    final long addressOfValue = bytebuf.memoryAddress() + (long) index * byteWidth;
+    final long addressOfValue = bytebuf.memoryAddress() + (long) index * 16;
     PlatformDependent.putLong(addressOfValue, value);
     final long padValue = Long.signum(value) == -1 ? -1L : 0L;
     PlatformDependent.putLong(addressOfValue + Long.BYTES, padValue);
@@ -138,7 +138,7 @@ public class DecimalUtility {
    * Write value to the buffer extending it to 32 bytes at the given index. 
    */
   public static void writeLongToArrowBufBigDecimal(long value, ArrowBuf bytebuf, int index) {
-    final long addressOfValue = bytebuf.memoryAddress() + (long) index * byteWidth;
+    final long addressOfValue = bytebuf.memoryAddress() + (long) index * 32;
     PlatformDependent.putLong(addressOfValue, value);
     final long padValue = Long.signum(value) == -1 ? -1L : 0L;
     PlatformDependent.putLong(addressOfValue + Long.BYTES, padValue);

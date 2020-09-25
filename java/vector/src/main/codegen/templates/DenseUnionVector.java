@@ -840,7 +840,7 @@ public class DenseUnionVector implements FieldVector {
       reallocOffsetBuffer();
     }
     byte typeId = getTypeId(index);
-    ${name}Vector vector = get${name}Vector(typeId<#if minor.class?ends_with("Decimal")>, new ArrowType.Decimal(holder.precision, holder.scale, holder.bitWidth)</#if>);
+    ${name}Vector vector = get${name}Vector(typeId<#if minor.class?ends_with("Decimal")>, new ArrowType.Decimal(holder.precision, holder.scale, holder.WIDTH * 8)</#if>);
     int offset = vector.getValueCount();
     vector.setValueCount(offset + 1);
     vector.setSafe(offset, holder);

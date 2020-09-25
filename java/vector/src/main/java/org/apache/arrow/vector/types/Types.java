@@ -69,6 +69,7 @@ import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.UnionVector;
+import org.apache.arrow.vector.complex.impl.BigDecimalWriterImpl;
 import org.apache.arrow.vector.complex.impl.BigIntWriterImpl;
 import org.apache.arrow.vector.complex.impl.BitWriterImpl;
 import org.apache.arrow.vector.complex.impl.DateDayWriterImpl;
@@ -914,7 +915,7 @@ public class Types {
 
       @Override
       public MinorType visit(Decimal type) {
-        if (type.bitWidth == 256) {
+        if (type.getBitWidth() == 256) {
           return MinorType.BIGDECIMAL;
         }
         return MinorType.DECIMAL;

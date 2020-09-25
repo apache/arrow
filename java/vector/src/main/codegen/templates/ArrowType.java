@@ -327,7 +327,6 @@ public abstract class ArrowType {
       </#if>
       </#list>
       <#if type.name == "Decimal">
-      int bitWidth = ${nameLower}Type.bitWidth();
       if (bitWidth != defaultDecimalBitWidth && bitWidth != 256) {
         throw new IllegalArgumentException("Library only supports 128-bit and 256-bit decimal values");
       }

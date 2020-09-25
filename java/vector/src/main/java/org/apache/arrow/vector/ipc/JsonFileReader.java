@@ -439,7 +439,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
         for (int i = 0; i < count; i++) {
           parser.nextToken();
           BigDecimal decimalValue = new BigDecimal(parser.readValueAs(String.class));
-          DecimalUtility.writeBigDecimalToArrowBuf(decimalValue, buf, i);
+          DecimalUtility.writeBigDecimalToArrowBuf(decimalValue, buf, i, DecimalVector.TYPE_WIDTH);
         }
 
         buf.writerIndex(size);
@@ -456,7 +456,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
         for (int i = 0; i < count; i++) {
           parser.nextToken();
           BigDecimal decimalValue = new BigDecimal(parser.readValueAs(String.class));
-          DecimalUtility.writeBigDecimalToArrowBuf(decimalValue, buf, i, BigDecimal.TYPE_WIDTH);
+          DecimalUtility.writeBigDecimalToArrowBuf(decimalValue, buf, i, BigDecimalVector.TYPE_WIDTH);
         }
 
         buf.writerIndex(size);
@@ -634,7 +634,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
         case DECIMAL:
           reader = helper.DECIMAL;
           break;
-        case BIG_DECIMAL:
+        case BIGDECIMAL:
           reader = helper.BIG_DECIMAL;
           break;
         case FIXEDSIZEBINARY:

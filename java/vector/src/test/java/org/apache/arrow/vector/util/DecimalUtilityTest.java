@@ -41,8 +41,8 @@ public class DecimalUtilityTest {
       int [] intValues = new int [] {Integer.MAX_VALUE, Integer.MIN_VALUE, 0};
       for (int val : intValues) {
         buf.clear();
-        DecimalUtility.writeByteArrayToArrowBuf(BigInteger.valueOf(val).toByteArray(), buf, 0);
-        BigDecimal actual = DecimalUtility.getBigDecimalFromArrowBuf(buf, 0, 0);
+        DecimalUtility.writeByteArrayToArrowBuf(BigInteger.valueOf(val).toByteArray(), buf, 0, 16);
+        BigDecimal actual = DecimalUtility.getBigDecimalFromArrowBuf(buf, 0, 0, 16);
         BigDecimal expected = BigDecimal.valueOf(val);
         Assert.assertEquals(expected, actual);
       }
@@ -50,8 +50,8 @@ public class DecimalUtilityTest {
       long [] longValues = new long[] {Long.MIN_VALUE, 0 , Long.MAX_VALUE};
       for (long val : longValues) {
         buf.clear();
-        DecimalUtility.writeByteArrayToArrowBuf(BigInteger.valueOf(val).toByteArray(), buf, 0);
-        BigDecimal actual = DecimalUtility.getBigDecimalFromArrowBuf(buf, 0, 0);
+        DecimalUtility.writeByteArrayToArrowBuf(BigInteger.valueOf(val).toByteArray(), buf, 0, 16);
+        BigDecimal actual = DecimalUtility.getBigDecimalFromArrowBuf(buf, 0, 0, 16);
         BigDecimal expected = BigDecimal.valueOf(val);
         Assert.assertEquals(expected, actual);
       }
@@ -59,8 +59,8 @@ public class DecimalUtilityTest {
       BigInteger [] decimals = new BigInteger[] {MAX_BIG_INT, new BigInteger("0"), MIN_BIG_INT};
       for (BigInteger val : decimals) {
         buf.clear();
-        DecimalUtility.writeByteArrayToArrowBuf(val.toByteArray(), buf, 0);
-        BigDecimal actual = DecimalUtility.getBigDecimalFromArrowBuf(buf, 0, 0);
+        DecimalUtility.writeByteArrayToArrowBuf(val.toByteArray(), buf, 0, 16);
+        BigDecimal actual = DecimalUtility.getBigDecimalFromArrowBuf(buf, 0, 0, 16);
         BigDecimal expected = new BigDecimal(val);
         Assert.assertEquals(expected, actual);
       }
@@ -75,8 +75,8 @@ public class DecimalUtilityTest {
       int [] intValues = new int [] {Integer.MAX_VALUE, Integer.MIN_VALUE, 0};
       for (int val : intValues) {
         buf.clear();
-        DecimalUtility.writeBigDecimalToArrowBuf(BigDecimal.valueOf(val), buf, 0);
-        BigDecimal actual = DecimalUtility.getBigDecimalFromArrowBuf(buf, 0, 0);
+        DecimalUtility.writeBigDecimalToArrowBuf(BigDecimal.valueOf(val), buf, 0, 16);
+        BigDecimal actual = DecimalUtility.getBigDecimalFromArrowBuf(buf, 0, 0, 16);
         BigDecimal expected = BigDecimal.valueOf(val);
         Assert.assertEquals(expected, actual);
       }
@@ -84,8 +84,8 @@ public class DecimalUtilityTest {
       long [] longValues = new long[] {Long.MIN_VALUE, 0 , Long.MAX_VALUE};
       for (long val : longValues) {
         buf.clear();
-        DecimalUtility.writeBigDecimalToArrowBuf(BigDecimal.valueOf(val), buf, 0);
-        BigDecimal actual = DecimalUtility.getBigDecimalFromArrowBuf(buf, 0, 0);
+        DecimalUtility.writeBigDecimalToArrowBuf(BigDecimal.valueOf(val), buf, 0, 16);
+        BigDecimal actual = DecimalUtility.getBigDecimalFromArrowBuf(buf, 0, 0, 16);
         BigDecimal expected = BigDecimal.valueOf(val);
         Assert.assertEquals(expected, actual);
       }
@@ -93,8 +93,8 @@ public class DecimalUtilityTest {
       BigInteger [] decimals = new BigInteger[] {MAX_BIG_INT, new BigInteger("0"), MIN_BIG_INT};
       for (BigInteger val : decimals) {
         buf.clear();
-        DecimalUtility.writeBigDecimalToArrowBuf(new BigDecimal(val), buf, 0);
-        BigDecimal actual = DecimalUtility.getBigDecimalFromArrowBuf(buf, 0, 0);
+        DecimalUtility.writeBigDecimalToArrowBuf(new BigDecimal(val), buf, 0, 16);
+        BigDecimal actual = DecimalUtility.getBigDecimalFromArrowBuf(buf, 0, 0, 16);
         BigDecimal expected = new BigDecimal(val);
         Assert.assertEquals(expected, actual);
       }

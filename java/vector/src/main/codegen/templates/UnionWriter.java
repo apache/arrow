@@ -162,7 +162,7 @@ public class UnionWriter extends AbstractFieldWriter implements FieldWriter {
   @Override
   public void write(${name}Holder holder) {
     data.setType(idx(), MinorType.${name?upper_case});
-    <#if minor.class?ends_with("Decimal")>ArrowType arrowType = new ArrowType.Decimal(holder.precision, holder.scale, holder.bitWidth);</#if>
+    <#if minor.class?ends_with("Decimal")>ArrowType arrowType = new ArrowType.Decimal(holder.precision, holder.scale, ${name}Holder.WIDTH * 8);</#if>
     get${name}Writer(<#if minor.class?ends_with("Decimal")>arrowType</#if>).setPosition(idx());
     get${name}Writer(<#if minor.class?ends_with("Decimal")>arrowType</#if>).write${name}(<#list fields as field>holder.${field.name}<#if field_has_next>, </#if></#list><#if minor.class?ends_with("Decimal")>, arrowType</#if>);
   }
@@ -175,15 +175,15 @@ public class UnionWriter extends AbstractFieldWriter implements FieldWriter {
   <#if minor.class?ends_with("Decimal")>
   public void write${name}(${friendlyType} value) {
     data.setType(idx(), MinorType.${name?upper_case});
-    ArrowType arrowType = new ArrowType.Decimal(value.precision(), value.scale());
-    getDecimalWriter(arrowType).setPosition(idx());
-    getDecimalWriter(arrowType).writeDecimal(value);
+    ArrowType arrowType = new ArrowType.Decimal(value.precision(), value.scale(), ${name}Vector.TYPE_WIDTH * 8);
+    get${name}Writer(arrowType).setPosition(idx());
+    get${name}Writer(arrowType).write${name}(value);
   }
 
   public void writeBigEndianBytesTo${name}(byte[] value, ArrowType arrowType) {
     data.setType(idx(), MinorType.${name?upper_case});
-    getDecimalWriter(arrowType).setPosition(idx());
-    getDecimalWriter(arrowType).writeBigEndianBytesTo${name}(value, arrowType);
+    get${name}Writer(arrowType).setPosition(idx());
+    get${name}Writer(arrowType).writeBigEndianBytesTo${name}(value, arrowType);
   }
   </#if>
       </#if>
