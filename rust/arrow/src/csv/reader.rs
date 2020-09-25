@@ -42,11 +42,11 @@
 
 use lazy_static::lazy_static;
 use regex::{Regex, RegexBuilder};
-use std::collections::HashSet;
-use std::fmt;
+use std::{fmt, iter::Take};
 use std::fs::File;
 use std::io::{BufReader, Read, Seek, SeekFrom};
 use std::sync::Arc;
+use std::{collections::HashSet, iter::Skip};
 
 use csv as csv_crate;
 
@@ -216,6 +216,9 @@ pub fn infer_schema_from_files(
     Schema::try_merge(&schemas)
 }
 
+// optional bounds of the reader, of the form (min line, max line).
+type Bounds = Option<(usize, usize)>;
+
 /// CSV file reader
 pub struct Reader<R: Read> {
     /// Explicit schema for the CSV file
@@ -223,10 +226,10 @@ pub struct Reader<R: Read> {
     /// Optional projection for which columns to load (zero-based column indices)
     projection: Option<Vec<usize>>,
     /// File reader
-    record_iter: StringRecordsIntoIter<BufReader<R>>,
+    record_iter: Take<Skip<StringRecordsIntoIter<BufReader<R>>>>,
     /// Batch size (number of records to load each time)
     batch_size: usize,
-    /// Current line number, used in error reporting
+    /// Current line number
     line_number: usize,
 }
 
@@ -256,6 +259,7 @@ impl<R: Read> Reader<R> {
         has_header: bool,
         delimiter: Option<u8>,
         batch_size: usize,
+        bounds: Bounds,
         projection: Option<Vec<usize>>,
     ) -> Self {
         Self::from_buf_reader(
@@ -264,6 +268,7 @@ impl<R: Read> Reader<R> {
             has_header,
             delimiter,
             batch_size,
+            bounds,
             projection,
         )
     }
@@ -293,6 +298,7 @@ impl<R: Read> Reader<R> {
         has_header: bool,
         delimiter: Option<u8>,
         batch_size: usize,
+        bounds: Bounds,
         projection: Option<Vec<usize>>,
     ) -> Self {
         let mut reader_builder = csv_crate::ReaderBuilder::new();
@@ -304,123 +310,23 @@ impl<R: Read> Reader<R> {
 
         let csv_reader = reader_builder.from_reader(buf_reader);
         let record_iter = csv_reader.into_records();
+
+        let (start, end) = match bounds {
+            None => (0, usize::MAX),
+            Some((start, end)) => (start, end),
+        };
+        // note that this skips by iteration. This is because in general it is not possible
+        // to seek in CSV. However, skiping still saves the burden of creating arrow arrays,
+        // which is a slow operation that scales with the number of columns
+        let record_iter = record_iter.skip(start).take(end);
+
         Self {
             schema,
             projection,
             record_iter,
             batch_size,
-            line_number: if has_header { 1 } else { 0 },
+            line_number: if has_header { start + 1 } else { start + 0 },
         }
-    }
-
-    fn parse(&self, rows: &[StringRecord]) -> Result<RecordBatch> {
-        let projection: Vec<usize> = match self.projection {
-            Some(ref v) => v.clone(),
-            None => self
-                .schema
-                .fields()
-                .iter()
-                .enumerate()
-                .map(|(i, _)| i)
-                .collect(),
-        };
-
-        let arrays: Result<Vec<ArrayRef>> = projection
-            .iter()
-            .map(|i| {
-                let i = *i;
-                let field = self.schema.field(i);
-                match field.data_type() {
-                    &DataType::Boolean => {
-                        self.build_primitive_array::<BooleanType>(rows, i)
-                    }
-                    &DataType::Int8 => self.build_primitive_array::<Int8Type>(rows, i),
-                    &DataType::Int16 => self.build_primitive_array::<Int16Type>(rows, i),
-                    &DataType::Int32 => self.build_primitive_array::<Int32Type>(rows, i),
-                    &DataType::Int64 => self.build_primitive_array::<Int64Type>(rows, i),
-                    &DataType::UInt8 => self.build_primitive_array::<UInt8Type>(rows, i),
-                    &DataType::UInt16 => {
-                        self.build_primitive_array::<UInt16Type>(rows, i)
-                    }
-                    &DataType::UInt32 => {
-                        self.build_primitive_array::<UInt32Type>(rows, i)
-                    }
-                    &DataType::UInt64 => {
-                        self.build_primitive_array::<UInt64Type>(rows, i)
-                    }
-                    &DataType::Float32 => {
-                        self.build_primitive_array::<Float32Type>(rows, i)
-                    }
-                    &DataType::Float64 => {
-                        self.build_primitive_array::<Float64Type>(rows, i)
-                    }
-                    &DataType::Utf8 => {
-                        let mut builder = StringBuilder::new(rows.len());
-                        for row in rows.iter() {
-                            match row.get(i) {
-                                Some(s) => builder.append_value(s).unwrap(),
-                                _ => builder.append(false).unwrap(),
-                            }
-                        }
-                        Ok(Arc::new(builder.finish()) as ArrayRef)
-                    }
-                    other => Err(ArrowError::ParseError(format!(
-                        "Unsupported data type {:?}",
-                        other
-                    ))),
-                }
-            })
-            .collect();
-
-        let schema_fields = self.schema.fields();
-
-        let projected_fields: Vec<Field> = projection
-            .iter()
-            .map(|i| schema_fields[*i].clone())
-            .collect();
-
-        let projected_schema = Arc::new(Schema::new(projected_fields));
-
-        arrays.and_then(|arr| RecordBatch::try_new(projected_schema, arr))
-    }
-
-    fn build_primitive_array<T: ArrowPrimitiveType>(
-        &self,
-        rows: &[StringRecord],
-        col_idx: usize,
-    ) -> Result<ArrayRef> {
-        let is_boolean_type =
-            *self.schema.field(col_idx).data_type() == DataType::Boolean;
-
-        rows.iter()
-            .enumerate()
-            .map(|(row_index, row)| {
-                match row.get(col_idx) {
-                    Some(s) => {
-                        if s.is_empty() {
-                            return Ok(None);
-                        }
-                        let parsed = if is_boolean_type {
-                            s.to_lowercase().parse::<T::Native>()
-                        } else {
-                            s.parse::<T::Native>()
-                        };
-                        match parsed {
-                            Ok(e) => Ok(Some(e)),
-                            Err(_) => Err(ArrowError::ParseError(format!(
-                                // TODO: we should surface the underlying error here.
-                                "Error while parsing value {} for column {} at line {}",
-                                s,
-                                col_idx,
-                                self.line_number + row_index
-                            ))),
-                        }
-                    }
-                    None => Ok(None),
-                }
-            })
-            .collect::<Result<PrimitiveArray<T>>>()
-            .map(|e| Arc::new(e) as ArrayRef)
     }
 }
 
@@ -452,12 +358,130 @@ impl<R: Read> Iterator for Reader<R> {
         }
 
         // parse the batches into a RecordBatch
-        let result = self.parse(&rows);
+        let result = parse(&rows, &self.schema.fields(), &self.projection, self.line_number);
 
         self.line_number += rows.len();
 
         Some(result)
     }
+}
+
+/// parses a slice of [csv_crate::StringRecord] into a RecordBatch.
+pub fn parse(
+    rows: &[StringRecord],
+    fields: &Vec<Field>,
+    projection: &Option<Vec<usize>>,
+    line_number: usize,
+) -> Result<RecordBatch> {
+    let projection: Vec<usize> = match projection {
+        Some(ref v) => v.clone(),
+        None => fields.iter().enumerate().map(|(i, _)| i).collect(),
+    };
+
+    let arrays: Result<Vec<ArrayRef>> = projection
+        .iter()
+        .map(|i| {
+            let i = *i;
+            let field = &fields[i];
+            match field.data_type() {
+                &DataType::Boolean => {
+                    build_primitive_array::<BooleanType>(line_number, rows, i)
+                }
+                &DataType::Int8 => {
+                    build_primitive_array::<Int8Type>(line_number, rows, i)
+                }
+                &DataType::Int16 => {
+                    build_primitive_array::<Int16Type>(line_number, rows, i)
+                }
+                &DataType::Int32 => {
+                    build_primitive_array::<Int32Type>(line_number, rows, i)
+                }
+                &DataType::Int64 => {
+                    build_primitive_array::<Int64Type>(line_number, rows, i)
+                }
+                &DataType::UInt8 => {
+                    build_primitive_array::<UInt8Type>(line_number, rows, i)
+                }
+                &DataType::UInt16 => {
+                    build_primitive_array::<UInt16Type>(line_number, rows, i)
+                }
+                &DataType::UInt32 => {
+                    build_primitive_array::<UInt32Type>(line_number, rows, i)
+                }
+                &DataType::UInt64 => {
+                    build_primitive_array::<UInt64Type>(line_number, rows, i)
+                }
+                &DataType::Float32 => {
+                    build_primitive_array::<Float32Type>(line_number, rows, i)
+                }
+                &DataType::Float64 => {
+                    build_primitive_array::<Float64Type>(line_number, rows, i)
+                }
+                &DataType::Utf8 => {
+                    let mut builder = StringBuilder::new(rows.len());
+                    for row in rows.iter() {
+                        match row.get(i) {
+                            Some(s) => builder.append_value(s).unwrap(),
+                            _ => builder.append(false).unwrap(),
+                        }
+                    }
+                    Ok(Arc::new(builder.finish()) as ArrayRef)
+                }
+                other => Err(ArrowError::ParseError(format!(
+                    "Unsupported data type {:?}",
+                    other
+                ))),
+            }
+        })
+        .collect();
+
+    let projected_fields: Vec<Field> = projection
+        .iter()
+        .map(|i| fields[*i].clone())
+        .collect();
+
+    let projected_schema = Arc::new(Schema::new(projected_fields));
+
+    arrays.and_then(|arr| RecordBatch::try_new(projected_schema, arr))
+}
+
+// parses a specific column (col_idx) into an Arrow Array.
+fn build_primitive_array<T: ArrowPrimitiveType>(
+    line_number: usize,
+    rows: &[StringRecord],
+    col_idx: usize,
+) -> Result<ArrayRef> {
+    let is_boolean_type = T::get_data_type() == DataType::Boolean;
+
+    rows.iter()
+        .enumerate()
+        .map(|(row_index, row)| {
+            match row.get(col_idx) {
+                Some(s) => {
+                    if s.is_empty() {
+                        return Ok(None);
+                    }
+                    let parsed = if is_boolean_type {
+                        s.to_lowercase().parse::<T::Native>()
+                    } else {
+                        s.parse::<T::Native>()
+                    };
+                    match parsed {
+                        Ok(e) => Ok(Some(e)),
+                        Err(_) => Err(ArrowError::ParseError(format!(
+                            // TODO: we should surface the underlying error here.
+                            "Error while parsing value {} for column {} at line {}",
+                            s,
+                            col_idx,
+                            line_number + row_index
+                        ))),
+                    }
+                }
+                None => Ok(None),
+            }
+        })
+        .collect::<Result<PrimitiveArray<T>>>()
+        .map(|e| Arc::new(e) as ArrayRef)
 }
 
 /// CSV file reader builder
@@ -483,6 +507,8 @@ pub struct ReaderBuilder {
     ///
     /// The default batch size when using the `ReaderBuilder` is 1024 records
     batch_size: usize,
+    ///
+    bounds: Bounds,
     /// Optional projection for which columns to load (zero-based column indices)
     projection: Option<Vec<usize>>,
 }
@@ -495,6 +521,7 @@ impl Default for ReaderBuilder {
             delimiter: None,
             max_records: None,
             batch_size: 1024,
+            bounds: None,
             projection: None,
         }
     }
@@ -584,18 +611,15 @@ impl ReaderBuilder {
                 Arc::new(inferred_schema)
             }
         };
-        let csv_reader = csv_crate::ReaderBuilder::new()
-            .delimiter(delimiter)
-            .has_headers(self.has_header)
-            .from_reader(buf_reader);
-        let record_iter = csv_reader.into_records();
-        Ok(Reader {
+        Ok(Reader::from_buf_reader(
+            buf_reader,
             schema,
-            projection: self.projection.clone(),
-            record_iter,
-            batch_size: self.batch_size,
-            line_number: if self.has_header { 1 } else { 0 },
-        })
+            self.has_header,
+            self.delimiter,
+            self.batch_size,
+            None,
+            self.projection.clone(),
+        ))
     }
 }
 
@@ -620,8 +644,15 @@ mod tests {
 
         let file = File::open("test/data/uk_cities.csv").unwrap();
 
-        let mut csv =
-            Reader::new(file, Arc::new(schema.clone()), false, None, 1024, None);
+        let mut csv = Reader::new(
+            file,
+            Arc::new(schema.clone()),
+            false,
+            None,
+            1024,
+            None,
+            None,
+        );
         assert_eq!(Arc::new(schema), csv.schema());
         let batch = csv.next().unwrap().unwrap();
         assert_eq!(37, batch.num_rows());
@@ -665,6 +696,7 @@ mod tests {
             true,
             None,
             1024,
+            None,
             None,
         );
         let batch = csv.next().unwrap().unwrap();
@@ -755,8 +787,15 @@ mod tests {
 
         let file = File::open("test/data/uk_cities.csv").unwrap();
 
-        let mut csv =
-            Reader::new(file, Arc::new(schema), false, None, 1024, Some(vec![0, 1]));
+        let mut csv = Reader::new(
+            file,
+            Arc::new(schema),
+            false,
+            None,
+            1024,
+            None,
+            Some(vec![0, 1]),
+        );
         let projected_schema = Arc::new(Schema::new(vec![
             Field::new("city", DataType::Utf8, false),
             Field::new("lat", DataType::Float64, false),
@@ -778,7 +817,7 @@ mod tests {
 
         let file = File::open("test/data/null_test.csv").unwrap();
 
-        let mut csv = Reader::new(file, Arc::new(schema), true, None, 1024, None);
+        let mut csv = Reader::new(file, Arc::new(schema), true, None, 1024, None, None);
         let batch = csv.next().unwrap().unwrap();
 
         assert_eq!(false, batch.column(1).is_null(0));
