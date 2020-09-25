@@ -38,6 +38,7 @@ RUN apt-get update -y && \
         gobject-introspection \
         gtk-doc-tools \
         libcurl4-openssl-dev \
+        libfontconfig1-dev \
         libgirepository1.0-dev \
         libglib2.0-doc \
         libtool \
@@ -79,6 +80,13 @@ RUN pip install \
 COPY c_glib/Gemfile /arrow/c_glib/
 RUN gem install --no-document bundler && \
     bundle install --gemfile /arrow/c_glib/Gemfile
+
+# Ensure parallel R package installation, set CRAN repo mirror,
+# and use pre-built binaries where possible
+COPY ci/etc/rprofile /arrow/ci/etc/
+RUN cat /arrow/ci/etc/rprofile >> $(R RHOME)/etc/Rprofile.site
+# Also ensure parallel compilation of C/C++ code
+RUN echo "MAKEFLAGS=-j$(R -s -e 'cat(parallel::detectCores())')" >> $(R RHOME)/etc/Makeconf
 
 COPY ci/scripts/r_deps.sh /arrow/ci/scripts/
 COPY r/DESCRIPTION /arrow/r/
