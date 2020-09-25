@@ -194,19 +194,19 @@ struct PyBytesView {
   static Result<PyBytesView> FromString(PyObject* obj, bool check_utf8 = false) {
     PyBytesView self;
     ARROW_RETURN_NOT_OK(self.ParseString(obj, check_utf8));
-    return self;
+    return std::move(self);
   }
 
   static Result<PyBytesView> FromUnicode(PyObject* obj) {
     PyBytesView self;
     ARROW_RETURN_NOT_OK(self.ParseUnicode(obj));
-    return self;
+    return std::move(self);
   }
 
   static Result<PyBytesView> FromBinary(PyObject* obj) {
     PyBytesView self;
     ARROW_RETURN_NOT_OK(self.ParseBinary(obj));
-    return self;
+    return std::move(self);
   }
 
   // View the given Python object as string-like, i.e. str or (utf8) bytes
