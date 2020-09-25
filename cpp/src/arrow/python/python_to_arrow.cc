@@ -117,7 +117,7 @@ class PyValue {
                                                                   I obj) {
     typename T::c_type value;
     auto status = internal::CIntFromPython(obj, &value);
-    if (status.ok()) {
+    if (ARROW_PREDICT_TRUE(status.ok())) {
       return value;
     } else if (!internal::PyIntScalar_Check(obj)) {
       return internal::InvalidValue(obj, "tried to convert to int");
@@ -323,35 +323,36 @@ class PyValue {
   // object was unicode encoded or not, which is used for unicode -> bytes coersion if
   // there is a non-unicode object observed.
 
-  static Result<PyBytesView> Convert(const BaseBinaryType*, const O&, I obj) {
-    return PyBytesView::FromString(obj);
+  static Status Convert(const BaseBinaryType*, const O&, I obj, PyBytesView& view) {
+    return view.ParseString(obj);
   }
 
-  static Result<PyBytesView> Convert(const FixedSizeBinaryType* type, const O&, I obj) {
-    ARROW_ASSIGN_OR_RAISE(auto view, PyBytesView::FromString(obj));
-    if (ARROW_PREDICT_TRUE(view.size == type->byte_width())) {
-      return std::move(view);
-    } else {
+  static Status Convert(const FixedSizeBinaryType* type, const O&, I obj,
+                        PyBytesView& view) {
+    ARROW_RETURN_NOT_OK(view.ParseString(obj));
+    if (view.size != type->byte_width()) {
       std::stringstream ss;
       ss << "expected to be length " << type->byte_width() << " was " << view.size;
       return internal::InvalidValue(obj, ss.str());
+    } else {
+      return Status::OK();
     }
   }
 
   template <typename T>
-  static enable_if_string<T, Result<PyBytesView>> Convert(const T*, const O& options,
-                                                          I obj) {
+  static enable_if_string<T, Status> Convert(const T*, const O& options, I obj,
+                                             PyBytesView& view) {
     if (options.strict) {
       // Strict conversion, force output to be unicode / utf8 and validate that
       // any binary values are utf8
-      ARROW_ASSIGN_OR_RAISE(auto view, PyBytesView::FromString(obj, true));
+      ARROW_RETURN_NOT_OK(view.ParseString(obj, true));
       if (!view.is_utf8) {
         return internal::InvalidValue(obj, "was not a utf8 string");
       }
-      return std::move(view);
+      return Status::OK();
     } else {
       // Non-strict conversion; keep track of whether values are unicode or bytes
-      return PyBytesView::FromString(obj);
+      return view.ParseString(obj);
     }
   }
 
@@ -429,10 +430,7 @@ struct PyConverterTrait<DictionaryType> {
 };
 
 template <typename T>
-class PyPrimitiveConverter<
-    T, enable_if_t<is_null_type<T>::value || is_boolean_type<T>::value ||
-                   is_number_type<T>::value || is_decimal_type<T>::value ||
-                   is_date_type<T>::value || is_time_type<T>::value>>
+class PyPrimitiveConverter<T, enable_if_null<T>>
     : public PrimitiveConverter<T, PyConverter> {
  public:
   Status Append(PyObject* value) override {
@@ -448,23 +446,42 @@ class PyPrimitiveConverter<
 
 template <typename T>
 class PyPrimitiveConverter<
+    T, enable_if_t<is_boolean_type<T>::value || is_number_type<T>::value ||
+                   is_decimal_type<T>::value || is_date_type<T>::value ||
+                   is_time_type<T>::value>> : public PrimitiveConverter<T, PyConverter> {
+ public:
+  Status Append(PyObject* value) override {
+    if (PyValue::IsNull(this->options_, value)) {
+      this->primitive_builder_->UnsafeAppendNull();
+    } else {
+      ARROW_ASSIGN_OR_RAISE(
+          auto converted, PyValue::Convert(this->primitive_type_, this->options_, value));
+      this->primitive_builder_->UnsafeAppend(converted);
+    }
+    return Status::OK();
+  }
+};
+
+template <typename T>
+class PyPrimitiveConverter<
     T, enable_if_t<is_timestamp_type<T>::value || is_duration_type<T>::value>>
     : public PrimitiveConverter<T, PyConverter> {
  public:
   Status Append(PyObject* value) override {
     if (PyValue::IsNull(this->options_, value)) {
-      return this->primitive_builder_->AppendNull();
+      this->primitive_builder_->UnsafeAppendNull();
     } else {
       ARROW_ASSIGN_OR_RAISE(
           auto converted, PyValue::Convert(this->primitive_type_, this->options_, value));
       // Numpy NaT sentinels can be checked after the conversion
       if (PyArray_CheckAnyScalarExact(value) &&
           PyValue::IsNaT(this->primitive_type_, converted)) {
-        return this->primitive_builder_->AppendNull();
+        this->primitive_builder_->UnsafeAppendNull();
       } else {
-        return this->primitive_builder_->Append(converted);
+        this->primitive_builder_->UnsafeAppend(converted);
       }
     }
+    return Status::OK();
   }
 };
 
@@ -474,14 +491,38 @@ class PyPrimitiveConverter<T, enable_if_binary<T>>
  public:
   Status Append(PyObject* value) override {
     if (PyValue::IsNull(this->options_, value)) {
-      return this->primitive_builder_->AppendNull();
+      this->primitive_builder_->UnsafeAppendNull();
     } else {
-      ARROW_ASSIGN_OR_RAISE(
-          auto view, PyValue::Convert(this->primitive_type_, this->options_, value));
-      ARROW_RETURN_NOT_OK(this->primitive_builder_->ValidateOverflow(view.size));
-      return this->primitive_builder_->Append(util::string_view(view.bytes, view.size));
+      ARROW_RETURN_NOT_OK(
+          PyValue::Convert(this->primitive_type_, this->options_, value, view_));
+      ARROW_RETURN_NOT_OK(this->primitive_builder_->ReserveData(view_.size));
+      this->primitive_builder_->UnsafeAppend(view_.bytes, view_.size);
     }
+    return Status::OK();
   }
+
+ protected:
+  PyBytesView view_;
+};
+
+template <typename T>
+class PyPrimitiveConverter<T, enable_if_t<std::is_same<T, FixedSizeBinaryType>::value>>
+    : public PrimitiveConverter<T, PyConverter> {
+ public:
+  Status Append(PyObject* value) override {
+    if (PyValue::IsNull(this->options_, value)) {
+      this->primitive_builder_->UnsafeAppendNull();
+    } else {
+      ARROW_RETURN_NOT_OK(
+          PyValue::Convert(this->primitive_type_, this->options_, value, view_));
+      ARROW_RETURN_NOT_OK(this->primitive_builder_->ReserveData(view_.size));
+      this->primitive_builder_->UnsafeAppend(view_.bytes);
+    }
+    return Status::OK();
+  }
+
+ protected:
+  PyBytesView view_;
 };
 
 template <typename T>
@@ -490,17 +531,18 @@ class PyPrimitiveConverter<T, enable_if_string_like<T>>
  public:
   Status Append(PyObject* value) override {
     if (PyValue::IsNull(this->options_, value)) {
-      return this->primitive_builder_->AppendNull();
+      this->primitive_builder_->UnsafeAppendNull();
     } else {
-      ARROW_ASSIGN_OR_RAISE(
-          auto view, PyValue::Convert(this->primitive_type_, this->options_, value));
-      if (!view.is_utf8) {
+      ARROW_RETURN_NOT_OK(
+          PyValue::Convert(this->primitive_type_, this->options_, value, view_));
+      if (!view_.is_utf8) {
         // observed binary value
         observed_binary_ = true;
       }
-      ARROW_RETURN_NOT_OK(this->primitive_builder_->ValidateOverflow(view.size));
-      return this->primitive_builder_->Append(util::string_view(view.bytes, view.size));
+      ARROW_RETURN_NOT_OK(this->primitive_builder_->ReserveData(view_.size));
+      this->primitive_builder_->UnsafeAppend(view_.bytes, view_.size);
     }
+    return Status::OK();
   }
 
   Result<std::shared_ptr<Array>> ToArray() override {
@@ -515,6 +557,7 @@ class PyPrimitiveConverter<T, enable_if_string_like<T>>
   }
 
  protected:
+  PyBytesView view_;
   bool observed_binary_ = false;
 };
 
@@ -541,11 +584,14 @@ class PyDictionaryConverter<U, enable_if_has_string_view<U>>
     if (PyValue::IsNull(this->options_, value)) {
       return this->value_builder_->AppendNull();
     } else {
-      ARROW_ASSIGN_OR_RAISE(auto view,
-                            PyValue::Convert(this->value_type_, this->options_, value));
-      return this->value_builder_->Append(util::string_view(view.bytes, view.size));
+      ARROW_RETURN_NOT_OK(
+          PyValue::Convert(this->value_type_, this->options_, value, view_));
+      return this->value_builder_->Append(view_.bytes, view_.size);
     }
   }
+
+ protected:
+  PyBytesView view_;
 };
 
 template <typename T>
@@ -962,15 +1008,24 @@ Result<std::shared_ptr<ChunkedArray>> ConvertPySequence(PyObject* obj, PyObject*
 
   ARROW_ASSIGN_OR_RAISE(auto converter, (MakeConverter<PyConverter, PyConverterTrait>(
                                             options.type, options, pool)));
-  ARROW_ASSIGN_OR_RAISE(auto chunked_converter, MakeChunker(converter));
-
-  // Convert values
-  if (mask != nullptr && mask != Py_None) {
-    RETURN_NOT_OK(ExtendMasked(chunked_converter.get(), seq, mask, size));
+  if (converter->may_overflow()) {
+    ARROW_ASSIGN_OR_RAISE(auto chunked_converter, MakeChunker(std::move(converter)));
+    // Convert values
+    if (mask != nullptr && mask != Py_None) {
+      RETURN_NOT_OK(ExtendMasked(chunked_converter.get(), seq, mask, size));
+    } else {
+      RETURN_NOT_OK(Extend(chunked_converter.get(), seq, size));
+    }
+    return chunked_converter->ToChunkedArray();
   } else {
-    RETURN_NOT_OK(Extend(chunked_converter.get(), seq, size));
+    // Convert values
+    if (mask != nullptr && mask != Py_None) {
+      RETURN_NOT_OK(ExtendMasked(converter.get(), seq, mask, size));
+    } else {
+      RETURN_NOT_OK(Extend(converter.get(), seq, size));
+    }
+    return converter->ToChunkedArray();
   }
-  return chunked_converter->ToChunkedArray();
 }
 
 }  // namespace py

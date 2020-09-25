@@ -191,58 +191,78 @@ struct PyBytesView {
   Py_ssize_t size;
   bool is_utf8;
 
-  // View the given Python object as string-like, i.e. str or (utf8) bytes
   static Result<PyBytesView> FromString(PyObject* obj, bool check_utf8 = false) {
+    PyBytesView self;
+    ARROW_RETURN_NOT_OK(self.ParseString(obj, check_utf8));
+    return self;
+  }
+
+  static Result<PyBytesView> FromUnicode(PyObject* obj) {
+    PyBytesView self;
+    ARROW_RETURN_NOT_OK(self.ParseUnicode(obj));
+    return self;
+  }
+
+  static Result<PyBytesView> FromBinary(PyObject* obj) {
+    PyBytesView self;
+    ARROW_RETURN_NOT_OK(self.ParseBinary(obj));
+    return self;
+  }
+
+  // View the given Python object as string-like, i.e. str or (utf8) bytes
+  Status ParseString(PyObject* obj, bool check_utf8 = false) {
     if (PyUnicode_Check(obj)) {
-      return FromUnicode(obj);
+      return ParseUnicode(obj);
     } else {
-      ARROW_ASSIGN_OR_RAISE(auto result, FromBinary(obj));
+      ARROW_RETURN_NOT_OK(ParseBinary(obj));
       if (check_utf8) {
         // Check the bytes are utf8 utf-8
-        OwnedRef decoded(PyUnicode_FromStringAndSize(result.bytes, result.size));
+        OwnedRef decoded(PyUnicode_FromStringAndSize(bytes, size));
         if (ARROW_PREDICT_TRUE(!PyErr_Occurred())) {
-          result.is_utf8 = true;
+          is_utf8 = true;
         } else {
           PyErr_Clear();
-          result.is_utf8 = false;
+          is_utf8 = false;
         }
       }
-      return std::move(result);
+      return Status::OK();
     }
   }
 
   // View the given Python object as unicode string
-  static Result<PyBytesView> FromUnicode(PyObject* obj) {
-    Py_ssize_t size;
+  Status ParseUnicode(PyObject* obj) {
     // The utf-8 representation is cached on the unicode object
-    const char* data = PyUnicode_AsUTF8AndSize(obj, &size);
+    bytes = PyUnicode_AsUTF8AndSize(obj, &size);
     RETURN_IF_PYERROR();
-    return PyBytesView(data, size, true);
+    is_utf8 = true;
+    return Status::OK();
   }
 
   // View the given Python object as binary-like, i.e. bytes
-  static Result<PyBytesView> FromBinary(PyObject* obj) {
+  Status ParseBinary(PyObject* obj) {
     if (PyBytes_Check(obj)) {
-      return PyBytesView(PyBytes_AS_STRING(obj), PyBytes_GET_SIZE(obj), false);
+      bytes = PyBytes_AS_STRING(obj);
+      size = PyBytes_GET_SIZE(obj);
+      is_utf8 = false;
     } else if (PyByteArray_Check(obj)) {
-      return PyBytesView(PyByteArray_AS_STRING(obj), PyByteArray_GET_SIZE(obj), false);
+      bytes = PyByteArray_AS_STRING(obj);
+      size = PyByteArray_GET_SIZE(obj);
+      is_utf8 = false;
     } else if (PyMemoryView_Check(obj)) {
-      PyObject* contig_view = PyMemoryView_GetContiguous(obj, PyBUF_READ, 'C');
+      PyObject* ref = PyMemoryView_GetContiguous(obj, PyBUF_READ, 'C');
       RETURN_IF_PYERROR();
-      Py_buffer* buffer = PyMemoryView_GET_BUFFER(contig_view);
-      return PyBytesView(reinterpret_cast<const char*>(buffer->buf), buffer->len, false,
-                         contig_view);
+      Py_buffer* buffer = PyMemoryView_GET_BUFFER(ref);
+      bytes = reinterpret_cast<const char*>(buffer->buf);
+      size = buffer->len;
+      is_utf8 = false;
     } else {
       return Status::TypeError("Expected bytes, got a '", Py_TYPE(obj)->tp_name,
                                "' object");
     }
+    return Status::OK();
   }
 
  protected:
-  PyBytesView(const char* bytes, Py_ssize_t size, bool is_utf8 = false,
-              PyObject* obj = NULLPTR)
-      : bytes(bytes), size(size), is_utf8(is_utf8), ref(obj) {}
-
   OwnedRef ref;
 };
 

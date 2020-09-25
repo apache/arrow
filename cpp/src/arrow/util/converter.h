@@ -26,13 +26,14 @@
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/make_unique.h"
 #include "arrow/visitor_inline.h"
 
 namespace arrow {
 namespace internal {
 
 template <typename BaseConverter, template <typename...> class ConverterTrait>
-static Result<std::shared_ptr<BaseConverter>> MakeConverter(
+static Result<std::unique_ptr<BaseConverter>> MakeConverter(
     std::shared_ptr<DataType> type, typename BaseConverter::OptionsType options,
     MemoryPool* pool);
 
@@ -60,9 +61,9 @@ class Converter {
 
   OptionsType options() const { return options_; }
 
-  const std::vector<std::shared_ptr<Self>>& children() const { return children_; }
+  bool may_overflow() const { return may_overflow_; }
 
-  Status Reserve(int64_t additional_capacity) {
+  virtual Status Reserve(int64_t additional_capacity) {
     return builder_->Reserve(additional_capacity);
   }
 
@@ -75,13 +76,19 @@ class Converter {
     return arr->Slice(0, length);
   }
 
+  virtual Result<std::shared_ptr<ChunkedArray>> ToChunkedArray() {
+    ARROW_ASSIGN_OR_RAISE(auto array, ToArray());
+    std::vector<std::shared_ptr<Array>> chunks = {std::move(array)};
+    return std::make_shared<ChunkedArray>(chunks);
+  }
+
  protected:
   virtual Status Init(MemoryPool* pool) { return Status::OK(); }
 
   std::shared_ptr<DataType> type_;
   std::shared_ptr<ArrayBuilder> builder_;
-  std::vector<std::shared_ptr<Self>> children_;
   OptionsType options_;
+  bool may_overflow_ = false;
 };
 
 template <typename ArrowType, typename BaseConverter>
@@ -92,8 +99,10 @@ class PrimitiveConverter : public BaseConverter {
  protected:
   Status Init(MemoryPool* pool) override {
     this->builder_ = std::make_shared<BuilderType>(this->type_, pool);
-    this->primitive_type_ = checked_cast<const ArrowType*>(this->type_.get());
-    this->primitive_builder_ = checked_cast<BuilderType*>(this->builder_.get());
+    this->may_overflow_ =
+        is_base_binary_like(this->type_->id()) || is_fixed_size_binary(this->type_->id());
+    primitive_type_ = checked_cast<const ArrowType*>(this->type_.get());
+    primitive_builder_ = checked_cast<BuilderType*>(this->builder_.get());
     return Status::OK();
   }
 
@@ -116,14 +125,14 @@ class ListConverter : public BaseConverter {
                               list_type_->value_type(), this->options_, pool)));
     this->builder_ =
         std::make_shared<BuilderType>(pool, value_converter_->builder(), this->type_);
-    this->children_ = {value_converter_};
     list_builder_ = checked_cast<BuilderType*>(this->builder_.get());
+    this->may_overflow_ = true;
     return Status::OK();
   }
 
   const ArrowType* list_type_;
   BuilderType* list_builder_;
-  std::shared_ptr<BaseConverter> value_converter_;
+  std::unique_ptr<BaseConverter> value_converter_;
 };
 
 template <typename BaseConverter, template <typename...> class ConverterTrait>
@@ -131,9 +140,17 @@ class StructConverter : public BaseConverter {
  public:
   using ConverterType = typename ConverterTrait<StructType>::type;
 
+  Status Reserve(int64_t additional_capacity) override {
+    ARROW_RETURN_NOT_OK(this->builder_->Reserve(additional_capacity));
+    for (const auto& child : children_) {
+      ARROW_RETURN_NOT_OK(child->Reserve(additional_capacity));
+    }
+    return Status::OK();
+  }
+
  protected:
   Status Init(MemoryPool* pool) override {
-    std::shared_ptr<BaseConverter> child_converter;
+    std::unique_ptr<BaseConverter> child_converter;
     std::vector<std::shared_ptr<ArrayBuilder>> child_builders;
 
     struct_type_ = checked_cast<const StructType*>(this->type_.get());
@@ -141,8 +158,9 @@ class StructConverter : public BaseConverter {
       ARROW_ASSIGN_OR_RAISE(child_converter,
                             (MakeConverter<BaseConverter, ConverterTrait>(
                                 field->type(), this->options_, pool)));
+      this->may_overflow_ |= child_converter->may_overflow();
       child_builders.push_back(child_converter->builder());
-      this->children_.push_back(std::move(child_converter));
+      children_.push_back(std::move(child_converter));
     }
 
     this->builder_ =
@@ -154,6 +172,7 @@ class StructConverter : public BaseConverter {
 
   const StructType* struct_type_;
   StructBuilder* struct_builder_;
+  std::vector<std::unique_ptr<BaseConverter>> children_;
 };
 
 template <typename ValueType, typename BaseConverter>
@@ -166,6 +185,7 @@ class DictionaryConverter : public BaseConverter {
     std::unique_ptr<ArrayBuilder> builder;
     ARROW_RETURN_NOT_OK(MakeDictionaryBuilder(pool, this->type_, NULLPTR, &builder));
     this->builder_ = std::move(builder);
+    this->may_overflow_ = false;
     dict_type_ = checked_cast<const DictionaryType*>(this->type_.get());
     value_type_ = checked_cast<const ValueType*>(dict_type_->value_type().get());
     value_builder_ = checked_cast<BuilderType*>(this->builder_.get());
@@ -189,7 +209,7 @@ struct MakeConverterImpl {
     switch (t.value_type()->id()) {
 #define DICTIONARY_CASE(TYPE)                                                       \
   case TYPE::type_id:                                                               \
-    out = std::make_shared<                                                         \
+    out = make_unique<                                                              \
         typename ConverterTrait<DictionaryType>::template dictionary_type<TYPE>>(); \
     break;
       DICTIONARY_CASE(BooleanType);
@@ -219,11 +239,11 @@ struct MakeConverterImpl {
   std::shared_ptr<DataType> type;
   typename BaseConverter::OptionsType options;
   MemoryPool* pool;
-  std::shared_ptr<BaseConverter> out;
+  std::unique_ptr<BaseConverter> out;
 };
 
 template <typename BaseConverter, template <typename...> class ConverterTrait>
-static Result<std::shared_ptr<BaseConverter>> MakeConverter(
+static Result<std::unique_ptr<BaseConverter>> MakeConverter(
     std::shared_ptr<DataType> type, typename BaseConverter::OptionsType options,
     MemoryPool* pool) {
   MakeConverterImpl<BaseConverter, ConverterTrait> visitor{
@@ -237,41 +257,44 @@ class Chunker {
  public:
   using InputType = typename Converter::InputType;
 
-  explicit Chunker(std::shared_ptr<Converter> converter)
+  explicit Chunker(std::unique_ptr<Converter> converter)
       : converter_(std::move(converter)) {}
 
   Status Reserve(int64_t additional_capacity) {
-    return converter_->Reserve(additional_capacity);
+    ARROW_RETURN_NOT_OK(converter_->Reserve(additional_capacity));
+    reserved_ += additional_capacity;
+    return Status::OK();
   }
 
   Status AppendNull() {
     auto status = converter_->AppendNull();
-    if (status.ok()) {
-      length_ = converter_->builder()->length();
-    } else if (status.IsCapacityError()) {
+    if (ARROW_PREDICT_FALSE(status.IsCapacityError())) {
       ARROW_RETURN_NOT_OK(FinishChunk());
       return converter_->AppendNull();
     }
-    return status;
+    ++length_;
+    return std::move(status);
   }
 
   Status Append(InputType value) {
     auto status = converter_->Append(value);
-    if (status.ok()) {
-      length_ = converter_->builder()->length();
-    } else if (status.IsCapacityError()) {
+    if (ARROW_PREDICT_FALSE(status.IsCapacityError())) {
       ARROW_RETURN_NOT_OK(FinishChunk());
       return Append(value);
     }
-    return status;
+    ++length_;
+    return std::move(status);
   }
 
   Status FinishChunk() {
     ARROW_ASSIGN_OR_RAISE(auto chunk, converter_->ToArray(length_));
-    converter_->builder()->Reset();
-    length_ = 0;
     chunks_.push_back(chunk);
-    return Status::OK();
+    // reserve space for the remaining items, besides being an optimization it is also
+    // required if the converter's implementation relies on unsafe builder methods in
+    // conveter->Append()
+    auto remaining = reserved_ - length_;
+    Reset();
+    return Reserve(remaining);
   }
 
   Result<std::shared_ptr<ChunkedArray>> ToChunkedArray() {
@@ -280,14 +303,21 @@ class Chunker {
   }
 
  protected:
+  void Reset() {
+    converter_->builder()->Reset();
+    length_ = 0;
+    reserved_ = 0;
+  }
+
   int64_t length_ = 0;
-  std::shared_ptr<Converter> converter_;
+  int64_t reserved_ = 0;
+  std::unique_ptr<Converter> converter_;
   std::vector<std::shared_ptr<Array>> chunks_;
 };
 
 template <typename T>
-static Result<std::shared_ptr<Chunker<T>>> MakeChunker(std::shared_ptr<T> converter) {
-  return std::make_shared<Chunker<T>>(std::move(converter));
+static Result<std::unique_ptr<Chunker<T>>> MakeChunker(std::unique_ptr<T> converter) {
+  return make_unique<Chunker<T>>(std::move(converter));
 }
 
 }  // namespace internal

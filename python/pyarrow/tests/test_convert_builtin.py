@@ -382,7 +382,7 @@ def test_sequence_custom_integers(seq):
 @parametrize_with_iterable_types
 def test_broken_integers(seq):
     data = [MyBrokenInt()]
-    with pytest.raises(pa.ArrowInvalid):
+    with pytest.raises(pa.ArrowInvalid, match="tried to convert to int"):
         pa.array(seq(data), type=pa.int64())
 
 
@@ -1916,28 +1916,41 @@ def test_auto_chunking_binary_like():
     # single chunk
     v1 = b'x' * 100000000
     v2 = b'x' * 147483646
-    data = [v1] * 20 + [v2]
-    arr = pa.array(data, type=pa.binary())
+
+    # single chunk
+    one_chunk_data = [v1] * 20 + [b'', None, v2]
+    arr = pa.array(one_chunk_data, type=pa.binary())
     assert isinstance(arr, pa.Array)
+    assert len(arr) == 23
+    assert arr[20].as_py() == b''
+    assert arr[21].as_py() is None
+    assert arr[22].as_py() == v2
 
     # two chunks
-    data = [v1] * 20 + [v2] + ['x'] * 1
-    arr = pa.array(data, type=pa.binary())
+    two_chunk_data = one_chunk_data + [b'two']
+    arr = pa.array(two_chunk_data, type=pa.binary())
     assert isinstance(arr, pa.ChunkedArray)
     assert arr.num_chunks == 2
-    assert len(arr.chunk(0)) == 21
+    assert len(arr.chunk(0)) == 23
     assert len(arr.chunk(1)) == 1
-    assert arr.chunk(1).to_pylist() == [b'x']
+    assert arr.chunk(0)[20].as_py() == b''
+    assert arr.chunk(0)[21].as_py() is None
+    assert arr.chunk(0)[22].as_py() == v2
+    assert arr.chunk(1).to_pylist() == [b'two']
 
     # three chunks
-    data = ([v1] * 20 + [v2]) + ([v1] * 20 + [v2]) + ['x'] * 2
-    arr = pa.array(data, type=pa.binary())
+    three_chunk_data = one_chunk_data * 2 + [b'three', b'three']
+    arr = pa.array(three_chunk_data, type=pa.binary())
     assert isinstance(arr, pa.ChunkedArray)
     assert arr.num_chunks == 3
-    assert len(arr.chunk(0)) == 21
-    assert len(arr.chunk(1)) == 21
+    assert len(arr.chunk(0)) == 23
+    assert len(arr.chunk(1)) == 23
     assert len(arr.chunk(2)) == 2
-    assert arr.chunk(2).to_pylist() == [b'x', b'x']
+    for i in range(2):
+        assert arr.chunk(i)[20].as_py() == b''
+        assert arr.chunk(i)[21].as_py() is None
+        assert arr.chunk(i)[22].as_py() == v2
+    assert arr.chunk(2).to_pylist() == [b'three', b'three']
 
 
 @pytest.mark.large_memory
@@ -1949,6 +1962,7 @@ def test_auto_chunking_list_of_binary():
     assert arr.num_chunks == 2
     assert len(arr.chunk(0)) == 2**21 - 1
     assert len(arr.chunk(1)) == 2
+    assert arr.chunk(1).to_pylist() == [['x' * 1024]] * 2
 
 
 @pytest.mark.slow
@@ -1967,6 +1981,7 @@ def test_auto_chunking_list_like():
     assert arr.num_chunks == 2
     assert len(arr.chunk(0)) == 7
     assert len(arr.chunk(1)) == 1
+    assert arr.chunk(1)[0].as_py() == list(item)
 
 
 @pytest.mark.slow
@@ -2008,7 +2023,6 @@ def test_nested_auto_chunking(ty, char):
     assert arr.num_chunks == 2
     assert len(arr.chunk(0)) == 21
     assert len(arr.chunk(1)) == 1
-
     assert arr.chunk(1)[0].as_py() == {
         'bool': True,
         'integer': 1,

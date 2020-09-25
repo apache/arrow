@@ -532,8 +532,7 @@ using enable_if_base_binary = enable_if_t<is_base_binary_type<T>::value, R>;
 template <typename T>
 using is_binary_type =
     std::integral_constant<bool, std::is_same<BinaryType, T>::value ||
-                                     std::is_same<LargeBinaryType, T>::value ||
-                                     std::is_same<FixedSizeBinaryType, T>::value>;
+                                     std::is_same<LargeBinaryType, T>::value>;
 
 template <typename T, typename R = void>
 using enable_if_binary = enable_if_t<is_binary_type<T>::value, R>;

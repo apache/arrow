@@ -76,21 +76,9 @@ class BaseBinaryBuilder : public ArrayBuilder {
     return Append(value.data(), static_cast<offset_type>(value.size()));
   }
 
-  Status ValidateOverflow() { return ValidateOverflow(0); }
-
-  Status ValidateOverflow(int64_t new_bytes) {
-    auto new_size = value_data_builder_.length() + new_bytes;
-    if (ARROW_PREDICT_FALSE(new_size > memory_limit())) {
-      return Status::CapacityError("array cannot contain more than ", memory_limit(),
-                                   " bytes, have ", new_size);
-    } else {
-      return Status::OK();
-    }
-  }
-
   Status AppendNulls(int64_t length) final {
     const int64_t num_bytes = value_data_builder_.length();
-    ARROW_RETURN_NOT_OK(ValidateOverflow());
+    ARROW_RETURN_NOT_OK(ValidateOverflow(0));
     ARROW_RETURN_NOT_OK(Reserve(length));
     for (int64_t i = 0; i < length; ++i) {
       offsets_builder_.UnsafeAppend(static_cast<offset_type>(num_bytes));
@@ -242,6 +230,16 @@ class BaseBinaryBuilder : public ArrayBuilder {
     value_data_builder_.Reset();
   }
 
+  Status ValidateOverflow(int64_t new_bytes) {
+    auto new_size = value_data_builder_.length() + new_bytes;
+    if (ARROW_PREDICT_FALSE(new_size > memory_limit())) {
+      return Status::CapacityError("array cannot contain more than ", memory_limit(),
+                                   " bytes, have ", new_size);
+    } else {
+      return Status::OK();
+    }
+  }
+
   Status Resize(int64_t capacity) override {
     // XXX Why is this check necessary?  There is no reason to disallow, say,
     // binary arrays with more than 2**31 empty or null values.
@@ -259,12 +257,8 @@ class BaseBinaryBuilder : public ArrayBuilder {
   /// \brief Ensures there is enough allocated capacity to append the indicated
   /// number of bytes to the value data buffer without additional allocations
   Status ReserveData(int64_t elements) {
-    const int64_t size = value_data_length() + elements;
-    ARROW_RETURN_IF(size > memory_limit(),
-                    Status::CapacityError("Cannot reserve capacity larger than ",
-                                          memory_limit(), " bytes"));
-    return (size > value_data_capacity()) ? value_data_builder_.Reserve(elements)
-                                          : Status::OK();
+    ARROW_RETURN_NOT_OK(ValidateOverflow(elements));
+    return value_data_builder_.Reserve(elements);
   }
 
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override {
@@ -329,7 +323,7 @@ class BaseBinaryBuilder : public ArrayBuilder {
 
   Status AppendNextOffset() {
     const int64_t num_bytes = value_data_builder_.length();
-    ARROW_RETURN_NOT_OK(ValidateOverflow());
+    ARROW_RETURN_NOT_OK(ValidateOverflow(0));
     return offsets_builder_.Append(static_cast<offset_type>(num_bytes));
   }
 
@@ -425,18 +419,6 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
     return Status::OK();
   }
 
-  Status ValidateOverflow() { return ValidateOverflow(0); }
-
-  Status ValidateOverflow(int64_t new_bytes) {
-    auto new_size = byte_builder_.length() + new_bytes;
-    if (ARROW_PREDICT_FALSE(new_size > memory_limit())) {
-      return Status::CapacityError("array cannot contain more than ", memory_limit(),
-                                   " bytes, have ", new_size);
-    } else {
-      return Status::OK();
-    }
-  }
-
   Status Append(const std::string& s) {
     ARROW_RETURN_NOT_OK(Reserve(1));
     UnsafeAppend(s);
@@ -475,6 +457,23 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
   void UnsafeAppendNull() {
     UnsafeAppendToBitmap(false);
     byte_builder_.UnsafeAppend(/*num_copies=*/byte_width_, 0);
+  }
+
+  Status ValidateOverflow(int64_t new_bytes) const {
+    auto new_size = byte_builder_.length() + new_bytes;
+    if (ARROW_PREDICT_FALSE(new_size > memory_limit())) {
+      return Status::CapacityError("array cannot contain more than ", memory_limit(),
+                                   " bytes, have ", new_size);
+    } else {
+      return Status::OK();
+    }
+  }
+
+  /// \brief Ensures there is enough allocated capacity to append the indicated
+  /// number of bytes to the value data buffer without additional allocations
+  Status ReserveData(int64_t elements) {
+    ARROW_RETURN_NOT_OK(ValidateOverflow(elements));
+    return byte_builder_.Reserve(elements);
   }
 
   void Reset() override;
