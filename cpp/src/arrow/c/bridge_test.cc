@@ -277,6 +277,7 @@ TEST_F(TestSchemaExport, Primitive) {
   TestPrimitive(large_utf8(), "U");
 
   TestPrimitive(decimal(16, 4), "d:16,4");
+  TestPrimitive(decimal256(16, 4), "d:16,4,256");
 }
 
 TEST_F(TestSchemaExport, Temporal) {
@@ -736,6 +737,7 @@ TEST_F(TestArrayExport, Primitive) {
   TestPrimitive(large_utf8(), R"(["foo", "bar", null])");
 
   TestPrimitive(decimal(16, 4), R"(["1234.5670", null])");
+  TestPrimitive(decimal256(16, 4), R"(["1234.5670", null])");
 }
 
 TEST_F(TestArrayExport, PrimitiveSliced) {
