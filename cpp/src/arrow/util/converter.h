@@ -209,7 +209,7 @@ struct MakeConverterImpl {
     switch (t.value_type()->id()) {
 #define DICTIONARY_CASE(TYPE)                                                       \
   case TYPE::type_id:                                                               \
-    out = make_unique<                                                              \
+    out = internal::make_unique<                                                    \
         typename ConverterTrait<DictionaryType>::template dictionary_type<TYPE>>(); \
     break;
       DICTIONARY_CASE(BooleanType);
@@ -317,7 +317,7 @@ class Chunker {
 
 template <typename T>
 static Result<std::unique_ptr<Chunker<T>>> MakeChunker(std::unique_ptr<T> converter) {
-  return make_unique<Chunker<T>>(std::move(converter));
+  return internal::make_unique<Chunker<T>>(std::move(converter));
 }
 
 }  // namespace internal

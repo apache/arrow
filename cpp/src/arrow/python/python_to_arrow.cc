@@ -491,6 +491,8 @@ template <typename T>
 class PyPrimitiveConverter<T, enable_if_binary<T>>
     : public PrimitiveConverter<T, PyConverter> {
  public:
+  using OffsetType = typename T::offset_type;
+
   Status Append(PyObject* value) override {
     if (PyValue::IsNull(this->options_, value)) {
       this->primitive_builder_->UnsafeAppendNull();
@@ -501,7 +503,8 @@ class PyPrimitiveConverter<T, enable_if_binary<T>>
       // reserve space in the value builder one by one. ReserveData raises CapacityError
       // if the value would not fit into the array.
       ARROW_RETURN_NOT_OK(this->primitive_builder_->ReserveData(view_.size));
-      this->primitive_builder_->UnsafeAppend(view_.bytes, view_.size);
+      this->primitive_builder_->UnsafeAppend(view_.bytes,
+                                             static_cast<OffsetType>(view_.size));
     }
     return Status::OK();
   }
