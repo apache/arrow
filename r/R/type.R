@@ -37,13 +37,19 @@ DataType <- R6Class("DataType",
     Equals = function(other, ...) {
       inherits(other, "DataType") && DataType__Equals(self, other)
     },
+    num_fields = function() {
+      DataType__num_fields(self)
+    },
     num_children = function() {
-      DataType__num_children(self)
+      DataType__num_fields(self)
     },
     children = function() {
-      map(DataType__children_pointer(self), shared_ptr, class = Field)
+      # TODO: this is deprecated
+      DataType__fields(self)
     },
-
+    fields = function() {
+      DataType__fields(self)
+    },
     ..dispatch = function() {
       switch(names(Type)[self$id + 1],
         "NA" = null(),

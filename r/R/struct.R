@@ -20,7 +20,7 @@
 StructType <- R6Class("StructType",
   inherit = NestedType,
   public = list(
-    GetFieldByName = function(name) shared_ptr(Field, StructType__GetFieldByName(self, name)),
+    GetFieldByName = function(name) StructType__GetFieldByName(self, name),
     GetFieldIndex = function(name) StructType__GetFieldIndex(self, name)
   )
 )

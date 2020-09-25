@@ -78,7 +78,7 @@ FileOutputStream$create <- function(path) {
 BufferOutputStream <- R6Class("BufferOutputStream", inherit = OutputStream,
   public = list(
     capacity = function() io___BufferOutputStream__capacity(self),
-    finish = function() shared_ptr(Buffer, io___BufferOutputStream__Finish(self)),
+    finish = function() io___BufferOutputStream__Finish(self),
     write = function(bytes) io___BufferOutputStream__Write(self, bytes),
     tell = function() io___BufferOutputStream__Tell(self)
   )
@@ -92,7 +92,7 @@ BufferOutputStream$create <- function(initial_capacity = 0L) {
 
 Readable <- R6Class("Readable", inherit = ArrowObject,
   public = list(
-    Read = function(nbytes) shared_ptr(Buffer, io___Readable__Read(self, nbytes))
+    Read = function(nbytes) io___Readable__Read(self, nbytes)
   )
 )
 
@@ -148,9 +148,9 @@ RandomAccessFile <- R6Class("RandomAccessFile", inherit = InputStream,
 
     Read = function(nbytes = NULL) {
       if (is.null(nbytes)) {
-        shared_ptr(Buffer, io___RandomAccessFile__Read0(self))
+        io___RandomAccessFile__Read0(self)
       } else {
-        shared_ptr(Buffer, io___Readable__Read(self, nbytes))
+        io___Readable__Read(self, nbytes)
       }
     },
 
@@ -158,7 +158,7 @@ RandomAccessFile <- R6Class("RandomAccessFile", inherit = InputStream,
       if (is.null(nbytes)) {
         nbytes <- self$GetSize() - position
       }
-      shared_ptr(Buffer, io___RandomAccessFile__ReadAt(self, position, nbytes))
+      io___RandomAccessFile__ReadAt(self, position, nbytes)
     }
   )
 )

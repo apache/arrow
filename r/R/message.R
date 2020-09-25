@@ -39,8 +39,8 @@ Message <- R6Class("Message", inherit = ArrowObject,
   ),
   active = list(
     type = function() ipc___Message__type(self),
-    metadata = function() shared_ptr(Buffer, ipc___Message__metadata(self)),
-    body = function() shared_ptr(Buffer, ipc___Message__body(self))
+    metadata = function() ipc___Message__metadata(self),
+    body = function() ipc___Message__body(self)
   )
 )
 
@@ -59,7 +59,7 @@ Message <- R6Class("Message", inherit = ArrowObject,
 #' @export
 MessageReader <- R6Class("MessageReader", inherit = ArrowObject,
   public = list(
-    ReadNextMessage = function() shared_ptr(Message, ipc___MessageReader__ReadNextMessage(self))
+    ReadNextMessage = function() ipc___MessageReader__ReadNextMessage(self)
   )
 )
 
@@ -67,7 +67,7 @@ MessageReader$create <- function(stream) {
   if (!inherits(stream, "InputStream")) {
     stream <- BufferReader$create(stream)
   }
-  shared_ptr(MessageReader, ipc___MessageReader__Open(stream))
+  ipc___MessageReader__Open(stream)
 }
 
 #' Read a Message from a stream
@@ -86,7 +86,7 @@ read_message.default <- function(stream) {
 
 #' @export
 read_message.InputStream <- function(stream) {
-  shared_ptr(Message, ipc___ReadMessage(stream) )
+  ipc___ReadMessage(stream)
 }
 
 #' @export

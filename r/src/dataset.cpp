@@ -244,7 +244,7 @@ std::shared_ptr<ds::CsvFileFormat> dataset___CsvFileFormat__Make(
 // DirectoryPartitioning, HivePartitioning
 
 // [[arrow::export]]
-std::shared_ptr<ds::Partitioning> dataset___DirectoryPartitioning(
+std::shared_ptr<ds::DirectoryPartitioning> dataset___DirectoryPartitioning(
     const std::shared_ptr<arrow::Schema>& schm) {
   return std::make_shared<ds::DirectoryPartitioning>(schm);
 }
@@ -256,7 +256,7 @@ std::shared_ptr<ds::PartitioningFactory> dataset___DirectoryPartitioning__MakeFa
 }
 
 // [[arrow::export]]
-std::shared_ptr<ds::Partitioning> dataset___HivePartitioning(
+std::shared_ptr<ds::HivePartitioning> dataset___HivePartitioning(
     const std::shared_ptr<arrow::Schema>& schm) {
   return std::make_shared<ds::HivePartitioning>(schm);
 }

@@ -64,7 +64,7 @@ read_json_arrow <- function(file,
 #' @export
 JsonTableReader <- R6Class("JsonTableReader", inherit = ArrowObject,
   public = list(
-    Read = function() shared_ptr(Table, json___TableReader__Read(self))
+    Read = function() json___TableReader__Read(self)
   )
 )
 JsonTableReader$create <- function(file,

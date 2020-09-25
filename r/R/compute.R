@@ -147,7 +147,5 @@ cast_options <- function(safe = TRUE,
                          allow_int_overflow = !safe,
                          allow_time_truncate = !safe,
                          allow_float_truncate = !safe) {
-  shared_ptr(CastOptions,
-    compute___CastOptions__initialize(allow_int_overflow, allow_time_truncate, allow_float_truncate)
-  )
+  compute___CastOptions__initialize(allow_int_overflow, allow_time_truncate, allow_float_truncate)
 }

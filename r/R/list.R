@@ -20,7 +20,7 @@
 ListType <- R6Class("ListType",
   inherit = NestedType,
   active = list(
-    value_field = function() shared_ptr(Field, ListType__value_field(self)),
+    value_field = function() ListType__value_field(self),
     value_type = function() DataType$create(ListType__value_type(self))
   )
 )
@@ -32,7 +32,7 @@ list_of <- function(type) shared_ptr(ListType, list__(type))
 LargeListType <- R6Class("LargeListType",
   inherit = NestedType,
   active = list(
-    value_field = function() shared_ptr(Field, LargeListType__value_field(self)),
+    value_field = function() LargeListType__value_field(self),
     value_type = function() DataType$create(LargeListType__value_type(self))
   )
 )
@@ -46,7 +46,7 @@ large_list_of <- function(type) shared_ptr(LargeListType, large_list__(type))
 FixedSizeListType <- R6Class("FixedSizeListType",
   inherit = NestedType,
   active = list(
-    value_field = function() shared_ptr(Field, FixedSizeListType__value_field(self)),
+    value_field = function() FixedSizeListType__value_field(self),
     value_type = function() DataType$create(FixedSizeListType__value_type(self)),
     list_size = function() FixedSizeListType__list_size(self)
   )

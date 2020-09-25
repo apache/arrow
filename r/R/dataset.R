@@ -164,7 +164,7 @@ Dataset <- R6Class("Dataset", inherit = ArrowObject,
   active = list(
     schema = function(schema) {
       if (missing(schema)) {
-        shared_ptr(Schema, dataset___Dataset__schema(self))
+        dataset___Dataset__schema(self)
       } else {
         assert_is(schema, "Schema")
         invisible(shared_ptr(Dataset, dataset___Dataset__ReplaceSchema(self, schema)))
@@ -274,7 +274,7 @@ c.Dataset <- function(...) Dataset$create(list(...))
 head.Dataset <- function(x, n = 6L, ...) {
   assert_that(n > 0) # For now
   scanner <- Scanner$create(ensure_group_vars(x))
-  shared_ptr(Table, dataset___Scanner__head(scanner, n))
+  dataset___Scanner__head(scanner, n)
 }
 
 #' @export

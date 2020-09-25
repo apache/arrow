@@ -55,18 +55,14 @@ Partitioning <- R6Class("Partitioning", inherit = ArrowObject)
 #' @rdname Partitioning
 #' @export
 DirectoryPartitioning <- R6Class("DirectoryPartitioning", inherit = Partitioning)
-DirectoryPartitioning$create <- function(schema) {
-  shared_ptr(DirectoryPartitioning, dataset___DirectoryPartitioning(schema))
-}
+DirectoryPartitioning$create <- dataset___DirectoryPartitioning
 
 #' @usage NULL
 #' @format NULL
 #' @rdname Partitioning
 #' @export
 HivePartitioning <- R6Class("HivePartitioning", inherit = Partitioning)
-HivePartitioning$create <- function(schema) {
-  shared_ptr(HivePartitioning, dataset___HivePartitioning(schema))
-}
+HivePartitioning$create <- dataset___HivePartitioning
 
 #' Construct Hive partitioning
 #'
@@ -99,15 +95,11 @@ PartitioningFactory <- R6Class("PartitioningFactory", inherit = ArrowObject)
 #' @rdname Partitioning
 #' @export
 DirectoryPartitioningFactory <- R6Class("DirectoryPartitioningFactory ", inherit = PartitioningFactory)
-DirectoryPartitioningFactory$create <- function(x) {
-  shared_ptr(DirectoryPartitioningFactory, dataset___DirectoryPartitioning__MakeFactory(x))
-}
+DirectoryPartitioningFactory$create <- dataset___DirectoryPartitioning__MakeFactory
 
 #' @usage NULL
 #' @format NULL
 #' @rdname Partitioning
 #' @export
 HivePartitioningFactory <- R6Class("HivePartitioningFactory", inherit = PartitioningFactory)
-HivePartitioningFactory$create <- function() {
-  shared_ptr(HivePartitioningFactory, dataset___HivePartitioning__MakeFactory())
-}
+HivePartitioningFactory$create <- dataset___HivePartitioning__MakeFactory

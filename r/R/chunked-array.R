@@ -63,9 +63,9 @@ ChunkedArray <- R6Class("ChunkedArray", inherit = ArrowObject,
     as_vector = function() ChunkedArray__as_vector(self),
     Slice = function(offset, length = NULL){
       if (is.null(length)) {
-        shared_ptr(ChunkedArray, ChunkedArray__Slice1(self, offset))
+        ChunkedArray__Slice1(self, offset)
       } else {
-        shared_ptr(ChunkedArray, ChunkedArray__Slice2(self, offset, length))
+        ChunkedArray__Slice2(self, offset, length)
       }
     },
     Take = function(i) {
@@ -85,10 +85,10 @@ ChunkedArray <- R6Class("ChunkedArray", inherit = ArrowObject,
     },
     cast = function(target_type, safe = TRUE, options = cast_options(safe)) {
       assert_is(options, "CastOptions")
-      shared_ptr(ChunkedArray, ChunkedArray__cast(self, as_type(target_type), options))
+      ChunkedArray__cast(self, as_type(target_type), options)
     },
     View = function(type) {
-      shared_ptr(ChunkedArray, ChunkedArray__View(self, as_type(type)))
+      ChunkedArray__View(self, as_type(type))
     },
     Validate = function() {
       ChunkedArray__Validate(self)
@@ -112,7 +112,7 @@ ChunkedArray$create <- function(..., type = NULL) {
   if (!is.null(type)) {
     type <- as_type(type)
   }
-  shared_ptr(ChunkedArray, ChunkedArray__from_list(list2(...), type))
+  ChunkedArray__from_list(list2(...), type)
 }
 
 #' @param \dots Vectors to coerce

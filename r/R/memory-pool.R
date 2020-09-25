@@ -48,5 +48,5 @@ MemoryPool <- R6Class("MemoryPool",
 #' @export
 #' @keywords internal
 default_memory_pool <- function() {
-  shared_ptr(MemoryPool, MemoryPool__default())
+  MemoryPool__default()
 }

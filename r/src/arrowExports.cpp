@@ -1763,7 +1763,7 @@ extern "C" SEXP _arrow_dataset___CsvFileFormat__Make(SEXP parse_options_sexp){
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<ds::Partitioning> dataset___DirectoryPartitioning(const std::shared_ptr<arrow::Schema>& schm);
+std::shared_ptr<ds::DirectoryPartitioning> dataset___DirectoryPartitioning(const std::shared_ptr<arrow::Schema>& schm);
 extern "C" SEXP _arrow_dataset___DirectoryPartitioning(SEXP schm_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::Schema>&>::type schm(schm_sexp);
@@ -1793,7 +1793,7 @@ extern "C" SEXP _arrow_dataset___DirectoryPartitioning__MakeFactory(SEXP field_n
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<ds::Partitioning> dataset___HivePartitioning(const std::shared_ptr<arrow::Schema>& schm);
+std::shared_ptr<ds::HivePartitioning> dataset___HivePartitioning(const std::shared_ptr<arrow::Schema>& schm);
 extern "C" SEXP _arrow_dataset___HivePartitioning(SEXP schm_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::Schema>&>::type schm(schm_sexp);
@@ -2497,31 +2497,31 @@ extern "C" SEXP _arrow_DataType__Equals(SEXP lhs_sexp, SEXP rhs_sexp){
 
 // datatype.cpp
 #if defined(ARROW_R_WITH_ARROW)
-int DataType__num_children(const std::shared_ptr<arrow::DataType>& type);
-extern "C" SEXP _arrow_DataType__num_children(SEXP type_sexp){
+int DataType__num_fields(const std::shared_ptr<arrow::DataType>& type);
+extern "C" SEXP _arrow_DataType__num_fields(SEXP type_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::DataType>&>::type type(type_sexp);
-	return cpp11::as_sexp(DataType__num_children(type));
+	return cpp11::as_sexp(DataType__num_fields(type));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_DataType__num_children(SEXP type_sexp){
-	Rf_error("Cannot call DataType__num_children(). Please use arrow::install_arrow() to install required runtime libraries. ");
+extern "C" SEXP _arrow_DataType__num_fields(SEXP type_sexp){
+	Rf_error("Cannot call DataType__num_fields(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
 // datatype.cpp
 #if defined(ARROW_R_WITH_ARROW)
-cpp11::writable::list DataType__children_pointer(const std::shared_ptr<arrow::DataType>& type);
-extern "C" SEXP _arrow_DataType__children_pointer(SEXP type_sexp){
+std::vector<std::shared_ptr<arrow::Field>> DataType__fields(const std::shared_ptr<arrow::DataType>& type);
+extern "C" SEXP _arrow_DataType__fields(SEXP type_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::DataType>&>::type type(type_sexp);
-	return cpp11::as_sexp(DataType__children_pointer(type));
+	return cpp11::as_sexp(DataType__fields(type));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_DataType__children_pointer(SEXP type_sexp){
-	Rf_error("Cannot call DataType__children_pointer(). Please use arrow::install_arrow() to install required runtime libraries. ");
+extern "C" SEXP _arrow_DataType__fields(SEXP type_sexp){
+	Rf_error("Cannot call DataType__fields(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -6489,8 +6489,8 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_DataType__ToString", (DL_FUNC) &_arrow_DataType__ToString, 1}, 
 		{ "_arrow_DataType__name", (DL_FUNC) &_arrow_DataType__name, 1}, 
 		{ "_arrow_DataType__Equals", (DL_FUNC) &_arrow_DataType__Equals, 2}, 
-		{ "_arrow_DataType__num_children", (DL_FUNC) &_arrow_DataType__num_children, 1}, 
-		{ "_arrow_DataType__children_pointer", (DL_FUNC) &_arrow_DataType__children_pointer, 1}, 
+		{ "_arrow_DataType__num_fields", (DL_FUNC) &_arrow_DataType__num_fields, 1}, 
+		{ "_arrow_DataType__fields", (DL_FUNC) &_arrow_DataType__fields, 1}, 
 		{ "_arrow_DataType__id", (DL_FUNC) &_arrow_DataType__id, 1}, 
 		{ "_arrow_ListType__ToString", (DL_FUNC) &_arrow_ListType__ToString, 1}, 
 		{ "_arrow_FixedWidthType__bit_width", (DL_FUNC) &_arrow_FixedWidthType__bit_width, 1}, 

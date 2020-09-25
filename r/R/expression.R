@@ -177,17 +177,17 @@ Expression <- R6Class("Expression", inherit = ArrowObject,
 Expression$field_ref <- function(name) {
   assert_is(name, "character")
   assert_that(length(name) == 1)
-  shared_ptr(Expression, dataset___expr__field_ref(name))
+  dataset___expr__field_ref(name)
 }
 Expression$scalar <- function(x) {
-  shared_ptr(Expression, dataset___expr__scalar(Scalar$create(x)))
+  dataset___expr__scalar(Scalar$create(x))
 }
 Expression$compare <- function(OP, e1, e2) {
   comp_func <- comparison_function_map[[OP]]
   if (is.null(comp_func)) {
     stop(OP, " is not a supported comparison function", call. = FALSE)
   }
-  shared_ptr(Expression, comp_func(e1, e2))
+  comp_func(e1, e2)
 }
 
 comparison_function_map <- list(
@@ -199,19 +199,19 @@ comparison_function_map <- list(
   "<=" = dataset___expr__less_equal
 )
 Expression$in_ <- function(x, set) {
-  shared_ptr(Expression, dataset___expr__in(x, Array$create(set)))
+  dataset___expr__in(x, Array$create(set))
 }
 Expression$and <- function(e1, e2) {
-  shared_ptr(Expression, dataset___expr__and(e1, e2))
+  dataset___expr__and(e1, e2)
 }
 Expression$or <- function(e1, e2) {
-  shared_ptr(Expression, dataset___expr__or(e1, e2))
+  dataset___expr__or(e1, e2)
 }
 Expression$not <- function(e1) {
-  shared_ptr(Expression, dataset___expr__not(e1))
+  dataset___expr__not(e1)
 }
 Expression$is_valid <- function(e1) {
-  shared_ptr(Expression, dataset___expr__is_valid(e1))
+  dataset___expr__is_valid(e1)
 }
 
 #' @export

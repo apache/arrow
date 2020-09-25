@@ -71,12 +71,12 @@ Schema <- R6Class("Schema",
       }
       fields
     },
-    field = function(i) shared_ptr(Field, Schema__field(self, i)),
-    GetFieldByName = function(x) shared_ptr(Field, Schema__GetFieldByName(self, x)),
+    field = function(i) Schema__field(self, i),
+    GetFieldByName = function(x) Schema__GetFieldByName(self, x),
     serialize = function() Schema__serialize(self),
     WithMetadata = function(metadata = NULL) {
       metadata <- prepare_key_value_metadata(metadata)
-      shared_ptr(Schema, Schema__WithMetadata(self, metadata))
+      Schema__WithMetadata(self, metadata)
     },
     Equals = function(other, check_metadata = FALSE, ...) {
       inherits(other, "Schema") && Schema__Equals(self, other, isTRUE(check_metadata))
@@ -87,7 +87,7 @@ Schema <- R6Class("Schema",
       Schema__field_names(self)
     },
     num_fields = function() Schema__num_fields(self),
-    fields = function() map(Schema__fields(self), shared_ptr, class = Field),
+    fields = function() Schema__fields(self),
     HasMetadata = function() Schema__HasMetadata(self),
     metadata = function(new_metadata) {
       if (missing(new_metadata)) {
@@ -103,7 +103,7 @@ Schema <- R6Class("Schema",
     }
   )
 )
-Schema$create <- function(...) shared_ptr(Schema, schema_(.fields(list2(...))))
+Schema$create <- function(...) schema_(.fields(list2(...)))
 
 prepare_key_value_metadata <- function(metadata) {
   # key-value-metadata must be a named character vector;
@@ -169,7 +169,7 @@ length.Schema <- function(x) x$num_fields
       call. = FALSE
     )
   }
-  shared_ptr(Schema, schema_(fields))
+  schema_(fields)
 }
 
 #' @export
@@ -193,13 +193,13 @@ as.list.Schema <- function(x, ...) x$fields
 #' @export
 read_schema <- function(stream, ...) {
   if (inherits(stream, "Message")) {
-    return(shared_ptr(Schema, ipc___ReadSchema_Message(stream)))
+    return(ipc___ReadSchema_Message(stream))
   } else {
     if (!inherits(stream, "InputStream")) {
       stream <- BufferReader$create(stream)
       on.exit(stream$close())
     }
-    return(shared_ptr(Schema, ipc___ReadSchema_InputStream(stream)))
+    return(ipc___ReadSchema_InputStream(stream))
   }
 }
 
@@ -216,7 +216,7 @@ read_schema <- function(stream, ...) {
 #' unify_schemas(a, z)
 #' }
 unify_schemas <- function(..., schemas = list(...)) {
-  shared_ptr(Schema, arrow__UnifySchemas(schemas))
+  arrow__UnifySchemas(schemas)
 }
 
 #' @export

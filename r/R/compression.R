@@ -46,9 +46,9 @@ Codec <- R6Class("Codec", inherit = ArrowObject,
 )
 Codec$create <- function(type = "gzip", compression_level = NA) {
   if (is.string(type)) {
-    type <- shared_ptr(Codec, util___Codec__Create(
+    type <- util___Codec__Create(
       compression_from_name(type), compression_level
-    ))
+    )
   }
   assert_is(type, "Codec")
   type

@@ -644,12 +644,12 @@ DataType__Equals <- function(lhs, rhs){
     .Call(`_arrow_DataType__Equals` , lhs, rhs)
 }
 
-DataType__num_children <- function(type){
-    .Call(`_arrow_DataType__num_children` , type)
+DataType__num_fields <- function(type){
+    .Call(`_arrow_DataType__num_fields` , type)
 }
 
-DataType__children_pointer <- function(type){
-    .Call(`_arrow_DataType__children_pointer` , type)
+DataType__fields <- function(type){
+    .Call(`_arrow_DataType__fields` , type)
 }
 
 DataType__id <- function(type){
