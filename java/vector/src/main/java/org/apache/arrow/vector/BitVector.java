@@ -119,16 +119,6 @@ public final class BitVector extends BaseFixedWidthVector {
     lastValueCapacity = valueCount;
   }
 
-  /**
-   * Get the current value capacity for the vector.
-   *
-   * @return number of elements that vector can hold.
-   */
-  @Override
-  public int getValueCapacity() {
-    return actualValueCapacity;
-  }
-
   @Override
   protected void refreshValueCapacity() {
     actualValueCapacity = capAtMaxInt(validityBuffer.capacity() * 8);
