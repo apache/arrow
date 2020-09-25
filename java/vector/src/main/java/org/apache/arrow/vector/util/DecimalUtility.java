@@ -32,8 +32,10 @@ public class DecimalUtility {
   private DecimalUtility() {}
 
   public static final int DECIMAL_BYTE_LENGTH = 16;
-  public static final byte [] zeroes = new byte[] {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-  public static final byte [] minus_one = new byte[] {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
+  public static final byte [] zeroes = new byte[] {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                                                   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+  public static final byte [] minus_one = new byte[] {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+                                                      -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
 
   /**
    * Read an ArrowType.Decimal at the given value index in the ArrowBuf and convert to a BigDecimal
@@ -159,7 +161,7 @@ public class DecimalUtility {
   private static void writeByteArrayToArrowBufHelper(byte[] bytes, ArrowBuf bytebuf, int index, int byteWidth) {
     final long startIndex = (long) index * byteWidth;
     if (bytes.length > byteWidth) {
-      throw new UnsupportedOperationException("Decimal size greater than 16 bytes");
+      throw new UnsupportedOperationException("Decimal size greater than " + byteWidth + " bytes: " + bytes.length);
     }
 
     // Decimal stored as little endian, need to swap data bytes before writing to ArrowBuf
@@ -169,8 +171,8 @@ public class DecimalUtility {
     }
 
     // Write LE data
-    byte [] padByes = bytes[0] < 0 ? minus_one : zeroes;
+    byte [] padBytes = bytes[0] < 0 ? minus_one : zeroes;
     bytebuf.setBytes(startIndex, bytesLE, 0, bytes.length);
-    bytebuf.setBytes(startIndex + bytes.length, padByes, 0, byteWidth - bytes.length);
+    bytebuf.setBytes(startIndex + bytes.length, padBytes, 0, byteWidth - bytes.length);
   }
 }
