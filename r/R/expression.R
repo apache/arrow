@@ -37,19 +37,12 @@ Ops.Array <- function(e1, e2) {
     expr <- build_array_expression(.Generic, e1, e2)
     eval_array_expression(expr)
   } else {
-    stop("Unsupported operation on Array: ", .Generic, call. = FALSE)
+    stop(glue::glue("Unsupported operation on {class(e1)[1L]} : "), .Generic, call. = FALSE)
   }
 }
 
 #' @export
-Ops.ChunkedArray <- function(e1, e2) {
-  if (.Generic %in% names(.array_function_map)) {
-    expr <- build_array_expression(.Generic, e1, e2)
-    eval_array_expression(expr)
-  } else {
-    stop("Unsupported operation on ChunkedArray: ", .Generic, call. = FALSE)
-  }
-}
+Ops.ChunkedArray <- Ops.Array
 
 #' @export
 Ops.array_expression <- function(e1, e2) {
