@@ -22,7 +22,6 @@
 #include "./arrow_cpp11.h"
 
 #if defined(ARROW_R_WITH_ARROW)
-#include <arrow/dataset/api.h>
 #include <arrow/dataset/type_fwd.h>
 #include <arrow/filesystem/type_fwd.h>
 #include <arrow/io/type_fwd.h>
@@ -84,6 +83,15 @@ class FileWriter;
 
 }  // namespace arrow
 }  // namespace parquet
+
+namespace arrow {
+namespace dataset {
+
+class DirectoryPartitioning;
+class HivePartitioning;
+
+}
+}
 
 namespace cpp11 {
 
