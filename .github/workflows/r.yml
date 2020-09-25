@@ -206,7 +206,10 @@ jobs:
         run: |
           Sys.setenv(
             RWINLIB_LOCAL = file.path(Sys.getenv("GITHUB_WORKSPACE"), "libarrow.zip"),
-            MAKEFLAGS = paste0("-j", parallel::detectCores())
+            MAKEFLAGS = paste0("-j", parallel::detectCores()),
+            AR = "gcc-ar",
+            NM = "gcc-nm",
+            RANLIB = "gcc-ranlib"
           )
           rcmdcheck::rcmdcheck("r",
             build_args = '--no-build-vignettes',
