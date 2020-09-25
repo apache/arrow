@@ -33,12 +33,7 @@
 //! let schema = csvdata.schema();
 //! ```
 
-use std::fs::File;
-
-use arrow::csv;
-use arrow::datatypes::{Field, Schema, SchemaRef};
-use arrow::error::Result as ArrowResult;
-use arrow::record_batch::{RecordBatch, RecordBatchReader};
+use arrow::datatypes::SchemaRef;
 use std::string::String;
 use std::sync::Arc;
 
@@ -103,59 +98,5 @@ impl TableProvider for CsvFile {
             projection.clone(),
             batch_size,
         )?))
-    }
-}
-
-/// Iterator over CSV batches
-// TODO: usage example (rather than documenting `new()`)
-pub struct CsvBatchIterator {
-    schema: SchemaRef,
-    reader: csv::Reader<File>,
-}
-
-impl CsvBatchIterator {
-    #[allow(missing_docs)]
-    pub fn try_new(
-        filename: &str,
-        schema: SchemaRef,
-        has_header: bool,
-        delimiter: Option<u8>,
-        projection: &Option<Vec<usize>>,
-        batch_size: usize,
-    ) -> Result<Self> {
-        let file = File::open(filename)?;
-        let reader = csv::Reader::new(
-            file,
-            schema.clone(),
-            has_header,
-            delimiter,
-            batch_size,
-            projection.clone(),
-        );
-
-        let projected_schema = match projection {
-            Some(p) => {
-                let projected_fields: Vec<Field> =
-                    p.iter().map(|i| schema.fields()[*i].clone()).collect();
-
-                Arc::new(Schema::new(projected_fields))
-            }
-            None => schema,
-        };
-
-        Ok(Self {
-            schema: projected_schema,
-            reader,
-        })
-    }
-}
-
-impl RecordBatchReader for CsvBatchIterator {
-    fn schema(&self) -> SchemaRef {
-        self.schema.clone()
-    }
-
-    fn next_batch(&mut self) -> ArrowResult<Option<RecordBatch>> {
-        self.reader.next()
     }
 }
