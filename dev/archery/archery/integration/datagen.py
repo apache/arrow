@@ -400,14 +400,15 @@ class FloatingPointField(PrimitiveField):
 
 DECIMAL_PRECISION_TO_VALUE = {
     key: (1 << (8 * i - 1)) - 1 for i, key in enumerate(
-        [1, 3, 5, 7, 10, 12, 15, 17, 19, 22, 24, 27, 29, 32, 34, 36],
+        [1, 3, 5, 7, 10, 12, 15, 17, 19, 22, 24, 27, 29, 32, 34, 36,
+         38, 40, 42, 44, 50, 60, 70],
         start=1,
     )
 }
 
 
 def decimal_range_from_precision(precision):
-    assert 1 <= precision <= 38
+    assert 1 <= precision <= 76
     try:
         max_value = DECIMAL_PRECISION_TO_VALUE[precision]
     except KeyError:
@@ -417,7 +418,7 @@ def decimal_range_from_precision(precision):
 
 
 class DecimalField(PrimitiveField):
-    def __init__(self, name, precision, scale, bit_width=128, *,
+    def __init__(self, name, precision, scale, bit_width, *,
                  nullable=True, metadata=None):
         super().__init__(name, nullable=True,
                          metadata=metadata)
@@ -434,6 +435,7 @@ class DecimalField(PrimitiveField):
             ('name', 'decimal'),
             ('precision', self.precision),
             ('scale', self.scale),
+            ('bitWidth', self.bit_width),
         ])
 
     def generate_column(self, size, name=None):
@@ -448,7 +450,7 @@ class DecimalField(PrimitiveField):
 
 class DecimalColumn(PrimitiveColumn):
 
-    def __init__(self, name, count, is_valid, values, bit_width=128):
+    def __init__(self, name, count, is_valid, values, bit_width):
         super().__init__(name, count, is_valid, values)
         self.bit_width = bit_width
 
@@ -1274,8 +1276,13 @@ def generate_null_trivial_case(batch_sizes):
 
 def generate_decimal_case():
     fields = [
-        DecimalField(name='f{}'.format(i), precision=precision, scale=2)
+        DecimalField(name='f{}'.format(i), precision=precision, scale=2,
+            bit_width=128)
         for i, precision in enumerate(range(3, 39))
+    ] + [
+        DecimalField(name='f{}'.format(i), precision=precision, scale=5,
+            bit_width=256)
+        for i, precision in enumerate(range(37, 70))
     ]
 
     possible_batch_sizes = 7, 10
@@ -1516,6 +1523,8 @@ def get_generated_json_files(tempdir=None):
         generate_decimal_case()
         .skip_category('Go')  # TODO(ARROW-7948): Decimal + Go
         .skip_category('Rust'),
+        .skip_category('Java'),
+
 
         generate_datetime_case()
         .skip_category('Rust'),
