@@ -121,7 +121,15 @@ public final class BitVector extends BaseFixedWidthVector {
 
   @Override
   protected void refreshValueCapacity() {
-    actualValueCapacity = capAtMaxInt(validityBuffer.capacity() * 8);
+    actualValueCapacity = Math.min(getValueBufferValueCapacity(), getValidityBufferValueCapacity());
+  }
+
+  private int getValueBufferValueCapacity() {
+    return capAtMaxInt(valueBuffer.capacity() * 8);
+  }
+
+  private int getValidityBufferValueCapacity() {
+    return capAtMaxInt(validityBuffer.capacity() * 8);
   }
 
   /**
