@@ -455,20 +455,23 @@ where
 
 pub(super) fn buffer_bin_and(
     left: &Buffer,
-    left_offset: usize,
+    left_offset_in_bits: usize,
     right: &Buffer,
-    right_offset: usize,
-    len: usize,
+    right_offset_in_bits: usize,
+    len_in_bits: usize,
 ) -> Buffer {
     // SIMD implementation if available and byte-aligned
     #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
-    if left_offset % 8 == 0 && right_offset % 8 == 0 && len % 8 == 0 {
+    if left_offset_in_bits % 8 == 0
+        && right_offset_in_bits % 8 == 0
+        && len_in_bits % 8 == 0
+    {
         return bitwise_bin_op_simd_helper(
             &left,
-            left_offset,
+            left_offset_in_bits / 8,
             &right,
-            right_offset,
-            len,
+            right_offset_in_bits / 8,
+            len_in_bits / 8,
             |a, b| a & b,
             |a, b| a & b,
         );
@@ -476,7 +479,14 @@ pub(super) fn buffer_bin_and(
     // Default implementation
     #[allow(unreachable_code)]
     {
-        bitwise_bin_op_helper(&left, left_offset, right, right_offset, len, |a, b| a & b)
+        bitwise_bin_op_helper(
+            &left,
+            left_offset_in_bits,
+            right,
+            right_offset_in_bits,
+            len_in_bits,
+            |a, b| a & b,
+        )
     }
 }
 
