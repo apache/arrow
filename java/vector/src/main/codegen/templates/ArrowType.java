@@ -308,7 +308,8 @@ public abstract class ArrowType {
 
   private static final int defaultDecimalBitWidth = 128;
 
-  public static org.apache.arrow.vector.types.pojo.ArrowType getTypeForField(org.apache.arrow.flatbuf.Field field) {
+  <#list messagesWithTypes.messages as messageType>
+  public static org.apache.arrow.vector.types.pojo.ArrowType getTypeForField(org.apache.arrow.flatbuf.${messageType.name} field) {
     switch(field.typeType()) {
     <#list arrowTypes.types as type>
     <#assign name = type.name?remove_ending("_")>
@@ -339,6 +340,7 @@ public abstract class ArrowType {
       throw new UnsupportedOperationException("Unsupported type: " + field.typeType());
     }
   }
+  </#list>
 
   public static Int getInt(org.apache.arrow.flatbuf.Field field) {
     org.apache.arrow.flatbuf.Int intType = (org.apache.arrow.flatbuf.Int) field.type(new org.apache.arrow.flatbuf.Int());

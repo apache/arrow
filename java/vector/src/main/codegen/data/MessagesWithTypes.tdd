@@ -13,13 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-data: {
-    # TODO:  Rename to ~valueVectorModesAndTypes for clarity.
-    vv:                       tdd(../data/ValueVectorTypes.tdd),
-    arrowTypes:               tdd(../data/ArrowTypes.tdd)
-    messagesWithTypes:        tdd(../data/MessagesWithTypes.tdd)
-
-}
-freemarkerLinks: {
-    includes: includes/
+{
+  messages: [
+    {
+      name: "Field"
+    },
+    {
+      name: "Tensor"
+    }
+  ]
 }
