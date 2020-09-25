@@ -136,7 +136,7 @@ Result<Datum> MinMax(const Datum& value,
 /// struct<mode: T, count: int64>, where T is the input type.
 /// If there is more than one such value, the smallest one is returned.
 ///
-/// \param[in] value input datum, expecting Array
+/// \param[in] value input datum, expecting Array or ChunkedArray
 /// \param[in] ctx the function execution context, optional
 /// \return resulting datum as a struct<mode: T, count: int64> scalar
 ///

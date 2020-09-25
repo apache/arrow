@@ -26,26 +26,6 @@ namespace aggregate {
 
 namespace {
 
-template <typename ArrayType, typename Visitor>
-inline void VisitArrayNonNullValuesInline(const ArrayType& array, Visitor&& visitor) {
-  if (array.length() == array.null_count()) {
-    return;
-  }
-  if (array.null_count() > 0) {
-    BitmapReader reader(array.null_bitmap_data(), array.offset(), array.length());
-    for (int64_t i = 0; i < array.length(); ++i) {
-      if (reader.IsSet()) {
-        visitor(array.Value(i));
-      }
-      reader.Next();
-    }
-  } else {
-    for (int64_t i = 0; i < array.length(); ++i) {
-      visitor(array.Value(i));
-    }
-  }
-}
-
 // {value:count} map
 template <typename CType>
 using CounterMap = std::unordered_map<CType, int64_t>;
@@ -57,13 +37,18 @@ enable_if_t<std::is_floating_point<CType>::value, CounterMap<CType>> CountValues
   CounterMap<CType> value_counts_map;
 
   nan_count = 0;
-  VisitArrayNonNullValuesInline(array, [&](CType value) {
-    if (std::isnan(value)) {
-      ++nan_count;
-    } else {
-      ++value_counts_map[value];
-    }
-  });
+  if (array.length() > array.null_count()) {
+    VisitArrayDataInline<typename ArrayType::TypeClass>(
+        *array.data(),
+        [&](CType value) {
+          if (std::isnan(value)) {
+            ++nan_count;
+          } else {
+            ++value_counts_map[value];
+          }
+        },
+        []() {});
+  }
 
   return value_counts_map;
 }
@@ -74,7 +59,10 @@ enable_if_t<!std::is_floating_point<CType>::value, CounterMap<CType>> CountValue
     const ArrayType& array) {
   CounterMap<CType> value_counts_map;
 
-  VisitArrayNonNullValuesInline(array, [&](CType value) { ++value_counts_map[value]; });
+  if (array.length() > array.null_count()) {
+    VisitArrayDataInline<typename ArrayType::TypeClass>(
+        *array.data(), [&](CType value) { ++value_counts_map[value]; }, []() {});
+  }
 
   return value_counts_map;
 }
@@ -86,8 +74,10 @@ CounterMap<CType> CountValuesByVector(const ArrayType& array, CType min, CType m
   DCHECK(range >= 0 && range < 64 * 1024 * 1024);
 
   std::vector<int64_t> value_counts_vector(range + 1);
-  VisitArrayNonNullValuesInline(array,
-                                [&](CType value) { ++value_counts_vector[value - min]; });
+  if (array.length() > array.null_count()) {
+    VisitArrayDataInline<typename ArrayType::TypeClass>(
+        *array.data(), [&](CType value) { ++value_counts_vector[value - min]; }, []() {});
+  }
 
   // Transfer value counts to a map to be consistent with other chunks
   CounterMap<CType> value_counts_map(range + 1);
@@ -113,10 +103,13 @@ CounterMap<CType> CountValuesByMapOrVector(const ArrayType& array) {
     CType min = std::numeric_limits<CType>::max();
     CType max = std::numeric_limits<CType>::min();
 
-    VisitArrayNonNullValuesInline(array, [&](CType value) {
-      min = std::min(min, value);
-      max = std::max(max, value);
-    });
+    VisitArrayDataInline<typename ArrayType::TypeClass>(
+        *array.data(),
+        [&](CType value) {
+          min = std::min(min, value);
+          max = std::max(max, value);
+        },
+        []() {});
 
     if (static_cast<uint64_t>(max) - static_cast<uint64_t>(min) <= kMaxValueRange) {
       return CountValuesByVector(array, min, max);
