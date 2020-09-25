@@ -22,7 +22,7 @@ use std::rc::Rc;
 use arrow::array as arrow_array;
 use arrow::datatypes::{DataType as ArrowDataType, SchemaRef};
 use arrow::record_batch::RecordBatch;
-use arrow_array::Array;
+use arrow_array::{Array, PrimitiveArrayOps};
 
 use super::schema::add_encoded_arrow_schema_to_metadata;
 use crate::column::writer::ColumnWriter;

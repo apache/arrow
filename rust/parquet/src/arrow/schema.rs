@@ -27,6 +27,7 @@ use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
 use arrow::datatypes::{DataType, DateUnit, Field, Schema, TimeUnit};
+use arrow::ipc::writer;
 
 use crate::basic::{LogicalType, Repetition, Type as PhysicalType};
 use crate::errors::{ParquetError::ArrowError, Result};
@@ -120,15 +121,16 @@ fn get_arrow_schema_from_metadata(encoded_meta: &str) -> Option<Schema> {
 
 /// Encodes the Arrow schema into the IPC format, and base64 encodes it
 fn encode_arrow_schema(schema: &Schema) -> String {
-    let mut serialized_schema = arrow::ipc::writer::schema_to_bytes(&schema);
+    let options = writer::IpcWriteOptions::default();
+    let mut serialized_schema = arrow::ipc::writer::schema_to_bytes(&schema, &options);
 
     // manually prepending the length to the schema as arrow uses the legacy IPC format
     // TODO: change after addressing ARROW-9777
-    let schema_len = serialized_schema.len();
+    let schema_len = serialized_schema.ipc_message.len();
     let mut len_prefix_schema = Vec::with_capacity(schema_len + 8);
     len_prefix_schema.append(&mut vec![255u8, 255, 255, 255]);
     len_prefix_schema.append((schema_len as u32).to_le_bytes().to_vec().as_mut());
-    len_prefix_schema.append(&mut serialized_schema);
+    len_prefix_schema.append(&mut serialized_schema.ipc_message);
 
     base64::encode(&len_prefix_schema)
 }
