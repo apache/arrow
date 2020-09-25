@@ -51,6 +51,7 @@ public class BufferLayout {
   private static final BufferLayout LARGE_OFFSET_BUFFER = new BufferLayout(BufferType.OFFSET, 64);
   private static final BufferLayout TYPE_BUFFER = new BufferLayout(BufferType.TYPE, 32);
   private static final BufferLayout BIT_BUFFER = new BufferLayout(BufferType.DATA, 1);
+  private static final BufferLayout VALUES_256 = new BufferLayout(BufferType.DATA, 256);
   private static final BufferLayout VALUES_128 = new BufferLayout(BufferType.DATA, 128);
   private static final BufferLayout VALUES_64 = new BufferLayout(BufferType.DATA, 64);
   private static final BufferLayout VALUES_32 = new BufferLayout(BufferType.DATA, 32);
@@ -85,8 +86,10 @@ public class BufferLayout {
         return VALUES_64;
       case 128:
         return VALUES_128;
+      case 256:
+        return VALUES_256;
       default:
-        throw new IllegalArgumentException("only 8, 16, 32, 64, or 128 bits supported");
+        throw new IllegalArgumentException("only 8, 16, 32, 64, 128, or 256 bits supported");
     }
   }
 

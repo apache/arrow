@@ -34,7 +34,7 @@ package org.apache.arrow.vector.complex.impl;
 @SuppressWarnings("unused")
 public class UnionReader extends AbstractFieldReader {
 
-  private BaseReader[] readers = new BaseReader[43];
+  private BaseReader[] readers = new BaseReader[44];
   public UnionVector data;
   
   public UnionReader(UnionVector data) {
@@ -45,7 +45,7 @@ public class UnionReader extends AbstractFieldReader {
     return TYPES[data.getTypeValue(idx())];
   }
 
-  private static MinorType[] TYPES = new MinorType[43];
+  private static MinorType[] TYPES = new MinorType[44];
 
   static {
     for (MinorType minorType : MinorType.values()) {
