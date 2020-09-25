@@ -344,13 +344,13 @@ SEXP R6_make(SEXP symbol, SEXP fun_symbol, const std::shared_ptr<T>& x) {
 }
 
 template <typename T>
-SEXP R6_new(SEXP symbol, const std::shared_ptr<T>& x) {
-  return R6_make(symbol, arrow::r::symbols::new_, x);
+SEXP R6_new(SEXP symbol, T x) {
+  return R6_make(symbol, arrow::r::symbols::new_, std::move(x));
 }
 
 template <typename T>
-SEXP R6_create(SEXP symbol, const std::shared_ptr<T>& x) {
-  return R6_make(symbol, arrow::r::symbols::create, x);
+SEXP R6_create(SEXP symbol, T x) {
+  return R6_make(symbol, arrow::r::symbols::create, std::move(x));
 }
 
 }  // namespace cpp11
