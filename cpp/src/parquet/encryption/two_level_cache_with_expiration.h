@@ -23,7 +23,6 @@
 #include "arrow/util/mutex.h"
 
 #include "parquet/encryption/key_toolkit_internal.h"
-#include "parquet/platform.h"
 
 using arrow::util::ConcurrentMap;
 
@@ -88,7 +87,7 @@ class ExpiringCacheMapEntry {
 //    internal::ExpiringCacheEntry<std::unordered_map<std::string, V>>>
 // This cache is safe to be shared between threads.
 template <typename V>
-class PARQUET_EXPORT TwoLevelCacheWithExpiration {
+class TwoLevelCacheWithExpiration {
  public:
   TwoLevelCacheWithExpiration() {
     last_cache_cleanup_timestamp_ = internal::CurrentTimePoint();

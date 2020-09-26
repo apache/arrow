@@ -191,7 +191,7 @@ TEST_F(TwoLevelCacheWithExpirationTest, Clear) {
 
 TEST_F(TwoLevelCacheWithExpirationTest, MultiThread) {
   std::vector<std::thread> insert_threads;
-  for (size_t i = 0; i < 10; i++) {
+  for (int i = 0; i < 10; i++) {
     insert_threads.push_back(std::thread([this, i]() { this->TaskInsert(i); }));
   }
   std::thread clean_thread([this]() { this->TaskClean(); });
