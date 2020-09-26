@@ -15,10 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! Defines kernel to extract a substring of a StringArray
-
-use num::Zero;
-use std::convert::TryInto;
+//! Defines kernel to extract a substring of a [Large]StringArray
 
 use crate::{array::*, buffer::Buffer, datatypes::ToByteSlice};
 use crate::{
@@ -27,80 +24,95 @@ use crate::{
 };
 use std::sync::Arc;
 
-macro_rules! substring {
-    ($array:expr, $start:expr, $length:expr, $native:ident, $array_type:ident, $datatype:expr) => {{
-        // compute current offsets
-        let offsets = $array.data_ref().clone().buffers()[0].clone();
-        let offsets: &[$native] = unsafe { offsets.typed_data::<$native>() };
+fn substring1<OffsetSize: OffsetSizeTrait>(
+    array: &GenericStringArray<OffsetSize>,
+    start: OffsetSize,
+    length: &Option<OffsetSize>,
+    datatype: DataType,
+) -> Result<ArrayRef> {
+    // compute current offsets
+    let offsets = array.data_ref().clone().buffers()[0].clone();
+    let offsets: &[OffsetSize] = unsafe { offsets.typed_data::<OffsetSize>() };
 
-        // compute null bitmap (copy)
-        let null_bit_buffer = $array.data_ref().null_buffer().map(|e| e.clone());
+    // compute null bitmap (copy)
+    let null_bit_buffer = array.data_ref().null_buffer().map(|e| e.clone());
 
-        // compute values
-        let values = &$array.data_ref().buffers()[1];
-        let data = values.data();
+    // compute values
+    let values = &array.data_ref().buffers()[1];
+    let data = values.data();
 
-        let mut new_values = Vec::new(); // we have no way to estimate how much this will be.
-        let mut new_offsets: Vec<$native> = Vec::with_capacity($array.len() + 1);
+    let mut new_values = Vec::new(); // we have no way to estimate how much this will be.
+    let mut new_offsets: Vec<OffsetSize> = Vec::with_capacity(array.len() + 1);
 
-        let mut length_so_far = $native::zero();
+    let mut length_so_far = OffsetSize::zero();
+    new_offsets.push(length_so_far);
+    (0..array.len()).for_each(|i| {
+        // the length of this entry
+        let lenght_i: OffsetSize = offsets[i + 1] - offsets[i];
+        // compute where we should start slicing this entry
+        let start = offsets[i]
+            + if start >= OffsetSize::zero() {
+                start
+            } else {
+                lenght_i + start
+            };
+
+        let start = start.max(offsets[i]).min(offsets[i + 1]).into();
+        // compute the lenght of the slice
+        let length: OffsetSize = length
+            .unwrap_or(lenght_i)
+            // .max(0) is not needed as it is guaranteed
+            .min((offsets[i + 1] - start).into()); // so we do not go beyond this entry
+
+        length_so_far = length_so_far + length.into();
+
         new_offsets.push(length_so_far);
-        (0..$array.len()).for_each(|i| {
-            // the length of this entry
-            let lenght_i: $native = offsets[i + 1] - offsets[i];
-            // compute where we should start slicing this entry
-            let start: $native = offsets[i] as $native
-                + if $start >= 0 {
-                    $start as $native
-                } else {
-                    lenght_i as $native + $start as $native
-                };
 
-            let start =
-                start.max(offsets[i]).min(offsets[i + 1]) as usize;
-            // compute the lenght of the slice
-            let length = $length
-                .unwrap_or(lenght_i.try_into().unwrap())
-                // .max(0) is not needed as it is guaranteed
-                .min((offsets[i + 1] - start as $native) as u64); // so we do not go beyond this entry
+        // we need usize for ranges
+        let start = start.to_usize().unwrap();
+        let length = length.to_usize().unwrap();
 
-            length_so_far += length as $native;
+        new_values.extend_from_slice(&data[start..start + length]);
+    });
 
-            new_offsets.push(length_so_far);
-            new_values.extend_from_slice(&data[start..start + length as usize]);
-        });
-
-        let data = ArrayData::new(
-            $datatype,
-            $array.len(),
-            None,
-            null_bit_buffer,
-            0,
-            vec![
-                Buffer::from(new_offsets.to_byte_slice()),
-                Buffer::from(&new_values[..]),
-            ],
-            vec![],
-        );
-        Ok(Arc::new($array_type::from(Arc::new(data))))
-    }};
+    let data = ArrayData::new(
+        datatype,
+        array.len(),
+        None,
+        null_bit_buffer,
+        0,
+        vec![
+            Buffer::from(new_offsets.to_byte_slice()),
+            Buffer::from(&new_values[..]),
+        ],
+        vec![],
+    );
+    Ok(make_array(Arc::new(data)))
 }
 
 /// Returns an ArrayRef with a substring starting from `start` and with optional length `length` of each of the elements in `array`.
 /// `start` can be negative, in which case the start counts from the end of the string.
+/// this function errors when the passed array is not a [Large]String array.
 pub fn substring(array: &Array, start: i64, length: &Option<u64>) -> Result<ArrayRef> {
     match array.data_type() {
-        DataType::LargeUtf8 => substring!(
-            array,
+        DataType::LargeUtf8 => substring1(
+            array
+                .as_any()
+                .downcast_ref::<LargeStringArray>()
+                .expect("A large string is expected"),
             start,
-            length,
-            i64,
-            LargeStringArray,
-            DataType::LargeUtf8
+            &length.map(|e| e as i64),
+            DataType::LargeUtf8,
         ),
-        DataType::Utf8 => {
-            substring!(array, start, length, i32, StringArray, DataType::Utf8)
-        }
+        DataType::Utf8 => substring1(
+            array
+                .as_any()
+                .downcast_ref::<StringArray>()
+                .expect("A string is expected"),
+            start as i32,
+            &length.map(|e| e as i32),
+            DataType::Utf8,
+        ),
         _ => Err(ArrowError::ComputeError(format!(
             "substring does not support type {:?}",
             array.data_type()
