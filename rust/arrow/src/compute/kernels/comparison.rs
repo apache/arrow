@@ -28,7 +28,7 @@ use std::sync::Arc;
 
 use crate::array::*;
 use crate::buffer::{Buffer, MutableBuffer};
-use crate::compute::util::{combine_option_bitmap, compare_option_bitmap};
+use crate::compute::util::combine_option_bitmap;
 use crate::datatypes::{ArrowNumericType, BooleanType, DataType};
 use crate::error::{ArrowError, Result};
 use crate::util::bit_util;
@@ -564,52 +564,39 @@ where
     T: ArrowNumericType,
     OffsetSize: OffsetSizeTrait,
 {
-    if left.len() != right.len() {
+    let left_len = left.len();
+    if left_len != right.len() {
         return Err(ArrowError::ComputeError(
             "Cannot perform comparison operation on arrays of different length"
                 .to_string(),
         ));
     }
 
+    let num_bytes = bit_util::ceil(left_len, 8);
+
     let not_both_null_bit_buffer =
-        match compare_option_bitmap(left.data_ref(), right.data_ref(), left.len())? {
+        match combine_option_bitmap(left.data_ref(), right.data_ref(), left_len)? {
             Some(buff) => buff,
-            None => new_all_set_buffer(left.len()),
+            None => new_all_set_buffer(num_bytes),
         };
     let not_both_null_bitmap = not_both_null_bit_buffer.data();
 
-    let left_data = left.data();
-    let left_null_bitmap = match left_data.null_bitmap() {
-        Some(bitmap) => bitmap.clone().into_buffer(),
-        _ => new_all_set_buffer(left.len()),
-    };
-    let left_null_bitmap = left_null_bitmap.data();
+    let mut bool_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, false);
+    let bool_slice = bool_buf.data_mut();
 
-    let mut result = BooleanBufferBuilder::new(left.len());
-
-    for i in 0..left.len() {
-        let mut is_in = false;
-
-        // contains(null, null) = false
+    // if both array slots are valid, check if list contains primitive
+    for i in 0..left_len {
         if bit_util::get_bit(not_both_null_bitmap, i) {
             let list = right.value(i);
+            let list = list.as_any().downcast_ref::<PrimitiveArray<T>>().unwrap();
 
-            // contains(null, [null]) = true
-            if !bit_util::get_bit(left_null_bitmap, i) {
-                if list.null_count() > 0 {
-                    is_in = true;
-                }
-            } else {
-                let list = list.as_any().downcast_ref::<PrimitiveArray<T>>().unwrap();
-
-                for j in 0..list.len() {
-                    if list.is_valid(j) && (left.value(i) == list.value(j)) {
-                        is_in = true;
-                    }
+            for j in 0..list.len() {
+                if list.is_valid(j) && (left.value(i) == list.value(j)) {
+                    bit_util::set_bit(bool_slice, i);
+                    continue;
                 }
             }
         }
-        result.append(is_in)?;
     }
 
     let data = ArrayData::new(
@@ -617,8 +604,8 @@ where
         left.len(),
         None,
         None,
-        left.offset(),
-        vec![result.finish()],
+        0,
+        vec![bool_buf.freeze()],
         vec![],
     );
     Ok(PrimitiveArray::<BooleanType>::from(Arc::new(data)))
@@ -632,55 +619,42 @@ pub fn contains_utf8<OffsetSize>(
 where
     OffsetSize: OffsetSizeTrait,
 {
-    if left.len() != right.len() {
+    let left_len = left.len();
+    if left_len != right.len() {
         return Err(ArrowError::ComputeError(
             "Cannot perform comparison operation on arrays of different length"
                 .to_string(),
         ));
     }
 
+    let num_bytes = bit_util::ceil(left_len, 8);
+
     let not_both_null_bit_buffer =
-        match compare_option_bitmap(left.data_ref(), right.data_ref(), left.len())? {
+        match combine_option_bitmap(left.data_ref(), right.data_ref(), left_len)? {
             Some(buff) => buff,
-            None => new_all_set_buffer(left.len()),
+            None => new_all_set_buffer(num_bytes),
         };
     let not_both_null_bitmap = not_both_null_bit_buffer.data();
 
-    let left_data = left.data();
-    let left_null_bitmap = match left_data.null_bitmap() {
-        Some(bitmap) => bitmap.clone().into_buffer(),
-        _ => new_all_set_buffer(left.len()),
-    };
-    let left_null_bitmap = left_null_bitmap.data();
+    let mut bool_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, false);
+    let bool_slice = bool_buf.data_mut();
 
-    let mut result = BooleanBufferBuilder::new(left.len());
-
-    for i in 0..left.len() {
-        let mut is_in = false;
-
+    for i in 0..left_len {
         // contains(null, null) = false
         if bit_util::get_bit(not_both_null_bitmap, i) {
             let list = right.value(i);
+            let list = list
+                .as_any()
+                .downcast_ref::<GenericStringArray<OffsetSize>>()
+                .unwrap();
 
-            // contains(null, [null]) = true
-            if !bit_util::get_bit(left_null_bitmap, i) {
-                if list.null_count() > 0 {
-                    is_in = true;
-                }
-            } else {
-                let list = list
-                    .as_any()
-                    .downcast_ref::<GenericStringArray<OffsetSize>>()
-                    .unwrap();
-
-                for j in 0..list.len() {
-                    if list.is_valid(j) && (left.value(i) == list.value(j)) {
-                        is_in = true;
-                    }
+            for j in 0..list.len() {
+                if list.is_valid(j) && (left.value(i) == list.value(j)) {
+                    bit_util::set_bit(bool_slice, i);
+                    continue;
                 }
             }
         }
-        result.append(is_in)?;
     }
 
     let data = ArrayData::new(
@@ -688,14 +662,15 @@ where
         left.len(),
         None,
         None,
-        left.offset(),
-        vec![result.finish()],
+        0,
+        vec![bool_buf.freeze()],
         vec![],
     );
     Ok(PrimitiveArray::<BooleanType>::from(Arc::new(data)))
 }
 
 // create a buffer and fill it with valid bits
+#[inline]
 fn new_all_set_buffer(len: usize) -> Buffer {
     let buffer = MutableBuffer::new(len);
     let buffer = buffer.with_bitset(len, true);
@@ -958,7 +933,7 @@ mod tests {
     // Expected behaviour:
     // contains(1, [1, 2, null]) = true
     // contains(3, [1, 2, null]) = false
-    // contains(null, [1, 2, null]) = true
+    // contains(null, [1, 2, null]) = false
     // contains(null, null) = false
     #[test]
     fn test_contains() {
@@ -994,7 +969,7 @@ mod tests {
                 .as_any()
                 .downcast_ref::<BooleanArray>()
                 .unwrap(),
-            &BooleanArray::from(vec![false, false, false, true]),
+            &BooleanArray::from(vec![false, false, false, false]),
         );
 
         let values = Int32Array::from(vec![Some(0), Some(0), Some(0), Some(0)]);
@@ -1011,7 +986,7 @@ mod tests {
     // Expected behaviour:
     // contains("ab", ["ab", "cd", null]) = true
     // contains("ef", ["ab", "cd", null]) = false
-    // contains(null, ["ab", "cd", null]) = true
+    // contains(null, ["ab", "cd", null]) = false
     // contains(null, null) = false
     #[test]
     fn test_contains_utf8() {
@@ -1041,7 +1016,7 @@ mod tests {
                 .as_any()
                 .downcast_ref::<BooleanArray>()
                 .unwrap(),
-            &BooleanArray::from(vec![true, false, false, false]),
+            &BooleanArray::from(vec![false, false, false, false]),
         );
 
         let values = StringArray::from(vec![

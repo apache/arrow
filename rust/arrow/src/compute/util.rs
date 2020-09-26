@@ -249,6 +249,8 @@ mod tests {
         let none_bitmap = make_data_with_null_bit_buffer(8, 0, None);
         let some_bitmap =
             make_data_with_null_bit_buffer(8, 0, Some(Buffer::from([0b01001010])));
+        let inverse_bitmap =
+            make_data_with_null_bit_buffer(8, 0, Some(Buffer::from([0b10110101])));
         assert_eq!(
             None,
             combine_option_bitmap(&none_bitmap, &none_bitmap, 8).unwrap()
@@ -264,6 +266,39 @@ mod tests {
         assert_eq!(
             Some(Buffer::from([0b01001010])),
             combine_option_bitmap(&some_bitmap, &some_bitmap, 8,).unwrap()
+        );
+        assert_eq!(
+            Some(Buffer::from([0b0])),
+            combine_option_bitmap(&some_bitmap, &inverse_bitmap, 8,).unwrap()
+        );
+    }
+
+    #[test]
+    fn test_compare_option_bitmap() {
+        let none_bitmap = make_data_with_null_bit_buffer(8, 0, None);
+        let some_bitmap =
+            make_data_with_null_bit_buffer(8, 0, Some(Buffer::from([0b01001010])));
+        let inverse_bitmap =
+            make_data_with_null_bit_buffer(8, 0, Some(Buffer::from([0b10110101])));
+        assert_eq!(
+            None,
+            compare_option_bitmap(&none_bitmap, &none_bitmap, 8).unwrap()
+        );
+        assert_eq!(
+            Some(Buffer::from([0b01001010])),
+            compare_option_bitmap(&some_bitmap, &none_bitmap, 8).unwrap()
+        );
+        assert_eq!(
+            Some(Buffer::from([0b01001010])),
+            compare_option_bitmap(&none_bitmap, &some_bitmap, 8,).unwrap()
+        );
+        assert_eq!(
+            Some(Buffer::from([0b01001010])),
+            compare_option_bitmap(&some_bitmap, &some_bitmap, 8,).unwrap()
+        );
+        assert_eq!(
+            Some(Buffer::from([0b11111111])),
+            compare_option_bitmap(&some_bitmap, &inverse_bitmap, 8,).unwrap()
         );
     }
 
