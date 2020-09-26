@@ -785,10 +785,6 @@ def test_copy_file(fs, pathfn, allow_copy_file):
 
 
 def test_move_directory(fs, pathfn, allow_move_dir):
-    if fs.type_name == "py::fsspec+memory":
-        # https://github.com/intake/filesystem_spec/issues/316
-        pytest.xfail(reason='Not working with in-memory fsspec')
-
     # move directory (doesn't work with S3)
     s = pathfn('source-dir/')
     t = pathfn('target-dir/')
@@ -806,10 +802,6 @@ def test_move_directory(fs, pathfn, allow_move_dir):
 
 
 def test_move_file(fs, pathfn):
-    if fs.type_name == "py::fsspec+memory":
-        # https://issues.apache.org/jira/browse/ARROW-9621
-        # https://github.com/intake/filesystem_spec/issues/367
-        pytest.xfail(reason='Not working with in-memory fsspec')
     s = pathfn('test-move-source-file')
     t = pathfn('test-move-target-file')
 
