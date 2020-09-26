@@ -124,6 +124,7 @@ static const BasicDecimal128 ScaleMultipliersHalf[] = {
 static constexpr uint64_t kInt64Mask = 0xFFFFFFFFFFFFFFFF;
 #else
 static constexpr uint64_t kIntMask = 0xFFFFFFFF;
+static constexpr uint64_t kInt64Mask = 0xFFFFFFFFFFFFFFFF;
 
 // same as ScaleMultipliers[38] - 1
 static constexpr BasicDecimal128 kMaxValue =
@@ -254,6 +255,11 @@ BasicDecimal128& BasicDecimal128::operator>>=(uint32_t bits) {
 namespace {
 
 void ExtendAndMultiplyUint64(uint64_t x, uint64_t y, uint64_t* hi, uint64_t* lo) {
+#ifdef __SIZEOF_INT128__
+   __uint128_t r = static_cast<__uint128_t>(x) * y;
+  *lo = r & 0xffffffffffffffff;
+  *hi = r >> 64;
+#else
   const uint64_t x_lo = x & kIntMask;
   const uint64_t y_lo = y & kIntMask;
   const uint64_t x_hi = x >> 32;
@@ -272,12 +278,21 @@ void ExtendAndMultiplyUint64(uint64_t x, uint64_t y, uint64_t* hi, uint64_t* lo)
 
   *hi = x_hi * y_hi + u_hi + v_hi;
   *lo = (v << 32) + t_lo;
+#endif
 }
 
 void MultiplyUint128(uint64_t x_hi, uint64_t x_lo, uint64_t y_hi, uint64_t y_lo,
                      uint64_t* hi, uint64_t* lo) {
+#ifdef __SIZEOF_INT128__
+  __uint128_t x = (static_cast<__uint128_t>(x_hi) >> 64) + x_lo;
+  __uint128_t y = (static_cast<__uint128_t>(y_hi) >> 64) + y_lo;
+  __uint128_t r = x * y;
+  *lo = r & kInt64Mask;
+  *hi = r >> 64;
+#else
   ExtendAndMultiplyUint64(x_lo, y_lo, hi, lo);
   *hi += (x_hi * y_lo) + (x_lo * y_hi);
+#endif
 }
 
 }  // namespace
