@@ -774,6 +774,11 @@ mod tests {
     }
 
     impl ExecutionPlan for NoOpExecutionPlan {
+        /// Return a reference to Any that can be used for downcasting
+        fn as_any(&self) -> &dyn Any {
+            self
+        }
+
         fn schema(&self) -> SchemaRef {
             self.schema.clone()
         }

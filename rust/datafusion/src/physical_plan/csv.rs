@@ -27,6 +27,7 @@ use arrow::csv;
 use arrow::datatypes::{Schema, SchemaRef};
 use arrow::error::Result as ArrowResult;
 use arrow::record_batch::{RecordBatch, RecordBatchReader};
+use std::any::Any;
 
 /// CSV file read option
 #[derive(Copy, Clone)]
@@ -179,6 +180,11 @@ impl CsvExec {
 }
 
 impl ExecutionPlan for CsvExec {
+    /// Return a reference to Any that can be used for downcasting
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     /// Get the schema for this execution plan
     fn schema(&self) -> SchemaRef {
         self.projected_schema.clone()

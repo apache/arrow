@@ -18,6 +18,7 @@
 //! FilterExec evaluates a boolean predicate against all input batches to determine which rows to
 //! include in its output batches.
 
+use std::any::Any;
 use std::sync::{Arc, Mutex};
 
 use crate::error::{ExecutionError, Result};
@@ -58,6 +59,11 @@ impl FilterExec {
 }
 
 impl ExecutionPlan for FilterExec {
+    /// Return a reference to Any that can be used for downcasting
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     /// Get the schema for this execution plan
     fn schema(&self) -> SchemaRef {
         // The filter operator does not make any changes to the schema of its input

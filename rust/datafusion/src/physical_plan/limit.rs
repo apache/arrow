@@ -17,6 +17,7 @@
 
 //! Defines the LIMIT plan
 
+use std::any::Any;
 use std::sync::{Arc, Mutex};
 
 use crate::error::{ExecutionError, Result};
@@ -50,6 +51,11 @@ impl GlobalLimitExec {
 }
 
 impl ExecutionPlan for GlobalLimitExec {
+    /// Return a reference to Any that can be used for downcasting
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     fn schema(&self) -> SchemaRef {
         self.input.schema()
     }
@@ -126,6 +132,11 @@ impl LocalLimitExec {
 }
 
 impl ExecutionPlan for LocalLimitExec {
+    /// Return a reference to Any that can be used for downcasting
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     fn schema(&self) -> SchemaRef {
         self.input.schema()
     }

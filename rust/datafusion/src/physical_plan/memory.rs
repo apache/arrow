@@ -17,6 +17,7 @@
 
 //! Execution plan for reading in-memory batches of data
 
+use std::any::Any;
 use std::sync::{Arc, Mutex};
 
 use crate::error::{ExecutionError, Result};
@@ -37,6 +38,11 @@ pub struct MemoryExec {
 }
 
 impl ExecutionPlan for MemoryExec {
+    /// Return a reference to Any that can be used for downcasting
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     /// Get the schema for this execution plan
     fn schema(&self) -> SchemaRef {
         self.schema.clone()
