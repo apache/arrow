@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-
 import collections
 
 
@@ -687,6 +686,50 @@ cdef class DictionaryScalar(Scalar):
     Concrete class for dictionary-encoded scalars.
     """
 
+    @classmethod
+    def _reconstruct(cls, type, is_valid, index, dictionary):
+        cdef:
+            CDictionaryScalarIndexAndDictionary value
+            shared_ptr[CDictionaryScalar] wrapped
+            DataType type_
+            Scalar index_
+            Array dictionary_
+
+        type_ = ensure_type(type, allow_none=False)
+        if not isinstance(type_, DictionaryType):
+            raise TypeError('Must pass a DictionaryType instance')
+
+        if isinstance(index, Scalar):
+            if not index.type.equals(type.index_type):
+                raise TypeError("The Scalar value passed as index must have "
+                                "identical type to the dictionary type's "
+                                "index_type")
+            index_ = index
+        else:
+            index_ = scalar(index, type=type_.index_type)
+
+        if isinstance(dictionary, Array):
+            if not dictionary.type.equals(type.value_type):
+                raise TypeError("The Array passed as dictionary must have "
+                                "identical type to the dictionary type's "
+                                "value_type")
+            dictionary_ = dictionary
+        else:
+            dictionary_ = array(dictionary, type=type_.value_type)
+
+        value.index = pyarrow_unwrap_scalar(index_)
+        value.dictionary = pyarrow_unwrap_array(dictionary_)
+
+        wrapped = make_shared[CDictionaryScalar](
+            value, pyarrow_unwrap_data_type(type_), <c_bool>(is_valid)
+        )
+        return Scalar.wrap(<shared_ptr[CScalar]> wrapped)
+
+    def __reduce__(self):
+        return DictionaryScalar._reconstruct, (
+            self.type, self.is_valid, self.index, self.dictionary
+        )
+
     @property
     def index(self):
         """
@@ -831,14 +874,15 @@ def scalar(value, type=None, *, from_pandas=None, MemoryPool memory_pool=None):
         shared_ptr[CArray] array
         shared_ptr[CChunkedArray] chunked
         bint is_pandas_object = False
+        CMemoryPool* pool
 
     type = ensure_type(type, allow_none=True)
+    pool = maybe_unbox_memory_pool(memory_pool)
 
     if _is_array_like(value):
         value = get_values(value, &is_pandas_object)
 
     options.size = 1
-    options.pool = maybe_unbox_memory_pool(memory_pool)
 
     if type is not None:
         ty = ensure_type(type)
@@ -851,9 +895,12 @@ def scalar(value, type=None, *, from_pandas=None, MemoryPool memory_pool=None):
 
     value = [value]
     with nogil:
-        check_status(ConvertPySequence(value, None, options, &chunked))
+        chunked = GetResultValue(ConvertPySequence(value, None, options, pool))
 
+    # get the first chunk
     assert chunked.get().num_chunks() == 1
     array = chunked.get().chunk(0)
+
+    # retrieve the scalar from the first position
     scalar = GetResultValue(array.get().GetScalar(0))
     return Scalar.wrap(scalar)

@@ -56,6 +56,8 @@ class ARROW_EXPORT ArrayBuilder {
   /// skip shared pointers and just return a raw pointer
   ArrayBuilder* child(int i) { return children_[i].get(); }
 
+  const std::shared_ptr<ArrayBuilder>& child_builder(int i) const { return children_[i]; }
+
   int num_children() const { return static_cast<int>(children_.size()); }
 
   virtual int64_t length() const { return length_; }
@@ -117,6 +119,13 @@ class ARROW_EXPORT ArrayBuilder {
   /// \param[out] out the finalized Array object
   /// \return Status
   Status Finish(std::shared_ptr<Array>* out);
+
+  /// \brief Return result of builder as an Array object.
+  ///
+  /// The builder is reset except for DictionaryBuilder.
+  ///
+  /// \return The finalized Array object
+  Result<std::shared_ptr<Array>> Finish();
 
   /// \brief Return the type of the built Array
   virtual std::shared_ptr<DataType> type() const = 0;

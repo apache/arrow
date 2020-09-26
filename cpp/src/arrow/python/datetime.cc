@@ -419,6 +419,15 @@ Result<std::string> TzinfoToString(PyObject* tzinfo) {
     return PyTZInfo_utcoffset_hhmm(tzinfo);
   }
 
+  // try to look up zone attribute
+  if (PyObject_HasAttrString(tzinfo, "zone")) {
+    OwnedRef zone(PyObject_GetAttrString(tzinfo, "zone"));
+    RETURN_IF_PYERROR();
+    std::string result;
+    RETURN_NOT_OK(internal::PyUnicode_AsStdString(zone.obj(), &result));
+    return result;
+  }
+
   // attempt to call tzinfo.tzname(None)
   OwnedRef tzname_object(PyObject_CallMethod(tzinfo, "tzname", "O", Py_None));
   RETURN_IF_PYERROR();

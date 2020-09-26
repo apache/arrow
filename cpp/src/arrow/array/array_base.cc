@@ -161,7 +161,13 @@ struct ScalarFromArraySlotImpl {
     }
 
     if (array_.IsNull(index_)) {
-      return MakeNullScalar(array_.type());
+      auto null = MakeNullScalar(array_.type());
+      if (is_dictionary(array_.type()->id())) {
+        auto& dict_null = checked_cast<DictionaryScalar&>(*null);
+        const auto& dict_array = checked_cast<const DictionaryArray&>(array_);
+        dict_null.value.dictionary = dict_array.dictionary();
+      }
+      return null;
     }
 
     RETURN_NOT_OK(VisitArrayInline(array_, this));

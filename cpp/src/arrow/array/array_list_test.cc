@@ -467,6 +467,32 @@ class TestListArray : public TestBuilder {
     AssertArraysEqual(*result_, *expected);
   }
 
+  void TestOverflowCheck() {
+    Int16Builder* vb = checked_cast<Int16Builder*>(builder_->value_builder());
+    auto max_elements = builder_->maximum_elements();
+
+    ASSERT_OK(builder_->ValidateOverflow(1));
+    ASSERT_OK(builder_->ValidateOverflow(max_elements));
+    ASSERT_RAISES(CapacityError, builder_->ValidateOverflow(max_elements + 1));
+
+    ASSERT_OK(builder_->Append());
+    ASSERT_OK(vb->Append(1));
+    ASSERT_OK(vb->Append(2));
+    ASSERT_OK(builder_->ValidateOverflow(max_elements - 2));
+    ASSERT_RAISES(CapacityError, builder_->ValidateOverflow(max_elements - 1));
+
+    ASSERT_OK(builder_->AppendNull());
+    ASSERT_OK(builder_->ValidateOverflow(max_elements - 2));
+    ASSERT_RAISES(CapacityError, builder_->ValidateOverflow(max_elements - 1));
+
+    ASSERT_OK(builder_->Append());
+    ASSERT_OK(vb->Append(1));
+    ASSERT_OK(vb->Append(2));
+    ASSERT_OK(vb->Append(3));
+    ASSERT_OK(builder_->ValidateOverflow(max_elements - 5));
+    ASSERT_RAISES(CapacityError, builder_->ValidateOverflow(max_elements - 4));
+  }
+
  protected:
   std::shared_ptr<DataType> value_type_;
 
@@ -507,6 +533,12 @@ TYPED_TEST(TestListArray, TestFlattenNonEmptyBackingNulls) {
 TYPED_TEST(TestListArray, ValidateOffsets) { this->TestValidateOffsets(); }
 
 TYPED_TEST(TestListArray, CornerCases) { this->TestCornerCases(); }
+
+#ifndef ARROW_LARGE_MEMORY_TESTS
+TYPED_TEST(TestListArray, DISABLED_TestOverflowCheck) { this->TestOverflowCheck(); }
+#else
+TYPED_TEST(TestListArray, TestOverflowCheck) { this->TestOverflowCheck(); }
+#endif
 
 // ----------------------------------------------------------------------
 // Map tests

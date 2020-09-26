@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import datetime
+
 import pytz
 import hypothesis as h
 import hypothesis.strategies as st
@@ -82,10 +84,16 @@ timestamp_types = st.builds(
     unit=st.sampled_from(['s', 'ms', 'us', 'ns']),
     tz=tzst.timezones()
 )
-duration_types = st.sampled_from([
-    pa.duration(unit) for unit in ['s', 'ms', 'us', 'ns']])
+duration_types = st.builds(
+    pa.duration,
+    st.sampled_from(['s', 'ms', 'us', 'ns'])
+)
 temporal_types = st.one_of(
-    date_types, time_types, timestamp_types, duration_types)
+    date_types,
+    time_types,
+    timestamp_types,
+    duration_types
+)
 
 primitive_types = st.one_of(
     null_type,
@@ -101,9 +109,16 @@ primitive_types = st.one_of(
 metadata = st.dictionaries(st.text(), st.text())
 
 
-def fields(type_strategy=primitive_types):
-    return st.builds(pa.field, name=custom_text, type=type_strategy,
-                     nullable=st.booleans(), metadata=metadata)
+@st.composite
+def fields(draw, type_strategy=primitive_types):
+    name = draw(custom_text)
+    typ = draw(type_strategy)
+    if pa.types.is_null(typ):
+        nullable = True
+    else:
+        nullable = draw(st.booleans())
+    meta = draw(metadata)
+    return pa.field(name, type=typ, nullable=nullable, metadata=meta)
 
 
 def list_types(item_strategy=primitive_types):
@@ -152,8 +167,10 @@ _default_array_sizes = st.integers(min_value=0, max_value=20)
 @st.composite
 def arrays(draw, type, size=None):
     if isinstance(type, st.SearchStrategy):
-        type = draw(type)
-    elif not isinstance(type, pa.DataType):
+        ty = draw(type)
+    elif isinstance(type, pa.DataType):
+        ty = type
+    else:
         raise TypeError('Type must be a pyarrow DataType')
 
     if isinstance(size, st.SearchStrategy):
@@ -165,57 +182,67 @@ def arrays(draw, type, size=None):
 
     shape = (size,)
 
-    if pa.types.is_list(type) or pa.types.is_large_list(type):
+    if pa.types.is_list(ty) or pa.types.is_large_list(ty):
         offsets = draw(npst.arrays(np.uint8(), shape=shape)).cumsum() // 20
         offsets = np.insert(offsets, 0, 0, axis=0)  # prepend with zero
-        values = draw(arrays(type.value_type, size=int(offsets.sum())))
-        array_type = (
-            pa.LargeListArray if pa.types.is_large_list(type)
-            else pa.ListArray)
+        values = draw(arrays(ty.value_type, size=int(offsets.sum())))
+        if pa.types.is_large_list(ty):
+            array_type = pa.LargeListArray
+        else:
+            array_type = pa.ListArray
         return array_type.from_arrays(offsets, values)
 
-    if pa.types.is_struct(type):
-        h.assume(len(type) > 0)
+    if pa.types.is_struct(ty):
+        h.assume(len(ty) > 0)
         fields, child_arrays = [], []
-        for field in type:
+        for field in ty:
             fields.append(field)
             child_arrays.append(draw(arrays(field.type, size=size)))
         return pa.StructArray.from_arrays(child_arrays, fields=fields)
 
-    if (pa.types.is_boolean(type) or pa.types.is_integer(type) or
-            pa.types.is_floating(type)):
-        values = npst.arrays(type.to_pandas_dtype(), shape=(size,))
+    if (pa.types.is_boolean(ty) or pa.types.is_integer(ty) or
+            pa.types.is_floating(ty)):
+        values = npst.arrays(ty.to_pandas_dtype(), shape=(size,))
         np_arr = draw(values)
-        if pa.types.is_floating(type):
+        if pa.types.is_floating(ty):
             # Workaround ARROW-4952: no easy way to assert array equality
             # in a NaN-tolerant way.
             np_arr[np.isnan(np_arr)] = -42.0
-        return pa.array(np_arr, type=type)
+        return pa.array(np_arr, type=ty)
 
-    if pa.types.is_null(type):
+    if pa.types.is_null(ty):
         value = st.none()
-    elif pa.types.is_time(type):
+    elif pa.types.is_time(ty):
         value = st.times()
-    elif pa.types.is_date(type):
+    elif pa.types.is_date(ty):
         value = st.dates()
-    elif pa.types.is_timestamp(type):
-        tz = pytz.timezone(type.tz) if type.tz is not None else None
-        value = st.datetimes(timezones=st.just(tz))
-    elif pa.types.is_duration(type):
+    elif pa.types.is_timestamp(ty):
+        min_int64 = -(2**63)
+        max_int64 = 2**63 - 1
+        min_datetime = datetime.datetime.fromtimestamp(min_int64 / 10**9)
+        max_datetime = datetime.datetime.fromtimestamp(max_int64 / 10**9)
+        try:
+            offset_hours = int(ty.tz)
+            tz = pytz.FixedOffset(offset_hours * 60)
+        except ValueError:
+            tz = pytz.timezone(ty.tz)
+        value = st.datetimes(timezones=st.just(tz), min_value=min_datetime,
+                             max_value=max_datetime)
+    elif pa.types.is_duration(ty):
         value = st.timedeltas()
-    elif pa.types.is_binary(type) or pa.types.is_large_binary(type):
+    elif pa.types.is_binary(ty) or pa.types.is_large_binary(ty):
         value = st.binary()
-    elif pa.types.is_string(type) or pa.types.is_large_string(type):
+    elif pa.types.is_string(ty) or pa.types.is_large_string(ty):
         value = st.text()
-    elif pa.types.is_decimal(type):
+    elif pa.types.is_decimal(ty):
         # TODO(kszucs): properly limit the precision
         # value = st.decimals(places=type.scale, allow_infinity=False)
         h.reject()
     else:
-        raise NotImplementedError(type)
+        raise NotImplementedError(ty)
 
     values = st.lists(value, min_size=size, max_size=size)
-    return pa.array(draw(values), type=type)
+    return pa.array(draw(values), type=ty)
 
 
 @st.composite

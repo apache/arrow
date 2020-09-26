@@ -23,6 +23,7 @@
 #include "arrow/buffer.h"
 #include "arrow/python/pyarrow.h"
 #include "arrow/python/visibility.h"
+#include "arrow/result.h"
 #include "arrow/util/macros.h"
 
 namespace arrow {
@@ -188,84 +189,80 @@ class ARROW_PYTHON_EXPORT OwnedRefNoGIL : public OwnedRef {
 struct PyBytesView {
   const char* bytes;
   Py_ssize_t size;
+  bool is_utf8;
 
-  PyBytesView() : bytes(NULLPTR), size(0), ref(NULLPTR) {}
-
-  // View the given Python object as binary-like, i.e. bytes
-  Status FromBinary(PyObject* obj) { return FromBinary(obj, "a bytes object"); }
-
-  Status FromString(PyObject* obj) {
-    bool ignored = false;
-    return FromString(obj, false, &ignored);
+  static Result<PyBytesView> FromString(PyObject* obj, bool check_utf8 = false) {
+    PyBytesView self;
+    ARROW_RETURN_NOT_OK(self.ParseString(obj, check_utf8));
+    return std::move(self);
   }
 
-  Status FromString(PyObject* obj, bool* is_utf8) {
-    return FromString(obj, true, is_utf8);
+  static Result<PyBytesView> FromUnicode(PyObject* obj) {
+    PyBytesView self;
+    ARROW_RETURN_NOT_OK(self.ParseUnicode(obj));
+    return std::move(self);
   }
 
-  Status FromUnicode(PyObject* obj) {
-    Py_ssize_t size;
-    // The utf-8 representation is cached on the unicode object
-    const char* data = PyUnicode_AsUTF8AndSize(obj, &size);
-    RETURN_IF_PYERROR();
-    this->bytes = data;
-    this->size = size;
-    this->ref.reset();
-    return Status::OK();
+  static Result<PyBytesView> FromBinary(PyObject* obj) {
+    PyBytesView self;
+    ARROW_RETURN_NOT_OK(self.ParseBinary(obj));
+    return std::move(self);
   }
-
- protected:
-  PyBytesView(const char* b, Py_ssize_t s, PyObject* obj = NULLPTR)
-      : bytes(b), size(s), ref(obj) {}
 
   // View the given Python object as string-like, i.e. str or (utf8) bytes
-  Status FromString(PyObject* obj, bool check_utf8, bool* is_utf8) {
+  Status ParseString(PyObject* obj, bool check_utf8 = false) {
     if (PyUnicode_Check(obj)) {
-      *is_utf8 = true;
-      return FromUnicode(obj);
+      return ParseUnicode(obj);
     } else {
-      ARROW_RETURN_NOT_OK(FromBinary(obj, "a string or bytes object"));
+      ARROW_RETURN_NOT_OK(ParseBinary(obj));
       if (check_utf8) {
         // Check the bytes are utf8 utf-8
         OwnedRef decoded(PyUnicode_FromStringAndSize(bytes, size));
         if (ARROW_PREDICT_TRUE(!PyErr_Occurred())) {
-          *is_utf8 = true;
+          is_utf8 = true;
         } else {
-          *is_utf8 = false;
           PyErr_Clear();
+          is_utf8 = false;
         }
-      } else {
-        *is_utf8 = false;
       }
       return Status::OK();
     }
   }
 
-  Status FromBinary(PyObject* obj, const char* expected_msg) {
-    if (PyBytes_Check(obj)) {
-      this->bytes = PyBytes_AS_STRING(obj);
-      this->size = PyBytes_GET_SIZE(obj);
-      this->ref.reset();
-      return Status::OK();
-    } else if (PyByteArray_Check(obj)) {
-      this->bytes = PyByteArray_AS_STRING(obj);
-      this->size = PyByteArray_GET_SIZE(obj);
-      this->ref.reset();
-      return Status::OK();
-    } else if (PyMemoryView_Check(obj)) {
-      PyObject* contig_view = PyMemoryView_GetContiguous(obj, PyBUF_READ, 'C');
-      RETURN_IF_PYERROR();
-      this->ref.reset(contig_view);
-      Py_buffer* buf = PyMemoryView_GET_BUFFER(contig_view);
-      this->bytes = reinterpret_cast<const char*>(buf->buf);
-      this->size = buf->len;
-      return Status::OK();
-    } else {
-      return Status::TypeError("Expected ", expected_msg, ", got a '",
-                               Py_TYPE(obj)->tp_name, "' object");
-    }
+  // View the given Python object as unicode string
+  Status ParseUnicode(PyObject* obj) {
+    // The utf-8 representation is cached on the unicode object
+    bytes = PyUnicode_AsUTF8AndSize(obj, &size);
+    RETURN_IF_PYERROR();
+    is_utf8 = true;
+    return Status::OK();
   }
 
+  // View the given Python object as binary-like, i.e. bytes
+  Status ParseBinary(PyObject* obj) {
+    if (PyBytes_Check(obj)) {
+      bytes = PyBytes_AS_STRING(obj);
+      size = PyBytes_GET_SIZE(obj);
+      is_utf8 = false;
+    } else if (PyByteArray_Check(obj)) {
+      bytes = PyByteArray_AS_STRING(obj);
+      size = PyByteArray_GET_SIZE(obj);
+      is_utf8 = false;
+    } else if (PyMemoryView_Check(obj)) {
+      PyObject* ref = PyMemoryView_GetContiguous(obj, PyBUF_READ, 'C');
+      RETURN_IF_PYERROR();
+      Py_buffer* buffer = PyMemoryView_GET_BUFFER(ref);
+      bytes = reinterpret_cast<const char*>(buffer->buf);
+      size = buffer->len;
+      is_utf8 = false;
+    } else {
+      return Status::TypeError("Expected bytes, got a '", Py_TYPE(obj)->tp_name,
+                               "' object");
+    }
+    return Status::OK();
+  }
+
+ protected:
   OwnedRef ref;
 };
 

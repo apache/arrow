@@ -25,6 +25,7 @@ import pytest
 import pytz
 import hypothesis as h
 import hypothesis.strategies as st
+import hypothesis.extra.pytz as tzst
 import weakref
 
 import numpy as np
@@ -258,6 +259,9 @@ def test_is_primitive():
 @pytest.mark.parametrize(('tz', 'expected'), [
     (pytz.utc, 'UTC'),
     (pytz.timezone('Europe/Paris'), 'Europe/Paris'),
+    # StaticTzInfo.tzname returns with '-09' so we need to infer the timezone's
+    # name from the tzinfo.zone attribute
+    (pytz.timezone('Etc/GMT-9'), 'Etc/GMT-9'),
     (pytz.FixedOffset(180), '+03:00'),
     (datetime.timezone.utc, '+00:00'),
     (datetime.timezone(datetime.timedelta(hours=1, minutes=30)), '+01:30')
@@ -278,6 +282,13 @@ def test_tzinfo_to_string_errors():
         msg = "Offset must represent whole number of minutes"
         with pytest.raises(ValueError, match=msg):
             pa.lib.tzinfo_to_string(tz)
+
+
+@h.given(tzst.timezones())
+def test_pytz_timezone_roundtrip(tz):
+    timezone_string = pa.lib.tzinfo_to_string(tz)
+    timezone_tzinfo = pa.lib.string_to_tzinfo(timezone_string)
+    assert timezone_tzinfo == tz
 
 
 def test_convert_custom_tzinfo_objects_to_string():

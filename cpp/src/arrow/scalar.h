@@ -428,8 +428,8 @@ struct ARROW_EXPORT DictionaryScalar : public Scalar {
 
   explicit DictionaryScalar(std::shared_ptr<DataType> type);
 
-  DictionaryScalar(ValueType value, std::shared_ptr<DataType> type)
-      : Scalar(std::move(type), true), value(std::move(value)) {}
+  DictionaryScalar(ValueType value, std::shared_ptr<DataType> type, bool is_valid = true)
+      : Scalar(std::move(type), is_valid), value(std::move(value)) {}
 
   Result<std::shared_ptr<Scalar>> GetEncodedValue() const;
 };

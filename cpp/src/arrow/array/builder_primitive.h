@@ -31,6 +31,9 @@ namespace arrow {
 class ARROW_EXPORT NullBuilder : public ArrayBuilder {
  public:
   explicit NullBuilder(MemoryPool* pool = default_memory_pool()) : ArrayBuilder(pool) {}
+  explicit NullBuilder(const std::shared_ptr<DataType>& type,
+                       MemoryPool* pool = default_memory_pool())
+      : NullBuilder(pool) {}
 
   /// \brief Append the specified number of null elements
   Status AppendNulls(int64_t length) final {
