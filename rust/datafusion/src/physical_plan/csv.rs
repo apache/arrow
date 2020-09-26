@@ -17,6 +17,7 @@
 
 //! Execution plan for reading CSV files
 
+use std::any::Any;
 use std::fs::File;
 use std::sync::{Arc, Mutex};
 
@@ -27,7 +28,6 @@ use arrow::csv;
 use arrow::datatypes::{Schema, SchemaRef};
 use arrow::error::Result as ArrowResult;
 use arrow::record_batch::{RecordBatch, RecordBatchReader};
-use std::any::Any;
 
 /// CSV file read option
 #[derive(Copy, Clone)]
