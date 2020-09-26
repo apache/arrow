@@ -32,3 +32,7 @@ SET PYARROW_CMAKE_GENERATOR=Ninja
                    --record=record.txt
 if errorlevel 1 exit 1
 popd
+
+if [%PKG_NAME%] == [pyarrow] (
+    del %SP_DIR%/pyarrow/tests
+)

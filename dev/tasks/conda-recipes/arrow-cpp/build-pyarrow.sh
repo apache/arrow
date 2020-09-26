@@ -38,3 +38,7 @@ $PYTHON setup.py \
         build_ext \
         install --single-version-externally-managed \
                 --record=record.txt
+
+if [[ "$PKG_NAME" == "pyarrow" ]]; then
+    rm -r ${SP_DIR}/pyarrow/tests
+fi
