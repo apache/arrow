@@ -33,7 +33,9 @@ constexpr const int32_t PropertiesDrivenCryptoFactory::kAcceptableDataKeyLengths
 
 EncryptionConfiguration::Builder* EncryptionConfiguration::Builder::column_keys(
     const std::string& column_keys) {
-  DCHECK(!column_keys.empty());
+  if (column_keys.empty()) {
+    throw ParquetException("At least one column must be specified");
+  }
   if (uniform_encryption_) {
     throw ParquetException(
         "Cannot call both column_keys(const std::string&) and uniform_encryption()");
