@@ -327,9 +327,8 @@ public abstract class ArrowType {
       </#if>
       </#list>
       <#if type.name == "Decimal">
-      int bitWidth = ${nameLower}Type.bitWidth();
-      if (bitWidth != defaultDecimalBitWidth) {
-        throw new IllegalArgumentException("Library only supports 128-bit decimal values");
+      if (bitWidth != defaultDecimalBitWidth && bitWidth != 256) {
+        throw new IllegalArgumentException("Library only supports 128-bit and 256-bit decimal values");
       }
       </#if>
       return new ${name}(<#list type.fields as field><#if field.valueType??>${field.valueType}.fromFlatbufID(${field.name})<#else>${field.name}</#if><#if field_has_next>, </#if></#list>);

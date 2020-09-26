@@ -401,7 +401,7 @@ class FloatingPointField(PrimitiveField):
 DECIMAL_PRECISION_TO_VALUE = {
     key: (1 << (8 * i - 1)) - 1 for i, key in enumerate(
         [1, 3, 5, 7, 10, 12, 15, 17, 19, 22, 24, 27, 29, 32, 34, 36,
-         38, 40, 42, 44, 50, 60, 70],
+         40, 42, 44, 50, 60, 70],
         start=1,
     )
 }
@@ -1274,20 +1274,29 @@ def generate_null_trivial_case(batch_sizes):
     return _generate_file('null_trivial', fields, batch_sizes)
 
 
-def generate_decimal_case():
+def generate_decimal128_case():
     fields = [
         DecimalField(name='f{}'.format(i), precision=precision, scale=2,
-            bit_width=128)
+                     bit_width=128)
         for i, precision in enumerate(range(3, 39))
-    ] + [
+    ]
+
+    possible_batch_sizes = 7, 10
+    batch_sizes = [possible_batch_sizes[i % 2] for i in range(len(fields))]
+    return _generate_file('decimal128', fields, batch_sizes)
+
+
+def generate_decimal256_case():
+    fields = [
         DecimalField(name='f{}'.format(i), precision=precision, scale=5,
-            bit_width=256)
+                     bit_width=256)
         for i, precision in enumerate(range(37, 70))
     ]
 
     possible_batch_sizes = 7, 10
     batch_sizes = [possible_batch_sizes[i % 2] for i in range(len(fields))]
-    return _generate_file('decimal', fields, batch_sizes)
+    return _generate_file('decimal256', fields, batch_sizes)
+
 
 
 def generate_datetime_case():
@@ -1515,10 +1524,15 @@ def get_generated_json_files(tempdir=None):
         .skip_category('JS')   # TODO(ARROW-7900)
         .skip_category('Go'),  # TODO(ARROW-7901)
 
-        generate_decimal_case()
+        generate_decimal128_case()
         .skip_category('Go')  # TODO(ARROW-7948): Decimal + Go
         .skip_category('Rust'),
-        .skip_category('Java'),
+
+        generate_decimal256_case()
+        .skip_category('Go')  # TODO(ARROW-7948): Decimal + Go
+        .skip_category('JS')
+        .skip_category('Rust'),
+
 
 
         generate_datetime_case(),

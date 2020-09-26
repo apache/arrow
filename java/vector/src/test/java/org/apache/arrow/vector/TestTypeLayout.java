@@ -61,8 +61,12 @@ public class TestTypeLayout {
     type = new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE);
     assertEquals(TypeLayout.getTypeBufferCount(type), TypeLayout.getTypeLayout(type).getBufferLayouts().size());
 
-    type = new ArrowType.Decimal(10, 10);
+    type = new ArrowType.Decimal(10, 10, 128);
     assertEquals(TypeLayout.getTypeBufferCount(type), TypeLayout.getTypeLayout(type).getBufferLayouts().size());
+
+    type = new ArrowType.Decimal(10, 10, 256);
+    assertEquals(TypeLayout.getTypeBufferCount(type), TypeLayout.getTypeLayout(type).getBufferLayouts().size());
+
 
     type = new ArrowType.FixedSizeBinary(5);
     assertEquals(TypeLayout.getTypeBufferCount(type), TypeLayout.getTypeLayout(type).getBufferLayouts().size());

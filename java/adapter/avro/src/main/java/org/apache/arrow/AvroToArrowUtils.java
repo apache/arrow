@@ -298,7 +298,7 @@ public class AvroToArrowUtils {
     Preconditions.checkArgument(scale <= precision,
         "Invalid decimal scale: %s (greater than precision: %s)", scale, precision);
 
-    return new ArrowType.Decimal(precision, scale);
+    return new ArrowType.Decimal(precision, scale, 128);
 
   }
 
