@@ -28,12 +28,12 @@ namespace detail {
 #endif
 
 template <typename T>
-constexpr const char* raw() {
+const char* raw() {
   return ARROW_PRETTY_FUNCTION;
 }
 
 template <typename T>
-constexpr size_t raw_sizeof() {
+size_t raw_sizeof() {
   return sizeof(ARROW_PRETTY_FUNCTION);
 }
 
@@ -44,16 +44,16 @@ constexpr bool starts_with(char const* haystack, char const* needle) {
          (haystack[0] == needle[0] && starts_with(haystack + 1, needle + 1));
 }
 
-constexpr std::size_t search(char const* haystack, char const* needle) {
+constexpr size_t search(char const* haystack, char const* needle) {
   return haystack[0] == '\0' || starts_with(haystack, needle)
              ? 0
              : search(haystack + 1, needle) + 1;
 }
 
-constexpr auto typename_prefix = search(raw<void>(), "void");
+const size_t typename_prefix = search(raw<void>(), "void");
 
 template <typename T>
-constexpr size_t struct_class_prefix() {
+size_t struct_class_prefix() {
 #ifdef _MSC_VER
   return starts_with(raw<T>() + typename_prefix, "struct ")
              ? 7
@@ -64,14 +64,14 @@ constexpr size_t struct_class_prefix() {
 }
 
 template <typename T>
-constexpr size_t typename_length() {
+size_t typename_length() {
   // raw_sizeof<T>() - raw_sizeof<void>() == (length of T's name) - strlen("void")
   // (length of T's name) == raw_sizeof<T>() - raw_sizeof<void>() + strlen("void")
   return raw_sizeof<T>() - raw_sizeof<void>() + 4;
 }
 
 template <typename T>
-constexpr const char* typename_begin() {
+const char* typename_begin() {
   return raw<T>() + struct_class_prefix<T>() + typename_prefix;
 }
 
