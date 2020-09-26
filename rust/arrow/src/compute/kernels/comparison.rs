@@ -260,7 +260,6 @@ where
     T: ArrowNumericType,
     F: Fn(T::Simd, T::Simd) -> T::SimdMask,
 {
-    use crate::buffer::MutableBuffer;
     use std::io::Write;
     use std::mem;
 
@@ -322,7 +321,6 @@ where
     T: ArrowNumericType,
     F: Fn(T::Simd, T::Simd) -> T::SimdMask,
 {
-    use crate::buffer::MutableBuffer;
     use std::io::Write;
     use std::mem;
 
