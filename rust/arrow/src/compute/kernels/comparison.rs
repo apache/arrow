@@ -27,9 +27,11 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use crate::array::*;
-use crate::compute::util::combine_option_bitmap;
+use crate::buffer::{Buffer, MutableBuffer};
+use crate::compute::util::{combine_option_bitmap, compare_option_bitmap};
 use crate::datatypes::{ArrowNumericType, BooleanType, DataType};
 use crate::error::{ArrowError, Result};
+use crate::util::bit_util;
 
 /// Helper function to perform boolean lambda function on values from two arrays, this
 /// version does not attempt to use SIMD.
@@ -555,11 +557,159 @@ where
     compare_op_scalar!(left, right, |a, b| a >= b)
 }
 
+/// Checks if a `GenericListArray` contains a value in the `PrimitiveArray`
+pub fn contains<T, OffsetSize>(
+    left: &PrimitiveArray<T>,
+    right: &GenericListArray<OffsetSize>,
+) -> Result<BooleanArray>
+where
+    T: ArrowNumericType,
+    OffsetSize: OffsetSizeTrait,
+{
+    if left.len() != right.len() {
+        return Err(ArrowError::ComputeError(
+            "Cannot perform comparison operation on arrays of different length"
+                .to_string(),
+        ));
+    }
+
+    let not_both_null_bit_buffer =
+        match compare_option_bitmap(left.data_ref(), right.data_ref(), left.len())? {
+            Some(buff) => buff,
+            None => new_all_set_buffer(left.len()),
+        };
+    let not_both_null_bitmap = not_both_null_bit_buffer.data();
+
+    let left_data = left.data();
+    let left_null_bitmap = match left_data.null_bitmap() {
+        Some(bitmap) => bitmap.clone().into_buffer(),
+        _ => new_all_set_buffer(left.len()),
+    };
+    let left_null_bitmap = left_null_bitmap.data();
+
+    let mut result = BooleanBufferBuilder::new(left.len());
+
+    for i in 0..left.len() {
+        let mut is_in = false;
+
+        // contains(null, null) = false
+        if bit_util::get_bit(not_both_null_bitmap, i) {
+            let list = right.value(i);
+
+            // contains(null, [null]) = true
+            if !bit_util::get_bit(left_null_bitmap, i) {
+                if list.null_count() > 0 {
+                    is_in = true;
+                }
+            } else {
+                let list = list.as_any().downcast_ref::<PrimitiveArray<T>>().unwrap();
+
+                for j in 0..list.len() {
+                    if list.is_valid(j) && (left.value(i) == list.value(j)) {
+                        is_in = true;
+                    }
+                }
+            }
+        }
+        result.append(is_in)?;
+    }
+
+    let data = ArrayData::new(
+        DataType::Boolean,
+        left.len(),
+        None,
+        None,
+        left.offset(),
+        vec![result.finish()],
+        vec![],
+    );
+    Ok(PrimitiveArray::<BooleanType>::from(Arc::new(data)))
+}
+
+/// Checks if a `GenericListArray` contains a value in the `GenericStringArray`
+pub fn contains_utf8<OffsetSize>(
+    left: &GenericStringArray<OffsetSize>,
+    right: &ListArray,
+) -> Result<BooleanArray>
+where
+    OffsetSize: OffsetSizeTrait,
+{
+    if left.len() != right.len() {
+        return Err(ArrowError::ComputeError(
+            "Cannot perform comparison operation on arrays of different length"
+                .to_string(),
+        ));
+    }
+
+    let not_both_null_bit_buffer =
+        match compare_option_bitmap(left.data_ref(), right.data_ref(), left.len())? {
+            Some(buff) => buff,
+            None => new_all_set_buffer(left.len()),
+        };
+    let not_both_null_bitmap = not_both_null_bit_buffer.data();
+
+    let left_data = left.data();
+    let left_null_bitmap = match left_data.null_bitmap() {
+        Some(bitmap) => bitmap.clone().into_buffer(),
+        _ => new_all_set_buffer(left.len()),
+    };
+    let left_null_bitmap = left_null_bitmap.data();
+
+    let mut result = BooleanBufferBuilder::new(left.len());
+
+    for i in 0..left.len() {
+        let mut is_in = false;
+
+        // contains(null, null) = false
+        if bit_util::get_bit(not_both_null_bitmap, i) {
+            let list = right.value(i);
+
+            // contains(null, [null]) = true
+            if !bit_util::get_bit(left_null_bitmap, i) {
+                if list.null_count() > 0 {
+                    is_in = true;
+                }
+            } else {
+                let list = list
+                    .as_any()
+                    .downcast_ref::<GenericStringArray<OffsetSize>>()
+                    .unwrap();
+
+                for j in 0..list.len() {
+                    if list.is_valid(j) && (left.value(i) == list.value(j)) {
+                        is_in = true;
+                    }
+                }
+            }
+        }
+        result.append(is_in)?;
+    }
+
+    let data = ArrayData::new(
+        DataType::Boolean,
+        left.len(),
+        None,
+        None,
+        left.offset(),
+        vec![result.finish()],
+        vec![],
+    );
+    Ok(PrimitiveArray::<BooleanType>::from(Arc::new(data)))
+}
+
+// create a buffer and fill it with valid bits
+fn new_all_set_buffer(len: usize) -> Buffer {
+    let buffer = MutableBuffer::new(len);
+    let buffer = buffer.with_bitset(len, true);
+
+    buffer.freeze()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::array::Int32Array;
-    use crate::datatypes::Int8Type;
+    use crate::datatypes::{Int8Type, ToByteSlice};
 
     #[test]
     fn test_primitive_array_eq() {
@@ -804,6 +954,111 @@ mod tests {
         assert_eq!(
             result_mask.data().buffers()[0].len(),
             select_mask.data().buffers()[0].len()
+        );
+    }
+
+    // Expected behaviour:
+    // contains(1, [1, 2, null]) = true
+    // contains(3, [1, 2, null]) = false
+    // contains(null, [1, 2, null]) = true
+    // contains(null, null) = false
+    #[test]
+    fn test_contains() {
+        let value_data = Int32Array::from(vec![
+            Some(0),
+            Some(1),
+            Some(2),
+            Some(3),
+            Some(4),
+            Some(5),
+            Some(6),
+            None,
+            Some(7),
+        ])
+        .data();
+        let value_offsets = Buffer::from(&[0i64, 3, 6, 6, 9].to_byte_slice());
+        let list_data_type = DataType::LargeList(Box::new(DataType::Int32));
+        let list_data = ArrayData::builder(list_data_type)
+            .len(4)
+            .add_buffer(value_offsets)
+            .null_count(1)
+            .add_child_data(value_data)
+            .null_bit_buffer(Buffer::from([0b00001011]))
+            .build();
+
+        //  [[0, 1, 2], [3, 4, 5], null, [6, null, 7]]
+        let list_array = LargeListArray::from(list_data);
+
+        let nulls = Int32Array::from(vec![None, None, None, None]);
+        let nulls_result = contains(&nulls, &list_array).unwrap();
+        assert_eq!(
+            nulls_result
+                .as_any()
+                .downcast_ref::<BooleanArray>()
+                .unwrap(),
+            &BooleanArray::from(vec![false, false, false, true]),
+        );
+
+        let values = Int32Array::from(vec![Some(0), Some(0), Some(0), Some(0)]);
+        let values_result = contains(&values, &list_array).unwrap();
+        assert_eq!(
+            values_result
+                .as_any()
+                .downcast_ref::<BooleanArray>()
+                .unwrap(),
+            &BooleanArray::from(vec![true, false, false, false]),
+        );
+    }
+
+    // Expected behaviour:
+    // contains("ab", ["ab", "cd", null]) = true
+    // contains("ef", ["ab", "cd", null]) = false
+    // contains(null, ["ab", "cd", null]) = true
+    // contains(null, null) = false
+    #[test]
+    fn test_contains_utf8() {
+        let values_builder = StringBuilder::new(10);
+        let mut builder = ListBuilder::new(values_builder);
+
+        builder.values().append_value("Lorem").unwrap();
+        builder.values().append_value("ipsum").unwrap();
+        builder.values().append_null().unwrap();
+        builder.append(true).unwrap();
+        builder.values().append_value("sit").unwrap();
+        builder.values().append_value("amet").unwrap();
+        builder.values().append_value("Lorem").unwrap();
+        builder.append(true).unwrap();
+        builder.append(false).unwrap();
+        builder.values().append_value("ipsum").unwrap();
+        builder.append(true).unwrap();
+
+        //  [["Lorem", "ipsum", null], ["sit", "amet", "Lorem"], null, ["ipsum"]]
+        // value_offsets = [0, 3, 6, 6]
+        let list_array = builder.finish();
+
+        let nulls = StringArray::from(vec![None, None, None, None]);
+        let nulls_result = contains_utf8(&nulls, &list_array).unwrap();
+        assert_eq!(
+            nulls_result
+                .as_any()
+                .downcast_ref::<BooleanArray>()
+                .unwrap(),
+            &BooleanArray::from(vec![true, false, false, false]),
+        );
+
+        let values = StringArray::from(vec![
+            Some("Lorem"),
+            Some("Lorem"),
+            Some("Lorem"),
+            Some("Lorem"),
+        ]);
+        let values_result = contains_utf8(&values, &list_array).unwrap();
+        assert_eq!(
+            values_result
+                .as_any()
+                .downcast_ref::<BooleanArray>()
+                .unwrap(),
+            &BooleanArray::from(vec![true, true, false, false]),
         );
     }
 
