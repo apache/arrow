@@ -31,6 +31,8 @@ use crate::physical_plan::common::RecordBatchIterator;
 use crate::physical_plan::expressions::PhysicalSortExpr;
 use crate::physical_plan::{common, Distribution, ExecutionPlan, Partitioning};
 
+use async_trait::async_trait;
+
 /// Sort execution plan
 #[derive(Debug)]
 pub struct SortExec {
@@ -57,6 +59,7 @@ impl SortExec {
     }
 }
 
+#[async_trait]
 impl ExecutionPlan for SortExec {
     /// Return a reference to Any that can be used for downcasting
     fn as_any(&self) -> &dyn Any {
@@ -96,7 +99,7 @@ impl ExecutionPlan for SortExec {
         }
     }
 
-    fn execute(
+    async fn execute(
         &self,
         partition: usize,
     ) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
@@ -113,7 +116,7 @@ impl ExecutionPlan for SortExec {
                 "SortExec requires a single input partition".to_owned(),
             ));
         }
-        let it = self.input.execute(0)?;
+        let it = self.input.execute(0).await?;
         let batches = common::collect(it)?;
 
         // combine all record batches into one for each column
@@ -181,8 +184,8 @@ mod tests {
     use arrow::array::*;
     use arrow::datatypes::*;
 
-    #[test]
-    fn test_sort() -> Result<()> {
+    #[tokio::test]
+    async fn test_sort() -> Result<()> {
         let schema = test::aggr_test_schema();
         let partitions = 4;
         let path = test::create_partitioned_csv("aggregate_test_100.csv", partitions)?;
@@ -211,7 +214,7 @@ mod tests {
             2,
         )?);
 
-        let result: Vec<RecordBatch> = test::execute(sort_exec)?;
+        let result: Vec<RecordBatch> = test::execute(sort_exec).await?;
         assert_eq!(result.len(), 1);
 
         let columns = result[0].columns();
@@ -231,8 +234,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_lex_sort_by_float() -> Result<()> {
+    #[tokio::test]
+    async fn test_lex_sort_by_float() -> Result<()> {
         let schema = Arc::new(Schema::new(vec![
             Field::new("a", DataType::Float32, true),
             Field::new("b", DataType::Float64, true),
@@ -289,7 +292,7 @@ mod tests {
         assert_eq!(DataType::Float32, *sort_exec.schema().field(0).data_type());
         assert_eq!(DataType::Float64, *sort_exec.schema().field(1).data_type());
 
-        let result: Vec<RecordBatch> = test::execute(sort_exec)?;
+        let result: Vec<RecordBatch> = test::execute(sort_exec).await?;
         assert_eq!(result.len(), 1);
 
         let columns = result[0].columns();

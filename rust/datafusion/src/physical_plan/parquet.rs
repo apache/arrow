@@ -35,6 +35,8 @@ use crossbeam::channel::{bounded, Receiver, RecvError, Sender};
 use fmt::Debug;
 use parquet::arrow::{ArrowReader, ParquetFileArrowReader};
 
+use async_trait::async_trait;
+
 /// Execution plan for scanning a Parquet file
 #[derive(Debug, Clone)]
 pub struct ParquetExec {
@@ -87,6 +89,7 @@ impl ParquetExec {
     }
 }
 
+#[async_trait]
 impl ExecutionPlan for ParquetExec {
     /// Return a reference to Any that can be used for downcasting
     fn as_any(&self) -> &dyn Any {
@@ -121,7 +124,7 @@ impl ExecutionPlan for ParquetExec {
         }
     }
 
-    fn execute(
+    async fn execute(
         &self,
         partition: usize,
     ) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
@@ -220,15 +223,15 @@ mod tests {
     use super::*;
     use std::env;
 
-    #[test]
-    fn test() -> Result<()> {
+    #[tokio::test]
+    async fn test() -> Result<()> {
         let testdata =
             env::var("PARQUET_TEST_DATA").expect("PARQUET_TEST_DATA not defined");
         let filename = format!("{}/alltypes_plain.parquet", testdata);
         let parquet_exec = ParquetExec::try_new(&filename, Some(vec![0, 1, 2]), 1024)?;
         assert_eq!(parquet_exec.output_partitioning().partition_count(), 1);
 
-        let results = parquet_exec.execute(0)?;
+        let results = parquet_exec.execute(0).await?;
         let mut results = results.lock().unwrap();
         let batch = results.next_batch()?.unwrap();
 

@@ -26,6 +26,8 @@ use crate::execution::context::{ExecutionContext, ExecutionContextState};
 use crate::logical_plan::{col, Expr, FunctionRegistry, LogicalPlan, LogicalPlanBuilder};
 use arrow::datatypes::Schema;
 
+use async_trait::async_trait;
+
 /// Implementation of DataFrame API
 pub struct DataFrameImpl {
     ctx_state: ExecutionContextState,
@@ -42,6 +44,7 @@ impl DataFrameImpl {
     }
 }
 
+#[async_trait]
 impl DataFrame for DataFrameImpl {
     /// Apply a projection based on a list of column names
     fn select_columns(&self, columns: Vec<&str>) -> Result<Arc<dyn DataFrame>> {
@@ -106,11 +109,11 @@ impl DataFrame for DataFrameImpl {
 
     // Convert the logical plan represented by this DataFrame into a physical plan and
     // execute it
-    fn collect(&self) -> Result<Vec<RecordBatch>> {
+    async fn collect(&self) -> Result<Vec<RecordBatch>> {
         let ctx = ExecutionContext::from(self.ctx_state.clone());
         let plan = ctx.optimize(&self.plan)?;
         let plan = ctx.create_physical_plan(&plan)?;
-        Ok(ctx.collect(plan)?)
+        Ok(ctx.collect(plan).await?)
     }
 
     /// Returns the schema from the logical plan

@@ -30,6 +30,8 @@ use arrow::datatypes::{DataType, Schema, SchemaRef};
 use arrow::record_batch::{RecordBatch, RecordBatchReader};
 use arrow::{array::ArrayRef, datatypes::Field};
 
+use async_trait::async_trait;
+
 /// Physical query planner that converts a `LogicalPlan` to an
 /// `ExecutionPlan` suitable for execution.
 pub trait PhysicalPlanner {
@@ -42,6 +44,7 @@ pub trait PhysicalPlanner {
 }
 
 /// Partition-aware execution plan for a relation
+#[async_trait]
 pub trait ExecutionPlan: Debug + Send + Sync {
     /// Returns the execution plan as [`Any`](std::any::Any) so that it can be
     /// downcast to a specific implementation.
@@ -65,7 +68,7 @@ pub trait ExecutionPlan: Debug + Send + Sync {
         children: Vec<Arc<dyn ExecutionPlan>>,
     ) -> Result<Arc<dyn ExecutionPlan>>;
     /// Execute one partition and return an iterator over RecordBatch
-    fn execute(
+    async fn execute(
         &self,
         partition: usize,
     ) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>>;

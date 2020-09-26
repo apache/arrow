@@ -23,6 +23,8 @@ use crate::logical_plan::{Expr, FunctionRegistry, LogicalPlan};
 use arrow::datatypes::Schema;
 use std::sync::Arc;
 
+use async_trait::async_trait;
+
 /// DataFrame represents a logical set of rows with the same named columns.
 /// Similar to a [Pandas DataFrame](https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.DataFrame.html) or
 /// [Spark DataFrame](https://spark.apache.org/docs/latest/sql-programming-guide.html)
@@ -47,6 +49,7 @@ use std::sync::Arc;
 /// # Ok(())
 /// # }
 /// ```
+#[async_trait]
 pub trait DataFrame {
     /// Filter the DataFrame by column. Returns a new DataFrame only containing the
     /// specified columns.
@@ -155,7 +158,7 @@ pub trait DataFrame {
     /// # Ok(())
     /// # }
     /// ```
-    fn collect(&self) -> Result<Vec<RecordBatch>>;
+    async fn collect(&self) -> Result<Vec<RecordBatch>>;
 
     /// Returns the schema describing the output of this DataFrame in terms of columns returned,
     /// where each column has a name, data type, and nullability attribute.

@@ -29,6 +29,8 @@ use arrow::datatypes::{Field, Schema, SchemaRef};
 use arrow::error::Result as ArrowResult;
 use arrow::record_batch::{RecordBatch, RecordBatchReader};
 
+use async_trait::async_trait;
+
 /// Execution plan for a projection
 #[derive(Debug)]
 pub struct ProjectionExec {
@@ -69,6 +71,7 @@ impl ProjectionExec {
     }
 }
 
+#[async_trait]
 impl ExecutionPlan for ProjectionExec {
     /// Return a reference to Any that can be used for downcasting
     fn as_any(&self) -> &dyn Any {
@@ -104,14 +107,14 @@ impl ExecutionPlan for ProjectionExec {
         }
     }
 
-    fn execute(
+    async fn execute(
         &self,
         partition: usize,
     ) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
         Ok(Arc::new(Mutex::new(ProjectionIterator {
             schema: self.schema.clone(),
             expr: self.expr.iter().map(|x| x.0.clone()).collect(),
-            input: self.input.execute(partition)?,
+            input: self.input.execute(partition).await?,
         })))
     }
 }
@@ -154,8 +157,8 @@ mod tests {
     use crate::physical_plan::expressions::col;
     use crate::test;
 
-    #[test]
-    fn project_first_column() -> Result<()> {
+    #[tokio::test]
+    async fn project_first_column() -> Result<()> {
         let schema = test::aggr_test_schema();
 
         let partitions = 4;
@@ -172,7 +175,7 @@ mod tests {
         let mut row_count = 0;
         for partition in 0..projection.output_partitioning().partition_count() {
             partition_count += 1;
-            let iterator = projection.execute(partition)?;
+            let iterator = projection.execute(partition).await?;
             let mut iterator = iterator.lock().unwrap();
             while let Some(batch) = iterator.next_batch()? {
                 assert_eq!(1, batch.num_columns());
