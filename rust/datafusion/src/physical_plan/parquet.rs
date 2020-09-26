@@ -17,6 +17,7 @@
 
 //! Execution plan for reading Parquet files
 
+use std::any::Any;
 use std::fs::File;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
@@ -87,6 +88,11 @@ impl ParquetExec {
 }
 
 impl ExecutionPlan for ParquetExec {
+    /// Return a reference to Any that can be used for downcasting
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     fn schema(&self) -> SchemaRef {
         self.schema.clone()
     }

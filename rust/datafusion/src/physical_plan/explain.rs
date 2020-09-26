@@ -17,6 +17,9 @@
 
 //! Defines the EXPLAIN operator
 
+use std::any::Any;
+use std::sync::{Arc, Mutex};
+
 use crate::error::{ExecutionError, Result};
 use crate::{
     logical_plan::StringifiedPlan,
@@ -29,7 +32,6 @@ use arrow::{
 };
 
 use crate::physical_plan::Partitioning;
-use std::sync::{Arc, Mutex};
 
 /// Explain execution plan operator. This operator contains the string
 /// values of the various plans it has when it is created, and passes
@@ -54,6 +56,11 @@ impl ExplainExec {
 }
 
 impl ExecutionPlan for ExplainExec {
+    /// Return a reference to Any that can be used for downcasting
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     fn schema(&self) -> SchemaRef {
         self.schema.clone()
     }

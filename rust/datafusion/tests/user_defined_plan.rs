@@ -355,6 +355,11 @@ impl Debug for TopKExec {
 }
 
 impl ExecutionPlan for TopKExec {
+    /// Return a reference to Any that can be used for downcasting
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     fn schema(&self) -> SchemaRef {
         self.input.schema()
     }

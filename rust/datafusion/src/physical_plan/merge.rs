@@ -18,6 +18,7 @@
 //! Defines the merge plan for executing partitions in parallel and then merging the results
 //! into a single partition
 
+use std::any::Any;
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 
@@ -50,6 +51,11 @@ impl MergeExec {
 }
 
 impl ExecutionPlan for MergeExec {
+    /// Return a reference to Any that can be used for downcasting
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     fn schema(&self) -> SchemaRef {
         self.input.schema()
     }

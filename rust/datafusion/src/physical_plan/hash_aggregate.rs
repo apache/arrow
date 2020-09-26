@@ -17,6 +17,7 @@
 
 //! Defines the execution plan for the hash aggregate operation
 
+use std::any::Any;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
@@ -116,6 +117,11 @@ impl HashAggregateExec {
 }
 
 impl ExecutionPlan for HashAggregateExec {
+    /// Return a reference to Any that can be used for downcasting
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     fn schema(&self) -> SchemaRef {
         self.schema.clone()
     }

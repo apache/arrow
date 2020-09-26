@@ -17,6 +17,7 @@
 
 //! Execution plan for reading CSV files
 
+use std::any::Any;
 use std::fs::File;
 use std::sync::{Arc, Mutex};
 
@@ -179,6 +180,11 @@ impl CsvExec {
 }
 
 impl ExecutionPlan for CsvExec {
+    /// Return a reference to Any that can be used for downcasting
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     /// Get the schema for this execution plan
     fn schema(&self) -> SchemaRef {
         self.projected_schema.clone()

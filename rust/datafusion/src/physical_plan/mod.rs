@@ -17,6 +17,7 @@
 
 //! Traits for physical query plan, supporting parallel execution for partitioned relations.
 
+use std::any::Any;
 use std::cell::RefCell;
 use std::fmt::{Debug, Display};
 use std::rc::Rc;
@@ -42,6 +43,9 @@ pub trait PhysicalPlanner {
 
 /// Partition-aware execution plan for a relation
 pub trait ExecutionPlan: Debug + Send + Sync {
+    /// Returns the execution plan as [`Any`](std::any::Any) so that it can be
+    /// downcast to a specific implementation.
+    fn as_any(&self) -> &dyn Any;
     /// Get the schema for this execution plan
     fn schema(&self) -> SchemaRef;
     /// Specifies the output partitioning scheme of this plan
