@@ -839,8 +839,20 @@ Status GetDecimal(const RjObject& json_type, std::shared_ptr<DataType>* type) {
   ARROW_ASSIGN_OR_RAISE(const int32_t precision,
                         GetMemberInt<int32_t>(json_type, "precision"));
   ARROW_ASSIGN_OR_RAISE(const int32_t scale, GetMemberInt<int32_t>(json_type, "scale"));
+  int32_t bit_width = 128;
+  Result<int32_t> maybe_bit_width = GetMemberInt<int32_t>(json_type, "bitWidth");
+  if (maybe_bit_width.ok()) {
+    bit_width = maybe_bit_width.ValueOrDie();
+  }
 
-  *type = decimal(precision, scale);
+  if (bit_width == 128) {
+    *type = decimal128(precision, scale);
+  } else if (bit_width == 256) {
+    *type = decimal256(precision, scale);
+  } else {
+    return Status::Invalid("Only 128 bit and 256 Decimals are supported. Received",
+                           bit_width);
+  }
   return Status::OK();
 }
 

@@ -522,12 +522,12 @@ public class TestComplexCopier {
   public void testCopyFixedSizedListOfDecimalsVector() {
     try (FixedSizeListVector from = FixedSizeListVector.empty("v", 4, allocator);
          FixedSizeListVector to = FixedSizeListVector.empty("v", 4, allocator)) {
-      from.addOrGetVector(FieldType.nullable(new ArrowType.Decimal(3, 0)));
-      to.addOrGetVector(FieldType.nullable(new ArrowType.Decimal(3, 0)));
+      from.addOrGetVector(FieldType.nullable(new ArrowType.Decimal(3, 0, 128)));
+      to.addOrGetVector(FieldType.nullable(new ArrowType.Decimal(3, 0, 128)));
 
       DecimalHolder holder = new DecimalHolder();
       holder.buffer = allocator.buffer(DecimalUtility.DECIMAL_BYTE_LENGTH);
-      ArrowType arrowType = new ArrowType.Decimal(3, 0);
+      ArrowType arrowType = new ArrowType.Decimal(3, 0, 128);
 
       // populate from vector
       UnionFixedSizeListWriter writer = from.getWriter();
@@ -535,13 +535,13 @@ public class TestComplexCopier {
         writer.startList();
         writer.decimal().writeDecimal(BigDecimal.valueOf(i));
 
-        DecimalUtility.writeBigDecimalToArrowBuf(new BigDecimal(i * 2), holder.buffer, 0);
+        DecimalUtility.writeBigDecimalToArrowBuf(new BigDecimal(i * 2), holder.buffer, 0, /*byteWidth=*/16);
         holder.start = 0;
         holder.scale = 0;
         holder.precision = 3;
         writer.decimal().write(holder);
 
-        DecimalUtility.writeBigDecimalToArrowBuf(new BigDecimal(i * 3), holder.buffer, 0);
+        DecimalUtility.writeBigDecimalToArrowBuf(new BigDecimal(i * 3), holder.buffer, 0, /*byteWidth=*/16);
         writer.decimal().writeDecimal(0, holder.buffer, arrowType);
 
         writer.decimal().writeBigEndianBytesToDecimal(BigDecimal.valueOf(i * 4).unscaledValue().toByteArray(),
@@ -582,7 +582,7 @@ public class TestComplexCopier {
         listWriter.decimal().writeDecimal(BigDecimal.valueOf(i * 2));
         listWriter.integer().writeInt(i);
         listWriter.decimal().writeBigEndianBytesToDecimal(BigDecimal.valueOf(i * 3).unscaledValue().toByteArray(),
-            new ArrowType.Decimal(3, 0));
+            new ArrowType.Decimal(3, 0, 128));
 
         listWriter.endList();
       }
@@ -623,7 +623,7 @@ public class TestComplexCopier {
         innerStructWriter.integer("innerint").writeInt(i * 3);
         innerStructWriter.decimal("innerdec", 0, 38).writeDecimal(BigDecimal.valueOf(i * 4));
         innerStructWriter.decimal("innerdec", 0, 38).writeBigEndianBytesToDecimal(BigDecimal.valueOf(i * 4)
-            .unscaledValue().toByteArray(), new ArrowType.Decimal(3, 0));
+            .unscaledValue().toByteArray(), new ArrowType.Decimal(3, 0, 128));
         innerStructWriter.end();
         structWriter.end();
       }
@@ -649,8 +649,8 @@ public class TestComplexCopier {
   public void testCopyDecimalVectorWrongScale() {
     try (FixedSizeListVector from = FixedSizeListVector.empty("v", 3, allocator);
          FixedSizeListVector to = FixedSizeListVector.empty("v", 3, allocator)) {
-      from.addOrGetVector(FieldType.nullable(new ArrowType.Decimal(3, 2)));
-      to.addOrGetVector(FieldType.nullable(new ArrowType.Decimal(3, 1)));
+      from.addOrGetVector(FieldType.nullable(new ArrowType.Decimal(3, 2, 128)));
+      to.addOrGetVector(FieldType.nullable(new ArrowType.Decimal(3, 1, 128)));
 
       // populate from vector
       UnionFixedSizeListWriter writer = from.getWriter();

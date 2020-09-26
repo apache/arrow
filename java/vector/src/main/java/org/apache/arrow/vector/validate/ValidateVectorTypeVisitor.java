@@ -22,6 +22,7 @@ import static org.apache.arrow.vector.validate.ValidateUtil.validateOrThrow;
 import org.apache.arrow.vector.BaseFixedWidthVector;
 import org.apache.arrow.vector.BaseLargeVariableWidthVector;
 import org.apache.arrow.vector.BaseVariableWidthVector;
+import org.apache.arrow.vector.BigDecimalVector;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.DateDayVector;
@@ -172,7 +173,7 @@ public class ValidateVectorTypeVisitor implements VectorVisitor<Void, Void> {
       validateIntVector(vector, 64, false);
     } else if (vector instanceof BitVector) {
       validateVectorCommon(vector, ArrowType.Bool.class);
-    } else if (vector instanceof DecimalVector) {
+    } else if (vector instanceof DecimalVector || vector instanceof BigDecimalVector) {
       validateVectorCommon(vector, ArrowType.Decimal.class);
       ArrowType.Decimal arrowType = (ArrowType.Decimal) vector.getField().getType();
       validateOrThrow(arrowType.getScale() > 0, "The scale of decimal %s is not positive.", arrowType.getScale());

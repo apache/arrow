@@ -16,8 +16,11 @@
  */
 
 import org.apache.arrow.memory.ArrowBuf;
+import org.apache.arrow.vector.complex.writer.BigDecimalWriter;
 import org.apache.arrow.vector.complex.writer.DecimalWriter;
+import org.apache.arrow.vector.holders.BigDecimalHolder;
 import org.apache.arrow.vector.holders.DecimalHolder;
+
 
 import java.lang.UnsupportedOperationException;
 import java.math.BigDecimal;
@@ -127,6 +130,22 @@ public class UnionFixedSizeListWriter extends AbstractFieldWriter {
     return writer.decimal(name);
   }
 
+
+  @Override
+  public BigDecimalWriter bigDecimal() {
+    return this;
+  }
+
+  @Override
+  public BigDecimalWriter bigDecimal(String name, int scale, int precision) {
+    return writer.bigDecimal(name, scale, precision);
+  }
+
+  @Override
+  public BigDecimalWriter bigDecimal(String name) {
+    return writer.bigDecimal(name);
+  }
+
   @Override
   public StructWriter struct() {
     inStruct = true;
@@ -180,6 +199,16 @@ public class UnionFixedSizeListWriter extends AbstractFieldWriter {
     writer.write(holder);
     writer.setPosition(writer.idx() + 1);
   }
+ 
+  @Override
+  public void write(BigDecimalHolder holder) {
+    if (writer.idx() >= (idx() + 1) * listSize) {
+      throw new IllegalStateException(String.format("values at index %s is greater than listSize %s", idx(), listSize));
+    }
+    writer.write(holder);
+    writer.setPosition(writer.idx() + 1);
+  }
+
 
   @Override
   public void writeNull() {
@@ -212,6 +241,31 @@ public class UnionFixedSizeListWriter extends AbstractFieldWriter {
     writer.writeBigEndianBytesToDecimal(value, arrowType);
     writer.setPosition(writer.idx() + 1);
   }
+
+  public void writeBigDecimal(int start, ArrowBuf buffer, ArrowType arrowType) {
+    if (writer.idx() >= (idx() + 1) * listSize) {
+      throw new IllegalStateException(String.format("values at index %s is greater than listSize %s", idx(), listSize));
+    }
+    writer.writeBigDecimal(start, buffer, arrowType);
+    writer.setPosition(writer.idx() + 1);
+  }
+
+  public void writeBigDecimal(BigDecimal value) {
+    if (writer.idx() >= (idx() + 1) * listSize) {
+      throw new IllegalStateException(String.format("values at index %s is greater than listSize %s", idx(), listSize));
+    }
+    writer.writeBigDecimal(value);
+    writer.setPosition(writer.idx() + 1);
+  }
+
+  public void writeBigEndianBytesToBigDecimal(byte[] value, ArrowType arrowType) {
+    if (writer.idx() >= (idx() + 1) * listSize) {
+      throw new IllegalStateException(String.format("values at index %s is greater than listSize %s", idx(), listSize));
+    }
+    writer.writeBigEndianBytesToBigDecimal(value, arrowType);
+    writer.setPosition(writer.idx() + 1);
+  }
+
 
   <#list vv.types as type>
     <#list type.minor as minor>
