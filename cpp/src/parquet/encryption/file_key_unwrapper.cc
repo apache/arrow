@@ -73,12 +73,10 @@ KeyWithMasterId FileKeyUnwrapper::GetDataEncryptionKey(
     const std::string& encoded_kek_id = key_material.kek_id();
     const std::string& encoded_wrapped_kek = key_material.wrapped_kek();
 
-    std::function<std::string()> compute_value_func = [kms_client, encoded_wrapped_kek,
-                                                       master_key_id]() {
-      return kms_client->UnwrapKey(encoded_wrapped_kek, master_key_id);
-    };
-    std::string kek_bytes =
-        kek_per_kek_id_->AssignIfNotExist(encoded_kek_id, compute_value_func);
+    std::string kek_bytes = kek_per_kek_id_->GetOrAssignIfNotExist(
+        encoded_kek_id, [kms_client, encoded_wrapped_kek, master_key_id]() {
+          return kms_client->UnwrapKey(encoded_wrapped_kek, master_key_id);
+        });
 
     // Decrypt the data key
     std::string aad = arrow::util::base64_decode(encoded_kek_id);

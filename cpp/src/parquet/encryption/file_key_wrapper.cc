@@ -64,7 +64,7 @@ std::string FileKeyWrapper::GetEncryptionKeyMetadata(const std::string& data_key
     encoded_wrapped_dek = kms_client_->WrapKey(data_key, master_key_id);
   } else {
     // Find in cache, or generate KEK for Master Key ID
-    KeyEncryptionKey key_encryption_key = kek_per_master_key_id_->AssignIfNotExist(
+    KeyEncryptionKey key_encryption_key = kek_per_master_key_id_->GetOrAssignIfNotExist(
         master_key_id, [this, master_key_id]() -> KeyEncryptionKey {
           return this->CreateKeyEncryptionKey(master_key_id);
         });

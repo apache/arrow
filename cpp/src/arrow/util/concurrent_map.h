@@ -39,7 +39,7 @@ class ConcurrentMap {
     map_[key] = value;
   }
 
-  V AssignIfNotExist(const std::string& key, std::function<V()> compute_value_func) {
+  V GetOrAssignIfNotExist(const std::string& key, std::function<V()> compute_value_func) {
     auto lock = mutex_.Lock();
     auto it = map_.find(key);
     if (it == map_.end()) {
