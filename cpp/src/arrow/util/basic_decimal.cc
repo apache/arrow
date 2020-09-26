@@ -253,7 +253,7 @@ BasicDecimal128& BasicDecimal128::operator>>=(uint32_t bits) {
 
 namespace {
 
-void extendAndMultiplyUint64(uint64_t x, uint64_t y, uint64_t* hi, uint64_t* lo) {
+void ExtendAndMultiplyUint64(uint64_t x, uint64_t y, uint64_t* hi, uint64_t* lo) {
   const uint64_t x_lo = x & kIntMask;
   const uint64_t y_lo = y & kIntMask;
   const uint64_t x_hi = x >> 32;
@@ -274,9 +274,9 @@ void extendAndMultiplyUint64(uint64_t x, uint64_t y, uint64_t* hi, uint64_t* lo)
   *lo = (v << 32) + t_lo;
 }
 
-void multiplyUint128(uint64_t x_hi, uint64_t x_lo, uint64_t y_hi, uint64_t y_lo,
+void MultiplyUint128(uint64_t x_hi, uint64_t x_lo, uint64_t y_hi, uint64_t y_lo,
                      uint64_t* hi, uint64_t* lo) {
-  extendAndMultiplyUint64(x_lo, y_lo, hi, lo);
+  ExtendAndMultiplyUint64(x_lo, y_lo, hi, lo);
   *hi += (x_hi * y_lo) + (x_lo * y_hi);
 }
 
@@ -289,7 +289,7 @@ BasicDecimal128& BasicDecimal128::operator*=(const BasicDecimal128& right) {
   BasicDecimal128 x = BasicDecimal128::Abs(*this);
   BasicDecimal128 y = BasicDecimal128::Abs(right);
   uint64_t hi;
-  multiplyUint128(x.high_bits(), x.low_bits(), y.high_bits(), y.low_bits(), &hi,
+  MultiplyUint128(x.high_bits(), x.low_bits(), y.high_bits(), y.low_bits(), &hi,
                   &low_bits_);
   high_bits_ = hi;
   if (negate) {
