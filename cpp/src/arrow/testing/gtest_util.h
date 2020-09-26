@@ -110,7 +110,7 @@
 #define ASSIGN_OR_HANDLE_ERROR_IMPL(handle_error, status_name, lhs, rexpr) \
   auto&& status_name = (rexpr);                                            \
   handle_error(status_name.status());                                      \
-  lhs = std::move(status_name).ValueUnsafe();
+  lhs = std::move(status_name).ValueOrDie();
 
 #define ASSERT_OK_AND_ASSIGN(lhs, rexpr) \
   ASSIGN_OR_HANDLE_ERROR_IMPL(           \
