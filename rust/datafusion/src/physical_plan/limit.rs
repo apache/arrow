@@ -125,6 +125,10 @@ pub struct LocalLimitExec {
 }
 
 impl LocalLimitExec {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     /// Create a new LocalLimitExec partition
     pub fn new(input: Arc<dyn ExecutionPlan>, limit: usize) -> Self {
         Self { input, limit }

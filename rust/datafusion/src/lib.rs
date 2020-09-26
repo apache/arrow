@@ -67,6 +67,7 @@ pub mod optimizer;
 pub mod physical_plan;
 pub mod prelude;
 pub mod scalar;
+pub mod scheduler;
 pub mod sql;
 pub mod variable;
 

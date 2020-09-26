@@ -54,6 +54,7 @@ crossbeam = "0.7"
 paste = "0.1"
 num_cpus = "1.13.0"
 chrono = "0.4"
+uuid = { version = "0.8", features = ["v4"] }
 
 [dev-dependencies]
 rand = "0.7"
