@@ -32,7 +32,6 @@ static constexpr ParquetCipher::type kDefaultEncryptionAlgorithm =
     ParquetCipher::AES_GCM_V1;
 static constexpr bool kDefaultPlaintextFooter = false;
 static constexpr bool kDefaultDoubleWrapping = true;
-static constexpr bool kDefaultWrapLocally = false;
 static constexpr uint64_t kDefaultCacheLifetimeSeconds = 600;  // 10 minutes
 static constexpr bool kDefaultInternalKeyMaterial = true;
 static constexpr bool kDefaultUniformEncryption = false;

@@ -23,11 +23,13 @@
 namespace parquet {
 namespace encryption {
 
+static constexpr bool kDefaultWrapLocally = false;
+
 class PARQUET_EXPORT KmsClientFactory {
  public:
   explicit KmsClientFactory(bool wrap_locally) : wrap_locally_(wrap_locally) {}
 
-  KmsClientFactory() : KmsClientFactory(false) {}
+  KmsClientFactory() : KmsClientFactory(kDefaultWrapLocally) {}
 
   virtual ~KmsClientFactory() {}
 
