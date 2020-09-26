@@ -2513,9 +2513,20 @@ def test_numpy_binary_overflow_to_chunked():
 
 @pytest.mark.large_memory
 def test_list_child_overflow_to_chunked():
-    vals = [['x' * 1024]] * ((2 << 20) + 1)
-    with pytest.raises(ValueError, match="overflowed"):
-        pa.array(vals)
+    kilobyte_string = 'x' * 1024
+    two_mega = 2**21
+
+    vals = [[kilobyte_string]] * (two_mega - 1)
+    arr = pa.array(vals)
+    assert isinstance(arr, pa.Array)
+    assert len(arr) == two_mega - 1
+
+    vals = [[kilobyte_string]] * two_mega
+    arr = pa.array(vals)
+    assert isinstance(arr, pa.ChunkedArray)
+    assert len(arr) == two_mega
+    assert len(arr.chunk(0)) == two_mega - 1
+    assert len(arr.chunk(1)) == 1
 
 
 def test_infer_type_masked():

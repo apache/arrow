@@ -7,7 +7,7 @@
 \usage{
 write_arrow(x, sink, ...)
 
-write_ipc_stream(x, sink, ...)
+write_ipc_stream(x, sink, filesystem = NULL, ...)
 }
 \arguments{
 \item{x}{\code{data.frame}, \link{RecordBatch}, or \link{Table}}
@@ -15,6 +15,9 @@ write_ipc_stream(x, sink, ...)
 \item{sink}{A string file path, URI, or \link{OutputStream}}
 
 \item{...}{extra parameters passed to \code{write_feather()}.}
+
+\item{filesystem}{A \link{FileSystem} where \code{sink} should be written if it is a
+string file path; default is the local file system}
 }
 \value{
 \code{x}, invisibly.

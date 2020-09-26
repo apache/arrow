@@ -16,11 +16,40 @@ to another implementation after prepending a fixed base path
 \section{Factory}{
 
 
-The \verb{$create()} factory methods instantiate the \code{FileSystem} object and
-take the following arguments, depending on the subclass:
+\code{LocalFileSystem$create()} returns the object and takes no arguments.
+
+\code{SubTreeFileSystem$create()} takes the following arguments:
 \itemize{
-\item no argument is needed for instantiating a \code{LocalFileSystem}
-\item \code{base_path} and \code{base_fs} for instantiating a \code{SubTreeFileSystem}
+\item \code{base_path}, a string path
+\item \code{base_fs}, a \code{FileSystem} object
+}
+
+\code{S3FileSystem$create()} optionally takes arguments:
+\itemize{
+\item \code{anonymous}: logical, default \code{FALSE}. If true, will not attempt to look up
+credentials using standard AWS configuration methods.
+\item \code{access_key}, \code{secret_key}: authentication credentials. If one is provided,
+the other must be as well. If both are provided, they will override any
+AWS configuration set at the environment level.
+\item \code{session_token}: optional string for authentication along with
+\code{access_key} and \code{secret_key}
+\item \code{role_arn}: string AWS ARN of an AccessRole. If provided instead of \code{access_key} and
+\code{secret_key}, temporary credentials will be fetched by assuming this role.
+\item \code{session_name}: optional string identifier for the assumed role session.
+\item \code{external_id}: optional unique string identifier that might be required
+when you assume a role in another account.
+\item \code{load_frequency}: integer, frequency (in seconds) with which temporary
+credentials from an assumed role session will be refreshed. Default is
+900 (i.e. 15 minutes)
+\item \code{region}: AWS region to connect to. If omitted, the AWS library will
+provide a sensible default based on client configuration, falling back
+to "us-east-1" if no other alternatives are found.
+\item \code{endpoint_override}: If non-empty, override region with a connect string
+such as "localhost:9000". This is useful for connecting to file systems
+that emulate S3.
+\item \code{scheme}: S3 connection transport (default "https")
+\item \code{background_writes}: logical, whether \code{OutputStream} writes will be issued
+in the background, without blocking (default \code{TRUE})
 }
 }
 

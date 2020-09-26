@@ -254,7 +254,7 @@ ARROW_TESTING_EXPORT void TestInitialized(const Array& array);
 
 template <typename BuilderType>
 void FinishAndCheckPadding(BuilderType* builder, std::shared_ptr<Array>* out) {
-  ASSERT_OK(builder->Finish(out));
+  ASSERT_OK_AND_ASSIGN(*out, builder->Finish());
   AssertZeroPadded(**out);
   TestInitialized(**out);
 }
@@ -444,6 +444,17 @@ class ARROW_TESTING_EXPORT LocaleGuard {
  protected:
   class Impl;
   std::unique_ptr<Impl> impl_;
+};
+
+class ARROW_TESTING_EXPORT EnvVarGuard {
+ public:
+  EnvVarGuard(const std::string& name, const std::string& value);
+  ~EnvVarGuard();
+
+ protected:
+  const std::string name_;
+  std::string old_value_;
+  bool was_set_;
 };
 
 #ifndef ARROW_LARGE_MEMORY_TESTS

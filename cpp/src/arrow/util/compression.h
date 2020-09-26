@@ -30,7 +30,18 @@ namespace arrow {
 
 struct Compression {
   /// \brief Compression algorithm
-  enum type { UNCOMPRESSED, SNAPPY, GZIP, BROTLI, ZSTD, LZ4, LZ4_FRAME, LZO, BZ2 };
+  enum type {
+    UNCOMPRESSED,
+    SNAPPY,
+    GZIP,
+    BROTLI,
+    ZSTD,
+    LZ4,
+    LZ4_FRAME,
+    LZO,
+    BZ2,
+    LZ4_HADOOP
+  };
 
   static constexpr int kUseDefaultCompressionLevel = std::numeric_limits<int>::min();
 };

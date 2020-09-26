@@ -928,16 +928,12 @@ fs___FileSystemFromUri <- function(path){
     .Call(`_arrow_fs___FileSystemFromUri` , path)
 }
 
-fs___CopyFiles <- function(src_fs, src_paths, dest_fs, dest_paths, chunk_size, use_threads){
-    invisible(.Call(`_arrow_fs___CopyFiles` , src_fs, src_paths, dest_fs, dest_paths, chunk_size, use_threads))
+fs___CopyFiles <- function(source_fs, source_sel, destination_fs, destination_base_dir, chunk_size, use_threads){
+    invisible(.Call(`_arrow_fs___CopyFiles` , source_fs, source_sel, destination_fs, destination_base_dir, chunk_size, use_threads))
 }
 
-fs___EnsureS3Initialized <- function(){
-    invisible(.Call(`_arrow_fs___EnsureS3Initialized` ))
-}
-
-fs___S3FileSystem__create <- function(){
-    .Call(`_arrow_fs___S3FileSystem__create` )
+fs___S3FileSystem__create <- function(anonymous, access_key, secret_key, session_token, role_arn, session_name, external_id, load_frequency, region, endpoint_override, scheme, background_writes){
+    .Call(`_arrow_fs___S3FileSystem__create` , anonymous, access_key, secret_key, session_token, role_arn, session_name, external_id, load_frequency, region, endpoint_override, scheme, background_writes)
 }
 
 io___Readable__Read <- function(x, nbytes){
@@ -1136,8 +1132,36 @@ parquet___arrow___FileReader__ReadTable2 <- function(reader, column_indices){
     .Call(`_arrow_parquet___arrow___FileReader__ReadTable2` , reader, column_indices)
 }
 
+parquet___arrow___FileReader__ReadRowGroup1 <- function(reader, i){
+    .Call(`_arrow_parquet___arrow___FileReader__ReadRowGroup1` , reader, i)
+}
+
+parquet___arrow___FileReader__ReadRowGroup2 <- function(reader, i, column_indices){
+    .Call(`_arrow_parquet___arrow___FileReader__ReadRowGroup2` , reader, i, column_indices)
+}
+
+parquet___arrow___FileReader__ReadRowGroups1 <- function(reader, row_groups){
+    .Call(`_arrow_parquet___arrow___FileReader__ReadRowGroups1` , reader, row_groups)
+}
+
+parquet___arrow___FileReader__ReadRowGroups2 <- function(reader, row_groups, column_indices){
+    .Call(`_arrow_parquet___arrow___FileReader__ReadRowGroups2` , reader, row_groups, column_indices)
+}
+
 parquet___arrow___FileReader__num_rows <- function(reader){
     .Call(`_arrow_parquet___arrow___FileReader__num_rows` , reader)
+}
+
+parquet___arrow___FileReader__num_columns <- function(reader){
+    .Call(`_arrow_parquet___arrow___FileReader__num_columns` , reader)
+}
+
+parquet___arrow___FileReader__num_row_groups <- function(reader){
+    .Call(`_arrow_parquet___arrow___FileReader__num_row_groups` , reader)
+}
+
+parquet___arrow___FileReader__ReadColumn <- function(reader, i){
+    .Call(`_arrow_parquet___arrow___FileReader__ReadColumn` , reader, i)
 }
 
 parquet___ArrowWriterProperties___create <- function(allow_truncated_timestamps, use_deprecated_int96_timestamps, timestamp_unit){

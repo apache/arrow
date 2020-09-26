@@ -231,19 +231,13 @@ cpp11::writable::list fs___FileSystemFromUri(const std::string& path) {
 }
 
 // [[arrow::export]]
-void fs___CopyFiles(const std::shared_ptr<fs::FileSystem>& src_fs,
-                    const std::vector<std::string>& src_paths,
-                    const std::shared_ptr<fs::FileSystem>& dest_fs,
-                    const std::vector<std::string>& dest_paths, int64_t chunk_size,
-                    bool use_threads) {
-  std::vector<fs::FileLocator> sources(src_paths.size()), destinations(dest_paths.size());
-
-  for (size_t i = 0; i < src_paths.size(); ++i) {
-    sources[i] = {src_fs, src_paths[i]};
-    destinations[i] = {dest_fs, dest_paths[i]};
-  }
-
-  StopIfNotOk(fs::CopyFiles(sources, destinations, chunk_size, use_threads));
+void fs___CopyFiles(const std::shared_ptr<fs::FileSystem>& source_fs,
+                    const std::shared_ptr<fs::FileSelector>& source_sel,
+                    const std::shared_ptr<fs::FileSystem>& destination_fs,
+                    const std::string& destination_base_dir,
+                    int64_t chunk_size = 1024 * 1024, bool use_threads = true) {
+  StopIfNotOk(fs::CopyFiles(source_fs, *source_sel, destination_fs, destination_base_dir,
+                            chunk_size, use_threads));
 }
 
 #endif
@@ -253,12 +247,43 @@ void fs___CopyFiles(const std::shared_ptr<fs::FileSystem>& src_fs,
 #include <arrow/filesystem/s3fs.h>
 
 // [[s3::export]]
-void fs___EnsureS3Initialized() { StopIfNotOk(fs::EnsureS3Initialized()); }
+std::shared_ptr<fs::S3FileSystem> fs___S3FileSystem__create(
+    bool anonymous = false, std::string access_key = "", std::string secret_key = "",
+    std::string session_token = "", std::string role_arn = "",
+    std::string session_name = "", std::string external_id = "", int load_frequency = 900,
+    std::string region = "", std::string endpoint_override = "", std::string scheme = "",
+    bool background_writes = true) {
+  fs::S3Options s3_opts;
+  // Handle auth (anonymous, keys, default)
+  // (validation/internal coherence handled in R)
+  if (anonymous) {
+    s3_opts = fs::S3Options::Anonymous();
+  } else if (access_key != "" && secret_key != "") {
+    s3_opts = fs::S3Options::FromAccessKey(access_key, secret_key, session_token);
+  } else if (role_arn != "") {
+    s3_opts = fs::S3Options::FromAssumeRole(role_arn, session_name, external_id,
+                                            load_frequency);
+  } else {
+    s3_opts = fs::S3Options::Defaults();
+  }
 
-// [[s3::export]]
-std::shared_ptr<fs::S3FileSystem> fs___S3FileSystem__create() {
-  auto opts = fs::S3Options::Defaults();
-  return ValueOrStop(fs::S3FileSystem::Make(opts));
+  // Now handle the rest of the options
+  /// AWS region to connect to (default determined by AWS SDK)
+  if (region != "") {
+    s3_opts.region = region;
+  }
+  /// If non-empty, override region with a connect string such as "localhost:9000"
+  s3_opts.endpoint_override = endpoint_override;
+  /// S3 connection transport, default "https"
+  if (scheme != "") {
+    s3_opts.scheme = scheme;
+  }
+  /// Whether OutputStream writes will be issued in the background, without blocking
+  /// default true
+  s3_opts.background_writes = background_writes;
+
+  StopIfNotOk(fs::EnsureS3Initialized());
+  return ValueOrStop(fs::S3FileSystem::Make(s3_opts));
 }
 
 #endif

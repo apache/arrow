@@ -9,6 +9,7 @@ read_parquet(
   col_select = NULL,
   as_data_frame = TRUE,
   props = ParquetReaderProperties$create(),
+  filesystem = NULL,
   ...
 )
 }
@@ -27,6 +28,9 @@ of columns, as used in \code{dplyr::select()}.}
 an Arrow \link{Table}?}
 
 \item{props}{\link{ParquetReaderProperties}}
+
+\item{filesystem}{A \link{FileSystem} where \code{file} can be found if it is a
+string file path; default is the local file system}
 
 \item{...}{Additional arguments passed to \code{ParquetFileReader$create()}}
 }

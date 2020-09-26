@@ -969,12 +969,15 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         vector[shared_ptr[CScalar]] value
         CResult[shared_ptr[CScalar]] field(CFieldRef ref) const
 
-    cdef cppclass CDictionaryScalar" arrow::DictionaryScalar"(CScalar):
-        cppclass CDictionaryValue "arrow::DictionaryScalar::ValueType":
-            shared_ptr[CScalar] index
-            shared_ptr[CArray] dictionary
+    cdef cppclass CDictionaryScalarIndexAndDictionary \
+            "arrow::DictionaryScalar::ValueType":
+        shared_ptr[CScalar] index
+        shared_ptr[CArray] dictionary
 
-        CDictionaryValue value
+    cdef cppclass CDictionaryScalar" arrow::DictionaryScalar"(CScalar):
+        CDictionaryScalar(CDictionaryScalarIndexAndDictionary value,
+                          shared_ptr[CDataType], c_bool is_valid)
+        CDictionaryScalarIndexAndDictionary value
         CResult[shared_ptr[CScalar]] GetEncodedValue()
 
     cdef cppclass CUnionScalar" arrow::UnionScalar"(CScalar):
@@ -1746,9 +1749,8 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
 cdef extern from "arrow/python/api.h" namespace "arrow::py":
     # Requires GIL
-    CStatus InferArrowType(object obj, object mask,
-                           c_bool pandas_null_sentinels,
-                           shared_ptr[CDataType]* out_type)
+    CResult[shared_ptr[CDataType]] InferArrowType(
+        object obj, object mask, c_bool pandas_null_sentinels)
 
 
 cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
@@ -1764,12 +1766,13 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
         CMemoryPool* pool
         c_bool from_pandas
         c_bool ignore_timezone
+        c_bool strict
 
     # TODO Some functions below are not actually "nogil"
 
-    CStatus ConvertPySequence(object obj, object mask,
-                              const PyConversionOptions& options,
-                              shared_ptr[CChunkedArray]* out)
+    CResult[shared_ptr[CChunkedArray]] ConvertPySequence(
+        object obj, object mask, const PyConversionOptions& options,
+        CMemoryPool* pool)
 
     CStatus NumPyDtypeToArrow(object dtype, shared_ptr[CDataType]* type)
 

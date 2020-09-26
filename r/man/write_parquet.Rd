@@ -7,6 +7,7 @@
 write_parquet(
   x,
   sink,
+  filesystem = NULL,
   chunk_size = NULL,
   version = NULL,
   compression = default_parquet_compression(),
@@ -20,10 +21,12 @@ write_parquet(
 )
 }
 \arguments{
-\item{x}{An \link[=Table]{arrow::Table}, or an object convertible to it.}
+\item{x}{\code{data.frame}, \link{RecordBatch}, or \link{Table}}
 
-\item{sink}{an \link[=OutputStream]{arrow::io::OutputStream} or a string
-interpreted as a file path or URI}
+\item{sink}{A string file path, URI, or \link{OutputStream}}
+
+\item{filesystem}{A \link{FileSystem} where \code{sink} should be written if it is a
+string file path; default is the local file system}
 
 \item{chunk_size}{chunk size in number of rows. If NULL, the total number of rows is used.}
 

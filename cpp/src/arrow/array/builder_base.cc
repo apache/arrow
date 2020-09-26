@@ -99,6 +99,12 @@ Status ArrayBuilder::Finish(std::shared_ptr<Array>* out) {
   return Status::OK();
 }
 
+Result<std::shared_ptr<Array>> ArrayBuilder::Finish() {
+  std::shared_ptr<Array> out;
+  RETURN_NOT_OK(Finish(&out));
+  return out;
+}
+
 void ArrayBuilder::Reset() {
   capacity_ = length_ = null_count_ = 0;
   null_bitmap_builder_.Reset();

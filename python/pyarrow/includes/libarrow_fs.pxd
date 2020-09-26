@@ -164,6 +164,7 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         @staticmethod
         CResult[shared_ptr[CS3FileSystem]] Make(const CS3Options& options)
         CS3Options options()
+        c_string region()
 
     cdef CStatus CInitializeS3 "arrow::fs::InitializeS3"(
         const CS3GlobalOptions& options)

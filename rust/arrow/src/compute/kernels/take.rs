@@ -107,12 +107,8 @@ pub fn take(
         DataType::Duration(TimeUnit::Nanosecond) => {
             take_primitive::<DurationNanosecondType>(values, indices)
         }
-        DataType::Utf8 => {
-            take_string::<i32, StringArray>(values, indices, DataType::Utf8)
-        }
-        DataType::LargeUtf8 => {
-            take_string::<i64, LargeStringArray>(values, indices, DataType::LargeUtf8)
-        }
+        DataType::Utf8 => take_string::<i32>(values, indices, DataType::Utf8),
+        DataType::LargeUtf8 => take_string::<i64>(values, indices, DataType::LargeUtf8),
         DataType::List(_) => take_list(values, indices),
         DataType::Struct(fields) => {
             let struct_: &StructArray =
@@ -250,18 +246,20 @@ fn take_boolean(values: &ArrayRef, indices: &UInt32Array) -> Result<ArrayRef> {
 }
 
 /// `take` implementation for string arrays
-fn take_string<T, K: 'static>(
+fn take_string<OffsetSize>(
     values: &ArrayRef,
     indices: &UInt32Array,
     data_type: DataType,
 ) -> Result<ArrayRef>
 where
-    T: Zero + AddAssign + ToByteSlice + ArrowNativeType,
-    K: Array + From<ArrayDataRef> + StringArrayOps,
+    OffsetSize: Zero + AddAssign + OffsetSizeTrait,
 {
     let data_len = indices.len();
 
-    let array = values.as_any().downcast_ref::<K>().unwrap();
+    let array = values
+        .as_any()
+        .downcast_ref::<GenericStringArray<OffsetSize>>()
+        .unwrap();
 
     let num_bytes = bit_util::ceil(data_len, 8);
     let mut null_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, true);
@@ -269,7 +267,7 @@ where
 
     let mut offsets = Vec::with_capacity(data_len + 1);
     let mut values = Vec::with_capacity(data_len);
-    let mut length_so_far = T::zero();
+    let mut length_so_far = OffsetSize::zero();
 
     offsets.push(length_so_far);
     for i in 0..data_len {
@@ -278,7 +276,7 @@ where
         if array.is_valid(index) && indices.is_valid(i) {
             let s = array.value(index);
 
-            length_so_far += T::from_usize(s.len()).unwrap();
+            length_so_far += OffsetSize::from_usize(s.len()).unwrap();
             values.extend_from_slice(s.as_bytes());
         } else {
             // set null bit
@@ -298,7 +296,7 @@ where
         .add_buffer(Buffer::from(offsets.to_byte_slice()))
         .add_buffer(Buffer::from(&values[..]))
         .build();
-    Ok(Arc::new(K::from(data)))
+    Ok(Arc::new(GenericStringArray::<OffsetSize>::from(data)))
 }
 
 /// `take` implementation for list arrays
@@ -527,7 +525,7 @@ mod tests {
 
     fn _test_take_string<'a, K: 'static>()
     where
-        K: Array + From<Vec<Option<&'a str>>> + StringArrayOps,
+        K: Array + From<Vec<Option<&'a str>>>,
     {
         let index = UInt32Array::from(vec![Some(3), None, Some(1), Some(3), Some(4)]);
 

@@ -30,8 +30,8 @@ void AggregateConsume(KernelContext* ctx, const ExecBatch& batch) {
   checked_cast<ScalarAggregator*>(ctx->state())->Consume(ctx, batch);
 }
 
-void AggregateMerge(KernelContext* ctx, const KernelState& src, KernelState* dst) {
-  checked_cast<ScalarAggregator*>(dst)->MergeFrom(ctx, src);
+void AggregateMerge(KernelContext* ctx, KernelState&& src, KernelState* dst) {
+  checked_cast<ScalarAggregator*>(dst)->MergeFrom(ctx, std::move(src));
 }
 
 void AggregateFinalize(KernelContext* ctx, Datum* out) {
@@ -51,7 +51,7 @@ struct CountImpl : public ScalarAggregator {
     this->non_nulls += input.length - nulls;
   }
 
-  void MergeFrom(KernelContext*, const KernelState& src) override {
+  void MergeFrom(KernelContext*, KernelState&& src) override {
     const auto& other_state = checked_cast<const CountImpl&>(src);
     this->non_nulls += other_state.non_nulls;
     this->nulls += other_state.nulls;

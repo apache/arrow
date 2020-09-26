@@ -1497,6 +1497,22 @@ class TestConvertStringLikeTypes:
         table = pa.Table.from_pandas(df)
         assert table[0].num_chunks == 2
 
+    @pytest.mark.large_memory
+    @pytest.mark.parametrize('char', ['x', b'x'])
+    def test_auto_chunking_pandas_series_of_strings(self, char):
+        # ARROW-2367
+        v1 = char * 100000000
+        v2 = char * 147483646
+
+        df = pd.DataFrame({
+            'strings': [[v1]] * 20 + [[v2]] + [[b'x']]
+        })
+        arr = pa.array(df['strings'], from_pandas=True)
+        assert isinstance(arr, pa.ChunkedArray)
+        assert arr.num_chunks == 2
+        assert len(arr.chunk(0)) == 21
+        assert len(arr.chunk(1)) == 1
+
     def test_fixed_size_bytes(self):
         values = [b'foo', None, bytearray(b'bar'), None, None, b'hey']
         df = pd.DataFrame({'strings': values})
@@ -2086,6 +2102,22 @@ class TestConvertListTypes:
             tm.assert_series_equal(
                 s, pd.Series([["aa", "bb"], None, ["cc"], []]),
                 check_names=False)
+
+    @pytest.mark.slow
+    @pytest.mark.large_memory
+    def test_auto_chunking_on_list_overflow(self):
+        # ARROW-9976
+        n = 2**24
+        df = pd.DataFrame.from_dict({
+            "a": list(np.zeros((n, 2**7), dtype='uint8')),
+            "b": range(n)
+        })
+        table = pa.Table.from_pandas(df)
+
+        column_a = table[0]
+        assert column_a.num_chunks == 2
+        assert len(column_a.chunk(0)) == 2**24 - 1
+        assert len(column_a.chunk(1)) == 1
 
 
 class TestConvertStructTypes:

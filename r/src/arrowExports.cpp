@@ -3610,50 +3610,47 @@ extern "C" SEXP _arrow_fs___FileSystemFromUri(SEXP path_sexp){
 
 // filesystem.cpp
 #if defined(ARROW_R_WITH_ARROW)
-void fs___CopyFiles(const std::shared_ptr<fs::FileSystem>& src_fs, const std::vector<std::string>& src_paths, const std::shared_ptr<fs::FileSystem>& dest_fs, const std::vector<std::string>& dest_paths, int64_t chunk_size, bool use_threads);
-extern "C" SEXP _arrow_fs___CopyFiles(SEXP src_fs_sexp, SEXP src_paths_sexp, SEXP dest_fs_sexp, SEXP dest_paths_sexp, SEXP chunk_size_sexp, SEXP use_threads_sexp){
+void fs___CopyFiles(const std::shared_ptr<fs::FileSystem>& source_fs, const std::shared_ptr<fs::FileSelector>& source_sel, const std::shared_ptr<fs::FileSystem>& destination_fs, const std::string& destination_base_dir, int64_t chunk_size, bool use_threads);
+extern "C" SEXP _arrow_fs___CopyFiles(SEXP source_fs_sexp, SEXP source_sel_sexp, SEXP destination_fs_sexp, SEXP destination_base_dir_sexp, SEXP chunk_size_sexp, SEXP use_threads_sexp){
 BEGIN_CPP11
-	arrow::r::Input<const std::shared_ptr<fs::FileSystem>&>::type src_fs(src_fs_sexp);
-	arrow::r::Input<const std::vector<std::string>&>::type src_paths(src_paths_sexp);
-	arrow::r::Input<const std::shared_ptr<fs::FileSystem>&>::type dest_fs(dest_fs_sexp);
-	arrow::r::Input<const std::vector<std::string>&>::type dest_paths(dest_paths_sexp);
+	arrow::r::Input<const std::shared_ptr<fs::FileSystem>&>::type source_fs(source_fs_sexp);
+	arrow::r::Input<const std::shared_ptr<fs::FileSelector>&>::type source_sel(source_sel_sexp);
+	arrow::r::Input<const std::shared_ptr<fs::FileSystem>&>::type destination_fs(destination_fs_sexp);
+	arrow::r::Input<const std::string&>::type destination_base_dir(destination_base_dir_sexp);
 	arrow::r::Input<int64_t>::type chunk_size(chunk_size_sexp);
 	arrow::r::Input<bool>::type use_threads(use_threads_sexp);
-	fs___CopyFiles(src_fs, src_paths, dest_fs, dest_paths, chunk_size, use_threads);
+	fs___CopyFiles(source_fs, source_sel, destination_fs, destination_base_dir, chunk_size, use_threads);
 	return R_NilValue;
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_fs___CopyFiles(SEXP src_fs_sexp, SEXP src_paths_sexp, SEXP dest_fs_sexp, SEXP dest_paths_sexp, SEXP chunk_size_sexp, SEXP use_threads_sexp){
+extern "C" SEXP _arrow_fs___CopyFiles(SEXP source_fs_sexp, SEXP source_sel_sexp, SEXP destination_fs_sexp, SEXP destination_base_dir_sexp, SEXP chunk_size_sexp, SEXP use_threads_sexp){
 	Rf_error("Cannot call fs___CopyFiles(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
 // filesystem.cpp
 #if defined(ARROW_R_WITH_S3)
-void fs___EnsureS3Initialized();
-extern "C" SEXP _arrow_fs___EnsureS3Initialized(){
+std::shared_ptr<fs::S3FileSystem> fs___S3FileSystem__create(bool anonymous, std::string access_key, std::string secret_key, std::string session_token, std::string role_arn, std::string session_name, std::string external_id, int load_frequency, std::string region, std::string endpoint_override, std::string scheme, bool background_writes);
+extern "C" SEXP _arrow_fs___S3FileSystem__create(SEXP anonymous_sexp, SEXP access_key_sexp, SEXP secret_key_sexp, SEXP session_token_sexp, SEXP role_arn_sexp, SEXP session_name_sexp, SEXP external_id_sexp, SEXP load_frequency_sexp, SEXP region_sexp, SEXP endpoint_override_sexp, SEXP scheme_sexp, SEXP background_writes_sexp){
 BEGIN_CPP11
-	fs___EnsureS3Initialized();
-	return R_NilValue;
+	arrow::r::Input<bool>::type anonymous(anonymous_sexp);
+	arrow::r::Input<std::string>::type access_key(access_key_sexp);
+	arrow::r::Input<std::string>::type secret_key(secret_key_sexp);
+	arrow::r::Input<std::string>::type session_token(session_token_sexp);
+	arrow::r::Input<std::string>::type role_arn(role_arn_sexp);
+	arrow::r::Input<std::string>::type session_name(session_name_sexp);
+	arrow::r::Input<std::string>::type external_id(external_id_sexp);
+	arrow::r::Input<int>::type load_frequency(load_frequency_sexp);
+	arrow::r::Input<std::string>::type region(region_sexp);
+	arrow::r::Input<std::string>::type endpoint_override(endpoint_override_sexp);
+	arrow::r::Input<std::string>::type scheme(scheme_sexp);
+	arrow::r::Input<bool>::type background_writes(background_writes_sexp);
+	return cpp11::as_sexp(fs___S3FileSystem__create(anonymous, access_key, secret_key, session_token, role_arn, session_name, external_id, load_frequency, region, endpoint_override, scheme, background_writes));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_fs___EnsureS3Initialized(){
-	Rf_error("Cannot call fs___EnsureS3Initialized(). Please use arrow::install_arrow() to install required runtime libraries. ");
-}
-#endif
-
-// filesystem.cpp
-#if defined(ARROW_R_WITH_S3)
-std::shared_ptr<fs::S3FileSystem> fs___S3FileSystem__create();
-extern "C" SEXP _arrow_fs___S3FileSystem__create(){
-BEGIN_CPP11
-	return cpp11::as_sexp(fs___S3FileSystem__create());
-END_CPP11
-}
-#else
-extern "C" SEXP _arrow_fs___S3FileSystem__create(){
+extern "C" SEXP _arrow_fs___S3FileSystem__create(SEXP anonymous_sexp, SEXP access_key_sexp, SEXP secret_key_sexp, SEXP session_token_sexp, SEXP role_arn_sexp, SEXP session_name_sexp, SEXP external_id_sexp, SEXP load_frequency_sexp, SEXP region_sexp, SEXP endpoint_override_sexp, SEXP scheme_sexp, SEXP background_writes_sexp){
 	Rf_error("Cannot call fs___S3FileSystem__create(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
@@ -4423,6 +4420,72 @@ extern "C" SEXP _arrow_parquet___arrow___FileReader__ReadTable2(SEXP reader_sexp
 
 // parquet.cpp
 #if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Table> parquet___arrow___FileReader__ReadRowGroup1(const std::shared_ptr<parquet::arrow::FileReader>& reader, int i);
+extern "C" SEXP _arrow_parquet___arrow___FileReader__ReadRowGroup1(SEXP reader_sexp, SEXP i_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<parquet::arrow::FileReader>&>::type reader(reader_sexp);
+	arrow::r::Input<int>::type i(i_sexp);
+	return cpp11::as_sexp(parquet___arrow___FileReader__ReadRowGroup1(reader, i));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_parquet___arrow___FileReader__ReadRowGroup1(SEXP reader_sexp, SEXP i_sexp){
+	Rf_error("Cannot call parquet___arrow___FileReader__ReadRowGroup1(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// parquet.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Table> parquet___arrow___FileReader__ReadRowGroup2(const std::shared_ptr<parquet::arrow::FileReader>& reader, int i, const std::vector<int>& column_indices);
+extern "C" SEXP _arrow_parquet___arrow___FileReader__ReadRowGroup2(SEXP reader_sexp, SEXP i_sexp, SEXP column_indices_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<parquet::arrow::FileReader>&>::type reader(reader_sexp);
+	arrow::r::Input<int>::type i(i_sexp);
+	arrow::r::Input<const std::vector<int>&>::type column_indices(column_indices_sexp);
+	return cpp11::as_sexp(parquet___arrow___FileReader__ReadRowGroup2(reader, i, column_indices));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_parquet___arrow___FileReader__ReadRowGroup2(SEXP reader_sexp, SEXP i_sexp, SEXP column_indices_sexp){
+	Rf_error("Cannot call parquet___arrow___FileReader__ReadRowGroup2(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// parquet.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Table> parquet___arrow___FileReader__ReadRowGroups1(const std::shared_ptr<parquet::arrow::FileReader>& reader, const std::vector<int>& row_groups);
+extern "C" SEXP _arrow_parquet___arrow___FileReader__ReadRowGroups1(SEXP reader_sexp, SEXP row_groups_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<parquet::arrow::FileReader>&>::type reader(reader_sexp);
+	arrow::r::Input<const std::vector<int>&>::type row_groups(row_groups_sexp);
+	return cpp11::as_sexp(parquet___arrow___FileReader__ReadRowGroups1(reader, row_groups));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_parquet___arrow___FileReader__ReadRowGroups1(SEXP reader_sexp, SEXP row_groups_sexp){
+	Rf_error("Cannot call parquet___arrow___FileReader__ReadRowGroups1(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// parquet.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Table> parquet___arrow___FileReader__ReadRowGroups2(const std::shared_ptr<parquet::arrow::FileReader>& reader, const std::vector<int>& row_groups, const std::vector<int>& column_indices);
+extern "C" SEXP _arrow_parquet___arrow___FileReader__ReadRowGroups2(SEXP reader_sexp, SEXP row_groups_sexp, SEXP column_indices_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<parquet::arrow::FileReader>&>::type reader(reader_sexp);
+	arrow::r::Input<const std::vector<int>&>::type row_groups(row_groups_sexp);
+	arrow::r::Input<const std::vector<int>&>::type column_indices(column_indices_sexp);
+	return cpp11::as_sexp(parquet___arrow___FileReader__ReadRowGroups2(reader, row_groups, column_indices));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_parquet___arrow___FileReader__ReadRowGroups2(SEXP reader_sexp, SEXP row_groups_sexp, SEXP column_indices_sexp){
+	Rf_error("Cannot call parquet___arrow___FileReader__ReadRowGroups2(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// parquet.cpp
+#if defined(ARROW_R_WITH_ARROW)
 int64_t parquet___arrow___FileReader__num_rows(const std::shared_ptr<parquet::arrow::FileReader>& reader);
 extern "C" SEXP _arrow_parquet___arrow___FileReader__num_rows(SEXP reader_sexp){
 BEGIN_CPP11
@@ -4433,6 +4496,52 @@ END_CPP11
 #else
 extern "C" SEXP _arrow_parquet___arrow___FileReader__num_rows(SEXP reader_sexp){
 	Rf_error("Cannot call parquet___arrow___FileReader__num_rows(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// parquet.cpp
+#if defined(ARROW_R_WITH_ARROW)
+int parquet___arrow___FileReader__num_columns(const std::shared_ptr<parquet::arrow::FileReader>& reader);
+extern "C" SEXP _arrow_parquet___arrow___FileReader__num_columns(SEXP reader_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<parquet::arrow::FileReader>&>::type reader(reader_sexp);
+	return cpp11::as_sexp(parquet___arrow___FileReader__num_columns(reader));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_parquet___arrow___FileReader__num_columns(SEXP reader_sexp){
+	Rf_error("Cannot call parquet___arrow___FileReader__num_columns(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// parquet.cpp
+#if defined(ARROW_R_WITH_ARROW)
+int parquet___arrow___FileReader__num_row_groups(const std::shared_ptr<parquet::arrow::FileReader>& reader);
+extern "C" SEXP _arrow_parquet___arrow___FileReader__num_row_groups(SEXP reader_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<parquet::arrow::FileReader>&>::type reader(reader_sexp);
+	return cpp11::as_sexp(parquet___arrow___FileReader__num_row_groups(reader));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_parquet___arrow___FileReader__num_row_groups(SEXP reader_sexp){
+	Rf_error("Cannot call parquet___arrow___FileReader__num_row_groups(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// parquet.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::ChunkedArray> parquet___arrow___FileReader__ReadColumn(const std::shared_ptr<parquet::arrow::FileReader>& reader, int i);
+extern "C" SEXP _arrow_parquet___arrow___FileReader__ReadColumn(SEXP reader_sexp, SEXP i_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<parquet::arrow::FileReader>&>::type reader(reader_sexp);
+	arrow::r::Input<int>::type i(i_sexp);
+	return cpp11::as_sexp(parquet___arrow___FileReader__ReadColumn(reader, i));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_parquet___arrow___FileReader__ReadColumn(SEXP reader_sexp, SEXP i_sexp){
+	Rf_error("Cannot call parquet___arrow___FileReader__ReadColumn(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -6249,8 +6358,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_fs___SubTreeFileSystem__create", (DL_FUNC) &_arrow_fs___SubTreeFileSystem__create, 2}, 
 		{ "_arrow_fs___FileSystemFromUri", (DL_FUNC) &_arrow_fs___FileSystemFromUri, 1}, 
 		{ "_arrow_fs___CopyFiles", (DL_FUNC) &_arrow_fs___CopyFiles, 6}, 
-		{ "_arrow_fs___EnsureS3Initialized", (DL_FUNC) &_arrow_fs___EnsureS3Initialized, 0}, 
-		{ "_arrow_fs___S3FileSystem__create", (DL_FUNC) &_arrow_fs___S3FileSystem__create, 0}, 
+		{ "_arrow_fs___S3FileSystem__create", (DL_FUNC) &_arrow_fs___S3FileSystem__create, 12}, 
 		{ "_arrow_io___Readable__Read", (DL_FUNC) &_arrow_io___Readable__Read, 2}, 
 		{ "_arrow_io___InputStream__Close", (DL_FUNC) &_arrow_io___InputStream__Close, 1}, 
 		{ "_arrow_io___OutputStream__Close", (DL_FUNC) &_arrow_io___OutputStream__Close, 1}, 
@@ -6300,7 +6408,14 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_parquet___arrow___FileReader__OpenFile", (DL_FUNC) &_arrow_parquet___arrow___FileReader__OpenFile, 2}, 
 		{ "_arrow_parquet___arrow___FileReader__ReadTable1", (DL_FUNC) &_arrow_parquet___arrow___FileReader__ReadTable1, 1}, 
 		{ "_arrow_parquet___arrow___FileReader__ReadTable2", (DL_FUNC) &_arrow_parquet___arrow___FileReader__ReadTable2, 2}, 
+		{ "_arrow_parquet___arrow___FileReader__ReadRowGroup1", (DL_FUNC) &_arrow_parquet___arrow___FileReader__ReadRowGroup1, 2}, 
+		{ "_arrow_parquet___arrow___FileReader__ReadRowGroup2", (DL_FUNC) &_arrow_parquet___arrow___FileReader__ReadRowGroup2, 3}, 
+		{ "_arrow_parquet___arrow___FileReader__ReadRowGroups1", (DL_FUNC) &_arrow_parquet___arrow___FileReader__ReadRowGroups1, 2}, 
+		{ "_arrow_parquet___arrow___FileReader__ReadRowGroups2", (DL_FUNC) &_arrow_parquet___arrow___FileReader__ReadRowGroups2, 3}, 
 		{ "_arrow_parquet___arrow___FileReader__num_rows", (DL_FUNC) &_arrow_parquet___arrow___FileReader__num_rows, 1}, 
+		{ "_arrow_parquet___arrow___FileReader__num_columns", (DL_FUNC) &_arrow_parquet___arrow___FileReader__num_columns, 1}, 
+		{ "_arrow_parquet___arrow___FileReader__num_row_groups", (DL_FUNC) &_arrow_parquet___arrow___FileReader__num_row_groups, 1}, 
+		{ "_arrow_parquet___arrow___FileReader__ReadColumn", (DL_FUNC) &_arrow_parquet___arrow___FileReader__ReadColumn, 2}, 
 		{ "_arrow_parquet___ArrowWriterProperties___create", (DL_FUNC) &_arrow_parquet___ArrowWriterProperties___create, 3}, 
 		{ "_arrow_parquet___WriterProperties___Builder__create", (DL_FUNC) &_arrow_parquet___WriterProperties___Builder__create, 0}, 
 		{ "_arrow_parquet___WriterProperties___Builder__version", (DL_FUNC) &_arrow_parquet___WriterProperties___Builder__version, 2}, 

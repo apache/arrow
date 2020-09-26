@@ -530,12 +530,20 @@ using enable_if_base_binary = enable_if_t<is_base_binary_type<T>::value, R>;
 
 // Any binary excludes string from Base binary
 template <typename T>
-using is_any_binary_type =
+using is_binary_type =
     std::integral_constant<bool, std::is_same<BinaryType, T>::value ||
                                      std::is_same<LargeBinaryType, T>::value>;
 
 template <typename T, typename R = void>
-using enable_if_any_binary = enable_if_t<is_any_binary_type<T>::value, R>;
+using enable_if_binary = enable_if_t<is_binary_type<T>::value, R>;
+
+template <typename T>
+using is_string_type =
+    std::integral_constant<bool, std::is_same<StringType, T>::value ||
+                                     std::is_same<LargeStringType, T>::value>;
+
+template <typename T, typename R = void>
+using enable_if_string = enable_if_t<is_string_type<T>::value, R>;
 
 template <typename T>
 using is_string_like_type =
@@ -543,6 +551,9 @@ using is_string_like_type =
 
 template <typename T, typename R = void>
 using enable_if_string_like = enable_if_t<is_string_like_type<T>::value, R>;
+
+template <typename T, typename U, typename R = void>
+using enable_if_same = enable_if_t<std::is_same<T, U>::value, R>;
 
 // Note that this also includes DecimalType
 template <typename T>
@@ -574,6 +585,9 @@ using is_nested_type = std::is_base_of<NestedType, T>;
 template <typename T, typename R = void>
 using enable_if_nested = enable_if_t<is_nested_type<T>::value, R>;
 
+template <typename T, typename R = void>
+using enable_if_not_nested = enable_if_t<!is_nested_type<T>::value, R>;
+
 template <typename T>
 using is_var_length_list_type =
     std::integral_constant<bool, std::is_base_of<LargeListType, T>::value ||
@@ -595,6 +609,15 @@ using is_fixed_size_list_type = std::is_same<FixedSizeListType, T>;
 
 template <typename T, typename R = void>
 using enable_if_fixed_size_list = enable_if_t<is_fixed_size_list_type<T>::value, R>;
+
+template <typename T>
+using is_list_type =
+    std::integral_constant<bool, std::is_same<T, ListType>::value ||
+                                     std::is_same<T, LargeListType>::value ||
+                                     std::is_same<T, FixedSizeListType>::valuae>;
+
+template <typename T, typename R = void>
+using enable_if_list_type = enable_if_t<is_list_type<T>::value, R>;
 
 template <typename T>
 using is_list_like_type =
@@ -654,6 +677,18 @@ using is_interval_type = std::is_base_of<IntervalType, T>;
 template <typename T, typename R = void>
 using enable_if_interval = enable_if_t<is_interval_type<T>::value, R>;
 
+template <typename T>
+using is_dictionary_type = std::is_base_of<DictionaryType, T>;
+
+template <typename T, typename R = void>
+using enable_if_dictionary = enable_if_t<is_dictionary_type<T>::value, R>;
+
+template <typename T>
+using is_extension_type = std::is_base_of<ExtensionType, T>;
+
+template <typename T, typename R = void>
+using enable_if_extension = enable_if_t<is_extension_type<T>::value, R>;
+
 // Attribute differentiation
 
 template <typename T>
@@ -670,8 +705,12 @@ template <typename T, typename R = void>
 using enable_if_has_c_type = enable_if_t<has_c_type<T>::value, R>;
 
 template <typename T>
-using has_string_view = std::integral_constant<bool, is_binary_like_type<T>::value ||
-                                                         is_string_like_type<T>::value>;
+using has_string_view =
+    std::integral_constant<bool, std::is_same<BinaryType, T>::value ||
+                                     std::is_same<LargeBinaryType, T>::value ||
+                                     std::is_same<StringType, T>::value ||
+                                     std::is_same<LargeStringType, T>::value ||
+                                     std::is_same<FixedSizeBinaryType, T>::value>;
 
 template <typename T, typename R = void>
 using enable_if_has_string_view = enable_if_t<has_string_view<T>::value, R>;

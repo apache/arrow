@@ -314,11 +314,11 @@ Status NumPyConverter::Convert() {
     PyConversionOptions py_options;
     py_options.type = type_;
     py_options.from_pandas = from_pandas_;
-    std::shared_ptr<ChunkedArray> res;
-    RETURN_NOT_OK(ConvertPySequence(reinterpret_cast<PyObject*>(arr_),
-                                    reinterpret_cast<PyObject*>(mask_), py_options,
-                                    &res));
-    out_arrays_ = res->chunks();
+    ARROW_ASSIGN_OR_RAISE(
+        auto chunked_array,
+        ConvertPySequence(reinterpret_cast<PyObject*>(arr_),
+                          reinterpret_cast<PyObject*>(mask_), py_options, pool_));
+    out_arrays_ = chunked_array->chunks();
     return Status::OK();
   }
 

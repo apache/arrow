@@ -140,6 +140,39 @@ fn csv_query_with_predicate() -> Result<()> {
 }
 
 #[test]
+fn csv_query_with_negated_predicate() -> Result<()> {
+    let mut ctx = ExecutionContext::new();
+    register_aggregate_csv(&mut ctx)?;
+    let sql = "SELECT COUNT(1) FROM aggregate_test_100 WHERE NOT(c1 != 'a')";
+    let actual = execute(&mut ctx, sql).join("\n");
+    let expected = "21".to_string();
+    assert_eq!(expected, actual);
+    Ok(())
+}
+
+#[test]
+fn csv_query_with_is_not_null_predicate() -> Result<()> {
+    let mut ctx = ExecutionContext::new();
+    register_aggregate_csv(&mut ctx)?;
+    let sql = "SELECT COUNT(1) FROM aggregate_test_100 WHERE c1 IS NOT NULL";
+    let actual = execute(&mut ctx, sql).join("\n");
+    let expected = "100".to_string();
+    assert_eq!(expected, actual);
+    Ok(())
+}
+
+#[test]
+fn csv_query_with_is_null_predicate() -> Result<()> {
+    let mut ctx = ExecutionContext::new();
+    register_aggregate_csv(&mut ctx)?;
+    let sql = "SELECT COUNT(1) FROM aggregate_test_100 WHERE c1 IS NULL";
+    let actual = execute(&mut ctx, sql).join("\n");
+    let expected = "0".to_string();
+    assert_eq!(expected, actual);
+    Ok(())
+}
+
+#[test]
 fn csv_query_group_by_int_min_max() -> Result<()> {
     let mut ctx = ExecutionContext::new();
     register_aggregate_csv(&mut ctx)?;
@@ -855,6 +888,54 @@ fn to_timstamp() -> Result<()> {
     let actual = execute(&mut ctx, sql).join("\n");
 
     let expected = "2".to_string();
+    assert_eq!(expected, actual);
+    Ok(())
+}
+
+#[test]
+fn query_is_null() -> Result<()> {
+    let schema = Arc::new(Schema::new(vec![Field::new("c1", DataType::Float64, true)]));
+
+    let data = RecordBatch::try_new(
+        schema.clone(),
+        vec![Arc::new(Float64Array::from(vec![
+            Some(1.0),
+            None,
+            Some(f64::NAN),
+        ]))],
+    )?;
+
+    let table = MemTable::new(schema, vec![vec![data]])?;
+
+    let mut ctx = ExecutionContext::new();
+    ctx.register_table("test", Box::new(table));
+    let sql = "SELECT c1 IS NULL FROM test";
+    let actual = execute(&mut ctx, sql).join("\n");
+    let expected = "false\ntrue\nfalse".to_string();
+    assert_eq!(expected, actual);
+    Ok(())
+}
+
+#[test]
+fn query_is_not_null() -> Result<()> {
+    let schema = Arc::new(Schema::new(vec![Field::new("c1", DataType::Float64, true)]));
+
+    let data = RecordBatch::try_new(
+        schema.clone(),
+        vec![Arc::new(Float64Array::from(vec![
+            Some(1.0),
+            None,
+            Some(f64::NAN),
+        ]))],
+    )?;
+
+    let table = MemTable::new(schema, vec![vec![data]])?;
+
+    let mut ctx = ExecutionContext::new();
+    ctx.register_table("test", Box::new(table));
+    let sql = "SELECT c1 IS NOT NULL FROM test";
+    let actual = execute(&mut ctx, sql).join("\n");
+    let expected = "true\nfalse\ntrue".to_string();
     assert_eq!(expected, actual);
     Ok(())
 }

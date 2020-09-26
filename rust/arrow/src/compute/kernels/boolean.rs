@@ -24,8 +24,10 @@
 
 use std::sync::Arc;
 
-use crate::array::{Array, ArrayData, BooleanArray};
-use crate::buffer::{buffer_bin_and, buffer_bin_or, buffer_unary_not, Buffer};
+use crate::array::{Array, ArrayData, ArrayRef, BooleanArray};
+use crate::buffer::{
+    buffer_bin_and, buffer_bin_or, buffer_unary_not, Buffer, MutableBuffer,
+};
 use crate::compute::util::combine_option_bitmap;
 use crate::datatypes::DataType;
 use crate::error::{ArrowError, Result};
@@ -123,9 +125,78 @@ pub fn not(left: &BooleanArray) -> Result<BooleanArray> {
     Ok(BooleanArray::from(Arc::new(data)))
 }
 
+pub fn is_null(input: &ArrayRef) -> Result<BooleanArray> {
+    if input.offset() % 8 != 0 {
+        return Err(ArrowError::ComputeError(
+            "Cannot perform bitwise operation when offsets are not byte-aligned."
+                .to_string(),
+        ));
+    }
+
+    let len_bytes = ceil(input.len(), 8);
+
+    let output = match input.data_ref().null_buffer() {
+        None => MutableBuffer::new(len_bytes)
+            .with_bitset(input.len(), false)
+            .freeze(),
+        Some(buffer) => {
+            let offset_bytes = input.offset() / 8;
+
+            buffer_unary_not(buffer, offset_bytes, len_bytes)
+        }
+    };
+
+    let data = ArrayData::new(
+        DataType::Boolean,
+        input.len(),
+        None,
+        None,
+        0,
+        vec![output],
+        vec![],
+    );
+
+    Ok(BooleanArray::from(Arc::new(data)))
+}
+
+pub fn is_not_null(input: &ArrayRef) -> Result<BooleanArray> {
+    if input.offset() % 8 != 0 {
+        return Err(ArrowError::ComputeError(
+            "Cannot perform bitwise operation when offsets are not byte-aligned."
+                .to_string(),
+        ));
+    }
+
+    let len_bytes = ceil(input.len(), 8);
+
+    let output = match input.data_ref().null_buffer() {
+        None => MutableBuffer::new(len_bytes)
+            .with_bitset(input.len(), true)
+            .freeze(),
+        Some(buffer) => {
+            let offset_bytes = input.offset() / 8;
+
+            buffer.slice(offset_bytes)
+        }
+    };
+
+    let data = ArrayData::new(
+        DataType::Boolean,
+        input.len(),
+        None,
+        None,
+        0,
+        vec![output],
+        vec![],
+    );
+
+    Ok(BooleanArray::from(Arc::new(data)))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::array::Int32Array;
     use crate::array::PrimitiveArrayOps;
 
     #[test]
@@ -266,5 +337,169 @@ mod tests {
         assert_eq!(false, c.value(1));
         assert_eq!(false, c.value(2));
         assert_eq!(true, c.value(3));
+    }
+
+    #[test]
+    fn test_nonnull_array_is_null() {
+        let a: ArrayRef = Arc::new(Int32Array::from(vec![1, 2, 3, 4]));
+
+        let res = is_null(&a).unwrap();
+
+        assert_eq!(4, res.len());
+        assert_eq!(0, res.null_count());
+        assert_eq!(&None, res.data_ref().null_bitmap());
+        assert_eq!(false, res.value(0));
+        assert_eq!(false, res.value(1));
+        assert_eq!(false, res.value(2));
+        assert_eq!(false, res.value(3));
+    }
+
+    #[test]
+    fn test_nonnull_array_with_offset_is_null() {
+        let a: ArrayRef = Arc::new(Int32Array::from(vec![
+            1, 2, 3, 4, 5, 6, 7, 8, 7, 6, 5, 4, 3, 2, 1,
+        ]));
+        let a = a.slice(8, 4);
+
+        let res = is_null(&a).unwrap();
+
+        assert_eq!(4, res.len());
+        assert_eq!(0, res.null_count());
+        assert_eq!(&None, res.data_ref().null_bitmap());
+        assert_eq!(false, res.value(0));
+        assert_eq!(false, res.value(1));
+        assert_eq!(false, res.value(2));
+        assert_eq!(false, res.value(3));
+    }
+
+    #[test]
+    fn test_nonnull_array_is_not_null() {
+        let a: ArrayRef = Arc::new(Int32Array::from(vec![1, 2, 3, 4]));
+
+        let res = is_not_null(&a).unwrap();
+
+        assert_eq!(4, res.len());
+        assert_eq!(0, res.null_count());
+        assert_eq!(&None, res.data_ref().null_bitmap());
+        assert_eq!(true, res.value(0));
+        assert_eq!(true, res.value(1));
+        assert_eq!(true, res.value(2));
+        assert_eq!(true, res.value(3));
+    }
+
+    #[test]
+    fn test_nonnull_array_with_offset_is_not_null() {
+        let a: ArrayRef = Arc::new(Int32Array::from(vec![
+            1, 2, 3, 4, 5, 6, 7, 8, 7, 6, 5, 4, 3, 2, 1,
+        ]));
+        let a = a.slice(8, 4);
+
+        let res = is_not_null(&a).unwrap();
+
+        assert_eq!(4, res.len());
+        assert_eq!(0, res.null_count());
+        assert_eq!(&None, res.data_ref().null_bitmap());
+        assert_eq!(true, res.value(0));
+        assert_eq!(true, res.value(1));
+        assert_eq!(true, res.value(2));
+        assert_eq!(true, res.value(3));
+    }
+
+    #[test]
+    fn test_nullable_array_is_null() {
+        let a: ArrayRef = Arc::new(Int32Array::from(vec![Some(1), None, Some(3), None]));
+
+        let res = is_null(&a).unwrap();
+
+        assert_eq!(4, res.len());
+        assert_eq!(0, res.null_count());
+        assert_eq!(&None, res.data_ref().null_bitmap());
+        assert_eq!(false, res.value(0));
+        assert_eq!(true, res.value(1));
+        assert_eq!(false, res.value(2));
+        assert_eq!(true, res.value(3));
+    }
+
+    #[test]
+    fn test_nullable_array_with_offset_is_null() {
+        let a: ArrayRef = Arc::new(Int32Array::from(vec![
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            // offset 8, previous None values are skipped by the slice
+            Some(1),
+            None,
+            Some(2),
+            None,
+            Some(3),
+            Some(4),
+            None,
+            None,
+        ]));
+        let a = a.slice(8, 4);
+
+        let res = is_null(&a).unwrap();
+
+        assert_eq!(4, res.len());
+        assert_eq!(0, res.null_count());
+        assert_eq!(&None, res.data_ref().null_bitmap());
+        assert_eq!(false, res.value(0));
+        assert_eq!(true, res.value(1));
+        assert_eq!(false, res.value(2));
+        assert_eq!(true, res.value(3));
+    }
+
+    #[test]
+    fn test_nullable_array_is_not_null() {
+        let a: ArrayRef = Arc::new(Int32Array::from(vec![Some(1), None, Some(3), None]));
+
+        let res = is_not_null(&a).unwrap();
+
+        assert_eq!(4, res.len());
+        assert_eq!(0, res.null_count());
+        assert_eq!(&None, res.data_ref().null_bitmap());
+        assert_eq!(true, res.value(0));
+        assert_eq!(false, res.value(1));
+        assert_eq!(true, res.value(2));
+        assert_eq!(false, res.value(3));
+    }
+
+    #[test]
+    fn test_nullable_array_with_offset_is_not_null() {
+        let a: ArrayRef = Arc::new(Int32Array::from(vec![
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            // offset 8, previous None values are skipped by the slice
+            Some(1),
+            None,
+            Some(2),
+            None,
+            Some(3),
+            Some(4),
+            None,
+            None,
+        ]));
+        let a = a.slice(8, 4);
+
+        let res = is_not_null(&a).unwrap();
+
+        assert_eq!(4, res.len());
+        assert_eq!(0, res.null_count());
+        assert_eq!(&None, res.data_ref().null_bitmap());
+        assert_eq!(true, res.value(0));
+        assert_eq!(false, res.value(1));
+        assert_eq!(true, res.value(2));
+        assert_eq!(false, res.value(3));
     }
 }

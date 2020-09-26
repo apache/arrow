@@ -43,7 +43,7 @@ and Amazon S3-compatible storage (:class:`S3FileSystem`).
 Usage
 -----
 
-A FileSystem object can be created with one of the constuctors (and check the
+A FileSystem object can be created with one of the constructors (and check the
 respective constructor for its options)::
 
    >>> from pyarrow import fs

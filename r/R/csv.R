@@ -68,6 +68,8 @@
 #' parsing options provided in other arguments (e.g. `delim`, `quote`, etc.).
 #' @param convert_options see [file reader options][CsvReadOptions]
 #' @param read_options see [file reader options][CsvReadOptions]
+#' @param filesystem A [FileSystem] where `file` can be found if it is a
+#' string file path; default is the local file system
 #' @param as_data_frame Should the function return a `data.frame` (default) or
 #' an Arrow [Table]?
 #'
@@ -98,6 +100,7 @@ read_delim_arrow <- function(file,
                              parse_options = NULL,
                              convert_options = NULL,
                              read_options = NULL,
+                             filesystem = NULL,
                              as_data_frame = TRUE) {
 
   if (is.null(parse_options)) {
@@ -119,7 +122,7 @@ read_delim_arrow <- function(file,
   }
 
   if (!inherits(file, "InputStream")) {
-    file <- make_readable_file(file)
+    file <- make_readable_file(file, filesystem = filesystem)
     on.exit(file$close())
   }
   reader <- CsvTableReader$create(
@@ -206,7 +209,7 @@ read_tsv_arrow <- function(file,
 #' The `CsvTableReader$create()` and `JsonTableReader$create()` factory methods
 #' take the following arguments:
 #'
-#' - `file` A character path to a local file, or an Arrow input stream
+#' - `file` An Arrow [InputStream]
 #' - `convert_options` (CSV only), `parse_options`, `read_options`: see
 #'    [CsvReadOptions]
 #' - `...` additional parameters.
@@ -227,7 +230,7 @@ CsvTableReader$create <- function(file,
                                   parse_options = CsvParseOptions$create(),
                                   convert_options = CsvConvertOptions$create(),
                                   ...) {
-  file <- make_readable_file(file)
+  assert_is(file, "InputStream")
   shared_ptr(
     CsvTableReader,
     csv___TableReader__Make(file, read_options, parse_options, convert_options)

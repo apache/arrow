@@ -27,6 +27,8 @@
 #include "arrow/util/base64.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/key_value_metadata.h"
+#include "arrow/util/logging.h"
+
 #include "parquet/arrow/schema_internal.h"
 #include "parquet/exception.h"
 #include "parquet/properties.h"
@@ -423,6 +425,7 @@ Status PopulateLeaf(int column_index, const std::shared_ptr<Field>& field,
                     LevelInfo current_levels, SchemaTreeContext* ctx,
                     const SchemaField* parent, SchemaField* out) {
   out->field = field;
+  out->storage_field = field;
   out->column_index = column_index;
   out->level_info = current_levels;
   ctx->RecordLeaf(out);
@@ -459,6 +462,7 @@ Status GroupToStruct(const GroupNode& node, LevelInfo current_levels,
   auto struct_type = ::arrow::struct_(arrow_fields);
   out->field = ::arrow::field(node.name(), struct_type, node.is_optional(),
                               FieldIdMetadata(node.field_id()));
+  out->storage_field = out->field;
   out->level_info = current_levels;
   return Status::OK();
 }
@@ -539,6 +543,7 @@ Status ListToSchemaField(const GroupNode& group, LevelInfo current_levels,
   }
   out->field = ::arrow::field(group.name(), ::arrow::list(child_field->field),
                               group.is_optional(), FieldIdMetadata(group.field_id()));
+  out->storage_field = out->field;
   out->level_info = current_levels;
   // At this point current levels contains the def level for this list,
   // we need to reset to the prior parent.
@@ -566,6 +571,7 @@ Status GroupToSchemaField(const GroupNode& node, LevelInfo current_levels,
     RETURN_NOT_OK(GroupToStruct(node, current_levels, ctx, out, &out->children[0]));
     out->field = ::arrow::field(node.name(), ::arrow::list(out->children[0].field),
                                 /*nullable=*/false, FieldIdMetadata(node.field_id()));
+    out->storage_field = out->field;
 
     ctx->LinkParent(&out->children[0], out);
     out->level_info = current_levels;
@@ -582,8 +588,8 @@ Status GroupToSchemaField(const GroupNode& node, LevelInfo current_levels,
 Status NodeToSchemaField(const Node& node, LevelInfo current_levels,
                          SchemaTreeContext* ctx, const SchemaField* parent,
                          SchemaField* out) {
-  /// Workhorse function for converting a Parquet schema node to an Arrow
-  /// type. Handles different conventions for nested data
+  // Workhorse function for converting a Parquet schema node to an Arrow
+  // type. Handles different conventions for nested data.
 
   ctx->LinkParent(out, parent);
 
@@ -617,6 +623,7 @@ Status NodeToSchemaField(const Node& node, LevelInfo current_levels,
 
       out->field = ::arrow::field(node.name(), ::arrow::list(child_field),
                                   /*nullable=*/false, FieldIdMetadata(node.field_id()));
+      out->storage_field = out->field;
       out->level_info = current_levels;
       // At this point current_levels has consider this list the ancestor so restore
       // the actual ancenstor.
@@ -681,48 +688,79 @@ Status GetOriginSchema(const std::shared_ptr<const KeyValueMetadata>& metadata,
 // Restore original Arrow field information that was serialized as Parquet metadata
 // but that is not necessarily present in the field reconstitued from Parquet data
 // (for example, Parquet timestamp types doesn't carry timezone information).
-Status ApplyOriginalMetadata(std::shared_ptr<Field> field, const Field& origin_field,
-                             std::shared_ptr<Field>* out) {
+
+Status ApplyOriginalStorageMetadata(const Field& origin_field, SchemaField* inferred) {
   auto origin_type = origin_field.type();
-  if (field->type()->id() == ::arrow::Type::TIMESTAMP) {
+  auto inferred_type = inferred->field->type();
+
+  if (inferred_type->id() == ::arrow::Type::TIMESTAMP) {
     // Restore time zone, if any
-    const auto& ts_type = static_cast<const ::arrow::TimestampType&>(*field->type());
+    const auto& ts_type = static_cast<const ::arrow::TimestampType&>(*inferred_type);
     const auto& ts_origin_type = static_cast<const ::arrow::TimestampType&>(*origin_type);
 
     // If the unit is the same and the data is tz-aware, then set the original
     // time zone, since Parquet has no native storage for timezones
     if (ts_type.unit() == ts_origin_type.unit() && ts_type.timezone() == "UTC" &&
         ts_origin_type.timezone() != "") {
-      field = field->WithType(origin_type);
+      inferred->field = inferred->field->WithType(origin_type);
     }
-  }
-  if (origin_type->id() == ::arrow::Type::DICTIONARY &&
-      field->type()->id() != ::arrow::Type::DICTIONARY &&
-      IsDictionaryReadSupported(*field->type())) {
-    const auto& dict_origin_type =
-        static_cast<const ::arrow::DictionaryType&>(*origin_type);
-    field = field->WithType(
-        ::arrow::dictionary(::arrow::int32(), field->type(), dict_origin_type.ordered()));
   }
 
-  if (origin_type->id() == ::arrow::Type::EXTENSION) {
-    // Restore extension type, if the storage type is as read from Parquet
-    const auto& ex_type = checked_cast<const ::arrow::ExtensionType&>(*origin_type);
-    if (ex_type.storage_type()->Equals(*field->type())) {
-      field = field->WithType(origin_type);
-    }
+  if (origin_type->id() == ::arrow::Type::DICTIONARY &&
+      inferred_type->id() != ::arrow::Type::DICTIONARY &&
+      IsDictionaryReadSupported(*inferred_type)) {
+    const auto& dict_origin_type =
+        static_cast<const ::arrow::DictionaryType&>(*origin_type);
+    inferred->field = inferred->field->WithType(
+        ::arrow::dictionary(::arrow::int32(), inferred_type, dict_origin_type.ordered()));
   }
 
   // Restore field metadata
   std::shared_ptr<const KeyValueMetadata> field_metadata = origin_field.metadata();
   if (field_metadata != nullptr) {
-    if (field->metadata()) {
+    if (inferred->field->metadata()) {
       // Prefer the metadata keys (like field_id) from the current metadata
-      field_metadata = field_metadata->Merge(*field->metadata());
+      field_metadata = field_metadata->Merge(*inferred->field->metadata());
     }
-    field = field->WithMetadata(field_metadata);
+    inferred->field = inferred->field->WithMetadata(field_metadata);
   }
-  *out = field;
+
+  if (origin_type->id() == ::arrow::Type::EXTENSION) {
+    // Restore extension type, if the storage type is as read from Parquet
+    const auto& ex_type = checked_cast<const ::arrow::ExtensionType&>(*origin_type);
+    if (ex_type.storage_type()->Equals(*inferred_type)) {
+      inferred->field = inferred->field->WithType(origin_type);
+    }
+  }
+
+  // TODO Should apply metadata recursively to children, but for that we need
+  // to move metadata application inside NodeToSchemaField (ARROW-9943)
+
+  return Status::OK();
+}
+
+Status ApplyOriginalMetadata(const Field& origin_field, SchemaField* inferred) {
+  auto origin_type = origin_field.type();
+  auto inferred_type = inferred->field->type();
+
+  if (origin_type->id() == ::arrow::Type::EXTENSION) {
+    const auto& ex_type = checked_cast<const ::arrow::ExtensionType&>(*origin_type);
+    auto origin_storage_field = origin_field.WithType(ex_type.storage_type());
+
+    // Apply metadata recursively to storage type
+    RETURN_NOT_OK(ApplyOriginalStorageMetadata(*origin_storage_field, inferred));
+    inferred->storage_field = inferred->field;
+
+    // Restore extension type, if the storage type is the same as inferred
+    // from the Parquet type
+    if (ex_type.storage_type()->Equals(*inferred_type)) {
+      inferred->field = inferred->field->WithType(origin_type);
+    }
+  } else {
+    RETURN_NOT_OK(ApplyOriginalStorageMetadata(origin_field, inferred));
+    inferred->storage_field = inferred->field;
+  }
+
   return Status::OK();
 }
 
@@ -819,8 +857,7 @@ Status SchemaManifest::Make(const SchemaDescriptor* schema,
       continue;
     }
     auto origin_field = manifest->origin_schema->field(i);
-    RETURN_NOT_OK(
-        ApplyOriginalMetadata(out_field->field, *origin_field, &out_field->field));
+    RETURN_NOT_OK(ApplyOriginalMetadata(*origin_field, out_field));
   }
   return Status::OK();
 }

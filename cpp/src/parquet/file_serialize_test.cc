@@ -57,6 +57,11 @@ class TestSerialize : public PrimitiveTypedTest<TestType> {
   int rows_per_batch_;
 
   void FileSerializeTest(Compression::type codec_type) {
+    FileSerializeTest(codec_type, codec_type);
+  }
+
+  void FileSerializeTest(Compression::type codec_type,
+                         Compression::type expected_codec_type) {
     auto sink = CreateOutputStream();
     auto gnode = std::static_pointer_cast<GroupNode>(this->node_);
 
@@ -123,7 +128,8 @@ class TestSerialize : public PrimitiveTypedTest<TestType> {
       ASSERT_EQ(num_columns_, rg_reader->metadata()->num_columns());
       ASSERT_EQ(rows_per_rowgroup_, rg_reader->metadata()->num_rows());
       // Check that the specified compression was actually used.
-      ASSERT_EQ(codec_type, rg_reader->metadata()->ColumnChunk(0)->compression());
+      ASSERT_EQ(expected_codec_type,
+                rg_reader->metadata()->ColumnChunk(0)->compression());
 
       int64_t values_read;
 
@@ -309,7 +315,12 @@ TYPED_TEST(TestSerialize, SmallFileGzip) {
 
 #ifdef ARROW_WITH_LZ4
 TYPED_TEST(TestSerialize, SmallFileLz4) {
-  ASSERT_THROW(this->FileSerializeTest(Compression::LZ4), ParquetException);
+  ASSERT_NO_FATAL_FAILURE(
+      this->FileSerializeTest(Compression::LZ4, Compression::LZ4_HADOOP));
+}
+
+TYPED_TEST(TestSerialize, SmallFileLz4Hadoop) {
+  ASSERT_NO_FATAL_FAILURE(this->FileSerializeTest(Compression::LZ4_HADOOP));
 }
 #endif
 

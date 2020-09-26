@@ -141,10 +141,15 @@ class PARQUET_EXPORT ColumnWriter {
 
   /// \brief Write Apache Arrow columnar data directly to ColumnWriter. Returns
   /// error status if the array data type is not compatible with the concrete
-  /// writer type
+  /// writer type.
+  ///
+  /// leaf_array is always a primitive (possibly dictionary encoded type).
+  /// Leaf_field_nullable indicates whether the leaf array is considered nullable
+  /// according to its schema in a Table or its parent array.
   virtual ::arrow::Status WriteArrow(const int16_t* def_levels, const int16_t* rep_levels,
-                                     int64_t num_levels, const ::arrow::Array& array,
-                                     ArrowWriteContext* ctx) = 0;
+                                     int64_t num_levels, const ::arrow::Array& leaf_array,
+                                     ArrowWriteContext* ctx,
+                                     bool leaf_field_nullable) = 0;
 };
 
 // API to write values to a single column. This is the main client facing API.

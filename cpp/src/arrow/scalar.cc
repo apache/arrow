@@ -327,7 +327,7 @@ struct ScalarParseImpl {
     return MakeScalar(std::move(type_), std::forward<Arg>(arg)).Value(&out_);
   }
 
-  Status FinishWithBuffer() { return Finish(Buffer::FromString(s_.to_string())); }
+  Status FinishWithBuffer() { return Finish(Buffer::FromString(std::string(s_))); }
 
   Result<std::shared_ptr<Scalar>> Finish() && {
     RETURN_NOT_OK(VisitTypeInline(*type_, this));
@@ -366,8 +366,9 @@ std::shared_ptr<Buffer> FormatToBuffer(Formatter&& formatter, const ScalarType& 
   if (!from.is_valid) {
     return Buffer::FromString("null");
   }
-  return formatter(
-      from.value, [&](util::string_view v) { return Buffer::FromString(v.to_string()); });
+  return formatter(from.value, [&](util::string_view v) {
+    return Buffer::FromString(std::string(v));
+  });
 }
 
 // error fallback

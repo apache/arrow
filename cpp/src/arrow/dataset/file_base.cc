@@ -208,7 +208,7 @@ Status FileSystemDataset::Write(std::shared_ptr<Schema> schema,
                                 FragmentIterator fragment_it) {
   auto task_group = scan_context->TaskGroup();
 
-  base_dir = fs::internal::RemoveTrailingSlash(base_dir).to_string();
+  base_dir = std::string(fs::internal::RemoveTrailingSlash(base_dir));
 
   for (const auto& f : partitioning->schema()->fields()) {
     if (f->type()->id() == Type::DICTIONARY) {

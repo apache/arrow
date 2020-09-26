@@ -65,7 +65,7 @@ Result<std::unordered_set<std::string>> GetColumnNames(
   RETURN_NOT_OK(
       parser.VisitLastRow([&](const uint8_t* data, uint32_t size, bool quoted) -> Status {
         util::string_view view{reinterpret_cast<const char*>(data), size};
-        if (column_names.emplace(view.to_string()).second) {
+        if (column_names.emplace(std::string(view)).second) {
           return Status::OK();
         }
         return Status::Invalid("CSV file contained multiple columns named ", view);
