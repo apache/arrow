@@ -1,7 +1,7 @@
 MACOSX_DEPLOYMENT_TARGET:
 - '10.9'
 aws_sdk_cpp:
-- 1.7.164
+- 1.8.54
 boost_cpp:
 - 1.74.0
 bzip2:
@@ -27,13 +27,15 @@ glog:
 grpc_cpp:
 - '1.30'
 libprotobuf:
-- '3.12'
+- '3.13'
 lz4_c:
 - 1.9.2
 macos_machine:
 - x86_64-apple-darwin13.4.0
 numpy:
 - '1.16'
+orc:
+- 1.6.4
 pin_run_as_build:
   boost-cpp:
     max_pin: x.x.x
