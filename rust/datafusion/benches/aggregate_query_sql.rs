@@ -21,7 +21,7 @@ use criterion::Criterion;
 
 use rand::seq::SliceRandom;
 use rand::Rng;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 extern crate arrow;
 extern crate datafusion;
@@ -38,10 +38,10 @@ use datafusion::datasource::MemTable;
 use datafusion::error::Result;
 use datafusion::execution::context::ExecutionContext;
 
-fn query(ctx: &mut ExecutionContext, sql: &str) {
+async fn query(ctx: Arc<Mutex<ExecutionContext>>, sql: &str) {
     // execute the query
-    let df = ctx.sql(&sql).unwrap();
-    let results = df.collect().unwrap();
+    let df = ctx.lock().unwrap().sql(&sql).unwrap();
+    let results = df.collect().await.unwrap();
 
     // display the relation
     for _batch in results {}
@@ -66,7 +66,7 @@ fn create_context(
     partitions_len: usize,
     array_len: usize,
     batch_size: usize,
-) -> Result<ExecutionContext> {
+) -> Result<Arc<Mutex<ExecutionContext>>> {
     // define a schema.
     let schema = Arc::new(Schema::new(vec![
         Field::new("utf8", DataType::Utf8, false),
@@ -112,19 +112,19 @@ fn create_context(
     let provider = MemTable::new(schema, partitions)?;
     ctx.register_table("t", Box::new(provider));
 
-    Ok(ctx)
+    Ok(Arc::new(Mutex::new(ctx)))
 }
 
 fn criterion_benchmark(c: &mut Criterion) {
     let partitions_len = 4;
     let array_len = 32768; // 2^15
     let batch_size = 2048; // 2^11
-    let mut ctx = create_context(partitions_len, array_len, batch_size).unwrap();
+    let ctx = create_context(partitions_len, array_len, batch_size).unwrap();
 
     c.bench_function("aggregate_query_no_group_by 15 12", |b| {
         b.iter(|| {
             query(
-                &mut ctx,
+                ctx.clone(),
                 "SELECT MIN(f64), AVG(f64), COUNT(f64) \
                  FROM t",
             )
@@ -134,7 +134,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     c.bench_function("aggregate_query_group_by 15 12", |b| {
         b.iter(|| {
             query(
-                &mut ctx,
+                ctx.clone(),
                 "SELECT utf8, MIN(f64), AVG(f64), COUNT(f64) \
                  FROM t GROUP BY utf8",
             )
@@ -144,7 +144,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     c.bench_function("aggregate_query_group_by_with_filter 15 12", |b| {
         b.iter(|| {
             query(
-                &mut ctx,
+                ctx.clone(),
                 "SELECT utf8, MIN(f64), AVG(f64), COUNT(f64) \
                  FROM t \
                  WHERE f32 > 10 AND f32 < 20 GROUP BY utf8",

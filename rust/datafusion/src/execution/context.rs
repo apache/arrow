@@ -348,10 +348,10 @@ impl ExecutionContext {
     pub async fn write_csv(
         &self,
         plan: Arc<dyn ExecutionPlan>,
-        path: &str,
+        path: String,
     ) -> Result<()> {
         // create directory to contain the CSV files (one per partition)
-        let path = path.to_string();
+        let path = path.to_owned();
         fs::create_dir(&path)?;
 
         for i in 0..plan.output_partitioning().partition_count() {
@@ -359,15 +359,13 @@ impl ExecutionContext {
             let plan = plan.clone();
             let filename = format!("part-{}.csv", i);
             let path = Path::new(&path).join(&filename);
-            let file = fs::File::create(path)?;
+            let file = fs::File::create(path).unwrap();
             let mut writer = csv::Writer::new(file);
-            let reader = plan.execute(i).await?;
+            let reader = plan.execute(i).await.unwrap();
             let mut reader = reader.lock().unwrap();
             loop {
                 match reader.next_batch() {
-                    Ok(Some(batch)) => {
-                        writer.write(&batch)?;
-                    }
+                    Ok(Some(batch)) => writer.write(&batch).unwrap(),
                     Ok(None) => break,
                     Err(e) => return Err(ExecutionError::from(e)),
                 }
@@ -1345,7 +1343,7 @@ mod tests {
         let logical_plan = ctx.create_logical_plan(sql)?;
         let logical_plan = ctx.optimize(&logical_plan)?;
         let physical_plan = ctx.create_physical_plan(&logical_plan)?;
-        ctx.write_csv(physical_plan, out_dir).await
+        ctx.write_csv(physical_plan, out_dir.to_string()).await
     }
 
     /// Generate CSV partitions within the supplied directory

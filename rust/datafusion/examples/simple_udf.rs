@@ -57,7 +57,8 @@ fn create_context() -> Result<ExecutionContext> {
 }
 
 /// In this example we will declare a single-type, single return type UDF that exponentiates f64, a^b
-fn main() -> Result<()> {
+#[tokio::main]
+async fn main() -> Result<()> {
     let mut ctx = create_context()?;
 
     // First, declare the actual implementation of the calculation
@@ -139,7 +140,7 @@ fn main() -> Result<()> {
     // note that "b" is f32, not f64. DataFusion coerces the types to match the UDF's signature.
 
     // execute the query
-    let results = df.collect()?;
+    let results = df.collect().await?;
 
     // print the results
     pretty::print_batches(&results)?;
