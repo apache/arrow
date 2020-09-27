@@ -96,6 +96,11 @@
         <jmh.version>1.21</jmh.version>
         <javac.target>1.8</javac.target>
         <uberjar.name>benchmarks</uberjar.name>
+        <skip.perf.benchmarks>true</skip.perf.benchmarks>
+        <benchmark.filter>.*</benchmark.filter>
+        <benchmark.forks>1</benchmark.forks>
+        <benchmark.warmups>5</benchmark.warmups>
+        <benchmark.runs>5</benchmark.runs>
     </properties>
 
     <build>
@@ -139,6 +144,37 @@
                         </configuration>
                     </execution>
                 </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>1.6.0</version>
+                <executions>
+                    <execution>
+                        <id>run-java-benchmarks</id>
+                        <phase>integration-test</phase>
+                        <goals>
+                            <goal>exec</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <skip>${skip.perf.benchmarks}</skip>
+                    <classpathScope>test</classpathScope>
+                    <executable>java</executable>
+                    <arguments>
+                        <argument>-classpath</argument>
+                        <classpath/>
+                        <argument>org.openjdk.jmh.Main</argument>
+                        <argument>${benchmark.filter}</argument>
+                        <argument>-f</argument>
+                        <argument>${benchmark.forks}</argument>
+                        <argument>-wi</argument>
+                        <argument>${benchmark.warmups}</argument>
+                        <argument>-i</argument>
+                        <argument>${benchmark.runs}</argument>
+                    </arguments>
+                </configuration>
             </plugin>
         </plugins>
         <pluginManagement>
