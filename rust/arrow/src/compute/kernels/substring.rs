@@ -35,7 +35,7 @@ fn substring1<OffsetSize: OffsetSizeTrait>(
     let offsets: &[OffsetSize] = unsafe { offsets.typed_data::<OffsetSize>() };
 
     // compute null bitmap (copy)
-    let null_bit_buffer = array.data_ref().null_buffer().map(|e| e.clone());
+    let null_bit_buffer = array.data_ref().null_buffer().cloned();
 
     // compute values
     let values = &array.data_ref().buffers()[1];
@@ -57,14 +57,14 @@ fn substring1<OffsetSize: OffsetSizeTrait>(
                 lenght_i + start
             };
 
-        let start = start.max(offsets[i]).min(offsets[i + 1]).into();
+        let start = start.max(offsets[i]).min(offsets[i + 1]);
         // compute the lenght of the slice
         let length: OffsetSize = length
             .unwrap_or(lenght_i)
             // .max(0) is not needed as it is guaranteed
-            .min((offsets[i + 1] - start).into()); // so we do not go beyond this entry
+            .min(offsets[i + 1] - start); // so we do not go beyond this entry
 
-        length_so_far = length_so_far + length.into();
+        length_so_far = length_so_far + length;
 
         new_offsets.push(length_so_far);
 
