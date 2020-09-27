@@ -31,7 +31,6 @@ use datafusion::datasource::{CsvFile, CsvReadOptions, MemTable};
 use datafusion::execution::context::ExecutionContext;
 
 use tokio::runtime::Runtime;
-use tokio::task;
 
 async fn run_query(ctx: Arc<Mutex<ExecutionContext>>, sql: &str) {
     // execute the query
@@ -71,7 +70,7 @@ fn create_context() -> Arc<Mutex<ExecutionContext>> {
 
     let mut rt = Runtime::new().unwrap();
 
-    let contextHolder: Arc<Mutex<Vec<Arc<Mutex<ExecutionContext>>>>> =
+    let ctx_holder: Arc<Mutex<Vec<Arc<Mutex<ExecutionContext>>>>> =
         Arc::new(Mutex::new(vec![]));
     rt.block_on(async {
         let mem_table = MemTable::load(&csv).await.unwrap();
@@ -80,13 +79,13 @@ fn create_context() -> Arc<Mutex<ExecutionContext>> {
         let mut ctx = ExecutionContext::new();
         ctx.state.config.concurrency = 1;
         ctx.register_table("aggregate_test_100", Box::new(mem_table));
-        contextHolder
+        ctx_holder
             .lock()
             .unwrap()
             .push(Arc::new(Mutex::new(ctx)))
     });
 
-    let ctx = contextHolder.lock().unwrap().get(0).unwrap().clone();
+    let ctx = ctx_holder.lock().unwrap().get(0).unwrap().clone();
     ctx
 }
 
