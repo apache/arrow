@@ -26,6 +26,8 @@ use arrow::datatypes::SchemaRef;
 use arrow::error::Result as ArrowResult;
 use arrow::record_batch::{RecordBatch, RecordBatchReader};
 
+use async_trait::async_trait;
+
 /// Execution plan for reading in-memory batches of data
 #[derive(Debug)]
 pub struct MemoryExec {
@@ -37,6 +39,7 @@ pub struct MemoryExec {
     projection: Option<Vec<usize>>,
 }
 
+#[async_trait]
 impl ExecutionPlan for MemoryExec {
     /// Return a reference to Any that can be used for downcasting
     fn as_any(&self) -> &dyn Any {
@@ -68,7 +71,7 @@ impl ExecutionPlan for MemoryExec {
         )))
     }
 
-    fn execute(
+    async fn execute(
         &self,
         partition: usize,
     ) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {

@@ -103,7 +103,10 @@ impl FlightService for FlightServiceImpl {
                     .map_err(|e| to_tonic_err(&e))?;
 
                 // execute the query
-                let results = ctx.collect(plan.clone()).map_err(|e| to_tonic_err(&e))?;
+                let results = ctx
+                    .collect(plan.clone())
+                    .await
+                    .map_err(|e| to_tonic_err(&e))?;
                 if results.is_empty() {
                     return Err(Status::internal("There were no results from ticket"));
                 }

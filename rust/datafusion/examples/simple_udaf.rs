@@ -125,7 +125,8 @@ impl Accumulator for GeometricMean {
     // By default, these methods call `update` and `merge` row by row
 }
 
-fn main() -> Result<()> {
+#[tokio::main]
+async fn main() -> Result<()> {
     let mut ctx = create_context()?;
 
     // here is where we define the UDAF. We also declare its signature:
@@ -152,7 +153,7 @@ fn main() -> Result<()> {
     // note that "a" is f32, not f64. DataFusion coerces it to match the UDAF's signature.
 
     // execute the query
-    let results = df.collect()?;
+    let results = df.collect().await?;
 
     // downcast the array to the expected type
     let result = results[0]

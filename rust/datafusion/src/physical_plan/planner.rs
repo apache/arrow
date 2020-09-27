@@ -553,6 +553,7 @@ mod tests {
         datatypes::{DataType, Field, SchemaRef},
         record_batch::RecordBatchReader,
     };
+    use async_trait::async_trait;
     use fmt::Debug;
     use std::{any::Any, collections::HashMap, fmt, sync::Mutex};
 
@@ -773,6 +774,7 @@ mod tests {
         schema: SchemaRef,
     }
 
+    #[async_trait]
     impl ExecutionPlan for NoOpExecutionPlan {
         /// Return a reference to Any that can be used for downcasting
         fn as_any(&self) -> &dyn Any {
@@ -799,7 +801,7 @@ mod tests {
         }
 
         /// Execute one partition and return an iterator over RecordBatch
-        fn execute(
+        async fn execute(
             &self,
             _partition: usize,
         ) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {

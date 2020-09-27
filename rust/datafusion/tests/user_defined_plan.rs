@@ -86,21 +86,23 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+use async_trait::async_trait;
+
 /// Execute the specified sql and return the resulting record batches
 /// pretty printed as a String.
-fn exec_sql(ctx: &mut ExecutionContext, sql: &str) -> Result<String> {
+async fn exec_sql(ctx: &mut ExecutionContext, sql: &str) -> Result<String> {
     let df = ctx.sql(sql)?;
-    let batches = df.collect()?;
+    let batches = df.collect().await?;
     pretty_format_batches(&batches).map_err(|e| ExecutionError::ArrowError(e))
 }
 
 /// Create a test table.
-fn setup_table(mut ctx: ExecutionContext) -> Result<ExecutionContext> {
+async fn setup_table(mut ctx: ExecutionContext) -> Result<ExecutionContext> {
     let sql = "CREATE EXTERNAL TABLE sales(customer_id VARCHAR, revenue BIGINT) STORED AS CSV location 'tests/customer.csv'";
 
     let expected = vec!["++", "++"];
 
-    let s = exec_sql(&mut ctx, sql)?;
+    let s = exec_sql(&mut ctx, sql).await?;
     let actual = s.lines().collect::<Vec<_>>();
 
     assert_eq!(expected, actual, "Creating table");
@@ -112,7 +114,10 @@ const QUERY: &str =
 
 // Run the query using the specified execution context and compare it
 // to the known result
-fn run_and_compare_query(mut ctx: ExecutionContext, description: &str) -> Result<()> {
+async fn run_and_compare_query(
+    mut ctx: ExecutionContext,
+    description: &str,
+) -> Result<()> {
     let expected = vec![
         "+-------------+---------+",
         "| customer_id | revenue |",
@@ -123,7 +128,7 @@ fn run_and_compare_query(mut ctx: ExecutionContext, description: &str) -> Result
         "+-------------+---------+",
     ];
 
-    let s = exec_sql(&mut ctx, QUERY)?;
+    let s = exec_sql(&mut ctx, QUERY).await?;
     let actual = s.lines().collect::<Vec<_>>();
 
     assert_eq!(
@@ -137,25 +142,25 @@ fn run_and_compare_query(mut ctx: ExecutionContext, description: &str) -> Result
     Ok(())
 }
 
-#[test]
+#[tokio::test]
 // Run the query using default planners and optimizer
-fn normal_query() -> Result<()> {
-    let ctx = setup_table(ExecutionContext::new())?;
-    run_and_compare_query(ctx, "Default context")
+async fn normal_query() -> Result<()> {
+    let ctx = setup_table(ExecutionContext::new()).await?;
+    run_and_compare_query(ctx, "Default context").await
 }
 
-#[test]
+#[tokio::test]
 // Run the query using topk optimization
-fn topk_query() -> Result<()> {
+async fn topk_query() -> Result<()> {
     // Note the only difference is that the top
-    let ctx = setup_table(make_topk_context())?;
-    run_and_compare_query(ctx, "Topk context")
+    let ctx = setup_table(make_topk_context()).await?;
+    run_and_compare_query(ctx, "Topk context").await
 }
 
-#[test]
+#[tokio::test]
 // Run EXPLAIN PLAN and show the plan was in fact rewritten
-fn topk_plan() -> Result<()> {
-    let mut ctx = setup_table(make_topk_context())?;
+async fn topk_plan() -> Result<()> {
+    let mut ctx = setup_table(make_topk_context()).await?;
 
     let expected = vec![
         "| logical_plan after topk                 | TopK: k=3                                      |",
@@ -164,7 +169,7 @@ fn topk_plan() -> Result<()> {
     ].join("\n");
 
     let explain_query = format!("EXPLAIN VERBOSE {}", QUERY);
-    let actual_output = exec_sql(&mut ctx, &explain_query)?;
+    let actual_output = exec_sql(&mut ctx, &explain_query).await?;
 
     // normalize newlines (output on windows uses \r\n)
     let actual_output = actual_output.replace("\r\n", "\n");
@@ -354,6 +359,7 @@ impl Debug for TopKExec {
     }
 }
 
+#[async_trait]
 impl ExecutionPlan for TopKExec {
     /// Return a reference to Any that can be used for downcasting
     fn as_any(&self) -> &dyn Any {
@@ -392,7 +398,7 @@ impl ExecutionPlan for TopKExec {
     }
 
     /// Execute one partition and return an iterator over RecordBatch
-    fn execute(
+    async fn execute(
         &self,
         partition: usize,
     ) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
@@ -404,7 +410,7 @@ impl ExecutionPlan for TopKExec {
         }
 
         Ok(Arc::new(Mutex::new(TopKReader {
-            input: self.input.execute(partition)?,
+            input: self.input.execute(partition).await?,
             k: self.k,
             top_values: BTreeMap::new(),
             done: false,

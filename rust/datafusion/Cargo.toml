@@ -54,6 +54,8 @@ crossbeam = "0.7"
 paste = "0.1"
 num_cpus = "1.13.0"
 chrono = "0.4"
+async-trait = "0.1.36"
+tokio = { version = "0.2", features = ["macros", "rt-core", "rt-threaded"] }
 
 [dev-dependencies]
 rand = "0.7"
@@ -61,7 +63,6 @@ criterion = "0.3"
 tempfile = "3"
 futures = "0.3"
 prost = "0.6"
-tokio = { version = "0.2", features = ["macros"] }
 arrow-flight = { path = "../arrow-flight", version = "2.0.0-SNAPSHOT" }
 tonic = "0.2"
 

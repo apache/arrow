@@ -28,6 +28,8 @@ use arrow::compute::limit;
 use arrow::datatypes::SchemaRef;
 use arrow::record_batch::{RecordBatch, RecordBatchReader};
 
+use async_trait::async_trait;
+
 /// Limit execution plan
 #[derive(Debug)]
 pub struct GlobalLimitExec {
@@ -50,6 +52,7 @@ impl GlobalLimitExec {
     }
 }
 
+#[async_trait]
 impl ExecutionPlan for GlobalLimitExec {
     /// Return a reference to Any that can be used for downcasting
     fn as_any(&self) -> &dyn Any {
@@ -89,7 +92,7 @@ impl ExecutionPlan for GlobalLimitExec {
         }
     }
 
-    fn execute(
+    async fn execute(
         &self,
         partition: usize,
     ) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
@@ -108,7 +111,7 @@ impl ExecutionPlan for GlobalLimitExec {
             ));
         }
 
-        let it = self.input.execute(0)?;
+        let it = self.input.execute(0).await?;
         Ok(Arc::new(Mutex::new(MemoryIterator::try_new(
             collect_with_limit(it, self.limit)?,
             self.input.schema(),
@@ -131,6 +134,7 @@ impl LocalLimitExec {
     }
 }
 
+#[async_trait]
 impl ExecutionPlan for LocalLimitExec {
     /// Return a reference to Any that can be used for downcasting
     fn as_any(&self) -> &dyn Any {
@@ -164,11 +168,11 @@ impl ExecutionPlan for LocalLimitExec {
         }
     }
 
-    fn execute(
+    async fn execute(
         &self,
         partition: usize,
     ) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
-        let it = self.input.execute(partition)?;
+        let it = self.input.execute(partition).await?;
         Ok(Arc::new(Mutex::new(MemoryIterator::try_new(
             collect_with_limit(it, self.limit)?,
             self.input.schema(),
@@ -231,8 +235,8 @@ mod tests {
     use crate::physical_plan::merge::MergeExec;
     use crate::test;
 
-    #[test]
-    fn limit() -> Result<()> {
+    #[tokio::test]
+    async fn limit() -> Result<()> {
         let schema = test::aggr_test_schema();
 
         let num_partitions = 4;
@@ -249,7 +253,7 @@ mod tests {
             GlobalLimitExec::new(Arc::new(MergeExec::new(Arc::new(csv), 2)), 7, 2);
 
         // the result should contain 4 batches (one per input partition)
-        let iter = limit.execute(0)?;
+        let iter = limit.execute(0).await?;
         let batches = common::collect(iter)?;
 
         // there should be a total of 100 rows
