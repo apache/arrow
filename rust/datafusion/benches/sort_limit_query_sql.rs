@@ -79,10 +79,7 @@ fn create_context() -> Arc<Mutex<ExecutionContext>> {
         let mut ctx = ExecutionContext::new();
         ctx.state.config.concurrency = 1;
         ctx.register_table("aggregate_test_100", Box::new(mem_table));
-        ctx_holder
-            .lock()
-            .unwrap()
-            .push(Arc::new(Mutex::new(ctx)))
+        ctx_holder.lock().unwrap().push(Arc::new(Mutex::new(ctx)))
     });
 
     let ctx = ctx_holder.lock().unwrap().get(0).unwrap().clone();
