@@ -117,15 +117,11 @@ impl ExecutionPlan for MergeExec {
                 for chunk in chunks {
                     let chunk = chunk.to_vec();
                     let input = self.input.clone();
-
-                    println!("Creating task");
                     let task: JoinHandle<Result<Vec<Arc<RecordBatch>>>> =
                         task::spawn(async move {
                             let mut batches: Vec<Arc<RecordBatch>> = vec![];
                             for partition in chunk {
-                                let p = partition.clone();
-                                println!("Processing partition {}", p);
-                                let it = input.execute(p).await?;
+                                let it = input.execute(partition).await?;
                                 common::collect(it)?
                                     .iter()
                                     .for_each(|b| batches.push(Arc::new(b.clone())));
@@ -138,7 +134,6 @@ impl ExecutionPlan for MergeExec {
                 // combine the results from each thread
                 let mut combined_results: Vec<Arc<RecordBatch>> = vec![];
                 for task in tasks {
-                    println!("Waiting for task to complete");
                     let result = task.await.unwrap()?;
                     for batch in &result {
                         combined_results.push(batch.clone());
