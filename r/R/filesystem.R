@@ -365,7 +365,14 @@ arrow_with_s3 <- function() {
 #' @format NULL
 #' @rdname FileSystem
 #' @export
-SubTreeFileSystem <- R6Class("SubTreeFileSystem", inherit = FileSystem)
+SubTreeFileSystem <- R6Class("SubTreeFileSystem", inherit = FileSystem,
+  active = list(
+    base_fs = function() {
+      shared_ptr(FileSystem, fs___SubTreeFileSystem__base_fs(self))$..dispatch()
+    },
+    base_path = function() fs___SubTreeFileSystem__base_path(self)
+  )
+)
 SubTreeFileSystem$create <- function(base_path, base_fs = NULL) {
   fs_and_path <- get_path_and_filesystem(base_path, base_fs)
   shared_ptr(

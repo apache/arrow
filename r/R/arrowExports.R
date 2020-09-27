@@ -956,6 +956,14 @@ fs___SubTreeFileSystem__create <- function(base_path, base_fs){
     .Call(`_arrow_fs___SubTreeFileSystem__create` , base_path, base_fs)
 }
 
+fs___SubTreeFileSystem__base_fs <- function(file_system){
+    .Call(`_arrow_fs___SubTreeFileSystem__base_fs` , file_system)
+}
+
+fs___SubTreeFileSystem__base_path <- function(file_system){
+    .Call(`_arrow_fs___SubTreeFileSystem__base_path` , file_system)
+}
+
 fs___FileSystemFromUri <- function(path){
     .Call(`_arrow_fs___FileSystemFromUri` , path)
 }

@@ -80,10 +80,12 @@ test_that("SubTreeFilesystem", {
   DESCRIPTION <- system.file("DESCRIPTION", package = "arrow")
   file.copy(DESCRIPTION, file.path(td, "DESCRIPTION"))
 
-  local_fs <- LocalFileSystem$create()
-  st_fs <- SubTreeFileSystem$create(td, local_fs)
+  st_fs <- SubTreeFileSystem$create(td)
   expect_is(st_fs, "SubTreeFileSystem")
   expect_is(st_fs, "FileSystem")
+  expect_is(st_fs$base_fs, "LocalFileSystem")
+  expect_identical(normalizePath(st_fs$base_path), normalizePath(td))
+
   st_fs$CreateDir("test")
   st_fs$CopyFile("DESCRIPTION", "DESC.txt")
   infos <- st_fs$GetFileInfo(c("DESCRIPTION", "test", "nope", "DESC.txt"))
@@ -93,6 +95,7 @@ test_that("SubTreeFilesystem", {
   expect_equal(infos[[4L]]$type, FileType$File)
   expect_equal(infos[[4L]]$extension(), "txt")
 
+  local_fs <- LocalFileSystem$create()
   local_fs$DeleteDirContents(td)
   infos <- st_fs$GetFileInfo(c("DESCRIPTION", "test", "nope", "DESC.txt"))
   expect_equal(infos[[1L]]$type, FileType$NotFound)

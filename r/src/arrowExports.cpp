@@ -3716,6 +3716,36 @@ extern "C" SEXP _arrow_fs___SubTreeFileSystem__create(SEXP base_path_sexp, SEXP 
 
 // filesystem.cpp
 #if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<fs::FileSystem> fs___SubTreeFileSystem__base_fs(const std::shared_ptr<fs::SubTreeFileSystem>& file_system);
+extern "C" SEXP _arrow_fs___SubTreeFileSystem__base_fs(SEXP file_system_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<fs::SubTreeFileSystem>&>::type file_system(file_system_sexp);
+	return cpp11::as_sexp(fs___SubTreeFileSystem__base_fs(file_system));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_fs___SubTreeFileSystem__base_fs(SEXP file_system_sexp){
+	Rf_error("Cannot call fs___SubTreeFileSystem__base_fs(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// filesystem.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::string fs___SubTreeFileSystem__base_path(const std::shared_ptr<fs::SubTreeFileSystem>& file_system);
+extern "C" SEXP _arrow_fs___SubTreeFileSystem__base_path(SEXP file_system_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<fs::SubTreeFileSystem>&>::type file_system(file_system_sexp);
+	return cpp11::as_sexp(fs___SubTreeFileSystem__base_path(file_system));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_fs___SubTreeFileSystem__base_path(SEXP file_system_sexp){
+	Rf_error("Cannot call fs___SubTreeFileSystem__base_path(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// filesystem.cpp
+#if defined(ARROW_R_WITH_ARROW)
 cpp11::writable::list fs___FileSystemFromUri(const std::string& path);
 extern "C" SEXP _arrow_fs___FileSystemFromUri(SEXP path_sexp){
 BEGIN_CPP11
@@ -6485,6 +6515,8 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_fs___FileSystem__type_name", (DL_FUNC) &_arrow_fs___FileSystem__type_name, 1}, 
 		{ "_arrow_fs___LocalFileSystem__create", (DL_FUNC) &_arrow_fs___LocalFileSystem__create, 0}, 
 		{ "_arrow_fs___SubTreeFileSystem__create", (DL_FUNC) &_arrow_fs___SubTreeFileSystem__create, 2}, 
+		{ "_arrow_fs___SubTreeFileSystem__base_fs", (DL_FUNC) &_arrow_fs___SubTreeFileSystem__base_fs, 1}, 
+		{ "_arrow_fs___SubTreeFileSystem__base_path", (DL_FUNC) &_arrow_fs___SubTreeFileSystem__base_path, 1}, 
 		{ "_arrow_fs___FileSystemFromUri", (DL_FUNC) &_arrow_fs___FileSystemFromUri, 1}, 
 		{ "_arrow_fs___CopyFiles", (DL_FUNC) &_arrow_fs___CopyFiles, 6}, 
 		{ "_arrow_fs___S3FileSystem__create", (DL_FUNC) &_arrow_fs___S3FileSystem__create, 12}, 

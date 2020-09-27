@@ -222,6 +222,18 @@ std::shared_ptr<fs::SubTreeFileSystem> fs___SubTreeFileSystem__create(
 }
 
 // [[arrow::export]]
+std::shared_ptr<fs::FileSystem> fs___SubTreeFileSystem__base_fs(
+    const std::shared_ptr<fs::SubTreeFileSystem>& file_system) {
+  return file_system->base_fs();
+}
+
+// [[arrow::export]]
+std::string fs___SubTreeFileSystem__base_path(
+    const std::shared_ptr<fs::SubTreeFileSystem>& file_system) {
+  return file_system->base_path();
+}
+
+// [[arrow::export]]
 cpp11::writable::list fs___FileSystemFromUri(const std::string& path) {
   using cpp11::literals::operator"" _nm;
 
