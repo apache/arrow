@@ -30,6 +30,9 @@ use arrow::datatypes::{DataType, Field, Schema};
 use datafusion::datasource::{CsvFile, CsvReadOptions, MemTable};
 use datafusion::execution::context::ExecutionContext;
 
+use tokio::runtime::Runtime;
+use tokio::task;
+
 async fn run_query(ctx: Arc<Mutex<ExecutionContext>>, sql: &str) {
     // execute the query
     let df = ctx.lock().unwrap().sql(&sql).unwrap();
@@ -66,15 +69,25 @@ fn create_context() -> Arc<Mutex<ExecutionContext>> {
     )
     .unwrap();
 
-    // let mem_table = MemTable::load(&csv).await.unwrap();
-    //
-    // // create local execution context
-    // let ctx = ExecutionContext::new();
-    // ctx.state.config.concurrency = 1;
-    // ctx.register_table("aggregate_test_100", Box::new(mem_table));
-    // Arc::new(Mutex::new(ctx))
+    let mut rt = Runtime::new().unwrap();
 
-    unimplemented!()
+    let contextHolder: Arc<Mutex<Vec<Arc<Mutex<ExecutionContext>>>>> =
+        Arc::new(Mutex::new(vec![]));
+    rt.block_on(async {
+        let mem_table = MemTable::load(&csv).await.unwrap();
+
+        // create local execution context
+        let mut ctx = ExecutionContext::new();
+        ctx.state.config.concurrency = 1;
+        ctx.register_table("aggregate_test_100", Box::new(mem_table));
+        contextHolder
+            .lock()
+            .unwrap()
+            .push(Arc::new(Mutex::new(ctx)))
+    });
+
+    let ctx = contextHolder.lock().unwrap().get(0).unwrap().clone();
+    ctx
 }
 
 fn criterion_benchmark(c: &mut Criterion) {
