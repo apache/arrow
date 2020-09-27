@@ -148,6 +148,7 @@
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>exec-maven-plugin</artifactId>
+                <version>1.6.0</version>
                 <executions>
                     <execution>
                         <id>run-java-benchmarks</id>
@@ -155,25 +156,25 @@
                         <goals>
                             <goal>exec</goal>
                         </goals>
-                        <configuration>
-                            <skip>${skip.perf.benchmarks}</skip>
-                            <classpathScope>test</classpathScope>
-                            <executable>java</executable>
-                            <arguments>
-                                <argument>-classpath</argument>
-                                <classpath/>
-                                <argument>org.openjdk.jmh.Main</argument>
-                                <argument>${benchmark.filter}</argument>
-                                <argument>-f</argument>
-                                <argument>${benchmark.forks}</argument>
-                                <argument>-w</argument>
-                                <argument>${benchmark.warmups}</argument>
-                                <argument>-r</argument>
-                                <argument>${benchmark.runs}</argument>
-                            </arguments>
-                        </configuration>
                     </execution>
                 </executions>
+                <configuration>
+                    <skip>${skip.perf.benchmarks}</skip>
+                    <classpathScope>test</classpathScope>
+                    <executable>java</executable>
+                    <arguments>
+                        <argument>-classpath</argument>
+                        <classpath/>
+                        <argument>org.openjdk.jmh.Main</argument>
+                        <argument>${benchmark.filter}</argument>
+                        <argument>-f</argument>
+                        <argument>${benchmark.forks}</argument>
+                        <argument>-wi</argument>
+                        <argument>${benchmark.warmups}</argument>
+                        <argument>-i</argument>
+                        <argument>${benchmark.runs}</argument>
+                    </arguments>
+                </configuration>
             </plugin>
         </plugins>
         <pluginManagement>
