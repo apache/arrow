@@ -185,6 +185,7 @@ set(PARQUET_SRCS
     encoding.cc
     encryption.cc
     file_reader.cc
+    file_system_key_material_store.cc
     file_writer.cc
     internal_file_decryptor.cc
     internal_file_encryptor.cc
