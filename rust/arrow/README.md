@@ -89,6 +89,12 @@ The current status is:
 - [X] Arrow IPC
 - [ ] Interop tests with other implementations
 
+- operations
+  - string
+    - [x] length
+    - [x] substring
+    - [x] take
+
 ## Examples
 
 The examples folder shows how to construct some different types of Arrow
