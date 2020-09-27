@@ -85,7 +85,9 @@ struct StdevImpl : public ScalarAggregator {
   using ThisType = StdevImpl<ArrowType>;
   using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
 
-  explicit StdevImpl(const std::shared_ptr<DataType>& out_type) : out_type(out_type) {}
+  explicit StdevImpl(const std::shared_ptr<DataType>& out_type,
+                     const StdevOptions& options)
+      : out_type(out_type), options(options) {}
 
   void Consume(KernelContext*, const ExecBatch& batch) override {
     ArrayType array(batch[0].array());
@@ -98,16 +100,17 @@ struct StdevImpl : public ScalarAggregator {
   }
 
   void Finalize(KernelContext*, Datum* out) override {
-    if (this->state.count == 0) {
+    if (this->state.count <= options.ddof) {
       out->value = std::make_shared<DoubleScalar>();
     } else {
-      double stdev = sqrt(this->state.m2 / this->state.count);
+      double stdev = sqrt(this->state.m2 / (this->state.count - options.ddof));
       out->value = std::make_shared<DoubleScalar>(stdev);
     }
   }
 
   std::shared_ptr<DataType> out_type;
   StdevState<ArrowType> state;
+  StdevOptions options;
 };
 
 struct StdevInitState {
@@ -115,10 +118,11 @@ struct StdevInitState {
   KernelContext* ctx;
   const DataType& in_type;
   const std::shared_ptr<DataType>& out_type;
+  const StdevOptions& options;
 
   StdevInitState(KernelContext* ctx, const DataType& in_type,
-                 const std::shared_ptr<DataType>& out_type)
-      : ctx(ctx), in_type(in_type), out_type(out_type) {}
+                 const std::shared_ptr<DataType>& out_type, const StdevOptions& options)
+      : ctx(ctx), in_type(in_type), out_type(out_type), options(options) {}
 
   Status Visit(const DataType&) { return Status::NotImplemented("No stdev implemented"); }
 
@@ -128,7 +132,7 @@ struct StdevInitState {
 
   template <typename Type>
   enable_if_t<is_number_type<Type>::value, Status> Visit(const Type&) {
-    state.reset(new StdevImpl<Type>(out_type));
+    state.reset(new StdevImpl<Type>(out_type, options));
     return Status::OK();
   }
 
@@ -140,7 +144,8 @@ struct StdevInitState {
 
 std::unique_ptr<KernelState> StdevInit(KernelContext* ctx, const KernelInitArgs& args) {
   StdevInitState visitor(ctx, *args.inputs[0].type,
-                         args.kernel->signature->out_type().type());
+                         args.kernel->signature->out_type().type(),
+                         static_cast<const StdevOptions&>(*args.options));
   return visitor.Create();
 }
 
@@ -155,7 +160,9 @@ void AddStdevKernels(KernelInit init, const std::vector<std::shared_ptr<DataType
 }  // namespace
 
 std::shared_ptr<ScalarAggregateFunction> AddStdevAggKernels() {
-  auto func = std::make_shared<ScalarAggregateFunction>("stdev", Arity::Unary());
+  static auto default_stdev_options = StdevOptions::Defaults();
+  auto func = std::make_shared<ScalarAggregateFunction>("stdev", Arity::Unary(),
+                                                        &default_stdev_options);
   AddStdevKernels(StdevInit, internal::NumericTypes(), func.get());
   return func;
 }

@@ -76,6 +76,18 @@ struct ARROW_EXPORT MinMaxOptions : public FunctionOptions {
   enum Mode null_handling = SKIP;
 };
 
+/// \brief Control Delta Degrees of Freedom (ddof) of Stdev kernel
+///
+/// The divisor used in calculations is N - ddof, where N is the number of elements.
+/// By default, ddof is zero, and population standard deviation is returned.
+struct ARROW_EXPORT StdevOptions : public FunctionOptions {
+  explicit StdevOptions(int ddof = 0) : ddof(ddof) {}
+
+  static StdevOptions Defaults() { return StdevOptions{}; }
+
+  int ddof = 0;
+};
+
 /// @}
 
 /// \brief Count non-null (or null) values in an array.
@@ -145,16 +157,19 @@ Result<Datum> MinMax(const Datum& value,
 ARROW_EXPORT
 Result<Datum> Mode(const Datum& value, ExecContext* ctx = NULLPTR);
 
-/// \brief Calculate the population standard deviation of a numeric array
+/// \brief Calculate the standard deviation of a numeric array
 ///
 /// \param[in] value input datum, expecting Array or ChunkedArray
+/// \param[in] options see StdevOptions for more information
 /// \param[in] ctx the function execution context, optional
 /// \return datum of the computed stdev as a DoubleScalar
 ///
 /// \since 2.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
-Result<Datum> Stdev(const Datum& value, ExecContext* ctx = NULLPTR);
+Result<Datum> Stdev(const Datum& value,
+                    const StdevOptions& options = StdevOptions::Defaults(),
+                    ExecContext* ctx = NULLPTR);
 
 }  // namespace compute
 }  // namespace arrow
