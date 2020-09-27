@@ -301,6 +301,10 @@ BENCHMARK_TEMPLATE(ReferenceSum, SumBitmapVectorizeUnroll<int64_t>)
     ->Apply(BenchmarkSetArgs);
 #endif  // ARROW_WITH_BENCHMARKS_REFERENCE
 
+//
+// Sum
+//
+
 template <typename ArrowType>
 static void SumKernel(benchmark::State& state) {
   using CType = typename TypeTraits<ArrowType>::CType;
@@ -329,6 +333,10 @@ SUM_KERNEL_BENCHMARK(SumKernelInt8, Int8Type);
 SUM_KERNEL_BENCHMARK(SumKernelInt16, Int16Type);
 SUM_KERNEL_BENCHMARK(SumKernelInt32, Int32Type);
 SUM_KERNEL_BENCHMARK(SumKernelInt64, Int64Type);
+
+//
+// Mode
+//
 
 template <typename ArrowType>
 void ModeKernelBench(benchmark::State& state) {
@@ -369,6 +377,10 @@ MODE_KERNEL_BENCHMARK(ModeKernelInt16, Int16Type);
 MODE_KERNEL_BENCHMARK(ModeKernelInt32, Int32Type);
 MODE_KERNEL_BENCHMARK(ModeKernelInt64, Int64Type);
 
+//
+// MinMax
+//
+
 template <typename ArrowType>
 static void MinMaxKernelBench(benchmark::State& state) {
   using CType = typename TypeTraits<ArrowType>::CType;
@@ -398,6 +410,10 @@ MINMAX_KERNEL_BENCHMARK(MinMaxKernelInt16, Int16Type);
 MINMAX_KERNEL_BENCHMARK(MinMaxKernelInt32, Int32Type);
 MINMAX_KERNEL_BENCHMARK(MinMaxKernelInt64, Int64Type);
 
+//
+// Count
+//
+
 static void CountKernelBenchInt64(benchmark::State& state) {
   RegressionArgs args(state);
   const int64_t array_size = args.size / sizeof(int64_t);
@@ -409,6 +425,38 @@ static void CountKernelBenchInt64(benchmark::State& state) {
   }
 }
 BENCHMARK(CountKernelBenchInt64)->Args({1 * 1024 * 1024, 2});  // 1M with 50% null.
+
+//
+// Variance
+//
+
+template <typename ArrowType>
+void VarianceKernelBench(benchmark::State& state) {
+  using CType = typename TypeTraits<ArrowType>::CType;
+
+  VarianceOptions options;
+  RegressionArgs args(state);
+  const int64_t array_size = args.size / sizeof(CType);
+  auto rand = random::RandomArrayGenerator(1925);
+  auto array = rand.Numeric<ArrowType>(array_size, -100000, 100000, args.null_proportion);
+
+  for (auto _ : state) {
+    ABORT_NOT_OK(Variance(array, options).status());
+  }
+}
+
+static void VarianceKernelBenchArgs(benchmark::internal::Benchmark* bench) {
+  BenchmarkSetArgsWithSizes(bench, {1 * 1024 * 1024});
+}
+
+#define VARIANCE_KERNEL_BENCHMARK(FuncName, Type)                                     \
+  static void FuncName(benchmark::State& state) { VarianceKernelBench<Type>(state); } \
+  BENCHMARK(FuncName)->Apply(VarianceKernelBenchArgs)
+
+VARIANCE_KERNEL_BENCHMARK(VarianceKernelInt32, Int32Type);
+VARIANCE_KERNEL_BENCHMARK(VarianceKernelInt64, Int64Type);
+VARIANCE_KERNEL_BENCHMARK(VarianceKernelFloat, FloatType);
+VARIANCE_KERNEL_BENCHMARK(VarianceKernelDouble, DoubleType);
 
 }  // namespace compute
 }  // namespace arrow
