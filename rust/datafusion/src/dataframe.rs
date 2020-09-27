@@ -151,10 +151,11 @@ pub trait DataFrame {
     /// ```
     /// # use datafusion::prelude::*;
     /// # use datafusion::error::Result;
-    /// # fn main() -> Result<()> {
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<()> {
     /// let mut ctx = ExecutionContext::new();
     /// let df = ctx.read_csv("tests/example.csv", CsvReadOptions::new())?;
-    /// let batches = df.collect()?;
+    /// let batches = df.collect().await?;
     /// # Ok(())
     /// # }
     /// ```
@@ -183,10 +184,11 @@ pub trait DataFrame {
     /// ```
     /// # use datafusion::prelude::*;
     /// # use datafusion::error::Result;
-    /// # fn main() -> Result<()> {
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<()> {
     /// let mut ctx = ExecutionContext::new();
     /// let df = ctx.read_csv("tests/example.csv", CsvReadOptions::new())?;
-    /// let batches = df.limit(100)?.explain(false)?.collect()?;
+    /// let batches = df.limit(100)?.explain(false)?.collect().await?;
     /// # Ok(())
     /// # }
     /// ```
