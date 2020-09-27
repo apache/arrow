@@ -1503,7 +1503,7 @@ impl<OffsetSize: OffsetSizeTrait> GenericStringArray<OffsetSize> {
                 values.extend_from_slice(s.as_bytes());
             } else {
                 offsets.push(length_so_far);
-                values.extend_from_slice("".as_bytes());
+                values.extend_from_slice(b"");
             }
         }
         let array_data = ArrayData::builder(data_type)

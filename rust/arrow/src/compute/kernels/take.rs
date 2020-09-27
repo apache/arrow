@@ -221,10 +221,8 @@ fn take_boolean(values: &ArrayRef, indices: &UInt32Array) -> Result<ArrayRef> {
         let index = indices.value(i) as usize;
         if array.is_null(index) {
             bit_util::unset_bit(null_slice, i);
-        } else {
-            if array.value(index) {
-                bit_util::set_bit(val_slice, i);
-            }
+        } else if array.value(index) {
+            bit_util::set_bit(val_slice, i);
         }
     });
 
