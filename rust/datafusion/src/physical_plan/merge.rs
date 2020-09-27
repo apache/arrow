@@ -30,6 +30,7 @@ use arrow::datatypes::SchemaRef;
 use arrow::record_batch::{RecordBatch, RecordBatchReader};
 
 use async_trait::async_trait;
+use tokio::task::{self, JoinHandle};
 
 /// Merge execution plan executes partitions in parallel and combines them into a single
 /// partition. No guarantees are made about the order of the resulting partition.
@@ -112,18 +113,35 @@ impl ExecutionPlan for MergeExec {
                 let range: Vec<usize> = (0..input_partitions).collect();
                 let chunks = range.chunks(partitions_per_thread);
 
-                // combine the results from each thread
-                let mut combined_results: Vec<Arc<RecordBatch>> = vec![];
-
-                //TODO this is not efficient use of async yet
+                let mut tasks = vec![];
                 for chunk in chunks {
                     let chunk = chunk.to_vec();
                     let input = self.input.clone();
-                    for partition in chunk {
-                        let it = input.execute(partition).await?;
-                        common::collect(it)?
-                            .iter()
-                            .for_each(|b| combined_results.push(Arc::new(b.clone())));
+
+                    println!("Creating task");
+                    let task: JoinHandle<Result<Vec<Arc<RecordBatch>>>> =
+                        task::spawn(async move {
+                            let mut batches: Vec<Arc<RecordBatch>> = vec![];
+                            for partition in chunk {
+                                let p = partition.clone();
+                                println!("Processing partition {}", p);
+                                let it = input.execute(p).await?;
+                                common::collect(it)?
+                                    .iter()
+                                    .for_each(|b| batches.push(Arc::new(b.clone())));
+                            }
+                            Ok(batches)
+                        });
+                    tasks.push(task);
+                }
+
+                // combine the results from each thread
+                let mut combined_results: Vec<Arc<RecordBatch>> = vec![];
+                for task in tasks {
+                    println!("Waiting for task to complete");
+                    let result = task.await.unwrap()?;
+                    for batch in &result {
+                        combined_results.push(batch.clone());
                     }
                 }
 
