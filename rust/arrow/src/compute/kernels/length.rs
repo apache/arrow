@@ -33,7 +33,8 @@ where
     let offsets = array.data_ref().clone().buffers()[0].clone();
     // this is a 30% improvement over iterating over u8s and building OffsetSize, which
     // justifies the usage of `unsafe`.
-    let slice: &[OffsetSize] = unsafe { offsets.typed_data::<OffsetSize>() };
+    let slice: &[OffsetSize] =
+        &unsafe { offsets.typed_data::<OffsetSize>() }[array.offset()..];
 
     let lengths: Vec<OffsetSize> = slice
         .windows(2)
@@ -186,6 +187,25 @@ mod tests {
         let array: UInt64Array = vec![1u64].into();
 
         assert!(length(&array).is_err());
+        Ok(())
+    }
+
+    /// Tests with an offset
+    #[test]
+    fn offsets() -> Result<()> {
+        let a = StringArray::from(vec!["hello", " ", "world"]);
+        let b = make_array(
+            ArrayData::builder(DataType::Utf8)
+                .len(2)
+                .offset(1)
+                .buffers(a.data_ref().buffers().to_vec())
+                .build(),
+        );
+        let result = length(b.as_ref())?;
+
+        let expected = Int32Array::from(vec![1, 5]);
+        assert_eq!(expected.data(), result.data());
+
         Ok(())
     }
 }
