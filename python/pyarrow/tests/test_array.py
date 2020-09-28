@@ -307,6 +307,15 @@ def test_nulls(ty):
         assert arr.type == ty
 
 
+def test_array_equals_with_nulls():
+    data = [0, 1, np.nan, None, 4]
+    arr1 = pa.array(data)
+    arr2 = pa.array(data)
+    arr3 = pa.array([0, 1, 0, 0, 4])
+    assert arr1.equals(arr2) is True
+    assert arr1.equals(arr3) is False
+
+
 def test_array_from_scalar():
     today = datetime.date.today()
     now = datetime.datetime.now()

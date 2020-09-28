@@ -1009,7 +1009,8 @@ cdef class Array(_PandasConvertible):
             return NotImplemented
 
     def equals(Array self, Array other):
-        return self.ap.Equals(deref(other.ap))
+        cdef CEqualOptions options = CEqualOptions.Defaults()
+        return self.ap.Equals(deref(other.ap), options.nans_equal(True))
 
     def __len__(self):
         return self.length()

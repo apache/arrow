@@ -177,6 +177,14 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
             int64_t null_count,
             int64_t offset)
 
+    cdef cppclass CEqualOptions" arrow::EqualOptions":
+        @staticmethod
+        CEqualOptions Defaults()
+        CEqualOptions nans_equal(c_bool v) const
+        CEqualOptions atol(double v) const
+        double atol() const
+        c_bool nans_equal() const
+
     cdef cppclass CArray" arrow::Array":
         shared_ptr[CDataType] type()
 
@@ -190,7 +198,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         CResult[shared_ptr[CScalar]] GetScalar(int64_t i) const
 
         c_string Diff(const CArray& other)
-        c_bool Equals(const CArray& arr)
+        c_bool Equals(const CArray& arr, const CEqualOptions&) const
         c_bool IsNull(int i)
 
         shared_ptr[CArrayData] data()
