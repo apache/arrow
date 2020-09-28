@@ -2180,6 +2180,11 @@ macro(build_cares)
       -DCMAKE_INSTALL_LIBDIR=lib
       "-DCMAKE_INSTALL_PREFIX=${CARES_PREFIX}")
 
+  if(APPLE)
+    # libresolv must be linked from c-ares version 1.16.1
+    find_library(LIBRESOLV_LIBRARY NAMES resolv libresolv)
+  endif()
+
   externalproject_add(cares_ep
                       ${EP_LOG_OPTIONS}
                       URL ${CARES_SOURCE_URL}
