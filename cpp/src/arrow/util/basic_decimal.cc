@@ -255,7 +255,7 @@ namespace {
 
 void ExtendAndMultiplyUint64(uint64_t x, uint64_t y, uint64_t* hi, uint64_t* lo) {
 #ifdef ARROW_USE_NATIVE_INT128
-   const __uint128_t r = static_cast<__uint128_t>(x) * y;
+  const __uint128_t r = static_cast<__uint128_t>(x) * y;
   *lo = r & kInt64Mask;
   *hi = r >> 64;
 #else
