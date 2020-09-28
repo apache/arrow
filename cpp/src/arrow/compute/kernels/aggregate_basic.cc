@@ -173,6 +173,12 @@ void AddMinMaxKernels(KernelInit init,
   }
 }
 
+void AddAnyKernel(KernelInit init, ScalarAggregateFunction* func) {
+  auto sig =
+      KernelSignature::Make({InputType::Array(boolean())}, ValueDescr::Scalar(boolean()));
+  AddAggKernel(std::move(sig), init, func);
+}
+
 }  // namespace aggregate
 
 namespace internal {
@@ -268,6 +274,20 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
 #endif
 
   DCHECK_OK(registry->AddFunction(std::move(func)));
+<<<<<<< HEAD
+=======
+
+  // any
+  func = std::make_shared<ScalarAggregateFunction>("any", Arity::Unary(),
+                                                   &default_minmax_options);
+  aggregate::AddAnyKernel(aggregate::AnyInit, func.get());
+
+  DCHECK_OK(registry->AddFunction(std::move(func)));
+
+  DCHECK_OK(registry->AddFunction(aggregate::AddModeAggKernels()));
+  DCHECK_OK(registry->AddFunction(aggregate::AddStddevAggKernels()));
+  DCHECK_OK(registry->AddFunction(aggregate::AddVarianceAggKernels()));
+>>>>>>> 34f3bbad9 (ARROW-1846: [C++] Implement "any" reduction kernel for boolean data)
 }
 
 }  // namespace internal

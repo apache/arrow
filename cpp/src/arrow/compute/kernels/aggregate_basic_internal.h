@@ -536,6 +536,36 @@ struct BooleanMinMaxImpl : public MinMaxImpl<BooleanType, SimdLevel> {
 };
 
 template <SimdLevel::type SimdLevel>
+struct BooleanAnyImpl : public MinMaxImpl<BooleanType, SimdLevel> {
+  using StateType = MinMaxState<BooleanType, SimdLevel>;
+  using ArrayType = typename TypeTraits<BooleanType>::ArrayType;
+  using MinMaxImpl<BooleanType, SimdLevel>::MinMaxImpl;
+
+  void Consume(KernelContext*, const ExecBatch& batch) override {
+    // short-circuit if seen a True already
+    if (this->state.max == true) {
+      return;
+    }
+
+    ArrayType arr(batch[0].array());
+    const auto true_count = arr.true_count();
+    if (true_count > 0) {
+      this->state.max = true;
+    }
+  }
+
+  void Finalize(KernelContext*, Datum* out) override {
+    using ScalarType = typename TypeTraits<BooleanType>::ScalarType;
+
+    if (this->state.max == true) {
+      out->value = std::make_shared<ScalarType>(true);
+    } else {
+      out->value = std::make_shared<ScalarType>(false);
+    }
+  }
+};
+
+template <SimdLevel::type SimdLevel>
 struct MinMaxInitState {
   std::unique_ptr<KernelState> state;
   KernelContext* ctx;
@@ -563,6 +593,33 @@ struct MinMaxInitState {
   template <typename Type>
   enable_if_number<Type, Status> Visit(const Type&) {
     state.reset(new MinMaxImpl<Type, SimdLevel>(out_type, options));
+    return Status::OK();
+  }
+
+  std::unique_ptr<KernelState> Create() {
+    ctx->SetStatus(VisitTypeInline(in_type, this));
+    return std::move(state);
+  }
+};
+
+template <SimdLevel::type SimdLevel>
+struct AnyInitState {
+  std::unique_ptr<KernelState> state;
+  KernelContext* ctx;
+  const DataType& in_type;
+  const std::shared_ptr<DataType>& out_type;
+  const MinMaxOptions& options;
+
+  AnyInitState(KernelContext* ctx, const DataType& in_type,
+               const std::shared_ptr<DataType>& out_type, const MinMaxOptions& options)
+      : ctx(ctx), in_type(in_type), out_type(out_type), options(options) {}
+
+  Status Visit(const DataType&) {
+    return Status::NotImplemented("No any kernel implemented");
+  }
+
+  Status Visit(const BooleanType&) {
+    state.reset(new BooleanAnyImpl<SimdLevel>(out_type, options));
     return Status::OK();
   }
 

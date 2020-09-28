@@ -728,6 +728,89 @@ TYPED_TEST(TestRandomNumericMinMaxKernel, RandomArrayMinMax) {
 }
 
 //
+// Any
+//
+
+class TestPrimitiveAnyKernel : public ::testing::Test {
+ public:
+  void AssertAnyIs(const Datum& array, bool expected) {
+    ASSERT_OK_AND_ASSIGN(Datum out, Any(array));
+    const BooleanScalar& out_any = out.scalar_as<BooleanScalar>();
+    const auto expected_any = static_cast<const BooleanScalar>(expected);
+    ASSERT_EQ(out_any, expected_any);
+  }
+
+  void AssertAnyIs(const std::string& json, bool expected) {
+    auto array = ArrayFromJSON(type_singleton(), json);
+    AssertAnyIs(array, expected);
+  }
+
+  void AssertAnyIs(const std::vector<std::string>& json, bool expected) {
+    auto array = ChunkedArrayFromJSON(type_singleton(), json);
+    AssertAnyIs(array, expected);
+  }
+
+  std::shared_ptr<DataType> type_singleton() {
+    return TypeTraits<BooleanType>::type_singleton();
+  }
+};
+
+class TestAnyKernel : public TestPrimitiveAnyKernel {};
+
+TEST_F(TestAnyKernel, Basics) {
+  std::vector<std::string> chunked_input0 = {"[]", "[true]"};
+  std::vector<std::string> chunked_input1 = {"[true, true, null]", "[true, null]"};
+  std::vector<std::string> chunked_input2 = {"[false, false, false]", "[false]"};
+  std::vector<std::string> chunked_input3 = {"[false, null]", "[null, false]"};
+
+  this->AssertAnyIs("[false]", false);
+  this->AssertAnyIs("[true, false]", true);
+  this->AssertAnyIs("[null, null, null]", false);
+  this->AssertAnyIs("[false, false, false]", false);
+  this->AssertAnyIs("[false, false, false, null]", false);
+  this->AssertAnyIs("[true, null, true, true]", true);
+  this->AssertAnyIs("[false, null, false, true]", true);
+  this->AssertAnyIs("[true, null, false, true]", true);
+  this->AssertAnyIs(chunked_input0, true);
+  this->AssertAnyIs(chunked_input1, true);
+  this->AssertAnyIs(chunked_input2, false);
+  this->AssertAnyIs(chunked_input3, false);
+}
+
+static bool NaiveAny(const Array& array) {
+  const auto& array_numeric = checked_cast<const BooleanArray&>(array);
+  const auto true_count = array_numeric.true_count();
+  return true_count > 0;
+}
+
+void ValidateAny(const Array& array) {
+  ASSERT_OK_AND_ASSIGN(Datum out, Any(array));
+  const BooleanScalar& out_any = out.scalar_as<BooleanScalar>();
+
+  bool expected = NaiveAny(array);
+  BooleanScalar expected_any = static_cast<BooleanScalar>(expected);
+
+  ASSERT_EQ(out_any, expected_any);
+}
+
+class TestRandomBooleanAnyKernel : public ::testing::Test {};
+
+TEST_F(TestRandomBooleanAnyKernel, RandomArrayAny) {
+  auto rand = random::RandomArrayGenerator(0x8afc055);
+  // Test size up to 1<<11 (2048).
+  for (size_t i = 3; i < 12; i += 2) {
+    for (auto null_probability : {0.0, 0.01, 0.1, 0.5, 0.99, 1.0}) {
+      int64_t base_length = (1UL << i) + 2;
+      auto array = rand.Boolean(base_length, null_probability, null_probability);
+      for (auto length_adjust : {-2, -1, 0, 1, 2}) {
+        int64_t length = (1UL << i) + length_adjust;
+        ValidateAny(*array->Slice(0, length));
+      }
+    }
+  }
+}
+
+//
 // Mode
 //
 

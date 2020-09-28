@@ -350,6 +350,15 @@ def test_min_max():
         s = pc.min_max()
 
 
+def test_any():
+    # ARROW-1846
+    a = pa.array([False, None, True])
+    assert pc.any(a).as_py() is True
+
+    a = pa.array([False, None, False])
+    assert pc.any(a).as_py() is False
+
+
 def test_is_valid():
     # An example generated function wrapper without options
     data = [4, 5, None]
