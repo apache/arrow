@@ -31,6 +31,7 @@
 #include "arrow/io/memory.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/mutex.h"
 #include "arrow/util/task_group.h"
 
 namespace arrow {
@@ -143,91 +144,193 @@ FragmentIterator FileSystemDataset::GetFragmentsImpl(
   return MakeVectorIterator(std::move(fragments));
 }
 
-struct WriteTask {
-  Status Execute();
-
-  /// The basename of files written by this WriteTask. Extensions
-  /// are derived from format
-  std::string basename;
-
-  /// The partitioning with which paths will be generated
-  std::shared_ptr<Partitioning> partitioning;
-
-  /// The format in which fragments will be written
-  std::shared_ptr<FileFormat> format;
-
-  /// The FileSystem and base directory into which fragments will be written
-  std::shared_ptr<fs::FileSystem> filesystem;
-  std::string base_dir;
-
-  /// Batches to be written
-  std::shared_ptr<RecordBatchReader> batches;
-
-  /// An Expression already satisfied by every batch to be written
-  std::shared_ptr<Expression> partition_expression;
-};
-
-Status WriteTask::Execute() {
-  std::unordered_map<std::string, RecordBatchVector> path_to_batches;
-
-  // TODO(bkietz) these calls to Partition() should be scattered across a TaskGroup
-  for (auto maybe_batch : IteratorFromReader(batches)) {
-    ARROW_ASSIGN_OR_RAISE(auto batch, maybe_batch);
-    ARROW_ASSIGN_OR_RAISE(auto partitioned_batches, partitioning->Partition(batch));
-    for (auto&& partitioned_batch : partitioned_batches) {
-      AndExpression expr(std::move(partitioned_batch.partition_expression),
-                         partition_expression);
-      ARROW_ASSIGN_OR_RAISE(std::string path, partitioning->Format(expr));
-      path = fs::internal::EnsureLeadingSlash(path);
-      path_to_batches[path].push_back(std::move(partitioned_batch.batch));
-    }
+Status FileWriter::Write(RecordBatchReader* batches) {
+  for (std::shared_ptr<RecordBatch> batch;;) {
+    RETURN_NOT_OK(batches->ReadNext(&batch));
+    if (batch == nullptr) break;
+    RETURN_NOT_OK(Write(batch));
   }
-
-  for (auto&& path_batches : path_to_batches) {
-    auto dir = base_dir + path_batches.first;
-    RETURN_NOT_OK(filesystem->CreateDir(dir, /*recursive=*/true));
-
-    auto path = fs::internal::ConcatAbstractPath(dir, basename);
-    ARROW_ASSIGN_OR_RAISE(auto destination, filesystem->OpenOutputStream(path));
-
-    DCHECK(!path_batches.second.empty());
-    ARROW_ASSIGN_OR_RAISE(auto reader,
-                          RecordBatchReader::Make(std::move(path_batches.second)));
-    RETURN_NOT_OK(format->WriteFragment(reader.get(), destination.get()));
-  }
-
   return Status::OK();
 }
 
-Status FileSystemDataset::Write(std::shared_ptr<Schema> schema,
-                                std::shared_ptr<FileFormat> format,
-                                std::shared_ptr<fs::FileSystem> filesystem,
-                                std::string base_dir,
-                                std::shared_ptr<Partitioning> partitioning,
-                                std::shared_ptr<ScanContext> scan_context,
-                                FragmentIterator fragment_it) {
-  auto task_group = scan_context->TaskGroup();
-
-  base_dir = std::string(fs::internal::RemoveTrailingSlash(base_dir));
-
-  int i = 0;
-  for (auto maybe_fragment : fragment_it) {
-    ARROW_ASSIGN_OR_RAISE(auto fragment, maybe_fragment);
-    auto task = std::make_shared<WriteTask>();
-
-    task->basename = "dat_" + std::to_string(i++) + "." + format->type_name();
-    task->partition_expression = fragment->partition_expression();
-    task->format = format;
-    task->filesystem = filesystem;
-    task->base_dir = base_dir;
-    task->partitioning = partitioning;
-
-    // make a record batch reader which yields from a fragment
-    ARROW_ASSIGN_OR_RAISE(task->batches, FragmentRecordBatchReader::Make(
-                                             std::move(fragment), schema, scan_context));
-    task_group->Append([task] { return task->Execute(); });
+struct NextBasenameGenerator {
+  static Result<NextBasenameGenerator> Make(const std::string& basename_template) {
+    if (basename_template.find(fs::internal::kSep) != std::string::npos) {
+      return Status::Invalid("basename_template contained '/'");
+    }
+    size_t token_start = basename_template.find(token());
+    if (token_start == std::string::npos) {
+      return Status::Invalid("basename_template did not contain '{i}'");
+    }
+    return NextBasenameGenerator{basename_template, 0, token_start,
+                                 token_start + token().size()};
   }
 
+  static const std::string& token() {
+    static const std::string token = "{i}";
+    return token;
+  }
+
+  const std::string& template_;
+  size_t i_, token_start_, token_end_;
+
+  std::string operator()() {
+    return template_.substr(0, token_start_) + std::to_string(i_++) +
+           template_.substr(token_end_);
+  }
+};
+
+using MutexedWriter = util::Mutexed<std::shared_ptr<FileWriter>>;
+
+struct WriterSet {
+  WriterSet(NextBasenameGenerator next_basename,
+            const FileSystemDatasetWriteOptions& write_options)
+      : next_basename_(std::move(next_basename)),
+        base_dir_(fs::internal::EnsureTrailingSlash(write_options.base_dir)),
+        write_options_(write_options) {}
+
+  Result<std::shared_ptr<MutexedWriter>> Get(const Expression& partition_expression,
+                                             const std::shared_ptr<Schema>& schema) {
+    ARROW_ASSIGN_OR_RAISE(auto part_segments,
+                          write_options_.partitioning->Format(partition_expression));
+    std::string dir = base_dir_ + part_segments;
+
+    auto lock = dir_to_writer_.Lock();
+
+    auto it_success =
+        dir_to_writer_->emplace(std::move(dir), std::make_shared<MutexedWriter>());
+    std::shared_ptr<MutexedWriter> writer = it_success.first->second;
+
+    if (!it_success.second) {
+      return writer;
+    }
+    // FIXME Flush writers when at capacity for open files.
+
+    std::string basename = next_basename_();
+    auto writer_lock = writer->Lock();
+    lock.Unlock();
+
+    dir = base_dir_ + part_segments;
+    RETURN_NOT_OK(write_options_.filesystem->CreateDir(dir));
+    ARROW_ASSIGN_OR_RAISE(auto destination,
+                          write_options_.filesystem->OpenOutputStream(
+                              fs::internal::ConcatAbstractPath(dir, basename)));
+    ARROW_ASSIGN_OR_RAISE(
+        **writer, write_options_.format()->MakeWriter(std::move(destination), schema,
+                                                      write_options_.file_write_options));
+    return writer;
+  }
+
+  Status FinishAll(internal::TaskGroup* task_group) {
+    for (const auto& dir_writer : *dir_to_writer_) {
+      task_group->Append([&] {
+        std::shared_ptr<FileWriter> writer = **dir_writer.second;
+        return writer->Finish();
+      });
+    }
+
+    return Status::OK();
+  }
+
+  // There should only be a single writer open for each partition directory at a time
+  util::Mutexed<std::unordered_map<std::string, std::shared_ptr<MutexedWriter>>>
+      dir_to_writer_;
+  NextBasenameGenerator next_basename_;
+  std::string base_dir_;
+  const FileSystemDatasetWriteOptions& write_options_;
+};
+
+Status FileSystemDataset::Write(std::shared_ptr<Schema> schema,
+                                const FileSystemDatasetWriteOptions& write_options,
+                                std::shared_ptr<Scanner> scanner) {
+  auto task_group = scanner->context()->TaskGroup();
+
+  // Things we'll un-lazy for the sake of simplicity, with the tradeoff they represent:
+  //
+  // - Fragment iteration. Keeping this lazy would allow us to start partitioning/writing
+  //   any fragments we have before waiting for discovery to complete. This isn't
+  //   currently implemented for FileSystemDataset anyway: ARROW-8613
+  //
+  // - ScanTask iteration. Keeping this lazy would save some unnecessary blocking when
+  //   writing Fragments which produce scan tasks slowly. No Fragments do this.
+  //
+  // NB: neither of these will have any impact whatsoever on the common case of writing
+  //     an in-memory table to disk.
+  ARROW_ASSIGN_OR_RAISE(FragmentVector fragments, scanner->GetFragments().ToVector());
+  ScanTaskVector scan_tasks;
+  std::vector<const Fragment*> fragment_for_task;
+
+  for (const auto& fragment : fragments) {
+    ARROW_ASSIGN_OR_RAISE(
+        auto scan_task_it,
+        Scanner(fragment, scanner->options(), scanner->context()).Scan());
+    for (auto maybe_scan_task : scan_task_it) {
+      ARROW_ASSIGN_OR_RAISE(auto scan_task, maybe_scan_task);
+      scan_tasks.push_back(std::move(scan_task));
+      fragment_for_task.push_back(fragment.get());
+    }
+  }
+
+  ARROW_ASSIGN_OR_RAISE(auto next_basename,
+                        NextBasenameGenerator::Make(write_options.basename_template));
+  WriterSet writers(std::move(next_basename), write_options);
+
+  auto write_task_group = task_group->MakeSubGroup();
+  auto fragment_for_task_it = fragment_for_task.begin();
+  for (const auto& scan_task : scan_tasks) {
+    const Fragment* fragment = *fragment_for_task_it++;
+
+    write_task_group->Append([&, scan_task, fragment] {
+      ARROW_ASSIGN_OR_RAISE(auto batches, scan_task->Execute());
+
+      for (auto maybe_batch : batches) {
+        ARROW_ASSIGN_OR_RAISE(auto batch, maybe_batch);
+        ARROW_ASSIGN_OR_RAISE(auto groups, write_options.partitioning->Partition(batch));
+        batch.reset();  // drop to hopefully conserve memory
+
+        struct PendingWrite {
+          std::shared_ptr<MutexedWriter> writer;
+          std::shared_ptr<RecordBatch> batch;
+
+          Result<bool> TryWrite() {
+            if (auto lock = writer->TryLock()) {
+              RETURN_NOT_OK(writer->get()->Write(batch));
+              return true;
+            }
+            return false;
+          }
+        };
+        std::vector<PendingWrite> pending_writes(groups.batches.size());
+
+        for (size_t i = 0; i < groups.batches.size(); ++i) {
+          AndExpression partition_expression(std::move(groups.expressions[i]),
+                                             fragment->partition_expression());
+
+          ARROW_ASSIGN_OR_RAISE(auto writer, writers.Get(partition_expression,
+                                                         groups.batches[i]->schema()));
+
+          pending_writes[i] = {writer, std::move(groups.batches[i])};
+        }
+
+        for (size_t i = 0; !pending_writes.empty(); ++i) {
+          if (i >= pending_writes.size()) {
+            i = 0;
+          }
+
+          ARROW_ASSIGN_OR_RAISE(auto success, pending_writes[i].TryWrite());
+          if (success) {
+            std::swap(pending_writes.back(), pending_writes[i]);
+            pending_writes.pop_back();
+          }
+        }
+      }
+
+      return Status::OK();
+    });
+  }
+  RETURN_NOT_OK(write_task_group->Finish());
+
+  RETURN_NOT_OK(writers.FinishAll(task_group.get()));
   return task_group->Finish();
 }
 

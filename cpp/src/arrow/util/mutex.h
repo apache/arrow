@@ -31,6 +31,8 @@ namespace util {
 class ARROW_EXPORT Mutex {
  public:
   Mutex();
+  Mutex(Mutex&&) = default;
+  Mutex& operator=(Mutex&&) = default;
 
   /// A Guard is falsy if a lock could not be acquired.
   class Guard {
@@ -40,6 +42,8 @@ class ARROW_EXPORT Mutex {
     Guard& operator=(Guard&&) = default;
 
     explicit operator bool() const { return bool(locked_); }
+
+    void Unlock();
 
    private:
     explicit Guard(Mutex* locked);
@@ -54,6 +58,31 @@ class ARROW_EXPORT Mutex {
  private:
   struct Impl;
   std::unique_ptr<Impl, void (*)(Impl*)> impl_;
+};
+
+/// A trivial Mutex, T pair
+template <typename T>
+class Mutexed : Mutex {
+ public:
+  Mutexed() = default;
+  Mutexed(Mutexed&&) = default;
+  Mutexed& operator=(Mutexed&&) = default;
+  explicit Mutexed(T obj) : obj_(std::move(obj)) {}
+
+  using Mutex::Lock;
+  using Mutex::TryLock;
+
+  T& operator*() { return obj_; }
+  const T& operator*() const { return obj_; }
+
+  T* operator->() { return &obj_; }
+  const T* operator->() const { return &obj_; }
+
+  T& get() { return obj_; }
+  const T& get() const { return obj_; }
+
+ private:
+  T obj_;
 };
 
 }  // namespace util

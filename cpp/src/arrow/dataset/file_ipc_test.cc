@@ -156,7 +156,10 @@ TEST_F(TestIpcFileFormat, WriteRecordBatchReader) {
 
   EXPECT_OK_AND_ASSIGN(auto sink, GetFileSink());
 
-  ASSERT_OK(format_->WriteFragment(reader.get(), sink.get()));
+  auto options = format_->DefaultWriteOptions();
+  EXPECT_OK_AND_ASSIGN(auto writer, format_->MakeWriter(sink, reader->schema(), options));
+  ASSERT_OK(writer->Write(reader.get()));
+  ASSERT_OK(writer->Finish());
 
   EXPECT_OK_AND_ASSIGN(auto written, sink->Finish());
 
@@ -168,7 +171,9 @@ class TestIpcFileSystemDataset : public testing::Test,
  public:
   void SetUp() override {
     MakeSourceDataset();
-    format_ = std::make_shared<IpcFileFormat>();
+    auto ipc_format = std::make_shared<IpcFileFormat>();
+    format_ = ipc_format;
+    SetWriteOptions(ipc_format->DefaultWriteOptions());
   }
 };
 

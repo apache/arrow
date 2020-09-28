@@ -19,6 +19,8 @@
 
 #include <mutex>
 
+#include "arrow/util/logging.h"
+
 namespace arrow {
 namespace util {
 
@@ -29,7 +31,14 @@ struct Mutex::Impl {
 Mutex::Guard::Guard(Mutex* locked)
     : locked_(locked, [](Mutex* locked) { locked->impl_->mutex_.unlock(); }) {}
 
+void Mutex::Guard::Unlock() {
+  if (locked_) {
+    locked_->impl_->mutex_.unlock();
+  }
+}
+
 Mutex::Guard Mutex::TryLock() {
+  DCHECK_NE(impl_, nullptr);
   if (impl_->mutex_.try_lock()) {
     return Guard{this};
   }
@@ -37,6 +46,7 @@ Mutex::Guard Mutex::TryLock() {
 }
 
 Mutex::Guard Mutex::Lock() {
+  DCHECK_NE(impl_, nullptr);
   impl_->mutex_.lock();
   return Guard{this};
 }

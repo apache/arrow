@@ -694,7 +694,8 @@ def _ensure_write_partitioning(scheme):
     return scheme
 
 
-def write_dataset(data, base_dir, format=None, partitioning=None, schema=None,
+def write_dataset(data, base_dir, basename_template, format=None,
+                  partitioning=None, schema=None,
                   filesystem=None, use_threads=True):
     """
     Write a dataset to a given format and partitioning.
@@ -703,13 +704,13 @@ def write_dataset(data, base_dir, format=None, partitioning=None, schema=None,
     ----------
     data : Dataset, Table/RecordBatch, or list of Table/RecordBatch
         The data to write. This can be a Dataset instance or
-        in-memory Arrow data. A Table or RecordBatch is written as a
-        single fragment (resulting in a single file, or multiple files if
-        split according to the `partitioning`). If you have a Table consisting
-        of multiple record batches, you can pass ``table.to_batches()`` to
-        handle each record batch as a separate fragment.
+        in-memory Arrow data.
     base_dir : str
         The root directory where to write the dataset.
+    basename_template : str
+        A template string used to generate basenames of written data files.
+        The token '{i}' will be replaced with an automatically incremented
+        integer.
     format : FileFormat or str
         The format in which to write the dataset. Currently supported:
         "ipc"/"feather". If a FileSystemDataset is being written and `format`
@@ -750,5 +751,6 @@ def write_dataset(data, base_dir, format=None, partitioning=None, schema=None,
     filesystem, _ = _ensure_fs(filesystem)
 
     _filesystemdataset_write(
-        data, base_dir, schema, format, filesystem, partitioning, use_threads,
+        data, base_dir, basename_template, schema, format,
+        filesystem, partitioning, use_threads,
     )
