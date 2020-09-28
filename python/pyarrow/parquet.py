@@ -35,8 +35,8 @@ from pyarrow._parquet import (ParquetReader, Statistics,  # noqa
                               FileMetaData, RowGroupMetaData,
                               ColumnChunkMetaData,
                               ParquetSchema, ColumnSchema)
-from pyarrow.fs import (
-    LocalFileSystem, _resolve_filesystem_and_path, _ensure_filesystem)
+from pyarrow.fs import (LocalFileSystem, FileSystem,
+                        _resolve_filesystem_and_path, _ensure_filesystem)
 from pyarrow import filesystem as legacyfs
 from pyarrow.util import guid, _is_path_like, _stringify_path
 
@@ -1400,28 +1400,10 @@ class _ParquetDatasetV2:
                                 buffer_size=buffer_size)
         if read_dictionary is not None:
             read_options.update(dictionary_columns=read_dictionary)
-        parquet_format = ds.ParquetFileFormat(read_options=read_options)
 
         # map filters to Expressions
         self._filters = filters
         self._filter_expression = filters and _filters_to_expression(filters)
-
-        # check for single NativeFile dataset
-        if not isinstance(path_or_paths, list):
-            if not _is_path_like(path_or_paths):
-                fragment = parquet_format.make_fragment(path_or_paths)
-                self._dataset = ds.FileSystemDataset(
-                    [fragment], schema=fragment.physical_schema,
-                    format=parquet_format,
-                    filesystem=fragment.filesystem
-                )
-                return
-
-        # check partitioning to enable dictionary encoding
-        if partitioning == "hive":
-            partitioning = ds.HivePartitioning.discover(
-                max_partition_dictionary_size=-1
-            )
 
         # map old filesystems to new one
         if filesystem is not None:
@@ -1430,7 +1412,50 @@ class _ParquetDatasetV2:
         elif filesystem is None and memory_map:
             # if memory_map is specified, assume local file system (string
             # path can in principle be URI for any filesystem)
-            filesystem = LocalFileSystem(use_mmap=True)
+            filesystem = LocalFileSystem(use_mmap=memory_map)
+
+        # check for single fragment dataset
+        single_file = None
+        if isinstance(path_or_paths, list):
+            if len(path_or_paths) == 1:
+                single_file = path_or_paths[0]
+        else:
+            if _is_path_like(path_or_paths):
+                path = str(path_or_paths)
+                if filesystem is None:
+                    # path might be a URI describing the FileSystem as well
+                    try:
+                        filesystem, path = FileSystem.from_uri(path)
+                    except ValueError:
+                        filesystem = LocalFileSystem(use_mmap=memory_map)
+                if filesystem.get_file_info(path).is_file:
+                    single_file = path
+            else:
+                single_file = path_or_paths
+
+        if single_file is not None:
+            self._enable_parallel_column_conversion = True
+            read_options.update(enable_parallel_column_conversion=True)
+
+            parquet_format = ds.ParquetFileFormat(read_options=read_options)
+            fragment = parquet_format.make_fragment(single_file, filesystem)
+
+            self._dataset = ds.FileSystemDataset(
+                [fragment], schema=fragment.physical_schema,
+                format=parquet_format,
+                filesystem=fragment.filesystem
+            )
+            return
+        else:
+            self._enable_parallel_column_conversion = False
+
+        parquet_format = ds.ParquetFileFormat(read_options=read_options)
+
+        # check partitioning to enable dictionary encoding
+        if partitioning == "hive":
+            partitioning = ds.HivePartitioning.discover(
+                max_partition_dictionary_size=-1
+            )
 
         self._dataset = ds.dataset(path_or_paths, filesystem=filesystem,
                                    format=parquet_format,
@@ -1473,6 +1498,12 @@ class _ParquetDatasetV2:
                     if not isinstance(col, dict)
                 ]
                 columns = columns + list(set(index_columns) - set(columns))
+
+        if self._enable_parallel_column_conversion:
+            if use_threads:
+                # Allow per-column parallelism; would otherwise cause
+                # contention in the presence of per-file parallelism.
+                use_threads = False
 
         table = self._dataset.to_table(
             columns=columns, filter=self._filter_expression,

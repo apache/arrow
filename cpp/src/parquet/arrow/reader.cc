@@ -33,8 +33,8 @@
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/make_unique.h"
+#include "arrow/util/parallel.h"
 #include "arrow/util/range.h"
-#include "arrow/util/thread_pool.h"
 #include "parquet/arrow/reader_internal.h"
 #include "parquet/column_reader.h"
 #include "parquet/exception.h"
@@ -856,6 +856,11 @@ Status FileReaderImpl::GetRecordBatchReader(const std::vector<int>& row_groups,
     return Status::OK();
   }
 
+  int64_t num_rows = 0;
+  for (int row_group : row_groups) {
+    num_rows += parquet_reader()->metadata()->RowGroup(row_group)->num_rows();
+  }
+
   using ::arrow::RecordBatchIterator;
 
   // NB: This lambda will be invoked outside the scope of this call to
@@ -863,11 +868,20 @@ Status FileReaderImpl::GetRecordBatchReader(const std::vector<int>& row_groups,
   // `this` is a non-owning pointer so we are relying on the parent FileReader outliving
   // this RecordBatchReader.
   ::arrow::Iterator<RecordBatchIterator> batches = ::arrow::MakeFunctionIterator(
-      [readers, batch_schema, this]() -> ::arrow::Result<RecordBatchIterator> {
+      [readers, batch_schema, num_rows,
+       this]() mutable -> ::arrow::Result<RecordBatchIterator> {
         ::arrow::ChunkedArrayVector columns(readers.size());
-        for (size_t i = 0; i < columns.size(); ++i) {
-          RETURN_NOT_OK(readers[i]->NextBatch(properties().batch_size(), &columns[i]));
-          if (columns[i] == nullptr || columns[i]->length() == 0) {
+
+        // don't reserve more rows than necessary
+        int64_t batch_size = std::min(properties().batch_size(), num_rows);
+        num_rows -= batch_size;
+
+        RETURN_NOT_OK(::arrow::internal::OptionalParallelFor(
+            reader_properties_.use_threads(), static_cast<int>(readers.size()),
+            [&](int i) { return readers[i]->NextBatch(batch_size, &columns[i]); }));
+
+        for (const auto& column : columns) {
+          if (column == nullptr || column->length() == 0) {
             return ::arrow::IterationTraits<RecordBatchIterator>::End();
           }
         }
@@ -919,27 +933,10 @@ Status FileReaderImpl::ReadRowGroups(const std::vector<int>& row_groups,
   RETURN_NOT_OK(GetFieldReaders(column_indices, row_groups, &readers, &result_schema));
 
   ::arrow::ChunkedArrayVector columns(readers.size());
-  auto ReadColumnFunc = [&](size_t i) {
-    return ReadColumn(static_cast<int>(i), row_groups, readers[i].get(), &columns[i]);
-  };
-
-  if (reader_properties_.use_threads()) {
-    std::vector<Future<Status>> futures(readers.size());
-    auto pool = ::arrow::internal::GetCpuThreadPool();
-    for (size_t i = 0; i < readers.size(); ++i) {
-      ARROW_ASSIGN_OR_RAISE(futures[i], pool->Submit(ReadColumnFunc, i));
-    }
-
-    Status final_status;
-    for (auto& fut : futures) {
-      final_status &= fut.status();
-    }
-    RETURN_NOT_OK(final_status);
-  } else {
-    for (size_t i = 0; i < readers.size(); ++i) {
-      RETURN_NOT_OK(ReadColumnFunc(i));
-    }
-  }
+  RETURN_NOT_OK(::arrow::internal::OptionalParallelFor(
+      reader_properties_.use_threads(), static_cast<int>(readers.size()), [&](int i) {
+        return ReadColumn(static_cast<int>(i), row_groups, readers[i].get(), &columns[i]);
+      }));
 
   int64_t num_rows = 0;
   if (!columns.empty()) {
