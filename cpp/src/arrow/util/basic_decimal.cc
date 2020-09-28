@@ -121,7 +121,9 @@ static const BasicDecimal128 ScaleMultipliersHalf[] = {
     BasicDecimal128(2710505431213761085LL, 343699775700336640ULL)};
 
 static constexpr uint64_t kIntMask = 0xFFFFFFFF;
+#ifdef ARROW_USE_NATIVE_INT128
 static constexpr uint64_t kInt64Mask = 0xFFFFFFFFFFFFFFFF;
+#endif
 
 // same as ScaleMultipliers[38] - 1
 static constexpr BasicDecimal128 kMaxValue =
