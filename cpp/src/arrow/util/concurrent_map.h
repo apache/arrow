@@ -22,13 +22,12 @@
 #include <utility>
 
 #include "arrow/util/mutex.h"
-#include "arrow/util/visibility.h"
 
 namespace arrow {
 namespace util {
 
 template <typename V>
-class ARROW_EXPORT ConcurrentMap {
+class ConcurrentMap {
  public:
   void Insert(const std::string& key, const V& value) {
     auto lock = mutex_.Lock();
