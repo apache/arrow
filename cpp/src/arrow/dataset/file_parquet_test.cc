@@ -172,7 +172,7 @@ class TestParquetFileFormat : public ArrowParquetWriterMixin {
     int64_t actual_batches = 0;
 
     for (auto maybe_batch : Batches(fragment)) {
-      ASSERT_OK_AND_ASSIGN(auto batch, std::move(maybe_batch));
+      ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
       actual_rows += batch->num_rows();
       ++actual_batches;
     }
@@ -220,7 +220,7 @@ TEST_F(TestParquetFileFormat, ScanRecordBatchReader) {
   int64_t row_count = 0;
 
   for (auto maybe_batch : Batches(fragment.get())) {
-    ASSERT_OK_AND_ASSIGN(auto batch, std::move(maybe_batch));
+    ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
     row_count += batch->num_rows();
   }
 
@@ -244,10 +244,10 @@ TEST_F(TestParquetFileFormat, ScanRecordBatchReaderDictEncoded) {
   Schema expected_schema({field("utf8", dictionary(int32(), utf8()))});
 
   for (auto maybe_task : scan_task_it) {
-    ASSERT_OK_AND_ASSIGN(auto task, std::move(maybe_task));
+    ASSERT_OK_AND_ASSIGN(auto task, maybe_task);
     ASSERT_OK_AND_ASSIGN(auto rb_it, task->Execute());
     for (auto maybe_batch : rb_it) {
-      ASSERT_OK_AND_ASSIGN(auto batch, std::move(maybe_batch));
+      ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
       row_count += batch->num_rows();
       AssertSchemaEqual(*batch->schema(), expected_schema, /* check_metadata = */ false);
     }
@@ -289,7 +289,7 @@ TEST_F(TestParquetFileFormat, ScanRecordBatchReaderProjected) {
   int64_t row_count = 0;
 
   for (auto maybe_batch : Batches(fragment.get())) {
-    ASSERT_OK_AND_ASSIGN(auto batch, std::move(maybe_batch));
+    ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
     row_count += batch->num_rows();
     AssertSchemaEqual(*batch->schema(), *expected_schema,
                       /*check_metadata=*/false);
@@ -336,7 +336,7 @@ TEST_F(TestParquetFileFormat, ScanRecordBatchReaderProjectedMissingCols) {
     int64_t row_count = 0;
 
     for (auto maybe_batch : Batches(fragment.get())) {
-      ASSERT_OK_AND_ASSIGN(auto batch, std::move(maybe_batch));
+      ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
       row_count += batch->num_rows();
       AssertSchemaEqual(*batch->schema(), *expected_schema,
                         /*check_metadata=*/false);

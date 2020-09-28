@@ -172,7 +172,7 @@ Status WriteTask::Execute() {
 
   // TODO(bkietz) these calls to Partition() should be scattered across a TaskGroup
   for (auto maybe_batch : IteratorFromReader(batches)) {
-    ARROW_ASSIGN_OR_RAISE(auto batch, std::move(maybe_batch));
+    ARROW_ASSIGN_OR_RAISE(auto batch, maybe_batch);
     ARROW_ASSIGN_OR_RAISE(auto partitioned_batches, partitioning->Partition(batch));
     for (auto&& partitioned_batch : partitioned_batches) {
       AndExpression expr(std::move(partitioned_batch.partition_expression),
@@ -218,7 +218,7 @@ Status FileSystemDataset::Write(std::shared_ptr<Schema> schema,
 
   int i = 0;
   for (auto maybe_fragment : fragment_it) {
-    ARROW_ASSIGN_OR_RAISE(auto fragment, std::move(maybe_fragment));
+    ARROW_ASSIGN_OR_RAISE(auto fragment, maybe_fragment);
     auto task = std::make_shared<WriteTask>();
 
     task->basename = "dat_" + std::to_string(i++) + "." + format->type_name();

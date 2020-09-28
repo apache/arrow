@@ -108,7 +108,7 @@
   } while (false);
 
 #define ASSIGN_OR_HANDLE_ERROR_IMPL(handle_error, status_name, lhs, rexpr) \
-  auto status_name = (rexpr);                                              \
+  auto&& status_name = (rexpr);                                            \
   handle_error(status_name.status());                                      \
   lhs = std::move(status_name).ValueOrDie();
 

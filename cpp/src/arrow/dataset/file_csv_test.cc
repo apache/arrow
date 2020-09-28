@@ -76,7 +76,7 @@ TEST_F(TestCsvFileFormat, ScanRecordBatchReader) {
   int64_t row_count = 0;
 
   for (auto maybe_batch : Batches(fragment.get())) {
-    ASSERT_OK_AND_ASSIGN(auto batch, std::move(maybe_batch));
+    ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
     row_count += batch->num_rows();
   }
 
@@ -92,7 +92,7 @@ TEST_F(TestCsvFileFormat, ScanRecordBatchReaderWithVirtualColumn) {
   int64_t row_count = 0;
 
   for (auto maybe_batch : Batches(fragment.get())) {
-    ASSERT_OK_AND_ASSIGN(auto batch, std::move(maybe_batch));
+    ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
     AssertSchemaEqual(*batch->schema(), *schema_);
     row_count += batch->num_rows();
   }
@@ -155,12 +155,12 @@ N/A,bar
 
   ASSERT_OK_AND_ASSIGN(auto scan_task_it, scanner->Scan());
   for (auto maybe_scan_task : scan_task_it) {
-    ASSERT_OK_AND_ASSIGN(auto scan_task, std::move(maybe_scan_task));
+    ASSERT_OK_AND_ASSIGN(auto scan_task, maybe_scan_task);
     ASSERT_OK_AND_ASSIGN(auto batch_it, scan_task->Execute());
     for (auto maybe_batch : batch_it) {
       // ERROR: "f64" is not projected and reverts to inferred type,
       // breaking the comparison expression
-      ASSERT_OK_AND_ASSIGN(auto batch, std::move(maybe_batch));
+      ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
     }
   }
 }
