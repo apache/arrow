@@ -676,7 +676,7 @@ impl<R: Read> Reader<R> {
                 .map(|row| {
                     row.get(&col_name)
                         .and_then(|value| value.as_f64())
-                        .and_then(|v| num::cast::cast(v))
+                        .and_then(num::cast::cast)
                 })
                 .collect::<PrimitiveArray<T>>(),
         ))

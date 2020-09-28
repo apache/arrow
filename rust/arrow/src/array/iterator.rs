@@ -59,6 +59,9 @@ impl<'a, T: ArrowPrimitiveType> std::iter::Iterator for PrimitiveIter<'a, T> {
     }
 }
 
+/// all arrays have known size.
+impl<'a, T: ArrowPrimitiveType> std::iter::ExactSizeIterator for PrimitiveIter<'a, T> {}
+
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
