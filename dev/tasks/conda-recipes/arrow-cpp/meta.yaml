@@ -216,6 +216,9 @@ outputs:
         # We can only test importing cuda package but cannot run when a
         # CUDA device is not available, for instance, when building from CI.
         - pyarrow.cuda     # [cuda_compiler_version not in (undefined, "None")]
+      commands:
+        - test ! -f ${SP_DIR}/pyarrow/tests/test_array.py       # [unix]
+        - if exist %SP_DIR%/pyarrow/tests/test_array.py exit 1  # [win]
   - name: pyarrow-tests
     script: build-pyarrow.sh  # [not win]
     script: bld-pyarrow.bat   # [win]
@@ -261,7 +264,8 @@ outputs:
 
     test:
       commands:
-        - test -f ${SP_DIR}/pyarrow/tests/test_array.py
+        - test -f ${SP_DIR}/pyarrow/tests/test_array.py             # [unix]
+        - if not exist %SP_DIR%/pyarrow/tests/test_array.py exit 1  # [win]
 
 about:
   home: http://github.com/apache/arrow
