@@ -28,6 +28,7 @@
 #include <string>
 
 #include "arrow/util/bit_util.h"
+#include "arrow/util/int128_internal.h"
 #include "arrow/util/int_util_internal.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
@@ -251,9 +252,9 @@ BasicDecimal128& BasicDecimal128::operator>>=(uint32_t bits) {
 namespace {
 
 void ExtendAndMultiplyUint64(uint64_t x, uint64_t y, uint64_t* hi, uint64_t* lo) {
-#ifdef __SIZEOF_INT128__
+#ifdef ARROW_USE_NATIVE_INT128
    const __uint128_t r = static_cast<__uint128_t>(x) * y;
-  *lo = r & 0xffffffffffffffff;
+  *lo = r & kIntMask;
   *hi = r >> 64;
 #else
   const uint64_t x_lo = x & kIntMask;
@@ -279,9 +280,9 @@ void ExtendAndMultiplyUint64(uint64_t x, uint64_t y, uint64_t* hi, uint64_t* lo)
 
 void MultiplyUint128(uint64_t x_hi, uint64_t x_lo, uint64_t y_hi, uint64_t y_lo,
                      uint64_t* hi, uint64_t* lo) {
-#ifdef __SIZEOF_INT128__
-  const __uint128_t x = (static_cast<__uint128_t>(x_hi) >> 64) + x_lo;
-  const __uint128_t y = (static_cast<__uint128_t>(y_hi) >> 64) + y_lo;
+#ifdef ARROW_USE_NATIVE_INT128
+  const __uint128_t x = (static_cast<__uint128_t>(x_hi) << 64) | x_lo;
+  const __uint128_t y = (static_cast<__uint128_t>(y_hi) << 64) | y_lo;
   const __uint128_t r = x * y;
   *lo = r & kInt64Mask;
   *hi = r >> 64;
