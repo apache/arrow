@@ -814,17 +814,19 @@ TEST(TestStringOps, TestSplitPart) {
   gdv_int32 out_len = 0;
   const char* out_str;
 
-  out_str = split_part(ctx_ptr, "A,B,C", 7, ",", 1, 0, &out_len);
+  out_str = split_part(ctx_ptr, "A,B,C", 5, ",", 1, 0, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "");
-  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Index should be >= 1"));
+  EXPECT_THAT(
+      ctx.get_error(),
+      ::testing::HasSubstr("Index in split_part must be positive, value provided was 0"));
 
-  out_str = split_part(ctx_ptr, "A,B,C", 7, ",", 1, 1, &out_len);
+  out_str = split_part(ctx_ptr, "A,B,C", 5, ",", 1, 1, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "A");
 
-  out_str = split_part(ctx_ptr, "A,B,C", 7, ",", 1, 2, &out_len);
+  out_str = split_part(ctx_ptr, "A,B,C", 5, ",", 1, 2, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "B");
 
-  out_str = split_part(ctx_ptr, "A,B,C", 7, ",", 1, 3, &out_len);
+  out_str = split_part(ctx_ptr, "A,B,C", 5, ",", 1, 3, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "C");
 
   out_str = split_part(ctx_ptr, "abc~@~def~@~ghi", 15, "~@~", 3, 1, &out_len);
@@ -845,6 +847,15 @@ TEST(TestStringOps, TestSplitPart) {
 
   out_str = split_part(ctx_ptr, "|123", 4, "|", 1, 1, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "");
+
+  out_str = split_part(ctx_ptr, "ç†ååçåå†", 18, "å", 2, 1, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "ç†");
+
+  out_str = split_part(ctx_ptr, "ç†ååçåå†", 18, "†åå", 6, 1, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "ç");
+
+  out_str = split_part(ctx_ptr, "ç†ååçåå†", 18, "†", 3, 2, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "ååçåå");
 }
 
 TEST(TestArithmeticOps, TestCastINT) {

@@ -40,10 +40,11 @@ gdv_int32 bit_length_binary(const gdv_binary input, gdv_int32 length) {
   return length * 8;
 }
 
-int match_string(std::string str, int startPos, std::string splitter) {
-  for (int i = startPos; i < (int)str.size(); i++) {
-    if (str.substr(i, splitter.size()) == splitter) {
-      return i + splitter.size();
+int match_string(const char* input, gdv_int32 input_len, gdv_int32 start_pos,
+                 const char* delim, gdv_int32 delim_len) {
+  for (int i = start_pos; i < input_len; i++) {
+    if (memcmp(input + i, delim, delim_len) == 0) {
+      return i + delim_len;
     }
   }
 
@@ -849,9 +850,11 @@ FORCE_INLINE
 const char* split_part(gdv_int64 context, const char* text, gdv_int32 text_len,
                        const char* delimiter, gdv_int32 delim_len, gdv_int32 index,
                        gdv_int32* out_len) {
-  char* ret;
   if (index < 1) {
-    gdv_fn_context_set_error_msg(context, "Index should be >= 1");
+    char error_message[100];
+    snprintf(error_message, 100,
+             "Index in split_part must be positive, value provided was %d", index);
+    gdv_fn_context_set_error_msg(context, error_message);
     return "";
   }
 
@@ -860,15 +863,11 @@ const char* split_part(gdv_int64 context, const char* text, gdv_int32 text_len,
     return text;
   }
 
-  // converting both c style arrays to string for easy processing
-  std::string input = std::string(text);
-  std::string splitter = std::string(delimiter);
-  std::string out_str = "";
   int i = 0, match_no = 1;
 
-  while (i < (int)input.size()) {
+  while (i < text_len) {
     // find the position where delimiter matched for the first time
-    int match_pos = match_string(input, i, splitter);
+    int match_pos = match_string(text, text_len, i, delimiter, delim_len);
     if (match_pos == -1 && match_no != index) {
       // reached the end without finding a match.
       *out_len = 0;
@@ -876,18 +875,25 @@ const char* split_part(gdv_int64 context, const char* text, gdv_int32 text_len,
     } else {
       // Found a match. If the match number is index then return this match
       if (match_no == index) {
-        int end_pos = match_pos - splitter.size();
-        out_str = input.substr(i, end_pos - i);
-        *out_len = out_str.size();
-        ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
-        if (ret == nullptr) {
+        int end_pos = match_pos - delim_len;
+
+        if (match_pos == -1) {
+          // end position should be last position of the string as we have the last
+          // delimiter
+          end_pos = text_len;
+        }
+
+        *out_len = end_pos - i;
+        char* out_str =
+            reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+        if (out_str == nullptr) {
           gdv_fn_context_set_error_msg(context,
-                                       "Could not allocate memory for output string");
+                                       "Could not allocate memory for output string %d");
           *out_len = 0;
           return "";
         }
-        memcpy(ret, out_str.c_str(), *out_len);
-        return ret;
+        memcpy(out_str, text + i, *out_len);
+        return out_str;
       } else {
         i = match_pos;
         match_no++;
