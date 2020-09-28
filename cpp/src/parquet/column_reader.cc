@@ -235,12 +235,14 @@ class SerializedPageReader : public PageReader {
 
   void InitDecryption();
 
-  std::shared_ptr<Buffer> DecompressPage(int compressed_len, int uncompressed_len,
-                                         const uint8_t* page_buffer);
+  std::shared_ptr<Buffer> DecompressPage(std::shared_ptr<Buffer> page_buffer,
+                                         int compressed_len, int uncompressed_len,
+                                         int levels_byte_len = 0);
 
   std::shared_ptr<ArrowInputStream> stream_;
 
   format::PageHeader current_page_header_;
+  PageType::type current_page_type_;
   std::shared_ptr<Page> current_page_;
 
   // Compression codec to use.
@@ -352,10 +354,15 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
 
     int compressed_len = current_page_header_.compressed_page_size;
     int uncompressed_len = current_page_header_.uncompressed_page_size;
+    if (compressed_len < 0 || uncompressed_len < 0) {
+      throw ParquetException("Invalid page header");
+    }
+
     if (crypto_ctx_.data_decryptor != nullptr) {
       UpdateDecryption(crypto_ctx_.data_decryptor, encryption::kDictionaryPage,
                        data_page_aad_);
     }
+
     // Read the compressed data page.
     PARQUET_ASSIGN_OR_THROW(auto page_buffer, stream_->Read(compressed_len));
     if (page_buffer->size() != compressed_len) {
@@ -374,14 +381,10 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
 
       page_buffer = decryption_buffer_;
     }
-    // Uncompress it if we need to
-    if (decompressor_ != nullptr) {
-      page_buffer = DecompressPage(compressed_len, uncompressed_len, page_buffer->data());
-    }
 
-    const PageType::type page_type = LoadEnumSafe(&current_page_header_.type);
+    current_page_type_ = LoadEnumSafe(&current_page_header_.type);
 
-    if (page_type == PageType::DICTIONARY_PAGE) {
+    if (current_page_type_ == PageType::DICTIONARY_PAGE) {
       crypto_ctx_.start_decrypt_with_dictionary_page = false;
       const format::DictionaryPageHeader& dict_header =
           current_page_header_.dictionary_page_header;
@@ -391,10 +394,14 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
         throw ParquetException("Invalid page header (negative number of values)");
       }
 
+      // Uncompress if needed
+      page_buffer =
+          DecompressPage(std::move(page_buffer), compressed_len, uncompressed_len);
+
       return std::make_shared<DictionaryPage>(page_buffer, dict_header.num_values,
                                               LoadEnumSafe(&dict_header.encoding),
                                               is_sorted);
-    } else if (page_type == PageType::DATA_PAGE) {
+    } else if (current_page_type_ == PageType::DATA_PAGE) {
       ++page_ordinal_;
       const format::DataPageHeader& header = current_page_header_.data_page_header;
 
@@ -404,12 +411,16 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
       EncodedStatistics page_statistics = ExtractStatsFromHeader(header);
       seen_num_rows_ += header.num_values;
 
+      // Uncompress if needed
+      page_buffer =
+          DecompressPage(std::move(page_buffer), compressed_len, uncompressed_len);
+
       return std::make_shared<DataPageV1>(page_buffer, header.num_values,
                                           LoadEnumSafe(&header.encoding),
                                           LoadEnumSafe(&header.definition_level_encoding),
                                           LoadEnumSafe(&header.repetition_level_encoding),
                                           uncompressed_len, page_statistics);
-    } else if (page_type == PageType::DATA_PAGE_V2) {
+    } else if (current_page_type_ == PageType::DATA_PAGE_V2) {
       ++page_ordinal_;
       const format::DataPageHeaderV2& header = current_page_header_.data_page_header_v2;
 
@@ -423,6 +434,15 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
       bool is_compressed = header.__isset.is_compressed ? header.is_compressed : false;
       EncodedStatistics page_statistics = ExtractStatsFromHeader(header);
       seen_num_rows_ += header.num_values;
+
+      // Uncompress if needed
+      int levels_byte_len;
+      if (AddWithOverflow(header.definition_levels_byte_length,
+                          header.repetition_levels_byte_length, &levels_byte_len)) {
+        throw ParquetException("Levels size too large (corrupt file?)");
+      }
+      page_buffer = DecompressPage(std::move(page_buffer), compressed_len,
+                                   uncompressed_len, levels_byte_len);
 
       return std::make_shared<DataPageV2>(
           page_buffer, header.num_values, header.num_nulls, header.num_rows,
@@ -438,33 +458,28 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
   return std::shared_ptr<Page>(nullptr);
 }
 
-std::shared_ptr<Buffer> SerializedPageReader::DecompressPage(int compressed_len,
-                                                             int uncompressed_len,
-                                                             const uint8_t* page_buffer) {
+std::shared_ptr<Buffer> SerializedPageReader::DecompressPage(
+    std::shared_ptr<Buffer> page_buffer, int compressed_len, int uncompressed_len,
+    int levels_byte_len) {
+  if (decompressor_ == nullptr) {
+    return page_buffer;
+  }
   // Grow the uncompressed buffer if we need to.
   if (uncompressed_len > static_cast<int>(decompression_buffer_->size())) {
     PARQUET_THROW_NOT_OK(decompression_buffer_->Resize(uncompressed_len, false));
   }
 
-  if (current_page_header_.type != format::PageType::DATA_PAGE_V2) {
-    PARQUET_THROW_NOT_OK(
-        decompressor_->Decompress(compressed_len, page_buffer, uncompressed_len,
-                                  decompression_buffer_->mutable_data()));
-  } else {
-    // The levels are not compressed in V2 format
-    const auto& header = current_page_header_.data_page_header_v2;
-    int32_t levels_length =
-        header.repetition_levels_byte_length + header.definition_levels_byte_length;
+  if (levels_byte_len > 0) {
+    // First copy the levels as-is
     uint8_t* decompressed = decompression_buffer_->mutable_data();
-    memcpy(decompressed, page_buffer, levels_length);
-    decompressed += levels_length;
-    const uint8_t* compressed_values = page_buffer + levels_length;
-
-    // Decompress the values
-    PARQUET_THROW_NOT_OK(
-        decompressor_->Decompress(compressed_len - levels_length, compressed_values,
-                                  uncompressed_len - levels_length, decompressed));
+    memcpy(decompressed, page_buffer->data(), levels_byte_len);
   }
+
+  // Decompress the values
+  PARQUET_THROW_NOT_OK(decompressor_->Decompress(
+      compressed_len - levels_byte_len, page_buffer->data() + levels_byte_len,
+      uncompressed_len - levels_byte_len,
+      decompression_buffer_->mutable_data() + levels_byte_len));
 
   return decompression_buffer_;
 }
