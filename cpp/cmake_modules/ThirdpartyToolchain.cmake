@@ -2716,7 +2716,23 @@ macro(build_awssdk)
   find_package(CURL REQUIRED)
 
   add_dependencies(toolchain awssdk_ep)
-  # list(APPEND ARROW_BUNDLED_STATIC_LIBS AWSSDK)
+  add_dependencies(AWS::aws-cpp-sdk-identity-management awssdk_ep)
+  add_dependencies(AWS::aws-cpp-sdk-sts awssdk_ep)
+  add_dependencies(AWS::aws-cpp-sdk-cognito-identity awssdk_ep)
+  add_dependencies(AWS::aws-cpp-sdk-s3 awssdk_ep)
+  add_dependencies(AWS::aws-cpp-sdk-core awssdk_ep)
+  add_dependencies(AWS::aws-c-event-stream awssdk_ep)
+  add_dependencies(AWS::aws-checksums awssdk_ep)
+  add_dependencies(AWS::aws-c-common awssdk_ep)
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS
+        AWS::aws-cpp-sdk-identity-management
+        AWS::aws-cpp-sdk-sts
+        AWS::aws-cpp-sdk-cognito-identity
+        AWS::aws-cpp-sdk-s3
+        AWS::aws-cpp-sdk-core
+        AWS::aws-c-event-stream
+        AWS::aws-checksums
+        AWS::aws-c-common)
   set(AWSSDK_LINK_LIBRARIES
         AWS::aws-cpp-sdk-identity-management
         AWS::aws-cpp-sdk-sts
