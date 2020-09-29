@@ -729,6 +729,8 @@ endif()
 
 if(ARROW_S3)
   list(APPEND ARROW_LINK_LIBS ${AWSSDK_LINK_LIBRARIES})
+  message(STATUS "========================================")
+  message(STATUS ${ARROW_LINK_LIBS})
 endif()
 
 if(ARROW_WITH_UTF8PROC)

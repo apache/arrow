@@ -106,6 +106,7 @@ cmake -G "${CMAKE_GENERATOR:-Ninja}" \
       -DBrotli_SOURCE=${Brotli_SOURCE:-} \
       -DBUILD_WARNING_LEVEL=${BUILD_WARNING_LEVEL:-CHECKIN} \
       -Dc-ares_SOURCE=${cares_SOURCE:-} \
+      -DAWSSDK_SOURCE=${AWSSDK_SOURCE:-} \
       -DCMAKE_BUILD_TYPE=${ARROW_BUILD_TYPE:-debug} \
       -DCMAKE_C_FLAGS=${CFLAGS:-} \
       -DCMAKE_CXX_FLAGS=${CXXFLAGS:-} \
