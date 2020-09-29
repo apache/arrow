@@ -1267,6 +1267,36 @@ impl<OffsetSize: OffsetSizeTrait> GenericBinaryArray<OffsetSize> {
         GenericBinaryArray::<OffsetSize>::from(array_data)
     }
 
+    fn from_opt_vec(v: Vec<Option<&[u8]>>, data_type: DataType) -> Self {
+        let mut offsets = Vec::with_capacity(v.len() + 1);
+        let mut values = Vec::new();
+        let mut null_buf = make_null_buffer(v.len());
+        let mut length_so_far: OffsetSize = OffsetSize::zero();
+        offsets.push(length_so_far);
+
+        {
+            let null_slice = null_buf.data_mut();
+
+            for (i, s) in v.iter().enumerate() {
+                if let Some(s) = s {
+                    bit_util::set_bit(null_slice, i);
+                    length_so_far =
+                        length_so_far + OffsetSize::from_usize(s.len()).unwrap();
+                    offsets.push(length_so_far);
+                    values.extend_from_slice(s);
+                }
+            }
+        }
+
+        let array_data = ArrayData::builder(data_type)
+            .len(v.len())
+            .add_buffer(Buffer::from(offsets.to_byte_slice()))
+            .add_buffer(Buffer::from(&values[..]))
+            .null_bit_buffer(null_buf.freeze())
+            .build();
+        GenericBinaryArray::<OffsetSize>::from(array_data)
+    }
+
     fn from_list(v: GenericListArray<OffsetSize>, datatype: DataType) -> Self {
         assert_eq!(
             v.data_ref().child_data()[0].child_data().len(),
@@ -1368,9 +1398,21 @@ impl From<Vec<&[u8]>> for BinaryArray {
     }
 }
 
+impl From<Vec<Option<&[u8]>>> for BinaryArray {
+    fn from(v: Vec<Option<&[u8]>>) -> Self {
+        BinaryArray::from_opt_vec(v, DataType::Binary)
+    }
+}
+
 impl From<Vec<&[u8]>> for LargeBinaryArray {
     fn from(v: Vec<&[u8]>) -> Self {
         LargeBinaryArray::from_vec(v, DataType::LargeBinary)
+    }
+}
+
+impl From<Vec<Option<&[u8]>>> for LargeBinaryArray {
+    fn from(v: Vec<Option<&[u8]>>) -> Self {
+        LargeBinaryArray::from_opt_vec(v, DataType::LargeBinary)
     }
 }
 
@@ -1846,7 +1888,7 @@ impl TryFrom<Vec<(&str, ArrayRef)>> for StructArray {
             if let Some(len) = len {
                 if len != child_datum.len() {
                     return Err(ArrowError::InvalidArgumentError(
-                        format!("Array of field \"{}\" has length {}, but previous elements have length {}. 
+                        format!("Array of field \"{}\" has length {}, but previous elements have length {}.
                         All arrays in every entry in a struct array must have the same length.", field_name, child_datum.len(), len)
                     ));
                 }
