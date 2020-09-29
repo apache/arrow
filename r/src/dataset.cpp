@@ -192,8 +192,8 @@ std::shared_ptr<ds::ParquetFileFormat> dataset___ParquetFileFormat__MakeWrite(
     const std::shared_ptr<parquet::ArrowWriterProperties>& arrow_props) {
   auto fmt = std::make_shared<ds::ParquetFileFormat>();
 
-  fmt->writer_properties = writer_props;
-  fmt->arrow_writer_properties = arrow_props;
+  // fmt->writer_properties = writer_props;
+  // fmt->arrow_writer_properties = arrow_props;
 
   return fmt;
 }
@@ -317,6 +317,12 @@ std::vector<std::shared_ptr<ds::ScanTask>> dataset___Scanner__Scan(
 }
 
 // [[arrow::export]]
+std::shared_ptr<arrow::Schema> dataset___Scanner__schema(
+    const std::shared_ptr<ds::Scanner>& sc) {
+  return sc->schema();
+}
+
+// [[arrow::export]]
 std::vector<std::shared_ptr<arrow::RecordBatch>> dataset___ScanTask__get_batches(
     const std::shared_ptr<ds::ScanTask>& scan_task) {
   arrow::RecordBatchIterator rbi;
@@ -331,17 +337,19 @@ std::vector<std::shared_ptr<arrow::RecordBatch>> dataset___ScanTask__get_batches
 }
 
 // [[arrow::export]]
-void dataset___Dataset__Write(const std::shared_ptr<ds::Dataset>& ds,
+void dataset___Dataset__Write(const std::shared_ptr<ds::Scanner>& scanner,
                               const std::shared_ptr<arrow::Schema>& schema,
                               const std::shared_ptr<ds::FileFormat>& format,
                               const std::shared_ptr<fs::FileSystem>& filesystem,
                               std::string path,
                               const std::shared_ptr<ds::Partitioning>& partitioning) {
-  auto frags = ds->GetFragments();
-  auto ctx = std::make_shared<ds::ScanContext>();
-  ctx->use_threads = true;
-  StopIfNotOk(ds::FileSystemDataset::Write(schema, format, filesystem, path, partitioning,
-                                           ctx, std::move(frags)));
+  ds::FileSystemDatasetWriteOptions opts;
+  opts.file_write_options = format->DefaultWriteOptions();
+  opts.filesystem = filesystem;
+  opts.base_dir = path;
+  opts.partitioning = partitioning;
+  opts.basename_template = "dat_{i}.feather";
+  StopIfNotOk(ds::FileSystemDataset::Write(schema, opts, scanner));
   return;
 }
 

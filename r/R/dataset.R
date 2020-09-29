@@ -133,9 +133,6 @@ open_dataset <- function(sources,
 #'   may also replace the dataset's schema by using `ds$schema <- new_schema`.
 #'   This method currently supports only adding, removing, or reordering
 #'   fields in the schema: you cannot alter or cast the field types.
-#' - `$write(path, filesystem, schema, format, partitioning, ...)`: writes the
-#'   dataset to `path` in the `format` file format, partitioned by `partitioning`,
-#'   and invisibly returns `self`. See [write_dataset()].
 #'
 #' `FileSystemDataset` has the following methods:
 #' - `$files`: Active binding, returns the files of the `FileSystemDataset`
@@ -162,12 +159,7 @@ Dataset <- R6Class("Dataset", inherit = ArrowObject,
     # Start a new scan of the data
     # @return A [ScannerBuilder]
     NewScan = function() unique_ptr(ScannerBuilder, dataset___Dataset__NewScan(self)),
-    ToString = function() self$schema$ToString(),
-    write = function(path, filesystem = NULL, schema = self$schema, format, partitioning, ...) {
-      path_and_fs <- get_path_and_filesystem(path, filesystem)
-      dataset___Dataset__Write(self, schema, format, path_and_fs$fs, path_and_fs$path, partitioning)
-      invisible(self)
-    }
+    ToString = function() self$schema$ToString()
   ),
   active = list(
     schema = function(schema) {

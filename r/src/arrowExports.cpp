@@ -1823,6 +1823,21 @@ extern "C" SEXP _arrow_dataset___Scanner__Scan(SEXP scanner_sexp){
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Schema> dataset___Scanner__schema(const std::shared_ptr<ds::Scanner>& sc);
+extern "C" SEXP _arrow_dataset___Scanner__schema(SEXP sc_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<ds::Scanner>&>::type sc(sc_sexp);
+	return cpp11::as_sexp(dataset___Scanner__schema(sc));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_dataset___Scanner__schema(SEXP sc_sexp){
+	Rf_error("Cannot call dataset___Scanner__schema(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// dataset.cpp
+#if defined(ARROW_R_WITH_ARROW)
 std::vector<std::shared_ptr<arrow::RecordBatch>> dataset___ScanTask__get_batches(const std::shared_ptr<ds::ScanTask>& scan_task);
 extern "C" SEXP _arrow_dataset___ScanTask__get_batches(SEXP scan_task_sexp){
 BEGIN_CPP11
@@ -1838,21 +1853,21 @@ extern "C" SEXP _arrow_dataset___ScanTask__get_batches(SEXP scan_task_sexp){
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-void dataset___Dataset__Write(const std::shared_ptr<ds::Dataset>& ds, const std::shared_ptr<arrow::Schema>& schema, const std::shared_ptr<ds::FileFormat>& format, const std::shared_ptr<fs::FileSystem>& filesystem, std::string path, const std::shared_ptr<ds::Partitioning>& partitioning);
-extern "C" SEXP _arrow_dataset___Dataset__Write(SEXP ds_sexp, SEXP schema_sexp, SEXP format_sexp, SEXP filesystem_sexp, SEXP path_sexp, SEXP partitioning_sexp){
+void dataset___Dataset__Write(const std::shared_ptr<ds::Scanner>& scanner, const std::shared_ptr<arrow::Schema>& schema, const std::shared_ptr<ds::FileFormat>& format, const std::shared_ptr<fs::FileSystem>& filesystem, std::string path, const std::shared_ptr<ds::Partitioning>& partitioning);
+extern "C" SEXP _arrow_dataset___Dataset__Write(SEXP scanner_sexp, SEXP schema_sexp, SEXP format_sexp, SEXP filesystem_sexp, SEXP path_sexp, SEXP partitioning_sexp){
 BEGIN_CPP11
-	arrow::r::Input<const std::shared_ptr<ds::Dataset>&>::type ds(ds_sexp);
+	arrow::r::Input<const std::shared_ptr<ds::Scanner>&>::type scanner(scanner_sexp);
 	arrow::r::Input<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
 	arrow::r::Input<const std::shared_ptr<ds::FileFormat>&>::type format(format_sexp);
 	arrow::r::Input<const std::shared_ptr<fs::FileSystem>&>::type filesystem(filesystem_sexp);
 	arrow::r::Input<std::string>::type path(path_sexp);
 	arrow::r::Input<const std::shared_ptr<ds::Partitioning>&>::type partitioning(partitioning_sexp);
-	dataset___Dataset__Write(ds, schema, format, filesystem, path, partitioning);
+	dataset___Dataset__Write(scanner, schema, format, filesystem, path, partitioning);
 	return R_NilValue;
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_dataset___Dataset__Write(SEXP ds_sexp, SEXP schema_sexp, SEXP format_sexp, SEXP filesystem_sexp, SEXP path_sexp, SEXP partitioning_sexp){
+extern "C" SEXP _arrow_dataset___Dataset__Write(SEXP scanner_sexp, SEXP schema_sexp, SEXP format_sexp, SEXP filesystem_sexp, SEXP path_sexp, SEXP partitioning_sexp){
 	Rf_error("Cannot call dataset___Dataset__Write(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
@@ -6241,6 +6256,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_dataset___Scanner__ToTable", (DL_FUNC) &_arrow_dataset___Scanner__ToTable, 1}, 
 		{ "_arrow_dataset___Scanner__head", (DL_FUNC) &_arrow_dataset___Scanner__head, 2}, 
 		{ "_arrow_dataset___Scanner__Scan", (DL_FUNC) &_arrow_dataset___Scanner__Scan, 1}, 
+		{ "_arrow_dataset___Scanner__schema", (DL_FUNC) &_arrow_dataset___Scanner__schema, 1}, 
 		{ "_arrow_dataset___ScanTask__get_batches", (DL_FUNC) &_arrow_dataset___ScanTask__get_batches, 1}, 
 		{ "_arrow_dataset___Dataset__Write", (DL_FUNC) &_arrow_dataset___Dataset__Write, 6}, 
 		{ "_arrow_shared_ptr_is_null", (DL_FUNC) &_arrow_shared_ptr_is_null, 1}, 

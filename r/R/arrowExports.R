@@ -464,12 +464,16 @@ dataset___Scanner__Scan <- function(scanner){
     .Call(`_arrow_dataset___Scanner__Scan` , scanner)
 }
 
+dataset___Scanner__schema <- function(sc){
+    .Call(`_arrow_dataset___Scanner__schema` , sc)
+}
+
 dataset___ScanTask__get_batches <- function(scan_task){
     .Call(`_arrow_dataset___ScanTask__get_batches` , scan_task)
 }
 
-dataset___Dataset__Write <- function(ds, schema, format, filesystem, path, partitioning){
-    invisible(.Call(`_arrow_dataset___Dataset__Write` , ds, schema, format, filesystem, path, partitioning))
+dataset___Dataset__Write <- function(scanner, schema, format, filesystem, path, partitioning){
+    invisible(.Call(`_arrow_dataset___Dataset__Write` , scanner, schema, format, filesystem, path, partitioning))
 }
 
 shared_ptr_is_null <- function(xp){

@@ -870,7 +870,7 @@ test_that("Dataset writing: no partitioning", {
   dst_dir <- tempfile()
   write_dataset(ds, dst_dir, format = "feather", partitioning = NULL)
   expect_true(dir.exists(dst_dir))
-  expect_true(length(dir(dst_dir)) > 1)
+  expect_true(length(dir(dst_dir)) > 0)
 })
 
 test_that("Dataset writing: from data.frame", {
@@ -965,7 +965,7 @@ test_that("Writing a dataset: Parquet format options", {
 })
 
 test_that("Dataset writing: unsupported features/input validation", {
-  expect_error(write_dataset(4), "'dataset' must be a Dataset")
+  expect_error(write_dataset(4), 'dataset must be a "Dataset"')
 
   ds <- open_dataset(hive_dir)
 

@@ -26,18 +26,18 @@
 #' `schema` and `partitioning` will be taken from the result of any `select()`
 #' and `group_by()` operations done on the dataset. Note that `filter()` queries
 #' are not currently supported, and `select`-ed columns may not be renamed.
-#' @param path string path to a directory to write to (directory will be
+#' @param path string path or URI to a directory to write to (directory will be
 #' created if it does not exist)
 #' @param format file format to write the dataset to. Currently supported
 #' formats are "feather" (aka "ipc") and "parquet". Default is to write to the
 #' same format as `dataset`.
-#' @param schema [Schema] containing a subset of columns, possibly reordered,
-#' in `dataset`. Default is `dataset$schema`, i.e. all columns.
 #' @param partitioning `Partitioning` or a character vector of columns to
 #' use as partition keys (to be written as path segments). Default is to
 #' use the current `group_by()` columns.
 #' @param hive_style logical: write partition segments as Hive-style
 #' (`key1=value1/key2=value2/file.ext`) or as just bare values. Default is `TRUE`.
+#' @param filesystem A [FileSystem] where the dataset should be written if it is a
+#' string file path; default is the local file system
 #' @param ... additional format-specific arguments. For available Parquet
 #' options, see [write_parquet()].
 #' @return The input `dataset`, invisibly
@@ -45,12 +45,11 @@
 write_dataset <- function(dataset,
                           path,
                           format = dataset$format$type,
-                          schema = dataset$schema,
                           partitioning = dplyr::group_vars(dataset),
                           hive_style = TRUE,
+                          filesystem = NULL,
                           ...) {
   if (inherits(dataset, "arrow_dplyr_query")) {
-    force(partitioning) # get the group_vars before we drop the object
     # Check for a filter
     if (!isTRUE(dataset$filtered_rows)) {
       # TODO:
@@ -63,22 +62,17 @@ write_dataset <- function(dataset,
         stop("Renaming columns when writing a dataset is not yet supported", call. = FALSE)
       }
       dataset <- ensure_group_vars(dataset)
-      schema <- dataset$.data$schema[dataset$selected_columns]
     }
-    dataset <- dataset$.data
   }
-  if (inherits(dataset, c("data.frame", "RecordBatch", "Table"))) {
-    force(partitioning) # get the group_vars before we replace the object
-    if (inherits(dataset, "grouped_df")) {
-      # Drop the grouping metadata before writing; we've already consumed it
-      # now to construct `partitioning` and don't want it in the metadata$r
-      dataset <- dplyr::ungroup(dataset)
-    }
-    dataset <- InMemoryDataset$create(dataset)
+  if (inherits(dataset, "grouped_df")) {
+    force(partitioning)
+    # Drop the grouping metadata before writing; we've already consumed it
+    # now to construct `partitioning` and don't want it in the metadata$r
+    dataset <- dplyr::ungroup(dataset)
   }
-  if (!inherits(dataset, "Dataset")) {
-    stop("'dataset' must be a Dataset, not ", class(dataset)[1], call. = FALSE)
-  }
+
+  scanner <- Scanner$create(dataset)
+  schema <- scanner$schema
 
   if (!inherits(format, "FileFormat")) {
     if (identical(format, "parquet")) {
@@ -93,12 +87,14 @@ write_dataset <- function(dataset,
 
   if (!inherits(partitioning, "Partitioning")) {
     # TODO: tidyselect?
-    partition_schema <- dataset$schema[partitioning]
+    partition_schema <- schema[partitioning]
     if (isTRUE(hive_style)) {
       partitioning <- HivePartitioning$create(partition_schema)
     } else {
       partitioning <- DirectoryPartitioning$create(partition_schema)
     }
   }
-  dataset$write(path, format = format, partitioning = partitioning, schema = schema, ...)
+  path_and_fs <- get_path_and_filesystem(path, filesystem)
+
+  dataset___Dataset__Write(scanner, schema, path = path_and_fs$path, format = format, partitioning = partitioning, filesystem = path_and_fs$fs)
 }
