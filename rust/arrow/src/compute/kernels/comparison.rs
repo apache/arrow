@@ -617,7 +617,7 @@ pub fn contains_utf8<OffsetSize>(
     right: &ListArray,
 ) -> Result<BooleanArray>
 where
-    OffsetSize: OffsetSizeTrait,
+    OffsetSize: StringOffsetSizeTrait,
 {
     let left_len = left.len();
     if left_len != right.len() {

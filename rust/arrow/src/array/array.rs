@@ -1429,14 +1429,28 @@ impl From<LargeListArray> for LargeBinaryArray {
     }
 }
 
+/// Like OffsetSizeTrait, but specialized for Strings
+// This allow us to expose a constant datatype for the GenericStringArray
+pub trait StringOffsetSizeTrait: OffsetSizeTrait {
+    const DATA_TYPE: DataType;
+}
+
+impl StringOffsetSizeTrait for i32 {
+    const DATA_TYPE: DataType = DataType::Utf8;
+}
+
+impl StringOffsetSizeTrait for i64 {
+    const DATA_TYPE: DataType = DataType::LargeUtf8;
+}
+
 /// Generic struct for \[Large\]StringArray
-pub struct GenericStringArray<OffsetSize> {
+pub struct GenericStringArray<OffsetSize: StringOffsetSizeTrait> {
     data: ArrayDataRef,
     value_offsets: RawPtrBox<OffsetSize>,
     value_data: RawPtrBox<u8>,
 }
 
-impl<OffsetSize: OffsetSizeTrait> GenericStringArray<OffsetSize> {
+impl<OffsetSize: StringOffsetSizeTrait> GenericStringArray<OffsetSize> {
     /// Returns the offset for the element at index `i`.
     ///
     /// Note this doesn't do any bound checking, for performance reason.
@@ -1559,7 +1573,7 @@ impl<OffsetSize: OffsetSizeTrait> GenericStringArray<OffsetSize> {
     }
 }
 
-impl<OffsetSize: OffsetSizeTrait> fmt::Debug for GenericStringArray<OffsetSize> {
+impl<OffsetSize: StringOffsetSizeTrait> fmt::Debug for GenericStringArray<OffsetSize> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}StringArray\n[\n", OffsetSize::prefix())?;
         print_long_array(self, f, |array, index, f| {
@@ -1569,7 +1583,7 @@ impl<OffsetSize: OffsetSizeTrait> fmt::Debug for GenericStringArray<OffsetSize> 
     }
 }
 
-impl<OffsetSize: OffsetSizeTrait> Array for GenericStringArray<OffsetSize> {
+impl<OffsetSize: StringOffsetSizeTrait> Array for GenericStringArray<OffsetSize> {
     fn as_any(&self) -> &Any {
         self
     }
@@ -1593,8 +1607,15 @@ impl<OffsetSize: OffsetSizeTrait> Array for GenericStringArray<OffsetSize> {
     }
 }
 
-impl<OffsetSize: OffsetSizeTrait> From<ArrayDataRef> for GenericStringArray<OffsetSize> {
+impl<OffsetSize: StringOffsetSizeTrait> From<ArrayDataRef>
+    for GenericStringArray<OffsetSize>
+{
     fn from(data: ArrayDataRef) -> Self {
+        assert_eq!(
+            data.data_type(),
+            &<OffsetSize as StringOffsetSizeTrait>::DATA_TYPE,
+            "[Large]StringArray expects Datatype::[Large]Utf8"
+        );
         assert_eq!(
             data.buffers().len(),
             2,
@@ -1612,7 +1633,7 @@ impl<OffsetSize: OffsetSizeTrait> From<ArrayDataRef> for GenericStringArray<Offs
     }
 }
 
-impl<OffsetSize: OffsetSizeTrait> ListArrayOps<OffsetSize>
+impl<OffsetSize: StringOffsetSizeTrait> ListArrayOps<OffsetSize>
     for GenericStringArray<OffsetSize>
 {
     fn value_offset_at(&self, i: usize) -> OffsetSize {
@@ -3606,6 +3627,13 @@ mod tests {
             assert!(string_array.is_valid(i));
             assert!(!string_array.is_null(i));
         }
+    }
+
+    #[test]
+    #[should_panic(expected = "[Large]StringArray expects Datatype::[Large]Utf8")]
+    fn test_string_array_from_int() {
+        let array = LargeStringArray::from(vec!["a", "b"]);
+        StringArray::from(array.data());
     }
 
     #[test]

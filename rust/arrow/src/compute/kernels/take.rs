@@ -125,8 +125,8 @@ pub fn take(
         DataType::Duration(TimeUnit::Nanosecond) => {
             take_primitive::<DurationNanosecondType>(values, indices)
         }
-        DataType::Utf8 => take_string::<i32>(values, indices, DataType::Utf8),
-        DataType::LargeUtf8 => take_string::<i64>(values, indices, DataType::LargeUtf8),
+        DataType::Utf8 => take_string::<i32>(values, indices),
+        DataType::LargeUtf8 => take_string::<i64>(values, indices),
         DataType::List(_) => take_list(values, indices),
         DataType::Struct(fields) => {
             let struct_: &StructArray =
@@ -262,13 +262,9 @@ fn take_boolean(values: &ArrayRef, indices: &UInt32Array) -> Result<ArrayRef> {
 }
 
 /// `take` implementation for string arrays
-fn take_string<OffsetSize>(
-    values: &ArrayRef,
-    indices: &UInt32Array,
-    data_type: DataType,
-) -> Result<ArrayRef>
+fn take_string<OffsetSize>(values: &ArrayRef, indices: &UInt32Array) -> Result<ArrayRef>
 where
-    OffsetSize: Zero + AddAssign + OffsetSizeTrait,
+    OffsetSize: Zero + AddAssign + StringOffsetSizeTrait,
 {
     let data_len = indices.len();
 
@@ -306,7 +302,7 @@ where
         None => null_buf.freeze(),
     };
 
-    let data = ArrayData::builder(data_type)
+    let data = ArrayData::builder(<OffsetSize as StringOffsetSizeTrait>::DATA_TYPE)
         .len(data_len)
         .null_bit_buffer(nulls)
         .add_buffer(Buffer::from(offsets.to_byte_slice()))
