@@ -96,6 +96,7 @@
 //!     println!("{}", row);
 //! }
 //! ```
+pub mod footer;
 pub mod metadata;
 pub mod properties;
 pub mod reader;
