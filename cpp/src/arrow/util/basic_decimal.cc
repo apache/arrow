@@ -253,6 +253,8 @@ BasicDecimal128& BasicDecimal128::operator>>=(uint32_t bits) {
 
 namespace {
 
+// TODO: Remove this guard once it's used by BasicDecimal256
+#ifndef ARROW_USE_NATIVE_INT128
 void ExtendAndMultiplyUint64(uint64_t x, uint64_t y, uint64_t* hi, uint64_t* lo) {
 #ifdef ARROW_USE_NATIVE_INT128
   const __uint128_t r = static_cast<__uint128_t>(x) * y;
@@ -279,6 +281,7 @@ void ExtendAndMultiplyUint64(uint64_t x, uint64_t y, uint64_t* hi, uint64_t* lo)
   *lo = (v << 32) + t_lo;
 #endif
 }
+#endif
 
 void MultiplyUint128(uint64_t x_hi, uint64_t x_lo, uint64_t y_hi, uint64_t y_lo,
                      uint64_t* hi, uint64_t* lo) {
