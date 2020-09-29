@@ -888,7 +888,7 @@ const char* split_part(gdv_int64 context, const char* text, gdv_int32 text_len,
             reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
         if (out_str == nullptr) {
           gdv_fn_context_set_error_msg(context,
-                                       "Could not allocate memory for output string %d");
+                                       "Could not allocate memory for output string");
           *out_len = 0;
           return "";
         }
