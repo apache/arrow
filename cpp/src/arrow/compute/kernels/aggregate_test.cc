@@ -777,39 +777,6 @@ TEST_F(TestAnyKernel, Basics) {
   this->AssertAnyIs(chunked_input3, false);
 }
 
-static bool NaiveAny(const Array& array) {
-  const auto& array_numeric = checked_cast<const BooleanArray&>(array);
-  const auto true_count = array_numeric.true_count();
-  return true_count > 0;
-}
-
-void ValidateAny(const Array& array) {
-  ASSERT_OK_AND_ASSIGN(Datum out, Any(array));
-  const BooleanScalar& out_any = out.scalar_as<BooleanScalar>();
-
-  bool expected = NaiveAny(array);
-  BooleanScalar expected_any = static_cast<BooleanScalar>(expected);
-
-  ASSERT_EQ(out_any, expected_any);
-}
-
-class TestRandomBooleanAnyKernel : public ::testing::Test {};
-
-TEST_F(TestRandomBooleanAnyKernel, RandomArrayAny) {
-  auto rand = random::RandomArrayGenerator(0x8afc055);
-  // Test size up to 1<<11 (2048).
-  for (size_t i = 3; i < 12; i += 2) {
-    for (auto null_probability : {0.0, 0.01, 0.1, 0.5, 0.99, 1.0}) {
-      int64_t base_length = (1UL << i) + 2;
-      auto array = rand.Boolean(base_length, null_probability, null_probability);
-      for (auto length_adjust : {-2, -1, 0, 1, 2}) {
-        int64_t length = (1UL << i) + length_adjust;
-        ValidateAny(*array->Slice(0, length));
-      }
-    }
-  }
-}
-
 //
 // Mode
 //

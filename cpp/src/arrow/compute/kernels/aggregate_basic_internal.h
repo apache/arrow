@@ -537,8 +537,6 @@ struct BooleanMinMaxImpl : public MinMaxImpl<BooleanType, SimdLevel> {
 
 template <SimdLevel::type SimdLevel>
 struct BooleanAnyImpl : public MinMaxImpl<BooleanType, SimdLevel> {
-  using StateType = MinMaxState<BooleanType, SimdLevel>;
-  using ArrayType = typename TypeTraits<BooleanType>::ArrayType;
   using MinMaxImpl<BooleanType, SimdLevel>::MinMaxImpl;
 
   void Consume(KernelContext*, const ExecBatch& batch) override {
@@ -547,7 +545,7 @@ struct BooleanAnyImpl : public MinMaxImpl<BooleanType, SimdLevel> {
       return;
     }
 
-    ArrayType arr(batch[0].array());
+    BooleanArray arr(batch[0].array());
     const auto true_count = arr.true_count();
     if (true_count > 0) {
       this->state.max = true;
@@ -555,13 +553,7 @@ struct BooleanAnyImpl : public MinMaxImpl<BooleanType, SimdLevel> {
   }
 
   void Finalize(KernelContext*, Datum* out) override {
-    using ScalarType = typename TypeTraits<BooleanType>::ScalarType;
-
-    if (this->state.max == true) {
-      out->value = std::make_shared<ScalarType>(true);
-    } else {
-      out->value = std::make_shared<ScalarType>(false);
-    }
+    out->value = std::make_shared<BooleanScalar>(this->state.max);
   }
 };
 
