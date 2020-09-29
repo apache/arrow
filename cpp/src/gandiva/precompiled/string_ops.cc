@@ -1413,9 +1413,10 @@ const char* binary_string(gdv_int64 context, const char* text, gdv_int32 text_le
   for (int i = 0; i < text_len; i++, j++) {
     if (text[i] == '\\' && i + 3 < text_len &&
         (text[i + 1] == 'x' || text[i + 1] == 'X')) {
-      char hex_string[2];
+      char hex_string[3];
       hex_string[0] = toupper(text[i + 2]);
       hex_string[1] = toupper(text[i + 3]);
+      hex_string[2] = '\0';
       uint8_t out;
       arrow::Status st;
       st = arrow::ParseHexValue(hex_string, &out);
