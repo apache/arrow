@@ -852,7 +852,7 @@ const char* split_part(gdv_int64 context, const char* text, gdv_int32 text_len,
                        gdv_int32* out_len) {
   if (index < 1) {
     char error_message[100];
-    snprintf(error_message, 100,
+    snprintf(error_message, sizeof(error_message),
              "Index in split_part must be positive, value provided was %d", index);
     gdv_fn_context_set_error_msg(context, error_message);
     return "";
