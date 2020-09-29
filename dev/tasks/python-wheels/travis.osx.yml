@@ -22,29 +22,18 @@ addons:
   homebrew:
     packages:
       - automake
+      - bison
       - boost
-      - brotli
-      - c-ares
       - ccache
       - cmake
       - flatbuffers
+      - flex
       - git
-      - glog
-      - grpc
-      - lz4
-      - ninja
-      - numpy
       - openssl@1.1
       - protobuf
       - python@3.8
-      - rapidjson
-      - re2
-      - snappy
       - thrift
       - wget
-      - zstd
-      - bison
-      - flex
     update: true
 
 # don't build twice
