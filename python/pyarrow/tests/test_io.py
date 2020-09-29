@@ -977,6 +977,22 @@ def test_native_file_modes(tmpdir):
         assert f.seekable()
 
 
+def test_native_file_permissions(tmpdir):
+    # ARROW-10124: permissions of created files should follow umask
+    cur_umask = os.umask(0o002)
+    os.umask(cur_umask)
+
+    path = os.path.join(str(tmpdir), guid())
+    with pa.OSFile(path, mode='w'):
+        pass
+    assert os.stat(path).st_mode & 0o777 == 0o666 & ~cur_umask
+
+    path = os.path.join(str(tmpdir), guid())
+    with pa.memory_map(path, 'w'):
+        pass
+    assert os.stat(path).st_mode & 0o777 == 0o666 & ~cur_umask
+
+
 def test_native_file_raises_ValueError_after_close(tmpdir):
     path = os.path.join(str(tmpdir), guid())
     with open(path, 'wb') as f:
