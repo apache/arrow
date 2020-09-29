@@ -254,6 +254,10 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         CResult[int] GetNumRowGroups()
         CResult[vector[shared_ptr[CFragment]]] SplitByRowGroup(
             shared_ptr[CExpression] predicate)
+        CResult[shared_ptr[CFragment]] SubsetWithFilter "Subset"(
+            shared_ptr[CExpression] predicate)
+        CResult[shared_ptr[CFragment]] SubsetWithIds "Subset"(
+            vector[int] row_group_ids)
         CStatus EnsureCompleteMetadata()
 
     cdef cppclass CFileSystemDatasetWriteOptions \

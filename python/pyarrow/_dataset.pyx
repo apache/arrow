@@ -1050,6 +1050,34 @@ cdef class ParquetFileFragment(FileFragment):
 
         return [Fragment.wrap(c_fragment) for c_fragment in c_fragments]
 
+    def subset(self, Expression filter=None, Schema schema=None,
+               object row_group_ids=None):
+        """
+        """
+        cdef:
+            shared_ptr[CExpression] c_filter
+            vector[int] c_row_group_ids
+            shared_ptr[CFragment] c_fragment
+
+        if filter is not None:
+            schema = schema or self.physical_schema
+            c_filter = _insert_implicit_casts(filter, schema)
+            with nogil:
+                c_fragment = move(GetResultValue(
+                    self.parquet_file_fragment.SubsetWithFilter(
+                        move(c_filter))))
+        elif row_group_ids is not None:
+            c_row_group_ids = [
+                <int> row_group for row_group in sorted(set(row_group_ids))]
+            with nogil:
+                c_fragment = move(GetResultValue(
+                    self.parquet_file_fragment.SubsetWithIds(
+                        move(c_row_group_ids))))
+        else:
+            raise ValueError("need to specify one of filter or row group ids")
+
+        return Fragment.wrap(c_fragment)
+
 
 cdef class ParquetReadOptions(_Weakrefable):
     """
