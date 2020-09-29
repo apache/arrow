@@ -2634,11 +2634,10 @@ macro(build_awssdk)
     set(AWSSDK_BUILD_TYPE Release)
   endif()
 
-
   set(AWSSDK_CMAKE_ARGS
       -DCMAKE_BUILD_TYPE=release
       -DMINIMIZE_SIZE=on
-      -DBUILD_ONLY=s3\\$<SEMICOLON>core\\$<SEMICOLON>config\\$<SEMICOLON>identity-management\\$<SEMICOLON>sts
+      -DBUILD_ONLY=config\\$<SEMICOLON>s3\\$<SEMICOLON>transfer\\$<SEMICOLON>identity-management\\$<SEMICOLON>sts
       -DCMAKE_INSTALL_LIBDIR=lib
       -DENABLE_UNITY_BUILD=on
       -DBUILD_SHARED_LIBS=off
@@ -2651,10 +2650,11 @@ macro(build_awssdk)
   set(AWSSDK_ES_STATIC_LIB "${AWSSDK_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}aws-c-event-stream${CMAKE_STATIC_LIBRARY_SUFFIX}")
   set(AWSSDK_CORE_STATIC_LIB "${AWSSDK_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}aws-cpp-sdk-core${CMAKE_STATIC_LIBRARY_SUFFIX}")
   set(AWSSDK_S3_STATIC_LIB "${AWSSDK_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}aws-cpp-sdk-s3${CMAKE_STATIC_LIBRARY_SUFFIX}")
+  set(AWSSDK_COG_STATIC_LIB "${AWSSDK_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}aws-cpp-sdk-cognito-identity${CMAKE_STATIC_LIBRARY_SUFFIX}")
   set(AWSSDK_IAM_STATIC_LIB "${AWSSDK_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}aws-cpp-sdk-identity-management${CMAKE_STATIC_LIBRARY_SUFFIX}")
   set(AWSSDK_STS_STATIC_LIB "${AWSSDK_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}aws-cpp-sdk-sts${CMAKE_STATIC_LIBRARY_SUFFIX}")
 
-  set(AWSSDK_STATIC_LIBS "${AWSSDK_CHECKSUMS_STATIC_LIB}" "${AWSSDK_COMMON_STATIC_LIB}" "${AWSSDK_ES_STATIC_LIB}" "${AWSSDK_CORE_STATIC_LIB}" "${AWSSDK_S3_STATIC_LIB}" "${AWSSDK_IAM_STATIC_LIB}" "${AWSSDK_STS_STATIC_LIB}")
+  set(AWSSDK_STATIC_LIBS "${AWSSDK_COG_STATIC_LIB}" "${AWSSDK_CHECKSUMS_STATIC_LIB}" "${AWSSDK_COMMON_STATIC_LIB}" "${AWSSDK_ES_STATIC_LIB}" "${AWSSDK_CORE_STATIC_LIB}" "${AWSSDK_S3_STATIC_LIB}" "${AWSSDK_IAM_STATIC_LIB}" "${AWSSDK_STS_STATIC_LIB}")
 
   externalproject_add(awssdk_ep
                       ${EP_LOG_OPTIONS}
@@ -2669,31 +2669,43 @@ macro(build_awssdk)
                         PROPERTIES IMPORTED_LOCATION "${AWSSDK_CHECKSUMS_STATIC_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES
                                    "${AWSSDK_INCLUDE_DIR}")
+
   add_library(AWS::aws-c-common STATIC IMPORTED)
   set_target_properties(AWS::aws-c-common
                         PROPERTIES IMPORTED_LOCATION "${AWSSDK_COMMON_STATIC_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES
                                    "${AWSSDK_INCLUDE_DIR}")
+
   add_library(AWS::aws-c-event-stream STATIC IMPORTED)
   set_target_properties(AWS::aws-c-event-stream
                         PROPERTIES IMPORTED_LOCATION "${AWSSDK_ES_STATIC_LIB}"
                                   INTERFACE_INCLUDE_DIRECTORIES
                                   "${AWSSDK_INCLUDE_DIR}")
+
   add_library(AWS::aws-cpp-sdk-core STATIC IMPORTED)
   set_target_properties(AWS::aws-cpp-sdk-core
                         PROPERTIES IMPORTED_LOCATION "${AWSSDK_CORE_STATIC_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES
                                    "${AWSSDK_INCLUDE_DIR}")
+
   add_library(AWS::aws-cpp-sdk-s3 STATIC IMPORTED)
   set_target_properties(AWS::aws-cpp-sdk-s3
                         PROPERTIES IMPORTED_LOCATION "${AWSSDK_S3_STATIC_LIB}"
                                   INTERFACE_INCLUDE_DIRECTORIES
                                   "${AWSSDK_INCLUDE_DIR}")
+
+  add_library(AWS::aws-cpp-sdk-cognito-identity STATIC IMPORTED)
+  set_target_properties(AWS::aws-cpp-sdk-cognito-identity
+                        PROPERTIES IMPORTED_LOCATION "${AWSSDK_COG_STATIC_LIB}"
+                                  INTERFACE_INCLUDE_DIRECTORIES
+                                  "${AWSSDK_INCLUDE_DIR}")
+
   add_library(AWS::aws-cpp-sdk-identity-management STATIC IMPORTED)
   set_target_properties(AWS::aws-cpp-sdk-identity-management
                         PROPERTIES IMPORTED_LOCATION "${AWSSDK_IAM_STATIC_LIB}"
                                   INTERFACE_INCLUDE_DIRECTORIES
                                   "${AWSSDK_INCLUDE_DIR}")
+
   add_library(AWS::aws-cpp-sdk-sts STATIC IMPORTED)
   set_target_properties(AWS::aws-cpp-sdk-sts
                         PROPERTIES IMPORTED_LOCATION "${AWSSDK_STS_STATIC_LIB}"
@@ -2705,7 +2717,16 @@ macro(build_awssdk)
 
   add_dependencies(toolchain awssdk_ep)
   # list(APPEND ARROW_BUNDLED_STATIC_LIBS AWSSDK)
-  set(AWSSDK_LINK_LIBRARIES AWS::aws-cpp-sdk-sts AWS::aws-cpp-sdk-identity-management AWS::aws-cpp-sdk-s3 AWS::aws-cpp-sdk-core AWS::aws-c-event-stream AWS::aws-c-common AWS::aws-checksums ${CURL_LIBRARIES})
+  set(AWSSDK_LINK_LIBRARIES
+        AWS::aws-cpp-sdk-identity-management
+        AWS::aws-cpp-sdk-sts
+        AWS::aws-cpp-sdk-cognito-identity
+        AWS::aws-cpp-sdk-s3
+        AWS::aws-cpp-sdk-core
+        AWS::aws-c-event-stream
+        AWS::aws-checksums
+        AWS::aws-c-common
+        ${CURL_LIBRARIES})
   set(AWSSDK_VENDORED TRUE)
 
   # AWSSDK is static-only build
