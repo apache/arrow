@@ -24,6 +24,7 @@
 #include <sstream>
 #include <string>
 #include <type_traits>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -66,7 +67,7 @@ namespace ipc {
 using internal::FileBlock;
 using internal::kArrowMagicBytes;
 
-namespace internal {
+namespace {
 
 Status GetTruncatedBitmap(int64_t offset, int64_t length,
                           const std::shared_ptr<Buffer> input, MemoryPool* pool,
@@ -523,8 +524,8 @@ class RecordBatchSerializer {
 
   std::shared_ptr<KeyValueMetadata> custom_metadata_;
 
-  std::vector<FieldMetadata> field_nodes_;
-  std::vector<BufferMetadata> buffer_meta_;
+  std::vector<internal::FieldMetadata> field_nodes_;
+  std::vector<internal::BufferMetadata> buffer_meta_;
 
   const IpcWriteOptions& options_;
   int64_t max_recursion_depth_;
@@ -557,7 +558,7 @@ class DictionarySerializer : public RecordBatchSerializer {
   bool is_delta_;
 };
 
-}  // namespace internal
+}  // namespace
 
 Status WriteIpcPayload(const IpcPayload& payload, const IpcWriteOptions& options,
                        io::OutputStream* dst, int32_t* metadata_length) {
@@ -611,15 +612,14 @@ Status GetDictionaryPayload(int64_t id, bool is_delta,
                             const IpcWriteOptions& options, IpcPayload* out) {
   out->type = MessageType::DICTIONARY_BATCH;
   // Frame of reference is 0, see ARROW-384
-  internal::DictionarySerializer assembler(id, is_delta, /*buffer_start_offset=*/0,
-                                           options, out);
+  DictionarySerializer assembler(id, is_delta, /*buffer_start_offset=*/0, options, out);
   return assembler.Assemble(dictionary);
 }
 
 Status GetRecordBatchPayload(const RecordBatch& batch, const IpcWriteOptions& options,
                              IpcPayload* out) {
   out->type = MessageType::RECORD_BATCH;
-  internal::RecordBatchSerializer assembler(/*buffer_start_offset=*/0, options, out);
+  RecordBatchSerializer assembler(/*buffer_start_offset=*/0, options, out);
   return assembler.Assemble(batch);
 }
 
@@ -627,7 +627,7 @@ Status WriteRecordBatch(const RecordBatch& batch, int64_t buffer_start_offset,
                         io::OutputStream* dst, int32_t* metadata_length,
                         int64_t* body_length, const IpcWriteOptions& options) {
   IpcPayload payload;
-  internal::RecordBatchSerializer assembler(buffer_start_offset, options, &payload);
+  RecordBatchSerializer assembler(buffer_start_offset, options, &payload);
   RETURN_NOT_OK(assembler.Assemble(batch));
 
   // TODO: it's a rough edge that the metadata and body length here are
@@ -982,13 +982,7 @@ class ARROW_EXPORT IpcFormatWriter : public RecordBatchWriter {
 
     RETURN_NOT_OK(CheckStarted());
 
-    if (!wrote_dictionaries_) {
-      RETURN_NOT_OK(WriteDictionaries(batch));
-      wrote_dictionaries_ = true;
-    }
-
-    // TODO: Check for delta dictionaries. Can we scan for deltas while computing
-    // the RecordBatch payload to save time?
+    RETURN_NOT_OK(WriteDictionaries(batch));
 
     IpcPayload payload;
     RETURN_NOT_OK(GetRecordBatchPayload(batch, options_, &payload));
@@ -1020,13 +1014,30 @@ class ARROW_EXPORT IpcFormatWriter : public RecordBatchWriter {
   Status WriteDictionaries(const RecordBatch& batch) {
     ARROW_ASSIGN_OR_RAISE(const auto dictionaries, CollectDictionaries(batch, mapper_));
 
+    // TODO: Check for delta dictionaries. Can we scan for deltas while computing
+    // the RecordBatch payload to save time?
+
     for (const auto& pair : dictionaries) {
       IpcPayload payload;
       int64_t dictionary_id = pair.first;
       const auto& dictionary = pair.second;
 
+      // If a dictionary with this id was already emitted, check if it was the same.
+      // Note we don't compare dictionaries by value because it may be costly.
+      auto* last_dictionary = &last_dictionaries_[dictionary_id];
+      {
+        const auto maybe_last_dict = last_dictionary->lock();
+        if (maybe_last_dict && maybe_last_dict->data() == dictionary->data()) {
+          // Same dictionary data by pointer => no need to emit it again
+          continue;
+        }
+      }
+
       RETURN_NOT_OK(GetDictionaryPayload(dictionary_id, dictionary, options_, &payload));
       RETURN_NOT_OK(payload_writer_->WritePayload(payload));
+
+      // Remember dictionary for next batches
+      *last_dictionary = dictionary;
     }
     return Status::OK();
   }
@@ -1035,8 +1046,8 @@ class ARROW_EXPORT IpcFormatWriter : public RecordBatchWriter {
   std::shared_ptr<Schema> shared_schema_;
   const Schema& schema_;
   const DictionaryFieldMapper mapper_;
+  std::unordered_map<int64_t, std::weak_ptr<Array>> last_dictionaries_;
   bool started_ = false;
-  bool wrote_dictionaries_ = false;
   IpcWriteOptions options_;
 };
 
