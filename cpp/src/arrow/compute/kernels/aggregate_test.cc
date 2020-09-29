@@ -943,93 +943,97 @@ TEST_F(TestInt32ModeKernel, LargeValueRange) {
 }
 
 //
-// Stdev
+// Var/Std
 //
 
 template <typename ArrowType>
-class TestPrimitiveStdevKernel : public ::testing::Test {
+class TestPrimitiveVarStdKernel : public ::testing::Test {
  public:
   using Traits = TypeTraits<ArrowType>;
   using ScalarType = typename TypeTraits<DoubleType>::ScalarType;
 
-  void AssertStdevIs(const Datum& array, const StdevOptions& options, double expected,
-                     double diff = 0) {
-    ASSERT_OK_AND_ASSIGN(Datum out, Stdev(array, options));
-    auto value = checked_cast<const ScalarType*>(out.scalar().get());
-    ASSERT_TRUE(value->is_valid);
+  void AssertVarStdIs(const Datum& array, const VarStdOptions& options,
+                      double expected_var, double diff = 0) {
+    ASSERT_OK_AND_ASSIGN(Datum out_var, Var(array, options));
+    ASSERT_OK_AND_ASSIGN(Datum out_std, Std(array, options));
+    auto var = checked_cast<const ScalarType*>(out_var.scalar().get());
+    auto std = checked_cast<const ScalarType*>(out_std.scalar().get());
+    ASSERT_TRUE(var->is_valid && std->is_valid);
+    ASSERT_DOUBLE_EQ(std->value * std->value, var->value);
     if (diff == 0) {
-      ASSERT_DOUBLE_EQ(value->value, expected);  // < 4ULP
+      ASSERT_DOUBLE_EQ(var->value, expected_var);  // < 4ULP
     } else {
-      ASSERT_NEAR(value->value, expected, diff);
+      ASSERT_NEAR(var->value, expected_var, diff);
     }
   }
 
-  void AssertStdevIs(const std::string& json, const StdevOptions& options,
-                     double expected) {
+  void AssertVarStdIs(const std::string& json, const VarStdOptions& options,
+                      double expected_var) {
     auto array = ArrayFromJSON(type_singleton(), json);
-    AssertStdevIs(array, options, expected);
+    AssertVarStdIs(array, options, expected_var);
   }
 
-  void AssertStdevIs(const std::vector<std::string>& json, const StdevOptions& options,
-                     double expected) {
+  void AssertVarStdIs(const std::vector<std::string>& json, const VarStdOptions& options,
+                      double expected_var) {
     auto chunked = ChunkedArrayFromJSON(type_singleton(), json);
-    AssertStdevIs(chunked, options, expected);
+    AssertVarStdIs(chunked, options, expected_var);
   }
 
-  void AssertStdevIsInvalid(const Datum& array, const StdevOptions& options) {
-    ASSERT_OK_AND_ASSIGN(Datum out, Stdev(array, options));
-    auto value = checked_cast<const ScalarType*>(out.scalar().get());
-    ASSERT_FALSE(value->is_valid);
+  void AssertVarStdIsInvalid(const Datum& array, const VarStdOptions& options) {
+    ASSERT_OK_AND_ASSIGN(Datum out_var, Var(array, options));
+    ASSERT_OK_AND_ASSIGN(Datum out_std, Std(array, options));
+    auto var = checked_cast<const ScalarType*>(out_var.scalar().get());
+    auto std = checked_cast<const ScalarType*>(out_std.scalar().get());
+    ASSERT_FALSE(var->is_valid || std->is_valid);
   }
 
-  void AssertStdevIsInvalid(const std::string& json, const StdevOptions& options) {
+  void AssertVarStdIsInvalid(const std::string& json, const VarStdOptions& options) {
     auto array = ArrayFromJSON(type_singleton(), json);
-    AssertStdevIsInvalid(array, options);
+    AssertVarStdIsInvalid(array, options);
   }
 
   std::shared_ptr<DataType> type_singleton() { return Traits::type_singleton(); }
 };
 
 template <typename ArrowType>
-class TestNumericStdevKernel : public TestPrimitiveStdevKernel<ArrowType> {};
+class TestNumericVarStdKernel : public TestPrimitiveVarStdKernel<ArrowType> {};
 
-// Reference value from numpy.std
-TYPED_TEST_SUITE(TestNumericStdevKernel, NumericArrowTypes);
-TYPED_TEST(TestNumericStdevKernel, Basics) {
-  StdevOptions options;  // ddof = 0, population stdev
+// Reference value from numpy.var
+TYPED_TEST_SUITE(TestNumericVarStdKernel, NumericArrowTypes);
+TYPED_TEST(TestNumericVarStdKernel, Basics) {
+  VarStdOptions options;  // ddof = 0, population var/std
 
-  this->AssertStdevIs("[100]", options, 0);
-  this->AssertStdevIs("[1, 2, 3]", options, 0.816496580927726);
-  this->AssertStdevIs("[null, 1, 2, null, 3]", options, 0.816496580927726);
+  this->AssertVarStdIs("[100]", options, 0);
+  this->AssertVarStdIs("[1, 2, 3]", options, 0.6666666666666666);
+  this->AssertVarStdIs("[null, 1, 2, null, 3]", options, 0.6666666666666666);
 
-  this->AssertStdevIs({"[]", "[1]", "[2]", "[null]", "[3]"}, options, 0.816496580927726);
-  this->AssertStdevIs({"[1, 2, 3]", "[4, 5, 6]", "[7, 8]"}, options, 2.29128784747792);
+  this->AssertVarStdIs({"[]", "[1]", "[2]", "[null]", "[3]"}, options,
+                       0.6666666666666666);
+  this->AssertVarStdIs({"[1, 2, 3]", "[4, 5, 6]", "[7, 8]"}, options, 5.25);
 
-  this->AssertStdevIsInvalid("[null, null, null]", options);
-  this->AssertStdevIsInvalid("[]", options);
+  this->AssertVarStdIsInvalid("[null, null, null]", options);
+  this->AssertVarStdIsInvalid("[]", options);
 
-  options.ddof = 1;  // sample stdev
+  options.ddof = 1;  // sample var/std
 
-  this->AssertStdevIs("[1, 2]", options, 0.7071067811865476);
-  this->AssertStdevIs({"[1, 2, 3]", "[4, 5, 6]", "[7, 8]"}, options, 2.449489742783178);
+  this->AssertVarStdIs("[1, 2]", options, 0.5);
+  this->AssertVarStdIs({"[1, 2, 3]", "[4, 5, 6]", "[7, 8]"}, options, 6.0);
 
-  this->AssertStdevIsInvalid("[100]", options);
-  this->AssertStdevIsInvalid("[100, null, null]", options);
+  this->AssertVarStdIsInvalid("[100]", options);
+  this->AssertVarStdIsInvalid("[100, null, null]", options);
 }
 
-class TestStdevKernelStability : public TestPrimitiveStdevKernel<DoubleType> {};
+class TestVarStdKernelStability : public TestPrimitiveVarStdKernel<DoubleType> {};
 
 // Test numerical stability
-TEST_F(TestStdevKernelStability, Basics) {
-  StdevOptions options;
-  this->AssertStdevIs("[100000004, 100000007, 100000013, 100000016]", options,
-                      4.743416490252569);
-  this->AssertStdevIs("[1000000004, 1000000007, 1000000013, 1000000016]", options,
-                      4.743416490252569);
+TEST_F(TestVarStdKernelStability, Basics) {
+  VarStdOptions options{1};  // ddof = 1
+  this->AssertVarStdIs("[100000004, 100000007, 100000013, 100000016]", options, 30.0);
+  this->AssertVarStdIs("[1000000004, 1000000007, 1000000013, 1000000016]", options, 30.0);
 }
 
-// Calculate reference stdev with welford online algorithm
-double WelfordStdev(const Array& array) {
+// Calculate reference variance with welford online algorithm
+double WelfordVar(const Array& array) {
   const auto& array_numeric = reinterpret_cast<const DoubleArray&>(array);
   const auto values = array_numeric.raw_values();
   internal::BitmapReader reader(array.null_bitmap_data(), array.offset(), array.length());
@@ -1044,20 +1048,20 @@ double WelfordStdev(const Array& array) {
     }
     reader.Next();
   }
-  return sqrt(m2 / count);
+  return m2 / count;
 }
 
-class TestStdevKernelRandom : public TestPrimitiveStdevKernel<DoubleType> {};
+class TestVarStdKernelRandom : public TestPrimitiveVarStdKernel<DoubleType> {};
 
-TEST_F(TestStdevKernelRandom, Basics) {
+TEST_F(TestVarStdKernelRandom, Basics) {
   auto rand = random::RandomArrayGenerator(0x5487656);
-  auto array = rand.Numeric<DoubleType>(40000, -10000.0, 1000000.0, 0.1);
+  auto array = rand.Numeric<DoubleType>(40000, -10000.0, 100000.0, 0.1);
   auto chunked = *ChunkedArray::Make(
       {array->Slice(0, 1000), array->Slice(1000, 9000), array->Slice(10000, 30000)});
-  double expected = WelfordStdev(*array);
+  double expected_var = WelfordVar(*array);
 
-  StdevOptions options;
-  this->AssertStdevIs(chunked, options, expected, 0.0000001);
+  VarStdOptions options;
+  this->AssertVarStdIs(chunked, options, expected_var, 0.0001);
 }
 
 }  // namespace compute

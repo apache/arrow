@@ -25,13 +25,13 @@ namespace {
 
 // Based on https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance
 template <typename ArrowType>
-struct StdevState {
+struct VarStdState {
   using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
   using c_type = typename ArrowType::c_type;
-  using ThisType = StdevState<ArrowType>;
+  using ThisType = VarStdState<ArrowType>;
 
-  // Calculate stdev of one chunk with two pass algorithm
-  // Always use `double` to calculate stdev for any array type
+  // Calculate variance of one chunk with `two pass algorithm`
+  // Always use `double` to calculate variance for any array type
   void Consume(const ArrayType& array) {
     int64_t count = array.length() - array.null_count();
     if (count == 0) {
@@ -57,7 +57,7 @@ struct StdevState {
     this->m2 = m2;
   }
 
-  // Combine stdev from two chunks
+  // Combine variance from two chunks
   void MergeFrom(const ThisType& state) {
     if (state.count == 0) {
       return;
@@ -80,14 +80,16 @@ struct StdevState {
   double m2 = 0;  // sum((X-mean)^2)
 };
 
+enum class VarOrStd : bool { Var, Std };
+
 template <typename ArrowType>
-struct StdevImpl : public ScalarAggregator {
-  using ThisType = StdevImpl<ArrowType>;
+struct VarStdImpl : public ScalarAggregator {
+  using ThisType = VarStdImpl<ArrowType>;
   using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
 
-  explicit StdevImpl(const std::shared_ptr<DataType>& out_type,
-                     const StdevOptions& options)
-      : out_type(out_type), options(options) {}
+  explicit VarStdImpl(const std::shared_ptr<DataType>& out_type,
+                      const VarStdOptions& options, VarOrStd return_type)
+      : out_type(out_type), options(options), return_type(return_type) {}
 
   void Consume(KernelContext*, const ExecBatch& batch) override {
     ArrayType array(batch[0].array());
@@ -103,36 +105,46 @@ struct StdevImpl : public ScalarAggregator {
     if (this->state.count <= options.ddof) {
       out->value = std::make_shared<DoubleScalar>();
     } else {
-      double stdev = sqrt(this->state.m2 / (this->state.count - options.ddof));
-      out->value = std::make_shared<DoubleScalar>(stdev);
+      double var = this->state.m2 / (this->state.count - options.ddof);
+      out->value =
+          std::make_shared<DoubleScalar>(return_type == VarOrStd::Var ? var : sqrt(var));
     }
   }
 
   std::shared_ptr<DataType> out_type;
-  StdevState<ArrowType> state;
-  StdevOptions options;
+  VarStdState<ArrowType> state;
+  VarStdOptions options;
+  VarOrStd return_type;
 };
 
-struct StdevInitState {
+struct VarStdInitState {
   std::unique_ptr<KernelState> state;
   KernelContext* ctx;
   const DataType& in_type;
   const std::shared_ptr<DataType>& out_type;
-  const StdevOptions& options;
+  const VarStdOptions& options;
+  VarOrStd return_type;
 
-  StdevInitState(KernelContext* ctx, const DataType& in_type,
-                 const std::shared_ptr<DataType>& out_type, const StdevOptions& options)
-      : ctx(ctx), in_type(in_type), out_type(out_type), options(options) {}
+  VarStdInitState(KernelContext* ctx, const DataType& in_type,
+                  const std::shared_ptr<DataType>& out_type, const VarStdOptions& options,
+                  VarOrStd return_type)
+      : ctx(ctx),
+        in_type(in_type),
+        out_type(out_type),
+        options(options),
+        return_type(return_type) {}
 
-  Status Visit(const DataType&) { return Status::NotImplemented("No stdev implemented"); }
+  Status Visit(const DataType&) {
+    return Status::NotImplemented("No var/std implemented");
+  }
 
   Status Visit(const HalfFloatType&) {
-    return Status::NotImplemented("No stdev implemented");
+    return Status::NotImplemented("No var/std implemented");
   }
 
   template <typename Type>
   enable_if_t<is_number_type<Type>::value, Status> Visit(const Type&) {
-    state.reset(new StdevImpl<Type>(out_type, options));
+    state.reset(new VarStdImpl<Type>(out_type, options, return_type));
     return Status::OK();
   }
 
@@ -142,15 +154,23 @@ struct StdevInitState {
   }
 };
 
-std::unique_ptr<KernelState> StdevInit(KernelContext* ctx, const KernelInitArgs& args) {
-  StdevInitState visitor(ctx, *args.inputs[0].type,
-                         args.kernel->signature->out_type().type(),
-                         static_cast<const StdevOptions&>(*args.options));
+std::unique_ptr<KernelState> StdInit(KernelContext* ctx, const KernelInitArgs& args) {
+  VarStdInitState visitor(
+      ctx, *args.inputs[0].type, args.kernel->signature->out_type().type(),
+      static_cast<const VarStdOptions&>(*args.options), VarOrStd::Std);
   return visitor.Create();
 }
 
-void AddStdevKernels(KernelInit init, const std::vector<std::shared_ptr<DataType>>& types,
-                     ScalarAggregateFunction* func) {
+std::unique_ptr<KernelState> VarInit(KernelContext* ctx, const KernelInitArgs& args) {
+  VarStdInitState visitor(
+      ctx, *args.inputs[0].type, args.kernel->signature->out_type().type(),
+      static_cast<const VarStdOptions&>(*args.options), VarOrStd::Var);
+  return visitor.Create();
+}
+
+void AddVarStdKernels(KernelInit init,
+                      const std::vector<std::shared_ptr<DataType>>& types,
+                      ScalarAggregateFunction* func) {
   for (const auto& ty : types) {
     auto sig = KernelSignature::Make({InputType::Array(ty)}, float64());
     AddAggKernel(std::move(sig), init, func);
@@ -159,11 +179,19 @@ void AddStdevKernels(KernelInit init, const std::vector<std::shared_ptr<DataType
 
 }  // namespace
 
-std::shared_ptr<ScalarAggregateFunction> AddStdevAggKernels() {
-  static auto default_stdev_options = StdevOptions::Defaults();
-  auto func = std::make_shared<ScalarAggregateFunction>("stdev", Arity::Unary(),
-                                                        &default_stdev_options);
-  AddStdevKernels(StdevInit, internal::NumericTypes(), func.get());
+std::shared_ptr<ScalarAggregateFunction> AddStdAggKernels() {
+  static auto default_std_options = VarStdOptions::Defaults();
+  auto func = std::make_shared<ScalarAggregateFunction>("std", Arity::Unary(),
+                                                        &default_std_options);
+  AddVarStdKernels(StdInit, internal::NumericTypes(), func.get());
+  return func;
+}
+
+std::shared_ptr<ScalarAggregateFunction> AddVarAggKernels() {
+  static auto default_var_options = VarStdOptions::Defaults();
+  auto func = std::make_shared<ScalarAggregateFunction>("var", Arity::Unary(),
+                                                        &default_var_options);
+  AddVarStdKernels(VarInit, internal::NumericTypes(), func.get());
   return func;
 }
 

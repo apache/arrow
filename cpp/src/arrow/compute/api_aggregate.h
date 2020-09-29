@@ -76,14 +76,14 @@ struct ARROW_EXPORT MinMaxOptions : public FunctionOptions {
   enum Mode null_handling = SKIP;
 };
 
-/// \brief Control Delta Degrees of Freedom (ddof) of Stdev kernel
+/// \brief Control Delta Degrees of Freedom (ddof) of Var and Std kernel
 ///
 /// The divisor used in calculations is N - ddof, where N is the number of elements.
 /// By default, ddof is zero, and population standard deviation is returned.
-struct ARROW_EXPORT StdevOptions : public FunctionOptions {
-  explicit StdevOptions(int ddof = 0) : ddof(ddof) {}
+struct ARROW_EXPORT VarStdOptions : public FunctionOptions {
+  explicit VarStdOptions(int ddof = 0) : ddof(ddof) {}
 
-  static StdevOptions Defaults() { return StdevOptions{}; }
+  static VarStdOptions Defaults() { return VarStdOptions{}; }
 
   int ddof = 0;
 };
@@ -160,16 +160,30 @@ Result<Datum> Mode(const Datum& value, ExecContext* ctx = NULLPTR);
 /// \brief Calculate the standard deviation of a numeric array
 ///
 /// \param[in] value input datum, expecting Array or ChunkedArray
-/// \param[in] options see StdevOptions for more information
+/// \param[in] options see VarStdOptions for more information
 /// \param[in] ctx the function execution context, optional
-/// \return datum of the computed stdev as a DoubleScalar
+/// \return datum of the computed standard deviation as a DoubleScalar
 ///
 /// \since 2.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
-Result<Datum> Stdev(const Datum& value,
-                    const StdevOptions& options = StdevOptions::Defaults(),
-                    ExecContext* ctx = NULLPTR);
+Result<Datum> Std(const Datum& value,
+                  const VarStdOptions& options = VarStdOptions::Defaults(),
+                  ExecContext* ctx = NULLPTR);
+
+/// \brief Calculate the variance of a numeric array
+///
+/// \param[in] value input datum, expecting Array or ChunkedArray
+/// \param[in] options see VarStdOptions for more information
+/// \param[in] ctx the function execution context, optional
+/// \return datum of the computed variance as a DoubleScalar
+///
+/// \since 2.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> Var(const Datum& value,
+                  const VarStdOptions& options = VarStdOptions::Defaults(),
+                  ExecContext* ctx = NULLPTR);
 
 }  // namespace compute
 }  // namespace arrow

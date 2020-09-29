@@ -241,7 +241,8 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(func)));
 
   DCHECK_OK(registry->AddFunction(aggregate::AddModeAggKernels()));
-  DCHECK_OK(registry->AddFunction(aggregate::AddStdevAggKernels()));
+  DCHECK_OK(registry->AddFunction(aggregate::AddStdAggKernels()));
+  DCHECK_OK(registry->AddFunction(aggregate::AddVarAggKernels()));
 }
 
 }  // namespace internal
