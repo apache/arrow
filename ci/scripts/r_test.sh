@@ -36,6 +36,7 @@ if [ "$ARROW_R_DEV" = "TRUE" ]; then
   export _R_CHECK_COMPILATION_FLAGS_KNOWN_="${_R_CHECK_COMPILATION_FLAGS_KNOWN_} -Wno-attributes -msse4.2"
   # Note that NOT_CRAN=true means (among other things) that optional dependencies are built
   export NOT_CRAN=true
+  export ARROW_S3=ON
 fi
 export TEST_R_WITH_ARROW=TRUE
 export _R_CHECK_TESTS_NLINES_=0
