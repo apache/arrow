@@ -43,7 +43,8 @@ gdv_int32 bit_length_binary(const gdv_binary input, gdv_int32 length) {
 int match_string(const char* input, gdv_int32 input_len, gdv_int32 start_pos,
                  const char* delim, gdv_int32 delim_len) {
   for (int i = start_pos; i < input_len; i++) {
-    if (memcmp(input + i, delim, delim_len) == 0) {
+    int left_chars = input_len - i;
+    if ((left_chars >= delim_len) && memcmp(input + i, delim, delim_len) == 0) {
       return i + delim_len;
     }
   }
