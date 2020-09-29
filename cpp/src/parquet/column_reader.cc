@@ -235,14 +235,13 @@ class SerializedPageReader : public PageReader {
 
   void InitDecryption();
 
-  std::shared_ptr<Buffer> DecompressPage(std::shared_ptr<Buffer> page_buffer,
-                                         int compressed_len, int uncompressed_len,
-                                         int levels_byte_len = 0);
+  std::shared_ptr<Buffer> DecompressIfNeeded(std::shared_ptr<Buffer> page_buffer,
+                                             int compressed_len, int uncompressed_len,
+                                             int levels_byte_len = 0);
 
   std::shared_ptr<ArrowInputStream> stream_;
 
   format::PageHeader current_page_header_;
-  PageType::type current_page_type_;
   std::shared_ptr<Page> current_page_;
 
   // Compression codec to use.
@@ -382,9 +381,9 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
       page_buffer = decryption_buffer_;
     }
 
-    current_page_type_ = LoadEnumSafe(&current_page_header_.type);
+    const PageType::type page_type = LoadEnumSafe(&current_page_header_.type);
 
-    if (current_page_type_ == PageType::DICTIONARY_PAGE) {
+    if (page_type == PageType::DICTIONARY_PAGE) {
       crypto_ctx_.start_decrypt_with_dictionary_page = false;
       const format::DictionaryPageHeader& dict_header =
           current_page_header_.dictionary_page_header;
@@ -396,12 +395,12 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
 
       // Uncompress if needed
       page_buffer =
-          DecompressPage(std::move(page_buffer), compressed_len, uncompressed_len);
+          DecompressIfNeeded(std::move(page_buffer), compressed_len, uncompressed_len);
 
       return std::make_shared<DictionaryPage>(page_buffer, dict_header.num_values,
                                               LoadEnumSafe(&dict_header.encoding),
                                               is_sorted);
-    } else if (current_page_type_ == PageType::DATA_PAGE) {
+    } else if (page_type == PageType::DATA_PAGE) {
       ++page_ordinal_;
       const format::DataPageHeader& header = current_page_header_.data_page_header;
 
@@ -413,14 +412,14 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
 
       // Uncompress if needed
       page_buffer =
-          DecompressPage(std::move(page_buffer), compressed_len, uncompressed_len);
+          DecompressIfNeeded(std::move(page_buffer), compressed_len, uncompressed_len);
 
       return std::make_shared<DataPageV1>(page_buffer, header.num_values,
                                           LoadEnumSafe(&header.encoding),
                                           LoadEnumSafe(&header.definition_level_encoding),
                                           LoadEnumSafe(&header.repetition_level_encoding),
                                           uncompressed_len, page_statistics);
-    } else if (current_page_type_ == PageType::DATA_PAGE_V2) {
+    } else if (page_type == PageType::DATA_PAGE_V2) {
       ++page_ordinal_;
       const format::DataPageHeaderV2& header = current_page_header_.data_page_header_v2;
 
@@ -441,8 +440,8 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
                           header.repetition_levels_byte_length, &levels_byte_len)) {
         throw ParquetException("Levels size too large (corrupt file?)");
       }
-      page_buffer = DecompressPage(std::move(page_buffer), compressed_len,
-                                   uncompressed_len, levels_byte_len);
+      page_buffer = DecompressIfNeeded(std::move(page_buffer), compressed_len,
+                                       uncompressed_len, levels_byte_len);
 
       return std::make_shared<DataPageV2>(
           page_buffer, header.num_values, header.num_nulls, header.num_rows,
@@ -458,7 +457,7 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
   return std::shared_ptr<Page>(nullptr);
 }
 
-std::shared_ptr<Buffer> SerializedPageReader::DecompressPage(
+std::shared_ptr<Buffer> SerializedPageReader::DecompressIfNeeded(
     std::shared_ptr<Buffer> page_buffer, int compressed_len, int uncompressed_len,
     int levels_byte_len) {
   if (decompressor_ == nullptr) {
