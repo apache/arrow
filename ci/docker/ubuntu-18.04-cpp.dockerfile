@@ -97,8 +97,9 @@ RUN apt-get update -y -q && \
 # - libgtest-dev only provide sources
 # - libprotobuf-dev only provide sources
 # - thrift is too old
+# - s3 tests would require boost-asio
 ENV ARROW_BUILD_TESTS=ON \
-    ARROW_S3=ON \
+    ARROW_S3=OFF \
     ARROW_DEPENDENCY_SOURCE=SYSTEM \
     ARROW_DATASET=ON \
     ARROW_FLIGHT=OFF \
