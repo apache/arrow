@@ -1413,14 +1413,16 @@ const char* binary_string(gdv_int64 context, const char* text, gdv_int32 text_le
   for (int i = 0; i < text_len; i++, j++) {
     if (text[i] == '\\' && i + 3 < text_len &&
         (text[i + 1] == 'x' || text[i + 1] == 'X')) {
-      std::string hex_string;
-      hex_string.push_back(toupper(text[i + 2]));
-      hex_string.push_back(toupper(text[i + 3]));
+      char hex_string[2];
+      hex_string[0] = toupper(text[i + 2]);
+      hex_string[1] = toupper(text[i + 3]);
       uint8_t out;
       arrow::Status st;
-      st = arrow::ParseHexValue(hex_string.c_str(), &out);
+      st = arrow::ParseHexValue(hex_string, &out);
       if (!st.ok()) {
-        gdv_fn_context_set_error_msg(context, ("Unable to parse " + hex_string).c_str());
+        char error_message[100];
+        snprintf(error_message, sizeof(error_message), "Unable to parse %s", hex_string);
+        gdv_fn_context_set_error_msg(context, error_message);
         return "";
       }
       ret[j] = static_cast<char>(out);
