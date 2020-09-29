@@ -834,9 +834,6 @@ Status SchemaManifest::Make(const SchemaDescriptor* schema,
                             const std::shared_ptr<const KeyValueMetadata>& metadata,
                             const ArrowReaderProperties& properties,
                             SchemaManifest* manifest) {
-  RETURN_NOT_OK(
-      GetOriginSchema(metadata, &manifest->schema_metadata, &manifest->origin_schema));
-
   SchemaTreeContext ctx;
   ctx.manifest = manifest;
   ctx.properties = properties;
@@ -844,6 +841,16 @@ Status SchemaManifest::Make(const SchemaDescriptor* schema,
   const GroupNode& schema_node = *schema->group_node();
   manifest->descr = schema;
   manifest->schema_fields.resize(schema_node.field_count());
+
+  // Try to deserialize original Arrow schema
+  RETURN_NOT_OK(
+      GetOriginSchema(metadata, &manifest->schema_metadata, &manifest->origin_schema));
+  // Ignore original schema if it's not compatible with the Parquet schema
+  if (manifest->origin_schema != nullptr &&
+      manifest->origin_schema->num_fields() != schema_node.field_count()) {
+    manifest->origin_schema = nullptr;
+  }
+
   for (int i = 0; i < static_cast<int>(schema_node.field_count()); ++i) {
     SchemaField* out_field = &manifest->schema_fields[i];
     RETURN_NOT_OK(NodeToSchemaField(*schema_node.field(i), LevelInfo(), &ctx,
@@ -856,6 +863,7 @@ Status SchemaManifest::Make(const SchemaDescriptor* schema,
     if (manifest->origin_schema == nullptr) {
       continue;
     }
+
     auto origin_field = manifest->origin_schema->field(i);
     RETURN_NOT_OK(ApplyOriginalMetadata(*origin_field, out_field));
   }
