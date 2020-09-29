@@ -950,14 +950,14 @@ class Converter_Null : public Converter {
 };
 
 bool ArraysCanFitInteger(ArrayVector arrays) {
-  bool out = false;
+  bool all_can_fit = true;
   auto i32 = arrow::int32();
   for (const auto& array : arrays) {
-    if (!out) {
-      out = arrow::IntegersCanFit(arrow::Datum(array), *i32).ok();
+    if (all_can_fit) {
+      all_can_fit = arrow::IntegersCanFit(arrow::Datum(array), *i32).ok();
     }
   }
-  return out;
+  return all_can_fit;
 }
 
 std::shared_ptr<Converter> Converter::Make(const std::shared_ptr<DataType>& type,
