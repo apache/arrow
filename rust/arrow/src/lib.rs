@@ -18,8 +18,106 @@
 //! A native Rust implementation of [Apache Arrow](https://arrow.apache.org), a cross-language
 //! development platform for in-memory data.
 //!
-//! Currently the project is developed and tested against nightly Rust. To learn more
-//! about the status of Arrow in Rust, see `README.md`.
+//! ### DataType
+//!
+//! Every [`Array`](array::Array) in this crate has an associated [`DataType`](datatypes::DataType),
+//! that specifies how its data is layed in memory and represented.
+//! Thus, a central enum of this crate is [`DataType`](datatypes::DataType), that contains the set of valid
+//! DataTypes in the specification. For example, [`DataType::Utf8`](datatypes::DataType::Utf8).
+//!
+//! ## Array
+//!
+//! The central trait of this package is the dynamically-typed trait [`Array`](array::Array) that
+//! can be downcasted to specific implementations, such as [`UInt32Array`](array::UInt32Array).
+//!
+//! Every specific array implementation in this crate is immutable and thread safe (Sync + Send).
+//!
+//! [`Array`](array::Array) has [`len()`](array::Array::len), [`data_type()`](array::Array::data_type), and nullability of each of its entries,
+//! that can be obtained via [`is_null(index)`](array::Array::is_null). To downcast an [`Array`](array::Array) to a specific implementation, you can use
+//!
+//! ```rust
+//! use arrow::array::{Array, PrimitiveArrayOps, UInt32Array};
+//! let array = UInt32Array::from(vec![Some(1), None, Some(3)]);
+//! assert_eq!(array.len(), 3);
+//! assert_eq!(array.value(0), 1);
+//! assert_eq!(array.is_null(1), true);
+//! ```
+//!
+//! To make the array dynamically typed, we wrap it in an [`Arc`](std::sync::Arc):
+//!
+//! ```rust
+//! # use std::sync::Arc;
+//! use arrow::datatypes::DataType;
+//! use arrow::array::{UInt32Array, ArrayRef};
+//! # let array = UInt32Array::from(vec![Some(1), None, Some(3)]);
+//! let array: ArrayRef = Arc::new(array);
+//! assert_eq!(array.len(), 3);
+//! // array.value() is not available in the dynamcally-typed version
+//! assert_eq!(array.is_null(1), true);
+//! assert_eq!(array.data_type(), &DataType::UInt32);
+//! ```
+//!
+//! to downcast, use [`as_any()`](array::UInt32Array::as_any):
+//!
+//! ```rust
+//! # use std::sync::Arc;
+//! # use arrow::array::{UInt32Array, ArrayRef, PrimitiveArrayOps};
+//! # let array = UInt32Array::from(vec![Some(1), None, Some(3)]);
+//! # let array: ArrayRef = Arc::new(array);
+//! let array = array.as_any().downcast_ref::<UInt32Array>().unwrap();
+//! assert_eq!(array.value(0), 1);
+//! ```
+//!
+//! ## Memory and Buffers
+//!
+//! Data in [`Array`](array::Array) is stored in [`ArrayData`](array::data::ArrayData), that in turn
+//! is a collection of other [`ArrayData`](array::data::ArrayData) and [`Buffers`](buffer::Buffer).
+//! [`Buffers`](buffer::Buffer) is the central that array implementations use to allocate and point to memory.
+//! The [`MutableBuffer`](buffer::MutableBuffer) is the mutable counter-part of
+//! These are the lowest abstractions of this crate, and are used throughout the crate to
+//! efficiently allocate, write, read and deallocate memory.
+//!
+//! ## Field, Schema and RecordBatch
+//!
+//! [`Field`](datatypes::Field) is a struct that contains an arrays' metadata (datatype and whether its values
+//! can be null), and a name. [`Schema`](datatypes::Schema) is a vector of fields with optional metadata, and together with
+//!
+//! Finally, [`RecordBatch`](record_batch::RecordBatch) is a struct with a [`Schema`](datatypes::Schema) and a vector of
+//! [`Array`](array::Array)s, all with the same `len`. A record batch is the highest order struct that this crate currently offers.
+//!
+//! ## Compute
+//!
+//! This crate offers many operations (called kernels) to operate on `Array`s, that you can find at [compute::kernels].
+//! We have both vertial and horizontal operations, and some of them have an SIMD implementation.
+//!
+//! ## Status
+//!
+//! This crate has most of the implementation of the arrow specification. Specifically, it supports the following types:
+//!
+//! * All arrow primitive types, such as [`Int32Array`](array::UInt8Array), [`BooleanArray`](array::BooleanArray) and [`Float64Array`](array::Float64Array).
+//! * All arrow variable length types, such as [`StringArray`](array::StringArray) and [`BinaryArray`](array::BinaryArray)
+//! * All composite types such as [`StructArray`](array::StructArray) and [`ListArray`](array::ListArray)
+//!
+//! This crate also implements many common vertical operations:
+//! * all mathematical binary operators, such as [`subtract`](compute::kernels::arithmetic::subtract)
+//! * all boolean binary operators such as [`equality`](compute::kernels::comparison::eq)
+//! * [`cast`](compute::kernels::cast::cast)
+//! * [`filter`](compute::kernels::filter::filter)
+//! * [`take`](compute::kernels::take::take) and [`limit`](compute::kernels::limit::limit)
+//! * [`sort`](compute::kernels::sort::sort)
+//! * some string operators such as [`substring`](compute::kernels::substring::substring) and [`length`](compute::kernels::length::length)
+//!
+//! as well as some horizontal operations such as
+//!
+//! * [`min`](compute::kernels::aggregate::min) and [`max`](compute::kernels::aggregate::max)
+//! * [`sum`](compute::kernels::aggregate::sum)
+//!
+//! Finally, this crate implements some readers and writers to different formats:
+//! * json: [reader](json::reader::Reader)
+//! * csv: [reader](csv::reader::Reader) and [writer](csv::writer::Writer)
+//! * ipc: [reader](ipc::reader::StreamReader) and [writer](ipc::writer::FileWriter)
+//!
+//! The parquet implementation is on a [separate crate](https://crates.io/crates/parquet)
 
 #![feature(specialization)]
 #![allow(dead_code)]
