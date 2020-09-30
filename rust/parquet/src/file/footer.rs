@@ -34,12 +34,14 @@ use crate::file::{metadata::*, reader::Length, FOOTER_SIZE, PARQUET_MAGIC};
 
 use crate::schema::types::{self, SchemaDescriptor};
 
-// Layout of Parquet file
-// +---------------------------+---+-----+
-// |      Rest of file         | B |  A  |
-// +---------------------------+---+-----+
-// where A: parquet footer, B: parquet metadata.
-//
+/// Layout of Parquet file
+/// +---------------------------+-----+---+
+/// |      Rest of file         |  B  | A |
+/// +---------------------------+-----+---+
+/// where A: parquet footer, B: parquet metadata.
+///
+/// Reader can be a view to the end of the file,
+/// provided that it is long enough to contain A+B
 pub fn parse_metadata<R: Read + Seek + Length>(
   reader: &mut R,
 ) -> Result<ParquetMetaData> {

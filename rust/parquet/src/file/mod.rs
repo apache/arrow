@@ -100,8 +100,10 @@ pub mod footer;
 pub mod metadata;
 pub mod properties;
 pub mod reader;
+pub mod serialized_reader;
 pub mod statistics;
 pub mod writer;
 
 const FOOTER_SIZE: usize = 8;
 const PARQUET_MAGIC: [u8; 4] = [b'P', b'A', b'R', b'1'];
+const DEFAULT_FOOTER_SIZE: usize = 64 * 1024;
