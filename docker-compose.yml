@@ -888,6 +888,7 @@ services:
         - ${REPO}:r-${R_ORG}-${R_IMAGE}-${R_TAG}
       args:
         base: ${R_ORG}/${R_IMAGE}:${R_TAG}
+        r_dev: ${ARROW_R_DEV}
     shm_size: *shm-size
     environment:
       LIBARROW_DOWNLOAD: "false"
