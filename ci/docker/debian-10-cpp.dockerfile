@@ -49,6 +49,7 @@ RUN apt-get update -y -q && \
         libbrotli-dev \
         libbz2-dev \
         libc-ares-dev \
+        libcurl4-openssl-dev \
         libgflags-dev \
         libgmock-dev \
         libgoogle-glog-dev \
@@ -80,6 +81,7 @@ ENV ARROW_BUILD_TESTS=ON \
     ARROW_ORC=ON \
     ARROW_PARQUET=ON \
     ARROW_PLASMA=ON \
+    ARROW_S3=ON \
     ARROW_USE_CCACHE=ON \
     ARROW_WITH_BROTLI=ON \
     ARROW_WITH_BZ2=ON \
@@ -87,6 +89,7 @@ ENV ARROW_BUILD_TESTS=ON \
     ARROW_WITH_SNAPPY=ON \
     ARROW_WITH_ZLIB=ON \
     ARROW_WITH_ZSTD=ON \
+    AWSSDK_SOURCE=BUNDLED \
     cares_SOURCE=BUNDLED \
     CC=gcc \
     CXX=g++ \
