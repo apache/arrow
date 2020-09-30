@@ -70,6 +70,7 @@ RUN apt-get update -y -q && \
         libboost-system-dev \
         libbrotli-dev \
         libbz2-dev \
+        libcurl4-openssl-dev \
         libgflags-dev \
         libgoogle-glog-dev \
         liblz4-dev \
@@ -118,6 +119,7 @@ ENV ARROW_BUILD_TESTS=ON \
     ARROW_WITH_SNAPPY=ON \
     ARROW_WITH_ZLIB=ON \
     ARROW_WITH_ZSTD=ON \
+    AWSSDK_SOURCE=BUNDLED \
     GTest_SOURCE=BUNDLED \
     ORC_SOURCE=BUNDLED \
     PARQUET_BUILD_EXECUTABLES=ON \

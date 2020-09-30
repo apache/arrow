@@ -58,6 +58,7 @@ jobs:
     env:
       R: ${{ matrix.r }}
       UBUNTU: ${{ matrix.ubuntu }}
+      ARROW_S3: ON
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v2
