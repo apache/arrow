@@ -40,7 +40,7 @@ if [ "$RHUB_PLATFORM" = "linux-x86_64-fedora-clang" ]; then
 fi
 
 # Install openssl for S3 support
-if [ "$ARROW_S3" == "ON" ]; then
+if [ "$ARROW_S3" == "ON" ] || [ "$ARROW_R_DEV" == "TRUE" ]; then
   if [ "`which dnf`"]; then
     dnf install openssl-devel
   else
