@@ -710,6 +710,490 @@ const char* concatOperator_utf8_utf8(gdv_int64 context, const char* left,
 }
 
 FORCE_INLINE
+const char* concat_utf8_utf8_utf8(gdv_int64 context, const char* in1, gdv_int32 in1_len,
+                                  bool in1_validity, const char* in2, gdv_int32 in2_len,
+                                  bool in2_validity, const char* in3, gdv_int32 in3_len,
+                                  bool in3_validity, gdv_int32* out_len) {
+  if (!in1_validity) {
+    in1_len = 0;
+  }
+  if (!in2_validity) {
+    in2_len = 0;
+  }
+  if (!in3_validity) {
+    in3_len = 0;
+  }
+  return concatOperator_utf8_utf8_utf8(context, in1, in1_len, in2, in2_len, in3, in3_len,
+                                       out_len);
+}
+
+FORCE_INLINE
+const char* concatOperator_utf8_utf8_utf8(gdv_int64 context, const char* in1,
+                                          gdv_int32 in1_len, const char* in2,
+                                          gdv_int32 in2_len, const char* in3,
+                                          gdv_int32 in3_len, gdv_int32* out_len) {
+  *out_len = in1_len + in2_len + in3_len;
+  if (*out_len <= 0) {
+    *out_len = 0;
+    return "";
+  }
+  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return "";
+  }
+  memcpy(ret, in1, in1_len);
+  memcpy(ret + in1_len, in2, in2_len);
+  memcpy(ret + in1_len + in2_len, in3, in3_len);
+  return ret;
+}
+
+FORCE_INLINE
+const char* concat_utf8_utf8_utf8_utf8(gdv_int64 context, const char* in1,
+                                       gdv_int32 in1_len, bool in1_validity,
+                                       const char* in2, gdv_int32 in2_len,
+                                       bool in2_validity, const char* in3,
+                                       gdv_int32 in3_len, bool in3_validity,
+                                       const char* in4, gdv_int32 in4_len,
+                                       bool in4_validity, gdv_int32* out_len) {
+  if (!in1_validity) {
+    in1_len = 0;
+  }
+  if (!in2_validity) {
+    in2_len = 0;
+  }
+  if (!in3_validity) {
+    in3_len = 0;
+  }
+  if (!in4_validity) {
+    in4_len = 0;
+  }
+  return concatOperator_utf8_utf8_utf8_utf8(context, in1, in1_len, in2, in2_len, in3,
+                                            in3_len, in4, in4_len, out_len);
+}
+
+FORCE_INLINE
+const char* concatOperator_utf8_utf8_utf8_utf8(gdv_int64 context, const char* in1,
+                                               gdv_int32 in1_len, const char* in2,
+                                               gdv_int32 in2_len, const char* in3,
+                                               gdv_int32 in3_len, const char* in4,
+                                               gdv_int32 in4_len, gdv_int32* out_len) {
+  *out_len = in1_len + in2_len + in3_len + in4_len;
+  if (*out_len <= 0) {
+    *out_len = 0;
+    return "";
+  }
+  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return "";
+  }
+  memcpy(ret, in1, in1_len);
+  memcpy(ret + in1_len, in2, in2_len);
+  memcpy(ret + in1_len + in2_len, in3, in3_len);
+  memcpy(ret + in1_len + in2_len + in3_len, in4, in4_len);
+  return ret;
+}
+
+FORCE_INLINE
+const char* concat_utf8_utf8_utf8_utf8_utf8(
+    gdv_int64 context, const char* in1, gdv_int32 in1_len, bool in1_validity,
+    const char* in2, gdv_int32 in2_len, bool in2_validity, const char* in3,
+    gdv_int32 in3_len, bool in3_validity, const char* in4, gdv_int32 in4_len,
+    bool in4_validity, const char* in5, gdv_int32 in5_len, bool in5_validity,
+    gdv_int32* out_len) {
+  if (!in1_validity) {
+    in1_len = 0;
+  }
+  if (!in2_validity) {
+    in2_len = 0;
+  }
+  if (!in3_validity) {
+    in3_len = 0;
+  }
+  if (!in4_validity) {
+    in4_len = 0;
+  }
+  if (!in5_validity) {
+    in5_len = 0;
+  }
+  return concatOperator_utf8_utf8_utf8_utf8_utf8(context, in1, in1_len, in2, in2_len, in3,
+                                                 in3_len, in4, in4_len, in5, in5_len,
+                                                 out_len);
+}
+
+FORCE_INLINE
+const char* concatOperator_utf8_utf8_utf8_utf8_utf8(
+    gdv_int64 context, const char* in1, gdv_int32 in1_len, const char* in2,
+    gdv_int32 in2_len, const char* in3, gdv_int32 in3_len, const char* in4,
+    gdv_int32 in4_len, const char* in5, gdv_int32 in5_len, gdv_int32* out_len) {
+  *out_len = in1_len + in2_len + in3_len + in4_len + in5_len;
+  if (*out_len <= 0) {
+    *out_len = 0;
+    return "";
+  }
+  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return "";
+  }
+  memcpy(ret, in1, in1_len);
+  memcpy(ret + in1_len, in2, in2_len);
+  memcpy(ret + in1_len + in2_len, in3, in3_len);
+  memcpy(ret + in1_len + in2_len + in3_len, in4, in4_len);
+  memcpy(ret + in1_len + in2_len + in3_len + in4_len, in5, in5_len);
+  return ret;
+}
+
+FORCE_INLINE
+const char* concat_utf8_utf8_utf8_utf8_utf8_utf8(
+    gdv_int64 context, const char* in1, gdv_int32 in1_len, bool in1_validity,
+    const char* in2, gdv_int32 in2_len, bool in2_validity, const char* in3,
+    gdv_int32 in3_len, bool in3_validity, const char* in4, gdv_int32 in4_len,
+    bool in4_validity, const char* in5, gdv_int32 in5_len, bool in5_validity,
+    const char* in6, gdv_int32 in6_len, bool in6_validity, gdv_int32* out_len) {
+  if (!in1_validity) {
+    in1_len = 0;
+  }
+  if (!in2_validity) {
+    in2_len = 0;
+  }
+  if (!in3_validity) {
+    in3_len = 0;
+  }
+  if (!in4_validity) {
+    in4_len = 0;
+  }
+  if (!in5_validity) {
+    in5_len = 0;
+  }
+  if (!in6_validity) {
+    in6_len = 0;
+  }
+  return concatOperator_utf8_utf8_utf8_utf8_utf8_utf8(context, in1, in1_len, in2, in2_len,
+                                                      in3, in3_len, in4, in4_len, in5,
+                                                      in5_len, in6, in6_len, out_len);
+}
+
+FORCE_INLINE
+const char* concatOperator_utf8_utf8_utf8_utf8_utf8_utf8(
+    gdv_int64 context, const char* in1, gdv_int32 in1_len, const char* in2,
+    gdv_int32 in2_len, const char* in3, gdv_int32 in3_len, const char* in4,
+    gdv_int32 in4_len, const char* in5, gdv_int32 in5_len, const char* in6,
+    gdv_int32 in6_len, gdv_int32* out_len) {
+  *out_len = in1_len + in2_len + in3_len + in4_len + in5_len + in6_len;
+  if (*out_len <= 0) {
+    *out_len = 0;
+    return "";
+  }
+  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return "";
+  }
+  memcpy(ret, in1, in1_len);
+  memcpy(ret + in1_len, in2, in2_len);
+  memcpy(ret + in1_len + in2_len, in3, in3_len);
+  memcpy(ret + in1_len + in2_len + in3_len, in4, in4_len);
+  memcpy(ret + in1_len + in2_len + in3_len + in4_len, in5, in5_len);
+  memcpy(ret + in1_len + in2_len + in3_len + in4_len + in5_len, in6, in6_len);
+  return ret;
+}
+
+FORCE_INLINE
+const char* concat_utf8_utf8_utf8_utf8_utf8_utf8_utf8(
+    gdv_int64 context, const char* in1, gdv_int32 in1_len, bool in1_validity,
+    const char* in2, gdv_int32 in2_len, bool in2_validity, const char* in3,
+    gdv_int32 in3_len, bool in3_validity, const char* in4, gdv_int32 in4_len,
+    bool in4_validity, const char* in5, gdv_int32 in5_len, bool in5_validity,
+    const char* in6, gdv_int32 in6_len, bool in6_validity, const char* in7,
+    gdv_int32 in7_len, bool in7_validity, gdv_int32* out_len) {
+  if (!in1_validity) {
+    in1_len = 0;
+  }
+  if (!in2_validity) {
+    in2_len = 0;
+  }
+  if (!in3_validity) {
+    in3_len = 0;
+  }
+  if (!in4_validity) {
+    in4_len = 0;
+  }
+  if (!in5_validity) {
+    in5_len = 0;
+  }
+  if (!in6_validity) {
+    in6_len = 0;
+  }
+  if (!in7_validity) {
+    in7_len = 0;
+  }
+  return concatOperator_utf8_utf8_utf8_utf8_utf8_utf8_utf8(
+      context, in1, in1_len, in2, in2_len, in3, in3_len, in4, in4_len, in5, in5_len, in6,
+      in6_len, in7, in7_len, out_len);
+}
+
+FORCE_INLINE
+const char* concatOperator_utf8_utf8_utf8_utf8_utf8_utf8_utf8(
+    gdv_int64 context, const char* in1, gdv_int32 in1_len, const char* in2,
+    gdv_int32 in2_len, const char* in3, gdv_int32 in3_len, const char* in4,
+    gdv_int32 in4_len, const char* in5, gdv_int32 in5_len, const char* in6,
+    gdv_int32 in6_len, const char* in7, gdv_int32 in7_len, gdv_int32* out_len) {
+  *out_len = in1_len + in2_len + in3_len + in4_len + in5_len + in6_len + in7_len;
+  if (*out_len <= 0) {
+    *out_len = 0;
+    return "";
+  }
+  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return "";
+  }
+  memcpy(ret, in1, in1_len);
+  memcpy(ret + in1_len, in2, in2_len);
+  memcpy(ret + in1_len + in2_len, in3, in3_len);
+  memcpy(ret + in1_len + in2_len + in3_len, in4, in4_len);
+  memcpy(ret + in1_len + in2_len + in3_len + in4_len, in5, in5_len);
+  memcpy(ret + in1_len + in2_len + in3_len + in4_len + in5_len, in6, in6_len);
+  memcpy(ret + in1_len + in2_len + in3_len + in4_len + in5_len + in6_len, in7, in7_len);
+  return ret;
+}
+
+FORCE_INLINE
+const char* concat_utf8_utf8_utf8_utf8_utf8_utf8_utf8_utf8(
+    gdv_int64 context, const char* in1, gdv_int32 in1_len, bool in1_validity,
+    const char* in2, gdv_int32 in2_len, bool in2_validity, const char* in3,
+    gdv_int32 in3_len, bool in3_validity, const char* in4, gdv_int32 in4_len,
+    bool in4_validity, const char* in5, gdv_int32 in5_len, bool in5_validity,
+    const char* in6, gdv_int32 in6_len, bool in6_validity, const char* in7,
+    gdv_int32 in7_len, bool in7_validity, const char* in8, gdv_int32 in8_len,
+    bool in8_validity, gdv_int32* out_len) {
+  if (!in1_validity) {
+    in1_len = 0;
+  }
+  if (!in2_validity) {
+    in2_len = 0;
+  }
+  if (!in3_validity) {
+    in3_len = 0;
+  }
+  if (!in4_validity) {
+    in4_len = 0;
+  }
+  if (!in5_validity) {
+    in5_len = 0;
+  }
+  if (!in6_validity) {
+    in6_len = 0;
+  }
+  if (!in7_validity) {
+    in7_len = 0;
+  }
+  if (!in8_validity) {
+    in8_len = 0;
+  }
+  return concatOperator_utf8_utf8_utf8_utf8_utf8_utf8_utf8_utf8(
+      context, in1, in1_len, in2, in2_len, in3, in3_len, in4, in4_len, in5, in5_len, in6,
+      in6_len, in7, in7_len, in8, in8_len, out_len);
+}
+
+FORCE_INLINE
+const char* concatOperator_utf8_utf8_utf8_utf8_utf8_utf8_utf8_utf8(
+    gdv_int64 context, const char* in1, gdv_int32 in1_len, const char* in2,
+    gdv_int32 in2_len, const char* in3, gdv_int32 in3_len, const char* in4,
+    gdv_int32 in4_len, const char* in5, gdv_int32 in5_len, const char* in6,
+    gdv_int32 in6_len, const char* in7, gdv_int32 in7_len, const char* in8,
+    gdv_int32 in8_len, gdv_int32* out_len) {
+  *out_len =
+      in1_len + in2_len + in3_len + in4_len + in5_len + in6_len + in7_len + in8_len;
+  if (*out_len <= 0) {
+    *out_len = 0;
+    return "";
+  }
+  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return "";
+  }
+  memcpy(ret, in1, in1_len);
+  memcpy(ret + in1_len, in2, in2_len);
+  memcpy(ret + in1_len + in2_len, in3, in3_len);
+  memcpy(ret + in1_len + in2_len + in3_len, in4, in4_len);
+  memcpy(ret + in1_len + in2_len + in3_len + in4_len, in5, in5_len);
+  memcpy(ret + in1_len + in2_len + in3_len + in4_len + in5_len, in6, in6_len);
+  memcpy(ret + in1_len + in2_len + in3_len + in4_len + in5_len + in6_len, in7, in7_len);
+  memcpy(ret + in1_len + in2_len + in3_len + in4_len + in5_len + in6_len + in7_len, in8,
+         in8_len);
+  return ret;
+}
+
+FORCE_INLINE
+const char* concat_utf8_utf8_utf8_utf8_utf8_utf8_utf8_utf8_utf8(
+    gdv_int64 context, const char* in1, gdv_int32 in1_len, bool in1_validity,
+    const char* in2, gdv_int32 in2_len, bool in2_validity, const char* in3,
+    gdv_int32 in3_len, bool in3_validity, const char* in4, gdv_int32 in4_len,
+    bool in4_validity, const char* in5, gdv_int32 in5_len, bool in5_validity,
+    const char* in6, gdv_int32 in6_len, bool in6_validity, const char* in7,
+    gdv_int32 in7_len, bool in7_validity, const char* in8, gdv_int32 in8_len,
+    bool in8_validity, const char* in9, gdv_int32 in9_len, bool in9_validity,
+    gdv_int32* out_len) {
+  if (!in1_validity) {
+    in1_len = 0;
+  }
+  if (!in2_validity) {
+    in2_len = 0;
+  }
+  if (!in3_validity) {
+    in3_len = 0;
+  }
+  if (!in4_validity) {
+    in4_len = 0;
+  }
+  if (!in5_validity) {
+    in5_len = 0;
+  }
+  if (!in6_validity) {
+    in6_len = 0;
+  }
+  if (!in7_validity) {
+    in7_len = 0;
+  }
+  if (!in8_validity) {
+    in8_len = 0;
+  }
+  if (!in9_validity) {
+    in9_len = 0;
+  }
+  return concatOperator_utf8_utf8_utf8_utf8_utf8_utf8_utf8_utf8_utf8(
+      context, in1, in1_len, in2, in2_len, in3, in3_len, in4, in4_len, in5, in5_len, in6,
+      in6_len, in7, in7_len, in8, in8_len, in9, in9_len, out_len);
+}
+
+FORCE_INLINE
+const char* concatOperator_utf8_utf8_utf8_utf8_utf8_utf8_utf8_utf8_utf8(
+    gdv_int64 context, const char* in1, gdv_int32 in1_len, const char* in2,
+    gdv_int32 in2_len, const char* in3, gdv_int32 in3_len, const char* in4,
+    gdv_int32 in4_len, const char* in5, gdv_int32 in5_len, const char* in6,
+    gdv_int32 in6_len, const char* in7, gdv_int32 in7_len, const char* in8,
+    gdv_int32 in8_len, const char* in9, gdv_int32 in9_len, gdv_int32* out_len) {
+  *out_len = in1_len + in2_len + in3_len + in4_len + in5_len + in6_len + in7_len +
+             in8_len + in9_len;
+  if (*out_len <= 0) {
+    *out_len = 0;
+    return "";
+  }
+  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return "";
+  }
+  memcpy(ret, in1, in1_len);
+  memcpy(ret + in1_len, in2, in2_len);
+  memcpy(ret + in1_len + in2_len, in3, in3_len);
+  memcpy(ret + in1_len + in2_len + in3_len, in4, in4_len);
+  memcpy(ret + in1_len + in2_len + in3_len + in4_len, in5, in5_len);
+  memcpy(ret + in1_len + in2_len + in3_len + in4_len + in5_len, in6, in6_len);
+  memcpy(ret + in1_len + in2_len + in3_len + in4_len + in5_len + in6_len, in7, in7_len);
+  memcpy(ret + in1_len + in2_len + in3_len + in4_len + in5_len + in6_len + in7_len, in8,
+         in8_len);
+  memcpy(
+      ret + in1_len + in2_len + in3_len + in4_len + in5_len + in6_len + in7_len + in8_len,
+      in9, in9_len);
+  return ret;
+}
+
+FORCE_INLINE
+const char* concat_utf8_utf8_utf8_utf8_utf8_utf8_utf8_utf8_utf8_utf8(
+    gdv_int64 context, const char* in1, gdv_int32 in1_len, bool in1_validity,
+    const char* in2, gdv_int32 in2_len, bool in2_validity, const char* in3,
+    gdv_int32 in3_len, bool in3_validity, const char* in4, gdv_int32 in4_len,
+    bool in4_validity, const char* in5, gdv_int32 in5_len, bool in5_validity,
+    const char* in6, gdv_int32 in6_len, bool in6_validity, const char* in7,
+    gdv_int32 in7_len, bool in7_validity, const char* in8, gdv_int32 in8_len,
+    bool in8_validity, const char* in9, gdv_int32 in9_len, bool in9_validity,
+    const char* in10, gdv_int32 in10_len, bool in10_validity, gdv_int32* out_len) {
+  if (!in1_validity) {
+    in1_len = 0;
+  }
+  if (!in2_validity) {
+    in2_len = 0;
+  }
+  if (!in3_validity) {
+    in3_len = 0;
+  }
+  if (!in4_validity) {
+    in4_len = 0;
+  }
+  if (!in5_validity) {
+    in5_len = 0;
+  }
+  if (!in6_validity) {
+    in6_len = 0;
+  }
+  if (!in7_validity) {
+    in7_len = 0;
+  }
+  if (!in8_validity) {
+    in8_len = 0;
+  }
+  if (!in9_validity) {
+    in9_len = 0;
+  }
+  if (!in10_validity) {
+    in10_len = 0;
+  }
+  return concatOperator_utf8_utf8_utf8_utf8_utf8_utf8_utf8_utf8_utf8_utf8(
+      context, in1, in1_len, in2, in2_len, in3, in3_len, in4, in4_len, in5, in5_len, in6,
+      in6_len, in7, in7_len, in8, in8_len, in9, in9_len, in10, in10_len, out_len);
+}
+
+FORCE_INLINE
+const char* concatOperator_utf8_utf8_utf8_utf8_utf8_utf8_utf8_utf8_utf8_utf8(
+    gdv_int64 context, const char* in1, gdv_int32 in1_len, const char* in2,
+    gdv_int32 in2_len, const char* in3, gdv_int32 in3_len, const char* in4,
+    gdv_int32 in4_len, const char* in5, gdv_int32 in5_len, const char* in6,
+    gdv_int32 in6_len, const char* in7, gdv_int32 in7_len, const char* in8,
+    gdv_int32 in8_len, const char* in9, gdv_int32 in9_len, const char* in10,
+    gdv_int32 in10_len, gdv_int32* out_len) {
+  *out_len = in1_len + in2_len + in3_len + in4_len + in5_len + in6_len + in7_len +
+             in8_len + in9_len + in10_len;
+  if (*out_len <= 0) {
+    *out_len = 0;
+    return "";
+  }
+  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return "";
+  }
+  memcpy(ret, in1, in1_len);
+  memcpy(ret + in1_len, in2, in2_len);
+  memcpy(ret + in1_len + in2_len, in3, in3_len);
+  memcpy(ret + in1_len + in2_len + in3_len, in4, in4_len);
+  memcpy(ret + in1_len + in2_len + in3_len + in4_len, in5, in5_len);
+  memcpy(ret + in1_len + in2_len + in3_len + in4_len + in5_len, in6, in6_len);
+  memcpy(ret + in1_len + in2_len + in3_len + in4_len + in5_len + in6_len, in7, in7_len);
+  memcpy(ret + in1_len + in2_len + in3_len + in4_len + in5_len + in6_len + in7_len, in8,
+         in8_len);
+  memcpy(
+      ret + in1_len + in2_len + in3_len + in4_len + in5_len + in6_len + in7_len + in8_len,
+      in9, in9_len);
+  memcpy(ret + in1_len + in2_len + in3_len + in4_len + in5_len + in6_len + in7_len +
+             in8_len + in9_len,
+         in10, in10_len);
+  return ret;
+}
+
+FORCE_INLINE
 const char* convert_fromUTF8_binary(gdv_int64 context, const char* bin_in, gdv_int32 len,
                                     gdv_int32* out_len) {
   *out_len = len;
