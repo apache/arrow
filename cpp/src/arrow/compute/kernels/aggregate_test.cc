@@ -963,7 +963,7 @@ class TestPrimitiveVarStdKernel : public ::testing::Test {
     AssertVarStdIsInternal(array, options, expected_var, diff);
   }
 
-  void AssertVarStdIs(const char* json, const VarStdOptions& options,
+  void AssertVarStdIs(const std::string& json, const VarStdOptions& options,
                       double expected_var) {
     auto array = ArrayFromJSON(type_singleton(), json);
     AssertVarStdIs(*array, options, expected_var);
@@ -984,7 +984,7 @@ class TestPrimitiveVarStdKernel : public ::testing::Test {
     AssertVarStdIsInvalidInternal(array, options);
   }
 
-  void AssertVarStdIsInvalid(const char* json, const VarStdOptions& options) {
+  void AssertVarStdIsInvalid(const std::string& json, const VarStdOptions& options) {
     auto array = ArrayFromJSON(type_singleton(), json);
     AssertVarStdIsInvalid(*array, options);
   }
@@ -1033,10 +1033,14 @@ TYPED_TEST(TestNumericVarStdKernel, Basics) {
   this->AssertVarStdIs("[100]", options, 0);
   this->AssertVarStdIs("[1, 2, 3]", options, 0.6666666666666666);
   this->AssertVarStdIs("[null, 1, 2, null, 3]", options, 0.6666666666666666);
-  this->AssertVarStdIs({"[]", "[1]", "[2]", "[null]", "[3]"}, options,
-                       0.6666666666666666);
-  this->AssertVarStdIs({"[1, 2, 3]", "[4, 5, 6]", "[7, 8]"}, options, 5.25);
-  this->AssertVarStdIs({"[1, 2, 3, 4, 5, 6, 7]", "[8]"}, options, 5.25);
+
+  std::vector<std::string> chunks;
+  chunks = {"[]", "[1]", "[2]", "[null]", "[3]"};
+  this->AssertVarStdIs(chunks, options, 0.6666666666666666);
+  chunks = {"[1, 2, 3]", "[4, 5, 6]", "[7, 8]"};
+  this->AssertVarStdIs(chunks, options, 5.25);
+  chunks = {"[1, 2, 3, 4, 5, 6, 7]", "[8]"};
+  this->AssertVarStdIs(chunks, options, 5.25);
 
   this->AssertVarStdIsInvalid("[null, null, null]", options);
   this->AssertVarStdIsInvalid("[]", options);
@@ -1045,13 +1049,18 @@ TYPED_TEST(TestNumericVarStdKernel, Basics) {
   options.ddof = 1;  // sample variance/stddev
 
   this->AssertVarStdIs("[1, 2]", options, 0.5);
-  this->AssertVarStdIs({"[1]", "[2]"}, options, 0.5);
-  this->AssertVarStdIs({"[1, 2, 3]", "[4, 5, 6]", "[7, 8]"}, options, 6.0);
-  this->AssertVarStdIs({"[1, 2, 3, 4, 5, 6, 7]", "[8]"}, options, 6.0);
+
+  chunks = {"[1]", "[2]"};
+  this->AssertVarStdIs(chunks, options, 0.5);
+  chunks = {"[1, 2, 3]", "[4, 5, 6]", "[7, 8]"};
+  this->AssertVarStdIs(chunks, options, 6.0);
+  chunks = {"[1, 2, 3, 4, 5, 6, 7]", "[8]"};
+  this->AssertVarStdIs(chunks, options, 6.0);
 
   this->AssertVarStdIsInvalid("[100]", options);
   this->AssertVarStdIsInvalid("[100, null, null]", options);
-  this->AssertVarStdIsInvalid({"[100]", "[null]", "[]"}, options);
+  chunks = {"[100]", "[null]", "[]"};
+  this->AssertVarStdIsInvalid(chunks, options);
 }
 
 class TestVarStdKernelStability : public TestPrimitiveVarStdKernel<DoubleType> {};
