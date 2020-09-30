@@ -691,6 +691,7 @@ mod tests {
         let d = c.as_ref().as_any().downcast_ref::<StringArray>().unwrap();
         assert_eq!(2, d.len());
         assert_eq!("hello", d.value(0));
+        assert_eq!(false, d.is_null(0));
         assert_eq!(true, d.is_null(1));
     }
 
@@ -703,6 +704,7 @@ mod tests {
         let d = c.as_ref().as_any().downcast_ref::<BinaryArray>().unwrap();
         assert_eq!(2, d.len());
         assert_eq!(b"hello", d.value(0));
+        assert_eq!(false, d.is_null(0));
         assert_eq!(true, d.is_null(1));
     }
 
