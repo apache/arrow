@@ -263,6 +263,13 @@ def register_torch_serialization_handlers(serialization_context):
     # ----------------------------------------------------------------------
     # Set up serialization for pytorch tensors
 
+    warnings.warn(
+        "'pyarrow.register_torch_serialization_handlers' is deprecated and "
+        "will be removed in a future version. Use pickle or the pyarrow IPC "
+        "functionality instead.",
+        DeprecationWarning, stacklevel=2
+    )
+
     try:
         import torch
 
@@ -433,7 +440,7 @@ def _register_pydata_sparse_handlers(serialization_context):
         pass
 
 
-def register_default_serialization_handlers(serialization_context):
+def _register_default_serialization_handlers(serialization_context):
 
     # ----------------------------------------------------------------------
     # Set up serialization for primitive datatypes
@@ -481,6 +488,16 @@ def register_default_serialization_handlers(serialization_context):
     _register_custom_pandas_handlers(serialization_context)
     _register_scipy_handlers(serialization_context)
     _register_pydata_sparse_handlers(serialization_context)
+
+
+def register_default_serialization_handlers(serialization_context):
+    warnings.warn(
+        "'pyarrow.register_default_serialization_handlers' is deprecated and "
+        "will be removed in a future version. Use pickle or the pyarrow IPC "
+        "functionality instead.",
+        DeprecationWarning, stacklevel=2
+    )
+    _register_default_serialization_handlers(serialization_context)
 
 
 def default_serialization_context():

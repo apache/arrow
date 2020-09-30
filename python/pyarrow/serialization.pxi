@@ -45,7 +45,6 @@ class DeserializationCallbackError(ArrowSerializationError):
         self.type_id = type_id
 
 
-# TODO deprecate accessing this class top-level
 cdef class SerializationContext(_Weakrefable):
     cdef:
         object type_to_type_id
@@ -227,9 +226,10 @@ _default_context_initialized = False
 
 def _get_default_context():
     global _default_context_initialized
-    from pyarrow.serialization import register_default_serialization_handlers
+    from pyarrow.serialization import _register_default_serialization_handlers
     if not _default_context_initialized:
-        register_default_serialization_handlers(_default_serialization_context)
+        _register_default_serialization_handlers(
+            _default_serialization_context)
         _default_context_initialized = True
     return _default_serialization_context
 
