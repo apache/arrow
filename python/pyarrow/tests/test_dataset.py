@@ -2055,6 +2055,11 @@ def test_parquet_dataset_lazy_filtering(tempdir, open_logging_fs):
     with assert_opens([]):
         fragments[0].split_by_row_group(ds.field("f1") > 15)
 
+    # ensuring metadata of splitted fragment should also not open any file
+    with assert_opens([]):
+        rg_fragments = fragments[0].split_by_row_group()
+        rg_fragments[0].ensure_complete_metadata()
+
     # FIXME(bkietz) on Windows this results in FileNotFoundErrors.
     # but actually scanning does open files
     # with assert_opens([f.path for f in fragments]):

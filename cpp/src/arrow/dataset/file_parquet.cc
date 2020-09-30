@@ -567,9 +567,9 @@ Result<FragmentVector> ParquetFileFragment::SplitByRowGroup(
   FragmentVector fragments(row_groups.size());
   auto fragment = fragments.begin();
   for (auto&& row_group : row_groups) {
-    ARROW_ASSIGN_OR_RAISE(*fragment++,
-                          parquet_format_.MakeFragment(source_, partition_expression(),
-                                                       {std::move(row_group)}));
+    ARROW_ASSIGN_OR_RAISE(*fragment++, parquet_format_.MakeFragment(
+                                           source_, partition_expression(),
+                                           {std::move(row_group)}, physical_schema_));
   }
 
   return fragments;
