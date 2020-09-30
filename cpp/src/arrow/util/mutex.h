@@ -35,7 +35,7 @@ class ARROW_EXPORT Mutex {
   Mutex& operator=(Mutex&&) = default;
 
   /// A Guard is falsy if a lock could not be acquired.
-  class Guard {
+  class ARROW_EXPORT Guard {
    public:
     Guard() : locked_(NULLPTR, [](Mutex* mutex) {}) {}
     Guard(Guard&&) = default;

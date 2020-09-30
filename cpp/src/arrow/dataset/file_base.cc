@@ -260,10 +260,14 @@ Status FileSystemDataset::Write(std::shared_ptr<Schema> schema,
   ScanTaskVector scan_tasks;
   std::vector<const Fragment*> fragment_for_task;
 
+  // Avoid contention with multithreaded readers
+  auto context = std::make_shared<ScanContext>(*scanner->context());
+  context->use_threads = false;
+
   for (const auto& fragment : fragments) {
-    ARROW_ASSIGN_OR_RAISE(
-        auto scan_task_it,
-        Scanner(fragment, scanner->options(), scanner->context()).Scan());
+    auto options = std::make_shared<ScanOptions>(*scanner->options());
+    ARROW_ASSIGN_OR_RAISE(auto scan_task_it,
+                          Scanner(fragment, std::move(options), context).Scan());
     for (auto maybe_scan_task : scan_task_it) {
       ARROW_ASSIGN_OR_RAISE(auto scan_task, maybe_scan_task);
       scan_tasks.push_back(std::move(scan_task));
