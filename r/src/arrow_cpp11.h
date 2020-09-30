@@ -22,7 +22,7 @@
 #include <vector>
 #undef Free
 
-#include "nameof.h"
+#include "./nameof.h"
 
 namespace cpp11 {
 
