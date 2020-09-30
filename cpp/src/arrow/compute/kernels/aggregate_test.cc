@@ -952,45 +952,45 @@ class TestPrimitiveVarStdKernel : public ::testing::Test {
   using Traits = TypeTraits<ArrowType>;
   using ScalarType = typename TypeTraits<DoubleType>::ScalarType;
 
-  void AssertVarStdIs(const Array& array, const VarStdOptions& options,
+  void AssertVarStdIs(const Array& array, const VarianceOptions& options,
                       double expected_var, double diff = 0) {
     AssertVarStdIsInternal(array, options, expected_var, diff);
   }
 
   void AssertVarStdIs(const std::shared_ptr<ChunkedArray>& array,
-                      const VarStdOptions& options, double expected_var,
+                      const VarianceOptions& options, double expected_var,
                       double diff = 0) {
     AssertVarStdIsInternal(array, options, expected_var, diff);
   }
 
-  void AssertVarStdIs(const std::string& json, const VarStdOptions& options,
+  void AssertVarStdIs(const std::string& json, const VarianceOptions& options,
                       double expected_var) {
     auto array = ArrayFromJSON(type_singleton(), json);
     AssertVarStdIs(*array, options, expected_var);
   }
 
-  void AssertVarStdIs(const std::vector<std::string>& json, const VarStdOptions& options,
-                      double expected_var) {
+  void AssertVarStdIs(const std::vector<std::string>& json,
+                      const VarianceOptions& options, double expected_var) {
     auto chunked = ChunkedArrayFromJSON(type_singleton(), json);
     AssertVarStdIs(chunked, options, expected_var);
   }
 
-  void AssertVarStdIsInvalid(const Array& array, const VarStdOptions& options) {
+  void AssertVarStdIsInvalid(const Array& array, const VarianceOptions& options) {
     AssertVarStdIsInvalidInternal(array, options);
   }
 
   void AssertVarStdIsInvalid(const std::shared_ptr<ChunkedArray>& array,
-                             const VarStdOptions& options) {
+                             const VarianceOptions& options) {
     AssertVarStdIsInvalidInternal(array, options);
   }
 
-  void AssertVarStdIsInvalid(const std::string& json, const VarStdOptions& options) {
+  void AssertVarStdIsInvalid(const std::string& json, const VarianceOptions& options) {
     auto array = ArrayFromJSON(type_singleton(), json);
     AssertVarStdIsInvalid(*array, options);
   }
 
   void AssertVarStdIsInvalid(const std::vector<std::string>& json,
-                             const VarStdOptions& options) {
+                             const VarianceOptions& options) {
     auto array = ChunkedArrayFromJSON(type_singleton(), json);
     AssertVarStdIsInvalid(array, options);
   }
@@ -998,7 +998,7 @@ class TestPrimitiveVarStdKernel : public ::testing::Test {
   std::shared_ptr<DataType> type_singleton() { return Traits::type_singleton(); }
 
  private:
-  void AssertVarStdIsInternal(const Datum& array, const VarStdOptions& options,
+  void AssertVarStdIsInternal(const Datum& array, const VarianceOptions& options,
                               double expected_var, double diff = 0) {
     ASSERT_OK_AND_ASSIGN(Datum out_var, Variance(array, options));
     ASSERT_OK_AND_ASSIGN(Datum out_std, Stddev(array, options));
@@ -1013,7 +1013,7 @@ class TestPrimitiveVarStdKernel : public ::testing::Test {
     }
   }
 
-  void AssertVarStdIsInvalidInternal(const Datum& array, const VarStdOptions& options) {
+  void AssertVarStdIsInvalidInternal(const Datum& array, const VarianceOptions& options) {
     ASSERT_OK_AND_ASSIGN(Datum out_var, Variance(array, options));
     ASSERT_OK_AND_ASSIGN(Datum out_std, Stddev(array, options));
     auto var = checked_cast<const ScalarType*>(out_var.scalar().get());
@@ -1028,7 +1028,7 @@ class TestNumericVarStdKernel : public TestPrimitiveVarStdKernel<ArrowType> {};
 // Reference value from numpy.var
 TYPED_TEST_SUITE(TestNumericVarStdKernel, NumericArrowTypes);
 TYPED_TEST(TestNumericVarStdKernel, Basics) {
-  VarStdOptions options;  // ddof = 0, population variance/stddev
+  VarianceOptions options;  // ddof = 0, population variance/stddev
 
   this->AssertVarStdIs("[100]", options, 0);
   this->AssertVarStdIs("[1, 2, 3]", options, 0.6666666666666666);
@@ -1067,7 +1067,7 @@ class TestVarStdKernelStability : public TestPrimitiveVarStdKernel<DoubleType> {
 
 // Test numerical stability
 TEST_F(TestVarStdKernelStability, Basics) {
-  VarStdOptions options{1};  // ddof = 1
+  VarianceOptions options{1};  // ddof = 1
   this->AssertVarStdIs("[100000004, 100000007, 100000013, 100000016]", options, 30.0);
   this->AssertVarStdIs("[1000000004, 1000000007, 1000000013, 1000000016]", options, 30.0);
 }
@@ -1116,8 +1116,8 @@ TEST_F(TestVarStdKernelRandom, Basics) {
   double var_population, var_sample;
   std::tie(var_population, var_sample) = WelfordVar(*(array->Slice(0, total_size)));
 
-  this->AssertVarStdIs(chunked, VarStdOptions{0}, var_population, 0.0001);
-  this->AssertVarStdIs(chunked, VarStdOptions{1}, var_sample, 0.0001);
+  this->AssertVarStdIs(chunked, VarianceOptions{0}, var_population, 0.0001);
+  this->AssertVarStdIs(chunked, VarianceOptions{1}, var_sample, 0.0001);
 }
 
 }  // namespace compute

@@ -89,7 +89,7 @@ struct VarStdImpl : public ScalarAggregator {
   using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
 
   explicit VarStdImpl(const std::shared_ptr<DataType>& out_type,
-                      const VarStdOptions& options, VarOrStd return_type)
+                      const VarianceOptions& options, VarOrStd return_type)
       : out_type(out_type), options(options), return_type(return_type) {}
 
   void Consume(KernelContext*, const ExecBatch& batch) override {
@@ -114,7 +114,7 @@ struct VarStdImpl : public ScalarAggregator {
 
   std::shared_ptr<DataType> out_type;
   VarStdState<ArrowType> state;
-  VarStdOptions options;
+  VarianceOptions options;
   VarOrStd return_type;
 };
 
@@ -123,12 +123,12 @@ struct VarStdInitState {
   KernelContext* ctx;
   const DataType& in_type;
   const std::shared_ptr<DataType>& out_type;
-  const VarStdOptions& options;
+  const VarianceOptions& options;
   VarOrStd return_type;
 
   VarStdInitState(KernelContext* ctx, const DataType& in_type,
-                  const std::shared_ptr<DataType>& out_type, const VarStdOptions& options,
-                  VarOrStd return_type)
+                  const std::shared_ptr<DataType>& out_type,
+                  const VarianceOptions& options, VarOrStd return_type)
       : ctx(ctx),
         in_type(in_type),
         out_type(out_type),
@@ -158,7 +158,7 @@ struct VarStdInitState {
 std::unique_ptr<KernelState> StddevInit(KernelContext* ctx, const KernelInitArgs& args) {
   VarStdInitState visitor(
       ctx, *args.inputs[0].type, args.kernel->signature->out_type().type(),
-      static_cast<const VarStdOptions&>(*args.options), VarOrStd::Std);
+      static_cast<const VarianceOptions&>(*args.options), VarOrStd::Std);
   return visitor.Create();
 }
 
@@ -166,7 +166,7 @@ std::unique_ptr<KernelState> VarianceInit(KernelContext* ctx,
                                           const KernelInitArgs& args) {
   VarStdInitState visitor(
       ctx, *args.inputs[0].type, args.kernel->signature->out_type().type(),
-      static_cast<const VarStdOptions&>(*args.options), VarOrStd::Var);
+      static_cast<const VarianceOptions&>(*args.options), VarOrStd::Var);
   return visitor.Create();
 }
 
@@ -182,7 +182,7 @@ void AddVarStdKernels(KernelInit init,
 }  // namespace
 
 std::shared_ptr<ScalarAggregateFunction> AddStddevAggKernels() {
-  static auto default_std_options = VarStdOptions::Defaults();
+  static auto default_std_options = VarianceOptions::Defaults();
   auto func = std::make_shared<ScalarAggregateFunction>("stddev", Arity::Unary(),
                                                         &default_std_options);
   AddVarStdKernels(StddevInit, internal::NumericTypes(), func.get());
@@ -190,7 +190,7 @@ std::shared_ptr<ScalarAggregateFunction> AddStddevAggKernels() {
 }
 
 std::shared_ptr<ScalarAggregateFunction> AddVarianceAggKernels() {
-  static auto default_var_options = VarStdOptions::Defaults();
+  static auto default_var_options = VarianceOptions::Defaults();
   auto func = std::make_shared<ScalarAggregateFunction>("variance", Arity::Unary(),
                                                         &default_var_options);
   AddVarStdKernels(VarianceInit, internal::NumericTypes(), func.get());

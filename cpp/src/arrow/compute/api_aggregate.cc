@@ -45,11 +45,12 @@ Result<Datum> Mode(const Datum& value, ExecContext* ctx) {
   return CallFunction("mode", {value}, ctx);
 }
 
-Result<Datum> Stddev(const Datum& value, const VarStdOptions& options, ExecContext* ctx) {
+Result<Datum> Stddev(const Datum& value, const VarianceOptions& options,
+                     ExecContext* ctx) {
   return CallFunction("stddev", {value}, &options, ctx);
 }
 
-Result<Datum> Variance(const Datum& value, const VarStdOptions& options,
+Result<Datum> Variance(const Datum& value, const VarianceOptions& options,
                        ExecContext* ctx) {
   return CallFunction("variance", {value}, &options, ctx);
 }

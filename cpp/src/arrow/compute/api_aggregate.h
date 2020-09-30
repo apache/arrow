@@ -80,10 +80,10 @@ struct ARROW_EXPORT MinMaxOptions : public FunctionOptions {
 ///
 /// The divisor used in calculations is N - ddof, where N is the number of elements.
 /// By default, ddof is zero, and population variance or stddev is returned.
-struct ARROW_EXPORT VarStdOptions : public FunctionOptions {
-  explicit VarStdOptions(int ddof = 0) : ddof(ddof) {}
+struct ARROW_EXPORT VarianceOptions : public FunctionOptions {
+  explicit VarianceOptions(int ddof = 0) : ddof(ddof) {}
 
-  static VarStdOptions Defaults() { return VarStdOptions{}; }
+  static VarianceOptions Defaults() { return VarianceOptions{}; }
 
   int ddof = 0;
 };
@@ -160,7 +160,7 @@ Result<Datum> Mode(const Datum& value, ExecContext* ctx = NULLPTR);
 /// \brief Calculate the standard deviation of a numeric array
 ///
 /// \param[in] value input datum, expecting Array or ChunkedArray
-/// \param[in] options see VarStdOptions for more information
+/// \param[in] options see VarianceOptions for more information
 /// \param[in] ctx the function execution context, optional
 /// \return datum of the computed standard deviation as a DoubleScalar
 ///
@@ -168,13 +168,13 @@ Result<Datum> Mode(const Datum& value, ExecContext* ctx = NULLPTR);
 /// \note API not yet finalized
 ARROW_EXPORT
 Result<Datum> Stddev(const Datum& value,
-                     const VarStdOptions& options = VarStdOptions::Defaults(),
+                     const VarianceOptions& options = VarianceOptions::Defaults(),
                      ExecContext* ctx = NULLPTR);
 
 /// \brief Calculate the variance of a numeric array
 ///
 /// \param[in] value input datum, expecting Array or ChunkedArray
-/// \param[in] options see VarStdOptions for more information
+/// \param[in] options see VarianceOptions for more information
 /// \param[in] ctx the function execution context, optional
 /// \return datum of the computed variance as a DoubleScalar
 ///
@@ -182,7 +182,7 @@ Result<Datum> Stddev(const Datum& value,
 /// \note API not yet finalized
 ARROW_EXPORT
 Result<Datum> Variance(const Datum& value,
-                       const VarStdOptions& options = VarStdOptions::Defaults(),
+                       const VarianceOptions& options = VarianceOptions::Defaults(),
                        ExecContext* ctx = NULLPTR);
 
 }  // namespace compute
