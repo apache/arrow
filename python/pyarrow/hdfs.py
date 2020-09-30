@@ -19,6 +19,7 @@
 import os
 import posixpath
 import sys
+import warnings
 
 from pyarrow.util import implements
 from pyarrow.filesystem import FileSystem
@@ -34,6 +35,10 @@ class HadoopFileSystem(lib.HadoopFileSystem, FileSystem):
 
     def __init__(self, host="default", port=0, user=None, kerb_ticket=None,
                  driver='libhdfs', extra_conf=None):
+        warnings.warn(
+            "pyarrow.hdfs.HadoopFileSystem is deprecated as of 2.0.0, "
+            "please use pyarrow.fs.HadoopFileSystem instead",
+            DeprecationWarning, stacklevel=2)
         if driver == 'libhdfs':
             _maybe_set_hadoop_classpath()
 
@@ -205,7 +210,9 @@ def connect(host="default", port=0, user=None, kerb_ticket=None,
     -------
     filesystem : HadoopFileSystem
     """
-    fs = HadoopFileSystem(host=host, port=port, user=user,
-                          kerb_ticket=kerb_ticket,
-                          extra_conf=extra_conf)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        fs = HadoopFileSystem(host=host, port=port, user=user,
+                              kerb_ticket=kerb_ticket,
+                              extra_conf=extra_conf)
     return fs

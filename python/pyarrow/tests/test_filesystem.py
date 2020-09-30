@@ -44,6 +44,9 @@ def test_filesystem_deprecated_toplevel():
     with pytest.warns(DeprecationWarning):
         pa.LocalFileSystem
 
+    with pytest.warns(DeprecationWarning):
+        pa.HadoopFileSystem
+
 
 def test_resolve_uri():
     uri = "file:///home/user/myfile.parquet"

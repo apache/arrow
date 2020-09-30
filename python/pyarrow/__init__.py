@@ -191,7 +191,6 @@ from pyarrow.lib import (deserialize_from, deserialize,
                          SerializationCallbackError,
                          DeserializationCallbackError)
 
-from pyarrow.hdfs import HadoopFileSystem
 import pyarrow.hdfs as hdfs
 
 from pyarrow.ipc import serialize_pandas, deserialize_pandas
@@ -207,6 +206,7 @@ import pyarrow.types as types
 # deprecated filesystems
 
 from pyarrow.filesystem import FileSystem as _FileSystem, LocalFileSystem as _LocalFileSystem
+from pyarrow.hdfs import HadoopFileSystem as _HadoopFileSystem
 
 _localfs = _LocalFileSystem._get_instance()
 
@@ -228,6 +228,10 @@ if _sys.version_info >= (3, 7):
             _warnings.warn(_msg.format("LocalFileSystem", "LocalFileSystem"),
                            DeprecationWarning, stacklevel=2)
             return _LocalFileSystem
+        elif name == "HadoopFileSystem":
+            _warnings.warn(_msg.format("HadoopFileSystem", "HadoopFileSystem"),
+                           DeprecationWarning, stacklevel=2)
+            return _HadoopFileSystem
 
         raise AttributeError(
             "module 'pyarrow' has no attribute '{0}'".format(name)
@@ -236,6 +240,7 @@ else:
     localfs = _localfs
     FileSystem = _FileSystem
     LocalFileSystem = _LocalFileSystem
+    HadoopFileSystem = _HadoopFileSystem
 
 
 # Entry point for starting the plasma store
