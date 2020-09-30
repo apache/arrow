@@ -1179,8 +1179,8 @@ struct TreeEvaluator::Impl {
                                 Result<Datum> kernel(const Datum& left,
                                                      const Datum& right,
                                                      ExecContext* ctx)) const {
-    ARROW_ASSIGN_OR_RAISE(auto lhs, Evaluate(*expr.left_operand()));
-    ARROW_ASSIGN_OR_RAISE(auto rhs, Evaluate(*expr.right_operand()));
+    ARROW_ASSIGN_OR_RAISE(Datum lhs, Evaluate(*expr.left_operand()));
+    ARROW_ASSIGN_OR_RAISE(Datum rhs, Evaluate(*expr.right_operand()));
 
     if (lhs.is_scalar()) {
       ARROW_ASSIGN_OR_RAISE(
@@ -1200,7 +1200,7 @@ struct TreeEvaluator::Impl {
   }
 
   Result<Datum> operator()(const NotExpression& expr) const {
-    ARROW_ASSIGN_OR_RAISE(auto to_invert, Evaluate(*expr.operand()));
+    ARROW_ASSIGN_OR_RAISE(Datum to_invert, Evaluate(*expr.operand()));
     if (IsNullDatum(to_invert)) {
       return NullDatum();
     }
@@ -1214,7 +1214,7 @@ struct TreeEvaluator::Impl {
   }
 
   Result<Datum> operator()(const InExpression& expr) const {
-    ARROW_ASSIGN_OR_RAISE(auto operand_values, Evaluate(*expr.operand()));
+    ARROW_ASSIGN_OR_RAISE(Datum operand_values, Evaluate(*expr.operand()));
     if (IsNullDatum(operand_values)) {
       return Datum(expr.set()->null_count() != 0);
     }
@@ -1224,7 +1224,7 @@ struct TreeEvaluator::Impl {
   }
 
   Result<Datum> operator()(const IsValidExpression& expr) const {
-    ARROW_ASSIGN_OR_RAISE(auto operand_values, Evaluate(*expr.operand()));
+    ARROW_ASSIGN_OR_RAISE(Datum operand_values, Evaluate(*expr.operand()));
     if (IsNullDatum(operand_values)) {
       return Datum(false);
     }
@@ -1255,14 +1255,42 @@ struct TreeEvaluator::Impl {
   }
 
   Result<Datum> operator()(const ComparisonExpression& expr) const {
-    ARROW_ASSIGN_OR_RAISE(auto lhs, Evaluate(*expr.left_operand()));
-    ARROW_ASSIGN_OR_RAISE(auto rhs, Evaluate(*expr.right_operand()));
+    ARROW_ASSIGN_OR_RAISE(Datum lhs, Evaluate(*expr.left_operand()));
+    ARROW_ASSIGN_OR_RAISE(Datum rhs, Evaluate(*expr.right_operand()));
 
     if (IsNullDatum(lhs) || IsNullDatum(rhs)) {
       return Datum(std::make_shared<BooleanScalar>());
     }
 
-    DCHECK(lhs.is_array());
+    if (lhs.type()->id() == Type::DICTIONARY && rhs.type()->id() == Type::DICTIONARY) {
+      if (lhs.is_array() && rhs.is_array()) {
+        // decode dictionary arrays
+        for (Datum* arg : {&lhs, &rhs}) {
+          auto dict = checked_pointer_cast<DictionaryArray>(arg->make_array());
+          ARROW_ASSIGN_OR_RAISE(*arg, compute::Take(dict->dictionary(), dict->indices(),
+                                                    compute::TakeOptions::Defaults()));
+        }
+      } else if (lhs.is_array() || rhs.is_array()) {
+        auto dict = checked_pointer_cast<DictionaryArray>(
+            (lhs.is_array() ? lhs : rhs).make_array());
+
+        ARROW_ASSIGN_OR_RAISE(auto scalar, checked_cast<const DictionaryScalar&>(
+                                               *(lhs.is_scalar() ? lhs : rhs).scalar())
+                                               .GetEncodedValue());
+        if (lhs.is_array()) {
+          lhs = dict->dictionary();
+          rhs = std::move(scalar);
+        } else {
+          lhs = std::move(scalar);
+          rhs = dict->dictionary();
+        }
+        ARROW_ASSIGN_OR_RAISE(
+            Datum out_dict,
+            compute::Compare(lhs, rhs, compute::CompareOptions(expr.op()), &ctx_));
+
+        return compute::Take(out_dict, dict->indices(), compute::TakeOptions::Defaults());
+      }
+    }
 
     return compute::Compare(lhs, rhs, compute::CompareOptions(expr.op()), &ctx_);
   }
