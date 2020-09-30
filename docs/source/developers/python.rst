@@ -34,6 +34,11 @@ We follow a similar PEP8-like coding style to the `pandas project
 
 .. code-block:: shell
 
+   pip install -e arrow/dev/archery
+   pip install -r arrow/dev/archery/requirements-lint.txt
+
+.. code-block:: shell
+
    archery lint --python
 
 Some of the issues can be automatically fixed by passing the ``--fix`` option:

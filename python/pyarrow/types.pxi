@@ -697,6 +697,10 @@ cdef class ExtensionType(BaseExtensionType):
         else:
             return NotImplemented
 
+    def __repr__(self):
+        fmt = '{0.__class__.__name__}({1})'
+        return fmt.format(self, repr(self.storage_type))
+
     def __arrow_ext_serialize__(self):
         """
         Serialized representation of metadata to reconstruct the type object.
