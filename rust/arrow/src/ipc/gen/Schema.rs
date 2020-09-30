@@ -1097,11 +1097,11 @@ pub enum MapOffset {}
 /// not enforced.
 ///
 /// Map
-/// 
+///
 ///   - `child[0] entries: Struct`
 ///     - `child[0] key: K`
 ///     - `child[1] value: V`
-/// 
+///
 /// Neither the "entries" field nor the "key" field may be nullable.
 ///
 /// The metadata is structured so that Arrow systems without special handling
