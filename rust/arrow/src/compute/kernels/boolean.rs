@@ -22,14 +22,17 @@
 //! `RUSTFLAGS="-C target-feature=+avx2"` for example.  See the documentation
 //! [here](https://doc.rust-lang.org/stable/core/arch/) for more information.
 
+use std::ops::{BitAnd, Not};
 use std::sync::Arc;
 
-use crate::array::{Array, ArrayData, BooleanArray};
+use crate::array::{
+    Array, ArrayData, ArrayRef, BooleanArray, PrimitiveArray, PrimitiveArrayOps,
+};
 use crate::buffer::{
     buffer_bin_and, buffer_bin_or, buffer_unary_not, Buffer, MutableBuffer,
 };
 use crate::compute::util::combine_option_bitmap;
-use crate::datatypes::DataType;
+use crate::datatypes::{ArrowNumericType, DataType};
 use crate::error::{ArrowError, Result};
 use crate::util::bit_util::ceil;
 
@@ -221,6 +224,64 @@ pub fn is_not_null(input: &Array) -> Result<BooleanArray> {
         ArrayData::new(DataType::Boolean, len, None, None, 0, vec![output], vec![]);
 
     Ok(BooleanArray::from(Arc::new(data)))
+}
+
+/// Copies original array, setting null bit to true if a secondary comparison boolean array is set to true.
+/// Typically used to implement NULLIF.
+pub fn nullif<T>(
+    left: &PrimitiveArray<T>,
+    right: &BooleanArray,
+) -> Result<PrimitiveArray<T>>
+where
+    T: ArrowNumericType,
+{
+    if left.len() != right.len() {
+        return Err(ArrowError::ComputeError(
+            "Cannot perform comparison operation on arrays of different length"
+                .to_string(),
+        ));
+    }
+    let left_data = left.data();
+
+    // If left has no bitmap, create a new one with all values set for nullity op later
+    // left=0 (null)   right=null       output bitmap=null
+    // left=0          right=1          output bitmap=null
+    // left=1 (set)    right=null       output bitmap=set   (passthrough)
+    // left=1          right=1 & comp=true    output bitmap=null
+    // left=1          right=1 & comp=false   output bitmap=set
+    //
+    // Thus: result = left null bitmap & (!right_values | !right_bitmap)
+    //              OR left null bitmap & !(right_values & right_bitmap)
+    //
+    // Do the right expression !(right_values & right_bitmap) first since there are two steps
+    // TRICK: convert BooleanArray buffer as a bitmap for faster operation
+    let right_combo_buffer = match right.data().null_bitmap() {
+        Some(right_bitmap) => {
+            (&right.values() & &right_bitmap.bits).ok().map(|b| b.not())
+        }
+        None => Some(!&right.values()),
+    };
+
+    // AND of original left null bitmap with right expression
+    let modified_null_buffer = match left_data.null_bitmap() {
+        Some(left_null_bitmap) => match right_combo_buffer {
+            Some(rcb) => Some(left_null_bitmap.bits.bitand(&rcb)?),
+            None => Some(left_null_bitmap.bits.clone()),
+        },
+        None => right_combo_buffer,
+    };
+
+    // Construct new array with same values but modified null bitmap
+    let data = ArrayData::new(
+        T::get_data_type(),
+        left.len(),
+        Some(left.len()),
+        modified_null_buffer,
+        left.offset(),
+        left_data.buffers().to_vec(),
+        left_data.child_data().to_vec(),
+    );
+    Ok(PrimitiveArray::<T>::from(Arc::new(data)))
 }
 
 #[cfg(test)]
@@ -584,5 +645,21 @@ mod tests {
 
         assert_eq!(expected, res);
         assert_eq!(&None, res.data_ref().null_bitmap());
+    }
+
+    #[test]
+    fn test_nullif_int_array() {
+        let a = Int32Array::from(vec![Some(15), None, Some(8), Some(1), Some(9)]);
+        let comp =
+            BooleanArray::from(vec![Some(false), None, Some(true), Some(false), None]);
+        let res = nullif(&a, &comp).unwrap();
+
+        assert_eq!(15, res.value(0));
+        assert_eq!(true, res.is_null(1));
+        assert_eq!(true, res.is_null(2)); // comp true, slot 2 turned into null
+        assert_eq!(1, res.value(3));
+        // Even though comp array / right is null, should still pass through original value
+        assert_eq!(9, res.value(4));
+        assert_eq!(false, res.is_null(4)); // comp true, slot 2 turned into null
     }
 }
