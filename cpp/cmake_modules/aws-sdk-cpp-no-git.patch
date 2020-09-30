@@ -1,0 +1,134 @@
+diff --git a/third-party/CMakeLists.txt b/third-party/CMakeLists.txt
+index b4cf1be292..f7db42ec1c 100644
+--- a/third-party/CMakeLists.txt
++++ b/third-party/CMakeLists.txt
+@@ -14,16 +14,16 @@ set(AWS_DEPS_INSTALL_DIR "${CMAKE_INSTALL_PREFIX}" CACHE PATH "Dependencies inst
+ set(AWS_DEPS_BUILD_DIR "${CMAKE_BINARY_DIR}/build" CACHE PATH "Dependencies build directory.")
+ set(AWS_DEPS_DOWNLOAD_DIR "${AWS_DEPS_BUILD_DIR}/downloads" CACHE PATH "Dependencies download directory.")
+ 
+-set(AWS_C_COMMON_URL "https://github.com/awslabs/aws-c-common.git")
++set(AWS_C_COMMON_URL "https://github.com/awslabs/aws-c-common")
+ set(AWS_C_COMMON_TAG "v0.4.42")
+ include(BuildAwsCCommon)
+ 
+-set(AWS_CHECKSUMS_URL "https://github.com/awslabs/aws-checksums.git")
++set(AWS_CHECKSUMS_URL "https://github.com/awslabs/aws-checksums")
+ set(AWS_CHECKSUMS_TAG "v0.1.5")
+ include(BuildAwsChecksums)
+ 
+-set(AWS_EVENT_STREAM_URL "https://github.com/awslabs/aws-c-event-stream.git")
++set(AWS_EVENT_STREAM_URL "https://github.com/awslabs/aws-c-event-stream")
+ set(AWS_EVENT_STREAM_TAG "v0.1.5")
+ include(BuildAwsEventStream)
+ 
+-add_dependencies(AwsCEventStream AwsCCommon AwsChecksums)
+\ No newline at end of file
++add_dependencies(AwsCEventStream AwsCCommon AwsChecksums)
+diff --git a/third-party/cmake/BuildAwsCCommon.cmake b/third-party/cmake/BuildAwsCCommon.cmake
+index 17296429d9..ec94cb20a0 100644
+--- a/third-party/cmake/BuildAwsCCommon.cmake
++++ b/third-party/cmake/BuildAwsCCommon.cmake
+@@ -1,8 +1,7 @@
+ if(TARGET_ARCH STREQUAL "ANDROID")
+     ExternalProject_Add(AwsCCommon
+         PREFIX ${AWS_DEPS_BUILD_DIR}
+-        GIT_REPOSITORY ${AWS_C_COMMON_URL}
+-        GIT_TAG ${AWS_C_COMMON_TAG}
++        URL "${AWS_C_COMMON_URL}/archive/${AWS_C_COMMON_TAG}.tar.gz"
+         BUILD_IN_SOURCE 0
+         UPDATE_COMMAND ""
+         CMAKE_ARGS
+@@ -21,8 +20,7 @@ elseif(TARGET_ARCH STREQUAL "APPLE" AND DEFINED CMAKE_OSX_ARCHITECTURES AND NOT
+     message("Cross compiling aws-c-common for architecture ${CMAKE_OSX_ARCHITECTURES}")
+     ExternalProject_Add(AwsCCommon
+         PREFIX ${AWS_DEPS_BUILD_DIR}
+-        GIT_REPOSITORY ${AWS_C_COMMON_URL}
+-        GIT_TAG ${AWS_C_COMMON_TAG}
++        URL "${AWS_C_COMMON_URL}/archive/${AWS_C_COMMON_TAG}.tar.gz"
+         BUILD_IN_SOURCE 0
+         UPDATE_COMMAND ""
+         CMAKE_ARGS
+@@ -38,8 +36,7 @@ elseif(TARGET_ARCH STREQUAL "APPLE" AND DEFINED CMAKE_OSX_ARCHITECTURES AND NOT
+ else()
+     ExternalProject_Add(AwsCCommon
+         PREFIX ${AWS_DEPS_BUILD_DIR}
+-        GIT_REPOSITORY ${AWS_C_COMMON_URL}
+-        GIT_TAG ${AWS_C_COMMON_TAG}
++        URL "${AWS_C_COMMON_URL}/archive/${AWS_C_COMMON_TAG}.tar.gz"
+         BUILD_IN_SOURCE 0
+         UPDATE_COMMAND ""
+         CMAKE_ARGS
+diff --git a/third-party/cmake/BuildAwsChecksums.cmake b/third-party/cmake/BuildAwsChecksums.cmake
+index a3b7d305c9..c45e0398df 100644
+--- a/third-party/cmake/BuildAwsChecksums.cmake
++++ b/third-party/cmake/BuildAwsChecksums.cmake
+@@ -1,8 +1,7 @@
+ if(TARGET_ARCH STREQUAL "ANDROID")
+     ExternalProject_Add(AwsChecksums
+         PREFIX ${AWS_DEPS_BUILD_DIR}
+-        GIT_REPOSITORY ${AWS_CHECKSUMS_URL}
+-        GIT_TAG ${AWS_CHECKSUMS_TAG}
++        URL "${AWS_CHECKSUMS_URL}/archive/${AWS_CHECKSUMS_TAG}.tar.gz"
+         BUILD_IN_SOURCE 0
+         UPDATE_COMMAND ""
+         CMAKE_ARGS
+@@ -20,8 +19,7 @@ elseif(TARGET_ARCH STREQUAL "APPLE" AND DEFINED CMAKE_OSX_ARCHITECTURES AND NOT
+     message("Cross compiling aws-checksums for architecture ${CMAKE_OSX_ARCHITECTURES}")
+     ExternalProject_Add(AwsChecksums
+         PREFIX ${AWS_DEPS_BUILD_DIR}
+-        GIT_REPOSITORY ${AWS_CHECKSUMS_URL}
+-        GIT_TAG ${AWS_CHECKSUMS_TAG}
++        URL "${AWS_CHECKSUMS_URL}/archive/${AWS_CHECKSUMS_TAG}.tar.gz"
+         BUILD_IN_SOURCE 0
+         UPDATE_COMMAND ""
+         CMAKE_ARGS
+@@ -37,8 +35,7 @@ elseif(TARGET_ARCH STREQUAL "APPLE" AND DEFINED CMAKE_OSX_ARCHITECTURES AND NOT
+ else()
+     ExternalProject_Add(AwsChecksums
+         PREFIX ${AWS_DEPS_BUILD_DIR}
+-        GIT_REPOSITORY ${AWS_CHECKSUMS_URL}
+-        GIT_TAG ${AWS_CHECKSUMS_TAG}
++        URL "${AWS_CHECKSUMS_URL}/archive/${AWS_CHECKSUMS_TAG}.tar.gz"
+         BUILD_IN_SOURCE 0
+         UPDATE_COMMAND ""
+         CMAKE_ARGS
+@@ -50,5 +47,3 @@ else()
+         -DCMAKE_RUNTIME_OUTPUT_DIRECTORY=${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
+         )
+ endif()
+-
+-
+diff --git a/third-party/cmake/BuildAwsEventStream.cmake b/third-party/cmake/BuildAwsEventStream.cmake
+index 3a244b23de..4da4261693 100644
+--- a/third-party/cmake/BuildAwsEventStream.cmake
++++ b/third-party/cmake/BuildAwsEventStream.cmake
+@@ -4,8 +4,7 @@ set(DEPS_RPATH "$ORIGIN")
+ if(TARGET_ARCH STREQUAL "ANDROID")
+     ExternalProject_Add(AwsCEventStream
+         PREFIX ${AWS_DEPS_BUILD_DIR}
+-        GIT_REPOSITORY ${AWS_EVENT_STREAM_URL}
+-        GIT_TAG ${AWS_EVENT_STREAM_TAG}
++        URL "${AWS_EVENT_STREAM_URL}/archive/${AWS_EVENT_STREAM_TAG}.tar.gz"
+         BUILD_IN_SOURCE 0
+         UPDATE_COMMAND ""
+         CMAKE_ARGS
+@@ -26,8 +25,7 @@ elseif(TARGET_ARCH STREQUAL "APPLE" AND DEFINED CMAKE_OSX_ARCHITECTURES AND NOT
+     message("Cross compiling aws-c-event-stream for architecture ${CMAKE_OSX_ARCHITECTURES}")
+     ExternalProject_Add(AwsCEventStream
+         PREFIX ${AWS_DEPS_BUILD_DIR}
+-        GIT_REPOSITORY ${AWS_EVENT_STREAM_URL}
+-        GIT_TAG ${AWS_EVENT_STREAM_TAG}
++        URL "${AWS_EVENT_STREAM_URL}/archive/${AWS_EVENT_STREAM_TAG}.tar.gz"
+         BUILD_IN_SOURCE 0
+         UPDATE_COMMAND ""
+         CMAKE_ARGS
+@@ -45,8 +43,7 @@ elseif(TARGET_ARCH STREQUAL "APPLE" AND DEFINED CMAKE_OSX_ARCHITECTURES AND NOT
+ else()
+     ExternalProject_Add(AwsCEventStream
+         PREFIX ${AWS_DEPS_BUILD_DIR}
+-        GIT_REPOSITORY ${AWS_EVENT_STREAM_URL}
+-        GIT_TAG ${AWS_EVENT_STREAM_TAG}
++        URL "${AWS_EVENT_STREAM_URL}/archive/${AWS_EVENT_STREAM_TAG}.tar.gz"
+         BUILD_IN_SOURCE 0
+         UPDATE_COMMAND ""
+         CMAKE_ARGS
