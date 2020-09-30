@@ -1282,9 +1282,10 @@ impl<OffsetSize: OffsetSizeTrait> GenericBinaryArray<OffsetSize> {
                     bit_util::set_bit(null_slice, i);
                     length_so_far =
                         length_so_far + OffsetSize::from_usize(s.len()).unwrap();
-                    offsets.push(length_so_far);
                     values.extend_from_slice(s);
                 }
+                // always add an element in offsets
+                offsets.push(length_so_far);
             }
         }
 
@@ -3551,6 +3552,40 @@ mod tests {
             assert_eq!(binary_array1.value_offset(i), binary_array2.value_offset(i));
             assert_eq!(binary_array1.value_length(i), binary_array2.value_length(i));
         }
+    }
+
+    #[test]
+    fn test_binary_array_from_opt_vec() {
+        let values: Vec<Option<&[u8]>> =
+            vec![Some(b"one"), Some(b"two"), None, Some(b""), Some(b"three")];
+        let array = BinaryArray::from_opt_vec(values, DataType::Binary);
+        assert_eq!(array.len(), 5);
+        assert_eq!(array.value(0), b"one");
+        assert_eq!(array.value(1), b"two");
+        assert_eq!(array.value(3), b"");
+        assert_eq!(array.value(4), b"three");
+        assert_eq!(array.is_null(0), false);
+        assert_eq!(array.is_null(1), false);
+        assert_eq!(array.is_null(2), true);
+        assert_eq!(array.is_null(3), false);
+        assert_eq!(array.is_null(4), false);
+    }
+
+    #[test]
+    fn test_large_binary_array_from_opt_vec() {
+        let values: Vec<Option<&[u8]>> =
+            vec![Some(b"one"), Some(b"two"), None, Some(b""), Some(b"three")];
+        let array = LargeBinaryArray::from_opt_vec(values, DataType::LargeBinary);
+        assert_eq!(array.len(), 5);
+        assert_eq!(array.value(0), b"one");
+        assert_eq!(array.value(1), b"two");
+        assert_eq!(array.value(3), b"");
+        assert_eq!(array.value(4), b"three");
+        assert_eq!(array.is_null(0), false);
+        assert_eq!(array.is_null(1), false);
+        assert_eq!(array.is_null(2), true);
+        assert_eq!(array.is_null(3), false);
+        assert_eq!(array.is_null(4), false);
     }
 
     #[test]
