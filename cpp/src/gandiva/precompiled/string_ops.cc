@@ -1424,6 +1424,7 @@ const char* binary_string(gdv_int64 context, const char* text, gdv_int32 text_le
         char error_message[100];
         snprintf(error_message, sizeof(error_message), "Unable to parse %s", hex_string);
         gdv_fn_context_set_error_msg(context, error_message);
+        *out_len = 0;
         return "";
       }
       ret[j] = static_cast<char>(out);
