@@ -23,14 +23,14 @@ namespace aggregate {
 
 namespace {
 
-// Based on https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance
 template <typename ArrowType>
 struct VarStdState {
   using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
   using c_type = typename ArrowType::c_type;
   using ThisType = VarStdState<ArrowType>;
 
-  // Calculate variance of one chunk with `two pass algorithm`
+  // Calculate `m2` (sum((X-mean)^2)) of one chunk with `two pass algorithm`
+  // https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Two-pass_algorithm
   // Always use `double` to calculate variance for any array type
   void Consume(const ArrayType& array) {
     int64_t count = array.length() - array.null_count();
@@ -57,7 +57,8 @@ struct VarStdState {
     this->m2 = m2;
   }
 
-  // Combine variance from two chunks
+  // Combine `m2` from two chunks
+  // https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Parallel_algorithm
   void MergeFrom(const ThisType& state) {
     if (state.count == 0) {
       return;
@@ -135,11 +136,11 @@ struct VarStdInitState {
         return_type(return_type) {}
 
   Status Visit(const DataType&) {
-    return Status::NotImplemented("No var/std implemented");
+    return Status::NotImplemented("No variance/stddev implemented");
   }
 
   Status Visit(const HalfFloatType&) {
-    return Status::NotImplemented("No var/std implemented");
+    return Status::NotImplemented("No variance/stddev implemented");
   }
 
   template <typename Type>
@@ -154,14 +155,15 @@ struct VarStdInitState {
   }
 };
 
-std::unique_ptr<KernelState> StdInit(KernelContext* ctx, const KernelInitArgs& args) {
+std::unique_ptr<KernelState> StddevInit(KernelContext* ctx, const KernelInitArgs& args) {
   VarStdInitState visitor(
       ctx, *args.inputs[0].type, args.kernel->signature->out_type().type(),
       static_cast<const VarStdOptions&>(*args.options), VarOrStd::Std);
   return visitor.Create();
 }
 
-std::unique_ptr<KernelState> VarInit(KernelContext* ctx, const KernelInitArgs& args) {
+std::unique_ptr<KernelState> VarianceInit(KernelContext* ctx,
+                                          const KernelInitArgs& args) {
   VarStdInitState visitor(
       ctx, *args.inputs[0].type, args.kernel->signature->out_type().type(),
       static_cast<const VarStdOptions&>(*args.options), VarOrStd::Var);
@@ -179,19 +181,19 @@ void AddVarStdKernels(KernelInit init,
 
 }  // namespace
 
-std::shared_ptr<ScalarAggregateFunction> AddStdAggKernels() {
+std::shared_ptr<ScalarAggregateFunction> AddStddevAggKernels() {
   static auto default_std_options = VarStdOptions::Defaults();
-  auto func = std::make_shared<ScalarAggregateFunction>("std", Arity::Unary(),
+  auto func = std::make_shared<ScalarAggregateFunction>("stddev", Arity::Unary(),
                                                         &default_std_options);
-  AddVarStdKernels(StdInit, internal::NumericTypes(), func.get());
+  AddVarStdKernels(StddevInit, internal::NumericTypes(), func.get());
   return func;
 }
 
-std::shared_ptr<ScalarAggregateFunction> AddVarAggKernels() {
+std::shared_ptr<ScalarAggregateFunction> AddVarianceAggKernels() {
   static auto default_var_options = VarStdOptions::Defaults();
-  auto func = std::make_shared<ScalarAggregateFunction>("var", Arity::Unary(),
+  auto func = std::make_shared<ScalarAggregateFunction>("variance", Arity::Unary(),
                                                         &default_var_options);
-  AddVarStdKernels(VarInit, internal::NumericTypes(), func.get());
+  AddVarStdKernels(VarianceInit, internal::NumericTypes(), func.get());
   return func;
 }
 

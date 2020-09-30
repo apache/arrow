@@ -45,12 +45,13 @@ Result<Datum> Mode(const Datum& value, ExecContext* ctx) {
   return CallFunction("mode", {value}, ctx);
 }
 
-Result<Datum> Std(const Datum& value, const VarStdOptions& options, ExecContext* ctx) {
-  return CallFunction("std", {value}, &options, ctx);
+Result<Datum> Stddev(const Datum& value, const VarStdOptions& options, ExecContext* ctx) {
+  return CallFunction("stddev", {value}, &options, ctx);
 }
 
-Result<Datum> Var(const Datum& value, const VarStdOptions& options, ExecContext* ctx) {
-  return CallFunction("var", {value}, &options, ctx);
+Result<Datum> Variance(const Datum& value, const VarStdOptions& options,
+                       ExecContext* ctx) {
+  return CallFunction("variance", {value}, &options, ctx);
 }
 
 }  // namespace compute

@@ -76,10 +76,10 @@ struct ARROW_EXPORT MinMaxOptions : public FunctionOptions {
   enum Mode null_handling = SKIP;
 };
 
-/// \brief Control Delta Degrees of Freedom (ddof) of Var and Std kernel
+/// \brief Control Delta Degrees of Freedom (ddof) of Variance and Stddev kernel
 ///
 /// The divisor used in calculations is N - ddof, where N is the number of elements.
-/// By default, ddof is zero, and population standard deviation is returned.
+/// By default, ddof is zero, and population variance or stddev is returned.
 struct ARROW_EXPORT VarStdOptions : public FunctionOptions {
   explicit VarStdOptions(int ddof = 0) : ddof(ddof) {}
 
@@ -167,9 +167,9 @@ Result<Datum> Mode(const Datum& value, ExecContext* ctx = NULLPTR);
 /// \since 2.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
-Result<Datum> Std(const Datum& value,
-                  const VarStdOptions& options = VarStdOptions::Defaults(),
-                  ExecContext* ctx = NULLPTR);
+Result<Datum> Stddev(const Datum& value,
+                     const VarStdOptions& options = VarStdOptions::Defaults(),
+                     ExecContext* ctx = NULLPTR);
 
 /// \brief Calculate the variance of a numeric array
 ///
@@ -181,9 +181,9 @@ Result<Datum> Std(const Datum& value,
 /// \since 2.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
-Result<Datum> Var(const Datum& value,
-                  const VarStdOptions& options = VarStdOptions::Defaults(),
-                  ExecContext* ctx = NULLPTR);
+Result<Datum> Variance(const Datum& value,
+                       const VarStdOptions& options = VarStdOptions::Defaults(),
+                       ExecContext* ctx = NULLPTR);
 
 }  // namespace compute
 }  // namespace arrow
