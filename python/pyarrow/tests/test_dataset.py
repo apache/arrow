@@ -2163,8 +2163,6 @@ def _check_dataset_roundtrip(dataset, base_dir, expected_files,
     # check that reading back in as dataset gives the same result
     dataset2 = ds.dataset(
         base_dir_path, format="feather", partitioning=partitioning)
-    print(dataset.to_table().to_pandas())
-    print(dataset2.to_table().to_pandas())
     assert dataset2.to_table().equals(dataset.to_table())
 
 
