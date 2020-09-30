@@ -856,11 +856,13 @@ const char* split_part(gdv_int64 context, const char* text, gdv_int32 text_len,
     snprintf(error_message, sizeof(error_message),
              "Index in split_part must be positive, value provided was %d", index);
     gdv_fn_context_set_error_msg(context, error_message);
+    *out_len = 0;
     return "";
   }
 
   if (delim_len == 0 || text_len == 0) {
     // output will just be text if no delimiter is provided
+    *out_len = text_len;
     return text;
   }
 
