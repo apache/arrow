@@ -27,13 +27,13 @@
 //!
 //! ## Array
 //!
-//! The central trait of this package is the dynamically-typed trait [`Array`](array::Array) that
-//! can be downcasted to specific implementations, such as [`UInt32Array`](array::UInt32Array).
+//! The central trait of this package is the dynamically-typed [`Array`](array::Array) that
+//! represents a fixed-sized, immutable, Send + Sync Array of nullable elements. An example of such an array is [`UInt32Array`](array::UInt32Array).
+//! One way to think about an arrow [`Array`](array::Array) isa `Arc<[Option<T>; len]>` where T can be anything ranging from an integer to a string, or even
+//! another [`Array`](array::Array).
 //!
-//! Every specific array implementation in this crate is immutable and thread safe (Sync + Send).
-//!
-//! [`Array`](array::Array) has [`len()`](array::Array::len), [`data_type()`](array::Array::data_type), and nullability of each of its entries,
-//! that can be obtained via [`is_null(index)`](array::Array::is_null). To downcast an [`Array`](array::Array) to a specific implementation, you can use
+//! [`Arrays`](array::Array) have [`len()`](array::Array::len), [`data_type()`](array::Array::data_type), and the nullability of each of its elements,
+//! can be obtained via [`is_null(index)`](array::Array::is_null). To downcast an [`Array`](array::Array) to a specific implementation, you can use
 //!
 //! ```rust
 //! use arrow::array::{Array, PrimitiveArrayOps, UInt32Array};
@@ -72,8 +72,8 @@
 //!
 //! Data in [`Array`](array::Array) is stored in [`ArrayData`](array::data::ArrayData), that in turn
 //! is a collection of other [`ArrayData`](array::data::ArrayData) and [`Buffers`](buffer::Buffer).
-//! [`Buffers`](buffer::Buffer) is the central that array implementations use to allocate and point to memory.
-//! The [`MutableBuffer`](buffer::MutableBuffer) is the mutable counter-part of
+//! [`Buffers`](buffer::Buffer) is the central struct that array implementations use keep allocated memory and pointers.
+//! The [`MutableBuffer`](buffer::MutableBuffer) is the mutable counter-part of[`Buffer`](buffer::Buffer).
 //! These are the lowest abstractions of this crate, and are used throughout the crate to
 //! efficiently allocate, write, read and deallocate memory.
 //!
@@ -81,14 +81,16 @@
 //!
 //! [`Field`](datatypes::Field) is a struct that contains an arrays' metadata (datatype and whether its values
 //! can be null), and a name. [`Schema`](datatypes::Schema) is a vector of fields with optional metadata, and together with
+//! Together, they form the basis of a schematic representation of a group of [`Arrays`](array::Array).
 //!
-//! Finally, [`RecordBatch`](record_batch::RecordBatch) is a struct with a [`Schema`](datatypes::Schema) and a vector of
-//! [`Array`](array::Array)s, all with the same `len`. A record batch is the highest order struct that this crate currently offers.
+//! In fact, [`RecordBatch`](record_batch::RecordBatch) is a struct with a [`Schema`](datatypes::Schema) and a vector of
+//! [`Array`](array::Array)s, all with the same `len`. A record batch is the highest order struct that this crate currently offersm
+//! and is broadly used to represent a table where each column in an `Array`.
 //!
 //! ## Compute
 //!
 //! This crate offers many operations (called kernels) to operate on `Array`s, that you can find at [compute::kernels].
-//! We have both vertial and horizontal operations, and some of them have an SIMD implementation.
+//! It has both vertial and horizontal operations, and some of them have an SIMD implementation.
 //!
 //! ## Status
 //!
@@ -107,12 +109,13 @@
 //! * [`sort`](compute::kernels::sort::sort)
 //! * some string operators such as [`substring`](compute::kernels::substring::substring) and [`length`](compute::kernels::length::length)
 //!
-//! as well as some horizontal operations such as
+//! as well as some horizontal operations, such as
 //!
 //! * [`min`](compute::kernels::aggregate::min) and [`max`](compute::kernels::aggregate::max)
 //! * [`sum`](compute::kernels::aggregate::sum)
 //!
 //! Finally, this crate implements some readers and writers to different formats:
+//!
 //! * json: [reader](json::reader::Reader)
 //! * csv: [reader](csv::reader::Reader) and [writer](csv::writer::Writer)
 //! * ipc: [reader](ipc::reader::StreamReader) and [writer](ipc::writer::FileWriter)
