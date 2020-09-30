@@ -24,22 +24,24 @@
 namespace arrow {
 namespace util {
 
-struct Mutex::Impl {
-  std::mutex mutex_;
-};
+struct Mutex::Impl : std::mutex {};
 
 Mutex::Guard::Guard(Mutex* locked)
-    : locked_(locked, [](Mutex* locked) { locked->impl_->mutex_.unlock(); }) {}
+    : locked_(locked, [](Mutex* locked) {
+        DCHECK(!locked->impl_->try_lock());
+        locked->impl_->unlock();
+      }) {}
 
 void Mutex::Guard::Unlock() {
   if (locked_) {
-    locked_->impl_->mutex_.unlock();
+    auto locked = std::move(locked_);
+    DCHECK_EQ(locked_, nullptr);
   }
 }
 
 Mutex::Guard Mutex::TryLock() {
   DCHECK_NE(impl_, nullptr);
-  if (impl_->mutex_.try_lock()) {
+  if (impl_->try_lock()) {
     return Guard{this};
   }
   return Guard{};
@@ -47,7 +49,7 @@ Mutex::Guard Mutex::TryLock() {
 
 Mutex::Guard Mutex::Lock() {
   DCHECK_NE(impl_, nullptr);
-  impl_->mutex_.lock();
+  impl_->lock();
   return Guard{this};
 }
 
