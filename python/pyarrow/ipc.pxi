@@ -530,6 +530,35 @@ cdef class RecordBatchReader(_Weakrefable):
         self.reader = c_reader
         return self
 
+    @staticmethod
+    def from_batches(schema, batches):
+        """
+        Create RecordBatchReader from an iterable of batches.
+
+        Parameters
+        ----------
+        schema : Schema
+            The shared schema of the record batches
+        batches : Iterable[RecordBatch]
+            The batches that this reader will return.
+
+        Returns
+        -------
+        reader : RecordBatchReader
+        """
+        cdef:
+            shared_ptr[CSchema] c_schema
+            shared_ptr[CRecordBatchReader] c_reader
+            RecordBatchReader self
+
+        c_schema = pyarrow_unwrap_schema(schema)
+        c_reader = GetResultValue(CPyRecordBatchReader.Make(
+            c_schema, batches))
+
+        self = RecordBatchReader.__new__(RecordBatchReader)
+        self.reader = c_reader
+        return self
+
 
 cdef class _RecordBatchStreamReader(RecordBatchReader):
     cdef:

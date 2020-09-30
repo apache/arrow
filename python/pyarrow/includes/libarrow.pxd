@@ -1965,6 +1965,14 @@ cdef extern from 'arrow/python/inference.h' namespace 'arrow::py':
     c_bool IsPyFloat(object o)
 
 
+cdef extern from 'arrow/python/ipc.h' namespace 'arrow::py':
+    cdef cppclass CPyRecordBatchReader" arrow::py::PyRecordBatchReader" \
+            (CRecordBatchReader):
+        @staticmethod
+        CResult[shared_ptr[CRecordBatchReader]] Make(shared_ptr[CSchema],
+                                                     object)
+
+
 cdef extern from 'arrow/extension_type.h' namespace 'arrow':
     cdef cppclass CExtensionTypeRegistry" arrow::ExtensionTypeRegistry":
         @staticmethod
