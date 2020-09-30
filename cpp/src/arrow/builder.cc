@@ -50,6 +50,7 @@ struct DictionaryBuilderCase {
     return Create<DictionaryBuilder<LargeStringType>>();
   }
   Status Visit(const FixedSizeBinaryType&) { return CreateFor<FixedSizeBinaryType>(); }
+  Status Visit(const Decimal128Type&) { return CreateFor<Decimal128Type>(); }
 
   Status Visit(const DataType& value_type) { return NotImplemented(value_type); }
   Status Visit(const HalfFloatType& value_type) { return NotImplemented(value_type); }
