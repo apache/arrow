@@ -791,6 +791,84 @@ Status ConvertListsLike(PandasOptions options, const ChunkedArray& data,
   return Status::OK();
 }
 
+
+inline Status ConvertMap(const PandasOptions& options, const ChunkedArray& data,
+                         PyObject** out_values) {
+  // Get column of underlying map arrays
+  std::vector<std::shared_ptr<Array>> map_arrays;
+  for (int c = 0; c < data.num_chunks(); c++) {
+    const auto& arr = checked_cast<const MapArray&>(*data.chunk(c));
+    map_arrays.emplace_back(arr.values());
+  }
+  const auto& map_type = checked_cast<const MapType&>(*data.type());
+  auto entry_type = map_type.value_type();
+  const auto& key_type = map_type.key_type();
+  /*using ListArrayType = typename ListArrayT::TypeClass;
+  const auto& map_type = checked_cast<const ListArrayType&>(*data.type());
+  auto value_type = list_type.value_type();
+
+  if (value_type->id() == Type::DICTIONARY) {
+    // ARROW-6899: Convert dictionary-encoded children to dense instead of
+    // failing below. A more efficient conversion than this could be done later
+    auto dense_type = checked_cast<const DictionaryType&>(*value_type).value_type();
+    RETURN_NOT_OK(DecodeDictionaries(options.pool, dense_type, &value_arrays));
+    value_type = dense_type;
+  }*/
+
+  auto flat_column = std::make_shared<ChunkedArray>(map_arrays, entry_type);
+  // TODO(ARROW-489): Currently we don't have a Python reference for single columns.
+  //    Storing a reference to the whole Array would be too expensive.
+
+  // ARROW-3789(wesm): During refactoring I found that unit tests assumed that
+  // timestamp units would be preserved on list<timestamp UNIT> conversions in
+  // Table.to_pandas. So we set the option here to not coerce things to
+  // nanoseconds. Bit of a hack but this seemed the simplest thing to satisfy
+  // the existing unit tests
+  PandasOptions modified_options = options;
+  modified_options.coerce_temporal_nanoseconds = false;
+
+  OwnedRefNoGIL owned_numpy_array;
+  RETURN_NOT_OK(ConvertChunkedArrayToPandas(modified_options, flat_column, nullptr,
+                                            owned_numpy_array.ref()));
+
+  PyObject* numpy_array = owned_numpy_array.obj();
+
+  int64_t chunk_offset = 0;
+  for (int c = 0; c < data.num_chunks(); c++) {
+    auto arr = std::static_pointer_cast<MapArray>(data.chunk(c));
+
+    /*const bool has_nulls = data.null_count() > 0;
+    for (int64_t i = 0; i < arr->length(); ++i) {
+      if (has_nulls && arr->IsNull(i)) {
+        Py_INCREF(Py_None);
+        *out_values = Py_None;
+      } else {
+        OwnedRef start(PyLong_FromLongLong(arr->value_offset(i) + chunk_offset));
+        OwnedRef end(PyLong_FromLongLong(arr->value_offset(i + 1) + chunk_offset));
+        OwnedRef slice(PySlice_New(start.obj(), end.obj(), nullptr));
+
+        if (ARROW_PREDICT_FALSE(slice.obj() == nullptr)) {
+          // Fall out of loop, will return from RETURN_IF_PYERROR
+          break;
+        }
+        *out_values = PyObject_GetItem(numpy_array, slice.obj());
+
+        if (*out_values == nullptr) {
+          // Fall out of loop, will return from RETURN_IF_PYERROR
+          break;
+        }
+      }
+      ++out_values;
+    }*/
+    RETURN_IF_PYERROR();
+
+    chunk_offset += arr->values()->length();
+  }
+
+  return Status::OK();
+}
+
+
 template <typename InType, typename OutType>
 inline void ConvertNumericNullable(const ChunkedArray& data, InType na_value,
                                    OutType* out_values) {
@@ -1025,6 +1103,10 @@ struct ObjectWriterVisitor {
           type.value_type()->ToString());
     }
     return ConvertListsLike<ArrayType>(options, data, out_values);
+  }
+
+  Status Visit(const MapType& type) {
+    return ConvertMap(options, data, out_values);
   }
 
   Status Visit(const StructType& type) {
@@ -1801,7 +1883,8 @@ static Status GetPandasWriterType(const ChunkedArray& data, const PandasOptions&
     } break;
     case Type::FIXED_SIZE_LIST:
     case Type::LIST:
-    case Type::LARGE_LIST: {
+    case Type::LARGE_LIST: 
+    case Type::MAP: {
       auto list_type = std::static_pointer_cast<BaseListType>(data.type());
       if (!ListTypeSupported(*list_type->value_type())) {
         return Status::NotImplemented("Not implemented type for Arrow list to pandas: ",
