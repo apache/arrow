@@ -1420,15 +1420,14 @@ const char* binary_string(gdv_int64 context, const char* text, gdv_int32 text_le
       uint8_t out;
       arrow::Status st;
       st = arrow::ParseHexValue(hex_string, &out);
-      if (!st.ok()) {
-        char error_message[100];
-        snprintf(error_message, sizeof(error_message), "Unable to parse %s", hex_string);
-        gdv_fn_context_set_error_msg(context, error_message);
-        *out_len = 0;
-        return "";
+      st = arrow::ParseHexValue(hex_string, &out);
+      if (st.ok()) {
+        ret[j] = static_cast<char>(out);
+        i += 3;
+      } else {
+        // Not a hexadecimal character so just put it in the output
+        ret[j] = text[i];
       }
-      ret[j] = static_cast<char>(out);
-      i += 3;
     } else {
       ret[j] = text[i];
     }

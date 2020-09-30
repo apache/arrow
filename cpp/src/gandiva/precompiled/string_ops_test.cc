@@ -960,10 +960,6 @@ TEST(TestStringOps, TestBinaryString) {
   temp_str = convert_fromUTF8_binary(ctx_ptr, out_str, out_len, &temp_len);
   output = std::string(temp_str, temp_len);
   EXPECT_EQ(output, "OM");
-
-  out_str = binary_string(ctx_ptr, "\\x6f\\xAR", 8, &out_len);
-  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Unable to parse AR"));
-  ctx.Reset();
 }
 
 TEST(TestStringOps, TestSplitPart) {
