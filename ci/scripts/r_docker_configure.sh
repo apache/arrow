@@ -43,6 +43,8 @@ fi
 if [ "$ARROW_S3" == "ON" ] || [ "$ARROW_R_DEV" == "TRUE" ]; then
   if [ "`which dnf`"]; then
     dnf install openssl-devel
+  else if [ "`which yum`"]; then
+    yum install openssl-devel
   else
     apt-get install libcurl4-openssl-dev
   fi
