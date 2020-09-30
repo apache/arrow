@@ -54,6 +54,23 @@ struct IpcPayload;
 
 using RecordBatchReader = ::arrow::RecordBatchReader;
 
+struct ReadStats {
+  /// Number of IPC messages read.
+  int64_t num_messages = 0;
+  /// Number of record batches read.
+  int64_t num_record_batches = 0;
+  /// Number of dictionary batches read.
+  ///
+  /// Note: num_dictionary_batches >= num_dictionary_deltas + num_replaced_dictionaries
+  int64_t num_dictionary_batches = 0;
+
+  /// Number of dictionary deltas read.
+  int64_t num_dictionary_deltas = 0;
+  /// Number of replaced dictionaries (i.e. where a dictionary batch replaces
+  /// an existing dictionary with an unrelated new dictionary).
+  int64_t num_replaced_dictionaries = 0;
+};
+
 /// \class RecordBatchStreamReader
 /// \brief Synchronous batch stream reader that reads from io::InputStream
 ///
@@ -89,6 +106,9 @@ class ARROW_EXPORT RecordBatchStreamReader : public RecordBatchReader {
   static Result<std::shared_ptr<RecordBatchReader>> Open(
       const std::shared_ptr<io::InputStream>& stream,
       const IpcReadOptions& options = IpcReadOptions::Defaults());
+
+  /// \brief Return current read statistics
+  virtual ReadStats stats() const = 0;
 };
 
 /// \brief Reads the record batch file format

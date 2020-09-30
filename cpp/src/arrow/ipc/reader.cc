@@ -72,6 +72,8 @@ using internal::kArrowMagicBytes;
 
 namespace {
 
+enum class DictionaryKind { New, Delta, Replacement };
+
 Status InvalidMessageType(MessageType expected, MessageType actual) {
   return Status::IOError("Expected IPC message of type ", FormatMessageType(expected),
                          " but got ", FormatMessageType(actual));
@@ -669,17 +671,18 @@ Result<std::shared_ptr<RecordBatch>> ReadRecordBatch(
 }
 
 Status ReadDictionary(const Buffer& metadata, DictionaryMemo* dictionary_memo,
-                      const IpcReadOptions& options, io::RandomAccessFile* file) {
+                      const IpcReadOptions& options, DictionaryKind* kind,
+                      io::RandomAccessFile* file) {
   const flatbuf::Message* message = nullptr;
   RETURN_NOT_OK(internal::VerifyMessage(metadata.data(), metadata.size(), &message));
-  auto dictionary_batch = message->header_as_DictionaryBatch();
+  const auto dictionary_batch = message->header_as_DictionaryBatch();
   if (dictionary_batch == nullptr) {
     return Status::IOError(
         "Header-type of flatbuffer-encoded Message is not DictionaryBatch.");
   }
 
   // The dictionary is embedded in a record batch with a single column
-  auto batch_meta = dictionary_batch->data();
+  const auto batch_meta = dictionary_batch->data();
 
   CHECK_FLATBUFFERS_NOT_NULL(batch_meta, "DictionaryBatch.data");
 
@@ -692,7 +695,7 @@ Status ReadDictionary(const Buffer& metadata, DictionaryMemo* dictionary_memo,
     RETURN_NOT_OK(GetCompressionExperimental(message, &compression));
   }
 
-  int64_t id = dictionary_batch->id();
+  const int64_t id = dictionary_batch->id();
 
   // Look up the dictionary value type, which must have been added to the
   // DictionaryMemo already prior to invoking this function
@@ -701,8 +704,8 @@ Status ReadDictionary(const Buffer& metadata, DictionaryMemo* dictionary_memo,
   // Load the dictionary data from the dictionary batch
   ArrayLoader loader(batch_meta, internal::GetMetadataVersion(message->version()),
                      options, file);
-  auto dict_data = std::make_shared<ArrayData>();
-  Field dummy_field("", value_type);
+  const auto dict_data = std::make_shared<ArrayData>();
+  const Field dummy_field("", value_type);
   RETURN_NOT_OK(loader.Load(&dummy_field, dict_data.get()));
 
   if (compression != Compression::UNCOMPRESSED) {
@@ -711,18 +714,27 @@ Status ReadDictionary(const Buffer& metadata, DictionaryMemo* dictionary_memo,
   }
 
   if (dictionary_batch->isDelta()) {
+    if (kind != nullptr) {
+      *kind = DictionaryKind::Delta;
+    }
     return dictionary_memo->AddDictionaryDelta(id, dict_data);
   }
-  return dictionary_memo->AddOrReplaceDictionary(id, dict_data);
+  ARROW_ASSIGN_OR_RAISE(bool inserted,
+                        dictionary_memo->AddOrReplaceDictionary(id, dict_data));
+  if (kind != nullptr) {
+    *kind = inserted ? DictionaryKind::New : DictionaryKind::Replacement;
+  }
+  return Status::OK();
 }
 
 Status ReadDictionary(const Message& message, DictionaryMemo* dictionary_memo,
-                      const IpcReadOptions& options) {
+                      const IpcReadOptions& options, DictionaryKind* kind) {
   // Only invoke this method if we already know we have a dictionary message
   DCHECK_EQ(message.type(), MessageType::DICTIONARY_BATCH);
   CHECK_HAS_BODY(message);
   ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message.body()));
-  return ReadDictionary(*message.metadata(), dictionary_memo, options, reader.get());
+  return ReadDictionary(*message.metadata(), dictionary_memo, options, kind,
+                        reader.get());
 }
 
 // ----------------------------------------------------------------------
@@ -736,8 +748,7 @@ class RecordBatchStreamReaderImpl : public RecordBatchStreamReader {
     options_ = options;
 
     // Read schema
-    ARROW_ASSIGN_OR_RAISE(std::unique_ptr<Message> message,
-                          message_reader_->ReadNextMessage());
+    ARROW_ASSIGN_OR_RAISE(std::unique_ptr<Message> message, ReadNextMessage());
     if (!message) {
       return Status::Invalid("Tried reading schema message, was null or length 0");
     }
@@ -760,11 +771,11 @@ class RecordBatchStreamReaderImpl : public RecordBatchStreamReader {
 
     // Continue to read other dictionaries, if any
     std::unique_ptr<Message> message;
-    ARROW_ASSIGN_OR_RAISE(message, message_reader_->ReadNextMessage());
+    ARROW_ASSIGN_OR_RAISE(message, ReadNextMessage());
 
     while (message != nullptr && message->type() == MessageType::DICTIONARY_BATCH) {
-      RETURN_NOT_OK(ReadDictionary(*message, &dictionary_memo_, options_));
-      ARROW_ASSIGN_OR_RAISE(message, message_reader_->ReadNextMessage());
+      RETURN_NOT_OK(ReadDictionary(*message));
+      ARROW_ASSIGN_OR_RAISE(message, ReadNextMessage());
     }
 
     if (message == nullptr) {
@@ -782,7 +793,45 @@ class RecordBatchStreamReaderImpl : public RecordBatchStreamReader {
 
   std::shared_ptr<Schema> schema() const override { return out_schema_; }
 
+  ReadStats stats() const override { return stats_; }
+
  private:
+  Result<std::unique_ptr<Message>> ReadNextMessage() {
+    ARROW_ASSIGN_OR_RAISE(auto message, message_reader_->ReadNextMessage());
+    ++stats_.num_messages;
+    if (message) {
+      switch (message->type()) {
+        case MessageType::RECORD_BATCH:
+          ++stats_.num_record_batches;
+          break;
+        case MessageType::DICTIONARY_BATCH:
+          ++stats_.num_dictionary_batches;
+          break;
+        default:
+          break;
+      }
+    }
+    return std::move(message);
+  }
+
+  // Read dictionary from dictionary batch
+  Status ReadDictionary(const Message& message) {
+    DictionaryKind kind;
+    RETURN_NOT_OK(
+        ::arrow::ipc::ReadDictionary(message, &dictionary_memo_, options_, &kind));
+    switch (kind) {
+      case DictionaryKind::New:
+        break;
+      case DictionaryKind::Delta:
+        ++stats_.num_dictionary_deltas;
+        break;
+      case DictionaryKind::Replacement:
+        ++stats_.num_replaced_dictionaries;
+        break;
+    }
+    return Status::OK();
+  }
+
   Status ReadInitialDictionaries() {
     // We must receive all dictionaries before reconstructing the
     // first record batch. Subsequent dictionary deltas modify the memo
@@ -792,7 +841,7 @@ class RecordBatchStreamReaderImpl : public RecordBatchStreamReader {
     // those found in the schema
     const auto num_dicts = dictionary_memo_.fields().num_fields();
     for (int i = 0; i < num_dicts; ++i) {
-      ARROW_ASSIGN_OR_RAISE(message, message_reader_->ReadNextMessage());
+      ARROW_ASSIGN_OR_RAISE(message, ReadNextMessage());
       if (!message) {
         if (i == 0) {
           /// ARROW-6006: If we fail to find any dictionaries in the stream, then
@@ -814,7 +863,7 @@ class RecordBatchStreamReaderImpl : public RecordBatchStreamReader {
         return Status::Invalid("IPC stream did not have the expected number (", num_dicts,
                                ") of dictionaries at the start of the stream");
       }
-      RETURN_NOT_OK(ReadDictionary(*message, &dictionary_memo_, options_));
+      RETURN_NOT_OK(ReadDictionary(*message));
     }
 
     have_read_initial_dictionaries_ = true;
@@ -830,6 +879,8 @@ class RecordBatchStreamReaderImpl : public RecordBatchStreamReader {
   // Flag to set in case where we fail to observe all dictionaries in a stream,
   // and so the reader should not attempt to parse any messages
   bool empty_stream_ = false;
+
+  ReadStats stats_;
 
   DictionaryMemo dictionary_memo_;
   std::shared_ptr<Schema> schema_, out_schema_;
@@ -945,8 +996,14 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
 
       CHECK_HAS_BODY(*message);
       ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message->body()));
+      DictionaryKind kind;
       RETURN_NOT_OK(ReadDictionary(*message->metadata(), &dictionary_memo_, options_,
-                                   reader.get()));
+                                   &kind, reader.get()));
+      if (kind != DictionaryKind::New) {
+        return Status::Invalid(
+            "Unsupported dictionary replacement or "
+            "dictionary delta in IPC file");
+      }
     }
     return Status::OK();
   }
@@ -1141,7 +1198,7 @@ class StreamDecoder::StreamDecoderImpl : public MessageDecoderListener {
                              dictionary_memo_.fields().num_fields(),
                              ") of dictionaries at the start of the stream");
     }
-    RETURN_NOT_OK(ReadDictionary(*message, &dictionary_memo_, options_));
+    RETURN_NOT_OK(ReadDictionary(*message));
     n_required_dictionaries_--;
     if (n_required_dictionaries_ == 0) {
       state_ = State::RECORD_BATCHES;
@@ -1152,7 +1209,7 @@ class StreamDecoder::StreamDecoderImpl : public MessageDecoderListener {
 
   Status OnRecordBatchMessageDecoded(std::unique_ptr<Message> message) {
     if (message->type() == MessageType::DICTIONARY_BATCH) {
-      return ReadDictionary(*message, &dictionary_memo_, options_);
+      return ReadDictionary(*message);
     } else {
       CHECK_HAS_BODY(*message);
       ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message->body()));
@@ -1162,6 +1219,14 @@ class StreamDecoder::StreamDecoderImpl : public MessageDecoderListener {
                                   &dictionary_memo_, options_, reader.get()));
       return listener_->OnRecordBatchDecoded(std::move(batch));
     }
+  }
+
+  // Read dictionary from dictionary batch
+  Status ReadDictionary(const Message& message) {
+    // TODO accumulate and expose ReadStats
+    DictionaryKind unused_kind;
+    return ::arrow::ipc::ReadDictionary(message, &dictionary_memo_, options_,
+                                        &unused_kind);
   }
 
   std::shared_ptr<Listener> listener_;

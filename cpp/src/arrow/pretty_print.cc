@@ -552,7 +552,7 @@ Status PrettyPrint(const Table& table, const PrettyPrintOptions& options,
 }
 
 Status DebugPrint(const Array& arr, int indent) {
-  return PrettyPrint(arr, indent, &std::cout);
+  return PrettyPrint(arr, indent, &std::cerr);
 }
 
 class SchemaPrinter : public PrettyPrinter {
