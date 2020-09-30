@@ -389,7 +389,7 @@ impl<'a> SparseMatrixIndexCSX<'a> {
     }
     /// indptrBuffer stores the location and size of indptr array that
     /// represents the range of the rows.
-    /// The i-th row spans from indptr[i] to indptr[i+1] in the data.
+    /// The i-th row spans from `indptr[i]` to `indptr[i+1]` in the data.
     /// The length of this array is 1 + (the number of rows), and the type
     /// of index value is long.
     ///
@@ -581,7 +581,7 @@ impl<'a> SparseTensorIndexCSF<'a> {
     pub const VT_AXISORDER: flatbuffers::VOffsetT = 12;
 
     /// CSF is a generalization of compressed sparse row (CSR) index.
-    /// See [smith2017knl]: http://shaden.io/pub-files/smith2017knl.pdf
+    /// See [smith2017knl](http://shaden.io/pub-files/smith2017knl.pdf)
     ///
     /// CSF index recursively compresses each dimension of a tensor into a set
     /// of prefix trees. Each path from a root to leaf forms one tensor
@@ -621,9 +621,9 @@ impl<'a> SparseTensorIndexCSF<'a> {
     }
     /// indptrBuffers stores the sparsity structure.
     /// Each two consecutive dimensions in a tensor correspond to a buffer in
-    /// indptrBuffers. A pair of consecutive values at indptrBuffers[dim][i]
-    /// and indptrBuffers[dim][i + 1] signify a range of nodes in
-    /// indicesBuffers[dim + 1] who are children of indicesBuffers[dim][i] node.
+    /// indptrBuffers. A pair of consecutive values at `indptrBuffers[dim][i]`
+    /// and `indptrBuffers[dim][i + 1]` signify a range of nodes in
+    /// `indicesBuffers[dim + 1]` who are children of `indicesBuffers[dim][i]` node.
     ///
     /// For example, the indptrBuffers for the above X is:
     ///

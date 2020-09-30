@@ -57,7 +57,7 @@
 //! assert_eq!(array.data_type(), &DataType::UInt32);
 //! ```
 //!
-//! to downcast, use [`as_any()`](array::UInt32Array::as_any):
+//! to downcast, use `as_any()`:
 //!
 //! ```rust
 //! # use std::sync::Arc;
