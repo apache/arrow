@@ -2132,6 +2132,16 @@ class TestConvertListTypes:
         assert len(column_a.chunk(0)) == 2**24 - 1
         assert len(column_a.chunk(1)) == 1
 
+    def test_map_array(self):
+        data = [[(b'a', 1), (b'b', 2)],
+                None,
+                [(b'd', 4), (b'e', 5), (b'f', None)],
+                [(b'g', 7)]]
+
+        arr = pa.array(data, type=pa.map_(pa.binary(), pa.int32()))
+        s = arr.to_pandas()
+        tm.assert_series_equal(s, pd.Series(data), check_names=False)
+
 
 class TestConvertStructTypes:
     """
