@@ -39,6 +39,15 @@ if [ "$RHUB_PLATFORM" = "linux-x86_64-fedora-clang" ]; then
   rm -rf $(${R_BIN} RHOME)/etc/Makeconf.bak
 fi
 
+# Install openssl for S3 support
+if [ "$ARROW_S3" == "ON" ]; then
+  if [ "`which dnf`"]; then
+    dnf install openssl-devel
+  else
+    apt-get install libcurl4-openssl-dev
+  fi
+fi
+
 # Workaround for html help install failure; see https://github.com/r-lib/devtools/issues/2084#issuecomment-530912786
 Rscript -e 'x <- file.path(R.home("doc"), "html"); if (!file.exists(x)) {dir.create(x, recursive=TRUE); file.copy(system.file("html/R.css", package="stats"), x)}'
 
