@@ -76,6 +76,18 @@ struct ARROW_EXPORT MinMaxOptions : public FunctionOptions {
   enum Mode null_handling = SKIP;
 };
 
+/// \brief Control Delta Degrees of Freedom (ddof) of Variance and Stddev kernel
+///
+/// The divisor used in calculations is N - ddof, where N is the number of elements.
+/// By default, ddof is zero, and population variance or stddev is returned.
+struct ARROW_EXPORT VarianceOptions : public FunctionOptions {
+  explicit VarianceOptions(int ddof = 0) : ddof(ddof) {}
+
+  static VarianceOptions Defaults() { return VarianceOptions{}; }
+
+  int ddof = 0;
+};
+
 /// @}
 
 /// \brief Count non-null (or null) values in an array.
@@ -144,6 +156,34 @@ Result<Datum> MinMax(const Datum& value,
 /// \note API not yet finalized
 ARROW_EXPORT
 Result<Datum> Mode(const Datum& value, ExecContext* ctx = NULLPTR);
+
+/// \brief Calculate the standard deviation of a numeric array
+///
+/// \param[in] value input datum, expecting Array or ChunkedArray
+/// \param[in] options see VarianceOptions for more information
+/// \param[in] ctx the function execution context, optional
+/// \return datum of the computed standard deviation as a DoubleScalar
+///
+/// \since 2.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> Stddev(const Datum& value,
+                     const VarianceOptions& options = VarianceOptions::Defaults(),
+                     ExecContext* ctx = NULLPTR);
+
+/// \brief Calculate the variance of a numeric array
+///
+/// \param[in] value input datum, expecting Array or ChunkedArray
+/// \param[in] options see VarianceOptions for more information
+/// \param[in] ctx the function execution context, optional
+/// \return datum of the computed variance as a DoubleScalar
+///
+/// \since 2.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> Variance(const Datum& value,
+                       const VarianceOptions& options = VarianceOptions::Defaults(),
+                       ExecContext* ctx = NULLPTR);
 
 }  // namespace compute
 }  // namespace arrow
