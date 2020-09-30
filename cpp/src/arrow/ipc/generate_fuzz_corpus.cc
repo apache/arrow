@@ -108,17 +108,16 @@ Result<std::shared_ptr<Buffer>> MakeSerializedBuffer(
 
 Result<std::shared_ptr<Buffer>> SerializeRecordBatch(
     const std::shared_ptr<RecordBatch>& batch, bool is_stream_format) {
-  return MakeSerializedBuffer(
-      [&](const std::shared_ptr<io::BufferOutputStream>& sink) {
-        std::shared_ptr<RecordBatchWriter> writer;
-        if (is_stream_format) {
-          ARROW_ASSIGN_OR_RAISE(writer, MakeStreamWriter(sink, batch->schema()));
-        } else {
-          ARROW_ASSIGN_OR_RAISE(writer, MakeFileWriter(sink, batch->schema()));
-        }
-        RETURN_NOT_OK(writer->WriteRecordBatch(*batch));
-        return writer->Close();
-      });
+  return MakeSerializedBuffer([&](const std::shared_ptr<io::BufferOutputStream>& sink) {
+    std::shared_ptr<RecordBatchWriter> writer;
+    if (is_stream_format) {
+      ARROW_ASSIGN_OR_RAISE(writer, MakeStreamWriter(sink, batch->schema()));
+    } else {
+      ARROW_ASSIGN_OR_RAISE(writer, MakeFileWriter(sink, batch->schema()));
+    }
+    RETURN_NOT_OK(writer->WriteRecordBatch(*batch));
+    return writer->Close();
+  });
 }
 
 Status GenerateRecordBatches(bool is_stream_format, const PlatformFilename& dir_fn) {
@@ -141,8 +140,8 @@ Status GenerateRecordBatches(bool is_stream_format, const PlatformFilename& dir_
   return Status::OK();
 }
 
-Result<std::shared_ptr<Buffer>> SerializeTensor(
-    const std::shared_ptr<Tensor>& tensor, bool is_stream_format) {
+Result<std::shared_ptr<Buffer>> SerializeTensor(const std::shared_ptr<Tensor>& tensor,
+                                                bool is_stream_format) {
   return MakeSerializedBuffer(
       [&](const std::shared_ptr<io::BufferOutputStream>& sink) -> Status {
         int32_t metadata_length;
