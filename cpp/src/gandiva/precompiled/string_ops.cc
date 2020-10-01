@@ -97,6 +97,15 @@ VAR_LEN_OP_TYPES(BINARY_RELATIONAL, greater_than_or_equal_to, >=)
   INNER(NAME, utf8)                \
   INNER(NAME, binary)
 
+int to_binary_from_hex(char ch) {
+  if (ch >= 'A' && ch <= 'F') {
+    return 10 + (ch - 'A');
+  } else if (ch >= 'a' && ch <= 'f') {
+    return 10 + (ch - 'a');
+  }
+  return ch - '0';
+}
+
 FORCE_INLINE
 bool starts_with_utf8_utf8(const char* data, gdv_int32 data_len, const char* prefix,
                            gdv_int32 prefix_len) {
@@ -1413,18 +1422,13 @@ const char* binary_string(gdv_int64 context, const char* text, gdv_int32 text_le
   for (int i = 0; i < text_len; i++, j++) {
     if (text[i] == '\\' && i + 3 < text_len &&
         (text[i + 1] == 'x' || text[i + 1] == 'X')) {
-      char hex_string[3];
-      hex_string[0] = toupper(text[i + 2]);
-      hex_string[1] = toupper(text[i + 3]);
-      hex_string[2] = '\0';
-      uint8_t out;
-      arrow::Status st;
-      st = arrow::ParseHexValue(hex_string, &out);
-      if (st.ok()) {
-        ret[j] = static_cast<char>(out);
+      char hd1 = text[i + 2];
+      char hd2 = text[i + 3];
+      if (isxdigit(hd1) && isxdigit(hd2)) {
+        // [a-fA-F0-9]
+        ret[j] = to_binary_from_hex(hd1) * 16 + to_binary_from_hex(hd2);
         i += 3;
       } else {
-        // Not a hexadecimal character so just put it in the output
         ret[j] = text[i];
       }
     } else {
