@@ -60,26 +60,6 @@ Status JSONTypeError(const char* expected_type, rj::Type json_type) {
                          json_type);
 }
 
-template <typename Type>
-struct RegularBuilderTraits {
-  using BuilderType = typename TypeTraits<Type>::BuilderType;
-
-  static const std::shared_ptr<DataType>& value_type(
-      const std::shared_ptr<DataType>& type) {
-    return type;
-  }
-};
-
-template <typename Type>
-struct DictionaryBuilderTraits {
-  using BuilderType = DictionaryBuilder<Type>;
-
-  static const std::shared_ptr<DataType>& value_type(
-      const std::shared_ptr<DataType>& type) {
-    return checked_cast<const DictionaryType&>(*type).value_type();
-  }
-};
-
 class Converter {
  public:
   virtual ~Converter() = default;
@@ -122,6 +102,22 @@ class ConcreteConverter : public Converter {
     for (uint32_t i = 0; i < size; ++i) {
       RETURN_NOT_OK(self->AppendValue(json_array[i]));
     }
+    return Status::OK();
+  }
+
+  const std::shared_ptr<DataType>& value_type() {
+    if (type_->id() != Type::DICTIONARY) {
+      return type_;
+    }
+    return checked_cast<const DictionaryType&>(*type_).value_type();
+  }
+
+  template <typename BuilderType>
+  Status MakeConcreteBuilder(std::shared_ptr<BuilderType>* out) {
+    std::unique_ptr<ArrayBuilder> builder;
+    RETURN_NOT_OK(MakeBuilder(default_memory_pool(), this->type_, &builder));
+    *out = checked_pointer_cast<BuilderType>(std::move(builder));
+    DCHECK(*out);
     return Status::OK();
   }
 };
@@ -236,10 +232,9 @@ enable_if_physical_floating_point<T, Status> ConvertNumber(const rj::Value& json
 // ------------------------------------------------------------------------
 // Converter for int arrays
 
-template <typename Type, template <typename T> class BuilderTraits = RegularBuilderTraits>
+template <typename Type, typename BuilderType = typename TypeTraits<Type>::BuilderType>
 class IntegerConverter final
-    : public ConcreteConverter<IntegerConverter<Type, BuilderTraits>> {
-  using BuilderType = typename BuilderTraits<Type>::BuilderType;
+    : public ConcreteConverter<IntegerConverter<Type, BuilderType>> {
   using c_type = typename Type::c_type;
 
   static constexpr auto is_signed = std::is_signed<c_type>::value;
@@ -247,13 +242,7 @@ class IntegerConverter final
  public:
   explicit IntegerConverter(const std::shared_ptr<DataType>& type) { this->type_ = type; }
 
-  Status Init() override {
-    std::unique_ptr<ArrayBuilder> builder;
-    RETURN_NOT_OK(MakeBuilder(default_memory_pool(), this->type_, &builder));
-    builder_ = checked_pointer_cast<BuilderType>(std::move(builder));
-    DCHECK(builder_);
-    return Status::OK();
-  }
+  Status Init() override { return this->MakeConcreteBuilder(&builder_); }
 
   Status AppendValue(const rj::Value& json_obj) override {
     if (json_obj.IsNull()) {
@@ -273,22 +262,14 @@ class IntegerConverter final
 // ------------------------------------------------------------------------
 // Converter for float arrays
 
-template <typename Type, template <typename T> class BuilderTraits = RegularBuilderTraits>
-class FloatConverter final
-    : public ConcreteConverter<FloatConverter<Type, BuilderTraits>> {
-  using BuilderType = typename BuilderTraits<Type>::BuilderType;
+template <typename Type, typename BuilderType = typename TypeTraits<Type>::BuilderType>
+class FloatConverter final : public ConcreteConverter<FloatConverter<Type, BuilderType>> {
   using c_type = typename Type::c_type;
 
  public:
   explicit FloatConverter(const std::shared_ptr<DataType>& type) { this->type_ = type; }
 
-  Status Init() override {
-    std::unique_ptr<ArrayBuilder> builder;
-    RETURN_NOT_OK(MakeBuilder(default_memory_pool(), this->type_, &builder));
-    builder_ = checked_pointer_cast<BuilderType>(std::move(builder));
-    DCHECK(builder_);
-    return Status::OK();
-  }
+  Status Init() override { return this->MakeConcreteBuilder(&builder_); }
 
   Status AppendValue(const rj::Value& json_obj) override {
     if (json_obj.IsNull()) {
@@ -308,24 +289,15 @@ class FloatConverter final
 // ------------------------------------------------------------------------
 // Converter for decimal arrays
 
-template <template <typename T> class BuilderTraits = RegularBuilderTraits>
-class DecimalConverter final : public ConcreteConverter<DecimalConverter<BuilderTraits>> {
-  using BuilderType = typename BuilderTraits<Decimal128Type>::BuilderType;
-
+template <typename BuilderType = typename TypeTraits<Decimal128Type>::BuilderType>
+class DecimalConverter final : public ConcreteConverter<DecimalConverter<BuilderType>> {
  public:
   explicit DecimalConverter(const std::shared_ptr<DataType>& type) {
     this->type_ = type;
-    decimal_type_ = &checked_cast<const Decimal128Type&>(
-        *BuilderTraits<Decimal128Type>::value_type(type));
+    decimal_type_ = &checked_cast<const Decimal128Type&>(*this->value_type());
   }
 
-  Status Init() override {
-    std::unique_ptr<ArrayBuilder> builder;
-    RETURN_NOT_OK(MakeBuilder(default_memory_pool(), this->type_, &builder));
-    builder_ = checked_pointer_cast<BuilderType>(std::move(builder));
-    DCHECK(builder_);
-    return Status::OK();
-  }
+  Status Init() override { return this->MakeConcreteBuilder(&builder_); }
 
   Status AppendValue(const rj::Value& json_obj) override {
     if (json_obj.IsNull()) {
@@ -426,21 +398,13 @@ class DayTimeIntervalConverter final
 // ------------------------------------------------------------------------
 // Converter for binary and string arrays
 
-template <typename Type, template <typename T> class BuilderTraits = RegularBuilderTraits>
+template <typename Type, typename BuilderType = typename TypeTraits<Type>::BuilderType>
 class StringConverter final
-    : public ConcreteConverter<StringConverter<Type, BuilderTraits>> {
+    : public ConcreteConverter<StringConverter<Type, BuilderType>> {
  public:
-  using BuilderType = typename BuilderTraits<Type>::BuilderType;
-
   explicit StringConverter(const std::shared_ptr<DataType>& type) { this->type_ = type; }
 
-  Status Init() override {
-    std::unique_ptr<ArrayBuilder> builder;
-    RETURN_NOT_OK(MakeBuilder(default_memory_pool(), this->type_, &builder));
-    builder_ = checked_pointer_cast<BuilderType>(std::move(builder));
-    DCHECK(builder_);
-    return Status::OK();
-  }
+  Status Init() override { return this->MakeConcreteBuilder(&builder_); }
 
   Status AppendValue(const rj::Value& json_obj) override {
     if (json_obj.IsNull()) {
@@ -463,23 +427,15 @@ class StringConverter final
 // ------------------------------------------------------------------------
 // Converter for fixed-size binary arrays
 
-template <template <typename T> class BuilderTraits = RegularBuilderTraits>
+template <typename BuilderType = typename TypeTraits<FixedSizeBinaryType>::BuilderType>
 class FixedSizeBinaryConverter final
-    : public ConcreteConverter<FixedSizeBinaryConverter<BuilderTraits>> {
-  using BuilderType = typename BuilderTraits<FixedSizeBinaryType>::BuilderType;
-
+    : public ConcreteConverter<FixedSizeBinaryConverter<BuilderType>> {
  public:
   explicit FixedSizeBinaryConverter(const std::shared_ptr<DataType>& type) {
     this->type_ = type;
   }
 
-  Status Init() override {
-    std::unique_ptr<ArrayBuilder> builder;
-    RETURN_NOT_OK(MakeBuilder(default_memory_pool(), this->type_, &builder));
-    builder_ = checked_pointer_cast<BuilderType>(std::move(builder));
-    DCHECK(builder_);
-    return Status::OK();
-  }
+  Status Init() override { return this->MakeConcreteBuilder(&builder_); }
 
   Status AppendValue(const rj::Value& json_obj) override {
     if (json_obj.IsNull()) {
@@ -792,14 +748,14 @@ Status GetDictConverter(const std::shared_ptr<DataType>& type,
 
   const auto value_type = checked_cast<const DictionaryType&>(*type).value_type();
 
-#define SIMPLE_CONVERTER_CASE(ID, CLASS)                          \
+#define SIMPLE_CONVERTER_CASE(ID, CLASS, TYPE)                    \
   case ID:                                                        \
-    res = std::make_shared<CLASS<DictionaryBuilderTraits>>(type); \
+    res = std::make_shared<CLASS<DictionaryBuilder<TYPE>>>(type); \
     break;
 
 #define PARAM_CONVERTER_CASE(ID, CLASS, TYPE)                           \
   case ID:                                                              \
-    res = std::make_shared<CLASS<TYPE, DictionaryBuilderTraits>>(type); \
+    res = std::make_shared<CLASS<TYPE, DictionaryBuilder<TYPE>>>(type); \
     break;
 
   switch (value_type->id()) {
@@ -815,8 +771,9 @@ Status GetDictConverter(const std::shared_ptr<DataType>& type,
     PARAM_CONVERTER_CASE(Type::BINARY, StringConverter, BinaryType)
     PARAM_CONVERTER_CASE(Type::LARGE_STRING, StringConverter, LargeStringType)
     PARAM_CONVERTER_CASE(Type::LARGE_BINARY, StringConverter, LargeBinaryType)
-    SIMPLE_CONVERTER_CASE(Type::FIXED_SIZE_BINARY, FixedSizeBinaryConverter)
-    SIMPLE_CONVERTER_CASE(Type::DECIMAL, DecimalConverter)
+    SIMPLE_CONVERTER_CASE(Type::FIXED_SIZE_BINARY, FixedSizeBinaryConverter,
+                          FixedSizeBinaryType)
+    SIMPLE_CONVERTER_CASE(Type::DECIMAL, DecimalConverter, Decimal128Type)
     default:
       return ConversionNotImplemented(type);
   }
