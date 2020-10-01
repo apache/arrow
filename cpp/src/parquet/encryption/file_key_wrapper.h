@@ -73,7 +73,7 @@ class PARQUET_EXPORT FileKeyWrapper {
   std::shared_ptr<KmsClient> kms_client_;
   KmsConnectionConfig kms_connection_config_;
   std::shared_ptr<FileKeyMaterialStore> key_material_store_;
-  const uint64_t cache_entry_lifetime_ms_;
+  const uint64_t cache_entry_lifetime_seconds_;
   const bool double_wrapping_;
 };
 

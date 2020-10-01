@@ -59,7 +59,7 @@ class PARQUET_EXPORT FileKeyUnwrapper : public DecryptionKeyRetriever {
   mutable std::shared_ptr<arrow::util::ConcurrentMap<std::string>> kek_per_kek_id_;
   KeyToolkit* key_toolkit_;
   mutable KmsConnectionConfig kms_connection_config_;
-  const uint64_t cache_entry_lifetime_ms_;
+  const uint64_t cache_entry_lifetime_seconds_;
 };
 
 }  // namespace encryption
