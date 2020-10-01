@@ -24,11 +24,9 @@ constexpr const char KmsClient::kKmsInstanceIdDefault[];
 constexpr const char KmsClient::kKmsInstanceUrlDefault[];
 constexpr const char KmsClient::kKeyAccessTokenDefault[];
 
-void KeyAccessToken::SetDefaultIfEmpty() {
-  if (value_.empty()) {
-    value_ = KmsClient::kKeyAccessTokenDefault;
-  }
-}
+KmsConnectionConfig::KmsConnectionConfig()
+    : refreshable_key_access_token(
+          std::make_shared<KeyAccessToken>(KmsClient::kKeyAccessTokenDefault)) {}
 
 void KmsConnectionConfig::SetDefaultIfEmpty() {
   if (kms_instance_id.empty()) {
@@ -40,7 +38,6 @@ void KmsConnectionConfig::SetDefaultIfEmpty() {
   if (refreshable_key_access_token == NULL) {
     refreshable_key_access_token = std::make_shared<KeyAccessToken>();
   }
-  refreshable_key_access_token->SetDefaultIfEmpty();
 }
 
 }  // namespace encryption

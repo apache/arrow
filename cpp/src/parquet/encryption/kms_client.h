@@ -21,6 +21,8 @@
 #include <unordered_map>
 #include <vector>
 
+#include "arrow/util/mutex.h"
+
 #include "parquet/exception.h"
 #include "parquet/platform.h"
 
@@ -36,14 +38,19 @@ class PARQUET_EXPORT KeyAccessToken {
 
   explicit KeyAccessToken(const std::string value) : value_(value) {}
 
-  void Refresh(const std::string& new_value) { value_ = new_value; }
+  void Refresh(const std::string& new_value) {
+    auto lock = mutex_.Lock();
+    value_ = new_value;
+  }
 
-  const std::string& value() const { return value_; }
-
-  void SetDefaultIfEmpty();
+  const std::string& value() const {
+    auto lock = mutex_.Lock();
+    return value_;
+  }
 
  private:
   std::string value_;
+  mutable arrow::util::Mutex mutex_;
 };
 
 struct PARQUET_EXPORT KmsConnectionConfig {
@@ -51,6 +58,8 @@ struct PARQUET_EXPORT KmsConnectionConfig {
   std::string kms_instance_url;
   std::shared_ptr<KeyAccessToken> refreshable_key_access_token;
   std::unordered_map<std::string, std::string> custom_kms_conf;
+
+  KmsConnectionConfig();
 
   const std::string& key_access_token() const {
     if (refreshable_key_access_token == NULL ||

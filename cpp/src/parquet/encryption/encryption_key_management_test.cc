@@ -42,9 +42,6 @@ class TestEncrytionKeyManagement : public ::testing::Test {
     key_list_ = BuildKeyMap(kColumnMasterKeyIds, kColumnMasterKeys, kFooterMasterKeyId,
                             kFooterMasterKey);
     column_key_mapping_ = BuildColumnKeyMapping();
-
-    kms_connection_config_.refreshable_key_access_token =
-        std::make_shared<KeyAccessToken>();
   }
   static void SetUpTestCase();
 

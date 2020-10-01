@@ -31,8 +31,6 @@ class KeyWrappingTest : public ::testing::Test {
   void SetUp() {
     key_list_ = BuildKeyMap(kColumnMasterKeyIds, kColumnMasterKeys, kFooterMasterKeyId,
                             kFooterMasterKey);
-    kms_connection_config_.refreshable_key_access_token =
-        std::make_shared<KeyAccessToken>();
   }
 
  protected:

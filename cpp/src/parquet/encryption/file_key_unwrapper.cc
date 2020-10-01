@@ -33,7 +33,6 @@ FileKeyUnwrapper::FileKeyUnwrapper(KeyToolkit* key_toolkit,
     : key_toolkit_(key_toolkit),
       kms_connection_config_(kms_connection_config),
       cache_entry_lifetime_seconds_(cache_lifetime_seconds) {
-  kms_connection_config.refreshable_key_access_token->SetDefaultIfEmpty();
   kek_per_kek_id_ = key_toolkit_->kek_read_cache_per_token().GetOrCreateInternalCache(
       kms_connection_config.key_access_token(), cache_entry_lifetime_seconds_);
 }
