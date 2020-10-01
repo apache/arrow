@@ -898,6 +898,21 @@ test_that("Dataset writing: from data.frame", {
   )
 })
 
+test_that("Dataset writing: from data.frame with projection", {
+  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
+  dst_dir <- tempfile()
+  stacked <- rbind(df1, df2)
+  stacked %>%
+    select(int, chr, dbl) %>%
+    group_by(int) %>%
+    write_dataset(dst_dir, format = "feather")
+  expect_true(dir.exists(dst_dir))
+  expect_identical(dir(dst_dir), sort(paste("int", c(1:10, 101:110), sep = "=")))
+
+  new_ds <- open_dataset(dst_dir, format = "feather")
+  expect_identical(names(new_ds), c("chr", "dbl", "int"))
+})
+
 test_that("Dataset writing: from RecordBatch", {
   skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
   dst_dir <- tempfile()

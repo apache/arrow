@@ -73,7 +73,6 @@ write_dataset <- function(dataset,
   }
 
   scanner <- Scanner$create(dataset)
-  schema <- scanner$schema
 
   if (!inherits(format, "FileFormat")) {
     format <- FileFormat$create(format)
@@ -86,7 +85,7 @@ write_dataset <- function(dataset,
 
   if (!inherits(partitioning, "Partitioning")) {
     # TODO: tidyselect?
-    partition_schema <- schema[partitioning]
+    partition_schema <- scanner$schema[partitioning]
     if (isTRUE(hive_style)) {
       partitioning <- HivePartitioning$create(partition_schema)
     } else {
