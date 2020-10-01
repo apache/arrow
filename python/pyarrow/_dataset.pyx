@@ -962,6 +962,10 @@ cdef class ParquetFileFragment(FileFragment):
             return None
         return [RowGroupInfo.wrap(row_group) for row_group in c_row_groups]
 
+    @property
+    def num_row_groups(self):
+        return None if self.row_groups is None else len(self.row_groups)
+
     def split_by_row_group(self, Expression filter=None,
                            Schema schema=None):
         """

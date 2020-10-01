@@ -246,13 +246,14 @@ def test_filesystem_dataset(mockfs):
             assert fragment.path == path
             assert isinstance(fragment.format, ds.ParquetFileFormat)
             assert isinstance(fragment, ds.ParquetFileFragment)
-            assert fragment.row_groups is None
+            assert fragment.row_groups is fragment.num_row_groups is None
 
             row_group_fragments = list(fragment.split_by_row_group())
-            assert len(row_group_fragments) == 1
+            assert fragment.num_row_groups == len(row_group_fragments) == 1
             assert isinstance(row_group_fragments[0], ds.ParquetFileFragment)
             assert row_group_fragments[0].path == path
             assert row_group_fragments[0].row_groups == [ds.RowGroupInfo(0)]
+            assert row_group_fragments[0].num_row_groups == 1
 
         fragments = list(dataset.get_fragments(filter=ds.field("const") == 0))
         assert len(fragments) == 2
@@ -605,8 +606,9 @@ def test_make_fragment(multisourcefs):
             assert isinstance(f, ds.ParquetFileFragment)
             assert f.path == path
             assert isinstance(f.filesystem, type(multisourcefs))
-        assert fragment.row_groups is None
+        assert fragment.row_groups is fragment.num_row_groups is None
         assert row_group_fragment.row_groups == [ds.RowGroupInfo(0)]
+        assert row_group_fragment.num_row_groups == 1
 
 
 def test_make_csv_fragment_from_buffer():
@@ -807,13 +809,14 @@ def test_fragments_parquet_row_groups(tempdir):
 
     # list and scan row group fragments
     row_group_fragments = list(fragment.split_by_row_group())
-    assert len(row_group_fragments) == 2
+    assert len(row_group_fragments) == fragment.num_row_groups == 2
     result = row_group_fragments[0].to_table(schema=dataset.schema)
     assert result.column_names == ['f1', 'f2', 'part']
     assert len(result) == 2
     assert result.equals(table.slice(0, 2))
 
     assert row_group_fragments[0].row_groups is not None
+    assert row_group_fragments[0].num_row_groups == 1
     assert row_group_fragments[0].row_groups[0].statistics == {
         'f1': {'min': 0, 'max': 1},
         'f2': {'min': 1, 'max': 1},
