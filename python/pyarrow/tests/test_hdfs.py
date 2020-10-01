@@ -46,7 +46,8 @@ def hdfs_test_client():
         raise ValueError('Env variable ARROW_HDFS_TEST_PORT was not '
                          'an integer')
 
-    return pa.hdfs.connect(host, port, user)
+    with pytest.warns(DeprecationWarning):
+        return pa.hdfs.connect(host, port, user)
 
 
 @pytest.mark.hdfs

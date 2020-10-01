@@ -504,7 +504,7 @@ def resolve_filesystem_and_path(where, filesystem=None):
         port = 0
         if len(netloc_split) == 2 and netloc_split[1].isnumeric():
             port = int(netloc_split[1])
-        fs = pa.hdfs.connect(host=host, port=port)
+        fs = pa.hdfs._connect(host=host, port=port)
         fs_path = parsed_uri.path
     elif parsed_uri.scheme == 'file':
         # Input is local URI such as file:///home/user/myfile.parquet

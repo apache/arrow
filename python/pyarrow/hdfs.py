@@ -36,7 +36,7 @@ class HadoopFileSystem(lib.HadoopFileSystem, FileSystem):
     def __init__(self, host="default", port=0, user=None, kerb_ticket=None,
                  driver='libhdfs', extra_conf=None):
         warnings.warn(
-            "pyarrow.hdfs.HadoopFileSystem is deprecated as of 2.0.0, "
+            "'pyarrow.hdfs.HadoopFileSystem' is deprecated as of 2.0.0, "
             "please use pyarrow.fs.HadoopFileSystem instead",
             DeprecationWarning, stacklevel=2)
         if driver == 'libhdfs':
@@ -210,6 +210,19 @@ def connect(host="default", port=0, user=None, kerb_ticket=None,
     -------
     filesystem : HadoopFileSystem
     """
+    warnings.warn(
+        "'pyarrow.hdfs.connect' is deprecated as of 2.0.0, "
+        "please use pyarrow.fs.HadoopFileSystem instead",
+        DeprecationWarning, stacklevel=2
+    )
+    return _connect(
+        host=host, port=port, user=user, kerb_ticket=kerb_ticket,
+        extra_conf=extra_conf
+    )
+
+
+def _connect(host="default", port=0, user=None, kerb_ticket=None,
+             extra_conf=None):
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         fs = HadoopFileSystem(host=host, port=port, user=user,
