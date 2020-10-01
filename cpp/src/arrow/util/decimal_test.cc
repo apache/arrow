@@ -922,6 +922,14 @@ TEST(Decimal128Test, Multiply) {
       Decimal128 result = Decimal128(x) * Decimal128(y);
       ASSERT_EQ(Decimal128(static_cast<int64_t>(x) * y), result)
           << " x: " << x << " y: " << y;
+      // Test by multiplying with an additional 32 bit factor, then additional
+      // factor of 2^30 to test results in the range of -2^123 to 2^123 without overflow.
+      for (auto z : GetRandomNumbers<Int32Type>(32)) {
+        int128_t w = static_cast<int128_t>(x) * y * (1ull << 30);
+        Decimal128 expected = Decimal128FromInt128(static_cast<int128_t>(w) * z);
+        Decimal128 actual = Decimal128FromInt128(w) * Decimal128(z);
+        ASSERT_EQ(expected, actual) << " w: " << x << " * " << y << " * 2^30 z: " << z;
+      }
     }
   }
 
