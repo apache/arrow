@@ -341,7 +341,7 @@ impl FilterContext {
             }
             DataType::Binary => {
                 let input_array = array.as_any().downcast_ref::<BinaryArray>().unwrap();
-                let mut values: Vec<&[u8]> = Vec::with_capacity(self.filtered_count);
+                let mut values: Vec<Option<&[u8]>> = Vec::with_capacity(self.filtered_count);
                 for i in 0..self.filter_u64.len() {
                     // foreach u64 batch
                     let filter_batch = self.filter_u64[i];
@@ -353,7 +353,11 @@ impl FilterContext {
                         // foreach bit in batch:
                         if (filter_batch & self.filter_mask[j]) != 0 {
                             let data_index = (i * 64) + j;
-                            values.push(input_array.value(data_index));
+                            if input_array.is_null(data_index) {
+                                values.push(None)
+                            } else {
+                                values.push(Some(input_array.value(data_index)))
+                            }
                         }
                     }
                 }
@@ -361,7 +365,7 @@ impl FilterContext {
             }
             DataType::Utf8 => {
                 let input_array = array.as_any().downcast_ref::<StringArray>().unwrap();
-                let mut values: Vec<&str> = Vec::with_capacity(self.filtered_count);
+                let mut values: Vec<Option<&str>> = Vec::with_capacity(self.filtered_count);
                 for i in 0..self.filter_u64.len() {
                     // foreach u64 batch
                     let filter_batch = self.filter_u64[i];
@@ -373,7 +377,11 @@ impl FilterContext {
                         // foreach bit in batch:
                         if (filter_batch & self.filter_mask[j]) != 0 {
                             let data_index = (i * 64) + j;
-                            values.push(input_array.value(data_index));
+                            if input_array.is_null(data_index) {
+                                values.push(None)
+                            } else {
+                                values.push(Some(input_array.value(data_index)))
+                            }
                         }
                     }
                 }
@@ -666,13 +674,38 @@ mod tests {
     }
 
     #[test]
-    fn test_filter_array_with_null() {
+    fn test_filter_primative_array_with_null() {
         let a = Int32Array::from(vec![Some(5), None]);
         let b = BooleanArray::from(vec![false, true]);
         let c = filter(&a, &b).unwrap();
         let d = c.as_ref().as_any().downcast_ref::<Int32Array>().unwrap();
         assert_eq!(1, d.len());
         assert_eq!(true, d.is_null(0));
+    }
+
+    #[test]
+    fn test_filter_string_array_with_null() {
+        let a = StringArray::from(vec![Some("hello"), None, Some("world"), None]);
+        let b = BooleanArray::from(vec![true, false, false, true]);
+        let c = filter(&a, &b).unwrap();
+        let d = c.as_ref().as_any().downcast_ref::<StringArray>().unwrap();
+        assert_eq!(2, d.len());
+        assert_eq!("hello", d.value(0));
+        assert_eq!(false, d.is_null(0));
+        assert_eq!(true, d.is_null(1));
+    }
+
+    #[test]
+    fn test_filter_binary_array_with_null() {
+        let data: Vec<Option<&[u8]>> = vec![Some(b"hello"), None, Some(b"world"), None];
+        let a = BinaryArray::from(data);
+        let b = BooleanArray::from(vec![true, false, false, true]);
+        let c = filter(&a, &b).unwrap();
+        let d = c.as_ref().as_any().downcast_ref::<BinaryArray>().unwrap();
+        assert_eq!(2, d.len());
+        assert_eq!(b"hello", d.value(0));
+        assert_eq!(false, d.is_null(0));
+        assert_eq!(true, d.is_null(1));
     }
 
     #[test]

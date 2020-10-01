@@ -1267,6 +1267,37 @@ impl<OffsetSize: OffsetSizeTrait> GenericBinaryArray<OffsetSize> {
         GenericBinaryArray::<OffsetSize>::from(array_data)
     }
 
+    fn from_opt_vec(v: Vec<Option<&[u8]>>, data_type: DataType) -> Self {
+        let mut offsets = Vec::with_capacity(v.len() + 1);
+        let mut values = Vec::new();
+        let mut null_buf = make_null_buffer(v.len());
+        let mut length_so_far: OffsetSize = OffsetSize::zero();
+        offsets.push(length_so_far);
+
+        {
+            let null_slice = null_buf.data_mut();
+
+            for (i, s) in v.iter().enumerate() {
+                if let Some(s) = s {
+                    bit_util::set_bit(null_slice, i);
+                    length_so_far =
+                        length_so_far + OffsetSize::from_usize(s.len()).unwrap();
+                    values.extend_from_slice(s);
+                }
+                // always add an element in offsets
+                offsets.push(length_so_far);
+            }
+        }
+
+        let array_data = ArrayData::builder(data_type)
+            .len(v.len())
+            .add_buffer(Buffer::from(offsets.to_byte_slice()))
+            .add_buffer(Buffer::from(&values[..]))
+            .null_bit_buffer(null_buf.freeze())
+            .build();
+        GenericBinaryArray::<OffsetSize>::from(array_data)
+    }
+
     fn from_list(v: GenericListArray<OffsetSize>, datatype: DataType) -> Self {
         assert_eq!(
             v.data_ref().child_data()[0].child_data().len(),
@@ -1368,9 +1399,21 @@ impl From<Vec<&[u8]>> for BinaryArray {
     }
 }
 
+impl From<Vec<Option<&[u8]>>> for BinaryArray {
+    fn from(v: Vec<Option<&[u8]>>) -> Self {
+        BinaryArray::from_opt_vec(v, DataType::Binary)
+    }
+}
+
 impl From<Vec<&[u8]>> for LargeBinaryArray {
     fn from(v: Vec<&[u8]>) -> Self {
         LargeBinaryArray::from_vec(v, DataType::LargeBinary)
+    }
+}
+
+impl From<Vec<Option<&[u8]>>> for LargeBinaryArray {
+    fn from(v: Vec<Option<&[u8]>>) -> Self {
+        LargeBinaryArray::from_opt_vec(v, DataType::LargeBinary)
     }
 }
 
@@ -1846,7 +1889,7 @@ impl TryFrom<Vec<(&str, ArrayRef)>> for StructArray {
             if let Some(len) = len {
                 if len != child_datum.len() {
                     return Err(ArrowError::InvalidArgumentError(
-                        format!("Array of field \"{}\" has length {}, but previous elements have length {}. 
+                        format!("Array of field \"{}\" has length {}, but previous elements have length {}.
                         All arrays in every entry in a struct array must have the same length.", field_name, child_datum.len(), len)
                     ));
                 }
@@ -3509,6 +3552,40 @@ mod tests {
             assert_eq!(binary_array1.value_offset(i), binary_array2.value_offset(i));
             assert_eq!(binary_array1.value_length(i), binary_array2.value_length(i));
         }
+    }
+
+    #[test]
+    fn test_binary_array_from_opt_vec() {
+        let values: Vec<Option<&[u8]>> =
+            vec![Some(b"one"), Some(b"two"), None, Some(b""), Some(b"three")];
+        let array = BinaryArray::from_opt_vec(values, DataType::Binary);
+        assert_eq!(array.len(), 5);
+        assert_eq!(array.value(0), b"one");
+        assert_eq!(array.value(1), b"two");
+        assert_eq!(array.value(3), b"");
+        assert_eq!(array.value(4), b"three");
+        assert_eq!(array.is_null(0), false);
+        assert_eq!(array.is_null(1), false);
+        assert_eq!(array.is_null(2), true);
+        assert_eq!(array.is_null(3), false);
+        assert_eq!(array.is_null(4), false);
+    }
+
+    #[test]
+    fn test_large_binary_array_from_opt_vec() {
+        let values: Vec<Option<&[u8]>> =
+            vec![Some(b"one"), Some(b"two"), None, Some(b""), Some(b"three")];
+        let array = LargeBinaryArray::from_opt_vec(values, DataType::LargeBinary);
+        assert_eq!(array.len(), 5);
+        assert_eq!(array.value(0), b"one");
+        assert_eq!(array.value(1), b"two");
+        assert_eq!(array.value(3), b"");
+        assert_eq!(array.value(4), b"three");
+        assert_eq!(array.is_null(0), false);
+        assert_eq!(array.is_null(1), false);
+        assert_eq!(array.is_null(2), true);
+        assert_eq!(array.is_null(3), false);
+        assert_eq!(array.is_null(4), false);
     }
 
     #[test]
