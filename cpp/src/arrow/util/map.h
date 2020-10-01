@@ -61,4 +61,3 @@ auto GetOrInsertGenerated(Map* map, Key&& key, Gen&& gen)
 
 }  // namespace internal
 }  // namespace arrow
-
