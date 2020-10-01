@@ -2676,12 +2676,13 @@ macro(build_awssdk)
     list(APPEND AWS_LIBRARIES AWS::${_AWS_LIB})
   endforeach()
 
-  externalproject_add(awssdk_ep
-                      ${EP_LOG_OPTIONS}
-                      URL ${AWSSDK_SOURCE_URL}
-                      CMAKE_ARGS ${AWSSDK_CMAKE_ARGS}
-                      PATCH_COMMAND patch -p1 < "${CMAKE_SOURCE_DIR}/cmake_modules/aws-sdk-cpp-no-git.patch"
-                      BUILD_BYPRODUCTS ${AWS_BUILD_BYPRODUCTS})
+  externalproject_add(
+    awssdk_ep
+    ${EP_LOG_OPTIONS}
+    URL ${AWSSDK_SOURCE_URL}
+    CMAKE_ARGS ${AWSSDK_CMAKE_ARGS}
+    PATCH_COMMAND patch -p1 < "${CMAKE_SOURCE_DIR}/cmake_modules/aws-sdk-cpp-no-git.patch"
+    BUILD_BYPRODUCTS ${AWS_BUILD_BYPRODUCTS})
 
   add_dependencies(toolchain awssdk_ep)
   foreach(_AWS_LIB ${_AWS_LIBS})
