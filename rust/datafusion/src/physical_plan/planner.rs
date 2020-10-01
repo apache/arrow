@@ -469,6 +469,12 @@ impl DefaultPhysicalPlanner {
         input_schema: &Schema,
         ctx_state: &ExecutionContextState,
     ) -> Result<Arc<dyn AggregateExpr>> {
+        // unpack aliased logical expressions, e.g. "sum(col) as total"
+        let (name, e) = match e {
+            Expr::Alias(sub_expr, alias) => (alias.clone(), sub_expr.as_ref()),
+            _ => (e.name(input_schema)?, e),
+        };
+
         match e {
             Expr::AggregateFunction { fun, args, .. } => {
                 let args = args
@@ -479,7 +485,7 @@ impl DefaultPhysicalPlanner {
                     fun,
                     &args,
                     input_schema,
-                    e.name(input_schema)?,
+                    name,
                 )
             }
             Expr::AggregateUDF { fun, args, .. } => {
@@ -492,7 +498,7 @@ impl DefaultPhysicalPlanner {
                     fun,
                     &args,
                     input_schema,
-                    e.name(input_schema)?,
+                    name,
                 )
             }
             other => Err(ExecutionError::General(format!(
