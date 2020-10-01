@@ -173,7 +173,7 @@ class PARQUET_EXPORT DecryptionConfiguration {
 
 class PARQUET_EXPORT PropertiesDrivenCryptoFactory {
  public:
-  /// KmsClientFactory must be registered before calling
+  /// a KmsClientFactory object must be registered via this method before calling any of
   /// GetFileEncryptionProperties()/GetFileDecryptionProperties() methods.
   void RegisterKmsClientFactory(std::shared_ptr<KmsClientFactory> kms_client_factory);
 

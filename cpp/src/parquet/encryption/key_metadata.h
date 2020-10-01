@@ -57,6 +57,8 @@ class PARQUET_EXPORT KeyMetadata {
   static constexpr const char kKeyMaterialInternalStorageField[] = "internalStorage";
   static constexpr const char kKeyReferenceField[] = "keyReference";
 
+  /// key_metadata_bytes is the key metadata field stored in the parquet file,
+  /// in the serialized json object format.
   static KeyMetadata Parse(const std::string& key_metadata_bytes);
 
   static std::string CreateSerializedForExternalMaterial(

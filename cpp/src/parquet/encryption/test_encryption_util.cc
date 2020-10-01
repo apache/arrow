@@ -32,6 +32,13 @@ namespace parquet {
 namespace encryption {
 namespace test {
 
+std::string data_file(const char* file) {
+  std::string dir_string(parquet::test::get_data_dir());
+  std::stringstream ss;
+  ss << dir_string << "/" << file;
+  return ss.str();
+}
+
 FileEncryptor::FileEncryptor() { schema_ = SetupEncryptionSchema(); }
 
 std::shared_ptr<GroupNode> FileEncryptor::SetupEncryptionSchema() {

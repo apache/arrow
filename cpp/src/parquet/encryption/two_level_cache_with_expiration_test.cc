@@ -98,27 +98,6 @@ TEST_F(TwoLevelCacheWithExpirationTest, RemoveExpiration) {
   ASSERT_EQ(lifetime_3s->size(), 2);
 }
 
-TEST_F(TwoLevelCacheWithExpirationTest, CleanupPeriodTooBig) {
-  // wait for 2s, now:
-  // lifetime_1s is expired
-  // lifetime_3s isn't expired
-  std::this_thread::sleep_for(std::chrono::milliseconds(2000));
-
-  // if cleanup_period is too big (10s), the expired items may not be removed from cache.
-  cache_.CheckCacheForExpiredTokens(10000);
-
-  // lifetime_1s (with 2 items) is expired but not removed from the cache, still contains
-  // 2 items
-  std::shared_ptr<ConcurrentMap<int>> lifetime_1s =
-      cache_.GetOrCreateInternalCache("lifetime1s", 1000);
-  ASSERT_EQ(lifetime_1s->size(), 2);
-
-  // lifetime_3s is not expired and still contains 2 items.
-  std::shared_ptr<ConcurrentMap<int>> lifetime_3s =
-      cache_.GetOrCreateInternalCache("lifetime3s", 3000);
-  ASSERT_EQ(lifetime_3s->size(), 2);
-}
-
 TEST_F(TwoLevelCacheWithExpirationTest, CleanupPeriodOk) {
   // wait for 2s, now:
   // lifetime_1s is expired

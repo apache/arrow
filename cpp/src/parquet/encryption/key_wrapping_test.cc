@@ -87,8 +87,8 @@ class KeyWrappingTest : public ::testing::Test {
 };
 
 TEST_F(KeyWrappingTest, InternalMaterialStorage) {
-  /// key_material_store = NULL indicates that "key material" is stored inside parquet
-  /// file.
+  // key_material_store = NULL indicates that "key material" is stored inside parquet
+  // file.
   this->WrapThenUnwrap(NULL, true, true);
   this->WrapThenUnwrap(NULL, true, false);
   this->WrapThenUnwrap(NULL, false, true);

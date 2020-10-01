@@ -17,7 +17,6 @@
 
 #pragma once
 
-#include <map>
 #include <string>
 
 #include "arrow/json/object_parser.h"

@@ -64,20 +64,14 @@ const char kColumnEncryptionKey1[] = "1234567890123450";
 const char kColumnEncryptionKey2[] = "1234567890123451";
 const char kFileName[] = "tester";
 
-inline std::string data_file(const char* file) {
-  std::string dir_string(parquet::test::get_data_dir());
-  std::stringstream ss;
-  ss << dir_string << "/" << file;
-  return ss.str();
-}
+// Get the path of file inside parquet test data directory
+std::string data_file(const char* file);
 
 // A temporary directory that contains the encrypted files generated in the tests.
 extern std::unique_ptr<TemporaryDir> temp_dir;
 
 inline arrow::Result<std::unique_ptr<TemporaryDir>> temp_data_dir() {
-  arrow::Result<std::unique_ptr<TemporaryDir>> dir;
-  ARROW_ASSIGN_OR_RAISE(dir, TemporaryDir::Make("parquet-encryption-test-"));
-  return dir;
+  return TemporaryDir::Make("parquet-encryption-test-");
 }
 
 static constexpr const char kDoubleFieldName[] = "double_field";

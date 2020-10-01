@@ -17,12 +17,11 @@
 
 #pragma once
 
+#include <chrono>
 #include <unordered_map>
 
 #include "arrow/util/concurrent_map.h"
 #include "arrow/util/mutex.h"
-
-#include "parquet/encryption/key_toolkit_internal.h"
 
 using arrow::util::ConcurrentMap;
 
