@@ -2648,11 +2648,9 @@ macro(build_awssdk)
     "-DCMAKE_INSTALL_PREFIX=${AWSSDK_PREFIX}")
 
   file(MAKE_DIRECTORY ${AWSSDK_INCLUDE_DIR})
-  set(ABSL_BUILD_BYPRODUCTS)
-  set(ABSL_LIBRARIES)
 
-  # AWS libraries to link statically
-  set(_AWS_LIBS
+  # AWS C++ SDK related libraries to link statically
+  set(_AWSSDK_LIBS
       aws-cpp-sdk-identity-management
       aws-cpp-sdk-sts
       aws-cpp-sdk-cognito-identity
@@ -2662,18 +2660,20 @@ macro(build_awssdk)
       aws-checksums
       aws-c-common)
 
-  foreach(_AWS_LIB ${_AWS_LIBS})
+  set(AWSSDK_BUILD_BYPRODUCTS)
+  set(AWSSDK_LIBRARIES)
+  foreach(_AWSSDK_LIB ${_AWSSDK_LIBS})
     set(
-      _AWS_STATIC_LIBRARY
-      "${AWSSDK_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}${_AWS_LIB}${CMAKE_STATIC_LIBRARY_SUFFIX}"
+      _AWSSDK_STATIC_LIBRARY
+      "${AWSSDK_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}${_AWSSDK_LIB}${CMAKE_STATIC_LIBRARY_SUFFIX}"
       )
-    add_library(${_AWS_LIB} STATIC IMPORTED)
+    add_library(${_AWSSDK_LIB} STATIC IMPORTED)
     set_target_properties(
-      ${_AWS_LIB}
-      PROPERTIES IMPORTED_LOCATION ${_AWS_STATIC_LIBRARY} INTERFACE_INCLUDE_DIRECTORIES
+      ${_AWSSDK_LIB}
+      PROPERTIES IMPORTED_LOCATION ${_AWSSDK_STATIC_LIBRARY} INTERFACE_INCLUDE_DIRECTORIES
                  "${AWSSDK_INCLUDE_DIR}")
-    list(APPEND AWS_BUILD_BYPRODUCTS ${_AWS_STATIC_LIBRARY})
-    list(APPEND AWS_LIBRARIES ${_AWS_LIB})
+    list(APPEND AWSSDK_BUILD_BYPRODUCTS ${_AWSSDK_STATIC_LIBRARY})
+    list(APPEND AWSSDK_LIBRARIES ${_AWSSDK_LIB})
   endforeach()
 
   externalproject_add(
@@ -2682,16 +2682,16 @@ macro(build_awssdk)
     URL ${AWSSDK_SOURCE_URL}
     CMAKE_ARGS ${AWSSDK_CMAKE_ARGS}
     PATCH_COMMAND patch -p1 < "${CMAKE_SOURCE_DIR}/cmake_modules/aws-sdk-cpp-no-git.patch"
-    BUILD_BYPRODUCTS ${AWS_BUILD_BYPRODUCTS})
+    BUILD_BYPRODUCTS ${AWSSDK_BUILD_BYPRODUCTS})
 
   add_dependencies(toolchain awssdk_ep)
-  foreach(_AWS_LIB ${_AWS_LIBS})
-    add_dependencies(${_AWS_LIB} awssdk_ep)
+  foreach(_AWSSDK_LIB ${_AWSSDK_LIBS})
+    add_dependencies(${_AWSSDK_LIB} awssdk_ep)
   endforeach()
 
   set(AWSSDK_VENDORED TRUE)
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS ${AWS_LIBRARIES})
-  set(AWSSDK_LINK_LIBRARIES ${AWS_LIBRARIES})
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS ${AWSSDK_LIBRARIES})
+  set(AWSSDK_LINK_LIBRARIES ${AWSSDK_LIBRARIES})
   if(UNIX)
     # on linux and macos curl seems to be required
     find_package(CURL REQUIRED)
