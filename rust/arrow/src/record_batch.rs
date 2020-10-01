@@ -223,6 +223,15 @@ pub trait RecordBatchReader: Iterator<Item = Result<RecordBatch>> {
     /// Implementation of this trait should guarantee that all `RecordBatch`'s returned by this
     /// reader should have the same schema as returned from this method.
     fn schema(&self) -> SchemaRef;
+
+    /// Reads the next `RecordBatch`.
+    #[deprecated(
+        since = "2.0.0",
+        note = "This method is deprecated in favour of `next` from the trait Iterator."
+    )]
+    fn next_batch(&mut self) -> Result<Option<RecordBatch>> {
+        self.next().transpose()
+    }
 }
 
 #[cfg(test)]
