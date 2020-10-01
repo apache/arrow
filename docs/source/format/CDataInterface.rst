@@ -535,6 +535,8 @@ Therefore, the consumer MUST not try to interfere with the producer's
 handling of these members' lifetime.  The only way the consumer influences
 data lifetime is by calling the base structure's ``release`` callback.
 
+.. _c-data-interface-released:
+
 Released structure
 ''''''''''''''''''
 

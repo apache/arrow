@@ -29,6 +29,10 @@
 
 namespace arrow {
 
+/// \defgroup c-data-interface Functions for working with the C data interface.
+///
+/// @{
+
 /// \brief Export C++ DataType using the C data interface format.
 ///
 /// The root type is considered to have empty name and metadata.
@@ -159,5 +163,35 @@ Result<std::shared_ptr<RecordBatch>> ImportRecordBatch(struct ArrowArray* array,
 ARROW_EXPORT
 Result<std::shared_ptr<RecordBatch>> ImportRecordBatch(struct ArrowArray* array,
                                                        struct ArrowSchema* schema);
+
+/// @}
+
+/// \defgroup c-stream-interface Functions for working with the C data interface.
+///
+/// @{
+
+/// \brief EXPERIMENTAL: Export C++ RecordBatchReader using the C stream interface.
+///
+/// The resulting ArrowArrayStream struct keeps the record batch reader alive
+/// until its release callback is called by the consumer.
+///
+/// \param[in] reader RecordBatchReader object to export
+/// \param[out] out C struct where to export the stream
+ARROW_EXPORT
+Status ExportRecordBatchReader(std::shared_ptr<RecordBatchReader> reader,
+                               struct ArrowArrayStream* out);
+
+/// \brief EXPERIMENTAL: Import C++ RecordBatchReader from the C stream interface.
+///
+/// The ArrowArrayStream struct has its contents moved to a private object
+/// held alive by the resulting record batch reader.
+///
+/// \param[in,out] stream C stream interface struct
+/// \return Imported RecordBatchReader object
+ARROW_EXPORT
+Result<std::shared_ptr<RecordBatchReader>> ImportRecordBatchReader(
+    struct ArrowArrayStream* stream);
+
+/// @}
 
 }  // namespace arrow

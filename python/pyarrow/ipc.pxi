@@ -400,8 +400,29 @@ cdef _get_input_stream(object source, shared_ptr[CInputStream]* out):
     get_input_stream(source, True, out)
 
 
-cdef class _CRecordBatchReader(_Weakrefable):
-    """The base RecordBatchReader wrapper.
+class _ReadPandasMixin:
+
+    def read_pandas(self, **options):
+        """
+        Read contents of stream to a pandas.DataFrame.
+
+        Read all record batches as a pyarrow.Table then convert it to a
+        pandas.DataFrame using Table.to_pandas.
+
+        Parameters
+        ----------
+        **options : arguments to forward to Table.to_pandas
+
+        Returns
+        -------
+        df : pandas.DataFrame
+        """
+        table = self.read_all()
+        return table.to_pandas(**options)
+
+
+cdef class RecordBatchReader(_Weakrefable):
+    """Base class for reading stream of record batches.
 
     Provides common implementations of convenience methods. Should not
     be instantiated directly by user code.
@@ -412,6 +433,18 @@ cdef class _CRecordBatchReader(_Weakrefable):
     def __iter__(self):
         while True:
             yield self.read_next_batch()
+
+    @property
+    def schema(self):
+        """
+        Shared schema of the record batches in the stream.
+        """
+        cdef shared_ptr[CSchema] c_schema
+
+        with nogil:
+            c_schema = self.reader.get().schema()
+
+        return pyarrow_wrap_schema(c_schema)
 
     def get_next_batch(self):
         import warnings
@@ -447,20 +480,90 @@ cdef class _CRecordBatchReader(_Weakrefable):
             check_status(self.reader.get().ReadAll(&table))
         return pyarrow_wrap_table(table)
 
+    read_pandas = _ReadPandasMixin.read_pandas
+
     def __enter__(self):
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         pass
 
+    def _export_to_c(self, uintptr_t out_ptr):
+        """
+        Export to a C ArrowArrayStream struct, given its pointer.
 
-cdef class _RecordBatchStreamReader(_CRecordBatchReader):
+        Parameters
+        ----------
+        out_ptr: int
+            The raw pointer to a C ArrowArrayStream struct.
+
+        Be careful: if you don't pass the ArrowArrayStream struct to a
+        consumer, array memory will leak.  This is a low-level function
+        intended for expert users.
+        """
+        with nogil:
+            check_status(ExportRecordBatchReader(
+                self.reader, <ArrowArrayStream*> out_ptr))
+
+    @staticmethod
+    def _import_from_c(uintptr_t in_ptr):
+        """
+        Import RecordBatchReader from a C ArrowArrayStream struct,
+        given its pointer.
+
+        Parameters
+        ----------
+        in_ptr: int
+            The raw pointer to a C ArrowArrayStream struct.
+
+        This is a low-level function intended for expert users.
+        """
+        cdef:
+            shared_ptr[CRecordBatchReader] c_reader
+            RecordBatchReader self
+
+        with nogil:
+            c_reader = GetResultValue(ImportRecordBatchReader(
+                <ArrowArrayStream*> in_ptr))
+
+        self = RecordBatchReader.__new__(RecordBatchReader)
+        self.reader = c_reader
+        return self
+
+    @staticmethod
+    def from_batches(schema, batches):
+        """
+        Create RecordBatchReader from an iterable of batches.
+
+        Parameters
+        ----------
+        schema : Schema
+            The shared schema of the record batches
+        batches : Iterable[RecordBatch]
+            The batches that this reader will return.
+
+        Returns
+        -------
+        reader : RecordBatchReader
+        """
+        cdef:
+            shared_ptr[CSchema] c_schema
+            shared_ptr[CRecordBatchReader] c_reader
+            RecordBatchReader self
+
+        c_schema = pyarrow_unwrap_schema(schema)
+        c_reader = GetResultValue(CPyRecordBatchReader.Make(
+            c_schema, batches))
+
+        self = RecordBatchReader.__new__(RecordBatchReader)
+        self.reader = c_reader
+        return self
+
+
+cdef class _RecordBatchStreamReader(RecordBatchReader):
     cdef:
         shared_ptr[CInputStream] in_stream
         CIpcReadOptions options
-
-    cdef readonly:
-        Schema schema
 
     def __cinit__(self):
         pass
@@ -469,9 +572,7 @@ cdef class _RecordBatchStreamReader(_CRecordBatchReader):
         _get_input_stream(source, &self.in_stream)
         with nogil:
             self.reader = GetResultValue(CRecordBatchStreamReader.Open(
-                self.in_stream.get(), self.options))
-
-        self.schema = pyarrow_wrap_schema(self.reader.get().schema())
+                self.in_stream, self.options))
 
 
 cdef class _RecordBatchFileWriter(_RecordBatchStreamWriter):
@@ -564,6 +665,8 @@ cdef class _RecordBatchFileReader(_Weakrefable):
                 CTable.FromRecordBatches(self.schema.sp_schema, move(batches)))
 
         return pyarrow_wrap_table(table)
+
+    read_pandas = _ReadPandasMixin.read_pandas
 
     def __enter__(self):
         return self

@@ -15,26 +15,34 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
-*************
-API Reference
-*************
+============
+C Interfaces
+============
 
-.. toctree::
-   :maxdepth: 3
+.. seealso::
+   The :ref:`C data interface <c-data-interface>` and
+   :ref:`C stream interface <c-stream-interface>` specifications.
 
-   api/support
-   api/memory
-   api/datatype
-   api/array
-   api/scalar
-   api/builder
-   api/table
-   api/c_abi
-   api/compute
-   api/tensor
-   api/utilities
-   api/io
-   api/formats
-   api/cuda
-   api/flight
-   api/filesystem
+ABI Structures
+==============
+
+.. doxygenstruct:: ArrowSchema
+   :project: arrow_cpp
+
+.. doxygenstruct:: ArrowArray
+   :project: arrow_cpp
+
+.. doxygenstruct:: ArrowArrayStream
+   :project: arrow_cpp
+
+C Data Interface
+================
+
+.. doxygengroup:: c-data-interface
+   :content-only:
+
+C Stream Interface
+==================
+
+.. doxygengroup:: c-stream-interface
+   :content-only:

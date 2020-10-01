@@ -43,6 +43,7 @@ such topics as:
    format/Flight
    format/Integration
    format/CDataInterface
+   format/CStreamInterface
    format/Other
 
 .. _toc.usage:

@@ -28,7 +28,7 @@ from collections.abc import Mapping
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 from pyarrow.lib cimport (check_status, Field, MemoryPool, Schema,
-                          _CRecordBatchReader, ensure_type,
+                          RecordBatchReader, ensure_type,
                           maybe_unbox_memory_pool, get_input_stream,
                           native_transcoding_input_stream,
                           pyarrow_wrap_schema, pyarrow_wrap_table,
@@ -633,7 +633,7 @@ cdef _get_convert_options(ConvertOptions convert_options,
         out[0] = convert_options.options
 
 
-cdef class CSVStreamingReader(_CRecordBatchReader):
+cdef class CSVStreamingReader(RecordBatchReader):
     """An object that reads record batches incrementally from a CSV file.
 
     Should not be instantiated directly by user code.

@@ -52,6 +52,18 @@ c_source = """
       // Opaque producer-specific data
       void* private_data;
     };
+
+    struct ArrowArrayStream {
+      int (*get_schema)(struct ArrowArrayStream*, struct ArrowSchema* out);
+      int (*get_next)(struct ArrowArrayStream*, struct ArrowArray* out);
+
+      const char* (*get_last_error)(struct ArrowArrayStream*);
+
+      // Release callback
+      void (*release)(struct ArrowArrayStream*);
+      // Opaque producer-specific data
+      void* private_data;
+    };
     """
 
 # TODO use out-of-line mode for faster import and avoid C parsing
