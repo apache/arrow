@@ -274,7 +274,6 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
 
         @staticmethod
         CStatus Write(
-            shared_ptr[CSchema] schema,
             const CFileSystemDatasetWriteOptions& write_options,
             shared_ptr[CScanner] scanner)
 

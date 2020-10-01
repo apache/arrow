@@ -214,8 +214,7 @@ class ARROW_DS_EXPORT FileSystemDataset : public Dataset {
       std::vector<std::shared_ptr<FileFragment>> fragments);
 
   /// \brief Write a dataset.
-  static Status Write(std::shared_ptr<Schema> schema,
-                      const FileSystemDatasetWriteOptions& write_options,
+  static Status Write(const FileSystemDatasetWriteOptions& write_options,
                       std::shared_ptr<Scanner> scanner);
 
   /// \brief Return the type name of the dataset.

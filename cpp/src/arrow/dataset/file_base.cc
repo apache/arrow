@@ -244,8 +244,7 @@ struct WriterSet {
   const FileSystemDatasetWriteOptions& write_options_;
 };
 
-Status FileSystemDataset::Write(std::shared_ptr<Schema> schema,
-                                const FileSystemDatasetWriteOptions& write_options,
+Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_options,
                                 std::shared_ptr<Scanner> scanner) {
   auto task_group = scanner->context()->TaskGroup();
 

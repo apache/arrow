@@ -589,7 +589,7 @@ class WriteFileSystemDatasetMixin : public MakeFileSystemDatasetMixin {
   void DoWrite(std::shared_ptr<Partitioning> desired_partitioning) {
     write_options_.partitioning = desired_partitioning;
     auto scanner = std::make_shared<Scanner>(dataset_, scan_options_, scan_context_);
-    ASSERT_OK(FileSystemDataset::Write(source_schema_, write_options_, scanner));
+    ASSERT_OK(FileSystemDataset::Write(write_options_, scanner));
 
     // re-discover the written dataset
     fs::FileSelector s;

@@ -2306,13 +2306,9 @@ def _filesystemdataset_write(
     CFileSystemDataset.Write wrapper
     """
     cdef:
-        shared_ptr[CSchema] c_schema
         CFileSystemDatasetWriteOptions c_options
         shared_ptr[CScanner] c_scanner
-
         vector[shared_ptr[CRecordBatch]] c_batches
-
-    c_schema = pyarrow_unwrap_schema(schema)
 
     c_options.file_write_options = file_options.unwrap()
     c_options.filesystem = filesystem.unwrap()
@@ -2338,4 +2334,4 @@ def _filesystemdataset_write(
 
     c_scanner = (<Scanner> scanner).unwrap()
     with nogil:
-        check_status(CFileSystemDataset.Write(c_schema, c_options, c_scanner))
+        check_status(CFileSystemDataset.Write(c_options, c_scanner))
