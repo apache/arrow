@@ -1420,7 +1420,6 @@ const char* binary_string(gdv_int64 context, const char* text, gdv_int32 text_le
       uint8_t out;
       arrow::Status st;
       st = arrow::ParseHexValue(hex_string, &out);
-      st = arrow::ParseHexValue(hex_string, &out);
       if (st.ok()) {
         ret[j] = static_cast<char>(out);
         i += 3;
