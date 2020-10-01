@@ -798,8 +798,8 @@ class RecordBatchStreamReaderImpl : public RecordBatchStreamReader {
  private:
   Result<std::unique_ptr<Message>> ReadNextMessage() {
     ARROW_ASSIGN_OR_RAISE(auto message, message_reader_->ReadNextMessage());
-    ++stats_.num_messages;
     if (message) {
+      ++stats_.num_messages;
       switch (message->type()) {
         case MessageType::RECORD_BATCH:
           ++stats_.num_record_batches;
@@ -889,7 +889,7 @@ class RecordBatchStreamReaderImpl : public RecordBatchStreamReader {
 // ----------------------------------------------------------------------
 // Stream reader constructors
 
-Result<std::shared_ptr<RecordBatchReader>> RecordBatchStreamReader::Open(
+Result<std::shared_ptr<RecordBatchStreamReader>> RecordBatchStreamReader::Open(
     std::unique_ptr<MessageReader> message_reader, const IpcReadOptions& options) {
   // Private ctor
   auto result = std::make_shared<RecordBatchStreamReaderImpl>();
@@ -897,12 +897,12 @@ Result<std::shared_ptr<RecordBatchReader>> RecordBatchStreamReader::Open(
   return result;
 }
 
-Result<std::shared_ptr<RecordBatchReader>> RecordBatchStreamReader::Open(
+Result<std::shared_ptr<RecordBatchStreamReader>> RecordBatchStreamReader::Open(
     io::InputStream* stream, const IpcReadOptions& options) {
   return Open(MessageReader::Open(stream), options);
 }
 
-Result<std::shared_ptr<RecordBatchReader>> RecordBatchStreamReader::Open(
+Result<std::shared_ptr<RecordBatchStreamReader>> RecordBatchStreamReader::Open(
     const std::shared_ptr<io::InputStream>& stream, const IpcReadOptions& options) {
   return Open(MessageReader::Open(stream), options);
 }
@@ -935,13 +935,16 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
       read_dictionaries_ = true;
     }
 
-    std::unique_ptr<Message> message;
-    RETURN_NOT_OK(ReadMessageFromBlock(GetRecordBatchBlock(i), &message));
+    ARROW_ASSIGN_OR_RAISE(auto message, ReadMessageFromBlock(GetRecordBatchBlock(i)));
 
     CHECK_HAS_BODY(*message);
     ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message->body()));
-    return ReadRecordBatchInternal(*message->metadata(), schema_, field_inclusion_mask_,
-                                   &dictionary_memo_, options_, reader.get());
+    ARROW_ASSIGN_OR_RAISE(
+        auto batch,
+        ReadRecordBatchInternal(*message->metadata(), schema_, field_inclusion_mask_,
+                                &dictionary_memo_, options_, reader.get()));
+    ++stats_.num_record_batches;
+    return batch;
   }
 
   Status Open(const std::shared_ptr<io::RandomAccessFile>& file, int64_t footer_offset,
@@ -958,13 +961,17 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
     RETURN_NOT_OK(ReadFooter());
 
     // Get the schema and record any observed dictionaries
-    return UnpackSchemaMessage(footer_->schema(), options, &dictionary_memo_, &schema_,
-                               &out_schema_, &field_inclusion_mask_);
+    RETURN_NOT_OK(UnpackSchemaMessage(footer_->schema(), options, &dictionary_memo_,
+                                      &schema_, &out_schema_, &field_inclusion_mask_));
+    ++stats_.num_messages;
+    return Status::OK();
   }
 
   std::shared_ptr<Schema> schema() const override { return out_schema_; }
 
   std::shared_ptr<const KeyValueMetadata> metadata() const override { return metadata_; }
+
+  ReadStats stats() const override { return stats_; }
 
  private:
   FileBlock GetRecordBatchBlock(int i) const {
@@ -975,7 +982,7 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
     return FileBlockFromFlatbuffer(footer_->dictionaries()->Get(i));
   }
 
-  Status ReadMessageFromBlock(const FileBlock& block, std::unique_ptr<Message>* out) {
+  Result<std::unique_ptr<Message>> ReadMessageFromBlock(const FileBlock& block) {
     if (!BitUtil::IsMultipleOf8(block.offset) ||
         !BitUtil::IsMultipleOf8(block.metadata_length) ||
         !BitUtil::IsMultipleOf8(block.body_length)) {
@@ -985,20 +992,23 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
     // TODO(wesm): this breaks integration tests, see ARROW-3256
     // DCHECK_EQ((*out)->body_length(), block.body_length);
 
-    return ReadMessage(block.offset, block.metadata_length, file_).Value(out);
+    ARROW_ASSIGN_OR_RAISE(auto message,
+                          ReadMessage(block.offset, block.metadata_length, file_));
+    ++stats_.num_messages;
+    return std::move(message);
   }
 
   Status ReadDictionaries() {
     // Read all the dictionaries
     for (int i = 0; i < num_dictionaries(); ++i) {
-      std::unique_ptr<Message> message;
-      RETURN_NOT_OK(ReadMessageFromBlock(GetDictionaryBlock(i), &message));
+      ARROW_ASSIGN_OR_RAISE(auto message, ReadMessageFromBlock(GetDictionaryBlock(i)));
 
       CHECK_HAS_BODY(*message);
       ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message->body()));
       DictionaryKind kind;
       RETURN_NOT_OK(ReadDictionary(*message->metadata(), &dictionary_memo_, options_,
                                    &kind, reader.get()));
+      ++stats_.num_dictionary_batches;
       if (kind != DictionaryKind::New) {
         return Status::Invalid(
             "Unsupported dictionary replacement or "
@@ -1083,6 +1093,8 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
   std::shared_ptr<Schema> schema_;
   // Schema with deselected fields dropped
   std::shared_ptr<Schema> out_schema_;
+
+  ReadStats stats_;
 };
 
 Result<std::shared_ptr<RecordBatchFileReader>> RecordBatchFileReader::Open(

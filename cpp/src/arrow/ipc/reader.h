@@ -85,7 +85,7 @@ class ARROW_EXPORT RecordBatchStreamReader : public RecordBatchReader {
   /// \param[in] message_reader a MessageReader implementation
   /// \param[in] options any IPC reading options (optional)
   /// \return the created batch reader
-  static Result<std::shared_ptr<RecordBatchReader>> Open(
+  static Result<std::shared_ptr<RecordBatchStreamReader>> Open(
       std::unique_ptr<MessageReader> message_reader,
       const IpcReadOptions& options = IpcReadOptions::Defaults());
 
@@ -95,7 +95,7 @@ class ARROW_EXPORT RecordBatchStreamReader : public RecordBatchReader {
   /// lifetime of stream reader
   /// \param[in] options any IPC reading options (optional)
   /// \return the created batch reader
-  static Result<std::shared_ptr<RecordBatchReader>> Open(
+  static Result<std::shared_ptr<RecordBatchStreamReader>> Open(
       io::InputStream* stream,
       const IpcReadOptions& options = IpcReadOptions::Defaults());
 
@@ -103,7 +103,7 @@ class ARROW_EXPORT RecordBatchStreamReader : public RecordBatchReader {
   /// \param[in] stream the input stream
   /// \param[in] options any IPC reading options (optional)
   /// \return the created batch reader
-  static Result<std::shared_ptr<RecordBatchReader>> Open(
+  static Result<std::shared_ptr<RecordBatchStreamReader>> Open(
       const std::shared_ptr<io::InputStream>& stream,
       const IpcReadOptions& options = IpcReadOptions::Defaults());
 
@@ -179,6 +179,9 @@ class ARROW_EXPORT RecordBatchFileReader {
   /// \param[in] i the index of the record batch to return
   /// \return the read batch
   virtual Result<std::shared_ptr<RecordBatch>> ReadRecordBatch(int i) = 0;
+
+  /// \brief Return current read statistics
+  virtual ReadStats stats() const = 0;
 };
 
 /// \class Listener
