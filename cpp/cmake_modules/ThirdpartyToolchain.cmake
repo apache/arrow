@@ -2680,15 +2680,17 @@ macro(build_awssdk)
   find_program(GIT git)
   if(NOT GIT)
     list(APPEND AWSSDK_PATCH_COMMAND
-      patch -p1 < "${CMAKE_SOURCE_DIR}/cmake_modules/aws-sdk-cpp-no-git.patch")
+                patch
+                -p1
+                <
+                "${CMAKE_SOURCE_DIR}/cmake_modules/aws-sdk-cpp-no-git.patch")
   endif()
-  externalproject_add(
-    awssdk_ep
-    ${EP_LOG_OPTIONS}
-    URL ${AWSSDK_SOURCE_URL}
-    CMAKE_ARGS ${AWSSDK_CMAKE_ARGS}
-    PATCH_COMMAND ${AWSSDK_PATCH_COMMAND}
-    BUILD_BYPRODUCTS ${AWSSDK_BUILD_BYPRODUCTS})
+  externalproject_add(awssdk_ep
+                      ${EP_LOG_OPTIONS}
+                      URL ${AWSSDK_SOURCE_URL}
+                      CMAKE_ARGS ${AWSSDK_CMAKE_ARGS}
+                      PATCH_COMMAND ${AWSSDK_PATCH_COMMAND}
+                      BUILD_BYPRODUCTS ${AWSSDK_BUILD_BYPRODUCTS})
 
   add_dependencies(toolchain awssdk_ep)
   foreach(_AWSSDK_LIB ${_AWSSDK_LIBS})
