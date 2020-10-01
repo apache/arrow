@@ -45,8 +45,11 @@ if [ "$ARROW_S3" == "ON" ] || [ "$ARROW_R_DEV" == "TRUE" ]; then
     dnf install -y openssl-devel
   elif [ "`which yum`" ]; then
     yum install -y openssl-devel openssl-static patch
+  elif [ "`which zypper`" ]; then
+    zypper install -y libcurl-devel libopenssl-devel
   else
-    apt-get install -y libcurl4-openssl-dev
+    apt-get update
+    apt-get install -y libcurl4-openssl-dev libssl-dev
   fi
 fi
 
