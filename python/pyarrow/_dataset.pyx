@@ -613,7 +613,7 @@ cdef class FileWriteOptions(_Weakrefable):
         CFileWriteOptions* options
 
     def __init__(self):
-        pass
+        _forbid_instantiation(self.__class__)
 
     cdef void init(self, const shared_ptr[CFileWriteOptions]& sp):
         self.wrapped = sp
@@ -621,7 +621,18 @@ cdef class FileWriteOptions(_Weakrefable):
 
     @staticmethod
     cdef wrap(const shared_ptr[CFileWriteOptions]& sp):
-        cdef FileWriteOptions self = FileWriteOptions()
+        type_name = frombytes(sp.get().type_name())
+
+        classes = {
+            'ipc': IpcFileWriteOptions,
+            'parquet': ParquetFileWriteOptions,
+        }
+
+        class_ = classes.get(type_name, None)
+        if class_ is None:
+            raise TypeError(type_name)
+
+        cdef FileWriteOptions self = class_.__new__(class_)
         self.init(sp)
         return self
 
@@ -685,8 +696,7 @@ cdef class FileFormat(_Weakrefable):
                                      <shared_ptr[CSchema]>nullptr))
         return Fragment.wrap(move(c_fragment))
 
-    @property
-    def default_write_options(self):
+    def make_write_options(self):
         return FileWriteOptions.wrap(self.format.DefaultWriteOptions())
 
     def __eq__(self, other):
@@ -1081,6 +1091,164 @@ cdef class ParquetReadOptions(_Weakrefable):
             return False
 
 
+cdef class ParquetFileWriteOptions(FileWriteOptions):
+
+    cdef:
+        CParquetFileWriteOptions* parquet_options
+        object _properties
+
+    def update(self, **kwargs):
+        cdef CParquetFileWriteOptions* opts = self.parquet_options
+
+        arrow_fields = {
+            "use_deprecated_int96_timestamps",
+            "coerce_timestamps",
+            "allow_truncated_timestamps",
+        }
+
+        update = False
+        update_arrow = False
+        for name, value in kwargs.items():
+            assert name in self._properties
+            self._properties[name] = value
+            if name in arrow_fields:
+                update_arrow = True
+            else:
+                update = True
+
+        if update:
+            opts.writer_properties = _create_writer_properties(
+                use_dictionary=self.use_dictionary,
+                compression=self.compression,
+                version=self.version,
+                write_statistics=self.write_statistics,
+                data_page_size=self.data_page_size,
+                compression_level=self.compression_level,
+                use_byte_stream_split=self.use_byte_stream_split,
+                data_page_version=self.data_page_version,
+            )
+
+        if update_arrow:
+            opts.arrow_writer_properties = _create_arrow_writer_properties(
+                use_deprecated_int96_timestamps=(
+                    self.use_deprecated_int96_timestamps
+                ),
+                coerce_timestamps=self.coerce_timestamps,
+                allow_truncated_timestamps=self.allow_truncated_timestamps,
+                writer_engine_version=self.writer_engine_version,
+            )
+
+    @property
+    def use_dictionary(self):
+        return self._properties['use_dictionary']
+
+    @use_dictionary.setter
+    def use_dictionary(self, use_dictionary):
+        self.update(use_dictionary=use_dictionary)
+
+    @property
+    def compression(self):
+        return self._properties['compression']
+
+    @compression.setter
+    def compression(self, compression):
+        self.update(compression=compression)
+
+    @property
+    def version(self):
+        return self._properties['version']
+
+    @version.setter
+    def version(self, version):
+        self.update(version=version)
+
+    @property
+    def write_statistics(self):
+        return self._properties['write_statistics']
+
+    @write_statistics.setter
+    def write_statistics(self, write_statistics):
+        self.update(write_statistics=write_statistics)
+
+    @property
+    def data_page_size(self):
+        return self._properties['data_page_size']
+
+    @data_page_size.setter
+    def data_page_size(self, data_page_size):
+        self.update(data_page_size=data_page_size)
+
+    @property
+    def compression_level(self):
+        return self._properties['compression_level']
+
+    @compression_level.setter
+    def compression_level(self, compression_level):
+        self.update(compression_level=compression_level)
+
+    @property
+    def use_byte_stream_split(self):
+        return self._properties['use_byte_stream_split']
+
+    @use_byte_stream_split.setter
+    def use_byte_stream_split(self, use_byte_stream_split):
+        self.update(use_byte_stream_split=use_byte_stream_split)
+
+    @property
+    def data_page_version(self):
+        return self._properties['data_page_version']
+
+    @data_page_version.setter
+    def data_page_version(self, data_page_version):
+        self.update(data_page_version=data_page_version)
+
+    @property
+    def use_deprecated_int96_timestamps(self):
+        return self._properties['use_deprecated_int96_timestamps']
+
+    @use_deprecated_int96_timestamps.setter
+    def use_deprecated_int96_timestamps(self, use_deprecated_int96_timestamps):
+        self.update(
+            use_deprecated_int96_timestamps=use_deprecated_int96_timestamps)
+
+    @property
+    def coerce_timestamps(self):
+        return self._properties['coerce_timestamps']
+
+    @coerce_timestamps.setter
+    def coerce_timestamps(self, coerce_timestamps):
+        self.update(coerce_timestamps=coerce_timestamps)
+
+    @property
+    def allow_truncated_timestamps(self):
+        return self._properties['allow_truncated_timestamps']
+
+    @allow_truncated_timestamps.setter
+    def allow_truncated_timestamps(self, allow_truncated_timestamps):
+        self.update(allow_truncated_timestamps=allow_truncated_timestamps)
+
+    @property
+    def writer_engine_version(self):
+        return 'V2'
+
+    cdef void init(self, const shared_ptr[CFileWriteOptions]& sp):
+        FileWriteOptions.init(self, sp)
+        self.parquet_options = <CParquetFileWriteOptions*> sp.get()
+        self._properties = dict(
+            use_dictionary=True,
+            compression="snappy",
+            version="1.0",
+            write_statistics=None,
+            data_page_size=None,
+            compression_level=None,
+            use_byte_stream_split=False,
+            data_page_version="1.0",
+            use_deprecated_int96_timestamps=False,
+            coerce_timestamps=None,
+            allow_truncated_timestamps=False,
+        )
+
+
 cdef class ParquetFileFormat(FileFormat):
 
     cdef:
@@ -1121,14 +1289,20 @@ cdef class ParquetFileFormat(FileFormat):
     def read_options(self):
         cdef CParquetFileFormatReaderOptions* options
         options = &self.parquet_format.reader_options
-        enable = options.enable_parallel_column_conversion
         return ParquetReadOptions(
             use_buffered_stream=options.use_buffered_stream,
             buffer_size=options.buffer_size,
             dictionary_columns={frombytes(col)
                                 for col in options.dict_columns},
-            enable_parallel_column_conversion=enable
+            enable_parallel_column_conversion=(
+                options.enable_parallel_column_conversion
+            )
         )
+
+    def make_write_options(self, **kwargs):
+        opts = FileFormat.make_write_options(self)
+        (<ParquetFileWriteOptions> opts).update(**kwargs)
+        return opts
 
     def equals(self, ParquetFileFormat other):
         return (
@@ -1162,6 +1336,12 @@ cdef class ParquetFileFormat(FileFormat):
         return Fragment.wrap(move(c_fragment))
 
 
+cdef class IpcFileWriteOptions(FileWriteOptions):
+
+    def __init__(self):
+        _forbid_instantiation(self.__class__)
+
+
 cdef class IpcFileFormat(FileFormat):
 
     def __init__(self):
@@ -1186,6 +1366,9 @@ cdef class CsvFileFormat(FileFormat):
     cdef void init(self, const shared_ptr[CFileFormat]& sp):
         FileFormat.init(self, sp)
         self.csv_format = <CCsvFileFormat*> sp.get()
+
+    def make_write_options(self):
+        raise NotImplemented("writing CSV datasets")
 
     @property
     def parse_options(self):
@@ -2116,7 +2299,8 @@ def _get_partition_keys(Expression partition_expression):
 def _filesystemdataset_write(
     data, object base_dir, str basename_template, Schema schema not None,
     FileFormat format not None, FileSystem filesystem not None,
-    Partitioning partitioning not None, bint use_threads=True,
+    Partitioning partitioning not None, FileWriteOptions file_options not None,
+    bint use_threads,
 ):
     """
     CFileSystemDataset.Write wrapper
@@ -2126,10 +2310,7 @@ def _filesystemdataset_write(
         CFileSystemDatasetWriteOptions c_options
         shared_ptr[CScanner] c_scanner
 
-        FileWriteOptions file_options
         vector[shared_ptr[CRecordBatch]] c_batches
-
-    file_options = <FileWriteOptions> format.default_write_options
 
     c_schema = pyarrow_unwrap_schema(schema)
 

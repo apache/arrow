@@ -2358,11 +2358,12 @@ def test_write_dataset_parquet(tempdir):
     result = ds.dataset(base_dir, format="parquet").to_table()
     assert result.equals(table)
 
-    # using custom options / format object
-    if False:
-        for version in ["1.0", "2.0"]:
-            format = ds.ParquetFileFormat(write_options=dict(version=version))
-            base_dir = tempdir / 'parquet_dataset_version{0}'.format(version)
-            ds.write_dataset(table, base_dir, format=format)
-            meta = pq.read_metadata(base_dir / "dat_0.parquet")
-            assert meta.format_version == version
+    # using custom options
+    for version in ["1.0", "2.0"]:
+        format = ds.ParquetFileFormat()
+        opts = format.make_write_options(version=version)
+        base_dir = tempdir / 'parquet_dataset_version{0}'.format(version)
+        ds.write_dataset(table, base_dir, basename_template='dat_{i}.parquet',
+                         format=format, file_options=opts)
+        meta = pq.read_metadata(base_dir / "dat_0.parquet")
+        assert meta.format_version == version

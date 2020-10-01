@@ -256,6 +256,8 @@ class ARROW_DS_EXPORT FileWriteOptions {
 
   const std::shared_ptr<FileFormat>& format() const { return format_; }
 
+  std::string type_name() const { return format_->type_name(); }
+
  protected:
   explicit FileWriteOptions(std::shared_ptr<FileFormat> format)
       : format_(std::move(format)) {}

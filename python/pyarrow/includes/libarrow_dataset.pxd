@@ -213,7 +213,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
 
     cdef cppclass CFileWriteOptions \
             "arrow::dataset::FileWriteOptions":
-        pass
+        c_string type_name() const
 
     cdef cppclass CFileFormat "arrow::dataset::FileFormat":
         c_string type_name() const
@@ -243,8 +243,9 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         vector[CRowGroupInfo] FromIdentifiers(vector[int])
 
     cdef cppclass CParquetFileWriteOptions \
-            "arrow::dataset::ParquetFileWriteOptions":
-        pass
+            "arrow::dataset::ParquetFileWriteOptions"(CFileWriteOptions):
+        shared_ptr[WriterProperties] writer_properties
+        shared_ptr[ArrowWriterProperties] arrow_writer_properties
 
     cdef cppclass CParquetFileFragment "arrow::dataset::ParquetFileFragment"(
             CFileFragment):
@@ -292,13 +293,15 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
     cdef cppclass CParquetFileFormat "arrow::dataset::ParquetFileFormat"(
             CFileFormat):
         CParquetFileFormatReaderOptions reader_options
-        shared_ptr[WriterProperties] writer_properties
-        shared_ptr[ArrowWriterProperties] arrow_writer_properties
         CResult[shared_ptr[CFileFragment]] MakeFragment(
             CFileSource source,
             shared_ptr[CExpression] partition_expression,
             vector[CRowGroupInfo] row_groups,
             shared_ptr[CSchema] physical_schema)
+
+    cdef cppclass CIpcFileWriteOptions \
+            "arrow::dataset::IpcFileWriteOptions"(CFileWriteOptions):
+        pass
 
     cdef cppclass CIpcFileFormat "arrow::dataset::IpcFileFormat"(
             CFileFormat):
