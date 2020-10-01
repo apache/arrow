@@ -34,9 +34,9 @@ This part of the Arrow project is divided in 4 main components:
 
 Independently, they support a vast array of functionality for in-memory computations.
 
-Together, they allow users to write an SQL query or a `DataFrame` (using `DataFusion` crate), run it against a parquet file (using `Parquet` crate) and have it evaluated in-memory using Arrow's columnar format (using the `Arrow` crate), and sent it over to another process (using `Arrow-flight` crate).
+Together, they allow users to write an SQL query or a `DataFrame` (using `datafusion` crate), run it against a parquet file (using `parquet` crate), evaluate it in-memory using Arrow's columnar format (using the `arrow` crate), and send to another process (using `arrow-flight` crate).
 
-Generally speaking, `Arrow`'s has most functionality to develop under the Arrow format, and `DataFusion` offers most operations typically found in SQL, with the notable execeptions of:
+Generally speaking, the `arrow` crate offers the  functionality to develop code that uses Arrow arrays, and `datafusion` offers most operations typically found in SQL, with the notable exceptions of:
 
 * `join`
 * `window` functions
