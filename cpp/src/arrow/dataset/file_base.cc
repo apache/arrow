@@ -31,6 +31,7 @@
 #include "arrow/io/memory.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/map.h"
 #include "arrow/util/mutex.h"
 #include "arrow/util/task_group.h"
 
@@ -195,34 +196,37 @@ struct WriterSet {
                           write_options_.partitioning->Format(partition_expression));
     std::string dir = base_dir_ + part_segments;
 
-    auto lock = dir_to_writer_.Lock();
+    util::Mutex::Guard writer_lock;
 
-    auto it_success =
-        dir_to_writer_->emplace(std::move(dir), std::make_shared<MutexedWriter>());
-    std::shared_ptr<MutexedWriter> writer = it_success.first->second;
+    auto set_lock = mutex_.Lock();
 
-    if (!it_success.second) {
-      return writer;
+    auto writer =
+        internal::GetOrInsertGenerated(&dir_to_writer_, dir, [&](const std::string&) {
+          auto writer = std::make_shared<MutexedWriter>();
+          writer_lock = writer->Lock();
+          return writer;
+        })->second;
+
+    if (writer_lock) {
+      // NB: next_basename_() must be invoked with the set_lock held
+      auto path = fs::internal::ConcatAbstractPath(dir, next_basename_());
+      set_lock.Unlock();
+
+      RETURN_NOT_OK(write_options_.filesystem->CreateDir(dir));
+
+      ARROW_ASSIGN_OR_RAISE(auto destination,
+                            write_options_.filesystem->OpenOutputStream(path));
+
+      ARROW_ASSIGN_OR_RAISE(**writer, write_options_.format()->MakeWriter(
+                                          std::move(destination), schema,
+                                          write_options_.file_write_options));
     }
-    // FIXME Flush writers when at capacity for open files.
 
-    std::string basename = next_basename_();
-    auto writer_lock = writer->Lock();
-    lock.Unlock();
-
-    dir = base_dir_ + part_segments;
-    RETURN_NOT_OK(write_options_.filesystem->CreateDir(dir));
-    ARROW_ASSIGN_OR_RAISE(auto destination,
-                          write_options_.filesystem->OpenOutputStream(
-                              fs::internal::ConcatAbstractPath(dir, basename)));
-    ARROW_ASSIGN_OR_RAISE(
-        **writer, write_options_.format()->MakeWriter(std::move(destination), schema,
-                                                      write_options_.file_write_options));
     return writer;
   }
 
   Status FinishAll(internal::TaskGroup* task_group) {
-    for (const auto& dir_writer : *dir_to_writer_) {
+    for (const auto& dir_writer : dir_to_writer_) {
       task_group->Append([&] {
         std::shared_ptr<FileWriter> writer = **dir_writer.second;
         return writer->Finish();
@@ -233,8 +237,8 @@ struct WriterSet {
   }
 
   // There should only be a single writer open for each partition directory at a time
-  util::Mutexed<std::unordered_map<std::string, std::shared_ptr<MutexedWriter>>>
-      dir_to_writer_;
+  util::Mutex mutex_;
+  std::unordered_map<std::string, std::shared_ptr<MutexedWriter>> dir_to_writer_;
   NextBasenameGenerator next_basename_;
   std::string base_dir_;
   const FileSystemDatasetWriteOptions& write_options_;
@@ -313,7 +317,7 @@ Status FileSystemDataset::Write(std::shared_ptr<Schema> schema,
           ARROW_ASSIGN_OR_RAISE(auto writer, writers.Get(partition_expression,
                                                          groups.batches[i]->schema()));
 
-          pending_writes[i] = {writer, std::move(groups.batches[i])};
+          pending_writes[i] = {std::move(writer), std::move(groups.batches[i])};
         }
 
         for (size_t i = 0; !pending_writes.empty(); ++i) {
