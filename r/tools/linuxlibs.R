@@ -299,6 +299,7 @@ build_libarrow <- function(src_dir, dst_dir) {
     LDFLAGS = R_CMD_config("LDFLAGS")
   )
   env_vars <- paste0(names(env_var_list), '="', env_var_list, '"', collapse = " ")
+  env_vars <- with_s3_support(env_vars)
   cat("**** arrow", ifelse(quietly, "", paste("with", env_vars)), "\n")
   status <- system(
     paste(env_vars, "inst/build_arrow_static.sh"),
@@ -364,6 +365,23 @@ cmake_version <- function(cmd = "cmake") {
     },
     error = function(e) return(0)
   )
+}
+
+with_s3_support <- function(env_vars) {
+  arrow_s3 <- toupper(Sys.getenv("ARROW_S3")) == "ON"
+  if (arrow_s3) {
+    # User wants S3 support. Let's make sure they're not on gcc < 4.9
+    info <- system(paste(env_vars, "cmake --system-information", intern = TRUE)
+    info <- grep("^[A-Z_]* .*$", info, value=TRUE)
+    vals <- as.list(sub('^.*? "?(.*?)"?$', "\\1", info))
+    names(vals) <- sub("^(.*?) .*$", "\\1", info)
+    if (vals[["CMAKE_CXX_COMPILER_ID"]] == "GNU" &&
+        package_version(vals[["CMAKE_CXX_COMPILER_VERSION"]]) < 4.9) {
+      cat("**** S3 support not available for gcc < 4.9\n")
+      arrow_s3 <- FALSE
+    }
+  }
+  paste(env_vars, ifelse(arrow_s3, "ARROW_S3=ON", "ARROW_S3=OFF"))
 }
 
 #####

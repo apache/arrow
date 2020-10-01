@@ -2620,7 +2620,10 @@ endif()
 
 macro(build_awssdk)
   message("Building AWS C++ SDK from source")
-
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "4.9")
+    message(
+      FATAL_ERROR "AWS C++ SDK requires gcc >= 4.9")
+  endif()
   set(AWSSDK_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/awssdk_ep-install")
   set(AWSSDK_INCLUDE_DIR "${AWSSDK_PREFIX}/include")
 
