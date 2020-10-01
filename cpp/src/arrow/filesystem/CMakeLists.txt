@@ -32,9 +32,8 @@ add_arrow_test(filesystem-test
 if(ARROW_S3)
   add_arrow_test(s3fs_test EXTRA_LABELS filesystem)
   if(TARGET arrow-s3fs-test)
-    set(ARROW_S3FS_TEST_COMPILE_DEFINITIONS
-      ${ARROW_BOOST_PROCESS_COMPILE_DEFINITIONS})
-    get_target_property(AWS_CPP_SDK_S3_TYPE AWS::aws-cpp-sdk-s3 TYPE)
+    set(ARROW_S3FS_TEST_COMPILE_DEFINITIONS ${ARROW_BOOST_PROCESS_COMPILE_DEFINITIONS})
+    get_target_property(AWS_CPP_SDK_S3_TYPE aws-cpp-sdk-s3 TYPE)
     if(AWS_CPP_SDK_S3_TYPE STREQUAL "STATIC_LIBRARY")
       list(APPEND ARROW_S3FS_TEST_COMPILE_DEFINITIONS "AWS_CPP_SDK_S3_STATIC_LINK")
     endif()

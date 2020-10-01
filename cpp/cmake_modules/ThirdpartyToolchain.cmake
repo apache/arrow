@@ -2667,13 +2667,13 @@ macro(build_awssdk)
       _AWS_STATIC_LIBRARY
       "${AWSSDK_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}${_AWS_LIB}${CMAKE_STATIC_LIBRARY_SUFFIX}"
       )
-    add_library(AWS::${_AWS_LIB} STATIC IMPORTED)
+    add_library(${_AWS_LIB} STATIC IMPORTED)
     set_target_properties(
-      AWS::${_AWS_LIB}
+      ${_AWS_LIB}
       PROPERTIES IMPORTED_LOCATION ${_AWS_STATIC_LIBRARY} INTERFACE_INCLUDE_DIRECTORIES
                  "${AWSSDK_INCLUDE_DIR}")
     list(APPEND AWS_BUILD_BYPRODUCTS ${_AWS_STATIC_LIBRARY})
-    list(APPEND AWS_LIBRARIES AWS::${_AWS_LIB})
+    list(APPEND AWS_LIBRARIES ${_AWS_LIB})
   endforeach()
 
   externalproject_add(
@@ -2686,7 +2686,7 @@ macro(build_awssdk)
 
   add_dependencies(toolchain awssdk_ep)
   foreach(_AWS_LIB ${_AWS_LIBS})
-    add_dependencies(AWS::${_AWS_LIB} awssdk_ep)
+    add_dependencies(${_AWS_LIB} awssdk_ep)
   endforeach()
 
   set(AWSSDK_VENDORED TRUE)
@@ -2755,7 +2755,7 @@ if(ARROW_S3)
     # aws-sdk-cpp to use the MacOSX SDK provided by XCode which makes
     # XCode a hard dependency. Command Line Tools is often used instead
     # of the full XCode suite, so let the linker to find it.
-    set_target_properties(AWS::aws-c-common
+    set_target_properties(aws-c-common
                           PROPERTIES INTERFACE_LINK_LIBRARIES
                                      "-pthread;pthread;-framework CoreFoundation")
   endif()
