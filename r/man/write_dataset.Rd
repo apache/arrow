@@ -7,8 +7,9 @@
 write_dataset(
   dataset,
   path,
-  format = dataset$format$type,
+  format = dataset$format,
   partitioning = dplyr::group_vars(dataset),
+  basename_template = paste("dat_{i}", format$type, sep = "."),
   hive_style = TRUE,
   filesystem = NULL,
   ...
