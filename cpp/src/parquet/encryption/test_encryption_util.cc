@@ -19,14 +19,22 @@
 // Parquet column chunk within a row group. It could be extended in the future
 // to iterate through all data pages in all chunks in a file.
 
+#include <sstream>
+
 #include <arrow/io/file.h>
 
 #include "parquet/encryption/test_encryption_util.h"
 #include "parquet/file_reader.h"
 #include "parquet/file_writer.h"
-#include "parquet/properties.h"
+#include "parquet/test_util.h"
 
-using FileClass = ::arrow::io::FileOutputStream;
+using ::arrow::io::FileOutputStream;
+
+using parquet::ConvertedType;
+using parquet::Repetition;
+using parquet::Type;
+using parquet::schema::GroupNode;
+using parquet::schema::PrimitiveNode;
 
 namespace parquet {
 namespace encryption {
@@ -37,6 +45,32 @@ std::string data_file(const char* file) {
   std::stringstream ss;
   ss << dir_string << "/" << file;
   return ss.str();
+}
+
+std::unordered_map<std::string, std::string> BuildKeyMap(const char* const* column_ids,
+                                                         const char* const* column_keys,
+                                                         const char* footer_id,
+                                                         const char* footer_key) {
+  std::unordered_map<std::string, std::string> key_map;
+  // add column keys
+  for (int i = 0; i < 6; i++) {
+    key_map.insert({column_ids[i], column_keys[i]});
+  }
+  // add footer key
+  key_map.insert({footer_id, footer_key});
+
+  return key_map;
+}
+
+std::string BuildColumnKeyMapping() {
+  std::ostringstream stream;
+  stream << kColumnMasterKeyIds[0] << ":" << kDoubleFieldName << ";"
+         << kColumnMasterKeyIds[1] << ":" << kFloatFieldName << ";"
+         << kColumnMasterKeyIds[2] << ":" << kBooleanFieldName << ";"
+         << kColumnMasterKeyIds[3] << ":" << kInt32FieldName << ";"
+         << kColumnMasterKeyIds[4] << ":" << kByteArrayFieldName << ";"
+         << kColumnMasterKeyIds[5] << ":" << kFixedLenByteArrayFieldName << ";";
+  return stream.str();
 }
 
 FileEncryptor::FileEncryptor() { schema_ = SetupEncryptionSchema(); }
@@ -90,12 +124,12 @@ void FileEncryptor::EncryptFile(
   prop_builder.encryption(encryption_configurations);
   std::shared_ptr<WriterProperties> writer_properties = prop_builder.build();
 
-  PARQUET_ASSIGN_OR_THROW(auto out_file, FileClass::Open(file));
+  PARQUET_ASSIGN_OR_THROW(auto out_file, FileOutputStream::Open(file));
   // Create a ParquetFileWriter instance
   std::shared_ptr<parquet::ParquetFileWriter> file_writer =
       parquet::ParquetFileWriter::Open(out_file, schema_, writer_properties);
 
-  for (int r = 0; r < num_rgs; r++) {
+  for (int r = 0; r < num_rowgroups_; r++) {
     bool buffered_mode = r % 2 == 0;
     auto row_group_writer = buffered_mode ? file_writer->AppendBufferedRowGroup()
                                           : file_writer->AppendRowGroup();
