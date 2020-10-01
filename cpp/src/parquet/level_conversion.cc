@@ -36,41 +36,6 @@ namespace {
 
 using ::arrow::internal::CpuInfo;
 
-void DefLevelsToBitmapScalar(const int16_t* def_levels, int64_t num_def_levels,
-                             LevelInfo level_info, ValidityBitmapInputOutput* output) {
-  ::arrow::internal::FirstTimeBitmapWriter valid_bits_writer(
-      output->valid_bits,
-      /*start_offset=*/output->valid_bits_offset,
-      /*length=*/num_def_levels);
-  for (int x = 0; x < num_def_levels; x++) {
-    // This indicates that a parent repeated element has zero
-    // length so the def level is not applicable to this column.
-    if (def_levels[x] < level_info.repeated_ancestor_def_level) {
-      continue;
-    }
-    if (ARROW_PREDICT_FALSE(valid_bits_writer.position() >=
-                            output->values_read_upper_bound)) {
-      std::stringstream ss;
-      ss << "Definition levels exceeded upper bound: " << output->values_read_upper_bound;
-      throw ParquetException(ss.str());
-    }
-    if (def_levels[x] >= level_info.def_level) {
-      valid_bits_writer.Set();
-    } else {
-      valid_bits_writer.Clear();
-      output->null_count += 1;
-    }
-    valid_bits_writer.Next();
-  }
-  valid_bits_writer.Finish();
-  output->values_read = valid_bits_writer.position();
-  if (output->null_count > 0 && level_info.null_slot_usage > 1) {
-    throw ParquetException(
-        "Null values with null_slot_usage > 1 not supported."
-        "(i.e. FixedSizeLists with null values are not supported");
-  }
-}
-
 template <typename OffsetType>
 void DefRepLevelsToListInfo(const int16_t* def_levels, const int16_t* rep_levels,
                             int64_t num_def_levels, LevelInfo level_info,
@@ -170,27 +135,21 @@ void DefLevelsToBitmap(const int16_t* def_levels, int64_t num_def_levels,
   // is deleted in a follow-up release.
   if (level_info.rep_level > 0) {
 #if defined(ARROW_HAVE_RUNTIME_BMI2)
-    using FunctionType = decltype(&standard::DefLevelsToBitmapSimd<true>);
-    // DefLevelsToBitmapSimd with emulated PEXT would be slow, so use the
-    // scalar version if BMI2 is unavailable.
-    static FunctionType fn = CpuInfo::GetInstance()->HasEfficientBmi2()
-                                 ? DefLevelsToBitmapBmi2WithRepeatedParent
-                                 : DefLevelsToBitmapScalar;
-    fn(def_levels, num_def_levels, level_info, output);
-#else
-    DefLevelsToBitmapScalar(def_levels, num_def_levels, level_info, output);
+    if (CpuInfo::GetInstance()->HasEfficientBmi2()) {
+      return DefLevelsToBitmapBmi2WithRepeatedParent(def_levels, num_def_levels,
+                                                     level_info, output);
+    }
 #endif
+    standard::DefLevelsToBitmapSimd</*has_repeated_parent=*/true>(
+        def_levels, num_def_levels, level_info, output);
   } else {
-    // SIMD here applies to all platforms because the only operation that
-    // happens is def_levels->bitmap which should have good SIMD options
-    // on all platforms.
     standard::DefLevelsToBitmapSimd</*has_repeated_parent=*/false>(
         def_levels, num_def_levels, level_info, output);
   }
 }
 
-uint64_t TestOnlyRunBasedExtract(uint64_t bitmap, uint64_t select_bitmap) {
-  return standard::RunBasedExtractImpl(bitmap, select_bitmap);
+uint64_t TestOnlyExtractBitsSoftware(uint64_t bitmap, uint64_t select_bitmap) {
+  return standard::ExtractBitsSoftware(bitmap, select_bitmap);
 }
 
 void DefRepLevelsToList(const int16_t* def_levels, const int16_t* rep_levels,
