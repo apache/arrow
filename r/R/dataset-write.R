@@ -34,6 +34,9 @@
 #' @param partitioning `Partitioning` or a character vector of columns to
 #' use as partition keys (to be written as path segments). Default is to
 #' use the current `group_by()` columns.
+#' @param basename_template `"{i}"` will be replaced with an autoincremented
+#' integer to generate basenames of datafiles. For example `"dat_{i}.feather"`
+#' will yield `"dat_0.feather", ...`.
 #' @param hive_style logical: write partition segments as Hive-style
 #' (`key1=value1/key2=value2/file.ext`) or as just bare values. Default is `TRUE`.
 #' @param filesystem A [FileSystem] where the dataset should be written if it is a
