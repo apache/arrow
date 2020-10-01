@@ -80,7 +80,7 @@
 //! ## Field, Schema and RecordBatch
 //!
 //! [`Field`](datatypes::Field) is a struct that contains an array's metadata (datatype and whether its values
-//! can be null), and a name. [`Schema`](datatypes::Schema) is a vector of fields with optional metadata. 
+//! can be null), and a name. [`Schema`](datatypes::Schema) is a vector of fields with optional metadata.
 //! Together, they form the basis of a schematic representation of a group of [`Arrays`](array::Array).
 //!
 //! In fact, [`RecordBatch`](record_batch::RecordBatch) is a struct with a [`Schema`](datatypes::Schema) and a vector of
@@ -99,7 +99,7 @@
 //! * All arrow primitive types, such as [`Int32Array`](array::UInt8Array), [`BooleanArray`](array::BooleanArray) and [`Float64Array`](array::Float64Array).
 //! * All arrow variable length types, such as [`StringArray`](array::StringArray) and [`BinaryArray`](array::BinaryArray)
 //! * All composite types such as [`StructArray`](array::StructArray) and [`ListArray`](array::ListArray)
-//! * Dictionary types  [`DictionaryArray`](array::DictionaryArray) 
+//! * Dictionary types  [`DictionaryArray`](array::DictionaryArray)
 
 //!
 //! This crate also implements many common vertical operations:
