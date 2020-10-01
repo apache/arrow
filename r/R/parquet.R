@@ -336,6 +336,7 @@ ParquetWriterProperties$create <- function(table,
     parquet___WriterProperties___Builder__create()
   )
   if (!is.null(version)) {
+    print(version)
     builder$set_version(version)
   }
   if (!is.null(compression)) {

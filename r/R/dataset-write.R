@@ -44,8 +44,9 @@
 #' @export
 write_dataset <- function(dataset,
                           path,
-                          format = dataset$format$type,
+                          format = dataset$format,
                           partitioning = dplyr::group_vars(dataset),
+                          basename_template = paste("dat_{i}", format$type, sep="."),
                           hive_style = TRUE,
                           filesystem = NULL,
                           ...) {
@@ -75,14 +76,12 @@ write_dataset <- function(dataset,
   schema <- scanner$schema
 
   if (!inherits(format, "FileFormat")) {
-    if (identical(format, "parquet")) {
-      # We have to do some special massaging of properties
-      writer_props <- ParquetWriterProperties$create(dataset, ...)
-      arrow_writer_props <- ParquetArrowWriterProperties$create(...)
-      format <- ParquetFileFormat$create(writer_properties = writer_props, arrow_writer_properties = arrow_writer_props)
-    } else {
-      format <- FileFormat$create(format, ...)
-    }
+    format <- FileFormat$create(format)
+  }
+  if (inherits(format, "ParquetFileFormat")) {
+    options <- format$make_write_options(table=dataset, ...)
+  } else {
+    options <- format$make_write_options(...)
   }
 
   if (!inherits(partitioning, "Partitioning")) {
@@ -96,5 +95,40 @@ write_dataset <- function(dataset,
   }
   path_and_fs <- get_path_and_filesystem(path, filesystem)
 
-  dataset___Dataset__Write(scanner, schema, path = path_and_fs$path, format = format, partitioning = partitioning, filesystem = path_and_fs$fs)
+  dataset___Dataset__Write(options, path_and_fs$fs, path_and_fs$path,
+                           partitioning, basename_template, scanner)
 }
+
+#' Format-specific write options
+#'
+#' @description
+#' A `FileWriteOptions` holds write options specific to a `FileFormat`.
+FileWriteOptions <- R6Class("FileWriteOptions", inherit = ArrowObject,
+  public = list(
+    ..dispatch = function() {
+      type <- self$type
+      if (type == "parquet") {
+        shared_ptr(ParquetFileWriteOptions, self$pointer())
+      } else {
+        self
+      }
+    },
+    update = function(...) {
+      type <- self$type
+      if (type == "parquet") {
+        dataset___ParquetFileWriteOptions__update(self,
+            ParquetWriterProperties$create(...),
+            ParquetArrowWriterProperties$create(...))
+      }
+    }
+  ),
+  active = list(
+    type = function() dataset___FileWriteOptions__type_name(self)
+  )
+)
+
+#' @usage NULL
+#' @format NULL
+#' @rdname FileWriteOptions
+#' @export
+ParquetFileWriteOptions <- R6Class("ParquetFileWriteOptions", inherit = FileWriteOptions)
