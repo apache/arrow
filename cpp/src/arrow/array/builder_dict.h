@@ -190,6 +190,12 @@ class DictionaryBuilderBase : public ArrayBuilder {
   /// \brief The current number of entries in the dictionary
   int64_t dictionary_length() const { return memo_table_->size(); }
 
+  /// \brief The value byte width (for FixedSizeBinaryType)
+  template <typename T1 = T>
+  enable_if_fixed_size_binary<T1, int32_t> byte_width() const {
+    return byte_width_;
+  }
+
   /// \brief Append a scalar value
   Status Append(Value value) {
     ARROW_RETURN_NOT_OK(Reserve(1));
