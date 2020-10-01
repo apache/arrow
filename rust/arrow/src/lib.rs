@@ -29,7 +29,7 @@
 //!
 //! The central trait of this package is the dynamically-typed [`Array`](array::Array) that
 //! represents a fixed-sized, immutable, Send + Sync Array of nullable elements. An example of such an array is [`UInt32Array`](array::UInt32Array).
-//! One way to think about an arrow [`Array`](array::Array) isa `Arc<[Option<T>; len]>` where T can be anything ranging from an integer to a string, or even
+//! One way to think about an arrow [`Array`](array::Array) is a `Arc<[Option<T>; len]>` where T can be anything ranging from an integer to a string, or even
 //! another [`Array`](array::Array).
 //!
 //! [`Arrays`](array::Array) have [`len()`](array::Array::len), [`data_type()`](array::Array::data_type), and the nullability of each of its elements,
@@ -79,12 +79,12 @@
 //!
 //! ## Field, Schema and RecordBatch
 //!
-//! [`Field`](datatypes::Field) is a struct that contains an arrays' metadata (datatype and whether its values
-//! can be null), and a name. [`Schema`](datatypes::Schema) is a vector of fields with optional metadata, and together with
+//! [`Field`](datatypes::Field) is a struct that contains an array's metadata (datatype and whether its values
+//! can be null), and a name. [`Schema`](datatypes::Schema) is a vector of fields with optional metadata. 
 //! Together, they form the basis of a schematic representation of a group of [`Arrays`](array::Array).
 //!
 //! In fact, [`RecordBatch`](record_batch::RecordBatch) is a struct with a [`Schema`](datatypes::Schema) and a vector of
-//! [`Array`](array::Array)s, all with the same `len`. A record batch is the highest order struct that this crate currently offersm
+//! [`Array`](array::Array)s, all with the same `len`. A record batch is the highest order struct that this crate currently offers
 //! and is broadly used to represent a table where each column in an `Array`.
 //!
 //! ## Compute
@@ -99,6 +99,8 @@
 //! * All arrow primitive types, such as [`Int32Array`](array::UInt8Array), [`BooleanArray`](array::BooleanArray) and [`Float64Array`](array::Float64Array).
 //! * All arrow variable length types, such as [`StringArray`](array::StringArray) and [`BinaryArray`](array::BinaryArray)
 //! * All composite types such as [`StructArray`](array::StructArray) and [`ListArray`](array::ListArray)
+//! * Dictionary types  [`DictionaryArray`](array::DictionaryArray) 
+
 //!
 //! This crate also implements many common vertical operations:
 //! * all mathematical binary operators, such as [`subtract`](compute::kernels::arithmetic::subtract)
