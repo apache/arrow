@@ -693,10 +693,12 @@ Status ApplyOriginalStorageMetadata(const Field& origin_field, SchemaField* infe
   auto origin_type = origin_field.type();
   auto inferred_type = inferred->field->type();
 
-  if (inferred_type->id() == ::arrow::Type::TIMESTAMP) {
+  if (origin_type->id() == ::arrow::Type::TIMESTAMP &&
+      inferred_type->id() == ::arrow::Type::TIMESTAMP) {
     // Restore time zone, if any
-    const auto& ts_type = static_cast<const ::arrow::TimestampType&>(*inferred_type);
-    const auto& ts_origin_type = static_cast<const ::arrow::TimestampType&>(*origin_type);
+    const auto& ts_type = checked_cast<const ::arrow::TimestampType&>(*inferred_type);
+    const auto& ts_origin_type =
+        checked_cast<const ::arrow::TimestampType&>(*origin_type);
 
     // If the unit is the same and the data is tz-aware, then set the original
     // time zone, since Parquet has no native storage for timezones
@@ -710,7 +712,7 @@ Status ApplyOriginalStorageMetadata(const Field& origin_field, SchemaField* infe
       inferred_type->id() != ::arrow::Type::DICTIONARY &&
       IsDictionaryReadSupported(*inferred_type)) {
     const auto& dict_origin_type =
-        static_cast<const ::arrow::DictionaryType&>(*origin_type);
+        checked_cast<const ::arrow::DictionaryType&>(*origin_type);
     inferred->field = inferred->field->WithType(
         ::arrow::dictionary(::arrow::int32(), inferred_type, dict_origin_type.ordered()));
   }

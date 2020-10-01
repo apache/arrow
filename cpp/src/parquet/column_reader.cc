@@ -463,6 +463,10 @@ std::shared_ptr<Buffer> SerializedPageReader::DecompressIfNeeded(
   if (decompressor_ == nullptr) {
     return page_buffer;
   }
+  if (compressed_len < levels_byte_len || uncompressed_len < levels_byte_len) {
+    throw ParquetException("Invalid page header");
+  }
+
   // Grow the uncompressed buffer if we need to.
   if (uncompressed_len > static_cast<int>(decompression_buffer_->size())) {
     PARQUET_THROW_NOT_OK(decompression_buffer_->Resize(uncompressed_len, false));
