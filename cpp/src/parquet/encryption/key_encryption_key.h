@@ -35,13 +35,12 @@ class KeyEncryptionKey {
  public:
   KeyEncryptionKey(const std::string& kek_bytes, const std::string& kek_id,
                    const std::string& encoded_wrapped_kek)
-      : kek_bytes_(kek_bytes),
-        kek_id_(kek_id),
-        encoded_wrapped_kek_(encoded_wrapped_kek) {
-    encoded_kek_id_ =
-        arrow::util::base64_encode(reinterpret_cast<const uint8_t*>(kek_id_.data()),
-                                   static_cast<uint32_t>(kek_id_.size()));
-  }
+      : kek_bytes_(std::move(kek_bytes)),
+        kek_id_(std::move(kek_id)),
+        encoded_kek_id_(
+            arrow::util::base64_encode(reinterpret_cast<const uint8_t*>(kek_id_.data()),
+                                       static_cast<uint32_t>(kek_id_.size()))),
+        encoded_wrapped_kek_(std::move(encoded_wrapped_kek)) {}
 
   const std::string& kek_bytes() const { return kek_bytes_; }
 
