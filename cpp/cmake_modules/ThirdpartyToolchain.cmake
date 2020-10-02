@@ -975,6 +975,8 @@ if(PARQUET_REQUIRE_ENCRYPTION OR ARROW_FLIGHT OR ARROW_S3)
   if(ARROW_OPENSSL_USE_SHARED)
     # Find shared OpenSSL libraries.
     set(OpenSSL_USE_STATIC_LIBS OFF)
+    # Seems that different envs capitalize this differently?
+    set(OPENSSL_USE_STATIC_LIBS OFF)
     set(BUILD_SHARED_LIBS_KEEP ${BUILD_SHARED_LIBS})
     set(BUILD_SHARED_LIBS ON)
 
@@ -984,6 +986,7 @@ if(PARQUET_REQUIRE_ENCRYPTION OR ARROW_FLIGHT OR ARROW_S3)
   else()
     # Find static OpenSSL headers and libs
     set(OpenSSL_USE_STATIC_LIBS ON)
+    set(OPENSSL_USE_STATIC_LIBS ON)
     find_package(OpenSSL ${ARROW_OPENSSL_REQUIRED_VERSION} REQUIRED)
   endif()
   set(ARROW_USE_OPENSSL ON)
