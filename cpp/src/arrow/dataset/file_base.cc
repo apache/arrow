@@ -18,6 +18,8 @@
 #include "arrow/dataset/file_base.h"
 
 #include <algorithm>
+#include <deque>
+#include <set>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -248,6 +250,8 @@ class WriteQueue {
     return Status::OK();
   }
 
+  using Set = std::unordered_map<std::string, WriteQueue*>;
+
  private:
   // FileWriters are not required to be thread safe, so they must be guarded with a mutex.
   util::Mutex writer_mutex_;
@@ -295,17 +299,25 @@ Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_optio
     }
   }
 
+  // WriteQueues are stored in this deque until writing is completed and are otherwise
+  // referenced by non-owning pointers.
+  std::deque<WriteQueue> queues_storage;
+
   // Store a mapping from partitions (represened by their formatted partition expressions)
   // to a WriteQueue which flushes batches into that partition's output file.
   // `unordered_map` is not thread safe, so a lock on queues_mutex_ must be held whenever
   // queues is accessed or modified.
   util::Mutex queues_mutex;
-  std::unordered_map<std::string, std::unique_ptr<WriteQueue>> queues;
+  WriteQueue::Set queues;
 
   // Thread-local caches of partition-to-WriteQueue mapping.
-  using QueueCache = std::unordered_map<std::string, WriteQueue*>;
   util::Mutex caches_mutex;
-  std::vector<QueueCache> caches;
+  struct SortByCacheSize {
+    bool operator()(const WriteQueue::Set& l, const WriteQueue::Set& r) {
+      return l.size() < r.size();
+    }
+  };
+  std::set<WriteQueue::Set, SortByCacheSize> caches;
 
   auto fragment_for_task_it = fragment_for_task.begin();
   for (const auto& scan_task : scan_tasks) {
@@ -313,11 +325,12 @@ Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_optio
 
     task_group->Append([&, scan_task, fragment] {
       // check out a cache of `queues`, if available
+      WriteQueue::Set local_queues;
       auto caches_lock = caches_mutex.Lock();
-      QueueCache local_queues;
       if (!caches.empty()) {
-        local_queues = std::move(caches.back());
-        caches.pop_back();
+        auto back = caches.end();
+        local_queues = std::move(*--back);
+        caches.erase(back);
       }
       caches_lock.Unlock();
 
@@ -351,10 +364,11 @@ Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_optio
                                [&](const std::string& part) {
                                  // lookup in `queues` also failed,
                                  // generate a new WriteQueue
-                                 return internal::make_unique<WriteQueue>(
+                                 queues_storage.emplace_back(
                                      part, &wait_for_opened_writer_lock);
+                                 return &queues_storage.back();
                                })
-                        ->second.get();
+                        ->second;
                   })
                   ->second;
 
@@ -386,10 +400,7 @@ Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_optio
 
       // check cache back in
       caches_lock = caches_mutex.Lock();
-      auto larger_or_same = std::lower_bound(
-          caches.begin(), caches.end(), local_queues,
-          [](const QueueCache& l, const QueueCache& r) { return l.size() < r.size(); });
-      caches.insert(larger_or_same, std::move(local_queues));
+      caches.insert(std::move(local_queues));
       return Status::OK();
     });
   }

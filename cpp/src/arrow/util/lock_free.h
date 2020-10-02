@@ -34,7 +34,7 @@ namespace util {
 template <typename T>
 class LockFreeStack {
  public:
-  LockFreeStack() = default;
+  LockFreeStack() { nodes_.store(NULLPTR); }
 
   ~LockFreeStack() { Delete(); }
 
@@ -95,7 +95,7 @@ class LockFreeStack {
     return nodes_.compare_exchange_strong(*expected, desired);
   }
 
-  std::atomic<Node*> nodes_{NULLPTR};
+  std::atomic<Node*> nodes_;
 };
 
 template <typename T>
@@ -124,4 +124,3 @@ typename LockFreeStack<T>::iterator LockFreeStack<T>::end() {
 
 }  // namespace util
 }  // namespace arrow
-
