@@ -1,0 +1,6 @@
+
+rust-lang:
+  - any: ['rust/*.']
+
+datafusion:
+  - any: ['rust/datafusion/*.']
