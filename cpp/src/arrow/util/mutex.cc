@@ -34,8 +34,7 @@ Mutex::Guard::Guard(Mutex* locked)
 
 void Mutex::Guard::Unlock() {
   if (locked_) {
-    auto locked = std::move(locked_);
-    DCHECK_EQ(locked_, nullptr);
+    locked_.reset();
   }
 }
 

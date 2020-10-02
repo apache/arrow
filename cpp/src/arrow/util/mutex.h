@@ -60,30 +60,5 @@ class ARROW_EXPORT Mutex {
   std::unique_ptr<Impl, void (*)(Impl*)> impl_;
 };
 
-/// A trivial Mutex, T pair
-template <typename T>
-class Mutexed : Mutex {
- public:
-  Mutexed() = default;
-  Mutexed(Mutexed&&) = default;
-  Mutexed& operator=(Mutexed&&) = default;
-  explicit Mutexed(T obj) : obj_(std::move(obj)) {}
-
-  using Mutex::Lock;
-  using Mutex::TryLock;
-
-  T& operator*() { return obj_; }
-  const T& operator*() const { return obj_; }
-
-  T* operator->() { return &obj_; }
-  const T* operator->() const { return &obj_; }
-
-  T& get() { return obj_; }
-  const T& get() const { return obj_; }
-
- private:
-  T obj_;
-};
-
 }  // namespace util
 }  // namespace arrow

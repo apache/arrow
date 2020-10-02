@@ -19,6 +19,7 @@
 
 #include <atomic>
 #include <utility>
+#include <vector>
 
 #include "arrow/util/macros.h"
 
@@ -30,23 +31,12 @@ namespace util {
 /// Two thread safe operations are supported:
 /// - Push a value onto the stack
 /// - move construct from another stack
-///
-/// range-for compatilble iteration is provided for
-/// convenience, but it is *not* thread safe.
 template <typename T>
 class LockFreeStack {
  public:
   LockFreeStack() = default;
 
-  ~LockFreeStack() {
-    Node* next = nodes_.load();
-
-    while (next != NULLPTR) {
-      Node* node = next;
-      next = next->next;
-      delete node;
-    }
-  }
+  ~LockFreeStack() { Delete(); }
 
   LockFreeStack(const LockFreeStack&) = delete;
   LockFreeStack& operator=(const LockFreeStack&) = delete;
@@ -68,15 +58,38 @@ class LockFreeStack {
     } while (!CompareExchange(&new_head->next, new_head));
   }
 
+  /// range-for compatible iteration interface
+  /// NB: *not* thread safe
   struct iterator;
   iterator begin();
   iterator end();
+
+  std::vector<T> ToVector() {
+    std::vector<T> out;
+    for (auto&& element : *this) {
+      out.push_back(std::move(element));
+    }
+    Delete();
+    return out;
+  }
 
  private:
   struct Node {
     T value;
     Node* next;
   };
+
+  void Delete() {
+    Node* next = nodes_.load();
+
+    while (next != NULLPTR) {
+      Node* node = next;
+      next = next->next;
+      delete node;
+    }
+
+    nodes_.store(NULLPTR);
+  }
 
   bool CompareExchange(Node** expected, Node* desired) {
     return nodes_.compare_exchange_strong(*expected, desired);

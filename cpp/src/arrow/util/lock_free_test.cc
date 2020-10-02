@@ -57,16 +57,6 @@ class TestLockFreeStack : public ::testing::Test {
   }
 
   template <typename T>
-  std::vector<T> ToVector(LockFreeStack<T> stack) {
-    std::vector<T> out;
-    for (auto&& element : stack) {
-      out.push_back(std::move(element));
-    }
-    std::reverse(out.begin(), out.end());
-    return out;
-  }
-
-  template <typename T>
   std::vector<T> Flatten(std::vector<std::vector<T>> nested) {
     size_t flat_size = 0;
     for (auto&& v : nested) {
@@ -99,7 +89,7 @@ TEST_F(TestLockFreeStack, AppendOnly) {
 
   ASSERT_OK(task_group->Finish());
 
-  std::vector<int> actual = ToVector(std::move(ints)), expected;
+  std::vector<int> actual = ints.ToVector(), expected;
 
   for (int i = 0; i < task_group->parallelism(); ++i) {
     AppendLots(&expected);
@@ -120,7 +110,8 @@ TEST_F(TestLockFreeStack, ProduceThenConsumeMoved) {
   for (int i = 0; i < task_group->parallelism(); ++i) {
     task_group->Append([&, i] {
       AppendLots(&ints);
-      per_thread_actual[i] = ToVector(std::move(ints));
+      auto local = std::move(ints);
+      per_thread_actual[i] = local.ToVector();
       return Status::OK();
     });
   }

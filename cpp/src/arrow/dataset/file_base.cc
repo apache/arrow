@@ -30,7 +30,9 @@
 #include "arrow/io/interfaces.h"
 #include "arrow/io/memory.h"
 #include "arrow/util/iterator.h"
+#include "arrow/util/lock_free.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/make_unique.h"
 #include "arrow/util/map.h"
 #include "arrow/util/mutex.h"
 #include "arrow/util/string.h"
@@ -168,73 +170,94 @@ Status ValidateBasenameTemplate(util::string_view basename_template) {
   return Status::OK();
 }
 
-using MutexedWriter = util::Mutexed<std::shared_ptr<FileWriter>>;
+class WriteQueue {
+ public:
+  explicit WriteQueue(util::string_view partition_expression)
+      : partition_expression_(partition_expression) {}
 
-struct WriterSet {
-  explicit WriterSet(const FileSystemDatasetWriteOptions& write_options)
-      : base_dir_(fs::internal::EnsureTrailingSlash(write_options.base_dir)),
-        write_options_(write_options) {}
+  // Push a batch into the writer's queue of pending writes.
+  void Push(std::shared_ptr<RecordBatch> batch) { pending_.Push(std::move(batch)); }
 
-  Result<std::shared_ptr<MutexedWriter>> Get(const Expression& partition_expression,
-                                             const std::shared_ptr<Schema>& schema) {
-    ARROW_ASSIGN_OR_RAISE(auto part_segments,
-                          write_options_.partitioning->Format(partition_expression));
-    std::string dir = base_dir_ + part_segments;
+  // Take the writer's lock and flush its queue of pending writes.
+  // Returns false if the lock could not be acquired. The queue is guaranteed to be
+  // flushed if every thread which calls Push() subsequently calls TryFlush() until
+  // it returns true.
+  Result<bool> TryFlush() {
+    if (auto lock = writer_mutex_.TryLock()) {
+      RecordBatchVector pending_vector;
+      do {
+        // Move pending to a local variable exclusively viewed by this thread
+        auto pending = std::move(pending_);
+        pending_vector = pending.ToVector();
 
-    util::Mutex::Guard writer_lock;
+        for (auto it = pending_vector.rbegin(); it != pending_vector.rend(); ++it) {
+          RETURN_NOT_OK(writer_->Write(*it));
+        }
 
-    auto set_lock = mutex_.Lock();
-
-    auto writer =
-        internal::GetOrInsertGenerated(&dir_to_writer_, dir, [&](const std::string&) {
-          auto writer = std::make_shared<MutexedWriter>();
-          writer_lock = writer->Lock();
-          return writer;
-        })->second;
-
-    if (writer_lock) {
-      auto i = i_++;
-      set_lock.Unlock();
-
-      RETURN_NOT_OK(write_options_.filesystem->CreateDir(dir));
-
-      auto basename = internal::Replace(write_options_.basename_template, kIntegerToken,
-                                        std::to_string(i));
-      if (!basename) {
-        return Status::Invalid("string interpolation of basename template failed");
-      }
-
-      auto path = fs::internal::ConcatAbstractPath(dir, *basename);
-
-      ARROW_ASSIGN_OR_RAISE(auto destination,
-                            write_options_.filesystem->OpenOutputStream(path));
-
-      ARROW_ASSIGN_OR_RAISE(**writer, write_options_.format()->MakeWriter(
-                                          std::move(destination), schema,
-                                          write_options_.file_write_options));
+        // Since we're holding this writer's lock anyway we may as well check for batches
+        // added while we were writing
+      } while (!pending_vector.empty());
+      return true;
     }
-
-    return writer;
+    return false;
   }
 
-  Status FinishAll(internal::TaskGroup* task_group) {
-    for (const auto& dir_writer : dir_to_writer_) {
-      task_group->Append([&] {
-        std::shared_ptr<FileWriter> writer = **dir_writer.second;
-        return writer->Finish();
-      });
+  util::Mutex::Guard Lock() { return writer_mutex_.Lock(); }
+
+  const std::shared_ptr<FileWriter>& writer() const { return writer_; }
+
+  Status OpenWriter(const FileSystemDatasetWriteOptions& write_options, int index,
+                    std::shared_ptr<Schema> schema) {
+    auto dir = fs::internal::EnsureTrailingSlash(write_options.base_dir) +
+               partition_expression_.to_string();
+
+    auto basename = internal::Replace(write_options.basename_template, kIntegerToken,
+                                      std::to_string(index));
+    if (!basename) {
+      return Status::Invalid("string interpolation of basename template failed");
     }
 
+    auto path = fs::internal::ConcatAbstractPath(dir, *basename);
+
+    RETURN_NOT_OK(write_options.filesystem->CreateDir(dir));
+    ARROW_ASSIGN_OR_RAISE(auto destination,
+                          write_options.filesystem->OpenOutputStream(path));
+
+    ARROW_ASSIGN_OR_RAISE(writer_, write_options.format()->MakeWriter(
+                                       std::move(destination), std::move(schema),
+                                       write_options.file_write_options));
     return Status::OK();
   }
 
-  int i_ = 0;
-  // There should only be a single writer open for each partition directory at a time
-  util::Mutex mutex_;
-  std::unordered_map<std::string, std::shared_ptr<MutexedWriter>> dir_to_writer_;
-  std::string base_dir_;
-  const FileSystemDatasetWriteOptions& write_options_;
+ private:
+  // FileWriters are not required to be thread safe, so they must be guarded with a mutex.
+  util::Mutex writer_mutex_;
+  std::shared_ptr<FileWriter> writer_;
+  // A stack into which batches to write will be pushed
+  util::LockFreeStack<std::shared_ptr<RecordBatch>> pending_;
+
+  // The (formatted) partition expression to which this queue corresponds
+  util::string_view partition_expression_;
 };
+
+Result<std::shared_ptr<FileWriter>> MakeWriter(
+    const FileSystemDatasetWriteOptions& write_options, std::string part,
+    int auto_incremented, std::shared_ptr<Schema> schema) {
+  auto dir = write_options.base_dir + part;
+  auto basename = internal::Replace(write_options.basename_template, kIntegerToken,
+                                    std::to_string(auto_incremented));
+  if (!basename) {
+    return Status::Invalid("string interpolation of basename template failed");
+  }
+  auto path = fs::internal::ConcatAbstractPath(dir, *basename);
+
+  RETURN_NOT_OK(write_options.filesystem->CreateDir(dir));
+  ARROW_ASSIGN_OR_RAISE(auto destination,
+                        write_options.filesystem->OpenOutputStream(path));
+
+  return write_options.format()->MakeWriter(std::move(destination), std::move(schema),
+                                            write_options.file_write_options);
+}
 
 Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_options,
                                 std::shared_ptr<Scanner> scanner) {
@@ -272,14 +295,18 @@ Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_optio
     }
   }
 
-  WriterSet writers(write_options);
+  // Store a mapping from partitions (represened by their formatted partition expressions)
+  // to a WriteQueue which flushes batches into that partition's output file.
+  // `unordered_map` is not thread safe, so a lock on queues_mutex_ must be held whenever
+  // queues_ is accessed or modified.
+  util::Mutex queues_mutex_;
+  std::unordered_map<std::string, std::unique_ptr<WriteQueue>> queues_;
 
-  auto write_task_group = task_group->MakeSubGroup();
   auto fragment_for_task_it = fragment_for_task.begin();
   for (const auto& scan_task : scan_tasks) {
     const Fragment* fragment = *fragment_for_task_it++;
 
-    write_task_group->Append([&, scan_task, fragment] {
+    task_group->Append([&, scan_task, fragment] {
       ARROW_ASSIGN_OR_RAISE(auto batches, scan_task->Execute());
 
       for (auto maybe_batch : batches) {
@@ -287,49 +314,59 @@ Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_optio
         ARROW_ASSIGN_OR_RAISE(auto groups, write_options.partitioning->Partition(batch));
         batch.reset();  // drop to hopefully conserve memory
 
-        struct PendingWrite {
-          std::shared_ptr<MutexedWriter> writer;
-          std::shared_ptr<RecordBatch> batch;
-
-          Result<bool> TryWrite() {
-            if (auto lock = writer->TryLock()) {
-              RETURN_NOT_OK(writer->get()->Write(batch));
-              return true;
-            }
-            return false;
-          }
-        };
-        std::vector<PendingWrite> pending_writes(groups.batches.size());
-
         for (size_t i = 0; i < groups.batches.size(); ++i) {
           AndExpression partition_expression(std::move(groups.expressions[i]),
                                              fragment->partition_expression());
+          auto batch = std::move(groups.batches[i]);
 
-          ARROW_ASSIGN_OR_RAISE(auto writer, writers.Get(partition_expression,
-                                                         groups.batches[i]->schema()));
+          ARROW_ASSIGN_OR_RAISE(auto part,
+                                write_options.partitioning->Format(partition_expression));
 
-          pending_writes[i] = {std::move(writer), std::move(groups.batches[i])};
-        }
+          // Now we need to look up the relevant WriteQueue in `queues_`
+          auto queues_lock = queues_mutex_.Lock();
+          util::Mutex::Guard new_queue_lock;
 
-        for (size_t i = 0; !pending_writes.empty(); ++i) {
-          if (i >= pending_writes.size()) {
-            i = 0;
+          WriteQueue* queue = internal::GetOrInsertGenerated(
+                                  &queues_, std::move(part),
+                                  [&](const std::string& part) {
+                                    auto queue = internal::make_unique<WriteQueue>(part);
+                                    new_queue_lock = queue->Lock();
+                                    return queue;
+                                  })
+                                  ->second.get();
+
+          if (new_queue_lock) {
+            size_t queue_index = queues_.size() - 1;
+            // We have openned a new WriteQueue for `part` and must set up its FileWriter.
+            // That could be slow, so we'd like to release queues_lock now, allowing other
+            // threads to look up already-open queues. This is safe since we are mutating
+            // an element of queues_ in place, which does not conflict with access to any
+            // other element. However, we do need to keep new_queue_lock while we open the
+            // FileWriter to prevent other threads from using the writer before it has
+            // been constructed.
+            queues_lock.Unlock();
+            RETURN_NOT_OK(queue->OpenWriter(write_options, queue_index, batch->schema()));
+            new_queue_lock.Unlock();
           }
 
-          ARROW_ASSIGN_OR_RAISE(auto success, pending_writes[i].TryWrite());
-          if (success) {
-            std::swap(pending_writes.back(), pending_writes[i]);
-            pending_writes.pop_back();
-          }
+          queue->Push(std::move(batch));
+
+          bool flushed;
+          do {
+            ARROW_ASSIGN_OR_RAISE(flushed, queue->TryFlush());
+          } while (!flushed);
         }
       }
 
       return Status::OK();
     });
   }
-  RETURN_NOT_OK(write_task_group->Finish());
+  RETURN_NOT_OK(task_group->Finish());
 
-  RETURN_NOT_OK(writers.FinishAll(task_group.get()));
+  task_group = scanner->context()->TaskGroup();
+  for (const auto& part_queue : queues_) {
+    task_group->Append([&] { return part_queue.second->writer()->Finish(); });
+  }
   return task_group->Finish();
 }
 
