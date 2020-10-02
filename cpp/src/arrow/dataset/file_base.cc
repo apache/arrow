@@ -18,6 +18,8 @@
 #include "arrow/dataset/file_base.h"
 
 #include <algorithm>
+#include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include "arrow/dataset/dataset_internal.h"
@@ -172,16 +174,18 @@ Status ValidateBasenameTemplate(util::string_view basename_template) {
 
 class WriteQueue {
  public:
-  explicit WriteQueue(util::string_view partition_expression)
-      : partition_expression_(partition_expression) {}
+  WriteQueue(std::string partition_expression,
+             util::Mutex::Guard* wait_for_opened_writer_lock)
+      : partition_expression_(std::move(partition_expression)) {
+    *wait_for_opened_writer_lock = writer_mutex_.Lock();
+  }
 
   // Push a batch into the writer's queue of pending writes.
   void Push(std::shared_ptr<RecordBatch> batch) { pending_.Push(std::move(batch)); }
 
-  // Take the writer's lock and flush its queue of pending writes.
-  // Returns false if the lock could not be acquired. The queue is guaranteed to be
-  // flushed if every thread which calls Push() subsequently calls TryFlush() until
-  // it returns true.
+  // Try to lock a writer and flush its queue of pending writes.  Returns false if the
+  // lock could not be acquired. The queue is guaranteed to be flushed if every thread
+  // which calls Push() subsequently calls TryFlush() until it returns true.
   Result<bool> TryFlush() {
     if (auto lock = writer_mutex_.TryLock()) {
       RecordBatchVector pending_vector;
@@ -202,14 +206,29 @@ class WriteQueue {
     return false;
   }
 
-  util::Mutex::Guard Lock() { return writer_mutex_.Lock(); }
+  // Flush a set of WriteQueues. If we find any queue to be locked we try flushing all
+  // the others before retrying to minimize busy waiting.
+  static Status FlushSet(std::unordered_set<WriteQueue*> set) {
+    while (!set.empty()) {
+      for (auto it = set.begin(); it != set.end();) {
+        WriteQueue* queue = *it;
+        ARROW_ASSIGN_OR_RAISE(bool flushed, queue->TryFlush());
+        if (flushed) {
+          it = set.erase(it);
+        } else {
+          ++it;
+        }
+      }
+    }
+    return Status::OK();
+  }
 
   const std::shared_ptr<FileWriter>& writer() const { return writer_; }
 
-  Status OpenWriter(const FileSystemDatasetWriteOptions& write_options, int index,
+  Status OpenWriter(const FileSystemDatasetWriteOptions& write_options, size_t index,
                     std::shared_ptr<Schema> schema) {
-    auto dir = fs::internal::EnsureTrailingSlash(write_options.base_dir) +
-               partition_expression_.to_string();
+    auto dir =
+        fs::internal::EnsureTrailingSlash(write_options.base_dir) + partition_expression_;
 
     auto basename = internal::Replace(write_options.basename_template, kIntegerToken,
                                       std::to_string(index));
@@ -237,27 +256,8 @@ class WriteQueue {
   util::LockFreeStack<std::shared_ptr<RecordBatch>> pending_;
 
   // The (formatted) partition expression to which this queue corresponds
-  util::string_view partition_expression_;
+  std::string partition_expression_;
 };
-
-Result<std::shared_ptr<FileWriter>> MakeWriter(
-    const FileSystemDatasetWriteOptions& write_options, std::string part,
-    int auto_incremented, std::shared_ptr<Schema> schema) {
-  auto dir = write_options.base_dir + part;
-  auto basename = internal::Replace(write_options.basename_template, kIntegerToken,
-                                    std::to_string(auto_incremented));
-  if (!basename) {
-    return Status::Invalid("string interpolation of basename template failed");
-  }
-  auto path = fs::internal::ConcatAbstractPath(dir, *basename);
-
-  RETURN_NOT_OK(write_options.filesystem->CreateDir(dir));
-  ARROW_ASSIGN_OR_RAISE(auto destination,
-                        write_options.filesystem->OpenOutputStream(path));
-
-  return write_options.format()->MakeWriter(std::move(destination), std::move(schema),
-                                            write_options.file_write_options);
-}
 
 Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_options,
                                 std::shared_ptr<Scanner> scanner) {
@@ -298,15 +298,29 @@ Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_optio
   // Store a mapping from partitions (represened by their formatted partition expressions)
   // to a WriteQueue which flushes batches into that partition's output file.
   // `unordered_map` is not thread safe, so a lock on queues_mutex_ must be held whenever
-  // queues_ is accessed or modified.
-  util::Mutex queues_mutex_;
-  std::unordered_map<std::string, std::unique_ptr<WriteQueue>> queues_;
+  // queues is accessed or modified.
+  util::Mutex queues_mutex;
+  std::unordered_map<std::string, std::unique_ptr<WriteQueue>> queues;
+
+  // Thread-local caches of partition-to-WriteQueue mapping.
+  using QueueCache = std::unordered_map<std::string, WriteQueue*>;
+  util::Mutex caches_mutex;
+  std::vector<QueueCache> caches;
 
   auto fragment_for_task_it = fragment_for_task.begin();
   for (const auto& scan_task : scan_tasks) {
     const Fragment* fragment = *fragment_for_task_it++;
 
     task_group->Append([&, scan_task, fragment] {
+      // check out a cache of `queues`, if available
+      auto caches_lock = caches_mutex.Lock();
+      QueueCache local_queues;
+      if (!caches.empty()) {
+        local_queues = std::move(caches.back());
+        caches.pop_back();
+      }
+      caches_lock.Unlock();
+
       ARROW_ASSIGN_OR_RAISE(auto batches, scan_task->Execute());
 
       for (auto maybe_batch : batches) {
@@ -314,6 +328,7 @@ Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_optio
         ARROW_ASSIGN_OR_RAISE(auto groups, write_options.partitioning->Partition(batch));
         batch.reset();  // drop to hopefully conserve memory
 
+        std::unordered_set<WriteQueue*> need_flushed;
         for (size_t i = 0; i < groups.batches.size(); ++i) {
           AndExpression partition_expression(std::move(groups.expressions[i]),
                                              fragment->partition_expression());
@@ -322,49 +337,66 @@ Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_optio
           ARROW_ASSIGN_OR_RAISE(auto part,
                                 write_options.partitioning->Format(partition_expression));
 
-          // Now we need to look up the relevant WriteQueue in `queues_`
-          auto queues_lock = queues_mutex_.Lock();
-          util::Mutex::Guard new_queue_lock;
+          util::Mutex::Guard queues_lock, wait_for_opened_writer_lock;
 
-          WriteQueue* queue = internal::GetOrInsertGenerated(
-                                  &queues_, std::move(part),
-                                  [&](const std::string& part) {
-                                    auto queue = internal::make_unique<WriteQueue>(part);
-                                    new_queue_lock = queue->Lock();
-                                    return queue;
-                                  })
-                                  ->second.get();
+          WriteQueue* queue =
+              // try to lookup the relevant WriteQueue up in our local cache
+              internal::GetOrInsertGenerated(
+                  &local_queues, part,
+                  [&](const std::string&) {
+                    // local lookup failed, fall back to lookup in `queues`
+                    queues_lock = queues_mutex.Lock();
+                    return internal::GetOrInsertGenerated(
+                               &queues, std::move(part),
+                               [&](const std::string& part) {
+                                 // lookup in `queues` also failed,
+                                 // generate a new WriteQueue
+                                 return internal::make_unique<WriteQueue>(
+                                     part, &wait_for_opened_writer_lock);
+                               })
+                        ->second.get();
+                  })
+                  ->second;
 
-          if (new_queue_lock) {
-            size_t queue_index = queues_.size() - 1;
+          if (wait_for_opened_writer_lock) {
+            size_t queue_index = queues.size() - 1;
             // We have openned a new WriteQueue for `part` and must set up its FileWriter.
             // That could be slow, so we'd like to release queues_lock now, allowing other
             // threads to look up already-open queues. This is safe since we are mutating
-            // an element of queues_ in place, which does not conflict with access to any
+            // an element of `queues` in place, which does not conflict with access to any
             // other element. However, we do need to keep new_queue_lock while we open the
             // FileWriter to prevent other threads from using the writer before it has
             // been constructed.
             queues_lock.Unlock();
             RETURN_NOT_OK(queue->OpenWriter(write_options, queue_index, batch->schema()));
-            new_queue_lock.Unlock();
+            wait_for_opened_writer_lock.Unlock();
+          }
+
+          if (queues_lock) {
+            queues_lock.Unlock();
           }
 
           queue->Push(std::move(batch));
-
-          bool flushed;
-          do {
-            ARROW_ASSIGN_OR_RAISE(flushed, queue->TryFlush());
-          } while (!flushed);
+          need_flushed.insert(queue);
         }
+
+        // flush all touched WriteQueues
+        RETURN_NOT_OK(WriteQueue::FlushSet(std::move(need_flushed)));
       }
 
+      // check cache back in
+      caches_lock = caches_mutex.Lock();
+      auto larger_or_same = std::lower_bound(
+          caches.begin(), caches.end(), local_queues,
+          [](const QueueCache& l, const QueueCache& r) { return l.size() < r.size(); });
+      caches.insert(larger_or_same, std::move(local_queues));
       return Status::OK();
     });
   }
   RETURN_NOT_OK(task_group->Finish());
 
   task_group = scanner->context()->TaskGroup();
-  for (const auto& part_queue : queues_) {
+  for (const auto& part_queue : queues) {
     task_group->Append([&] { return part_queue.second->writer()->Finish(); });
   }
   return task_group->Finish();

@@ -29,11 +29,11 @@ namespace internal {
 /// will be returned. If `key` does not exist in the container, `gen(key)` will be
 /// invoked and its return value inserted.
 template <typename Map, typename Key, typename Gen>
-auto GetOrInsertGenerated(Map* map, Key&& key, Gen&& gen)
+auto GetOrInsertGenerated(Map* map, Key key, Gen&& gen)
     -> decltype(map->begin()->second = gen(map->begin()->first), map->begin()) {
-  decltype(gen(map->begin()->first)) placeholder;
+  decltype(gen(map->begin()->first)) placeholder{};
 
-  auto it_success = map->emplace(std::forward<Key>(key), std::move(placeholder));
+  auto it_success = map->emplace(std::move(key), std::move(placeholder));
   if (it_success.second) {
     // insertion of placeholder succeeded, overwrite it with gen()
     const auto& inserted_key = it_success.first->first;
@@ -44,12 +44,12 @@ auto GetOrInsertGenerated(Map* map, Key&& key, Gen&& gen)
 }
 
 template <typename Map, typename Key, typename Gen>
-auto GetOrInsertGenerated(Map* map, Key&& key, Gen&& gen)
+auto GetOrInsertGenerated(Map* map, Key key, Gen&& gen)
     -> Result<decltype(map->begin()->second = gen(map->begin()->first).ValueOrDie(),
                        map->begin())> {
-  decltype(gen(map->begin()->first).ValueOrDie()) placeholder;
+  decltype(gen(map->begin()->first).ValueOrDie()) placeholder{};
 
-  auto it_success = map->emplace(std::forward<Key>(key), std::move(placeholder));
+  auto it_success = map->emplace(std::move(key), std::move(placeholder));
   if (it_success.second) {
     // insertion of placeholder succeeded, overwrite it with gen()
     const auto& inserted_key = it_success.first->first;
