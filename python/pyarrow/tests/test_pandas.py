@@ -2138,6 +2138,8 @@ class TestConvertListTypes:
                 [(b'd', 4), (b'e', 5), (b'f', None)],
                 [(b'g', 7)]]
 
+        data = [[(b'a', 1)], [(b'b', 2)]]
+
         arr = pa.array(data, type=pa.map_(pa.binary(), pa.int32()))
         s = arr.to_pandas()
         tm.assert_series_equal(s, pd.Series(data), check_names=False)
