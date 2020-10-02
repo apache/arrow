@@ -23,10 +23,10 @@
 #include "arrow/util/concurrent_map.h"
 #include "arrow/util/mutex.h"
 
-using arrow::util::ConcurrentMap;
-
 namespace parquet {
 namespace encryption {
+
+using arrow::util::ConcurrentMap;
 
 namespace internal {
 
@@ -106,16 +106,6 @@ class TwoLevelCacheWithExpiration {
     }
 
     return cache_[access_token].cached_item();
-  }
-
-  void RemoveCacheEntriesForToken(const std::string& access_token) {
-    auto lock = mutex_.Lock();
-    cache_.erase(access_token);
-  }
-
-  void RemoveCacheEntriesForAllTokens() {
-    auto lock = mutex_.Lock();
-    cache_.clear();
   }
 
   void CheckCacheForExpiredTokens(uint64_t cache_cleanup_period_seconds) {

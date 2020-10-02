@@ -37,9 +37,9 @@ std::shared_ptr<KmsClient> KeyToolkit::GetKmsClient(
 
 // Flush any caches that are tied to the (compromised) access_token
 void KeyToolkit::RemoveCacheEntriesForToken(const std::string& access_token) {
-  kms_client_cache_per_token().RemoveCacheEntriesForToken(access_token);
-  kek_write_cache_per_token().RemoveCacheEntriesForToken(access_token);
-  kek_read_cache_per_token().RemoveCacheEntriesForToken(access_token);
+  kms_client_cache_per_token().Remove(access_token);
+  kek_write_cache_per_token().Remove(access_token);
+  kek_read_cache_per_token().Remove(access_token);
 }
 
 void KeyToolkit::RemoveCacheEntriesForAllTokens() {

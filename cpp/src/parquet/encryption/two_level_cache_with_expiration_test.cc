@@ -121,7 +121,7 @@ TEST_F(TwoLevelCacheWithExpirationTest, CleanupPeriodOk) {
 }
 
 TEST_F(TwoLevelCacheWithExpirationTest, RemoveByToken) {
-  cache_.RemoveCacheEntriesForToken("lifetime1s");
+  cache_.Remove("lifetime1s");
 
   // lifetime_1s (with 2 items) has been removed from the cache.
   // Now the cache create a new object which has no item.
@@ -141,7 +141,7 @@ TEST_F(TwoLevelCacheWithExpirationTest, RemoveByToken) {
 }
 
 TEST_F(TwoLevelCacheWithExpirationTest, RemoveAllTokens) {
-  cache_.RemoveCacheEntriesForAllTokens();
+  cache_.Clear();
 
   // All tokens has been removed from the cache.
   // Now the cache create a new object which has no item.
