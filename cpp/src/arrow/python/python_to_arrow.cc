@@ -249,10 +249,10 @@ class PyValue {
           value = internal::PyDateTime_to_s(dt) - offset;
           break;
         case TimeUnit::MILLI:
-          value = internal::PyDateTime_to_ms(dt) - offset * 1000;
+          value = internal::PyDateTime_to_ms(dt) - offset * 1000LL;
           break;
         case TimeUnit::MICRO:
-          value = internal::PyDateTime_to_us(dt) - offset * 1000 * 1000;
+          value = internal::PyDateTime_to_us(dt) - offset * 1000000LL;
           break;
         case TimeUnit::NANO:
           // Conversion to nanoseconds can overflow -> check multiply of microseconds
@@ -260,7 +260,7 @@ class PyValue {
           if (arrow::internal::MultiplyWithOverflow(value, 1000, &value)) {
             return internal::InvalidValue(obj, "out of bounds for nanosecond resolution");
           }
-          if (arrow::internal::SubtractWithOverflow(value, offset * 1000 * 1000 * 1000,
+          if (arrow::internal::SubtractWithOverflow(value, offset * 1000000000LL,
                                                     &value)) {
             return internal::InvalidValue(obj, "out of bounds for nanosecond resolution");
           }
@@ -298,7 +298,14 @@ class PyValue {
           value = internal::PyDelta_to_us(dt);
           break;
         case TimeUnit::NANO:
-          value = internal::PyDelta_to_ns(dt);
+          if (internal::IsPandasTimedelta(obj)) {
+            OwnedRef nanos(PyObject_GetAttrString(obj, "nanoseconds"));
+            RETURN_IF_PYERROR();
+            RETURN_NOT_OK(internal::CIntFromPython(nanos.obj(), &value));
+            value += internal::PyDelta_to_ns(dt);
+          } else {
+            value = internal::PyDelta_to_ns(dt);
+          }
           break;
         default:
           return Status::UnknownError("Invalid time unit");
@@ -1003,6 +1010,9 @@ Result<std::shared_ptr<ChunkedArray>> ConvertPySequence(PyObject* obj, PyObject*
 
   PyObject* seq;
   OwnedRef tmp_seq_nanny;
+
+  // FIXME(kszucs): shouldn't import pandas unconditionally
+  internal::InitPandasStaticData();
 
   int64_t size = options.size;
   RETURN_NOT_OK(ConvertToSequenceAndInferSize(obj, &seq, &size));

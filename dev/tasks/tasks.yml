@@ -1612,6 +1612,16 @@ tasks:
         PYTHON: 3.8
       run: conda-python
 
+  test-conda-python-3.8-hypothesis:
+    params:
+      ci: github
+      template: docker-tests/github.linux.yml
+      env:
+        PYTHON: 3.8
+        PYARROW_TEST_HYPOTHESIS: ON
+        HYPOTHESIS_PROFILE: ci
+      run: conda-python
+
   test-debian-10-python-3:
     ci: azure
     template: docker-tests/azure.linux.yml

@@ -258,30 +258,40 @@ bool PyFloat_IsNaN(PyObject* obj) {
 namespace {
 
 static std::once_flag pandas_static_initialized;
-static PyTypeObject* pandas_NaTType = nullptr;
+
 static PyObject* pandas_NA = nullptr;
+static PyObject* pandas_NaT = nullptr;
+static PyObject* pandas_Timedelta = nullptr;
+static PyTypeObject* pandas_NaTType = nullptr;
 
 void GetPandasStaticSymbols() {
   OwnedRef pandas;
+
+  // import pandas
   Status s = ImportModule("pandas", &pandas);
   if (!s.ok()) {
     return;
   }
 
   OwnedRef ref;
-  s = ImportFromModule(pandas.obj(), "NaT", &ref);
-  if (!s.ok()) {
-    return;
+
+  // set NaT sentinel and its type
+  if (ImportFromModule(pandas.obj(), "NaT", &ref).ok()) {
+    pandas_NaT = ref.obj();
+    // PyObject_Type returns a new reference but we trust that pandas.NaT will
+    // outlive our use of this PyObject*
+    PyObject* nat_type = PyObject_Type(ref.obj());
+    pandas_NaTType = reinterpret_cast<PyTypeObject*>(nat_type);
+    Py_DECREF(nat_type);
   }
-  PyObject* nat_type = PyObject_Type(ref.obj());
-  pandas_NaTType = reinterpret_cast<PyTypeObject*>(nat_type);
 
-  // PyObject_Type returns a new reference but we trust that pandas.NaT will
-  // outlive our use of this PyObject*
-  Py_DECREF(nat_type);
+  // retain a reference to Timedelta
+  if (ImportFromModule(pandas.obj(), "Timedelta", &ref).ok()) {
+    pandas_Timedelta = ref.obj();
+  }
 
+  // if pandas.NA exists, retain a reference to it
   if (ImportFromModule(pandas.obj(), "NA", &ref).ok()) {
-    // If pandas.NA exists, retain a reference to it
     pandas_NA = ref.obj();
   }
 }
@@ -305,6 +315,10 @@ bool PandasObjectIsNull(PyObject* obj) {
     return true;
   }
   return false;
+}
+
+bool IsPandasTimedelta(PyObject* obj) {
+  return pandas_Timedelta && PyObject_IsInstance(obj, pandas_Timedelta);
 }
 
 Status InvalidValue(PyObject* obj, const std::string& why) {

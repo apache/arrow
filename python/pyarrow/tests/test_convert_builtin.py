@@ -1903,18 +1903,30 @@ def test_dictionary_from_strings():
     assert a.dictionary.equals(expected_dictionary)
 
 
-def _has_unique_field_names(ty):
-    if isinstance(ty, pa.StructType):
-        field_names = [field.name for field in ty]
-        return len(set(field_names)) == len(field_names)
-    else:
-        return True
+@pytest.mark.parametrize('unit', ['s', 'ms', 'us', 'ns'])
+def test_duration_array_roundtrip_corner_cases(unit):
+    # corner case discovered by hypothesis
+    ty = pa.duration(unit)
+    arr = pa.array([-2147483000], type=ty)
+    restored = pa.array(arr.to_pylist(), type=ty)
+    assert arr.equals(restored)
+
+
+@pytest.mark.pandas
+def test_duration_array_roundtrip_nanosecond_resolution_pandas_timedelta():
+    # corner case discovered by hypothesis
+    import pandas as pd
+    ty = pa.duration('ns')
+    arr = pa.array([9223371273709551616], type=ty)
+    data = arr.to_pylist()
+    assert isinstance(data[0], pd.Timedelta)
+    restored = pa.array(data, type=ty)
+    assert arr.equals(restored)
 
 
 @h.given(past.all_arrays)
 def test_array_to_pylist_roundtrip(arr):
     # TODO(kszucs): ARROW-9997
-    h.assume(_has_unique_field_names(arr.type))
     seq = arr.to_pylist()
     restored = pa.array(seq, type=arr.type)
     assert restored.equals(arr)

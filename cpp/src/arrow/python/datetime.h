@@ -44,9 +44,9 @@ void InitDatetime();
 
 ARROW_PYTHON_EXPORT
 inline int64_t PyTime_to_us(PyObject* pytime) {
-  return (static_cast<int64_t>(PyDateTime_TIME_GET_HOUR(pytime)) * 3600000000LL +
-          static_cast<int64_t>(PyDateTime_TIME_GET_MINUTE(pytime)) * 60000000LL +
-          static_cast<int64_t>(PyDateTime_TIME_GET_SECOND(pytime)) * 1000000LL +
+  return (PyDateTime_TIME_GET_HOUR(pytime) * 3600000000LL +
+          PyDateTime_TIME_GET_MINUTE(pytime) * 60000000LL +
+          PyDateTime_TIME_GET_SECOND(pytime) * 1000000LL +
           PyDateTime_TIME_GET_MICROSECOND(pytime));
 }
 
@@ -77,38 +77,38 @@ ARROW_PYTHON_EXPORT
 int64_t PyDate_to_days(PyDateTime_Date* pydate);
 
 ARROW_PYTHON_EXPORT
+inline int64_t PyDate_to_s(PyDateTime_Date* pydate) {
+  return PyDate_to_days(pydate) * 86400LL;
+}
+
+ARROW_PYTHON_EXPORT
 inline int64_t PyDate_to_ms(PyDateTime_Date* pydate) {
-  return PyDate_to_days(pydate) * 24 * 3600 * 1000;
+  return PyDate_to_days(pydate) * 86400000LL;
 }
 
 ARROW_PYTHON_EXPORT
 inline int64_t PyDateTime_to_s(PyDateTime_DateTime* pydatetime) {
-  int64_t total_seconds = 0;
-  total_seconds += PyDateTime_DATE_GET_SECOND(pydatetime);
-  total_seconds += PyDateTime_DATE_GET_MINUTE(pydatetime) * 60;
-  total_seconds += PyDateTime_DATE_GET_HOUR(pydatetime) * 3600;
-
-  return total_seconds +
-         (PyDate_to_ms(reinterpret_cast<PyDateTime_Date*>(pydatetime)) / 1000LL);
+  return (PyDate_to_s(reinterpret_cast<PyDateTime_Date*>(pydatetime)) +
+          PyDateTime_DATE_GET_HOUR(pydatetime) * 3600LL +
+          PyDateTime_DATE_GET_MINUTE(pydatetime) * 60LL +
+          PyDateTime_DATE_GET_SECOND(pydatetime));
 }
 
 ARROW_PYTHON_EXPORT
 inline int64_t PyDateTime_to_ms(PyDateTime_DateTime* pydatetime) {
-  int64_t date_ms = PyDateTime_to_s(pydatetime) * 1000;
-  int ms = PyDateTime_DATE_GET_MICROSECOND(pydatetime) / 1000;
-  return date_ms + ms;
+  return (PyDateTime_to_s(pydatetime) * 1000LL +
+          PyDateTime_DATE_GET_MICROSECOND(pydatetime) / 1000);
 }
 
 ARROW_PYTHON_EXPORT
 inline int64_t PyDateTime_to_us(PyDateTime_DateTime* pydatetime) {
-  int64_t ms = PyDateTime_to_s(pydatetime) * 1000;
-  int us = PyDateTime_DATE_GET_MICROSECOND(pydatetime);
-  return ms * 1000 + us;
+  return (PyDateTime_to_s(pydatetime) * 1000000LL +
+          PyDateTime_DATE_GET_MICROSECOND(pydatetime));
 }
 
 ARROW_PYTHON_EXPORT
 inline int64_t PyDateTime_to_ns(PyDateTime_DateTime* pydatetime) {
-  return PyDateTime_to_us(pydatetime) * 1000;
+  return PyDateTime_to_us(pydatetime) * 1000LL;
 }
 
 ARROW_PYTHON_EXPORT
@@ -131,30 +131,25 @@ inline TimePoint TimePoint_from_ns(int64_t val) {
 
 ARROW_PYTHON_EXPORT
 inline int64_t PyDelta_to_s(PyDateTime_Delta* pytimedelta) {
-  int64_t total_seconds = 0;
-  total_seconds += PyDateTime_DELTA_GET_SECONDS(pytimedelta);
-  total_seconds += PyDateTime_DELTA_GET_DAYS(pytimedelta) * 24 * 3600;
-  return total_seconds;
+  return (PyDateTime_DELTA_GET_DAYS(pytimedelta) * 86400LL +
+          PyDateTime_DELTA_GET_SECONDS(pytimedelta));
 }
 
 ARROW_PYTHON_EXPORT
 inline int64_t PyDelta_to_ms(PyDateTime_Delta* pytimedelta) {
-  int64_t total_ms = PyDelta_to_s(pytimedelta) * 1000;
-  total_ms += PyDateTime_DELTA_GET_MICROSECONDS(pytimedelta) / 1000;
-  return total_ms;
+  return (PyDelta_to_s(pytimedelta) * 1000LL +
+          PyDateTime_DELTA_GET_MICROSECONDS(pytimedelta) / 1000);
 }
 
 ARROW_PYTHON_EXPORT
 inline int64_t PyDelta_to_us(PyDateTime_Delta* pytimedelta) {
-  int64_t total_us = 0;
-  total_us += PyDelta_to_s(pytimedelta) * 1000 * 1000;
-  total_us += PyDateTime_DELTA_GET_MICROSECONDS(pytimedelta);
-  return total_us;
+  return (PyDelta_to_s(pytimedelta) * 1000000LL +
+          PyDateTime_DELTA_GET_MICROSECONDS(pytimedelta));
 }
 
 ARROW_PYTHON_EXPORT
 inline int64_t PyDelta_to_ns(PyDateTime_Delta* pytimedelta) {
-  return PyDelta_to_us(pytimedelta) * 1000;
+  return PyDelta_to_us(pytimedelta) * 1000LL;
 }
 
 ARROW_PYTHON_EXPORT
