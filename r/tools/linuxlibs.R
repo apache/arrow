@@ -256,7 +256,7 @@ find_local_source <- function(arrow_home = Sys.getenv("ARROW_HOME", "..")) {
 
 build_libarrow <- function(src_dir, dst_dir) {
   # We'll need to compile R bindings with these libs, so delete any .o files
-  system("rm src/*.o", ignore.stdout = quietly, ignore.stderr = quietly)
+  system("rm src/*.o", ignore.stdout = TRUE, ignore.stderr = TRUE)
   # Set up make for parallel building
   makeflags <- Sys.getenv("MAKEFLAGS")
   if (makeflags == "") {
@@ -380,10 +380,10 @@ with_s3_support <- function(env_vars) {
         package_version(vals[["CMAKE_CXX_COMPILER_VERSION"]]) < 4.9) {
       cat("**** S3 support not available for gcc < 4.9\n")
       arrow_s3 <- FALSE
-    } else if (!cmake_find_package("CURL")) {
+    } else if (!cmake_find_package("CURL", env_vars)) {
       cat("**** S3 support requires libcurl-devel (rpm) or libcurl4-openssl-dev (deb)\n")
       arrow_s3 <- FALSE
-    } else if (!cmake_find_package("OpenSSL")) {
+    } else if (!cmake_find_package("OpenSSL", env_vars)) {
       cat("**** S3 support requires openssl-devel (rpm) or libssl-dev (deb)\n")
       arrow_s3 <- FALSE
     }
@@ -391,7 +391,7 @@ with_s3_support <- function(env_vars) {
   paste(env_vars, ifelse(arrow_s3, "ARROW_S3=ON", "ARROW_S3=OFF"))
 }
 
-cmake_find_package <- function(pkg) {
+cmake_find_package <- function(pkg, env_vars) {
   # Assumes env_vars in enclosing scope
   system(paste0(env_vars, " && $CMAKE --find-package -DNAME=", pkg, " -DCOMPILER_ID=GNU -DLANGUAGE=CXX -DMODE=EXIST"), ignore.stdout = TRUE, ignore.stderr = TRUE) == 0
 }

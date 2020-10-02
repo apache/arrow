@@ -43,7 +43,7 @@ VERSION=`grep ^Version DESCRIPTION | sed s/Version:\ //`
 UNAME=`uname -s`
 
 # generate code
-if [ "$ARROW_R_DEV" = "true" ]; then
+if [ "$ARROW_R_DEV" = "true" ] && [ -f "data-raw/codegen.R" ]; then
   echo "*** Generating code with data-raw/codegen.R"
   ${R_HOME}/bin/Rscript data-raw/codegen.R
 fi
