@@ -229,6 +229,7 @@ class ARROW_EXPORT Decimal256 : public BasicDecimal256 {
 
   friend ARROW_EXPORT std::ostream& operator<<(std::ostream& os,
                                                const Decimal256& decimal);
+
  private:
   /// Converts internal error code to Status
   Status ToArrowStatus(DecimalStatus dstatus) const;

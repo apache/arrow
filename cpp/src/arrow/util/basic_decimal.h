@@ -196,8 +196,8 @@ class ARROW_EXPORT BasicDecimal256 {
                               extend(value)}) {}
 
   constexpr BasicDecimal256(BasicDecimal128 value) noexcept
-      : little_endian_array_({value.low_bits(), static_cast<uint64_t>(value.high_bits()), extend(value.high_bits()),
-                              extend(value.high_bits())}) {}
+      : little_endian_array_({value.low_bits(), static_cast<uint64_t>(value.high_bits()),
+                              extend(value.high_bits()), extend(value.high_bits())}) {}
 
   /// \brief Create a BasicDecimal256 from an array of bytes. Bytes are assumed to be in
   /// native-endian byte order.
@@ -230,7 +230,9 @@ class ARROW_EXPORT BasicDecimal256 {
   DecimalStatus Rescale(int32_t original_scale, int32_t new_scale,
                         BasicDecimal256* out) const;
 
-  inline int64_t Sign() const { return 1 | (static_cast<int64_t>(little_endian_array_[3]) >> 63); }
+  inline int64_t Sign() const {
+    return 1 | (static_cast<int64_t>(little_endian_array_[3]) >> 63);
+  }
 
   /// \brief Multiply this number by another number. The result is truncated to 256 bits.
   BasicDecimal256& operator*=(const BasicDecimal256& right);

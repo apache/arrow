@@ -378,12 +378,12 @@ void ExtendAndMultiplyUint128(uint128_t x, uint128_t y, uint128_t* hi, uint128_t
   ExtendAndMultiplyUint64(x.hi(), y.lo(), &t);
   lo->add_hi(t.lo());
   // Check for overflow in lo.hi
-  if(lo->hi() < t.lo()) {
-      IncrementUint128(hi);
+  if (lo->hi() < t.lo()) {
+    IncrementUint128(hi);
   }
   hi->add_lo(t.hi());
   // Check for overflow in hi.lo
-  if(hi->lo() < t.hi()) {
+  if (hi->lo() < t.hi()) {
     hi->inc_hi();
   }
 
@@ -391,16 +391,17 @@ void ExtendAndMultiplyUint128(uint128_t x, uint128_t y, uint128_t* hi, uint128_t
   lo->add_hi(t.lo());
   // Check for overflow in lo.hi
   if (lo->hi() < t.lo()) {
-      IncrementUint128(hi);
+    IncrementUint128(hi);
   }
   hi->add_lo(t.hi());
   // Check for overflow in hi.lo
-  if(hi->lo() < t.hi()) {
+  if (hi->lo() < t.hi()) {
     hi->inc_hi();
   }
 }
 
-void MultiplyUint256(uint128_t x_hi, uint128_t x_lo, uint128_t y_hi, uint128_t y_lo, uint128_t* hi, uint128_t* lo) {
+void MultiplyUint256(uint128_t x_hi, uint128_t x_lo, uint128_t y_hi, uint128_t y_lo,
+                     uint128_t* hi, uint128_t* lo) {
   ExtendAndMultiplyUint128(x_lo, y_lo, hi, lo);
   uint128_t u;
   uint128_t v;
@@ -933,8 +934,7 @@ BasicDecimal256& BasicDecimal256::operator*=(const BasicDecimal256& right) {
   MultiplyUint256({x.little_endian_array_[3], x.little_endian_array_[2]},
                   {x.little_endian_array_[1], x.little_endian_array_[0]},
                   {y.little_endian_array_[3], y.little_endian_array_[2]},
-                  {y.little_endian_array_[1], y.little_endian_array_[0]},
-                  &r_hi, &r_lo);
+                  {y.little_endian_array_[1], y.little_endian_array_[0]}, &r_hi, &r_lo);
   little_endian_array_[0] = r_lo.lo();
   little_endian_array_[1] = r_lo.hi();
   little_endian_array_[2] = r_hi.lo();

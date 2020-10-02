@@ -25,8 +25,8 @@
 #include <tuple>
 #include <vector>
 
-#include <boost/multiprecision/cpp_int.hpp>
 #include <gtest/gtest.h>
+#include <boost/multiprecision/cpp_int.hpp>
 
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
@@ -1236,13 +1236,13 @@ TEST(Decimal256Test, ConstructibleFromBool) {
 
 Decimal256 Decimal256FromInt128(int128_t value) {
   return Decimal256(Decimal128(static_cast<int64_t>(value >> 64),
-                    static_cast<uint64_t>(value & 0xFFFFFFFFFFFFFFFFULL)));
+                               static_cast<uint64_t>(value & 0xFFFFFFFFFFFFFFFFULL)));
 }
 
 TEST(Decimal256Test, Multiply) {
   using boost::multiprecision::int256_t;
 
-  //typedef std::independent_bits_engine<std::mt19937, 256, cpp_int> generator_type;
+  // typedef std::independent_bits_engine<std::mt19937, 256, cpp_int> generator_type;
   // generator_type gen;
 
   ASSERT_EQ(Decimal256(60501), Decimal256(301) * Decimal256(201));
@@ -1269,7 +1269,8 @@ TEST(Decimal256Test, Multiply) {
           int128_t u = static_cast<int128_t>(t) * (static_cast<int128_t>(1) << 95);
           int256_t expected = int256_t(u) * w;
           Decimal256 actual = Decimal256FromInt128(w) * Decimal256FromInt128(u);
-          ASSERT_EQ(expected.str(), actual.ToIntegerString()) << " " << x << " * " << y << " * " << z << " * " << t << " * 2^125";
+          ASSERT_EQ(expected.str(), actual.ToIntegerString())
+              << " " << x << " * " << y << " * " << z << " * " << t << " * 2^125";
         }
       }
     }
