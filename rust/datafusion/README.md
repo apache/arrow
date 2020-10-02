@@ -127,59 +127,6 @@ are mapped to Arrow types according to the following table
 
 This section describes how you can get started at developing DataFusion.
 
-## Core concepts
-
-### Dynamic typing
-
-DataFusion's memory layout is the columnar format Arrow. Because a column type is only known 
-at runtime, DataFusion, like Arrow's create, uses dynamic typing throughout most of its code. Thus, a central aspect of DataFusion's query engine is keeping track of an expression's `datatype`.
-
-### Nullability
-
-Arrow's columnar format natively supports the notion of null values, and DataFusion also. Like types,
-DataFusion keeps track of an expression's `nullability` throughout planning and execution.
-
-### Field and Schema
-
-Arrow's implementation in rust has a `Field` that contains information about a column:
-
-* name
-* datatype
-* nullability
-
-A `Schema` is essentially a vector of fields.
-
-### parse, plan, optimize, execute
-
-When a query is sent to DataFusion, there are different steps that it passes through until a result is
-obtained. Broadly, they are:
-
-1. The string is parsed to an Abstract syntax tree (AST). We use [sqlparser](https://docs.rs/sqlparser/0.6.1/sqlparser/) for this.
-2. The AST is converted to a logical plan ([src/sql](src/sql/planner.rs))
-3. The logical plan is optimized to a new logical plan ([src/optimizer](src/optimizer))
-4. The logical plan is converted to a physical plan ([src/physical_plan/planner](src/physical_plan/planner.rs))
-5. The physical plan is executed ([src/execution/context.rs](src/execution/context.rs))
-
-Phases 1-4 are typically cheap/fast when compared to phase 5, and thus DataFusion puts a lot of effort to ensure that phase 5 runs without errors.
-
-#### Logical plan
-
-A logical plan is a representation of the plan without details of how it is executed. In general, 
-
-* given a data schema and a logical plan, the resulting schema is known.
-* given data and a logical plan, we agree on the result, irrespectively of how it is computed.
-
-A logical plan is composed by nodes (called `LogicalPlan`), and each node is composed by logical expressions (called `Expr`). All of these are located in [src/logical_plan/mod.rs](src/logical_plan/mod.rs).
-
-#### Physical plan
-
-A Physical plan is a plan that can be executed. Contrarily to a logical plan, the physical plan has specific
-information about how the calculation should be performed (e.g. what actual rust functions are used).
-
-A physical plan is composed by nodes (implement the trait `ExecutionPlan`), and each node is composed by physical expressions (implement the trait `PhysicalExpr`) or aggreagate expressions (implement the trait `AggregateExpr`). All of these are located in [src/physical_plan](src/physical_plan).
-
-Physical expressions are evaluated against `RecordBatch` (a group of `Array`s and a `Schema`).
-
 ### Bootstrap environment
 
 DataFusion is written in Rust and it uses a standard rust toolkit:
