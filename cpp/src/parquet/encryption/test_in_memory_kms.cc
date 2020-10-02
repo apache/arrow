@@ -18,25 +18,38 @@
 #include "arrow/util/base64.h"
 
 #include "parquet/encryption/key_toolkit_internal.h"
-#include "parquet/encryption/kms_client_factory.h"
-#include "parquet/encryption/remote_kms_client.h"
 #include "parquet/encryption/test_in_memory_kms.h"
 #include "parquet/exception.h"
 
 namespace parquet {
 namespace encryption {
 
-std::unordered_map<std::string, std::string> TestOnlyInMemoryKms::master_key_map_;
+std::unordered_map<std::string, std::string>
+    TestOnlyLocalWrapInMemoryKms::master_key_map_;
+std::unordered_map<std::string, std::string> TestOnlyInServerWrapKms::master_key_map_;
 
-void TestOnlyInMemoryKms::InitializeMasterKeys(
+void TestOnlyLocalWrapInMemoryKms::InitializeMasterKeys(
     const std::unordered_map<std::string, std::string>& master_keys_map) {
   master_key_map_ = master_keys_map;
 }
 
-void TestOnlyInMemoryKms::InitializeInternal() {}
+TestOnlyLocalWrapInMemoryKms::TestOnlyLocalWrapInMemoryKms(
+    const KmsConnectionConfig& kms_connection_config)
+    : LocalWrapKmsClient(kms_connection_config) {}
 
-std::string TestOnlyInMemoryKms::WrapKeyInServer(
-    const std::string& key_bytes, const std::string& master_key_identifier) {
+std::string TestOnlyLocalWrapInMemoryKms::GetMasterKeyFromServer(
+    const std::string& master_key_identifier) {
+  // Always return the latest key version
+  return master_key_map_.at(master_key_identifier);
+}
+
+void TestOnlyInServerWrapKms::InitializeMasterKeys(
+    const std::unordered_map<std::string, std::string>& master_keys_map) {
+  master_key_map_ = master_keys_map;
+}
+
+std::string TestOnlyInServerWrapKms::WrapKey(const std::string& key_bytes,
+                                             const std::string& master_key_identifier) {
   // Always use the latest key version for writing
   if (master_key_map_.find(master_key_identifier) == master_key_map_.end()) {
     throw ParquetException("Key not found: " + master_key_identifier);
@@ -47,8 +60,8 @@ std::string TestOnlyInMemoryKms::WrapKeyInServer(
   return internal::EncryptKeyLocally(key_bytes, master_key, aad);
 }
 
-std::string TestOnlyInMemoryKms::UnwrapKeyInServer(
-    const std::string& wrapped_key, const std::string& master_key_identifier) {
+std::string TestOnlyInServerWrapKms::UnwrapKey(const std::string& wrapped_key,
+                                               const std::string& master_key_identifier) {
   if (master_key_map_.find(master_key_identifier) == master_key_map_.end()) {
     throw ParquetException("Key not found: " + master_key_identifier);
   }
@@ -58,7 +71,7 @@ std::string TestOnlyInMemoryKms::UnwrapKeyInServer(
   return internal::DecryptKeyLocally(wrapped_key, master_key, aad);
 }
 
-std::string TestOnlyInMemoryKms::GetMasterKeyFromServer(
+std::string TestOnlyInServerWrapKms::GetMasterKeyFromServer(
     const std::string& master_key_identifier) {
   // Always return the latest key version
   return master_key_map_.at(master_key_identifier);

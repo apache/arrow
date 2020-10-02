@@ -21,51 +21,67 @@
 
 #include "arrow/util/base64.h"
 
-#include "parquet/encryption/key_toolkit.h"
 #include "parquet/encryption/kms_client_factory.h"
-#include "parquet/encryption/remote_kms_client.h"
+#include "parquet/encryption/local_wrap_kms_client.h"
 #include "parquet/platform.h"
 
 namespace parquet {
 namespace encryption {
 
-// This is a mock class, built for testing only. Don't use it as an example of KmsClient
-// implementation.
-class PARQUET_EXPORT TestOnlyInMemoryKms : public RemoteKmsClient {
+// This is a mock class, built for testing only. Don't use it as an example of
+// LocalWrapKmsClient implementation.
+class PARQUET_EXPORT TestOnlyLocalWrapInMemoryKms : public LocalWrapKmsClient {
  public:
+  explicit TestOnlyLocalWrapInMemoryKms(const KmsConnectionConfig& kms_connection_config);
+
   static void InitializeMasterKeys(
       const std::unordered_map<std::string, std::string>& master_keys_map);
 
  protected:
-  void InitializeInternal() override;
-
-  std::string WrapKeyInServer(const std::string& key_bytes,
-                              const std::string& master_key_identifier) override;
-
-  std::string UnwrapKeyInServer(const std::string& wrapped_key,
-                                const std::string& master_key_identifier) override;
-
   std::string GetMasterKeyFromServer(const std::string& master_key_identifier) override;
 
  private:
   static std::unordered_map<std::string, std::string> master_key_map_;
 };
 
+// This is a mock class, built for testing only. Don't use it as an example of KmsClient
+// implementation.
+class PARQUET_EXPORT TestOnlyInServerWrapKms : public KmsClient {
+ public:
+  static void InitializeMasterKeys(
+      const std::unordered_map<std::string, std::string>& master_keys_map);
+
+  std::string WrapKey(const std::string& key_bytes,
+                      const std::string& master_key_identifier) override;
+
+  std::string UnwrapKey(const std::string& wrapped_key,
+                        const std::string& master_key_identifier) override;
+
+ private:
+  std::string GetMasterKeyFromServer(const std::string& master_key_identifier);
+
+  static std::unordered_map<std::string, std::string> master_key_map_;
+};
+
+// This is a mock class, built for testing only. Don't use it as an example of
+// KmsClientFactory implementation.
 class PARQUET_EXPORT TestOnlyInMemoryKmsClientFactory : public KmsClientFactory {
  public:
   TestOnlyInMemoryKmsClientFactory(
       bool wrap_locally,
       const std::unordered_map<std::string, std::string>& master_keys_map)
       : KmsClientFactory(wrap_locally) {
-    TestOnlyInMemoryKms::InitializeMasterKeys(master_keys_map);
+    TestOnlyLocalWrapInMemoryKms::InitializeMasterKeys(master_keys_map);
+    TestOnlyInServerWrapKms::InitializeMasterKeys(master_keys_map);
   }
 
   std::shared_ptr<KmsClient> CreateKmsClient(
       const KmsConnectionConfig& kms_connection_config) {
-    std::shared_ptr<TestOnlyInMemoryKms> in_memory_kms =
-        std::make_shared<TestOnlyInMemoryKms>();
-    in_memory_kms->Initialize(kms_connection_config, wrap_locally_);
-    return in_memory_kms;
+    if (wrap_locally_) {
+      return std::make_shared<TestOnlyLocalWrapInMemoryKms>(kms_connection_config);
+    } else {
+      return std::make_shared<TestOnlyInServerWrapKms>();
+    }
   }
 };
 

@@ -28,15 +28,13 @@
 namespace parquet {
 namespace encryption {
 
-class PARQUET_EXPORT RemoteKmsClient : public KmsClient {
+/// This class supports local wrapping mode, master keys will be fetched from the KMS
+/// server and used to encrypt other keys (data encryption keys or key encryption keys).
+class PARQUET_EXPORT LocalWrapKmsClient : public KmsClient {
  public:
   static constexpr const char kLocalWrapNoKeyVersion[] = "NO_VERSION";
 
-  /// If is_wrap_locally is true, master keys will be fetched from the KMS server and used
-  /// to encrypt other keys (DEKs or KEKs).
-  /// If is_wrap_locally is false, keys will be encrypted inside KMS server. This is
-  /// the preferred mode, since it is safer and also allows for key rotation.
-  void Initialize(const KmsConnectionConfig& kms_connection_config, bool is_wrap_locally);
+  explicit LocalWrapKmsClient(const KmsConnectionConfig& kms_connection_config);
 
   std::string WrapKey(const std::string& key_bytes,
                       const std::string& master_key_identifier) override;
@@ -45,24 +43,10 @@ class PARQUET_EXPORT RemoteKmsClient : public KmsClient {
                         const std::string& master_key_identifier) override;
 
  protected:
-  /// Wrap a key with the master key in the remote KMS server.
-  /// Note: this function might be called by multiple threads
-  virtual std::string WrapKeyInServer(const std::string& key_bytes,
-                                      const std::string& master_key_identifier) = 0;
-
-  /// Unwrap a key with the master key in the remote KMS server.
-  /// Note: this function might be called by multiple threads
-  virtual std::string UnwrapKeyInServer(const std::string& wrapped_key,
-                                        const std::string& master_key_identifier) = 0;
-
   /// Get master key from the remote KMS server.
-  /// Required only for local wrapping. No need to implement if KMS supports in-server
-  /// wrapping/unwrapping.
   /// Note: this function might be called by multiple threads
   virtual std::string GetMasterKeyFromServer(
       const std::string& master_key_identifier) = 0;
-
-  virtual void InitializeInternal() = 0;
 
  private:
   /// KMS systems wrap keys by encrypting them by master keys, and attaching additional
@@ -106,8 +90,6 @@ class PARQUET_EXPORT RemoteKmsClient : public KmsClient {
 
  protected:
   KmsConnectionConfig kms_connection_config_;
-  std::atomic<bool> is_wrap_locally_;
-  std::atomic<bool> is_default_token_;
   arrow::util::ConcurrentMap<std::string> master_key_cache_;
 };
 
