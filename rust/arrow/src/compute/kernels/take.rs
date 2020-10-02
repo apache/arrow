@@ -29,7 +29,25 @@ use crate::{array::*, buffer::buffer_bin_and};
 use num::Zero;
 use TimeUnit::*;
 
-/// Take elements from `ArrayRef` by supplying an array of indices.
+/// Take elements from `ArrayRef` by copying the data from `values` at
+/// each index in `indices` into a new `ArrayRef`
+///
+/// For example:
+/// ```
+/// use std::sync::Arc;
+/// use arrow::array::{Array, StringArray, UInt32Array};
+/// use arrow::compute::take;
+///
+/// let values = StringArray::from(vec!["zero", "one", "two"]);
+/// let values: Arc<dyn Array> = Arc::new(values);
+///
+/// // Take items at index 2, and 1:
+/// let indices = UInt32Array::from(vec![2, 1]);
+/// let taken = take(&values, &indices, None).unwrap();
+/// let taken = taken.as_any().downcast_ref::<StringArray>().unwrap();
+///
+/// assert_eq!(*taken, StringArray::from(vec!["two", "one"]));
+/// ```
 ///
 /// Supports:
 ///  * null indices, returning a null value for the index
