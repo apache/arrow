@@ -481,12 +481,7 @@ impl DefaultPhysicalPlanner {
                     .iter()
                     .map(|e| self.create_physical_expr(e, input_schema, ctx_state))
                     .collect::<Result<Vec<_>>>()?;
-                aggregates::create_aggregate_expr(
-                    fun,
-                    &args,
-                    input_schema,
-                    name,
-                )
+                aggregates::create_aggregate_expr(fun, &args, input_schema, name)
             }
             Expr::AggregateUDF { fun, args, .. } => {
                 let args = args
@@ -494,12 +489,7 @@ impl DefaultPhysicalPlanner {
                     .map(|e| self.create_physical_expr(e, input_schema, ctx_state))
                     .collect::<Result<Vec<_>>>()?;
 
-                udaf::create_aggregate_expr(
-                    fun,
-                    &args,
-                    input_schema,
-                    name,
-                )
+                udaf::create_aggregate_expr(fun, &args, input_schema, name)
             }
             other => Err(ExecutionError::General(format!(
                 "Invalid aggregate expression '{:?}'",
