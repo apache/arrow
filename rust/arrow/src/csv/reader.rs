@@ -313,32 +313,7 @@ impl<R: Read> Reader<R> {
         }
     }
 
-    /// Read the next batch of rows
-    #[allow(clippy::should_implement_trait)]
-    pub fn next(&mut self) -> Result<Option<RecordBatch>> {
-        // read a batch of rows into memory
-        let mut rows: Vec<StringRecord> = Vec::with_capacity(self.batch_size);
-        for i in 0..self.batch_size {
-            match self.record_iter.next() {
-                Some(Ok(r)) => {
-                    rows.push(r);
-                }
-                Some(Err(e)) => {
-                    return Err(ArrowError::ParseError(format!(
-                        "Error parsing line {}: {:?}",
-                        self.line_number + i,
-                        e
-                    )));
-                }
-                None => break,
-            }
-        }
-
-        // return early if no data was loaded
-        if rows.is_empty() {
-            return Ok(None);
-        }
-
+    fn parse(&self, rows: &[StringRecord]) -> Result<RecordBatch> {
         let projection: Vec<usize> = match self.projection {
             Some(ref v) => v.clone(),
             None => self
@@ -350,7 +325,6 @@ impl<R: Read> Reader<R> {
                 .collect(),
         };
 
-        let rows = &rows[..];
         let arrays: Result<Vec<ArrayRef>> = projection
             .iter()
             .map(|i| {
@@ -398,8 +372,6 @@ impl<R: Read> Reader<R> {
             })
             .collect();
 
-        self.line_number += rows.len();
-
         let schema_fields = self.schema.fields();
 
         let projected_fields: Vec<Field> = projection
@@ -409,7 +381,7 @@ impl<R: Read> Reader<R> {
 
         let projected_schema = Arc::new(Schema::new(projected_fields));
 
-        arrays.and_then(|arr| RecordBatch::try_new(projected_schema, arr).map(Some))
+        arrays.and_then(|arr| RecordBatch::try_new(projected_schema, arr))
     }
 
     fn build_primitive_array<T: ArrowPrimitiveType>(
@@ -445,6 +417,42 @@ impl<R: Read> Reader<R> {
             }
         }
         Ok(Arc::new(builder.finish()))
+    }
+}
+
+impl<R: Read> Iterator for Reader<R> {
+    type Item = Result<RecordBatch>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        // read a batch of rows into memory
+        let mut rows: Vec<StringRecord> = Vec::with_capacity(self.batch_size);
+        for i in 0..self.batch_size {
+            match self.record_iter.next() {
+                Some(Ok(r)) => {
+                    rows.push(r);
+                }
+                Some(Err(e)) => {
+                    return Some(Err(ArrowError::ParseError(format!(
+                        "Error parsing line {}: {:?}",
+                        self.line_number + i,
+                        e
+                    ))));
+                }
+                None => break,
+            }
+        }
+
+        // return early if no data was loaded
+        if rows.is_empty() {
+            return None;
+        }
+
+        // parse the batches into a RecordBatch
+        let result = self.parse(&rows);
+
+        self.line_number += rows.len();
+
+        Some(result)
     }
 }
 
@@ -832,11 +840,14 @@ mod tests {
 
         let mut csv = builder.build(file).unwrap();
         match csv.next() {
-            Err(e) => assert_eq!(
-                "ParseError(\"Error while parsing value 4.x4 for column 1 at line 4\")",
-                format!("{:?}", e)
-            ),
-            Ok(_) => panic!("should have failed"),
+            Some(e) => match e {
+                Err(e) => assert_eq!(
+                    "ParseError(\"Error while parsing value 4.x4 for column 1 at line 4\")",
+                    format!("{:?}", e)
+                ),
+                Ok(_) => panic!("should have failed"),
+            }
+            None => panic!("should have failed"),
         }
     }
 

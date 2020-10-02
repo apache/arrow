@@ -414,7 +414,7 @@ pub fn read_record_batch(
     batch: ipc::RecordBatch,
     schema: SchemaRef,
     dictionaries: &[Option<ArrayRef>],
-) -> Result<Option<RecordBatch>> {
+) -> Result<RecordBatch> {
     let buffers = batch.buffers().ok_or_else(|| {
         ArrowError::IoError("Unable to get buffers from IPC RecordBatch".to_string())
     })?;
@@ -442,7 +442,7 @@ pub fn read_record_batch(
         arrays.push(triple.0);
     }
 
-    RecordBatch::try_new(schema, arrays).map(Some)
+    RecordBatch::try_new(schema, arrays)
 }
 
 // Linear search for the first dictionary field with a dictionary id.
@@ -592,8 +592,7 @@ impl<R: Read + Seek> FileReader<R> {
                                     batch.data().unwrap(),
                                     Arc::new(schema),
                                     &dictionaries_by_field,
-                                )?
-                                .unwrap();
+                                )?;
                                 Some(record_batch.column(0).clone())
                             }
                             _ => None,
@@ -662,78 +661,85 @@ impl<R: Read + Seek> FileReader<R> {
             Ok(())
         }
     }
+
+    fn maybe_next(&mut self) -> Result<Option<RecordBatch>> {
+        let block = self.blocks[self.current_block];
+        self.current_block += 1;
+
+        // read length
+        self.reader.seek(SeekFrom::Start(block.offset() as u64))?;
+        let mut meta_buf = [0; 4];
+        self.reader.read_exact(&mut meta_buf)?;
+        if meta_buf == CONTINUATION_MARKER {
+            // continuation marker encountered, read message next
+            self.reader.read_exact(&mut meta_buf)?;
+        }
+        let meta_len = i32::from_le_bytes(meta_buf);
+
+        let mut block_data = vec![0; meta_len as usize];
+        self.reader.read_exact(&mut block_data)?;
+
+        let message = ipc::get_root_as_message(&block_data[..]);
+
+        // some old test data's footer metadata is not set, so we account for that
+        if self.metadata_version != ipc::MetadataVersion::V1
+            && message.version() != self.metadata_version
+        {
+            return Err(ArrowError::IoError(
+                "Could not read IPC message as metadata versions mismatch".to_string(),
+            ));
+        }
+
+        match message.header_type() {
+            ipc::MessageHeader::Schema => Err(ArrowError::IoError(
+                "Not expecting a schema when messages are read".to_string(),
+            )),
+            ipc::MessageHeader::RecordBatch => {
+                let batch = message.header_as_record_batch().ok_or_else(|| {
+                    ArrowError::IoError(
+                        "Unable to read IPC message as record batch".to_string(),
+                    )
+                })?;
+                // read the block that makes up the record batch into a buffer
+                let mut buf = vec![0; block.bodyLength() as usize];
+                self.reader.seek(SeekFrom::Start(
+                    block.offset() as u64 + block.metaDataLength() as u64,
+                ))?;
+                self.reader.read_exact(&mut buf)?;
+
+                read_record_batch(
+                    &buf,
+                    batch,
+                    self.schema(),
+                    &self.dictionaries_by_field,
+                ).map(Some)
+            }
+            ipc::MessageHeader::NONE => {
+                Ok(None)
+            }
+            t => Err(ArrowError::IoError(format!(
+                "Reading types other than record batches not yet supported, unable to read {:?}", t
+            ))),
+        }
+    }
+}
+
+impl<R: Read + Seek> Iterator for FileReader<R> {
+    type Item = Result<RecordBatch>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        // get current block
+        if self.current_block < self.total_blocks {
+            self.maybe_next().transpose()
+        } else {
+            None
+        }
+    }
 }
 
 impl<R: Read + Seek> RecordBatchReader for FileReader<R> {
     fn schema(&self) -> SchemaRef {
         self.schema.clone()
-    }
-
-    fn next_batch(&mut self) -> Result<Option<RecordBatch>> {
-        // get current block
-        if self.current_block < self.total_blocks {
-            let block = self.blocks[self.current_block];
-            self.current_block += 1;
-
-            // read length
-            self.reader.seek(SeekFrom::Start(block.offset() as u64))?;
-            let mut meta_buf = [0; 4];
-            self.reader.read_exact(&mut meta_buf)?;
-            if meta_buf == CONTINUATION_MARKER {
-                // continuation marker encountered, read message next
-                self.reader.read_exact(&mut meta_buf)?;
-            }
-            let meta_len = i32::from_le_bytes(meta_buf);
-
-            let mut block_data = vec![0; meta_len as usize];
-            self.reader.read_exact(&mut block_data)?;
-
-            let message = ipc::get_root_as_message(&block_data[..]);
-
-            // some old test data's footer metadata is not set, so we account for that
-            if self.metadata_version != ipc::MetadataVersion::V1
-                && message.version() != self.metadata_version
-            {
-                return Err(ArrowError::IoError(
-                    "Could not read IPC message as metadata versions mismatch"
-                        .to_string(),
-                ));
-            }
-
-            match message.header_type() {
-                ipc::MessageHeader::Schema => Err(ArrowError::IoError(
-                    "Not expecting a schema when messages are read".to_string(),
-                )),
-                ipc::MessageHeader::RecordBatch => {
-                    let batch = message.header_as_record_batch().ok_or_else(|| {
-                        ArrowError::IoError(
-                            "Unable to read IPC message as record batch".to_string(),
-                        )
-                    })?;
-                    // read the block that makes up the record batch into a buffer
-                    let mut buf = vec![0; block.bodyLength() as usize];
-                    self.reader.seek(SeekFrom::Start(
-                        block.offset() as u64 + block.metaDataLength() as u64,
-                    ))?;
-                    self.reader.read_exact(&mut buf)?;
-
-                    read_record_batch(
-                        &buf,
-                        batch,
-                        self.schema(),
-                        &self.dictionaries_by_field,
-                    )
-                }
-                ipc::MessageHeader::NONE => {
-                    Ok(None)
-                }
-                t => Err(ArrowError::IoError(format!(
-                    "Reading types other than record batches not yet supported, unable to read {:?}", t
-                ))),
-            }
-        } else {
-            Ok(None)
-        }
     }
 }
 
@@ -805,14 +811,8 @@ impl<R: Read> StreamReader<R> {
     pub fn is_finished(&self) -> bool {
         self.finished
     }
-}
 
-impl<R: Read> RecordBatchReader for StreamReader<R> {
-    fn schema(&self) -> SchemaRef {
-        self.schema.clone()
-    }
-
-    fn next_batch(&mut self) -> Result<Option<RecordBatch>> {
+    fn maybe_next(&mut self) -> Result<Option<RecordBatch>> {
         if self.finished {
             return Ok(None);
         }
@@ -869,7 +869,7 @@ impl<R: Read> RecordBatchReader for StreamReader<R> {
                 let mut buf = vec![0; message.bodyLength() as usize];
                 self.reader.read_exact(&mut buf)?;
 
-                read_record_batch(&buf, batch, self.schema(), &self.dictionaries_by_field)
+                read_record_batch(&buf, batch, self.schema(), &self.dictionaries_by_field).map(Some)
             }
             ipc::MessageHeader::NONE => {
                 Ok(None)
@@ -878,6 +878,20 @@ impl<R: Read> RecordBatchReader for StreamReader<R> {
                 format!("Reading types other than record batches not yet supported, unable to read {:?} ", t)
             )),
         }
+    }
+}
+
+impl<R: Read> Iterator for StreamReader<R> {
+    type Item = Result<RecordBatch>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.maybe_next().transpose()
+    }
+}
+
+impl<R: Read> RecordBatchReader for StreamReader<R> {
+    fn schema(&self) -> SchemaRef {
+        self.schema.clone()
     }
 }
 
@@ -945,7 +959,7 @@ mod tests {
             let arrow_json = read_gzip_json(path);
             assert!(arrow_json.equals_reader(&mut reader));
             // the next batch must be empty
-            assert!(reader.next_batch().unwrap().is_none());
+            assert!(reader.next().is_none());
             // the stream must indicate that it's finished
             assert!(reader.is_finished());
         });
@@ -975,8 +989,10 @@ mod tests {
 
         // read stream back
         let file = File::open("target/debug/testdata/float.stream").unwrap();
-        let mut reader = StreamReader::try_new(file).unwrap();
-        while let Some(batch) = reader.next_batch().unwrap() {
+        let reader = StreamReader::try_new(file).unwrap();
+
+        reader.for_each(|batch| {
+            let batch = batch.unwrap();
             assert!(
                 batch
                     .column(0)
@@ -995,7 +1011,7 @@ mod tests {
                     .value(0)
                     != 0.0
             );
-        }
+        })
     }
 
     /// Read gzipped JSON file

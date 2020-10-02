@@ -126,26 +126,31 @@ struct ProjectionIterator {
     input: Arc<Mutex<dyn RecordBatchReader + Send + Sync>>,
 }
 
+impl Iterator for ProjectionIterator {
+    type Item = ArrowResult<RecordBatch>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let mut input = self.input.lock().unwrap();
+        match input.next() {
+            Some(Ok(batch)) => Some(
+                self.expr
+                    .iter()
+                    .map(|expr| expr.evaluate(&batch))
+                    .collect::<Result<Vec<_>>>()
+                    .map_or_else(
+                        |e| Err(ExecutionError::into_arrow_external_error(e)),
+                        |arrays| RecordBatch::try_new(self.schema.clone(), arrays),
+                    ),
+            ),
+            other => other,
+        }
+    }
+}
+
 impl RecordBatchReader for ProjectionIterator {
     /// Get the schema
     fn schema(&self) -> SchemaRef {
         self.schema.clone()
-    }
-
-    /// Get the next batch
-    fn next_batch(&mut self) -> ArrowResult<Option<RecordBatch>> {
-        let mut input = self.input.lock().unwrap();
-        match input.next_batch()? {
-            Some(batch) => {
-                let arrays: Result<Vec<_>> =
-                    self.expr.iter().map(|expr| expr.evaluate(&batch)).collect();
-                Ok(Some(RecordBatch::try_new(
-                    self.schema.clone(),
-                    arrays.map_err(ExecutionError::into_arrow_external_error)?,
-                )?))
-            }
-            None => Ok(None),
-        }
     }
 }
 
@@ -177,10 +182,15 @@ mod tests {
             partition_count += 1;
             let iterator = projection.execute(partition).await?;
             let mut iterator = iterator.lock().unwrap();
-            while let Some(batch) = iterator.next_batch()? {
-                assert_eq!(1, batch.num_columns());
-                row_count += batch.num_rows();
-            }
+
+            row_count += iterator
+                .into_iter()
+                .map(|batch| {
+                    let batch = batch.unwrap();
+                    assert_eq!(1, batch.num_columns());
+                    batch.num_rows()
+                })
+                .sum::<usize>();
         }
         assert_eq!(partitions, partition_count);
         assert_eq!(100, row_count);

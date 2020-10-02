@@ -126,27 +126,30 @@ impl MemoryIterator {
     }
 }
 
-impl RecordBatchReader for MemoryIterator {
-    /// Get the schema
-    fn schema(&self) -> SchemaRef {
-        self.schema.clone()
-    }
+impl Iterator for MemoryIterator {
+    type Item = ArrowResult<RecordBatch>;
 
-    /// Get the next RecordBatch
-    fn next_batch(&mut self) -> ArrowResult<Option<RecordBatch>> {
+    fn next(&mut self) -> Option<Self::Item> {
         if self.index < self.data.len() {
             self.index += 1;
             let batch = &self.data[self.index - 1];
             // apply projection
             match &self.projection {
-                Some(columns) => Ok(Some(RecordBatch::try_new(
+                Some(columns) => Some(RecordBatch::try_new(
                     self.schema.clone(),
                     columns.iter().map(|i| batch.column(*i).clone()).collect(),
-                )?)),
-                None => Ok(Some(batch.clone())),
+                )),
+                None => Some(Ok(batch.clone())),
             }
         } else {
-            Ok(None)
+            None
         }
+    }
+}
+
+impl RecordBatchReader for MemoryIterator {
+    /// Get the schema
+    fn schema(&self) -> SchemaRef {
+        self.schema.clone()
     }
 }

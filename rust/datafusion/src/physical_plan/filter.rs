@@ -120,45 +120,55 @@ struct FilterExecIter {
     input: Arc<Mutex<dyn RecordBatchReader + Send + Sync>>,
 }
 
+impl Iterator for FilterExecIter {
+    type Item = ArrowResult<RecordBatch>;
+
+    /// Get the next batch
+    fn next(&mut self) -> Option<ArrowResult<RecordBatch>> {
+        let mut input = self.input.lock().unwrap();
+        match input.next() {
+            Some(Ok(batch)) => {
+                // evaluate the filter predicate to get a boolean array indicating which rows
+                // to include in the output
+                Some(
+                    self.predicate
+                        .evaluate(&batch)
+                        .map_err(ExecutionError::into_arrow_external_error)
+                        .and_then(|array| {
+                            array
+                                .as_any()
+                                .downcast_ref::<BooleanArray>()
+                                .ok_or(
+                                    ExecutionError::InternalError(
+                                        "Filter predicate evaluated to non-boolean value"
+                                            .to_string(),
+                                    )
+                                    .into_arrow_external_error(),
+                                )
+                                // apply predicate to each column
+                                .and_then(|predicate| {
+                                    batch
+                                        .columns()
+                                        .iter()
+                                        .map(|column| filter(column.as_ref(), predicate))
+                                        .collect::<ArrowResult<Vec<_>>>()
+                                })
+                        })
+                        // build RecordBatch
+                        .and_then(|columns| {
+                            RecordBatch::try_new(batch.schema().clone(), columns)
+                        }),
+                )
+            }
+            other => other,
+        }
+    }
+}
+
 impl RecordBatchReader for FilterExecIter {
     /// Get the schema
     fn schema(&self) -> SchemaRef {
         self.schema.clone()
-    }
-
-    /// Get the next batch
-    fn next_batch(&mut self) -> ArrowResult<Option<RecordBatch>> {
-        let mut input = self.input.lock().unwrap();
-        match input.next_batch()? {
-            Some(batch) => {
-                // evaluate the filter predicate to get a boolean array indicating which rows
-                // to include in the output
-                let result = self
-                    .predicate
-                    .evaluate(&batch)
-                    .map_err(ExecutionError::into_arrow_external_error)?;
-
-                if let Some(f) = result.as_any().downcast_ref::<BooleanArray>() {
-                    // filter each array
-                    let mut filtered_arrays = Vec::with_capacity(batch.num_columns());
-                    for i in 0..batch.num_columns() {
-                        let array = batch.column(i);
-                        let filtered_array = filter(array.as_ref(), f)?;
-                        filtered_arrays.push(filtered_array);
-                    }
-                    Ok(Some(RecordBatch::try_new(
-                        batch.schema().clone(),
-                        filtered_arrays,
-                    )?))
-                } else {
-                    Err(ExecutionError::InternalError(
-                        "Filter predicate evaluated to non-boolean value".to_string(),
-                    )
-                    .into_arrow_external_error())
-                }
-            }
-            None => Ok(None),
-        }
     }
 }
 

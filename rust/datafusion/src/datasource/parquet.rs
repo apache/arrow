@@ -85,12 +85,14 @@ mod tests {
         let it = exec.execute(0).await?;
         let mut it = it.lock().unwrap();
 
-        let mut count = 0;
-        while let Some(batch) = it.next_batch()? {
-            assert_eq!(11, batch.num_columns());
-            assert_eq!(2, batch.num_rows());
-            count += 1;
-        }
+        let count = it
+            .into_iter()
+            .map(|batch| {
+                let batch = batch.unwrap();
+                assert_eq!(11, batch.num_columns());
+                assert_eq!(2, batch.num_rows());
+            })
+            .count();
 
         // we should have seen 4 batches of 2 rows
         assert_eq!(4, count);
@@ -304,8 +306,8 @@ mod tests {
         let exec = table.scan(projection, 1024)?;
         let it = exec.execute(0).await?;
         let mut it = it.lock().expect("failed to lock mutex");
-        Ok(it
-            .next_batch()?
-            .expect("should have received at least one batch"))
+        it.next()
+            .expect("should have received at least one batch")
+            .map_err(|e| e.into())
     }
 }

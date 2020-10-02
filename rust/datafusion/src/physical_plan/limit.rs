@@ -202,8 +202,8 @@ fn collect_with_limit(
     let mut reader = reader.lock().unwrap();
     let mut results: Vec<RecordBatch> = vec![];
     loop {
-        match reader.next_batch() {
-            Ok(Some(batch)) => {
+        match reader.next() {
+            Some(Ok(batch)) => {
                 let capacity = limit - count;
                 if batch.num_rows() <= capacity {
                     count += batch.num_rows();
@@ -217,11 +217,10 @@ fn collect_with_limit(
                     return Ok(results);
                 }
             }
-            Ok(None) => {
-                // end of result set
+            None => {
                 return Ok(results);
             }
-            Err(e) => return Err(ExecutionError::from(e)),
+            Some(Err(e)) => return Err(ExecutionError::from(e)),
         }
     }
 }

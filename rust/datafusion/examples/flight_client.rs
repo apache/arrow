@@ -63,7 +63,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     while let Some(flight_data) = stream.message().await? {
         // the unwrap is infallible and thus safe
         let record_batch =
-            flight_data_to_arrow_batch(&flight_data, schema.clone())?.unwrap();
+            flight_data_to_arrow_batch(&flight_data, schema.clone()).unwrap()?;
         results.push(record_batch);
     }
 

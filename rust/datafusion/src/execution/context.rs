@@ -25,6 +25,7 @@ use std::sync::Arc;
 
 use arrow::csv;
 use arrow::datatypes::*;
+use arrow::error::Result as ArrowResult;
 use arrow::record_batch::RecordBatch;
 
 use crate::datasource::csv::CsvFile;
@@ -363,15 +364,13 @@ impl ExecutionContext {
             let mut writer = csv::Writer::new(file);
             let reader = plan.execute(i).await.unwrap();
             let mut reader = reader.lock().unwrap();
-            loop {
-                match reader.next_batch() {
-                    Ok(Some(batch)) => writer.write(&batch).unwrap(),
-                    Ok(None) => break,
-                    Err(e) => return Err(ExecutionError::from(e)),
-                }
-            }
-        }
 
+            reader
+                .into_iter()
+                .map(|batch| writer.write(&batch?))
+                .collect::<ArrowResult<_>>()
+                .map_err(|e| ExecutionError::from(e))?
+        }
         Ok(())
     }
 
