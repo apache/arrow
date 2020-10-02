@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! Defines kernel to extract a substring of a [Large]StringArray
+//! Defines kernel to extract a substring of a \[Large\]StringArray
 
 use crate::{array::*, buffer::Buffer, datatypes::ToByteSlice};
 use crate::{
@@ -92,7 +92,7 @@ fn substring1<OffsetSize: OffsetSizeTrait>(
 
 /// Returns an ArrayRef with a substring starting from `start` and with optional length `length` of each of the elements in `array`.
 /// `start` can be negative, in which case the start counts from the end of the string.
-/// this function errors when the passed array is not a [Large]String array.
+/// this function errors when the passed array is not a \[Large\]String array.
 pub fn substring(array: &Array, start: i64, length: &Option<u64>) -> Result<ArrayRef> {
     match array.data_type() {
         DataType::LargeUtf8 => substring1(

@@ -201,9 +201,9 @@ pub unsafe fn reallocate(ptr: *mut u8, old_size: usize, new_size: usize) -> *mut
 ///
 /// Behavior is undefined if any of the following conditions are violated:
 ///
-/// * `src` must be [valid] for reads of `len * size_of::<T>()` bytes.
+/// * `src` must be valid for reads of `len * size_of::<T>()` bytes.
 ///
-/// * `dst` must be [valid] for writes of `len * size_of::<T>()` bytes.
+/// * `dst` must be valid for writes of `len * size_of::<T>()` bytes.
 ///
 /// * Both `src` and `dst` must be properly aligned.
 ///

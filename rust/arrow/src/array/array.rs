@@ -1429,7 +1429,7 @@ impl From<LargeListArray> for LargeBinaryArray {
     }
 }
 
-/// Generic struct for [Large]StringArray
+/// Generic struct for \[Large\]StringArray
 pub struct GenericStringArray<OffsetSize> {
     data: ArrayDataRef,
     value_offsets: RawPtrBox<OffsetSize>,
