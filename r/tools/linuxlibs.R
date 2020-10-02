@@ -380,10 +380,10 @@ with_s3_support <- function(env_vars) {
         package_version(vals[["CMAKE_CXX_COMPILER_VERSION"]]) < 4.9) {
       cat("**** S3 support not available for gcc < 4.9\n")
       arrow_s3 <- FALSE
-    } else if (!cmake_find_package("CURL", env_vars)) {
+    } else if (!cmake_find_package("CURL", NULL, env_vars)) {
       cat("**** S3 support requires libcurl-devel (rpm) or libcurl4-openssl-dev (deb)\n")
       arrow_s3 <- FALSE
-    } else if (!cmake_find_package("OpenSSL", env_vars)) {
+    } else if (!cmake_find_package("OpenSSL", "1.0.2", env_vars)) {
       cat("**** S3 support requires openssl-devel (rpm) or libssl-dev (deb)\n")
       arrow_s3 <- FALSE
     }
