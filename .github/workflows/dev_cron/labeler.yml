@@ -1,6 +1,6 @@
 
 rust-lang:
-  - any: ['rust/*.']
+- any: ['rust/*.']
 
 datafusion:
-  - any: ['rust/datafusion/*.']
+- any: ['rust/datafusion/*.']
