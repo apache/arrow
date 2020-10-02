@@ -853,6 +853,18 @@ test_that("Dataset writing: dplyr methods", {
     collect(new_ds) %>% arrange(int),
     rbind(df1[c("chr", "dbl", "int")], df2[c("chr", "dbl", "int")])
   )
+
+  # filter to restrict written rows
+  dst_dir3 <- tempfile()
+  ds %>%
+    filter(int == 4) %>%
+    write_dataset(dst_dir3, format = "feather")
+  new_ds <- open_dataset(dst_dir3, format = "feather")
+
+  expect_equivalent(
+    new_ds %>% select(names(df1)) %>% collect(),
+    df1 %>% filter(int == 4)
+  )
 })
 
 test_that("Dataset writing: non-hive", {
@@ -896,21 +908,6 @@ test_that("Dataset writing: from data.frame", {
       filter(integer > 6) %>%
       summarize(mean = mean(integer))
   )
-})
-
-test_that("Dataset writing: from data.frame with projection", {
-  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
-  dst_dir <- tempfile()
-  stacked <- rbind(df1, df2)
-  stacked %>%
-    select(int, chr, dbl) %>%
-    group_by(int) %>%
-    write_dataset(dst_dir, format = "feather")
-  expect_true(dir.exists(dst_dir))
-  expect_identical(dir(dst_dir), sort(paste("int", c(1:10, 101:110), sep = "=")))
-
-  new_ds <- open_dataset(dst_dir, format = "feather")
-  expect_identical(names(new_ds), c("chr", "dbl", "int"))
 })
 
 test_that("Dataset writing: from RecordBatch", {
@@ -984,10 +981,6 @@ test_that("Dataset writing: unsupported features/input validation", {
 
   ds <- open_dataset(hive_dir)
 
-  expect_error(
-    filter(ds, int == 4) %>% write_dataset(ds),
-    "Writing a filtered dataset is not yet supported"
-  )
   expect_error(
     select(ds, integer = int) %>% write_dataset(ds),
     "Renaming columns when writing a dataset is not yet supported"

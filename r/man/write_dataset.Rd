@@ -19,8 +19,9 @@ write_dataset(
 \item{dataset}{\link{Dataset}, \link{RecordBatch}, \link{Table}, \code{arrow_dplyr_query}, or
 \code{data.frame}. If an \code{arrow_dplyr_query} or \code{grouped_df},
 \code{schema} and \code{partitioning} will be taken from the result of any \code{select()}
-and \code{group_by()} operations done on the dataset. Note that \code{filter()} queries
-are not currently supported, and \code{select}-ed columns may not be renamed.}
+and \code{group_by()} operations done on the dataset. \code{filter()} queries will be
+applied to restrict written rows.
+Note that \code{select()}-ed columns may not be renamed.}
 
 \item{path}{string path or URI to a directory to write to (directory will be
 created if it does not exist)}

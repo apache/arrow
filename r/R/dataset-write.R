@@ -24,8 +24,9 @@
 #' @param dataset [Dataset], [RecordBatch], [Table], `arrow_dplyr_query`, or
 #' `data.frame`. If an `arrow_dplyr_query` or `grouped_df`,
 #' `schema` and `partitioning` will be taken from the result of any `select()`
-#' and `group_by()` operations done on the dataset. Note that `filter()` queries
-#' are not currently supported, and `select`-ed columns may not be renamed.
+#' and `group_by()` operations done on the dataset. `filter()` queries will be
+#' applied to restrict written rows.
+#' Note that `select()`-ed columns may not be renamed.
 #' @param path string path or URI to a directory to write to (directory will be
 #' created if it does not exist)
 #' @param format file format to write the dataset to. Currently supported
@@ -54,11 +55,6 @@ write_dataset <- function(dataset,
                           filesystem = NULL,
                           ...) {
   if (inherits(dataset, "arrow_dplyr_query")) {
-    # Check for a filter
-    if (!isTRUE(dataset$filtered_rows)) {
-      # TODO:
-      stop("Writing a filtered dataset is not yet supported", call. = FALSE)
-    }
     # Check for a select
     if (!identical(dataset$selected_columns, set_names(names(dataset$.data)))) {
       # We can select a subset of columns but we can't rename them
