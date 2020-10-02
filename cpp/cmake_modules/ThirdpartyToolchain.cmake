@@ -971,8 +971,21 @@ endif()
 
 set(ARROW_USE_OPENSSL OFF)
 if(PARQUET_REQUIRE_ENCRYPTION OR ARROW_FLIGHT OR ARROW_S3)
-  # This must work
-  find_package(OpenSSL ${ARROW_OPENSSL_REQUIRED_VERSION} REQUIRED)
+  # OpenSSL is required
+  if(ARROW_OPENSSL_USE_SHARED)
+    # Find shared OpenSSL libraries.
+    set(OpenSSL_USE_STATIC_LIBS OFF)
+    set(BUILD_SHARED_LIBS_KEEP ${BUILD_SHARED_LIBS})
+    set(BUILD_SHARED_LIBS ON)
+
+    find_package(OpenSSL ${ARROW_OPENSSL_REQUIRED_VERSION} REQUIRED)
+    set(BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS_KEEP})
+    unset(BUILD_SHARED_LIBS_KEEP)
+  else()
+    # Find static OpenSSL headers and libs
+    set(OpenSSL_USE_STATIC_LIBS ON)
+    find_package(OpenSSL ${ARROW_OPENSSL_REQUIRED_VERSION} REQUIRED)
+  endif()
   set(ARROW_USE_OPENSSL ON)
 endif()
 

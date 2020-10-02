@@ -42,9 +42,9 @@ fi
 # Install openssl for S3 support
 if [ "$ARROW_S3" == "ON" ] || [ "$ARROW_R_DEV" == "TRUE" ]; then
   if [ "`which dnf`" ]; then
-    dnf install -y openssl-devel openssl-static
+    dnf install -y libcurl-devel openssl-devel
   elif [ "`which yum`" ]; then
-    yum install -y openssl-devel openssl-static patch
+    yum install -y libcurl-devel openssl-devel patch
   elif [ "`which zypper`" ]; then
     zypper install -y libcurl-devel libopenssl-devel
   else
