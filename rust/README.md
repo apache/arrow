@@ -66,14 +66,22 @@ git submodule update --init
 
 This populates data in two git submodules:
 
-- `cpp/submodules/parquet_testing/data` (sourced from https://github.com/apache/parquet-testing.git)
-- `testing` (sourced from https://github.com/apache/arrow-testing)
+- `../cpp/submodules/parquet_testing/data` (sourced from https://github.com/apache/parquet-testing.git)
+- `../testing` (sourced from https://github.com/apache/arrow-testing)
 
-Create two new environment variables to point to these directories as follows:
+To run the tests of the whole crate, create two new environment variables to point to these directories as follows:
 
 ```bash
-export PARQUET_TEST_DATA=`pwd`/../cpp/submodules/parquet-testing/data
-export ARROW_TEST_DATA=`pwd`/../testing/data
+export PARQUET_TEST_DATA=../cpp/submodules/parquet-testing/data
+export ARROW_TEST_DATA=../testing/data
+```
+
+To run the tests of an individual crate within the project (e.g. in `datafusion/`), adjust the path
+accordingly:
+
+```bash
+export PARQUET_TEST_DATA=../../cpp/submodules/parquet-testing/data
+export ARROW_TEST_DATA=../../testing/data
 ```
 
 from here on, this is a pure Rust project and `cargo` can be used to run tests, benchmarks, docs and examples as usual.
