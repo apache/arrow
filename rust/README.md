@@ -72,8 +72,8 @@ This populates data in two git submodules:
 Create two new environment variables to point to these directories as follows:
 
 ```bash
-export PARQUET_TEST_DATA=../../cpp/submodules/parquet-testing/data
-export ARROW_TEST_DATA=../../testing/data/
+export PARQUET_TEST_DATA=`pwd`/../cpp/submodules/parquet-testing/data
+export ARROW_TEST_DATA=`pwd`/../testing/data
 ```
 
 from here on, this is a pure Rust project and `cargo` can be used to run tests, benchmarks, docs and examples as usual.
