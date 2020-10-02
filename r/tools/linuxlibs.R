@@ -371,7 +371,7 @@ with_s3_support <- function(env_vars) {
   arrow_s3 <- toupper(Sys.getenv("ARROW_S3")) == "ON"
   if (arrow_s3) {
     # User wants S3 support. Let's make sure they're not on gcc < 4.9
-    info <- system(paste(env_vars, "cmake --system-information"), intern = TRUE)
+    info <- system(paste(env_vars, "&& cmake --system-information"), intern = TRUE)
     info <- grep("^[A-Z_]* .*$", info, value=TRUE)
     vals <- as.list(sub('^.*? "?(.*?)"?$', "\\1", info))
     names(vals) <- sub("^(.*?) .*$", "\\1", info)
