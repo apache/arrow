@@ -375,6 +375,7 @@ jobs:
       - name: Download MinIO
         shell: msys2 {0}
         run: |
+          mkdir -p /usr/local/bin
           wget \
             -o /usr/local/bin/minio.exe \
             https://dl.min.io/server/minio/release/windows-amd64/minio.exe
