@@ -2701,7 +2701,7 @@ macro(build_awssdk)
   endforeach()
 
   set(AWSSDK_VENDORED TRUE)
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS ${AWSSDK_LIBRARIES})
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS ${AWSSDK_LIBRARIES} OpenSSL::SSL OpenSSL::Crypto)
   set(AWSSDK_LINK_LIBRARIES ${AWSSDK_LIBRARIES})
   if(UNIX)
     # on linux and macos curl seems to be required
