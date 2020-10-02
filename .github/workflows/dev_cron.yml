@@ -61,14 +61,3 @@ jobs:
             const path = ".github/workflows/dev_cron/title_check.js";
             const script = fs.readFileSync(path).toString();
             eval(script);
-
-  assign-rust-labels:
-    if: github.repository == 'apache/arrow'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Assign labels
-        uses: actions/labeler@2.2.0
-        with:
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-          configuration-path: .github/workflows/dev_cron/labeler.yml
-          sync-labels: true
