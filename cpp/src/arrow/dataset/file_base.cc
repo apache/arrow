@@ -33,6 +33,7 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/map.h"
 #include "arrow/util/mutex.h"
+#include "arrow/util/string.h"
 #include "arrow/util/task_group.h"
 
 namespace arrow {
@@ -146,48 +147,32 @@ FragmentIterator FileSystemDataset::GetFragmentsImpl(
 }
 
 Status FileWriter::Write(RecordBatchReader* batches) {
-  for (std::shared_ptr<RecordBatch> batch;;) {
-    RETURN_NOT_OK(batches->ReadNext(&batch));
+  while (true) {
+    ARROW_ASSIGN_OR_RAISE(auto batch, batches->Next());
     if (batch == nullptr) break;
     RETURN_NOT_OK(Write(batch));
   }
   return Status::OK();
 }
 
-struct NextBasenameGenerator {
-  static Result<NextBasenameGenerator> Make(const std::string& basename_template) {
-    if (basename_template.find(fs::internal::kSep) != std::string::npos) {
-      return Status::Invalid("basename_template contained '/'");
-    }
-    size_t token_start = basename_template.find(token());
-    if (token_start == std::string::npos) {
-      return Status::Invalid("basename_template did not contain '{i}'");
-    }
-    return NextBasenameGenerator{basename_template, 0, token_start,
-                                 token_start + token().size()};
-  }
+constexpr util::string_view kIntegerToken = "{i}";
 
-  static const std::string& token() {
-    static const std::string token = "{i}";
-    return token;
+Status ValidateBasenameTemplate(util::string_view basename_template) {
+  if (basename_template.find(fs::internal::kSep) != util::string_view::npos) {
+    return Status::Invalid("basename_template contained '/'");
   }
-
-  const std::string& template_;
-  size_t i_, token_start_, token_end_;
-
-  std::string operator()() {
-    return template_.substr(0, token_start_) + std::to_string(i_++) +
-           template_.substr(token_end_);
+  size_t token_start = basename_template.find(kIntegerToken);
+  if (token_start == util::string_view::npos) {
+    return Status::Invalid("basename_template did not contain '", kIntegerToken, "'");
   }
-};
+  return Status::OK();
+}
 
 using MutexedWriter = util::Mutexed<std::shared_ptr<FileWriter>>;
 
 struct WriterSet {
-  WriterSet(NextBasenameGenerator next_basename,
-            const FileSystemDatasetWriteOptions& write_options)
-      : next_basename_(std::move(next_basename)),
-        base_dir_(fs::internal::EnsureTrailingSlash(write_options.base_dir)),
+  explicit WriterSet(const FileSystemDatasetWriteOptions& write_options)
+      : base_dir_(fs::internal::EnsureTrailingSlash(write_options.base_dir)),
         write_options_(write_options) {}
 
   Result<std::shared_ptr<MutexedWriter>> Get(const Expression& partition_expression,
@@ -208,11 +193,18 @@ struct WriterSet {
         })->second;
 
     if (writer_lock) {
-      // NB: next_basename_() must be invoked with the set_lock held
-      auto path = fs::internal::ConcatAbstractPath(dir, next_basename_());
+      auto i = i_++;
       set_lock.Unlock();
 
       RETURN_NOT_OK(write_options_.filesystem->CreateDir(dir));
+
+      auto basename = internal::Replace(write_options_.basename_template, kIntegerToken,
+                                        std::to_string(i));
+      if (!basename) {
+        return Status::Invalid("string interpolation of basename template failed");
+      }
+
+      auto path = fs::internal::ConcatAbstractPath(dir, *basename);
 
       ARROW_ASSIGN_OR_RAISE(auto destination,
                             write_options_.filesystem->OpenOutputStream(path));
@@ -236,16 +228,18 @@ struct WriterSet {
     return Status::OK();
   }
 
+  int i_ = 0;
   // There should only be a single writer open for each partition directory at a time
   util::Mutex mutex_;
   std::unordered_map<std::string, std::shared_ptr<MutexedWriter>> dir_to_writer_;
-  NextBasenameGenerator next_basename_;
   std::string base_dir_;
   const FileSystemDatasetWriteOptions& write_options_;
 };
 
 Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_options,
                                 std::shared_ptr<Scanner> scanner) {
+  RETURN_NOT_OK(ValidateBasenameTemplate(write_options.basename_template));
+
   auto task_group = scanner->context()->TaskGroup();
 
   // Things we'll un-lazy for the sake of simplicity, with the tradeoff they represent:
@@ -278,9 +272,7 @@ Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_optio
     }
   }
 
-  ARROW_ASSIGN_OR_RAISE(auto next_basename,
-                        NextBasenameGenerator::Make(write_options.basename_template));
-  WriterSet writers(std::move(next_basename), write_options);
+  WriterSet writers(write_options);
 
   auto write_task_group = task_group->MakeSubGroup();
   auto fragment_for_task_it = fragment_for_task.begin();
