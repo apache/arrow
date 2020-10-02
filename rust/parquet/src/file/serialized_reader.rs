@@ -19,9 +19,11 @@
 //! readers to read individual column chunks, or access record iterator.
 
 use std::{
+    cmp::min,
     convert::TryFrom,
     fs::File,
     io::{BufReader, Cursor, Read, Seek},
+    ops::{Deref, DerefMut},
     path::Path,
 };
 
@@ -36,7 +38,7 @@ use crate::file::{footer, metadata::*, reader::*, statistics, DEFAULT_FOOTER_SIZ
 use crate::record::reader::RowIter;
 use crate::record::Row;
 use crate::schema::types::Type as SchemaType;
-use crate::util::memory::ByteBufferPtr;
+use crate::util::{io::FileSource, memory::ByteBufferPtr};
 
 ////////////////////////////////////////////////
 ////// START traits specific to file system ////
@@ -64,11 +66,11 @@ impl<'a> TryClone for Cursor<&'a [u8]> {
         Ok(self.clone())
     }
 }
-// impl Length for Cursor<Vec<u8>> {
-//     fn len(&self) -> u64 {
-//         self.get_ref().len() as u64
-//     }
-// }
+impl Length for Cursor<Vec<u8>> {
+    fn len(&self) -> u64 {
+        self.get_ref().len() as u64
+    }
+}
 impl TryClone for Cursor<Vec<u8>> {
     fn try_clone(&self) -> Result<Self> {
         Ok(self.clone())
@@ -86,19 +88,45 @@ impl<R: ParquetReader> Length for BufReader<R> {
     }
 }
 
-impl ReadChunck for File {}
-impl ReadSeekChunck for File {}
-
-/// TODO actually reduce the views with chuncking methods
 impl ChunckReader for File {
-    type T = File;
-    type U = File;
+    type T = FileSource<File>;
+    type U = FileSource<File>;
 
-    fn get_read(&self, start: u64, length: usize) -> Result<File> {
-        self.try_clone().map_err(|e| e.into())
+    fn get_read(&self, start: u64, length: usize) -> Result<Self::T> {
+        self.get_read_seek(start, length)
     }
-    fn get_read_seek(&self, start: u64, length: usize) -> Result<File> {
-        self.try_clone().map_err(|e| e.into())
+    fn get_read_seek(&self, start: u64, length: usize) -> Result<Self::U> {
+        Ok(FileSource::new(self, start, length))
+    }
+}
+
+impl<'a> ChunckReader for Cursor<&'a [u8]> {
+    type T = Cursor<&'a [u8]>;
+    type U = Cursor<&'a [u8]>;
+
+    fn get_read(&self, start: u64, length: usize) -> Result<Self::T> {
+        self.get_read_seek(start, length)
+    }
+    fn get_read_seek(&self, start: u64, length: usize) -> Result<Self::U> {
+        Ok(Cursor::new(
+            &self.get_ref()[start as usize..start as usize + length],
+        ))
+    }
+}
+
+/// TODO this makes a copy of the slice each time a reader is created
+impl ChunckReader for Cursor<Vec<u8>> {
+    type T = Cursor<Vec<u8>>;
+    type U = Cursor<Vec<u8>>;
+
+    fn get_read(&self, start: u64, length: usize) -> Result<Self::T> {
+        self.get_read_seek(start, length)
+    }
+    fn get_read_seek(&self, start: u64, length: usize) -> Result<Self::U> {
+        let mut owned_slice = vec![0; length];
+        let source_slice = &self.get_ref()[start as usize..start as usize + length];
+        owned_slice.copy_from_slice(source_slice);
+        Ok(Cursor::new(owned_slice))
     }
 }
 
@@ -151,18 +179,21 @@ impl IntoIterator for SerializedFileReader<File> {
 //////////////////////////////////////////////
 
 /// A serialized implementation for Parquet [`FileReader`].
-pub struct SerializedFileReader<R: 'static + ChunckReader> {
+pub struct SerializedFileReader<R: ChunckReader> {
     chunk_reader: R,
     metadata: ParquetMetaData,
 }
 
-impl<R: 'static + ChunckReader> SerializedFileReader<R> {
+impl<R: ChunckReader> SerializedFileReader<R> {
     /// Creates file reader from a Parquet file.
     /// Returns error if Parquet file does not exist or is corrupt.
     pub fn new(chunk_reader: R) -> Result<Self> {
         let mut footer_read_seek = chunk_reader.get_read_seek(
-            chunk_reader.len() - DEFAULT_FOOTER_SIZE as u64,
-            DEFAULT_FOOTER_SIZE,
+            chunk_reader
+                .len()
+                .checked_sub(DEFAULT_FOOTER_SIZE as u64)
+                .unwrap_or(0),
+            min(DEFAULT_FOOTER_SIZE, chunk_reader.len() as usize),
         )?;
         let metadata = footer::parse_metadata(&mut footer_read_seek)?;
         Ok(Self {
@@ -197,12 +228,12 @@ impl<R: 'static + ChunckReader> FileReader for SerializedFileReader<R> {
 }
 
 /// A serialized implementation for Parquet [`RowGroupReader`].
-pub struct SerializedRowGroupReader<'a, R: 'static + ChunckReader> {
+pub struct SerializedRowGroupReader<'a, R: ChunckReader> {
     chunk_reader: R,
     metadata: &'a RowGroupMetaData,
 }
 
-impl<'a, R: 'static + ChunckReader> SerializedRowGroupReader<'a, R> {
+impl<'a, R: ChunckReader> SerializedRowGroupReader<'a, R> {
     /// Creates new row group reader from a file and row group metadata.
     fn new(chunk_reader: R, metadata: &'a RowGroupMetaData) -> Self {
         Self {

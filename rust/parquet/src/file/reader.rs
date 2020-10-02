@@ -20,7 +20,7 @@
 
 use std::{
     boxed::Box,
-    io::{Cursor, Read, Seek},
+    io::{Read, Seek},
     rc::Rc,
 };
 
@@ -39,27 +39,17 @@ use crate::basic::Type;
 use crate::column::reader::ColumnReaderImpl;
 
 pub trait ReadChunck: Read + Length {}
-pub trait ReadSeekChunck: Read + Seek + Length {}
-
-impl ReadSeekChunck for Cursor<Vec<u8>> {}
-
-impl Length for Cursor<Vec<u8>> {
-    fn len(&self) -> u64 {
-        self.get_ref().len() as u64
-    }
-}
-
+pub trait ReadSeekChunck: ReadChunck + Seek {}
+impl<T: Read + Length> ReadChunck for T {}
+impl<T: ReadChunck + Seek> ReadSeekChunck for T {}
 pub trait ChunckReader: Length + TryClone {
     type T: ReadChunck;
     type U: ReadSeekChunck;
+    /// get a serialy readeable view of the current reader
+    /// if the current reader is seekeable without buffering, you can simply return get_read_seek
     fn get_read(&self, start: u64, length: usize) -> Result<Self::T>;
-
+    /// get a readeable seekeable view of the current reader
     fn get_read_seek(&self, start: u64, length: usize) -> Result<Self::U>;
-    // {
-    //     let mut buffer = vec![0; length];
-    //     self.get_read(start, length)?.read_exact(&mut buffer)?;
-    //     Ok(Cursor::new(buffer))
-    // }
 }
 
 // ----------------------------------------------------------------------
