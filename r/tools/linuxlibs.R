@@ -368,9 +368,10 @@ cmake_version <- function(cmd = "cmake") {
 }
 
 with_s3_support <- function(env_vars) {
-  arrow_s3 <- toupper(Sys.getenv("ARROW_S3")) == "ON"
+  arrow_s3 <- toupper(Sys.getenv("ARROW_S3")) == "ON" || tolower(Sys.getenv("LIBARROW_MINIMAL")) == "false"
   if (arrow_s3) {
     # User wants S3 support. Let's make sure they're not on gcc < 4.9
+    # and make sure that we have curl and openssl system libs
     info <- system(paste(env_vars, "&& $CMAKE --system-information"), intern = TRUE)
     info <- grep("^[A-Z_]* .*$", info, value=TRUE)
     vals <- as.list(sub('^.*? "?(.*?)"?$', "\\1", info))
@@ -379,9 +380,20 @@ with_s3_support <- function(env_vars) {
         package_version(vals[["CMAKE_CXX_COMPILER_VERSION"]]) < 4.9) {
       cat("**** S3 support not available for gcc < 4.9\n")
       arrow_s3 <- FALSE
+    } else if (!cmake_find_package("CURL")) {
+      cat("**** S3 support requires libcurl-devel (rpm) or libcurl4-openssl-dev (deb)\n")
+      arrow_s3 <- FALSE
+    } else if (!cmake_find_package("OpenSSL")) {
+      cat("**** S3 support requires openssl-devel (rpm) or libssl-dev (deb)\n")
+      arrow_s3 <- FALSE
     }
   }
   paste(env_vars, ifelse(arrow_s3, "ARROW_S3=ON", "ARROW_S3=OFF"))
+}
+
+cmake_find_package <- function(pkg) {
+  # Assumes env_vars in enclosing scope
+  system(paste0(env_vars, " && $CMAKE --find-package -DNAME=", pkg, " -DCOMPILER_ID=GNU -DLANGUAGE=CXX -DMODE=EXIST"), ignore.stdout = TRUE, ignore.stderr = TRUE) == 0
 }
 
 #####
