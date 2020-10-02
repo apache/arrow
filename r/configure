@@ -182,6 +182,7 @@ if [ $? -eq 0 ] || [ "$UNAME" = "Darwin" ]; then
     if [ "$BUNDLED_LIBS" != "" ]; then
       # We're depending on openssl from the system, so they're not in the bundled deps
       PKG_LIBS="$PKG_LIBS -lopenssl -lcrypto"
+    fi
   fi
   echo "PKG_CFLAGS=$PKG_CFLAGS"
   echo "PKG_LIBS=$PKG_LIBS"
