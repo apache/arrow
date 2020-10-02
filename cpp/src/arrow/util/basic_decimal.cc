@@ -254,11 +254,71 @@ BasicDecimal128& BasicDecimal128::operator>>=(uint32_t bits) {
 
 namespace {
 
-void ExtendAndMultiplyUint64(uint64_t x, uint64_t y, uint64_t* hi, uint64_t* lo) {
+#undef __SIZEOF_INT128__
+
+struct uint128_t {
+  uint128_t() {}
+  uint128_t(uint64_t hi, uint64_t lo) : hi_(hi), lo_(lo) {}
+  uint128_t(const BasicDecimal128& decimal) {
 #ifdef __SIZEOF_INT128__
-   __uint128_t r = static_cast<__uint128_t>(x) * y;
-  *lo = r & 0xffffffffffffffff;
-  *hi = r >> 64;
+    val_ = (static_cast<__uint128_t>(decimal.high_bits()) << 64) | decimal.low_bits()
+#else
+    hi_ = decimal.high_bits();
+    lo_ = decimal.low_bits();
+#endif
+  }
+
+  uint64_t hi() {
+#ifdef __SIZEOF_INT128__
+    return val_ >> 64;
+#else
+    return hi_;
+#endif
+  }
+
+  uint64_t lo() {
+#ifdef __SIZEOF_INT128__
+    return val_ & kInt64Mask;
+#else
+    return lo_;
+#endif
+  }
+
+  void inc_hi() {
+#ifdef __SIZEOF_INT128__
+    val_ += (static_cast<__uint128_t>(1) << 64);
+#else
+    ++hi_;
+#endif
+  }
+
+  void add_hi(uint64_t x) {
+#ifdef __SIZEOF_INT128__
+    val_ += (static_cast<__uint128_t>(x) << 64);
+#else
+    hi_ += x;
+#endif
+  }
+
+  void add_lo(uint64_t x) {
+#ifdef __SIZEOF_INT128__
+    val_ += x;
+#else
+    lo_ += x;
+#endif
+  }
+
+#ifdef __SIZEOF_INT128__
+  __uint128_t val_;
+#else
+  uint64_t hi_;
+  uint64_t lo_;
+#endif
+};
+
+void ExtendAndMultiplyUint64(uint64_t x, uint64_t y, uint128_t* r) {
+#ifdef __SIZEOF_INT128__
+  r->val = static_cast<__uint128_t>(x) * y;
 #else
   const uint64_t x_lo = x & kIntMask;
   const uint64_t y_lo = y & kIntMask;
@@ -276,23 +336,78 @@ void ExtendAndMultiplyUint64(uint64_t x, uint64_t y, uint64_t* hi, uint64_t* lo)
   const uint64_t v = x_lo * y_hi + u_lo;
   const uint64_t v_hi = v >> 32;
 
-  *hi = x_hi * y_hi + u_hi + v_hi;
-  *lo = (v << 32) + t_lo;
+  r->hi_ = x_hi * y_hi + u_hi + v_hi;
+  r->lo_ = (v << 32) + t_lo;
 #endif
 }
 
-void MultiplyUint128(uint64_t x_hi, uint64_t x_lo, uint64_t y_hi, uint64_t y_lo,
-                     uint64_t* hi, uint64_t* lo) {
+void MultiplyUint128(uint128_t x, uint128_t y, uint128_t* r) {
 #ifdef __SIZEOF_INT128__
-  __uint128_t x = (static_cast<__uint128_t>(x_hi) >> 64) + x_lo;
-  __uint128_t y = (static_cast<__uint128_t>(y_hi) >> 64) + y_lo;
-  __uint128_t r = x * y;
-  *lo = r & kInt64Mask;
-  *hi = r >> 64;
+  r->val_ = x.val_ * y.val_;
 #else
-  ExtendAndMultiplyUint64(x_lo, y_lo, hi, lo);
-  *hi += (x_hi * y_lo) + (x_lo * y_hi);
+  ExtendAndMultiplyUint64(x.lo(), y.lo(), r);
+  r->hi_ += (x.hi() * y.lo()) + (x.lo() * y.hi());
 #endif
+}
+
+void AddUint128(uint128_t x, uint128_t y, uint128_t* r) {
+#ifdef __SIZEOF_INT128__
+  *r = x.val + y.val;
+#else
+  uint64_t carry = (((x.lo_ & y.lo_) & 1) + (x.lo_ >> 1) + (y.lo_ >> 1)) >> 63;
+  r->hi_ = x.hi_ + y.hi_ + carry;
+  r->lo_ = x.lo_ + y.lo_;
+#endif
+}
+
+void IncrementUint128(uint128_t* x) {
+#ifdef __SIZEOF_INT128__
+  x->val++;
+#else
+  uint64_t t = (x->lo_ + 1);
+  x->hi_ += ((x->lo_ ^ t) & x->lo_) >> 63;
+  x->lo_ = t;
+#endif
+}
+
+void ExtendAndMultiplyUint128(uint128_t x, uint128_t y, uint128_t* hi, uint128_t* lo) {
+  ExtendAndMultiplyUint64(x.hi(), y.hi(), hi);
+  ExtendAndMultiplyUint64(x.lo(), y.lo(), lo);
+
+  uint128_t t;
+  ExtendAndMultiplyUint64(x.hi(), y.lo(), &t);
+  lo->add_hi(t.lo());
+  // Check for overflow in lo.hi
+  if(lo->hi() < t.lo()) {
+      IncrementUint128(hi);
+  }
+  hi->add_lo(t.hi());
+  // Check for overflow in hi.lo
+  if(hi->lo() < t.hi()) {
+    hi->inc_hi();
+  }
+
+  ExtendAndMultiplyUint64(x.lo(), y.hi(), &t);
+  lo->add_hi(t.lo());
+  // Check for overflow in lo.hi
+  if (lo->hi() < t.lo()) {
+      IncrementUint128(hi);
+  }
+  hi->add_lo(t.hi());
+  // Check for overflow in hi.lo
+  if(hi->lo() < t.hi()) {
+    hi->inc_hi();
+  }
+}
+
+void MultiplyUint256(uint128_t x_hi, uint128_t x_lo, uint128_t y_hi, uint128_t y_lo, uint128_t* hi, uint128_t* lo) {
+  ExtendAndMultiplyUint128(x_lo, y_lo, hi, lo);
+  uint128_t u;
+  uint128_t v;
+  MultiplyUint128(x_hi, y_lo, &u);
+  MultiplyUint128(x_lo, y_hi, &v);
+  AddUint128(*hi, u, hi);
+  AddUint128(*hi, v, hi);
 }
 
 }  // namespace
@@ -303,10 +418,10 @@ BasicDecimal128& BasicDecimal128::operator*=(const BasicDecimal128& right) {
   const bool negate = Sign() != right.Sign();
   BasicDecimal128 x = BasicDecimal128::Abs(*this);
   BasicDecimal128 y = BasicDecimal128::Abs(right);
-  uint64_t hi;
-  MultiplyUint128(x.high_bits(), x.low_bits(), y.high_bits(), y.low_bits(), &hi,
-                  &low_bits_);
-  high_bits_ = hi;
+  uint128_t r;
+  MultiplyUint128({x}, {y}, &r);
+  high_bits_ = r.hi();
+  low_bits_ = r.lo();
   if (negate) {
     Negate();
   }
@@ -778,6 +893,13 @@ BasicDecimal256& BasicDecimal256::Negate() {
   return *this;
 }
 
+BasicDecimal256& BasicDecimal256::Abs() { return *this < 0 ? Negate() : *this; }
+
+BasicDecimal256 BasicDecimal256::Abs(const BasicDecimal256& in) {
+  BasicDecimal256 result(in);
+  return result.Abs();
+}
+
 std::array<uint8_t, 32> BasicDecimal256::ToBytes() const {
   std::array<uint8_t, 32> out{{0}};
   ToBytes(out.data());
@@ -799,10 +921,40 @@ void BasicDecimal256::ToBytes(uint8_t* out) const {
 #endif
 }
 
+BasicDecimal256& BasicDecimal256::operator*=(const BasicDecimal256& right) {
+  // Since the max value of BasicDecimal128 is supposed to be 1e38 - 1 and the
+  // min the negation taking the absolute values here should always be safe.
+  const bool negate = Sign() != right.Sign();
+  BasicDecimal256 x = BasicDecimal256::Abs(*this);
+  BasicDecimal256 y = BasicDecimal256::Abs(right);
+
+  uint128_t r_hi;
+  uint128_t r_lo;
+  MultiplyUint256({x.little_endian_array_[3], x.little_endian_array_[2]},
+                  {x.little_endian_array_[1], x.little_endian_array_[0]},
+                  {y.little_endian_array_[3], y.little_endian_array_[2]},
+                  {y.little_endian_array_[1], y.little_endian_array_[0]},
+                  &r_hi, &r_lo);
+  little_endian_array_[0] = r_lo.lo();
+  little_endian_array_[1] = r_lo.hi();
+  little_endian_array_[2] = r_hi.lo();
+  little_endian_array_[3] = r_hi.hi();
+  if (negate) {
+    Negate();
+  }
+  return *this;
+}
+
 DecimalStatus BasicDecimal256::Rescale(int32_t original_scale, int32_t new_scale,
                                        BasicDecimal256* out) const {
   // TODO: implement.
   return DecimalStatus::kSuccess;
+}
+
+BasicDecimal256 operator*(const BasicDecimal256& left, const BasicDecimal256& right) {
+  BasicDecimal256 result = left;
+  result *= right;
+  return result;
 }
 
 bool operator==(const BasicDecimal256& left, const BasicDecimal256& right) {

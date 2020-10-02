@@ -25,6 +25,7 @@
 #include <tuple>
 #include <vector>
 
+#include <boost/multiprecision/cpp_int.hpp>
 #include <gtest/gtest.h>
 
 #include "arrow/status.h"
@@ -1231,6 +1232,60 @@ TYPED_TEST(Decimal256Test, ConstructibleFromAnyIntegerType) {
 TEST(Decimal256Test, ConstructibleFromBool) {
   EXPECT_EQ(Decimal256(0), Decimal256(false));
   EXPECT_EQ(Decimal256(1), Decimal256(true));
+}
+
+Decimal256 Decimal256FromInt128(int128_t value) {
+  return Decimal256(Decimal128(static_cast<int64_t>(value >> 64),
+                    static_cast<uint64_t>(value & 0xFFFFFFFFFFFFFFFFULL)));
+}
+
+TEST(Decimal256Test, Multiply) {
+  using boost::multiprecision::int256_t;
+
+  //typedef std::independent_bits_engine<std::mt19937, 256, cpp_int> generator_type;
+  // generator_type gen;
+
+  ASSERT_EQ(Decimal256(60501), Decimal256(301) * Decimal256(201));
+
+  ASSERT_EQ(Decimal256(-60501), Decimal256(-301) * Decimal256(201));
+
+  ASSERT_EQ(Decimal256(-60501), Decimal256(301) * Decimal256(-201));
+
+  ASSERT_EQ(Decimal256(60501), Decimal256(-301) * Decimal256(-201));
+
+  // Test some random numbers.
+  for (auto x : GetRandomNumbers<Int32Type>(16)) {
+    for (auto y : GetRandomNumbers<Int32Type>(16)) {
+      Decimal256 result = Decimal256(x) * Decimal256(y);
+      ASSERT_EQ(Decimal256(static_cast<int64_t>(x) * y), result)
+          << " x: " << x << " y: " << y;
+      // Test by multiplying with an additional 32 bit factor, then additional
+      // factor of 2^30 to test results in the range of -2^123 to 2^123 without overflow.
+      for (auto z : GetRandomNumbers<Int32Type>(32)) {
+        int128_t w = static_cast<int128_t>(x) * y * z * (1ull << 30);
+        for (auto t : GetRandomNumbers<Int32Type>(32)) {
+          // Test by multiplying with an additional 32 bit factor and a factor
+          // of 2^95, giving a range of -2^250 to 2^250.
+          int128_t u = static_cast<int128_t>(t) * (static_cast<int128_t>(1) << 95);
+          int256_t expected = int256_t(u) * w;
+          Decimal256 actual = Decimal256FromInt128(w) * Decimal256FromInt128(u);
+          ASSERT_EQ(expected.str(), actual.ToIntegerString()) << " " << x << " * " << y << " * " << z << " * " << t << " * 2^125";
+        }
+      }
+    }
+  }
+
+  // Test some edge cases
+  for (auto x : std::vector<int128_t>{-INT64_MAX, -INT32_MAX, 0, INT32_MAX, INT64_MAX}) {
+    for (auto y :
+         std::vector<int128_t>{-INT32_MAX, -32, -2, -1, 0, 1, 2, 32, INT32_MAX}) {
+      Decimal256 decimal_x = Decimal256FromInt128(x);
+      Decimal256 decimal_y = Decimal256FromInt128(y);
+      Decimal256 result = decimal_x * decimal_y;
+      EXPECT_EQ(Decimal256FromInt128(x * y), result)
+          << " x: " << decimal_x << " y: " << decimal_y;
+    }
+  }
 }
 
 class Decimal256ToStringTest : public ::testing::TestWithParam<ToStringTestParam> {};
