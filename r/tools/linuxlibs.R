@@ -391,9 +391,13 @@ with_s3_support <- function(env_vars) {
   paste(env_vars, ifelse(arrow_s3, "ARROW_S3=ON", "ARROW_S3=OFF"))
 }
 
-cmake_find_package <- function(pkg, env_vars) {
+cmake_find_package <- function(pkg, version=NULL, env_vars) {
+  td <- tempfile()
+  dir.create(td)
+  find_package <- paste0("find_package(", pkg, " ", version, " REQUIRED)")
+  writeLines(find_package, file.path(td, "CMakeLists.txt"))
   # Assumes env_vars in enclosing scope
-  system(paste0(env_vars, " && $CMAKE --find-package -DNAME=", pkg, " -DCOMPILER_ID=GNU -DLANGUAGE=CXX -DMODE=EXIST"), ignore.stdout = TRUE, ignore.stderr = TRUE) == 0
+  system(paste0(env_vars, " && $CMAKE -DCMAKE_EXPORT_NO_PACKAGE_REGISTRY=ON -DCMAKE_FIND_PACKAGE_NO_PACKAGE_REGISTRY=ON -S", td, " -B", td), ignore.stdout = TRUE, ignore.stderr = TRUE) == 0
 }
 
 #####
