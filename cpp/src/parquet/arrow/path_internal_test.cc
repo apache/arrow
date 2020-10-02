@@ -461,6 +461,26 @@ TEST_F(MultipathLevelBuilderTest, TestStruct) {
       /*def_levels=*/std::vector<int16_t>({2, 2, 0}));
 }
 
+TEST_F(MultipathLevelBuilderTest, TestFixedSizeListNullableElements) {
+  auto entries = field("Entries", ::arrow::int64());
+  auto list_type = fixed_size_list(entries, 2);
+  auto array = ::arrow::ArrayFromJSON(list_type, R"([null, [2, 3], [4, 5], null])");
+
+  ASSERT_OK(
+      MultipathLevelBuilder::Write(*array, /*nullable=*/true, &context_, callback_));
+
+  ASSERT_THAT(results_, SizeIs(1));
+  results_[0].CheckLevels(/*def_levels=*/std::vector<int16_t>{0, 3, 3, 3, 3, 0},
+                          /*rep_levels=*/std::vector<int16_t>{0, 0, 1, 0, 1, 0});
+
+  // Null slots take up space in a fixed size list (they can in variable size
+  // lists as well) but the actual written values are only the "middle" elements
+  // in this case.
+  ASSERT_THAT(results_[0].post_list_elements, SizeIs(1));
+  EXPECT_THAT(results_[0].post_list_elements[0].start, Eq(2));
+  EXPECT_THAT(results_[0].post_list_elements[0].end, Eq(6));
+}
+
 TEST_F(MultipathLevelBuilderTest, TestFixedSizeList) {
   auto entries = field("Entries", ::arrow::int64(), /*nullable=*/false);
   auto list_type = fixed_size_list(entries, 2);
@@ -470,7 +490,7 @@ TEST_F(MultipathLevelBuilderTest, TestFixedSizeList) {
       MultipathLevelBuilder::Write(*array, /*nullable=*/true, &context_, callback_));
 
   ASSERT_THAT(results_, SizeIs(1));
-  results_[0].CheckLevels(/*def_levels=*/std::vector<int16_t>{0, 1, 1, 1, 1, 0},
+  results_[0].CheckLevels(/*def_levels=*/std::vector<int16_t>{0, 2, 2, 2, 2, 0},
                           /*rep_levels=*/std::vector<int16_t>{0, 0, 1, 0, 1, 0});
 
   // Null slots take up space in a fixed size list (they can in variable size

@@ -538,6 +538,12 @@ class ListReader : public ColumnReaderImpl {
     return item_reader_->LoadBatch(number_of_records);
   }
 
+  virtual ::arrow::Result<std::shared_ptr<ChunkedArray>> AssembleArray(
+      std::shared_ptr<ArrayData> data) {
+    std::shared_ptr<Array> result = ::arrow::MakeArray(data);
+    return std::make_shared<ChunkedArray>(result);
+  }
+
   Status BuildArray(int64_t length_upper_bound,
                     std::shared_ptr<ChunkedArray>* out) override {
     const int16_t* def_levels;
@@ -545,6 +551,7 @@ class ListReader : public ColumnReaderImpl {
     int64_t num_levels;
     RETURN_NOT_OK(item_reader_->GetDefLevels(&def_levels, &num_levels));
     RETURN_NOT_OK(item_reader_->GetRepLevels(&rep_levels, &num_levels));
+
     std::shared_ptr<ResizableBuffer> validity_buffer;
     ::parquet::internal::ValidityBitmapInputOutput validity_io;
     validity_io.values_read_upper_bound = length_upper_bound;
@@ -576,6 +583,7 @@ class ListReader : public ColumnReaderImpl {
     if (validity_buffer != nullptr) {
       RETURN_NOT_OK(
           validity_buffer->Resize(BitUtil::BytesForBits(validity_io.values_read)));
+      validity_buffer->ZeroPadding();
     }
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ArrayData> item_chunk, ChunksToSingle(**out));
 
@@ -586,8 +594,7 @@ class ListReader : public ColumnReaderImpl {
         /*length=*/validity_io.values_read, std::move(buffers),
         std::vector<std::shared_ptr<ArrayData>>{item_chunk}, validity_io.null_count);
 
-    std::shared_ptr<Array> result = ::arrow::MakeArray(data);
-    *out = std::make_shared<ChunkedArray>(result);
+    ARROW_ASSIGN_OR_RAISE(*out, AssembleArray(std::move(data)));
     return Status::OK();
   }
 
@@ -598,6 +605,32 @@ class ListReader : public ColumnReaderImpl {
   std::shared_ptr<Field> field_;
   ::parquet::internal::LevelInfo level_info_;
   std::unique_ptr<ColumnReaderImpl> item_reader_;
+};
+
+class PARQUET_NO_EXPORT FixedSizeListReader : public ListReader<int32_t> {
+ public:
+  FixedSizeListReader(std::shared_ptr<ReaderContext> ctx, std::shared_ptr<Field> field,
+                      ::parquet::internal::LevelInfo level_info,
+                      std::unique_ptr<ColumnReaderImpl> child_reader)
+      : ListReader(std::move(ctx), std::move(field), level_info,
+                   std::move(child_reader)) {}
+  ::arrow::Result<std::shared_ptr<ChunkedArray>> AssembleArray(
+      std::shared_ptr<ArrayData> data) final {
+    DCHECK_EQ(data->buffers.size(), 2);
+    DCHECK_EQ(field()->type()->id(), ::arrow::Type::FIXED_SIZE_LIST);
+    const auto& type = checked_cast<::arrow::FixedSizeListType&>(*field()->type());
+    const int32_t* offsets = reinterpret_cast<const int32_t*>(data->buffers[1]->data());
+    for (int x = 1; x <= data->length; x++) {
+      int32_t size = offsets[x] - offsets[x - 1];
+      if (size != type.list_size()) {
+        return Status::Invalid("Expected all lists to be of size=", type.list_size(),
+                               " but index ", x, " had size=", size);
+      }
+    }
+    data->buffers.resize(1);
+    std::shared_ptr<Array> result = ::arrow::MakeArray(data);
+    return std::make_shared<ChunkedArray>(result);
+  }
 };
 
 class PARQUET_NO_EXPORT StructReader : public ColumnReaderImpl {
@@ -714,6 +747,7 @@ Status StructReader::BuildArray(int64_t length_upper_bound,
   // Ensure all values are initialized.
   if (null_bitmap) {
     RETURN_NOT_OK(null_bitmap->Resize(BitUtil::BytesForBits(validity_io.values_read)));
+    null_bitmap->ZeroPadding();
   }
 
   END_PARQUET_CATCH_EXCEPTIONS
@@ -770,7 +804,10 @@ Status GetReader(const SchemaField& field, const std::shared_ptr<Field>& arrow_f
     std::unique_ptr<FileColumnIterator> input(
         ctx->iterator_factory(field.column_index, ctx->reader));
     out->reset(new LeafReader(ctx, arrow_field, std::move(input), field.level_info));
-  } else if (type_id == ::arrow::Type::LIST) {
+  } else if (type_id == ::arrow::Type::LIST || type_id == ::arrow::Type::MAP ||
+             type_id == ::arrow::Type::FIXED_SIZE_LIST ||
+             type_id == ::arrow::Type::LARGE_LIST) {
+    auto list_field = arrow_field;
     auto child = &field.children[0];
     std::unique_ptr<ColumnReaderImpl> child_reader;
     RETURN_NOT_OK(GetReader(*child, ctx, &child_reader));
@@ -778,8 +815,25 @@ Status GetReader(const SchemaField& field, const std::shared_ptr<Field>& arrow_f
       *out = nullptr;
       return Status::OK();
     }
-    out->reset(new ListReader<int32_t>(ctx, arrow_field, field.level_info,
-                                       std::move(child_reader)));
+    if (type_id == ::arrow::Type::LIST ||
+        type_id == ::arrow::Type::MAP) {  // Map can be reconstructed as list of structs.
+      if (type_id == ::arrow::Type::MAP &&
+          child_reader->field()->type()->num_fields() != 2) {
+        // This case applies if either key or value is filtered.
+        list_field = list_field->WithType(::arrow::list(child_reader->field()));
+      }
+      out->reset(new ListReader<int32_t>(ctx, list_field, field.level_info,
+                                         std::move(child_reader)));
+    } else if (type_id == ::arrow::Type::LARGE_LIST) {
+      out->reset(new ListReader<int64_t>(ctx, list_field, field.level_info,
+                                         std::move(child_reader)));
+
+    } else if (type_id == ::arrow::Type::FIXED_SIZE_LIST) {
+      out->reset(new FixedSizeListReader(ctx, list_field, field.level_info,
+                                         std::move(child_reader)));
+    } else {
+      return Status::UnknownError("Unknown list type: ", field.field->ToString());
+    }
   } else if (type_id == ::arrow::Type::STRUCT) {
     std::vector<std::shared_ptr<Field>> child_fields;
     std::vector<std::unique_ptr<ColumnReaderImpl>> child_readers;

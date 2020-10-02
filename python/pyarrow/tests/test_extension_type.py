@@ -560,6 +560,17 @@ def test_parquet_nested_extension(tmpdir):
     assert table.column(0).type == list_array.type
     assert table == orig_table
 
+    # Large list of extensions
+    list_array = pa.LargeListArray.from_arrays([0, 1, None, 3], ext_array)
+
+    orig_table = pa.table({'lists': list_array})
+    filename = tmpdir / 'list_of_ext.parquet'
+    pq.write_table(orig_table, filename)
+
+    table = pq.read_table(filename)
+    assert table.column(0).type == list_array.type
+    assert table == orig_table
+
 
 @pytest.mark.parquet
 def test_parquet_extension_nested_in_extension(tmpdir):
