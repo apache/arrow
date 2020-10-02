@@ -24,12 +24,11 @@
 #include "parquet/encryption/encryption_internal.h"
 #include "parquet/encryption/file_key_material_store.h"
 #include "parquet/encryption/file_key_unwrapper.h"
+#include "parquet/encryption/key_toolkit_internal.h"
 #include "parquet/encryption/properties_driven_crypto_factory.h"
 
 namespace parquet {
 namespace encryption {
-
-constexpr const int32_t PropertiesDrivenCryptoFactory::kAcceptableDataKeyLengths[];
 
 EncryptionConfiguration::Builder* EncryptionConfiguration::Builder::column_keys(
     const std::string& column_keys) {
@@ -141,10 +140,7 @@ PropertiesDrivenCryptoFactory::GetFileEncryptionProperties(
                              encryption_config->double_wrapping());
 
   int32_t dek_length_bits = encryption_config->data_key_length_bits();
-  int32_t* found_key_length = std::find(
-      const_cast<int32_t*>(kAcceptableDataKeyLengths),
-      const_cast<int32_t*>(std::end(kAcceptableDataKeyLengths)), dek_length_bits);
-  if (found_key_length == std::end(kAcceptableDataKeyLengths)) {
+  if (!internal::ValidateKeyLength(dek_length_bits)) {
     std::ostringstream ss;
     ss << "Wrong data key length : " << dek_length_bits;
     throw ParquetException(ss.str());

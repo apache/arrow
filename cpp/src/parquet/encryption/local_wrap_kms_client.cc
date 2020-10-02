@@ -102,7 +102,14 @@ std::string LocalWrapKmsClient::UnwrapKey(const std::string& wrapped_key,
 }
 
 std::string LocalWrapKmsClient::GetKeyFromServer(const std::string& key_identifier) {
-  return GetMasterKeyFromServer(key_identifier);
+  std::string master_key = GetMasterKeyFromServer(key_identifier);
+  int32_t key_length_bits = static_cast<int32_t>(master_key.size() * 8);
+  if (!internal::ValidateKeyLength(key_length_bits)) {
+    std::ostringstream ss;
+    ss << "Wrong master key length : " << key_length_bits;
+    throw ParquetException(ss.str());
+  }
+  return master_key;
 }
 
 }  // namespace encryption

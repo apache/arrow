@@ -196,9 +196,6 @@ class PARQUET_EXPORT PropertiesDrivenCryptoFactory {
   void RemoveCacheEntriesForAllTokens() { key_toolkit_.RemoveCacheEntriesForAllTokens(); }
 
  private:
-  /// Acceptable data key lengths in number of bits
-  static constexpr const int32_t kAcceptableDataKeyLengths[] = {128, 192, 256};
-
   ColumnPathToEncryptionPropertiesMap GetColumnEncryptionProperties(
       int dek_length, const std::string column_keys, FileKeyWrapper& key_wrapper);
 

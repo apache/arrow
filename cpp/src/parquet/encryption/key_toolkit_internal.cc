@@ -24,6 +24,10 @@ namespace parquet {
 namespace encryption {
 namespace internal {
 
+// Acceptable key lengths in number of bits, used to validate the data key lengths
+// configured by users and the master key lengths fetched from KMS server.
+static constexpr const int32_t kAcceptableDataKeyLengths[] = {128, 192, 256};
+
 std::string EncryptKeyLocally(const std::string& key_bytes, const std::string& master_key,
                               const std::string& aad) {
   AesEncryptor key_encryptor(ParquetCipher::AES_GCM_V1,
@@ -62,6 +66,13 @@ std::string DecryptKeyLocally(const std::string& encoded_encrypted_key,
       static_cast<int>(aad.size()), reinterpret_cast<uint8_t*>(&decrypted_key[0]));
 
   return decrypted_key;
+}
+
+bool ValidateKeyLength(int32_t key_length_bits) {
+  int32_t* found_key_length = std::find(
+      const_cast<int32_t*>(kAcceptableDataKeyLengths),
+      const_cast<int32_t*>(std::end(kAcceptableDataKeyLengths)), key_length_bits);
+  return found_key_length != std::end(kAcceptableDataKeyLengths);
 }
 
 }  // namespace internal

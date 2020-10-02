@@ -46,6 +46,8 @@ std::string EncryptKeyLocally(const std::string& key, const std::string& master_
 std::string DecryptKeyLocally(const std::string& encoded_encrypted_key,
                               const std::string& master_key, const std::string& aad);
 
+bool ValidateKeyLength(int32_t key_length_bits);
+
 }  // namespace internal
 }  // namespace encryption
 }  // namespace parquet
