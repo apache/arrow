@@ -74,7 +74,6 @@ pushd ${build_dir}
 if ! which python > /dev/null 2>&1; then
   export PYTHON=python3
 fi
-env | sort
 ctest \
     --label-regex unittest \
     --output-on-failure \

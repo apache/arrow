@@ -377,7 +377,7 @@ jobs:
         run: |
           mkdir -p /usr/local/bin
           wget \
-            -o /usr/local/bin/minio.exe \
+            --output-document /usr/local/bin/minio.exe \
             https://dl.min.io/server/minio/release/windows-amd64/minio.exe
           chmod +x /usr/local/bin/minio.exe
       - name: Test
