@@ -134,8 +134,16 @@ pub enum DataType {
     Struct(Vec<Field>),
     /// A nested datatype that can represent slots of differing types.
     Union(Vec<Field>),
-    /// A dictionary array where each element is a single value indexed by an integer key.
-    /// This is mostly used to represent strings or a limited set of primitive types as integers.
+    /// A dictionary encoded array (`key_type`, `value_type`), where
+    /// each array element is an index of `key_type` into an
+    /// associated dictionary of `value_type`.
+    ///
+    /// Dictionary arrays are used to store columns of `value_type`
+    /// that contain many repeated values using less memory, but with
+    /// a higher CPU overhead for some operations.
+    ///
+    /// This type mostly used to represent low cardinality string
+    /// arrays or a limited set of primitive types as integers.
     Dictionary(Box<DataType>, Box<DataType>),
 }
 
