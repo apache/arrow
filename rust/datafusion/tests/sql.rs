@@ -401,6 +401,18 @@ async fn csv_query_group_by_int_count() -> Result<()> {
 }
 
 #[tokio::test]
+async fn csv_query_group_with_aliased_aggregate() -> Result<()> {
+    let mut ctx = ExecutionContext::new();
+    register_aggregate_csv(&mut ctx)?;
+    let sql = "SELECT c1, count(c12) AS count FROM aggregate_test_100 GROUP BY c1";
+    let mut actual = execute(&mut ctx, sql).await;
+    actual.sort();
+    let expected = "\"a\"\t21\n\"b\"\t19\n\"c\"\t21\n\"d\"\t18\n\"e\"\t21".to_string();
+    assert_eq!(expected, actual.join("\n"));
+    Ok(())
+}
+
+#[tokio::test]
 async fn csv_query_group_by_string_min_max() -> Result<()> {
     let mut ctx = ExecutionContext::new();
     register_aggregate_csv(&mut ctx)?;

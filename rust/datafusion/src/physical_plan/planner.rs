@@ -469,18 +469,19 @@ impl DefaultPhysicalPlanner {
         input_schema: &Schema,
         ctx_state: &ExecutionContextState,
     ) -> Result<Arc<dyn AggregateExpr>> {
+        // unpack aliased logical expressions, e.g. "sum(col) as total"
+        let (name, e) = match e {
+            Expr::Alias(sub_expr, alias) => (alias.clone(), sub_expr.as_ref()),
+            _ => (e.name(input_schema)?, e),
+        };
+
         match e {
             Expr::AggregateFunction { fun, args, .. } => {
                 let args = args
                     .iter()
                     .map(|e| self.create_physical_expr(e, input_schema, ctx_state))
                     .collect::<Result<Vec<_>>>()?;
-                aggregates::create_aggregate_expr(
-                    fun,
-                    &args,
-                    input_schema,
-                    e.name(input_schema)?,
-                )
+                aggregates::create_aggregate_expr(fun, &args, input_schema, name)
             }
             Expr::AggregateUDF { fun, args, .. } => {
                 let args = args
@@ -488,12 +489,7 @@ impl DefaultPhysicalPlanner {
                     .map(|e| self.create_physical_expr(e, input_schema, ctx_state))
                     .collect::<Result<Vec<_>>>()?;
 
-                udaf::create_aggregate_expr(
-                    fun,
-                    &args,
-                    input_schema,
-                    e.name(input_schema)?,
-                )
+                udaf::create_aggregate_expr(fun, &args, input_schema, name)
             }
             other => Err(ExecutionError::General(format!(
                 "Invalid aggregate expression '{:?}'",

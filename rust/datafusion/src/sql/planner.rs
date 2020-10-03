@@ -591,6 +591,7 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
 fn is_aggregate_expr(e: &Expr) -> bool {
     match e {
         Expr::AggregateFunction { .. } | Expr::AggregateUDF { .. } => true,
+        Expr::Alias(expr, _) => is_aggregate_expr(expr),
         _ => false,
     }
 }
