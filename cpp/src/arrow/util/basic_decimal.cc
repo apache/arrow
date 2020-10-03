@@ -120,6 +120,8 @@ static const BasicDecimal128 ScaleMultipliersHalf[] = {
     BasicDecimal128(271050543121376108LL, 9257742014424809472ULL),
     BasicDecimal128(2710505431213761085LL, 343699775700336640ULL)};
 
+#undef ARROW_USE_NATIVE_INT128
+
 #ifdef ARROW_USE_NATIVE_INT128
 static constexpr uint64_t kInt64Mask = 0xFFFFFFFFFFFFFFFF;
 #else
@@ -274,6 +276,11 @@ struct uint128_t {
 
   void add_lo(uint64_t x) { *this = uint128_t(hi(), lo() + x); }
 
+  uint128_t& operator+=(const uint128_t& other) {
+    val_ += other.val_;
+    return *this;
+  }
+
   __uint128_t val_;
 };
 #else
@@ -285,9 +292,9 @@ struct uint128_t {
     lo_ = decimal.low_bits();
   }
 
-  uint64_t hi() { return hi_; }
+  uint64_t hi() const { return hi_; }
 
-  uint64_t lo() { return lo_; }
+  uint64_t lo() const { return lo_; }
 
   void inc_hi() { ++hi_; }
 
@@ -300,6 +307,14 @@ struct uint128_t {
   void add_hi(uint64_t x) { hi_ += x; }
 
   void add_lo(uint64_t x) { lo_ += x; }
+
+  uint128_t& operator+=(const uint128_t& other) {
+    uint64_t carry = (((lo_ & other.lo_) & 1) + (lo_ >> 1) + (other.lo_ >> 1)) >> 63;
+    hi_ += other.hi_ + carry;
+    lo_ += other.lo_;
+    return *this;
+  }
+
   uint64_t hi_;
   uint64_t lo_;
 };
@@ -330,24 +345,20 @@ void ExtendAndMultiplyUint64(uint64_t x, uint64_t y, uint128_t* r) {
 #endif
 }
 
-void MultiplyUint128(uint128_t x, uint128_t y, uint128_t* r) {
 #ifdef ARROW_USE_NATIVE_INT128
-  r->val_ = x.val_ * y.val_;
-#else
-  ExtendAndMultiplyUint64(x.lo(), y.lo(), r);
-  r->hi_ += (x.hi() * y.lo()) + (x.lo() * y.hi());
-#endif
+uint128_t operator*(const uint128_t& left, const uint128_t& right) {
+  uint128_t r;
+  r.val_ = left.val_ * right.val_;
+  return r;
 }
-
-void AddUint128(uint128_t x, uint128_t y, uint128_t* r) {
-#ifdef ARROW_USE_NATIVE_INT128
-  r->val_ = x.val_ + y.val_;
 #else
-  uint64_t carry = (((x.lo_ & y.lo_) & 1) + (x.lo_ >> 1) + (y.lo_ >> 1)) >> 63;
-  r->hi_ = x.hi_ + y.hi_ + carry;
-  r->lo_ = x.lo_ + y.lo_;
-#endif
+uint128_t operator*(const uint128_t& left, const uint128_t& right) {
+  uint128_t r;
+  ExtendAndMultiplyUint64(left.lo(), right.lo(), &r);
+  r.hi_ += (left.hi() * right.lo()) + (left.lo() * right.hi());
+  return r;
 }
+#endif
 
 void ExtendAndMultiplyUint128(uint128_t x, uint128_t y, uint128_t* hi, uint128_t* lo) {
   ExtendAndMultiplyUint64(x.hi(), y.hi(), hi);
@@ -382,12 +393,8 @@ void ExtendAndMultiplyUint128(uint128_t x, uint128_t y, uint128_t* hi, uint128_t
 void MultiplyUint256(uint128_t x_hi, uint128_t x_lo, uint128_t y_hi, uint128_t y_lo,
                      uint128_t* hi, uint128_t* lo) {
   ExtendAndMultiplyUint128(x_lo, y_lo, hi, lo);
-  uint128_t u;
-  uint128_t v;
-  MultiplyUint128(x_hi, y_lo, &u);
-  MultiplyUint128(x_lo, y_hi, &v);
-  AddUint128(*hi, u, hi);
-  AddUint128(*hi, v, hi);
+  *hi += x_hi * y_lo;
+  *hi += x_lo * y_hi;
 }
 
 }  // namespace
@@ -398,8 +405,7 @@ BasicDecimal128& BasicDecimal128::operator*=(const BasicDecimal128& right) {
   const bool negate = Sign() != right.Sign();
   BasicDecimal128 x = BasicDecimal128::Abs(*this);
   BasicDecimal128 y = BasicDecimal128::Abs(right);
-  uint128_t r;
-  MultiplyUint128({x}, {y}, &r);
+  uint128_t r = uint128_t(x) * uint128_t(y);
   high_bits_ = r.hi();
   low_bits_ = r.lo();
   if (negate) {
