@@ -34,18 +34,8 @@ pub fn schema_to_fb(schema: &Schema) -> FlatBufferBuilder {
 
     let mut fields = vec![];
     for field in schema.fields() {
-        let fb_field_name = fbb.create_string(field.name().as_str());
-        let field_type = get_fb_field_type(field.data_type(), &mut fbb);
-        let mut field_builder = ipc::FieldBuilder::new(&mut fbb);
-        field_builder.add_name(fb_field_name);
-        field_builder.add_type_type(field_type.type_type);
-        field_builder.add_nullable(field.is_nullable());
-        match field_type.children {
-            None => {}
-            Some(children) => field_builder.add_children(children),
-        };
-        field_builder.add_type_(field_type.type_);
-        fields.push(field_builder.finish());
+        let fb_field = build_field(&mut fbb, field);
+        fields.push(fb_field);
     }
 
     let mut custom_metadata = vec![];
@@ -80,18 +70,8 @@ pub fn schema_to_fb_offset<'a: 'b, 'b>(
 ) -> WIPOffset<ipc::Schema<'b>> {
     let mut fields = vec![];
     for field in schema.fields() {
-        let fb_field_name = fbb.create_string(field.name().as_str());
-        let field_type = get_fb_field_type(field.data_type(), fbb);
-        let mut field_builder = ipc::FieldBuilder::new(fbb);
-        field_builder.add_name(fb_field_name);
-        field_builder.add_type_type(field_type.type_type);
-        field_builder.add_nullable(field.is_nullable());
-        match field_type.children {
-            None => {}
-            Some(children) => field_builder.add_children(children),
-        };
-        field_builder.add_type_(field_type.type_);
-        fields.push(field_builder.finish());
+        let fb_field = build_field(fbb, field);
+        fields.push(fb_field);
     }
 
     let mut custom_metadata = vec![];
@@ -331,6 +311,38 @@ pub(crate) struct FBFieldType<'b> {
     pub(crate) type_type: ipc::Type,
     pub(crate) type_: WIPOffset<UnionWIPOffset>,
     pub(crate) children: Option<WIPOffset<Vector<'b, ForwardsUOffset<ipc::Field<'b>>>>>,
+}
+
+/// Create an IPC Field from an Arrow Field
+pub(crate) fn build_field<'a: 'b, 'b>(
+    fbb: &mut FlatBufferBuilder<'a>,
+    field: &Field,
+) -> WIPOffset<ipc::Field<'b>> {
+    let fb_field_name = fbb.create_string(field.name().as_str());
+    let field_type = get_fb_field_type(field.data_type(), fbb);
+
+    let fb_dictionary = if let Dictionary(index_type, _) = field.data_type() {
+        Some(get_fb_dictionary(
+            index_type,
+            field.dict_id,
+            field.dict_is_ordered,
+            fbb,
+        ))
+    } else {
+        None
+    };
+
+    let mut field_builder = ipc::FieldBuilder::new(fbb);
+    field_builder.add_name(fb_field_name);
+    fb_dictionary.map(|dictionary| field_builder.add_dictionary(dictionary));
+    field_builder.add_type_type(field_type.type_type);
+    field_builder.add_nullable(field.is_nullable());
+    match field_type.children {
+        None => {}
+        Some(children) => field_builder.add_children(children),
+    };
+    field_builder.add_type_(field_type.type_);
+    field_builder.finish()
 }
 
 /// Get the IPC type of a data type
@@ -609,8 +621,43 @@ pub(crate) fn get_fb_field_type<'a: 'b, 'b>(
                 children: Some(fbb.create_vector(&children[..])),
             }
         }
+        Dictionary(_, value_type) => {
+            // In this library, the dictionary "type" is a logical construct. Here we
+            // pass through to the value type, as we've already captured the index
+            // type in the DictionaryEncoding metadata in the parent field
+            get_fb_field_type(value_type, fbb)
+        }
         t => unimplemented!("Type {:?} not supported", t),
     }
+}
+
+/// Create an IPC dictionary encoding
+pub(crate) fn get_fb_dictionary<'a: 'b, 'b>(
+    index_type: &DataType,
+    dict_id: i64,
+    dict_is_ordered: bool,
+    fbb: &mut FlatBufferBuilder<'a>,
+) -> WIPOffset<ipc::DictionaryEncoding<'b>> {
+    // We assume that the dictionary index type (as an integer) has already been
+    // validated elsewhere, and can safely assume we are dealing with signed
+    // integers
+    let mut index_builder = ipc::IntBuilder::new(fbb);
+    index_builder.add_is_signed(true);
+    match *index_type {
+        Int8 => index_builder.add_bitWidth(8),
+        Int16 => index_builder.add_bitWidth(16),
+        Int32 => index_builder.add_bitWidth(32),
+        Int64 => index_builder.add_bitWidth(64),
+        _ => {}
+    }
+    let index_builder = index_builder.finish();
+
+    let mut builder = ipc::DictionaryEncodingBuilder::new(fbb);
+    builder.add_id(dict_id);
+    builder.add_indexType(index_builder);
+    builder.add_isOrdered(dict_is_ordered);
+
+    builder.finish()
 }
 
 #[cfg(test)]
@@ -714,6 +761,16 @@ mod tests {
                     false,
                 ),
                 Field::new("struct<>", DataType::Struct(vec![]), true),
+                Field::new_dict(
+                    "dictionary<int32, utf8>",
+                    DataType::Dictionary(
+                        Box::new(DataType::Int32),
+                        Box::new(DataType::Utf8),
+                    ),
+                    true,
+                    123,
+                    true,
+                ),
             ],
             md,
         );
