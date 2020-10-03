@@ -1242,9 +1242,6 @@ Decimal256 Decimal256FromInt128(int128_t value) {
 TEST(Decimal256Test, Multiply) {
   using boost::multiprecision::int256_t;
 
-  // typedef std::independent_bits_engine<std::mt19937, 256, cpp_int> generator_type;
-  // generator_type gen;
-
   ASSERT_EQ(Decimal256(60501), Decimal256(301) * Decimal256(201));
 
   ASSERT_EQ(Decimal256(-60501), Decimal256(-301) * Decimal256(201));
