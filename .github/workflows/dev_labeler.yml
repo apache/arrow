@@ -20,10 +20,9 @@ on:
 
 jobs:
   assign-rust-labels:
-    if: github.repository == 'apache/arrow'
     runs-on: ubuntu-latest
     steps:
-    - name: Assign github labels
+    - name: Assign Github labels
       uses: actions/labeler@2.2.0
       with:
         repo-token: ${{ secrets.GITHUB_TOKEN }}
