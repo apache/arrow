@@ -124,7 +124,7 @@ static const BasicDecimal128 ScaleMultipliersHalf[] = {
 static constexpr uint64_t kInt64Mask = 0xFFFFFFFFFFFFFFFF;
 #else
 static constexpr uint64_t kIntMask = 0xFFFFFFFF;
-static constexpr uint64_t kInt64Mask = 0xFFFFFFFFFFFFFFFF;
+#endif
 
 // same as ScaleMultipliers[38] - 1
 static constexpr BasicDecimal128 kMaxValue =
@@ -254,71 +254,60 @@ BasicDecimal128& BasicDecimal128::operator>>=(uint32_t bits) {
 
 namespace {
 
-#undef __SIZEOF_INT128__
+#ifdef ARROW_USE_NATIVE_INT128
+struct uint128_t {
+  uint128_t() {}
+  uint128_t(uint64_t hi, uint64_t lo) : val_((static_cast<__uint128_t>(hi) << 64) | lo) {}
+  uint128_t(const BasicDecimal128& decimal) {
+    val_ = (static_cast<__uint128_t>(decimal.high_bits()) << 64) | decimal.low_bits();
+  }
 
+  uint64_t hi() { return val_ >> 64; }
+
+  uint64_t lo() { return val_ & kInt64Mask; }
+
+  void inc_hi() { val_ += (static_cast<__uint128_t>(1) << 64); }
+
+  void inc_lo() { val_ += 1; }
+
+  void add_hi(uint64_t x) { *this = uint128_t(hi() + x, lo()); }
+
+  void add_lo(uint64_t x) { *this = uint128_t(hi(), lo() + x); }
+
+  __uint128_t val_;
+};
+#else
 struct uint128_t {
   uint128_t() {}
   uint128_t(uint64_t hi, uint64_t lo) : hi_(hi), lo_(lo) {}
   uint128_t(const BasicDecimal128& decimal) {
-#ifdef __SIZEOF_INT128__
-    val_ = (static_cast<__uint128_t>(decimal.high_bits()) << 64) | decimal.low_bits()
-#else
     hi_ = decimal.high_bits();
     lo_ = decimal.low_bits();
-#endif
   }
 
-  uint64_t hi() {
-#ifdef __SIZEOF_INT128__
-    return val_ >> 64;
-#else
-    return hi_;
-#endif
+  uint64_t hi() { return hi_; }
+
+  uint64_t lo() { return lo_; }
+
+  void inc_hi() { ++hi_; }
+
+  void inc_lo() {
+    uint64_t t = (lo_ + 1);
+    hi_ += ((lo_ ^ t) & lo_) >> 63;
+    lo_ = t;
   }
 
-  uint64_t lo() {
-#ifdef __SIZEOF_INT128__
-    return val_ & kInt64Mask;
-#else
-    return lo_;
-#endif
-  }
+  void add_hi(uint64_t x) { hi_ += x; }
 
-  void inc_hi() {
-#ifdef __SIZEOF_INT128__
-    val_ += (static_cast<__uint128_t>(1) << 64);
-#else
-    ++hi_;
-#endif
-  }
-
-  void add_hi(uint64_t x) {
-#ifdef __SIZEOF_INT128__
-    val_ += (static_cast<__uint128_t>(x) << 64);
-#else
-    hi_ += x;
-#endif
-  }
-
-  void add_lo(uint64_t x) {
-#ifdef __SIZEOF_INT128__
-    val_ += x;
-#else
-    lo_ += x;
-#endif
-  }
-
-#ifdef __SIZEOF_INT128__
-  __uint128_t val_;
-#else
+  void add_lo(uint64_t x) { lo_ += x; }
   uint64_t hi_;
   uint64_t lo_;
-#endif
 };
+#endif
 
 void ExtendAndMultiplyUint64(uint64_t x, uint64_t y, uint128_t* r) {
-#ifdef __SIZEOF_INT128__
-  r->val = static_cast<__uint128_t>(x) * y;
+#ifdef ARROW_USE_NATIVE_INT128
+  r->val_ = static_cast<__uint128_t>(x) * y;
 #else
   const uint64_t x_lo = x & kIntMask;
   const uint64_t y_lo = y & kIntMask;
@@ -342,7 +331,7 @@ void ExtendAndMultiplyUint64(uint64_t x, uint64_t y, uint128_t* r) {
 }
 
 void MultiplyUint128(uint128_t x, uint128_t y, uint128_t* r) {
-#ifdef __SIZEOF_INT128__
+#ifdef ARROW_USE_NATIVE_INT128
   r->val_ = x.val_ * y.val_;
 #else
   ExtendAndMultiplyUint64(x.lo(), y.lo(), r);
@@ -351,22 +340,12 @@ void MultiplyUint128(uint128_t x, uint128_t y, uint128_t* r) {
 }
 
 void AddUint128(uint128_t x, uint128_t y, uint128_t* r) {
-#ifdef __SIZEOF_INT128__
-  *r = x.val + y.val;
+#ifdef ARROW_USE_NATIVE_INT128
+  r->val_ = x.val_ + y.val_;
 #else
   uint64_t carry = (((x.lo_ & y.lo_) & 1) + (x.lo_ >> 1) + (y.lo_ >> 1)) >> 63;
   r->hi_ = x.hi_ + y.hi_ + carry;
   r->lo_ = x.lo_ + y.lo_;
-#endif
-}
-
-void IncrementUint128(uint128_t* x) {
-#ifdef __SIZEOF_INT128__
-  x->val++;
-#else
-  uint64_t t = (x->lo_ + 1);
-  x->hi_ += ((x->lo_ ^ t) & x->lo_) >> 63;
-  x->lo_ = t;
 #endif
 }
 
@@ -379,7 +358,7 @@ void ExtendAndMultiplyUint128(uint128_t x, uint128_t y, uint128_t* hi, uint128_t
   lo->add_hi(t.lo());
   // Check for overflow in lo.hi
   if (lo->hi() < t.lo()) {
-    IncrementUint128(hi);
+    hi->inc_lo();
   }
   hi->add_lo(t.hi());
   // Check for overflow in hi.lo
@@ -391,7 +370,7 @@ void ExtendAndMultiplyUint128(uint128_t x, uint128_t y, uint128_t* hi, uint128_t
   lo->add_hi(t.lo());
   // Check for overflow in lo.hi
   if (lo->hi() < t.lo()) {
-    IncrementUint128(hi);
+    hi->inc_lo();
   }
   hi->add_lo(t.hi());
   // Check for overflow in hi.lo
