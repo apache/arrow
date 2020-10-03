@@ -913,7 +913,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // Time support isn't correct yet
+    #[ignore] // DateUnit resolution mismatch
     fn time32_second_single_column() {
         required_and_optional::<Time32SecondArray, _>(
             0..SMALL_SIZE as i32,
@@ -922,7 +922,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // Time support isn't correct yet
     fn time32_millisecond_single_column() {
         required_and_optional::<Time32MillisecondArray, _>(
             0..SMALL_SIZE as i32,
@@ -931,7 +930,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // Time support isn't correct yet
     fn time64_microsecond_single_column() {
         required_and_optional::<Time64MicrosecondArray, _>(
             0..SMALL_SIZE as i64,
@@ -940,7 +938,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // Time support isn't correct yet
+    #[ignore] // DateUnit resolution mismatch
     fn time64_nanosecond_single_column() {
         required_and_optional::<Time64NanosecondArray, _>(
             0..SMALL_SIZE as i64,
