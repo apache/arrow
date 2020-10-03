@@ -158,20 +158,24 @@ impl Debug for Bytes {
 
 #[cfg(test)]
 mod tests {
+    use std::cell::Cell;
+
     use super::*;
 
     #[test]
     fn test_dealloc() {
         let a = Box::new(b"hello");
 
-        let dealloc = Arc::new(|bytes: &mut Bytes| {
-            // println!(""); seems to be the only way to validate that this is actually called, as this
-            // is an immutable FFI call
+        let outer = Arc::new(Cell::new(false));
+        let inner = outer.clone();
+        let dealloc = Arc::new(move |bytes: &mut Bytes| {
+            inner.set(true);
             assert_eq!(bytes.as_slice(), &b"hello"[1..4]);
         });
 
         let b = unsafe { Bytes::new(a[1..].as_ptr(), 3, Deallocation::Foreign(dealloc)) };
         drop(b);
+        assert_eq!(outer.as_ref().take(), true);
         // the content is still valid (as the dealloc above does not actually free it)
         assert_eq!(a.as_ref(), &b"hello");
     }
