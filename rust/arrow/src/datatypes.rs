@@ -189,8 +189,8 @@ pub struct Field {
     name: String,
     data_type: DataType,
     nullable: bool,
-    dict_id: i64,
-    dict_is_ordered: bool,
+    pub(crate) dict_id: i64,
+    pub(crate) dict_is_ordered: bool,
 }
 
 pub trait ArrowNativeType:
