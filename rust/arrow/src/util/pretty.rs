@@ -18,7 +18,7 @@
 //! Utilities for printing record batches
 
 use crate::array;
-use crate::array::PrimitiveArrayOps;
+use crate::array::{Array, PrimitiveArrayOps};
 use crate::datatypes::{DataType, TimeUnit};
 use crate::record_batch::RecordBatch;
 
