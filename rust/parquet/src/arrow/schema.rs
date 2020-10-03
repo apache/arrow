@@ -1396,16 +1396,16 @@ mod tests {
                 // Field::new("c28", DataType::Duration(TimeUnit::Millisecond), false),
                 // Field::new("c29", DataType::Duration(TimeUnit::Microsecond), false),
                 // Field::new("c30", DataType::Duration(TimeUnit::Nanosecond), false),
-                // Field::new_dict(
-                //     "c31",
-                //     DataType::Dictionary(
-                //         Box::new(DataType::Int32),
-                //         Box::new(DataType::Utf8),
-                //     ),
-                //     true,
-                //     123,
-                //     true,
-                // ),
+                Field::new_dict(
+                    "c31",
+                    DataType::Dictionary(
+                        Box::new(DataType::Int32),
+                        Box::new(DataType::Utf8),
+                    ),
+                    true,
+                    123,
+                    true,
+                ),
                 Field::new("c32", DataType::LargeBinary, true),
                 Field::new("c33", DataType::LargeUtf8, true),
                 Field::new(
