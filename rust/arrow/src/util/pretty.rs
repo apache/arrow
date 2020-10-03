@@ -92,6 +92,7 @@ pub fn array_value_to_string(column: &array::ArrayRef, row: usize) -> Result<Str
     match column.data_type() {
         DataType::Utf8 => make_string!(array::StringArray, column, row),
         DataType::Boolean => make_string!(array::BooleanArray, column, row),
+        DataType::Int8 => make_string!(array::Int8Array, column, row),
         DataType::Int16 => make_string!(array::Int16Array, column, row),
         DataType::Int32 => make_string!(array::Int32Array, column, row),
         DataType::Int64 => make_string!(array::Int64Array, column, row),
