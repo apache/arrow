@@ -71,12 +71,15 @@ fn create_table(results: &[RecordBatch]) -> Result<Table> {
 
 macro_rules! make_string {
     ($array_type:ty, $column: ident, $row: ident) => {{
-        Ok($column
-            .as_any()
-            .downcast_ref::<$array_type>()
-            .unwrap()
-            .value($row)
-            .to_string())
+        let array = $column.as_any().downcast_ref::<$array_type>().unwrap();
+
+        let s = if array.is_null($row) {
+            "".to_string()
+        } else {
+            array.value($row).to_string()
+        };
+
+        Ok(s)
     }};
 }
 
@@ -143,16 +146,26 @@ mod tests {
     fn test_pretty_format_batches() -> Result<()> {
         // define a schema.
         let schema = Arc::new(Schema::new(vec![
-            Field::new("a", DataType::Utf8, false),
-            Field::new("b", DataType::Int32, false),
+            Field::new("a", DataType::Utf8, true),
+            Field::new("b", DataType::Int32, true),
         ]));
 
         // define data.
         let batch = RecordBatch::try_new(
             schema,
             vec![
-                Arc::new(array::StringArray::from(vec!["a", "b", "c", "d"])),
-                Arc::new(array::Int32Array::from(vec![1, 10, 10, 100])),
+                Arc::new(array::StringArray::from(vec![
+                    Some("a"),
+                    Some("b"),
+                    None,
+                    Some("d"),
+                ])),
+                Arc::new(array::Int32Array::from(vec![
+                    Some(1),
+                    None,
+                    Some(10),
+                    Some(100),
+                ])),
             ],
         )?;
 
@@ -163,15 +176,15 @@ mod tests {
             "| a | b   |",
             "+---+-----+",
             "| a | 1   |",
-            "| b | 10  |",
-            "| c | 10  |",
+            "| b |     |",
+            "|   | 10  |",
             "| d | 100 |",
             "+---+-----+",
         ];
 
         let actual: Vec<&str> = table.lines().collect();
 
-        assert_eq!(expected, actual);
+        assert_eq!(expected, actual, "Actual result:\n{}", table);
 
         Ok(())
     }
