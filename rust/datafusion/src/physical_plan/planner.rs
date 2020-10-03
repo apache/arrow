@@ -546,16 +546,16 @@ impl ExtensionPlanner for DefaultExtensionPlanner {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::logical_plan::{col, lit, sum, LogicalPlanBuilder};
     use crate::physical_plan::{csv::CsvReadOptions, expressions, Partitioning};
-    use crate::{prelude::ExecutionConfig, test::arrow_testdata_path};
-    use arrow::{
-        datatypes::{DataType, Field, SchemaRef},
-        record_batch::RecordBatchReader,
+    use crate::{
+        logical_plan::{col, lit, sum, LogicalPlanBuilder},
+        physical_plan::Source,
     };
+    use crate::{prelude::ExecutionConfig, test::arrow_testdata_path};
+    use arrow::datatypes::{DataType, Field, SchemaRef};
     use async_trait::async_trait;
     use fmt::Debug;
-    use std::{any::Any, collections::HashMap, fmt, sync::Mutex};
+    use std::{any::Any, collections::HashMap, fmt};
 
     fn make_ctx_state() -> ExecutionContextState {
         ExecutionContextState {
@@ -800,11 +800,7 @@ mod tests {
             unimplemented!("NoOpExecutionPlan::with_new_children");
         }
 
-        /// Execute one partition and return an iterator over RecordBatch
-        async fn execute(
-            &self,
-            _partition: usize,
-        ) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
+        async fn execute(&self, _partition: usize) -> Result<Source> {
             unimplemented!("NoOpExecutionPlan::execute");
         }
     }

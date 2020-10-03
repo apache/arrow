@@ -20,7 +20,7 @@
 use std::any::Any;
 use std::fs::File;
 use std::rc::Rc;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::{fmt, thread};
 
 use crate::error::{ExecutionError, Result};
@@ -35,6 +35,7 @@ use crossbeam::channel::{bounded, Receiver, RecvError, Sender};
 use fmt::Debug;
 use parquet::arrow::{ArrowReader, ParquetFileArrowReader};
 
+use super::Source;
 use async_trait::async_trait;
 
 /// Execution plan for scanning a Parquet file
@@ -124,10 +125,7 @@ impl ExecutionPlan for ParquetExec {
         }
     }
 
-    async fn execute(
-        &self,
-        partition: usize,
-    ) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
+    async fn execute(&self, partition: usize) -> Result<Source> {
         // because the parquet implementation is not thread-safe, it is necessary to execute
         // on a thread and communicate with channels
         let (response_tx, response_rx): (
@@ -145,10 +143,10 @@ impl ExecutionPlan for ParquetExec {
             }
         });
 
-        let iterator = Arc::new(Mutex::new(ParquetIterator {
+        let iterator = Box::new(ParquetIterator {
             schema: self.schema.clone(),
             response_rx,
-        }));
+        });
 
         Ok(iterator)
     }
@@ -235,8 +233,7 @@ mod tests {
         let parquet_exec = ParquetExec::try_new(&filename, Some(vec![0, 1, 2]), 1024)?;
         assert_eq!(parquet_exec.output_partitioning().partition_count(), 1);
 
-        let results = parquet_exec.execute(0).await?;
-        let mut results = results.lock().unwrap();
+        let mut results = parquet_exec.execute(0).await?;
         let batch = results.next().unwrap()?;
 
         assert_eq!(8, batch.num_rows());

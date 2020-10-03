@@ -18,7 +18,7 @@
 //! Execution plan for reading in-memory batches of data
 
 use std::any::Any;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use crate::error::{ExecutionError, Result};
 use crate::physical_plan::{ExecutionPlan, Partitioning};
@@ -26,6 +26,7 @@ use arrow::datatypes::SchemaRef;
 use arrow::error::Result as ArrowResult;
 use arrow::record_batch::{RecordBatch, RecordBatchReader};
 
+use super::Source;
 use async_trait::async_trait;
 
 /// Execution plan for reading in-memory batches of data
@@ -71,15 +72,12 @@ impl ExecutionPlan for MemoryExec {
         )))
     }
 
-    async fn execute(
-        &self,
-        partition: usize,
-    ) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
-        Ok(Arc::new(Mutex::new(MemoryIterator::try_new(
+    async fn execute(&self, partition: usize) -> Result<Source> {
+        Ok(Box::new(MemoryIterator::try_new(
             self.partitions[partition].clone(),
             self.schema.clone(),
             self.projection.clone(),
-        )?)))
+        )?))
     }
 }
 

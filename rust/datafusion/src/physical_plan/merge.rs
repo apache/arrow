@@ -19,7 +19,7 @@
 //! into a single partition
 
 use std::any::Any;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use crate::error::{ExecutionError, Result};
 use crate::physical_plan::common::RecordBatchIterator;
@@ -27,7 +27,9 @@ use crate::physical_plan::Partitioning;
 use crate::physical_plan::{common, ExecutionPlan};
 
 use arrow::datatypes::SchemaRef;
-use arrow::record_batch::{RecordBatch, RecordBatchReader};
+use arrow::record_batch::RecordBatch;
+
+use super::Source;
 
 use async_trait::async_trait;
 use tokio::task::{self, JoinHandle};
@@ -87,10 +89,7 @@ impl ExecutionPlan for MergeExec {
         }
     }
 
-    async fn execute(
-        &self,
-        partition: usize,
-    ) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>> {
+    async fn execute(&self, partition: usize) -> Result<Source> {
         // MergeExec produces a single partition
         if 0 != partition {
             return Err(ExecutionError::General(format!(
@@ -122,9 +121,10 @@ impl ExecutionPlan for MergeExec {
                             let mut batches: Vec<Arc<RecordBatch>> = vec![];
                             for partition in chunk {
                                 let it = input.execute(partition).await?;
-                                common::collect(it)?
-                                    .iter()
-                                    .for_each(|b| batches.push(Arc::new(b.clone())));
+                                common::collect(it).iter().for_each(|b| {
+                                    b.iter()
+                                        .for_each(|b| batches.push(Arc::new(b.clone())))
+                                });
                             }
                             Ok(batches)
                         });
@@ -140,10 +140,10 @@ impl ExecutionPlan for MergeExec {
                     }
                 }
 
-                Ok(Arc::new(Mutex::new(RecordBatchIterator::new(
+                Ok(Box::new(RecordBatchIterator::new(
                     self.input.schema(),
                     combined_results,
-                ))))
+                )))
             }
         }
     }

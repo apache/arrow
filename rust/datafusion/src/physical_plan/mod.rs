@@ -21,7 +21,7 @@ use std::any::Any;
 use std::cell::RefCell;
 use std::fmt::{Debug, Display};
 use std::rc::Rc;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use crate::execution::context::ExecutionContextState;
 use crate::logical_plan::LogicalPlan;
@@ -31,6 +31,7 @@ use arrow::record_batch::{RecordBatch, RecordBatchReader};
 use arrow::{array::ArrayRef, datatypes::Field};
 
 use async_trait::async_trait;
+type Source = Box<dyn RecordBatchReader + Send>;
 
 /// Physical query planner that converts a `LogicalPlan` to an
 /// `ExecutionPlan` suitable for execution.
@@ -67,11 +68,9 @@ pub trait ExecutionPlan: Debug + Send + Sync {
         &self,
         children: Vec<Arc<dyn ExecutionPlan>>,
     ) -> Result<Arc<dyn ExecutionPlan>>;
-    /// Execute one partition and return an iterator over RecordBatch
-    async fn execute(
-        &self,
-        partition: usize,
-    ) -> Result<Arc<Mutex<dyn RecordBatchReader + Send + Sync>>>;
+
+    /// creates an iterator
+    async fn execute(&self, partition: usize) -> Result<Source>;
 }
 
 /// Partitioning schemes supported by operators.
