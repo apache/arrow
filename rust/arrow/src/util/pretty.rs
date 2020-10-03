@@ -86,12 +86,7 @@ macro_rules! make_string {
 /// Get the value at the given row in an array as a string
 fn array_value_to_string(column: array::ArrayRef, row: usize) -> Result<String> {
     match column.data_type() {
-        DataType::Utf8 => Ok(column
-            .as_any()
-            .downcast_ref::<array::StringArray>()
-            .unwrap()
-            .value(row)
-            .to_string()),
+        DataType::Utf8 => make_string!(array::StringArray, column, row),
         DataType::Boolean => make_string!(array::BooleanArray, column, row),
         DataType::Int16 => make_string!(array::Int16Array, column, row),
         DataType::Int32 => make_string!(array::Int32Array, column, row),
