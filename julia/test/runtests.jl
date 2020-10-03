@@ -1,154 +1,77 @@
-using Arrow
-using Test, Random, Dates
-using CategoricalArrays
+using Test, Arrow, Tables, Dates, PooledArrays
 
-const ≅ = isequal
+include(joinpath(dirname(pathof(Arrow)), "../test/testtables.jl"))
+include(joinpath(dirname(pathof(Arrow)), "../test/integrationtest.jl"))
 
-const SEED = 999
+@testset "Arrow" begin
 
-const N_OUTER = 4
-const N_PAD_TESTS = 32
-const N_WRITE_TESTS = 16
-const N_DATE_TESTS = 32
-const N_IDX_CHECK = 32
-const MAX_IDX_LEN = 32
-const MAX_VECTOR_LENGTH = 256
-const MAX_STRING_LENGTH = 32
+@testset "table roundtrips" begin
 
-const PRIMITIVE_ELTYPES = [Float32, Float64, Int32, Int64, UInt16]
-const OFFSET_ELTYPES = [Int8, Int16, Int32, Int64, UInt8, UInt16, UInt32, UInt64]
-
-Random.seed!(SEED)
-
-include("testutils.jl")
-
-
-include("indexing.jl")
-include("writing.jl")
-
-
-# used in locate testing
-struct LocateTest1 end
-struct LocateTest2 end
-struct LocateTest3 end
-
-@testset "locate" begin
-    v = rand(Float32, rand(1:MAX_VECTOR_LENGTH))
-    p = Primitive(v)
-
-    Locate.length(::LocateTest1) = length(v)
-    Locate.values(::LocateTest1) = 1
-    Locate.valueslength(::LocateTest1) = length(v)
-
-    data = rawpadded(p, values)
-
-    pp = locate(data, Float32, LocateTest1())
-    @test typeof(pp) == Primitive{Float32}
-    @test p[:] == pp[:]
-
-
-    v = Union{Int64,Missing}[2,3,missing,7,11]
-    p = NullablePrimitive(v)
-
-    Locate.length(::LocateTest2) = length(v)
-    Locate.bitmask(::LocateTest2) = 1
-    Locate.values(::LocateTest2) = 9
-    Locate.valueslength(::LocateTest2) = length(v)
-
-    data = rawpadded(p, bitmask, values)
-
-    pp = locate(data, Union{Int64,Missing}, LocateTest2())
-    @test typeof(pp) == NullablePrimitive{Int64}
-    @test p[:] ≅ pp[:]
-
-    v = String["fire", "walk", "with", "me"]
-    p = List(v)
-
-    Locate.length(::LocateTest3) = length(v)
-    Locate.offsets(::LocateTest3) = 1
-    Locate.values(::LocateTest3) = padding((length(v)+1)*sizeof(Arrow.DefaultOffset)) + 1
-    Locate.valueslength(::LocateTest3) = 14
-
-    data = rawpadded(p, offsets, values)
-
-    pp = locate(data, String, LocateTest3())
-    @test typeof(pp) == List{String,Arrow.DefaultOffset,Primitive{UInt8}}
-    @test p[:] == pp[:]
+for case in testtables
+    testtable(case...)
 end
 
+end # @testset "table roundtrips"
 
-@testset "DateTime" begin
-    for i ∈ 1:N_DATE_TESTS
-        d = Date(rand(0:4000), rand(1:12), rand(1:20))
-        ad = convert(Arrow.Datestamp, d)
-        @test convert(Date, ad) == d
+@testset "arrow json integration tests" begin
 
-        dt = DateTime(rand(0:4000), rand(1:12), rand(1:20), rand(0:23), rand(0:59), rand(0:59))
-        adt = convert(Arrow.Timestamp, dt)
-        @test convert(DateTime, adt) == dt
-
-        t = Time(rand(0:23), rand(0:59), rand(0:59))
-        at = convert(Arrow.TimeOfDay, t)
-        @test convert(Time, at) == t
-    end
+for file in readdir(joinpath(dirname(pathof(Arrow)), "../test/arrowjson"))
+    jsonfile = joinpath(joinpath(dirname(pathof(Arrow)), "../test/arrowjson"), file)
+    println("integration test for $jsonfile")
+    df = ArrowJSON.parsefile(jsonfile);
+    io = IOBuffer()
+    Arrow.write(io, df)
+    seekstart(io)
+    tbl = Arrow.Table(io; convert=false);
+    @test isequal(df, tbl)
 end
 
+end # @testset "arrow json integration tests"
 
-@testset "arrowformat_construct" begin
-    len = rand(1:MAX_VECTOR_LENGTH)
-    randstring_() = randstring(rand(1:MAX_STRING_LENGTH))
+@testset "misc" begin
 
+# multiple record batches
+t = Tables.partitioner(((col1=Union{Int64, Missing}[1,2,3,4,5,6,7,8,9,missing],), (col1=Union{Int64, Missing}[1,2,3,4,5,6,7,8,9,missing],)))
+io = IOBuffer()
+Arrow.write(io, t)
+seekstart(io)
+tt = Arrow.Table(io)
+@test length(tt) == 1
+@test isequal(tt.col1, vcat([1,2,3,4,5,6,7,8,9,missing], [1,2,3,4,5,6,7,8,9,missing]))
+@test eltype(tt.col1) === Union{Int64, Missing}
 
-    p = arrowformat(rand(Float64, len))
-    @test typeof(p) == Primitive{Float64}
+# Arrow.Stream
+seekstart(io)
+str = Arrow.Stream(io)
+state = iterate(str)
+@test state !== nothing
+tt, st = state
+@test length(tt) == 1
+@test isequal(tt.col1, [1,2,3,4,5,6,7,8,9,missing])
 
-    mask = rand(Bool, len)
+state = iterate(str, st)
+@test state !== nothing
+tt, st = state
+@test length(tt) == 1
+@test isequal(tt.col1, [1,2,3,4,5,6,7,8,9,missing])
 
-    v = Union{Float32,Missing}[mask[i] ? rand(Float32) : missing for i ∈ 1:len]
-    p = arrowformat(v)
-    @test typeof(p) == NullablePrimitive{Float32}
+@test iterate(str, st) === nothing
 
-    v = String[randstring_() for i ∈ 1:len]
-    p = arrowformat(v)
-    @test typeof(p) == List{String,Arrow.DefaultOffset,Primitive{UInt8}}
+t = (col1=Int64[1,2,3,4,5,6,7,8,9,10],)
+meta = Dict("key1" => "value1", "key2" => "value2")
+Arrow.setmetadata!(t, meta)
+meta2 = Dict("colkey1" => "colvalue1", "colkey2" => "colvalue2")
+Arrow.setmetadata!(t.col1, meta2)
+io = IOBuffer()
+Arrow.write(io, t)
+seekstart(io)
+tt = Arrow.Table(io)
+@test length(tt) == length(t)
+@test tt.col1 == t.col1
+@test eltype(tt.col1) === Int64
+@test Arrow.getmetadata(tt) == meta
+@test Arrow.getmetadata(tt.col1) == meta2
 
-    v = Union{String,Missing}[mask[i] ? randstring_() : missing for i ∈ 1:len]
-    p = arrowformat(v)
-    @test typeof(p) == NullableList{String,Arrow.DefaultOffset,Primitive{UInt8}}
+end # @testset "misc"
 
-    v = rand(Bool, len)
-    p = arrowformat(v)
-    @test typeof(p) == BitPrimitive
-
-    v = Union{Bool,Missing}[mask[i] ? rand(Bool) : missing for i ∈ 1:len]
-    p = arrowformat(v)
-    @test typeof(p) == NullableBitPrimitive
-
-    v = Date[Date(1), Date(2)]
-    p = arrowformat(v)
-    @test typeof(p) == Primitive{Arrow.Datestamp}
-
-    v = DateTime[DateTime(0), DateTime(1)]
-    p = arrowformat(v)
-    @test typeof(p) == Primitive{Arrow.Timestamp{Millisecond}}
-
-    v = Time[Time(0), Time(1)]
-    p = arrowformat(v)
-    @test typeof(p) == Primitive{Arrow.TimeOfDay{Nanosecond,Int64}}
-
-    v = Union{Date,Missing}[Date(1), missing]
-    p = arrowformat(v)
-    @test typeof(p) == NullablePrimitive{Arrow.Datestamp}
-
-    v = Union{DateTime,Missing}[DateTime(0), missing]
-    p = arrowformat(v)
-    @test typeof(p) == NullablePrimitive{Arrow.Timestamp{Millisecond}}
-
-    v = Union{Time,Missing}[Time(0), missing]
-    p = arrowformat(v)
-    @test typeof(p) == NullablePrimitive{Arrow.TimeOfDay{Nanosecond,Int64}}
-
-    v = categorical(["a", "b", "c"])
-    p = arrowformat(v)
-    @test typeof(p) == DictEncoding{String,Primitive{Int32},List{String,Arrow.DefaultOffset,Primitive{UInt8}}}
 end

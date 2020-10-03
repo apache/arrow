@@ -1,20 +1,41 @@
+# Documentation: http://docs.travis-ci.com/user/languages/julia/
 language: julia
 os:
   - linux
   - osx
+  - windows
+arch:
+  - x64
+  # - x86
 julia:
-  - 1.0
-  - 1.1
-  - 1.2
+  - 1.3
+  - 1
   - nightly
-
-notifications:
-  email: false
-
+branches:
+  only:
+  - master
+  - gh-pages # For building documentation
+  - /^testing-.*$/ # testing branches
+  - /^v[0-9]+\.[0-9]+\.[0-9]+$/ # version tags
 matrix:
   allow_failures:
-  - julia: nightly
-
+    - julia: nightly
+  fast_finish: true
+  exclude:
+    - os: osx
+      arch: x86
+    - os: linux
+      arch: x86
+      julia: 1.3
+  # include:
+  #   - stage: "Documentation"
+  #     julia: 1
+  #     os: linux
+  #     script:
+  #       - julia --project=docs/ -e 'using Pkg; Pkg.develop(PackageSpec(path=pwd())); Pkg.instantiate(); Pkg.build("Arrow")'
+  #       - julia --project=docs/ docs/make.jl
+  #     after_success: skip
+notifications:
+  email: false
 after_success:
-  - julia -e 'using Pkg; cd(Pkg.dir("DataFrames")); Pkg.add("Coverage"); using Coverage; Coveralls.submit(Coveralls.process_folder())'
-
+   - julia -e 'using Pkg; Pkg.add("Coverage"); using Coverage; Codecov.submit(Codecov.process_folder())'

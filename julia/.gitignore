@@ -2,3 +2,5 @@ Manifest.toml
 *.jl.cov
 *.jl.*.cov
 *.jl.mem
+
+test/_scrap.jl
