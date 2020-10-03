@@ -1,0 +1,151 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+# https://raw.githubusercontent.com/conda-forge/aws-sdk-cpp-feedstock/c8785c9fe570a6ac68ca01ccdb217243d422f144/recipe/0001-fix-libdir-for-deps.patch
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 4e019bcd..f36fef0f 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -133,6 +133,9 @@ if (BUILD_DEPS)
+             set(AWS_DEPS_INSTALL_DIR ${CMAKE_CURRENT_BINARY_DIR}/.deps/install CACHE STRING "A string describes the path where 3rd-party dependencies will be or have been installed")
+         endif()
+     endif()
++    if (NOT DEFINED AWS_DEPS_INSTALL_LIBDIR)
++        set(AWS_DEPS_INSTALL_LIBDIR ${CMAKE_INSTALL_LIBDIR})
++    endif()
+     file(MAKE_DIRECTORY ${AWS_DEPS_BUILD_DIR})
+     if(TARGET_ARCH STREQUAL "ANDROID")
+         execute_process(
+@@ -147,6 +150,7 @@ if (BUILD_DEPS)
+             -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+             -DBUILD_SHARED_LIBS=${BUILD_SHARED_LIBS}
+             -DCMAKE_INSTALL_PREFIX=${AWS_DEPS_INSTALL_DIR}
++            -DCMAKE_INSTALL_LIBDIR=${AWS_DEPS_INSTALL_LIBDIR}
+             -DGIT_EXECUTABLE=${GIT_EXECUTABLE}
+             ${CMAKE_CURRENT_SOURCE_DIR}/third-party
+             WORKING_DIRECTORY ${AWS_DEPS_BUILD_DIR}
+@@ -160,6 +164,7 @@ if (BUILD_DEPS)
+             -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+             -DBUILD_SHARED_LIBS=${BUILD_SHARED_LIBS}
+             -DCMAKE_INSTALL_PREFIX=${AWS_DEPS_INSTALL_DIR}
++            -DCMAKE_INSTALL_LIBDIR=${AWS_DEPS_INSTALL_LIBDIR}
+             -DCMAKE_OSX_SYSROOT=${CMAKE_OSX_SYSROOT}
+             -DCMAKE_OSX_ARCHITECTURES=${CMAKE_OSX_ARCHITECTURES}
+             -DCMAKE_SYSTEM_NAME=${CMAKE_SYSTEM_NAME}
+@@ -177,6 +182,7 @@ if (BUILD_DEPS)
+             -DBUILD_SHARED_LIBS=${BUILD_SHARED_LIBS}
+             -DSTATIC_CRT=${STATIC_CRT}
+             -DCMAKE_INSTALL_PREFIX=${AWS_DEPS_INSTALL_DIR}
++            -DCMAKE_INSTALL_LIBDIR=${AWS_DEPS_INSTALL_LIBDIR}
+             -DCMAKE_RUNTIME_OUTPUT_DIRECTORY=${CMAKE_CURRENT_BINARY_DIR}/bin
+             ${CMAKE_CURRENT_SOURCE_DIR}/third-party
+             WORKING_DIRECTORY ${AWS_DEPS_BUILD_DIR}
+diff --git a/third-party/CMakeLists.txt b/third-party/CMakeLists.txt
+index d6a21779..f6716a98 100644
+--- a/third-party/CMakeLists.txt
++++ b/third-party/CMakeLists.txt
+@@ -11,6 +11,7 @@ list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
+ include(ExternalProject)
+
+ set(AWS_DEPS_INSTALL_DIR "${CMAKE_INSTALL_PREFIX}" CACHE PATH "Dependencies install directory.")
++set(AWS_DEPS_INSTALL_LIBDIR "${CMAKE_INSTALL_LIBDIR}" CACHE PATH "Dependencies install library (sub)directory.")
+ set(AWS_DEPS_BUILD_DIR "${CMAKE_BINARY_DIR}/build" CACHE PATH "Dependencies build directory.")
+ set(AWS_DEPS_DOWNLOAD_DIR "${AWS_DEPS_BUILD_DIR}/downloads" CACHE PATH "Dependencies download directory.")
+
+diff --git a/third-party/cmake/BuildAwsCCommon.cmake b/third-party/cmake/BuildAwsCCommon.cmake
+index 17296429..5723d103 100644
+--- a/third-party/cmake/BuildAwsCCommon.cmake
++++ b/third-party/cmake/BuildAwsCCommon.cmake
+@@ -7,6 +7,7 @@ if(TARGET_ARCH STREQUAL "ANDROID")
+         UPDATE_COMMAND ""
+         CMAKE_ARGS
+         -DCMAKE_INSTALL_PREFIX=${AWS_DEPS_INSTALL_DIR}
++        -DCMAKE_INSTALL_LIBDIR=${AWS_DEPS_INSTALL_LIBDIR}
+         -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+         -DBUILD_SHARED_LIBS=${BUILD_SHARED_LIBS}
+         -DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}
+@@ -27,6 +28,7 @@ elseif(TARGET_ARCH STREQUAL "APPLE" AND DEFINED CMAKE_OSX_ARCHITECTURES AND NOT
+         UPDATE_COMMAND ""
+         CMAKE_ARGS
+         -DCMAKE_INSTALL_PREFIX=${AWS_DEPS_INSTALL_DIR}
++        -DCMAKE_INSTALL_LIBDIR=${AWS_DEPS_INSTALL_LIBDIR}
+         -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+         -DBUILD_SHARED_LIBS=${BUILD_SHARED_LIBS}
+         -DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}
+@@ -44,6 +46,7 @@ else()
+         UPDATE_COMMAND ""
+         CMAKE_ARGS
+         -DCMAKE_INSTALL_PREFIX=${AWS_DEPS_INSTALL_DIR}
++        -DCMAKE_INSTALL_LIBDIR=${AWS_DEPS_INSTALL_LIBDIR}
+         -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+         -DBUILD_SHARED_LIBS=${BUILD_SHARED_LIBS}
+         -DSTATIC_CRT=${STATIC_CRT}
+diff --git a/third-party/cmake/BuildAwsChecksums.cmake b/third-party/cmake/BuildAwsChecksums.cmake
+index a3b7d305..f609ea35 100644
+--- a/third-party/cmake/BuildAwsChecksums.cmake
++++ b/third-party/cmake/BuildAwsChecksums.cmake
+@@ -7,6 +7,7 @@ if(TARGET_ARCH STREQUAL "ANDROID")
+         UPDATE_COMMAND ""
+         CMAKE_ARGS
+         -DCMAKE_INSTALL_PREFIX=${AWS_DEPS_INSTALL_DIR}
++        -DCMAKE_INSTALL_LIBDIR=${AWS_DEPS_INSTALL_LIBDIR}
+         -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+         -DBUILD_SHARED_LIBS=${BUILD_SHARED_LIBS}
+         -DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}
+@@ -26,6 +27,7 @@ elseif(TARGET_ARCH STREQUAL "APPLE" AND DEFINED CMAKE_OSX_ARCHITECTURES AND NOT
+         UPDATE_COMMAND ""
+         CMAKE_ARGS
+         -DCMAKE_INSTALL_PREFIX=${AWS_DEPS_INSTALL_DIR}
++        -DCMAKE_INSTALL_LIBDIR=${AWS_DEPS_INSTALL_LIBDIR}
+         -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+         -DBUILD_SHARED_LIBS=${BUILD_SHARED_LIBS}
+         -DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}
+@@ -43,6 +45,7 @@ else()
+         UPDATE_COMMAND ""
+         CMAKE_ARGS
+         -DCMAKE_INSTALL_PREFIX=${AWS_DEPS_INSTALL_DIR}
++        -DCMAKE_INSTALL_LIBDIR=${AWS_DEPS_INSTALL_LIBDIR}
+         -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+         -DBUILD_SHARED_LIBS=${BUILD_SHARED_LIBS}
+         -DSTATIC_CRT=${STATIC_CRT}
+diff --git a/third-party/cmake/BuildAwsEventStream.cmake b/third-party/cmake/BuildAwsEventStream.cmake
+index 3a244b23..d5fc9563 100644
+--- a/third-party/cmake/BuildAwsEventStream.cmake
++++ b/third-party/cmake/BuildAwsEventStream.cmake
+@@ -11,6 +11,7 @@ if(TARGET_ARCH STREQUAL "ANDROID")
+         CMAKE_ARGS
+         -DCMAKE_FIND_ROOT_PATH=${AWS_DEPS_INSTALL_DIR}
+         -DCMAKE_INSTALL_PREFIX=${AWS_DEPS_INSTALL_DIR}
++        -DCMAKE_INSTALL_LIBDIR=${AWS_DEPS_INSTALL_LIBDIR}
+         -DCMAKE_PREFIX_PATH=${AWS_DEPS_INSTALL_DIR}
+         -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+         -DBUILD_SHARED_LIBS=${BUILD_SHARED_LIBS}
+@@ -32,6 +33,7 @@ elseif(TARGET_ARCH STREQUAL "APPLE" AND DEFINED CMAKE_OSX_ARCHITECTURES AND NOT
+         UPDATE_COMMAND ""
+         CMAKE_ARGS
+         -DCMAKE_INSTALL_PREFIX=${AWS_DEPS_INSTALL_DIR}
++        -DCMAKE_INSTALL_LIBDIR=${AWS_DEPS_INSTALL_LIBDIR}
+         -DCMAKE_PREFIX_PATH=${AWS_DEPS_INSTALL_DIR}
+         -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+         -DBUILD_SHARED_LIBS=${BUILD_SHARED_LIBS}
+@@ -51,6 +53,7 @@ else()
+         UPDATE_COMMAND ""
+         CMAKE_ARGS
+         -DCMAKE_INSTALL_PREFIX=${AWS_DEPS_INSTALL_DIR}
++        -DCMAKE_INSTALL_LIBDIR=${AWS_DEPS_INSTALL_LIBDIR}
+         -DCMAKE_PREFIX_PATH=${AWS_DEPS_INSTALL_DIR}
+         -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+         -DBUILD_SHARED_LIBS=${BUILD_SHARED_LIBS}

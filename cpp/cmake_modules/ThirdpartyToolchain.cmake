@@ -2696,13 +2696,22 @@ macro(build_awssdk)
   endforeach()
 
   set(AWSSDK_PATCH_COMMAND)
+  set(AWSSDK_PATCH_FILES)
   find_program(GIT git)
   if(NOT GIT)
-    list(APPEND AWSSDK_PATCH_COMMAND
-                patch
-                -p1
-                <
-                "${CMAKE_SOURCE_DIR}/cmake_modules/aws-sdk-cpp-no-git.patch")
+    # https://github.com/aws/aws-sdk-cpp/pull/1480
+    set(AWSSDK_PATCH_FILES "${CMAKE_SOURCE_DIR}/cmake_modules/aws-sdk-cpp-0001-no-git.patch")
+  endif()
+  # https://github.com/aws/aws-sdk-cpp/issues/1215
+  # TODO?: do this only if default libdir != lib
+  # (i.e. only bother to patch if it would put them in lib64 otherwise)
+  set(AWSSDK_PATCH_FILES "${AWSSDK_PATCH_FILES} ${CMAKE_SOURCE_DIR}/cmake_modules/aws-sdk-cpp-0002-fix-libdir-for-deps.patch")
+  if(NOT ${AWSSDK_PATCH_FILES} STREQUAL "")
+    # Don't set a patch command if we don't have any patches to apply
+    set(
+      AWSSDK_PATCH_COMMAND
+      echo ${AWSSDK_PATCH_FILES} | xargs -n 1 patch -p1 -i
+      )
   endif()
   externalproject_add(awssdk_ep
                       ${EP_LOG_OPTIONS}

@@ -816,10 +816,10 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 --------------------------------------------------------------------------------
 
-The files under dev/tasks/conda-recipes have the following license
+The files under dev/tasks/conda-recipes and cpp/cmake_modules/aws-sdk-cpp-0002-fix-libdir-for-deps.patch have the following license
 
 BSD 3-clause license
-Copyright (c) 2015-2018, conda-forge
+Copyright (c) 2015-2020, conda-forge
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
