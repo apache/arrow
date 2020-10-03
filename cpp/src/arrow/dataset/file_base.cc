@@ -313,7 +313,7 @@ Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_optio
   // Thread-local caches of partition-to-WriteQueue mapping.
   util::Mutex caches_mutex;
   struct SortByCacheSize {
-    bool operator()(const WriteQueue::Set& l, const WriteQueue::Set& r) {
+    bool operator()(const WriteQueue::Set& l, const WriteQueue::Set& r) const {
       return l.size() < r.size();
     }
   };
