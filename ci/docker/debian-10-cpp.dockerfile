@@ -26,7 +26,7 @@ RUN \
 
 ARG llvm
 RUN apt-get update -y -q && \
-     apt-get install -y -q --no-install-recommends \
+    apt-get install -y -q --no-install-recommends \
         apt-transport-https \
         ca-certificates \
         gnupg \
@@ -70,7 +70,10 @@ RUN apt-get update -y -q && \
         tzdata \
         zlib1g-dev && \
     apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+    rm -rf /var/lib/apt/lists/* && \
+    wget -O /usr/local/bin/minio \
+        https://dl.min.io/server/minio/release/linux-$(dpkg --print-architecture)/minio && \
+    chmod +x /usr/local/bin/minio
 
 ENV ARROW_BUILD_TESTS=ON \
     ARROW_DEPENDENCY_SOURCE=SYSTEM \

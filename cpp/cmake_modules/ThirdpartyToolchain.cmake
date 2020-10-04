@@ -300,6 +300,33 @@ else()
     "https://github.com/abseil/abseil-cpp/archive/${ARROW_ABSL_BUILD_VERSION}.tar.gz")
 endif()
 
+if(DEFINED ENV{ARROW_AWS_C_COMMON_URL})
+  set(AWS_C_COMMON_SOURCE_URL "$ENV{ARROW_AWS_C_COMMON_URL}")
+else()
+  set_urls(
+    AWS_C_COMMON_SOURCE_URL
+    "https://github.com/awslabs/aws-c-common/archive/${ARROW_AWS_C_COMMON_BUILD_VERSION}.tar.gz"
+    )
+endif()
+
+if(DEFINED ENV{ARROW_AWS_CHECKSUMS_URL})
+  set(AWS_CHECKSUMS_SOURCE_URL "$ENV{ARROW_AWS_CHECKSUMS_URL}")
+else()
+  set_urls(
+    AWS_CHECKSUMS_SOURCE_URL
+    "https://github.com/awslabs/aws-checksums/archive/${ARROW_AWS_CHECKSUMS_BUILD_VERSION}.tar.gz"
+    )
+endif()
+
+if(DEFINED ENV{ARROW_AWS_C_EVENT_STREAM_URL})
+  set(AWS_C_EVENT_STREAM_SOURCE_URL "$ENV{ARROW_AWS_C_EVENT_STREAM_URL}")
+else()
+  set_urls(
+    AWS_C_EVENT_STREAM_SOURCE_URL
+    "https://github.com/awslabs/aws-c-event-stream/archive/${ARROW_AWS_C_EVENT_STREAM_BUILD_VERSION}.tar.gz"
+    )
+endif()
+
 if(DEFINED ENV{ARROW_AWSSDK_URL})
   set(AWSSDK_SOURCE_URL "$ENV{ARROW_AWSSDK_URL}")
 else()
@@ -2642,6 +2669,7 @@ macro(build_awssdk)
   endif()
   set(AWSSDK_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/awssdk_ep-install")
   set(AWSSDK_INCLUDE_DIR "${AWSSDK_PREFIX}/include")
+  set(AWSSDK_LIB_DIR "lib")
 
   if(WIN32)
     # On Windows, need to match build types
@@ -2650,21 +2678,26 @@ macro(build_awssdk)
     # Otherwise, always build in release mode.
     # Especially with gcc, debug builds can fail with "asm constraint" errors:
     # https://github.com/TileDB-Inc/TileDB/issues/1351
-    set(AWSSDK_BUILD_TYPE Release)
+    set(AWSSDK_BUILD_TYPE release)
   endif()
 
-  #${EP_COMMON_CMAKE_ARGS}
+  set(
+    AWSSDK_COMMON_CMAKE_ARGS
+    ${EP_COMMON_CMAKE_ARGS}
+    -DBUILD_SHARED_LIBS=OFF
+    -DCMAKE_BUILD_TYPE=${AWSSDK_BUILD_TYPE}
+    -DCMAKE_INSTALL_LIBDIR=${AWSSDK_LIB_DIR}
+    -DENABLE_TESTING=OFF
+    -DENABLE_UNITY_BUILD=ON
+    "-DCMAKE_INSTALL_PREFIX=${AWSSDK_PREFIX}"
+    "-DCMAKE_PREFIX_PATH=${AWSSDK_PREFIX}")
+
   set(
     AWSSDK_CMAKE_ARGS
-    -DCMAKE_BUILD_TYPE=release
-    -DMINIMIZE_SIZE=on
+    ${AWSSDK_COMMON_CMAKE_ARGS}
+    -DBUILD_DEPS=OFF
     -DBUILD_ONLY=config\\$<SEMICOLON>s3\\$<SEMICOLON>transfer\\$<SEMICOLON>identity-management\\$<SEMICOLON>sts
-    -DCMAKE_INSTALL_LIBDIR=lib
-    -DENABLE_UNITY_BUILD=on
-    -DBUILD_SHARED_LIBS=off
-    -DENABLE_TESTING=off
-    "-DCMAKE_C_FLAGS=${EP_C_FLAGS}"
-    "-DCMAKE_INSTALL_PREFIX=${AWSSDK_PREFIX}")
+    -DMINIMIZE_SIZE=ON)
 
   file(MAKE_DIRECTORY ${AWSSDK_INCLUDE_DIR})
 
@@ -2678,51 +2711,63 @@ macro(build_awssdk)
       aws-c-event-stream
       aws-checksums
       aws-c-common)
-
-  set(AWSSDK_BUILD_BYPRODUCTS)
   set(AWSSDK_LIBRARIES)
   foreach(_AWSSDK_LIB ${_AWSSDK_LIBS})
+    # aws-c-common -> AWS-C-COMMON
+    string(TOUPPER ${_AWSSDK_LIB} _AWSSDK_LIB_UPPER)
+    # AWS-C-COMMON -> AWS_C_COMMON
+    string(REPLACE "-" "_" _AWSSDK_LIB_NAME_PREFIX ${_AWSSDK_LIB_UPPER})
     set(
       _AWSSDK_STATIC_LIBRARY
-      "${AWSSDK_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}${_AWSSDK_LIB}${CMAKE_STATIC_LIBRARY_SUFFIX}"
+      "${AWSSDK_PREFIX}/${AWSSDK_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}${_AWSSDK_LIB}${CMAKE_STATIC_LIBRARY_SUFFIX}"
       )
     add_library(${_AWSSDK_LIB} STATIC IMPORTED)
     set_target_properties(
       ${_AWSSDK_LIB}
       PROPERTIES IMPORTED_LOCATION ${_AWSSDK_STATIC_LIBRARY} INTERFACE_INCLUDE_DIRECTORIES
                  "${AWSSDK_INCLUDE_DIR}")
-    list(APPEND AWSSDK_BUILD_BYPRODUCTS ${_AWSSDK_STATIC_LIBRARY})
+    set("${_AWSSDK_LIB_NAME_PREFIX}_STATIC_LIBRARY" ${_AWSSDK_STATIC_LIBRARY})
     list(APPEND AWSSDK_LIBRARIES ${_AWSSDK_LIB})
   endforeach()
 
-  set(AWSSDK_PATCH_COMMAND)
-  set(AWSSDK_PATCH_FILES)
-  find_program(GIT git)
-  if(NOT GIT)
-    # https://github.com/aws/aws-sdk-cpp/pull/1480
-    set(AWSSDK_PATCH_FILES "${CMAKE_SOURCE_DIR}/cmake_modules/aws-sdk-cpp-0001-no-git.patch")
-  endif()
-  # https://github.com/aws/aws-sdk-cpp/issues/1215
-  # TODO?: do this only if default libdir != lib
-  # (i.e. only bother to patch if it would put them in lib64 otherwise)
-  set(AWSSDK_PATCH_FILES "${AWSSDK_PATCH_FILES} ${CMAKE_SOURCE_DIR}/cmake_modules/aws-sdk-cpp-0002-fix-libdir-for-deps.patch")
-  if(NOT ${AWSSDK_PATCH_FILES} STREQUAL "")
-    # Don't set a patch command if we don't have any patches to apply
-    set(
-      AWSSDK_PATCH_COMMAND
-      echo ${AWSSDK_PATCH_FILES} | xargs -n 1 patch -p1 -i
-      )
-  endif()
+  externalproject_add(aws_c_common_ep
+                      ${EP_LOG_OPTIONS}
+                      URL ${AWS_C_COMMON_SOURCE_URL}
+                      CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
+                      BUILD_BYPRODUCTS ${AWS_C_COMMON_STATIC_LIBRARY})
+  add_dependencies(aws-c-common aws_c_common_ep)
+
+  externalproject_add(aws_checksums_ep
+                      ${EP_LOG_OPTIONS}
+                      URL ${AWS_CHECKSUMS_SOURCE_URL}
+                      CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
+                      BUILD_BYPRODUCTS ${AWS_CHECKSUMS_STATIC_LIBRARY})
+  add_dependencies(aws-checksums aws_checksums_ep)
+
+  externalproject_add(aws_c_event_stream_ep
+                      ${EP_LOG_OPTIONS}
+                      URL ${AWS_C_EVENT_STREAM_SOURCE_URL}
+                      CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
+                      BUILD_BYPRODUCTS ${AWS_C_EVENT_STREAM_STATIC_LIBRARY}
+                      DEPENDS aws_c_common_ep aws_checksums_ep)
+  add_dependencies(aws-c-event-stream aws_c_event_stream_ep)
+
   externalproject_add(awssdk_ep
                       ${EP_LOG_OPTIONS}
                       URL ${AWSSDK_SOURCE_URL}
                       CMAKE_ARGS ${AWSSDK_CMAKE_ARGS}
-                      PATCH_COMMAND ${AWSSDK_PATCH_COMMAND}
-                      BUILD_BYPRODUCTS ${AWSSDK_BUILD_BYPRODUCTS})
-
+                      BUILD_BYPRODUCTS
+                      ${AWS_CPP_SDK_COGNITO_IDENTITY_STATIC_LIBRARY}
+                      ${AWS_CPP_SDK_CORE_STATIC_LIBRARY}
+                      ${AWS_CPP_SDK_IDENTITY_MANAGEMENT_STATIC_LIBRARY}
+                      ${AWS_CPP_SDK_S3_STATIC_LIBRARY}
+                      ${AWS_CPP_SDK_STS_STATIC_LIBRARY}
+                      DEPENDS aws_c_event_stream_ep)
   add_dependencies(toolchain awssdk_ep)
   foreach(_AWSSDK_LIB ${_AWSSDK_LIBS})
-    add_dependencies(${_AWSSDK_LIB} awssdk_ep)
+    if(${_AWSSDK_LIB} MATCHES "^aws-cpp-sdk-")
+      add_dependencies(${_AWSSDK_LIB} awssdk_ep)
+    endif()
   endforeach()
 
   set(AWSSDK_VENDORED TRUE)

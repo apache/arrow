@@ -73,9 +73,13 @@ RUN apt-get update -y -q && \
         pkg-config \
         protobuf-compiler \
         rapidjson-dev \
-        tzdata && \
+        tzdata \
+        wget && \
     apt-get clean && \
-    rm -rf /var/lib/apt/lists*
+    rm -rf /var/lib/apt/lists* && \
+    wget -O /usr/local/bin/minio \
+        https://dl.min.io/server/minio/release/linux-$(dpkg --print-architecture)/minio && \
+    chmod +x /usr/local/bin/minio
 
 # Prioritize system packages and local installation
 # The following dependencies will be downloaded due to missing/invalid packages
