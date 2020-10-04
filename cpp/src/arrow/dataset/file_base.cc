@@ -19,7 +19,6 @@
 
 #include <algorithm>
 #include <deque>
-#include <set>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -176,9 +175,9 @@ Status ValidateBasenameTemplate(util::string_view basename_template) {
 
 class WriteQueue {
  public:
-  WriteQueue(std::string partition_expression,
+  WriteQueue(std::string partition_expression, size_t index,
              util::Mutex::Guard* wait_for_opened_writer_lock)
-      : partition_expression_(std::move(partition_expression)) {
+      : partition_expression_(std::move(partition_expression)), index_(index) {
     *wait_for_opened_writer_lock = writer_mutex_.Lock();
   }
 
@@ -227,13 +226,13 @@ class WriteQueue {
 
   const std::shared_ptr<FileWriter>& writer() const { return writer_; }
 
-  Status OpenWriter(const FileSystemDatasetWriteOptions& write_options, size_t index,
+  Status OpenWriter(const FileSystemDatasetWriteOptions& write_options,
                     std::shared_ptr<Schema> schema) {
     auto dir =
         fs::internal::EnsureTrailingSlash(write_options.base_dir) + partition_expression_;
 
     auto basename = internal::Replace(write_options.basename_template, kIntegerToken,
-                                      std::to_string(index));
+                                      std::to_string(index_));
     if (!basename) {
       return Status::Invalid("string interpolation of basename template failed");
     }
@@ -261,6 +260,8 @@ class WriteQueue {
 
   // The (formatted) partition expression to which this queue corresponds
   std::string partition_expression_;
+
+  size_t index_;
 };
 
 Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_options,
@@ -312,12 +313,7 @@ Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_optio
 
   // Thread-local caches of partition-to-WriteQueue mapping.
   util::Mutex caches_mutex;
-  struct SortByCacheSize {
-    bool operator()(const WriteQueue::Set& l, const WriteQueue::Set& r) const {
-      return l.size() < r.size();
-    }
-  };
-  std::set<WriteQueue::Set, SortByCacheSize> caches;
+  std::vector<WriteQueue::Set> caches(task_group->parallelism());
 
   auto fragment_for_task_it = fragment_for_task.begin();
   for (const auto& scan_task : scan_tasks) {
@@ -325,13 +321,9 @@ Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_optio
 
     task_group->Append([&, scan_task, fragment] {
       // check out a cache of `queues`, if available
-      WriteQueue::Set local_queues;
       auto caches_lock = caches_mutex.Lock();
-      if (!caches.empty()) {
-        auto back = caches.end();
-        local_queues = std::move(*--back);
-        caches.erase(back);
-      }
+      WriteQueue::Set local_queues = std::move(caches.back());
+      caches.pop_back();
       caches_lock.Unlock();
 
       ARROW_ASSIGN_OR_RAISE(auto batches, scan_task->Execute());
@@ -350,44 +342,41 @@ Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_optio
           ARROW_ASSIGN_OR_RAISE(auto part,
                                 write_options.partitioning->Format(partition_expression));
 
-          util::Mutex::Guard queues_lock, wait_for_opened_writer_lock;
+          util::Mutex::Guard wait_for_opened_writer_lock;
+
+          using internal::GetOrInsertGenerated;
 
           WriteQueue* queue =
               // try to lookup the relevant WriteQueue up in our local cache
-              internal::GetOrInsertGenerated(
-                  &local_queues, part,
-                  [&](const std::string&) {
-                    // local lookup failed, fall back to lookup in `queues`
-                    queues_lock = queues_mutex.Lock();
-                    return internal::GetOrInsertGenerated(
-                               &queues, std::move(part),
-                               [&](const std::string& part) {
-                                 // lookup in `queues` also failed,
-                                 // generate a new WriteQueue
-                                 queues_storage.emplace_back(
-                                     part, &wait_for_opened_writer_lock);
-                                 return &queues_storage.back();
-                               })
-                        ->second;
-                  })
-                  ->second;
+              GetOrInsertGenerated(&local_queues, part, [&](const std::string&) {
+                // local lookup failed, fall back to lookup in `queues`
+                auto queues_lock = queues_mutex.Lock();
+
+                return GetOrInsertGenerated(&queues, std::move(part),
+                                            [&](const std::string& part) {
+                                              // lookup in `queues` also failed,
+                                              // generate a new WriteQueue
+                                              size_t queue_index = queues.size() - 1;
+
+                                              queues_storage.emplace_back(
+                                                  part, queue_index,
+                                                  &wait_for_opened_writer_lock);
+
+                                              return &queues_storage.back();
+                                            })
+                    ->second;
+              })->second;
 
           if (wait_for_opened_writer_lock) {
-            size_t queue_index = queues.size() - 1;
             // We have openned a new WriteQueue for `part` and must set up its FileWriter.
-            // That could be slow, so we'd like to release queues_lock now, allowing other
-            // threads to look up already-open queues. This is safe since we are mutating
-            // an element of `queues` in place, which does not conflict with access to any
-            // other element. However, we do need to keep new_queue_lock while we open the
-            // FileWriter to prevent other threads from using the writer before it has
-            // been constructed.
-            queues_lock.Unlock();
-            RETURN_NOT_OK(queue->OpenWriter(write_options, queue_index, batch->schema()));
+            // That could be slow, so we've already released queues_lock, allowing
+            // other threads to look up already-open queues. This is safe since we are
+            // mutating an element of `queues` in place, which does not conflict with
+            // access to any other element. However, we do need to continue holding
+            // wait_for_opened_writer_lock while we open the FileWriter to prevent other
+            // threads from using the writer before it has been constructed.
+            RETURN_NOT_OK(queue->OpenWriter(write_options, batch->schema()));
             wait_for_opened_writer_lock.Unlock();
-          }
-
-          if (queues_lock) {
-            queues_lock.Unlock();
           }
 
           queue->Push(std::move(batch));
@@ -400,7 +389,7 @@ Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_optio
 
       // check cache back in
       caches_lock = caches_mutex.Lock();
-      caches.insert(std::move(local_queues));
+      caches.push_back(std::move(local_queues));
       return Status::OK();
     });
   }
