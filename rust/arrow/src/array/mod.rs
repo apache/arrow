@@ -254,3 +254,5 @@ pub use self::cast::{
     as_boolean_array, as_dictionary_array, as_null_array, as_primitive_array,
     as_string_array,
 };
+
+pub mod ffi;
