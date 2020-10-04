@@ -2681,21 +2681,19 @@ macro(build_awssdk)
     set(AWSSDK_BUILD_TYPE release)
   endif()
 
-  set(
-    AWSSDK_COMMON_CMAKE_ARGS
-    ${EP_COMMON_CMAKE_ARGS}
-    -DBUILD_SHARED_LIBS=OFF
-    -DCMAKE_BUILD_TYPE=${AWSSDK_BUILD_TYPE}
-    -DCMAKE_INSTALL_LIBDIR=${AWSSDK_LIB_DIR}
-    -DENABLE_TESTING=OFF
-    -DENABLE_UNITY_BUILD=ON
-    "-DCMAKE_INSTALL_PREFIX=${AWSSDK_PREFIX}"
-    "-DCMAKE_PREFIX_PATH=${AWSSDK_PREFIX}")
+  set(AWSSDK_COMMON_CMAKE_ARGS
+      ${EP_COMMON_CMAKE_ARGS}
+      -DBUILD_SHARED_LIBS=OFF
+      -DCMAKE_BUILD_TYPE=${AWSSDK_BUILD_TYPE}
+      -DCMAKE_INSTALL_LIBDIR=${AWSSDK_LIB_DIR}
+      -DENABLE_TESTING=OFF
+      -DENABLE_UNITY_BUILD=ON
+      "-DCMAKE_INSTALL_PREFIX=${AWSSDK_PREFIX}"
+      "-DCMAKE_PREFIX_PATH=${AWSSDK_PREFIX}")
 
   set(
     AWSSDK_CMAKE_ARGS
-    ${AWSSDK_COMMON_CMAKE_ARGS}
-    -DBUILD_DEPS=OFF
+    ${AWSSDK_COMMON_CMAKE_ARGS} -DBUILD_DEPS=OFF
     -DBUILD_ONLY=config\\$<SEMICOLON>s3\\$<SEMICOLON>transfer\\$<SEMICOLON>identity-management\\$<SEMICOLON>sts
     -DMINIMIZE_SIZE=ON)
 
@@ -2756,12 +2754,11 @@ macro(build_awssdk)
                       ${EP_LOG_OPTIONS}
                       URL ${AWSSDK_SOURCE_URL}
                       CMAKE_ARGS ${AWSSDK_CMAKE_ARGS}
-                      BUILD_BYPRODUCTS
-                      ${AWS_CPP_SDK_COGNITO_IDENTITY_STATIC_LIBRARY}
-                      ${AWS_CPP_SDK_CORE_STATIC_LIBRARY}
-                      ${AWS_CPP_SDK_IDENTITY_MANAGEMENT_STATIC_LIBRARY}
-                      ${AWS_CPP_SDK_S3_STATIC_LIBRARY}
-                      ${AWS_CPP_SDK_STS_STATIC_LIBRARY}
+                      BUILD_BYPRODUCTS ${AWS_CPP_SDK_COGNITO_IDENTITY_STATIC_LIBRARY}
+                                       ${AWS_CPP_SDK_CORE_STATIC_LIBRARY}
+                                       ${AWS_CPP_SDK_IDENTITY_MANAGEMENT_STATIC_LIBRARY}
+                                       ${AWS_CPP_SDK_S3_STATIC_LIBRARY}
+                                       ${AWS_CPP_SDK_STS_STATIC_LIBRARY}
                       DEPENDS aws_c_event_stream_ep)
   add_dependencies(toolchain awssdk_ep)
   foreach(_AWSSDK_LIB ${_AWSSDK_LIBS})
