@@ -22,8 +22,7 @@
 #include "arrow/util/macros.h"
 
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
-  auto status =
-      arrow::ipc::internal::FuzzIpcTensorStream(data, static_cast<int64_t>(size));
+  auto status = arrow::ipc::internal::FuzzIpcTensorStream(data, static_cast<int64_t>(size));
   ARROW_UNUSED(status);
   return 0;
 }
