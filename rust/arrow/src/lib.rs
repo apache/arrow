@@ -139,6 +139,7 @@ pub mod compute;
 pub mod csv;
 pub mod datatypes;
 pub mod error;
+pub mod ffi;
 pub mod ipc;
 pub mod json;
 pub mod memory;

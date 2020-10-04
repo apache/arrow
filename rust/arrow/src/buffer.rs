@@ -21,7 +21,10 @@
 #[cfg(feature = "simd")]
 use packed_simd::u8x64;
 
-use crate::bytes::{Bytes, Deallocation, DropFn};
+use crate::{
+    bytes::{Bytes, Deallocation},
+    ffi,
+};
 
 use std::cmp;
 use std::convert::AsRef;
@@ -74,14 +77,18 @@ impl Buffer {
     ///
     /// * `ptr` - Pointer to raw parts
     /// * `len` - Length of raw parts in **bytes**
-    /// * `drop` - Function that frees the corresponding memory region. Note that the region may be larger than `len`.
+    /// * `data` - An [ffi::FFI_ArrowArray] with the data
     ///
     /// # Safety
     ///
     /// This function is unsafe as there is no guarantee that the given pointer is valid for `len`
     /// bytes and that the foreign deallocator frees the region.
-    pub unsafe fn from_unowned(ptr: *const u8, len: usize, drop: DropFn) -> Self {
-        Buffer::build_with_arguments(ptr, len, Deallocation::Foreign(drop))
+    pub unsafe fn from_unowned(
+        ptr: *const u8,
+        len: usize,
+        data: ffi::FFI_ArrowArray,
+    ) -> Self {
+        Buffer::build_with_arguments(ptr, len, Deallocation::Foreign(data))
     }
 
     /// Auxiliary method to create a new Buffer

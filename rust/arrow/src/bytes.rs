@@ -17,23 +17,19 @@
 
 //! This module contains an implementation of a contiguous immutable memory region that knows
 //! how to de-allocate itself, [`Bytes`].
-//! Note that this is a low-level functionality of this crate, and is only required to be used
-//! when implementing FFI.
+//! Note that this is a low-level functionality of this crate.
 
 use core::slice;
-use std::{fmt::Debug, fmt::Formatter, sync::Arc};
+use std::{fmt::Debug, fmt::Formatter};
 
-use crate::memory;
-
-/// function resposible for de-allocating `Bytes`.
-pub type DropFn = Arc<dyn Fn(&mut Bytes)>;
+use crate::{ffi, memory};
 
 /// Mode of deallocating memory regions
 pub enum Deallocation {
     /// Native deallocation, using Rust deallocator with Arrow-specific memory aligment
     Native(usize),
-    /// Foreign deallocation, using some other form of memory deallocation
-    Foreign(DropFn),
+    /// Foreign interface, via a callback
+    Foreign(ffi::FFI_ArrowArray),
 }
 
 impl Debug for Deallocation {
@@ -133,9 +129,8 @@ impl Drop for Bytes {
                     unsafe { memory::free_aligned(self.ptr as *mut u8, *capacity) };
                 }
             }
-            Deallocation::Foreign(drop) => {
-                (drop.clone())(self);
-            }
+            // foreign interface knows how to deallocate itself.
+            Deallocation::Foreign(_) => (),
         }
     }
 }
@@ -158,27 +153,7 @@ impl Debug for Bytes {
 
 #[cfg(test)]
 mod tests {
-    use std::cell::Cell;
-
     use super::*;
-
-    #[test]
-    fn test_dealloc() {
-        let a = Box::new(b"hello");
-
-        let outer = Arc::new(Cell::new(false));
-        let inner = outer.clone();
-        let dealloc = Arc::new(move |bytes: &mut Bytes| {
-            inner.set(true);
-            assert_eq!(bytes.as_slice(), &b"hello"[1..4]);
-        });
-
-        let b = unsafe { Bytes::new(a[1..].as_ptr(), 3, Deallocation::Foreign(dealloc)) };
-        drop(b);
-        assert_eq!(outer.as_ref().take(), true);
-        // the content is still valid (as the dealloc above does not actually free it)
-        assert_eq!(a.as_ref(), &b"hello");
-    }
 
     #[test]
     fn test_dealloc_native() {

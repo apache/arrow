@@ -17,39 +17,104 @@
 
 //! Contains functionality to load an ArrayData from the C Data Interface
 
-use crate::{datatypes::DataType, error::{ArrowError, Result}};
+use std::convert::TryFrom;
 
-/// See https://arrow.apache.org/docs/format/CDataInterface.html#data-type-description-format-strings
-fn read_datatype(name: &str) -> Result<DataType> {
-    Ok(match name {
-        "n" => DataType::Null,
-        "b" => DataType::Boolean,
-        "c" => DataType::Int8,
-        "C" => DataType::UInt8,
-        "s" => DataType::Int16,
-        "S" => DataType::UInt16,
-        "i" => DataType::Int32,
-        "I" => DataType::UInt32,
-        "l" => DataType::Int64,
-        "L" => DataType::UInt64,
-        "e" => DataType::Float16,
-        "f" => DataType::Float32,
-        "g" => DataType::Float64,
-        "z" => DataType::Binary,
-        "Z" => DataType::LargeBinary,
-        "u" => DataType::Utf8,
-        "U" => DataType::LargeUtf8,
-        _ => return Err(ArrowError::CDataInterface("The datatype \"{}\" is still not supported in Rust implementation".to_string()))
-    })
+use crate::{
+    error::{ArrowError, Result},
+    ffi,
+};
+
+use super::ArrayData;
+
+impl TryFrom<ffi::ArrowArray> for ArrayData {
+    type Error = ArrowError;
+
+    fn try_from(value: ffi::ArrowArray) -> Result<Self> {
+        let data_type = value.data_type()?;
+        let len = value.len();
+        let offset = value.offset();
+        let null_count = value.null_count();
+        let buffers = value.buffers()?;
+        let null_bit_buffer = value.null_bit_buffer();
+
+        // todo: no child data yet...
+        Ok(ArrayData::new(
+            data_type,
+            len,
+            Some(null_count),
+            null_bit_buffer,
+            offset,
+            buffers,
+            vec![],
+        ))
+    }
+}
+
+impl TryFrom<ArrayData> for ffi::ArrowArray {
+    type Error = ArrowError;
+
+    fn try_from(value: ArrayData) -> Result<Self> {
+        let len = value.len;
+        let offset = value.offset as usize;
+        let null_count = value.null_count;
+        let buffers = value.buffers().to_vec();
+        let null_buffer = value.null_buffer().cloned();
+
+        // todo: no child data yet...
+        ffi::ArrowArray::try_new(
+            value.data_type(),
+            len,
+            null_count,
+            null_buffer,
+            offset,
+            buffers,
+            vec![],
+        )
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::error::Result;
+    use crate::{
+        array::{Array, ArrayData, Int64Array, UInt32Array, UInt64Array},
+        ffi::ArrowArray,
+    };
+    use std::convert::TryFrom;
+
+    fn test_round_trip(expected: &ArrayData) -> Result<()> {
+        // create a `ArrowArray` from the data.
+        // here we take ownership (increase ref count)
+        let d1 = ArrowArray::try_from(expected.clone())?;
+
+        // here we export the array as 2 pointers. We have no control over ownership if it was not for
+        // the release mechanism.
+        let (array, schema) = ArrowArray::to_raw(d1);
+
+        // simulate an external consumer by being the consumer
+        let d1 = unsafe { ArrowArray::try_from_raw(array, schema) }?;
+
+        let result = &ArrayData::try_from(d1)?;
+
+        assert_eq!(result, expected);
+        Ok(())
+    }
 
     #[test]
-    fn test_datatype() -> Result<()>{
-        assert_eq!(read_datatype("u")?, DataType::Utf8);
-        Ok(())
+    fn test_u32() -> Result<()> {
+        let data = UInt32Array::from(vec![2]).data();
+        test_round_trip(data.as_ref())
+    }
+
+    #[test]
+    fn test_u64() -> Result<()> {
+        let data = UInt64Array::from(vec![2]).data();
+        test_round_trip(data.as_ref())
+    }
+
+    #[test]
+    fn test_i64() -> Result<()> {
+        let data = Int64Array::from(vec![2]).data();
+        test_round_trip(data.as_ref())
     }
 }
