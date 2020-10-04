@@ -716,7 +716,7 @@ impl<T: ArrowPrimitiveType, Ptr: Borrow<Option<<T as ArrowPrimitiveType>::Native
     fn from_iter<I: IntoIterator<Item = Ptr>>(iter: I) -> Self {
         let iter = iter.into_iter();
         let (_, data_len) = iter.size_hint();
-        let data_len = data_len.unwrap(); // panic if no upper bound.
+        let data_len = data_len.expect("Iterator must be sized"); // panic if no upper bound.
 
         let num_bytes = bit_util::ceil(data_len, 8);
         let mut null_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, false);
