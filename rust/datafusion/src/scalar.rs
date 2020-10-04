@@ -21,8 +21,12 @@ use std::{convert::TryFrom, fmt, sync::Arc};
 
 use arrow::array::{
     Array, BooleanArray, Float32Array, Float64Array, Int16Array, Int32Array, Int64Array,
-    Int8Array, LargeStringArray, StringArray, UInt16Array, UInt32Array, UInt64Array,
-    UInt8Array,
+    Int8Array, LargeStringArray, ListArray, StringArray, UInt16Array, UInt32Array,
+    UInt64Array, UInt8Array,
+};
+use arrow::array::{
+    Int16Builder, Int32Builder, Int64Builder, Int8Builder, ListBuilder, UInt16Builder,
+    UInt32Builder, UInt64Builder, UInt8Builder,
 };
 use arrow::{
     array::{ArrayRef, PrimitiveArrayOps},
@@ -61,6 +65,8 @@ pub enum ScalarValue {
     Utf8(Option<String>),
     /// utf-8 encoded string representing a LargeString's arrow type.
     LargeUtf8(Option<String>),
+    /// list of nested ScalarValue
+    List(Option<Vec<ScalarValue>>, DataType),
 }
 
 macro_rules! typed_cast {
@@ -73,10 +79,40 @@ macro_rules! typed_cast {
     }};
 }
 
+macro_rules! build_list {
+    ($VALUE_BUILDER_TY:ident, $SCALAR_TY:ident, $VALUES:expr) => {{
+        match $VALUES {
+            None => {
+                let mut builder = ListBuilder::new($VALUE_BUILDER_TY::new(0));
+                builder.append(false).unwrap();
+                builder.finish()
+            }
+            Some(values) => {
+                let mut builder = ListBuilder::new($VALUE_BUILDER_TY::new(values.len()));
+
+                for scalar_value in values {
+                    match scalar_value {
+                        ScalarValue::$SCALAR_TY(Some(v)) => {
+                            builder.values().append_value(*v).unwrap()
+                        }
+                        ScalarValue::$SCALAR_TY(None) => {
+                            builder.values().append_null().unwrap();
+                        }
+                        _ => panic!("Incompatible ScalarValue for list"),
+                    };
+                }
+
+                builder.append(true).unwrap();
+                builder.finish()
+            }
+        }
+    }};
+}
+
 impl ScalarValue {
     /// Getter for the `DataType` of the value
     pub fn get_datatype(&self) -> DataType {
-        match *self {
+        match self {
             ScalarValue::Boolean(_) => DataType::Boolean,
             ScalarValue::UInt8(_) => DataType::UInt8,
             ScalarValue::UInt16(_) => DataType::UInt16,
@@ -90,6 +126,9 @@ impl ScalarValue {
             ScalarValue::Float64(_) => DataType::Float64,
             ScalarValue::Utf8(_) => DataType::Utf8,
             ScalarValue::LargeUtf8(_) => DataType::LargeUtf8,
+            ScalarValue::List(_, data_type) => {
+                DataType::List(Box::new(data_type.clone()))
+            }
         }
     }
 
@@ -108,7 +147,8 @@ impl ScalarValue {
             | ScalarValue::Float32(None)
             | ScalarValue::Float64(None)
             | ScalarValue::Utf8(None)
-            | ScalarValue::LargeUtf8(None) => true,
+            | ScalarValue::LargeUtf8(None)
+            | ScalarValue::List(None, _) => true,
             _ => false,
         }
     }
@@ -131,6 +171,17 @@ impl ScalarValue {
             ScalarValue::LargeUtf8(e) => {
                 Arc::new(LargeStringArray::from(vec![e.as_deref()]))
             }
+            ScalarValue::List(values, data_type) => Arc::new(match data_type {
+                DataType::Int8 => build_list!(Int8Builder, Int8, values),
+                DataType::Int16 => build_list!(Int16Builder, Int16, values),
+                DataType::Int32 => build_list!(Int32Builder, Int32, values),
+                DataType::Int64 => build_list!(Int64Builder, Int64, values),
+                DataType::UInt8 => build_list!(UInt8Builder, UInt8, values),
+                DataType::UInt16 => build_list!(UInt16Builder, UInt16, values),
+                DataType::UInt32 => build_list!(UInt32Builder, UInt32, values),
+                DataType::UInt64 => build_list!(UInt64Builder, UInt64, values),
+                _ => panic!("Unexpected DataType for list"),
+            }),
         }
     }
 
@@ -150,6 +201,24 @@ impl ScalarValue {
             DataType::Int8 => typed_cast!(array, index, Int8Array, Int8),
             DataType::Utf8 => typed_cast!(array, index, StringArray, Utf8),
             DataType::LargeUtf8 => typed_cast!(array, index, LargeStringArray, LargeUtf8),
+            DataType::List(nested_type) => {
+                let list_array = array.as_any().downcast_ref::<ListArray>().ok_or(
+                    ExecutionError::InternalError(
+                        "Failed to downcast ListArray".to_string(),
+                    ),
+                )?;
+                let value = match list_array.is_null(index) {
+                    true => None,
+                    false => {
+                        let nested_array = list_array.value(index);
+                        let scalar_vec = (0..nested_array.len())
+                            .map(|i| ScalarValue::try_from_array(&nested_array, i))
+                            .collect::<Result<Vec<_>>>()?;
+                        Some(scalar_vec)
+                    }
+                };
+                ScalarValue::List(value, *nested_type.clone())
+            }
             other => {
                 return Err(ExecutionError::NotImplemented(format!(
                     "Can't create a scalar of array of type \"{:?}\"",
@@ -244,6 +313,9 @@ impl TryFrom<&DataType> for ScalarValue {
             &DataType::UInt64 => ScalarValue::UInt64(None),
             &DataType::Utf8 => ScalarValue::Utf8(None),
             &DataType::LargeUtf8 => ScalarValue::LargeUtf8(None),
+            &DataType::List(ref nested_type) => {
+                ScalarValue::List(None, *nested_type.clone())
+            }
             _ => {
                 return Err(ExecutionError::NotImplemented(format!(
                     "Can't create a scalar of type \"{:?}\"",
@@ -279,6 +351,17 @@ impl fmt::Display for ScalarValue {
             ScalarValue::UInt64(e) => format_option!(f, e)?,
             ScalarValue::Utf8(e) => format_option!(f, e)?,
             ScalarValue::LargeUtf8(e) => format_option!(f, e)?,
+            ScalarValue::List(e, _) => match e {
+                Some(l) => write!(
+                    f,
+                    "{}",
+                    l.iter()
+                        .map(|v| format!("{}", v))
+                        .collect::<Vec<_>>()
+                        .join(",")
+                )?,
+                None => write!(f, "NULL")?,
+            },
         };
         Ok(())
     }
@@ -300,6 +383,53 @@ impl fmt::Debug for ScalarValue {
             ScalarValue::UInt64(_) => write!(f, "UInt64({})", self),
             ScalarValue::Utf8(_) => write!(f, "Utf8(\"{}\")", self),
             ScalarValue::LargeUtf8(_) => write!(f, "LargeUtf8(\"{}\")", self),
+            ScalarValue::List(_, _) => write!(f, "List([{}])", self),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn scalar_list_null_to_array() -> Result<()> {
+        let list_array_ref = ScalarValue::List(None, DataType::UInt64).to_array();
+        let list_array = list_array_ref.as_any().downcast_ref::<ListArray>().unwrap();
+
+        assert!(list_array.is_null(0));
+        assert_eq!(list_array.len(), 1);
+        assert_eq!(list_array.values().len(), 0);
+
+        Ok(())
+    }
+
+    #[test]
+    fn scalar_list_to_array() -> Result<()> {
+        let list_array_ref = ScalarValue::List(
+            Some(vec![
+                ScalarValue::UInt64(Some(100)),
+                ScalarValue::UInt64(None),
+                ScalarValue::UInt64(Some(101)),
+            ]),
+            DataType::UInt64,
+        )
+        .to_array();
+
+        let list_array = list_array_ref.as_any().downcast_ref::<ListArray>().unwrap();
+        assert_eq!(list_array.len(), 1);
+        assert_eq!(list_array.values().len(), 3);
+
+        let prim_array_ref = list_array.value(0);
+        let prim_array = prim_array_ref
+            .as_any()
+            .downcast_ref::<UInt64Array>()
+            .unwrap();
+        assert_eq!(prim_array.len(), 3);
+        assert_eq!(prim_array.value(0), 100);
+        assert!(prim_array.is_null(1));
+        assert_eq!(prim_array.value(2), 101);
+
+        Ok(())
     }
 }

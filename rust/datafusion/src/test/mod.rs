@@ -135,6 +135,13 @@ pub fn format_batch(batch: &RecordBatch) -> Vec<String> {
             }
             let array = batch.column(column_index);
             match array.data_type() {
+                DataType::Utf8 => s.push_str(
+                    array
+                        .as_any()
+                        .downcast_ref::<array::StringArray>()
+                        .unwrap()
+                        .value(row_index),
+                ),
                 DataType::Int8 => s.push_str(&format!(
                     "{:?}",
                     array

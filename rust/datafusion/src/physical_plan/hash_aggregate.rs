@@ -40,7 +40,7 @@ use arrow::{
 
 use fnv::FnvHashMap;
 
-use super::{common, expressions::Column, Source};
+use super::{common, expressions::Column, group_scalar::GroupByScalar, Source};
 
 use async_trait::async_trait;
 
@@ -675,21 +675,6 @@ fn finalize_aggregation(
                 .collect::<Result<Vec<ArrayRef>>>()
         }
     }
-}
-
-/// Enumeration of types that can be used in a GROUP BY expression (all primitives except
-/// for floating point numerics)
-#[derive(Debug, PartialEq, Eq, Hash, Clone)]
-enum GroupByScalar {
-    UInt8(u8),
-    UInt16(u16),
-    UInt32(u32),
-    UInt64(u64),
-    Int8(i8),
-    Int16(i16),
-    Int32(i32),
-    Int64(i64),
-    Utf8(String),
 }
 
 /// Create a Vec<GroupByScalar> that can be used as a map key
