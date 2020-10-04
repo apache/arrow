@@ -794,7 +794,6 @@ Status ConvertListsLike(PandasOptions options, const ChunkedArray& data,
 
 inline Status ConvertMap(const PandasOptions& options, const ChunkedArray& data,
                          PyObject** out_values) {
-  std::cout << "*** CONVERT_MAP" << std::endl;
   // Get columns of underlying key/item arrays
   std::vector<std::shared_ptr<Array>> key_arrays;
   std::vector<std::shared_ptr<Array>> item_arrays;
@@ -833,21 +832,17 @@ inline Status ConvertMap(const PandasOptions& options, const ChunkedArray& data,
   PandasOptions modified_options = options;
   modified_options.coerce_temporal_nanoseconds = false;
 
-  std::cout << "*** starting key item conversion" << std::endl;
- 
   OwnedRef list_item;
-  OwnedRef tuple_item;
+  OwnedRef key_value;
+  OwnedRef item_value;
   OwnedRefNoGIL owned_numpy_keys;
   RETURN_NOT_OK(ConvertChunkedArrayToPandas(modified_options, flat_keys, nullptr,
                                             owned_numpy_keys.ref()));
   OwnedRefNoGIL owned_numpy_items;
   RETURN_NOT_OK(ConvertChunkedArrayToPandas(modified_options, flat_items, nullptr,
                                             owned_numpy_items.ref()));
-  std::cout << "*** done key item conversion" << std::endl;
   PyArrayObject* keys_array = reinterpret_cast<PyArrayObject*>(owned_numpy_keys.obj());
   PyArrayObject* items_array = reinterpret_cast<PyArrayObject*>(owned_numpy_items.obj());
-
-  std::cout << "*** starting chunk loop" << std::endl;
 
   int64_t chunk_offset = 0;
   for (int c = 0; c < data.num_chunks(); ++c) {
@@ -862,22 +857,13 @@ inline Status ConvertMap(const PandasOptions& options, const ChunkedArray& data,
       } else {
         int64_t entry_offset = arr->value_offset(i);
         int64_t num_maps = arr->value_offset(i + 1) - entry_offset;
-        OwnedRef key_value;
-        OwnedRef item_value;
 
-        std::cout << "*** row loop " << i << std::endl;
         // Build the new list object for the row of maps
-        list_item.reset(PyList_New(0)); //num_maps));
+        list_item.reset(PyList_New(0));
         RETURN_IF_PYERROR();
         
         // Add each key/item pair in the row
         for (int64_t j = 0; j < num_maps; ++j) {
-
-          std::cout << "*** map loop " << j << std::endl;
-
-          // Build the new tuple object for key and item
-          tuple_item.reset(PyTuple_New(2));
-          RETURN_IF_PYERROR();
 
           // Get key value, key is non-nullable for a valid row
           auto ptr_key = reinterpret_cast<const char*>(
@@ -885,59 +871,30 @@ inline Status ConvertMap(const PandasOptions& options, const ChunkedArray& data,
           key_value.reset(PyArray_GETITEM(keys_array, ptr_key));
           RETURN_IF_PYERROR();
 
-          std::cout << "*** set key" << std::endl;
-          //PyObject* int_key = PyLong_FromLong(1L);
-          //PyTuple_SetItem(tuple_item.obj(), 0, int_key);
-          PyTuple_SetItem(tuple_item.obj(), 0, key_value.obj());
-          RETURN_IF_PYERROR();
-
-          std::cout << "*** item len: " << flat_items->length() << ", item index: " << (entry_offset + j) << std::endl;
-          
-          if (!item_arrays[c]->IsNull(entry_offset + j)) {
+          if (item_arrays[c]->IsNull(entry_offset + j)) {
+            // Translate the Null to a None
+            Py_INCREF(Py_None);
+            item_value.reset(Py_None);
+          } else {
             // Get valid value from item array
             auto ptr_item = reinterpret_cast<const char*>(
                 PyArray_GETPTR1(items_array, chunk_offset + entry_offset + j));
             item_value.reset(PyArray_GETITEM(items_array, ptr_item));
             RETURN_IF_PYERROR();
-          } else {
-            std::cout << "*** item is null: " << entry_offset + j << std::endl;
-            // Translate the Null to a None
-            Py_INCREF(Py_None);
-            item_value.reset(Py_None);
-            std::cout << "*** item set to null" << std::endl;
           }
 
-          std::cout << "*** set item" << std::endl;
-          //PyObject* int_item = PyLong_FromLong(2L);
-          //PyTuple_SetItem(tuple_item.obj(), 1, int_item);
-          PyTuple_SetItem(tuple_item.obj(), 1, item_value.obj());
-          RETURN_IF_PYERROR();
-
-          std::cout << "*** set list" << std::endl;
-          //Py_INCREF(tuple_item.obj());
           // Add the key/item pair to the list for the row
-          PyList_Append(list_item.obj(), tuple_item.obj());
+          PyList_Append(list_item.obj(),
+                        PyTuple_Pack(2, key_value.obj(), item_value.obj()));
           RETURN_IF_PYERROR();
-
-          std::cout << "*** end map loop" << std::endl;
         }
 
-
-        std::cout << "*** assign out_values" << std::endl;
-        
         *out_values = list_item.obj();
         // Grant ownership to the resulting array
         Py_INCREF(*out_values);
- 
-        /*if (*out_values == nullptr) {
-          // Fall out of loop, will return from RETURN_IF_PYERROR
-          break;
-        }*/
       }
       ++out_values;
     }
-
-    std::cout << "*** end chunk loop" << std::endl;
     RETURN_IF_PYERROR();
 
     chunk_offset += arr->values()->length();
