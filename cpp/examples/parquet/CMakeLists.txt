@@ -17,10 +17,27 @@
 
 add_executable(parquet-low-level-example low-level-api/reader-writer.cc)
 add_executable(parquet-low-level-example2 low-level-api/reader-writer2.cc)
+<<<<<<< HEAD
+<<<<<<< HEAD
 add_executable(parquet-arrow-example parquet-arrow/reader-writer.cc)
 add_executable(parquet-stream-api-example parquet-stream-api/stream-reader-writer.cc)
 target_include_directories(parquet-low-level-example PRIVATE low-level-api/)
 target_include_directories(parquet-low-level-example2 PRIVATE low-level-api/)
+=======
+add_executable(parquet-with-index-page-skipping low-level-api/reader-writer-with-index.cc)
+=======
+add_executable(parquet-reader-with-pageindex low-level-api/reader-with-index.cc)
+add_executable(parquet-writer-with-pageindex low-level-api/writer-with-index.cc)
+>>>>>>> 90fe932e4... align with experiments and arrow contributio
+target_include_directories(parquet-low-level-example PRIVATE low-level-api/)
+target_include_directories(parquet-low-level-example2 PRIVATE low-level-api/)
+target_include_directories(parquet-reader-with-pageindex PRIVATE low-level-api/)
+target_include_directories(parquet-writer-with-pageindex PRIVATE low-level-api/)
+target_link_libraries(parquet-low-level-example parquet_static)
+target_link_libraries(parquet-low-level-example2 parquet_static)
+<<<<<<< HEAD
+target_link_libraries(parquet-with-index-page-skipping parquet_static)
+>>>>>>> 7c8477cd8... low level api
 
 # The variables in these files are for illustration purposes
 set(PARQUET_EXAMPLES_WARNING_SUPPRESSIONS
@@ -47,6 +64,10 @@ if(UNIX)
       PROPERTY COMPILE_FLAGS "-Wno-unused-variable")
   endforeach()
 endif()
+=======
+target_link_libraries(parquet-reader-with-pageindex parquet_static)
+target_link_libraries(parquet-writer-with-pageindex parquet_static)
+>>>>>>> 90fe932e4... align with experiments and arrow contributio
 
 # Prefer shared linkage but use static if shared build is deactivated
 if (ARROW_BUILD_SHARED)
@@ -68,6 +89,8 @@ endif()
 add_dependencies(parquet
   parquet-low-level-example
   parquet-low-level-example2
+<<<<<<< HEAD
+<<<<<<< HEAD
   parquet-arrow-example
   parquet-stream-api-example)
 
@@ -76,3 +99,11 @@ if (PARQUET_REQUIRE_ENCRYPTION)
     parquet-encryption-example
     parquet-encryption-example-all-crypto-options)
 endif()
+=======
+  parquet-with-index-page-skipping
+=======
+  parquet-writer-with-pageindex
+  parquet-reader-with-pageindex
+>>>>>>> 90fe932e4... align with experiments and arrow contributio
+  parquet-arrow-example)
+>>>>>>> 7c8477cd8... low level api

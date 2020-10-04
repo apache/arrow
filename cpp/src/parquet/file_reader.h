@@ -26,6 +26,7 @@
 #include "parquet/metadata.h"  // IWYU pragma: keep
 #include "parquet/platform.h"
 #include "parquet/properties.h"
+#include "parquet/bloom_filter.h"
 
 namespace parquet {
 
@@ -35,6 +36,8 @@ class PageReader;
 class RandomAccessSource;
 class RowGroupMetaData;
 
+static const uint32_t FIXED_LENGTH = 124;
+
 class PARQUET_EXPORT RowGroupReader {
  public:
   // Forward declare a virtual class 'Contents' to aid dependency injection and more
@@ -43,6 +46,12 @@ class PARQUET_EXPORT RowGroupReader {
   struct Contents {
     virtual ~Contents() {}
     virtual std::unique_ptr<PageReader> GetColumnPageReader(int i) = 0;
+    virtual std::unique_ptr<PageReader> GetColumnPageReaderWithIndex(int i,void* predicate, int64_t& min_index, int predicate_Col, int64_t& row_index,Type::type type_num,bool with_index, bool binary_search, int64_t& count_pages_scanned,
+                                            int64_t& total_num_pages, int64_t& last_first_row, bool with_bloom_filter, bool with_page_bf,
+                                            std::vector<int64_t>& unsorted_min_index, std::vector<int64_t>& unsorted_row_index,
+                                            parquet::format::ColumnIndex& col_index, parquet::format::OffsetIndex& offset_index, BlockSplitBloomFilter& blf,
+                                            bool& first_time_blf,bool& first_time_index,
+                                            float& blf_load_time, float& index_load_time) = 0;
     virtual const RowGroupMetaData* metadata() const = 0;
     virtual const ReaderProperties* properties() const = 0;
   };
@@ -56,11 +65,33 @@ class PARQUET_EXPORT RowGroupReader {
   // column. Ownership is shared with the RowGroupReader.
   std::shared_ptr<ColumnReader> Column(int i);
 
+  std::shared_ptr<ColumnReader> ColumnWithIndex(int i,void* predicate, int64_t& min_index, int predicate_col, int64_t& row_index,Type::type type_num, bool with_index, bool binary_search, int64_t& count_pages_scanned,
+                                            int64_t& total_num_pages, int64_t& last_first_row, bool with_bloom_filter, bool with_page_bf,
+                                            std::vector<int64_t>& unsorted_min_index, std::vector<int64_t>& unsorted_row_index);
+
   std::unique_ptr<PageReader> GetColumnPageReader(int i);
+
+  std::unique_ptr<PageReader> GetColumnPageReaderWithIndex(int column_index, void* predicate, int64_t& min_index , int predicate_col, int64_t& row_index,Type::type type_num, bool with_index, bool binary_search, int64_t& count_pages_scanned,
+                                            int64_t& total_num_pages, int64_t& last_first_row, bool with_bloom_filter, bool with_page_bf,
+                                            std::vector<int64_t>& unsorted_min_index, std::vector<int64_t>& unsorted_row_index, 
+                                            parquet::format::ColumnIndex& col_index, parquet::format::OffsetIndex& offset_index, BlockSplitBloomFilter& blf,
+                                            bool& first_time_blf,bool& first_time_index,
+                                            float& blf_load_time, float& index_load_time);
+
+ float GetBLFLoadTime() { return blf_load_time; };
+
+ float GetIndexLoadTime() { return index_load_time; };
 
  private:
   // Holds a pointer to an instance of Contents implementation
   std::unique_ptr<Contents> contents_;
+  parquet::format::ColumnIndex col_index;
+  parquet::format::OffsetIndex offset_index;
+  BlockSplitBloomFilter blf;
+  bool first_time_blf = true;
+  bool first_time_index = true;
+  float blf_load_time = 0.0; 
+  float index_load_time = 0.0;
 };
 
 class PARQUET_EXPORT ParquetFileReader {

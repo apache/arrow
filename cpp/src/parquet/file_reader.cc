@@ -42,12 +42,20 @@
 #include "parquet/properties.h"
 #include "parquet/schema.h"
 #include "parquet/types.h"
+<<<<<<< HEAD
+=======
+#include <chrono>
+#include <time.h>
+>>>>>>> cc47998e9... high precision time
 
 namespace parquet {
 
 // PARQUET-978: Minimize footer reads by reading 64 KB from the end of the file
 static constexpr int64_t kDefaultFooterReadSize = 64 * 1024;
 static constexpr uint32_t kFooterSize = 8;
+
+static constexpr uint32_t kColumnIndexReadSize = 16*1024;
+static constexpr uint32_t kOffsetIndexReadSize = 16*1024;
 
 // For PARQUET-816
 static constexpr int64_t kMaxDictHeaderSize = 100;
@@ -83,9 +91,47 @@ std::unique_ptr<PageReader> RowGroupReader::GetColumnPageReader(int i) {
   return contents_->GetColumnPageReader(i);
 }
 
+
+std::unique_ptr<PageReader> RowGroupReader::GetColumnPageReaderWithIndex(int i,void* predicate, int64_t& min_index,
+                                            int predicate_col, int64_t& row_index,Type::type type_num, bool with_index, bool binary_search, int64_t& count_pages_scanned,
+                                            int64_t& total_num_pages, int64_t& last_first_row, bool with_bloom_filter, bool with_page_bf,
+                                            std::vector<int64_t>& unsorted_min_index, std::vector<int64_t>& unsorted_row_index,
+                                            parquet::format::ColumnIndex& col_index, parquet::format::OffsetIndex& offset_index, BlockSplitBloomFilter& blf,
+                                            bool& first_time_blf,bool& first_time_index,
+                                            float& blf_load_time, float& index_load_time) {
+  DCHECK(i < metadata()->num_columns())
+      << "The RowGroup only has " << metadata()->num_columns()
+      << "columns, requested column: " << i;
+  return contents_->GetColumnPageReaderWithIndex(i,predicate, min_index, predicate_col, row_index,type_num, with_index, binary_search, count_pages_scanned,
+                                            total_num_pages, last_first_row, with_bloom_filter, with_page_bf,
+                                            unsorted_min_index, unsorted_row_index, col_index, offset_index, blf, first_time_blf,first_time_index,
+                                            blf_load_time, index_load_time);
+}
+
+std::shared_ptr<ColumnReader> RowGroupReader::ColumnWithIndex(int i,void* predicate, int64_t& min_index, int predicate_col, 
+                                  int64_t& row_index,Type::type type_num, bool with_index, bool binary_search, int64_t& count_pages_scanned,
+                                            int64_t& total_num_pages, int64_t& last_first_row, bool with_bloom_filter, bool with_page_bf,
+                                            std::vector<int64_t>& unsorted_min_index, std::vector<int64_t>& unsorted_row_index) {
+  DCHECK(i < metadata()->num_columns())
+      << "The RowGroup only has " << metadata()->num_columns()
+      << "columns, requested column: " << i;
+  const ColumnDescriptor* descr = metadata()->schema()->Column(i);
+
+  std::unique_ptr<PageReader> page_reader = contents_->GetColumnPageReaderWithIndex(i,predicate, min_index, predicate_col, row_index,type_num, with_index, binary_search, count_pages_scanned,
+                                            total_num_pages, last_first_row, with_bloom_filter, with_page_bf,
+                                            unsorted_min_index, unsorted_row_index, col_index,offset_index,blf,first_time_blf,first_time_index,
+                                            blf_load_time, index_load_time);
+  return ColumnReader::Make(
+      descr, std::move(page_reader),
+      const_cast<ReaderProperties*>(contents_->properties())->memory_pool());
+}
+
 // Returns the rowgroup metadata
 const RowGroupMetaData* RowGroupReader::metadata() const { return contents_->metadata(); }
 
+<<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
 /// Compute the section of the file that should be read for the given
 /// row group and column chunk.
 arrow::io::ReadRange ComputeColumnChunkRange(FileMetaData* file_metadata,
@@ -115,7 +161,15 @@ arrow::io::ReadRange ComputeColumnChunkRange(FileMetaData* file_metadata,
 
   return {col_start, col_length};
 }
+=======
+uint64_t page_offset=0,num_values=0,next_page_offset=0;
+>>>>>>> 10d3ed008... setup for file offset
+=======
+uint64_t page_offset,num_values,next_page_offset;
+>>>>>>> c0a9bb12f... default setup
 
+=======
+>>>>>>> c0ee60adc... generic reader
 // RowGroupReader::Contents implementation for the Parquet file specification
 class SerializedRowGroup : public RowGroupReader::Contents {
  public:
@@ -138,6 +192,12 @@ class SerializedRowGroup : public RowGroupReader::Contents {
 
   const ReaderProperties* properties() const override { return &properties_; }
 
+<<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
   std::unique_ptr<PageReader> GetColumnPageReader(int i) override {
     // Read column chunk from the file
     auto col = row_group_metadata_->ColumnChunk(i);
@@ -153,7 +213,1053 @@ class SerializedRowGroup : public RowGroupReader::Contents {
     } else {
       stream = properties_.GetStream(source_, col_range.offset, col_range.length);
     }
+  void SkipPages(long int v) const {
 
+  void GoToPage(int64_t v, parquet::format::ColumnIndex col_index, parquet::format::OffsetIndex offset_index, uint64_t& page_offset,uint64_t& num_values,uint64_t& next_page_offset) const {
+=======
+  void GoToPage(int64_t v, int64_t default_start, int64_t default_next_page_offset, int64_t default_num_values,parquet::format::ColumnIndex col_index, parquet::format::OffsetIndex offset_index, uint64_t& page_offset,uint64_t& num_values,uint64_t& next_page_offset) const {
+>>>>>>> c0a9bb12f... default setup
+      std::vector<int>::size_type itemindex = 0;
+=======
+
+  void GetRowRangeForPage(uint64_t& row_group_index, parquet::format::OffsetIndex offset_index, uint64_t page_idx, uint64_t& row_range_start, uint64_t& row_range_end) {
+    const auto& page_locations = offset_index.page_locations;
+    DCHECK(page_idx <  page_locations.size()) << "The page start index " << page_idx << " is greater than last page" << page_locations.size();
+    row_range_start = page_locations[page_idx].first_row_index;
+    if (page_idx == page_locations.size() - 1) {
+      row_range_end = row_range_end - row_range_start - 1;
+    } else {
+      row_range_end = page_locations[page_idx + 1].first_row_index - 1;
+    }
+  }
+
+=======
+>>>>>>> c0ee60adc... generic reader
+  void GetPageIndex(int64_t v, int64_t& min_index, parquet::format::ColumnIndex col_index, parquet::format::OffsetIndex offset_index) const {
+<<<<<<< HEAD
+//      std::vector<int>::size_type itemindex = 0;
+>>>>>>> b2788ebb5... added one page check
+      //std::vector<int64_t> min_vec = std::vector<std::basic_string<char>>(col_index.min_values.begin(), col_index.min_values.end());
+      int64_t min_diff = std::numeric_limits<int64_t>::max();//std::lower_bound(min_vec.begin(),min_vec.end(),v);
+=======
+>>>>>>> e33dd0dac... changed binary search
+      
+      for (uint64_t itemindex = 0;itemindex < offset_index.page_locations.size();itemindex++) {
+           int64_t* page_min = (int64_t*)(void *)col_index.min_values[itemindex].c_str();
+           int64_t* page_max = (int64_t*)(void *)col_index.max_values[itemindex].c_str();
+           int64_t max_diff = *page_max - *page_min;
+=======
+  void GetPageIndex(void* predicate, int64_t& min_index, parquet::format::ColumnIndex col_index, parquet::format::OffsetIndex offset_index,Type::type type_num) const {
+=======
+  void GetPageIndex(void* predicate, int64_t& min_index,int64_t& row_index, parquet::format::ColumnIndex col_index, parquet::format::OffsetIndex offset_index,Type::type type_num) const {
+<<<<<<< HEAD
+      int64_t min_diff = std::numeric_limits<int64_t>::max();
+>>>>>>> 03bef468a... fixed bsearch;order by parquet file;skip pages
+=======
+>>>>>>> 20660f098... experiments
+=======
+  bool isSorted(parquet::format::ColumnIndex col_index,parquet::format::OffsetIndex offset_index,Type::type type_num) const {
+      bool sorted = false;
+      switch(type_num) {
+         case Type::BOOLEAN:{
+
+           break;
+         }
+         case Type::INT32:{
+           int32_t* page_min_prev = (int32_t*)(void*)col_index.min_values[0].c_str();
+           for (uint64_t itemindex = 1;itemindex < offset_index.page_locations.size();) {
+               int32_t* page_min_curr = (int32_t*)(void*)col_index.min_values[itemindex].c_str();
+               if ( *page_min_prev <= *page_min_curr ){
+                  itemindex++;
+                  page_min_prev = page_min_curr;
+               }else{
+                  return sorted;
+               }
+           }
+           sorted = true;
+           break;
+         }
+         case Type::INT64:{
+           int64_t* page_min_prev = (int64_t*)(void*)col_index.min_values[0].c_str();
+           for (uint64_t itemindex = 1;itemindex < offset_index.page_locations.size();) {
+               int64_t* page_min_curr = (int64_t*)(void*)col_index.min_values[itemindex].c_str();
+               if ( *page_min_prev <= *page_min_curr ){
+                  itemindex++;
+                  page_min_prev = page_min_curr;
+               }else{
+                  return sorted;
+               }
+           }
+           sorted = true;
+           break;
+         }
+         case Type::INT96:{
+           uint32_t* page_min_prev = (uint32_t*)(void*)col_index.min_values[0].c_str();
+           for (uint64_t itemindex = 1;itemindex < offset_index.page_locations.size();) {
+               uint32_t* page_min_curr = (uint32_t*)(void*)col_index.min_values[itemindex].c_str();
+               if ( *page_min_prev <= *page_min_curr ){
+                  itemindex++;
+                  page_min_prev = page_min_curr;
+               }else{
+                  return sorted;
+               }
+           }
+           sorted = true;
+           break;
+         }
+         case Type::FLOAT:{
+           float* page_min_prev = (float*)(void*)col_index.min_values[0].c_str();
+           for (uint64_t itemindex = 1;itemindex < offset_index.page_locations.size();) {
+               float* page_min_curr = (float*)(void*)col_index.min_values[itemindex].c_str();
+               if ( *page_min_prev <= *page_min_curr ){
+                  itemindex++;
+                  page_min_prev = page_min_curr;
+               }else{
+                  return sorted;
+               }
+           }
+           sorted = true;
+           break;
+         }
+         case Type::DOUBLE:{
+           double* page_min_prev = (double*)(void*)col_index.min_values[0].c_str();
+           for (uint64_t itemindex = 1;itemindex < offset_index.page_locations.size();) {
+               double* page_min_curr = (double*)(void*)col_index.min_values[itemindex].c_str();
+               if ( *page_min_prev <= *page_min_curr ){
+                  itemindex++;
+                  page_min_prev = page_min_curr;
+               }else{
+                  return sorted;
+               }
+           }
+           sorted = true;
+           break;
+         }
+         case Type::BYTE_ARRAY:{
+           char* page_min_prev = (char*)(void*)col_index.min_values[0].c_str();
+           for (uint64_t itemindex = 1;itemindex < offset_index.page_locations.size();) {
+               char* page_min_curr = (char*)(void*)col_index.min_values[itemindex].c_str();
+               if ( strcmp(page_min_prev,page_min_curr) <= 0 ){
+                  itemindex++;
+                  page_min_prev = page_min_curr;
+               }else{
+                  return sorted;
+               }
+           }
+           sorted = true;
+           break;
+         }
+         case Type::FIXED_LEN_BYTE_ARRAY:{
+           char* page_min_prev = (char*)(void*)col_index.min_values[0].c_str();
+           for (uint64_t itemindex = 1;itemindex < offset_index.page_locations.size();) {
+               char* page_min_curr = (char*)(void*)col_index.min_values[itemindex].c_str();
+               if ( strcmp(page_min_prev,page_min_curr) <= 0 ){
+                  itemindex++;
+                  page_min_prev = page_min_curr;
+               }else{
+                  return sorted;
+               }
+           }
+           sorted = true;
+           break;
+         }
+         default:{
+           break;
+         }
+      }
+      return sorted;
+  }
+
+  void page_bloom_filter_has_value(std::shared_ptr<ArrowInputFile>& source_, ReaderProperties& properties_, void* predicate, format::OffsetIndex& offset_index
+                                    , int64_t& min_index, Type::type type_num, int64_t& row_index) const {
+      int64_t blf_offset = offset_index.page_bloom_filter_offsets[min_index];
+      std::shared_ptr<ArrowInputStream> stream_ = properties_.GetStream(source_, blf_offset,BloomFilter::kMaximumBloomFilterBytes);
+      BlockSplitBloomFilter page_blf = BlockSplitBloomFilter::Deserialize(stream_.get());
+      row_index = offset_index.page_locations[min_index].first_row_index;
+      switch(type_num) {
+          case Type::BOOLEAN:{
+          break;
+          }
+          case Type::INT32:{
+            int32_t v = *((int32_t*) predicate);
+            if (!page_blf.FindHash(page_blf.Hash(v))) row_index = -1;
+            break;
+          }
+          case Type::INT64:{
+            int64_t v = *((int64_t*) predicate);
+            if (!page_blf.FindHash(page_blf.Hash(v))) row_index = -1;
+            break;
+          }
+          case Type::INT96:{
+             uint32_t v = *((uint32_t*) predicate);
+             break;
+          }
+          case Type::FLOAT:{
+             float v = *((float*) predicate);
+             if (!page_blf.FindHash(page_blf.Hash((float)(int64_t)v))) row_index = -1;
+             break;
+          }
+          case Type::DOUBLE:{
+             double v = *((double*) predicate);
+             if (!page_blf.FindHash(page_blf.Hash((double)(int64_t)v))) row_index = -1;
+             break;
+          }
+          case Type::BYTE_ARRAY:{
+             const char* p = (char*) predicate;
+             char dest[FIXED_LENGTH];
+             for ( uint32_t i = 0; i < (FIXED_LENGTH-strlen(p));i++) dest[i] = '0';
+             for ( uint32_t i = (FIXED_LENGTH-strlen(p)); i < FIXED_LENGTH;i++) dest[i] = p[i-(FIXED_LENGTH-strlen(p))];
+             dest[FIXED_LENGTH] = '\0';
+             std::string test(dest);
+             ByteArray pba(test.size(),reinterpret_cast<const uint8_t*>(test.c_str()));
+             if (!page_blf.FindHash(page_blf.Hash(&pba))) row_index = -1;
+             break;
+          }
+          case Type::FIXED_LEN_BYTE_ARRAY:{
+             char* v = (char*) predicate;
+             uint8_t ptr = *v;
+             ByteArray pba((uint32_t)strlen(v),&ptr);
+             if (!page_blf.FindHash(page_blf.Hash(&pba))) row_index = -1;
+             break;
+          }
+          default:{
+             parquet::ParquetException::NYI("type reader not implemented");
+          }
+      }
+  }
+
+
+  void page_bloom_filter_has_value(std::shared_ptr<ArrowInputFile>& source_, ReaderProperties& properties_, void* predicate, format::OffsetIndex& offset_index
+                                    , std::vector<int64_t>& unsorted_min_index, Type::type type_num, std::vector<int64_t>& unsorted_row_index) const {
+      
+      for ( int64_t min_index: unsorted_min_index) {
+        int64_t blf_offset = offset_index.page_bloom_filter_offsets[min_index];
+      std::shared_ptr<ArrowInputStream> stream_ = properties_.GetStream(source_, blf_offset,BloomFilter::kMaximumBloomFilterBytes);
+      BlockSplitBloomFilter page_blf = BlockSplitBloomFilter::Deserialize(stream_.get());
+      unsorted_row_index.push_back(offset_index.page_locations[min_index].first_row_index);
+      switch(type_num) {
+          case Type::BOOLEAN:{
+          break;
+          }
+          case Type::INT32:{
+            int32_t v = *((int32_t*) predicate);
+            if (!page_blf.FindHash(page_blf.Hash(v))) unsorted_row_index.pop_back();
+            break;
+          }
+          case Type::INT64:{
+            int64_t v = *((int64_t*) predicate);
+            if (!page_blf.FindHash(page_blf.Hash(v))) unsorted_row_index.pop_back();
+            break;
+          }
+          case Type::INT96:{
+             uint32_t v = *((uint32_t*) predicate);
+             break;
+          }
+          case Type::FLOAT:{
+             float v = *((float*) predicate);
+             if (!page_blf.FindHash(page_blf.Hash((float)(int64_t)v))) unsorted_row_index.pop_back();
+             break;
+          }
+          case Type::DOUBLE:{
+             double v = *((double*) predicate);
+             if (!page_blf.FindHash(page_blf.Hash((double)(int64_t)v))) unsorted_row_index.pop_back();
+             break;
+          }
+          case Type::BYTE_ARRAY:{
+             const char* p = (char*) predicate;
+             char dest[FIXED_LENGTH];
+             for ( uint32_t i = 0; i < (FIXED_LENGTH-strlen(p));i++) dest[i] = '0';
+             for ( uint32_t i = (FIXED_LENGTH-strlen(p)); i < FIXED_LENGTH;i++) dest[i] = p[i-(FIXED_LENGTH-strlen(p))];
+             dest[FIXED_LENGTH] = '\0';
+             std::string test(dest);
+             ByteArray pba(test.size(),reinterpret_cast<const uint8_t*>(test.c_str()));
+             if (!page_blf.FindHash(page_blf.Hash(&pba))) unsorted_row_index.pop_back();
+             break;
+          }
+          case Type::FIXED_LEN_BYTE_ARRAY:{
+             const char* p = (char*) predicate;
+             char dest[FIXED_LENGTH];
+             for ( uint32_t i = 0; i < (FIXED_LENGTH-strlen(p));i++) dest[i] = '0';
+             for ( uint32_t i = (FIXED_LENGTH-strlen(p)); i < FIXED_LENGTH;i++) dest[i] = p[i-(FIXED_LENGTH-strlen(p))];
+             dest[FIXED_LENGTH] = '\0';
+             std::string test(dest);
+             ByteArray pba(test.size(),reinterpret_cast<const uint8_t*>(test.c_str()));
+             if (!page_blf.FindHash(page_blf.Hash(&pba))) unsorted_row_index.pop_back();
+             break;
+          }
+          default:{
+             parquet::ParquetException::NYI("type reader not implemented");
+          }
+      }
+      } 
+  }
+
+  void GetPageIndex(std::shared_ptr<ArrowInputFile>& source_, ReaderProperties& properties_, void* predicate, 
+                    int64_t& min_index,int64_t& row_index, parquet::format::ColumnIndex col_index, 
+                    parquet::format::OffsetIndex offset_index,Type::type type_num, bool sorted, 
+                    bool with_binarysearch, int64_t& count_pages_scanned,
+<<<<<<< HEAD
+                    parquet::BlockSplitBloomFilter& blf, bool with_bloom_filter, bool with_page_bf) const {
+<<<<<<< HEAD
+      bool sorted = isSorted(col_index,offset_index,type_num);
+>>>>>>> 77931bb15... use binary search
+=======
+=======
+                    bool with_bloom_filter, bool with_page_bf) const {
+>>>>>>> dcf50b2dd... PARQUET-1327-bloom-filter-read-write-implementation-separate-calls
+      
+>>>>>>> 08c315bf2... unsorted rows
+      switch(type_num) {
+         case Type::BOOLEAN:{
+           // doesn't make sense for bool
+           break;
+         }
+         case Type::INT32:{
+              int32_t v = *((int32_t*) predicate);
+              
+              
+
+              if(sorted && with_binarysearch){
+                  if(col_index.min_values.size() >= 2){
+                    uint64_t last_index = col_index.min_values.size()-1;
+                    uint64_t begin_index = 0;
+                    uint64_t itemindex = (begin_index + last_index)/2;
+
+                    while(begin_index <= last_index) {
+                      itemindex = (begin_index + last_index)/2;
+                      int32_t* page_min_curr = (int32_t*)col_index.min_values[itemindex].c_str(); 
+                      
+                      if ( v < *page_min_curr ){
+                         last_index -= 1;
+                         count_pages_scanned++;
+                         continue;
+                      } 
+                      if ( itemindex < last_index ){
+                        int32_t* page_min_next = (int32_t*)col_index.min_values[itemindex+1].c_str();
+                        if ( v > *page_min_next ){
+                          begin_index += 1;
+                          count_pages_scanned++;
+                        }
+                        if ( v < *page_min_next && v > *page_min_curr ){
+                            begin_index = last_index + 1;
+                            count_pages_scanned++;
+                        }
+                      }else {
+                         begin_index = last_index + 1;
+                         count_pages_scanned++;
+                      }
+                    }
+                    min_index = itemindex;
+                  }
+                  else
+                  {
+                    min_index = 0;
+                  }
+              }
+              else{
+                for (uint64_t itemindex = 0;itemindex < offset_index.page_locations.size();itemindex++) {
+                 int32_t* page_min = (int32_t*)(void *)col_index.min_values[itemindex].c_str();
+                 int32_t* page_max = (int32_t*)(void *)col_index.max_values[itemindex].c_str();
+                 int32_t max_diff = *page_max - *page_min;
+
+                  if ( *page_min <= v && v <= *page_max ) {
+                    min_index = itemindex;
+                  }
+                  count_pages_scanned = itemindex;
+                }
+                min_index = (count_pages_scanned == ((int)offset_index.page_locations.size()-1) && min_index == -1)? count_pages_scanned:min_index;
+              }
+           break;
+         }
+         case Type::INT64:
+         {
+             int64_t v = *((int64_t*) predicate);
+<<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
+             
+             for (uint64_t itemindex = 0;itemindex < offset_index.page_locations.size();itemindex++) {
+             int64_t* page_min = (int64_t*)(void *)col_index.min_values[itemindex].c_str();
+             int64_t* page_max = (int64_t*)(void *)col_index.max_values[itemindex].c_str();
+<<<<<<< HEAD
+<<<<<<< HEAD
+             int64_t max_diff = *page_max - *page_min;
+>>>>>>> 6eef203fa... generic predicate
+=======
+             int64_t diff = *page_max - v;
+>>>>>>> 03bef468a... fixed bsearch;order by parquet file;skip pages
+=======
+             int64_t max_diff = *page_max - *page_min;
+>>>>>>> 272f1189f... tests
+=======
+             if(sorted){
+=======
+=======
+             if (with_bloom_filter && !blf.FindHash(blf.Hash(v))) {
+                 row_index = -1; return;
+             }
+=======
+             
+>>>>>>> dcf50b2dd... PARQUET-1327-bloom-filter-read-write-implementation-separate-calls
+             
+>>>>>>> 8c2d1c73b... bloom filter tests
+             if(sorted && with_binarysearch){
+>>>>>>> f82a768c4... binary search and page count
+                  if(col_index.min_values.size() >= 2){
+                    uint64_t last_index = col_index.min_values.size()-1;
+                    uint64_t begin_index = 0;
+                    uint64_t itemindex = (begin_index + last_index)/2;
+
+                    while(begin_index <= last_index) {
+                      itemindex = (begin_index + last_index)/2;
+                      int64_t* page_min_curr = (int64_t*)col_index.min_values[itemindex].c_str(); 
+                      
+                      if ( v < *page_min_curr ){
+                         last_index -= 1;
+                         count_pages_scanned++;
+                         continue;
+                      } 
+                      if(itemindex < last_index){
+                        int64_t* page_min_next = (int64_t*)col_index.min_values[itemindex+1].c_str();
+                        if ( v > *page_min_next ){
+                          begin_index += 1;
+                          count_pages_scanned++;
+                        }
+                        if ( v < *page_min_next && v > *page_min_curr ){
+                            begin_index = last_index + 1;
+                            count_pages_scanned++;
+                        }
+                      }else{
+                        begin_index = last_index + 1;
+                        count_pages_scanned++;
+                      }
+                   }
+                    min_index = itemindex;
+                  }
+                  else
+                  {
+                    min_index = 0;
+                  }
+              }
+              else{
+                 for (uint64_t itemindex = 0;itemindex < offset_index.page_locations.size();itemindex++) {
+                  int64_t* page_min = (int64_t*)(void *)col_index.min_values[itemindex].c_str();
+                  int64_t* page_max = (int64_t*)(void *)col_index.max_values[itemindex].c_str();
+                  int64_t max_diff = *page_max - *page_min;
+>>>>>>> 77931bb15... use binary search
+           
+                  if ( *page_min <= v && v <= *page_max ) {
+                    min_index = itemindex;
+                  }
+                  count_pages_scanned = itemindex;
+                }
+                min_index = (count_pages_scanned == ((int)offset_index.page_locations.size()-1) && min_index == -1)? count_pages_scanned:min_index;
+              }
+            break;
+         }
+         case Type::INT96:
+         {
+             uint32_t v = *((uint32_t*) predicate);
+              if(sorted && with_binarysearch){
+                  if(col_index.min_values.size() >= 2){
+                    uint64_t last_index = col_index.min_values.size()-1;
+                    uint64_t begin_index = 0;
+                    uint64_t itemindex = (begin_index + last_index)/2;
+
+                    while(begin_index <= last_index) {
+                      itemindex = (begin_index + last_index)/2;
+                      uint32_t* page_min_curr = (uint32_t*)col_index.min_values[itemindex].c_str(); 
+                      
+                      if ( v < *page_min_curr ){
+                         last_index -= 1;
+                         count_pages_scanned++;
+                         continue;
+                      } 
+                      if ( itemindex < last_index ){
+                        uint32_t* page_min_next = (uint32_t*)col_index.min_values[itemindex+1].c_str();
+                        if ( v > *page_min_next ){
+                          begin_index += 1;
+                          count_pages_scanned++;
+                        }
+                        if ( v < *page_min_next && v > *page_min_curr ){
+                            begin_index = last_index + 1;
+                            count_pages_scanned++;
+                        }
+                      }else{
+                        begin_index = last_index + 1;
+                        count_pages_scanned++;
+                      }
+                    }
+                    min_index = itemindex;
+                  }
+                  else
+                  {
+                    min_index = 0;
+                  }
+              }
+              else {
+                for (uint64_t itemindex = 0;itemindex < offset_index.page_locations.size();itemindex++) {
+                  uint32_t* page_min = (uint32_t*)(void *)col_index.min_values[itemindex].c_str();
+                  uint32_t* page_max = (uint32_t*)(void *)col_index.max_values[itemindex].c_str();
+                  uint32_t max_diff = (*page_max - *page_min);
+            
+                  if ( *page_min <= v && max_diff >= (uint32_t) abs(v - *page_min) ) {
+                   min_index = itemindex;
+                   count_pages_scanned = itemindex;
+                  }
+                }
+              }
+           break;
+         }
+         case Type::FLOAT:
+         {
+             float v = *((float*) predicate);
+             
+             
+             if(sorted && with_binarysearch){
+                  if(col_index.min_values.size() >= 2){
+                    uint64_t last_index = col_index.min_values.size()-1;
+                    uint64_t begin_index = 0;
+                    uint64_t itemindex = (begin_index + last_index)/2;
+
+                    while(begin_index <= last_index) {
+                      itemindex = (begin_index + last_index)/2;
+                      float* page_min_curr = (float*)col_index.min_values[itemindex].c_str(); 
+                      
+                      if ( v < *page_min_curr ){
+                         last_index -= 1;
+                         count_pages_scanned++;
+                         continue;
+                      } 
+                      if ( itemindex < last_index ){
+                        float* page_min_next = (float*)col_index.min_values[itemindex+1].c_str();
+                        if ( v > *page_min_next ){
+                          begin_index += 1;
+                          count_pages_scanned++;
+                        }
+                        if ( v < *page_min_next && v > *page_min_curr ){
+                            begin_index = last_index + 1;
+                            count_pages_scanned++;
+                        }
+                      }else{
+                        begin_index = last_index + 1;
+                        count_pages_scanned++;
+                      }
+                    }
+                    min_index = itemindex;
+                  }
+                  else
+                  {
+                    min_index = 0;
+                  }
+              }
+              else{
+                for (uint64_t itemindex = 0;itemindex < offset_index.page_locations.size();itemindex++) {
+                  float* page_min = (float*)(void *)col_index.min_values[itemindex].c_str();
+                  float* page_max = (float*)(void *)col_index.max_values[itemindex].c_str();
+             
+                  auto epsilon = std::numeric_limits<float>::epsilon();
+                  float error_factor = 9*pow(10,15);
+                  float max_diff = *page_max - *page_min;
+
+                  if ( *page_min < v && v < *page_max ) {
+                    min_index = itemindex;
+                  }
+                  count_pages_scanned = itemindex;
+                }
+                min_index = (count_pages_scanned == ((int)offset_index.page_locations.size()-1) && min_index == -1)? count_pages_scanned:min_index;
+              }
+           break;
+         }
+         case Type::DOUBLE:
+         {
+             double v = *((double*) predicate);
+             
+             
+             if(sorted && with_binarysearch){
+                  if(col_index.min_values.size() >= 2){
+                    uint64_t last_index = col_index.min_values.size()-1;
+                    uint64_t begin_index = 0;
+                    uint64_t itemindex = (begin_index + last_index)/2;
+
+                    while(begin_index <= last_index) {
+                      itemindex = (begin_index + last_index)/2;
+                      double* page_min_curr = (double*)col_index.min_values[itemindex].c_str(); 
+                      
+                      if ( v < *page_min_curr ){
+                         last_index -= 1;
+                         count_pages_scanned++;
+                         continue;
+                      } 
+                      if ( itemindex < last_index ){
+                        double* page_min_next = (double*)col_index.min_values[itemindex+1].c_str();
+                        if ( v > *page_min_next ){
+                          begin_index += 1;
+                          count_pages_scanned++;
+                        }
+                        if ( v < *page_min_next && v > *page_min_curr ){
+                            begin_index = last_index + 1;
+                            count_pages_scanned++;
+                        }
+                      }else{
+                        begin_index = last_index + 1;
+                        count_pages_scanned++;
+                      }
+                    }
+                    min_index = itemindex;
+                  }
+                  else
+                  {
+                    min_index = 0;
+                  }
+              }
+              else{
+                for (uint64_t itemindex = 0;itemindex < offset_index.page_locations.size();itemindex++) {
+                   double* page_min = (double*)(void *)col_index.min_values[itemindex].c_str();
+                   double* page_max = (double*)(void *)col_index.max_values[itemindex].c_str();
+                   double max_diff = *page_max - *page_min;
+
+                   auto epsilon = std::numeric_limits<double>::epsilon();
+                   double error_factor = 9*pow(10,15);
+
+                   if ( *page_min < v && v < *page_max ) {
+                      min_index = itemindex;
+                   }
+                   count_pages_scanned = itemindex;
+                }
+                min_index = (count_pages_scanned == ((int)offset_index.page_locations.size()-1) && min_index == -1)? count_pages_scanned:min_index;
+              }
+           break;
+         }
+         case Type::BYTE_ARRAY:
+         {
+             char* v = (char*) predicate;
+             char* p = (char*) predicate;
+             // remove leading zeroes in the predicate, if present.
+             int checkzero = 0;
+             while ( p [checkzero] == '0') checkzero++; 
+             p = (p + checkzero);
+             char dest[FIXED_LENGTH];
+             for ( uint32_t i = 0; i < (FIXED_LENGTH-strlen(p));i++) dest[i] = '0';
+             for ( uint32_t i = (FIXED_LENGTH-strlen(p)); i < FIXED_LENGTH;i++) dest[i] = p[i-(FIXED_LENGTH-strlen(p))];
+             dest[FIXED_LENGTH] = '\0';
+             std::string test(dest);
+             ByteArray pba(test.size(),reinterpret_cast<const uint8_t*>(test.c_str()));
+             
+
+             std::string str(v);
+             if(sorted && with_binarysearch){
+                  if(col_index.min_values.size() >= 2){
+                    uint64_t last_index = col_index.min_values.size()-1;
+                    uint64_t begin_index = 0;
+                    uint64_t itemindex = (begin_index + last_index)/2;
+
+                    while(begin_index <= last_index) {
+                      itemindex = (begin_index + last_index)/2;
+                      std::string page_min_curr_orig = (std::string)col_index.min_values[itemindex].c_str(); 
+                      std::string page_min_curr(page_min_curr_orig.substr(page_min_curr_orig.length() - str.length(),str.length()));
+                      if ( test.compare(page_min_curr_orig) < 0 ){
+                         last_index -= 1;
+                         count_pages_scanned++;
+                         continue;
+                      } 
+                      if ( itemindex < last_index ){
+                        std::string page_min_next_orig = (std::string)col_index.min_values[itemindex+1].c_str();
+                        std::string page_min_next(page_min_next_orig.substr(page_min_curr_orig.length() - str.length(),str.length()));
+                        if ( test.compare(page_min_next_orig) > 0 ){
+                          begin_index += 1;
+                          count_pages_scanned++;
+                        }
+                        if ( test.compare(page_min_next_orig) < 0 && test.compare(page_min_curr_orig) > 0 ){
+                            begin_index = last_index + 1;
+                            count_pages_scanned++;
+                        }
+                      }else{
+                         begin_index = last_index + 1;
+                         count_pages_scanned++;
+                      }
+                    }
+                    min_index = itemindex;
+                  }
+                  else
+                  {
+                    min_index = 0;
+                  }
+              }
+              else {
+                 for (uint64_t itemindex = 0;itemindex < offset_index.page_locations.size();itemindex++) {
+                    std::string page_min_orig = (std::string)col_index.min_values[itemindex].c_str();
+                    std::string page_max_orig = (std::string)col_index.max_values[itemindex].c_str();
+                    std::string page_min(page_min_orig.substr(page_min_orig.length()-str.length(),str.length()));
+                    std::string page_max(page_max_orig.substr(page_max_orig.length()-str.length(),str.length()));
+
+                   if ( test.compare(page_min_orig) > 0 && test.compare(page_max_orig) < 0 ) {
+                      min_index = itemindex;
+                   }
+                   count_pages_scanned = itemindex;
+                }
+                min_index = (count_pages_scanned == ((int)offset_index.page_locations.size()-1) && min_index == -1)? count_pages_scanned:min_index;
+              }
+           break;
+         }
+         case Type::FIXED_LEN_BYTE_ARRAY:
+         {
+             char* v = (char*) predicate;
+
+             uint8_t ptr = *v;
+             ByteArray pba((uint32_t)strlen(v),&ptr);
+             
+
+             std::string str(v);
+             if(sorted && with_binarysearch){
+                  if(col_index.min_values.size() >= 2){
+                    uint64_t last_index = col_index.min_values.size()-1;
+                    uint64_t begin_index = 0;
+                    uint64_t itemindex = (begin_index + last_index)/2;
+
+                    while(begin_index <= last_index) {
+                      itemindex = (begin_index + last_index)/2;
+                      std::string page_min_curr = (std::string)col_index.min_values[itemindex].c_str(); 
+                      
+                      if ( str.compare(page_min_curr) < 0 ){
+                         last_index -= 1;
+                         count_pages_scanned++;
+                         continue;
+                      } 
+                      if ( itemindex < last_index ){
+                        std::string page_min_next = (std::string)col_index.min_values[itemindex+1].c_str();
+                        if ( str.compare(page_min_next) > 0 ){
+                          begin_index += 1;
+                          count_pages_scanned++;
+                        }
+                        if ( str.compare(page_min_next) < 0 && str.compare(page_min_curr) > 0 ){
+                            begin_index = last_index + 1;
+                            count_pages_scanned++;
+                        }
+                      }else{
+                         begin_index = last_index + 1;
+                         count_pages_scanned++;
+                      }
+                    }
+                    min_index = itemindex;
+                  }
+                  else
+                  {
+                    min_index = 0;
+                  }
+              }
+              else {
+                 for (uint64_t itemindex = 0;itemindex < offset_index.page_locations.size();itemindex++) {
+                    std::string page_min = col_index.min_values[itemindex];
+                    std::string page_max = col_index.max_values[itemindex];
+
+                   if ( str.compare(page_min)>0 && str.compare(page_max)<0 ) {
+                      min_index = itemindex;
+                      count_pages_scanned = itemindex;
+                   }
+                }
+              }
+           break;
+         }
+         default:
+         {
+           parquet::ParquetException::NYI("type reader not implemented");
+         }
+      }
+      
+      if (with_page_bf)
+         page_bloom_filter_has_value(source_,properties_,predicate, offset_index,min_index,type_num, row_index);
+      else 
+         row_index = offset_index.page_locations[min_index].first_row_index;
+  }
+  
+
+  void GetPageIndex(std::shared_ptr<ArrowInputFile>& source_, ReaderProperties& properties_, void* predicate, 
+                    std::vector<int64_t>& unsorted_min_index, std::vector<int64_t>& unsorted_row_index,
+                    parquet::format::ColumnIndex col_index, parquet::format::OffsetIndex offset_index,
+                    Type::type type_num, bool sorted, bool with_binarysearch, int64_t& count_pages_scanned,
+                    bool with_bloom_filter, bool with_page_bf) const {
+      
+      switch(type_num) {
+         case Type::BOOLEAN:{
+           // doesn't make sense for bool
+           break;
+         }
+         case Type::INT32:{
+              int32_t v = *((int32_t*) predicate);
+              
+              for (uint64_t itemindex = 0;itemindex < offset_index.page_locations.size();itemindex++) {
+                int32_t* page_min = (int32_t*)(void *)col_index.min_values[itemindex].c_str();
+                int32_t* page_max = (int32_t*)(void *)col_index.max_values[itemindex].c_str();
+                int32_t max_diff = *page_max - *page_min;
+
+                if ( *page_min <= v && max_diff >= abs(v - *page_min) ) {
+                  unsorted_min_index.push_back(itemindex);
+                  count_pages_scanned = itemindex;
+                }
+              }
+           break;
+         }
+         case Type::INT64:
+         {
+             int64_t v = *((int64_t*) predicate);
+             
+             for (uint64_t itemindex = 0;itemindex < offset_index.page_locations.size();itemindex++) {
+                int64_t* page_min = (int64_t*)(void *)col_index.min_values[itemindex].c_str();
+                int64_t* page_max = (int64_t*)(void *)col_index.max_values[itemindex].c_str();
+                int64_t max_diff = *page_max - *page_min;
+           
+                if ( *page_min <= v && max_diff >= abs(v - *page_min) ) {
+                  unsorted_min_index.push_back(itemindex);
+                  count_pages_scanned = itemindex;
+                }
+              }
+
+            break;
+         }
+         case Type::INT96:
+         {
+           break;
+         }
+         case Type::FLOAT:
+         {
+             float v = *((float*) predicate);
+             
+             for (uint64_t itemindex = 0;itemindex < offset_index.page_locations.size();itemindex++) {
+                float* page_min = (float*)(void *)col_index.min_values[itemindex].c_str();
+                float* page_max = (float*)(void *)col_index.max_values[itemindex].c_str();
+             
+                auto epsilon = std::numeric_limits<float>::epsilon();
+                float error_factor = 9*pow(10,15);
+                float max_diff = *page_max - *page_min;
+
+                if ( fabs(max_diff - (fabs(v-*page_min)+fabs(*page_max-v))) <= error_factor*epsilon ) {
+
+                  unsorted_min_index.push_back(itemindex);
+                  count_pages_scanned = itemindex;
+
+                }
+             }
+
+           break;
+         }
+         case Type::DOUBLE:
+         {
+             double v = *((double*) predicate);
+             
+             
+              for (uint64_t itemindex = 0;itemindex < offset_index.page_locations.size();itemindex++) {
+                double* page_min = (double*)(void *)col_index.min_values[itemindex].c_str();
+                double* page_max = (double*)(void *)col_index.max_values[itemindex].c_str();
+                double max_diff = *page_max - *page_min;
+
+                auto epsilon = std::numeric_limits<double>::epsilon();
+                double error_factor = 9*pow(10,15);
+
+                if ( fabs(max_diff - (fabs(v-*page_min)+fabs(*page_max-v))) <= error_factor*epsilon  ) {
+
+                  unsorted_min_index.push_back(itemindex);
+                  count_pages_scanned = itemindex;
+                }
+              }
+
+           break;
+         }
+         case Type::BYTE_ARRAY:
+         {
+             char* v = (char*) predicate;
+
+             const char* p = (char*) predicate;
+             char dest[FIXED_LENGTH];
+             for ( uint32_t i = 0; i < (FIXED_LENGTH-strlen(p));i++) dest[i] = '0';
+             for ( uint32_t i = (FIXED_LENGTH-strlen(p)); i < FIXED_LENGTH;i++) dest[i] = p[i-(FIXED_LENGTH-strlen(p))];
+             dest[FIXED_LENGTH] = '\0';
+             std::string test(dest);
+             ByteArray pba(test.size(),reinterpret_cast<const uint8_t*>(test.c_str()));
+
+             std::string str(v);
+             
+             for (uint64_t itemindex = 0;itemindex < offset_index.page_locations.size();itemindex++) {
+                std::string page_min_orig = col_index.min_values[itemindex];
+                std::string page_max_orig = col_index.max_values[itemindex];
+                std::string page_min(page_min_orig.substr(page_min_orig.length()-str.length(),str.length()));
+                std::string page_max(page_max_orig.substr(page_max_orig.length()-str.length(),str.length()));
+
+                if ( test.compare(page_min_orig)>0 && test.compare(page_max_orig)<0 ) {
+                  unsorted_min_index.push_back(itemindex);
+                  count_pages_scanned = itemindex;
+                }
+             }
+
+           break;
+         }
+         case Type::FIXED_LEN_BYTE_ARRAY:
+         {
+             
+           break;
+         }
+         default:
+         {
+           parquet::ParquetException::NYI("type reader not implemented");
+         }
+      }
+      
+      if (with_page_bf)
+         page_bloom_filter_has_value(source_,properties_,predicate, offset_index,unsorted_min_index,type_num, unsorted_row_index);
+      else {
+          for (int64_t min_index : unsorted_min_index)
+            unsorted_row_index.push_back(offset_index.page_locations[min_index].first_row_index);
+      }
+         
+  }
+
+
+  void GetPageWithoutIndex(std::shared_ptr<ArrowInputFile>& source_, ReaderProperties& properties_, void* predicate, 
+                    int64_t& min_index,int64_t& row_index, Type::type type_num,
+                    bool with_binarysearch, int64_t& count_pages_scanned,
+                    parquet::BlockSplitBloomFilter& blf, bool with_bloom_filter, bool with_page_bf) const {
+      
+      switch(type_num) {
+         case Type::BOOLEAN:{
+           // doesn't make sense for bool
+           break;
+         }
+         case Type::INT32:{
+              int32_t v = *((int32_t*) predicate);
+              
+              if (with_bloom_filter && !blf.FindHash(blf.Hash(v))) {
+                 row_index = -1; return;
+              }
+
+              
+           break;
+         }
+         case Type::INT64:
+         {
+             int64_t v = *((int64_t*) predicate);
+             if (with_bloom_filter && !blf.FindHash(blf.Hash(v))) {
+                 row_index = -1; return;
+             }
+             
+             
+            break;
+         }
+         case Type::INT96:
+         {
+             uint32_t v = *((uint32_t*) predicate);
+              
+           break;
+         }
+         case Type::FLOAT:
+         {
+             float v = *((float*) predicate);
+             if (with_bloom_filter && !blf.FindHash(blf.Hash((float)(int64_t)v))) {
+                 row_index = -1; return;
+             }
+             
+             
+           break;
+         }
+         case Type::DOUBLE:
+         {
+             double v = *((double*) predicate);
+             if (with_bloom_filter && !blf.FindHash(blf.Hash((double)(int64_t)v))) {
+                 row_index = -1; return;
+             }
+             
+             
+           break;
+         }
+         case Type::BYTE_ARRAY:
+         {
+             char* v = (char*) predicate;
+             char* p = (char*) predicate;
+             // remove leading zeroes in the predicate, if present.
+             int checkzero = 0;
+             while ( p [checkzero] == '0') checkzero++; 
+             p = (p + checkzero);
+             char dest[FIXED_LENGTH];
+             for ( uint32_t i = 0; i < (FIXED_LENGTH-strlen(p));i++) dest[i] = '0';
+             for ( uint32_t i = (FIXED_LENGTH-strlen(p)); i < FIXED_LENGTH;i++) dest[i] = p[i-(FIXED_LENGTH-strlen(p))];
+             dest[FIXED_LENGTH] = '\0';
+             std::string test(dest);
+             ByteArray pba(test.size(),reinterpret_cast<const uint8_t*>(test.c_str()));
+             if (with_bloom_filter && !blf.FindHash(blf.Hash(&pba))) {
+                 row_index = -1; return;
+             }
+
+             std::string str(v);
+             
+           break;
+         }
+         case Type::FIXED_LEN_BYTE_ARRAY:
+         {
+             char* v = (char*) predicate;
+
+             uint8_t ptr = *v;
+             ByteArray pba((uint32_t)strlen(v),&ptr);
+             if (with_bloom_filter && !blf.FindHash(blf.Hash(&pba))) {
+                 row_index = -1; return;
+             }
+
+             std::string str(v);
+             
+           break;
+         }
+         default:
+         {
+           parquet::ParquetException::NYI("type reader not implemented");
+         }
+      }
+      
+    /*if (with_page_bf)
+         page_bloom_filter_has_value(source_,properties_,predicate, offset_index,min_index,type_num, row_index);*/
+      
+  }
+
+  void GetPageWithRowIndex(int64_t& page_index, parquet::format::OffsetIndex offset_index, int64_t& row_index) const {
+      
+      for (uint64_t page_index = 0;page_index < offset_index.page_locations.size() && 
+              offset_index.page_locations[page_index].first_row_index!=row_index;page_index++) {
+          
+      }
+  }
+
+
+
+/// ---- Page filtering ----
+/// A Parquet file can contain a so called "page index". It has two parts, a column index
+/// and an offset index. The column index contains statistics like minimum and maximum
+/// values for each page. The offset index contains information about page locations in
+/// the Parquet file and top-level row ranges. HdfsParquetScanner evaluates the min/max
+/// conjuncts against the column index and determines the surviving pages with the help of
+/// the offset index. Then it will configure the column readers to only scan the pages
+/// and row ranges that have a chance to store rows that pass the conjuncts.
+
+
+  bool HasPageIndex(ColumnChunkMetaData* col) {
+
+    int64_t column_index_offset = col->column_index_offset();
+    int64_t offset_index_offset = col->offset_index_offset();
+    int64_t column_index_length = col->column_index_length();
+    int64_t offset_index_length = col->offset_index_length();
+
+    int64_t ci_start = std::numeric_limits<int64_t>::max();
+    int64_t oi_start = std::numeric_limits<int64_t>::max();
+    int64_t ci_end = -1;
+    int64_t oi_end = -1;
+
+    if (column_index_offset && column_index_length){
+       ci_start = std::min(ci_start, column_index_offset);
+       ci_end = std::max(ci_end, column_index_offset + column_index_length);
+    }
+    if (offset_index_offset && offset_index_length) {
+       oi_start = std::min(oi_start, offset_index_offset);
+       oi_end = std::max(oi_end, offset_index_offset + offset_index_length);
+    }
+
+    return oi_end != -1 && ci_end != -1; 
     std::unique_ptr<ColumnCryptoMetaData> crypto_metadata = col->crypto_metadata();
 
     // Column is encrypted only if crypto_metadata exists.
@@ -166,9 +1272,70 @@ class SerializedRowGroup : public RowGroupReader::Contents {
       throw ParquetException("RowGroup is noted as encrypted but no file decryptor");
     }
 
+  void DeserializeColumnIndex(const ColumnChunkMetaData& col_chunk, parquet::format::ColumnIndex* column_index, std::shared_ptr<ArrowInputFile>& source_, ReaderProperties& properties_) {
+    int64_t ci_start = std::numeric_limits<int64_t>::max(); 
+    int64_t ci_end = std::numeric_limits<int64_t>::max();
+    string_view page_buffer;
+    ci_start = std::min(ci_start,col_chunk.column_index_offset());
+    ci_end = std::max(ci_end,col_chunk.column_index_offset() + col_chunk.column_index_length());
+    int8_t buffer_offset = col_chunk.column_index_offset() - ci_start;
+    uint32_t length = col_chunk.column_index_length();
+
+    std::shared_ptr<ArrowInputStream> stream_ = properties_.GetStream(source_, ci_start, length);
+    PARQUET_THROW_NOT_OK(stream_->Peek(kColumnIndexReadSize,&page_buffer));
+    if (page_buffer.size() == 0) {
+       return;
+    }
+
+    DeserializeThriftMsg(reinterpret_cast<const uint8_t*>(page_buffer.data()), &length, column_index);
+  }
+
+  void DeserializeOffsetIndex(const ColumnChunkMetaData& col_chunk, parquet::format::OffsetIndex* offset_index, std::shared_ptr<ArrowInputFile>& source_, ReaderProperties& properties_) {
+    int64_t oi_start = std::numeric_limits<int64_t>::max(); 
+    int64_t oi_end = std::numeric_limits<int64_t>::max();
+    string_view page_buffer;
+    oi_start = std::min(oi_start,col_chunk.offset_index_offset());
+    oi_end = std::min(oi_end, col_chunk.offset_index_offset() + col_chunk.offset_index_length());
+    int8_t buffer_offset = col_chunk.offset_index_offset() - oi_start;
+    uint32_t length = col_chunk.offset_index_length();
+
+    std::shared_ptr<ArrowInputStream> stream_ = properties_.GetStream(source_, oi_start, length);
+    PARQUET_THROW_NOT_OK(stream_->Peek(kOffsetIndexReadSize, &page_buffer));
+    if (page_buffer.size() == 0) {
+       return;
+    }
+
+    DeserializeThriftMsg(reinterpret_cast<const uint8_t*>(page_buffer.data()), &length, offset_index);
+  }
+
+  void DeserializeBloomFilter(const ColumnChunkMetaData& col_chunk, parquet::BlockSplitBloomFilter& blf, std::shared_ptr<ArrowInputFile>& source_, ReaderProperties& properties_) {
+      int64_t blf_offset = col_chunk.bloom_filter_offset();
+      std::shared_ptr<ArrowInputStream> stream_ = properties_.GetStream(source_, blf_offset,BloomFilter::kMaximumBloomFilterBytes);
+      blf = BlockSplitBloomFilter::Deserialize(stream_.get());
+  }
+
+  std::unique_ptr<PageReader> GetColumnPageReaderWithIndex(int column_index, void* predicate, int64_t& min_index, 
+                              int predicate_col, int64_t& row_index,Type::type type_num, bool with_index, bool with_binarysearch, int64_t& count_pages_scanned,
+                              int64_t& total_num_pages, int64_t& last_first_row, bool with_bloom_filter, bool with_page_bf,
+                              std::vector<int64_t>& unsorted_min_index, std::vector<int64_t>& unsorted_row_index,
+                              parquet::format::ColumnIndex& col_index, parquet::format::OffsetIndex& offset_index, BlockSplitBloomFilter& blf,
+                              bool& first_time_blf,bool& first_time_index,
+                              float& blf_load_time, float& index_load_time) {
+    // Read column chunk from the file
+    auto col = row_group_metadata_->ColumnChunk(column_index);
+
+<<<<<<< HEAD
     constexpr auto kEncryptedRowGroupsLimit = 32767;
     if (i > kEncryptedRowGroupsLimit) {
       throw ParquetException("Encrypted files cannot contain more than 32767 row groups");
+=======
+    auto sorting_columns = row_group_metadata_->sorting_columns();
+
+    int64_t col_start = col->data_page_offset();
+    if (col->has_dictionary_page() && col->dictionary_page_offset() > 0 &&
+        col_start > col->dictionary_page_offset()) {
+      col_start = col->dictionary_page_offset();
+>>>>>>> 5f0c77973... sorting columns
     }
 
     // The column is encrypted
@@ -182,6 +1349,63 @@ class SerializedRowGroup : public RowGroupReader::Contents {
                         static_cast<int16_t>(i), meta_decryptor, data_decryptor);
       return PageReader::Open(stream, col->num_values(), col->compression(),
                               properties_.memory_pool(), &ctx);
+    int64_t col_length = col->total_compressed_size();
+    
+    if ( with_bloom_filter ) {
+
+      if (first_time_blf) {
+        auto start_time = std::chrono::high_resolution_clock::now();
+        DeserializeBloomFilter(*reinterpret_cast<ColumnChunkMetaData*>(col.get()),blf,source_,properties_);
+        auto end_time = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(start_time-end_time);
+        first_time_blf = false;
+        blf_load_time = (float) duration.count();
+      }
+
+      GetPageWithoutIndex(source_, properties_, predicate, min_index,row_index,type_num, with_binarysearch, count_pages_scanned, blf, with_bloom_filter, with_page_bf);    
+    }
+
+    if (row_index != -1 && with_index ){
+      bool has_page_index = HasPageIndex((reinterpret_cast<ColumnChunkMetaData*>(col.get())));
+      if ( has_page_index ) {
+        
+        if (first_time_index) {
+           auto start_time = std::chrono::high_resolution_clock::now();
+           DeserializeColumnIndex(*reinterpret_cast<ColumnChunkMetaData*>(col.get()),&col_index, source_, properties_);
+           DeserializeOffsetIndex(*reinterpret_cast<ColumnChunkMetaData*>(col.get()),&offset_index, source_, properties_);
+           auto end_time = std::chrono::high_resolution_clock::now();
+           auto duration = std::chrono::duration_cast<std::chrono::microseconds>(start_time-end_time);
+           index_load_time = (float) duration.count();
+           first_time_index = false;
+        }
+
+        total_num_pages = offset_index.page_locations.size();
+        last_first_row = offset_index.page_locations[offset_index.page_locations.size()-1].first_row_index;
+        if ( predicate_col == column_index ) {
+            bool sorted = isSorted(col_index,offset_index,type_num);
+            if ( sorted )
+              GetPageIndex(source_, properties_, predicate, min_index,row_index, col_index,offset_index,type_num,sorted, with_binarysearch, count_pages_scanned, with_bloom_filter, with_page_bf);    
+            else
+            {
+              GetPageIndex(source_, properties_, predicate, unsorted_min_index,unsorted_row_index, col_index,offset_index,type_num,sorted, with_binarysearch, count_pages_scanned, with_bloom_filter, with_page_bf);    
+            }
+            
+        }
+        else 
+           GetPageWithRowIndex(min_index, offset_index, row_index);
+      }
+    }
+    // PARQUET-816 workaround for old files created by older parquet-mr
+    const ApplicationVersion& version = file_metadata_->writer_version();
+    if (version.VersionLt(ApplicationVersion::PARQUET_816_FIXED_VERSION())) {
+      // The Parquet MR writer had a bug in 1.2.8 and below where it didn't include the
+      // dictionary page header size in total_compressed_size and total_uncompressed_size
+      // (see IMPALA-694). We add padding to compensate.
+      int64_t size = -1;
+      PARQUET_THROW_NOT_OK(source_->GetSize(&size));
+      int64_t bytes_remaining = size - (col_start + col_length);
+      int64_t padding = std::min<int64_t>(kMaxDictHeaderSize, bytes_remaining);
+      col_length += padding;
     }
 
     // The column is encrypted with its own key
@@ -197,6 +1421,52 @@ class SerializedRowGroup : public RowGroupReader::Contents {
                       static_cast<int16_t>(i), meta_decryptor, data_decryptor);
     return PageReader::Open(stream, col->num_values(), col->compression(),
                             properties_.memory_pool(), &ctx);
+    std::shared_ptr<ArrowInputStream> stream =
+        properties_.GetStream(source_, col_start , col_length);
+
+    return PageReader::Open(stream, col->num_values(), col->compression(),
+                            properties_.memory_pool());
+  }
+
+
+
+  std::unique_ptr<PageReader> GetColumnPageReader(int i) override {
+    // Read column chunk from the file
+    auto col = row_group_metadata_->ColumnChunk(i);
+
+    int64_t col_start = col->data_page_offset();
+    if (col->has_dictionary_page() && col->dictionary_page_offset() > 0 &&
+        col_start > col->dictionary_page_offset()) {
+      col_start = col->dictionary_page_offset();
+    }
+
+    int64_t col_length = col->total_compressed_size();
+
+    bool has_page_index = HasPageIndex((reinterpret_cast<ColumnChunkMetaData*>(col.get())));
+    if ( has_page_index ) {
+        parquet::format::ColumnIndex col_index;
+        parquet::format::OffsetIndex offset_index;
+        DeserializeColumnIndex(*reinterpret_cast<ColumnChunkMetaData*>(col.get()),&col_index, source_, properties_);
+        DeserializeOffsetIndex(*reinterpret_cast<ColumnChunkMetaData*>(col.get()),&offset_index, source_, properties_);
+    }
+
+    // PARQUET-816 workaround for old files created by older parquet-mr
+    const ApplicationVersion& version = file_metadata_->writer_version();
+    if (version.VersionLt(ApplicationVersion::PARQUET_816_FIXED_VERSION())) {
+      // The Parquet MR writer had a bug in 1.2.8 and below where it didn't include the
+      // dictionary page header size in total_compressed_size and total_uncompressed_size
+      // (see IMPALA-694). We add padding to compensate.
+      int64_t size = -1;
+      PARQUET_THROW_NOT_OK(source_->GetSize(&size));
+      int64_t bytes_remaining = size - (col_start + col_length);
+      int64_t padding = std::min<int64_t>(kMaxDictHeaderSize, bytes_remaining);
+      col_length += padding;
+    }
+
+    std::shared_ptr<ArrowInputStream> stream =
+        properties_.GetStream(source_, col_start, col_length);
+    return PageReader::Open(stream, col->num_values(), col->compression(),
+                            properties_.memory_pool());
   }
 
  private:

@@ -42,9 +42,13 @@
  * https://github.com/apache/parquet-format/blob/master/LogicalTypes.md
  **/
 
-constexpr int NUM_ROWS_PER_ROW_GROUP = 500;
-const char PARQUET_FILENAME[] = "parquet_cpp_example.parquet";
+constexpr int NUM_ROWS_PER_ROW_GROUP = 15000000;
+const char PARQUET_FILENAME[] = "parquet_cpp_example_15M.parquet";
 
+<<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 90fe932e4... align with experiments and arrow contributio
 int main(int argc, char** argv) {
   /**********************************************************************************
                              PARQUET WRITER EXAMPLE
@@ -56,14 +60,22 @@ int main(int argc, char** argv) {
     // Create a local file output stream instance.
     using FileClass = ::arrow::io::FileOutputStream;
     std::shared_ptr<FileClass> out_file;
+<<<<<<< HEAD
     PARQUET_ASSIGN_OR_THROW(out_file, FileClass::Open(PARQUET_FILENAME));
+=======
+    PARQUET_THROW_NOT_OK(FileClass::Open(PARQUET_FILENAME, &out_file));
+>>>>>>> 90fe932e4... align with experiments and arrow contributio
 
     // Setup the parquet schema
     std::shared_ptr<GroupNode> schema = SetupSchema();
 
     // Add writer properties
     parquet::WriterProperties::Builder builder;
+<<<<<<< HEAD
+    builder.compression(parquet::Compression::UNCOMPRESSED);
+=======
     builder.compression(parquet::Compression::SNAPPY);
+>>>>>>> 90fe932e4... align with experiments and arrow contributio
     std::shared_ptr<parquet::WriterProperties> props = builder.build();
 
     // Create a ParquetFileWriter instance
@@ -73,6 +85,17 @@ int main(int argc, char** argv) {
     // Append a RowGroup with a specific number of rows.
     parquet::RowGroupWriter* rg_writer = file_writer->AppendRowGroup();
 
+<<<<<<< HEAD
+    // // Write the Bool column
+    // parquet::BoolWriter* bool_writer =
+    //     static_cast<parquet::BoolWriter*>(rg_writer->NextColumn());
+    // for (int i = 0; i < NUM_ROWS_PER_ROW_GROUP; i++) {
+    //   bool value = ((i % 2) == 0) ? true : false;
+    //   bool_writer->WriteBatch(1, nullptr, nullptr, &value);
+    // }
+=======
+>>>>>>> 23bce1bfe... count scans
+=======
     // Write the Bool column
     parquet::BoolWriter* bool_writer =
         static_cast<parquet::BoolWriter*>(rg_writer->NextColumn());
@@ -80,6 +103,7 @@ int main(int argc, char** argv) {
       bool value = ((i % 2) == 0) ? true : false;
       bool_writer->WriteBatch(1, nullptr, nullptr, &value);
     }
+>>>>>>> 90fe932e4... align with experiments and arrow contributio
 
     // Write the Int32 column
     parquet::Int32Writer* int32_writer =

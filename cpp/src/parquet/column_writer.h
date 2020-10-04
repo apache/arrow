@@ -24,6 +24,8 @@
 #include "parquet/exception.h"
 #include "parquet/platform.h"
 #include "parquet/types.h"
+#include "parquet/parquet_types.h"
+#include "parquet/bloom_filter.h"
 
 namespace arrow {
 
@@ -99,11 +101,19 @@ class PARQUET_EXPORT PageWriter {
 
   virtual int64_t WriteDataPage(const DataPage& page) = 0;
 
+  virtual int64_t WriteDataPagesWithIndex(const CompressedDataPage& data_page, format::PageLocation& ploc) = 0;
+
+  virtual void WritePageBloomFilter(BlockSplitBloomFilter& bl_page_filter, int64_t& file_pos) = 0;
+
+  virtual void WriteIndex(int64_t& file_pos_, int64_t& ci_offset, int64_t& oi_offset, format::ColumnIndex& ci, format::OffsetIndex& oi) = 0;
+
   virtual int64_t WriteDictionaryPage(const DictionaryPage& page) = 0;
 
   virtual bool has_compressor() = 0;
 
   virtual void Compress(const Buffer& src_buffer, ResizableBuffer* dest_buffer) = 0;
+
+  int64_t current_page_row_set_index;
 };
 
 static constexpr int WRITE_BATCH_SIZE = 1000;
@@ -118,6 +128,12 @@ class PARQUET_EXPORT ColumnWriter {
   /// \brief Closes the ColumnWriter, commits any buffered values to pages.
   /// \return Total size of the column in bytes
   virtual int64_t Close() = 0;
+
+  virtual int64_t CloseWithIndex() = 0;
+
+  virtual void WriteIndex(int64_t file_pos_,  int64_t ci_offset, int64_t oi_offset) = 0;
+
+  virtual void WriteBloomFilterOffset(int64_t& file_pos) = 0;
 
   /// \brief The physical Parquet type of the column
   virtual Type::type type() const = 0;
@@ -160,6 +176,10 @@ class TypedColumnWriter : public ColumnWriter {
 
   // Write a batch of repetition levels, definition levels, and values to the
   // column.
+<<<<<<< Updated upstream
+=======
+<<<<<<< HEAD
+>>>>>>> Stashed changes
   // `num_values` is the number of logical leaf values.
   // `def_levels` (resp. `rep_levels`) can be null if the column's max definition level
   // (resp. max repetition level) is 0.
@@ -170,7 +190,26 @@ class TypedColumnWriter : public ColumnWriter {
   // It can be smaller than `num_values` is there are some undefined values.
   virtual int64_t WriteBatch(int64_t num_values, const int16_t* def_levels,
                              const int16_t* rep_levels, const T* values) = 0;
+<<<<<<< Updated upstream
+=======
+=======
+  virtual void WriteBatch(int64_t num_values, const int16_t* def_levels,
+<<<<<<< HEAD
+                          const int16_t* rep_levels, const T* values) = 0;
+<<<<<<< HEAD
+  
+  // Write a batch of repetition levels, definition levels, and values to the
+  // column.
+  virtual void WriteBatchWithIndex(int64_t num_values, const int16_t* def_levels,
+                          const int16_t* rep_levels, const T* values) = 0;
+>>>>>>> e07017907... writer;generic reader
+>>>>>>> Stashed changes
 
+=======
+>>>>>>> c0fbc925b... write index
+=======
+                          const int16_t* rep_levels, const T* values, bool with_index = false) = 0;
+>>>>>>> fa45c95a5... write index
   /// Write a batch of repetition levels, definition levels, and values to the
   /// column.
   ///
@@ -203,6 +242,7 @@ class TypedColumnWriter : public ColumnWriter {
 
   // Estimated size of the values that are not written to a page yet
   virtual int64_t EstimatedBufferedValueBytes() const = 0;
+  
 };
 
 using BoolWriter = TypedColumnWriter<BooleanType>;

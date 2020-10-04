@@ -25,10 +25,16 @@
 #include <vector>
 
 #include "arrow/util/key_value_metadata.h"
+#include <boost/any.hpp>
 #include "parquet/platform.h"
 #include "parquet/properties.h"
 #include "parquet/schema.h"
 #include "parquet/types.h"
+#include "parquet/thrift.h"
+
+#include "arrow/util/string_view.h"
+
+using arrow::util::string_view;
 
 namespace parquet {
 
@@ -167,7 +173,15 @@ class PARQUET_EXPORT ColumnChunkMetaData {
   int64_t index_page_offset() const;
   int64_t total_compressed_size() const;
   int64_t total_uncompressed_size() const;
+<<<<<<< HEAD
   std::unique_ptr<ColumnCryptoMetaData> crypto_metadata() const;
+=======
+  int64_t column_index_offset() const;
+  int64_t offset_index_offset() const;
+  int64_t column_index_length() const;
+  int64_t offset_index_length() const;
+  int64_t bloom_filter_offset() const;
+>>>>>>> 2d711a552... bloom-filter-reader
 
  private:
   explicit ColumnChunkMetaData(
@@ -180,6 +194,39 @@ class PARQUET_EXPORT ColumnChunkMetaData {
 };
 
 /// \brief RowGroupMetaData is a proxy around format::RowGroupMetaData.
+<<<<<<< Updated upstream
+=======
+enum BoundaryOrder{
+  UNORDERED = 0,
+  ASCENDING = 1,
+  DESCENDING = 2
+};
+
+class PARQUET_EXPORT PageLocation{
+  int64_t offset;
+  int32_t compressed_page_size;
+  int64_t first_row_index;
+};
+
+class PARQUET_EXPORT ColumnIndex : format::PageHeader{
+  public:
+    static std::unique_ptr<ColumnIndex> Make(
+      std::vector<bool> null_pages,
+      std::vector <Type> min_values,
+      std::vector <Type> max_values,
+      BoundaryOrder boundary_order,
+      std::vector<int64_t> null_counts);
+    uint32_t read(apache::thrift::protocol::TProtocol* tp)  { return parquet::format::PageHeader::read(tp); }
+};
+
+class PARQUET_EXPORT OffsetIndex : format::PageHeader{
+  public:
+    static std::unique_ptr<OffsetIndex>  Make(
+      std::vector<PageLocation> page_locations);
+    uint32_t read(apache::thrift::protocol::TProtocol* tp) { return parquet::format::PageHeader::read(tp); }
+};
+
+>>>>>>> Stashed changes
 class PARQUET_EXPORT RowGroupMetaData {
  public:
   /// \brief Create a RowGroupMetaData from a serialized thrift message.
@@ -211,16 +258,37 @@ class PARQUET_EXPORT RowGroupMetaData {
   /// \brief Total byte size of all the uncompressed column data in this row group.
   int64_t total_byte_size() const;
 
+<<<<<<< Updated upstream
+=======
+<<<<<<< HEAD
+>>>>>>> Stashed changes
   /// \brief Byte offset from beginning of file to first page (data or
   /// dictionary) in this row group
   ///
   /// The file_offset field that this method exposes is optional. This method
   /// will return 0 if that field is not set to a meaningful value.
   int64_t file_offset() const;
+<<<<<<< Updated upstream
+=======
+=======
+>>>>>>> 5f0c77973... sorting columns
+>>>>>>> Stashed changes
   // Return const-pointer to make it clear that this object is not to be copied
   const SchemaDescriptor* schema() const;
+<<<<<<< HEAD
   // Indicate if all of the RowGroup's ColumnChunks can be decompressed.
   bool can_decompress() const;
+<<<<<<< Updated upstream
+=======
+=======
+  std::unique_ptr<ColumnChunkMetaData> ColumnChunk(int i) const;
+<<<<<<< HEAD
+  std::vector<parquet::format::SortingColumn> sorting_columns;
+>>>>>>> 15c06767f... sorting columns
+=======
+  std::vector<parquet::format::SortingColumn> sorting_columns() const;
+>>>>>>> 5f0c77973... sorting columns
+>>>>>>> Stashed changes
 
  private:
   explicit RowGroupMetaData(
@@ -402,6 +470,10 @@ class PARQUET_EXPORT ColumnChunkMetaDataBuilder {
               const std::map<Encoding::type, int32_t>& dict_encoding_stats_,
               const std::map<Encoding::type, int32_t>& data_encoding_stats_,
               const std::shared_ptr<Encryptor>& encryptor = NULLPTR);
+
+  void WriteIndex(int64_t& file_pos_, int64_t& ci_offset, int64_t& oi_offset, uint32_t& ci_len, uint32_t& oi_len);
+
+  void WriteBloomFilterOffset(int64_t& file_pos);
 
   // The metadata contents, suitable for passing to ColumnChunkMetaData::Make
   const void* contents() const;

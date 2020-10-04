@@ -25,6 +25,7 @@
 #include "parquet/hasher.h"
 #include "parquet/platform.h"
 #include "parquet/types.h"
+#include "parquet/parquet_types.h"
 
 namespace parquet {
 
@@ -56,6 +57,12 @@ class PARQUET_EXPORT BloomFilter {
 
   /// Get the number of bytes of bitset
   virtual uint32_t GetBitsetSize() const = 0;
+
+  virtual format::BloomFilterHash GetHashStrategy() const = 0;
+
+  virtual format::BloomFilterAlgorithm GetHashAlgorithm() const = 0;
+
+  virtual format::BloomFilterCompression GetBFCompression() const = 0;
 
   /// Compute hash for 32 bits value by using its plain encoding result.
   ///
@@ -184,6 +191,12 @@ class PARQUET_EXPORT BlockSplitBloomFilter : public BloomFilter {
   void WriteTo(ArrowOutputStream* sink) const override;
   uint32_t GetBitsetSize() const override { return num_bytes_; }
 
+  format::BloomFilterHash GetHashStrategy() const override { return bfhash_; }
+
+  format::BloomFilterAlgorithm GetHashAlgorithm() const override { return bfalgorithm_; }
+
+  format::BloomFilterCompression GetBFCompression() const override { return bfcompression_; }
+
   uint64_t Hash(int64_t value) const override { return hasher_->Hash(value); }
   uint64_t Hash(float value) const override { return hasher_->Hash(value); }
   uint64_t Hash(double value) const override { return hasher_->Hash(value); }
@@ -238,6 +251,12 @@ class PARQUET_EXPORT BlockSplitBloomFilter : public BloomFilter {
 
   // Algorithm used in this Bloom filter.
   Algorithm algorithm_;
+
+  format::BloomFilterCompression bfcompression_;
+
+  format::BloomFilterAlgorithm bfalgorithm_;
+
+  format::BloomFilterHash bfhash_;
 
   // The hash pointer points to actual hash class used.
   std::unique_ptr<Hasher> hasher_;

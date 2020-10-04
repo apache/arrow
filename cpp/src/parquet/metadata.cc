@@ -323,6 +323,17 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
     }
   }
 
+<<<<<<< HEAD
+=======
+  inline int64_t column_index_length() const {
+    return column_->column_index_length;
+  }
+
+  inline int64_t bloom_filter_offset() const {
+    return column_->meta_data.bloom_filter_offset;
+  }
+  
+>>>>>>> 2d711a552... bloom-filter-reader
  private:
   mutable std::shared_ptr<Statistics> possible_stats_;
   std::vector<Encoding::type> encodings_;
@@ -417,6 +428,26 @@ std::unique_ptr<ColumnCryptoMetaData> ColumnChunkMetaData::crypto_metadata() con
   return impl_->crypto_metadata();
 }
 
+<<<<<<< HEAD
+=======
+int64_t ColumnChunkMetaData::offset_index_offset() const {
+  return impl_->offset_index_offset();
+}
+
+int64_t ColumnChunkMetaData::offset_index_length() const {
+  return impl_->offset_index_length();
+}
+
+int64_t ColumnChunkMetaData::column_index_length() const {
+  return impl_->column_index_length();
+}
+
+int64_t ColumnChunkMetaData::bloom_filter_offset() const {
+   return impl_->bloom_filter_offset();
+}
+
+
+>>>>>>> 2d711a552... bloom-filter-reader
 // row-group metadata
 class RowGroupMetaData::RowGroupMetaDataImpl {
  public:
@@ -435,11 +466,15 @@ class RowGroupMetaData::RowGroupMetaDataImpl {
 
   inline int64_t total_byte_size() const { return row_group_->total_byte_size; }
 
+<<<<<<< HEAD
   inline int64_t file_offset() const { return row_group_->file_offset; }
 
   inline int64_t total_compressed_size() const {
     return row_group_->total_compressed_size;
   }
+=======
+  inline std::vector<parquet::format::SortingColumn> sorting_columns() { return row_group_->sorting_columns; }
+>>>>>>> 5f0c77973... sorting columns
 
   inline const SchemaDescriptor* schema() const { return schema_; }
 
@@ -485,7 +520,15 @@ int64_t RowGroupMetaData::num_rows() const { return impl_->num_rows(); }
 
 int64_t RowGroupMetaData::total_byte_size() const { return impl_->total_byte_size(); }
 
+<<<<<<< Updated upstream
 int64_t RowGroupMetaData::file_offset() const { return impl_->file_offset(); }
+=======
+<<<<<<< HEAD
+int64_t RowGroupMetaData::file_offset() const { return impl_->file_offset(); }
+=======
+std::vector<parquet::format::SortingColumn> RowGroupMetaData::sorting_columns() const { return impl_->sorting_columns(); }
+>>>>>>> 5f0c77973... sorting columns
+>>>>>>> Stashed changes
 
 const SchemaDescriptor* RowGroupMetaData::schema() const { return impl_->schema(); }
 
@@ -1127,6 +1170,18 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
     }
   }
 
+  void WriteIndex(int64_t& file_pos_, int64_t& column_index_offset, int64_t& offset_index_offset, uint32_t& ci_len, uint32_t& oi_len) {
+      column_chunk_->__set_column_index_offset(file_pos_+column_index_offset);
+      column_chunk_->__set_column_index_length(ci_len);
+      column_chunk_->__set_offset_index_offset(file_pos_+offset_index_offset);
+      column_chunk_->__set_offset_index_length(oi_len);
+      file_pos_ += offset_index_offset+oi_len;
+  }
+
+  void WriteBloomFilterOffset(int64_t& bloom_filter_offset) {
+      column_chunk_->meta_data.__set_bloom_filter_offset(bloom_filter_offset);
+  }
+
   void WriteTo(::arrow::io::OutputStream* sink) {
     ThriftSerializer serializer;
     serializer.Serialize(column_chunk_, sink);
@@ -1203,6 +1258,14 @@ void ColumnChunkMetaDataBuilder::WriteTo(::arrow::io::OutputStream* sink) {
   impl_->WriteTo(sink);
 }
 
+void ColumnChunkMetaDataBuilder::WriteIndex(int64_t& file_pos_, int64_t& ci_offset, int64_t& oi_offset, uint32_t& ci_len, uint32_t& oi_len) {
+   impl_->WriteIndex(file_pos_,ci_offset, oi_offset,ci_len,oi_len);
+}
+
+void ColumnChunkMetaDataBuilder::WriteBloomFilterOffset(int64_t& file_pos_) {
+   impl_->WriteBloomFilterOffset(file_pos_);
+}
+
 const ColumnDescriptor* ColumnChunkMetaDataBuilder::descr() const {
   return impl_->descr();
 }
@@ -1238,6 +1301,7 @@ class RowGroupMetaDataBuilder::RowGroupMetaDataBuilderImpl {
     column_builders_.push_back(std::move(column_builder));
     return column_builder_ptr;
   }
+
 
   int current_column() { return next_column_ - 1; }
 

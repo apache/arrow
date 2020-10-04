@@ -128,6 +128,12 @@ class PARQUET_EXPORT ColumnReader {
   virtual Type::type type() const = 0;
 
   virtual const ColumnDescriptor* descr() const = 0;
+
+  // Skip reading levels
+  // Returns the number of levels skipped
+  virtual int64_t Skip(int64_t num_rows_to_skip) = 0;
+
+  virtual int64_t callReadBatch(int64_t batch_size,void* values,int64_t* values_read) = 0;
 };
 
 // API to read values from a single column. This is a main client facing API.
@@ -197,7 +203,18 @@ class TypedColumnReader : public ColumnReader {
 
   // Skip reading levels
   // Returns the number of levels skipped
-  virtual int64_t Skip(int64_t num_rows_to_skip) = 0;
+  // virtual int64_t Skip(int64_t num_rows_to_skip) = 0;
+
+  int64_t callReadBatch(int64_t batch_size,void* value,int64_t* values_read){
+
+      
+      int16_t definition_level = 1;
+      int16_t repetition_level;
+      
+      int64_t r = ReadBatch(batch_size, &definition_level, &repetition_level,(T*)value,values_read);
+
+      return r;
+  }
 };
 
 namespace internal {
