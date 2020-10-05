@@ -68,6 +68,7 @@ function build_wheel {
           -DARROW_GRPC_USE_SHARED=OFF \
           -DARROW_HDFS=ON \
           -DARROW_JEMALLOC=ON \
+          -DARROW_OPENSSL_USE_SHARED=OFF \
           -DARROW_ORC=OFF \
           -DARROW_PARQUET=ON \
           -DARROW_PLASMA=ON \
@@ -85,7 +86,6 @@ function build_wheel {
           -DCMAKE_BUILD_TYPE=Release \
           -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
           -DMAKE=make \
-          -DOPENSSL_USE_STATIC_LIBS=ON \
           -DProtobuf_SOURCE=SYSTEM \
           ..
     make -j$(sysctl -n hw.logicalcpu)
