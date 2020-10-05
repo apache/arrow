@@ -95,6 +95,18 @@ def test_ext_type_basics():
     assert ty.extension_name == "arrow.py_extension_type"
 
 
+def test_ext_type_str():
+    ty = IntegerType()
+    expected = "extension<arrow.py_extension_type<IntegerType>>"
+    assert str(ty) == expected
+    assert pa.DataType.__str__(ty) == expected
+
+
+def test_ext_type_repr():
+    ty = IntegerType()
+    assert repr(ty) == "IntegerType(DataType(int64))"
+
+
 def test_ext_type__lifetime():
     ty = UuidType()
     wr = weakref.ref(ty)
