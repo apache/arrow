@@ -66,10 +66,11 @@ Result<std::vector<std::shared_ptr<Tensor>>> Tensors() {
   std::vector<int64_t> shape = {5, 3, 7};
   std::shared_ptr<DataType> types[] = {int8(),  int16(),  int32(),  int64(),
                                        uint8(), uint16(), uint32(), uint64()};
+  uint32_t seed = 0;
   for (auto type : types) {
-    RETURN_NOT_OK(test::MakeTensor(type, shape, true, &tensor));
+    RETURN_NOT_OK(test::MakeRandomTensor(type, shape, true, &tensor, seed++));
     tensors.push_back(tensor);
-    RETURN_NOT_OK(test::MakeTensor(type, shape, false, &tensor));
+    RETURN_NOT_OK(test::MakeRandomTensor(type, shape, false, &tensor, seed++));
     tensors.push_back(tensor);
   }
   return tensors;

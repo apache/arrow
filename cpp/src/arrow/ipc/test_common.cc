@@ -21,6 +21,7 @@
 #include <memory>
 #include <numeric>
 #include <string>
+#include <type_traits>
 #include <vector>
 
 #include "arrow/array.h"
@@ -1002,9 +1003,45 @@ Status MakeDictExtension(std::shared_ptr<RecordBatch>* out) {
   return Status::OK();
 }
 
-Status MakeTensor(const std::shared_ptr<DataType>& type,
-                  const std::vector<int64_t>& shape, bool row_major_p,
-                  std::shared_ptr<Tensor>* out) {
+namespace {
+
+template <typename CValueType, typename SeedType, typename DistributionType>
+void FillRandomData(CValueType* data, size_t n, CValueType min, CValueType max,
+                    SeedType seed) {
+  std::default_random_engine rng(seed);
+  DistributionType dist(min, max);
+  std::generate(data, data + n,
+                [&dist, &rng] { return static_cast<CValueType>(dist(rng)); });
+}
+
+template <typename CValueType, typename SeedType>
+enable_if_t<std::is_integral<CValueType>::value && std::is_signed<CValueType>::value,
+            void>
+FillRandomData(CValueType* data, size_t n, SeedType seed) {
+  FillRandomData<CValueType, SeedType, std::uniform_int_distribution<CValueType>>(
+      data, n, 0, 1000, seed);
+}
+
+template <typename CValueType, typename SeedType>
+enable_if_t<std::is_integral<CValueType>::value && std::is_unsigned<CValueType>::value,
+            void>
+FillRandomData(CValueType* data, size_t n, SeedType seed) {
+  FillRandomData<CValueType, SeedType, std::uniform_int_distribution<CValueType>>(
+      data, n, -1000, 1000, seed);
+}
+
+template <typename CValueType, typename SeedType>
+enable_if_t<std::is_floating_point<CValueType>::value, void> FillRandomData(
+    CValueType* data, size_t n, SeedType seed) {
+  FillRandomData<CValueType, SeedType, std::uniform_real_distribution<CValueType>>(
+      data, n, -1000, 1000, seed);
+}
+
+}  // namespace
+
+Status MakeRandomTensor(const std::shared_ptr<DataType>& type,
+                        const std::vector<int64_t>& shape, bool row_major_p,
+                        std::shared_ptr<Tensor>* out, uint32_t seed) {
   const auto& element_type = internal::checked_cast<const FixedWidthType&>(*type);
   std::vector<int64_t> strides;
   if (row_major_p) {
@@ -1017,9 +1054,49 @@ Status MakeTensor(const std::shared_ptr<DataType>& type,
   const int64_t len =
       std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<int64_t>());
 
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> data, AllocateBuffer(element_size * len));
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> buf, AllocateBuffer(element_size * len));
 
-  return Tensor::Make(type, data, shape, strides).Value(out);
+  switch (type->id()) {
+    case Type::INT8:
+      FillRandomData<int8_t, uint32_t, std::uniform_int_distribution<int16_t>>(
+          reinterpret_cast<int8_t*>(buf->mutable_data()), len, -128, 127, seed);
+      break;
+    case Type::UINT8:
+      FillRandomData<uint8_t, uint32_t, std::uniform_int_distribution<uint16_t>>(
+          reinterpret_cast<uint8_t*>(buf->mutable_data()), len, 0, 255, seed);
+      break;
+    case Type::INT16:
+      FillRandomData(reinterpret_cast<int16_t*>(buf->mutable_data()), len, seed);
+      break;
+    case Type::UINT16:
+      FillRandomData(reinterpret_cast<uint16_t*>(buf->mutable_data()), len, seed);
+      break;
+    case Type::INT32:
+      FillRandomData(reinterpret_cast<int32_t*>(buf->mutable_data()), len, seed);
+      break;
+    case Type::UINT32:
+      FillRandomData(reinterpret_cast<uint32_t*>(buf->mutable_data()), len, seed);
+      break;
+    case Type::INT64:
+      FillRandomData(reinterpret_cast<int64_t*>(buf->mutable_data()), len, seed);
+      break;
+    case Type::UINT64:
+      FillRandomData(reinterpret_cast<uint64_t*>(buf->mutable_data()), len, seed);
+      break;
+    case Type::HALF_FLOAT:
+      FillRandomData(reinterpret_cast<int16_t*>(buf->mutable_data()), len, seed);
+      break;
+    case Type::FLOAT:
+      FillRandomData(reinterpret_cast<float*>(buf->mutable_data()), len, seed);
+      break;
+    case Type::DOUBLE:
+      FillRandomData(reinterpret_cast<double*>(buf->mutable_data()), len, seed);
+      break;
+    default:
+      return Status::Invalid(type->ToString(), " is not valid data type for a tensor");
+  }
+
+  return Tensor::Make(type, buf, shape, strides).Value(out);
 }
 
 }  // namespace test
