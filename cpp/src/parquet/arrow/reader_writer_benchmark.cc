@@ -229,13 +229,13 @@ static void BenchmarkReadTable(::benchmark::State& state, const ::arrow::Table& 
 
 static void BenchmarkReadArray(::benchmark::State& state,
                                const std::shared_ptr<Array>& array, bool nullable,
-                               int64_t bytes_per_value = -1) {
+                               int64_t num_values = -1, int64_t bytes_per_value = -1) {
   auto schema = ::arrow::schema({field("s", array->type(), nullable)});
   auto table = ::arrow::Table::Make(schema, {array}, array->length());
 
   EXIT_NOT_OK(table->Validate());
 
-  BenchmarkReadTable(state, *table, array->length(), bytes_per_value);
+  BenchmarkReadTable(state, *table, num_values, bytes_per_value);
 }
 
 //
@@ -370,7 +370,7 @@ static void BM_ReadStructColumn(::benchmark::State& state) {
   ::arrow::random::RandomArrayGenerator rng(42);
   auto array = MakeStructArray(&rng, kNumValues, null_probability);
 
-  BenchmarkReadArray(state, array, nullable, kBytesPerValue);
+  BenchmarkReadArray(state, array, nullable, kNumValues, kBytesPerValue);
 }
 
 BENCHMARK(BM_ReadStructColumn)->ArgsProduct({kNestedNullPercents});
@@ -389,7 +389,7 @@ static void BM_ReadStructOfStructColumn(::benchmark::State& state) {
   auto values2 = MakeStructArray(&rng, kNumValues, null_probability);
   auto array = MakeStructArray(&rng, {values1, values2}, null_probability);
 
-  BenchmarkReadArray(state, array, nullable, kBytesPerValue);
+  BenchmarkReadArray(state, array, nullable, kNumValues, kBytesPerValue);
 }
 
 BENCHMARK(BM_ReadStructOfStructColumn)->ArgsProduct({kNestedNullPercents});
@@ -413,7 +413,7 @@ static void BM_ReadStructOfListColumn(::benchmark::State& state) {
   auto array = MakeStructArray(&rng, {list1, list2}, null_probability,
                                /*propagate_validity =*/true);
 
-  BenchmarkReadArray(state, array, nullable, kBytesPerValue);
+  BenchmarkReadArray(state, array, nullable, kNumValues, kBytesPerValue);
 }
 
 BENCHMARK(BM_ReadStructOfListColumn)->ArgsProduct({kNestedNullPercents});
@@ -432,7 +432,7 @@ static void BM_ReadListColumn(::benchmark::State& state) {
 
   auto array = rng.List(*values, kNumValues / 10, null_probability);
 
-  BenchmarkReadArray(state, array, nullable, kBytesPerValue);
+  BenchmarkReadArray(state, array, nullable, kNumValues, kBytesPerValue);
 }
 
 BENCHMARK(BM_ReadListColumn)->ArgsProduct({kNestedNullPercents});
@@ -451,7 +451,7 @@ static void BM_ReadListOfStructColumn(::benchmark::State& state) {
 
   auto array = rng.List(*values, kNumValues / 10, null_probability);
 
-  BenchmarkReadArray(state, array, nullable, kBytesPerValue);
+  BenchmarkReadArray(state, array, nullable, kNumValues, kBytesPerValue);
 }
 
 BENCHMARK(BM_ReadListOfStructColumn)->ArgsProduct({kNestedNullPercents});
@@ -471,7 +471,7 @@ static void BM_ReadListOfListColumn(::benchmark::State& state) {
   auto inner = rng.List(*values, kNumValues / 10, null_probability);
   auto array = rng.List(*inner, kNumValues / 100, null_probability);
 
-  BenchmarkReadArray(state, array, nullable, kBytesPerValue);
+  BenchmarkReadArray(state, array, nullable, kNumValues, kBytesPerValue);
 }
 
 BENCHMARK(BM_ReadListOfListColumn)->ArgsProduct({kNestedNullPercents});
