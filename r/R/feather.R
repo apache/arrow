@@ -141,9 +141,9 @@ write_feather <- function(x,
 #' # Can select columns
 #' df <- read_feather(tf, col_select = starts_with("d"))
 #' }
-read_feather <- function(file, col_select = NULL, as_data_frame = TRUE, filesystem = NULL, ...) {
+read_feather <- function(file, col_select = NULL, as_data_frame = TRUE, ...) {
   if (!inherits(file, "RandomAccessFile")) {
-    file <- make_readable_file(file, filesystem = filesystem)
+    file <- make_readable_file(file)
     on.exit(file$close())
   }
   reader <- FeatherReader$create(file, ...)

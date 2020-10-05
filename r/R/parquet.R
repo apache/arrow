@@ -39,10 +39,9 @@ read_parquet <- function(file,
                          col_select = NULL,
                          as_data_frame = TRUE,
                          props = ParquetReaderProperties$create(),
-                         filesystem = NULL,
                          ...) {
   if (is.string(file)) {
-    file <- make_readable_file(file, filesystem = filesystem)
+    file <- make_readable_file(file)
     on.exit(file$close())
   }
   reader <- ParquetFileReader$create(file, props = props, ...)

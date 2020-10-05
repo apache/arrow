@@ -55,7 +55,7 @@ if (arrow_with_s3() && process_is_running("minio server")) {
   test_that("read/write Feather by filesystem, not URI", {
     write_feather(example_data, fs$path(minio_path("test2.feather")))
     expect_identical(
-      read_feather(minio_path("test2.feather"), filesystem = fs),
+      read_feather(fs$path(minio_path("test2.feather"))),
       example_data
     )
   })
@@ -63,7 +63,7 @@ if (arrow_with_s3() && process_is_running("minio server")) {
   test_that("read/write stream", {
     write_ipc_stream(example_data, fs$path(minio_path("test3.ipc")))
     expect_identical(
-      read_ipc_stream(minio_path("test3.ipc"), filesystem = fs),
+      read_ipc_stream(fs$path(minio_path("test3.ipc"))),
       example_data
     )
   })
@@ -103,7 +103,7 @@ if (arrow_with_s3() && process_is_running("minio server")) {
     write_parquet(df1, fs$path(minio_path("hive_dir", "group=1", "other=xxx", "file1.parquet")))
     write_parquet(df2, fs$path(minio_path("hive_dir", "group=2", "other=yyy", "file2.parquet")))
     expect_identical(
-      read_parquet(minio_path("hive_dir", "group=1", "other=xxx", "file1.parquet"), filesystem = fs),
+      read_parquet(fs$path(minio_path("hive_dir", "group=1", "other=xxx", "file1.parquet"))),
       df1
     )
   })
