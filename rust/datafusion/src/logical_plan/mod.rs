@@ -37,8 +37,7 @@ use crate::{
 };
 use crate::{
     physical_plan::{
-        aggregates, expressions::binary_operator_data_type, functions,
-        type_coercion::can_coerce_from, udf::ScalarUDF,
+        aggregates, expressions::binary_operator_data_type, functions, udf::ScalarUDF,
     },
     sql::parser::FileType,
 };
@@ -323,21 +322,19 @@ impl Expr {
     ///
     /// # Errors
     ///
-    /// This function errors when it is impossible to cast the expression to the target [arrow::datatypes::DataType].
+    /// Currently no errors happen at plan time. If it is impossible
+    /// to cast the expression to the target
+    /// [arrow::datatypes::DataType] then an error will occur at
+    /// runtime.
     pub fn cast_to(&self, cast_to_type: &DataType, schema: &Schema) -> Result<Expr> {
         let this_type = self.get_type(schema)?;
         if this_type == *cast_to_type {
             Ok(self.clone())
-        } else if can_coerce_from(cast_to_type, &this_type) {
+        } else {
             Ok(Expr::Cast {
                 expr: Box::new(self.clone()),
                 data_type: cast_to_type.clone(),
             })
-        } else {
-            Err(ExecutionError::General(format!(
-                "Cannot automatically convert {:?} to {:?}",
-                this_type, cast_to_type
-            )))
         }
     }
 
