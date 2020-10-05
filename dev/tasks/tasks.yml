@@ -1613,9 +1613,9 @@ tasks:
       run: conda-python
 
   test-conda-python-3.8-hypothesis:
+    ci: github
+    template: docker-tests/github.linux.yml
     params:
-      ci: github
-      template: docker-tests/github.linux.yml
       env:
         PYTHON: 3.8
         PYTEST_ARGS: "--enable-hypothesis -m hypothesis"
