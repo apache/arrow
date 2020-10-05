@@ -179,6 +179,10 @@ class ARROW_EXPORT Tensor {
     return *ptr;
   }
 
+  Status Validate() const {
+    return internal::ValidateTensorParameters(type_, data_, shape_, strides_, dim_names_);
+  }
+
  protected:
   Tensor() {}
 
