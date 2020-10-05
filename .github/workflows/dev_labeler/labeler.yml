@@ -16,7 +16,9 @@
 # under the License.
 
 rust-lang:
-- any: ['rust/*']
+  - rust/*
+  - rust/**/*
 
-datafusion:
-- any: ['rust/datafusion/*']
+datafusion: 
+  - rust/datafusion/*
+  - rust/datafusion/**/*
