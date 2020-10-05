@@ -90,12 +90,12 @@ arrow_repos <- function(repos = getOption("repos"), nightly = FALSE) {
     # Set the default/CDN
     repos <- "https://cloud.r-project.org/"
   }
-  bintray <- getOption("arrow.dev.repo", "https://dl.bintray.com/ursalabs/arrow-r")
+  dev_repo <- getOption("arrow.dev_repo", "https://arrow-r-nightly.s3.amazonaws.com")
   # Remove it if it's there (so nightly=FALSE won't accidentally pull from it)
-  repos <- setdiff(repos, bintray)
+  repos <- setdiff(repos, dev_repo)
   if (nightly) {
     # Add it first
-    repos <- c(bintray, repos)
+    repos <- c(dev_repo, repos)
   }
   repos
 }

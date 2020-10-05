@@ -17,6 +17,7 @@
 
 ARG base
 FROM ${base}
+ARG arch
 
 # Build R
 # [1] https://www.digitalocean.com/community/tutorials/how-to-install-r-on-ubuntu-18-04
@@ -70,6 +71,10 @@ COPY ci/scripts/r_deps.sh /arrow/ci/scripts/
 COPY r/DESCRIPTION /arrow/r/
 RUN /arrow/ci/scripts/r_deps.sh /arrow
 
+COPY ci/scripts/install_minio.sh \
+     /arrow/ci/scripts/
+RUN /arrow/ci/scripts/install_minio.sh ${arch} linux latest /usr/local
+
 # Set up Python 3 and its dependencies
 RUN ln -s /usr/bin/python3 /usr/local/bin/python && \
     ln -s /usr/bin/pip3 /usr/local/bin/pip
@@ -89,6 +94,7 @@ ENV \
     ARROW_PARQUET=ON \
     ARROW_PLASMA=OFF \
     ARROW_PYTHON=ON \
+    ARROW_S3=ON \
     ARROW_USE_CCACHE=ON \
     ARROW_USE_GLOG=OFF \
     LC_ALL=en_US.UTF-8

@@ -17,6 +17,7 @@
 
 ARG arch=amd64
 FROM ${arch}/debian:10
+ARG arch
 
 ENV DEBIAN_FRONTEND noninteractive
 
@@ -26,7 +27,7 @@ RUN \
 
 ARG llvm
 RUN apt-get update -y -q && \
-     apt-get install -y -q --no-install-recommends \
+    apt-get install -y -q --no-install-recommends \
         apt-transport-https \
         ca-certificates \
         gnupg \
@@ -49,6 +50,7 @@ RUN apt-get update -y -q && \
         libbrotli-dev \
         libbz2-dev \
         libc-ares-dev \
+        libcurl4-openssl-dev \
         libgflags-dev \
         libgmock-dev \
         libgoogle-glog-dev \
@@ -71,6 +73,10 @@ RUN apt-get update -y -q && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
+COPY ci/scripts/install_minio.sh \
+     /arrow/ci/scripts/
+RUN /arrow/ci/scripts/install_minio.sh ${arch} linux latest /usr/local
+
 ENV ARROW_BUILD_TESTS=ON \
     ARROW_DEPENDENCY_SOURCE=SYSTEM \
     ARROW_DATASET=ON \
@@ -80,6 +86,7 @@ ENV ARROW_BUILD_TESTS=ON \
     ARROW_ORC=ON \
     ARROW_PARQUET=ON \
     ARROW_PLASMA=ON \
+    ARROW_S3=ON \
     ARROW_USE_CCACHE=ON \
     ARROW_WITH_BROTLI=ON \
     ARROW_WITH_BZ2=ON \
@@ -87,6 +94,7 @@ ENV ARROW_BUILD_TESTS=ON \
     ARROW_WITH_SNAPPY=ON \
     ARROW_WITH_ZLIB=ON \
     ARROW_WITH_ZSTD=ON \
+    AWSSDK_SOURCE=BUNDLED \
     cares_SOURCE=BUNDLED \
     CC=gcc \
     CXX=g++ \

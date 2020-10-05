@@ -59,6 +59,13 @@ ${R_BIN} -e "as_cran <- !identical(tolower(Sys.getenv('NOT_CRAN')), 'true')
   if (as_cran) {
     rcmdcheck::rcmdcheck(args = c('--as-cran', '--run-donttest'), error_on = 'warning', check_dir = 'check')
   } else {
+    if (nzchar(Sys.which('minio'))) {
+      message('Running minio for S3 tests (if build supports them)')
+      minio_dir <- tempfile()
+      dir.create(minio_dir)
+      pid <- sys::exec_background('minio', c('server', minio_dir))
+      on.exit(tools::pskill(pid))
+    }
     rcmdcheck::rcmdcheck(build_args = '--no-build-vignettes', args = c('--no-manual', '--ignore-vignettes', '--run-donttest'), error_on = 'warning', check_dir = 'check')
   }"
 

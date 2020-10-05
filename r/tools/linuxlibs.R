@@ -256,7 +256,7 @@ find_local_source <- function(arrow_home = Sys.getenv("ARROW_HOME", "..")) {
 
 build_libarrow <- function(src_dir, dst_dir) {
   # We'll need to compile R bindings with these libs, so delete any .o files
-  system("rm src/*.o", ignore.stdout = quietly, ignore.stderr = quietly)
+  system("rm src/*.o", ignore.stdout = TRUE, ignore.stderr = TRUE)
   # Set up make for parallel building
   makeflags <- Sys.getenv("MAKEFLAGS")
   if (makeflags == "") {
@@ -299,6 +299,7 @@ build_libarrow <- function(src_dir, dst_dir) {
     LDFLAGS = R_CMD_config("LDFLAGS")
   )
   env_vars <- paste0(names(env_var_list), '="', env_var_list, '"', collapse = " ")
+  env_vars <- with_s3_support(env_vars)
   cat("**** arrow", ifelse(quietly, "", paste("with", env_vars)), "\n")
   status <- system(
     paste(env_vars, "inst/build_arrow_static.sh"),
@@ -364,6 +365,46 @@ cmake_version <- function(cmd = "cmake") {
     },
     error = function(e) return(0)
   )
+}
+
+with_s3_support <- function(env_vars) {
+  arrow_s3 <- toupper(Sys.getenv("ARROW_S3")) == "ON" || tolower(Sys.getenv("LIBARROW_MINIMAL")) == "false"
+  if (arrow_s3) {
+    # User wants S3 support. Let's make sure they're not on gcc < 4.9
+    # and make sure that we have curl and openssl system libs
+    info <- system(paste(env_vars, "&& $CMAKE --system-information"), intern = TRUE)
+    info <- grep("^[A-Z_]* .*$", info, value = TRUE)
+    vals <- as.list(sub('^.*? "?(.*?)"?$', "\\1", info))
+    names(vals) <- sub("^(.*?) .*$", "\\1", info)
+    if (vals[["CMAKE_CXX_COMPILER_ID"]] == "GNU" &&
+        package_version(vals[["CMAKE_CXX_COMPILER_VERSION"]]) < 4.9) {
+      cat("**** S3 support not available for gcc < 4.9; building with ARROW_S3=OFF\n")
+      arrow_s3 <- FALSE
+    } else if (!cmake_find_package("CURL", NULL, env_vars)) {
+      cat("**** S3 support requires libcurl-devel (rpm) or libcurl4-openssl-dev (deb); building with ARROW_S3=OFF\n")
+      arrow_s3 <- FALSE
+    } else if (!cmake_find_package("OpenSSL", "1.0.2", env_vars)) {
+      cat("**** S3 support requires openssl-devel (rpm) or libssl-dev (deb), version >= 1.0.2; building with ARROW_S3=OFF\n")
+      arrow_s3 <- FALSE
+    }
+  }
+  paste(env_vars, ifelse(arrow_s3, "ARROW_S3=ON", "ARROW_S3=OFF"))
+}
+
+cmake_find_package <- function(pkg, version = NULL, env_vars) {
+  td <- tempfile()
+  dir.create(td)
+  options(.arrow.cleanup = c(getOption(".arrow.cleanup"), td))
+  find_package <- paste0("find_package(", pkg, " ", version, " REQUIRED)")
+  writeLines(find_package, file.path(td, "CMakeLists.txt"))
+  cmake_cmd <- paste0(
+    env_vars, " && $CMAKE",
+    " -DCMAKE_EXPORT_NO_PACKAGE_REGISTRY=ON",
+    " -DCMAKE_FIND_PACKAGE_NO_PACKAGE_REGISTRY=ON",
+    " -S", td,
+    " -B", td
+  )
+  system(cmake_cmd, ignore.stdout = TRUE, ignore.stderr = TRUE) == 0
 }
 
 #####

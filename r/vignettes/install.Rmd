@@ -38,7 +38,7 @@ Daily development builds, which are not official releases,
 can be installed from the Ursa Labs repository:
 
 ```r
-install.packages("arrow", repos = "https://dl.bintray.com/ursalabs/arrow-r")
+install.packages("arrow", repos = "https://arrow-r-nightly.s3.amazonaws.com")
 ```
 
 There currently are no daily `conda` builds.
@@ -91,6 +91,27 @@ while `install_arrow(nightly = TRUE)` will give you a development build.
 satisfy C++ dependencies.
 
 <!-- TODO: does remotes::install_github("apache/arrow/r") work now? -->
+
+## S3 support
+
+The `arrow` package allows you to work with data in AWS S3 or in other cloud
+storage system that emulate S3. However, support for working with S3 is not
+enabled in the default build, and it has additional system requirements. To
+enable it, set the environment variable `LIBARROW_MINIMAL=false` or
+`NOT_CRAN=true` to choose the full-featured build, or more selectively set
+`ARROW_S3=ON`. You also need the following system dependencies:
+
+* `gcc` >= 4.9 or `clang` >= 3.3; note that the default compiler on CentOS 7 is gcc 4.8.5, which is not sufficient
+* CURL: install `libcurl-devel` (rpm) or `libcurl4-openssl-dev` (deb)
+* OpenSSL >= 1.0.2: install `openssl-devel` (rpm) or `libssl-dev` (deb)
+
+The prebuilt C++ binaries come with S3 support enabled, so you will need to meet
+these system requirements in order to use them--the package will not install
+without them. If you're building everything from source, the install script
+will check for the presence of these dependencies and turn off S3 support in the
+build if the prerequisites are not met--installation will succeed but without
+S3 functionality. If afterwards you install the missing system requirements,
+you'll need to reinstall the package in order to enable S3 support.
 
 # How dependencies are resolved
 

@@ -248,6 +248,7 @@ services:
       cache_from:
         - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
       args:
+        arch: ${ARCH}
         base: "${ARCH}/ubuntu:${UBUNTU}"
         clang_tools: ${CLANG_TOOLS}
         llvm: ${LLVM}
@@ -277,6 +278,7 @@ services:
       cache_from:
         - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cuda-${CUDA}-cpp
       args:
+        arch: ${ARCH}
         base: nvidia/cuda:${CUDA}-devel-ubuntu${UBUNTU}
         clang_tools: ${CLANG_TOOLS}
         llvm: ${LLVM}
@@ -858,6 +860,7 @@ services:
       cache_from:
         - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-r-${R}
       args:
+        arch: ${ARCH}
         r: ${R}
         base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
     shm_size: *shm-size
@@ -888,18 +891,18 @@ services:
         - ${REPO}:r-${R_ORG}-${R_IMAGE}-${R_TAG}
       args:
         base: ${R_ORG}/${R_IMAGE}:${R_TAG}
+        r_dev: ${ARROW_R_DEV}
     shm_size: *shm-size
     environment:
       LIBARROW_DOWNLOAD: "false"
       ARROW_HOME: "/arrow"
+      ARROW_R_DEV: ${ARROW_R_DEV}
       # To test for CRAN release, delete ^^ these two env vars so we download the Apache release
       ARROW_USE_PKG_CONFIG: "false"
     volumes:
       - .:/arrow:delegated
     command: >
-      /bin/bash -c "
-        export ARROW_R_DEV=${ARROW_R_DEV} &&
-        /arrow/ci/scripts/r_test.sh /arrow"
+      /bin/bash -c "/arrow/ci/scripts/r_test.sh /arrow"
 
   ubuntu-r-sanitizer:
     # Only 18.04 and amd64 supported

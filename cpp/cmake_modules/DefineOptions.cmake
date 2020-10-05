@@ -316,6 +316,9 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   define_option(ARROW_LZ4_USE_SHARED "Rely on lz4 shared libraries where relevant"
                 ${ARROW_DEPENDENCY_USE_SHARED})
 
+  define_option(ARROW_OPENSSL_USE_SHARED "Rely on OpenSSL shared libraries where relevant"
+                ${ARROW_DEPENDENCY_USE_SHARED})
+
   define_option(ARROW_PROTOBUF_USE_SHARED
                 "Rely on Protocol Buffers shared libraries where relevant"
                 ${ARROW_DEPENDENCY_USE_SHARED})

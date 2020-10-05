@@ -186,23 +186,24 @@ jobs:
     strategy:
       fail-fast: false
     env:
+      ARROW_BUILD_TESTS: ON
+      ARROW_DATASET: ON
+      ARROW_FLIGHT: ON
+      ARROW_GANDIVA: ON
+      ARROW_HDFS: ON
       ARROW_HOME: /usr/local
       ARROW_JEMALLOC: ON
       # TODO(kszucs): link error in the tests
-      ARROW_DATASET: ON
       ARROW_ORC: OFF
-      ARROW_FLIGHT: ON
-      ARROW_HDFS: ON
-      ARROW_PLASMA: ON
-      ARROW_GANDIVA: ON
       ARROW_PARQUET: ON
-      ARROW_WITH_ZLIB: ON
-      ARROW_WITH_LZ4: ON
-      ARROW_WITH_BZ2: ON
-      ARROW_WITH_ZSTD: ON
-      ARROW_WITH_SNAPPY: ON
+      ARROW_PLASMA: ON
+      ARROW_S3: ON
       ARROW_WITH_BROTLI: ON
-      ARROW_BUILD_TESTS: ON
+      ARROW_WITH_BZ2: ON
+      ARROW_WITH_LZ4: ON
+      ARROW_WITH_SNAPPY: ON
+      ARROW_WITH_ZLIB: ON
+      ARROW_WITH_ZSTD: ON
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v2
@@ -371,6 +372,14 @@ jobs:
         run: |
           export CMAKE_BUILD_PARALLEL_LEVEL=$NUMBER_OF_PROCESSORS
           ci/scripts/cpp_build.sh "$(pwd)" "$(pwd)/build"
+      - name: Download MinIO
+        shell: msys2 {0}
+        run: |
+          mkdir -p /usr/local/bin
+          wget \
+            --output-document /usr/local/bin/minio.exe \
+            https://dl.min.io/server/minio/release/windows-amd64/minio.exe
+          chmod +x /usr/local/bin/minio.exe
       - name: Test
         shell: msys2 {0}
         run: |

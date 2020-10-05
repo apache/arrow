@@ -60,10 +60,10 @@ install_arrow()
 ## Installing a development version
 
 Development versions of the package (binary and source) are built daily and hosted at
-<https://dl.bintray.com/ursalabs/arrow-r/>. To install from there:
+<https://arrow-r-nightly.s3.amazonaws.com>. To install from there:
 
 ``` r
-install.packages("arrow", repos = "https://dl.bintray.com/ursalabs/arrow-r")
+install.packages("arrow", repos = "https://arrow-r-nightly.s3.amazonaws.com")
 ```
 
 Or
@@ -91,7 +91,7 @@ brew install apache-arrow --HEAD
 ```
 
 On Windows, you can download a .zip file with the arrow dependencies from the
-[nightly bintray repository](https://dl.bintray.com/ursalabs/arrow-r/libarrow/bin/windows/),
+[nightly repository](https://dl.bintray.com/ursalabs/arrow-r/libarrow/bin/windows/),
 and then set the `RWINLIB_LOCAL` environment variable to point to that
 zip file before installing the `arrow` R package. Version numbers in that
 repository correspond to dates, and you will likely want the most recent.
