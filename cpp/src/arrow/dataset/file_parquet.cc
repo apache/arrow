@@ -511,7 +511,25 @@ ParquetFileFragment::ParquetFileFragment(FileSource source,
       row_groups_(std::move(row_groups)),
       parquet_format_(checked_cast<ParquetFileFormat&>(*format_)),
       has_complete_metadata_(RowGroupInfosAreComplete(row_groups_) &&
-                             physical_schema_ != nullptr) {}
+                             physical_schema_ != nullptr) {
+  if (!row_groups_.empty()) {
+    // Empty row_groups_ indicates selection of all row groups in the file, so we must
+    // open a reader to determine the real count.
+    num_row_groups_ = static_cast<int>(row_groups_.size());
+  }
+}
+
+Result<int> ParquetFileFragment::GetNumRowGroups() {
+  auto lock = physical_schema_mutex_.Lock();
+  if (num_row_groups_ == -1) {
+    ARROW_ASSIGN_OR_RAISE(auto reader, parquet_format_.GetReader(source_));
+    num_row_groups_ = reader->num_row_groups();
+    if (row_groups_.empty()) {
+      row_groups_ = RowGroupInfo::FromCount(num_row_groups_);
+    }
+  }
+  return num_row_groups_;
+}
 
 Status ParquetFileFragment::EnsureCompleteMetadata(parquet::arrow::FileReader* reader) {
   if (HasCompleteMetadata()) {
@@ -538,17 +556,17 @@ Status ParquetFileFragment::EnsureCompleteMetadata(parquet::arrow::FileReader* r
   physical_schema_ = std::move(schema);
 
   std::shared_ptr<parquet::FileMetaData> metadata = reader->parquet_reader()->metadata();
-  int num_row_groups = metadata->num_row_groups();
+  num_row_groups_ = metadata->num_row_groups();
 
   if (row_groups_.empty()) {
-    row_groups_ = RowGroupInfo::FromCount(num_row_groups);
+    row_groups_ = RowGroupInfo::FromCount(num_row_groups_);
   }
 
   for (const RowGroupInfo& info : row_groups_) {
     // Ensure RowGroups are indexing valid RowGroups before augmenting.
-    if (info.id() >= num_row_groups) {
+    if (info.id() >= num_row_groups_) {
       return Status::IndexError("Trying to scan row group ", info.id(), " but ",
-                                source_.path(), " only has ", num_row_groups,
+                                source_.path(), " only has ", num_row_groups_,
                                 " row groups");
     }
   }

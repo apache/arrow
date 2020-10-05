@@ -246,7 +246,8 @@ def test_filesystem_dataset(mockfs):
             assert fragment.path == path
             assert isinstance(fragment.format, ds.ParquetFileFormat)
             assert isinstance(fragment, ds.ParquetFileFragment)
-            assert fragment.row_groups is fragment.num_row_groups is None
+            assert fragment.row_groups is None
+            assert fragment.num_row_groups == 1
 
             row_group_fragments = list(fragment.split_by_row_group())
             assert fragment.num_row_groups == len(row_group_fragments) == 1
@@ -600,13 +601,15 @@ def test_make_fragment(multisourcefs):
 
     for path in dataset.files:
         fragment = parquet_format.make_fragment(path, multisourcefs)
+        assert fragment.row_groups is None
+        assert fragment.num_row_groups == 1
+
         row_group_fragment = parquet_format.make_fragment(path, multisourcefs,
                                                           row_groups=[0])
         for f in [fragment, row_group_fragment]:
             assert isinstance(f, ds.ParquetFileFragment)
             assert f.path == path
             assert isinstance(f.filesystem, type(multisourcefs))
-        assert fragment.row_groups is fragment.num_row_groups is None
         assert row_group_fragment.row_groups == [ds.RowGroupInfo(0)]
         assert row_group_fragment.num_row_groups == 1
 
