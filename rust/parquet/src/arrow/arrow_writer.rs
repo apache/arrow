@@ -136,7 +136,6 @@ fn write_leaves(
         | ArrowDataType::UInt16
         | ArrowDataType::UInt32
         | ArrowDataType::UInt64
-        | ArrowDataType::Float16
         | ArrowDataType::Float32
         | ArrowDataType::Float64
         | ArrowDataType::Timestamp(_, _)
@@ -176,6 +175,9 @@ fn write_leaves(
             }
             Ok(())
         }
+        ArrowDataType::Float16 => Err(ParquetError::ArrowError(
+            "Float16 arrays not supported".to_string(),
+        )),
         ArrowDataType::FixedSizeList(_, _)
         | ArrowDataType::Null
         | ArrowDataType::Boolean
@@ -838,8 +840,6 @@ mod tests {
             "u64_single_column",
         );
     }
-
-    // How to create Float16 values that aren't supported in Rust?
 
     #[test]
     fn f32_single_column() {
