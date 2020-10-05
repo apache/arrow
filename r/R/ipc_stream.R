@@ -35,16 +35,15 @@
 #' serialize data to a buffer.
 #' [RecordBatchWriter] for a lower-level interface.
 #' @export
-write_ipc_stream <- function(x, sink, filesystem = NULL, ...) {
+write_ipc_stream <- function(x, sink, ...) {
   x_out <- x # So we can return the data we got
   if (is.data.frame(x)) {
     x <- Table$create(x)
   }
-  if (is.string(sink)) {
+  if (!inherits(sink, "OutputStream")) {
     sink <- make_output_stream(sink, filesystem)
     on.exit(sink$close())
   }
-  assert_is(sink, "OutputStream")
 
   writer <- RecordBatchStreamWriter$create(sink, x$schema)
   writer$write(x)

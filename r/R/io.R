@@ -258,11 +258,15 @@ make_readable_file <- function(file, mmap = TRUE, compression = NULL, filesystem
 }
 
 make_output_stream <- function(x, filesystem = NULL) {
-  if (is_url(x)) {
+  if (inherits(x, "SubTreeFileSystem")) {
+    filesystem <- x$base_fs
+    x <- x$base_path
+  } else if (is_url(x)) {
     fs_and_path <- FileSystem$from_uri(x)
     filesystem = fs_and_path$fs
     x <- fs_and_path$path
   }
+  assert_that(is.string(x))
   if (is.null(filesystem)) {
     FileOutputStream$create(x)
   } else {

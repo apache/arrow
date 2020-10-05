@@ -44,29 +44,30 @@ the cost of reading the data over the network should be much lower.
 
 ## Creating a FileSystem object
 
-Another way to connect to S3 is to create an `S3Bucket` object once and pass
+Another way to connect to S3 is to create an `FileSystem` object once and pass
 that to the read/write functions.
-An `S3Bucket` object is a subclass of `FileSystem`, containing an `S3FileSystem`
-that holds the AWS connection details and a path to the bucket.
+`s3_bucket()` is a convenience function to create an `S3FileSystem` object,
+automatically detecting the bucket's AWS region, and holding onto the bucket's
+relative path.
 This may be a convenience when dealing with
 long URIs, and it's necessary for some options and authentication methods
 that aren't supported in the URI format.
 
-We can create an `S3Bucket` object and point to specific files in it with the `$path()` method.
+With a `FileSystem` object, we can point to specific files in it with the `$path()` method.
 In the previous example, this would look like:
 
 ```r
-bucket <- S3Bucket$create("ursa-labs-taxi-data")
+bucket <- s3_bucket("ursa-labs-taxi-data")
 df <- read_parquet(bucket$path("2019/06/data.parquet"))
 ```
 
-See the help for `FileSystem` for a list of options that `S3Bucket` and `S3FileSystem$create()`
+See the help for `FileSystem` for a list of options that `s3_bucket()` and `S3FileSystem$create()`
 can take. `region`, `scheme`, and `endpoint_override` can be encoded as query
-parameters in the URI (though `region` will be auto-detected in `S3Bucket$create()` or from the URI if omitted).
+parameters in the URI (though `region` will be auto-detected in `s3_bucket()` or from the URI if omitted).
 `access_key` and `secret_key` can also be included,
 but other options are not supported in the URI.
 
-An `S3Bucket` is more generally a type of `SubTreeFileSystem` class, which holds a path and a file system to which it corresponds. `SubTreeFileSystem`s can be useful for holding a reference to a subdirectory somewhere, on S3 or elsewhere.
+The object that `s3_bucket()` returns is technically a `SubTreeFileSystem`, which holds a path and a file system to which it corresponds. `SubTreeFileSystem`s can be useful for holding a reference to a subdirectory somewhere, on S3 or elsewhere.
 
 One way to get a subtree is to call the `$cd()` method on a `FileSystem`
 
@@ -92,7 +93,7 @@ There are a few options for passing these credentials:
 
 1. Include them in the URI, like `s3://access_key:secret_key@bucket-name/path/to/file`. Be sure to [URL-encode](https://en.wikipedia.org/wiki/Percent-encoding) your secrets if they contain special characters like "/".
 
-2. Pass them as `access_key` and `secret_key` to `S3FileSystem$create()` or `S3Bucket$create()`
+2. Pass them as `access_key` and `secret_key` to `S3FileSystem$create()` or `s3_bucket()`
 
 3. Set them as environment variables named `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`, respectively.
 

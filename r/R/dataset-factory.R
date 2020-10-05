@@ -44,6 +44,10 @@ DatasetFactory$create <- function(x,
   if (is_list_of(x, "DatasetFactory")) {
     return(shared_ptr(DatasetFactory, dataset___UnionDatasetFactory__Make(x)))
   }
+  if (inherits(x, "SubTreeFileSystem")) {
+    filesystem <- x$base_fs
+    x <- x$base_path
+  }
   if (!is.string(x)) {
     stop("'x' must be a string or a list of DatasetFactory", call. = FALSE)
   }

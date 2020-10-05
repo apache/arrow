@@ -263,7 +263,10 @@ FileSystem <- R6Class("FileSystem", inherit = ArrowObject,
     },
     OpenAppendStream = function(path) {
       shared_ptr(OutputStream, fs___FileSystem__OpenAppendStream(self, clean_path_rel(path)))
-    }
+    },
+
+    # Friendlier R user interface
+    path = function(x) SubTreeFileSystem$create(x, self)
   ),
   active = list(
     type_name = function() fs___FileSystem__type_name(self)
@@ -293,7 +296,7 @@ get_path_and_filesystem <- function(x, filesystem = NULL) {
   }
 }
 
-is_url <- function(x) grepl("://", x)
+is_url <- function(x) is.string(x) && grepl("://", x)
 
 #' @usage NULL
 #' @format NULL
