@@ -202,6 +202,7 @@ export class Float<T extends Floats = Floats> extends DataType<T> {
             case Precision.SINGLE: return Float32Array;
             case Precision.DOUBLE: return Float64Array;
         }
+        // @ts-ignore
         throw new Error(`Unrecognized ${this[Symbol.toStringTag]} type`);
     }
     public toString() { return `Float${(this.precision << 5) || 16}`; }

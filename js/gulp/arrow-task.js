@@ -21,11 +21,11 @@ const {
 
 const del = require('del');
 const gulp = require('gulp');
-const { promisify } = require('util');
+const mkdirp = require('mkdirp');
 const gulpRename = require(`gulp-rename`);
 const { memoizeTask } = require('./memoize-task');
-const exec = promisify(require('child_process').exec);
 const { Observable, ReplaySubject } = require('rxjs');
+const pipeline = require('util').promisify(require('stream').pipeline);
 
 const arrowTask = ((cache) => memoizeTask(cache, function copyMain(target) {
     const out = targetDir(target);
@@ -53,8 +53,8 @@ const arrowTask = ((cache) => memoizeTask(cache, function copyMain(target) {
 
 const arrowTSTask = ((cache) => memoizeTask(cache, async function copyTS(target, format) {
     const out = targetDir(target, format);
-    await exec(`mkdirp ${out}`);
-    await exec(`shx cp -r src/* ${out}`);
+    await mkdirp(out);
+    await pipeline(gulp.src(`src/*`), gulp.dest(out));
     await del(`${out}/**/*.js`);
 }))({});
   

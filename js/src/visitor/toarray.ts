@@ -96,7 +96,7 @@ function arrayOfVector<T extends DataType>(vector: VectorType<T>): T['TArray'] {
         case Type.Int:
         case Type.Float: case Type.Decimal:
         case Type.Time: case Type.Timestamp:
-            return vector.values.subarray(0, length * stride);
+            return vector.data.values.subarray(0, length * stride);
     }
 
     // Otherwise if not primitive, slow copy
