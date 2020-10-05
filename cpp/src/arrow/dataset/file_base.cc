@@ -305,27 +305,17 @@ Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_optio
   std::deque<WriteQueue> queues_storage;
 
   // Store a mapping from partitions (represened by their formatted partition expressions)
-  // to a WriteQueue which flushes batches into that partition's output file.
-  // `unordered_map` is not thread safe, so a lock on queues_mutex_ must be held whenever
-  // queues is accessed or modified.
+  // to a WriteQueue which flushes batches into that partition's output file. In principle
+  // any thread could produce a batch for any partition, so each task alternates between
+  // pushing batches and flushing them to disk.
   util::Mutex queues_mutex;
   WriteQueue::Set queues;
-
-  // Thread-local caches of partition-to-WriteQueue mapping.
-  util::Mutex caches_mutex;
-  std::vector<WriteQueue::Set> caches(task_group->parallelism());
 
   auto fragment_for_task_it = fragment_for_task.begin();
   for (const auto& scan_task : scan_tasks) {
     const Fragment* fragment = *fragment_for_task_it++;
 
     task_group->Append([&, scan_task, fragment] {
-      // check out a cache of `queues`, if available
-      auto caches_lock = caches_mutex.Lock();
-      WriteQueue::Set local_queues = std::move(caches.back());
-      caches.pop_back();
-      caches_lock.Unlock();
-
       ARROW_ASSIGN_OR_RAISE(auto batches, scan_task->Execute());
 
       for (auto maybe_batch : batches) {
@@ -346,26 +336,25 @@ Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_optio
 
           using internal::GetOrInsertGenerated;
 
-          WriteQueue* queue =
-              // try to lookup the relevant WriteQueue up in our local cache
-              GetOrInsertGenerated(&local_queues, part, [&](const std::string&) {
-                // local lookup failed, fall back to lookup in `queues`
-                auto queues_lock = queues_mutex.Lock();
+          WriteQueue* queue;
+          {
+            // lookup the queue to which batch should be appended
+            auto queues_lock = queues_mutex.Lock();
 
-                return GetOrInsertGenerated(&queues, std::move(part),
-                                            [&](const std::string& part) {
-                                              // lookup in `queues` also failed,
-                                              // generate a new WriteQueue
-                                              size_t queue_index = queues.size() - 1;
+            queue = GetOrInsertGenerated(&queues, std::move(part),
+                                         [&](const std::string& part) {
+                                           // lookup in `queues` also failed,
+                                           // generate a new WriteQueue
+                                           size_t queue_index = queues.size() - 1;
 
-                                              queues_storage.emplace_back(
-                                                  part, queue_index,
-                                                  &wait_for_opened_writer_lock);
+                                           queues_storage.emplace_back(
+                                               part, queue_index,
+                                               &wait_for_opened_writer_lock);
 
-                                              return &queues_storage.back();
-                                            })
-                    ->second;
-              })->second;
+                                           return &queues_storage.back();
+                                         })
+                        ->second;
+          }
 
           if (wait_for_opened_writer_lock) {
             // We have openned a new WriteQueue for `part` and must set up its FileWriter.
@@ -387,9 +376,6 @@ Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_optio
         RETURN_NOT_OK(WriteQueue::FlushSet(std::move(need_flushed)));
       }
 
-      // check cache back in
-      caches_lock = caches_mutex.Lock();
-      caches.push_back(std::move(local_queues));
       return Status::OK();
     });
   }
