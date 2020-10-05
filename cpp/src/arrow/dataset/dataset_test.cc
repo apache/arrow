@@ -269,7 +269,7 @@ TEST(TestProjector, AugmentWithNull) {
   RecordBatchProjector projector(to_schema);
 
   ASSERT_OK_AND_ASSIGN(auto null_i32, MakeArrayOfNull(int32(), batch->num_rows()));
-  ASSERT_OK_AND_ASSIGN(auto null_str, MakeArrayOfNull(null(), batch->num_rows()));
+  ASSERT_OK_AND_ASSIGN(auto null_str, MakeArrayOfNull(utf8(), batch->num_rows()));
   auto expected_batch = RecordBatch::Make(to_schema, batch->num_rows(),
                                           {null_i32, batch->column(0), null_str});
 
