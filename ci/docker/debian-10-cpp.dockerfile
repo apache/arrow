@@ -17,6 +17,7 @@
 
 ARG arch=amd64
 FROM ${arch}/debian:10
+ARG arch
 
 ENV DEBIAN_FRONTEND noninteractive
 
@@ -70,10 +71,11 @@ RUN apt-get update -y -q && \
         tzdata \
         zlib1g-dev && \
     apt-get clean && \
-    rm -rf /var/lib/apt/lists/* && \
-    wget -O /usr/local/bin/minio \
-        https://dl.min.io/server/minio/release/linux-$(dpkg --print-architecture)/minio && \
-    chmod +x /usr/local/bin/minio
+    rm -rf /var/lib/apt/lists/*
+
+COPY ci/scripts/install_minio.sh \
+     /arrow/ci/scripts/
+RUN /arrow/ci/scripts/install_minio.sh ${arch} linux latest /usr/local
 
 ENV ARROW_BUILD_TESTS=ON \
     ARROW_DEPENDENCY_SOURCE=SYSTEM \

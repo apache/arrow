@@ -17,6 +17,7 @@
 
 ARG arch
 FROM ${arch}/fedora:32
+ARG arch
 
 # install dependencies
 RUN dnf update -y && \
@@ -57,16 +58,11 @@ RUN dnf update -y && \
         utf8proc-devel \
         wget \
         which \
-        zlib-devel && \
-    go_arch=$(arch) && \
-    case ${go_arch} in \
-      aarch64) go_arch=arm64;; \
-      x86_64) go_arch=amd64;; \
-    esac && \
-    wget -O /usr/local/bin/minio \
-        https://dl.min.io/server/minio/release/linux-${go_arch}/minio && \
-    chmod +x /usr/local/bin/minio
+        zlib-devel
 
+COPY ci/scripts/install_minio.sh \
+     /arrow/ci/scripts/
+RUN /arrow/ci/scripts/install_minio.sh ${arch} linux latest /usr/local
 
 # * gRPC 1.26 in Fedora 32 may have a problem. arrow-flight-test is stuck.
 ENV ARROW_BUILD_TESTS=ON \

@@ -17,6 +17,7 @@
 
 ARG base=amd64/ubuntu:20.04
 FROM ${base}
+ARG arch
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
@@ -76,10 +77,11 @@ RUN apt-get update -y -q && \
         tzdata \
         wget && \
     apt-get clean && \
-    rm -rf /var/lib/apt/lists* && \
-    wget -O /usr/local/bin/minio \
-        https://dl.min.io/server/minio/release/linux-$(dpkg --print-architecture)/minio && \
-    chmod +x /usr/local/bin/minio
+    rm -rf /var/lib/apt/lists*
+
+COPY ci/scripts/install_minio.sh \
+     /arrow/ci/scripts/
+RUN /arrow/ci/scripts/install_minio.sh ${arch} linux latest /usr/local
 
 # Prioritize system packages and local installation
 # The following dependencies will be downloaded due to missing/invalid packages
@@ -110,9 +112,9 @@ ENV ARROW_BUILD_TESTS=ON \
     ARROW_WITH_SNAPPY=ON \
     ARROW_WITH_ZLIB=ON \
     ARROW_WITH_ZSTD=ON \
+    AWSSDK_SOURCE=BUNDLED \
     GTest_SOURCE=BUNDLED \
     ORC_SOURCE=BUNDLED \
-    AWSSDK_SOURCE=BUNDLED \
     PARQUET_BUILD_EXAMPLES=ON \
     PARQUET_BUILD_EXECUTABLES=ON \
     PATH=/usr/lib/ccache/:$PATH \
