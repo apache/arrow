@@ -67,6 +67,7 @@ function build_wheel {
           -DARROW_GANDIVA=OFF \
           -DARROW_GRPC_USE_SHARED=OFF \
           -DARROW_HDFS=ON \
+          -DARROW_S3=${ARROW_S3} \
           -DARROW_JEMALLOC=ON \
           -DARROW_OPENSSL_USE_SHARED=OFF \
           -DARROW_ORC=OFF \
@@ -103,6 +104,7 @@ function build_wheel {
     export PYARROW_WITH_DATASET=1
     export PYARROW_WITH_FLIGHT=1
     export PYARROW_WITH_HDFS=1
+    export PYARROW_WITH_S3=${ARROW_S3}
     export PYARROW_WITH_PLASMA=1
     export PYARROW_WITH_PARQUET=1
     export PYARROW_WITH_ORC=0
@@ -158,4 +160,7 @@ import pyarrow._hdfs
 import pyarrow.dataset
 import pyarrow.flight
 "
+    if [ "$ARROW_S3" = "ON" ]; then
+        python -c "import pyarrow._s3fs"
+    fi
 }
