@@ -26,7 +26,6 @@ from datetime import date, datetime, time, timedelta, timezone
 from distutils.version import LooseVersion
 
 import hypothesis as h
-import hypothesis.extra.pandas as pdst
 import hypothesis.extra.pytz as tzst
 import hypothesis.strategies as st
 import numpy as np
