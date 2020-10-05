@@ -791,7 +791,6 @@ Status ConvertListsLike(PandasOptions options, const ChunkedArray& data,
   return Status::OK();
 }
 
-
 inline Status ConvertMap(const PandasOptions& options, const ChunkedArray& data,
                          PyObject** out_values) {
   // Get columns of underlying key/item arrays
@@ -804,13 +803,11 @@ inline Status ConvertMap(const PandasOptions& options, const ChunkedArray& data,
   }
 
   const auto& map_type = checked_cast<const MapType&>(*data.type());
-  //auto entry_type = map_type.value_type();
   const auto& key_type = map_type.key_type();
   const auto& item_type = map_type.item_type();
-  /*using ListArrayType = typename ListArrayT::TypeClass;
-  const auto& map_type = checked_cast<const ListArrayType&>(*data.type());
-  auto value_type = list_type.value_type();
 
+  // TODO: Is this needed for key/item?
+  /*
   if (value_type->id() == Type::DICTIONARY) {
     // ARROW-6899: Convert dictionary-encoded children to dense instead of
     // failing below. A more efficient conversion than this could be done later
@@ -819,8 +816,6 @@ inline Status ConvertMap(const PandasOptions& options, const ChunkedArray& data,
     value_type = dense_type;
   }*/
 
-  auto flat_keys = std::make_shared<ChunkedArray>(key_arrays, key_type);
-  auto flat_items = std::make_shared<ChunkedArray>(item_arrays, item_type);
   // TODO(ARROW-489): Currently we don't have a Python reference for single columns.
   //    Storing a reference to the whole Array would be too expensive.
 
@@ -832,6 +827,8 @@ inline Status ConvertMap(const PandasOptions& options, const ChunkedArray& data,
   PandasOptions modified_options = options;
   modified_options.coerce_temporal_nanoseconds = false;
 
+  auto flat_keys = std::make_shared<ChunkedArray>(key_arrays, key_type);
+  auto flat_items = std::make_shared<ChunkedArray>(item_arrays, item_type);
   OwnedRef list_item;
   OwnedRef key_value;
   OwnedRef item_value;
@@ -841,8 +838,8 @@ inline Status ConvertMap(const PandasOptions& options, const ChunkedArray& data,
   OwnedRefNoGIL owned_numpy_items;
   RETURN_NOT_OK(ConvertChunkedArrayToPandas(modified_options, flat_items, nullptr,
                                             owned_numpy_items.ref()));
-  PyArrayObject* keys_array = reinterpret_cast<PyArrayObject*>(owned_numpy_keys.obj());
-  PyArrayObject* items_array = reinterpret_cast<PyArrayObject*>(owned_numpy_items.obj());
+  PyArrayObject* py_keys = reinterpret_cast<PyArrayObject*>(owned_numpy_keys.obj());
+  PyArrayObject* py_items = reinterpret_cast<PyArrayObject*>(owned_numpy_items.obj());
 
   int64_t chunk_offset = 0;
   for (int c = 0; c < data.num_chunks(); ++c) {
@@ -861,14 +858,13 @@ inline Status ConvertMap(const PandasOptions& options, const ChunkedArray& data,
         // Build the new list object for the row of maps
         list_item.reset(PyList_New(0));
         RETURN_IF_PYERROR();
-        
+
         // Add each key/item pair in the row
         for (int64_t j = 0; j < num_maps; ++j) {
-
           // Get key value, key is non-nullable for a valid row
           auto ptr_key = reinterpret_cast<const char*>(
-              PyArray_GETPTR1(keys_array, chunk_offset + entry_offset + j));
-          key_value.reset(PyArray_GETITEM(keys_array, ptr_key));
+              PyArray_GETPTR1(py_keys, chunk_offset + entry_offset + j));
+          key_value.reset(PyArray_GETITEM(py_keys, ptr_key));
           RETURN_IF_PYERROR();
 
           if (item_arrays[c]->IsNull(entry_offset + j)) {
@@ -878,8 +874,8 @@ inline Status ConvertMap(const PandasOptions& options, const ChunkedArray& data,
           } else {
             // Get valid value from item array
             auto ptr_item = reinterpret_cast<const char*>(
-                PyArray_GETPTR1(items_array, chunk_offset + entry_offset + j));
-            item_value.reset(PyArray_GETITEM(items_array, ptr_item));
+                PyArray_GETPTR1(py_items, chunk_offset + entry_offset + j));
+            item_value.reset(PyArray_GETITEM(py_items, ptr_item));
             RETURN_IF_PYERROR();
           }
 
@@ -902,7 +898,6 @@ inline Status ConvertMap(const PandasOptions& options, const ChunkedArray& data,
 
   return Status::OK();
 }
-
 
 template <typename InType, typename OutType>
 inline void ConvertNumericNullable(const ChunkedArray& data, InType na_value,
@@ -1140,9 +1135,7 @@ struct ObjectWriterVisitor {
     return ConvertListsLike<ArrayType>(options, data, out_values);
   }
 
-  Status Visit(const MapType& type) {
-    return ConvertMap(options, data, out_values);
-  }
+  Status Visit(const MapType& type) { return ConvertMap(options, data, out_values); }
 
   Status Visit(const StructType& type) {
     return ConvertStruct(options, data, out_values);
@@ -1918,7 +1911,7 @@ static Status GetPandasWriterType(const ChunkedArray& data, const PandasOptions&
     } break;
     case Type::FIXED_SIZE_LIST:
     case Type::LIST:
-    case Type::LARGE_LIST: 
+    case Type::LARGE_LIST:
     case Type::MAP: {
       auto list_type = std::static_pointer_cast<BaseListType>(data.type());
       if (!ListTypeSupported(*list_type->value_type())) {
