@@ -752,6 +752,14 @@ test_that("Array$ApproxEquals", {
 
 test_that("auto int64 conversion to int can be disabled (ARROW-10093)", {
   op <- options(arrow_disable_int64_auto_conversion = TRUE); on.exit(options(op))
-  expect_true(inherits(Array$create(1:10, int64())$as_vector(), "integer64"))
+
+  a <- Array$create(1:10, int64())
+  expect_true(inherits(a$as_vector(), "integer64"))
+
+  batch <- RecordBatch$create(x = a)
+  expect_true(inherits(as.data.frame(batch)$x, "integer64"))
+
+  tab <- Table$create(x = a)
+  expect_true(inherits(as.data.frame(batch)$x, "integer64"))
 })
 
