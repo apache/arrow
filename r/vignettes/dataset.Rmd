@@ -350,6 +350,16 @@ partitions are because they can be read from the file paths.
 (To instead write bare values for partition segments,
 i.e. `1` rather than `payment_type=1`, call `write_dataset()` with `hive_style = FALSE`.)
 
+Perhaps, though, `payment_type == 1` is the only data we care about for our
+current work, and we just want to drop the rest and have a smaller working set.
+For this, we can `filter()` them out when writing:
+
+```r
+ds %>%
+  filter(payment_type == 1) %>%
+  write_dataset("nyc-taxi/feather", format = "feather")
+```
+
 The other thing we can do when writing datasets is select a subset of and/or reorder
 columns. Suppose we never care about `vendor_id`, and being a string column,
 it can take up a lot of space when we read it in, so let's drop it:
@@ -361,5 +371,5 @@ ds %>%
   write_dataset("nyc-taxi/feather", format = "feather")
 ```
 
-Note that you cannot currently rename columns when writing, nor can you `filter()`
-and write a subset of the data.
+Note that while you can select a subset of columns,
+you cannot currently rename columns when writing.
