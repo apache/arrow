@@ -4045,6 +4045,20 @@ def test_metadata_compat_missing_field_name():
     tm.assert_frame_equal(result, expected, check_like=True)
 
 
+def test_metadata_index_name_not_json_serializable():
+    name = np.int64(6)  # not json serializable by default
+    table = pa.table(pd.DataFrame(index=pd.RangeIndex(0, 4, name=name)))
+    metadata = table.schema.pandas_metadata
+    assert metadata['index_columns'][0]['name'] == '6'
+
+
+def test_metadata_index_name_is_json_serializable():
+    name = 6  # json serializable by default
+    table = pa.table(pd.DataFrame(index=pd.RangeIndex(0, 4, name=name)))
+    metadata = table.schema.pandas_metadata
+    assert metadata['index_columns'][0]['name'] == 6
+
+
 def make_df_with_timestamps():
     # Some of the milliseconds timestamps deliberately don't fit in the range
     # that is possible with nanosecond timestamps.

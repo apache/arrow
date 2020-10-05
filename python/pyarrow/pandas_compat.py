@@ -466,11 +466,20 @@ def _get_index_level(df, name):
     return df.index.get_level_values(key)
 
 
+def _level_name(name):
+    # preserve type when default serializable, otherwise str it
+    try:
+        json.dumps(name)
+        return name
+    except TypeError:
+        return str(name)
+
+
 def _get_range_index_descriptor(level):
     # public start/stop/step attributes added in pandas 0.25.0
     return {
         'kind': 'range',
-        'name': level.name,
+        'name': _level_name(level.name),
         'start': _pandas_api.get_rangeindex_attribute(level, 'start'),
         'stop': _pandas_api.get_rangeindex_attribute(level, 'stop'),
         'step': _pandas_api.get_rangeindex_attribute(level, 'step')
