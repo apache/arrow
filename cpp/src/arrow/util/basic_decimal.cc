@@ -905,7 +905,7 @@ void BasicDecimal256::ToBytes(uint8_t* out) const {
 }
 
 BasicDecimal256& BasicDecimal256::operator*=(const BasicDecimal256& right) {
-  // Since the max value of BasicDecimal128 is supposed to be 1e38 - 1 and the
+  // Since the max value of BasicDecimal256 is supposed to be 1e76 - 1 and the
   // min the negation taking the absolute values here should always be safe.
   const bool negate = Sign() != right.Sign();
   BasicDecimal256 x = BasicDecimal256::Abs(*this);
