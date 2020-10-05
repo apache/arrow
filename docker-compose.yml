@@ -860,6 +860,7 @@ services:
       cache_from:
         - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-r-${R}
       args:
+        arch: ${ARCH}
         r: ${R}
         base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
     shm_size: *shm-size
