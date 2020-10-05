@@ -1321,7 +1321,7 @@ cdef class DirectoryPartitioning(Partitioning):
         self.directory_partitioning = <CDirectoryPartitioning*> sp.get()
 
     @staticmethod
-    def discover(field_names, object max_partition_dictionary_size=0):
+    def discover(field_names, inspect_dictionary=False):
         """
         Discover a DirectoryPartitioning.
 
@@ -1329,11 +1329,12 @@ cdef class DirectoryPartitioning(Partitioning):
         ----------
         field_names : list of str
             The names to associate with the values from the subdirectory names.
-        max_partition_dictionary_size : int or None, default 0
-            The maximum number of unique values to consider for dictionary
-            encoding. By default no field will be inferred as dictionary
-            encoded. If None is provided dictionary encoding will be used for
-            every string field.
+        inspect_dictionary : bool, default False
+            When inferring a schema for partition fields, yield dictionary
+            encoded types instead of plain. This can be more efficient when
+            materializing virtual columns, and Expressions parsed by the
+            finished Partitioning will include dictionaries of all unique
+            inspected values for each field.
 
         Returns
         -------
@@ -1341,18 +1342,15 @@ cdef class DirectoryPartitioning(Partitioning):
             To be used in the FileSystemFactoryOptions.
         """
         cdef:
-            CPartitioningFactoryOptions options
+            CPartitioningFactoryOptions c_options
             vector[c_string] c_field_names
 
-        if max_partition_dictionary_size is None:
-            max_partition_dictionary_size = -1
-
-        options.max_partition_dictionary_size = \
-            int(max_partition_dictionary_size)
+        if inspect_dictionary:
+            c_options.inspect_dictionary = True
 
         c_field_names = [tobytes(s) for s in field_names]
         return PartitioningFactory.wrap(
-            CDirectoryPartitioning.MakeFactory(c_field_names, options))
+            CDirectoryPartitioning.MakeFactory(c_field_names, c_options))
 
 
 cdef class HivePartitioning(Partitioning):
@@ -1403,17 +1401,18 @@ cdef class HivePartitioning(Partitioning):
         self.hive_partitioning = <CHivePartitioning*> sp.get()
 
     @staticmethod
-    def discover(object max_partition_dictionary_size=0):
+    def discover(inspect_dictionary=False):
         """
         Discover a HivePartitioning.
 
-        Params
-        ------
-        max_partition_dictionary_size : int or None, default 0
-            The maximum number of unique values to consider for dictionary
-            encoding. By default no field will be inferred as dictionary
-            encoded. If -1 is provided dictionary encoding will be used for
-            every string field.
+        Parameters
+        ----------
+        inspect_dictionary : bool, default False
+            When inferring a schema for partition fields, yield dictionary
+            encoded types instead of plain. This can be more efficient when
+            materializing virtual columns, and Expressions parsed by the
+            finished Partitioning will include dictionaries of all unique
+            inspected values for each field.
 
         Returns
         -------
@@ -1421,16 +1420,13 @@ cdef class HivePartitioning(Partitioning):
             To be used in the FileSystemFactoryOptions.
         """
         cdef:
-            CPartitioningFactoryOptions options
+            CPartitioningFactoryOptions c_options
 
-        if max_partition_dictionary_size is None:
-            max_partition_dictionary_size = -1
-
-        options.max_partition_dictionary_size = \
-            int(max_partition_dictionary_size)
+        if inspect_dictionary:
+            c_options.inspect_dictionary = True
 
         return PartitioningFactory.wrap(
-            CHivePartitioning.MakeFactory(options))
+            CHivePartitioning.MakeFactory(c_options))
 
 
 cdef class DatasetFactory(_Weakrefable):

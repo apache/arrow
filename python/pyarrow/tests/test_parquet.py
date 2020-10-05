@@ -2230,9 +2230,7 @@ def _partition_test_for_filesystem(fs, base_path, use_legacy_dataset=True):
                    .reset_index(drop=True)
                    .reindex(columns=result_df.columns))
 
-    if use_legacy_dataset:
-        # integer partition field not dictionary encoded with new API
-        expected_df['foo'] = pd.Categorical(df['foo'], categories=foo_keys)
+    expected_df['foo'] = pd.Categorical(df['foo'], categories=foo_keys)
     expected_df['bar'] = pd.Categorical(df['bar'], categories=bar_keys)
 
     assert (result_df.columns == ['index', 'values', 'foo', 'bar']).all()

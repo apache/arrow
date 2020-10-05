@@ -210,12 +210,6 @@ Status FileSystemDataset::Write(std::shared_ptr<Schema> schema,
 
   base_dir = std::string(fs::internal::RemoveTrailingSlash(base_dir));
 
-  for (const auto& f : partitioning->schema()->fields()) {
-    if (f->type()->id() == Type::DICTIONARY) {
-      return Status::NotImplemented("writing with dictionary partitions");
-    }
-  }
-
   int i = 0;
   for (auto maybe_fragment : fragment_it) {
     ARROW_ASSIGN_OR_RAISE(auto fragment, maybe_fragment);

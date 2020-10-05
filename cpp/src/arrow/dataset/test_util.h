@@ -555,7 +555,8 @@ class WriteFileSystemDatasetMixin : public MakeFileSystemDatasetMixin {
 
     FileSystemFactoryOptions options;
     options.selector_ignore_prefixes = {"."};
-    options.partitioning = HivePartitioning::MakeFactory();
+    options.partitioning = std::make_shared<HivePartitioning>(
+        SchemaFromColumnNames(source_schema_, {"year", "month"}));
     ASSERT_OK_AND_ASSIGN(auto factory,
                          FileSystemDatasetFactory::Make(fs_, s, source_format, options));
     ASSERT_OK_AND_ASSIGN(dataset_, factory->Finish());
