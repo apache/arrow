@@ -2719,13 +2719,18 @@ macro(build_awssdk)
       _AWSSDK_STATIC_LIBRARY
       "${AWSSDK_PREFIX}/${AWSSDK_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}${_AWSSDK_LIB}${CMAKE_STATIC_LIBRARY_SUFFIX}"
       )
-    add_library(${_AWSSDK_LIB} STATIC IMPORTED)
+    if(${_AWSSDK_LIB} MATCHES "^aws-cpp-sdk-")
+      set(_AWSSDK_TARGET_NAME ${_AWSSDK_LIB})
+    else()
+      set(_AWSSDK_TARGET_NAME AWS::${_AWSSDK_LIB})
+    endif()
+    add_library(${_AWSSDK_TARGET_NAME} STATIC IMPORTED)
     set_target_properties(
-      ${_AWSSDK_LIB}
+      ${_AWSSDK_TARGET_NAME}
       PROPERTIES IMPORTED_LOCATION ${_AWSSDK_STATIC_LIBRARY} INTERFACE_INCLUDE_DIRECTORIES
                  "${AWSSDK_INCLUDE_DIR}")
     set("${_AWSSDK_LIB_NAME_PREFIX}_STATIC_LIBRARY" ${_AWSSDK_STATIC_LIBRARY})
-    list(APPEND AWSSDK_LIBRARIES ${_AWSSDK_LIB})
+    list(APPEND AWSSDK_LIBRARIES ${_AWSSDK_TARGET_NAME})
   endforeach()
 
   externalproject_add(aws_c_common_ep
@@ -2733,14 +2738,14 @@ macro(build_awssdk)
                       URL ${AWS_C_COMMON_SOURCE_URL}
                       CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
                       BUILD_BYPRODUCTS ${AWS_C_COMMON_STATIC_LIBRARY})
-  add_dependencies(aws-c-common aws_c_common_ep)
+  add_dependencies(AWS::aws-c-common aws_c_common_ep)
 
   externalproject_add(aws_checksums_ep
                       ${EP_LOG_OPTIONS}
                       URL ${AWS_CHECKSUMS_SOURCE_URL}
                       CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
                       BUILD_BYPRODUCTS ${AWS_CHECKSUMS_STATIC_LIBRARY})
-  add_dependencies(aws-checksums aws_checksums_ep)
+  add_dependencies(AWS::aws-checksums aws_checksums_ep)
 
   externalproject_add(aws_c_event_stream_ep
                       ${EP_LOG_OPTIONS}
@@ -2748,7 +2753,7 @@ macro(build_awssdk)
                       CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
                       BUILD_BYPRODUCTS ${AWS_C_EVENT_STREAM_STATIC_LIBRARY}
                       DEPENDS aws_c_common_ep aws_checksums_ep)
-  add_dependencies(aws-c-event-stream aws_c_event_stream_ep)
+  add_dependencies(AWS::aws-c-event-stream aws_c_event_stream_ep)
 
   externalproject_add(awssdk_ep
                       ${EP_LOG_OPTIONS}
@@ -2833,7 +2838,7 @@ if(ARROW_S3)
     # aws-sdk-cpp to use the MacOSX SDK provided by XCode which makes
     # XCode a hard dependency. Command Line Tools is often used instead
     # of the full XCode suite, so let the linker to find it.
-    set_target_properties(aws-c-common
+    set_target_properties(AWS::aws-c-common
                           PROPERTIES INTERFACE_LINK_LIBRARIES
                                      "-pthread;pthread;-framework CoreFoundation")
   endif()
