@@ -759,6 +759,14 @@ test_that("Writing a dataset: CSV->IPC", {
       filter(integer > 6) %>%
       summarize(mean = mean(integer))
   )
+
+  # Check whether "int" is present in the files or just in the dirs
+  first <- read_feather(
+    dir(dst_dir, pattern = ".feather$", recursive = TRUE, full.names = TRUE)[1],
+    as_data_frame = FALSE
+  )
+  # It shouldn't be there
+  expect_false("int" %in% names(first))
 })
 
 test_that("Writing a dataset: Parquet->IPC", {
@@ -980,14 +988,18 @@ test_that("Dataset writing: unsupported features/input validation", {
   expect_error(write_dataset(4), 'dataset must be a "Dataset"')
 
   ds <- open_dataset(hive_dir)
-
   expect_error(
     select(ds, integer = int) %>% write_dataset(ds),
     "Renaming columns when writing a dataset is not yet supported"
   )
-
   expect_error(
     write_dataset(ds, partitioning = c("int", "NOTACOLUMN"), format = "ipc"),
     'Invalid field name: "NOTACOLUMN"'
+  )
+  expect_error(
+    write_dataset(ds, tempfile(), basename_template = "something_without_i")
+  )
+  expect_error(
+    write_dataset(ds, tempfile(), basename_template = NULL)
   )
 })

@@ -35,8 +35,9 @@
 #' @param partitioning `Partitioning` or a character vector of columns to
 #' use as partition keys (to be written as path segments). Default is to
 #' use the current `group_by()` columns.
-#' @param basename_template `"{i}"` will be replaced with an autoincremented
-#' integer to generate basenames of datafiles. For example `"dat_{i}.feather"`
+#' @param basename_template string template for the names of files to be written.
+#' Must contain `"{i}"`, which will be replaced with an autoincremented
+#' integer to generate basenames of datafiles. For example, `"dat_{i}.feather"`
 #' will yield `"dat_0.feather", ...`.
 #' @param hive_style logical: write partition segments as Hive-style
 #' (`key1=value1/key2=value2/file.ext`) or as just bare values. Default is `TRUE`.
@@ -50,21 +51,18 @@ write_dataset <- function(dataset,
                           path,
                           format = dataset$format,
                           partitioning = dplyr::group_vars(dataset),
-                          basename_template = paste("dat_{i}", format$type, sep="."),
+                          basename_template = paste0("dat_{i}.", as.character(format)),
                           hive_style = TRUE,
                           filesystem = NULL,
                           ...) {
   if (inherits(dataset, "arrow_dplyr_query")) {
-    # Check for a select
-    if (!identical(dataset$selected_columns, set_names(names(dataset$.data)))) {
-      # We can select a subset of columns but we can't rename them
-      if (!setequal(dataset$selected_columns, names(dataset$selected_columns))) {
-        stop("Renaming columns when writing a dataset is not yet supported", call. = FALSE)
-      }
-      dataset <- ensure_group_vars(dataset)
+    # We can select a subset of columns but we can't rename them
+    if (!all(dataset$selected_columns == names(dataset$selected_columns))) {
+      stop("Renaming columns when writing a dataset is not yet supported", call. = FALSE)
     }
-  }
-  if (inherits(dataset, "grouped_df")) {
+    # partitioning vars need to be in the `select` schema
+    dataset <- ensure_group_vars(dataset)
+  } else if (inherits(dataset, "grouped_df")) {
     force(partitioning)
     # Drop the grouping metadata before writing; we've already consumed it
     # now to construct `partitioning` and don't want it in the metadata$r
@@ -72,18 +70,7 @@ write_dataset <- function(dataset,
   }
 
   scanner <- Scanner$create(dataset)
-
-  if (!inherits(format, "FileFormat")) {
-    format <- FileFormat$create(format)
-  }
-  if (inherits(format, "ParquetFileFormat")) {
-    options <- format$make_write_options(table=dataset, ...)
-  } else {
-    options <- format$make_write_options(...)
-  }
-
   if (!inherits(partitioning, "Partitioning")) {
-    # TODO: tidyselect?
     partition_schema <- scanner$schema[partitioning]
     if (isTRUE(hive_style)) {
       partitioning <- HivePartitioning$create(partition_schema)
@@ -91,42 +78,10 @@ write_dataset <- function(dataset,
       partitioning <- DirectoryPartitioning$create(partition_schema)
     }
   }
+
   path_and_fs <- get_path_and_filesystem(path, filesystem)
+  options <- FileWriteOptions$create(format, table = scanner, ...)
 
   dataset___Dataset__Write(options, path_and_fs$fs, path_and_fs$path,
                            partitioning, basename_template, scanner)
 }
-
-#' Format-specific write options
-#'
-#' @description
-#' A `FileWriteOptions` holds write options specific to a `FileFormat`.
-FileWriteOptions <- R6Class("FileWriteOptions", inherit = ArrowObject,
-  public = list(
-    ..dispatch = function() {
-      type <- self$type
-      if (type == "parquet") {
-        shared_ptr(ParquetFileWriteOptions, self$pointer())
-      } else {
-        self
-      }
-    },
-    update = function(...) {
-      type <- self$type
-      if (type == "parquet") {
-        dataset___ParquetFileWriteOptions__update(self,
-            ParquetWriterProperties$create(...),
-            ParquetArrowWriterProperties$create(...))
-      }
-    }
-  ),
-  active = list(
-    type = function() dataset___FileWriteOptions__type_name(self)
-  )
-)
-
-#' @usage NULL
-#' @format NULL
-#' @rdname FileWriteOptions
-#' @export
-ParquetFileWriteOptions <- R6Class("ParquetFileWriteOptions", inherit = FileWriteOptions)

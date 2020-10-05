@@ -9,7 +9,7 @@ write_dataset(
   path,
   format = dataset$format,
   partitioning = dplyr::group_vars(dataset),
-  basename_template = paste("dat_{i}", format$type, sep = "."),
+  basename_template = paste0("dat_{i}.", as.character(format)),
   hive_style = TRUE,
   filesystem = NULL,
   ...
@@ -34,8 +34,9 @@ same format as \code{dataset}.}
 use as partition keys (to be written as path segments). Default is to
 use the current \code{group_by()} columns.}
 
-\item{basename_template}{\code{"{i}"} will be replaced with an autoincremented
-integer to generate basenames of datafiles. For example \code{"dat_{i}.feather"}
+\item{basename_template}{string template for the names of files to be written.
+Must contain \code{"{i}"}, which will be replaced with an autoincremented
+integer to generate basenames of datafiles. For example, \code{"dat_{i}.feather"}
 will yield \verb{"dat_0.feather", ...}.}
 
 \item{hive_style}{logical: write partition segments as Hive-style

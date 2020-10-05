@@ -98,6 +98,9 @@ Scanner$create <- function(dataset,
   scanner_builder$Finish()
 }
 
+#' @export
+names.Scanner <- function(x) names(x$schema)
+
 ScanTask <- R6Class("ScanTask", inherit = ArrowObject,
   public = list(
     Execute = function() map(dataset___ScanTask__get_batches(self), shared_ptr, class = RecordBatch)

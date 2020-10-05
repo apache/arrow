@@ -61,11 +61,6 @@ FileFormat <- R6Class("FileFormat", inherit = ArrowObject,
       } else {
         self
       }
-    },
-    make_write_options = function(...) {
-      options <- shared_ptr(FileWriteOptions, dataset___FileFormat__DefaultWriteOptions(self))
-      options$update(...)
-      options
     }
   ),
   active = list(
@@ -87,6 +82,13 @@ FileFormat$create <- function(format, ...) {
   } else {
     stop("Unsupported file format: ", format, call. = FALSE)
   }
+}
+
+#' @export
+as.character.FileFormat <- function(x, ...) {
+  out <- x$type
+  # Slight hack: special case IPC -> feather, otherwise is just the type_name
+  ifelse(out == "ipc", "feather", out)
 }
 
 #' @usage NULL
@@ -124,4 +126,31 @@ csv_file_format_parse_options <- function(...) {
   } else {
     CsvParseOptions$create(...)
   }
+}
+
+#' Format-specific write options
+#'
+#' @description
+#' A `FileWriteOptions` holds write options specific to a `FileFormat`.
+FileWriteOptions <- R6Class("FileWriteOptions", inherit = ArrowObject,
+  public = list(
+    update = function(...) {
+      if (self$type == "parquet") {
+        dataset___ParquetFileWriteOptions__update(self,
+            ParquetWriterProperties$create(...),
+            ParquetArrowWriterProperties$create(...))
+      }
+      invisible(self)
+    }
+  ),
+  active = list(
+    type = function() dataset___FileWriteOptions__type_name(self)
+  )
+)
+FileWriteOptions$create <- function(format, ...) {
+  if (!inherits(format, "FileFormat")) {
+    format <- FileFormat$create(format)
+  }
+  options <- shared_ptr(FileWriteOptions, dataset___FileFormat__DefaultWriteOptions(format))
+  options$update(...)
 }
