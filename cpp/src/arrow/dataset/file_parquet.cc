@@ -131,7 +131,6 @@ static Result<SchemaManifest> GetSchemaManifest(
 
 static std::shared_ptr<StructScalar> MakeMinMaxScalar(std::shared_ptr<Scalar> min,
                                                       std::shared_ptr<Scalar> max) {
-  DCHECK(min->type->Equals(max->type));
   return std::make_shared<StructScalar>(ScalarVector{min, max},
                                         struct_({
                                             field("min", min->type),
@@ -168,6 +167,15 @@ static std::shared_ptr<StructScalar> ColumnChunkStatisticsAsStructScalar(
 
   std::shared_ptr<Scalar> min, max;
   if (!StatisticsAsScalars(*statistics, &min, &max).ok()) {
+    return nullptr;
+  }
+
+  auto maybe_min = min->CastTo(field->type());
+  auto maybe_max = max->CastTo(field->type());
+  if (maybe_min.ok() && maybe_max.ok()) {
+    min = maybe_min.MoveValueUnsafe();
+    max = maybe_max.MoveValueUnsafe();
+  } else {
     return nullptr;
   }
 

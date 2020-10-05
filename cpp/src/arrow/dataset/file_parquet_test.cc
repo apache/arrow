@@ -480,21 +480,20 @@ TEST_F(TestParquetFileFormat, PredicatePushdownRowGroupFragments) {
 }
 
 TEST_F(TestParquetFileFormat, PredicatePushdownRowGroupFragmentsUsingStringColumn) {
-  auto table =
-      TableFromJSON(schema({field("x", utf8())}), {
-                                                      R"([{"x": "a"}, {"x": "a"}])",
-                                                      R"([{"x": "b"}, {"x": "b"}])",
-                                                      R"([{"x": "c"}, {"x": "c"}])",
-                                                      R"([{"x": "a"}, {"x": "b"}])",
-                                                  });
+  auto table = TableFromJSON(schema({field("x", utf8())}),
+                             {
+                                 R"([{"x": "a"}])",
+                                 R"([{"x": "b"}, {"x": "b"}])",
+                                 R"([{"x": "c"}, {"x": "c"}, {"x": "c"}])",
+                                 R"([{"x": "a"}, {"x": "b"}, {"x": "c"}, {"x": "d"}])",
+                             });
   TableBatchReader reader(*table);
   auto source = GetFileSource(&reader);
 
   opts_ = ScanOptions::Make(reader.schema());
   ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
 
-  // TODO(bkietz): support strings in StatisticsAsScalars
-  // CountRowGroupsInFragment(fragment, {0, 3}, "x"_ == "a");
+  CountRowGroupsInFragment(fragment, {0, 3}, "x"_ == "a");
 }
 
 TEST_F(TestParquetFileFormat, ExplicitRowGroupSelection) {
