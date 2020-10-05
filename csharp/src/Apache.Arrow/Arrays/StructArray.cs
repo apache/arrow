@@ -21,13 +21,13 @@ namespace Apache.Arrow
 {
     public class StructArray : Array
     {
-        private readonly List<Array> _fields;
+        private readonly IEnumerable<IArrowArray> _fields;
 
-        public IEnumerable<Array> Fields => _fields;
+        public IEnumerable<IArrowArray> Fields => _fields;
 
         public StructArray(
             IArrowType dataType, int length,
-            IEnumerable<Array> children,
+            IEnumerable<IArrowArray> children,
             ArrowBuffer nullBitmapBuffer, int nullCount = 0, int offset = 0)
         : this(new ArrayData(
             dataType, length, nullCount, offset, new[] { nullBitmapBuffer }, 
