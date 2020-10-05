@@ -47,6 +47,7 @@ Suggests:
     rmarkdown,
     testthat,
     tibble
+LinkingTo: cpp11
 Collate:
     'enums.R'
     'arrow-package.R'
