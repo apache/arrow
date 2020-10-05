@@ -120,12 +120,8 @@ static const BasicDecimal128 ScaleMultipliersHalf[] = {
     BasicDecimal128(271050543121376108LL, 9257742014424809472ULL),
     BasicDecimal128(2710505431213761085LL, 343699775700336640ULL)};
 
-#undef ARROW_USE_NATIVE_INT128
-
 #ifdef ARROW_USE_NATIVE_INT128
 static constexpr uint64_t kInt64Mask = 0xFFFFFFFFFFFFFFFF;
-#else
-static constexpr uint64_t kIntMask = 0xFFFFFFFF;
 #endif
 
 // same as ScaleMultipliers[38] - 1
@@ -256,6 +252,31 @@ BasicDecimal128& BasicDecimal128::operator>>=(uint32_t bits) {
 
 namespace {
 
+template <typename Word>
+void ExtendAndMultiplyUint(Word x, Word y, Word* hi, Word* lo) {
+  constexpr Word kHighBitShift = sizeof(Word) * 4;
+  constexpr Word kLowBitMask = (static_cast<Word>(1) << kHighBitShift) - 1;
+
+  const Word x_lo = x & kLowBitMask;
+  const Word y_lo = y & kLowBitMask;
+  const Word x_hi = x >> kHighBitShift;
+  const Word y_hi = y >> kHighBitShift;
+
+  const Word t = x_lo * y_lo;
+  const Word t_lo = t & kLowBitMask;
+  const Word t_hi = t >> kHighBitShift;
+
+  const Word u = x_hi * y_lo + t_hi;
+  const Word u_lo = u & kLowBitMask;
+  const Word u_hi = u >> kHighBitShift;
+
+  const Word v = x_lo * y_hi + u_lo;
+  const Word v_hi = v >> kHighBitShift;
+
+  *hi = x_hi * y_hi + u_hi + v_hi;
+  *lo = (v << kHighBitShift) + t_lo;
+}
+
 #ifdef ARROW_USE_NATIVE_INT128
 struct uint128_t {
   uint128_t() {}
@@ -265,16 +286,7 @@ struct uint128_t {
   }
 
   uint64_t hi() { return val_ >> 64; }
-
   uint64_t lo() { return val_ & kInt64Mask; }
-
-  void inc_hi() { val_ += (static_cast<__uint128_t>(1) << 64); }
-
-  void inc_lo() { val_ += 1; }
-
-  void add_hi(uint64_t x) { *this = uint128_t(hi() + x, lo()); }
-
-  void add_lo(uint64_t x) { *this = uint128_t(hi(), lo() + x); }
 
   uint128_t& operator+=(const uint128_t& other) {
     val_ += other.val_;
@@ -283,6 +295,12 @@ struct uint128_t {
 
   __uint128_t val_;
 };
+
+uint128_t operator*(const uint128_t& left, const uint128_t& right) {
+  uint128_t r;
+  r.val_ = left.val_ * right.val_;
+  return r;
+}
 #else
 struct uint128_t {
   uint128_t() {}
@@ -293,20 +311,7 @@ struct uint128_t {
   }
 
   uint64_t hi() const { return hi_; }
-
   uint64_t lo() const { return lo_; }
-
-  void inc_hi() { ++hi_; }
-
-  void inc_lo() {
-    uint64_t t = (lo_ + 1);
-    hi_ += ((lo_ ^ t) & lo_) >> 63;
-    lo_ = t;
-  }
-
-  void add_hi(uint64_t x) { hi_ += x; }
-
-  void add_lo(uint64_t x) { lo_ += x; }
 
   uint128_t& operator+=(const uint128_t& other) {
     uint64_t carry = (((lo_ & other.lo_) & 1) + (lo_ >> 1) + (other.lo_ >> 1)) >> 63;
@@ -318,76 +323,47 @@ struct uint128_t {
   uint64_t hi_;
   uint64_t lo_;
 };
-#endif
 
-void ExtendAndMultiplyUint64(uint64_t x, uint64_t y, uint128_t* r) {
-#ifdef ARROW_USE_NATIVE_INT128
-  r->val_ = static_cast<__uint128_t>(x) * y;
-#else
-  const uint64_t x_lo = x & kIntMask;
-  const uint64_t y_lo = y & kIntMask;
-  const uint64_t x_hi = x >> 32;
-  const uint64_t y_hi = y >> 32;
-
-  const uint64_t t = x_lo * y_lo;
-  const uint64_t t_lo = t & kIntMask;
-  const uint64_t t_hi = t >> 32;
-
-  const uint64_t u = x_hi * y_lo + t_hi;
-  const uint64_t u_lo = u & kIntMask;
-  const uint64_t u_hi = u >> 32;
-
-  const uint64_t v = x_lo * y_hi + u_lo;
-  const uint64_t v_hi = v >> 32;
-
-  r->hi_ = x_hi * y_hi + u_hi + v_hi;
-  r->lo_ = (v << 32) + t_lo;
-#endif
-}
-
-#ifdef ARROW_USE_NATIVE_INT128
 uint128_t operator*(const uint128_t& left, const uint128_t& right) {
   uint128_t r;
-  r.val_ = left.val_ * right.val_;
-  return r;
-}
-#else
-uint128_t operator*(const uint128_t& left, const uint128_t& right) {
-  uint128_t r;
-  ExtendAndMultiplyUint64(left.lo(), right.lo(), &r);
-  r.hi_ += (left.hi() * right.lo()) + (left.lo() * right.hi());
+  ExtendAndMultiplyUint(left.lo_, right.lo_, &r.hi_, &r.lo_);
+  r.hi_ += (left.hi_ * right.lo_) + (left.lo_ * right.hi_);
   return r;
 }
 #endif
 
 void ExtendAndMultiplyUint128(uint128_t x, uint128_t y, uint128_t* hi, uint128_t* lo) {
-  ExtendAndMultiplyUint64(x.hi(), y.hi(), hi);
-  ExtendAndMultiplyUint64(x.lo(), y.lo(), lo);
+#ifdef ARROW_USE_NATIVE_INT128
+  return ExtendAndMultiplyUint(x.val_, y.val_, &hi->val_, &lo->val_);
+#else
+  ExtendAndMultiplyUint(x.hi_, y.hi_, &hi->hi_, &hi->lo_);
+  ExtendAndMultiplyUint(x.lo_, y.lo_, &lo->hi_, &lo->lo_);
 
   uint128_t t;
-  ExtendAndMultiplyUint64(x.hi(), y.lo(), &t);
-  lo->add_hi(t.lo());
+  ExtendAndMultiplyUint(x.hi_, y.lo_, &t.hi_, &t.lo_);
+  lo->hi_ += t.lo_;
   // Check for overflow in lo.hi
-  if (lo->hi() < t.lo()) {
-    hi->inc_lo();
+  if (lo->hi_ < t.lo_) {
+    hi->lo_++;
   }
-  hi->add_lo(t.hi());
+  hi->lo_ += t.hi_;
   // Check for overflow in hi.lo
-  if (hi->lo() < t.hi()) {
-    hi->inc_hi();
+  if (hi->lo_ < t.hi_) {
+    hi->hi_++;
   }
 
-  ExtendAndMultiplyUint64(x.lo(), y.hi(), &t);
-  lo->add_hi(t.lo());
+  ExtendAndMultiplyUint(x.lo_, y.hi_, &t.hi_, &t.lo_);
+  lo->hi_ += t.lo_;
   // Check for overflow in lo.hi
-  if (lo->hi() < t.lo()) {
-    hi->inc_lo();
+  if (lo->hi_ < t.lo_) {
+    hi->lo_++;
   }
-  hi->add_lo(t.hi());
+  hi->lo_ += t.hi_;
   // Check for overflow in hi.lo
-  if (hi->lo() < t.hi()) {
-    hi->inc_hi();
+  if (hi->lo_ < t.hi_) {
+    hi->hi_++;
   }
+#endif
 }
 
 void MultiplyUint256(uint128_t x_hi, uint128_t x_lo, uint128_t y_hi, uint128_t y_lo,
