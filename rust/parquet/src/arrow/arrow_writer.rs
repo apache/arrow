@@ -599,7 +599,7 @@ mod tests {
         let mut arrow_reader = ParquetFileArrowReader::new(Rc::new(file_reader));
         let mut record_batch_reader = arrow_reader.get_record_reader(1024).unwrap();
 
-        let batch = record_batch_reader.next_batch().unwrap().unwrap();
+        let batch = record_batch_reader.next().unwrap().unwrap();
         let string_col = batch
             .column(0)
             .as_any()
@@ -709,7 +709,7 @@ mod tests {
         let mut arrow_reader = ParquetFileArrowReader::new(Rc::new(reader));
         let mut record_batch_reader = arrow_reader.get_record_reader(1024).unwrap();
 
-        let actual_batch = record_batch_reader.next_batch().unwrap().unwrap();
+        let actual_batch = record_batch_reader.next().unwrap().unwrap();
 
         assert_eq!(expected_batch.schema(), actual_batch.schema());
         assert_eq!(expected_batch.num_columns(), actual_batch.num_columns());
