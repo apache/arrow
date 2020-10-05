@@ -495,7 +495,7 @@ mod tests {
     use arrow::array::*;
     use arrow::datatypes::ToByteSlice;
     use arrow::datatypes::{DataType, Field, Schema};
-    use arrow::record_batch::{RecordBatch, RecordBatchReader};
+    use arrow::record_batch::RecordBatch;
 
     use crate::arrow::{ArrowReader, ParquetFileArrowReader};
     use crate::file::{metadata::KeyValue, reader::SerializedFileReader};
