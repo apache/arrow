@@ -414,6 +414,9 @@ Result<std::unique_ptr<IpcPayloadWriter>> MakePayloadFileWriter(
 
 /// Create a new RecordBatchWriter from IpcPayloadWriter and schema.
 ///
+/// The format is implicitly the IPC stream format (allowing dictionary
+/// replacement and deltas).
+///
 /// \param[in] sink the IpcPayloadWriter to write to
 /// \param[in] schema the schema of the record batches to be written
 /// \param[in] options options for serialization
