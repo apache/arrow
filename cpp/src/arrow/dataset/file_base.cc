@@ -322,25 +322,23 @@ Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_optio
 
           util::Mutex::Guard wait_for_opened_writer_lock;
 
-          using internal::GetOrInsertGenerated;
-
           WriteQueue* queue;
           {
             // lookup the queue to which batch should be appended
             auto queues_lock = queues_mutex.Lock();
 
-            queue = GetOrInsertGenerated(&queues, std::move(part),
-                                         [&](const std::string& part) {
-                                           // lookup in `queues` also failed,
-                                           // generate a new WriteQueue
-                                           size_t queue_index = queues.size() - 1;
+            queue = internal::GetOrInsertGenerated(
+                        &queues, std::move(part),
+                        [&](const std::string& emplaced_part) {
+                          // lookup in `queues` also failed,
+                          // generate a new WriteQueue
+                          size_t queue_index = queues.size() - 1;
 
-                                           queues_storage.emplace_back(
-                                               part, queue_index,
-                                               &wait_for_opened_writer_lock);
+                          queues_storage.emplace_back(emplaced_part, queue_index,
+                                                      &wait_for_opened_writer_lock);
 
-                                           return &queues_storage.back();
-                                         })
+                          return &queues_storage.back();
+                        })
                         ->second;
           }
 

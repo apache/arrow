@@ -28,8 +28,8 @@ namespace internal {
 /// std::unordered_map. If `key` exists in the container, an iterator to that pair
 /// will be returned. If `key` does not exist in the container, `gen(key)` will be
 /// invoked and its return value inserted.
-template <typename Map, typename Key, typename Gen>
-auto GetOrInsertGenerated(Map* map, Key key, Gen&& gen)
+template <typename Map, typename Gen>
+auto GetOrInsertGenerated(Map* map, typename Map::key_type key, Gen&& gen)
     -> decltype(map->begin()->second = gen(map->begin()->first), map->begin()) {
   decltype(gen(map->begin()->first)) placeholder{};
 
@@ -43,8 +43,8 @@ auto GetOrInsertGenerated(Map* map, Key key, Gen&& gen)
   return it_success.first;
 }
 
-template <typename Map, typename Key, typename Gen>
-auto GetOrInsertGenerated(Map* map, Key key, Gen&& gen)
+template <typename Map, typename Gen>
+auto GetOrInsertGenerated(Map* map, typename Map::key_type key, Gen&& gen)
     -> Result<decltype(map->begin()->second = gen(map->begin()->first).ValueOrDie(),
                        map->begin())> {
   decltype(gen(map->begin()->first).ValueOrDie()) placeholder{};
