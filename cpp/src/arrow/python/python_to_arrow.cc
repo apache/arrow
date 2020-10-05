@@ -257,7 +257,7 @@ class PyValue {
         case TimeUnit::NANO:
           // Conversion to nanoseconds can overflow -> check multiply of microseconds
           value = internal::PyDateTime_to_us(dt);
-          if (arrow::internal::MultiplyWithOverflow(value, 1000, &value)) {
+          if (arrow::internal::MultiplyWithOverflow(value, 1000LL, &value)) {
             return internal::InvalidValue(obj, "out of bounds for nanosecond resolution");
           }
           if (arrow::internal::SubtractWithOverflow(value, offset * 1000000000LL,
@@ -671,12 +671,7 @@ class PyListConverter : public ListConverter<T, PyConverter, PyConverterTrait> {
     }                                                           \
     return AppendNdarrayTyped<TYPE, NUMPY_TYPE>(ndarray);       \
   }
-// Use internal::VisitSequence, fast for NPY_OBJECT but slower otherwise
-#define LIST_SLOW_CASE(TYPE_ID)                               \
-  case Type::TYPE_ID: {                                       \
-    return Extend(this->value_converter_.get(), value, size); \
-  }
-      LIST_SLOW_CASE(NA)
+      LIST_FAST_CASE(BOOL, BooleanType, NPY_BOOL)
       LIST_FAST_CASE(UINT8, UInt8Type, NPY_UINT8)
       LIST_FAST_CASE(INT8, Int8Type, NPY_INT8)
       LIST_FAST_CASE(UINT16, UInt16Type, NPY_UINT16)
@@ -690,24 +685,9 @@ class PyListConverter : public ListConverter<T, PyConverter, PyConverterTrait> {
       LIST_FAST_CASE(DOUBLE, DoubleType, NPY_DOUBLE)
       LIST_FAST_CASE(TIMESTAMP, TimestampType, NPY_DATETIME)
       LIST_FAST_CASE(DURATION, DurationType, NPY_TIMEDELTA)
-      LIST_SLOW_CASE(DATE32)
-      LIST_SLOW_CASE(DATE64)
-      LIST_SLOW_CASE(TIME32)
-      LIST_SLOW_CASE(TIME64)
-      LIST_SLOW_CASE(BINARY)
-      LIST_SLOW_CASE(FIXED_SIZE_BINARY)
-      LIST_SLOW_CASE(STRING)
 #undef LIST_FAST_CASE
-#undef LIST_SLOW_CASE
-      case Type::LIST: {
-        if (PyArray_DESCR(ndarray)->type_num != NPY_OBJECT) {
-          return Status::Invalid(
-              "Can only convert list types from NumPy object array input");
-        }
-        return Extend(this->value_converter_.get(), value, /*reserved=*/0);
-      }
       default: {
-        return Status::TypeError("Unknown list item type: ", value_type->ToString());
+        return Extend(this->value_converter_.get(), value, size);
       }
     }
   }
