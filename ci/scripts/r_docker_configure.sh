@@ -51,6 +51,11 @@ if [ "$ARROW_S3" == "ON" ] || [ "$ARROW_R_DEV" == "TRUE" ]; then
     apt-get update
     apt-get install -y libcurl4-openssl-dev libssl-dev
   fi
+
+  # The Dockerfile should have put this file here
+  if [ -f "/arrow/ci/scripts/install_minio.sh" ]; then
+    /arrow/ci/scripts/install_minio.sh amd64 linux latest /usr/local
+  fi
 fi
 
 # Workaround for html help install failure; see https://github.com/r-lib/devtools/issues/2084#issuecomment-530912786

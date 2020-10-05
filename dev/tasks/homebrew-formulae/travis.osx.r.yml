@@ -46,7 +46,7 @@ before_install:
 # Sometimes crossbow gives a remote URL with .git and sometimes not. Make sure there's only one
 - sed -i.bak -E -e 's@.git.git@.git@' tools/apache-arrow.rb && rm -f tools/apache-arrow.rb.bak
 # Get minio for S3 testing
-- brew install minio/stable/minio
+- brew install minio
 script:
 - Rscript -e 'install.packages(c("rcmdcheck", "sys"))'
 # Note that this is not --as-cran. CRAN doesn't do macOS checks --as-cran
