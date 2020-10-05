@@ -100,7 +100,7 @@ There are a few options for passing these credentials:
 4. Define them in a `~/.aws/credentials` file, according to the [AWS documentation](https://docs.aws.amazon.com/sdk-for-cpp/v1/developer-guide/credentials.html).
 
 You can also use an [AccessRole](https://docs.aws.amazon.com/STS/latest/APIReference/API_AssumeRole.html)
-for temporary access by passing the `role_arn` identifier to `S3FileSystem$create()` or `S3Bucket$create()`.
+for temporary access by passing the `role_arn` identifier to `S3FileSystem$create()` or `s3_bucket()`.
 
 ## File systems that emulate S3
 
