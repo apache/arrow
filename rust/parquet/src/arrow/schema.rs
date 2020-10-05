@@ -65,27 +65,47 @@ pub fn parquet_to_arrow_schema_by_columns<T>(
 where
     T: IntoIterator<Item = usize>,
 {
+    let mut metadata = parse_key_value_metadata(key_value_metadata).unwrap_or_default();
+    let arrow_schema_metadata = metadata
+        .remove(super::ARROW_SCHEMA_META_KEY)
+        .map(|encoded| get_arrow_schema_from_metadata(&encoded)).unwrap_or_default();
+
     let mut base_nodes = Vec::new();
     let mut base_nodes_set = HashSet::new();
     let mut leaves = HashSet::new();
 
-    for c in column_indices {
-        let column = parquet_schema.column(c).self_type() as *const Type;
-        let root = parquet_schema.get_column_root(c);
-        let root_raw_ptr = root as *const Type;
+    enum FieldType<'a> {
+        Parquet(&'a Type),
+        Arrow(Field),
+    }
 
-        leaves.insert(column);
-        if !base_nodes_set.contains(&root_raw_ptr) {
-            base_nodes.push(root);
-            base_nodes_set.insert(root_raw_ptr);
+    for c in column_indices {
+        let column = parquet_schema.column(c);
+        let name = column.name();
+
+        if let Some(field) = arrow_schema_metadata.as_ref().and_then(|schema| schema.field_with_name(name).ok().cloned()) {
+            base_nodes.push(FieldType::Arrow(field));
+        } else {
+            let column = column.self_type() as *const Type;
+            let root = parquet_schema.get_column_root(c);
+            let root_raw_ptr = root as *const Type;
+
+            leaves.insert(column);
+            if !base_nodes_set.contains(&root_raw_ptr) {
+                base_nodes.push(FieldType::Parquet(root));
+                base_nodes_set.insert(root_raw_ptr);
+            }
         }
     }
 
-    let metadata = parse_key_value_metadata(key_value_metadata).unwrap_or_default();
-
     base_nodes
         .into_iter()
-        .map(|t| ParquetTypeConverter::new(t, &leaves).to_field())
+        .map(|t| {
+            match t {
+                FieldType::Parquet(t) => ParquetTypeConverter::new(t, &leaves).to_field(),
+                FieldType::Arrow(f) => Ok(Some(f)),
+            }
+        })
         .collect::<Result<Vec<Option<Field>>>>()
         .map(|result| result.into_iter().filter_map(|f| f).collect::<Vec<Field>>())
         .map(|fields| Schema::new_with_metadata(fields, metadata))
@@ -1436,6 +1456,15 @@ mod tests {
         let mut arrow_reader = ParquetFileArrowReader::new(Rc::new(parquet_reader));
         let read_schema = arrow_reader.get_schema()?;
         assert_eq!(schema, read_schema);
+
+        let partial_schema = Schema::new(vec![
+            schema.field(22).clone(),
+            schema.field(23).clone(),
+            schema.field(24).clone(),
+        ]);
+        let partial_read_schema = arrow_reader.get_schema_by_columns(24..27)?;
+        assert_eq!(partial_schema, partial_read_schema);
+
         Ok(())
     }
 }
