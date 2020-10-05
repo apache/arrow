@@ -828,6 +828,24 @@ def test_fragments_parquet_row_groups(tempdir):
 
 @pytest.mark.pandas
 @pytest.mark.parquet
+def test_fragments_parquet_row_groups_dictionary(tempdir):
+    import pandas as pd
+
+    df = pd.DataFrame(dict(col1=['a', 'b'], col2=[1, 2]))
+    df['col1'] = df['col1'].astype("category")
+
+    import pyarrow.parquet as pq
+    pq.write_table(pa.table(df), tempdir / "test_filter_dictionary.parquet")
+
+    import pyarrow.dataset as ds
+    dataset = ds.dataset(tempdir / 'test_filter_dictionary.parquet')
+    result = dataset.to_table(filter=ds.field("col1") == "a")
+
+    assert (df.iloc[0] == result.to_pandas()).all().all()
+
+
+@pytest.mark.pandas
+@pytest.mark.parquet
 def test_fragments_parquet_ensure_metadata(tempdir, open_logging_fs):
     fs, assert_opens = open_logging_fs
     _, dataset = _create_dataset_for_fragments(
