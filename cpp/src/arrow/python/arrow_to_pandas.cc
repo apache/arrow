@@ -803,18 +803,21 @@ inline Status ConvertMap(const PandasOptions& options, const ChunkedArray& data,
   }
 
   const auto& map_type = checked_cast<const MapType&>(*data.type());
-  const auto& key_type = map_type.key_type();
-  const auto& item_type = map_type.item_type();
+  auto key_type = map_type.key_type();
+  auto item_type = map_type.item_type();
 
-  // TODO: Is this needed for key/item?
-  /*
-  if (value_type->id() == Type::DICTIONARY) {
-    // ARROW-6899: Convert dictionary-encoded children to dense instead of
-    // failing below. A more efficient conversion than this could be done later
-    auto dense_type = checked_cast<const DictionaryType&>(*value_type).value_type();
-    RETURN_NOT_OK(DecodeDictionaries(options.pool, dense_type, &value_arrays));
-    value_type = dense_type;
-  }*/
+  // ARROW-6899: Convert dictionary-encoded children to dense instead of
+  // failing below. A more efficient conversion than this could be done later
+  if (key_type->id() == Type::DICTIONARY) {
+    auto dense_type = checked_cast<const DictionaryType&>(*key_type).value_type();
+    RETURN_NOT_OK(DecodeDictionaries(options.pool, dense_type, &key_arrays));
+    key_type = dense_type;
+  }
+  if (item_type->id() == Type::DICTIONARY) {
+    auto dense_type = checked_cast<const DictionaryType&>(*item_type).value_type();
+    RETURN_NOT_OK(DecodeDictionaries(options.pool, dense_type, &item_arrays));
+    item_type = dense_type;
+  }
 
   // TODO(ARROW-489): Currently we don't have a Python reference for single columns.
   //    Storing a reference to the whole Array would be too expensive.
