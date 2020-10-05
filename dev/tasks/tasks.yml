@@ -1618,7 +1618,7 @@ tasks:
       template: docker-tests/github.linux.yml
       env:
         PYTHON: 3.8
-        PYARROW_TEST_HYPOTHESIS: ON
+        PYTEST_ARGS: "--enable-hypothesis -m hypothesis"
         HYPOTHESIS_PROFILE: ci
       run: conda-python
 
