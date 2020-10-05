@@ -33,7 +33,6 @@
 #include "arrow/io/interfaces.h"
 #include "arrow/io/memory.h"
 #include "arrow/util/iterator.h"
-#include "arrow/util/lock_free.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/make_unique.h"
 #include "arrow/util/map.h"
@@ -173,6 +172,8 @@ Status ValidateBasenameTemplate(util::string_view basename_template) {
   return Status::OK();
 }
 
+/// WriteQueue allows batches to be pushed from multiple threads while another thread
+/// flushes some to disk.
 class WriteQueue {
  public:
   WriteQueue(std::string partition_expression, size_t index,
@@ -182,43 +183,30 @@ class WriteQueue {
   }
 
   // Push a batch into the writer's queue of pending writes.
-  void Push(std::shared_ptr<RecordBatch> batch) { pending_.Push(std::move(batch)); }
-
-  // Try to lock a writer and flush its queue of pending writes.  Returns false if the
-  // lock could not be acquired. The queue is guaranteed to be flushed if every thread
-  // which calls Push() subsequently calls TryFlush() until it returns true.
-  Result<bool> TryFlush() {
-    if (auto lock = writer_mutex_.TryLock()) {
-      RecordBatchVector pending_vector;
-      do {
-        // Move pending to a local variable exclusively viewed by this thread
-        auto pending = std::move(pending_);
-        pending_vector = pending.ToVector();
-
-        for (auto it = pending_vector.rbegin(); it != pending_vector.rend(); ++it) {
-          RETURN_NOT_OK(writer_->Write(*it));
-        }
-
-        // Since we're holding this writer's lock anyway we may as well check for batches
-        // added while we were writing
-      } while (!pending_vector.empty());
-      return true;
-    }
-    return false;
+  void Push(std::shared_ptr<RecordBatch> batch) {
+    auto push_lock = push_mutex_.Lock();
+    pending_.push_back(std::move(batch));
   }
 
-  // Flush a set of WriteQueues. If we find any queue to be locked we try flushing all
-  // the others before retrying to minimize busy waiting.
-  static Status FlushSet(std::unordered_set<WriteQueue*> set) {
-    while (!set.empty()) {
-      for (auto it = set.begin(); it != set.end();) {
-        WriteQueue* queue = *it;
-        ARROW_ASSIGN_OR_RAISE(bool flushed, queue->TryFlush());
-        if (flushed) {
-          it = set.erase(it);
-        } else {
-          ++it;
+  // Flush all pending batches, or return immediately if another thread is already
+  // flushing this queue.
+  Status Flush() {
+    if (auto writer_lock = writer_mutex_.TryLock()) {
+      while (true) {
+        std::shared_ptr<RecordBatch> batch;
+        {
+          auto push_lock = push_mutex_.Lock();
+          if (pending_.empty()) {
+            // Ensure the writer_lock is released before the push_lock. Otherwise another
+            // thread might successfully Push() a batch but then fail to Flush() it since
+            // the writer_lock is still held, leaving an unflushed batch in pending_.
+            writer_lock.Unlock();
+            break;
+          }
+          batch = std::move(pending_.front());
+          pending_.pop_front();
         }
+        RETURN_NOT_OK(writer_->Write(batch));
       }
     }
     return Status::OK();
@@ -252,11 +240,11 @@ class WriteQueue {
   using Set = std::unordered_map<std::string, WriteQueue*>;
 
  private:
-  // FileWriters are not required to be thread safe, so they must be guarded with a mutex.
   util::Mutex writer_mutex_;
   std::shared_ptr<FileWriter> writer_;
-  // A stack into which batches to write will be pushed
-  util::LockFreeStack<std::shared_ptr<RecordBatch>> pending_;
+
+  util::Mutex push_mutex_;
+  std::deque<std::shared_ptr<RecordBatch>> pending_;
 
   // The (formatted) partition expression to which this queue corresponds
   std::string partition_expression_;
@@ -373,7 +361,9 @@ Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_optio
         }
 
         // flush all touched WriteQueues
-        RETURN_NOT_OK(WriteQueue::FlushSet(std::move(need_flushed)));
+        for (auto queue : need_flushed) {
+          RETURN_NOT_OK(queue->Flush());
+        }
       }
 
       return Status::OK();

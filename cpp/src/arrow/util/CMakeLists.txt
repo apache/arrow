@@ -66,7 +66,6 @@ add_arrow_test(utility-test
 add_arrow_test(threading-utility-test
                SOURCES
                future_test
-               lock_free_test
                task_group_test
                thread_pool_test)
 
