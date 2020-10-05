@@ -53,7 +53,7 @@ if [ "$ARROW_S3" == "ON" ] || [ "$ARROW_R_DEV" == "TRUE" ]; then
   fi
 
   # The Dockerfile should have put this file here
-  if [ -f "/arrow/ci/scripts/install_minio.sh" ]; then
+  if [ -f "/arrow/ci/scripts/install_minio.sh" ] && [ "`which wget`" ]; then
     /arrow/ci/scripts/install_minio.sh amd64 linux latest /usr/local
   fi
 fi
