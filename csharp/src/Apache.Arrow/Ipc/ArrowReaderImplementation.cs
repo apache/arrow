@@ -147,10 +147,10 @@ namespace Apache.Arrow.Ipc
         {
 
             ArrowBuffer nullArrowBuffer = BuildArrowBuffer(bodyData, recordBatchEnumerator.CurrentBuffer);
-            recordBatchEnumerator.MoveNextBuffer();
-            ArrowBuffer valueArrowBuffer = BuildArrowBuffer(bodyData, recordBatchEnumerator.CurrentBuffer);
-            recordBatchEnumerator.MoveNextBuffer();
-
+            if (!recordBatchEnumerator.MoveNextBuffer())
+            {
+                throw new Exception("Unable to move to the next buffer.");
+            }
 
             int fieldLength = (int)fieldNode.Length;
             int fieldNullCount = (int)fieldNode.NullCount;
@@ -165,8 +165,21 @@ namespace Apache.Arrow.Ipc
                 throw new InvalidDataException("Null count length must be >= 0"); // TODO:Localize exception message
             }
 
-            ArrowBuffer[] arrowBuff = new[] { nullArrowBuffer, valueArrowBuffer };
-            ArrayData[] children = GetChildren(ref recordBatchEnumerator, field, bodyData);
+            ArrowBuffer[] arrowBuff = null;
+            ArrayData[] children = null;
+            if (field.DataType.TypeId == ArrowTypeId.Struct)
+            {
+                arrowBuff = new[] { nullArrowBuffer};
+                children = GetChildren(ref recordBatchEnumerator, field, bodyData);
+            }
+            else
+            {
+                ArrowBuffer valueArrowBuffer = BuildArrowBuffer(bodyData, recordBatchEnumerator.CurrentBuffer);
+                recordBatchEnumerator.MoveNextBuffer();
+
+                arrowBuff = new[] { nullArrowBuffer, valueArrowBuffer };
+                children = GetChildren(ref recordBatchEnumerator, field, bodyData);
+            }
 
             return new ArrayData(field.DataType, fieldLength, fieldNullCount, 0, arrowBuff, children);
         }
@@ -180,9 +193,15 @@ namespace Apache.Arrow.Ipc
         {
 
             ArrowBuffer nullArrowBuffer = BuildArrowBuffer(bodyData, recordBatchEnumerator.CurrentBuffer);
-            recordBatchEnumerator.MoveNextBuffer();
+            if (!recordBatchEnumerator.MoveNextBuffer())
+            {
+                throw new Exception("Unable to move to the next buffer.");
+            }
             ArrowBuffer offsetArrowBuffer = BuildArrowBuffer(bodyData, recordBatchEnumerator.CurrentBuffer);
-            recordBatchEnumerator.MoveNextBuffer();
+            if (!recordBatchEnumerator.MoveNextBuffer())
+            {
+                throw new Exception("Unable to move to the next buffer.");
+            }
             ArrowBuffer valueArrowBuffer = BuildArrowBuffer(bodyData, recordBatchEnumerator.CurrentBuffer);
             recordBatchEnumerator.MoveNextBuffer();
 

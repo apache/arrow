@@ -14,6 +14,7 @@
 // limitations under the License.
 
 using System;
+using System.Diagnostics;
 using System.IO;
 
 namespace Apache.Arrow.Ipc
@@ -57,16 +58,30 @@ namespace Apache.Arrow.Ipc
             for (int i = 0; i < schema.FieldsLength; i++)
             {
                 Flatbuf.Field field = schema.Fields(i).GetValueOrDefault();
-
-                schemaBuilder.Field(
-                    new Field(field.Name, GetFieldArrowType(field), field.Nullable));
+                Field arrowField = FieldFromFlatbuffer(field);
+                schemaBuilder.Field(arrowField);
             }
 
             return schemaBuilder.Build();
         }
 
+        private static Field FieldFromFlatbuffer(Flatbuf.Field flatbufField)
+        {
+            System.Collections.Generic.List<Field> childFields = null;
+            if (flatbufField.ChildrenLength > 0)
+            {
+                childFields = new System.Collections.Generic.List<Field>();
+                for (int j = 0; j < flatbufField.ChildrenLength; j++)
+                {
+                    Flatbuf.Field? childFlatbufField = flatbufField.Children(j);
+                    Field childField = FieldFromFlatbuffer(childFlatbufField.Value);
+                    childFields.Add(childField);
+                }
+            }
+            return new Field(flatbufField.Name, GetFieldArrowType(flatbufField, childFields), flatbufField.Nullable);
+        }
 
-        private static Types.IArrowType GetFieldArrowType(Flatbuf.Field field)
+        private static Types.IArrowType GetFieldArrowType(Flatbuf.Field field, System.Collections.Generic.List<Field> childFields = null)
         {
             switch (field.TypeType)
             {
@@ -131,6 +146,9 @@ namespace Apache.Arrow.Ipc
                         throw new InvalidDataException($"List type must have only one child.");
                     }
                     return new Types.ListType(GetFieldArrowType(field.Children(0).GetValueOrDefault()));
+                case Flatbuf.Type.Struct_:
+                    Debug.Assert(childFields != null);
+                    return new Types.StructType(childFields);
                 default:
                     throw new InvalidDataException($"Arrow primitive '{field.TypeType}' is unsupported.");
             }

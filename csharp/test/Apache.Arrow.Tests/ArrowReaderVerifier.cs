@@ -80,8 +80,8 @@ namespace Apache.Arrow.Tests
             {
                 Assert.IsAssignableFrom<TimestampType>(_expectedType);
 
-                var expectedType = (TimestampType) _expectedType;
-                
+                var expectedType = (TimestampType)_expectedType;
+
                 Assert.Equal(expectedType.Timezone, actualType.Timezone);
                 Assert.Equal(expectedType.Unit, actualType.Unit);
             }
@@ -149,7 +149,8 @@ namespace Apache.Arrow.Tests
             IArrowArrayVisitor<Date64Array>,
             IArrowArrayVisitor<ListArray>,
             IArrowArrayVisitor<StringArray>,
-            IArrowArrayVisitor<BinaryArray>
+            IArrowArrayVisitor<BinaryArray>,
+            IArrowArrayVisitor<StructArray>
         {
             private readonly IArrowArray _expectedArray;
             private readonly ArrayTypeComparer _arrayTypeComparer;
@@ -179,11 +180,28 @@ namespace Apache.Arrow.Tests
             public void Visit(StringArray array) => CompareBinaryArrays<StringArray>(array);
 
             public void Visit(BinaryArray array) => CompareBinaryArrays<BinaryArray>(array);
+
+            public void Visit(StructArray array)
+            {
+                Assert.Equal(_expectedArray.Length, array.Length);
+                Assert.Equal(_expectedArray.NullCount, array.NullCount);
+                Assert.Equal(_expectedArray.Offset, array.Offset);
+                Assert.Equal(_expectedArray.Data.Children.Length, array.Data.Children.Length);
+
+                ArrayData data = array.Data;
+                for (int i = 0; i < data.Children.Length; i++)
+                {
+                    IArrowArray childArray = ArrowArrayFactory.BuildArray(data.Children[i]);
+                    IArrowArray expectedChildArray = ArrowArrayFactory.BuildArray(_expectedArray.Data.Children[i]);
+                    childArray.Accept(new ArrayComparer(expectedChildArray));
+                }
+            }
+
             public void Visit(FixedSizeBinaryType array) => throw new NotImplementedException();
             public void Visit(IArrowArray array) => throw new NotImplementedException();
 
             private void CompareBinaryArrays<T>(BinaryArray actualArray)
-                where T: IArrowArray
+                where T : IArrowArray
             {
                 Assert.IsAssignableFrom<T>(_expectedArray);
                 Assert.IsAssignableFrom<T>(actualArray);

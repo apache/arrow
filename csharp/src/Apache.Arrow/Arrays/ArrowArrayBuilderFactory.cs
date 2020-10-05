@@ -59,6 +59,7 @@ namespace Apache.Arrow
                 case ArrowTypeId.List:
                     return new ListArray.Builder(dataType as ListType);
                 case ArrowTypeId.Struct:
+                    return new StructArray.Builder(dataType as StructType);
                 case ArrowTypeId.Union:
                 case ArrowTypeId.Decimal:
                 case ArrowTypeId.Dictionary:

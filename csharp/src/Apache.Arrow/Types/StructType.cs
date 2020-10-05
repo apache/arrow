@@ -19,7 +19,7 @@ using System.Linq;
 
 namespace Apache.Arrow.Types
 {
-    public sealed class StructType : ArrowType
+    public sealed class StructType : NestedType
     {
         private readonly List<Field> _fields;
 
@@ -28,7 +28,7 @@ namespace Apache.Arrow.Types
 
         public IEnumerable<Field> Fields => _fields;
 
-        public StructType(IEnumerable<Field> fields)
+        public StructType(IReadOnlyList<Field> fields) : base(fields)
         {
             _fields = fields?.ToList();
         }
