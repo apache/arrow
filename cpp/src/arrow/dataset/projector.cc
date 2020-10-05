@@ -51,7 +51,7 @@ Status CheckProjectable(const Schema& from, const Schema& to) {
       if (to_field->nullable()) continue;
 
       return Status::TypeError("field ", to_field->ToString(),
-                               " is not nullable and but has type ", NullType(),
+                               " is not nullable but has type ", NullType(),
                                " in origin schema ", from);
     }
 
