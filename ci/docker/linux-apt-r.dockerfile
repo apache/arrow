@@ -17,6 +17,7 @@
 
 ARG base
 FROM ${base}
+ARG arch
 
 # Build R
 # [1] https://www.digitalocean.com/community/tutorials/how-to-install-r-on-ubuntu-18-04
