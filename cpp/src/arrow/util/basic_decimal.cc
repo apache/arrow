@@ -252,8 +252,22 @@ BasicDecimal128& BasicDecimal128::operator>>=(uint32_t bits) {
 
 namespace {
 
+// Multiply two N bit word components into a 2*N bit result, with high bits
+// stored in hi and low bits in lo.
 template <typename Word>
 void ExtendAndMultiplyUint(Word x, Word y, Word* hi, Word* lo) {
+  // Perform multiplication on two N bit words x and y into a 2*N bit result
+  // by splitting up x and y into N/2 bit high/low bit components,
+  // allowing us to represent the multiplication as
+  // x * y = x_lo * y_lo + x_hi * y_lo * 2^N/2 + y_hi * x_lo * 2^N/2
+  // + x_hi * y_hi * 2^N
+  //
+  // Now, consider the final output as lo_lo || lo_hi || hi_lo || hi_hi
+  // Therefore,
+  // lo_lo is (x_lo * y_lo)_lo,
+  // lo_hi is ((x_lo * y_lo)_hi + (x_hi * y_lo)_lo + (x_lo * y_hi)_lo)_lo,
+  // hi_lo is ((x_hi * y_hi)_lo + (x_hi * y_lo)_hi + (x_lo * y_hi)_hi)_hi,
+  // hi_hi is (x_hi * y_hi)_hi
   constexpr Word kHighBitShift = sizeof(Word) * 4;
   constexpr Word kLowBitMask = (static_cast<Word>(1) << kHighBitShift) - 1;
 
@@ -277,6 +291,7 @@ void ExtendAndMultiplyUint(Word x, Word y, Word* hi, Word* lo) {
   *lo = (v << kHighBitShift) + t_lo;
 }
 
+// Convenience wrapper type over 128 bit unsigned integers
 #ifdef ARROW_USE_NATIVE_INT128
 struct uint128_t {
   uint128_t() {}
@@ -314,6 +329,10 @@ struct uint128_t {
   uint64_t lo() const { return lo_; }
 
   uint128_t& operator+=(const uint128_t& other) {
+    // To deduce the carry bit, we perform "65 bit" addition on the low bits and
+    // seeing if the resulting high bit is 1. This is accomplished by shifting the
+    // low bits to the right by 1 (chopping off the lowest bit), then adding 1 if the
+    // result of adding the two chopped bits would have produced a carry.
     uint64_t carry = (((lo_ & other.lo_) & 1) + (lo_ >> 1) + (other.lo_ >> 1)) >> 63;
     hi_ += other.hi_ + carry;
     lo_ += other.lo_;
@@ -336,6 +355,8 @@ void ExtendAndMultiplyUint128(uint128_t x, uint128_t y, uint128_t* hi, uint128_t
 #ifdef ARROW_USE_NATIVE_INT128
   return ExtendAndMultiplyUint(x.val_, y.val_, &hi->val_, &lo->val_);
 #else
+  // This follows the same algorithm as in ExtendAndMultiplyUint, but must
+  // perform manual overflow checks.
   ExtendAndMultiplyUint(x.hi_, y.hi_, &hi->hi_, &hi->lo_);
   ExtendAndMultiplyUint(x.lo_, y.lo_, &lo->hi_, &lo->lo_);
 
