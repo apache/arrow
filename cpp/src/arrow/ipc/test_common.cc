@@ -1052,7 +1052,7 @@ Status MakeRandomTensor(const std::shared_ptr<DataType>& type,
 
   const int64_t element_size = element_type.bit_width() / CHAR_BIT;
   const int64_t len =
-      std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<int64_t>());
+      std::accumulate(shape.begin(), shape.end(), int64_t(1), std::multiplies<int64_t>());
 
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> buf, AllocateBuffer(element_size * len));
 
