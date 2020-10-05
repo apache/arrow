@@ -960,6 +960,14 @@ bool ArraysCanFitInteger(ArrayVector arrays) {
   return all_can_fit;
 }
 
+bool option_arrow_disable_int64_auto_conversion() {
+  SEXP getOption = Rf_install("getOption");
+  cpp11::sexp call =
+      Rf_lang2(getOption, Rf_mkString("arrow_disable_int64_auto_conversion"));
+  cpp11::sexp res = Rf_eval(call, R_BaseEnv);
+  return TYPEOF(res) == LGLSXP && LOGICAL(res)[0] == TRUE;
+}
+
 std::shared_ptr<Converter> Converter::Make(const std::shared_ptr<DataType>& type,
                                            ArrayVector arrays) {
   if (arrays.empty()) {
@@ -1069,7 +1077,7 @@ std::shared_ptr<Converter> Converter::Make(const std::shared_ptr<DataType>& type
 
     case Type::INT64:
       // Prefer integer if it fits
-      if (ArraysCanFitInteger(arrays)) {
+      if (ArraysCanFitInteger(arrays) && !option_arrow_disable_int64_auto_conversion()) {
         return std::make_shared<arrow::r::Converter_Int<arrow::Int64Type>>(
             std::move(arrays));
       } else {

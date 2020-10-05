@@ -749,3 +749,9 @@ test_that("Array$ApproxEquals", {
   expect_true(a$ApproxEquals(b))
   expect_false(a$ApproxEquals(vec))
 })
+
+test_that("auto int64 conversion to int can be disabled (ARROW-10093)", {
+  op <- options(arrow_disable_int64_auto_conversion = TRUE); on.exit(options(op))
+  expect_true(inherits(Array$create(1:10, int64())$as_vector(), "integer64"))
+})
+
