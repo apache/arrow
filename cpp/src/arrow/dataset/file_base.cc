@@ -193,8 +193,7 @@ class WriteQueue {
   Status Flush(const FileSystemDatasetWriteOptions& write_options) {
     if (auto writer_lock = writer_mutex_.TryLock()) {
       if (writer_ == nullptr) {
-        // FileWriters are opened lazily to avoid blocking while holding the lock on the
-        // scan-wide queue set
+        // FileWriters are opened lazily to avoid blocking access to a scan-wide queue set
         RETURN_NOT_OK(OpenWriter(write_options));
       }
 
