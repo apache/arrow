@@ -15,10 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-rust-lang:
-- 'rust/*'
+rust-lang: rust/*
 
-datafusion:
-- 'rust/datafusion/*'
+datafusion: rust/datafusion/*
 
 
