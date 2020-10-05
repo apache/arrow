@@ -46,6 +46,13 @@ fixed_size_binary_type = st.builds(
     pa.binary,
     st.integers(min_value=0, max_value=16)
 )
+binary_like_types = st.one_of(
+    binary_type,
+    string_type,
+    large_binary_type,
+    large_string_type,
+    fixed_size_binary_type
+)
 
 signed_integer_types = st.sampled_from([
     pa.int8(),
@@ -102,13 +109,9 @@ temporal_types = st.one_of(
 primitive_types = st.one_of(
     null_type,
     bool_type,
-    binary_type,
-    string_type,
-    large_binary_type,
-    large_string_type,
-    fixed_size_binary_type,
     numeric_types,
-    temporal_types
+    temporal_types,
+    binary_like_types
 )
 
 metadata = st.dictionaries(st.text(), st.text())
@@ -126,16 +129,18 @@ def fields(draw, type_strategy=primitive_types):
     return pa.field(name, type=typ, nullable=nullable, metadata=meta)
 
 
-def list_types(item_strategy=primitive_types):
-    return (
+def list_types(item_strategy=primitive_types, enable_fixed_size=True):
+    strategy = (
         st.builds(pa.list_, item_strategy) |
-        st.builds(pa.large_list, item_strategy) |
-        st.builds(
+        st.builds(pa.large_list, item_strategy)
+    )
+    if enable_fixed_size:
+        strategy |= st.builds(
             pa.list_,
             item_strategy,
             st.integers(min_value=0, max_value=16)
         )
-    )
+    return strategy
 
 
 @st.composite
@@ -162,7 +167,8 @@ def dictionary_types(key_strategy=None, value_strategy=None):
 
 
 @st.composite
-def map_types(draw, key_strategy=primitive_types, item_strategy=primitive_types):
+def map_types(draw, key_strategy=primitive_types,
+              item_strategy=primitive_types):
     key_type = draw(key_strategy)
     h.assume(not pa.types.is_null(key_type))
     value_type = draw(item_strategy)
@@ -259,8 +265,8 @@ def arrays(draw, type, size=None, nullable=True):
     elif pa.types.is_timestamp(ty):
         min_int64 = -(2**63)
         max_int64 = 2**63 - 1
-        min_datetime = datetime.datetime.fromtimestamp(min_int64 / 10**9)
-        max_datetime = datetime.datetime.fromtimestamp(max_int64 / 10**9)
+        min_datetime = datetime.datetime.fromtimestamp(min_int64 // 10**9)
+        max_datetime = datetime.datetime.fromtimestamp(max_int64 // 10**9)
         try:
             offset_hours = int(ty.tz)
             tz = pytz.FixedOffset(offset_hours * 60)
@@ -353,3 +359,32 @@ all_arrays = arrays(all_types)
 all_chunked_arrays = chunked_arrays(all_types)
 all_record_batches = record_batches(all_types)
 all_tables = tables(all_types)
+
+
+pandas_compatible_primitive_types = st.one_of(
+    null_type,
+    bool_type,
+    integer_types,
+    st.sampled_from([pa.float32(), pa.float64()]),
+    decimal_type,
+    date_types,
+    time_types,
+    # timestamp_types,
+    # duration_types
+    binary_type,
+    string_type,
+    large_binary_type,
+    large_string_type,
+)
+
+
+pandas_compatible_types = st.deferred(
+    lambda: st.one_of(
+        pandas_compatible_primitive_types,
+        list_types(pandas_compatible_primitive_types, enable_fixed_size=False),
+        struct_types(pandas_compatible_primitive_types),
+        dictionary_types(),
+        list_types(pandas_compatible_types),
+        struct_types(pandas_compatible_types)
+    )
+)
