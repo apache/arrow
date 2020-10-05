@@ -42,7 +42,7 @@ pub trait ReadChunck: Read + Length {}
 pub trait ReadSeekChunck: ReadChunck + Seek {}
 impl<T: Read + Length> ReadChunck for T {}
 impl<T: ReadChunck + Seek> ReadSeekChunck for T {}
-pub trait ChunckReader: Length + TryClone {
+pub trait ChunckReader: Length {
     type T: ReadChunck;
     type U: ReadSeekChunck;
     /// get a serialy readeable view of the current reader
