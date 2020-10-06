@@ -699,6 +699,10 @@ cdef class FileFormat(_Weakrefable):
     def make_write_options(self):
         return FileWriteOptions.wrap(self.format.DefaultWriteOptions())
 
+    @property
+    def default_extname(self):
+        return frombytes(self.format.type_name())
+
     def __eq__(self, other):
         try:
             return self.equals(other)
@@ -1349,6 +1353,10 @@ cdef class IpcFileFormat(FileFormat):
 
     def equals(self, IpcFileFormat other):
         return True
+
+    @property
+    def default_extname(self):
+        return "feather"
 
     def __reduce__(self):
         return IpcFileFormat, tuple()
@@ -2297,10 +2305,10 @@ def _get_partition_keys(Expression partition_expression):
 
 
 def _filesystemdataset_write(
-    data, object base_dir, str basename_template, Schema schema not None,
-    FileFormat format not None, FileSystem filesystem not None,
-    Partitioning partitioning not None, FileWriteOptions file_options not None,
-    bint use_threads,
+    data not None, object base_dir not None, str basename_template not None,
+    Schema schema not None, FileFormat format not None,
+    FileSystem filesystem not None, Partitioning partitioning not None,
+    FileWriteOptions file_options not None, bint use_threads,
 ):
     """
     CFileSystemDataset.Write wrapper

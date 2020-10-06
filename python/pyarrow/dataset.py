@@ -697,7 +697,7 @@ def _ensure_write_partitioning(scheme):
     return scheme
 
 
-def write_dataset(data, base_dir, basename_template, format=None,
+def write_dataset(data, base_dir, basename_template=None, format=None,
                   partitioning=None, schema=None,
                   filesystem=None, file_options=None, use_threads=True):
     """
@@ -710,16 +710,17 @@ def write_dataset(data, base_dir, basename_template, format=None,
         in-memory Arrow data.
     base_dir : str
         The root directory where to write the dataset.
-    basename_template : str
+    basename_template : str, optional
         A template string used to generate basenames of written data files.
         The token '{i}' will be replaced with an automatically incremented
-        integer.
+        integer. If not specified, it defaults to
+        "dat_{i}." + format.default_extname
     format : FileFormat or str
         The format in which to write the dataset. Currently supported:
-        "ipc"/"feather". If a FileSystemDataset is being written and `format`
-        is not specified, it defaults to the same format as the specified
-        FileSystemDataset. When writing a Table or RecordBatch, this keyword
-        is required.
+        "parquet", "ipc"/"feather". If a FileSystemDataset is being written
+        and `format` is not specified, it defaults to the same format as the
+        specified FileSystemDataset. When writing a Table or RecordBatch, this
+        keyword is required.
     partitioning : Partitioning, optional
         The partitioning scheme specified with the ``partitioning()``
         function.
@@ -745,6 +746,9 @@ def write_dataset(data, base_dir, basename_template, format=None,
         )
 
     format = _ensure_format(format)
+    if basename_template is None:
+        basename_template = "dat_{i}." + format.default_extname
+
     if file_options is None:
         file_options = format.make_write_options()
 
