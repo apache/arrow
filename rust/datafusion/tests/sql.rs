@@ -121,7 +121,7 @@ async fn parquet_single_nan_schema() {
 async fn csv_count_star() -> Result<()> {
     let mut ctx = ExecutionContext::new();
     register_aggregate_csv(&mut ctx)?;
-    let sql = "SELECT COUNT(*), COUNT(1), COUNT(c1) FROM aggregate_test_100";
+    let sql = "SELECT COUNT(*), COUNT(1) AS c, COUNT(c1) FROM aggregate_test_100";
     let actual = execute(&mut ctx, sql).await.join("\n");
     let expected = "100\t100\t100".to_string();
     assert_eq!(expected, actual);
