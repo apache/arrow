@@ -764,6 +764,15 @@ def test_fixed_size_bytes_does_not_accept_varying_lengths():
         pa.array(data, type=pa.binary(4))
 
 
+def test_fixed_size_binary_length_check():
+    # ARROW-10193
+    data = [b'\x19h\r\x9e\x00\x00\x00\x00\x01\x9b\x9fA']
+    assert len(data[0]) == 12
+    ty = pa.binary(12)
+    arr = pa.array(data, type=ty)
+    assert arr.to_pylist() == data
+
+
 def test_sequence_date():
     data = [datetime.date(2000, 1, 1), None, datetime.date(1970, 1, 1),
             datetime.date(2040, 2, 26)]
