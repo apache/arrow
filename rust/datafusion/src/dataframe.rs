@@ -52,7 +52,7 @@ use async_trait::async_trait;
 #[async_trait]
 pub trait DataFrame {
     /// Filter the DataFrame by column. Returns a new DataFrame only containing the
-    /// specified columns.
+    /// specified columns...
     ///
     /// ```
     /// # use datafusion::prelude::*;
