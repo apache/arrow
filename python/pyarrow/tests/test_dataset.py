@@ -2152,7 +2152,7 @@ def _check_dataset_roundtrip(dataset, base_dir, expected_files,
     base_dir_path = base_dir_path or base_dir
 
     ds.write_dataset(dataset, base_dir, format="feather",
-            partitioning=partitioning, use_threads=False)
+                     partitioning=partitioning, use_threads=False)
 
     # check that all files are present
     file_paths = list(base_dir_path.rglob("*"))
