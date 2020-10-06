@@ -1617,10 +1617,12 @@ tasks:
     template: docker-tests/github.linux.yml
     params:
       env:
-        PYTHON: 3.8
-        PYTEST_ARGS: "--enable-hypothesis -m hypothesis"
         HYPOTHESIS_PROFILE: ci
-      run: conda-python
+        PYARROW_TEST_HYPOTHESIS: ON
+        PYTHON: 3.8
+        # limit to execute hypothesis tests only
+        PYTEST_ARGS: "-m hypothesis"
+      run: conda-python-pandas
 
   test-debian-10-python-3:
     ci: azure
