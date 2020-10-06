@@ -27,7 +27,8 @@ use datafusion::datasource::MemTable;
 use datafusion::error::Result;
 use datafusion::prelude::*;
 
-/// This example demonstrates basic uses of the Table API on an in-memory table
+/// This example demonstrates how to use the DataFrame API.
+/// We will use in-memory data to perform the calculation.
 #[tokio::main]
 async fn main() -> Result<()> {
     // define a schema.

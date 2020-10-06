@@ -35,8 +35,8 @@ async fn main() -> Result<()> {
     // define the query using the DataFrame trait
     let df = ctx
         .read_parquet(filename)?
-        .filter(col("id").gt(lit(1)))?
-        .filter(col("tinyint_col").lt(col("tinyint_col")))?;
+        .select_columns(vec!["id", "bool_col", "timestamp_col"])?
+        .filter(col("id").gt(lit(1)))?;
 
     // execute the query
     let results = df.collect().await?;
