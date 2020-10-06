@@ -733,7 +733,7 @@ Status ReadDictionary(const Buffer& metadata, const IpcReadContext& context,
   // Load the dictionary data from the dictionary batch
   ArrayLoader loader(batch_meta, internal::GetMetadataVersion(message->version()),
                      context.options, file);
-  const auto dict_data = std::make_shared<ArrayData>();
+  auto dict_data = std::make_shared<ArrayData>();
   const Field dummy_field("", value_type);
   RETURN_NOT_OK(loader.Load(&dummy_field, dict_data.get()));
 
