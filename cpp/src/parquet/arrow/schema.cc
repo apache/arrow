@@ -688,32 +688,21 @@ Status GetOriginSchema(const std::shared_ptr<const KeyValueMetadata>& metadata,
 
 Result<bool> ApplyOriginalMetadata(const Field& origin_field, SchemaField* inferred);
 
-using NestedFieldRewrapper = std::function<Status(FieldVector, SchemaField*)>;
-
-Status RewrapStructField(FieldVector new_children, SchemaField* inferred) {
-  inferred->field = inferred->field->WithType(::arrow::struct_(std::move(new_children)));
-  return Status::OK();
-}
-
-Status RewrapListField(FieldVector new_children, SchemaField* inferred) {
-  DCHECK_EQ(new_children.size(), 1);
-  inferred->field = inferred->field->WithType(::arrow::list(new_children[0]));
-  return Status::OK();
-}
-
-// XXX Perhaps add a DataType::WithFields method?
-NestedFieldRewrapper GetNestedFieldRewrapper(const ArrowType& origin_type,
-                                             const ArrowType& inferred_type) {
+std::function<std::shared_ptr<::arrow::DataType>(FieldVector)> GetNestedFactory(
+    const ArrowType& origin_type, const ArrowType& inferred_type) {
   switch (inferred_type.id()) {
     case ::arrow::Type::STRUCT:
       if (origin_type.id() == ::arrow::Type::STRUCT) {
-        return RewrapStructField;
+        return ::arrow::struct_;
       }
       break;
     case ::arrow::Type::LIST:
       // TODO also allow LARGE_LIST and FIXED_SIZE_LIST
       if (origin_type.id() == ::arrow::Type::LIST) {
-        return RewrapListField;
+        return [](FieldVector fields) {
+          DCHECK_EQ(fields.size(), 1);
+          return ::arrow::list(std::move(fields[0]));
+        };
       }
       break;
     default:
@@ -733,8 +722,7 @@ Result<bool> ApplyOriginalStorageMetadata(const Field& origin_field,
 
   if (num_children > 0 && origin_type->num_fields() == num_children) {
     DCHECK_EQ(static_cast<int>(inferred->children.size()), num_children);
-    const auto nested_rewrapper = GetNestedFieldRewrapper(*origin_type, *inferred_type);
-    if (nested_rewrapper) {
+    if (auto factory = GetNestedFactory(*origin_type, *inferred_type)) {
       // Apply original metadata recursively to children
       for (int i = 0; i < inferred_type->num_fields(); ++i) {
         ARROW_ASSIGN_OR_RAISE(
@@ -748,7 +736,8 @@ Result<bool> ApplyOriginalStorageMetadata(const Field& origin_field,
         for (int i = 0; i < inferred_type->num_fields(); ++i) {
           modified_children[i] = inferred->children[i].field;
         }
-        RETURN_NOT_OK(nested_rewrapper(std::move(modified_children), inferred));
+        inferred->field =
+            inferred->field->WithType(factory(std::move(modified_children)));
       }
     }
   }
