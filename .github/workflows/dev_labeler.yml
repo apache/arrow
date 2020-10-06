@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+name: PR labeler
 on:
 - pull_request_target
 
