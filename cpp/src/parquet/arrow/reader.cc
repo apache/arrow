@@ -744,12 +744,20 @@ Status StructReader::BuildArray(int64_t length_upper_bound,
 // ----------------------------------------------------------------------
 // File reader implementation
 
-Status GetStorageReader(const SchemaField& field,
-                        const std::shared_ptr<ReaderContext>& ctx,
-                        std::unique_ptr<ColumnReaderImpl>* out) {
+Status GetReader(const SchemaField& field, const std::shared_ptr<Field>& arrow_field,
+                 const std::shared_ptr<ReaderContext>& ctx,
+                 std::unique_ptr<ColumnReaderImpl>* out) {
   BEGIN_PARQUET_CATCH_EXCEPTIONS
 
-  auto type_id = field.storage_field->type()->id();
+  auto type_id = arrow_field->type()->id();
+
+  if (type_id == ::arrow::Type::EXTENSION) {
+    auto storage_field = arrow_field->WithType(
+        checked_cast<const ExtensionType&>(*arrow_field->type()).storage_type());
+    RETURN_NOT_OK(GetReader(field, storage_field, ctx, out));
+    out->reset(new ExtensionReader(arrow_field, std::move(*out)));
+    return Status::OK();
+  }
 
   if (field.children.size() == 0) {
     if (!field.is_leaf()) {
@@ -761,10 +769,8 @@ Status GetStorageReader(const SchemaField& field,
     }
     std::unique_ptr<FileColumnIterator> input(
         ctx->iterator_factory(field.column_index, ctx->reader));
-    out->reset(
-        new LeafReader(ctx, field.storage_field, std::move(input), field.level_info));
+    out->reset(new LeafReader(ctx, arrow_field, std::move(input), field.level_info));
   } else if (type_id == ::arrow::Type::LIST) {
-    auto list_field = field.storage_field;
     auto child = &field.children[0];
     std::unique_ptr<ColumnReaderImpl> child_reader;
     RETURN_NOT_OK(GetReader(*child, ctx, &child_reader));
@@ -772,7 +778,7 @@ Status GetStorageReader(const SchemaField& field,
       *out = nullptr;
       return Status::OK();
     }
-    out->reset(new ListReader<int32_t>(ctx, list_field, field.level_info,
+    out->reset(new ListReader<int32_t>(ctx, arrow_field, field.level_info,
                                        std::move(child_reader)));
   } else if (type_id == ::arrow::Type::STRUCT) {
     std::vector<std::shared_ptr<Field>> child_fields;
@@ -792,12 +798,12 @@ Status GetStorageReader(const SchemaField& field,
       return Status::OK();
     }
     auto filtered_field =
-        ::arrow::field(field.storage_field->name(), ::arrow::struct_(child_fields),
-                       field.storage_field->nullable(), field.storage_field->metadata());
+        ::arrow::field(arrow_field->name(), ::arrow::struct_(child_fields),
+                       arrow_field->nullable(), arrow_field->metadata());
     out->reset(new StructReader(ctx, filtered_field, field.level_info,
                                 std::move(child_readers)));
   } else {
-    return Status::Invalid("Unsupported nested type: ", field.storage_field->ToString());
+    return Status::Invalid("Unsupported nested type: ", arrow_field->ToString());
   }
   return Status::OK();
 
@@ -806,11 +812,7 @@ Status GetStorageReader(const SchemaField& field,
 
 Status GetReader(const SchemaField& field, const std::shared_ptr<ReaderContext>& ctx,
                  std::unique_ptr<ColumnReaderImpl>* out) {
-  RETURN_NOT_OK(GetStorageReader(field, ctx, out));
-  if (field.field->type()->id() == ::arrow::Type::EXTENSION) {
-    out->reset(new ExtensionReader(field.field, std::move(*out)));
-  }
-  return Status::OK();
+  return GetReader(field, field.field, ctx, out);
 }
 
 }  // namespace
