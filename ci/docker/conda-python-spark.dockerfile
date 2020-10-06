@@ -36,6 +36,10 @@ ARG spark=master
 COPY ci/scripts/install_spark.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_spark.sh ${spark} /spark
 
+# patch spark for nested timestamp correction, remove after SPARK-32285
+COPY ci/etc/integration_spark_ARROW-10178.patch /arrow/ci/etc/
+RUN patch -d /spark -p1 -i /arrow/ci/etc/integration_spark_ARROW-10178.patch
+
 # build cpp with tests
 ENV CC=gcc \
     CXX=g++ \
