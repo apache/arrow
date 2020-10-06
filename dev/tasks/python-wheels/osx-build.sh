@@ -67,7 +67,6 @@ function build_wheel {
           -DARROW_GANDIVA=OFF \
           -DARROW_GRPC_USE_SHARED=OFF \
           -DARROW_HDFS=ON \
-          -DARROW_S3=${ARROW_S3} \
           -DARROW_JEMALLOC=ON \
           -DARROW_OPENSSL_USE_SHARED=OFF \
           -DARROW_ORC=OFF \
@@ -76,6 +75,7 @@ function build_wheel {
           -DARROW_PROTOBUF_USE_SHARED=OFF \
           -DARROW_PYTHON=ON \
           -DARROW_RPATH_ORIGIN=ON \
+          -DARROW_S3=${ARROW_S3} \
           -DARROW_VERBOSE_THIRDPARTY_BUILD=ON \
           -DARROW_WITH_BROTLI=ON \
           -DARROW_WITH_BZ2=ON \
@@ -101,19 +101,19 @@ function build_wheel {
     unset ARROW_HOME
     unset PARQUET_HOME
 
+    export PYARROW_BUILD_TYPE='release'
+    export PYARROW_BUNDLE_ARROW_CPP=1
+    export PYARROW_INSTALL_TESTS=1
     export PYARROW_WITH_DATASET=1
     export PYARROW_WITH_FLIGHT=1
-    export PYARROW_WITH_HDFS=1
-    export PYARROW_WITH_S3=${ARROW_S3}
-    export PYARROW_WITH_PLASMA=1
-    export PYARROW_WITH_PARQUET=1
-    export PYARROW_WITH_ORC=0
-    export PYARROW_WITH_JEMALLOC=1
-    export PYARROW_WITH_PLASMA=1
     export PYARROW_WITH_GANDIVA=0
-    export PYARROW_BUNDLE_ARROW_CPP=1
-    export PYARROW_BUILD_TYPE='release'
-    export PYARROW_INSTALL_TESTS=1
+    export PYARROW_WITH_HDFS=1
+    export PYARROW_WITH_JEMALLOC=1
+    export PYARROW_WITH_ORC=0
+    export PYARROW_WITH_PARQUET=1
+    export PYARROW_WITH_PLASMA=1
+    export PYARROW_WITH_PLASMA=1
+    export PYARROW_WITH_S3=${ARROW_S3}
     export SETUPTOOLS_SCM_PRETEND_VERSION=$PYARROW_VERSION
     pushd python
     python setup.py build_ext bdist_wheel
