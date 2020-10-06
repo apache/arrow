@@ -2133,8 +2133,6 @@ def test_dataset_project_null_column(tempdir):
     f = tempdir / "test_dataset_project_null_column.parquet"
     df.to_parquet(f, engine="pyarrow")
 
-    import pyarrow as pa
-    import pyarrow.dataset as ds
     dataset = ds.dataset(f, format="parquet",
                          schema=pa.schema([("col", pa.int64())]))
     expected = pa.table({'col': pa.array([None, None, None], pa.int64())})
