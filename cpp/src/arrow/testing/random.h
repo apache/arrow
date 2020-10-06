@@ -229,10 +229,12 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   /// \param[in] first_offset the first offset value (usually 0)
   /// \param[in] last_offset the last offset value (usually the size of the child array)
   /// \param[in] null_probability the probability of an offset being null
+  /// \param[in] force_empty_nulls if true, null offsets must have 0 "length"
   ///
   /// \return a generated Array
   std::shared_ptr<Array> Offsets(int64_t size, int32_t first_offset, int32_t last_offset,
-                                 double null_probability = 0);
+                                 double null_probability = 0,
+                                 bool force_empty_nulls = false);
 
   /// \brief Generate a random StringArray
   ///
@@ -281,7 +283,18 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
                                            int32_t min_length, int32_t max_length,
                                            double null_probability = 0);
 
-  /// \brief Randomly generate an Array of the specified type, size, and null_probability.
+  /// \brief Generate a random ListArray
+  ///
+  /// \param[in] values The underlying values array
+  /// \param[in] size The size of the generated list array
+  /// \param[in] null_probability the probability of a list value being null
+  /// \param[in] force_empty_nulls if true, null list entries must have 0 length
+  ///
+  /// \return a generated Array
+  std::shared_ptr<Array> List(const Array& values, int64_t size, double null_probability,
+                              bool force_empty_nulls = false);
+
+  /// \brief Generate a random Array of the specified type, size, and null_probability.
   ///
   /// Generation parameters other than size and null_probability are determined based on
   /// the type of Array to be generated.
