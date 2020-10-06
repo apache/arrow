@@ -319,6 +319,13 @@ BENCHMARK_TEMPLATE2(BM_ReadColumn, true, BooleanType)
 
 const std::vector<int64_t> kNestedNullPercents = {0, 1, 50, 99};
 
+// XXX We can use ArgsProduct() starting from Benchmark 1.5.2
+static void NestedReadArguments(::benchmark::internal::Benchmark* b) {
+  for (const auto null_percentage : kNestedNullPercents) {
+    b->Arg(null_percentage);
+  }
+}
+
 static std::shared_ptr<Array> MakeStructArray(::arrow::random::RandomArrayGenerator* rng,
                                               const ArrayVector& children,
                                               double null_probability,
@@ -373,7 +380,7 @@ static void BM_ReadStructColumn(::benchmark::State& state) {
   BenchmarkReadArray(state, array, nullable, kNumValues, kBytesPerValue);
 }
 
-BENCHMARK(BM_ReadStructColumn)->ArgsProduct({kNestedNullPercents});
+BENCHMARK(BM_ReadStructColumn)->Apply(NestedReadArguments);
 
 static void BM_ReadStructOfStructColumn(::benchmark::State& state) {
   constexpr int64_t kNumValues = BENCHMARK_SIZE / 10;
@@ -392,7 +399,7 @@ static void BM_ReadStructOfStructColumn(::benchmark::State& state) {
   BenchmarkReadArray(state, array, nullable, kNumValues, kBytesPerValue);
 }
 
-BENCHMARK(BM_ReadStructOfStructColumn)->ArgsProduct({kNestedNullPercents});
+BENCHMARK(BM_ReadStructOfStructColumn)->Apply(NestedReadArguments);
 
 static void BM_ReadStructOfListColumn(::benchmark::State& state) {
   constexpr int64_t kNumValues = BENCHMARK_SIZE / 10;
@@ -416,7 +423,7 @@ static void BM_ReadStructOfListColumn(::benchmark::State& state) {
   BenchmarkReadArray(state, array, nullable, kNumValues, kBytesPerValue);
 }
 
-BENCHMARK(BM_ReadStructOfListColumn)->ArgsProduct({kNestedNullPercents});
+BENCHMARK(BM_ReadStructOfListColumn)->Apply(NestedReadArguments);
 
 static void BM_ReadListColumn(::benchmark::State& state) {
   constexpr int64_t kNumValues = BENCHMARK_SIZE / 10;
@@ -435,7 +442,7 @@ static void BM_ReadListColumn(::benchmark::State& state) {
   BenchmarkReadArray(state, array, nullable, kNumValues, kBytesPerValue);
 }
 
-BENCHMARK(BM_ReadListColumn)->ArgsProduct({kNestedNullPercents});
+BENCHMARK(BM_ReadListColumn)->Apply(NestedReadArguments);
 
 static void BM_ReadListOfStructColumn(::benchmark::State& state) {
   constexpr int64_t kNumValues = BENCHMARK_SIZE / 10;
@@ -454,7 +461,7 @@ static void BM_ReadListOfStructColumn(::benchmark::State& state) {
   BenchmarkReadArray(state, array, nullable, kNumValues, kBytesPerValue);
 }
 
-BENCHMARK(BM_ReadListOfStructColumn)->ArgsProduct({kNestedNullPercents});
+BENCHMARK(BM_ReadListOfStructColumn)->Apply(NestedReadArguments);
 
 static void BM_ReadListOfListColumn(::benchmark::State& state) {
   constexpr int64_t kNumValues = BENCHMARK_SIZE / 10;
@@ -474,7 +481,7 @@ static void BM_ReadListOfListColumn(::benchmark::State& state) {
   BenchmarkReadArray(state, array, nullable, kNumValues, kBytesPerValue);
 }
 
-BENCHMARK(BM_ReadListOfListColumn)->ArgsProduct({kNestedNullPercents});
+BENCHMARK(BM_ReadListOfListColumn)->Apply(NestedReadArguments);
 
 //
 // Benchmark different ways of reading select row groups
