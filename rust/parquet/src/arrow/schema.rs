@@ -68,7 +68,8 @@ where
     let mut metadata = parse_key_value_metadata(key_value_metadata).unwrap_or_default();
     let arrow_schema_metadata = metadata
         .remove(super::ARROW_SCHEMA_META_KEY)
-        .map(|encoded| get_arrow_schema_from_metadata(&encoded)).unwrap_or_default();
+        .map(|encoded| get_arrow_schema_from_metadata(&encoded))
+        .unwrap_or_default();
 
     let mut base_nodes = Vec::new();
     let mut base_nodes_set = HashSet::new();
@@ -83,7 +84,10 @@ where
         let column = parquet_schema.column(c);
         let name = column.name();
 
-        if let Some(field) = arrow_schema_metadata.as_ref().and_then(|schema| schema.field_with_name(name).ok().cloned()) {
+        if let Some(field) = arrow_schema_metadata
+            .as_ref()
+            .and_then(|schema| schema.field_with_name(name).ok().cloned())
+        {
             base_nodes.push(FieldType::Arrow(field));
         } else {
             let column = column.self_type() as *const Type;
@@ -100,11 +104,9 @@ where
 
     base_nodes
         .into_iter()
-        .map(|t| {
-            match t {
-                FieldType::Parquet(t) => ParquetTypeConverter::new(t, &leaves).to_field(),
-                FieldType::Arrow(f) => Ok(Some(f)),
-            }
+        .map(|t| match t {
+            FieldType::Parquet(t) => ParquetTypeConverter::new(t, &leaves).to_field(),
+            FieldType::Arrow(f) => Ok(Some(f)),
         })
         .collect::<Result<Vec<Option<Field>>>>()
         .map(|result| result.into_iter().filter_map(|f| f).collect::<Vec<Field>>())
