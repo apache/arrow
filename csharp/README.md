@@ -94,6 +94,7 @@ This implementation is under development and may not be suitable for use in prod
 - Time64
 - Binary (fixed-length)
 - List
+- Struct
 
 ### Type Metadata
 
@@ -119,7 +120,6 @@ This implementation is under development and may not be suitable for use in prod
     - Tensor
     - Table
 - Arrays
-    - Struct
     - Union
         - Dense
         - Sparse
