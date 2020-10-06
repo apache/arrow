@@ -24,11 +24,10 @@ use crate::{
 };
 use std::sync::Arc;
 
-fn substring1<OffsetSize: OffsetSizeTrait>(
+fn generic_substring<OffsetSize: StringOffsetSizeTrait>(
     array: &GenericStringArray<OffsetSize>,
     start: OffsetSize,
     length: &Option<OffsetSize>,
-    datatype: DataType,
 ) -> Result<ArrayRef> {
     // compute current offsets
     let offsets = array.data_ref().clone().buffers()[0].clone();
@@ -76,7 +75,7 @@ fn substring1<OffsetSize: OffsetSizeTrait>(
     });
 
     let data = ArrayData::new(
-        datatype,
+        <OffsetSize as StringOffsetSizeTrait>::DATA_TYPE,
         array.len(),
         None,
         null_bit_buffer,
@@ -95,23 +94,21 @@ fn substring1<OffsetSize: OffsetSizeTrait>(
 /// this function errors when the passed array is not a \[Large\]String array.
 pub fn substring(array: &Array, start: i64, length: &Option<u64>) -> Result<ArrayRef> {
     match array.data_type() {
-        DataType::LargeUtf8 => substring1(
+        DataType::LargeUtf8 => generic_substring(
             array
                 .as_any()
                 .downcast_ref::<LargeStringArray>()
                 .expect("A large string is expected"),
             start,
             &length.map(|e| e as i64),
-            DataType::LargeUtf8,
         ),
-        DataType::Utf8 => substring1(
+        DataType::Utf8 => generic_substring(
             array
                 .as_any()
                 .downcast_ref::<StringArray>()
                 .expect("A string is expected"),
             start as i32,
             &length.map(|e| e as i32),
-            DataType::Utf8,
         ),
         _ => Err(ArrowError::ComputeError(format!(
             "substring does not support type {:?}",
