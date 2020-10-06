@@ -2317,9 +2317,10 @@ class TestConvertStructTypes:
         arr = pa.StructArray.from_arrays(children, names=names)
 
         # Expected a Series of {field name: field value} dicts
-        expected = pd.Series(
-            {k: v for k, v in zip(names, values)}
-            for values in zip(*(child.to_pylist() for child in children)))
+        rows_as_tuples = zip(*(child.to_pylist() for child in children))
+        rows_as_dicts = [dict(zip(names, row)) for row in rows_as_tuples]
+
+        expected = pd.Series(rows_as_dicts)
         tm.assert_series_equal(arr.to_pandas(), expected)
 
         # Same but with nulls

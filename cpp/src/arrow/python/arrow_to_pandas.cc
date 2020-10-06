@@ -659,9 +659,9 @@ Status ConvertStruct(PandasOptions options, const ChunkedArray& data,
   std::vector<OwnedRef> fields_data(num_fields);
   OwnedRef dict_item;
 
+  // See notes in MakeInnerOptions.
   options = MakeInnerOptions(std::move(options));
-  // See notes in MakeInnerOptions about timestamp conversion.
-  // Don't blindly convert because
+  // Don't blindly convert because timestamps in lists are handled differently.
   options.timestamp_as_object = true;
 
   for (int c = 0; c < data.num_chunks(); c++) {
