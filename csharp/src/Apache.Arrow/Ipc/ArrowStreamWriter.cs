@@ -103,28 +103,13 @@ namespace Apache.Arrow.Ipc
                 _buffers.Add(CreateBuffer(array.ValueBuffer));
             }
 
-            private void Visit(ArrayData[] children)
-            {
-                for (int i = 0; i < children.Length; i++)
-                {
-                    Visit(ArrowArrayFactory.BuildArray(children[i]));
-                }
-            }
-
             public void Visit(StructArray array)
             {
                 _buffers.Add(CreateBuffer(array.NullBitmapBuffer));
-                for (int i = 0; i < array.Data.Children.Length; i++)
+
+                for (int i = 0; i < array.Fields.Count; i++)
                 {
-                    ArrayData childArray = array.Data.Children[i];
-                    if (childArray.Children != null)
-                    {
-                        Visit(childArray.Children);
-                    }
-                    for (int j = 0; j < childArray.Buffers.Length; j++)
-                    {
-                        _buffers.Add(CreateBuffer(childArray.Buffers[j]));
-                    }
+                    array.Fields[i].Accept(this);
                 }
             }
 
@@ -230,7 +215,7 @@ namespace Apache.Arrow.Ipc
         {
             if (type is NestedType nestedType)
             {
-                foreach (Field childField in nestedType.Children)
+                foreach (Field childField in nestedType.Fields)
                 {
                     CountSelfAndChildrenNodes(childField.DataType, ref count);
                 }
@@ -493,12 +478,12 @@ namespace Apache.Arrow.Ipc
                 return System.Array.Empty<Offset<Flatbuf.Field>>();
             }
 
-            int childrenCount = type.Children.Count;
+            int childrenCount = type.Fields.Count;
             var children = new Offset<Flatbuf.Field>[childrenCount];
 
             for (int i = 0; i < childrenCount; i++)
             {
-                Field childField = type.Children[i];
+                Field childField = type.Fields[i];
                 StringOffset childFieldNameOffset = Builder.CreateString(childField.Name);
                 ArrowTypeFlatbufferBuilder.FieldType childFieldType = _fieldTypeBuilder.BuildFieldType(childField);
                 VectorOffset childFieldChildrenVectorOffset = Builder.CreateVectorOfTables(GetChildrenFieldOffsets(childField));

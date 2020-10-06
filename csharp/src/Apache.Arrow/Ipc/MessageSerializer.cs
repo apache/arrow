@@ -58,8 +58,8 @@ namespace Apache.Arrow.Ipc
             for (int i = 0; i < schema.FieldsLength; i++)
             {
                 Flatbuf.Field field = schema.Fields(i).GetValueOrDefault();
-                Field arrowField = FieldFromFlatbuffer(field);
-                schemaBuilder.Field(arrowField);
+
+                schemaBuilder.Field(FieldFromFlatbuffer(field));
             }
 
             return schemaBuilder.Build();
@@ -71,11 +71,10 @@ namespace Apache.Arrow.Ipc
             if (flatbufField.ChildrenLength > 0)
             {
                 childFields = new Field[flatbufField.ChildrenLength];
-                for (int j = 0; j < flatbufField.ChildrenLength; j++)
+                for (int i = 0; i < flatbufField.ChildrenLength; i++)
                 {
-                    Flatbuf.Field? childFlatbufField = flatbufField.Children(j);
-                    Field childField = FieldFromFlatbuffer(childFlatbufField.Value);
-                    childFields[j] = (childField);
+                    Flatbuf.Field? childFlatbufField = flatbufField.Children(i);
+                    childFields[i] = FieldFromFlatbuffer(childFlatbufField.Value);
                 }
             }
             return new Field(flatbufField.Name, GetFieldArrowType(flatbufField, childFields), flatbufField.Nullable);

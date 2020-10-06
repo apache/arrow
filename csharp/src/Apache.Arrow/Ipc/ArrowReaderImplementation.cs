@@ -138,7 +138,6 @@ namespace Apache.Arrow.Ipc
             return arrays;
         }
 
-
         private ArrayData LoadPrimitiveField(
             ref RecordBatchEnumerator recordBatchEnumerator,
             Field field,
@@ -166,7 +165,6 @@ namespace Apache.Arrow.Ipc
             }
 
             ArrowBuffer[] arrowBuff;
-            ArrayData[] children;
             if (field.DataType.TypeId == ArrowTypeId.Struct)
             {
                 arrowBuff = new[] { nullArrowBuffer };
@@ -178,11 +176,11 @@ namespace Apache.Arrow.Ipc
 
                 arrowBuff = new[] { nullArrowBuffer, valueArrowBuffer };
             }
-            children = GetChildren(ref recordBatchEnumerator, field, bodyData);
+
+            ArrayData[] children = GetChildren(ref recordBatchEnumerator, field, bodyData);
 
             return new ArrayData(field.DataType, fieldLength, fieldNullCount, 0, arrowBuff, children);
         }
-
 
         private ArrayData LoadVariableField(
             ref RecordBatchEnumerator recordBatchEnumerator,
@@ -230,14 +228,14 @@ namespace Apache.Arrow.Ipc
         {
             if (!(field.DataType is NestedType type)) return null;
 
-            int childrenCount = type.Children.Count;
+            int childrenCount = type.Fields.Count;
             var children = new ArrayData[childrenCount];
             for (int index = 0; index < childrenCount; index++)
             {
                 recordBatchEnumerator.MoveNextNode();
                 Flatbuf.FieldNode childFieldNode = recordBatchEnumerator.CurrentNode;
 
-                Field childField = type.Children[index];
+                Field childField = type.Fields[index];
                 ArrayData child = childField.DataType.IsFixedPrimitive()
                     ? LoadPrimitiveField(ref recordBatchEnumerator, childField, in childFieldNode, bodyData)
                     : LoadVariableField(ref recordBatchEnumerator, childField, in childFieldNode, bodyData);

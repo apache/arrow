@@ -33,8 +33,27 @@ namespace Apache.Arrow.Types
             if (comparer == null)
                 comparer = StringComparer.Ordinal;
 
-            return Children.FirstOrDefault(
+            return Fields.FirstOrDefault(
                 field => comparer.Equals(field.Name, name));
+        }
+
+        public int GetFieldIndex(string name,
+            IEqualityComparer<string> comparer = default)
+        {
+            if (comparer == null)
+                comparer = StringComparer.Ordinal;
+
+            // TODO: Consider caching field index if this method is in hot path.
+
+            for (int i = 0; i < Fields.Count; i++)
+            {
+                if (comparer.Equals(Fields[i].Name, name))
+                {
+                    return i;
+                }
+            }
+
+            return -1;
         }
 
         public override void Accept(IArrowTypeVisitor visitor) => Accept(this, visitor);

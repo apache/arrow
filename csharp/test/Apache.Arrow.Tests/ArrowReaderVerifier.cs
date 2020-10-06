@@ -183,17 +183,18 @@ namespace Apache.Arrow.Tests
 
             public void Visit(StructArray array)
             {
-                Assert.Equal(_expectedArray.Length, array.Length);
-                Assert.Equal(_expectedArray.NullCount, array.NullCount);
-                Assert.Equal(_expectedArray.Offset, array.Offset);
-                Assert.Equal(_expectedArray.Data.Children.Length, array.Data.Children.Length);
+                Assert.IsAssignableFrom<StructArray>(_expectedArray);
+                StructArray expectedArray = (StructArray)_expectedArray;
 
-                ArrayData data = array.Data;
-                for (int i = 0; i < data.Children.Length; i++)
+                Assert.Equal(expectedArray.Length, array.Length);
+                Assert.Equal(expectedArray.NullCount, array.NullCount);
+                Assert.Equal(expectedArray.Offset, array.Offset);
+                Assert.Equal(expectedArray.Data.Children.Length, array.Data.Children.Length);
+                Assert.Equal(expectedArray.Fields.Count, array.Fields.Count);
+
+                for (int i = 0; i < array.Fields.Count; i++)
                 {
-                    IArrowArray childArray = ArrowArrayFactory.BuildArray(data.Children[i]);
-                    IArrowArray expectedChildArray = ArrowArrayFactory.BuildArray(_expectedArray.Data.Children[i]);
-                    childArray.Accept(new ArrayComparer(expectedChildArray));
+                    array.Fields[i].Accept(new ArrayComparer(expectedArray.Fields[i]));
                 }
             }
 

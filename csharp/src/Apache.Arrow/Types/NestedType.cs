@@ -20,24 +20,27 @@ namespace Apache.Arrow.Types
 {
     public abstract class NestedType : ArrowType
     {
-        public IReadOnlyList<Field> Children { get; }
+        [Obsolete("Use `Fields` instead")]
+        public IReadOnlyList<Field> Children => Fields;
 
-        protected NestedType(IReadOnlyList<Field> children)
+        public IReadOnlyList<Field> Fields { get; }
+
+        protected NestedType(IReadOnlyList<Field> fields)
         {
-            if (children == null || children.Count == 0)
+            if (fields == null || fields.Count == 0)
             {
-                throw new ArgumentNullException(nameof(children));
+                throw new ArgumentNullException(nameof(fields));
             }
-            Children = children;
+            Fields = fields;
         }
 
-        protected NestedType(Field child)
+        protected NestedType(Field field)
         {
-            if (child == null)
+            if (field == null)
             {
-                throw new ArgumentNullException(nameof(child));
+                throw new ArgumentNullException(nameof(field));
             }
-            Children = new List<Field> { child };
+            Fields = new Field[] { field };
         }
     }
 }
