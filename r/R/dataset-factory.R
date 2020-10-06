@@ -143,5 +143,5 @@ FileSystemDatasetFactory$create <- function(filesystem,
     )
   }
 
-  shared_ptr(FileSystemDatasetFactory, ptr)
+  ptr
 }

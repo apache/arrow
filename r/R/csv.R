@@ -298,10 +298,7 @@ CsvTableReader$create <- function(file,
                                   convert_options = CsvConvertOptions$create(),
                                   ...) {
   assert_is(file, "InputStream")
-  shared_ptr(
-    CsvTableReader,
-    csv___TableReader__Make(file, read_options, parse_options, convert_options)
-  )
+  csv___TableReader__Make(file, read_options, parse_options, convert_options)
 }
 
 #' @title File reader options
