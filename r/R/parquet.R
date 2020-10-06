@@ -141,7 +141,7 @@ write_parquet <- function(x,
   }
 
   if (!inherits(sink, "OutputStream")) {
-    sink <- make_output_stream(sink, filesystem)
+    sink <- make_output_stream(sink)
     on.exit(sink$close())
   }
 

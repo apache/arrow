@@ -23,8 +23,8 @@ run_these <- tryCatch({
       !identical(Sys.getenv("AWS_ACCESS_KEY_ID"), "") &&
       !identical(Sys.getenv("AWS_SECRET_ACCESS_KEY"), "")) {
     # See if we have access to the test bucket
-    bucket <- FileSystem$from_uri("s3://ursa-labs-r-test?region=us-west-2")
-    bucket$fs$GetFileInfo(bucket$path)
+    bucket <- s3_bucket("ursa-labs-r-test")
+    bucket$GetFileInfo("")
     TRUE
   } else {
     FALSE
@@ -38,7 +38,7 @@ bucket_uri <- function(..., bucket = "s3://ursa-labs-r-test/%s?region=us-west-2"
 
 if (run_these) {
   now <- as.numeric(Sys.time())
-  on.exit(bucket$fs$DeleteDir(paste0("ursa-labs-r-test/", now)))
+  on.exit(bucket$DeleteDir(now))
 
   test_that("read/write Feather on S3", {
     write_feather(example_data, bucket_uri(now, "test.feather"))

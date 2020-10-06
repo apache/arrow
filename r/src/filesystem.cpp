@@ -298,4 +298,9 @@ std::shared_ptr<fs::S3FileSystem> fs___S3FileSystem__create(
   return ValueOrStop(fs::S3FileSystem::Make(s3_opts));
 }
 
+// [[s3::export]]
+std::string fs___S3FileSystem__region(const std::shared_ptr<fs::S3FileSystem>& fs) {
+  return fs->region();
+}
+
 #endif

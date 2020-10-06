@@ -185,6 +185,14 @@ FileSelector$create <- function(base_dir, allow_not_found = FALSE, recursive = F
 #' - `$OpenAppendStream(path)`: Open an [output stream][OutputStream] for
 #'    appending.
 #'
+#' @section Active bindings:
+#'
+#' - `$type_name`: string filesystem type name, such as "local", "s3", etc.
+#' - `$region`: string AWS region, for `S3FileSystem` and `SubTreeFileSystem`
+#'    containing a `S3FileSystem`
+#' - `$base_fs`: for `SubTreeFileSystem`, the `FileSystem` it contains
+#' - `$base_path`: for `SubTreeFileSystem`, the string file path it contains
+#'
 #' @usage NULL
 #' @format NULL
 #' @docType class
@@ -312,7 +320,11 @@ LocalFileSystem$create <- function() {
 #' @rdname FileSystem
 #' @importFrom utils modifyList
 #' @export
-S3FileSystem <- R6Class("S3FileSystem", inherit = FileSystem)
+S3FileSystem <- R6Class("S3FileSystem", inherit = FileSystem,
+  active = list(
+    region = function() fs___S3FileSystem__region(self)
+  )
+)
 S3FileSystem$create <- function(anonymous = FALSE, ...) {
   args <- list2(...)
   if (anonymous) {
@@ -364,6 +376,42 @@ arrow_with_s3 <- function() {
   .Call(`_s3_available`)
 }
 
+#' Connect to an AWS S3 bucket
+#'
+#' `s3_bucket()` is a convenience function to create an `S3FileSystem` object
+#' that automatically detects the bucket's AWS region and holding onto the its
+#' relative path.
+#'
+#' @param bucket string S3 bucket name or path
+#' @param ... Additional connection options, passed to `S3FileSystem$create()`
+#' @return A `SubTreeFileSystem` containing an `S3FileSystem` and the bucket's
+#' relative path. Note that this function's success does not guarantee that you
+#' are authorized to access the bucket's contents.
+#' @examples
+#' if (arrow_with_s3()) {
+#'   bucket <- s3_bucket("ursa-labs-taxi-data")
+#' }
+#' @export
+s3_bucket <- function(bucket, ...) {
+  assert_that(is.string(bucket))
+  args <- list2(...)
+
+  # Use FileSystemFromUri to detect the bucket's region
+  if (!is_url(bucket)) {
+    bucket <- paste0("s3://", bucket)
+  }
+  fs_and_path <- FileSystem$from_uri(bucket)
+  fs <- fs_and_path$fs
+  # If there are no additional S3Options, we can use that filesystem
+  # Otherwise, take the region that was detected and make a new fs with the args
+  if (length(args)) {
+    args$region <- fs$region
+    fs <- exec(S3FileSystem$create, !!!args)
+  }
+  # Return a subtree pointing at that bucket path
+  SubTreeFileSystem$create(fs_and_path$path, fs)
+}
+
 #' @usage NULL
 #' @format NULL
 #' @rdname FileSystem
@@ -382,6 +430,17 @@ SubTreeFileSystem$create <- function(base_path, base_fs = NULL) {
     SubTreeFileSystem,
     fs___SubTreeFileSystem__create(fs_and_path$path, fs_and_path$fs)
   )
+}
+
+#' @export
+`$.SubTreeFileSystem` <- function(x, name, ...) {
+  # This is to allow delegating methods/properties to the base_fs
+  assert_that(is.string(name))
+  if (name %in% ls(x)) {
+    get(name, x)
+  } else {
+    get(name, x$base_fs)
+  }
 }
 
 #' Copy files, including between FileSystems

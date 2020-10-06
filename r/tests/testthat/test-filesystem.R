@@ -132,6 +132,7 @@ test_that("FileSystem$from_uri", {
   skip_if_not_available("s3")
   fs_and_path <- FileSystem$from_uri("s3://ursa-labs-taxi-data")
   expect_is(fs_and_path$fs, "S3FileSystem")
+  expect_identical(fs_and_path$fs$region, "us-east-2")
 })
 
 test_that("SubTreeFileSystem$create() with URI", {
@@ -146,4 +147,14 @@ test_that("S3FileSystem", {
   skip_if_not_available("s3")
   s3fs <- S3FileSystem$create()
   expect_is(s3fs, "S3FileSystem")
+})
+
+test_that("s3_bucket", {
+  skip_on_cran()
+  skip_if_not_available("s3")
+  bucket <- s3_bucket("ursa-labs-r-test")
+  expect_is(bucket, "SubTreeFileSystem")
+  expect_identical(bucket$base_path, "ursa-labs-r-test/")
+  expect_is(bucket$base_fs, "S3FileSystem")
+  expect_identical(bucket$region, "us-west-2")
 })

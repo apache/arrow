@@ -7,10 +7,11 @@
 \usage{
 read_arrow(file, ...)
 
-read_ipc_stream(file, as_data_frame = TRUE, filesystem = NULL, ...)
+read_ipc_stream(file, as_data_frame = TRUE, ...)
 }
 \arguments{
-\item{file}{A character file name or URI, \code{raw} vector, or an Arrow input stream.
+\item{file}{A character file name or URI, \code{raw} vector, an Arrow input stream,
+or a \code{FileSystem} with path (\code{SubTreeFileSystem}).
 If a file name or URI, an Arrow \link{InputStream} will be opened and
 closed when finished. If an input stream is provided, it will be left
 open.}
@@ -19,9 +20,6 @@ open.}
 
 \item{as_data_frame}{Should the function return a \code{data.frame} (default) or
 an Arrow \link{Table}?}
-
-\item{filesystem}{A \link{FileSystem} where \code{file} can be found if it is a
-string file path; default is the local file system}
 }
 \value{
 A \code{data.frame} if \code{as_data_frame} is \code{TRUE} (the default), or an

@@ -976,6 +976,10 @@ fs___S3FileSystem__create <- function(anonymous, access_key, secret_key, session
     .Call(`_arrow_fs___S3FileSystem__create` , anonymous, access_key, secret_key, session_token, role_arn, session_name, external_id, load_frequency, region, endpoint_override, scheme, background_writes)
 }
 
+fs___S3FileSystem__region <- function(fs){
+    .Call(`_arrow_fs___S3FileSystem__region` , fs)
+}
+
 io___Readable__Read <- function(x, nbytes){
     .Call(`_arrow_io___Readable__Read` , x, nbytes)
 }

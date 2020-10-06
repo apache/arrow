@@ -85,3 +85,14 @@ appending.
 }
 }
 
+\section{Active bindings}{
+
+\itemize{
+\item \verb{$type_name}: string filesystem type name, such as "local", "s3", etc.
+\item \verb{$region}: string AWS region, for \code{S3FileSystem} and \code{SubTreeFileSystem}
+containing a \code{S3FileSystem}
+\item \verb{$base_fs}: for \code{SubTreeFileSystem}, the \code{FileSystem} it contains
+\item \verb{$base_path}: for \code{SubTreeFileSystem}, the string file path it contains
+}
+}
+

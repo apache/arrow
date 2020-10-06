@@ -3806,6 +3806,21 @@ extern "C" SEXP _arrow_fs___S3FileSystem__create(SEXP anonymous_sexp, SEXP acces
 }
 #endif
 
+// filesystem.cpp
+#if defined(ARROW_R_WITH_S3)
+std::string fs___S3FileSystem__region(const std::shared_ptr<fs::S3FileSystem>& fs);
+extern "C" SEXP _arrow_fs___S3FileSystem__region(SEXP fs_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<fs::S3FileSystem>&>::type fs(fs_sexp);
+	return cpp11::as_sexp(fs___S3FileSystem__region(fs));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_fs___S3FileSystem__region(SEXP fs_sexp){
+	Rf_error("Cannot call fs___S3FileSystem__region(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
 // io.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Buffer> io___Readable__Read(const std::shared_ptr<arrow::io::Readable>& x, int64_t nbytes);
@@ -6520,6 +6535,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_fs___FileSystemFromUri", (DL_FUNC) &_arrow_fs___FileSystemFromUri, 1}, 
 		{ "_arrow_fs___CopyFiles", (DL_FUNC) &_arrow_fs___CopyFiles, 6}, 
 		{ "_arrow_fs___S3FileSystem__create", (DL_FUNC) &_arrow_fs___S3FileSystem__create, 12}, 
+		{ "_arrow_fs___S3FileSystem__region", (DL_FUNC) &_arrow_fs___S3FileSystem__region, 1}, 
 		{ "_arrow_io___Readable__Read", (DL_FUNC) &_arrow_io___Readable__Read, 2}, 
 		{ "_arrow_io___InputStream__Close", (DL_FUNC) &_arrow_io___InputStream__Close, 1}, 
 		{ "_arrow_io___OutputStream__Close", (DL_FUNC) &_arrow_io___OutputStream__Close, 1}, 

@@ -4,16 +4,11 @@
 \alias{read_json_arrow}
 \title{Read a JSON file}
 \usage{
-read_json_arrow(
-  file,
-  col_select = NULL,
-  as_data_frame = TRUE,
-  filesystem = NULL,
-  ...
-)
+read_json_arrow(file, col_select = NULL, as_data_frame = TRUE, ...)
 }
 \arguments{
-\item{file}{A character file name or URI, \code{raw} vector, or an Arrow input stream.
+\item{file}{A character file name or URI, \code{raw} vector, an Arrow input stream,
+or a \code{FileSystem} with path (\code{SubTreeFileSystem}).
 If a file name, a memory-mapped Arrow \link{InputStream} will be opened and
 closed when finished; compression will be detected from the file extension
 and handled automatically. If an input stream is provided, it will be left
@@ -26,9 +21,6 @@ of columns, as used in \code{dplyr::select()}.}
 
 \item{as_data_frame}{Should the function return a \code{data.frame} (default) or
 an Arrow \link{Table}?}
-
-\item{filesystem}{A \link{FileSystem} where \code{file} can be found if it is a
-string file path; default is the local file system}
 
 \item{...}{Additional options, passed to \code{json_table_reader()}}
 }

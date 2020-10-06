@@ -107,7 +107,7 @@ write_feather <- function(x,
   assert_is(x, "Table")
 
   if (!inherits(sink, "OutputStream")) {
-    sink <- make_output_stream(sink, filesystem)
+    sink <- make_output_stream(sink)
     on.exit(sink$close())
   }
   ipc___WriteFeather__Table(sink, x, version, chunk_size, compression, compression_level)

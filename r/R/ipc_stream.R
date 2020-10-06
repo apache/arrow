@@ -41,7 +41,7 @@ write_ipc_stream <- function(x, sink, ...) {
     x <- Table$create(x)
   }
   if (!inherits(sink, "OutputStream")) {
-    sink <- make_output_stream(sink, filesystem)
+    sink <- make_output_stream(sink)
     on.exit(sink$close())
   }
 
