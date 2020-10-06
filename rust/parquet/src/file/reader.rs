@@ -28,9 +28,7 @@ use crate::column::page::PageIterator;
 use crate::column::{page::PageReader, reader::ColumnReader};
 use crate::errors::{ParquetError, Result};
 use crate::file::metadata::*;
-pub use crate::file::serialized_reader::{
-    ParquetReader, SerializedFileReader, SerializedPageReader,
-};
+pub use crate::file::serialized_reader::{SerializedFileReader, SerializedPageReader};
 use crate::record::reader::RowIter;
 use crate::schema::types::{ColumnDescPtr, SchemaDescPtr, Type as SchemaType};
 
@@ -144,14 +142,6 @@ pub trait RowGroupReader {
 pub trait Length {
     /// Returns the amount of bytes of the inner source.
     fn len(&self) -> u64;
-}
-
-/// TryClone tries to clone the type and should maintain the `Seek` position of the given
-/// instance.
-pub trait TryClone: Sized {
-    /// Clones the type returning a new instance or an error if it's not possible
-    /// to clone it.
-    fn try_clone(&self) -> Result<Self>;
 }
 
 /// Implementation of page iterator for parquet file.

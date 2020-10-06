@@ -18,14 +18,7 @@
 //! Contains file reader API and provides methods to access file metadata, row group
 //! readers to read individual column chunks, or access record iterator.
 
-use std::{
-    cmp::min,
-    convert::TryFrom,
-    fs::File,
-    io::{BufReader, Cursor, Read, Seek},
-    path::Path,
-    rc::Rc,
-};
+use std::{cmp::min, convert::TryFrom, fs::File, io::Read, path::Path, rc::Rc};
 
 use parquet_format::{PageHeader, PageType};
 use thrift::protocol::TCompactInputProtocol;
@@ -38,7 +31,11 @@ use crate::file::{footer, metadata::*, reader::*, statistics, DEFAULT_FOOTER_SIZ
 use crate::record::reader::RowIter;
 use crate::record::Row;
 use crate::schema::types::Type as SchemaType;
-use crate::util::{io::FileSource, memory::ByteBufferPtr};
+use crate::util::{
+    cursor::SliceableCursor,
+    io::{FileSource, TryClone},
+    memory::ByteBufferPtr,
+};
 
 ////////////////////////////////////////////////
 ////// START traits specific to file system ////
@@ -51,31 +48,8 @@ impl Length for File {
 }
 
 impl TryClone for File {
-    fn try_clone(&self) -> Result<Self> {
+    fn try_clone(&self) -> std::io::Result<Self> {
         self.try_clone().map_err(|e| e.into())
-    }
-}
-
-impl<'a> Length for Cursor<&'a [u8]> {
-    fn len(&self) -> u64 {
-        self.get_ref().len() as u64
-    }
-}
-
-impl Length for Cursor<Vec<u8>> {
-    fn len(&self) -> u64 {
-        self.get_ref().len() as u64
-    }
-}
-
-/// ParquetReader is the interface which needs to be fulfilled to be able to parse a
-/// parquet source.
-pub trait ParquetReader: Read + Seek + Length + TryClone {}
-impl<T: Read + Seek + Length + TryClone> ParquetReader for T {}
-
-impl<R: ParquetReader> Length for BufReader<R> {
-    fn len(&self) -> u64 {
-        self.get_ref().len() as u64
     }
 }
 
@@ -91,19 +65,22 @@ impl ChunckReader for File {
     }
 }
 
+impl Length for SliceableCursor {
+    fn len(&self) -> u64 {
+        SliceableCursor::len(self)
+    }
+}
+
 /// TODO this makes a copy of the slice each time a reader is created
-impl ChunckReader for Cursor<Vec<u8>> {
-    type T = Cursor<Vec<u8>>;
-    type U = Cursor<Vec<u8>>;
+impl ChunckReader for SliceableCursor {
+    type T = SliceableCursor;
+    type U = SliceableCursor;
 
     fn get_read(&self, start: u64, length: usize) -> Result<Self::T> {
         self.get_read_seek(start, length)
     }
     fn get_read_seek(&self, start: u64, length: usize) -> Result<Self::U> {
-        let mut owned_slice = vec![0; length];
-        let source_slice = &self.get_ref()[start as usize..start as usize + length];
-        owned_slice.copy_from_slice(source_slice);
-        Ok(Cursor::new(owned_slice))
+        self.slice(start, length).map_err(|e| e.into())
     }
 }
 
@@ -445,7 +422,7 @@ mod tests {
         get_test_file("alltypes_plain.parquet")
             .read_to_end(&mut buf)
             .unwrap();
-        let cursor = Cursor::new(buf);
+        let cursor = SliceableCursor::new(buf);
         let read_from_cursor = SerializedFileReader::new(cursor).unwrap();
 
         let test_file = get_test_file("alltypes_plain.parquet");

@@ -17,14 +17,31 @@
 
 use std::{cell::RefCell, cmp, io::*};
 
-use crate::file::{
-    reader::{Length, ParquetReader},
-    writer::ParquetWriter,
-};
+use crate::file::{reader::Length, writer::ParquetWriter};
 
 const DEFAULT_BUF_SIZE: usize = 8 * 1024;
 
 // ----------------------------------------------------------------------
+
+/// TryClone tries to clone the type and should maintain the `Seek` position of the given
+/// instance.
+pub trait TryClone: Sized {
+    /// Clones the type returning a new instance or an error if it's not possible
+    /// to clone it.
+    fn try_clone(&self) -> Result<Self>;
+}
+
+/// ParquetReader is the interface which needs to be fulfilled to be able to parse a
+/// parquet source.
+pub trait ParquetReader: Read + Seek + Length + TryClone {}
+impl<T: Read + Seek + Length + TryClone> ParquetReader for T {}
+
+impl<R: ParquetReader> Length for BufReader<R> {
+    fn len(&self) -> u64 {
+        self.get_ref().len() as u64
+    }
+}
+
 // Read/Write wrappers for `File`.
 
 /// Position trait returns the current position in the stream.
