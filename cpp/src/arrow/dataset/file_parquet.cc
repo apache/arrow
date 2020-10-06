@@ -427,9 +427,9 @@ Result<std::shared_ptr<FileFragment>> ParquetFileFormat::MakeFragment(
       std::move(physical_schema), {}));
 }
 
-///
-/// ParquetFileWriter, ParquetFileWriteOptions
-///
+//
+// ParquetFileWriter, ParquetFileWriteOptions
+//
 
 std::shared_ptr<FileWriteOptions> ParquetFileFormat::DefaultWriteOptions() {
   std::shared_ptr<ParquetFileWriteOptions> options(
@@ -469,9 +469,9 @@ Status ParquetFileWriter::Write(const std::shared_ptr<RecordBatch>& batch) {
 
 Status ParquetFileWriter::Finish() { return parquet_writer_->Close(); }
 
-///
-/// RowGroupInfo
-///
+//
+// RowGroupInfo
+//
 
 std::vector<RowGroupInfo> RowGroupInfo::FromIdentifiers(const std::vector<int> ids) {
   std::vector<RowGroupInfo> results;
@@ -526,9 +526,9 @@ bool RowGroupInfo::Satisfy(const Expression& predicate) const {
   return !HasStatistics() || predicate.IsSatisfiableWith(statistics_expression_);
 }
 
-///
-/// ParquetFileFragment
-///
+//
+// ParquetFileFragment
+//
 
 ParquetFileFragment::ParquetFileFragment(FileSource source,
                                          std::shared_ptr<FileFormat> format,
@@ -631,9 +631,9 @@ Result<std::vector<RowGroupInfo>> ParquetFileFragment::FilterRowGroups(
   return row_groups;
 }
 
-///
-/// ParquetDatasetFactory
-///
+//
+// ParquetDatasetFactory
+//
 
 ParquetDatasetFactory::ParquetDatasetFactory(
     std::shared_ptr<fs::FileSystem> filesystem, std::shared_ptr<ParquetFileFormat> format,

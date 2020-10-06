@@ -129,7 +129,6 @@ class ARROW_DS_EXPORT FileFormat : public std::enable_shared_from_this<FileForma
   virtual bool splittable() const { return false; }
 
   virtual bool Equals(const FileFormat& other) const = 0;
-  //  virtual std::string ToString() const = 0;
 
   /// \brief Indicate if the FileSource is supported/readable by this format.
   virtual Result<bool> IsSupported(const FileSource& source) const = 0;

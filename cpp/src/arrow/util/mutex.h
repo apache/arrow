@@ -43,7 +43,7 @@ class ARROW_EXPORT Mutex {
 
     explicit operator bool() const { return bool(locked_); }
 
-    void Unlock();
+    void Unlock() { locked_.reset(); }
 
    private:
     explicit Guard(Mutex* locked);

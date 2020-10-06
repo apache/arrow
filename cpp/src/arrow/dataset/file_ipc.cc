@@ -163,9 +163,9 @@ Result<ScanTaskIterator> IpcFileFormat::ScanFile(std::shared_ptr<ScanOptions> op
                                    fragment->source());
 }
 
-///
-/// IpcFileWriter, IpcFileWriteOptions
-///
+//
+// IpcFileWriter, IpcFileWriteOptions
+//
 
 std::shared_ptr<FileWriteOptions> IpcFileFormat::DefaultWriteOptions() {
   std::shared_ptr<IpcFileWriteOptions> options(

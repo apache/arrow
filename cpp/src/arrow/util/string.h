@@ -57,6 +57,8 @@ bool AsciiEqualsCaseInsensitive(util::string_view left, util::string_view right)
 ARROW_EXPORT
 std::string AsciiToLower(util::string_view value);
 
+/// \brief Search for the first instance of a token and replace it or return nullopt if
+/// the token is not found.
 ARROW_EXPORT
 util::optional<std::string> Replace(util::string_view s, util::string_view token,
                                     util::string_view replacement);
