@@ -256,6 +256,8 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
 
   define_option(ARROW_TENSORFLOW "Build Arrow with TensorFlow support enabled" OFF)
 
+  define_option(ARROW_TESTING "Build the Arrow testing libraries" OFF)
+
   #----------------------------------------------------------------------
   set_option_category("Thirdparty toolchain")
 

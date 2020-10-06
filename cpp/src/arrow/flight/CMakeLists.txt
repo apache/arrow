@@ -101,7 +101,7 @@ foreach(LIB_TARGET ${ARROW_FLIGHT_LIBRARIES})
 endforeach()
 
 # Define arrow_flight_testing library
-if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS OR ARROW_BUILD_INTEGRATION)
+if(ARROW_TESTING)
   add_arrow_lib(arrow_flight_testing
                 CMAKE_PACKAGE_NAME
                 ArrowFlightTesting

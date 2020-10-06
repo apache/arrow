@@ -530,11 +530,7 @@ if(ARROW_BUILD_STATIC AND ARROW_BUNDLED_STATIC_LIBS)
                            ${_OTHER_LIBS})
 endif()
 
-if(ARROW_BUILD_TESTS
-   OR ARROW_BUILD_BENCHMARKS
-   OR ARROW_BUILD_INTEGRATION
-   OR ARROW_FUZZING)
-
+if(ARROW_TESTING)
   # that depend on gtest
   add_arrow_lib(arrow_testing
                 CMAKE_PACKAGE_NAME
