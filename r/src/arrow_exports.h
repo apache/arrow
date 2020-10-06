@@ -95,9 +95,6 @@ class HivePartitioning;
 
 namespace cpp11 {
 
-template <typename T>
-const char* get_r6_class_name();
-
 inline SEXP xp_to_r6(SEXP xp, SEXP r6_class) {
   // make call:  <symbol>$new(<x>)
   SEXP call = PROTECT(Rf_lang3(R_DollarSymbol, r6_class, arrow::r::symbols::new_));
@@ -111,21 +108,17 @@ inline SEXP xp_to_r6(SEXP xp, SEXP r6_class) {
 }
 
 template <typename T>
-inline SEXP shared_ptr_to_r6(const std::shared_ptr<T>& x) {
+inline SEXP shared_ptr_to_r6(const std::shared_ptr<T>& x, const std::string& r_class_name) {
   if (x == nullptr) return R_NilValue;
   cpp11::external_pointer<std::shared_ptr<T>> xp(new std::shared_ptr<T>(x));
-  SEXP r6_class = Rf_install(get_r6_class_name<T>());
+  SEXP r6_class = Rf_install(r_class_name.c_str());
   return xp_to_r6(xp, r6_class);
 }
 
 #define R6_HANDLE(TYPE, NAME)                      \
   template <>                                      \
-  const char* get_r6_class_name<TYPE>() {          \
-    return NAME;                                   \
-  }                                                \
-  template <>                                      \
   SEXP as_sexp(const std::shared_ptr<TYPE>& ptr) { \
-    return shared_ptr_to_r6<TYPE>(ptr);            \
+    return shared_ptr_to_r6<TYPE>(ptr, NAME);      \
   }
 
 R6_HANDLE(arrow::RecordBatch, "RecordBatch")
