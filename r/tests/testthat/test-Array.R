@@ -616,6 +616,23 @@ test_that("Array$create() handles vector -> fixed size list arrays", {
   )
 })
 
+test_that("Handling string data with embedded nuls", {
+  raws <- structure(list(
+    as.raw(c(0x70, 0x65, 0x72, 0x73, 0x6f, 0x6e)),
+    as.raw(c(0x77, 0x6f, 0x6d, 0x61, 0x6e)),
+    as.raw(c(0x6d, 0x61, 0x00, 0x6e)), # <-- there's your nul, 0x00
+    as.raw(c(0x63, 0x61, 0x6d, 0x65, 0x72, 0x61)),
+    as.raw(c(0x74, 0x76))),
+    class = c("arrow_binary", "vctrs_vctr", "list"))
+  expect_error(rawToChar(raws[[3]]), "nul") # See?
+  array_with_nul <- Array$create(raws)$cast(utf8())
+  # In version 1.0.1, as.vector(array_with_nul) errors:
+  # Error in Array__as_vector(self) : embedded nul in string: 'ma\0n'
+  # On master (presumably this is a cpp11 thing) it does not error,
+  # but it terminates the string early:
+  # [1] "person" "woman"  "ma"     "camera" "tv"
+})
+
 test_that("Array$create() should have helpful error", {
   expect_error(Array$create(list(numeric(0)), list_of(bool())), "Expecting a logical vector")
   expect_error(Array$create(list(numeric(0)), list_of(int32())), "Expecting an integer vector")
