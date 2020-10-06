@@ -26,29 +26,26 @@
 namespace arrow {
 namespace util {
 
-template <typename V>
+template <typename K, typename V>
 class ConcurrentMap {
  public:
-  void Insert(const std::string& key, const V& value) {
+  void Insert(const K& key, const V& value) {
     auto lock = mutex_.Lock();
     map_.insert({key, value});
   }
 
-  void Assign(const std::string& key, const V& value) {
-    auto lock = mutex_.Lock();
-    map_[key] = value;
-  }
-
-  V GetOrAssignIfNotExist(const std::string& key, std::function<V()> compute_value_func) {
+  template <typename ValueFunc>
+  V GetOrInsert(const K& key, ValueFunc&& compute_value_func) {
     auto lock = mutex_.Lock();
     auto it = map_.find(key);
     if (it == map_.end()) {
-      map_.insert({key, compute_value_func()});
+      auto pair = map_.emplace(key, compute_value_func());
+      it = pair.first;
     }
-    return map_.at(key);
+    return it->second;
   }
 
-  void Erase(const std::string& key) {
+  void Erase(const K& key) {
     auto lock = mutex_.Lock();
     map_.erase(key);
   }
@@ -58,23 +55,14 @@ class ConcurrentMap {
     map_.clear();
   }
 
-  std::pair<bool, V> Find(const std::string& key) {
-    auto lock = mutex_.Lock();
-    auto it = map_.find(key);
-    if (it != map_.end()) {
-      return std::make_pair(true, it->second);
-    }
-    return std::make_pair(false, V());
-  }
-
-  size_t size() {
+  size_t size() const {
     auto lock = mutex_.Lock();
     return map_.size();
   }
 
  private:
-  std::unordered_map<std::string, V> map_;
-  arrow::util::Mutex mutex_;
+  std::unordered_map<K, V> map_;
+  mutable arrow::util::Mutex mutex_;
 };
 
 }  // namespace util

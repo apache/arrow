@@ -72,7 +72,7 @@ KeyWithMasterId FileKeyUnwrapper::GetDataEncryptionKey(
     const std::string& encoded_kek_id = key_material.kek_id();
     const std::string& encoded_wrapped_kek = key_material.wrapped_kek();
 
-    std::string kek_bytes = kek_per_kek_id_->GetOrAssignIfNotExist(
+    std::string kek_bytes = kek_per_kek_id_->GetOrInsert(
         encoded_kek_id, [kms_client, encoded_wrapped_kek, master_key_id]() {
           return kms_client->UnwrapKey(encoded_wrapped_kek, master_key_id);
         });

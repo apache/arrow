@@ -29,7 +29,7 @@ std::shared_ptr<KmsClient> KeyToolkit::GetKmsClient(
       kms_client_cache_per_token().GetOrCreateInternalCache(
           kms_connection_config.key_access_token(), cache_entry_lifetime_ms);
 
-  return kms_client_per_kms_instance_cache->GetOrAssignIfNotExist(
+  return kms_client_per_kms_instance_cache->GetOrInsert(
       kms_connection_config.kms_instance_id, [this, kms_connection_config]() {
         return this->kms_client_factory_->CreateKmsClient(kms_connection_config);
       });

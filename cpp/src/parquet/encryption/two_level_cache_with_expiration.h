@@ -65,16 +65,19 @@ class ExpiringCacheMapEntry {
  public:
   ExpiringCacheMapEntry() = default;
 
-  explicit ExpiringCacheMapEntry(std::shared_ptr<ConcurrentMap<V>> cached_item,
-                                 uint64_t expiration_interval_seconds)
+  explicit ExpiringCacheMapEntry(
+      std::shared_ptr<ConcurrentMap<std::string, V>> cached_item,
+      uint64_t expiration_interval_seconds)
       : map_cache_(cached_item, expiration_interval_seconds) {}
 
   bool IsExpired() { return map_cache_.IsExpired(); }
 
-  std::shared_ptr<ConcurrentMap<V>> cached_item() { return map_cache_.cached_item(); }
+  std::shared_ptr<ConcurrentMap<std::string, V>> cached_item() {
+    return map_cache_.cached_item();
+  }
 
  private:
-  ExpiringCacheEntry<std::shared_ptr<ConcurrentMap<V>>> map_cache_;
+  ExpiringCacheEntry<std::shared_ptr<ConcurrentMap<std::string, V>>> map_cache_;
 };
 
 }  // namespace internal
@@ -92,17 +95,17 @@ class TwoLevelCacheWithExpiration {
     last_cache_cleanup_timestamp_ = internal::CurrentTimePoint();
   }
 
-  std::shared_ptr<ConcurrentMap<V>> GetOrCreateInternalCache(
+  std::shared_ptr<ConcurrentMap<std::string, V>> GetOrCreateInternalCache(
       const std::string& access_token, uint64_t cache_entry_lifetime_seconds) {
     auto lock = mutex_.Lock();
 
     auto external_cache_entry = cache_.find(access_token);
     if (external_cache_entry == cache_.end() ||
         external_cache_entry->second.IsExpired()) {
-      cache_.insert(
-          {access_token, internal::ExpiringCacheMapEntry<V>(
-                             std::shared_ptr<ConcurrentMap<V>>(new ConcurrentMap<V>()),
-                             cache_entry_lifetime_seconds)});
+      cache_.insert({access_token, internal::ExpiringCacheMapEntry<V>(
+                                       std::shared_ptr<ConcurrentMap<std::string, V>>(
+                                           new ConcurrentMap<std::string, V>()),
+                                       cache_entry_lifetime_seconds)});
     }
 
     return cache_[access_token].cached_item();
