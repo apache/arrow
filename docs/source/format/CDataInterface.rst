@@ -686,7 +686,7 @@ release callback is trivial.
    void export_int32_type(struct ArrowSchema* schema) {
       *schema = (struct ArrowSchema) {
          // Type description
-         .format = "l",
+         .format = "i",
          .name = "",
          .metadata = NULL,
          .flags = 0,
