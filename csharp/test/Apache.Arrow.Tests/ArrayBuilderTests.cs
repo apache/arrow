@@ -73,6 +73,7 @@ namespace Apache.Arrow.Tests
             Assert.Equal(string.Empty, stringArray.GetString(3));
         }
 
+
         [Fact]
         public void ListArrayBuilder()
         {

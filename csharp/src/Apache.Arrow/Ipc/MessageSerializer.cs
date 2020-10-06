@@ -70,7 +70,7 @@ namespace Apache.Arrow.Ipc
             System.Collections.Generic.List<Field> childFields = null;
             if (flatbufField.ChildrenLength > 0)
             {
-                childFields = new System.Collections.Generic.List<Field>();
+                childFields = new System.Collections.Generic.List<Field>(flatbufField.ChildrenLength);
                 for (int j = 0; j < flatbufField.ChildrenLength; j++)
                 {
                     Flatbuf.Field? childFlatbufField = flatbufField.Children(j);

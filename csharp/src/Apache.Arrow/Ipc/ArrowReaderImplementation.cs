@@ -165,12 +165,11 @@ namespace Apache.Arrow.Ipc
                 throw new InvalidDataException("Null count length must be >= 0"); // TODO:Localize exception message
             }
 
-            ArrowBuffer[] arrowBuff = null;
-            ArrayData[] children = null;
+            ArrowBuffer[] arrowBuff;
+            ArrayData[] children;
             if (field.DataType.TypeId == ArrowTypeId.Struct)
             {
-                arrowBuff = new[] { nullArrowBuffer};
-                children = GetChildren(ref recordBatchEnumerator, field, bodyData);
+                arrowBuff = new[] { nullArrowBuffer };
             }
             else
             {
@@ -178,8 +177,8 @@ namespace Apache.Arrow.Ipc
                 recordBatchEnumerator.MoveNextBuffer();
 
                 arrowBuff = new[] { nullArrowBuffer, valueArrowBuffer };
-                children = GetChildren(ref recordBatchEnumerator, field, bodyData);
             }
+            children = GetChildren(ref recordBatchEnumerator, field, bodyData);
 
             return new ArrayData(field.DataType, fieldLength, fieldNullCount, 0, arrowBuff, children);
         }

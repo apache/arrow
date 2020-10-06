@@ -175,8 +175,7 @@ namespace Apache.Arrow.Ipc
             public void Visit(StructType type)
             {
                 Flatbuf.Struct_.StartStruct_(Builder);
-                FieldType result = FieldType.Build(Flatbuf.Type.Struct_, Flatbuf.Struct_.EndStruct_(Builder));
-                Result = result;
+                Result = FieldType.Build(Flatbuf.Type.Struct_, Flatbuf.Struct_.EndStruct_(Builder));
             }
 
             private void CreateIntType(NumberType type)

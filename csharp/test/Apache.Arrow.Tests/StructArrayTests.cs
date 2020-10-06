@@ -48,11 +48,11 @@ namespace Apache.Arrow.Tests
             Assert.Equal(1, structs.NullCount);
             ArrayData[] childArrays = structs.Data.Children; // Data for StringArray and Int32Array
             Assert.Equal(2, childArrays.Length);
-            for (int j = 0; j < childArrays.Length; j++)
+            for (int i = 0; i < childArrays.Length; i++)
             {
-                ArrayData arrayData = childArrays[j];
+                ArrayData arrayData = childArrays[i];
                 Assert.Null(arrayData.Children);
-                if (j == 0)
+                if (i == 0)
                 {
                     Assert.Equal(ArrowTypeId.String, arrayData.DataType.TypeId);
                     Array array = new StringArray(arrayData);
@@ -61,12 +61,12 @@ namespace Apache.Arrow.Tests
                     Assert.Equal(structs.Length, structStringArray.Length);
                     Assert.Equal(stringArray.Length, structStringArray.Length);
                     Assert.Equal(stringArray.NullCount, structStringArray.NullCount);
-                    for (int i = 0; i < stringArray.Length; i++)
+                    for (int j = 0; j < stringArray.Length; j++)
                     {
-                        Assert.Equal(stringArray.GetString(i), structStringArray.GetString(i));
+                        Assert.Equal(stringArray.GetString(j), structStringArray.GetString(j));
                     }
                 }
-                if (j == 1)
+                if (i == 1)
                 {
                     Assert.Equal(ArrowTypeId.Int32, arrayData.DataType.TypeId);
                     Array array = new Int32Array(arrayData);
@@ -75,9 +75,9 @@ namespace Apache.Arrow.Tests
                     Assert.Equal(structs.Length, structIntArray.Length);
                     Assert.Equal(intArray.Length, structIntArray.Length);
                     Assert.Equal(intArray.NullCount, structIntArray.NullCount);
-                    for (int i = 0; i < intArray.Length; i++)
+                    for (int j = 0; j < intArray.Length; j++)
                     {
-                        Assert.Equal(intArray.GetValue(i), structIntArray.GetValue(i));
+                        Assert.Equal(intArray.GetValue(j), structIntArray.GetValue(j));
                     }
                 }
             }

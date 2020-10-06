@@ -21,17 +21,11 @@ namespace Apache.Arrow.Types
 {
     public sealed class StructType : NestedType
     {
-        private readonly List<Field> _fields;
-
         public override ArrowTypeId TypeId => ArrowTypeId.Struct;
         public override string Name => "struct";
 
-        public IEnumerable<Field> Fields => _fields;
-
         public StructType(IReadOnlyList<Field> fields) : base(fields)
-        {
-            _fields = fields?.ToList();
-        }
+        { }
 
         public Field GetFieldByName(string name,
             IEqualityComparer<string> comparer = default)
@@ -39,19 +33,7 @@ namespace Apache.Arrow.Types
             if (comparer == null)
                 comparer = StringComparer.Ordinal;
 
-            return Fields.FirstOrDefault(
-                field => comparer.Equals(field.Name, name));
-        }
-
-        public int GetFieldIndex(string name,
-            IEqualityComparer<string> comparer = default)
-        {
-            if (comparer == null)
-                comparer = StringComparer.Ordinal;
-
-            // TODO: Consider caching field index if this method is in hot path.
-
-            return _fields.FindIndex(
+            return Children.FirstOrDefault(
                 field => comparer.Equals(field.Name, name));
         }
 

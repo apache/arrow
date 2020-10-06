@@ -72,7 +72,7 @@ namespace Apache.Arrow.Tests
             List<Field> fields = new List<Field>() { f0_nullable, f1_nullable, f2_nullable };
             StructType struct_type = new StructType(fields);
 
-            var structFields = struct_type.Fields;
+            var structFields = struct_type.Children;
             Assert.True(FieldComparer.Equals(structFields.ElementAt(0), f0_nullable));
             Assert.True(FieldComparer.Equals(structFields.ElementAt(1), f1_nullable));
             Assert.True(FieldComparer.Equals(structFields.ElementAt(2), f2_nullable));
@@ -89,7 +89,7 @@ namespace Apache.Arrow.Tests
             List<Field> fields = new List<Field>() { f0_nullable, f1_nullable, f2_nullable };
             StructType struct_type = new StructType(fields);
 
-            var structFields = struct_type.Fields;
+            var structFields = struct_type.Children;
             Assert.True(FieldComparer.Equals(struct_type.GetFieldByName("f0"), f0_nullable));
             Assert.True(FieldComparer.Equals(struct_type.GetFieldByName("f1"), f1_nullable));
             Assert.True(FieldComparer.Equals(struct_type.GetFieldByName("f2"), f2_nullable));
