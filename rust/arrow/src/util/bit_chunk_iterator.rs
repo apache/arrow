@@ -61,10 +61,12 @@ pub struct BitChunkIterator<'a> {
 }
 
 impl<'a> BitChunks<'a> {
+    #[inline]
     pub fn remainder_len(&self) -> usize {
         self.remainder_len
     }
 
+    #[inline]
     pub fn remainder_bits(&self) -> u64 {
         let bit_len = self.remainder_len;
         if bit_len == 0 {
@@ -86,15 +88,6 @@ impl<'a> BitChunks<'a> {
             let offset = self.offset as u64;
 
             (bits >> offset) & ((1 << bit_len) - 1)
-        }
-    }
-
-    pub fn remainder_bytes(&self) -> [u8; 8] {
-        let bit_len = self.remainder_len;
-        if bit_len == 0 {
-            [0_u8; 8]
-        } else {
-            self.remainder_bits().to_le_bytes()
         }
     }
 
@@ -122,6 +115,7 @@ impl<'a> IntoIterator for BitChunks<'a> {
 impl Iterator for BitChunkIterator<'_> {
     type Item = u64;
 
+    #[inline]
     fn next(&mut self) -> Option<u64> {
         if self.index >= self.chunk_len {
             return None;
@@ -152,6 +146,7 @@ impl Iterator for BitChunkIterator<'_> {
         Some(combined)
     }
 
+    #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
         (
             self.chunk_len - self.index,
@@ -161,6 +156,7 @@ impl Iterator for BitChunkIterator<'_> {
 }
 
 impl ExactSizeIterator for BitChunkIterator<'_> {
+    #[inline]
     fn len(&self) -> usize {
         self.chunk_len - self.index
     }
