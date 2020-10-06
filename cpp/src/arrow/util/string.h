@@ -43,7 +43,7 @@ namespace internal {
 
 /// \brief Split a string with a delimiter
 ARROW_EXPORT
-std::vector<std::string> SplitString(util::string_view v, char delim);
+std::vector<util::string_view> SplitString(util::string_view v, char delim);
 
 /// \brief Join strings with a delimiter
 ARROW_EXPORT

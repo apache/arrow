@@ -20,6 +20,7 @@
 #include "arrow/result.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/string.h"
+#include "arrow/util/string_view.h"
 
 #include "parquet/encryption/encryption_internal.h"
 #include "parquet/encryption/file_key_material_store.h"
@@ -178,15 +179,16 @@ PropertiesDrivenCryptoFactory::GetColumnEncryptionProperties(
     int dek_length, const std::string column_keys, FileKeyWrapper& key_wrapper) {
   ColumnPathToEncryptionPropertiesMap encrypted_columns;
 
-  std::vector<std::string> key_to_columns =
+  std::vector<arrow::util::string_view> key_to_columns =
       arrow::internal::SplitString(column_keys, ';');
   for (size_t i = 0; i < key_to_columns.size(); ++i) {
-    std::string cur_key_to_columns = arrow::internal::TrimString(key_to_columns[i]);
+    std::string cur_key_to_columns =
+        arrow::internal::TrimString(std::string(key_to_columns[i]));
     if (cur_key_to_columns.empty()) {
       continue;
     }
 
-    std::vector<std::string> parts =
+    std::vector<arrow::util::string_view> parts =
         arrow::internal::SplitString(cur_key_to_columns, ':');
     if (parts.size() != 2) {
       std::ostringstream message;
@@ -195,20 +197,20 @@ PropertiesDrivenCryptoFactory::GetColumnEncryptionProperties(
       throw ParquetException(message.str());
     }
 
-    std::string column_key_id = arrow::internal::TrimString(parts[0]);
+    std::string column_key_id = arrow::internal::TrimString(std::string(parts[0]));
     if (column_key_id.empty()) {
       throw ParquetException("Empty key name in column keys property.");
     }
 
-    std::string column_names_str = arrow::internal::TrimString(parts[1]);
-    std::vector<std::string> column_names =
+    std::string column_names_str = arrow::internal::TrimString(std::string(parts[1]));
+    std::vector<arrow::util::string_view> column_names =
         arrow::internal::SplitString(column_names_str, ',');
     if (0 == column_names.size()) {
       throw ParquetException("No columns to encrypt defined for key: " + column_key_id);
     }
 
     for (size_t j = 0; j < column_names.size(); ++j) {
-      std::string column_name = arrow::internal::TrimString(column_names[j]);
+      std::string column_name = arrow::internal::TrimString(std::string(column_names[j]));
       if (column_name.empty()) {
         std::ostringstream message;
         message << "Empty column name in column keys property for key: " << column_key_id;
