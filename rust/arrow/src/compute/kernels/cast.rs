@@ -327,11 +327,27 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
 
         // temporal casts
         (Int32, Date32(_)) => cast_array_data::<Date32Type>(array, to_type.clone()),
-        (Int32, Time32(_)) => cast_array_data::<Date32Type>(array, to_type.clone()),
+        (Int32, Time32(unit)) => match unit {
+            TimeUnit::Second => {
+                cast_array_data::<Time32SecondType>(array, to_type.clone())
+            }
+            TimeUnit::Millisecond => {
+                cast_array_data::<Time32MillisecondType>(array, to_type.clone())
+            }
+            _ => unreachable!(),
+        },
         (Date32(_), Int32) => cast_array_data::<Int32Type>(array, to_type.clone()),
         (Time32(_), Int32) => cast_array_data::<Int32Type>(array, to_type.clone()),
         (Int64, Date64(_)) => cast_array_data::<Date64Type>(array, to_type.clone()),
-        (Int64, Time64(_)) => cast_array_data::<Date64Type>(array, to_type.clone()),
+        (Int64, Time64(unit)) => match unit {
+            TimeUnit::Microsecond => {
+                cast_array_data::<Time64MicrosecondType>(array, to_type.clone())
+            }
+            TimeUnit::Nanosecond => {
+                cast_array_data::<Time64NanosecondType>(array, to_type.clone())
+            }
+            _ => unreachable!(),
+        },
         (Date64(_), Int64) => cast_array_data::<Int64Type>(array, to_type.clone()),
         (Time64(_), Int64) => cast_array_data::<Int64Type>(array, to_type.clone()),
         (Date32(DateUnit::Day), Date64(DateUnit::Millisecond)) => {
