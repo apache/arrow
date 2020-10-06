@@ -67,21 +67,21 @@ namespace Apache.Arrow.Ipc
 
         private static Field FieldFromFlatbuffer(Flatbuf.Field flatbufField)
         {
-            System.Collections.Generic.List<Field> childFields = null;
+            Field[] childFields = null;
             if (flatbufField.ChildrenLength > 0)
             {
-                childFields = new System.Collections.Generic.List<Field>(flatbufField.ChildrenLength);
+                childFields = new Field[flatbufField.ChildrenLength];
                 for (int j = 0; j < flatbufField.ChildrenLength; j++)
                 {
                     Flatbuf.Field? childFlatbufField = flatbufField.Children(j);
                     Field childField = FieldFromFlatbuffer(childFlatbufField.Value);
-                    childFields.Add(childField);
+                    childFields[j] = (childField);
                 }
             }
             return new Field(flatbufField.Name, GetFieldArrowType(flatbufField, childFields), flatbufField.Nullable);
         }
 
-        private static Types.IArrowType GetFieldArrowType(Flatbuf.Field field, System.Collections.Generic.List<Field> childFields = null)
+        private static Types.IArrowType GetFieldArrowType(Flatbuf.Field field, Field[] childFields = null)
         {
             switch (field.TypeType)
             {
