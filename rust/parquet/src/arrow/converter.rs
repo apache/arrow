@@ -17,12 +17,19 @@
 
 use crate::arrow::record_reader::RecordReader;
 use crate::data_type::{ByteArray, DataType, Int96};
-use arrow::array::{
-    Array, ArrayRef, BinaryBuilder, BooleanArray, BooleanBufferBuilder,
-    BufferBuilderTrait, FixedSizeBinaryBuilder, StringBuilder,
-    TimestampNanosecondBuilder,
+// TODO: clean up imports (best done when there are few moving parts)
+use arrow::{
+    array::{
+        Array, ArrayRef, BinaryBuilder, BooleanArray, BooleanBufferBuilder,
+        BufferBuilderTrait, FixedSizeBinaryBuilder, StringBuilder,
+        TimestampNanosecondBuilder,
+    },
+    datatypes::Time32MillisecondType,
 };
-use arrow::compute::cast;
+use arrow::{
+    compute::cast, datatypes::Time32SecondType, datatypes::Time64MicrosecondType,
+    datatypes::Time64NanosecondType,
+};
 use std::convert::From;
 use std::sync::Arc;
 
@@ -226,6 +233,14 @@ pub type TimestampMillisecondConverter =
     CastConverter<ParquetInt64Type, TimestampMillisecondType, TimestampMillisecondType>;
 pub type TimestampMicrosecondConverter =
     CastConverter<ParquetInt64Type, TimestampMicrosecondType, TimestampMicrosecondType>;
+pub type Time32SecondConverter =
+    CastConverter<ParquetInt32Type, Time32SecondType, Time32SecondType>;
+pub type Time32MillisecondConverter =
+    CastConverter<ParquetInt32Type, Time32MillisecondType, Time32MillisecondType>;
+pub type Time64MicrosecondConverter =
+    CastConverter<ParquetInt64Type, Time64MicrosecondType, Time64MicrosecondType>;
+pub type Time64NanosecondConverter =
+    CastConverter<ParquetInt64Type, Time64NanosecondType, Time64NanosecondType>;
 pub type UInt64Converter = CastConverter<ParquetInt64Type, UInt64Type, UInt64Type>;
 pub type Float32Converter = CastConverter<ParquetFloatType, Float32Type, Float32Type>;
 pub type Float64Converter = CastConverter<ParquetDoubleType, Float64Type, Float64Type>;
