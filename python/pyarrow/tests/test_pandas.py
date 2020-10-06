@@ -2103,6 +2103,19 @@ class TestConvertListTypes:
                 s, pd.Series([["aa", "bb"], None, ["cc"], []]),
                 check_names=False)
 
+    def test_list_of_dictionary(self):
+        child = pa.array(["foo", "bar", None, "foo"]).dictionary_encode()
+        arr = pa.ListArray.from_arrays([0, 1, 3, 3, 4], child)
+
+        # Expected a Series of lists
+        expected = pd.Series(arr.to_pylist())
+        tm.assert_series_equal(arr.to_pandas(), expected)
+
+        # Same but with nulls
+        arr = arr.take([0, 1, None, 3])
+        expected[2] = None
+        tm.assert_series_equal(arr.to_pandas(), expected)
+
     @pytest.mark.slow
     @pytest.mark.large_memory
     def test_auto_chunking_on_list_overflow(self):
@@ -2296,6 +2309,24 @@ class TestConvertStructTypes:
         _check_pandas_roundtrip(
             df, expected=expected_df, schema=expected_schema,
             expected_schema=expected_schema)
+
+    def test_struct_of_dictionary(self):
+        names = ['ints', 'strs']
+        children = [pa.array([456, 789, 456]).dictionary_encode(),
+                    pa.array(["foo", "foo", None]).dictionary_encode()]
+        arr = pa.StructArray.from_arrays(children, names=names)
+
+        # Expected a Series of {field name: field value} dicts
+        rows_as_tuples = zip(*(child.to_pylist() for child in children))
+        rows_as_dicts = [dict(zip(names, row)) for row in rows_as_tuples]
+
+        expected = pd.Series(rows_as_dicts)
+        tm.assert_series_equal(arr.to_pandas(), expected)
+
+        # Same but with nulls
+        arr = arr.take([0, None, 2])
+        expected[1] = None
+        tm.assert_series_equal(arr.to_pandas(), expected)
 
 
 class TestZeroCopyConversion:

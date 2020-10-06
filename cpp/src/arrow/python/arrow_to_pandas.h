@@ -90,6 +90,9 @@ struct PandasOptions {
   /// conversions
   bool self_destruct = false;
 
+  // Used internally for nested arrays.
+  bool decode_dictionaries = false;
+
   // Columns that should be casted to categorical
   std::unordered_set<std::string> categorical_columns;
 
