@@ -1034,7 +1034,7 @@ Result<std::shared_ptr<ChunkedArray>> ConvertPySequence(PyObject* obj, PyObject*
     return chunked_converter->ToChunkedArray();
   } else {
     // If the converter can't overflow spare the capacity error checking on the hot-path,
-    // this improves the performance roughly by ~10 for primitive types.
+    // this improves the performance roughly by ~10% for primitive types.
     if (mask != nullptr && mask != Py_None) {
       RETURN_NOT_OK(ExtendMasked(converter.get(), seq, mask, size));
     } else {
