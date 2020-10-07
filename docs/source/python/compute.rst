@@ -51,5 +51,5 @@ Below are a few simple examples:
 
 
 .. seealso::
-   A comprehensive description of compute functions can be found in the 
-   C++ implementation docs.
+
+   :ref:`C++ compute functions documentation <cpp-compute>`.
