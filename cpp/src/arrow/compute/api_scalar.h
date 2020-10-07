@@ -314,5 +314,22 @@ ARROW_EXPORT
 Result<Datum> FillNull(const Datum& values, const Datum& fill_value,
                        ExecContext* ctx = NULLPTR);
 
+/// \brief Between compares each element in `values`
+/// with `left` as a lower bound and 'right' as an upperbound
+///
+/// \param[in] values input to compare between left and right
+/// \param[in] left used as the lower bound for comparison
+/// \param[in] right used as the upper bound for comparison
+/// \param[in] ctx the function execution context, optional
+///
+/// \return the resulting datum
+///
+/// \note Bounds are not inclusive
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> Between(const Datum& values, const Datum& left, const Datum& right,
+                      ExecContext* ctx = NULLPTR);
+
 }  // namespace compute
 }  // namespace arrow
+

@@ -368,6 +368,7 @@ if(ARROW_COMPUTE)
               compute/kernels/aggregate_var_std.cc
               compute/kernels/codegen_internal.cc
               compute/kernels/scalar_arithmetic.cc
+              compute/kernels/scalar_between.cc
               compute/kernels/scalar_boolean.cc
               compute/kernels/scalar_cast_boolean.cc
               compute/kernels/scalar_cast_internal.cc
