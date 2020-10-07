@@ -262,6 +262,7 @@ static std::once_flag pandas_static_initialized;
 static PyObject* pandas_NA = nullptr;
 static PyObject* pandas_NaT = nullptr;
 static PyObject* pandas_Timedelta = nullptr;
+static PyObject* pandas_Timestamp = nullptr;
 static PyTypeObject* pandas_NaTType = nullptr;
 
 void GetPandasStaticSymbols() {
@@ -288,6 +289,11 @@ void GetPandasStaticSymbols() {
   // retain a reference to Timedelta
   if (ImportFromModule(pandas.obj(), "Timedelta", &ref).ok()) {
     pandas_Timedelta = ref.obj();
+  }
+
+  // retain a reference to Timestamp
+  if (ImportFromModule(pandas.obj(), "Timestamp", &ref).ok()) {
+    pandas_Timestamp = ref.obj();
   }
 
   // if pandas.NA exists, retain a reference to it
@@ -319,6 +325,10 @@ bool PandasObjectIsNull(PyObject* obj) {
 
 bool IsPandasTimedelta(PyObject* obj) {
   return pandas_Timedelta && PyObject_IsInstance(obj, pandas_Timedelta);
+}
+
+bool IsPandasTimestamp(PyObject* obj) {
+  return pandas_Timestamp && PyObject_IsInstance(obj, pandas_Timestamp);
 }
 
 Status InvalidValue(PyObject* obj, const std::string& why) {

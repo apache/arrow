@@ -1948,7 +1948,8 @@ def test_dictionary_from_strings():
 
 @pytest.mark.parametrize('unit', ['s', 'ms', 'us', 'ns'])
 def test_duration_array_roundtrip_corner_cases(unit):
-    # corner case discovered by hypothesis
+    # Corner case discovered by hypothesis: there were implicit conversions to
+    # unsigned values resulting wrong values with wrong signs.
     ty = pa.duration(unit)
     arr = pa.array([-2147483000], type=ty)
     restored = pa.array(arr.to_pylist(), type=ty)
@@ -1956,14 +1957,22 @@ def test_duration_array_roundtrip_corner_cases(unit):
 
 
 @pytest.mark.pandas
-def test_duration_array_roundtrip_nanosecond_resolution_pandas_timedelta():
-    # corner case discovered by hypothesis:
-    # preserving the nanoseconds on conversion from a list of Timedelta objects
+def test_roundtrip_nanosecond_resolution_pandas_temporal_objects():
+    # corner case discovered by hypothesis: preserving the nanoseconds on
+    # conversion from a list of Timedelta and Timestamp objects
     import pandas as pd
+
     ty = pa.duration('ns')
     arr = pa.array([9223371273709551616], type=ty)
     data = arr.to_pylist()
     assert isinstance(data[0], pd.Timedelta)
+    restored = pa.array(data, type=ty)
+    assert arr.equals(restored)
+
+    ty = pa.timestamp('ns')
+    arr = pa.array([9223371273709551616], type=ty)
+    data = arr.to_pylist()
+    assert isinstance(data[0], pd.Timestamp)
     restored = pa.array(data, type=ty)
     assert arr.equals(restored)
 

@@ -255,11 +255,19 @@ class PyValue {
           value = internal::PyDateTime_to_us(dt) - offset * 1000000LL;
           break;
         case TimeUnit::NANO:
-          // Conversion to nanoseconds can overflow -> check multiply of microseconds
-          value = internal::PyDateTime_to_us(dt);
-          if (arrow::internal::MultiplyWithOverflow(value, 1000LL, &value)) {
-            return internal::InvalidValue(obj, "out of bounds for nanosecond resolution");
+          if (internal::IsPandasTimestamp(obj)) {
+            OwnedRef nanos(PyObject_GetAttrString(obj, "value"));
+            RETURN_IF_PYERROR();
+            RETURN_NOT_OK(internal::CIntFromPython(nanos.obj(), &value));
+          } else {
+            // Conversion to nanoseconds can overflow -> check multiply of microseconds
+            value = internal::PyDateTime_to_us(dt);
+            if (arrow::internal::MultiplyWithOverflow(value, 1000LL, &value)) {
+              return internal::InvalidValue(obj,
+                                            "out of bounds for nanosecond resolution");
+            }
           }
+          // Adjust with offset and check for overflow
           if (arrow::internal::SubtractWithOverflow(value, offset * 1000000000LL,
                                                     &value)) {
             return internal::InvalidValue(obj, "out of bounds for nanosecond resolution");
@@ -299,10 +307,9 @@ class PyValue {
           break;
         case TimeUnit::NANO:
           if (internal::IsPandasTimedelta(obj)) {
-            OwnedRef nanos(PyObject_GetAttrString(obj, "nanoseconds"));
+            OwnedRef nanos(PyObject_GetAttrString(obj, "value"));
             RETURN_IF_PYERROR();
             RETURN_NOT_OK(internal::CIntFromPython(nanos.obj(), &value));
-            value += internal::PyDelta_to_ns(dt);
           } else {
             value = internal::PyDelta_to_ns(dt);
           }
