@@ -791,8 +791,8 @@ Status ConvertListsLike(PandasOptions options, const ChunkedArray& data,
   return Status::OK();
 }
 
-inline Status ConvertMap(const PandasOptions& options, const ChunkedArray& data,
-                         PyObject** out_values) {
+Status ConvertMap(PandasOptions options, const ChunkedArray& data,
+                  PyObject** out_values) {
   // Get columns of underlying key/item arrays
   std::vector<std::shared_ptr<Array>> key_arrays;
   std::vector<std::shared_ptr<Array>> item_arrays;
@@ -819,16 +819,10 @@ inline Status ConvertMap(const PandasOptions& options, const ChunkedArray& data,
     item_type = dense_type;
   }
 
-  // TODO(ARROW-489): Currently we don't have a Python reference for single columns.
-  //    Storing a reference to the whole Array would be too expensive.
-
-  // ARROW-3789(wesm): During refactoring I found that unit tests assumed that
-  // timestamp units would be preserved on list<timestamp UNIT> conversions in
-  // Table.to_pandas. So we set the option here to not coerce things to
-  // nanoseconds. Bit of a hack but this seemed the simplest thing to satisfy
-  // the existing unit tests
-  PandasOptions modified_options = options;
-  modified_options.coerce_temporal_nanoseconds = false;
+  // See notes in MakeInnerOptions.
+  options = MakeInnerOptions(std::move(options));
+  // Don't blindly convert because timestamps in lists are handled differently.
+  options.timestamp_as_object = true;
 
   auto flat_keys = std::make_shared<ChunkedArray>(key_arrays, key_type);
   auto flat_items = std::make_shared<ChunkedArray>(item_arrays, item_type);
@@ -836,30 +830,30 @@ inline Status ConvertMap(const PandasOptions& options, const ChunkedArray& data,
   OwnedRef key_value;
   OwnedRef item_value;
   OwnedRefNoGIL owned_numpy_keys;
-  RETURN_NOT_OK(ConvertChunkedArrayToPandas(modified_options, flat_keys, nullptr,
+  RETURN_NOT_OK(ConvertChunkedArrayToPandas(options, flat_keys, nullptr,
                                             owned_numpy_keys.ref()));
   OwnedRefNoGIL owned_numpy_items;
-  RETURN_NOT_OK(ConvertChunkedArrayToPandas(modified_options, flat_items, nullptr,
+  RETURN_NOT_OK(ConvertChunkedArrayToPandas(options, flat_items, nullptr,
                                             owned_numpy_items.ref()));
   PyArrayObject* py_keys = reinterpret_cast<PyArrayObject*>(owned_numpy_keys.obj());
   PyArrayObject* py_items = reinterpret_cast<PyArrayObject*>(owned_numpy_items.obj());
 
   int64_t chunk_offset = 0;
   for (int c = 0; c < data.num_chunks(); ++c) {
-    auto arr = std::static_pointer_cast<MapArray>(data.chunk(c));
+    const auto& arr = checked_cast<const MapArray&>(*data.chunk(c));
     const bool has_nulls = data.null_count() > 0;
 
     // Make a list of key/item pairs for each row in array
-    for (int64_t i = 0; i < arr->length(); ++i) {
-      if (has_nulls && arr->IsNull(i)) {
+    for (int64_t i = 0; i < arr.length(); ++i) {
+      if (has_nulls && arr.IsNull(i)) {
         Py_INCREF(Py_None);
         *out_values = Py_None;
       } else {
-        int64_t entry_offset = arr->value_offset(i);
-        int64_t num_maps = arr->value_offset(i + 1) - entry_offset;
+        int64_t entry_offset = arr.value_offset(i);
+        int64_t num_maps = arr.value_offset(i + 1) - entry_offset;
 
         // Build the new list object for the row of maps
-        list_item.reset(PyList_New(0));
+        list_item.reset(PyList_New(num_maps));
         RETURN_IF_PYERROR();
 
         // Add each key/item pair in the row
@@ -883,20 +877,20 @@ inline Status ConvertMap(const PandasOptions& options, const ChunkedArray& data,
           }
 
           // Add the key/item pair to the list for the row
-          PyList_Append(list_item.obj(),
-                        PyTuple_Pack(2, key_value.obj(), item_value.obj()));
+          PyList_SET_ITEM(list_item.obj(), j,
+                          PyTuple_Pack(2, key_value.obj(), item_value.obj()));
           RETURN_IF_PYERROR();
         }
 
         *out_values = list_item.obj();
-        // Grant ownership to the resulting array
-        Py_INCREF(*out_values);
+        // Release ownership to the resulting array
+        list_item.detach();
       }
       ++out_values;
     }
     RETURN_IF_PYERROR();
 
-    chunk_offset += arr->values()->length();
+    chunk_offset += arr.values()->length();
   }
 
   return Status::OK();
