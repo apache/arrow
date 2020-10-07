@@ -16,7 +16,7 @@
 # under the License.
 
 lang-rust:
-  - rust/**
+  - rust/**/*
 
 datafusion:
-  - rust/datafusion/**
+  - rust/datafusion/**/*
