@@ -22,9 +22,10 @@
 #include <arrow/util/compression.h>
 
 // [[arrow::export]]
-std::shared_ptr<arrow::util::Codec> util___Codec__Create(arrow::Compression::type codec,
-                                                         R_xlen_t compression_level) {
-  return ValueOrStop(arrow::util::Codec::Create(codec, compression_level));
+R6 util___Codec__Create(arrow::Compression::type codec, R_xlen_t compression_level) {
+  std::shared_ptr<arrow::util::Codec> out =
+      ValueOrStop(arrow::util::Codec::Create(codec, compression_level));
+  return cpp11::r6(out, "Codec");
 }
 
 // [[arrow::export]]
@@ -38,19 +39,20 @@ bool util___Codec__IsAvailable(arrow::Compression::type codec) {
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::io::CompressedOutputStream> io___CompressedOutputStream__Make(
+R6 io___CompressedOutputStream__Make(
     const std::shared_ptr<arrow::util::Codec>& codec,
     const std::shared_ptr<arrow::io::OutputStream>& raw) {
-  return ValueOrStop(
+  auto stream = ValueOrStop(
       arrow::io::CompressedOutputStream::Make(codec.get(), raw, gc_memory_pool()));
+  return cpp11::r6(stream, "CompressedOutputStream");
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::io::CompressedInputStream> io___CompressedInputStream__Make(
-    const std::shared_ptr<arrow::util::Codec>& codec,
-    const std::shared_ptr<arrow::io::InputStream>& raw) {
-  return ValueOrStop(
-      arrow::io::CompressedInputStream::Make(codec.get(), raw, gc_memory_pool()));
+R6 io___CompressedInputStream__Make(const std::shared_ptr<arrow::util::Codec>& codec,
+                                    const std::shared_ptr<arrow::io::InputStream>& raw) {
+  auto stream = ValueOrStop(
+    arrow::io::CompressedInputStream::Make(codec.get(), raw, gc_memory_pool()));
+  return cpp11::r6(stream, "CompressedInputStream");
 }
 
 #endif

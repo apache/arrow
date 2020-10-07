@@ -22,26 +22,24 @@
 #include <arrow/table.h>
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Schema> RecordBatchReader__schema(
-    const std::shared_ptr<arrow::RecordBatchReader>& reader) {
-  return reader->schema();
+R6 RecordBatchReader__schema(const std::shared_ptr<arrow::RecordBatchReader>& reader) {
+  return cpp11::r6(reader->schema(), "Schema");
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::RecordBatch> RecordBatchReader__ReadNext(
-    const std::shared_ptr<arrow::RecordBatchReader>& reader) {
+R6 RecordBatchReader__ReadNext(const std::shared_ptr<arrow::RecordBatchReader>& reader) {
   std::shared_ptr<arrow::RecordBatch> batch;
   StopIfNotOk(reader->ReadNext(&batch));
-  return batch;
+  return cpp11::r6(batch, "RecordBatch");
 }
 
 // -------- RecordBatchStreamReader
 
 // [[arrow::export]]
-std::shared_ptr<arrow::RecordBatchReader> ipc___RecordBatchStreamReader__Open(
+R6 ipc___RecordBatchStreamReader__Open(
     const std::shared_ptr<arrow::io::InputStream>& stream) {
-  std::shared_ptr<arrow::RecordBatchReader> reader;
-  return ValueOrStop(arrow::ipc::RecordBatchStreamReader::Open(stream));
+  auto reader = ValueOrStop(arrow::ipc::RecordBatchStreamReader::Open(stream));
+  return cpp11::r6(reader, "RecordBatchStreamReader");
 }
 
 // [[arrow::export]]
@@ -63,9 +61,9 @@ std::vector<std::shared_ptr<arrow::RecordBatch>> ipc___RecordBatchStreamReader__
 // -------- RecordBatchFileReader
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Schema> ipc___RecordBatchFileReader__schema(
+R6 ipc___RecordBatchFileReader__schema(
     const std::shared_ptr<arrow::ipc::RecordBatchFileReader>& reader) {
-  return reader->schema();
+  return cpp11::r6(reader->schema(), "Schema");
 }
 
 // [[arrow::export]]
@@ -75,23 +73,23 @@ int ipc___RecordBatchFileReader__num_record_batches(
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::RecordBatch> ipc___RecordBatchFileReader__ReadRecordBatch(
+R6 ipc___RecordBatchFileReader__ReadRecordBatch(
     const std::shared_ptr<arrow::ipc::RecordBatchFileReader>& reader, int i) {
   if (i < 0 && i >= reader->num_record_batches()) {
     cpp11::stop("Record batch index out of bounds");
   }
-  return ValueOrStop(reader->ReadRecordBatch(i));
+  return cpp11::r6(ValueOrStop(reader->ReadRecordBatch(i)), "RecordBatch");
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::ipc::RecordBatchFileReader> ipc___RecordBatchFileReader__Open(
+SEXP ipc___RecordBatchFileReader__Open(
     const std::shared_ptr<arrow::io::RandomAccessFile>& file) {
-  std::shared_ptr<arrow::ipc::RecordBatchFileReader> reader;
-  return ValueOrStop(arrow::ipc::RecordBatchFileReader::Open(file));
+  auto reader = ValueOrStop(arrow::ipc::RecordBatchFileReader::Open(file));
+  return cpp11::r6(reader, "RecordBatchFileReader");
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Table> Table__from_RecordBatchFileReader(
+R6 Table__from_RecordBatchFileReader(
     const std::shared_ptr<arrow::ipc::RecordBatchFileReader>& reader) {
   int num_batches = reader->num_record_batches();
   std::vector<std::shared_ptr<arrow::RecordBatch>> batches(num_batches);
@@ -99,11 +97,12 @@ std::shared_ptr<arrow::Table> Table__from_RecordBatchFileReader(
     batches[i] = ValueOrStop(reader->ReadRecordBatch(i));
   }
 
-  return ValueOrStop(arrow::Table::FromRecordBatches(std::move(batches)));
+  auto table = ValueOrStop(arrow::Table::FromRecordBatches(std::move(batches)));
+  return cpp11::r6(table, "Table");
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Table> Table__from_RecordBatchStreamReader(
+R6 Table__from_RecordBatchStreamReader(
     const std::shared_ptr<arrow::ipc::RecordBatchStreamReader>& reader) {
   std::shared_ptr<arrow::RecordBatch> batch;
   std::vector<std::shared_ptr<arrow::RecordBatch>> batches;
@@ -113,7 +112,8 @@ std::shared_ptr<arrow::Table> Table__from_RecordBatchStreamReader(
     batches.push_back(batch);
   }
 
-  return ValueOrStop(arrow::Table::FromRecordBatches(std::move(batches)));
+  auto table = ValueOrStop(arrow::Table::FromRecordBatches(std::move(batches)));
+  return cpp11::r6(table, "Table");
 }
 
 // [[arrow::export]]

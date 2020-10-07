@@ -47,7 +47,7 @@ int ipc___feather___Reader__version(
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Table> ipc___feather___Reader__Read(
+R6 ipc___feather___Reader__Read(
     const std::shared_ptr<arrow::ipc::feather::Reader>& reader, SEXP columns) {
   std::shared_ptr<arrow::Table> table;
 
@@ -69,13 +69,14 @@ std::shared_ptr<arrow::Table> ipc___feather___Reader__Read(
       break;
   }
 
-  return table;
+  return cpp11::r6(table, "Table");
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::ipc::feather::Reader> ipc___feather___Reader__Open(
+R6 ipc___feather___Reader__Open(
     const std::shared_ptr<arrow::io::RandomAccessFile>& stream) {
-  return ValueOrStop(arrow::ipc::feather::Reader::Open(stream));
+  return cpp11::r6(ValueOrStop(arrow::ipc::feather::Reader::Open(stream)),
+                   "FeatherReader");
 }
 
 // [[arrow::export]]

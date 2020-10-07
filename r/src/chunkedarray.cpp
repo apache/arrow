@@ -37,10 +37,9 @@ int ChunkedArray__num_chunks(const std::shared_ptr<arrow::ChunkedArray>& chunked
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Array> ChunkedArray__chunk(
-    const std::shared_ptr<arrow::ChunkedArray>& chunked_array, int i) {
+R6 ChunkedArray__chunk(const std::shared_ptr<arrow::ChunkedArray>& chunked_array, int i) {
   arrow::r::validate_index(i, chunked_array->num_chunks());
-  return chunked_array->chunk(i);
+  return cpp11::r6_Array(chunked_array->chunk(i));
 }
 
 // [[arrow::export]]
@@ -56,26 +55,24 @@ std::shared_ptr<arrow::DataType> ChunkedArray__type(
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::ChunkedArray> ChunkedArray__Slice1(
-    const std::shared_ptr<arrow::ChunkedArray>& chunked_array, R_xlen_t offset) {
+R6 ChunkedArray__Slice1(const std::shared_ptr<arrow::ChunkedArray>& chunked_array,
+                        R_xlen_t offset) {
   arrow::r::validate_slice_offset(offset, chunked_array->length());
-  return chunked_array->Slice(offset);
+  return cpp11::r6(chunked_array->Slice(offset), "ChunkedArray");
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::ChunkedArray> ChunkedArray__Slice2(
-    const std::shared_ptr<arrow::ChunkedArray>& chunked_array, R_xlen_t offset,
-    R_xlen_t length) {
+R6 ChunkedArray__Slice2(const std::shared_ptr<arrow::ChunkedArray>& chunked_array,
+                        R_xlen_t offset, R_xlen_t length) {
   arrow::r::validate_slice_offset(offset, chunked_array->length());
   arrow::r::validate_slice_length(length, chunked_array->length() - offset);
-  return chunked_array->Slice(offset, length);
+  return cpp11::r6(chunked_array->Slice(offset, length), "ChunkedArray");
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::ChunkedArray> ChunkedArray__View(
-    const std::shared_ptr<arrow::ChunkedArray>& array,
-    const std::shared_ptr<arrow::DataType>& type) {
-  return ValueOrStop(array->View(type));
+R6 ChunkedArray__View(const std::shared_ptr<arrow::ChunkedArray>& array,
+                      const std::shared_ptr<arrow::DataType>& type) {
+  return cpp11::r6(ValueOrStop(array->View(type)), "ChunkedArray");
 }
 
 // [[arrow::export]]

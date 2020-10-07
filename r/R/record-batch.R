@@ -72,7 +72,7 @@
 #' @name RecordBatch
 RecordBatch <- R6Class("RecordBatch", inherit = ArrowObject,
   public = list(
-    column = function(i) shared_ptr(Array, RecordBatch__column(self, i)),
+    column = function(i) RecordBatch__column(self, i),
     column_name = function(i) RecordBatch__column_name(self, i),
     names = function() RecordBatch__names(self),
     Equals = function(other, check_metadata = FALSE, ...) {
@@ -80,7 +80,7 @@ RecordBatch <- R6Class("RecordBatch", inherit = ArrowObject,
     },
     GetColumnByName = function(name) {
       assert_that(is.string(name))
-      shared_ptr(Array, RecordBatch__GetColumnByName(self, name))
+      RecordBatch__GetColumnByName(self, name)
     },
     SelectColumns = function(indices) {
       RecordBatch__SelectColumns(self, indices)

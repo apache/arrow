@@ -253,10 +253,11 @@ arrow::TimeUnit::type TimestampType__unit(
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::DataType> DictionaryType__initialize(
-    const std::shared_ptr<arrow::DataType>& index_type,
-    const std::shared_ptr<arrow::DataType>& value_type, bool ordered) {
-  return ValueOrStop(arrow::DictionaryType::Make(index_type, value_type, ordered));
+R6 DictionaryType__initialize(const std::shared_ptr<arrow::DataType>& index_type,
+                              const std::shared_ptr<arrow::DataType>& value_type,
+                              bool ordered) {
+  auto type = ValueOrStop(arrow::DictionaryType::Make(index_type, value_type, ordered));
+  return cpp11::r6(type, "DictionaryType");
 }
 
 // [[arrow::export]]
@@ -282,9 +283,9 @@ bool DictionaryType__ordered(const std::shared_ptr<arrow::DictionaryType>& type)
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Field> StructType__GetFieldByName(
-    const std::shared_ptr<arrow::StructType>& type, const std::string& name) {
-  return type->GetFieldByName(name);
+R6 StructType__GetFieldByName(const std::shared_ptr<arrow::StructType>& type,
+                              const std::string& name) {
+  return cpp11::r6(type->GetFieldByName(name), "Field");
 }
 
 // [[arrow::export]]
@@ -294,9 +295,8 @@ int StructType__GetFieldIndex(const std::shared_ptr<arrow::StructType>& type,
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Field> ListType__value_field(
-    const std::shared_ptr<arrow::ListType>& type) {
-  return type->value_field();
+R6 ListType__value_field(const std::shared_ptr<arrow::ListType>& type) {
+  return cpp11::r6(type->value_field(), "Field");
 }
 
 // [[arrow::export]]
@@ -306,9 +306,8 @@ std::shared_ptr<arrow::DataType> ListType__value_type(
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Field> LargeListType__value_field(
-    const std::shared_ptr<arrow::LargeListType>& type) {
-  return type->value_field();
+R6 LargeListType__value_field(const std::shared_ptr<arrow::LargeListType>& type) {
+  return cpp11::r6(type->value_field(), "Field");
 }
 
 // [[arrow::export]]
@@ -318,9 +317,8 @@ std::shared_ptr<arrow::DataType> LargeListType__value_type(
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Field> FixedSizeListType__value_field(
-    const std::shared_ptr<arrow::FixedSizeListType>& type) {
-  return type->value_field();
+R6 FixedSizeListType__value_field(const std::shared_ptr<arrow::FixedSizeListType>& type) {
+  return cpp11::r6(type->value_field(), "Field");
 }
 
 // [[arrow::export]]

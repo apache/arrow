@@ -20,16 +20,15 @@
 #if defined(ARROW_R_WITH_ARROW)
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Array> ImportArray(arrow::r::Pointer<struct ArrowArray> array,
-                                          arrow::r::Pointer<struct ArrowSchema> schema) {
-  return ValueOrStop(arrow::ImportArray(array, schema));
+R6 ImportArray(arrow::r::Pointer<struct ArrowArray> array,
+               arrow::r::Pointer<struct ArrowSchema> schema) {
+  return cpp11::r6_Array(ValueOrStop(arrow::ImportArray(array, schema)));
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::RecordBatch> ImportRecordBatch(
-    arrow::r::Pointer<struct ArrowArray> array,
-    arrow::r::Pointer<struct ArrowSchema> schema) {
-  return ValueOrStop(arrow::ImportRecordBatch(array, schema));
+R6 ImportRecordBatch(arrow::r::Pointer<struct ArrowArray> array,
+                     arrow::r::Pointer<struct ArrowSchema> schema) {
+  return cpp11::r6(ValueOrStop(arrow::ImportRecordBatch(array, schema)), "RecordBatch");
 }
 
 // [[arrow::export]]

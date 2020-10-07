@@ -103,7 +103,7 @@ CompressedOutputStream$create <- function(stream, codec = "gzip", compression_le
     stream <- FileOutputStream$create(stream)
   }
   assert_is(stream, "OutputStream")
-  shared_ptr(CompressedOutputStream, io___CompressedOutputStream__Make(codec, stream))
+  io___CompressedOutputStream__Make(codec, stream)
 }
 
 #' @rdname compression
@@ -117,5 +117,5 @@ CompressedInputStream$create <- function(stream, codec = "gzip", compression_lev
     stream <- ReadableFile$create(stream)
   }
   assert_is(stream, "InputStream")
-  shared_ptr(CompressedInputStream, io___CompressedInputStream__Make(codec, stream))
+  io___CompressedInputStream__Make(codec, stream)
 }

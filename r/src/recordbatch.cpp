@@ -37,19 +37,18 @@ int RecordBatch__num_rows(const std::shared_ptr<arrow::RecordBatch>& x) {
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Schema> RecordBatch__schema(
-    const std::shared_ptr<arrow::RecordBatch>& x) {
-  return x->schema();
+R6 RecordBatch__schema(const std::shared_ptr<arrow::RecordBatch>& x) {
+  return cpp11::r6(x->schema(), "Schema");
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::RecordBatch> RecordBatch__ReplaceSchemaMetadata(
-    const std::shared_ptr<arrow::RecordBatch>& x, cpp11::strings metadata) {
+R6 RecordBatch__ReplaceSchemaMetadata(const std::shared_ptr<arrow::RecordBatch>& x,
+                                      cpp11::strings metadata) {
   auto vec_metadata = cpp11::as_cpp<std::vector<std::string>>(metadata);
   auto names_metadata = cpp11::as_cpp<std::vector<std::string>>(metadata.names());
   auto kv = std::shared_ptr<arrow::KeyValueMetadata>(
       new arrow::KeyValueMetadata(names_metadata, vec_metadata));
-  return x->ReplaceSchemaMetadata(kv);
+  return cpp11::r6(x->ReplaceSchemaMetadata(kv), "RecordBatch");
 }
 
 // [[arrow::export]]
@@ -64,21 +63,20 @@ arrow::ArrayVector RecordBatch__columns(
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Array> RecordBatch__column(
-    const std::shared_ptr<arrow::RecordBatch>& batch, R_xlen_t i) {
+R6 RecordBatch__column(const std::shared_ptr<arrow::RecordBatch>& batch, R_xlen_t i) {
   arrow::r::validate_index(i, batch->num_columns());
-  return batch->column(i);
+  return cpp11::r6_Array(batch->column(i));
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Array> RecordBatch__GetColumnByName(
-    const std::shared_ptr<arrow::RecordBatch>& batch, const std::string& name) {
-  return batch->GetColumnByName(name);
+R6 RecordBatch__GetColumnByName(const std::shared_ptr<arrow::RecordBatch>& batch,
+                                const std::string& name) {
+  return cpp11::r6_Array(batch->GetColumnByName(name));
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::RecordBatch> RecordBatch__SelectColumns(
-    const std::shared_ptr<arrow::RecordBatch>& batch, cpp11::integers indices) {
+R6 RecordBatch__SelectColumns(const std::shared_ptr<arrow::RecordBatch>& batch,
+                              cpp11::integers indices) {
   R_xlen_t n = indices.size();
   auto nrows = batch->num_rows();
 
@@ -92,7 +90,7 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__SelectColumns(
   }
 
   auto schema = std::make_shared<arrow::Schema>(std::move(fields));
-  return arrow::RecordBatch::Make(schema, nrows, columns);
+  return cpp11::r6(arrow::RecordBatch::Make(schema, nrows, columns), "RecordBatch");
 }
 
 // [[arrow::export]]
@@ -103,10 +101,10 @@ bool RecordBatch__Equals(const std::shared_ptr<arrow::RecordBatch>& self,
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::RecordBatch> RecordBatch__RemoveColumn(
-    const std::shared_ptr<arrow::RecordBatch>& batch, R_xlen_t i) {
+R6 RecordBatch__RemoveColumn(const std::shared_ptr<arrow::RecordBatch>& batch,
+                             R_xlen_t i) {
   arrow::r::validate_index(i, batch->num_columns());
-  return ValueOrStop(batch->RemoveColumn(i));
+  return cpp11::r6(ValueOrStop(batch->RemoveColumn(i)), "RecordBatch");
 }
 
 // [[arrow::export]]
@@ -128,18 +126,17 @@ cpp11::writable::strings RecordBatch__names(
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::RecordBatch> RecordBatch__Slice1(
-    const std::shared_ptr<arrow::RecordBatch>& self, R_xlen_t offset) {
+R6 RecordBatch__Slice1(const std::shared_ptr<arrow::RecordBatch>& self, R_xlen_t offset) {
   arrow::r::validate_slice_offset(offset, self->num_rows());
-  return self->Slice(offset);
+  return cpp11::r6(self->Slice(offset), "RecordBatch");
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::RecordBatch> RecordBatch__Slice2(
-    const std::shared_ptr<arrow::RecordBatch>& self, R_xlen_t offset, R_xlen_t length) {
+R6 RecordBatch__Slice2(const std::shared_ptr<arrow::RecordBatch>& self, R_xlen_t offset,
+                       R_xlen_t length) {
   arrow::r::validate_slice_offset(offset, self->num_rows());
   arrow::r::validate_slice_length(length, self->num_rows() - offset);
-  return self->Slice(offset, length);
+  return cpp11::r6(self->Slice(offset, length), "RecordBatch");
 }
 
 // [[arrow::export]]
@@ -163,14 +160,15 @@ cpp11::raws ipc___SerializeRecordBatch__Raw(
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::RecordBatch> ipc___ReadRecordBatch__InputStream__Schema(
+R6 ipc___ReadRecordBatch__InputStream__Schema(
     const std::shared_ptr<arrow::io::InputStream>& stream,
     const std::shared_ptr<arrow::Schema>& schema) {
   // TODO: promote to function arg
   arrow::ipc::DictionaryMemo memo;
   StopIfNotOk(memo.fields().AddSchemaFields(*schema));
-  return ValueOrStop(arrow::ipc::ReadRecordBatch(
+  auto batch = ValueOrStop(arrow::ipc::ReadRecordBatch(
       schema, &memo, arrow::ipc::IpcReadOptions::Defaults(), stream.get()));
+  return cpp11::r6(batch, "RecordBatch");
 }
 
 namespace arrow {
@@ -260,7 +258,7 @@ arrow::Status CollectRecordBatchArrays(
 }  // namespace arrow
 
 // [[arrow::export]]
-std::shared_ptr<arrow::RecordBatch> RecordBatch__from_arrays(SEXP schema_sxp, SEXP lst) {
+R6 RecordBatch__from_arrays(SEXP schema_sxp, SEXP lst) {
   bool infer_schema = !Rf_inherits(schema_sxp, "Schema");
 
   int num_fields;
@@ -273,7 +271,7 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__from_arrays(SEXP schema_sxp, SE
 
   // RecordBatch
   if (!infer_schema) {
-    return RecordBatch__from_arrays__known_schema(schema, lst);
+    return cpp11::r6(RecordBatch__from_arrays__known_schema(schema, lst), "RecordBatch");
   }
 
   // RecordBatch
@@ -285,7 +283,8 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__from_arrays(SEXP schema_sxp, SE
   int64_t num_rows = 0;
   StopIfNotOk(arrow::r::check_consistent_array_size(arrays, &num_rows));
 
-  return arrow::RecordBatch::Make(schema, num_rows, arrays);
+  auto out = arrow::RecordBatch::Make(schema, num_rows, arrays);
+  return cpp11::r6(out, "RecordBatch");
 }
 
 #endif

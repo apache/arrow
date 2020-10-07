@@ -85,22 +85,6 @@
 Array <- R6Class("Array",
   inherit = ArrowObject,
   public = list(
-    ..dispatch = function() {
-      type_id <- self$type_id()
-      if (type_id == Type$DICTIONARY){
-        shared_ptr(DictionaryArray, self$pointer())
-      } else if (type_id == Type$STRUCT) {
-        shared_ptr(StructArray, self$pointer())
-      } else if (type_id == Type$LIST) {
-        shared_ptr(ListArray, self$pointer())
-      } else if (type_id == Type$LARGE_LIST){
-        shared_ptr(LargeListArray, self$pointer())
-      } else if (type_id == Type$FIXED_SIZE_LIST){
-        shared_ptr(FixedSizeListArray, self$pointer())
-      } else {
-        self
-      }
-    },
     IsNull = function(i) Array__IsNull(self, i),
     IsValid = function(i) Array__IsValid(self, i),
     length = function() Array__length(self),
@@ -111,7 +95,7 @@ Array <- R6Class("Array",
     ApproxEquals = function(other) {
       inherits(other, "Array") && Array__ApproxEquals(self, other)
     },
-    data = function() shared_ptr(ArrayData, Array__data(self)),
+    data = function() Array__data(self),
     as_vector = function() Array__as_vector(self),
     ToString = function() {
       typ <- paste0("<", self$type$ToString(), ">")
@@ -119,9 +103,9 @@ Array <- R6Class("Array",
     },
     Slice = function(offset, length = NULL) {
       if (is.null(length)) {
-        Array$create(Array__Slice1(self, offset))
+        Array__Slice1(self, offset)
       } else {
-        Array$create(Array__Slice2(self, offset, length))
+        Array__Slice2(self, offset, length)
       }
     },
     Take = function(i) {
@@ -160,13 +144,10 @@ Array <- R6Class("Array",
   )
 )
 Array$create <- function(x, type = NULL) {
-  if (!inherits(x, "externalptr")) {
-    if (!is.null(type)) {
-      type <- as_type(type)
-    }
-    x <- Array__from_vector(x, type)
+  if (!is.null(type)) {
+    type <- as_type(type)
   }
-  shared_ptr(Array, x)$..dispatch()
+  Array__from_vector(x, type)
 }
 
 #' @rdname array
@@ -175,8 +156,8 @@ Array$create <- function(x, type = NULL) {
 #' @export
 DictionaryArray <- R6Class("DictionaryArray", inherit = Array,
   public = list(
-    indices = function() Array$create(DictionaryArray__indices(self)),
-    dictionary = function() Array$create(DictionaryArray__dictionary(self))
+    indices = function() DictionaryArray__indices(self),
+    dictionary = function() DictionaryArray__dictionary(self)
   ),
   active = list(
     ordered = function() self$type$ordered
@@ -197,7 +178,7 @@ DictionaryArray$create <- function(x, dict = NULL) {
     dict <- Array$create(dict)
   }
   type <- DictionaryType$create(x$type, dict$type)
-  shared_ptr(DictionaryArray, DictionaryArray__FromArrays(type, x, dict))
+  DictionaryArray__FromArrays(type, x, dict)
 }
 
 #' @rdname array
@@ -206,9 +187,9 @@ DictionaryArray$create <- function(x, dict = NULL) {
 #' @export
 StructArray <- R6Class("StructArray", inherit = Array,
   public = list(
-    field = function(i) Array$create(StructArray__field(self, i)),
-    GetFieldByName = function(name) Array$create(StructArray__GetFieldByName(self, name)),
-    Flatten = function() map(StructArray__Flatten(self), ~ Array$create(.x))
+    field = function(i) StructArray__field(self, i),
+    GetFieldByName = function(name) StructArray__GetFieldByName(self, name),
+    Flatten = function() StructArray__Flatten(self)
   )
 )
 
@@ -218,7 +199,7 @@ StructArray <- R6Class("StructArray", inherit = Array,
 #' @export
 ListArray <- R6Class("ListArray", inherit = Array,
   public = list(
-    values = function() Array$create(ListArray__values(self)),
+    values = function() ListArray__values(self),
     value_length = function(i) ListArray__value_length(self, i),
     value_offset = function(i) ListArray__value_offset(self, i),
     raw_value_offsets = function() ListArray__raw_value_offsets(self)
@@ -234,7 +215,7 @@ ListArray <- R6Class("ListArray", inherit = Array,
 #' @export
 LargeListArray <- R6Class("LargeListArray", inherit = Array,
   public = list(
-    values = function() Array$create(LargeListArray__values(self)),
+    values = function() LargeListArray__values(self),
     value_length = function(i) LargeListArray__value_length(self, i),
     value_offset = function(i) LargeListArray__value_offset(self, i),
     raw_value_offsets = function() LargeListArray__raw_value_offsets(self)
@@ -250,7 +231,7 @@ LargeListArray <- R6Class("LargeListArray", inherit = Array,
 #' @export
 FixedSizeListArray <- R6Class("FixedSizeListArray", inherit = Array,
   public = list(
-    values = function() Array$create(FixedSizeListArray__values(self)),
+    values = function() FixedSizeListArray__values(self),
     value_length = function(i) FixedSizeListArray__value_length(self, i),
     value_offset = function(i) FixedSizeListArray__value_offset(self, i)
   ),

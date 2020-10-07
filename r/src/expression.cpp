@@ -23,89 +23,77 @@
 namespace ds = ::arrow::dataset;
 
 // [[arrow::export]]
-std::shared_ptr<ds::Expression> dataset___expr__field_ref(std::string name) {
-  return ds::field_ref(std::move(name));
+R6 dataset___expr__field_ref(std::string name) {
+  return cpp11::r6(ds::field_ref(std::move(name)), "Expression");
 }
 
 // [[arrow::export]]
-std::shared_ptr<ds::Expression> dataset___expr__equal(
-    const std::shared_ptr<ds::Expression>& lhs,
-    const std::shared_ptr<ds::Expression>& rhs) {
-  return ds::equal(lhs, rhs);
+R6 dataset___expr__equal(const std::shared_ptr<ds::Expression>& lhs,
+                         const std::shared_ptr<ds::Expression>& rhs) {
+  return cpp11::r6(ds::equal(lhs, rhs), "Expression");
 }
 
 // [[arrow::export]]
-std::shared_ptr<ds::Expression> dataset___expr__not_equal(
-    const std::shared_ptr<ds::Expression>& lhs,
-    const std::shared_ptr<ds::Expression>& rhs) {
-  return ds::not_equal(lhs, rhs);
+R6 dataset___expr__not_equal(const std::shared_ptr<ds::Expression>& lhs,
+                             const std::shared_ptr<ds::Expression>& rhs) {
+  return cpp11::r6(ds::not_equal(lhs, rhs), "Expression");
 }
 
 // [[arrow::export]]
-std::shared_ptr<ds::Expression> dataset___expr__greater(
-    const std::shared_ptr<ds::Expression>& lhs,
-    const std::shared_ptr<ds::Expression>& rhs) {
-  return ds::greater(lhs, rhs);
+R6 dataset___expr__greater(const std::shared_ptr<ds::Expression>& lhs,
+                           const std::shared_ptr<ds::Expression>& rhs) {
+  return cpp11::r6(ds::greater(lhs, rhs), "Expression");
 }
 
 // [[arrow::export]]
-std::shared_ptr<ds::Expression> dataset___expr__greater_equal(
-    const std::shared_ptr<ds::Expression>& lhs,
-    const std::shared_ptr<ds::Expression>& rhs) {
-  return ds::greater_equal(lhs, rhs);
+R6 dataset___expr__greater_equal(const std::shared_ptr<ds::Expression>& lhs,
+                                 const std::shared_ptr<ds::Expression>& rhs) {
+  return cpp11::r6(ds::greater_equal(lhs, rhs), "Expression");
 }
 
 // [[arrow::export]]
-std::shared_ptr<ds::Expression> dataset___expr__less(
-    const std::shared_ptr<ds::Expression>& lhs,
-    const std::shared_ptr<ds::Expression>& rhs) {
-  return ds::less(lhs, rhs);
+R6 dataset___expr__less(const std::shared_ptr<ds::Expression>& lhs,
+                        const std::shared_ptr<ds::Expression>& rhs) {
+  return cpp11::r6(ds::less(lhs, rhs), "Expression");
 }
 
 // [[arrow::export]]
-std::shared_ptr<ds::Expression> dataset___expr__less_equal(
-    const std::shared_ptr<ds::Expression>& lhs,
-    const std::shared_ptr<ds::Expression>& rhs) {
-  return ds::less_equal(lhs, rhs);
+R6 dataset___expr__less_equal(const std::shared_ptr<ds::Expression>& lhs,
+                              const std::shared_ptr<ds::Expression>& rhs) {
+  return cpp11::r6(ds::less_equal(lhs, rhs), "Expression");
 }
 
 // [[arrow::export]]
-std::shared_ptr<ds::Expression> dataset___expr__in(
-    const std::shared_ptr<ds::Expression>& lhs,
-    const std::shared_ptr<arrow::Array>& rhs) {
-  return lhs->In(rhs).Copy();
+R6 dataset___expr__in(const std::shared_ptr<ds::Expression>& lhs,
+                      const std::shared_ptr<arrow::Array>& rhs) {
+  return cpp11::r6(lhs->In(rhs).Copy(), "Expression");
 }
 
 // [[arrow::export]]
-std::shared_ptr<ds::Expression> dataset___expr__and(
-    const std::shared_ptr<ds::Expression>& lhs,
-    const std::shared_ptr<ds::Expression>& rhs) {
-  return ds::and_(lhs, rhs);
+R6 dataset___expr__and(const std::shared_ptr<ds::Expression>& lhs,
+                       const std::shared_ptr<ds::Expression>& rhs) {
+  return cpp11::r6(ds::and_(lhs, rhs), "Expression");
 }
 
 // [[arrow::export]]
-std::shared_ptr<ds::Expression> dataset___expr__or(
-    const std::shared_ptr<ds::Expression>& lhs,
-    const std::shared_ptr<ds::Expression>& rhs) {
-  return ds::or_(lhs, rhs);
+R6 dataset___expr__or(const std::shared_ptr<ds::Expression>& lhs,
+                      const std::shared_ptr<ds::Expression>& rhs) {
+  return cpp11::r6(ds::or_(lhs, rhs), "Expression");
 }
 
 // [[arrow::export]]
-std::shared_ptr<ds::Expression> dataset___expr__not(
-    const std::shared_ptr<ds::Expression>& lhs) {
-  return ds::not_(lhs);
+R6 dataset___expr__not(const std::shared_ptr<ds::Expression>& lhs) {
+  return cpp11::r6(ds::not_(lhs), "Expression");
 }
 
 // [[arrow::export]]
-std::shared_ptr<ds::Expression> dataset___expr__is_valid(
-    const std::shared_ptr<ds::Expression>& lhs) {
-  return lhs->IsValid().Copy();
+R6 dataset___expr__is_valid(const std::shared_ptr<ds::Expression>& lhs) {
+  return cpp11::r6(lhs->IsValid().Copy(), "Expression");
 }
 
 // [[arrow::export]]
-std::shared_ptr<ds::Expression> dataset___expr__scalar(
-    const std::shared_ptr<arrow::Scalar>& x) {
-  return ds::scalar(x);
+R6 dataset___expr__scalar(const std::shared_ptr<arrow::Scalar>& x) {
+  return cpp11::r6(ds::scalar(x), "Expression");
 }
 
 // [[arrow::export]]

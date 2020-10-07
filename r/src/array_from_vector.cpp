@@ -1548,8 +1548,7 @@ std::shared_ptr<arrow::Array> Array__from_vector(SEXP x, SEXP s_type) {
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::ChunkedArray> ChunkedArray__from_list(cpp11::list chunks,
-                                                             SEXP s_type) {
+R6 ChunkedArray__from_list(cpp11::list chunks, SEXP s_type) {
   std::vector<std::shared_ptr<arrow::Array>> vec;
 
   // the type might be NULL, in which case we need to infer it from the data
@@ -1585,15 +1584,16 @@ std::shared_ptr<arrow::ChunkedArray> ChunkedArray__from_list(cpp11::list chunks,
     }
   }
 
-  return std::make_shared<arrow::ChunkedArray>(std::move(vec));
+  auto array = std::make_shared<arrow::ChunkedArray>(std::move(vec));
+  return cpp11::r6(array, "ChunkedArray");
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Array> DictionaryArray__FromArrays(
-    const std::shared_ptr<arrow::DataType>& type,
-    const std::shared_ptr<arrow::Array>& indices,
-    const std::shared_ptr<arrow::Array>& dict) {
-  return ValueOrStop(arrow::DictionaryArray::FromArrays(type, indices, dict));
+R6 DictionaryArray__FromArrays(const std::shared_ptr<arrow::DataType>& type,
+                               const std::shared_ptr<arrow::Array>& indices,
+                               const std::shared_ptr<arrow::Array>& dict) {
+  auto array = ValueOrStop(arrow::DictionaryArray::FromArrays(type, indices, dict));
+  return cpp11::r6(array, "DictionaryArray");
 }
 
 #endif

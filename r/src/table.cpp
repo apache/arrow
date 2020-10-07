@@ -31,32 +31,30 @@ int Table__num_columns(const std::shared_ptr<arrow::Table>& x) {
 int Table__num_rows(const std::shared_ptr<arrow::Table>& x) { return x->num_rows(); }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Schema> Table__schema(const std::shared_ptr<arrow::Table>& x) {
-  return x->schema();
+R6 Table__schema(const std::shared_ptr<arrow::Table>& x) {
+  return cpp11::r6(x->schema(), "Schema");
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Table> Table__ReplaceSchemaMetadata(
-    const std::shared_ptr<arrow::Table>& x, cpp11::strings metadata) {
+R6 Table__ReplaceSchemaMetadata(const std::shared_ptr<arrow::Table>& x,
+                                cpp11::strings metadata) {
   auto vec_metadata = cpp11::as_cpp<std::vector<std::string>>(metadata);
   auto names_metadata = cpp11::as_cpp<std::vector<std::string>>(metadata.names());
   auto kv = std::shared_ptr<arrow::KeyValueMetadata>(
       new arrow::KeyValueMetadata(names_metadata, vec_metadata));
-  return x->ReplaceSchemaMetadata(kv);
+  return cpp11::r6(x->ReplaceSchemaMetadata(kv), "Table");
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::ChunkedArray> Table__column(
-    const std::shared_ptr<arrow::Table>& table, R_xlen_t i) {
+R6 Table__column(const std::shared_ptr<arrow::Table>& table, R_xlen_t i) {
   arrow::r::validate_index(i, table->num_columns());
-  return table->column(i);
+  return cpp11::r6(table->column(i), "ChunkedArray");
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Field> Table__field(const std::shared_ptr<arrow::Table>& table,
-                                           R_xlen_t i) {
+R6 Table__field(const std::shared_ptr<arrow::Table>& table, R_xlen_t i) {
   arrow::r::validate_index(i, table->num_columns());
-  return table->field(i);
+  return cpp11::r6(table->field(i), "Field");
 }
 
 // [[arrow::export]]
@@ -76,18 +74,17 @@ std::vector<std::string> Table__ColumnNames(const std::shared_ptr<arrow::Table>&
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Table> Table__Slice1(const std::shared_ptr<arrow::Table>& table,
-                                            R_xlen_t offset) {
+R6 Table__Slice1(const std::shared_ptr<arrow::Table>& table, R_xlen_t offset) {
   arrow::r::validate_slice_offset(offset, table->num_rows());
-  return table->Slice(offset);
+  return cpp11::r6(table->Slice(offset), "Table");
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Table> Table__Slice2(const std::shared_ptr<arrow::Table>& table,
-                                            R_xlen_t offset, R_xlen_t length) {
+R6 Table__Slice2(const std::shared_ptr<arrow::Table>& table, R_xlen_t offset,
+                 R_xlen_t length) {
   arrow::r::validate_slice_offset(offset, table->num_rows());
   arrow::r::validate_slice_length(length, table->num_rows() - offset);
-  return table->Slice(offset, length);
+  return cpp11::r6(table->Slice(offset, length), "Table");
 }
 
 // [[arrow::export]]
@@ -109,15 +106,15 @@ bool Table__ValidateFull(const std::shared_ptr<arrow::Table>& table) {
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::ChunkedArray> Table__GetColumnByName(
-    const std::shared_ptr<arrow::Table>& table, const std::string& name) {
-  return table->GetColumnByName(name);
+R6 Table__GetColumnByName(const std::shared_ptr<arrow::Table>& table,
+                          const std::string& name) {
+  return cpp11::r6(table->GetColumnByName(name), "ChunkedArray");
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Table> Table__SelectColumns(
-    const std::shared_ptr<arrow::Table>& table, const std::vector<int>& indices) {
-  return ValueOrStop(table->SelectColumns(indices));
+R6 Table__SelectColumns(const std::shared_ptr<arrow::Table>& table,
+                        const std::vector<int>& indices) {
+  return cpp11::r6(ValueOrStop(table->SelectColumns(indices)), "Table");
 }
 
 namespace arrow {
@@ -259,7 +256,7 @@ bool all_record_batches(SEXP lst) {
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Table> Table__from_record_batches(
+R6 Table__from_record_batches(
     const std::vector<std::shared_ptr<arrow::RecordBatch>>& batches, SEXP schema_sxp) {
   bool infer_schema = !Rf_inherits(schema_sxp, "Schema");
 
@@ -272,11 +269,11 @@ std::shared_ptr<arrow::Table> Table__from_record_batches(
     tab = ValueOrStop(arrow::Table::FromRecordBatches(schema, std::move(batches)));
   }
 
-  return tab;
+  return cpp11::r6(tab, "Table");
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp) {
+R6 Table__from_dots(SEXP lst, SEXP schema_sxp) {
   bool infer_schema = !Rf_inherits(schema_sxp, "Schema");
 
   int num_fields;
@@ -292,7 +289,7 @@ std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp) {
   StopIfNotOk(
       arrow::r::CollectTableColumns(lst, schema, num_fields, infer_schema, columns));
 
-  return arrow::Table::Make(schema, columns);
+  return cpp11::r6(arrow::Table::Make(schema, columns), "Table");
 }
 
 #endif

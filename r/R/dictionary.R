@@ -48,7 +48,7 @@ DictionaryType$create <- function(index_type = int32(),
                                   ordered = FALSE) {
   assert_is(index_type, "DataType")
   assert_is(value_type, "DataType")
-  shared_ptr(DictionaryType, DictionaryType__initialize(index_type, value_type, ordered))
+  DictionaryType__initialize(index_type, value_type, ordered)
 }
 
 #' Create a dictionary type

@@ -25,11 +25,10 @@ DatasetFactory <- R6Class("DatasetFactory", inherit = ArrowObject,
   public = list(
     Finish = function(schema = NULL, unify_schemas = FALSE) {
       if (is.null(schema)) {
-        ptr <- dataset___DatasetFactory__Finish1(self, unify_schemas)
+        dataset___DatasetFactory__Finish1(self, unify_schemas)
       } else {
-        ptr <- dataset___DatasetFactory__Finish2(self, schema)
+        dataset___DatasetFactory__Finish2(self, schema)
       }
-      shared_ptr(Dataset, ptr)$..dispatch()
     },
     Inspect = function(unify_schemas = FALSE) {
       dataset___DatasetFactory__Inspect(self, unify_schemas)

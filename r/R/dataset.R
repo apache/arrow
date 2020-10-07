@@ -79,7 +79,7 @@ open_dataset <- function(sources,
       x$schema <- schema
       x
     })
-    return(shared_ptr(UnionDataset, dataset___UnionDataset__create(sources, schema)))
+    return(dataset___UnionDataset__create(sources, schema))
   }
   factory <- DatasetFactory$create(sources, partitioning = partitioning, ...)
   # Default is _not_ to inspect/unify schemas
@@ -145,16 +145,6 @@ open_dataset <- function(sources,
 #' @seealso [open_dataset()] for a simple interface to creating a `Dataset`
 Dataset <- R6Class("Dataset", inherit = ArrowObject,
   public = list(
-    ..dispatch = function() {
-      type <- self$type
-      if (type == "union") {
-        shared_ptr(UnionDataset, self$pointer())
-      } else if (type == "filesystem") {
-        shared_ptr(FileSystemDataset, self$pointer())
-      } else {
-        self
-      }
-    },
     # @description
     # Start a new scan of the data
     # @return A [ScannerBuilder]
@@ -167,7 +157,7 @@ Dataset <- R6Class("Dataset", inherit = ArrowObject,
         dataset___Dataset__schema(self)
       } else {
         assert_is(schema, "Schema")
-        invisible(shared_ptr(Dataset, dataset___Dataset__ReplaceSchema(self, schema)))
+        invisible(dataset___Dataset__ReplaceSchema(self, schema))
       }
     },
     metadata = function() self$schema$metadata,
@@ -212,12 +202,12 @@ FileSystemDataset <- R6Class("FileSystemDataset", inherit = Dataset,
     # @description
     # Return the format of files in this `Dataset`
     format = function() {
-      shared_ptr(FileFormat, dataset___FileSystemDataset__format(self))$..dispatch()
+      dataset___FileSystemDataset__format(self)
     },
     # @description
     # Return the filesystem of files in this `Dataset`
     filesystem = function() {
-      shared_ptr(FileSystem, dataset___FileSystemDataset__filesystem(self))$..dispatch()
+      dataset___FileSystemDataset__filesystem(self)
     },
     num_rows = function() {
       if (inherits(self$format, "ParquetFileFormat")) {
@@ -244,7 +234,7 @@ UnionDataset <- R6Class("UnionDataset", inherit = Dataset,
     # @description
     # Return the UnionDataset's child `Dataset`s
     children = function() {
-      map(dataset___UnionDataset__children(self), ~shared_ptr(Dataset, .)$..dispatch())
+      dataset___UnionDataset__children(self)
     }
   )
 )
@@ -257,7 +247,7 @@ InMemoryDataset$create <- function(x) {
   if (!inherits(x, "Table")) {
     x <- Table$create(x)
   }
-  shared_ptr(InMemoryDataset, dataset___InMemoryDataset__create(x))
+  dataset___InMemoryDataset__create(x)
 }
 
 

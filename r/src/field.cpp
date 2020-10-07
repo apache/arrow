@@ -21,10 +21,10 @@
 #include <arrow/type.h>
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Field> Field__initialize(
-    const std::string& name, const std::shared_ptr<arrow::DataType>& field,
-    bool nullable = true) {
-  return arrow::field(name, field, nullable);
+R6 Field__initialize(const std::string& name,
+                     const std::shared_ptr<arrow::DataType>& field,
+                     bool nullable = true) {
+  return cpp11::r6(arrow::field(name, field, nullable), "Field");
 }
 
 // [[arrow::export]]

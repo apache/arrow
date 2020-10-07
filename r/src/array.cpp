@@ -22,6 +22,29 @@
 #include <arrow/array.h>
 #include <arrow/util/bitmap_reader.h>
 
+namespace cpp11 {
+R6 r6_Array(const std::shared_ptr<arrow::Array>& array) {
+  using arrow::Type;
+
+  auto type = array->type_id();
+  switch (type) {
+    case Type::DICTIONARY:
+      return cpp11::r6(array, "DictionaryArray");
+    case Type::STRUCT:
+      return cpp11::r6(array, "StructArray");
+    case Type::LIST:
+      return cpp11::r6(array, "ListArray");
+    case Type::LARGE_LIST:
+      return cpp11::r6(array, "LargeListArray");
+    case Type::FIXED_SIZE_LIST:
+      return cpp11::r6(array, "FixedSizeListArray");
+
+    default:
+      return cpp11::r6(array, "Array");
+  }
+}
+}  // namespace cpp11
+
 void arrow::r::validate_slice_offset(R_xlen_t offset, int64_t len) {
   if (offset == NA_INTEGER) {
     cpp11::stop("Slice 'offset' cannot be NA");
@@ -47,18 +70,17 @@ void arrow::r::validate_slice_length(R_xlen_t length, int64_t available) {
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Array> Array__Slice1(const std::shared_ptr<arrow::Array>& array,
-                                            R_xlen_t offset) {
+R6 Array__Slice1(const std::shared_ptr<arrow::Array>& array, R_xlen_t offset) {
   arrow::r::validate_slice_offset(offset, array->length());
-  return array->Slice(offset);
+  return cpp11::r6_Array(array->Slice(offset));
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Array> Array__Slice2(const std::shared_ptr<arrow::Array>& array,
-                                            R_xlen_t offset, R_xlen_t length) {
+R6 Array__Slice2(const std::shared_ptr<arrow::Array>& array, R_xlen_t offset,
+                 R_xlen_t length) {
   arrow::r::validate_slice_offset(offset, array->length());
   arrow::r::validate_slice_length(length, array->length() - offset);
-  return array->Slice(offset, length);
+  return cpp11::r6_Array(array->Slice(offset, length));
 }
 
 void arrow::r::validate_index(int i, int len) {
@@ -119,9 +141,8 @@ bool Array__ApproxEquals(const std::shared_ptr<arrow::Array>& lhs,
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::ArrayData> Array__data(
-    const std::shared_ptr<arrow::Array>& array) {
-  return array->data();
+R6 Array__data(const std::shared_ptr<arrow::Array>& array) {
+  return cpp11::r6(array->data(), "ArrayData");
 }
 
 // [[arrow::export]]
@@ -141,9 +162,9 @@ bool Array__RangeEquals(const std::shared_ptr<arrow::Array>& self,
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Array> Array__View(const std::shared_ptr<arrow::Array>& array,
-                                          const std::shared_ptr<arrow::DataType>& type) {
-  return ValueOrStop(array->View(type));
+R6 Array__View(const std::shared_ptr<arrow::Array>& array,
+               const std::shared_ptr<arrow::DataType>& type) {
+  return cpp11::r6_Array(ValueOrStop(array->View(type)));
 }
 
 // [[arrow::export]]
@@ -152,27 +173,24 @@ void Array__Validate(const std::shared_ptr<arrow::Array>& array) {
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Array> DictionaryArray__indices(
-    const std::shared_ptr<arrow::DictionaryArray>& array) {
-  return array->indices();
+R6 DictionaryArray__indices(const std::shared_ptr<arrow::DictionaryArray>& array) {
+  return cpp11::r6_Array(array->indices());
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Array> DictionaryArray__dictionary(
-    const std::shared_ptr<arrow::DictionaryArray>& array) {
-  return array->dictionary();
+R6 DictionaryArray__dictionary(const std::shared_ptr<arrow::DictionaryArray>& array) {
+  return cpp11::r6_Array(array->dictionary());
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Array> StructArray__field(
-    const std::shared_ptr<arrow::StructArray>& array, int i) {
-  return array->field(i);
+R6 StructArray__field(const std::shared_ptr<arrow::StructArray>& array, int i) {
+  return cpp11::r6_Array(array->field(i));
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Array> StructArray__GetFieldByName(
-    const std::shared_ptr<arrow::StructArray>& array, const std::string& name) {
-  return array->GetFieldByName(name);
+R6 StructArray__GetFieldByName(const std::shared_ptr<arrow::StructArray>& array,
+                               const std::string& name) {
+  return cpp11::r6_Array(array->GetFieldByName(name));
 }
 
 // [[arrow::export]]
@@ -194,15 +212,13 @@ std::shared_ptr<arrow::DataType> LargeListArray__value_type(
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Array> ListArray__values(
-    const std::shared_ptr<arrow::ListArray>& array) {
-  return array->values();
+R6 ListArray__values(const std::shared_ptr<arrow::ListArray>& array) {
+  return cpp11::r6_Array(array->values());
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Array> LargeListArray__values(
-    const std::shared_ptr<arrow::LargeListArray>& array) {
-  return array->values();
+R6 LargeListArray__values(const std::shared_ptr<arrow::LargeListArray>& array) {
+  return cpp11::r6_Array(array->values());
 }
 
 // [[arrow::export]]

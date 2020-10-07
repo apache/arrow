@@ -420,8 +420,8 @@ dataset___FileFormat__DefaultWriteOptions <- function(fmt){
     .Call(`_arrow_dataset___FileFormat__DefaultWriteOptions` , fmt)
 }
 
-dataset___ParquetFileFormat__Make <- function(use_buffered_stream, buffer_size, dict_columns){
-    .Call(`_arrow_dataset___ParquetFileFormat__Make` , use_buffered_stream, buffer_size, dict_columns)
+dataset___ParquetFileFormat__MakeRead <- function(use_buffered_stream, buffer_size, dict_columns){
+    .Call(`_arrow_dataset___ParquetFileFormat__MakeRead` , use_buffered_stream, buffer_size, dict_columns)
 }
 
 dataset___FileWriteOptions__type_name <- function(options){

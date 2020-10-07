@@ -29,62 +29,64 @@ arrow::compute::ExecContext* gc_context() {
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::compute::CastOptions> compute___CastOptions__initialize(
-    bool allow_int_overflow, bool allow_time_truncate, bool allow_float_truncate) {
+R6 compute___CastOptions__initialize(bool allow_int_overflow, bool allow_time_truncate,
+                                     bool allow_float_truncate) {
   auto options = std::make_shared<arrow::compute::CastOptions>();
   options->allow_int_overflow = allow_int_overflow;
   options->allow_time_truncate = allow_time_truncate;
   options->allow_float_truncate = allow_float_truncate;
-  return options;
+  return cpp11::r6(options, "CastOptions");
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Array> Array__cast(
-    const std::shared_ptr<arrow::Array>& array,
-    const std::shared_ptr<arrow::DataType>& target_type,
-    const std::shared_ptr<arrow::compute::CastOptions>& options) {
-  return ValueOrStop(arrow::compute::Cast(*array, target_type, *options, gc_context()));
+R6 Array__cast(const std::shared_ptr<arrow::Array>& array,
+               const std::shared_ptr<arrow::DataType>& target_type,
+               const std::shared_ptr<arrow::compute::CastOptions>& options) {
+  auto out = ValueOrStop(arrow::compute::Cast(*array, target_type, *options, gc_context()));
+  return cpp11::r6_Array(out);
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::ChunkedArray> ChunkedArray__cast(
-    const std::shared_ptr<arrow::ChunkedArray>& chunked_array,
-    const std::shared_ptr<arrow::DataType>& target_type,
-    const std::shared_ptr<arrow::compute::CastOptions>& options) {
+R6 ChunkedArray__cast(const std::shared_ptr<arrow::ChunkedArray>& chunked_array,
+                      const std::shared_ptr<arrow::DataType>& target_type,
+                      const std::shared_ptr<arrow::compute::CastOptions>& options) {
   arrow::Datum value(chunked_array);
-  arrow::Datum out =
-      ValueOrStop(arrow::compute::Cast(value, target_type, *options, gc_context()));
-  return out.chunked_array();
+  arrow::Datum out = ValueOrStop(arrow::compute::Cast(value, target_type, *options, gc_context()));
+  return cpp11::r6(out.chunked_array(), "ChunkedArray");
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::RecordBatch> RecordBatch__cast(
-    const std::shared_ptr<arrow::RecordBatch>& batch,
-    const std::shared_ptr<arrow::Schema>& schema,
-    const std::shared_ptr<arrow::compute::CastOptions>& options) {
+R6 RecordBatch__cast(const std::shared_ptr<arrow::RecordBatch>& batch,
+                     const std::shared_ptr<arrow::Schema>& schema,
+                     const std::shared_ptr<arrow::compute::CastOptions>& options) {
   auto nc = batch->num_columns();
 
   arrow::ArrayVector columns(nc);
   for (int i = 0; i < nc; i++) {
-    columns[i] = Array__cast(batch->column(i), schema->field(i)->type(), options);
+    columns[i] = ValueOrStop(
+        arrow::compute::Cast(*batch->column(i), schema->field(i)->type(), *options));
   }
 
-  return arrow::RecordBatch::Make(schema, batch->num_rows(), std::move(columns));
+  auto out = arrow::RecordBatch::Make(schema, batch->num_rows(), std::move(columns));
+  return cpp11::r6(out, "RecordBatch");
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Table> Table__cast(
-    const std::shared_ptr<arrow::Table>& table,
-    const std::shared_ptr<arrow::Schema>& schema,
-    const std::shared_ptr<arrow::compute::CastOptions>& options) {
+R6 Table__cast(const std::shared_ptr<arrow::Table>& table,
+               const std::shared_ptr<arrow::Schema>& schema,
+               const std::shared_ptr<arrow::compute::CastOptions>& options) {
   auto nc = table->num_columns();
 
   using ColumnVector = std::vector<std::shared_ptr<arrow::ChunkedArray>>;
   ColumnVector columns(nc);
   for (int i = 0; i < nc; i++) {
-    columns[i] = ChunkedArray__cast(table->column(i), schema->field(i)->type(), options);
+    arrow::Datum value(table->column(i));
+    arrow::Datum out =
+        ValueOrStop(arrow::compute::Cast(value, schema->field(i)->type(), *options));
+    columns[i] = out.chunked_array();
   }
-  return arrow::Table::Make(schema, std::move(columns), table->num_rows());
+  auto out = arrow::Table::Make(schema, std::move(columns), table->num_rows());
+  return cpp11::r6(out, "Table");
 }
 
 template <typename T>
@@ -129,19 +131,19 @@ arrow::Datum as_cpp<arrow::Datum>(SEXP x) {
 SEXP from_datum(arrow::Datum datum) {
   switch (datum.kind()) {
     case arrow::Datum::SCALAR:
-      return cpp11::R6_create(Rf_install("Scalar"), datum.scalar());
+      return cpp11::as_sexp(datum.scalar());
 
     case arrow::Datum::ARRAY:
-      return cpp11::R6_create(Rf_install("Array"), datum.make_array());
+      return cpp11::r6_Array(datum.make_array());
 
     case arrow::Datum::CHUNKED_ARRAY:
-      return cpp11::R6_new(Rf_install("ChunkedArray"), datum.chunked_array());
+      return cpp11::r6(datum.chunked_array(), "ChunkedArray");
 
     case arrow::Datum::RECORD_BATCH:
-      return cpp11::R6_new(Rf_install("RecordBatch"), datum.record_batch());
+      return cpp11::r6(datum.record_batch(), "RecordBatch");
 
     case arrow::Datum::TABLE:
-      return cpp11::R6_new(Rf_install("Table"), datum.table());
+      return cpp11::r6(datum.table(), "Table");
 
     default:
       break;

@@ -68,7 +68,7 @@ OutputStream <- R6Class("OutputStream", inherit = Writable,
 #' @export
 FileOutputStream <- R6Class("FileOutputStream", inherit = OutputStream)
 FileOutputStream$create <- function(path) {
-  shared_ptr(FileOutputStream, io___FileOutputStream__Open(clean_path_abs(path)))
+  io___FileOutputStream__Open(clean_path_abs(path))
 }
 
 #' @usage NULL
@@ -84,7 +84,7 @@ BufferOutputStream <- R6Class("BufferOutputStream", inherit = OutputStream,
   )
 )
 BufferOutputStream$create <- function(initial_capacity = 0L) {
-  shared_ptr(BufferOutputStream, io___BufferOutputStream__Create(initial_capacity))
+  io___BufferOutputStream__Create(initial_capacity)
 }
 
 # InputStream -------------------------------------------------------------
@@ -179,7 +179,7 @@ MemoryMappedFile <- R6Class("MemoryMappedFile", inherit = RandomAccessFile,
 #' @export
 ReadableFile <- R6Class("ReadableFile", inherit = RandomAccessFile)
 ReadableFile$create <- function(path) {
-  shared_ptr(ReadableFile, io___ReadableFile__Open(clean_path_abs(path)))
+  io___ReadableFile__Open(clean_path_abs(path))
 }
 
 #' @usage NULL
@@ -189,7 +189,7 @@ ReadableFile$create <- function(path) {
 BufferReader <- R6Class("BufferReader", inherit = RandomAccessFile)
 BufferReader$create <- function(x) {
   x <- buffer(x)
-  shared_ptr(BufferReader, io___BufferReader__initialize(x))
+  io___BufferReader__initialize(x)
 }
 
 #' Create a new read/write memory mapped file of a given size
@@ -202,7 +202,7 @@ BufferReader$create <- function(x) {
 #' @export
 mmap_create <- function(path, size) {
   path <- clean_path_abs(path)
-  shared_ptr(MemoryMappedFile, io___MemoryMappedFile__Create(path, size))
+  io___MemoryMappedFile__Create(path, size)
 }
 
 #' Open a memory mapped file
@@ -214,7 +214,7 @@ mmap_create <- function(path, size) {
 mmap_open <- function(path, mode = c("read", "write", "readwrite")) {
   mode <- match(match.arg(mode), c("read", "write", "readwrite")) - 1L
   path <- clean_path_abs(path)
-  shared_ptr(MemoryMappedFile, io___MemoryMappedFile__Open(path, mode))
+  io___MemoryMappedFile__Open(path, mode)
 }
 
 #' Handle a range of possible input sources

@@ -120,7 +120,7 @@ RecordBatchStreamReader$create <- function(stream) {
     stream <- BufferReader$create(stream)
   }
   assert_is(stream, "InputStream")
-  shared_ptr(RecordBatchStreamReader, ipc___RecordBatchStreamReader__Open(stream))
+  ipc___RecordBatchStreamReader__Open(stream)
 }
 
 #' @rdname RecordBatchReader
@@ -150,5 +150,5 @@ RecordBatchFileReader$create <- function(file) {
     file <- BufferReader$create(file)
   }
   assert_is(file, "InputStream")
-  shared_ptr(RecordBatchFileReader, ipc___RecordBatchFileReader__Open(file))
+  ipc___RecordBatchFileReader__Open(file)
 }

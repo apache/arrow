@@ -24,6 +24,8 @@
 
 #include "./nameof.h"
 
+using R6 = SEXP;
+
 namespace cpp11 {
 
 template <typename T>
@@ -302,6 +304,23 @@ bool GetBoolOption(const std::string& name, bool default_);
 namespace cpp11 {
 
 template <typename T>
+SEXP r6(const std::shared_ptr<T>& x, const std::string& r_class_name) {
+  if (x == nullptr) return R_NilValue;
+  cpp11::external_pointer<std::shared_ptr<T>> xp(new std::shared_ptr<T>(x));
+  SEXP r6_class = Rf_install(r_class_name.c_str());
+
+  // make call:  <symbol>$new(<x>)
+  SEXP call = PROTECT(Rf_lang3(R_DollarSymbol, r6_class, arrow::r::symbols::new_));
+  SEXP call2 = PROTECT(Rf_lang2(call, xp));
+
+  // and then eval in arrow::
+  SEXP r6 = PROTECT(Rf_eval(call2, arrow::r::ns::arrow));
+
+  UNPROTECT(3);
+  return r6;
+}
+
+template <typename T>
 using enable_if_shared_ptr = typename std::enable_if<
     std::is_same<std::shared_ptr<typename T::element_type>, T>::value, T>::type;
 
@@ -323,34 +342,6 @@ SEXP as_sexp(const std::vector<std::shared_ptr<T>>& vec) {
 template <typename E>
 enable_if_enum<E, SEXP> as_sexp(E e) {
   return as_sexp(static_cast<int>(e));
-}
-
-template <typename T>
-SEXP R6_make(SEXP symbol, SEXP fun_symbol, const std::shared_ptr<T>& x) {
-  if (x == nullptr) {
-    return R_NilValue;
-  }
-  cpp11::external_pointer<std::shared_ptr<T>> xp(new std::shared_ptr<T>(x));
-
-  // make call:  <symbol>$<fun_symbol>(<x>)
-  SEXP call = PROTECT(Rf_lang3(R_DollarSymbol, symbol, fun_symbol));
-  SEXP call2 = PROTECT(Rf_lang2(call, xp));
-
-  // and then eval:
-  SEXP r6 = PROTECT(Rf_eval(call2, arrow::r::ns::arrow));
-
-  UNPROTECT(3);
-  return r6;
-}
-
-template <typename T>
-SEXP R6_new(SEXP symbol, T x) {
-  return R6_make(symbol, arrow::r::symbols::new_, std::move(x));
-}
-
-template <typename T>
-SEXP R6_create(SEXP symbol, T x) {
-  return R6_make(symbol, arrow::r::symbols::create, std::move(x));
 }
 
 }  // namespace cpp11

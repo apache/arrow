@@ -23,9 +23,8 @@
 #include <arrow/util/key_value_metadata.h>
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Schema> schema_(
-    const std::vector<std::shared_ptr<arrow::Field>>& fields) {
-  return arrow::schema(fields);
+R6 schema_(const std::vector<std::shared_ptr<arrow::Field>>& fields) {
+  return cpp11::r6(arrow::schema(fields), "Schema");
 }
 
 // [[arrow::export]]
@@ -39,19 +38,17 @@ int Schema__num_fields(const std::shared_ptr<arrow::Schema>& s) {
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Field> Schema__field(const std::shared_ptr<arrow::Schema>& s,
-                                            int i) {
+R6 Schema__field(const std::shared_ptr<arrow::Schema>& s, int i) {
   if (i >= s->num_fields() || i < 0) {
     cpp11::stop("Invalid field index for schema.");
   }
 
-  return s->field(i);
+  return cpp11::r6(s->field(i), "Field");
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Field> Schema__GetFieldByName(
-    const std::shared_ptr<arrow::Schema>& s, std::string x) {
-  return s->GetFieldByName(x);
+R6 Schema__GetFieldByName(const std::shared_ptr<arrow::Schema>& s, std::string x) {
+  return cpp11::r6(s->GetFieldByName(x), "Field");
 }
 
 // [[arrow::export]]
@@ -95,14 +92,14 @@ cpp11::writable::list Schema__metadata(const std::shared_ptr<arrow::Schema>& sch
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Schema> Schema__WithMetadata(
-    const std::shared_ptr<arrow::Schema>& schema, cpp11::strings metadata) {
+R6 Schema__WithMetadata(const std::shared_ptr<arrow::Schema>& schema,
+                        cpp11::strings metadata) {
   auto values = cpp11::as_cpp<std::vector<std::string>>(metadata);
   auto names = cpp11::as_cpp<std::vector<std::string>>(metadata.attr("names"));
 
   auto kv =
       std::make_shared<arrow::KeyValueMetadata>(std::move(names), std::move(values));
-  return schema->WithMetadata(std::move(kv));
+  return cpp11::r6(schema->WithMetadata(std::move(kv)), "Schema");
 }
 
 // [[arrow::export]]
@@ -119,9 +116,8 @@ bool Schema__Equals(const std::shared_ptr<arrow::Schema>& schema,
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Schema> arrow__UnifySchemas(
-    const std::vector<std::shared_ptr<arrow::Schema>>& schemas) {
-  return ValueOrStop(arrow::UnifySchemas(schemas));
+R6 arrow__UnifySchemas(const std::vector<std::shared_ptr<arrow::Schema>>& schemas) {
+  return cpp11::r6(ValueOrStop(arrow::UnifySchemas(schemas)), "Schema");
 }
 
 #endif

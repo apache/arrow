@@ -23,8 +23,7 @@
 #include <arrow/util/value_parsing.h>
 
 // [[arrow::export]]
-std::shared_ptr<arrow::csv::ReadOptions> csv___ReadOptions__initialize(
-    cpp11::list options) {
+R6 csv___ReadOptions__initialize(cpp11::list options) {
   auto res =
       std::make_shared<arrow::csv::ReadOptions>(arrow::csv::ReadOptions::Defaults());
   res->use_threads = cpp11::as_cpp<bool>(options["use_threads"]);
@@ -34,12 +33,11 @@ std::shared_ptr<arrow::csv::ReadOptions> csv___ReadOptions__initialize(
   res->autogenerate_column_names =
       cpp11::as_cpp<bool>(options["autogenerate_column_names"]);
 
-  return res;
+  return cpp11::r6(res, "CsvReadOptions");
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::csv::ParseOptions> csv___ParseOptions__initialize(
-    cpp11::list options) {
+R6 csv___ParseOptions__initialize(cpp11::list options) {
   auto res =
       std::make_shared<arrow::csv::ParseOptions>(arrow::csv::ParseOptions::Defaults());
   res->delimiter = cpp11::as_cpp<char>(options["delimiter"]);
@@ -49,7 +47,7 @@ std::shared_ptr<arrow::csv::ParseOptions> csv___ParseOptions__initialize(
   res->escape_char = cpp11::as_cpp<char>(options["escape_char"]);
   res->newlines_in_values = cpp11::as_cpp<bool>(options["newlines_in_values"]);
   res->ignore_empty_lines = cpp11::as_cpp<bool>(options["ignore_empty_lines"]);
-  return res;
+  return cpp11::r6(res, "CsvParseOptions");
 }
 
 // [[arrow::export]]
@@ -63,8 +61,7 @@ SEXP csv___ReadOptions__column_names(
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::csv::ConvertOptions> csv___ConvertOptions__initialize(
-    cpp11::list options) {
+R6 csv___ConvertOptions__initialize(cpp11::list options) {
   auto res = std::make_shared<arrow::csv::ConvertOptions>(
       arrow::csv::ConvertOptions::Defaults());
   res->check_utf8 = cpp11::as_cpp<bool>(options["check_utf8"]);
@@ -132,23 +129,24 @@ std::shared_ptr<arrow::csv::ConvertOptions> csv___ConvertOptions__initialize(
     res->timestamp_parsers = timestamp_parsers;
   }
 
-  return res;
+  return cpp11::r6(res, "CsvConvertOptions");
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::csv::TableReader> csv___TableReader__Make(
+R6 csv___TableReader__Make(
     const std::shared_ptr<arrow::io::InputStream>& input,
     const std::shared_ptr<arrow::csv::ReadOptions>& read_options,
     const std::shared_ptr<arrow::csv::ParseOptions>& parse_options,
     const std::shared_ptr<arrow::csv::ConvertOptions>& convert_options) {
-  return ValueOrStop(arrow::csv::TableReader::Make(gc_memory_pool(), input, *read_options,
-                                                   *parse_options, *convert_options));
+  auto reader = ValueOrStop(
+      arrow::csv::TableReader::Make(gc_memory_pool(), input, *read_options,
+                                    *parse_options, *convert_options));
+  return cpp11::r6(reader, "CsvTableReader");
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Table> csv___TableReader__Read(
-    const std::shared_ptr<arrow::csv::TableReader>& table_reader) {
-  return ValueOrStop(table_reader->Read());
+R6 csv___TableReader__Read(const std::shared_ptr<arrow::csv::TableReader>& table_reader) {
+  return cpp11::r6(ValueOrStop(table_reader->Read()), "Table");
 }
 
 // [[arrow::export]]

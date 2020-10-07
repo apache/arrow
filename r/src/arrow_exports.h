@@ -89,74 +89,14 @@ namespace dataset {
 
 class DirectoryPartitioning;
 class HivePartitioning;
+class FileSystemDatasetFactory;
 
-}
-}
+}  // namespace dataset
 
-namespace cpp11 {
-
-inline SEXP xp_to_r6(SEXP xp, SEXP r6_class) {
-  // make call:  <symbol>$new(<x>)
-  SEXP call = PROTECT(Rf_lang3(R_DollarSymbol, r6_class, arrow::r::symbols::new_));
-  SEXP call2 = PROTECT(Rf_lang2(call, xp));
-
-  // and then eval in arrow::
-  SEXP r6 = PROTECT(Rf_eval(call2, arrow::r::ns::arrow));
-
-  UNPROTECT(3);
-  return r6;
+namespace fs {
+class S3FileSystem;
 }
 
-template <typename T>
-inline SEXP shared_ptr_to_r6(const std::shared_ptr<T>& x, const std::string& r_class_name) {
-  if (x == nullptr) return R_NilValue;
-  cpp11::external_pointer<std::shared_ptr<T>> xp(new std::shared_ptr<T>(x));
-  SEXP r6_class = Rf_install(r_class_name.c_str());
-  return xp_to_r6(xp, r6_class);
-}
-
-#define R6_HANDLE(TYPE, NAME)                      \
-  template <>                                      \
-  SEXP as_sexp(const std::shared_ptr<TYPE>& ptr) { \
-    return shared_ptr_to_r6<TYPE>(ptr, NAME);      \
-  }
-
-R6_HANDLE(arrow::RecordBatch, "RecordBatch")
-R6_HANDLE(arrow::Table, "Table")
-R6_HANDLE(arrow::Schema, "Schema")
-R6_HANDLE(arrow::Buffer, "Buffer")
-R6_HANDLE(arrow::MemoryPool, "MemoryPool")
-R6_HANDLE(arrow::Field, "Field")
-R6_HANDLE(arrow::ChunkedArray, "ChunkedArray")
-
-R6_HANDLE(arrow::dataset::DirectoryPartitioning, "DirectoryPartitioning")
-R6_HANDLE(arrow::dataset::HivePartitioning, "HivePartitioning")
-R6_HANDLE(arrow::dataset::PartitioningFactory, "PartitioningFactory")
-R6_HANDLE(arrow::dataset::DatasetFactory, "DatasetFactory")
-
-R6_HANDLE(parquet::WriterPropertiesBuilder, "ParquetWriterPropertiesBuilder")
-R6_HANDLE(parquet::ArrowWriterProperties, "ParquetArrowWriterProperties")
-R6_HANDLE(parquet::WriterProperties, "ParquetWriterProperties")
-R6_HANDLE(parquet::arrow::FileWriter, "ParquetFileWriter")
-R6_HANDLE(parquet::arrow::FileReader, "ParquetFileReader")
-R6_HANDLE(parquet::ArrowReaderProperties, "ParquetReaderProperties")
-
-R6_HANDLE(arrow::ipc::feather::Reader, "FeatherReader")
-
-R6_HANDLE(arrow::csv::TableReader, "CsvTableReader")
-R6_HANDLE(arrow::csv::ReadOptions, "CsvReadOptions")
-R6_HANDLE(arrow::csv::ParseOptions, "CsvParseOptions")
-R6_HANDLE(arrow::csv::ConvertOptions, "CsvConvertOptions")
-
-R6_HANDLE(arrow::dataset::Expression, "Expression")
-
-R6_HANDLE(arrow::compute::CastOptions, "CastOptions")
-
-R6_HANDLE(arrow::util::Codec, "Codec")
-
-R6_HANDLE(arrow::ipc::Message, "Message")
-R6_HANDLE(arrow::ipc::MessageReader, "MessageReader")
-
-}  // namespace cpp11
+}  // namespace arrow
 
 #endif

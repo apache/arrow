@@ -24,9 +24,8 @@
 // ------ arrow::io::Readable
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Buffer> io___Readable__Read(
-    const std::shared_ptr<arrow::io::Readable>& x, int64_t nbytes) {
-  return ValueOrStop(x->Read(nbytes));
+R6 io___Readable__Read(const std::shared_ptr<arrow::io::Readable>& x, int64_t nbytes) {
+  return cpp11::r6(ValueOrStop(x->Read(nbytes)), "Buffer");
 }
 
 // ------ arrow::io::InputStream
@@ -70,34 +69,32 @@ int64_t io___RandomAccessFile__Tell(
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Buffer> io___RandomAccessFile__Read0(
-    const std::shared_ptr<arrow::io::RandomAccessFile>& x) {
+R6 io___RandomAccessFile__Read0(const std::shared_ptr<arrow::io::RandomAccessFile>& x) {
   int64_t current = ValueOrStop(x->Tell());
 
   int64_t n = ValueOrStop(x->GetSize());
 
-  return ValueOrStop(x->Read(n - current));
+  return cpp11::r6(ValueOrStop(x->Read(n - current)), "Buffer");
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Buffer> io___RandomAccessFile__ReadAt(
-    const std::shared_ptr<arrow::io::RandomAccessFile>& x, int64_t position,
-    int64_t nbytes) {
-  return ValueOrStop(x->ReadAt(position, nbytes));
+R6 io___RandomAccessFile__ReadAt(const std::shared_ptr<arrow::io::RandomAccessFile>& x,
+                                 int64_t position, int64_t nbytes) {
+  return cpp11::r6(ValueOrStop(x->ReadAt(position, nbytes)), "Buffer");
 }
 
 // ------ arrow::io::MemoryMappedFile
 
 // [[arrow::export]]
-std::shared_ptr<arrow::io::MemoryMappedFile> io___MemoryMappedFile__Create(
-    const std::string& path, int64_t size) {
-  return ValueOrStop(arrow::io::MemoryMappedFile::Create(path, size));
+R6 io___MemoryMappedFile__Create(const std::string& path, int64_t size) {
+  auto out = ValueOrStop(arrow::io::MemoryMappedFile::Create(path, size));
+  return cpp11::r6(out, "MemoryMappedFile");
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::io::MemoryMappedFile> io___MemoryMappedFile__Open(
-    const std::string& path, arrow::io::FileMode::type mode) {
-  return ValueOrStop(arrow::io::MemoryMappedFile::Open(path, mode));
+R6 io___MemoryMappedFile__Open(const std::string& path, arrow::io::FileMode::type mode) {
+  auto out = ValueOrStop(arrow::io::MemoryMappedFile::Open(path, mode));
+  return cpp11::r6(out, "MemoryMappedFile");
 }
 
 // [[arrow::export]]
@@ -109,17 +106,17 @@ void io___MemoryMappedFile__Resize(const std::shared_ptr<arrow::io::MemoryMapped
 // ------ arrow::io::ReadableFile
 
 // [[arrow::export]]
-std::shared_ptr<arrow::io::ReadableFile> io___ReadableFile__Open(
-    const std::string& path) {
-  return ValueOrStop(arrow::io::ReadableFile::Open(path, gc_memory_pool()));
+R6 io___ReadableFile__Open(const std::string& path) {
+  auto file = ValueOrStop(arrow::io::ReadableFile::Open(path, gc_memory_pool()));
+  return cpp11::r6(file, "ReadableFile");
 }
 
 // ------ arrow::io::BufferReader
 
 // [[arrow::export]]
-std::shared_ptr<arrow::io::BufferReader> io___BufferReader__initialize(
-    const std::shared_ptr<arrow::Buffer>& buffer) {
-  return std::make_shared<arrow::io::BufferReader>(buffer);
+R6 io___BufferReader__initialize(const std::shared_ptr<arrow::Buffer>& buffer) {
+  auto reader = std::make_shared<arrow::io::BufferReader>(buffer);
+  return cpp11::r6(reader, "BufferReader");
 }
 
 // ------- arrow::io::Writable
@@ -140,18 +137,18 @@ int64_t io___OutputStream__Tell(const std::shared_ptr<arrow::io::OutputStream>& 
 // ------ arrow::io::FileOutputStream
 
 // [[arrow::export]]
-std::shared_ptr<arrow::io::FileOutputStream> io___FileOutputStream__Open(
-    const std::string& path) {
-  return ValueOrStop(arrow::io::FileOutputStream::Open(path));
+R6 io___FileOutputStream__Open(const std::string& path) {
+  return cpp11::r6(ValueOrStop(arrow::io::FileOutputStream::Open(path)),
+                   "FileOutputStream");
 }
 
 // ------ arrow::BufferOutputStream
 
 // [[arrow::export]]
-std::shared_ptr<arrow::io::BufferOutputStream> io___BufferOutputStream__Create(
-    int64_t initial_capacity) {
-  return ValueOrStop(
-      arrow::io::BufferOutputStream::Create(initial_capacity, gc_memory_pool()));
+R6 io___BufferOutputStream__Create(int64_t initial_capacity) {
+  auto stream = ValueOrStop(
+    arrow::io::BufferOutputStream::Create(initial_capacity, gc_memory_pool()));
+  return cpp11::r6(stream, "BufferOutputStream");
 }
 
 // [[arrow::export]]
@@ -161,9 +158,9 @@ int64_t io___BufferOutputStream__capacity(
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Buffer> io___BufferOutputStream__Finish(
+R6 io___BufferOutputStream__Finish(
     const std::shared_ptr<arrow::io::BufferOutputStream>& stream) {
-  return ValueOrStop(stream->Finish());
+  return cpp11::r6(ValueOrStop(stream->Finish()), "Buffer");
 }
 
 // [[arrow::export]]

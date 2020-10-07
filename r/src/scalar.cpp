@@ -22,11 +22,23 @@
 #include <arrow/array/array_base.h>
 #include <arrow/array/util.h>
 #include <arrow/scalar.h>
+#include <arrow/type.h>
+
+namespace cpp11 {
+
+R6 r6_Scalar(const std::shared_ptr<arrow::Scalar>& ptr) {
+  std::string type = "Scalar";
+  if (ptr->type->id() == arrow::Type::STRUCT) {
+    type = "StructScalar";
+  }
+  return r6(ptr, type);
+}
+
+}  // namespace cpp11
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Scalar> Array__GetScalar(const std::shared_ptr<arrow::Array>& x,
-                                                int64_t i) {
-  return ValueOrStop(x->GetScalar(i));
+R6 Array__GetScalar(const std::shared_ptr<arrow::Array>& x, int64_t i) {
+  return cpp11::r6_Scalar(ValueOrStop(x->GetScalar(i)));
 }
 
 // [[arrow::export]]
@@ -35,21 +47,20 @@ std::string Scalar__ToString(const std::shared_ptr<arrow::Scalar>& s) {
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Scalar> Scalar__CastTo(const std::shared_ptr<arrow::Scalar>& s,
-                                              const std::shared_ptr<arrow::DataType>& t) {
-  return ValueOrStop(s->CastTo(t));
+R6 Scalar__CastTo(const std::shared_ptr<arrow::Scalar>& s,
+                  const std::shared_ptr<arrow::DataType>& t) {
+  return cpp11::r6_Scalar(ValueOrStop(s->CastTo(t)));
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Scalar> StructScalar__field(
-    const std::shared_ptr<arrow::StructScalar>& s, int i) {
-  return ValueOrStop(s->field(i));
+R6 StructScalar__field(const std::shared_ptr<arrow::StructScalar>& s, int i) {
+  return cpp11::r6_Scalar(ValueOrStop(s->field(i)));
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Scalar> StructScalar__GetFieldByName(
-    const std::shared_ptr<arrow::StructScalar>& s, const std::string& name) {
-  return ValueOrStop(s->field(name));
+R6 StructScalar__GetFieldByName(const std::shared_ptr<arrow::StructScalar>& s,
+                                const std::string& name) {
+  return cpp11::r6_Scalar(ValueOrStop(s->field(name)));
 }
 
 // [[arrow::export]]

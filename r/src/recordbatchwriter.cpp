@@ -41,25 +41,29 @@ void ipc___RecordBatchWriter__Close(
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::ipc::RecordBatchWriter> ipc___RecordBatchFileWriter__Open(
+R6 ipc___RecordBatchFileWriter__Open(
     const std::shared_ptr<arrow::io::OutputStream>& stream,
     const std::shared_ptr<arrow::Schema>& schema, bool use_legacy_format,
     arrow::ipc::MetadataVersion metadata_version) {
   auto options = arrow::ipc::IpcWriteOptions::Defaults();
   options.write_legacy_ipc_format = use_legacy_format;
   options.metadata_version = metadata_version;
-  return ValueOrStop(arrow::ipc::MakeFileWriter(stream, schema, options));
+
+  auto writer = ValueOrStop(arrow::ipc::MakeFileWriter(stream, schema, options));
+  return cpp11::r6(writer, "RecordBatchFileWriter");
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::ipc::RecordBatchWriter> ipc___RecordBatchStreamWriter__Open(
+R6 ipc___RecordBatchStreamWriter__Open(
     const std::shared_ptr<arrow::io::OutputStream>& stream,
     const std::shared_ptr<arrow::Schema>& schema, bool use_legacy_format,
     arrow::ipc::MetadataVersion metadata_version) {
   auto options = arrow::ipc::IpcWriteOptions::Defaults();
   options.write_legacy_ipc_format = use_legacy_format;
   options.metadata_version = metadata_version;
-  return ValueOrStop(MakeStreamWriter(stream, schema, options));
+
+  auto writer = ValueOrStop(MakeStreamWriter(stream, schema, options));
+  return cpp11::r6(writer, "RecordBatchStreamWriter");
 }
 
 #endif
