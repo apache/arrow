@@ -38,11 +38,11 @@
 use std::str;
 use std::sync::Arc;
 
-use crate::array::*;
 use crate::buffer::Buffer;
 use crate::compute::kernels::arithmetic::{divide, multiply};
 use crate::datatypes::*;
 use crate::error::{ArrowError, Result};
+use crate::{array::*, compute::take};
 
 /// Cast `array` to the provided data type and return a new Array with
 /// type `to_type`, if possible.
@@ -770,7 +770,7 @@ where
 }
 
 /// Attempts to cast an `ArrayDictionary` with index type K into
-/// `to_type` for supported type.
+/// `to_type` for supported types.
 ///
 /// K is the key type
 fn dictionary_cast<K: ArrowDictionaryKeyType>(
@@ -779,17 +779,17 @@ fn dictionary_cast<K: ArrowDictionaryKeyType>(
 ) -> Result<ArrayRef> {
     use DataType::*;
 
-    let dict_array = array
-        .as_any()
-        .downcast_ref::<DictionaryArray<K>>()
-        .ok_or_else(|| {
-            ArrowError::ComputeError(
-                "Internal Error: Cannot cast dictionary to DictionaryArray of expected type".to_string(),
-            )
-        })?;
-
     match to_type {
         Dictionary(to_index_type, to_value_type) => {
+            let dict_array = array
+                .as_any()
+                .downcast_ref::<DictionaryArray<K>>()
+                .ok_or_else(|| {
+                    ArrowError::ComputeError(
+                        "Internal Error: Cannot cast dictionary to DictionaryArray of expected type".to_string(),
+                    )
+                })?;
+
             let keys_array: ArrayRef = Arc::new(dict_array.keys_array());
             let values_array: ArrayRef = dict_array.values();
             let cast_keys = cast(&keys_array, to_index_type)?;
@@ -841,92 +841,42 @@ fn dictionary_cast<K: ArrowDictionaryKeyType>(
 
             Ok(new_array)
         }
-        // numeric types
-        Int8 => unpack_dictionary_to_numeric::<K, Int8Type>(dict_array, to_type),
-        Int16 => unpack_dictionary_to_numeric::<K, Int16Type>(dict_array, to_type),
-        Int32 => unpack_dictionary_to_numeric::<K, Int32Type>(dict_array, to_type),
-        Int64 => unpack_dictionary_to_numeric::<K, Int64Type>(dict_array, to_type),
-        UInt8 => unpack_dictionary_to_numeric::<K, UInt8Type>(dict_array, to_type),
-        UInt16 => unpack_dictionary_to_numeric::<K, UInt16Type>(dict_array, to_type),
-        UInt32 => unpack_dictionary_to_numeric::<K, UInt32Type>(dict_array, to_type),
-        UInt64 => unpack_dictionary_to_numeric::<K, UInt64Type>(dict_array, to_type),
-        Utf8 => unpack_dictionary_to_string::<K>(dict_array),
-        _ => Err(ArrowError::ComputeError(format!(
-            "Unsupported output type for dictionary conversion: {:?}",
-            to_type
-        ))),
+        _ => unpack_dictionary::<K>(array, to_type),
     }
 }
 
-// Unpack the dictionary where the keys are of type <K> and the values
-// are of type <V> into a primative array of type to_type
-fn unpack_dictionary_to_numeric<K, V>(
-    dict_array: &DictionaryArray<K>,
-    to_type: &DataType,
-) -> Result<ArrayRef>
+// Unpack a dictionary where the keys are of type <K> into a flattened array of type to_type
+fn unpack_dictionary<K>(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef>
 where
     K: ArrowDictionaryKeyType,
-    V: ArrowNumericType,
 {
+    let dict_array = array
+        .as_any()
+        .downcast_ref::<DictionaryArray<K>>()
+        .ok_or_else(|| {
+            ArrowError::ComputeError(
+                "Internal Error: Cannot cast dictionary to DictionaryArray of expected type".to_string(),
+            )
+        })?;
+
     // attempt to cast the dict values to the target type
+    // use the take kernel to expand out the dictionary
     let cast_dict_values = cast(&dict_array.values(), to_type)?;
-    let dict_values = cast_dict_values
-        .as_any()
-        .downcast_ref::<PrimitiveArray<V>>()
-        .unwrap();
 
-    let mut b = PrimitiveBuilder::<V>::new(dict_array.len());
+    // Note take requires first casting the indicies to u32
+    let keys_array: ArrayRef = Arc::new(dict_array.keys_array());
+    let indicies = cast(&keys_array, &DataType::UInt32)?;
+    let u32_indicies =
+        indicies
+            .as_any()
+            .downcast_ref::<UInt32Array>()
+            .ok_or_else(|| {
+                ArrowError::ComputeError(
+                    "Internal Error: Cannot cast dict indicies to UInt32".to_string(),
+                )
+            })?;
 
-    // copy each element one at a time
-    for key in dict_array.keys() {
-        match key {
-            Some(key) => {
-                let key = key.to_usize().ok_or_else(|| {
-                    ArrowError::ComputeError(format!(
-                        "Could not convert {:?} to usize for dictionary index in StringArray",
-                        key
-                    ))
-                })?;
-                b.append_value(dict_values.value(key))?
-            }
-            None => b.append_null()?,
-        }
-    }
-    Ok(Arc::new(b.finish()))
-}
-
-/// Unpack the dictionary into StringBuffer
-fn unpack_dictionary_to_string<K>(dict_array: &DictionaryArray<K>) -> Result<ArrayRef>
-where
-    K: ArrowDictionaryKeyType,
-{
-    use DataType::*;
-
-    // attempt to cast the dict values to the taget type Utf8 (Strings) and then copy them over
-    let cast_dict_values = cast(&dict_array.values(), &Utf8)?;
-    let dict_values = cast_dict_values
-        .as_any()
-        .downcast_ref::<StringArray>()
-        .unwrap();
-
-    let mut b = StringBuilder::new(dict_array.len());
-
-    // copy each element one at a time
-    for key in dict_array.keys() {
-        match key {
-            Some(key) => {
-                let key = key.to_usize().ok_or_else(|| {
-                    ArrowError::ComputeError(format!(
-                        "Could not convert {:?} to usize for dictionary index in StringArray",
-                        key
-                    ))
-                })?;
-                b.append_value(dict_values.value(key))?
-            }
-            None => b.append_null()?,
-        }
-    }
-    Ok(Arc::new(b.finish()))
+    take(&cast_dict_values, u32_indicies, None)
 }
 
 /// Attempts to encode an array into an `ArrayDictionary` with index
