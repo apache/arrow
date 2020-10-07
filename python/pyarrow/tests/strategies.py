@@ -129,18 +129,16 @@ def fields(draw, type_strategy=primitive_types):
     return pa.field(name, type=typ, nullable=nullable, metadata=meta)
 
 
-def list_types(item_strategy=primitive_types, enable_fixed_size=True):
-    strategy = (
+def list_types(item_strategy=primitive_types):
+    return (
         st.builds(pa.list_, item_strategy) |
-        st.builds(pa.large_list, item_strategy)
-    )
-    if enable_fixed_size:
-        strategy |= st.builds(
+        st.builds(pa.large_list, item_strategy) |
+        st.builds(
             pa.list_,
             item_strategy,
             st.integers(min_value=0, max_value=16)
         )
-    return strategy
+    )
 
 
 @st.composite
@@ -177,14 +175,6 @@ def map_types(draw, key_strategy=primitive_types,
 
 # union type
 # extension type
-
-
-def nested_list_types(item_strategy=primitive_types, max_leaves=3):
-    return st.recursive(item_strategy, list_types, max_leaves=max_leaves)
-
-
-def nested_struct_types(item_strategy=primitive_types, max_leaves=3):
-    return st.recursive(item_strategy, struct_types, max_leaves=max_leaves)
 
 
 def schemas(type_strategy=primitive_types, max_fields=None):
@@ -361,6 +351,9 @@ all_record_batches = record_batches(all_types)
 all_tables = tables(all_types)
 
 
+# Define the same rules as above for pandas tests by excluding certain types
+# from the generation because of known issues.
+
 pandas_compatible_primitive_types = st.one_of(
     null_type,
     bool_type,
@@ -369,6 +362,8 @@ pandas_compatible_primitive_types = st.one_of(
     decimal_type,
     date_types,
     time_types,
+    # Need to exclude timestamp and duration types otherwise hypothesis
+    # discovers ARROW-10210
     # timestamp_types,
     # duration_types
     binary_type,
@@ -377,14 +372,37 @@ pandas_compatible_primitive_types = st.one_of(
     large_string_type,
 )
 
+# Need to exclude floating point types otherwise hypothesis discovers
+# ARROW-10211
+pandas_compatible_dictionary_value_types = st.one_of(
+    bool_type,
+    integer_types,
+    binary_type,
+    string_type,
+    fixed_size_binary_type,
+)
+
+
+def pandas_compatible_list_types(
+    item_strategy=pandas_compatible_primitive_types
+):
+    # Need to exclude fixed size list type otherwise hypothesis discovers
+    # ARROW-10194
+    return (
+        st.builds(pa.list_, item_strategy) |
+        st.builds(pa.large_list, item_strategy)
+    )
+
 
 pandas_compatible_types = st.deferred(
     lambda: st.one_of(
         pandas_compatible_primitive_types,
-        list_types(pandas_compatible_primitive_types, enable_fixed_size=False),
+        pandas_compatible_list_types(pandas_compatible_primitive_types),
         struct_types(pandas_compatible_primitive_types),
-        dictionary_types(),
-        list_types(pandas_compatible_types),
+        dictionary_types(
+            value_strategy=pandas_compatible_dictionary_value_types
+        ),
+        pandas_compatible_list_types(pandas_compatible_types),
         struct_types(pandas_compatible_types)
     )
 )

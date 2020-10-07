@@ -1957,7 +1957,8 @@ def test_duration_array_roundtrip_corner_cases(unit):
 
 @pytest.mark.pandas
 def test_duration_array_roundtrip_nanosecond_resolution_pandas_timedelta():
-    # corner case discovered by hypothesis
+    # corner case discovered by hypothesis:
+    # preserving the nanoseconds on conversion from a list of Timedelta objects
     import pandas as pd
     ty = pa.duration('ns')
     arr = pa.array([9223371273709551616], type=ty)
