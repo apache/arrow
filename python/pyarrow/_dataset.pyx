@@ -1352,7 +1352,7 @@ cdef class DirectoryPartitioning(Partitioning):
 
         if max_partition_dictionary_size in {-1, None}:
             infer_dictionary = True
-        else if max_partition_dictionary_size != 0:
+        elif max_partition_dictionary_size != 0:
             raise NotImplemented("max_partition_dictionary_size must be "
                                  "0, -1, or None")
 
