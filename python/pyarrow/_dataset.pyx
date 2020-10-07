@@ -1331,7 +1331,7 @@ cdef class DirectoryPartitioning(Partitioning):
             The names to associate with the values from the subdirectory names.
         inspect_dictionary : bool, default False
             When inferring a schema for partition fields, yield dictionary
-            encoded types instead of plain. This can be more efficient when
+            encoded types instead of plain types. This can be more efficient when
             materializing virtual columns, and Expressions parsed by the
             finished Partitioning will include dictionaries of all unique
             inspected values for each field.
