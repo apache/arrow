@@ -16,10 +16,11 @@
 # under the License.
 
 name: PR labeler
-on: pull_request_target
-  types: [opened, reopened]
-  paths:
-    - 'rust/**'
+on:
+  pull_request_target:
+    types: [opened, reopened]
+    paths:
+      - 'rust/**'
 
 jobs:
   assign-rust-labels:
