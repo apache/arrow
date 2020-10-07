@@ -205,8 +205,8 @@ def test_iter_batches_columns_reader(tempdir, batch_size):
     file_ = pq.ParquetFile(filename)
     for columns in [df.columns[:10], df.columns[10:]]:
         batches = file_.iter_batches(batch_size=batch_size, columns=columns)
-
-        for batch, start in zip(batches, range(0, total_size+batch_size, batch_size)):
+        batch_starts = range(0, total_size+batch_size, batch_size)
+        for batch, start in zip(batches, batch_starts):
             end = min(total_size, start + batch_size)
             tm.assert_frame_equal(
                 batch.to_pandas(),
