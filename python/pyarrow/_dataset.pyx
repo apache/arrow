@@ -1321,7 +1321,8 @@ cdef class DirectoryPartitioning(Partitioning):
         self.directory_partitioning = <CDirectoryPartitioning*> sp.get()
 
     @staticmethod
-    def discover(field_names, infer_dictionary=False):
+    def discover(field_names, infer_dictionary=False,
+                 max_partition_dictionary_size=0):
         """
         Discover a DirectoryPartitioning.
 
@@ -1335,6 +1336,10 @@ cdef class DirectoryPartitioning(Partitioning):
             materializing virtual columns, and Expressions parsed by the
             finished Partitioning will include dictionaries of all unique
             inspected values for each field.
+        max_partition_dictionary_size : int, default 0
+            Synonymous with infer_dictionary for backwards compatibility with 1.0
+            Setting this to -1 or None is equivalent to passing
+            infer_dictionary=True.
 
         Returns
         -------
@@ -1344,6 +1349,12 @@ cdef class DirectoryPartitioning(Partitioning):
         cdef:
             CPartitioningFactoryOptions c_options
             vector[c_string] c_field_names
+
+        if max_partition_dictionary_size in {-1, None}:
+            infer_dictionary = True
+        else if max_partition_dictionary_size != 0:
+            raise NotImplemented("max_partition_dictionary_size must be "
+                                 "0, -1, or None")
 
         if infer_dictionary:
             c_options.infer_dictionary = True
@@ -1401,7 +1412,7 @@ cdef class HivePartitioning(Partitioning):
         self.hive_partitioning = <CHivePartitioning*> sp.get()
 
     @staticmethod
-    def discover(infer_dictionary=False):
+    def discover(infer_dictionary=False, max_partition_dictionary_size=0):
         """
         Discover a HivePartitioning.
 
@@ -1413,6 +1424,10 @@ cdef class HivePartitioning(Partitioning):
             materializing virtual columns, and Expressions parsed by the
             finished Partitioning will include dictionaries of all unique
             inspected values for each field.
+        max_partition_dictionary_size : int, default 0
+            Synonymous with infer_dictionary for backwards compatibility with 1.0
+            Setting this to -1 or None is equivalent to passing
+            infer_dictionary=True.
 
         Returns
         -------
@@ -1421,6 +1436,12 @@ cdef class HivePartitioning(Partitioning):
         """
         cdef:
             CPartitioningFactoryOptions c_options
+
+        if max_partition_dictionary_size in {-1, None}:
+            infer_dictionary = True
+        else if max_partition_dictionary_size != 0:
+            raise NotImplemented("max_partition_dictionary_size must be "
+                                 "0, -1, or None")
 
         if infer_dictionary:
             c_options.infer_dictionary = True
