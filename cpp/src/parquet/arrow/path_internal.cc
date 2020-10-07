@@ -815,7 +815,7 @@ class PathBuilder {
   Status Visit(const ::arrow::FixedSizeListArray& array) {
     MaybeAddNullable(array);
     int32_t list_size = array.list_type()->list_size();
-    // Technically we could encoded fixed size lists with two level encodings
+    // Technically we could encode fixed size lists with two level encodings
     // but since we always use 3 level encoding we increment def levels as
     // well.
     info_.max_def_level++;

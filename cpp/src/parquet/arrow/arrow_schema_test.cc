@@ -366,7 +366,7 @@ TEST_F(TestConvertParquetSchema, ParquetMaps) {
     auto arrow_map = ::arrow::map(/*key=*/UTF8, arrow_value);
     arrow_fields.push_back(::arrow::field("my_map", arrow_map, false));
   }
-  // Single column map (i.e. set) gets conversted to list of struct.
+  // Single column map (i.e. set) gets converted to list of struct.
   {
     auto key = PrimitiveNode::Make("key", Repetition::REQUIRED, ParquetType::BYTE_ARRAY,
                                    ConvertedType::UTF8);
