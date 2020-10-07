@@ -302,7 +302,11 @@ impl<T: AsRef<[u8]>> From<T> for Buffer {
     }
 }
 
-///  Helper function for binary SIMD operations like `BitAnd` and `BitOr`.
+/// Apply a bitwise operation `simd_op` / `scalar_op` to two inputs using simd instructions and return the result as a Buffer.
+/// The `simd_op` functions gets applied on chunks of 64 bytes (512 bits) at a time
+/// and the `scalar_op` gets applied to remaining bytes.
+/// Contrary to the non-simd version `bitwise_bin_op_helper`, the offset and length is specified in bytes
+/// and this version does not support operations starting at arbitrary bit offsets.
 #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
 fn bitwise_bin_op_simd_helper<F_SIMD, F_SCALAR>(
     left: &Buffer,
@@ -347,7 +351,11 @@ where
     result.freeze()
 }
 
-///  Helper function for unary SIMD operations like `BitNot`.
+/// Apply a bitwise operation `simd_op` / `scalar_op` to one input using simd instructions and return the result as a Buffer.
+/// The `simd_op` functions gets applied on chunks of 64 bytes (512 bits) at a time
+/// and the `scalar_op` gets applied to remaining bytes.
+/// Contrary to the non-simd version `bitwise_unary_op_helper`, the offset and length is specified in bytes
+/// and this version does not support operations starting at arbitrary bit offsets.
 #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
 fn bitwise_unary_op_simd_helper<F_SIMD, F_SCALAR>(
     left: &Buffer,
@@ -386,6 +394,8 @@ where
     result.freeze()
 }
 
+/// Apply a bitwise operation `op` to two inputs and return the result as a Buffer.
+/// The inputs are treated as bitmaps, meaning that offsets and length are specified in number of bits.
 fn bitwise_bin_op_helper<F>(
     left: &Buffer,
     left_offset_in_bits: usize,
@@ -421,6 +431,8 @@ where
     result.freeze()
 }
 
+/// Apply a bitwise operation `op` to one input and return the result as a Buffer.
+/// The input is treated as a bitmap, meaning that offset and length are specified in number of bits.
 fn bitwise_unary_op_helper<F>(
     left: &Buffer,
     offset_in_bits: usize,
