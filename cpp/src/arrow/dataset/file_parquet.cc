@@ -556,17 +556,18 @@ Status ParquetFileFragment::EnsureCompleteMetadata(parquet::arrow::FileReader* r
   physical_schema_ = std::move(schema);
 
   std::shared_ptr<parquet::FileMetaData> metadata = reader->parquet_reader()->metadata();
+  int num_row_groups = metadata->num_row_groups();
 
   if (row_groups_.empty()) {
-    num_row_groups_ = metadata->num_row_groups();
-    row_groups_ = RowGroupInfo::FromCount(num_row_groups_);
+    num_row_groups_ = num_row_groups;
+    row_groups_ = RowGroupInfo::FromCount(num_row_groups);
   }
 
   for (const RowGroupInfo& info : row_groups_) {
     // Ensure RowGroups are indexing valid RowGroups before augmenting.
-    if (info.id() >= num_row_groups_) {
+    if (info.id() >= num_row_groups) {
       return Status::IndexError("Trying to scan row group ", info.id(), " but ",
-                                source_.path(), " only has ", num_row_groups_,
+                                source_.path(), " only has ", num_row_groups,
                                 " row groups");
     }
   }

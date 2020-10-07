@@ -832,6 +832,26 @@ def test_fragments_parquet_row_groups(tempdir):
     assert len(result) == 1
 
 
+@pytest.mark.parquet
+def test_parquet_fragment_num_row_groups(tempdir):
+    import pyarrow.parquet as pq
+
+    table = pa.table({'a': range(8)})
+    pq.write_table(table, tempdir / "test.parquet", row_group_size=2)
+    dataset = ds.dataset(tempdir / "test.parquet", format="parquet")
+    original_fragment = list(dataset.get_fragments())[0]
+
+    # create fragment with subset of row groups
+    fragment = original_fragment.format.make_fragment(
+        original_fragment.path, original_fragment.filesystem,
+          row_groups=[1, 3])
+    assert fragment.num_row_groups == 2
+    # ensure that parsing metadata preserves correct number of row groups
+    fragment.ensure_complete_metadata()
+    assert fragment.num_row_groups == 2
+    assert len(fragment.row_groups) == 2
+
+
 @pytest.mark.pandas
 @pytest.mark.parquet
 def test_fragments_parquet_row_groups_dictionary(tempdir):
