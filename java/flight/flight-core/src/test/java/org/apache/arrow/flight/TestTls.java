@@ -85,6 +85,22 @@ public class TestTls {
     });
   }
 
+  /**
+   * Test a basic request over TLS.
+   */
+  @Test
+  public void connectTlsDisableServerVerification() {
+    test((builder) -> {
+      try (final FlightClient client = builder.verifyServer(false).build()) {
+        final Iterator<Result> responses = client.doAction(new Action("hello-world"));
+        final byte[] response = responses.next().getBody();
+        Assert.assertEquals("Hello, world!", new String(response, StandardCharsets.UTF_8));
+        Assert.assertFalse(responses.hasNext());
+      } catch (InterruptedException e) {
+        throw new RuntimeException(e);
+      }
+    });
+  }
 
   void test(Consumer<Builder> testFn) {
     final FlightTestUtil.CertKeyPair certKey = FlightTestUtil.exampleTlsCerts().get(0);
