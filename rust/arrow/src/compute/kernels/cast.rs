@@ -378,7 +378,7 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
         (Time32(from_unit), Time64(to_unit)) => {
             let time_array = Int32Array::from(array.data());
             // note: (numeric_cast + SIMD multiply) is faster than (cast & multiply)
-            let c: Int64Array = numeric_cast(&time_array)?;
+            let c: Int64Array = numeric_cast(&time_array);
             let from_size = time_unit_multiple(&from_unit);
             let to_size = time_unit_multiple(&to_unit);
             // from is only smaller than to if 64milli/64second don't exist
@@ -590,37 +590,27 @@ where
     FROM::Native: num::NumCast,
     TO::Native: num::NumCast,
 {
-    numeric_cast::<FROM, TO>(
+    Ok(Arc::new(numeric_cast::<FROM, TO>(
         from.as_any()
             .downcast_ref::<PrimitiveArray<FROM>>()
             .unwrap(),
-    )
-    .map(|to| Arc::new(to) as ArrayRef)
+    )))
 }
 
 /// Natural cast between numeric types
-fn numeric_cast<T, R>(from: &PrimitiveArray<T>) -> Result<PrimitiveArray<R>>
+fn numeric_cast<T, R>(from: &PrimitiveArray<T>) -> PrimitiveArray<R>
 where
     T: ArrowNumericType,
     R: ArrowNumericType,
     T::Native: num::NumCast,
     R::Native: num::NumCast,
 {
-    let mut b = PrimitiveBuilder::<R>::new(from.len());
-
-    for i in 0..from.len() {
-        if from.is_null(i) {
-            b.append_null()?;
-        } else {
-            // some casts return None, such as a negative value to u{8|16|32|64}
-            match num::cast::cast(from.value(i)) {
-                Some(v) => b.append_value(v)?,
-                None => b.append_null()?,
-            };
-        }
-    }
-
-    Ok(b.finish())
+    from.iter()
+        .map(|v| match v {
+            Some(v) => num::cast::cast::<T::Native, R::Native>(v),
+            None => None,
+        })
+        .collect()
 }
 
 /// Cast numeric types to Utf8
@@ -661,28 +651,27 @@ fn cast_string_to_numeric<TO>(from: &ArrayRef) -> Result<ArrayRef>
 where
     TO: ArrowNumericType,
 {
-    string_to_numeric_cast::<TO>(from.as_any().downcast_ref::<StringArray>().unwrap())
-        .map(|to| Arc::new(to) as ArrayRef)
+    Ok(Arc::new(string_to_numeric_cast::<TO>(
+        from.as_any().downcast_ref::<StringArray>().unwrap(),
+    )))
 }
 
-fn string_to_numeric_cast<T>(from: &StringArray) -> Result<PrimitiveArray<T>>
+fn string_to_numeric_cast<T>(from: &StringArray) -> PrimitiveArray<T>
 where
     T: ArrowNumericType,
 {
-    let mut b = PrimitiveBuilder::<T>::new(from.len());
-
-    for i in 0..from.len() {
-        if from.is_null(i) {
-            b.append_null()?;
-        } else {
-            match from.value(i).parse::<T::Native>() {
-                Ok(v) => b.append_value(v)?,
-                _ => b.append_null()?,
-            };
-        }
-    }
-
-    Ok(b.finish())
+    (0..from.len())
+        .map(|i| {
+            if from.is_null(i) {
+                None
+            } else {
+                match from.value(i).parse::<T::Native>() {
+                    Ok(v) => Some(v),
+                    Err(_) => None,
+                }
+            }
+        })
+        .collect()
 }
 
 /// Cast numeric types to Boolean
@@ -727,32 +716,28 @@ where
     TO: ArrowNumericType,
     TO::Native: num::cast::NumCast,
 {
-    bool_to_numeric_cast::<TO>(from.as_any().downcast_ref::<BooleanArray>().unwrap())
-        .map(|to| Arc::new(to) as ArrayRef)
+    Ok(Arc::new(bool_to_numeric_cast::<TO>(
+        from.as_any().downcast_ref::<BooleanArray>().unwrap(),
+    )))
 }
 
-fn bool_to_numeric_cast<T>(from: &BooleanArray) -> Result<PrimitiveArray<T>>
+fn bool_to_numeric_cast<T>(from: &BooleanArray) -> PrimitiveArray<T>
 where
     T: ArrowNumericType,
     T::Native: num::NumCast,
 {
-    let mut b = PrimitiveBuilder::<T>::new(from.len());
-
-    for i in 0..from.len() {
-        if from.is_null(i) {
-            b.append_null()?;
-        } else if from.value(i) {
-            // a workaround to cast a primitive to T::Native, infallible
-            match num::cast::cast(1) {
-                Some(v) => b.append_value(v)?,
-                None => b.append_null()?,
-            };
-        } else {
-            b.append_value(T::default_value())?;
-        }
-    }
-
-    Ok(b.finish())
+    (0..from.len())
+        .map(|i| {
+            if from.is_null(i) {
+                None
+            } else if from.value(i) {
+                // a workaround to cast a primitive to T::Native, infallible
+                num::cast::cast(1)
+            } else {
+                Some(T::default_value())
+            }
+        })
+        .collect()
 }
 
 #[cfg(test)]

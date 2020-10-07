@@ -50,7 +50,7 @@ use std::sync::Arc;
 
 use csv as csv_crate;
 
-use crate::array::{ArrayRef, PrimitiveBuilder, StringBuilder};
+use crate::array::{ArrayRef, PrimitiveArray, StringBuilder};
 use crate::datatypes::*;
 use crate::error::{ArrowError, Result};
 use crate::record_batch::RecordBatch;
@@ -389,34 +389,38 @@ impl<R: Read> Reader<R> {
         rows: &[StringRecord],
         col_idx: usize,
     ) -> Result<ArrayRef> {
-        let mut builder = PrimitiveBuilder::<T>::new(rows.len());
         let is_boolean_type =
             *self.schema.field(col_idx).data_type() == DataType::Boolean;
-        for (row_index, row) in rows.iter().enumerate() {
-            match row.get(col_idx) {
-                Some(s) if !s.is_empty() => {
-                    let t = if is_boolean_type {
-                        s.to_lowercase().parse::<T::Native>()
-                    } else {
-                        s.parse::<T::Native>()
-                    };
-                    match t {
-                        Ok(v) => builder.append_value(v)?,
-                        Err(_) => {
-                            // TODO: we should surface the underlying error here.
-                            return Err(ArrowError::ParseError(format!(
+
+        rows.iter()
+            .enumerate()
+            .map(|(row_index, row)| {
+                match row.get(col_idx) {
+                    Some(s) => {
+                        if s.is_empty() {
+                            return Ok(None);
+                        }
+                        let parsed = if is_boolean_type {
+                            s.to_lowercase().parse::<T::Native>()
+                        } else {
+                            s.parse::<T::Native>()
+                        };
+                        match parsed {
+                            Ok(e) => Ok(Some(e)),
+                            Err(_) => Err(ArrowError::ParseError(format!(
+                                // TODO: we should surface the underlying error here.
                                 "Error while parsing value {} for column {} at line {}",
                                 s,
                                 col_idx,
                                 self.line_number + row_index
-                            )));
+                            ))),
                         }
                     }
+                    None => Ok(None),
                 }
-                _ => builder.append_null()?,
-            }
-        }
-        Ok(Arc::new(builder.finish()))
+            })
+            .collect::<Result<PrimitiveArray<T>>>()
+            .map(|e| Arc::new(e) as ArrayRef)
     }
 }
 
