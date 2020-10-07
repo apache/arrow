@@ -52,6 +52,8 @@ except ImportError:
     sparse = None
 
 
+# ignore all serialization deprecation warnings in this file, we test that the
+# warnings are actually raised in test_serialization_deprecated.py
 pytestmark = pytest.mark.filterwarnings("ignore:'pyarrow:DeprecationWarning")
 
 

@@ -76,6 +76,14 @@ except ImportError:
                          'offsets': offsets, 'itemsize': offset})
 
 
+def _deprecate_serialization(name):
+    msg = (
+        "'pyarrow.{}' is deprecated as of 2.0.0 and will be removed in a "
+        "future version. Use pickle or the pyarrow IPC functionality instead."
+    ).format(name)
+    warnings.warn(msg, DeprecationWarning, stacklevel=3)
+
+
 # ----------------------------------------------------------------------
 # Set up serialization for numpy with dtype object (primitive types are
 # handled efficiently with Arrow's Tensor facilities, see
@@ -262,13 +270,7 @@ def _register_custom_pandas_handlers(context):
 def register_torch_serialization_handlers(serialization_context):
     # ----------------------------------------------------------------------
     # Set up serialization for pytorch tensors
-
-    warnings.warn(
-        "'pyarrow.register_torch_serialization_handlers' is deprecated and "
-        "will be removed in a future version. Use pickle or the pyarrow IPC "
-        "functionality instead.",
-        DeprecationWarning, stacklevel=2
-    )
+    _deprecate_serialization("register_torch_serialization_handlers")
 
     try:
         import torch
@@ -491,22 +493,12 @@ def _register_default_serialization_handlers(serialization_context):
 
 
 def register_default_serialization_handlers(serialization_context):
-    warnings.warn(
-        "'pyarrow.register_default_serialization_handlers' is deprecated and "
-        "will be removed in a future version. Use pickle or the pyarrow IPC "
-        "functionality instead.",
-        DeprecationWarning, stacklevel=2
-    )
+    _deprecate_serialization("register_default_serialization_handlers")
     _register_default_serialization_handlers(serialization_context)
 
 
 def default_serialization_context():
-    warnings.warn(
-        "'pyarrow.default_serialization_context' is deprecated and will be "
-        "removed in a future version. Use pickle or the pyarrow IPC "
-        "functionality instead.",
-        DeprecationWarning, stacklevel=2
-    )
+    _deprecate_serialization("default_serialization_context")
     context = SerializationContext()
     _register_default_serialization_handlers(context)
     return context
