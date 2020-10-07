@@ -19,7 +19,9 @@
 
 use crate::arrow::array_reader::{build_array_reader, ArrayReader, StructArrayReader};
 use crate::arrow::schema::parquet_to_arrow_schema;
-use crate::arrow::schema::parquet_to_arrow_schema_by_columns;
+use crate::arrow::schema::{
+    parquet_to_arrow_schema_by_columns, parquet_to_arrow_schema_by_root_columns,
+};
 use crate::errors::{ParquetError, Result};
 use crate::file::reader::FileReader;
 use arrow::datatypes::{DataType as ArrowType, Schema, SchemaRef};
@@ -40,7 +42,12 @@ pub trait ArrowReader {
 
     /// Read parquet schema and convert it into arrow schema.
     /// This schema only includes columns identified by `column_indices`.
-    fn get_schema_by_columns<T>(&mut self, column_indices: T) -> Result<Schema>
+    /// To select leaf columns (i.e. `a.b.c` instead of `a`), set `leaf_columns = true`
+    fn get_schema_by_columns<T>(
+        &mut self,
+        column_indices: T,
+        leaf_columns: bool,
+    ) -> Result<Schema>
     where
         T: IntoIterator<Item = usize>;
 
@@ -84,16 +91,28 @@ impl ArrowReader for ParquetFileArrowReader {
         )
     }
 
-    fn get_schema_by_columns<T>(&mut self, column_indices: T) -> Result<Schema>
+    fn get_schema_by_columns<T>(
+        &mut self,
+        column_indices: T,
+        leaf_columns: bool,
+    ) -> Result<Schema>
     where
         T: IntoIterator<Item = usize>,
     {
         let file_metadata = self.file_reader.metadata().file_metadata();
-        parquet_to_arrow_schema_by_columns(
-            file_metadata.schema_descr(),
-            column_indices,
-            file_metadata.key_value_metadata(),
-        )
+        if leaf_columns {
+            parquet_to_arrow_schema_by_columns(
+                file_metadata.schema_descr(),
+                column_indices,
+                file_metadata.key_value_metadata(),
+            )
+        } else {
+            parquet_to_arrow_schema_by_root_columns(
+                file_metadata.schema_descr(),
+                column_indices,
+                file_metadata.key_value_metadata(),
+            )
+        }
     }
 
     fn get_record_reader(
@@ -123,6 +142,7 @@ impl ArrowReader for ParquetFileArrowReader {
                 .metadata()
                 .file_metadata()
                 .schema_descr_ptr(),
+            self.get_schema()?,
             column_indices,
             self.file_reader.clone(),
         )?;

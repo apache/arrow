@@ -86,6 +86,7 @@ impl<'a, T> FatPtr<'a, T> {
         self.ptr
     }
 
+    #[allow(clippy::wrong_self_convention)]
     fn to_slice_mut(&mut self) -> &mut [T] {
         self.ptr
     }
