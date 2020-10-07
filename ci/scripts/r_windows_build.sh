@@ -32,12 +32,11 @@ if [ "$RTOOLS_VERSION" = "35" ]; then
   msys2_repo_base_url=https://sourceforge.net/projects/msys2/files/REPOS/MSYS2
   curl -OSsL "${msys2_repo_base_url}/x86_64/msys2-keyring-r21.b39fb11-1-any.pkg.tar.xz"
   pacman -U --noconfirm msys2-keyring-r21.b39fb11-1-any.pkg.tar.xz && rm msys2-keyring-r21.b39fb11-1-any.pkg.tar.xz
-  # Disable http://repo.msys2.org/ temporary.
+  # Use sf.net instead of http://repo.msys2.org/ temporary.
   sed -i -e "s,^Server = http://repo\.msys2\.org/msys,Server = ${msys2_repo_base_url},g" \
     /etc/pacman.conf
-  cat /etc/pacman.conf
   pacman --noconfirm -Scc
-  pacman --noconfirm -Syy --verbose --debug
+  pacman --noconfirm -Syy
   # lib-4.9.3 is for libraries compiled with gcc 4.9 (Rtools 3.5)
   RWINLIB_LIB_DIR="lib-4.9.3"
 else
