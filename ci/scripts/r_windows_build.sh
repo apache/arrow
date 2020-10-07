@@ -27,7 +27,10 @@ if [ "$RTOOLS_VERSION" = "35" ]; then
   # Use rtools-backports if building with rtools35
   curl https://raw.githubusercontent.com/r-windows/rtools-backports/master/pacman.conf > /etc/pacman.conf
   # Update keys: https://www.msys2.org/news/#2020-06-29-new-packagers
-  curl -OSsl "http://repo.msys2.org/msys/x86_64/msys2-keyring-r21.b39fb11-1-any.pkg.tar.xz"
+  msys2_repo_base_url=https://repo.msys2.org/msys
+  # Mirror
+  msys2_repo_base_url=https://sourceforge.net/projects/msys2/files/REPOS/MSYS2
+  curl -OSsl "${msys2_repo_base_url}/x86_64/msys2-keyring-r21.b39fb11-1-any.pkg.tar.xz"
   pacman -U --noconfirm msys2-keyring-r21.b39fb11-1-any.pkg.tar.xz && rm msys2-keyring-r21.b39fb11-1-any.pkg.tar.xz
   pacman --noconfirm -Scc
   pacman --noconfirm -Syy
