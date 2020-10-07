@@ -1332,13 +1332,13 @@ cdef class DirectoryPartitioning(Partitioning):
             The names to associate with the values from the subdirectory names.
         infer_dictionary : bool, default False
             When inferring a schema for partition fields, yield dictionary
-            encoded types instead of plain types. This can be more efficient when
-            materializing virtual columns, and Expressions parsed by the
+            encoded types instead of plain types. This can be more efficient
+            when materializing virtual columns, and Expressions parsed by the
             finished Partitioning will include dictionaries of all unique
             inspected values for each field.
         max_partition_dictionary_size : int, default 0
-            Synonymous with infer_dictionary for backwards compatibility with 1.0
-            Setting this to -1 or None is equivalent to passing
+            Synonymous with infer_dictionary for backwards compatibility with
+            1.0: setting this to -1 or None is equivalent to passing
             infer_dictionary=True.
 
         Returns
@@ -1425,8 +1425,8 @@ cdef class HivePartitioning(Partitioning):
             finished Partitioning will include dictionaries of all unique
             inspected values for each field.
         max_partition_dictionary_size : int, default 0
-            Synonymous with infer_dictionary for backwards compatibility with 1.0
-            Setting this to -1 or None is equivalent to passing
+            Synonymous with infer_dictionary for backwards compatibility with
+            1.0: setting this to -1 or None is equivalent to passing
             infer_dictionary=True.
 
         Returns
