@@ -998,8 +998,12 @@ Result<std::shared_ptr<ChunkedArray>> ConvertPySequence(PyObject* obj, PyObject*
   PyObject* seq;
   OwnedRef tmp_seq_nanny;
 
-  // FIXME(kszucs): shouldn't import pandas unconditionally
-  internal::InitPandasStaticData();
+  ARROW_ASSIGN_OR_RAISE(auto is_pandas_imported, internal::IsModuleImported("pandas"));
+  if (is_pandas_imported) {
+    // If pandas has been already imported initialize the static pandas objects to
+    // support converting from pd.Timedelta and pd.Timestamp objects
+    internal::InitPandasStaticData();
+  }
 
   int64_t size = options.size;
   RETURN_NOT_OK(ConvertToSequenceAndInferSize(obj, &seq, &size));

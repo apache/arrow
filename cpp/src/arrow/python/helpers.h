@@ -51,6 +51,10 @@ ARROW_PYTHON_EXPORT Status PyFloat_AsHalf(PyObject* obj, npy_half* out);
 
 namespace internal {
 
+// \brief Check that a Python module has been already imported
+// \param[in] module_name The name of the module
+Result<bool> IsModuleImported(const std::string& module_name);
+
 // \brief Import a Python module
 // \param[in] module_name The name of the module
 // \param[out] ref The OwnedRef containing the module PyObject*

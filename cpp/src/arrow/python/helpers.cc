@@ -128,6 +128,14 @@ Status PyObject_StdStringStr(PyObject* obj, std::string* out) {
   return PyUnicode_AsStdString(string_ref.obj(), out);
 }
 
+Result<bool> IsModuleImported(const std::string& module_name) {
+  // PyImport_GetModuleDict returns with a borrowed reference
+  OwnedRef key(PyUnicode_FromString(module_name.c_str()));
+  auto is_imported = PyDict_Contains(PyImport_GetModuleDict(), key.obj());
+  RETURN_IF_PYERROR();
+  return is_imported;
+}
+
 Status ImportModule(const std::string& module_name, OwnedRef* ref) {
   PyObject* module = PyImport_ImportModule(module_name.c_str());
   RETURN_IF_PYERROR();
