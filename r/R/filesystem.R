@@ -372,10 +372,6 @@ default_s3_options <- list(
   background_writes = TRUE
 )
 
-arrow_with_s3 <- function() {
-  .Call(`_s3_available`)
-}
-
 #' Connect to an AWS S3 bucket
 #'
 #' `s3_bucket()` is a convenience function to create an `S3FileSystem` object
