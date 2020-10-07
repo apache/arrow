@@ -128,7 +128,7 @@ def test_dataset(version):
     num_files = 5
     paths = [random_path() for i in range(num_files)]
     data = {
-        "col_" + str(i): np.random.randn(num_values[0]) 
+        "col_" + str(i): np.random.randn(num_values[0])
         for i in range(num_values[1])
     }
     table = pa.table(data)
@@ -140,10 +140,11 @@ def test_dataset(version):
             (index + 1) * (num_values[0] // num_files),
         )
 
-        write_feather(table[rows[0] : rows[1]], path, version=version)
+        write_feather(table[rows[0]: rows[1]], path, version=version)
 
     data = FeatherDataset(paths).read_table()
     assert data.equals(table)
+
 
 @pytest.mark.pandas
 def test_float_no_nulls(version):
