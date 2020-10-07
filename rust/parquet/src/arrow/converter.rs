@@ -21,8 +21,8 @@ use crate::data_type::{ByteArray, DataType, Int96};
 use arrow::{
     array::{
         Array, ArrayRef, BinaryBuilder, BooleanArray, BooleanBufferBuilder,
-        BufferBuilderTrait, FixedSizeBinaryBuilder, StringBuilder,
-        TimestampNanosecondBuilder,
+        BufferBuilderTrait, FixedSizeBinaryBuilder, LargeBinaryBuilder,
+        LargeStringBuilder, StringBuilder, TimestampNanosecondBuilder,
     },
     datatypes::Time32MillisecondType,
 };
@@ -38,8 +38,8 @@ use arrow::datatypes::{ArrowPrimitiveType, DataType as ArrowDataType};
 
 use arrow::array::ArrayDataBuilder;
 use arrow::array::{
-    BinaryArray, FixedSizeBinaryArray, PrimitiveArray, StringArray,
-    TimestampNanosecondArray,
+    BinaryArray, FixedSizeBinaryArray, LargeBinaryArray, LargeStringArray,
+    PrimitiveArray, StringArray, TimestampNanosecondArray,
 };
 use std::marker::PhantomData;
 
@@ -200,11 +200,48 @@ impl Converter<Vec<Option<ByteArray>>, StringArray> for Utf8ArrayConverter {
     }
 }
 
+pub struct LargeUtf8ArrayConverter {}
+
+impl Converter<Vec<Option<ByteArray>>, LargeStringArray> for LargeUtf8ArrayConverter {
+    fn convert(&self, source: Vec<Option<ByteArray>>) -> Result<LargeStringArray> {
+        let data_size = source
+            .iter()
+            .map(|x| x.as_ref().map(|b| b.len()).unwrap_or(0))
+            .sum();
+
+        let mut builder = LargeStringBuilder::with_capacity(source.len(), data_size);
+        for v in source {
+            match v {
+                Some(array) => builder.append_value(array.as_utf8()?),
+                None => builder.append_null(),
+            }?
+        }
+
+        Ok(builder.finish())
+    }
+}
+
 pub struct BinaryArrayConverter {}
 
 impl Converter<Vec<Option<ByteArray>>, BinaryArray> for BinaryArrayConverter {
     fn convert(&self, source: Vec<Option<ByteArray>>) -> Result<BinaryArray> {
         let mut builder = BinaryBuilder::new(source.len());
+        for v in source {
+            match v {
+                Some(array) => builder.append_value(array.data()),
+                None => builder.append_null(),
+            }?
+        }
+
+        Ok(builder.finish())
+    }
+}
+
+pub struct LargeBinaryArrayConverter {}
+
+impl Converter<Vec<Option<ByteArray>>, LargeBinaryArray> for LargeBinaryArrayConverter {
+    fn convert(&self, source: Vec<Option<ByteArray>>) -> Result<LargeBinaryArray> {
+        let mut builder = LargeBinaryBuilder::new(source.len());
         for v in source {
             match v {
                 Some(array) => builder.append_value(array.data()),
@@ -246,8 +283,15 @@ pub type Float32Converter = CastConverter<ParquetFloatType, Float32Type, Float32
 pub type Float64Converter = CastConverter<ParquetDoubleType, Float64Type, Float64Type>;
 pub type Utf8Converter =
     ArrayRefConverter<Vec<Option<ByteArray>>, StringArray, Utf8ArrayConverter>;
+pub type LargeUtf8Converter =
+    ArrayRefConverter<Vec<Option<ByteArray>>, LargeStringArray, LargeUtf8ArrayConverter>;
 pub type BinaryConverter =
     ArrayRefConverter<Vec<Option<ByteArray>>, BinaryArray, BinaryArrayConverter>;
+pub type LargeBinaryConverter = ArrayRefConverter<
+    Vec<Option<ByteArray>>,
+    LargeBinaryArray,
+    LargeBinaryArrayConverter,
+>;
 pub type Int96Converter =
     ArrayRefConverter<Vec<Option<Int96>>, TimestampNanosecondArray, Int96ArrayConverter>;
 pub type FixedLenBinaryConverter = ArrayRefConverter<
