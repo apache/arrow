@@ -328,17 +328,12 @@ system("tree nyc-taxi/feather")
 
 # feather
 # ├── payment_type=1
-# │   ├── dat_0.ipc
-# │   ├── dat_1.ipc
-# │   ├── dat_2.ipc
-# │   ├── dat_3.ipc
-# │   ├── dat_4.ipc
-# │   └── dat_5.ipc
+# │   └── part-5.feather
 # ├── payment_type=2
-# │   ├── dat_0.ipc
+# │   └── part-0.feather
 # ...
 # └── payment_type=5
-#     └── dat_2.ipc
+#     └── part-2.feather
 #
 # 5 directories, 25 files
 ```
