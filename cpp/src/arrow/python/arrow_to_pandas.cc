@@ -830,11 +830,11 @@ Status ConvertMap(PandasOptions options, const ChunkedArray& data,
   OwnedRef key_value;
   OwnedRef item_value;
   OwnedRefNoGIL owned_numpy_keys;
-  RETURN_NOT_OK(ConvertChunkedArrayToPandas(options, flat_keys, nullptr,
-                                            owned_numpy_keys.ref()));
+  RETURN_NOT_OK(
+      ConvertChunkedArrayToPandas(options, flat_keys, nullptr, owned_numpy_keys.ref()));
   OwnedRefNoGIL owned_numpy_items;
-  RETURN_NOT_OK(ConvertChunkedArrayToPandas(options, flat_items, nullptr,
-                                            owned_numpy_items.ref()));
+  RETURN_NOT_OK(
+      ConvertChunkedArrayToPandas(options, flat_items, nullptr, owned_numpy_items.ref()));
   PyArrayObject* py_keys = reinterpret_cast<PyArrayObject*>(owned_numpy_keys.obj());
   PyArrayObject* py_items = reinterpret_cast<PyArrayObject*>(owned_numpy_items.obj());
 
@@ -882,9 +882,8 @@ Status ConvertMap(PandasOptions options, const ChunkedArray& data,
           RETURN_IF_PYERROR();
         }
 
-        *out_values = list_item.obj();
-        // Release ownership to the resulting array
-        list_item.detach();
+        // Pass ownership to the resulting array
+        *out_values = list_item.detach();
       }
       ++out_values;
     }
