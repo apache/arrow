@@ -25,7 +25,12 @@ import warnings
 from os.path import join as pjoin
 
 import pyarrow as pa
-from pyarrow.util import implements, _stringify_path, _is_path_like
+from pyarrow.util import implements, _stringify_path, _is_path_like, _DEPR_MSG
+
+
+_FS_DEPR_MSG = _DEPR_MSG.format(
+    "filesystem.LocalFileSystem", "2.0.0", "fs.LocalFileSystem"
+)
 
 
 class FileSystem:
@@ -239,10 +244,7 @@ class LocalFileSystem(FileSystem):
     _instance = None
 
     def __init__(self):
-        warnings.warn(
-            "pyarrow.filesystem.LocalFileSystem is deprecated as of 2.0.0, "
-            "please use pyarrow.fs.LocalFileSystem instead",
-            DeprecationWarning, stacklevel=2)
+        warnings.warn(_FS_DEPR_MSG, DeprecationWarning, stacklevel=2)
         super().__init__()
 
     @classmethod
@@ -254,10 +256,7 @@ class LocalFileSystem(FileSystem):
 
     @classmethod
     def get_instance(cls):
-        warnings.warn(
-            "pyarrow.filesystem.LocalFileSystem is deprecated as of 2.0.0, "
-            "please use pyarrow.fs.LocalFileSystem instead",
-            DeprecationWarning, stacklevel=2)
+        warnings.warn(_FS_DEPR_MSG, DeprecationWarning, stacklevel=2)
         return cls._get_instance()
 
     @implements(FileSystem.ls)
