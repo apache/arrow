@@ -3431,7 +3431,6 @@ TEST(TestArrowWriteDictionaries, AutoReadAsDictionary) {
 }
 
 TEST(TestArrowWriteDictionaries, NestedSubfield) {
-  // FIXME (ARROW-9943): Automatic decoding of dictionary subfields
   auto offsets = ::arrow::ArrayFromJSON(::arrow::int32(), "[0, 0, 2, 3]");
   auto indices = ::arrow::ArrayFromJSON(::arrow::int32(), "[0, 0, 0]");
   auto dict = ::arrow::ArrayFromJSON(::arrow::utf8(), "[\"foo\"]");
@@ -3442,20 +3441,14 @@ TEST(TestArrowWriteDictionaries, NestedSubfield) {
   ASSERT_OK_AND_ASSIGN(auto values,
                        ::arrow::ListArray::FromArrays(*offsets, *dict_values));
 
-  auto dense_ty = ::arrow::list(::arrow::utf8());
-  auto dense_values =
-      ::arrow::ArrayFromJSON(dense_ty, "[[], [\"foo\", \"foo\"], [\"foo\"]]");
-
   auto table = MakeSimpleTable(values, /*nullable=*/true);
-  auto expected_table = MakeSimpleTable(dense_values, /*nullable=*/true);
 
   auto props_store_schema = ArrowWriterProperties::Builder().store_schema()->build();
   std::shared_ptr<Table> actual;
   DoRoundtrip(table, values->length(), &actual, default_writer_properties(),
               props_store_schema);
 
-  // The nested subfield is not automatically decoded to dictionary
-  ::arrow::AssertTablesEqual(*expected_table, *actual);
+  ::arrow::AssertTablesEqual(*table, *actual);
 }
 
 }  // namespace arrow
