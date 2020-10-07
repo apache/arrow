@@ -790,7 +790,7 @@ cdef class Array(_PandasConvertible):
         cdef c_string result
         with nogil:
             result = self.ap.Diff(deref(other.ap))
-        return frombytes(result)
+        return frombytes(result, safe=True)
 
     def cast(self, object target_type, safe=True):
         """
@@ -992,7 +992,7 @@ cdef class Array(_PandasConvertible):
                 )
             )
 
-        return frombytes(result)
+        return frombytes(result, safe=True)
 
     def format(self, **kwargs):
         import warnings
