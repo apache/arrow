@@ -60,7 +60,7 @@ KeyMetadata KeyMetadata::Parse(const std::string& key_metadata) {
 
   if (is_internal_storage) {
     // 3.1 "key material" is stored internally, inside "key metadata" - parse it
-    KeyMaterial key_material = KeyMaterial::Parse(json_parser);
+    KeyMaterial key_material = KeyMaterial::Parse(&json_parser);
     return KeyMetadata(key_material);
   } else {
     // 3.2 "key material" is stored externally. "key metadata" keeps a reference to it

@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/json/object_parser.h"
 #include "arrow/json/object_writer.h"
 
 #include "parquet/encryption/key_material.h"
@@ -73,43 +74,43 @@ KeyMaterial KeyMaterial::Parse(const std::string& key_material_string) {
                            kKeyMaterialType1);
   }
   // Parse other fields (common to internal and external key material)
-  return Parse(json_parser);
+  return Parse(&json_parser);
 }
 
-KeyMaterial KeyMaterial::Parse(const ObjectParser& key_material_json) {
+KeyMaterial KeyMaterial::Parse(const ObjectParser* key_material_json) {
   // 2. Check if "key material" belongs to file footer key
   bool is_footer_key;
-  PARQUET_ASSIGN_OR_THROW(is_footer_key, key_material_json.GetBool(kIsFooterKeyField));
+  PARQUET_ASSIGN_OR_THROW(is_footer_key, key_material_json->GetBool(kIsFooterKeyField));
   std::string kms_instance_id;
   std::string kms_instance_url;
   if (is_footer_key) {
     // 3.  For footer key, extract KMS Instance ID
     PARQUET_ASSIGN_OR_THROW(kms_instance_id,
-                            key_material_json.GetString(kKmsInstanceIdField));
+                            key_material_json->GetString(kKmsInstanceIdField));
     // 4.  For footer key, extract KMS Instance URL
     PARQUET_ASSIGN_OR_THROW(kms_instance_url,
-                            key_material_json.GetString(kKmsInstanceUrlField));
+                            key_material_json->GetString(kKmsInstanceUrlField));
   }
   // 5. Extract master key ID
   std::string master_key_id;
-  PARQUET_ASSIGN_OR_THROW(master_key_id, key_material_json.GetString(kMasterKeyIdField));
+  PARQUET_ASSIGN_OR_THROW(master_key_id, key_material_json->GetString(kMasterKeyIdField));
   // 6. Extract wrapped DEK
   std::string encoded_wrapped_dek;
   PARQUET_ASSIGN_OR_THROW(encoded_wrapped_dek,
-                          key_material_json.GetString(kWrappedDataEncryptionKeyField));
+                          key_material_json->GetString(kWrappedDataEncryptionKeyField));
   std::string kek_id;
   std::string encoded_wrapped_kek;
   // 7. Check if "key material" was generated in double wrapping mode
   bool is_double_wrapped;
   PARQUET_ASSIGN_OR_THROW(is_double_wrapped,
-                          key_material_json.GetBool(kDoubleWrappingField));
+                          key_material_json->GetBool(kDoubleWrappingField));
   if (is_double_wrapped) {
     // 8. In double wrapping mode, extract KEK ID
     PARQUET_ASSIGN_OR_THROW(kek_id,
-                            key_material_json.GetString(kKeyEncryptionKeyIdField));
+                            key_material_json->GetString(kKeyEncryptionKeyIdField));
     // 9. In double wrapping mode, extract wrapped KEK
     PARQUET_ASSIGN_OR_THROW(encoded_wrapped_kek,
-                            key_material_json.GetString(kWrappedKeyEncryptionKeyField));
+                            key_material_json->GetString(kWrappedKeyEncryptionKeyField));
   }
 
   return KeyMaterial(is_footer_key, kms_instance_id, kms_instance_url, master_key_id,
