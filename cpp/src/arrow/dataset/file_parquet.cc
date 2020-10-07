@@ -556,9 +556,9 @@ Status ParquetFileFragment::EnsureCompleteMetadata(parquet::arrow::FileReader* r
   physical_schema_ = std::move(schema);
 
   std::shared_ptr<parquet::FileMetaData> metadata = reader->parquet_reader()->metadata();
-  num_row_groups_ = metadata->num_row_groups();
 
   if (row_groups_.empty()) {
+    num_row_groups_ = metadata->num_row_groups();
     row_groups_ = RowGroupInfo::FromCount(num_row_groups_);
   }
 
