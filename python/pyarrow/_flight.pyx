@@ -51,7 +51,7 @@ cdef int check_flight_status(const CStatus& status) nogil except -1:
     detail = FlightStatusDetail.UnwrapStatus(status)
     if detail:
         with gil:
-            message = frombytes(status.message())
+            message = frombytes(status.message(), safe=True)
             detail_msg = detail.get().extra_info()
             if detail.get().code() == CFlightStatusInternal:
                 raise FlightInternalError(message, detail_msg)
@@ -72,7 +72,7 @@ cdef int check_flight_status(const CStatus& status) nogil except -1:
     size_detail = FlightWriteSizeStatusDetail.UnwrapStatus(status)
     if size_detail:
         with gil:
-            message = frombytes(status.message())
+            message = frombytes(status.message(), safe=True)
             raise FlightWriteSizeExceededError(
                 message,
                 size_detail.get().limit(), size_detail.get().actual())

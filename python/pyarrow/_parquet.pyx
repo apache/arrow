@@ -177,7 +177,7 @@ cdef class ParquetLogicalType(_Weakrefable):
         self.type = type
 
     def __str__(self):
-        return frombytes(self.type.get().ToString())
+        return frombytes(self.type.get().ToString(), safe=True)
 
     def to_json(self):
         return frombytes(self.type.get().ToJSON())
@@ -715,8 +715,9 @@ cdef class ParquetSchema(_Weakrefable):
         self.schema = container._metadata.schema()
 
     def __repr__(self):
-        return """{0}
-{1}""".format(object.__repr__(self), frombytes(self.schema.ToString()))
+        return "{0}\n{1}".format(
+            object.__repr__(self),
+            frombytes(self.schema.ToString(), safe=True))
 
     def __reduce__(self):
         return ParquetSchema, (self.parent,)

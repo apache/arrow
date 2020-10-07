@@ -154,7 +154,7 @@ cdef class DataType(_Weakrefable):
         return self.type.layout().buffers.size()
 
     def __str__(self):
-        return frombytes(self.type.ToString())
+        return frombytes(self.type.ToString(), safe=True)
 
     def __hash__(self):
         return hash(str(self))
@@ -888,7 +888,7 @@ cdef class KeyValueMetadata(_Metadata, Mapping):
         return str(self)
 
     def __str__(self):
-        return frombytes(self.metadata.ToString())
+        return frombytes(self.metadata.ToString(), safe=True)
 
     def __eq__(self, other):
         try:
@@ -1012,7 +1012,8 @@ cdef class Field(_Weakrefable):
         return field, (self.name, self.type, self.nullable, self.metadata)
 
     def __str__(self):
-        return 'pyarrow.Field<{0}>'.format(frombytes(self.field.ToString()))
+        return 'pyarrow.Field<{0}>'.format(
+            frombytes(self.field.ToString(), safe=True))
 
     def __repr__(self):
         return self.__str__()
@@ -1574,7 +1575,7 @@ cdef class Schema(_Weakrefable):
                 )
             )
 
-        return frombytes(result)
+        return frombytes(result, safe=True)
 
     def _export_to_c(self, uintptr_t out_ptr):
         """
