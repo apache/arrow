@@ -211,6 +211,7 @@ TEST(TestProjector, CheckProjectable) {
   auto i8_req = field("i8", int8(), false);
   auto u16_req = field("u16", uint16(), false);
   auto str_req = field("str", utf8(), false);
+  auto str_nil = field("str", null());
 
   // trivial
   Assert({}).ProjectableTo({});
@@ -235,6 +236,8 @@ TEST(TestProjector, CheckProjectable) {
   Assert({i8}).NotProjectableTo({i8_req},
                                 "not nullable but is not required in origin schema");
   Assert({i8_req}).ProjectableTo({i8});
+  Assert({str_nil}).ProjectableTo({str});
+  Assert({str_nil}).NotProjectableTo({str_req});
 
   // change field type
   Assert({i8}).NotProjectableTo({field("i8", utf8())},
@@ -257,15 +260,18 @@ TEST(TestProjector, MismatchedType) {
 TEST(TestProjector, AugmentWithNull) {
   constexpr int64_t kBatchSize = 1024;
 
-  auto from_schema = schema({field("f64", float64()), field("b", boolean())});
+  auto from_schema =
+      schema({field("f64", float64()), field("b", boolean()), field("str", null())});
   auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, from_schema);
-  auto to_schema = schema({field("i32", int32()), field("f64", float64())});
+  auto to_schema =
+      schema({field("i32", int32()), field("f64", float64()), field("str", utf8())});
 
   RecordBatchProjector projector(to_schema);
 
   ASSERT_OK_AND_ASSIGN(auto null_i32, MakeArrayOfNull(int32(), batch->num_rows()));
-  auto expected_batch =
-      RecordBatch::Make(to_schema, batch->num_rows(), {null_i32, batch->column(0)});
+  ASSERT_OK_AND_ASSIGN(auto null_str, MakeArrayOfNull(utf8(), batch->num_rows()));
+  auto expected_batch = RecordBatch::Make(to_schema, batch->num_rows(),
+                                          {null_i32, batch->column(0), null_str});
 
   ASSERT_OK_AND_ASSIGN(auto reconciled_batch, projector.Project(*batch));
   AssertBatchesEqual(*expected_batch, *reconciled_batch);

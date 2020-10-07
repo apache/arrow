@@ -2142,6 +2142,21 @@ def test_dataset_project_only_partition_columns(tempdir):
     assert all_cols.column('part').equals(part_only.column('part'))
 
 
+@pytest.mark.parquet
+@pytest.mark.pandas
+def test_dataset_project_null_column(tempdir):
+    import pandas as pd
+    df = pd.DataFrame({"col": np.array([None, None, None], dtype='object')})
+
+    f = tempdir / "test_dataset_project_null_column.parquet"
+    df.to_parquet(f, engine="pyarrow")
+
+    dataset = ds.dataset(f, format="parquet",
+                         schema=pa.schema([("col", pa.int64())]))
+    expected = pa.table({'col': pa.array([None, None, None], pa.int64())})
+    assert dataset.to_table().equals(expected)
+
+
 def _check_dataset_roundtrip(dataset, base_dir, expected_files,
                              base_dir_path=None, partitioning=None):
     base_dir_path = base_dir_path or base_dir
