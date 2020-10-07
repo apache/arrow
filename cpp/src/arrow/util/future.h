@@ -310,6 +310,15 @@ class Future {
     return impl_->Wait(seconds);
   }
 
+  /// If a Result<Future> holds an error instead of a Future, construct a finished Future
+  /// holding that error.
+  static Future DeferNotOk(Result<Future> maybe_future) {
+    if (ARROW_PREDICT_FALSE(!maybe_future.ok())) {
+      return MakeFinished(std::move(maybe_future).status());
+    }
+    return std::move(maybe_future).MoveValueUnsafe();
+  }
+
   // Producer API
 
   /// \brief Producer API: execute function and mark Future finished
@@ -355,13 +364,6 @@ class Future {
     auto fut = Make();
     fut.MarkFinished(std::forward<Args>(args)...);
     return fut;
-  }
-
-  static Future DeferNotOk(Result<Future> maybe_future) {
-    if (ARROW_PREDICT_FALSE(!maybe_future.ok())) {
-      return MakeFinished(std::move(maybe_future).status());
-    }
-    return std::move(maybe_future).MoveValueUnsafe();
   }
 
  protected:
