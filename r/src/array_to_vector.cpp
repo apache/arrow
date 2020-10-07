@@ -960,6 +960,17 @@ bool ArraysCanFitInteger(ArrayVector arrays) {
   return all_can_fit;
 }
 
+bool GetBoolOption(const std::string& name, bool default_) {
+  SEXP getOption = Rf_install("getOption");
+  cpp11::sexp call = Rf_lang2(getOption, Rf_mkString(name.c_str()));
+  cpp11::sexp res = Rf_eval(call, R_BaseEnv);
+  if (TYPEOF(res) == LGLSXP) {
+    return LOGICAL(res)[0] == TRUE;
+  } else {
+    return default_;
+  }
+}
+
 std::shared_ptr<Converter> Converter::Make(const std::shared_ptr<DataType>& type,
                                            ArrayVector arrays) {
   if (arrays.empty()) {
@@ -1068,8 +1079,8 @@ std::shared_ptr<Converter> Converter::Make(const std::shared_ptr<DataType>& type
       return std::make_shared<arrow::r::Converter_Timestamp<int64_t>>(std::move(arrays));
 
     case Type::INT64:
-      // Prefer integer if it fits
-      if (ArraysCanFitInteger(arrays)) {
+      // Prefer integer if it fits, unless option arrow.int64_downcast is `false`
+      if (GetBoolOption("arrow.int64_downcast", true) && ArraysCanFitInteger(arrays)) {
         return std::make_shared<arrow::r::Converter_Int<arrow::Int64Type>>(
             std::move(arrays));
       } else {
