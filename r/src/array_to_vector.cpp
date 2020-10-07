@@ -964,7 +964,6 @@ bool GetBoolOption(const std::string& name, bool default_) {
   SEXP getOption = Rf_install("getOption");
   cpp11::sexp call = Rf_lang2(getOption, Rf_mkString(name.c_str()));
   cpp11::sexp res = Rf_eval(call, R_BaseEnv);
-  Rf_PrintValue(res);
   if (TYPEOF(res) == LGLSXP) {
     return LOGICAL(res)[0] == TRUE;
   } else {
