@@ -550,27 +550,23 @@ Result<std::shared_ptr<Converter>> Converter::Make(const std::shared_ptr<DataTyp
     ptr.reset(new CONVERTER_TYPE(type, options, pool)); \
     break;
 
+#define NUMERIC_CONVERTER_CASE(TYPE_ID, TYPE_CLASS) \
+  CONVERTER_CASE(TYPE_ID,                           \
+                 (PrimitiveConverter<TYPE_CLASS, NumericValueDecoder<TYPE_CLASS>>))
+
     CONVERTER_CASE(Type::NA, NullConverter)
-    CONVERTER_CASE(Type::INT8,
-                   (PrimitiveConverter<Int8Type, NumericValueDecoder<Int8Type>>))
-    CONVERTER_CASE(Type::INT16,
-                   (PrimitiveConverter<Int16Type, NumericValueDecoder<Int16Type>>))
-    CONVERTER_CASE(Type::INT32,
-                   (PrimitiveConverter<Int32Type, NumericValueDecoder<Int32Type>>))
-    CONVERTER_CASE(Type::INT64,
-                   (PrimitiveConverter<Int64Type, NumericValueDecoder<Int64Type>>))
-    CONVERTER_CASE(Type::UINT8,
-                   (PrimitiveConverter<UInt8Type, NumericValueDecoder<UInt8Type>>))
-    CONVERTER_CASE(Type::UINT16,
-                   (PrimitiveConverter<UInt16Type, NumericValueDecoder<UInt16Type>>))
-    CONVERTER_CASE(Type::UINT32,
-                   (PrimitiveConverter<UInt32Type, NumericValueDecoder<UInt32Type>>))
-    CONVERTER_CASE(Type::UINT64,
-                   (PrimitiveConverter<UInt64Type, NumericValueDecoder<UInt64Type>>))
-    CONVERTER_CASE(Type::FLOAT,
-                   (PrimitiveConverter<FloatType, NumericValueDecoder<FloatType>>))
-    CONVERTER_CASE(Type::DOUBLE,
-                   (PrimitiveConverter<DoubleType, NumericValueDecoder<DoubleType>>))
+    NUMERIC_CONVERTER_CASE(Type::INT8, Int8Type)
+    NUMERIC_CONVERTER_CASE(Type::INT16, Int16Type)
+    NUMERIC_CONVERTER_CASE(Type::INT32, Int32Type)
+    NUMERIC_CONVERTER_CASE(Type::INT64, Int64Type)
+    NUMERIC_CONVERTER_CASE(Type::UINT8, UInt8Type)
+    NUMERIC_CONVERTER_CASE(Type::UINT16, UInt16Type)
+    NUMERIC_CONVERTER_CASE(Type::UINT32, UInt32Type)
+    NUMERIC_CONVERTER_CASE(Type::UINT64, UInt64Type)
+    NUMERIC_CONVERTER_CASE(Type::FLOAT, FloatType)
+    NUMERIC_CONVERTER_CASE(Type::DOUBLE, DoubleType)
+    NUMERIC_CONVERTER_CASE(Type::DATE32, Date32Type)
+    NUMERIC_CONVERTER_CASE(Type::DATE64, Date64Type)
     CONVERTER_CASE(Type::BOOL, (PrimitiveConverter<BooleanType, BooleanValueDecoder>))
     CONVERTER_CASE(Type::BINARY,
                    (PrimitiveConverter<BinaryType, BinaryValueDecoder<false>>))
@@ -624,6 +620,7 @@ Result<std::shared_ptr<Converter>> Converter::Make(const std::shared_ptr<DataTyp
     }
 
 #undef CONVERTER_CASE
+#undef NUMERIC_CONVERTER_CASE
   }
   RETURN_NOT_OK(ptr->Initialize());
   return ptr;

@@ -239,6 +239,31 @@ TEST(StringConversion, ToUInt64) {
   AssertConversionFails<UInt64Type>("e");
 }
 
+TEST(StringConversion, ToDate32) {
+  AssertConversion<Date32Type>("1970-01-01", 0);
+  AssertConversion<Date32Type>("1970-01-02", 1);
+  AssertConversion<Date32Type>("2020-03-15", 18336);
+  AssertConversion<Date32Type>("1945-05-08", -9004);
+  AssertConversion<Date32Type>("4707-11-28", 999999);
+  AssertConversion<Date32Type>("0001-01-01", -719162);
+
+  // Invalid format
+  AssertConversionFails<Date32Type>("");
+  AssertConversionFails<Date32Type>("1970");
+  AssertConversionFails<Date32Type>("1970-01");
+  AssertConversionFails<Date32Type>("1970-01-01 00:00:00");
+  AssertConversionFails<Date32Type>("1970/01/01");
+}
+
+TEST(StringConversion, ToDate64) {
+  AssertConversion<Date64Type>("1970-01-01", 0);
+  AssertConversion<Date64Type>("1970-01-02", 86400000);
+  AssertConversion<Date64Type>("2020-03-15", 1584230400000LL);
+  AssertConversion<Date64Type>("1945-05-08", -777945600000LL);
+  AssertConversion<Date64Type>("4707-11-28", 86399913600000LL);
+  AssertConversion<Date64Type>("0001-01-01", -62135596800000LL);
+}
+
 TEST(StringConversion, ToTimestampDate_ISO8601) {
   {
     TimestampType type{TimeUnit::SECOND};

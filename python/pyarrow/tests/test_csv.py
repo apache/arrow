@@ -16,7 +16,7 @@
 # under the License.
 
 import bz2
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 import gc
 import gzip
@@ -532,6 +532,30 @@ class BaseTestCSVRead:
         assert table.to_pydict() == {
             'a': [datetime(1970, 1, 1), datetime(1970, 1, 2)],
             'b': [datetime(1980, 1, 1), datetime(1980, 1, 2)],
+        }
+
+    def test_dates(self):
+        # Dates are inferred as timestamps by default
+        rows = b"a,b\n1970-01-01,1970-01-02\n1971-01-01,1971-01-02\n"
+        table = self.read_bytes(rows)
+        schema = pa.schema([('a', pa.timestamp('s')),
+                            ('b', pa.timestamp('s'))])
+        assert table.schema == schema
+        assert table.to_pydict() == {
+            'a': [datetime(1970, 1, 1), datetime(1971, 1, 1)],
+            'b': [datetime(1970, 1, 2), datetime(1971, 1, 2)],
+        }
+
+        # Can ask for date types explicitly
+        opts = ConvertOptions()
+        opts.column_types = {'a': pa.date32(), 'b': pa.date64()}
+        table = self.read_bytes(rows, convert_options=opts)
+        schema = pa.schema([('a', pa.date32()),
+                            ('b', pa.date64())])
+        assert table.schema == schema
+        assert table.to_pydict() == {
+            'a': [date(1970, 1, 1), date(1971, 1, 1)],
+            'b': [date(1970, 1, 2), date(1971, 1, 2)],
         }
 
     def test_auto_dict_encode(self):

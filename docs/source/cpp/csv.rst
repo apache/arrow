@@ -126,10 +126,14 @@ can be chosen from the following list:
 * Float32 and Float64
 * Decimal128
 * Boolean
+* Date32 and Date64
 * Timestamp
 * Binary and Large Binary
 * String and Large String (with optional UTF8 input validation)
 * Fixed-Size Binary
+* Dictionary with index type Int32 and value type one of the following:
+  Binary, String, LargeBinary, LargeString,  Int32, UInt32, Int64, UInt64,
+  Float32, Float64, Decimal128
 
 Other data types do not support conversion from CSV values and will error out.
 
