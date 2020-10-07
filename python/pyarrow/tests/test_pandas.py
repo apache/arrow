@@ -2132,6 +2132,60 @@ class TestConvertListTypes:
         assert len(column_a.chunk(0)) == 2**24 - 1
         assert len(column_a.chunk(1)) == 1
 
+    def test_map_array_roundtrip(self):
+        data = [[(b'a', 1), (b'b', 2)],
+                [(b'c', 3)],
+                [(b'd', 4), (b'e', 5), (b'f', 6)],
+                [(b'g', 7)]]
+
+        df = pd.DataFrame({"map": data})
+        schema = pa.schema([("map", pa.map_(pa.binary(), pa.int32()))])
+
+        _check_pandas_roundtrip(df, schema=schema)
+
+    def test_map_array_chunked(self):
+        data1 = [[(b'a', 1), (b'b', 2)],
+                 [(b'c', 3)],
+                 [(b'd', 4), (b'e', 5), (b'f', 6)],
+                 [(b'g', 7)]]
+        data2 = [[(k, v * 2) for k, v in row] for row in data1]
+
+        arr1 = pa.array(data1, type=pa.map_(pa.binary(), pa.int32()))
+        arr2 = pa.array(data2, type=pa.map_(pa.binary(), pa.int32()))
+        arr = pa.chunked_array([arr1, arr2])
+
+        expected = pd.Series(data1 + data2)
+        actual = arr.to_pandas()
+        tm.assert_series_equal(actual, expected, check_names=False)
+
+    def test_map_array_with_nulls(self):
+        data = [[(b'a', 1), (b'b', 2)],
+                None,
+                [(b'd', 4), (b'e', 5), (b'f', None)],
+                [(b'g', 7)]]
+
+        # None value in item array causes upcast to float
+        expected = [[(k, float(v) if v is not None else None) for k, v in row]
+                    if row is not None else None for row in data]
+        expected = pd.Series(expected)
+
+        arr = pa.array(data, type=pa.map_(pa.binary(), pa.int32()))
+        actual = arr.to_pandas()
+        tm.assert_series_equal(actual, expected, check_names=False)
+
+    def test_map_array_dictionary_encoded(self):
+        offsets = pa.array([0, 3, 5])
+        items = pa.array(['a', 'b', 'c', 'a', 'd']).dictionary_encode()
+        keys = pa.array(list(range(len(items))))
+        arr = pa.MapArray.from_arrays(offsets, keys, items)
+
+        # Dictionary encoded values converted to dense
+        expected = pd.Series(
+            [[(0, 'a'), (1, 'b'), (2, 'c')], [(3, 'a'), (4, 'd')]])
+
+        actual = arr.to_pandas()
+        tm.assert_series_equal(actual, expected, check_names=False)
+
 
 class TestConvertStructTypes:
     """

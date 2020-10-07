@@ -791,6 +791,110 @@ Status ConvertListsLike(PandasOptions options, const ChunkedArray& data,
   return Status::OK();
 }
 
+Status ConvertMap(PandasOptions options, const ChunkedArray& data,
+                  PyObject** out_values) {
+  // Get columns of underlying key/item arrays
+  std::vector<std::shared_ptr<Array>> key_arrays;
+  std::vector<std::shared_ptr<Array>> item_arrays;
+  for (int c = 0; c < data.num_chunks(); ++c) {
+    const auto& map_arr = checked_cast<const MapArray&>(*data.chunk(c));
+    key_arrays.emplace_back(map_arr.keys());
+    item_arrays.emplace_back(map_arr.items());
+  }
+
+  const auto& map_type = checked_cast<const MapType&>(*data.type());
+  auto key_type = map_type.key_type();
+  auto item_type = map_type.item_type();
+
+  // ARROW-6899: Convert dictionary-encoded children to dense instead of
+  // failing below. A more efficient conversion than this could be done later
+  if (key_type->id() == Type::DICTIONARY) {
+    auto dense_type = checked_cast<const DictionaryType&>(*key_type).value_type();
+    RETURN_NOT_OK(DecodeDictionaries(options.pool, dense_type, &key_arrays));
+    key_type = dense_type;
+  }
+  if (item_type->id() == Type::DICTIONARY) {
+    auto dense_type = checked_cast<const DictionaryType&>(*item_type).value_type();
+    RETURN_NOT_OK(DecodeDictionaries(options.pool, dense_type, &item_arrays));
+    item_type = dense_type;
+  }
+
+  // See notes in MakeInnerOptions.
+  options = MakeInnerOptions(std::move(options));
+  // Don't blindly convert because timestamps in lists are handled differently.
+  options.timestamp_as_object = true;
+
+  auto flat_keys = std::make_shared<ChunkedArray>(key_arrays, key_type);
+  auto flat_items = std::make_shared<ChunkedArray>(item_arrays, item_type);
+  OwnedRef list_item;
+  OwnedRef key_value;
+  OwnedRef item_value;
+  OwnedRefNoGIL owned_numpy_keys;
+  RETURN_NOT_OK(
+      ConvertChunkedArrayToPandas(options, flat_keys, nullptr, owned_numpy_keys.ref()));
+  OwnedRefNoGIL owned_numpy_items;
+  RETURN_NOT_OK(
+      ConvertChunkedArrayToPandas(options, flat_items, nullptr, owned_numpy_items.ref()));
+  PyArrayObject* py_keys = reinterpret_cast<PyArrayObject*>(owned_numpy_keys.obj());
+  PyArrayObject* py_items = reinterpret_cast<PyArrayObject*>(owned_numpy_items.obj());
+
+  int64_t chunk_offset = 0;
+  for (int c = 0; c < data.num_chunks(); ++c) {
+    const auto& arr = checked_cast<const MapArray&>(*data.chunk(c));
+    const bool has_nulls = data.null_count() > 0;
+
+    // Make a list of key/item pairs for each row in array
+    for (int64_t i = 0; i < arr.length(); ++i) {
+      if (has_nulls && arr.IsNull(i)) {
+        Py_INCREF(Py_None);
+        *out_values = Py_None;
+      } else {
+        int64_t entry_offset = arr.value_offset(i);
+        int64_t num_maps = arr.value_offset(i + 1) - entry_offset;
+
+        // Build the new list object for the row of maps
+        list_item.reset(PyList_New(num_maps));
+        RETURN_IF_PYERROR();
+
+        // Add each key/item pair in the row
+        for (int64_t j = 0; j < num_maps; ++j) {
+          // Get key value, key is non-nullable for a valid row
+          auto ptr_key = reinterpret_cast<const char*>(
+              PyArray_GETPTR1(py_keys, chunk_offset + entry_offset + j));
+          key_value.reset(PyArray_GETITEM(py_keys, ptr_key));
+          RETURN_IF_PYERROR();
+
+          if (item_arrays[c]->IsNull(entry_offset + j)) {
+            // Translate the Null to a None
+            Py_INCREF(Py_None);
+            item_value.reset(Py_None);
+          } else {
+            // Get valid value from item array
+            auto ptr_item = reinterpret_cast<const char*>(
+                PyArray_GETPTR1(py_items, chunk_offset + entry_offset + j));
+            item_value.reset(PyArray_GETITEM(py_items, ptr_item));
+            RETURN_IF_PYERROR();
+          }
+
+          // Add the key/item pair to the list for the row
+          PyList_SET_ITEM(list_item.obj(), j,
+                          PyTuple_Pack(2, key_value.obj(), item_value.obj()));
+          RETURN_IF_PYERROR();
+        }
+
+        // Pass ownership to the resulting array
+        *out_values = list_item.detach();
+      }
+      ++out_values;
+    }
+    RETURN_IF_PYERROR();
+
+    chunk_offset += arr.values()->length();
+  }
+
+  return Status::OK();
+}
+
 template <typename InType, typename OutType>
 inline void ConvertNumericNullable(const ChunkedArray& data, InType na_value,
                                    OutType* out_values) {
@@ -1026,6 +1130,8 @@ struct ObjectWriterVisitor {
     }
     return ConvertListsLike<ArrayType>(options, data, out_values);
   }
+
+  Status Visit(const MapType& type) { return ConvertMap(options, data, out_values); }
 
   Status Visit(const StructType& type) {
     return ConvertStruct(options, data, out_values);
@@ -1801,7 +1907,8 @@ static Status GetPandasWriterType(const ChunkedArray& data, const PandasOptions&
     } break;
     case Type::FIXED_SIZE_LIST:
     case Type::LIST:
-    case Type::LARGE_LIST: {
+    case Type::LARGE_LIST:
+    case Type::MAP: {
       auto list_type = std::static_pointer_cast<BaseListType>(data.type());
       if (!ListTypeSupported(*list_type->value_type())) {
         return Status::NotImplemented("Not implemented type for Arrow list to pandas: ",
