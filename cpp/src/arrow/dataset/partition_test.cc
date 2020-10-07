@@ -162,7 +162,7 @@ TEST_F(TestPartitioning, DiscoverSchema) {
 
 TEST_F(TestPartitioning, DictionaryInference) {
   PartitioningFactoryOptions options;
-  options.inspect_dictionary = true;
+  options.infer_dictionary = true;
   factory_ = DirectoryPartitioning::MakeFactory({"alpha", "beta"}, options);
 
   // type is still int32 if possible
@@ -177,7 +177,7 @@ TEST_F(TestPartitioning, DictionaryInference) {
 
 TEST_F(TestPartitioning, DictionaryHasUniqueValues) {
   PartitioningFactoryOptions options;
-  options.inspect_dictionary = true;
+  options.infer_dictionary = true;
   factory_ = DirectoryPartitioning::MakeFactory({"alpha"}, options);
 
   auto alpha = DictStr("alpha");
@@ -263,7 +263,7 @@ TEST_F(TestPartitioning, DiscoverHiveSchema) {
 
 TEST_F(TestPartitioning, HiveDictionaryInference) {
   PartitioningFactoryOptions options;
-  options.inspect_dictionary = true;
+  options.infer_dictionary = true;
   factory_ = HivePartitioning::MakeFactory(options);
 
   // type is still int32 if possible
@@ -282,7 +282,7 @@ TEST_F(TestPartitioning, HiveDictionaryInference) {
 
 TEST_F(TestPartitioning, HiveDictionaryHasUniqueValues) {
   PartitioningFactoryOptions options;
-  options.inspect_dictionary = true;
+  options.infer_dictionary = true;
   factory_ = HivePartitioning::MakeFactory(options);
 
   auto alpha = DictStr("alpha");

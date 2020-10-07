@@ -302,7 +302,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
 
     cdef cppclass CPartitioningFactoryOptions \
             "arrow::dataset::PartitioningFactoryOptions":
-        c_bool inspect_dictionary
+        c_bool infer_dictionary
 
     cdef cppclass CPartitioningFactory "arrow::dataset::PartitioningFactory":
         pass

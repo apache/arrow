@@ -1321,7 +1321,7 @@ cdef class DirectoryPartitioning(Partitioning):
         self.directory_partitioning = <CDirectoryPartitioning*> sp.get()
 
     @staticmethod
-    def discover(field_names, inspect_dictionary=False):
+    def discover(field_names, infer_dictionary=False):
         """
         Discover a DirectoryPartitioning.
 
@@ -1329,7 +1329,7 @@ cdef class DirectoryPartitioning(Partitioning):
         ----------
         field_names : list of str
             The names to associate with the values from the subdirectory names.
-        inspect_dictionary : bool, default False
+        infer_dictionary : bool, default False
             When inferring a schema for partition fields, yield dictionary
             encoded types instead of plain types. This can be more efficient when
             materializing virtual columns, and Expressions parsed by the
@@ -1345,8 +1345,8 @@ cdef class DirectoryPartitioning(Partitioning):
             CPartitioningFactoryOptions c_options
             vector[c_string] c_field_names
 
-        if inspect_dictionary:
-            c_options.inspect_dictionary = True
+        if infer_dictionary:
+            c_options.infer_dictionary = True
 
         c_field_names = [tobytes(s) for s in field_names]
         return PartitioningFactory.wrap(
@@ -1401,13 +1401,13 @@ cdef class HivePartitioning(Partitioning):
         self.hive_partitioning = <CHivePartitioning*> sp.get()
 
     @staticmethod
-    def discover(inspect_dictionary=False):
+    def discover(infer_dictionary=False):
         """
         Discover a HivePartitioning.
 
         Parameters
         ----------
-        inspect_dictionary : bool, default False
+        infer_dictionary : bool, default False
             When inferring a schema for partition fields, yield dictionary
             encoded types instead of plain. This can be more efficient when
             materializing virtual columns, and Expressions parsed by the
@@ -1422,8 +1422,8 @@ cdef class HivePartitioning(Partitioning):
         cdef:
             CPartitioningFactoryOptions c_options
 
-        if inspect_dictionary:
-            c_options.inspect_dictionary = True
+        if infer_dictionary:
+            c_options.infer_dictionary = True
 
         return PartitioningFactory.wrap(
             CHivePartitioning.MakeFactory(c_options))

@@ -1454,7 +1454,7 @@ class _ParquetDatasetV2:
         # check partitioning to enable dictionary encoding
         if partitioning == "hive":
             partitioning = ds.HivePartitioning.discover(
-                inspect_dictionary=True)
+                infer_dictionary=True)
 
         self._dataset = ds.dataset(path_or_paths, filesystem=filesystem,
                                    format=parquet_format,

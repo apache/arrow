@@ -1080,20 +1080,20 @@ def test_partitioning_factory(mockfs):
     assert isinstance(hive_partitioning_factory, ds.PartitioningFactory)
 
 
-@pytest.mark.parametrize('inspect_dictionary', [False, True])
-def test_partitioning_factory_dictionary(mockfs, inspect_dictionary):
+@pytest.mark.parametrize('infer_dictionary', [False, True])
+def test_partitioning_factory_dictionary(mockfs, infer_dictionary):
     paths_or_selector = fs.FileSelector('subdir', recursive=True)
     format = ds.ParquetFileFormat()
     options = ds.FileSystemFactoryOptions('subdir')
 
     options.partitioning_factory = ds.DirectoryPartitioning.discover(
-        ['group', 'key'], inspect_dictionary=inspect_dictionary)
+        ['group', 'key'], infer_dictionary=infer_dictionary)
 
     factory = ds.FileSystemDatasetFactory(
         mockfs, paths_or_selector, format, options)
 
     inferred_schema = factory.inspect()
-    if inspect_dictionary:
+    if infer_dictionary:
         expected_type = pa.dictionary(pa.int32(), pa.string())
         assert inferred_schema.field('key').type == expected_type
 
@@ -1486,10 +1486,10 @@ def test_open_dataset_partitioned_dictionary_type(tempdir, partitioning,
 
     if partitioning == "directory":
         partitioning = ds.DirectoryPartitioning.discover(
-            ["part1", "part2"], inspect_dictionary=True)
+            ["part1", "part2"], infer_dictionary=True)
         fmt = "{0}/{1}"
     else:
-        partitioning = ds.HivePartitioning.discover(inspect_dictionary=True)
+        partitioning = ds.HivePartitioning.discover(infer_dictionary=True)
         fmt = "part1={0}/part2={1}"
 
     basepath = tempdir / "dataset"

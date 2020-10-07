@@ -89,7 +89,7 @@ struct PartitioningFactoryOptions {
   /// instead of plain. This can be more efficient when materializing virtual
   /// columns, and Expressions parsed by the finished Partitioning will include
   /// dictionaries of all unique inspected values for each field.
-  bool inspect_dictionary = false;
+  bool infer_dictionary = false;
 };
 
 /// \brief PartitioningFactory provides creation of a partitioning  when the

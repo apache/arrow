@@ -353,7 +353,7 @@ class KeyValuePartitioningFactory : public PartitioningFactory {
       // try casting to int32, otherwise bail and just use the string reprs
       auto dict = compute::Cast(reprs, int32()).ValueOr(reprs).make_array();
       auto type = dict->type();
-      if (options_.inspect_dictionary) {
+      if (options_.infer_dictionary) {
         // wrap the inferred type in dictionary()
         type = dictionary(int32(), std::move(type));
       }
