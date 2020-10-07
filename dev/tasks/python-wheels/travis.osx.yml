@@ -29,6 +29,7 @@ addons:
       - flatbuffers
       - flex
       - git
+      - openblas
       - openssl@1.1
       - protobuf
       - python@3.8
@@ -70,7 +71,15 @@ install:
 
   # test the built wheels, move Homebrew directory to ensure
   # things are properly statically-linked
-  - sudo mv $(brew --cellar){,.bak}
+  - |
+    CELLAR=$(brew --cellar)
+    sudo mv $CELLAR{,.bak}
+
+    # make a new Cellar, allowing numpy to dynamically link to openblas
+    sudo mkdir $CELLAR
+    sudo ln -s ../Cellar.bak/openblas $CELLAR/openblas
+    # and brew's openblas will need gcc
+    sudo ln -s ../Cellar.bak/gcc $CELLAR/gcc
   # install the built wheel and test dependencies
   - install_wheel arrow
   # run unit tests before removing the system libraries
@@ -78,7 +87,11 @@ install:
   # run the import tests
   - run_import_tests
 
-  - sudo mv $(brew --cellar){.bak,}
+  - |
+    CELLAR=$(brew --cellar)
+    sudo rm $CELLAR/{gcc,openblas}
+    sudo rmdir $CELLAR
+    sudo mv $CELLAR{.bak,}
   # before_install activates a virtualenv but we need the system python3
   - deactivate
 

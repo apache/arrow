@@ -174,6 +174,15 @@ tasks:
       - arrow-cpp-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.tar.bz2
       - pyarrow-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.tar.bz2
 
+  conda-linux-gcc-py39-cpu:
+    ci: azure
+    template: conda-recipes/azure.linux.yml
+    params:
+      config: linux_cuda_compiler_versionNonepython3.9.____cpython
+    artifacts:
+      - arrow-cpp-{no_rc_version}-py39(h[a-z0-9]+)_0_cpu.tar.bz2
+      - pyarrow-{no_rc_version}-py39(h[a-z0-9]+)_0_cpu.tar.bz2
+
   conda-linux-gcc-py36-cuda:
     ci: azure
     template: conda-recipes/azure.linux.yml
@@ -201,6 +210,15 @@ tasks:
       - arrow-cpp-{no_rc_version}-py38(h[a-z0-9]+)_0_cuda.tar.bz2
       - pyarrow-{no_rc_version}-py38(h[a-z0-9]+)_0_cuda.tar.bz2
 
+  conda-linux-gcc-py39-cuda:
+    ci: azure
+    template: conda-recipes/azure.linux.yml
+    params:
+      config: linux_cuda_compiler_version9.2python3.9.____cpython
+    artifacts:
+      - arrow-cpp-{no_rc_version}-py39(h[a-z0-9]+)_0_cuda.tar.bz2
+      - pyarrow-{no_rc_version}-py39(h[a-z0-9]+)_0_cuda.tar.bz2
+
   conda-linux-gcc-py36-aarch64:
     ci: drone
     template: conda-recipes/drone.yml
@@ -227,6 +245,15 @@ tasks:
     artifacts:
       - arrow-cpp-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.tar.bz2
       - pyarrow-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.tar.bz2
+
+  conda-linux-gcc-py39-aarch64:
+    ci: drone
+    template: conda-recipes/drone.yml
+    params:
+      config: linux_aarch64_python3.9.____cpython
+    artifacts:
+      - arrow-cpp-{no_rc_version}-py39(h[a-z0-9]+)_0_cpu.tar.bz2
+      - pyarrow-{no_rc_version}-py39(h[a-z0-9]+)_0_cpu.tar.bz2
 
   ############################## Conda OSX ####################################
 
@@ -259,6 +286,15 @@ tasks:
       - arrow-cpp-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.tar.bz2
       - pyarrow-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.tar.bz2
 
+  conda-osx-clang-py39:
+    ci: azure
+    template: conda-recipes/azure.osx.yml
+    params:
+      config: osx_python3.9.____cpython
+    artifacts:
+      - arrow-cpp-{no_rc_version}-py39(h[a-z0-9]+)_0_cpu.tar.bz2
+      - pyarrow-{no_rc_version}-py39(h[a-z0-9]+)_0_cpu.tar.bz2
+
   ############################## Conda Windows ################################
 
   conda-win-vs2017-py36:
@@ -289,6 +325,15 @@ tasks:
     artifacts:
       - arrow-cpp-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.tar.bz2
       - pyarrow-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.tar.bz2
+
+  conda-win-vs2017-py39:
+    ci: azure
+    template: conda-recipes/azure.win.yml
+    params:
+      config: win_python3.9.____cpython
+    artifacts:
+      - arrow-cpp-{no_rc_version}-py39(h[a-z0-9]+)_0_cpu.tar.bz2
+      - pyarrow-{no_rc_version}-py39(h[a-z0-9]+)_0_cpu.tar.bz2
 
   ############################## Wheel Linux ##################################
 
@@ -348,6 +393,20 @@ tasks:
     artifacts:
       - pyarrow-{no_rc_version}-cp38-cp38-manylinux1_x86_64.whl
 
+  wheel-manylinux1-cp39:
+    ci: azure
+    template: python-wheels/azure.linux.yml
+    params:
+      python_version: 3.9
+      unicode_width: 16
+      wheel_tag: manylinux1
+      wheel_dir: manylinux1
+      test_docker_images:
+        - python:3.9
+      test_remove_system_libs: true
+    artifacts:
+      - pyarrow-{no_rc_version}-cp39-cp39-manylinux1_x86_64.whl
+
   wheel-manylinux2010-cp35m:
     ci: azure
     template: python-wheels/azure.linux.yml
@@ -403,6 +462,20 @@ tasks:
       test_remove_system_libs: true
     artifacts:
       - pyarrow-{no_rc_version}-cp38-cp38-manylinux2010_x86_64.whl
+
+  wheel-manylinux2010-cp39:
+    ci: azure
+    template: python-wheels/azure.linux.yml
+    params:
+      python_version: 3.9
+      unicode_width: 16
+      wheel_tag: manylinux2010
+      wheel_dir: manylinux201x
+      test_docker_images:
+        - python:3.9
+      test_remove_system_libs: true
+    artifacts:
+      - pyarrow-{no_rc_version}-cp39-cp39-manylinux2010_x86_64.whl
 
   wheel-manylinux2014-cp35m:
     ci: azure
@@ -460,6 +533,20 @@ tasks:
     artifacts:
       - pyarrow-{no_rc_version}-cp38-cp38-manylinux2014_x86_64.whl
 
+  wheel-manylinux2014-cp39:
+    ci: azure
+    template: python-wheels/azure.linux.yml
+    params:
+      python_version: 3.9
+      unicode_width: 16
+      wheel_tag: manylinux2014
+      wheel_dir: manylinux201x
+      test_docker_images:
+        - python:3.9
+      test_remove_system_libs: true
+    artifacts:
+      - pyarrow-{no_rc_version}-cp39-cp39-manylinux2014_x86_64.whl
+
   ############################## Wheel OSX ####################################
 
   wheel-osx-mavericks-cp35m:
@@ -501,6 +588,16 @@ tasks:
       arrow_s3: "OFF"
     artifacts:
       - pyarrow-{no_rc_version}-cp38-cp38-macosx_10_9_x86_64.whl
+
+  wheel-osx-mavericks-cp39:
+    ci: travis
+    template: python-wheels/travis.osx.yml
+    params:
+      python_version: 3.9
+      macos_deployment_target: 10.9
+      arrow_s3: "OFF"
+    artifacts:
+      - pyarrow-{no_rc_version}-cp39-cp39-macosx_10_9_x86_64.whl
 
   # enable S3 support from macOS 10.13 so we don't need to bundle curl, crypt and ssl
 
@@ -544,6 +641,16 @@ tasks:
     artifacts:
       - pyarrow-{no_rc_version}-cp38-cp38-macosx_10_13_x86_64.whl
 
+  wheel-osx-high-sierra-cp39:
+    ci: travis
+    template: python-wheels/travis.osx.yml
+    params:
+      python_version: 3.9
+      macos_deployment_target: 10.13
+      arrow_s3: "ON"
+    artifacts:
+      - pyarrow-{no_rc_version}-cp39-cp39-macosx_10_13_x86_64.whl
+
   ############################## Wheel Windows ################################
 
   wheel-win-cp36m:
@@ -569,6 +676,16 @@ tasks:
       python_version: 3.8
     artifacts:
       - pyarrow-{no_rc_version}-cp38-cp38-win_amd64.whl
+
+  wheel-win-cp39:
+    ci: appveyor
+    template: python-wheels/appveyor.yml
+    params:
+      script: win-build.bat
+      python_version: 3.9
+      python_interpreter: C:\Python38-x64\python.exe
+    artifacts:
+      - pyarrow-{no_rc_version}-cp39-cp39-win_amd64.whl
 
   ############################## Linux PKGS ####################################
 

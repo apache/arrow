@@ -114,6 +114,6 @@ python -c "import pyarrow.flight" || exit /B
 python -c "import pyarrow.dataset" || exit /B
 
 @rem run the python tests, but disable the cython because there is a linking
-@rem issue on python 3.8
+@rem issue on python 3.9
 set PYARROW_TEST_CYTHON=OFF
 python -m pytest -rs --pyargs pyarrow || exit /B
