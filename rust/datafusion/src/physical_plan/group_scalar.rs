@@ -91,6 +91,7 @@ impl From<&GroupByScalar> for ScalarValue {
     }
 }
 
+#[cfg(test)]
 mod tests {
     use super::*;
 
