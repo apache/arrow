@@ -714,7 +714,7 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
         A template string used to generate basenames of written data files.
         The token '{i}' will be replaced with an automatically incremented
         integer. If not specified, it defaults to
-        "dat_{i}." + format.default_extname
+        "part-{i}." + format.default_extname
     format : FileFormat or str
         The format in which to write the dataset. Currently supported:
         "parquet", "ipc"/"feather". If a FileSystemDataset is being written
@@ -726,14 +726,15 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
         function.
     schema : Schema, optional
     filesystem : FileSystem, optional
+    file_options : FileWriteOptions, optional
+        FileFormat specific write options, created using the
+        ``FileFormat.make_write_options()`` function.
     use_threads : bool, default True
         Write files in parallel. If enabled, then maximum parallelism will be
         used determined by the number of available CPU cores.
     """
     if isinstance(data, Dataset):
         schema = schema or data.schema
-        if isinstance(data, FileSystemDataset):
-            format = format or data.format
     elif isinstance(data, (pa.Table, pa.RecordBatch)):
         schema = schema or data.schema
         data = [data]
@@ -745,12 +746,21 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
             "objects are supported."
         )
 
-    format = _ensure_format(format)
-    if basename_template is None:
-        basename_template = "dat_{i}." + format.default_extname
+    if format is None and isinstance(data, FileSystemDataset):
+        format = data.format
+    else:
+        format = _ensure_format(format)
 
     if file_options is None:
         file_options = format.make_write_options()
+
+    if format != file_options.format:
+        raise TypeError("Supplied FileWriteOptions have format {}, "
+                        "which doesn't match supplied FileFormat {}".format(
+                            format, file_options))
+
+    if basename_template is None:
+        basename_template = "part-{i}." + format.default_extname
 
     partitioning = _ensure_write_partitioning(partitioning)
 
@@ -761,6 +771,6 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
     filesystem, _ = _ensure_fs(filesystem)
 
     _filesystemdataset_write(
-        data, base_dir, basename_template, schema, format,
+        data, base_dir, basename_template, schema,
         filesystem, partitioning, file_options, use_threads,
     )

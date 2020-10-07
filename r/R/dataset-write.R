@@ -37,8 +37,8 @@
 #' use the current `group_by()` columns.
 #' @param basename_template string template for the names of files to be written.
 #' Must contain `"{i}"`, which will be replaced with an autoincremented
-#' integer to generate basenames of datafiles. For example, `"dat_{i}.feather"`
-#' will yield `"dat_0.feather", ...`.
+#' integer to generate basenames of datafiles. For example, `"part-{i}.feather"`
+#' will yield `"part-0.feather", ...`.
 #' @param hive_style logical: write partition segments as Hive-style
 #' (`key1=value1/key2=value2/file.ext`) or as just bare values. Default is `TRUE`.
 #' @param filesystem A [FileSystem] where the dataset should be written if it is a
@@ -51,7 +51,7 @@ write_dataset <- function(dataset,
                           path,
                           format = dataset$format,
                           partitioning = dplyr::group_vars(dataset),
-                          basename_template = paste0("dat_{i}.", as.character(format)),
+                          basename_template = paste0("part-{i}.", as.character(format)),
                           hive_style = TRUE,
                           filesystem = NULL,
                           ...) {

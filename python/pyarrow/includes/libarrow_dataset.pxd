@@ -213,6 +213,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
 
     cdef cppclass CFileWriteOptions \
             "arrow::dataset::FileWriteOptions":
+        const shared_ptr[CFileFormat]& format() const
         c_string type_name() const
 
     cdef cppclass CFileFormat "arrow::dataset::FileFormat":

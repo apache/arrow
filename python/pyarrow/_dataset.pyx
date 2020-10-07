@@ -636,6 +636,10 @@ cdef class FileWriteOptions(_Weakrefable):
         self.init(sp)
         return self
 
+    @property
+    def format(self):
+        return FileFormat.wrap(self.options.format())
+
     cdef inline shared_ptr[CFileWriteOptions] unwrap(self):
         return self.wrapped
 
@@ -1113,7 +1117,8 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
         update = False
         update_arrow = False
         for name, value in kwargs.items():
-            assert name in self._properties
+            if name not in self._properties:
+                raise TypeError("unexpected parquet write option: " + name)
             self._properties[name] = value
             if name in arrow_fields:
                 update_arrow = True
@@ -1122,118 +1127,29 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
 
         if update:
             opts.writer_properties = _create_writer_properties(
-                use_dictionary=self.use_dictionary,
-                compression=self.compression,
-                version=self.version,
-                write_statistics=self.write_statistics,
-                data_page_size=self.data_page_size,
-                compression_level=self.compression_level,
-                use_byte_stream_split=self.use_byte_stream_split,
-                data_page_version=self.data_page_version,
+                use_dictionary=self._properties["use_dictionary"],
+                compression=self._properties["compression"],
+                version=self._properties["version"],
+                write_statistics=self._properties["write_statistics"],
+                data_page_size=self._properties["data_page_size"],
+                compression_level=self._properties["compression_level"],
+                use_byte_stream_split=(
+                    self._properties["use_byte_stream_split"]
+                ),
+                data_page_version=self._properties["data_page_version"],
             )
 
         if update_arrow:
             opts.arrow_writer_properties = _create_arrow_writer_properties(
                 use_deprecated_int96_timestamps=(
-                    self.use_deprecated_int96_timestamps
+                    self._properties["use_deprecated_int96_timestamps"]
                 ),
-                coerce_timestamps=self.coerce_timestamps,
-                allow_truncated_timestamps=self.allow_truncated_timestamps,
-                writer_engine_version=self.writer_engine_version,
+                coerce_timestamps=self._properties["coerce_timestamps"],
+                allow_truncated_timestamps=(
+                    self._properties["allow_truncated_timestamps"]
+                ),
+                writer_engine_version='V2'
             )
-
-    @property
-    def use_dictionary(self):
-        return self._properties['use_dictionary']
-
-    @use_dictionary.setter
-    def use_dictionary(self, use_dictionary):
-        self.update(use_dictionary=use_dictionary)
-
-    @property
-    def compression(self):
-        return self._properties['compression']
-
-    @compression.setter
-    def compression(self, compression):
-        self.update(compression=compression)
-
-    @property
-    def version(self):
-        return self._properties['version']
-
-    @version.setter
-    def version(self, version):
-        self.update(version=version)
-
-    @property
-    def write_statistics(self):
-        return self._properties['write_statistics']
-
-    @write_statistics.setter
-    def write_statistics(self, write_statistics):
-        self.update(write_statistics=write_statistics)
-
-    @property
-    def data_page_size(self):
-        return self._properties['data_page_size']
-
-    @data_page_size.setter
-    def data_page_size(self, data_page_size):
-        self.update(data_page_size=data_page_size)
-
-    @property
-    def compression_level(self):
-        return self._properties['compression_level']
-
-    @compression_level.setter
-    def compression_level(self, compression_level):
-        self.update(compression_level=compression_level)
-
-    @property
-    def use_byte_stream_split(self):
-        return self._properties['use_byte_stream_split']
-
-    @use_byte_stream_split.setter
-    def use_byte_stream_split(self, use_byte_stream_split):
-        self.update(use_byte_stream_split=use_byte_stream_split)
-
-    @property
-    def data_page_version(self):
-        return self._properties['data_page_version']
-
-    @data_page_version.setter
-    def data_page_version(self, data_page_version):
-        self.update(data_page_version=data_page_version)
-
-    @property
-    def use_deprecated_int96_timestamps(self):
-        return self._properties['use_deprecated_int96_timestamps']
-
-    @use_deprecated_int96_timestamps.setter
-    def use_deprecated_int96_timestamps(self, use_deprecated_int96_timestamps):
-        self.update(
-            use_deprecated_int96_timestamps=use_deprecated_int96_timestamps)
-
-    @property
-    def coerce_timestamps(self):
-        return self._properties['coerce_timestamps']
-
-    @coerce_timestamps.setter
-    def coerce_timestamps(self, coerce_timestamps):
-        self.update(coerce_timestamps=coerce_timestamps)
-
-    @property
-    def allow_truncated_timestamps(self):
-        return self._properties['allow_truncated_timestamps']
-
-    @allow_truncated_timestamps.setter
-    def allow_truncated_timestamps(self, allow_truncated_timestamps):
-        self.update(allow_truncated_timestamps=allow_truncated_timestamps)
-
-    @property
-    def writer_engine_version(self):
-        return 'V2'
 
     cdef void init(self, const shared_ptr[CFileWriteOptions]& sp):
         FileWriteOptions.init(self, sp)
@@ -2306,8 +2222,8 @@ def _get_partition_keys(Expression partition_expression):
 
 def _filesystemdataset_write(
     data not None, object base_dir not None, str basename_template not None,
-    Schema schema not None, FileFormat format not None,
-    FileSystem filesystem not None, Partitioning partitioning not None,
+    Schema schema not None, FileSystem filesystem not None,
+    Partitioning partitioning not None,
     FileWriteOptions file_options not None, bint use_threads,
 ):
     """

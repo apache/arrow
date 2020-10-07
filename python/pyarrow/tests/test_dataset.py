@@ -2174,18 +2174,18 @@ def test_write_dataset(tempdir):
 
     # full string path
     target = tempdir / 'single-file-target'
-    expected_files = [target / "dat_0.feather"]
+    expected_files = [target / "part-0.feather"]
     _check_dataset_roundtrip(dataset, str(target), expected_files, target)
 
     # pathlib path object
     target = tempdir / 'single-file-target2'
-    expected_files = [target / "dat_0.feather"]
+    expected_files = [target / "part-0.feather"]
     _check_dataset_roundtrip(dataset, target, expected_files, target)
 
     # TODO
     # # relative path
     # target = tempdir / 'single-file-target3'
-    # expected_files = [target / "dat_0.ipc"]
+    # expected_files = [target / "part-0.ipc"]
     # _check_dataset_roundtrip(
     #     dataset, './single-file-target3', expected_files, target)
 
@@ -2196,7 +2196,7 @@ def test_write_dataset(tempdir):
     dataset = ds.dataset(directory)
 
     target = tempdir / 'single-directory-target'
-    expected_files = [target / "dat_0.feather"]
+    expected_files = [target / "part-0.feather"]
     _check_dataset_roundtrip(dataset, str(target), expected_files, target)
 
 
@@ -2211,8 +2211,8 @@ def test_write_dataset_partitioned(tempdir):
     # hive partitioning
     target = tempdir / 'partitioned-hive-target'
     expected_paths = [
-        target / "part=a", target / "part=a" / "dat_0.feather",
-        target / "part=b", target / "part=b" / "dat_1.feather"
+        target / "part=a", target / "part=a" / "part-0.feather",
+        target / "part=b", target / "part=b" / "part-1.feather"
     ]
     partitioning_schema = ds.partitioning(
         pa.schema([("part", pa.string())]), flavor="hive")
@@ -2223,8 +2223,8 @@ def test_write_dataset_partitioned(tempdir):
     # directory partitioning
     target = tempdir / 'partitioned-dir-target'
     expected_paths = [
-        target / "a", target / "a" / "dat_0.feather",
-        target / "b", target / "b" / "dat_1.feather"
+        target / "a", target / "a" / "part-0.feather",
+        target / "b", target / "b" / "part-1.feather"
     ]
     partitioning_schema = ds.partitioning(
         pa.schema([("part", pa.string())]))
@@ -2304,27 +2304,27 @@ def test_write_table_multiple_fragments(tempdir):
     # Table with multiple batches written as single Fragment by default
     base_dir = tempdir / 'single'
     ds.write_dataset(table, base_dir, format="feather")
-    assert set(base_dir.rglob("*")) == set([base_dir / "dat_0.feather"])
+    assert set(base_dir.rglob("*")) == set([base_dir / "part-0.feather"])
     assert ds.dataset(base_dir, format="ipc").to_table().equals(table)
 
     # Same for single-element list of Table
     base_dir = tempdir / 'single-list'
     ds.write_dataset([table], base_dir, format="feather")
-    assert set(base_dir.rglob("*")) == set([base_dir / "dat_0.feather"])
+    assert set(base_dir.rglob("*")) == set([base_dir / "part-0.feather"])
     assert ds.dataset(base_dir, format="ipc").to_table().equals(table)
 
     # Provide list of batches to write multiple fragments
     base_dir = tempdir / 'multiple'
     ds.write_dataset(table.to_batches(), base_dir, format="feather")
     assert set(base_dir.rglob("*")) == set(
-        [base_dir / "dat_0.feather"])
+        [base_dir / "part-0.feather"])
     assert ds.dataset(base_dir, format="ipc").to_table().equals(table)
 
     # Provide list of tables to write multiple fragments
     base_dir = tempdir / 'multiple-table'
     ds.write_dataset([table, table], base_dir, format="feather")
     assert set(base_dir.rglob("*")) == set(
-        [base_dir / "dat_0.feather"])
+        [base_dir / "part-0.feather"])
     assert ds.dataset(base_dir, format="ipc").to_table().equals(
         pa.concat_tables([table]*2)
     )
@@ -2345,7 +2345,7 @@ def test_write_dataset_parquet(tempdir):
     ds.write_dataset(table, base_dir, format="parquet")
     # check that all files are present
     file_paths = list(base_dir.rglob("*"))
-    expected_paths = [base_dir / "dat_0.parquet"]
+    expected_paths = [base_dir / "part-0.parquet"]
     assert set(file_paths) == set(expected_paths)
     # check Table roundtrip
     result = ds.dataset(base_dir, format="parquet").to_table()
@@ -2357,5 +2357,5 @@ def test_write_dataset_parquet(tempdir):
         opts = format.make_write_options(version=version)
         base_dir = tempdir / 'parquet_dataset_version{0}'.format(version)
         ds.write_dataset(table, base_dir, format=format, file_options=opts)
-        meta = pq.read_metadata(base_dir / "dat_0.parquet")
+        meta = pq.read_metadata(base_dir / "part-0.parquet")
         assert meta.format_version == version
