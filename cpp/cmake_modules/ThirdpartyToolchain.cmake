@@ -2054,7 +2054,7 @@ if(ARROW_WITH_ZSTD)
 endif()
 
 # ----------------------------------------------------------------------
-# RE2 (required for Gandiva and Flight)
+# RE2 (required for Gandiva)
 
 macro(build_re2)
   message(STATUS "Building re2 from source")
@@ -2083,7 +2083,7 @@ macro(build_re2)
   list(APPEND ARROW_BUNDLED_STATIC_LIBS RE2::re2)
 endmacro()
 
-if(ARROW_GANDIVA OR ARROW_FLIGHT)
+if(ARROW_GANDIVA)
   resolve_dependency(RE2)
 
   # TODO: Don't use global includes but rather target_include_directories
@@ -2352,11 +2352,8 @@ macro(build_grpc)
     add_dependencies(grpc_dependencies gflags_ep)
   endif()
 
-  add_dependencies(grpc_dependencies
-                   ${ARROW_PROTOBUF_LIBPROTOBUF}
-                   c-ares::cares
-                   ZLIB::ZLIB
-                   RE2::re2)
+  add_dependencies(grpc_dependencies ${ARROW_PROTOBUF_LIBPROTOBUF} c-ares::cares
+                   ZLIB::ZLIB)
 
   get_target_property(GRPC_PROTOBUF_INCLUDE_DIR ${ARROW_PROTOBUF_LIBPROTOBUF}
                       INTERFACE_INCLUDE_DIRECTORIES)
@@ -2368,13 +2365,10 @@ macro(build_grpc)
   get_target_property(GRPC_GFLAGS_INCLUDE_DIR ${GFLAGS_LIBRARIES}
                       INTERFACE_INCLUDE_DIRECTORIES)
   get_filename_component(GRPC_GFLAGS_ROOT "${GRPC_GFLAGS_INCLUDE_DIR}" DIRECTORY)
-  get_target_property(GRPC_RE2_INCLUDE_DIR RE2::re2 INTERFACE_INCLUDE_DIRECTORIES)
-  get_filename_component(GRPC_RE2_ROOT "${GRPC_RE2_INCLUDE_DIR}" DIRECTORY)
 
   set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${GRPC_PB_ROOT}")
   set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${GRPC_GFLAGS_ROOT}")
   set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${GRPC_CARES_ROOT}")
-  set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${GRPC_RE2_ROOT}")
 
   # ZLIB is never vendored
   set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${ZLIB_ROOT}")
@@ -2404,7 +2398,6 @@ macro(build_grpc)
       -DgRPC_CARES_PROVIDER=package
       -DgRPC_GFLAGS_PROVIDER=package
       -DgRPC_PROTOBUF_PROVIDER=package
-      -DgRPC_RE2_PROVIDER=package
       -DgRPC_SSL_PROVIDER=package
       -DgRPC_ZLIB_PROVIDER=package
       -DCMAKE_CXX_FLAGS=${GRPC_CMAKE_CXX_FLAGS}
@@ -2510,7 +2503,7 @@ macro(build_grpc)
 endmacro()
 
 if(ARROW_WITH_GRPC)
-  set(ARROW_GRPC_REQUIRED_VERSION "1.32.0")
+  set(ARROW_GRPC_REQUIRED_VERSION "1.17.0")
   if(gRPC_SOURCE STREQUAL "AUTO")
     find_package(gRPC ${ARROW_GRPC_REQUIRED_VERSION} QUIET)
     if(NOT gRPC_FOUND)

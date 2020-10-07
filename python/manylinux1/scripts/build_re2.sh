@@ -31,7 +31,5 @@ make prefix=/usr/local -j${NCORES} install
 
 popd
 
-# Need to remove static library to make sure the shared library is picked up by Arrow
-# The static library fails to link when using gRPC 1.32.
-rm -rf re2-${RE2_VERSION}.tar.gz re2-${RE2_VERSION} /usr/local/lib/libre2.a
-
+# Need to remove shared library to make sure the static library is picked up by Arrow
+rm -rf re2-${RE2_VERSION}.tar.gz re2-${RE2_VERSION} /usr/local/lib/libre2.so*
