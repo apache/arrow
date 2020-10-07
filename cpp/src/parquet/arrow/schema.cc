@@ -722,7 +722,8 @@ Result<bool> ApplyOriginalStorageMetadata(const Field& origin_field,
 
   if (num_children > 0 && origin_type->num_fields() == num_children) {
     DCHECK_EQ(static_cast<int>(inferred->children.size()), num_children);
-    if (auto factory = GetNestedFactory(*origin_type, *inferred_type)) {
+    const auto factory = GetNestedFactory(*origin_type, *inferred_type);
+    if (factory) {
       // Apply original metadata recursively to children
       for (int i = 0; i < inferred_type->num_fields(); ++i) {
         ARROW_ASSIGN_OR_RAISE(
@@ -780,9 +781,6 @@ Result<bool> ApplyOriginalStorageMetadata(const Field& origin_field,
     inferred->field = inferred->field->WithMetadata(field_metadata);
     modified = true;
   }
-
-  // TODO Should apply metadata recursively to children, but for that we need
-  // to move metadata application inside NodeToSchemaField (ARROW-9943)
 
   return modified;
 }
