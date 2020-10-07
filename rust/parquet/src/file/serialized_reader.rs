@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! Contains file reader API and provides methods to access file metadata, row group
+//! Contains file reader implementations and provides methods to access file metadata, row group
 //! readers to read individual column chunks, or access record iterator.
 
 use std::{cmp::min, convert::TryFrom, fs::File, io::Read, path::Path, rc::Rc};
@@ -37,9 +37,8 @@ use crate::util::{
     memory::ByteBufferPtr,
 };
 
-////////////////////////////////////////////////
-////// START traits specific to file system ////
-////////////////////////////////////////////////
+// ----------------------------------------------------------------------
+// Implementations of traits facilitating the creation of a new reader
 
 impl Length for File {
     fn len(&self) -> u64 {
@@ -71,7 +70,6 @@ impl Length for SliceableCursor {
     }
 }
 
-/// TODO this makes a copy of the slice each time a reader is created
 impl ChunckReader for SliceableCursor {
     type T = SliceableCursor;
     type U = SliceableCursor;
@@ -128,9 +126,8 @@ impl IntoIterator for SerializedFileReader<File> {
     }
 }
 
-//////////////////////////////////////////////
-////// END traits specific to file system ////
-//////////////////////////////////////////////
+// ----------------------------------------------------------------------
+// Implementations of file & row group readers
 
 /// A serialized implementation for Parquet [`FileReader`].
 pub struct SerializedFileReader<R: ChunckReader> {

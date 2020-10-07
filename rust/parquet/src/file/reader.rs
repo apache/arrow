@@ -36,10 +36,22 @@ use crate::basic::Type;
 
 use crate::column::reader::ColumnReaderImpl;
 
+/// Length should return the amount of bytes that implementor contains.
+/// It's mainly used to read the metadata, which is at the end of the source.
+#[allow(clippy::len_without_is_empty)]
+pub trait Length {
+    /// Returns the amount of bytes of the inner source.
+    fn len(&self) -> u64;
+}
+
 pub trait ReadChunck: Read + Length {}
 pub trait ReadSeekChunck: ReadChunck + Seek {}
 impl<T: Read + Length> ReadChunck for T {}
 impl<T: ReadChunck + Seek> ReadSeekChunck for T {}
+
+/// The ChunckReader trait generates readers of chuncks of a source.
+/// For a file system reader, each chunck might contain a clone of File bounded on a given range.
+/// For an object store reader, each read can be mapped to a range request.
 pub trait ChunckReader: Length {
     type T: ReadChunck;
     type U: ReadSeekChunck;
@@ -134,15 +146,7 @@ pub trait RowGroupReader {
 }
 
 // ----------------------------------------------------------------------
-// Serialized impl for file & row group readers
-
-/// Length should return the amount of bytes that implementor contains.
-/// It's mainly used to read the metadata, which is at the end of the source.
-#[allow(clippy::len_without_is_empty)]
-pub trait Length {
-    /// Returns the amount of bytes of the inner source.
-    fn len(&self) -> u64;
-}
+// Iterator
 
 /// Implementation of page iterator for parquet file.
 pub struct FilePageIterator {
