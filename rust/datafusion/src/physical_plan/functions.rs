@@ -209,7 +209,11 @@ pub fn return_type(
             Box::new(Field::new("item", arg_types[0].clone(), true)),
             arg_types.len() as i32,
         )),
-        BuiltinScalarFunction::NullIf => Ok(arg_types[0].clone()),
+        BuiltinScalarFunction::NullIf => {
+            // NULLIF has two args and they might get coerced, get a preview of this
+            let coerced_types = data_types(arg_types, &signature(fun));
+            coerced_types.map(|typs| typs[0].clone())
+        }
         _ => Ok(DataType::Float64),
     }
 }
