@@ -157,9 +157,11 @@ static std::unique_ptr<FunctionRegistry> CreateBuiltInRegistry() {
 
   // Scalar functions
   RegisterScalarArithmetic(registry.get());
+  RegisterScalarBetween(registry.get());
   RegisterScalarBoolean(registry.get());
   RegisterScalarCast(registry.get());
   RegisterScalarComparison(registry.get());
+  RegisterScalarFillNull(registry.get());
   RegisterScalarIfElse(registry.get());
   RegisterScalarNested(registry.get());
   RegisterScalarRandom(registry.get());  // Nullary
@@ -169,6 +171,9 @@ static std::unique_ptr<FunctionRegistry> CreateBuiltInRegistry() {
   RegisterScalarTemporalBinary(registry.get());
   RegisterScalarTemporalUnary(registry.get());
   RegisterScalarValidity(registry.get());
+  RegisterScalarIfElse(registry.get());
+  RegisterScalarTemporalBinary(registry.get());
+  RegisterScalarTemporalUnary(registry.get());
 
   RegisterScalarOptions(registry.get());
 

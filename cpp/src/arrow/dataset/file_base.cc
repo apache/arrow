@@ -273,6 +273,7 @@ class DatasetWritingSinkNodeConsumer : public compute::SinkNodeConsumer {
  public:
   DatasetWritingSinkNodeConsumer(std::shared_ptr<Schema> schema,
                                  std::unique_ptr<internal::DatasetWriter> dataset_writer,
+<<<<<<< HEAD
                                  FileSystemDatasetWriteOptions write_options,
                                  std::shared_ptr<util::AsyncToggle> backpressure_toggle)
       : schema_(std::move(schema)),
@@ -283,6 +284,7 @@ class DatasetWritingSinkNodeConsumer : public compute::SinkNodeConsumer {
   Status Consume(compute::ExecBatch batch) {
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<RecordBatch> record_batch,
                           batch.ToRecordBatch(schema_));
+
     return WriteNextBatch(std::move(record_batch), batch.guarantee);
   }
 
@@ -336,6 +338,13 @@ class DatasetWritingSinkNodeConsumer : public compute::SinkNodeConsumer {
 
 Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_options,
                                 std::shared_ptr<Scanner> scanner) {
+  if (!scanner->options()->use_async) {
+    return Status::Invalid(
+        "A dataset write operation was invoked on a scanner that was configured for "
+        "synchronous scanning.  Dataset writing requires a scanner configured for "
+        "asynchronous scanning.  Please recreate the scanner with the use_async or "
+        "UseAsync option set to true");
+  }
   const io::IOContext& io_context = scanner->options()->io_context;
   std::shared_ptr<compute::ExecContext> exec_context =
       std::make_shared<compute::ExecContext>(io_context.pool(),

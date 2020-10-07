@@ -21,6 +21,7 @@
 add_arrow_compute_test(scalar_test
                        SOURCES
                        scalar_arithmetic_test.cc
+                       scalar_between_test.cc
                        scalar_boolean_test.cc
                        scalar_cast_test.cc
                        scalar_compare_test.cc
