@@ -751,7 +751,7 @@ test_that("Array$ApproxEquals", {
 })
 
 test_that("auto int64 conversion to int can be disabled (ARROW-10093)", {
-  op <- options(arrow.int64_auto_downcast = FALSE); on.exit(options(op))
+  op <- options(arrow.int64_downcast = FALSE); on.exit(options(op))
 
   a <- Array$create(1:10, int64())
   expect_true(inherits(a$as_vector(), "integer64"))

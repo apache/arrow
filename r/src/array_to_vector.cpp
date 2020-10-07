@@ -1079,9 +1079,8 @@ std::shared_ptr<Converter> Converter::Make(const std::shared_ptr<DataType>& type
       return std::make_shared<arrow::r::Converter_Timestamp<int64_t>>(std::move(arrays));
 
     case Type::INT64:
-      // Prefer integer if it fits, unless option arrow.int64_auto_downcast is `false`
-      if (ArraysCanFitInteger(arrays) &&
-          GetBoolOption("arrow.int64_auto_downcast", true)) {
+      // Prefer integer if it fits, unless option arrow.int64_downcast is `false`
+      if (GetBoolOption("arrow.int64_downcast", true) && ArraysCanFitInteger(arrays)) {
         return std::make_shared<arrow::r::Converter_Int<arrow::Int64Type>>(
             std::move(arrays));
       } else {
