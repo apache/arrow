@@ -26,7 +26,6 @@
 #include "arrow/compute/function.h"
 #include "arrow/compute/registry_internal.h"
 #include "arrow/status.h"
-#include "arrow/util/cpu_info.h"
 
 namespace arrow {
 namespace compute {
@@ -46,6 +45,8 @@ class FunctionRegistry::FunctionRegistryImpl {
   }
 
   Status AddAlias(const std::string& target_name, const std::string& source_name) {
+    std::lock_guard<std::mutex> mutation_guard(lock_);
+
     auto it = name_to_function_.find(source_name);
     if (it == name_to_function_.end()) {
       return Status::KeyError("No function registered with name: ", source_name);
@@ -131,19 +132,6 @@ static std::unique_ptr<FunctionRegistry> CreateBuiltInRegistry() {
   RegisterVectorSelection(registry.get());
   RegisterVectorNested(registry.get());
   RegisterVectorSort(registry.get());
-
-  // SIMD functions
-  auto cpu_info = arrow::internal::CpuInfo::GetInstance();
-#if defined(ARROW_HAVE_RUNTIME_AVX2)
-  if (cpu_info->IsSupported(arrow::internal::CpuInfo::AVX2)) {
-    RegisterScalarAggregateSumAvx2(registry.get());
-  }
-#endif
-#if defined(ARROW_HAVE_RUNTIME_AVX512)
-  if (cpu_info->IsSupported(arrow::internal::CpuInfo::AVX512)) {
-    RegisterScalarAggregateSumAvx512(registry.get());
-  }
-#endif
 
   return registry;
 }

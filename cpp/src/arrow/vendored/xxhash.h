@@ -15,14 +15,4 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Workaround https://github.com/Cyan4973/xxHash/issues/249
-#if defined(_MSC_VER)
-#pragma warning(push)
-#pragma warning(disable : 4146)
-#endif
-
 #include "arrow/vendored/xxhash/xxhash.h"
-
-#if defined(_MSC_VER)
-#pragma warning(pop)
-#endif

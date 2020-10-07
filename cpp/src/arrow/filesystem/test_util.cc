@@ -106,10 +106,7 @@ void CreateFile(FileSystem* fs, const std::string& path, const std::string& data
 }
 
 void SortInfos(std::vector<FileInfo>* infos) {
-  std::sort(infos->begin(), infos->end(),
-            [](const FileInfo& left, const FileInfo& right) -> bool {
-              return left.path() < right.path();
-            });
+  std::sort(infos->begin(), infos->end(), FileInfo::ByPath{});
 }
 
 void AssertFileInfo(const FileInfo& info, const std::string& path, FileType type) {

@@ -17,29 +17,14 @@
 
 #pragma once
 
-#include "./arrow_rcpp.h"
+#include <cpp11/R.hpp>
 
-template <typename T>
-struct NoDelete {
-  inline void operator()(T* ptr) {}
-};
-
-namespace Rcpp {
-
-template <int RTYPE>
-inline constexpr typename Rcpp::Vector<RTYPE>::stored_type default_value() {
-  return Rcpp::Vector<RTYPE>::get_na();
-}
-template <>
-inline constexpr Rbyte default_value<RAWSXP>() {
-  return 0;
-}
-
-}  // namespace Rcpp
+#include "./arrow_cpp11.h"
 
 #if defined(ARROW_R_WITH_ARROW)
 
 #include <arrow/buffer.h>  // for RBuffer definition below
+#include <arrow/c/bridge.h>
 #include <arrow/result.h>
 #include <arrow/type_fwd.h>
 
@@ -48,19 +33,16 @@ inline constexpr Rbyte default_value<RAWSXP>() {
 #include <utility>
 #include <vector>
 
-RCPP_EXPOSED_ENUM_NODECL(arrow::StatusCode)
-
 SEXP ChunkedArray__as_vector(const std::shared_ptr<arrow::ChunkedArray>& chunked_array);
 SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array);
 std::shared_ptr<arrow::Array> Array__from_vector(SEXP x, SEXP type);
 std::shared_ptr<arrow::RecordBatch> RecordBatch__from_arrays(SEXP, SEXP);
-std::shared_ptr<arrow::RecordBatch> RecordBatch__from_dataframe(Rcpp::DataFrame tbl);
 
 namespace arrow {
 
 static inline void StopIfNotOk(const Status& status) {
   if (!(status.ok())) {
-    Rcpp::stop(status.ToString());
+    cpp11::stop(status.ToString());
   }
 }
 
@@ -74,68 +56,53 @@ namespace r {
 
 std::shared_ptr<arrow::DataType> InferArrowType(SEXP x);
 
-template <typename T>
-inline std::shared_ptr<T> extract(SEXP x) {
-  return Rcpp::ConstReferenceSmartPtrInputParameter<std::shared_ptr<T>>(x);
-}
-
 Status count_fields(SEXP lst, int* out);
 
 std::shared_ptr<arrow::Array> Array__from_vector(
     SEXP x, const std::shared_ptr<arrow::DataType>& type, bool type_inferred);
-
-template <typename T>
-std::vector<std::shared_ptr<T>> List_to_shared_ptr_vector(SEXP x) {
-  std::vector<std::shared_ptr<T>> vec;
-  R_xlen_t n = Rf_xlength(x);
-  for (R_xlen_t i = 0; i < n; i++) {
-    Rcpp::ConstReferenceSmartPtrInputParameter<std::shared_ptr<T>> ptr(VECTOR_ELT(x, i));
-    vec.push_back(ptr);
-  }
-  return vec;
-}
 
 void inspect(SEXP obj);
 
 // the integer64 sentinel
 constexpr int64_t NA_INT64 = std::numeric_limits<int64_t>::min();
 
-template <int RTYPE, typename Vec = Rcpp::Vector<RTYPE>>
+template <typename RVector>
 class RBuffer : public MutableBuffer {
  public:
-  explicit RBuffer(Vec vec)
-      : MutableBuffer(reinterpret_cast<uint8_t*>(vec.begin()),
-                      vec.size() * sizeof(typename Vec::stored_type)),
+  explicit RBuffer(RVector vec)
+      : MutableBuffer(reinterpret_cast<uint8_t*>(DATAPTR(vec)),
+                      vec.size() * sizeof(typename RVector::value_type)),
         vec_(vec) {}
 
  private:
   // vec_ holds the memory
-  Vec vec_;
+  RVector vec_;
 };
 
 std::shared_ptr<arrow::DataType> InferArrowTypeFromFactor(SEXP);
 
-void validate_slice_offset(int offset, int len);
+void validate_slice_offset(R_xlen_t offset, int64_t len);
 
-void validate_slice_length(int length, int available);
+void validate_slice_length(R_xlen_t length, int64_t available);
 
 void validate_index(int i, int len);
 
 template <typename Lambda>
-void TraverseDots(SEXP dots, int num_fields, Lambda lambda) {
-  SEXP names = Rf_getAttrib(dots, R_NamesSymbol);
+void TraverseDots(cpp11::list dots, int num_fields, Lambda lambda) {
+  cpp11::strings names(dots.attr(R_NamesSymbol));
 
   for (R_xlen_t i = 0, j = 0; j < num_fields; i++) {
-    SEXP name_i = STRING_ELT(names, i);
-    SEXP x_i = VECTOR_ELT(dots, i);
+    auto name_i = names[i];
 
-    if (LENGTH(name_i) == 0) {
-      SEXP names_x_i = Rf_getAttrib(x_i, R_NamesSymbol);
-      for (R_xlen_t k = 0; k < XLENGTH(x_i); k++, j++) {
-        lambda(j, VECTOR_ELT(x_i, k), STRING_ELT(names_x_i, k));
+    if (name_i.size() == 0) {
+      cpp11::list x_i = dots[i];
+      cpp11::strings names_x_i(x_i.attr(R_NamesSymbol));
+      R_xlen_t n_i = x_i.size();
+      for (R_xlen_t k = 0; k < n_i; k++, j++) {
+        lambda(j, x_i[k], names_x_i[k]);
       }
     } else {
-      lambda(j, x_i, name_i);
+      lambda(j, dots[i], name_i);
       j++;
     }
   }

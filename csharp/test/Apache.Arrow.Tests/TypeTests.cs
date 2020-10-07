@@ -89,11 +89,27 @@ namespace Apache.Arrow.Tests
             List<Field> fields = new List<Field>() { f0_nullable, f1_nullable, f2_nullable };
             StructType struct_type = new StructType(fields);
 
-            var structFields = struct_type.Fields;
             Assert.True(FieldComparer.Equals(struct_type.GetFieldByName("f0"), f0_nullable));
             Assert.True(FieldComparer.Equals(struct_type.GetFieldByName("f1"), f1_nullable));
             Assert.True(FieldComparer.Equals(struct_type.GetFieldByName("f2"), f2_nullable));
             Assert.True(struct_type.GetFieldByName("not_found") == null);
+        }
+
+        [Fact]
+        public void TestStructGetFieldIndex()
+        {
+            Field f0_nullable = new Field.Builder().Name("f0").DataType(Int32Type.Default).Build();
+            Field f1_nullable = new Field.Builder().Name("f1").DataType(StringType.Default).Build();
+            Field f2_nullable = new Field.Builder().Name("f2").DataType(UInt8Type.Default).Build();
+
+            StructType struct_type = new StructType(new[] { f0_nullable, f1_nullable, f2_nullable });
+
+            Assert.Equal(0, struct_type.GetFieldIndex("f0"));
+            Assert.Equal(1, struct_type.GetFieldIndex("f1"));
+            Assert.Equal(2, struct_type.GetFieldIndex("F2", StringComparer.OrdinalIgnoreCase));
+            Assert.Equal(-1, struct_type.GetFieldIndex("F2"));
+            Assert.Equal(-1, struct_type.GetFieldIndex("F2", StringComparer.Ordinal));
+            Assert.Equal(-1, struct_type.GetFieldIndex("not_found"));
         }
 
         [Fact]

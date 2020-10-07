@@ -1,5 +1,7 @@
+aws_sdk_cpp:
+- 1.8.54
 boost_cpp:
-- '1.72'
+- 1.74.0
 bzip2:
 - '1'
 c_compiler:
@@ -8,6 +10,8 @@ channel_sources:
 - conda-forge,defaults
 channel_targets:
 - conda-forge main
+cuda_compiler_version:
+- None
 cxx_compiler:
 - vs2017
 gflags:
@@ -17,9 +21,11 @@ glog:
 grpc_cpp:
 - '1.30'
 libprotobuf:
-- '3.12'
+- '3.13'
 lz4_c:
 - 1.9.2
+numpy:
+- '1.16'
 pin_run_as_build:
   boost-cpp:
     max_pin: x.x.x
@@ -35,9 +41,11 @@ pin_run_as_build:
 python:
 - 3.8.* *_cpython
 re2:
-- 2020.07.06
+- 2020.08.01
 snappy:
 - '1'
+target_platform:
+- win-64
 zlib:
 - '1.2'
 zstd:

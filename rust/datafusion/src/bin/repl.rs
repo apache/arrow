@@ -20,13 +20,14 @@
 use arrow::util::pretty;
 use clap::{crate_version, App, Arg};
 use datafusion::error::Result;
-use datafusion::execution::context::ExecutionContext;
+use datafusion::execution::context::{ExecutionConfig, ExecutionContext};
 use rustyline::Editor;
 use std::env;
 use std::path::Path;
 use std::time::Instant;
 
-pub fn main() {
+#[tokio::main]
+pub async fn main() {
     let matches = App::new("DataFusion")
         .version(crate_version!())
         .about(
@@ -60,7 +61,8 @@ pub fn main() {
         .map(|size| size.parse::<usize>().unwrap())
         .unwrap_or(1_048_576);
 
-    let mut ctx = ExecutionContext::new();
+    let mut ctx =
+        ExecutionContext::with_config(ExecutionConfig::new().with_batch_size(batch_size));
 
     let mut rl = Editor::<()>::new();
     rl.load_history(".history").ok();
@@ -75,7 +77,7 @@ pub fn main() {
             Ok(ref line) if line.trim_end().ends_with(';') => {
                 query.push_str(line.trim_end());
                 rl.add_history_entry(query.clone());
-                match exec_and_print(&mut ctx, query, batch_size) {
+                match exec_and_print(&mut ctx, query).await {
                     Ok(_) => {}
                     Err(err) => println!("{:?}", err),
                 }
@@ -99,14 +101,11 @@ fn is_exit_command(line: &str) -> bool {
     line == "quit" || line == "exit"
 }
 
-fn exec_and_print(
-    ctx: &mut ExecutionContext,
-    sql: String,
-    batch_size: usize,
-) -> Result<()> {
+async fn exec_and_print(ctx: &mut ExecutionContext, sql: String) -> Result<()> {
     let now = Instant::now();
 
-    let results = ctx.sql(&sql, batch_size)?;
+    let df = ctx.sql(&sql)?;
+    let results = df.collect().await?;
 
     if results.is_empty() {
         println!(

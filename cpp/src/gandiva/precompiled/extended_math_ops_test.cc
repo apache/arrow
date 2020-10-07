@@ -87,6 +87,38 @@ TEST(TestExtendedMathOps, TestLogWithBase) {
   EXPECT_EQ(context1.has_error(), false);
 }
 
+TEST(TestExtendedMathOps, TestRoundDecimal) {
+  EXPECT_FLOAT_EQ(round_float32_int32(1234.789f, 2), 1234.79f);
+  EXPECT_FLOAT_EQ(round_float32_int32(1234.12345f, -3), 1000);
+  EXPECT_FLOAT_EQ(round_float32_int32(-1234.4567f, 3), -1234.457f);
+  EXPECT_FLOAT_EQ(round_float32_int32(-1234.4567f, -3), -1000);
+  EXPECT_FLOAT_EQ(round_float32_int32(1234.4567f, 0), 1234);
+
+  VerifyFuzzyEquals(round_float64_int32(1234.789, 2), 1234.79);
+  VerifyFuzzyEquals(round_float64_int32(1234.12345, -3), 1000);
+  VerifyFuzzyEquals(round_float64_int32(-1234.4567, 3), -1234.457);
+  VerifyFuzzyEquals(round_float64_int32(-1234.4567, -3), -1000);
+  VerifyFuzzyEquals(round_float64_int32(1234.4567, 0), 1234);
+  VerifyFuzzyEquals(round_float64_int32((double)INT_MAX + 1, 0), (double)INT_MAX + 1);
+  VerifyFuzzyEquals(round_float64_int32((double)INT_MIN - 1, 0), (double)INT_MIN - 1);
+}
+
+TEST(TestExtendedMathOps, TestRound) {
+  EXPECT_EQ(round_int32_int32(7589, -1), 7590);
+  EXPECT_EQ(round_int32_int32(8532, -2), 8500);
+  EXPECT_EQ(round_int32_int32(-8579, -1), -8580);
+  EXPECT_EQ(round_int32_int32(-8612, -2), -8600);
+  EXPECT_EQ(round_int32_int32(758, 2), 758);
+  EXPECT_EQ(round_int32_int32(8612, -5), 0);
+
+  EXPECT_EQ(round_int64_int32(3453562312, -2), 3453562300);
+  EXPECT_EQ(round_int64_int32(3453562343, -5), 3453600000);
+  EXPECT_EQ(round_int64_int32(345353425343, 12), 345353425343);
+  EXPECT_EQ(round_int64_int32(-23453462343, -4), -23453460000);
+  EXPECT_EQ(round_int64_int32(-23453462343, -5), -23453500000);
+  EXPECT_EQ(round_int64_int32(345353425343, -12), 0);
+}
+
 TEST(TestExtendedMathOps, TestTruncate) {
   EXPECT_EQ(truncate_int64_int32(1234, 4), 1234);
   EXPECT_EQ(truncate_int64_int32(-1234, 4), -1234);

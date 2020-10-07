@@ -58,6 +58,7 @@ DEFINE_bool(verbose, true, "Verbose output");
 namespace arrow {
 
 using internal::TemporaryDir;
+using ipc::DictionaryFieldMapper;
 using ipc::DictionaryMemo;
 using ipc::IpcWriteOptions;
 using ipc::MetadataVersion;
@@ -83,8 +84,8 @@ static Status ConvertJsonToArrow(const std::string& json_path,
               << reader->schema()->ToString(/* show_metadata = */ true) << std::endl;
   }
 
-  ARROW_ASSIGN_OR_RAISE(auto writer, ipc::NewFileWriter(out_file.get(), reader->schema(),
-                                                        IpcWriteOptions::Defaults()));
+  ARROW_ASSIGN_OR_RAISE(auto writer, ipc::MakeFileWriter(out_file, reader->schema(),
+                                                         IpcWriteOptions::Defaults()));
   for (int i = 0; i < reader->num_record_batches(); ++i) {
     std::shared_ptr<RecordBatch> batch;
     RETURN_NOT_OK(reader->ReadRecordBatch(i, &batch));
@@ -509,7 +510,7 @@ static const char* json_example3 = R"example(
     {
       "id": 0,
       "data": {
-        "count": 10,
+        "count": 3,
         "columns": [
           {
             "name": "DICT0",
@@ -638,10 +639,10 @@ void TestSchemaRoundTrip(const Schema& schema) {
   rj::StringBuffer sb;
   rj::Writer<rj::StringBuffer> writer(sb);
 
-  DictionaryMemo out_memo;
+  DictionaryFieldMapper mapper(schema);
 
   writer.StartObject();
-  ASSERT_OK(json::WriteSchema(schema, &out_memo, &writer));
+  ASSERT_OK(json::WriteSchema(schema, mapper, &writer));
   writer.EndObject();
 
   std::string json_schema = sb.GetString();
@@ -681,11 +682,9 @@ void TestArrayRoundTrip(const Array& array) {
     FAIL() << "JSON parsing failed";
   }
 
-  DictionaryMemo out_memo;
-
   std::shared_ptr<Array> out;
   ASSERT_OK(json::ReadArray(default_memory_pool(), d, ::arrow::field(name, array.type()),
-                            &out_memo, &out));
+                            &out));
 
   // std::cout << array_as_json << std::endl;
   CompareArraysDetailed(0, *out, array);
@@ -1014,15 +1013,6 @@ TEST(TestJsonFileReadWrite, JsonExample4) {
   AssertArraysEqual(*batch->column(0), *expected_array);
 }
 
-#define BATCH_CASES()                                                             \
-  ::testing::Values(                                                              \
-      &MakeIntRecordBatch, &MakeListRecordBatch, &MakeFixedSizeListRecordBatch,   \
-      &MakeNonNullRecordBatch, &MakeZeroLengthRecordBatch, &MakeDeeplyNestedList, \
-      &MakeStringTypesRecordBatchWithNulls, &MakeStruct, &MakeUnion, &MakeDates,  \
-      &MakeTimestamps, &MakeTimes, &MakeFWBinary, &MakeDecimal, &MakeFloatBatch,  \
-      &MakeDictionary, &MakeNestedDictionary, &MakeIntervals, &MakeUuid,          \
-      &MakeDictExtension)
-
 class TestJsonRoundTrip : public ::testing::TestWithParam<MakeRecordBatch*> {
  public:
   void SetUp() {}
@@ -1061,7 +1051,34 @@ TEST_P(TestJsonRoundTrip, RoundTrip) {
   CheckRoundtrip(*batch);
 }
 
-INSTANTIATE_TEST_SUITE_P(TestJsonRoundTrip, TestJsonRoundTrip, BATCH_CASES());
+const std::vector<ipc::test::MakeRecordBatch*> kBatchCases = {
+    &MakeIntRecordBatch,
+    &MakeListRecordBatch,
+    &MakeFixedSizeListRecordBatch,
+    &MakeNonNullRecordBatch,
+    &MakeZeroLengthRecordBatch,
+    &MakeDeeplyNestedList,
+    &MakeStringTypesRecordBatchWithNulls,
+    &MakeStruct,
+    &MakeUnion,
+    &MakeDictionary,
+    &MakeNestedDictionary,
+    &MakeMap,
+    &MakeMapOfDictionary,
+    &MakeDates,
+    &MakeTimestamps,
+    &MakeTimes,
+    &MakeFWBinary,
+    &MakeNull,
+    &MakeDecimal,
+    &MakeBooleanBatch,
+    &MakeFloatBatch,
+    &MakeIntervals,
+    &MakeUuid,
+    &MakeDictExtension};
+
+INSTANTIATE_TEST_SUITE_P(TestJsonRoundTrip, TestJsonRoundTrip,
+                         ::testing::ValuesIn(kBatchCases));
 
 }  // namespace testing
 }  // namespace arrow

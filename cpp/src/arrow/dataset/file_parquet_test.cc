@@ -143,6 +143,12 @@ class TestParquetFileFormat : public ArrowParquetWriterMixin {
                                     kBatchRepetitions);
   }
 
+  Result<std::shared_ptr<io::BufferOutputStream>> GetFileSink() {
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ResizableBuffer> buffer,
+                          AllocateResizableBuffer(0));
+    return std::make_shared<io::BufferOutputStream>(buffer);
+  }
+
   RecordBatchIterator Batches(ScanTaskIterator scan_task_it) {
     return MakeFlattenIterator(MakeMaybeMapIterator(
         [](std::shared_ptr<ScanTask> scan_task) { return scan_task->Execute(); },
@@ -166,7 +172,7 @@ class TestParquetFileFormat : public ArrowParquetWriterMixin {
     int64_t actual_batches = 0;
 
     for (auto maybe_batch : Batches(fragment)) {
-      ASSERT_OK_AND_ASSIGN(auto batch, std::move(maybe_batch));
+      ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
       actual_rows += batch->num_rows();
       ++actual_batches;
     }
@@ -214,7 +220,7 @@ TEST_F(TestParquetFileFormat, ScanRecordBatchReader) {
   int64_t row_count = 0;
 
   for (auto maybe_batch : Batches(fragment.get())) {
-    ASSERT_OK_AND_ASSIGN(auto batch, std::move(maybe_batch));
+    ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
     row_count += batch->num_rows();
   }
 
@@ -238,10 +244,10 @@ TEST_F(TestParquetFileFormat, ScanRecordBatchReaderDictEncoded) {
   Schema expected_schema({field("utf8", dictionary(int32(), utf8()))});
 
   for (auto maybe_task : scan_task_it) {
-    ASSERT_OK_AND_ASSIGN(auto task, std::move(maybe_task));
+    ASSERT_OK_AND_ASSIGN(auto task, maybe_task);
     ASSERT_OK_AND_ASSIGN(auto rb_it, task->Execute());
     for (auto maybe_batch : rb_it) {
-      ASSERT_OK_AND_ASSIGN(auto batch, std::move(maybe_batch));
+      ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
       row_count += batch->num_rows();
       AssertSchemaEqual(*batch->schema(), expected_schema, /* check_metadata = */ false);
     }
@@ -283,7 +289,7 @@ TEST_F(TestParquetFileFormat, ScanRecordBatchReaderProjected) {
   int64_t row_count = 0;
 
   for (auto maybe_batch : Batches(fragment.get())) {
-    ASSERT_OK_AND_ASSIGN(auto batch, std::move(maybe_batch));
+    ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
     row_count += batch->num_rows();
     AssertSchemaEqual(*batch->schema(), *expected_schema,
                       /*check_metadata=*/false);
@@ -330,7 +336,7 @@ TEST_F(TestParquetFileFormat, ScanRecordBatchReaderProjectedMissingCols) {
     int64_t row_count = 0;
 
     for (auto maybe_batch : Batches(fragment.get())) {
-      ASSERT_OK_AND_ASSIGN(auto batch, std::move(maybe_batch));
+      ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
       row_count += batch->num_rows();
       AssertSchemaEqual(*batch->schema(), *expected_schema,
                         /*check_metadata=*/false);
@@ -474,21 +480,20 @@ TEST_F(TestParquetFileFormat, PredicatePushdownRowGroupFragments) {
 }
 
 TEST_F(TestParquetFileFormat, PredicatePushdownRowGroupFragmentsUsingStringColumn) {
-  auto table =
-      TableFromJSON(schema({field("x", utf8())}), {
-                                                      R"([{"x": "a"}, {"x": "a"}])",
-                                                      R"([{"x": "b"}, {"x": "b"}])",
-                                                      R"([{"x": "c"}, {"x": "c"}])",
-                                                      R"([{"x": "a"}, {"x": "b"}])",
-                                                  });
+  auto table = TableFromJSON(schema({field("x", utf8())}),
+                             {
+                                 R"([{"x": "a"}])",
+                                 R"([{"x": "b"}, {"x": "b"}])",
+                                 R"([{"x": "c"}, {"x": "c"}, {"x": "c"}])",
+                                 R"([{"x": "a"}, {"x": "b"}, {"x": "c"}, {"x": "d"}])",
+                             });
   TableBatchReader reader(*table);
   auto source = GetFileSource(&reader);
 
   opts_ = ScanOptions::Make(reader.schema());
   ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
 
-  // TODO(bkietz): support strings in StatisticsAsScalars
-  // CountRowGroupsInFragment(fragment, {0, 3}, "x"_ == "a");
+  CountRowGroupsInFragment(fragment, {0, 3}, "x"_ == "a");
 }
 
 TEST_F(TestParquetFileFormat, ExplicitRowGroupSelection) {
@@ -538,6 +543,77 @@ TEST_F(TestParquetFileFormat, ExplicitRowGroupSelection) {
       IndexError,
       testing::HasSubstr("only has " + std::to_string(kNumRowGroups) + " row groups"),
       row_groups_fragment({kNumRowGroups + 1})->Scan(opts_, ctx_));
+}
+
+TEST_F(TestParquetFileFormat, WriteRecordBatchReader) {
+  std::shared_ptr<RecordBatchReader> reader = GetRecordBatchReader();
+  auto source = GetFileSource(reader.get());
+  reader = GetRecordBatchReader();
+
+  opts_ = ScanOptions::Make(reader->schema());
+
+  EXPECT_OK_AND_ASSIGN(auto sink, GetFileSink());
+
+  ASSERT_OK(format_->WriteFragment(reader.get(), sink.get()));
+
+  EXPECT_OK_AND_ASSIGN(auto written, sink->Finish());
+
+  AssertBufferEqual(*written, *source->buffer());
+}
+
+TEST_F(TestParquetFileFormat, WriteRecordBatchReaderCustomOptions) {
+  TimeUnit::type coerce_timestamps_to = TimeUnit::MICRO,
+                 coerce_timestamps_from = TimeUnit::NANO;
+
+  std::shared_ptr<RecordBatchReader> reader =
+      GetRecordBatchReader(schema({field("ts", timestamp(coerce_timestamps_from))}));
+
+  opts_ = ScanOptions::Make(reader->schema());
+
+  EXPECT_OK_AND_ASSIGN(auto sink, GetFileSink());
+
+  format_->writer_properties = parquet::WriterProperties::Builder()
+                                   .created_by("TestParquetFileFormat")
+                                   ->disable_statistics()
+                                   ->build();
+
+  format_->arrow_writer_properties = parquet::ArrowWriterProperties::Builder()
+                                         .coerce_timestamps(coerce_timestamps_to)
+                                         ->build();
+
+  ASSERT_OK(format_->WriteFragment(reader.get(), sink.get()));
+  EXPECT_OK_AND_ASSIGN(auto written, sink->Finish());
+  EXPECT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(FileSource{written}));
+
+  EXPECT_OK_AND_ASSIGN(auto actual_schema, fragment->ReadPhysicalSchema());
+  AssertSchemaEqual(Schema({field("ts", timestamp(coerce_timestamps_to))}),
+                    *actual_schema);
+}
+
+class TestParquetFileSystemDataset : public WriteFileSystemDatasetMixin,
+                                     public testing::Test {
+ public:
+  void SetUp() override {
+    MakeSourceDataset();
+    check_metadata_ = false;
+    format_ = std::make_shared<ParquetFileFormat>();
+  }
+};
+
+TEST_F(TestParquetFileSystemDataset, WriteWithIdenticalPartitioningSchema) {
+  TestWriteWithIdenticalPartitioningSchema();
+}
+
+TEST_F(TestParquetFileSystemDataset, WriteWithUnrelatedPartitioningSchema) {
+  TestWriteWithUnrelatedPartitioningSchema();
+}
+
+TEST_F(TestParquetFileSystemDataset, WriteWithSupersetPartitioningSchema) {
+  TestWriteWithSupersetPartitioningSchema();
+}
+
+TEST_F(TestParquetFileSystemDataset, WriteWithEmptyPartitioningSchema) {
+  TestWriteWithEmptyPartitioningSchema();
 }
 
 }  // namespace dataset

@@ -34,6 +34,12 @@ struct ArrayExportTraits {
   static constexpr auto ReleaseFunc = &ArrowArrayRelease;
 };
 
+struct ArrayStreamExportTraits {
+  typedef struct ArrowArrayStream CType;
+  static constexpr auto IsReleasedFunc = &ArrowArrayStreamIsReleased;
+  static constexpr auto ReleaseFunc = &ArrowArrayStreamRelease;
+};
+
 // A RAII-style object to release a C Array / Schema struct at block scope exit.
 template <typename Traits>
 class ExportGuard {
@@ -73,6 +79,7 @@ class ExportGuard {
 
 using SchemaExportGuard = ExportGuard<SchemaExportTraits>;
 using ArrayExportGuard = ExportGuard<ArrayExportTraits>;
+using ArrayStreamExportGuard = ExportGuard<ArrayStreamExportTraits>;
 
 }  // namespace internal
 }  // namespace arrow

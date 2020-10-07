@@ -34,6 +34,7 @@
 #include "arrow/util/range.h"
 #include "parquet/arrow/reader.h"
 #include "parquet/arrow/schema.h"
+#include "parquet/arrow/writer.h"
 #include "parquet/file_reader.h"
 #include "parquet/properties.h"
 #include "parquet/statistics.h"
@@ -130,7 +131,6 @@ static Result<SchemaManifest> GetSchemaManifest(
 
 static std::shared_ptr<StructScalar> MakeMinMaxScalar(std::shared_ptr<Scalar> min,
                                                       std::shared_ptr<Scalar> max) {
-  DCHECK(min->type->Equals(max->type));
   return std::make_shared<StructScalar>(ScalarVector{min, max},
                                         struct_({
                                             field("min", min->type),
@@ -167,6 +167,15 @@ static std::shared_ptr<StructScalar> ColumnChunkStatisticsAsStructScalar(
 
   std::shared_ptr<Scalar> min, max;
   if (!StatisticsAsScalars(*statistics, &min, &max).ok()) {
+    return nullptr;
+  }
+
+  auto maybe_min = min->CastTo(field->type());
+  auto maybe_max = max->CastTo(field->type());
+  if (maybe_min.ok() && maybe_max.ok()) {
+    min = maybe_min.MoveValueUnsafe();
+    max = maybe_max.MoveValueUnsafe();
+  } else {
     return nullptr;
   }
 
@@ -276,7 +285,12 @@ class ParquetScanTaskIterator {
   size_t idx_ = 0;
 };
 
-ParquetFileFormat::ParquetFileFormat(const parquet::ReaderProperties& reader_properties) {
+ParquetFileFormat::ParquetFileFormat()
+    : writer_properties(parquet::default_writer_properties()),
+      arrow_writer_properties(parquet::default_arrow_writer_properties()) {}
+
+ParquetFileFormat::ParquetFileFormat(const parquet::ReaderProperties& reader_properties)
+    : ParquetFileFormat() {
   reader_options.use_buffered_stream = reader_properties.is_buffered_stream_enabled();
   reader_options.buffer_size = reader_properties.buffer_size();
   reader_options.file_decryption_properties =
@@ -322,6 +336,10 @@ Result<std::unique_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReader
     arrow_properties.set_batch_size(options->batch_size);
   }
 
+  if (context && !context->use_threads) {
+    arrow_properties.set_use_threads(reader_options.enable_parallel_column_conversion);
+  }
+
   std::unique_ptr<parquet::arrow::FileReader> arrow_reader;
   RETURN_NOT_OK(parquet::arrow::FileReader::Make(
       pool, std::move(reader), std::move(arrow_properties), &arrow_reader));
@@ -332,6 +350,28 @@ static inline bool RowGroupInfosAreComplete(const std::vector<RowGroupInfo>& inf
   return !infos.empty() &&
          std::all_of(infos.cbegin(), infos.cend(),
                      [](const RowGroupInfo& i) { return i.HasStatistics(); });
+}
+
+Status ParquetFileFormat::WriteFragment(RecordBatchReader* batches,
+                                        io::OutputStream* destination) const {
+  using parquet::arrow::FileWriter;
+
+  std::shared_ptr<io::OutputStream> shared_destination{destination,
+                                                       [](io::OutputStream*) {}};
+
+  std::unique_ptr<FileWriter> writer;
+  RETURN_NOT_OK(FileWriter::Open(*batches->schema(), default_memory_pool(),
+                                 shared_destination, writer_properties,
+                                 arrow_writer_properties, &writer));
+
+  for (;;) {
+    ARROW_ASSIGN_OR_RAISE(auto batch, batches->Next());
+    if (batch == nullptr) break;
+    ARROW_ASSIGN_OR_RAISE(auto table, Table::FromRecordBatches(batch->schema(), {batch}));
+    RETURN_NOT_OK(writer->WriteTable(*table, batch->num_rows()));
+  }
+
+  return writer->Close();
 }
 
 Result<ScanTaskIterator> ParquetFileFormat::ScanFile(std::shared_ptr<ScanOptions> options,
@@ -357,12 +397,25 @@ Result<ScanTaskIterator> ParquetFileFormat::ScanFile(std::shared_ptr<ScanOptions
                         GetReader(fragment->source(), options.get(), context.get()));
 
   if (!parquet_fragment->HasCompleteMetadata()) {
-    // row groups were not already filtered; do this now
-    RETURN_NOT_OK(parquet_fragment->EnsureCompleteMetadata(reader.get()));
-    ARROW_ASSIGN_OR_RAISE(row_groups,
-                          parquet_fragment->FilterRowGroups(*options->filter));
-    if (row_groups.empty()) {
-      return MakeEmptyIterator<std::shared_ptr<ScanTask>>();
+    // row groups were not already filtered; do this now (if there is a filter)
+    if (!options->filter->Equals(true)) {
+      RETURN_NOT_OK(parquet_fragment->EnsureCompleteMetadata(reader.get()));
+      ARROW_ASSIGN_OR_RAISE(row_groups,
+                            parquet_fragment->FilterRowGroups(*options->filter));
+      if (row_groups.empty()) {
+        return MakeEmptyIterator<std::shared_ptr<ScanTask>>();
+      }
+    } else {
+      // since we are not scanning this fragment with a filter, don't bother loading
+      // statistics
+      row_groups = parquet_fragment->row_groups();
+      if (row_groups.empty()) {
+        // empty vector represents all row groups
+        std::shared_ptr<parquet::FileMetaData> metadata =
+            reader->parquet_reader()->metadata();
+        int num_row_groups = metadata->num_row_groups();
+        row_groups = RowGroupInfo::FromCount(num_row_groups);
+      }
     }
   }
 
@@ -522,9 +575,9 @@ Result<FragmentVector> ParquetFileFragment::SplitByRowGroup(
   FragmentVector fragments(row_groups.size());
   auto fragment = fragments.begin();
   for (auto&& row_group : row_groups) {
-    ARROW_ASSIGN_OR_RAISE(*fragment++,
-                          parquet_format_.MakeFragment(source_, partition_expression(),
-                                                       {std::move(row_group)}));
+    ARROW_ASSIGN_OR_RAISE(*fragment++, parquet_format_.MakeFragment(
+                                           source_, partition_expression(),
+                                           {std::move(row_group)}, physical_schema_));
   }
 
   return fragments;
@@ -760,7 +813,7 @@ Result<std::shared_ptr<Dataset>> ParquetDatasetFactory::Finish(FinishOptions opt
   auto properties = MakeArrowReaderProperties(*format_, *metadata_);
   ARROW_ASSIGN_OR_RAISE(auto fragments,
                         CollectParquetFragments(*metadata_, properties, *partitioning));
-  return FileSystemDataset::Make(std::move(schema), scalar(true), format_,
+  return FileSystemDataset::Make(std::move(schema), scalar(true), format_, filesystem_,
                                  std::move(fragments));
 }
 

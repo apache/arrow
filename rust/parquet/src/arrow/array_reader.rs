@@ -100,11 +100,8 @@ impl<T: DataType> PrimitiveArrayReader<T> {
             .clone();
 
         let mut record_reader = RecordReader::<T>::new(column_desc.clone());
-        match pages.next() {
-            Some(page_reader) => {
-                record_reader.set_page_reader(page_reader?)?;
-            }
-            None => {}
+        if let Some(page_reader) = pages.next() {
+            record_reader.set_page_reader(page_reader?)?;
         }
 
         Ok(Self {
@@ -136,11 +133,9 @@ impl<T: DataType> ArrayReader for PrimitiveArrayReader<T> {
         while records_read < batch_size {
             let records_to_read = batch_size - records_read;
 
+            // NB can be 0 if at end of page
             let records_read_once = self.record_reader.read_records(records_to_read)?;
-            if records_read_once == 0 {
-                break; // record reader has no record
-            }
-            records_read = records_read + records_read_once;
+            records_read += records_read_once;
 
             // Record reader exhausted
             if records_read_once < records_to_read {
@@ -371,18 +366,18 @@ where
                 })
                 .collect()
         } else {
-            data_buffer.into_iter().map(|t| Some(t)).collect()
+            data_buffer.into_iter().map(Some).collect()
         };
 
         self.converter.convert(data)
     }
 
     fn get_def_levels(&self) -> Option<&[i16]> {
-        self.def_levels_buffer.as_ref().map(|t| t.as_slice())
+        self.def_levels_buffer.as_deref()
     }
 
     fn get_rep_levels(&self) -> Option<&[i16]> {
-        self.rep_levels_buffer.as_ref().map(|t| t.as_slice())
+        self.rep_levels_buffer.as_deref()
     }
 }
 
@@ -483,7 +478,7 @@ impl ArrayReader for StructArrayReader {
     /// null_bitmap[i] = (def_levels[i] >= self.def_level);
     /// ```
     fn next_batch(&mut self, batch_size: usize) -> Result<ArrayRef> {
-        if self.children.len() == 0 {
+        if self.children.is_empty() {
             self.def_level_buffer = None;
             self.rep_level_buffer = None;
             return Ok(Arc::new(StructArray::from(Vec::new())));
@@ -628,9 +623,9 @@ where
     let filtered_root_fields = parquet_schema
         .root_schema()
         .get_fields()
-        .into_iter()
+        .iter()
         .filter(|field| filtered_root_names.contains(field.name()))
-        .map(|field| field.clone())
+        .cloned()
         .collect::<Vec<_>>();
 
     let proj = Type::GroupType {
@@ -877,9 +872,9 @@ impl<'a> ArrayReaderBuilder {
                         ref type_length, ..
                     } => *type_length,
                     _ => {
-                        return Err(ArrowError(format!(
-                            "Expected a physical type, not a group type"
-                        )))
+                        return Err(ArrowError(
+                            "Expected a physical type, not a group type".to_string(),
+                        ))
                     }
                 };
                 let converter = FixedLenBinaryConverter::new(
@@ -934,7 +929,7 @@ mod tests {
     use super::*;
     use crate::arrow::converter::Utf8Converter;
     use crate::basic::{Encoding, Type as PhysicalType};
-    use crate::column::page::Page;
+    use crate::column::page::{Page, PageReader};
     use crate::data_type::{ByteArray, DataType, Int32Type, Int64Type};
     use crate::errors::Result;
     use crate::file::reader::{FileReader, SerializedFileReader};
@@ -1001,6 +996,31 @@ mod tests {
     }
 
     #[test]
+    fn test_primitive_array_reader_empty_pages() {
+        // Construct column schema
+        let message_type = "
+        message test_schema {
+          REQUIRED INT32 leaf;
+        }
+        ";
+
+        let schema = parse_message_type(message_type)
+            .map(|t| Rc::new(SchemaDescriptor::new(Rc::new(t))))
+            .unwrap();
+
+        let column_desc = schema.column(0);
+        let page_iterator = EmptyPageIterator::new(schema);
+
+        let mut array_reader =
+            PrimitiveArrayReader::<Int32Type>::new(Box::new(page_iterator), column_desc)
+                .unwrap();
+
+        // expect no values to be read
+        let array = array_reader.next_batch(50).unwrap();
+        assert!(array.is_empty());
+    }
+
+    #[test]
     fn test_primitive_array_reader_data() {
         // Construct column schema
         let message_type = "
@@ -1032,15 +1052,12 @@ mod tests {
                 true,
                 2,
             );
-            let page_iterator = InMemoryPageIterator::new(
-                schema.clone(),
-                column_desc.clone(),
-                page_lists,
-            );
+            let page_iterator =
+                InMemoryPageIterator::new(schema, column_desc.clone(), page_lists);
 
             let mut array_reader = PrimitiveArrayReader::<Int32Type>::new(
                 Box::new(page_iterator),
-                column_desc.clone(),
+                column_desc,
             )
             .unwrap();
 
@@ -1052,9 +1069,7 @@ mod tests {
                 .unwrap();
 
             assert_eq!(
-                &PrimitiveArray::<ArrowInt32>::from(
-                    data[0..50].iter().cloned().collect::<Vec<i32>>()
-                ),
+                &PrimitiveArray::<ArrowInt32>::from(data[0..50].to_vec()),
                 array
             );
 
@@ -1067,9 +1082,7 @@ mod tests {
                 .unwrap();
 
             assert_eq!(
-                &PrimitiveArray::<ArrowInt32>::from(
-                    data[50..150].iter().cloned().collect::<Vec<i32>>()
-                ),
+                &PrimitiveArray::<ArrowInt32>::from(data[50..150].to_vec()),
                 array
             );
 
@@ -1081,9 +1094,7 @@ mod tests {
                 .unwrap();
 
             assert_eq!(
-                &PrimitiveArray::<ArrowInt32>::from(
-                    data[150..200].iter().cloned().collect::<Vec<i32>>()
-                ),
+                &PrimitiveArray::<ArrowInt32>::from(data[150..200].to_vec()),
                 array
             );
         }
@@ -1228,15 +1239,12 @@ mod tests {
                 2,
             );
 
-            let page_iterator = InMemoryPageIterator::new(
-                schema.clone(),
-                column_desc.clone(),
-                page_lists,
-            );
+            let page_iterator =
+                InMemoryPageIterator::new(schema, column_desc.clone(), page_lists);
 
             let mut array_reader = PrimitiveArrayReader::<Int32Type>::new(
                 Box::new(page_iterator),
-                column_desc.clone(),
+                column_desc,
             )
             .unwrap();
 
@@ -1342,14 +1350,13 @@ mod tests {
             pages.push(vec![data_page]);
         }
 
-        let page_iterator =
-            InMemoryPageIterator::new(schema.clone(), column_desc.clone(), pages);
+        let page_iterator = InMemoryPageIterator::new(schema, column_desc.clone(), pages);
 
         let converter = Utf8Converter::new(Utf8ArrayConverter {});
         let mut array_reader =
             ComplexObjectArrayReader::<ByteArrayType, Utf8Converter>::new(
                 Box::new(page_iterator),
-                column_desc.clone(),
+                column_desc,
                 converter,
             )
             .unwrap();
@@ -1444,11 +1451,40 @@ mod tests {
         }
 
         fn get_def_levels(&self) -> Option<&[i16]> {
-            self.def_levels.as_ref().map(|v| v.as_slice())
+            self.def_levels.as_deref()
         }
 
         fn get_rep_levels(&self) -> Option<&[i16]> {
-            self.rep_levels.as_ref().map(|v| v.as_slice())
+            self.rep_levels.as_deref()
+        }
+    }
+
+    /// Iterator for testing reading empty columns
+    struct EmptyPageIterator {
+        schema: SchemaDescPtr,
+    }
+
+    impl EmptyPageIterator {
+        fn new(schema: SchemaDescPtr) -> Self {
+            EmptyPageIterator { schema }
+        }
+    }
+
+    impl Iterator for EmptyPageIterator {
+        type Item = Result<Box<dyn PageReader>>;
+
+        fn next(&mut self) -> Option<Self::Item> {
+            None
+        }
+    }
+
+    impl PageIterator for EmptyPageIterator {
+        fn schema(&mut self) -> Result<SchemaDescPtr> {
+            Ok(self.schema.clone())
+        }
+
+        fn column_schema(&mut self) -> Result<ColumnDescPtr> {
+            Ok(self.schema.column(0))
         }
     }
 

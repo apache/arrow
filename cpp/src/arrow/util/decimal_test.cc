@@ -26,17 +26,17 @@
 #include <vector>
 
 #include <gtest/gtest.h>
-#include <boost/multiprecision/cpp_int.hpp>
 
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/util/decimal.h"
+#include "arrow/util/int128_internal.h"
 #include "arrow/util/macros.h"
 
-using boost::multiprecision::int128_t;
-
 namespace arrow {
+
+using internal::int128_t;
 
 class DecimalTestFixture : public ::testing::Test {
  public:
@@ -44,13 +44,6 @@ class DecimalTestFixture : public ::testing::Test {
   Decimal128 integer_value_;
   std::string string_value_;
 };
-
-TEST_F(DecimalTestFixture, TestToString) {
-  Decimal128 decimal(this->integer_value_);
-  int32_t scale = 5;
-  std::string result = decimal.ToString(scale);
-  ASSERT_EQ(result, this->string_value_);
-}
 
 TEST_F(DecimalTestFixture, TestFromString) {
   Decimal128 expected(this->integer_value_);
@@ -104,6 +97,35 @@ TEST(DecimalTest, TestFromDecimalString128) {
 
   // Sanity check that our number is actually using more than 64 bits
   ASSERT_NE(result.high_bits(), 0);
+}
+
+TEST(DecimalTest, TestStringRoundTrip) {
+  static constexpr uint64_t kTestBits[] = {
+      0,
+      1,
+      999,
+      1000,
+      std::numeric_limits<int32_t>::max(),
+      (1ull << 31),
+      std::numeric_limits<uint32_t>::max(),
+      (1ull << 32),
+      std::numeric_limits<int64_t>::max(),
+      (1ull << 63),
+      std::numeric_limits<uint64_t>::max(),
+  };
+  static constexpr int32_t kScales[] = {0, 1, 10};
+  for (uint64_t high_bits : kTestBits) {
+    for (uint64_t low_bits : kTestBits) {
+      // When high_bits = 1ull << 63 or std::numeric_limits<uint64_t>::max(), decimal is
+      // negative.
+      Decimal128 decimal(high_bits, low_bits);
+      for (int32_t scale : kScales) {
+        std::string str = decimal.ToString(scale);
+        ASSERT_OK_AND_ASSIGN(Decimal128 result, Decimal128::FromString(str));
+        EXPECT_EQ(decimal, result);
+      }
+    }
+  }
 }
 
 TEST(DecimalTest, TestDecimal32SignedRoundTrip) {
@@ -218,8 +240,7 @@ TEST(DecimalZerosTest, NoLeadingZerosDecimalPoint) {
 template <typename T>
 class Decimal128Test : public ::testing::Test {
  public:
-  Decimal128Test() : value_(42) {}
-  const T value_;
+  Decimal128Test() {}
 };
 
 using Decimal128Types =
@@ -231,18 +252,29 @@ using Decimal128Types =
 TYPED_TEST_SUITE(Decimal128Test, Decimal128Types);
 
 TYPED_TEST(Decimal128Test, ConstructibleFromAnyIntegerType) {
-  Decimal128 value(this->value_);
-  ASSERT_EQ(42, value.low_bits());
+  Decimal128 value(TypeParam{42});
+  EXPECT_EQ(42, value.low_bits());
+  EXPECT_EQ(0, value.high_bits());
+
+  Decimal128 max_value(std::numeric_limits<TypeParam>::max());
+  EXPECT_EQ(std::numeric_limits<TypeParam>::max(), max_value.low_bits());
+  EXPECT_EQ(0, max_value.high_bits());
+
+  Decimal128 min_value(std::numeric_limits<TypeParam>::min());
+  EXPECT_EQ(std::numeric_limits<TypeParam>::min(), min_value.low_bits());
+  EXPECT_EQ((std::is_signed<TypeParam>::value ? -1 : 0), min_value.high_bits());
 }
 
 TEST(Decimal128TestTrue, ConstructibleFromBool) {
   Decimal128 value(true);
-  ASSERT_EQ(1, value.low_bits());
+  EXPECT_EQ(1, value.low_bits());
+  EXPECT_EQ(0, value.high_bits());
 }
 
 TEST(Decimal128TestFalse, ConstructibleFromBool) {
   Decimal128 value(false);
-  ASSERT_EQ(0, value.low_bits());
+  EXPECT_EQ(0, value.low_bits());
+  EXPECT_EQ(0, value.high_bits());
 }
 
 TEST(Decimal128Test, Division) {
@@ -281,28 +313,93 @@ TEST(Decimal128Test, PrintMinValue) {
   ASSERT_EQ(string_value, printed_value);
 }
 
-class Decimal128PrintingTest
-    : public ::testing::TestWithParam<std::tuple<int32_t, int32_t, std::string>> {};
-
-TEST_P(Decimal128PrintingTest, Print) {
-  int32_t test_value;
+struct ToStringTestParam {
+  int64_t test_value;
   int32_t scale;
   std::string expected_string;
-  std::tie(test_value, scale, expected_string) = GetParam();
-  const Decimal128 value(test_value);
-  const std::string printed_value = value.ToString(scale);
-  ASSERT_EQ(expected_string, printed_value);
+
+  // Avoid Valgrind uninitialized memory reads with the default GTest print routine.
+  friend std::ostream& operator<<(std::ostream& os, const ToStringTestParam& param) {
+    return os << "<value: " << param.test_value << ">";
+  }
+};
+
+static const ToStringTestParam kToStringTestData[] = {
+    {0, -1, "0.E+1"},
+    {0, 0, "0"},
+    {0, 1, "0.0"},
+    {0, 6, "0.000000"},
+    {2, 7, "2.E-7"},
+    {2, -1, "2.E+1"},
+    {2, 0, "2"},
+    {2, 1, "0.2"},
+    {2, 6, "0.000002"},
+    {-2, 7, "-2.E-7"},
+    {-2, 7, "-2.E-7"},
+    {-2, -1, "-2.E+1"},
+    {-2, 0, "-2"},
+    {-2, 1, "-0.2"},
+    {-2, 6, "-0.000002"},
+    {-2, 7, "-2.E-7"},
+    {123, -3, "1.23E+5"},
+    {123, -1, "1.23E+3"},
+    {123, 1, "12.3"},
+    {123, 0, "123"},
+    {123, 5, "0.00123"},
+    {123, 8, "0.00000123"},
+    {123, 9, "1.23E-7"},
+    {123, 10, "1.23E-8"},
+    {-123, -3, "-1.23E+5"},
+    {-123, -1, "-1.23E+3"},
+    {-123, 1, "-12.3"},
+    {-123, 0, "-123"},
+    {-123, 5, "-0.00123"},
+    {-123, 8, "-0.00000123"},
+    {-123, 9, "-1.23E-7"},
+    {-123, 10, "-1.23E-8"},
+    {1000000000, -3, "1.000000000E+12"},
+    {1000000000, -1, "1.000000000E+10"},
+    {1000000000, 0, "1000000000"},
+    {1000000000, 1, "100000000.0"},
+    {1000000000, 5, "10000.00000"},
+    {1000000000, 15, "0.000001000000000"},
+    {1000000000, 16, "1.000000000E-7"},
+    {1000000000, 17, "1.000000000E-8"},
+    {-1000000000, -3, "-1.000000000E+12"},
+    {-1000000000, -1, "-1.000000000E+10"},
+    {-1000000000, 0, "-1000000000"},
+    {-1000000000, 1, "-100000000.0"},
+    {-1000000000, 5, "-10000.00000"},
+    {-1000000000, 15, "-0.000001000000000"},
+    {-1000000000, 16, "-1.000000000E-7"},
+    {-1000000000, 17, "-1.000000000E-8"},
+    {1234567890123456789LL, -3, "1.234567890123456789E+21"},
+    {1234567890123456789LL, -1, "1.234567890123456789E+19"},
+    {1234567890123456789LL, 0, "1234567890123456789"},
+    {1234567890123456789LL, 1, "123456789012345678.9"},
+    {1234567890123456789LL, 5, "12345678901234.56789"},
+    {1234567890123456789LL, 24, "0.000001234567890123456789"},
+    {1234567890123456789LL, 25, "1.234567890123456789E-7"},
+    {-1234567890123456789LL, -3, "-1.234567890123456789E+21"},
+    {-1234567890123456789LL, -1, "-1.234567890123456789E+19"},
+    {-1234567890123456789LL, 0, "-1234567890123456789"},
+    {-1234567890123456789LL, 1, "-123456789012345678.9"},
+    {-1234567890123456789LL, 5, "-12345678901234.56789"},
+    {-1234567890123456789LL, 24, "-0.000001234567890123456789"},
+    {-1234567890123456789LL, 25, "-1.234567890123456789E-7"},
+};
+
+class Decimal128ToStringTest : public ::testing::TestWithParam<ToStringTestParam> {};
+
+TEST_P(Decimal128ToStringTest, ToString) {
+  const ToStringTestParam& param = GetParam();
+  const Decimal128 value(param.test_value);
+  const std::string printed_value = value.ToString(param.scale);
+  ASSERT_EQ(param.expected_string, printed_value);
 }
 
-INSTANTIATE_TEST_SUITE_P(Decimal128PrintingTest, Decimal128PrintingTest,
-                         ::testing::Values(std::make_tuple(123, 1, "12.3"),
-                                           std::make_tuple(123, 5, "0.00123"),
-                                           std::make_tuple(123, 10, "1.23E-8"),
-                                           std::make_tuple(123, -1, "1.23E+3"),
-                                           std::make_tuple(-123, -1, "-1.23E+3"),
-                                           std::make_tuple(123, -3, "1.23E+5"),
-                                           std::make_tuple(-123, -3, "-1.23E+5"),
-                                           std::make_tuple(12345, -3, "1.2345E+7")));
+INSTANTIATE_TEST_SUITE_P(Decimal128ToStringTest, Decimal128ToStringTest,
+                         ::testing::ValuesIn(kToStringTestData));
 
 class Decimal128ParsingTest
     : public ::testing::TestWithParam<std::tuple<std::string, uint64_t, int32_t>> {};
@@ -372,8 +469,7 @@ struct FromRealTestParam {
   int32_t scale;
   std::string expected;
 
-  // Weird, but we need to define this to avoid Valgrind issues
-  // with the default GTest print routine.
+  // Avoid Valgrind uninitialized memory reads with the default GTest print routine.
   friend std::ostream& operator<<(std::ostream& os,
                                   const FromRealTestParam<Real>& param) {
     return os << "<real: " << param.real << ">";
@@ -696,15 +792,6 @@ TEST_F(TestDecimalToRealDouble, Precision) {
 
 #endif  // __MINGW32__
 
-TEST(Decimal128Test, TestSmallNumberFormat) {
-  Decimal128 value("0.2");
-  std::string expected("0.2");
-
-  const int32_t scale = 1;
-  std::string result = value.ToString(scale);
-  ASSERT_EQ(expected, result);
-}
-
 TEST(Decimal128Test, TestNoDecimalPointExponential) {
   Decimal128 value;
   int32_t precision;
@@ -815,6 +902,11 @@ std::vector<CType> GetRandomNumbers(int32_t size) {
   return ret;
 }
 
+Decimal128 Decimal128FromInt128(int128_t value) {
+  return Decimal128(static_cast<int64_t>(value >> 64),
+                    static_cast<uint64_t>(value & 0xFFFFFFFFFFFFFFFFULL));
+}
+
 TEST(Decimal128Test, Multiply) {
   ASSERT_EQ(Decimal128(60501), Decimal128(301) * Decimal128(201));
 
@@ -830,6 +922,14 @@ TEST(Decimal128Test, Multiply) {
       Decimal128 result = Decimal128(x) * Decimal128(y);
       ASSERT_EQ(Decimal128(static_cast<int64_t>(x) * y), result)
           << " x: " << x << " y: " << y;
+      // Test by multiplying with an additional 32 bit factor, then additional
+      // factor of 2^30 to test results in the range of -2^123 to 2^123 without overflow.
+      for (auto z : GetRandomNumbers<Int32Type>(32)) {
+        int128_t w = static_cast<int128_t>(x) * y * (1ull << 30);
+        Decimal128 expected = Decimal128FromInt128(static_cast<int128_t>(w) * z);
+        Decimal128 actual = Decimal128FromInt128(w) * Decimal128(z);
+        ASSERT_EQ(expected, actual) << " w: " << x << " * " << y << " * 2^30 z: " << z;
+      }
     }
   }
 
@@ -837,8 +937,11 @@ TEST(Decimal128Test, Multiply) {
   for (auto x : std::vector<int128_t>{-INT64_MAX, -INT32_MAX, 0, INT32_MAX, INT64_MAX}) {
     for (auto y :
          std::vector<int128_t>{-INT32_MAX, -32, -2, -1, 0, 1, 2, 32, INT32_MAX}) {
-      Decimal128 result = Decimal128(x.str()) * Decimal128(y.str());
-      ASSERT_EQ(Decimal128((x * y).str()), result) << " x: " << x << " y: " << y;
+      Decimal128 decimal_x = Decimal128FromInt128(x);
+      Decimal128 decimal_y = Decimal128FromInt128(y);
+      Decimal128 result = decimal_x * decimal_y;
+      EXPECT_EQ(Decimal128FromInt128(x * y), result)
+          << " x: " << decimal_x << " y: " << decimal_y;
     }
   }
 }
@@ -868,8 +971,11 @@ TEST(Decimal128Test, Divide) {
   // Test some edge cases
   for (auto x : std::vector<int128_t>{-INT64_MAX, -INT32_MAX, 0, INT32_MAX, INT64_MAX}) {
     for (auto y : std::vector<int128_t>{-INT32_MAX, -32, -2, -1, 1, 2, 32, INT32_MAX}) {
-      Decimal128 result = Decimal128(x.str()) * Decimal128(y.str());
-      ASSERT_EQ(Decimal128((x * y).str()), result) << " x: " << x << " y: " << y;
+      Decimal128 decimal_x = Decimal128FromInt128(x);
+      Decimal128 decimal_y = Decimal128FromInt128(y);
+      Decimal128 result = decimal_x / decimal_y;
+      EXPECT_EQ(Decimal128FromInt128(x / y), result)
+          << " x: " << decimal_x << " y: " << decimal_y;
     }
   }
 }
@@ -899,8 +1005,11 @@ TEST(Decimal128Test, Mod) {
   // Test some edge cases
   for (auto x : std::vector<int128_t>{-INT64_MAX, -INT32_MAX, 0, INT32_MAX, INT64_MAX}) {
     for (auto y : std::vector<int128_t>{-INT32_MAX, -32, -2, -1, 1, 2, 32, INT32_MAX}) {
-      Decimal128 result = Decimal128(x.str()) * Decimal128(y.str());
-      ASSERT_EQ(Decimal128((x * y).str()), result) << " x: " << x << " y: " << y;
+      Decimal128 decimal_x = Decimal128FromInt128(x);
+      Decimal128 decimal_y = Decimal128FromInt128(y);
+      Decimal128 result = decimal_x % decimal_y;
+      EXPECT_EQ(Decimal128FromInt128(x % y), result)
+          << " x: " << decimal_x << " y: " << decimal_y;
     }
   }
 }

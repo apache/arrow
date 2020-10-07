@@ -17,5 +17,5 @@ copies or substantial portions of the Software.
 Sources for datetime are adapted from Howard Hinnant's date library
 (https://github.com/HowardHinnant/date).
 
-Sources are taken from v2.4.1 release of the above project.
+Sources are taken from v3.0.0 release of the above project.
 

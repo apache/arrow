@@ -41,15 +41,6 @@
 #include <sys/stat.h>
 #include <sys/types.h>  // IWYU pragma: keep
 
-// Defines that don't exist in MinGW
-#if defined(__MINGW32__)
-#define ARROW_WRITE_SHMODE S_IRUSR | S_IWUSR
-#elif defined(_MSC_VER)  // Visual Studio
-
-#else  // gcc / clang on POSIX platforms
-#define ARROW_WRITE_SHMODE S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH
-#endif
-
 // ----------------------------------------------------------------------
 // file compatibility stuff
 
@@ -927,7 +918,7 @@ Result<int> FileOpenWritable(const PlatformFilename& file_name, bool write_only,
     oflag |= O_RDWR;
   }
 
-  fd = open(file_name.ToNative().c_str(), oflag, ARROW_WRITE_SHMODE);
+  fd = open(file_name.ToNative().c_str(), oflag, 0666);
   errno_actual = errno;
 #endif
 
@@ -1118,8 +1109,12 @@ Status MemoryAdviseWillNeed(const std::vector<MemoryRegion>& regions) {
   for (const auto& region : regions) {
     if (region.size != 0) {
       const auto aligned = align_region(region);
-      if (posix_madvise(aligned.addr, aligned.size, POSIX_MADV_WILLNEED)) {
-        return IOErrorFromErrno(errno, "posix_madvise failed");
+      int err = posix_madvise(aligned.addr, aligned.size, POSIX_MADV_WILLNEED);
+      // EBADF can be returned on Linux in the following cases:
+      // - the kernel version is older than 3.9
+      // - the kernel was compiled with CONFIG_SWAP disabled (ARROW-9577)
+      if (err != 0 && err != EBADF) {
+        return IOErrorFromErrno(err, "posix_madvise failed");
       }
     }
   }

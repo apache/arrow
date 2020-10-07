@@ -485,6 +485,8 @@ int64_t RowGroupMetaData::num_rows() const { return impl_->num_rows(); }
 
 int64_t RowGroupMetaData::total_byte_size() const { return impl_->total_byte_size(); }
 
+int64_t RowGroupMetaData::file_offset() const { return impl_->file_offset(); }
+
 const SchemaDescriptor* RowGroupMetaData::schema() const { return impl_->schema(); }
 
 std::unique_ptr<ColumnChunkMetaData> RowGroupMetaData::ColumnChunk(int i) const {
@@ -881,8 +883,9 @@ ApplicationVersion::ApplicationVersion(const std::string& application, int major
     : application_(application), version{major, minor, patch, "", "", ""} {}
 
 ApplicationVersion::ApplicationVersion(const std::string& created_by) {
-  regex app_regex{ApplicationVersion::APPLICATION_FORMAT};
-  regex ver_regex{ApplicationVersion::VERSION_FORMAT};
+  // Use singletons to compile only once (ARROW-9863)
+  static regex app_regex{ApplicationVersion::APPLICATION_FORMAT};
+  static regex ver_regex{ApplicationVersion::VERSION_FORMAT};
   smatch app_matches;
   smatch ver_matches;
 

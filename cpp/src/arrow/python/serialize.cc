@@ -37,6 +37,7 @@
 #include "arrow/ipc/writer.h"
 #include "arrow/memory_pool.h"
 #include "arrow/record_batch.h"
+#include "arrow/result.h"
 #include "arrow/tensor.h"
 #include "arrow/util/logging.h"
 
@@ -482,8 +483,7 @@ Status Append(PyObject* context, PyObject* elem, SequenceBuilder* builder,
     RETURN_NOT_OK(internal::CastSize(PyBytes_GET_SIZE(elem), &size));
     RETURN_NOT_OK(builder->AppendBytes(data, size));
   } else if (PyUnicode_Check(elem)) {
-    PyBytesView view;
-    RETURN_NOT_OK(view.FromString(elem));
+    ARROW_ASSIGN_OR_RAISE(auto view, PyBytesView::FromUnicode(elem));
     int32_t size = -1;
     RETURN_NOT_OK(internal::CastSize(view.size, &size));
     RETURN_NOT_OK(builder->AppendString(view.bytes, size));

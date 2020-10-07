@@ -28,7 +28,7 @@ class TestDatasetScanOptions < Test::Unit::TestCase
   end
 
   def test_batch_size
-    assert_equal(1<<15,
+    assert_equal(1<<20,
                  @scan_options.batch_size)
     @scan_options.batch_size = 42
     assert_equal(42,

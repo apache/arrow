@@ -570,6 +570,26 @@ class TestStringBuilder : public TestBuilder {
     ASSERT_EQ(reps * 40, result_->value_data()->size());
   }
 
+  void TestOverflowCheck() {
+    auto max_size = builder_->memory_limit();
+
+    ASSERT_OK(builder_->ValidateOverflow(1));
+    ASSERT_OK(builder_->ValidateOverflow(max_size));
+    ASSERT_RAISES(CapacityError, builder_->ValidateOverflow(max_size + 1));
+
+    ASSERT_OK(builder_->Append("bb"));
+    ASSERT_OK(builder_->ValidateOverflow(max_size - 2));
+    ASSERT_RAISES(CapacityError, builder_->ValidateOverflow(max_size - 1));
+
+    ASSERT_OK(builder_->AppendNull());
+    ASSERT_OK(builder_->ValidateOverflow(max_size - 2));
+    ASSERT_RAISES(CapacityError, builder_->ValidateOverflow(max_size - 1));
+
+    ASSERT_OK(builder_->Append("ccc"));
+    ASSERT_OK(builder_->ValidateOverflow(max_size - 5));
+    ASSERT_RAISES(CapacityError, builder_->ValidateOverflow(max_size - 4));
+  }
+
   void TestZeroLength() {
     // All buffers are null
     Done();
@@ -601,6 +621,8 @@ TYPED_TEST(TestStringBuilder, TestAppendCStringsWithoutValidBytes) {
 TYPED_TEST(TestStringBuilder, TestCapacityReserve) { this->TestCapacityReserve(); }
 
 TYPED_TEST(TestStringBuilder, TestZeroLength) { this->TestZeroLength(); }
+
+TYPED_TEST(TestStringBuilder, TestOverflowCheck) { this->TestOverflowCheck(); }
 
 // ----------------------------------------------------------------------
 // ChunkedBinaryBuilder tests

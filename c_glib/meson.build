@@ -125,6 +125,9 @@ if get_option('development_mode')
     cxx_flags += ['-Werror']
   endif
 endif
+if cxx.get_id() != 'msvc'
+  cxx_flags += ['-Wmissing-declarations']
+endif
 add_project_arguments(cxx.get_supported_arguments(cxx_flags), language: 'cpp')
 
 subdir('arrow-glib')

@@ -356,7 +356,12 @@ TEST(TestStringOps, TestConcat) {
   uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
   gdv_int32 out_len = 0;
 
-  const char* out_str = concatOperator_utf8_utf8(ctx_ptr, "asdf", 4, "jkl", 3, &out_len);
+  const char* out_str =
+      concat_utf8_utf8(ctx_ptr, "abcd", 4, true, "\npq", 3, false, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "abcd");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = concatOperator_utf8_utf8(ctx_ptr, "asdf", 4, "jkl", 3, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "asdfjkl");
   EXPECT_FALSE(ctx.has_error());
 
@@ -374,6 +379,106 @@ TEST(TestStringOps, TestConcat) {
 
   out_str = concatOperator_utf8_utf8(ctx_ptr, "abcd\n", 5, "a", 1, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "abcd\na");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = concat_utf8_utf8_utf8(ctx_ptr, "abcd", 4, false, "\npq", 3, true, "ard", 3,
+                                  true, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "\npqard");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str =
+      concatOperator_utf8_utf8_utf8(ctx_ptr, "abcd\n", 5, "a", 1, "bcd", 3, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "abcd\nabcd");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = concatOperator_utf8_utf8_utf8(ctx_ptr, "abcd", 4, "a", 1, "", 0, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "abcda");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = concatOperator_utf8_utf8_utf8(ctx_ptr, "", 0, "a", 1, "pqrs", 4, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "apqrs");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = concat_utf8_utf8_utf8_utf8(ctx_ptr, "abcd", 4, false, "\npq", 3, true, "ard",
+                                       3, true, "uvw", 3, false, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "\npqard");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = concatOperator_utf8_utf8_utf8_utf8(ctx_ptr, "pqrs", 4, "", 0, "\nabc", 4, "y",
+                                               1, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "pqrs\nabcy");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = concat_utf8_utf8_utf8_utf8_utf8(ctx_ptr, "abcd", 4, false, "\npq", 3, true,
+                                            "ard", 3, true, "uvw", 3, false, "abc\n", 4,
+                                            true, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "\npqardabc\n");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = concatOperator_utf8_utf8_utf8_utf8_utf8(ctx_ptr, "pqrs", 4, "", 0, "\nabc", 4,
+                                                    "y", 1, "", 0, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "pqrs\nabcy");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = concat_utf8_utf8_utf8_utf8_utf8_utf8(
+      ctx_ptr, "abcd", 4, false, "\npq", 3, true, "ard", 3, true, "uvw", 3, false,
+      "abc\n", 4, true, "sdfgs", 5, true, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "\npqardabc\nsdfgs");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = concatOperator_utf8_utf8_utf8_utf8_utf8_utf8(
+      ctx_ptr, "pqrs", 4, "", 0, "\nabc", 4, "y", 1, "", 0, "\nbcd", 4, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "pqrs\nabcy\nbcd");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = concat_utf8_utf8_utf8_utf8_utf8_utf8_utf8(
+      ctx_ptr, "abcd", 4, false, "\npq", 3, true, "ard", 3, true, "uvw", 3, false,
+      "abc\n", 4, true, "sdfgs", 5, true, "wfw", 3, false, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "\npqardabc\nsdfgs");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = concatOperator_utf8_utf8_utf8_utf8_utf8_utf8_utf8(
+      ctx_ptr, "", 0, "pqrs", 4, "abc\n", 4, "y", 1, "", 0, "asdf", 4, "jkl", 3,
+      &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "pqrsabc\nyasdfjkl");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = concat_utf8_utf8_utf8_utf8_utf8_utf8_utf8_utf8(
+      ctx_ptr, "abcd", 4, false, "\npq", 3, true, "ard", 3, true, "uvw", 3, false,
+      "abc\n", 4, true, "sdfgs", 5, true, "wfw", 3, false, "", 0, true, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "\npqardabc\nsdfgs");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = concatOperator_utf8_utf8_utf8_utf8_utf8_utf8_utf8_utf8(
+      ctx_ptr, "", 0, "pqrs", 4, "abc\n", 4, "y", 1, "", 0, "asdf", 4, "jkl", 3, "", 0,
+      &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "pqrsabc\nyasdfjkl");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = concat_utf8_utf8_utf8_utf8_utf8_utf8_utf8_utf8_utf8(
+      ctx_ptr, "abcd", 4, false, "\npq", 3, true, "ard", 3, true, "uvw", 3, false,
+      "abc\n", 4, true, "sdfgs", 5, true, "wfw", 3, false, "", 0, true, "qwert|n", 7,
+      true, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "\npqardabc\nsdfgsqwert|n");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = concatOperator_utf8_utf8_utf8_utf8_utf8_utf8_utf8_utf8_utf8(
+      ctx_ptr, "", 0, "pqrs", 4, "abc\n", 4, "y", 1, "", 0, "asdf", 4, "jkl", 3, "", 0,
+      "sfl\n", 4, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "pqrsabc\nyasdfjklsfl\n");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = concat_utf8_utf8_utf8_utf8_utf8_utf8_utf8_utf8_utf8_utf8(
+      ctx_ptr, "abcd", 4, false, "\npq", 3, true, "ard", 3, true, "uvw", 3, false,
+      "abc\n", 4, true, "sdfgs", 5, true, "wfw", 3, false, "", 0, true, "qwert|n", 7,
+      true, "ewfwe", 5, false, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "\npqardabc\nsdfgsqwert|n");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = concatOperator_utf8_utf8_utf8_utf8_utf8_utf8_utf8_utf8_utf8_utf8(
+      ctx_ptr, "", 0, "pqrs", 4, "abc\n", 4, "y", 1, "", 0, "asdf", 4, "", 0, "jkl", 3,
+      "sfl\n", 4, "", 0, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "pqrsabc\nyasdfjklsfl\n");
   EXPECT_FALSE(ctx.has_error());
 }
 

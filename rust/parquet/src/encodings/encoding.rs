@@ -139,7 +139,7 @@ impl<T: DataType> Encoder<T> for PlainEncoder<T> {
 
     #[inline]
     default fn flush_buffer(&mut self) -> Result<ByteBufferPtr> {
-        self.buffer.write(self.bit_writer.flush_buffer())?;
+        self.buffer.write_all(self.bit_writer.flush_buffer())?;
         self.buffer.flush()?;
         self.bit_writer.clear();
 
@@ -157,7 +157,7 @@ where
 {
     default fn put(&mut self, values: &[T::T]) -> Result<()> {
         let bytes = T::T::slice_as_bytes(values);
-        self.buffer.write(bytes)?;
+        self.buffer.write_all(bytes)?;
         Ok(())
     }
 }
@@ -174,7 +174,7 @@ impl Encoder<BoolType> for PlainEncoder<BoolType> {
 impl Encoder<Int96Type> for PlainEncoder<Int96Type> {
     fn put(&mut self, values: &[Int96]) -> Result<()> {
         for v in values {
-            self.buffer.write(v.as_bytes())?;
+            self.buffer.write_all(v.as_bytes())?;
         }
         self.buffer.flush()?;
         Ok(())
@@ -184,8 +184,9 @@ impl Encoder<Int96Type> for PlainEncoder<Int96Type> {
 impl Encoder<ByteArrayType> for PlainEncoder<ByteArrayType> {
     fn put(&mut self, values: &[ByteArray]) -> Result<()> {
         for v in values {
-            self.buffer.write(&(v.len().to_le() as u32).as_bytes())?;
-            self.buffer.write(v.data())?;
+            self.buffer
+                .write_all(&(v.len().to_le() as u32).as_bytes())?;
+            self.buffer.write_all(v.data())?;
         }
         self.buffer.flush()?;
         Ok(())
@@ -195,7 +196,7 @@ impl Encoder<ByteArrayType> for PlainEncoder<ByteArrayType> {
 impl Encoder<FixedLenByteArrayType> for PlainEncoder<FixedLenByteArrayType> {
     fn put(&mut self, values: &[ByteArray]) -> Result<()> {
         for v in values {
-            self.buffer.write(v.data())?;
+            self.buffer.write_all(v.data())?;
         }
         self.buffer.flush()?;
         Ok(())
@@ -303,7 +304,7 @@ impl<T: DataType> DictEncoder<T> {
         self.mem_tracker.alloc(buffer.capacity() as i64);
 
         // Write bit width in the first byte
-        buffer.write((self.bit_width() as u8).as_bytes())?;
+        buffer.write_all((self.bit_width() as u8).as_bytes())?;
         let mut encoder = RleEncoder::new_from_buf(self.bit_width(), buffer, 1);
         for index in self.buffered_indices.data() {
             if !encoder.put(*index as u64)? {
@@ -691,15 +692,14 @@ impl<T: DataType> Encoder<T> for DeltaBitPackEncoder<T> {
             return Ok(());
         }
 
-        let mut idx;
         // Define values to encode, initialize state
-        if self.total_values == 0 {
+        let mut idx = if self.total_values == 0 {
             self.first_value = self.as_i64(values, 0);
             self.current_value = self.first_value;
-            idx = 1;
+            1
         } else {
-            idx = 0;
-        }
+            0
+        };
         // Add all values (including first value)
         self.total_values += values.len();
 
@@ -732,8 +732,8 @@ impl<T: DataType> Encoder<T> for DeltaBitPackEncoder<T> {
         self.write_page_header();
 
         let mut buffer = ByteBuffer::new();
-        buffer.write(self.page_header_writer.flush_buffer())?;
-        buffer.write(self.bit_writer.flush_buffer())?;
+        buffer.write_all(self.page_header_writer.flush_buffer())?;
+        buffer.write_all(self.bit_writer.flush_buffer())?;
         buffer.flush()?;
 
         // Reset state
@@ -1173,27 +1173,20 @@ mod tests {
         }
 
         // PLAIN
-        run_test::<Int32Type>(Encoding::PLAIN, -1, &vec![123; 1024], 0, 4096, 0);
+        run_test::<Int32Type>(Encoding::PLAIN, -1, &[123; 1024], 0, 4096, 0);
 
         // DICTIONARY
         // NOTE: The final size is almost the same because the dictionary entries are
         // preserved after encoded values have been written.
-        run_test::<Int32Type>(Encoding::RLE_DICTIONARY, -1, &vec![123, 1024], 11, 68, 66);
+        run_test::<Int32Type>(Encoding::RLE_DICTIONARY, -1, &[123, 1024], 11, 68, 66);
 
         // DELTA_BINARY_PACKED
-        run_test::<Int32Type>(
-            Encoding::DELTA_BINARY_PACKED,
-            -1,
-            &vec![123; 1024],
-            0,
-            35,
-            0,
-        );
+        run_test::<Int32Type>(Encoding::DELTA_BINARY_PACKED, -1, &[123; 1024], 0, 35, 0);
 
         // RLE
         let mut values = vec![];
-        values.extend_from_slice(&vec![true; 16]);
-        values.extend_from_slice(&vec![false; 16]);
+        values.extend_from_slice(&[true; 16]);
+        values.extend_from_slice(&[false; 16]);
         run_test::<BoolType>(Encoding::RLE, -1, &values, 0, 2, 0);
 
         // DELTA_LENGTH_BYTE_ARRAY
@@ -1254,7 +1247,7 @@ mod tests {
                 Encoding::PLAIN_DICTIONARY | Encoding::RLE_DICTIONARY => {
                     Self::test_dict_internal(total, type_length)
                 }
-                enc @ _ => Self::test_internal(enc, total, type_length),
+                enc => Self::test_internal(enc, total, type_length),
             };
 
             assert!(

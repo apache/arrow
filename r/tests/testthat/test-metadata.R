@@ -61,6 +61,7 @@ test_that("Table R metadata", {
 test_that("R metadata is not stored for types that map to Arrow types (factor, Date, etc.)", {
   tab <- Table$create(example_data[1:6])
   expect_null(tab$metadata$r)
+
   expect_null(Table$create(example_with_times[1:3])$metadata$r)
 })
 
@@ -125,4 +126,11 @@ test_that("Date/time type roundtrip", {
   rb <- record_batch(example_with_times)
   expect_is(rb$schema$posixlt$type, "StructType")
   expect_identical(as.data.frame(rb), example_with_times)
+})
+
+test_that("metadata keeps attribute of top level data frame", {
+  df <- structure(data.frame(x = 1, y = 2), foo = "bar")
+  tab <- Table$create(df)
+  expect_identical(attr(as.data.frame(tab), "foo"), "bar")
+  expect_identical(as.data.frame(tab), df)
 })

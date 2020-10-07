@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/util/logging.h"
 #include "gandiva/precompiled/decimal_ops.h"
 
 extern "C" {
@@ -111,6 +112,96 @@ LOG_WITH_BASE(float64, float64, float64)
 
 POWER(float64, float64, float64)
 
+// round
+#define ROUND_DECIMAL(TYPE)                                                 \
+  FORCE_INLINE                                                              \
+  gdv_##TYPE round_##TYPE##_int32(gdv_##TYPE number, gdv_int32 out_scale) { \
+    gdv_##TYPE scale_multiplier =                                           \
+        static_cast<gdv_##TYPE>(get_scale_multiplier(out_scale));           \
+    return static_cast<gdv_##TYPE>(                                         \
+        trunc(number * scale_multiplier + ((number > 0) ? 0.5 : -0.5)) /    \
+        scale_multiplier);                                                  \
+  }
+
+ROUND_DECIMAL(float32)
+ROUND_DECIMAL(float64)
+
+FORCE_INLINE
+gdv_int32 round_int32_int32(gdv_int32 number, gdv_int32 precision) {
+  // for integers, there is nothing following the decimal point,
+  // so round() always returns the same number if precision >= 0
+  if (precision >= 0) {
+    return number;
+  }
+  gdv_int32 abs_precision = -precision;
+  // This is to ensure that there is no overflow while calculating 10^precision, 9 is
+  // the smallest N for which 10^N does not fit into 32 bits, so we can safely return 0
+  if (abs_precision > 9) {
+    return 0;
+  }
+  gdv_int32 num_sign = (number > 0) ? 1 : -1;
+  gdv_int32 abs_number = number * num_sign;
+  gdv_int32 power_of_10 = static_cast<gdv_int32>(get_power_of_10(abs_precision));
+  gdv_int32 remainder = abs_number % power_of_10;
+  abs_number -= remainder;
+  // if the fractional part of the quotient >= 0.5, round to next higher integer
+  if (remainder >= power_of_10 / 2) {
+    abs_number += power_of_10;
+  }
+  return abs_number * num_sign;
+}
+
+FORCE_INLINE
+gdv_int64 round_int64_int32(gdv_int64 number, gdv_int32 precision) {
+  // for long integers, there is nothing following the decimal point,
+  // so round() always returns the same number if precision >= 0
+  if (precision >= 0) {
+    return number;
+  }
+  gdv_int32 abs_precision = -precision;
+  // This is to ensure that there is no overflow while calculating 10^precision, 19 is
+  // the smallest N for which 10^N does not fit into 64 bits, so we can safely return 0
+  if (abs_precision > 18) {
+    return 0;
+  }
+  gdv_int32 num_sign = (number > 0) ? 1 : -1;
+  gdv_int64 abs_number = number * num_sign;
+  gdv_int64 power_of_10 = get_power_of_10(abs_precision);
+  gdv_int64 remainder = abs_number % power_of_10;
+  abs_number -= remainder;
+  // if the fractional part of the quotient >= 0.5, round to next higher integer
+  if (remainder >= power_of_10 / 2) {
+    abs_number += power_of_10;
+  }
+  return abs_number * num_sign;
+}
+
+FORCE_INLINE
+gdv_int64 get_power_of_10(gdv_int32 exp) {
+  DCHECK_GE(exp, 0);
+  DCHECK_LE(exp, 18);
+  static const gdv_int64 power_of_10[] = {1,
+                                          10,
+                                          100,
+                                          1000,
+                                          10000,
+                                          100000,
+                                          1000000,
+                                          10000000,
+                                          100000000,
+                                          1000000000,
+                                          10000000000,
+                                          100000000000,
+                                          1000000000000,
+                                          10000000000000,
+                                          100000000000000,
+                                          1000000000000000,
+                                          10000000000000000,
+                                          100000000000000000,
+                                          1000000000000000000};
+  return power_of_10[exp];
+}
+
 FORCE_INLINE
 gdv_int64 truncate_int64_int32(gdv_int64 in, gdv_int32 out_scale) {
   bool overflow = false;
@@ -123,6 +214,34 @@ gdv_int64 truncate_int64_int32(gdv_int64 in, gdv_int32 out_scale) {
   }
   return gandiva::decimalops::ToInt64(
       gandiva::BasicDecimalScalar128(decimal_with_outscale, 38, out_scale), &overflow);
+}
+
+FORCE_INLINE
+gdv_float64 get_scale_multiplier(gdv_int32 scale) {
+  static const gdv_float64 values[] = {1.0,
+                                       10.0,
+                                       100.0,
+                                       1000.0,
+                                       10000.0,
+                                       100000.0,
+                                       1000000.0,
+                                       10000000.0,
+                                       100000000.0,
+                                       1000000000.0,
+                                       10000000000.0,
+                                       100000000000.0,
+                                       1000000000000.0,
+                                       10000000000000.0,
+                                       100000000000000.0,
+                                       1000000000000000.0,
+                                       10000000000000000.0,
+                                       100000000000000000.0,
+                                       1000000000000000000.0,
+                                       10000000000000000000.0};
+  if (scale >= 0 && scale < 20) {
+    return values[scale];
+  }
+  return power_float64_float64(10.0, scale);
 }
 
 }  // extern "C"

@@ -100,7 +100,7 @@ static void ReadFile(benchmark::State& state) {  // NOLINT non-const reference
     auto record_batch = MakeRecordBatch(kTotalSize, state.range(0));
 
     io::BufferOutputStream stream(buffer);
-    auto writer = *ipc::NewFileWriter(&stream, record_batch->schema(), options);
+    auto writer = *ipc::MakeFileWriter(&stream, record_batch->schema(), options);
     ABORT_NOT_OK(writer->WriteRecordBatch(*record_batch));
     ABORT_NOT_OK(writer->Close());
     ABORT_NOT_OK(stream.Close());
@@ -131,7 +131,7 @@ static void ReadStream(benchmark::State& state) {  // NOLINT non-const reference
 
     io::BufferOutputStream stream(buffer);
 
-    auto writer_result = ipc::NewStreamWriter(&stream, record_batch->schema(), options);
+    auto writer_result = ipc::MakeStreamWriter(&stream, record_batch->schema(), options);
     ABORT_NOT_OK(writer_result);
     auto writer = *writer_result;
     ABORT_NOT_OK(writer->WriteRecordBatch(*record_batch));
@@ -167,7 +167,7 @@ static void DecodeStream(benchmark::State& state) {  // NOLINT non-const referen
 
   io::BufferOutputStream stream(buffer);
 
-  auto writer_result = ipc::NewStreamWriter(&stream, record_batch->schema(), options);
+  auto writer_result = ipc::MakeStreamWriter(&stream, record_batch->schema(), options);
   ABORT_NOT_OK(writer_result);
   auto writer = *writer_result;
   ABORT_NOT_OK(writer->WriteRecordBatch(*record_batch));

@@ -497,7 +497,7 @@ void PlasmaStore::ProcessGetRequest(Client* client,
   }
 
   if (!evicted_ids.empty()) {
-    unsigned char digest[kDigestSize];
+    unsigned char digest[kDigestSize] = {};
     std::vector<std::shared_ptr<Buffer>> buffers;
     for (size_t i = 0; i < evicted_ids.size(); ++i) {
       ARROW_CHECK(evicted_entries[i]->pointer != nullptr);

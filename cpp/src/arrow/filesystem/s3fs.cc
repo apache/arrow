@@ -36,11 +36,14 @@
 #endif
 
 #include <aws/core/Aws.h>
+#include <aws/core/Region.h>
 #include <aws/core/auth/AWSCredentials.h>
 #include <aws/core/auth/AWSCredentialsProviderChain.h>
 #include <aws/core/client/RetryStrategy.h>
+#include <aws/core/http/HttpResponse.h>
 #include <aws/core/utils/logging/ConsoleLogSystem.h>
 #include <aws/core/utils/stream/PreallocatedStreamBuf.h>
+#include <aws/identity-management/auth/STSAssumeRoleCredentialsProvider.h>
 #include <aws/s3/S3Client.h>
 #include <aws/s3/model/AbortMultipartUploadRequest.h>
 #include <aws/s3/model/CompleteMultipartUploadRequest.h>
@@ -70,6 +73,7 @@
 #include "arrow/io/util_internal.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/util/atomic_shared_ptr.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/windows_fixup.h"
@@ -94,8 +98,6 @@ using internal::OutcomeToResult;
 using internal::OutcomeToStatus;
 using internal::ToAwsString;
 using internal::ToURLEncodedAwsString;
-
-const char* kS3DefaultRegion = "us-east-1";
 
 static const char kSep = '/';
 
@@ -160,6 +162,9 @@ Status EnsureS3Initialized() {
   return Status::OK();
 }
 
+// -----------------------------------------------------------------------
+// S3Options implementation
+
 void S3Options::ConfigureDefaultCredentials() {
   credentials_provider =
       std::make_shared<Aws::Auth::DefaultAWSCredentialsProviderChain>();
@@ -170,9 +175,19 @@ void S3Options::ConfigureAnonymousCredentials() {
 }
 
 void S3Options::ConfigureAccessKey(const std::string& access_key,
-                                   const std::string& secret_key) {
+                                   const std::string& secret_key,
+                                   const std::string& session_token) {
   credentials_provider = std::make_shared<Aws::Auth::SimpleAWSCredentialsProvider>(
-      ToAwsString(access_key), ToAwsString(secret_key));
+      ToAwsString(access_key), ToAwsString(secret_key), ToAwsString(session_token));
+}
+
+void S3Options::ConfigureAssumeRoleCredentials(
+    const std::string& role_arn, const std::string& session_name,
+    const std::string& external_id, int load_frequency,
+    const std::shared_ptr<Aws::STS::STSClient>& stsClient) {
+  credentials_provider = std::make_shared<Aws::Auth::STSAssumeRoleCredentialsProvider>(
+      ToAwsString(role_arn), ToAwsString(session_name), ToAwsString(external_id),
+      load_frequency, stsClient);
 }
 
 std::string S3Options::GetAccessKey() const {
@@ -183,6 +198,11 @@ std::string S3Options::GetAccessKey() const {
 std::string S3Options::GetSecretKey() const {
   auto credentials = credentials_provider->GetAWSCredentials();
   return std::string(FromAwsString(credentials.GetAWSSecretKey()));
+}
+
+std::string S3Options::GetSessionToken() const {
+  auto credentials = credentials_provider->GetAWSCredentials();
+  return std::string(FromAwsString(credentials.GetSessionToken()));
 }
 
 S3Options S3Options::Defaults() {
@@ -198,9 +218,24 @@ S3Options S3Options::Anonymous() {
 }
 
 S3Options S3Options::FromAccessKey(const std::string& access_key,
-                                   const std::string& secret_key) {
+                                   const std::string& secret_key,
+                                   const std::string& session_token) {
   S3Options options;
-  options.ConfigureAccessKey(access_key, secret_key);
+  options.ConfigureAccessKey(access_key, secret_key, session_token);
+  return options;
+}
+
+S3Options S3Options::FromAssumeRole(
+    const std::string& role_arn, const std::string& session_name,
+    const std::string& external_id, int load_frequency,
+    const std::shared_ptr<Aws::STS::STSClient>& stsClient) {
+  S3Options options;
+  options.role_arn = role_arn;
+  options.session_name = session_name;
+  options.external_id = external_id;
+  options.load_frequency = load_frequency;
+  options.ConfigureAssumeRoleCredentials(role_arn, session_name, external_id,
+                                         load_frequency, stsClient);
   return options;
 }
 
@@ -240,17 +275,23 @@ Result<S3Options> S3Options::FromUri(const Uri& uri, std::string* out_path) {
     options.ConfigureDefaultCredentials();
   }
 
-  auto it = options_map.find("region");
-  if (it != options_map.end()) {
-    options.region = it->second;
+  bool region_set = false;
+  for (const auto& kv : options_map) {
+    if (kv.first == "region") {
+      options.region = kv.second;
+      region_set = true;
+    } else if (kv.first == "scheme") {
+      options.scheme = kv.second;
+    } else if (kv.first == "endpoint_override") {
+      options.endpoint_override = kv.second;
+    } else {
+      return Status::Invalid("Unexpected query parameter in S3 URI: '", kv.first, "'");
+    }
   }
-  it = options_map.find("scheme");
-  if (it != options_map.end()) {
-    options.scheme = it->second;
-  }
-  it = options_map.find("endpoint_override");
-  if (it != options_map.end()) {
-    options.endpoint_override = it->second;
+
+  if (!region_set && !bucket.empty() && options.endpoint_override.empty()) {
+    // XXX Should we use a dedicated resolver with the given credentials?
+    ARROW_ASSIGN_OR_RAISE(options.region, ResolveBucketRegion(bucket));
   }
 
   return options;
@@ -267,7 +308,8 @@ bool S3Options::Equals(const S3Options& other) const {
   return (region == other.region && endpoint_override == other.endpoint_override &&
           scheme == other.scheme && background_writes == other.background_writes &&
           GetAccessKey() == other.GetAccessKey() &&
-          GetSecretKey() == other.GetSecretKey());
+          GetSecretKey() == other.GetSecretKey() &&
+          GetSessionToken() == other.GetSessionToken());
 }
 
 namespace {
@@ -372,6 +414,183 @@ std::string FormatRange(int64_t start, int64_t length) {
   return ss.str();
 }
 
+class S3Client : public Aws::S3::S3Client {
+ public:
+  using Aws::S3::S3Client::S3Client;
+
+  // To get a bucket's region, we must extract the "x-amz-bucket-region" header
+  // from the response to a HEAD bucket request.
+  // Unfortunately, the S3Client APIs don't let us access the headers of successful
+  // responses.  So we have to cook a AWS request and issue it ourselves.
+
+  Result<std::string> GetBucketRegion(const S3Model::HeadBucketRequest& request) {
+    auto uri = GeneratePresignedUrl(request.GetBucket(),
+                                    /*key=*/"", Aws::Http::HttpMethod::HTTP_HEAD);
+    // NOTE: The signer region argument isn't passed here, as there's no easy
+    // way of computing it (the relevant method is private).
+    auto outcome = MakeRequest(uri, request, Aws::Http::HttpMethod::HTTP_HEAD,
+                               Aws::Auth::SIGV4_SIGNER);
+    const auto code = outcome.IsSuccess() ? outcome.GetResult().GetResponseCode()
+                                          : outcome.GetError().GetResponseCode();
+    const auto& headers = outcome.IsSuccess()
+                              ? outcome.GetResult().GetHeaderValueCollection()
+                              : outcome.GetError().GetResponseHeaders();
+
+    const auto it = headers.find(ToAwsString("x-amz-bucket-region"));
+    if (it == headers.end()) {
+      if (code == Aws::Http::HttpResponseCode::NOT_FOUND) {
+        return Status::IOError("Bucket '", request.GetBucket(), "' not found");
+      } else if (!outcome.IsSuccess()) {
+        return ErrorToStatus(std::forward_as_tuple("When resolving region for bucket '",
+                                                   request.GetBucket(), "': "),
+                             outcome.GetError());
+      } else {
+        return Status::IOError("When resolving region for bucket '", request.GetBucket(),
+                               "': missing 'x-amz-bucket-region' header in response");
+      }
+    }
+    return std::string(FromAwsString(it->second));
+  }
+
+  Result<std::string> GetBucketRegion(const std::string& bucket) {
+    S3Model::HeadBucketRequest req;
+    req.SetBucket(ToAwsString(bucket));
+    return GetBucketRegion(req);
+  }
+};
+
+// In AWS SDK < 1.8, Aws::Client::ClientConfiguration::followRedirects is a bool.
+template <bool Never = false>
+void DisableRedirectsImpl(bool* followRedirects) {
+  *followRedirects = false;
+}
+
+// In AWS SDK >= 1.8, it's a Aws::Client::FollowRedirectsPolicy scoped enum.
+template <typename PolicyEnum, PolicyEnum Never = PolicyEnum::NEVER>
+void DisableRedirectsImpl(PolicyEnum* followRedirects) {
+  *followRedirects = Never;
+}
+
+void DisableRedirects(Aws::Client::ClientConfiguration* c) {
+  DisableRedirectsImpl(&c->followRedirects);
+}
+
+class ClientBuilder {
+ public:
+  explicit ClientBuilder(S3Options options) : options_(std::move(options)) {}
+
+  const Aws::Client::ClientConfiguration& config() const { return client_config_; }
+
+  Aws::Client::ClientConfiguration* mutable_config() { return &client_config_; }
+
+  Result<std::unique_ptr<S3Client>> BuildClient() {
+    credentials_provider_ = options_.credentials_provider;
+    if (!options_.region.empty()) {
+      client_config_.region = ToAwsString(options_.region);
+    }
+    client_config_.endpointOverride = ToAwsString(options_.endpoint_override);
+    if (options_.scheme == "http") {
+      client_config_.scheme = Aws::Http::Scheme::HTTP;
+    } else if (options_.scheme == "https") {
+      client_config_.scheme = Aws::Http::Scheme::HTTPS;
+    } else {
+      return Status::Invalid("Invalid S3 connection scheme '", options_.scheme, "'");
+    }
+    client_config_.retryStrategy = std::make_shared<ConnectRetryStrategy>();
+    if (!internal::global_options.tls_ca_file_path.empty()) {
+      client_config_.caFile = ToAwsString(internal::global_options.tls_ca_file_path);
+    }
+    if (!internal::global_options.tls_ca_dir_path.empty()) {
+      client_config_.caPath = ToAwsString(internal::global_options.tls_ca_dir_path);
+    }
+
+    const bool use_virtual_addressing = options_.endpoint_override.empty();
+    return std::unique_ptr<S3Client>(
+        new S3Client(credentials_provider_, client_config_,
+                     Aws::Client::AWSAuthV4Signer::PayloadSigningPolicy::Never,
+                     use_virtual_addressing));
+  }
+
+  const S3Options& options() const { return options_; }
+
+ protected:
+  S3Options options_;
+  Aws::Client::ClientConfiguration client_config_;
+  std::shared_ptr<Aws::Auth::AWSCredentialsProvider> credentials_provider_;
+};
+
+// -----------------------------------------------------------------------
+// S3 region resolver
+
+class RegionResolver {
+ public:
+  static Result<std::shared_ptr<RegionResolver>> Make(S3Options options) {
+    std::shared_ptr<RegionResolver> resolver(new RegionResolver(std::move(options)));
+    RETURN_NOT_OK(resolver->Init());
+    return resolver;
+  }
+
+  static Result<std::shared_ptr<RegionResolver>> DefaultInstance() {
+    static std::shared_ptr<RegionResolver> instance;
+    auto resolver = arrow::internal::atomic_load(&instance);
+    if (resolver) {
+      return resolver;
+    }
+    auto maybe_resolver = Make(S3Options::Anonymous());
+    if (!maybe_resolver.ok()) {
+      return maybe_resolver;
+    }
+    // Make sure to always return the same instance even if several threads
+    // call DefaultInstance at once.
+    std::shared_ptr<RegionResolver> existing;
+    if (arrow::internal::atomic_compare_exchange_strong(&instance, &existing,
+                                                        *maybe_resolver)) {
+      return *maybe_resolver;
+    } else {
+      return existing;
+    }
+  }
+
+  Result<std::string> ResolveRegion(const std::string& bucket) {
+    std::unique_lock<std::mutex> lock(cache_mutex_);
+    auto it = cache_.find(bucket);
+    if (it != cache_.end()) {
+      return it->second;
+    }
+    lock.unlock();
+    ARROW_ASSIGN_OR_RAISE(auto region, ResolveRegionUncached(bucket));
+    lock.lock();
+    // Note we don't cache a non-existent bucket, as the bucket could be created later
+    cache_[bucket] = region;
+    return region;
+  }
+
+  Result<std::string> ResolveRegionUncached(const std::string& bucket) {
+    return client_->GetBucketRegion(bucket);
+  }
+
+ protected:
+  explicit RegionResolver(S3Options options) : builder_(std::move(options)) {}
+
+  Status Init() {
+    DCHECK(builder_.options().endpoint_override.empty());
+    // On Windows with AWS SDK >= 1.8, it is necessary to disable redirects (ARROW-10085).
+    DisableRedirects(builder_.mutable_config());
+    return builder_.BuildClient().Value(&client_);
+  }
+
+  ClientBuilder builder_;
+  std::unique_ptr<S3Client> client_;
+
+  std::mutex cache_mutex_;
+  // XXX Should cache size be bounded?  It must be quite unusual to query millions
+  // of different buckets in a single program invocation...
+  std::unordered_map<std::string, std::string> cache_;
+};
+
+// -----------------------------------------------------------------------
+// S3 file stream implementations
+
 // A non-copying iostream.
 // See https://stackoverflow.com/questions/35322033/aws-c-sdk-uploadpart-times-out
 // https://stackoverflow.com/questions/13059091/creating-an-input-stream-from-constant-memory
@@ -404,13 +623,11 @@ Result<S3Model::GetObjectResult> GetObjectRange(Aws::S3::S3Client* client,
 }
 
 // A RandomAccessFile that reads from a S3 object
-class ObjectInputFile : public io::RandomAccessFile {
+class ObjectInputFile final : public io::RandomAccessFile {
  public:
-  ObjectInputFile(Aws::S3::S3Client* client, const S3Path& path)
-      : client_(client), path_(path) {}
-
-  ObjectInputFile(Aws::S3::S3Client* client, const S3Path& path, int64_t size)
-      : client_(client), path_(path), content_length_(size) {}
+  ObjectInputFile(std::shared_ptr<FileSystem> fs, Aws::S3::S3Client* client,
+                  const S3Path& path, int64_t size = kNoSize)
+      : fs_(std::move(fs)), client_(client), path_(path), content_length_(size) {}
 
   Status Init() {
     // Issue a HEAD Object to get the content-length and ensure any
@@ -460,6 +677,8 @@ class ObjectInputFile : public io::RandomAccessFile {
   // RandomAccessFile APIs
 
   Status Close() override {
+    fs_.reset();
+    client_ = nullptr;
     closed_ = true;
     return Status::OK();
   }
@@ -534,6 +753,7 @@ class ObjectInputFile : public io::RandomAccessFile {
   }
 
  protected:
+  std::shared_ptr<FileSystem> fs_;  // Owner of S3Client
   Aws::S3::S3Client* client_;
   S3Path path_;
   bool closed_ = false;
@@ -548,14 +768,14 @@ class ObjectInputFile : public io::RandomAccessFile {
 static constexpr int64_t kMinimumPartUpload = 5 * 1024 * 1024;
 
 // An OutputStream that writes to a S3 object
-class ObjectOutputStream : public io::OutputStream {
+class ObjectOutputStream final : public io::OutputStream {
  protected:
   struct UploadState;
 
  public:
-  ObjectOutputStream(Aws::S3::S3Client* client, const S3Path& path,
-                     const S3Options& options)
-      : client_(client), path_(path), options_(options) {}
+  ObjectOutputStream(std::shared_ptr<FileSystem> fs, Aws::S3::S3Client* client,
+                     const S3Path& path, const S3Options& options)
+      : fs_(std::move(fs)), client_(client), path_(path), options_(options) {}
 
   ~ObjectOutputStream() override {
     // For compliance with the rest of the IO stack, Close rather than Abort,
@@ -600,6 +820,8 @@ class ObjectOutputStream : public io::OutputStream {
           outcome.GetError());
     }
     current_part_.reset();
+    fs_.reset();
+    client_ = nullptr;
     closed_ = true;
     return Status::OK();
   }
@@ -645,6 +867,8 @@ class ObjectOutputStream : public io::OutputStream {
           outcome.GetError());
     }
 
+    fs_.reset();
+    client_ = nullptr;
     closed_ = true;
     return Status::OK();
   }
@@ -817,6 +1041,7 @@ class ObjectOutputStream : public io::OutputStream {
   }
 
  protected:
+  std::shared_ptr<FileSystem> fs_;  // Owner of S3Client
   Aws::S3::S3Client* client_;
   S3Path path_;
   const S3Options& options_;
@@ -857,11 +1082,12 @@ void FileObjectToInfo(const S3Model::Object& obj, FileInfo* info) {
 
 }  // namespace
 
+// -----------------------------------------------------------------------
+// S3 filesystem implementation
+
 class S3FileSystem::Impl {
  public:
-  S3Options options_;
-  Aws::Client::ClientConfiguration client_config_;
-  Aws::Auth::AWSCredentials credentials_;
+  ClientBuilder builder_;
   std::unique_ptr<Aws::S3::S3Client> client_;
 
   const int32_t kListObjectsMaxKeys = 1000;
@@ -870,36 +1096,15 @@ class S3FileSystem::Impl {
   // Limit recursing depth, since a recursion bomb can be created
   const int32_t kMaxNestingDepth = 100;
 
-  explicit Impl(S3Options options) : options_(std::move(options)) {}
+  explicit Impl(S3Options options) : builder_(std::move(options)) {}
 
-  Status Init() {
-    credentials_ = options_.credentials_provider->GetAWSCredentials();
-    client_config_.region = ToAwsString(options_.region);
-    client_config_.endpointOverride = ToAwsString(options_.endpoint_override);
-    if (options_.scheme == "http") {
-      client_config_.scheme = Aws::Http::Scheme::HTTP;
-    } else if (options_.scheme == "https") {
-      client_config_.scheme = Aws::Http::Scheme::HTTPS;
-    } else {
-      return Status::Invalid("Invalid S3 connection scheme '", options_.scheme, "'");
-    }
-    client_config_.retryStrategy = std::make_shared<ConnectRetryStrategy>();
-    if (!internal::global_options.tls_ca_file_path.empty()) {
-      client_config_.caFile = ToAwsString(internal::global_options.tls_ca_file_path);
-    }
-    if (!internal::global_options.tls_ca_dir_path.empty()) {
-      client_config_.caPath = ToAwsString(internal::global_options.tls_ca_dir_path);
-    }
+  Status Init() { return builder_.BuildClient().Value(&client_); }
 
-    bool use_virtual_addressing = options_.endpoint_override.empty();
-    client_.reset(
-        new Aws::S3::S3Client(credentials_, client_config_,
-                              Aws::Client::AWSAuthV4Signer::PayloadSigningPolicy::Never,
-                              use_virtual_addressing));
-    return Status::OK();
+  const S3Options& options() const { return builder_.options(); }
+
+  std::string region() const {
+    return std::string(FromAwsString(builder_.config().region));
   }
-
-  S3Options options() const { return options_; }
 
   // Create a bucket.  Successful if bucket already exists.
   Status CreateBucket(const std::string& bucket) {
@@ -907,7 +1112,7 @@ class S3FileSystem::Impl {
     S3Model::CreateBucketRequest req;
     config.SetLocationConstraint(
         S3Model::BucketLocationConstraintMapper::GetBucketLocationConstraintForName(
-            ToAwsString(options_.region)));
+            ToAwsString(options().region)));
     req.SetBucket(ToAwsString(bucket));
     req.SetCreateBucketConfiguration(config);
 
@@ -1241,6 +1446,35 @@ class S3FileSystem::Impl {
     }
     return Status::OK();
   }
+
+  Result<std::shared_ptr<ObjectInputFile>> OpenInputFile(const std::string& s,
+                                                         S3FileSystem* fs) {
+    ARROW_ASSIGN_OR_RAISE(auto path, S3Path::FromString(s));
+    RETURN_NOT_OK(ValidateFilePath(path));
+
+    auto ptr =
+        std::make_shared<ObjectInputFile>(fs->shared_from_this(), client_.get(), path);
+    RETURN_NOT_OK(ptr->Init());
+    return ptr;
+  }
+
+  Result<std::shared_ptr<ObjectInputFile>> OpenInputFile(const FileInfo& info,
+                                                         S3FileSystem* fs) {
+    if (info.type() == FileType::NotFound) {
+      return ::arrow::fs::internal::PathNotFound(info.path());
+    }
+    if (info.type() != FileType::File && info.type() != FileType::Unknown) {
+      return ::arrow::fs::internal::NotAFile(info.path());
+    }
+
+    ARROW_ASSIGN_OR_RAISE(auto path, S3Path::FromString(info.path()));
+    RETURN_NOT_OK(ValidateFilePath(path));
+
+    auto ptr = std::make_shared<ObjectInputFile>(fs->shared_from_this(), client_.get(),
+                                                 path, info.size());
+    RETURN_NOT_OK(ptr->Init());
+    return ptr;
+  }
 };
 
 S3FileSystem::S3FileSystem(const S3Options& options) : impl_(new Impl{options}) {}
@@ -1267,6 +1501,8 @@ bool S3FileSystem::Equals(const FileSystem& other) const {
 }
 
 S3Options S3FileSystem::options() const { return impl_->options(); }
+
+std::string S3FileSystem::region() const { return impl_->region(); }
 
 Result<FileInfo> S3FileSystem::GetFileInfo(const std::string& s) {
   ARROW_ASSIGN_OR_RAISE(auto path, S3Path::FromString(s));
@@ -1496,56 +1732,22 @@ Status S3FileSystem::CopyFile(const std::string& src, const std::string& dest) {
 
 Result<std::shared_ptr<io::InputStream>> S3FileSystem::OpenInputStream(
     const std::string& s) {
-  ARROW_ASSIGN_OR_RAISE(auto path, S3Path::FromString(s));
-  RETURN_NOT_OK(ValidateFilePath(path));
-
-  auto ptr = std::make_shared<ObjectInputFile>(impl_->client_.get(), path);
-  RETURN_NOT_OK(ptr->Init());
-  return ptr;
+  return impl_->OpenInputFile(s, this);
 }
 
 Result<std::shared_ptr<io::InputStream>> S3FileSystem::OpenInputStream(
     const FileInfo& info) {
-  if (info.type() == FileType::NotFound) {
-    return ::arrow::fs::internal::PathNotFound(info.path());
-  }
-  if (info.type() != FileType::File && info.type() != FileType::Unknown) {
-    return ::arrow::fs::internal::NotAFile(info.path());
-  }
-
-  ARROW_ASSIGN_OR_RAISE(auto path, S3Path::FromString(info.path()));
-  RETURN_NOT_OK(ValidateFilePath(path));
-
-  auto ptr = std::make_shared<ObjectInputFile>(impl_->client_.get(), path, info.size());
-  RETURN_NOT_OK(ptr->Init());
-  return ptr;
+  return impl_->OpenInputFile(info, this);
 }
 
 Result<std::shared_ptr<io::RandomAccessFile>> S3FileSystem::OpenInputFile(
     const std::string& s) {
-  ARROW_ASSIGN_OR_RAISE(auto path, S3Path::FromString(s));
-  RETURN_NOT_OK(ValidateFilePath(path));
-
-  auto ptr = std::make_shared<ObjectInputFile>(impl_->client_.get(), path);
-  RETURN_NOT_OK(ptr->Init());
-  return ptr;
+  return impl_->OpenInputFile(s, this);
 }
 
 Result<std::shared_ptr<io::RandomAccessFile>> S3FileSystem::OpenInputFile(
     const FileInfo& info) {
-  if (info.type() == FileType::NotFound) {
-    return ::arrow::fs::internal::PathNotFound(info.path());
-  }
-  if (info.type() != FileType::File && info.type() != FileType::Unknown) {
-    return ::arrow::fs::internal::NotAFile(info.path());
-  }
-
-  ARROW_ASSIGN_OR_RAISE(auto path, S3Path::FromString(info.path()));
-  RETURN_NOT_OK(ValidateFilePath(path));
-
-  auto ptr = std::make_shared<ObjectInputFile>(impl_->client_.get(), path, info.size());
-  RETURN_NOT_OK(ptr->Init());
-  return ptr;
+  return impl_->OpenInputFile(info, this);
 }
 
 Result<std::shared_ptr<io::OutputStream>> S3FileSystem::OpenOutputStream(
@@ -1553,8 +1755,8 @@ Result<std::shared_ptr<io::OutputStream>> S3FileSystem::OpenOutputStream(
   ARROW_ASSIGN_OR_RAISE(auto path, S3Path::FromString(s));
   RETURN_NOT_OK(ValidateFilePath(path));
 
-  auto ptr =
-      std::make_shared<ObjectOutputStream>(impl_->client_.get(), path, impl_->options_);
+  auto ptr = std::make_shared<ObjectOutputStream>(
+      shared_from_this(), impl_->client_.get(), path, impl_->options());
   RETURN_NOT_OK(ptr->Init());
   return ptr;
 }
@@ -1565,6 +1767,15 @@ Result<std::shared_ptr<io::OutputStream>> S3FileSystem::OpenAppendStream(
   // https://docs.aws.amazon.com/AmazonS3/latest/API/mpUploadUploadPartCopy.html
   // (but would need to fall back to GET if the current data is < 5 MB)
   return Status::NotImplemented("It is not possible to append efficiently to S3 objects");
+}
+
+//
+// Top-level utility functions
+//
+
+Result<std::string> ResolveBucketRegion(const std::string& bucket) {
+  ARROW_ASSIGN_OR_RAISE(auto resolver, RegionResolver::DefaultInstance());
+  return resolver->ResolveRegion(bucket);
 }
 
 }  // namespace fs

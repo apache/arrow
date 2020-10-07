@@ -4,7 +4,7 @@
 \alias{make_readable_file}
 \title{Handle a range of possible input sources}
 \usage{
-make_readable_file(file, mmap = TRUE, compression = NULL)
+make_readable_file(file, mmap = TRUE, compression = NULL, filesystem = NULL)
 }
 \arguments{
 \item{file}{A character file name, \code{raw} vector, or an Arrow input stream}
@@ -15,6 +15,10 @@ make_readable_file(file, mmap = TRUE, compression = NULL)
 with this compression codec, either a \link{Codec} or the string name of one.
 If \code{NULL} (default) and \code{file} is a string file name, the function will try
 to infer compression from the file extension.}
+
+\item{filesystem}{If not \code{NULL}, \code{file} will be opened via the
+\code{filesystem$OpenInputFile()} filesystem method, rather than the \code{io} module's
+\code{MemoryMappedFile} or \code{ReadableFile} constructors.}
 }
 \value{
 An \code{InputStream} or a subclass of one.

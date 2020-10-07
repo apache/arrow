@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "parquet/exception.h"
+#include "parquet/level_conversion.h"
 #include "parquet/platform.h"
 #include "parquet/schema.h"
 #include "parquet/types.h"
@@ -75,6 +76,7 @@ class PARQUET_EXPORT LevelDecoder {
   Encoding::type encoding_;
   std::unique_ptr<::arrow::util::RleDecoder> rle_decoder_;
   std::unique_ptr<::arrow::BitUtil::BitReader> bit_packed_decoder_;
+  int16_t max_level_;
 };
 
 struct CryptoContext {
@@ -208,7 +210,7 @@ namespace internal {
 class RecordReader {
  public:
   static std::shared_ptr<RecordReader> Make(
-      const ColumnDescriptor* descr,
+      const ColumnDescriptor* descr, LevelInfo leaf_info,
       ::arrow::MemoryPool* pool = ::arrow::default_memory_pool(),
       const bool read_dictionary = false);
 
@@ -313,25 +315,6 @@ class DictionaryRecordReader : virtual public RecordReader {
  public:
   virtual std::shared_ptr<::arrow::ChunkedArray> GetResult() = 0;
 };
-
-// TODO(itaiin): another code path split to merge when the general case is done
-static inline bool HasSpacedValues(const ColumnDescriptor* descr) {
-  if (descr->max_repetition_level() > 0) {
-    // repeated+flat case
-    return !descr->schema_node()->is_required();
-  } else {
-    // non-repeated+nested case
-    // Find if a node forces nulls in the lowest level along the hierarchy
-    const schema::Node* node = descr->schema_node().get();
-    while (node) {
-      if (node->is_optional()) {
-        return true;
-      }
-      node = node->parent();
-    }
-    return false;
-  }
-}
 
 }  // namespace internal
 

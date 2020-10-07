@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+find_package(PkgConfig QUIET)
 pkg_check_modules(RE2_PC re2)
 if(RE2_PC_FOUND)
   set(RE2_INCLUDE_DIR "${RE2_PC_INCLUDEDIR}")
@@ -22,7 +23,7 @@ if(RE2_PC_FOUND)
   list(APPEND RE2_PC_LIBRARY_DIRS "${RE2_PC_LIBDIR}")
   find_library(RE2_LIB re2
                PATHS ${RE2_PC_LIBRARY_DIRS}
-               PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
+               PATH_SUFFIXES ${ARROW_LIBRARY_PATH_SUFFIXES}
                NO_DEFAULT_PATH)
 
   # On Fedora, the reported prefix is wrong. As users likely run into this,
@@ -41,13 +42,13 @@ elseif(RE2_ROOT)
       "${CMAKE_STATIC_LIBRARY_PREFIX}re2${RE2_MSVC_STATIC_LIB_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}"
       "${CMAKE_SHARED_LIBRARY_PREFIX}re2${CMAKE_SHARED_LIBRARY_SUFFIX}"
     PATHS ${RE2_ROOT}
-    PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
+    PATH_SUFFIXES ${ARROW_LIBRARY_PATH_SUFFIXES}
     NO_DEFAULT_PATH)
   find_path(RE2_INCLUDE_DIR
             NAMES re2/re2.h
             PATHS ${RE2_ROOT}
             NO_DEFAULT_PATH
-            PATH_SUFFIXES ${INCLUDE_PATH_SUFFIXES})
+            PATH_SUFFIXES ${ARROW_INCLUDE_PATH_SUFFIXES})
 else()
   find_library(
     RE2_LIB
@@ -55,15 +56,24 @@ else()
       re2_static re2
       "${CMAKE_STATIC_LIBRARY_PREFIX}re2${RE2_MSVC_STATIC_LIB_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}"
       "${CMAKE_SHARED_LIBRARY_PREFIX}re2${CMAKE_SHARED_LIBRARY_SUFFIX}"
-    PATH_SUFFIXES ${LIB_PATH_SUFFIXES})
-  find_path(RE2_INCLUDE_DIR NAMES re2/re2.h PATH_SUFFIXES ${INCLUDE_PATH_SUFFIXES})
+    PATH_SUFFIXES ${ARROW_LIBRARY_PATH_SUFFIXES})
+  find_path(RE2_INCLUDE_DIR NAMES re2/re2.h PATH_SUFFIXES ${ARROW_INCLUDE_PATH_SUFFIXES})
 endif()
 
 find_package_handle_standard_args(RE2 REQUIRED_VARS RE2_LIB RE2_INCLUDE_DIR)
 
 if(RE2_FOUND)
-  add_library(RE2::re2 UNKNOWN IMPORTED)
-  set_target_properties(RE2::re2
-                        PROPERTIES IMPORTED_LOCATION "${RE2_LIB}"
-                                   INTERFACE_INCLUDE_DIRECTORIES "${RE2_INCLUDE_DIR}")
+  if(NOT TARGET RE2::re2)
+    add_library(RE2::re2 UNKNOWN IMPORTED)
+    set_target_properties(RE2::re2
+                          PROPERTIES IMPORTED_LOCATION "${RE2_LIB}"
+                                     INTERFACE_INCLUDE_DIRECTORIES "${RE2_INCLUDE_DIR}")
+  endif()
+  # Some third-party dependencies (namely gRPC) are on the look-out for a lower-case re2 Target.
+  if(NOT TARGET re2::re2)
+    add_library(re2::re2 UNKNOWN IMPORTED)
+    set_target_properties(re2::re2
+                          PROPERTIES IMPORTED_LOCATION "${RE2_LIB}"
+                                     INTERFACE_INCLUDE_DIRECTORIES "${RE2_INCLUDE_DIR}")
+  endif()
 endif()

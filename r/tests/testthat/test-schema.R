@@ -45,9 +45,27 @@ test_that("Schema $GetFieldByName", {
   expect_null(schm$GetFieldByName("f"))
   # TODO: schema(b = double(), b = string())$GetFieldByName("b")
   # also returns NULL and probably should error bc duplicated names
+})
 
+test_that("Schema extract (returns Field)", {
+  schm <- schema(b = double(), c = string())
   expect_equal(schm$b, field("b", double()))
   expect_equal(schm[["b"]], field("b", double()))
+  expect_equal(schm[[1]], field("b", double()))
+
+  expect_null(schm[["ZZZ"]])
+  expect_error(schm[[42]]) # Should have better error message
+})
+
+test_that("Schema slicing", {
+  schm <- schema(b = double(), c = string(), d = int8())
+  expect_equal(schm[2:3], schema(c = string(), d = int8()))
+  expect_equal(schm[-1], schema(c = string(), d = int8()))
+  expect_equal(schm[c("d", "c")], schema(d = int8(), c = string()))
+  expect_equal(schm[c(FALSE, TRUE, TRUE)], schema(c = string(), d = int8()))
+  expect_error(schm[c("c", "ZZZ")], 'Invalid field name: "ZZZ"')
+  expect_error(schm[c("XXX", "c", "ZZZ")], 'Invalid field names: "XXX" and "ZZZ"')
+
 })
 
 test_that("reading schema from Buffer", {

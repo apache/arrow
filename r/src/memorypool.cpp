@@ -22,7 +22,7 @@
 // [[arrow::export]]
 std::shared_ptr<arrow::MemoryPool> MemoryPool__default() {
   return std::shared_ptr<arrow::MemoryPool>(arrow::default_memory_pool(),
-                                            NoDelete<arrow::MemoryPool>());
+                                            [](arrow::MemoryPool* not_deleted) {});
 }
 
 // [[arrow::export]]

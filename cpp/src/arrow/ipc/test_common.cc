@@ -184,14 +184,14 @@ Status MakeRandomMapArray(const std::shared_ptr<Array>& key_array,
   auto pair_type = struct_(
       {field("key", key_array->type(), false), field("value", item_array->type())});
 
-  auto pair_array = std::make_shared<StructArray>(pair_type, num_maps,
+  auto pair_array = std::make_shared<StructArray>(pair_type, key_array->length(),
                                                   ArrayVector{key_array, item_array});
 
   RETURN_NOT_OK(MakeRandomListArray(pair_array, num_maps, include_nulls, pool, out));
   auto map_data = (*out)->data();
   map_data->type = map(key_array->type(), item_array->type());
   out->reset(new MapArray(map_data));
-  return Status::OK();
+  return (**out).Validate();
 }
 
 Status MakeRandomBooleanArray(const int length, bool include_nulls,
@@ -682,26 +682,107 @@ Status MakeDictionaryFlat(std::shared_ptr<RecordBatch>* out) {
 Status MakeNestedDictionary(std::shared_ptr<RecordBatch>* out) {
   const int64_t length = 7;
 
-  auto inner_dict_values = ArrayFromJSON(utf8(), "[\"foo\", \"bar\", \"baz\"]");
-  ARROW_ASSIGN_OR_RAISE(auto inner_dict,
-                        DictionaryArray::FromArrays(
-                            dictionary(int8(), inner_dict_values->type()),
-                            /*indices=*/ArrayFromJSON(int8(), "[0, 1, 2, null, 2, 1, 0]"),
-                            /*dictionary=*/inner_dict_values));
+  auto values0 = ArrayFromJSON(utf8(), "[\"foo\", \"bar\", \"baz\"]");
+  auto values1 = ArrayFromJSON(int64(), "[1234567890, 987654321]");
 
-  ARROW_ASSIGN_OR_RAISE(auto outer_dict_values,
+  // NOTE: it is important to test several levels of nesting, with non-trivial
+  // numbers of child fields, to exercise structural mapping of fields to dict ids.
+
+  // Field 0: dict(int32, list(dict(int8, utf8)))
+  ARROW_ASSIGN_OR_RAISE(auto inner0,
+                        DictionaryArray::FromArrays(
+                            dictionary(int8(), values0->type()),
+                            /*indices=*/ArrayFromJSON(int8(), "[0, 1, 2, null, 2, 1, 0]"),
+                            /*dictionary=*/values0));
+
+  ARROW_ASSIGN_OR_RAISE(auto nested_values0,
                         ListArray::FromArrays(
                             /*offsets=*/*ArrayFromJSON(int32(), "[0, 3, 3, 6, 7]"),
-                            /*values=*/*inner_dict));
+                            /*values=*/*inner0));
   ARROW_ASSIGN_OR_RAISE(
-      auto outer_dict, DictionaryArray::FromArrays(
-                           dictionary(int32(), outer_dict_values->type()),
-                           /*indices=*/ArrayFromJSON(int32(), "[0, 1, 3, 3, null, 3, 2]"),
-                           /*dictionary=*/outer_dict_values));
-  DCHECK_EQ(outer_dict->length(), length);
+      auto outer0, DictionaryArray::FromArrays(
+                       dictionary(int32(), nested_values0->type()),
+                       /*indices=*/ArrayFromJSON(int32(), "[0, 1, 3, 3, null, 3, 2]"),
+                       /*dictionary=*/nested_values0));
+  DCHECK_EQ(outer0->length(), length);
 
-  auto schema = ::arrow::schema({field("f0", outer_dict->type())});
-  *out = RecordBatch::Make(schema, length, {outer_dict});
+  // Field 1: struct(a: dict(int8, int64), b: dict(int16, utf8))
+  ARROW_ASSIGN_OR_RAISE(
+      auto inner1, DictionaryArray::FromArrays(
+                       dictionary(int8(), values1->type()),
+                       /*indices=*/ArrayFromJSON(int8(), "[0, 1, 1, null, null, 1, 0]"),
+                       /*dictionary=*/values1));
+  ARROW_ASSIGN_OR_RAISE(
+      auto inner2, DictionaryArray::FromArrays(
+                       dictionary(int16(), values0->type()),
+                       /*indices=*/ArrayFromJSON(int16(), "[2, 1, null, null, 2, 1, 0]"),
+                       /*dictionary=*/values0));
+  ARROW_ASSIGN_OR_RAISE(
+      auto outer1, StructArray::Make({inner1, inner2}, {field("a", inner1->type()),
+                                                        field("b", inner2->type())}));
+  DCHECK_EQ(outer1->length(), length);
+
+  // Field 2: dict(int8, struct(c: dict(int8, int64), d: dict(int16, list(dict(int8,
+  // utf8)))))
+  ARROW_ASSIGN_OR_RAISE(auto nested_values2,
+                        ListArray::FromArrays(
+                            /*offsets=*/*ArrayFromJSON(int32(), "[0, 1, 5, 5, 7]"),
+                            /*values=*/*inner0));
+  ARROW_ASSIGN_OR_RAISE(
+      auto inner3, DictionaryArray::FromArrays(
+                       dictionary(int16(), nested_values2->type()),
+                       /*indices=*/ArrayFromJSON(int16(), "[0, 1, 3, null, 3, 2, 1]"),
+                       /*dictionary=*/nested_values2));
+  ARROW_ASSIGN_OR_RAISE(
+      auto inner4, StructArray::Make({inner1, inner3}, {field("c", inner1->type()),
+                                                        field("d", inner3->type())}));
+  ARROW_ASSIGN_OR_RAISE(auto outer2,
+                        DictionaryArray::FromArrays(
+                            dictionary(int8(), inner4->type()),
+                            /*indices=*/ArrayFromJSON(int8(), "[0, 2, 4, 6, 1, 3, 5]"),
+                            /*dictionary=*/inner4));
+  DCHECK_EQ(outer2->length(), length);
+
+  auto schema = ::arrow::schema({
+      field("f0", outer0->type()),
+      field("f1", outer1->type()),
+      field("f2", outer2->type()),
+  });
+  *out = RecordBatch::Make(schema, length, {outer0, outer1, outer2});
+  return Status::OK();
+}
+
+Status MakeMap(std::shared_ptr<RecordBatch>* out) {
+  constexpr int64_t kNumRows = 3;
+  std::shared_ptr<Array> a0, a1;
+
+  auto key_array = ArrayFromJSON(utf8(), R"(["k1", "k2", "k1", "k3", "k1", "k4"])");
+  auto item_array = ArrayFromJSON(int16(), "[0, -1, 2, -3, 4, null]");
+  RETURN_NOT_OK(MakeRandomMapArray(key_array, item_array, kNumRows,
+                                   /*include_nulls=*/false, default_memory_pool(), &a0));
+  RETURN_NOT_OK(MakeRandomMapArray(key_array, item_array, kNumRows,
+                                   /*include_nulls=*/true, default_memory_pool(), &a1));
+  auto f0 = field("f0", a0->type());
+  auto f1 = field("f1", a1->type());
+  *out = RecordBatch::Make(::arrow::schema({f0, f1}), kNumRows, {a0, a1});
+  return Status::OK();
+}
+
+Status MakeMapOfDictionary(std::shared_ptr<RecordBatch>* out) {
+  // Exercises ARROW-9660
+  constexpr int64_t kNumRows = 3;
+  std::shared_ptr<Array> a0, a1;
+
+  auto key_array = DictArrayFromJSON(dictionary(int32(), utf8()), "[0, 1, 0, 2, 0, 3]",
+                                     R"(["k1", "k2", "k3", "k4"])");
+  auto item_array = ArrayFromJSON(int16(), "[0, -1, 2, -3, 4, null]");
+  RETURN_NOT_OK(MakeRandomMapArray(key_array, item_array, kNumRows,
+                                   /*include_nulls=*/false, default_memory_pool(), &a0));
+  RETURN_NOT_OK(MakeRandomMapArray(key_array, item_array, kNumRows,
+                                   /*include_nulls=*/true, default_memory_pool(), &a1));
+  auto f0 = field("f0", a0->type());
+  auto f1 = field("f1", a1->type());
+  *out = RecordBatch::Make(::arrow::schema({f0, f1}), kNumRows, {a0, a1});
   return Status::OK();
 }
 

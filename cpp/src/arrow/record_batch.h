@@ -65,7 +65,7 @@ class ARROW_EXPORT RecordBatch {
   /// Create a struct array whose child arrays are the record batch's columns.
   /// Note that the record batch's top-level field metadata cannot be reflected
   /// in the resulting struct array.
-  Result<std::shared_ptr<Array>> ToStructArray() const;
+  Result<std::shared_ptr<StructArray>> ToStructArray() const;
 
   /// \brief Construct record batch from struct array
   ///
@@ -210,7 +210,7 @@ class ARROW_EXPORT RecordBatchReader {
   }
 
   /// \brief Consume entire stream as a vector of record batches
-  Status ReadAll(std::vector<std::shared_ptr<RecordBatch>>* batches);
+  Status ReadAll(RecordBatchVector* batches);
 
   /// \brief Read all batches and concatenate as arrow::Table
   Status ReadAll(std::shared_ptr<Table>* table);
@@ -221,8 +221,7 @@ class ARROW_EXPORT RecordBatchReader {
   /// \param[in] schema schema to conform to. Will be inferred from the first
   ///            element if not provided.
   static Result<std::shared_ptr<RecordBatchReader>> Make(
-      std::vector<std::shared_ptr<RecordBatch>> batches,
-      std::shared_ptr<Schema> schema = NULLPTR);
+      RecordBatchVector batches, std::shared_ptr<Schema> schema = NULLPTR);
 };
 
 }  // namespace arrow

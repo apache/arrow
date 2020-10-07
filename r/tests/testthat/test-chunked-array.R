@@ -65,18 +65,18 @@ test_that("ChunkedArray", {
 
   # input validation
   expect_error(x$chunk(14), "subscript out of bounds")
-  expect_error(x$chunk("one"), class = "Rcpp::not_compatible")
+  expect_error(x$chunk("one"))
   expect_error(x$chunk(NA_integer_), "'i' cannot be NA")
   expect_error(x$chunk(-1), "subscript out of bounds")
 
-  expect_error(x$Slice("ten"), class = "Rcpp::not_compatible")
+  expect_error(x$Slice("ten"))
   expect_error(x$Slice(NA_integer_), "Slice 'offset' cannot be NA")
   expect_error(x$Slice(NA), "Slice 'offset' cannot be NA")
-  expect_error(x$Slice(10, "ten"), class = "Rcpp::not_compatible")
+  expect_error(x$Slice(10, "ten"))
   expect_error(x$Slice(10, NA_integer_), "Slice 'length' cannot be NA")
   expect_error(x$Slice(NA_integer_, NA_integer_), "Slice 'offset' cannot be NA")
-  expect_error(x$Slice(c(10, 10)), class = "Rcpp::not_compatible")
-  expect_error(x$Slice(10, c(10, 10)), class = "Rcpp::not_compatible")
+  expect_error(x$Slice(c(10, 10)))
+  expect_error(x$Slice(10, c(10, 10)))
   expect_error(x$Slice(1000), "Slice 'offset' greater than array length")
   expect_error(x$Slice(-1), "Slice 'offset' cannot be negative")
   expect_error(z$Slice(10, 10), "Slice 'offset' greater than array length")
@@ -158,6 +158,13 @@ test_that("ChunkedArray supports POSIXct (ARROW-3716)", {
 test_that("ChunkedArray supports integer64 (ARROW-3716)", {
   x <- bit64::as.integer64(1:10) + MAX_INT
   expect_chunked_roundtrip(list(x, x), int64())
+  # Also with a first chunk that would downcast
+  zero <- Array$create(0L)$cast(int64())
+  expect_type_equal(zero, int64())
+  ca <- ChunkedArray$create(zero, x)
+  expect_type_equal(ca, int64())
+  expect_is(as.vector(ca), "integer64")
+  expect_identical(as.vector(ca), c(bit64::as.integer64(0L), x))
 })
 
 test_that("ChunkedArray supports difftime", {

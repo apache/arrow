@@ -278,12 +278,16 @@ TEST(TestDateScalars, Basics) {
 
 TEST(TestDateScalars, MakeScalar) {
   ASSERT_OK_AND_ASSIGN(auto s, MakeScalar(date32(), int32_t(1)));
-  ASSERT_EQ(Date32Scalar(1), *s);
+  AssertScalarsEqual(Date32Scalar(1), *s, /*verbose=*/true);
+
+  ASSERT_OK_AND_ASSIGN(s, Scalar::Parse(date32(), "1454-10-22"));
+  AssertScalarsEqual(Date32Scalar(-188171), *s, /*verbose=*/true);
 
   ASSERT_OK_AND_ASSIGN(s, MakeScalar(date64(), int64_t(1)));
-  ASSERT_EQ(Date64Scalar(1), *s);
+  AssertScalarsEqual(Date64Scalar(1), *s, /*verbose=*/true);
 
-  ASSERT_RAISES(NotImplemented, Scalar::Parse(date64(), ""));
+  ASSERT_OK_AND_ASSIGN(s, Scalar::Parse(date64(), "1454-10-22"));
+  AssertScalarsEqual(Date64Scalar(-188171LL * 24 * 60 * 60 * 1000), *s, /*verbose=*/true);
 }
 
 TEST(TestTimeScalars, Basics) {
@@ -324,24 +328,40 @@ TEST(TestTimeScalars, Basics) {
 }
 
 TEST(TestTimeScalars, MakeScalar) {
-  auto type1 = time32(TimeUnit::MILLI);
-  auto type2 = time32(TimeUnit::SECOND);
+  auto type1 = time32(TimeUnit::SECOND);
+  auto type2 = time32(TimeUnit::MILLI);
   auto type3 = time64(TimeUnit::MICRO);
   auto type4 = time64(TimeUnit::NANO);
 
   ASSERT_OK_AND_ASSIGN(auto s, MakeScalar(type1, int32_t(1)));
-  ASSERT_EQ(Time32Scalar(1, type1), *s);
+  AssertScalarsEqual(Time32Scalar(1, type1), *s, /*verbose=*/true);
 
   ASSERT_OK_AND_ASSIGN(s, MakeScalar(type2, int32_t(1)));
-  ASSERT_EQ(Time32Scalar(1, type2), *s);
+  AssertScalarsEqual(Time32Scalar(1, type2), *s, /*verbose=*/true);
 
   ASSERT_OK_AND_ASSIGN(s, MakeScalar(type3, int64_t(1)));
-  ASSERT_EQ(Time64Scalar(1, type3), *s);
+  AssertScalarsEqual(Time64Scalar(1, type3), *s, /*verbose=*/true);
 
   ASSERT_OK_AND_ASSIGN(s, MakeScalar(type4, int64_t(1)));
-  ASSERT_EQ(Time64Scalar(1, type4), *s);
+  AssertScalarsEqual(Time64Scalar(1, type4), *s, /*verbose=*/true);
 
-  ASSERT_RAISES(NotImplemented, Scalar::Parse(type4, ""));
+  int64_t tententen = 60 * (60 * (10) + 10) + 10;
+  ASSERT_OK_AND_ASSIGN(s, Scalar::Parse(type1, "10:10:10"));
+  AssertScalarsEqual(Time32Scalar(static_cast<int32_t>(tententen), type1), *s,
+                     /*verbose=*/true);
+
+  tententen = 1000 * tententen + 123;
+  ASSERT_OK_AND_ASSIGN(s, Scalar::Parse(type2, "10:10:10.123"));
+  AssertScalarsEqual(Time32Scalar(static_cast<int32_t>(tententen), type2), *s,
+                     /*verbose=*/true);
+
+  tententen = 1000 * tententen + 456;
+  ASSERT_OK_AND_ASSIGN(s, Scalar::Parse(type3, "10:10:10.123456"));
+  AssertScalarsEqual(Time64Scalar(tententen, type3), *s, /*verbose=*/true);
+
+  tententen = 1000 * tententen + 789;
+  ASSERT_OK_AND_ASSIGN(s, Scalar::Parse(type4, "10:10:10.123456789"));
+  AssertScalarsEqual(Time64Scalar(tententen, type4), *s, /*verbose=*/true);
 }
 
 TEST(TestTimestampScalars, Basics) {
@@ -547,7 +567,7 @@ TYPED_TEST(TestNumericScalar, Cast) {
     }
 
     ASSERT_OK_AND_ASSIGN(auto cast_from_string,
-                         StringScalar(repr.to_string()).CastTo(type));
+                         StringScalar(std::string(repr)).CastTo(type));
     ASSERT_EQ(*cast_from_string, *scalar);
 
     if (is_integer_type<TypeParam>::value) {
@@ -607,6 +627,8 @@ TEST(TestDictionaryScalar, Basics) {
     gamma.dictionary = dict;
 
     auto scalar_null = MakeNullScalar(ty);
+    checked_cast<DictionaryScalar&>(*scalar_null).value.dictionary = dict;
+
     auto scalar_alpha = DictionaryScalar(alpha, ty);
     auto scalar_gamma = DictionaryScalar(gamma, ty);
 
@@ -634,6 +656,12 @@ TEST(TestDictionaryScalar, Basics) {
     ASSERT_TRUE(first->Equals(scalar_gamma));
     ASSERT_TRUE(second->Equals(scalar_alpha));
     ASSERT_TRUE(last->Equals(scalar_null));
+
+    auto first_dict_scalar = checked_cast<const DictionaryScalar&>(*first);
+    ASSERT_TRUE(first_dict_scalar.value.dictionary->Equals(arr.dictionary()));
+
+    auto second_dict_scalar = checked_cast<const DictionaryScalar&>(*second);
+    ASSERT_TRUE(second_dict_scalar.value.dictionary->Equals(arr.dictionary()));
   }
 }
 

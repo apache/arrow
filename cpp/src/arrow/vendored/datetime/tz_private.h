@@ -97,9 +97,9 @@ private:
         U& operator=(const pair& x);
     } u;
 
-    std::chrono::hours           h_{0};
-    std::chrono::minutes         m_{0};
-    std::chrono::seconds         s_{0};
+    std::chrono::hours           h_{};
+    std::chrono::minutes         m_{};
+    std::chrono::seconds         s_{};
     tz                           zone_{tz::local};
 
 public:

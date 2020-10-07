@@ -19,6 +19,12 @@
 #![allow(dead_code)]
 #![allow(non_camel_case_types)]
 #![allow(bare_trait_objects)]
+#![allow(
+    clippy::too_many_arguments,
+    clippy::new_without_default,
+    clippy::needless_range_loop,
+    clippy::borrowed_box
+)]
 
 #[macro_use]
 pub mod errors;

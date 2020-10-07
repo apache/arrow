@@ -15,20 +15,20 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import pytest
-
-from pyarrow.pandas_compat import _pandas_api  # noqa
-import pyarrow as pa
-
 import collections
 import datetime
 import decimal
 import itertools
 import math
-import traceback
 
+import hypothesis as h
 import numpy as np
 import pytz
+import pytest
+
+from pyarrow.pandas_compat import _pandas_api  # noqa
+import pyarrow as pa
+import pyarrow.tests.strategies as past
 
 
 int_type_pairs = [
@@ -176,10 +176,16 @@ def test_sequence_boolean(seq):
 def test_sequence_numpy_boolean(seq):
     expected = [np.bool(True), None, np.bool(False), None]
     arr = pa.array(seq(expected))
-    assert len(arr) == 4
-    assert arr.null_count == 2
     assert arr.type == pa.bool_()
-    assert arr.to_pylist() == expected
+    assert arr.to_pylist() == [True, None, False, None]
+
+
+@parametrize_with_iterable_types
+def test_sequence_mixed_numpy_python_bools(seq):
+    values = np.array([True, False])
+    arr = pa.array(seq([values[0], None, values[1], True, False]))
+    assert arr.type == pa.bool_()
+    assert arr.to_pylist() == [True, None, False, True, False]
 
 
 @parametrize_with_iterable_types
@@ -376,18 +382,22 @@ def test_sequence_custom_integers(seq):
 @parametrize_with_iterable_types
 def test_broken_integers(seq):
     data = [MyBrokenInt()]
-    with pytest.raises(ZeroDivisionError) as exc_info:
+    with pytest.raises(pa.ArrowInvalid, match="tried to convert to int"):
         pa.array(seq(data), type=pa.int64())
-    # Original traceback is kept
-    tb_lines = traceback.format_tb(exc_info.tb)
-    assert "# MARKER" in tb_lines[-1]
 
 
 def test_numpy_scalars_mixed_type():
+
     # ARROW-4324
     data = [np.int32(10), np.float32(0.5)]
     arr = pa.array(data)
-    expected = pa.array([10, 0.5], type='float64')
+    expected = pa.array([10, 0.5], type="float64")
+    assert arr.equals(expected)
+
+    # ARROW-9490
+    data = [np.int8(10), np.float32(0.5)]
+    arr = pa.array(data)
+    expected = pa.array([10, 0.5], type="float32")
     assert arr.equals(expected)
 
 
@@ -754,6 +764,15 @@ def test_fixed_size_bytes_does_not_accept_varying_lengths():
         pa.array(data, type=pa.binary(4))
 
 
+def test_fixed_size_binary_length_check():
+    # ARROW-10193
+    data = [b'\x19h\r\x9e\x00\x00\x00\x00\x01\x9b\x9fA']
+    assert len(data[0]) == 12
+    ty = pa.binary(12)
+    arr = pa.array(data, type=ty)
+    assert arr.to_pylist() == data
+
+
 def test_sequence_date():
     data = [datetime.date(2000, 1, 1), None, datetime.date(1970, 1, 1),
             datetime.date(2040, 2, 26)]
@@ -791,6 +810,70 @@ def test_date32_overflow():
         pa.array(data3, type=pa.date32())
 
 
+@pytest.mark.parametrize(('time_type', 'unit', 'int_type'), [
+    (pa.time32, 's', 'int32'),
+    (pa.time32, 'ms', 'int32'),
+    (pa.time64, 'us', 'int64'),
+    (pa.time64, 'ns', 'int64'),
+])
+def test_sequence_time_with_timezone(time_type, unit, int_type):
+    def expected_integer_value(t):
+        # only use with utc time object because it doesn't adjust with the
+        # offset
+        units = ['s', 'ms', 'us', 'ns']
+        multiplier = 10**(units.index(unit) * 3)
+        if t is None:
+            return None
+        seconds = (
+            t.hour * 3600 +
+            t.minute * 60 +
+            t.second +
+            t.microsecond * 10**-6
+        )
+        return int(seconds * multiplier)
+
+    def expected_time_value(t):
+        # only use with utc time object because it doesn't adjust with the
+        # time objects tzdata
+        if unit == 's':
+            return t.replace(microsecond=0)
+        elif unit == 'ms':
+            return t.replace(microsecond=(t.microsecond // 1000) * 1000)
+        else:
+            return t
+
+    # only timezone naive times are supported in arrow
+    data = [
+        datetime.time(8, 23, 34, 123456),
+        datetime.time(5, 0, 0, 1000),
+        None,
+        datetime.time(1, 11, 56, 432539),
+        datetime.time(23, 10, 0, 437699)
+    ]
+
+    ty = time_type(unit)
+    arr = pa.array(data, type=ty)
+    assert len(arr) == 5
+    assert arr.type == ty
+    assert arr.null_count == 1
+
+    # test that the underlying integers are UTC values
+    values = arr.cast(int_type)
+    expected = list(map(expected_integer_value, data))
+    assert values.to_pylist() == expected
+
+    # test that the scalars are datetime.time objects with UTC timezone
+    assert arr[0].as_py() == expected_time_value(data[0])
+    assert arr[1].as_py() == expected_time_value(data[1])
+    assert arr[2].as_py() is None
+    assert arr[3].as_py() == expected_time_value(data[3])
+    assert arr[4].as_py() == expected_time_value(data[4])
+
+    def tz(hours, minutes=0):
+        offset = datetime.timedelta(hours=hours, minutes=minutes)
+        return datetime.timezone(offset)
+
+
 def test_sequence_timestamp():
     data = [
         datetime.datetime(2007, 7, 13, 1, 23, 34, 123456),
@@ -811,6 +894,191 @@ def test_sequence_timestamp():
                                                46, 57, 437699)
 
 
+@pytest.mark.parametrize('timezone', [
+    None,
+    'UTC',
+    'Etc/GMT-1',
+    'Europe/Budapest',
+])
+@pytest.mark.parametrize('unit', [
+    's',
+    'ms',
+    'us',
+    'ns'
+])
+def test_sequence_timestamp_with_timezone(timezone, unit):
+    def expected_integer_value(dt):
+        units = ['s', 'ms', 'us', 'ns']
+        multiplier = 10**(units.index(unit) * 3)
+        if dt is None:
+            return None
+        else:
+            # avoid float precision issues
+            ts = decimal.Decimal(str(dt.timestamp()))
+            return int(ts * multiplier)
+
+    def expected_datetime_value(dt):
+        if dt is None:
+            return None
+
+        if unit == 's':
+            dt = dt.replace(microsecond=0)
+        elif unit == 'ms':
+            dt = dt.replace(microsecond=(dt.microsecond // 1000) * 1000)
+
+        # adjust the timezone
+        if timezone is None:
+            # make datetime timezone unaware
+            return dt.replace(tzinfo=None)
+        else:
+            # convert to the expected timezone
+            return dt.astimezone(pytz.timezone(timezone))
+
+    data = [
+        datetime.datetime(2007, 7, 13, 8, 23, 34, 123456),  # naive
+        pytz.utc.localize(
+            datetime.datetime(2008, 1, 5, 5, 0, 0, 1000)
+        ),
+        None,
+        pytz.timezone('US/Eastern').localize(
+            datetime.datetime(2006, 1, 13, 12, 34, 56, 432539)
+        ),
+        pytz.timezone('Europe/Moscow').localize(
+            datetime.datetime(2010, 8, 13, 5, 0, 0, 437699)
+        ),
+    ]
+    utcdata = [
+        pytz.utc.localize(data[0]),
+        data[1],
+        None,
+        data[3].astimezone(pytz.utc),
+        data[4].astimezone(pytz.utc),
+    ]
+
+    ty = pa.timestamp(unit, tz=timezone)
+    arr = pa.array(data, type=ty)
+    assert len(arr) == 5
+    assert arr.type == ty
+    assert arr.null_count == 1
+
+    # test that the underlying integers are UTC values
+    values = arr.cast('int64')
+    expected = list(map(expected_integer_value, utcdata))
+    assert values.to_pylist() == expected
+
+    # test that the scalars are datetimes with the correct timezone
+    for i in range(len(arr)):
+        assert arr[i].as_py() == expected_datetime_value(utcdata[i])
+
+
+@pytest.mark.parametrize('timezone', [
+    None,
+    'UTC',
+    'Etc/GMT-1',
+    'Europe/Budapest',
+])
+def test_pyarrow_ignore_timezone_environment_variable(monkeypatch, timezone):
+    # note that any non-empty value will evaluate to true
+    monkeypatch.setenv("PYARROW_IGNORE_TIMEZONE", "1")
+    data = [
+        datetime.datetime(2007, 7, 13, 8, 23, 34, 123456),  # naive
+        pytz.utc.localize(
+            datetime.datetime(2008, 1, 5, 5, 0, 0, 1000)
+        ),
+        pytz.timezone('US/Eastern').localize(
+            datetime.datetime(2006, 1, 13, 12, 34, 56, 432539)
+        ),
+        pytz.timezone('Europe/Moscow').localize(
+            datetime.datetime(2010, 8, 13, 5, 0, 0, 437699)
+        ),
+    ]
+
+    expected = [dt.replace(tzinfo=None) for dt in data]
+    if timezone is not None:
+        tzinfo = pytz.timezone(timezone)
+        expected = [tzinfo.fromutc(dt) for dt in expected]
+
+    ty = pa.timestamp('us', tz=timezone)
+    arr = pa.array(data, type=ty)
+    assert arr.to_pylist() == expected
+
+
+def test_sequence_timestamp_with_timezone_inference():
+    data = [
+        datetime.datetime(2007, 7, 13, 8, 23, 34, 123456),  # naive
+        pytz.utc.localize(
+            datetime.datetime(2008, 1, 5, 5, 0, 0, 1000)
+        ),
+        None,
+        pytz.timezone('US/Eastern').localize(
+            datetime.datetime(2006, 1, 13, 12, 34, 56, 432539)
+        ),
+        pytz.timezone('Europe/Moscow').localize(
+            datetime.datetime(2010, 8, 13, 5, 0, 0, 437699)
+        ),
+    ]
+    expected = [
+        pa.timestamp('us', tz=None),
+        pa.timestamp('us', tz='UTC'),
+        pa.timestamp('us', tz=None),
+        pa.timestamp('us', tz='US/Eastern'),
+        pa.timestamp('us', tz='Europe/Moscow')
+    ]
+    for dt, expected_type in zip(data, expected):
+        prepended = [dt] + data
+        arr = pa.array(prepended)
+        assert arr.type == expected_type
+
+
+@pytest.mark.pandas
+def test_sequence_timestamp_from_mixed_builtin_and_pandas_datetimes():
+    import pandas as pd
+
+    data = [
+        pd.Timestamp(1184307814123456123, tz=pytz.timezone('US/Eastern'),
+                     unit='ns'),
+        datetime.datetime(2007, 7, 13, 8, 23, 34, 123456),  # naive
+        pytz.utc.localize(
+            datetime.datetime(2008, 1, 5, 5, 0, 0, 1000)
+        ),
+        None,
+    ]
+    utcdata = [
+        data[0].astimezone(pytz.utc),
+        pytz.utc.localize(data[1]),
+        data[2].astimezone(pytz.utc),
+        None,
+    ]
+
+    arr = pa.array(data)
+    assert arr.type == pa.timestamp('us', tz='US/Eastern')
+
+    values = arr.cast('int64')
+    expected = [int(dt.timestamp() * 10**6) if dt else None for dt in utcdata]
+    assert values.to_pylist() == expected
+
+
+def test_sequence_timestamp_out_of_bounds_nanosecond():
+    # https://issues.apache.org/jira/browse/ARROW-9768
+    # datetime outside of range supported for nanosecond resolution
+    data = [datetime.datetime(2262, 4, 12)]
+    with pytest.raises(ValueError, match="out of bounds"):
+        pa.array(data, type=pa.timestamp('ns'))
+
+    # with microsecond resolution it works fine
+    arr = pa.array(data, type=pa.timestamp('us'))
+    assert arr.to_pylist() == data
+
+    # case where the naive is within bounds, but converted to UTC not
+    tz = datetime.timezone(datetime.timedelta(hours=-1))
+    data = [datetime.datetime(2262, 4, 11, 23, tzinfo=tz)]
+    with pytest.raises(ValueError, match="out of bounds"):
+        pa.array(data, type=pa.timestamp('ns'))
+
+    arr = pa.array(data, type=pa.timestamp('us'))
+    assert arr.to_pylist()[0] == datetime.datetime(2262, 4, 12)
+
+
 def test_sequence_numpy_timestamp():
     data = [
         np.datetime64(datetime.datetime(2007, 7, 13, 1, 23, 34, 123456)),
@@ -829,34 +1097,6 @@ def test_sequence_numpy_timestamp():
                                                34, 56, 432539)
     assert arr[3].as_py() == datetime.datetime(2010, 8, 13, 5,
                                                46, 57, 437699)
-
-
-def test_sequence_timestamp_with_unit():
-    data = [
-        datetime.datetime(2007, 7, 13, 1, 23, 34, 123456),
-    ]
-
-    s = pa.timestamp('s')
-    ms = pa.timestamp('ms')
-    us = pa.timestamp('us')
-
-    arr_s = pa.array(data, type=s)
-    assert len(arr_s) == 1
-    assert arr_s.type == s
-    assert arr_s[0].as_py() == datetime.datetime(2007, 7, 13, 1,
-                                                 23, 34, 0)
-
-    arr_ms = pa.array(data, type=ms)
-    assert len(arr_ms) == 1
-    assert arr_ms.type == ms
-    assert arr_ms[0].as_py() == datetime.datetime(2007, 7, 13, 1,
-                                                  23, 34, 123000)
-
-    arr_us = pa.array(data, type=us)
-    assert len(arr_us) == 1
-    assert arr_us.type == us
-    assert arr_us[0].as_py() == datetime.datetime(2007, 7, 13, 1,
-                                                  23, 34, 123456)
 
 
 class MyDate(datetime.date):
@@ -1316,6 +1556,108 @@ def test_struct_from_tuples():
             pa.array([tup], type=ty)
 
 
+def test_struct_from_list_of_pairs():
+    ty = pa.struct([
+        pa.field('a', pa.int32()),
+        pa.field('b', pa.string()),
+        pa.field('c', pa.bool_())
+    ])
+    data = [
+        [('a', 5), ('b', 'foo'), ('c', True)],
+        [('a', 6), ('b', 'bar'), ('c', False)],
+        None
+    ]
+    arr = pa.array(data, type=ty)
+    assert arr.to_pylist() == [
+        {'a': 5, 'b': 'foo', 'c': True},
+        {'a': 6, 'b': 'bar', 'c': False},
+        None
+    ]
+
+    # test with duplicated field names
+    ty = pa.struct([
+        pa.field('a', pa.int32()),
+        pa.field('a', pa.string()),
+        pa.field('b', pa.bool_())
+    ])
+    data = [
+        [('a', 5), ('a', 'foo'), ('b', True)],
+        [('a', 6), ('a', 'bar'), ('b', False)],
+    ]
+    arr = pa.array(data, type=ty)
+    with pytest.raises(KeyError):
+        # TODO(kszucs): ARROW-9997
+        arr.to_pylist()
+
+    # test with empty elements
+    ty = pa.struct([
+        pa.field('a', pa.int32()),
+        pa.field('b', pa.string()),
+        pa.field('c', pa.bool_())
+    ])
+    data = [
+        [],
+        [('a', 5), ('b', 'foo'), ('c', True)],
+        [('a', 2), ('b', 'baz')],
+        [('a', 1), ('b', 'bar'), ('c', False), ('d', 'julia')],
+    ]
+    expected = [
+        {'a': None, 'b': None, 'c': None},
+        {'a': 5, 'b': 'foo', 'c': True},
+        {'a': 2, 'b': 'baz', 'c': None},
+        {'a': 1, 'b': 'bar', 'c': False},
+    ]
+    arr = pa.array(data, type=ty)
+    assert arr.to_pylist() == expected
+
+
+def test_struct_from_list_of_pairs_errors():
+    ty = pa.struct([
+        pa.field('a', pa.int32()),
+        pa.field('b', pa.string()),
+        pa.field('c', pa.bool_())
+    ])
+
+    # test that it raises if the key doesn't match the expected field name
+    data = [
+        [],
+        [('a', 5), ('c', True), ('b', None)],
+    ]
+    msg = "The expected field name is `b` but `c` was given"
+    with pytest.raises(ValueError, match=msg):
+        pa.array(data, type=ty)
+
+    # test various errors both at the first position and after because of key
+    # type inference
+    template = (
+        r"Could not convert {} with type {}: was expecting tuple of "
+        r"\(key, value\) pair"
+    )
+    cases = [
+        tuple(),  # empty key-value pair
+        tuple('a',),  # missing value
+        tuple('unknown-key',),  # not known field name
+        'string',  # not a tuple
+    ]
+    for key_value_pair in cases:
+        msg = template.format(
+            str(key_value_pair).replace('(', r'\(').replace(')', r'\)'),
+            type(key_value_pair).__name__
+        )
+
+        with pytest.raises(TypeError, match=msg):
+            pa.array([
+                [key_value_pair],
+                [('a', 5), ('b', 'foo'), ('c', None)],
+            ], type=ty)
+
+        with pytest.raises(TypeError, match=msg):
+            pa.array([
+                [('a', 5), ('b', 'foo'), ('c', None)],
+                [key_value_pair],
+            ], type=ty)
+
+
 def test_struct_from_mixed_sequence():
     # It is forbidden to mix dicts and tuples when initializing a struct array
     ty = pa.struct([pa.field('a', pa.int32()),
@@ -1333,6 +1675,7 @@ def test_struct_from_dicts_inference():
                                pa.field('c', pa.bool_())])
     data = [{'a': 5, 'b': 'foo', 'c': True},
             {'a': 6, 'b': 'bar', 'c': False}]
+
     arr = pa.array(data)
     check_struct_type(arr.type, expected_type)
     assert arr.to_pylist() == data
@@ -1346,6 +1689,7 @@ def test_struct_from_dicts_inference():
                 None,
                 {'a': None, 'b': None, 'c': None},
                 {'a': None, 'b': 'bar', 'c': None}]
+
     arr = pa.array(data)
     data_as_ndarray = np.empty(len(data), dtype=object)
     data_as_ndarray[:] = data
@@ -1364,6 +1708,7 @@ def test_struct_from_dicts_inference():
             {'a': {'aa': None, 'ab': False}, 'b': None},
             {'a': None, 'b': 'bar'}]
     arr = pa.array(data)
+
     assert arr.to_pylist() == data
 
     # Edge cases
@@ -1415,17 +1760,6 @@ def test_decimal_array_with_none_and_nan():
     assert array.to_pylist() == [decimal.Decimal('1.2340'), None, None, None]
 
 
-@pytest.mark.parametrize('tz,name', [
-    (pytz.FixedOffset(90), '+01:30'),
-    (pytz.FixedOffset(-90), '-01:30'),
-    (pytz.utc, 'UTC'),
-    (pytz.timezone('America/New_York'), 'America/New_York')
-])
-def test_timezone_string(tz, name):
-    assert pa.lib.tzinfo_to_string(tz) == name
-    assert pa.lib.string_to_tzinfo(name) == tz
-
-
 def test_map_from_dicts():
     data = [[{'key': b'a', 'value': 1}, {'key': b'b', 'value': 2}],
             [{'key': b'c', 'value': 3}],
@@ -1453,7 +1787,7 @@ def test_map_from_dicts():
 
     # Invalid dictionary types
     for entry in [[{'key': '1', 'value': 5}], [{'key': {'value': 2}}]]:
-        with pytest.raises(TypeError, match="integer is required"):
+        with pytest.raises(pa.ArrowInvalid, match="tried to convert to int"):
             pa.array([entry], type=pa.map_('i4', 'i4'))
 
 
@@ -1478,3 +1812,228 @@ def test_map_from_tuples():
     for entry in [[(5,)], [()], [('5', 'foo', True)]]:
         with pytest.raises(ValueError, match="(?i)tuple size"):
             pa.array([entry], type=pa.map_('i4', 'i4'))
+
+
+def test_dictionary_from_boolean():
+    typ = pa.dictionary(pa.int8(), value_type=pa.bool_())
+    a = pa.array([False, False, True, False, True], type=typ)
+    assert isinstance(a.type, pa.DictionaryType)
+    assert a.type.equals(typ)
+
+    expected_indices = pa.array([0, 0, 1, 0, 1], type=pa.int8())
+    expected_dictionary = pa.array([False, True], type=pa.bool_())
+    assert a.indices.equals(expected_indices)
+    assert a.dictionary.equals(expected_dictionary)
+
+
+@pytest.mark.parametrize('value_type', [
+    pa.int8(),
+    pa.int16(),
+    pa.int32(),
+    pa.int64(),
+    pa.uint8(),
+    pa.uint16(),
+    pa.uint32(),
+    pa.uint64(),
+    pa.float32(),
+    pa.float64(),
+])
+def test_dictionary_from_integers(value_type):
+    typ = pa.dictionary(pa.int8(), value_type=value_type)
+    a = pa.array([1, 2, 1, 1, 2, 3], type=typ)
+    assert isinstance(a.type, pa.DictionaryType)
+    assert a.type.equals(typ)
+
+    expected_indices = pa.array([0, 1, 0, 0, 1, 2], type=pa.int8())
+    expected_dictionary = pa.array([1, 2, 3], type=value_type)
+    assert a.indices.equals(expected_indices)
+    assert a.dictionary.equals(expected_dictionary)
+
+
+@pytest.mark.parametrize('input_index_type', [
+    pa.int8(),
+    pa.int16(),
+    pa.int32(),
+    pa.int64()
+])
+def test_dictionary_index_type(input_index_type):
+    # dictionary array is constructed using adaptive index type builder,
+    # but the input index type is considered as the minimal width type to use
+
+    typ = pa.dictionary(input_index_type, value_type=pa.int64())
+    arr = pa.array(range(10), type=typ)
+    assert arr.type.equals(typ)
+
+
+def test_dictionary_is_always_adaptive():
+    # dictionary array is constructed using adaptive index type builder,
+    # meaning that the output index type may be wider than the given index type
+    # since it depends on the input data
+    typ = pa.dictionary(pa.int8(), value_type=pa.int64())
+
+    a = pa.array(range(2**7), type=typ)
+    expected = pa.dictionary(pa.int8(), pa.int64())
+    assert a.type.equals(expected)
+
+    a = pa.array(range(2**7 + 1), type=typ)
+    expected = pa.dictionary(pa.int16(), pa.int64())
+    assert a.type.equals(expected)
+
+
+def test_dictionary_from_strings():
+    for value_type in [pa.binary(), pa.string()]:
+        typ = pa.dictionary(pa.int8(), value_type)
+        a = pa.array(["", "a", "bb", "a", "bb", "ccc"], type=typ)
+
+        assert isinstance(a.type, pa.DictionaryType)
+
+        expected_indices = pa.array([0, 1, 2, 1, 2, 3], type=pa.int8())
+        expected_dictionary = pa.array(["", "a", "bb", "ccc"], type=value_type)
+        assert a.indices.equals(expected_indices)
+        assert a.dictionary.equals(expected_dictionary)
+
+    # fixed size binary type
+    typ = pa.dictionary(pa.int8(), pa.binary(3))
+    a = pa.array(["aaa", "aaa", "bbb", "ccc", "bbb"], type=typ)
+    assert isinstance(a.type, pa.DictionaryType)
+
+    expected_indices = pa.array([0, 0, 1, 2, 1], type=pa.int8())
+    expected_dictionary = pa.array(["aaa", "bbb", "ccc"], type=pa.binary(3))
+    assert a.indices.equals(expected_indices)
+    assert a.dictionary.equals(expected_dictionary)
+
+
+def _has_unique_field_names(ty):
+    if isinstance(ty, pa.StructType):
+        field_names = [field.name for field in ty]
+        return len(set(field_names)) == len(field_names)
+    else:
+        return True
+
+
+@h.given(past.all_arrays)
+def test_array_to_pylist_roundtrip(arr):
+    # TODO(kszucs): ARROW-9997
+    h.assume(_has_unique_field_names(arr.type))
+    seq = arr.to_pylist()
+    restored = pa.array(seq, type=arr.type)
+    assert restored.equals(arr)
+
+
+@pytest.mark.large_memory
+def test_auto_chunking_binary_like():
+    # single chunk
+    v1 = b'x' * 100000000
+    v2 = b'x' * 147483646
+
+    # single chunk
+    one_chunk_data = [v1] * 20 + [b'', None, v2]
+    arr = pa.array(one_chunk_data, type=pa.binary())
+    assert isinstance(arr, pa.Array)
+    assert len(arr) == 23
+    assert arr[20].as_py() == b''
+    assert arr[21].as_py() is None
+    assert arr[22].as_py() == v2
+
+    # two chunks
+    two_chunk_data = one_chunk_data + [b'two']
+    arr = pa.array(two_chunk_data, type=pa.binary())
+    assert isinstance(arr, pa.ChunkedArray)
+    assert arr.num_chunks == 2
+    assert len(arr.chunk(0)) == 23
+    assert len(arr.chunk(1)) == 1
+    assert arr.chunk(0)[20].as_py() == b''
+    assert arr.chunk(0)[21].as_py() is None
+    assert arr.chunk(0)[22].as_py() == v2
+    assert arr.chunk(1).to_pylist() == [b'two']
+
+    # three chunks
+    three_chunk_data = one_chunk_data * 2 + [b'three', b'three']
+    arr = pa.array(three_chunk_data, type=pa.binary())
+    assert isinstance(arr, pa.ChunkedArray)
+    assert arr.num_chunks == 3
+    assert len(arr.chunk(0)) == 23
+    assert len(arr.chunk(1)) == 23
+    assert len(arr.chunk(2)) == 2
+    for i in range(2):
+        assert arr.chunk(i)[20].as_py() == b''
+        assert arr.chunk(i)[21].as_py() is None
+        assert arr.chunk(i)[22].as_py() == v2
+    assert arr.chunk(2).to_pylist() == [b'three', b'three']
+
+
+@pytest.mark.large_memory
+def test_auto_chunking_list_of_binary():
+    # ARROW-6281
+    vals = [['x' * 1024]] * ((2 << 20) + 1)
+    arr = pa.array(vals)
+    assert isinstance(arr, pa.ChunkedArray)
+    assert arr.num_chunks == 2
+    assert len(arr.chunk(0)) == 2**21 - 1
+    assert len(arr.chunk(1)) == 2
+    assert arr.chunk(1).to_pylist() == [['x' * 1024]] * 2
+
+
+@pytest.mark.slow
+@pytest.mark.large_memory
+def test_auto_chunking_list_like():
+    item = np.ones((2**28,), dtype='uint8')
+    data = [item] * (2**3 - 1)
+    arr = pa.array(data, type=pa.list_(pa.uint8()))
+    assert isinstance(arr, pa.Array)
+    assert len(arr) == 7
+
+    item = np.ones((2**28,), dtype='uint8')
+    data = [item] * 2**3
+    arr = pa.array(data, type=pa.list_(pa.uint8()))
+    assert isinstance(arr, pa.ChunkedArray)
+    assert arr.num_chunks == 2
+    assert len(arr.chunk(0)) == 7
+    assert len(arr.chunk(1)) == 1
+    assert arr.chunk(1)[0].as_py() == list(item)
+
+
+@pytest.mark.slow
+@pytest.mark.large_memory
+def test_auto_chunking_map_type():
+    # takes ~20 minutes locally
+    ty = pa.map_(pa.int8(), pa.int8())
+    item = [(1, 1)] * 2**28
+    data = [item] * 2**3
+    arr = pa.array(data, type=ty)
+    assert isinstance(arr, pa.ChunkedArray)
+    assert len(arr.chunk(0)) == 7
+    assert len(arr.chunk(1)) == 1
+
+
+@pytest.mark.large_memory
+@pytest.mark.parametrize(('ty', 'char'), [
+    (pa.string(), 'x'),
+    (pa.binary(), b'x'),
+])
+def test_nested_auto_chunking(ty, char):
+    v1 = char * 100000000
+    v2 = char * 147483646
+
+    struct_type = pa.struct([
+        pa.field('bool', pa.bool_()),
+        pa.field('integer', pa.int64()),
+        pa.field('string-like', ty),
+    ])
+
+    data = [{'bool': True, 'integer': 1, 'string-like': v1}] * 20
+    data.append({'bool': True, 'integer': 1, 'string-like': v2})
+    arr = pa.array(data, type=struct_type)
+    assert isinstance(arr, pa.Array)
+
+    data.append({'bool': True, 'integer': 1, 'string-like': char})
+    arr = pa.array(data, type=struct_type)
+    assert isinstance(arr, pa.ChunkedArray)
+    assert arr.num_chunks == 2
+    assert len(arr.chunk(0)) == 21
+    assert len(arr.chunk(1)) == 1
+    assert arr.chunk(1)[0].as_py() == {
+        'bool': True,
+        'integer': 1,
+        'string-like': char
+    }

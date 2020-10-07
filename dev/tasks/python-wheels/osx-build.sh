@@ -63,11 +63,12 @@ function build_wheel {
           -DARROW_BUILD_TESTS=OFF \
           -DARROW_DATASET=ON \
           -DARROW_DEPENDENCY_SOURCE=BUNDLED \
-          -DARROW_HDFS=ON \
           -DARROW_FLIGHT=ON \
           -DARROW_GANDIVA=OFF \
           -DARROW_GRPC_USE_SHARED=OFF \
+          -DARROW_HDFS=ON \
           -DARROW_JEMALLOC=ON \
+          -DARROW_OPENSSL_USE_SHARED=OFF \
           -DARROW_ORC=OFF \
           -DARROW_PARQUET=ON \
           -DARROW_PLASMA=ON \
@@ -84,10 +85,7 @@ function build_wheel {
           -DBOOST_SOURCE=SYSTEM \
           -DCMAKE_BUILD_TYPE=Release \
           -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
-          -DgRPC_SOURCE=SYSTEM \
-          -DLLVM_SOURCE=SYSTEM \
           -DMAKE=make \
-          -DOPENSSL_USE_STATIC_LIBS=ON \
           -DProtobuf_SOURCE=SYSTEM \
           ..
     make -j$(sysctl -n hw.logicalcpu)

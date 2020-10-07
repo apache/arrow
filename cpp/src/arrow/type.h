@@ -811,6 +811,9 @@ class ARROW_EXPORT FixedSizeBinaryType : public FixedWidthType, public Parametri
   int32_t byte_width() const { return byte_width_; }
   int bit_width() const override;
 
+  // Validating constructor
+  static Result<std::shared_ptr<DataType>> Make(int32_t byte_width);
+
  protected:
   std::string ComputeFingerprint() const override;
 

@@ -70,6 +70,7 @@ export class Data<T extends DataType = DataType> {
      */
     public dictionary?: Vector;
 
+    // @ts-ignore
     public readonly values: Buffers<T>[BufferType.DATA];
     // @ts-ignore
     public readonly typeIds: Buffers<T>[BufferType.TYPE];
@@ -253,11 +254,11 @@ export class Data<T extends DataType = DataType> {
         return new Data(type, offset, length, nullCount, [undefined, toArrayBufferView(type.ArrayType, data), toUint8Array(nullBitmap)]);
     }
     /** @nocollapse */
-    public static Binary<T extends Binary>(type: T, offset: number, length: number, nullCount: number, nullBitmap: NullBuffer, valueOffsets: ValueOffsetsBuffer, data: Uint8Array) {
+    public static Binary<T extends Binary>(type: T, offset: number, length: number, nullCount: number, nullBitmap: NullBuffer, valueOffsets: ValueOffsetsBuffer, data: DataBuffer<T>) {
         return new Data(type, offset, length, nullCount, [toInt32Array(valueOffsets), toUint8Array(data), toUint8Array(nullBitmap)]);
     }
     /** @nocollapse */
-    public static Utf8<T extends Utf8>(type: T, offset: number, length: number, nullCount: number, nullBitmap: NullBuffer, valueOffsets: ValueOffsetsBuffer, data: Uint8Array) {
+    public static Utf8<T extends Utf8>(type: T, offset: number, length: number, nullCount: number, nullBitmap: NullBuffer, valueOffsets: ValueOffsetsBuffer, data: DataBuffer<T>) {
         return new Data(type, offset, length, nullCount, [toInt32Array(valueOffsets), toUint8Array(data), toUint8Array(nullBitmap)]);
     }
     /** @nocollapse */

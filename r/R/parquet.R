@@ -39,13 +39,25 @@ read_parquet <- function(file,
                          col_select = NULL,
                          as_data_frame = TRUE,
                          props = ParquetReaderProperties$create(),
+                         filesystem = NULL,
                          ...) {
   if (is.string(file)) {
-    file <- make_readable_file(file)
+    file <- make_readable_file(file, filesystem = filesystem)
     on.exit(file$close())
   }
   reader <- ParquetFileReader$create(file, props = props, ...)
-  tab <- reader$ReadTable(!!enquo(col_select))
+
+  col_select <- enquo(col_select)
+  if (!quo_is_null(col_select)) {
+    # infer which columns to keep from schema
+    schema <- reader$GetSchema()
+    names <- names(schema)
+    indices <- match(vars_select(names, !!col_select), names) - 1L
+    tab <- reader$ReadTable(indices)
+  } else {
+    # read all columns
+    tab <- reader$ReadTable()
+  }
 
   if (as_data_frame) {
     tab <- as.data.frame(tab)
@@ -58,10 +70,11 @@ read_parquet <- function(file,
 #' [Parquet](https://parquet.apache.org/) is a columnar storage file format.
 #' This function enables you to write Parquet files from R.
 #'
-#' @param x An [arrow::Table][Table], or an object convertible to it.
-#' @param sink an [arrow::io::OutputStream][OutputStream] or a string which is interpreted as a file path
+#' @param x `data.frame`, [RecordBatch], or [Table]
+#' @param sink A string file path, URI, or [OutputStream]
+#' @param filesystem A [FileSystem] where `sink` should be written if it is a
+#' string file path; default is the local file system
 #' @param chunk_size chunk size in number of rows. If NULL, the total number of rows is used.
-#'
 #' @param version parquet version, "1.0" or "2.0". Default "1.0". Numeric values
 #'   are coerced to character.
 #' @param compression compression algorithm. Default "snappy". See details.
@@ -70,23 +83,12 @@ read_parquet <- function(file,
 #' @param write_statistics Specify if we should write statistics. Default `TRUE`
 #' @param data_page_size Set a target threshold for the approximate encoded
 #'    size of data pages within a column chunk (in bytes). Default 1 MiB.
-#' @param properties properties for parquet writer, derived from arguments
-#'   `version`, `compression`, `compression_level`, `use_dictionary`,
-#'   `write_statistics` and `data_page_size`. You should not specify any of
-#'    these arguments if you also provide a `properties` argument, as they will
-#'    be ignored.
-#'
 #' @param use_deprecated_int96_timestamps Write timestamps to INT96 Parquet format. Default `FALSE`.
 #' @param coerce_timestamps Cast timestamps a particular resolution. Can be
 #'   `NULL`, "ms" or "us". Default `NULL` (no casting)
 #' @param allow_truncated_timestamps Allow loss of data when coercing timestamps to a
 #'    particular resolution. E.g. if microsecond or nanosecond data is lost when coercing
 #'    to "ms", do not raise an exception
-#'
-#' @param arrow_properties arrow specific writer properties, derived from arguments
-#'   `use_deprecated_int96_timestamps`, `coerce_timestamps` and `allow_truncated_timestamps`
-#'    You should not specify any of these arguments if you also provide a `properties`
-#'    argument, as they will be ignored.
 #'
 #' @details The parameters `compression`, `compression_level`, `use_dictionary` and
 #'   `write_statistics` support various patterns:
@@ -123,62 +125,69 @@ read_parquet <- function(file,
 #' @export
 write_parquet <- function(x,
                           sink,
+                          filesystem = NULL,
                           chunk_size = NULL,
                           # writer properties
                           version = NULL,
-                          compression = NULL,
+                          compression = default_parquet_compression(),
                           compression_level = NULL,
                           use_dictionary = NULL,
                           write_statistics = NULL,
                           data_page_size = NULL,
-                          properties = ParquetWriterProperties$create(
-                            x,
-                            version = version,
-                            compression = compression,
-                            compression_level = compression_level,
-                            use_dictionary = use_dictionary,
-                            write_statistics = write_statistics,
-                            data_page_size = data_page_size
-                          ),
                           # arrow writer properties
                           use_deprecated_int96_timestamps = FALSE,
                           coerce_timestamps = NULL,
-                          allow_truncated_timestamps = FALSE,
-                          arrow_properties = ParquetArrowWriterProperties$create(
-                            use_deprecated_int96_timestamps = use_deprecated_int96_timestamps,
-                            coerce_timestamps = coerce_timestamps,
-                            allow_truncated_timestamps = allow_truncated_timestamps
-                          )) {
+                          allow_truncated_timestamps = FALSE) {
   x_out <- x
   if (is.data.frame(x)) {
     x <- Table$create(x)
   }
 
   if (is.string(sink)) {
-    sink <- FileOutputStream$create(sink)
+    sink <- make_output_stream(sink, filesystem)
     on.exit(sink$close())
   } else if (!inherits(sink, "OutputStream")) {
     abort("sink must be a file path or an OutputStream")
   }
 
-  schema <- x$schema
-  # Match the pyarrow default (overriding the C++ default)
-  if (is.null(compression) && codec_is_available("snappy")) {
-    compression <- "snappy"
-  }
-  # Note: `properties` and `arrow_properties` are not actually $create()-ed
-  # until the next line, so the compression change is applied.
-  writer <- ParquetFileWriter$create(schema, sink, properties = properties, arrow_properties = arrow_properties)
+  writer <- ParquetFileWriter$create(
+    x$schema,
+    sink,
+    properties = ParquetWriterProperties$create(
+      x,
+      version = version,
+      compression = compression,
+      compression_level = compression_level,
+      use_dictionary = use_dictionary,
+      write_statistics = write_statistics,
+      data_page_size = data_page_size
+    ),
+    arrow_properties = ParquetArrowWriterProperties$create(
+      use_deprecated_int96_timestamps = use_deprecated_int96_timestamps,
+      coerce_timestamps = coerce_timestamps,
+      allow_truncated_timestamps = allow_truncated_timestamps
+    )
+  )
   writer$WriteTable(x, chunk_size = chunk_size %||% x$num_rows)
   writer$Close()
 
   invisible(x_out)
 }
 
+default_parquet_compression <- function() {
+  # Match the pyarrow default (overriding the C++ default)
+  if (codec_is_available("snappy")) {
+    "snappy"
+  } else {
+    NULL
+  }
+}
+
 ParquetArrowWriterProperties <- R6Class("ParquetArrowWriterProperties", inherit = ArrowObject)
 ParquetArrowWriterProperties$create <- function(use_deprecated_int96_timestamps = FALSE,
                                                 coerce_timestamps = NULL,
-                                                allow_truncated_timestamps = FALSE) {
+                                                allow_truncated_timestamps = FALSE,
+                                                ...) {
   if (is.null(coerce_timestamps)) {
     timestamp_unit <- -1L # null sentinel value
   } else {
@@ -268,7 +277,8 @@ ParquetWriterPropertiesBuilder <- R6Class("ParquetWriterPropertiesBuilder", inhe
       )
     },
     set_compression_level = function(table, compression_level){
-      assert_that(is_integerish(compression_level))
+      # cast to integer but keep names
+      compression_level <- set_names(as.integer(compression_level), names(compression_level))
       private$.set(table, compression_level,
         parquet___ArrowWriterProperties___Builder__set_compression_levels
       )
@@ -315,11 +325,12 @@ ParquetWriterPropertiesBuilder <- R6Class("ParquetWriterPropertiesBuilder", inhe
 
 ParquetWriterProperties$create <- function(table,
                                            version = NULL,
-                                           compression = NULL,
+                                           compression = default_parquet_compression(),
                                            compression_level = NULL,
                                            use_dictionary = NULL,
                                            write_statistics = NULL,
-                                           data_page_size = NULL) {
+                                           data_page_size = NULL,
+                                           ...) {
   builder <- shared_ptr(
     ParquetWriterPropertiesBuilder,
     parquet___WriterProperties___Builder__create()
@@ -359,9 +370,16 @@ ParquetWriterProperties$create <- function(table,
 #' takes the following arguments:
 #'
 #' - `schema` A [Schema]
-#' - `sink` An [arrow::io::OutputStream][OutputStream] or a string which is interpreted as a file path
+#' - `sink` An [arrow::io::OutputStream][OutputStream]
 #' - `properties` An instance of [ParquetWriterProperties]
 #' - `arrow_properties` An instance of `ParquetArrowWriterProperties`
+#'
+#' @section Methods:
+#'
+#' - `WriteTable` Write a [Table] to `sink`
+#' - `Close` Close the writer. Note: does not close the `sink`.
+#'   [arrow::io::OutputStream][OutputStream] has its own `close()` method.
+#'
 #' @export
 #' @include arrow-package.R
 ParquetFileWriter <- R6Class("ParquetFileWriter", inherit = ArrowObject,
@@ -376,6 +394,7 @@ ParquetFileWriter$create <- function(schema,
                                      sink,
                                      properties = ParquetWriterProperties$create(),
                                      arrow_properties = ParquetArrowWriterProperties$create()) {
+  assert_is(sink, "OutputStream")
   shared_ptr(
     ParquetFileWriter,
     parquet___arrow___ParquetFileWriter__Open(schema, sink, properties, arrow_properties)
@@ -404,10 +423,20 @@ ParquetFileWriter$create <- function(schema,
 #'
 #' @section Methods:
 #'
-#' - `$ReadTable(col_select)`: get an `arrow::Table` from the file, possibly
-#'    with columns filtered by a character vector of column names or a
-#'    `tidyselect` specification.
+#' - `$ReadTable(column_indices)`: get an `arrow::Table` from the file. The optional
+#'    `column_indices=` argument is a 0-based integer vector indicating which columns to retain.
+#' - `$ReadRowGroup(i, column_indices)`: get an `arrow::Table` by reading the `i`th row group (0-based).
+#'    The optional `column_indices=` argument is a 0-based integer vector indicating which columns to retain.
+#' - `$ReadRowGroups(row_groups, column_indices)`: get an `arrow::Table` by reading several row groups (0-based integers).
+#'    The optional `column_indices=` argument is a 0-based integer vector indicating which columns to retain.
 #' - `$GetSchema()`: get the `arrow::Schema` of the data in the file
+#' - `$ReadColumn(i)`: read the `i`th column (0-based) as a [ChunkedArray].
+#'
+#' @section Active bindings:
+#'
+#' - `$num_rows`: number of rows.
+#' - `$num_columns`: number of columns.
+#' - `$num_row_groups`: number of row groups.
 #'
 #' @export
 #' @examples
@@ -417,7 +446,7 @@ ParquetFileWriter$create <- function(schema,
 #' pq$GetSchema()
 #' if (codec_is_available("snappy")) {
 #'   # This file has compressed data columns
-#'   tab <- pq$ReadTable(starts_with("c"))
+#'   tab <- pq$ReadTable()
 #'   tab$schema
 #' }
 #' }
@@ -427,18 +456,44 @@ ParquetFileReader <- R6Class("ParquetFileReader",
   active = list(
     num_rows = function() {
       as.integer(parquet___arrow___FileReader__num_rows(self))
+    },
+    num_columns = function() {
+      parquet___arrow___FileReader__num_columns(self)
+    },
+    num_row_groups = function() {
+      parquet___arrow___FileReader__num_row_groups(self)
     }
   ),
   public = list(
-    ReadTable = function(col_select = NULL) {
-      col_select <- enquo(col_select)
-      if (quo_is_null(col_select)) {
+    ReadTable = function(column_indices = NULL) {
+      if (is.null(column_indices)) {
         shared_ptr(Table, parquet___arrow___FileReader__ReadTable1(self))
       } else {
-        all_vars <- shared_ptr(Schema, parquet___arrow___FileReader__GetSchema(self))$names
-        indices <- match(vars_select(all_vars, !!col_select), all_vars) - 1L
-        shared_ptr(Table, parquet___arrow___FileReader__ReadTable2(self, indices))
+        column_indices <- vec_cast(column_indices, integer())
+        shared_ptr(Table, parquet___arrow___FileReader__ReadTable2(self, column_indices))
       }
+    },
+    ReadRowGroup = function(i, column_indices = NULL) {
+      i <- vec_cast(i, integer())
+      if (is.null(column_indices)) {
+        shared_ptr(Table, parquet___arrow___FileReader__ReadRowGroup1(self, i))
+      } else {
+        column_indices <- vec_cast(column_indices, integer())
+        shared_ptr(Table, parquet___arrow___FileReader__ReadRowGroup2(self, i, column_indices))
+      }
+    },
+    ReadRowGroups = function(row_groups, column_indices = NULL) {
+      row_groups <- vec_cast(row_groups, integer())
+      if (is.null(column_indices)) {
+        shared_ptr(Table, parquet___arrow___FileReader__ReadRowGroups1(self, row_groups))
+      } else {
+        column_indices <- vec_cast(column_indices, integer())
+        shared_ptr(Table, parquet___arrow___FileReader__ReadRowGroups2(self, row_groups, column_indices))
+      }
+    },
+    ReadColumn = function(i) {
+      i <- vec_cast(i, integer())
+      shared_ptr(ChunkedArray, parquet___arrow___FileReader__ReadColumn(self, i))
     },
     GetSchema = function() {
       shared_ptr(Schema, parquet___arrow___FileReader__GetSchema(self))

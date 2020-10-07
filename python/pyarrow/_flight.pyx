@@ -35,7 +35,7 @@ from pyarrow.lib cimport *
 from pyarrow.lib import ArrowException, ArrowInvalid
 from pyarrow.lib import as_buffer, frombytes, tobytes
 from pyarrow.includes.libarrow_flight cimport *
-from pyarrow.ipc import _ReadPandasOption, _get_legacy_format_default
+from pyarrow.ipc import _get_legacy_format_default, _ReadPandasMixin
 import pyarrow.lib as lib
 
 
@@ -51,7 +51,7 @@ cdef int check_flight_status(const CStatus& status) nogil except -1:
     detail = FlightStatusDetail.UnwrapStatus(status)
     if detail:
         with gil:
-            message = frombytes(status.message())
+            message = frombytes(status.message(), safe=True)
             detail_msg = detail.get().extra_info()
             if detail.get().code() == CFlightStatusInternal:
                 raise FlightInternalError(message, detail_msg)
@@ -72,7 +72,7 @@ cdef int check_flight_status(const CStatus& status) nogil except -1:
     size_detail = FlightWriteSizeStatusDetail.UnwrapStatus(status)
     if size_detail:
         with gil:
-            message = frombytes(status.message())
+            message = frombytes(status.message(), safe=True)
             raise FlightWriteSizeExceededError(
                 message,
                 size_detail.get().limit(), size_detail.get().actual())
@@ -812,7 +812,7 @@ cdef class FlightStreamChunk(_Weakrefable):
             self.chunk.data != NULL, self.chunk.app_metadata != NULL)
 
 
-cdef class _MetadataRecordBatchReader(_Weakrefable):
+cdef class _MetadataRecordBatchReader(_Weakrefable, _ReadPandasMixin):
     """A reader for Flight streams."""
 
     # Needs to be separate class so the "real" class can subclass the
@@ -869,8 +869,7 @@ cdef class _MetadataRecordBatchReader(_Weakrefable):
         return chunk
 
 
-cdef class MetadataRecordBatchReader(_MetadataRecordBatchReader,
-                                     _ReadPandasOption):
+cdef class MetadataRecordBatchReader(_MetadataRecordBatchReader):
     """The virtual base class for readers for Flight streams."""
 
 
@@ -1365,7 +1364,7 @@ cdef class RecordBatchStream(FlightDataStream):
         data_source : RecordBatchReader or Table
         options : pyarrow.ipc.IpcWriteOptions, optional
         """
-        if (not isinstance(data_source, _CRecordBatchReader) and
+        if (not isinstance(data_source, RecordBatchReader) and
                 not isinstance(data_source, lib.Table)):
             raise TypeError("Expected RecordBatchReader or Table, "
                             "but got: {}".format(type(data_source)))
@@ -1375,8 +1374,8 @@ cdef class RecordBatchStream(FlightDataStream):
     cdef CFlightDataStream* to_stream(self) except *:
         cdef:
             shared_ptr[CRecordBatchReader] reader
-        if isinstance(self.data_source, _CRecordBatchReader):
-            reader = (<_CRecordBatchReader> self.data_source).reader
+        if isinstance(self.data_source, RecordBatchReader):
+            reader = (<RecordBatchReader> self.data_source).reader
         elif isinstance(self.data_source, lib.Table):
             table = (<Table> self.data_source).table
             reader.reset(new TableBatchReader(deref(table)))
@@ -1435,7 +1434,8 @@ cdef class ServerCallContext(_Weakrefable):
 
     def peer(self):
         """Get the address of the peer."""
-        return frombytes(self.context.peer())
+        # Set safe=True as gRPC on Windows sometimes gives garbage bytes
+        return frombytes(self.context.peer(), safe=True)
 
     def get_middleware(self, key):
         """
@@ -1616,7 +1616,7 @@ cdef CStatus _data_stream_next(void* self, CFlightPayload* payload) except *:
     else:
         result, metadata = result, None
 
-    if isinstance(result, (Table, _CRecordBatchReader)):
+    if isinstance(result, (Table, RecordBatchReader)):
         if metadata:
             raise ValueError("Can only return metadata alongside a "
                              "RecordBatch.")

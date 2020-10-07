@@ -148,32 +148,20 @@ update_versions() {
   cd "${SOURCE_DIR}/../../rust"
   sed -i.bak -E \
     -e "s/^version = \".+\"/version = \"${version}\"/g" \
-    -e "s/^(arrow = .* version = )\".+\"( .*)/\\1\"${version}\"\\2/g" \
+    -e "s/^(arrow = .* version = )\".*\"(( .*)|(, features = .*))$/\\1\"${version}\"\\2/g" \
     -e "s/^(arrow-flight = .* version = )\".+\"( .*)/\\1\"${version}\"\\2/g" \
-    -e "s/^(parquet = .* version = )\".+\"( .*)/\\1\"${version}\"\\2/g" \
+    -e "s/^(parquet = .* version = )\".*\"(( .*)|(, features = .*))$/\\1\"${version}\"\\2/g" \
+    -e "s/^(parquet_derive = .* version = )\".*\"(( .*)|(, features = .*))$/\\1\"${version}\"\\2/g" \
     */Cargo.toml
   rm -f */Cargo.toml.bak
   git add */Cargo.toml
 
-  # Update version number for parquet README
-  sed -i.bak -E -e \
-      "s/^parquet = \".+\"/parquet = \"${version}\"/g" \
-      parquet/README.md
-  sed -i.bak -E -e \
-      "s/docs.rs\/crate\/parquet\/.+\)/docs.rs\/crate\/parquet\/${version}\)/g" \
-      parquet/README.md
-  rm -f parquet/README.md.bak
-  git add parquet/README.md
-
-  # Update version number for datafusion README
-  sed -i.bak -E -e \
-      "s/^datafusion = \".+\"/datafusion = \"${version}\"/g" \
-      datafusion/README.md
-  sed -i.bak -E -e \
-      "s/docs.rs\/crate\/datafusion\/.+\)/docs.rs\/crate\/datafusion\/${version}\)/g" \
-      datafusion/README.md
-  rm -f datafusion/README.md.bak
-  git add datafusion/README.md
+  sed -i.bak -E \
+    -e "s/^([^ ]+) = \".+\"/\\1 = \"${version}\"/g" \
+    -e "s,docs\.rs/crate/([^/]+)/[^)]+,docs.rs/crate/\\1/${version},g" \
+    */README.md
+  rm -f */README.md.bak
+  git add */README.md
   cd -
 }
 

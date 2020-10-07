@@ -525,6 +525,7 @@ struct PathInfo {
   int16_t max_def_level = 0;
   int16_t max_rep_level = 0;
   bool has_dictionary = false;
+  bool leaf_is_nullable = false;
 };
 
 /// Contains logic for writing a single leaf node to parquet.
@@ -540,6 +541,7 @@ Status WritePath(ElementRange root_range, PathInfo* path_info,
   std::vector<ElementRange> stack(path_info->path.size());
   MultipathLevelBuilderResult builder_result;
   builder_result.leaf_array = path_info->primitive_array;
+  builder_result.leaf_is_nullable = path_info->leaf_is_nullable;
 
   if (path_info->max_def_level == 0) {
     // This case only occurs when there are no nullable or repeated
@@ -706,6 +708,7 @@ class PathBuilder {
   explicit PathBuilder(bool start_nullable) : nullable_in_parent_(start_nullable) {}
   template <typename T>
   void AddTerminalInfo(const T& array) {
+    info_.leaf_is_nullable = nullable_in_parent_;
     if (nullable_in_parent_) {
       info_.max_def_level++;
     }
@@ -812,13 +815,17 @@ class PathBuilder {
   Status Visit(const ::arrow::FixedSizeListArray& array) {
     MaybeAddNullable(array);
     int32_t list_size = array.list_type()->list_size();
-    if (list_size == 0) {
-      info_.max_def_level++;
-    }
+    // Technically we could encode fixed size lists with two level encodings
+    // but since we always use 3 level encoding we increment def levels as
+    // well.
+    info_.max_def_level++;
     info_.max_rep_level++;
     info_.path.push_back(FixedSizeListNode(FixedSizedRangeSelector{list_size},
                                            info_.max_rep_level, info_.max_def_level));
     nullable_in_parent_ = array.list_type()->value_field()->nullable();
+    if (array.offset() > 0) {
+      return VisitInline(*array.values()->Slice(array.value_offset(0)));
+    }
     return VisitInline(*array.values());
   }
 

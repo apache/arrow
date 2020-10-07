@@ -49,14 +49,12 @@ packed_simd = { version = "0.3", optional = true }
 chrono = "0.4"
 flatbuffers = "0.6"
 hex = "0.4"
-arrow-flight = { path = "../arrow-flight", optional = true, version = "2.0.0-SNAPSHOT" }
 prettytable-rs = { version = "0.8.0", optional = true }
 
 [features]
+default = []
 simd = ["packed_simd"]
-flight = ["arrow-flight"]
 prettyprint = ["prettytable-rs"]
-default = ["flight", "prettyprint"]
 
 [dev-dependencies]
 criterion = "0.3"
@@ -64,11 +62,19 @@ flate2 = "1"
 tempfile = "3"
 
 [[bench]]
+name = "aggregate_kernels"
+harness = false
+
+[[bench]]
 name = "array_from_vec"
 harness = false
 
 [[bench]]
 name = "builder"
+harness = false
+
+[[bench]]
+name = "buffer_bit_ops"
 harness = false
 
 [[bench]]
@@ -88,7 +94,15 @@ name = "comparison_kernels"
 harness = false
 
 [[bench]]
+name = "filter_kernels"
+harness = false
+
+[[bench]]
 name = "take_kernels"
+harness = false
+
+[[bench]]
+name = "length_kernel"
 harness = false
 
 [[bench]]

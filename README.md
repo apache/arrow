@@ -36,7 +36,7 @@ Major components of the project include:
    a standard and efficient in-memory representation of various datatypes, plain or nested
  - [The Arrow IPC Format](https://github.com/apache/arrow/blob/master/docs/source/format/Columnar.rst#serialization-and-interprocess-communication-ipc):
    an efficient serialization of the Arrow format and associated metadata,
-   for communication between processes and heterogenous environments
+   for communication between processes and heterogeneous environments
  - [The Arrow Flight RPC protocol](https://github.com/apache/arrow/tree/master/format/Flight.proto):
    based on the Arrow IPC format, a building block for remote services exchanging
    Arrow data with application-defined semantics (for example a storage server or a database)
@@ -60,7 +60,7 @@ Arrow is an [Apache Software Foundation](https://www.apache.org) project. Learn 
 
 ## What's in the Arrow libraries?
 
-The reference Arrow libraries contain a number of distinct software components:
+The reference Arrow libraries contain many distinct software components:
 
 - Columnar vector and table-like containers (similar to data frames) supporting
   flat or nested types

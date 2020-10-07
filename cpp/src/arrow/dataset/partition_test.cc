@@ -28,6 +28,7 @@
 #include <vector>
 
 #include "arrow/dataset/file_base.h"
+#include "arrow/dataset/scanner_internal.h"
 #include "arrow/dataset/test_util.h"
 #include "arrow/filesystem/localfs.h"
 #include "arrow/filesystem/path_util.h"
@@ -36,6 +37,8 @@
 #include "arrow/util/io_util.h"
 
 namespace arrow {
+using internal::checked_pointer_cast;
+
 namespace dataset {
 
 using E = TestExpression;
@@ -124,6 +127,17 @@ TEST_F(TestPartitioning, DirectoryPartitioningFormat) {
   AssertFormatError<StatusCode::TypeError>("alpha"_ == 0.0 and "beta"_ == "hello");
   AssertFormat("gamma"_ == "yo" and "alpha"_ == int32_t(0) and "beta"_ == "hello",
                "0/hello");
+}
+
+TEST_F(TestPartitioning, DirectoryPartitioningWithTemporal) {
+  for (auto temporal : {timestamp(TimeUnit::SECOND), date32()}) {
+    partitioning_ = std::make_shared<DirectoryPartitioning>(
+        schema({field("year", int32()), field("month", int8()), field("day", temporal)}));
+
+    ASSERT_OK_AND_ASSIGN(auto day, StringScalar("2020-06-08").CastTo(temporal));
+    AssertParse("/2020/06/2020-06-08",
+                "year"_ == int32_t(2020) and "month"_ == int8_t(6) and "day"_ == day);
+  }
 }
 
 TEST_F(TestPartitioning, DiscoverSchema) {
@@ -425,6 +439,10 @@ class RangePartitioning : public Partitioning {
   }
 
   Result<std::string> Format(const Expression&) const override { return ""; }
+  Result<std::vector<PartitionedBatch>> Partition(
+      const std::shared_ptr<RecordBatch>&) const override {
+    return Status::OK();
+  }
 };
 
 TEST_F(TestPartitioning, Range) {
@@ -434,178 +452,6 @@ TEST_F(TestPartitioning, Range) {
   AssertParse("/x=[-1.5 0.0)/y=[0.0 1.5)/z=(1.5 3.0]",
               ("x"_ >= -1.5 and "x"_ < 0.0) and ("y"_ >= 0.0 and "y"_ < 1.5) and
                   ("z"_ > 1.5 and "z"_ <= 3.0));
-}
-
-class TestPartitioningWritePlan : public ::testing::Test {
- protected:
-  FragmentIterator MakeFragments(const ExpressionVector& partition_expressions) {
-    fragments_.clear();
-    for (const auto& expr : partition_expressions) {
-      fragments_.emplace_back(new InMemoryFragment(RecordBatchVector{}, expr));
-    }
-    return MakeVectorIterator(fragments_);
-  }
-
-  std::shared_ptr<Expression> ExpressionPtr(const Expression& e) { return e.Copy(); }
-  std::shared_ptr<Expression> ExpressionPtr(std::shared_ptr<Expression> e) { return e; }
-
-  template <typename... E>
-  FragmentIterator MakeFragments(const E&... partition_expressions) {
-    return MakeFragments(ExpressionVector{ExpressionPtr(partition_expressions)...});
-  }
-
-  template <typename... E>
-  void MakeWritePlan(const E&... partition_expressions) {
-    auto fragments = MakeFragments(partition_expressions...);
-    EXPECT_OK_AND_ASSIGN(plan_,
-                         factory_->MakeWritePlan(schema({}), std::move(fragments)));
-  }
-
-  template <typename... E>
-  Status MakeWritePlanError(const E&... partition_expressions) {
-    auto fragments = MakeFragments(partition_expressions...);
-    return factory_->MakeWritePlan(schema({}), std::move(fragments)).status();
-  }
-
-  template <typename... E>
-  void MakeWritePlanWithSchema(const std::shared_ptr<Schema>& partition_schema,
-                               const E&... partition_expressions) {
-    auto fragments = MakeFragments(partition_expressions...);
-    EXPECT_OK_AND_ASSIGN(plan_, factory_->MakeWritePlan(schema({}), std::move(fragments),
-                                                        partition_schema));
-  }
-
-  template <typename... E>
-  Status MakeWritePlanWithSchemaError(const std::shared_ptr<Schema>& partition_schema,
-                                      const E&... partition_expressions) {
-    auto fragments = MakeFragments(partition_expressions...);
-    return factory_->MakeWritePlan(schema({}), std::move(fragments), partition_schema)
-        .status();
-  }
-
-  struct ExpectedWritePlan {
-    ExpectedWritePlan() = default;
-
-    ExpectedWritePlan(const WritePlan& actual_plan, const FragmentVector& fragments) {
-      int i = 0;
-      for (const auto& op : actual_plan.fragment_or_partition_expressions) {
-        if (op.kind() == WritePlan::FragmentOrPartitionExpression::FRAGMENT) {
-          auto fragment = op.fragment();
-          auto fragment_index =
-              static_cast<int>(std::find(fragments.begin(), fragments.end(), fragment) -
-                               fragments.begin());
-          auto path = fs::internal::GetAbstractPathParent(actual_plan.paths[i]).first;
-          dirs_[path].fragments.push_back(fragment_index);
-        } else {
-          auto partition_expression = op.partition_expr();
-          dirs_[actual_plan.paths[i]].partition_expression = partition_expression;
-        }
-        ++i;
-      }
-    }
-
-    ExpectedWritePlan Dir(const std::string& path, const Expression& expr,
-                          const std::vector<int>& fragments) && {
-      dirs_.emplace(path, DirectoryWriteOp{expr.Copy(), fragments});
-      return std::move(*this);
-    }
-
-    struct DirectoryWriteOp {
-      std::shared_ptr<Expression> partition_expression;
-      std::vector<int> fragments;
-
-      bool operator==(const DirectoryWriteOp& other) const {
-        return partition_expression->Equals(other.partition_expression) &&
-               fragments == other.fragments;
-      }
-
-      friend void PrintTo(const DirectoryWriteOp& op, std::ostream* os) {
-        *os << op.partition_expression->ToString();
-
-        *os << " { ";
-        for (const auto& fragment : op.fragments) {
-          *os << fragment << " ";
-        }
-        *os << "}\n";
-      }
-    };
-    std::map<std::string, DirectoryWriteOp> dirs_;
-  };
-
-  struct AssertPlanIs : ExpectedWritePlan {};
-
-  void AssertPlanIs(ExpectedWritePlan expected_plan) {
-    ExpectedWritePlan actual_plan(plan_, fragments_);
-    EXPECT_THAT(actual_plan.dirs_, testing::ContainerEq(expected_plan.dirs_));
-  }
-
-  FragmentVector fragments_;
-  std::shared_ptr<ScanOptions> scan_options_ = ScanOptions::Make(schema({}));
-  std::shared_ptr<PartitioningFactory> factory_;
-  WritePlan plan_;
-};
-
-TEST_F(TestPartitioningWritePlan, Empty) {
-  factory_ = DirectoryPartitioning::MakeFactory({"a", "b"});
-
-  // no expressions from which to infer the types of fields a, b
-  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("No fragments"),
-                                  MakeWritePlanError());
-
-  MakeWritePlanWithSchema(schema({field("a", int32()), field("b", utf8())}));
-  AssertPlanIs({});
-
-  factory_ = HivePartitioning::MakeFactory();
-  EXPECT_RAISES_WITH_MESSAGE_THAT(NotImplemented, testing::HasSubstr("hive"),
-                                  MakeWritePlanError());
-}
-
-TEST_F(TestPartitioningWritePlan, SingleDirectory) {
-  factory_ = DirectoryPartitioning::MakeFactory({"a"});
-
-  MakeWritePlan("a"_ == 42, "a"_ == 99, "a"_ == 101);
-  AssertPlanIs(ExpectedWritePlan()
-                   .Dir("42", "a"_ == 42, {0})
-                   .Dir("99", "a"_ == 99, {1})
-                   .Dir("101", "a"_ == 101, {2}));
-
-  MakeWritePlan("a"_ == 42, "a"_ == 99, "a"_ == 99, "a"_ == 101, "a"_ == 99);
-  AssertPlanIs(ExpectedWritePlan()
-                   .Dir("42", "a"_ == 42, {0})
-                   .Dir("99", "a"_ == 99, {1, 2, 4})
-                   .Dir("101", "a"_ == 101, {3}));
-}
-
-TEST_F(TestPartitioningWritePlan, NestedDirectories) {
-  factory_ = DirectoryPartitioning::MakeFactory({"a", "b"});
-
-  MakeWritePlan("a"_ == 42 and "b"_ == "hello", "a"_ == 42 and "b"_ == "world",
-                "a"_ == 99 and "b"_ == "hello", "a"_ == 99 and "b"_ == "world");
-
-  AssertPlanIs(ExpectedWritePlan()
-                   .Dir("42", "a"_ == 42, {})
-                   .Dir("42/hello", "b"_ == "hello", {0})
-                   .Dir("42/world", "b"_ == "world", {1})
-                   .Dir("99", "a"_ == 99, {})
-                   .Dir("99/hello", "b"_ == "hello", {2})
-                   .Dir("99/world", "b"_ == "world", {3}));
-}
-
-TEST_F(TestPartitioningWritePlan, Errors) {
-  factory_ = DirectoryPartitioning::MakeFactory({"a"});
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid, testing::HasSubstr("no partition expression for field 'a'"),
-      MakeWritePlanError("a"_ == 42, scalar(true), "a"_ == 101));
-
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      TypeError, testing::HasSubstr("scalar hello (of type string) is invalid"),
-      MakeWritePlanError("a"_ == 42, "a"_ == "hello"));
-
-  factory_ = DirectoryPartitioning::MakeFactory({"a", "b"});
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid, testing::HasSubstr("no partition expression for field 'a'"),
-      MakeWritePlanError("a"_ == 42 and "b"_ == "hello", "a"_ == 99 and "b"_ == "world",
-                         "b"_ == "forever alone"));
 }
 
 TEST(TestStripPrefixAndFilename, Basic) {
@@ -622,7 +468,7 @@ TEST(TestStripPrefixAndFilename, Basic) {
   EXPECT_THAT(StripPrefixAndFilename(input, "/data"),
               testing::ElementsAre("year=2019", "year=2019/month=12",
                                    "year=2019/month=12/day=01"));
-}  // namespace dataset
+}
 
 }  // namespace dataset
 }  // namespace arrow

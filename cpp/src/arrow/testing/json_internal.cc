@@ -35,6 +35,7 @@
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
+#include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
@@ -47,26 +48,27 @@
 #include "arrow/visitor_inline.h"
 
 namespace arrow {
+
+using internal::checked_cast;
+using internal::ParseValue;
+
+using ipc::DictionaryFieldMapper;
+using ipc::DictionaryMemo;
+using ipc::internal::FieldPosition;
+
+namespace testing {
+namespace json {
+
 namespace {
+
 constexpr char kData[] = "DATA";
 constexpr char kDays[] = "days";
 constexpr char kDayTime[] = "DAY_TIME";
 constexpr char kDuration[] = "duration";
 constexpr char kMilliseconds[] = "milliseconds";
 constexpr char kYearMonth[] = "YEAR_MONTH";
-}  // namespace
 
-class MemoryPool;
-
-using internal::checked_cast;
-using internal::ParseValue;
-
-namespace testing {
-namespace json {
-
-using ::arrow::ipc::DictionaryMemo;
-
-static std::string GetFloatingPrecisionName(FloatingPointType::Precision precision) {
+std::string GetFloatingPrecisionName(FloatingPointType::Precision precision) {
   switch (precision) {
     case FloatingPointType::HALF:
       return "HALF";
@@ -80,7 +82,7 @@ static std::string GetFloatingPrecisionName(FloatingPointType::Precision precisi
   return "UNKNOWN";
 }
 
-static std::string GetTimeUnitName(TimeUnit::type unit) {
+std::string GetTimeUnitName(TimeUnit::type unit) {
   switch (unit) {
     case TimeUnit::SECOND:
       return "SECOND";
@@ -98,17 +100,21 @@ static std::string GetTimeUnitName(TimeUnit::type unit) {
 
 class SchemaWriter {
  public:
-  explicit SchemaWriter(const Schema& schema, DictionaryMemo* dictionary_memo,
+  explicit SchemaWriter(const Schema& schema, const DictionaryFieldMapper& mapper,
                         RjWriter* writer)
-      : schema_(schema), dictionary_memo_(dictionary_memo), writer_(writer) {}
+      : schema_(schema), mapper_(mapper), writer_(writer) {}
 
   Status Write() {
     writer_->Key("schema");
     writer_->StartObject();
     writer_->Key("fields");
     writer_->StartArray();
+
+    FieldPosition field_pos;
+    int i = 0;
     for (const std::shared_ptr<Field>& field : schema_.fields()) {
-      RETURN_NOT_OK(VisitField(field));
+      RETURN_NOT_OK(VisitField(field, field_pos.child(i)));
+      ++i;
     }
     writer_->EndArray();
     WriteKeyValueMetadata(schema_.metadata());
@@ -168,7 +174,7 @@ class SchemaWriter {
     return Status::OK();
   }
 
-  Status VisitField(const std::shared_ptr<Field>& field) {
+  Status VisitField(const std::shared_ptr<Field>& field, FieldPosition field_pos) {
     writer_->StartObject();
 
     writer_->Key("name");
@@ -196,12 +202,12 @@ class SchemaWriter {
       const auto& dict_type = checked_cast<const DictionaryType&>(*type);
       // Ensure we visit child fields first so that, in the case of nested
       // dictionaries, inner dictionaries get a smaller id than outer dictionaries.
-      RETURN_NOT_OK(WriteChildren(dict_type.value_type()->fields()));
-      int64_t dictionary_id = -1;
-      RETURN_NOT_OK(dictionary_memo_->GetOrAssignId(field, &dictionary_id));
+      RETURN_NOT_OK(WriteChildren(dict_type.value_type()->fields(), field_pos));
+      ARROW_ASSIGN_OR_RAISE(const int64_t dictionary_id,
+                            mapper_.GetFieldId(field_pos.path()));
       RETURN_NOT_OK(WriteDictionaryMetadata(dictionary_id, dict_type));
     } else {
-      RETURN_NOT_OK(WriteChildren(type->fields()));
+      RETURN_NOT_OK(WriteChildren(type->fields(), field_pos));
     }
 
     WriteKeyValueMetadata(field->metadata(), additional_metadata);
@@ -220,7 +226,7 @@ class SchemaWriter {
 
   void WriteTypeMetadata(const MapType& type) {
     writer_->Key("keysSorted");
-    writer_->Int(type.keys_sorted());
+    writer_->Bool(type.keys_sorted());
   }
 
   void WriteTypeMetadata(const IntegerType& type) {
@@ -338,11 +344,14 @@ class SchemaWriter {
     return Status::OK();
   }
 
-  Status WriteChildren(const std::vector<std::shared_ptr<Field>>& children) {
+  Status WriteChildren(const std::vector<std::shared_ptr<Field>>& children,
+                       FieldPosition field_pos) {
     writer_->Key("children");
     writer_->StartArray();
+    int i = 0;
     for (const std::shared_ptr<Field>& field : children) {
-      RETURN_NOT_OK(VisitField(field));
+      RETURN_NOT_OK(VisitField(field, field_pos.child(i)));
+      ++i;
     }
     writer_->EndArray();
     return Status::OK();
@@ -411,7 +420,7 @@ class SchemaWriter {
 
  private:
   const Schema& schema_;
-  DictionaryMemo* dictionary_memo_;
+  const DictionaryFieldMapper& mapper_;
   RjWriter* writer_;
 };
 
@@ -686,38 +695,60 @@ class ArrayWriter {
   RjWriter* writer_;
 };
 
-static Status GetObjectInt(const RjObject& obj, const std::string& key, int* out) {
+Result<TimeUnit::type> GetUnitFromString(const std::string& unit_str) {
+  if (unit_str == "SECOND") {
+    return TimeUnit::SECOND;
+  } else if (unit_str == "MILLISECOND") {
+    return TimeUnit::MILLI;
+  } else if (unit_str == "MICROSECOND") {
+    return TimeUnit::MICRO;
+  } else if (unit_str == "NANOSECOND") {
+    return TimeUnit::NANO;
+  } else {
+    return Status::Invalid("Invalid time unit: ", unit_str);
+  }
+}
+
+template <typename IntType = int>
+Result<IntType> GetMemberInt(const RjObject& obj, const std::string& key) {
   const auto& it = obj.FindMember(key);
   RETURN_NOT_INT(key, it, obj);
-  *out = it->value.GetInt();
-  return Status::OK();
+  return static_cast<IntType>(it->value.GetInt64());
 }
 
-static Status GetObjectBool(const RjObject& obj, const std::string& key, bool* out) {
+Result<bool> GetMemberBool(const RjObject& obj, const std::string& key) {
   const auto& it = obj.FindMember(key);
   RETURN_NOT_BOOL(key, it, obj);
-  *out = it->value.GetBool();
-  return Status::OK();
+  return it->value.GetBool();
 }
 
-static Status GetObjectString(const RjObject& obj, const std::string& key,
-                              std::string* out) {
+Result<std::string> GetMemberString(const RjObject& obj, const std::string& key) {
   const auto& it = obj.FindMember(key);
   RETURN_NOT_STRING(key, it, obj);
-  *out = it->value.GetString();
-  return Status::OK();
+  return it->value.GetString();
 }
 
-static Status GetInteger(const rj::Value::ConstObject& json_type,
-                         std::shared_ptr<DataType>* type) {
-  const auto& it_bit_width = json_type.FindMember("bitWidth");
-  RETURN_NOT_INT("bitWidth", it_bit_width, json_type);
+Result<const RjObject> GetMemberObject(const RjObject& obj, const std::string& key) {
+  const auto& it = obj.FindMember(key);
+  RETURN_NOT_OBJECT(key, it, obj);
+  return it->value.GetObject();
+}
 
-  const auto& it_is_signed = json_type.FindMember("isSigned");
-  RETURN_NOT_BOOL("isSigned", it_is_signed, json_type);
+Result<const RjArray> GetMemberArray(const RjObject& obj, const std::string& key) {
+  const auto& it = obj.FindMember(key);
+  RETURN_NOT_ARRAY(key, it, obj);
+  return it->value.GetArray();
+}
 
-  bool is_signed = it_is_signed->value.GetBool();
-  int bit_width = it_bit_width->value.GetInt();
+Result<TimeUnit::type> GetMemberTimeUnit(const RjObject& obj, const std::string& key) {
+  ARROW_ASSIGN_OR_RAISE(const auto unit_str, GetMemberString(obj, key));
+  return GetUnitFromString(unit_str);
+}
+
+Status GetInteger(const rj::Value::ConstObject& json_type,
+                  std::shared_ptr<DataType>* type) {
+  ARROW_ASSIGN_OR_RAISE(const bool is_signed, GetMemberBool(json_type, "isSigned"));
+  ARROW_ASSIGN_OR_RAISE(const int bit_width, GetMemberInt<int>(json_type, "bitWidth"));
 
   switch (bit_width) {
     case 8:
@@ -738,12 +769,8 @@ static Status GetInteger(const rj::Value::ConstObject& json_type,
   return Status::OK();
 }
 
-static Status GetFloatingPoint(const RjObject& json_type,
-                               std::shared_ptr<DataType>* type) {
-  const auto& it_precision = json_type.FindMember("precision");
-  RETURN_NOT_STRING("precision", it_precision, json_type);
-
-  std::string precision = it_precision->value.GetString();
+Status GetFloatingPoint(const RjObject& json_type, std::shared_ptr<DataType>* type) {
+  ARROW_ASSIGN_OR_RAISE(const auto precision, GetMemberString(json_type, "precision"));
 
   if (precision == "DOUBLE") {
     *type = float64();
@@ -757,61 +784,48 @@ static Status GetFloatingPoint(const RjObject& json_type,
   return Status::OK();
 }
 
-static Status GetMap(const RjObject& json_type,
-                     const std::vector<std::shared_ptr<Field>>& children,
-                     std::shared_ptr<DataType>* type) {
+Status GetMap(const RjObject& json_type,
+              const std::vector<std::shared_ptr<Field>>& children,
+              std::shared_ptr<DataType>* type) {
   if (children.size() != 1) {
     return Status::Invalid("Map must have exactly one child");
   }
 
-  const auto& it_keys_sorted = json_type.FindMember("keysSorted");
-  RETURN_NOT_BOOL("keysSorted", it_keys_sorted, json_type);
-  bool keys_sorted = it_keys_sorted->value.GetBool();
-
+  ARROW_ASSIGN_OR_RAISE(const bool keys_sorted, GetMemberBool(json_type, "keysSorted"));
   return MapType::Make(children[0], keys_sorted).Value(type);
 }
 
-static Status GetFixedSizeBinary(const RjObject& json_type,
-                                 std::shared_ptr<DataType>* type) {
-  const auto& it_byte_width = json_type.FindMember("byteWidth");
-  RETURN_NOT_INT("byteWidth", it_byte_width, json_type);
-
-  int32_t byte_width = it_byte_width->value.GetInt();
+Status GetFixedSizeBinary(const RjObject& json_type, std::shared_ptr<DataType>* type) {
+  ARROW_ASSIGN_OR_RAISE(const int32_t byte_width,
+                        GetMemberInt<int32_t>(json_type, "byteWidth"));
   *type = fixed_size_binary(byte_width);
   return Status::OK();
 }
 
-static Status GetFixedSizeList(const RjObject& json_type,
-                               const std::vector<std::shared_ptr<Field>>& children,
-                               std::shared_ptr<DataType>* type) {
+Status GetFixedSizeList(const RjObject& json_type,
+                        const std::vector<std::shared_ptr<Field>>& children,
+                        std::shared_ptr<DataType>* type) {
   if (children.size() != 1) {
     return Status::Invalid("FixedSizeList must have exactly one child");
   }
 
-  const auto& it_list_size = json_type.FindMember("listSize");
-  RETURN_NOT_INT("listSize", it_list_size, json_type);
-
-  int32_t list_size = it_list_size->value.GetInt();
+  ARROW_ASSIGN_OR_RAISE(const int32_t list_size,
+                        GetMemberInt<int32_t>(json_type, "listSize"));
   *type = fixed_size_list(children[0], list_size);
   return Status::OK();
 }
 
-static Status GetDecimal(const RjObject& json_type, std::shared_ptr<DataType>* type) {
-  const auto& it_precision = json_type.FindMember("precision");
-  const auto& it_scale = json_type.FindMember("scale");
+Status GetDecimal(const RjObject& json_type, std::shared_ptr<DataType>* type) {
+  ARROW_ASSIGN_OR_RAISE(const int32_t precision,
+                        GetMemberInt<int32_t>(json_type, "precision"));
+  ARROW_ASSIGN_OR_RAISE(const int32_t scale, GetMemberInt<int32_t>(json_type, "scale"));
 
-  RETURN_NOT_INT("precision", it_precision, json_type);
-  RETURN_NOT_INT("scale", it_scale, json_type);
-
-  *type = decimal(it_precision->value.GetInt(), it_scale->value.GetInt());
+  *type = decimal(precision, scale);
   return Status::OK();
 }
 
-static Status GetDate(const RjObject& json_type, std::shared_ptr<DataType>* type) {
-  const auto& it_unit = json_type.FindMember("unit");
-  RETURN_NOT_STRING("unit", it_unit, json_type);
-
-  std::string unit_str = it_unit->value.GetString();
+Status GetDate(const RjObject& json_type, std::shared_ptr<DataType>* type) {
+  ARROW_ASSIGN_OR_RAISE(const auto unit_str, GetMemberString(json_type, "unit"));
 
   if (unit_str == "DAY") {
     *type = date32();
@@ -823,14 +837,9 @@ static Status GetDate(const RjObject& json_type, std::shared_ptr<DataType>* type
   return Status::OK();
 }
 
-static Status GetTime(const RjObject& json_type, std::shared_ptr<DataType>* type) {
-  const auto& it_unit = json_type.FindMember("unit");
-  RETURN_NOT_STRING("unit", it_unit, json_type);
-
-  const auto& it_bit_width = json_type.FindMember("bitWidth");
-  RETURN_NOT_INT("bitWidth", it_bit_width, json_type);
-
-  std::string unit_str = it_unit->value.GetString();
+Status GetTime(const RjObject& json_type, std::shared_ptr<DataType>* type) {
+  ARROW_ASSIGN_OR_RAISE(const auto unit_str, GetMemberString(json_type, "unit"));
+  ARROW_ASSIGN_OR_RAISE(const int bit_width, GetMemberInt<int>(json_type, "bitWidth"));
 
   if (unit_str == "SECOND") {
     *type = time32(TimeUnit::SECOND);
@@ -846,7 +855,6 @@ static Status GetTime(const RjObject& json_type, std::shared_ptr<DataType>* type
 
   const auto& fw_type = checked_cast<const FixedWidthType&>(**type);
 
-  int bit_width = it_bit_width->value.GetInt();
   if (bit_width != fw_type.bit_width()) {
     return Status::Invalid("Indicated bit width does not match unit");
   }
@@ -854,79 +862,45 @@ static Status GetTime(const RjObject& json_type, std::shared_ptr<DataType>* type
   return Status::OK();
 }
 
-static Status GetUnitFromString(const std::string& unit_str, TimeUnit::type* unit) {
-  if (unit_str == "SECOND") {
-    *unit = TimeUnit::SECOND;
-  } else if (unit_str == "MILLISECOND") {
-    *unit = TimeUnit::MILLI;
-  } else if (unit_str == "MICROSECOND") {
-    *unit = TimeUnit::MICRO;
-  } else if (unit_str == "NANOSECOND") {
-    *unit = TimeUnit::NANO;
-  } else {
-    return Status::Invalid("Invalid time unit: ", unit_str);
-  }
-  return Status::OK();
-}
-
-static Status GetDuration(const RjObject& json_type, std::shared_ptr<DataType>* type) {
-  const auto& it_unit = json_type.FindMember("unit");
-  RETURN_NOT_STRING("unit", it_unit, json_type);
-
-  std::string unit_str = it_unit->value.GetString();
-
-  TimeUnit::type unit;
-  RETURN_NOT_OK(GetUnitFromString(unit_str, &unit));
-
+Status GetDuration(const RjObject& json_type, std::shared_ptr<DataType>* type) {
+  ARROW_ASSIGN_OR_RAISE(const TimeUnit::type unit, GetMemberTimeUnit(json_type, "unit"));
   *type = duration(unit);
-
   return Status::OK();
 }
 
-static Status GetTimestamp(const RjObject& json_type, std::shared_ptr<DataType>* type) {
-  const auto& it_unit = json_type.FindMember("unit");
-  RETURN_NOT_STRING("unit", it_unit, json_type);
-
-  std::string unit_str = it_unit->value.GetString();
-
-  TimeUnit::type unit;
-  RETURN_NOT_OK(GetUnitFromString(unit_str, &unit));
+Status GetTimestamp(const RjObject& json_type, std::shared_ptr<DataType>* type) {
+  ARROW_ASSIGN_OR_RAISE(const TimeUnit::type unit, GetMemberTimeUnit(json_type, "unit"));
 
   const auto& it_tz = json_type.FindMember("timezone");
   if (it_tz == json_type.MemberEnd()) {
     *type = timestamp(unit);
   } else {
+    RETURN_NOT_STRING("timezone", it_tz, json_type);
     *type = timestamp(unit, it_tz->value.GetString());
   }
 
   return Status::OK();
 }
 
-static Status GetInterval(const RjObject& json_type, std::shared_ptr<DataType>* type) {
-  const auto& it_unit = json_type.FindMember("unit");
-  RETURN_NOT_STRING("unit", it_unit, json_type);
+Status GetInterval(const RjObject& json_type, std::shared_ptr<DataType>* type) {
+  ARROW_ASSIGN_OR_RAISE(const auto unit_str, GetMemberString(json_type, "unit"));
 
-  std::string unit_name = it_unit->value.GetString();
-
-  if (unit_name == kDayTime) {
+  if (unit_str == kDayTime) {
     *type = day_time_interval();
-  } else if (unit_name == kYearMonth) {
+  } else if (unit_str == kYearMonth) {
     *type = month_interval();
   } else {
-    return Status::Invalid("Invalid interval unit: " + unit_name);
+    return Status::Invalid("Invalid interval unit: " + unit_str);
   }
   return Status::OK();
 }
 
-static Status GetUnion(const RjObject& json_type,
-                       const std::vector<std::shared_ptr<Field>>& children,
-                       std::shared_ptr<DataType>* type) {
-  const auto& it_mode = json_type.FindMember("mode");
-  RETURN_NOT_STRING("mode", it_mode, json_type);
+Status GetUnion(const RjObject& json_type,
+                const std::vector<std::shared_ptr<Field>>& children,
+                std::shared_ptr<DataType>* type) {
+  ARROW_ASSIGN_OR_RAISE(const auto mode_str, GetMemberString(json_type, "mode"));
 
-  std::string mode_str = it_mode->value.GetString();
   UnionMode::type mode;
-
   if (mode_str == "SPARSE") {
     mode = UnionMode::SPARSE;
   } else if (mode_str == "DENSE") {
@@ -935,14 +909,14 @@ static Status GetUnion(const RjObject& json_type,
     return Status::Invalid("Invalid union mode: ", mode_str);
   }
 
-  const auto& it_type_codes = json_type.FindMember("typeIds");
-  RETURN_NOT_ARRAY("typeIds", it_type_codes, json_type);
+  ARROW_ASSIGN_OR_RAISE(const auto json_type_codes, GetMemberArray(json_type, "typeIds"));
 
   std::vector<int8_t> type_codes;
-  const auto& id_array = it_type_codes->value.GetArray();
-  type_codes.reserve(id_array.Size());
-  for (const rj::Value& val : id_array) {
-    DCHECK(val.IsInt());
+  type_codes.reserve(json_type_codes.Size());
+  for (const rj::Value& val : json_type_codes) {
+    if (!val.IsInt()) {
+      return Status::Invalid("Union type codes must be integers");
+    }
     type_codes.push_back(static_cast<int8_t>(val.GetInt()));
   }
 
@@ -955,13 +929,10 @@ static Status GetUnion(const RjObject& json_type,
   return Status::OK();
 }
 
-static Status GetType(const RjObject& json_type,
-                      const std::vector<std::shared_ptr<Field>>& children,
-                      std::shared_ptr<DataType>* type) {
-  const auto& it_type_name = json_type.FindMember("name");
-  RETURN_NOT_STRING("name", it_type_name, json_type);
-
-  std::string type_name = it_type_name->value.GetString();
+Status GetType(const RjObject& json_type,
+               const std::vector<std::shared_ptr<Field>>& children,
+               std::shared_ptr<DataType>* type) {
+  ARROW_ASSIGN_OR_RAISE(const auto type_name, GetMemberString(json_type, "name"));
 
   if (type_name == "int") {
     return GetInteger(json_type, type);
@@ -1017,35 +988,28 @@ static Status GetType(const RjObject& json_type,
   return Status::OK();
 }
 
-static Status GetField(const rj::Value& obj, DictionaryMemo* dictionary_memo,
-                       std::shared_ptr<Field>* field);
+Status GetField(const rj::Value& obj, FieldPosition field_pos,
+                DictionaryMemo* dictionary_memo, std::shared_ptr<Field>* field);
 
-static Status GetFieldsFromArray(const rj::Value& obj, DictionaryMemo* dictionary_memo,
-                                 std::vector<std::shared_ptr<Field>>* fields) {
-  const auto& values = obj.GetArray();
-
-  fields->resize(values.Size());
-  for (rj::SizeType i = 0; i < fields->size(); ++i) {
-    RETURN_NOT_OK(GetField(values[i], dictionary_memo, &(*fields)[i]));
+Status GetFieldsFromArray(const RjArray& json_fields, FieldPosition parent_pos,
+                          DictionaryMemo* dictionary_memo,
+                          std::vector<std::shared_ptr<Field>>* fields) {
+  fields->resize(json_fields.Size());
+  for (rj::SizeType i = 0; i < json_fields.Size(); ++i) {
+    RETURN_NOT_OK(GetField(json_fields[i], parent_pos.child(static_cast<int>(i)),
+                           dictionary_memo, &(*fields)[i]));
   }
   return Status::OK();
 }
 
-static Status ParseDictionary(const RjObject& obj, int64_t* id, bool* is_ordered,
-                              std::shared_ptr<DataType>* index_type) {
-  int32_t int32_id;
-  RETURN_NOT_OK(GetObjectInt(obj, "id", &int32_id));
-  *id = int32_id;
+Status ParseDictionary(const RjObject& obj, int64_t* id, bool* is_ordered,
+                       std::shared_ptr<DataType>* index_type) {
+  ARROW_ASSIGN_OR_RAISE(*id, GetMemberInt<int64_t>(obj, "id"));
+  ARROW_ASSIGN_OR_RAISE(*is_ordered, GetMemberBool(obj, "isOrdered"));
 
-  RETURN_NOT_OK(GetObjectBool(obj, "isOrdered", is_ordered));
+  ARROW_ASSIGN_OR_RAISE(const auto json_index_type, GetMemberObject(obj, "indexType"));
 
-  const auto& it_index_type = obj.FindMember("indexType");
-  RETURN_NOT_OBJECT("indexType", it_index_type, obj);
-
-  const auto& json_index_type = it_index_type->value.GetObject();
-
-  std::string type_name;
-  RETURN_NOT_OK(GetObjectString(json_index_type, "name", &type_name));
+  ARROW_ASSIGN_OR_RAISE(const auto type_name, GetMemberString(json_index_type, "name"));
   if (type_name != "int") {
     return Status::Invalid("Dictionary indices can only be integers");
   }
@@ -1053,66 +1017,56 @@ static Status ParseDictionary(const RjObject& obj, int64_t* id, bool* is_ordered
 }
 
 template <typename FieldOrStruct>
-static Status GetKeyValueMetadata(const FieldOrStruct& field_or_struct,
-                                  std::shared_ptr<KeyValueMetadata>* out) {
+Status GetKeyValueMetadata(const FieldOrStruct& field_or_struct,
+                           std::shared_ptr<KeyValueMetadata>* out) {
   out->reset(new KeyValueMetadata);
   auto it = field_or_struct.FindMember("metadata");
-  if (it == field_or_struct.MemberEnd()) {
+  if (it == field_or_struct.MemberEnd() || it->value.IsNull()) {
     return Status::OK();
   }
-
-  if (it->value.IsNull()) {
-    return Status::OK();
-  }
-
   if (!it->value.IsArray()) {
     return Status::Invalid("Metadata was not a JSON array");
   }
-  const auto& key_value_pairs = it->value.GetArray();
 
-  for (auto it = key_value_pairs.Begin(); it != key_value_pairs.End(); ++it) {
-    if (!it->IsObject()) {
+  for (const auto& val : it->value.GetArray()) {
+    if (!val.IsObject()) {
       return Status::Invalid("Metadata KeyValue was not a JSON object");
     }
-    const auto& key_value_pair = it->GetObject();
+    const auto& key_value_pair = val.GetObject();
 
-    std::string key, value;
-    RETURN_NOT_OK(GetObjectString(key_value_pair, "key", &key));
-    RETURN_NOT_OK(GetObjectString(key_value_pair, "value", &value));
+    ARROW_ASSIGN_OR_RAISE(const auto key, GetMemberString(key_value_pair, "key"));
+    ARROW_ASSIGN_OR_RAISE(const auto value, GetMemberString(key_value_pair, "value"));
 
     (*out)->Append(std::move(key), std::move(value));
   }
   return Status::OK();
 }
 
-static Status GetField(const rj::Value& obj, DictionaryMemo* dictionary_memo,
-                       std::shared_ptr<Field>* field) {
+Status GetField(const rj::Value& obj, FieldPosition field_pos,
+                DictionaryMemo* dictionary_memo, std::shared_ptr<Field>* field) {
   if (!obj.IsObject()) {
     return Status::Invalid("Field was not a JSON object");
   }
   const auto& json_field = obj.GetObject();
 
-  std::string name;
-  bool nullable;
-  RETURN_NOT_OK(GetObjectString(json_field, "name", &name));
-  RETURN_NOT_OK(GetObjectBool(json_field, "nullable", &nullable));
-
   std::shared_ptr<DataType> type;
-  const auto& it_type = json_field.FindMember("type");
-  RETURN_NOT_OBJECT("type", it_type, json_field);
 
-  const auto& it_children = json_field.FindMember("children");
-  RETURN_NOT_ARRAY("children", it_children, json_field);
+  ARROW_ASSIGN_OR_RAISE(const auto name, GetMemberString(json_field, "name"));
+  ARROW_ASSIGN_OR_RAISE(const bool nullable, GetMemberBool(json_field, "nullable"));
+
+  ARROW_ASSIGN_OR_RAISE(const auto json_type, GetMemberObject(json_field, "type"));
+  ARROW_ASSIGN_OR_RAISE(const auto json_children, GetMemberArray(json_field, "children"));
 
   std::vector<std::shared_ptr<Field>> children;
-  RETURN_NOT_OK(GetFieldsFromArray(it_children->value, dictionary_memo, &children));
-  RETURN_NOT_OK(GetType(it_type->value.GetObject(), children, &type));
+  RETURN_NOT_OK(GetFieldsFromArray(json_children, field_pos, dictionary_memo, &children));
+  RETURN_NOT_OK(GetType(json_type, children, &type));
 
   std::shared_ptr<KeyValueMetadata> metadata;
   RETURN_NOT_OK(GetKeyValueMetadata(json_field, &metadata));
 
   // Is it a dictionary type?
   int64_t dictionary_id = -1;
+  std::shared_ptr<DataType> dict_value_type;
   const auto& it_dictionary = json_field.FindMember("dictionary");
   if (dictionary_memo != nullptr && it_dictionary != json_field.MemberEnd()) {
     // Parse dictionary id in JSON and add dictionary field to the
@@ -1123,6 +1077,7 @@ static Status GetField(const rj::Value& obj, DictionaryMemo* dictionary_memo,
     RETURN_NOT_OK(ParseDictionary(it_dictionary->value.GetObject(), &dictionary_id,
                                   &is_ordered, &index_type));
 
+    dict_value_type = type;
     type = ::arrow::dictionary(index_type, type, is_ordered);
   }
 
@@ -1151,7 +1106,8 @@ static Status GetField(const rj::Value& obj, DictionaryMemo* dictionary_memo,
   // Create field
   *field = ::arrow::field(name, type, nullable, metadata);
   if (dictionary_id != -1) {
-    RETURN_NOT_OK(dictionary_memo->AddField(dictionary_id, *field));
+    RETURN_NOT_OK(dictionary_memo->fields().AddField(dictionary_id, field_pos.path()));
+    RETURN_NOT_OK(dictionary_memo->AddDictionaryType(dictionary_id, dict_value_type));
   }
 
   return Status::OK();
@@ -1192,36 +1148,40 @@ enable_if_physical_floating_point<T, typename T::c_type> UnboxValue(
 
 class ArrayReader {
  public:
-  ArrayReader(const RjObject& obj, MemoryPool* pool, const std::shared_ptr<Field>& field,
-              DictionaryMemo* dictionary_memo)
-      : obj_(obj),
-        pool_(pool),
-        field_(field),
-        type_(field->type()),
-        dictionary_memo_(dictionary_memo),
-        dictionary_id_(-1) {}
+  ArrayReader(const RjObject& obj, MemoryPool* pool, const std::shared_ptr<Field>& field)
+      : obj_(obj), pool_(pool), field_(field), type_(field->type()) {}
+
+  template <typename BuilderType>
+  Status FinishBuilder(BuilderType* builder) {
+    std::shared_ptr<Array> array;
+    RETURN_NOT_OK(builder->Finish(&array));
+    data_ = array->data();
+    return Status::OK();
+  }
+
+  Result<const RjArray> GetDataArray(const RjObject& obj) {
+    ARROW_ASSIGN_OR_RAISE(const auto json_data_arr, GetMemberArray(obj, kData));
+    if (static_cast<int32_t>(json_data_arr.Size()) != length_) {
+      return Status::Invalid("JSON DATA array size differs from advertised array length");
+    }
+    return json_data_arr;
+  }
 
   template <typename T>
   enable_if_has_c_type<T, Status> Visit(const T& type) {
     typename TypeTraits<T>::BuilderType builder(type_, pool_);
 
-    const auto& json_data = obj_.FindMember(kData);
-    RETURN_NOT_ARRAY(kData, json_data, obj_);
+    ARROW_ASSIGN_OR_RAISE(const auto json_data_arr, GetDataArray(obj_));
 
-    const auto& json_data_arr = json_data->value.GetArray();
-
-    DCHECK_EQ(static_cast<int32_t>(json_data_arr.Size()), length_);
     for (int i = 0; i < length_; ++i) {
       if (!is_valid_[i]) {
         RETURN_NOT_OK(builder.AppendNull());
         continue;
       }
-
       const rj::Value& val = json_data_arr[i];
       RETURN_NOT_OK(builder.Append(UnboxValue<T>(val)));
     }
-
-    return builder.Finish(&result_);
+    return FinishBuilder(&builder);
   }
 
   template <typename T>
@@ -1229,19 +1189,13 @@ class ArrayReader {
     typename TypeTraits<T>::BuilderType builder(pool_);
     using offset_type = typename T::offset_type;
 
-    const auto& json_data = obj_.FindMember(kData);
-    RETURN_NOT_ARRAY(kData, json_data, obj_);
-
-    const auto& json_data_arr = json_data->value.GetArray();
-
-    DCHECK_EQ(static_cast<int32_t>(json_data_arr.Size()), length_);
+    ARROW_ASSIGN_OR_RAISE(const auto json_data_arr, GetDataArray(obj_));
 
     for (int i = 0; i < length_; ++i) {
       if (!is_valid_[i]) {
         RETURN_NOT_OK(builder.AppendNull());
         continue;
       }
-
       const rj::Value& val = json_data_arr[i];
       DCHECK(val.IsString());
 
@@ -1266,20 +1220,13 @@ class ArrayReader {
             builder.Append(byte_buffer_data, static_cast<offset_type>(value_len)));
       }
     }
-
-    return builder.Finish(&result_);
+    return FinishBuilder(&builder);
   }
 
   Status Visit(const DayTimeIntervalType& type) {
     DayTimeIntervalBuilder builder(pool_);
 
-    const auto& json_data = obj_.FindMember(kData);
-    RETURN_NOT_ARRAY(kData, json_data, obj_);
-
-    const auto& json_data_arr = json_data->value.GetArray();
-
-    DCHECK_EQ(static_cast<int32_t>(json_data_arr.Size()), length_)
-        << "data length: " << json_data_arr.Size() << " != length_: " << length_;
+    ARROW_ASSIGN_OR_RAISE(const auto json_data_arr, GetDataArray(obj_));
 
     for (int i = 0; i < length_; ++i) {
       if (!is_valid_[i]) {
@@ -1294,7 +1241,7 @@ class ArrayReader {
       dm.milliseconds = val[kMilliseconds].GetInt();
       RETURN_NOT_OK(builder.Append(dm));
     }
-    return builder.Finish(&result_);
+    return FinishBuilder(&builder);
   }
 
   template <typename T>
@@ -1302,12 +1249,8 @@ class ArrayReader {
   Visit(const T& type) {
     typename TypeTraits<T>::BuilderType builder(type_, pool_);
 
-    const auto& json_data = obj_.FindMember(kData);
-    RETURN_NOT_ARRAY(kData, json_data, obj_);
+    ARROW_ASSIGN_OR_RAISE(const auto json_data_arr, GetDataArray(obj_));
 
-    const auto& json_data_arr = json_data->value.GetArray();
-
-    DCHECK_EQ(static_cast<int32_t>(json_data_arr.Size()), length_);
     int32_t byte_width = type.byte_width();
 
     // Allocate space for parsed values
@@ -1334,19 +1277,14 @@ class ArrayReader {
         RETURN_NOT_OK(builder.Append(byte_buffer_data));
       }
     }
-    return builder.Finish(&result_);
+    return FinishBuilder(&builder);
   }
 
   template <typename T>
   enable_if_decimal<T, Status> Visit(const T& type) {
     typename TypeTraits<T>::BuilderType builder(type_, pool_);
 
-    const auto& json_data = obj_.FindMember(kData);
-    RETURN_NOT_ARRAY(kData, json_data, obj_);
-
-    const auto& json_data_arr = json_data->value.GetArray();
-
-    DCHECK_EQ(static_cast<int32_t>(json_data_arr.Size()), length_);
+    ARROW_ASSIGN_OR_RAISE(const auto json_data_arr, GetDataArray(obj_));
 
     for (int i = 0; i < length_; ++i) {
       if (!is_valid_[i]) {
@@ -1363,7 +1301,8 @@ class ArrayReader {
         RETURN_NOT_OK(builder.Append(value));
       }
     }
-    return builder.Finish(&result_);
+
+    return FinishBuilder(&builder);
   }
 
   template <typename T>
@@ -1386,7 +1325,6 @@ class ArrayReader {
     } else {
       // Read 64-bit integers as strings, as JSON numbers cannot represent
       // them exactly.
-
       for (int i = 0; i < length; ++i) {
         const rj::Value& val = json_array[i];
         DCHECK(val.IsString());
@@ -1403,174 +1341,137 @@ class ArrayReader {
   }
 
   template <typename T>
-  Status CreateList(const std::shared_ptr<DataType>& type, std::shared_ptr<Array>* out) {
+  Status CreateList(const std::shared_ptr<DataType>& type) {
     using offset_type = typename T::offset_type;
-    using ArrayType = typename TypeTraits<T>::ArrayType;
 
-    int32_t null_count = 0;
-    std::shared_ptr<Buffer> validity_buffer;
-    RETURN_NOT_OK(GetValidityBuffer(is_valid_, &null_count, &validity_buffer));
+    RETURN_NOT_OK(InitializeData(2));
 
-    const auto& json_offsets = obj_.FindMember("OFFSET");
-    RETURN_NOT_ARRAY("OFFSET", json_offsets, obj_);
-    std::shared_ptr<Buffer> offsets_buffer;
-    RETURN_NOT_OK(GetIntArray<offset_type>(json_offsets->value.GetArray(), length_ + 1,
-                                           &offsets_buffer));
-
-    std::vector<std::shared_ptr<Array>> children;
-    RETURN_NOT_OK(GetChildren(obj_, *type, &children));
-    DCHECK_EQ(children.size(), 1);
-
-    out->reset(new ArrayType(type, length_, offsets_buffer, children[0], validity_buffer,
-                             null_count));
+    RETURN_NOT_OK(GetNullBitmap());
+    ARROW_ASSIGN_OR_RAISE(const auto json_offsets, GetMemberArray(obj_, "OFFSET"));
+    RETURN_NOT_OK(
+        GetIntArray<offset_type>(json_offsets, length_ + 1, &data_->buffers[1]));
+    RETURN_NOT_OK(GetChildren(obj_, *type));
     return Status::OK();
   }
 
   template <typename T>
   enable_if_var_size_list<T, Status> Visit(const T& type) {
-    return CreateList<T>(type_, &result_);
+    return CreateList<T>(type_);
   }
 
   Status Visit(const MapType& type) {
     auto list_type = std::make_shared<ListType>(type.value_field());
-    std::shared_ptr<Array> list_array;
-    RETURN_NOT_OK(CreateList<ListType>(list_type, &list_array));
-    auto map_data = list_array->data();
-    map_data->type = type_;
-    result_ = std::make_shared<MapArray>(map_data);
+    RETURN_NOT_OK(CreateList<ListType>(list_type));
+    data_->type = type_;
     return Status::OK();
   }
 
   Status Visit(const FixedSizeListType& type) {
-    int32_t null_count = 0;
-    std::shared_ptr<Buffer> validity_buffer;
-    RETURN_NOT_OK(GetValidityBuffer(is_valid_, &null_count, &validity_buffer));
+    RETURN_NOT_OK(InitializeData(1));
+    RETURN_NOT_OK(GetNullBitmap());
 
-    std::vector<std::shared_ptr<Array>> children;
-    RETURN_NOT_OK(GetChildren(obj_, type, &children));
-    DCHECK_EQ(children.size(), 1);
-    DCHECK_EQ(children[0]->length(), type.list_size() * length_);
-
-    result_ = std::make_shared<FixedSizeListArray>(type_, length_, children[0],
-                                                   validity_buffer, null_count);
-
+    RETURN_NOT_OK(GetChildren(obj_, type));
+    DCHECK_EQ(data_->child_data[0]->length, type.list_size() * length_);
     return Status::OK();
   }
 
   Status Visit(const StructType& type) {
-    int32_t null_count = 0;
-    std::shared_ptr<Buffer> validity_buffer;
-    RETURN_NOT_OK(GetValidityBuffer(is_valid_, &null_count, &validity_buffer));
+    RETURN_NOT_OK(InitializeData(1));
 
-    std::vector<std::shared_ptr<Array>> fields;
-    RETURN_NOT_OK(GetChildren(obj_, type, &fields));
-
-    result_ = std::make_shared<StructArray>(type_, length_, fields, validity_buffer,
-                                            null_count);
-
+    RETURN_NOT_OK(GetNullBitmap());
+    RETURN_NOT_OK(GetChildren(obj_, type));
     return Status::OK();
   }
 
-  Status Visit(const UnionType& type) {
-    std::shared_ptr<Buffer> type_id_buffer;
+  Status GetUnionTypeIds() {
+    ARROW_ASSIGN_OR_RAISE(const auto json_type_ids, GetMemberArray(obj_, "TYPE_ID"));
+    return GetIntArray<uint8_t>(json_type_ids, length_, &data_->buffers[1]);
+  }
 
-    const auto& json_type_ids = obj_.FindMember("TYPE_ID");
-    RETURN_NOT_ARRAY("TYPE_ID", json_type_ids, obj_);
-    RETURN_NOT_OK(
-        GetIntArray<uint8_t>(json_type_ids->value.GetArray(), length_, &type_id_buffer));
+  Status Visit(const SparseUnionType& type) {
+    RETURN_NOT_OK(InitializeData(2));
 
-    std::vector<std::shared_ptr<Array>> children;
-    RETURN_NOT_OK(GetChildren(obj_, type, &children));
-
-    if (type.mode() == UnionMode::SPARSE) {
-      result_ =
-          std::make_shared<SparseUnionArray>(type_, length_, children, type_id_buffer);
-    } else {
-      const auto& json_offsets = obj_.FindMember("OFFSET");
-      RETURN_NOT_ARRAY("OFFSET", json_offsets, obj_);
-
-      std::shared_ptr<Buffer> offsets_buffer;
-      RETURN_NOT_OK(
-          GetIntArray<int32_t>(json_offsets->value.GetArray(), length_, &offsets_buffer));
-
-      result_ = std::make_shared<DenseUnionArray>(type_, length_, children,
-                                                  type_id_buffer, offsets_buffer);
-    }
-
+    RETURN_NOT_OK(GetNullBitmap());
+    RETURN_NOT_OK(GetUnionTypeIds());
+    RETURN_NOT_OK(GetChildren(obj_, type));
     return Status::OK();
+  }
+
+  Status Visit(const DenseUnionType& type) {
+    RETURN_NOT_OK(InitializeData(3));
+
+    RETURN_NOT_OK(GetNullBitmap());
+    RETURN_NOT_OK(GetUnionTypeIds());
+    RETURN_NOT_OK(GetChildren(obj_, type));
+
+    ARROW_ASSIGN_OR_RAISE(const auto json_offsets, GetMemberArray(obj_, "OFFSET"));
+    return GetIntArray<int32_t>(json_offsets, length_, &data_->buffers[2]);
   }
 
   Status Visit(const NullType& type) {
-    result_ = std::make_shared<NullArray>(length_);
+    data_ = std::make_shared<NullArray>(length_)->data();
     return Status::OK();
   }
 
   Status Visit(const DictionaryType& type) {
-    std::shared_ptr<Array> indices;
+    ArrayReader parser(obj_, pool_, ::arrow::field("indices", type.index_type()));
+    ARROW_ASSIGN_OR_RAISE(data_, parser.Parse());
 
-    ArrayReader parser(obj_, pool_, ::arrow::field("indices", type.index_type()),
-                       dictionary_memo_);
-    RETURN_NOT_OK(parser.Parse(&indices));
-
-    RETURN_NOT_OK(LookupDictionaryId(field_));
-    std::shared_ptr<Array> dictionary;
-    RETURN_NOT_OK(dictionary_memo_->GetDictionary(dictionary_id_, &dictionary));
-
-    result_ = std::make_shared<DictionaryArray>(field_->type(), indices, dictionary);
+    data_->type = field_->type();
+    // data_->dictionary will be filled later by ResolveDictionaries()
     return Status::OK();
   }
 
   Status Visit(const ExtensionType& type) {
-    std::shared_ptr<Array> storage_array;
-
-    ArrayReader parser(obj_, pool_, field_->WithType(type.storage_type()),
-                       dictionary_memo_);
+    ArrayReader parser(obj_, pool_, field_->WithType(type.storage_type()));
+    ARROW_ASSIGN_OR_RAISE(data_, parser.Parse());
+    data_->type = type_;
     // If the storage array is a dictionary array, lookup its dictionary id
     // using the extension field.
     // (the field is looked up by pointer, so the Field instance constructed
     //  above wouldn't work)
-    if (parser.type_->id() == Type::DICTIONARY) {
-      RETURN_NOT_OK(parser.LookupDictionaryId(field_));
-    }
-    RETURN_NOT_OK(parser.Parse(&storage_array));
-    result_ = std::make_shared<ExtensionArray>(type_, storage_array);
     return Status::OK();
   }
 
-  Status GetValidityBuffer(const std::vector<bool>& is_valid, int32_t* null_count,
-                           std::shared_ptr<Buffer>* validity_buffer) {
-    int length = static_cast<int>(is_valid.size());
+  Status InitializeData(int num_buffers) {
+    data_ = std::make_shared<ArrayData>(type_, length_);
+    data_->buffers.resize(num_buffers);
+    return Status::OK();
+  }
 
-    ARROW_ASSIGN_OR_RAISE(auto out_buffer, AllocateEmptyBitmap(length, pool_));
-    uint8_t* bitmap = out_buffer->mutable_data();
+  Status GetNullBitmap() {
+    const int64_t length = static_cast<int64_t>(is_valid_.size());
 
-    *null_count = 0;
-    for (int i = 0; i < length; ++i) {
-      if (!is_valid[i]) {
-        ++(*null_count);
-        continue;
+    ARROW_ASSIGN_OR_RAISE(data_->buffers[0], AllocateEmptyBitmap(length, pool_));
+    uint8_t* bitmap = data_->buffers[0]->mutable_data();
+
+    data_->null_count = 0;
+    for (int64_t i = 0; i < length; ++i) {
+      if (is_valid_[i]) {
+        BitUtil::SetBit(bitmap, i);
+      } else {
+        ++data_->null_count;
       }
-      BitUtil::SetBit(bitmap, i);
+    }
+    if (data_->null_count == 0) {
+      data_->buffers[0].reset();
     }
 
-    *validity_buffer = out_buffer;
     return Status::OK();
   }
+  Status GetChildren(const RjObject& obj, const DataType& type) {
+    ARROW_ASSIGN_OR_RAISE(const auto json_children, GetMemberArray(obj, "children"));
 
-  Status GetChildren(const RjObject& obj, const DataType& type,
-                     std::vector<std::shared_ptr<Array>>* array) {
-    const auto& json_children = obj.FindMember("children");
-    RETURN_NOT_ARRAY("children", json_children, obj);
-    const auto& json_children_arr = json_children->value.GetArray();
-
-    if (type.num_fields() != static_cast<int>(json_children_arr.Size())) {
+    if (type.num_fields() != static_cast<int>(json_children.Size())) {
       return Status::Invalid("Expected ", type.num_fields(), " children, but got ",
-                             json_children_arr.Size());
+                             json_children.Size());
     }
 
-    for (int i = 0; i < static_cast<int>(json_children_arr.Size()); ++i) {
-      const rj::Value& json_child = json_children_arr[i];
+    data_->child_data.resize(type.num_fields());
+    for (int i = 0; i < type.num_fields(); ++i) {
+      const rj::Value& json_child = json_children[i];
       DCHECK(json_child.IsObject());
+      const auto& child_obj = json_child.GetObject();
 
       std::shared_ptr<Field> child_field = type.field(i);
 
@@ -1578,20 +1479,18 @@ class ArrayReader {
       RETURN_NOT_STRING("name", it, json_child);
 
       DCHECK_EQ(it->value.GetString(), child_field->name());
-      std::shared_ptr<Array> child;
-      RETURN_NOT_OK(
-          ReadArray(pool_, json_children_arr[i], child_field, dictionary_memo_, &child));
-      array->emplace_back(child);
+      ArrayReader child_reader(child_obj, pool_, child_field);
+      ARROW_ASSIGN_OR_RAISE(data_->child_data[i], child_reader.Parse());
     }
 
     return Status::OK();
   }
 
   Status ParseValidityBitmap() {
-    const auto& json_valid_iter = obj_.FindMember("VALIDITY");
-    RETURN_NOT_ARRAY("VALIDITY", json_valid_iter, obj_);
-    const auto& json_validity = json_valid_iter->value.GetArray();
-    DCHECK_EQ(static_cast<int>(json_validity.Size()), length_);
+    ARROW_ASSIGN_OR_RAISE(const auto json_validity, GetMemberArray(obj_, "VALIDITY"));
+    if (static_cast<int>(json_validity.Size()) != length_) {
+      return Status::Invalid("JSON VALIDITY size differs from advertised array length");
+    }
     is_valid_.reserve(json_validity.Size());
     for (const rj::Value& val : json_validity) {
       DCHECK(val.IsInt());
@@ -1600,8 +1499,8 @@ class ArrayReader {
     return Status::OK();
   }
 
-  Status Parse(std::shared_ptr<Array>* out) {
-    RETURN_NOT_OK(GetObjectInt(obj_, "count", &length_));
+  Result<std::shared_ptr<ArrayData>> Parse() {
+    ARROW_ASSIGN_OR_RAISE(length_, GetMemberInt<int32_t>(obj_, "count"));
 
     if (::arrow::internal::HasValidityBitmap(type_->id())) {
       // Null and union types don't have a validity bitmap
@@ -1609,16 +1508,7 @@ class ArrayReader {
     }
 
     RETURN_NOT_OK(VisitTypeInline(*type_, this));
-
-    *out = result_;
-    return Status::OK();
-  }
-
-  Status LookupDictionaryId(const std::shared_ptr<Field>& field) {
-    if (dictionary_id_ == -1) {
-      RETURN_NOT_OK(dictionary_memo_->GetId(field.get(), &dictionary_id_));
-    }
-    return Status::OK();
+    return data_;
   }
 
  private:
@@ -1626,47 +1516,51 @@ class ArrayReader {
   MemoryPool* pool_;
   std::shared_ptr<Field> field_;
   std::shared_ptr<DataType> type_;
-  DictionaryMemo* dictionary_memo_;
-  int64_t dictionary_id_;
 
   // Parsed common attributes
   std::vector<bool> is_valid_;
   int32_t length_;
-  std::shared_ptr<Array> result_;
+  std::shared_ptr<ArrayData> data_;
 };
 
-Status WriteSchema(const Schema& schema, DictionaryMemo* dictionary_memo,
-                   RjWriter* json_writer) {
-  SchemaWriter converter(schema, dictionary_memo, json_writer);
-  return converter.Write();
-}
-
-static Status ReadDictionary(const RjObject& obj, MemoryPool* pool,
-                             DictionaryMemo* dictionary_memo) {
-  int id;
-  RETURN_NOT_OK(GetObjectInt(obj, "id", &id));
-
-  const auto& it_data = obj.FindMember("data");
-  RETURN_NOT_OBJECT("data", it_data, obj);
-
-  std::shared_ptr<DataType> value_type;
-  RETURN_NOT_OK(dictionary_memo->GetDictionaryType(id, &value_type));
-  auto value_field = ::arrow::field("dummy", value_type);
-
-  // We need a placeholder schema to read the record, because the dictionary
-  // is embedded in a record batch with a single column.
-  std::shared_ptr<RecordBatch> batch;
-  RETURN_NOT_OK(ReadRecordBatch(it_data->value, ::arrow::schema({value_field}),
-                                dictionary_memo, pool, &batch));
-
-  if (batch->num_columns() != 1) {
-    return Status::Invalid("Dictionary record batch must only contain one field");
+Result<std::shared_ptr<ArrayData>> ReadArrayData(MemoryPool* pool,
+                                                 const rj::Value& json_array,
+                                                 const std::shared_ptr<Field>& field) {
+  if (!json_array.IsObject()) {
+    return Status::Invalid("Array element was not a JSON object");
   }
-  return dictionary_memo->AddDictionary(id, batch->column(0));
+  auto obj = json_array.GetObject();
+  ArrayReader parser(obj, pool, field);
+  return parser.Parse();
 }
 
-static Status ReadDictionaries(const rj::Value& doc, MemoryPool* pool,
-                               DictionaryMemo* dictionary_memo) {
+Status ReadDictionary(const RjObject& obj, MemoryPool* pool,
+                      DictionaryMemo* dictionary_memo) {
+  ARROW_ASSIGN_OR_RAISE(int64_t dictionary_id, GetMemberInt<int64_t>(obj, "id"));
+
+  ARROW_ASSIGN_OR_RAISE(const auto batch_obj, GetMemberObject(obj, "data"));
+
+  ARROW_ASSIGN_OR_RAISE(auto value_type,
+                        dictionary_memo->GetDictionaryType(dictionary_id));
+
+  ARROW_ASSIGN_OR_RAISE(const int64_t num_rows,
+                        GetMemberInt<int64_t>(batch_obj, "count"));
+  ARROW_ASSIGN_OR_RAISE(const auto json_columns, GetMemberArray(batch_obj, "columns"));
+  if (json_columns.Size() != 1) {
+    return Status::Invalid("Dictionary batch must contain only one column");
+  }
+
+  ARROW_ASSIGN_OR_RAISE(auto dict_data,
+                        ReadArrayData(pool, json_columns[0], field("dummy", value_type)));
+  if (num_rows != dict_data->length) {
+    return Status::Invalid("Dictionary batch length mismatch: advertised (", num_rows,
+                           ") != actual (", dict_data->length, ")");
+  }
+  return dictionary_memo->AddDictionary(dictionary_id, dict_data);
+}
+
+Status ReadDictionaries(const rj::Value& doc, MemoryPool* pool,
+                        DictionaryMemo* dictionary_memo) {
   auto it = doc.FindMember("dictionaries");
   if (it == doc.MemberEnd()) {
     // No dictionaries
@@ -1683,25 +1577,34 @@ static Status ReadDictionaries(const rj::Value& doc, MemoryPool* pool,
   return Status::OK();
 }
 
+}  // namespace
+
 Status ReadSchema(const rj::Value& json_schema, MemoryPool* pool,
                   DictionaryMemo* dictionary_memo, std::shared_ptr<Schema>* schema) {
-  auto it = json_schema.FindMember("schema");
-  RETURN_NOT_OBJECT("schema", it, json_schema);
-  const auto& obj_schema = it->value.GetObject();
+  DCHECK(json_schema.IsObject());
+  ARROW_ASSIGN_OR_RAISE(const auto obj_schema,
+                        GetMemberObject(json_schema.GetObject(), "schema"));
 
-  const auto& it_fields = obj_schema.FindMember("fields");
-  RETURN_NOT_ARRAY("fields", it_fields, obj_schema);
+  ARROW_ASSIGN_OR_RAISE(const auto json_fields, GetMemberArray(obj_schema, "fields"));
 
   std::shared_ptr<KeyValueMetadata> metadata;
   RETURN_NOT_OK(GetKeyValueMetadata(obj_schema, &metadata));
 
   std::vector<std::shared_ptr<Field>> fields;
-  RETURN_NOT_OK(GetFieldsFromArray(it_fields->value, dictionary_memo, &fields));
+  RETURN_NOT_OK(
+      GetFieldsFromArray(json_fields, FieldPosition(), dictionary_memo, &fields));
 
   // Read the dictionaries (if any) and cache in the memo
   RETURN_NOT_OK(ReadDictionaries(json_schema, pool, dictionary_memo));
 
   *schema = ::arrow::schema(fields, metadata);
+  return Status::OK();
+}
+
+Status ReadArray(MemoryPool* pool, const rj::Value& json_array,
+                 const std::shared_ptr<Field>& field, std::shared_ptr<Array>* out) {
+  ARROW_ASSIGN_OR_RAISE(auto data, ReadArrayData(pool, json_array, field));
+  *out = MakeArray(data);
   return Status::OK();
 }
 
@@ -1711,22 +1614,27 @@ Status ReadRecordBatch(const rj::Value& json_obj, const std::shared_ptr<Schema>&
   DCHECK(json_obj.IsObject());
   const auto& batch_obj = json_obj.GetObject();
 
-  auto it = batch_obj.FindMember("count");
-  RETURN_NOT_INT("count", it, batch_obj);
-  int32_t num_rows = static_cast<int32_t>(it->value.GetInt());
+  ARROW_ASSIGN_OR_RAISE(const int64_t num_rows,
+                        GetMemberInt<int64_t>(batch_obj, "count"));
 
-  it = batch_obj.FindMember("columns");
-  RETURN_NOT_ARRAY("columns", it, batch_obj);
-  const auto& json_columns = it->value.GetArray();
+  ARROW_ASSIGN_OR_RAISE(const auto json_columns, GetMemberArray(batch_obj, "columns"));
 
-  std::vector<std::shared_ptr<Array>> columns(json_columns.Size());
+  ArrayDataVector columns(json_columns.Size());
   for (int i = 0; i < static_cast<int>(columns.size()); ++i) {
-    RETURN_NOT_OK(
-        ReadArray(pool, json_columns[i], schema->field(i), dictionary_memo, &columns[i]));
+    ARROW_ASSIGN_OR_RAISE(columns[i],
+                          ReadArrayData(pool, json_columns[i], schema->field(i)));
   }
+
+  RETURN_NOT_OK(ResolveDictionaries(columns, *dictionary_memo, pool));
 
   *batch = RecordBatch::Make(schema, num_rows, columns);
   return Status::OK();
+}
+
+Status WriteSchema(const Schema& schema, const DictionaryFieldMapper& mapper,
+                   RjWriter* json_writer) {
+  SchemaWriter converter(schema, mapper, json_writer);
+  return converter.Write();
 }
 
 Status WriteDictionary(int64_t id, const std::shared_ptr<Array>& dictionary,
@@ -1770,37 +1678,6 @@ Status WriteRecordBatch(const RecordBatch& batch, RjWriter* writer) {
 Status WriteArray(const std::string& name, const Array& array, RjWriter* json_writer) {
   ArrayWriter converter(name, array, json_writer);
   return converter.Write();
-}
-
-Status ReadArray(MemoryPool* pool, const rj::Value& json_array,
-                 const std::shared_ptr<Field>& field, DictionaryMemo* dictionary_memo,
-                 std::shared_ptr<Array>* out) {
-  if (!json_array.IsObject()) {
-    return Status::Invalid("Array element was not a JSON object");
-  }
-  auto obj = json_array.GetObject();
-  ArrayReader parser(obj, pool, field, dictionary_memo);
-  return parser.Parse(out);
-}
-
-Status ReadArray(MemoryPool* pool, const rj::Value& json_array, const Schema& schema,
-                 DictionaryMemo* dictionary_memo, std::shared_ptr<Array>* array) {
-  if (!json_array.IsObject()) {
-    return Status::Invalid("Element was not a JSON object");
-  }
-
-  const auto& json_obj = json_array.GetObject();
-
-  const auto& it_name = json_obj.FindMember("name");
-  RETURN_NOT_STRING("name", it_name, json_obj);
-
-  std::string name = it_name->value.GetString();
-  std::shared_ptr<Field> result = schema.GetFieldByName(name);
-  if (result == nullptr) {
-    return Status::KeyError("Field named ", name, " not found in schema");
-  }
-
-  return ReadArray(pool, json_array, result, dictionary_memo, array);
 }
 
 }  // namespace json

@@ -36,6 +36,8 @@
 namespace arrow {
 namespace dataset {
 
+constexpr int64_t kDefaultBatchSize = 1 << 20;
+
 /// \brief Shared state for a Scan operation
 struct ARROW_DS_EXPORT ScanContext {
   /// A pool from which materialized and scanned arrays will be allocated.
@@ -73,7 +75,7 @@ class ARROW_DS_EXPORT ScanOptions {
   RecordBatchProjector projector;
 
   // Maximum row count for scanned batches.
-  int64_t batch_size = 1 << 15;
+  int64_t batch_size = kDefaultBatchSize;
 
   // Return a vector of fields that requires materialization.
   //

@@ -103,6 +103,16 @@ void CheckScalarUnary(std::string func_name, std::shared_ptr<Scalar> input,
                       std::shared_ptr<Scalar> expected,
                       const FunctionOptions* options = nullptr);
 
+void CheckScalarBinary(std::string func_name, std::shared_ptr<Scalar> left_input,
+                       std::shared_ptr<Scalar> right_input,
+                       std::shared_ptr<Scalar> expected,
+                       const FunctionOptions* options = nullptr);
+
+void CheckScalarBinary(std::string func_name, std::shared_ptr<Array> left_input,
+                       std::shared_ptr<Array> right_input,
+                       std::shared_ptr<Array> expected,
+                       const FunctionOptions* options = nullptr);
+
 void CheckVectorUnary(std::string func_name, Datum input, std::shared_ptr<Array> expected,
                       const FunctionOptions* options = nullptr);
 

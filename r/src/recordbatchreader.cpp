@@ -78,7 +78,7 @@ int ipc___RecordBatchFileReader__num_record_batches(
 std::shared_ptr<arrow::RecordBatch> ipc___RecordBatchFileReader__ReadRecordBatch(
     const std::shared_ptr<arrow::ipc::RecordBatchFileReader>& reader, int i) {
   if (i < 0 && i >= reader->num_record_batches()) {
-    Rcpp::stop("Record batch index out of bounds");
+    cpp11::stop("Record batch index out of bounds");
   }
   return ValueOrStop(reader->ReadRecordBatch(i));
 }

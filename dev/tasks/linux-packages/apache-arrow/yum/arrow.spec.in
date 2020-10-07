@@ -44,7 +44,9 @@
 %define use_glib (%{_centos_ver} >= 7)
 %define use_meson (%{_centos_ver} >= 8)
 
+%define have_brotli (%{_centos_ver} >= 7)
 %define have_rapidjson (%{_centos_ver} == 7)
+%define have_re2 (%{_centos_ver} >= 8)
 %define have_utf8proc (%{_centos_ver} == 7)
 
 Name:		@PACKAGE@
@@ -59,6 +61,8 @@ Source0:	https://dist.apache.org/repos/dist/release/@PACKAGE@/@PACKAGE@-%{versio
 BuildRequires:	bison
 %if %{_centos_ver} >= 7
 BuildRequires:	boost%{boost_version}-devel
+%endif
+%if %{have_brotli}
 BuildRequires:	brotli-devel
 %endif
 BuildRequires:	bzip2-devel
@@ -79,7 +83,7 @@ BuildRequires:	python%{python_version}-numpy
 %if %{have_rapidjson}
 BuildRequires:	rapidjson-devel
 %endif
-%if %{_centos_ver} >= 8
+%if %{have_re2}
 BuildRequires:	re2-devel
 %endif
 BuildRequires:	snappy-devel
@@ -218,6 +222,8 @@ License:	Apache-2.0
 Requires:	boost%{boost_version}-system
 Requires:	boost%{boost_version}-filesystem
 Requires:	boost%{boost_version}-regex
+%endif
+%if %{have_brotli}
 Requires:	brotli
 %endif
 %if %{_centos_ver} >= 7
@@ -226,7 +232,7 @@ Requires:	glog
 %endif
 Requires:	libzstd
 Requires:	lz4
-%if %{_centos_ver} >= 8
+%if %{have_re2}
 Requires:	re2
 %endif
 Requires:	snappy
@@ -265,6 +271,15 @@ Libraries and header files for Apache Arrow C++.
 %{_libdir}/cmake/arrow/ArrowOptions.cmake
 %{_libdir}/cmake/arrow/ArrowTargets*.cmake
 %{_libdir}/cmake/arrow/FindArrow.cmake
+%if %{have_brotli}
+%{_libdir}/cmake/arrow/FindBrotli.cmake
+%endif
+%{_libdir}/cmake/arrow/FindLz4.cmake
+%{_libdir}/cmake/arrow/FindSnappy.cmake
+%if %{have_utf8proc}
+%{_libdir}/cmake/arrow/Findutf8proc.cmake
+%endif
+%{_libdir}/cmake/arrow/Findzstd.cmake
 %{_libdir}/cmake/arrow/arrow-config.cmake
 %{_libdir}/libarrow.a
 %{_libdir}/libarrow.so
@@ -374,6 +389,9 @@ Libraries and header files for Gandiva.
 %{_libdir}/cmake/arrow/GandivaConfig*.cmake
 %{_libdir}/cmake/arrow/GandivaTargets*.cmake
 %{_libdir}/cmake/arrow/FindGandiva.cmake
+%if %{have_re2}
+%{_libdir}/cmake/arrow/FindRE2.cmake
+%endif
 %{_libdir}/libgandiva.a
 %{_libdir}/libgandiva.so
 %{_libdir}/pkgconfig/gandiva.pc

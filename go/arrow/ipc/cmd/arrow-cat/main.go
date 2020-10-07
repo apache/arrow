@@ -95,7 +95,6 @@ func processStream(w io.Writer, rin io.Reader) error {
 			}
 			return err
 		}
-		defer r.Release()
 
 		n := 0
 		for r.Next() {
@@ -106,6 +105,7 @@ func processStream(w io.Writer, rin io.Reader) error {
 				fmt.Fprintf(w, "  col[%d] %q: %v\n", i, rec.ColumnName(i), col)
 			}
 		}
+		r.Release()
 	}
 	return nil
 }
@@ -158,11 +158,11 @@ func processFile(w io.Writer, fname string) error {
 		if err != nil {
 			return err
 		}
-		defer rec.Release()
 
 		for i, col := range rec.Columns() {
 			fmt.Fprintf(w, "  col[%d] %q: %v\n", i, rec.ColumnName(i), col)
 		}
+		rec.Release()
 	}
 
 	return nil

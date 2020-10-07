@@ -24,6 +24,7 @@
 #include "arrow/compute/exec.h"
 #include "arrow/compute/exec_internal.h"
 #include "arrow/datum.h"
+#include "arrow/util/cpu_info.h"
 
 namespace arrow {
 namespace compute {
@@ -58,6 +59,7 @@ Result<const KernelType*> DispatchExactImpl(const Function& func,
                                             const std::vector<KernelType>& kernels,
                                             const std::vector<DescrType>& values) {
   const int passed_num_args = static_cast<int>(values.size());
+  const KernelType* kernel_matches[SimdLevel::MAX] = {NULL};
 
   // Validate arity
   const Arity arity = func.arity();
@@ -70,9 +72,30 @@ Result<const KernelType*> DispatchExactImpl(const Function& func,
   }
   for (const auto& kernel : kernels) {
     if (kernel.signature->MatchesInputs(values)) {
-      return &kernel;
+      kernel_matches[kernel.simd_level] = &kernel;
     }
   }
+
+  // Dispatch as the CPU feature
+  auto cpu_info = arrow::internal::CpuInfo::GetInstance();
+#if defined(ARROW_HAVE_RUNTIME_AVX512)
+  if (cpu_info->IsSupported(arrow::internal::CpuInfo::AVX512)) {
+    if (kernel_matches[SimdLevel::AVX512]) {
+      return kernel_matches[SimdLevel::AVX512];
+    }
+  }
+#endif
+#if defined(ARROW_HAVE_RUNTIME_AVX2)
+  if (cpu_info->IsSupported(arrow::internal::CpuInfo::AVX2)) {
+    if (kernel_matches[SimdLevel::AVX2]) {
+      return kernel_matches[SimdLevel::AVX2];
+    }
+  }
+#endif
+  if (kernel_matches[SimdLevel::NONE]) {
+    return kernel_matches[SimdLevel::NONE];
+  }
+
   return Status::NotImplemented("Function ", func.name(),
                                 " has no kernel matching input types ",
                                 FormatArgTypes(values));
@@ -80,6 +103,9 @@ Result<const KernelType*> DispatchExactImpl(const Function& func,
 
 Result<Datum> Function::Execute(const std::vector<Datum>& args,
                                 const FunctionOptions* options, ExecContext* ctx) const {
+  if (options == nullptr) {
+    options = default_options();
+  }
   if (ctx == nullptr) {
     ExecContext default_ctx;
     return Execute(args, options, &default_ctx);
@@ -166,6 +192,9 @@ Result<Datum> MetaFunction::Execute(const std::vector<Datum>& args,
                                     const FunctionOptions* options,
                                     ExecContext* ctx) const {
   RETURN_NOT_OK(CheckArity(static_cast<int>(args.size())));
+  if (options == nullptr) {
+    options = default_options();
+  }
   return ExecuteImpl(args, options, ctx);
 }
 

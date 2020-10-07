@@ -408,14 +408,11 @@ mod tests {
         let mut found_err = false;
         // Insert a large number of values, so we run out of space
         for _ in 0..100 {
-            match encoder.put(&levels) {
-                Err(err) => {
-                    assert!(format!("{}", err).contains("Not enough bytes left"));
-                    found_err = true;
-                    break;
-                }
-                Ok(_) => {}
-            }
+            if let Err(err) = encoder.put(&levels) {
+                assert!(format!("{}", err).contains("Not enough bytes left"));
+                found_err = true;
+                break;
+            };
         }
         if !found_err {
             panic!("Failed test: no buffer overflow");

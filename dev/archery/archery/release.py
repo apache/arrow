@@ -19,6 +19,7 @@ from collections import defaultdict
 import functools
 import os
 import re
+import pathlib
 import shelve
 import warnings
 
@@ -34,22 +35,39 @@ def cached_property(fn):
     return property(functools.lru_cache(maxsize=1)(fn))
 
 
-class JiraVersion(SemVer):
+class Version(SemVer):
 
     __slots__ = SemVer.__slots__ + ('released', 'release_date')
 
-    def __init__(self, original_jira_version):
-        super().__init__(**SemVer.parse(original_jira_version.name).to_dict())
-        self.released = original_jira_version.released
-        self.release_date = getattr(original_jira_version, 'releaseDate', None)
+    def __init__(self, version_string, released=False, release_date=None):
+        semver = SemVer.parse(version_string)
+        super().__init__(**semver.to_dict())
+        self.released = released
+        self.release_date = release_date
+
+    @classmethod
+    def from_jira(cls, jira_version):
+        return cls(
+            version_string=jira_version.name,
+            released=jira_version.released,
+            release_date=getattr(jira_version, 'releaseDate', None)
+        )
 
 
-class JiraIssue:
+class Issue:
 
-    def __init__(self, original_jira_issue):
-        self.key = original_jira_issue.key
-        self.type = original_jira_issue.fields.issuetype.name
-        self.summary = original_jira_issue.fields.summary
+    def __init__(self, key, type, summary):
+        self.key = key
+        self.type = type
+        self.summary = summary
+
+    @classmethod
+    def from_jira(cls, jira_issue):
+        return cls(
+            key=jira_issue.key,
+            type=jira_issue.fields.issuetype.name,
+            summary=jira_issue.fields.summary
+        )
 
     @property
     def project(self):
@@ -62,37 +80,35 @@ class JiraIssue:
 
 class Jira(JIRA):
 
-    def __init__(self, user=None, password=None):
+    def __init__(self, user=None, password=None,
+                 url='https://issues.apache.org/jira'):
         user = user or os.environ.get('APACHE_JIRA_USER')
         password = password or os.environ.get('APACHE_JIRA_PASSWORD')
-        super().__init__(
-            {'server': 'https://issues.apache.org/jira'},
-            basic_auth=(user, password)
-        )
+        super().__init__(url, basic_auth=(user, password))
 
-    def arrow_version(self, version_string):
+    def project_version(self, version_string, project='ARROW'):
         # query version from jira to populated with additional metadata
-        versions = self.arrow_versions()
-        # JiraVersion instances are comparable with strings
+        versions = self.project_versions(project)
+        # Version instances are comparable with strings
         return versions[versions.index(version_string)]
 
-    def arrow_versions(self):
+    def project_versions(self, project):
         versions = []
-        for v in self.project_versions('ARROW'):
+        for v in super().project_versions(project):
             try:
-                versions.append(JiraVersion(v))
+                versions.append(Version.from_jira(v))
             except ValueError:
                 # ignore invalid semantic versions like JS-0.4.0
                 continue
         return sorted(versions, reverse=True)
 
     def issue(self, key):
-        return JiraIssue(super().issue(key))
+        return Issue.from_jira(super().issue(key))
 
-    def arrow_issues(self, version):
-        query = "project=ARROW AND fixVersion={}".format(version)
-        issues = self.search_issues(query, maxResults=False)
-        return list(map(JiraIssue, issues))
+    def project_issues(self, version, project='ARROW'):
+        query = "project={} AND fixVersion={}".format(project, version)
+        issues = super().search_issues(query, maxResults=False)
+        return list(map(Issue.from_jira, issues))
 
 
 class CachedJira:
@@ -142,6 +158,19 @@ class CommitTitle:
             out += " "
         out += self.summary
         return out
+
+    def __eq__(self, other):
+        return (
+            self.summary == other.summary and
+            self.project == other.project and
+            self.issue == other.issue and
+            self.components == other.components
+        )
+
+    def __hash__(self):
+        return hash(
+            (self.summary, self.project, self.issue, tuple(self.components))
+        )
 
     @classmethod
     def parse(cls, headline):
@@ -229,23 +258,41 @@ class Release:
         return "<{} {!r} {}>".format(self.__class__.__name__,
                                      str(self.version), status)
 
-    @classmethod
-    def from_jira(cls, version, jira=None, repo=None):
-        jira = jira or Jira()
+    @staticmethod
+    def from_jira(version, jira=None, repo=None):
+        if jira is None:
+            jira = Jira()
+        elif isinstance(jira, str):
+            jira = Jira(jira)
+        elif not isinstance(jira, (Jira, CachedJira)):
+            raise TypeError("`jira` argument must be a server url or a valid "
+                            "Jira instance")
 
         if repo is None:
             arrow = ArrowSources.find()
             repo = Repo(arrow.path)
-        else:
+        elif isinstance(repo, (str, pathlib.Path)):
             repo = Repo(repo)
+        elif not isinstance(repo, Repo):
+            raise TypeError("`repo` argument must be a path or a valid Repo "
+                            "instance")
 
         if isinstance(version, str):
-            version = jira.arrow_version(version)
-        elif not isinstance(version, JiraVersion):
+            version = jira.project_version(version, project='ARROW')
+        elif not isinstance(version, Version):
             raise TypeError(version)
 
         # decide the type of the release based on the version number
-        klass = Release if version.patch == 0 else PatchRelease
+        if version.patch == 0:
+            if version.minor == 0:
+                klass = MajorRelease
+            elif version.major == 0:
+                # handle minor releases before 1.0 as major releases
+                klass = MajorRelease
+            else:
+                klass = MinorRelease
+        else:
+            klass = PatchRelease
 
         # prevent instantiating release object directly
         obj = klass.__new__(klass)
@@ -265,28 +312,46 @@ class Release:
 
     @property
     def branch(self):
-        # TODO(kszucs): add apache remote
-        return "master"
+        raise NotImplementedError()
+
+    @property
+    def siblings(self):
+        """
+        Releases to consider when calculating previous and next releases.
+        """
+        raise NotImplementedError()
 
     @cached_property
     def previous(self):
         # select all non-patch releases
-        versions = [v for v in self.jira.arrow_versions() if v.patch == 0]
-        position = versions.index(self.version) + 1
-        if position == len(versions):
+        position = self.siblings.index(self.version)
+        try:
+            previous = self.siblings[position + 1]
+        except IndexError:
             # first release doesn't have a previous one
             return None
-        previous = versions[position]
-        return Release.from_jira(previous)
+        else:
+            return Release.from_jira(previous, jira=self.jira, repo=self.repo)
+
+    @cached_property
+    def next(self):
+        # select all non-patch releases
+        position = self.siblings.index(self.version)
+        if position <= 0:
+            raise ValueError("There is no upcoming release set in JIRA after "
+                             "version {}".format(self.version))
+        upcoming = self.siblings[position - 1]
+        return Release.from_jira(upcoming, jira=self.jira, repo=self.repo)
 
     @cached_property
     def issues(self):
-        return {i.key: i for i in self.jira.arrow_issues(self.version)}
+        issues = self.jira.project_issues(self.version, project='ARROW')
+        return {i.key: i for i in issues}
 
     @cached_property
     def commits(self):
         """
-        All commits applied between two versions on the master branch.
+        All commits applied between two versions.
         """
         if self.previous is None:
             # first release
@@ -370,52 +435,99 @@ class Release:
         return JiraChangelog(release=self, categories=categories)
 
 
-class PatchRelease(Release):
+class MaintenanceMixin:
+    """
+    Utility methods for cherry-picking commits from the main branch.
+    """
+
+    def commits_to_pick(self, exclude_already_applied=True):
+        # collect commits applied on the main branch since the root of the
+        # maintenance branch (the previous major release)
+        if self.version.major == 0:
+            # treat minor releases as major releases preceeding 1.0.0 release
+            commit_range = "apache-arrow-0.{}.0..master".format(
+                self.version.minor - 1
+            )
+        else:
+            commit_range = "apache-arrow-{}.0.0..master".format(
+                self.version.major
+            )
+
+        # keeping the original order of the commits helps to minimize the merge
+        # conflicts during cherry-picks
+        commits = map(Commit, self.repo.iter_commits(commit_range))
+
+        # exclude patches that have been already applied to the maintenance
+        # branch, we cannot identify patches based on sha because it changes
+        # after the cherry pick so use commit title instead
+        if exclude_already_applied:
+            already_applied = {c.title for c in self.commits}
+        else:
+            already_applied = set()
+
+        # iterate over the commits applied on the main branch and filter out
+        # the ones that are included in the jira release
+        patches_to_pick = [c for c in commits if
+                           c.issue in self.issues and
+                           c.title not in already_applied]
+
+        return reversed(patches_to_pick)
+
+    def cherry_pick_commits(self, recreate_branch=True):
+        if recreate_branch:
+            # delete, create and checkout the maintenance branch based off of
+            # the previous tag
+            if self.branch in self.repo.branches:
+                self.repo.git.branch('-D', self.branch)
+            self.repo.git.checkout(self.previous.tag, b=self.branch)
+        else:
+            # just checkout the already existing maintenance branch
+            self.repo.git.checkout(self.branch)
+
+        # cherry pick the commits based on the jira tickets
+        for commit in self.commits_to_pick():
+            self.repo.git.cherry_pick(commit.hexsha)
+
+
+class MajorRelease(Release):
 
     @property
     def branch(self):
-        # TODO(kszucs): add apache remote
+        return "master"
+
+    @cached_property
+    def siblings(self):
+        """
+        Filter only the major releases.
+        """
+        # handle minor releases before 1.0 as major releases
+        return [v for v in self.jira.project_versions('ARROW')
+                if v.patch == 0 and (v.major == 0 or v.minor == 0)]
+
+
+class MinorRelease(Release, MaintenanceMixin):
+
+    @property
+    def branch(self):
+        return "maint-{}.x.x".format(self.version.major)
+
+    @cached_property
+    def siblings(self):
+        """
+        Filter the major and minor releases.
+        """
+        return [v for v in self.jira.project_versions('ARROW') if v.patch == 0]
+
+
+class PatchRelease(Release, MaintenanceMixin):
+
+    @property
+    def branch(self):
         return "maint-{}.{}.x".format(self.version.major, self.version.minor)
 
     @cached_property
-    def previous(self):
-        # select all releases under this minor
-        versions = [v for v in self.jira.arrow_versions()
-                    if v.minor == self.version.minor]
-        previous = versions[versions.index(self.version) + 1]
-        return Release.from_jira(previous)
-
-    def generate_update_branch_commands(self):
-        # cherry pick not yet cherry picked commits on top of the maintenance
-        # branch
-        try:
-            target = self.repo.branches[self.branch]
-        except IndexError:
-            # maintenance branch doesn't exist yet, so create one based off of
-            # the previous git tag
-            target = self.repo.create_head(self.branch, self.previous.tag)
-
-        # collect commits applied on master since the root of the maintenance
-        # branch (the minor release of this patch release)
-        commit_range = "apache-arrow-{}.{}.0..master".format(
-            self.version.major, self.version.minor
-        )
-        commits = list(map(Commit, self.repo.iter_commits(commit_range)))
-
-        # iterate over commits applied on master and keep the original order of
-        # the commits to minimize the merge conflicts during cherry-picks
-        patch_commits = [c for c in commits if c.issue in self.issues]
-
-        commands = [
-            'git checkout -b {} {}'.format(target, self.previous.tag)
-        ]
-        for c in reversed(patch_commits):
-            commands.append(
-                'git cherry-pick {}  # {}'.format(c.hexsha, c.title)
-            )
-
-        return commands
-
-    # TODO(kszucs): update_branch method which tries to cherry pick to a
-    # temporary branch and if the patches apply cleanly then update the maint
-    # reference
+    def siblings(self):
+        """
+        No filtering, consider all releases.
+        """
+        return self.jira.project_versions('ARROW')

@@ -20,6 +20,7 @@ package org.apache.arrow.vector;
 import static org.apache.arrow.vector.TestUtils.newVarBinaryVector;
 import static org.apache.arrow.vector.TestUtils.newVarCharVector;
 import static org.apache.arrow.vector.testing.ValueVectorDataPopulator.setVector;
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -29,6 +30,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.function.ToIntBiFunction;
 
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
@@ -875,6 +877,108 @@ public class TestDictionaryVector {
         }
       }
 
+    }
+  }
+
+  private void testDictionary(Dictionary dictionary, ToIntBiFunction<ValueVector, Integer> valGetter) {
+    try (VarCharVector vector = new VarCharVector("vector", allocator)) {
+      setVector(vector, "1", "3", "5", "7", "9");
+      try (ValueVector encodedVector = DictionaryEncoder.encode(vector, dictionary)) {
+
+        // verify encoded result
+        assertEquals(vector.getValueCount(), encodedVector.getValueCount());
+        assertEquals(valGetter.applyAsInt(encodedVector, 0), 1);
+        assertEquals(valGetter.applyAsInt(encodedVector, 1), 3);
+        assertEquals(valGetter.applyAsInt(encodedVector, 2), 5);
+        assertEquals(valGetter.applyAsInt(encodedVector, 3), 7);
+        assertEquals(valGetter.applyAsInt(encodedVector, 4), 9);
+
+        try (ValueVector decodedVector = DictionaryEncoder.decode(encodedVector, dictionary)) {
+          assertTrue(decodedVector instanceof VarCharVector);
+          assertEquals(vector.getValueCount(), decodedVector.getValueCount());
+          assertArrayEquals("1".getBytes(), ((VarCharVector) decodedVector).get(0));
+          assertArrayEquals("3".getBytes(), ((VarCharVector) decodedVector).get(1));
+          assertArrayEquals("5".getBytes(), ((VarCharVector) decodedVector).get(2));
+          assertArrayEquals("7".getBytes(), ((VarCharVector) decodedVector).get(3));
+          assertArrayEquals("9".getBytes(), ((VarCharVector) decodedVector).get(4));
+        }
+      }
+    }
+  }
+
+  @Test
+  public void testDictionaryUInt1() {
+    try (VarCharVector dictionaryVector = new VarCharVector("dict vector", allocator)) {
+      setVector(dictionaryVector, "0", "1", "2", "3", "4", "5", "6", "7", "8", "9");
+      Dictionary dictionary1 = new Dictionary(dictionaryVector,
+          new DictionaryEncoding(/*id=*/10L, /*ordered=*/false,
+              /*indexType=*/new ArrowType.Int(/*bitWidth*/8, /*isSigned*/false)));
+      testDictionary(dictionary1, (vector, index) -> ((UInt1Vector) vector).get(index));
+    }
+  }
+
+  @Test
+  public void testDictionaryUInt2() {
+    try (VarCharVector dictionaryVector = new VarCharVector("dict vector", allocator)) {
+      setVector(dictionaryVector, "0", "1", "2", "3", "4", "5", "6", "7", "8", "9");
+      Dictionary dictionary2 = new Dictionary(dictionaryVector,
+          new DictionaryEncoding(/*id=*/20L, /*ordered=*/false,
+              /*indexType=*/new ArrowType.Int(/*indexType=*/16, /*isSigned*/false)));
+      testDictionary(dictionary2, (vector, index) -> ((UInt2Vector) vector).get(index));
+    }
+  }
+
+  @Test
+  public void testDictionaryUInt4() {
+    try (VarCharVector dictionaryVector = new VarCharVector("dict vector", allocator)) {
+      setVector(dictionaryVector, "0", "1", "2", "3", "4", "5", "6", "7", "8", "9");
+      Dictionary dictionary4 = new Dictionary(dictionaryVector,
+          new DictionaryEncoding(/*id=*/30L, /*ordered=*/false,
+              /*indexType=*/new ArrowType.Int(/*indexType=*/32, /*isSigned*/false)));
+      testDictionary(dictionary4, (vector, index) -> ((UInt4Vector) vector).get(index));
+    }
+  }
+
+  @Test
+  public void testDictionaryUInt8() {
+    try (VarCharVector dictionaryVector = new VarCharVector("dict vector", allocator)) {
+      setVector(dictionaryVector, "0", "1", "2", "3", "4", "5", "6", "7", "8", "9");
+      Dictionary dictionary8 = new Dictionary(dictionaryVector,
+              new DictionaryEncoding(/*id=*/40L, /*ordered=*/false,
+                  /*indexType=*/new ArrowType.Int(/*indexType=*/64, /*isSigned*/false)));
+      testDictionary(dictionary8, (vector, index) -> (int) ((UInt8Vector) vector).get(index));
+    }
+  }
+
+  @Test
+  public void testDictionaryUIntOverflow() {
+    // the size is within the range of UInt1, but outside the range of TinyInt.
+    final int vecLength = 256;
+    try (VarCharVector dictionaryVector = new VarCharVector("dict vector", allocator)) {
+      dictionaryVector.allocateNew(vecLength * 3, vecLength);
+      for (int i = 0; i < vecLength; i++) {
+        dictionaryVector.set(i, String.valueOf(i).getBytes());
+      }
+      dictionaryVector.setValueCount(vecLength);
+
+      Dictionary dictionary = new Dictionary(dictionaryVector,
+          new DictionaryEncoding(/*id=*/10L, /*ordered=*/false,
+              /*indexType=*/new ArrowType.Int(/*indexType=*/8, /*isSigned*/false)));
+
+      try (VarCharVector vector = new VarCharVector("vector", allocator)) {
+        setVector(vector, "255");
+        try (UInt1Vector encodedVector = (UInt1Vector) DictionaryEncoder.encode(vector, dictionary)) {
+
+          // verify encoded result
+          assertEquals(1, encodedVector.getValueCount());
+          assertEquals(255, encodedVector.getValueAsLong(0));
+
+          try (VarCharVector decodedVector = (VarCharVector) DictionaryEncoder.decode(encodedVector, dictionary)) {
+            assertEquals(1, decodedVector.getValueCount());
+            assertArrayEquals("255".getBytes(), decodedVector.get(0));
+          }
+        }
+      }
     }
   }
 

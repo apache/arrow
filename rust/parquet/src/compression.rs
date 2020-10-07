@@ -324,14 +324,14 @@ mod tests {
 
     use crate::util::test_common::*;
 
-    fn test_roundtrip(c: CodecType, data: &Vec<u8>) {
+    fn test_roundtrip(c: CodecType, data: &[u8]) {
         let mut c1 = create_codec(c).unwrap().unwrap();
         let mut c2 = create_codec(c).unwrap().unwrap();
 
         // Compress with c1
         let mut compressed = Vec::new();
         let mut decompressed = Vec::new();
-        c1.compress(data.as_slice(), &mut compressed)
+        c1.compress(data, &mut compressed)
             .expect("Error when compressing");
 
         // Decompress with c2
@@ -340,12 +340,12 @@ mod tests {
             .expect("Error when decompressing");
         assert_eq!(data.len(), decompressed_size);
         decompressed.truncate(decompressed_size);
-        assert_eq!(*data, decompressed);
+        assert_eq!(data, decompressed.as_slice());
 
         compressed.clear();
 
         // Compress with c2
-        c2.compress(data.as_slice(), &mut compressed)
+        c2.compress(data, &mut compressed)
             .expect("Error when compressing");
 
         // Decompress with c1
@@ -354,14 +354,14 @@ mod tests {
             .expect("Error when decompressing");
         assert_eq!(data.len(), decompressed_size);
         decompressed.truncate(decompressed_size);
-        assert_eq!(*data, decompressed);
+        assert_eq!(data, decompressed.as_slice());
     }
 
     fn test_codec(c: CodecType) {
         let sizes = vec![100, 10000, 100000];
         for size in sizes {
-            let mut data = random_bytes(size);
-            test_roundtrip(c, &mut data);
+            let data = random_bytes(size);
+            test_roundtrip(c, &data);
         }
     }
 

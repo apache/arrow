@@ -27,17 +27,22 @@ import (
 )
 
 func TestStream(t *testing.T) {
+	tempDir, err := ioutil.TempDir("", "go-arrow-stream-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tempDir)
+
 	for name, recs := range arrdata.Records {
 		t.Run(name, func(t *testing.T) {
 			mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 			defer mem.AssertSize(t, 0)
 
-			f, err := ioutil.TempFile("", "arrow-ipc-")
+			f, err := ioutil.TempFile(tempDir, "go-arrow-stream-")
 			if err != nil {
 				t.Fatal(err)
 			}
 			defer f.Close()
-			defer os.Remove(f.Name())
 
 			arrdata.WriteStream(t, f, mem, recs[0].Schema(), recs)
 

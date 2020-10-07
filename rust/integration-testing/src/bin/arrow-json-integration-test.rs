@@ -25,7 +25,7 @@ use arrow::datatypes::{DataType, DateUnit, IntervalUnit, Schema};
 use arrow::error::{ArrowError, Result};
 use arrow::ipc::reader::FileReader;
 use arrow::ipc::writer::FileWriter;
-use arrow::record_batch::{RecordBatch, RecordBatchReader};
+use arrow::record_batch::RecordBatch;
 
 use hex::decode;
 use std::env;
@@ -423,7 +423,7 @@ fn arrow_to_json(arrow_name: &str, json_name: &str, verbose: bool) -> Result<()>
     }
 
     let arrow_file = File::open(arrow_name)?;
-    let mut reader = FileReader::try_new(arrow_file)?;
+    let reader = FileReader::try_new(arrow_file)?;
 
     let mut fields = vec![];
     for f in reader.schema().fields() {
@@ -431,10 +431,9 @@ fn arrow_to_json(arrow_name: &str, json_name: &str, verbose: bool) -> Result<()>
     }
     let schema = ArrowJsonSchema { fields };
 
-    let mut batches = vec![];
-    while let Ok(Some(batch)) = reader.next_batch() {
-        batches.push(ArrowJsonBatch::from_batch(&batch));
-    }
+    let batches = reader
+        .map(|batch| Ok(ArrowJsonBatch::from_batch(&batch?)))
+        .collect::<Result<Vec<_>>>()?;
 
     let arrow_json = ArrowJson {
         schema,
@@ -483,7 +482,7 @@ fn validate(arrow_name: &str, json_name: &str, verbose: bool) -> Result<()> {
     }
 
     for json_batch in &json_batches {
-        if let Some(arrow_batch) = arrow_reader.next_batch()? {
+        if let Some(Ok(arrow_batch)) = arrow_reader.next() {
             // compare batches
             assert!(arrow_batch.num_columns() == json_batch.num_columns());
             assert!(arrow_batch.num_rows() == json_batch.num_rows());
@@ -500,7 +499,7 @@ fn validate(arrow_name: &str, json_name: &str, verbose: bool) -> Result<()> {
         }
     }
 
-    if let Some(_) = arrow_reader.next_batch()? {
+    if arrow_reader.next().is_some() {
         return Err(ArrowError::ComputeError(
             "no more json batches left".to_owned(),
         ));

@@ -39,7 +39,7 @@ class MemoryPool;
 /// \brief Construct an empty ArrayBuilder corresponding to the data
 /// type
 /// \param[in] pool the MemoryPool to use for allocations
-/// \param[in] type an instance of DictionaryType
+/// \param[in] type the data type to create the builder for
 /// \param[out] out the created ArrayBuilder
 ARROW_EXPORT
 Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
@@ -48,7 +48,7 @@ Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
 /// \brief Construct an empty DictionaryBuilder initialized optionally
 /// with a pre-existing dictionary
 /// \param[in] pool the MemoryPool to use for allocations
-/// \param[in] type an instance of DictionaryType
+/// \param[in] type the dictionary type to create the builder for
 /// \param[in] dictionary the initial dictionary, if any. May be nullptr
 /// \param[out] out the created ArrayBuilder
 ARROW_EXPORT

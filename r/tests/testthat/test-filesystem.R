@@ -131,6 +131,13 @@ test_that("FileSystem$from_uri", {
   expect_is(fs_and_path$fs, "S3FileSystem")
 })
 
+test_that("SubTreeFileSystem$create() with URI", {
+  skip_on_cran()
+  skip_if_not_available("s3")
+  fs <- SubTreeFileSystem$create("s3://ursa-labs-taxi-data")
+  expect_is(fs, "SubTreeFileSystem")
+})
+
 test_that("S3FileSystem", {
   skip_on_cran()
   skip_if_not_available("s3")

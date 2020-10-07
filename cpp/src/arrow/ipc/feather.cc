@@ -799,7 +799,7 @@ Status WriteTable(const Table& table, io::OutputStream* dst,
     ipc_options.compression_level = properties.compression_level;
 
     std::shared_ptr<RecordBatchWriter> writer;
-    ARROW_ASSIGN_OR_RAISE(writer, NewFileWriter(dst, table.schema(), ipc_options));
+    ARROW_ASSIGN_OR_RAISE(writer, MakeFileWriter(dst, table.schema(), ipc_options));
     RETURN_NOT_OK(writer->WriteTable(table, properties.chunksize));
     return writer->Close();
   }

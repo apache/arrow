@@ -48,6 +48,9 @@ class DummyHandler(FileSystemHandler):
     def get_type_name(self):
         return "dummy"
 
+    def normalize_path(self, path):
+        return path
+
     def get_file_info(self, paths):
         info = []
         for path in paths:
@@ -150,6 +153,9 @@ class ProxyHandler(FileSystemHandler):
 
     def get_type_name(self):
         return "proxy::" + self._fs.type_name
+
+    def normalize_path(self, path):
+        return self._fs.normalize_path(path)
 
     def get_file_info(self, paths):
         return self._fs.get_file_info(paths)
@@ -577,6 +583,12 @@ def test_type_name():
     assert fs.type_name == "mock"
 
 
+def test_normalize_path(fs):
+    # Trivial path names (without separators) should generally be
+    # already normalized.  Just a sanity check.
+    assert fs.normalize_path("foo") == "foo"
+
+
 def test_non_path_like_input_raises(fs):
     class Path:
         pass
@@ -637,6 +649,11 @@ def test_get_file_info(fs, pathfn):
     assert zzz_info.mtime is None
     assert 'FileType.NotFound' in repr(zzz_info)
     check_mtime_absent(zzz_info)
+
+    # with single path
+    aaa_info2 = fs.get_file_info(aaa)
+    assert aaa_info.path == aaa_info2.path
+    assert aaa_info.type == aaa_info2.type
 
 
 def test_get_file_info_with_selector(fs, pathfn):
@@ -768,10 +785,6 @@ def test_copy_file(fs, pathfn, allow_copy_file):
 
 
 def test_move_directory(fs, pathfn, allow_move_dir):
-    if fs.type_name == "py::fsspec+memory":
-        # https://github.com/intake/filesystem_spec/issues/316
-        pytest.xfail(reason='Not working with in-memory fsspec')
-
     # move directory (doesn't work with S3)
     s = pathfn('source-dir/')
     t = pathfn('target-dir/')
@@ -967,12 +980,21 @@ def test_mockfs_mtime_roundtrip(mockfs):
 
 
 @pytest.mark.s3
-def test_s3_options():
+def test_s3_options(monkeypatch):
     from pyarrow.fs import S3FileSystem
 
+    # Avoid wait for unavailable metadata server in ARN role example below
+    monkeypatch.setenv("AWS_EC2_METADATA_DISABLED", "true")
+
     fs = S3FileSystem(access_key='access', secret_key='secret',
-                      region='us-east-1', scheme='https',
-                      endpoint_override='localhost:8999')
+                      session_token='token', region='us-east-2',
+                      scheme='https', endpoint_override='localhost:8999')
+    assert isinstance(fs, S3FileSystem)
+    assert fs.region == 'us-east-2'
+    assert pickle.loads(pickle.dumps(fs)) == fs
+
+    fs = S3FileSystem(role_arn='role', session_name='session',
+                      external_id='id', load_frequency=100)
     assert isinstance(fs, S3FileSystem)
     assert pickle.loads(pickle.dumps(fs)) == fs
 
@@ -980,6 +1002,14 @@ def test_s3_options():
         S3FileSystem(access_key='access')
     with pytest.raises(ValueError):
         S3FileSystem(secret_key='secret')
+    with pytest.raises(ValueError):
+        S3FileSystem(access_key='access', session_token='token')
+    with pytest.raises(ValueError):
+        S3FileSystem(secret_key='secret', session_token='token')
+    with pytest.raises(ValueError):
+        S3FileSystem(
+            access_key='access', secret_key='secret', role_arn='arn'
+        )
 
 
 @pytest.mark.hdfs
@@ -1282,5 +1312,31 @@ def test_s3_real_aws():
     # This is a minimal integration check for ARROW-9261 and similar issues.
     from pyarrow.fs import S3FileSystem
     fs = S3FileSystem(anonymous=True)
+    assert fs.region == 'us-east-1'  # default region
+
+    fs = S3FileSystem(anonymous=True, region='us-east-2')
     entries = fs.get_file_info(FileSelector('ursa-labs-taxi-data'))
     assert len(entries) > 0
+
+
+@pytest.mark.s3
+def test_s3_real_aws_region_selection():
+    # Taken from a registry of open S3-hosted datasets
+    # at https://github.com/awslabs/open-data-registry
+    fs, path = FileSystem.from_uri('s3://mf-nwp-models/README.txt')
+    assert fs.region == 'eu-west-1'
+    with fs.open_input_stream(path) as f:
+        assert b"Meteo-France Atmospheric models on AWS" in f.read(50)
+
+    # Passing an explicit region disables auto-selection
+    fs, path = FileSystem.from_uri(
+        's3://mf-nwp-models/README.txt?region=us-east-2')
+    assert fs.region == 'us-east-2'
+    # Reading from the wrong region may still work for public buckets...
+
+    # Non-existent bucket (hopefully, otherwise need to fix this test)
+    with pytest.raises(IOError, match="Bucket '.*' not found"):
+        FileSystem.from_uri('s3://x-arrow-non-existent-bucket')
+    fs, path = FileSystem.from_uri(
+        's3://x-arrow-non-existent-bucket?region=us-east-3')
+    assert fs.region == 'us-east-3'

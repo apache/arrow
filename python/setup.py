@@ -20,24 +20,22 @@
 import contextlib
 import glob
 import os
-import os.path as osp
+import os.path
+from os.path import join as pjoin
 import re
 import shlex
 import shutil
 import sys
 
-from Cython.Distutils import build_ext as _build_ext
-import Cython
-
-
 import pkg_resources
 from setuptools import setup, Extension, Distribution
-
-from os.path import join as pjoin
 
 from distutils.command.clean import clean as _clean
 from distutils.util import strtobool
 from distutils import sysconfig
+
+from Cython.Distutils import build_ext as _build_ext
+import Cython
 
 # Check if we're running 64-bit Python
 is_64_bit = sys.maxsize > 2**32
@@ -201,7 +199,7 @@ class build_ext(_build_ext):
                              "be 'release' or 'debug'")
 
         # The directory containing this setup.py
-        source = osp.dirname(osp.abspath(__file__))
+        source = os.path.dirname(os.path.abspath(__file__))
 
         # The staging directory for the module being built
         build_cmd = self.get_finalized_command('build')
@@ -227,6 +225,7 @@ class build_ext(_build_ext):
 
             cmake_options = [
                 '-DPYTHON_EXECUTABLE=%s' % sys.executable,
+                '-DPython3_EXECUTABLE=%s' % sys.executable,
                 static_lib_option,
             ]
 

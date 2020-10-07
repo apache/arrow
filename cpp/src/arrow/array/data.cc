@@ -29,7 +29,7 @@
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/bitmap_ops.h"
-#include "arrow/util/int_util.h"
+#include "arrow/util/int_util_internal.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 
@@ -100,6 +100,8 @@ std::shared_ptr<ArrayData> ArrayData::Slice(int64_t off, int64_t len) const {
   copy->offset = off;
   if (null_count == length) {
     copy->null_count = len;
+  } else if (off == offset && len == length) {  // A copy of current.
+    copy->null_count = null_count.load();
   } else {
     copy->null_count = null_count != 0 ? kUnknownNullCount : 0;
   }

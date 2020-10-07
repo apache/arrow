@@ -141,10 +141,15 @@ class PARQUET_EXPORT ColumnWriter {
 
   /// \brief Write Apache Arrow columnar data directly to ColumnWriter. Returns
   /// error status if the array data type is not compatible with the concrete
-  /// writer type
+  /// writer type.
+  ///
+  /// leaf_array is always a primitive (possibly dictionary encoded type).
+  /// Leaf_field_nullable indicates whether the leaf array is considered nullable
+  /// according to its schema in a Table or its parent array.
   virtual ::arrow::Status WriteArrow(const int16_t* def_levels, const int16_t* rep_levels,
-                                     int64_t num_levels, const ::arrow::Array& array,
-                                     ArrowWriteContext* ctx) = 0;
+                                     int64_t num_levels, const ::arrow::Array& leaf_array,
+                                     ArrowWriteContext* ctx,
+                                     bool leaf_field_nullable) = 0;
 };
 
 // API to write values to a single column. This is the main client facing API.
@@ -155,8 +160,16 @@ class TypedColumnWriter : public ColumnWriter {
 
   // Write a batch of repetition levels, definition levels, and values to the
   // column.
-  virtual void WriteBatch(int64_t num_values, const int16_t* def_levels,
-                          const int16_t* rep_levels, const T* values) = 0;
+  // `num_values` is the number of logical leaf values.
+  // `def_levels` (resp. `rep_levels`) can be null if the column's max definition level
+  // (resp. max repetition level) is 0.
+  // If not null, each of `def_levels` and `rep_levels` must have at least
+  // `num_values`.
+  //
+  // The number of physical values written (taken from `values`) is returned.
+  // It can be smaller than `num_values` is there are some undefined values.
+  virtual int64_t WriteBatch(int64_t num_values, const int16_t* def_levels,
+                             const int16_t* rep_levels, const T* values) = 0;
 
   /// Write a batch of repetition levels, definition levels, and values to the
   /// column.

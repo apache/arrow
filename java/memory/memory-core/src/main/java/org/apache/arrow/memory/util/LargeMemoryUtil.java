@@ -18,7 +18,6 @@
 package org.apache.arrow.memory.util;
 
 import org.apache.arrow.memory.BoundsChecking;
-import org.apache.arrow.util.Preconditions;
 
 /** Contains utilities for dealing with a 64-bit address base. */
 public final class LargeMemoryUtil {
@@ -31,8 +30,7 @@ public final class LargeMemoryUtil {
    */
   public static int checkedCastToInt(long length) {
     if (BoundsChecking.BOUNDS_CHECKING_ENABLED) {
-      Preconditions.checkArgument(length <= Integer.MAX_VALUE || length >= Integer.MIN_VALUE,
-          "Can't cast long to int: %s", length);
+      return Math.toIntExact(length);
     }
     return (int) length;
   }

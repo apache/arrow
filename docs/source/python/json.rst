@@ -21,10 +21,10 @@
 Reading JSON files
 ==================
 
-Arrow supports reading columnar data from JSON files.  In this context, a
-JSON file consists of multiple JSON objects, one per line, representing
-individual data rows.  For example, this file represents two rows of data
-with four columns "a", "b", "c", "d":
+Arrow supports reading columnar data from line-delimited JSON files. 
+In this context, a JSON file consists of multiple JSON objects, one per line,
+representing individual data rows.  For example, this file represents
+two rows of data with four columns "a", "b", "c", "d":
 
 .. code-block:: json
 
@@ -37,6 +37,9 @@ The features currently offered are the following:
 * automatic decompression of input files (based on the filename extension,
   such as ``my_data.json.gz``)
 * sophisticated type inference (see below)
+
+.. note::
+   Currently only the line-delimited JSON format is supported.
 
 
 Usage

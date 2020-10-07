@@ -86,6 +86,7 @@ use crate::util::bit_util;
 use core::fmt;
 use std::any::Any;
 use std::collections::HashMap;
+use std::mem;
 use std::mem::size_of;
 
 /// An Array that can represent slots of varying types
@@ -295,6 +296,25 @@ impl Array for UnionArray {
 
     fn data_ref(&self) -> &ArrayDataRef {
         &self.data
+    }
+
+    /// Returns the total number of bytes of memory occupied by the buffers owned by this [UnionArray].
+    fn get_buffer_memory_size(&self) -> usize {
+        let mut size = self.data.get_buffer_memory_size();
+        for field in &self.boxed_fields {
+            size += field.get_buffer_memory_size();
+        }
+        size
+    }
+
+    /// Returns the total number of bytes of memory occupied physically by this [UnionArray].
+    fn get_array_memory_size(&self) -> usize {
+        let mut size = self.data.get_array_memory_size();
+        size += mem::size_of_val(self) - mem::size_of_val(&self.boxed_fields);
+        for field in &self.boxed_fields {
+            size += field.get_array_memory_size();
+        }
+        size
     }
 }
 
@@ -637,7 +657,7 @@ mod tests {
         // Check type ids
         assert_eq!(
             union.data().buffers()[0],
-            Buffer::from(&expected_type_ids.clone().to_byte_slice())
+            Buffer::from(&expected_type_ids.to_byte_slice())
         );
         for (i, id) in expected_type_ids.iter().enumerate() {
             assert_eq!(id, &union.type_id(i));
@@ -646,7 +666,7 @@ mod tests {
         // Check offsets
         assert_eq!(
             union.data().buffers()[1],
-            Buffer::from(expected_value_offsets.clone().to_byte_slice())
+            Buffer::from(expected_value_offsets.to_byte_slice())
         );
         for (i, id) in expected_value_offsets.iter().enumerate() {
             assert_eq!(&union.value_offset(i), id);
@@ -675,6 +695,16 @@ mod tests {
             let value = slot.value(0);
             assert_eq!(expected_value, &value);
         }
+
+        assert_eq!(
+            4 * 8 * 4 * mem::size_of::<i32>(),
+            union.get_buffer_memory_size()
+        );
+        let internals_of_union_array = (8 + 72) + (union.boxed_fields.len() * 144); // Arc<ArrayData> & Vec<ArrayRef> combined.
+        assert_eq!(
+            union.get_buffer_memory_size() + internals_of_union_array,
+            union.get_array_memory_size()
+        );
     }
 
     #[test]
@@ -921,7 +951,7 @@ mod tests {
             .downcast_ref::<Float64Array>()
             .unwrap()
             .value(0);
-        assert_eq!(10.0, value);
+        assert!(10.0 - value < f64::EPSILON);
 
         let slot = array.value(4);
         let value = slot
@@ -953,7 +983,7 @@ mod tests {
 
         // Check type ids
         assert_eq!(
-            Buffer::from(&expected_type_ids.clone().to_byte_slice()),
+            Buffer::from(&expected_type_ids.to_byte_slice()),
             union.data().buffers()[0]
         );
         for (i, id) in expected_type_ids.iter().enumerate() {
@@ -1004,7 +1034,7 @@ mod tests {
 
         // Check type ids
         assert_eq!(
-            Buffer::from(&expected_type_ids.clone().to_byte_slice()),
+            Buffer::from(&expected_type_ids.to_byte_slice()),
             union.data().buffers()[0]
         );
         for (i, id) in expected_type_ids.iter().enumerate() {
@@ -1034,7 +1064,7 @@ mod tests {
                     let slot = slot.as_any().downcast_ref::<Float64Array>().unwrap();
                     assert_eq!(slot.len(), 1);
                     let value = slot.value(0);
-                    assert_eq!(value, 3_f64);
+                    assert!(value - 3_f64 < f64::EPSILON);
                 }
                 3 => {
                     let slot = slot.as_any().downcast_ref::<Int32Array>().unwrap();
@@ -1046,7 +1076,7 @@ mod tests {
                     let slot = slot.as_any().downcast_ref::<Float64Array>().unwrap();
                     assert_eq!(slot.len(), 1);
                     let value = slot.value(0);
-                    assert_eq!(5_f64, value);
+                    assert!(5_f64 - value < f64::EPSILON);
                 }
                 5 => {
                     let slot = slot.as_any().downcast_ref::<Int32Array>().unwrap();
@@ -1079,7 +1109,7 @@ mod tests {
 
         // Check type ids
         assert_eq!(
-            Buffer::from(&expected_type_ids.clone().to_byte_slice()),
+            Buffer::from(&expected_type_ids.to_byte_slice()),
             union.data().buffers()[0]
         );
         for (i, id) in expected_type_ids.iter().enumerate() {
@@ -1112,7 +1142,7 @@ mod tests {
                     assert_eq!(false, union.is_null(i));
                     assert_eq!(slot.len(), 1);
                     let value = slot.value(0);
-                    assert_eq!(value, 3_f64);
+                    assert!(value - 3_f64 < f64::EPSILON);
                 }
                 4 => {
                     let slot = slot.as_any().downcast_ref::<Int32Array>().unwrap();
@@ -1157,7 +1187,7 @@ mod tests {
                     assert_eq!(false, new_union.is_null(i));
                     assert_eq!(slot.len(), 1);
                     let value = slot.value(0);
-                    assert_eq!(value, 3_f64);
+                    assert!(value - 3_f64 < f64::EPSILON);
                 }
                 3 => assert!(new_union.is_null(i)),
                 4 => {

@@ -40,7 +40,9 @@ namespace arrow {
 using internal::checked_cast;
 using internal::checked_pointer_cast;
 
-bool Scalar::Equals(const Scalar& other) const { return ScalarEquals(*this, other); }
+bool Scalar::Equals(const Scalar& other, const EqualOptions& options) const {
+  return ScalarEquals(*this, other, options);
+}
 
 struct ScalarHashImpl {
   static std::hash<std::string> string_hash;
@@ -296,19 +298,10 @@ std::string Scalar::ToString() const {
 }
 
 struct ScalarParseImpl {
-  template <typename T,
-            typename Value = typename internal::StringConverter<T>::value_type>
+  template <typename T, typename = internal::enable_if_parseable<T>>
   Status Visit(const T& t) {
-    Value value;
-    if (!internal::ParseValue<T>(s_.data(), s_.size(), &value)) {
-      return Status::Invalid("error parsing '", s_, "' as scalar of type ", t);
-    }
-    return Finish(std::move(value));
-  }
-
-  Status Visit(const TimestampType& t) {
-    int64_t value;
-    if (!internal::ParseTimestampISO8601(s_.data(), s_.size(), t.unit(), &value)) {
+    typename internal::StringConverter<T>::value_type value;
+    if (!internal::ParseValue(t, s_.data(), s_.size(), &value)) {
       return Status::Invalid("error parsing '", s_, "' as scalar of type ", t);
     }
     return Finish(value);
@@ -334,7 +327,7 @@ struct ScalarParseImpl {
     return MakeScalar(std::move(type_), std::forward<Arg>(arg)).Value(&out_);
   }
 
-  Status FinishWithBuffer() { return Finish(Buffer::FromString(s_.to_string())); }
+  Status FinishWithBuffer() { return Finish(Buffer::FromString(std::string(s_))); }
 
   Result<std::shared_ptr<Scalar>> Finish() && {
     RETURN_NOT_OK(VisitTypeInline(*type_, this));
@@ -366,6 +359,17 @@ Status CheckBufferLength(const FixedSizeBinaryType* t, const std::shared_ptr<Buf
 namespace {
 // CastImpl(...) assumes `to` points to a non null scalar of the correct type with
 // uninitialized value
+
+// helper for StringFormatter
+template <typename Formatter, typename ScalarType>
+std::shared_ptr<Buffer> FormatToBuffer(Formatter&& formatter, const ScalarType& from) {
+  if (!from.is_valid) {
+    return Buffer::FromString("null");
+  }
+  return formatter(from.value, [&](util::string_view v) {
+    return Buffer::FromString(std::string(v));
+  });
+}
 
 // error fallback
 Status CastImpl(const Scalar& from, Scalar* to) {
@@ -479,9 +483,18 @@ Status CastImpl(const DateScalar<D>& from, TimestampScalar* to) {
       .Value(&to->value);
 }
 
+// timestamp to string
 Status CastImpl(const TimestampScalar& from, StringScalar* to) {
-  to->value = Buffer::FromString(std::to_string(from.value));
+  to->value = FormatToBuffer(internal::StringFormatter<Int64Type>{}, from);
   return Status::OK();
+}
+
+// date to string
+template <typename D>
+Status CastImpl(const DateScalar<D>& from, StringScalar* to) {
+  TimestampScalar ts({}, timestamp(TimeUnit::MILLI));
+  RETURN_NOT_OK(CastImpl(from, &ts));
+  return CastImpl(ts, to);
 }
 
 // string to any
@@ -506,15 +519,8 @@ template <typename ScalarType, typename T = typename ScalarType::TypeClass,
           // undefined
           typename Value = typename Formatter::value_type>
 Status CastImpl(const ScalarType& from, StringScalar* to) {
-  if (!from.is_valid) {
-    to->value = Buffer::FromString("null");
-    return Status::OK();
-  }
-
-  return Formatter{from.type}(from.value, [to](util::string_view v) {
-    to->value = Buffer::FromString(v.to_string());
-    return Status::OK();
-  });
+  to->value = FormatToBuffer(Formatter{from.type}, from);
+  return Status::OK();
 }
 
 struct CastImplVisitor {

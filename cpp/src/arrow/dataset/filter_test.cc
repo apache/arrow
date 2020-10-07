@@ -72,7 +72,8 @@ class ExpressionsTest : public ::testing::Test {
   std::shared_ptr<DataType> ns = timestamp(TimeUnit::NANO);
   std::shared_ptr<Schema> schema_ =
       schema({field("a", int32()), field("b", int32()), field("f", float64()),
-              field("s", utf8()), field("ts", ns)});
+              field("s", utf8()), field("ts", ns),
+              field("dict_b", dictionary(int32(), int32()))});
   std::shared_ptr<Expression> always = scalar(true);
   std::shared_ptr<Expression> never = scalar(false);
 };
@@ -131,6 +132,16 @@ TEST_F(ExpressionsTest, SimplificationAgainstCompoundCondition) {
   AssertSimplifiesTo("b"_ > 5, "b"_ == 3 or "b"_ == 6, "b"_ > 5);
   AssertSimplifiesTo("b"_ > 7, "b"_ == 3 or "b"_ == 6, *never);
   AssertSimplifiesTo("b"_ > 5 and "b"_ < 10, "b"_ > 6 and "b"_ < 13, "b"_ < 10);
+
+  auto set_123 = ArrayFromJSON(int32(), R"([1, 2, 3])");
+  AssertSimplifiesTo("b"_.In(set_123), "a"_ == 3 and "b"_ == 3, *always);
+  AssertSimplifiesTo("b"_.In(set_123), "a"_ == 3 and "b"_ == 5, *never);
+
+  auto dict_set_123 =
+      DictArrayFromJSON(dictionary(int32(), int32()), R"([1,2,0])", R"([1,2,3])");
+  ASSERT_OK_AND_ASSIGN(auto b_dict, dict_set_123->GetScalar(0));
+  AssertSimplifiesTo("b_dict"_.In(dict_set_123), "a"_ == 3 and "b_dict"_ == b_dict,
+                     *always);
 }
 
 TEST_F(ExpressionsTest, SimplificationToNull) {
@@ -590,6 +601,58 @@ TEST(ExpressionSerializationTest, RoundTrips) {
     ASSERT_OK_AND_ASSIGN(E roundtripped, Expression::Deserialize(*serialized));
     ASSERT_EQ(expr, roundtripped);
   }
+}
+
+void AssertGrouping(const FieldVector& by_fields, const std::string& batch_json,
+                    const std::string& expected_json) {
+  FieldVector fields_with_ids = by_fields;
+  fields_with_ids.push_back(field("ids", list(int32())));
+  auto expected = ArrayFromJSON(struct_(fields_with_ids), expected_json);
+
+  FieldVector fields_with_id = by_fields;
+  fields_with_id.push_back(field("id", int32()));
+  auto batch = RecordBatchFromJSON(schema(fields_with_id), batch_json);
+
+  ASSERT_OK_AND_ASSIGN(auto by, batch->RemoveColumn(batch->num_columns() - 1)
+                                    .Map([](std::shared_ptr<RecordBatch> by) {
+                                      return by->ToStructArray();
+                                    }));
+
+  ASSERT_OK_AND_ASSIGN(auto groupings_and_values, MakeGroupings(*by));
+
+  auto groupings =
+      checked_pointer_cast<ListArray>(groupings_and_values->GetFieldByName("groupings"));
+
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> grouped_ids,
+                       ApplyGroupings(*groupings, *batch->GetColumnByName("id")));
+
+  ArrayVector columns =
+      checked_cast<const StructArray&>(*groupings_and_values->GetFieldByName("values"))
+          .fields();
+  columns.push_back(grouped_ids);
+
+  ASSERT_OK_AND_ASSIGN(auto actual, StructArray::Make(columns, fields_with_ids));
+
+  AssertArraysEqual(*expected, *actual, /*verbose=*/true);
+}
+
+TEST(GroupTest, Basics) {
+  AssertGrouping({field("a", utf8()), field("b", int32())}, R"([
+    {"a": "ex",  "b": 0, "id": 0},
+    {"a": "ex",  "b": 0, "id": 1},
+    {"a": "why", "b": 0, "id": 2},
+    {"a": "ex",  "b": 1, "id": 3},
+    {"a": "why", "b": 0, "id": 4},
+    {"a": "ex",  "b": 1, "id": 5},
+    {"a": "ex",  "b": 0, "id": 6},
+    {"a": "why", "b": 1, "id": 7}
+  ])",
+                 R"([
+    {"a": "ex",  "b": 0, "ids": [0, 1, 6]},
+    {"a": "why", "b": 0, "ids": [2, 4]},
+    {"a": "ex",  "b": 1, "ids": [3, 5]},
+    {"a": "why", "b": 1, "ids": [7]}
+  ])");
 }
 
 }  // namespace dataset

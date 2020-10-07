@@ -22,7 +22,7 @@ import multiprocessing as mp
 import sys
 
 from collections import OrderedDict
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, time, timedelta, timezone
 from distutils.version import LooseVersion
 
 import hypothesis as h
@@ -236,19 +236,23 @@ class TestConvertMetadata:
         df = pd.DataFrame([(1, 'a'), (2, 'b'), (3, 'c')], columns=columns)
         _check_pandas_roundtrip(df, preserve_index=True)
 
-    def test_multiindex_with_datetimes(self):
-        # ARROW-3651. This bug occurred only when the dtype of the columns is
-        # object. It does not occur for datetime64[ns]
-        df = pd.DataFrame(1, index=pd.Index(list(range(5)), name='index'),
-                          columns=pd.Index([datetime(2018, 1, 1)], dtype='O'))
-        assert df.columns.dtype == 'object'
-        reconstructed = pa.table(df).to_pandas()
+    def test_multiindex_with_column_dtype_object(self):
+        # ARROW-3651 & ARROW-9096
+        # Bug when dtype of the columns is object.
 
-        # The reconstruction process results in object->datetime64[ns]
-        df_expected = df.copy()
-        df_expected.columns = df.columns.values
-        assert df_expected.columns.dtype == 'datetime64[ns]'
-        tm.assert_frame_equal(df_expected, reconstructed)
+        # uinderlying dtype: integer
+        df = pd.DataFrame([1], columns=pd.Index([1], dtype=object))
+        _check_pandas_roundtrip(df, preserve_index=True)
+
+        # underlying dtype: floating
+        df = pd.DataFrame([1], columns=pd.Index([1.1], dtype=object))
+        _check_pandas_roundtrip(df, preserve_index=True)
+
+        # underlying dtype: datetime
+        # ARROW-9096: a simple roundtrip now works
+        df = pd.DataFrame([1], columns=pd.Index(
+            [datetime(2018, 1, 1)], dtype="object"))
+        _check_pandas_roundtrip(df, preserve_index=True)
 
     def test_multiindex_columns_unicode(self):
         columns = pd.MultiIndex.from_arrays([['あ', 'い'], ['X', 'Y']])
@@ -440,9 +444,7 @@ class TestConvertMetadata:
 
         df = pd.DataFrame({'numbers': numbers}, index=index)
 
-        table = pa.Table.from_pandas(df)
-        result_df = table.to_pandas()
-        tm.assert_frame_equal(result_df, df)
+        _check_pandas_roundtrip(df, preserve_index=True)
 
     def test_metadata_with_mixed_types(self):
         df = pd.DataFrame({'data': [b'some_bytes', 'some_unicode']})
@@ -1495,6 +1497,22 @@ class TestConvertStringLikeTypes:
         table = pa.Table.from_pandas(df)
         assert table[0].num_chunks == 2
 
+    @pytest.mark.large_memory
+    @pytest.mark.parametrize('char', ['x', b'x'])
+    def test_auto_chunking_pandas_series_of_strings(self, char):
+        # ARROW-2367
+        v1 = char * 100000000
+        v2 = char * 147483646
+
+        df = pd.DataFrame({
+            'strings': [[v1]] * 20 + [[v2]] + [[b'x']]
+        })
+        arr = pa.array(df['strings'], from_pandas=True)
+        assert isinstance(arr, pa.ChunkedArray)
+        assert arr.num_chunks == 2
+        assert len(arr.chunk(0)) == 21
+        assert len(arr.chunk(1)) == 1
+
     def test_fixed_size_bytes(self):
         values = [b'foo', None, bytearray(b'bar'), None, None, b'hey']
         df = pd.DataFrame({'strings': values})
@@ -2085,6 +2103,89 @@ class TestConvertListTypes:
                 s, pd.Series([["aa", "bb"], None, ["cc"], []]),
                 check_names=False)
 
+    def test_list_of_dictionary(self):
+        child = pa.array(["foo", "bar", None, "foo"]).dictionary_encode()
+        arr = pa.ListArray.from_arrays([0, 1, 3, 3, 4], child)
+
+        # Expected a Series of lists
+        expected = pd.Series(arr.to_pylist())
+        tm.assert_series_equal(arr.to_pandas(), expected)
+
+        # Same but with nulls
+        arr = arr.take([0, 1, None, 3])
+        expected[2] = None
+        tm.assert_series_equal(arr.to_pandas(), expected)
+
+    @pytest.mark.slow
+    @pytest.mark.large_memory
+    def test_auto_chunking_on_list_overflow(self):
+        # ARROW-9976
+        n = 2**24
+        df = pd.DataFrame.from_dict({
+            "a": list(np.zeros((n, 2**7), dtype='uint8')),
+            "b": range(n)
+        })
+        table = pa.Table.from_pandas(df)
+
+        column_a = table[0]
+        assert column_a.num_chunks == 2
+        assert len(column_a.chunk(0)) == 2**24 - 1
+        assert len(column_a.chunk(1)) == 1
+
+    def test_map_array_roundtrip(self):
+        data = [[(b'a', 1), (b'b', 2)],
+                [(b'c', 3)],
+                [(b'd', 4), (b'e', 5), (b'f', 6)],
+                [(b'g', 7)]]
+
+        df = pd.DataFrame({"map": data})
+        schema = pa.schema([("map", pa.map_(pa.binary(), pa.int32()))])
+
+        _check_pandas_roundtrip(df, schema=schema)
+
+    def test_map_array_chunked(self):
+        data1 = [[(b'a', 1), (b'b', 2)],
+                 [(b'c', 3)],
+                 [(b'd', 4), (b'e', 5), (b'f', 6)],
+                 [(b'g', 7)]]
+        data2 = [[(k, v * 2) for k, v in row] for row in data1]
+
+        arr1 = pa.array(data1, type=pa.map_(pa.binary(), pa.int32()))
+        arr2 = pa.array(data2, type=pa.map_(pa.binary(), pa.int32()))
+        arr = pa.chunked_array([arr1, arr2])
+
+        expected = pd.Series(data1 + data2)
+        actual = arr.to_pandas()
+        tm.assert_series_equal(actual, expected, check_names=False)
+
+    def test_map_array_with_nulls(self):
+        data = [[(b'a', 1), (b'b', 2)],
+                None,
+                [(b'd', 4), (b'e', 5), (b'f', None)],
+                [(b'g', 7)]]
+
+        # None value in item array causes upcast to float
+        expected = [[(k, float(v) if v is not None else None) for k, v in row]
+                    if row is not None else None for row in data]
+        expected = pd.Series(expected)
+
+        arr = pa.array(data, type=pa.map_(pa.binary(), pa.int32()))
+        actual = arr.to_pandas()
+        tm.assert_series_equal(actual, expected, check_names=False)
+
+    def test_map_array_dictionary_encoded(self):
+        offsets = pa.array([0, 3, 5])
+        items = pa.array(['a', 'b', 'c', 'a', 'd']).dictionary_encode()
+        keys = pa.array(list(range(len(items))))
+        arr = pa.MapArray.from_arrays(offsets, keys, items)
+
+        # Dictionary encoded values converted to dense
+        expected = pd.Series(
+            [[(0, 'a'), (1, 'b'), (2, 'c')], [(3, 'a'), (4, 'd')]])
+
+        actual = arr.to_pandas()
+        tm.assert_series_equal(actual, expected, check_names=False)
+
 
 class TestConvertStructTypes:
     """
@@ -2262,6 +2363,24 @@ class TestConvertStructTypes:
         _check_pandas_roundtrip(
             df, expected=expected_df, schema=expected_schema,
             expected_schema=expected_schema)
+
+    def test_struct_of_dictionary(self):
+        names = ['ints', 'strs']
+        children = [pa.array([456, 789, 456]).dictionary_encode(),
+                    pa.array(["foo", "foo", None]).dictionary_encode()]
+        arr = pa.StructArray.from_arrays(children, names=names)
+
+        # Expected a Series of {field name: field value} dicts
+        rows_as_tuples = zip(*(child.to_pylist() for child in children))
+        rows_as_dicts = [dict(zip(names, row)) for row in rows_as_tuples]
+
+        expected = pd.Series(rows_as_dicts)
+        tm.assert_series_equal(arr.to_pandas(), expected)
+
+        # Same but with nulls
+        arr = arr.take([0, None, 2])
+        expected[1] = None
+        tm.assert_series_equal(arr.to_pandas(), expected)
 
 
 class TestZeroCopyConversion:
@@ -2445,19 +2564,22 @@ class TestConvertMisc:
             expected = pd.DataFrame({'a': expected})
             tm.assert_frame_equal(result, expected)
 
-    def test_mixed_types_fails(self):
-        data = pd.DataFrame({'a': ['a', 1, 2.0]})
-        with pytest.raises(pa.ArrowTypeError):
-            pa.Table.from_pandas(data)
-
-        data = pd.DataFrame({'a': [1, True]})
-        with pytest.raises(pa.ArrowTypeError):
-            pa.Table.from_pandas(data)
-
-        data = pd.DataFrame({'a': ['a', 1, 2.0]})
-        expected_msg = 'Conversion failed for column a'
-        with pytest.raises(pa.ArrowTypeError, match=expected_msg):
-            pa.Table.from_pandas(data)
+    @pytest.mark.parametrize(
+        "data,error_type",
+        [
+            ({"a": ["a", 1, 2.0]}, pa.ArrowTypeError),
+            ({"a": ["a", 1, 2.0]}, pa.ArrowTypeError),
+            ({"a": [1, True]}, pa.ArrowTypeError),
+            ({"a": [True, "a"]}, pa.ArrowInvalid),
+            ({"a": [1, "a"]}, pa.ArrowInvalid),
+            ({"a": [1.0, "a"]}, pa.ArrowInvalid),
+        ],
+    )
+    def test_mixed_types_fails(self, data, error_type):
+        df = pd.DataFrame(data)
+        msg = "Conversion failed for column a with type object"
+        with pytest.raises(error_type, match=msg):
+            pa.Table.from_pandas(df)
 
     def test_strided_data_import(self):
         cases = []
@@ -3325,13 +3447,31 @@ def test_cast_timestamp_unit():
     assert result.equals(expected)
 
 
-def test_struct_with_timestamp_tz():
+def test_nested_with_timestamp_tz_round_trip():
+    ts = pd.Timestamp.now()
+    ts_dt = ts.to_pydatetime()
+    arr = pa.array([ts_dt], type=pa.timestamp('us', tz='America/New_York'))
+    struct = pa.StructArray.from_arrays([arr, arr], ['start', 'stop'])
+
+    result = struct.to_pandas()
+    restored = pa.array(result)
+    assert restored.equals(struct)
+
+
+def test_nested_with_timestamp_tz():
     # ARROW-7723
     ts = pd.Timestamp.now()
+    ts_dt = ts.to_pydatetime()
 
     # XXX: Ensure that this data does not get promoted to nanoseconds (and thus
     # integers) to preserve behavior in 0.15.1
     for unit in ['s', 'ms', 'us']:
+        if unit in ['s', 'ms']:
+            # This is used for verifying timezone conversion to micros are not
+            # important
+            def truncate(x): return x.replace(microsecond=0)
+        else:
+            def truncate(x): return x
         arr = pa.array([ts], type=pa.timestamp(unit))
         arr2 = pa.array([ts], type=pa.timestamp(unit, tz='America/New_York'))
 
@@ -3340,20 +3480,30 @@ def test_struct_with_timestamp_tz():
 
         result = arr3.to_pandas()
         assert isinstance(result[0]['start'], datetime)
+        assert result[0]['start'].tzinfo is None
         assert isinstance(result[0]['stop'], datetime)
+        assert result[0]['stop'].tzinfo is None
 
         result = arr4.to_pandas()
         assert isinstance(result[0]['start'], datetime)
+        assert result[0]['start'].tzinfo is not None
+        utc_dt = result[0]['start'].astimezone(timezone.utc)
+        assert truncate(utc_dt).replace(tzinfo=None) == truncate(ts_dt)
         assert isinstance(result[0]['stop'], datetime)
+        assert result[0]['stop'].tzinfo is not None
 
         # same conversion for table
         result = pa.table({'a': arr3}).to_pandas()
         assert isinstance(result['a'][0]['start'], datetime)
+        assert result['a'][0]['start'].tzinfo is None
         assert isinstance(result['a'][0]['stop'], datetime)
+        assert result['a'][0]['stop'].tzinfo is None
 
         result = pa.table({'a': arr4}).to_pandas()
         assert isinstance(result['a'][0]['start'], datetime)
+        assert result['a'][0]['start'].tzinfo is not None
         assert isinstance(result['a'][0]['stop'], datetime)
+        assert result['a'][0]['stop'].tzinfo is not None
 
 
 # ----------------------------------------------------------------------
@@ -3501,11 +3651,10 @@ def test_dictionary_from_pandas_specified_type():
     assert result.type.equals(typ)
     assert result.to_pylist() == ['a', 'b']
 
-    # mismatching values type -> raise error (for now a deprecation warning)
+    # mismatching values type -> raise error
     typ = pa.dictionary(index_type=pa.int8(), value_type=pa.int64())
-    with pytest.warns(FutureWarning):
+    with pytest.raises(pa.ArrowInvalid):
         result = pa.array(cat, type=typ)
-    assert result.to_pylist() == ['a', 'b']
 
     # mismatching order -> raise error (for now a deprecation warning)
     typ = pa.dictionary(
@@ -3981,6 +4130,20 @@ def test_metadata_compat_missing_field_name():
     tm.assert_frame_equal(result, expected, check_like=True)
 
 
+def test_metadata_index_name_not_json_serializable():
+    name = np.int64(6)  # not json serializable by default
+    table = pa.table(pd.DataFrame(index=pd.RangeIndex(0, 4, name=name)))
+    metadata = table.schema.pandas_metadata
+    assert metadata['index_columns'][0]['name'] == '6'
+
+
+def test_metadata_index_name_is_json_serializable():
+    name = 6  # json serializable by default
+    table = pa.table(pd.DataFrame(index=pd.RangeIndex(0, 4, name=name)))
+    metadata = table.schema.pandas_metadata
+    assert metadata['index_columns'][0]['name'] == 6
+
+
 def make_df_with_timestamps():
     # Some of the milliseconds timestamps deliberately don't fit in the range
     # that is possible with nanosecond timestamps.
@@ -4030,19 +4193,25 @@ def test_timestamp_as_object_out_of_range():
 
 
 @pytest.mark.parametrize("resolution", ["s", "ms", "us"])
+@pytest.mark.parametrize("tz", [None, "America/New_York"])
 # One datetime outside nanosecond range, one inside nanosecond range:
 @pytest.mark.parametrize("dt", [datetime(1553, 1, 1), datetime(2020, 1, 1)])
-def test_timestamp_as_object_non_nanosecond(resolution, dt):
+def test_timestamp_as_object_non_nanosecond(resolution, tz, dt):
     # Timestamps can be converted Arrow and reloaded into Pandas with no loss
     # of information if the timestamp_as_object option is True.
-    arr = pa.array([dt], type=pa.timestamp(resolution))
-    result = arr.to_pandas(timestamp_as_object=True)
-    assert result.dtype == object
-    assert isinstance(result[0], datetime)
-    assert result[0] == dt
-
+    arr = pa.array([dt], type=pa.timestamp(resolution, tz=tz))
     table = pa.table({'a': arr})
-    result = table.to_pandas(timestamp_as_object=True)['a']
-    assert result.dtype == object
-    assert isinstance(result[0], datetime)
-    assert result[0] == dt
+
+    for result in [
+        arr.to_pandas(timestamp_as_object=True),
+        table.to_pandas(timestamp_as_object=True)['a']
+    ]:
+        assert result.dtype == object
+        assert isinstance(result[0], datetime)
+        if tz:
+            assert result[0].tzinfo is not None
+            expected = result[0].tzinfo.fromutc(dt)
+        else:
+            assert result[0].tzinfo is None
+            expected = dt
+        assert result[0] == expected

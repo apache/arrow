@@ -47,3 +47,16 @@ r_only({
     )
   })
 })
+
+test_that("arrow gracefully fails to load objects from other sessions (ARROW-10071)", {
+  a <- Array$create(1:10)
+  tf <- tempfile(); on.exit(unlink(tf))
+  saveRDS(a, tf)
+
+  b <- readRDS(tf)
+  expect_error(b$length(), "Invalid <Array>")
+})
+
+test_that("check for an ArrowObject in functions use std::shared_ptr", {
+  expect_error(Array__length(1), "Invalid R object")
+})

@@ -15,23 +15,23 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "gandiva/to_date_holder.h"
+
 #include <algorithm>
 #include <string>
 
 #include "arrow/util/value_parsing.h"
 #include "arrow/vendored/datetime.h"
-
 #include "gandiva/date_utils.h"
 #include "gandiva/execution_context.h"
 #include "gandiva/node.h"
-#include "gandiva/to_date_holder.h"
 
 namespace gandiva {
 
 Status ToDateHolder::Make(const FunctionNode& node,
                           std::shared_ptr<ToDateHolder>* holder) {
-  if (node.children().size() != 3) {
-    return Status::Invalid("'to_date' function requires three parameters");
+  if (node.children().size() != 2 && node.children().size() != 3) {
+    return Status::Invalid("'to_date' function requires two or three parameters");
   }
 
   auto literal_pattern = dynamic_cast<LiteralNode*>(node.children().at(1).get());
@@ -47,18 +47,25 @@ Status ToDateHolder::Make(const FunctionNode& node,
   }
   auto pattern = arrow::util::get<std::string>(literal_pattern->holder());
 
-  auto literal_suppress_errors = dynamic_cast<LiteralNode*>(node.children().at(2).get());
-  if (literal_pattern == nullptr) {
-    return Status::Invalid(
-        "'to_date' function requires a int literal as the third parameter");
+  int suppress_errors = 0;
+  if (node.children().size() == 3) {
+    auto literal_suppress_errors =
+        dynamic_cast<LiteralNode*>(node.children().at(2).get());
+    if (literal_pattern == nullptr) {
+      return Status::Invalid(
+          "The (optional) third parameter to 'to_date' function needs to an integer "
+          "literal to indicate whether to suppress the error");
+    }
+
+    literal_type = literal_suppress_errors->return_type()->id();
+    if (literal_type != arrow::Type::INT32) {
+      return Status::Invalid(
+          "The (optional) third parameter to 'to_date' function needs to an integer "
+          "literal to indicate whether to suppress the error");
+    }
+    suppress_errors = arrow::util::get<int>(literal_suppress_errors->holder());
   }
 
-  literal_type = literal_suppress_errors->return_type()->id();
-  if (literal_type != arrow::Type::INT32) {
-    return Status::Invalid(
-        "'to_date' function requires a int literal as the third parameter");
-  }
-  auto suppress_errors = arrow::util::get<int>(literal_suppress_errors->holder());
   return Make(pattern, suppress_errors, holder);
 }
 

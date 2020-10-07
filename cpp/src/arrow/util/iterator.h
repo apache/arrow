@@ -154,7 +154,7 @@ class Iterator : public util::EqualityComparable<Iterator<T>> {
   Result<std::vector<T>> ToVector() {
     std::vector<T> out;
     for (auto maybe_element : *this) {
-      ARROW_ASSIGN_OR_RAISE(auto element, std::move(maybe_element));
+      ARROW_ASSIGN_OR_RAISE(auto element, maybe_element);
       out.push_back(std::move(element));
     }
     // ARROW-8193: On gcc-4.8 without the explicit move it tries to use the
@@ -489,7 +489,7 @@ class ReadaheadIterator {
 
     ARROW_RETURN_NOT_OK(queue_->Append(MakePromise()));
 
-    ARROW_ASSIGN_OR_RAISE(auto out, std::move(it_promise->out_));
+    ARROW_ASSIGN_OR_RAISE(auto out, it_promise->out_);
     if (out == IterationTraits<T>::End()) {
       done_ = true;
     }

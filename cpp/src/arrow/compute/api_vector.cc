@@ -21,13 +21,18 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/array/array_nested.h"
 #include "arrow/array/builder_primitive.h"
 #include "arrow/compute/exec.h"
 #include "arrow/datum.h"
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
+#include "arrow/util/checked_cast.h"
 
 namespace arrow {
+
+using internal::checked_pointer_cast;
+
 namespace compute {
 
 // ----------------------------------------------------------------------
@@ -60,9 +65,9 @@ const char kCountsFieldName[] = "counts";
 const int32_t kValuesFieldIndex = 0;
 const int32_t kCountsFieldIndex = 1;
 
-Result<std::shared_ptr<Array>> ValueCounts(const Datum& value, ExecContext* ctx) {
+Result<std::shared_ptr<StructArray>> ValueCounts(const Datum& value, ExecContext* ctx) {
   ARROW_ASSIGN_OR_RAISE(Datum result, CallFunction("value_counts", {value}, ctx));
-  return result.make_array();
+  return checked_pointer_cast<StructArray>(result.make_array());
 }
 
 // ----------------------------------------------------------------------

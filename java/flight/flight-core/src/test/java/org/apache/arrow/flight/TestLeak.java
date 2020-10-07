@@ -173,7 +173,7 @@ public class TestLeak {
         FlightStream flightStream, StreamListener<PutResult> ackStream) {
       return () -> {
         flightStream.getRoot();
-        flightStream.cancel("CANCELLED", null);
+        ackStream.onError(CallStatus.CANCELLED.withDescription("CANCELLED").toRuntimeException());
         callFinished.countDown();
         ackStream.onCompleted();
       };

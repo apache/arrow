@@ -59,43 +59,6 @@ jobs:
         continue-on-error: true
         run: archery docker push ubuntu-lint
 
-  docs:
-    name: Sphinx and API documentations
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push'
-    steps:
-      - name: Checkout Arrow
-        uses: actions/checkout@v2
-        with:
-          fetch-depth: 0
-      - name: Fetch Submodules and Tags
-        shell: bash
-        run: ci/scripts/util_checkout.sh
-      - name: Free Up Disk Space
-        shell: bash
-        run: ci/scripts/util_cleanup.sh
-      - name: Cache Docker Volumes
-        uses: actions/cache@v1
-        with:
-          path: .docker
-          key: ubuntu-18.04-${{ hashFiles('cpp/**') }}
-          restore-keys: ubuntu-18.04-
-      - name: Setup Python
-        uses: actions/setup-python@v1
-        with:
-          python-version: 3.8
-      - name: Setup Archery
-        run: pip install -e dev/archery[docker]
-      - name: Execute Docker Build
-        run: |
-          sudo sysctl -w kernel.core_pattern="core.%e.%p"
-          ulimit -c unlimited
-          archery docker run ubuntu-docs
-      - name: Docker Push
-        if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
-        continue-on-error: true
-        run: archery docker push ubuntu-docs
-
   release:
     name: Source Release and Merge Script
     runs-on: ubuntu-latest

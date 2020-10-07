@@ -281,6 +281,9 @@ std::string InputType::ToString() const {
   }
   ss << "[";
   switch (kind_) {
+    case InputType::ANY_TYPE:
+      ss << "any";
+      break;
     case InputType::EXACT_TYPE:
       ss << type_->ToString();
       break;
@@ -303,6 +306,8 @@ bool InputType::Equals(const InputType& other) const {
     return false;
   }
   switch (kind_) {
+    case InputType::ANY_TYPE:
+      return true;
     case InputType::EXACT_TYPE:
       return type_->Equals(*other.type_);
     case InputType::USE_TYPE_MATCHER:

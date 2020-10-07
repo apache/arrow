@@ -19,6 +19,7 @@
 
 require "pkg-config"
 require "native-package-installer"
+require_relative "../lib/arrow-cuda/version"
 
 case RUBY_PLATFORM
 when /mingw|mswin/
@@ -33,7 +34,10 @@ end
 namespace :dependency do
   desc "Check dependency"
   task :check do
-    unless PKGConfig.check_version?("arrow-cuda-glib")
+    unless PKGConfig.check_version?("arrow-cuda-glib",
+                                    ArrowCUDA::Version::MAJOR,
+                                    ArrowCUDA::Version::MINOR,
+                                    ArrowCUDA::Version::MICRO)
       unless NativePackageInstaller.install(:debian => "libarrow-cuda-glib-dev",
                                             :redhat => "arrow-cuda-glib-devel")
         exit(false)

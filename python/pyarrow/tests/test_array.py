@@ -32,6 +32,7 @@ try:
     import pickle5
 except ImportError:
     pickle5 = None
+import pytz
 
 import pyarrow as pa
 import pyarrow.tests.strategies as past
@@ -309,6 +310,8 @@ def test_nulls(ty):
 def test_array_from_scalar():
     today = datetime.date.today()
     now = datetime.datetime.now()
+    now_utc = now.replace(tzinfo=pytz.utc)
+    now_with_tz = now_utc.astimezone(pytz.timezone('US/Eastern'))
     oneday = datetime.timedelta(days=1)
 
     cases = [
@@ -326,6 +329,14 @@ def test_array_from_scalar():
         (pa.scalar(True), 11, pa.array([True] * 11)),
         (today, 2, pa.array([today] * 2)),
         (now, 10, pa.array([now] * 10)),
+        (
+            now_with_tz,
+            2,
+            pa.array(
+                [now_utc] * 2,
+                type=pa.timestamp('us', tz=pytz.timezone('US/Eastern'))
+            )
+        ),
         (now.time(), 9, pa.array([now.time()] * 9)),
         (oneday, 4, pa.array([oneday] * 4)),
         (False, 9, pa.array([False] * 9)),
@@ -341,8 +352,8 @@ def test_array_from_scalar():
     for value, size, expected in cases:
         arr = pa.repeat(value, size)
         assert len(arr) == size
+        assert arr.type.equals(expected.type)
         assert arr.equals(expected)
-
         if expected.type == pa.null():
             assert arr.null_count == size
         else:
@@ -392,6 +403,8 @@ def test_array_slice():
 
     # Slice past end of array
     assert len(arr.slice(len(arr))) == 0
+    assert len(arr.slice(len(arr) + 2)) == 0
+    assert len(arr.slice(len(arr) + 2, 100)) == 0
 
     with pytest.raises(IndexError):
         arr.slice(-1)
@@ -973,6 +986,28 @@ def test_union_from_sparse():
     # Invalid child length
     with pytest.raises(pa.ArrowInvalid):
         arr = pa.UnionArray.from_sparse(logical_types, [binary, int64[1:]])
+
+
+def test_union_array_to_pylist_with_nulls():
+    # ARROW-9556
+    arr = pa.UnionArray.from_sparse(
+        pa.array([0, 1, 0, 0, 1], type=pa.int8()),
+        [
+            pa.array([0.0, 1.1, None, 3.3, 4.4]),
+            pa.array([True, None, False, True, False]),
+        ]
+    )
+    assert arr.to_pylist() == [0.0, None, None, 3.3, False]
+
+    arr = pa.UnionArray.from_dense(
+        pa.array([0, 1, 0, 0, 0, 1, 1], type=pa.int8()),
+        pa.array([0, 0, 1, 2, 3, 1, 2], type=pa.int32()),
+        [
+            pa.array([0.0, 1.1, None, 3.3]),
+            pa.array([True, None, False])
+        ]
+    )
+    assert arr.to_pylist() == [0.0, True, 1.1, None, 3.3, None, False]
 
 
 def test_union_array_slice():
@@ -1804,6 +1839,15 @@ def test_array_from_numpy_datetimeD():
     assert result.equals(expected)
 
 
+def test_array_from_naive_datetimes():
+    arr = pa.array([
+        None,
+        datetime.datetime(2017, 4, 4, 12, 11, 10),
+        datetime.datetime(2018, 1, 1, 0, 2, 0)
+    ])
+    assert arr.type == pa.timestamp('us', tz=None)
+
+
 @pytest.mark.parametrize(('dtype', 'type'), [
     ('datetime64[s]', pa.timestamp('s')),
     ('datetime64[ms]', pa.timestamp('ms')),
@@ -2471,9 +2515,20 @@ def test_numpy_binary_overflow_to_chunked():
 
 @pytest.mark.large_memory
 def test_list_child_overflow_to_chunked():
-    vals = [['x' * 1024]] * ((2 << 20) + 1)
-    with pytest.raises(ValueError, match="overflowed"):
-        pa.array(vals)
+    kilobyte_string = 'x' * 1024
+    two_mega = 2**21
+
+    vals = [[kilobyte_string]] * (two_mega - 1)
+    arr = pa.array(vals)
+    assert isinstance(arr, pa.Array)
+    assert len(arr) == two_mega - 1
+
+    vals = [[kilobyte_string]] * two_mega
+    arr = pa.array(vals)
+    assert isinstance(arr, pa.ChunkedArray)
+    assert len(arr) == two_mega
+    assert len(arr.chunk(0)) == two_mega - 1
+    assert len(arr.chunk(1)) == 1
 
 
 def test_infer_type_masked():
@@ -2571,6 +2626,17 @@ def test_concat_array():
 def test_concat_array_different_types():
     with pytest.raises(pa.ArrowInvalid):
         pa.concat_arrays([pa.array([1]), pa.array([2.])])
+
+
+def test_concat_array_invalid_type():
+    # ARROW-9920 - do not segfault on non-array input
+
+    with pytest.raises(TypeError, match="should contain Array objects"):
+        pa.concat_arrays([None])
+
+    arr = pa.chunked_array([[0, 1], [3, 4]])
+    with pytest.raises(TypeError, match="should contain Array objects"):
+        pa.concat_arrays(arr)
 
 
 @pytest.mark.pandas

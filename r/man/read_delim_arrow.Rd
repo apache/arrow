@@ -21,6 +21,7 @@ read_delim_arrow(
   parse_options = NULL,
   convert_options = NULL,
   read_options = NULL,
+  filesystem = NULL,
   as_data_frame = TRUE
 )
 
@@ -59,7 +60,7 @@ read_tsv_arrow(
 )
 }
 \arguments{
-\item{file}{A character file name, \code{raw} vector, or an Arrow input stream.
+\item{file}{A character file name or URI, \code{raw} vector, or an Arrow input stream.
 If a file name, a memory-mapped Arrow \link{InputStream} will be opened and
 closed when finished; compression will be detected from the file extension
 and handled automatically. If an input stream is provided, it will be left
@@ -108,6 +109,9 @@ parsing options provided in other arguments (e.g. \code{delim}, \code{quote}, et
 \item{convert_options}{see \link[=CsvReadOptions]{file reader options}}
 
 \item{read_options}{see \link[=CsvReadOptions]{file reader options}}
+
+\item{filesystem}{A \link{FileSystem} where \code{file} can be found if it is a
+string file path; default is the local file system}
 
 \item{as_data_frame}{Should the function return a \code{data.frame} (default) or
 an Arrow \link{Table}?}

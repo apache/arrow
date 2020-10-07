@@ -204,7 +204,7 @@ namespace Apache.Arrow.Tests
                 Assert.IsAssignableFrom<Date32Array>(_baseArray);
                 var baseArray = (Date32Array)_baseArray;
 
-                Assert.Equal(baseArray.GetDate(array.Offset), array.GetDate(0));
+                Assert.Equal(baseArray.GetDateTimeOffset(array.Offset), array.GetDateTimeOffset(0));
             }
 
             public void Visit(Date64Array array)
@@ -213,7 +213,7 @@ namespace Apache.Arrow.Tests
                 Assert.IsAssignableFrom<Date64Array>(_baseArray);
                 var baseArray = (Date64Array)_baseArray;
 
-                Assert.Equal(baseArray.GetDate(array.Offset), array.GetDate(0));
+                Assert.Equal(baseArray.GetDateTimeOffset(array.Offset), array.GetDateTimeOffset(0));
             }
 
             public void Visit(FloatArray array) => ValidateArrays(array);

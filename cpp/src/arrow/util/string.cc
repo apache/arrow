@@ -97,7 +97,7 @@ std::string JoinStrings(const std::vector<util::string_view>& strings,
   if (strings.size() == 0) {
     return "";
   }
-  std::string out = strings.front().to_string();
+  std::string out = std::string(strings.front());
   for (size_t i = 1; i < strings.size(); ++i) {
     out.append(delimiter.begin(), delimiter.end());
     out.append(strings[i].begin(), strings[i].end());

@@ -18,5 +18,4 @@
 //! DataFusion query execution
 
 pub mod context;
-pub mod physical_plan;
-pub mod table_impl;
+pub mod dataframe_impl;

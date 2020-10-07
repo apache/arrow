@@ -50,6 +50,8 @@ class FileFormat;
 class FileFragment;
 class FileSystemDataset;
 
+class InMemoryDataset;
+
 class CsvFileFormat;
 
 class IpcFileFormat;
@@ -82,9 +84,6 @@ using ScanTaskVector = std::vector<std::shared_ptr<ScanTask>>;
 using ScanTaskIterator = Iterator<std::shared_ptr<ScanTask>>;
 
 class RecordBatchProjector;
-
-class WriteTask;
-class WritePlan;
 
 }  // namespace dataset
 }  // namespace arrow

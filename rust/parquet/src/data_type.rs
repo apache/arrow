@@ -65,9 +65,8 @@ impl Int96 {
         let day = self.data()[2] as i64;
         let nanoseconds = ((self.data()[1] as i64) << 32) + self.data()[0] as i64;
         let seconds = (day - JULIAN_DAY_OF_EPOCH) * SECONDS_PER_DAY;
-        let millis = seconds * MILLIS_PER_SECOND + nanoseconds / 1_000_000;
 
-        millis
+        seconds * MILLIS_PER_SECOND + nanoseconds / 1_000_000
     }
 }
 
@@ -118,7 +117,7 @@ impl PartialOrd for ByteArray {
                         return Some(Ordering::Less);
                     }
                 }
-                return Some(Ordering::Equal);
+                Some(Ordering::Equal)
             }
         } else {
             None
@@ -136,6 +135,11 @@ impl ByteArray {
     pub fn len(&self) -> usize {
         assert!(self.data.is_some());
         self.data.as_ref().unwrap().len()
+    }
+
+    /// Checks if the underlying buffer is empty.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 
     /// Returns slice of data.
@@ -629,10 +633,12 @@ impl FromBytes for ByteArray {
 }
 
 #[cfg(test)]
+#[allow(clippy::float_cmp, clippy::approx_constant)]
 mod tests {
     use super::*;
 
     #[test]
+    #[allow(clippy::string_lit_as_bytes)]
     fn test_as_bytes() {
         assert_eq!(false.as_bytes(), &[0]);
         assert_eq!(true.as_bytes(), &[1]);

@@ -83,7 +83,7 @@ jobs:
       - name: Docker Push
         if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
         continue-on-error: true
-        run: archery docker push debian-go
+        run: archery docker push debian-java
 
   macos:
     name: AMD64 MacOS 10.15 Java JDK ${{ matrix.jdk }}

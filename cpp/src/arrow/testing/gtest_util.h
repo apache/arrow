@@ -108,7 +108,7 @@
   } while (false);
 
 #define ASSIGN_OR_HANDLE_ERROR_IMPL(handle_error, status_name, lhs, rexpr) \
-  auto status_name = (rexpr);                                              \
+  auto&& status_name = (rexpr);                                            \
   handle_error(status_name.status());                                      \
   lhs = std::move(status_name).ValueOrDie();
 
@@ -164,12 +164,13 @@ std::vector<Type::type> AllTypeIds();
 // If verbose is true, then the arrays will be pretty printed
 ARROW_TESTING_EXPORT void AssertArraysEqual(const Array& expected, const Array& actual,
                                             bool verbose = false);
-ARROW_TESTING_EXPORT void AssertArraysApproxEqual(const Array& expected,
-                                                  const Array& actual,
-                                                  bool verbose = false);
+ARROW_TESTING_EXPORT void AssertArraysApproxEqual(
+    const Array& expected, const Array& actual, bool verbose = false,
+    const EqualOptions& option = EqualOptions::Defaults());
 // Returns true when values are both null
-ARROW_TESTING_EXPORT void AssertScalarsEqual(const Scalar& expected, const Scalar& actual,
-                                             bool verbose = false);
+ARROW_TESTING_EXPORT void AssertScalarsEqual(
+    const Scalar& expected, const Scalar& actual, bool verbose = false,
+    const EqualOptions& options = EqualOptions::Defaults());
 ARROW_TESTING_EXPORT void AssertBatchesEqual(const RecordBatch& expected,
                                              const RecordBatch& actual,
                                              bool check_metadata = false);
@@ -253,7 +254,7 @@ ARROW_TESTING_EXPORT void TestInitialized(const Array& array);
 
 template <typename BuilderType>
 void FinishAndCheckPadding(BuilderType* builder, std::shared_ptr<Array>* out) {
-  ASSERT_OK(builder->Finish(out));
+  ASSERT_OK_AND_ASSIGN(*out, builder->Finish());
   AssertZeroPadded(**out);
   TestInitialized(**out);
 }
@@ -443,6 +444,17 @@ class ARROW_TESTING_EXPORT LocaleGuard {
  protected:
   class Impl;
   std::unique_ptr<Impl> impl_;
+};
+
+class ARROW_TESTING_EXPORT EnvVarGuard {
+ public:
+  EnvVarGuard(const std::string& name, const std::string& value);
+  ~EnvVarGuard();
+
+ protected:
+  const std::string name_;
+  std::string old_value_;
+  bool was_set_;
 };
 
 #ifndef ARROW_LARGE_MEMORY_TESTS

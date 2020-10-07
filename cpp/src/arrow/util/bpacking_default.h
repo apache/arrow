@@ -26,6 +26,9 @@
 
 #pragma once
 
+#include "arrow/util/bit_util.h"
+#include "arrow/util/ubsan.h"
+
 namespace arrow {
 namespace internal {
 
