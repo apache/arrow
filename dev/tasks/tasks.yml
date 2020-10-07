@@ -480,7 +480,7 @@ tasks:
     params:
       python_version: 3.8
       macos_deployment_target: 10.9
-      arrow_s3: "ON"
+      arrow_s3: "OFF"
     artifacts:
       - pyarrow-{no_rc_version}-cp38-cp38-macosx_10_9_x86_64.whl
 
