@@ -22,7 +22,8 @@ use arrow::{
     array::{
         Array, ArrayRef, BinaryBuilder, BooleanArray, BooleanBufferBuilder,
         BufferBuilderTrait, FixedSizeBinaryBuilder, LargeBinaryBuilder,
-        LargeStringBuilder, StringBuilder, TimestampNanosecondBuilder,
+        LargeStringBuilder, PrimitiveBuilder, StringBuilder, StringDictionaryBuilder,
+        TimestampNanosecondBuilder,
     },
     datatypes::Time32MillisecondType,
 };
@@ -34,12 +35,14 @@ use std::convert::From;
 use std::sync::Arc;
 
 use crate::errors::Result;
-use arrow::datatypes::{ArrowPrimitiveType, DataType as ArrowDataType};
+use arrow::datatypes::{
+    ArrowDictionaryKeyType, ArrowPrimitiveType, DataType as ArrowDataType,
+};
 
 use arrow::array::ArrayDataBuilder;
 use arrow::array::{
-    BinaryArray, FixedSizeBinaryArray, LargeBinaryArray, LargeStringArray,
-    PrimitiveArray, StringArray, TimestampNanosecondArray,
+    BinaryArray, DictionaryArray, FixedSizeBinaryArray, LargeBinaryArray,
+    LargeStringArray, PrimitiveArray, StringArray, TimestampNanosecondArray,
 };
 use std::marker::PhantomData;
 
@@ -253,6 +256,34 @@ impl Converter<Vec<Option<ByteArray>>, LargeBinaryArray> for LargeBinaryArrayCon
     }
 }
 
+pub struct DictionaryArrayConverter {}
+
+impl<K: ArrowDictionaryKeyType> Converter<Vec<Option<ByteArray>>, DictionaryArray<K>>
+    for DictionaryArrayConverter
+{
+    fn convert(&self, source: Vec<Option<ByteArray>>) -> Result<DictionaryArray<K>> {
+        let data_size = source
+            .iter()
+            .map(|x| x.as_ref().map(|b| b.len()).unwrap_or(0))
+            .sum();
+
+        let keys_builder = PrimitiveBuilder::<K>::new(source.len());
+        let values_builder = StringBuilder::with_capacity(source.len(), data_size);
+
+        let mut builder = StringDictionaryBuilder::new(keys_builder, values_builder);
+        for v in source {
+            match v {
+                Some(array) => {
+                    builder.append(array.as_utf8()?)?;
+                }
+                None => builder.append_null()?,
+            }
+        }
+
+        Ok(builder.finish())
+    }
+}
+
 pub type BoolConverter<'a> = ArrayRefConverter<
     &'a mut RecordReader<BoolType>,
     BooleanArray,
@@ -291,6 +322,11 @@ pub type LargeBinaryConverter = ArrayRefConverter<
     Vec<Option<ByteArray>>,
     LargeBinaryArray,
     LargeBinaryArrayConverter,
+>;
+pub type DictionaryConverter<T> = ArrayRefConverter<
+    Vec<Option<ByteArray>>,
+    DictionaryArray<T>,
+    DictionaryArrayConverter,
 >;
 pub type Int96Converter =
     ArrayRefConverter<Vec<Option<Int96>>, TimestampNanosecondArray, Int96ArrayConverter>;

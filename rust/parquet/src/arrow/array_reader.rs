@@ -57,14 +57,14 @@ use arrow::util::bit_util;
 
 use crate::arrow::converter::{
     BinaryArrayConverter, BinaryConverter, BoolConverter, BooleanArrayConverter,
-    Converter, Date32Converter, FixedLenBinaryConverter, FixedSizeArrayConverter,
-    Float32Converter, Float64Converter, Int16Converter, Int32Converter, Int64Converter,
-    Int8Converter, Int96ArrayConverter, Int96Converter, LargeBinaryArrayConverter,
-    LargeBinaryConverter, LargeUtf8ArrayConverter, LargeUtf8Converter,
-    Time32MillisecondConverter, Time32SecondConverter, Time64MicrosecondConverter,
-    Time64NanosecondConverter, TimestampMicrosecondConverter,
-    TimestampMillisecondConverter, UInt16Converter, UInt32Converter, UInt64Converter,
-    UInt8Converter, Utf8ArrayConverter, Utf8Converter,
+    Converter, Date32Converter, DictionaryArrayConverter, DictionaryConverter,
+    FixedLenBinaryConverter, FixedSizeArrayConverter, Float32Converter, Float64Converter,
+    Int16Converter, Int32Converter, Int64Converter, Int8Converter, Int96ArrayConverter,
+    Int96Converter, LargeBinaryArrayConverter, LargeBinaryConverter,
+    LargeUtf8ArrayConverter, LargeUtf8Converter, Time32MillisecondConverter,
+    Time32SecondConverter, Time64MicrosecondConverter, Time64NanosecondConverter,
+    TimestampMicrosecondConverter, TimestampMillisecondConverter, UInt16Converter,
+    UInt32Converter, UInt64Converter, UInt8Converter, Utf8ArrayConverter, Utf8Converter,
 };
 use crate::arrow::record_reader::RecordReader;
 use crate::arrow::schema::parquet_to_arrow_field;
@@ -1488,6 +1488,60 @@ impl<'a> ArrayReaderBuilder {
                         >::new(
                             page_iterator, column_desc, converter
                         )?))
+                    } else if let Some(ArrowType::Dictionary(index_type, _)) = arrow_type
+                    {
+                        match **index_type {
+                            ArrowType::Int8 => {
+                                let converter =
+                                    DictionaryConverter::new(DictionaryArrayConverter {});
+
+                                Ok(Box::new(ComplexObjectArrayReader::<
+                                    ByteArrayType,
+                                    DictionaryConverter<ArrowInt8Type>,
+                                >::new(
+                                    page_iterator, column_desc, converter
+                                )?))
+                            }
+                            ArrowType::Int16 => {
+                                let converter =
+                                    DictionaryConverter::new(DictionaryArrayConverter {});
+
+                                Ok(Box::new(ComplexObjectArrayReader::<
+                                    ByteArrayType,
+                                    DictionaryConverter<ArrowInt16Type>,
+                                >::new(
+                                    page_iterator, column_desc, converter
+                                )?))
+                            }
+                            ArrowType::Int32 => {
+                                let converter =
+                                    DictionaryConverter::new(DictionaryArrayConverter {});
+
+                                Ok(Box::new(ComplexObjectArrayReader::<
+                                    ByteArrayType,
+                                    DictionaryConverter<ArrowInt32Type>,
+                                >::new(
+                                    page_iterator, column_desc, converter
+                                )?))
+                            }
+                            ArrowType::Int64 => {
+                                let converter =
+                                    DictionaryConverter::new(DictionaryArrayConverter {});
+
+                                Ok(Box::new(ComplexObjectArrayReader::<
+                                    ByteArrayType,
+                                    DictionaryConverter<ArrowInt64Type>,
+                                >::new(
+                                    page_iterator, column_desc, converter
+                                )?))
+                            }
+                            ref other => {
+                                return Err(general_err!(
+                                    "Invalid/Unsupported index type for dictionary: {:?}",
+                                    other
+                                ))
+                            }
+                        }
                     } else {
                         let converter = Utf8Converter::new(Utf8ArrayConverter {});
                         Ok(Box::new(ComplexObjectArrayReader::<
