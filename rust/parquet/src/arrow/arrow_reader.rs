@@ -123,6 +123,7 @@ impl ArrowReader for ParquetFileArrowReader {
                 .metadata()
                 .file_metadata()
                 .schema_descr_ptr(),
+            self.get_schema()?,
             column_indices,
             self.file_reader.clone(),
         )?;
