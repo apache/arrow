@@ -334,7 +334,9 @@ pub(crate) fn build_field<'a: 'b, 'b>(
 
     let mut field_builder = ipc::FieldBuilder::new(fbb);
     field_builder.add_name(fb_field_name);
-    fb_dictionary.map(|dictionary| field_builder.add_dictionary(dictionary));
+    if let Some(dictionary) = fb_dictionary {
+        field_builder.add_dictionary(dictionary)
+    }
     field_builder.add_type_type(field_type.type_type);
     field_builder.add_nullable(field.is_nullable());
     match field_type.children {

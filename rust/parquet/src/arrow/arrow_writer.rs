@@ -1012,7 +1012,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // Large Binary support isn't correct yet
+    #[ignore] // Large binary support isn't correct yet - buffers don't match
     fn large_binary_single_column() {
         let one_vec: Vec<u8> = (0..SMALL_SIZE as u8).collect();
         let many_vecs: Vec<_> = std::iter::repeat(one_vec).take(SMALL_SIZE).collect();
@@ -1035,7 +1035,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // Large String support isn't correct yet - null_bitmap and buffers don't match
+    #[ignore] // Large string support isn't correct yet - null_bitmap doesn't match
     fn large_string_single_column() {
         let raw_values: Vec<_> = (0..SMALL_SIZE).map(|i| i.to_string()).collect();
         let raw_strs = raw_values.iter().map(|s| s.as_str());

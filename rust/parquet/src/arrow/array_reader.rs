@@ -29,16 +29,20 @@ use arrow::array::{
     Int16BufferBuilder, StructArray,
 };
 use arrow::buffer::{Buffer, MutableBuffer};
-use arrow::datatypes::{DataType as ArrowType, DateUnit, Field, IntervalUnit, TimeUnit};
+use arrow::datatypes::{
+    DataType as ArrowType, DateUnit, Field, IntervalUnit, Schema, TimeUnit,
+};
 
 use crate::arrow::converter::{
     BinaryArrayConverter, BinaryConverter, BoolConverter, BooleanArrayConverter,
     Converter, Date32Converter, FixedLenBinaryConverter, FixedSizeArrayConverter,
     Float32Converter, Float64Converter, Int16Converter, Int32Converter, Int64Converter,
-    Int8Converter, Int96ArrayConverter, Int96Converter, Time32MillisecondConverter,
-    Time32SecondConverter, Time64MicrosecondConverter, Time64NanosecondConverter,
-    TimestampMicrosecondConverter, TimestampMillisecondConverter, UInt16Converter,
-    UInt32Converter, UInt64Converter, UInt8Converter, Utf8ArrayConverter, Utf8Converter,
+    Int8Converter, Int96ArrayConverter, Int96Converter, LargeBinaryArrayConverter,
+    LargeBinaryConverter, LargeUtf8ArrayConverter, LargeUtf8Converter,
+    Time32MillisecondConverter, Time32SecondConverter, Time64MicrosecondConverter,
+    Time64NanosecondConverter, TimestampMicrosecondConverter,
+    TimestampMillisecondConverter, UInt16Converter, UInt32Converter, UInt64Converter,
+    UInt8Converter, Utf8ArrayConverter, Utf8Converter,
 };
 use crate::arrow::record_reader::RecordReader;
 use crate::arrow::schema::parquet_to_arrow_field;
@@ -612,6 +616,7 @@ impl ArrayReader for StructArrayReader {
 /// Create array reader from parquet schema, column indices, and parquet file reader.
 pub fn build_array_reader<T>(
     parquet_schema: SchemaDescPtr,
+    arrow_schema: Schema,
     column_indices: T,
     file_reader: Rc<dyn FileReader>,
 ) -> Result<Box<dyn ArrayReader>>
@@ -650,13 +655,19 @@ where
         fields: filtered_root_fields,
     };
 
-    ArrayReaderBuilder::new(Rc::new(proj), Rc::new(leaves), file_reader)
-        .build_array_reader()
+    ArrayReaderBuilder::new(
+        Rc::new(proj),
+        Rc::new(arrow_schema),
+        Rc::new(leaves),
+        file_reader,
+    )
+    .build_array_reader()
 }
 
 /// Used to build array reader.
 struct ArrayReaderBuilder {
     root_schema: TypePtr,
+    arrow_schema: Rc<Schema>,
     // Key: columns that need to be included in final array builder
     // Value: column index in schema
     columns_included: Rc<HashMap<*const Type, usize>>,
@@ -790,11 +801,13 @@ impl<'a> ArrayReaderBuilder {
     /// Construct array reader builder.
     fn new(
         root_schema: TypePtr,
+        arrow_schema: Rc<Schema>,
         columns_included: Rc<HashMap<*const Type, usize>>,
         file_reader: Rc<dyn FileReader>,
     ) -> Self {
         Self {
             root_schema,
+            arrow_schema,
             columns_included,
             file_reader,
         }
@@ -835,6 +848,12 @@ impl<'a> ArrayReaderBuilder {
             self.file_reader.clone(),
         )?);
 
+        let arrow_type = self
+            .arrow_schema
+            .field_with_name(cur_type.name())
+            .ok()
+            .map(|f| f.data_type());
+
         match cur_type.get_physical_type() {
             PhysicalType::BOOLEAN => Ok(Box::new(PrimitiveArrayReader::<BoolType>::new(
                 page_iterator,
@@ -866,21 +885,43 @@ impl<'a> ArrayReaderBuilder {
             )),
             PhysicalType::BYTE_ARRAY => {
                 if cur_type.get_basic_info().logical_type() == LogicalType::UTF8 {
-                    let converter = Utf8Converter::new(Utf8ArrayConverter {});
-                    Ok(Box::new(ComplexObjectArrayReader::<
-                        ByteArrayType,
-                        Utf8Converter,
-                    >::new(
-                        page_iterator, column_desc, converter
-                    )?))
+                    if let Some(ArrowType::LargeUtf8) = arrow_type {
+                        let converter =
+                            LargeUtf8Converter::new(LargeUtf8ArrayConverter {});
+                        Ok(Box::new(ComplexObjectArrayReader::<
+                            ByteArrayType,
+                            LargeUtf8Converter,
+                        >::new(
+                            page_iterator, column_desc, converter
+                        )?))
+                    } else {
+                        let converter = Utf8Converter::new(Utf8ArrayConverter {});
+                        Ok(Box::new(ComplexObjectArrayReader::<
+                            ByteArrayType,
+                            Utf8Converter,
+                        >::new(
+                            page_iterator, column_desc, converter
+                        )?))
+                    }
                 } else {
-                    let converter = BinaryConverter::new(BinaryArrayConverter {});
-                    Ok(Box::new(ComplexObjectArrayReader::<
-                        ByteArrayType,
-                        BinaryConverter,
-                    >::new(
-                        page_iterator, column_desc, converter
-                    )?))
+                    if let Some(ArrowType::LargeBinary) = arrow_type {
+                        let converter =
+                            LargeBinaryConverter::new(LargeBinaryArrayConverter {});
+                        Ok(Box::new(ComplexObjectArrayReader::<
+                            ByteArrayType,
+                            LargeBinaryConverter,
+                        >::new(
+                            page_iterator, column_desc, converter
+                        )?))
+                    } else {
+                        let converter = BinaryConverter::new(BinaryArrayConverter {});
+                        Ok(Box::new(ComplexObjectArrayReader::<
+                            ByteArrayType,
+                            BinaryConverter,
+                        >::new(
+                            page_iterator, column_desc, converter
+                        )?))
+                    }
                 }
             }
             PhysicalType::FIXED_LEN_BYTE_ARRAY => {
@@ -918,11 +959,15 @@ impl<'a> ArrayReaderBuilder {
 
         for child in cur_type.get_fields() {
             if let Some(child_reader) = self.dispatch(child.clone(), context)? {
-                fields.push(Field::new(
-                    child.name(),
-                    child_reader.get_data_type().clone(),
-                    child.is_optional(),
-                ));
+                let field = match self.arrow_schema.field_with_name(child.name()) {
+                    Ok(f) => f.to_owned(),
+                    _ => Field::new(
+                        child.name(),
+                        child_reader.get_data_type().clone(),
+                        child.is_optional(),
+                    ),
+                };
+                fields.push(field);
                 children_reader.push(child_reader);
             }
         }
@@ -945,6 +990,7 @@ impl<'a> ArrayReaderBuilder {
 mod tests {
     use super::*;
     use crate::arrow::converter::Utf8Converter;
+    use crate::arrow::schema::parquet_to_arrow_schema;
     use crate::basic::{Encoding, Type as PhysicalType};
     use crate::column::page::{Page, PageReader};
     use crate::data_type::{ByteArray, DataType, Int32Type, Int64Type};
@@ -1591,8 +1637,16 @@ mod tests {
         let file = get_test_file("nulls.snappy.parquet");
         let file_reader = Rc::new(SerializedFileReader::new(file).unwrap());
 
+        let file_metadata = file_reader.metadata().file_metadata();
+        let arrow_schema = parquet_to_arrow_schema(
+            file_metadata.schema_descr(),
+            file_metadata.key_value_metadata(),
+        )
+        .unwrap();
+
         let array_reader = build_array_reader(
             file_reader.metadata().file_metadata().schema_descr_ptr(),
+            arrow_schema,
             vec![0usize].into_iter(),
             file_reader,
         )
