@@ -77,6 +77,8 @@ class ExpiringCacheMapEntry {
   }
 
  private:
+  // ConcurrentMap object may be accessed and modified at many places at the same time,
+  // from multiple threads, or even removed from cache.
   ExpiringCacheEntry<std::shared_ptr<ConcurrentMap<std::string, V>>> map_cache_;
 };
 

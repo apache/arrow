@@ -17,9 +17,9 @@
 
 #pragma once
 
+#include <memory>
 #include <string>
 #include <unordered_map>
-#include <vector>
 
 #include "arrow/util/mutex.h"
 
@@ -29,9 +29,9 @@
 namespace parquet {
 namespace encryption {
 
-// This class wraps the key access token of a KMS server. If your token changes over time,
-// you should keep the reference to the KeyAccessToken object and call Refresh() method
-// every time you have a new token.
+/// This class wraps the key access token of a KMS server. If your token changes over
+/// time, you should keep the reference to the KeyAccessToken object and call Refresh()
+/// method every time you have a new token.
 class PARQUET_EXPORT KeyAccessToken {
  public:
   KeyAccessToken() = default;
@@ -56,6 +56,8 @@ class PARQUET_EXPORT KeyAccessToken {
 struct PARQUET_EXPORT KmsConnectionConfig {
   std::string kms_instance_id;
   std::string kms_instance_url;
+  /// If the access token is changed in the future, you should keep a reference to
+  /// this object and call Refresh() on it whenever there is a new access token.
   std::shared_ptr<KeyAccessToken> refreshable_key_access_token;
   std::unordered_map<std::string, std::string> custom_kms_conf;
 
@@ -78,12 +80,12 @@ class PARQUET_EXPORT KmsClient {
   static constexpr const char kKmsInstanceUrlDefault[] = "DEFAULT";
   static constexpr const char kKeyAccessTokenDefault[] = "DEFAULT";
 
-  // Wraps a key - encrypts it with the master key, encodes the result
-  // and potentially adds a KMS-specific metadata.
+  /// Wraps a key - encrypts it with the master key, encodes the result
+  /// and potentially adds a KMS-specific metadata.
   virtual std::string WrapKey(const std::string& key_bytes,
                               const std::string& master_key_identifier) = 0;
 
-  // Decrypts (unwraps) a key with the master key.
+  /// Decrypts (unwraps) a key with the master key.
   virtual std::string UnwrapKey(const std::string& wrapped_key,
                                 const std::string& master_key_identifier) = 0;
   virtual ~KmsClient() {}
