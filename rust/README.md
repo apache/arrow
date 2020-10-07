@@ -84,6 +84,8 @@ export PARQUET_TEST_DATA=../../cpp/submodules/parquet-testing/data
 export ARROW_TEST_DATA=../../testing/data
 ```
 
+
+
 from here on, this is a pure Rust project and `cargo` can be used to run tests, benchmarks, docs and examples as usual.
 
 ## Code Formatting
