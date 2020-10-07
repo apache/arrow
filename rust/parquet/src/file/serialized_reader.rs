@@ -49,7 +49,7 @@ impl Length for File {
 
 impl TryClone for File {
     fn try_clone(&self) -> std::io::Result<Self> {
-        self.try_clone().map_err(|e| e.into())
+        self.try_clone()
     }
 }
 
@@ -145,8 +145,7 @@ impl<R: 'static + ChunckReader> SerializedFileReader<R> {
         let mut footer_read_seek = chunk_reader.get_read_seek(
             chunk_reader
                 .len()
-                .checked_sub(DEFAULT_FOOTER_SIZE as u64)
-                .unwrap_or(0),
+                .saturating_sub(DEFAULT_FOOTER_SIZE as u64),
             min(DEFAULT_FOOTER_SIZE, chunk_reader.len() as usize),
         )?;
         let metadata = footer::parse_metadata(&mut footer_read_seek)?;
