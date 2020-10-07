@@ -55,7 +55,7 @@ std::shared_ptr<arrow::csv::ParseOptions> csv___ParseOptions__initialize(
 // [[arrow::export]]
 SEXP csv___ReadOptions__column_names(
     const std::shared_ptr<arrow::csv::ReadOptions>& options) {
-  if (!options->autogenerate_column_names) {
+  if (options->autogenerate_column_names) {
     return R_NilValue;
   }
 
@@ -110,7 +110,7 @@ std::shared_ptr<arrow::csv::ConvertOptions> csv___ConvertOptions__initialize(
       cpp11::list lst_parsers(op_timestamp_parsers);
 
       for (SEXP x : lst_parsers) {
-        // handle sacalar string and TimestampParser instances
+        // handle scalar string and TimestampParser instances
         if (TYPEOF(x) == STRSXP && XLENGTH(x) == 1) {
           timestamp_parsers.push_back(
               arrow::TimestampParser::MakeStrptime(CHAR(STRING_ELT(x, 0))));

@@ -230,4 +230,3 @@ test_that("read_csv_arrow(timestamp_parsers=)", {
                        )
   expect_equal(df$time, as.POSIXct(tbl$time, format = "%d/%m/%Y", tz = "UTC"))
 })
-

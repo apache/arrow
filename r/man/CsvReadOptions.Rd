@@ -11,7 +11,7 @@
 \title{File reader options}
 \description{
 \code{CsvReadOptions}, \code{CsvParseOptions}, \code{CsvConvertOptions},
-\code{JsonReadOptions}, and \code{JsonParseOptions} are containers for various
+\code{JsonReadOptions}, \code{JsonParseOptions}, and \code{TimestampParser} are containers for various
 file reading options. See their usage in \code{\link[=read_csv_arrow]{read_csv_arrow()}} and
 \code{\link[=read_json_arrow]{read_json_arrow()}}, respectively.
 }
@@ -63,13 +63,25 @@ Analogous to the \code{na.strings} argument to
 \item \code{strings_can_be_null} Logical: can string / binary columns have
 null values? Similar to the \code{quoted_na} argument to \code{readr::read_csv()}.
 (default \code{FALSE})
+\item \code{true_values} = c("T", "true", "TRUE"),
+\item \code{false_values}= c("F", "false", "FALSE"),
+\item \code{col_types} = NULL,
+\item \code{auto_dict_encode} = FALSE,
+\item \code{auto_dict_max_cardinality} = 50L,
+\item \code{include_columns} = character(),
+\item \code{include_missing_columns} = FALSE,
+\item \code{timestamp_parsers} = NULL
 }
+
+\code{TimestampParser$create()} takes an optional \code{format} string argument.
+See \code{\link[base:strptime]{strptime()}} for example syntax.
+The default is to use an ISO-8601 format parser.
 }
 
-\section{Methods}{
+\section{Active bindings}{
 
-
-These classes have no implemented methods. They are containers for the
-options.
+\itemize{
+\item \code{column_names}: from \code{CsvReadOptions}
+}
 }
 
