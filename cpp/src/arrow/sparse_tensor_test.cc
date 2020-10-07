@@ -515,8 +515,8 @@ class TestSparseCOOTensorEquality : public TestSparseTensorBase<ValueType> {
                 0, 0, 0, 12, 13, 0, 14, 0, 0, 15, 0, 16};
     auto buffer1 = Buffer::Wrap(values1_);
     auto buffer2 = Buffer::Wrap(values2_);
-    DCHECK_OK(NumericTensor<ValueType>::Make(buffer1, this->shape_).Value(&tensor1_));
-    DCHECK_OK(NumericTensor<ValueType>::Make(buffer2, this->shape_).Value(&tensor2_));
+    ASSERT_OK_AND_ASSIGN(tensor1_, NumericTensor<ValueType>::Make(buffer1, this->shape_));
+    ASSERT_OK_AND_ASSIGN(tensor2_, NumericTensor<ValueType>::Make(buffer2, this->shape_));
   }
 
  protected:
@@ -1100,8 +1100,8 @@ class TestSparseCSRMatrixEquality : public TestSparseTensorBase<ValueType> {
                 0, 11, 0, 12, 13, 0, 14, 0, 0, 15, 0, 16};
     auto buffer1 = Buffer::Wrap(values1_);
     auto buffer2 = Buffer::Wrap(values2_);
-    DCHECK_OK(NumericTensor<ValueType>::Make(buffer1, this->shape_).Value(&tensor1_));
-    DCHECK_OK(NumericTensor<ValueType>::Make(buffer2, this->shape_).Value(&tensor2_));
+    ASSERT_OK_AND_ASSIGN(tensor1_, NumericTensor<ValueType>::Make(buffer1, this->shape_));
+    ASSERT_OK_AND_ASSIGN(tensor2_, NumericTensor<ValueType>::Make(buffer2, this->shape_));
   }
 
  protected:
@@ -1445,8 +1445,8 @@ class TestSparseCSCMatrixEquality : public TestSparseTensorBase<ValueType> {
                 0, 11, 0, 12, 13, 0, 14, 0, 0, 15, 0, 16};
     auto buffer1 = Buffer::Wrap(values1_);
     auto buffer2 = Buffer::Wrap(values2_);
-    DCHECK_OK(NumericTensor<ValueType>::Make(buffer1, shape_).Value(&tensor1_));
-    DCHECK_OK(NumericTensor<ValueType>::Make(buffer2, shape_).Value(&tensor2_));
+    ASSERT_OK_AND_ASSIGN(tensor1_, NumericTensor<ValueType>::Make(buffer1, shape_));
+    ASSERT_OK_AND_ASSIGN(tensor2_, NumericTensor<ValueType>::Make(buffer2, shape_));
   }
 
  protected:
@@ -1568,8 +1568,8 @@ class TestSparseCSFTensorEquality : public TestSparseTensorBase<ValueType> {
     auto buffer1 = Buffer::Wrap(values1_, length_);
     auto buffer2 = Buffer::Wrap(values2_, length_);
 
-    DCHECK_OK(NumericTensor<ValueType>::Make(buffer1, shape_).Value(&tensor1_));
-    DCHECK_OK(NumericTensor<ValueType>::Make(buffer2, shape_).Value(&tensor2_));
+    ASSERT_OK_AND_ASSIGN(tensor1_, NumericTensor<ValueType>::Make(buffer1, shape_));
+    ASSERT_OK_AND_ASSIGN(tensor2_, NumericTensor<ValueType>::Make(buffer2, shape_));
   }
 
  protected:
