@@ -52,6 +52,7 @@
 #include "arrow/visitor_inline.h"
 
 #include "generated/Schema_bfbs_generated.h"
+#include "generated/Schema_generated.h"
 
 namespace arrow {
 
@@ -1430,6 +1431,13 @@ Schema Schema::FromJson(const std::string& json_schema) {
     exit(2);
   }
 
+  // TODO Remove (?) before final version of pull request.
+  flatbuffers::Verifier verifier(parser.builder_.GetBufferPointer(), parser.builder_.GetSize());
+  if (!reflection::VerifySchemaBuffer(verifier)) {
+    std::cerr << "Verifying failed!" << std::endl;
+    exit(3);
+  }
+
   // Create Arrow Schema object.
   ipc::DictionaryMemo dict_memo;
   std::shared_ptr<Schema> schema_ptr;
@@ -1444,6 +1452,7 @@ std::string Schema::ToJson() const {
   flatbuffers::FlatBufferBuilder fbb;
   flatbuffers::Offset<flatbuf::Schema> fb_schema;
   ARROW_CHECK(ipc::internal::SchemaToFlatbuffer(fbb, *this, &dict_memo, &fb_schema).ok());
+  std::cout << "Offset = " << fb_schema.o << std::endl;
   fbb.Finish(fb_schema);
 
   // TOOD Fix duplication (A), cache.
