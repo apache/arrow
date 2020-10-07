@@ -14,6 +14,7 @@
 // limitations under the License.
 
 using System;
+using System.Diagnostics;
 using System.IO;
 
 namespace Apache.Arrow.Ipc
@@ -58,15 +59,28 @@ namespace Apache.Arrow.Ipc
             {
                 Flatbuf.Field field = schema.Fields(i).GetValueOrDefault();
 
-                schemaBuilder.Field(
-                    new Field(field.Name, GetFieldArrowType(field), field.Nullable));
+                schemaBuilder.Field(FieldFromFlatbuffer(field));
             }
 
             return schemaBuilder.Build();
         }
 
+        private static Field FieldFromFlatbuffer(Flatbuf.Field flatbufField)
+        {
+            Field[] childFields = null;
+            if (flatbufField.ChildrenLength > 0)
+            {
+                childFields = new Field[flatbufField.ChildrenLength];
+                for (int i = 0; i < flatbufField.ChildrenLength; i++)
+                {
+                    Flatbuf.Field? childFlatbufField = flatbufField.Children(i);
+                    childFields[i] = FieldFromFlatbuffer(childFlatbufField.Value);
+                }
+            }
+            return new Field(flatbufField.Name, GetFieldArrowType(flatbufField, childFields), flatbufField.Nullable);
+        }
 
-        private static Types.IArrowType GetFieldArrowType(Flatbuf.Field field)
+        private static Types.IArrowType GetFieldArrowType(Flatbuf.Field field, Field[] childFields = null)
         {
             switch (field.TypeType)
             {
@@ -131,6 +145,9 @@ namespace Apache.Arrow.Ipc
                         throw new InvalidDataException($"List type must have only one child.");
                     }
                     return new Types.ListType(GetFieldArrowType(field.Children(0).GetValueOrDefault()));
+                case Flatbuf.Type.Struct_:
+                    Debug.Assert(childFields != null);
+                    return new Types.StructType(childFields);
                 default:
                     throw new InvalidDataException($"Arrow primitive '{field.TypeType}' is unsupported.");
             }

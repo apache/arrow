@@ -87,6 +87,7 @@ mod builder;
 mod cast;
 mod data;
 mod equal;
+mod iterator;
 mod null;
 mod ord;
 mod union;
@@ -239,6 +240,10 @@ pub type DurationSecondBuilder = PrimitiveBuilder<DurationSecondType>;
 pub type DurationMillisecondBuilder = PrimitiveBuilder<DurationMillisecondType>;
 pub type DurationMicrosecondBuilder = PrimitiveBuilder<DurationMicrosecondType>;
 pub type DurationNanosecondBuilder = PrimitiveBuilder<DurationNanosecondType>;
+
+// --------------------- Array Iterator ---------------------
+
+pub use self::iterator::*;
 
 // --------------------- Array Equality ---------------------
 

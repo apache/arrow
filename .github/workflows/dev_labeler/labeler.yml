@@ -18,5 +18,5 @@
 lang-rust:
   - rust/**/*
 
-datafusion: 
+datafusion:
   - rust/datafusion/**/*

@@ -1645,15 +1645,17 @@ class StructDictionary {
   }
 
  private:
-  Status AddOne(const std::shared_ptr<Array>& column,
-                std::shared_ptr<Int32Array>* fused_indices) {
-    ARROW_ASSIGN_OR_RAISE(Datum encoded, compute::DictionaryEncode(column));
-    ArrayData* encoded_array = encoded.mutable_array();
+  Status AddOne(Datum column, std::shared_ptr<Int32Array>* fused_indices) {
+    ArrayData* encoded;
+    if (column.type()->id() != Type::DICTIONARY) {
+      ARROW_ASSIGN_OR_RAISE(column, compute::DictionaryEncode(column));
+    }
+    encoded = column.mutable_array();
 
-    auto indices = std::make_shared<Int32Array>(encoded_array->length,
-                                                std::move(encoded_array->buffers[1]));
+    auto indices =
+        std::make_shared<Int32Array>(encoded->length, std::move(encoded->buffers[1]));
 
-    dictionaries_.push_back(MakeArray(std::move(encoded_array->dictionary)));
+    dictionaries_.push_back(MakeArray(std::move(encoded->dictionary)));
     auto dictionary_size = static_cast<int32_t>(dictionaries_.back()->length());
 
     if (*fused_indices == nullptr) {

@@ -134,7 +134,7 @@ class DictionaryBuilderBase : public ArrayBuilder {
         value_type_(value_type) {}
 
   template <typename T1 = T>
-  DictionaryBuilderBase(
+  explicit DictionaryBuilderBase(
       enable_if_t<!is_fixed_size_binary_type<T1>::value, const std::shared_ptr<DataType>&>
           value_type,
       MemoryPool* pool = default_memory_pool())
@@ -176,8 +176,8 @@ class DictionaryBuilderBase : public ArrayBuilder {
       : DictionaryBuilderBase<BuilderType, T1>(TypeTraits<T1>::type_singleton(), pool) {}
 
   // This constructor doesn't check for errors. Use InsertMemoValues instead.
-  DictionaryBuilderBase(const std::shared_ptr<Array>& dictionary,
-                        MemoryPool* pool = default_memory_pool())
+  explicit DictionaryBuilderBase(const std::shared_ptr<Array>& dictionary,
+                                 MemoryPool* pool = default_memory_pool())
       : ArrayBuilder(pool),
         memo_table_(new internal::DictionaryMemoTable(pool, dictionary)),
         delta_offset_(0),
@@ -404,8 +404,8 @@ class DictionaryBuilderBase<BuilderType, NullType> : public ArrayBuilder {
       MemoryPool* pool = default_memory_pool())
       : ArrayBuilder(pool), indices_builder_(start_int_size, pool) {}
 
-  DictionaryBuilderBase(const std::shared_ptr<DataType>& value_type,
-                        MemoryPool* pool = default_memory_pool())
+  explicit DictionaryBuilderBase(const std::shared_ptr<DataType>& value_type,
+                                 MemoryPool* pool = default_memory_pool())
       : ArrayBuilder(pool), indices_builder_(pool) {}
 
   template <typename B = BuilderType>
@@ -418,8 +418,8 @@ class DictionaryBuilderBase<BuilderType, NullType> : public ArrayBuilder {
   explicit DictionaryBuilderBase(MemoryPool* pool = default_memory_pool())
       : ArrayBuilder(pool), indices_builder_(pool) {}
 
-  DictionaryBuilderBase(const std::shared_ptr<Array>& dictionary,
-                        MemoryPool* pool = default_memory_pool())
+  explicit DictionaryBuilderBase(const std::shared_ptr<Array>& dictionary,
+                                 MemoryPool* pool = default_memory_pool())
       : ArrayBuilder(pool), indices_builder_(pool) {}
 
   /// \brief Append a scalar null value

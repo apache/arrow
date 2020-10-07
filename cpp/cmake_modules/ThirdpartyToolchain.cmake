@@ -1690,10 +1690,7 @@ macro(build_gtest)
   add_dependencies(GTest::gmock googletest_ep)
 endmacro()
 
-if(ARROW_BUILD_TESTS
-   OR ARROW_BUILD_BENCHMARKS
-   OR ARROW_BUILD_INTEGRATION
-   OR ARROW_FUZZING)
+if(ARROW_TESTING)
   resolve_dependency(GTest)
 
   if(NOT GTEST_VENDORED)

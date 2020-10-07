@@ -707,3 +707,14 @@ def test_schema_merge():
 
     with pytest.raises(pa.ArrowInvalid):
         pa.unify_schemas([b, d])
+
+
+def test_undecodable_metadata():
+    # ARROW-10214: undecodable metadata shouldn't fail repr()
+    data1 = b'abcdef\xff\x00'
+    data2 = b'ghijkl\xff\x00'
+    schema = pa.schema(
+        [pa.field('ints', pa.int16(), metadata={'key': data1})],
+        metadata={'key': data2})
+    assert 'abcdef' in str(schema)
+    assert 'ghijkl' in str(schema)

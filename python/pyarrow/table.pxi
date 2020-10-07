@@ -79,7 +79,7 @@ cdef class ChunkedArray(_PandasConvertible):
                 )
             )
 
-        return frombytes(result)
+        return frombytes(result, safe=True)
 
     def format(self, **kwargs):
         import warnings

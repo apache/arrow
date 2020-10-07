@@ -784,14 +784,17 @@ Result<std::vector<std::shared_ptr<Schema>>> ParquetDatasetFactory::InspectSchem
   ARROW_ASSIGN_OR_RAISE(auto physical_schema, GetSchema(*metadata_, properties));
   schemas.push_back(std::move(physical_schema));
 
-  if (options_.partitioning.factory() != nullptr) {
+  if (auto factory = options_.partitioning.factory()) {
     // Gather paths found in RowGroups' ColumnChunks.
     ARROW_ASSIGN_OR_RAISE(auto paths, CollectPaths(*metadata_, properties));
 
-    ARROW_ASSIGN_OR_RAISE(auto partition_schema,
-                          options_.partitioning.GetOrInferSchema(StripPrefixAndFilename(
-                              paths, options_.partition_base_dir)));
+    ARROW_ASSIGN_OR_RAISE(
+        auto partition_schema,
+        factory->Inspect(StripPrefixAndFilename(paths, options_.partition_base_dir)));
+
     schemas.push_back(std::move(partition_schema));
+  } else {
+    schemas.push_back(std::move(options_.partitioning.partitioning()->schema()));
   }
 
   return schemas;

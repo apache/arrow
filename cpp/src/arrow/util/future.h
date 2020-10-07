@@ -154,9 +154,8 @@ class FutureStorage : public FutureStorageBase {
 
   Status status() const { return result_.status(); }
 
-  template <typename U>
-  void MarkFinished(U&& value) {
-    result_ = std::forward<U>(value);
+  void MarkFinished(Result<T> result) {
+    result_ = std::move(result);
     if (ARROW_PREDICT_TRUE(result_.ok())) {
       impl_->MarkFinished();
     } else {
@@ -250,7 +249,7 @@ class Future {
   // The default constructor creates an invalid Future.  Use Future::Make()
   // for a valid Future.  This constructor is mostly for the convenience
   // of being able to presize a vector of Futures.
-  Future() : impl_(NULLPTR) {}
+  Future() = default;
 
   // Consumer API
 
@@ -311,6 +310,15 @@ class Future {
     return impl_->Wait(seconds);
   }
 
+  /// If a Result<Future> holds an error instead of a Future, construct a finished Future
+  /// holding that error.
+  static Future DeferNotOk(Result<Future> maybe_future) {
+    if (ARROW_PREDICT_FALSE(!maybe_future.ok())) {
+      return MakeFinished(std::move(maybe_future).status());
+    }
+    return std::move(maybe_future).MoveValueUnsafe();
+  }
+
   // Producer API
 
   /// \brief Producer API: execute function and mark Future finished
@@ -368,7 +376,7 @@ class Future {
   }
 
   std::shared_ptr<FutureStorage<T>> storage_;
-  FutureImpl* impl_;
+  FutureImpl* impl_ = NULLPTR;
 
   friend class FutureWaiter;
 };
@@ -418,16 +426,5 @@ inline std::vector<int> WaitForAny(const std::vector<Future<T>*>& futures,
   waiter->Wait(seconds);
   return waiter->MoveFinishedFutures();
 }
-
-#define ARROW_ASSIGN_OR_RETURN_FUTURE_IMPL(result_name, lhs, T, rexpr) \
-  auto result_name = (rexpr);                                          \
-  if (ARROW_PREDICT_FALSE(!(result_name).ok())) {                      \
-    return Future<T>::MakeFinished(std::move(result_name).status());   \
-  }                                                                    \
-  lhs = std::move(result_name).MoveValueUnsafe();
-
-#define ARROW_ASSIGN_OR_RETURN_FUTURE(lhs, T, rexpr) \
-  ARROW_ASSIGN_OR_RETURN_FUTURE_IMPL(                \
-      ARROW_ASSIGN_OR_RAISE_NAME(_error_or_value, __COUNTER__), lhs, T, rexpr);
 
 }  // namespace arrow

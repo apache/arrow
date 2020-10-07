@@ -85,14 +85,11 @@ class ARROW_DS_EXPORT Partitioning {
 };
 
 struct PartitioningFactoryOptions {
-  /// When inferring a schema for partition fields, string fields may be inferred as
-  /// a dictionary type instead. This can be more efficient when materializing virtual
-  /// columns. If the number of discovered unique values of a string field exceeds
-  /// max_partition_dictionary_size, it will instead be inferred as a string.
-  ///
-  /// max_partition_dictionary_size = 0: No fields will be inferred as dictionary.
-  /// max_partition_dictionary_size = -1: All fields will be inferred as dictionary.
-  int max_partition_dictionary_size = 0;
+  /// When inferring a schema for partition fields, yield dictionary encoded types
+  /// instead of plain. This can be more efficient when materializing virtual
+  /// columns, and Expressions parsed by the finished Partitioning will include
+  /// dictionaries of all unique inspected values for each field.
+  bool infer_dictionary = false;
 };
 
 /// \brief PartitioningFactory provides creation of a partitioning  when the

@@ -240,7 +240,8 @@ impl FilterContext {
         }
         let filter_mask: Vec<u64> = (0..64).map(|x| 1u64 << x).collect();
         let filter_bytes = filter_array.data_ref().buffers()[0].data();
-        let filtered_count = bit_util::count_set_bits(filter_bytes);
+        let filtered_count =
+            bit_util::count_set_bits_offset(filter_bytes, 0, filter_array.len());
 
         // transmute filter_bytes to &[u64]
         let mut u64_buffer = MutableBuffer::new(filter_bytes.len());

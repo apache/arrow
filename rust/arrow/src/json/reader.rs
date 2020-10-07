@@ -671,22 +671,15 @@ impl<R: Read> Reader<R> {
         T: ArrowNumericType,
         T::Native: num::NumCast,
     {
-        let mut builder = PrimitiveBuilder::<T>::new(rows.len());
-        for row in rows {
-            if let Some(value) = row.get(&col_name) {
-                // check that value is of expected datatype
-                match value.as_f64() {
-                    Some(v) => match num::cast::cast(v) {
-                        Some(v) => builder.append_value(v)?,
-                        None => builder.append_null()?,
-                    },
-                    None => builder.append_null()?,
-                }
-            } else {
-                builder.append_null()?;
-            }
-        }
-        Ok(Arc::new(builder.finish()))
+        Ok(Arc::new(
+            rows.iter()
+                .map(|row| {
+                    row.get(&col_name)
+                        .and_then(|value| value.as_f64())
+                        .and_then(num::cast::cast)
+                })
+                .collect::<PrimitiveArray<T>>(),
+        ))
     }
 
     fn build_list_array<T: ArrowPrimitiveType>(

@@ -53,7 +53,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        r: ["3.6", "4.0"]
+        r: ["3.6"]
         ubuntu: [18.04]
     env:
       R: ${{ matrix.r }}
@@ -100,7 +100,7 @@ jobs:
       fail-fast: false
       matrix:
         # See https://hub.docker.com/r/rstudio/r-base
-        r_version: ["3.6", "4.0"]
+        r_version: ["4.0"]
         r_image:
           - centos7
     env:

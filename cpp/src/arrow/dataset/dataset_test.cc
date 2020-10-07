@@ -512,13 +512,10 @@ TEST_F(TestEndToEnd, EndToEndSingleDataset) {
   // In the simplest case, consumption is simply conversion to a Table.
   ASSERT_OK_AND_ASSIGN(auto table, scanner->ToTable());
 
-  using row_type = std::tuple<double, std::string, util::optional<std::string>>;
-  std::vector<row_type> rows{
-      row_type{152.25, "3", "CA"},
-      row_type{273.5, "3", "US"},
-  };
-  std::shared_ptr<Table> expected;
-  ASSERT_OK(stl::TableFromTupleRange(default_memory_pool(), rows, columns, &expected));
+  auto expected = TableFromJSON(scanner->schema(), {R"([
+    {"sales": 152.25, "model": "3", "country": "CA"},
+    {"sales": 273.5, "model": "3", "country": "US"}
+  ])"});
   AssertTablesEqual(*expected, *table, false, true);
 }
 
