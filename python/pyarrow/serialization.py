@@ -508,5 +508,5 @@ def default_serialization_context():
         DeprecationWarning, stacklevel=2
     )
     context = SerializationContext()
-    register_default_serialization_handlers(context)
+    _register_default_serialization_handlers(context)
     return context

@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import sys
 
 import pytest
 
@@ -41,11 +42,16 @@ def test_serialization_deprecated():
     with pytest.warns(DeprecationWarning):
         pa.default_serialization_context()
 
+    context = pa.lib.SerializationContext()
+    with pytest.warns(DeprecationWarning):
+        pa.register_default_serialization_handlers(context)
+
+
+@pytest.mark.skipif(sys.version_info < (3, 7),
+                    reason="getattr needs Python 3.7")
+def test_serialization_deprecated_toplevel():
     with pytest.warns(DeprecationWarning):
         pa.SerializedPyObject()
 
     with pytest.warns(DeprecationWarning):
-        context = pa.SerializationContext()
-
-    with pytest.warns(DeprecationWarning):
-        pa.register_default_serialization_handlers(context)
+        pa.SerializationContext()
