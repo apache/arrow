@@ -123,15 +123,15 @@ def _assert_error_on_write(df, exc, path=None, version=2):
     pytest.raises(exc, f)
 
 
-@pytest.mark.pandas
 def test_dataset(version):
     num_values = (100, 100)
     num_files = 5
     paths = [random_path() for i in range(num_files)]
-    table = pa.Table.from_arrays(
-        np.random.randn(*num_values),
-        ["col_" + str(i) for i in range(num_values[1])]
-    )
+    data = {
+        "col_" + str(i): np.random.randn(num_values[0]) 
+        for i in range(num_values[1])
+    }
+    table = pa.table(data)
 
     TEST_FILES.extend(paths)
     for index, path in enumerate(paths):
@@ -140,11 +140,10 @@ def test_dataset(version):
             (index + 1) * (num_values[0] // num_files),
         )
 
-        write_feather(table[rows[0]:rows[1]], path, version=version)
+        write_feather(table[rows[0] : rows[1]], path, version=version)
 
     data = FeatherDataset(paths).read_table()
     assert data.equals(table)
-
 
 @pytest.mark.pandas
 def test_float_no_nulls(version):
@@ -227,7 +226,7 @@ def test_integer_no_nulls(version):
     df = pd.DataFrame(data)
     _check_pandas_roundtrip(df, version=version)
 
-    table = pa.Table.from_arrays(arr, numpy_dtypes)
+    table = pa.table(arr, names=numpy_dtypes)
     _check_arrow_roundtrip(table)
 
 
