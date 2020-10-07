@@ -469,6 +469,90 @@ Status GroupToStruct(const GroupNode& node, LevelInfo current_levels,
 
 Status ListToSchemaField(const GroupNode& group, LevelInfo current_levels,
                          SchemaTreeContext* ctx, const SchemaField* parent,
+                         SchemaField* out);
+
+Status MapToSchemaField(const GroupNode& group, LevelInfo current_levels,
+                        SchemaTreeContext* ctx, const SchemaField* parent,
+                        SchemaField* out) {
+  if (group.field_count() != 1) {
+    return Status::Invalid("MAP-annotated groups must have a single child.");
+  }
+  if (group.is_repeated()) {
+    return Status::Invalid("MAP-annotated groups must not be repeated.");
+  }
+
+  const Node& key_value_node = *group.field(0);
+
+  if (!key_value_node.is_repeated()) {
+    return Status::Invalid(
+        "Non-repeated key value in a MAP-annotated group are not supported.");
+  }
+
+  if (!key_value_node.is_group()) {
+    return Status::Invalid("Key-value node must be a group.");
+  }
+
+  const GroupNode& key_value = checked_cast<const GroupNode&>(key_value_node);
+  if (key_value.field_count() != 1 && key_value.field_count() != 2) {
+    return Status::Invalid("Key-value map node must have 1 or 2 child elements. Found: ",
+                           key_value.field_count());
+  }
+  const Node& key_node = *key_value.field(0);
+  if (!key_node.is_required()) {
+    return Status::Invalid("Map keys must be annotated as required.");
+  }
+  // Arrow doesn't support 1 column maps (i.e. Sets).  The options are to either
+  // make the values column nullable, or process the map as a list.  We choose the latter
+  // as it is simpler.
+  if (key_value.field_count() == 1) {
+    return ListToSchemaField(group, current_levels, ctx, parent, out);
+  }
+
+  current_levels.Increment(group);
+  int16_t repeated_ancestor_def_level = current_levels.IncrementRepeated();
+
+  out->children.resize(1);
+  SchemaField* key_value_field = &out->children[0];
+
+  key_value_field->children.resize(2);
+  SchemaField* key_field = &key_value_field->children[0];
+  SchemaField* value_field = &key_value_field->children[1];
+
+  ctx->LinkParent(out, parent);
+  ctx->LinkParent(key_value_field, out);
+  ctx->LinkParent(key_field, key_value_field);
+  ctx->LinkParent(value_field, key_value_field);
+
+  // required/optional group name=whatever {
+  //   repeated group name=key_values{
+  //     required TYPE key;
+  // required/optional TYPE value;
+  //   }
+  // }
+  //
+
+  RETURN_NOT_OK(NodeToSchemaField(*key_value.field(0), current_levels, ctx,
+                                  key_value_field, key_field));
+  RETURN_NOT_OK(NodeToSchemaField(*key_value.field(1), current_levels, ctx,
+                                  key_value_field, value_field));
+
+  key_value_field->field = ::arrow::field(
+      group.name(), ::arrow::struct_({key_field->field, value_field->field}),
+      /*nullable=*/false, FieldIdMetadata(key_value.field_id()));
+  key_value_field->level_info = current_levels;
+
+  out->field = ::arrow::field(group.name(),
+                              ::arrow::map(key_field->field->type(), value_field->field),
+                              group.is_optional(), FieldIdMetadata(group.field_id()));
+  out->level_info = current_levels;
+  // At this point current levels contains the def level for this list,
+  // we need to reset to the prior parent.
+  out->level_info.repeated_ancestor_def_level = repeated_ancestor_def_level;
+  return Status::OK();
+}
+
+Status ListToSchemaField(const GroupNode& group, LevelInfo current_levels,
+                         SchemaTreeContext* ctx, const SchemaField* parent,
                          SchemaField* out) {
   if (group.field_count() != 1) {
     return Status::Invalid("LIST-annotated groups must have a single child.");
@@ -555,6 +639,8 @@ Status GroupToSchemaField(const GroupNode& node, LevelInfo current_levels,
                           SchemaField* out) {
   if (node.logical_type()->is_list()) {
     return ListToSchemaField(node, current_levels, ctx, parent, out);
+  } else if (node.logical_type()->is_map()) {
+    return MapToSchemaField(node, current_levels, ctx, parent, out);
   }
   std::shared_ptr<ArrowType> type;
   if (node.is_repeated()) {
@@ -697,11 +783,24 @@ std::function<std::shared_ptr<::arrow::DataType>(FieldVector)> GetNestedFactory(
       }
       break;
     case ::arrow::Type::LIST:
-      // TODO also allow LARGE_LIST and FIXED_SIZE_LIST
       if (origin_type.id() == ::arrow::Type::LIST) {
         return [](FieldVector fields) {
           DCHECK_EQ(fields.size(), 1);
           return ::arrow::list(std::move(fields[0]));
+        };
+      }
+      if (origin_type.id() == ::arrow::Type::LARGE_LIST) {
+        return [](FieldVector fields) {
+          DCHECK_EQ(fields.size(), 1);
+          return ::arrow::large_list(std::move(fields[0]));
+        };
+      }
+      if (origin_type.id() == ::arrow::Type::FIXED_SIZE_LIST) {
+        const auto list_size =
+            checked_cast<const ::arrow::FixedSizeListType&>(origin_type).list_size();
+        return [list_size](FieldVector fields) {
+          DCHECK_EQ(fields.size(), 1);
+          return ::arrow::fixed_size_list(std::move(fields[0]), list_size);
         };
       }
       break;
@@ -723,7 +822,12 @@ Result<bool> ApplyOriginalStorageMetadata(const Field& origin_field,
   if (num_children > 0 && origin_type->num_fields() == num_children) {
     DCHECK_EQ(static_cast<int>(inferred->children.size()), num_children);
     const auto factory = GetNestedFactory(*origin_type, *inferred_type);
+    ARROW_LOG(INFO) << "Nested type: origin = " << origin_type->ToString()
+                    << ", inferred = " << inferred_type->ToString();
     if (factory) {
+      // The type may be modified (e.g. LargeList) while the children stay the same
+      modified |= origin_type->id() != inferred_type->id();
+
       // Apply original metadata recursively to children
       for (int i = 0; i < inferred_type->num_fields(); ++i) {
         ARROW_ASSIGN_OR_RAISE(

@@ -2469,7 +2469,60 @@ TEST(ArrowReadWrite, ListOfStructOfList1) {
   CheckSimpleRoundtrip(table, 2);
 }
 
-TEST(ArrowReadWrite, DISABLED_ListOfStructOfList2) {
+TEST(ArrowReadWrite, Map) {
+  using ::arrow::field;
+  using ::arrow::map;
+
+  auto type = map(::arrow::int16(), ::arrow::utf8());
+
+  const char* json = R"([
+      [[1, "a"], [2, "b"]],
+      [[3, "c"]],
+      [],
+      null,
+      [[4, "d"], [5, "e"], [6, "f"]]
+  ])";
+  auto array = ::arrow::ArrayFromJSON(type, json);
+  auto table = ::arrow::Table::Make(::arrow::schema({field("root", type)}), {array});
+  auto props_store_schema = ArrowWriterProperties::Builder().store_schema()->build();
+  CheckSimpleRoundtrip(table, 2, props_store_schema);
+}
+
+TEST(ArrowReadWrite, LargeList) {
+  using ::arrow::field;
+  using ::arrow::large_list;
+  using ::arrow::struct_;
+
+  auto type = large_list(::arrow::int16());
+
+  const char* json = R"([
+      [1, 2, 3],
+      [4, 5, 6],
+      [7, 8, 9]])";
+  auto array = ::arrow::ArrayFromJSON(type, json);
+  auto table = ::arrow::Table::Make(::arrow::schema({field("root", type)}), {array});
+  auto props_store_schema = ArrowWriterProperties::Builder().store_schema()->build();
+  CheckSimpleRoundtrip(table, 2, props_store_schema);
+}
+
+TEST(ArrowReadWrite, FixedSizeList) {
+  using ::arrow::field;
+  using ::arrow::fixed_size_list;
+  using ::arrow::struct_;
+
+  auto type = fixed_size_list(::arrow::int16(), /*size=*/3);
+
+  const char* json = R"([
+      [1, 2, 3],
+      [4, 5, 6],
+      [7, 8, 9]])";
+  auto array = ::arrow::ArrayFromJSON(type, json);
+  auto table = ::arrow::Table::Make(::arrow::schema({field("root", type)}), {array});
+  auto props_store_schema = ArrowWriterProperties::Builder().store_schema()->build();
+  CheckSimpleRoundtrip(table, 2, props_store_schema);
+}
+
+TEST(ArrowReadWrite, ListOfStructOfList2) {
   using ::arrow::field;
   using ::arrow::list;
   using ::arrow::struct_;
@@ -2484,7 +2537,7 @@ TEST(ArrowReadWrite, DISABLED_ListOfStructOfList2) {
       [{"a": 123, "b": [1, 2, 3]}],
       null,
       [],
-      [{"a": 456}, {"a": 789, "b": [null]}, {"a": 876, "b": [4, 5, 6]}]])";
+      [{"a": 456, "b": []}, {"a": 789, "b": [null]}, {"a": 876, "b": [4, 5, 6]}]])";
   auto array = ::arrow::ArrayFromJSON(type, json);
   auto table = ::arrow::Table::Make(::arrow::schema({field("root", type)}), {array});
   CheckSimpleRoundtrip(table, 2);
