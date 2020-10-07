@@ -672,10 +672,10 @@ cdef class StrptimeOptions(FunctionOptions):
 
 cdef class VarianceOptions(FunctionOptions):
     cdef:
-        unique_ptr[CVarianceOptions] variance_options
+        CVarianceOptions variance_options
 
     def __cinit__(self, *, ddof=0):
-        self.variance_options.reset(new CVarianceOptions(ddof))
+        self.variance_options.ddof = ddof
 
     cdef const CFunctionOptions* get_options(self) except NULL:
-        return self.variance_options.get()
+        return &self.variance_options

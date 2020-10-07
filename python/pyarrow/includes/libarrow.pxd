@@ -1716,7 +1716,6 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
     cdef cppclass CVarianceOptions \
             "arrow::compute::VarianceOptions"(CFunctionOptions):
-        CVarianceOptions(int ddof)
         int ddof
 
     enum CMinMaxMode \
