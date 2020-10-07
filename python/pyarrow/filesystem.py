@@ -19,12 +19,19 @@
 import os
 import inspect
 import posixpath
+import sys
 import urllib.parse
+import warnings
 
 from os.path import join as pjoin
 
 import pyarrow as pa
-from pyarrow.util import implements, _stringify_path, _is_path_like
+from pyarrow.util import implements, _stringify_path, _is_path_like, _DEPR_MSG
+
+
+_FS_DEPR_MSG = _DEPR_MSG.format(
+    "filesystem.LocalFileSystem", "2.0.0", "fs.LocalFileSystem"
+)
 
 
 class FileSystem:
@@ -237,11 +244,21 @@ class LocalFileSystem(FileSystem):
 
     _instance = None
 
+    def __init__(self):
+        warnings.warn(_FS_DEPR_MSG, DeprecationWarning, stacklevel=2)
+        super().__init__()
+
+    @classmethod
+    def _get_instance(cls):
+        if cls._instance is None:
+            with warnings.catch_warnings():
+                cls._instance = LocalFileSystem()
+        return cls._instance
+
     @classmethod
     def get_instance(cls):
-        if cls._instance is None:
-            cls._instance = LocalFileSystem()
-        return cls._instance
+        warnings.warn(_FS_DEPR_MSG, DeprecationWarning, stacklevel=2)
+        return cls._get_instance()
 
     @implements(FileSystem.ls)
     def ls(self, path):
@@ -431,7 +448,15 @@ def _ensure_filesystem(fs):
             # In case its a simple LocalFileSystem (e.g. dask) use native arrow
             # FS
             elif mro.__name__ == 'LocalFileSystem':
-                return LocalFileSystem.get_instance()
+                return LocalFileSystem._get_instance()
+
+        if "fsspec" in sys.modules:
+            fsspec = sys.modules["fsspec"]
+            if isinstance(fs, fsspec.AbstractFileSystem):
+                # for recent fsspec versions that stop inheriting from
+                # pyarrow.filesystem.FileSystem, still allow fsspec
+                # filesystems (which should be compatible with our legacy fs)
+                return fs
 
         raise OSError('Unrecognized filesystem: {}'.format(fs_type))
     else:
@@ -476,15 +501,15 @@ def resolve_filesystem_and_path(where, filesystem=None):
         port = 0
         if len(netloc_split) == 2 and netloc_split[1].isnumeric():
             port = int(netloc_split[1])
-        fs = pa.hdfs.connect(host=host, port=port)
+        fs = pa.hdfs._connect(host=host, port=port)
         fs_path = parsed_uri.path
     elif parsed_uri.scheme == 'file':
         # Input is local URI such as file:///home/user/myfile.parquet
-        fs = LocalFileSystem.get_instance()
+        fs = LocalFileSystem._get_instance()
         fs_path = parsed_uri.path
     else:
         # Input is local path such as /home/user/myfile.parquet
-        fs = LocalFileSystem.get_instance()
+        fs = LocalFileSystem._get_instance()
         fs_path = path
 
     return fs, fs_path

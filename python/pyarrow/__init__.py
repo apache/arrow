@@ -32,6 +32,7 @@ For more information see the official page at https://arrow.apache.org
 import gc as _gc
 import os as _os
 import sys as _sys
+import warnings as _warnings
 
 try:
     from ._generated_version import version as __version__
@@ -190,22 +191,52 @@ from pyarrow.lib import (deserialize_from, deserialize,
                          SerializationCallbackError,
                          DeserializationCallbackError)
 
-from pyarrow.filesystem import FileSystem, LocalFileSystem
-
-from pyarrow.hdfs import HadoopFileSystem
 import pyarrow.hdfs as hdfs
 
 from pyarrow.ipc import serialize_pandas, deserialize_pandas
 import pyarrow.ipc as ipc
-
-
-localfs = LocalFileSystem.get_instance()
 
 from pyarrow.serialization import (default_serialization_context,
                                    register_default_serialization_handlers,
                                    register_torch_serialization_handlers)
 
 import pyarrow.types as types
+
+
+# deprecated filesystems
+
+from pyarrow.filesystem import FileSystem as _FileSystem, LocalFileSystem as _LocalFileSystem
+from pyarrow.hdfs import HadoopFileSystem as _HadoopFileSystem
+
+_localfs = _LocalFileSystem._get_instance()
+
+
+_msg = "pyarrow.{0} is deprecated as of 2.0.0, please use pyarrow.fs.{1} instead."
+
+_deprecated = {
+    "localfs": (_localfs, "LocalFileSystem"),
+    "FileSystem": (_FileSystem, "FileSystem"),
+    "LocalFileSystem": (_LocalFileSystem, "LocalFileSystem"),
+    "HadoopFileSystem": (_HadoopFileSystem, "HadoopFileSystem"),
+}
+
+if _sys.version_info >= (3, 7):
+    def __getattr__(name):
+        if name in _deprecated:
+            obj, new_name = _deprecated[name]
+            _warnings.warn(_msg.format(name, new_name),
+                           DeprecationWarning, stacklevel=2)
+            return obj
+
+        raise AttributeError(
+            "module 'pyarrow' has no attribute '{0}'".format(name)
+        )
+else:
+    localfs = _localfs
+    FileSystem = _FileSystem
+    LocalFileSystem = _LocalFileSystem
+    HadoopFileSystem = _HadoopFileSystem
+
 
 # Entry point for starting the plasma store
 
