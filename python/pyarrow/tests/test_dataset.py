@@ -1098,32 +1098,22 @@ def test_partitioning_factory(mockfs):
     assert isinstance(hive_partitioning_factory, ds.PartitioningFactory)
 
 
-def test_partitioning_factory_dictionary(mockfs):
+@pytest.mark.parametrize('infer_dictionary', [False, True])
+def test_partitioning_factory_dictionary(mockfs, infer_dictionary):
     paths_or_selector = fs.FileSelector('subdir', recursive=True)
     format = ds.ParquetFileFormat()
     options = ds.FileSystemFactoryOptions('subdir')
 
-    max_size_to_inferred_type = {
-        0: pa.string(),
-        1: pa.string(),
-        2: pa.dictionary(pa.int32(), pa.string()),
-        64: pa.dictionary(pa.int32(), pa.string()),
-        None: pa.dictionary(pa.int32(), pa.string()),
-    }
+    options.partitioning_factory = ds.DirectoryPartitioning.discover(
+        ['group', 'key'], infer_dictionary=infer_dictionary)
 
-    for max_size, expected_type in max_size_to_inferred_type.items():
-        options.partitioning_factory = ds.DirectoryPartitioning.discover(
-            ['group', 'key'],
-            max_partition_dictionary_size=max_size)
+    factory = ds.FileSystemDatasetFactory(
+        mockfs, paths_or_selector, format, options)
 
-        factory = ds.FileSystemDatasetFactory(
-            mockfs, paths_or_selector, format, options)
-
-        inferred_schema = factory.inspect()
+    inferred_schema = factory.inspect()
+    if infer_dictionary:
+        expected_type = pa.dictionary(pa.int32(), pa.string())
         assert inferred_schema.field('key').type == expected_type
-
-        if expected_type == pa.string():
-            continue
 
         table = factory.finish().to_table().combine_chunks()
         actual = table.column('key').chunk(0)
@@ -1135,6 +1125,8 @@ def test_partitioning_factory_dictionary(mockfs):
         actual = table.column('key').chunk(0)
         expected = expected.slice(0, 5)
         assert actual.equals(expected)
+    else:
+        assert inferred_schema.field('key').type == pa.string()
 
 
 def test_partitioning_function():
@@ -1510,33 +1502,34 @@ def test_open_dataset_partitioned_dictionary_type(tempdir, partitioning,
     import pyarrow.parquet as pq
     table = pa.table({'a': range(9), 'b': [0.] * 4 + [1.] * 5})
 
+    if partitioning == "directory":
+        partitioning = ds.DirectoryPartitioning.discover(
+            ["part1", "part2"], infer_dictionary=True)
+        fmt = "{0}/{1}"
+    else:
+        partitioning = ds.HivePartitioning.discover(infer_dictionary=True)
+        fmt = "part1={0}/part2={1}"
+
     basepath = tempdir / "dataset"
     basepath.mkdir()
 
     part_keys1, part_keys2 = partition_keys
     for part1 in part_keys1:
         for part2 in part_keys2:
-            if partitioning == 'directory':
-                fmt = "{0}/{1}"
-            else:
-                fmt = "part1={0}/part2={1}"
             path = basepath / fmt.format(part1, part2)
             path.mkdir(parents=True)
             pq.write_table(table, path / "test.parquet")
 
-    if partitioning == "directory":
-        part = ds.DirectoryPartitioning.discover(
-            ["part1", "part2"], max_partition_dictionary_size=None)
-    else:
-        part = ds.HivePartitioning.discover(max_partition_dictionary_size=None)
+    dataset = ds.dataset(str(basepath), partitioning=partitioning)
 
-    dataset = ds.dataset(str(basepath), partitioning=part)
-
-    dict_type = pa.dictionary(pa.int32(), pa.string())
-    part_type1 = dict_type if isinstance(part_keys1[0], str) else pa.int32()
-    part_type2 = dict_type if isinstance(part_keys2[0], str) else pa.int32()
+    def dict_type(key):
+        value_type = pa.string() if isinstance(key, str) else pa.int32()
+        return pa.dictionary(pa.int32(), value_type)
     expected_schema = table.schema.append(
-        pa.field("part1", part_type1)).append(pa.field("part2", part_type2))
+        pa.field("part1", dict_type(part_keys1[0]))
+    ).append(
+        pa.field("part2", dict_type(part_keys2[0]))
+    )
     assert dataset.schema.equals(expected_schema)
 
 

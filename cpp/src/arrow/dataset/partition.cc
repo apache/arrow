@@ -28,6 +28,7 @@
 #include "arrow/array/array_base.h"
 #include "arrow/array/array_nested.h"
 #include "arrow/array/builder_binary.h"
+#include "arrow/array/builder_dict.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/file_base.h"
@@ -39,6 +40,7 @@
 #include "arrow/scalar.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/make_unique.h"
 #include "arrow/util/range.h"
 #include "arrow/util/sort.h"
 #include "arrow/util/string_view.h"
@@ -306,75 +308,61 @@ Result<std::string> DirectoryPartitioning::FormatValues(
   return fs::internal::JoinAbstractPath(std::move(segments));
 }
 
-class KeyValuePartitioningInspectImpl {
- public:
-  explicit KeyValuePartitioningInspectImpl(const PartitioningFactoryOptions& options)
+class KeyValuePartitioningFactory : public PartitioningFactory {
+ protected:
+  explicit KeyValuePartitioningFactory(PartitioningFactoryOptions options)
       : options_(options) {}
 
-  static Result<std::shared_ptr<DataType>> InferType(const std::string& name,
-                                                     const std::set<std::string>& reprs,
-                                                     int max_partition_dictionary_size) {
-    if (reprs.empty()) {
-      return Status::Invalid("No segments were available for field '", name,
-                             "'; couldn't infer type");
-    }
-
-    bool all_integral = std::all_of(reprs.begin(), reprs.end(), [](string_view repr) {
-      // TODO(bkietz) use ParseUnsigned or so
-      return repr.find_first_not_of("0123456789") == string_view::npos;
-    });
-
-    if (all_integral) {
-      return int32();
-    }
-
-    if (reprs.size() > static_cast<size_t>(max_partition_dictionary_size)) {
-      return utf8();
-    }
-
-    return dictionary(int32(), utf8());
-  }
-
   int GetOrInsertField(const std::string& name) {
-    auto name_index =
-        name_to_index_.emplace(name, static_cast<int>(name_to_index_.size())).first;
+    auto it_inserted =
+        name_to_index_.emplace(name, static_cast<int>(name_to_index_.size()));
 
-    if (static_cast<size_t>(name_index->second) >= values_.size()) {
-      values_.resize(name_index->second + 1);
+    if (it_inserted.second) {
+      repr_memos_.push_back(MakeMemo());
     }
-    return name_index->second;
+
+    return it_inserted.first->second;
   }
 
-  void InsertRepr(const std::string& name, std::string repr) {
-    InsertRepr(GetOrInsertField(name), std::move(repr));
+  Status InsertRepr(const std::string& name, util::string_view repr) {
+    return InsertRepr(GetOrInsertField(name), repr);
   }
 
-  void InsertRepr(int index, std::string repr) { values_[index].insert(std::move(repr)); }
+  Status InsertRepr(int index, util::string_view repr) {
+    int dummy;
+    return repr_memos_[index]->GetOrInsert<StringType>(repr, &dummy);
+  }
 
-  Result<std::shared_ptr<Schema>> Finish(ArrayVector* dictionaries) {
-    dictionaries->clear();
-
-    if (options_.max_partition_dictionary_size != 0) {
-      dictionaries->resize(name_to_index_.size());
-    }
+  Result<std::shared_ptr<Schema>> DoInpsect() {
+    dictionaries_.assign(name_to_index_.size(), nullptr);
 
     std::vector<std::shared_ptr<Field>> fields(name_to_index_.size());
 
     for (const auto& name_index : name_to_index_) {
       const auto& name = name_index.first;
       auto index = name_index.second;
-      ARROW_ASSIGN_OR_RAISE(auto type, InferType(name, values_[index],
-                                                 options_.max_partition_dictionary_size));
-      if (type->id() == Type::DICTIONARY) {
-        StringBuilder builder;
-        for (const auto& repr : values_[index]) {
-          RETURN_NOT_OK(builder.Append(repr));
-        }
-        RETURN_NOT_OK(builder.Finish(&dictionaries->at(index)));
+
+      std::shared_ptr<ArrayData> reprs;
+      RETURN_NOT_OK(repr_memos_[index]->GetArrayData(0, &reprs));
+
+      if (reprs->length == 0) {
+        return Status::Invalid("No segments were available for field '", name,
+                               "'; couldn't infer type");
       }
+
+      // try casting to int32, otherwise bail and just use the string reprs
+      auto dict = compute::Cast(reprs, int32()).ValueOr(reprs).make_array();
+      auto type = dict->type();
+      if (options_.infer_dictionary) {
+        // wrap the inferred type in dictionary()
+        type = dictionary(int32(), std::move(type));
+      }
+
       fields[index] = field(name, std::move(type));
+      dictionaries_[index] = std::move(dict);
     }
 
+    Reset();
     return ::arrow::schema(std::move(fields));
   }
 
@@ -387,38 +375,44 @@ class KeyValuePartitioningInspectImpl {
     return names;
   }
 
- private:
+  virtual void Reset() {
+    name_to_index_.clear();
+    repr_memos_.clear();
+  }
+
+  std::unique_ptr<internal::DictionaryMemoTable> MakeMemo() {
+    return internal::make_unique<internal::DictionaryMemoTable>(default_memory_pool(),
+                                                                utf8());
+  }
+
+  PartitioningFactoryOptions options_;
+  ArrayVector dictionaries_;
   std::unordered_map<std::string, int> name_to_index_;
-  std::vector<std::set<std::string>> values_;
-  const PartitioningFactoryOptions& options_;
+  std::vector<std::unique_ptr<internal::DictionaryMemoTable>> repr_memos_;
 };
 
-class DirectoryPartitioningFactory : public PartitioningFactory {
+class DirectoryPartitioningFactory : public KeyValuePartitioningFactory {
  public:
   DirectoryPartitioningFactory(std::vector<std::string> field_names,
                                PartitioningFactoryOptions options)
-      : field_names_(std::move(field_names)), options_(options) {}
+      : KeyValuePartitioningFactory(options), field_names_(std::move(field_names)) {
+    Reset();
+  }
 
   std::string type_name() const override { return "schema"; }
 
   Result<std::shared_ptr<Schema>> Inspect(
       const std::vector<std::string>& paths) override {
-    KeyValuePartitioningInspectImpl impl(options_);
-
-    for (const auto& name : field_names_) {
-      impl.GetOrInsertField(name);
-    }
-
     for (auto path : paths) {
       size_t field_index = 0;
       for (auto&& segment : fs::internal::SplitAbstractPath(path)) {
         if (field_index == field_names_.size()) break;
 
-        impl.InsertRepr(static_cast<int>(field_index++), std::move(segment));
+        RETURN_NOT_OK(InsertRepr(static_cast<int>(field_index++), segment));
       }
     }
 
-    return impl.Finish(&dictionaries_);
+    return DoInpsect();
   }
 
   Result<std::shared_ptr<Partitioning>> Finish(
@@ -435,9 +429,15 @@ class DirectoryPartitioningFactory : public PartitioningFactory {
   }
 
  private:
+  void Reset() override {
+    KeyValuePartitioningFactory::Reset();
+
+    for (const auto& name : field_names_) {
+      GetOrInsertField(name);
+    }
+  }
+
   std::vector<std::string> field_names_;
-  ArrayVector dictionaries_;
-  PartitioningFactoryOptions options_;
 };
 
 std::shared_ptr<PartitioningFactory> DirectoryPartitioning::MakeFactory(
@@ -490,27 +490,25 @@ Result<std::string> HivePartitioning::FormatValues(
   return fs::internal::JoinAbstractPath(std::move(segments));
 }
 
-class HivePartitioningFactory : public PartitioningFactory {
+class HivePartitioningFactory : public KeyValuePartitioningFactory {
  public:
   explicit HivePartitioningFactory(PartitioningFactoryOptions options)
-      : options_(options) {}
+      : KeyValuePartitioningFactory(options) {}
 
   std::string type_name() const override { return "hive"; }
 
   Result<std::shared_ptr<Schema>> Inspect(
       const std::vector<std::string>& paths) override {
-    KeyValuePartitioningInspectImpl impl(options_);
-
     for (auto path : paths) {
       for (auto&& segment : fs::internal::SplitAbstractPath(path)) {
         if (auto key = HivePartitioning::ParseKey(segment)) {
-          impl.InsertRepr(key->name, key->value);
+          RETURN_NOT_OK(InsertRepr(key->name, key->value));
         }
       }
     }
 
-    field_names_ = impl.FieldNames();
-    return impl.Finish(&dictionaries_);
+    field_names_ = FieldNames();
+    return DoInpsect();
   }
 
   Result<std::shared_ptr<Partitioning>> Finish(
@@ -520,7 +518,7 @@ class HivePartitioningFactory : public PartitioningFactory {
     } else {
       for (FieldRef ref : field_names_) {
         // ensure all of field_names_ are present in schema
-        RETURN_NOT_OK(ref.FindOne(*schema).status());
+        RETURN_NOT_OK(ref.FindOne(*schema));
       }
 
       // drop fields which aren't in field_names_
@@ -532,8 +530,6 @@ class HivePartitioningFactory : public PartitioningFactory {
 
  private:
   std::vector<std::string> field_names_;
-  ArrayVector dictionaries_;
-  PartitioningFactoryOptions options_;
 };
 
 std::shared_ptr<PartitioningFactory> HivePartitioning::MakeFactory(
