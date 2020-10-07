@@ -18,11 +18,7 @@
 //! Contains file reader API and provides methods to access file metadata, row group
 //! readers to read individual column chunks, or access record iterator.
 
-use std::{
-    boxed::Box,
-    io::{Read, Seek},
-    rc::Rc,
-};
+use std::{boxed::Box, io::Read, rc::Rc};
 
 use crate::column::page::PageIterator;
 use crate::column::{page::PageReader, reader::ColumnReader};
@@ -44,22 +40,17 @@ pub trait Length {
     fn len(&self) -> u64;
 }
 
-pub trait ReadChunck: Read + Length {}
-pub trait ReadSeekChunck: ReadChunck + Seek {}
-impl<T: Read + Length> ReadChunck for T {}
-impl<T: ReadChunck + Seek> ReadSeekChunck for T {}
+pub trait ReadChunk: Read + Length {}
+impl<T: Read + Length> ReadChunk for T {}
 
-/// The ChunckReader trait generates readers of chuncks of a source.
-/// For a file system reader, each chunck might contain a clone of File bounded on a given range.
+/// The ChunkReader trait generates readers of chunks of a source.
+/// For a file system reader, each chunk might contain a clone of File bounded on a given range.
 /// For an object store reader, each read can be mapped to a range request.
-pub trait ChunckReader: Length {
-    type T: ReadChunck;
-    type U: ReadSeekChunck;
+pub trait ChunkReader: Length {
+    type T: ReadChunk;
     /// get a serialy readeable view of the current reader
     /// if the current reader is seekeable without buffering, you can simply return get_read_seek
     fn get_read(&self, start: u64, length: usize) -> Result<Self::T>;
-    /// get a readeable seekeable view of the current reader
-    fn get_read_seek(&self, start: u64, length: usize) -> Result<Self::U>;
 }
 
 // ----------------------------------------------------------------------

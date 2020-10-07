@@ -18,7 +18,7 @@
 //! Contains file reader implementations and provides methods to access file metadata, row group
 //! readers to read individual column chunks, or access record iterator.
 
-use std::{cmp::min, convert::TryFrom, fs::File, io::Read, path::Path, rc::Rc};
+use std::{convert::TryFrom, fs::File, io::Read, path::Path, rc::Rc};
 
 use parquet_format::{PageHeader, PageType};
 use thrift::protocol::TCompactInputProtocol;
@@ -27,7 +27,7 @@ use crate::basic::{Compression, Encoding, Type};
 use crate::column::page::{Page, PageReader};
 use crate::compression::{create_codec, Codec};
 use crate::errors::{ParquetError, Result};
-use crate::file::{footer, metadata::*, reader::*, statistics, DEFAULT_FOOTER_SIZE};
+use crate::file::{footer, metadata::*, reader::*, statistics};
 use crate::record::reader::RowIter;
 use crate::record::Row;
 use crate::schema::types::Type as SchemaType;
@@ -52,14 +52,10 @@ impl TryClone for File {
     }
 }
 
-impl ChunckReader for File {
+impl ChunkReader for File {
     type T = FileSource<File>;
-    type U = FileSource<File>;
 
     fn get_read(&self, start: u64, length: usize) -> Result<Self::T> {
-        self.get_read_seek(start, length)
-    }
-    fn get_read_seek(&self, start: u64, length: usize) -> Result<Self::U> {
         Ok(FileSource::new(self, start, length))
     }
 }
@@ -70,14 +66,10 @@ impl Length for SliceableCursor {
     }
 }
 
-impl ChunckReader for SliceableCursor {
+impl ChunkReader for SliceableCursor {
     type T = SliceableCursor;
-    type U = SliceableCursor;
 
     fn get_read(&self, start: u64, length: usize) -> Result<Self::T> {
-        self.get_read_seek(start, length)
-    }
-    fn get_read_seek(&self, start: u64, length: usize) -> Result<Self::U> {
         self.slice(start, length).map_err(|e| e.into())
     }
 }
@@ -130,22 +122,16 @@ impl IntoIterator for SerializedFileReader<File> {
 // Implementations of file & row group readers
 
 /// A serialized implementation for Parquet [`FileReader`].
-pub struct SerializedFileReader<R: ChunckReader> {
+pub struct SerializedFileReader<R: ChunkReader> {
     chunk_reader: Rc<R>,
     metadata: ParquetMetaData,
 }
 
-impl<R: 'static + ChunckReader> SerializedFileReader<R> {
+impl<R: 'static + ChunkReader> SerializedFileReader<R> {
     /// Creates file reader from a Parquet file.
     /// Returns error if Parquet file does not exist or is corrupt.
     pub fn new(chunk_reader: R) -> Result<Self> {
-        let mut footer_read_seek = chunk_reader.get_read_seek(
-            chunk_reader
-                .len()
-                .saturating_sub(DEFAULT_FOOTER_SIZE as u64),
-            min(DEFAULT_FOOTER_SIZE, chunk_reader.len() as usize),
-        )?;
-        let metadata = footer::parse_metadata(&mut footer_read_seek)?;
+        let metadata = footer::parse_metadata(&chunk_reader)?;
         Ok(Self {
             chunk_reader: Rc::new(chunk_reader),
             metadata,
@@ -153,7 +139,7 @@ impl<R: 'static + ChunckReader> SerializedFileReader<R> {
     }
 }
 
-impl<R: 'static + ChunckReader> FileReader for SerializedFileReader<R> {
+impl<R: 'static + ChunkReader> FileReader for SerializedFileReader<R> {
     fn metadata(&self) -> &ParquetMetaData {
         &self.metadata
     }
@@ -178,12 +164,12 @@ impl<R: 'static + ChunckReader> FileReader for SerializedFileReader<R> {
 }
 
 /// A serialized implementation for Parquet [`RowGroupReader`].
-pub struct SerializedRowGroupReader<'a, R: ChunckReader> {
+pub struct SerializedRowGroupReader<'a, R: ChunkReader> {
     chunk_reader: Rc<R>,
     metadata: &'a RowGroupMetaData,
 }
 
-impl<'a, R: ChunckReader> SerializedRowGroupReader<'a, R> {
+impl<'a, R: ChunkReader> SerializedRowGroupReader<'a, R> {
     /// Creates new row group reader from a file and row group metadata.
     fn new(chunk_reader: Rc<R>, metadata: &'a RowGroupMetaData) -> Self {
         Self {
@@ -193,7 +179,7 @@ impl<'a, R: ChunckReader> SerializedRowGroupReader<'a, R> {
     }
 }
 
-impl<'a, R: 'static + ChunckReader> RowGroupReader for SerializedRowGroupReader<'a, R> {
+impl<'a, R: 'static + ChunkReader> RowGroupReader for SerializedRowGroupReader<'a, R> {
     fn metadata(&self) -> &RowGroupMetaData {
         &self.metadata
     }
@@ -398,19 +384,8 @@ mod tests {
     use crate::basic::ColumnOrder;
     use crate::record::RowAccessor;
     use crate::schema::parser::parse_message_type;
-    use crate::util::test_common::{get_temp_file, get_test_file, get_test_path};
+    use crate::util::test_common::{get_test_file, get_test_path};
     use std::rc::Rc;
-
-    #[test]
-    fn test_file_reader_metadata_size_smaller_than_footer() {
-        let test_file = get_temp_file("corrupt-1.parquet", &[]);
-        let reader_result = SerializedFileReader::new(test_file);
-        assert!(reader_result.is_err());
-        assert_eq!(
-            reader_result.err().unwrap(),
-            general_err!("Invalid Parquet file. Size is smaller than footer")
-        );
-    }
 
     #[test]
     fn test_cursor_and_file_has_the_same_behaviour() {
@@ -428,43 +403,6 @@ mod tests {
         let cursor_iter = read_from_cursor.get_row_iter(None).unwrap();
 
         assert!(file_iter.eq(cursor_iter));
-    }
-
-    #[test]
-    fn test_file_reader_metadata_corrupt_footer() {
-        let test_file = get_temp_file("corrupt-2.parquet", &[1, 2, 3, 4, 5, 6, 7, 8]);
-        let reader_result = SerializedFileReader::new(test_file);
-        assert!(reader_result.is_err());
-        assert_eq!(
-            reader_result.err().unwrap(),
-            general_err!("Invalid Parquet file. Corrupt footer")
-        );
-    }
-
-    #[test]
-    fn test_file_reader_metadata_invalid_length() {
-        let test_file =
-            get_temp_file("corrupt-3.parquet", &[0, 0, 0, 255, b'P', b'A', b'R', b'1']);
-        let reader_result = SerializedFileReader::new(test_file);
-        assert!(reader_result.is_err());
-        assert_eq!(
-            reader_result.err().unwrap(),
-            general_err!(
-                "Invalid Parquet file. Metadata length is less than zero (-16777216)"
-            )
-        );
-    }
-
-    #[test]
-    fn test_file_reader_metadata_invalid_start() {
-        let test_file =
-            get_temp_file("corrupt-4.parquet", &[255, 0, 0, 0, b'P', b'A', b'R', b'1']);
-        let reader_result = SerializedFileReader::new(test_file);
-        assert!(reader_result.is_err());
-        assert_eq!(
-            reader_result.err().unwrap(),
-            general_err!("Invalid Parquet file. Metadata start is less than zero (-255)")
-        );
     }
 
     #[test]
