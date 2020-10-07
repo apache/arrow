@@ -213,25 +213,20 @@ _localfs = _LocalFileSystem._get_instance()
 
 _msg = "pyarrow.{0} is deprecated as of 2.0.0, please use pyarrow.fs.{1} instead."
 
+_deprecated = {
+    "localfs": (_localfs, "LocalFileSystem"),
+    "FileSystem": (_FileSystem, "FileSystem"),
+    "LocalFileSystem": (_LocalFileSystem, "LocalFileSystem"),
+    "HadoopFileSystem": (_HadoopFileSystem, "HadoopFileSystem"),
+}
 
 if _sys.version_info >= (3, 7):
     def __getattr__(name):
-        if name == "localfs":
-            _warnings.warn(_msg.format("localfs", "LocalFileSystem"),
+        if name in _deprecated:
+            obj, new_name = _deprecated[name]
+            _warnings.warn(_msg.format(name, new_name),
                            DeprecationWarning, stacklevel=2)
-            return _localfs
-        elif name == "FileSystem":
-            _warnings.warn(_msg.format("FileSystem", "FileSystem"),
-                           DeprecationWarning, stacklevel=2)
-            return _FileSystem
-        elif name == "LocalFileSystem":
-            _warnings.warn(_msg.format("LocalFileSystem", "LocalFileSystem"),
-                           DeprecationWarning, stacklevel=2)
-            return _LocalFileSystem
-        elif name == "HadoopFileSystem":
-            _warnings.warn(_msg.format("HadoopFileSystem", "HadoopFileSystem"),
-                           DeprecationWarning, stacklevel=2)
-            return _HadoopFileSystem
+            return obj
 
         raise AttributeError(
             "module 'pyarrow' has no attribute '{0}'".format(name)
