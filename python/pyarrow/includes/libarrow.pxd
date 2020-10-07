@@ -1714,6 +1714,11 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
             "arrow::compute::StrptimeOptions"(CFunctionOptions):
         CStrptimeOptions(c_string format, TimeUnit unit)
 
+    cdef cppclass CVarianceOptions \
+            "arrow::compute::VarianceOptions"(CFunctionOptions):
+        CVarianceOptions(int ddof)
+        int ddof
+
     enum CMinMaxMode \
             "arrow::compute::MinMaxOptions::Mode":
         CMinMaxMode_SKIP \

@@ -31,7 +31,9 @@ Aggregations
    mean
    min_max
    mode
+   stddev
    sum
+   variance
 
 Arithmetic Functions
 --------------------

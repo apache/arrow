@@ -36,6 +36,7 @@ from pyarrow._compute import (  # noqa
     SetLookupOptions,
     StrptimeOptions,
     TakeOptions,
+    VarianceOptions,
     # Functions
     function_registry,
     call_function,
@@ -103,8 +104,10 @@ _option_classes = {
     'match_substring': MatchSubstringOptions,
     'min_max': MinMaxOptions,
     'partition_nth_indices': PartitionNthOptions,
+    'stddev': VarianceOptions,
     'strptime': StrptimeOptions,
     'take': TakeOptions,
+    'variance': VarianceOptions,
 }
 
 
