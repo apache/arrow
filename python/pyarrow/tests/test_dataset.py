@@ -844,7 +844,7 @@ def test_parquet_fragment_num_row_groups(tempdir):
     # create fragment with subset of row groups
     fragment = original_fragment.format.make_fragment(
         original_fragment.path, original_fragment.filesystem,
-          row_groups=[1, 3])
+        row_groups=[1, 3])
     assert fragment.num_row_groups == 2
     # ensure that parsing metadata preserves correct number of row groups
     fragment.ensure_complete_metadata()
