@@ -34,7 +34,7 @@ addons:
       - python@3.8
       - thrift
       - wget
-    update: true
+    update: false
 
 # don't build twice
 if: tag IS blank
