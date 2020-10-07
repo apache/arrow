@@ -88,18 +88,6 @@ export class ToArrayVisitor extends Visitor {}
 
 /** @ignore */
 function arrayOfVector<T extends DataType>(vector: VectorType<T>): T['TArray'] {
-
-    const { type, length, stride } = vector;
-
-    // Fast case, return subarray if possible
-    switch (type.typeId) {
-        case Type.Int:
-        case Type.Float: case Type.Decimal:
-        case Type.Time: case Type.Timestamp:
-            return vector.data.values.subarray(0, length * stride);
-    }
-
-    // Otherwise if not primitive, slow copy
     return [...iteratorVisitor.visit(vector)] as T['TArray'];
 }
 
