@@ -34,8 +34,8 @@
 #include <grpc++/grpc++.h>
 #endif
 
-#include "grpc/grpc_security_constants.h"
-#include "grpcpp/security/tls_credentials_options.h"
+#include <grpc/grpc_security_constants.h>
+#include <grpcpp/security/tls_credentials_options.h>
 
 #include "arrow/buffer.h"
 #include "arrow/ipc/reader.h"
