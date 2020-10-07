@@ -15,41 +15,69 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/json/object_writer.h"
+#include "arrow/json/rapidjson_defs.h"  // IWYU pragma: keep
 
+#include <rapidjson/document.h>
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
 
+#include "arrow/json/object_writer.h"
+
+namespace rj = arrow::rapidjson;
+
 namespace arrow {
 namespace json {
+namespace internal {
 
-ObjectWriter::ObjectWriter() : _root(rj::kObjectType) {}
+class ObjectWriter::Impl {
+ public:
+  Impl() : root_(rj::kObjectType) {}
+
+  void SetString(arrow::util::string_view key, arrow::util::string_view value) {
+    rj::Document::AllocatorType& allocator = document_.GetAllocator();
+
+    rj::Value str_key(key.data(), allocator);
+    rj::Value str_value(value.data(), allocator);
+
+    root_.AddMember(str_key, str_value, allocator);
+  }
+
+  void SetBool(arrow::util::string_view key, bool value) {
+    rj::Document::AllocatorType& allocator = document_.GetAllocator();
+
+    rj::Value str_key(key.data(), allocator);
+
+    root_.AddMember(str_key, value, allocator);
+  }
+
+  std::string Serialize() {
+    rj::StringBuffer buffer;
+    rj::Writer<rj::StringBuffer> writer(buffer);
+    root_.Accept(writer);
+
+    return buffer.GetString();
+  }
+
+ private:
+  rj::Document document_;
+  rj::Value root_;
+};
+
+ObjectWriter::ObjectWriter() : impl_(new ObjectWriter::Impl()) {}
+
+ObjectWriter::~ObjectWriter() = default;
 
 void ObjectWriter::SetString(arrow::util::string_view key,
                              arrow::util::string_view value) {
-  rj::Document::AllocatorType& allocator = _document.GetAllocator();
-
-  rj::Value str_key(key.data(), allocator);
-  rj::Value str_value(value.data(), allocator);
-
-  _root.AddMember(str_key, str_value, allocator);
+  impl_->SetString(key, value);
 }
 
 void ObjectWriter::SetBool(arrow::util::string_view key, bool value) {
-  rj::Document::AllocatorType& allocator = _document.GetAllocator();
-
-  rj::Value str_key(key.data(), allocator);
-
-  _root.AddMember(str_key, value, allocator);
+  impl_->SetBool(key, value);
 }
 
-std::string ObjectWriter::Serialize() {
-  rj::StringBuffer buffer;
-  rj::Writer<rj::StringBuffer> writer(buffer);
-  _root.Accept(writer);
+std::string ObjectWriter::Serialize() { return impl_->Serialize(); }
 
-  return buffer.GetString();
-}
-
+}  // namespace internal
 }  // namespace json
 }  // namespace arrow

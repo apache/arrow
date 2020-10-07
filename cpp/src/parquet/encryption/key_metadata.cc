@@ -21,8 +21,8 @@
 #include "parquet/encryption/key_metadata.h"
 #include "parquet/exception.h"
 
-using arrow::json::ObjectParser;
-using arrow::json::ObjectWriter;
+using arrow::json::internal::ObjectParser;
+using arrow::json::internal::ObjectWriter;
 
 namespace parquet {
 namespace encryption {
@@ -38,7 +38,8 @@ KeyMetadata::KeyMetadata(const KeyMaterial& key_material)
 
 KeyMetadata KeyMetadata::Parse(const std::string& key_metadata) {
   ObjectParser json_parser;
-  if (!json_parser.Parse(key_metadata)) {
+  arrow::Status status = json_parser.Parse(key_metadata);
+  if (!status.ok()) {
     throw ParquetException("Failed to parse key metadata " + key_metadata);
   }
 

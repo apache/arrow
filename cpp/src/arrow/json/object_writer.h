@@ -17,21 +17,21 @@
 
 #pragma once
 
-#include "arrow/json/rapidjson_defs.h"  // IWYU pragma: keep
-
-#include <rapidjson/document.h>
+#include <memory>
 
 #include "arrow/util/string_view.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
 namespace json {
+namespace internal {
 
-namespace rj = arrow::rapidjson;
-
+/// This class is a helper to serialize a json object to a string.
+/// It uses rapidjson in implementation.
 class ARROW_EXPORT ObjectWriter {
  public:
   ObjectWriter();
+  ~ObjectWriter();
 
   void SetString(arrow::util::string_view key, arrow::util::string_view value);
   void SetBool(arrow::util::string_view key, bool value);
@@ -39,9 +39,10 @@ class ARROW_EXPORT ObjectWriter {
   std::string Serialize();
 
  private:
-  rj::Document _document;
-  rj::Value _root;
+  class Impl;
+  std::unique_ptr<Impl> impl_;
 };
 
+}  // namespace internal
 }  // namespace json
 }  // namespace arrow

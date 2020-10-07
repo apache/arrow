@@ -17,48 +17,80 @@
 
 #include <sstream>
 
+#include "arrow/json/rapidjson_defs.h"  // IWYU pragma: keep
+
+#include <rapidjson/document.h>
+
 #include "arrow/json/object_parser.h"
 
 namespace arrow {
-
 namespace json {
+namespace internal {
 
-bool ObjectParser::Parse(arrow::util::string_view json) {
-  _document.Parse(reinterpret_cast<const rj::Document::Ch*>(json.data()),
-                  static_cast<size_t>(json.size()));
+namespace rj = arrow::rapidjson;
 
-  if (_document.HasParseError() || !_document.IsObject()) {
-    return false;
+class ObjectParser::Impl {
+ public:
+  Status Parse(arrow::util::string_view json) {
+    document_.Parse(reinterpret_cast<const rj::Document::Ch*>(json.data()),
+                    static_cast<size_t>(json.size()));
+
+    if (document_.HasParseError()) {
+      std::ostringstream ss;
+      ss << "Json parse error (offset " << (unsigned)document_.GetErrorOffset()
+         << "): " << document_.GetParseError();
+      return Status(StatusCode::TypeError, ss.str());
+    }
+
+    if (!document_.IsObject()) {
+      return Status(StatusCode::TypeError, "Not a json object.");
+    }
+
+    return Status::OK();
   }
-  return true;
-}
+
+  Result<std::string> GetString(const char* key) const {
+    std::ostringstream ss;
+    if (!document_.HasMember(key)) {
+      ss << key << " does not exist";
+      return Result<std::string>(Status(StatusCode::KeyError, ss.str()));
+    }
+    if (!document_[key].IsString()) {
+      ss << key << " is not a string";
+      return Result<std::string>(Status(StatusCode::TypeError, ss.str()));
+    }
+    return Result<std::string>(document_[key].GetString());
+  }
+
+  Result<bool> GetBool(const char* key) const {
+    std::ostringstream ss;
+    if (!document_.HasMember(key)) {
+      ss << key << " does not exist";
+      return Result<bool>(Status(StatusCode::KeyError, ss.str()));
+    }
+    if (!document_[key].IsBool()) {
+      ss << key << " is not a boolean";
+      return Result<bool>(Status(StatusCode::TypeError, ss.str()));
+    }
+    return Result<bool>(document_[key].GetBool());
+  }
+
+ private:
+  rj::Document document_;
+};
+
+ObjectParser::ObjectParser() : impl_(new ObjectParser::Impl()) {}
+
+ObjectParser::~ObjectParser() = default;
+
+Status ObjectParser::Parse(arrow::util::string_view json) { return impl_->Parse(json); }
 
 Result<std::string> ObjectParser::GetString(const char* key) const {
-  std::ostringstream ss;
-  if (!_document.HasMember(key)) {
-    ss << key << " does not exist";
-    return Result<std::string>(Status(StatusCode::KeyError, ss.str()));
-  }
-  if (!_document[key].IsString()) {
-    ss << key << " is not a string";
-    return Result<std::string>(Status(StatusCode::TypeError, ss.str()));
-  }
-  return Result<std::string>(_document[key].GetString());
+  return impl_->GetString(key);
 }
 
-Result<bool> ObjectParser::GetBool(const char* key) const {
-  std::ostringstream ss;
-  if (!_document.HasMember(key)) {
-    ss << key << " does not exist";
-    return Result<bool>(Status(StatusCode::KeyError, ss.str()));
-  }
-  if (!_document[key].IsBool()) {
-    ss << key << " is not a boolean";
-    return Result<bool>(Status(StatusCode::TypeError, ss.str()));
-  }
-  return Result<bool>(_document[key].GetBool());
-}
+Result<bool> ObjectParser::GetBool(const char* key) const { return impl_->GetBool(key); }
 
+}  // namespace internal
 }  // namespace json
-
 }  // namespace arrow

@@ -17,9 +17,7 @@
 
 #pragma once
 
-#include "arrow/json/rapidjson_defs.h"  // IWYU pragma: keep
-
-#include <rapidjson/document.h>
+#include <memory>
 
 #include "arrow/result.h"
 #include "arrow/util/string_view.h"
@@ -27,19 +25,25 @@
 
 namespace arrow {
 namespace json {
+namespace internal {
 
-namespace rj = arrow::rapidjson;
-
+/// This class is a helper to parse a json object from a string.
+/// It uses rapidjson::Document in implementation.
 class ARROW_EXPORT ObjectParser {
  public:
-  bool Parse(arrow::util::string_view json);
+  ObjectParser();
+  ~ObjectParser();
+
+  Status Parse(arrow::util::string_view json);
 
   Result<std::string> GetString(const char* key) const;
   Result<bool> GetBool(const char* key) const;
 
  private:
-  rj::Document _document;
+  class Impl;
+  std::unique_ptr<Impl> impl_;
 };
 
+}  // namespace internal
 }  // namespace json
 }  // namespace arrow
