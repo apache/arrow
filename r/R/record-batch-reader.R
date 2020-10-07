@@ -140,6 +140,7 @@ RecordBatchFileReader <- R6Class("RecordBatchFileReader", inherit = ArrowObject,
   ),
   active = list(
     num_record_batches = function() ipc___RecordBatchFileReader__num_record_batches(self),
+    metadata = function() ipc___RecordBatchFileReader__metadata(self),
     schema = function() shared_ptr(Schema, ipc___RecordBatchFileReader__schema(self))
   )
 )
