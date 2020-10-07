@@ -16,7 +16,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-export GRPC_VERSION="1.29.1"
+export GRPC_VERSION="1.32.0"
 export CFLAGS="-fPIC -DGPR_MANYLINUX1=1"
 export PREFIX="/usr/local"
 
@@ -26,6 +26,7 @@ pushd grpc-${GRPC_VERSION}
 
 cmake -DCMAKE_BUILD_TYPE=Release \
       -DCMAKE_INSTALL_PREFIX=${PREFIX} \
+      -DCMAKE_PREFIX_PATH=${PREFIX} \
       -DBUILD_SHARED_LIBS=OFF \
       -DCMAKE_C_FLAGS="${CFLAGS}" \
       -DCMAKE_CXX_FLAGS="${CFLAGS}" \

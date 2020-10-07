@@ -19,8 +19,13 @@ add_custom_target(arrow_flight)
 
 arrow_install_all_headers("arrow/flight")
 
-set(ARROW_FLIGHT_STATIC_LINK_LIBS ${ARROW_PROTOBUF_LIBPROTOBUF} gRPC::grpc++ c-ares::cares
-                                  ZLIB::ZLIB)
+set(
+  ARROW_FLIGHT_STATIC_LINK_LIBS
+  ${ARROW_PROTOBUF_LIBPROTOBUF}
+  RE2::re2 # Link to RE2 before gRPC, since gRPC may have already pulled RE2 symbols in from the RE2 shared object.
+  gRPC::grpc++
+  c-ares::cares
+  ZLIB::ZLIB)
 
 if(WIN32)
   list(APPEND ARROW_FLIGHT_STATIC_LINK_LIBS ws2_32.lib)

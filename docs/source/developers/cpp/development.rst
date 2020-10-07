@@ -257,7 +257,7 @@ Arrow Flight RPC
 
 In addition to the Arrow dependencies, Flight requires:
 
-* gRPC (>= 1.14, roughly)
+* gRPC (>= 1.32.0, roughly)
 * Protobuf (>= 3.6, earlier versions may work)
 * c-ares (used by gRPC)
 
