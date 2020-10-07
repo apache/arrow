@@ -42,10 +42,16 @@ jobs:
         DOCKER_IMAGE_ID: ubuntu-cpp
         # ARROW_USE_GLOG=OFF is needed to avoid build error caused by
         # glog and CMAKE_UNITY_BUILD=ON.
+        #
+        # Disable ARROW_S3 because it often causes "No output has
+        # been received in the last 10m0s, this potentially indicates
+        # a stalled build or something wrong with the build itself."
+        # on Travis CI.
         DOCKER_RUN_ARGS: >-
           "
           -e ARROW_BUILD_STATIC=OFF
           -e ARROW_ORC=OFF
+          -e ARROW_S3=OFF
           -e ARROW_USE_GLOG=OFF
           -e CMAKE_UNITY_BUILD=ON
           "
