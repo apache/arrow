@@ -631,6 +631,12 @@ void RegisterScalarOptions(FunctionRegistry* registry) {
     return CallFunction(REGISTRY_NAME, {left, right}, ctx);                     \
   }
 
+#define SCALAR_EAGER_TERNARY(NAME, REGISTRY_NAME)                               \
+  Result<Datum> NAME(const Datum& value, const Datum& left, const Datum& right, \
+                     ExecContext* ctx) {                                        \
+    return CallFunction(REGISTRY_NAME, {value, left, right}, ctx);              \
+  }
+
 // ----------------------------------------------------------------------
 // Arithmetic
 
@@ -755,6 +761,8 @@ Result<Datum> Compare(const Datum& left, const Datum& right, CompareOptions opti
   return CallFunction(func_name, {left, right}, nullptr, ctx);
 }
 
+SCALAR_EAGER_TERNARY(Between, "between")
+
 // ----------------------------------------------------------------------
 // Validity functions
 
@@ -862,3 +870,4 @@ Result<Datum> MapLookup(const Datum& arg, MapLookupOptions options, ExecContext*
 
 }  // namespace compute
 }  // namespace arrow
+

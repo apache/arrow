@@ -294,6 +294,19 @@ def _wrap_function(name, func):
                                             options_class)
     return _decorate_compute_function(wrapper, name, func, options_class)
 
+def _simple_ternary_function(name):
+    func = get_function(name)
+    option_class = _option_classes.get(name)
+
+    if option_class is not None:
+        def wrapper(value, left, right, *, options=None, memory_pool=None, **kwargs):
+            options = _handle_options(name, option_class, options, kwargs)
+            return func.call([value, left, right], options, memory_pool)
+    else:
+        def wrapper(value, left, right, *, memory_pool=None):
+            return func.call([value, left, right], None, memory_pool)
+
+    return _decorate_compute_function(wrapper, name, func, option_class)
 
 def _make_global_functions():
     """
