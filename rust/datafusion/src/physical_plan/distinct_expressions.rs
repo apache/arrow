@@ -112,19 +112,6 @@ struct DistinctCountAccumulator {
 }
 
 impl Accumulator for DistinctCountAccumulator {
-    fn update_batch(&mut self, arrays: &Vec<ArrayRef>) -> Result<()> {
-        for row in 0..arrays[0].len() {
-            let row_values = arrays
-                .iter()
-                .map(|array| ScalarValue::try_from_array(array, row))
-                .collect::<Result<Vec<_>>>()?;
-
-            self.update(&row_values)?;
-        }
-
-        Ok(())
-    }
-
     fn update(&mut self, values: &Vec<ScalarValue>) -> Result<()> {
         // If a row has a NULL, it is not included in the final count.
         if !values.iter().any(|v| v.is_null()) {
