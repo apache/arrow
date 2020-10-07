@@ -19,6 +19,7 @@
 import os
 import inspect
 import posixpath
+import sys
 import urllib.parse
 import warnings
 
@@ -449,11 +450,8 @@ def _ensure_filesystem(fs):
             elif mro.__name__ == 'LocalFileSystem':
                 return LocalFileSystem._get_instance()
 
-        try:
-            import fsspec
-        except ImportError:
-            pass
-        else:
+        if "fsspec" in sys.modules:
+            fsspec = sys.modules["fsspec"]
             if isinstance(fs, fsspec.AbstractFileSystem):
                 # for recent fsspec versions that stop inheriting from
                 # pyarrow.filesystem.FileSystem, still allow fsspec
