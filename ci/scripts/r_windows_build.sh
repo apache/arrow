@@ -36,7 +36,7 @@ if [ "$RTOOLS_VERSION" = "35" ]; then
   sed -i -e 's,^\(Server = http://repo.msys2.org\)/,#\1,g' \
     /etc/pacman.d/mirrorlist.*
   pacman --noconfirm -Scc
-  pacman --noconfirm -Syy
+  pacman --noconfirm -Syy --verbose --debug
   # lib-4.9.3 is for libraries compiled with gcc 4.9 (Rtools 3.5)
   RWINLIB_LIB_DIR="lib-4.9.3"
 else
