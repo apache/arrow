@@ -119,13 +119,12 @@ jobs:
             debian: 10
             title: ARM32v7 Debian 10 C++
             image: |
-              -e CPP_MAKE_PARALLELISM=4 \
+              -e CPP_MAKE_PARALLELISM=2 \
               -e CXXFLAGS=-Wno-psabi \
               -e ARROW_PARQUET=OFF \
               -e ARROW_FLIGHT=OFF \
               -e ARROW_GANDIVA=OFF \
               -e ARROW_ORC=OFF \
-              -e ARROW_VERBOSE_THIRDPARTY_BUILD=ON \
               -e CMAKE_ARGS=-DARROW_CPU_FLAG=armv7 \
               debian-cpp
             arch: 'arm32v7'
