@@ -125,7 +125,7 @@ fn dict_array_value_to_string<K: ArrowPrimitiveType>(
 
     let dict_index = keys_array.value(row).to_usize().ok_or_else(|| {
         ArrowError::InvalidArgumentError(format!(
-            "Can not convert value {:?} at index {:?} to usize for repl.",
+            "Can not convert value {:?} at index {:?} to usize for string conversion.",
             keys_array.value(row),
             row
         ))
