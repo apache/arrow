@@ -26,6 +26,7 @@
 
 namespace arrow {
 namespace compute {
+namespace internal {
 
 namespace {
 
@@ -109,8 +110,6 @@ inline void VisitRawValuesInline(const ArrayType& values,
     }
   }
 }
-
-}  // namespace
 
 template <typename ArrowType>
 class CompareSorter {
@@ -281,8 +280,6 @@ struct SortIndices {
   }
 };
 
-namespace internal {
-
 // Sort indices kernels implemented for
 //
 // * Number types
@@ -302,19 +299,38 @@ void AddSortingKernels(VectorKernel base, VectorFunction* func) {
   }
 }
 
+FunctionDoc sort_indices_doc(
+    "Return the indices that would sort an array",
+    ("Compute an array of indices that define a non-stable sort\n"
+     "of the input array.  Null values are considered greater than any\n"
+     "other value and are therefore sorted at the end of the array."),
+    {"array"});
+
+FunctionDoc partition_nth_indices_doc(
+    "Return the indices that would partition an array around a pivot",
+    ("Compute an array of indices that define a non-stable partition\n"
+     "around the `N`th smallest element of the input array.\n"
+     "The pivot index `N` must be given in PartitionNthOptions.\n"
+     "Null values are considered greater than any other value and are\n"
+     "therefore partitioned towards the end of the array."),
+    {"array"}, "PartitionNthOptions");
+
+}  // namespace
+
 void RegisterVectorSort(FunctionRegistry* registry) {
   // The kernel outputs into preallocated memory and is never null
   VectorKernel base;
   base.mem_allocation = MemAllocation::PREALLOCATE;
   base.null_handling = NullHandling::OUTPUT_NOT_NULL;
 
-  auto sort_indices = std::make_shared<VectorFunction>("sort_indices", Arity::Unary());
+  auto sort_indices =
+      std::make_shared<VectorFunction>("sort_indices", Arity::Unary(), sort_indices_doc);
   AddSortingKernels<SortIndices>(base, sort_indices.get());
   DCHECK_OK(registry->AddFunction(std::move(sort_indices)));
 
   // partition_nth_indices has a parameter so needs its init function
-  auto part_indices =
-      std::make_shared<VectorFunction>("partition_nth_indices", Arity::Unary());
+  auto part_indices = std::make_shared<VectorFunction>(
+      "partition_nth_indices", Arity::Unary(), partition_nth_indices_doc);
   base.init = PartitionNthToIndicesState::Init;
   AddSortingKernels<PartitionNthToIndices>(base, part_indices.get());
   DCHECK_OK(registry->AddFunction(std::move(part_indices)));

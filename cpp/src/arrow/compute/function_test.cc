@@ -57,8 +57,8 @@ TEST(Arity, Basics) {
 }
 
 TEST(ScalarFunction, Basics) {
-  ScalarFunction func("scalar_test", Arity::Binary());
-  ScalarFunction varargs_func("varargs_test", Arity::VarArgs(1));
+  ScalarFunction func("scalar_test", Arity::Binary(), FunctionDoc{});
+  ScalarFunction varargs_func("varargs_test", Arity::VarArgs(1), FunctionDoc{});
 
   ASSERT_EQ("scalar_test", func.name());
   ASSERT_EQ(2, func.arity().num_args);
@@ -72,8 +72,8 @@ TEST(ScalarFunction, Basics) {
 }
 
 TEST(VectorFunction, Basics) {
-  VectorFunction func("vector_test", Arity::Binary());
-  VectorFunction varargs_func("varargs_test", Arity::VarArgs(1));
+  VectorFunction func("vector_test", Arity::Binary(), FunctionDoc{});
+  VectorFunction varargs_func("varargs_test", Arity::VarArgs(1), FunctionDoc{});
 
   ASSERT_EQ("vector_test", func.name());
   ASSERT_EQ(2, func.arity().num_args);
@@ -139,15 +139,15 @@ void CheckAddDispatch(FunctionType* func) {
 }
 
 TEST(ScalarVectorFunction, DispatchExact) {
-  ScalarFunction func1("scalar_test", Arity::Binary());
-  VectorFunction func2("vector_test", Arity::Binary());
+  ScalarFunction func1("scalar_test", Arity::Binary(), FunctionDoc{});
+  VectorFunction func2("vector_test", Arity::Binary(), FunctionDoc{});
 
   CheckAddDispatch(&func1);
   CheckAddDispatch(&func2);
 }
 
 TEST(ArrayFunction, VarArgs) {
-  ScalarFunction va_func("va_test", Arity::VarArgs(1));
+  ScalarFunction va_func("va_test", Arity::VarArgs(1), FunctionDoc{});
 
   std::vector<InputType> va_args = {int8()};
 
@@ -173,7 +173,7 @@ TEST(ArrayFunction, VarArgs) {
 }
 
 TEST(ScalarAggregateFunction, Basics) {
-  ScalarAggregateFunction func("agg_test", Arity::Unary());
+  ScalarAggregateFunction func("agg_test", Arity::Unary(), FunctionDoc{});
 
   ASSERT_EQ("agg_test", func.name());
   ASSERT_EQ(1, func.arity().num_args);
@@ -190,7 +190,7 @@ void NoopMerge(KernelContext*, const KernelState&, KernelState*) {}
 void NoopFinalize(KernelContext*, Datum*) {}
 
 TEST(ScalarAggregateFunction, DispatchExact) {
-  ScalarAggregateFunction func("agg_test", Arity::Unary());
+  ScalarAggregateFunction func("agg_test", Arity::Unary(), FunctionDoc{});
 
   std::vector<InputType> in_args = {ValueDescr::Array(int8())};
   ScalarAggregateKernel kernel(std::move(in_args), int64(), NoopInit, NoopConsume,

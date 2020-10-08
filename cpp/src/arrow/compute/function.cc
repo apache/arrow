@@ -120,6 +120,17 @@ Result<Datum> Function::Execute(const std::vector<Datum>& args,
   return executor->WrapResults(args, listener->values());
 }
 
+Status Function::Validate() const {
+  if (!doc_.summary.empty()) {
+    // Documentation given, check its contents
+    if (static_cast<int>(doc_.arg_names.size()) != arity_.num_args) {
+      return Status::Invalid("In function '", name_,
+                             "': ", "number of argument names != function arity");
+    }
+  }
+  return Status::OK();
+}
+
 Status ScalarFunction::AddKernel(std::vector<InputType> in_types, OutputType out_type,
                                  ArrayKernelExec exec, KernelInit init) {
   RETURN_NOT_OK(CheckArity(static_cast<int>(in_types.size())));

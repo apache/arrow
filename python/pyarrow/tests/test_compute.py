@@ -279,11 +279,14 @@ def test_is_valid():
 
 def test_generated_docstrings():
     assert pc.min_max.__doc__ == textwrap.dedent("""\
-        Call compute function 'min_max' with the given argument.
+        Compute the minimum and maximum values of a numeric array.
+
+        Null values are ignored by default.
+        This can be changed through MinMaxOptions.
 
         Parameters
         ----------
-        arg : Array-like or scalar-like
+        array : Array-like
             Argument to compute function
         memory_pool : pyarrow.MemoryPool, optional
             If not passed, will allocate memory from the default memory pool.
@@ -294,14 +297,18 @@ def test_generated_docstrings():
             or `**kwargs` can be passed, but not both at the same time.
         """)
     assert pc.add.__doc__ == textwrap.dedent("""\
-        Call compute function 'add' with the given arguments.
+        Add the elements of two arrays.
+
+        Results will wrap around on integer overflow.
+        Use function "add_checked" if you want overflow
+        to return an error.
 
         Parameters
         ----------
-        left : Array-like or scalar-like
-            First argument to compute function
-        right : Array-like or scalar-like
-            Second argument to compute function
+        x : Array-like or scalar-like
+            Argument to compute function
+        y : Array-like or scalar-like
+            Argument to compute function
         memory_pool : pyarrow.MemoryPool, optional
             If not passed, will allocate memory from the default memory pool.
         """)

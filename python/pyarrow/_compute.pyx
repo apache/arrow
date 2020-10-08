@@ -19,6 +19,8 @@
 
 from cython.operator cimport dereference as deref
 
+from collections import namedtuple
+
 from pyarrow.lib import frombytes, tobytes, ordered_dict
 from pyarrow.lib cimport *
 from pyarrow.includes.libarrow cimport *
@@ -163,6 +165,11 @@ cdef class ScalarAggregateKernel(Kernel):
                 .format(frombytes(self.kernel.signature.get().ToString())))
 
 
+FunctionDoc = namedtuple(
+    "FunctionDoc",
+    ("summary", "description", "arg_names", "options_class"))
+
+
 cdef class Function(_Weakrefable):
     """
     A compute function.
@@ -246,6 +253,18 @@ cdef class Function(_Weakrefable):
             return 'meta'
         else:
             raise NotImplementedError("Unknown Function::Kind")
+
+    @property
+    def _doc(self):
+        """
+        The C++-like function documentation (for internal use).
+        """
+        cdef CFunctionDoc c_doc = self.base_func.doc()
+
+        return FunctionDoc(frombytes(c_doc.summary),
+                           frombytes(c_doc.description),
+                           [frombytes(s) for s in c_doc.arg_names],
+                           frombytes(c_doc.options_class))
 
     @property
     def num_kernels(self):
