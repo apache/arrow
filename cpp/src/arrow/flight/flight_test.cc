@@ -1800,6 +1800,7 @@ TEST_F(TestTls, DoAction) {
   ASSERT_EQ(result->body->ToString(), "Hello, world!");
 }
 
+#if defined(GRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS)
 TEST_F(TestTls, DisableServerVerification) {
   std::unique_ptr<FlightClient> client;
   auto client_options = FlightClientOptions();
@@ -1823,6 +1824,7 @@ TEST_F(TestTls, DisableServerVerification) {
   ASSERT_NE(result, nullptr);
   ASSERT_EQ(result->body->ToString(), "Hello, world!");
 }
+#endif
 
 TEST_F(TestTls, OverrideHostname) {
   std::unique_ptr<FlightClient> client;
