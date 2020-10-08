@@ -16,6 +16,18 @@
 // under the License.
 
 //! Type coercion rules for functions with multiple valid signatures
+//!
+//! Coercion is performed automatically by DataFusion when the types
+//! of arguments passed to a function do not exacty match the types
+//! required by that function. In this case, DataFuson will attempt to
+//! *coerce* the arguments to types accepted by the function by
+//! inserting CAST operations.
+//!
+//! CAST operations added by coercion are lossless and never discard
+//! information. For example coercion from i32 -> i64 might be
+//! performed because all valid i32 values can be represented using an
+//! i64. However, i64 -> i32 is never performed as there are i64
+//! values which can not be represented by i32 values.
 
 use std::sync::Arc;
 
@@ -25,7 +37,10 @@ use super::{functions::Signature, PhysicalExpr};
 use crate::error::{ExecutionError, Result};
 use crate::physical_plan::expressions::cast;
 
-/// Returns expressions constructed by casting `expressions` to types compatible with `signatures`.
+/// Returns `expressions` coerced to types compatible with
+/// `signature`, if possible.
+///
+/// See the module level documentation for more detail on coercion.
 pub fn coerce(
     expressions: &Vec<Arc<dyn PhysicalExpr>>,
     schema: &Schema,
@@ -45,7 +60,10 @@ pub fn coerce(
         .collect::<Result<Vec<_>>>()
 }
 
-/// returns the data types that each argument must be casted to match the `signature`.
+/// Returns the data types that each argument must be coerced to match
+/// `signature`.
+///
+/// See the module level documentation for more detail on coercion.
 pub fn data_types(
     current_types: &Vec<DataType>,
     signature: &Signature,
@@ -124,7 +142,10 @@ fn maybe_data_types(
     Some(new_type)
 }
 
-/// Verify that the type cast can be performed
+/// Return true if a value of type `type_from` can be coerced
+/// (losslessly converted) into a value of `type_to`
+///
+/// See the module level documentation for more detail on coercion.
 pub fn can_coerce_from(type_into: &DataType, type_from: &DataType) -> bool {
     use self::DataType::*;
     match type_into {
