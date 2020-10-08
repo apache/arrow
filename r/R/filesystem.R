@@ -290,6 +290,9 @@ FileSystem$from_uri <- function(uri) {
 get_path_and_filesystem <- function(x, filesystem = NULL) {
   # Wrapper around FileSystem$from_uri that handles local paths
   # and an optional explicit filesystem
+  if (inherits(x, "SubTreeFileSystem")) {
+    return(list(fs = x$base_fs, path = x$base_path))
+  }
   assert_that(is.string(x))
   if (is_url(x)) {
     if (!is.null(filesystem)) {

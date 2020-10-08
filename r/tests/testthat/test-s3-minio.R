@@ -118,9 +118,7 @@ if (arrow_with_s3() && process_is_running("minio server")) {
 
   test_that("write_dataset with fs", {
     ds <- open_dataset(fs$path(minio_path("hive_dir")))
-    # TODO: wait for ben's PR to land first
-    # write_dataset(ds, fs$path(minio_path("new_dataset_dir")))
-    write_dataset(ds, minio_path("new_dataset_dir"), filesystem = fs)
+    write_dataset(ds, fs$path(minio_path("new_dataset_dir")))
     expect_length(fs$GetFileInfo(FileSelector$create(minio_path("new_dataset_dir"))), 1)
   })
 

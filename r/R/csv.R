@@ -155,8 +155,12 @@ read_delim_arrow <- function(file,
                              parse_options = NULL,
                              convert_options = NULL,
                              read_options = NULL,
-                             as_data_frame = TRUE) {
-
+                             as_data_frame = TRUE,
+                             timestamp_parsers = NULL) {
+  if (inherits(schema, "Schema")) {
+    col_names <- names(schema)
+    col_types <- schema
+  }
   if (is.null(parse_options)) {
     parse_options <- readr_to_csv_parse_options(
       delim,

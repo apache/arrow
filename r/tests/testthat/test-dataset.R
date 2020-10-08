@@ -371,7 +371,7 @@ test_that("Creating UnionDataset", {
   )
 
   # Confirm c() method error handling
-  expect_error(c(ds1, 42), "'x' must be a string or a list of DatasetFactory")
+  expect_error(c(ds1, 42), "string")
 })
 
 test_that("InMemoryDataset", {

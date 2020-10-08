@@ -23,7 +23,8 @@ read_delim_arrow(
   parse_options = NULL,
   convert_options = NULL,
   read_options = NULL,
-  as_data_frame = TRUE
+  as_data_frame = TRUE,
+  timestamp_parsers = NULL
 )
 
 read_csv_arrow(
