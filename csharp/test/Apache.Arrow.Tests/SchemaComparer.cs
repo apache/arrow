@@ -14,6 +14,7 @@
 // limitations under the License.
 
 using System.Linq;
+using Xunit;
 
 namespace Apache.Arrow.Tests
 {
@@ -43,6 +44,29 @@ namespace Apache.Arrow.Tests
                        s2.Metadata.Keys.All(k => s1.Metadata.ContainsKey(k) && s2.Metadata[k] == s1.Metadata[k]);
             }
             return true;
+        }
+
+        public static void Compare(Schema expected, Schema actual)
+        {
+            if (ReferenceEquals(expected, actual))
+            {
+                return;
+            }
+
+            Assert.Equal(expected.HasMetadata, actual.HasMetadata);
+            if (expected.HasMetadata)
+            {
+                Assert.Equal(expected.Metadata.Keys.Count(), actual.Metadata.Keys.Count());
+                Assert.True(expected.Metadata.Keys.All(k => actual.Metadata.ContainsKey(k) && expected.Metadata[k] == actual.Metadata[k]));
+                Assert.True(actual.Metadata.Keys.All(k => expected.Metadata.ContainsKey(k) && actual.Metadata[k] == expected.Metadata[k]));
+            }
+
+            Assert.Equal(expected.Fields.Count, actual.Fields.Count);
+            Assert.True(expected.Fields.Keys.All(k => actual.Fields.ContainsKey(k)));
+            foreach (string name in expected.Fields.Keys)
+            {
+                FieldComparer.Compare(expected.Fields[name], actual.Fields[name]);
+            }
         }
     }
 }
