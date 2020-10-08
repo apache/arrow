@@ -822,8 +822,6 @@ Result<bool> ApplyOriginalStorageMetadata(const Field& origin_field,
   if (num_children > 0 && origin_type->num_fields() == num_children) {
     DCHECK_EQ(static_cast<int>(inferred->children.size()), num_children);
     const auto factory = GetNestedFactory(*origin_type, *inferred_type);
-    ARROW_LOG(INFO) << "Nested type: origin = " << origin_type->ToString()
-                    << ", inferred = " << inferred_type->ToString();
     if (factory) {
       // The type may be modified (e.g. LargeList) while the children stay the same
       modified |= origin_type->id() != inferred_type->id();
