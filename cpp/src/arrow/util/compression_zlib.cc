@@ -463,7 +463,9 @@ class GZipCodec : public Codec {
     return InitDecompressor();
   }
 
-  const char* name() const override { return "gzip"; }
+  Compression::type compression_type() const override { return Compression::GZIP; }
+
+  int compression_level() const override { return compression_level_; }
 
  private:
   // zlib is stateful and the z_stream state variable must be initialized

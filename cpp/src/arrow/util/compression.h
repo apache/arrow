@@ -20,10 +20,10 @@
 #include <cstdint>
 #include <limits>
 #include <memory>
-#include <string>
 
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/util/string_view.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -54,7 +54,7 @@ constexpr int kUseDefaultCompressionLevel = Compression::kUseDefaultCompressionL
 ///
 class ARROW_EXPORT Compressor {
  public:
-  virtual ~Compressor();
+  virtual ~Compressor() = default;
 
   struct CompressResult {
     int64_t bytes_read;
@@ -96,7 +96,7 @@ class ARROW_EXPORT Compressor {
 ///
 class ARROW_EXPORT Decompressor {
  public:
-  virtual ~Decompressor();
+  virtual ~Decompressor() = default;
 
   struct DecompressResult {
     // XXX is need_more_output necessary? (Brotli?)
@@ -128,17 +128,17 @@ class ARROW_EXPORT Decompressor {
 /// \brief Compression codec
 class ARROW_EXPORT Codec {
  public:
-  virtual ~Codec();
+  virtual ~Codec() = default;
 
   /// \brief Return special value to indicate that a codec implementation
   /// should use its default compression level
   static int UseDefaultCompressionLevel();
 
   /// \brief Return a string name for compression type
-  static std::string GetCodecAsString(Compression::type t);
+  static util::string_view GetCodecAsString(Compression::type t);
 
   /// \brief Return compression type for name (all upper case)
-  static Result<Compression::type> GetCompressionType(const std::string& name);
+  static Result<Compression::type> GetCompressionType(util::string_view name);
 
   /// \brief Create a codec for the given compression algorithm
   static Result<std::unique_ptr<Codec>> Create(
@@ -146,6 +146,9 @@ class ARROW_EXPORT Codec {
 
   /// \brief Return true if support for indicated codec has been enabled
   static bool IsAvailable(Compression::type codec);
+
+  /// \brief Return true if indicated codec supports setting a compression level
+  static bool SupportsCompressionLevel(Compression::type codec);
 
   /// \brief One-shot decompression function
   ///
@@ -178,7 +181,14 @@ class ARROW_EXPORT Codec {
   /// \brief Create a streaming compressor instance
   virtual Result<std::shared_ptr<Decompressor>> MakeDecompressor() = 0;
 
-  virtual const char* name() const = 0;
+  /// \brief This Codec's compression type
+  virtual Compression::type compression_type() const = 0;
+
+  /// \brief The name of this Codec's compression type
+  std::string name() const { return GetCodecAsString(compression_type()).to_string(); }
+
+  /// \brief This Codec's compression level, if applicable
+  virtual int compression_level() const { return UseDefaultCompressionLevel(); }
 
  private:
   /// \brief Initializes the codec's resources.

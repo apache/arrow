@@ -795,8 +795,9 @@ Status WriteTable(const Table& table, io::OutputStream* dst,
     return WriteFeatherV1(table, dst);
   } else {
     IpcWriteOptions ipc_options = IpcWriteOptions::Defaults();
-    ipc_options.compression = properties.compression;
-    ipc_options.compression_level = properties.compression_level;
+    ARROW_ASSIGN_OR_RAISE(
+        ipc_options.codec,
+        util::Codec::Create(properties.compression, properties.compression_level));
 
     std::shared_ptr<RecordBatchWriter> writer;
     ARROW_ASSIGN_OR_RAISE(writer, MakeFileWriter(dst, table.schema(), ipc_options));

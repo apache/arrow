@@ -1337,7 +1337,7 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
         c_bool write_legacy_ipc_format
         CMemoryPool* memory_pool
         CMetadataVersion metadata_version
-        CCompressionType compression
+        shared_ptr[CCodec] codec
         c_bool use_threads
 
         @staticmethod
@@ -2055,7 +2055,7 @@ cdef extern from 'arrow/util/compression.h' namespace 'arrow' nogil:
         CResult[int64_t] Compress(int64_t input_len, const uint8_t* input,
                                   int64_t output_buffer_len,
                                   uint8_t* output_buffer)
-        const char* name() const
+        c_string name() const
         int64_t MaxCompressedLen(int64_t input_len, const uint8_t* input)
 
 

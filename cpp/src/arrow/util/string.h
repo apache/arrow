@@ -57,6 +57,9 @@ bool AsciiEqualsCaseInsensitive(util::string_view left, util::string_view right)
 ARROW_EXPORT
 std::string AsciiToLower(util::string_view value);
 
+ARROW_EXPORT
+std::string AsciiToUpper(util::string_view value);
+
 /// \brief Search for the first instance of a token and replace it or return nullopt if
 /// the token is not found.
 ARROW_EXPORT
