@@ -780,6 +780,18 @@ async fn csv_query_external_table_count() {
 }
 
 #[tokio::test]
+async fn csv_query_external_table_sum() {
+    let mut ctx = ExecutionContext::new();
+    // cast smallint and int to bigint to avoid overflow during calculation
+    register_aggregate_csv_by_sql(&mut ctx).await;
+    let sql =
+        "SELECT SUM(CAST(c7 AS BIGINT)), SUM(CAST(c8 AS BIGINT)) FROM aggregate_test_100";
+    let actual = execute(&mut ctx, sql).await;
+    let expected = vec![vec!["13060", "3017641"]];
+    assert_eq!(expected, actual);
+}
+
+#[tokio::test]
 async fn csv_query_count_star() {
     let mut ctx = ExecutionContext::new();
     register_aggregate_csv_by_sql(&mut ctx).await;
