@@ -312,6 +312,10 @@ csv___ParseOptions__initialize <- function(options){
     .Call(`_arrow_csv___ParseOptions__initialize` , options)
 }
 
+csv___ReadOptions__column_names <- function(options){
+    .Call(`_arrow_csv___ReadOptions__column_names` , options)
+}
+
 csv___ConvertOptions__initialize <- function(options){
     .Call(`_arrow_csv___ConvertOptions__initialize` , options)
 }
@@ -322,6 +326,22 @@ csv___TableReader__Make <- function(input, read_options, parse_options, convert_
 
 csv___TableReader__Read <- function(table_reader){
     .Call(`_arrow_csv___TableReader__Read` , table_reader)
+}
+
+TimestampParser__kind <- function(parser){
+    .Call(`_arrow_TimestampParser__kind` , parser)
+}
+
+TimestampParser__format <- function(parser){
+    .Call(`_arrow_TimestampParser__format` , parser)
+}
+
+TimestampParser__MakeStrptime <- function(format){
+    .Call(`_arrow_TimestampParser__MakeStrptime` , format)
+}
+
+TimestampParser__MakeISO8601 <- function(){
+    .Call(`_arrow_TimestampParser__MakeISO8601` )
 }
 
 dataset___Dataset__NewScan <- function(ds){

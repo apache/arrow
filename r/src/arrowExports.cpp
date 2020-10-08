@@ -1227,6 +1227,21 @@ extern "C" SEXP _arrow_csv___ParseOptions__initialize(SEXP options_sexp){
 
 // csv.cpp
 #if defined(ARROW_R_WITH_ARROW)
+SEXP csv___ReadOptions__column_names(const std::shared_ptr<arrow::csv::ReadOptions>& options);
+extern "C" SEXP _arrow_csv___ReadOptions__column_names(SEXP options_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::csv::ReadOptions>&>::type options(options_sexp);
+	return cpp11::as_sexp(csv___ReadOptions__column_names(options));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_csv___ReadOptions__column_names(SEXP options_sexp){
+	Rf_error("Cannot call csv___ReadOptions__column_names(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// csv.cpp
+#if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::csv::ConvertOptions> csv___ConvertOptions__initialize(cpp11::list options);
 extern "C" SEXP _arrow_csv___ConvertOptions__initialize(SEXP options_sexp){
 BEGIN_CPP11
@@ -1270,6 +1285,65 @@ END_CPP11
 #else
 extern "C" SEXP _arrow_csv___TableReader__Read(SEXP table_reader_sexp){
 	Rf_error("Cannot call csv___TableReader__Read(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// csv.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::string TimestampParser__kind(const std::shared_ptr<arrow::TimestampParser>& parser);
+extern "C" SEXP _arrow_TimestampParser__kind(SEXP parser_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::TimestampParser>&>::type parser(parser_sexp);
+	return cpp11::as_sexp(TimestampParser__kind(parser));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_TimestampParser__kind(SEXP parser_sexp){
+	Rf_error("Cannot call TimestampParser__kind(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// csv.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::string TimestampParser__format(const std::shared_ptr<arrow::TimestampParser>& parser);
+extern "C" SEXP _arrow_TimestampParser__format(SEXP parser_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::TimestampParser>&>::type parser(parser_sexp);
+	return cpp11::as_sexp(TimestampParser__format(parser));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_TimestampParser__format(SEXP parser_sexp){
+	Rf_error("Cannot call TimestampParser__format(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// csv.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::TimestampParser> TimestampParser__MakeStrptime(std::string format);
+extern "C" SEXP _arrow_TimestampParser__MakeStrptime(SEXP format_sexp){
+BEGIN_CPP11
+	arrow::r::Input<std::string>::type format(format_sexp);
+	return cpp11::as_sexp(TimestampParser__MakeStrptime(format));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_TimestampParser__MakeStrptime(SEXP format_sexp){
+	Rf_error("Cannot call TimestampParser__MakeStrptime(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// csv.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::TimestampParser> TimestampParser__MakeISO8601();
+extern "C" SEXP _arrow_TimestampParser__MakeISO8601(){
+BEGIN_CPP11
+	return cpp11::as_sexp(TimestampParser__MakeISO8601());
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_TimestampParser__MakeISO8601(){
+	Rf_error("Cannot call TimestampParser__MakeISO8601(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -6250,9 +6324,14 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_compute__CallFunction", (DL_FUNC) &_arrow_compute__CallFunction, 3}, 
 		{ "_arrow_csv___ReadOptions__initialize", (DL_FUNC) &_arrow_csv___ReadOptions__initialize, 1}, 
 		{ "_arrow_csv___ParseOptions__initialize", (DL_FUNC) &_arrow_csv___ParseOptions__initialize, 1}, 
+		{ "_arrow_csv___ReadOptions__column_names", (DL_FUNC) &_arrow_csv___ReadOptions__column_names, 1}, 
 		{ "_arrow_csv___ConvertOptions__initialize", (DL_FUNC) &_arrow_csv___ConvertOptions__initialize, 1}, 
 		{ "_arrow_csv___TableReader__Make", (DL_FUNC) &_arrow_csv___TableReader__Make, 4}, 
 		{ "_arrow_csv___TableReader__Read", (DL_FUNC) &_arrow_csv___TableReader__Read, 1}, 
+		{ "_arrow_TimestampParser__kind", (DL_FUNC) &_arrow_TimestampParser__kind, 1}, 
+		{ "_arrow_TimestampParser__format", (DL_FUNC) &_arrow_TimestampParser__format, 1}, 
+		{ "_arrow_TimestampParser__MakeStrptime", (DL_FUNC) &_arrow_TimestampParser__MakeStrptime, 1}, 
+		{ "_arrow_TimestampParser__MakeISO8601", (DL_FUNC) &_arrow_TimestampParser__MakeISO8601, 0}, 
 		{ "_arrow_dataset___Dataset__NewScan", (DL_FUNC) &_arrow_dataset___Dataset__NewScan, 1}, 
 		{ "_arrow_dataset___Dataset__schema", (DL_FUNC) &_arrow_dataset___Dataset__schema, 1}, 
 		{ "_arrow_dataset___Dataset__type_name", (DL_FUNC) &_arrow_dataset___Dataset__type_name, 1}, 

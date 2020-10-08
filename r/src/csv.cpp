@@ -20,6 +20,7 @@
 #if defined(ARROW_R_WITH_ARROW)
 
 #include <arrow/csv/reader.h>
+#include <arrow/util/value_parsing.h>
 
 // [[arrow::export]]
 std::shared_ptr<arrow::csv::ReadOptions> csv___ReadOptions__initialize(
@@ -32,6 +33,7 @@ std::shared_ptr<arrow::csv::ReadOptions> csv___ReadOptions__initialize(
   res->column_names = cpp11::as_cpp<std::vector<std::string>>(options["column_names"]);
   res->autogenerate_column_names =
       cpp11::as_cpp<bool>(options["autogenerate_column_names"]);
+
   return res;
 }
 
@@ -51,6 +53,16 @@ std::shared_ptr<arrow::csv::ParseOptions> csv___ParseOptions__initialize(
 }
 
 // [[arrow::export]]
+SEXP csv___ReadOptions__column_names(
+    const std::shared_ptr<arrow::csv::ReadOptions>& options) {
+  if (options->autogenerate_column_names) {
+    return R_NilValue;
+  }
+
+  return cpp11::as_sexp(options->column_names);
+}
+
+// [[arrow::export]]
 std::shared_ptr<arrow::csv::ConvertOptions> csv___ConvertOptions__initialize(
     cpp11::list options) {
   auto res = std::make_shared<arrow::csv::ConvertOptions>(
@@ -62,12 +74,63 @@ std::shared_ptr<arrow::csv::ConvertOptions> csv___ConvertOptions__initialize(
   // If true, then strings in "null_values" are considered null for string columns.
   // If false, then all strings are valid string values.
   res->strings_can_be_null = cpp11::as_cpp<bool>(options["strings_can_be_null"]);
-  // TODO: there are more conversion options available:
-  // // Optional per-column types (disabling type inference on those columns)
-  // std::unordered_map<std::string, std::shared_ptr<DataType>> column_types;
-  // // Recognized spellings for boolean values
-  // std::vector<std::string> true_values;
-  // std::vector<std::string> false_values;
+
+  res->true_values = cpp11::as_cpp<std::vector<std::string>>(options["true_values"]);
+  res->false_values = cpp11::as_cpp<std::vector<std::string>>(options["false_values"]);
+
+  SEXP col_types = options["col_types"];
+  if (Rf_inherits(col_types, "Schema")) {
+    auto schema = cpp11::as_cpp<std::shared_ptr<arrow::Schema>>(col_types);
+    std::unordered_map<std::string, std::shared_ptr<arrow::DataType>> column_types;
+    for (const auto& field : schema->fields()) {
+      column_types.insert(std::make_pair(field->name(), field->type()));
+    }
+    res->column_types = column_types;
+  }
+
+  res->auto_dict_encode = cpp11::as_cpp<bool>(options["auto_dict_encode"]);
+  res->auto_dict_max_cardinality =
+      cpp11::as_cpp<int>(options["auto_dict_max_cardinality"]);
+  res->include_columns =
+      cpp11::as_cpp<std::vector<std::string>>(options["include_columns"]);
+  res->include_missing_columns = cpp11::as_cpp<bool>(options["include_missing_columns"]);
+
+  SEXP op_timestamp_parsers = options["timestamp_parsers"];
+  if (!Rf_isNull(op_timestamp_parsers)) {
+    std::vector<std::shared_ptr<arrow::TimestampParser>> timestamp_parsers;
+
+    // if we have a character vector, convert to arrow::TimestampParser
+    if (TYPEOF(op_timestamp_parsers) == STRSXP) {
+      cpp11::strings s_timestamp_parsers(op_timestamp_parsers);
+      for (cpp11::r_string s : s_timestamp_parsers) {
+        timestamp_parsers.push_back(arrow::TimestampParser::MakeStrptime(s));
+      }
+
+    } else if (TYPEOF(op_timestamp_parsers) == VECSXP) {
+      cpp11::list lst_parsers(op_timestamp_parsers);
+
+      for (SEXP x : lst_parsers) {
+        // handle scalar string and TimestampParser instances
+        if (TYPEOF(x) == STRSXP && XLENGTH(x) == 1) {
+          timestamp_parsers.push_back(
+              arrow::TimestampParser::MakeStrptime(CHAR(STRING_ELT(x, 0))));
+        } else if (Rf_inherits(x, "TimestampParser")) {
+          timestamp_parsers.push_back(
+              cpp11::as_cpp<std::shared_ptr<arrow::TimestampParser>>(x));
+        } else {
+          cpp11::stop(
+              "unsupported timestamp parser, must be a scalar string or a "
+              "<TimestampParser> object");
+        }
+      }
+
+    } else {
+      cpp11::stop(
+          "unsupported timestamp parser, must be character vector of strptime "
+          "specifications, or a list of <TimestampParser> objects");
+    }
+    res->timestamp_parsers = timestamp_parsers;
+  }
 
   return res;
 }
@@ -87,6 +150,28 @@ std::shared_ptr<arrow::csv::TableReader> csv___TableReader__Make(
 std::shared_ptr<arrow::Table> csv___TableReader__Read(
     const std::shared_ptr<arrow::csv::TableReader>& table_reader) {
   return ValueOrStop(table_reader->Read());
+}
+
+// [[arrow::export]]
+std::string TimestampParser__kind(const std::shared_ptr<arrow::TimestampParser>& parser) {
+  return parser->kind();
+}
+
+// [[arrow::export]]
+std::string TimestampParser__format(
+    const std::shared_ptr<arrow::TimestampParser>& parser) {
+  return parser->format();
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::TimestampParser> TimestampParser__MakeStrptime(
+    std::string format) {
+  return arrow::TimestampParser::MakeStrptime(format);
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::TimestampParser> TimestampParser__MakeISO8601() {
+  return arrow::TimestampParser::MakeISO8601();
 }
 
 #endif
