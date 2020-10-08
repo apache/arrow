@@ -84,6 +84,13 @@ FileFormat$create <- function(format, ...) {
   }
 }
 
+#' @export
+as.character.FileFormat <- function(x, ...) {
+  out <- x$type
+  # Slight hack: special case IPC -> feather, otherwise is just the type_name
+  ifelse(out == "ipc", "feather", out)
+}
+
 #' @usage NULL
 #' @format NULL
 #' @rdname FileFormat
@@ -91,18 +98,9 @@ FileFormat$create <- function(format, ...) {
 ParquetFileFormat <- R6Class("ParquetFileFormat", inherit = FileFormat)
 ParquetFileFormat$create <- function(use_buffered_stream = FALSE,
                                      buffer_size = 8196,
-                                     dict_columns = character(0),
-                                     writer_properties = NULL,
-                                     arrow_writer_properties = NULL) {
-  if (is.null(writer_properties) && is.null(arrow_writer_properties)) {
-    shared_ptr(ParquetFileFormat, dataset___ParquetFileFormat__MakeRead(
-      use_buffered_stream, buffer_size, dict_columns))
-  } else {
-    writer_properties = writer_properties %||% ParquetWriterProperties$create()
-    arrow_writer_properties = arrow_writer_properties %||% ParquetArrowWriterProperties$create()
-    shared_ptr(ParquetFileFormat, dataset___ParquetFileFormat__MakeWrite(
-      writer_properties, arrow_writer_properties))
-  }
+                                     dict_columns = character(0)) {
+  shared_ptr(ParquetFileFormat, dataset___ParquetFileFormat__Make(
+    use_buffered_stream, buffer_size, dict_columns))
 }
 
 #' @usage NULL
@@ -128,4 +126,31 @@ csv_file_format_parse_options <- function(...) {
   } else {
     CsvParseOptions$create(...)
   }
+}
+
+#' Format-specific write options
+#'
+#' @description
+#' A `FileWriteOptions` holds write options specific to a `FileFormat`.
+FileWriteOptions <- R6Class("FileWriteOptions", inherit = ArrowObject,
+  public = list(
+    update = function(...) {
+      if (self$type == "parquet") {
+        dataset___ParquetFileWriteOptions__update(self,
+            ParquetWriterProperties$create(...),
+            ParquetArrowWriterProperties$create(...))
+      }
+      invisible(self)
+    }
+  ),
+  active = list(
+    type = function() dataset___FileWriteOptions__type_name(self)
+  )
+)
+FileWriteOptions$create <- function(format, ...) {
+  if (!inherits(format, "FileFormat")) {
+    format <- FileFormat$create(format)
+  }
+  options <- shared_ptr(FileWriteOptions, dataset___FileFormat__DefaultWriteOptions(format))
+  options$update(...)
 }

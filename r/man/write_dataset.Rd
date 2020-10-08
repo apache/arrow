@@ -7,10 +7,11 @@
 write_dataset(
   dataset,
   path,
-  format = dataset$format$type,
-  schema = dataset$schema,
+  format = dataset$format,
   partitioning = dplyr::group_vars(dataset),
+  basename_template = paste0("part-{i}.", as.character(format)),
   hive_style = TRUE,
+  filesystem = NULL,
   ...
 )
 }
@@ -18,25 +19,31 @@ write_dataset(
 \item{dataset}{\link{Dataset}, \link{RecordBatch}, \link{Table}, \code{arrow_dplyr_query}, or
 \code{data.frame}. If an \code{arrow_dplyr_query} or \code{grouped_df},
 \code{schema} and \code{partitioning} will be taken from the result of any \code{select()}
-and \code{group_by()} operations done on the dataset. Note that \code{filter()} queries
-are not currently supported, and \code{select}-ed columns may not be renamed.}
+and \code{group_by()} operations done on the dataset. \code{filter()} queries will be
+applied to restrict written rows.
+Note that \code{select()}-ed columns may not be renamed.}
 
-\item{path}{string path to a directory to write to (directory will be
+\item{path}{string path or URI to a directory to write to (directory will be
 created if it does not exist)}
 
 \item{format}{file format to write the dataset to. Currently supported
 formats are "feather" (aka "ipc") and "parquet". Default is to write to the
 same format as \code{dataset}.}
 
-\item{schema}{\link{Schema} containing a subset of columns, possibly reordered,
-in \code{dataset}. Default is \code{dataset$schema}, i.e. all columns.}
-
 \item{partitioning}{\code{Partitioning} or a character vector of columns to
 use as partition keys (to be written as path segments). Default is to
 use the current \code{group_by()} columns.}
 
+\item{basename_template}{string template for the names of files to be written.
+Must contain \code{"{i}"}, which will be replaced with an autoincremented
+integer to generate basenames of datafiles. For example, \code{"part-{i}.feather"}
+will yield \verb{"part-0.feather", ...}.}
+
 \item{hive_style}{logical: write partition segments as Hive-style
 (\code{key1=value1/key2=value2/file.ext}) or as just bare values. Default is \code{TRUE}.}
+
+\item{filesystem}{A \link{FileSystem} where the dataset should be written if it is a
+string file path; default is the local file system}
 
 \item{...}{additional format-specific arguments. For available Parquet
 options, see \code{\link[=write_parquet]{write_parquet()}}.}

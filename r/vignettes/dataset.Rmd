@@ -328,17 +328,12 @@ system("tree nyc-taxi/feather")
 
 # feather
 # ├── payment_type=1
-# │   ├── dat_0.ipc
-# │   ├── dat_1.ipc
-# │   ├── dat_2.ipc
-# │   ├── dat_3.ipc
-# │   ├── dat_4.ipc
-# │   └── dat_5.ipc
+# │   └── part-5.feather
 # ├── payment_type=2
-# │   ├── dat_0.ipc
+# │   └── part-0.feather
 # ...
 # └── payment_type=5
-#     └── dat_2.ipc
+#     └── part-2.feather
 #
 # 5 directories, 25 files
 ```
@@ -349,6 +344,16 @@ we call `open_dataset()` on this directory, we don't have to declare what the
 partitions are because they can be read from the file paths.
 (To instead write bare values for partition segments,
 i.e. `1` rather than `payment_type=1`, call `write_dataset()` with `hive_style = FALSE`.)
+
+Perhaps, though, `payment_type == 1` is the only data we care about for our
+current work, and we just want to drop the rest and have a smaller working set.
+For this, we can `filter()` them out when writing:
+
+```r
+ds %>%
+  filter(payment_type == 1) %>%
+  write_dataset("nyc-taxi/feather", format = "feather")
+```
 
 The other thing we can do when writing datasets is select a subset of and/or reorder
 columns. Suppose we never care about `vendor_id`, and being a string column,
@@ -361,5 +366,5 @@ ds %>%
   write_dataset("nyc-taxi/feather", format = "feather")
 ```
 
-Note that you cannot currently rename columns when writing, nor can you `filter()`
-and write a subset of the data.
+Note that while you can select a subset of columns,
+you cannot currently rename columns when writing.

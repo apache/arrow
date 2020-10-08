@@ -41,11 +41,13 @@ class FileEncryptionProperties;
 
 class ReaderProperties;
 class ArrowReaderProperties;
+
 class WriterProperties;
 class ArrowWriterProperties;
 
 namespace arrow {
 class FileReader;
+class FileWriter;
 }  // namespace arrow
 }  // namespace parquet
 
@@ -57,7 +59,7 @@ class RowGroupInfo;
 /// \brief A FileFormat implementation that reads from Parquet files
 class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
  public:
-  ParquetFileFormat();
+  ParquetFileFormat() = default;
 
   /// Convenience constructor which copies properties from a parquet::ReaderProperties.
   /// memory_pool will be ignored.
@@ -66,6 +68,8 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
   std::string type_name() const override { return "parquet"; }
 
   bool splittable() const override { return true; }
+
+  bool Equals(const FileFormat& other) const override;
 
   struct ReaderOptions {
     /// \defgroup parquet-file-format-reader-properties properties which correspond to
@@ -99,10 +103,6 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
     bool enable_parallel_column_conversion = false;
   } reader_options;
 
-  std::shared_ptr<parquet::WriterProperties> writer_properties;
-
-  std::shared_ptr<parquet::ArrowWriterProperties> arrow_writer_properties;
-
   Result<bool> IsSupported(const FileSource& source) const override;
 
   /// \brief Return the schema of the file if possible.
@@ -130,8 +130,11 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
   Result<std::unique_ptr<parquet::arrow::FileReader>> GetReader(
       const FileSource& source, ScanOptions* = NULLPTR, ScanContext* = NULLPTR) const;
 
-  Status WriteFragment(RecordBatchReader* batches,
-                       io::OutputStream* destination) const override;
+  Result<std::shared_ptr<FileWriter>> MakeWriter(
+      std::shared_ptr<io::OutputStream> destination, std::shared_ptr<Schema> schema,
+      std::shared_ptr<FileWriteOptions> options) const override;
+
+  std::shared_ptr<FileWriteOptions> DefaultWriteOptions() override;
 };
 
 /// \brief Represents a parquet's RowGroup with extra information.
@@ -244,6 +247,37 @@ class ARROW_DS_EXPORT ParquetFileFragment : public FileFragment {
   std::vector<RowGroupInfo> row_groups_;
   ParquetFileFormat& parquet_format_;
   bool has_complete_metadata_;
+
+  friend class ParquetFileFormat;
+};
+
+class ARROW_DS_EXPORT ParquetFileWriteOptions : public FileWriteOptions {
+ public:
+  std::shared_ptr<parquet::WriterProperties> writer_properties;
+
+  std::shared_ptr<parquet::ArrowWriterProperties> arrow_writer_properties;
+
+ protected:
+  using FileWriteOptions::FileWriteOptions;
+
+  friend class ParquetFileFormat;
+};
+
+class ARROW_DS_EXPORT ParquetFileWriter : public FileWriter {
+ public:
+  const std::shared_ptr<parquet::arrow::FileWriter>& parquet_writer() const {
+    return parquet_writer_;
+  }
+
+  Status Write(const std::shared_ptr<RecordBatch>& batch) override;
+
+  Status Finish() override;
+
+ private:
+  ParquetFileWriter(std::shared_ptr<parquet::arrow::FileWriter> writer,
+                    std::shared_ptr<ParquetFileWriteOptions> options);
+
+  std::shared_ptr<parquet::arrow::FileWriter> parquet_writer_;
 
   friend class ParquetFileFormat;
 };

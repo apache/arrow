@@ -171,7 +171,13 @@ std::string dataset___FileFormat__type_name(
 }
 
 // [[arrow::export]]
-std::shared_ptr<ds::ParquetFileFormat> dataset___ParquetFileFormat__MakeRead(
+std::shared_ptr<ds::FileWriteOptions> dataset___FileFormat__DefaultWriteOptions(
+    const std::shared_ptr<ds::FileFormat>& fmt) {
+  return fmt->DefaultWriteOptions();
+}
+
+// [[arrow::export]]
+std::shared_ptr<ds::ParquetFileFormat> dataset___ParquetFileFormat__Make(
     bool use_buffered_stream, int64_t buffer_size, cpp11::strings dict_columns) {
   auto fmt = std::make_shared<ds::ParquetFileFormat>();
 
@@ -187,15 +193,18 @@ std::shared_ptr<ds::ParquetFileFormat> dataset___ParquetFileFormat__MakeRead(
 }
 
 // [[arrow::export]]
-std::shared_ptr<ds::ParquetFileFormat> dataset___ParquetFileFormat__MakeWrite(
+std::string dataset___FileWriteOptions__type_name(
+    const std::shared_ptr<ds::FileWriteOptions>& options) {
+  return options->type_name();
+}
+
+// [[arrow::export]]
+void dataset___ParquetFileWriteOptions__update(
+    const std::shared_ptr<ds::ParquetFileWriteOptions>& options,
     const std::shared_ptr<parquet::WriterProperties>& writer_props,
-    const std::shared_ptr<parquet::ArrowWriterProperties>& arrow_props) {
-  auto fmt = std::make_shared<ds::ParquetFileFormat>();
-
-  fmt->writer_properties = writer_props;
-  fmt->arrow_writer_properties = arrow_props;
-
-  return fmt;
+    const std::shared_ptr<parquet::ArrowWriterProperties>& arrow_writer_props) {
+  options->writer_properties = writer_props;
+  options->arrow_writer_properties = arrow_writer_props;
 }
 
 // [[arrow::export]]
@@ -317,6 +326,12 @@ std::vector<std::shared_ptr<ds::ScanTask>> dataset___Scanner__Scan(
 }
 
 // [[arrow::export]]
+std::shared_ptr<arrow::Schema> dataset___Scanner__schema(
+    const std::shared_ptr<ds::Scanner>& sc) {
+  return sc->schema();
+}
+
+// [[arrow::export]]
 std::vector<std::shared_ptr<arrow::RecordBatch>> dataset___ScanTask__get_batches(
     const std::shared_ptr<ds::ScanTask>& scan_task) {
   arrow::RecordBatchIterator rbi;
@@ -331,18 +346,18 @@ std::vector<std::shared_ptr<arrow::RecordBatch>> dataset___ScanTask__get_batches
 }
 
 // [[arrow::export]]
-void dataset___Dataset__Write(const std::shared_ptr<ds::Dataset>& ds,
-                              const std::shared_ptr<arrow::Schema>& schema,
-                              const std::shared_ptr<ds::FileFormat>& format,
-                              const std::shared_ptr<fs::FileSystem>& filesystem,
-                              std::string path,
-                              const std::shared_ptr<ds::Partitioning>& partitioning) {
-  auto frags = ds->GetFragments();
-  auto ctx = std::make_shared<ds::ScanContext>();
-  ctx->use_threads = true;
-  StopIfNotOk(ds::FileSystemDataset::Write(schema, format, filesystem, path, partitioning,
-                                           ctx, std::move(frags)));
-  return;
+void dataset___Dataset__Write(
+    const std::shared_ptr<ds::FileWriteOptions>& file_write_options,
+    const std::shared_ptr<fs::FileSystem>& filesystem, std::string base_dir,
+    const std::shared_ptr<ds::Partitioning>& partitioning, std::string basename_template,
+    const std::shared_ptr<ds::Scanner>& scanner) {
+  ds::FileSystemDatasetWriteOptions opts;
+  opts.file_write_options = file_write_options;
+  opts.filesystem = filesystem;
+  opts.base_dir = base_dir;
+  opts.partitioning = partitioning;
+  opts.basename_template = basename_template;
+  StopIfNotOk(ds::FileSystemDataset::Write(opts, scanner));
 }
 
 #endif

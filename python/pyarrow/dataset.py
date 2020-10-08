@@ -32,13 +32,16 @@ from pyarrow._dataset import (  # noqa
     FileSystemDataset,
     FileSystemDatasetFactory,
     FileSystemFactoryOptions,
+    FileWriteOptions,
     Fragment,
     HivePartitioning,
     IpcFileFormat,
+    IpcFileWriteOptions,
     ParquetDatasetFactory,
     ParquetFactoryOptions,
     ParquetFileFormat,
     ParquetFileFragment,
+    ParquetFileWriteOptions,
     ParquetReadOptions,
     Partitioning,
     PartitioningFactory,
@@ -694,8 +697,9 @@ def _ensure_write_partitioning(scheme):
     return scheme
 
 
-def write_dataset(data, base_dir, format=None, partitioning=None, schema=None,
-                  filesystem=None, use_threads=True):
+def write_dataset(data, base_dir, basename_template=None, format=None,
+                  partitioning=None, schema=None,
+                  filesystem=None, file_options=None, use_threads=True):
     """
     Write a dataset to a given format and partitioning.
 
@@ -703,32 +707,34 @@ def write_dataset(data, base_dir, format=None, partitioning=None, schema=None,
     ----------
     data : Dataset, Table/RecordBatch, or list of Table/RecordBatch
         The data to write. This can be a Dataset instance or
-        in-memory Arrow data. A Table or RecordBatch is written as a
-        single fragment (resulting in a single file, or multiple files if
-        split according to the `partitioning`). If you have a Table consisting
-        of multiple record batches, you can pass ``table.to_batches()`` to
-        handle each record batch as a separate fragment.
+        in-memory Arrow data.
     base_dir : str
         The root directory where to write the dataset.
+    basename_template : str, optional
+        A template string used to generate basenames of written data files.
+        The token '{i}' will be replaced with an automatically incremented
+        integer. If not specified, it defaults to
+        "part-{i}." + format.default_extname
     format : FileFormat or str
         The format in which to write the dataset. Currently supported:
-        "ipc"/"feather". If a FileSystemDataset is being written and `format`
-        is not specified, it defaults to the same format as the specified
-        FileSystemDataset. When writing a Table or RecordBatch, this keyword
-        is required.
+        "parquet", "ipc"/"feather". If a FileSystemDataset is being written
+        and `format` is not specified, it defaults to the same format as the
+        specified FileSystemDataset. When writing a Table or RecordBatch, this
+        keyword is required.
     partitioning : Partitioning, optional
         The partitioning scheme specified with the ``partitioning()``
         function.
     schema : Schema, optional
     filesystem : FileSystem, optional
+    file_options : FileWriteOptions, optional
+        FileFormat specific write options, created using the
+        ``FileFormat.make_write_options()`` function.
     use_threads : bool, default True
         Write files in parallel. If enabled, then maximum parallelism will be
         used determined by the number of available CPU cores.
     """
     if isinstance(data, Dataset):
         schema = schema or data.schema
-        if isinstance(data, FileSystemDataset):
-            format = format or data.format
     elif isinstance(data, (pa.Table, pa.RecordBatch)):
         schema = schema or data.schema
         data = [data]
@@ -740,7 +746,22 @@ def write_dataset(data, base_dir, format=None, partitioning=None, schema=None,
             "objects are supported."
         )
 
-    format = _ensure_format(format)
+    if format is None and isinstance(data, FileSystemDataset):
+        format = data.format
+    else:
+        format = _ensure_format(format)
+
+    if file_options is None:
+        file_options = format.make_write_options()
+
+    if format != file_options.format:
+        raise TypeError("Supplied FileWriteOptions have format {}, "
+                        "which doesn't match supplied FileFormat {}".format(
+                            format, file_options))
+
+    if basename_template is None:
+        basename_template = "part-{i}." + format.default_extname
+
     partitioning = _ensure_write_partitioning(partitioning)
 
     if filesystem is None:
@@ -750,5 +771,6 @@ def write_dataset(data, base_dir, format=None, partitioning=None, schema=None,
     filesystem, _ = _ensure_fs(filesystem)
 
     _filesystemdataset_write(
-        data, base_dir, schema, format, filesystem, partitioning, use_threads,
+        data, base_dir, basename_template, schema,
+        filesystem, partitioning, file_options, use_threads,
     )

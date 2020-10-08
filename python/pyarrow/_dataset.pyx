@@ -606,6 +606,44 @@ cdef shared_ptr[CExpression] _insert_implicit_casts(Expression filter,
     )
 
 
+cdef class FileWriteOptions(_Weakrefable):
+
+    cdef:
+        shared_ptr[CFileWriteOptions] wrapped
+        CFileWriteOptions* options
+
+    def __init__(self):
+        _forbid_instantiation(self.__class__)
+
+    cdef void init(self, const shared_ptr[CFileWriteOptions]& sp):
+        self.wrapped = sp
+        self.options = sp.get()
+
+    @staticmethod
+    cdef wrap(const shared_ptr[CFileWriteOptions]& sp):
+        type_name = frombytes(sp.get().type_name())
+
+        classes = {
+            'ipc': IpcFileWriteOptions,
+            'parquet': ParquetFileWriteOptions,
+        }
+
+        class_ = classes.get(type_name, None)
+        if class_ is None:
+            raise TypeError(type_name)
+
+        cdef FileWriteOptions self = class_.__new__(class_)
+        self.init(sp)
+        return self
+
+    @property
+    def format(self):
+        return FileFormat.wrap(self.options.format())
+
+    cdef inline shared_ptr[CFileWriteOptions] unwrap(self):
+        return self.wrapped
+
+
 cdef class FileFormat(_Weakrefable):
 
     cdef:
@@ -661,6 +699,13 @@ cdef class FileFormat(_Weakrefable):
                                      partition_expression.unwrap(),
                                      <shared_ptr[CSchema]>nullptr))
         return Fragment.wrap(move(c_fragment))
+
+    def make_write_options(self):
+        return FileWriteOptions.wrap(self.format.DefaultWriteOptions())
+
+    @property
+    def default_extname(self):
+        return frombytes(self.format.type_name())
 
     def __eq__(self, other):
         try:
@@ -1054,18 +1099,85 @@ cdef class ParquetReadOptions(_Weakrefable):
             return False
 
 
+cdef class ParquetFileWriteOptions(FileWriteOptions):
+
+    cdef:
+        CParquetFileWriteOptions* parquet_options
+        object _properties
+
+    def update(self, **kwargs):
+        cdef CParquetFileWriteOptions* opts = self.parquet_options
+
+        arrow_fields = {
+            "use_deprecated_int96_timestamps",
+            "coerce_timestamps",
+            "allow_truncated_timestamps",
+        }
+
+        update = False
+        update_arrow = False
+        for name, value in kwargs.items():
+            if name not in self._properties:
+                raise TypeError("unexpected parquet write option: " + name)
+            self._properties[name] = value
+            if name in arrow_fields:
+                update_arrow = True
+            else:
+                update = True
+
+        if update:
+            opts.writer_properties = _create_writer_properties(
+                use_dictionary=self._properties["use_dictionary"],
+                compression=self._properties["compression"],
+                version=self._properties["version"],
+                write_statistics=self._properties["write_statistics"],
+                data_page_size=self._properties["data_page_size"],
+                compression_level=self._properties["compression_level"],
+                use_byte_stream_split=(
+                    self._properties["use_byte_stream_split"]
+                ),
+                data_page_version=self._properties["data_page_version"],
+            )
+
+        if update_arrow:
+            opts.arrow_writer_properties = _create_arrow_writer_properties(
+                use_deprecated_int96_timestamps=(
+                    self._properties["use_deprecated_int96_timestamps"]
+                ),
+                coerce_timestamps=self._properties["coerce_timestamps"],
+                allow_truncated_timestamps=(
+                    self._properties["allow_truncated_timestamps"]
+                ),
+                writer_engine_version='V2'
+            )
+
+    cdef void init(self, const shared_ptr[CFileWriteOptions]& sp):
+        FileWriteOptions.init(self, sp)
+        self.parquet_options = <CParquetFileWriteOptions*> sp.get()
+        self._properties = dict(
+            use_dictionary=True,
+            compression="snappy",
+            version="1.0",
+            write_statistics=None,
+            data_page_size=None,
+            compression_level=None,
+            use_byte_stream_split=False,
+            data_page_version="1.0",
+            use_deprecated_int96_timestamps=False,
+            coerce_timestamps=None,
+            allow_truncated_timestamps=False,
+        )
+
+
 cdef class ParquetFileFormat(FileFormat):
 
     cdef:
         CParquetFileFormat* parquet_format
-        object _write_options
 
-    def __init__(self, read_options=None, dict write_options=None):
+    def __init__(self, read_options=None):
         cdef:
             shared_ptr[CParquetFileFormat] wrapped
             CParquetFileFormatReaderOptions* options
-            shared_ptr[ArrowWriterProperties] arrow_properties
-            shared_ptr[WriterProperties] properties
 
         # Read options
 
@@ -1087,33 +1199,6 @@ cdef class ParquetFileFormat(FileFormat):
             for column in read_options.dictionary_columns:
                 options.dict_columns.insert(tobytes(column))
 
-        # Write options
-
-        self._write_options = {}
-        if write_options is not None:
-            self._write_options = write_options
-            properties = _create_writer_properties(
-                use_dictionary=write_options.get("use_dictionary", True),
-                compression=write_options.get("compression", "snappy"),
-                version=write_options.get("version", "1.0"),
-                write_statistics=write_options.get("write_statistics", None),
-                data_page_size=write_options.get("data_page_size", None),
-                compression_level=write_options.get("compression_level", None),
-                use_byte_stream_split=write_options.get(
-                    "use_byte_stream_split", False),
-                data_page_version=write_options.get("data_page_version", "1.0")
-            )
-            arrow_properties = _create_arrow_writer_properties(
-                use_deprecated_int96_timestamps=write_options.get(
-                    "use_deprecated_int96_timestamps", False),
-                coerce_timestamps=write_options.get("coerce_timestamps", None),
-                allow_truncated_timestamps=write_options.get(
-                    "allow_truncated_timestamps", False),
-                writer_engine_version="V2"
-            )
-            wrapped.get().writer_properties = properties
-            wrapped.get().arrow_writer_properties = arrow_properties
-
         self.init(<shared_ptr[CFileFormat]> wrapped)
 
     cdef void init(self, const shared_ptr[CFileFormat]& sp):
@@ -1124,27 +1209,28 @@ cdef class ParquetFileFormat(FileFormat):
     def read_options(self):
         cdef CParquetFileFormatReaderOptions* options
         options = &self.parquet_format.reader_options
-        enable = options.enable_parallel_column_conversion
         return ParquetReadOptions(
             use_buffered_stream=options.use_buffered_stream,
             buffer_size=options.buffer_size,
             dictionary_columns={frombytes(col)
                                 for col in options.dict_columns},
-            enable_parallel_column_conversion=enable
+            enable_parallel_column_conversion=(
+                options.enable_parallel_column_conversion
+            )
         )
 
-    @property
-    def write_options(self):
-        return self._write_options
+    def make_write_options(self, **kwargs):
+        opts = FileFormat.make_write_options(self)
+        (<ParquetFileWriteOptions> opts).update(**kwargs)
+        return opts
 
     def equals(self, ParquetFileFormat other):
         return (
-            self.read_options.equals(other.read_options) and
-            self.write_options == other.write_options
+            self.read_options.equals(other.read_options)
         )
 
     def __reduce__(self):
-        return ParquetFileFormat, (self.read_options, self.write_options)
+        return ParquetFileFormat, (self.read_options, )
 
     def make_fragment(self, file, filesystem=None,
                       Expression partition_expression=None, row_groups=None):
@@ -1170,6 +1256,12 @@ cdef class ParquetFileFormat(FileFormat):
         return Fragment.wrap(move(c_fragment))
 
 
+cdef class IpcFileWriteOptions(FileWriteOptions):
+
+    def __init__(self):
+        _forbid_instantiation(self.__class__)
+
+
 cdef class IpcFileFormat(FileFormat):
 
     def __init__(self):
@@ -1177,6 +1269,10 @@ cdef class IpcFileFormat(FileFormat):
 
     def equals(self, IpcFileFormat other):
         return True
+
+    @property
+    def default_extname(self):
+        return "feather"
 
     def __reduce__(self):
         return IpcFileFormat, tuple()
@@ -1194,6 +1290,9 @@ cdef class CsvFileFormat(FileFormat):
     cdef void init(self, const shared_ptr[CFileFormat]& sp):
         FileFormat.init(self, sp)
         self.csv_format = <CCsvFileFormat*> sp.get()
+
+    def make_write_options(self):
+        raise NotImplemented("writing CSV datasets")
 
     @property
     def parse_options(self):
@@ -2122,47 +2221,29 @@ def _get_partition_keys(Expression partition_expression):
 
 
 def _filesystemdataset_write(
-    data, object base_dir, Schema schema not None,
-    FileFormat format not None, FileSystem filesystem not None,
-    Partitioning partitioning not None, bint use_threads=True,
+    data not None, object base_dir not None, str basename_template not None,
+    Schema schema not None, FileSystem filesystem not None,
+    Partitioning partitioning not None,
+    FileWriteOptions file_options not None, bint use_threads,
 ):
     """
     CFileSystemDataset.Write wrapper
     """
     cdef:
-        c_string c_base_dir
-        shared_ptr[CSchema] c_schema
-        shared_ptr[CFileFormat] c_format
-        shared_ptr[CFileSystem] c_filesystem
-        shared_ptr[CPartitioning] c_partitioning
-        shared_ptr[CScanContext] c_context
-        # to create iterator of InMemory fragments
+        CFileSystemDatasetWriteOptions c_options
+        shared_ptr[CScanner] c_scanner
         vector[shared_ptr[CRecordBatch]] c_batches
-        shared_ptr[CFragment] c_fragment
-        vector[shared_ptr[CFragment]] c_fragment_vector
 
-    c_base_dir = tobytes(_stringify_path(base_dir))
-    c_schema = pyarrow_unwrap_schema(schema)
-    c_format = format.unwrap()
-    c_filesystem = filesystem.unwrap()
-    c_partitioning = partitioning.unwrap()
-    c_context = _build_scan_context(use_threads=use_threads)
+    c_options.file_write_options = file_options.unwrap()
+    c_options.filesystem = filesystem.unwrap()
+    c_options.base_dir = tobytes(_stringify_path(base_dir))
+    c_options.partitioning = partitioning.unwrap()
+    c_options.basename_template = tobytes(basename_template)
 
     if isinstance(data, Dataset):
-        with nogil:
-            check_status(
-                CFileSystemDataset.Write(
-                    c_schema,
-                    c_format,
-                    c_filesystem,
-                    c_base_dir,
-                    c_partitioning,
-                    c_context,
-                    (<Dataset> data).dataset.GetFragments()
-                )
-            )
+        scanner = data._scanner(use_threads=use_threads)
     else:
-        # data is list of batches/tables, one element per fragment
+        # data is list of batches/tables
         for table in data:
             if isinstance(table, Table):
                 for batch in table.to_batches():
@@ -2170,20 +2251,11 @@ def _filesystemdataset_write(
             else:
                 c_batches.push_back((<RecordBatch> table).sp_batch)
 
-            c_fragment = shared_ptr[CFragment](
-                new CInMemoryFragment(c_batches, _true.unwrap()))
-            c_batches.clear()
-            c_fragment_vector.push_back(c_fragment)
+        data = Fragment.wrap(shared_ptr[CFragment](
+            new CInMemoryFragment(move(c_batches), _true.unwrap())))
 
-        with nogil:
-            check_status(
-                CFileSystemDataset.Write(
-                    c_schema,
-                    c_format,
-                    c_filesystem,
-                    c_base_dir,
-                    c_partitioning,
-                    c_context,
-                    MakeVectorIterator(move(c_fragment_vector))
-                )
-            )
+        scanner = Scanner.from_fragment(data, schema, use_threads=use_threads)
+
+    c_scanner = (<Scanner> scanner).unwrap()
+    with nogil:
+        check_status(CFileSystemDataset.Write(c_options, c_scanner))

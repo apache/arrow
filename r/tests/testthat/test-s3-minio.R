@@ -119,7 +119,7 @@ if (arrow_with_s3() && process_is_running("minio server")) {
   test_that("write_dataset with fs", {
     ds <- open_dataset(minio_path("hive_dir"), filesystem = fs)
     write_dataset(ds, minio_path("new_dataset_dir"), filesystem = fs)
-    expect_length(fs$GetFileInfo(FileSelector$create(minio_path("new_dataset_dir"))), 2)
+    expect_length(fs$GetFileInfo(FileSelector$create(minio_path("new_dataset_dir"))), 1)
   })
 
   test_that("S3FileSystem input validation", {
