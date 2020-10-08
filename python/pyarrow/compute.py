@@ -15,8 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import sys
-
 from pyarrow._compute import (  # noqa
     Function,
     FunctionRegistry,
@@ -429,5 +427,5 @@ def fill_null(values, fill_value):
     return call_function("fill_null", [values, fill_value])
 
 
-and_ = getattr(sys.modules[__name__], 'and')
-or_ = getattr(sys.modules[__name__], 'or')
+and_ = globals()['and']
+or_ = globals()['or']

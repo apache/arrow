@@ -101,6 +101,8 @@ exact semantics of the function::
    :doc:`Compute API reference <api/compute>`
 
 
+.. _compute-function-list:
+
 Available functions
 ===================
 

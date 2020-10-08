@@ -16,7 +16,7 @@
 .. under the License.
 
 .. _api.compute:
-.. currentmodule:: pyarrow
+.. currentmodule:: pyarrow.compute
 
 Compute Functions
 =================

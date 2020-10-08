@@ -52,4 +52,4 @@ Below are a few simple examples:
 
 .. seealso::
 
-   :ref:`C++ compute functions documentation <cpp-compute>`.
+   :ref:`Available compute functions (C++ documentation) <compute-function-list>`.

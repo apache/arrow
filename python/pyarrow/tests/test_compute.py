@@ -19,7 +19,6 @@ from datetime import datetime
 from functools import lru_cache
 import pickle
 import pytest
-import sys
 import textwrap
 
 import numpy as np
@@ -223,6 +222,13 @@ def test_mode_chunked_array():
     expected = {"mode": None, "count": None}
     assert arr.num_chunks == 0
     assert pc.mode(arr).as_py() == expected
+
+
+def test_variance():
+    data = [1, 2, 3, 4, 5, 6, 7, 8]
+    assert pc.variance(data).as_py() == 5.25
+    assert pc.variance(data, ddof=0).as_py() == 5.25
+    assert pc.variance(data, ddof=1).as_py() == 6.0
 
 
 def test_match_substring():
@@ -827,7 +833,6 @@ def test_fill_null_chunked_array(arrow_type):
 
 
 def test_logical():
-
     a = pa.array([True, False, False, None])
     b = pa.array([True, True, False, True])
 
@@ -835,7 +840,7 @@ def test_logical():
     assert pc.and_kleene(a, b) == pa.array([True, False, False, None])
 
     assert pc.or_(a, b) == pa.array([True, True, False, None])
-    assert pc.and_kleene(a, b) == pa.array([True, False, False, None])
+    assert pc.or_kleene(a, b) == pa.array([True, True, False, True])
 
     assert pc.xor(a, b) == pa.array([False, True, False, None])
 
@@ -843,8 +848,7 @@ def test_logical():
 
 
 def test_cast():
-
-    arr = pa.array([sys.maxsize], type='int64')
+    arr = pa.array([2**63 - 1], type='int64')
 
     with pytest.raises(pa.ArrowInvalid):
         pc.cast(arr, 'int32')
