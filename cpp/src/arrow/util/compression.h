@@ -20,10 +20,10 @@
 #include <cstdint>
 #include <limits>
 #include <memory>
+#include <string>
 
 #include "arrow/result.h"
 #include "arrow/status.h"
-#include "arrow/util/string_view.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -135,10 +135,10 @@ class ARROW_EXPORT Codec {
   static int UseDefaultCompressionLevel();
 
   /// \brief Return a string name for compression type
-  static util::string_view GetCodecAsString(Compression::type t);
+  static const std::string& GetCodecAsString(Compression::type t);
 
   /// \brief Return compression type for name (all upper case)
-  static Result<Compression::type> GetCompressionType(util::string_view name);
+  static Result<Compression::type> GetCompressionType(const std::string& name);
 
   /// \brief Create a codec for the given compression algorithm
   static Result<std::unique_ptr<Codec>> Create(
@@ -185,7 +185,7 @@ class ARROW_EXPORT Codec {
   virtual Compression::type compression_type() const = 0;
 
   /// \brief The name of this Codec's compression type
-  std::string name() const { return GetCodecAsString(compression_type()).to_string(); }
+  const std::string& name() const { return GetCodecAsString(compression_type()); }
 
   /// \brief This Codec's compression level, if applicable
   virtual int compression_level() const { return UseDefaultCompressionLevel(); }

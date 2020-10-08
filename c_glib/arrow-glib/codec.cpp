@@ -151,7 +151,7 @@ const gchar *
 garrow_codec_get_name(GArrowCodec *codec)
 {
   auto arrow_codec = garrow_codec_get_raw(codec);
-  return arrow_codec->name();
+  return arrow_codec->name().c_str();
 }
 
 G_END_DECLS

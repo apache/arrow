@@ -249,8 +249,7 @@ enum {
   PROP_WRITE_OPTIONS_MAX_RECURSION_DEPTH,
   PROP_WRITE_OPTIONS_ALIGNMENT,
   PROP_WRITE_OPTIONS_WRITE_LEGACY_IPC_FORMAT,
-  PROP_WRITE_OPTIONS_COMPRESSION,
-  PROP_WRITE_OPTIONS_COMPRESSION_LEVEL,
+  PROP_WRITE_OPTIONS_CODEC,
   PROP_WRITE_OPTIONS_USE_THREADS,
 };
 
@@ -294,13 +293,14 @@ garrow_write_options_set_property(GObject *object,
   case PROP_WRITE_OPTIONS_WRITE_LEGACY_IPC_FORMAT:
     priv->options.write_legacy_ipc_format = g_value_get_boolean(value);
     break;
-  case PROP_WRITE_OPTIONS_COMPRESSION:
-    priv->options.compression =
-      static_cast<arrow::Compression::type>(g_value_get_enum(value));
+  case PROP_WRITE_OPTIONS_CODEC: {
+    auto codec = g_value_dup_object(value);
+    priv->options.codec = std::shared_ptr<arrow::util::Codec>{
+      garrow_codec_get_raw(codec),
+      [codec](...) { g_object_unref(codec); }
+    };
     break;
-  case PROP_WRITE_OPTIONS_COMPRESSION_LEVEL:
-    priv->options.compression_level = g_value_get_int(value);
-    break;
+  }
   case PROP_WRITE_OPTIONS_USE_THREADS:
     priv->options.use_threads = g_value_get_boolean(value);
     break;
@@ -331,12 +331,12 @@ garrow_write_options_get_property(GObject *object,
   case PROP_WRITE_OPTIONS_WRITE_LEGACY_IPC_FORMAT:
     g_value_set_boolean(value, priv->options.write_legacy_ipc_format);
     break;
-  case PROP_WRITE_OPTIONS_COMPRESSION:
-    g_value_set_enum(value, priv->options.compression);
+  case PROP_WRITE_OPTIONS_CODEC: {
+    auto arrow_type = priv->options.codec->compression_type();
+    auto type = garrow_compression_type_from_raw(arrow_type);
+    g_value_set_object(value, garrow_codec_new(type));
     break;
-  case PROP_WRITE_OPTIONS_COMPRESSION_LEVEL:
-    g_value_set_int(value, priv->options.compression_level);
-    break;
+  }
   case PROP_WRITE_OPTIONS_USE_THREADS:
     g_value_set_boolean(value, priv->options.use_threads);
     break;
@@ -441,7 +441,7 @@ garrow_write_options_class_init(GArrowWriteOptionsClass *klass)
                                   spec);
 
   /**
-   * GArrowWriteOptions:compression:
+   * GArrowWriteOptions:codec:
    *
    * Codec to use for compressing and decompressing record batch body
    * buffers. This is not part of the Arrow IPC protocol and only for
@@ -450,33 +450,13 @@ garrow_write_options_class_init(GArrowWriteOptionsClass *klass)
    *
    * Since: 1.0.0
    */
-  spec = g_param_spec_enum("compression",
-                           "Compression",
-                           "Codec to use for "
-                           "compressing record batch body buffers.",
-                           GARROW_TYPE_COMPRESSION_TYPE,
-                           options.compression,
-                           static_cast<GParamFlags>(G_PARAM_READWRITE));
+  spec = g_param_spec_pointer("codec",
+                              "Codec",
+                              "Codec to use for "
+                              "compressing record batch body buffers.",
+                              static_cast<GParamFlags>(G_PARAM_READWRITE));
   g_object_class_install_property(gobject_class,
-                                  PROP_WRITE_OPTIONS_COMPRESSION,
-                                  spec);
-
-  /**
-   * GArrowWriteOptions:compression-level:
-   *
-   * The level for compression.
-   *
-   * Since: 1.0.0
-   */
-  spec = g_param_spec_int("compression-level",
-                          "Compression level",
-                          "The level for compression",
-                          G_MININT,
-                          G_MAXINT,
-                          options.compression_level,
-                          static_cast<GParamFlags>(G_PARAM_READWRITE));
-  g_object_class_install_property(gobject_class,
-                                  PROP_WRITE_OPTIONS_COMPRESSION_LEVEL,
+                                  PROP_WRITE_OPTIONS_CODEC,
                                   spec);
 
   /**
