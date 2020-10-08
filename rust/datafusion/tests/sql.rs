@@ -1222,7 +1222,7 @@ async fn query_count_distinct() -> Result<()> {
     ctx.register_table("test", Box::new(table));
     let sql = "SELECT COUNT(DISTINCT c1) FROM test";
     let actual = execute(&mut ctx, sql).await;
-    let expected = vec!["3".to_string()];
+    let expected = vec![vec!["3".to_string()]];
     assert_eq!(expected, actual);
     Ok(())
 }
