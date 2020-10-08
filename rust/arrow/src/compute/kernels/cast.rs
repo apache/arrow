@@ -15,8 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! Defines cast kernels for `ArrayRef`, allowing casting arrays between supported
-//! datatypes.
+//! Defines cast kernels for `ArrayRef`, to convert `Array`s between
+//! supported datatypes.
 //!
 //! Example:
 //!
@@ -38,13 +38,14 @@
 use std::str;
 use std::sync::Arc;
 
-use crate::array::*;
 use crate::buffer::Buffer;
 use crate::compute::kernels::arithmetic::{divide, multiply};
 use crate::datatypes::*;
 use crate::error::{ArrowError, Result};
+use crate::{array::*, compute::take};
 
-/// Cast array to provided data type
+/// Cast `array` to the provided data type and return a new Array with
+/// type `to_type`, if possible.
 ///
 /// Behavior:
 /// * Boolean to Utf8: `true` => '1', `false` => `0`
@@ -125,6 +126,34 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
 
             Ok(list_array)
         }
+        (Dictionary(index_type, _), _) => match **index_type {
+            DataType::Int8 => dictionary_cast::<Int8Type>(array, to_type),
+            DataType::Int16 => dictionary_cast::<Int16Type>(array, to_type),
+            DataType::Int32 => dictionary_cast::<Int32Type>(array, to_type),
+            DataType::Int64 => dictionary_cast::<Int64Type>(array, to_type),
+            DataType::UInt8 => dictionary_cast::<UInt8Type>(array, to_type),
+            DataType::UInt16 => dictionary_cast::<UInt16Type>(array, to_type),
+            DataType::UInt32 => dictionary_cast::<UInt32Type>(array, to_type),
+            DataType::UInt64 => dictionary_cast::<UInt64Type>(array, to_type),
+            _ => Err(ArrowError::ComputeError(format!(
+                "Casting from dictionary type {:?} to {:?} not supported",
+                from_type, to_type,
+            ))),
+        },
+        (_, Dictionary(index_type, value_type)) => match **index_type {
+            DataType::Int8 => cast_to_dictionary::<Int8Type>(array, value_type),
+            DataType::Int16 => cast_to_dictionary::<Int16Type>(array, value_type),
+            DataType::Int32 => cast_to_dictionary::<Int32Type>(array, value_type),
+            DataType::Int64 => cast_to_dictionary::<Int64Type>(array, value_type),
+            DataType::UInt8 => cast_to_dictionary::<UInt8Type>(array, value_type),
+            DataType::UInt16 => cast_to_dictionary::<UInt16Type>(array, value_type),
+            DataType::UInt32 => cast_to_dictionary::<UInt32Type>(array, value_type),
+            DataType::UInt64 => cast_to_dictionary::<UInt64Type>(array, value_type),
+            _ => Err(ArrowError::ComputeError(format!(
+                "Casting from type {:?} to dictionary type {:?} not supported",
+                from_type, to_type,
+            ))),
+        },
         (_, Boolean) => match from_type {
             UInt8 => cast_numeric_to_bool::<UInt8Type>(array),
             UInt16 => cast_numeric_to_bool::<UInt16Type>(array),
@@ -740,10 +769,203 @@ where
         .collect()
 }
 
+/// Attempts to cast an `ArrayDictionary` with index type K into
+/// `to_type` for supported types.
+///
+/// K is the key type
+fn dictionary_cast<K: ArrowDictionaryKeyType>(
+    array: &ArrayRef,
+    to_type: &DataType,
+) -> Result<ArrayRef> {
+    use DataType::*;
+
+    match to_type {
+        Dictionary(to_index_type, to_value_type) => {
+            let dict_array = array
+                .as_any()
+                .downcast_ref::<DictionaryArray<K>>()
+                .ok_or_else(|| {
+                    ArrowError::ComputeError(
+                        "Internal Error: Cannot cast dictionary to DictionaryArray of expected type".to_string(),
+                    )
+                })?;
+
+            let keys_array: ArrayRef = Arc::new(dict_array.keys_array());
+            let values_array: ArrayRef = dict_array.values();
+            let cast_keys = cast(&keys_array, to_index_type)?;
+            let cast_values = cast(&values_array, to_value_type)?;
+
+            // Failure to cast keys (because they don't fit in the
+            // target type) results in NULL values;
+            if cast_keys.null_count() > keys_array.null_count() {
+                return Err(ArrowError::ComputeError(format!(
+                    "Could not convert {} dictionary indexes from {:?} to {:?}",
+                    cast_keys.null_count() - keys_array.null_count(),
+                    keys_array.data_type(),
+                    to_index_type
+                )));
+            }
+
+            // keys are data, child_data is values (dictionary)
+            let data = Arc::new(ArrayData::new(
+                to_type.clone(),
+                cast_keys.len(),
+                Some(cast_keys.null_count()),
+                cast_keys
+                    .data()
+                    .null_bitmap()
+                    .clone()
+                    .map(|bitmap| bitmap.bits),
+                cast_keys.data().offset(),
+                cast_keys.data().buffers().to_vec(),
+                vec![cast_values.data()],
+            ));
+
+            // create the appropriate array type
+            let new_array: ArrayRef = match **to_index_type {
+                Int8 => Arc::new(DictionaryArray::<Int8Type>::from(data)),
+                Int16 => Arc::new(DictionaryArray::<Int16Type>::from(data)),
+                Int32 => Arc::new(DictionaryArray::<Int32Type>::from(data)),
+                Int64 => Arc::new(DictionaryArray::<Int64Type>::from(data)),
+                UInt8 => Arc::new(DictionaryArray::<UInt8Type>::from(data)),
+                UInt16 => Arc::new(DictionaryArray::<UInt16Type>::from(data)),
+                UInt32 => Arc::new(DictionaryArray::<UInt32Type>::from(data)),
+                UInt64 => Arc::new(DictionaryArray::<UInt64Type>::from(data)),
+                _ => {
+                    return Err(ArrowError::ComputeError(format!(
+                        "Unsupported type {:?} for dictionary index",
+                        to_index_type
+                    )))
+                }
+            };
+
+            Ok(new_array)
+        }
+        _ => unpack_dictionary::<K>(array, to_type),
+    }
+}
+
+// Unpack a dictionary where the keys are of type <K> into a flattened array of type to_type
+fn unpack_dictionary<K>(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef>
+where
+    K: ArrowDictionaryKeyType,
+{
+    let dict_array = array
+        .as_any()
+        .downcast_ref::<DictionaryArray<K>>()
+        .ok_or_else(|| {
+            ArrowError::ComputeError(
+                "Internal Error: Cannot cast dictionary to DictionaryArray of expected type".to_string(),
+            )
+        })?;
+
+    // attempt to cast the dict values to the target type
+    // use the take kernel to expand out the dictionary
+    let cast_dict_values = cast(&dict_array.values(), to_type)?;
+
+    // Note take requires first casting the indicies to u32
+    let keys_array: ArrayRef = Arc::new(dict_array.keys_array());
+    let indicies = cast(&keys_array, &DataType::UInt32)?;
+    let u32_indicies =
+        indicies
+            .as_any()
+            .downcast_ref::<UInt32Array>()
+            .ok_or_else(|| {
+                ArrowError::ComputeError(
+                    "Internal Error: Cannot cast dict indicies to UInt32".to_string(),
+                )
+            })?;
+
+    take(&cast_dict_values, u32_indicies, None)
+}
+
+/// Attempts to encode an array into an `ArrayDictionary` with index
+/// type K and value (dictionary) type value_type
+///
+/// K is the key type
+fn cast_to_dictionary<K: ArrowDictionaryKeyType>(
+    array: &ArrayRef,
+    dict_value_type: &DataType,
+) -> Result<ArrayRef> {
+    use DataType::*;
+
+    match *dict_value_type {
+        Int8 => pack_numeric_to_dictionary::<K, Int8Type>(array, dict_value_type),
+        Int16 => pack_numeric_to_dictionary::<K, Int16Type>(array, dict_value_type),
+        Int32 => pack_numeric_to_dictionary::<K, Int32Type>(array, dict_value_type),
+        Int64 => pack_numeric_to_dictionary::<K, Int64Type>(array, dict_value_type),
+        UInt8 => pack_numeric_to_dictionary::<K, UInt8Type>(array, dict_value_type),
+        UInt16 => pack_numeric_to_dictionary::<K, UInt16Type>(array, dict_value_type),
+        UInt32 => pack_numeric_to_dictionary::<K, UInt32Type>(array, dict_value_type),
+        UInt64 => pack_numeric_to_dictionary::<K, UInt64Type>(array, dict_value_type),
+        Utf8 => pack_string_to_dictionary::<K>(array),
+        _ => Err(ArrowError::ComputeError(format!(
+            "Internal Error: Unsupported output type for dictionary packing: {:?}",
+            dict_value_type
+        ))),
+    }
+}
+
+// Packs the data from the primitive array of type <V> to a
+// DictionaryArray with keys of type K and values of value_type V
+fn pack_numeric_to_dictionary<K, V>(
+    array: &ArrayRef,
+    dict_value_type: &DataType,
+) -> Result<ArrayRef>
+where
+    K: ArrowDictionaryKeyType,
+    V: ArrowNumericType,
+{
+    // attempt to cast the source array values to the target value type (the dictionary values type)
+    let cast_values = cast(array, &dict_value_type)?;
+    let values = cast_values
+        .as_any()
+        .downcast_ref::<PrimitiveArray<V>>()
+        .unwrap();
+
+    let keys_builder = PrimitiveBuilder::<K>::new(values.len());
+    let values_builder = PrimitiveBuilder::<V>::new(values.len());
+    let mut b = PrimitiveDictionaryBuilder::new(keys_builder, values_builder);
+
+    // copy each element one at a time
+    for i in 0..values.len() {
+        if values.is_null(i) {
+            b.append_null()?;
+        } else {
+            b.append(values.value(i))?;
+        }
+    }
+    Ok(Arc::new(b.finish()))
+}
+
+// Packs the data as a StringDictionaryArray, if possible, with the
+// key types of K
+fn pack_string_to_dictionary<K>(array: &ArrayRef) -> Result<ArrayRef>
+where
+    K: ArrowDictionaryKeyType,
+{
+    let cast_values = cast(array, &DataType::Utf8)?;
+    let values = cast_values.as_any().downcast_ref::<StringArray>().unwrap();
+
+    let keys_builder = PrimitiveBuilder::<K>::new(values.len());
+    let values_builder = StringBuilder::new(values.len());
+    let mut b = StringDictionaryBuilder::new(keys_builder, values_builder);
+
+    // copy each element one at a time
+    for i in 0..values.len() {
+        if values.is_null(i) {
+            b.append_null()?;
+        } else {
+            b.append(values.value(i))?;
+        }
+    }
+    Ok(Arc::new(b.finish()))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::buffer::Buffer;
+    use crate::{buffer::Buffer, util::display::array_value_to_string};
 
     #[test]
     fn test_cast_i32_to_f64() {
@@ -2033,6 +2255,7 @@ mod tests {
         );
     }
 
+    /// Convert `array` into a vector of strings by casting to data type dt
     fn get_cast_values<T>(array: &ArrayRef, dt: &DataType) -> Vec<String>
     where
         T: ArrowNumericType,
@@ -2048,5 +2271,210 @@ mod tests {
             }
         }
         v
+    }
+
+    #[test]
+    fn test_cast_utf8_dict() {
+        // FROM a dictionary with of Utf8 values
+        use DataType::*;
+
+        let keys_builder = PrimitiveBuilder::<Int8Type>::new(10);
+        let values_builder = StringBuilder::new(10);
+        let mut builder = StringDictionaryBuilder::new(keys_builder, values_builder);
+        builder.append("one").unwrap();
+        builder.append_null().unwrap();
+        builder.append("three").unwrap();
+        let array: ArrayRef = Arc::new(builder.finish());
+
+        let expected = vec!["one", "null", "three"];
+
+        // Test casting TO StringArray
+        let cast_type = Utf8;
+        let cast_array = cast(&array, &cast_type).expect("cast to UTF-8 succeeded");
+        assert_eq!(cast_array.data_type(), &cast_type);
+        assert_eq!(array_to_strings(&cast_array), expected);
+
+        // Test casting TO Dictionary (with different index sizes)
+
+        let cast_type = Dictionary(Box::new(Int16), Box::new(Utf8));
+        let cast_array = cast(&array, &cast_type).expect("cast succeeded");
+        assert_eq!(cast_array.data_type(), &cast_type);
+        assert_eq!(array_to_strings(&cast_array), expected);
+
+        let cast_type = Dictionary(Box::new(Int32), Box::new(Utf8));
+        let cast_array = cast(&array, &cast_type).expect("cast succeeded");
+        assert_eq!(cast_array.data_type(), &cast_type);
+        assert_eq!(array_to_strings(&cast_array), expected);
+
+        let cast_type = Dictionary(Box::new(Int64), Box::new(Utf8));
+        let cast_array = cast(&array, &cast_type).expect("cast succeeded");
+        assert_eq!(cast_array.data_type(), &cast_type);
+        assert_eq!(array_to_strings(&cast_array), expected);
+
+        let cast_type = Dictionary(Box::new(UInt8), Box::new(Utf8));
+        let cast_array = cast(&array, &cast_type).expect("cast succeeded");
+        assert_eq!(cast_array.data_type(), &cast_type);
+        assert_eq!(array_to_strings(&cast_array), expected);
+
+        let cast_type = Dictionary(Box::new(UInt16), Box::new(Utf8));
+        let cast_array = cast(&array, &cast_type).expect("cast succeeded");
+        assert_eq!(cast_array.data_type(), &cast_type);
+        assert_eq!(array_to_strings(&cast_array), expected);
+
+        let cast_type = Dictionary(Box::new(UInt32), Box::new(Utf8));
+        let cast_array = cast(&array, &cast_type).expect("cast succeeded");
+        assert_eq!(cast_array.data_type(), &cast_type);
+        assert_eq!(array_to_strings(&cast_array), expected);
+
+        let cast_type = Dictionary(Box::new(UInt64), Box::new(Utf8));
+        let cast_array = cast(&array, &cast_type).expect("cast succeeded");
+        assert_eq!(cast_array.data_type(), &cast_type);
+        assert_eq!(array_to_strings(&cast_array), expected);
+    }
+
+    #[test]
+    fn test_cast_dict_to_dict_bad_index_value_primitive() {
+        use DataType::*;
+        // test converting from an array that has indexes of a type
+        // that are out of bounds for a particular other kind of
+        // index.
+
+        let keys_builder = PrimitiveBuilder::<Int32Type>::new(10);
+        let values_builder = PrimitiveBuilder::<Int64Type>::new(10);
+        let mut builder = PrimitiveDictionaryBuilder::new(keys_builder, values_builder);
+
+        // add 200 distinct values (which can be stored by a
+        // dictionary indexed by int32, but not a dictionary indexed
+        // with int8)
+        for i in 0..200 {
+            builder.append(i).unwrap();
+        }
+        let array: ArrayRef = Arc::new(builder.finish());
+
+        let cast_type = Dictionary(Box::new(Int8), Box::new(Utf8));
+        let res = cast(&array, &cast_type);
+        assert!(res.is_err());
+        let actual_error = format!("{:?}", res);
+        let expected_error = "Could not convert 72 dictionary indexes from Int32 to Int8";
+        assert!(
+            actual_error.contains(expected_error),
+            "did not find expected error '{}' in actual error '{}'",
+            actual_error,
+            expected_error
+        );
+    }
+
+    #[test]
+    fn test_cast_dict_to_dict_bad_index_value_utf8() {
+        use DataType::*;
+        // Same test as test_cast_dict_to_dict_bad_index_value but use
+        // string values (and encode the expected behavior here);
+
+        let keys_builder = PrimitiveBuilder::<Int32Type>::new(10);
+        let values_builder = StringBuilder::new(10);
+        let mut builder = StringDictionaryBuilder::new(keys_builder, values_builder);
+
+        // add 200 distinct values (which can be stored by a
+        // dictionary indexed by int32, but not a dictionary indexed
+        // with int8)
+        for i in 0..200 {
+            let val = format!("val{}", i);
+            builder.append(&val).unwrap();
+        }
+        let array: ArrayRef = Arc::new(builder.finish());
+
+        let cast_type = Dictionary(Box::new(Int8), Box::new(Utf8));
+        let res = cast(&array, &cast_type);
+        assert!(res.is_err());
+        let actual_error = format!("{:?}", res);
+        let expected_error = "Could not convert 72 dictionary indexes from Int32 to Int8";
+        assert!(
+            actual_error.contains(expected_error),
+            "did not find expected error '{}' in actual error '{}'",
+            actual_error,
+            expected_error
+        );
+    }
+
+    #[test]
+    fn test_cast_primitive_dict() {
+        // FROM a dictionary with of INT32 values
+        use DataType::*;
+
+        let keys_builder = PrimitiveBuilder::<Int8Type>::new(10);
+        let values_builder = PrimitiveBuilder::<Int32Type>::new(10);
+        let mut builder = PrimitiveDictionaryBuilder::new(keys_builder, values_builder);
+        builder.append(1).unwrap();
+        builder.append_null().unwrap();
+        builder.append(3).unwrap();
+        let array: ArrayRef = Arc::new(builder.finish());
+
+        let expected = vec!["1", "null", "3"];
+
+        // Test casting TO PrimitiveArray, different dictionary type
+        let cast_array = cast(&array, &Utf8).expect("cast to UTF-8 succeeded");
+        assert_eq!(array_to_strings(&cast_array), expected);
+        assert_eq!(cast_array.data_type(), &Utf8);
+
+        let cast_array = cast(&array, &Int64).expect("cast to int64 succeeded");
+        assert_eq!(array_to_strings(&cast_array), expected);
+        assert_eq!(cast_array.data_type(), &Int64);
+    }
+
+    #[test]
+    fn test_cast_primitive_array_to_dict() {
+        use DataType::*;
+
+        let mut builder = PrimitiveBuilder::<Int32Type>::new(10);
+        builder.append_value(1).unwrap();
+        builder.append_null().unwrap();
+        builder.append_value(3).unwrap();
+        let array: ArrayRef = Arc::new(builder.finish());
+
+        let expected = vec!["1", "null", "3"];
+
+        // Cast to a dictionary (same value type, Int32)
+        let cast_type = Dictionary(Box::new(UInt8), Box::new(Int32));
+        let cast_array = cast(&array, &cast_type).expect("cast succeeded");
+        assert_eq!(cast_array.data_type(), &cast_type);
+        assert_eq!(array_to_strings(&cast_array), expected);
+
+        // Cast to a dictionary (different value type, Int8)
+        let cast_type = Dictionary(Box::new(UInt8), Box::new(Int8));
+        let cast_array = cast(&array, &cast_type).expect("cast succeeded");
+        assert_eq!(cast_array.data_type(), &cast_type);
+        assert_eq!(array_to_strings(&cast_array), expected);
+    }
+
+    #[test]
+    fn test_cast_string_array_to_dict() {
+        use DataType::*;
+
+        let mut builder = StringBuilder::new(10);
+        builder.append_value("one").unwrap();
+        builder.append_null().unwrap();
+        builder.append_value("three").unwrap();
+        let array: ArrayRef = Arc::new(builder.finish());
+
+        let expected = vec!["one", "null", "three"];
+
+        // Cast to a dictionary (same value type, Utf8)
+        let cast_type = Dictionary(Box::new(UInt8), Box::new(Utf8));
+        let cast_array = cast(&array, &cast_type).expect("cast succeeded");
+        assert_eq!(cast_array.data_type(), &cast_type);
+        assert_eq!(array_to_strings(&cast_array), expected);
+    }
+
+    /// Print the `DictionaryArray` `array` as a vector of strings
+    fn array_to_strings(array: &ArrayRef) -> Vec<String> {
+        (0..array.len())
+            .map(|i| {
+                if array.is_null(i) {
+                    "null".to_string()
+                } else {
+                    array_value_to_string(array, i).expect("Convert array to String")
+                }
+            })
+            .collect()
     }
 }

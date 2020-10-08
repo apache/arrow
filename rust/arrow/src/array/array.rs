@@ -2107,13 +2107,13 @@ impl From<(Vec<(Field, ArrayRef)>, Buffer, usize)> for StructArray {
 /// assert_eq!(array.keys().collect::<Vec<Option<i8>>>(), vec![Some(0), Some(0), Some(1), Some(2)]);
 /// ```
 pub struct DictionaryArray<K: ArrowPrimitiveType> {
-    /// Array of keys, much like a PrimitiveArray
+    /// Array of keys, stored as a PrimitiveArray<K>.
     data: ArrayDataRef,
 
     /// Pointer to the key values.
     raw_values: RawPtrBox<K::Native>,
 
-    /// Array of any values.
+    /// Array of dictionary values (can by any DataType).
     values: ArrayRef,
 
     /// Values are ordered.
