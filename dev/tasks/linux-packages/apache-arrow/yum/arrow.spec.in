@@ -144,7 +144,6 @@ cd cpp/build
 %if %{use_s3}
   -DARROW_S3=ON \
 %endif
-  -DARROW_VERBOSE_THIRDPARTY_BUILD=ON \
   -DARROW_WITH_BROTLI=ON \
   -DARROW_WITH_BZ2=ON \
   -DARROW_WITH_LZ4=ON \
