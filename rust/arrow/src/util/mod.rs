@@ -16,6 +16,7 @@
 // under the License.
 
 pub mod bit_util;
+pub mod display;
 pub mod integration_util;
 #[cfg(feature = "prettyprint")]
 pub mod pretty;
