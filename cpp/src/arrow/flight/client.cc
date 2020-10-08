@@ -897,18 +897,16 @@ class FlightClient::FlightClientImpl {
             }
           };
 
-          noOpAuthCheck = std::shared_ptr<ge::TlsServerAuthorizationCheckConfig>(
-              new ge::TlsServerAuthorizationCheckConfig(
-                  std::shared_ptr<ge::TlsServerAuthorizationCheckInterface>(
-                      new NoOpTlsAuthorizationCheck())));
-          std::shared_ptr<ge::TlsKeyMaterialsConfig> materials_config(
-              new ge::TlsKeyMaterialsConfig());
+          noop_auth_check_ = std::make_shared<ge::TlsServerAuthorizationCheckConfig>(
+            std::shared_ptr<ge::TlsServerAuthorizationCheckInterface>(
+              std::make_shared<NoOpTlsAuthorizationCheck>()));
+          auto materials_config = std::make_shared<ge::TlsKeyMaterialsConfig>();
           materials_config->set_pem_root_certs(BLANK_ROOT_PEM);
           ge::TlsCredentialsOptions tls_options(
               GRPC_SSL_DONT_REQUEST_CLIENT_CERTIFICATE,
               GRPC_TLS_SKIP_ALL_SERVER_VERIFICATION,
               std::shared_ptr<ge::TlsKeyMaterialsConfig>(materials_config),
-              std::shared_ptr<ge::TlsCredentialReloadConfig>(), noOpAuthCheck);
+              std::shared_ptr<ge::TlsCredentialReloadConfig>(), noop_auth_check_);
           creds = ge::TlsCredentials(tls_options);
 #endif
         } else {
@@ -1175,7 +1173,7 @@ class FlightClient::FlightClientImpl {
   // https://github.com/grpc/grpc/issues/22287
   std::shared_ptr<
       GRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS::TlsServerAuthorizationCheckConfig>
-      noOpAuthCheck;
+      noop_auth_check_;
 #endif
   int64_t write_size_limit_bytes_;
 };
