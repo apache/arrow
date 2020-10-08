@@ -913,6 +913,56 @@ TEST(TestStringOps, TestReplace) {
   ctx.Reset();
 }
 
+TEST(TestStringOps, TestSplitPart) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
+  gdv_int32 out_len = 0;
+  const char* out_str;
+
+  out_str = split_part(ctx_ptr, "A,B,C", 5, ",", 1, 0, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_THAT(
+      ctx.get_error(),
+      ::testing::HasSubstr("Index in split_part must be positive, value provided was 0"));
+
+  out_str = split_part(ctx_ptr, "A,B,C", 5, ",", 1, 1, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "A");
+
+  out_str = split_part(ctx_ptr, "A,B,C", 5, ",", 1, 2, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "B");
+
+  out_str = split_part(ctx_ptr, "A,B,C", 5, ",", 1, 3, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "C");
+
+  out_str = split_part(ctx_ptr, "abc~@~def~@~ghi", 15, "~@~", 3, 1, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "abc");
+
+  out_str = split_part(ctx_ptr, "abc~@~def~@~ghi", 15, "~@~", 3, 2, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "def");
+
+  out_str = split_part(ctx_ptr, "abc~@~def~@~ghi", 15, "~@~", 3, 3, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "ghi");
+
+  // Result must be empty when the index is > no of elements
+  out_str = split_part(ctx_ptr, "123|456|789", 11, "|", 1, 4, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+
+  out_str = split_part(ctx_ptr, "123|", 4, "|", 1, 1, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "123");
+
+  out_str = split_part(ctx_ptr, "|123", 4, "|", 1, 1, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+
+  out_str = split_part(ctx_ptr, "ç†ååçåå†", 18, "å", 2, 1, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "ç†");
+
+  out_str = split_part(ctx_ptr, "ç†ååçåå†", 18, "†åå", 6, 1, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "ç");
+
+  out_str = split_part(ctx_ptr, "ç†ååçåå†", 18, "†", 3, 2, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "ååçåå");
+}
+
 TEST(TestArithmeticOps, TestCastINT) {
   gandiva::ExecutionContext ctx;
 

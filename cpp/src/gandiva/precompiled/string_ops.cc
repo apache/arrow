@@ -41,6 +41,19 @@ gdv_int32 bit_length_binary(const gdv_binary input, gdv_int32 length) {
 }
 
 FORCE_INLINE
+int match_string(const char* input, gdv_int32 input_len, gdv_int32 start_pos,
+                 const char* delim, gdv_int32 delim_len) {
+  for (int i = start_pos; i < input_len; i++) {
+    int left_chars = input_len - i;
+    if ((left_chars >= delim_len) && memcmp(input + i, delim, delim_len) == 0) {
+      return i + delim_len;
+    }
+  }
+
+  return -1;
+}
+
+FORCE_INLINE
 gdv_int32 mem_compare(const char* left, gdv_int32 left_len, const char* right,
                       gdv_int32 right_len) {
   int min = left_len;
@@ -1317,6 +1330,65 @@ const char* replace_utf8_utf8_utf8(gdv_int64 context, const char* text,
   return replace_with_max_len_utf8_utf8_utf8(context, text, text_len, from_str,
                                              from_str_len, to_str, to_str_len, 65535,
                                              out_len);
+}
+
+FORCE_INLINE
+const char* split_part(gdv_int64 context, const char* text, gdv_int32 text_len,
+                       const char* delimiter, gdv_int32 delim_len, gdv_int32 index,
+                       gdv_int32* out_len) {
+  *out_len = 0;
+  if (index < 1) {
+    char error_message[100];
+    snprintf(error_message, sizeof(error_message),
+             "Index in split_part must be positive, value provided was %d", index);
+    gdv_fn_context_set_error_msg(context, error_message);
+    return "";
+  }
+
+  if (delim_len == 0 || text_len == 0) {
+    // output will just be text if no delimiter is provided
+    *out_len = text_len;
+    return text;
+  }
+
+  int i = 0, match_no = 1;
+
+  while (i < text_len) {
+    // find the position where delimiter matched for the first time
+    int match_pos = match_string(text, text_len, i, delimiter, delim_len);
+    if (match_pos == -1 && match_no != index) {
+      // reached the end without finding a match.
+      return "";
+    } else {
+      // Found a match. If the match number is index then return this match
+      if (match_no == index) {
+        int end_pos = match_pos - delim_len;
+
+        if (match_pos == -1) {
+          // end position should be last position of the string as we have the last
+          // delimiter
+          end_pos = text_len;
+        }
+
+        *out_len = end_pos - i;
+        char* out_str =
+            reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+        if (out_str == nullptr) {
+          gdv_fn_context_set_error_msg(context,
+                                       "Could not allocate memory for output string");
+          *out_len = 0;
+          return "";
+        }
+        memcpy(out_str, text + i, *out_len);
+        return out_str;
+      } else {
+        i = match_pos;
+        match_no++;
+      }
+    }
+  }
+
+  return "";
 }
 
 #define CAST_NUMERIC_FROM_STRING(OUT_TYPE, ARROW_TYPE, TYPE_NAME)                       \
