@@ -179,6 +179,10 @@ TEST_F(TestIpcFileFormat, WriteRecordBatchReaderCustomOptions) {
 
   auto ipc_options =
       checked_pointer_cast<IpcFileWriteOptions>(format_->DefaultWriteOptions());
+  if (util::Codec::IsAvailable(Compression::ZSTD)) {
+    EXPECT_OK_AND_ASSIGN(ipc_options->options->codec,
+                         util::Codec::Create(Compression::ZSTD));
+  }
   ipc_options->metadata = key_value_metadata({{"hello", "world"}});
   EXPECT_OK_AND_ASSIGN(auto writer,
                        format_->MakeWriter(sink, reader->schema(), ipc_options));

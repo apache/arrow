@@ -213,8 +213,10 @@ void dataset___ParquetFileWriteOptions__update(
 // [[arrow::export]]
 void dataset___IpcFileWriteOptions__update(
     const std::shared_ptr<ds::IpcFileWriteOptions>& ipc_options, bool use_legacy_format,
+    const std::shared_ptr<arrow::util::Codec>& codec,
     arrow::ipc::MetadataVersion metadata_version, cpp11::strings metadata) {
   ipc_options->options->write_legacy_ipc_format = use_legacy_format;
+  ipc_options->options->codec = codec;
   ipc_options->options->metadata_version = metadata_version;
   ipc_options->metadata = KeyValueMetadata__Make(metadata);
 }

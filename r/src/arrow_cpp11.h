@@ -157,19 +157,42 @@ struct ns {
   static SEXP arrow;
 };
 
+// Specialize this struct to define a default value to be used when NULL is given.
+// NB: can't do this for unique_ptr<T> because that requires that T be complete.
+// We could make that happen but it'd probably slow compilation.
+template <typename T>
+struct nil_value {
+  static const T* get() { return nullptr; }
+};
+
+template <typename T>
+struct nil_value<std::shared_ptr<T>> {
+  static const std::shared_ptr<T>* get() {
+    static const std::shared_ptr<T> null;
+    return &null;
+  }
+};
+
 template <typename Pointer>
 Pointer r6_to_pointer(SEXP self) {
+  using pointed_type = cpp11::decay_t<typename std::remove_pointer<Pointer>::type>;
+  if (self == R_NilValue) {
+    if (Pointer default_value = nil_value<pointed_type>::get()) {
+      return default_value;
+    }
+  }
+
   if (!Rf_inherits(self, "ArrowObject")) {
-    std::string type_name = arrow::util::nameof<
-        cpp11::decay_t<typename std::remove_pointer<Pointer>::type>>();
+    std::string type_name = arrow::util::nameof<pointed_type>();
     cpp11::stop("Invalid R object for %s, must be an ArrowObject", type_name.c_str());
   }
-  void* p = R_ExternalPtrAddr(Rf_findVarInFrame(self, arrow::r::symbols::xp));
-  if (p == nullptr) {
-    SEXP klass = Rf_getAttrib(self, R_ClassSymbol);
-    cpp11::stop("Invalid <%s>, external pointer to null", CHAR(STRING_ELT(klass, 0)));
+
+  if (void* p = R_ExternalPtrAddr(Rf_findVarInFrame(self, arrow::r::symbols::xp))) {
+    return reinterpret_cast<Pointer>(p);
   }
-  return reinterpret_cast<Pointer>(p);
+
+  SEXP klass = Rf_getAttrib(self, R_ClassSymbol);
+  cpp11::stop("Invalid <%s>, external pointer to null", CHAR(STRING_ELT(klass, 0)));
 }
 
 // T is either std::shared_ptr<U> or std::unique_ptr<U>

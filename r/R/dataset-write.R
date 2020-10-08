@@ -44,7 +44,8 @@
 #' @param filesystem A [FileSystem] where the dataset should be written if it is a
 #' string file path; default is the local file system
 #' @param ... additional format-specific arguments. For available Parquet
-#' options, see [write_parquet()].
+#' options, see [write_parquet()]. For available Feather options, see
+#' [RecordBatchFileWriter$create()].
 #' @return The input `dataset`, invisibly
 #' @export
 write_dataset <- function(dataset,

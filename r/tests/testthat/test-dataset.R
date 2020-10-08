@@ -943,18 +943,35 @@ test_that("Dataset writing: from RecordBatch", {
   )
 })
 
-test_that("Writing a dataset: Ipc format options", {
+test_that("Writing a dataset: Ipc format options & compression", {
   skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
   ds <- open_dataset(csv_dir, partitioning = "part", format = "csv")
   dst_dir <- make_temp_dir()
 
   metadata <- c(hello = "world", eh = "!")
-  write_dataset(ds, dst_dir, format = "feather",
-                metadata = metadata)
+  codec <- NULL
+  if (codec_is_available("zstd")) {
+    codec <- Codec$create("zstd")
+  }
+
+  write_dataset(ds, dst_dir, format = "feather", metadata = metadata, codec = codec)
   expect_true(dir.exists(dst_dir))
 
   file <- ds$filesystem$OpenInputStream(paste(dst_dir, dir(dst_dir)[[1]], sep = "/"))
   expect_equivalent(metadata, RecordBatchFileReader$create(file)$metadata)
+
+  new_ds <- open_dataset(dst_dir, format = "feather")
+  expect_equivalent(
+    new_ds %>%
+      select(string = chr, integer = int) %>%
+      filter(integer > 6 & integer < 11) %>%
+      collect() %>%
+      summarize(mean = mean(integer)),
+    df1 %>%
+      select(string = chr, integer = int) %>%
+      filter(integer > 6) %>%
+      summarize(mean = mean(integer))
+  )
 })
 
 test_that("Writing a dataset: Parquet format options", {
