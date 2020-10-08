@@ -25,7 +25,7 @@ use arrow::record_batch::RecordBatch;
 use arrow::{array::*, datatypes::TimeUnit};
 use arrow::{
     datatypes::{DataType, Field, Schema, SchemaRef},
-    util::pretty::array_value_to_string,
+    util::display::array_value_to_string,
 };
 
 use datafusion::datasource::{csv::CsvReadOptions, MemTable};
