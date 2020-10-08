@@ -407,9 +407,6 @@ if(ARROW_FILESYSTEM)
   if(ARROW_HDFS)
     add_definitions(-DARROW_HDFS)
   endif()
-  if(ARROW_S3)
-    add_definitions(-DARROW_S3)
-  endif()
 
   list(APPEND ARROW_SRCS
               filesystem/filesystem.cc

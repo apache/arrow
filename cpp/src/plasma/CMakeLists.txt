@@ -56,8 +56,8 @@ set(PLASMA_LINK_LIBS arrow_shared)
 set(PLASMA_STATIC_LINK_LIBS arrow_static)
 
 if(ARROW_CUDA)
-  set(PLASMA_LINK_LIBS ${PLASMA_LINK_LIBS} arrow_cuda_shared)
-  set(PLASMA_STATIC_LINK_LIBS arrow_cuda_static ${PLASMA_STATIC_LINK_LIBS})
+  list(INSERT PLASMA_LINK_LIBS 0 arrow_cuda_shared)
+  list(INSERT PLASMA_STATIC_LINK_LIBS 0 arrow_cuda_static)
   add_definitions(-DPLASMA_CUDA)
 endif()
 

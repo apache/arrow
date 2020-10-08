@@ -2775,7 +2775,17 @@ macro(build_awssdk)
   if(UNIX)
     # on linux and macos curl seems to be required
     find_package(CURL REQUIRED)
-    list(APPEND AWSSDK_LINK_LIBRARIES ${CURL_LIBRARIES})
+    if(NOT TARGET CURL::libcurl)
+      # For old FindCURL.cmake
+      add_library(CURL::libcurl UNKNOWN IMPORTED)
+      set_target_properties(CURL::libcurl
+                            PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
+                                       "${CURL_INCLUDE_DIRS}" IMPORTED_LOCATION
+                                       "${CURL_LIBRARIES}")
+    endif()
+    set_target_properties(aws-cpp-sdk-core
+                          PROPERTIES INTERFACE_LINK_LIBRARIES CURL::libcurl)
+    set_target_properties(CURL::libcurl PROPERTIES INTERFACE_LINK_LIBRARIES OpenSSL::SSL)
   endif()
 
   # AWSSDK is static-only build
