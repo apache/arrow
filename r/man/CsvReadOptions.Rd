@@ -63,14 +63,27 @@ Analogous to the \code{na.strings} argument to
 \item \code{strings_can_be_null} Logical: can string / binary columns have
 null values? Similar to the \code{quoted_na} argument to \code{readr::read_csv()}.
 (default \code{FALSE})
-\item \code{true_values} = c("T", "true", "TRUE"),
-\item \code{false_values}= c("F", "false", "FALSE"),
-\item \code{col_types} = NULL,
-\item \code{auto_dict_encode} = FALSE,
-\item \code{auto_dict_max_cardinality} = 50L,
-\item \code{include_columns} = character(),
-\item \code{include_missing_columns} = FALSE,
-\item \code{timestamp_parsers} = NULL
+\item \code{true_values} character vector of recognized spellings for \code{TRUE} values
+\item \code{false_values} character vector of recognized spellings for \code{FALSE} values
+\item \code{col_types} A \code{Schema} or \code{NULL} to infer types
+\item \code{auto_dict_encode} Logical: Whether to try to automatically
+dictionary-encode string / binary data (think \code{stringsAsFactors}). Default \code{FALSE}.
+This setting is ignored for non-inferred columns (those in \code{col_types}).
+\item \code{auto_dict_max_cardinality} If \code{auto_dict_encode}, string/binary columns
+are dictionary-encoded up to this number of unique values (default 50),
+after which it switches to regular encoding.
+\item \code{include_columns} If non-empty, indicates the names of columns from the
+CSV file that should be actually read and converted (in the vector's order).
+\item \code{include_missing_columns} Logical: if \code{include_columns} is provided, should
+columns named in it but not found in the data be included as a column of
+type \code{null()}? The default (\code{FALSE}) means that the reader will instead
+raise an error.
+\item \code{timestamp_parsers} User-defined timestamp parsers. If more than one
+parser is specified, the CSV conversion logic will try parsing values
+starting from the beginning of this vector. Possible values are
+(a) \code{NULL}, the default, which uses the ISO-8601 parser;
+(b) a character vector of \link[base:strptime]{strptime} parse strings; or
+(c) a list of \link{TimestampParser} objects.
 }
 
 \code{TimestampParser$create()} takes an optional \code{format} string argument.

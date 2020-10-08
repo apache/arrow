@@ -224,9 +224,33 @@ test_that("read_csv_arrow(timestamp_parsers=)", {
   tbl <- tibble::tibble(time = "23/09/2020")
   write.csv(tbl, tf, row.names = FALSE)
 
-  df <- read_csv_arrow(tf,
-                       col_types = schema(time = timestamp(timezone = "UTC")),
-                       timestamp_parsers = "%d/%m/%Y"
-                       )
+  df <- read_csv_arrow(
+    tf,
+    col_types = schema(time = timestamp(timezone = "UTC")),
+    timestamp_parsers = "%d/%m/%Y"
+  )
   expect_equal(df$time, as.POSIXct(tbl$time, format = "%d/%m/%Y", tz = "UTC"))
+})
+
+test_that("Skipping columns with null()", {
+  tf <- tempfile(); on.exit(unlink(tf))
+  cols <- c("dbl", "lgl", "false", "chr")
+  tbl <- example_data[, cols]
+  write.csv(tbl, tf, row.names = FALSE)
+
+  df <- read_csv_arrow(tf, col_types = "d-_c", col_names = cols, skip = 1)
+  expect_identical(df, tbl[, c("dbl", "chr")])
+})
+
+test_that("Mix of guessing and declaring types", {
+  tf <- tempfile(); on.exit(unlink(tf))
+  cols <- c("dbl", "lgl", "false", "chr")
+  tbl <- example_data[, cols]
+  write.csv(tbl, tf, row.names = FALSE)
+
+  tab <- read_csv_arrow(tf, col_types = schema(dbl = float32()), as_data_frame = FALSE)
+  expect_equal(tab$schema, schema(dbl = float32(), lgl = bool(), false = bool(), chr = utf8()))
+
+  df <- read_csv_arrow(tf, col_types = "d-?c", col_names = cols, skip = 1)
+  expect_identical(df, tbl[, c("dbl", "false", "chr")])
 })

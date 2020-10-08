@@ -163,11 +163,22 @@ use \link{CsvTableReader} directly for lower-level access.
 \section{Specifying column types and names}{
 
 
-By default, the CSV reader will infer the data types from the file, but there
-are a few ways you can specify them directly. Most explicitly, you can provide
-an Arrow \link{Schema} in the \code{schema} argument. This is map of column name to
-type, and when provided, it satisfies both the \code{col_names} and \code{col_types}
-arguments. Alternatively, you can provide the compact string representation
+By default, the CSV reader will infer the column names and data types from the file, but there
+are a few ways you can specify them directly.
+
+One way is to provide an Arrow \link{Schema} in the \code{schema} argument,
+which is an ordered map of column name to type.
+When provided, it satisfies both the \code{col_names} and \code{col_types} arguments.
+This is good if you know all of this information up front.
+
+You can also pass a \code{Schema} to the \code{col_types} argument. If you do this,
+column names will still be inferred from the file unless you also specify
+\code{col_names}. In either case, the column names in the \code{Schema} must match the
+data's column names, whether they are explicitly provided or inferred. That
+said, this \code{Schema} does not have to reference all columns: those omitted
+will have their types inferred.
+
+Alternatively, you can declare column types by providing the compact string representation
 that \code{readr} uses to the \code{col_types} argument. This means you provide a
 single string, one character per column, where the characters map to Arrow
 types analogously to the \code{readr} type mapping:
@@ -183,18 +194,18 @@ types analogously to the \code{readr} type mapping:
 \item "t": \code{timestamp()}
 \item "_": \code{null()}
 \item "-": \code{null()}
+\item "?": infer the type from the data
 }
 
-The \code{"?"} character, which in \code{readr} means to guess the type of this column,
-is not supported--you can either have the reader guess all types or specify
-all types.
+If you use the compact string representation for \code{col_types}, you must also
+specify \code{col_names}.
 
 Regardless of how types are specified, all columns with a \code{null()} type will
 be dropped.
 
 Note that if you are specifying column names, whether by \code{schema} or
 \code{col_names}, and the CSV file has a header row that would otherwise be used
-to determine the column names, you'll need to add \code{skip = 1} to skip that row.
+to idenfity column names, you'll need to add \code{skip = 1} to skip that row.
 }
 
 \examples{

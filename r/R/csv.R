@@ -34,11 +34,22 @@
 #'
 #' @section Specifying column types and names:
 #'
-#' By default, the CSV reader will infer the data types from the file, but there
-#' are a few ways you can specify them directly. Most explicitly, you can provide
-#' an Arrow [Schema] in the `schema` argument. This is map of column name to
-#' type, and when provided, it satisfies both the `col_names` and `col_types`
-#' arguments. Alternatively, you can provide the compact string representation
+#' By default, the CSV reader will infer the column names and data types from the file, but there
+#' are a few ways you can specify them directly.
+#'
+#' One way is to provide an Arrow [Schema] in the `schema` argument,
+#' which is an ordered map of column name to type.
+#' When provided, it satisfies both the `col_names` and `col_types` arguments.
+#' This is good if you know all of this information up front.
+#'
+#' You can also pass a `Schema` to the `col_types` argument. If you do this,
+#' column names will still be inferred from the file unless you also specify
+#' `col_names`. In either case, the column names in the `Schema` must match the
+#' data's column names, whether they are explicitly provided or inferred. That
+#' said, this `Schema` does not have to reference all columns: those omitted
+#' will have their types inferred.
+#'
+#' Alternatively, you can declare column types by providing the compact string representation
 #' that `readr` uses to the `col_types` argument. This means you provide a
 #' single string, one character per column, where the characters map to Arrow
 #' types analogously to the `readr` type mapping:
@@ -54,17 +65,17 @@
 #' * "t": `timestamp()`
 #' * "_": `null()`
 #' * "-": `null()`
+#' * "?": infer the type from the data
 #'
-#' The `"?"` character, which in `readr` means to guess the type of this column,
-#' is not supported--you can either have the reader guess all types or specify
-#' all types.
+#' If you use the compact string representation for `col_types`, you must also
+#' specify `col_names`.
 #'
 #' Regardless of how types are specified, all columns with a `null()` type will
 #' be dropped.
 #'
 #' Note that if you are specifying column names, whether by `schema` or
 #' `col_names`, and the CSV file has a header row that would otherwise be used
-#' to determine the column names, you'll need to add `skip = 1` to skip that row.
+#' to idenfity column names, you'll need to add `skip = 1` to skip that row.
 #'
 #' @param file A character file name or URI, `raw` vector, or an Arrow input stream.
 #' If a file name, a memory-mapped Arrow [InputStream] will be opened and
@@ -187,6 +198,7 @@ read_delim_arrow <- function(file,
 
   tab <- reader$Read()
 
+  # TODO: move this into convert_options using include_columns
   col_select <- enquo(col_select)
   if (!quo_is_null(col_select)) {
     tab <- tab[vars_select(names(tab), !!col_select)]
@@ -349,14 +361,27 @@ CsvTableReader$create <- function(file,
 #' - `strings_can_be_null` Logical: can string / binary columns have
 #'    null values? Similar to the `quoted_na` argument to `readr::read_csv()`.
 #'    (default `FALSE`)
-#' - `true_values` = c("T", "true", "TRUE"),
-#' - `false_values`= c("F", "false", "FALSE"),
-#' - `col_types` = NULL,
-#' - `auto_dict_encode` = FALSE,
-#' - `auto_dict_max_cardinality` = 50L,
-#' - `include_columns` = character(),
-#' - `include_missing_columns` = FALSE,
-#' - `timestamp_parsers` = NULL
+#' - `true_values` character vector of recognized spellings for `TRUE` values
+#' - `false_values` character vector of recognized spellings for `FALSE` values
+#' - `col_types` A `Schema` or `NULL` to infer types
+#' - `auto_dict_encode` Logical: Whether to try to automatically
+#'    dictionary-encode string / binary data (think `stringsAsFactors`). Default `FALSE`.
+#'    This setting is ignored for non-inferred columns (those in `col_types`).
+#' - `auto_dict_max_cardinality` If `auto_dict_encode`, string/binary columns
+#'    are dictionary-encoded up to this number of unique values (default 50),
+#'    after which it switches to regular encoding.
+#' - `include_columns` If non-empty, indicates the names of columns from the
+#'    CSV file that should be actually read and converted (in the vector's order).
+#' - `include_missing_columns` Logical: if `include_columns` is provided, should
+#'    columns named in it but not found in the data be included as a column of
+#'    type `null()`? The default (`FALSE`) means that the reader will instead
+#'    raise an error.
+#' - `timestamp_parsers` User-defined timestamp parsers. If more than one
+#'    parser is specified, the CSV conversion logic will try parsing values
+#'    starting from the beginning of this vector. Possible values are
+#'    (a) `NULL`, the default, which uses the ISO-8601 parser;
+#'    (b) a character vector of [strptime][base::strptime()] parse strings; or
+#'    (c) a list of [TimestampParser] objects.
 #'
 #' `TimestampParser$create()` takes an optional `format` string argument.
 #' See [`strptime()`][base::strptime()] for example syntax.
@@ -510,7 +535,13 @@ CsvConvertOptions$create <- function(check_utf8 = TRUE,
   ))
 }
 
-readr_to_csv_convert_options <- function(na, quoted_na, col_types = NULL, col_names = NULL, timestamp_parsers = NULL) {
+readr_to_csv_convert_options <- function(na,
+                                         quoted_na,
+                                         col_types = NULL,
+                                         col_names = NULL,
+                                         timestamp_parsers = NULL) {
+  include_columns <- character()
+
   if (is.character(col_types)) {
     if (length(col_types) != 1L) {
       abort("`col_types` is a character vector that is not of size 1")
@@ -534,17 +565,29 @@ readr_to_csv_convert_options <- function(na, quoted_na, col_types = NULL, col_na
              "t" = timestamp(),
              "_" = null(),
              "-" = null(),
+             "?" = NULL,
              abort("Unsupported compact specification: '", .x,"' for column '", .y, "'")
       )
     }))
+    # To "guess" types, omit them from col_types
     col_types <- keep(col_types, ~!is.null(.x))
     col_types <- schema(!!!col_types)
   }
-  # TODO: filter out null() columns and if any exist, specify include_columns
+
+  if (!is.null(col_types)) {
+    assert_is(col_types, "Schema")
+    # If any columns are null(), drop them
+    # (by specifying the other columns in include_columns)
+    nulls <- map_lgl(col_types$fields, ~.$type$Equals(null()))
+    if (any(nulls)) {
+      include_columns <- setdiff(col_names, names(col_types)[nulls])
+    }
+  }
   CsvConvertOptions$create(
     null_values = na,
     strings_can_be_null = quoted_na,
     col_types = col_types,
-    timestamp_parsers = timestamp_parsers
+    timestamp_parsers = timestamp_parsers,
+    include_columns = include_columns
   )
 }

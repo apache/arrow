@@ -182,6 +182,9 @@ length.Schema <- function(x) x$num_fields
   }
 }
 
+#' @export
+as.list.Schema <- function(x, ...) x$fields
+
 #' read a Schema from a stream
 #'
 #' @param stream a `Message`, `InputStream`, or `Buffer`
