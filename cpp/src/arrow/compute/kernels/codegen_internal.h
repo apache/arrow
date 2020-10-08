@@ -1007,7 +1007,7 @@ struct ScalarTernaryNotNullStateful {
 
   // NOTE: In ArrayExec<Type>, Type is really OutputType
 
-  static void ArrayArrayArray(KernelContext* ctx, const ArrayData& arg0,
+  void ArrayArrayArray(KernelContext* ctx, const ArrayData& arg0,
                               const ArrayData& arg1, const ArrayData& arg2, Datum* out) {
     // not implemented (moving three binary blocks at same time required)
   }
@@ -1116,7 +1116,7 @@ struct ScalarTernaryNotNullStateful {
     }
   }
 
-  static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     if (batch[0].kind() == Datum::ARRAY) {
       if (batch[1].kind() == Datum::ARRAY) {
         if (batch[2].kind() == Datum::ARRAY) {
