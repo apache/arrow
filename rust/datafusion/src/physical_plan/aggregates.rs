@@ -138,8 +138,13 @@ pub fn create_aggregate_expr(
                 return_type,
             ))
         }
-        (AggregateFunction::Sum, _) => {
+        (AggregateFunction::Sum, false) => {
             Arc::new(expressions::Sum::new(arg, name, return_type))
+        }
+        (AggregateFunction::Sum, true) => {
+            return Err(ExecutionError::NotImplemented(
+                "SUM(DISTINCT) aggregations are not available".to_string(),
+            ));
         }
         (AggregateFunction::Min, _) => {
             Arc::new(expressions::Min::new(arg, name, return_type))
@@ -147,8 +152,13 @@ pub fn create_aggregate_expr(
         (AggregateFunction::Max, _) => {
             Arc::new(expressions::Max::new(arg, name, return_type))
         }
-        (AggregateFunction::Avg, _) => {
+        (AggregateFunction::Avg, false) => {
             Arc::new(expressions::Avg::new(arg, name, return_type))
+        }
+        (AggregateFunction::Avg, true) => {
+            return Err(ExecutionError::NotImplemented(
+                "AVG(DISTINCT) aggregations are not available".to_string(),
+            ));
         }
     })
 }
