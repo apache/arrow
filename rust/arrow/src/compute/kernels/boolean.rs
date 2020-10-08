@@ -48,29 +48,22 @@ where
         ));
     }
 
-    if left.offset() % 8 != 0 || right.offset() % 8 != 0 {
-        return Err(ArrowError::ComputeError(
-            "Cannot perform bitwise operation when offsets are not byte-aligned."
-                .to_string(),
-        ));
-    }
+    let len = left.len();
 
     let left_data = left.data_ref();
     let right_data = right.data_ref();
-    let null_bit_buffer = combine_option_bitmap(&left_data, &right_data, left.len())?;
+    let null_bit_buffer = combine_option_bitmap(&left_data, &right_data, len)?;
 
     let left_buffer = &left_data.buffers()[0];
     let right_buffer = &right_data.buffers()[0];
-    let left_offset = &left.offset() / 8;
-    let right_offset = &right.offset() / 8;
-
-    let len = ceil(left.len(), 8);
+    let left_offset = left.offset();
+    let right_offset = right.offset();
 
     let values = op(&left_buffer, left_offset, &right_buffer, right_offset, len);
 
     let data = ArrayData::new(
         DataType::Boolean,
-        left.len(),
+        len,
         None,
         null_bit_buffer,
         0,
@@ -95,15 +88,8 @@ pub fn or(left: &BooleanArray, right: &BooleanArray) -> Result<BooleanArray> {
 /// Performs unary `NOT` operation on an arrays. If value is null then the result is also
 /// null.
 pub fn not(left: &BooleanArray) -> Result<BooleanArray> {
-    if left.offset() % 8 != 0 {
-        return Err(ArrowError::ComputeError(
-            "Cannot perform bitwise operation when offsets are not byte-aligned."
-                .to_string(),
-        ));
-    }
-
-    let left_offset = left.offset() / 8;
-    let len = ceil(left.len(), 8);
+    let left_offset = left.offset();
+    let len = left.len();
 
     let data = left.data_ref();
     let null_bit_buffer = data
@@ -115,7 +101,7 @@ pub fn not(left: &BooleanArray) -> Result<BooleanArray> {
 
     let data = ArrayData::new(
         DataType::Boolean,
-        left.len(),
+        len,
         None,
         null_bit_buffer,
         0,
@@ -126,69 +112,39 @@ pub fn not(left: &BooleanArray) -> Result<BooleanArray> {
 }
 
 pub fn is_null(input: &ArrayRef) -> Result<BooleanArray> {
-    if input.offset() % 8 != 0 {
-        return Err(ArrowError::ComputeError(
-            "Cannot perform bitwise operation when offsets are not byte-aligned."
-                .to_string(),
-        ));
-    }
-
-    let len_bytes = ceil(input.len(), 8);
+    let len = input.len();
 
     let output = match input.data_ref().null_buffer() {
-        None => MutableBuffer::new(len_bytes)
-            .with_bitset(input.len(), false)
-            .freeze(),
-        Some(buffer) => {
-            let offset_bytes = input.offset() / 8;
-
-            buffer_unary_not(buffer, offset_bytes, len_bytes)
+        None => {
+            let len_bytes = ceil(len, 8);
+            MutableBuffer::new(len_bytes)
+                .with_bitset(len_bytes, false)
+                .freeze()
         }
+        Some(buffer) => buffer_unary_not(buffer, input.offset(), len),
     };
 
-    let data = ArrayData::new(
-        DataType::Boolean,
-        input.len(),
-        None,
-        None,
-        0,
-        vec![output],
-        vec![],
-    );
+    let data =
+        ArrayData::new(DataType::Boolean, len, None, None, 0, vec![output], vec![]);
 
     Ok(BooleanArray::from(Arc::new(data)))
 }
 
 pub fn is_not_null(input: &ArrayRef) -> Result<BooleanArray> {
-    if input.offset() % 8 != 0 {
-        return Err(ArrowError::ComputeError(
-            "Cannot perform bitwise operation when offsets are not byte-aligned."
-                .to_string(),
-        ));
-    }
-
-    let len_bytes = ceil(input.len(), 8);
+    let len = input.len();
 
     let output = match input.data_ref().null_buffer() {
-        None => MutableBuffer::new(len_bytes)
-            .with_bitset(input.len(), true)
-            .freeze(),
-        Some(buffer) => {
-            let offset_bytes = input.offset() / 8;
-
-            buffer.slice(offset_bytes)
+        None => {
+            let len_bytes = ceil(len, 8);
+            MutableBuffer::new(len_bytes)
+                .with_bitset(len_bytes, true)
+                .freeze()
         }
+        Some(buffer) => buffer.bit_slice(input.offset(), len),
     };
 
-    let data = ArrayData::new(
-        DataType::Boolean,
-        input.len(),
-        None,
-        None,
-        0,
-        vec![output],
-        vec![],
-    );
+    let data =
+        ArrayData::new(DataType::Boolean, len, None, None, 0, vec![output], vec![]);
 
     Ok(BooleanArray::from(Arc::new(data)))
 }

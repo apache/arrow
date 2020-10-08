@@ -1936,15 +1936,16 @@ impl TryFrom<Vec<(&str, ArrayRef)>> for StructArray {
         let mut null: Option<Buffer> = None;
         for (field_name, array) in values {
             let child_datum = array.data();
+            let child_datum_len = child_datum.len();
             if let Some(len) = len {
-                if len != child_datum.len() {
+                if len != child_datum_len {
                     return Err(ArrowError::InvalidArgumentError(
                         format!("Array of field \"{}\" has length {}, but previous elements have length {}.
-                        All arrays in every entry in a struct array must have the same length.", field_name, child_datum.len(), len)
+                        All arrays in every entry in a struct array must have the same length.", field_name, child_datum_len, len)
                     ));
                 }
             } else {
-                len = Some(child_datum.len())
+                len = Some(child_datum_len)
             }
             child_data.push(child_datum.clone());
             fields.push(Field::new(
@@ -1955,7 +1956,7 @@ impl TryFrom<Vec<(&str, ArrayRef)>> for StructArray {
 
             if let Some(child_null_buffer) = child_datum.null_buffer() {
                 null = Some(if let Some(null_buffer) = &null {
-                    buffer_bin_or(null_buffer, 0, child_null_buffer, 0, null_buffer.len())
+                    buffer_bin_or(null_buffer, 0, child_null_buffer, 0, child_datum_len)
                 } else {
                     child_null_buffer.clone()
                 });
