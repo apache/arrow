@@ -48,7 +48,6 @@ using parquet::default_writer_properties;
 using parquet::WriterProperties;
 
 using parquet::CreateOutputStream;
-using parquet::arrow::FileWriter;
 using parquet::arrow::WriteTable;
 
 using testing::Pointee;
@@ -57,7 +56,7 @@ using internal::checked_pointer_cast;
 
 class ArrowParquetWriterMixin : public ::testing::Test {
  public:
-  Status WriteRecordBatch(const RecordBatch& batch, FileWriter* writer) {
+  Status WriteRecordBatch(const RecordBatch& batch, parquet::arrow::FileWriter* writer) {
     auto schema = batch.schema();
     auto size = batch.num_rows();
 
@@ -75,7 +74,8 @@ class ArrowParquetWriterMixin : public ::testing::Test {
     return Status::OK();
   }
 
-  Status WriteRecordBatchReader(RecordBatchReader* reader, FileWriter* writer) {
+  Status WriteRecordBatchReader(RecordBatchReader* reader,
+                                parquet::arrow::FileWriter* writer) {
     auto schema = reader->schema();
 
     if (!schema->Equals(*writer->schema(), false)) {
@@ -96,9 +96,9 @@ class ArrowParquetWriterMixin : public ::testing::Test {
       const std::shared_ptr<WriterProperties>& properties = default_writer_properties(),
       const std::shared_ptr<ArrowWriterProperties>& arrow_properties =
           default_arrow_writer_properties()) {
-    std::unique_ptr<FileWriter> writer;
-    RETURN_NOT_OK(FileWriter::Open(*reader->schema(), pool, sink, properties,
-                                   arrow_properties, &writer));
+    std::unique_ptr<parquet::arrow::FileWriter> writer;
+    RETURN_NOT_OK(parquet::arrow::FileWriter::Open(
+        *reader->schema(), pool, sink, properties, arrow_properties, &writer));
     RETURN_NOT_OK(WriteRecordBatchReader(reader, writer.get()));
     return writer->Close();
   }
@@ -554,7 +554,10 @@ TEST_F(TestParquetFileFormat, WriteRecordBatchReader) {
 
   EXPECT_OK_AND_ASSIGN(auto sink, GetFileSink());
 
-  ASSERT_OK(format_->WriteFragment(reader.get(), sink.get()));
+  auto options = format_->DefaultWriteOptions();
+  EXPECT_OK_AND_ASSIGN(auto writer, format_->MakeWriter(sink, reader->schema(), options));
+  ASSERT_OK(writer->Write(reader.get()));
+  ASSERT_OK(writer->Finish());
 
   EXPECT_OK_AND_ASSIGN(auto written, sink->Finish());
 
@@ -572,16 +575,21 @@ TEST_F(TestParquetFileFormat, WriteRecordBatchReaderCustomOptions) {
 
   EXPECT_OK_AND_ASSIGN(auto sink, GetFileSink());
 
-  format_->writer_properties = parquet::WriterProperties::Builder()
+  auto options =
+      checked_pointer_cast<ParquetFileWriteOptions>(format_->DefaultWriteOptions());
+  options->writer_properties = parquet::WriterProperties::Builder()
                                    .created_by("TestParquetFileFormat")
                                    ->disable_statistics()
                                    ->build();
 
-  format_->arrow_writer_properties = parquet::ArrowWriterProperties::Builder()
+  options->arrow_writer_properties = parquet::ArrowWriterProperties::Builder()
                                          .coerce_timestamps(coerce_timestamps_to)
                                          ->build();
 
-  ASSERT_OK(format_->WriteFragment(reader.get(), sink.get()));
+  EXPECT_OK_AND_ASSIGN(auto writer, format_->MakeWriter(sink, reader->schema(), options));
+  ASSERT_OK(writer->Write(reader.get()));
+  ASSERT_OK(writer->Finish());
+
   EXPECT_OK_AND_ASSIGN(auto written, sink->Finish());
   EXPECT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(FileSource{written}));
 
@@ -596,7 +604,9 @@ class TestParquetFileSystemDataset : public WriteFileSystemDatasetMixin,
   void SetUp() override {
     MakeSourceDataset();
     check_metadata_ = false;
-    format_ = std::make_shared<ParquetFileFormat>();
+    auto parquet_format = std::make_shared<ParquetFileFormat>();
+    format_ = parquet_format;
+    SetWriteOptions(parquet_format->DefaultWriteOptions());
   }
 };
 

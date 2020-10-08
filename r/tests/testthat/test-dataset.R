@@ -759,6 +759,14 @@ test_that("Writing a dataset: CSV->IPC", {
       filter(integer > 6) %>%
       summarize(mean = mean(integer))
   )
+
+  # Check whether "int" is present in the files or just in the dirs
+  first <- read_feather(
+    dir(dst_dir, pattern = ".feather$", recursive = TRUE, full.names = TRUE)[1],
+    as_data_frame = FALSE
+  )
+  # It shouldn't be there
+  expect_false("int" %in% names(first))
 })
 
 test_that("Writing a dataset: Parquet->IPC", {
@@ -853,6 +861,18 @@ test_that("Dataset writing: dplyr methods", {
     collect(new_ds) %>% arrange(int),
     rbind(df1[c("chr", "dbl", "int")], df2[c("chr", "dbl", "int")])
   )
+
+  # filter to restrict written rows
+  dst_dir3 <- tempfile()
+  ds %>%
+    filter(int == 4) %>%
+    write_dataset(dst_dir3, format = "feather")
+  new_ds <- open_dataset(dst_dir3, format = "feather")
+
+  expect_equivalent(
+    new_ds %>% select(names(df1)) %>% collect(),
+    df1 %>% filter(int == 4)
+  )
 })
 
 test_that("Dataset writing: non-hive", {
@@ -870,7 +890,7 @@ test_that("Dataset writing: no partitioning", {
   dst_dir <- tempfile()
   write_dataset(ds, dst_dir, format = "feather", partitioning = NULL)
   expect_true(dir.exists(dst_dir))
-  expect_true(length(dir(dst_dir)) > 1)
+  expect_true(length(dir(dst_dir)) > 0)
 })
 
 test_that("Dataset writing: from data.frame", {
@@ -965,21 +985,21 @@ test_that("Writing a dataset: Parquet format options", {
 })
 
 test_that("Dataset writing: unsupported features/input validation", {
-  expect_error(write_dataset(4), "'dataset' must be a Dataset")
+  expect_error(write_dataset(4), 'dataset must be a "Dataset"')
 
   ds <- open_dataset(hive_dir)
-
-  expect_error(
-    filter(ds, int == 4) %>% write_dataset(ds),
-    "Writing a filtered dataset is not yet supported"
-  )
   expect_error(
     select(ds, integer = int) %>% write_dataset(ds),
     "Renaming columns when writing a dataset is not yet supported"
   )
-
   expect_error(
     write_dataset(ds, partitioning = c("int", "NOTACOLUMN"), format = "ipc"),
     'Invalid field name: "NOTACOLUMN"'
+  )
+  expect_error(
+    write_dataset(ds, tempfile(), basename_template = "something_without_i")
+  )
+  expect_error(
+    write_dataset(ds, tempfile(), basename_template = NULL)
   )
 })

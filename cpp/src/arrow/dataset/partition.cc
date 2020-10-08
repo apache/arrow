@@ -69,9 +69,9 @@ std::shared_ptr<Partitioning> Partitioning::Default() {
                                     " Partitioning");
     }
 
-    Result<std::vector<PartitionedBatch>> Partition(
+    Result<PartitionedBatches> Partition(
         const std::shared_ptr<RecordBatch>& batch) const override {
-      return std::vector<PartitionedBatch>{{batch, scalar(true)}};
+      return PartitionedBatches{{batch}, {scalar(true)}};
     }
   };
 
@@ -139,7 +139,7 @@ inline std::shared_ptr<Expression> ConjunctionFromGroupingRow(Scalar* row) {
   return and_(std::move(equality_expressions));
 }
 
-Result<std::vector<Partitioning::PartitionedBatch>> KeyValuePartitioning::Partition(
+Result<Partitioning::PartitionedBatches> KeyValuePartitioning::Partition(
     const std::shared_ptr<RecordBatch>& batch) const {
   FieldVector by_fields;
   ArrayVector by_columns;
@@ -158,7 +158,7 @@ Result<std::vector<Partitioning::PartitionedBatch>> KeyValuePartitioning::Partit
 
   if (by_fields.empty()) {
     // no fields to group by; return the whole batch
-    return std::vector<PartitionedBatch>{{batch, scalar(true)}};
+    return PartitionedBatches{{batch}, {scalar(true)}};
   }
 
   ARROW_ASSIGN_OR_RAISE(auto by,
@@ -168,13 +168,13 @@ Result<std::vector<Partitioning::PartitionedBatch>> KeyValuePartitioning::Partit
       checked_pointer_cast<ListArray>(groupings_and_values->GetFieldByName("groupings"));
   auto unique_rows = groupings_and_values->GetFieldByName("values");
 
-  ARROW_ASSIGN_OR_RAISE(auto grouped_batches, ApplyGroupings(*groupings, rest));
+  PartitionedBatches out;
+  ARROW_ASSIGN_OR_RAISE(out.batches, ApplyGroupings(*groupings, rest));
+  out.expressions.resize(out.batches.size());
 
-  std::vector<PartitionedBatch> out(grouped_batches.size());
-  for (size_t i = 0; i < out.size(); ++i) {
+  for (size_t i = 0; i < out.batches.size(); ++i) {
     ARROW_ASSIGN_OR_RAISE(auto row, unique_rows->GetScalar(i));
-    out[i].partition_expression = ConjunctionFromGroupingRow(row.get());
-    out[i].batch = std::move(grouped_batches[i]);
+    out.expressions[i] = ConjunctionFromGroupingRow(row.get());
   }
   return out;
 }

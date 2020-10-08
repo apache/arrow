@@ -435,7 +435,7 @@ class RangePartitioning : public Partitioning {
   }
 
   Result<std::string> Format(const Expression&) const override { return ""; }
-  Result<std::vector<PartitionedBatch>> Partition(
+  Result<PartitionedBatches> Partition(
       const std::shared_ptr<RecordBatch>&) const override {
     return Status::OK();
   }

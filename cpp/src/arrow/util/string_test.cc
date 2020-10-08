@@ -88,5 +88,19 @@ TEST(ParseHexValue, Invalid) {
   ASSERT_RAISES(Invalid, ParseHexValue(input.c_str(), &output));
 }
 
+TEST(Replace, Basics) {
+  auto s = Replace("dat_{i}.txt", "{i}", "23");
+  EXPECT_TRUE(s);
+  EXPECT_EQ(*s, "dat_23.txt");
+
+  // only replace the first occurrence of token
+  s = Replace("dat_{i}_{i}.txt", "{i}", "23");
+  EXPECT_TRUE(s);
+  EXPECT_EQ(*s, "dat_23_{i}.txt");
+
+  s = Replace("dat_.txt", "{nope}", "23");
+  EXPECT_FALSE(s);
+}
+
 }  // namespace internal
 }  // namespace arrow
