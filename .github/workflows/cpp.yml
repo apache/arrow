@@ -124,6 +124,7 @@ jobs:
               -e ARROW_PARQUET=OFF \
               -e ARROW_FLIGHT=OFF \
               -e ARROW_GANDIVA=OFF \
+              -e ARROW_ORC=OFF \
               -e CMAKE_ARGS=-DARROW_CPU_FLAG=armv7 \
               debian-cpp
             arch: 'arm32v7'
