@@ -236,10 +236,19 @@ Status DictionaryMemo::AddDictionaryDelta(int64_t id,
   return Status::OK();
 }
 
-Status DictionaryMemo::AddOrReplaceDictionary(
+Result<bool> DictionaryMemo::AddOrReplaceDictionary(
     int64_t id, const std::shared_ptr<ArrayData>& dictionary) {
-  impl_->id_to_dictionary_[id] = {dictionary};
-  return Status::OK();
+  ArrayDataVector value{dictionary};
+
+  auto pair = impl_->id_to_dictionary_.emplace(id, value);
+  if (pair.second) {
+    // Inserted
+    return true;
+  } else {
+    // Update existing value
+    pair.first->second = std::move(value);
+    return false;
+  }
 }
 
 // ----------------------------------------------------------------------

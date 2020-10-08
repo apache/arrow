@@ -89,9 +89,6 @@ PARQUET_EXPORT
 /// \brief Bridge between an arrow::Field and parquet column indices.
 struct PARQUET_EXPORT SchemaField {
   std::shared_ptr<::arrow::Field> field;
-  // If field has an extension type, an equivalent field with the storage type,
-  // otherwise the field itself.
-  std::shared_ptr<::arrow::Field> storage_field;
   std::vector<SchemaField> children;
 
   // Only set for leaf nodes

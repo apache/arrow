@@ -292,6 +292,8 @@ std::vector<T> from_r_list(cpp11::list args) {
   return vec;
 }
 
+bool GetBoolOption(const std::string& name, bool default_);
+
 }  // namespace r
 }  // namespace arrow
 

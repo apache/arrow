@@ -514,13 +514,9 @@ TEST(TestFileReader, BufferedReads) {
   }
 }
 
-struct CodecTestParam {
-  std::string data_file;
-};
-
-class TestCodec : public ::testing::TestWithParam<CodecTestParam> {
+class TestCodec : public ::testing::TestWithParam<std::string> {
  protected:
-  const std::string& GetDataFile() { return GetParam().data_file; }
+  const std::string& GetDataFile() { return GetParam(); }
 };
 
 TEST_P(TestCodec, FileMetadataAndValues) {
@@ -555,8 +551,8 @@ TEST_P(TestCodec, FileMetadataAndValues) {
 
 #ifdef ARROW_WITH_LZ4
 INSTANTIATE_TEST_SUITE_P(Lz4CodecTests, TestCodec,
-                         ::testing::Values(CodecTestParam{hadoop_lz4_compressed()},
-                                           CodecTestParam{non_hadoop_lz4_compressed()}));
+                         ::testing::Values(hadoop_lz4_compressed(),
+                                           non_hadoop_lz4_compressed()));
 #endif
 
 }  // namespace parquet

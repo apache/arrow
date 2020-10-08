@@ -10,11 +10,10 @@ vignette: >
 The Arrow C++ library includes a generic filesystem interface and specific
 implementations for some cloud storage systems. This setup allows various
 parts of the project to be able to read and write data with different storage
-backends. In the `arrow` R package, support has been enabled for AWS S3 on
-macOS and Windows. This vignette provides an overview of working with S3 data
-using Arrow.
+backends. In the `arrow` R package, support has been enabled for AWS S3.
+This vignette provides an overview of working with S3 data using Arrow.
 
-> Note that S3 support is not enabled by default on Linux due to packaging complications. To enable it, you will need to build and install [aws-sdk-cpp](https://aws.amazon.com/sdk-for-cpp/) from source, then set the environment variable `EXTRA_CMAKE_FLAGS="-DARROW_S3=ON -DAWSSDK_SOURCE=SYSTEM"` prior to building the R package (with bundled C++ build, not with Arrow system libraries) from source.
+> In Windows and macOS binary packages, S3 support is included. On Linux when installing from source, S3 support is not enabled by default, and it has additional system requirements. See `vignette("install", package = "arrow")` for details.
 
 ## URIs
 

@@ -192,7 +192,7 @@ void PARQUET_EXPORT DefRepLevelsToBitmap(const int16_t* def_levels,
 
 // This is exposed to ensure we can properly test a software simulated pext function
 // (i.e. it isn't hidden by runtime dispatch).
-uint64_t PARQUET_EXPORT TestOnlyRunBasedExtract(uint64_t bitmap, uint64_t selection);
+uint64_t PARQUET_EXPORT TestOnlyExtractBitsSoftware(uint64_t bitmap, uint64_t selection);
 
 }  // namespace internal
 }  // namespace parquet

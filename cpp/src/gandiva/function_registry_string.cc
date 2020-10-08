@@ -48,8 +48,7 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
 
       BINARY_UNSAFE_NULL_IF_NULL(locate, {"position"}, utf8, int32),
 
-      UNARY_OCTET_LEN_FN(octet_length, {}),
-      UNARY_OCTET_LEN_FN(bit_length, {}),
+      UNARY_OCTET_LEN_FN(octet_length, {}), UNARY_OCTET_LEN_FN(bit_length, {}),
 
       UNARY_UNSAFE_NULL_IF_NULL(char_length, {}, utf8, int32),
       UNARY_UNSAFE_NULL_IF_NULL(length, {}, utf8, int32),
@@ -196,7 +195,10 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
       NativeFunction("replace", {}, DataTypeVector{utf8(), utf8(), utf8()}, utf8(),
                      kResultNullIfNull, "replace_utf8_utf8_utf8",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
-  };
+
+      NativeFunction("split_part", {}, DataTypeVector{utf8(), utf8(), int32()}, utf8(),
+                     kResultNullIfNull, "split_part",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors)};
 
   return string_fn_registry_;
 }

@@ -114,11 +114,6 @@ impl ExecutionContext {
         ctx
     }
 
-    /// Create a context from existing context state
-    pub(crate) fn from(state: ExecutionContextState) -> Self {
-        Self { state }
-    }
-
     /// Get the configuration of this execution context
     pub fn config(&self) -> &ExecutionConfig {
         &self.state.config
@@ -376,6 +371,12 @@ impl ExecutionContext {
     /// get the registry, that allows to construct logical expressions of UDFs
     pub fn registry(&self) -> &dyn FunctionRegistry {
         &self.state
+    }
+}
+
+impl From<ExecutionContextState> for ExecutionContext {
+    fn from(state: ExecutionContextState) -> Self {
+        ExecutionContext { state }
     }
 }
 

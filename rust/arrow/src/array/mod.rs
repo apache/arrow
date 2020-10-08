@@ -87,6 +87,7 @@ mod builder;
 mod cast;
 mod data;
 mod equal;
+mod iterator;
 mod null;
 mod ord;
 mod union;
@@ -160,6 +161,7 @@ pub use self::array::GenericListArray;
 pub use self::array::GenericStringArray;
 pub use self::array::OffsetSizeTrait;
 pub use self::array::PrimitiveArrayOps;
+pub use self::array::StringOffsetSizeTrait;
 
 // --------------------- Array Builder ---------------------
 
@@ -238,6 +240,10 @@ pub type DurationSecondBuilder = PrimitiveBuilder<DurationSecondType>;
 pub type DurationMillisecondBuilder = PrimitiveBuilder<DurationMillisecondType>;
 pub type DurationMicrosecondBuilder = PrimitiveBuilder<DurationMicrosecondType>;
 pub type DurationNanosecondBuilder = PrimitiveBuilder<DurationNanosecondType>;
+
+// --------------------- Array Iterator ---------------------
+
+pub use self::iterator::*;
 
 // --------------------- Array Equality ---------------------
 

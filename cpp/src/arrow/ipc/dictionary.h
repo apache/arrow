@@ -133,7 +133,10 @@ class ARROW_EXPORT DictionaryMemo {
 
   /// \brief Add a dictionary to the memo if it does not have one with the id,
   /// otherwise, replace the dictionary with the new one.
-  Status AddOrReplaceDictionary(int64_t id, const std::shared_ptr<ArrayData>& dictionary);
+  ///
+  /// Return true if the dictionary was added, false if replaced.
+  Result<bool> AddOrReplaceDictionary(int64_t id,
+                                      const std::shared_ptr<ArrayData>& dictionary);
 
  private:
   struct Impl;

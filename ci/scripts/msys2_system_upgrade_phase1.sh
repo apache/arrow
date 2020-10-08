@@ -20,6 +20,9 @@
 set -eux
 
 # https://www.msys2.org/news/#2020-06-29-new-packagers
+msys2_repo_base_url=https://repo.msys2.org/msys
+# Mirror
+msys2_repo_base_url=https://sourceforge.net/projects/msys2/files/REPOS/MSYS2
 msys2_keyring_pkg=msys2-keyring-r21.b39fb11-1-any.pkg.tar.xz
 for suffix in "" ".sig"; do
   curl \
@@ -27,7 +30,7 @@ for suffix in "" ".sig"; do
     --remote-name \
     --show-error \
     --silent \
-    https://repo.msys2.org/msys/x86_64/${msys2_keyring_pkg}${suffix}
+    ${msys2_repo_base_url}/x86_64/${msys2_keyring_pkg}${suffix}
 done
 pacman-key --verify ${msys2_keyring_pkg}.sig
 pacman \

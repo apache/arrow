@@ -346,6 +346,44 @@ TEST_F(TestConvertParquetSchema, ParquetFlatDecimals) {
   ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(arrow_schema));
 }
 
+TEST_F(TestConvertParquetSchema, ParquetMaps) {
+  std::vector<NodePtr> parquet_fields;
+  std::vector<std::shared_ptr<Field>> arrow_fields;
+
+  // MAP encoding example taken from parquet-format/LogicalTypes.md
+
+  // Two column map.
+  {
+    auto key = PrimitiveNode::Make("key", Repetition::REQUIRED, ParquetType::BYTE_ARRAY,
+                                   ConvertedType::UTF8);
+    auto value = PrimitiveNode::Make("value", Repetition::OPTIONAL,
+                                     ParquetType::BYTE_ARRAY, ConvertedType::UTF8);
+
+    auto list = GroupNode::Make("key_value", Repetition::REPEATED, {key, value});
+    parquet_fields.push_back(
+        GroupNode::Make("my_map", Repetition::REQUIRED, {list}, LogicalType::Map()));
+    auto arrow_value = ::arrow::field("string", UTF8, /*nullable=*/true);
+    auto arrow_map = ::arrow::map(/*key=*/UTF8, arrow_value);
+    arrow_fields.push_back(::arrow::field("my_map", arrow_map, false));
+  }
+  // Single column map (i.e. set) gets converted to list of struct.
+  {
+    auto key = PrimitiveNode::Make("key", Repetition::REQUIRED, ParquetType::BYTE_ARRAY,
+                                   ConvertedType::UTF8);
+
+    auto list = GroupNode::Make("key_value", Repetition::REPEATED, {key});
+    parquet_fields.push_back(
+        GroupNode::Make("my_set", Repetition::REQUIRED, {list}, LogicalType::Map()));
+    auto arrow_list = ::arrow::list({::arrow::field("key", UTF8, /*nullable=*/false)});
+    arrow_fields.push_back(::arrow::field("my_set", arrow_list, false));
+  }
+
+  auto arrow_schema = ::arrow::schema(arrow_fields);
+  ASSERT_OK(ConvertSchema(parquet_fields));
+
+  ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(arrow_schema));
+}
+
 TEST_F(TestConvertParquetSchema, ParquetLists) {
   std::vector<NodePtr> parquet_fields;
   std::vector<std::shared_ptr<Field>> arrow_fields;
@@ -1215,6 +1253,54 @@ TEST_F(TestLevels, TestPrimitive) {
                             /*ancestor_list_def_level*/ 0},  // List Field
                   LevelInfo{/*null_slot_usage=*/1, /*def_level=*/1, /*rep_level=*/1,
                             /*ancestor_list_def_level*/ 1}));  //  primitive field
+}
+
+TEST_F(TestLevels, TestMaps) {
+  // Two column map.
+  auto key = PrimitiveNode::Make("key", Repetition::REQUIRED, ParquetType::BYTE_ARRAY,
+                                 ConvertedType::UTF8);
+  auto value = PrimitiveNode::Make("value", Repetition::OPTIONAL, ParquetType::BYTE_ARRAY,
+                                   ConvertedType::UTF8);
+
+  auto list = GroupNode::Make("key_value", Repetition::REPEATED, {key, value});
+  SetParquetSchema(
+      GroupNode::Make("my_map", Repetition::OPTIONAL, {list}, LogicalType::Map()));
+  ASSERT_OK_AND_ASSIGN(std::deque<LevelInfo> levels,
+                       RootToTreeLeafLevels(*manifest_, /*column_number=*/0));
+  EXPECT_THAT(
+      levels,
+      ElementsAre(LevelInfo{/*null_slot_usage=*/1, /*def_level=*/2, /*rep_level=*/1,
+                            /*ancestor_list_def_level*/ 0},
+                  LevelInfo{/*null_slot_usage=*/1, /*def_level=*/2, /*rep_level=*/1,
+                            /*ancestor_list_def_level*/ 2},
+                  LevelInfo{/*null_slot_usage=*/1, /*def_level=*/2, /*rep_level=*/1,
+                            /*ancestor_list_def_level*/ 2}));
+
+  ASSERT_OK_AND_ASSIGN(levels, RootToTreeLeafLevels(*manifest_, /*column_number=*/1));
+  EXPECT_THAT(
+      levels,
+      ElementsAre(LevelInfo{/*null_slot_usage=*/1, /*def_level=*/2, /*rep_level=*/1,
+                            /*ancestor_list_def_level*/ 0},
+                  LevelInfo{/*null_slot_usage=*/1, /*def_level=*/2, /*rep_level=*/1,
+                            /*ancestor_list_def_level*/ 2},
+                  LevelInfo{/*null_slot_usage=*/1, /*def_level=*/3, /*rep_level=*/1,
+                            /*ancestor_list_def_level*/ 2}));
+
+  // single column map.
+  key = PrimitiveNode::Make("key", Repetition::REQUIRED, ParquetType::BYTE_ARRAY,
+                            ConvertedType::UTF8);
+
+  list = GroupNode::Make("key_value", Repetition::REPEATED, {key});
+  SetParquetSchema(
+      GroupNode::Make("my_set", Repetition::REQUIRED, {list}, LogicalType::Map()));
+
+  ASSERT_OK_AND_ASSIGN(levels, RootToTreeLeafLevels(*manifest_, /*column_number=*/0));
+  EXPECT_THAT(
+      levels,
+      ElementsAre(LevelInfo{/*null_slot_usage=*/1, /*def_level=*/1, /*rep_level=*/1,
+                            /*ancestor_list_def_level*/ 0},
+                  LevelInfo{/*null_slot_usage=*/1, /*def_level=*/1, /*rep_level=*/1,
+                            /*ancestor_list_def_level*/ 1}));
 }
 
 TEST_F(TestLevels, TestSimpleGroups) {

@@ -126,7 +126,7 @@ class AddTester {
 
 class TestThreadPool : public ::testing::Test {
  public:
-  void TearDown() {
+  void TearDown() override {
     fflush(stdout);
     fflush(stderr);
   }

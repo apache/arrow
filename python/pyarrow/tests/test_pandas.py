@@ -2103,6 +2103,19 @@ class TestConvertListTypes:
                 s, pd.Series([["aa", "bb"], None, ["cc"], []]),
                 check_names=False)
 
+    def test_list_of_dictionary(self):
+        child = pa.array(["foo", "bar", None, "foo"]).dictionary_encode()
+        arr = pa.ListArray.from_arrays([0, 1, 3, 3, 4], child)
+
+        # Expected a Series of lists
+        expected = pd.Series(arr.to_pylist())
+        tm.assert_series_equal(arr.to_pandas(), expected)
+
+        # Same but with nulls
+        arr = arr.take([0, 1, None, 3])
+        expected[2] = None
+        tm.assert_series_equal(arr.to_pandas(), expected)
+
     @pytest.mark.slow
     @pytest.mark.large_memory
     def test_auto_chunking_on_list_overflow(self):
@@ -2118,6 +2131,60 @@ class TestConvertListTypes:
         assert column_a.num_chunks == 2
         assert len(column_a.chunk(0)) == 2**24 - 1
         assert len(column_a.chunk(1)) == 1
+
+    def test_map_array_roundtrip(self):
+        data = [[(b'a', 1), (b'b', 2)],
+                [(b'c', 3)],
+                [(b'd', 4), (b'e', 5), (b'f', 6)],
+                [(b'g', 7)]]
+
+        df = pd.DataFrame({"map": data})
+        schema = pa.schema([("map", pa.map_(pa.binary(), pa.int32()))])
+
+        _check_pandas_roundtrip(df, schema=schema)
+
+    def test_map_array_chunked(self):
+        data1 = [[(b'a', 1), (b'b', 2)],
+                 [(b'c', 3)],
+                 [(b'd', 4), (b'e', 5), (b'f', 6)],
+                 [(b'g', 7)]]
+        data2 = [[(k, v * 2) for k, v in row] for row in data1]
+
+        arr1 = pa.array(data1, type=pa.map_(pa.binary(), pa.int32()))
+        arr2 = pa.array(data2, type=pa.map_(pa.binary(), pa.int32()))
+        arr = pa.chunked_array([arr1, arr2])
+
+        expected = pd.Series(data1 + data2)
+        actual = arr.to_pandas()
+        tm.assert_series_equal(actual, expected, check_names=False)
+
+    def test_map_array_with_nulls(self):
+        data = [[(b'a', 1), (b'b', 2)],
+                None,
+                [(b'd', 4), (b'e', 5), (b'f', None)],
+                [(b'g', 7)]]
+
+        # None value in item array causes upcast to float
+        expected = [[(k, float(v) if v is not None else None) for k, v in row]
+                    if row is not None else None for row in data]
+        expected = pd.Series(expected)
+
+        arr = pa.array(data, type=pa.map_(pa.binary(), pa.int32()))
+        actual = arr.to_pandas()
+        tm.assert_series_equal(actual, expected, check_names=False)
+
+    def test_map_array_dictionary_encoded(self):
+        offsets = pa.array([0, 3, 5])
+        items = pa.array(['a', 'b', 'c', 'a', 'd']).dictionary_encode()
+        keys = pa.array(list(range(len(items))))
+        arr = pa.MapArray.from_arrays(offsets, keys, items)
+
+        # Dictionary encoded values converted to dense
+        expected = pd.Series(
+            [[(0, 'a'), (1, 'b'), (2, 'c')], [(3, 'a'), (4, 'd')]])
+
+        actual = arr.to_pandas()
+        tm.assert_series_equal(actual, expected, check_names=False)
 
 
 class TestConvertStructTypes:
@@ -2296,6 +2363,24 @@ class TestConvertStructTypes:
         _check_pandas_roundtrip(
             df, expected=expected_df, schema=expected_schema,
             expected_schema=expected_schema)
+
+    def test_struct_of_dictionary(self):
+        names = ['ints', 'strs']
+        children = [pa.array([456, 789, 456]).dictionary_encode(),
+                    pa.array(["foo", "foo", None]).dictionary_encode()]
+        arr = pa.StructArray.from_arrays(children, names=names)
+
+        # Expected a Series of {field name: field value} dicts
+        rows_as_tuples = zip(*(child.to_pylist() for child in children))
+        rows_as_dicts = [dict(zip(names, row)) for row in rows_as_tuples]
+
+        expected = pd.Series(rows_as_dicts)
+        tm.assert_series_equal(arr.to_pandas(), expected)
+
+        # Same but with nulls
+        arr = arr.take([0, None, 2])
+        expected[1] = None
+        tm.assert_series_equal(arr.to_pandas(), expected)
 
 
 class TestZeroCopyConversion:
@@ -4043,6 +4128,20 @@ def test_metadata_compat_missing_field_name():
     result = table.to_pandas()
     # on python 3.5 the column order can differ -> adding check_like=True
     tm.assert_frame_equal(result, expected, check_like=True)
+
+
+def test_metadata_index_name_not_json_serializable():
+    name = np.int64(6)  # not json serializable by default
+    table = pa.table(pd.DataFrame(index=pd.RangeIndex(0, 4, name=name)))
+    metadata = table.schema.pandas_metadata
+    assert metadata['index_columns'][0]['name'] == '6'
+
+
+def test_metadata_index_name_is_json_serializable():
+    name = 6  # json serializable by default
+    table = pa.table(pd.DataFrame(index=pd.RangeIndex(0, 4, name=name)))
+    metadata = table.schema.pandas_metadata
+    assert metadata['index_columns'][0]['name'] == 6
 
 
 def make_df_with_timestamps():

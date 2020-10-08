@@ -209,7 +209,8 @@ import { validateRecordBatchAsyncIterator } from '../validate';
             }
         }
 
-        validateStreamState(reader, stream, true, true);
+        // stream.readable should be false here
+        validateStreamState(reader, stream, true);
         expect(tableIndex).toBe(tables.length / 2 | 0);
     });
 })();

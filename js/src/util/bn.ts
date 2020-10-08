@@ -45,6 +45,7 @@ BigNum.prototype[Symbol.toPrimitive] = function<T extends BN<BigNumArray>>(this:
         case 'string': return bignumToString(this);
         case 'default': return bignumToBigInt(this);
     }
+    // @ts-ignore
     return bignumToString(this);
 };
 

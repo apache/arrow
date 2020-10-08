@@ -30,9 +30,13 @@
 
 #include "arrow/api.h"
 #include "arrow/testing/random.h"
+#include "arrow/util/bitmap_ops.h"
 #include "arrow/util/logging.h"
 
+using arrow::Array;
+using arrow::ArrayVector;
 using arrow::BooleanBuilder;
+using arrow::FieldVector;
 using arrow::NumericBuilder;
 
 #define EXIT_NOT_OK(s)                                        \
@@ -223,6 +227,17 @@ static void BenchmarkReadTable(::benchmark::State& state, const ::arrow::Table& 
   }
 }
 
+static void BenchmarkReadArray(::benchmark::State& state,
+                               const std::shared_ptr<Array>& array, bool nullable,
+                               int64_t num_values = -1, int64_t bytes_per_value = -1) {
+  auto schema = ::arrow::schema({field("s", array->type(), nullable)});
+  auto table = ::arrow::Table::Make(schema, {array}, array->length());
+
+  EXIT_NOT_OK(table->Validate());
+
+  BenchmarkReadTable(state, *table, num_values, bytes_per_value);
+}
+
 //
 // Benchmark reading a primitive column
 //
@@ -302,7 +317,91 @@ BENCHMARK_TEMPLATE2(BM_ReadColumn, true, BooleanType)
 // Benchmark reading a nested column
 //
 
+const std::vector<int64_t> kNestedNullPercents = {0, 1, 50, 99};
+
+// XXX We can use ArgsProduct() starting from Benchmark 1.5.2
+static void NestedReadArguments(::benchmark::internal::Benchmark* b) {
+  for (const auto null_percentage : kNestedNullPercents) {
+    b->Arg(null_percentage);
+  }
+}
+
+static std::shared_ptr<Array> MakeStructArray(::arrow::random::RandomArrayGenerator* rng,
+                                              const ArrayVector& children,
+                                              double null_probability,
+                                              bool propagate_validity = false) {
+  ARROW_CHECK_GT(children.size(), 0);
+  const int64_t length = children[0]->length();
+
+  std::shared_ptr<::arrow::Buffer> null_bitmap;
+  if (null_probability > 0.0) {
+    null_bitmap = rng->NullBitmap(length, null_probability);
+    if (propagate_validity) {
+      // HACK: the Parquet writer currently doesn't allow non-empty list
+      // entries where a parent node is null (for instance, a struct-of-list
+      // where the outer struct is marked null but the inner list value is
+      // non-empty).
+      for (const auto& child : children) {
+        null_bitmap = *::arrow::internal::BitmapOr(
+            ::arrow::default_memory_pool(), null_bitmap->data(), 0,
+            child->null_bitmap_data(), 0, length, 0);
+      }
+    }
+  }
+  FieldVector fields(children.size());
+  char field_name = 'a';
+  for (size_t i = 0; i < children.size(); ++i) {
+    fields[i] = field(std::string{field_name++}, children[i]->type(),
+                      /*nullable=*/null_probability > 0.0);
+  }
+  return *::arrow::StructArray::Make(children, std::move(fields), null_bitmap);
+}
+
+// Make a (int32, int64) struct array
+static std::shared_ptr<Array> MakeStructArray(::arrow::random::RandomArrayGenerator* rng,
+                                              int64_t size, double null_probability) {
+  auto values1 = rng->Int32(size, -5, 5, null_probability);
+  auto values2 = rng->Int64(size, -12345678912345LL, 12345678912345LL, null_probability);
+  return MakeStructArray(rng, {values1, values2}, null_probability);
+}
+
 static void BM_ReadStructColumn(::benchmark::State& state) {
+  constexpr int64_t kNumValues = BENCHMARK_SIZE / 10;
+  const double null_probability = static_cast<double>(state.range(0)) / 100.0;
+  const bool nullable = (null_probability != 0.0);
+
+  ARROW_CHECK_GE(null_probability, 0.0);
+
+  const int64_t kBytesPerValue = sizeof(int32_t) + sizeof(int64_t);
+
+  ::arrow::random::RandomArrayGenerator rng(42);
+  auto array = MakeStructArray(&rng, kNumValues, null_probability);
+
+  BenchmarkReadArray(state, array, nullable, kNumValues, kBytesPerValue);
+}
+
+BENCHMARK(BM_ReadStructColumn)->Apply(NestedReadArguments);
+
+static void BM_ReadStructOfStructColumn(::benchmark::State& state) {
+  constexpr int64_t kNumValues = BENCHMARK_SIZE / 10;
+  const double null_probability = static_cast<double>(state.range(0)) / 100.0;
+  const bool nullable = (null_probability != 0.0);
+
+  ARROW_CHECK_GE(null_probability, 0.0);
+
+  const int64_t kBytesPerValue = 2 * (sizeof(int32_t) + sizeof(int64_t));
+
+  ::arrow::random::RandomArrayGenerator rng(42);
+  auto values1 = MakeStructArray(&rng, kNumValues, null_probability);
+  auto values2 = MakeStructArray(&rng, kNumValues, null_probability);
+  auto array = MakeStructArray(&rng, {values1, values2}, null_probability);
+
+  BenchmarkReadArray(state, array, nullable, kNumValues, kBytesPerValue);
+}
+
+BENCHMARK(BM_ReadStructOfStructColumn)->Apply(NestedReadArguments);
+
+static void BM_ReadStructOfListColumn(::benchmark::State& state) {
   constexpr int64_t kNumValues = BENCHMARK_SIZE / 10;
   const double null_probability = static_cast<double>(state.range(0)) / 100.0;
   const bool nullable = (null_probability != 0.0);
@@ -311,34 +410,20 @@ static void BM_ReadStructColumn(::benchmark::State& state) {
 
   ::arrow::random::RandomArrayGenerator rng(42);
 
+  const int64_t kBytesPerValue = sizeof(int32_t) + sizeof(int64_t);
+
   auto values1 = rng.Int32(kNumValues, -5, 5, null_probability);
   auto values2 =
       rng.Int64(kNumValues, -12345678912345LL, 12345678912345LL, null_probability);
+  auto list1 = rng.List(*values1, kNumValues / 10, null_probability);
+  auto list2 = rng.List(*values2, kNumValues / 10, null_probability);
+  auto array = MakeStructArray(&rng, {list1, list2}, null_probability,
+                               /*propagate_validity =*/true);
 
-  const int64_t kBytesPerValue = sizeof(int32_t) + sizeof(int64_t);
-
-  std::shared_ptr<::arrow::Buffer> null_bitmap;
-  if (nullable) {
-    null_bitmap = rng.NullBitmap(kNumValues, null_probability);
-  }
-  auto array = *::arrow::StructArray::Make(
-      {values1, values2},
-      ::arrow::FieldVector{field("a", values1->type(), nullable),
-                           field("b", values2->type(), nullable)},
-      null_bitmap);
-  auto schema = ::arrow::schema({field("s", array->type(), nullable)});
-  auto table = ::arrow::Table::Make(schema, {array}, array->length());
-
-  EXIT_NOT_OK(table->Validate());
-
-  BenchmarkReadTable(state, *table, kNumValues, kBytesPerValue);
+  BenchmarkReadArray(state, array, nullable, kNumValues, kBytesPerValue);
 }
 
-BENCHMARK(BM_ReadStructColumn)
-    ->Arg(/*null_percentage=*/0)
-    ->Arg(/*null_percentage=*/1)
-    ->Arg(/*null_percentage=*/50)
-    ->Arg(/*null_percentage=*/99);
+BENCHMARK(BM_ReadStructOfListColumn)->Apply(NestedReadArguments);
 
 static void BM_ReadListColumn(::benchmark::State& state) {
   constexpr int64_t kNumValues = BENCHMARK_SIZE / 10;
@@ -350,25 +435,53 @@ static void BM_ReadListColumn(::benchmark::State& state) {
   ::arrow::random::RandomArrayGenerator rng(42);
 
   auto values = rng.Int64(kNumValues, /*min=*/-5, /*max=*/5, null_probability);
-  auto offsets = rng.Offsets(kNumValues / 10, 0, static_cast<int32_t>(values->length()),
-                             null_probability);
-
   const int64_t kBytesPerValue = sizeof(int64_t);
 
-  auto array = *::arrow::ListArray::FromArrays(*offsets, *values);
-  auto schema = ::arrow::schema({field("s", array->type(), nullable)});
-  auto table = ::arrow::Table::Make(schema, {array}, array->length());
+  auto array = rng.List(*values, kNumValues / 10, null_probability);
 
-  EXIT_NOT_OK(table->Validate());
-
-  BenchmarkReadTable(state, *table, kNumValues, kBytesPerValue);
+  BenchmarkReadArray(state, array, nullable, kNumValues, kBytesPerValue);
 }
 
-BENCHMARK(BM_ReadListColumn)
-    ->Arg(/*null_percentage=*/0)
-    ->Arg(/*null_percentage=*/1)
-    ->Arg(/*null_percentage=*/50)
-    ->Arg(/*null_percentage=*/99);
+BENCHMARK(BM_ReadListColumn)->Apply(NestedReadArguments);
+
+static void BM_ReadListOfStructColumn(::benchmark::State& state) {
+  constexpr int64_t kNumValues = BENCHMARK_SIZE / 10;
+  const double null_probability = static_cast<double>(state.range(0)) / 100.0;
+  const bool nullable = (null_probability != 0.0);
+
+  ARROW_CHECK_GE(null_probability, 0.0);
+
+  ::arrow::random::RandomArrayGenerator rng(42);
+
+  auto values = MakeStructArray(&rng, kNumValues, null_probability);
+  const int64_t kBytesPerValue = sizeof(int32_t) + sizeof(int64_t);
+
+  auto array = rng.List(*values, kNumValues / 10, null_probability);
+
+  BenchmarkReadArray(state, array, nullable, kNumValues, kBytesPerValue);
+}
+
+BENCHMARK(BM_ReadListOfStructColumn)->Apply(NestedReadArguments);
+
+static void BM_ReadListOfListColumn(::benchmark::State& state) {
+  constexpr int64_t kNumValues = BENCHMARK_SIZE / 10;
+  const double null_probability = static_cast<double>(state.range(0)) / 100.0;
+  const bool nullable = (null_probability != 0.0);
+
+  ARROW_CHECK_GE(null_probability, 0.0);
+
+  ::arrow::random::RandomArrayGenerator rng(42);
+
+  auto values = rng.Int64(kNumValues, /*min=*/-5, /*max=*/5, null_probability);
+  const int64_t kBytesPerValue = sizeof(int64_t);
+
+  auto inner = rng.List(*values, kNumValues / 10, null_probability);
+  auto array = rng.List(*inner, kNumValues / 100, null_probability);
+
+  BenchmarkReadArray(state, array, nullable, kNumValues, kBytesPerValue);
+}
+
+BENCHMARK(BM_ReadListOfListColumn)->Apply(NestedReadArguments);
 
 //
 // Benchmark different ways of reading select row groups

@@ -27,9 +27,13 @@
 #include "arrow/dataset/scanner.h"
 #include "arrow/ipc/reader.h"
 #include "arrow/ipc/writer.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/iterator.h"
 
 namespace arrow {
+
+using internal::checked_pointer_cast;
+
 namespace dataset {
 
 static inline ipc::IpcReadOptions default_read_options() {
@@ -159,18 +163,44 @@ Result<ScanTaskIterator> IpcFileFormat::ScanFile(std::shared_ptr<ScanOptions> op
                                    fragment->source());
 }
 
-Status IpcFileFormat::WriteFragment(RecordBatchReader* batches,
-                                    io::OutputStream* destination) const {
-  ARROW_ASSIGN_OR_RAISE(auto writer, ipc::MakeFileWriter(destination, batches->schema()));
+//
+// IpcFileWriter, IpcFileWriteOptions
+//
 
-  for (;;) {
-    ARROW_ASSIGN_OR_RAISE(auto batch, batches->Next());
-    if (batch == nullptr) break;
-    RETURN_NOT_OK(writer->WriteRecordBatch(*batch));
+std::shared_ptr<FileWriteOptions> IpcFileFormat::DefaultWriteOptions() {
+  std::shared_ptr<IpcFileWriteOptions> options(
+      new IpcFileWriteOptions(shared_from_this()));
+
+  options->ipc_options =
+      std::make_shared<ipc::IpcWriteOptions>(ipc::IpcWriteOptions::Defaults());
+  return options;
+}
+
+Result<std::shared_ptr<FileWriter>> IpcFileFormat::MakeWriter(
+    std::shared_ptr<io::OutputStream> destination, std::shared_ptr<Schema> schema,
+    std::shared_ptr<FileWriteOptions> options) const {
+  if (!Equals(*options->format())) {
+    return Status::TypeError("Mismatching format/write options.");
   }
 
-  return writer->Close();
+  auto ipc_options = checked_pointer_cast<IpcFileWriteOptions>(options);
+
+  ARROW_ASSIGN_OR_RAISE(auto writer, ipc::MakeFileWriter(destination, schema));
+  return std::shared_ptr<FileWriter>(
+      new IpcFileWriter(std::move(writer), std::move(schema), std::move(ipc_options)));
 }
+
+IpcFileWriter::IpcFileWriter(std::shared_ptr<ipc::RecordBatchWriter> writer,
+                             std::shared_ptr<Schema> schema,
+                             std::shared_ptr<IpcFileWriteOptions> options)
+    : FileWriter(std::move(schema), std::move(options)),
+      batch_writer_(std::move(writer)) {}
+
+Status IpcFileWriter::Write(const std::shared_ptr<RecordBatch>& batch) {
+  return batch_writer_->WriteRecordBatch(*batch);
+}
+
+Status IpcFileWriter::Finish() { return batch_writer_->Close(); }
 
 }  // namespace dataset
 }  // namespace arrow

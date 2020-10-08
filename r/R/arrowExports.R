@@ -396,12 +396,20 @@ dataset___FileFormat__type_name <- function(format){
     .Call(`_arrow_dataset___FileFormat__type_name` , format)
 }
 
-dataset___ParquetFileFormat__MakeRead <- function(use_buffered_stream, buffer_size, dict_columns){
-    .Call(`_arrow_dataset___ParquetFileFormat__MakeRead` , use_buffered_stream, buffer_size, dict_columns)
+dataset___FileFormat__DefaultWriteOptions <- function(fmt){
+    .Call(`_arrow_dataset___FileFormat__DefaultWriteOptions` , fmt)
 }
 
-dataset___ParquetFileFormat__MakeWrite <- function(writer_props, arrow_props){
-    .Call(`_arrow_dataset___ParquetFileFormat__MakeWrite` , writer_props, arrow_props)
+dataset___ParquetFileFormat__Make <- function(use_buffered_stream, buffer_size, dict_columns){
+    .Call(`_arrow_dataset___ParquetFileFormat__Make` , use_buffered_stream, buffer_size, dict_columns)
+}
+
+dataset___FileWriteOptions__type_name <- function(options){
+    .Call(`_arrow_dataset___FileWriteOptions__type_name` , options)
+}
+
+dataset___ParquetFileWriteOptions__update <- function(options, writer_props, arrow_writer_props){
+    invisible(.Call(`_arrow_dataset___ParquetFileWriteOptions__update` , options, writer_props, arrow_writer_props))
 }
 
 dataset___IpcFileFormat__Make <- function(){
@@ -464,12 +472,16 @@ dataset___Scanner__Scan <- function(scanner){
     .Call(`_arrow_dataset___Scanner__Scan` , scanner)
 }
 
+dataset___Scanner__schema <- function(sc){
+    .Call(`_arrow_dataset___Scanner__schema` , sc)
+}
+
 dataset___ScanTask__get_batches <- function(scan_task){
     .Call(`_arrow_dataset___ScanTask__get_batches` , scan_task)
 }
 
-dataset___Dataset__Write <- function(ds, schema, format, filesystem, path, partitioning){
-    invisible(.Call(`_arrow_dataset___Dataset__Write` , ds, schema, format, filesystem, path, partitioning))
+dataset___Dataset__Write <- function(file_write_options, filesystem, base_dir, partitioning, basename_template, scanner){
+    invisible(.Call(`_arrow_dataset___Dataset__Write` , file_write_options, filesystem, base_dir, partitioning, basename_template, scanner))
 }
 
 shared_ptr_is_null <- function(xp){

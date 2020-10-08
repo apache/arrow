@@ -74,7 +74,7 @@ export class RecordBatchReader<T extends { [key: string]: DataType } = any> exte
     public get dictionaries() { return this._impl.dictionaries; }
     public get numDictionaries() { return this._impl.numDictionaries; }
     public get numRecordBatches() { return this._impl.numRecordBatches; }
-    public get footer() { return this._impl.isFile() ? this._impl.footer : null; }
+    public get footer(): Footer | null { return this._impl.isFile() ? this._impl.footer : null; }
 
     public isSync(): this is RecordBatchReaders<T> { return this._impl.isSync(); }
     public isAsync(): this is AsyncRecordBatchReaders<T> { return this._impl.isAsync(); }
@@ -247,13 +247,11 @@ export interface AsyncRecordBatchStreamReader<T extends { [key: string]: DataTyp
 
 /** @ignore */
 export interface RecordBatchFileReader<T extends { [key: string]: DataType } = any> extends RecordBatchStreamReader<T> {
-    footer: Footer;
     readRecordBatch(index: number): RecordBatch<T> | null;
 }
 
 /** @ignore */
 export interface AsyncRecordBatchFileReader<T extends { [key: string]: DataType } = any> extends AsyncRecordBatchStreamReader<T> {
-    footer: Footer;
     readRecordBatch(index: number): Promise<RecordBatch<T> | null>;
 }
 

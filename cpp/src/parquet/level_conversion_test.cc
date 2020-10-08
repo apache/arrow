@@ -345,20 +345,16 @@ TYPED_TEST(NestedListTest, TestOverflow) {
   this->Run(test_data, level_info);
 }
 
-TEST(TestOnlyRunBasedExtract, BasicTest) {
-  EXPECT_EQ(TestOnlyRunBasedExtract(arrow::BitUtil::ToLittleEndian(0xFF), 0), 0);
-  EXPECT_EQ(TestOnlyRunBasedExtract(arrow::BitUtil::ToLittleEndian(0xFF), ~uint64_t{0}),
-            arrow::BitUtil::ToLittleEndian(0xFF));
-
-  EXPECT_EQ(TestOnlyRunBasedExtract(arrow::BitUtil::ToLittleEndian(0xFF00FF),
-                                    arrow::BitUtil::ToLittleEndian(0xAAAA)),
-            arrow::BitUtil::ToLittleEndian(0x000F));
-  EXPECT_EQ(TestOnlyRunBasedExtract(arrow::BitUtil::ToLittleEndian(0xFF0AFF),
-                                    arrow::BitUtil::ToLittleEndian(0xAFAA)),
-            arrow::BitUtil::ToLittleEndian(0x00AF));
-  EXPECT_EQ(TestOnlyRunBasedExtract(arrow::BitUtil::ToLittleEndian(0xFFAAFF),
-                                    arrow::BitUtil::ToLittleEndian(0xAFAA)),
-            arrow::BitUtil::ToLittleEndian(0x03AF));
+TEST(TestOnlyExtractBitsSoftware, BasicTest) {
+  auto check = [](uint64_t bitmap, uint64_t selection, uint64_t expected) -> void {
+    EXPECT_EQ(TestOnlyExtractBitsSoftware(bitmap, selection), expected);
+  };
+  check(0xFF, 0, 0);
+  check(0xFF, ~uint64_t{0}, 0xFF);
+  check(0xFF00FF, 0xAAAA, 0x000F);
+  check(0xFF0AFF, 0xAFAA, 0x00AF);
+  check(0xFFAAFF, 0xAFAA, 0x03AF);
+  check(0xFECBDA9876543210ULL, 0xF00FF00FF00FF00FULL, 0xFBD87430ULL);
 }
 
 }  // namespace internal

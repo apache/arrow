@@ -447,6 +447,10 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
     }
   }
 
+  void UnsafeAppend(const char* value) {
+    UnsafeAppend(reinterpret_cast<const uint8_t*>(value));
+  }
+
   void UnsafeAppend(util::string_view value) {
 #ifndef NDEBUG
     CheckValueSize(static_cast<size_t>(value.size()));

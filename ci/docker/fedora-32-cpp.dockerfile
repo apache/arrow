@@ -17,10 +17,11 @@
 
 ARG arch
 FROM ${arch}/fedora:32
+ARG arch
 
 # install dependencies
 RUN dnf update -y && \
-	dnf install -y \
+    dnf install -y \
         autoconf \
         boost-devel \
         brotli-devel \
@@ -29,6 +30,7 @@ RUN dnf update -y && \
         ccache \
         clang-devel \
         cmake \
+        curl-devel \
         flatbuffers-devel \
         java-1.8.0-openjdk-devel \
         java-1.8.0-openjdk-headless \
@@ -54,8 +56,13 @@ RUN dnf update -y && \
         snappy-devel \
         thrift-devel \
         utf8proc-devel \
+        wget \
         which \
         zlib-devel
+
+COPY ci/scripts/install_minio.sh \
+     /arrow/ci/scripts/
+RUN /arrow/ci/scripts/install_minio.sh ${arch} linux latest /usr/local
 
 # * gRPC 1.26 in Fedora 32 may have a problem. arrow-flight-test is stuck.
 ENV ARROW_BUILD_TESTS=ON \
@@ -67,6 +74,7 @@ ENV ARROW_BUILD_TESTS=ON \
     ARROW_HOME=/usr/local \
     ARROW_ORC=ON \
     ARROW_PARQUET=ON \
+    ARROW_S3=ON \
     ARROW_USE_CCACHE=ON \
     ARROW_WITH_BROTLI=ON \
     ARROW_WITH_BZ2=ON \
@@ -74,6 +82,7 @@ ENV ARROW_BUILD_TESTS=ON \
     ARROW_WITH_SNAPPY=ON \
     ARROW_WITH_ZLIB=ON \
     ARROW_WITH_ZSTD=ON \
+    AWSSDK_SOURCE=BUNDLED \
     CC=gcc \
     CXX=g++ \
     gRPC_SOURCE=BUNDLED \

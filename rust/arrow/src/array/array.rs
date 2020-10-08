@@ -16,6 +16,7 @@
 // under the License.
 
 use std::any::Any;
+use std::borrow::Borrow;
 use std::convert::{From, TryFrom};
 use std::fmt;
 use std::io::Write;
@@ -693,6 +694,61 @@ impl fmt::Debug for PrimitiveArray<BooleanType> {
     }
 }
 
+impl<'a, T: ArrowPrimitiveType> IntoIterator for &'a PrimitiveArray<T> {
+    type Item = Option<<T as ArrowPrimitiveType>::Native>;
+    type IntoIter = PrimitiveIter<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        PrimitiveIter::<'a, T>::new(self)
+    }
+}
+
+impl<'a, T: ArrowPrimitiveType> PrimitiveArray<T> {
+    /// constructs a new iterator
+    pub fn iter(&'a self) -> PrimitiveIter<'a, T> {
+        PrimitiveIter::<'a, T>::new(&self)
+    }
+}
+
+impl<T: ArrowPrimitiveType, Ptr: Borrow<Option<<T as ArrowPrimitiveType>::Native>>>
+    FromIterator<Ptr> for PrimitiveArray<T>
+{
+    fn from_iter<I: IntoIterator<Item = Ptr>>(iter: I) -> Self {
+        let iter = iter.into_iter();
+        let (_, data_len) = iter.size_hint();
+        let data_len = data_len.expect("Iterator must be sized"); // panic if no upper bound.
+
+        let num_bytes = bit_util::ceil(data_len, 8);
+        let mut null_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, false);
+        let mut val_buf = MutableBuffer::new(
+            data_len * mem::size_of::<<T as ArrowPrimitiveType>::Native>(),
+        );
+
+        let null = vec![0; mem::size_of::<<T as ArrowPrimitiveType>::Native>()];
+
+        let null_slice = null_buf.data_mut();
+        iter.enumerate().for_each(|(i, item)| {
+            if let Some(a) = item.borrow() {
+                bit_util::set_bit(null_slice, i);
+                val_buf.write_all(a.to_byte_slice()).unwrap();
+            } else {
+                val_buf.write_all(&null).unwrap();
+            }
+        });
+
+        let data = ArrayData::new(
+            T::get_data_type(),
+            data_len,
+            None,
+            Some(null_buf.freeze()),
+            0,
+            vec![val_buf.freeze()],
+            vec![],
+        );
+        PrimitiveArray::from(Arc::new(data))
+    }
+}
+
 // TODO: the macro is needed here because we'd get "conflicting implementations" error
 // otherwise with both `From<Vec<T::Native>>` and `From<Vec<Option<T::Native>>>`.
 // We should revisit this in future.
@@ -713,34 +769,7 @@ macro_rules! def_numeric_from_vec {
             for PrimitiveArray<$ty>
         {
             fn from(data: Vec<Option<<$ty as ArrowPrimitiveType>::Native>>) -> Self {
-                let data_len = data.len();
-                let mut null_buf = make_null_buffer(data_len);
-                let mut val_buf = MutableBuffer::new(
-                    data_len * mem::size_of::<<$ty as ArrowPrimitiveType>::Native>(),
-                );
-
-                {
-                    let null =
-                        vec![0; mem::size_of::<<$ty as ArrowPrimitiveType>::Native>()];
-                    let null_slice = null_buf.data_mut();
-                    for (i, v) in data.iter().enumerate() {
-                        if let Some(n) = v {
-                            bit_util::set_bit(null_slice, i);
-                            // unwrap() in the following should be safe here since we've
-                            // made sure enough space is allocated for the values.
-                            val_buf.write_all(&n.to_byte_slice()).unwrap();
-                        } else {
-                            val_buf.write_all(&null).unwrap();
-                        }
-                    }
-                }
-
-                let array_data = ArrayData::builder($ty::get_data_type())
-                    .len(data_len)
-                    .add_buffer(val_buf.freeze())
-                    .null_bit_buffer(null_buf.freeze())
-                    .build();
-                PrimitiveArray::from(array_data)
+                PrimitiveArray::from_iter(data.iter())
             }
         }
     };
@@ -1429,14 +1458,28 @@ impl From<LargeListArray> for LargeBinaryArray {
     }
 }
 
+/// Like OffsetSizeTrait, but specialized for Strings
+// This allow us to expose a constant datatype for the GenericStringArray
+pub trait StringOffsetSizeTrait: OffsetSizeTrait {
+    const DATA_TYPE: DataType;
+}
+
+impl StringOffsetSizeTrait for i32 {
+    const DATA_TYPE: DataType = DataType::Utf8;
+}
+
+impl StringOffsetSizeTrait for i64 {
+    const DATA_TYPE: DataType = DataType::LargeUtf8;
+}
+
 /// Generic struct for \[Large\]StringArray
-pub struct GenericStringArray<OffsetSize> {
+pub struct GenericStringArray<OffsetSize: StringOffsetSizeTrait> {
     data: ArrayDataRef,
     value_offsets: RawPtrBox<OffsetSize>,
     value_data: RawPtrBox<u8>,
 }
 
-impl<OffsetSize: OffsetSizeTrait> GenericStringArray<OffsetSize> {
+impl<OffsetSize: StringOffsetSizeTrait> GenericStringArray<OffsetSize> {
     /// Returns the offset for the element at index `i`.
     ///
     /// Note this doesn't do any bound checking, for performance reason.
@@ -1559,7 +1602,7 @@ impl<OffsetSize: OffsetSizeTrait> GenericStringArray<OffsetSize> {
     }
 }
 
-impl<OffsetSize: OffsetSizeTrait> fmt::Debug for GenericStringArray<OffsetSize> {
+impl<OffsetSize: StringOffsetSizeTrait> fmt::Debug for GenericStringArray<OffsetSize> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}StringArray\n[\n", OffsetSize::prefix())?;
         print_long_array(self, f, |array, index, f| {
@@ -1569,7 +1612,7 @@ impl<OffsetSize: OffsetSizeTrait> fmt::Debug for GenericStringArray<OffsetSize> 
     }
 }
 
-impl<OffsetSize: OffsetSizeTrait> Array for GenericStringArray<OffsetSize> {
+impl<OffsetSize: StringOffsetSizeTrait> Array for GenericStringArray<OffsetSize> {
     fn as_any(&self) -> &Any {
         self
     }
@@ -1593,8 +1636,15 @@ impl<OffsetSize: OffsetSizeTrait> Array for GenericStringArray<OffsetSize> {
     }
 }
 
-impl<OffsetSize: OffsetSizeTrait> From<ArrayDataRef> for GenericStringArray<OffsetSize> {
+impl<OffsetSize: StringOffsetSizeTrait> From<ArrayDataRef>
+    for GenericStringArray<OffsetSize>
+{
     fn from(data: ArrayDataRef) -> Self {
+        assert_eq!(
+            data.data_type(),
+            &<OffsetSize as StringOffsetSizeTrait>::DATA_TYPE,
+            "[Large]StringArray expects Datatype::[Large]Utf8"
+        );
         assert_eq!(
             data.buffers().len(),
             2,
@@ -1612,7 +1662,7 @@ impl<OffsetSize: OffsetSizeTrait> From<ArrayDataRef> for GenericStringArray<Offs
     }
 }
 
-impl<OffsetSize: OffsetSizeTrait> ListArrayOps<OffsetSize>
+impl<OffsetSize: StringOffsetSizeTrait> ListArrayOps<OffsetSize>
     for GenericStringArray<OffsetSize>
 {
     fn value_offset_at(&self, i: usize) -> OffsetSize {
@@ -3606,6 +3656,13 @@ mod tests {
             assert!(string_array.is_valid(i));
             assert!(!string_array.is_null(i));
         }
+    }
+
+    #[test]
+    #[should_panic(expected = "[Large]StringArray expects Datatype::[Large]Utf8")]
+    fn test_string_array_from_int() {
+        let array = LargeStringArray::from(vec!["a", "b"]);
+        StringArray::from(array.data());
     }
 
     #[test]

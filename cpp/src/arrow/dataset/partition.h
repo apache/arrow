@@ -60,12 +60,12 @@ class ARROW_DS_EXPORT Partitioning {
   virtual std::string type_name() const = 0;
 
   /// \brief If the input batch shares any fields with this partitioning,
-  /// produce slices of the batch which satisfy mutually exclusive Expressions.
-  struct PartitionedBatch {
-    std::shared_ptr<RecordBatch> batch;
-    std::shared_ptr<Expression> partition_expression;
+  /// produce sub-batches which satisfy mutually exclusive Expressions.
+  struct PartitionedBatches {
+    RecordBatchVector batches;
+    ExpressionVector expressions;
   };
-  virtual Result<std::vector<PartitionedBatch>> Partition(
+  virtual Result<PartitionedBatches> Partition(
       const std::shared_ptr<RecordBatch>& batch) const = 0;
 
   /// \brief Parse a path into a partition expression
@@ -85,14 +85,11 @@ class ARROW_DS_EXPORT Partitioning {
 };
 
 struct PartitioningFactoryOptions {
-  /// When inferring a schema for partition fields, string fields may be inferred as
-  /// a dictionary type instead. This can be more efficient when materializing virtual
-  /// columns. If the number of discovered unique values of a string field exceeds
-  /// max_partition_dictionary_size, it will instead be inferred as a string.
-  ///
-  /// max_partition_dictionary_size = 0: No fields will be inferred as dictionary.
-  /// max_partition_dictionary_size = -1: All fields will be inferred as dictionary.
-  int max_partition_dictionary_size = 0;
+  /// When inferring a schema for partition fields, yield dictionary encoded types
+  /// instead of plain. This can be more efficient when materializing virtual
+  /// columns, and Expressions parsed by the finished Partitioning will include
+  /// dictionaries of all unique inspected values for each field.
+  bool infer_dictionary = false;
 };
 
 /// \brief PartitioningFactory provides creation of a partitioning  when the
@@ -136,7 +133,7 @@ class ARROW_DS_EXPORT KeyValuePartitioning : public Partitioning {
   static Status SetDefaultValuesFromKeys(const Expression& expr,
                                          RecordBatchProjector* projector);
 
-  Result<std::vector<PartitionedBatch>> Partition(
+  Result<PartitionedBatches> Partition(
       const std::shared_ptr<RecordBatch>& batch) const override;
 
   Result<std::shared_ptr<Expression>> Parse(const std::string& path) const override;
@@ -243,7 +240,7 @@ class ARROW_DS_EXPORT FunctionPartitioning : public Partitioning {
     return Status::NotImplemented("formatting paths from ", type_name(), " Partitioning");
   }
 
-  Result<std::vector<PartitionedBatch>> Partition(
+  Result<PartitionedBatches> Partition(
       const std::shared_ptr<RecordBatch>& batch) const override {
     return Status::NotImplemented("partitioning batches from ", type_name(),
                                   " Partitioning");

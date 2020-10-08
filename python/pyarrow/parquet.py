@@ -1348,7 +1348,7 @@ def _make_manifest(path_or_paths, fs, pathsep='/', metadata_nthreads=1,
     if _is_path_like(path_or_paths) and fs.isdir(path_or_paths):
         manifest = ParquetManifest(path_or_paths, filesystem=fs,
                                    open_file_func=open_file_func,
-                                   pathsep=fs.pathsep,
+                                   pathsep=getattr(fs, "pathsep", "/"),
                                    metadata_nthreads=metadata_nthreads)
         common_metadata_path = manifest.common_metadata_path
         metadata_path = manifest.metadata_path
@@ -1454,8 +1454,7 @@ class _ParquetDatasetV2:
         # check partitioning to enable dictionary encoding
         if partitioning == "hive":
             partitioning = ds.HivePartitioning.discover(
-                max_partition_dictionary_size=-1
-            )
+                infer_dictionary=True)
 
         self._dataset = ds.dataset(path_or_paths, filesystem=filesystem,
                                    format=parquet_format,
