@@ -40,15 +40,13 @@ pub trait Length {
     fn len(&self) -> u64;
 }
 
-pub trait ReadChunk: Read + Length {}
-impl<T: Read + Length> ReadChunk for T {}
-
 /// The ChunkReader trait generates readers of chunks of a source.
 /// For a file system reader, each chunk might contain a clone of File bounded on a given range.
 /// For an object store reader, each read can be mapped to a range request.
 pub trait ChunkReader: Length {
-    type T: ReadChunk;
+    type T: Read;
     /// get a serialy readeable slice of the current reader
+    /// This should fail if the slice exceeds the current bounds
     fn get_read(&self, start: u64, length: usize) -> Result<Self::T>;
 }
 
