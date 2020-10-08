@@ -1026,17 +1026,19 @@ cdef class ParquetReader(_Weakrefable):
         if column_indices is not None:
             for index in column_indices:
                 c_column_indices.push_back(index)
-            check_status(
-                self.reader.get().GetRecordBatchReader(
-                    c_row_groups, c_column_indices, &recordbatchreader
+            with nogil:
+                check_status(
+                    self.reader.get().GetRecordBatchReader(
+                        c_row_groups, c_column_indices, &recordbatchreader
+                    )
                 )
-            )
         else:
-            check_status(
-                self.reader.get().GetRecordBatchReader(
-                    c_row_groups, &recordbatchreader
+            with nogil:
+                check_status(
+                    self.reader.get().GetRecordBatchReader(
+                        c_row_groups, &recordbatchreader
+                    )
                 )
-            )
 
         while True:
             with nogil:

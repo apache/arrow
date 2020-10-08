@@ -355,8 +355,7 @@ class ParquetFile:
                                            row_groups=row_groups,
                                            column_indices=column_indices,
                                            use_threads=use_threads)
-        for batch in batches:
-            yield batch
+        return batches
 
     def read(self, columns=None, use_threads=True, use_pandas_metadata=False):
         """
