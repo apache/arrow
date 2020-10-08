@@ -24,8 +24,6 @@ use std::hash::Hash;
 use std::rc::Rc;
 use std::sync::Arc;
 
-use arrow::array::ArrayRef;
-use arrow::array::ListArray;
 use arrow::datatypes::{DataType, Field};
 
 use fnv::FnvHashSet;
@@ -127,27 +125,29 @@ impl Accumulator for DistinctCountAccumulator {
     }
 
     fn merge(&mut self, states: &Vec<ScalarValue>) -> Result<()> {
-        self.update(states)
-    }
+        if states.len() == 0 {
+            return Ok(());
+        }
 
-    fn merge_batch(&mut self, states: &Vec<ArrayRef>) -> Result<()> {
-        let list_arrays = states
+        let col_values = states
             .iter()
-            .map(|state_array| {
-                state_array.as_any().downcast_ref::<ListArray>().ok_or(
-                    ExecutionError::InternalError(
-                        "Failed to downcast ListArray".to_string(),
-                    ),
-                )
+            .map(|state| match state {
+                ScalarValue::List(Some(values), _) => Ok(values),
+                _ => Err(ExecutionError::InternalError(
+                    "Unexpected accumulator state".to_string(),
+                )),
             })
             .collect::<Result<Vec<_>>>()?;
 
-        let values_arrays = list_arrays
-            .iter()
-            .map(|list_array| list_array.values())
-            .collect::<Vec<_>>();
-
-        self.update_batch(&values_arrays)
+        (0..col_values[0].len())
+            .map(|row_index| {
+                let row_values = col_values
+                    .iter()
+                    .map(|col| col[row_index].clone())
+                    .collect::<Vec<_>>();
+                self.update(&row_values)
+            })
+            .collect::<Result<_>>()
     }
 
     fn state(&self) -> Result<Vec<ScalarValue>> {
@@ -193,9 +193,10 @@ impl Accumulator for DistinctCountAccumulator {
 mod tests {
     use super::*;
 
+    use arrow::array::ArrayRef;
     use arrow::array::{
-        Int16Array, Int32Array, Int64Array, Int8Array, UInt16Array, UInt32Array,
-        UInt64Array, UInt8Array,
+        Int16Array, Int32Array, Int64Array, Int8Array, ListArray, UInt16Array,
+        UInt32Array, UInt64Array, UInt8Array,
     };
     use arrow::array::{Int32Builder, ListBuilder, UInt64Builder};
     use arrow::datatypes::DataType;
