@@ -500,6 +500,7 @@ mod tests {
     use std::sync::Arc;
 
     use arrow::array::*;
+    use arrow::buffer::Buffer;
     use arrow::datatypes::ToByteSlice;
     use arrow::datatypes::{DataType, Field, Schema};
     use arrow::record_batch::RecordBatch;
@@ -507,6 +508,57 @@ mod tests {
     use crate::arrow::{ArrowReader, ParquetFileArrowReader};
     use crate::file::{metadata::KeyValue, reader::SerializedFileReader};
     use crate::util::test_common::get_temp_file;
+
+    #[test]
+    fn get_levels_non_nullable_single_list_non_nullable_entries() {
+        // Construct a value array
+        let value_data = ArrayData::builder(DataType::Int64)
+            .len(6)
+            .add_buffer(Buffer::from(&[1, 2, 3, 4, 5, 6].to_byte_slice()))
+            .build();
+
+        // Construct a buffer for value offsets, for the nested array:
+        //  [[1], [2, 3], [4, 5, 6]]
+        let value_offsets = Buffer::from(&[0i64, 1, 3, 6].to_byte_slice());
+
+        // Construct a list array from the above two
+        let list_data_type = DataType::LargeList(Box::new(DataType::Int64));
+        let list_data = ArrayData::builder(list_data_type.clone())
+            .len(3)
+            .add_buffer(value_offsets.clone())
+            .add_child_data(value_data.clone())
+            .build();
+        let list_array: Arc<dyn Array> = Arc::new(LargeListArray::from(list_data));
+
+        let levels = get_levels(&list_array, 0, &vec![1i16; 6][..], None);
+
+        assert_eq!(levels.len(), 1);
+        assert_eq!(levels[0].definition, vec![1; 6]);
+        assert_eq!(levels[0].repetition, Some(vec![0, 0, 1, 0, 1, 1]));
+    }
+
+    #[test]
+    #[ignore] // get_primitive_def_levels gets an empty parent_def_levels and I'm not sure why
+    fn get_levels_nullable_single_list_all_null_lists() {
+        let a_builder = Int64Builder::new(32);
+        let mut a_builder = ListBuilder::<Int64Builder>::new(a_builder);
+        a_builder.values().append_null().unwrap();
+        a_builder.values().append_null().unwrap();
+        a_builder.values().append_null().unwrap();
+        a_builder.values().append_null().unwrap();
+
+        let list_array: Arc<dyn Array> = Arc::new(a_builder.finish());
+
+        let levels = get_levels(&list_array, 0, &vec![1i16; 4][..], None);
+
+        assert_eq!(levels.len(), 1);
+        assert_eq!(levels[0].definition, vec![0; 4]);
+        assert_eq!(levels[0].repetition, Some(vec![0; 4]));
+    }
+
+    // Not confident I know how to correctly create these scenarios:
+    // fn get_levels_nullable_single_list_all_empty_lists()
+    // fn get_levels_nullable_single_list_all_null_entries()
 
     #[test]
     fn arrow_writer() {
