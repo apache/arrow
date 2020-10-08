@@ -724,7 +724,11 @@ mod tests {
             assert_eq!(expected_data.offset(), actual_data.offset());
             assert_eq!(expected_data.buffers(), actual_data.buffers());
             assert_eq!(expected_data.child_data(), actual_data.child_data());
-            assert_eq!(expected_data.null_bitmap(), actual_data.null_bitmap());
+            // Null counts should be the same, not necessarily bitmaps
+            // A null bitmap is optional if an array has no nulls
+            if expected_data.null_count() != 0 {
+                assert_eq!(expected_data.null_bitmap(), actual_data.null_bitmap());
+            }
         }
     }
 
@@ -1001,7 +1005,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // Binary support isn't correct yet - null_bitmap doesn't match
+    #[ignore] // Binary support isn't correct yet - buffers don't match
     fn binary_single_column() {
         let one_vec: Vec<u8> = (0..SMALL_SIZE as u8).collect();
         let many_vecs: Vec<_> = std::iter::repeat(one_vec).take(SMALL_SIZE).collect();
@@ -1026,7 +1030,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // String support isn't correct yet - null_bitmap doesn't match
     fn string_single_column() {
         let raw_values: Vec<_> = (0..SMALL_SIZE).map(|i| i.to_string()).collect();
         let raw_strs = raw_values.iter().map(|s| s.as_str());
@@ -1035,7 +1038,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // Large string support isn't correct yet - null_bitmap doesn't match
     fn large_string_single_column() {
         let raw_values: Vec<_> = (0..SMALL_SIZE).map(|i| i.to_string()).collect();
         let raw_strs = raw_values.iter().map(|s| s.as_str());
