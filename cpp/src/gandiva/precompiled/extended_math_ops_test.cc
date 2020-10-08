@@ -93,6 +93,10 @@ TEST(TestExtendedMathOps, TestRoundDecimal) {
   EXPECT_FLOAT_EQ(round_float32_int32(-1234.4567f, 3), -1234.457f);
   EXPECT_FLOAT_EQ(round_float32_int32(-1234.4567f, -3), -1000);
   EXPECT_FLOAT_EQ(round_float32_int32(1234.4567f, 0), 1234);
+  EXPECT_FLOAT_EQ(round_float32_int32(1.5499999523162842f, 1), 1.5f);
+  EXPECT_FLOAT_EQ(round_float32_int32(static_cast<float>(1.55), 1), 1.5f);
+  EXPECT_FLOAT_EQ(round_float32_int32(static_cast<float>(9.134123), 2), 9.13f);
+  EXPECT_FLOAT_EQ(round_float32_int32(static_cast<float>(-1.923), 1), -1.9f);
 
   VerifyFuzzyEquals(round_float64_int32(1234.789, 2), 1234.79);
   VerifyFuzzyEquals(round_float64_int32(1234.12345, -3), 1000);
