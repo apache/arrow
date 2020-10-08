@@ -37,6 +37,57 @@ from distutils import sysconfig
 from Cython.Distutils import build_ext as _build_ext
 import Cython
 
+import argparse
+
+# Pre-parse and remove the '--target' argument from sys.argv since we
+# need it here already.
+parser = argparse.ArgumentParser()
+parser.add_argument('--target', default='pyarrow')
+values, rest = parser.parse_known_args()
+DIST_TARGET = values.target
+sys.argv = sys.argv[:1] + rest
+
+class Target():
+    def __init__(self, target):
+        if target not in ['pyarrow', 'pyarrow_gandiva']:
+            raise ValueError("unknown distribution target: '%s'" % target)
+        self.target = target
+
+    def get_packages(self):
+        if self.target == 'pyarrow' and strtobool(os.environ.get('PYARROW_INSTALL_TESTS', '1')):
+            return ['pyarrow', 'pyarrow.tests']
+        else:
+            return self.target
+
+    def get_package_data(self):
+        return {self.target: ['*.pxd', '*.pyx', 'includes/*.pxd']}
+
+    def get_entry_points(self):
+        if self.target == 'pyarrow':
+            return {'console_scripts': ['plasma_store = pyarrow:_plasma_store_entry_point']}
+
+    def get_description(self):
+        if self.target == 'pyarrow':
+            return 'Python library for Apache Arrow'
+        elif self.target == 'pyarrow_gandiva':
+            return 'PyArrow extension for Gandiva support'
+
+    def get_long_description(self):
+        if self.target == 'pyarrow':
+            with open('README.md') as f:
+                long_description = f.read()
+        else:
+            with open(os.path.join(self.target, 'README.md')) as f:
+                long_description = f.read()
+        return long_description
+
+    def get_test_suite(self):
+        return '%s.tests' % self.target
+
+
+target = Target(DIST_TARGET)
+
+
 # Check if we're running 64-bit Python
 is_64_bit = sys.maxsize > 2**32
 
@@ -551,9 +602,6 @@ def guess_next_dev_version(version):
         return version.format_next_version(guess_next_version)
 
 
-with open('README.md') as f:
-    long_description = f.read()
-
 
 class BinaryDistribution(Distribution):
     def has_ext_modules(foo):
@@ -572,17 +620,11 @@ else:
     setup_requires = []
 
 
-if strtobool(os.environ.get('PYARROW_INSTALL_TESTS', '1')):
-    packages = ['pyarrow', 'pyarrow.tests']
-else:
-    packages = ['pyarrow']
-
-
 setup(
-    name='pyarrow',
-    packages=packages,
+    name=target.target,
+    packages=target.get_packages(),
     zip_safe=False,
-    package_data={'pyarrow': ['*.pxd', '*.pyx', 'includes/*.pxd']},
+    package_data=target.get_package_data(),
     include_package_data=True,
     distclass=BinaryDistribution,
     # Dummy extension to trigger build_ext
@@ -591,11 +633,7 @@ setup(
         'clean': clean,
         'build_ext': build_ext
     },
-    entry_points={
-        'console_scripts': [
-            'plasma_store = pyarrow:_plasma_store_entry_point'
-        ]
-    },
+    entry_points=target.get_entry_points(),
     use_scm_version={
         'root': os.path.dirname(setup_dir),
         'parse': parse_git,
@@ -607,8 +645,8 @@ setup(
     install_requires=install_requires,
     tests_require=['pytest', 'pandas', 'hypothesis'],
     python_requires='>=3.6',
-    description='Python library for Apache Arrow',
-    long_description=long_description,
+    description=target.get_description(),
+    long_description=target.get_long_description(),
     long_description_content_type='text/markdown',
     classifiers=[
         'License :: OSI Approved :: Apache Software License',
@@ -620,6 +658,6 @@ setup(
     license='Apache License, Version 2.0',
     maintainer='Apache Arrow Developers',
     maintainer_email='dev@arrow.apache.org',
-    test_suite='pyarrow.tests',
+    test_suite=target.get_test_suite(),
     url='https://arrow.apache.org/'
 )
