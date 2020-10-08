@@ -56,10 +56,10 @@
 Scanner <- R6Class("Scanner", inherit = ArrowObject,
   public = list(
     ToTable = function() dataset___Scanner__ToTable(self),
-    Scan = function() map(dataset___Scanner__Scan(self), shared_ptr, class = ScanTask)
+    Scan = function() dataset___Scanner__Scan(self)
   ),
   active = list(
-    schema = function() shared_ptr(Schema, dataset___Scanner__schema(self))
+    schema = function() dataset___Scanner__schema(self)
   )
 )
 Scanner$create <- function(dataset,
@@ -169,7 +169,7 @@ ScannerBuilder <- R6Class("ScannerBuilder", inherit = ArrowObject,
       dataset___ScannerBuilder__BatchSize(self, batch_size)
       self
     },
-    Finish = function() unique_ptr(Scanner, dataset___ScannerBuilder__Finish(self))
+    Finish = function() dataset___ScannerBuilder__Finish(self)
   ),
   active = list(
     schema = function() dataset___ScannerBuilder__schema(self)

@@ -148,8 +148,13 @@ Dataset <- R6Class("Dataset", inherit = ArrowObject,
     # @description
     # Start a new scan of the data
     # @return A [ScannerBuilder]
-    NewScan = function() unique_ptr(ScannerBuilder, dataset___Dataset__NewScan(self)),
-    ToString = function() self$schema$ToString()
+    NewScan = function() dataset___Dataset__NewScan(self),
+    ToString = function() self$schema$ToString(),
+    write = function(path, filesystem = NULL, schema = self$schema, format, partitioning, ...) {
+      path_and_fs <- get_path_and_filesystem(path, filesystem)
+      dataset___Dataset__Write(self, schema, format, path_and_fs$fs, path_and_fs$path, partitioning)
+      invisible(self)
+    }
   ),
   active = list(
     schema = function(schema) {
@@ -274,7 +279,7 @@ tail.Dataset <- function(x, n = 6L, ...) {
   batch_num <- 0
   scanner <- Scanner$create(ensure_group_vars(x))
   for (scan_task in rev(dataset___Scanner__Scan(scanner))) {
-    for (batch in rev(shared_ptr(ScanTask, scan_task)$Execute())) {
+    for (batch in rev(scan_task$Execute())) {
       batch_num <- batch_num + 1
       result[[batch_num]] <- tail(batch, n)
       n <- n - nrow(batch)
@@ -311,7 +316,7 @@ take_dataset_rows <- function(x, i) {
   i <- sort(i) - 1L
   scanner <- Scanner$create(ensure_group_vars(x))
   for (scan_task in dataset___Scanner__Scan(scanner)) {
-    for (batch in shared_ptr(ScanTask, scan_task)$Execute()) {
+    for (batch in scan_task$Execute()) {
       # Take all rows that are in this batch
       this_batch_nrows <- batch$num_rows
       in_this_batch <- i > -1L & i < this_batch_nrows

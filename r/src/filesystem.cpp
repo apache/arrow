@@ -122,19 +122,26 @@ std::vector<std::shared_ptr<T>> shared_ptr_vector(const std::vector<T>& vec) {
 }
 
 // [[arrow::export]]
-std::vector<std::shared_ptr<fs::FileInfo>> fs___FileSystem__GetTargetInfos_Paths(
+cpp11::list fs___FileSystem__GetTargetInfos_Paths(
     const std::shared_ptr<fs::FileSystem>& file_system,
     const std::vector<std::string>& paths) {
   auto results = ValueOrStop(file_system->GetFileInfo(paths));
-  return shared_ptr_vector(results);
+  return arrow::r::to_r_list(shared_ptr_vector(results),
+                             [](const std::shared_ptr<fs::FileInfo>& info) {
+                               return cpp11::r6(info, "FileInfo");
+                             });
 }
 
 // [[arrow::export]]
-std::vector<std::shared_ptr<fs::FileInfo>> fs___FileSystem__GetTargetInfos_FileSelector(
+cpp11::list fs___FileSystem__GetTargetInfos_FileSelector(
     const std::shared_ptr<fs::FileSystem>& file_system,
     const std::shared_ptr<fs::FileSelector>& selector) {
   auto results = ValueOrStop(file_system->GetFileInfo(*selector));
-  return shared_ptr_vector(results);
+
+  return arrow::r::to_r_list(shared_ptr_vector(results),
+                             [](const std::shared_ptr<fs::FileInfo>& info) {
+                               return cpp11::r6(info, "FileInfo");
+                             });
 }
 
 // [[arrow::export]]

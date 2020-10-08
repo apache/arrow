@@ -49,7 +49,7 @@ Field <- R6Class("Field", inherit = ArrowObject,
       Field__nullable(self)
     },
     type = function() {
-      DataType$create(Field__type(self))
+      Field__type(self)
     }
   )
 )

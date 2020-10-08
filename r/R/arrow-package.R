@@ -125,10 +125,3 @@ all.equal.ArrowObject <- function(target, current, ..., check.attributes = TRUE)
   target$Equals(current, check_metadata = check.attributes)
 }
 
-shared_ptr <- function(class, xp) {
-  if (!shared_ptr_is_null(xp)) class$new(xp)
-}
-
-unique_ptr <- function(class, xp) {
-  if (!unique_ptr_is_null(xp)) class$new(xp)
-}

@@ -481,9 +481,9 @@ TimestampParser <- R6Class("TimestampParser", inherit = ArrowObject,
 )
 TimestampParser$create <- function(format = NULL) {
   if (is.null(format)) {
-    shared_ptr(TimestampParser, TimestampParser__MakeISO8601())
+    TimestampParser__MakeISO8601()
   } else {
-    shared_ptr(TimestampParser, TimestampParser__MakeStrptime(format))
+    TimestampParser__MakeStrptime(format)
   }
 }
 

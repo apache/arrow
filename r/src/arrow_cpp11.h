@@ -26,16 +26,6 @@
 
 using R6 = SEXP;
 
-namespace cpp11 {
-
-template <typename T>
-SEXP as_sexp(const std::shared_ptr<T>& ptr);
-
-template <typename T>
-SEXP as_sexp(const std::vector<std::shared_ptr<T>>& vec);
-
-}  // namespace cpp11
-
 // TODO: move this include up once we can resolve this issue in cpp11
 //       https://github.com/apache/arrow/pull/7819#discussion_r471664878
 #include <cpp11.hpp>
@@ -269,18 +259,16 @@ cpp11::writable::strings to_r_strings(const std::vector<std::shared_ptr<T>>& x,
   return to_r_vector<cpp11::writable::strings>(x, std::forward<ToString>(to_string));
 }
 
-template <typename T>
-cpp11::writable::list to_r_list(const std::vector<std::shared_ptr<T>>& x) {
-  auto as_sexp = [](const std::shared_ptr<T>& t) { return cpp11::as_sexp(t); };
-  return to_r_vector<cpp11::writable::list>(x, as_sexp);
-}
+// template <typename T>
+// cpp11::writable::list to_r_list(const std::vector<std::shared_ptr<T>>& x) {
+//   auto as_sexp = [](const std::shared_ptr<T>& t) { return cpp11::as_sexp(t); };
+//   return to_r_vector<cpp11::writable::list>(x, as_sexp);
+// }
 
 template <typename T, typename ToListElement>
 cpp11::writable::list to_r_list(const std::vector<std::shared_ptr<T>>& x,
                                 ToListElement&& to_element) {
-  auto as_sexp = [&](const std::shared_ptr<T>& t) {
-    return cpp11::as_sexp(to_element(t));
-  };
+  auto as_sexp = [&](const std::shared_ptr<T>& t) { return to_element(t); };
   return to_r_vector<cpp11::writable::list>(x, as_sexp);
 }
 
@@ -304,7 +292,7 @@ bool GetBoolOption(const std::string& name, bool default_);
 namespace cpp11 {
 
 template <typename T>
-SEXP r6(const std::shared_ptr<T>& x, const std::string& r_class_name) {
+R6 r6(const std::shared_ptr<T>& x, const std::string& r_class_name) {
   if (x == nullptr) return R_NilValue;
   cpp11::external_pointer<std::shared_ptr<T>> xp(new std::shared_ptr<T>(x));
   SEXP r6_class = Rf_install(r_class_name.c_str());
@@ -327,16 +315,6 @@ using enable_if_shared_ptr = typename std::enable_if<
 template <typename T>
 enable_if_shared_ptr<T> as_cpp(SEXP from) {
   return arrow::r::ExternalPtrInput<T>(from);
-}
-
-template <typename T>
-SEXP as_sexp(const std::shared_ptr<T>& ptr) {
-  return cpp11::external_pointer<std::shared_ptr<T>>(new std::shared_ptr<T>(ptr));
-}
-
-template <typename T>
-SEXP as_sexp(const std::vector<std::shared_ptr<T>>& vec) {
-  return arrow::r::to_r_list(vec);
 }
 
 template <typename E>

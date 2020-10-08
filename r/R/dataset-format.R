@@ -156,6 +156,6 @@ FileWriteOptions$create <- function(format, ...) {
   if (!inherits(format, "FileFormat")) {
     format <- FileFormat$create(format)
   }
-  options <- shared_ptr(FileWriteOptions, dataset___FileFormat__DefaultWriteOptions(format))
+  options <- dataset___FileFormat__DefaultWriteOptions(format)
   options$update(...)
 }

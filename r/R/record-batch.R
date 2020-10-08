@@ -142,7 +142,7 @@ RecordBatch <- R6Class("RecordBatch", inherit = ArrowObject,
         self
       }
     },
-    columns = function() map(RecordBatch__columns(self), shared_ptr, Array)
+    columns = function() RecordBatch__columns(self)
   )
 )
 

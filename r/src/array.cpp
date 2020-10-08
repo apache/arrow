@@ -24,6 +24,8 @@
 
 namespace cpp11 {
 R6 r6_Array(const std::shared_ptr<arrow::Array>& array) {
+  if (array == nullptr) return R_NilValue;
+
   using arrow::Type;
 
   auto type = array->type_id();
@@ -114,8 +116,8 @@ int Array__offset(const std::shared_ptr<arrow::Array>& x) { return x->offset(); 
 int Array__null_count(const std::shared_ptr<arrow::Array>& x) { return x->null_count(); }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::DataType> Array__type(const std::shared_ptr<arrow::Array>& x) {
-  return x->type();
+R6 Array__type(const std::shared_ptr<arrow::Array>& x) {
+  return cpp11::r6_DataType(x->type());
 }
 
 // [[arrow::export]]
@@ -194,21 +196,18 @@ R6 StructArray__GetFieldByName(const std::shared_ptr<arrow::StructArray>& array,
 }
 
 // [[arrow::export]]
-arrow::ArrayVector StructArray__Flatten(
-    const std::shared_ptr<arrow::StructArray>& array) {
-  return ValueOrStop(array->Flatten());
+cpp11::list StructArray__Flatten(const std::shared_ptr<arrow::StructArray>& array) {
+  return arrow::r::to_r_list(ValueOrStop(array->Flatten()), cpp11::r6_Array);
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::DataType> ListArray__value_type(
-    const std::shared_ptr<arrow::ListArray>& array) {
-  return array->value_type();
+R6 ListArray__value_type(const std::shared_ptr<arrow::ListArray>& array) {
+  return cpp11::r6_DataType(array->value_type());
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::DataType> LargeListArray__value_type(
-    const std::shared_ptr<arrow::LargeListArray>& array) {
-  return array->value_type();
+R6 LargeListArray__value_type(const std::shared_ptr<arrow::LargeListArray>& array) {
+  return cpp11::r6_DataType(array->value_type());
 }
 
 // [[arrow::export]]

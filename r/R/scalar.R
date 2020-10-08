@@ -40,7 +40,7 @@ Scalar <- R6Class("Scalar",
   active = list(
     is_valid = function() Scalar__is_valid(self),
     null_count = function() sum(!self$is_valid),
-    type = function() DataType$create(Scalar__type(self))
+    type = function() Scalar__type(self)
   )
 )
 Scalar$create <- function(x, type = NULL) {

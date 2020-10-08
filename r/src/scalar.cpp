@@ -27,6 +27,8 @@
 namespace cpp11 {
 
 R6 r6_Scalar(const std::shared_ptr<arrow::Scalar>& ptr) {
+  if (ptr == nullptr) return R_NilValue;
+
   std::string type = "Scalar";
   if (ptr->type->id() == arrow::Type::STRUCT) {
     type = "StructScalar";
@@ -76,8 +78,8 @@ SEXP Scalar__as_vector(const std::shared_ptr<arrow::Scalar>& scalar) {
 bool Scalar__is_valid(const std::shared_ptr<arrow::Scalar>& s) { return s->is_valid; }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::DataType> Scalar__type(const std::shared_ptr<arrow::Scalar>& s) {
-  return s->type;
+R6 Scalar__type(const std::shared_ptr<arrow::Scalar>& s) {
+  return cpp11::r6_DataType(s->type);
 }
 
 #endif

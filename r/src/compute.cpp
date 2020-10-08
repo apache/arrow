@@ -131,7 +131,7 @@ arrow::Datum as_cpp<arrow::Datum>(SEXP x) {
 SEXP from_datum(arrow::Datum datum) {
   switch (datum.kind()) {
     case arrow::Datum::SCALAR:
-      return cpp11::as_sexp(datum.scalar());
+      return cpp11::r6_Scalar(datum.scalar());
 
     case arrow::Datum::ARRAY:
       return cpp11::r6_Array(datum.make_array());

@@ -104,7 +104,7 @@ ChunkedArray <- R6Class("ChunkedArray", inherit = ArrowObject,
     null_count = function() ChunkedArray__null_count(self),
     num_chunks = function() ChunkedArray__num_chunks(self),
     chunks = function() map(ChunkedArray__chunks(self), Array$create),
-    type = function() DataType$create(ChunkedArray__type(self))
+    type = function() ChunkedArray__type(self)
   )
 )
 

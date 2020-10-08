@@ -26,6 +26,12 @@
 #include <arrow/type.h>
 #include <arrow/util/key_value_metadata.h>
 
+namespace cpp11 {
+R6 r6_RecordBatch(const std::shared_ptr<arrow::RecordBatch>& batch) {
+  return r6(batch, "RecordBatch");
+}
+}  // namespace cpp11
+
 // [[arrow::export]]
 int RecordBatch__num_columns(const std::shared_ptr<arrow::RecordBatch>& x) {
   return x->num_columns();
@@ -52,14 +58,13 @@ R6 RecordBatch__ReplaceSchemaMetadata(const std::shared_ptr<arrow::RecordBatch>&
 }
 
 // [[arrow::export]]
-arrow::ArrayVector RecordBatch__columns(
-    const std::shared_ptr<arrow::RecordBatch>& batch) {
+cpp11::list RecordBatch__columns(const std::shared_ptr<arrow::RecordBatch>& batch) {
   auto nc = batch->num_columns();
   arrow::ArrayVector res(nc);
   for (int i = 0; i < nc; i++) {
     res[i] = batch->column(i);
   }
-  return res;
+  return arrow::r::to_r_list(res, cpp11::r6_Array);
 }
 
 // [[arrow::export]]
@@ -71,7 +76,8 @@ R6 RecordBatch__column(const std::shared_ptr<arrow::RecordBatch>& batch, R_xlen_
 // [[arrow::export]]
 R6 RecordBatch__GetColumnByName(const std::shared_ptr<arrow::RecordBatch>& batch,
                                 const std::string& name) {
-  return cpp11::r6_Array(batch->GetColumnByName(name));
+  auto array = batch->GetColumnByName(name);
+  return cpp11::r6_Array(array);
 }
 
 // [[arrow::export]]

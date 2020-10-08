@@ -20,121 +20,199 @@
 #if defined(ARROW_R_WITH_ARROW)
 #include <arrow/type.h>
 
-// [[arrow::export]]
-bool shared_ptr_is_null(SEXP xp) {
-  return reinterpret_cast<std::shared_ptr<void>*>(R_ExternalPtrAddr(xp))->get() ==
-         nullptr;
+namespace cpp11 {
+R6 r6_DataType(const std::shared_ptr<arrow::DataType>& type) {
+  if (type == nullptr) return R_NilValue;
+
+  using arrow::Type;
+
+  switch (type->id()) {
+    case Type::NA:
+      return r6(type, "Null");
+    case Type::BOOL:
+      return r6(type, "Boolean");
+    case Type::UINT8:
+      return r6(type, "UInt8");
+    case Type::UINT16:
+      return r6(type, "UInt16");
+    case Type::UINT32:
+      return r6(type, "UInt32");
+    case Type::UINT64:
+      return r6(type, "UInt64");
+
+    case Type::INT8:
+      return r6(type, "Int8");
+    case Type::INT16:
+      return r6(type, "Int16");
+    case Type::INT32:
+      return r6(type, "Int32");
+    case Type::INT64:
+      return r6(type, "Int64");
+
+    case Type::HALF_FLOAT:
+      return r6(type, "Float16");
+    case Type::FLOAT:
+      return r6(type, "Float32");
+    case Type::DOUBLE:
+      return r6(type, "Float64");
+
+    case Type::STRING:
+      return r6(type, "Utf8");
+    case Type::LARGE_STRING:
+      return r6(type, "LargeUtf8");
+
+    case Type::BINARY:
+      return r6(type, "Binary");
+    case Type::FIXED_SIZE_BINARY:
+      return r6(type, "FixedSizeBinary");
+    case Type::LARGE_BINARY:
+      return r6(type, "LargeBinary");
+
+    case Type::DATE32:
+      return r6(type, "Date32");
+    case Type::DATE64:
+      return r6(type, "Date64");
+    case Type::TIMESTAMP:
+      return r6(type, "Timestamp");
+
+    case Type::TIME32:
+      return r6(type, "Time32");
+    case Type::TIME64:
+      return r6(type, "Time64");
+
+    case Type::DECIMAL:
+      return r6(type, "Decimal128Type");
+
+    case Type::LIST:
+      return r6(type, "ListType");
+    case Type::LARGE_LIST:
+      return r6(type, "LargeListType");
+    case Type::FIXED_SIZE_LIST:
+      return r6(type, "FixedSizeListType");
+
+    case Type::STRUCT:
+      return r6(type, "StructType");
+    case Type::DICTIONARY:
+      return r6(type, "DictionaryType");
+
+    default:
+      break;
+  };
+
+  return r6(type, "DataType");
+
+  // switch(names(Type)[self$id + 1],
+  //
+  //        INTERVAL = stop("Type INTERVAL not implemented yet"),
+  //        SPARSE_UNION = stop("Type SPARSE_UNION not implemented yet"),
+  //        DENSE_UNION = stop("Type DENSE_UNION not implemented yet"),
+  //        MAP = stop("Type MAP not implemented yet"),
+  //        EXTENSION = stop("Type EXTENSION not implemented yet"),
+  //        DURATION = stop("Type DURATION not implemented yet"),
 }
 
-// [[arrow::export]]
-bool unique_ptr_is_null(SEXP xp) {
-  return reinterpret_cast<std::unique_ptr<void>*>(R_ExternalPtrAddr(xp))->get() ==
-         nullptr;
-}
+}  // namespace cpp11
 
 // [[arrow::export]]
-std::shared_ptr<arrow::DataType> Int8__initialize() { return arrow::int8(); }
+R6 Int8__initialize() { return cpp11::r6(arrow::int8(), "Int8"); }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::DataType> Int16__initialize() { return arrow::int16(); }
+R6 Int16__initialize() { return cpp11::r6(arrow::int16(), "Int16"); }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::DataType> Int32__initialize() { return arrow::int32(); }
+R6 Int32__initialize() { return cpp11::r6(arrow::int32(), "Int32"); }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::DataType> Int64__initialize() { return arrow::int64(); }
+R6 Int64__initialize() { return cpp11::r6(arrow::int64(), "Int64"); }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::DataType> UInt8__initialize() { return arrow::uint8(); }
+R6 UInt8__initialize() { return cpp11::r6(arrow::uint8(), "UInt8"); }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::DataType> UInt16__initialize() { return arrow::uint16(); }
+R6 UInt16__initialize() { return cpp11::r6(arrow::uint16(), "UInt16"); }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::DataType> UInt32__initialize() { return arrow::uint32(); }
+R6 UInt32__initialize() { return cpp11::r6(arrow::uint32(), "UInt32"); }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::DataType> UInt64__initialize() { return arrow::uint64(); }
+R6 UInt64__initialize() { return cpp11::r6(arrow::uint64(), "UInt64"); }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::DataType> Float16__initialize() { return arrow::float16(); }
+R6 Float16__initialize() { return cpp11::r6(arrow::float16(), "Float16"); }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::DataType> Float32__initialize() { return arrow::float32(); }
+R6 Float32__initialize() { return cpp11::r6(arrow::float32(), "Float32"); }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::DataType> Float64__initialize() { return arrow::float64(); }
+R6 Float64__initialize() { return cpp11::r6(arrow::float64(), "Float64"); }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::DataType> Boolean__initialize() { return arrow::boolean(); }
+R6 Boolean__initialize() { return cpp11::r6(arrow::boolean(), "Boolean"); }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::DataType> Utf8__initialize() { return arrow::utf8(); }
+R6 Utf8__initialize() { return cpp11::r6(arrow::utf8(), "Utf8"); }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::DataType> LargeUtf8__initialize() { return arrow::large_utf8(); }
+R6 LargeUtf8__initialize() { return cpp11::r6(arrow::large_utf8(), "LargeUtf8"); }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::DataType> Binary__initialize() { return arrow::binary(); }
+R6 Binary__initialize() { return cpp11::r6(arrow::binary(), "Binary"); }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::DataType> LargeBinary__initialize() {
-  return arrow::large_binary();
-}
+R6 LargeBinary__initialize() { return cpp11::r6(arrow::large_binary(), "LargeBinary"); }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::DataType> Date32__initialize() { return arrow::date32(); }
+R6 Date32__initialize() { return cpp11::r6(arrow::date32(), "Date32"); }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::DataType> Date64__initialize() { return arrow::date64(); }
+R6 Date64__initialize() { return cpp11::r6(arrow::date64(), "Date64"); }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::DataType> Null__initialize() { return arrow::null(); }
+R6 Null__initialize() { return cpp11::r6(arrow::null(), "Null"); }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::DataType> Decimal128Type__initialize(int32_t precision,
-                                                            int32_t scale) {
+R6 Decimal128Type__initialize(int32_t precision, int32_t scale) {
   // Use the builder that validates inputs
-  return ValueOrStop(arrow::Decimal128Type::Make(precision, scale));
+  return cpp11::r6(ValueOrStop(arrow::Decimal128Type::Make(precision, scale)),
+                   "Decimal128Type");
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::DataType> FixedSizeBinary__initialize(R_xlen_t byte_width) {
+R6 FixedSizeBinary__initialize(R_xlen_t byte_width) {
   if (byte_width == NA_INTEGER) {
     cpp11::stop("'byte_width' cannot be NA");
   }
   if (byte_width < 1) {
     cpp11::stop("'byte_width' must be > 0");
   }
-  return arrow::fixed_size_binary(byte_width);
+  return cpp11::r6(arrow::fixed_size_binary(byte_width), "FixedSizeBinary");
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::DataType> Timestamp__initialize(arrow::TimeUnit::type unit,
-                                                       const std::string& timezone) {
-  return arrow::timestamp(unit, timezone);
+R6 Timestamp__initialize(arrow::TimeUnit::type unit, const std::string& timezone) {
+  return cpp11::r6(arrow::timestamp(unit, timezone), "Timestamp");
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::DataType> Time32__initialize(arrow::TimeUnit::type unit) {
-  return arrow::time32(unit);
+R6 Time32__initialize(arrow::TimeUnit::type unit) {
+  return cpp11::r6(arrow::time32(unit), "Time32");
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::DataType> Time64__initialize(arrow::TimeUnit::type unit) {
-  return arrow::time64(unit);
+R6 Time64__initialize(arrow::TimeUnit::type unit) {
+  return cpp11::r6(arrow::time64(unit), "Time64");
 }
 
 // [[arrow::export]]
-SEXP list__(SEXP x) {
+R6 list__(SEXP x) {
   if (Rf_inherits(x, "Field")) {
     auto field = cpp11::as_cpp<std::shared_ptr<arrow::Field>>(x);
-    return cpp11::as_sexp(arrow::list(field));
+    return cpp11::r6(arrow::list(field), "ListType");
   }
 
   if (Rf_inherits(x, "DataType")) {
     auto type = cpp11::as_cpp<std::shared_ptr<arrow::DataType>>(x);
-    return cpp11::as_sexp(arrow::list(type));
+    return cpp11::r6(arrow::list(type), "ListType");
   }
 
   cpp11::stop("incompatible");
@@ -142,15 +220,15 @@ SEXP list__(SEXP x) {
 }
 
 // [[arrow::export]]
-SEXP large_list__(SEXP x) {
+R6 large_list__(SEXP x) {
   if (Rf_inherits(x, "Field")) {
     auto field = cpp11::as_cpp<std::shared_ptr<arrow::Field>>(x);
-    return cpp11::as_sexp(arrow::large_list(field));
+    return cpp11::r6(arrow::large_list(field), "LargeListType");
   }
 
   if (Rf_inherits(x, "DataType")) {
     auto type = cpp11::as_cpp<std::shared_ptr<arrow::DataType>>(x);
-    return cpp11::as_sexp(arrow::large_list(type));
+    return cpp11::r6(arrow::large_list(type), "LargeListType");
   }
 
   cpp11::stop("incompatible");
@@ -158,15 +236,15 @@ SEXP large_list__(SEXP x) {
 }
 
 // [[arrow::export]]
-SEXP fixed_size_list__(SEXP x, int list_size) {
+R6 fixed_size_list__(SEXP x, int list_size) {
   if (Rf_inherits(x, "Field")) {
     auto field = cpp11::as_cpp<std::shared_ptr<arrow::Field>>(x);
-    return cpp11::as_sexp(arrow::fixed_size_list(field, list_size));
+    return cpp11::r6(arrow::fixed_size_list(field, list_size), "FixedSizeListType");
   }
 
   if (Rf_inherits(x, "DataType")) {
     auto type = cpp11::as_cpp<std::shared_ptr<arrow::DataType>>(x);
-    return cpp11::as_sexp(arrow::fixed_size_list(type, list_size));
+    return cpp11::r6(arrow::fixed_size_list(type, list_size), "FixedSizeListType");
   }
 
   cpp11::stop("incompatible");
@@ -174,9 +252,8 @@ SEXP fixed_size_list__(SEXP x, int list_size) {
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::DataType> struct__(
-    const std::vector<std::shared_ptr<arrow::Field>>& fields) {
-  return arrow::struct_(fields);
+R6 struct__(const std::vector<std::shared_ptr<arrow::Field>>& fields) {
+  return cpp11::r6(arrow::struct_(fields), "StructType");
 }
 
 // [[arrow::export]]
@@ -201,9 +278,8 @@ int DataType__num_fields(const std::shared_ptr<arrow::DataType>& type) {
 }
 
 // [[arrow::export]]
-std::vector<std::shared_ptr<arrow::Field>> DataType__fields(
-    const std::shared_ptr<arrow::DataType>& type) {
-  return type->fields();
+cpp11::list DataType__fields(const std::shared_ptr<arrow::DataType>& type) {
+  return arrow::r::to_r_list(type->fields(), cpp11::r6_Field);
 }
 
 // [[arrow::export]]
@@ -261,15 +337,13 @@ R6 DictionaryType__initialize(const std::shared_ptr<arrow::DataType>& index_type
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::DataType> DictionaryType__index_type(
-    const std::shared_ptr<arrow::DictionaryType>& type) {
-  return type->index_type();
+R6 DictionaryType__index_type(const std::shared_ptr<arrow::DictionaryType>& type) {
+  return cpp11::r6_DataType(type->index_type());
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::DataType> DictionaryType__value_type(
-    const std::shared_ptr<arrow::DictionaryType>& type) {
-  return type->value_type();
+R6 DictionaryType__value_type(const std::shared_ptr<arrow::DictionaryType>& type) {
+  return cpp11::r6_DataType(type->value_type());
 }
 
 // [[arrow::export]]
@@ -300,9 +374,8 @@ R6 ListType__value_field(const std::shared_ptr<arrow::ListType>& type) {
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::DataType> ListType__value_type(
-    const std::shared_ptr<arrow::ListType>& type) {
-  return type->value_type();
+R6 ListType__value_type(const std::shared_ptr<arrow::ListType>& type) {
+  return cpp11::r6_DataType(type->value_type());
 }
 
 // [[arrow::export]]
@@ -311,9 +384,8 @@ R6 LargeListType__value_field(const std::shared_ptr<arrow::LargeListType>& type)
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::DataType> LargeListType__value_type(
-    const std::shared_ptr<arrow::LargeListType>& type) {
-  return type->value_type();
+R6 LargeListType__value_type(const std::shared_ptr<arrow::LargeListType>& type) {
+  return cpp11::r6_DataType(type->value_type());
 }
 
 // [[arrow::export]]
@@ -322,9 +394,8 @@ R6 FixedSizeListType__value_field(const std::shared_ptr<arrow::FixedSizeListType
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::DataType> FixedSizeListType__value_type(
-    const std::shared_ptr<arrow::FixedSizeListType>& type) {
-  return type->value_type();
+R6 FixedSizeListType__value_type(const std::shared_ptr<arrow::FixedSizeListType>& type) {
+  return cpp11::r6_DataType(type->value_type());
 }
 
 // [[arrow::export]]

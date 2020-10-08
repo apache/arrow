@@ -140,7 +140,7 @@ Array <- R6Class("Array",
   active = list(
     null_count = function() Array__null_count(self),
     offset = function() Array__offset(self),
-    type = function() DataType$create(Array__type(self))
+    type = function() Array__type(self)
   )
 )
 Array$create <- function(x, type = NULL) {
@@ -205,7 +205,7 @@ ListArray <- R6Class("ListArray", inherit = Array,
     raw_value_offsets = function() ListArray__raw_value_offsets(self)
   ),
   active = list(
-    value_type = function() DataType$create(ListArray__value_type(self))
+    value_type = function() ListArray__value_type(self)
   )
 )
 
@@ -221,7 +221,7 @@ LargeListArray <- R6Class("LargeListArray", inherit = Array,
     raw_value_offsets = function() LargeListArray__raw_value_offsets(self)
   ),
   active = list(
-    value_type = function() DataType$create(LargeListArray__value_type(self))
+    value_type = function() LargeListArray__value_type(self)
   )
 )
 
@@ -236,7 +236,7 @@ FixedSizeListArray <- R6Class("FixedSizeListArray", inherit = Array,
     value_offset = function(i) FixedSizeListArray__value_offset(self, i)
   ),
   active = list(
-    value_type = function() DataType$create(FixedSizeListArray__value_type(self)),
+    value_type = function() FixedSizeListArray__value_type(self),
     list_size = function() self$type$list_size
   )
 )

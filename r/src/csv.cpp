@@ -161,14 +161,13 @@ std::string TimestampParser__format(
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::TimestampParser> TimestampParser__MakeStrptime(
-    std::string format) {
-  return arrow::TimestampParser::MakeStrptime(format);
+R6 TimestampParser__MakeStrptime(std::string format) {
+  return cpp11::r6(arrow::TimestampParser::MakeStrptime(format), "TimestampParser");
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::TimestampParser> TimestampParser__MakeISO8601() {
-  return arrow::TimestampParser::MakeISO8601();
+R6 TimestampParser__MakeISO8601() {
+  return cpp11::r6(arrow::TimestampParser::MakeISO8601(), "TimestampParser");
 }
 
 #endif

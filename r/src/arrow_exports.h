@@ -31,9 +31,13 @@
 #include <arrow/util/compression.h>
 #include <arrow/util/value_parsing.h>
 
+namespace ds = ::arrow::dataset;
+namespace fs = ::arrow::fs;
+
 namespace arrow {
 
 namespace compute {
+
 struct CastOptions;
 
 }  // namespace compute
@@ -56,9 +60,6 @@ struct ParseOptions;
 }  // namespace json
 
 }  // namespace arrow
-
-namespace ds = ::arrow::dataset;
-namespace fs = ::arrow::fs;
 
 namespace parquet {
 
@@ -83,20 +84,5 @@ class FileWriter;
 
 }  // namespace arrow
 }  // namespace parquet
-
-namespace arrow {
-namespace dataset {
-
-class DirectoryPartitioning;
-class HivePartitioning;
-class FileSystemDatasetFactory;
-
-}  // namespace dataset
-
-namespace fs {
-class S3FileSystem;
-}
-
-}  // namespace arrow
 
 #endif

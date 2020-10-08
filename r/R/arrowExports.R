@@ -512,14 +512,6 @@ dataset___Dataset__Write <- function(file_write_options, filesystem, base_dir, p
     invisible(.Call(`_arrow_dataset___Dataset__Write` , file_write_options, filesystem, base_dir, partitioning, basename_template, scanner))
 }
 
-shared_ptr_is_null <- function(xp){
-    .Call(`_arrow_shared_ptr_is_null` , xp)
-}
-
-unique_ptr_is_null <- function(xp){
-    .Call(`_arrow_unique_ptr_is_null` , xp)
-}
-
 Int8__initialize <- function(){
     .Call(`_arrow_Int8__initialize` )
 }

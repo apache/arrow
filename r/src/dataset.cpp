@@ -31,6 +31,7 @@ namespace fs = ::arrow::fs;
 namespace cpp11 {
 
 R6 r6_Dataset(const std::shared_ptr<arrow::dataset::Dataset>& dataset) {
+  if (dataset == nullptr) return R_NilValue;
   auto type_name = dataset->type_name();
 
   if (type_name == "union") {
@@ -43,6 +44,7 @@ R6 r6_Dataset(const std::shared_ptr<arrow::dataset::Dataset>& dataset) {
 }
 
 R6 r6_FileSystem(const std::shared_ptr<fs::FileSystem>& file_system) {
+  if (file_system == nullptr) return R_NilValue;
   auto type_name = file_system->type_name();
 
   if (type_name == "local") {
@@ -57,6 +59,7 @@ R6 r6_FileSystem(const std::shared_ptr<fs::FileSystem>& file_system) {
 }
 
 R6 r6_FileFormat(const std::shared_ptr<ds::FileFormat>& file_format) {
+  if (file_format == nullptr) return R_NilValue;
   auto type_name = file_format->type_name();
   if (type_name == "parquet") {
     return cpp11::r6(file_format, "ParquetFileFormat");
@@ -110,9 +113,9 @@ R6 dataset___InMemoryDataset__create(const std::shared_ptr<arrow::Table>& table)
 }
 
 // [[arrow::export]]
-ds::DatasetVector dataset___UnionDataset__children(
+cpp11::list dataset___UnionDataset__children(
     const std::shared_ptr<ds::UnionDataset>& ds) {
-  return ds->children();
+  return arrow::r::to_r_list(ds->children(), cpp11::r6_Dataset);
 }
 
 // [[arrow::export]]
@@ -219,8 +222,7 @@ std::string dataset___FileFormat__type_name(
 }
 
 // [[arrow::export]]
-R6 dataset___FileFormat__DefaultWriteOptions(
-    const std::shared_ptr<ds::FileFormat>& fmt) {
+R6 dataset___FileFormat__DefaultWriteOptions(const std::shared_ptr<ds::FileFormat>& fmt) {
   return cpp11::r6(fmt->DefaultWriteOptions(), "FileWriteOptions");
 }
 
@@ -377,8 +379,7 @@ R6 dataset___Scanner__head(const std::shared_ptr<ds::Scanner>& scanner, int n) {
 }
 
 // [[arrow::export]]
-std::vector<std::shared_ptr<ds::ScanTask>> dataset___Scanner__Scan(
-    const std::shared_ptr<ds::Scanner>& scanner) {
+cpp11::list dataset___Scanner__Scan(const std::shared_ptr<ds::Scanner>& scanner) {
   auto it = ValueOrStop(scanner->Scan());
   std::vector<std::shared_ptr<ds::ScanTask>> out;
   std::shared_ptr<ds::ScanTask> scan_task;
@@ -387,17 +388,19 @@ std::vector<std::shared_ptr<ds::ScanTask>> dataset___Scanner__Scan(
     scan_task = ValueOrStop(st);
     out.push_back(scan_task);
   }
-  return out;
+
+  return arrow::r::to_r_list(out, [](const std::shared_ptr<ds::ScanTask>& task) {
+    return cpp11::r6(task, "ScanTask");
+  });
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Schema> dataset___Scanner__schema(
-    const std::shared_ptr<ds::Scanner>& sc) {
-  return sc->schema();
+R6 dataset___Scanner__schema(const std::shared_ptr<ds::Scanner>& sc) {
+  return cpp11::r6(sc->schema(), "Schema");
 }
 
 // [[arrow::export]]
-std::vector<std::shared_ptr<arrow::RecordBatch>> dataset___ScanTask__get_batches(
+cpp11::list dataset___ScanTask__get_batches(
     const std::shared_ptr<ds::ScanTask>& scan_task) {
   arrow::RecordBatchIterator rbi;
   rbi = ValueOrStop(scan_task->Execute());
@@ -407,7 +410,7 @@ std::vector<std::shared_ptr<arrow::RecordBatch>> dataset___ScanTask__get_batches
     batch = ValueOrStop(b);
     out.push_back(batch);
   }
-  return out;
+  return arrow::r::to_r_list(out, cpp11::r6_RecordBatch);
 }
 
 // [[arrow::export]]

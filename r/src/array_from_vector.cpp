@@ -1528,12 +1528,10 @@ std::shared_ptr<arrow::Array> Array__from_vector(
 }  // namespace arrow
 
 // [[arrow::export]]
-std::shared_ptr<arrow::DataType> Array__infer_type(SEXP x) {
-  return arrow::r::InferArrowType(x);
-}
+R6 Array__infer_type(SEXP x) { return cpp11::r6_DataType(arrow::r::InferArrowType(x)); }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Array> Array__from_vector(SEXP x, SEXP s_type) {
+R6 Array__from_vector(SEXP x, SEXP s_type) {
   // the type might be NULL, in which case we need to infer it from the data
   // we keep track of whether it was inferred or supplied
   bool type_inferred = Rf_isNull(s_type);
@@ -1544,7 +1542,8 @@ std::shared_ptr<arrow::Array> Array__from_vector(SEXP x, SEXP s_type) {
     type = cpp11::as_cpp<std::shared_ptr<arrow::DataType>>(s_type);
   }
 
-  return arrow::r::Array__from_vector(x, type, type_inferred);
+  auto array = arrow::r::Array__from_vector(x, type, type_inferred);
+  return cpp11::r6_Array(array);
 }
 
 // [[arrow::export]]

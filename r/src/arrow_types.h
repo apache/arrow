@@ -35,7 +35,7 @@
 
 SEXP ChunkedArray__as_vector(const std::shared_ptr<arrow::ChunkedArray>& chunked_array);
 SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array);
-std::shared_ptr<arrow::Array> Array__from_vector(SEXP x, SEXP type);
+R6 Array__from_vector(SEXP x, SEXP type);
 R6 RecordBatch__from_arrays(SEXP, SEXP);
 arrow::MemoryPool* gc_memory_pool();
 
@@ -122,7 +122,12 @@ arrow::Status AddMetadataFromDots(SEXP lst, int num_fields,
 namespace cpp11 {
 
 R6 r6_Array(const std::shared_ptr<arrow::Array>& array);
+R6 r6_DataType(const std::shared_ptr<arrow::DataType>& type);
+R6 r6_Field(const std::shared_ptr<arrow::Field>& field);
+R6 r6_ChunkedArray(const std::shared_ptr<arrow::ChunkedArray>& array);
+R6 r6_RecordBatch(const std::shared_ptr<arrow::RecordBatch>& batch);
+R6 r6_Scalar(const std::shared_ptr<arrow::Scalar>& ptr);
 
-}
+}  // namespace cpp11
 
 #endif

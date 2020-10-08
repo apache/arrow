@@ -21,6 +21,12 @@
 
 #include <arrow/chunked_array.h>
 
+namespace cpp11 {
+R6 r6_ChunkedArray(const std::shared_ptr<arrow::ChunkedArray>& array) {
+  return r6(array, "ChunkedArray");
+}
+}  // namespace cpp11
+
 // [[arrow::export]]
 int ChunkedArray__length(const std::shared_ptr<arrow::ChunkedArray>& chunked_array) {
   return chunked_array->length();
@@ -45,13 +51,12 @@ R6 ChunkedArray__chunk(const std::shared_ptr<arrow::ChunkedArray>& chunked_array
 // [[arrow::export]]
 cpp11::list ChunkedArray__chunks(
     const std::shared_ptr<arrow::ChunkedArray>& chunked_array) {
-  return cpp11::as_sexp(chunked_array->chunks());
+  return arrow::r::to_r_list(chunked_array->chunks(), cpp11::r6_Array);
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::DataType> ChunkedArray__type(
-    const std::shared_ptr<arrow::ChunkedArray>& chunked_array) {
-  return chunked_array->type();
+R6 ChunkedArray__type(const std::shared_ptr<arrow::ChunkedArray>& chunked_array) {
+  return cpp11::r6_DataType(chunked_array->type());
 }
 
 // [[arrow::export]]

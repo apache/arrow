@@ -37,8 +37,8 @@ DictionaryType <- R6Class("DictionaryType",
     }
   ),
   active = list(
-    index_type = function() DataType$create(DictionaryType__index_type(self)),
-    value_type = function() DataType$create(DictionaryType__value_type(self)),
+    index_type = function() DictionaryType__index_type(self),
+    value_type = function() DictionaryType__value_type(self),
     name = function() DictionaryType__name(self),
     ordered = function() DictionaryType__ordered(self)
   )
