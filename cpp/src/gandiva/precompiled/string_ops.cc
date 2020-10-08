@@ -40,6 +40,7 @@ gdv_int32 bit_length_binary(const gdv_binary input, gdv_int32 length) {
   return length * 8;
 }
 
+FORCE_INLINE
 int match_string(const char* input, gdv_int32 input_len, gdv_int32 start_pos,
                  const char* delim, gdv_int32 delim_len) {
   for (int i = start_pos; i < input_len; i++) {
@@ -851,12 +852,12 @@ FORCE_INLINE
 const char* split_part(gdv_int64 context, const char* text, gdv_int32 text_len,
                        const char* delimiter, gdv_int32 delim_len, gdv_int32 index,
                        gdv_int32* out_len) {
+  *out_len = 0;
   if (index < 1) {
     char error_message[100];
     snprintf(error_message, sizeof(error_message),
              "Index in split_part must be positive, value provided was %d", index);
     gdv_fn_context_set_error_msg(context, error_message);
-    *out_len = 0;
     return "";
   }
 
@@ -873,7 +874,6 @@ const char* split_part(gdv_int64 context, const char* text, gdv_int32 text_len,
     int match_pos = match_string(text, text_len, i, delimiter, delim_len);
     if (match_pos == -1 && match_no != index) {
       // reached the end without finding a match.
-      *out_len = 0;
       return "";
     } else {
       // Found a match. If the match number is index then return this match
