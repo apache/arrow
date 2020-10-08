@@ -32,6 +32,7 @@ use super::{
     Accumulator, AggregateExpr, PhysicalExpr,
 };
 use crate::error::{ExecutionError, Result};
+use crate::physical_plan::distinct_expressions;
 use crate::physical_plan::expressions;
 use arrow::datatypes::{DataType, Schema};
 use expressions::{avg_return_type, sum_return_type};
@@ -110,6 +111,7 @@ pub fn return_type(
 /// This function errors when `args`' can't be coerced to a valid argument type of the function.
 pub fn create_aggregate_expr(
     fun: &AggregateFunction,
+    distinct: bool,
     args: &Vec<Arc<dyn PhysicalExpr>>,
     input_schema: &Schema,
     name: String,
@@ -124,14 +126,40 @@ pub fn create_aggregate_expr(
 
     let return_type = return_type(&fun, &arg_types)?;
 
-    Ok(match fun {
-        AggregateFunction::Count => {
+    Ok(match (fun, distinct) {
+        (AggregateFunction::Count, false) => {
             Arc::new(expressions::Count::new(arg, name, return_type))
         }
-        AggregateFunction::Sum => Arc::new(expressions::Sum::new(arg, name, return_type)),
-        AggregateFunction::Min => Arc::new(expressions::Min::new(arg, name, return_type)),
-        AggregateFunction::Max => Arc::new(expressions::Max::new(arg, name, return_type)),
-        AggregateFunction::Avg => Arc::new(expressions::Avg::new(arg, name, return_type)),
+        (AggregateFunction::Count, true) => {
+            Arc::new(distinct_expressions::DistinctCount::new(
+                arg_types,
+                args.clone(),
+                name,
+                return_type,
+            ))
+        }
+        (AggregateFunction::Sum, false) => {
+            Arc::new(expressions::Sum::new(arg, name, return_type))
+        }
+        (AggregateFunction::Sum, true) => {
+            return Err(ExecutionError::NotImplemented(
+                "SUM(DISTINCT) aggregations are not available".to_string(),
+            ));
+        }
+        (AggregateFunction::Min, _) => {
+            Arc::new(expressions::Min::new(arg, name, return_type))
+        }
+        (AggregateFunction::Max, _) => {
+            Arc::new(expressions::Max::new(arg, name, return_type))
+        }
+        (AggregateFunction::Avg, false) => {
+            Arc::new(expressions::Avg::new(arg, name, return_type))
+        }
+        (AggregateFunction::Avg, true) => {
+            return Err(ExecutionError::NotImplemented(
+                "AVG(DISTINCT) aggregations are not available".to_string(),
+            ));
+        }
     })
 }
 

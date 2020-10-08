@@ -476,12 +476,23 @@ impl DefaultPhysicalPlanner {
         };
 
         match e {
-            Expr::AggregateFunction { fun, args, .. } => {
+            Expr::AggregateFunction {
+                fun,
+                distinct,
+                args,
+                ..
+            } => {
                 let args = args
                     .iter()
                     .map(|e| self.create_physical_expr(e, input_schema, ctx_state))
                     .collect::<Result<Vec<_>>>()?;
-                aggregates::create_aggregate_expr(fun, &args, input_schema, name)
+                aggregates::create_aggregate_expr(
+                    fun,
+                    *distinct,
+                    &args,
+                    input_schema,
+                    name,
+                )
             }
             Expr::AggregateUDF { fun, args, .. } => {
                 let args = args

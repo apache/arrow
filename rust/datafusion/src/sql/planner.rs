@@ -539,7 +539,11 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
                             .collect::<Result<Vec<Expr>>>()?
                     };
 
-                    return Ok(Expr::AggregateFunction { fun, args });
+                    return Ok(Expr::AggregateFunction {
+                        fun,
+                        distinct: function.distinct,
+                        args,
+                    });
                 };
 
                 // finally, user-defined functions (UDF) and UDAF

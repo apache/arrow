@@ -50,6 +50,7 @@ pub use operators::Operator;
 
 fn create_function_name(
     fun: &String,
+    distinct: bool,
     args: &[Expr],
     input_schema: &Schema,
 ) -> Result<String> {
@@ -57,7 +58,11 @@ fn create_function_name(
         .iter()
         .map(|e| create_name(e, input_schema))
         .collect::<Result<_>>()?;
-    Ok(format!("{}({})", fun, names.join(",")))
+    let distinct_str = match distinct {
+        true => "DISTINCT ",
+        false => "",
+    };
+    Ok(format!("{}({}{})", fun, distinct_str, names.join(",")))
 }
 
 /// Returns a readable name of an expression based on the input schema.
@@ -90,14 +95,17 @@ fn create_name(e: &Expr, input_schema: &Schema) -> Result<String> {
             Ok(format!("{} IS NOT NULL", expr))
         }
         Expr::ScalarFunction { fun, args, .. } => {
-            create_function_name(&fun.to_string(), args, input_schema)
+            create_function_name(&fun.to_string(), false, args, input_schema)
         }
         Expr::ScalarUDF { fun, args, .. } => {
-            create_function_name(&fun.name, args, input_schema)
+            create_function_name(&fun.name, false, args, input_schema)
         }
-        Expr::AggregateFunction { fun, args, .. } => {
-            create_function_name(&fun.to_string(), args, input_schema)
-        }
+        Expr::AggregateFunction {
+            fun,
+            distinct,
+            args,
+            ..
+        } => create_function_name(&fun.to_string(), *distinct, args, input_schema),
         Expr::AggregateUDF { fun, args } => {
             let mut names = Vec::with_capacity(args.len());
             for e in args {
@@ -195,6 +203,8 @@ pub enum Expr {
         fun: aggregates::AggregateFunction,
         /// List of expressions to feed to the functions as arguments
         args: Vec<Expr>,
+        /// Whether this is a DISTINCT aggregation or not
+        distinct: bool,
     },
     /// aggregate function
     AggregateUDF {
@@ -447,6 +457,7 @@ pub fn col(name: &str) -> Expr {
 pub fn min(expr: Expr) -> Expr {
     Expr::AggregateFunction {
         fun: aggregates::AggregateFunction::Min,
+        distinct: false,
         args: vec![expr],
     }
 }
@@ -455,6 +466,7 @@ pub fn min(expr: Expr) -> Expr {
 pub fn max(expr: Expr) -> Expr {
     Expr::AggregateFunction {
         fun: aggregates::AggregateFunction::Max,
+        distinct: false,
         args: vec![expr],
     }
 }
@@ -463,6 +475,7 @@ pub fn max(expr: Expr) -> Expr {
 pub fn sum(expr: Expr) -> Expr {
     Expr::AggregateFunction {
         fun: aggregates::AggregateFunction::Sum,
+        distinct: false,
         args: vec![expr],
     }
 }
@@ -471,6 +484,7 @@ pub fn sum(expr: Expr) -> Expr {
 pub fn avg(expr: Expr) -> Expr {
     Expr::AggregateFunction {
         fun: aggregates::AggregateFunction::Avg,
+        distinct: false,
         args: vec![expr],
     }
 }
@@ -479,6 +493,7 @@ pub fn avg(expr: Expr) -> Expr {
 pub fn count(expr: Expr) -> Expr {
     Expr::AggregateFunction {
         fun: aggregates::AggregateFunction::Count,
+        distinct: false,
         args: vec![expr],
     }
 }
@@ -620,9 +635,18 @@ pub fn create_udaf(
     )
 }
 
-fn fmt_function(f: &mut fmt::Formatter, fun: &String, args: &Vec<Expr>) -> fmt::Result {
+fn fmt_function(
+    f: &mut fmt::Formatter,
+    fun: &String,
+    distinct: bool,
+    args: &Vec<Expr>,
+) -> fmt::Result {
     let args: Vec<String> = args.iter().map(|arg| format!("{:?}", arg)).collect();
-    write!(f, "{}({})", fun, args.join(", "))
+    let distinct_str = match distinct {
+        true => "DISTINCT ",
+        false => "",
+    };
+    write!(f, "{}({}{})", fun, distinct_str, args.join(", "))
 }
 
 impl fmt::Debug for Expr {
@@ -658,13 +682,20 @@ impl fmt::Debug for Expr {
                 }
             }
             Expr::ScalarFunction { fun, args, .. } => {
-                fmt_function(f, &fun.to_string(), args)
+                fmt_function(f, &fun.to_string(), false, args)
             }
-            Expr::ScalarUDF { fun, ref args, .. } => fmt_function(f, &fun.name, args),
-            Expr::AggregateFunction { fun, ref args, .. } => {
-                fmt_function(f, &fun.to_string(), args)
+            Expr::ScalarUDF { fun, ref args, .. } => {
+                fmt_function(f, &fun.name, false, args)
             }
-            Expr::AggregateUDF { fun, ref args, .. } => fmt_function(f, &fun.name, args),
+            Expr::AggregateFunction {
+                fun,
+                distinct,
+                ref args,
+                ..
+            } => fmt_function(f, &fun.to_string(), *distinct, args),
+            Expr::AggregateUDF { fun, ref args, .. } => {
+                fmt_function(f, &fun.name, false, args)
+            }
             Expr::Wildcard => write!(f, "*"),
             Expr::Nested(expr) => write!(f, "({:?})", expr),
         }
