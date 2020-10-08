@@ -1007,6 +1007,14 @@ cdef class ParquetFileFragment(FileFragment):
             return None
         return [RowGroupInfo.wrap(row_group) for row_group in c_row_groups]
 
+    @property
+    def num_row_groups(self):
+        """
+        Return the number of row groups viewed by this fragment (not the
+        number of row groups in the origin file).
+        """
+        return GetResultValue(self.parquet_file_fragment.GetNumRowGroups())
+
     def split_by_row_group(self, Expression filter=None,
                            Schema schema=None):
         """

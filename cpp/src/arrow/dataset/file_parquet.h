@@ -219,6 +219,9 @@ class ARROW_DS_EXPORT ParquetFileFragment : public FileFragment {
   /// represents all RowGroups in the parquet file.
   const std::vector<RowGroupInfo>& row_groups() const { return row_groups_; }
 
+  /// \brief Return the number of row groups selected by this fragment.
+  Result<int> GetNumRowGroups();
+
   /// \brief Indicate if the attached statistics are complete and the physical schema
   /// is cached.
   ///
@@ -247,6 +250,7 @@ class ARROW_DS_EXPORT ParquetFileFragment : public FileFragment {
   std::vector<RowGroupInfo> row_groups_;
   ParquetFileFormat& parquet_format_;
   bool has_complete_metadata_;
+  int num_row_groups_ = -1;
 
   friend class ParquetFileFormat;
 };
