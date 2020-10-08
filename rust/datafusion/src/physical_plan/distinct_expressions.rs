@@ -72,7 +72,7 @@ impl DistinctCount {
 
 impl AggregateExpr for DistinctCount {
     fn field(&self) -> Result<Field> {
-        Ok(Field::new(&self.name, self.data_type.clone(), false))
+        Ok(Field::new(&self.name, self.data_type.clone(), true))
     }
 
     fn state_fields(&self) -> Result<Vec<Field>> {
