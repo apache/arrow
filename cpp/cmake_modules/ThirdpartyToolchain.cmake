@@ -2775,7 +2775,9 @@ macro(build_awssdk)
   if(UNIX)
     # on linux and macos curl seems to be required
     find_package(CURL REQUIRED)
-    list(APPEND AWSSDK_LINK_LIBRARIES ${CURL_LIBRARIES})
+    set_target_properties(aws-cpp-sdk-core
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     ${CURL_LIBRARIES})
   endif()
 
   # AWSSDK is static-only build

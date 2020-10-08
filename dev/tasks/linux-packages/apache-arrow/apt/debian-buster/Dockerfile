@@ -61,6 +61,7 @@ RUN \
     libbrotli-dev \
     libbz2-dev \
     libc-ares-dev \
+    libcurl4-openssl-dev \
     libgirepository1.0-dev \
     libglib2.0-doc \
     libgmock-dev \
