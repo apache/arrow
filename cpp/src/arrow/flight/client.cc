@@ -898,14 +898,12 @@ class FlightClient::FlightClientImpl {
           };
 
           noop_auth_check_ = std::make_shared<ge::TlsServerAuthorizationCheckConfig>(
-            std::shared_ptr<ge::TlsServerAuthorizationCheckInterface>(
-              std::make_shared<NoOpTlsAuthorizationCheck>()));
+              std::make_shared<NoOpTlsAuthorizationCheck>());
           auto materials_config = std::make_shared<ge::TlsKeyMaterialsConfig>();
           materials_config->set_pem_root_certs(BLANK_ROOT_PEM);
           ge::TlsCredentialsOptions tls_options(
               GRPC_SSL_DONT_REQUEST_CLIENT_CERTIFICATE,
-              GRPC_TLS_SKIP_ALL_SERVER_VERIFICATION,
-              std::shared_ptr<ge::TlsKeyMaterialsConfig>(materials_config),
+              GRPC_TLS_SKIP_ALL_SERVER_VERIFICATION, materials_config,
               std::shared_ptr<ge::TlsCredentialReloadConfig>(), noop_auth_check_);
           creds = ge::TlsCredentials(tls_options);
 #endif

@@ -1115,14 +1115,16 @@ cdef class FlightClient(_Weakrefable):
     @classmethod
     def connect(cls, location, tls_root_certs=None, cert_chain=None,
                 private_key=None, override_hostname=None,
-                disable_server_verify=None):
+                disable_server_verification=None):
         warnings.warn("The 'FlightClient.connect' method is deprecated, use "
                       "FlightClient constructor or pyarrow.flight.connect "
                       "function instead")
-        return FlightClient(location, tls_root_certs=tls_root_certs,
-                            cert_chain=cert_chain, private_key=private_key,
-                            override_hostname=override_hostname,
-                            disable_server_verification=disable_server_verify)
+        return FlightClient(
+            location, tls_root_certs=tls_root_certs,
+            cert_chain=cert_chain, private_key=private_key,
+            override_hostname=override_hostname,
+            disable_server_verification=disable_server_verification
+        )
 
     def authenticate(self, auth_handler, options: FlightCallOptions = None):
         """Authenticate to the server.
