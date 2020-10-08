@@ -96,6 +96,7 @@ VAR_LEN_OP_TYPES(BINARY_RELATIONAL, greater_than_or_equal_to, >=)
   INNER(NAME, utf8)                \
   INNER(NAME, binary)
 
+FORCE_INLINE
 int to_binary_from_hex(char ch) {
   if (ch >= 'A' && ch <= 'F') {
     return 10 + (ch - 'A');
