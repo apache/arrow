@@ -48,8 +48,7 @@ impl<T: Read + Length> ReadChunk for T {}
 /// For an object store reader, each read can be mapped to a range request.
 pub trait ChunkReader: Length {
     type T: ReadChunk;
-    /// get a serialy readeable view of the current reader
-    /// if the current reader is seekeable without buffering, you can simply return get_read_seek
+    /// get a serialy readeable slice of the current reader
     fn get_read(&self, start: u64, length: usize) -> Result<Self::T>;
 }
 
