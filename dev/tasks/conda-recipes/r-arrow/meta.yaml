@@ -21,13 +21,15 @@ requirements:
     - {{ compiler('c') }}        # [not win]
     - {{ compiler('cxx') }}      # [not win]
     - {{ compiler('r_clang') }}  # [win]
-    - pkg-config
+    - pkg-config                 # [not win]
     - {{ posix }}make
     - {{ posix }}sed         # [win]
     - {{ posix }}coreutils   # [win]
     - {{ posix }}filesystem  # [win]
     - {{ posix }}zip         # [win]
   host:
+    # Needs to be here, otherwise merge_build_host runs into issues
+    - pkg-config  # [win]
     - r-base
     - arrow-cpp {{ version }}
     - r-cpp11
