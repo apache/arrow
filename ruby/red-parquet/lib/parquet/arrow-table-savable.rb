@@ -33,7 +33,7 @@ module Parquet
           properties.__send__(set_method_name, value)
         end
       end
-      chunk_size = @options[:chunk_size] || 1024 # TODO
+      chunk_size = @options[:chunk_size] || @table.n_rows
       open_raw_output_stream do |output|
         ArrowFileWriter.open(@table.schema,
                              output,
