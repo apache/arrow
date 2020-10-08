@@ -1710,6 +1710,14 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
             " arrow::compute::TakeOptions"(CFunctionOptions):
         c_bool boundscheck
 
+    cdef cppclass CStrptimeOptions \
+            "arrow::compute::StrptimeOptions"(CFunctionOptions):
+        CStrptimeOptions(c_string format, TimeUnit unit)
+
+    cdef cppclass CVarianceOptions \
+            "arrow::compute::VarianceOptions"(CFunctionOptions):
+        int ddof
+
     enum CMinMaxMode \
             "arrow::compute::MinMaxOptions::Mode":
         CMinMaxMode_SKIP \
@@ -1720,6 +1728,11 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
     cdef cppclass CMinMaxOptions \
             "arrow::compute::MinMaxOptions"(CFunctionOptions):
         CMinMaxMode null_handling
+
+    cdef cppclass CPartitionNthOptions \
+            "arrow::compute::PartitionNthOptions"(CFunctionOptions):
+        CPartitionNthOptions(int64_t pivot)
+        int64_t pivot
 
     enum DatumType" arrow::Datum::type":
         DatumType_NONE" arrow::Datum::NONE"
@@ -1745,6 +1758,12 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         shared_ptr[CRecordBatch] record_batch()
         shared_ptr[CTable] table()
         shared_ptr[CScalar] scalar()
+
+    cdef cppclass CSetLookupOptions \
+            "arrow::compute::SetLookupOptions"(CFunctionOptions):
+        CSetLookupOptions(CDatum value_set, c_bool skip_nulls)
+        CDatum value_set
+        c_bool skip_nulls
 
 
 cdef extern from "arrow/python/api.h" namespace "arrow::py":

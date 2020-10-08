@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-
 from pyarrow._compute import (  # noqa
     Function,
     FunctionRegistry,
@@ -31,7 +30,11 @@ from pyarrow._compute import (  # noqa
     FilterOptions,
     MatchSubstringOptions,
     MinMaxOptions,
+    PartitionNthOptions,
+    SetLookupOptions,
+    StrptimeOptions,
     TakeOptions,
+    VarianceOptions,
     # Functions
     function_registry,
     call_function,
@@ -91,13 +94,18 @@ def _decorate_compute_function(wrapper, exposed_name, func, option_class):
 
 
 _option_classes = {
-    # TODO this is not complete
-    # (export the option class name from C++ metadata?)
+    # TODO: export the option class name from C++ metadata?
     'cast': CastOptions,
     'filter': FilterOptions,
+    'index_in': SetLookupOptions,
+    'is_in': SetLookupOptions,
     'match_substring': MatchSubstringOptions,
     'min_max': MinMaxOptions,
+    'partition_nth_indices': PartitionNthOptions,
+    'stddev': VarianceOptions,
+    'strptime': StrptimeOptions,
     'take': TakeOptions,
+    'variance': VarianceOptions,
 }
 
 
@@ -417,3 +425,7 @@ def fill_null(values, fill_value):
         fill_value = pa.scalar(fill_value.as_py(), type=values.type)
 
     return call_function("fill_null", [values, fill_value])
+
+
+and_ = globals()['and']
+or_ = globals()['or']

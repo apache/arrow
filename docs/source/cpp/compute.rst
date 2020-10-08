@@ -31,8 +31,8 @@ The generic Compute API
 Functions and function registry
 -------------------------------
 
-Functions represent logical compute operations over inputs of possibly
-varying types.  Internally, a function is implemented by one or several
+Functions represent compute operations over inputs of possibly varying 
+types.  Internally, a function is implemented by one or several
 "kernels", depending on the concrete input types (for example, a function
 adding values from two inputs can have different kernels depending on
 whether the inputs are integral or floating-point).
@@ -100,6 +100,8 @@ exact semantics of the function::
 .. seealso::
    :doc:`Compute API reference <api/compute>`
 
+
+.. _compute-function-list:
 
 Available functions
 ===================
