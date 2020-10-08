@@ -274,7 +274,17 @@ FileSystem <- R6Class("FileSystem", inherit = ArrowObject,
     },
 
     # Friendlier R user interface
-    path = function(x) SubTreeFileSystem$create(x, self)
+    path = function(x) SubTreeFileSystem$create(x, self),
+    cd = function(x) SubTreeFileSystem$create(x, self),
+    ls = function(path = "", ...) {
+      selector <- FileSelector$create(path, ...) # ... for recursive = TRUE
+      infos <- self$GetFileInfo(selector)
+      map_chr(infos, ~.$path)
+      # TODO: add full.names argument like base::dir() (default right now is TRUE)
+      # TODO: see fs package for glob/regexp filtering
+      # TODO: verbose method that shows other attributes as df
+      # TODO: print methods for FileInfo, SubTreeFileSystem, S3FileSystem
+    }
   ),
   active = list(
     type_name = function() fs___FileSystem__type_name(self)

@@ -43,9 +43,9 @@ if (arrow_with_s3() && process_is_running("minio server")) {
     # If minio isn't running, this will hang for a few seconds and fail with a
     # curl timeout, causing `run_these` to be set to FALSE and skipping the tests
     fs$CreateDir(now)
-    # Clean up when we're all done
-    on.exit(fs$DeleteDir(now))
   })
+  # Clean up when we're all done
+  on.exit(fs$DeleteDir(now))
 
   test_that("read/write Feather on minio", {
     write_feather(example_data, minio_uri("test.feather"))
@@ -99,7 +99,7 @@ if (arrow_with_s3() && process_is_running("minio server")) {
   test_that("write_parquet with filesystem arg", {
     fs$CreateDir(minio_path("hive_dir", "group=1", "other=xxx"))
     fs$CreateDir(minio_path("hive_dir", "group=2", "other=yyy"))
-    expect_length(fs$GetFileInfo(FileSelector$create(minio_path("hive_dir"))), 2)
+    expect_length(fs$ls(minio_path("hive_dir")), 2)
     write_parquet(df1, fs$path(minio_path("hive_dir", "group=1", "other=xxx", "file1.parquet")))
     write_parquet(df2, fs$path(minio_path("hive_dir", "group=2", "other=yyy", "file2.parquet")))
     expect_identical(
@@ -119,7 +119,7 @@ if (arrow_with_s3() && process_is_running("minio server")) {
   test_that("write_dataset with fs", {
     ds <- open_dataset(fs$path(minio_path("hive_dir")))
     write_dataset(ds, fs$path(minio_path("new_dataset_dir")))
-    expect_length(fs$GetFileInfo(FileSelector$create(minio_path("new_dataset_dir"))), 1)
+    expect_length(fs$ls(minio_path("new_dataset_dir")), 1)
   })
 
   test_that("S3FileSystem input validation", {
