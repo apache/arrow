@@ -24,7 +24,9 @@ use std::{cell::RefCell, convert::TryFrom};
 
 use crate::error::{ExecutionError, Result};
 use crate::logical_plan::Operator;
-use crate::physical_plan::{Accumulator, AggregateExpr, PhysicalExpr};
+use crate::physical_plan::{
+    type_casting::can_cast_types, Accumulator, AggregateExpr, PhysicalExpr,
+};
 use crate::scalar::ScalarValue;
 use arrow::array::{
     Float32Builder, Float64Builder, Int16Builder, Int32Builder, Int64Builder,
@@ -1532,7 +1534,10 @@ impl PhysicalExpr for CastExpr {
     }
 }
 
-/// Returns a cast operation, if casting needed.
+/// Returns a physical cast operation that casts `expr` to `cast_type`
+/// if casting is needed.
+///
+/// Note that such casts may lose type information
 pub fn cast(
     expr: Arc<dyn PhysicalExpr>,
     input_schema: &Schema,
@@ -1540,19 +1545,12 @@ pub fn cast(
 ) -> Result<Arc<dyn PhysicalExpr>> {
     let expr_type = expr.data_type(input_schema)?;
     if expr_type == cast_type {
-        return Ok(expr.clone());
-    }
-    if is_numeric(&expr_type) && (is_numeric(&cast_type) || cast_type == DataType::Utf8) {
-        Ok(Arc::new(CastExpr { expr, cast_type }))
-    } else if expr_type == DataType::Binary && cast_type == DataType::Utf8 {
-        Ok(Arc::new(CastExpr { expr, cast_type }))
-    } else if is_numeric(&expr_type)
-        && cast_type == DataType::Timestamp(TimeUnit::Nanosecond, None)
-    {
+        Ok(expr.clone())
+    } else if can_cast_types(&expr_type, &cast_type) {
         Ok(Arc::new(CastExpr { expr, cast_type }))
     } else {
         Err(ExecutionError::General(format!(
-            "Invalid CAST from {:?} to {:?}",
+            "Unsupported CAST from {:?} to {:?}",
             expr_type, cast_type
         )))
     }
@@ -1992,9 +1990,10 @@ mod tests {
 
     #[test]
     fn invalid_cast() -> Result<()> {
-        let schema = Schema::new(vec![Field::new("a", DataType::Utf8, false)]);
-        let result = cast(col("a"), &schema, DataType::Int32);
-        result.expect_err("Invalid CAST from Utf8 to Int32");
+        // Ensure a useful error happens at plan time if invalid casts are used
+        let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
+        let result = cast(col("a"), &schema, DataType::LargeBinary);
+        result.expect_err("expected Invalid CAST");
         Ok(())
     }
 
