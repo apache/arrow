@@ -53,11 +53,11 @@
 
 #' Is the C++ Arrow library available?
 #'
-#' You won't generally need to call these function, but they're here
+#' You won't generally need to call these function, but they're made available
 #' for diagnostic purposes.
 #' @return `TRUE` or `FALSE` depending on whether the package was installed
-#' with the Arrow C++ library `arrow_available()` or with S3 support enabled
-#' `arrow_with_s3()`.
+#' with the Arrow C++ library (check with `arrow_available()`) or with S3
+#' support enabled (check with `arrow_with_s3()`).
 #' @export
 #' @examples
 #' arrow_available()

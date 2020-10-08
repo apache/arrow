@@ -44,12 +44,13 @@ the cost of reading the data over the network should be much lower.
 
 ## Creating a FileSystem object
 
-Another way to connect to S3 is to create an `FileSystem` object once and pass
+Another way to connect to S3 is to create a `FileSystem` object once and pass
 that to the read/write functions.
-`s3_bucket()` is a convenience function to create an `S3FileSystem` object,
-automatically detecting the bucket's AWS region and holding onto the bucket's
-relative path.
-This may be a convenience when dealing with
+`S3FileSystem` objects can be created with the `s3_bucket()` function, which
+automatically detects the bucket's AWS region. Additionally, the resulting
+`FileSystem` will consider paths relative to the bucket's path (so for example
+you don't need to prefix the bucket path when listing a directory).
+This may be convenient when dealing with
 long URIs, and it's necessary for some options and authentication methods
 that aren't supported in the URI format.
 

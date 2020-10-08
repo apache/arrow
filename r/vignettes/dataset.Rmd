@@ -34,10 +34,13 @@ first copying the files locally. To check, run
 arrow::arrow_with_s3()
 ```
 
-Even with S3 support enabled, unless your machine is located in the same AWS
-region as the data, network speed will be a bottleneck. So, for this vignette,
+Even with S3 support enabled network speed will be a bottleneck unless your
+machine is located in the same AWS region as the data. So, for this vignette,
 we assume that the NYC taxi dataset has been downloaded locally in a "nyc-taxi"
-directory.
+directory. Following are two possible ways to download all of it but neither is
+evaluated; if you want to run with live data, you'll have to do it yourself
+separately. Given the size, if you're running this locally and don't have a fast
+connection, you may want to grab just a year or two of data.
 
 If your `arrow` build has S3 support, you can sync the data locally with:
 

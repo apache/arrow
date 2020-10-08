@@ -191,7 +191,8 @@ FileSelector$create <- function(base_dir, allow_not_found = FALSE, recursive = F
 #' - `$region`: string AWS region, for `S3FileSystem` and `SubTreeFileSystem`
 #'    containing a `S3FileSystem`
 #' - `$base_fs`: for `SubTreeFileSystem`, the `FileSystem` it contains
-#' - `$base_path`: for `SubTreeFileSystem`, the string file path it contains
+#' - `$base_path`: for `SubTreeFileSystem`, the path in `$base_fs` which is considered
+#'    root in this `SubTreeFileSystem`.
 #'
 #' @usage NULL
 #' @format NULL
