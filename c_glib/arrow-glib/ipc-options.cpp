@@ -21,6 +21,7 @@
 #  include <config.h>
 #endif
 
+#include <arrow-glib/codec.hpp>
 #include <arrow-glib/enums.h>
 #include <arrow-glib/ipc-options.hpp>
 
@@ -242,6 +243,7 @@ garrow_read_options_set_included_fields(GArrowReadOptions *options,
 
 typedef struct GArrowWriteOptionsPrivate_ {
   arrow::ipc::IpcWriteOptions options;
+  GArrowCodec *codec;
 } GArrowWriteOptionsPrivate;
 
 enum {
@@ -261,6 +263,19 @@ G_DEFINE_TYPE_WITH_PRIVATE(GArrowWriteOptions,
   static_cast<GArrowWriteOptionsPrivate *>(                  \
     garrow_write_options_get_instance_private(               \
       GARROW_WRITE_OPTIONS(obj)))
+
+static void
+garrow_write_options_dispose(GObject *object)
+{
+  auto priv = GARROW_WRITE_OPTIONS_GET_PRIVATE(object);
+
+  if (priv->codec) {
+    g_object_unref(priv->codec);
+    priv->codec = NULL;
+  }
+
+  G_OBJECT_CLASS(garrow_write_options_parent_class)->dispose(object);
+}
 
 static void
 garrow_write_options_finalize(GObject *object)
@@ -293,14 +308,13 @@ garrow_write_options_set_property(GObject *object,
   case PROP_WRITE_OPTIONS_WRITE_LEGACY_IPC_FORMAT:
     priv->options.write_legacy_ipc_format = g_value_get_boolean(value);
     break;
-  case PROP_WRITE_OPTIONS_CODEC: {
-    auto codec = g_value_dup_object(value);
-    priv->options.codec = std::shared_ptr<arrow::util::Codec>{
-      garrow_codec_get_raw(codec),
-      [codec](...) { g_object_unref(codec); }
-    };
+  case PROP_WRITE_OPTIONS_CODEC:
+    if (priv->codec) {
+      g_object_unref(priv->codec);
+    }
+    priv->codec = GARROW_CODEC(g_value_dup_object(value));
+    priv->options.codec = garrow_codec_get_raw(priv->codec);
     break;
-  }
   case PROP_WRITE_OPTIONS_USE_THREADS:
     priv->options.use_threads = g_value_get_boolean(value);
     break;
@@ -331,12 +345,9 @@ garrow_write_options_get_property(GObject *object,
   case PROP_WRITE_OPTIONS_WRITE_LEGACY_IPC_FORMAT:
     g_value_set_boolean(value, priv->options.write_legacy_ipc_format);
     break;
-  case PROP_WRITE_OPTIONS_CODEC: {
-    auto arrow_type = priv->options.codec->compression_type();
-    auto type = garrow_compression_type_from_raw(arrow_type);
-    g_value_set_object(value, garrow_codec_new(type));
+  case PROP_WRITE_OPTIONS_CODEC:
+    g_value_set_object(value, priv->codec);
     break;
-  }
   case PROP_WRITE_OPTIONS_USE_THREADS:
     g_value_set_boolean(value, priv->options.use_threads);
     break;
@@ -352,6 +363,11 @@ garrow_write_options_init(GArrowWriteOptions *object)
   auto priv = GARROW_WRITE_OPTIONS_GET_PRIVATE(object);
   new(&priv->options) arrow::ipc::IpcWriteOptions;
   priv->options = arrow::ipc::IpcWriteOptions::Defaults();
+  if (priv->options.codec) {
+    priv->codec = garrow_codec_new_raw(&(priv->options.codec));
+  } else {
+    priv->codec = NULL;
+  }
 }
 
 static void
@@ -359,6 +375,7 @@ garrow_write_options_class_init(GArrowWriteOptionsClass *klass)
 {
   auto gobject_class = G_OBJECT_CLASS(klass);
 
+  gobject_class->dispose      = garrow_write_options_dispose;
   gobject_class->finalize     = garrow_write_options_finalize;
   gobject_class->set_property = garrow_write_options_set_property;
   gobject_class->get_property = garrow_write_options_get_property;
@@ -445,16 +462,18 @@ garrow_write_options_class_init(GArrowWriteOptionsClass *klass)
    *
    * Codec to use for compressing and decompressing record batch body
    * buffers. This is not part of the Arrow IPC protocol and only for
-   * internal use (e.g. Feather files). May only be LZ4_FRAME and
-   * ZSTD.
+   * internal use (e.g. Feather files).
    *
-   * Since: 1.0.0
+   * May only be UNCOMPRESSED, LZ4_FRAME and ZSTD.
+   *
+   * Since: 2.0.0
    */
-  spec = g_param_spec_pointer("codec",
-                              "Codec",
-                              "Codec to use for "
-                              "compressing record batch body buffers.",
-                              static_cast<GParamFlags>(G_PARAM_READWRITE));
+  spec = g_param_spec_object("codec",
+                             "Codec",
+                             "Codec to use for "
+                             "compressing record batch body buffers.",
+                             GARROW_TYPE_CODEC,
+                             static_cast<GParamFlags>(G_PARAM_READWRITE));
   g_object_class_install_property(gobject_class,
                                   PROP_WRITE_OPTIONS_CODEC,
                                   spec);
