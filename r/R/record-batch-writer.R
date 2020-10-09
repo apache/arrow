@@ -151,7 +151,6 @@ RecordBatchFileWriter <- R6Class("RecordBatchFileWriter", inherit = RecordBatchS
 RecordBatchFileWriter$create <- function(sink,
                                          schema,
                                          use_legacy_format = NULL,
-                                         codec = NULL,
                                          metadata_version = NULL) {
   if (is.string(sink)) {
     stop(
@@ -168,7 +167,6 @@ RecordBatchFileWriter$create <- function(sink,
       sink,
       schema,
       get_ipc_use_legacy_format(use_legacy_format),
-      codec,
       get_ipc_metadata_version(metadata_version)
     )
   )
