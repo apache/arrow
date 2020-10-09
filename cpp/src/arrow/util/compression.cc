@@ -33,12 +33,12 @@ int Codec::UseDefaultCompressionLevel() { return kUseDefaultCompressionLevel; }
 
 Status Codec::Init() { return Status::OK(); }
 
+const std::string& Codec::GetCodecAsString(Compression::type t) {
 static const std::string uncompressed = "uncompressed", snappy = "snappy", gzip = "gzip",
                          lzo = "lzo", brotli = "brotli", lz4_raw = "lz4_raw", lz4 = "lz4",
                          lz4_hadoop = "lz4_hadoop", zstd = "zstd", bz2 = "bz2",
                          unknown = "unknown";
 
-const std::string& Codec::GetCodecAsString(Compression::type t) {
   switch (t) {
     case Compression::UNCOMPRESSED:
       return uncompressed;
@@ -66,25 +66,25 @@ const std::string& Codec::GetCodecAsString(Compression::type t) {
 }
 
 Result<Compression::type> Codec::GetCompressionType(const std::string& name) {
-  if (name == uncompressed) {
+  if (name == "uncompressed") {
     return Compression::UNCOMPRESSED;
-  } else if (name == gzip) {
+  } else if (name == "gzip") {
     return Compression::GZIP;
-  } else if (name == snappy) {
+  } else if (name == "snappy") {
     return Compression::SNAPPY;
-  } else if (name == lzo) {
+  } else if (name == "lzo") {
     return Compression::LZO;
-  } else if (name == brotli) {
+  } else if (name == "brotli") {
     return Compression::BROTLI;
-  } else if (name == lz4_raw) {
+  } else if (name == "lz4_raw") {
     return Compression::LZ4;
-  } else if (name == lz4) {
+  } else if (name == "lz4") {
     return Compression::LZ4_FRAME;
-  } else if (name == lz4_hadoop) {
+  } else if (name == "lz4_hadoop") {
     return Compression::LZ4_HADOOP;
-  } else if (name == zstd) {
+  } else if (name == "zstd") {
     return Compression::ZSTD;
-  } else if (name == bz2) {
+  } else if (name == "bz2") {
     return Compression::BZ2;
   } else {
     return Status::Invalid("Unrecognized compression type: ", name);
