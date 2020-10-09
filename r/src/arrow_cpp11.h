@@ -166,6 +166,16 @@ Pointer r6_to_pointer(SEXP self) {
   return reinterpret_cast<Pointer>(p);
 }
 
+template <typename T>
+void r6_reset_pointer(SEXP r6) {
+  SEXP xp = Rf_findVarInFrame(r6, arrow::r::symbols::xp);
+  void* p = R_ExternalPtrAddr(xp);
+  if (p != nullptr) {
+    delete reinterpret_cast<const std::shared_ptr<T>*>(p);
+    R_SetExternalPtrAddr(xp, nullptr);
+  }
+}
+
 // T is either std::shared_ptr<U> or std::unique_ptr<U>
 // e.g. T = std::shared_ptr<arrow::Array>
 template <typename T>
@@ -258,12 +268,6 @@ cpp11::writable::strings to_r_strings(const std::vector<std::shared_ptr<T>>& x,
                                       ToString&& to_string) {
   return to_r_vector<cpp11::writable::strings>(x, std::forward<ToString>(to_string));
 }
-
-// template <typename T>
-// cpp11::writable::list to_r_list(const std::vector<std::shared_ptr<T>>& x) {
-//   auto as_sexp = [](const std::shared_ptr<T>& t) { return cpp11::as_sexp(t); };
-//   return to_r_vector<cpp11::writable::list>(x, as_sexp);
-// }
 
 template <typename T, typename ToListElement>
 cpp11::writable::list to_r_list(const std::vector<std::shared_ptr<T>>& x,

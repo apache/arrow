@@ -6274,6 +6274,30 @@ extern "C" SEXP _arrow_SetCpuThreadPoolCapacity(SEXP threads_sexp){
 }
 #endif
 
+# if defined(ARROW_R_WITH_ARROW)
+extern "C" SEXP _arrow_Table__Reset(SEXP r6) {
+  BEGIN_CPP11
+  arrow::r::r6_reset_pointer<arrow::Table>(r6);
+  END_CPP11
+  return R_NilValue;
+}
+# else
+extern "C" SEXP _arrow_Table__Reset(SEXP r6) {
+  Rf_error("Cannot call _arrow_Table__Reset(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+# endif
+# if defined(ARROW_R_WITH_ARROW)
+extern "C" SEXP _arrow_RecordBatch__Reset(SEXP r6) {
+  BEGIN_CPP11
+  arrow::r::r6_reset_pointer<arrow::RecordBatch>(r6);
+  END_CPP11
+  return R_NilValue;
+}
+# else
+extern "C" SEXP _arrow_RecordBatch__Reset(SEXP r6) {
+  Rf_error("Cannot call _arrow_RecordBatch__Reset(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+# endif
 
 extern "C" SEXP _arrow_available() {
 return Rf_ScalarLogical(
@@ -6698,6 +6722,8 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_Table__from_dots", (DL_FUNC) &_arrow_Table__from_dots, 2}, 
 		{ "_arrow_GetCpuThreadPoolCapacity", (DL_FUNC) &_arrow_GetCpuThreadPoolCapacity, 0}, 
 		{ "_arrow_SetCpuThreadPoolCapacity", (DL_FUNC) &_arrow_SetCpuThreadPoolCapacity, 1}, 
+		{ "_arrow_Table__Reset", (DL_FUNC) &_arrow_Table__Reset, 1}, 
+		{ "_arrow_RecordBatch__Reset", (DL_FUNC) &_arrow_RecordBatch__Reset, 1}, 
 		{NULL, NULL, 0}
 };
 
