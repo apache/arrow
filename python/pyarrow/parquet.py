@@ -1126,7 +1126,15 @@ use_legacy_dataset : bool, default True
                 metadata=None, split_row_groups=False, validate_schema=True,
                 filters=None, metadata_nthreads=1, read_dictionary=None,
                 memory_map=False, buffer_size=0, partitioning="hive",
-                use_legacy_dataset=True):
+                use_legacy_dataset=None):
+        if use_legacy_dataset is None:
+            # if a new filesystem is passed -> default to new implementation
+            if isinstance(filesystem, FileSystem):
+                use_legacy_dataset = False
+            # otherwise the default is still True
+            else:
+                use_legacy_dataset = True
+
         if not use_legacy_dataset:
             return _ParquetDatasetV2(path_or_paths, filesystem=filesystem,
                                      filters=filters,

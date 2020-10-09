@@ -4296,3 +4296,16 @@ def test_dataset_partitioning(tempdir):
     with pytest.raises(ValueError):
         pq.ParquetDataset(
             str(root_path), partitioning=part, use_legacy_dataset=True)
+
+
+def test_parquet_dataset_new_filesystem(tempdir):
+    # Ensure we can pass new FileSystem object to ParquetDataset
+    # (use new implementation automatically without specifying
+    #  use_legacy_dataset=False)
+    table = pa.table({'a': [1, 2, 3]})
+    pq.write_table(table, tempdir / 'data.parquet')
+    # don't use simple LocalFileSystem (as that gets mapped to legacy one)
+    filesystem = fs.SubTreeFileSystem(str(tempdir), fs.LocalFileSystem())
+    dataset = pq.ParquetDataset('.', filesystem=filesystem)
+    result = dataset.read()
+    assert result.equals(table)
