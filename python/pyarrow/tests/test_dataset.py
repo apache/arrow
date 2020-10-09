@@ -1116,10 +1116,9 @@ def test_fragments_parquet_subset_ids(tempdir):
     assert len(subfrag.row_groups) == 2
     assert subfrag.row_groups[0].statistics is not None
 
-    # TODO empty selection not yet working
-    # # empty list of ids
-    # subfrag = fragment.subset(row_group_ids=[])
-    # assert subfrag.num_row_groups == 0
+    # empty list of ids
+    subfrag = fragment.subset(row_group_ids=[])
+    assert subfrag.num_row_groups == 0
 
 
 @pytest.mark.pandas
@@ -1138,10 +1137,9 @@ def test_fragments_parquet_subset_filter(tempdir):
     result = subfrag.to_table()
     assert result.to_pydict() == {"f1": [1, 2, 3], "f2": [1, 1, 1]}
 
-    # TODO empty selection not yet working
-    # # filter that results in empty selection
-    # subfrag = fragment.subset(ds.field("f1") > 5)
-    # assert subfrag.num_row_groups == 0
+    # filter that results in empty selection
+    subfrag = fragment.subset(ds.field("f1") > 5)
+    assert subfrag.num_row_groups == 0
 
     # passing schema to ensure filter on partition expression works
     subfrag = fragment.subset(ds.field("part") == "a", schema=dataset.schema)

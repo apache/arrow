@@ -1001,11 +1001,12 @@ cdef class ParquetFileFragment(FileFragment):
     @property
     def row_groups(self):
         cdef:
-            vector[CRowGroupInfo] c_row_groups
+            const vector[CRowGroupInfo]* c_row_groups
         c_row_groups = self.parquet_file_fragment.row_groups()
-        if c_row_groups.empty():
+        if c_row_groups == nullptr:
             return None
-        return [RowGroupInfo.wrap(row_group) for row_group in c_row_groups]
+        return [RowGroupInfo.wrap(c_row_groups.at(i))
+                for i in range(c_row_groups.size())]
 
     @property
     def num_row_groups(self):
