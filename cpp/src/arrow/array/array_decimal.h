@@ -28,39 +28,49 @@
 
 namespace arrow {
 
-// ----------------------------------------------------------------------
-// Decimal128Array
 
-/// Concrete Array class for 128-bit decimal data
-class ARROW_EXPORT Decimal128Array : public FixedSizeBinaryArray {
+template<uint32_t width>
+struct DecimalArrayHelper;
+
+#define DECL_DECIMAL_TYPES_HELPER(width)                 \
+template<>                                               \
+struct DecimalArrayHelper<width> {                       \
+  static constexpr Type::type id = Type::DECIMAL##width; \
+  using type = Decimal##width##Type;                     \
+  using value_type = Decimal##width;                     \
+};
+
+DECL_DECIMAL_TYPES_HELPER(128)
+DECL_DECIMAL_TYPES_HELPER(256)
+
+#undef DECL_DECIMAL_TYPES_HELPER
+
+/// Template Array class for decimal data
+template<uint32_t width>
+class BaseDecimalArray : public FixedSizeBinaryArray {
  public:
-  using TypeClass = Decimal128Type;
+  using TypeClass = typename DecimalArrayHelper<width>::type;
 
   using FixedSizeBinaryArray::FixedSizeBinaryArray;
 
-  /// \brief Construct Decimal128Array from ArrayData instance
-  explicit Decimal128Array(const std::shared_ptr<ArrayData>& data);
+  /// \brief Construct DecimalArray from ArrayData instance
+  explicit BaseDecimalArray(const std::shared_ptr<ArrayData>& data);
 
   std::string FormatValue(int64_t i) const;
 };
+
+#define DECIMAL_ARRAY_DECL(width)                                           \
+class ARROW_EXPORT Decimal##width##Array : public BaseDecimalArray<width> { \
+  using BaseDecimalArray<width>::BaseDecimalArray;                          \
+};
+
+DECIMAL_ARRAY_DECL(128)
+DECIMAL_ARRAY_DECL(256)
+
+#undef DECIMAL_ARRAY_DECL
 
 // Backward compatibility
 using DecimalArray = Decimal128Array;
 
-// ----------------------------------------------------------------------
-// Decimal256Array
-
-/// Concrete Array class for 256-bit decimal data
-class ARROW_EXPORT Decimal256Array : public FixedSizeBinaryArray {
- public:
-  using TypeClass = Decimal256Type;
-
-  using FixedSizeBinaryArray::FixedSizeBinaryArray;
-
-  /// \brief Construct Decimal256Array from ArrayData instance
-  explicit Decimal256Array(const std::shared_ptr<ArrayData>& data);
-
-  std::string FormatValue(int64_t i) const;
-};
 
 }  // namespace arrow

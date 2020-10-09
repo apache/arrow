@@ -748,35 +748,34 @@ std::vector<std::shared_ptr<Field>> StructType::GetAllFieldsByName(
 }
 
 // ----------------------------------------------------------------------
-// Decimal128 type
+// Decimal type
 
-Decimal128Type::Decimal128Type(int32_t precision, int32_t scale)
-    : DecimalType(type_id, 16, precision, scale) {
+template<uint32_t width>
+struct DecimalTypeHelper;
+
+#define DECIMAL_TYPE_HELPER_DECL(width) \
+template<> \
+struct DecimalTypeHelper<width> { using type = Decimal##width##Type; };
+
+DECIMAL_TYPE_HELPER_DECL(128)
+DECIMAL_TYPE_HELPER_DECL(256)
+
+#undef DECIMAL_TYPE_HELPER_DECL
+
+
+template<uint32_t width>
+BaseDecimalType<width>::BaseDecimalType(int32_t precision, int32_t scale)
+    : DecimalType(type_id, (width >> 3), precision, scale) {
   ARROW_CHECK_GE(precision, kMinPrecision);
   ARROW_CHECK_LE(precision, kMaxPrecision);
 }
 
-Result<std::shared_ptr<DataType>> Decimal128Type::Make(int32_t precision, int32_t scale) {
+template<uint32_t width>
+Result<std::shared_ptr<DataType>> BaseDecimalType<width>::Make(int32_t precision, int32_t scale) {
   if (precision < kMinPrecision || precision > kMaxPrecision) {
     return Status::Invalid("Decimal precision out of range: ", precision);
   }
-  return std::make_shared<Decimal128Type>(precision, scale);
-}
-
-// ----------------------------------------------------------------------
-// Decimal256 type
-
-Decimal256Type::Decimal256Type(int32_t precision, int32_t scale)
-    : DecimalType(type_id, 32, precision, scale) {
-  ARROW_CHECK_GE(precision, kMinPrecision);
-  ARROW_CHECK_LE(precision, kMaxPrecision);
-}
-
-Result<std::shared_ptr<DataType>> Decimal256Type::Make(int32_t precision, int32_t scale) {
-  if (precision < kMinPrecision || precision > kMaxPrecision) {
-    return Status::Invalid("Decimal precision out of range: ", precision);
-  }
-  return std::make_shared<Decimal256Type>(precision, scale);
+  return std::make_shared<typename DecimalTypeHelper<width>::type>(precision, scale);
 }
 
 // ----------------------------------------------------------------------
@@ -2161,24 +2160,24 @@ std::shared_ptr<DataType> decimal(int32_t precision, int32_t scale) {
                                                     : decimal256(precision, scale);
 }
 
-std::shared_ptr<DataType> decimal128(int32_t precision, int32_t scale) {
-  return std::make_shared<Decimal128Type>(precision, scale);
+#define DECIMAL_BUILDER_DECL(width)                                          \
+std::shared_ptr<DataType> decimal##width(int32_t precision, int32_t scale) { \
+  return std::make_shared<Decimal##width##Type>(precision, scale);           \
 }
 
-std::shared_ptr<DataType> decimal256(int32_t precision, int32_t scale) {
-  return std::make_shared<Decimal256Type>(precision, scale);
-}
+DECIMAL_BUILDER_DECL(128)
+DECIMAL_BUILDER_DECL(256)
 
-std::string Decimal128Type::ToString() const {
+#undef DECIMAL_BUILDER_DECL
+
+template<uint32_t width>
+std::string BaseDecimalType<width>::ToString() const {
   std::stringstream s;
-  s << "decimal(" << precision_ << ", " << scale_ << ")";
+  s << type_name() << "(" << precision_ << ", " << scale_ << ")";
   return s.str();
 }
 
-std::string Decimal256Type::ToString() const {
-  std::stringstream s;
-  s << "decimal256(" << precision_ << ", " << scale_ << ")";
-  return s.str();
-}
+template class BaseDecimalType<128>;
+template class BaseDecimalType<256>;
 
 }  // namespace arrow

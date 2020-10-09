@@ -29,19 +29,36 @@
 
 namespace arrow {
 
-class ARROW_EXPORT Decimal128Builder : public FixedSizeBinaryBuilder {
- public:
-  using TypeClass = Decimal128Type;
+template<uint32_t width>
+struct DecimalBuilderHelper;
 
-  explicit Decimal128Builder(const std::shared_ptr<DataType>& type,
-                             MemoryPool* pool = default_memory_pool());
+#define DECL_DECIMAL_TYPES_HELPER(width)     \
+template<>                                   \
+struct DecimalBuilderHelper<width> {         \
+  using type = Decimal##width##Type;         \
+  using array_type = Decimal##width##Array;  \
+  using value_type = Decimal##width;         \
+};
+
+DECL_DECIMAL_TYPES_HELPER(128)
+DECL_DECIMAL_TYPES_HELPER(256)
+
+#undef DECL_DECIMAL_TYPES_HELPER
+
+template<uint32_t width>
+class BaseDecimalBuilder : public FixedSizeBinaryBuilder {
+public:
+  using TypeClass = typename DecimalBuilderHelper<width>::type;
+
+  explicit BaseDecimalBuilder(const std::shared_ptr<DataType>& type,
+                            MemoryPool* pool = default_memory_pool());
 
   using FixedSizeBinaryBuilder::Append;
   using FixedSizeBinaryBuilder::AppendValues;
   using FixedSizeBinaryBuilder::Reset;
 
-  Status Append(Decimal128 val);
-  void UnsafeAppend(Decimal128 val);
+  Status Append(typename DecimalBuilderHelper<width>::value_type val);
+  void UnsafeAppend(typename DecimalBuilderHelper<width>::value_type val);
   void UnsafeAppend(util::string_view val);
 
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
@@ -50,42 +67,23 @@ class ARROW_EXPORT Decimal128Builder : public FixedSizeBinaryBuilder {
   using ArrayBuilder::Finish;
   /// \endcond
 
-  Status Finish(std::shared_ptr<Decimal128Array>* out) { return FinishTyped(out); }
+  Status Finish(std::shared_ptr<typename DecimalBuilderHelper<width>::array_type>* out) { return FinishTyped(out); }
 
   std::shared_ptr<DataType> type() const override { return decimal_type_; }
 
  protected:
-  std::shared_ptr<Decimal128Type> decimal_type_;
+  std::shared_ptr<typename DecimalBuilderHelper<width>::type> decimal_type_;
 };
 
-class ARROW_EXPORT Decimal256Builder : public FixedSizeBinaryBuilder {
- public:
-  using TypeClass = Decimal256Type;
-
-  explicit Decimal256Builder(const std::shared_ptr<DataType>& type,
-                             MemoryPool* pool = default_memory_pool());
-
-  using FixedSizeBinaryBuilder::Append;
-  using FixedSizeBinaryBuilder::AppendValues;
-  using FixedSizeBinaryBuilder::Reset;
-
-  Status Append(Decimal256 val);
-  void UnsafeAppend(Decimal256 val);
-  void UnsafeAppend(util::string_view val);
-
-  Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
-
-  /// \cond FALSE
-  using ArrayBuilder::Finish;
-  /// \endcond
-
-  Status Finish(std::shared_ptr<Decimal256Array>* out) { return FinishTyped(out); }
-
-  std::shared_ptr<DataType> type() const override { return decimal_type_; }
-
- protected:
-  std::shared_ptr<Decimal256Type> decimal_type_;
+#define DECIMAL_BUILDER_DECL(width)                                             \
+class ARROW_EXPORT Decimal##width##Builder : public BaseDecimalBuilder<width> { \
+  using BaseDecimalBuilder<width>::BaseDecimalBuilder;                          \
 };
+
+DECIMAL_BUILDER_DECL(128)
+DECIMAL_BUILDER_DECL(256)
+
+#undef DECIMAL_BUILDER_DECL
 
 using DecimalBuilder = Decimal128Builder;
 

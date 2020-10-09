@@ -33,6 +33,7 @@
 #include "arrow/util/macros.h"
 #include "arrow/util/variant.h"
 #include "arrow/util/visibility.h"
+#include "arrow/util/decimal_meta.h"
 #include "arrow/visitor.h"  // IWYU pragma: keep
 
 namespace arrow {
@@ -875,45 +876,36 @@ class ARROW_EXPORT DecimalType : public FixedSizeBinaryType {
   int32_t scale_;
 };
 
-/// \brief Concrete type class for 128-bit decimal data
-class ARROW_EXPORT Decimal128Type : public DecimalType {
+
+/// \brief Template type class for decimal data
+template<uint32_t width>
+class ARROW_EXPORT BaseDecimalType : public DecimalType {
  public:
-  static constexpr Type::type type_id = Type::DECIMAL128;
+  static constexpr const char* type_name() { return DecimalMeta<width>::name; }
 
-  static constexpr const char* type_name() { return "decimal"; }
+  /// BaseDecimalType constructor that aborts on invalid input.
+  explicit BaseDecimalType(int32_t precision, int32_t scale);
 
-  /// Decimal128Type constructor that aborts on invalid input.
-  explicit Decimal128Type(int32_t precision, int32_t scale);
-
-  /// Decimal128Type constructor that returns an error on invalid input.
+  /// BaseDecimalType constructor that returns an error on invalid input.
   static Result<std::shared_ptr<DataType>> Make(int32_t precision, int32_t scale);
 
   std::string ToString() const override;
-  std::string name() const override { return "decimal"; }
+  std::string name() const override { return DecimalMeta<width>::name; }
 
   static constexpr int32_t kMinPrecision = 1;
-  static constexpr int32_t kMaxPrecision = 38;
+  static constexpr int32_t kMaxPrecision = DecimalMeta<width>::max_precision;
 };
 
-/// \brief Concrete type class for 256-bit decimal data
-class ARROW_EXPORT Decimal256Type : public DecimalType {
- public:
-  static constexpr Type::type type_id = Type::DECIMAL256;
-
-  static constexpr const char* type_name() { return "decimal256"; }
-
-  /// Decimal256Type constructor that aborts on invalid input.
-  explicit Decimal256Type(int32_t precision, int32_t scale);
-
-  /// Decimal256Type constructor that returns an error on invalid input.
-  static Result<std::shared_ptr<DataType>> Make(int32_t precision, int32_t scale);
-
-  std::string ToString() const override;
-  std::string name() const override { return "decimal256"; }
-
-  static constexpr int32_t kMinPrecision = 1;
-  static constexpr int32_t kMaxPrecision = 76;
+#define DECIMAL_TYPE_DECL(width)                                             \
+class ARROW_EXPORT Decimal##width##Type : public BaseDecimalType<width> {    \
+  public: static constexpr Type::type type_id = Type::DECIMAL##width;        \
+          using BaseDecimalType<width>::BaseDecimalType;                     \
 };
+
+DECIMAL_TYPE_DECL(128)
+DECIMAL_TYPE_DECL(256)
+
+#undef DECIMAL_TYPE_DECL
 
 /// \brief Concrete type class for union data
 class ARROW_EXPORT UnionType : public NestedType {

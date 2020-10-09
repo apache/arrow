@@ -23,6 +23,7 @@
 #include <string>
 #include <type_traits>
 
+#include "arrow/util/decimal_meta.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/type_traits.h"
 #include "arrow/util/visibility.h"
@@ -35,6 +36,7 @@ enum class DecimalStatus {
   kOverflow,
   kRescaleDataLoss,
 };
+
 
 /// Represents a signed 128-bit integer in two's complement.
 ///
