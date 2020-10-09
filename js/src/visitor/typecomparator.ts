@@ -86,23 +86,23 @@ export class TypeComparator extends Visitor {
     compareSchemas<T extends { [key: string]: DataType }>(schema: Schema<T>, other?: Schema | null): other is Schema<T> {
         return (schema === other) || (
             other instanceof schema.constructor &&
-            instance.compareFields(schema.fields, other.fields)
+            this.compareManyFields(schema.fields, other.fields)
         );
     }
-    compareFields<T extends { [key: string]: DataType }>(fields: Field<T[keyof T]>[], others?: Field[] | null): others is Field<T[keyof T]>[] {
+    compareManyFields<T extends { [key: string]: DataType }>(fields: Field<T[keyof T]>[], others?: Field[] | null): others is Field<T[keyof T]>[] {
         return (fields === others) || (
             Array.isArray(fields) &&
             Array.isArray(others) &&
             fields.length === others.length &&
-            fields.every((f, i) => instance.compareField(f, others[i]))
+            fields.every((f, i) => this.compareFields(f, others[i]))
         );
     }
-    compareField<T extends DataType = any>(field: Field<T>, other?: Field | null): other is Field<T> {
+    compareFields<T extends DataType = any>(field: Field<T>, other?: Field | null): other is Field<T> {
         return (field === other) || (
             other instanceof field.constructor &&
             field.name === other.name &&
             field.nullable === other.nullable &&
-            instance.visit(field.type, other.type)
+            this.visit(field.type, other.type)
         );
     }
 }
@@ -164,7 +164,7 @@ function compareList<T extends List>(type: T, other?: DataType | null): other is
     return (type === other) || (
         compareConstructor(type, other) &&
         type.children.length === other.children.length &&
-        instance.compareFields(type.children, other.children)
+        instance.compareManyFields(type.children, other.children)
     );
 }
 
@@ -172,7 +172,7 @@ function compareStruct<T extends Struct>(type: T, other?: DataType | null): othe
     return (type === other) || (
         compareConstructor(type, other) &&
         type.children.length === other.children.length &&
-        instance.compareFields(type.children, other.children)
+        instance.compareManyFields(type.children, other.children)
     );
 }
 
@@ -181,7 +181,7 @@ function compareUnion<T extends Union>(type: T, other?: DataType | null): other 
         compareConstructor(type, other) &&
         type.mode === other.mode &&
         type.typeIds.every((x, i) => x === other.typeIds[i]) &&
-        instance.compareFields(type.children, other.children)
+        instance.compareManyFields(type.children, other.children)
     );
 }
 
@@ -207,7 +207,7 @@ function compareFixedSizeList<T extends FixedSizeList>(type: T, other?: DataType
         compareConstructor(type, other) &&
         type.listSize === other.listSize &&
         type.children.length === other.children.length &&
-        instance.compareFields(type.children, other.children)
+        instance.compareManyFields(type.children, other.children)
     );
 }
 
@@ -216,7 +216,7 @@ function compareMap<T extends Map_>(type: T, other?: DataType | null): other is 
         compareConstructor(type, other) &&
         type.keysSorted === other.keysSorted &&
         type.children.length === other.children.length &&
-        instance.compareFields(type.children, other.children)
+        instance.compareManyFields(type.children, other.children)
     );
 }
 
@@ -266,3 +266,15 @@ TypeComparator.prototype.visitMap                  =             compareMap;
 
 /** @ignore */
 export const instance = new TypeComparator();
+
+export function compareSchemas<T extends { [key: string]: DataType }>(schema: Schema<T>, other?: Schema | null): other is Schema<T> {
+    return instance.compareSchemas(schema, other);
+}
+
+export function compareFields<T extends DataType = any>(field: Field<T>, other?: Field | null): other is Field<T> {
+    return instance.compareFields(field, other);
+}
+
+export function compareTypes<A extends DataType = any>(type: A, other?: DataType): other is A {
+    return instance.visit(type, other);
+}

@@ -19,9 +19,8 @@
 
 import { Field } from './schema';
 import { flatbuffers } from 'flatbuffers';
+import { VectorType as V } from './interfaces';
 import { TypedArrayConstructor } from './interfaces';
-import { VectorType as V, TypeToDataType } from './interfaces';
-import { instance as comparer } from './visitor/typecomparator';
 
 import Long = flatbuffers.Long;
 import {
@@ -87,9 +86,6 @@ export abstract class DataType<TType extends Type = Type, TChildren extends { [k
     /** @nocollapse */ static      isDictionary (x: any): x is Dictionary      { return x && x.typeId === Type.Dictionary;      }
 
     public get typeId(): TType { return <any> Type.NONE; }
-    public compareTo(other: DataType): other is TypeToDataType<TType> {
-        return comparer.visit(this, other);
-    }
 
     protected static [Symbol.toStringTag] = ((proto: DataType) => {
         (<any> proto).children = null;
