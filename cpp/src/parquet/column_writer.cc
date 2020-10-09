@@ -1393,6 +1393,14 @@ Status TypedColumnWriterImpl<DType>::WriteArrowDictionary(
     // It's a new dictionary. Call PutDictionary and keep track of it
     PARQUET_CATCH_NOT_OK(dict_encoder->PutDictionary(*dictionary));
 
+    // If there were duplicate value in the dictionary, the encoder's memo table
+    // will be out of sync with the indices in the Arrow array.
+    // The easiest solution for this uncommon case is to fallback to plain encoding.
+    if (dict_encoder->num_entries() != dictionary->length()) {
+      PARQUET_CATCH_NOT_OK(FallbackToPlainEncoding());
+      return WriteDense();
+    }
+
     // TODO(wesm): If some dictionary values are unobserved, then the
     // statistics will be inaccurate. Do we care enough to fix it?
     if (page_statistics_ != nullptr) {

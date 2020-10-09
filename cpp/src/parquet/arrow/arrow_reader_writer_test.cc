@@ -2689,6 +2689,39 @@ TEST(TestArrowReadWrite, DictionaryColumnChunkedWrite) {
   ::arrow::AssertTablesEqual(*expected_table, *result, false);
 }
 
+TEST(TestArrowReadWrite, NonUniqueDictionaryValues) {
+  // ARROW-10237
+  auto dict_with_dupes = ArrayFromJSON(::arrow::utf8(), R"(["a", "a", "b"])");
+  // test with all valid 4-long `indices`
+  for (int i = 0; i < 4 * 4 * 4 * 4; ++i) {
+    int j = i;
+    ASSERT_OK_AND_ASSIGN(
+        auto indices,
+        ArrayFromBuilderVisitor(::arrow::int32(), 4, [&](::arrow::Int32Builder* b) {
+          if (j % 4 < dict_with_dupes->length()) {
+            b->UnsafeAppend(j % 4);
+          } else {
+            b->UnsafeAppendNull();
+          }
+          j /= 4;
+        }));
+    ASSERT_OK_AND_ASSIGN(auto plain, ::arrow::compute::Take(*dict_with_dupes, *indices));
+    ASSERT_OK_AND_ASSIGN(auto encoded,
+                         ::arrow::DictionaryArray::FromArrays(indices, dict_with_dupes));
+
+    auto table = Table::Make(::arrow::schema({::arrow::field("d", encoded->type())}),
+                             ::arrow::ArrayVector{encoded});
+
+    ASSERT_OK(table->ValidateFull());
+
+    std::shared_ptr<Table> round_tripped;
+    ASSERT_NO_FATAL_FAILURE(DoSimpleRoundtrip(table, true, 20, {}, &round_tripped));
+
+    ASSERT_OK(round_tripped->ValidateFull());
+    ::arrow::AssertArraysEqual(*plain, *round_tripped->column(0)->chunk(0), true);
+  }
+}
+
 TEST(TestArrowWrite, CheckChunkSize) {
   const int num_columns = 2;
   const int num_rows = 128;

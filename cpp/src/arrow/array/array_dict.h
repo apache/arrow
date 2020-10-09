@@ -75,6 +75,12 @@ class ARROW_EXPORT DictionaryArray : public Array {
       const std::shared_ptr<DataType>& type, const std::shared_ptr<Array>& indices,
       const std::shared_ptr<Array>& dictionary);
 
+  static Result<std::shared_ptr<Array>> FromArrays(
+      const std::shared_ptr<Array>& indices, const std::shared_ptr<Array>& dictionary) {
+    return FromArrays(::arrow::dictionary(indices->type(), dictionary->type()), indices,
+                      dictionary);
+  }
+
   /// \brief Transpose this DictionaryArray
   ///
   /// This method constructs a new dictionary array with the given dictionary
