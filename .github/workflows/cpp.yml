@@ -102,7 +102,9 @@ jobs:
     #         hosted machines
     name: ${{ matrix.title }}
     runs-on: ${{ matrix.runner }}
-    if: github.event_name == 'push'
+    # TODO(kszucs): re-enable once the self-hosted workers are properly
+    # registered to github
+    if: false && github.event_name == 'push'
     defaults:
       # To use certain environment variables set by .bashrc, an interactive
       # bash shell must be used
