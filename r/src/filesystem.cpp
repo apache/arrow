@@ -245,9 +245,8 @@ cpp11::writable::list fs___FileSystemFromUri(const std::string& path) {
   using cpp11::literals::operator"" _nm;
 
   std::string out_path;
-  auto file_system = ValueOrStop(fs::FileSystemFromUri(path, &out_path));
-  // TODO: needs to call the FileSystem dispatcher
-  cpp11::sexp out_fs = cpp11::r6(file_system, "FileSystem");
+  cpp11::sexp out_fs =
+      cpp11::r6_FileSystem(ValueOrStop(fs::FileSystemFromUri(path, &out_path)));
   return cpp11::writable::list({"fs"_nm = out_fs, "path"_nm = out_path});
 }
 

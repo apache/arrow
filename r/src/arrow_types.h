@@ -25,6 +25,7 @@
 
 #include <arrow/buffer.h>  // for RBuffer definition below
 #include <arrow/c/bridge.h>
+#include <arrow/filesystem/type_fwd.h>
 #include <arrow/result.h>
 #include <arrow/type_fwd.h>
 
@@ -127,6 +128,7 @@ R6 r6_Field(const std::shared_ptr<arrow::Field>& field);
 R6 r6_ChunkedArray(const std::shared_ptr<arrow::ChunkedArray>& array);
 R6 r6_RecordBatch(const std::shared_ptr<arrow::RecordBatch>& batch);
 R6 r6_Scalar(const std::shared_ptr<arrow::Scalar>& ptr);
+R6 r6_FileSystem(const std::shared_ptr<arrow::fs::FileSystem>& file_system);
 
 }  // namespace cpp11
 
