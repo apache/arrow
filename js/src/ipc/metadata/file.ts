@@ -17,14 +17,16 @@
 
 /* tslint:disable:class-name */
 
-import * as File_ from '../../fb/File';
+import {
+    Block as _Block,
+    Footer as _Footer
+} from '../../fb/File';
+
 import { flatbuffers } from 'flatbuffers';
 
 import Long = flatbuffers.Long;
 import Builder = flatbuffers.Builder;
 import ByteBuffer = flatbuffers.ByteBuffer;
-import _Block = File_.org.apache.arrow.flatbuf.Block;
-import _Footer = File_.org.apache.arrow.flatbuf.Footer;
 
 import { Schema } from '../../schema';
 import { MetadataVersion } from '../../enum';

@@ -18,6 +18,7 @@
 -->
 
 # Getting Involved
+
 Even if you do not plan to contribute to Apache Arrow itself or Arrow
 integrations in other projects, we'd be happy to have you involved:
 
@@ -68,29 +69,41 @@ Uses [lerna](https://github.com/lerna/lerna) to publish each build target to npm
 
 1. Once generated, the flatbuffers format code needs to be adjusted for our build scripts (assumes `gnu-sed`):
 
-```shell
-cd $ARROW_HOME
+    ```shell
+    cd $ARROW_HOME
 
-flatc --ts -o ./js/src/fb ./format/{File,Schema,Message}.fbs
+    # Create a tmpdir to store modified flatbuffers schemas
+    tmp_format_dir=$(mktemp -d)
+    cp ./format/*.fbs $tmp_format_dir
 
-cd ./js/src/fb
+    # Remove namespaces from the flatbuffers schemas
+    sed -i '+s+namespace org.apache.arrow.flatbuf;++ig' $tmp_format_dir/*.fbs
+    sed -i '+s+org.apache.arrow.flatbuf.++ig' $tmp_format_dir/*.fbs
 
-# Rename the existing files to <filename>.bak.ts
-mv File{,.bak}.ts && mv Schema{,.bak}.ts && mv Message{,.bak}.ts
+    # Generate TS source from the modified Arrow flatbuffers schemas
+    flatc --ts --no-ts-reexport -o ./js/src/fb $tmp_format_dir/{File,Schema,Message}.fbs
 
-# Remove `_generated` from the ES6 imports of the generated files
-sed -i '+s+_generated\";+\";+ig' *_generated.ts
-# Fix all the `flatbuffers` imports
-sed -i '+s+./flatbuffers+flatbuffers+ig' *_generated.ts
-# Fix the Union createTypeIdsVector typings
-sed -i -r '+s+static createTypeIdsVector\(builder: flatbuffers.Builder, data: number\[\] \| Uint8Array+static createTypeIdsVector\(builder: flatbuffers.Builder, data: number\[\] \| Int32Array+ig' Schema_generated.ts
-# Add `/* tslint:disable:class-name */` to the top of `Schema.ts`
-echo -e '/* tslint:disable:class-name */\n' | cat - Schema_generated.ts > Schema1.ts && mv Schema1.ts Schema_generated.ts
-# Remove "_generated" suffix from TS files
-mv File{_generated,}.ts && mv Schema{_generated,}.ts && mv Message{_generated,}.ts
-```
-2. Manually remove `Tensor` and `SparseTensor` imports and exports
-3. Execute `npm run lint` from the `js` directory to fix the linting errors
+    # Remove the tmpdir
+    rm -rf $tmp_format_dir
+
+    cd ./js/src/fb
+
+    # Rename the existing files to <filename>.bak.ts
+    mv File{,.bak}.ts && mv Schema{,.bak}.ts && mv Message{,.bak}.ts
+
+    # Remove `_generated` from the ES6 imports of the generated files
+    sed -i '+s+_generated\";+\";+ig' *_generated.ts
+    # Fix all the `flatbuffers` imports
+    sed -i '+s+./flatbuffers+flatbuffers+ig' *_generated.ts
+    # Fix the Union createTypeIdsVector typings
+    sed -i -r '+s+static createTypeIdsVector\(builder: flatbuffers.Builder, data: number\[\] \| Uint8Array+static createTypeIdsVector\(builder: flatbuffers.Builder, data: number\[\] \| Int32Array+ig' Schema_generated.ts
+    # Add `/* tslint:disable:class-name */` to the top of `Schema.ts`
+    echo -e '/* tslint:disable:class-name */\n' | cat - Schema_generated.ts > Schema1.ts && mv Schema1.ts Schema_generated.ts
+    # Remove "_generated" suffix from TS files
+    mv File{_generated,}.ts && mv Schema{_generated,}.ts && mv Message{_generated,}.ts
+    ```
+
+2. Execute `npm run lint` from the `js` directory to fix the linting errors
 
 [1]: mailto:dev-subscribe@arrow.apache.org
 [2]: https://github.com/apache/arrow/tree/master/format

@@ -15,7 +15,19 @@
 // specific language governing permissions and limitations
 // under the License.
 
-export { ArrowType, DateUnit, IntervalUnit, MessageHeader, MetadataVersion, Precision, TimeUnit, Type, UnionMode, BufferType } from './enum';
+export {
+    DateUnit,
+    TimeUnit,
+    Precision,
+    UnionMode,
+    IntervalUnit,
+    MetadataVersion,
+} from './fb/Schema';
+
+export { MessageHeader } from './fb/Message'
+
+export { Type, BufferType } from './enum';
+
 export { Data } from './data';
 export {
     DataType,
