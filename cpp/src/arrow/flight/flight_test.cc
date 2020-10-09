@@ -1800,6 +1800,32 @@ TEST_F(TestTls, DoAction) {
   ASSERT_EQ(result->body->ToString(), "Hello, world!");
 }
 
+#if defined(GRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS)
+TEST_F(TestTls, DisableServerVerification) {
+  std::unique_ptr<FlightClient> client;
+  auto client_options = FlightClientOptions();
+  // For security reasons, if encryption is being used,
+  // the client should be configured to verify the server by default.
+  ASSERT_EQ(client_options.disable_server_verification, false);
+  client_options.disable_server_verification = true;
+  ASSERT_OK(FlightClient::Connect(location_, client_options, &client));
+
+  FlightCallOptions options;
+  options.timeout = TimeoutDuration{5.0};
+  Action action;
+  action.type = "test";
+  action.body = Buffer::FromString("");
+  std::unique_ptr<ResultStream> results;
+  ASSERT_OK(client->DoAction(options, action, &results));
+  ASSERT_NE(results, nullptr);
+
+  std::unique_ptr<Result> result;
+  ASSERT_OK(results->Next(&result));
+  ASSERT_NE(result, nullptr);
+  ASSERT_EQ(result->body->ToString(), "Hello, world!");
+}
+#endif
+
 TEST_F(TestTls, OverrideHostname) {
   std::unique_ptr<FlightClient> client;
   auto client_options = FlightClientOptions();

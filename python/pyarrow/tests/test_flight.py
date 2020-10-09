@@ -1043,6 +1043,19 @@ def test_tls_do_get():
 
 
 @pytest.mark.requires_testing_data
+def test_tls_disable_server_verification():
+    """Try a simple do_get call over TLS with server verification disabled."""
+    table = simple_ints_table()
+    certs = example_tls_certs()
+
+    with ConstantFlightServer(tls_certificates=certs["certificates"]) as s:
+        client = FlightClient(('localhost', s.port),
+                              disable_server_verification=True)
+        data = client.do_get(flight.Ticket(b'ints')).read_all()
+        assert data.equals(table)
+
+
+@pytest.mark.requires_testing_data
 def test_tls_override_hostname():
     """Check that incorrectly overriding the hostname fails."""
     certs = example_tls_certs()
