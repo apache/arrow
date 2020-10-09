@@ -232,7 +232,7 @@ class ARROW_DS_EXPORT ParquetFileFragment : public FileFragment {
   /// \brief Ensure attached statistics are complete and the physical schema is cached.
   Status EnsureCompleteMetadata(parquet::arrow::FileReader* reader = NULLPTR);
 
-  // Return a filtered subset of the ParquetFileFragment.
+  /// \brief Return a filtered subset of the ParquetFileFragment.
   Result<std::shared_ptr<Fragment>> Subset(const std::shared_ptr<Expression>& predicate);
   Result<std::shared_ptr<Fragment>> Subset(const std::vector<int> row_group_ids);
 
