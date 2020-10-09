@@ -72,6 +72,15 @@ def _decorate_compute_function(wrapper, exposed_name, func, option_class):
             right : Array-like or scalar-like
                 Second argument to compute function
             """)
+    elif func.arity == 3:
+        doc_pieces.append("""\
+            value : Array-like or scalar-like
+                First argument to compute function
+            left : Array-like or scalar-like
+                Second argument to compute function
+            right : Array-like or scalar-like
+                Third argument to compute function
+            """)        
 
     doc_pieces.append("""\
         memory_pool : pyarrow.MemoryPool, optional
@@ -151,6 +160,19 @@ def _simple_binary_function(name):
 
     return _decorate_compute_function(wrapper, name, func, option_class)
 
+def _simple_ternary_function(name):
+    func = get_function(name)
+    option_class = _option_classes.get(name)
+
+    if option_class is not None:
+        def wrapper(value, left, right, *, options=None, memory_pool=None, **kwargs):
+            options = _handle_options(name, option_class, options, kwargs)
+            return func.call([value, left, right], options, memory_pool)
+    else:
+        def wrapper(value, left, right, *, memory_pool=None):
+            return func.call([value, left, right], None, memory_pool)
+
+    return _decorate_compute_function(wrapper, name, func, option_class)
 
 def _make_global_functions():
     """
@@ -169,6 +191,8 @@ def _make_global_functions():
             g[name] = _simple_unary_function(name)
         elif func.arity == 2:
             g[name] = _simple_binary_function(name)
+        elif func.arity == 3:
+            g[name] = _simple_ternary_function(name)    
         else:
             raise NotImplementedError("Unsupported function arity: ",
                                       func.arity)
