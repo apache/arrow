@@ -21,8 +21,6 @@
 #include <arrow/ipc/reader.h>
 #include <arrow/table.h>
 
-#include "./arrow_metadata.h"
-
 // [[arrow::export]]
 std::shared_ptr<arrow::Schema> RecordBatchReader__schema(
     const std::shared_ptr<arrow::RecordBatchReader>& reader) {
@@ -74,12 +72,6 @@ std::shared_ptr<arrow::Schema> ipc___RecordBatchFileReader__schema(
 int ipc___RecordBatchFileReader__num_record_batches(
     const std::shared_ptr<arrow::ipc::RecordBatchFileReader>& reader) {
   return reader->num_record_batches();
-}
-
-// [[arrow::export]]
-cpp11::strings ipc___RecordBatchFileReader__metadata(
-    const std::shared_ptr<arrow::ipc::RecordBatchFileReader>& reader) {
-  return KeyValueMetadata__as_vector(reader->metadata());
 }
 
 // [[arrow::export]]

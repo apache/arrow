@@ -432,8 +432,8 @@ dataset___ParquetFileWriteOptions__update <- function(options, writer_props, arr
     invisible(.Call(`_arrow_dataset___ParquetFileWriteOptions__update` , options, writer_props, arrow_writer_props))
 }
 
-dataset___IpcFileWriteOptions__update <- function(ipc_options, use_legacy_format, codec, metadata_version, metadata){
-    invisible(.Call(`_arrow_dataset___IpcFileWriteOptions__update` , ipc_options, use_legacy_format, codec, metadata_version, metadata))
+dataset___IpcFileWriteOptions__update <- function(ipc_options, use_legacy_format, codec, metadata_version){
+    invisible(.Call(`_arrow_dataset___IpcFileWriteOptions__update` , ipc_options, use_legacy_format, codec, metadata_version))
 }
 
 dataset___IpcFileFormat__Make <- function(){
@@ -1388,10 +1388,6 @@ ipc___RecordBatchFileReader__num_record_batches <- function(reader){
     .Call(`_arrow_ipc___RecordBatchFileReader__num_record_batches` , reader)
 }
 
-ipc___RecordBatchFileReader__metadata <- function(reader){
-    .Call(`_arrow_ipc___RecordBatchFileReader__metadata` , reader)
-}
-
 ipc___RecordBatchFileReader__ReadRecordBatch <- function(reader, i){
     .Call(`_arrow_ipc___RecordBatchFileReader__ReadRecordBatch` , reader, i)
 }
@@ -1424,8 +1420,8 @@ ipc___RecordBatchWriter__Close <- function(batch_writer){
     invisible(.Call(`_arrow_ipc___RecordBatchWriter__Close` , batch_writer))
 }
 
-ipc___RecordBatchFileWriter__Open <- function(stream, schema, use_legacy_format, codec, metadata_version, metadata){
-    .Call(`_arrow_ipc___RecordBatchFileWriter__Open` , stream, schema, use_legacy_format, codec, metadata_version, metadata)
+ipc___RecordBatchFileWriter__Open <- function(stream, schema, use_legacy_format, metadata_version){
+    .Call(`_arrow_ipc___RecordBatchFileWriter__Open` , stream, schema, use_legacy_format, metadata_version)
 }
 
 ipc___RecordBatchStreamWriter__Open <- function(stream, schema, use_legacy_format, metadata_version){

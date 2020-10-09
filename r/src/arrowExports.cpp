@@ -1697,20 +1697,19 @@ extern "C" SEXP _arrow_dataset___ParquetFileWriteOptions__update(SEXP options_se
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-void dataset___IpcFileWriteOptions__update(const std::shared_ptr<ds::IpcFileWriteOptions>& ipc_options, bool use_legacy_format, const std::shared_ptr<arrow::util::Codec>& codec, arrow::ipc::MetadataVersion metadata_version, cpp11::strings metadata);
-extern "C" SEXP _arrow_dataset___IpcFileWriteOptions__update(SEXP ipc_options_sexp, SEXP use_legacy_format_sexp, SEXP codec_sexp, SEXP metadata_version_sexp, SEXP metadata_sexp){
+void dataset___IpcFileWriteOptions__update(const std::shared_ptr<ds::IpcFileWriteOptions>& ipc_options, bool use_legacy_format, const std::shared_ptr<arrow::util::Codec>& codec, arrow::ipc::MetadataVersion metadata_version);
+extern "C" SEXP _arrow_dataset___IpcFileWriteOptions__update(SEXP ipc_options_sexp, SEXP use_legacy_format_sexp, SEXP codec_sexp, SEXP metadata_version_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<ds::IpcFileWriteOptions>&>::type ipc_options(ipc_options_sexp);
 	arrow::r::Input<bool>::type use_legacy_format(use_legacy_format_sexp);
 	arrow::r::Input<const std::shared_ptr<arrow::util::Codec>&>::type codec(codec_sexp);
 	arrow::r::Input<arrow::ipc::MetadataVersion>::type metadata_version(metadata_version_sexp);
-	arrow::r::Input<cpp11::strings>::type metadata(metadata_sexp);
-	dataset___IpcFileWriteOptions__update(ipc_options, use_legacy_format, codec, metadata_version, metadata);
+	dataset___IpcFileWriteOptions__update(ipc_options, use_legacy_format, codec, metadata_version);
 	return R_NilValue;
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_dataset___IpcFileWriteOptions__update(SEXP ipc_options_sexp, SEXP use_legacy_format_sexp, SEXP codec_sexp, SEXP metadata_version_sexp, SEXP metadata_sexp){
+extern "C" SEXP _arrow_dataset___IpcFileWriteOptions__update(SEXP ipc_options_sexp, SEXP use_legacy_format_sexp, SEXP codec_sexp, SEXP metadata_version_sexp){
 	Rf_error("Cannot call dataset___IpcFileWriteOptions__update(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
@@ -5446,21 +5445,6 @@ extern "C" SEXP _arrow_ipc___RecordBatchFileReader__num_record_batches(SEXP read
 
 // recordbatchreader.cpp
 #if defined(ARROW_R_WITH_ARROW)
-cpp11::strings ipc___RecordBatchFileReader__metadata(const std::shared_ptr<arrow::ipc::RecordBatchFileReader>& reader);
-extern "C" SEXP _arrow_ipc___RecordBatchFileReader__metadata(SEXP reader_sexp){
-BEGIN_CPP11
-	arrow::r::Input<const std::shared_ptr<arrow::ipc::RecordBatchFileReader>&>::type reader(reader_sexp);
-	return cpp11::as_sexp(ipc___RecordBatchFileReader__metadata(reader));
-END_CPP11
-}
-#else
-extern "C" SEXP _arrow_ipc___RecordBatchFileReader__metadata(SEXP reader_sexp){
-	Rf_error("Cannot call ipc___RecordBatchFileReader__metadata(). Please use arrow::install_arrow() to install required runtime libraries. ");
-}
-#endif
-
-// recordbatchreader.cpp
-#if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::RecordBatch> ipc___RecordBatchFileReader__ReadRecordBatch(const std::shared_ptr<arrow::ipc::RecordBatchFileReader>& reader, int i);
 extern "C" SEXP _arrow_ipc___RecordBatchFileReader__ReadRecordBatch(SEXP reader_sexp, SEXP i_sexp){
 BEGIN_CPP11
@@ -5587,20 +5571,18 @@ extern "C" SEXP _arrow_ipc___RecordBatchWriter__Close(SEXP batch_writer_sexp){
 
 // recordbatchwriter.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::ipc::RecordBatchWriter> ipc___RecordBatchFileWriter__Open(const std::shared_ptr<arrow::io::OutputStream>& stream, const std::shared_ptr<arrow::Schema>& schema, bool use_legacy_format, const std::shared_ptr<arrow::util::Codec>& codec, arrow::ipc::MetadataVersion metadata_version, cpp11::strings metadata);
-extern "C" SEXP _arrow_ipc___RecordBatchFileWriter__Open(SEXP stream_sexp, SEXP schema_sexp, SEXP use_legacy_format_sexp, SEXP codec_sexp, SEXP metadata_version_sexp, SEXP metadata_sexp){
+std::shared_ptr<arrow::ipc::RecordBatchWriter> ipc___RecordBatchFileWriter__Open(const std::shared_ptr<arrow::io::OutputStream>& stream, const std::shared_ptr<arrow::Schema>& schema, bool use_legacy_format, arrow::ipc::MetadataVersion metadata_version);
+extern "C" SEXP _arrow_ipc___RecordBatchFileWriter__Open(SEXP stream_sexp, SEXP schema_sexp, SEXP use_legacy_format_sexp, SEXP metadata_version_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::io::OutputStream>&>::type stream(stream_sexp);
 	arrow::r::Input<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
 	arrow::r::Input<bool>::type use_legacy_format(use_legacy_format_sexp);
-	arrow::r::Input<const std::shared_ptr<arrow::util::Codec>&>::type codec(codec_sexp);
 	arrow::r::Input<arrow::ipc::MetadataVersion>::type metadata_version(metadata_version_sexp);
-	arrow::r::Input<cpp11::strings>::type metadata(metadata_sexp);
-	return cpp11::as_sexp(ipc___RecordBatchFileWriter__Open(stream, schema, use_legacy_format, codec, metadata_version, metadata));
+	return cpp11::as_sexp(ipc___RecordBatchFileWriter__Open(stream, schema, use_legacy_format, metadata_version));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_ipc___RecordBatchFileWriter__Open(SEXP stream_sexp, SEXP schema_sexp, SEXP use_legacy_format_sexp, SEXP codec_sexp, SEXP metadata_version_sexp, SEXP metadata_sexp){
+extern "C" SEXP _arrow_ipc___RecordBatchFileWriter__Open(SEXP stream_sexp, SEXP schema_sexp, SEXP use_legacy_format_sexp, SEXP metadata_version_sexp){
 	Rf_error("Cannot call ipc___RecordBatchFileWriter__Open(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
@@ -6391,7 +6373,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_dataset___ParquetFileFormat__Make", (DL_FUNC) &_arrow_dataset___ParquetFileFormat__Make, 3}, 
 		{ "_arrow_dataset___FileWriteOptions__type_name", (DL_FUNC) &_arrow_dataset___FileWriteOptions__type_name, 1}, 
 		{ "_arrow_dataset___ParquetFileWriteOptions__update", (DL_FUNC) &_arrow_dataset___ParquetFileWriteOptions__update, 3}, 
-		{ "_arrow_dataset___IpcFileWriteOptions__update", (DL_FUNC) &_arrow_dataset___IpcFileWriteOptions__update, 5}, 
+		{ "_arrow_dataset___IpcFileWriteOptions__update", (DL_FUNC) &_arrow_dataset___IpcFileWriteOptions__update, 4}, 
 		{ "_arrow_dataset___IpcFileFormat__Make", (DL_FUNC) &_arrow_dataset___IpcFileFormat__Make, 0}, 
 		{ "_arrow_dataset___CsvFileFormat__Make", (DL_FUNC) &_arrow_dataset___CsvFileFormat__Make, 1}, 
 		{ "_arrow_dataset___DirectoryPartitioning", (DL_FUNC) &_arrow_dataset___DirectoryPartitioning, 1}, 
@@ -6630,7 +6612,6 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_ipc___RecordBatchStreamReader__batches", (DL_FUNC) &_arrow_ipc___RecordBatchStreamReader__batches, 1}, 
 		{ "_arrow_ipc___RecordBatchFileReader__schema", (DL_FUNC) &_arrow_ipc___RecordBatchFileReader__schema, 1}, 
 		{ "_arrow_ipc___RecordBatchFileReader__num_record_batches", (DL_FUNC) &_arrow_ipc___RecordBatchFileReader__num_record_batches, 1}, 
-		{ "_arrow_ipc___RecordBatchFileReader__metadata", (DL_FUNC) &_arrow_ipc___RecordBatchFileReader__metadata, 1}, 
 		{ "_arrow_ipc___RecordBatchFileReader__ReadRecordBatch", (DL_FUNC) &_arrow_ipc___RecordBatchFileReader__ReadRecordBatch, 2}, 
 		{ "_arrow_ipc___RecordBatchFileReader__Open", (DL_FUNC) &_arrow_ipc___RecordBatchFileReader__Open, 1}, 
 		{ "_arrow_Table__from_RecordBatchFileReader", (DL_FUNC) &_arrow_Table__from_RecordBatchFileReader, 1}, 
@@ -6639,7 +6620,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_ipc___RecordBatchWriter__WriteRecordBatch", (DL_FUNC) &_arrow_ipc___RecordBatchWriter__WriteRecordBatch, 2}, 
 		{ "_arrow_ipc___RecordBatchWriter__WriteTable", (DL_FUNC) &_arrow_ipc___RecordBatchWriter__WriteTable, 2}, 
 		{ "_arrow_ipc___RecordBatchWriter__Close", (DL_FUNC) &_arrow_ipc___RecordBatchWriter__Close, 1}, 
-		{ "_arrow_ipc___RecordBatchFileWriter__Open", (DL_FUNC) &_arrow_ipc___RecordBatchFileWriter__Open, 6}, 
+		{ "_arrow_ipc___RecordBatchFileWriter__Open", (DL_FUNC) &_arrow_ipc___RecordBatchFileWriter__Open, 4}, 
 		{ "_arrow_ipc___RecordBatchStreamWriter__Open", (DL_FUNC) &_arrow_ipc___RecordBatchStreamWriter__Open, 4}, 
 		{ "_arrow_Array__GetScalar", (DL_FUNC) &_arrow_Array__GetScalar, 2}, 
 		{ "_arrow_Scalar__ToString", (DL_FUNC) &_arrow_Scalar__ToString, 1}, 

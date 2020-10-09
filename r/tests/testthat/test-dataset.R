@@ -948,17 +948,13 @@ test_that("Writing a dataset: Ipc format options & compression", {
   ds <- open_dataset(csv_dir, partitioning = "part", format = "csv")
   dst_dir <- make_temp_dir()
 
-  metadata <- c(hello = "world", eh = "!")
   codec <- NULL
   if (codec_is_available("zstd")) {
     codec <- Codec$create("zstd")
   }
 
-  write_dataset(ds, dst_dir, format = "feather", metadata = metadata, codec = codec)
+  write_dataset(ds, dst_dir, format = "feather", codec = codec)
   expect_true(dir.exists(dst_dir))
-
-  file <- ds$filesystem$OpenInputStream(paste(dst_dir, dir(dst_dir)[[1]], sep = "/"))
-  expect_equivalent(metadata, RecordBatchFileReader$create(file)$metadata)
 
   new_ds <- open_dataset(dst_dir, format = "feather")
   expect_equivalent(
