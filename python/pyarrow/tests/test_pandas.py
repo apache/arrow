@@ -998,10 +998,13 @@ class TestConvertDateTimeLikeTypes:
     def test_python_datetime_with_timezone_tzinfo(self):
         from datetime import timezone
 
-        values = [datetime(2018, 1, 1, 12, 23, 45, tzinfo=timezone.utc)]
-        # also test with index to ensure both paths roundtrip (ARROW-9962)
-        df = pd.DataFrame({'datetime': values}, index=values)
-        _check_pandas_roundtrip(df, preserve_index=True)
+        if LooseVersion(pd.__version__) > "0.25.0":
+            # older pandas versions fail on datetime.timezone.utc (as in input)
+            # vs pytz.UTC (as in result)
+            values = [datetime(2018, 1, 1, 12, 23, 45, tzinfo=timezone.utc)]
+            # also test with index to ensure both paths roundtrip (ARROW-9962)
+            df = pd.DataFrame({'datetime': values}, index=values)
+            _check_pandas_roundtrip(df, preserve_index=True)
 
         # datetime.timezone is going to be pytz.FixedOffset
         hours = 1
