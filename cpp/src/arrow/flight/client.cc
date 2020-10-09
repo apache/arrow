@@ -848,7 +848,7 @@ namespace {
 // requires root CA certs, even if you are skipping server
 // verification.
 #if defined(GRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS)
-const char BLANK_ROOT_PEM[] =
+constexpr char BLANK_ROOT_PEM[] =
     "-----BEGIN CERTIFICATE-----\n"
     "MIICwzCCAaugAwIBAgIJAM12DOkcaqrhMA0GCSqGSIb3DQEBBQUAMBQxEjAQBgNV\n"
     "BAMTCWxvY2FsaG9zdDAeFw0yMDEwMDcwODIyNDFaFw0zMDEwMDUwODIyNDFaMBQx\n"
