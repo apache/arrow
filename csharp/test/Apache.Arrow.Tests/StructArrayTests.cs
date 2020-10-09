@@ -13,8 +13,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using Apache.Arrow.Ipc;
 using Apache.Arrow.Types;
 using System.Collections.Generic;
+using System.IO;
 using Xunit;
 
 namespace Apache.Arrow.Tests
@@ -79,6 +81,62 @@ namespace Apache.Arrow.Tests
                     {
                         Assert.Equal(intArray.GetValue(j), structIntArray.GetValue(j));
                     }
+                }
+            }
+        }
+
+        [Fact]
+        public void TestListOfStructArray()
+        {
+            Schema.Builder builder = new Schema.Builder();
+            Field structField = new Field(
+                "struct",
+                new StructType(
+                    new[]
+                    {
+                        new Field("name", StringType.Default, nullable: false),
+                        new Field("age", Int64Type.Default, nullable: false),
+                    }),
+                nullable: false);
+
+            Field listField = new Field("listOfStructs", new ListType(structField), nullable: false);
+            builder.Field(listField);
+            Schema schema = builder.Build();
+
+            StringArray stringArray = new StringArray.Builder()
+                .Append("joe").AppendNull().AppendNull().Append("mark").Append("abe").Append("phil").Build();
+            Int64Array intArray = new Int64Array.Builder()
+                .Append(1).Append(2).AppendNull().Append(4).Append(10).Append(55).Build();
+
+            ArrowBuffer nullBitmapBuffer = new ArrowBuffer.BitmapBuilder()
+                .Append(true).Append(true).Append(false).Append(true).Append(true).Append(true).Build();
+
+            StructArray structs = new StructArray(structField.DataType, 6, new IArrowArray[] { stringArray, intArray }, nullBitmapBuffer, nullCount: 1);
+
+            ArrowBuffer offsetsBuffer = new ArrowBuffer.Builder<int>()
+                .Append(0).Append(2).Append(5).Append(6).Build();
+            ListArray listArray = new ListArray(listField.DataType, 3, offsetsBuffer, structs, ArrowBuffer.Empty);
+
+            RecordBatch batch = new RecordBatch(schema, new[] { listArray }, 3);
+            TestRoundTripRecordBatch(batch);
+        }
+
+        private static void TestRoundTripRecordBatch(RecordBatch originalBatch)
+        {
+            using (MemoryStream stream = new MemoryStream())
+            {
+                using (var writer = new ArrowStreamWriter(stream, originalBatch.Schema, leaveOpen: true))
+                {
+                    writer.WriteRecordBatch(originalBatch);
+                    writer.WriteEnd();
+                }
+
+                stream.Position = 0;
+
+                using (var reader = new ArrowStreamReader(stream))
+                {
+                    RecordBatch newBatch = reader.ReadNextRecordBatch();
+                    ArrowReaderVerifier.CompareBatches(originalBatch, newBatch);
                 }
             }
         }
