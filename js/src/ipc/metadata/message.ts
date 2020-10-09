@@ -430,58 +430,58 @@ function decodeFieldType(f: _Field, children?: Field[]): DataType<any> {
     const typeId = f.typeType();
 
     switch (typeId) {
-        case Type.NONE:    return new Null();
-        case Type.Null:    return new Null();
-        case Type.Binary:  return new Binary();
-        case Type.Utf8:    return new Utf8();
-        case Type.Bool:    return new Bool();
-        case Type.List:    return new List((children || [])[0]);
-        case Type.Struct_: return new Struct(children || []);
+        case Type['NONE']:     return new Null();
+        case Type['Null']:     return new Null();
+        case Type['Binary']:   return new Binary();
+        case Type['Utf8']:     return new Utf8();
+        case Type['Bool']:     return new Bool();
+        case Type['List']:    return new List((children || [])[0]);
+        case Type['Struct_']: return new Struct(children || []);
     }
 
     switch (typeId) {
-        case Type.Int: {
-            const t = f.type(new Schema_.org.apache.arrow.flatbuf.Int())!;
+        case Type['Int']: {
+            const t = f.type(new _Int())!;
             return new Int(t.isSigned(), t.bitWidth());
         }
-        case Type.FloatingPoint: {
-            const t = f.type(new Schema_.org.apache.arrow.flatbuf.FloatingPoint())!;
+        case Type['FloatingPoint']: {
+            const t = f.type(new _FloatingPoint())!;
             return new Float(t.precision());
         }
-        case Type.Decimal: {
-            const t = f.type(new Schema_.org.apache.arrow.flatbuf.Decimal())!;
+        case Type['Decimal']: {
+            const t = f.type(new _Decimal())!;
             return new Decimal(t.scale(), t.precision());
         }
-        case Type.Date: {
-            const t = f.type(new Schema_.org.apache.arrow.flatbuf.Date())!;
+        case Type['Date']: {
+            const t = f.type(new _Date())!;
             return new Date_(t.unit());
         }
-        case Type.Time: {
-            const t = f.type(new Schema_.org.apache.arrow.flatbuf.Time())!;
+        case Type['Time']: {
+            const t = f.type(new _Time())!;
             return new Time(t.unit(), t.bitWidth() as TimeBitWidth);
         }
-        case Type.Timestamp: {
-            const t = f.type(new Schema_.org.apache.arrow.flatbuf.Timestamp())!;
+        case Type['Timestamp']: {
+            const t = f.type(new _Timestamp())!;
             return new Timestamp(t.unit(), t.timezone());
         }
-        case Type.Interval: {
-            const t = f.type(new Schema_.org.apache.arrow.flatbuf.Interval())!;
+        case Type['Interval']: {
+            const t = f.type(new _Interval())!;
             return new Interval(t.unit());
         }
-        case Type.Union: {
-            const t = f.type(new Schema_.org.apache.arrow.flatbuf.Union())!;
+        case Type['Union']: {
+            const t = f.type(new _Union())!;
             return new Union(t.mode(), t.typeIdsArray() || [], children || []);
         }
-        case Type.FixedSizeBinary: {
-            const t = f.type(new Schema_.org.apache.arrow.flatbuf.FixedSizeBinary())!;
+        case Type['FixedSizeBinary']: {
+            const t = f.type(new _FixedSizeBinary())!;
             return new FixedSizeBinary(t.byteWidth());
         }
-        case Type.FixedSizeList: {
-            const t = f.type(new Schema_.org.apache.arrow.flatbuf.FixedSizeList())!;
+        case Type['FixedSizeList']: {
+            const t = f.type(new _FixedSizeList())!;
             return new FixedSizeList(t.listSize(), (children || [])[0]);
         }
-        case Type.Map: {
-            const t = f.type(new Schema_.org.apache.arrow.flatbuf.Map())!;
+        case Type['Map']: {
+            const t = f.type(new _Map())!;
             return new Map_((children || [])[0], t.keysSorted());
         }
     }
