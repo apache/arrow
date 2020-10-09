@@ -913,6 +913,45 @@ TEST(TestStringOps, TestReplace) {
   ctx.Reset();
 }
 
+TEST(TestStringOps, TestBinaryString) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
+  gdv_int32 out_len = 0;
+  const char* out_str;
+
+  out_str = binary_string(ctx_ptr, "TestString", 10, &out_len);
+  std::string output = std::string(out_str, out_len);
+  EXPECT_EQ(output, "TestString");
+
+  out_str = binary_string(ctx_ptr, "", 0, &out_len);
+  output = std::string(out_str, out_len);
+  EXPECT_EQ(output, "");
+
+  out_str = binary_string(ctx_ptr, "T", 1, &out_len);
+  output = std::string(out_str, out_len);
+  EXPECT_EQ(output, "T");
+
+  out_str = binary_string(ctx_ptr, "\\x41\\x42\\x43", 12, &out_len);
+  output = std::string(out_str, out_len);
+  EXPECT_EQ(output, "ABC");
+
+  out_str = binary_string(ctx_ptr, "\\x41", 4, &out_len);
+  output = std::string(out_str, out_len);
+  EXPECT_EQ(output, "A");
+
+  out_str = binary_string(ctx_ptr, "\\x6d\\x6D", 8, &out_len);
+  output = std::string(out_str, out_len);
+  EXPECT_EQ(output, "mm");
+
+  out_str = binary_string(ctx_ptr, "\\x6f\\x6d", 8, &out_len);
+  output = std::string(out_str, out_len);
+  EXPECT_EQ(output, "om");
+
+  out_str = binary_string(ctx_ptr, "\\x4f\\x4D", 8, &out_len);
+  output = std::string(out_str, out_len);
+  EXPECT_EQ(output, "OM");
+}
+
 TEST(TestStringOps, TestSplitPart) {
   gandiva::ExecutionContext ctx;
   uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);

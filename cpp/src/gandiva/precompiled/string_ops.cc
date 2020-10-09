@@ -17,7 +17,6 @@
 
 // String functions
 #include "arrow/util/value_parsing.h"
-
 extern "C" {
 
 #include <limits.h>
@@ -96,6 +95,16 @@ VAR_LEN_OP_TYPES(BINARY_RELATIONAL, greater_than_or_equal_to, >=)
 #define VAR_LEN_TYPES(INNER, NAME) \
   INNER(NAME, utf8)                \
   INNER(NAME, binary)
+
+FORCE_INLINE
+int to_binary_from_hex(char ch) {
+  if (ch >= 'A' && ch <= 'F') {
+    return 10 + (ch - 'A');
+  } else if (ch >= 'a' && ch <= 'f') {
+    return 10 + (ch - 'a');
+  }
+  return ch - '0';
+}
 
 FORCE_INLINE
 bool starts_with_utf8_utf8(const char* data, gdv_int32 data_len, const char* prefix,
@@ -1389,6 +1398,45 @@ const char* split_part(gdv_int64 context, const char* text, gdv_int32 text_len,
   }
 
   return "";
+}
+
+FORCE_INLINE
+const char* binary_string(gdv_int64 context, const char* text, gdv_int32 text_len,
+                          gdv_int32* out_len) {
+  gdv_binary ret =
+      reinterpret_cast<gdv_binary>(gdv_fn_context_arena_malloc(context, text_len));
+
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return "";
+  }
+
+  if (text_len == 0) {
+    *out_len = 0;
+    return "";
+  }
+
+  // converting hex encoded string to normal string
+  int j = 0;
+  for (int i = 0; i < text_len; i++, j++) {
+    if (text[i] == '\\' && i + 3 < text_len &&
+        (text[i + 1] == 'x' || text[i + 1] == 'X')) {
+      char hd1 = text[i + 2];
+      char hd2 = text[i + 3];
+      if (isxdigit(hd1) && isxdigit(hd2)) {
+        // [a-fA-F0-9]
+        ret[j] = to_binary_from_hex(hd1) * 16 + to_binary_from_hex(hd2);
+        i += 3;
+      } else {
+        ret[j] = text[i];
+      }
+    } else {
+      ret[j] = text[i];
+    }
+  }
+  *out_len = j;
+  return ret;
 }
 
 #define CAST_NUMERIC_FROM_STRING(OUT_TYPE, ARROW_TYPE, TYPE_NAME)                       \
