@@ -39,7 +39,7 @@
 #' - `sink` An `OutputStream`
 #' - `schema` A [Schema] for the data to be written
 #' - `use_legacy_format` logical: write data formatted so that Arrow libraries
-#'   versions 0.14 and lower can read it? Default is `FALSE`. You can also
+#'   versions 0.14 and lower can read it. Default is `FALSE`. You can also
 #'   enable this by setting the environment variable `ARROW_PRE_0_15_IPC_FORMAT=1`.
 #' - `metadata_version`: A string like "V5" or the equivalent integer indicating
 #'   the Arrow IPC MetadataVersion. Default (NULL) will use the latest version,
@@ -152,8 +152,7 @@ RecordBatchFileWriter$create <- function(sink,
                                          schema,
                                          use_legacy_format = NULL,
                                          codec = NULL,
-                                         metadata_version = NULL,
-                                         metadata = NULL) {
+                                         metadata_version = NULL) {
   if (is.string(sink)) {
     stop(
       "RecordBatchFileWriter$create() requires an Arrow InputStream. ",
@@ -170,8 +169,7 @@ RecordBatchFileWriter$create <- function(sink,
       schema,
       get_ipc_use_legacy_format(use_legacy_format),
       codec,
-      get_ipc_metadata_version(metadata_version),
-      prepare_key_value_metadata(metadata)
+      get_ipc_metadata_version(metadata_version)
     )
   )
 }
