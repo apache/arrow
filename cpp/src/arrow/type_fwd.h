@@ -149,7 +149,7 @@ class Decimal##width;           \
 class Decimal##width##Type;     \
 class Decimal##width##Array;    \
 class Decimal##width##Builder;  \
-class Decimal##width##Scalar;
+struct Decimal##width##Scalar;
 
 DECIMAL_DECL(128)
 DECIMAL_DECL(256)
