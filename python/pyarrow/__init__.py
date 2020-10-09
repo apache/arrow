@@ -187,7 +187,6 @@ from pyarrow.lib import (ArrowException,
 from pyarrow.lib import (deserialize_from, deserialize,
                          deserialize_components,
                          serialize, serialize_to, read_serialized,
-                         SerializedPyObject, SerializationContext,
                          SerializationCallbackError,
                          DeserializationCallbackError)
 
@@ -203,21 +202,39 @@ from pyarrow.serialization import (default_serialization_context,
 import pyarrow.types as types
 
 
-# deprecated filesystems
+# deprecated top-level access
 
-from pyarrow.filesystem import FileSystem as _FileSystem, LocalFileSystem as _LocalFileSystem
+
+from pyarrow.filesystem import FileSystem as _FileSystem
+from pyarrow.filesystem import LocalFileSystem as _LocalFileSystem
 from pyarrow.hdfs import HadoopFileSystem as _HadoopFileSystem
+
+from pyarrow.lib import SerializationContext as _SerializationContext
+from pyarrow.lib import SerializedPyObject as _SerializedPyObject
+
 
 _localfs = _LocalFileSystem._get_instance()
 
 
-_msg = "pyarrow.{0} is deprecated as of 2.0.0, please use pyarrow.fs.{1} instead."
+_msg = (
+    "pyarrow.{0} is deprecated as of 2.0.0, please use pyarrow.fs.{1} instead."
+)
+
+_serialization_msg = (
+    "'pyarrow.{0}' is deprecated and will be removed in a future version. "
+    "Use pickle or the pyarrow IPC functionality instead."
+)
 
 _deprecated = {
     "localfs": (_localfs, "LocalFileSystem"),
     "FileSystem": (_FileSystem, "FileSystem"),
     "LocalFileSystem": (_LocalFileSystem, "LocalFileSystem"),
     "HadoopFileSystem": (_HadoopFileSystem, "HadoopFileSystem"),
+}
+
+_serialization_deprecatd = {
+    "SerializationContext": _SerializationContext,
+    "SerializedPyObject": _SerializedPyObject,
 }
 
 if _sys.version_info >= (3, 7):
@@ -227,6 +244,10 @@ if _sys.version_info >= (3, 7):
             _warnings.warn(_msg.format(name, new_name),
                            DeprecationWarning, stacklevel=2)
             return obj
+        elif name in _serialization_deprecatd:
+            _warnings.warn(_serialization_msg.format(name),
+                           DeprecationWarning, stacklevel=2)
+            return _serialization_deprecatd[name]
 
         raise AttributeError(
             "module 'pyarrow' has no attribute '{0}'".format(name)
@@ -236,6 +257,8 @@ else:
     FileSystem = _FileSystem
     LocalFileSystem = _LocalFileSystem
     HadoopFileSystem = _HadoopFileSystem
+    SerializationContext = _SerializationContext
+    SerializedPyObject = _SerializedPyObject
 
 
 # Entry point for starting the plasma store
