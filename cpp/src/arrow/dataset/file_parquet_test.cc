@@ -514,9 +514,14 @@ TEST_F(TestParquetFileFormat, ExplicitRowGroupSelection) {
     return internal::checked_pointer_cast<ParquetFileFragment>(fragment);
   };
 
+  EXPECT_OK_AND_ASSIGN(auto all_row_groups_fragment,
+                       format_->MakeFragment(*source, scalar(true)));
+
   // null selection is identical to selecting all row groups
-  EXPECT_EQ(row_groups_fragment({})->row_groups(), nullptr);
-  CountRowsAndBatchesInScan(row_groups_fragment({}), kTotalNumRows, kNumRowGroups);
+  EXPECT_EQ(internal::checked_pointer_cast<ParquetFileFragment>(all_row_groups_fragment)
+                ->row_groups(),
+            nullptr);
+  CountRowsAndBatchesInScan(all_row_groups_fragment, kTotalNumRows, kNumRowGroups);
 
   // individual selection selects a single row group
   for (int i = 0; i < kNumRowGroups; ++i) {
