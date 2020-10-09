@@ -83,8 +83,6 @@ df <- read_parquet(june2019$path("data.parquet"))
 june2019 <- SubTreeFileSystem$create("s3://ursa-labs-taxi-data/2019/06")
 ```
 
-## Copying files across file systems
-
 ## Authentication
 
 To access private S3 buckets, you need typically need two secret parameters:

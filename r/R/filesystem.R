@@ -453,7 +453,7 @@ SubTreeFileSystem$create <- function(base_path, base_fs = NULL) {
   }
 }
 
-#' Copy files, including between FileSystems
+#' Copy files between FileSystems
 #'
 #' @param from A string path to a local directory or file, a URI, or a
 #' `SubTreeFileSystem`. Files will be copied recursively from this path.
@@ -463,6 +463,16 @@ SubTreeFileSystem$create <- function(base_path, base_fs = NULL) {
 #' to the destination file. A larger chunk_size will use more memory while
 #' copying but may help accommodate high latency FileSystems.
 #' @return Nothing: called for side effects in the file system
+#' @export
+#' @examples
+#' \dontrun{
+#' # Copy an S3 bucket's files to a local directory:
+#' copy_files("s3://your-bucket-name", "local-directory")
+#' # Using a FileSystem object
+#' copy_files(s3_bucket("your-bucket-name"), "local-directory")
+#' # Or go the other way, from local to S3
+#' copy_files("local-directory", s3_bucket("your-bucket-name"))
+#' }
 copy_files <- function(from, to, chunk_size = 1024L * 1024L) {
   from <- get_path_and_filesystem(from)
   to <- get_path_and_filesystem(to)

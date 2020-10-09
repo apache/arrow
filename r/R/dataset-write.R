@@ -41,8 +41,6 @@
 #' will yield `"part-0.feather", ...`.
 #' @param hive_style logical: write partition segments as Hive-style
 #' (`key1=value1/key2=value2/file.ext`) or as just bare values. Default is `TRUE`.
-#' @param filesystem A [FileSystem] where the dataset should be written if it is a
-#' string file path; default is the local file system
 #' @param ... additional format-specific arguments. For available Parquet
 #' options, see [write_parquet()].
 #' @return The input `dataset`, invisibly

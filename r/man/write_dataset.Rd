@@ -43,9 +43,6 @@ will yield \verb{"part-0.feather", ...}.}
 
 \item{...}{additional format-specific arguments. For available Parquet
 options, see \code{\link[=write_parquet]{write_parquet()}}.}
-
-\item{filesystem}{A \link{FileSystem} where the dataset should be written if it is a
-string file path; default is the local file system}
 }
 \value{
 The input \code{dataset}, invisibly
