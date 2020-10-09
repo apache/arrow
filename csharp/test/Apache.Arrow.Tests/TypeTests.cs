@@ -18,6 +18,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Xunit;
+using Xunit.Sdk;
 
 namespace Apache.Arrow.Tests
 {
@@ -46,8 +47,8 @@ namespace Apache.Arrow.Tests
             Field f0_with_meta = new Field.Builder().Name("f0").DataType(Int32Type.Default).Nullable(true).Metadata("a", "1").Metadata("b", "2").Build();
 
             FieldComparer.Compare(f0_nullable, f0_other);
-            Assert.False(FieldComparer.Equals(f0_nullable, f0_nonnullable));
-            Assert.False(FieldComparer.Equals(f0_nullable, f0_with_meta));
+            Assert.Throws<EqualException>(() => FieldComparer.Compare(f0_nullable, f0_nonnullable));
+            Assert.Throws<EqualException>(() => FieldComparer.Compare(f0_nullable, f0_with_meta));
         }
 
         [Fact]
