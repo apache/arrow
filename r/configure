@@ -201,10 +201,7 @@ else
 fi
 
 # Write to Makevars
-sed -e "s|@cflags@|$PKG_CFLAGS|" \
-    -e "s|@libs@|$PKG_LIBS|" \
-    -e "s|@nproc@|$(nproc)|" \
-    src/Makevars.in > src/Makevars
+sed -e "s|@cflags@|$PKG_CFLAGS|" -e "s|@libs@|$PKG_LIBS|" src/Makevars.in > src/Makevars
 
 # This is removed because a (bad?) CRAN check fails when arrow.so is stripped
 # # Add stripping
