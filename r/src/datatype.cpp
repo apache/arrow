@@ -97,7 +97,7 @@ R6 r6_DataType(const std::shared_ptr<arrow::DataType>& type) {
 
     default:
       break;
-  };
+  }
 
   return r6(type, "DataType");
 
