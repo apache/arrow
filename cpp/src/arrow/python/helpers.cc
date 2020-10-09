@@ -289,9 +289,7 @@ void GetPandasStaticSymbols() {
     pandas_NaT = ref.obj();
     // PyObject_Type returns a new reference but we trust that pandas.NaT will
     // outlive our use of this PyObject*
-    PyObject* nat_type = PyObject_Type(ref.obj());
-    pandas_NaTType = reinterpret_cast<PyTypeObject*>(nat_type);
-    Py_DECREF(nat_type);
+    pandas_NaTType = Py_TYPE(ref.obj());
   }
 
   // retain a reference to Timedelta

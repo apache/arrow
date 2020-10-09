@@ -1946,14 +1946,31 @@ def test_dictionary_from_strings():
     assert a.dictionary.equals(expected_dictionary)
 
 
-@pytest.mark.parametrize('unit', ['s', 'ms', 'us', 'ns'])
-def test_duration_array_roundtrip_corner_cases(unit):
+@pytest.mark.parametrize(('unit', 'expected'), [
+    ('s', datetime.timedelta(seconds=-2147483000)),
+    ('ms', datetime.timedelta(milliseconds=-2147483000)),
+    ('us', datetime.timedelta(microseconds=-2147483000)),
+    ('ns', datetime.timedelta(microseconds=-2147483000))
+])
+def test_duration_array_roundtrip_corner_cases(unit, expected):
     # Corner case discovered by hypothesis: there were implicit conversions to
     # unsigned values resulting wrong values with wrong signs.
     ty = pa.duration(unit)
     arr = pa.array([-2147483000], type=ty)
     restored = pa.array(arr.to_pylist(), type=ty)
     assert arr.equals(restored)
+
+    expected_list = [expected]
+    if unit == 'ns':
+        # if pandas is available then a pandas Timedelta is returned
+        try:
+            import pandas as pd
+        except ImportError:
+            pass
+        else:
+            expected_list = [pd.Timedelta(-2147483000, unit='ns')]
+
+    assert restored.to_pylist() == expected_list
 
 
 @pytest.mark.pandas
@@ -1968,6 +1985,9 @@ def test_roundtrip_nanosecond_resolution_pandas_temporal_objects():
     assert isinstance(data[0], pd.Timedelta)
     restored = pa.array(data, type=ty)
     assert arr.equals(restored)
+    assert restored.to_pylist() == [
+        pd.Timedelta(9223371273709551616, unit='ns')
+    ]
 
     ty = pa.timestamp('ns')
     arr = pa.array([9223371273709551616], type=ty)
@@ -1975,11 +1995,13 @@ def test_roundtrip_nanosecond_resolution_pandas_temporal_objects():
     assert isinstance(data[0], pd.Timestamp)
     restored = pa.array(data, type=ty)
     assert arr.equals(restored)
+    assert restored.to_pylist() == [
+        pd.Timestamp(9223371273709551616, unit='ns')
+    ]
 
 
 @h.given(past.all_arrays)
 def test_array_to_pylist_roundtrip(arr):
-    # TODO(kszucs): ARROW-9997
     seq = arr.to_pylist()
     restored = pa.array(seq, type=arr.type)
     assert restored.equals(arr)
