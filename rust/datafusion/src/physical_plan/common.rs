@@ -21,7 +21,7 @@ use std::fs;
 use std::fs::metadata;
 use std::sync::Arc;
 
-use super::Source;
+use super::SendableRecordBatchReader;
 use crate::error::{ExecutionError, Result};
 
 use array::{
@@ -75,7 +75,7 @@ impl RecordBatchReader for RecordBatchIterator {
 }
 
 /// Create a vector of record batches from an iterator
-pub fn collect(it: Source) -> Result<Vec<RecordBatch>> {
+pub fn collect(it: SendableRecordBatchReader) -> Result<Vec<RecordBatch>> {
     it.into_iter()
         .collect::<ArrowResult<Vec<_>>>()
         .map_err(|e| ExecutionError::from(e))

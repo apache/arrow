@@ -29,7 +29,7 @@ use arrow::datatypes::{Field, Schema, SchemaRef};
 use arrow::error::Result as ArrowResult;
 use arrow::record_batch::{RecordBatch, RecordBatchReader};
 
-use super::Source;
+use super::SendableRecordBatchReader;
 use async_trait::async_trait;
 
 /// Execution plan for a projection
@@ -108,7 +108,7 @@ impl ExecutionPlan for ProjectionExec {
         }
     }
 
-    async fn execute(&self, partition: usize) -> Result<Source> {
+    async fn execute(&self, partition: usize) -> Result<SendableRecordBatchReader> {
         Ok(Box::new(ProjectionIterator {
             schema: self.schema.clone(),
             expr: self.expr.iter().map(|x| x.0.clone()).collect(),
@@ -121,7 +121,7 @@ impl ExecutionPlan for ProjectionExec {
 struct ProjectionIterator {
     schema: SchemaRef,
     expr: Vec<Arc<dyn PhysicalExpr>>,
-    input: Source,
+    input: SendableRecordBatchReader,
 }
 
 impl Iterator for ProjectionIterator {

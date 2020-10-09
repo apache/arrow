@@ -31,7 +31,7 @@ use arrow::record_batch::{RecordBatch, RecordBatchReader};
 use arrow::{array::ArrayRef, datatypes::Field};
 
 use async_trait::async_trait;
-type Source = Box<dyn RecordBatchReader + Send>;
+type SendableRecordBatchReader = Box<dyn RecordBatchReader + Send>;
 
 /// Physical query planner that converts a `LogicalPlan` to an
 /// `ExecutionPlan` suitable for execution.
@@ -70,7 +70,7 @@ pub trait ExecutionPlan: Debug + Send + Sync {
     ) -> Result<Arc<dyn ExecutionPlan>>;
 
     /// creates an iterator
-    async fn execute(&self, partition: usize) -> Result<Source>;
+    async fn execute(&self, partition: usize) -> Result<SendableRecordBatchReader>;
 }
 
 /// Partitioning schemes supported by operators.

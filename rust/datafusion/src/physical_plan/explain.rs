@@ -29,7 +29,7 @@ use arrow::{array::StringBuilder, datatypes::SchemaRef, record_batch::RecordBatc
 
 use crate::physical_plan::Partitioning;
 
-use super::Source;
+use super::SendableRecordBatchReader;
 use async_trait::async_trait;
 
 /// Explain execution plan operator. This operator contains the string
@@ -89,7 +89,7 @@ impl ExecutionPlan for ExplainExec {
         }
     }
 
-    async fn execute(&self, partition: usize) -> Result<Source> {
+    async fn execute(&self, partition: usize) -> Result<SendableRecordBatchReader> {
         if 0 != partition {
             return Err(ExecutionError::General(format!(
                 "ExplainExec invalid partition {}",

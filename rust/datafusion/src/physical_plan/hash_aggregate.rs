@@ -40,7 +40,9 @@ use arrow::{
 
 use fnv::FnvHashMap;
 
-use super::{common, expressions::Column, group_scalar::GroupByScalar, Source};
+use super::{
+    common, expressions::Column, group_scalar::GroupByScalar, SendableRecordBatchReader,
+};
 
 use async_trait::async_trait;
 
@@ -145,7 +147,7 @@ impl ExecutionPlan for HashAggregateExec {
         self.input.output_partitioning()
     }
 
-    async fn execute(&self, partition: usize) -> Result<Source> {
+    async fn execute(&self, partition: usize) -> Result<SendableRecordBatchReader> {
         let input = self.input.execute(partition).await?;
         let group_expr = self.group_expr.iter().map(|x| x.0.clone()).collect();
 
@@ -215,7 +217,7 @@ struct GroupedHashAggregateIterator {
     schema: SchemaRef,
     group_expr: Vec<Arc<dyn PhysicalExpr>>,
     aggr_expr: Vec<Arc<dyn AggregateExpr>>,
-    input: Source,
+    input: SendableRecordBatchReader,
     finished: bool,
 }
 
@@ -320,7 +322,7 @@ impl GroupedHashAggregateIterator {
         schema: SchemaRef,
         group_expr: Vec<Arc<dyn PhysicalExpr>>,
         aggr_expr: Vec<Arc<dyn AggregateExpr>>,
-        input: Source,
+        input: SendableRecordBatchReader,
     ) -> Self {
         GroupedHashAggregateIterator {
             mode,
@@ -463,7 +465,7 @@ struct HashAggregateIterator {
     mode: AggregateMode,
     schema: SchemaRef,
     aggr_expr: Vec<Arc<dyn AggregateExpr>>,
-    input: Source,
+    input: SendableRecordBatchReader,
     finished: bool,
 }
 
@@ -473,7 +475,7 @@ impl HashAggregateIterator {
         mode: AggregateMode,
         schema: SchemaRef,
         aggr_expr: Vec<Arc<dyn AggregateExpr>>,
-        input: Source,
+        input: SendableRecordBatchReader,
     ) -> Self {
         HashAggregateIterator {
             mode,

@@ -35,7 +35,7 @@ use crossbeam::channel::{bounded, Receiver, RecvError, Sender};
 use fmt::Debug;
 use parquet::arrow::{ArrowReader, ParquetFileArrowReader};
 
-use super::Source;
+use super::SendableRecordBatchReader;
 use async_trait::async_trait;
 
 /// Execution plan for scanning a Parquet file
@@ -125,7 +125,7 @@ impl ExecutionPlan for ParquetExec {
         }
     }
 
-    async fn execute(&self, partition: usize) -> Result<Source> {
+    async fn execute(&self, partition: usize) -> Result<SendableRecordBatchReader> {
         // because the parquet implementation is not thread-safe, it is necessary to execute
         // on a thread and communicate with channels
         let (response_tx, response_rx): (

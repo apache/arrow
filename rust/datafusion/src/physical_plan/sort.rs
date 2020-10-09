@@ -31,7 +31,7 @@ use crate::physical_plan::common::RecordBatchIterator;
 use crate::physical_plan::expressions::PhysicalSortExpr;
 use crate::physical_plan::{common, Distribution, ExecutionPlan, Partitioning};
 
-use super::Source;
+use super::SendableRecordBatchReader;
 use async_trait::async_trait;
 
 /// Sort execution plan
@@ -100,7 +100,7 @@ impl ExecutionPlan for SortExec {
         }
     }
 
-    async fn execute(&self, partition: usize) -> Result<Source> {
+    async fn execute(&self, partition: usize) -> Result<SendableRecordBatchReader> {
         if 0 != partition {
             return Err(ExecutionError::General(format!(
                 "SortExec invalid partition {}",
