@@ -34,10 +34,10 @@ int Codec::UseDefaultCompressionLevel() { return kUseDefaultCompressionLevel; }
 Status Codec::Init() { return Status::OK(); }
 
 const std::string& Codec::GetCodecAsString(Compression::type t) {
-static const std::string uncompressed = "uncompressed", snappy = "snappy", gzip = "gzip",
-                         lzo = "lzo", brotli = "brotli", lz4_raw = "lz4_raw", lz4 = "lz4",
-                         lz4_hadoop = "lz4_hadoop", zstd = "zstd", bz2 = "bz2",
-                         unknown = "unknown";
+  static const std::string uncompressed = "uncompressed", snappy = "snappy",
+                           gzip = "gzip", lzo = "lzo", brotli = "brotli",
+                           lz4_raw = "lz4_raw", lz4 = "lz4", lz4_hadoop = "lz4_hadoop",
+                           zstd = "zstd", bz2 = "bz2", unknown = "unknown";
 
   switch (t) {
     case Compression::UNCOMPRESSED:
