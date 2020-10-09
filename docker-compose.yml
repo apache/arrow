@@ -1143,6 +1143,7 @@ services:
         /arrow/ci/scripts/python_build.sh /arrow /build &&
         /arrow/ci/scripts/java_build.sh /arrow /build true &&
         /arrow/ci/scripts/js_build.sh /arrow true &&
+        /arrow/ci/scripts/r_deps.sh /arrow &&
         /arrow/ci/scripts/r_build.sh /arrow true &&
         /arrow/ci/scripts/docs_build.sh /arrow /build"
 
