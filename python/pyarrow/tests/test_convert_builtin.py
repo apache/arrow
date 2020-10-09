@@ -1950,7 +1950,7 @@ def test_dictionary_from_strings():
     ('s', datetime.timedelta(seconds=-2147483000)),
     ('ms', datetime.timedelta(milliseconds=-2147483000)),
     ('us', datetime.timedelta(microseconds=-2147483000)),
-    ('ns', datetime.timedelta(microseconds=-2147483000))
+    ('ns', datetime.timedelta(microseconds=-2147483))
 ])
 def test_duration_array_roundtrip_corner_cases(unit, expected):
     # Corner case discovered by hypothesis: there were implicit conversions to
