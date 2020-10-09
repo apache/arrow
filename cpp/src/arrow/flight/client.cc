@@ -882,7 +882,8 @@ class FlightClient::FlightClientImpl {
         if (options.disable_server_verification) {
 #if !defined(GRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS)
           return Status::NotImplemented(
-              "Using encryption with server verification is unsupported.");
+              "Using encryption with server verification disabled is unsupported. "
+              "Please use a release of Arrow Flight built with gRPC 1.27 or higher.");
 #else
           namespace ge = GRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS;
 
