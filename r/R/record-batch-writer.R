@@ -151,7 +151,9 @@ RecordBatchFileWriter <- R6Class("RecordBatchFileWriter", inherit = RecordBatchS
 RecordBatchFileWriter$create <- function(sink,
                                          schema,
                                          use_legacy_format = NULL,
-                                         metadata_version = NULL) {
+                                         codec = NULL,
+                                         metadata_version = NULL,
+                                         metadata = NULL) {
   if (is.string(sink)) {
     stop(
       "RecordBatchFileWriter$create() requires an Arrow InputStream. ",
@@ -167,7 +169,9 @@ RecordBatchFileWriter$create <- function(sink,
       sink,
       schema,
       get_ipc_use_legacy_format(use_legacy_format),
-      get_ipc_metadata_version(metadata_version)
+      codec,
+      get_ipc_metadata_version(metadata_version),
+      prepare_key_value_metadata(metadata)
     )
   )
 }

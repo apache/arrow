@@ -114,7 +114,7 @@ Status ScannerBuilder::Project(std::vector<std::string> columns) {
 
 Status ScannerBuilder::Filter(std::shared_ptr<Expression> filter) {
   RETURN_NOT_OK(schema()->CanReferenceFieldsByNames(FieldsInExpression(*filter)));
-  RETURN_NOT_OK(filter->Validate(*schema()).status());
+  RETURN_NOT_OK(filter->Validate(*schema()));
   scan_options_->filter = std::move(filter);
   return Status::OK();
 }

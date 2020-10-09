@@ -17,6 +17,8 @@
 
 #include "./arrow_types.h"
 
+#include "./arrow_metadata.h"
+
 #if defined(ARROW_R_WITH_ARROW)
 #include <arrow/ipc/writer.h>
 
@@ -44,11 +46,14 @@ void ipc___RecordBatchWriter__Close(
 std::shared_ptr<arrow::ipc::RecordBatchWriter> ipc___RecordBatchFileWriter__Open(
     const std::shared_ptr<arrow::io::OutputStream>& stream,
     const std::shared_ptr<arrow::Schema>& schema, bool use_legacy_format,
-    arrow::ipc::MetadataVersion metadata_version) {
+    const std::shared_ptr<arrow::util::Codec>& codec,
+    arrow::ipc::MetadataVersion metadata_version, cpp11::strings metadata) {
   auto options = arrow::ipc::IpcWriteOptions::Defaults();
   options.write_legacy_ipc_format = use_legacy_format;
+  options.codec = codec;
   options.metadata_version = metadata_version;
-  return ValueOrStop(arrow::ipc::MakeFileWriter(stream, schema, options));
+  return ValueOrStop(arrow::ipc::MakeFileWriter(stream, schema, options,
+                                                KeyValueMetadata__Make(metadata)));
 }
 
 // [[arrow::export]]
