@@ -84,7 +84,10 @@ test_that("SubTreeFilesystem", {
   expect_is(st_fs, "SubTreeFileSystem")
   expect_is(st_fs, "FileSystem")
   expect_is(st_fs$base_fs, "LocalFileSystem")
-  expect_identical(normalizePath(st_fs$base_path), normalizePath(td))
+  expect_identical(
+    dir(normalizePath(st_fs$base_path), full.names = TRUE),
+    dir(normalizePath(td), full.names = TRUE)
+  )
 
   st_fs$CreateDir("test")
   st_fs$CopyFile("DESCRIPTION", "DESC.txt")
