@@ -3030,7 +3030,7 @@ def test_write_to_dataset_pandas_preserve_extensiondtypes(
     df['col'] = df['col'].astype("Int64")
     table = pa.table(df)
 
-    # TODO pass use_legacy_dataset ARROW-10247
+    # TODO pass use_legacy_dataset ARROW-10248
     pq.write_to_dataset(table, str(tempdir / "case1"), partition_cols=['part'])
     result = pq.read_table(
         str(tempdir / "case1"), use_legacy_dataset=use_legacy_dataset
@@ -3061,7 +3061,7 @@ def test_write_to_dataset_pandas_preserve_index(tempdir, use_legacy_dataset):
     df_cat = df[["col", "part"]].copy()
     df_cat["part"] = df_cat["part"].astype("category")
 
-    # TODO pass use_legacy_dataset ARROW-10247
+    # TODO pass use_legacy_dataset ARROW-10248
     pq.write_to_dataset(table, str(tempdir / "case1"), partition_cols=['part'])
     result = pq.read_table(
         str(tempdir / "case1"), use_legacy_dataset=use_legacy_dataset
