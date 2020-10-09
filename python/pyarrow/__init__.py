@@ -205,7 +205,8 @@ import pyarrow.types as types
 # deprecated top-level access
 
 
-from pyarrow.filesystem import FileSystem as _FileSystem, LocalFileSystem as _LocalFileSystem
+from pyarrow.filesystem import FileSystem as _FileSystem
+from pyarrow.filesystem import LocalFileSystem as _LocalFileSystem
 from pyarrow.hdfs import HadoopFileSystem as _HadoopFileSystem
 
 from pyarrow.lib import SerializationContext as _SerializationContext
@@ -215,7 +216,9 @@ from pyarrow.lib import SerializedPyObject as _SerializedPyObject
 _localfs = _LocalFileSystem._get_instance()
 
 
-_msg = "pyarrow.{0} is deprecated as of 2.0.0, please use pyarrow.fs.{1} instead."
+_msg = (
+    "pyarrow.{0} is deprecated as of 2.0.0, please use pyarrow.fs.{1} instead."
+)
 
 _serialization_msg = (
     "'pyarrow.{0}' is deprecated and will be removed in a future version. "

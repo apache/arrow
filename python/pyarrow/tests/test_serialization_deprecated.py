@@ -23,7 +23,6 @@ import pyarrow as pa
 
 
 def test_serialization_deprecated():
-
     with pytest.warns(DeprecationWarning):
         ser = pa.serialize(1)
 
