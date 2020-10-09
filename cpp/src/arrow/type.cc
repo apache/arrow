@@ -753,9 +753,12 @@ std::vector<std::shared_ptr<Field>> StructType::GetAllFieldsByName(
 template<uint32_t width>
 struct DecimalTypeHelper;
 
-#define DECIMAL_TYPE_HELPER_DECL(width) \
-template<> \
-struct DecimalTypeHelper<width> { using type = Decimal##width##Type; };
+#define DECIMAL_TYPE_HELPER_DECL(width)                  \
+template<>                                               \
+struct DecimalTypeHelper<width> {                        \
+  static constexpr Type::type id = Type::DECIMAL##width; \
+  using type = Decimal##width##Type;                     \
+};
 
 DECIMAL_TYPE_HELPER_DECL(128)
 DECIMAL_TYPE_HELPER_DECL(256)
@@ -765,7 +768,7 @@ DECIMAL_TYPE_HELPER_DECL(256)
 
 template<uint32_t width>
 BaseDecimalType<width>::BaseDecimalType(int32_t precision, int32_t scale)
-    : DecimalType(type_id, (width >> 3), precision, scale) {
+    : DecimalType(DecimalTypeHelper<width>::id, (width >> 3), precision, scale) {
   ARROW_CHECK_GE(precision, kMinPrecision);
   ARROW_CHECK_LE(precision, kMaxPrecision);
 }
