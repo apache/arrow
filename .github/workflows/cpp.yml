@@ -102,7 +102,7 @@ jobs:
     #         hosted machines
     name: ${{ matrix.title }}
     runs-on: ${{ matrix.runner }}
-    # if: github.event_name == 'push'
+    if: github.event_name == 'push'
     defaults:
       # To use certain environment variables set by .bashrc, an interactive
       # bash shell must be used
