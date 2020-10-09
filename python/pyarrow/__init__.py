@@ -242,7 +242,7 @@ if _sys.version_info >= (3, 7):
                            DeprecationWarning, stacklevel=2)
             return obj
         elif name in _serialization_deprecatd:
-            _warnings.warn(_msg.format(name),
+            _warnings.warn(_serialization_msg.format(name),
                            DeprecationWarning, stacklevel=2)
             return _serialization_deprecatd[name]
 
