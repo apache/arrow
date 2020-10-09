@@ -16,8 +16,34 @@
 // under the License.
 
 import { flatbuffers } from 'flatbuffers';
-import * as Schema_ from '../../fb/Schema';
-import * as Message_ from '../../fb/Message';
+
+import {
+    Type,
+    Int as _Int,
+    Field as _Field,
+    Schema as _Schema,
+    Buffer as _Buffer,
+    KeyValue as _KeyValue,
+    Endianness as _Endianness,
+    DictionaryEncoding as _DictionaryEncoding,
+    FloatingPoint as _FloatingPoint,
+    Decimal as _Decimal,
+    Date as _Date,
+    Time as _Time,
+    Timestamp as _Timestamp,
+    Interval as _Interval,
+    Union as _Union,
+    FixedSizeBinary as _FixedSizeBinary,
+    FixedSizeList as _FixedSizeList,
+    Map as _Map,
+} from '../../fb/Schema';
+
+import {
+    Message as _Message,
+    FieldNode as _FieldNode,
+    RecordBatch as _RecordBatch,
+    DictionaryBatch as _DictionaryBatch,
+} from '../../fb/Message';
 
 import { Schema, Field } from '../../schema';
 import { toUint8Array } from '../../util/buffer';
@@ -29,18 +55,6 @@ import { fieldFromJSON, schemaFromJSON, recordBatchFromJSON, dictionaryBatchFrom
 import Long = flatbuffers.Long;
 import Builder = flatbuffers.Builder;
 import ByteBuffer = flatbuffers.ByteBuffer;
-import _Int = Schema_.org.apache.arrow.flatbuf.Int;
-import Type = Schema_.org.apache.arrow.flatbuf.Type;
-import _Field = Schema_.org.apache.arrow.flatbuf.Field;
-import _Schema = Schema_.org.apache.arrow.flatbuf.Schema;
-import _Buffer = Schema_.org.apache.arrow.flatbuf.Buffer;
-import _Message = Message_.org.apache.arrow.flatbuf.Message;
-import _KeyValue = Schema_.org.apache.arrow.flatbuf.KeyValue;
-import _FieldNode = Message_.org.apache.arrow.flatbuf.FieldNode;
-import _Endianness = Schema_.org.apache.arrow.flatbuf.Endianness;
-import _RecordBatch = Message_.org.apache.arrow.flatbuf.RecordBatch;
-import _DictionaryBatch = Message_.org.apache.arrow.flatbuf.DictionaryBatch;
-import _DictionaryEncoding = Schema_.org.apache.arrow.flatbuf.DictionaryEncoding;
 
 import {
     DataType, Dictionary, TimeBitWidth,

@@ -17,7 +17,8 @@
 
 import * as type from '../type';
 import { Visitor } from '../visitor';
-import { ArrowType, Precision, DateUnit, TimeUnit, IntervalUnit, UnionMode } from '../enum';
+import { Type as ArrowType } from '../fb/Schema';
+import { Precision, DateUnit, TimeUnit, IntervalUnit, UnionMode } from '../enum';
 
 /** @ignore */
 export interface JSONTypeAssembler extends Visitor {
