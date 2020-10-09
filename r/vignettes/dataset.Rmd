@@ -45,7 +45,7 @@ connection, you may want to grab just a year or two of data.
 If your `arrow` build has S3 support, you can sync the data locally with:
 
 ```{r, eval = FALSE}
-arrow::fs_copy("s3://ursa-labs-taxi-data", "nyc-taxi")
+arrow::copy_files("s3://ursa-labs-taxi-data", "nyc-taxi")
 ```
 
 If your `arrow` build doesn't have S3 support, you can download the files

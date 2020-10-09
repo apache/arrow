@@ -11,11 +11,11 @@ arrow_with_s3()
 }
 \value{
 \code{TRUE} or \code{FALSE} depending on whether the package was installed
-with the Arrow C++ library \code{arrow_available()} or with S3 support enabled
-\code{arrow_with_s3()}.
+with the Arrow C++ library (check with \code{arrow_available()}) or with S3
+support enabled (check with \code{arrow_with_s3()}).
 }
 \description{
-You won't generally need to call these function, but they're here
+You won't generally need to call these function, but they're made available
 for diagnostic purposes.
 }
 \examples{

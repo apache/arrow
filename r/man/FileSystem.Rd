@@ -92,7 +92,8 @@ appending.
 \item \verb{$region}: string AWS region, for \code{S3FileSystem} and \code{SubTreeFileSystem}
 containing a \code{S3FileSystem}
 \item \verb{$base_fs}: for \code{SubTreeFileSystem}, the \code{FileSystem} it contains
-\item \verb{$base_path}: for \code{SubTreeFileSystem}, the string file path it contains
+\item \verb{$base_path}: for \code{SubTreeFileSystem}, the path in \verb{$base_fs} which is considered
+root in this \code{SubTreeFileSystem}.
 }
 }
 

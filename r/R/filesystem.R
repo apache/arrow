@@ -455,26 +455,25 @@ SubTreeFileSystem$create <- function(base_path, base_fs = NULL) {
 
 #' Copy files, including between FileSystems
 #'
-#' @param src_fs The FileSystem from which files will be copied.
-#' @param src_sel A FileSelector indicating which files should be copied.
-#' A string may also be passed, which is used as the base dir for recursive
-#' selection.
-#' @param dest_fs The FileSystem into which files will be copied.
-#' @param dest_base_dir Where the copied files should be placed.
-#' Directories will be created as necessary.
+#' @param from A string path to a local directory or file, a URI, or a
+#' `SubTreeFileSystem`. Files will be copied recursively from this path.
+#' @param to A string path to a local directory or file, a URI, or a
+#' `SubTreeFileSystem`. Directories will be created as necessary
 #' @param chunk_size The maximum size of block to read before flushing
 #' to the destination file. A larger chunk_size will use more memory while
 #' copying but may help accommodate high latency FileSystems.
-copy_files <- function(src_fs = LocalFileSystem$create(),
-                       src_sel,
-                       dest_fs = LocalFileSystem$create(),
-                       dest_base_dir,
-                       chunk_size = 1024L * 1024L) {
-  if (!inherits(src_sel, "FileSelector")) {
-    src_sel <- FileSelector$create(src_sel, recursive = TRUE)
-  }
-  fs___CopyFiles(src_fs, src_sel, dest_fs, dest_base_dir,
-                 chunk_size, option_use_threads())
+#' @return Nothing: called for side effects in the file system
+copy_files <- function(from, to, chunk_size = 1024L * 1024L) {
+  from <- get_path_and_filesystem(from)
+  to <- get_path_and_filesystem(to)
+  invisible(fs___CopyFiles(
+    from$fs,
+    FileSelector$create(from$path, recursive = TRUE),
+    to$fs,
+    to$path,
+    chunk_size,
+    option_use_threads()
+  ))
 }
 
 clean_path_abs <- function(path) {

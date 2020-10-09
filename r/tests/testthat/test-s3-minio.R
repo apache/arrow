@@ -122,6 +122,32 @@ if (arrow_with_s3() && process_is_running("minio server")) {
     expect_length(fs$ls(minio_path("new_dataset_dir")), 1)
   })
 
+  make_temp_dir <- function() {
+    path <- tempfile()
+    dir.create(path)
+    normalizePath(path, winslash = "/")
+  }
+
+  test_that("Let's test copy_files too", {
+    td <- make_temp_dir()
+    copy_files(minio_uri("hive_dir"), td)
+    expect_length(dir(td), 2)
+    ds <- open_dataset(td)
+    expect_identical(
+      ds %>% select(dbl, lgl) %>% collect(),
+      rbind(df1[, c("dbl", "lgl")], df2[, c("dbl", "lgl")])
+    )
+
+    # Let's copy the other way and use a SubTreeFileSystem rather than URI
+    copy_files(td, fs$path(minio_path("hive_dir2")))
+    ds2 <- open_dataset(fs$path(minio_path("hive_dir2")))
+    expect_identical(
+      ds2 %>% select(dbl, lgl) %>% collect(),
+      rbind(df1[, c("dbl", "lgl")], df2[, c("dbl", "lgl")])
+    )
+  })
+
+
   test_that("S3FileSystem input validation", {
     expect_error(
       S3FileSystem$create(access_key = "foo"),
