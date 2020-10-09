@@ -239,6 +239,19 @@ def _wrap_function(name, func):
                                             option_class)
     return _decorate_compute_function(wrapper, name, func, option_class)
 
+def _simple_ternary_function(name):
+    func = get_function(name)
+    option_class = _option_classes.get(name)
+
+    if option_class is not None:
+        def wrapper(value, left, right, *, options=None, memory_pool=None, **kwargs):
+            options = _handle_options(name, option_class, options, kwargs)
+            return func.call([value, left, right], options, memory_pool)
+    else:
+        def wrapper(value, left, right, *, memory_pool=None):
+            return func.call([value, left, right], None, memory_pool)
+
+    return _decorate_compute_function(wrapper, name, func, option_class)
 
 def _make_global_functions():
     """
@@ -262,7 +275,20 @@ def _make_global_functions():
             # so let's not expose them at module level.
             continue
         assert name not in g, name
+<<<<<<< HEAD
         g[cpp_name] = g[name] = _wrap_function(name, func)
+=======
+        func = reg.get_function(name)
+        if func.arity == 1:
+            g[name] = _simple_unary_function(name)
+        elif func.arity == 2:
+            g[name] = _simple_binary_function(name)
+        elif func.arity == 3:
+            g[name] = _simple_ternary_function(name)    
+        else:
+            raise NotImplementedError("Unsupported function arity: ",
+                                      func.arity)
+>>>>>>> 5a1ba455c... allowing python compute to execute ternary functions
 
 
 _make_global_functions()
