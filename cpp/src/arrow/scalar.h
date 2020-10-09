@@ -36,6 +36,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/compare.h"
 #include "arrow/util/decimal.h"
+#include "arrow/util/decimal_type_traits.h"
 #include "arrow/util/string_view.h"
 #include "arrow/util/visibility.h"
 
@@ -339,26 +340,24 @@ struct ARROW_EXPORT DurationScalar : public TemporalScalar<DurationType> {
   using TemporalScalar<DurationType>::TemporalScalar;
 };
 
-struct ARROW_EXPORT Decimal128Scalar : public Scalar {
+template<uint32_t width>
+struct BaseDecimalScalar : public Scalar {
   using Scalar::Scalar;
-  using TypeClass = Decimal128Type;
-  using ValueType = Decimal128;
+  using TypeClass = typename DecimalTypeTraits<width>::TypeClass;
+  using ValueType = typename DecimalTypeTraits<width>::ValueType;
 
-  Decimal128Scalar(Decimal128 value, std::shared_ptr<DataType> type)
+  BaseDecimalScalar(ValueType value, std::shared_ptr<DataType> type)
       : Scalar(std::move(type), true), value(value) {}
 
-  Decimal128 value;
+  ValueType value;
 };
 
-struct ARROW_EXPORT Decimal256Scalar : public Scalar {
-  using Scalar::Scalar;
-  using TypeClass = Decimal256Type;
-  using ValueType = Decimal256;
+struct ARROW_EXPORT Decimal128Scalar : public BaseDecimalScalar<128> {
+  using BaseDecimalScalar<128>::BaseDecimalScalar;
+};
 
-  Decimal256Scalar(Decimal256 value, std::shared_ptr<DataType> type)
-      : Scalar(std::move(type), true), value(value) {}
-
-  Decimal256 value;
+struct ARROW_EXPORT Decimal256Scalar : public BaseDecimalScalar<256> {
+  using BaseDecimalScalar<256>::BaseDecimalScalar;
 };
 
 struct ARROW_EXPORT BaseListScalar : public Scalar {

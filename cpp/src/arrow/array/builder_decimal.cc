@@ -33,30 +33,35 @@ class Buffer;
 class MemoryPool;
 
 // ----------------------------------------------------------------------
-// Decimal128Builder
+// BaseDecimalBuilder
 
-Decimal128Builder::Decimal128Builder(const std::shared_ptr<DataType>& type,
+template<uint32_t width>
+BaseDecimalBuilder<width>::BaseDecimalBuilder(const std::shared_ptr<DataType>& type,
                                      MemoryPool* pool)
     : FixedSizeBinaryBuilder(type, pool),
-      decimal_type_(internal::checked_pointer_cast<Decimal128Type>(type)) {}
+      decimal_type_(internal::checked_pointer_cast<TypeClass>(type)) {}
 
-Status Decimal128Builder::Append(Decimal128 value) {
+template<uint32_t width>
+Status BaseDecimalBuilder<width>::Append(ValueType value) {
   RETURN_NOT_OK(FixedSizeBinaryBuilder::Reserve(1));
   UnsafeAppend(value);
   return Status::OK();
 }
 
-void Decimal128Builder::UnsafeAppend(Decimal128 value) {
+template<uint32_t width>
+void BaseDecimalBuilder<width>::UnsafeAppend(ValueType value) {
   value.ToBytes(GetMutableValue(length()));
-  byte_builder_.UnsafeAdvance(16);
+  byte_builder_.UnsafeAdvance((width >> 3));
   UnsafeAppendToBitmap(true);
 }
 
-void Decimal128Builder::UnsafeAppend(util::string_view value) {
+template<uint32_t width>
+void BaseDecimalBuilder<width>::UnsafeAppend(util::string_view value) {
   FixedSizeBinaryBuilder::UnsafeAppend(value);
 }
 
-Status Decimal128Builder::FinishInternal(std::shared_ptr<ArrayData>* out) {
+template<uint32_t width>
+Status BaseDecimalBuilder<width>::FinishInternal(std::shared_ptr<ArrayData>* out) {
   std::shared_ptr<Buffer> data;
   RETURN_NOT_OK(byte_builder_.Finish(&data));
   std::shared_ptr<Buffer> null_bitmap;
@@ -67,39 +72,7 @@ Status Decimal128Builder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   return Status::OK();
 }
 
-// ----------------------------------------------------------------------
-// Decimal256Builder
-
-Decimal256Builder::Decimal256Builder(const std::shared_ptr<DataType>& type,
-                                     MemoryPool* pool)
-    : FixedSizeBinaryBuilder(type, pool),
-      decimal_type_(internal::checked_pointer_cast<Decimal256Type>(type)) {}
-
-Status Decimal256Builder::Append(const Decimal256& value) {
-  RETURN_NOT_OK(FixedSizeBinaryBuilder::Reserve(1));
-  UnsafeAppend(value);
-  return Status::OK();
-}
-
-void Decimal256Builder::UnsafeAppend(const Decimal256& value) {
-  value.ToBytes(GetMutableValue(length()));
-  byte_builder_.UnsafeAdvance(32);
-  UnsafeAppendToBitmap(true);
-}
-
-void Decimal256Builder::UnsafeAppend(util::string_view value) {
-  FixedSizeBinaryBuilder::UnsafeAppend(value);
-}
-
-Status Decimal256Builder::FinishInternal(std::shared_ptr<ArrayData>* out) {
-  std::shared_ptr<Buffer> data;
-  RETURN_NOT_OK(byte_builder_.Finish(&data));
-  std::shared_ptr<Buffer> null_bitmap;
-  RETURN_NOT_OK(null_bitmap_builder_.Finish(&null_bitmap));
-
-  *out = ArrayData::Make(type(), length_, {null_bitmap, data}, null_count_);
-  capacity_ = length_ = null_count_ = 0;
-  return Status::OK();
-}
+template class BaseDecimalBuilder<128>;
+template class BaseDecimalBuilder<256>;
 
 }  // namespace arrow

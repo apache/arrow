@@ -32,32 +32,21 @@ namespace arrow {
 
 using internal::checked_cast;
 
-// ----------------------------------------------------------------------
-// Decimal128
 
-Decimal128Array::Decimal128Array(const std::shared_ptr<ArrayData>& data)
+template<uint32_t width>
+BaseDecimalArray<width>::BaseDecimalArray(const std::shared_ptr<ArrayData>& data)
     : FixedSizeBinaryArray(data) {
-  ARROW_CHECK_EQ(data->type->id(), Type::DECIMAL128);
+  ARROW_CHECK_EQ(data->type->id(), DecimalTypeTraits<width>::Id);
 }
 
-std::string Decimal128Array::FormatValue(int64_t i) const {
-  const auto& type_ = checked_cast<const Decimal128Type&>(*type());
-  const Decimal128 value(GetValue(i));
+template<uint32_t width>
+std::string BaseDecimalArray<width>::FormatValue(int64_t i) const {
+  const auto& type_ = checked_cast<const TypeClass&>(*type());
+  const ValueType value(GetValue(i));
   return value.ToString(type_.scale());
 }
 
-// ----------------------------------------------------------------------
-// Decimal256
-
-Decimal256Array::Decimal256Array(const std::shared_ptr<ArrayData>& data)
-    : FixedSizeBinaryArray(data) {
-  ARROW_CHECK_EQ(data->type->id(), Type::DECIMAL256);
-}
-
-std::string Decimal256Array::FormatValue(int64_t i) const {
-  const auto& type_ = checked_cast<const Decimal256Type&>(*type());
-  const Decimal256 value(GetValue(i));
-  return value.ToString(type_.scale());
-}
+template class BaseDecimalArray<128>;
+template class BaseDecimalArray<256>;
 
 }  // namespace arrow

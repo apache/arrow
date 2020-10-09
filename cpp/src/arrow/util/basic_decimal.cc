@@ -30,6 +30,7 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/int128_internal.h"
 #include "arrow/util/int_util_internal.h"
+#include "arrow/util/decimal_meta.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 
@@ -281,7 +282,7 @@ BasicDecimal128 BasicDecimal128::Abs(const BasicDecimal128& in) {
 
 bool BasicDecimal128::FitsInPrecision(int32_t precision) const {
   DCHECK_GT(precision, 0);
-  DCHECK_LE(precision, 38);
+  DCHECK_LE(precision, DecimalMeta<128>::max_precision);
   return BasicDecimal128::Abs(*this) < ScaleMultipliers[precision];
 }
 
@@ -930,6 +931,8 @@ DecimalStatus DecimalRescale(const DecimalClass& value, int32_t original_scale,
   const int32_t abs_delta_scale = std::abs(delta_scale);
 
   DecimalClass multiplier = DecimalClass::GetScaleMultiplier(abs_delta_scale);
+  DCHECK_GE(abs_delta_scale, 1);
+  DCHECK_LE(abs_delta_scale, DecimalMeta<128>::max_precision);
 
   const bool rescale_would_cause_data_loss =
       RescaleWouldCauseDataLoss(value, delta_scale, multiplier, out);
@@ -950,7 +953,7 @@ DecimalStatus BasicDecimal128::Rescale(int32_t original_scale, int32_t new_scale
 void BasicDecimal128::GetWholeAndFraction(int scale, BasicDecimal128* whole,
                                           BasicDecimal128* fraction) const {
   DCHECK_GE(scale, 0);
-  DCHECK_LE(scale, 38);
+  DCHECK_LE(scale, DecimalMeta<128>::max_precision);
 
   BasicDecimal128 multiplier(ScaleMultipliers[scale]);
   auto s = Divide(multiplier, whole, fraction);
@@ -959,7 +962,7 @@ void BasicDecimal128::GetWholeAndFraction(int scale, BasicDecimal128* whole,
 
 const BasicDecimal128& BasicDecimal128::GetScaleMultiplier(int32_t scale) {
   DCHECK_GE(scale, 0);
-  DCHECK_LE(scale, 38);
+  DCHECK_LE(scale, DecimalMeta<128>::max_precision);
 
   return ScaleMultipliers[scale];
 }
@@ -968,14 +971,14 @@ const BasicDecimal128& BasicDecimal128::GetMaxValue() { return kMaxValue; }
 
 BasicDecimal128 BasicDecimal128::IncreaseScaleBy(int32_t increase_by) const {
   DCHECK_GE(increase_by, 0);
-  DCHECK_LE(increase_by, 38);
+  DCHECK_LE(increase_by, DecimalMeta<128>::max_precision);
 
   return (*this) * ScaleMultipliers[increase_by];
 }
 
 BasicDecimal128 BasicDecimal128::ReduceScaleBy(int32_t reduce_by, bool round) const {
   DCHECK_GE(reduce_by, 0);
-  DCHECK_LE(reduce_by, 38);
+  DCHECK_LE(reduce_by, DecimalMeta<128>::max_precision);
 
   if (reduce_by == 0) {
     return *this;

@@ -143,17 +143,20 @@ class StructArray;
 class StructBuilder;
 struct StructScalar;
 
-class Decimal128;
-class Decimal256;
 class DecimalType;
-class Decimal128Type;
-class Decimal256Type;
-class Decimal128Array;
-class Decimal256Array;
-class Decimal128Builder;
-class Decimal256Builder;
-struct Decimal128Scalar;
-struct Decimal256Scalar;
+
+#define DECIMAL_DECL(width)     \
+class Decimal##width;           \
+class Decimal##width##Type;     \
+class Decimal##width##Array;    \
+class Decimal##width##Builder;  \
+struct Decimal##width##Scalar;
+
+DECIMAL_DECL(128)
+DECIMAL_DECL(256)
+
+#undef DECIMAL_DECL
+
 
 struct UnionMode {
   enum type { SPARSE, DENSE };

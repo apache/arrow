@@ -22,45 +22,40 @@
 #include <string>
 
 #include "arrow/array/array_binary.h"
+#include "arrow/util/decimal_type_traits.h"
 #include "arrow/array/data.h"
 #include "arrow/type.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
 
-// ----------------------------------------------------------------------
-// Decimal128Array
-
-/// Concrete Array class for 128-bit decimal data
-class ARROW_EXPORT Decimal128Array : public FixedSizeBinaryArray {
+/// Template Array class for decimal data
+template<uint32_t width>
+class BaseDecimalArray : public FixedSizeBinaryArray {
  public:
-  using TypeClass = Decimal128Type;
+  using TypeClass = typename DecimalTypeTraits<width>::TypeClass;
+  using ValueType = typename DecimalTypeTraits<width>::ValueType;
 
   using FixedSizeBinaryArray::FixedSizeBinaryArray;
 
-  /// \brief Construct Decimal128Array from ArrayData instance
-  explicit Decimal128Array(const std::shared_ptr<ArrayData>& data);
+  /// \brief Construct DecimalArray from ArrayData instance
+  explicit BaseDecimalArray(const std::shared_ptr<ArrayData>& data);
 
   std::string FormatValue(int64_t i) const;
+};
+
+/// Array class for decimal 128-bit data                                       
+class ARROW_EXPORT Decimal128Array : public BaseDecimalArray<128> { 
+  using BaseDecimalArray<128>::BaseDecimalArray;                          
+};
+
+/// Array class for decimal 256-bit data
+class ARROW_EXPORT Decimal256Array : public BaseDecimalArray<256> { 
+  using BaseDecimalArray<256>::BaseDecimalArray;                          
 };
 
 // Backward compatibility
 using DecimalArray = Decimal128Array;
 
-// ----------------------------------------------------------------------
-// Decimal256Array
-
-/// Concrete Array class for 256-bit decimal data
-class ARROW_EXPORT Decimal256Array : public FixedSizeBinaryArray {
- public:
-  using TypeClass = Decimal256Type;
-
-  using FixedSizeBinaryArray::FixedSizeBinaryArray;
-
-  /// \brief Construct Decimal256Array from ArrayData instance
-  explicit Decimal256Array(const std::shared_ptr<ArrayData>& data);
-
-  std::string FormatValue(int64_t i) const;
-};
 
 }  // namespace arrow
