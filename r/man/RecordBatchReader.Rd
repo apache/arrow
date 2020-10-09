@@ -66,9 +66,12 @@ file_obj$close()
 # then pass it to a RecordBatchReader
 read_file_obj <- ReadableFile$create(tf)
 reader <- RecordBatchFileReader$create(read_file_obj)
-# RecordBatchFileReader knows how many batches it has (StreamReader does not)
+# RecordBatchFileReader knows how many batches it has (StreamReader does
+# not), and has access to the custom_metadata serialized in the file's
+footer (the stream format does not include a footer).
 reader$num_record_batches
-# We could consume the Reader by calling $read_next_batch() until all are,
+reader$metadata
+# We could consume the Reader by calling $read_next_batch() until all are
 # consumed, or we can call $read_table() to pull them all into a Table
 tab <- reader$read_table()
 # Call as.data.frame to turn that Table into an R data.frame

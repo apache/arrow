@@ -46,7 +46,8 @@ will yield \verb{"part-0.feather", ...}.}
 string file path; default is the local file system}
 
 \item{...}{additional format-specific arguments. For available Parquet
-options, see \code{\link[=write_parquet]{write_parquet()}}.}
+options, see \code{\link[=write_parquet]{write_parquet()}}. For available Feather options, see
+\code{\link[=RecordBatchFileWriter$create]{RecordBatchFileWriter$create()}}.}
 }
 \value{
 The input \code{dataset}, invisibly
