@@ -956,6 +956,14 @@ fs___SubTreeFileSystem__create <- function(base_path, base_fs){
     .Call(`_arrow_fs___SubTreeFileSystem__create` , base_path, base_fs)
 }
 
+fs___SubTreeFileSystem__base_fs <- function(file_system){
+    .Call(`_arrow_fs___SubTreeFileSystem__base_fs` , file_system)
+}
+
+fs___SubTreeFileSystem__base_path <- function(file_system){
+    .Call(`_arrow_fs___SubTreeFileSystem__base_path` , file_system)
+}
+
 fs___FileSystemFromUri <- function(path){
     .Call(`_arrow_fs___FileSystemFromUri` , path)
 }
@@ -966,6 +974,10 @@ fs___CopyFiles <- function(source_fs, source_sel, destination_fs, destination_ba
 
 fs___S3FileSystem__create <- function(anonymous, access_key, secret_key, session_token, role_arn, session_name, external_id, load_frequency, region, endpoint_override, scheme, background_writes){
     .Call(`_arrow_fs___S3FileSystem__create` , anonymous, access_key, secret_key, session_token, role_arn, session_name, external_id, load_frequency, region, endpoint_override, scheme, background_writes)
+}
+
+fs___S3FileSystem__region <- function(fs){
+    .Call(`_arrow_fs___S3FileSystem__region` , fs)
 }
 
 io___Readable__Read <- function(x, nbytes){

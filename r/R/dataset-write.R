@@ -27,8 +27,8 @@
 #' and `group_by()` operations done on the dataset. `filter()` queries will be
 #' applied to restrict written rows.
 #' Note that `select()`-ed columns may not be renamed.
-#' @param path string path or URI to a directory to write to (directory will be
-#' created if it does not exist)
+#' @param path string path, URI, or `SubTreeFileSystem` referencing a directory
+#' to write to (directory will be created if it does not exist)
 #' @param format file format to write the dataset to. Currently supported
 #' formats are "feather" (aka "ipc") and "parquet". Default is to write to the
 #' same format as `dataset`.
@@ -41,8 +41,6 @@
 #' will yield `"part-0.feather", ...`.
 #' @param hive_style logical: write partition segments as Hive-style
 #' (`key1=value1/key2=value2/file.ext`) or as just bare values. Default is `TRUE`.
-#' @param filesystem A [FileSystem] where the dataset should be written if it is a
-#' string file path; default is the local file system
 #' @param ... additional format-specific arguments. For available Parquet
 #' options, see [write_parquet()].
 #' @return The input `dataset`, invisibly
@@ -53,7 +51,6 @@ write_dataset <- function(dataset,
                           partitioning = dplyr::group_vars(dataset),
                           basename_template = paste0("part-{i}.", as.character(format)),
                           hive_style = TRUE,
-                          filesystem = NULL,
                           ...) {
   if (inherits(dataset, "arrow_dplyr_query")) {
     # We can select a subset of columns but we can't rename them
@@ -79,7 +76,7 @@ write_dataset <- function(dataset,
     }
   }
 
-  path_and_fs <- get_path_and_filesystem(path, filesystem)
+  path_and_fs <- get_path_and_filesystem(path)
   options <- FileWriteOptions$create(format, table = scanner, ...)
 
   dataset___Dataset__Write(options, path_and_fs$fs, path_and_fs$path,

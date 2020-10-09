@@ -38,10 +38,9 @@
 read_json_arrow <- function(file,
                             col_select = NULL,
                             as_data_frame = TRUE,
-                            filesystem = NULL,
                             ...) {
   if (!inherits(file, "InputStream")) {
-    file <- make_readable_file(file, filesystem = filesystem)
+    file <- make_readable_file(file)
     on.exit(file$close())
   }
   tab <- JsonTableReader$create(file, ...)$Read()

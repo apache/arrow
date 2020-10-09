@@ -2,19 +2,28 @@
 % Please edit documentation in R/arrow-package.R
 \name{arrow_available}
 \alias{arrow_available}
+\alias{arrow_with_s3}
 \title{Is the C++ Arrow library available?}
 \usage{
 arrow_available()
+
+arrow_with_s3()
 }
 \value{
 \code{TRUE} or \code{FALSE} depending on whether the package was installed
-with the Arrow C++ library. If \code{FALSE}, you'll need to install the C++
-library and then reinstall the R package. See \code{\link[=install_arrow]{install_arrow()}} for help.
+with the Arrow C++ library (check with \code{arrow_available()}) or with S3
+support enabled (check with \code{arrow_with_s3()}).
 }
 \description{
-You won't generally need to call this function, but it's here in case it
-helps for development purposes.
+You won't generally need to call these function, but they're made available
+for diagnostic purposes.
 }
 \examples{
 arrow_available()
+arrow_with_s3()
+}
+\seealso{
+If either of these are \code{FALSE}, see
+\code{vignette("install", package = "arrow")} for guidance on reinstalling the
+package.
 }

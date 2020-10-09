@@ -44,39 +44,43 @@ the cost of reading the data over the network should be much lower.
 
 ## Creating a FileSystem object
 
-Another way to connect to S3 is to create an `S3FileSystem` object once and pass
-that to the read/write functions. This may be a convenience when dealing with
+Another way to connect to S3 is to create a `FileSystem` object once and pass
+that to the read/write functions.
+`S3FileSystem` objects can be created with the `s3_bucket()` function, which
+automatically detects the bucket's AWS region. Additionally, the resulting
+`FileSystem` will consider paths relative to the bucket's path (so for example
+you don't need to prefix the bucket path when listing a directory).
+This may be convenient when dealing with
 long URIs, and it's necessary for some options and authentication methods
 that aren't supported in the URI format.
 
+With a `FileSystem` object, we can point to specific files in it with the `$path()` method.
 In the previous example, this would look like:
 
 ```r
-fs <- S3FileSystem$create(region = "us-east-2")
-df <- read_parquet("ursa-labs-taxi-data/2019/06/data.parquet", filesystem = fs)
+bucket <- s3_bucket("ursa-labs-taxi-data")
+df <- read_parquet(bucket$path("2019/06/data.parquet"))
 ```
 
-See the help for `FileSystem` for a list of options that `S3FileSystem$create()`
+See the help for `FileSystem` for a list of options that `s3_bucket()` and `S3FileSystem$create()`
 can take. `region`, `scheme`, and `endpoint_override` can be encoded as query
-parameters in the URI (though `region` will be auto-detected the bucket URI if omitted),
-and `access_key` and `secret_key` can also be included,
+parameters in the URI (though `region` will be auto-detected in `s3_bucket()` or from the URI if omitted).
+`access_key` and `secret_key` can also be included,
 but other options are not supported in the URI.
 
-Using the `SubTreeFileSystem` class, you can represent an S3 bucket or
-subdirectory inside of one.
+The object that `s3_bucket()` returns is technically a `SubTreeFileSystem`, which holds a path and a file system to which it corresponds. `SubTreeFileSystem`s can be useful for holding a reference to a subdirectory somewhere, on S3 or elsewhere.
+
+One way to get a subtree is to call the `$cd()` method on a `FileSystem`
 
 ```r
-bucket <- SubTreeFileSystem$create(
-  "ursa-labs-taxi-data",
-  S3FileSystem$create(region = "us-east-2")
-)
-df <- read_parquet("2019/06/data.parquet", filesystem = bucket)
+june2019 <- bucket$cd("2019/06")
+df <- read_parquet(june2019$path("data.parquet"))
 ```
 
 `SubTreeFileSystem` can also be made from a URI:
 
 ```r
-bucket <- SubTreeFileSystem$create("s3://ursa-labs-taxi-data")
+june2019 <- SubTreeFileSystem$create("s3://ursa-labs-taxi-data/2019/06")
 ```
 
 ## Authentication
@@ -88,14 +92,14 @@ There are a few options for passing these credentials:
 
 1. Include them in the URI, like `s3://access_key:secret_key@bucket-name/path/to/file`. Be sure to [URL-encode](https://en.wikipedia.org/wiki/Percent-encoding) your secrets if they contain special characters like "/".
 
-2. Pass them as `access_key` and `secret_key` to `S3FileSystem$create()`
+2. Pass them as `access_key` and `secret_key` to `S3FileSystem$create()` or `s3_bucket()`
 
 3. Set them as environment variables named `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`, respectively.
 
 4. Define them in a `~/.aws/credentials` file, according to the [AWS documentation](https://docs.aws.amazon.com/sdk-for-cpp/v1/developer-guide/credentials.html).
 
 You can also use an [AccessRole](https://docs.aws.amazon.com/STS/latest/APIReference/API_AssumeRole.html)
-for temporary access by passing the `role_arn` identifier to `S3FileSystem$create()`.
+for temporary access by passing the `role_arn` identifier to `S3FileSystem$create()` or `s3_bucket()`.
 
 ## File systems that emulate S3
 
