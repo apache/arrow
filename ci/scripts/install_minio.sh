@@ -22,6 +22,7 @@ set -e
 declare -A archs
 archs=([amd64]=amd64
        [arm64v8]=arm64
+       [arm32v7]=arm
        [s390x]=s390x)
 
 declare -A platforms
