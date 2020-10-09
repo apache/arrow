@@ -249,6 +249,10 @@ if(ARROW_ORC OR ARROW_FLIGHT OR ARROW_GANDIVA)
   set(ARROW_WITH_PROTOBUF ON)
 endif()
 
+if(ARROW_S3)
+  set(ARROW_WITH_ZLIB ON)
+endif()
+
 if(NOT ARROW_COMPUTE)
   # utf8proc is only potentially used in kernels for now
   set(ARROW_WITH_UTF8PROC OFF)
@@ -1890,9 +1894,11 @@ macro(build_zlib)
   file(MAKE_DIRECTORY "${ZLIB_PREFIX}/include")
 
   add_library(ZLIB::ZLIB STATIC IMPORTED)
+  set(ZLIB_LIBRARIES ${ZLIB_STATIC_LIB})
+  set(ZLIB_INCLUDE_DIRS "${ZLIB_PREFIX}/include")
   set_target_properties(ZLIB::ZLIB
-                        PROPERTIES IMPORTED_LOCATION "${ZLIB_STATIC_LIB}"
-                                   INTERFACE_INCLUDE_DIRECTORIES "${ZLIB_PREFIX}/include")
+                        PROPERTIES IMPORTED_LOCATION ${ZLIB_LIBRARIES}
+                                   INTERFACE_INCLUDE_DIRECTORIES ${ZLIB_INCLUDE_DIRS})
 
   add_dependencies(toolchain zlib_ep)
   add_dependencies(ZLIB::ZLIB zlib_ep)
@@ -2693,6 +2699,10 @@ macro(build_awssdk)
     ${AWSSDK_COMMON_CMAKE_ARGS} -DBUILD_DEPS=OFF
     -DBUILD_ONLY=config\\$<SEMICOLON>s3\\$<SEMICOLON>transfer\\$<SEMICOLON>identity-management\\$<SEMICOLON>sts
     -DMINIMIZE_SIZE=ON)
+  if(UNIX AND TARGET zlib_ep)
+    list(APPEND AWSSDK_CMAKE_ARGS -DZLIB_INCLUDE_DIR=${ZLIB_INCLUDE_DIRS}
+                -DZLIB_LIBRARY=${ZLIB_LIBRARIES})
+  endif()
 
   file(MAKE_DIRECTORY ${AWSSDK_INCLUDE_DIR})
 
@@ -2783,9 +2793,18 @@ macro(build_awssdk)
                                        "${CURL_INCLUDE_DIRS}" IMPORTED_LOCATION
                                        "${CURL_LIBRARIES}")
     endif()
-    set_target_properties(aws-cpp-sdk-core
-                          PROPERTIES INTERFACE_LINK_LIBRARIES CURL::libcurl)
-    set_target_properties(CURL::libcurl PROPERTIES INTERFACE_LINK_LIBRARIES OpenSSL::SSL)
+    set_property(TARGET aws-cpp-sdk-core
+                 APPEND
+                 PROPERTY INTERFACE_LINK_LIBRARIES CURL::libcurl)
+    set_property(TARGET CURL::libcurl
+                 APPEND
+                 PROPERTY INTERFACE_LINK_LIBRARIES OpenSSL::SSL)
+    if(TARGET zlib_ep)
+      set_property(TARGET aws-cpp-sdk-core
+                   APPEND
+                   PROPERTY INTERFACE_LINK_LIBRARIES ZLIB::ZLIB)
+      add_dependencies(awssdk_ep zlib_ep)
+    endif()
   endif()
 
   # AWSSDK is static-only build
