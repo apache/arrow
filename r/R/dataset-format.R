@@ -141,10 +141,16 @@ FileWriteOptions <- R6Class("FileWriteOptions", inherit = ArrowObject,
             ParquetArrowWriterProperties$create(...))
       } else if (self$type == "ipc") {
         args <- list(...)
-        dataset___IpcFileWriteOptions__update(self,
-            get_ipc_use_legacy_format(args$use_legacy_format),
-            args$codec,
-            get_ipc_metadata_version(args$metadata_version))
+        if (is.null(args$codec)) {
+          dataset___IpcFileWriteOptions__update1(self,
+              get_ipc_use_legacy_format(args$use_legacy_format),
+              get_ipc_metadata_version(args$metadata_version))
+        } else {
+          dataset___IpcFileWriteOptions__update2(self,
+              get_ipc_use_legacy_format(args$use_legacy_format),
+              args$codec,
+              get_ipc_metadata_version(args$metadata_version))
+        }
       }
       invisible(self)
     }
