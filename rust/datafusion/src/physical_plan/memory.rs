@@ -26,7 +26,7 @@ use arrow::datatypes::SchemaRef;
 use arrow::error::Result as ArrowResult;
 use arrow::record_batch::{RecordBatch, RecordBatchReader};
 
-use super::Source;
+use super::SendableRecordBatchReader;
 use async_trait::async_trait;
 
 /// Execution plan for reading in-memory batches of data
@@ -72,7 +72,7 @@ impl ExecutionPlan for MemoryExec {
         )))
     }
 
-    async fn execute(&self, partition: usize) -> Result<Source> {
+    async fn execute(&self, partition: usize) -> Result<SendableRecordBatchReader> {
         Ok(Box::new(MemoryIterator::try_new(
             self.partitions[partition].clone(),
             self.schema.clone(),

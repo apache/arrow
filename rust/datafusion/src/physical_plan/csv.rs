@@ -29,7 +29,7 @@ use arrow::datatypes::{Schema, SchemaRef};
 use arrow::error::Result as ArrowResult;
 use arrow::record_batch::{RecordBatch, RecordBatchReader};
 
-use super::Source;
+use super::SendableRecordBatchReader;
 use async_trait::async_trait;
 
 /// CSV file read option
@@ -218,7 +218,7 @@ impl ExecutionPlan for CsvExec {
         }
     }
 
-    async fn execute(&self, partition: usize) -> Result<Source> {
+    async fn execute(&self, partition: usize) -> Result<SendableRecordBatchReader> {
         Ok(Box::new(CsvIterator::try_new(
             &self.filenames[partition],
             self.schema.clone(),

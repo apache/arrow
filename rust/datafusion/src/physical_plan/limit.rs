@@ -28,7 +28,7 @@ use arrow::compute::limit;
 use arrow::datatypes::SchemaRef;
 use arrow::record_batch::RecordBatch;
 
-use super::Source;
+use super::SendableRecordBatchReader;
 
 use async_trait::async_trait;
 
@@ -94,7 +94,7 @@ impl ExecutionPlan for GlobalLimitExec {
         }
     }
 
-    async fn execute(&self, partition: usize) -> Result<Source> {
+    async fn execute(&self, partition: usize) -> Result<SendableRecordBatchReader> {
         // GlobalLimitExec has a single output partition
         if 0 != partition {
             return Err(ExecutionError::General(format!(
@@ -167,7 +167,7 @@ impl ExecutionPlan for LocalLimitExec {
         }
     }
 
-    async fn execute(&self, _: usize) -> Result<Source> {
+    async fn execute(&self, _: usize) -> Result<SendableRecordBatchReader> {
         let mut it = self.input.execute(0).await?;
         Ok(Box::new(MemoryIterator::try_new(
             collect_with_limit(&mut it, self.limit)?,
@@ -190,7 +190,10 @@ pub fn truncate_batch(batch: &RecordBatch, n: usize) -> Result<RecordBatch> {
 }
 
 /// Create a vector of record batches from an iterator
-fn collect_with_limit(reader: &mut Source, limit: usize) -> Result<Vec<RecordBatch>> {
+fn collect_with_limit(
+    reader: &mut SendableRecordBatchReader,
+    limit: usize,
+) -> Result<Vec<RecordBatch>> {
     let mut count = 0;
     let mut results: Vec<RecordBatch> = vec![];
     loop {

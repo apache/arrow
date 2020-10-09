@@ -25,7 +25,7 @@ use crate::physical_plan::memory::MemoryIterator;
 use crate::physical_plan::{Distribution, ExecutionPlan, Partitioning};
 use arrow::datatypes::SchemaRef;
 
-use super::Source;
+use super::SendableRecordBatchReader;
 
 use async_trait::async_trait;
 
@@ -78,7 +78,7 @@ impl ExecutionPlan for EmptyExec {
         }
     }
 
-    async fn execute(&self, partition: usize) -> Result<Source> {
+    async fn execute(&self, partition: usize) -> Result<SendableRecordBatchReader> {
         // GlobalLimitExec has a single output partition
         if 0 != partition {
             return Err(ExecutionError::General(format!(

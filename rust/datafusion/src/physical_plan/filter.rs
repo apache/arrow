@@ -21,7 +21,7 @@
 use std::any::Any;
 use std::sync::Arc;
 
-use super::Source;
+use super::SendableRecordBatchReader;
 use crate::error::{ExecutionError, Result};
 use crate::physical_plan::{ExecutionPlan, Partitioning, PhysicalExpr};
 use arrow::array::BooleanArray;
@@ -98,7 +98,7 @@ impl ExecutionPlan for FilterExec {
         }
     }
 
-    async fn execute(&self, partition: usize) -> Result<Source> {
+    async fn execute(&self, partition: usize) -> Result<SendableRecordBatchReader> {
         Ok(Box::new(FilterExecIter {
             schema: self.input.schema().clone(),
             predicate: self.predicate.clone(),
@@ -115,7 +115,7 @@ struct FilterExecIter {
     /// The expression to filter on. This expression must evaluate to a boolean value.
     predicate: Arc<dyn PhysicalExpr>,
     /// The input partition to filter.
-    input: Source,
+    input: SendableRecordBatchReader,
 }
 
 impl Iterator for FilterExecIter {
