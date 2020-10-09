@@ -20,7 +20,6 @@ import { Vector } from './vector';
 import { DataType } from './type';
 import { selectArgs } from './util/args';
 import { selectFieldArgs } from './util/args';
-import { instance as comparer } from './visitor/typecomparator';
 
 type VectorMap = { [key: string]: Vector };
 type Fields<T extends { [key: string]: DataType }> = (keyof T)[] | Field<T[keyof T]>[];
@@ -61,10 +60,6 @@ export class Schema<T extends { [key: string]: DataType } = any> {
     public get [Symbol.toStringTag]() { return 'Schema'; }
     public toString() {
         return `Schema<{ ${this.fields.map((f, i) => `${i}: ${f}`).join(', ')} }>`;
-    }
-
-    public compareTo(other?: Schema | null): other is Schema<T> {
-        return comparer.compareSchemas(this, other);
     }
 
     public select<K extends keyof T = any>(...columnNames: K[]) {
@@ -131,9 +126,6 @@ export class Field<T extends DataType = any> {
     public get typeId() { return this.type.typeId; }
     public get [Symbol.toStringTag]() { return 'Field'; }
     public toString() { return `${this.name}: ${this.type}`; }
-    public compareTo(other?: Field | null): other is Field<T> {
-        return comparer.compareField(this, other);
-    }
     public clone<R extends DataType = T>(props: { name?: string | number, type?: R, nullable?: boolean, metadata?: Map<string, string> | null }): Field<R>;
     public clone<R extends DataType = T>(name?: string | number | Field<T>, type?: R, nullable?: boolean, metadata?: Map<string, string> | null): Field<R>;
     public clone<R extends DataType = T>(...args: any[]) {
