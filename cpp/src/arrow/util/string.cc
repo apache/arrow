@@ -144,6 +144,14 @@ std::string AsciiToLower(util::string_view value) {
   return result;
 }
 
+std::string AsciiToUpper(util::string_view value) {
+  // TODO: ASCII validation
+  std::string result = std::string(value);
+  std::transform(result.begin(), result.end(), result.begin(),
+                 [](unsigned char c) { return std::toupper(c); });
+  return result;
+}
+
 util::optional<std::string> Replace(util::string_view s, util::string_view token,
                                     util::string_view replacement) {
   size_t token_start = s.find(token);

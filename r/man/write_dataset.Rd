@@ -42,7 +42,18 @@ will yield \verb{"part-0.feather", ...}.}
 (\code{key1=value1/key2=value2/file.ext}) or as just bare values. Default is \code{TRUE}.}
 
 \item{...}{additional format-specific arguments. For available Parquet
-options, see \code{\link[=write_parquet]{write_parquet()}}.}
+options, see \code{\link[=write_parquet]{write_parquet()}}. The available Feather options are
+\itemize{
+\item \code{use_legacy_format} logical: write data formatted so that Arrow libraries
+versions 0.14 and lower can read it. Default is \code{FALSE}. You can also
+enable this by setting the environment variable \code{ARROW_PRE_0_15_IPC_FORMAT=1}.
+\item \code{metadata_version}: A string like "V5" or the equivalent integer indicating
+the Arrow IPC MetadataVersion. Default (NULL) will use the latest version,
+unless the environment variable \code{ARROW_PRE_1_0_METADATA_VERSION=1}, in
+which case it will be V4.
+\item \code{codec}: A \link{Codec} which will be used to compress body buffers of written
+files. Default (NULL) will not compress body buffers.
+}}
 }
 \value{
 The input \code{dataset}, invisibly

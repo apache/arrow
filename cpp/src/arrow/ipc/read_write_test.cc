@@ -619,7 +619,7 @@ TEST_F(TestWriteRecordBatch, WriteWithCompression) {
       continue;
     }
     IpcWriteOptions write_options = IpcWriteOptions::Defaults();
-    write_options.compression = codec;
+    ASSERT_OK_AND_ASSIGN(write_options.codec, util::Codec::Create(codec));
     CheckRoundtrip(*batch, write_options);
 
     // Check non-parallel read and write
@@ -636,9 +636,9 @@ TEST_F(TestWriteRecordBatch, WriteWithCompression) {
     if (!util::Codec::IsAvailable(codec)) {
       continue;
     }
-    IpcWriteOptions options = IpcWriteOptions::Defaults();
-    options.compression = codec;
-    ASSERT_RAISES(Invalid, SerializeRecordBatch(*batch, options));
+    IpcWriteOptions write_options = IpcWriteOptions::Defaults();
+    ASSERT_OK_AND_ASSIGN(write_options.codec, util::Codec::Create(codec));
+    ASSERT_RAISES(Invalid, SerializeRecordBatch(*batch, write_options));
   }
 }
 

@@ -59,8 +59,7 @@ struct ARROW_EXPORT IpcWriteOptions {
   /// \brief Compression codec to use for record batch body buffers
   ///
   /// May only be UNCOMPRESSED, LZ4_FRAME and ZSTD.
-  Compression::type compression = Compression::UNCOMPRESSED;
-  int compression_level = Compression::kUseDefaultCompressionLevel;
+  std::shared_ptr<util::Codec> codec;
 
   /// \brief Use global CPU thread pool to parallelize any computational tasks
   /// like compression

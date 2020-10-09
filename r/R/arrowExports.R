@@ -432,6 +432,14 @@ dataset___ParquetFileWriteOptions__update <- function(options, writer_props, arr
     invisible(.Call(`_arrow_dataset___ParquetFileWriteOptions__update` , options, writer_props, arrow_writer_props))
 }
 
+dataset___IpcFileWriteOptions__update2 <- function(ipc_options, use_legacy_format, codec, metadata_version){
+    invisible(.Call(`_arrow_dataset___IpcFileWriteOptions__update2` , ipc_options, use_legacy_format, codec, metadata_version))
+}
+
+dataset___IpcFileWriteOptions__update1 <- function(ipc_options, use_legacy_format, metadata_version){
+    invisible(.Call(`_arrow_dataset___IpcFileWriteOptions__update1` , ipc_options, use_legacy_format, metadata_version))
+}
+
 dataset___IpcFileFormat__Make <- function(){
     .Call(`_arrow_dataset___IpcFileFormat__Make` )
 }

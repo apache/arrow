@@ -464,3 +464,15 @@ class ARROW_TESTING_EXPORT EnvVarGuard {
 #endif
 
 }  // namespace arrow
+
+namespace nonstd {
+namespace sv_lite {
+
+// Without this hint, GTest will print string_views as a container of char
+template <class Char, class Traits = std::char_traits<Char>>
+void PrintTo(const basic_string_view<Char, Traits>& view, std::ostream* os) {
+  *os << view;
+}
+
+}  // namespace sv_lite
+}  // namespace nonstd

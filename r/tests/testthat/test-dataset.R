@@ -177,7 +177,7 @@ test_that("dataset from URI", {
 test_that("Simple interface for datasets (custom ParquetFileFormat)", {
   ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()),
                      format = FileFormat$create("parquet", dict_columns = c("chr")))
-  expect_equivalent(ds$schema$GetFieldByName("chr")$type, dictionary())
+  expect_type_equal(ds$schema$GetFieldByName("chr")$type, dictionary())
 })
 
 test_that("Hive partitioning", {
@@ -943,10 +943,38 @@ test_that("Dataset writing: from RecordBatch", {
   )
 })
 
+test_that("Writing a dataset: Ipc format options & compression", {
+  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
+  ds <- open_dataset(csv_dir, partitioning = "part", format = "csv")
+  dst_dir <- make_temp_dir()
+
+  codec <- NULL
+  if (codec_is_available("zstd")) {
+    codec <- Codec$create("zstd")
+  }
+
+  write_dataset(ds, dst_dir, format = "feather", codec = codec)
+  expect_true(dir.exists(dst_dir))
+
+  new_ds <- open_dataset(dst_dir, format = "feather")
+  expect_equivalent(
+    new_ds %>%
+      select(string = chr, integer = int) %>%
+      filter(integer > 6 & integer < 11) %>%
+      collect() %>%
+      summarize(mean = mean(integer)),
+    df1 %>%
+      select(string = chr, integer = int) %>%
+      filter(integer > 6) %>%
+      summarize(mean = mean(integer))
+  )
+})
+
 test_that("Writing a dataset: Parquet format options", {
   skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
   ds <- open_dataset(csv_dir, partitioning = "part", format = "csv")
   dst_dir <- make_temp_dir()
+  dst_dir_no_truncated_timestamps <- make_temp_dir()
 
   # Use trace() to confirm that options are passed in
   trace(
@@ -956,7 +984,7 @@ test_that("Writing a dataset: Parquet format options", {
     where = write_dataset
   )
   expect_warning(
-    write_dataset(ds, make_temp_dir(), format = "parquet", partitioning = "int"),
+    write_dataset(ds, dst_dir_no_truncated_timestamps, format = "parquet", partitioning = "int"),
     "allow_truncated_timestamps == FALSE"
   )
   expect_warning(

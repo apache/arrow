@@ -38,8 +38,6 @@ namespace {
 
 class BrotliDecompressor : public Decompressor {
  public:
-  BrotliDecompressor() {}
-
   ~BrotliDecompressor() override {
     if (state_ != nullptr) {
       BrotliDecoderDestroyInstance(state_);
@@ -167,7 +165,7 @@ class BrotliCompressor : public Compressor {
   BrotliEncoderState* state_ = nullptr;
 
  private:
-  int compression_level_;
+  const int compression_level_;
 };
 
 // ----------------------------------------------------------------------
@@ -175,11 +173,10 @@ class BrotliCompressor : public Compressor {
 
 class BrotliCodec : public Codec {
  public:
-  explicit BrotliCodec(int compression_level) {
-    compression_level_ = compression_level == kUseDefaultCompressionLevel
-                             ? kBrotliDefaultCompressionLevel
-                             : compression_level;
-  }
+  explicit BrotliCodec(int compression_level)
+      : compression_level_(compression_level == kUseDefaultCompressionLevel
+                               ? kBrotliDefaultCompressionLevel
+                               : compression_level) {}
 
   Result<int64_t> Decompress(int64_t input_len, const uint8_t* input,
                              int64_t output_buffer_len, uint8_t* output_buffer) override {
@@ -224,10 +221,12 @@ class BrotliCodec : public Codec {
     return ptr;
   }
 
-  const char* name() const override { return "brotli"; }
+  Compression::type compression_type() const override { return Compression::BROTLI; }
+
+  int compression_level() const override { return compression_level_; }
 
  private:
-  int compression_level_;
+  const int compression_level_;
 };
 
 }  // namespace

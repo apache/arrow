@@ -1697,6 +1697,43 @@ extern "C" SEXP _arrow_dataset___ParquetFileWriteOptions__update(SEXP options_se
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
+void dataset___IpcFileWriteOptions__update2(const std::shared_ptr<ds::IpcFileWriteOptions>& ipc_options, bool use_legacy_format, const std::shared_ptr<arrow::util::Codec>& codec, arrow::ipc::MetadataVersion metadata_version);
+extern "C" SEXP _arrow_dataset___IpcFileWriteOptions__update2(SEXP ipc_options_sexp, SEXP use_legacy_format_sexp, SEXP codec_sexp, SEXP metadata_version_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<ds::IpcFileWriteOptions>&>::type ipc_options(ipc_options_sexp);
+	arrow::r::Input<bool>::type use_legacy_format(use_legacy_format_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::util::Codec>&>::type codec(codec_sexp);
+	arrow::r::Input<arrow::ipc::MetadataVersion>::type metadata_version(metadata_version_sexp);
+	dataset___IpcFileWriteOptions__update2(ipc_options, use_legacy_format, codec, metadata_version);
+	return R_NilValue;
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_dataset___IpcFileWriteOptions__update2(SEXP ipc_options_sexp, SEXP use_legacy_format_sexp, SEXP codec_sexp, SEXP metadata_version_sexp){
+	Rf_error("Cannot call dataset___IpcFileWriteOptions__update2(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// dataset.cpp
+#if defined(ARROW_R_WITH_ARROW)
+void dataset___IpcFileWriteOptions__update1(const std::shared_ptr<ds::IpcFileWriteOptions>& ipc_options, bool use_legacy_format, arrow::ipc::MetadataVersion metadata_version);
+extern "C" SEXP _arrow_dataset___IpcFileWriteOptions__update1(SEXP ipc_options_sexp, SEXP use_legacy_format_sexp, SEXP metadata_version_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<ds::IpcFileWriteOptions>&>::type ipc_options(ipc_options_sexp);
+	arrow::r::Input<bool>::type use_legacy_format(use_legacy_format_sexp);
+	arrow::r::Input<arrow::ipc::MetadataVersion>::type metadata_version(metadata_version_sexp);
+	dataset___IpcFileWriteOptions__update1(ipc_options, use_legacy_format, metadata_version);
+	return R_NilValue;
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_dataset___IpcFileWriteOptions__update1(SEXP ipc_options_sexp, SEXP use_legacy_format_sexp, SEXP metadata_version_sexp){
+	Rf_error("Cannot call dataset___IpcFileWriteOptions__update1(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// dataset.cpp
+#if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<ds::IpcFileFormat> dataset___IpcFileFormat__Make();
 extern "C" SEXP _arrow_dataset___IpcFileFormat__Make(){
 BEGIN_CPP11
@@ -6399,6 +6436,8 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_dataset___ParquetFileFormat__Make", (DL_FUNC) &_arrow_dataset___ParquetFileFormat__Make, 3}, 
 		{ "_arrow_dataset___FileWriteOptions__type_name", (DL_FUNC) &_arrow_dataset___FileWriteOptions__type_name, 1}, 
 		{ "_arrow_dataset___ParquetFileWriteOptions__update", (DL_FUNC) &_arrow_dataset___ParquetFileWriteOptions__update, 3}, 
+		{ "_arrow_dataset___IpcFileWriteOptions__update2", (DL_FUNC) &_arrow_dataset___IpcFileWriteOptions__update2, 4}, 
+		{ "_arrow_dataset___IpcFileWriteOptions__update1", (DL_FUNC) &_arrow_dataset___IpcFileWriteOptions__update1, 3}, 
 		{ "_arrow_dataset___IpcFileFormat__Make", (DL_FUNC) &_arrow_dataset___IpcFileFormat__Make, 0}, 
 		{ "_arrow_dataset___CsvFileFormat__Make", (DL_FUNC) &_arrow_dataset___CsvFileFormat__Make, 1}, 
 		{ "_arrow_dataset___DirectoryPartitioning", (DL_FUNC) &_arrow_dataset___DirectoryPartitioning, 1}, 
