@@ -63,8 +63,8 @@ struct TpchOpt {
     file_format: String,
 
     /// Load the data into a MemTable before executing the query
-    #[structopt(short = "l", long = "load")]
-    load: bool,
+    #[structopt(short = "m", long = "mem-table")]
+    mem_table: bool,
 }
 
 #[tokio::main]
@@ -109,8 +109,15 @@ async fn main() -> Result<()> {
             }
         };
 
-    if opt.load {
+    if opt.mem_table {
+        println!("Loading data into memory");
+        let start = Instant::now();
+
         let memtable = MemTable::load(tableprovider.as_ref()).await?;
+        println!(
+            "Loaded data into memory in {} ms",
+            start.elapsed().as_millis()
+        );
 
         ctx.register_table("lineitem", Box::new(memtable));
     } else {
