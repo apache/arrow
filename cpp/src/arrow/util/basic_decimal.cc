@@ -351,47 +351,22 @@ uint128_t operator*(const uint128_t& left, const uint128_t& right) {
 }
 #endif
 
-void ExtendAndMultiplyUint128(uint128_t x, uint128_t y, uint128_t* hi, uint128_t* lo) {
-#ifdef ARROW_USE_NATIVE_INT128
-  return ExtendAndMultiplyUint(x.val_, y.val_, &hi->val_, &lo->val_);
-#else
-  // This follows the same algorithm as in ExtendAndMultiplyUint, but must
-  // perform manual overflow checks.
-  ExtendAndMultiplyUint(x.hi_, y.hi_, &hi->hi_, &hi->lo_);
-  ExtendAndMultiplyUint(x.lo_, y.lo_, &lo->hi_, &lo->lo_);
-
-  uint128_t t;
-  ExtendAndMultiplyUint(x.hi_, y.lo_, &t.hi_, &t.lo_);
-  lo->hi_ += t.lo_;
-  // Check for overflow in lo.hi
-  if (lo->hi_ < t.lo_) {
-    hi->lo_++;
+template <int N>
+inline void PartialMultiplyOverflow(const std::array<uint64_t, N>& lh,
+                                    const std::array<uint64_t, N>& rh,
+                                    std::array<uint64_t, N>* result) {
+  for (int j = 0; j < N; ++j) {
+    uint64_t carry = 0;
+    for (int i = 0; i < N - j; ++i) {
+      uint64_t lo, hi;
+      ExtendAndMultiplyUint(lh[i], rh[j], &hi, &lo);
+      uint128_t tmp(hi, lo);
+      tmp += uint128_t((*result)[i + j]);
+      tmp += uint128_t(carry);
+      (*result)[i + j] = tmp.lo();
+      carry = tmp.hi();
+    }
   }
-  hi->lo_ += t.hi_;
-  // Check for overflow in hi.lo
-  if (hi->lo_ < t.hi_) {
-    hi->hi_++;
-  }
-
-  ExtendAndMultiplyUint(x.lo_, y.hi_, &t.hi_, &t.lo_);
-  lo->hi_ += t.lo_;
-  // Check for overflow in lo.hi
-  if (lo->hi_ < t.lo_) {
-    hi->lo_++;
-  }
-  hi->lo_ += t.hi_;
-  // Check for overflow in hi.lo
-  if (hi->lo_ < t.hi_) {
-    hi->hi_++;
-  }
-#endif
-}
-
-void MultiplyUint256(uint128_t x_hi, uint128_t x_lo, uint128_t y_hi, uint128_t y_lo,
-                     uint128_t* hi, uint128_t* lo) {
-  ExtendAndMultiplyUint128(x_lo, y_lo, hi, lo);
-  *hi += x_hi * y_lo;
-  *hi += x_lo * y_hi;
 }
 
 }  // namespace
@@ -913,14 +888,9 @@ BasicDecimal256& BasicDecimal256::operator*=(const BasicDecimal256& right) {
 
   uint128_t r_hi;
   uint128_t r_lo;
-  MultiplyUint256({x.little_endian_array_[3], x.little_endian_array_[2]},
-                  {x.little_endian_array_[1], x.little_endian_array_[0]},
-                  {y.little_endian_array_[3], y.little_endian_array_[2]},
-                  {y.little_endian_array_[1], y.little_endian_array_[0]}, &r_hi, &r_lo);
-  little_endian_array_[0] = r_lo.lo();
-  little_endian_array_[1] = r_lo.hi();
-  little_endian_array_[2] = r_hi.lo();
-  little_endian_array_[3] = r_hi.hi();
+  std::array<uint64_t, 4> res({0, 0, 0, 0});
+  PartialMultiplyOverflow<4>(x.little_endian_array_, y.little_endian_array_, &res);
+  little_endian_array_ = res;
   if (negate) {
     Negate();
   }
