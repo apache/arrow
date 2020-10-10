@@ -117,6 +117,7 @@ fn record_batch_from_json(
     RecordBatch::try_new(Arc::new(schema.clone()), columns)
 }
 
+/// Construct an Arrow array from a partially typed JSON column
 fn array_from_json(
     field: &Field,
     json_col: ArrowJsonColumn,
@@ -419,6 +420,7 @@ fn array_from_json(
         DataType::List(child_type) => {
             let child_field =
                 Field::new("item", *child_type.clone(), field.is_nullable());
+            let null_buf = create_null_buf(&json_col);
             let children = json_col.children.clone().unwrap();
             let child_array = array_from_json(
                 &child_field,
@@ -431,32 +433,19 @@ fn array_from_json(
                 .iter()
                 .map(|v| v.as_i64().unwrap() as i32)
                 .collect();
-            let num_bytes = bit_util::ceil(json_col.count, 8);
-            let mut null_buf =
-                MutableBuffer::new(num_bytes).with_bitset(num_bytes, false);
-            json_col
-                .validity
-                .unwrap()
-                .iter()
-                .enumerate()
-                .for_each(|(i, v)| {
-                    let null_slice = null_buf.data_mut();
-                    if *v != 0 {
-                        bit_util::set_bit(null_slice, i);
-                    }
-                });
             let list_data = ArrayData::builder(field.data_type().clone())
                 .len(json_col.count)
                 .offset(0)
                 .add_buffer(Buffer::from(&offsets.to_byte_slice()))
                 .add_child_data(child_array.data())
-                .null_bit_buffer(null_buf.freeze())
+                .null_bit_buffer(null_buf)
                 .build();
             Ok(Arc::new(ListArray::from(list_data)))
         }
         DataType::LargeList(child_type) => {
             let child_field =
                 Field::new("item", *child_type.clone(), field.is_nullable());
+            let null_buf = create_null_buf(&json_col);
             let children = json_col.children.clone().unwrap();
             let child_array = array_from_json(
                 &child_field,
@@ -473,26 +462,12 @@ fn array_from_json(
                     _ => panic!("64-bit offset must be either string or number"),
                 })
                 .collect();
-            let num_bytes = bit_util::ceil(json_col.count, 8);
-            let mut null_buf =
-                MutableBuffer::new(num_bytes).with_bitset(num_bytes, false);
-            json_col
-                .validity
-                .unwrap()
-                .iter()
-                .enumerate()
-                .for_each(|(i, v)| {
-                    let null_slice = null_buf.data_mut();
-                    if *v != 0 {
-                        bit_util::set_bit(null_slice, i);
-                    }
-                });
             let list_data = ArrayData::builder(field.data_type().clone())
                 .len(json_col.count)
                 .offset(0)
                 .add_buffer(Buffer::from(&offsets.to_byte_slice()))
                 .add_child_data(child_array.data())
-                .null_bit_buffer(null_buf.freeze())
+                .null_bit_buffer(null_buf)
                 .build();
             Ok(Arc::new(LargeListArray::from(list_data)))
         }
@@ -504,34 +479,27 @@ fn array_from_json(
                 children.get(0).unwrap().clone(),
                 dictionaries,
             )?;
-            let num_bytes = bit_util::ceil(json_col.count, 8);
-            let mut null_buf =
-                MutableBuffer::new(num_bytes).with_bitset(num_bytes, false);
-            json_col
-                .validity
-                .unwrap()
-                .iter()
-                .enumerate()
-                .for_each(|(i, v)| {
-                    let null_slice = null_buf.data_mut();
-                    if *v != 0 {
-                        bit_util::set_bit(null_slice, i);
-                    }
-                });
+            let null_buf = create_null_buf(&json_col);
             let list_data = ArrayData::builder(field.data_type().clone())
                 .len(json_col.count)
                 .add_child_data(child_array.data())
-                .null_bit_buffer(null_buf.freeze())
+                .null_bit_buffer(null_buf)
                 .build();
             Ok(Arc::new(FixedSizeListArray::from(list_data)))
         }
         DataType::Struct(fields) => {
-            let mut children = Vec::with_capacity(fields.len());
+            // construct struct with null data
+            let null_buf = create_null_buf(&json_col);
+            let mut array_data = ArrayData::builder(field.data_type().clone())
+                .len(json_col.count)
+                .null_bit_buffer(null_buf);
+
             for (field, col) in fields.iter().zip(json_col.children.unwrap()) {
                 let array = array_from_json(field, col, dictionaries)?;
-                children.push((field.clone(), array));
+                array_data = array_data.add_child_data(array.data());
             }
-            let array = StructArray::from(children);
+
+            let array = StructArray::from(array_data.build());
             Ok(Arc::new(array))
         }
         DataType::Dictionary(key_type, value_type) => {
@@ -614,6 +582,25 @@ fn dictionary_array_from_json(
     }
 }
 
+/// A helper to create a null buffer from a Vec<bool>
+fn create_null_buf(json_col: &ArrowJsonColumn) -> Buffer {
+    let num_bytes = bit_util::ceil(json_col.count, 8);
+    let mut null_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, false);
+    json_col
+        .validity
+        .clone()
+        .unwrap()
+        .iter()
+        .enumerate()
+        .for_each(|(i, v)| {
+            let null_slice = null_buf.data_mut();
+            if *v != 0 {
+                bit_util::set_bit(null_slice, i);
+            }
+        });
+    null_buf.freeze()
+}
+
 fn arrow_to_json(arrow_name: &str, json_name: &str, verbose: bool) -> Result<()> {
     if verbose {
         eprintln!("Converting {} to {}", arrow_name, json_name);
@@ -683,14 +670,23 @@ fn validate(arrow_name: &str, json_name: &str, verbose: bool) -> Result<()> {
     for json_batch in json_batches {
         if let Some(Ok(arrow_batch)) = arrow_reader.next() {
             // compare batches
-            assert!(arrow_batch.num_columns() == json_batch.num_columns());
+            let num_columns = arrow_batch.num_columns();
+            assert!(num_columns == json_batch.num_columns());
             assert!(arrow_batch.num_rows() == json_batch.num_rows());
 
-            // TODO compare in more detail
-            eprintln!(
-                "Basic validation of {} and {} PASSES",
-                arrow_name, json_name
-            );
+            for i in 0..num_columns {
+                // println!(
+                //     "Comparing arrays with types: {:?} and {:?} and length {:?}",
+                //     arrow_batch.column(i).data_type(),
+                //     json_batch.column(i).data_type(),
+                //     arrow_batch.num_rows()
+                // );
+                assert_eq!(
+                    arrow_batch.column(i).data(),
+                    json_batch.column(i).data(),
+                    "Arrow and JSON batch columns not the same"
+                );
+            }
         } else {
             return Err(ArrowError::ComputeError(
                 "no more arrow batches left".to_owned(),
