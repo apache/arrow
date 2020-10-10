@@ -612,11 +612,18 @@ impl<R: Read + Seek> FileReader<R> {
         let mut dictionaries_by_field = vec![None; schema.fields().len()];
         for block in footer.dictionaries().unwrap() {
             // read length from end of offset
-            // TODO: ARROW-9848: dictionary metadata has not been tested
-            let meta_len = block.metaDataLength() - 4;
+            let mut message_size: [u8; 4] = [0; 4];
+            reader.seek(SeekFrom::Start(block.offset() as u64))?;
+            reader.read_exact(&mut message_size)?;
+            let footer_len = if message_size == CONTINUATION_MARKER {
+                reader.read_exact(&mut message_size)?;
+                i32::from_le_bytes(message_size)
+            } else {
+                i32::from_le_bytes(message_size)
+            };
 
-            let mut block_data = vec![0; meta_len as usize];
-            reader.seek(SeekFrom::Start(block.offset() as u64 + 4))?;
+            let mut block_data = vec![0; footer_len as usize];
+
             reader.read_exact(&mut block_data)?;
 
             let message = ipc::get_root_as_message(&block_data[..]);
@@ -640,10 +647,11 @@ impl<R: Read + Seek> FileReader<R> {
                         &mut dictionaries_by_field,
                     )?;
                 }
-                _ => {
-                    return Err(ArrowError::IoError(
-                        "Expecting DictionaryBatch in dictionary blocks.".to_string(),
-                    ))
+                t => {
+                    return Err(ArrowError::IoError(format!(
+                        "Expecting DictionaryBatch in dictionary blocks, found {:?}.",
+                        t
+                    )));
                 }
             };
         }
