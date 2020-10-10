@@ -35,6 +35,7 @@ import pytz
 
 from pyarrow.pandas_compat import get_logical_type, _pandas_api
 from pyarrow.tests.util import random_ascii, rands
+import pyarrow.tests.strategies as past
 
 import pyarrow as pa
 try:
@@ -2839,6 +2840,17 @@ def test_convert_unsupported_type_error_message():
         msg = 'Conversion failed for column a with type (period|object)'
         with pytest.raises((TypeError, ValueError), match=msg):
             pa.Table.from_pandas(df)
+
+
+# ----------------------------------------------------------------------
+# Hypothesis tests
+
+
+@h.given(past.arrays(past.pandas_compatible_types))
+def test_array_to_pandas_roundtrip(arr):
+    s = arr.to_pandas()
+    restored = pa.array(s, type=arr.type, from_pandas=True)
+    assert restored.equals(arr)
 
 
 # ----------------------------------------------------------------------

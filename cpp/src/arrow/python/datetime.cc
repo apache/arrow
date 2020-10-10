@@ -19,7 +19,6 @@
 #include <algorithm>
 #include <chrono>
 #include <iomanip>
-#include <iostream>
 
 #include "arrow/python/common.h"
 #include "arrow/python/helpers.h"

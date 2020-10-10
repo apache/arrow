@@ -1662,6 +1662,18 @@ tasks:
         PYTHON: 3.8
       run: conda-python
 
+  test-conda-python-3.8-hypothesis:
+    ci: github
+    template: docker-tests/github.linux.yml
+    params:
+      env:
+        HYPOTHESIS_PROFILE: ci
+        PYARROW_TEST_HYPOTHESIS: ON
+        PYTHON: 3.8
+        # limit to execute hypothesis tests only
+        PYTEST_ARGS: "-m hypothesis"
+      run: conda-python-pandas
+
   test-debian-10-python-3:
     ci: azure
     template: docker-tests/azure.linux.yml

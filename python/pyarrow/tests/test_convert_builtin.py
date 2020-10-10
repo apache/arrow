@@ -387,7 +387,6 @@ def test_broken_integers(seq):
 
 
 def test_numpy_scalars_mixed_type():
-
     # ARROW-4324
     data = [np.int32(10), np.float32(0.5)]
     arr = pa.array(data)
@@ -625,6 +624,50 @@ def test_multidimensional_ndarray_as_nested_list():
                         type=expected_type)
 
     assert result.equals(expected)
+
+
+@pytest.mark.parametrize(('data', 'value_type'), [
+    ([True, False], pa.bool_()),
+    ([None, None], pa.null()),
+    ([1, 2, None], pa.int8()),
+    ([1, 2., 3., None], pa.float32()),
+    ([datetime.date.today(), None], pa.date32()),
+    ([None, datetime.date.today()], pa.date64()),
+    ([datetime.time(1, 1, 1), None], pa.time32('s')),
+    ([None, datetime.time(2, 2, 2)], pa.time64('us')),
+    ([datetime.datetime.now(), None], pa.timestamp('us')),
+    ([datetime.timedelta(seconds=10)], pa.duration('s')),
+    ([b"a", b"b"], pa.binary()),
+    ([b"aaa", b"bbb", b"ccc"], pa.binary(3)),
+    ([b"a", b"b", b"c"], pa.large_binary()),
+    (["a", "b", "c"], pa.string()),
+    (["a", "b", "c"], pa.large_string()),
+    (
+        [{"a": 1, "b": 2}, None, {"a": 5, "b": None}],
+        pa.struct([('a', pa.int8()), ('b', pa.int16())])
+    )
+])
+def test_list_array_from_object_ndarray(data, value_type):
+    ty = pa.list_(value_type)
+    ndarray = np.array(data, dtype=object)
+    arr = pa.array([ndarray], type=ty)
+    assert arr.type.equals(ty)
+    assert arr.to_pylist() == [data]
+
+
+@pytest.mark.parametrize(('data', 'value_type'), [
+    ([[1, 2], [3]], pa.list_(pa.int64())),
+    ([[1, 2], [3, 4]], pa.list_(pa.int64(), 2)),
+    ([[1], [2, 3]], pa.large_list(pa.int64()))
+])
+def test_nested_list_array_from_object_ndarray(data, value_type):
+    ndarray = np.empty(len(data), dtype=object)
+    ndarray[:] = [np.array(item, dtype=object) for item in data]
+
+    ty = pa.list_(value_type)
+    arr = pa.array([ndarray], type=ty)
+    assert arr.type.equals(ty)
+    assert arr.to_pylist() == [data]
 
 
 def test_array_ignore_nan_from_pandas():
@@ -1903,18 +1946,62 @@ def test_dictionary_from_strings():
     assert a.dictionary.equals(expected_dictionary)
 
 
-def _has_unique_field_names(ty):
-    if isinstance(ty, pa.StructType):
-        field_names = [field.name for field in ty]
-        return len(set(field_names)) == len(field_names)
-    else:
-        return True
+@pytest.mark.parametrize(('unit', 'expected'), [
+    ('s', datetime.timedelta(seconds=-2147483000)),
+    ('ms', datetime.timedelta(milliseconds=-2147483000)),
+    ('us', datetime.timedelta(microseconds=-2147483000)),
+    ('ns', datetime.timedelta(microseconds=-2147483))
+])
+def test_duration_array_roundtrip_corner_cases(unit, expected):
+    # Corner case discovered by hypothesis: there were implicit conversions to
+    # unsigned values resulting wrong values with wrong signs.
+    ty = pa.duration(unit)
+    arr = pa.array([-2147483000], type=ty)
+    restored = pa.array(arr.to_pylist(), type=ty)
+    assert arr.equals(restored)
+
+    expected_list = [expected]
+    if unit == 'ns':
+        # if pandas is available then a pandas Timedelta is returned
+        try:
+            import pandas as pd
+        except ImportError:
+            pass
+        else:
+            expected_list = [pd.Timedelta(-2147483000, unit='ns')]
+
+    assert restored.to_pylist() == expected_list
+
+
+@pytest.mark.pandas
+def test_roundtrip_nanosecond_resolution_pandas_temporal_objects():
+    # corner case discovered by hypothesis: preserving the nanoseconds on
+    # conversion from a list of Timedelta and Timestamp objects
+    import pandas as pd
+
+    ty = pa.duration('ns')
+    arr = pa.array([9223371273709551616], type=ty)
+    data = arr.to_pylist()
+    assert isinstance(data[0], pd.Timedelta)
+    restored = pa.array(data, type=ty)
+    assert arr.equals(restored)
+    assert restored.to_pylist() == [
+        pd.Timedelta(9223371273709551616, unit='ns')
+    ]
+
+    ty = pa.timestamp('ns')
+    arr = pa.array([9223371273709551616], type=ty)
+    data = arr.to_pylist()
+    assert isinstance(data[0], pd.Timestamp)
+    restored = pa.array(data, type=ty)
+    assert arr.equals(restored)
+    assert restored.to_pylist() == [
+        pd.Timestamp(9223371273709551616, unit='ns')
+    ]
 
 
 @h.given(past.all_arrays)
 def test_array_to_pylist_roundtrip(arr):
-    # TODO(kszucs): ARROW-9997
-    h.assume(_has_unique_field_names(arr.type))
     seq = arr.to_pylist()
     restored = pa.array(seq, type=arr.type)
     assert restored.equals(arr)
