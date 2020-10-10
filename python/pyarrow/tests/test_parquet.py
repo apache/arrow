@@ -4298,6 +4298,7 @@ def test_dataset_partitioning(tempdir):
             str(root_path), partitioning=part, use_legacy_dataset=True)
 
 
+@pytest.mark.dataset
 def test_parquet_dataset_new_filesystem(tempdir):
     # Ensure we can pass new FileSystem object to ParquetDataset
     # (use new implementation automatically without specifying
