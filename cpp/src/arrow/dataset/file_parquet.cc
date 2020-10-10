@@ -566,7 +566,6 @@ Result<int> ParquetFileFragment::GetNumRowGroups() {
   if (num_row_groups_ == -1) {
     ARROW_ASSIGN_OR_RAISE(auto reader, parquet_format_.GetReader(source_));
     SetNumRowGroups(reader->num_row_groups());
-    row_groups_ = RowGroupInfo::FromCount(num_row_groups_);
   }
   return num_row_groups_;
 }
