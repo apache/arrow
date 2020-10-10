@@ -73,7 +73,7 @@ fn create_context() -> Arc<Mutex<ExecutionContext>> {
     let ctx_holder: Arc<Mutex<Vec<Arc<Mutex<ExecutionContext>>>>> =
         Arc::new(Mutex::new(vec![]));
     rt.block_on(async {
-        let mem_table = MemTable::load(&csv).await.unwrap();
+        let mem_table = MemTable::load(&csv, 16 * 1024).await.unwrap();
 
         // create local execution context
         let mut ctx = ExecutionContext::new();

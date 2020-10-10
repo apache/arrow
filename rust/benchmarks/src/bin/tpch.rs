@@ -26,6 +26,8 @@ use arrow::util::pretty;
 use datafusion::error::Result;
 use datafusion::execution::context::{ExecutionConfig, ExecutionContext};
 
+use datafusion::datasource::parquet::ParquetTable;
+use datafusion::datasource::{CsvFile, MemTable, TableProvider};
 use datafusion::physical_plan::csv::CsvReadOptions;
 use structopt::StructOpt;
 
@@ -59,6 +61,10 @@ struct TpchOpt {
     /// File format: `csv` or `parquet`
     #[structopt(short = "f", long = "format", default_value = "csv")]
     file_format: String,
+
+    /// Load the data into a MemTable before executing the query
+    #[structopt(short = "m", long = "mem-table")]
+    mem_table: bool,
 }
 
 #[tokio::main]
@@ -73,31 +79,49 @@ async fn main() -> Result<()> {
 
     let path = opt.path.to_str().unwrap();
 
-    match opt.file_format.as_str() {
-        // dbgen creates .tbl ('|' delimited) files
-        "tbl" => {
-            let path = format!("{}/lineitem.tbl", path);
-            let schema = lineitem_schema();
-            let options = CsvReadOptions::new()
-                .schema(&schema)
-                .delimiter(b'|')
-                .file_extension(".tbl");
-            ctx.register_csv("lineitem", &path, options)?
-        }
-        "csv" => {
-            let path = format!("{}/lineitem", path);
-            let schema = lineitem_schema();
-            let options = CsvReadOptions::new().schema(&schema).has_header(true);
-            ctx.register_csv("lineitem", &path, options)?
-        }
-        "parquet" => {
-            let path = format!("{}/lineitem", path);
-            ctx.register_parquet("lineitem", &path)?
-        }
-        other => {
-            println!("Invalid file format '{}'", other);
-            process::exit(-1);
-        }
+    let tableprovider: Box<dyn TableProvider + Send + Sync> =
+        match opt.file_format.as_str() {
+            // dbgen creates .tbl ('|' delimited) files
+            "tbl" => {
+                let path = format!("{}/lineitem.tbl", path);
+                let schema = lineitem_schema();
+                let options = CsvReadOptions::new()
+                    .schema(&schema)
+                    .delimiter(b'|')
+                    .file_extension(".tbl");
+
+                Box::new(CsvFile::try_new(&path, options)?)
+            }
+            "csv" => {
+                let path = format!("{}/lineitem", path);
+                let schema = lineitem_schema();
+                let options = CsvReadOptions::new().schema(&schema).has_header(true);
+
+                Box::new(CsvFile::try_new(&path, options)?)
+            }
+            "parquet" => {
+                let path = format!("{}/lineitem", path);
+                Box::new(ParquetTable::try_new(&path)?)
+            }
+            other => {
+                println!("Invalid file format '{}'", other);
+                process::exit(-1);
+            }
+        };
+
+    if opt.mem_table {
+        println!("Loading data into memory");
+        let start = Instant::now();
+
+        let memtable = MemTable::load(tableprovider.as_ref(), opt.batch_size).await?;
+        println!(
+            "Loaded data into memory in {} ms",
+            start.elapsed().as_millis()
+        );
+
+        ctx.register_table("lineitem", Box::new(memtable));
+    } else {
+        ctx.register_table("lineitem", tableprovider);
     }
 
     let sql = match opt.query {
