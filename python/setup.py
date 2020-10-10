@@ -121,7 +121,9 @@ class build_ext(_build_ext):
                       'bundle generated Cython C++ code '
                       '(used for code coverage)'),
                      ('bundle-arrow-cpp', None,
-                      'bundle the Arrow C++ libraries')] +
+                      'bundle the Arrow C++ libraries'),
+                     ('bundle-arrow-cpp-headers', None,
+                      'bundle the Arrow C++ headers')] +
                     _build_ext.user_options)
 
     def initialize_options(self):
@@ -175,6 +177,8 @@ class build_ext(_build_ext):
             os.environ.get('PYARROW_BUNDLE_CYTHON_CPP', '0'))
         self.bundle_boost = strtobool(
             os.environ.get('PYARROW_BUNDLE_BOOST', '0'))
+        self.bundle_arrow_cpp_headers = strtobool(
+            os.environ.get('PYARROW_BUNDLE_ARROW_CPP_HEADERS', '1'))
 
     CYTHON_MODULE_NAMES = [
         'lib',
@@ -303,11 +307,12 @@ class build_ext(_build_ext):
             else:
                 build_prefix = self.build_type
 
-            print('Bundling includes: ' + pjoin(build_prefix, 'include'))
-            if os.path.exists(pjoin(build_lib, 'pyarrow', 'include')):
-                shutil.rmtree(pjoin(build_lib, 'pyarrow', 'include'))
-            shutil.move(pjoin(build_prefix, 'include'),
-                        pjoin(build_lib, 'pyarrow'))
+            if self.bundle_arrow_cpp or self.bundle_arrow_cpp_headers:
+                print('Bundling includes: ' + pjoin(build_prefix, 'include'))
+                if os.path.exists(pjoin(build_lib, 'pyarrow', 'include')):
+                    shutil.rmtree(pjoin(build_lib, 'pyarrow', 'include'))
+                shutil.move(pjoin(build_prefix, 'include'),
+                            pjoin(build_lib, 'pyarrow'))
 
             # Move the built C-extension to the place expected by the Python
             # build
