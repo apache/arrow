@@ -113,7 +113,7 @@ class BaseListBuilder : public ArrayBuilder {
 
   Status AppendEmptyValues(int64_t length) final {
     ARROW_RETURN_NOT_OK(Reserve(length));
-    ARROW_RETURN_NOT_OK(CheckNextOffset());
+    ARROW_RETURN_NOT_OK(ValidateOverflow(0));
     UnsafeAppendToBitmap(length, true);
     const int64_t num_values = value_builder_->length();
     for (int64_t i = 0; i < length; ++i) {

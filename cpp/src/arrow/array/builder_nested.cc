@@ -211,6 +211,7 @@ Status FixedSizeListBuilder::ValidateOverflow(int64_t new_elements) {
                                  " elements, have ", new_elements);
   }
   return Status::OK();
+}
 
 Status FixedSizeListBuilder::AppendEmptyValue() {
   RETURN_NOT_OK(Reserve(1));

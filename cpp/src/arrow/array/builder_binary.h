@@ -103,9 +103,7 @@ class BaseBinaryBuilder : public ArrayBuilder {
 
   Status AppendEmptyValues(int64_t length) final {
     const int64_t num_bytes = value_data_builder_.length();
-    if (ARROW_PREDICT_FALSE(num_bytes > memory_limit())) {
-      return AppendOverflow(num_bytes);
-    }
+    ARROW_RETURN_NOT_OK(ValidateOverflow(0));
     ARROW_RETURN_NOT_OK(Reserve(length));
     for (int64_t i = 0; i < length; ++i) {
       offsets_builder_.UnsafeAppend(static_cast<offset_type>(num_bytes));
