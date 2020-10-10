@@ -34,10 +34,7 @@ use arrow::{
     buffer::Buffer,
     buffer::MutableBuffer,
     datatypes::ToByteSlice,
-    util::{
-        bit_util,
-        integration_util::{ArrowJson, ArrowJsonBatch, ArrowJsonColumn, ArrowJsonSchema},
-    },
+    util::{bit_util, integration_util::*},
 };
 
 fn main() -> Result<()> {
@@ -87,12 +84,18 @@ fn json_to_arrow(json_name: &str, arrow_name: &str, verbose: bool) -> Result<()>
         eprintln!("Converting {} to {}", json_name, arrow_name);
     }
 
-    let (schema, batches) = read_json_file(json_name)?;
+    let json_file = read_json_file(json_name)?;
 
     let arrow_file = File::create(arrow_name)?;
-    let mut writer = FileWriter::try_new(arrow_file, &schema)?;
+    let mut writer = FileWriter::try_new(arrow_file, &json_file.schema)?;
 
-    for b in batches {
+    if !json_file.dictionaries.is_empty() {
+        return Err(ArrowError::JsonError(
+            "Writing dictionaries not yet supported".to_string(),
+        ));
+    }
+
+    for b in json_file.batches {
         writer.write(&b)?;
     }
 
@@ -102,18 +105,23 @@ fn json_to_arrow(json_name: &str, arrow_name: &str, verbose: bool) -> Result<()>
 fn record_batch_from_json(
     schema: &Schema,
     json_batch: ArrowJsonBatch,
+    json_dictionaries: &[ArrowJsonDictionaryBatch],
 ) -> Result<RecordBatch> {
     let mut columns = vec![];
 
     for (field, json_col) in schema.fields().iter().zip(json_batch.columns) {
-        let col = array_from_json(field, json_col)?;
+        let col = array_from_json(field, json_col, json_dictionaries)?;
         columns.push(col);
     }
 
     RecordBatch::try_new(Arc::new(schema.clone()), columns)
 }
 
-fn array_from_json(field: &Field, json_col: ArrowJsonColumn) -> Result<ArrayRef> {
+fn array_from_json(
+    field: &Field,
+    json_col: ArrowJsonColumn,
+    dictionaries: &[ArrowJsonDictionaryBatch],
+) -> Result<ArrayRef> {
     match field.data_type() {
         DataType::Null => Ok(Arc::new(NullArray::new(json_col.count))),
         DataType::Boolean => {
@@ -142,7 +150,12 @@ fn array_from_json(field: &Field, json_col: ArrowJsonColumn) -> Result<ArrayRef>
                 .zip(json_col.data.unwrap())
             {
                 match is_valid {
-                    1 => b.append_value(value.as_i64().unwrap() as i8),
+                    1 => b.append_value(value.as_i64().ok_or_else(|| {
+                        ArrowError::JsonError(format!(
+                            "Unable to get {:?} as int64",
+                            value
+                        ))
+                    })? as i8),
                     _ => b.append_null(),
                 }?;
             }
@@ -404,10 +417,14 @@ fn array_from_json(field: &Field, json_col: ArrowJsonColumn) -> Result<ArrayRef>
             Ok(Arc::new(b.finish()))
         }
         DataType::List(child_type) => {
-            let child_field = Field::new("", *child_type.clone(), false);
+            let child_field =
+                Field::new("item", *child_type.clone(), field.is_nullable());
             let children = json_col.children.clone().unwrap();
-            let child_array =
-                array_from_json(&child_field, children.get(0).unwrap().clone())?;
+            let child_array = array_from_json(
+                &child_field,
+                children.get(0).unwrap().clone(),
+                dictionaries,
+            )?;
             let offsets: Vec<i32> = json_col
                 .offset
                 .unwrap()
@@ -438,10 +455,14 @@ fn array_from_json(field: &Field, json_col: ArrowJsonColumn) -> Result<ArrayRef>
             Ok(Arc::new(ListArray::from(list_data)))
         }
         DataType::LargeList(child_type) => {
-            let child_field = Field::new("", *child_type.clone(), false);
+            let child_field =
+                Field::new("item", *child_type.clone(), field.is_nullable());
             let children = json_col.children.clone().unwrap();
-            let child_array =
-                array_from_json(&child_field, children.get(0).unwrap().clone())?;
+            let child_array = array_from_json(
+                &child_field,
+                children.get(0).unwrap().clone(),
+                dictionaries,
+            )?;
             let offsets: Vec<i64> = json_col
                 .offset
                 .unwrap()
@@ -476,10 +497,13 @@ fn array_from_json(field: &Field, json_col: ArrowJsonColumn) -> Result<ArrayRef>
             Ok(Arc::new(LargeListArray::from(list_data)))
         }
         DataType::FixedSizeList(child_type, _) => {
-            let child_field = Field::new("", *child_type.clone(), false);
+            let child_field = Field::new("item", *child_type.clone(), true); // field.is_nullable()
             let children = json_col.children.clone().unwrap();
-            let child_array =
-                array_from_json(&child_field, children.get(0).unwrap().clone())?;
+            let child_array = array_from_json(
+                &child_field,
+                children.get(0).unwrap().clone(),
+                dictionaries,
+            )?;
             let num_bytes = bit_util::ceil(json_col.count, 8);
             let mut null_buf =
                 MutableBuffer::new(num_bytes).with_bitset(num_bytes, false);
@@ -504,15 +528,88 @@ fn array_from_json(field: &Field, json_col: ArrowJsonColumn) -> Result<ArrayRef>
         DataType::Struct(fields) => {
             let mut children = Vec::with_capacity(fields.len());
             for (field, col) in fields.iter().zip(json_col.children.unwrap()) {
-                let array = array_from_json(field, col)?;
+                let array = array_from_json(field, col, dictionaries)?;
                 children.push((field.clone(), array));
             }
             let array = StructArray::from(children);
             Ok(Arc::new(array))
         }
+        DataType::Dictionary(key_type, value_type) => {
+            // find dictionary
+            let dictionary = dictionaries.iter().find(|d| d.id == field.dict_id());
+            match dictionary {
+                Some(dictionary) => dictionary_array_from_json(
+                    field, json_col, key_type, value_type, dictionary,
+                ),
+                None => Err(ArrowError::JsonError(format!(
+                    "Unable to find dictionary for field {:?}",
+                    field
+                ))),
+            }
+        }
         t => Err(ArrowError::JsonError(format!(
             "data type {:?} not supported",
             t
+        ))),
+    }
+}
+
+fn dictionary_array_from_json(
+    field: &Field,
+    json_col: ArrowJsonColumn,
+    dict_key: &DataType,
+    dict_value: &DataType,
+    dictionary: &ArrowJsonDictionaryBatch,
+) -> Result<ArrayRef> {
+    match dict_key {
+        DataType::Int8
+        | DataType::Int16
+        | DataType::Int32
+        | DataType::Int64
+        | DataType::UInt8
+        | DataType::UInt16
+        | DataType::UInt32
+        | DataType::UInt64 => {
+            // build the key data into a buffer, then construct values separately
+            let key_field = Field::new_dict(
+                "key",
+                dict_key.clone(),
+                field.is_nullable(),
+                field.dict_id(),
+                field.dict_is_ordered(),
+            );
+            let keys = array_from_json(&key_field, json_col, &[])?;
+            // note: not enough info on nullability of dictionary
+            let value_field = Field::new("value", dict_value.clone(), true);
+            println!("dictionary value type: {:?}", dict_value);
+            let values =
+                array_from_json(&value_field, dictionary.data.columns[0].clone(), &[])?;
+
+            // convert key and value to dictionary data
+            let dict_data = ArrayData::builder(field.data_type().clone())
+                .len(keys.len())
+                .add_buffer(keys.data().buffers()[0].clone())
+                .add_child_data(values.data())
+                .build();
+
+            let array = match dict_key {
+                DataType::Int8 => {
+                    Arc::new(Int8DictionaryArray::from(dict_data)) as ArrayRef
+                }
+                DataType::Int16 => Arc::new(Int16DictionaryArray::from(dict_data)),
+                DataType::Int32 => Arc::new(Int32DictionaryArray::from(dict_data)),
+                DataType::Int64 => Arc::new(Int64DictionaryArray::from(dict_data)),
+                DataType::UInt8 => Arc::new(UInt8DictionaryArray::from(dict_data)),
+                DataType::UInt16 => Arc::new(UInt16DictionaryArray::from(dict_data)),
+                DataType::UInt32 => Arc::new(UInt32DictionaryArray::from(dict_data)),
+                DataType::UInt64 => Arc::new(UInt64DictionaryArray::from(dict_data)),
+                _ => unreachable!(),
+            };
+            Ok(array)
+        }
+        _ => Err(ArrowError::JsonError(format!(
+            "Dictionary key type {:?} not supported",
+            dict_key
         ))),
     }
 }
@@ -525,9 +622,9 @@ fn arrow_to_json(arrow_name: &str, json_name: &str, verbose: bool) -> Result<()>
     let arrow_file = File::open(arrow_name)?;
     let reader = FileReader::try_new(arrow_file)?;
 
-    let mut fields = vec![];
+    let mut fields: Vec<ArrowJsonField> = vec![];
     for f in reader.schema().fields() {
-        fields.push(f.to_json());
+        fields.push(ArrowJsonField::from(f));
     }
     let schema = ArrowJsonSchema { fields };
 
@@ -553,7 +650,7 @@ fn validate(arrow_name: &str, json_name: &str, verbose: bool) -> Result<()> {
     }
 
     // open JSON file
-    let (json_schema, json_batches) = read_json_file(json_name)?;
+    let json_file = read_json_file(json_name)?;
 
     // open Arrow file
     let arrow_file = File::open(arrow_name)?;
@@ -561,12 +658,14 @@ fn validate(arrow_name: &str, json_name: &str, verbose: bool) -> Result<()> {
     let arrow_schema = arrow_reader.schema().as_ref().to_owned();
 
     // compare schemas
-    if json_schema != arrow_schema {
+    if json_file.schema != arrow_schema {
         return Err(ArrowError::ComputeError(format!(
             "Schemas do not match. JSON: {:?}. Arrow: {:?}",
-            json_schema, arrow_schema
+            json_file.schema, arrow_schema
         )));
     }
+
+    let json_batches = &json_file.batches;
 
     // compare number of batches
     assert!(
@@ -581,7 +680,7 @@ fn validate(arrow_name: &str, json_name: &str, verbose: bool) -> Result<()> {
         );
     }
 
-    for json_batch in &json_batches {
+    for json_batch in json_batches {
         if let Some(Ok(arrow_batch)) = arrow_reader.next() {
             // compare batches
             assert!(arrow_batch.num_columns() == json_batch.num_columns());
@@ -608,16 +707,41 @@ fn validate(arrow_name: &str, json_name: &str, verbose: bool) -> Result<()> {
     Ok(())
 }
 
-fn read_json_file(json_name: &str) -> Result<(Schema, Vec<RecordBatch>)> {
+struct ArrowFile {
+    schema: Schema,
+    // we can evolve this into a concrete Arrow type
+    dictionaries: Vec<ArrowJsonDictionaryBatch>,
+    batches: Vec<RecordBatch>,
+}
+
+fn read_json_file(json_name: &str) -> Result<ArrowFile> {
     let json_file = File::open(json_name)?;
     let reader = BufReader::new(json_file);
     let arrow_json: Value = serde_json::from_reader(reader).unwrap();
     let schema = Schema::from(&arrow_json["schema"])?;
+    // read dictionaries
+    let mut dictionaries = vec![];
+    if let Some(dicts) = arrow_json.get("dictionaries") {
+        for d in dicts
+            .as_array()
+            .expect("Unable to get dictionaries as array")
+        {
+            let json_dict: ArrowJsonDictionaryBatch = serde_json::from_value(d.clone())
+                .expect("Unable to get dictionary from JSON");
+            // TODO: convert to a concrete Arrow type
+            dictionaries.push(json_dict);
+        }
+    }
+
     let mut batches = vec![];
     for b in arrow_json["batches"].as_array().unwrap() {
         let json_batch: ArrowJsonBatch = serde_json::from_value(b.clone()).unwrap();
-        let batch = record_batch_from_json(&schema, json_batch)?;
+        let batch = record_batch_from_json(&schema, json_batch, dictionaries.as_slice())?;
         batches.push(batch);
     }
-    Ok((schema, batches))
+    Ok(ArrowFile {
+        schema,
+        dictionaries,
+        batches,
+    })
 }

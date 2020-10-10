@@ -873,7 +873,7 @@ impl<T: ArrowNativeType> ToByteSlice for T {
 
 impl DataType {
     /// Parse a data type from a JSON representation
-    fn from(json: &Value) -> Result<DataType> {
+    pub(crate) fn from(json: &Value) -> Result<DataType> {
         let default_field = Field::new("", DataType::Boolean, true);
         match *json {
             Value::Object(ref map) => match map.get("name") {
