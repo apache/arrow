@@ -194,7 +194,8 @@ cdef class ChunkedArray(_PandasConvertible):
         """
         return _pc().fill_null(self, fill_value)
 
-    def equals(self, ChunkedArray other):
+    def equals(self, ChunkedArray other, *, bint check_metadata=True,
+               bint nans_equal=True):
         """
         Return whether the contents of two chunked arrays are equal.
 
@@ -210,13 +211,16 @@ cdef class ChunkedArray(_PandasConvertible):
         cdef:
             CChunkedArray* this_arr = self.chunked_array
             CChunkedArray* other_arr = other.chunked_array
+            CEqualOptions options = CEqualOptions.Defaults()
             c_bool result
 
         if other is None:
             return False
 
+        options = (options.nans_equal(nans_equal)
+                          .check_metadata(check_metadata))
         with nogil:
-            result = this_arr.Equals(deref(other_arr))
+            result = this_arr.Equals(deref(other_arr), options)
 
         return result
 
@@ -786,7 +790,8 @@ cdef class RecordBatch(_PandasConvertible):
         """
         return _pc().filter(self, mask, null_selection_behavior)
 
-    def equals(self, object other, bint check_metadata=False):
+    def equals(self, RecordBatch other, *, bint check_metadata=False,
+               bint nans_equal=True):
         """
         Check if contents of two record batches are equal.
 
@@ -804,13 +809,16 @@ cdef class RecordBatch(_PandasConvertible):
         cdef:
             CRecordBatch* this_batch = self.batch
             shared_ptr[CRecordBatch] other_batch = pyarrow_unwrap_batch(other)
+            CEqualOptions options = CEqualOptions.Defaults()
             c_bool result
 
         if not other_batch:
             return False
 
+        options = (options.nans_equal(nans_equal)
+                          .check_metadata(check_metadata))
         with nogil:
-            result = this_batch.Equals(deref(other_batch), check_metadata)
+            result = this_batch.Equals(deref(other_batch), options)
 
         return result
 
@@ -1272,7 +1280,8 @@ cdef class Table(_PandasConvertible):
         except TypeError:
             return NotImplemented
 
-    def equals(self, Table other, bint check_metadata=False):
+    def equals(self, Table other, *, bint check_metadata=False,
+               bint nans_equal=True):
         """
         Check if contents of two tables are equal.
 
@@ -1290,13 +1299,16 @@ cdef class Table(_PandasConvertible):
         cdef:
             CTable* this_table = self.table
             CTable* other_table = other.table
+            CEqualOptions options = CEqualOptions.Defaults()
             c_bool result
 
         if other is None:
             return False
 
+        options = (options.nans_equal(nans_equal)
+                          .check_metadata(check_metadata))
         with nogil:
-            result = this_table.Equals(deref(other_table), check_metadata)
+            result = this_table.Equals(deref(other_table), options)
 
         return result
 

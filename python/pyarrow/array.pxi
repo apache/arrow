@@ -1008,9 +1008,12 @@ cdef class Array(_PandasConvertible):
         except TypeError:
             return NotImplemented
 
-    def equals(Array self, Array other):
+    def equals(Array self, Array other, *, bint check_metadata=False,
+               bint nans_equal=True):
         cdef CEqualOptions options = CEqualOptions.Defaults()
-        return self.ap.Equals(deref(other.ap), options.nans_equal(True))
+        options = (options.nans_equal(nans_equal)
+                          .check_metadata(check_metadata))
+        return self.ap.Equals(deref(other.ap), options)
 
     def __len__(self):
         return self.length()

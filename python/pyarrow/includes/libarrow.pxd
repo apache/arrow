@@ -181,9 +181,11 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         @staticmethod
         CEqualOptions Defaults()
         CEqualOptions nans_equal(c_bool v) const
+        CEqualOptions check_metadata(c_bool v) const
         CEqualOptions atol(double v) const
         double atol() const
         c_bool nans_equal() const
+        c_bool check_metadata() const
 
     cdef cppclass CArray" arrow::Array":
         shared_ptr[CDataType] type()
@@ -696,7 +698,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         int64_t length()
         int64_t null_count()
         int num_chunks()
-        c_bool Equals(const CChunkedArray& other)
+
+        c_bool Equals(const CChunkedArray& other, const CEqualOptions& options)
 
         shared_ptr[CArray] chunk(int i)
         shared_ptr[CDataType] type()
@@ -718,7 +721,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         CResult[shared_ptr[CRecordBatch]] FromStructArray(
             const shared_ptr[CArray]& array)
 
-        c_bool Equals(const CRecordBatch& other, c_bool check_metadata)
+        c_bool Equals(const CRecordBatch& other, const CEqualOptions& options)
 
         shared_ptr[CSchema] schema()
         shared_ptr[CArray] column(int i)
@@ -760,7 +763,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         int num_columns()
         int64_t num_rows()
 
-        c_bool Equals(const CTable& other, c_bool check_metadata)
+        c_bool Equals(const CTable& other, const CEqualOptions& options)
 
         shared_ptr[CSchema] schema()
         shared_ptr[CChunkedArray] column(int i)
