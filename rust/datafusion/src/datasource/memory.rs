@@ -68,14 +68,16 @@ impl MemTable {
             let exec = exec.clone();
             let task: JoinHandle<Result<Vec<RecordBatch>>> = task::spawn(async move {
                 let it = exec.execute(partition).await?;
-                Ok(it.into_iter().collect::<ArrowResult<Vec<RecordBatch>>>()?)
+                it.into_iter()
+                    .collect::<ArrowResult<Vec<RecordBatch>>>()
+                    .map_err(ExecutionError::from)
             });
             tasks.push(task)
         }
 
         let mut data: Vec<Vec<RecordBatch>> = Vec::with_capacity(partition_count);
         for task in tasks {
-            let result = task.await.unwrap()?;
+            let result = task.await.expect("MemTable::load could not join task")?;
             data.push(result);
         }
 
