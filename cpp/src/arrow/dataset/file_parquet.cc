@@ -395,14 +395,10 @@ Result<ScanTaskIterator> ParquetFileFormat::ScanFile(std::shared_ptr<ScanOptions
     } else {
       // since we are not scanning this fragment with a filter, don't bother loading
       // statistics
-      row_groups = parquet_fragment->row_groups();
-      if (row_groups.empty()) {
-        // empty vector represents all row groups
-        std::shared_ptr<parquet::FileMetaData> metadata =
-            reader->parquet_reader()->metadata();
-        int num_row_groups = metadata->num_row_groups();
-        row_groups = RowGroupInfo::FromCount(num_row_groups);
+      if (parquet_fragment->row_groups() == nullptr) {
+        parquet_fragment->SetNumRowGroups(reader->num_row_groups());
       }
+      row_groups = *parquet_fragment->row_groups();
     }
   }
 
@@ -424,7 +420,7 @@ Result<std::shared_ptr<FileFragment>> ParquetFileFormat::MakeFragment(
     std::shared_ptr<Schema> physical_schema) {
   return std::shared_ptr<FileFragment>(new ParquetFileFragment(
       std::move(source), shared_from_this(), std::move(partition_expression),
-      std::move(physical_schema), {}));
+      std::move(physical_schema)));
 }
 
 //
@@ -533,6 +529,14 @@ bool RowGroupInfo::Satisfy(const Expression& predicate) const {
 ParquetFileFragment::ParquetFileFragment(FileSource source,
                                          std::shared_ptr<FileFormat> format,
                                          std::shared_ptr<Expression> partition_expression,
+                                         std::shared_ptr<Schema> physical_schema)
+    : FileFragment(std::move(source), std::move(format), std::move(partition_expression),
+                   std::move(physical_schema)),
+      parquet_format_(checked_cast<ParquetFileFormat&>(*format_)) {}
+
+ParquetFileFragment::ParquetFileFragment(FileSource source,
+                                         std::shared_ptr<FileFormat> format,
+                                         std::shared_ptr<Expression> partition_expression,
                                          std::shared_ptr<Schema> physical_schema,
                                          std::vector<RowGroupInfo> row_groups)
     : FileFragment(std::move(source), std::move(format), std::move(partition_expression),
@@ -540,22 +544,28 @@ ParquetFileFragment::ParquetFileFragment(FileSource source,
       row_groups_(std::move(row_groups)),
       parquet_format_(checked_cast<ParquetFileFormat&>(*format_)),
       has_complete_metadata_(RowGroupInfosAreComplete(row_groups_) &&
-                             physical_schema_ != nullptr) {
-  if (!row_groups_.empty()) {
-    // Empty row_groups_ indicates selection of all row groups in the file, so we must
-    // open a reader to determine the real count.
-    num_row_groups_ = static_cast<int>(row_groups_.size());
+                             physical_schema_ != nullptr),
+      num_row_groups_(static_cast<int>(row_groups_.size())) {}
+
+void ParquetFileFragment::SetNumRowGroups(int num_row_groups) {
+  DCHECK_EQ(num_row_groups_, -1);
+  num_row_groups_ = num_row_groups;
+  row_groups_ = RowGroupInfo::FromCount(num_row_groups);
+}
+
+const std::vector<RowGroupInfo>* ParquetFileFragment::row_groups() {
+  auto lock = physical_schema_mutex_.Lock();
+  if (num_row_groups_ == -1) {
+    return nullptr;
   }
+  return &row_groups_;
 }
 
 Result<int> ParquetFileFragment::GetNumRowGroups() {
   auto lock = physical_schema_mutex_.Lock();
   if (num_row_groups_ == -1) {
     ARROW_ASSIGN_OR_RAISE(auto reader, parquet_format_.GetReader(source_));
-    num_row_groups_ = reader->num_row_groups();
-    if (row_groups_.empty()) {
-      row_groups_ = RowGroupInfo::FromCount(num_row_groups_);
-    }
+    SetNumRowGroups(reader->num_row_groups());
   }
   return num_row_groups_;
 }
@@ -584,23 +594,22 @@ Status ParquetFileFragment::EnsureCompleteMetadata(parquet::arrow::FileReader* r
   }
   physical_schema_ = std::move(schema);
 
-  std::shared_ptr<parquet::FileMetaData> metadata = reader->parquet_reader()->metadata();
-  int num_row_groups = metadata->num_row_groups();
-
-  if (row_groups_.empty()) {
-    num_row_groups_ = num_row_groups;
-    row_groups_ = RowGroupInfo::FromCount(num_row_groups);
-  }
-
-  for (const RowGroupInfo& info : row_groups_) {
-    // Ensure RowGroups are indexing valid RowGroups before augmenting.
-    if (info.id() >= num_row_groups) {
-      return Status::IndexError("Trying to scan row group ", info.id(), " but ",
-                                source_.path(), " only has ", num_row_groups,
-                                " row groups");
+  if (num_row_groups_ == -1) {
+    SetNumRowGroups(reader->num_row_groups());
+  } else {
+    // a subselection was specified; validate that now
+    int num_row_groups = reader->num_row_groups();
+    for (const RowGroupInfo& info : row_groups_) {
+      // Ensure RowGroups are indexing valid RowGroups before augmenting.
+      if (info.id() >= num_row_groups) {
+        return Status::IndexError("Trying to scan row group ", info.id(), " but ",
+                                  source_.path(), " only has ", num_row_groups,
+                                  " row groups");
+      }
     }
   }
 
+  parquet::FileMetaData* metadata = reader->parquet_reader()->metadata().get();
   for (RowGroupInfo& info : row_groups_) {
     // Augment a RowGroup with statistics if missing.
     if (info.HasStatistics()) continue;
@@ -629,6 +638,39 @@ Result<FragmentVector> ParquetFileFragment::SplitByRowGroup(
   }
 
   return fragments;
+}
+
+Result<std::shared_ptr<Fragment>> ParquetFileFragment::Subset(
+    const std::shared_ptr<Expression>& predicate) {
+  RETURN_NOT_OK(EnsureCompleteMetadata());
+  ARROW_ASSIGN_OR_RAISE(auto row_groups, FilterRowGroups(*predicate));
+
+  ARROW_ASSIGN_OR_RAISE(auto new_fragment,
+                        parquet_format_.MakeFragment(source_, partition_expression(),
+                                                     row_groups, physical_schema_));
+  return new_fragment;
+}
+
+Result<std::shared_ptr<Fragment>> ParquetFileFragment::Subset(
+    const std::vector<int> row_group_ids) {
+  std::vector<RowGroupInfo> row_groups;
+
+  if (num_row_groups_ == -1) {
+    row_groups = RowGroupInfo::FromIdentifiers(row_group_ids);
+  } else {
+    row_groups = row_groups_;
+    auto end = std::remove_if(
+        row_groups.begin(), row_groups.end(), [&row_group_ids](const RowGroupInfo& info) {
+          return std::find(row_group_ids.begin(), row_group_ids.end(), info.id()) ==
+                 row_group_ids.end();
+        });
+    row_groups.erase(end, row_groups.end());
+  }
+
+  ARROW_ASSIGN_OR_RAISE(auto new_fragment,
+                        parquet_format_.MakeFragment(source_, partition_expression(),
+                                                     row_groups, physical_schema_));
+  return new_fragment;
 }
 
 Result<std::vector<RowGroupInfo>> ParquetFileFragment::FilterRowGroups(

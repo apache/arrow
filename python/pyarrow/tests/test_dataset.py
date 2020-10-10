@@ -830,7 +830,7 @@ def test_fragments_parquet_row_groups(tempdir):
 
 
 @pytest.mark.parquet
-def test_parquet_fragment_num_row_groups(tempdir):
+def test_fragments_parquet_num_row_groups(tempdir):
     import pyarrow.parquet as pq
 
     table = pa.table({'a': range(8)})
@@ -1091,6 +1091,81 @@ def test_fragments_parquet_row_groups_reconstruct(tempdir):
         row_groups={2})
     with pytest.raises(IndexError, match="Trying to scan row group 2"):
         new_fragment.to_table()
+
+
+@pytest.mark.pandas
+@pytest.mark.parquet
+def test_fragments_parquet_subset_ids(tempdir):
+    table, dataset = _create_dataset_for_fragments(tempdir, chunk_size=1)
+    fragment = list(dataset.get_fragments())[0]
+
+    # select with row group ids
+    subfrag = fragment.subset(row_group_ids=[0, 3])
+    assert subfrag.num_row_groups == 2
+    # the row_groups list is initialized, but don't have statistics
+    assert len(subfrag.row_groups) == 2
+    assert subfrag.row_groups[0].statistics is None
+    # check correct scan result of subset
+    result = subfrag.to_table()
+    assert result.to_pydict() == {"f1": [0, 3], "f2": [1, 1]}
+
+    # if the original fragment has statistics -> preserve them
+    fragment.ensure_complete_metadata()
+    subfrag = fragment.subset(row_group_ids=[0, 3])
+    assert subfrag.num_row_groups == 2
+    assert len(subfrag.row_groups) == 2
+    assert subfrag.row_groups[0].statistics is not None
+
+    # empty list of ids
+    subfrag = fragment.subset(row_group_ids=[])
+    assert subfrag.num_row_groups == 0
+    assert subfrag.row_groups == []
+    result = subfrag.to_table(schema=dataset.schema)
+    assert result.num_rows == 0
+    assert result.equals(table[:0])
+
+
+@pytest.mark.pandas
+@pytest.mark.parquet
+def test_fragments_parquet_subset_filter(tempdir):
+    table, dataset = _create_dataset_for_fragments(tempdir, chunk_size=1)
+    fragment = list(dataset.get_fragments())[0]
+
+    # select with filter
+    subfrag = fragment.subset(ds.field("f1") >= 1)
+    assert subfrag.num_row_groups == 3
+    # ensure statistics are preserved in subset (need to be read for filter)
+    assert len(subfrag.row_groups) == 3
+    assert subfrag.row_groups[0].statistics is not None
+    # check correct scan result of subset
+    result = subfrag.to_table()
+    assert result.to_pydict() == {"f1": [1, 2, 3], "f2": [1, 1, 1]}
+
+    # filter that results in empty selection
+    subfrag = fragment.subset(ds.field("f1") > 5)
+    assert subfrag.num_row_groups == 0
+    assert subfrag.row_groups == []
+    result = subfrag.to_table(schema=dataset.schema)
+    assert result.num_rows == 0
+    assert result.equals(table[:0])
+
+    # passing schema to ensure filter on partition expression works
+    subfrag = fragment.subset(ds.field("part") == "a", schema=dataset.schema)
+    assert subfrag.num_row_groups == 4
+
+
+@pytest.mark.pandas
+@pytest.mark.parquet
+def test_fragments_parquet_subset_invalid(tempdir):
+    _, dataset = _create_dataset_for_fragments(tempdir, chunk_size=1)
+    fragment = list(dataset.get_fragments())[0]
+
+    # passing none or both of filter / row_group_ids
+    with pytest.raises(ValueError):
+        fragment.subset(ds.field("f1") >= 1, row_group_ids=[1, 2])
+
+    with pytest.raises(ValueError):
+        fragment.subset()
 
 
 def test_partitioning_factory(mockfs):

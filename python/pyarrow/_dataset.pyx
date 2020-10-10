@@ -1001,11 +1001,12 @@ cdef class ParquetFileFragment(FileFragment):
     @property
     def row_groups(self):
         cdef:
-            vector[CRowGroupInfo] c_row_groups
+            const vector[CRowGroupInfo]* c_row_groups
         c_row_groups = self.parquet_file_fragment.row_groups()
-        if c_row_groups.empty():
+        if c_row_groups == nullptr:
             return None
-        return [RowGroupInfo.wrap(row_group) for row_group in c_row_groups]
+        return [RowGroupInfo.wrap(c_row_groups.at(i))
+                for i in range(c_row_groups.size())]
 
     @property
     def num_row_groups(self):
@@ -1035,7 +1036,7 @@ cdef class ParquetFileFragment(FileFragment):
 
         Returns
         -------
-        A list of Fragment.
+        A list of Fragments
         """
         cdef:
             vector[shared_ptr[CFragment]] c_fragments
@@ -1049,6 +1050,63 @@ cdef class ParquetFileFragment(FileFragment):
                 self.parquet_file_fragment.SplitByRowGroup(move(c_filter))))
 
         return [Fragment.wrap(c_fragment) for c_fragment in c_fragments]
+
+    def subset(self, Expression filter=None, Schema schema=None,
+               object row_group_ids=None):
+        """
+        Create a subset of the fragment (viewing a subset of the row groups).
+
+        Subset can be specified by either a filter predicate (with optional
+        schema) or by a list of row group IDs. Note that when using a filter,
+        the resulting fragment can be empty (viewing no row groups).
+
+        Parameters
+        ----------
+        filter : Expression, default None
+            Only include the row groups which satisfy this predicate (using
+            the Parquet RowGroup statistics).
+        schema : Schema, default None
+            Schema to use when filtering row groups. Defaults to the
+            Fragment's phsyical schema
+        row_group_ids : list of ints
+            The row group IDs to include in the subset. Can only be specified
+            if `filter` is None.
+
+        Returns
+        -------
+        ParquetFileFragment
+        """
+        cdef:
+            shared_ptr[CExpression] c_filter
+            vector[int] c_row_group_ids
+            shared_ptr[CFragment] c_fragment
+
+        if filter is not None and row_group_ids is not None:
+            raise ValueError(
+                "Cannot specify both 'filter' and 'row_group_ids'."
+            )
+
+        if filter is not None:
+            schema = schema or self.physical_schema
+            c_filter = _insert_implicit_casts(filter, schema)
+            with nogil:
+                c_fragment = move(GetResultValue(
+                    self.parquet_file_fragment.SubsetWithFilter(
+                        move(c_filter))))
+        elif row_group_ids is not None:
+            c_row_group_ids = [
+                <int> row_group for row_group in sorted(set(row_group_ids))
+            ]
+            with nogil:
+                c_fragment = move(GetResultValue(
+                    self.parquet_file_fragment.SubsetWithIds(
+                        move(c_row_group_ids))))
+        else:
+            raise ValueError(
+                "Need to specify one of 'filter' or 'row_group_ids'"
+            )
+
+        return Fragment.wrap(c_fragment)
 
 
 cdef class ParquetReadOptions(_Weakrefable):
