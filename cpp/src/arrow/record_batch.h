@@ -22,6 +22,7 @@
 #include <string>
 #include <vector>
 
+#include "arrow/compare.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"
@@ -80,7 +81,10 @@ class ARROW_EXPORT RecordBatch {
   /// \param[in] other the RecordBatch to compare with
   /// \param[in] check_metadata if true, check that Schema metadata is the same
   /// \return true if batches are equal
-  bool Equals(const RecordBatch& other, bool check_metadata = false) const;
+  bool Equals(const RecordBatch& other, bool check_metadata) const;
+
+  bool Equals(const RecordBatch& other,
+              const EqualOptions& options = EqualOptions::Defaults()) const;
 
   /// \brief Determine if two record batches are approximately equal
   bool ApproxEquals(const RecordBatch& other) const;

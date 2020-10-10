@@ -82,7 +82,7 @@ Result<std::shared_ptr<ChunkedArray>> ChunkedArray::Make(ArrayVector chunks,
   return std::make_shared<ChunkedArray>(std::move(chunks), std::move(type));
 }
 
-bool ChunkedArray::Equals(const ChunkedArray& other) const {
+bool ChunkedArray::Equals(const ChunkedArray& other, const EqualOptions& options) const {
   if (length_ != other.length()) {
     return false;
   }
@@ -98,9 +98,9 @@ bool ChunkedArray::Equals(const ChunkedArray& other) const {
   // the underlying data independently of the chunk size.
   return internal::ApplyBinaryChunked(
              *this, other,
-             [](const Array& left_piece, const Array& right_piece,
-                int64_t ARROW_ARG_UNUSED(position)) {
-               if (!left_piece.Equals(right_piece)) {
+             [options](const Array& left_piece, const Array& right_piece,
+                       int64_t ARROW_ARG_UNUSED(position)) {
+               if (!left_piece.Equals(right_piece, options)) {
                  return Status::Invalid("Unequal piece");
                }
                return Status::OK();
@@ -108,14 +108,15 @@ bool ChunkedArray::Equals(const ChunkedArray& other) const {
       .ok();
 }
 
-bool ChunkedArray::Equals(const std::shared_ptr<ChunkedArray>& other) const {
+bool ChunkedArray::Equals(const std::shared_ptr<ChunkedArray>& other,
+                          const EqualOptions& options) const {
   if (this == other.get()) {
     return true;
   }
   if (!other) {
     return false;
   }
-  return Equals(*other.get());
+  return Equals(*other.get(), options);
 }
 
 std::shared_ptr<ChunkedArray> ChunkedArray::Slice(int64_t offset, int64_t length) const {

@@ -197,7 +197,10 @@ class ARROW_EXPORT Table {
   ///
   /// Two tables can be equal only if they have equal schemas.
   /// However, they may be equal even if they have different chunkings.
-  bool Equals(const Table& other, bool check_metadata = false) const;
+  bool Equals(const Table& other, bool check_metadata) const;
+
+  bool Equals(const Table& other,
+              const EqualOptions& options = EqualOptions::Defaults()) const;
 
   /// \brief Make a new table by combining the chunks this table has.
   ///

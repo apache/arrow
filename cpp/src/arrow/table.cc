@@ -534,6 +534,25 @@ bool Table::Equals(const Table& other, bool check_metadata) const {
   return true;
 }
 
+bool Table::Equals(const Table& other, const EqualOptions& options) const {
+  if (this == &other) {
+    return true;
+  }
+  if (!schema_->Equals(*other.schema(), options.check_metadata())) {
+    return false;
+  }
+  if (this->num_columns() != other.num_columns()) {
+    return false;
+  }
+
+  for (int i = 0; i < this->num_columns(); i++) {
+    if (!this->column(i)->Equals(other.column(i), options)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 Result<std::shared_ptr<Table>> Table::CombineChunks(MemoryPool* pool) const {
   const int ncolumns = num_columns();
   std::vector<std::shared_ptr<ChunkedArray>> compacted_columns(ncolumns);

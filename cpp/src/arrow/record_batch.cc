@@ -216,6 +216,24 @@ bool RecordBatch::Equals(const RecordBatch& other, bool check_metadata) const {
   return true;
 }
 
+bool RecordBatch::Equals(const RecordBatch& other, const EqualOptions& options) const {
+  if (num_columns() != other.num_columns() || num_rows_ != other.num_rows()) {
+    return false;
+  }
+
+  if (!schema_->Equals(*other.schema(), /*check_metadata=*/options.check_metadata())) {
+    return false;
+  }
+
+  for (int i = 0; i < num_columns(); ++i) {
+    if (!column(i)->Equals(other.column(i), options)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 bool RecordBatch::ApproxEquals(const RecordBatch& other) const {
   if (num_columns() != other.num_columns() || num_rows_ != other.num_rows()) {
     return false;

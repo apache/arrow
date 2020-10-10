@@ -71,11 +71,22 @@ class EqualOptions {
     return res;
   }
 
+  /// Whether or not to check metadata objects for equality.
+  bool check_metadata() const { return check_metadata_; }
+
+  /// Return a new EqualOptions object with the "check_metadata" property changed.
+  EqualOptions check_metadata(bool v) const {
+    auto res = EqualOptions(*this);
+    res.check_metadata_ = v;
+    return res;
+  }
+
   static EqualOptions Defaults() { return EqualOptions(); }
 
  protected:
   double atol_ = kDefaultAbsoluteTolerance;
   bool nans_equal_ = false;
+  bool check_metadata_ = true;
   std::ostream* diff_sink_ = NULLPTR;
 };
 
