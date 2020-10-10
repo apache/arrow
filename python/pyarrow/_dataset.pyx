@@ -1114,50 +1114,54 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
         object _properties
 
     def update(self, **kwargs):
-        cdef CParquetFileWriteOptions* opts = self.parquet_options
-
         arrow_fields = {
             "use_deprecated_int96_timestamps",
             "coerce_timestamps",
             "allow_truncated_timestamps",
         }
 
-        update = False
-        update_arrow = False
+        setters = set()
         for name, value in kwargs.items():
             if name not in self._properties:
                 raise TypeError("unexpected parquet write option: " + name)
             self._properties[name] = value
             if name in arrow_fields:
-                update_arrow = True
+                setters.add(self._set_arrow_properties)
             else:
-                update = True
+                setters.add(self._set_properties)
 
-        if update:
-            opts.writer_properties = _create_writer_properties(
-                use_dictionary=self._properties["use_dictionary"],
-                compression=self._properties["compression"],
-                version=self._properties["version"],
-                write_statistics=self._properties["write_statistics"],
-                data_page_size=self._properties["data_page_size"],
-                compression_level=self._properties["compression_level"],
-                use_byte_stream_split=(
-                    self._properties["use_byte_stream_split"]
-                ),
-                data_page_version=self._properties["data_page_version"],
-            )
+        for setter in setters:
+            setter()
 
-        if update_arrow:
-            opts.arrow_writer_properties = _create_arrow_writer_properties(
-                use_deprecated_int96_timestamps=(
-                    self._properties["use_deprecated_int96_timestamps"]
-                ),
-                coerce_timestamps=self._properties["coerce_timestamps"],
-                allow_truncated_timestamps=(
-                    self._properties["allow_truncated_timestamps"]
-                ),
-                writer_engine_version='V2'
-            )
+    def _set_properties(self):
+        cdef CParquetFileWriteOptions* opts = self.parquet_options
+
+        opts.writer_properties = _create_writer_properties(
+            use_dictionary=self._properties["use_dictionary"],
+            compression=self._properties["compression"],
+            version=self._properties["version"],
+            write_statistics=self._properties["write_statistics"],
+            data_page_size=self._properties["data_page_size"],
+            compression_level=self._properties["compression_level"],
+            use_byte_stream_split=(
+                self._properties["use_byte_stream_split"]
+            ),
+            data_page_version=self._properties["data_page_version"],
+        )
+
+    def _set_arrow_properties(self):
+        cdef CParquetFileWriteOptions* opts = self.parquet_options
+
+        opts.arrow_writer_properties = _create_arrow_writer_properties(
+            use_deprecated_int96_timestamps=(
+                self._properties["use_deprecated_int96_timestamps"]
+            ),
+            coerce_timestamps=self._properties["coerce_timestamps"],
+            allow_truncated_timestamps=(
+                self._properties["allow_truncated_timestamps"]
+            ),
+            writer_engine_version="V2",
+        )
 
     cdef void init(self, const shared_ptr[CFileWriteOptions]& sp):
         FileWriteOptions.init(self, sp)
@@ -1175,6 +1179,8 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
             coerce_timestamps=None,
             allow_truncated_timestamps=False,
         )
+        self._set_properties()
+        self._set_arrow_properties()
 
 
 cdef class ParquetFileFormat(FileFormat):
