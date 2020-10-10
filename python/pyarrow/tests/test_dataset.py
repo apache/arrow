@@ -1096,7 +1096,7 @@ def test_fragments_parquet_row_groups_reconstruct(tempdir):
 @pytest.mark.pandas
 @pytest.mark.parquet
 def test_fragments_parquet_subset_ids(tempdir):
-    _, dataset = _create_dataset_for_fragments(tempdir, chunk_size=1)
+    table, dataset = _create_dataset_for_fragments(tempdir, chunk_size=1)
     fragment = list(dataset.get_fragments())[0]
 
     # select with row group ids
@@ -1119,12 +1119,16 @@ def test_fragments_parquet_subset_ids(tempdir):
     # empty list of ids
     subfrag = fragment.subset(row_group_ids=[])
     assert subfrag.num_row_groups == 0
+    assert subfrag.row_groups == []
+    result = subfrag.to_table(schema=dataset.schema)
+    assert result.num_rows == 0
+    assert result.equals(table[:0])
 
 
 @pytest.mark.pandas
 @pytest.mark.parquet
 def test_fragments_parquet_subset_filter(tempdir):
-    _, dataset = _create_dataset_for_fragments(tempdir, chunk_size=1)
+    table, dataset = _create_dataset_for_fragments(tempdir, chunk_size=1)
     fragment = list(dataset.get_fragments())[0]
 
     # select with filter
@@ -1140,6 +1144,10 @@ def test_fragments_parquet_subset_filter(tempdir):
     # filter that results in empty selection
     subfrag = fragment.subset(ds.field("f1") > 5)
     assert subfrag.num_row_groups == 0
+    assert subfrag.row_groups == []
+    result = subfrag.to_table(schema=dataset.schema)
+    assert result.num_rows == 0
+    assert result.equals(table[:0])
 
     # passing schema to ensure filter on partition expression works
     subfrag = fragment.subset(ds.field("part") == "a", schema=dataset.schema)
