@@ -532,64 +532,18 @@ impl<R: Read> Reader<R> {
                         DataType::Float64 => self.build_list_array::<Float64Type>(rows, field.name()),
                         DataType::Null => unimplemented!(),
                         DataType::Boolean => self.build_boolean_list_array(rows, field.name()),
-                        DataType::Utf8 => {
-                            let values_builder = StringBuilder::new(rows.len() * 5);
-                            let mut builder = ListBuilder::new(values_builder);
-                            for row in rows {
-                                if let Some(value) = row.get(field.name()) {
-                                    // value can be an array or a scalar
-                                    let vals: Vec<Option<String>> = if let Value::String(v) = value {
-                                        vec![Some(v.to_string())]
-                                    } else if let Value::Array(n) = value {
-                                        n.iter().map(|v: &Value| {
-                                            if v.is_string() {
-                                                Some(v.as_str().unwrap().to_string())
-                                            } else if v.is_array() || v.is_object() {
-                                                // implicitly drop nested values
-                                                // TODO support deep-nesting
-                                                None
-                                            } else {
-                                                Some(v.to_string())
-                                            }
-                                        }).collect()
-                                    } else if let Value::Null = value {
-                                        vec![None]
-                                    } else if !value.is_object() {
-                                        vec![Some(value.to_string())]
-                                    } else {
-                                        return Err(ArrowError::JsonError("Only scalars are currently supported in JSON arrays".to_string()));
-                                    };
-                                    for val in vals {
-                                        if let Some(v) = val {
-                                            builder.values().append_value(&v)?
-                                        } else {
-                                            builder.values().append_null()?
-                                        };
-                                    }
-                                }
-                                builder.append(true)?
-                            }
-                            Ok(Arc::new(builder.finish()) as ArrayRef)
-                        }
-                        _ => Err(ArrowError::JsonError("Data type is currently not supported in a list".to_string())),
+                        ref dtype @ DataType::Utf8 => {
+                            // UInt64Type passed down below is a fake type for dictionary builder.
+                            // It is there to make compiler happy.
+                            self.list_array_string_array_builder::<UInt64Type>(&dtype, field.name(), rows)
+                        },
+                        DataType::Dictionary(ref key_ty, _) => {
+                            self.build_wrapped_list_array(rows, field.name(), key_ty)
+                        },
+                        ref e => Err(ArrowError::JsonError(format!("Data type is currently not supported in a list : {:?}", e))),
                     },
-                    DataType::Dictionary(ref key_typ, ref value_type) => {
-                        if let DataType::Utf8 = **value_type {
-                            match **key_typ {
-                                DataType::Int8 => self.build_dictionary_array::<Int8Type>(rows, field.name()),
-                                DataType::Int16 => self.build_dictionary_array::<Int16Type>(rows, field.name()),
-                                DataType::Int32 => self.build_dictionary_array::<Int32Type>(rows, field.name()),
-                                DataType::Int64 => self.build_dictionary_array::<Int64Type>(rows, field.name()),
-                                DataType::UInt8 => self.build_dictionary_array::<UInt8Type>(rows, field.name()),
-                                DataType::UInt16 => self.build_dictionary_array::<UInt16Type>(rows, field.name()),
-                                DataType::UInt32 => self.build_dictionary_array::<UInt32Type>(rows, field.name()),
-                                DataType::UInt64 => self.build_dictionary_array::<UInt64Type>(rows, field.name()),
-                                _ => Err(ArrowError::JsonError("unsupported dictionary key type".to_string()))
-                            }
-                        } else {
-                            Err(ArrowError::JsonError("dictionary types other than UTF-8 not yet supported".to_string()))
-                        }
-                    }
+                    DataType::Dictionary(ref key_ty, ref val_ty) =>
+                        self.build_string_dictionary_array(rows, field.name(), key_ty, val_ty),
                     DataType::Struct(_) => Err(ArrowError::JsonError("struct types are not yet supported".to_string())),
                     _ => Err(ArrowError::JsonError(format!("{:?} type is not supported", field.data_type()))),
                 }
@@ -610,6 +564,175 @@ impl<R: Read> Reader<R> {
         let projected_schema = Arc::new(Schema::new(projected_fields));
 
         arrays.and_then(|arr| RecordBatch::try_new(projected_schema, arr).map(Some))
+    }
+
+    fn build_wrapped_list_array(
+        &self,
+        rows: &[Value],
+        col_name: &str,
+        key_type: &DataType
+    ) -> Result<ArrayRef> {
+        match *key_type {
+            DataType::Int8 => {
+                let dtype = DataType::Dictionary(Box::new(DataType::Int8), Box::new(DataType::Utf8));
+                self.list_array_string_array_builder::<Int8Type>(&dtype, col_name, rows)
+            },
+            DataType::Int16 => {
+                let dtype = DataType::Dictionary(Box::new(DataType::Int16), Box::new(DataType::Utf8));
+                self.list_array_string_array_builder::<Int16Type>(&dtype, col_name, rows)
+            },
+            DataType::Int32 => {
+                let dtype = DataType::Dictionary(Box::new(DataType::Int32), Box::new(DataType::Utf8));
+                self.list_array_string_array_builder::<Int32Type>(&dtype, col_name, rows)
+            },
+            DataType::Int64 => {
+                let dtype = DataType::Dictionary(Box::new(DataType::Int64), Box::new(DataType::Utf8));
+                self.list_array_string_array_builder::<Int64Type>(&dtype, col_name, rows)
+            },
+            DataType::UInt8 => {
+                let dtype = DataType::Dictionary(Box::new(DataType::UInt8), Box::new(DataType::Utf8));
+                self.list_array_string_array_builder::<UInt8Type>(&dtype, col_name, rows)
+            },
+            DataType::UInt16 => {
+                let dtype = DataType::Dictionary(Box::new(DataType::UInt16), Box::new(DataType::Utf8));
+                self.list_array_string_array_builder::<UInt16Type>(&dtype, col_name, rows)
+            }
+            DataType::UInt32 => {
+                let dtype = DataType::Dictionary(Box::new(DataType::UInt32), Box::new(DataType::Utf8));
+                self.list_array_string_array_builder::<UInt32Type>(&dtype, col_name, rows)
+            }
+            DataType::UInt64 => {
+                let dtype = DataType::Dictionary(Box::new(DataType::UInt64), Box::new(DataType::Utf8));
+                self.list_array_string_array_builder::<UInt64Type>(&dtype, col_name, rows)
+            },
+            ref e => Err(ArrowError::JsonError(format!("Data type is currently not supported for dictionaries in list : {:?}", e))),
+        }
+    }
+
+    #[inline(always)]
+    fn list_array_string_array_builder<DICT_TY>(
+        &self,
+        data_type: &DataType,
+        col_name: &str,
+        rows: &[Value]
+    ) -> Result<ArrayRef>
+    where
+        DICT_TY: ArrowPrimitiveType + ArrowDictionaryKeyType
+    {
+        let builder: Box<dyn ArrayBuilder> = match data_type {
+            DataType::Utf8 => {
+                let values_builder = StringBuilder::new(rows.len() * 5);
+                Box::new(ListBuilder::new(values_builder))
+            },
+            DataType::Dictionary(_, _) => {
+                let values_builder = self.build_string_dictionary_builder::<DICT_TY>(rows.len() * 5)?;
+                Box::new(ListBuilder::new(values_builder))
+            }
+            e => return Err(ArrowError::JsonError(
+                format!("Nested list data builder type is not supported: {:?}", e)
+            ))
+        };
+        let mut builder = Box::leak(builder);
+
+        for row in rows {
+            if let Some(value) = row.get(col_name) {
+                // value can be an array or a scalar
+                let vals: Vec<Option<String>> = if let Value::String(v) = value {
+                    vec![Some(v.to_string())]
+                } else if let Value::Array(n) = value {
+                    n.iter().map(|v: &Value| {
+                        if v.is_string() {
+                            Some(v.as_str().unwrap().to_string())
+                        } else if v.is_array() || v.is_object() {
+                            // implicitly drop nested values
+                            // TODO support deep-nesting
+                            None
+                        } else {
+                            Some(v.to_string())
+                        }
+                    }).collect()
+                } else if let Value::Null = value {
+                    vec![None]
+                } else if !value.is_object() {
+                    vec![Some(value.to_string())]
+                } else {
+                    return Err(ArrowError::JsonError("Only scalars are currently supported in JSON arrays".to_string()));
+                };
+
+                // TODO: (vertexclique): APIs of dictionary arrays and others are different. Unify them.
+                match data_type {
+                    DataType::Utf8 => {
+                        let builder: &mut &mut ListBuilder<StringBuilder> = unsafe { std::mem::transmute(&mut builder) };
+                        for val in vals {
+                            if let Some(v) = val {
+                                builder.values().append_value(&v)?
+                            } else {
+                                builder.values().append_null()?
+                            };
+                        }
+
+                        // Amend to the list
+                        builder.append(true)?;
+                    },
+                    DataType::Dictionary(_, _) => {
+                        let builder: &mut &mut ListBuilder<StringDictionaryBuilder<DICT_TY>> = unsafe { std::mem::transmute(&mut builder) };
+                        for val in vals {
+                            if let Some(v) = val {
+                                let _ = builder.values().append(&v)?;
+                            } else {
+                                builder.values().append_null()?
+                            };
+                        }
+
+                        // Amend to the list
+                        builder.append(true)?;
+                    },
+                    e => return Err(ArrowError::JsonError(
+                        format!("Nested list data builder type is not supported: {:?}", e)
+                    ))
+                }
+
+            }
+        }
+        unsafe { Ok((*Box::from_raw(builder)).finish() as ArrayRef) }
+    }
+
+    #[inline(always)]
+    fn build_string_dictionary_builder<T>(
+        &self,
+        row_len: usize
+    ) -> Result<StringDictionaryBuilder<T>>
+    where
+        T: ArrowPrimitiveType + ArrowDictionaryKeyType
+    {
+        let key_builder = PrimitiveBuilder::<T>::new(row_len);
+        let values_builder = StringBuilder::new(row_len * 5);
+        Ok(StringDictionaryBuilder::new(key_builder, values_builder))
+    }
+
+    #[inline(always)]
+    fn build_string_dictionary_array(
+        &self,
+        rows: &[Value],
+        col_name: &str,
+        key_type: &DataType,
+        value_type: &DataType
+    ) -> Result<ArrayRef> {
+        if let DataType::Utf8 = *value_type {
+            match *key_type {
+                DataType::Int8 => self.build_dictionary_array::<Int8Type>(rows, col_name),
+                DataType::Int16 => self.build_dictionary_array::<Int16Type>(rows, col_name),
+                DataType::Int32 => self.build_dictionary_array::<Int32Type>(rows, col_name),
+                DataType::Int64 => self.build_dictionary_array::<Int64Type>(rows, col_name),
+                DataType::UInt8 => self.build_dictionary_array::<UInt8Type>(rows, col_name),
+                DataType::UInt16 => self.build_dictionary_array::<UInt16Type>(rows, col_name),
+                DataType::UInt32 => self.build_dictionary_array::<UInt32Type>(rows, col_name),
+                DataType::UInt64 => self.build_dictionary_array::<UInt64Type>(rows, col_name),
+                _ => Err(ArrowError::JsonError("unsupported dictionary key type".to_string()))
+            }
+        } else {
+            Err(ArrowError::JsonError("dictionary types other than UTF-8 not yet supported".to_string()))
+        }
     }
 
     fn build_boolean_array(&self, rows: &[Value], col_name: &str) -> Result<ArrayRef> {
@@ -722,18 +845,18 @@ impl<R: Read> Reader<R> {
         Ok(Arc::new(builder.finish()))
     }
 
-    fn build_dictionary_array<T: ArrowPrimitiveType>(
+    #[inline(always)]
+    fn build_dictionary_array<T>(
         &self,
         rows: &[Value],
         col_name: &str,
     ) -> Result<ArrayRef>
     where
         T::Native: num::NumCast,
-        T: ArrowDictionaryKeyType,
+        T: ArrowPrimitiveType + ArrowDictionaryKeyType,
     {
-        let key_builder = PrimitiveBuilder::<T>::new(rows.len());
-        let value_builder = StringBuilder::new(100);
-        let mut builder = StringDictionaryBuilder::new(key_builder, value_builder);
+        let mut builder: StringDictionaryBuilder<T> =
+            self.build_string_dictionary_builder(rows.len())?;
         for row in rows {
             if let Some(value) = row.get(&col_name) {
                 if let Some(str_v) = value.as_str() {
@@ -855,7 +978,7 @@ impl ReaderBuilder {
 
 #[cfg(test)]
 mod tests {
-    use crate::datatypes::DataType::Dictionary;
+    use crate::datatypes::DataType::{Dictionary, List};
 
     use super::*;
     use flate2::read::GzDecoder;
@@ -1386,6 +1509,54 @@ mod tests {
     }
 
     #[test]
+    fn test_list_of_string_dictionary_from_json() {
+        let schema = Schema::new(vec![Field::new(
+            "events",
+            List(Box::new(Dictionary(Box::new(DataType::UInt64), Box::new(DataType::Utf8)))),
+            true,
+        )]);
+        let builder = ReaderBuilder::new()
+            .with_schema(Arc::new(schema))
+            .with_batch_size(64);
+        let mut reader: Reader<File> = builder
+            .build::<File>(File::open("test/data/list_string_dict_nested.json").unwrap())
+            .unwrap();
+        let batch = reader.next().unwrap().unwrap();
+
+        assert_eq!(1, batch.num_columns());
+        assert_eq!(3, batch.num_rows());
+
+        let schema = reader.schema();
+        let batch_schema = batch.schema();
+        assert_eq!(schema, batch_schema);
+
+        let events = schema.column_with_name("events").unwrap();
+        assert_eq!(
+            &List(Box::new(Dictionary(Box::new(DataType::UInt64), Box::new(DataType::Utf8)))),
+            events.1.data_type()
+        );
+
+        let evs_list = batch
+            .column(events.0)
+            .as_any()
+            .downcast_ref::<ListArray>()
+            .unwrap();
+        let evs_list = evs_list.values();
+        let evs_list = evs_list.as_any().downcast_ref::<DictionaryArray<UInt64Type>>().unwrap();
+        assert_eq!(6, evs_list.len());
+        assert_eq!(true, evs_list.is_valid(1));
+        assert_eq!(DataType::Utf8, evs_list.value_type());
+
+        // dict from the events list
+        let dict_el = evs_list.values();
+        let dict_el = dict_el.as_any().downcast_ref::<StringArray>().unwrap();
+        assert_eq!(3, dict_el.len());
+        assert_eq!("Elect Leader", dict_el.value(0));
+        assert_eq!("Do Ballot", dict_el.value(1));
+        assert_eq!("Send Data", dict_el.value(2));
+    }
+
+    #[test]
     fn test_dictionary_from_json_uint8() {
         let schema = Schema::new(vec![Field::new(
             "d",
@@ -1471,6 +1642,7 @@ mod tests {
             d.1.data_type()
         );
     }
+
     #[test]
     fn test_with_multiple_batches() {
         let builder = ReaderBuilder::new()
