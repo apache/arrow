@@ -2385,3 +2385,43 @@ def test_write_dataset_parquet(tempdir):
         ds.write_dataset(table, base_dir, format=format, file_options=opts)
         meta = pq.read_metadata(base_dir / "part-0.parquet")
         assert meta.format_version == version
+
+
+@pytest.mark.parquet
+@pytest.mark.pandas
+def test_write_dataset_arrow_schema_metadata(tempdir):
+    # ensure we serialize ARROW schema in the parquet metadata, to have a
+    # correct roundtrip (e.g. preserve non-UTC timezone)
+    import pyarrow.parquet as pq
+
+    table = pa.table({"a": [pd.Timestamp("2012-01-01", tz="Europe/Brussels")]})
+    assert table["a"].type.tz == "Europe/Brussels"
+
+    ds.write_dataset(table, tempdir, format="parquet")
+    result = pq.read_table(tempdir / "part-0.parquet")
+    assert result["a"].type.tz == "Europe/Brussels"
+
+
+def test_write_dataset_schema_metadata(tempdir):
+    # ensure that schema metadata gets written
+    from pyarrow import feather
+
+    table = pa.table({'a': [1, 2, 3]})
+    table = table.replace_schema_metadata({b'key': b'value'})
+    ds.write_dataset(table, tempdir, format="feather")
+
+    schema = feather.read_table(tempdir / "part-0.feather").schema
+    assert schema.metadata == {b'key': b'value'}
+
+
+@pytest.mark.parquet
+def test_write_dataset_schema_metadata_parquet(tempdir):
+    # ensure that schema metadata gets written
+    import pyarrow.parquet as pq
+
+    table = pa.table({'a': [1, 2, 3]})
+    table = table.replace_schema_metadata({b'key': b'value'})
+    ds.write_dataset(table, tempdir, format="parquet")
+
+    schema = pq.read_table(tempdir / "part-0.parquet").schema
+    assert schema.metadata == {b'key': b'value'}

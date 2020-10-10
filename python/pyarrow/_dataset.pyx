@@ -1159,7 +1159,8 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
             coerce_timestamps=self._properties["coerce_timestamps"],
             allow_truncated_timestamps=(
                 self._properties["allow_truncated_timestamps"]
-            )
+            ),
+            writer_engine_version="V2",
         )
 
     cdef void init(self, const shared_ptr[CFileWriteOptions]& sp):
