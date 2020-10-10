@@ -58,6 +58,12 @@ the input \code{x} invisibly.
 This function enables you to write Parquet files from R.
 }
 \details{
+Due to features of the format, Parquet files cannot be appended to.
+If you want to use the Parquet format but also want the ability to extend
+your dataset, you can write to additional Parquet files and then treat
+the whole directory of files as a \link{Dataset} you can query.
+See \code{vignette("dataset", package = "arrow")} for examples of this.
+
 The parameters \code{compression}, \code{compression_level}, \code{use_dictionary} and
 \code{write_statistics} support various patterns:
 \itemize{

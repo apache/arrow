@@ -24,11 +24,21 @@
 * `write_dataset()` to Feather or Parquet files with partitioning. See the end of `vignette("dataset", package = "arrow")` for discussion and examples.
 * Datasets now have `head()`, `tail()`, and take (`[`) methods. `head()` is optimized but the others  may not be performant.
 * `collect()` gains an `as_data_frame` argument, default `TRUE` but when `FALSE` allows you to evaluate the accumulated `select` and `filter` query but keep the result in Arrow, not an R `data.frame`
+* `read_csv_arrow()` supports specifying column types, both with a `Schema` and with the compact string representation for types used in the `readr` package. It also has gained a `timestamp_parsers` argument that lets you express a set of `strptime` parse strings that will be tried to convert columns designated as `Timestamp` type.
 
 ## AWS S3 support
 
-* S3 support is now enabled in binary macOS and Windows (Rtools40 only, i.e. R >= 4.0) packages. To enable it on Linux, you need additional system dependencies `libcurl` and `openssl`, as well as a sufficiently modern compiler. See `vignette("install", package = "arrow")` for details.
-* File readers and writers (`read_parquet()`, `write_feather()`, et al.), as well as `open_dataset()` and `write_dataset()`, allow you to access resources on S3 (or on file systems that emulate S3) either by providing an `s3://` URI or by passing an additional `filesystem` argument. See `vignette("fs", package = "arrow")` for examples.
+* S3 support is now enabled in binary macOS and Windows (Rtools40 only, i.e. R >= 4.0) packages. To enable it on Linux, you need the additional system dependencies `libcurl` and `openssl`, as well as a sufficiently modern compiler. See `vignette("install", package = "arrow")` for details.
+* File readers and writers (`read_parquet()`, `write_feather()`, et al.), as well as `open_dataset()` and `write_dataset()`, allow you to access resources on S3 (or on file systems that emulate S3) either by providing an `s3://` URI or by providing a `FileSystem$path()`. See `vignette("fs", package = "arrow")` for examples.
+* `copy_files()` allows you to recursively copy directories of files from one file system to another, such as from S3 to your local machine.
+
+## Flight RPC
+
+[Flight](https://arrow.apache.org/blog/2019/10/13/introducing-arrow-flight/)
+is a general-purpose client-server framework for high performance
+transport of large datasets over network interfaces.
+The `arrow` R package now provides methods for connecting to Flight RPC servers
+to send and receive data. See `vignette("flight", package = "arrow")` for an overview.
 
 ## Computation
 
@@ -37,9 +47,19 @@
 * `dplyr` filter expressions on Arrow Tables and RecordBatches are now evaluated in the C++ library, rather than by pulling data into R and evaluating. This yields significant performance improvements.
 * `dim()` (`nrow`) for dplyr queries on Table/RecordBatch is now supported
 
-## Other improvements
+## Packaging and installation
 
 * `arrow` now depends on [`cpp11`](https://cpp11.r-lib.org/), which brings more robust UTF-8 handling and faster compilation
+* The Linux build script now succeeds on older versions of R
+* MacOS binary packages now ship with zstandard compression enabled
+
+## Bug fixes and other enhancements
+
+* Automatic conversion of Arrow `Int64` type when all values fit with an R 32-bit integer now correctly inspects all chunks in a ChunkedArray, and this conversion can be disabled (so that `Int64` always yields a `bit64::integer64` vector) by setting `options(arrow.int64_downcast = FALSE)`.
+* In addition to the data.frame column metadata preserved in round trip, added in 1.0.0, now attributes of the data.frame itself are also preserved in Arrow schema metadata.
+* File writers now respect the system umask setting
+* `ParquetFileReader` has additional methods for accessing individual columns or row groups from the file
+* Various segfaults fixed: invalid input in `ParquetFileWriter`; invalid `ArrowObject` pointer from a saved R object; converting deeply nested structs from Arrow to R
 
 # arrow 1.0.1
 
