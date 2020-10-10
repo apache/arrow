@@ -998,9 +998,13 @@ class TestConvertDateTimeLikeTypes:
     def test_python_datetime_with_timezone_tzinfo(self):
         from datetime import timezone
 
-        values = [datetime(2018, 1, 1, 12, 23, 45, tzinfo=pytz.utc)]
-        df = pd.DataFrame({'datetime': values})
-        _check_pandas_roundtrip(df)
+        if LooseVersion(pd.__version__) > "0.25.0":
+            # older pandas versions fail on datetime.timezone.utc (as in input)
+            # vs pytz.UTC (as in result)
+            values = [datetime(2018, 1, 1, 12, 23, 45, tzinfo=timezone.utc)]
+            # also test with index to ensure both paths roundtrip (ARROW-9962)
+            df = pd.DataFrame({'datetime': values}, index=values)
+            _check_pandas_roundtrip(df, preserve_index=True)
 
         # datetime.timezone is going to be pytz.FixedOffset
         hours = 1
@@ -1008,9 +1012,9 @@ class TestConvertDateTimeLikeTypes:
         tz_pytz = pytz.FixedOffset(hours * 60)
         values = [datetime(2018, 1, 1, 12, 23, 45, tzinfo=tz_timezone)]
         values_exp = [datetime(2018, 1, 1, 12, 23, 45, tzinfo=tz_pytz)]
-        df = pd.DataFrame({'datetime': values})
-        df_exp = pd.DataFrame({'datetime': values_exp})
-        _check_pandas_roundtrip(df, expected=df_exp)
+        df = pd.DataFrame({'datetime': values}, index=values)
+        df_exp = pd.DataFrame({'datetime': values_exp}, index=values_exp)
+        _check_pandas_roundtrip(df, expected=df_exp, preserve_index=True)
 
     def test_python_datetime_subclass(self):
 
