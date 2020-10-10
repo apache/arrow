@@ -2345,8 +2345,7 @@ TEST(ArrowReadWrite, SimpleStructRoundTrip) {
       2);
 }
 
-// Roundtrip bug similar to NestedOptionalRequired in reconstruct_internal_test.cc
-TEST(ArrowReadWrite, DISABLED_SingleColumnNullableStruct1) {
+TEST(ArrowReadWrite, SingleColumnNullableStruct) {
   auto links =
       field("Links",
             ::arrow::struct_({field("Backward", ::arrow::int64(), /*nullable=*/true)}));
@@ -2396,25 +2395,7 @@ TEST(ArrowReadWrite, NestedNullableField) {
                        /*row_group_size=*/8);
 }
 
-TEST(ArrowReadWrite, SingleColumnNullableStruct2) {
-  auto links =
-      field("Links",
-            ::arrow::struct_({field("Backward", ::arrow::int64(), /*nullable=*/true)}));
-
-  auto links_id_array = ::arrow::ArrayFromJSON(links->type(),
-                                               "[null, "
-                                               "{\"Backward\": null}"
-                                               "]");
-
-  CheckSimpleRoundtrip(
-      ::arrow::Table::Make(std::make_shared<::arrow::Schema>(
-                               std::vector<std::shared_ptr<::arrow::Field>>{links}),
-                           {links_id_array}),
-      3);
-}
-
-// Disabled until implementation can be finished.
-TEST(TestArrowReadWrite, DISABLED_CanonicalNestedRoundTrip) {
+TEST(TestArrowReadWrite, CanonicalNestedRoundTrip) {
   auto doc_id = field("DocId", ::arrow::int64(), /*nullable=*/false);
   auto links = field(
       "Links",
