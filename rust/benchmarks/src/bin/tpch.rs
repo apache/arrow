@@ -113,7 +113,7 @@ async fn main() -> Result<()> {
         println!("Loading data into memory");
         let start = Instant::now();
 
-        let memtable = MemTable::load(tableprovider.as_ref()).await?;
+        let memtable = MemTable::load(tableprovider.as_ref(), opt.batch_size).await?;
         println!(
             "Loaded data into memory in {} ms",
             start.elapsed().as_millis()

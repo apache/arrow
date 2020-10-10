@@ -56,9 +56,9 @@ impl MemTable {
     }
 
     /// Create a mem table by reading from another data source
-    pub async fn load(t: &dyn TableProvider) -> Result<Self> {
+    pub async fn load(t: &dyn TableProvider, batch_size: usize) -> Result<Self> {
         let schema = t.schema();
-        let exec = t.scan(&None, 1024 * 1024)?;
+        let exec = t.scan(&None, batch_size)?;
 
         let mut data: Vec<Vec<RecordBatch>> =
             Vec::with_capacity(exec.output_partitioning().partition_count());
