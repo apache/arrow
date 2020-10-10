@@ -86,7 +86,7 @@ class EqualOptions {
  protected:
   double atol_ = kDefaultAbsoluteTolerance;
   bool nans_equal_ = false;
-  bool check_metadata_ = true;
+  bool check_metadata_ = false;
   std::ostream* diff_sink_ = NULLPTR;
 };
 
