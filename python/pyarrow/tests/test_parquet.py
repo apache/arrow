@@ -497,6 +497,7 @@ def test_multiple_path_types(tempdir, use_legacy_dataset):
     tm.assert_frame_equal(df, df_read)
 
 
+@pytest.mark.dataset
 @parametrize_legacy_dataset
 @pytest.mark.parametrize("filesystem", [
     None, fs.LocalFileSystem(), LocalFileSystem._get_instance()
