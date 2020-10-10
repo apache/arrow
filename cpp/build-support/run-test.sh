@@ -96,7 +96,7 @@ function run_test() {
   # even when retries are successful.
   rm -f $XMLFILE
 
-  $TEST_EXECUTABLE "$@" 2>&1 $LOGFILE.raw
+  $TEST_EXECUTABLE "$@" > $LOGFILE.raw 2>&1
   STATUS=$?
   cat $LOGFILE.raw \
     | ${PYTHON:-python} $ROOT/build-support/asan_symbolize.py \
