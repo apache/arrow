@@ -142,8 +142,6 @@ reference:
   - compression
   - Codec
   - codec_is_available
-  - MemoryPool
-  - default_memory_pool
 - title: Configuration
   contents:
   - cpu_count

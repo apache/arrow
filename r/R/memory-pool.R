@@ -25,10 +25,12 @@
 #'
 #' @section Methods:
 #'
-#' TODO
+#' - `bytes_allocated()`
+#' - `max_memory()`
 #'
 #' @rdname MemoryPool
 #' @name MemoryPool
+#' @keywords internal
 MemoryPool <- R6Class("MemoryPool",
   inherit = ArrowObject,
   public = list(
@@ -44,6 +46,7 @@ MemoryPool <- R6Class("MemoryPool",
 #'
 #' @return the default [arrow::MemoryPool][MemoryPool]
 #' @export
+#' @keywords internal
 default_memory_pool <- function() {
   shared_ptr(MemoryPool, MemoryPool__default())
 }

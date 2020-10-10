@@ -12,3 +12,4 @@ the default \link[=MemoryPool]{arrow::MemoryPool}
 \description{
 default \link[=MemoryPool]{arrow::MemoryPool}
 }
+\keyword{internal}
