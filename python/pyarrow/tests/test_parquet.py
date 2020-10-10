@@ -3030,14 +3030,18 @@ def test_write_to_dataset_pandas_preserve_extensiondtypes(
     df['col'] = df['col'].astype("Int64")
     table = pa.table(df)
 
-    # TODO pass use_legacy_dataset ARROW-10248
-    pq.write_to_dataset(table, str(tempdir / "case1"), partition_cols=['part'])
+    pq.write_to_dataset(
+        table, str(tempdir / "case1"), partition_cols=['part'],
+        use_legacy_dataset=use_legacy_dataset
+    )
     result = pq.read_table(
         str(tempdir / "case1"), use_legacy_dataset=use_legacy_dataset
     ).to_pandas()
     tm.assert_frame_equal(result[["col"]], df[["col"]])
 
-    pq.write_to_dataset(table, str(tempdir / "case2"))
+    pq.write_to_dataset(
+        table, str(tempdir / "case2"), use_legacy_dataset=use_legacy_dataset
+    )
     result = pq.read_table(
         str(tempdir / "case2"), use_legacy_dataset=use_legacy_dataset
     ).to_pandas()
@@ -3061,14 +3065,18 @@ def test_write_to_dataset_pandas_preserve_index(tempdir, use_legacy_dataset):
     df_cat = df[["col", "part"]].copy()
     df_cat["part"] = df_cat["part"].astype("category")
 
-    # TODO pass use_legacy_dataset ARROW-10248
-    pq.write_to_dataset(table, str(tempdir / "case1"), partition_cols=['part'])
+    pq.write_to_dataset(
+        table, str(tempdir / "case1"), partition_cols=['part'],
+        use_legacy_dataset=use_legacy_dataset
+    )
     result = pq.read_table(
         str(tempdir / "case1"), use_legacy_dataset=use_legacy_dataset
     ).to_pandas()
     tm.assert_frame_equal(result, df_cat)
 
-    pq.write_to_dataset(table, str(tempdir / "case2"))
+    pq.write_to_dataset(
+        table, str(tempdir / "case2"), use_legacy_dataset=use_legacy_dataset
+    )
     result = pq.read_table(
         str(tempdir / "case2"), use_legacy_dataset=use_legacy_dataset
     ).to_pandas()
