@@ -39,8 +39,10 @@ RUN apt-get update -y && \
         gtk-doc-tools \
         libcurl4-openssl-dev \
         libfontconfig1-dev \
+        libfribidi-dev \
         libgirepository1.0-dev \
         libglib2.0-doc \
+        libharfbuzz-dev \
         libtool \
         libxml2-dev \
         ninja-build \
