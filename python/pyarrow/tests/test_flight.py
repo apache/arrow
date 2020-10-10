@@ -1049,8 +1049,11 @@ def test_tls_disable_server_verification():
     certs = example_tls_certs()
 
     with ConstantFlightServer(tls_certificates=certs["certificates"]) as s:
-        client = FlightClient(('localhost', s.port),
-                              disable_server_verification=True)
+        try:
+            client = FlightClient(('localhost', s.port),
+                                  disable_server_verification=True)
+        except NotImplementedError:
+            pytest.skip('disable_server_verification feature is not available')
         data = client.do_get(flight.Ticket(b'ints')).read_all()
         assert data.equals(table)
 
