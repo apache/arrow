@@ -214,7 +214,7 @@ struct ARROW_EXPORT BaseBinaryScalar : public Scalar {
 
 struct ARROW_EXPORT BinaryScalar : public BaseBinaryScalar {
   using BaseBinaryScalar::BaseBinaryScalar;
-  using TypeClass = BinaryScalar;
+  using TypeClass = BinaryType;
 
   BinaryScalar(std::shared_ptr<Buffer> value, std::shared_ptr<DataType> type)
       : BaseBinaryScalar(std::move(value), std::move(type)) {}
@@ -239,7 +239,7 @@ struct ARROW_EXPORT StringScalar : public BinaryScalar {
 
 struct ARROW_EXPORT LargeBinaryScalar : public BaseBinaryScalar {
   using BaseBinaryScalar::BaseBinaryScalar;
-  using TypeClass = LargeBinaryScalar;
+  using TypeClass = LargeBinaryType;
 
   LargeBinaryScalar(std::shared_ptr<Buffer> value, std::shared_ptr<DataType> type)
       : BaseBinaryScalar(std::move(value), std::move(type)) {}
