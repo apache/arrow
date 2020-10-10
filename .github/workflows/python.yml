@@ -118,7 +118,7 @@ jobs:
   macos:
     name: AMD64 MacOS 10.15 Python 3.7
     runs-on: macos-latest
-    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    # if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     env:
       ARROW_HOME: /usr/local
       ARROW_DATASET: ON
@@ -152,12 +152,21 @@ jobs:
           brew install coreutils python
           pip3 install -r python/requirements-build.txt \
                        -r python/requirements-test.txt
-      - name: Build
-        shell: bash
+      - name: Debug
         run: |
-          export PYTHON=python3
-          ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
-          ci/scripts/python_build.sh $(pwd) $(pwd)/build
-      - name: Test
-        shell: bash
-        run: ci/scripts/python_test.sh $(pwd) $(pwd)/build
+          which python
+          which python3
+          which pip
+          which pip3
+          pip freezd
+          pip3 freeze
+          python3 -c "import cython"
+      # - name: Build
+      #   shell: bash
+      #   run: |
+      #     export PYTHON=python3
+      #     ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
+      #     ci/scripts/python_build.sh $(pwd) $(pwd)/build
+      # - name: Test
+      #   shell: bash
+      #   run: ci/scripts/python_test.sh $(pwd) $(pwd)/build
