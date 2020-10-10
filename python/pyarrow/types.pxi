@@ -47,6 +47,7 @@ cdef dict _pandas_type_map = {
     _Type_STRING: np.object_,
     _Type_LIST: np.object_,
     _Type_DECIMAL: np.object_,
+    _Type_MAP: np.object_,
 }
 
 cdef dict _pep3118_type_map = {
