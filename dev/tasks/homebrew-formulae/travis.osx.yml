@@ -42,7 +42,8 @@ before_script:
 - brew unlink python@2
 - brew config
 - brew doctor || true
-- brew audit $ARROW_FORMULA
+- cp $ARROW_FORMULA $(brew --repository homebrew/core)/Formula/apache-arrow.rb
 script:
-- brew install -v --HEAD $ARROW_FORMULA
-- brew test $ARROW_FORMULA
+- brew install -v --HEAD apache-arrow
+- brew test apache-arrow
+- brew audit --strict apache-arrow

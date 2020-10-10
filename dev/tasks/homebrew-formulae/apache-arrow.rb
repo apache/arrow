@@ -24,6 +24,8 @@ class ApacheArrow < Formula
 
   def install
     ENV.cxx11
+    # link against system libc++ instead of llvm provided libc++
+    ENV.remove "HOMEBREW_LIBRARY_PATHS", Formula["llvm"].opt_lib
     args = %W[
       -DARROW_FLIGHT=ON
       -DARROW_GANDIVA=ON
