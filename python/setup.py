@@ -182,7 +182,6 @@ class build_ext(_build_ext):
                      ('with-tensorflow', None,
                       'build pyarrow with TensorFlow support'),
                      ('with-orc', None, 'build the ORC extension'),
-                     ('with-gandiva', None, 'build the Gandiva extension'),
                      ('generate-coverage', None,
                       'enable Cython code coverage'),
                      ('bundle-boost', None,
@@ -431,7 +430,7 @@ class build_ext(_build_ext):
             move_shared_libs(build_prefix, build_lib, "arrow_dataset")
         if self.with_plasma:
             move_shared_libs(build_prefix, build_lib, "plasma")
-        if self.with_gandiva:
+        if target.target == 'pyarrow_gandiva':
             move_shared_libs(build_prefix, build_lib, "gandiva")
         if self.with_parquet and not self.with_static_parquet:
             move_shared_libs(build_prefix, build_lib, "parquet")
@@ -474,7 +473,7 @@ class build_ext(_build_ext):
             return True
         if name == '_cuda' and not self.with_cuda:
             return True
-        if name == 'gandiva' and not self.with_gandiva:
+        if name == 'gandiva' and not target.target == 'pyarrow_gandiva':
             return True
         return False
 
