@@ -31,7 +31,7 @@ bigdecimal = []
 uuid = []
 
 [dependencies]
-proc-macro2 = "1.0.8"
-quote = "1.0.2"
-syn = { version = "1.0.14", features = ["full", "extra-traits"] }
+proc-macro2 = "1.0"
+quote = "1.0"
+syn = { version = "1.0", features = ["full", "extra-traits"] }
 parquet = { path = "../parquet", version = "2.0.0-SNAPSHOT" }
