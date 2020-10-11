@@ -690,7 +690,7 @@ mod test {
                 "u8",
                 "bool",
                 "std :: string :: String",
-                "std :: result :: Result < ( ) , ( ) >"
+                "std :: result :: Result < () , () >"
             ]
         )
     }
