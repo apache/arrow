@@ -257,13 +257,13 @@
         "nullable": true,
         "children": [
           {
-            "name": "item",
+            "name": "itemx",
             "type": {
               "name": "int",
               "isSigned": true,
               "bitWidth": 32
             },
-            "nullable": true,
+            "nullable": false,
             "children": []
           }
         ]

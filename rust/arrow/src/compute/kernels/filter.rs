@@ -488,7 +488,7 @@ impl FilterContext {
                     key_type, value_type
                 )))
             }
-            DataType::List(dt) => match &**dt {
+            DataType::List(dt) => match dt.data_type() {
                 DataType::UInt8 => {
                     filter_primitive_item_list_array!(self, array, UInt8Type, ListArray, ListBuilder)
                 }
@@ -601,7 +601,7 @@ impl FilterContext {
                     )))
                 }
             }
-            DataType::LargeList(dt) => match &**dt {
+            DataType::LargeList(dt) => match dt.data_type() {
                 DataType::UInt8 => {
                     filter_primitive_item_list_array!(self, array, UInt8Type, LargeListArray, LargeListBuilder)
                 }
@@ -1085,7 +1085,8 @@ mod tests {
 
         let value_offsets = Buffer::from(&[0i64, 3, 6, 8, 8].to_byte_slice());
 
-        let list_data_type = DataType::LargeList(Box::new(DataType::Int32));
+        let list_data_type =
+            DataType::LargeList(Box::new(Field::new("item", DataType::Int32, false)));
         let list_data = ArrayData::builder(list_data_type)
             .len(4)
             .add_buffer(value_offsets)
