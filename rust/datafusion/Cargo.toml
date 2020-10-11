@@ -55,13 +55,13 @@ paste = "0.1"
 num_cpus = "1.13.0"
 chrono = "0.4"
 async-trait = "0.1.41"
+futures = "0.3"
 tokio = { version = "0.2", features = ["macros", "rt-core", "rt-threaded"] }
 
 [dev-dependencies]
 rand = "0.7"
 criterion = "0.3"
 tempfile = "3"
-futures = "0.3"
 prost = "0.6"
 arrow-flight = { path = "../arrow-flight", version = "3.0.0-SNAPSHOT" }
 tonic = "0.3"

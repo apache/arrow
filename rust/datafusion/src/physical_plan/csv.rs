@@ -19,7 +19,9 @@
 
 use std::any::Any;
 use std::fs::File;
+use std::pin::Pin;
 use std::sync::Arc;
+use std::task::{Context, Poll};
 
 use crate::error::{ExecutionError, Result};
 use crate::physical_plan::ExecutionPlan;
@@ -27,9 +29,10 @@ use crate::physical_plan::{common, Partitioning};
 use arrow::csv;
 use arrow::datatypes::{Schema, SchemaRef};
 use arrow::error::Result as ArrowResult;
-use arrow::record_batch::{RecordBatch, RecordBatchReader};
+use arrow::record_batch::RecordBatch;
+use futures::Stream;
 
-use super::SendableRecordBatchReader;
+use super::{RecordBatchStream, SendableRecordBatchStream};
 use async_trait::async_trait;
 
 /// CSV file read option
@@ -218,8 +221,8 @@ impl ExecutionPlan for CsvExec {
         }
     }
 
-    async fn execute(&self, partition: usize) -> Result<SendableRecordBatchReader> {
-        Ok(Box::new(CsvIterator::try_new(
+    async fn execute(&self, partition: usize) -> Result<SendableRecordBatchStream> {
+        Ok(Box::pin(CsvStream::try_new(
             &self.filenames[partition],
             self.schema.clone(),
             self.has_header,
@@ -231,12 +234,12 @@ impl ExecutionPlan for CsvExec {
 }
 
 /// Iterator over batches
-struct CsvIterator {
+struct CsvStream {
     /// Arrow CSV reader
     reader: csv::Reader<File>,
 }
 
-impl CsvIterator {
+impl CsvStream {
     /// Create an iterator for a CSV file
     pub fn try_new(
         filename: &str,
@@ -260,15 +263,18 @@ impl CsvIterator {
     }
 }
 
-impl Iterator for CsvIterator {
+impl Stream for CsvStream {
     type Item = ArrowResult<RecordBatch>;
 
-    fn next(&mut self) -> Option<Self::Item> {
-        self.reader.next()
+    fn poll_next(
+        mut self: Pin<&mut Self>,
+        _: &mut Context<'_>,
+    ) -> Poll<Option<Self::Item>> {
+        Poll::Ready(self.reader.next())
     }
 }
 
-impl RecordBatchReader for CsvIterator {
+impl RecordBatchStream for CsvStream {
     /// Get the schema
     fn schema(&self) -> SchemaRef {
         self.reader.schema()
@@ -279,6 +285,7 @@ impl RecordBatchReader for CsvIterator {
 mod tests {
     use super::*;
     use crate::test::{aggr_test_schema, arrow_testdata_path};
+    use futures::StreamExt;
 
     #[tokio::test]
     async fn csv_exec_with_projection() -> Result<()> {
@@ -295,8 +302,8 @@ mod tests {
         assert_eq!(13, csv.schema.fields().len());
         assert_eq!(3, csv.projected_schema.fields().len());
         assert_eq!(3, csv.schema().fields().len());
-        let mut it = csv.execute(0).await?;
-        let batch = it.next().unwrap()?;
+        let mut stream = csv.execute(0).await?;
+        let batch = stream.next().await.unwrap()?;
         assert_eq!(3, batch.num_columns());
         let batch_schema = batch.schema();
         assert_eq!(3, batch_schema.fields().len());
@@ -318,7 +325,7 @@ mod tests {
         assert_eq!(13, csv.projected_schema.fields().len());
         assert_eq!(13, csv.schema().fields().len());
         let mut it = csv.execute(0).await?;
-        let batch = it.next().unwrap()?;
+        let batch = it.next().await.unwrap()?;
         assert_eq!(13, batch.num_columns());
         let batch_schema = batch.schema();
         assert_eq!(13, batch_schema.fields().len());

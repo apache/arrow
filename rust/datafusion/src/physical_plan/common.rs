@@ -20,8 +20,9 @@
 use std::fs;
 use std::fs::metadata;
 use std::sync::Arc;
+use std::task::{Context, Poll};
 
-use super::SendableRecordBatchReader;
+use super::{RecordBatchStream, SendableRecordBatchStream};
 use crate::error::{ExecutionError, Result};
 
 use array::{
@@ -31,23 +32,24 @@ use array::{
 };
 use arrow::datatypes::{DataType, SchemaRef};
 use arrow::error::Result as ArrowResult;
-use arrow::record_batch::{RecordBatch, RecordBatchReader};
+use arrow::record_batch::RecordBatch;
 use arrow::{
     array::{self, ArrayRef},
     datatypes::Schema,
 };
+use futures::{Stream, TryStreamExt};
 
-/// Iterator over a vector of record batches
-pub struct RecordBatchIterator {
+/// Stream of record batches
+pub struct SizedRecordBatchStream {
     schema: SchemaRef,
     batches: Vec<Arc<RecordBatch>>,
     index: usize,
 }
 
-impl RecordBatchIterator {
+impl SizedRecordBatchStream {
     /// Create a new RecordBatchIterator
     pub fn new(schema: SchemaRef, batches: Vec<Arc<RecordBatch>>) -> Self {
-        RecordBatchIterator {
+        SizedRecordBatchStream {
             schema,
             index: 0,
             batches,
@@ -55,29 +57,33 @@ impl RecordBatchIterator {
     }
 }
 
-impl Iterator for RecordBatchIterator {
+impl Stream for SizedRecordBatchStream {
     type Item = ArrowResult<RecordBatch>;
 
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.index < self.batches.len() {
+    fn poll_next(
+        mut self: std::pin::Pin<&mut Self>,
+        _: &mut Context<'_>,
+    ) -> Poll<Option<Self::Item>> {
+        Poll::Ready(if self.index < self.batches.len() {
             self.index += 1;
             Some(Ok(self.batches[self.index - 1].as_ref().clone()))
         } else {
             None
-        }
+        })
     }
 }
 
-impl RecordBatchReader for RecordBatchIterator {
+impl RecordBatchStream for SizedRecordBatchStream {
     fn schema(&self) -> SchemaRef {
         self.schema.clone()
     }
 }
 
-/// Create a vector of record batches from an iterator
-pub fn collect(it: SendableRecordBatchReader) -> Result<Vec<RecordBatch>> {
-    it.into_iter()
-        .collect::<ArrowResult<Vec<_>>>()
+/// Create a vector of record batches from a stream
+pub async fn collect(stream: SendableRecordBatchStream) -> Result<Vec<RecordBatch>> {
+    stream
+        .try_collect::<Vec<_>>()
+        .await
         .map_err(|e| ExecutionError::from(e))
 }
 

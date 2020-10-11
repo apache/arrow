@@ -21,11 +21,11 @@ use std::any::Any;
 use std::sync::Arc;
 
 use crate::error::{ExecutionError, Result};
-use crate::physical_plan::memory::MemoryIterator;
+use crate::physical_plan::memory::MemoryStream;
 use crate::physical_plan::{Distribution, ExecutionPlan, Partitioning};
 use arrow::datatypes::SchemaRef;
 
-use super::SendableRecordBatchReader;
+use super::SendableRecordBatchStream;
 
 use async_trait::async_trait;
 
@@ -78,7 +78,7 @@ impl ExecutionPlan for EmptyExec {
         }
     }
 
-    async fn execute(&self, partition: usize) -> Result<SendableRecordBatchReader> {
+    async fn execute(&self, partition: usize) -> Result<SendableRecordBatchStream> {
         // GlobalLimitExec has a single output partition
         if 0 != partition {
             return Err(ExecutionError::General(format!(
@@ -88,7 +88,7 @@ impl ExecutionPlan for EmptyExec {
         }
 
         let data = vec![];
-        Ok(Box::new(MemoryIterator::try_new(
+        Ok(Box::pin(MemoryStream::try_new(
             data,
             self.schema.clone(),
             None,
@@ -111,7 +111,7 @@ mod tests {
 
         // we should have no results
         let iter = empty.execute(0).await?;
-        let batches = common::collect(iter)?;
+        let batches = common::collect(iter).await?;
         assert!(batches.is_empty());
 
         Ok(())

@@ -17,19 +17,32 @@
 
 //! Traits for physical query plan, supporting parallel execution for partitioned relations.
 
-use std::any::Any;
 use std::fmt::{Debug, Display};
 use std::sync::Arc;
+use std::{any::Any, pin::Pin};
 
 use crate::execution::context::ExecutionContextState;
 use crate::logical_plan::LogicalPlan;
 use crate::{error::Result, scalar::ScalarValue};
 use arrow::datatypes::{DataType, Schema, SchemaRef};
-use arrow::record_batch::{RecordBatch, RecordBatchReader};
+use arrow::error::Result as ArrowResult;
+use arrow::record_batch::RecordBatch;
 use arrow::{array::ArrayRef, datatypes::Field};
 
 use async_trait::async_trait;
-type SendableRecordBatchReader = Box<dyn RecordBatchReader + Send>;
+use futures::stream::Stream;
+
+/// Trait for types that stream [arrow::record_batch::RecordBatch]
+pub trait RecordBatchStream: Stream<Item = ArrowResult<RecordBatch>> {
+    /// Returns the schema of this `RecordBatchStream`.
+    ///
+    /// Implementation of this trait should guarantee that all `RecordBatch`'s returned by this
+    /// stream should have the same schema as returned from this method.
+    fn schema(&self) -> SchemaRef;
+}
+
+/// Trait for a stream of record batches.
+pub type SendableRecordBatchStream = Pin<Box<dyn RecordBatchStream + Send>>;
 
 /// Physical query planner that converts a `LogicalPlan` to an
 /// `ExecutionPlan` suitable for execution.
@@ -68,7 +81,7 @@ pub trait ExecutionPlan: Debug + Send + Sync {
     ) -> Result<Arc<dyn ExecutionPlan>>;
 
     /// creates an iterator
-    async fn execute(&self, partition: usize) -> Result<SendableRecordBatchReader>;
+    async fn execute(&self, partition: usize) -> Result<SendableRecordBatchStream>;
 }
 
 /// Partitioning schemes supported by operators.

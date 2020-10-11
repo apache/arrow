@@ -23,13 +23,13 @@ use std::sync::Arc;
 use crate::error::{ExecutionError, Result};
 use crate::{
     logical_plan::StringifiedPlan,
-    physical_plan::{common::RecordBatchIterator, ExecutionPlan},
+    physical_plan::{common::SizedRecordBatchStream, ExecutionPlan},
 };
 use arrow::{array::StringBuilder, datatypes::SchemaRef, record_batch::RecordBatch};
 
 use crate::physical_plan::Partitioning;
 
-use super::SendableRecordBatchReader;
+use super::SendableRecordBatchStream;
 use async_trait::async_trait;
 
 /// Explain execution plan operator. This operator contains the string
@@ -89,7 +89,7 @@ impl ExecutionPlan for ExplainExec {
         }
     }
 
-    async fn execute(&self, partition: usize) -> Result<SendableRecordBatchReader> {
+    async fn execute(&self, partition: usize) -> Result<SendableRecordBatchStream> {
         if 0 != partition {
             return Err(ExecutionError::General(format!(
                 "ExplainExec invalid partition {}",
@@ -113,7 +113,7 @@ impl ExecutionPlan for ExplainExec {
             ],
         )?;
 
-        Ok(Box::new(RecordBatchIterator::new(
+        Ok(Box::pin(SizedRecordBatchStream::new(
             self.schema.clone(),
             vec![Arc::new(record_batch)],
         )))
