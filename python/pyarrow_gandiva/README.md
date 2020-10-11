@@ -19,3 +19,20 @@
 
 # pyarrow_gandiva
 
+
+
+## Development
+
+To build the Cython components, use the `--target=pyarrow_gandiva` with
+setup.py:
+
+```shell
+python setup.py build_ext --inplace --target=pyarrow_gandiva
+```
+
+To run tests, use pytest with `python -m`. If you run it directly, the main
+`pyarrow` won't be on the import path and you will get import errors.
+
+```shell
+python -m pytest pyarrow_gandiva
+```
