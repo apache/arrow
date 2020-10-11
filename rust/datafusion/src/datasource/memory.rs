@@ -30,6 +30,8 @@ use crate::error::{ExecutionError, Result};
 use crate::physical_plan::memory::MemoryExec;
 use crate::physical_plan::ExecutionPlan;
 
+use tokio::task::{self, JoinHandle};
+
 /// In-memory table
 pub struct MemTable {
     schema: SchemaRef,
@@ -59,13 +61,24 @@ impl MemTable {
     pub async fn load(t: &dyn TableProvider, batch_size: usize) -> Result<Self> {
         let schema = t.schema();
         let exec = t.scan(&None, batch_size)?;
+        let partition_count = exec.output_partitioning().partition_count();
 
-        let mut data: Vec<Vec<RecordBatch>> =
-            Vec::with_capacity(exec.output_partitioning().partition_count());
-        for partition in 0..exec.output_partitioning().partition_count() {
-            let it = exec.execute(partition).await?;
-            let partition_batches = it.into_iter().collect::<ArrowResult<Vec<_>>>()?;
-            data.push(partition_batches);
+        let mut tasks = Vec::with_capacity(partition_count);
+        for partition in 0..partition_count {
+            let exec = exec.clone();
+            let task: JoinHandle<Result<Vec<RecordBatch>>> = task::spawn(async move {
+                let it = exec.execute(partition).await?;
+                it.into_iter()
+                    .collect::<ArrowResult<Vec<RecordBatch>>>()
+                    .map_err(ExecutionError::from)
+            });
+            tasks.push(task)
+        }
+
+        let mut data: Vec<Vec<RecordBatch>> = Vec::with_capacity(partition_count);
+        for task in tasks {
+            let result = task.await.expect("MemTable::load could not join task")?;
+            data.push(result);
         }
 
         MemTable::new(schema.clone(), data)
