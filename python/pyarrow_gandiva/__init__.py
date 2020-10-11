@@ -20,4 +20,4 @@
 
 # TODO: How to handle versioning?
 
-from gandiva import *
+from pyarrow_gandiva.gandiva import *

@@ -33,7 +33,7 @@ from pyarrow.lib cimport (Array, DataType, Field, MemoryPool, RecordBatch,
                           pyarrow_wrap_data_type, ensure_type, _Weakrefable)
 from pyarrow.lib import frombytes
 
-from pyarrow.includes.libgandiva cimport (
+from pyarrow_gandiva.includes.libgandiva cimport (
     CCondition, CExpression,
     CNode, CProjector, CFilter,
     CSelectionVector,

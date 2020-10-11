@@ -17,9 +17,12 @@ Testing/
 *.cpp
 pyarrow/*_api.h
 pyarrow/_generated_version.py
+pyarrow_gandiva/*_api.h
+pyarrow_gandiva/_generated_version.py
 
 # Bundled headers
 pyarrow/include
+pyarrow_gandiva/include
 
 # setup.py working directory
 build

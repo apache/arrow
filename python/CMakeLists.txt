@@ -63,10 +63,10 @@ endif()
 
 # Top level cmake dir
 if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
+  option(PYARROW_TARGET "Target package to build (pyarrow, pyarrow_gandiva)" "pyarrow")
   option(PYARROW_BUILD_CUDA "Build the PyArrow CUDA support" OFF)
   option(PYARROW_BUILD_FLIGHT "Build the PyArrow Flight integration" OFF)
   option(PYARROW_BUILD_DATASET "Build the PyArrow Dataset integration" OFF)
-  option(PYARROW_BUILD_GANDIVA "Build the PyArrow Gandiva integration" OFF)
   option(PYARROW_BUILD_PARQUET "Build the PyArrow Parquet integration" OFF)
   option(PYARROW_PARQUET_USE_SHARED "Rely on parquet shared libraries where relevant" ON)
   option(PYARROW_BOOST_USE_SHARED
@@ -381,24 +381,26 @@ if(UNIX)
   set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
 endif()
 
-set(CYTHON_EXTENSIONS
-    lib
-    _fs
-    _compute
-    _csv
-    _json)
+if (PYARROW_TARGET STREQUAL "pyarrow")
+  set(CYTHON_EXTENSIONS
+      lib
+      _fs
+      _compute
+      _csv
+      _json)
+endif()
 
 set(LINK_LIBS arrow_shared arrow_python_shared)
 
-if(PYARROW_BUILD_S3)
+if((PYARROW_TARGET STREQUAL "pyarrow") AND PYARROW_BUILD_S3)
   set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _s3fs)
 endif()
 
-if(PYARROW_BUILD_HDFS)
+if((PYARROW_TARGET STREQUAL "pyarrow") AND PYARROW_BUILD_HDFS)
   set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _hdfs)
 endif()
 
-if(PYARROW_BUILD_CUDA)
+if((PYARROW_TARGET STREQUAL "pyarrow") AND PYARROW_BUILD_CUDA)
   # Arrow CUDA
   find_package(ArrowCUDA REQUIRED)
 
@@ -413,7 +415,7 @@ if(PYARROW_BUILD_CUDA)
 endif()
 
 # Dataset
-if(PYARROW_BUILD_DATASET)
+if((PYARROW_TARGET STREQUAL "pyarrow") AND PYARROW_BUILD_DATASET)
   # Arrow Dataset
   find_package(ArrowDataset REQUIRED)
 
@@ -428,7 +430,7 @@ if(PYARROW_BUILD_DATASET)
   set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _dataset)
 endif()
 
-if(PYARROW_BUILD_PARQUET)
+if((PYARROW_TARGET STREQUAL "pyarrow") AND PYARROW_BUILD_PARQUET)
   # Parquet
   find_package(Parquet REQUIRED)
 
@@ -463,7 +465,7 @@ if(PYARROW_BUILD_PARQUET)
 endif()
 
 # Plasma
-if(PYARROW_BUILD_PLASMA)
+if((PYARROW_TARGET STREQUAL "pyarrow") AND PYARROW_BUILD_PLASMA)
   find_package(Plasma REQUIRED)
 
   include_directories(SYSTEM ${PLASMA_INCLUDE_DIR})
@@ -479,13 +481,13 @@ if(PYARROW_BUILD_PLASMA)
   file(COPY ${PLASMA_STORE_SERVER} DESTINATION ${BUILD_OUTPUT_ROOT_DIRECTORY})
 endif()
 
-if(PYARROW_BUILD_ORC)
+if((PYARROW_TARGET STREQUAL "pyarrow") AND PYARROW_BUILD_ORC)
   # ORC
   set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _orc)
 endif()
 
 # Flight
-if(PYARROW_BUILD_FLIGHT)
+if((PYARROW_TARGET STREQUAL "pyarrow") AND PYARROW_BUILD_FLIGHT)
   # Arrow Flight
   find_package(ArrowPythonFlight REQUIRED)
 
@@ -508,7 +510,7 @@ if(PYARROW_BUILD_FLIGHT)
 endif()
 
 # Gandiva
-if(PYARROW_BUILD_GANDIVA)
+if(PYARROW_TARGET STREQUAL "pyarrow_gandiva")
   find_package(Gandiva REQUIRED)
 
   include_directories(SYSTEM ${GANDIVA_INCLUDE_DIR})
@@ -542,7 +544,7 @@ foreach(module ${CYTHON_EXTENSIONS})
   list(REMOVE_AT directories -1)
 
   string(REPLACE "." "/" module_root "${module}")
-  set(module_SRC pyarrow/${module_root}.pyx)
+  set(module_SRC ${PYARROW_TARGET}/${module_root}.pyx)
   set_source_files_properties(${module_SRC} PROPERTIES CYTHON_IS_CXX 1)
 
   cython_add_module(${module_name} ${module_name}_pyx ${module_name}_output ${module_SRC})
@@ -590,26 +592,26 @@ endforeach(module)
 
 # Additional link libraries
 
-if(PYARROW_BUILD_CUDA)
+if((PYARROW_TARGET STREQUAL "pyarrow") AND PYARROW_BUILD_CUDA)
   target_link_libraries(_cuda PRIVATE ${CUDA_LINK_LIBS})
 endif()
 
-if(PYARROW_BUILD_FLIGHT)
+if((PYARROW_TARGET STREQUAL "pyarrow") AND PYARROW_BUILD_FLIGHT)
   target_link_libraries(_flight PRIVATE ${FLIGHT_LINK_LIBS})
 endif()
 
-if(PYARROW_BUILD_DATASET)
+if((PYARROW_TARGET STREQUAL "pyarrow") AND PYARROW_BUILD_DATASET)
   target_link_libraries(_dataset PRIVATE ${DATASET_LINK_LIBS})
 endif()
 
-if(PYARROW_BUILD_GANDIVA)
+if(PYARROW_TARGET STREQUAL "pyarrow_gandiva")
   target_link_libraries(gandiva PRIVATE ${GANDIVA_LINK_LIBS})
 endif()
 
-if(PYARROW_BUILD_PARQUET)
+if((PYARROW_TARGET STREQUAL "pyarrow") AND PYARROW_BUILD_PARQUET)
   target_link_libraries(_parquet PRIVATE ${PARQUET_LINK_LIBS})
 endif()
 
-if(PYARROW_BUILD_PLASMA)
+if((PYARROW_TARGET STREQUAL "pyarrow") AND PYARROW_BUILD_PLASMA)
   target_link_libraries(_plasma PRIVATE ${PLASMA_LINK_LIBS})
 endif()

@@ -84,6 +84,25 @@ class Target():
     def get_test_suite(self):
         return '%s.tests' % self.target
 
+    def get_cython_module_names(self):
+        if self.target == 'pyarrow':
+            return [
+                'lib',
+                '_fs',
+                '_csv',
+                '_json',
+                '_compute',
+                '_cuda',
+                '_flight',
+                '_dataset',
+                '_parquet',
+                '_orc',
+                '_plasma',
+                '_s3fs',
+                '_hdfs']
+        else:
+            return ['gandiva']
+
 
 target = Target(DIST_TARGET)
 
@@ -220,8 +239,6 @@ class build_ext(_build_ext):
             os.environ.get('PYARROW_WITH_TENSORFLOW', '0'))
         self.with_orc = strtobool(
             os.environ.get('PYARROW_WITH_ORC', '0'))
-        self.with_gandiva = strtobool(
-            os.environ.get('PYARROW_WITH_GANDIVA', '0'))
         self.generate_coverage = strtobool(
             os.environ.get('PYARROW_GENERATE_COVERAGE', '0'))
         self.bundle_arrow_cpp = strtobool(
@@ -235,23 +252,10 @@ class build_ext(_build_ext):
         self.bundle_plasma_executable = strtobool(
             os.environ.get('PYARROW_BUNDLE_PLASMA_EXECUTABLE', '1'))
 
-    CYTHON_MODULE_NAMES = [
-        'lib',
-        '_fs',
-        '_csv',
-        '_json',
-        '_compute',
-        '_cuda',
-        '_flight',
-        '_dataset',
-        '_parquet',
-        '_orc',
-        '_plasma',
-        '_s3fs',
-        '_hdfs',
-        'gandiva']
+    CYTHON_MODULE_NAMES = target.get_cython_module_names()
 
     def _run_cmake(self):
+        global target
         # check if build_type is correctly passed / set
         if self.build_type.lower() not in ('release', 'debug'):
             raise ValueError("--build-type (or PYARROW_BUILD_TYPE) needs to "
@@ -286,6 +290,7 @@ class build_ext(_build_ext):
                 '-DPYTHON_EXECUTABLE=%s' % sys.executable,
                 '-DPython3_EXECUTABLE=%s' % sys.executable,
                 static_lib_option,
+                '-DPYARROW_TARGET=%s' % target.target,
             ]
 
             def append_cmake_bool(value, varname):
@@ -297,7 +302,6 @@ class build_ext(_build_ext):
 
             append_cmake_bool(self.with_cuda, 'PYARROW_BUILD_CUDA')
             append_cmake_bool(self.with_flight, 'PYARROW_BUILD_FLIGHT')
-            append_cmake_bool(self.with_gandiva, 'PYARROW_BUILD_GANDIVA')
             append_cmake_bool(self.with_dataset, 'PYARROW_BUILD_DATASET')
             append_cmake_bool(self.with_orc, 'PYARROW_BUILD_ORC')
             append_cmake_bool(self.with_parquet, 'PYARROW_BUILD_PARQUET')
@@ -338,14 +342,14 @@ class build_ext(_build_ext):
                         '-j{0}'.format(os.environ['PYARROW_PARALLEL']))
 
             # Generate the build files
-            print("-- Running cmake for pyarrow")
+            print("-- Running cmake for %s" % target.target)
             self.spawn(['cmake'] + extra_cmake_args + cmake_options + [source])
-            print("-- Finished cmake for pyarrow")
+            print("-- Finished cmake for %s" % target.target)
 
-            print("-- Running cmake --build for pyarrow")
+            print("-- Running cmake --build for %s" % target.target)
             self.spawn(['cmake', '--build', '.', '--config', self.build_type] +
                        build_tool_args)
-            print("-- Finished cmake --build for pyarrow")
+            print("-- Finished cmake --build for %s" % target.target)
 
             if self.inplace:
                 # a bit hacky
@@ -353,7 +357,7 @@ class build_ext(_build_ext):
 
             # Move the libraries to the place expected by the Python build
             try:
-                os.makedirs(pjoin(build_lib, 'pyarrow'))
+                os.makedirs(pjoin(build_lib, target.target))
             except OSError:
                 pass
 
@@ -364,10 +368,10 @@ class build_ext(_build_ext):
 
             if self.bundle_arrow_cpp or self.bundle_arrow_cpp_headers:
                 print('Bundling includes: ' + pjoin(build_prefix, 'include'))
-                if os.path.exists(pjoin(build_lib, 'pyarrow', 'include')):
-                    shutil.rmtree(pjoin(build_lib, 'pyarrow', 'include'))
+                if os.path.exists(pjoin(build_lib, target.target, 'include')):
+                    shutil.rmtree(pjoin(build_lib, target.target, 'include'))
                 shutil.move(pjoin(build_prefix, 'include'),
-                            pjoin(build_lib, 'pyarrow'))
+                            pjoin(build_lib, target.target))
 
             # Move the built C-extension to the place expected by the Python
             # build
@@ -414,7 +418,7 @@ class build_ext(_build_ext):
                 shutil.move(source, target)
 
     def _bundle_arrow_cpp(self, build_prefix, build_lib):
-        print(pjoin(build_lib, 'pyarrow'))
+        print(pjoin(build_lib, target.target))
         move_shared_libs(build_prefix, build_lib, "arrow")
         move_shared_libs(build_prefix, build_lib, "arrow_python")
         if self.with_cuda:
@@ -477,7 +481,7 @@ class build_ext(_build_ext):
     def _get_build_dir(self):
         # Get the package directory from build_py
         build_py = self.get_finalized_command('build_py')
-        return build_py.get_package_dir('pyarrow')
+        return build_py.get_package_dir(target.target)
 
     def _get_cmake_ext_path(self, name):
         # This is the name of the arrow C-extension
@@ -529,7 +533,7 @@ def move_shared_libs(build_prefix, build_lib, lib_name,
             libs.append(lib_name + '.lib')
         for filename in libs:
             shutil.move(pjoin(build_prefix, filename),
-                        pjoin(build_lib, 'pyarrow', filename))
+                        pjoin(build_lib, target.target, filename))
     else:
         _move_shared_libs_unix(build_prefix, build_lib, lib_name)
 
@@ -561,7 +565,7 @@ def _move_shared_libs_unix(build_prefix, build_lib, lib_name):
     print(libs, libs[0])
     lib_filename = os.path.basename(libs[0])
     shutil.move(pjoin(build_prefix, lib_filename),
-                pjoin(build_lib, 'pyarrow', lib_filename))
+                pjoin(build_lib, target.target, lib_filename))
 
 
 # If the event of not running from a git clone (e.g. from a git archive
