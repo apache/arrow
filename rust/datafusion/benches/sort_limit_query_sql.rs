@@ -32,13 +32,12 @@ use datafusion::execution::context::ExecutionContext;
 
 use tokio::runtime::Runtime;
 
-async fn run_query(ctx: Arc<Mutex<ExecutionContext>>, sql: &str) {
+fn query(ctx: Arc<Mutex<ExecutionContext>>, sql: &str) {
+    let mut rt = Runtime::new().unwrap();
+
     // execute the query
     let df = ctx.lock().unwrap().sql(&sql).unwrap();
-    let results = df.collect().await.unwrap();
-
-    // display the relation
-    for _batch in results {}
+    rt.block_on(df.collect()).unwrap();
 }
 
 fn create_context() -> Arc<Mutex<ExecutionContext>> {
@@ -90,7 +89,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     c.bench_function("sort_and_limit_by_int", |b| {
         let ctx = create_context();
         b.iter(|| {
-            run_query(
+            query(
                 ctx.clone(),
                 "SELECT c1, c13, c6, c10 \
                  FROM aggregate_test_100 \
@@ -103,7 +102,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     c.bench_function("sort_and_limit_by_float", |b| {
         let ctx = create_context();
         b.iter(|| {
-            run_query(
+            query(
                 ctx.clone(),
                 "SELECT c1, c13, c12 \
                  FROM aggregate_test_100 \
@@ -116,7 +115,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     c.bench_function("sort_and_limit_lex_by_int", |b| {
         let ctx = create_context();
         b.iter(|| {
-            run_query(
+            query(
                 ctx.clone(),
                 "SELECT c1, c13, c6, c10 \
                  FROM aggregate_test_100 \
@@ -129,7 +128,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     c.bench_function("sort_and_limit_lex_by_string", |b| {
         let ctx = create_context();
         b.iter(|| {
-            run_query(
+            query(
                 ctx.clone(),
                 "SELECT c1, c13, c6, c10 \
                  FROM aggregate_test_100 \
