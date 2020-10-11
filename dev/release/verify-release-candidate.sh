@@ -657,18 +657,18 @@ test_macos_wheels() {
     conda activate ${env}
     pip install -U pip
 
-    macos_suffix=macosx
-    case "${py_arch}" in
-    *m)
-      macos_suffix="${macos_suffix}_10_9_intel"
-      ;;
-    *)
-      macos_suffix="${macos_suffix}_10_9_x86_64"
-      ;;
-    esac
+    # macos_suffix=macosx
+    # case "${py_arch}" in
+    # *m)
+    #   macos_suffix="${macos_suffix}_10_9_intel"
+    #   ;;
+    # *)
+    #   macos_suffix="${macos_suffix}_10_9_x86_64"
+    #   ;;
+    # esac
 
     # check the mandatory and optional imports
-    pip install python-rc/${VERSION}-rc${RC_NUMBER}/pyarrow-${VERSION}-cp${py_arch//[m.]/}-cp${py_arch//./}-${macos_suffix}.whl
+    pip install --find-links python-rc/${VERSION}-rc${RC_NUMBER} pyarrow==${VERSION}
     check_python_imports py_arch
 
     # install test requirements and execute the tests
