@@ -462,7 +462,7 @@ tasks:
       macos_deployment_target: 10.9
       arrow_s3: "OFF"
     artifacts:
-      - pyarrow-{no_rc_version}-cp36-cp36m-macosx_10_9_intel.whl
+      - pyarrow-{no_rc_version}-cp36-cp36m-macosx_10_9_x86_64.whl
 
   wheel-osx-mavericks-cp37m:
     ci: travis
@@ -472,7 +472,7 @@ tasks:
       macos_deployment_target: 10.9
       arrow_s3: "OFF"
     artifacts:
-      - pyarrow-{no_rc_version}-cp37-cp37m-macosx_10_9_intel.whl
+      - pyarrow-{no_rc_version}-cp37-cp37m-macosx_10_9_x86_64.whl
 
   wheel-osx-mavericks-cp38:
     ci: travis
@@ -504,7 +504,7 @@ tasks:
       macos_deployment_target: 10.13
       arrow_s3: "ON"
     artifacts:
-      - pyarrow-{no_rc_version}-cp36-cp36m-macosx_10_13_intel.whl
+      - pyarrow-{no_rc_version}-cp36-cp36m-macosx_10_13_x86_64.whl
 
   wheel-osx-high-sierra-cp37m:
     ci: travis
@@ -514,7 +514,7 @@ tasks:
       macos_deployment_target: 10.13
       arrow_s3: "ON"
     artifacts:
-      - pyarrow-{no_rc_version}-cp37-cp37m-macosx_10_13_intel.whl
+      - pyarrow-{no_rc_version}-cp37-cp37m-macosx_10_13_x86_64.whl
 
   wheel-osx-high-sierra-cp38:
     ci: travis
