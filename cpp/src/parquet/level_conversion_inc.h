@@ -19,6 +19,7 @@
 #include "parquet/level_conversion.h"
 
 #include <algorithm>
+#include <cstdint>
 #include <limits>
 
 #include "arrow/util/bit_run_reader.h"
@@ -257,30 +258,56 @@ inline uint64_t ExtractBitsSoftware(uint64_t bitmap, uint64_t select_bitmap) {
   return bit_value;
 }
 
-inline uint64_t ExtractBits(uint64_t bitmap, uint64_t select_bitmap) {
-  // MING32 doesn't support 64-bit pext.
-#if defined(ARROW_HAVE_BMI2) && !defined(__MINGW32__)
-  return _pext_u64(bitmap, select_bitmap);
-#else
-  return ExtractBitsSoftware(bitmap, select_bitmap);
-#endif
+#ifdef ARROW_HAVE_BMI2
+
+// Use _pext_u64 on 64-bit builds, _pext_u32 on 32-bit builds,
+#if UINTPTR_MAX == 0xFFFFFFFF
+
+using extract_bitmap_t = uint32_t;
+inline extract_bitmap_t ExtractBits(extract_bitmap_t bitmap,
+                                    extract_bitmap_t select_bitmap) {
+  return _pext_u32(bitmap, select_bitmap);
 }
+
+#else
+
+using extract_bitmap_t = uint64_t;
+inline extract_bitmap_t ExtractBits(extract_bitmap_t bitmap,
+                                    extract_bitmap_t select_bitmap) {
+  return _pext_u64(bitmap, select_bitmap);
+}
+
+#endif
+
+#else  // !defined(ARROW_HAVE_BMI2)
+
+// Use 64-bit pext emulation when BMI2 isn't available.
+using extract_bitmap_t = uint64_t;
+inline extract_bitmap_t ExtractBits(extract_bitmap_t bitmap,
+                                    extract_bitmap_t select_bitmap) {
+  return ExtractBitsSoftware(bitmap, select_bitmap);
+}
+
+#endif
+
+static constexpr int64_t kExtractBitsSize = 8 * sizeof(extract_bitmap_t);
 
 template <bool has_repeated_parent>
 int64_t DefLevelsBatchToBitmap(const int16_t* def_levels, const int64_t batch_size,
                                int64_t upper_bound_remaining, LevelInfo level_info,
                                ::arrow::internal::FirstTimeBitmapWriter* writer) {
-  // Greater than level_info.def_level - 1 implies >= the def_level
-  uint64_t defined_bitmap =
-      internal::GreaterThanBitmap(def_levels, batch_size, level_info.def_level - 1);
+  DCHECK_LE(batch_size, kExtractBitsSize);
 
-  DCHECK_LE(batch_size, 64);
+  // Greater than level_info.def_level - 1 implies >= the def_level
+  auto defined_bitmap = static_cast<extract_bitmap_t>(
+      internal::GreaterThanBitmap(def_levels, batch_size, level_info.def_level - 1));
+
   if (has_repeated_parent) {
     // Greater than level_info.repeated_ancestor_def_level - 1 implies >= the
     // repeated_ancestor_def_level
-    uint64_t present_bitmap = internal::GreaterThanBitmap(
-        def_levels, batch_size, level_info.repeated_ancestor_def_level - 1);
-    uint64_t selected_bits = ExtractBits(defined_bitmap, present_bitmap);
+    auto present_bitmap = static_cast<extract_bitmap_t>(internal::GreaterThanBitmap(
+        def_levels, batch_size, level_info.repeated_ancestor_def_level - 1));
+    auto selected_bits = ExtractBits(defined_bitmap, present_bitmap);
     int64_t selected_count = ::arrow::BitUtil::PopCount(present_bitmap);
     if (ARROW_PREDICT_FALSE(selected_count > upper_bound_remaining)) {
       throw ParquetException("Values read exceeded upper bound");
@@ -302,7 +329,6 @@ int64_t DefLevelsBatchToBitmap(const int16_t* def_levels, const int64_t batch_si
 template <bool has_repeated_parent>
 void DefLevelsToBitmapSimd(const int16_t* def_levels, int64_t num_def_levels,
                            LevelInfo level_info, ValidityBitmapInputOutput* output) {
-  constexpr int64_t kBitMaskSize = 64;
   ::arrow::internal::FirstTimeBitmapWriter writer(
       output->valid_bits,
       /*start_offset=*/output->valid_bits_offset,
@@ -310,11 +336,11 @@ void DefLevelsToBitmapSimd(const int16_t* def_levels, int64_t num_def_levels,
   int64_t set_count = 0;
   output->values_read = 0;
   int64_t values_read_remaining = output->values_read_upper_bound;
-  while (num_def_levels > kBitMaskSize) {
+  while (num_def_levels > kExtractBitsSize) {
     set_count += DefLevelsBatchToBitmap<has_repeated_parent>(
-        def_levels, kBitMaskSize, values_read_remaining, level_info, &writer);
-    def_levels += kBitMaskSize;
-    num_def_levels -= kBitMaskSize;
+        def_levels, kExtractBitsSize, values_read_remaining, level_info, &writer);
+    def_levels += kExtractBitsSize;
+    num_def_levels -= kExtractBitsSize;
     values_read_remaining = output->values_read_upper_bound - writer.position();
   }
   set_count += DefLevelsBatchToBitmap<has_repeated_parent>(
