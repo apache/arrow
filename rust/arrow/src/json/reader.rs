@@ -787,7 +787,7 @@ impl<R: Read> Reader<R> {
                             };
                         }
 
-                        // Amend to the list
+                        // Append to the list
                         builder.append(true)?;
                     }
                     DataType::Dictionary(_, _) => {
@@ -807,7 +807,7 @@ impl<R: Read> Reader<R> {
                             };
                         }
 
-                        // Amend to the list
+                        // Append to the list
                         builder.append(true)?;
                     }
                     e => {
