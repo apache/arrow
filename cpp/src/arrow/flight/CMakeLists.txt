@@ -88,7 +88,7 @@ if(NOT DEFINED HAS_GRPC_132)
     message(DEBUG "Build output:")
     list(APPEND CMAKE_MESSAGE_INDENT "check_tls_opts_132.cc: ")
     message(DEBUG ${TSL_CREDENTIALS_OPTIONS_CHECK_OUTPUT})
-    list(POP_BACK CMAKE_MESSAGE_INDENT)
+    list(REMOVE_AT CMAKE_MESSAGE_INDENT -1)
 
     try_compile(HAS_GRPC_127 ${CMAKE_CURRENT_BINARY_DIR}/try_compile SOURCES
                 "${CMAKE_CURRENT_SOURCE_DIR}/try_compile/check_tls_opts_127.cc"
@@ -104,7 +104,7 @@ if(NOT DEFINED HAS_GRPC_132)
       message(DEBUG "Build output:")
       list(APPEND CMAKE_MESSAGE_INDENT "check_tls_opts_127.cc: ")
       message(DEBUG ${TSL_CREDENTIALS_OPTIONS_CHECK_OUTPUT})
-      list(POP_BACK CMAKE_MESSAGE_INDENT)
+      list(REMOVE_AT CMAKE_MESSAGE_INDENT -1)
     endif()
   endif()
 endif()
