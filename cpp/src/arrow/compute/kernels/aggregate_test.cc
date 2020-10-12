@@ -763,6 +763,7 @@ TEST_F(TestAnyKernel, Basics) {
   std::vector<std::string> chunked_input2 = {"[false, false, false]", "[false]"};
   std::vector<std::string> chunked_input3 = {"[false, null]", "[null, false]"};
 
+  this->AssertAnyIs("[]", false);
   this->AssertAnyIs("[false]", false);
   this->AssertAnyIs("[true, false]", true);
   this->AssertAnyIs("[null, null, null]", false);
