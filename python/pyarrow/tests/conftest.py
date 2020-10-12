@@ -98,12 +98,6 @@ except ImportError:
     pass
 
 try:
-    import pyarrow.gandiva  # noqa
-    defaults['gandiva'] = True
-except ImportError:
-    pass
-
-try:
     import pyarrow.dataset  # noqa
     defaults['dataset'] = True
 except ImportError:
