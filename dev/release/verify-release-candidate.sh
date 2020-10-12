@@ -610,18 +610,26 @@ test_binary_distribution() {
 }
 
 check_python_imports() {
-  local py_arch=$1
+   python << IMPORT_TESTS
+import platform
 
-  python -c "import pyarrow.parquet"
-  python -c "import pyarrow.plasma"
-  python -c "import pyarrow.fs"
+import pyarrow
+import pyarrow.parquet
+import pyarrow.plasma
+import pyarrow.fs
+import pyarrow._hdfs
+import pyarrow.dataset
+import pyarrow.flight
 
-  if [[ "$py_arch" =~ ^3 ]]; then
-    # Flight, Gandiva and Dataset are only available for py3
-    python -c "import pyarrow.dataset"
-    python -c "import pyarrow.flight"
-    python -c "import pyarrow.gandiva"
-  fi
+if platform.system() == "Darwin":
+    macos_version = tuple(map(int, platform.mac_ver()[0].split('.')))
+    check_s3fs = macos_version >= (10, 13)
+else:
+    check_s3fs = True
+
+if check_s3fs:
+    import pyarrow._s3fs
+IMPORT_TESTS
 }
 
 test_linux_wheels() {
@@ -637,7 +645,7 @@ test_linux_wheels() {
     for ml_spec in ${manylinuxes}; do
       # check the mandatory and optional imports
       pip install python-rc/${VERSION}-rc${RC_NUMBER}/pyarrow-${VERSION}-cp${py_arch//[mu.]/}-cp${py_arch//./}-manylinux${ml_spec}_x86_64.whl
-      check_python_imports py_arch
+      check_python_imports
 
       # install test requirements and execute the tests
       pip install -r ${ARROW_DIR}/python/requirements-test.txt
@@ -657,19 +665,9 @@ test_macos_wheels() {
     conda activate ${env}
     pip install -U pip
 
-    macos_suffix=macosx
-    case "${py_arch}" in
-    *m)
-      macos_suffix="${macos_suffix}_10_9_intel"
-      ;;
-    *)
-      macos_suffix="${macos_suffix}_10_9_x86_64"
-      ;;
-    esac
-
     # check the mandatory and optional imports
-    pip install python-rc/${VERSION}-rc${RC_NUMBER}/pyarrow-${VERSION}-cp${py_arch//[m.]/}-cp${py_arch//./}-${macos_suffix}.whl
-    check_python_imports py_arch
+    pip install --find-links python-rc/${VERSION}-rc${RC_NUMBER} pyarrow==${VERSION}
+    check_python_imports
 
     # install test requirements and execute the tests
     pip install -r ${ARROW_DIR}/python/requirements-test.txt
