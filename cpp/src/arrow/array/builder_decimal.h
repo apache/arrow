@@ -23,6 +23,7 @@
 #include "arrow/array/builder_base.h"
 #include "arrow/array/builder_binary.h"
 #include "arrow/array/data.h"
+#include "arrow/util/decimal_type_traits.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/visibility.h"
@@ -30,25 +31,9 @@
 namespace arrow {
 
 template<uint32_t width>
-struct DecimalBuilderHelper;
-
-#define DECL_DECIMAL_TYPES_HELPER(width)     \
-template<>                                   \
-struct DecimalBuilderHelper<width> {         \
-  using type = Decimal##width##Type;         \
-  using array_type = Decimal##width##Array;  \
-  using value_type = Decimal##width;         \
-};
-
-DECL_DECIMAL_TYPES_HELPER(128)
-DECL_DECIMAL_TYPES_HELPER(256)
-
-#undef DECL_DECIMAL_TYPES_HELPER
-
-template<uint32_t width>
 class BaseDecimalBuilder : public FixedSizeBinaryBuilder {
 public:
-  using TypeClass = typename DecimalBuilderHelper<width>::type;
+  using TypeClass = typename DecimalTypeTraits<width>::TypeClass;
 
   explicit BaseDecimalBuilder(const std::shared_ptr<DataType>& type,
                             MemoryPool* pool = default_memory_pool());
@@ -57,8 +42,8 @@ public:
   using FixedSizeBinaryBuilder::AppendValues;
   using FixedSizeBinaryBuilder::Reset;
 
-  Status Append(typename DecimalBuilderHelper<width>::value_type val);
-  void UnsafeAppend(typename DecimalBuilderHelper<width>::value_type val);
+  Status Append(typename DecimalTypeTraits<width>::ValueType val);
+  void UnsafeAppend(typename DecimalTypeTraits<width>::ValueType val);
   void UnsafeAppend(util::string_view val);
 
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
@@ -67,24 +52,25 @@ public:
   using ArrayBuilder::Finish;
   /// \endcond
 
-  Status Finish(std::shared_ptr<typename DecimalBuilderHelper<width>::array_type>* out) { return FinishTyped(out); }
+  Status Finish(std::shared_ptr<typename DecimalTypeTraits<width>::ArrayType>* out) { return FinishTyped(out); }
 
   std::shared_ptr<DataType> type() const override { return decimal_type_; }
 
  protected:
-  std::shared_ptr<typename DecimalBuilderHelper<width>::type> decimal_type_;
+  std::shared_ptr<typename DecimalTypeTraits<width>::TypeClass> decimal_type_;
 };
 
-#define DECIMAL_BUILDER_DECL(width)                                             \
-class ARROW_EXPORT Decimal##width##Builder : public BaseDecimalBuilder<width> { \
-  using BaseDecimalBuilder<width>::BaseDecimalBuilder;                          \
+/// Builder class for decimal 128-bit                                    
+class ARROW_EXPORT Decimal128Builder : public BaseDecimalBuilder<128> {
+  using BaseDecimalBuilder<128>::BaseDecimalBuilder;
 };
 
-DECIMAL_BUILDER_DECL(128)
-DECIMAL_BUILDER_DECL(256)
+/// Builder class for decimal 128-bit 
+class ARROW_EXPORT Decimal256Builder : public BaseDecimalBuilder<256> {
+  using BaseDecimalBuilder<256>::BaseDecimalBuilder;
+};
 
-#undef DECIMAL_BUILDER_DECL
-
+// Backward compatibility
 using DecimalBuilder = Decimal128Builder;
 
 }  // namespace arrow

@@ -36,13 +36,13 @@ using internal::checked_cast;
 template<uint32_t width>
 BaseDecimalArray<width>::BaseDecimalArray(const std::shared_ptr<ArrayData>& data)
     : FixedSizeBinaryArray(data) {
-  ARROW_CHECK_EQ(data->type->id(), DecimalArrayHelper<width>::id);
+  ARROW_CHECK_EQ(data->type->id(), DecimalTypeTraits<width>::Id);
 }
 
 template<uint32_t width>
 std::string BaseDecimalArray<width>::FormatValue(int64_t i) const {
-  const auto& type_ = checked_cast<const typename DecimalArrayHelper<width>::type&>(*type());
-  const typename DecimalArrayHelper<width>::value_type value(GetValue(i));
+  const auto& type_ = checked_cast<const typename DecimalTypeTraits<width>::TypeClass&>(*type());
+  const typename DecimalTypeTraits<width>::ValueType value(GetValue(i));
   return value.ToString(type_.scale());
 }
 

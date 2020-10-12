@@ -876,7 +876,6 @@ class ARROW_EXPORT DecimalType : public FixedSizeBinaryType {
   int32_t scale_;
 };
 
-
 /// \brief Template type class for decimal data
 template<uint32_t width>
 class BaseDecimalType : public DecimalType {
@@ -896,16 +895,19 @@ class BaseDecimalType : public DecimalType {
   static constexpr int32_t kMaxPrecision = DecimalMeta<width>::max_precision;
 };
 
-#define DECIMAL_TYPE_DECL(width)                                             \
-class ARROW_EXPORT Decimal##width##Type : public BaseDecimalType<width> {    \
-  public: static constexpr Type::type type_id = Type::DECIMAL##width;        \
-          using BaseDecimalType<width>::BaseDecimalType;                     \
+/// \brief Concrete type class for decimal 128-bit data
+class ARROW_EXPORT Decimal128Type : public BaseDecimalType<128> {
+public:
+  static constexpr Type::type type_id = Type::DECIMAL128;
+  using BaseDecimalType<128>::BaseDecimalType;
 };
 
-DECIMAL_TYPE_DECL(128)
-DECIMAL_TYPE_DECL(256)
-
-#undef DECIMAL_TYPE_DECL
+/// \brief Concrete type class for decimal 256-bit data
+class ARROW_EXPORT Decimal256Type : public BaseDecimalType<256> {
+public:
+  static constexpr Type::type type_id = Type::DECIMAL256;
+  using BaseDecimalType<256>::BaseDecimalType;
+};
 
 /// \brief Concrete type class for union data
 class ARROW_EXPORT UnionType : public NestedType {

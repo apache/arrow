@@ -22,34 +22,18 @@
 #include <string>
 
 #include "arrow/array/array_binary.h"
+#include "arrow/util/decimal_type_traits.h"
 #include "arrow/array/data.h"
 #include "arrow/type.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
 
-
-template<uint32_t width>
-struct DecimalArrayHelper;
-
-#define DECL_DECIMAL_TYPES_HELPER(width)                 \
-template<>                                               \
-struct DecimalArrayHelper<width> {                       \
-  static constexpr Type::type id = Type::DECIMAL##width; \
-  using type = Decimal##width##Type;                     \
-  using value_type = Decimal##width;                     \
-};
-
-DECL_DECIMAL_TYPES_HELPER(128)
-DECL_DECIMAL_TYPES_HELPER(256)
-
-#undef DECL_DECIMAL_TYPES_HELPER
-
 /// Template Array class for decimal data
 template<uint32_t width>
 class BaseDecimalArray : public FixedSizeBinaryArray {
  public:
-  using TypeClass = typename DecimalArrayHelper<width>::type;
+  using TypeClass = typename DecimalTypeTraits<width>::TypeClass;
 
   using FixedSizeBinaryArray::FixedSizeBinaryArray;
 
@@ -59,15 +43,15 @@ class BaseDecimalArray : public FixedSizeBinaryArray {
   std::string FormatValue(int64_t i) const;
 };
 
-#define DECIMAL_ARRAY_DECL(width)                                           \
-class ARROW_EXPORT Decimal##width##Array : public BaseDecimalArray<width> { \
-  using BaseDecimalArray<width>::BaseDecimalArray;                          \
+/// Array class for decimal 128-bit data                                       
+class ARROW_EXPORT Decimal128Array : public BaseDecimalArray<128> { 
+  using BaseDecimalArray<128>::BaseDecimalArray;                          
 };
 
-DECIMAL_ARRAY_DECL(128)
-DECIMAL_ARRAY_DECL(256)
-
-#undef DECIMAL_ARRAY_DECL
+/// Array class for decimal 256-bit data
+class ARROW_EXPORT Decimal256Array : public BaseDecimalArray<256> { 
+  using BaseDecimalArray<256>::BaseDecimalArray;                          
+};
 
 // Backward compatibility
 using DecimalArray = Decimal128Array;

@@ -44,6 +44,7 @@
 #include "arrow/util/make_unique.h"
 #include "arrow/util/range.h"
 #include "arrow/util/vector.h"
+#include "arrow/util/decimal_type_traits.h"
 #include "arrow/visitor_inline.h"
 
 namespace arrow {
@@ -750,25 +751,10 @@ std::vector<std::shared_ptr<Field>> StructType::GetAllFieldsByName(
 // ----------------------------------------------------------------------
 // Decimal type
 
-template<uint32_t width>
-struct DecimalTypeHelper;
-
-#define DECIMAL_TYPE_HELPER_DECL(width)                  \
-template<>                                               \
-struct DecimalTypeHelper<width> {                        \
-  static constexpr Type::type id = Type::DECIMAL##width; \
-  using type = Decimal##width##Type;                     \
-};
-
-DECIMAL_TYPE_HELPER_DECL(128)
-DECIMAL_TYPE_HELPER_DECL(256)
-
-#undef DECIMAL_TYPE_HELPER_DECL
-
 
 template<uint32_t width>
 BaseDecimalType<width>::BaseDecimalType(int32_t precision, int32_t scale)
-    : DecimalType(DecimalTypeHelper<width>::id, (width >> 3), precision, scale) {
+    : DecimalType(DecimalTypeTraits<width>::Id, (width >> 3), precision, scale) {
   ARROW_CHECK_GE(precision, kMinPrecision);
   ARROW_CHECK_LE(precision, kMaxPrecision);
 }
@@ -778,7 +764,7 @@ Result<std::shared_ptr<DataType>> BaseDecimalType<width>::Make(int32_t precision
   if (precision < kMinPrecision || precision > kMaxPrecision) {
     return Status::Invalid("Decimal precision out of range: ", precision);
   }
-  return std::make_shared<typename DecimalTypeHelper<width>::type>(precision, scale);
+  return std::make_shared<typename DecimalTypeTraits<width>::TypeClass>(precision, scale);
 }
 
 // ----------------------------------------------------------------------

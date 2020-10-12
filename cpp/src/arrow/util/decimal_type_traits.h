@@ -17,21 +17,25 @@
 
 #pragma once
 
+#include "arrow/type_fwd.h"
+
 namespace arrow {
 
 template<uint32_t width>
-struct DecimalMeta;
+struct DecimalTypeTraits;
 
-template<>
-struct DecimalMeta<128> {
-  static constexpr const char* name = "decimal";
-  static constexpr int32_t max_precision = 38;
+#define DECIMAL_TYPE_TRAITS_DECL(width)                  \
+template<>                                               \
+struct DecimalTypeTraits<width> {                        \
+  static constexpr Type::type Id = Type::DECIMAL##width; \
+  using ArrayType = Decimal##width##Array;               \
+  using BuilderType = Decimal##width##Builder;           \
+  using ScalarType = Decimal##width##Scalar;             \
+  using TypeClass = Decimal##width##Type;                \
+  using ValueType = Decimal##width;                      \
 };
 
-template<>
-struct DecimalMeta<256> {
-  static constexpr const char* name = "decimal256";
-  static constexpr int32_t max_precision = 76;
-};
+DECIMAL_TYPE_TRAITS_DECL(128)
+DECIMAL_TYPE_TRAITS_DECL(256)
 
 }  // namespace arrow

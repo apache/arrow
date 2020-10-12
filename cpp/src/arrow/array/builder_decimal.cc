@@ -39,17 +39,17 @@ template<uint32_t width>
 BaseDecimalBuilder<width>::BaseDecimalBuilder(const std::shared_ptr<DataType>& type,
                                      MemoryPool* pool)
     : FixedSizeBinaryBuilder(type, pool),
-      decimal_type_(internal::checked_pointer_cast<typename DecimalBuilderHelper<width>::type>(type)) {}
+      decimal_type_(internal::checked_pointer_cast<typename DecimalTypeTraits<width>::TypeClass>(type)) {}
 
 template<uint32_t width>
-Status BaseDecimalBuilder<width>::Append(typename DecimalBuilderHelper<width>::value_type value) {
+Status BaseDecimalBuilder<width>::Append(typename DecimalTypeTraits<width>::ValueType value) {
   RETURN_NOT_OK(FixedSizeBinaryBuilder::Reserve(1));
   UnsafeAppend(value);
   return Status::OK();
 }
 
 template<uint32_t width>
-void BaseDecimalBuilder<width>::UnsafeAppend(typename DecimalBuilderHelper<width>::value_type value) {
+void BaseDecimalBuilder<width>::UnsafeAppend(typename DecimalTypeTraits<width>::ValueType value) {
   value.ToBytes(GetMutableValue(length()));
   byte_builder_.UnsafeAdvance((width >> 3));
   UnsafeAppendToBitmap(true);
