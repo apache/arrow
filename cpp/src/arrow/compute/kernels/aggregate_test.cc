@@ -1066,11 +1066,13 @@ TEST_F(TestVarStdKernelStability, Basics) {
   this->AssertVarStdIs("[100000004, 100000007, 100000013, 100000016]", options, 30.0);
   this->AssertVarStdIs("[1000000004, 1000000007, 1000000013, 1000000016]", options, 30.0);
 
+#ifndef __MINGW32__  // MinGW has precision issues
   // This test is to make sure our variance combining method is stable.
   // XXX: The reference value from numpy is actually wrong due to floating
   // point limits. The correct result should equals variance(90, 0) = 4050.
   std::vector<std::string> chunks = {"[40000008000000490]", "[40000008000000400]"};
   this->AssertVarStdIs(chunks, options, 3904.0);
+#endif
 }
 
 // https://en.wikipedia.org/wiki/Kahan_summation_algorithm
