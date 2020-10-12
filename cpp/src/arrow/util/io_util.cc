@@ -1594,8 +1594,12 @@ std::mt19937_64 GetSeedGenerator() {
   // Initialize Mersenne Twister PRNG with a true random seed.
 #ifdef ARROW_VALGRIND
   // Valgrind can crash, hang or enter an infinite loop on std::random_device,
-  // use a hardcoded initializer instead.
-  std::mt19937_64 seed_gen(reinterpret_cast<uintptr_t>(&GetSeedGenerator));
+  // use a crude initializer instead.
+  // Make sure to mix in process id to avoid clashes when parallel testing.
+  const uint8_t dummy = 0;
+  ARROW_UNUSED(dummy);
+  std::mt19937_64 seed_gen(reinterpret_cast<uintptr_t>(&dummy) ^
+                           static_cast<uintptr_t>(getpid()));
 #else
   std::random_device true_random;
   std::mt19937_64 seed_gen(static_cast<uint64_t>(true_random()) ^
