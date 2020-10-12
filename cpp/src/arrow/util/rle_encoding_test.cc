@@ -420,7 +420,8 @@ TEST(BitRle, Random) {
 
   // prng setup
   const auto seed = ::arrow::internal::GetRandomSeed();
-  std::default_random_engine gen(seed);
+  std::default_random_engine gen(
+      static_cast<std::default_random_engine::result_type>(seed));
   std::uniform_int_distribution<int> dist(1, 20);
 
   for (int iter = 0; iter < niters; ++iter) {

@@ -65,8 +65,8 @@ void LatencyGenerator::Sleep() {
 }
 
 std::shared_ptr<LatencyGenerator> LatencyGenerator::Make(double average_latency) {
-  return std::make_shared<LatencyGeneratorImpl>(average_latency,
-                                                ::arrow::internal::GetRandomSeed());
+  return std::make_shared<LatencyGeneratorImpl>(
+      average_latency, static_cast<int32_t>(::arrow::internal::GetRandomSeed()));
 }
 
 std::shared_ptr<LatencyGenerator> LatencyGenerator::Make(double average_latency,
