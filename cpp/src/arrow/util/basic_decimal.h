@@ -179,6 +179,14 @@ ARROW_EXPORT BasicDecimal128 operator%(const BasicDecimal128& left,
                                        const BasicDecimal128& right);
 
 class ARROW_EXPORT BasicDecimal256 {
+ private:
+  // Due to a bug in clang, we have to declare the extend method prior to its
+  // usage.
+  template <typename T>
+  inline static constexpr uint64_t extend(T low_bits) noexcept {
+    return low_bits >= T() ? uint64_t{0} : ~uint64_t{0};
+  }
+
  public:
   /// \brief Create a BasicDecimal256 from the two's complement representation.
   constexpr BasicDecimal256(const std::array<uint64_t, 4>& little_endian_array) noexcept
@@ -195,7 +203,7 @@ class ARROW_EXPORT BasicDecimal256 {
       : little_endian_array_({static_cast<uint64_t>(value), extend(value), extend(value),
                               extend(value)}) {}
 
-  constexpr BasicDecimal256(BasicDecimal128 value) noexcept
+  constexpr BasicDecimal256(const BasicDecimal128& value) noexcept
       : little_endian_array_({value.low_bits(), static_cast<uint64_t>(value.high_bits()),
                               extend(value.high_bits()), extend(value.high_bits())}) {}
 
@@ -238,10 +246,6 @@ class ARROW_EXPORT BasicDecimal256 {
   BasicDecimal256& operator*=(const BasicDecimal256& right);
 
  private:
-  template <typename T>
-  inline static constexpr uint64_t extend(T low_bits) noexcept {
-    return low_bits >= T() ? uint64_t{0} : ~uint64_t{0};
-  }
   std::array<uint64_t, 4> little_endian_array_;
 };
 

@@ -120,8 +120,12 @@ static const BasicDecimal128 ScaleMultipliersHalf[] = {
     BasicDecimal128(271050543121376108LL, 9257742014424809472ULL),
     BasicDecimal128(2710505431213761085LL, 343699775700336640ULL)};
 
+#undef ARROW_USE_NATIVE_INT128
+
 #ifdef ARROW_USE_NATIVE_INT128
 static constexpr uint64_t kInt64Mask = 0xFFFFFFFFFFFFFFFF;
+#else
+static constexpr uint64_t kInt32Mask = 0xFFFFFFFF;
 #endif
 
 // same as ScaleMultipliers[38] - 1
@@ -252,45 +256,6 @@ BasicDecimal128& BasicDecimal128::operator>>=(uint32_t bits) {
 
 namespace {
 
-// Multiply two N bit word components into a 2*N bit result, with high bits
-// stored in hi and low bits in lo.
-template <typename Word>
-inline void ExtendAndMultiplyUint(Word x, Word y, Word* hi, Word* lo) {
-  // Perform multiplication on two N bit words x and y into a 2*N bit result
-  // by splitting up x and y into N/2 bit high/low bit components,
-  // allowing us to represent the multiplication as
-  // x * y = x_lo * y_lo + x_hi * y_lo * 2^N/2 + y_hi * x_lo * 2^N/2
-  // + x_hi * y_hi * 2^N
-  //
-  // Now, consider the final output as lo_lo || lo_hi || hi_lo || hi_hi
-  // Therefore,
-  // lo_lo is (x_lo * y_lo)_lo,
-  // lo_hi is ((x_lo * y_lo)_hi + (x_hi * y_lo)_lo + (x_lo * y_hi)_lo)_lo,
-  // hi_lo is ((x_hi * y_hi)_lo + (x_hi * y_lo)_hi + (x_lo * y_hi)_hi)_hi,
-  // hi_hi is (x_hi * y_hi)_hi
-  constexpr Word kHighBitShift = sizeof(Word) * 4;
-  constexpr Word kLowBitMask = (static_cast<Word>(1) << kHighBitShift) - 1;
-
-  const Word x_lo = x & kLowBitMask;
-  const Word y_lo = y & kLowBitMask;
-  const Word x_hi = x >> kHighBitShift;
-  const Word y_hi = y >> kHighBitShift;
-
-  const Word t = x_lo * y_lo;
-  const Word t_lo = t & kLowBitMask;
-  const Word t_hi = t >> kHighBitShift;
-
-  const Word u = x_hi * y_lo + t_hi;
-  const Word u_lo = u & kLowBitMask;
-  const Word u_hi = u >> kHighBitShift;
-
-  const Word v = x_lo * y_hi + u_lo;
-  const Word v_hi = v >> kHighBitShift;
-
-  *hi = x_hi * y_hi + u_hi + v_hi;
-  *lo = (v << kHighBitShift) + t_lo;
-}
-
 // Convenience wrapper type over 128 bit unsigned integers. We opt not to
 // replace the uint128_t type in int128_internal.h because it would require
 // significantly more implementation work to be done. This class merely
@@ -312,15 +277,50 @@ struct uint128_t {
     return *this;
   }
 
+  uint128_t& operator*=(const uint128_t& other) {
+    val_ *= other.val_;
+    return *this;
+  }
+
   __uint128_t val_;
 };
 
-uint128_t operator*(const uint128_t& left, const uint128_t& right) {
-  uint128_t r;
-  r.val_ = left.val_ * right.val_;
-  return r;
-}
 #else
+// Multiply two 64 bit word components into a 128 bit result, with high bits
+// stored in hi and low bits in lo.
+inline void ExtendAndMultiply(uint64_t x, uint64_t y, uint64_t* hi, uint64_t* lo) {
+  // Perform multiplication on two 64 bit words x and y into a 128 bit result
+  // by splitting up x and y into 32 bit high/low bit components,
+  // allowing us to represent the multiplication as
+  // x * y = x_lo * y_lo + x_hi * y_lo * 2^32 + y_hi * x_lo * 2^32
+  // + x_hi * y_hi * 2^64
+  //
+  // Now, consider the final output as lo_lo || lo_hi || hi_lo || hi_hi
+  // Therefore,
+  // lo_lo is (x_lo * y_lo)_lo,
+  // lo_hi is ((x_lo * y_lo)_hi + (x_hi * y_lo)_lo + (x_lo * y_hi)_lo)_lo,
+  // hi_lo is ((x_hi * y_hi)_lo + (x_hi * y_lo)_hi + (x_lo * y_hi)_hi)_hi,
+  // hi_hi is (x_hi * y_hi)_hi
+  const uint64_t x_lo = x & kInt32Mask;
+  const uint64_t y_lo = y & kInt32Mask;
+  const uint64_t x_hi = x >> 32;
+  const uint64_t y_hi = y >> 32;
+
+  const uint64_t t = x_lo * y_lo;
+  const uint64_t t_lo = t & kInt32Mask;
+  const uint64_t t_hi = t >> 32;
+
+  const uint64_t u = x_hi * y_lo + t_hi;
+  const uint64_t u_lo = u & kInt32Mask;
+  const uint64_t u_hi = u >> 32;
+
+  const uint64_t v = x_lo * y_hi + u_lo;
+  const uint64_t v_hi = v >> 32;
+
+  *hi = x_hi * y_hi + u_hi + v_hi;
+  *lo = (v << 32) + t_lo;
+}
+
 struct uint128_t {
   uint128_t() {}
   uint128_t(uint64_t hi, uint64_t lo) : hi_(hi), lo_(lo) {}
@@ -343,21 +343,23 @@ struct uint128_t {
     return *this;
   }
 
+  uint128_t& operator*=(const uint128_t& other) {
+    uint128_t r;
+    ExtendAndMultiply(lo_, other.lo_, &r.hi_, &r.lo_);
+    r.hi_ += (hi_ * other.lo_) + (lo_ * other.hi_);
+    *this = r;
+    return *this;
+  }
+
   uint64_t hi_;
   uint64_t lo_;
 };
-
-uint128_t operator*(const uint128_t& left, const uint128_t& right) {
-  uint128_t r;
-  ExtendAndMultiplyUint(left.lo_, right.lo_, &r.hi_, &r.lo_);
-  r.hi_ += (left.hi_ * right.lo_) + (left.lo_ * right.hi_);
-  return r;
-}
 #endif
 
 // Multiplies two N * 64 bit unsigned integer types, represented by a uint64_t
-// array into a same sized output. Overflow in multiplication is considered UB
-// and will not be reported.
+// array into a same sized output. Elements in the array should be in
+// little endian order, and output will be the same. Overflow in multiplication
+// is considered undefined behavior and will not be reported.
 template <int N>
 inline void MultiplyUnsignedArray(const std::array<uint64_t, N>& lh,
                                   const std::array<uint64_t, N>& rh,
@@ -365,7 +367,8 @@ inline void MultiplyUnsignedArray(const std::array<uint64_t, N>& lh,
   for (int j = 0; j < N; ++j) {
     uint64_t carry = 0;
     for (int i = 0; i < N - j; ++i) {
-      uint128_t tmp = uint128_t(lh[i]) * uint128_t(rh[j]);
+      uint128_t tmp(lh[i]);
+      tmp *= uint128_t(rh[j]);
       tmp += uint128_t((*result)[i + j]);
       tmp += uint128_t(carry);
       (*result)[i + j] = tmp.lo();
@@ -382,7 +385,8 @@ BasicDecimal128& BasicDecimal128::operator*=(const BasicDecimal128& right) {
   const bool negate = Sign() != right.Sign();
   BasicDecimal128 x = BasicDecimal128::Abs(*this);
   BasicDecimal128 y = BasicDecimal128::Abs(right);
-  uint128_t r = uint128_t(x) * uint128_t(y);
+  uint128_t r(x);
+  r *= y;
   high_bits_ = r.hi();
   low_bits_ = r.lo();
   if (negate) {
