@@ -216,7 +216,7 @@ test_that("read_csv_arrow() can read timestamps", {
   expect_equal(tbl, df)
 
   df <- read_csv_arrow(tf, col_types = "t", col_names = "time", skip = 1)
-  expect_equal(tbl, df)
+  expect_equivalent(tbl, df) # col_types = "t" makes timezone-naive timestamp
 })
 
 test_that("read_csv_arrow(timestamp_parsers=)", {
