@@ -2149,15 +2149,13 @@ std::shared_ptr<DataType> decimal(int32_t precision, int32_t scale) {
                                                     : decimal256(precision, scale);
 }
 
-#define DECIMAL_BUILDER_DECL(width)                                          \
-std::shared_ptr<DataType> decimal##width(int32_t precision, int32_t scale) { \
-  return std::make_shared<Decimal##width##Type>(precision, scale);           \
+std::shared_ptr<DataType> decimal128(int32_t precision, int32_t scale) {
+  return std::make_shared<Decimal128Type>(precision, scale);
 }
 
-DECIMAL_BUILDER_DECL(128)
-DECIMAL_BUILDER_DECL(256)
-
-#undef DECIMAL_BUILDER_DECL
+std::shared_ptr<DataType> decimal256(int32_t precision, int32_t scale) {
+  return std::make_shared<Decimal256Type>(precision, scale);
+}
 
 template<uint32_t width>
 std::string BaseDecimalType<width>::ToString() const {
