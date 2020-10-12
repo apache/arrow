@@ -252,6 +252,7 @@ class LocalFileSystem(FileSystem):
     def _get_instance(cls):
         if cls._instance is None:
             with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
                 cls._instance = LocalFileSystem()
         return cls._instance
 
