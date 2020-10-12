@@ -169,9 +169,9 @@ def multisourcefs(request):
         with mockfs.open_output_stream(path) as out:
             pq.write_table(_table_from_pandas(chunk), out)
 
-    # create one with schema partitioning by week and color
+    # create one with schema partitioning by weekday and color
     mockfs.create_dir('schema')
-    for part, chunk in df_b.groupby([df_b.date.dt.week, df_b.color]):
+    for part, chunk in df_b.groupby([df_b.date.dt.dayofweek, df_b.color]):
         folder = 'schema/{}/{}'.format(*part)
         path = '{}/chunk.parquet'.format(folder)
         mockfs.create_dir(folder)

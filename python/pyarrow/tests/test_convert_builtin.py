@@ -569,7 +569,7 @@ def test_ndarray_nested_numpy_double(from_pandas, inner_seq):
         inner_seq([1., 2., 3.]),
         inner_seq([np.nan]),
         None
-    ])
+    ], dtype=object)
     arr = pa.array(data, from_pandas=from_pandas)
     assert len(arr) == 4
     assert arr.null_count == 1
