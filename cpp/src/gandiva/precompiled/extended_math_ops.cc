@@ -116,8 +116,7 @@ POWER(float64, float64, float64)
 #define ROUND_DECIMAL(TYPE)                                                 \
   FORCE_INLINE                                                              \
   gdv_##TYPE round_##TYPE##_int32(gdv_##TYPE number, gdv_int32 out_scale) { \
-    gdv_##TYPE scale_multiplier =                                           \
-        static_cast<gdv_##TYPE>(get_scale_multiplier(out_scale));           \
+    gdv_float64 scale_multiplier = get_scale_multiplier(out_scale);         \
     return static_cast<gdv_##TYPE>(                                         \
         trunc(number * scale_multiplier + ((number > 0) ? 0.5 : -0.5)) /    \
         scale_multiplier);                                                  \
