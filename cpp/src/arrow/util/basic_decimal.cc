@@ -255,7 +255,7 @@ namespace {
 // Multiply two N bit word components into a 2*N bit result, with high bits
 // stored in hi and low bits in lo.
 template <typename Word>
-void ExtendAndMultiplyUint(Word x, Word y, Word* hi, Word* lo) {
+inline void ExtendAndMultiplyUint(Word x, Word y, Word* hi, Word* lo) {
   // Perform multiplication on two N bit words x and y into a 2*N bit result
   // by splitting up x and y into N/2 bit high/low bit components,
   // allowing us to represent the multiplication as
@@ -291,7 +291,11 @@ void ExtendAndMultiplyUint(Word x, Word y, Word* hi, Word* lo) {
   *lo = (v << kHighBitShift) + t_lo;
 }
 
-// Convenience wrapper type over 128 bit unsigned integers
+// Convenience wrapper type over 128 bit unsigned integers. We opt not to
+// replace the uint128_t type in int128_internal.h because it would require
+// significantly more implementation work to be done. This class merely
+// provides the minimum necessary set of functions to perform 128+ bit
+// multiplication operations when there may or may not be native support.
 #ifdef ARROW_USE_NATIVE_INT128
 struct uint128_t {
   uint128_t() {}
@@ -351,16 +355,17 @@ uint128_t operator*(const uint128_t& left, const uint128_t& right) {
 }
 #endif
 
+// Multiplies two N * 64 bit unsigned integer types, represented by a uint64_t
+// array into a same sized output. Overflow in multiplication is considered UB
+// and will not be reported.
 template <int N>
-inline void PartialMultiplyOverflow(const std::array<uint64_t, N>& lh,
-                                    const std::array<uint64_t, N>& rh,
-                                    std::array<uint64_t, N>* result) {
+inline void MultiplyUnsignedArray(const std::array<uint64_t, N>& lh,
+                                  const std::array<uint64_t, N>& rh,
+                                  std::array<uint64_t, N>* result) {
   for (int j = 0; j < N; ++j) {
     uint64_t carry = 0;
     for (int i = 0; i < N - j; ++i) {
-      uint64_t lo, hi;
-      ExtendAndMultiplyUint(lh[i], rh[j], &hi, &lo);
-      uint128_t tmp(hi, lo);
+      uint128_t tmp = uint128_t(lh[i]) * uint128_t(rh[j]);
       tmp += uint128_t((*result)[i + j]);
       tmp += uint128_t(carry);
       (*result)[i + j] = tmp.lo();
@@ -889,7 +894,7 @@ BasicDecimal256& BasicDecimal256::operator*=(const BasicDecimal256& right) {
   uint128_t r_hi;
   uint128_t r_lo;
   std::array<uint64_t, 4> res({0, 0, 0, 0});
-  PartialMultiplyOverflow<4>(x.little_endian_array_, y.little_endian_array_, &res);
+  MultiplyUnsignedArray<4>(x.little_endian_array_, y.little_endian_array_, &res);
   little_endian_array_ = res;
   if (negate) {
     Negate();
