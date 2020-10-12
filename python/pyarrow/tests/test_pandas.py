@@ -1793,7 +1793,7 @@ class TestConvertListTypes:
             np.arange(5, dtype=dtype),
             None,
             np.arange(1, dtype=dtype)
-        ])
+        ], dtype=object)
         type_ = pa.list_(pa.int8())
         parr = pa.array(arr, type=type_)
 
@@ -2090,7 +2090,7 @@ class TestConvertListTypes:
                       type=pa.large_list(pa.large_list(pa.int64())))
              .to_pandas())
         tm.assert_series_equal(
-            s, pd.Series([[[1, 2, 3], [4]], None]),
+            s, pd.Series([[[1, 2, 3], [4]], None], dtype=object),
             check_names=False)
 
     def test_large_binary_list(self):
@@ -2717,7 +2717,11 @@ class TestConvertMisc:
 
     def test_error_sparse(self):
         # ARROW-2818
-        df = pd.DataFrame({'a': pd.SparseArray([1, np.nan, 3])})
+        try:
+            df = pd.DataFrame({'a': pd.arrays.SparseArray([1, np.nan, 3])})
+        except AttributeError:
+            # pandas.arrays module introduced in pandas 0.24
+            df = pd.DataFrame({'a': pd.SparseArray([1, np.nan, 3])})
         with pytest.raises(TypeError, match="Sparse pandas data"):
             pa.Table.from_pandas(df)
 

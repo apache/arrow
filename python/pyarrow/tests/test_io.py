@@ -573,7 +573,7 @@ def test_compress_decompress(compression):
     INPUT_SIZE = 10000
     test_data = (np.random.randint(0, 255, size=INPUT_SIZE)
                  .astype(np.uint8)
-                 .tostring())
+                 .tobytes())
     test_buf = pa.py_buffer(test_data)
 
     compressed_buf = pa.compress(test_buf, codec=compression)

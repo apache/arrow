@@ -4195,6 +4195,7 @@ def test_filter_before_validate_schema(tempdir, use_legacy_dataset):
 @pytest.mark.pandas
 @pytest.mark.fastparquet
 @pytest.mark.filterwarnings("ignore:RangeIndex:FutureWarning")
+@pytest.mark.filterwarnings("ignore:tostring:DeprecationWarning:fastparquet")
 def test_fastparquet_cross_compatibility(tempdir):
     fp = pytest.importorskip('fastparquet')
 
