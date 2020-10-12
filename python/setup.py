@@ -57,7 +57,7 @@ class Target():
         if self.target == 'pyarrow' and strtobool(os.environ.get('PYARROW_INSTALL_TESTS', '1')):
             return ['pyarrow', 'pyarrow.tests']
         else:
-            return self.target
+            return [self.target]
 
     def get_package_data(self):
         return {self.target: ['*.pxd', '*.pyx', 'includes/*.pxd']}
@@ -408,31 +408,32 @@ class build_ext(_build_ext):
             if self.bundle_arrow_cpp:
                 self._bundle_arrow_cpp(build_prefix, build_lib)
 
-            if self.with_plasma and self.bundle_plasma_executable:
+            if (target.target == 'pyarrow' and self.with_plasma
+                and self.bundle_plasma_executable):
                 # Move the plasma store
-                source = os.path.join(self.build_type, "plasma-store-server")
-                target = os.path.join(build_lib,
-                                      self._get_build_dir(),
-                                      "plasma-store-server")
-                shutil.move(source, target)
+                source_dir = os.path.join(self.build_type, "plasma-store-server")
+                target_dir = os.path.join(build_lib,
+                                          self._get_build_dir(),
+                                          "plasma-store-server")
+                shutil.move(source_dir, target_dir)
 
     def _bundle_arrow_cpp(self, build_prefix, build_lib):
         print(pjoin(build_lib, target.target))
         move_shared_libs(build_prefix, build_lib, "arrow")
         move_shared_libs(build_prefix, build_lib, "arrow_python")
-        if self.with_cuda:
+        if target.target == 'pyarrow' and self.with_cuda:
             move_shared_libs(build_prefix, build_lib, "arrow_cuda")
-        if self.with_flight:
+        if target.target == 'pyarrow' and self.with_flight:
             move_shared_libs(build_prefix, build_lib, "arrow_flight")
             move_shared_libs(build_prefix, build_lib,
                              "arrow_python_flight")
-        if self.with_dataset:
+        if target.target == 'pyarrow' and self.with_dataset:
             move_shared_libs(build_prefix, build_lib, "arrow_dataset")
-        if self.with_plasma:
+        if target.target == 'pyarrow' and self.with_plasma:
             move_shared_libs(build_prefix, build_lib, "plasma")
         if target.target == 'pyarrow_gandiva':
             move_shared_libs(build_prefix, build_lib, "gandiva")
-        if self.with_parquet and not self.with_static_parquet:
+        if target.target == 'pyarrow' and self.with_parquet and not self.with_static_parquet:
             move_shared_libs(build_prefix, build_lib, "parquet")
         if not self.with_static_boost and self.bundle_boost:
             move_shared_libs(

@@ -30,3 +30,5 @@ export LD_LIBRARY_PATH=${ARROW_HOME}/lib:${LD_LIBRARY_PATH}
 export PYTHONDEVMODE=1
 
 pytest -r s ${PYTEST_ARGS} --pyargs pyarrow
+
+${PYTHON:-python} -m pytest -r s ${PYTEST_ARGS} --pyargs pyarrow_gandiva

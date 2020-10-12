@@ -35,7 +35,6 @@ export PYARROW_WITH_CUDA=${ARROW_CUDA:-OFF}
 export PYARROW_WITH_HDFS=${ARROW_HDFS:-OFF}
 export PYARROW_WITH_FLIGHT=${ARROW_FLIGHT:-OFF}
 export PYARROW_WITH_PLASMA=${ARROW_PLASMA:-OFF}
-export PYARROW_WITH_GANDIVA=${ARROW_GANDIVA:-OFF}
 export PYARROW_WITH_PARQUET=${ARROW_PARQUET:-OFF}
 export PYARROW_WITH_DATASET=${ARROW_DATASET:-OFF}
 
@@ -48,6 +47,12 @@ relative_build_dir=$(realpath --relative-to=. $build_dir)
 # not nice, but prevents mutating the mounted the source directory for docker
 ${PYTHON:-python} \
   setup.py build --build-base $build_dir \
+           install --single-version-externally-managed \
+                   --record $relative_build_dir/record.txt
+
+${PYTHON:-python} \
+  setup.py build --target=pyarrow_gandiva \
+           --build-base $build_dir \
            install --single-version-externally-managed \
                    --record $relative_build_dir/record.txt
 
