@@ -357,7 +357,7 @@ struct uint128_t {
 // Multiplies two N * 64 bit unsigned integer types, represented by a uint64_t
 // array into a same sized output. Elements in the array should be in
 // little endian order, and output will be the same. Overflow in multiplication
-// will result in the lower N * 64 bits of the result being present.
+// will result in the lower N * 64 bits of the result being set.
 template <int N>
 inline void MultiplyUnsignedArray(const std::array<uint64_t, N>& lh,
                                   const std::array<uint64_t, N>& rh,
