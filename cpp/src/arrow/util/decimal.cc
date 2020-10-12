@@ -721,4 +721,9 @@ Result<Decimal256> Decimal256::FromString(const char* s) {
 Status Decimal256::ToArrowStatus(DecimalStatus dstatus) const {
   return arrow::ToArrowStatus(dstatus, 256);
 }
+
+std::ostream& operator<<(std::ostream& os, const Decimal256& decimal) {
+  os << decimal.ToIntegerString();
+  return os;
+}
 }  // namespace arrow

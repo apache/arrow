@@ -148,6 +148,21 @@ static void BinaryMathOp(benchmark::State& state) {  // NOLINT non-const referen
   state.SetItemsProcessed(state.iterations() * kValueSize);
 }
 
+static void BinaryMathOp256(benchmark::State& state) {  // NOLINT non-const reference
+  std::vector<BasicDecimal256> v1, v2;
+  for (uint64_t x = 0; x < kValueSize; x++) {
+    v1.push_back(BasicDecimal256({100 + x, 100 + x, 100 + x, 100 + x}));
+    v2.push_back(BasicDecimal256({200 + x, 200 + x, 200 + x, 200 + x}));
+  }
+
+  for (auto _ : state) {
+    for (int x = 0; x < kValueSize; x += 5) {
+      benchmark::DoNotOptimize(v1[x + 2] * v2[x + 2]);
+    }
+  }
+  state.SetItemsProcessed(state.iterations() * kValueSize);
+}
+
 static void UnaryOp(benchmark::State& state) {  // NOLINT non-const reference
   std::vector<BasicDecimal128> v;
   for (int x = 0; x < kValueSize; x++) {
@@ -191,6 +206,7 @@ static void BinaryBitOp(benchmark::State& state) {  // NOLINT non-const referenc
 BENCHMARK(FromString);
 BENCHMARK(ToString);
 BENCHMARK(BinaryMathOp);
+BENCHMARK(BinaryMathOp256);
 BENCHMARK(BinaryMathOpAggregate);
 BENCHMARK(BinaryCompareOp);
 BENCHMARK(BinaryCompareOpConstant);

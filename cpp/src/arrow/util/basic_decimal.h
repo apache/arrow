@@ -109,10 +109,10 @@ class ARROW_EXPORT BasicDecimal128 {
   BasicDecimal128& operator>>=(uint32_t bits);
 
   /// \brief Get the high bits of the two's complement representation of the number.
-  inline int64_t high_bits() const { return high_bits_; }
+  inline constexpr int64_t high_bits() const { return high_bits_; }
 
   /// \brief Get the low bits of the two's complement representation of the number.
-  inline uint64_t low_bits() const { return low_bits_; }
+  inline constexpr uint64_t low_bits() const { return low_bits_; }
 
   /// \brief Return the raw bytes of the value in native-endian byte order.
   std::array<uint8_t, 16> ToBytes() const;
@@ -179,6 +179,14 @@ ARROW_EXPORT BasicDecimal128 operator%(const BasicDecimal128& left,
                                        const BasicDecimal128& right);
 
 class ARROW_EXPORT BasicDecimal256 {
+ private:
+  // Due to a bug in clang, we have to declare the extend method prior to its
+  // usage.
+  template <typename T>
+  inline static constexpr uint64_t extend(T low_bits) noexcept {
+    return low_bits >= T() ? uint64_t{0} : ~uint64_t{0};
+  }
+
  public:
   /// \brief Create a BasicDecimal256 from the two's complement representation.
   constexpr BasicDecimal256(const std::array<uint64_t, 4>& little_endian_array) noexcept
@@ -195,12 +203,22 @@ class ARROW_EXPORT BasicDecimal256 {
       : little_endian_array_({static_cast<uint64_t>(value), extend(value), extend(value),
                               extend(value)}) {}
 
+  constexpr BasicDecimal256(const BasicDecimal128& value) noexcept
+      : little_endian_array_({value.low_bits(), static_cast<uint64_t>(value.high_bits()),
+                              extend(value.high_bits()), extend(value.high_bits())}) {}
+
   /// \brief Create a BasicDecimal256 from an array of bytes. Bytes are assumed to be in
   /// native-endian byte order.
   explicit BasicDecimal256(const uint8_t* bytes);
 
   /// \brief Negate the current value (in-place)
   BasicDecimal256& Negate();
+
+  /// \brief Absolute value (in-place)
+  BasicDecimal256& Abs();
+
+  /// \brief Absolute value
+  static BasicDecimal256 Abs(const BasicDecimal256& left);
 
   /// \brief Get the bits of the two's complement representation of the number. The 4
   /// elements are in little endian order. The bits within each uint64_t element are in
@@ -220,11 +238,14 @@ class ARROW_EXPORT BasicDecimal256 {
   DecimalStatus Rescale(int32_t original_scale, int32_t new_scale,
                         BasicDecimal256* out) const;
 
- private:
-  template <typename T>
-  inline static constexpr uint64_t extend(T low_bits) noexcept {
-    return low_bits >= T() ? uint64_t{0} : ~uint64_t{0};
+  inline int64_t Sign() const {
+    return 1 | (static_cast<int64_t>(little_endian_array_[3]) >> 63);
   }
+
+  /// \brief Multiply this number by another number. The result is truncated to 256 bits.
+  BasicDecimal256& operator*=(const BasicDecimal256& right);
+
+ private:
   std::array<uint64_t, 4> little_endian_array_;
 };
 
@@ -234,4 +255,7 @@ ARROW_EXPORT bool operator<(const BasicDecimal256& left, const BasicDecimal256& 
 ARROW_EXPORT bool operator<=(const BasicDecimal256& left, const BasicDecimal256& right);
 ARROW_EXPORT bool operator>(const BasicDecimal256& left, const BasicDecimal256& right);
 ARROW_EXPORT bool operator>=(const BasicDecimal256& left, const BasicDecimal256& right);
+
+ARROW_EXPORT BasicDecimal256 operator*(const BasicDecimal256& left,
+                                       const BasicDecimal256& right);
 }  // namespace arrow
