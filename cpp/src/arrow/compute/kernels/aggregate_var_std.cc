@@ -53,32 +53,33 @@ struct VarStdState {
         []() {});
 
     this->count = count;
-    this->sum = sum;
+    this->mean = mean;
     this->m2 = m2;
   }
 
-  // Combine `m2` from two chunks
-  // https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Parallel_algorithm
+  // Combine `m2` from two chunks (m2 = n*s2)
+  // https://www.emathzone.com/tutorials/basic-statistics/combined-variance.html
   void MergeFrom(const ThisType& state) {
     if (state.count == 0) {
       return;
     }
     if (this->count == 0) {
       this->count = state.count;
-      this->sum = state.sum;
+      this->mean = state.mean;
       this->m2 = state.m2;
       return;
     }
-    double delta = this->sum / this->count - state.sum / state.count;
-    this->m2 += state.m2 +
-                delta * delta * this->count * state.count / (this->count + state.count);
+    double mean = (this->mean * this->count + state.mean * state.count) /
+                  (this->count + state.count);
+    this->m2 += state.m2 + this->count * (this->mean - mean) * (this->mean - mean) +
+                state.count * (state.mean - mean) * (state.mean - mean);
     this->count += state.count;
-    this->sum += state.sum;
+    this->mean = mean;
   }
 
   int64_t count = 0;
-  double sum = 0;
-  double m2 = 0;  // sum((X-mean)^2)
+  double mean = 0;
+  double m2 = 0;  // m2 = count*s2 = sum((X-mean)^2)
 };
 
 enum class VarOrStd : bool { Var, Std };
