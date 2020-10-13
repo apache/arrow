@@ -17,11 +17,9 @@
 
 //! Implementations for DISTINCT expressions, e.g. `COUNT(DISTINCT c)`
 
-use std::cell::RefCell;
 use std::convert::TryFrom;
 use std::fmt::Debug;
 use std::hash::Hash;
-use std::rc::Rc;
 use std::sync::Arc;
 
 use arrow::datatypes::{DataType, Field};
@@ -93,12 +91,12 @@ impl AggregateExpr for DistinctCount {
         self.exprs.clone()
     }
 
-    fn create_accumulator(&self) -> Result<Rc<RefCell<dyn Accumulator>>> {
-        Ok(Rc::new(RefCell::new(DistinctCountAccumulator {
+    fn create_accumulator(&self) -> Result<Box<dyn Accumulator>> {
+        Ok(Box::new(DistinctCountAccumulator {
             values: FnvHashSet::default(),
             data_types: self.input_data_types.clone(),
             count_data_type: self.data_type.clone(),
-        })))
+        }))
     }
 }
 
@@ -282,8 +280,7 @@ mod tests {
             DataType::UInt64,
         );
 
-        let accum = agg.create_accumulator()?;
-        let mut accum = accum.borrow_mut();
+        let mut accum = agg.create_accumulator()?;
         accum.update_batch(arrays)?;
 
         Ok((accum.state()?, accum.evaluate()?))
@@ -300,8 +297,7 @@ mod tests {
             DataType::UInt64,
         );
 
-        let accum = agg.create_accumulator()?;
-        let mut accum = accum.borrow_mut();
+        let mut accum = agg.create_accumulator()?;
 
         for row in rows.iter() {
             accum.update(row)?
@@ -324,8 +320,7 @@ mod tests {
             DataType::UInt64,
         );
 
-        let accum = agg.create_accumulator()?;
-        let mut accum = accum.borrow_mut();
+        let mut accum = agg.create_accumulator()?;
         accum.merge_batch(arrays)?;
 
         Ok((accum.state()?, accum.evaluate()?))

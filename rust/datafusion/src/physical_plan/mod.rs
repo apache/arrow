@@ -18,9 +18,7 @@
 //! Traits for physical query plan, supporting parallel execution for partitioned relations.
 
 use std::any::Any;
-use std::cell::RefCell;
 use std::fmt::{Debug, Display};
-use std::rc::Rc;
 use std::sync::Arc;
 
 use crate::execution::context::ExecutionContextState;
@@ -122,7 +120,7 @@ pub trait AggregateExpr: Send + Sync + Debug {
     /// the accumulator used to accumulate values from the expressions.
     /// the accumulator expects the same number of arguments as `expressions` and must
     /// return states with the same description as `state_fields`
-    fn create_accumulator(&self) -> Result<Rc<RefCell<dyn Accumulator>>>;
+    fn create_accumulator(&self) -> Result<Box<dyn Accumulator>>;
 
     /// the fields that encapsulate the Accumulator's state
     /// the number of fields here equals the number of states that the accumulator contains
