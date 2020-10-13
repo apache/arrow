@@ -36,11 +36,11 @@ use crate::physical_plan::distinct_expressions;
 use crate::physical_plan::expressions;
 use arrow::datatypes::{DataType, Schema};
 use expressions::{avg_return_type, sum_return_type};
-use std::{cell::RefCell, fmt, rc::Rc, str::FromStr, sync::Arc};
+use std::{fmt, str::FromStr, sync::Arc};
 
 /// the implementation of an aggregate function
 pub type AccumulatorFunctionImplementation =
-    Arc<dyn Fn() -> Result<Rc<RefCell<dyn Accumulator>>> + Send + Sync>;
+    Arc<dyn Fn() -> Result<Box<dyn Accumulator>> + Send + Sync>;
 
 /// This signature corresponds to which types an aggregator serializes
 /// its state, given its return datatype.

@@ -24,7 +24,7 @@ use arrow::{
 
 use datafusion::{error::Result, logical_plan::create_udaf, physical_plan::Accumulator};
 use datafusion::{prelude::*, scalar::ScalarValue};
-use std::{cell::RefCell, rc::Rc, sync::Arc};
+use std::sync::Arc;
 
 // create local execution context with an in-memory table
 fn create_context() -> Result<ExecutionContext> {
@@ -138,7 +138,7 @@ async fn main() -> Result<()> {
         // the return type; DataFusion expects this to match the type returned by `evaluate`.
         Arc::new(DataType::Float64),
         // This is the accumulator factory; DataFusion uses it to create new accumulators.
-        Arc::new(|| Ok(Rc::new(RefCell::new(GeometricMean::new())))),
+        Arc::new(|| Ok(Box::new(GeometricMean::new()))),
         // This is the description of the state. `state()` must match the types here.
         Arc::new(vec![DataType::Float64, DataType::UInt32]),
     );

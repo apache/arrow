@@ -18,7 +18,7 @@
 //! This module contains functions and structs supporting user-defined aggregate functions.
 
 use fmt::{Debug, Formatter};
-use std::{cell::RefCell, fmt, rc::Rc};
+use std::fmt;
 
 use arrow::{
     datatypes::Field,
@@ -150,7 +150,7 @@ impl AggregateExpr for AggregateFunctionExpr {
         Ok(Field::new(&self.name, self.data_type.clone(), true))
     }
 
-    fn create_accumulator(&self) -> Result<Rc<RefCell<dyn Accumulator>>> {
+    fn create_accumulator(&self) -> Result<Box<dyn Accumulator>> {
         (self.fun.accumulator)()
     }
 }

@@ -18,8 +18,6 @@
 //! Defines the execution plan for the hash aggregate operation
 
 use std::any::Any;
-use std::cell::RefCell;
-use std::rc::Rc;
 use std::sync::Arc;
 
 use crate::error::{ExecutionError, Result};
@@ -278,9 +276,8 @@ fn group_aggregate_batch(
         .map(|(_, (accumulator_set, indices))| {
             // 2.2
             accumulator_set
-                .iter()
-                .zip(&aggr_input_values)
                 .into_iter()
+                .zip(&aggr_input_values)
                 .map(|(accumulator, aggr_array)| {
                     (
                         accumulator,
@@ -300,12 +297,10 @@ fn group_aggregate_batch(
                 })
                 // 2.4
                 .map(|(accumulator, values)| match mode {
-                    AggregateMode::Partial => {
-                        accumulator.borrow_mut().update_batch(&values)
-                    }
+                    AggregateMode::Partial => accumulator.update_batch(&values),
                     AggregateMode::Final => {
                         // note: the aggregation here is over states, not values, thus the merge
-                        accumulator.borrow_mut().merge_batch(&values)
+                        accumulator.merge_batch(&values)
                     }
                 })
                 .collect::<Result<()>>()
@@ -335,7 +330,7 @@ impl GroupedHashAggregateIterator {
     }
 }
 
-type AccumulatorSet = Vec<Rc<RefCell<dyn Accumulator>>>;
+type AccumulatorSet = Vec<Box<dyn Accumulator>>;
 
 impl Iterator for GroupedHashAggregateIterator {
     type Item = ArrowResult<RecordBatch>;
@@ -490,7 +485,7 @@ impl HashAggregateIterator {
 fn aggregate_batch(
     mode: &AggregateMode,
     batch: &RecordBatch,
-    accumulators: &AccumulatorSet,
+    accumulators: &mut AccumulatorSet,
     expressions: &Vec<Vec<Arc<dyn PhysicalExpr>>>,
 ) -> Result<()> {
     // 1.1 iterate accumulators and respective expressions together
@@ -499,7 +494,7 @@ fn aggregate_batch(
 
     // 1.1
     accumulators
-        .iter()
+        .into_iter()
         .zip(expressions)
         .map(|(accum, expr)| {
             // 1.2
@@ -510,8 +505,8 @@ fn aggregate_batch(
 
             // 1.3
             match mode {
-                AggregateMode::Partial => accum.borrow_mut().update_batch(values),
-                AggregateMode::Final => accum.borrow_mut().merge_batch(values),
+                AggregateMode::Partial => accum.update_batch(values),
+                AggregateMode::Final => accum.merge_batch(values),
             }
         })
         .collect::<Result<()>>()
@@ -528,7 +523,7 @@ impl Iterator for HashAggregateIterator {
         // return single batch
         self.finished = true;
 
-        let accumulators = match create_accumulators(&self.aggr_expr) {
+        let mut accumulators = match create_accumulators(&self.aggr_expr) {
             Ok(e) => e,
             Err(e) => return Some(Err(ExecutionError::into_arrow_external_error(e))),
         };
@@ -547,7 +542,7 @@ impl Iterator for HashAggregateIterator {
             .as_mut()
             .into_iter()
             .map(|batch| {
-                aggregate_batch(&mode, &batch?, &accumulators, &expressions)
+                aggregate_batch(&mode, &batch?, &mut accumulators, &expressions)
                     .map_err(ExecutionError::into_arrow_external_error)
             })
             .collect::<ArrowResult<()>>()
@@ -655,7 +650,7 @@ fn finalize_aggregation(
             // build the vector of states
             let a = accumulators
                 .iter()
-                .map(|accumulator| accumulator.borrow_mut().state())
+                .map(|accumulator| accumulator.state())
                 .map(|value| {
                     value.and_then(|e| {
                         Ok(e.iter().map(|v| v.to_array()).collect::<Vec<ArrayRef>>())
@@ -668,12 +663,7 @@ fn finalize_aggregation(
             // merge the state to the final value
             accumulators
                 .iter()
-                .map(|accumulator| {
-                    accumulator
-                        .borrow_mut()
-                        .evaluate()
-                        .and_then(|v| Ok(v.to_array()))
-                })
+                .map(|accumulator| accumulator.evaluate().and_then(|v| Ok(v.to_array())))
                 .collect::<Result<Vec<ArrayRef>>>()
         }
     }

@@ -17,10 +17,9 @@
 
 //! Defines physical expressions that can evaluated at runtime during query execution
 
+use std::convert::TryFrom;
 use std::fmt;
-use std::rc::Rc;
 use std::sync::Arc;
-use std::{cell::RefCell, convert::TryFrom};
 
 use crate::error::{ExecutionError, Result};
 use crate::logical_plan::Operator;
@@ -162,10 +161,8 @@ impl AggregateExpr for Sum {
         vec![self.expr.clone()]
     }
 
-    fn create_accumulator(&self) -> Result<Rc<RefCell<dyn Accumulator>>> {
-        Ok(Rc::new(RefCell::new(SumAccumulator::try_new(
-            &self.data_type,
-        )?)))
+    fn create_accumulator(&self) -> Result<Box<dyn Accumulator>> {
+        Ok(Box::new(SumAccumulator::try_new(&self.data_type)?))
     }
 }
 
@@ -391,11 +388,11 @@ impl AggregateExpr for Avg {
         ])
     }
 
-    fn create_accumulator(&self) -> Result<Rc<RefCell<dyn Accumulator>>> {
-        Ok(Rc::new(RefCell::new(AvgAccumulator::try_new(
+    fn create_accumulator(&self) -> Result<Box<dyn Accumulator>> {
+        Ok(Box::new(AvgAccumulator::try_new(
             // avg is f64
             &DataType::Float64,
-        )?)))
+        )?))
     }
 
     fn expressions(&self) -> Vec<Arc<dyn PhysicalExpr>> {
@@ -521,10 +518,8 @@ impl AggregateExpr for Max {
         vec![self.expr.clone()]
     }
 
-    fn create_accumulator(&self) -> Result<Rc<RefCell<dyn Accumulator>>> {
-        Ok(Rc::new(RefCell::new(MaxAccumulator::try_new(
-            &self.data_type,
-        )?)))
+    fn create_accumulator(&self) -> Result<Box<dyn Accumulator>> {
+        Ok(Box::new(MaxAccumulator::try_new(&self.data_type)?))
     }
 }
 
@@ -774,10 +769,8 @@ impl AggregateExpr for Min {
         vec![self.expr.clone()]
     }
 
-    fn create_accumulator(&self) -> Result<Rc<RefCell<dyn Accumulator>>> {
-        Ok(Rc::new(RefCell::new(MinAccumulator::try_new(
-            &self.data_type,
-        )?)))
+    fn create_accumulator(&self) -> Result<Box<dyn Accumulator>> {
+        Ok(Box::new(MinAccumulator::try_new(&self.data_type)?))
     }
 }
 
@@ -869,8 +862,8 @@ impl AggregateExpr for Count {
         vec![self.expr.clone()]
     }
 
-    fn create_accumulator(&self) -> Result<Rc<RefCell<dyn Accumulator>>> {
-        Ok(Rc::new(RefCell::new(CountAccumulator::new())))
+    fn create_accumulator(&self) -> Result<Box<dyn Accumulator>> {
+        Ok(Box::new(CountAccumulator::new()))
     }
 }
 
@@ -2476,13 +2469,12 @@ mod tests {
         batch: &RecordBatch,
         agg: Arc<dyn AggregateExpr>,
     ) -> Result<ScalarValue> {
-        let accum = agg.create_accumulator()?;
+        let mut accum = agg.create_accumulator()?;
         let expr = agg.expressions();
         let values = expr
             .iter()
             .map(|e| e.evaluate(batch))
             .collect::<Result<Vec<_>>>()?;
-        let mut accum = accum.borrow_mut();
         accum.update_batch(&values)?;
         accum.evaluate()
     }
