@@ -22,6 +22,7 @@ use criterion::Criterion;
 use rand::seq::SliceRandom;
 use rand::Rng;
 use std::sync::{Arc, Mutex};
+use tokio::runtime::Runtime;
 
 extern crate arrow;
 extern crate datafusion;
@@ -38,13 +39,12 @@ use datafusion::datasource::MemTable;
 use datafusion::error::Result;
 use datafusion::execution::context::ExecutionContext;
 
-async fn query(ctx: Arc<Mutex<ExecutionContext>>, sql: &str) {
+fn query(ctx: Arc<Mutex<ExecutionContext>>, sql: &str) {
+    let mut rt = Runtime::new().unwrap();
+
     // execute the query
     let df = ctx.lock().unwrap().sql(&sql).unwrap();
-    let results = df.collect().await.unwrap();
-
-    // display the relation
-    for _batch in results {}
+    rt.block_on(df.collect()).unwrap();
 }
 
 fn create_data(size: usize, null_density: f64) -> Vec<Option<f64>> {
@@ -116,8 +116,8 @@ fn create_context(
 }
 
 fn criterion_benchmark(c: &mut Criterion) {
-    let partitions_len = 4;
-    let array_len = 32768; // 2^15
+    let partitions_len = 8;
+    let array_len = 32768 * 2; // 2^16
     let batch_size = 2048; // 2^11
     let ctx = create_context(partitions_len, array_len, batch_size).unwrap();
 
