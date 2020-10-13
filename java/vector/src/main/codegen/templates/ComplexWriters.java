@@ -139,12 +139,12 @@ public class ${eName}WriterImpl extends AbstractFieldWriter {
     vector.setValueCount(idx() + 1);
   }
 
-  public void writeDecimal(int start, ArrowBuf buffer){
+  public void writeDecimal(long start, ArrowBuf buffer){
     vector.setSafe(idx(), 1, start, buffer);
     vector.setValueCount(idx() + 1);
   }
 
-  public void writeDecimal(int start, ArrowBuf buffer, ArrowType arrowType){
+  public void writeDecimal(long start, ArrowBuf buffer, ArrowType arrowType){
     DecimalUtility.checkPrecisionAndScale(((ArrowType.Decimal) arrowType).getPrecision(),
       ((ArrowType.Decimal) arrowType).getScale(), vector.getPrecision(), vector.getScale());
     vector.setSafe(idx(), 1, start, buffer);

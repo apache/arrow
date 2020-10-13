@@ -21,9 +21,12 @@ import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
+import java.math.BigDecimal;
+
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.holders.NullableDecimalHolder;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -114,7 +117,7 @@ public class ITTestLargeVector {
     final int vecLength = (int) (bufSize / DecimalVector.TYPE_WIDTH);
 
     try (BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
-         DecimalVector largeVec = new DecimalVector("vec", allocator, 38, 16)) {
+         DecimalVector largeVec = new DecimalVector("vec", allocator, 38, 0)) {
       largeVec.allocateNew(vecLength);
 
       logger.trace("Successfully allocated a vector with capacity {}", vecLength);
@@ -139,6 +142,22 @@ public class ITTestLargeVector {
         }
       }
       logger.trace("Successfully read {} values", vecLength);
+
+      // try setting values with a large offset in the buffer
+      largeVec.set(vecLength - 1, 12345L);
+      assertEquals(12345L, largeVec.getObject(vecLength - 1).longValue());
+
+      NullableDecimalHolder holder = new NullableDecimalHolder();
+      holder.buffer = largeVec.valueBuffer;
+      holder.isSet = 1;
+      holder.start = (long) (vecLength - 1) * largeVec.getTypeWidth();
+      assertTrue(holder.start > Integer.MAX_VALUE);
+      largeVec.set(0, holder);
+
+      BigDecimal decimal = largeVec.getObject(0);
+      assertEquals(12345L, decimal.longValue());
+
+      logger.trace("Successfully setting values from large offsets");
     }
     logger.trace("Successfully released the large vector.");
   }
