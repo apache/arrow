@@ -157,7 +157,7 @@ Result<Datum> MinMax(const Datum& value,
 /// \brief Test whether any element in a boolean array evaluates to true.
 ///
 /// This function returns true if any of the elements in the array evaluates
-/// to true and false otherwise. Null values are taken to evaluate to false.
+/// to true and false otherwise. Null values are skipped. 
 ///
 /// \param[in] value input datum, expecting a boolean array
 /// \param[in] ctx the function execution context, optional
