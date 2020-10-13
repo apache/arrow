@@ -151,6 +151,56 @@ std::unique_ptr<KernelState> MinMaxInit(KernelContext* ctx, const KernelInitArgs
   return visitor.Create();
 }
 
+// ----------------------------------------------------------------------
+// Any implementation
+
+
+struct BooleanAnyImpl: public ScalarAggregator { 
+
+  void Consume(KernelContext*, const ExecBatch& batch) override {
+    // short-circuit if seen a True already
+    if (this->max == true) {
+      return;
+    }
+
+    const auto& data = *batch[0].array();
+    arrow::internal::OptionalBinaryBitBlockCounter counter(
+        data.buffers[0], data.offset, data.buffers[1], data.offset, data.length);
+    int64_t position = 0;
+    while (position < data.length) {
+      const auto block = counter.NextAndBlock();
+      if (block.popcount > 0) {
+        this->max = true;
+        break;
+      }
+      position += block.length;
+    }
+  }
+
+  void MergeFrom(KernelContext*, KernelState&& src) override {
+    const auto& other = checked_cast<const BooleanAnyImpl&>(src);
+    this->max += other.max;
+  }
+
+  void Finalize(KernelContext*, Datum* out) override {
+    out->value = std::make_shared<BooleanScalar>(this->max);
+  }
+  bool max = false;
+};
+
+std::unique_ptr<KernelState> AnyInit(KernelContext*, const KernelInitArgs& args) {
+  return ::arrow::internal::make_unique<BooleanAnyImpl>();
+}
+
+void AddAggKernel(std::shared_ptr<KernelSignature> sig, KernelInit init,
+                  ScalarAggregateFunction* func, SimdLevel::type simd_level) {
+  ScalarAggregateKernel kernel(std::move(sig), init, AggregateConsume, AggregateMerge,
+                               AggregateFinalize);
+  // Set the simd level
+  kernel.simd_level = simd_level;
+  DCHECK_OK(func->AddKernel(kernel));
+}
+
 void AddBasicAggKernels(KernelInit init,
                         const std::vector<std::shared_ptr<DataType>>& types,
                         std::shared_ptr<DataType> out_ty, ScalarAggregateFunction* func,
@@ -278,10 +328,9 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
 =======
 
   // any
-  func = std::make_shared<ScalarAggregateFunction>("any", Arity::Unary(),
-                                                   &default_minmax_options);
-  aggregate::AddAnyKernel(aggregate::AnyInit, func.get());
-
+  func = std::make_shared<ScalarAggregateFunction>("any", Arity::Unary());
+  auto sig = KernelSignature::Make({InputType::Array(boolean())}, ValueDescr::Scalar(boolean()));
+  aggregate::AddAggKernel(std::move(sig), aggregate::AnyInit, func.get());
   DCHECK_OK(registry->AddFunction(std::move(func)));
 
   DCHECK_OK(registry->AddFunction(aggregate::AddModeAggKernels()));

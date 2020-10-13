@@ -536,35 +536,6 @@ struct BooleanMinMaxImpl : public MinMaxImpl<BooleanType, SimdLevel> {
 };
 
 template <SimdLevel::type SimdLevel>
-struct BooleanAnyImpl : public MinMaxImpl<BooleanType, SimdLevel> {
-  using MinMaxImpl<BooleanType, SimdLevel>::MinMaxImpl;
-
-  void Consume(KernelContext*, const ExecBatch& batch) override {
-    // short-circuit if seen a True already
-    if (this->state.max == true) {
-      return;
-    }
-
-    const auto& data = *batch[0].array();
-    arrow::internal::OptionalBinaryBitBlockCounter counter(
-        data.buffers[0], data.offset, data.buffers[1], data.offset, data.length);
-    int64_t position = 0;
-    while (position < data.length) {
-      const auto block = counter.NextAndBlock();
-      if (block.popcount > 0) {
-        this->state.max = true;
-        break;
-      }
-      position += block.length;
-    }
-  }
-
-  void Finalize(KernelContext*, Datum* out) override {
-    out->value = std::make_shared<BooleanScalar>(this->state.max);
-  }
-};
-
-template <SimdLevel::type SimdLevel>
 struct MinMaxInitState {
   std::unique_ptr<KernelState> state;
   KernelContext* ctx;
@@ -592,33 +563,6 @@ struct MinMaxInitState {
   template <typename Type>
   enable_if_number<Type, Status> Visit(const Type&) {
     state.reset(new MinMaxImpl<Type, SimdLevel>(out_type, options));
-    return Status::OK();
-  }
-
-  std::unique_ptr<KernelState> Create() {
-    ctx->SetStatus(VisitTypeInline(in_type, this));
-    return std::move(state);
-  }
-};
-
-template <SimdLevel::type SimdLevel>
-struct AnyInitState {
-  std::unique_ptr<KernelState> state;
-  KernelContext* ctx;
-  const DataType& in_type;
-  const std::shared_ptr<DataType>& out_type;
-  const MinMaxOptions& options;
-
-  AnyInitState(KernelContext* ctx, const DataType& in_type,
-               const std::shared_ptr<DataType>& out_type, const MinMaxOptions& options)
-      : ctx(ctx), in_type(in_type), out_type(out_type), options(options) {}
-
-  Status Visit(const DataType&) {
-    return Status::NotImplemented("No any kernel implemented");
-  }
-
-  Status Visit(const BooleanType&) {
-    state.reset(new BooleanAnyImpl<SimdLevel>(out_type, options));
     return Status::OK();
   }
 
