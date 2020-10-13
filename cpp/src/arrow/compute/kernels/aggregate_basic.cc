@@ -154,9 +154,7 @@ std::unique_ptr<KernelState> MinMaxInit(KernelContext* ctx, const KernelInitArgs
 // ----------------------------------------------------------------------
 // Any implementation
 
-
-struct BooleanAnyImpl: public ScalarAggregator { 
-
+struct BooleanAnyImpl : public ScalarAggregator {
   void Consume(KernelContext*, const ExecBatch& batch) override {
     // short-circuit if seen a True already
     if (this->max == true) {
@@ -221,12 +219,6 @@ void AddMinMaxKernels(KernelInit init,
     auto sig = KernelSignature::Make({InputType::Array(ty)}, ValueDescr::Scalar(out_ty));
     AddAggKernel(std::move(sig), init, func, simd_level);
   }
-}
-
-void AddAnyKernel(KernelInit init, ScalarAggregateFunction* func) {
-  auto sig =
-      KernelSignature::Make({InputType::Array(boolean())}, ValueDescr::Scalar(boolean()));
-  AddAggKernel(std::move(sig), init, func);
 }
 
 }  // namespace aggregate
@@ -329,7 +321,8 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
 
   // any
   func = std::make_shared<ScalarAggregateFunction>("any", Arity::Unary());
-  auto sig = KernelSignature::Make({InputType::Array(boolean())}, ValueDescr::Scalar(boolean()));
+  auto sig =
+      KernelSignature::Make({InputType::Array(boolean())}, ValueDescr::Scalar(boolean()));
   aggregate::AddAggKernel(std::move(sig), aggregate::AnyInit, func.get());
   DCHECK_OK(registry->AddFunction(std::move(func)));
 
