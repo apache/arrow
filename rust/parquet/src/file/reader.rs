@@ -32,7 +32,7 @@ use crate::basic::Type;
 
 use crate::column::reader::ColumnReaderImpl;
 
-/// Length should return the amount of bytes that implementor contains.
+/// Length should return the total number of bytes in the input source.
 /// It's mainly used to read the metadata, which is at the end of the source.
 #[allow(clippy::len_without_is_empty)]
 pub trait Length {
