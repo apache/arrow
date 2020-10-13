@@ -217,6 +217,7 @@ outputs:
         # CUDA device is not available, for instance, when building from CI.
         - pyarrow.cuda     # [cuda_compiler_version not in (undefined, "None")]
       commands:
+        - test ! -f ${SP_DIR}/pyarrow/plasma-store-server       # [unix]
         - test ! -f ${SP_DIR}/pyarrow/tests/test_array.py       # [unix]
         - if exist %SP_DIR%/pyarrow/tests/test_array.py exit 1  # [win]
   - name: pyarrow-tests
