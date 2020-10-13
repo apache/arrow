@@ -332,7 +332,7 @@ impl ExecutionContext {
             }
             _ => {
                 // merge into a single partition
-                let plan = MergeExec::new(plan.clone(), self.state.config.concurrency);
+                let plan = MergeExec::new(plan.clone());
                 // MergeExec must produce a single partition
                 assert_eq!(1, plan.output_partitioning().partition_count());
                 common::collect(plan.execute(0).await?)

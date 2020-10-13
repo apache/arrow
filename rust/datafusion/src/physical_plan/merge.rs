@@ -40,17 +40,12 @@ use tokio;
 pub struct MergeExec {
     /// Input execution plan
     input: Arc<dyn ExecutionPlan>,
-    /// Maximum number of concurrent threads
-    concurrency: usize,
 }
 
 impl MergeExec {
     /// Create a new MergeExec
-    pub fn new(input: Arc<dyn ExecutionPlan>, max_concurrency: usize) -> Self {
-        MergeExec {
-            input,
-            concurrency: max_concurrency,
-        }
+    pub fn new(input: Arc<dyn ExecutionPlan>) -> Self {
+        MergeExec { input }
     }
 }
 
@@ -79,10 +74,7 @@ impl ExecutionPlan for MergeExec {
         children: Vec<Arc<dyn ExecutionPlan>>,
     ) -> Result<Arc<dyn ExecutionPlan>> {
         match children.len() {
-            1 => Ok(Arc::new(MergeExec::new(
-                children[0].clone(),
-                self.concurrency,
-            ))),
+            1 => Ok(Arc::new(MergeExec::new(children[0].clone()))),
             _ => Err(ExecutionError::General(
                 "MergeExec wrong number of children".to_string(),
             )),
@@ -159,7 +151,7 @@ mod tests {
         // input should have 4 partitions
         assert_eq!(csv.output_partitioning().partition_count(), num_partitions);
 
-        let merge = MergeExec::new(Arc::new(csv), 2);
+        let merge = MergeExec::new(Arc::new(csv));
 
         // output of MergeExec should have a single partition
         assert_eq!(merge.output_partitioning().partition_count(), 1);

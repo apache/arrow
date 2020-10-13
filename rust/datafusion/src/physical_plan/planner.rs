@@ -117,10 +117,7 @@ impl DefaultPhysicalPlanner {
                             if child.output_partitioning().partition_count() == 1 {
                                 child.clone()
                             } else {
-                                Arc::new(MergeExec::new(
-                                    child.clone(),
-                                    ctx_state.config.concurrency,
-                                ))
+                                Arc::new(MergeExec::new(child.clone()))
                             }
                         })
                         .collect(),
