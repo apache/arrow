@@ -142,6 +142,13 @@ class ARROW_EXPORT ORCFileReader {
   ORCFileReader();
 };
 
+/// \class ORCFileWriter
+/// \brief Write an Arrow Table or RecordBatch to an ORC file.
+class ARROW_EXPORT ORCFileWriter {
+ public:
+  ~ORCFileWriter();
+}
+
 }  // namespace orc
 
 }  // namespace adapters

@@ -425,6 +425,139 @@ Status GetArrowType(const liborc::Type* type, std::shared_ptr<DataType>* out) {
   return Status::OK();
 }
 
+Status GetORCType(const DataType* type, ORC_UNIQUE_PTR<liborc::Type> out) {
+
+  //Check for nullptr
+  if (type == nullptr){
+    out.reset();
+    return Status::OK();
+  }
+
+  Type::type kind = type->id();
+  const int subtype_count = static_cast<int>(type->num_fields());
+
+  switch (kind) {
+    case Type::type::NA:
+      out.reset(); //Makes out nullptr
+      break;
+    case Type::type::BOOL:
+      out = std::move(orc::createPrimitiveType(liborc::TypeKind::BOOLEAN));
+      break;
+    case Type::type::UINT8:
+    case Type::type::INT8:
+      out = std::move(orc::createPrimitiveType(liborc::TypeKind::BYTE));
+      break;
+    case Type::type::UINT16:
+    case Type::type::INT16:
+      out = std::move(orc::createPrimitiveType(liborc::TypeKind::SHORT));
+      break;
+    case Type::type::UINT32:
+    case Type::type::INT32:
+    case Type::type::INTERVAL_MONTHS:
+      out = std::move(orc::createPrimitiveType(liborc::TypeKind::INT));
+      break;
+    case Type::type::UINT64:
+    case Type::type::INT64:
+    case Type::type::INTERVAL_DAY_TIME:
+    case Type::type::DURATION:
+      out = std::move(orc::createPrimitiveType(liborc::TypeKind::LONG));
+      break;
+    case Type::type::HALF_FLOAT://Convert to float32 since ORC does not have float16
+    case Type::type::FLOAT:
+      out = std::move(orc::createPrimitiveType(liborc::TypeKind::FLOAT));
+      break;
+    case Type::type::DOUBLE:
+      out = std::move(orc::createPrimitiveType(liborc::TypeKind::DOUBLE));
+      break;
+    //Use STRING instead of VARCHAR for now, both use UTF-8
+    case Type::type::STRING:
+    case Type::type::LARGE_STRING:
+      out = std::move(orc::createPrimitiveType(liborc::TypeKind::STRING));
+      break;
+    case Type::type::FIXED_SIZE_BINARY:
+      out = std::move(orc::createCharType(liborc::TypeKind::CHAR, internal::GetByteWidth(*type)));
+      break;
+    case Type::type::BINARY:
+    case Type::type::LARGE_BINARY:
+      out = std::move(orc::createPrimitiveType(liborc::TypeKind::BINARY));
+      break;
+    case Type::type::DATE32:
+      out = std::move(orc::createPrimitiveType(liborc::TypeKind::DATE));
+      break;
+    case Type::type::TIMESTAMP:
+    case Type::type::TIME32:
+    case Type::type::TIME64:
+    case Type::type::DATE64:
+      out = std::move(orc::createPrimitiveType(liborc::TypeKind::TIMESTAMP));
+      break;
+
+    case Type::type::DECIMAL: {
+      const int precision = static_cast<int>(type->precision());
+      const int scale = static_cast<int>(type->scale());
+      if (precision == 0) {
+        // In HIVE 0.11/0.12 precision is set as 0, but means max precision
+        out = std::move(orc::createDecimalType(liborc::TypeKind::DECIMAL));
+      } else {
+        out = std::move(orc::createDecimalType(liborc::TypeKind::DECIMAL, precision, scale));
+      }
+      break;
+    }
+    case Type::type::LIST:
+    case Type::type::FIXED_SIZE_LIST:
+    case Type::type::LAֵֵRGE_LIST: {
+      DataType* arrowChildType = type->value_type().get();
+      ORC_UNIQUE_PTR<liborc::Type> orcSubtype;
+      RETURN_NOT_OK(GetORCType(arrowChildType, orcSubtype));
+      out = std::move(orc::createListType(orcSubtype));
+      break;
+    }
+    case Type::type::STRUCT: {
+      out = std::move(orc::createStructType());
+      std::vector<std::shared_ptr<Field>> arrowFields = type->fields();
+      for (std::vector<std::shared_ptr<Field>>::iterator it = arrowFields.begin(); it != arrowFields.end(); ++it) {
+        std::string fieldName = it->name();
+        DataType* arrowChildType = it->type().get();
+        ORC_UNIQUE_PTR<liborc::Type> orcSubtype;
+        RETURN_NOT_OK(GetORCType(arrowChildType, orcSubtype));
+        out->addStructField(fieldName, orcSubtype);
+      }
+      break;
+    }
+    case Type::type::MAP: {
+      DataType* keyArrowType = type->key_type().get();
+      DataType* valueArrowType = type->key_type().get();
+      ORC_UNIQUE_PTR<liborc::Type> keyORCType;
+      RETURN_NOT_OK(GetORCType(keyArrowType, keyORCType));
+      ORC_UNIQUE_PTR<liborc::Type> valueORCType;
+      RETURN_NOT_OK(GetORCType(valueArrowType, valueORCType));
+      out = std::move(orc::createMapType(keyORCType, valueORCType));
+      break;
+    }
+    case Type::type::DENSE_UNION:
+    case Type::type::SPARSE_UNION: {
+      out = std::move(orc::createUnionType());
+      std::vector<std::shared_ptr<Field>> arrowFields = type->fields();
+      for (std::vector<std::shared_ptr<Field>>::iterator it = arrowFields.begin(); it != arrowFields.end(); ++it) {
+        std::string fieldName = it->name();
+        DataType* arrowChildType = it->type().get();
+        ORC_UNIQUE_PTR<liborc::Type> orcSubtype;
+        RETURN_NOT_OK(GetORCType(arrowChildType, orcSubtype));
+        out->addUnionChild(fieldName, orcSubtype);
+      }
+      break;
+    }
+    //Dictionary is an encoding method, not a TypeKind in ORC. Hence we need to get the actual value type.
+    case Type::type::DICTIONARY: {
+      DataType* arrowValueType = type->value_type().get();
+      RETURN_NOT_OK(GetORCType(arrowValueType, out));
+    }
+    default: {
+      return Status::Invalid("Unknown Arrow type kind: ", kind);
+    }
+  }
+  return Status::OK();
+}
+
 }  // namespace orc
 }  // namespace adapters
 }  // namespace arrow
