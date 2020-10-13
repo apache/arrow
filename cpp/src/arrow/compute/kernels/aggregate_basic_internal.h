@@ -545,10 +545,17 @@ struct BooleanAnyImpl : public MinMaxImpl<BooleanType, SimdLevel> {
       return;
     }
 
-    BooleanArray arr(batch[0].array());
-    const auto true_count = arr.true_count();
-    if (true_count > 0) {
-      this->state.max = true;
+    const auto& data = *batch[0].array();
+    arrow::internal::OptionalBinaryBitBlockCounter counter(
+        data.buffers[0], data.offset, data.buffers[1], data.offset, data.length);
+    int64_t position = 0;
+    while (position < data.length) {
+      const auto block = counter.NextAndBlock();
+      if (block.popcount > 0) {
+        this->state.max = true;
+        break;
+      }
+      position += block.length;
     }
   }
 
