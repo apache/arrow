@@ -537,8 +537,8 @@ mod tests {
         ArrayRef, Float64Array, Int32Array, PrimitiveArrayOps, StringArray,
     };
     use arrow::compute::add;
+    use std::fs::File;
     use std::thread::{self, JoinHandle};
-    use std::{cell::RefCell, fs::File, rc::Rc};
     use std::{io::prelude::*, sync::Mutex};
     use tempfile::TempDir;
     use test::*;
@@ -1371,11 +1371,7 @@ mod tests {
             "MY_AVG",
             DataType::Float64,
             Arc::new(DataType::Float64),
-            Arc::new(|| {
-                Ok(Rc::new(RefCell::new(AvgAccumulator::try_new(
-                    &DataType::Float64,
-                )?)))
-            }),
+            Arc::new(|| Ok(Box::new(AvgAccumulator::try_new(&DataType::Float64)?))),
             Arc::new(vec![DataType::UInt64, DataType::Float64]),
         );
 
