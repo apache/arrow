@@ -47,7 +47,9 @@ jobs:
           brew update
           brew bundle --file=arrow/cpp/Brewfile
           brew bundle --file=arrow/c_glib/Brewfile
-          brew reinstall node
+      - uses: actions/setup-node@v2-beta
+        with:
+          node-version: '12'
       - name: Run verification
         shell: bash
         env:

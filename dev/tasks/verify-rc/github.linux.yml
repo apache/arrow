@@ -65,6 +65,9 @@ jobs:
             ruby --version
             sudo gem install bundler
           fi
+      - uses: actions/setup-node@v2-beta
+        with:
+          node-version: '12'
       - name: Run verification
         shell: bash
         env:
