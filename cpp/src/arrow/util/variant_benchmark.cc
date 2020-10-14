@@ -39,9 +39,9 @@ using internal::checked_pointer_cast;
 
 namespace util {
 
-using TrivialVariant = arrow::util::variant<int32_t, float>;
+using TrivialVariant = arrow::util::Variant<int32_t, float>;
 
-using NonTrivialVariant = arrow::util::variant<int32_t, std::string>;
+using NonTrivialVariant = arrow::util::Variant<int32_t, std::string>;
 
 std::vector<int32_t> MakeInts(int64_t nitems) {
   auto rng = arrow::random::RandomArrayGenerator(42);

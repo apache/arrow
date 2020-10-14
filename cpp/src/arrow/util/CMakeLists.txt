@@ -61,7 +61,8 @@ add_arrow_test(utility-test
                trie_test.cc
                uri_test.cc
                utf8_util_test.cc
-               value_parsing_test.cc)
+               value_parsing_test.cc
+               variant_test.cc)
 
 add_arrow_test(threading-utility-test
                SOURCES

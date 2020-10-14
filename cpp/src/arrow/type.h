@@ -1596,7 +1596,7 @@ class ARROW_EXPORT FieldRef {
  private:
   void Flatten(std::vector<FieldRef> children);
 
-  util::variant<FieldPath, std::string, std::vector<FieldRef>> impl_;
+  util::Variant<FieldPath, std::string, std::vector<FieldRef>> impl_;
 
   ARROW_EXPORT friend void PrintTo(const FieldRef& ref, std::ostream* os);
 };
