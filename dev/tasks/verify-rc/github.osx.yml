@@ -47,12 +47,6 @@ jobs:
       - uses: actions/setup-node@v2-beta
         with:
           node-version: '14'
-      - uses: conda-incubator/setup-miniconda@v1
-        with:
-          channels: conda-forge,defaults
-          channel-priority: strict
-          auto-update-conda: false
-          show-channel-urls: true
       - name: Run verification
         shell: bash
         env:
