@@ -37,6 +37,10 @@ from pyarrow.includes.libgandiva cimport (
     CCondition, CExpression,
     CNode, CProjector, CFilter,
     CSelectionVector,
+    CSelectionVector_Mode,
+    _ensure_selection_mode,
+    CConfiguration,
+    CConfigurationBuilder,
     TreeExprBuilder_MakeExpression,
     TreeExprBuilder_MakeFunction,
     TreeExprBuilder_MakeBoolLiteral,
@@ -97,6 +101,21 @@ cdef class Expression(_Weakrefable):
     cdef void init(self, shared_ptr[CExpression] expression):
         self.expression = expression
 
+cdef class Configuration(_Weakrefable):
+    cdef:
+        shared_ptr[CConfiguration] config
+
+    def __init__(self):
+        raise TypeError("Do not call {}'s constructor directly, use the "
+                        "TreeExprBuilder API directly"
+                        .format(self.__class__.__name__))
+
+    @staticmethod
+    cdef create():
+        cdef Configuration self = Configuration.__new__(Configuration)
+        self.config = CConfigurationBuilder.DefaultConfiguration()
+        return self
+
 cdef class Condition(_Weakrefable):
     cdef:
         shared_ptr[CCondition] condition
@@ -155,6 +174,17 @@ cdef class Projector(_Weakrefable):
         cdef vector[shared_ptr[CArray]] results
         check_status(self.projector.get().Evaluate(
             batch.sp_batch.get()[0], self.pool.pool, &results))
+        cdef shared_ptr[CArray] result
+        arrays = []
+        for result in results:
+            arrays.append(pyarrow_wrap_array(result))
+        return arrays
+
+    def evaluate_with_selection(self, RecordBatch batch, SelectionVector selection):
+        cdef vector[shared_ptr[CArray]] results
+        check_status(self.projector.get().Evaluate(
+            batch.sp_batch.get()[0], selection.selection_vector.get(), self.pool.pool, &results))
+
         cdef shared_ptr[CArray] result
         arrays = []
         for result in results:
@@ -402,6 +432,18 @@ cpdef make_projector(Schema schema, children, MemoryPool pool):
         c_children.push_back(child.expression)
     cdef shared_ptr[CProjector] result
     check_status(Projector_Make(schema.sp_schema, c_children,
+                                &result))
+    return Projector.create(result, pool)
+
+cpdef make_projector_with_mode(Schema schema, children, str selection_mode, MemoryPool pool):
+    cdef c_vector[shared_ptr[CExpression]] c_children
+    cdef Expression child
+    for child in children:
+        c_children.push_back(child.expression)
+    cdef shared_ptr[CProjector] result
+    cdef Configuration configuration = Configuration.create()
+    cdef CSelectionVector_Mode mode = _ensure_selection_mode(selection_mode)
+    check_status(Projector_Make(schema.sp_schema, c_children, mode, configuration.config,
                                 &result))
     return Projector.create(result, pool)
 
