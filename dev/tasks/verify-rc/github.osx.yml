@@ -50,6 +50,7 @@ jobs:
       - uses: actions/setup-node@v2-beta
         with:
           node-version: '12'
+      - uses: s-weigand/setup-conda@v1
       - name: Run verification
         shell: bash
         env:
