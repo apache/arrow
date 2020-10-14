@@ -27,7 +27,7 @@ on:
 jobs:
   verify:
     name: "Verify release candidate Windows source"
-    runs-on: windows-latest
+    runs-on: windows-2016
     steps:
       - name: Checkout Arrow
         run: |
