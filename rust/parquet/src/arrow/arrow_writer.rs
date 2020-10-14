@@ -206,7 +206,7 @@ fn write_leaves(
             //
 
             let mut col_writer = get_col_writer(&mut row_group_writer)?;
-            let levels = levels.pop().unwrap();
+            let levels = levels.pop().expect("Levels exhausted");
 
             use ColumnWriter::*;
             match (&mut col_writer, &**v) {
