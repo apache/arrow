@@ -68,9 +68,14 @@ jobs:
       - uses: actions/setup-node@v2-beta
         with:
           node-version: '12'
-      - uses: s-weigand/setup-conda@v1
+      - uses: conda-incubator/setup-miniconda@v1
+        with:
+          python-version: 3.6
+          channels: conda-forge,defaults
+          channel-priority: strict
+          show-channel-urls: true
       - name: Run verification
-        shell: bash
+        shell: bash -l {0}
         env:
           INSTALL_NODE: 0
           INSTALL_MINICONDA: 0
