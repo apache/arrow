@@ -157,7 +157,7 @@ std::unique_ptr<KernelState> MinMaxInit(KernelContext* ctx, const KernelInitArgs
 struct BooleanAnyImpl : public ScalarAggregator {
   void Consume(KernelContext*, const ExecBatch& batch) override {
     // short-circuit if seen a True already
-    if (this->max == true) {
+    if (this->any == true) {
       return;
     }
 
@@ -168,7 +168,7 @@ struct BooleanAnyImpl : public ScalarAggregator {
     while (position < data.length) {
       const auto block = counter.NextAndBlock();
       if (block.popcount > 0) {
-        this->max = true;
+        this->any = true;
         break;
       }
       position += block.length;
@@ -177,13 +177,13 @@ struct BooleanAnyImpl : public ScalarAggregator {
 
   void MergeFrom(KernelContext*, KernelState&& src) override {
     const auto& other = checked_cast<const BooleanAnyImpl&>(src);
-    this->max += other.max;
+    this->any += other.any;
   }
 
   void Finalize(KernelContext*, Datum* out) override {
-    out->value = std::make_shared<BooleanScalar>(this->max);
+    out->value = std::make_shared<BooleanScalar>(this->any);
   }
-  bool max = false;
+  bool any = false;
 };
 
 std::unique_ptr<KernelState> AnyInit(KernelContext*, const KernelInitArgs& args) {
