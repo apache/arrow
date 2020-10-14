@@ -23,9 +23,12 @@
 #include <utf8proc.h>
 #endif
 
+#include <re2/re2.h>
 #include "arrow/array/builder_binary.h"
 #include "arrow/array/builder_nested.h"
 #include "arrow/buffer_builder.h"
+
+#include "arrow/builder.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/kernels/common.h"
 #include "arrow/util/utf8.h"
@@ -1195,6 +1198,115 @@ void AddSplit(FunctionRegistry* registry) {
 }
 
 // ----------------------------------------------------------------------
+// re2 regex
+
+template <typename Type>
+struct ExtractRE2 {
+  using ArrayType = typename TypeTraits<Type>::ArrayType;
+  using ScalarType = typename TypeTraits<Type>::ScalarType;
+  using BuilderType = typename TypeTraits<Type>::BuilderType;
+  using State = OptionsWrapper<RE2Options>;
+
+  static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    RE2Options options = State::Get(ctx);
+    RE2 regex(options.regex);
+
+    if (!regex.ok()) {
+      ctx->SetStatus(Status::Invalid("Regular expression error"));
+      return;
+    }
+    std::vector<std::shared_ptr<Field>> fields;
+    int group_count = regex.NumberOfCapturingGroups();
+    fields.reserve(group_count);
+    const std::map<int, std::string> name_map = regex.CapturingGroupNames();
+
+    // We need to pass RE2 a Args* array, which all point to a std::string
+    std::vector<std::string> found_values(group_count);
+    std::vector<re2::RE2::Arg> args;
+    std::vector<re2::RE2::Arg*> args_pointers;
+    args.reserve(group_count);
+    args_pointers.reserve(group_count);
+
+    for (int i = 0; i < group_count; i++) {
+      auto item = name_map.find(i + 1);  // re2 starts counting from 1
+      if (item == name_map.end()) {
+        ctx->SetStatus(Status::Invalid("Regular expression contains unnamed groups"));
+        return;
+      }
+      fields.emplace_back(new Field(item->second, batch[0].type()));
+      args.emplace_back(&found_values[i]);
+      // since we reserved capacity, we're guaranteed std::vector does not reallocate
+      // (which would cause the pointer to be invalid)
+      args_pointers.push_back(&args[i]);
+    }
+    auto type = struct_(fields);
+
+    if (batch[0].kind() == Datum::ARRAY) {
+      std::unique_ptr<ArrayBuilder> array_builder_tmp;
+      MakeBuilder(ctx->memory_pool(), type, &array_builder_tmp);
+      std::shared_ptr<StructBuilder> struct_builder;
+      struct_builder.reset(checked_cast<StructBuilder*>(array_builder_tmp.release()));
+
+      const ArrayData& input = *batch[0].array();
+      KERNEL_RETURN_IF_ERROR(
+          ctx,
+          VisitArrayDataInline<Type>(
+              input,
+              [&](util::string_view s) {
+                re2::StringPiece piece(s.data(), s.length());
+                if (re2::RE2::FullMatchN(piece, regex, &args_pointers[0], group_count)) {
+                  for (int i = 0; i < group_count; i++) {
+                    BuilderType* builder =
+                        static_cast<BuilderType*>(struct_builder->field_builder(i));
+                    RETURN_NOT_OK(builder->Append(found_values[i]));
+                  }
+                  RETURN_NOT_OK(struct_builder->Append());
+                } else {
+                  RETURN_NOT_OK(struct_builder->AppendNull());
+                }
+                return Status::OK();
+              },
+              [&]() {
+                RETURN_NOT_OK(struct_builder->AppendNull());
+                return Status::OK();
+              }));
+      std::shared_ptr<StructArray> struct_array =
+          std::make_shared<StructArray>(out->array());
+      KERNEL_RETURN_IF_ERROR(ctx, struct_builder->Finish(&struct_array));
+      *out = Datum(struct_array);
+    } else {
+      const auto& input = checked_cast<const ScalarType&>(*batch[0].scalar());
+      auto result = std::make_shared<StructScalar>(type);
+      if (input.is_valid) {
+        util::string_view s = static_cast<util::string_view>(*input.value);
+        re2::StringPiece piece(s.data(), s.length());
+        if (re2::RE2::FullMatchN(piece, regex, &args_pointers[0], group_count)) {
+          for (int i = 0; i < group_count; i++) {
+            result->value.push_back(std::make_shared<ScalarType>(found_values[i]));
+          }
+          result->is_valid = true;
+        } else {
+          result->is_valid = false;
+        }
+      } else {
+        result->is_valid = false;
+      }
+      out->value = result;
+    }
+  }
+};
+
+void AddExtractRE2(FunctionRegistry* registry) {
+  auto func = std::make_shared<ScalarFunction>("utf8_extract_re2", Arity::Unary());
+  using t32 = ExtractRE2<StringType>;
+  using t64 = ExtractRE2<LargeStringType>;
+  DCHECK_OK(func->AddKernel({utf8()}, {struct_({})}, t32::Exec, t32::State::Init));
+  DCHECK_OK(func->AddKernel({large_utf8()}, {struct_({})}, t64::Exec, t64::State::Init));
+  DCHECK_OK(registry->AddFunction(std::move(func)));
+}
+void AddRE2(FunctionRegistry* registry) { AddExtractRE2(registry); }
+
+// ----------------------------------------------------------------------
 // strptime string parsing
 
 using StrptimeState = OptionsWrapper<StrptimeOptions>;
@@ -1496,6 +1608,7 @@ void RegisterScalarStringAscii(FunctionRegistry* registry) {
 #endif
 
   AddSplit(registry);
+  AddRE2(registry);
   AddBinaryLength(registry);
   AddMatchSubstring(registry);
   AddStrptime(registry);

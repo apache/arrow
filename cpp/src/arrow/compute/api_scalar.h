@@ -68,6 +68,13 @@ struct ARROW_EXPORT SplitPatternOptions : public SplitOptions {
   std::string pattern;
 };
 
+struct ARROW_EXPORT RE2Options : public FunctionOptions {
+  explicit RE2Options(std::string regex) : regex(regex) {}
+
+  /// Regular expression
+  std::string regex;
+};
+
 /// Options for IsIn and IndexIn functions
 struct ARROW_EXPORT SetLookupOptions : public FunctionOptions {
   explicit SetLookupOptions(Datum value_set, bool skip_nulls)

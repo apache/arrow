@@ -523,6 +523,12 @@ def test_string_py_compat_boolean(function_name, variant):
             assert arrow_func(ar)[0].as_py() == getattr(c, py_name)()
 
 
+def test_extract_re2():
+    ar = pa.array(['a1', 'b2'])
+    struct = pc.utf8_extract_re2(ar, regex='(?P<letter>[ab])(?P<digit>\\d)')
+    assert struct.tolist() == [{'letter': 'a', 'digit': '1'}, {'letter': 'b', 'digit': '2'}]
+
+
 @pytest.mark.parametrize(('ty', 'values'), all_array_types)
 def test_take(ty, values):
     arr = pa.array(values, type=ty)

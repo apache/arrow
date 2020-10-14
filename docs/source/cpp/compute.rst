@@ -434,6 +434,20 @@ when a positive ``max_splits`` is given.
   (``'\t'``, ``'\n'``, ``'\v'``, ``'\f'``, ``'\r'``  and ``' '``) is seen
   as separator.
 
+String extraction
+~~~~~~~~~~~~~~~~~
+
++--------------------+------------+------------------------------------+---------------+----------------------------------------+
+| Function name      | Arity      | Input types                        | Output type   | Options class                          |
++====================+============+====================================+===============+========================================+
+| utf8_extract_re2   | Unary      | String-like                        | Struct (1)    | :struct:`RE2Options`                   |
++--------------------+------------+------------------------------------+---------------+----------------------------------------+
+
+* \(1) Extract substrings defined by a regular expression using the Google RE2
+library. Struct field names refer to the named groups, e.g. 'letter' and 'digit'
+for following regular expression: '(?P<letter>[ab])(?P<digit>\\d)'.
+
+
 
 Structural transforms
 ~~~~~~~~~~~~~~~~~~~~~

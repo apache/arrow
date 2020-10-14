@@ -606,6 +606,18 @@ class MatchSubstringOptions(_MatchSubstringOptions):
         self._set_options(pattern)
 
 
+cdef class RE2Options(FunctionOptions):
+    cdef:
+        unique_ptr[CRE2Options] match_substring_options
+
+    def __init__(self, regex):
+        self.match_substring_options.reset(
+            new CRE2Options(tobytes(regex)))
+
+    cdef const CFunctionOptions* get_options(self) except NULL:
+        return self.match_substring_options.get()
+
+
 cdef class _FilterOptions(FunctionOptions):
     cdef:
         CFilterOptions filter_options

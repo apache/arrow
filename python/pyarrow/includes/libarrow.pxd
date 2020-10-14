@@ -1716,6 +1716,11 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
                              c_bool reverse)
         c_string pattern
 
+    cdef cppclass CRE2Options \
+            "arrow::compute::RE2Options"(CFunctionOptions):
+        CRE2Options(c_string regex)
+        c_string regex
+
     cdef cppclass CCastOptions" arrow::compute::CastOptions"(CFunctionOptions):
         CCastOptions()
         CCastOptions(c_bool safe)
