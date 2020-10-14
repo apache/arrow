@@ -213,7 +213,7 @@ setup_tempdir() {
   fi
 }
 
-install_miniconda() {
+setup_miniconda() {
   # Setup short-lived miniconda for Python and integration tests
   if [ "$(uname)" == "Darwin" ]; then
     MINICONDA_URL=https://repo.continuum.io/miniconda/Miniconda3-latest-MacOSX-x86_64.sh
