@@ -495,6 +495,18 @@ TYPED_TEST(TestStringKernels, ReplaceSubstringRegexNoOptions) {
   Datum input = ArrayFromJSON(this->type(), "[]");
   ASSERT_RAISES(Invalid, CallFunction("replace_substring_regex", {input}));
 }
+
+TYPED_TEST(TestStringKernels, ExtractRE2) {
+  RE2Options options{"(?P<letter>[ab])(?P<digit>\\d)"};
+  auto type = struct_({field("letter", this->type()), field("digit", this->type())});
+  this->CheckUnary(
+      "utf8_extract_re2", R"(["a1", "b2", "c3", null])", type,
+      R"([{"letter": "a", "digit": "1"}, {"letter": "b", "digit": "2"}, null, null])",
+      &options);
+  this->CheckUnary("utf8_extract_re2", R"(["a1", "b2"])", type,
+                   R"([{"letter": "a", "digit": "1"}, {"letter": "b", "digit": "2"}])",
+                   &options);
+}
 #endif
 
 TYPED_TEST(TestStringKernels, Strptime) {

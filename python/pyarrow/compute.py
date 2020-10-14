@@ -43,6 +43,7 @@ from pyarrow._compute import (  # noqa
     ProjectOptions,
     QuantileOptions,
     ReplaceSubstringOptions,
+    RE2Options,
     SetLookupOptions,
     SortOptions,
     StrptimeOptions,

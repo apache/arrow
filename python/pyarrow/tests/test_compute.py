@@ -598,6 +598,13 @@ def test_replace_regex():
     assert ar.tolist() == ['f00', 'm00d', None]
 
 
+def test_extract_re2():
+    ar = pa.array(['a1', 'b2'])
+    struct = pc.utf8_extract_re2(ar, regex='(?P<letter>[ab])(?P<digit>\\d)')
+    assert struct.tolist() == [{'letter': 'a', 'digit': '1'}, {
+        'letter': 'b', 'digit': '2'}]
+
+
 @pytest.mark.parametrize(('ty', 'values'), all_array_types)
 def test_take(ty, values):
     arr = pa.array(values, type=ty)
