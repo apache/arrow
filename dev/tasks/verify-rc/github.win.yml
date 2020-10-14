@@ -39,9 +39,6 @@ jobs:
         shell: bash
         run: cd arrow && ci/scripts/util_checkout.sh
       - uses: s-weigand/setup-conda@v1
-      - uses: ilammy/msvc-dev-cmd@v1
-        with:
-          toolset: 14.1
       - name: Install System Dependencies
         run: |
           choco install boost-msvc-14.1
