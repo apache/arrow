@@ -1191,7 +1191,8 @@ mod tests {
             ["alpha", "beta", "alpha"].iter().copied().collect();
 
         // build a record batch
-        let expected_batch = RecordBatch::try_new(schema.clone(), vec![Arc::new(d)]).unwrap();
+        let expected_batch =
+            RecordBatch::try_new(schema.clone(), vec![Arc::new(d)]).unwrap();
 
         // write to parquet
         let file = get_temp_file("test_arrow_writer_dictionary.parquet", &[]);

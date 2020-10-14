@@ -1488,8 +1488,7 @@ impl<'a> ArrayReaderBuilder {
                         >::new(
                             page_iterator, column_desc, converter
                         )?))
-                    } else if let Some(ArrowType::Dictionary(key_type, _)) = arrow_type
-                    {
+                    } else if let Some(ArrowType::Dictionary(key_type, _)) = arrow_type {
                         match **key_type {
                             ArrowType::Int8 => {
                                 let converter =
