@@ -233,12 +233,14 @@ setup_miniconda() {
 
   . $MINICONDA/etc/profile.d/conda.sh
 
-  conda create -n arrow-test -y -q -c conda-forge \
-        python=3.6 \
-        nomkl \
-        numpy \
-        pandas \
-        cython
+  if [ ! -d "${MINICONDA}" ]; then
+    conda create -n arrow-test -y -q -c conda-forge \
+          python=3.6 \
+          nomkl \
+          numpy \
+          pandas \
+          cython
+  fi
   conda activate arrow-test
 }
 
@@ -374,7 +376,7 @@ test_python() {
   fi
 
   python setup.py build_ext --inplace
-  py.test pyarrow -v --pdb
+  pytest pyarrow -v --pdb
 
   popd
 }
@@ -785,8 +787,10 @@ if [ "${ARTIFACT}" == "source" ]; then
   dist_name="apache-arrow-${VERSION}"
   if [ ${TEST_SOURCE} -gt 0 ]; then
     import_gpg_keys
-    fetch_archive ${dist_name}
-    tar xf ${dist_name}.tar.gz
+    if [ ! -d "${dist_name}" ]; then
+      fetch_archive ${dist_name}
+      tar xf ${dist_name}.tar.gz
+    fi
   else
     mkdir -p ${dist_name}
     if [ ! -f ${TEST_ARCHIVE} ]; then

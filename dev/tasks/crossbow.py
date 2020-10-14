@@ -582,7 +582,8 @@ class Queue(Repo):
             # adding CI's name to the end of the branch in order to use skip
             # patterns on travis and circleci
             task.branch = '{}-{}-{}'.format(job.branch, task.ci, task_name)
-            files = task.render_files(arrow=job.target,
+            files = task.render_files(**job.params,
+                                      arrow=job.target,
                                       queue_remote_url=self.remote_url)
             branch = self.create_branch(task.branch, files=files)
             self.create_tag(task.tag, branch.target)
@@ -709,12 +710,12 @@ class Task(Serializable):
         self._status = None  # status cache
         self._assets = None  # assets cache
 
-    def render_files(self, **extra_params):
+    def render_files(self, **params):
         from jinja2 import Template, StrictUndefined
         from jinja2.exceptions import TemplateError
 
         path = CWD / self.template
-        params = toolz.merge(self.params, extra_params)
+        params = toolz.merge(self.params, params)
         template = Template(path.read_text(), undefined=StrictUndefined)
         try:
             rendered = template.render(task=self, **params)
@@ -871,15 +872,21 @@ class TaskAssets(dict):
 class Job(Serializable):
     """Describes multiple tasks against a single target repository"""
 
-    def __init__(self, target, tasks):
+    def __init__(self, target, tasks, params=None):
         if not tasks:
             raise ValueError('no tasks were provided for the job')
         if not all(isinstance(task, Task) for task in tasks.values()):
             raise ValueError('each `tasks` mus be an instance of Task')
         if not isinstance(target, Target):
             raise ValueError('`target` must be an instance of Target')
+        if not isinstance(target, Target):
+            raise ValueError('`target` must be an instance of Target')
+        if not isinstance(params, dict):
+            raise ValueError('`params` must be an instance of dict')
+
         self.target = target
         self.tasks = tasks
+        self.params = params or {}  # additional parameters for the tasks
         self.branch = None  # filled after adding to a queue
         self._queue = None  # set by the queue object after put or get
 
@@ -911,7 +918,7 @@ class Job(Serializable):
         return self.queue.date_of(self)
 
     @classmethod
-    def from_config(cls, config, target, tasks=None, groups=None):
+    def from_config(cls, config, target, tasks=None, groups=None, params=None):
         """
         Intantiate a job from based on a config.
 
@@ -923,9 +930,11 @@ class Job(Serializable):
             Describes target repository and revision the builds run against.
         tasks : Optional[List[str]], default None
             List of glob patterns for matching task names.
-        groups : tasks : Optional[List[str]], default None
+        groups : Optional[List[str]], default None
             List of exact group names matching predefined task sets in the
             config.
+        params : Optional[Dict[str, str]], default None
+            Additional rendering parameters for the task templates.
 
         Returns
         -------
@@ -948,7 +957,7 @@ class Job(Serializable):
             artifacts = [fn.format(**versions) for fn in artifacts]
             tasks[task_name] = Task(artifacts=artifacts, **task)
 
-        return cls(target=target, tasks=tasks)
+        return cls(target=target, tasks=tasks, params=params)
 
     def is_finished(self):
         for task in self.tasks.values():
@@ -1408,6 +1417,8 @@ def check_config(config_path):
 @click.argument('tasks', nargs=-1, required=False)
 @click.option('--group', '-g', 'groups', multiple=True,
               help='Submit task groups as defined in task.yml')
+@click.option('--param', '-p', 'params', multiple=True,
+              help='Additional task parameters for rendering the CI templates')
 @click.option('--job-prefix', default='build',
               help='Arbitrary prefix for branch names, e.g. nightly')
 @click.option('--config-path', '-c',
@@ -1429,7 +1440,7 @@ def check_config(config_path):
               help='Just display the rendered CI configurations without '
                    'submitting them')
 @click.pass_obj
-def submit(obj, tasks, groups, job_prefix, config_path, arrow_version,
+def submit(obj, tasks, groups, params, job_prefix, config_path, arrow_version,
            arrow_remote, arrow_branch, arrow_sha, dry_run):
     output = obj['output']
     queue, arrow = obj['queue'], obj['arrow']
@@ -1448,9 +1459,12 @@ def submit(obj, tasks, groups, job_prefix, config_path, arrow_version,
     target = Target.from_repo(arrow, remote=arrow_remote, branch=arrow_branch,
                               head=arrow_sha, version=arrow_version)
 
+    # parse additional job parameters
+    params = dict([p.split("=") for p in params])
+
     # instantiate the job object
     job = Job.from_config(config=config, target=target, tasks=tasks,
-                          groups=groups)
+                          groups=groups, params=params)
 
     if dry_run:
         yaml.dump(job, output)
