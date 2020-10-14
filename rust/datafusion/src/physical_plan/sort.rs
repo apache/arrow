@@ -208,7 +208,7 @@ mod tests {
                     options: SortOptions::default(),
                 },
             ],
-            Arc::new(MergeExec::new(Arc::new(csv), 2)),
+            Arc::new(MergeExec::new(Arc::new(csv))),
             2,
         )?);
 

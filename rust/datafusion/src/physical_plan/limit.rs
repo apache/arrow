@@ -243,8 +243,7 @@ mod tests {
         // input should have 4 partitions
         assert_eq!(csv.output_partitioning().partition_count(), num_partitions);
 
-        let limit =
-            GlobalLimitExec::new(Arc::new(MergeExec::new(Arc::new(csv), 2)), 7, 2);
+        let limit = GlobalLimitExec::new(Arc::new(MergeExec::new(Arc::new(csv))), 7, 2);
 
         // the result should contain 4 batches (one per input partition)
         let iter = limit.execute(0).await?;
