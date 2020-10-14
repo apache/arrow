@@ -156,6 +156,9 @@ TEST_F(TestPartitioning, DiscoverSchema) {
   // fall back to string if any segment for field alpha is not parseable as int
   AssertInspect({"/0/1", "/hello/1"}, {Str("alpha"), Int("beta")});
 
+  // If there are too many digits fall back to string
+  AssertInspect({"/3760212050/1"}, {Str("alpha"), Int("beta")});
+
   // missing segment for beta doesn't cause an error or fallback
   AssertInspect({"/0/1", "/hello"}, {Str("alpha"), Int("beta")});
 }
@@ -167,6 +170,9 @@ TEST_F(TestPartitioning, DictionaryInference) {
 
   // type is still int32 if possible
   AssertInspect({"/0/1"}, {DictInt("alpha"), DictInt("beta")});
+
+  // If there are too many digits fall back to string
+  AssertInspect({"/3760212050/1"}, {DictStr("alpha"), DictInt("beta")});
 
   // successful dictionary inference
   AssertInspect({"/a/0"}, {DictStr("alpha"), DictInt("beta")});
@@ -256,6 +262,9 @@ TEST_F(TestPartitioning, DiscoverHiveSchema) {
   // (...so ensure your partitions are ordered the same for all paths)
   AssertInspect({"/alpha=0/beta=1", "/beta=2/alpha=3"}, {Int("alpha"), Int("beta")});
 
+  // If there are too many digits fall back to string
+  AssertInspect({"/alpha=3760212050"}, {Str("alpha")});
+
   // missing path segments will not cause an error
   AssertInspect({"/alpha=0/beta=1", "/beta=2/alpha=3", "/gamma=what"},
                 {Int("alpha"), Int("beta"), Str("gamma")});
@@ -268,6 +277,9 @@ TEST_F(TestPartitioning, HiveDictionaryInference) {
 
   // type is still int32 if possible
   AssertInspect({"/alpha=0/beta=1"}, {DictInt("alpha"), DictInt("beta")});
+
+  // If there are too many digits fall back to string
+  AssertInspect({"/alpha=3760212050"}, {DictStr("alpha")});
 
   // successful dictionary inference
   AssertInspect({"/alpha=a/beta=0"}, {DictStr("alpha"), DictInt("beta")});
