@@ -274,7 +274,7 @@ impl<K: ArrowDictionaryKeyType> Converter<Vec<Option<ByteArray>>, DictionaryArra
         for v in source {
             match v {
                 Some(array) => {
-                    builder.append(array.as_utf8()?)?;
+                    let _ = builder.append(array.as_utf8()?)?;
                 }
                 None => builder.append_null()?,
             }
