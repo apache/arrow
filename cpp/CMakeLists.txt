@@ -744,7 +744,6 @@ endif()
 
 if(ARROW_WITH_UTF8PROC)
   list(APPEND ARROW_LINK_LIBS utf8proc::utf8proc)
-  list(APPEND ARROW_LINK_LIBS re2)
   list(APPEND ARROW_STATIC_LINK_LIBS utf8proc::utf8proc)
   if(utf8proc_SOURCE STREQUAL "SYSTEM")
     list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS utf8proc::utf8proc)
