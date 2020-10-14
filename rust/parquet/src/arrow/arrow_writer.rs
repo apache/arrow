@@ -1174,7 +1174,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // Dictionary support isn't correct yet - child_data buffers don't match
     fn arrow_writer_dictionary() {
         // define schema
         let schema = Arc::new(Schema::new(vec![Field::new_dict(
@@ -1194,35 +1193,6 @@ mod tests {
         let expected_batch =
             RecordBatch::try_new(schema.clone(), vec![Arc::new(d)]).unwrap();
 
-        // write to parquet
-        let file = get_temp_file("test_arrow_writer_dictionary.parquet", &[]);
-        let mut writer =
-            ArrowWriter::try_new(file.try_clone().unwrap(), schema, None).unwrap();
-        writer.write(&expected_batch).unwrap();
-        writer.close().unwrap();
-
-        // read from parquet
-        let reader = SerializedFileReader::new(file).unwrap();
-        let mut arrow_reader = ParquetFileArrowReader::new(Rc::new(reader));
-        let mut record_batch_reader = arrow_reader.get_record_reader(1024).unwrap();
-
-        let actual_batch = record_batch_reader.next().unwrap().unwrap();
-
-        for i in 0..expected_batch.num_columns() {
-            let expected_data = expected_batch.column(i).data();
-            let actual_data = actual_batch.column(i).data();
-
-            assert_eq!(expected_data.data_type(), actual_data.data_type());
-            assert_eq!(expected_data.len(), actual_data.len());
-            assert_eq!(expected_data.null_count(), actual_data.null_count());
-            assert_eq!(expected_data.offset(), actual_data.offset());
-            assert_eq!(expected_data.buffers(), actual_data.buffers());
-            assert_eq!(expected_data.child_data(), actual_data.child_data());
-            // Null counts should be the same, not necessarily bitmaps
-            // A null bitmap is optional if an array has no nulls
-            if expected_data.null_count() != 0 {
-                assert_eq!(expected_data.null_bitmap(), actual_data.null_bitmap());
-            }
-        }
+        roundtrip("test_arrow_writer_dictionary.parquet", expected_batch);
     }
 }
