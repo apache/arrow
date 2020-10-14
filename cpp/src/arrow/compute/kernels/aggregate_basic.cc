@@ -177,7 +177,7 @@ struct BooleanAnyImpl : public ScalarAggregator {
 
   void MergeFrom(KernelContext*, KernelState&& src) override {
     const auto& other = checked_cast<const BooleanAnyImpl&>(src);
-    this->any += other.any;
+    this->any |= other.any;
   }
 
   void Finalize(KernelContext*, Datum* out) override {
