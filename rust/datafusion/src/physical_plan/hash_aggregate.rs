@@ -810,7 +810,7 @@ mod tests {
             .unwrap();
         assert_eq!(*sums, Float64Array::from(vec![2.0, 7.0, 11.0]));
 
-        let merge = Arc::new(MergeExec::new(partial_aggregate, 2));
+        let merge = Arc::new(MergeExec::new(partial_aggregate));
 
         let final_group: Vec<Arc<dyn PhysicalExpr>> =
             (0..groups.len()).map(|i| col(&groups[i].1)).collect();
