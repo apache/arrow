@@ -213,8 +213,7 @@ setup_tempdir() {
   fi
 }
 
-
-setup_miniconda() {
+install_miniconda() {
   # Setup short-lived miniconda for Python and integration tests
   if [ "$(uname)" == "Darwin" ]; then
     MINICONDA_URL=https://repo.continuum.io/miniconda/Miniconda3-latest-MacOSX-x86_64.sh
@@ -230,18 +229,20 @@ setup_miniconda() {
     bash miniconda.sh -b -p $MINICONDA
     rm -f miniconda.sh
   fi
+  echo "Installed miniconda at ${MINICONDA}"
 
   . $MINICONDA/etc/profile.d/conda.sh
+}
 
-  if [ ! -d "${MINICONDA}" ]; then
-    conda create -n arrow-test -y -q -c conda-forge \
-          python=3.6 \
-          nomkl \
-          numpy \
-          pandas \
-          cython
-  fi
+setup_conda_env() {
+  conda create -n arrow-test -y -q -c conda-forge \
+    python=3.6 \
+    nomkl \
+    numpy \
+    pandas \
+    cython
   conda activate arrow-test
+  echo "Using conda environment ${CONDA_PREFIX}"
 }
 
 # Build and test Java (Requires newer Maven -- I used 3.3.9)
@@ -779,8 +780,10 @@ echo "Working in sandbox ${ARROW_TMPDIR}"
 cd ${ARROW_TMPDIR}
 
 if [ ${NEED_MINICONDA} -gt 0 ]; then
-  setup_miniconda
-  echo "Using miniconda environment ${MINICONDA}"
+  if [ ${INSTALL_MINICONDA:-1} -gt 0 ]; then
+    install_miniconda
+  fi
+  setup_conda_env
 fi
 
 if [ "${ARTIFACT}" == "source" ]; then

@@ -56,6 +56,7 @@ jobs:
         env:
           TEST_DEFAULT: 0
           INSTALL_NODE: 0
+          INSTALL_MINICONDA: 0
           # https://stackoverflow.com/questions/56083725/macos-build-issues-lstdc-not-found-while-building-python-package
           MACOSX_DEPLOYMENT_TARGET: "10.9"
         run: |

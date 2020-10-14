@@ -73,6 +73,7 @@ jobs:
         shell: bash
         env:
           INSTALL_NODE: 0
+          INSTALL_MINICONDA: 0
           TEST_DEFAULT: 0
         run: |
           {{ flag }} arrow/dev/release/verify-release-candidate.sh \
