@@ -65,17 +65,10 @@ jobs:
       - uses: actions/setup-node@v2-beta
         with:
           node-version: '14'
-      - uses: conda-incubator/setup-miniconda@v1
-        with:
-          channels: conda-forge,defaults
-          channel-priority: strict
-          show-channel-urls: true
-          auto-update-conda: false
       - name: Run verification
-        shell: bash -l {0}
+        shell: bash
         env:
           INSTALL_NODE: 0
-          INSTALL_MINICONDA: 0
           TEST_DEFAULT: 0
         run: |
           {{ flag }} arrow/dev/release/verify-release-candidate.sh \
