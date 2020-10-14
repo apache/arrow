@@ -33,6 +33,14 @@
 # a directory where the temporary files should be placed to, note that this
 # directory is not cleaned up automatically.
 
+env
+which python
+which conda
+conda env list
+conda list
+
+conda activate base
+
 case $# in
   3) ARTIFACT="$1"
      VERSION="$2"
@@ -213,7 +221,7 @@ setup_tempdir() {
   fi
 }
 
-install_miniconda() {
+setup_miniconda() {
   # Setup short-lived miniconda for Python and integration tests
   if [ "$(uname)" == "Darwin" ]; then
     MINICONDA_URL=https://repo.continuum.io/miniconda/Miniconda3-latest-MacOSX-x86_64.sh

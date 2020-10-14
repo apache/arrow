@@ -35,9 +35,6 @@ jobs:
           git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
           git -C arrow checkout FETCH_HEAD
           git -C arrow submodule update --init --recursive
-      - name: Free Up Disk Space
-        shell: bash
-        run: arrow/ci/scripts/util_cleanup.sh
       - name: Fetch Submodules and Tags
         shell: bash
         run: cd arrow && ci/scripts/util_checkout.sh
@@ -49,12 +46,12 @@ jobs:
           brew bundle --file=arrow/c_glib/Brewfile
       - uses: actions/setup-node@v2-beta
         with:
-          node-version: '12'
+          node-version: '14'
       - uses: conda-incubator/setup-miniconda@v1
         with:
-          python-version: 3.6
           channels: conda-forge,defaults
           channel-priority: strict
+          auto-update-conda: false
           show-channel-urls: true
       - name: Run verification
         shell: bash -l {0}
