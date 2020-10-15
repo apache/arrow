@@ -300,7 +300,7 @@ Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
     case ArrowTypeId::DECIMAL: {
       type = ParquetType::FIXED_LEN_BYTE_ARRAY;
       const auto& decimal_type =
-          static_cast<const ::arrow::Decimal128Type&>(*field->type());
+          static_cast<const ::arrow::DecimalType&>(*field->type());
       precision = decimal_type.precision();
       scale = decimal_type.scale();
       length = DecimalSize(precision);

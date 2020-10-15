@@ -586,6 +586,20 @@ using is_decimal_type = std::is_base_of<DecimalType, T>;
 template <typename T, typename R = void>
 using enable_if_decimal = enable_if_t<is_decimal_type<T>::value, R>;
 
+template <typename T>
+using is_decimal128_type = std::is_base_of<Decimal128Type, T>;
+
+template <typename T, typename R = void>
+using enable_if_decimal128 = enable_if_t<is_decimal128_type<T>::value, R>;
+
+template <typename T>
+using is_decimal256_type = std::is_base_of<Decimal256Type, T>;
+
+template <typename T, typename R = void>
+using enable_if_decimal256 = enable_if_t<is_decimal256_type<T>::value, R>;
+
+
+
 // Nested Types
 
 template <typename T>
@@ -623,7 +637,7 @@ template <typename T>
 using is_list_type =
     std::integral_constant<bool, std::is_same<T, ListType>::value ||
                                      std::is_same<T, LargeListType>::value ||
-                                     std::is_same<T, FixedSizeListType>::valuae>;
+                                     std::is_same<T, FixedSizeListType>::value>;
 
 template <typename T, typename R = void>
 using enable_if_list_type = enable_if_t<is_list_type<T>::value, R>;

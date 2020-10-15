@@ -548,11 +548,12 @@ TEST(TestDecimal, Errors) {
 }
 
 TEST(TestDecimal, Dictionary) {
-  std::shared_ptr<DataType> type = decimal(10, 2);
-
+  for (std::shared_ptr<DataType> type : {decimal128(10, 2), decimal256(10, 2)}) {
+    std::cout << type->ToString();
   AssertJSONDictArray(int32(), type, R"(["123.45", "-78.90", "-78.90", null, "123.45"])",
                       /*indices=*/"[0, 1, 1, null, 0]",
                       /*values=*/R"(["123.45", "-78.90"])");
+  }
 }
 
 TEST(TestList, IntegerList) {

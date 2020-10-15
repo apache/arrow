@@ -45,9 +45,11 @@ class DictionaryMemoTable::DictionaryMemoTableImpl {
 
     template <typename T>
     enable_if_no_memoize<T, Status> Visit(const T&) {
-      return Status::NotImplemented("Initialization of ", value_type_,
-                                    " memo table is not implemented");
+      return Status::NotImplemented("Initialization of ", value_type_->ToString(),
+                                   " memo table is not implemented");
     }
+
+
 
     template <typename T>
     enable_if_memoize<T, Status> Visit(const T&) {
