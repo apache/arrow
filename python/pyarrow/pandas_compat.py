@@ -970,7 +970,7 @@ def _extract_index_level(table, result_table, field_name,
 
     if i == -1:
         # The serialized index column was removed by the user
-        return table, None, None
+        return result_table, None, None
 
     pd = _pandas_api.pd
 
