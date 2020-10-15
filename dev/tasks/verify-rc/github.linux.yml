@@ -26,7 +26,7 @@ on:
 
 jobs:
   verify:
-    name: "Verify release candidate Ubuntu {{ artifact }} {{ flag }}"
+    name: "Verify release candidate Ubuntu {{ artifact }}"
     runs-on: ubuntu-latest
     {%- if env is defined %}
     env:

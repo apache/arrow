@@ -26,7 +26,7 @@ on:
 
 jobs:
   verify:
-    name: "Verify release candidate macOS {{ artifact }} {{ flag }}"
+    name: "Verify release candidate macOS {{ artifact }}"
     runs-on: macos-latest
     {%- if env is defined %}
     env:
