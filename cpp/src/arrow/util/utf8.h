@@ -100,8 +100,7 @@ inline bool ValidateUTF8(const uint8_t* data, int64_t size) {
     // XXX This is doing an unaligned access.  Contemporary architectures
     // (x86-64, AArch64, PPC64) support it natively and often have good
     // performance nevertheless.
-    uint64_t mask64;
-    memcpy(&mask64, data, 8);
+    uint64_t mask64 = SafeLoadAs<uint64_t>(data);
     if (ARROW_PREDICT_TRUE((mask64 & high_bits_64) == 0)) {
       // 8 bytes of pure ASCII, move forward
       size -= 8;
