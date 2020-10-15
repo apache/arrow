@@ -165,8 +165,8 @@ inline bool ValidateUTF8(const uint8_t* data, int64_t size) {
       return true;
     }
   } else if (size >= 2) {
-    uint16_t tail_mask = SafeLoadAs<uint32_t>(data + size - 2);
-    uint16_t head_mask = SafeLoadAs<uint32_t>(data);
+    uint16_t tail_mask = SafeLoadAs<uint16_t>(data + size - 2);
+    uint16_t head_mask = SafeLoadAs<uint16_t>(data);
     if (ARROW_PREDICT_TRUE(((head_mask | tail_mask) & high_bits_16) == 0)) {
       return true;
     }
