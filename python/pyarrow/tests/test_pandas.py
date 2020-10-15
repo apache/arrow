@@ -525,12 +525,12 @@ class TestConvertMetadata:
             {"first": list(range(5)),
              "second": list(range(5)),
              "value": np.arange(5)}
-        ).set_index(["first", "second"])
-        table = pa.Table.from_pandas(df)
+        )
+        table = pa.Table.from_pandas(df.set_index(["first", "second"]))
 
         subset = table.select(["first", "value"])
         result = subset.to_pandas()
-        expected = df.droplevel('second')
+        expected = df[["first", "value"]].set_index("first")
         tm.assert_frame_equal(result, expected)
 
     def test_empty_list_metadata(self):
