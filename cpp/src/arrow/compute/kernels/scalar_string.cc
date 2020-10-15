@@ -1273,7 +1273,10 @@ struct ExtractRE2 {
       std::shared_ptr<StructArray> struct_array =
           std::make_shared<StructArray>(out->array());
       KERNEL_RETURN_IF_ERROR(ctx, struct_builder->Finish(&struct_array));
-      *out = Datum(struct_array);
+      ArrayData* output = out->mutable_array();
+      output->type = type;
+      output->child_data = struct_array->data()->child_data;
+
     } else {
       const auto& input = checked_cast<const ScalarType&>(*batch[0].scalar());
       auto result = std::make_shared<StructScalar>(type);
