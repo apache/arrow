@@ -1403,29 +1403,34 @@ tasks:
     ci: github
     template: verify-rc/github.osx.yml
     params:
+      env:
+        TEST_DEFAULT: 0
+        TEST_JAVA: 1
       artifact: "source"
-      flag: "TEST_JAVA=1"
 
   verify-rc-source-macos-csharp:
     ci: github
     template: verify-rc/github.osx.yml
     params:
+      env:
+        TEST_DEFAULT: 0
+        TEST_CSHARP: 1
       artifact: "source"
-      flag: "TEST_CSHARP=1"
 
   verify-rc-source-macos-ruby:
     ci: github
     template: verify-rc/github.osx.yml
     params:
+      env:
+        TEST_DEFAULT: 0
+        TEST_RUBY: 1
       artifact: "source"
-      flag: "TEST_RUBY=1"
 
   verify-rc-source-macos-python:
     ci: github
     template: verify-rc/github.osx.yml
     params:
       env:
-        INSTALL_NODE: 0
         TEST_DEFAULT: 0
         TEST_PYTHON: 1
         # https://stackoverflow.com/questions/56083725/macos-build-issues-lstdc-not-found-while-building-python-package
@@ -1447,7 +1452,6 @@ tasks:
     template: verify-rc/github.osx.yml
     params:
       env:
-        INSTALL_NODE: 0
         TEST_DEFAULT: 0
         TEST_GO: 1
       artifact: "source"
@@ -1457,7 +1461,6 @@ tasks:
     template: verify-rc/github.osx.yml
     params:
       env:
-        INSTALL_NODE: 0
         TEST_DEFAULT: 0
         TEST_RUST: 1
       artifact: "source"
@@ -1466,15 +1469,17 @@ tasks:
     ci: github
     template: verify-rc/github.osx.yml
     params:
+      env:
+        INSTALL_NODE: 0
+        TEST_DEFAULT: 0
+        TEST_INTEGRATION: 1
       artifact: "source"
-      flag: "TEST_INTEGRATION=1"
 
   verify-rc-source-linux-java:
     ci: github
     template: verify-rc/github.linux.yml
     params:
       env:
-        INSTALL_NODE: 0
         TEST_DEFAULT: 0
         TEST_JAVA: 1
       artifact: "source"
@@ -1484,7 +1489,6 @@ tasks:
     template: verify-rc/github.linux.yml
     params:
       env:
-        INSTALL_NODE: 0
         TEST_DEFAULT: 0
         TEST_CSHARP: 1
       artifact: "source"
@@ -1494,7 +1498,6 @@ tasks:
     template: verify-rc/github.linux.yml
     params:
       env:
-        INSTALL_NODE: 0
         TEST_DEFAULT: 0
         TEST_RUBY: 1
       artifact: "source"
@@ -1504,7 +1507,6 @@ tasks:
     template: verify-rc/github.linux.yml
     params:
       env:
-        INSTALL_NODE: 0
         TEST_DEFAULT: 0
         TEST_PYTHON: 1
       artifact: "source"
@@ -1524,7 +1526,6 @@ tasks:
     template: verify-rc/github.linux.yml
     params:
       env:
-        INSTALL_NODE: 0
         TEST_DEFAULT: 0
         TEST_GO: 1
       artifact: "source"
@@ -1534,7 +1535,6 @@ tasks:
     template: verify-rc/github.linux.yml
     params:
       env:
-        INSTALL_NODE: 0
         TEST_DEFAULT: 0
         TEST_RUST: 1
       artifact: "source"
