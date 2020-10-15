@@ -27,6 +27,7 @@
 #include "arrow/util/macros.h"
 #include "arrow/util/simd.h"
 #include "arrow/util/string_view.h"
+#include "arrow/util/ubsan.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -158,17 +159,15 @@ inline bool ValidateUTF8(const uint8_t* data, int64_t size) {
 
   // Check if string tail is full ASCII (common case, fast)
   if (size >= 4) {
-    uint32_t mask1, mask2;
-    memcpy(&mask2, data + size - 4, 4);
-    memcpy(&mask1, data, 4);
-    if (ARROW_PREDICT_TRUE(((mask1 | mask2) & high_bits_32) == 0)) {
+    uint32_t tail_mask = SafeLoadAs<uint32_t>(data + size - 4);
+    uint32_t head_mask = SafeLoadAs<uint32_t>(data);
+    if (ARROW_PREDICT_TRUE(((head_mask | tail_mask) & high_bits_32) == 0)) {
       return true;
     }
   } else if (size >= 2) {
-    uint16_t mask1, mask2;
-    memcpy(&mask2, data + size - 2, 2);
-    memcpy(&mask1, data, 2);
-    if (ARROW_PREDICT_TRUE(((mask1 | mask2) & high_bits_16) == 0)) {
+    uint16_t tail_mask = SafeLoadAs<uint32_t>(data + size - 2);
+    uint16_t head_mask = SafeLoadAs<uint32_t>(data);
+    if (ARROW_PREDICT_TRUE(((head_mask | tail_mask) & high_bits_16) == 0)) {
       return true;
     }
   } else if (size == 1) {
