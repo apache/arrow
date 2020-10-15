@@ -25,13 +25,3 @@ from pyarrow.includes.libarrow cimport *
 cdef class FunctionOptions(_Weakrefable):
 
     cdef const CFunctionOptions* get_options(self) except NULL
-
-
-cdef class CastOptions(FunctionOptions):
-    cdef:
-        CCastOptions options
-
-    @staticmethod
-    cdef wrap(CCastOptions options)
-
-    cdef inline CCastOptions unwrap(self) nogil

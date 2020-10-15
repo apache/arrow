@@ -65,14 +65,14 @@ Result<ValueDescr> ValuesType(KernelContext*, const std::vector<ValueDescr>& arg
   return ValueDescr::Array(list_type.value_type());
 }
 
-FunctionDoc list_flatten_doc(
+const FunctionDoc list_flatten_doc(
     "Flatten list values",
     ("`lists` must have a list-like type.\n"
      "Return an array with the top list level flattened.\n"
      "Top-level null values in `lists` do not emit anything in the input."),
     {"lists"});
 
-FunctionDoc list_parent_indices_doc(
+const FunctionDoc list_parent_indices_doc(
     "Compute parent indices of nested list values",
     ("`lists` must have a list-like type.\n"
      "For each value in each list of `lists`, the top-level list index\n"
@@ -83,7 +83,7 @@ FunctionDoc list_parent_indices_doc(
 
 void RegisterVectorNested(FunctionRegistry* registry) {
   auto flatten =
-      std::make_shared<VectorFunction>("list_flatten", Arity::Unary(), list_flatten_doc);
+      std::make_shared<VectorFunction>("list_flatten", Arity::Unary(), &list_flatten_doc);
   DCHECK_OK(flatten->AddKernel({InputType::Array(Type::LIST)}, OutputType(ValuesType),
                                ListFlatten<ListType>));
   DCHECK_OK(flatten->AddKernel({InputType::Array(Type::LARGE_LIST)},
@@ -91,7 +91,7 @@ void RegisterVectorNested(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(flatten)));
 
   auto list_parent_indices = std::make_shared<VectorFunction>(
-      "list_parent_indices", Arity::Unary(), list_parent_indices_doc);
+      "list_parent_indices", Arity::Unary(), &list_parent_indices_doc);
   DCHECK_OK(list_parent_indices->AddKernel({InputType::Array(Type::LIST)}, int32(),
                                            ListParentIndices<ListType>));
   DCHECK_OK(list_parent_indices->AddKernel({InputType::Array(Type::LARGE_LIST)}, int64(),

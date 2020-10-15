@@ -17,6 +17,7 @@
 
 from pyarrow._compute import (  # noqa
     Function,
+    FunctionOptions,
     FunctionRegistry,
     Kernel,
     ScalarAggregateFunction,
@@ -27,6 +28,7 @@ from pyarrow._compute import (  # noqa
     VectorKernel,
     # Option classes
     CastOptions,
+    CountOptions,
     FilterOptions,
     MatchSubstringOptions,
     MinMaxOptions,
@@ -43,6 +45,7 @@ from pyarrow._compute import (  # noqa
 )
 
 from textwrap import dedent
+import warnings
 
 import pyarrow as pa
 
@@ -121,8 +124,14 @@ def _decorate_compute_function(wrapper, exposed_name, func, option_class):
 
 def _get_options_class(func):
     class_name = func._doc.options_class
-    # XXX should we raise if the class isn't exposed in Python?
-    return globals().get(class_name) if class_name else None
+    if not class_name:
+        return None
+    try:
+        return globals()[class_name]
+    except KeyError:
+        warnings.warn("Python binding for {} not exposed"
+                      .format(class_name), RuntimeWarning)
+        return None
 
 
 def _handle_options(name, option_class, options, kwargs):

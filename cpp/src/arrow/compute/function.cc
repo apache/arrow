@@ -29,6 +29,10 @@
 namespace arrow {
 namespace compute {
 
+static const FunctionDoc kEmptyFunctionDoc{};
+
+const FunctionDoc& FunctionDoc::Empty() { return kEmptyFunctionDoc; }
+
 Status Function::CheckArity(int passed_num_args) const {
   if (arity_.is_varargs && passed_num_args < arity_.num_args) {
     return Status::Invalid("VarArgs function needs at least ", arity_.num_args,
@@ -121,9 +125,9 @@ Result<Datum> Function::Execute(const std::vector<Datum>& args,
 }
 
 Status Function::Validate() const {
-  if (!doc_.summary.empty()) {
+  if (!doc_->summary.empty()) {
     // Documentation given, check its contents
-    if (static_cast<int>(doc_.arg_names.size()) != arity_.num_args) {
+    if (static_cast<int>(doc_->arg_names.size()) != arity_.num_args) {
       return Status::Invalid("In function '", name_,
                              "': ", "number of argument names != function arity");
     }

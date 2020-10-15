@@ -268,7 +268,7 @@ void AddModeKernels(KernelInit init, const std::vector<std::shared_ptr<DataType>
   }
 }
 
-FunctionDoc mode_doc{
+const FunctionDoc mode_doc{
     "Calculate the modal (most common) value of a numeric array",
     ("This function returns both mode and count as a struct scalar,\n"
      "with type `struct<mode: T, count: int64>`, where T is the input type.\n"
@@ -280,7 +280,8 @@ FunctionDoc mode_doc{
 }  // namespace
 
 std::shared_ptr<ScalarAggregateFunction> AddModeAggKernels() {
-  auto func = std::make_shared<ScalarAggregateFunction>("mode", Arity::Unary(), mode_doc);
+  auto func =
+      std::make_shared<ScalarAggregateFunction>("mode", Arity::Unary(), &mode_doc);
   AddModeKernels(ModeInit, {boolean()}, func.get());
   AddModeKernels(ModeInit, internal::NumericTypes(), func.get());
   return func;

@@ -104,6 +104,8 @@ struct ARROW_EXPORT FunctionDoc {
         description(std::move(description)),
         arg_names(std::move(arg_names)),
         options_class(std::move(options_class)) {}
+
+  static const FunctionDoc& Empty();
 };
 
 /// \brief Base class for compute functions. Function implementations contain a
@@ -148,7 +150,7 @@ class ARROW_EXPORT Function {
   const Arity& arity() const { return arity_; }
 
   /// \brief Return the function documentation
-  const FunctionDoc& doc() const { return doc_; }
+  const FunctionDoc& doc() const { return *doc_; }
 
   /// \brief Returns the number of registered kernels for this function.
   virtual int num_kernels() const = 0;
@@ -172,12 +174,12 @@ class ARROW_EXPORT Function {
   virtual Status Validate() const;
 
  protected:
-  Function(std::string name, Function::Kind kind, const Arity& arity, FunctionDoc doc,
-           const FunctionOptions* default_options)
+  Function(std::string name, Function::Kind kind, const Arity& arity,
+           const FunctionDoc* doc, const FunctionOptions* default_options)
       : name_(std::move(name)),
         kind_(kind),
         arity_(arity),
-        doc_(std::move(doc)),
+        doc_(doc ? doc : &FunctionDoc::Empty()),
         default_options_(default_options) {}
 
   Status CheckArity(int passed_num_args) const;
@@ -185,7 +187,7 @@ class ARROW_EXPORT Function {
   std::string name_;
   Function::Kind kind_;
   Arity arity_;
-  FunctionDoc doc_;
+  const FunctionDoc* doc_;
   const FunctionOptions* default_options_ = NULLPTR;
 };
 
@@ -206,9 +208,9 @@ class FunctionImpl : public Function {
   int num_kernels() const override { return static_cast<int>(kernels_.size()); }
 
  protected:
-  FunctionImpl(std::string name, Function::Kind kind, const Arity& arity, FunctionDoc doc,
-               const FunctionOptions* default_options)
-      : Function(std::move(name), kind, arity, std::move(doc), default_options) {}
+  FunctionImpl(std::string name, Function::Kind kind, const Arity& arity,
+               const FunctionDoc* doc, const FunctionOptions* default_options)
+      : Function(std::move(name), kind, arity, doc, default_options) {}
 
   std::vector<KernelType> kernels_;
 };
@@ -224,10 +226,10 @@ class ARROW_EXPORT ScalarFunction : public detail::FunctionImpl<ScalarKernel> {
  public:
   using KernelType = ScalarKernel;
 
-  ScalarFunction(std::string name, const Arity& arity, FunctionDoc doc,
+  ScalarFunction(std::string name, const Arity& arity, const FunctionDoc* doc,
                  const FunctionOptions* default_options = NULLPTR)
-      : detail::FunctionImpl<ScalarKernel>(std::move(name), Function::SCALAR, arity,
-                                           std::move(doc), default_options) {}
+      : detail::FunctionImpl<ScalarKernel>(std::move(name), Function::SCALAR, arity, doc,
+                                           default_options) {}
 
   /// \brief Add a kernel with given input/output types, no required state
   /// initialization, preallocation for fixed-width types, and default null
@@ -255,10 +257,10 @@ class ARROW_EXPORT VectorFunction : public detail::FunctionImpl<VectorKernel> {
  public:
   using KernelType = VectorKernel;
 
-  VectorFunction(std::string name, const Arity& arity, FunctionDoc doc,
+  VectorFunction(std::string name, const Arity& arity, const FunctionDoc* doc,
                  const FunctionOptions* default_options = NULLPTR)
-      : detail::FunctionImpl<VectorKernel>(std::move(name), Function::VECTOR, arity,
-                                           std::move(doc), default_options) {}
+      : detail::FunctionImpl<VectorKernel>(std::move(name), Function::VECTOR, arity, doc,
+                                           default_options) {}
 
   /// \brief Add a simple kernel with given input/output types, no required
   /// state initialization, no data preallocation, and no preallocation of the
@@ -280,11 +282,10 @@ class ARROW_EXPORT ScalarAggregateFunction
  public:
   using KernelType = ScalarAggregateKernel;
 
-  ScalarAggregateFunction(std::string name, const Arity& arity, FunctionDoc doc,
+  ScalarAggregateFunction(std::string name, const Arity& arity, const FunctionDoc* doc,
                           const FunctionOptions* default_options = NULLPTR)
-      : detail::FunctionImpl<ScalarAggregateKernel>(std::move(name),
-                                                    Function::SCALAR_AGGREGATE, arity,
-                                                    std::move(doc), default_options) {}
+      : detail::FunctionImpl<ScalarAggregateKernel>(
+            std::move(name), Function::SCALAR_AGGREGATE, arity, doc, default_options) {}
 
   /// \brief Add a kernel (function implementation). Returns error if the
   /// kernel's signature does not match the function's arity.
@@ -313,10 +314,9 @@ class ARROW_EXPORT MetaFunction : public Function {
                                     const FunctionOptions* options,
                                     ExecContext* ctx) const = 0;
 
-  MetaFunction(std::string name, const Arity& arity, FunctionDoc doc,
+  MetaFunction(std::string name, const Arity& arity, const FunctionDoc* doc,
                const FunctionOptions* default_options = NULLPTR)
-      : Function(std::move(name), Function::META, arity, std::move(doc),
-                 default_options) {}
+      : Function(std::move(name), Function::META, arity, doc, default_options) {}
 };
 
 /// @}

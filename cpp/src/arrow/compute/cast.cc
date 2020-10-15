@@ -78,17 +78,17 @@ Result<std::shared_ptr<CastFunction>> GetCastFunctionInternal(
   return it->second;
 }
 
-FunctionDoc cast_doc{"Cast values to another data type",
-                     ("Behavior when values wouldn't fit in the target type\n"
-                      "can be controlled through CastOptions."),
-                     {"input"},
-                     "CastOptions"};
+const FunctionDoc cast_doc{"Cast values to another data type",
+                           ("Behavior when values wouldn't fit in the target type\n"
+                            "can be controlled through CastOptions."),
+                           {"input"},
+                           "CastOptions"};
 
 // Metafunction for dispatching to appropriate CastFunction. This corresponds
 // to the standard SQL CAST(expr AS target_type)
 class CastMetaFunction : public MetaFunction {
  public:
-  CastMetaFunction() : MetaFunction("cast", Arity::Unary(), cast_doc) {}
+  CastMetaFunction() : MetaFunction("cast", Arity::Unary(), &cast_doc) {}
 
   Result<const CastOptions*> ValidateOptions(const FunctionOptions* options) const {
     auto cast_options = static_cast<const CastOptions*>(options);
@@ -130,7 +130,7 @@ struct CastFunction::CastFunctionImpl {
 };
 
 CastFunction::CastFunction(std::string name, Type::type out_type)
-    : ScalarFunction(std::move(name), Arity::Unary(), FunctionDoc{}) {
+    : ScalarFunction(std::move(name), Arity::Unary(), /*doc=*/nullptr) {
   impl_.reset(new CastFunctionImpl());
   impl_->out_type = out_type;
 }

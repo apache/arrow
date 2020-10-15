@@ -266,8 +266,8 @@ ArrayKernelExec NumericEqualTypesBinary(detail::GetTypeId get_id) {
 
 template <typename Op>
 std::shared_ptr<ScalarFunction> MakeArithmeticFunction(std::string name,
-                                                       FunctionDoc doc) {
-  auto func = std::make_shared<ScalarFunction>(name, Arity::Binary(), std::move(doc));
+                                                       const FunctionDoc* doc) {
+  auto func = std::make_shared<ScalarFunction>(name, Arity::Binary(), doc);
   for (const auto& ty : NumericTypes()) {
     auto exec = NumericEqualTypesBinary<ScalarBinaryEqualTypes, Op>(ty);
     DCHECK_OK(func->AddKernel({ty, ty}, ty, exec));
@@ -279,8 +279,8 @@ std::shared_ptr<ScalarFunction> MakeArithmeticFunction(std::string name,
 // only on non-null output.
 template <typename Op>
 std::shared_ptr<ScalarFunction> MakeArithmeticFunctionNotNull(std::string name,
-                                                              FunctionDoc doc) {
-  auto func = std::make_shared<ScalarFunction>(name, Arity::Binary(), std::move(doc));
+                                                              const FunctionDoc* doc) {
+  auto func = std::make_shared<ScalarFunction>(name, Arity::Binary(), doc);
   for (const auto& ty : NumericTypes()) {
     auto exec = NumericEqualTypesBinary<ScalarBinaryNotNullEqualTypes, Op>(ty);
     DCHECK_OK(func->AddKernel({ty, ty}, ty, exec));
@@ -288,70 +288,71 @@ std::shared_ptr<ScalarFunction> MakeArithmeticFunctionNotNull(std::string name,
   return func;
 }
 
-FunctionDoc add_doc{"Add the elements of two arrays",
-                    ("Results will wrap around on integer overflow.\n"
-                     "Use function \"add_checked\" if you want overflow\n"
-                     "to return an error."),
-                    {"x", "y"}};
+const FunctionDoc add_doc{"Add the arguments element-wise",
+                          ("Results will wrap around on integer overflow.\n"
+                           "Use function \"add_checked\" if you want overflow\n"
+                           "to return an error."),
+                          {"x", "y"}};
 
-FunctionDoc add_checked_doc{
-    "Add the elements of two arrays",
+const FunctionDoc add_checked_doc{
+    "Add the arguments element-wise",
     ("This function returns an error on overflow.  For a variant that\n"
      "doesn't fail on overflow, use function \"add\"."),
     {"x", "y"}};
 
-FunctionDoc sub_doc{"Substract the elements of an array from another",
-                    ("Results will wrap around on integer overflow.\n"
-                     "Use function \"subtract_checked\" if you want overflow\n"
-                     "to return an error."),
-                    {"x", "y"}};
+const FunctionDoc sub_doc{"Substract the arguments element-wise",
+                          ("Results will wrap around on integer overflow.\n"
+                           "Use function \"subtract_checked\" if you want overflow\n"
+                           "to return an error."),
+                          {"x", "y"}};
 
-FunctionDoc sub_checked_doc{
-    "Substract the elements of an array from another",
+const FunctionDoc sub_checked_doc{
+    "Substract the arguments element-wise",
     ("This function returns an error on overflow.  For a variant that\n"
      "doesn't fail on overflow, use function \"subtract\"."),
     {"x", "y"}};
 
-FunctionDoc mul_doc{"Multiply the elements of two arrays",
-                    ("Results will wrap around on integer overflow.\n"
-                     "Use function \"multiply_checked\" if you want overflow\n"
-                     "to return an error."),
-                    {"x", "y"}};
+const FunctionDoc mul_doc{"Multiply the arguments element-wise",
+                          ("Results will wrap around on integer overflow.\n"
+                           "Use function \"multiply_checked\" if you want overflow\n"
+                           "to return an error."),
+                          {"x", "y"}};
 
-FunctionDoc mul_checked_doc{
-    "Multiply the elements of two arrays",
+const FunctionDoc mul_checked_doc{
+    "Multiply the arguments element-wise",
     ("This function returns an error on overflow.  For a variant that\n"
      "doesn't fail on overflow, use function \"multiply\"."),
     {"x", "y"}};
 
-FunctionDoc div_doc{"Divide the elements of an array by another",
-                    ("An error is returned when trying to divide by zero.\n"
-                     "However, integer overflow will silently wrap around.\n"
-                     "Use function \"divide_checked\" if you want integer\n"
-                     "overflow to also return an error."),
-                    {"dividend", "divisor"}};
+const FunctionDoc div_doc{
+    "Divide the arguments element-wise",
+    ("Integer division by zero returns an error. However, integer overflow\n"
+     "wraps around, and floating-point division by zero returns an infinite.\n"
+     "Use function \"divide_checked\" if you want to get an error\n"
+     "in all the aforementioned cases."),
+    {"dividend", "divisor"}};
 
-FunctionDoc div_checked_doc{
-    "Divide the elements of an array by another",
+const FunctionDoc div_checked_doc{
+    "Divide the arguments element-wise",
     ("An error is returned when trying to divide by zero, or when\n"
-     "integer overflow is encountered.\n"),
+     "integer overflow is encountered."),
     {"dividend", "divisor"}};
 
 }  // namespace
 
 void RegisterScalarArithmetic(FunctionRegistry* registry) {
   // ----------------------------------------------------------------------
-  auto add = MakeArithmeticFunction<Add>("add", add_doc);
+  auto add = MakeArithmeticFunction<Add>("add", &add_doc);
   DCHECK_OK(registry->AddFunction(std::move(add)));
 
   // ----------------------------------------------------------------------
   auto add_checked =
-      MakeArithmeticFunctionNotNull<AddChecked>("add_checked", add_checked_doc);
+      MakeArithmeticFunctionNotNull<AddChecked>("add_checked", &add_checked_doc);
   DCHECK_OK(registry->AddFunction(std::move(add_checked)));
 
   // ----------------------------------------------------------------------
   // subtract
-  auto subtract = MakeArithmeticFunction<Subtract>("subtract", sub_doc);
+  auto subtract = MakeArithmeticFunction<Subtract>("subtract", &sub_doc);
 
   // Add subtract(timestamp, timestamp) -> duration
   for (auto unit : AllTimeUnits()) {
@@ -364,26 +365,26 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(subtract)));
 
   // ----------------------------------------------------------------------
-  auto subtract_checked =
-      MakeArithmeticFunctionNotNull<SubtractChecked>("subtract_checked", sub_checked_doc);
+  auto subtract_checked = MakeArithmeticFunctionNotNull<SubtractChecked>(
+      "subtract_checked", &sub_checked_doc);
   DCHECK_OK(registry->AddFunction(std::move(subtract_checked)));
 
   // ----------------------------------------------------------------------
-  auto multiply = MakeArithmeticFunction<Multiply>("multiply", mul_doc);
+  auto multiply = MakeArithmeticFunction<Multiply>("multiply", &mul_doc);
   DCHECK_OK(registry->AddFunction(std::move(multiply)));
 
   // ----------------------------------------------------------------------
-  auto multiply_checked =
-      MakeArithmeticFunctionNotNull<MultiplyChecked>("multiply_checked", mul_checked_doc);
+  auto multiply_checked = MakeArithmeticFunctionNotNull<MultiplyChecked>(
+      "multiply_checked", &mul_checked_doc);
   DCHECK_OK(registry->AddFunction(std::move(multiply_checked)));
 
   // ----------------------------------------------------------------------
-  auto divide = MakeArithmeticFunctionNotNull<Divide>("divide", div_doc);
+  auto divide = MakeArithmeticFunctionNotNull<Divide>("divide", &div_doc);
   DCHECK_OK(registry->AddFunction(std::move(divide)));
 
   // ----------------------------------------------------------------------
   auto divide_checked =
-      MakeArithmeticFunctionNotNull<DivideChecked>("divide_checked", div_checked_doc);
+      MakeArithmeticFunctionNotNull<DivideChecked>("divide_checked", &div_checked_doc);
   DCHECK_OK(registry->AddFunction(std::move(divide_checked)));
 }
 

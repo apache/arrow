@@ -624,19 +624,19 @@ void AddHashKernels(VectorFunction* func, VectorKernel base, OutputType out_ty) 
   DCHECK_OK(func->AddKernel(base));
 }
 
-FunctionDoc unique_doc(
+const FunctionDoc unique_doc(
     "Compute unique elements",
     ("Return an array with distinct values.  Nulls in the input are ignored."),
     {"array"});
 
-FunctionDoc value_counts_doc(
+const FunctionDoc value_counts_doc(
     "Compute counts of unique elements",
     ("For each distinct value, compute the number of times it occurs in the array.\n"
      "The result is returned as an array of `struct<input type, int64>`.\n"
      "Nulls in the input are ignored."),
     {"array"});
 
-FunctionDoc dictionary_encode_doc(
+const FunctionDoc dictionary_encode_doc(
     "Dictionary-encode array",
     ("Return a dictionary-encoded version of the input array."), {"array"});
 
@@ -651,7 +651,7 @@ void RegisterVectorHash(FunctionRegistry* registry) {
 
   base.finalize = UniqueFinalize;
   base.output_chunked = false;
-  auto unique = std::make_shared<VectorFunction>("unique", Arity::Unary(), unique_doc);
+  auto unique = std::make_shared<VectorFunction>("unique", Arity::Unary(), &unique_doc);
   AddHashKernels<UniqueAction>(unique.get(), base, OutputType(FirstType));
 
   // Dictionary unique
@@ -668,7 +668,7 @@ void RegisterVectorHash(FunctionRegistry* registry) {
 
   base.finalize = ValueCountsFinalize;
   auto value_counts =
-      std::make_shared<VectorFunction>("value_counts", Arity::Unary(), value_counts_doc);
+      std::make_shared<VectorFunction>("value_counts", Arity::Unary(), &value_counts_doc);
   AddHashKernels<ValueCountsAction>(value_counts.get(), base,
                                     OutputType(ValueCountsOutput));
 
@@ -688,7 +688,7 @@ void RegisterVectorHash(FunctionRegistry* registry) {
   // Unique and ValueCounts output unchunked arrays
   base.output_chunked = true;
   auto dict_encode = std::make_shared<VectorFunction>("dictionary_encode", Arity::Unary(),
-                                                      dictionary_encode_doc);
+                                                      &dictionary_encode_doc);
   AddHashKernels<DictEncodeAction>(dict_encode.get(), base, OutputType(DictEncodeOutput));
 
   // Calling dictionary_encode on dictionary input not supported, but if it

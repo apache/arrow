@@ -1853,7 +1853,7 @@ Result<std::shared_ptr<Table>> FilterTable(const Table& table, const Datum& filt
 
 static auto kDefaultFilterOptions = FilterOptions::Defaults();
 
-FunctionDoc filter_doc(
+const FunctionDoc filter_doc(
     "Filter with a boolean selection filter",
     ("The output is populated with values from the input at positions\n"
      "where the selection filter is non-zero.  Nulls in the selection filter\n"
@@ -1863,7 +1863,7 @@ FunctionDoc filter_doc(
 class FilterMetaFunction : public MetaFunction {
  public:
   FilterMetaFunction()
-      : MetaFunction("filter", Arity::Binary(), filter_doc, &kDefaultFilterOptions) {}
+      : MetaFunction("filter", Arity::Binary(), &filter_doc, &kDefaultFilterOptions) {}
 
   Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
                             const FunctionOptions* options,
@@ -1998,10 +1998,11 @@ Result<std::shared_ptr<Table>> TakeTC(const Table& table, const ChunkedArray& in
 
 static auto kDefaultTakeOptions = TakeOptions::Defaults();
 
-FunctionDoc take_doc("Select values from an input based on indices from another array",
-                     ("The output is populated with values from the input at positions\n"
-                      "given by `indices`.  Nulls in `indices` emit null in the output."),
-                     {"input", "indices"}, "TakeOptions");
+const FunctionDoc take_doc(
+    "Select values from an input based on indices from another array",
+    ("The output is populated with values from the input at positions\n"
+     "given by `indices`.  Nulls in `indices` emit null in the output."),
+    {"input", "indices"}, "TakeOptions");
 
 // Metafunction for dispatching to different Take implementations other than
 // Array-Array.
@@ -2011,7 +2012,7 @@ FunctionDoc take_doc("Select values from an input based on indices from another 
 class TakeMetaFunction : public MetaFunction {
  public:
   TakeMetaFunction()
-      : MetaFunction("take", Arity::Binary(), take_doc, &kDefaultTakeOptions) {}
+      : MetaFunction("take", Arity::Binary(), &take_doc, &kDefaultTakeOptions) {}
 
   Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
                             const FunctionOptions* options,
@@ -2081,13 +2082,13 @@ struct SelectionKernelDescr {
   ArrayKernelExec exec;
 };
 
-void RegisterSelectionFunction(const std::string& name, FunctionDoc doc,
+void RegisterSelectionFunction(const std::string& name, const FunctionDoc* doc,
                                VectorKernel base_kernel, InputType selection_type,
                                const std::vector<SelectionKernelDescr>& descrs,
                                const FunctionOptions* default_options,
                                FunctionRegistry* registry) {
-  auto func = std::make_shared<VectorFunction>(name, Arity::Binary(), std::move(doc),
-                                               default_options);
+  auto func =
+      std::make_shared<VectorFunction>(name, Arity::Binary(), doc, default_options);
   for (auto& descr : descrs) {
     base_kernel.signature = KernelSignature::Make(
         {std::move(descr.input), selection_type}, OutputType(FirstType));
@@ -2097,14 +2098,14 @@ void RegisterSelectionFunction(const std::string& name, FunctionDoc doc,
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
-FunctionDoc array_filter_doc(
+const FunctionDoc array_filter_doc(
     "Filter with a boolean selection filter",
     ("The output is populated with values from the input `array` at positions\n"
      "where the selection filter is non-zero.  Nulls in the selection filter\n"
      "are handled based on FilterOptions."),
     {"array", "selection_filter"}, "FilterOptions");
 
-FunctionDoc array_take_doc(
+const FunctionDoc array_take_doc(
     "Select values from an array based on indices from another array",
     ("The output is populated with values from the input array at positions\n"
      "given by `indices`.  Nulls in `indices` emit null in the output."),
@@ -2133,7 +2134,7 @@ void RegisterVectorSelection(FunctionRegistry* registry) {
 
   VectorKernel filter_base;
   filter_base.init = FilterState::Init;
-  RegisterSelectionFunction("array_filter", array_filter_doc, filter_base,
+  RegisterSelectionFunction("array_filter", &array_filter_doc, filter_base,
                             /*selection_type=*/InputType::Array(boolean()),
                             filter_kernel_descrs, &kDefaultFilterOptions, registry);
 
@@ -2163,7 +2164,7 @@ void RegisterVectorSelection(FunctionRegistry* registry) {
   take_base.init = TakeState::Init;
   take_base.can_execute_chunkwise = false;
   RegisterSelectionFunction(
-      "array_take", array_take_doc, take_base,
+      "array_take", &array_take_doc, take_base,
       /*selection_type=*/InputType(match::Integer(), ValueDescr::ARRAY),
       take_kernel_descrs, &kDefaultTakeOptions, registry);
 

@@ -30,7 +30,6 @@ from pyarrow.lib import frombytes, tobytes
 from pyarrow.includes.libarrow_dataset cimport *
 from pyarrow._fs cimport FileSystem, FileInfo, FileSelector
 from pyarrow._csv cimport ParseOptions
-from pyarrow._compute cimport CastOptions
 from pyarrow.util import _is_path_like, _stringify_path
 
 from pyarrow._parquet cimport (
@@ -202,11 +201,13 @@ cdef class Expression(_Weakrefable):
 
     def cast(self, type, bint safe=True):
         """Explicitly change the expression's data type"""
-        cdef CastOptions options
-        options = CastOptions.safe() if safe else CastOptions.unsafe()
+        cdef CCastOptions options
+        if safe:
+            options = CCastOptions.Safe()
+        else:
+            options = CCastOptions.Unsafe()
         c_type = pyarrow_unwrap_data_type(ensure_type(type))
-        return Expression.wrap(self.expr.CastTo(c_type,
-                                                options.unwrap()).Copy())
+        return Expression.wrap(self.expr.CastTo(c_type, options).Copy())
 
     def isin(self, values):
         """Checks whether the expression is contained in values"""

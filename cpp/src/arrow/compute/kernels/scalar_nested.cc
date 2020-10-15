@@ -52,7 +52,7 @@ void ListValueLength(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   }
 }
 
-FunctionDoc list_value_length_doc{
+const FunctionDoc list_value_length_doc{
     "Compute list lengths",
     ("`lists` must have a list-like type.\n"
      "For each non-null value in `lists`, its length is emitted.\n"
@@ -63,7 +63,7 @@ FunctionDoc list_value_length_doc{
 
 void RegisterScalarNested(FunctionRegistry* registry) {
   auto list_value_length = std::make_shared<ScalarFunction>(
-      "list_value_length", Arity::Unary(), list_value_length_doc);
+      "list_value_length", Arity::Unary(), &list_value_length_doc);
   DCHECK_OK(list_value_length->AddKernel({InputType(Type::LIST)}, int32(),
                                          ListValueLength<ListType>));
   DCHECK_OK(list_value_length->AddKernel({InputType(Type::LARGE_LIST)}, int64(),

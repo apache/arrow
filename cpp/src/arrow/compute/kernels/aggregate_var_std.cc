@@ -180,21 +180,21 @@ void AddVarStdKernels(KernelInit init,
   }
 }
 
-FunctionDoc stddev_doc{
+const FunctionDoc stddev_doc{
     "Calculate the standard deviation of a numeric array",
     ("The number of degrees of freedom can be controlled using VarianceOptions.\n"
      "By default (`ddof` = 0), the population standard deviation is calculated.\n"
      "Nulls are ignored.  If there are not enough non-null values in the array\n"
-     "to satisfy `ddof`, an error is returned."),
+     "to satisfy `ddof`, null is returned."),
     {"array"},
     "VarianceOptions"};
 
-FunctionDoc variance_doc{
+const FunctionDoc variance_doc{
     "Calculate the variance of a numeric array",
     ("The number of degrees of freedom can be controlled using VarianceOptions.\n"
      "By default (`ddof` = 0), the population variance is calculated.\n"
      "Nulls are ignored.  If there are not enough non-null values in the array\n"
-     "to satisfy `ddof`, an error is returned."),
+     "to satisfy `ddof`, null is returned."),
     {"array"},
     "VarianceOptions"};
 
@@ -202,8 +202,8 @@ FunctionDoc variance_doc{
 
 std::shared_ptr<ScalarAggregateFunction> AddStddevAggKernels() {
   static auto default_std_options = VarianceOptions::Defaults();
-  auto func = std::make_shared<ScalarAggregateFunction>("stddev", Arity::Unary(),
-                                                        stddev_doc, &default_std_options);
+  auto func = std::make_shared<ScalarAggregateFunction>(
+      "stddev", Arity::Unary(), &stddev_doc, &default_std_options);
   AddVarStdKernels(StddevInit, internal::NumericTypes(), func.get());
   return func;
 }
@@ -211,7 +211,7 @@ std::shared_ptr<ScalarAggregateFunction> AddStddevAggKernels() {
 std::shared_ptr<ScalarAggregateFunction> AddVarianceAggKernels() {
   static auto default_var_options = VarianceOptions::Defaults();
   auto func = std::make_shared<ScalarAggregateFunction>(
-      "variance", Arity::Unary(), variance_doc, &default_var_options);
+      "variance", Arity::Unary(), &variance_doc, &default_var_options);
   AddVarStdKernels(VarianceInit, internal::NumericTypes(), func.get());
   return func;
 }

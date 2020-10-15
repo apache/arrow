@@ -399,7 +399,8 @@ void AddBasicSetLookupKernels(ScalarKernel kernel,
 // Enables calling is_in with CallFunction as though it were binary.
 class IsInMetaBinary : public MetaFunction {
  public:
-  IsInMetaBinary() : MetaFunction("is_in_meta_binary", Arity::Binary(), FunctionDoc{}) {}
+  IsInMetaBinary()
+      : MetaFunction("is_in_meta_binary", Arity::Binary(), /*doc=*/nullptr) {}
 
   Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
                             const FunctionOptions* options,
@@ -415,7 +416,7 @@ class IsInMetaBinary : public MetaFunction {
 class IndexInMetaBinary : public MetaFunction {
  public:
   IndexInMetaBinary()
-      : MetaFunction("index_in_meta_binary", Arity::Binary(), FunctionDoc{}) {}
+      : MetaFunction("index_in_meta_binary", Arity::Binary(), /*doc=*/nullptr) {}
 
   Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
                             const FunctionOptions* options,
@@ -427,7 +428,7 @@ class IndexInMetaBinary : public MetaFunction {
   }
 };
 
-FunctionDoc is_in_doc{
+const FunctionDoc is_in_doc{
     "Find each element in a set of values",
     ("For each element in `values`, return true if it is found in a given\n"
      "set of values.  The set of values to look for must be given in\n"
@@ -435,7 +436,7 @@ FunctionDoc is_in_doc{
     {"values"},
     "SetLookupOptions"};
 
-FunctionDoc index_in_doc{
+const FunctionDoc index_in_doc{
     "Return index of each element in a set of values",
     ("For each element in `values`, return its index in a given set of\n"
      "values, or null if it is not found there.\n"
@@ -451,7 +452,7 @@ void RegisterScalarSetLookup(FunctionRegistry* registry) {
     ScalarKernel isin_base;
     isin_base.init = InitSetLookup;
     isin_base.exec = ExecIsIn;
-    auto is_in = std::make_shared<ScalarFunction>("is_in", Arity::Unary(), is_in_doc);
+    auto is_in = std::make_shared<ScalarFunction>("is_in", Arity::Unary(), &is_in_doc);
 
     AddBasicSetLookupKernels(isin_base, /*output_type=*/boolean(), is_in.get());
 
@@ -471,7 +472,7 @@ void RegisterScalarSetLookup(FunctionRegistry* registry) {
     index_in_base.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
     index_in_base.mem_allocation = MemAllocation::NO_PREALLOCATE;
     auto index_in =
-        std::make_shared<ScalarFunction>("index_in", Arity::Unary(), index_in_doc);
+        std::make_shared<ScalarFunction>("index_in", Arity::Unary(), &index_in_doc);
 
     AddBasicSetLookupKernels(index_in_base, /*output_type=*/int32(), index_in.get());
 
