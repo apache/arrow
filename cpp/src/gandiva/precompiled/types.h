@@ -132,11 +132,15 @@ gdv_int64 div_int64_int64(gdv_int64 context, gdv_int64 in1, gdv_int64 in2);
 gdv_float32 div_float32_float32(gdv_int64 context, gdv_float32 in1, gdv_float32 in2);
 gdv_float64 div_float64_float64(gdv_int64 context, gdv_float64 in1, gdv_float64 in2);
 
+gdv_float32 round_float32(gdv_float32);
+gdv_float64 round_float64(gdv_float64);
 gdv_float32 round_float32_int32(gdv_float32 number, gdv_int32 out_scale);
 gdv_float64 round_float64_int32(gdv_float64 number, gdv_int32 out_scale);
 gdv_float64 get_scale_multiplier(gdv_int32);
 gdv_int32 round_int32_int32(gdv_int32 number, gdv_int32 precision);
 gdv_int64 round_int64_int32(gdv_int64 number, gdv_int32 precision);
+gdv_int32 round_int32(gdv_int32);
+gdv_int64 round_int64(gdv_int64);
 gdv_int64 get_power_of_10(gdv_int32);
 
 gdv_float64 cbrt_int32(gdv_int32);
