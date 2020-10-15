@@ -2,4 +2,6 @@ steps:
   - label: "Example Test"
     command: echo "Hello!"
   - label: "Example Test"
-    command: echo "Hello!"
+    command: echo "Hello 2!"
+  - label: "Example Test"
+    command: echo "Hello 3!"
