@@ -28,6 +28,12 @@ jobs:
   verify:
     name: "Verify release candidate Windows source"
     runs-on: windows-2016
+    {%- if env is defined %}
+    env:
+    {%- for key, value in env.items() %}
+      {{ key }}: {{ value }}
+    {%- endfor %}
+    {%- endif %}
     steps:
       - name: Checkout Arrow
         run: |

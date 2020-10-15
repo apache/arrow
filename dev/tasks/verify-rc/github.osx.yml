@@ -28,6 +28,12 @@ jobs:
   verify:
     name: "Verify release candidate macOS {{ artifact }} {{ flag }}"
     runs-on: macos-latest
+    {%- if env is defined %}
+    env:
+    {%- for key, value in env.items() %}
+      {{ key }}: {{ value }}
+    {%- endfor %}
+    {%- endif %}
     steps:
       - name: Checkout Arrow
         run: |
@@ -49,12 +55,7 @@ jobs:
           node-version: '14'
       - name: Run verification
         shell: bash
-        env:
-          TEST_DEFAULT: 0
-          INSTALL_NODE: 0
-          # https://stackoverflow.com/questions/56083725/macos-build-issues-lstdc-not-found-while-building-python-package
-          MACOSX_DEPLOYMENT_TARGET: "10.9"
         run: |
-          {{ flag }} arrow/dev/release/verify-release-candidate.sh \
+          arrow/dev/release/verify-release-candidate.sh \
             {{ artifact }} \
             {{ release|default("1.0.0") }} {{ rc|default("0") }}
