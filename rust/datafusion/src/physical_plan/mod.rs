@@ -17,19 +17,33 @@
 
 //! Traits for physical query plan, supporting parallel execution for partitioned relations.
 
-use std::any::Any;
 use std::fmt::{Debug, Display};
 use std::sync::Arc;
+use std::{any::Any, pin::Pin};
+
+use async_trait::async_trait;
+use futures::Future;
 
 use crate::execution::context::ExecutionContextState;
 use crate::logical_plan::LogicalPlan;
 use crate::{error::Result, scalar::ScalarValue};
 use arrow::datatypes::{DataType, Schema, SchemaRef};
-use arrow::record_batch::{RecordBatch, RecordBatchReader};
+use arrow::error::Result as ArrowResult;
+use arrow::record_batch::RecordBatch;
 use arrow::{array::ArrayRef, datatypes::Field};
 
-use async_trait::async_trait;
-type SendableRecordBatchReader = Box<dyn RecordBatchReader + Send>;
+/// Represents a future RecordBatch that can be executed
+pub type FutureRecordBatch =
+    Pin<Box<dyn Future<Output = ArrowResult<RecordBatch>> + Send>>;
+
+/// Represents an iterator of future RecordBatches
+pub trait FutureRecordBatchIterator: Iterator<Item = FutureRecordBatch> {
+    /// The expected schema of the end result
+    fn schema(&self) -> SchemaRef;
+}
+
+/// Represents a dynamically-typed iterator of future RecordBatches
+pub type DynFutureRecordBatchIterator = Box<dyn FutureRecordBatchIterator + Send>;
 
 /// Physical query planner that converts a `LogicalPlan` to an
 /// `ExecutionPlan` suitable for execution.
@@ -68,7 +82,7 @@ pub trait ExecutionPlan: Debug + Send + Sync {
     ) -> Result<Arc<dyn ExecutionPlan>>;
 
     /// creates an iterator
-    async fn execute(&self, partition: usize) -> Result<SendableRecordBatchReader>;
+    async fn execute(&self, partition: usize) -> Result<DynFutureRecordBatchIterator>;
 }
 
 /// Partitioning schemes supported by operators.

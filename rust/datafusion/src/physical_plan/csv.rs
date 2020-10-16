@@ -21,16 +21,17 @@ use std::any::Any;
 use std::fs::File;
 use std::sync::Arc;
 
+use async_trait::async_trait;
+
+use arrow::csv;
+use arrow::datatypes::{Schema, SchemaRef};
+
 use crate::error::{ExecutionError, Result};
 use crate::physical_plan::ExecutionPlan;
 use crate::physical_plan::{common, Partitioning};
-use arrow::csv;
-use arrow::datatypes::{Schema, SchemaRef};
-use arrow::error::Result as ArrowResult;
-use arrow::record_batch::{RecordBatch, RecordBatchReader};
-
-use super::SendableRecordBatchReader;
-use async_trait::async_trait;
+use crate::physical_plan::{
+    DynFutureRecordBatchIterator, FutureRecordBatch, FutureRecordBatchIterator,
+};
 
 /// CSV file read option
 #[derive(Copy, Clone)]
@@ -218,7 +219,7 @@ impl ExecutionPlan for CsvExec {
         }
     }
 
-    async fn execute(&self, partition: usize) -> Result<SendableRecordBatchReader> {
+    async fn execute(&self, partition: usize) -> Result<DynFutureRecordBatchIterator> {
         Ok(Box::new(CsvIterator::try_new(
             &self.filenames[partition],
             self.schema.clone(),
@@ -261,14 +262,17 @@ impl CsvIterator {
 }
 
 impl Iterator for CsvIterator {
-    type Item = ArrowResult<RecordBatch>;
+    type Item = FutureRecordBatch;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.reader.next()
+        match self.reader.next() {
+            Some(maybe_batch) => Some(Box::pin(async { maybe_batch })),
+            None => None,
+        }
     }
 }
 
-impl RecordBatchReader for CsvIterator {
+impl FutureRecordBatchIterator for CsvIterator {
     /// Get the schema
     fn schema(&self) -> SchemaRef {
         self.reader.schema()
@@ -296,7 +300,7 @@ mod tests {
         assert_eq!(3, csv.projected_schema.fields().len());
         assert_eq!(3, csv.schema().fields().len());
         let mut it = csv.execute(0).await?;
-        let batch = it.next().unwrap()?;
+        let batch = it.next().unwrap().await?;
         assert_eq!(3, batch.num_columns());
         let batch_schema = batch.schema();
         assert_eq!(3, batch_schema.fields().len());
@@ -318,7 +322,7 @@ mod tests {
         assert_eq!(13, csv.projected_schema.fields().len());
         assert_eq!(13, csv.schema().fields().len());
         let mut it = csv.execute(0).await?;
-        let batch = it.next().unwrap()?;
+        let batch = it.next().unwrap().await?;
         assert_eq!(13, batch.num_columns());
         let batch_schema = batch.schema();
         assert_eq!(13, batch_schema.fields().len());

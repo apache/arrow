@@ -22,15 +22,12 @@
 use std::sync::Arc;
 
 use arrow::datatypes::{Field, Schema, SchemaRef};
-use arrow::error::Result as ArrowResult;
 use arrow::record_batch::RecordBatch;
 
-use crate::datasource::TableProvider;
 use crate::error::{ExecutionError, Result};
 use crate::physical_plan::memory::MemoryExec;
 use crate::physical_plan::ExecutionPlan;
-
-use tokio::task::{self, JoinHandle};
+use crate::{datasource::TableProvider, physical_plan::common};
 
 /// In-memory table
 pub struct MemTable {
@@ -63,25 +60,25 @@ impl MemTable {
         let exec = t.scan(&None, batch_size)?;
         let partition_count = exec.output_partitioning().partition_count();
 
-        let mut tasks = Vec::with_capacity(partition_count);
-        for partition in 0..partition_count {
-            let exec = exec.clone();
-            let task: JoinHandle<Result<Vec<RecordBatch>>> = task::spawn(async move {
-                let it = exec.execute(partition).await?;
-                it.into_iter()
-                    .collect::<ArrowResult<Vec<RecordBatch>>>()
-                    .map_err(ExecutionError::from)
-            });
-            tasks.push(task)
-        }
+        let tasks = (0..partition_count)
+            .map(|part_i| {
+                let exec = exec.clone();
+                tokio::spawn(async move {
+                    let it = exec.execute(part_i).await?;
+                    common::collect(it).await
+                })
+            })
+            // this collect *is needed* so that the join below can
+            // switch between tasks
+            .collect::<Vec<_>>();
 
-        let mut data: Vec<Vec<RecordBatch>> = Vec::with_capacity(partition_count);
+        let mut combined_results = vec![];
         for task in tasks {
-            let result = task.await.expect("MemTable::load could not join task")?;
-            data.push(result);
+            let result = task.await.unwrap()?;
+            combined_results.push(result);
         }
 
-        MemTable::new(schema.clone(), data)
+        MemTable::new(schema.clone(), combined_results)
     }
 }
 
@@ -158,7 +155,7 @@ mod tests {
         // scan with projection
         let exec = provider.scan(&Some(vec![2, 1]), 1024)?;
         let mut it = exec.execute(0).await?;
-        let batch2 = it.next().unwrap()?;
+        let batch2 = it.next().unwrap().await?;
         assert_eq!(2, batch2.schema().fields().len());
         assert_eq!("c", batch2.schema().field(0).name());
         assert_eq!("b", batch2.schema().field(1).name());
@@ -188,7 +185,7 @@ mod tests {
 
         let exec = provider.scan(&None, 1024)?;
         let mut it = exec.execute(0).await?;
-        let batch1 = it.next().unwrap()?;
+        let batch1 = it.next().unwrap().await?;
         assert_eq!(3, batch1.schema().fields().len());
         assert_eq!(3, batch1.num_columns());
 

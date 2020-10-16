@@ -20,14 +20,14 @@
 use std::any::Any;
 use std::sync::Arc;
 
-use crate::error::{ExecutionError, Result};
-use crate::physical_plan::memory::MemoryIterator;
-use crate::physical_plan::{Distribution, ExecutionPlan, Partitioning};
+use async_trait::async_trait;
+
 use arrow::datatypes::SchemaRef;
 
-use super::SendableRecordBatchReader;
-
-use async_trait::async_trait;
+use crate::error::{ExecutionError, Result};
+use crate::physical_plan::memory::MemoryIterator;
+use crate::physical_plan::DynFutureRecordBatchIterator;
+use crate::physical_plan::{Distribution, ExecutionPlan, Partitioning};
 
 /// Execution plan for empty relation (produces no rows)
 #[derive(Debug)]
@@ -78,7 +78,7 @@ impl ExecutionPlan for EmptyExec {
         }
     }
 
-    async fn execute(&self, partition: usize) -> Result<SendableRecordBatchReader> {
+    async fn execute(&self, partition: usize) -> Result<DynFutureRecordBatchIterator> {
         // GlobalLimitExec has a single output partition
         if 0 != partition {
             return Err(ExecutionError::General(format!(
@@ -87,9 +87,8 @@ impl ExecutionPlan for EmptyExec {
             )));
         }
 
-        let data = vec![];
         Ok(Box::new(MemoryIterator::try_new(
-            data,
+            vec![],
             self.schema.clone(),
             None,
         )?))
@@ -111,7 +110,7 @@ mod tests {
 
         // we should have no results
         let iter = empty.execute(0).await?;
-        let batches = common::collect(iter)?;
+        let batches = common::collect(iter).await?;
         assert!(batches.is_empty());
 
         Ok(())

@@ -20,14 +20,16 @@
 use std::any::Any;
 use std::sync::Arc;
 
-use crate::error::{ExecutionError, Result};
-use crate::physical_plan::{ExecutionPlan, Partitioning};
-use arrow::datatypes::SchemaRef;
-use arrow::error::Result as ArrowResult;
-use arrow::record_batch::{RecordBatch, RecordBatchReader};
-
-use super::SendableRecordBatchReader;
 use async_trait::async_trait;
+
+use arrow::datatypes::SchemaRef;
+use arrow::record_batch::RecordBatch;
+
+use crate::error::{ExecutionError, Result};
+use crate::physical_plan::{
+    DynFutureRecordBatchIterator, FutureRecordBatch, FutureRecordBatchIterator,
+};
+use crate::physical_plan::{ExecutionPlan, Partitioning};
 
 /// Execution plan for reading in-memory batches of data
 #[derive(Debug)]
@@ -72,7 +74,7 @@ impl ExecutionPlan for MemoryExec {
         )))
     }
 
-    async fn execute(&self, partition: usize) -> Result<SendableRecordBatchReader> {
+    async fn execute(&self, partition: usize) -> Result<DynFutureRecordBatchIterator> {
         Ok(Box::new(MemoryIterator::try_new(
             self.partitions[partition].clone(),
             self.schema.clone(),
@@ -103,7 +105,7 @@ pub(crate) struct MemoryIterator {
     /// Schema representing the data
     schema: SchemaRef,
     /// Optional projection for which columns to load
-    projection: Option<Vec<usize>>,
+    projection: Option<Arc<Vec<usize>>>,
     /// Index into the data
     index: usize,
 }
@@ -118,26 +120,33 @@ impl MemoryIterator {
         Ok(Self {
             data: data.clone(),
             schema: schema.clone(),
-            projection,
+            projection: projection.map(|e| Arc::new(e)),
             index: 0,
         })
     }
 }
 
 impl Iterator for MemoryIterator {
-    type Item = ArrowResult<RecordBatch>;
+    type Item = FutureRecordBatch;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.index < self.data.len() {
             self.index += 1;
-            let batch = &self.data[self.index - 1];
+            let batch = self.data[self.index - 1].clone();
             // apply projection
+            let schema = self.schema.clone();
+
             match &self.projection {
-                Some(columns) => Some(RecordBatch::try_new(
-                    self.schema.clone(),
-                    columns.iter().map(|i| batch.column(*i).clone()).collect(),
-                )),
-                None => Some(Ok(batch.clone())),
+                Some(columns) => {
+                    let columns = columns.clone();
+                    Some(Box::pin(async move {
+                        RecordBatch::try_new(
+                            schema,
+                            columns.iter().map(|i| batch.column(*i).clone()).collect(),
+                        )
+                    }))
+                }
+                None => Some(Box::pin(async { Ok(batch) })),
             }
         } else {
             None
@@ -145,8 +154,7 @@ impl Iterator for MemoryIterator {
     }
 }
 
-impl RecordBatchReader for MemoryIterator {
-    /// Get the schema
+impl FutureRecordBatchIterator for MemoryIterator {
     fn schema(&self) -> SchemaRef {
         self.schema.clone()
     }

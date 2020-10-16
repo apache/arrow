@@ -25,7 +25,6 @@ use std::sync::Arc;
 
 use arrow::csv;
 use arrow::datatypes::*;
-use arrow::error::Result as ArrowResult;
 use arrow::record_batch::RecordBatch;
 
 use crate::datasource::csv::CsvFile;
@@ -328,14 +327,14 @@ impl ExecutionContext {
             0 => Ok(vec![]),
             1 => {
                 let it = plan.execute(0).await?;
-                common::collect(it)
+                common::collect(it).await
             }
             _ => {
                 // merge into a single partition
                 let plan = MergeExec::new(plan.clone());
                 // MergeExec must produce a single partition
                 assert_eq!(1, plan.output_partitioning().partition_count());
-                common::collect(plan.execute(0).await?)
+                common::collect(plan.execute(0).await?).await
             }
         }
     }
@@ -359,11 +358,10 @@ impl ExecutionContext {
             let mut writer = csv::Writer::new(file);
             let reader = plan.execute(i).await?;
 
-            reader
-                .into_iter()
-                .map(|batch| writer.write(&batch?))
-                .collect::<ArrowResult<_>>()
-                .map_err(|e| ExecutionError::from(e))?
+            for future in reader {
+                let batch = future.await?;
+                writer.write(&batch).map_err(|e| ExecutionError::from(e))?
+            }
         }
         Ok(())
     }

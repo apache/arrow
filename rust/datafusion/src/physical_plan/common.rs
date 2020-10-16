@@ -21,8 +21,7 @@ use std::fs;
 use std::fs::metadata;
 use std::sync::Arc;
 
-use super::SendableRecordBatchReader;
-use crate::error::{ExecutionError, Result};
+use futures::future::try_join_all;
 
 use array::{
     BooleanArray, Float32Array, Float64Array, Int16Array, Int32Array, Int64Array,
@@ -31,10 +30,15 @@ use array::{
 };
 use arrow::datatypes::{DataType, SchemaRef};
 use arrow::error::Result as ArrowResult;
-use arrow::record_batch::{RecordBatch, RecordBatchReader};
+use arrow::record_batch::RecordBatch;
 use arrow::{
     array::{self, ArrayRef},
     datatypes::Schema,
+};
+
+use crate::error::{ExecutionError, Result};
+use crate::physical_plan::{
+    DynFutureRecordBatchIterator, FutureRecordBatch, FutureRecordBatchIterator,
 };
 
 /// Iterator over a vector of record batches
@@ -56,29 +60,28 @@ impl RecordBatchIterator {
 }
 
 impl Iterator for RecordBatchIterator {
-    type Item = ArrowResult<RecordBatch>;
+    type Item = FutureRecordBatch;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.index < self.batches.len() {
             self.index += 1;
-            Some(Ok(self.batches[self.index - 1].as_ref().clone()))
+            let batch = self.batches[self.index - 1].as_ref().clone();
+            Some(Box::pin(async { Ok(batch) }))
         } else {
             None
         }
     }
 }
 
-impl RecordBatchReader for RecordBatchIterator {
+impl FutureRecordBatchIterator for RecordBatchIterator {
     fn schema(&self) -> SchemaRef {
         self.schema.clone()
     }
 }
 
 /// Create a vector of record batches from an iterator
-pub fn collect(it: SendableRecordBatchReader) -> Result<Vec<RecordBatch>> {
-    it.into_iter()
-        .collect::<ArrowResult<Vec<_>>>()
-        .map_err(|e| ExecutionError::from(e))
+pub async fn collect(it: DynFutureRecordBatchIterator) -> Result<Vec<RecordBatch>> {
+    try_join_all(it).await.map_err(|e| ExecutionError::from(e))
 }
 
 /// Recursively build a list of files in a directory with a given extension

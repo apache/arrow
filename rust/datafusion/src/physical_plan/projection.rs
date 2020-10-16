@@ -23,14 +23,18 @@
 use std::any::Any;
 use std::sync::Arc;
 
-use crate::error::{ExecutionError, Result};
-use crate::physical_plan::{ExecutionPlan, Partitioning, PhysicalExpr};
+use async_trait::async_trait;
+use futures::FutureExt;
+
 use arrow::datatypes::{Field, Schema, SchemaRef};
 use arrow::error::Result as ArrowResult;
-use arrow::record_batch::{RecordBatch, RecordBatchReader};
+use arrow::record_batch::RecordBatch;
 
-use super::SendableRecordBatchReader;
-use async_trait::async_trait;
+use crate::error::{ExecutionError, Result};
+use crate::physical_plan::{
+    DynFutureRecordBatchIterator, FutureRecordBatch, FutureRecordBatchIterator,
+};
+use crate::physical_plan::{ExecutionPlan, Partitioning, PhysicalExpr};
 
 /// Execution plan for a projection
 #[derive(Debug)]
@@ -108,7 +112,7 @@ impl ExecutionPlan for ProjectionExec {
         }
     }
 
-    async fn execute(&self, partition: usize) -> Result<SendableRecordBatchReader> {
+    async fn execute(&self, partition: usize) -> Result<DynFutureRecordBatchIterator> {
         Ok(Box::new(ProjectionIterator {
             schema: self.schema.clone(),
             expr: self.expr.iter().map(|x| x.0.clone()).collect(),
@@ -121,30 +125,47 @@ impl ExecutionPlan for ProjectionExec {
 struct ProjectionIterator {
     schema: SchemaRef,
     expr: Vec<Arc<dyn PhysicalExpr>>,
-    input: SendableRecordBatchReader,
+    input: DynFutureRecordBatchIterator,
+}
+
+fn project_batch(
+    expr: Vec<Arc<dyn PhysicalExpr>>,
+    batch: RecordBatch,
+    schema: SchemaRef,
+) -> ArrowResult<RecordBatch> {
+    expr.iter()
+        .map(|expr| expr.evaluate(&batch))
+        .collect::<Result<Vec<_>>>()
+        .map_or_else(
+            |e| Err(ExecutionError::into_arrow_external_error(e)),
+            |arrays| RecordBatch::try_new(schema.clone(), arrays),
+        )
 }
 
 impl Iterator for ProjectionIterator {
-    type Item = ArrowResult<RecordBatch>;
+    type Item = FutureRecordBatch;
 
     fn next(&mut self) -> Option<Self::Item> {
         match self.input.next() {
-            Some(Ok(batch)) => Some(
-                self.expr
-                    .iter()
-                    .map(|expr| expr.evaluate(&batch))
-                    .collect::<Result<Vec<_>>>()
-                    .map_or_else(
-                        |e| Err(ExecutionError::into_arrow_external_error(e)),
-                        |arrays| RecordBatch::try_new(self.schema.clone(), arrays),
-                    ),
-            ),
+            Some(future_batch) => {
+                let schema = self.schema.clone();
+                let expr = self.expr.clone();
+                let task = future_batch
+                    .then(|maybe_batch| {
+                        tokio::spawn(
+                            async move { project_batch(expr, maybe_batch?, schema) },
+                        )
+                    })
+                    .then(|e| async move { e.unwrap() });
+
+                Some(Box::pin(task))
+            }
             other => other,
         }
     }
 }
 
-impl RecordBatchReader for ProjectionIterator {
+impl FutureRecordBatchIterator for ProjectionIterator {
     /// Get the schema
     fn schema(&self) -> SchemaRef {
         self.schema.clone()
@@ -158,6 +179,8 @@ mod tests {
     use crate::physical_plan::csv::{CsvExec, CsvReadOptions};
     use crate::physical_plan::expressions::col;
     use crate::test;
+
+    use futures::future::join_all;
 
     #[tokio::test]
     async fn project_first_column() -> Result<()> {
@@ -179,7 +202,9 @@ mod tests {
             partition_count += 1;
             let iterator = projection.execute(partition).await?;
 
-            row_count += iterator
+            let batch = join_all(iterator).await;
+
+            row_count += batch
                 .into_iter()
                 .map(|batch| {
                     let batch = batch.unwrap();

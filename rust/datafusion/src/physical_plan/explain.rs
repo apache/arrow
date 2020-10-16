@@ -20,17 +20,17 @@
 use std::any::Any;
 use std::sync::Arc;
 
+use async_trait::async_trait;
+
+use arrow::{array::StringBuilder, datatypes::SchemaRef, record_batch::RecordBatch};
+
 use crate::error::{ExecutionError, Result};
+use crate::physical_plan::DynFutureRecordBatchIterator;
+use crate::physical_plan::Partitioning;
 use crate::{
     logical_plan::StringifiedPlan,
     physical_plan::{common::RecordBatchIterator, ExecutionPlan},
 };
-use arrow::{array::StringBuilder, datatypes::SchemaRef, record_batch::RecordBatch};
-
-use crate::physical_plan::Partitioning;
-
-use super::SendableRecordBatchReader;
-use async_trait::async_trait;
 
 /// Explain execution plan operator. This operator contains the string
 /// values of the various plans it has when it is created, and passes
@@ -89,7 +89,7 @@ impl ExecutionPlan for ExplainExec {
         }
     }
 
-    async fn execute(&self, partition: usize) -> Result<SendableRecordBatchReader> {
+    async fn execute(&self, partition: usize) -> Result<DynFutureRecordBatchIterator> {
         if 0 != partition {
             return Err(ExecutionError::General(format!(
                 "ExplainExec invalid partition {}",

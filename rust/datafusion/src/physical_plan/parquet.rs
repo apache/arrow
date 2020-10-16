@@ -23,20 +23,22 @@ use std::rc::Rc;
 use std::sync::Arc;
 use std::{fmt, thread};
 
-use crate::error::{ExecutionError, Result};
-use crate::physical_plan::ExecutionPlan;
-use crate::physical_plan::{common, Partitioning};
+use async_trait::async_trait;
+
 use arrow::datatypes::{Schema, SchemaRef};
 use arrow::error::{ArrowError, Result as ArrowResult};
-use arrow::record_batch::{RecordBatch, RecordBatchReader};
-use parquet::file::reader::SerializedFileReader;
-
+use arrow::record_batch::RecordBatch;
 use crossbeam::channel::{bounded, Receiver, RecvError, Sender};
 use fmt::Debug;
 use parquet::arrow::{ArrowReader, ParquetFileArrowReader};
+use parquet::file::reader::SerializedFileReader;
 
-use super::SendableRecordBatchReader;
-use async_trait::async_trait;
+use crate::error::{ExecutionError, Result};
+use crate::physical_plan::ExecutionPlan;
+use crate::physical_plan::{common, Partitioning};
+use crate::physical_plan::{
+    DynFutureRecordBatchIterator, FutureRecordBatch, FutureRecordBatchIterator,
+};
 
 /// Execution plan for scanning a Parquet file
 #[derive(Debug, Clone)]
@@ -125,7 +127,7 @@ impl ExecutionPlan for ParquetExec {
         }
     }
 
-    async fn execute(&self, partition: usize) -> Result<SendableRecordBatchReader> {
+    async fn execute(&self, partition: usize) -> Result<DynFutureRecordBatchIterator> {
         // because the parquet implementation is not thread-safe, it is necessary to execute
         // on a thread and communicate with channels
         let (response_tx, response_rx): (
@@ -143,12 +145,10 @@ impl ExecutionPlan for ParquetExec {
             }
         });
 
-        let iterator = Box::new(ParquetIterator {
+        Ok(Box::new(ParquetIterator {
             schema: self.schema.clone(),
             response_rx,
-        });
-
-        Ok(iterator)
+        }))
     }
 }
 
@@ -203,18 +203,20 @@ struct ParquetIterator {
 }
 
 impl Iterator for ParquetIterator {
-    type Item = ArrowResult<RecordBatch>;
+    type Item = FutureRecordBatch;
 
     fn next(&mut self) -> Option<Self::Item> {
+        // not very elegant...
         match self.response_rx.recv() {
-            Ok(batch) => batch,
+            Ok(Some(batch)) => Some(Box::pin(async { batch })),
+            Ok(None) => None,
             // RecvError means receiver has exited and closed the channel
             Err(RecvError) => None,
         }
     }
 }
 
-impl RecordBatchReader for ParquetIterator {
+impl FutureRecordBatchIterator for ParquetIterator {
     fn schema(&self) -> SchemaRef {
         self.schema.clone()
     }
@@ -234,7 +236,7 @@ mod tests {
         assert_eq!(parquet_exec.output_partitioning().partition_count(), 1);
 
         let mut results = parquet_exec.execute(0).await?;
-        let batch = results.next().unwrap()?;
+        let batch = results.next().unwrap().await?;
 
         assert_eq!(8, batch.num_rows());
         assert_eq!(3, batch.num_columns());

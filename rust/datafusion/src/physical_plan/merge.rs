@@ -21,18 +21,17 @@
 use std::any::Any;
 use std::sync::Arc;
 
-use crate::error::{ExecutionError, Result};
-use crate::physical_plan::common::RecordBatchIterator;
-use crate::physical_plan::Partitioning;
-use crate::physical_plan::{common, ExecutionPlan};
-
 use arrow::datatypes::SchemaRef;
 use arrow::record_batch::RecordBatch;
 
-use super::SendableRecordBatchReader;
-
 use async_trait::async_trait;
 use tokio;
+
+use crate::error::{ExecutionError, Result};
+use crate::physical_plan::common::RecordBatchIterator;
+use crate::physical_plan::DynFutureRecordBatchIterator;
+use crate::physical_plan::Partitioning;
+use crate::physical_plan::{common, ExecutionPlan};
 
 /// Merge execution plan executes partitions in parallel and combines them into a single
 /// partition. No guarantees are made about the order of the resulting partition.
@@ -81,7 +80,7 @@ impl ExecutionPlan for MergeExec {
         }
     }
 
-    async fn execute(&self, partition: usize) -> Result<SendableRecordBatchReader> {
+    async fn execute(&self, partition: usize) -> Result<DynFutureRecordBatchIterator> {
         // MergeExec produces a single partition
         if 0 != partition {
             return Err(ExecutionError::General(format!(
@@ -105,7 +104,7 @@ impl ExecutionPlan for MergeExec {
                         let input = self.input.clone();
                         tokio::spawn(async move {
                             let it = input.execute(part_i).await?;
-                            common::collect(it)
+                            common::collect(it).await
                         })
                     })
                     // this collect *is needed* so that the join below can
@@ -158,7 +157,7 @@ mod tests {
 
         // the result should contain 4 batches (one per input partition)
         let iter = merge.execute(0).await?;
-        let batches = common::collect(iter)?;
+        let batches = common::collect(iter).await?;
         assert_eq!(batches.len(), num_partitions);
 
         // there should be a total of 100 rows

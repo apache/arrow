@@ -21,16 +21,20 @@
 use std::any::Any;
 use std::sync::Arc;
 
-use super::SendableRecordBatchReader;
-use crate::error::{ExecutionError, Result};
-use crate::physical_plan::{ExecutionPlan, Partitioning, PhysicalExpr};
+use async_trait::async_trait;
+use futures::FutureExt;
+
 use arrow::array::BooleanArray;
 use arrow::compute::filter;
 use arrow::datatypes::{DataType, SchemaRef};
 use arrow::error::Result as ArrowResult;
-use arrow::record_batch::{RecordBatch, RecordBatchReader};
+use arrow::record_batch::RecordBatch;
 
-use async_trait::async_trait;
+use crate::error::{ExecutionError, Result};
+use crate::physical_plan::{
+    DynFutureRecordBatchIterator, FutureRecordBatch, FutureRecordBatchIterator,
+};
+use crate::physical_plan::{ExecutionPlan, Partitioning, PhysicalExpr};
 
 /// FilterExec evaluates a boolean predicate against all input batches to determine which rows to
 /// include in its output batches.
@@ -98,13 +102,43 @@ impl ExecutionPlan for FilterExec {
         }
     }
 
-    async fn execute(&self, partition: usize) -> Result<SendableRecordBatchReader> {
+    async fn execute(&self, partition: usize) -> Result<DynFutureRecordBatchIterator> {
         Ok(Box::new(FilterExecIter {
             schema: self.input.schema().clone(),
             predicate: self.predicate.clone(),
             input: self.input.execute(partition).await?,
         }))
     }
+}
+
+fn filter_batch(
+    predicate: &dyn PhysicalExpr,
+    batch: &RecordBatch,
+) -> ArrowResult<RecordBatch> {
+    predicate
+        .evaluate(&batch)
+        .map_err(ExecutionError::into_arrow_external_error)
+        .and_then(|array| {
+            array
+                .as_any()
+                .downcast_ref::<BooleanArray>()
+                .ok_or(
+                    ExecutionError::InternalError(
+                        "Filter predicate evaluated to non-boolean value".to_string(),
+                    )
+                    .into_arrow_external_error(),
+                )
+                // apply predicate to each column
+                .and_then(|predicate| {
+                    batch
+                        .columns()
+                        .iter()
+                        .map(|column| filter(column.as_ref(), predicate))
+                        .collect::<ArrowResult<Vec<_>>>()
+                })
+        })
+        // build RecordBatch
+        .and_then(|columns| RecordBatch::try_new(batch.schema().clone(), columns))
 }
 
 /// The FilterExec iterator wraps the input iterator and applies the predicate expression to
@@ -115,54 +149,33 @@ struct FilterExecIter {
     /// The expression to filter on. This expression must evaluate to a boolean value.
     predicate: Arc<dyn PhysicalExpr>,
     /// The input partition to filter.
-    input: SendableRecordBatchReader,
+    input: DynFutureRecordBatchIterator,
 }
 
 impl Iterator for FilterExecIter {
-    type Item = ArrowResult<RecordBatch>;
+    type Item = FutureRecordBatch;
 
     /// Get the next batch
-    fn next(&mut self) -> Option<ArrowResult<RecordBatch>> {
+    fn next(&mut self) -> Option<Self::Item> {
         match self.input.next() {
-            Some(Ok(batch)) => {
-                // evaluate the filter predicate to get a boolean array indicating which rows
-                // to include in the output
-                Some(
-                    self.predicate
-                        .evaluate(&batch)
-                        .map_err(ExecutionError::into_arrow_external_error)
-                        .and_then(|array| {
-                            array
-                                .as_any()
-                                .downcast_ref::<BooleanArray>()
-                                .ok_or(
-                                    ExecutionError::InternalError(
-                                        "Filter predicate evaluated to non-boolean value"
-                                            .to_string(),
-                                    )
-                                    .into_arrow_external_error(),
-                                )
-                                // apply predicate to each column
-                                .and_then(|predicate| {
-                                    batch
-                                        .columns()
-                                        .iter()
-                                        .map(|column| filter(column.as_ref(), predicate))
-                                        .collect::<ArrowResult<Vec<_>>>()
-                                })
+            Some(future_batch) => {
+                let predicate = self.predicate.clone();
+                let task = future_batch
+                    .then(|maybe_batch| {
+                        tokio::spawn(async move {
+                            filter_batch(predicate.as_ref(), &maybe_batch?)
                         })
-                        // build RecordBatch
-                        .and_then(|columns| {
-                            RecordBatch::try_new(batch.schema().clone(), columns)
-                        }),
-                )
+                    })
+                    .then(|e| async move { e.unwrap() });
+
+                Some(Box::pin(task))
             }
             other => other,
         }
     }
 }
 
-impl RecordBatchReader for FilterExecIter {
+impl FutureRecordBatchIterator for FilterExecIter {
     /// Get the schema
     fn schema(&self) -> SchemaRef {
         self.schema.clone()

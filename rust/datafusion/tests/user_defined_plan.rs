@@ -62,7 +62,7 @@ use arrow::{
     array::{Int64Array, PrimitiveArrayOps, StringArray},
     datatypes::SchemaRef,
     error::ArrowError,
-    record_batch::{RecordBatch, RecordBatchReader},
+    record_batch::RecordBatch,
     util::pretty::pretty_format_batches,
 };
 use datafusion::{
@@ -72,13 +72,16 @@ use datafusion::{
     logical_plan::{Expr, LogicalPlan, UserDefinedLogicalNode},
     optimizer::{optimizer::OptimizerRule, utils::optimize_explain},
     physical_plan::{
+        common::RecordBatchIterator,
         planner::{DefaultPhysicalPlanner, ExtensionPlanner},
-        Distribution, ExecutionPlan, Partitioning, PhysicalPlanner,
+        Distribution, DynFutureRecordBatchIterator, ExecutionPlan, Partitioning,
+        PhysicalPlanner,
     },
     prelude::{ExecutionConfig, ExecutionContext},
 };
 use fmt::Debug;
-use std::{any::Any, collections::BTreeMap, fmt, sync::Arc};
+use futures::future::try_join_all;
+use std::{any::Any, collections::BTreeMap, fmt, sync::Arc, sync::Mutex};
 
 use async_trait::async_trait;
 
@@ -392,10 +395,7 @@ impl ExecutionPlan for TopKExec {
     }
 
     /// Execute one partition and return an iterator over RecordBatch
-    async fn execute(
-        &self,
-        partition: usize,
-    ) -> Result<Box<dyn RecordBatchReader + Send>> {
+    async fn execute(&self, partition: usize) -> Result<DynFutureRecordBatchIterator> {
         if 0 != partition {
             return Err(ExecutionError::General(format!(
                 "TopKExec invalid partition {}",
@@ -403,22 +403,60 @@ impl ExecutionPlan for TopKExec {
             )));
         }
 
-        Ok(Box::new(TopKReader {
-            input: self.input.execute(partition).await?,
-            k: self.k,
-            done: false,
-        }))
+        // this plan returns a single record batch per partition
+        let batch = aggregate(
+            self.input.execute(partition).await?,
+            self.input.schema(),
+            self.k,
+        )
+        .await?;
+        Ok(Box::new(RecordBatchIterator::new(
+            self.input.schema(),
+            vec![Arc::new(batch)],
+        )))
     }
 }
 
-// A very specialized TopK implementation
-struct TopKReader {
-    /// The input to read data from
-    input: Box<dyn RecordBatchReader + Send>,
-    /// Maximum number of output values
+async fn aggregate(
+    input: DynFutureRecordBatchIterator,
+    schema: SchemaRef,
     k: usize,
-    /// Have we produced the output yet?
-    done: bool,
+) -> std::result::Result<RecordBatch, ArrowError> {
+    // Hard coded implementation for sales / customer_id example
+    let top_values: BTreeMap<i64, String> = BTreeMap::new();
+
+    let top_values = Arc::new(Mutex::new(top_values));
+
+    let futures = input.map(|future_batch| {
+        // send each aggregation to its own thread
+        let top_values = top_values.clone();
+        tokio::spawn(async move {
+            let batch = future_batch.await?;
+            let mut top_values = top_values.lock().unwrap();
+            accumulate_batch(&batch, &mut top_values, &k)
+                .map_err(ExecutionError::into_arrow_external_error)
+        })
+    });
+
+    // parallel computation of the aggregation
+    try_join_all(futures)
+        .await
+        .map_err(|e| ArrowError::from_external_error(Box::new(e)))?;
+
+    let top_values = top_values.lock().unwrap();
+
+    // make output by walking over the map backwards (so values are descending)
+    let (revenue, customer): (Vec<i64>, Vec<&String>) = top_values.iter().rev().unzip();
+
+    let customer: Vec<&str> = customer.iter().map(|&s| &**s).collect();
+
+    RecordBatch::try_new(
+        schema,
+        vec![
+            Arc::new(StringArray::from(customer)),
+            Arc::new(Int64Array::from(revenue)),
+        ],
+    )
 }
 
 /// Keeps track of the revenue from customer_id and stores if it
@@ -471,49 +509,4 @@ fn accumulate_batch(
         add_row(top_values, customer_id.value(row), revenue.value(row), k);
     }
     Ok(())
-}
-
-impl Iterator for TopKReader {
-    type Item = std::result::Result<RecordBatch, ArrowError>;
-
-    /// Reads the next `RecordBatch`.
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.done {
-            return None;
-        }
-
-        // Hard coded implementation for sales / customer_id example
-        let mut top_values: BTreeMap<i64, String> = BTreeMap::new();
-
-        // take this as immutable
-        let k = &self.k;
-
-        self.input
-            .as_mut()
-            .into_iter()
-            .map(|batch| accumulate_batch(&batch?, &mut top_values, k))
-            .collect::<Result<()>>()
-            .unwrap();
-
-        // make output by walking over the map backwards (so values are descending)
-        let (revenue, customer): (Vec<i64>, Vec<&String>) =
-            top_values.iter().rev().unzip();
-
-        let customer: Vec<&str> = customer.iter().map(|&s| &**s).collect();
-
-        self.done = true;
-        Some(RecordBatch::try_new(
-            self.schema().clone(),
-            vec![
-                Arc::new(StringArray::from(customer)),
-                Arc::new(Int64Array::from(revenue)),
-            ],
-        ))
-    }
-}
-
-impl RecordBatchReader for TopKReader {
-    fn schema(&self) -> SchemaRef {
-        self.input.schema()
-    }
 }

@@ -75,6 +75,7 @@ mod tests {
         TimestampNanosecondArray,
     };
     use arrow::record_batch::RecordBatch;
+    use futures::future::join_all;
     use std::env;
 
     #[tokio::test]
@@ -84,7 +85,9 @@ mod tests {
         let exec = table.scan(&projection, 2)?;
         let it = exec.execute(0).await?;
 
-        let count = it
+        let batch = join_all(it).await;
+
+        let count = batch
             .into_iter()
             .map(|batch| {
                 let batch = batch.unwrap();
@@ -306,6 +309,7 @@ mod tests {
         let mut it = exec.execute(0).await?;
         it.next()
             .expect("should have received at least one batch")
+            .await
             .map_err(|e| e.into())
     }
 }
