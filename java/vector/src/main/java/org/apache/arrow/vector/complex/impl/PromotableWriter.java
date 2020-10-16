@@ -320,7 +320,7 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
   }
 
   @Override
-  public void writeDecimal(int start, ArrowBuf buffer, ArrowType arrowType) {
+  public void writeDecimal(long start, ArrowBuf buffer, ArrowType arrowType) {
     getWriter(MinorType.DECIMAL, new ArrowType.Decimal(MAX_DECIMAL_PRECISION,
         ((ArrowType.Decimal) arrowType).getScale())).writeDecimal(start, buffer, arrowType);
   }

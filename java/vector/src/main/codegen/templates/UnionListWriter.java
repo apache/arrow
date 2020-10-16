@@ -204,12 +204,12 @@ public class Union${listName}Writer extends AbstractFieldWriter {
     writer.writeNull();
   }
 
-  public void writeDecimal(int start, ArrowBuf buffer, ArrowType arrowType) {
+  public void writeDecimal(long start, ArrowBuf buffer, ArrowType arrowType) {
     writer.writeDecimal(start, buffer, arrowType);
     writer.setPosition(writer.idx()+1);
   }
 
-  public void writeDecimal(int start, ArrowBuf buffer) {
+  public void writeDecimal(long start, ArrowBuf buffer) {
     writer.writeDecimal(start, buffer);
     writer.setPosition(writer.idx()+1);
   }
