@@ -1129,6 +1129,16 @@ impl DataType {
             DataType::Dictionary(_, _) => json!({ "name": "dictionary"}),
         }
     }
+
+    /// Returns true if this type is numeric: (UInt*, Unit*, or Float*)
+    pub fn is_numeric(t: &DataType) -> bool {
+        use DataType::*;
+        match t {
+            UInt8 | UInt16 | UInt32 | UInt64 | Int8 | Int16 | Int32 | Int64 | Float32
+            | Float64 => true,
+            _ => false,
+        }
+    }
 }
 
 impl Field {
