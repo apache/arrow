@@ -1,0 +1,7 @@
+steps:
+  - label: "Example Python"
+    command: echo "Hello Python!"
+  - label: "Example Python"
+    command: echo "Hello Python 2!"
+  - label: "Example Python"
+    command: echo "Hello Python 3!"

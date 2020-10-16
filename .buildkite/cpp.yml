@@ -1,0 +1,6 @@
+steps:
+  - label: "Example C++"
+    command: echo "Hello C++!"
+  - label: "Example Test"
+    command: echo "Hello C++ 2!"
+

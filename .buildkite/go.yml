@@ -1,0 +1,3 @@
+steps:
+  - label: "Example Go"
+    command: echo "Hello Go!"
