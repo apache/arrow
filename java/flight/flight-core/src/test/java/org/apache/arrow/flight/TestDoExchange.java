@@ -472,7 +472,7 @@ public class TestDoExchange {
     }
 
     /** Immediately cancel the call. */
-    private void cancel(CallContext context, FlightStream reader, ServerStreamListener writer) {
+    private void cancel(FlightContext context, FlightStream reader, ServerStreamListener writer) {
       writer.error(CallStatus.CANCELLED.withDescription("expected").toRuntimeException());
     }
   }
