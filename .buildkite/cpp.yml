@@ -1,6 +1,6 @@
 steps:
-  - label: "ARM64v8 Conda C++"
+  - label: "ARM64v8 Ubuntu C++"
     commands:
       - export PATH=/var/lib/buildkite-agent/.local/bin:$PATH
       - pip3 install -e dev/archery[docker]
-      - ARCH=arm64v8 archery docker run conda-cpp
+      - ARCH=arm64v8 archery docker run ubuntu-cpp
