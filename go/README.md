@@ -20,6 +20,7 @@
 Apache Arrow for Go
 ===================
 
+
 [![GoDoc](https://godoc.org/github.com/apache/arrow/go/arrow?status.svg)](https://godoc.org/github.com/apache/arrow/go/arrow)
 
 [Apache Arrow][arrow] is a cross-language development platform for in-memory
