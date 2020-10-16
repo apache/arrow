@@ -214,13 +214,13 @@ set(ARROW_SRCS
     vendored/double-conversion/diy-fp.cc
     vendored/double-conversion/strtod.cc)
 
-if(CXX_SUPPORTS_AVX2)
+if(ARROW_HAVE_RUNTIME_AVX2)
   list(APPEND ARROW_SRCS util/bpacking_avx2.cc)
   set_source_files_properties(util/bpacking_avx2.cc PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
   set_source_files_properties(util/bpacking_avx2.cc PROPERTIES COMPILE_FLAGS
                               ${ARROW_AVX2_FLAG})
 endif()
-if(CXX_SUPPORTS_AVX512)
+if(ARROW_HAVE_RUNTIME_AVX512)
   list(APPEND ARROW_SRCS util/bpacking_avx512.cc)
   set_source_files_properties(util/bpacking_avx512.cc PROPERTIES SKIP_PRECOMPILE_HEADERS
                               ON)
@@ -387,14 +387,14 @@ if(ARROW_COMPUTE)
               compute/kernels/vector_selection.cc
               compute/kernels/vector_sort.cc)
 
-  if(CXX_SUPPORTS_AVX2)
+  if(ARROW_HAVE_RUNTIME_AVX2)
     list(APPEND ARROW_SRCS compute/kernels/aggregate_basic_avx2.cc)
     set_source_files_properties(compute/kernels/aggregate_basic_avx2.cc PROPERTIES
                                 SKIP_PRECOMPILE_HEADERS ON)
     set_source_files_properties(compute/kernels/aggregate_basic_avx2.cc PROPERTIES
                                 COMPILE_FLAGS ${ARROW_AVX2_FLAG})
   endif()
-  if(CXX_SUPPORTS_AVX512)
+  if(ARROW_HAVE_RUNTIME_AVX512)
     list(APPEND ARROW_SRCS compute/kernels/aggregate_basic_avx512.cc)
     set_source_files_properties(compute/kernels/aggregate_basic_avx512.cc PROPERTIES
                                 SKIP_PRECOMPILE_HEADERS ON)
