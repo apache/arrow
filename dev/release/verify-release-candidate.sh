@@ -213,7 +213,6 @@ setup_tempdir() {
   fi
 }
 
-
 setup_miniconda() {
   # Setup short-lived miniconda for Python and integration tests
   if [ "$(uname)" == "Darwin" ]; then
@@ -230,16 +229,18 @@ setup_miniconda() {
     bash miniconda.sh -b -p $MINICONDA
     rm -f miniconda.sh
   fi
+  echo "Installed miniconda at ${MINICONDA}"
 
   . $MINICONDA/etc/profile.d/conda.sh
 
   conda create -n arrow-test -y -q -c conda-forge \
-        python=3.6 \
-        nomkl \
-        numpy \
-        pandas \
-        cython
+    python=3.6 \
+    nomkl \
+    numpy \
+    pandas \
+    cython
   conda activate arrow-test
+  echo "Using conda environment ${CONDA_PREFIX}"
 }
 
 # Build and test Java (Requires newer Maven -- I used 3.3.9)
@@ -374,7 +375,7 @@ test_python() {
   fi
 
   python setup.py build_ext --inplace
-  py.test pyarrow -v --pdb
+  pytest pyarrow -v --pdb
 
   popd
 }
@@ -778,15 +779,16 @@ cd ${ARROW_TMPDIR}
 
 if [ ${NEED_MINICONDA} -gt 0 ]; then
   setup_miniconda
-  echo "Using miniconda environment ${MINICONDA}"
 fi
 
 if [ "${ARTIFACT}" == "source" ]; then
   dist_name="apache-arrow-${VERSION}"
   if [ ${TEST_SOURCE} -gt 0 ]; then
     import_gpg_keys
-    fetch_archive ${dist_name}
-    tar xf ${dist_name}.tar.gz
+    if [ ! -d "${dist_name}" ]; then
+      fetch_archive ${dist_name}
+      tar xf ${dist_name}.tar.gz
+    fi
   else
     mkdir -p ${dist_name}
     if [ ! -f ${TEST_ARCHIVE} ]; then

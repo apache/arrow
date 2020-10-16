@@ -26,8 +26,14 @@ on:
 
 jobs:
   verify:
-    name: "Verify release candidate Windows wheels"
-    runs-on: windows-latest
+    name: "Verify release candidate Ubuntu {{ artifact }}"
+    runs-on: ubuntu-latest
+    {%- if env is defined %}
+    env:
+    {%- for key, value in env.items() %}
+      {{ key }}: {{ value }}
+    {%- endfor %}
+    {%- endif %}
     steps:
       - name: Checkout Arrow
         run: |
@@ -38,11 +44,34 @@ jobs:
       - name: Fetch Submodules and Tags
         shell: bash
         run: cd arrow && ci/scripts/util_checkout.sh
-      - uses: s-weigand/setup-conda@v1
-      - name: Run verification
-        shell: cmd
+      - name: Install System Dependencies
         run: |
-          choco install wget
-          cd arrow
-          # If you edit the versions, be sure to edit the other workflow files in this directory too
-          dev/release/verify-release-candidate-wheels.bat 0.17.0 0
+          # TODO: don't require removing newer llvms
+          sudo apt-get --purge remove -y llvm-9 clang-9
+          sudo apt-get install -y \
+            wget curl libboost-all-dev jq \
+            autoconf-archive gtk-doc-tools libgirepository1.0-dev flex bison
+
+          if [ "$TEST_JAVA" = "1" ]; then
+            # Maven
+            MAVEN_VERSION=3.6.3
+            wget https://downloads.apache.org/maven/maven-3/$MAVEN_VERSION/binaries/apache-maven-$MAVEN_VERSION-bin.zip
+            unzip apache-maven-$MAVEN_VERSION-bin.zip
+            mkdir -p $HOME/java
+            mv apache-maven-$MAVEN_VERSION $HOME/java
+            export PATH=$HOME/java/apache-maven-$MAVEN_VERSION/bin:$PATH
+          fi
+
+          if [ "$TEST_RUBY" = "1" ]; then
+            ruby --version
+            sudo gem install bundler
+          fi
+      - uses: actions/setup-node@v2-beta
+        with:
+          node-version: '14'
+      - name: Run verification
+        shell: bash
+        run: |
+          arrow/dev/release/verify-release-candidate.sh \
+            {{ artifact }} \
+            {{ release|default("1.0.0") }} {{ rc|default("0") }}

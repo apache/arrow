@@ -1358,179 +1358,208 @@ tasks:
 
   verify-rc-binaries-binary:
     ci: github
-    template: verify-rc/github.nix.yml
+    template: verify-rc/github.linux.yml
     params:
-      os: "ubuntu"
+      env:
+        TEST_DEFAULT: 0
+        TEST_BINARY: 1
       artifact: "binaries"
-      flag: "TEST_BINARY=1"
 
   verify-rc-binaries-apt:
     ci: github
-    template: verify-rc/github.nix.yml
+    template: verify-rc/github.linux.yml
     params:
-      os: "ubuntu"
+      env:
+        TEST_DEFAULT: 0
+        TEST_APT: 1
       artifact: "binaries"
-      flag: "TEST_APT=1"
 
   verify-rc-binaries-yum:
     ci: github
-    template: verify-rc/github.nix.yml
+    template: verify-rc/github.linux.yml
     params:
-      os: "ubuntu"
+      env:
+        TEST_DEFAULT: 0
+        TEST_YUM: 1
       artifact: "binaries"
-      flag: "TEST_YUM=1"
 
   verify-rc-wheels-linux:
     ci: github
-    template: verify-rc/github.nix.yml
+    template: verify-rc/github.linux.yml
     params:
-      os: "ubuntu"
+      env:
+        TEST_DEFAULT: 0
       artifact: "wheels"
-      flag: ""
 
   verify-rc-wheels-macos:
     ci: github
-    template: verify-rc/github.nix.yml
+    template: verify-rc/github.osx.yml
     params:
-      os: "macOS"
+      env:
+        TEST_DEFAULT: 0
       artifact: "wheels"
-      flag: ""
 
   verify-rc-source-macos-java:
     ci: github
-    template: verify-rc/github.nix.yml
+    template: verify-rc/github.osx.yml
     params:
-      os: "macOS"
+      env:
+        TEST_DEFAULT: 0
+        TEST_JAVA: 1
       artifact: "source"
-      flag: "TEST_JAVA=1"
 
   verify-rc-source-macos-csharp:
     ci: github
-    template: verify-rc/github.nix.yml
+    template: verify-rc/github.osx.yml
     params:
-      os: "macOS"
+      env:
+        TEST_DEFAULT: 0
+        TEST_CSHARP: 1
       artifact: "source"
-      flag: "TEST_CSHARP=1"
 
   verify-rc-source-macos-ruby:
     ci: github
-    template: verify-rc/github.nix.yml
+    template: verify-rc/github.osx.yml
     params:
-      os: "macOS"
+      env:
+        TEST_DEFAULT: 0
+        TEST_RUBY: 1
       artifact: "source"
-      flag: "TEST_RUBY=1"
 
   verify-rc-source-macos-python:
     ci: github
-    template: verify-rc/github.nix.yml
+    template: verify-rc/github.osx.yml
     params:
-      os: "macOS"
+      env:
+        TEST_DEFAULT: 0
+        TEST_PYTHON: 1
+        # https://stackoverflow.com/questions/56083725/macos-build-issues-lstdc-not-found-while-building-python-package
+        MACOSX_DEPLOYMENT_TARGET: "10.15"
       artifact: "source"
-      flag: "TEST_PYTHON=1"
 
   verify-rc-source-macos-js:
     ci: github
-    template: verify-rc/github.nix.yml
+    template: verify-rc/github.osx.yml
     params:
-      os: "macOS"
+      env:
+        INSTALL_NODE: 0
+        TEST_DEFAULT: 0
+        TEST_JS: 1
       artifact: "source"
-      flag: "TEST_JS=1"
 
   verify-rc-source-macos-go:
     ci: github
-    template: verify-rc/github.nix.yml
+    template: verify-rc/github.osx.yml
     params:
-      os: "macOS"
+      env:
+        TEST_DEFAULT: 0
+        TEST_GO: 1
       artifact: "source"
-      flag: "TEST_GO=1"
 
   verify-rc-source-macos-rust:
     ci: github
-    template: verify-rc/github.nix.yml
+    template: verify-rc/github.osx.yml
     params:
-      os: "macOS"
+      env:
+        TEST_DEFAULT: 0
+        TEST_RUST: 1
       artifact: "source"
-      flag: "TEST_RUST=1"
 
   verify-rc-source-macos-integration:
     ci: github
-    template: verify-rc/github.nix.yml
+    template: verify-rc/github.osx.yml
     params:
-      os: "macOS"
+      env:
+        INSTALL_NODE: 0
+        TEST_DEFAULT: 0
+        TEST_INTEGRATION: 1
       artifact: "source"
-      flag: "TEST_INTEGRATION=1"
 
   verify-rc-source-linux-java:
     ci: github
-    template: verify-rc/github.nix.yml
+    template: verify-rc/github.linux.yml
     params:
-      os: "ubuntu"
+      env:
+        TEST_DEFAULT: 0
+        TEST_JAVA: 1
       artifact: "source"
-      flag: "TEST_JAVA=1"
 
   verify-rc-source-linux-csharp:
     ci: github
-    template: verify-rc/github.nix.yml
+    template: verify-rc/github.linux.yml
     params:
-      os: "ubuntu"
+      env:
+        TEST_DEFAULT: 0
+        TEST_CSHARP: 1
       artifact: "source"
-      flag: "TEST_CSHARP=1"
 
   verify-rc-source-linux-ruby:
     ci: github
-    template: verify-rc/github.nix.yml
+    template: verify-rc/github.linux.yml
     params:
-      os: "ubuntu"
+      env:
+        TEST_DEFAULT: 0
+        TEST_RUBY: 1
       artifact: "source"
-      flag: "TEST_RUBY=1"
 
   verify-rc-source-linux-python:
     ci: github
-    template: verify-rc/github.nix.yml
+    template: verify-rc/github.linux.yml
     params:
-      os: "ubuntu"
+      env:
+        TEST_DEFAULT: 0
+        TEST_PYTHON: 1
       artifact: "source"
-      flag: "TEST_PYTHON=1"
 
   verify-rc-source-linux-js:
     ci: github
-    template: verify-rc/github.nix.yml
+    template: verify-rc/github.linux.yml
     params:
-      os: "ubuntu"
+      env:
+        INSTALL_NODE: 0
+        TEST_DEFAULT: 0
+        TEST_JS: 1
       artifact: "source"
-      flag: "TEST_JS=1"
 
   verify-rc-source-linux-go:
     ci: github
-    template: verify-rc/github.nix.yml
+    template: verify-rc/github.linux.yml
     params:
-      os: "ubuntu"
+      env:
+        TEST_DEFAULT: 0
+        TEST_GO: 1
       artifact: "source"
-      flag: "TEST_GO=1"
 
   verify-rc-source-linux-rust:
     ci: github
-    template: verify-rc/github.nix.yml
+    template: verify-rc/github.linux.yml
     params:
-      os: "ubuntu"
+      env:
+        TEST_DEFAULT: 0
+        TEST_RUST: 1
       artifact: "source"
-      flag: "TEST_RUST=1"
 
   verify-rc-source-linux-integration:
     ci: github
-    template: verify-rc/github.nix.yml
+    template: verify-rc/github.linux.yml
     params:
-      os: "ubuntu"
+      env:
+        INSTALL_NODE: 0
+        TEST_DEFAULT: 0
+        TEST_INTEGRATION: 1
       artifact: "source"
-      flag: "TEST_INTEGRATION=1"
 
   verify-rc-source-windows:
     ci: github
-    template: verify-rc/github.windows.source.yml
+    template: verify-rc/github.win.yml
+    params:
+      script: "verify-release-candidate.bat"
 
   verify-rc-wheels-windows:
     ci: github
-    template: verify-rc/github.windows.wheels.yml
+    template: verify-rc/github.win.yml
+    params:
+      script: "verify-release-candidate-wheels.bat"
 
   ############################## Docker tests #################################
 

@@ -26,8 +26,14 @@ on:
 
 jobs:
   verify:
-    name: "Verify release candidate Windows source"
-    runs-on: windows-latest
+    name: "Verify release candidate macOS {{ artifact }}"
+    runs-on: macos-latest
+    {%- if env is defined %}
+    env:
+    {%- for key, value in env.items() %}
+      {{ key }}: {{ value }}
+    {%- endfor %}
+    {%- endif %}
     steps:
       - name: Checkout Arrow
         run: |
@@ -38,12 +44,18 @@ jobs:
       - name: Fetch Submodules and Tags
         shell: bash
         run: cd arrow && ci/scripts/util_checkout.sh
-      - uses: s-weigand/setup-conda@v1
-      - name: Run verification
-        shell: cmd
+      - name: Install System Dependencies
+        shell: bash
         run: |
-          choco install boost-msvc-14.1
-          choco install wget
-          cd arrow
-          # If you edit the versions, be sure to edit the other workflow files in this directory too
-          dev/release/verify-release-candidate.bat 0.17.0 0
+          brew update
+          brew bundle --file=arrow/cpp/Brewfile
+          brew bundle --file=arrow/c_glib/Brewfile
+      - uses: actions/setup-node@v2-beta
+        with:
+          node-version: '14'
+      - name: Run verification
+        shell: bash
+        run: |
+          arrow/dev/release/verify-release-candidate.sh \
+            {{ artifact }} \
+            {{ release|default("1.0.0") }} {{ rc|default("0") }}
