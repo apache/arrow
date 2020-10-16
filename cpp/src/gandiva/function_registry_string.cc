@@ -16,6 +16,7 @@
 // under the License.
 
 #include "gandiva/function_registry_string.h"
+
 #include "gandiva/function_registry_common.h"
 
 namespace gandiva {
@@ -61,16 +62,25 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
       UNARY_SAFE_NULL_NEVER_BOOL_FN(isnull, {}),
       UNARY_SAFE_NULL_NEVER_BOOL_FN(isnotnull, {}),
 
-      UNARY_UNSAFE_NULL_IF_NULL(castINT, {}, utf8, int32),
-      UNARY_UNSAFE_NULL_IF_NULL(castBIGINT, {}, utf8, int64),
-      UNARY_UNSAFE_NULL_IF_NULL(castFLOAT4, {}, utf8, float32),
-      UNARY_UNSAFE_NULL_IF_NULL(castFLOAT8, {}, utf8, float64),
-
       NativeFunction("upper", {}, DataTypeVector{utf8()}, utf8(), kResultNullIfNull,
                      "upper_utf8", NativeFunction::kNeedsContext),
 
       NativeFunction("lower", {}, DataTypeVector{utf8()}, utf8(), kResultNullIfNull,
                      "lower_utf8", NativeFunction::kNeedsContext),
+
+      NativeFunction("castINT", {}, DataTypeVector{utf8()}, int32(), kResultNullIfNull,
+                     "gdv_fn_castINT_utf8", NativeFunction::kNeedsContext),
+
+      NativeFunction("castBIGINT", {}, DataTypeVector{utf8()}, int64(), kResultNullIfNull,
+                     "gdv_fn_castBIGINT_utf8", NativeFunction::kNeedsContext),
+
+      NativeFunction("castFLOAT4", {}, DataTypeVector{utf8()}, float32(),
+                     kResultNullIfNull, "gdv_fn_castFLOAT4_utf8",
+                     NativeFunction::kNeedsContext),
+
+      NativeFunction("castFLOAT8", {}, DataTypeVector{utf8()}, float64(),
+                     kResultNullIfNull, "gdv_fn_castFLOAT8_utf8",
+                     NativeFunction::kNeedsContext),
 
       NativeFunction("castVARCHAR", {}, DataTypeVector{utf8(), int64()}, utf8(),
                      kResultNullIfNull, "castVARCHAR_utf8_int64",
