@@ -47,11 +47,11 @@ public abstract class AllocationManager {
 
   private static final AtomicLong MANAGER_ID_GENERATOR = new AtomicLong(0);
 
-  private final RootAllocator root;
+  private final BufferAllocator root;
   private final long allocatorManagerId = MANAGER_ID_GENERATOR.incrementAndGet();
   // ARROW-1627 Trying to minimize memory overhead caused by previously used IdentityHashMap
   // see JIRA for details
-  private final LowCostIdentityHashMap<BaseAllocator, BufferLedger> map = new LowCostIdentityHashMap<>();
+  private final LowCostIdentityHashMap<BufferAllocator, BufferLedger> map = new LowCostIdentityHashMap<>();
   private final long amCreationTime = System.nanoTime();
 
   // The ReferenceManager created at the time of creation of this AllocationManager
@@ -60,11 +60,11 @@ public abstract class AllocationManager {
   private volatile BufferLedger owningLedger;
   private volatile long amDestructionTime = 0;
 
-  protected AllocationManager(BaseAllocator accountingAllocator) {
+  protected AllocationManager(BufferAllocator accountingAllocator) {
     Preconditions.checkNotNull(accountingAllocator);
     accountingAllocator.assertOpen();
 
-    this.root = accountingAllocator.root;
+    this.root = accountingAllocator.getRoot();
 
     // we do a no retain association since our creator will want to retrieve the newly created
     // ledger and will create a reference count at that point
@@ -87,13 +87,13 @@ public abstract class AllocationManager {
    * @return The reference manager (new or existing) that associates the underlying
    *         buffer to this new ledger.
    */
-  BufferLedger associate(final BaseAllocator allocator) {
+  BufferLedger associate(final BufferAllocator allocator) {
     return associate(allocator, true);
   }
 
-  private BufferLedger associate(final BaseAllocator allocator, final boolean retain) {
+  private BufferLedger associate(final BufferAllocator allocator, final boolean retain) {
     allocator.assertOpen();
-    Preconditions.checkState(root == allocator.root,
+    Preconditions.checkState(root == allocator.getRoot(),
           "A buffer can only be associated between two allocators that share the same root");
 
     synchronized (this) {
@@ -118,9 +118,11 @@ public abstract class AllocationManager {
       Preconditions.checkState(oldLedger == null,
           "Detected inconsistent state: A reference manager already exists for this allocator");
 
-      // needed for debugging only: keep a pointer to reference manager inside allocator
-      // to dump state, verify allocator state etc
-      allocator.associateLedger(ledger);
+      if (allocator instanceof BaseAllocator) {
+        // needed for debugging only: keep a pointer to reference manager inside allocator
+        // to dump state, verify allocator state etc
+        ((BaseAllocator) allocator).associateLedger(ledger);
+      }
       return ledger;
     }
   }
@@ -133,7 +135,7 @@ public abstract class AllocationManager {
    * calling ReferenceManager drops to 0.
    */
   void release(final BufferLedger ledger) {
-    final BaseAllocator allocator = (BaseAllocator) ledger.getAllocator();
+    final BufferAllocator allocator = ledger.getAllocator();
     allocator.assertOpen();
 
     // remove the <BaseAllocator, BufferLedger> mapping for the allocator
@@ -142,9 +144,12 @@ public abstract class AllocationManager {
         "Expecting a mapping for allocator and reference manager");
     final BufferLedger oldLedger = map.remove(allocator);
 
-    // needed for debug only: tell the allocator that AllocationManager is removing a
-    // reference manager associated with this particular allocator
-    ((BaseAllocator) oldLedger.getAllocator()).dissociateLedger(oldLedger);
+    BufferAllocator oldAllocator = oldLedger.getAllocator();
+    if (oldAllocator instanceof BaseAllocator) {
+      // needed for debug only: tell the allocator that AllocationManager is removing a
+      // reference manager associated with this particular allocator
+      ((BaseAllocator) oldAllocator).dissociateLedger(oldLedger);
+    }
 
     if (oldLedger == owningLedger) {
       // the release call was made by the owning reference manager
@@ -152,10 +157,10 @@ public abstract class AllocationManager {
         // the only <allocator, reference manager> mapping was for the owner
         // which now has been removed, it implies we can safely destroy the
         // underlying memory chunk as it is no longer being referenced
-        ((BaseAllocator) oldLedger.getAllocator()).releaseBytes(getSize());
+        oldAllocator.releaseBytes(getSize());
         // free the memory chunk associated with the allocation manager
         release0();
-        ((BaseAllocator) oldLedger.getAllocator()).getListener().onRelease(getSize());
+        oldAllocator.getListener().onRelease(getSize());
         amDestructionTime = System.nanoTime();
         owningLedger = null;
       } else {
@@ -209,7 +214,7 @@ public abstract class AllocationManager {
      * @param size Size (in bytes) of memory managed by the AllocationManager
      * @return The created AllocationManager used by this allocator
      */
-    AllocationManager create(BaseAllocator accountingAllocator, long size);
+    AllocationManager create(BufferAllocator accountingAllocator, long size);
 
     ArrowBuf empty();
   }

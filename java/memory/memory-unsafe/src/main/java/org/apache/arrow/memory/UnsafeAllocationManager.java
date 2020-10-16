@@ -32,7 +32,7 @@ public final class UnsafeAllocationManager extends AllocationManager {
 
   public static final AllocationManager.Factory FACTORY = new Factory() {
     @Override
-    public AllocationManager create(BaseAllocator accountingAllocator, long size) {
+    public AllocationManager create(BufferAllocator accountingAllocator, long size) {
       return new UnsafeAllocationManager(accountingAllocator, size);
     }
 
@@ -46,7 +46,7 @@ public final class UnsafeAllocationManager extends AllocationManager {
 
   private final long allocatedAddress;
 
-  UnsafeAllocationManager(BaseAllocator accountingAllocator, long requestedSize) {
+  UnsafeAllocationManager(BufferAllocator accountingAllocator, long requestedSize) {
     super(accountingAllocator);
     allocatedAddress = MemoryUtil.UNSAFE.allocateMemory(requestedSize);
     allocatedSize = requestedSize;
