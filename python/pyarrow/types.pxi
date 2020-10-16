@@ -17,8 +17,8 @@
 
 import atexit
 from collections.abc import Mapping
-import re
 import sys
+import re
 import warnings
 
 
