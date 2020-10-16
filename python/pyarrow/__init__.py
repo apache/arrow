@@ -445,7 +445,7 @@ def create_library_symlinks():
         except PermissionError:
             print("Tried creating symlink {}. If you need to link to "
                   "bundled shared libraries, run "
-                  "pyarrow._setup_bundled_symlinks() as root")
+                  "pyarrow.create_library_symlinks() as root")
 
 
 def get_library_dirs():

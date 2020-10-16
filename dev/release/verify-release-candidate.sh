@@ -649,6 +649,7 @@ test_linux_wheels() {
 
       # install test requirements and execute the tests
       pip install -r ${ARROW_DIR}/python/requirements-test.txt
+      python -c 'import pyarrow; pyarrow.create_library_symlinks()'
       pytest --pyargs pyarrow
     done
 
@@ -671,6 +672,7 @@ test_macos_wheels() {
 
     # install test requirements and execute the tests
     pip install -r ${ARROW_DIR}/python/requirements-test.txt
+    python -c 'import pyarrow; pyarrow.create_library_symlinks()'
     pytest --pyargs pyarrow
 
     conda deactivate
