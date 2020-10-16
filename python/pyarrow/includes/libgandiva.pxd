@@ -45,9 +45,12 @@ cdef extern from "gandiva/selection_vector.h" namespace "gandiva" nogil:
 
     enum CSelectionVector_Mode" gandiva::SelectionVector::Mode":
         CSelectionVector_Mode_NONE" gandiva::SelectionVector::Mode::MODE_NONE"
-        CSelectionVector_Mode_UINT16" gandiva::SelectionVector::Mode::MODE_UINT16"
-        CSelectionVector_Mode_UINT32" gandiva::SelectionVector::Mode::MODE_UINT32"
-        CSelectionVector_Mode_UINT64" gandiva::SelectionVector::Mode::MODE_UINT64"
+        CSelectionVector_Mode_UINT16" \
+                gandiva::SelectionVector::Mode::MODE_UINT16"
+        CSelectionVector_Mode_UINT32" \
+                gandiva::SelectionVector::Mode::MODE_UINT32"
+        CSelectionVector_Mode_UINT64" \
+                gandiva::SelectionVector::Mode::MODE_UINT64"
 
     cdef CStatus SelectionVector_MakeInt16\
         "gandiva::SelectionVector::MakeInt16"(
@@ -276,4 +279,3 @@ cdef extern from "gandiva/configuration.h" namespace "gandiva" nogil:
             " gandiva::ConfigurationBuilder":
         @staticmethod
         shared_ptr[CConfiguration] DefaultConfiguration()
-
