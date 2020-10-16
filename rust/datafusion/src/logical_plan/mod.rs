@@ -25,7 +25,10 @@ use fmt::Debug;
 use std::{any::Any, collections::HashMap, collections::HashSet, fmt, sync::Arc};
 
 use aggregates::{AccumulatorFunctionImplementation, StateTypeFunction};
-use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
+use arrow::{
+    compute::can_cast_types,
+    datatypes::{DataType, Field, Schema, SchemaRef},
+};
 
 use crate::datasource::parquet::ParquetTable;
 use crate::datasource::TableProvider;
@@ -37,8 +40,7 @@ use crate::{
 };
 use crate::{
     physical_plan::{
-        aggregates, expressions::binary_operator_data_type, functions,
-        type_coercion::can_coerce_from, udf::ScalarUDF,
+        aggregates, expressions::binary_operator_data_type, functions, udf::ScalarUDF,
     },
     sql::parser::FileType,
 };
@@ -333,12 +335,13 @@ impl Expr {
     ///
     /// # Errors
     ///
-    /// This function errors when it is impossible to cast the expression to the target [arrow::datatypes::DataType].
+    /// This function errors when it is impossible to cast the
+    /// expression to the target [arrow::datatypes::DataType].
     pub fn cast_to(&self, cast_to_type: &DataType, schema: &Schema) -> Result<Expr> {
         let this_type = self.get_type(schema)?;
         if this_type == *cast_to_type {
             Ok(self.clone())
-        } else if can_coerce_from(cast_to_type, &this_type) {
+        } else if can_cast_types(&this_type, cast_to_type) {
             Ok(Expr::Cast {
                 expr: Box::new(self.clone()),
                 data_type: cast_to_type.clone(),
