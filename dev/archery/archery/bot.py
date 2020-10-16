@@ -253,13 +253,15 @@ def crossbow(obj, crossbow):
 
 
 @crossbow.command()
-@click.argument('task', nargs=-1, required=False)
-@click.option('--group', '-g', multiple=True,
+@click.argument('tasks', nargs=-1, required=False)
+@click.option('--group', '-g', 'groups', multiple=True,
               help='Submit task groups as defined in tests.yml')
+@click.option('--param', '-p', 'params', multiple=True,
+              help='Additional task parameters for rendering the CI templates')
 @click.option('--dry-run/--push', default=False,
               help='Just display the new changelog, don\'t write it')
 @click.pass_obj
-def submit(obj, task, group, dry_run):
+def submit(obj, tasks, groups, params, dry_run):
     """Submit crossbow testing tasks.
 
     See groups defined in arrow/dev/tasks/tests.yml
@@ -273,9 +275,11 @@ def submit(obj, task, group, dry_run):
     if dry_run:
         args.append('--dry-run')
 
-    for g in group:
+    for p in params:
+        args.extend(['-p', p])
+    for g in groups:
         args.extend(['-g', g])
-    for t in task:
+    for t in tasks:
         args.append(t)
 
     # pygithub pull request object
