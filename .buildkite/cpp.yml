@@ -1,6 +1,5 @@
 steps:
-  - label: "Example C++"
-    command: echo "Hello C++!"
-  - label: "Example Test"
-    command: echo "Hello C++ 2!"
-
+  - label: "ARM64v8 Conda C++"
+    commands:
+      - pip install -e dev/archery[docker]
+      - ARCH=arm64v8 archery docker run conda-cpp
