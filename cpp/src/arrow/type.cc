@@ -2124,6 +2124,7 @@ std::shared_ptr<DataType> dense_union(const ArrayVector& children,
   return dense_union(std::move(fields), std::move(type_codes));
 }
 
+
 std::shared_ptr<DataType> dictionary(const std::shared_ptr<DataType>& index_type,
                                      const std::shared_ptr<DataType>& dict_type,
                                      bool ordered) {
