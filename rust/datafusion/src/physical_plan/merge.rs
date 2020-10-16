@@ -22,13 +22,15 @@ use std::any::Any;
 use std::iter::Iterator;
 use std::sync::Arc;
 
+use futures::future;
+
 use super::common;
 use crate::error::{ExecutionError, Result};
 use crate::physical_plan::ExecutionPlan;
 use crate::physical_plan::Partitioning;
 
-use arrow::datatypes::SchemaRef;
 use arrow::record_batch::RecordBatch;
+use arrow::{datatypes::SchemaRef, error::ArrowError};
 
 use super::SendableRecordBatchStream;
 
@@ -101,25 +103,27 @@ impl ExecutionPlan for MergeExec {
                 self.input.execute(0).await
             }
             _ => {
-                let tasks = (0..input_partitions)
-                    .map(|part_i| {
-                        let input = self.input.clone();
-                        tokio::spawn(async move {
-                            let stream = input.execute(part_i).await?;
-                            common::collect(stream).await
-                        })
+                let tasks = (0..input_partitions).map(|part_i| {
+                    let input = self.input.clone();
+                    tokio::spawn(async move {
+                        let stream = input.execute(part_i).await?;
+                        common::collect(stream).await
                     })
-                    // this collect *is needed* so that the join below can
-                    // switch between tasks
-                    .collect::<Vec<_>>();
+                });
 
-                let mut combined_results: Vec<Arc<RecordBatch>> = vec![];
-                for task in tasks {
-                    let result = task.await.unwrap()?;
-                    for batch in &result {
-                        combined_results.push(Arc::new(batch.clone()));
-                    }
-                }
+                let results = future::try_join_all(tasks)
+                    .await
+                    .map_err(|e| ArrowError::from_external_error(Box::new(e)))?;
+
+                let combined_results = results
+                    .into_iter()
+                    .try_fold(Vec::<RecordBatch>::new(), |mut acc, maybe_batches| {
+                        acc.append(&mut maybe_batches?);
+                        Result::Ok(acc)
+                    })?
+                    .into_iter()
+                    .map(|x| Arc::new(x))
+                    .collect::<Vec<_>>();
 
                 Ok(Box::pin(common::SizedRecordBatchStream::new(
                     self.input.schema(),
