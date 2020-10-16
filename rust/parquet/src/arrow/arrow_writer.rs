@@ -195,7 +195,8 @@ fn write_leaves(
                 .downcast_ref::<arrow_array::StringArray>()
                 .unwrap();
 
-            // TODO: This removes NULL values; what _should_ be done?
+            // This removes NULL values from the NullableIter, but they're encoded by the levels,
+            // so that's fine.
             // FIXME: Don't use `as`
             let materialized: Vec<_> = keys
                 .flatten()
@@ -1183,9 +1184,10 @@ mod tests {
         )]));
 
         // create some data
-        use Int32DictionaryArray;
-        let d: Int32DictionaryArray =
-            ["alpha", "beta", "alpha"].iter().copied().collect();
+        let d: Int32DictionaryArray = [Some("alpha"), None, Some("beta"), Some("alpha")]
+            .iter()
+            .copied()
+            .collect();
 
         // build a record batch
         let expected_batch =
