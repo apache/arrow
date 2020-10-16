@@ -22,9 +22,11 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.arrow.flight.BackpressureStrategy;
 import org.apache.arrow.flight.FlightDescriptor;
 import org.apache.arrow.flight.FlightEndpoint;
 import org.apache.arrow.flight.FlightInfo;
+import org.apache.arrow.flight.FlightProducer;
 import org.apache.arrow.flight.FlightServer;
 import org.apache.arrow.flight.Location;
 import org.apache.arrow.flight.NoOpFlightProducer;
@@ -53,9 +55,28 @@ public class PerformanceTestServer implements AutoCloseable {
   private final PerfProducer producer;
 
   public PerformanceTestServer(BufferAllocator incomingAllocator, Location location) {
+    this(incomingAllocator, location, new BackpressureStrategy() {
+      private FlightProducer.ServerStreamListener listener;
+
+      @Override
+      public void register(FlightProducer.ServerStreamListener listener) {
+        this.listener = listener;
+      }
+
+      @Override
+      public WaitResult waitForListener(long timeout) {
+        while (!listener.isReady()) {
+          // busy wait
+        }
+        return WaitResult.READY;
+      }
+    });
+  }
+
+  public PerformanceTestServer(BufferAllocator incomingAllocator, Location location, BackpressureStrategy bpStrategy) {
     this.allocator = incomingAllocator.newChildAllocator("perf-server", 0, Long.MAX_VALUE);
     this.location = location;
-    this.producer = new PerfProducer();
+    this.producer = new PerfProducer(bpStrategy);
     this.flightServer = FlightServer.builder(this.allocator, location, producer).build();
   }
 
@@ -73,10 +94,16 @@ public class PerformanceTestServer implements AutoCloseable {
   }
 
   private final class PerfProducer extends NoOpFlightProducer {
+    private final BackpressureStrategy bpStrategy;
+
+    private PerfProducer(BackpressureStrategy bpStrategy) {
+      this.bpStrategy = bpStrategy;
+    }
 
     @Override
     public void getStream(CallContext context, Ticket ticket,
         ServerStreamListener listener) {
+      bpStrategy.register(listener);
       VectorSchemaRoot root = null;
       try {
         Token token = Token.parseFrom(ticket.getBytes());
@@ -107,10 +134,7 @@ public class PerformanceTestServer implements AutoCloseable {
           if (i % perf.getRecordsPerBatch() == 0) {
             root.setRowCount(current);
 
-            while (!listener.isReady()) {
-              //Thread.sleep(0, nanos);
-            }
-
+            bpStrategy.waitForListener(0);
             if (listener.isCancelled()) {
               root.clear();
               return;
