@@ -314,27 +314,32 @@ that have been made in this regard.
 
 Endianess
 +++++++++
-Arrow is primarily a little endian format there has been some effort to
-support big endian platforms as well. Based on a mailing list discussion,
+The Arrow format allows setting endianness.  Due to the popularity of little endian
+architectures most of implementation assume little endian by default. There has been some 
+effort to support big endian platforms as well. Based on a mailing list discussion,
 The requirements for a new platform are:
 
-1. A robut (non-flaky, returns results in a reasonable time) Continuous integration setup.
+1. A robust (non-flaky, returns results in a reasonable time) Continuous integration setup.
 2. Performance benchmarks in performance critical parts of the code to demonstrate no
    regression.
 
-Furthermore for big-endianess support there are two levels that an implementation can support
-1.  Native endianness (all arrow communication happens with processes of the same endianness.
+Furthermore for big-endianess support there are two levels that an implementation can support:
+
+1.  Native endianness (all arrow communication happens with processes of the same endianness). 
+    This includes ancillary libraries like file import/export.
 2.  Cross platform support (implementations will do byte reordering when appropriate for IPC
     and flight messages).
 
 The decision on what level to support is based on maintainers preferences for complexity and
 technical risk.  In general all implementations should be open to native endianness support
 (provided the CI and performance requirements are met).  Cross endianness support is a question
-for individual maintainers.  The current implementations aiming for cross platform support are:
+for individual maintainers.  
+
+The current implementations aiming for cross platform support are:
 
 1. C++
 
-Implementations that do not intend to implement cross
+Implementations that do not intend to implement cross platform support:
 
 1. Java
 
