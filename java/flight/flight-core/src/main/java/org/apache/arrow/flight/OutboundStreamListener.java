@@ -37,7 +37,7 @@ public interface OutboundStreamListener {
   boolean isReady();
 
   /**
-   * Set a callback for when the client cancels is ready for new calls to putNext(), i.e. {@link #isReady()} ()}
+   * Set a callback for when the listener is ready for new calls to putNext(), i.e. {@link #isReady()} ()}
    * has become true.
    *
    * <p>Note that this callback may only be called some time after {@link #isReady()} ()} becomes true, and may never
