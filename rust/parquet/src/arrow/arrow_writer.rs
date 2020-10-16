@@ -176,10 +176,10 @@ fn write_leaves(
             }
             Ok(())
         }
-        ArrowDataType::Dictionary(k, v) => {
+        ArrowDataType::Dictionary(key_type, value_type) => {
             // Materialize the packed dictionary and let the writer repack it
             let any_array = array.as_any();
-            let (k2, v2) = match &**k {
+            let (keys, any_actual_values) = match &**key_type {
                 ArrowDataType::Int32 => {
                     let typed_array = any_array
                         .downcast_ref::<arrow_array::Int32DictionaryArray>()
@@ -190,26 +190,24 @@ fn write_leaves(
                 o => unimplemented!("Unknown key type {:?}", o),
             };
 
-            let k3 = k2;
-            let v3 = v2
+            let actual_values = any_actual_values
                 .as_any()
                 .downcast_ref::<arrow_array::StringArray>()
                 .unwrap();
 
             // TODO: This removes NULL values; what _should_ be done?
             // FIXME: Don't use `as`
-            let materialized: Vec<_> = k3
+            let materialized: Vec<_> = keys
                 .flatten()
-                .map(|k| v3.value(k as usize))
+                .map(|key| actual_values.value(key as usize))
                 .map(ByteArray::from)
                 .collect();
-            //
 
             let mut col_writer = get_col_writer(&mut row_group_writer)?;
             let levels = levels.pop().expect("Levels exhausted");
 
             use ColumnWriter::*;
-            match (&mut col_writer, &**v) {
+            match (&mut col_writer, &**value_type) {
                 (ByteArrayColumnWriter(typed), ArrowDataType::Utf8) => {
                     typed.write_batch(
                         &materialized,
