@@ -17,9 +17,9 @@
 
 import atexit
 from collections.abc import Mapping
-import sys
-import re
 import warnings
+import re
+import sys
 
 
 # These are imprecise because the type (in pandas 0.x) depends on the presence
