@@ -1,5 +1,5 @@
 steps:
   - label: "ARM64v8 Conda C++"
     commands:
-      - pip install -e dev/archery[docker]
+      - pip3 install -e dev/archery[docker]
       - ARCH=arm64v8 archery docker run conda-cpp
