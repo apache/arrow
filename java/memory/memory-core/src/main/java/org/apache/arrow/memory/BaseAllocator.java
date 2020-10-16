@@ -61,10 +61,10 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
   public static final Config DEFAULT_CONFIG = ImmutableConfig.builder().build();
 
   // Package exposed for sharing between AllocatorManger and BaseAllocator objects
-  final String name;
-  final RootAllocator root;
+  private final String name;
+  private final RootAllocator root;
   private final Object DEBUG_LOCK = DEBUG ? new Object() : null;
-  final AllocationListener listener;
+  private final AllocationListener listener;
   private final BaseAllocator parentAllocator;
   private final Map<BaseAllocator, Object> childAllocators;
   private final ArrowBuf empty;
@@ -124,7 +124,8 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
     this.roundingPolicy = config.getRoundingPolicy();
   }
 
-  AllocationListener getListener() {
+  @Override
+  public AllocationListener getListener() {
     return listener;
   }
 
@@ -315,6 +316,11 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
   }
 
   @Override
+  public BufferAllocator getRoot() {
+    return root;
+  }
+
+  @Override
   public BufferAllocator newChildAllocator(
       final String name,
       final long initReservation,
@@ -343,7 +349,7 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
       synchronized (DEBUG_LOCK) {
         childAllocators.put(childAllocator, childAllocator);
         historicalLog.recordEvent("allocator[%s] created new child allocator[%s]", name,
-            childAllocator.name);
+            childAllocator.getName());
       }
     } else {
       childAllocators.put(childAllocator, childAllocator);

@@ -34,7 +34,7 @@ public class DefaultAllocationManagerFactory implements AllocationManager.Factor
       MemoryUtil.UNSAFE.allocateMemory(0));
 
   @Override
-  public AllocationManager create(BaseAllocator accountingAllocator, long size) {
+  public AllocationManager create(BufferAllocator accountingAllocator, long size) {
     return new AllocationManager(accountingAllocator) {
       private final long allocatedSize = size;
       private final long address = MemoryUtil.UNSAFE.allocateMemory(size);
