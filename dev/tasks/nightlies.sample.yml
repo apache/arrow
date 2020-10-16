@@ -40,7 +40,6 @@ before_install:
       MINICONDA_FILE="Miniconda3-latest-Linux-x86_64.sh"
       curl -L -O "${MINICONDA_URL}/${MINICONDA_FILE}"
       bash $MINICONDA_FILE -b
-
     # Configure conda.
     - |
       echo ""
