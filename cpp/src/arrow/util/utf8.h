@@ -27,6 +27,7 @@
 #include "arrow/util/macros.h"
 #include "arrow/util/simd.h"
 #include "arrow/util/string_view.h"
+#include "arrow/util/ubsan.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -87,8 +88,9 @@ ARROW_EXPORT void InitializeUTF8();
 
 inline bool ValidateUTF8(const uint8_t* data, int64_t size) {
   static constexpr uint64_t high_bits_64 = 0x8080808080808080ULL;
-  // For some reason, defining this variable outside the loop helps clang
-  uint64_t mask;
+  static constexpr uint32_t high_bits_32 = 0x80808080UL;
+  static constexpr uint16_t high_bits_16 = 0x8080U;
+  static constexpr uint8_t high_bits_8 = 0x80U;
 
 #ifndef NDEBUG
   internal::CheckUTF8Initialized();
@@ -98,8 +100,8 @@ inline bool ValidateUTF8(const uint8_t* data, int64_t size) {
     // XXX This is doing an unaligned access.  Contemporary architectures
     // (x86-64, AArch64, PPC64) support it natively and often have good
     // performance nevertheless.
-    memcpy(&mask, data, 8);
-    if (ARROW_PREDICT_TRUE((mask & high_bits_64) == 0)) {
+    uint64_t mask64 = SafeLoadAs<uint64_t>(data);
+    if (ARROW_PREDICT_TRUE((mask64 & high_bits_64) == 0)) {
       // 8 bytes of pure ASCII, move forward
       size -= 8;
       data += 8;
@@ -154,13 +156,50 @@ inline bool ValidateUTF8(const uint8_t* data, int64_t size) {
     return false;
   }
 
-  // Validate string tail one byte at a time
+  // Check if string tail is full ASCII (common case, fast)
+  if (size >= 4) {
+    uint32_t tail_mask = SafeLoadAs<uint32_t>(data + size - 4);
+    uint32_t head_mask = SafeLoadAs<uint32_t>(data);
+    if (ARROW_PREDICT_TRUE(((head_mask | tail_mask) & high_bits_32) == 0)) {
+      return true;
+    }
+  } else if (size >= 2) {
+    uint16_t tail_mask = SafeLoadAs<uint16_t>(data + size - 2);
+    uint16_t head_mask = SafeLoadAs<uint16_t>(data);
+    if (ARROW_PREDICT_TRUE(((head_mask | tail_mask) & high_bits_16) == 0)) {
+      return true;
+    }
+  } else if (size == 1) {
+    if (ARROW_PREDICT_TRUE((*data & high_bits_8) == 0)) {
+      return true;
+    }
+  } else {
+    /* size == 0 */
+    return true;
+  }
+
+  // Fall back to UTF8 validation of tail string.
   // Note the state table is designed so that, once in the reject state,
   // we remain in that state until the end.  So we needn't check for
   // rejection at each char (we don't gain much by short-circuiting here).
   uint16_t state = internal::kUTF8ValidateAccept;
-  while (size-- > 0) {
-    state = internal::ValidateOneUTF8Byte(*data++, state);
+  switch (size) {
+    case 7:
+      state = internal::ValidateOneUTF8Byte(data[size - 7], state);
+    case 6:
+      state = internal::ValidateOneUTF8Byte(data[size - 6], state);
+    case 5:
+      state = internal::ValidateOneUTF8Byte(data[size - 5], state);
+    case 4:
+      state = internal::ValidateOneUTF8Byte(data[size - 4], state);
+    case 3:
+      state = internal::ValidateOneUTF8Byte(data[size - 3], state);
+    case 2:
+      state = internal::ValidateOneUTF8Byte(data[size - 2], state);
+    case 1:
+      state = internal::ValidateOneUTF8Byte(data[size - 1], state);
+    default:
+      break;
   }
   return ARROW_PREDICT_TRUE(state == internal::kUTF8ValidateAccept);
 }
