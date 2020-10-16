@@ -25,7 +25,7 @@ use arrow::record_batch::RecordBatch;
 use arrow_array::Array;
 
 use super::schema::add_encoded_arrow_schema_to_metadata;
-use crate::column::writer::ColumnWriter;
+use crate::column::writer::{ColumnWriter, ColumnWriterImpl};
 use crate::errors::{ParquetError, Result};
 use crate::file::properties::WriterProperties;
 use crate::{
@@ -177,47 +177,38 @@ fn write_leaves(
             Ok(())
         }
         ArrowDataType::Dictionary(key_type, value_type) => {
-            // Materialize the packed dictionary and let the writer repack it
-            let any_array = array.as_any();
-            let (keys, any_actual_values) = match &**key_type {
-                ArrowDataType::Int32 => {
-                    let typed_array = any_array
-                        .downcast_ref::<arrow_array::Int32DictionaryArray>()
-                        .expect("Unable to get dictionary array");
-
-                    (typed_array.keys(), typed_array.values())
-                }
-                o => unimplemented!("Unknown key type {:?}", o),
+            use arrow_array::{
+                Int16DictionaryArray, Int32DictionaryArray, Int64DictionaryArray,
+                Int8DictionaryArray, StringArray, UInt16DictionaryArray,
+                UInt32DictionaryArray, UInt64DictionaryArray, UInt8DictionaryArray,
             };
+            use ArrowDataType::*;
+            use ColumnWriter::*;
 
-            let actual_values = any_actual_values
-                .as_any()
-                .downcast_ref::<arrow_array::StringArray>()
-                .unwrap();
-
-            // This removes NULL values from the NullableIter, but they're encoded by the levels,
-            // so that's fine.
-            // FIXME: Don't use `as`
-            let materialized: Vec<_> = keys
-                .flatten()
-                .map(|key| actual_values.value(key as usize))
-                .map(ByteArray::from)
-                .collect();
-
+            let array = &**array;
             let mut col_writer = get_col_writer(&mut row_group_writer)?;
             let levels = levels.pop().expect("Levels exhausted");
 
-            use ColumnWriter::*;
-            match (&mut col_writer, &**value_type) {
-                (ByteArrayColumnWriter(typed), ArrowDataType::Utf8) => {
-                    typed.write_batch(
-                        &materialized,
-                        Some(levels.definition.as_slice()),
-                        levels.repetition.as_deref(),
-                    )?;
-                }
-                o => unimplemented!("ColumnWriter not supported for {:?}", o.1),
+            macro_rules! dispatch_dictionary {
+                ($($kt: pat, $vt: pat, $w: ident => $kat: ty, $vat: ty,)*) => (
+                    match (&**key_type, &**value_type, &mut col_writer) {
+                        $(($kt, $vt, $w(writer)) => write_dict::<$kat, $vat, _>(array, writer, levels),)*
+                        (kt, vt, _) => panic!("Don't know how to write dictionary of <{:?}, {:?}>", kt, vt),
+                    }
+                );
             }
+
+            dispatch_dictionary!(
+                Int8, Utf8, ByteArrayColumnWriter => Int8DictionaryArray, StringArray,
+                Int16, Utf8, ByteArrayColumnWriter => Int16DictionaryArray, StringArray,
+                Int32, Utf8, ByteArrayColumnWriter => Int32DictionaryArray, StringArray,
+                Int64, Utf8, ByteArrayColumnWriter => Int64DictionaryArray, StringArray,
+                UInt8, Utf8, ByteArrayColumnWriter => UInt8DictionaryArray, StringArray,
+                UInt16, Utf8, ByteArrayColumnWriter => UInt16DictionaryArray, StringArray,
+                UInt32, Utf8, ByteArrayColumnWriter => UInt32DictionaryArray, StringArray,
+                UInt64, Utf8, ByteArrayColumnWriter => UInt64DictionaryArray, StringArray,
+            )?;
+
             row_group_writer.close_column(col_writer)?;
 
             Ok(())
@@ -232,6 +223,75 @@ fn write_leaves(
             "Attempting to write an Arrow type that is not yet implemented".to_string(),
         )),
     }
+}
+
+trait Materialize<K, V> {
+    type Output;
+
+    // Materialize the packed dictionary. The writer will later repack it.
+    fn materialize(&self) -> Vec<Self::Output>;
+}
+
+macro_rules! materialize_string {
+    ($($k:ty,)*) => {
+        $(impl Materialize<$k, arrow_array::StringArray> for dyn Array {
+            type Output = ByteArray;
+
+            fn materialize(&self) -> Vec<Self::Output> {
+                use std::convert::TryFrom;
+
+                let typed_array = self.as_any()
+                    .downcast_ref::<$k>()
+                    .expect("Unable to get dictionary array");
+
+                let keys = typed_array.keys();
+
+                let value_buffer = typed_array.values();
+                let values = value_buffer
+                    .as_any()
+                    .downcast_ref::<arrow_array::StringArray>()
+                    .unwrap();
+
+                // This removes NULL values from the NullableIter, but
+                // they're encoded by the levels, so that's fine.
+                keys
+                    .flatten()
+                    .map(|key| usize::try_from(key).unwrap_or_else(|k| panic!("key {} does not fit in usize", k)))
+                    .map(|key| values.value(key))
+                    .map(ByteArray::from)
+                    .collect()
+            }
+        })*
+    };
+}
+
+materialize_string! {
+    arrow_array::Int8DictionaryArray,
+    arrow_array::Int16DictionaryArray,
+    arrow_array::Int32DictionaryArray,
+    arrow_array::Int64DictionaryArray,
+    arrow_array::UInt8DictionaryArray,
+    arrow_array::UInt16DictionaryArray,
+    arrow_array::UInt32DictionaryArray,
+    arrow_array::UInt64DictionaryArray,
+}
+
+fn write_dict<K, V, T>(
+    array: &(dyn Array + 'static),
+    writer: &mut ColumnWriterImpl<T>,
+    levels: Levels,
+) -> Result<()>
+where
+    T: DataType,
+    dyn Array: Materialize<K, V, Output = T::T>,
+{
+    writer.write_batch(
+        &array.materialize(),
+        Some(levels.definition.as_slice()),
+        levels.repetition.as_deref(),
+    )?;
+
+    Ok(())
 }
 
 fn write_leaf(
