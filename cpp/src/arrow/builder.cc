@@ -51,6 +51,7 @@ struct DictionaryBuilderCase {
   }
   Status Visit(const FixedSizeBinaryType&) { return CreateFor<FixedSizeBinaryType>(); }
   Status Visit(const Decimal128Type&) { return CreateFor<Decimal128Type>(); }
+  Status Visit(const Decimal256Type&) { return CreateFor<Decimal256Type>(); }
 
   Status Visit(const DataType& value_type) { return NotImplemented(value_type); }
   Status Visit(const HalfFloatType& value_type) { return NotImplemented(value_type); }
