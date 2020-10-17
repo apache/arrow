@@ -296,7 +296,7 @@ public class UnionVector implements FieldVector {
   <#if minor.class?ends_with("Decimal")>
   public ${name}Vector get${name}Vector() {
     if (${uncappedName}Vector == null) {
-      throw new IllegalArgumentException("No Decimal ${uncappedName} present. Provide ArrowType argument to create a new vector");
+      throw new IllegalArgumentException("No ${uncappedName} present. Provide ArrowType argument to create a new vector");
     }
     return ${uncappedName}Vector;
   }

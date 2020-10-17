@@ -112,11 +112,11 @@ abstract class AbstractPromotableFieldWriter extends AbstractFieldWriter {
     getWriter(MinorType.BIGDECIMAL).write(holder);
   }
 
-  public void writeBigDecimal(int start, ArrowBuf buffer, ArrowType arrowType) {
+  public void writeBigDecimal(long start, ArrowBuf buffer, ArrowType arrowType) {
     getWriter(MinorType.BIGDECIMAL).writeBigDecimal(start, buffer, arrowType);
   }
 
-  public void writeBigDecimal(int start, ArrowBuf buffer) {
+  public void writeBigDecimal(long start, ArrowBuf buffer) {
     getWriter(MinorType.BIGDECIMAL).writeBigDecimal(start, buffer);
   }
   public void writeBigEndianBytesToBigDecimal(byte[] value, ArrowType arrowType) {

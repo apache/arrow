@@ -44,7 +44,7 @@ public class DecimalUtility {
   public static BigDecimal getBigDecimalFromArrowBuf(ArrowBuf bytebuf, int index, int scale, int byteWidth) {
     byte[] value = new byte[byteWidth];
     byte temp;
-    final long startIndex = (long) index * DECIMAL_BYTE_LENGTH;
+    final long startIndex = (long) index * byteWidth;
 
     // Decimal stored as little endian, need to swap bytes to make BigDecimal
     bytebuf.getBytes(startIndex, value, 0, byteWidth);

@@ -145,7 +145,7 @@ public final class BigDecimalVector extends BaseFixedWidthVector {
     holder.buffer = valueBuffer;
     holder.precision = precision;
     holder.scale = scale;
-    holder.start = index * TYPE_WIDTH;
+    holder.start = ((long) index) * TYPE_WIDTH;
   }
 
   /**
