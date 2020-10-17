@@ -113,7 +113,7 @@ impl From<ArrayDataRef> for NullArray {
 
 impl fmt::Debug for NullArray {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "NullArray")
+        write!(f, "NullArray({})", self.len())
     }
 }
 
@@ -145,5 +145,11 @@ mod tests {
         assert_eq!(array2.len(), 16);
         assert_eq!(array2.null_count(), 16);
         assert_eq!(array2.offset(), 8);
+    }
+
+    #[test]
+    fn test_debug_null_array() {
+        let array = NullArray::new(1024 * 1024);
+        assert_eq!(format!("{:?}", array), "NullArray(1048576)");
     }
 }

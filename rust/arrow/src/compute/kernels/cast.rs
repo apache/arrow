@@ -200,8 +200,7 @@ pub fn can_cast_types(from_type: &DataType, to_type: &DataType) -> bool {
         (Timestamp(_, _), Date32(_)) => true,
         (Timestamp(_, _), Date64(_)) => true,
         // date64 to timestamp might not make sense,
-
-        // end temporal casts
+        (Null, Int32) => true,
         (_, _) => false,
     }
 }
@@ -729,25 +728,31 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
             // single integer operation, but need to avoid integer
             // math rounding down to zero
 
-            if to_size > from_size {
-                let time_array = Date64Array::from(array.data());
-                Ok(Arc::new(multiply(
-                    &time_array,
-                    &Date64Array::from(vec![to_size / from_size; array.len()]),
-                )?) as ArrayRef)
-            } else if to_size < from_size {
-                let time_array = Date64Array::from(array.data());
-                Ok(Arc::new(divide(
-                    &time_array,
-                    &Date64Array::from(vec![from_size / to_size; array.len()]),
-                )?) as ArrayRef)
-            } else {
-                cast_array_data::<Date64Type>(array, to_type.clone())
+            match to_size.cmp(&from_size) {
+                std::cmp::Ordering::Less => {
+                    let time_array = Date64Array::from(array.data());
+                    Ok(Arc::new(divide(
+                        &time_array,
+                        &Date64Array::from(vec![from_size / to_size; array.len()]),
+                    )?) as ArrayRef)
+                }
+                std::cmp::Ordering::Equal => {
+                    cast_array_data::<Date64Type>(array, to_type.clone())
+                }
+                std::cmp::Ordering::Greater => {
+                    let time_array = Date64Array::from(array.data());
+                    Ok(Arc::new(multiply(
+                        &time_array,
+                        &Date64Array::from(vec![to_size / from_size; array.len()]),
+                    )?) as ArrayRef)
+                }
             }
         }
         // date64 to timestamp might not make sense,
 
-        // end temporal casts
+        // null to primitive/flat types
+        (Null, Int32) => Ok(Arc::new(Int32Array::from(vec![None; array.len()]))),
+
         (_, _) => Err(ArrowError::ComputeError(format!(
             "Casting from {:?} to {:?} not supported",
             from_type, to_type,
@@ -2476,44 +2481,44 @@ mod tests {
 
         // Test casting TO StringArray
         let cast_type = Utf8;
-        let cast_array = cast(&array, &cast_type).expect("cast to UTF-8 succeeded");
+        let cast_array = cast(&array, &cast_type).expect("cast to UTF-8 failed");
         assert_eq!(cast_array.data_type(), &cast_type);
         assert_eq!(array_to_strings(&cast_array), expected);
 
         // Test casting TO Dictionary (with different index sizes)
 
         let cast_type = Dictionary(Box::new(Int16), Box::new(Utf8));
-        let cast_array = cast(&array, &cast_type).expect("cast succeeded");
+        let cast_array = cast(&array, &cast_type).expect("cast failed");
         assert_eq!(cast_array.data_type(), &cast_type);
         assert_eq!(array_to_strings(&cast_array), expected);
 
         let cast_type = Dictionary(Box::new(Int32), Box::new(Utf8));
-        let cast_array = cast(&array, &cast_type).expect("cast succeeded");
+        let cast_array = cast(&array, &cast_type).expect("cast failed");
         assert_eq!(cast_array.data_type(), &cast_type);
         assert_eq!(array_to_strings(&cast_array), expected);
 
         let cast_type = Dictionary(Box::new(Int64), Box::new(Utf8));
-        let cast_array = cast(&array, &cast_type).expect("cast succeeded");
+        let cast_array = cast(&array, &cast_type).expect("cast failed");
         assert_eq!(cast_array.data_type(), &cast_type);
         assert_eq!(array_to_strings(&cast_array), expected);
 
         let cast_type = Dictionary(Box::new(UInt8), Box::new(Utf8));
-        let cast_array = cast(&array, &cast_type).expect("cast succeeded");
+        let cast_array = cast(&array, &cast_type).expect("cast failed");
         assert_eq!(cast_array.data_type(), &cast_type);
         assert_eq!(array_to_strings(&cast_array), expected);
 
         let cast_type = Dictionary(Box::new(UInt16), Box::new(Utf8));
-        let cast_array = cast(&array, &cast_type).expect("cast succeeded");
+        let cast_array = cast(&array, &cast_type).expect("cast failed");
         assert_eq!(cast_array.data_type(), &cast_type);
         assert_eq!(array_to_strings(&cast_array), expected);
 
         let cast_type = Dictionary(Box::new(UInt32), Box::new(Utf8));
-        let cast_array = cast(&array, &cast_type).expect("cast succeeded");
+        let cast_array = cast(&array, &cast_type).expect("cast failed");
         assert_eq!(cast_array.data_type(), &cast_type);
         assert_eq!(array_to_strings(&cast_array), expected);
 
         let cast_type = Dictionary(Box::new(UInt64), Box::new(Utf8));
-        let cast_array = cast(&array, &cast_type).expect("cast succeeded");
+        let cast_array = cast(&array, &cast_type).expect("cast failed");
         assert_eq!(cast_array.data_type(), &cast_type);
         assert_eq!(array_to_strings(&cast_array), expected);
     }
@@ -2598,11 +2603,11 @@ mod tests {
         let expected = vec!["1", "null", "3"];
 
         // Test casting TO PrimitiveArray, different dictionary type
-        let cast_array = cast(&array, &Utf8).expect("cast to UTF-8 succeeded");
+        let cast_array = cast(&array, &Utf8).expect("cast to UTF-8 failed");
         assert_eq!(array_to_strings(&cast_array), expected);
         assert_eq!(cast_array.data_type(), &Utf8);
 
-        let cast_array = cast(&array, &Int64).expect("cast to int64 succeeded");
+        let cast_array = cast(&array, &Int64).expect("cast to int64 failed");
         assert_eq!(array_to_strings(&cast_array), expected);
         assert_eq!(cast_array.data_type(), &Int64);
     }
@@ -2621,13 +2626,13 @@ mod tests {
 
         // Cast to a dictionary (same value type, Int32)
         let cast_type = Dictionary(Box::new(UInt8), Box::new(Int32));
-        let cast_array = cast(&array, &cast_type).expect("cast succeeded");
+        let cast_array = cast(&array, &cast_type).expect("cast failed");
         assert_eq!(cast_array.data_type(), &cast_type);
         assert_eq!(array_to_strings(&cast_array), expected);
 
         // Cast to a dictionary (different value type, Int8)
         let cast_type = Dictionary(Box::new(UInt8), Box::new(Int8));
-        let cast_array = cast(&array, &cast_type).expect("cast succeeded");
+        let cast_array = cast(&array, &cast_type).expect("cast failed");
         assert_eq!(cast_array.data_type(), &cast_type);
         assert_eq!(array_to_strings(&cast_array), expected);
     }
@@ -2646,9 +2651,23 @@ mod tests {
 
         // Cast to a dictionary (same value type, Utf8)
         let cast_type = Dictionary(Box::new(UInt8), Box::new(Utf8));
-        let cast_array = cast(&array, &cast_type).expect("cast succeeded");
+        let cast_array = cast(&array, &cast_type).expect("cast failed");
         assert_eq!(cast_array.data_type(), &cast_type);
         assert_eq!(array_to_strings(&cast_array), expected);
+    }
+
+    #[test]
+    fn test_cast_null_array_to_int32() {
+        let array = Arc::new(NullArray::new(6)) as ArrayRef;
+
+        let expected = Int32Array::from(vec![None; 6]);
+
+        // Cast to a dictionary (same value type, Utf8)
+        let cast_type = DataType::Int32;
+        let cast_array = cast(&array, &cast_type).expect("cast failed");
+        let cast_array = as_primitive_array::<Int32Type>(&cast_array);
+        assert_eq!(cast_array.data_type(), &cast_type);
+        assert_eq!(cast_array, &expected);
     }
 
     /// Print the `DictionaryArray` `array` as a vector of strings
@@ -2768,7 +2787,7 @@ mod tests {
             )),
             Arc::new(TimestampNanosecondArray::from_vec(
                 vec![1000, 2000],
-                Some(tz_name.clone()),
+                Some(tz_name),
             )),
             Arc::new(Date32Array::from(vec![1000, 2000])),
             Arc::new(Date64Array::from(vec![1000, 2000])),
