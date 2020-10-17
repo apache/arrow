@@ -17,7 +17,7 @@
 
 //! String expressions
 
-use crate::error::{ExecutionError, Result};
+use crate::error::{DataFusionError, Result};
 use arrow::array::{Array, ArrayRef, StringArray, StringBuilder};
 
 macro_rules! downcast_vec {
@@ -26,7 +26,7 @@ macro_rules! downcast_vec {
             .iter()
             .map(|e| match e.as_any().downcast_ref::<$ARRAY_TYPE>() {
                 Some(array) => Ok(array),
-                _ => Err(ExecutionError::General("failed to downcast".to_string())),
+                _ => Err(DataFusionError::Internal("failed to downcast".to_string())),
             })
     }};
 }
@@ -37,7 +37,7 @@ pub fn concatenate(args: &[ArrayRef]) -> Result<StringArray> {
     let args = downcast_vec!(args, StringArray).collect::<Result<Vec<&StringArray>>>()?;
     // do not accept 0 arguments.
     if args.len() == 0 {
-        return Err(ExecutionError::InternalError(
+        return Err(DataFusionError::Internal(
             "Concatenate was called with 0 arguments. It requires at least one."
                 .to_string(),
         ));

@@ -20,7 +20,7 @@
 use std::any::Any;
 use std::sync::Arc;
 
-use crate::error::{ExecutionError, Result};
+use crate::error::{DataFusionError, Result};
 use crate::physical_plan::memory::MemoryStream;
 use crate::physical_plan::{Distribution, ExecutionPlan, Partitioning};
 use arrow::array::ArrayRef;
@@ -89,7 +89,7 @@ impl ExecutionPlan for GlobalLimitExec {
                 self.limit,
                 self.concurrency,
             ))),
-            _ => Err(ExecutionError::General(
+            _ => Err(DataFusionError::Internal(
                 "GlobalLimitExec wrong number of children".to_string(),
             )),
         }
@@ -98,7 +98,7 @@ impl ExecutionPlan for GlobalLimitExec {
     async fn execute(&self, partition: usize) -> Result<SendableRecordBatchStream> {
         // GlobalLimitExec has a single output partition
         if 0 != partition {
-            return Err(ExecutionError::General(format!(
+            return Err(DataFusionError::Internal(format!(
                 "GlobalLimitExec invalid partition {}",
                 partition
             )));
@@ -106,7 +106,7 @@ impl ExecutionPlan for GlobalLimitExec {
 
         // GlobalLimitExec requires a single input partition
         if 1 != self.input.output_partitioning().partition_count() {
-            return Err(ExecutionError::General(
+            return Err(DataFusionError::Internal(
                 "GlobalLimitExec requires a single input partition".to_owned(),
             ));
         }
@@ -162,7 +162,7 @@ impl ExecutionPlan for LocalLimitExec {
                 children[0].clone(),
                 self.limit,
             ))),
-            _ => Err(ExecutionError::General(
+            _ => Err(DataFusionError::Internal(
                 "LocalLimitExec wrong number of children".to_string(),
             )),
         }
@@ -181,7 +181,7 @@ impl ExecutionPlan for LocalLimitExec {
 /// Truncate a RecordBatch to maximum of n rows
 pub fn truncate_batch(batch: &RecordBatch, n: usize) -> Result<RecordBatch> {
     let limited_columns: Result<Vec<ArrayRef>> = (0..batch.num_columns())
-        .map(|i| limit(batch.column(i), n).map_err(|error| ExecutionError::from(error)))
+        .map(|i| limit(batch.column(i), n).map_err(|error| DataFusionError::from(error)))
         .collect();
 
     Ok(RecordBatch::try_new(
@@ -216,7 +216,7 @@ async fn collect_with_limit(
             None => {
                 return Ok(results);
             }
-            Some(Err(e)) => return Err(ExecutionError::from(e)),
+            Some(Err(e)) => return Err(DataFusionError::from(e)),
         }
     }
 }

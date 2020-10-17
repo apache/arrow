@@ -27,7 +27,7 @@ use arrow::datatypes::SchemaRef;
 use arrow::record_batch::RecordBatch;
 
 use super::SendableRecordBatchStream;
-use crate::error::{ExecutionError, Result};
+use crate::error::{DataFusionError, Result};
 use crate::physical_plan::common::SizedRecordBatchStream;
 use crate::physical_plan::expressions::PhysicalSortExpr;
 use crate::physical_plan::{common, Distribution, ExecutionPlan, Partitioning};
@@ -94,7 +94,7 @@ impl ExecutionPlan for SortExec {
                 children[0].clone(),
                 self.concurrency,
             )?)),
-            _ => Err(ExecutionError::General(
+            _ => Err(DataFusionError::Internal(
                 "SortExec wrong number of children".to_string(),
             )),
         }
@@ -102,7 +102,7 @@ impl ExecutionPlan for SortExec {
 
     async fn execute(&self, partition: usize) -> Result<SendableRecordBatchStream> {
         if 0 != partition {
-            return Err(ExecutionError::General(format!(
+            return Err(DataFusionError::Internal(format!(
                 "SortExec invalid partition {}",
                 partition
             )));
@@ -110,7 +110,7 @@ impl ExecutionPlan for SortExec {
 
         // sort needs to operate on a single partition currently
         if 1 != self.input.output_partitioning().partition_count() {
-            return Err(ExecutionError::General(
+            return Err(DataFusionError::Internal(
                 "SortExec requires a single input partition".to_owned(),
             ));
         }

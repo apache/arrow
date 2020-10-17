@@ -31,7 +31,7 @@ use super::{
     type_coercion::{coerce, data_types},
     Accumulator, AggregateExpr, PhysicalExpr,
 };
-use crate::error::{ExecutionError, Result};
+use crate::error::{DataFusionError, Result};
 use crate::physical_plan::distinct_expressions;
 use crate::physical_plan::expressions;
 use arrow::datatypes::{DataType, Schema};
@@ -70,7 +70,7 @@ impl fmt::Display for AggregateFunction {
 }
 
 impl FromStr for AggregateFunction {
-    type Err = ExecutionError;
+    type Err = DataFusionError;
     fn from_str(name: &str) -> Result<AggregateFunction> {
         Ok(match &*name.to_uppercase() {
             "MIN" => AggregateFunction::Min,
@@ -79,7 +79,7 @@ impl FromStr for AggregateFunction {
             "AVG" => AggregateFunction::Avg,
             "SUM" => AggregateFunction::Sum,
             _ => {
-                return Err(ExecutionError::General(format!(
+                return Err(DataFusionError::Plan(format!(
                     "There is no built-in function named {}",
                     name
                 )))
@@ -142,7 +142,7 @@ pub fn create_aggregate_expr(
             Arc::new(expressions::Sum::new(arg, name, return_type))
         }
         (AggregateFunction::Sum, true) => {
-            return Err(ExecutionError::NotImplemented(
+            return Err(DataFusionError::NotImplemented(
                 "SUM(DISTINCT) aggregations are not available".to_string(),
             ));
         }
@@ -156,7 +156,7 @@ pub fn create_aggregate_expr(
             Arc::new(expressions::Avg::new(arg, name, return_type))
         }
         (AggregateFunction::Avg, true) => {
-            return Err(ExecutionError::NotImplemented(
+            return Err(DataFusionError::NotImplemented(
                 "AVG(DISTINCT) aggregations are not available".to_string(),
             ));
         }

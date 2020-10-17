@@ -32,7 +32,7 @@ use arrow::{
 
 use crate::datasource::parquet::ParquetTable;
 use crate::datasource::TableProvider;
-use crate::error::{ExecutionError, Result};
+use crate::error::{DataFusionError, Result};
 use crate::{
     datasource::csv::{CsvFile, CsvReadOptions},
     physical_plan::udaf::AggregateUDF,
@@ -115,7 +115,7 @@ fn create_name(e: &Expr, input_schema: &Schema) -> Result<String> {
             }
             Ok(format!("{}({})", fun.name, names.join(",")))
         }
-        other => Err(ExecutionError::NotImplemented(format!(
+        other => Err(DataFusionError::NotImplemented(format!(
             "Physical plan does not support logical expression {:?}",
             other
         ))),
@@ -275,7 +275,7 @@ impl Expr {
                 &right.get_type(schema)?,
             ),
             Expr::Sort { ref expr, .. } => expr.get_type(schema),
-            Expr::Wildcard => Err(ExecutionError::General(
+            Expr::Wildcard => Err(DataFusionError::Internal(
                 "Wildcard expressions are not valid in a logical query plan".to_owned(),
             )),
             Expr::Nested(e) => e.get_type(schema),
@@ -309,7 +309,7 @@ impl Expr {
             } => Ok(left.nullable(input_schema)? || right.nullable(input_schema)?),
             Expr::Sort { ref expr, .. } => expr.nullable(input_schema),
             Expr::Nested(e) => e.nullable(input_schema),
-            Expr::Wildcard => Err(ExecutionError::General(
+            Expr::Wildcard => Err(DataFusionError::Internal(
                 "Wildcard expressions are not valid in a logical query plan".to_owned(),
             )),
         }
@@ -347,7 +347,7 @@ impl Expr {
                 data_type: cast_to_type.clone(),
             })
         } else {
-            Err(ExecutionError::General(format!(
+            Err(DataFusionError::Plan(format!(
                 "Cannot automatically convert {:?} to {:?}",
                 this_type, cast_to_type
             )))
@@ -1270,7 +1270,7 @@ fn validate_unique_names(
                 Ok(())
             },
             Some((existing_position, existing_expr)) => {
-                Err(ExecutionError::General(
+                Err(DataFusionError::Plan(
                     format!("{} require unique expression names \
                              but the expression \"{:?}\" at position {} and \"{:?}\" \
                              at position {} have the same name. Consider aliasing (\"AS\") one of them.",
@@ -1445,14 +1445,14 @@ mod tests {
         .project(vec![col("id"), col("first_name").alias("id")]);
 
         match plan {
-            Err(ExecutionError::General(e)) => {
+            Err(DataFusionError::Plan(e)) => {
                 assert_eq!(e, "Projections require unique expression names \
                     but the expression \"#id\" at position 0 and \"#first_name AS id\" at \
                     position 1 have the same name. Consider aliasing (\"AS\") one of them.");
                 Ok(())
             }
-            _ => Err(ExecutionError::General(
-                "Plan should have returned an ExecutionError::General".to_string(),
+            _ => Err(DataFusionError::Plan(
+                "Plan should have returned an DataFusionError::Plan".to_string(),
             )),
         }
     }
@@ -1469,14 +1469,14 @@ mod tests {
         .aggregate(vec![col("state")], vec![sum(col("salary")).alias("state")]);
 
         match plan {
-            Err(ExecutionError::General(e)) => {
+            Err(DataFusionError::Plan(e)) => {
                 assert_eq!(e, "Aggregations require unique expression names \
                     but the expression \"#state\" at position 0 and \"SUM(#salary) AS state\" at \
                     position 1 have the same name. Consider aliasing (\"AS\") one of them.");
                 Ok(())
             }
-            _ => Err(ExecutionError::General(
-                "Plan should have returned an ExecutionError::General".to_string(),
+            _ => Err(DataFusionError::Plan(
+                "Plan should have returned an DataFusionError::Plan".to_string(),
             )),
         }
     }

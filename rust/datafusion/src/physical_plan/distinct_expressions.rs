@@ -26,7 +26,7 @@ use arrow::datatypes::{DataType, Field};
 
 use fnv::FnvHashSet;
 
-use crate::error::{ExecutionError, Result};
+use crate::error::{DataFusionError, Result};
 use crate::physical_plan::group_scalar::GroupByScalar;
 use crate::physical_plan::{Accumulator, AggregateExpr, PhysicalExpr};
 use crate::scalar::ScalarValue;
@@ -131,7 +131,7 @@ impl Accumulator for DistinctCountAccumulator {
             .iter()
             .map(|state| match state {
                 ScalarValue::List(Some(values), _) => Ok(values),
-                _ => Err(ExecutionError::InternalError(
+                _ => Err(DataFusionError::Internal(
                     "Unexpected accumulator state".to_string(),
                 )),
             })
@@ -178,7 +178,7 @@ impl Accumulator for DistinctCountAccumulator {
         match &self.count_data_type {
             DataType::UInt64 => Ok(ScalarValue::UInt64(Some(self.values.len() as u64))),
             t => {
-                return Err(ExecutionError::InternalError(format!(
+                return Err(DataFusionError::Internal(format!(
                     "Invalid data type {:?} for count distinct aggregation",
                     t
                 )))

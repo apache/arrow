@@ -20,7 +20,7 @@
 use std::any::Any;
 use std::sync::Arc;
 
-use crate::error::{ExecutionError, Result};
+use crate::error::{DataFusionError, Result};
 use crate::{
     logical_plan::StringifiedPlan,
     physical_plan::{common::SizedRecordBatchStream, ExecutionPlan},
@@ -82,7 +82,7 @@ impl ExecutionPlan for ExplainExec {
         if children.is_empty() {
             Ok(Arc::new(self.clone()))
         } else {
-            Err(ExecutionError::General(format!(
+            Err(DataFusionError::Internal(format!(
                 "Children cannot be replaced in {:?}",
                 self
             )))
@@ -91,7 +91,7 @@ impl ExecutionPlan for ExplainExec {
 
     async fn execute(&self, partition: usize) -> Result<SendableRecordBatchStream> {
         if 0 != partition {
-            return Err(ExecutionError::General(format!(
+            return Err(DataFusionError::Internal(format!(
                 "ExplainExec invalid partition {}",
                 partition
             )));

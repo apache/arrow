@@ -68,7 +68,7 @@ use arrow::{
     util::pretty::pretty_format_batches,
 };
 use datafusion::{
-    error::{ExecutionError, Result},
+    error::{DataFusionError, Result},
     execution::context::ExecutionContextState,
     execution::context::QueryPlanner,
     logical_plan::{Expr, LogicalPlan, UserDefinedLogicalNode},
@@ -91,7 +91,7 @@ use async_trait::async_trait;
 async fn exec_sql(ctx: &mut ExecutionContext, sql: &str) -> Result<String> {
     let df = ctx.sql(sql)?;
     let batches = df.collect().await?;
-    pretty_format_batches(&batches).map_err(|e| ExecutionError::ArrowError(e))
+    pretty_format_batches(&batches).map_err(|e| DataFusionError::ArrowError(e))
 }
 
 /// Create a test table.
@@ -335,7 +335,7 @@ impl ExtensionPlanner for TopKPlanner {
                 k: topk_node.k,
             }))
         } else {
-            Err(ExecutionError::General(format!(
+            Err(DataFusionError::Internal(format!(
                 "Unknown extension node type {:?}",
                 node
             )))
@@ -389,7 +389,7 @@ impl ExecutionPlan for TopKExec {
                 input: children[0].clone(),
                 k: self.k,
             })),
-            _ => Err(ExecutionError::General(
+            _ => Err(DataFusionError::Internal(
                 "TopKExec wrong number of children".to_string(),
             )),
         }
@@ -398,7 +398,7 @@ impl ExecutionPlan for TopKExec {
     /// Execute one partition and return an iterator over RecordBatch
     async fn execute(&self, partition: usize) -> Result<SendableRecordBatchStream> {
         if 0 != partition {
-            return Err(ExecutionError::General(format!(
+            return Err(DataFusionError::Internal(format!(
                 "TopKExec invalid partition {}",
                 partition
             )));
@@ -504,7 +504,7 @@ impl Stream for TopKReader {
                 BTreeMap::<i64, String>::new(),
                 move |top_values, batch| async move {
                     accumulate_batch(&batch, top_values, &k)
-                        .map_err(ExecutionError::into_arrow_external_error)
+                        .map_err(DataFusionError::into_arrow_external_error)
                 },
             );
 

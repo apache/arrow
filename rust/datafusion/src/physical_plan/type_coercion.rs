@@ -34,7 +34,7 @@ use std::sync::Arc;
 use arrow::datatypes::{DataType, Schema};
 
 use super::{functions::Signature, PhysicalExpr};
-use crate::error::{ExecutionError, Result};
+use crate::error::{DataFusionError, Result};
 use crate::physical_plan::expressions::cast;
 
 /// Returns `expressions` coerced to types compatible with
@@ -87,7 +87,7 @@ pub fn data_types(
         Signature::Exact(valid_types) => vec![valid_types.clone()],
         Signature::Any(number) => {
             if current_types.len() != *number {
-                return Err(ExecutionError::General(format!(
+                return Err(DataFusionError::Plan(format!(
                     "The function expected {} arguments but received {}",
                     number,
                     current_types.len()
@@ -108,7 +108,7 @@ pub fn data_types(
     }
 
     // none possible -> Error
-    Err(ExecutionError::General(format!(
+    Err(DataFusionError::Plan(format!(
         "Coercion from {:?} to the signature {:?} failed.",
         current_types, signature
     )))
@@ -347,7 +347,7 @@ mod tests {
 
         for case in cases {
             if let Ok(_) = coerce(&case.0, &case.1, &case.2) {
-                return Err(ExecutionError::General(format!(
+                return Err(DataFusionError::Plan(format!(
                     "Error was expected in {:?}",
                     case
                 )));
