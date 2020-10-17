@@ -1298,7 +1298,6 @@ def generate_decimal256_case():
     return _generate_file('decimal256', fields, batch_sizes)
 
 
-
 def generate_datetime_case():
     fields = [
         DateField('f0', DateField.DAY),
@@ -1532,8 +1531,6 @@ def get_generated_json_files(tempdir=None):
         .skip_category('Go')  # TODO(ARROW-7948): Decimal + Go
         .skip_category('JS')
         .skip_category('Rust'),
-
-
 
         generate_datetime_case(),
 

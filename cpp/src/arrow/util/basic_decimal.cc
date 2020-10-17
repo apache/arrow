@@ -263,7 +263,7 @@ namespace {
 struct uint128_t {
   uint128_t() {}
   uint128_t(uint64_t hi, uint64_t lo) : val_((static_cast<__uint128_t>(hi) << 64) | lo) {}
-  uint128_t(const BasicDecimal128& decimal) {
+  explicit uint128_t( const BasicDecimal128& decimal) {
     val_ = (static_cast<__uint128_t>(decimal.high_bits()) << 64) | decimal.low_bits();
   }
 
@@ -322,7 +322,7 @@ inline void ExtendAndMultiply(uint64_t x, uint64_t y, uint64_t* hi, uint64_t* lo
 struct uint128_t {
   uint128_t() {}
   uint128_t(uint64_t hi, uint64_t lo) : hi_(hi), lo_(lo) {}
-  uint128_t(const BasicDecimal128& decimal) {
+  explicit uint128_t(const BasicDecimal128& decimal) {
     hi_ = decimal.high_bits();
     lo_ = decimal.low_bits();
   }
@@ -384,7 +384,7 @@ BasicDecimal128& BasicDecimal128::operator*=(const BasicDecimal128& right) {
   BasicDecimal128 x = BasicDecimal128::Abs(*this);
   BasicDecimal128 y = BasicDecimal128::Abs(right);
   uint128_t r(x);
-  r *= y;
+  r *= uint128_t{y};
   high_bits_ = r.hi();
   low_bits_ = r.lo();
   if (negate) {
@@ -895,7 +895,7 @@ BasicDecimal256& BasicDecimal256::operator*=(const BasicDecimal256& right) {
 
   uint128_t r_hi;
   uint128_t r_lo;
-  std::array<uint64_t, 4> res({0, 0, 0, 0});
+  std::array<uint64_t, 4> res{0, 0, 0, 0};
   MultiplyUnsignedArray<4>(x.little_endian_array_, y.little_endian_array_, &res);
   little_endian_array_ = res;
   if (negate) {
