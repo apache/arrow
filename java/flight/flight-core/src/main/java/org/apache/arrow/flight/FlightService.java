@@ -89,13 +89,11 @@ class FlightService extends FlightServiceImplBase {
         (ServerCallStreamObserver<ArrowMessage>) responseObserverSimple;
 
     final GetListener listener = new GetListener(responseObserver, this::handleExceptionWithMiddleware);
-    executors.submit(() -> {
-      try {
-        producer.getStream(makeContext(responseObserver), new Ticket(ticket), listener);
-      } catch (Exception ex) {
-        listener.error(ex);
-      }
-    });
+    try {
+      producer.getStream(makeContext(responseObserver), new Ticket(ticket), listener);
+    } catch (Exception ex) {
+      listener.error(ex);
+    }
     // Do NOT call GetListener#completed, as the implementation of getStream may be asynchronous
   }
 
@@ -150,7 +148,6 @@ class FlightService extends FlightServiceImplBase {
     }
 
     private void onReady() {
-      logger.debug("Stream is ready for new messages.");
       if (onReadyHandler != null) {
         onReadyHandler.run();
       }

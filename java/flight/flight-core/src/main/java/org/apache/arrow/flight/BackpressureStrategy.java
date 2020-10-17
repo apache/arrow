@@ -23,6 +23,7 @@ import com.google.common.base.Preconditions;
 
 /**
  * Helper interface to dynamically handle backpressure when implementing FlightProducers.
+ * This must only be used in FlightProducer implementations that are non-blocking.
  */
 public interface BackpressureStrategy {
   /**

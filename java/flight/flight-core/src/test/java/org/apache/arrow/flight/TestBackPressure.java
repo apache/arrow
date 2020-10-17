@@ -17,6 +17,8 @@
 
 package org.apache.arrow.flight;
 
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 
@@ -54,7 +56,7 @@ public class TestBackPressure {
   @Test
   public void ensureIndependentSteamsWithCallbacks() throws Exception {
     ensureIndependentSteams((b) -> (location -> new PerformanceTestServer(b, location,
-        new BackpressureStrategy.CallbackBackpressureStrategy())));
+        new BackpressureStrategy.CallbackBackpressureStrategy(), true)));
   }
 
   /**
@@ -63,7 +65,7 @@ public class TestBackPressure {
   @Ignore
   @Test
   public void ensureWaitUntilProceed() throws Exception {
-    ensureWaitUntilProceed(new PollingBackpressureStrategy());
+    ensureWaitUntilProceed(new PollingBackpressureStrategy(), false);
   }
 
   /**
@@ -73,7 +75,7 @@ public class TestBackPressure {
   @Ignore
   @Test
   public void ensureWaitUntilProceedWithCallbacks() throws Exception {
-    ensureWaitUntilProceed(new RecordingCallbackBackpressureStrategy());
+    ensureWaitUntilProceed(new RecordingCallbackBackpressureStrategy(), true);
   }
 
   /**
@@ -111,38 +113,46 @@ public class TestBackPressure {
   /**
    * Make sure that a stream doesn't go faster than the consumer is consuming.
    */
-  private static void ensureWaitUntilProceed(SleepTimeRecordingBackpressureStrategy bpStrategy) throws Exception {
+  private static void ensureWaitUntilProceed(SleepTimeRecordingBackpressureStrategy bpStrategy, boolean isNonBlocking)
+      throws Exception {
     // request some values.
     final long wait = 3000;
     final long epsilon = 1000;
 
-    AtomicLong sleepTime = new AtomicLong(0);
     try (BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE)) {
 
       final FlightProducer producer = new NoOpFlightProducer() {
 
         @Override
-        public void getStream(CallContext context, Ticket ticket,
-            ServerStreamListener listener) {
+        public void getStream(CallContext context, Ticket ticket, ServerStreamListener listener) {
           bpStrategy.register(listener);
+          final Runnable loadData = () -> {
+            int batches = 0;
+            final Schema pojoSchema = new Schema(ImmutableList.of(Field.nullable("a", MinorType.BIGINT.getType())));
+            try (VectorSchemaRoot root = VectorSchemaRoot.create(pojoSchema, allocator)) {
+              listener.start(root);
+              while (true) {
+                bpStrategy.waitForListener(0);
+                if (batches > 100) {
+                  root.clear();
+                  listener.completed();
+                  return;
+                }
 
-          int batches = 0;
-          final Schema pojoSchema = new Schema(ImmutableList.of(Field.nullable("a", MinorType.BIGINT.getType())));
-          try (VectorSchemaRoot root = VectorSchemaRoot.create(pojoSchema, allocator)) {
-            listener.start(root);
-            while (true) {
-              bpStrategy.waitForListener(0);
-              if (batches > 100) {
-                root.clear();
-                listener.completed();
-                return;
+                root.allocateNew();
+                root.setRowCount(4095);
+                listener.putNext();
+                batches++;
               }
-
-              root.allocateNew();
-              root.setRowCount(4095);
-              listener.putNext();
-              batches++;
             }
+          };
+
+          if (!isNonBlocking) {
+            loadData.run();
+          } else {
+            final ExecutorService service = Executors.newSingleThreadExecutor();
+            service.submit(loadData);
+            service.shutdown();
           }
         }
       };
@@ -229,7 +239,7 @@ public class TestBackPressure {
   }
 
   /**
-   * Implementation of a backpressure strategy that polls on uses callbacks to detect changes in client readiness state
+   * Implementation of a backpressure strategy that uses callbacks to detect changes in client readiness state
    * and records spent time waiting.
    */
   private static class RecordingCallbackBackpressureStrategy extends BackpressureStrategy.CallbackBackpressureStrategy
