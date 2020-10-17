@@ -19,7 +19,7 @@
 
 use std::error;
 use std::fmt::{Display, Formatter};
-use std::io::Error;
+use std::io;
 use std::result;
 
 use arrow::error::ArrowError;
@@ -37,18 +37,18 @@ pub enum DataFusionError {
     ArrowError(ArrowError),
     /// Wraps an error from the Parquet crate
     ParquetError(ParquetError),
-    /// I/O error
-    IoError(Error),
+    /// Error associated to I/O operations and associated traits.
+    IoError(io::Error),
     /// Error returned when SQL is syntatically incorrect.
     SQL(ParserError),
-    /// Error returned on a code branch that we know it is possible
-    /// but to which we still have no implementation of.
+    /// Error returned on a branch that we know it is possible
+    /// but to which we still have no implementation for.
     /// Often, these errors are tracked in our issue tracker.
     NotImplemented(String),
     /// Error returned as a consequence of an error in DataFusion.
     /// This error should not happen in normal usage of DataFusion.
-    // We use this error when an invariant that we were unable
-    // to make the compiler assert for us is not verified during execution.
+    // DataFusions has internal invariants that we are unable to ask the compiler to check for us.
+    // This error is raised when one of those invariants is not verified during execution.
     Internal(String),
     /// This error happens whenever a plan is not valid. Examples include
     /// impossible casts, schema inference not possible and non-unique column names.
@@ -65,8 +65,8 @@ impl DataFusionError {
     }
 }
 
-impl From<Error> for DataFusionError {
-    fn from(e: Error) -> Self {
+impl From<io::Error> for DataFusionError {
+    fn from(e: io::Error) -> Self {
         DataFusionError::IoError(e)
     }
 }

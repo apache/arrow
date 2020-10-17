@@ -362,9 +362,9 @@ impl Stream for GroupedHashAggregateStream {
         let aggregate_expressions = match aggregate_expressions(&aggr_expr, &mode) {
             Ok(e) => e,
             Err(e) => {
-                return Poll::Ready(Some(Err(DataFusionError::into_arrow_external_error(
-                    e,
-                ))))
+                return Poll::Ready(Some(Err(
+                    DataFusionError::into_arrow_external_error(e),
+                )))
             }
         };
 
@@ -541,18 +541,18 @@ impl Stream for HashAggregateStream {
         let accumulators = match create_accumulators(&self.aggr_expr) {
             Ok(e) => e,
             Err(e) => {
-                return Poll::Ready(Some(Err(DataFusionError::into_arrow_external_error(
-                    e,
-                ))))
+                return Poll::Ready(Some(Err(
+                    DataFusionError::into_arrow_external_error(e),
+                )))
             }
         };
 
         let expressions = match aggregate_expressions(&self.aggr_expr, &self.mode) {
             Ok(e) => e,
             Err(e) => {
-                return Poll::Ready(Some(Err(DataFusionError::into_arrow_external_error(
-                    e,
-                ))))
+                return Poll::Ready(Some(Err(
+                    DataFusionError::into_arrow_external_error(e),
+                )))
             }
         };
         let expressions = Arc::new(expressions);
