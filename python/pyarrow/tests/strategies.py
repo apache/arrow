@@ -365,7 +365,7 @@ pandas_compatible_primitive_types = st.one_of(
     bool_type,
     integer_types,
     st.sampled_from([pa.float32(), pa.float64()]),
-    decimal_type,
+    decimal128_type,
     date_types,
     time_types,
     # Need to exclude timestamp and duration types otherwise hypothesis

@@ -87,7 +87,7 @@ public class DecimalTypeUtil {
       precision = MAX_PRECISION;
       scale = Math.max(scale - delta, minScale);
     }
-    return new Decimal(precision, scale);
+    return new Decimal(precision, scale, 128);
   }
 
 }
