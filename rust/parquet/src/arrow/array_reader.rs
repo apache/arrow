@@ -82,6 +82,97 @@ pub trait ArrayReader {
     fn get_rep_levels(&self) -> Option<&[i16]>;
 }
 
+/// A NullArrayReader reads Parquet columns stored as null int32s with an Arrow
+/// NullArray type.
+pub struct NullArrayReader<T: DataType> {
+    data_type: ArrowType,
+    pages: Box<dyn PageIterator>,
+    def_levels_buffer: Option<Buffer>,
+    rep_levels_buffer: Option<Buffer>,
+    column_desc: ColumnDescPtr,
+    record_reader: RecordReader<T>,
+    _type_marker: PhantomData<T>,
+}
+
+impl<T: DataType> NullArrayReader<T> {
+    /// Construct null array reader.
+    pub fn new(
+        mut pages: Box<dyn PageIterator>,
+        column_desc: ColumnDescPtr,
+    ) -> Result<Self> {
+        let mut record_reader = RecordReader::<T>::new(column_desc.clone());
+        if let Some(page_reader) = pages.next() {
+            record_reader.set_page_reader(page_reader?)?;
+        }
+
+        Ok(Self {
+            data_type: ArrowType::Null,
+            pages,
+            def_levels_buffer: None,
+            rep_levels_buffer: None,
+            column_desc,
+            record_reader,
+            _type_marker: PhantomData,
+        })
+    }
+}
+
+/// Implementation of primitive array reader.
+impl<T: DataType> ArrayReader for NullArrayReader<T> {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    /// Returns data type of primitive array.
+    fn get_data_type(&self) -> &ArrowType {
+        &self.data_type
+    }
+
+    /// Reads at most `batch_size` records into array.
+    fn next_batch(&mut self, batch_size: usize) -> Result<ArrayRef> {
+        let mut records_read = 0usize;
+        while records_read < batch_size {
+            let records_to_read = batch_size - records_read;
+
+            // NB can be 0 if at end of page
+            let records_read_once = self.record_reader.read_records(records_to_read)?;
+            records_read += records_read_once;
+
+            // Record reader exhausted
+            if records_read_once < records_to_read {
+                if let Some(page_reader) = self.pages.next() {
+                    // Read from new page reader
+                    self.record_reader.set_page_reader(page_reader?)?;
+                } else {
+                    // Page reader also exhausted
+                    break;
+                }
+            }
+        }
+
+        // convert to arrays
+        let array = arrow::array::NullArray::new(records_read);
+
+        // save definition and repetition buffers
+        self.def_levels_buffer = self.record_reader.consume_def_levels()?;
+        self.rep_levels_buffer = self.record_reader.consume_rep_levels()?;
+        self.record_reader.reset();
+        Ok(Arc::new(array))
+    }
+
+    fn get_def_levels(&self) -> Option<&[i16]> {
+        self.def_levels_buffer
+            .as_ref()
+            .map(|buf| unsafe { buf.typed_data() })
+    }
+
+    fn get_rep_levels(&self) -> Option<&[i16]> {
+        self.rep_levels_buffer
+            .as_ref()
+            .map(|buf| unsafe { buf.typed_data() })
+    }
+}
+
 /// Primitive array readers are leaves of array reader tree. They accept page iterator
 /// and read them into primitive arrays.
 pub struct PrimitiveArrayReader<T: DataType> {
@@ -859,10 +950,19 @@ impl<'a> ArrayReaderBuilder {
                 page_iterator,
                 column_desc,
             )?)),
-            PhysicalType::INT32 => Ok(Box::new(PrimitiveArrayReader::<Int32Type>::new(
-                page_iterator,
-                column_desc,
-            )?)),
+            PhysicalType::INT32 => {
+                if let Some(ArrowType::Null) = arrow_type {
+                    Ok(Box::new(NullArrayReader::<Int32Type>::new(
+                        page_iterator,
+                        column_desc,
+                    )?))
+                } else {
+                    Ok(Box::new(PrimitiveArrayReader::<Int32Type>::new(
+                        page_iterator,
+                        column_desc,
+                    )?))
+                }
+            }
             PhysicalType::INT64 => Ok(Box::new(PrimitiveArrayReader::<Int64Type>::new(
                 page_iterator,
                 column_desc,
@@ -903,25 +1003,23 @@ impl<'a> ArrayReaderBuilder {
                             page_iterator, column_desc, converter
                         )?))
                     }
+                } else if let Some(ArrowType::LargeBinary) = arrow_type {
+                    let converter =
+                        LargeBinaryConverter::new(LargeBinaryArrayConverter {});
+                    Ok(Box::new(ComplexObjectArrayReader::<
+                        ByteArrayType,
+                        LargeBinaryConverter,
+                    >::new(
+                        page_iterator, column_desc, converter
+                    )?))
                 } else {
-                    if let Some(ArrowType::LargeBinary) = arrow_type {
-                        let converter =
-                            LargeBinaryConverter::new(LargeBinaryArrayConverter {});
-                        Ok(Box::new(ComplexObjectArrayReader::<
-                            ByteArrayType,
-                            LargeBinaryConverter,
-                        >::new(
-                            page_iterator, column_desc, converter
-                        )?))
-                    } else {
-                        let converter = BinaryConverter::new(BinaryArrayConverter {});
-                        Ok(Box::new(ComplexObjectArrayReader::<
-                            ByteArrayType,
-                            BinaryConverter,
-                        >::new(
-                            page_iterator, column_desc, converter
-                        )?))
-                    }
+                    let converter = BinaryConverter::new(BinaryArrayConverter {});
+                    Ok(Box::new(ComplexObjectArrayReader::<
+                        ByteArrayType,
+                        BinaryConverter,
+                    >::new(
+                        page_iterator, column_desc, converter
+                    )?))
                 }
             }
             PhysicalType::FIXED_LEN_BYTE_ARRAY => {
