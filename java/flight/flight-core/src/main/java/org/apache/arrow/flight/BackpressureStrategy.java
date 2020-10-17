@@ -17,6 +17,8 @@
 
 package org.apache.arrow.flight;
 
+import org.apache.arrow.vector.VectorSchemaRoot;
+
 import com.google.common.base.Preconditions;
 
 /**
@@ -46,7 +48,8 @@ public interface BackpressureStrategy {
   /**
    * Set up operations to work against the given listener.
    *
-   * This will be called exactly once and before any calls to {@link #waitForListener(long)}.
+   * This must be called exactly once and before any calls to {@link #waitForListener(long)} and
+   * {@link OutboundStreamListener#start(VectorSchemaRoot)}
    * @param listener The listener this strategy applies to.
    */
   void register(FlightProducer.ServerStreamListener listener);
@@ -60,7 +63,7 @@ public interface BackpressureStrategy {
   WaitResult waitForListener(long timeout);
 
   /**
-   * A back pressure strategy that blocks uses callbacks to notify when the client is ready or cancelled.
+   * A back pressure strategy that uses callbacks to notify when the client is ready or cancelled.
    */
   class CallbackBackpressureStrategy implements BackpressureStrategy {
     private final Object lock = new Object();
