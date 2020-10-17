@@ -44,6 +44,22 @@ macro_rules! make_string {
     }};
 }
 
+macro_rules! make_string_from_list {
+    ($column: ident, $row: ident) => {{
+        let list = $column
+            .as_any()
+            .downcast_ref::<array::ListArray>()
+            .ok_or(ArrowError::InvalidArgumentError(format!(
+                "Repl error: could not convert list column to list array."
+            )))?
+            .value($row);
+        let string_values = (0..list.len())
+            .map(|i| array_value_to_string(&list.clone(), i))
+            .collect::<Result<Vec<String>>>()?;
+        Ok(format!("[{}]", string_values.join(", ")))
+    }};
+}
+
 /// Get the value at the given row in an array as a String.
 ///
 /// Note this function is quite inefficient and is unlikely to be
@@ -89,6 +105,7 @@ pub fn array_value_to_string(column: &array::ArrayRef, row: usize) -> Result<Str
         DataType::Time64(unit) if *unit == TimeUnit::Nanosecond => {
             make_string!(array::Time64NanosecondArray, column, row)
         }
+        DataType::List(_) => make_string_from_list!(column, row),
         DataType::Dictionary(index_type, _value_type) => match **index_type {
             DataType::Int8 => dict_array_value_to_string::<Int8Type>(column, row),
             DataType::Int16 => dict_array_value_to_string::<Int16Type>(column, row),
