@@ -598,8 +598,6 @@ using is_decimal256_type = std::is_base_of<Decimal256Type, T>;
 template <typename T, typename R = void>
 using enable_if_decimal256 = enable_if_t<is_decimal256_type<T>::value, R>;
 
-
-
 // Nested Types
 
 template <typename T>

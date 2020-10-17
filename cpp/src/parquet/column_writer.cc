@@ -1860,7 +1860,8 @@ using ::arrow::internal::checked_pointer_cast;
 // Requires a custom serializer because decimal128 in parquet are in big-endian
 // format. Thus, a temporary local buffer is required.
 template <typename ParquetType, typename ArrowType>
-struct SerializeFunctor<ParquetType, ArrowType, ::arrow::enable_if_decimal128<ArrowType>> {
+struct SerializeFunctor<ParquetType, ArrowType,
+                        ::arrow::enable_if_decimal128<ArrowType>> {
   Status Serialize(const ::arrow::Decimal128Array& array, ArrowWriteContext* ctx,
                    FLBA* out) {
     AllocateScratch(array, ctx);
@@ -1909,13 +1910,13 @@ struct SerializeFunctor<ParquetType, ArrowType, ::arrow::enable_if_decimal128<Ar
 };
 
 template <typename ParquetType, typename ArrowType>
-struct SerializeFunctor<ParquetType, ArrowType, ::arrow::enable_if_decimal256<ArrowType>> {
-Status Serialize(const ::arrow::Decimal256Array& array, ArrowWriteContext* ctx,
-                   FLBA* out)  {
-  return Status::NotImplemented("Decimal256 serialization isn't implemented");
-}
+struct SerializeFunctor<ParquetType, ArrowType,
+                        ::arrow::enable_if_decimal256<ArrowType>> {
+  Status Serialize(const ::arrow::Decimal256Array& array, ArrowWriteContext* ctx,
+                   FLBA* out) {
+    return Status::NotImplemented("Decimal256 serialization isn't implemented");
+  }
 };
-
 
 template <>
 Status TypedColumnWriterImpl<FLBAType>::WriteArrowDense(

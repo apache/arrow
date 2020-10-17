@@ -254,7 +254,6 @@ class DictionaryBuilderBase : public ArrayBuilder {
     return Append(data, 32);
   }
 
-
   /// \brief Append a scalar null value
   Status AppendNull() final {
     length_ += 1;

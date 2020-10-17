@@ -291,9 +291,9 @@ class FloatConverter final : public ConcreteConverter<FloatConverter<Type, Build
 
 template <typename DecimalSubtype, typename DecimalValue, typename BuilderType>
 class DecimalConverter final
-    : public ConcreteConverter<DecimalConverter<DecimalSubtype, DecimalValue, BuilderType>> {
+    : public ConcreteConverter<
+          DecimalConverter<DecimalSubtype, DecimalValue, BuilderType>> {
  public:
-
   explicit DecimalConverter(const std::shared_ptr<DataType>& type) {
     this->type_ = type;
     decimal_type_ = &checked_cast<const DecimalSubtype&>(*this->value_type());
@@ -326,9 +326,9 @@ class DecimalConverter final
   const DecimalSubtype* decimal_type_;
 };
 
-template<typename BuilderType = typename TypeTraits<Decimal128Type>::BuilderType>
+template <typename BuilderType = typename TypeTraits<Decimal128Type>::BuilderType>
 using Decimal128Converter = DecimalConverter<Decimal128Type, Decimal128, BuilderType>;
-template<typename BuilderType = typename TypeTraits<Decimal256Type>::BuilderType>
+template <typename BuilderType = typename TypeTraits<Decimal256Type>::BuilderType>
 using Decimal256Converter = DecimalConverter<Decimal256Type, Decimal256, BuilderType>;
 
 // ------------------------------------------------------------------------

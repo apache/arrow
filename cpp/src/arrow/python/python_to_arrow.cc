@@ -173,7 +173,6 @@ class PyValue {
     return value;
   }
 
-
   static Result<int32_t> Convert(const Date32Type*, const O&, I obj) {
     int32_t value;
     if (PyDate_Check(obj)) {

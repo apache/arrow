@@ -847,7 +847,6 @@ struct HashTraits<T, enable_if_decimal<T>> {
   using MemoTableType = BinaryMemoTable<BinaryBuilder>;
 };
 
-
 template <typename T>
 struct HashTraits<T, enable_if_t<std::is_base_of<LargeBinaryType, T>::value>> {
   using MemoTableType = BinaryMemoTable<LargeBinaryBuilder>;
