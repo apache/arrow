@@ -263,7 +263,7 @@ namespace {
 struct uint128_t {
   uint128_t() {}
   uint128_t(uint64_t hi, uint64_t lo) : val_((static_cast<__uint128_t>(hi) << 64) | lo) {}
-  explicit uint128_t( const BasicDecimal128& decimal) {
+  explicit uint128_t(const BasicDecimal128& decimal) {
     val_ = (static_cast<__uint128_t>(decimal.high_bits()) << 64) | decimal.low_bits();
   }
 
