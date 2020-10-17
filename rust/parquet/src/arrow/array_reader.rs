@@ -100,7 +100,6 @@ impl<T: DataType> NullArrayReader<T> {
         mut pages: Box<dyn PageIterator>,
         column_desc: ColumnDescPtr,
     ) -> Result<Self> {
-
         let mut record_reader = RecordReader::<T>::new(column_desc.clone());
         if let Some(page_reader) = pages.next() {
             record_reader.set_page_reader(page_reader?)?;
