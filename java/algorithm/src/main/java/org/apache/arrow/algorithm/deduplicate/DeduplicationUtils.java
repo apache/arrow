@@ -18,13 +18,13 @@
 package org.apache.arrow.algorithm.deduplicate;
 
 import org.apache.arrow.memory.ArrowBuf;
-import org.apache.arrow.util.DataSizeRoundingUtil;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.BitVectorHelper;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.compare.Range;
 import org.apache.arrow.vector.compare.RangeEqualsVisitor;
+import org.apache.arrow.vector.util.DataSizeRoundingUtil;
 
 /**
  * Utilities for vector deduplication.

@@ -25,8 +25,8 @@ import static org.apache.arrow.memory.util.LargeMemoryUtil.checkedCastToInt;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BoundsChecking;
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.util.DataSizeRoundingUtil;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
+import org.apache.arrow.vector.util.DataSizeRoundingUtil;
 
 import io.netty.util.internal.PlatformDependent;
 
