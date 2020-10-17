@@ -41,8 +41,6 @@ pub enum DataFusionError {
     IoError(Error),
     /// Error returned when SQL is syntatically incorrect.
     SQL(ParserError),
-    /// General error that does not fit in any of the other errors.
-    General(String),
     /// Error returned on a code branch that we know it is possible
     /// but to which we still have no implementation of.
     /// Often, these errors are tracked in our issue tracker.
@@ -70,18 +68,6 @@ impl DataFusionError {
 impl From<Error> for DataFusionError {
     fn from(e: Error) -> Self {
         DataFusionError::IoError(e)
-    }
-}
-
-impl From<String> for DataFusionError {
-    fn from(e: String) -> Self {
-        DataFusionError::General(e)
-    }
-}
-
-impl From<&'static str> for DataFusionError {
-    fn from(e: &'static str) -> Self {
-        DataFusionError::General(e.to_string())
     }
 }
 
@@ -114,7 +100,6 @@ impl Display for DataFusionError {
             DataFusionError::SQL(ref desc) => {
                 write!(f, "SQL error: {:?}", desc)
             }
-            DataFusionError::General(ref desc) => write!(f, "General error: {}", desc),
             DataFusionError::NotImplemented(ref desc) => {
                 write!(f, "This feature is not implemented: {}", desc)
             }
