@@ -906,8 +906,11 @@ BasicDecimal256& BasicDecimal256::operator*=(const BasicDecimal256& right) {
 
 DecimalStatus BasicDecimal256::Rescale(int32_t original_scale, int32_t new_scale,
                                        BasicDecimal256* out) const {
+  if (original_scale == new_scale) {
+    return DecimalStatus::kSuccess;
+  }
   // TODO: implement.
-  return DecimalStatus::kSuccess;
+  return DecimalStatus::kRescaleDataLoss;
 }
 
 BasicDecimal256 operator*(const BasicDecimal256& left, const BasicDecimal256& right) {
