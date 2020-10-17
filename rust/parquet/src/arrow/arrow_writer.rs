@@ -128,7 +128,8 @@ fn write_leaves(
     mut levels: &mut Vec<Levels>,
 ) -> Result<()> {
     match array.data_type() {
-        ArrowDataType::Int8
+        ArrowDataType::Null
+        | ArrowDataType::Int8
         | ArrowDataType::Int16
         | ArrowDataType::Int32
         | ArrowDataType::Int64
@@ -179,7 +180,6 @@ fn write_leaves(
             "Float16 arrays not supported".to_string(),
         )),
         ArrowDataType::FixedSizeList(_, _)
-        | ArrowDataType::Null
         | ArrowDataType::Boolean
         | ArrowDataType::FixedSizeBinary(_)
         | ArrowDataType::Union(_)
@@ -279,7 +279,10 @@ fn get_levels(
     parent_rep_levels: Option<&[i16]>,
 ) -> Vec<Levels> {
     match array.data_type() {
-        ArrowDataType::Null => unimplemented!(),
+        ArrowDataType::Null => vec![Levels {
+            definition: parent_def_levels.iter().map(|v| (v - 1).max(0)).collect(),
+            repetition: None,
+        }],
         ArrowDataType::Boolean
         | ArrowDataType::Int8
         | ArrowDataType::Int16
@@ -356,7 +359,11 @@ fn get_levels(
 
             // if datatype is a primitive, we can construct levels of the child array
             match child_array.data_type() {
-                ArrowDataType::Null => unimplemented!(),
+                // TODO: The behaviour of a <list<null>> is untested
+                ArrowDataType::Null => vec![Levels {
+                    definition: list_def_levels,
+                    repetition: Some(list_rep_levels),
+                }],
                 ArrowDataType::Boolean => unimplemented!(),
                 ArrowDataType::Int8
                 | ArrowDataType::Int16
@@ -701,7 +708,7 @@ mod tests {
             expected_batch.schema(),
             None,
         )
-        .unwrap();
+        .expect("Unable to write file");
         writer.write(&expected_batch).unwrap();
         writer.close().unwrap();
 
@@ -709,7 +716,10 @@ mod tests {
         let mut arrow_reader = ParquetFileArrowReader::new(Rc::new(reader));
         let mut record_batch_reader = arrow_reader.get_record_reader(1024).unwrap();
 
-        let actual_batch = record_batch_reader.next().unwrap().unwrap();
+        let actual_batch = record_batch_reader
+            .next()
+            .expect("No batch found")
+            .expect("Unable to get batch");
 
         assert_eq!(expected_batch.schema(), actual_batch.schema());
         assert_eq!(expected_batch.num_columns(), actual_batch.num_columns());
@@ -778,11 +788,15 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Null arrays not supported")]
+    fn all_null_primitive_single_column() {
+        let values = Arc::new(Int32Array::from(vec![None; SMALL_SIZE]));
+        one_column_roundtrip("all_null_primitive_single_column", values, true);
+    }
+    #[test]
     fn null_single_column() {
         let values = Arc::new(NullArray::new(SMALL_SIZE));
-        one_column_roundtrip("null_single_column", values.clone(), true);
-        one_column_roundtrip("null_single_column", values, false);
+        one_column_roundtrip("null_single_column", values, true);
+        // null arrays are always nullable, a test with non-nullable nulls fails
     }
 
     #[test]
