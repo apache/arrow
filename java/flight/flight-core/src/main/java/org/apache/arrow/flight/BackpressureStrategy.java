@@ -42,7 +42,13 @@ public interface BackpressureStrategy {
     /**
      * Timed out waiting for the listener to change state.
      */
-    TIMEOUT
+    TIMEOUT,
+
+    /**
+     * Indicates that the wait was interrupted for a reason
+     * unrelated to the listener itself.
+     */
+    OTHER
   }
 
   /**
@@ -72,24 +78,31 @@ public interface BackpressureStrategy {
     @Override
     public void register(FlightProducer.ServerStreamListener listener) {
       this.listener = listener;
-      listener.setOnReadyHandler(this::onReadyOrCancel);
-      listener.setOnCancelHandler(this::onReadyOrCancel);
+      listener.setOnReadyHandler(this::onReady);
+      listener.setOnCancelHandler(this::onCancel);
     }
 
     @Override
     public WaitResult waitForListener(long timeout) {
       Preconditions.checkNotNull(listener);
+      long remainingTimeout = timeout;
       final long startTime = System.currentTimeMillis();
       synchronized (lock) {
         while (!listener.isReady() && !listener.isCancelled()) {
           try {
-            lock.wait(timeout);
-            if (System.currentTimeMillis() > startTime + timeout) {
-              return WaitResult.TIMEOUT;
+            lock.wait(remainingTimeout);
+            if (timeout != 0) { // If timeout was zero explicitly, we should never report timeout.
+              remainingTimeout = startTime + timeout - System.currentTimeMillis();
+              if (remainingTimeout <= 0) {
+                return WaitResult.TIMEOUT;
+              }
+            }
+            if (!shouldContinueWaiting(listener, remainingTimeout)) {
+              return WaitResult.OTHER;
             }
           } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
-            return WaitResult.CANCELLED;
+            return WaitResult.OTHER;
           }
         }
 
@@ -104,8 +117,53 @@ public interface BackpressureStrategy {
       }
     }
 
-    void onReadyOrCancel() {
+    /**
+     * Interrupt waiting on the listener to change state.
+     *
+     * This method can be used in conjunction with
+     * {@link #shouldContinueWaiting(FlightProducer.ServerStreamListener, long)} to allow FlightProducers to
+     * terminate streams internally and notify clients.
+     */
+    public void interruptWait() {
       synchronized (lock) {
+        lock.notifyAll();
+      }
+    }
+
+    /**
+     * Callback function to run to check if the listener should continue
+     * to be waited on if it leaves the waiting state without being cancelled,
+     * ready, or timed out.
+     *
+     * This method should be used to determine if the wait on the listener was interrupted explicitly using a
+     * call to {@link #interruptWait()} or if it was woken up due to a spurious wake.
+     */
+    protected boolean shouldContinueWaiting(FlightProducer.ServerStreamListener listener, long remainingTimeout) {
+      return true;
+    }
+
+    /**
+     * Callback to execute when the listener becomes ready.
+     */
+    protected void readyCallback() {
+    }
+
+    /**
+     * Callback to execute when the listener is cancelled.
+     */
+    protected void cancelCallback() {
+    }
+
+    private void onReady() {
+      synchronized (lock) {
+        readyCallback();
+        lock.notifyAll();
+      }
+    }
+
+    private void onCancel() {
+      synchronized (lock) {
+        cancelCallback();
         lock.notifyAll();
       }
     }
