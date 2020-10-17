@@ -42,20 +42,23 @@
 
 use lazy_static::lazy_static;
 use regex::{Regex, RegexBuilder};
-use std::{fmt, iter::Take};
 use std::fs::File;
 use std::io::{BufReader, Read, Seek, SeekFrom};
 use std::sync::Arc;
 use std::{collections::HashSet, iter::Skip};
+use std::{fmt, iter::Take};
 
 use csv as csv_crate;
 
-use crate::array::{ArrayRef, PrimitiveArray, StringBuilder};
 use crate::datatypes::*;
 use crate::error::{ArrowError, Result};
 use crate::record_batch::RecordBatch;
+use crate::{
+    array::{ArrayRef, PrimitiveArray, StringBuilder},
+    util::buffered_iterator::Buffered,
+};
 
-use self::csv_crate::{StringRecord, StringRecordsIntoIter};
+use self::csv_crate::{Error, StringRecord, StringRecordsIntoIter};
 
 lazy_static! {
     static ref DECIMAL_RE: Regex = Regex::new(r"^-?(\d+\.\d+)$").unwrap();
@@ -226,9 +229,8 @@ pub struct Reader<R: Read> {
     /// Optional projection for which columns to load (zero-based column indices)
     projection: Option<Vec<usize>>,
     /// File reader
-    record_iter: Take<Skip<StringRecordsIntoIter<BufReader<R>>>>,
-    /// Batch size (number of records to load each time)
-    batch_size: usize,
+    record_iter:
+        Buffered<Take<Skip<StringRecordsIntoIter<BufReader<R>>>>, StringRecord, Error>,
     /// Current line number
     line_number: usize,
 }
@@ -241,7 +243,6 @@ where
         f.debug_struct("Reader")
             .field("schema", &self.schema)
             .field("projection", &self.projection)
-            .field("batch_size", &self.batch_size)
             .field("line_number", &self.line_number)
             .finish()
     }
@@ -315,16 +316,19 @@ impl<R: Read> Reader<R> {
             None => (0, usize::MAX),
             Some((start, end)) => (start, end),
         };
+        // Create an iterator that:
+        // * skips the first `start` items
+        // * runs up to `end` items
+        // * buffers `batch_size` items
         // note that this skips by iteration. This is because in general it is not possible
         // to seek in CSV. However, skiping still saves the burden of creating arrow arrays,
         // which is a slow operation that scales with the number of columns
-        let record_iter = record_iter.skip(start).take(end);
+        let record_iter = Buffered::new(record_iter.skip(start).take(end), batch_size);
 
         Self {
             schema,
             projection,
             record_iter,
-            batch_size,
             line_number: if has_header { start + 1 } else { start + 0 },
         }
     }
@@ -334,23 +338,17 @@ impl<R: Read> Iterator for Reader<R> {
     type Item = Result<RecordBatch>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        // read a batch of rows into memory
-        let mut rows: Vec<StringRecord> = Vec::with_capacity(self.batch_size);
-        for i in 0..self.batch_size {
-            match self.record_iter.next() {
-                Some(Ok(r)) => {
-                    rows.push(r);
-                }
-                Some(Err(e)) => {
-                    return Some(Err(ArrowError::ParseError(format!(
-                        "Error parsing line {}: {:?}",
-                        self.line_number + i,
-                        e
-                    ))));
-                }
-                None => break,
+        let rows = match self.record_iter.next() {
+            Some(Ok(r)) => r,
+            Some(Err(e)) => {
+                return Some(Err(ArrowError::ParseError(format!(
+                    "Error parsing line {}: {:?}",
+                    self.line_number + self.record_iter.n(),
+                    e
+                ))));
             }
-        }
+            None => return None,
+        };
 
         // return early if no data was loaded
         if rows.is_empty() {
@@ -358,7 +356,12 @@ impl<R: Read> Iterator for Reader<R> {
         }
 
         // parse the batches into a RecordBatch
-        let result = parse(&rows, &self.schema.fields(), &self.projection, self.line_number);
+        let result = parse(
+            &rows,
+            &self.schema.fields(),
+            &self.projection,
+            self.line_number,
+        );
 
         self.line_number += rows.len();
 
@@ -435,10 +438,8 @@ pub fn parse(
         })
         .collect();
 
-    let projected_fields: Vec<Field> = projection
-        .iter()
-        .map(|i| fields[*i].clone())
-        .collect();
+    let projected_fields: Vec<Field> =
+        projection.iter().map(|i| fields[*i].clone()).collect();
 
     let projected_schema = Arc::new(Schema::new(projected_fields));
 
