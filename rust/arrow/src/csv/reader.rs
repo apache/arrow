@@ -36,7 +36,7 @@
 //!
 //! let file = File::open("test/data/uk_cities.csv").unwrap();
 //!
-//! let mut csv = csv::Reader::new(file, Arc::new(schema), false, None, 1024, None);
+//! let mut csv = csv::Reader::new(file, Arc::new(schema), false, None, 1024, None, None);
 //! let batch = csv.next().unwrap().unwrap();
 //! ```
 
