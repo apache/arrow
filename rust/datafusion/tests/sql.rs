@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+use std::convert::TryFrom;
 use std::env;
 use std::sync::Arc;
 
@@ -22,7 +23,7 @@ extern crate arrow;
 extern crate datafusion;
 
 use arrow::{array::*, datatypes::TimeUnit};
-use arrow::{datatypes::Int32Type, record_batch::RecordBatch};
+use arrow::{datatypes::Int32Type, datatypes::Int64Type, record_batch::RecordBatch};
 use arrow::{
     datatypes::{DataType, Field, Schema, SchemaRef},
     util::display::array_value_to_string,
@@ -126,6 +127,100 @@ async fn parquet_single_nan_schema() {
         assert_eq!(1, batch.num_rows());
         assert_eq!(1, batch.num_columns());
     }
+}
+
+#[tokio::test]
+async fn parquet_list_columns() {
+    let mut ctx = ExecutionContext::new();
+    let testdata = env::var("PARQUET_TEST_DATA").expect("PARQUET_TEST_DATA not defined");
+    ctx.register_parquet(
+        "list_columns",
+        &format!("{}/list_columns.parquet", testdata),
+    )
+    .unwrap();
+
+    let schema = Arc::new(Schema::new(vec![
+        Field::new(
+            "int64_list",
+            DataType::List(Box::new(DataType::Int64)),
+            true,
+        ),
+        Field::new("utf8_list", DataType::List(Box::new(DataType::Utf8)), true),
+    ]));
+
+    let sql = "SELECT int64_list, utf8_list FROM list_columns";
+    let plan = ctx.create_logical_plan(&sql).unwrap();
+    let plan = ctx.optimize(&plan).unwrap();
+    let plan = ctx.create_physical_plan(&plan).unwrap();
+    let results = ctx.collect(plan).await.unwrap();
+
+    //   int64_list              utf8_list
+    // 0  [1, 2, 3]        [abc, efg, hij]
+    // 1  [None, 1]                   None
+    // 2        [4]  [efg, None, hij, xyz]
+
+    assert_eq!(1, results.len());
+    let batch = &results[0];
+    assert_eq!(3, batch.num_rows());
+    assert_eq!(2, batch.num_columns());
+    assert_eq!(schema, batch.schema());
+
+    let int_list_array = batch
+        .column(0)
+        .as_any()
+        .downcast_ref::<ListArray>()
+        .unwrap();
+    let utf8_list_array = batch
+        .column(1)
+        .as_any()
+        .downcast_ref::<ListArray>()
+        .unwrap();
+
+    assert_eq!(
+        int_list_array
+            .value(0)
+            .as_any()
+            .downcast_ref::<PrimitiveArray<Int64Type>>()
+            .unwrap(),
+        &PrimitiveArray::<Int64Type>::from(vec![Some(1), Some(2), Some(3),])
+    );
+
+    assert_eq!(
+        utf8_list_array
+            .value(0)
+            .as_any()
+            .downcast_ref::<StringArray>()
+            .unwrap(),
+        &StringArray::try_from(vec![Some("abc"), Some("efg"), Some("hij"),]).unwrap()
+    );
+
+    assert_eq!(
+        int_list_array
+            .value(1)
+            .as_any()
+            .downcast_ref::<PrimitiveArray<Int64Type>>()
+            .unwrap(),
+        &PrimitiveArray::<Int64Type>::from(vec![None, Some(1),])
+    );
+
+    assert!(utf8_list_array.is_null(1));
+
+    assert_eq!(
+        int_list_array
+            .value(2)
+            .as_any()
+            .downcast_ref::<PrimitiveArray<Int64Type>>()
+            .unwrap(),
+        &PrimitiveArray::<Int64Type>::from(vec![Some(4),])
+    );
+
+    let result = utf8_list_array.value(2);
+    let result = result.as_any().downcast_ref::<StringArray>().unwrap();
+
+    assert_eq!(result.value(0), "efg");
+    assert!(result.is_null(1));
+    assert_eq!(result.value(2), "hij");
+    assert_eq!(result.value(3), "xyz");
 }
 
 #[tokio::test]
