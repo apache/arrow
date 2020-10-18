@@ -741,6 +741,11 @@ impl<R: Read> Reader<R> {
                 )))
             }
         };
+        // Builders have different APIs if ArrayBuilder has covered the methods we've used dynamic
+        // dispatch without leaking the pointer and reacquire back for dropping.
+        // XXX: Be careful about not prolonging this reference's lifetime outside of this method.
+        // Before exiting from this method we reacquire the Box back again and dtor is called
+        // properly. There is no leak for it.
         let mut builder = Box::leak(builder);
 
         for row in rows {
@@ -772,9 +777,13 @@ impl<R: Read> Reader<R> {
                     ));
                 };
 
-                // TODO: (vertexclique): APIs of dictionary arrays and others are different. Unify them.
+                // TODO: ARROW-10335: APIs of dictionary arrays and others are different. Unify
+                // them.
                 match data_type {
                     DataType::Utf8 => {
+                        // instead of using transmute, we are using casts for reference to array
+                        // builder. This is just a clippy lint called "transmute_ptr_to_ptr" which
+                        // makes sense here.
                         let builder: &mut &mut ListBuilder<StringBuilder> = unsafe {
                             &mut *(&mut builder as *mut &mut dyn ArrayBuilder
                                 as *mut &mut ListBuilder<StringBuilder>)
@@ -789,8 +798,12 @@ impl<R: Read> Reader<R> {
 
                         // Append to the list
                         builder.append(true)?;
+                        // Mutable ref of ref is dropped here.
                     }
                     DataType::Dictionary(_, _) => {
+                        // instead of using transmute, we are using casts for reference to array
+                        // builder. This is just a clippy lint called "transmute_ptr_to_ptr" which
+                        // makes sense here.
                         let builder: &mut &mut ListBuilder<
                             StringDictionaryBuilder<DICT_TY>,
                         > = unsafe {
@@ -809,6 +822,7 @@ impl<R: Read> Reader<R> {
 
                         // Append to the list
                         builder.append(true)?;
+                        // Mutable ref of ref is dropped here.
                     }
                     e => {
                         return Err(ArrowError::JsonError(format!(
@@ -819,6 +833,11 @@ impl<R: Read> Reader<R> {
                 }
             }
         }
+
+        // Actual off heap pointer acquired back again and dtor called after the `finish` method.
+        // XXX: Mind that this method is not breaking the lifetime rules, since it is all happening
+        // inside of this method's body. As already mentioned before, don't return any raw pointer
+        // beyond this method, or pass it down to the called methods of this method.
         unsafe { Ok((*Box::from_raw(builder)).finish() as ArrayRef) }
     }
 
