@@ -74,7 +74,7 @@ where
         .collect::<Vec<T::Native>>();
 
     let data = ArrayData::new(
-        T::get_data_type(),
+        T::DATA_TYPE,
         left.len(),
         None,
         null_bit_buffer,
@@ -139,7 +139,7 @@ where
     };
 
     let data = ArrayData::new(
-        T::get_data_type(),
+        T::DATA_TYPE,
         left.len(),
         None,
         null_bit_buffer,
@@ -193,7 +193,7 @@ where
     }
 
     let data = ArrayData::new(
-        T::get_data_type(),
+        T::DATA_TYPE,
         left.len(),
         None,
         null_bit_buffer,
@@ -251,7 +251,7 @@ where
     }
 
     let data = ArrayData::new(
-        T::get_data_type(),
+        T::DATA_TYPE,
         left.len(),
         None,
         null_bit_buffer,

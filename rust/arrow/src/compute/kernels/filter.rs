@@ -731,7 +731,7 @@ impl FilterContext {
     where
         T: ArrowNumericType,
     {
-        let array_type = T::get_data_type();
+        let array_type = T::DATA_TYPE;
         let value_size = mem::size_of::<T::Native>();
         let array_data_builder =
             filter_array_impl(self, data_array, array_type, value_size)?;
