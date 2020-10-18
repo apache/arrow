@@ -42,7 +42,7 @@ use std::borrow::BorrowMut;
 
 /// Buffer is a contiguous memory region of fixed size and is aligned at a 64-byte
 /// boundary. Buffer is immutable.
-#[derive(PartialEq, Debug)]
+#[derive(Clone, PartialEq, Debug)]
 pub struct Buffer {
     /// Reference-counted pointer to the internal byte buffer.
     data: Arc<BufferData>,
@@ -274,15 +274,6 @@ impl Buffer {
     /// Returns an empty buffer.
     pub fn empty() -> Self {
         unsafe { Self::from_raw_parts(BUFFER_INIT.as_ptr() as _, 0, 0) }
-    }
-}
-
-impl Clone for Buffer {
-    fn clone(&self) -> Buffer {
-        Buffer {
-            data: self.data.clone(),
-            offset: self.offset,
-        }
     }
 }
 
@@ -694,17 +685,20 @@ impl MutableBuffer {
     }
 
     /// Returns whether this buffer is empty or not.
-    pub fn is_empty(&self) -> bool {
+    #[inline]
+    pub const fn is_empty(&self) -> bool {
         self.len == 0
     }
 
     /// Returns the length (the number of bytes written) in this buffer.
-    pub fn len(&self) -> usize {
+    #[inline]
+    pub const fn len(&self) -> usize {
         self.len
     }
 
     /// Returns the total capacity in this buffer.
-    pub fn capacity(&self) -> usize {
+    #[inline]
+    pub const fn capacity(&self) -> usize {
         self.capacity
     }
 
@@ -736,7 +730,7 @@ impl MutableBuffer {
     /// Note that this should be used cautiously, and the returned pointer should not be
     /// stored anywhere, to avoid dangling pointers.
     #[inline]
-    pub fn raw_data(&self) -> *const u8 {
+    pub const fn raw_data(&self) -> *const u8 {
         self.data
     }
 

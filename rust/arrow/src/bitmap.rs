@@ -39,12 +39,8 @@ impl Bitmap {
         } else {
             num_bytes + 64 - r
         };
-        let mut v = Vec::with_capacity(len);
-        for _ in 0..len {
-            v.push(255); // 1 is not null
-        }
         Bitmap {
-            bits: Buffer::from(&v[..]),
+            bits: Buffer::from(&vec![0xFF; len]),
         }
     }
 

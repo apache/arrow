@@ -1165,17 +1165,20 @@ impl Field {
     }
 
     /// Returns an immutable reference to the `Field`'s name
-    pub fn name(&self) -> &String {
+    #[inline]
+    pub const fn name(&self) -> &String {
         &self.name
     }
 
     /// Returns an immutable reference to the `Field`'s  data-type
-    pub fn data_type(&self) -> &DataType {
+    #[inline]
+    pub const fn data_type(&self) -> &DataType {
         &self.data_type
     }
 
     /// Indicates whether this `Field` supports null values
-    pub fn is_nullable(&self) -> bool {
+    #[inline]
+    pub const fn is_nullable(&self) -> bool {
         self.nullable
     }
 
@@ -1528,7 +1531,8 @@ impl Schema {
     ///
     /// let schema = Schema::new_with_metadata(vec![field_a, field_b], metadata);
     /// ```
-    pub fn new_with_metadata(
+    #[inline]
+    pub const fn new_with_metadata(
         fields: Vec<Field>,
         metadata: HashMap<String, String>,
     ) -> Self {
@@ -1604,7 +1608,8 @@ impl Schema {
     }
 
     /// Returns an immutable reference of the vector of `Field` instances
-    pub fn fields(&self) -> &Vec<Field> {
+    #[inline]
+    pub const fn fields(&self) -> &Vec<Field> {
         &self.fields
     }
 
@@ -1635,7 +1640,8 @@ impl Schema {
     }
 
     /// Returns an immutable reference to the Map of custom metadata key-value pairs.
-    pub fn metadata(&self) -> &HashMap<String, String> {
+    #[inline]
+    pub const fn metadata(&self) -> &HashMap<String, String> {
         &self.metadata
     }
 

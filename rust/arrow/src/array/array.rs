@@ -1120,12 +1120,12 @@ impl FixedSizeListArray {
     ///
     /// Note this doesn't do any bound checking, for performance reason.
     #[inline]
-    pub fn value_length(&self) -> i32 {
+    pub const fn value_length(&self) -> i32 {
         self.length
     }
 
     #[inline]
-    fn value_offset_at(&self, i: usize) -> i32 {
+    const fn value_offset_at(&self, i: usize) -> i32 {
         i as i32 * self.length
     }
 }
