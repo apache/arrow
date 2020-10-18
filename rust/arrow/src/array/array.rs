@@ -1542,14 +1542,15 @@ impl<OffsetSize: StringOffsetSizeTrait> GenericStringArray<OffsetSize> {
     }
 
     pub(crate) fn from_opt_vec(v: Vec<Option<&str>>) -> Self {
-        GenericStringArray::from_iter(v)
+        let iter = v.iter().map(|e| e.map(|e| e.to_string()));
+        GenericStringArray::from_iter(iter)
     }
 }
 
 impl<'a, Ptr, OffsetSize: StringOffsetSizeTrait> FromIterator<Ptr>
     for GenericStringArray<OffsetSize>
 where
-    Ptr: Borrow<Option<&'a str>>,
+    Ptr: Borrow<Option<String>>,
 {
     fn from_iter<I: IntoIterator<Item = Ptr>>(iter: I) -> Self {
         let iter = iter.into_iter();
@@ -1584,6 +1585,22 @@ where
             .null_bit_buffer(null_buf.freeze())
             .build();
         Self::from(array_data)
+    }
+}
+
+impl<'a, T: StringOffsetSizeTrait> IntoIterator for &'a GenericStringArray<T> {
+    type Item = Option<&'a str>;
+    type IntoIter = GenericStringIter<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        GenericStringIter::<'a, T>::new(self)
+    }
+}
+
+impl<'a, T: StringOffsetSizeTrait> GenericStringArray<T> {
+    /// constructs a new iterator
+    pub fn iter(&'a self) -> GenericStringIter<'a, T> {
+        GenericStringIter::<'a, T>::new(&self)
     }
 }
 

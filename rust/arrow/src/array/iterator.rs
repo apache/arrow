@@ -17,7 +17,7 @@
 
 use crate::datatypes::ArrowPrimitiveType;
 
-use super::{Array, PrimitiveArray};
+use super::{Array, GenericStringArray, PrimitiveArray, StringOffsetSizeTrait};
 
 /// an iterator that returns Some(T) or None, that can be used on any non-boolean PrimitiveArray
 #[derive(Debug)]
@@ -62,11 +62,60 @@ impl<'a, T: ArrowPrimitiveType> std::iter::Iterator for PrimitiveIter<'a, T> {
 /// all arrays have known size.
 impl<'a, T: ArrowPrimitiveType> std::iter::ExactSizeIterator for PrimitiveIter<'a, T> {}
 
+/// an iterator that returns `Some(&str)` or `None`, for string arrays
+#[derive(Debug)]
+pub struct GenericStringIter<'a, T>
+where
+    T: StringOffsetSizeTrait,
+{
+    array: &'a GenericStringArray<T>,
+    i: usize,
+    len: usize,
+}
+
+impl<'a, T: StringOffsetSizeTrait> GenericStringIter<'a, T> {
+    /// create a new iterator
+    pub fn new(array: &'a GenericStringArray<T>) -> Self {
+        GenericStringIter::<T> {
+            array,
+            i: 0,
+            len: array.len(),
+        }
+    }
+}
+
+impl<'a, T: StringOffsetSizeTrait> std::iter::Iterator for GenericStringIter<'a, T> {
+    type Item = Option<&'a str>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let i = self.i;
+        if i >= self.len {
+            None
+        } else if self.array.is_null(i) {
+            self.i += 1;
+            Some(None)
+        } else {
+            self.i += 1;
+            Some(Some(self.array.value(i)))
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (self.len, Some(self.len))
+    }
+}
+
+/// all arrays have known size.
+impl<'a, T: StringOffsetSizeTrait> std::iter::ExactSizeIterator
+    for GenericStringIter<'a, T>
+{
+}
+
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
 
-    use crate::array::{ArrayRef, Int32Array};
+    use crate::array::{ArrayRef, Int32Array, StringArray};
 
     #[test]
     fn test_primitive_array_iter_round_trip() {
@@ -80,6 +129,31 @@ mod tests {
             array.iter().map(|e| e.and_then(|e| Some(e + 1))).collect();
 
         let expected = Int32Array::from(vec![Some(1), None, Some(3), None, Some(5)]);
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_string_array_iter_round_trip() {
+        let array =
+            StringArray::from(vec![Some("a"), None, Some("aaa"), None, Some("aaaaa")]);
+        let array = Arc::new(array) as ArrayRef;
+
+        let array = array.as_any().downcast_ref::<StringArray>().unwrap();
+
+        // to and from iter, with a +1
+        let result: StringArray = array
+            .iter()
+            .map(|e| {
+                e.and_then(|e| {
+                    let mut a = e.to_string();
+                    a.push_str("b");
+                    Some(a)
+                })
+            })
+            .collect();
+
+        let expected =
+            StringArray::from(vec![Some("ab"), None, Some("aaab"), None, Some("aaaaab")]);
         assert_eq!(result, expected);
     }
 }
