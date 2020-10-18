@@ -124,7 +124,6 @@
 //!
 //! The parquet implementation is on a [separate crate](https://crates.io/crates/parquet)
 
-#![feature(specialization)]
 #![allow(dead_code)]
 #![allow(non_camel_case_types)]
 #![allow(bare_trait_objects)]

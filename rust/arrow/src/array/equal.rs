@@ -43,9 +43,13 @@ pub trait ArrayEqual {
 }
 
 impl<T: ArrowPrimitiveType> ArrayEqual for PrimitiveArray<T> {
-    default fn equals(&self, other: &dyn Array) -> bool {
+    fn equals(&self, other: &dyn Array) -> bool {
         if !base_equal(&self.data(), &other.data()) {
             return false;
+        }
+
+        if T::DATA_TYPE == DataType::Boolean {
+            return bool_equal(self, other);
         }
 
         let value_buf = self.data_ref().buffers()[0].clone();
@@ -82,7 +86,7 @@ impl<T: ArrowPrimitiveType> ArrayEqual for PrimitiveArray<T> {
         true
     }
 
-    default fn range_equals(
+    fn range_equals(
         &self,
         other: &dyn Array,
         start_idx: usize,
@@ -106,27 +110,20 @@ impl<T: ArrowPrimitiveType> ArrayEqual for PrimitiveArray<T> {
     }
 }
 
-impl ArrayEqual for BooleanArray {
-    fn equals(&self, other: &dyn Array) -> bool {
-        if !base_equal(&self.data(), &other.data()) {
+fn bool_equal(lhs: &Array, rhs: &Array) -> bool {
+    let values = lhs.data_ref().buffers()[0].data();
+    let other_values = rhs.data_ref().buffers()[0].data();
+
+    // TODO: we can do this more efficiently if all values are not-null
+    for i in 0..lhs.len() {
+        if lhs.is_valid(i)
+            && bit_util::get_bit(values, i + lhs.offset())
+                != bit_util::get_bit(other_values, i + rhs.offset())
+        {
             return false;
         }
-
-        let values = self.data_ref().buffers()[0].data();
-        let other_values = other.data_ref().buffers()[0].data();
-
-        // TODO: we can do this more efficiently if all values are not-null
-        for i in 0..self.len() {
-            if self.is_valid(i)
-                && bit_util::get_bit(values, i + self.offset())
-                    != bit_util::get_bit(other_values, i + other.offset())
-            {
-                return false;
-            }
-        }
-
-        true
     }
+    true
 }
 
 impl<T: ArrowNumericType> PartialEq for PrimitiveArray<T> {
@@ -243,7 +240,7 @@ impl<T: ArrowPrimitiveType> ArrayEqual for DictionaryArray<T> {
         self.range_equals(other, 0, self.len(), 0)
     }
 
-    default fn range_equals(
+    fn range_equals(
         &self,
         other: &dyn Array,
         start_idx: usize,
