@@ -230,7 +230,7 @@ pub struct Reader<R: Read> {
     projection: Option<Vec<usize>>,
     /// File reader
     record_iter:
-        Buffered<Take<Skip<StringRecordsIntoIter<BufReader<R>>>>, StringRecord, Error>,
+        Buffered<Skip<Take<StringRecordsIntoIter<BufReader<R>>>>, StringRecord, Error>,
     /// Current line number
     line_number: usize,
 }
@@ -323,7 +323,7 @@ impl<R: Read> Reader<R> {
         // note that this skips by iteration. This is because in general it is not possible
         // to seek in CSV. However, skiping still saves the burden of creating arrow arrays,
         // which is a slow operation that scales with the number of columns
-        let record_iter = Buffered::new(record_iter.skip(start).take(end), batch_size);
+        let record_iter = Buffered::new(record_iter.take(end).skip(start), batch_size);
 
         Self {
             schema,
@@ -369,8 +369,8 @@ impl<R: Read> Iterator for Reader<R> {
     }
 }
 
-/// parses a slice of [csv_crate::StringRecord] into a RecordBatch.
-pub fn parse(
+/// parses a slice of [csv_crate::StringRecord] into a [array::record_batch::RecordBatch].
+fn parse(
     rows: &[StringRecord],
     fields: &Vec<Field>,
     projection: &Option<Vec<usize>>,
@@ -508,7 +508,7 @@ pub struct ReaderBuilder {
     ///
     /// The default batch size when using the `ReaderBuilder` is 1024 records
     batch_size: usize,
-    ///
+    /// The bounds over which to scan the reader. `None` starts from 0 and runs until EOF.
     bounds: Bounds,
     /// Optional projection for which columns to load (zero-based column indices)
     projection: Option<Vec<usize>>,
@@ -944,6 +944,53 @@ mod tests {
         assert_eq!(&DataType::Float64, schema.field(2).data_type());
         assert_eq!(&DataType::Boolean, schema.field(3).data_type());
 
+        Ok(())
+    }
+
+    #[test]
+    fn test_bounded() -> Result<()> {
+        let schema = Schema::new(vec![Field::new("int", DataType::UInt32, false)]);
+        let data = vec![
+            vec!["0"],
+            vec!["1"],
+            vec!["2"],
+            vec!["3"],
+            vec!["4"],
+            vec!["5"],
+            vec!["6"],
+        ];
+
+        let data = data
+            .iter()
+            .map(|x| x.join(","))
+            .collect::<Vec<_>>()
+            .join("\n");
+        let data = data.as_bytes();
+
+        let reader = std::io::Cursor::new(data);
+
+        let mut csv = Reader::new(
+            reader,
+            Arc::new(schema),
+            false,
+            None,
+            2,
+            // starting at row 2 and up to row 6.
+            Some((2, 6)),
+            Some(vec![0]),
+        );
+
+        let batch = csv.next().unwrap().unwrap();
+        let a = batch.column(0);
+        let a = a.as_any().downcast_ref::<UInt32Array>().unwrap();
+        assert_eq!(a, &UInt32Array::from(vec![2, 3]));
+
+        let batch = csv.next().unwrap().unwrap();
+        let a = batch.column(0);
+        let a = a.as_any().downcast_ref::<UInt32Array>().unwrap();
+        assert_eq!(a, &UInt32Array::from(vec![4, 5]));
+
+        assert!(csv.next().is_none());
         Ok(())
     }
 }
