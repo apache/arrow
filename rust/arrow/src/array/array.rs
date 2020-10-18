@@ -1496,7 +1496,7 @@ impl<OffsetSize: StringOffsetSizeTrait> GenericStringArray<OffsetSize> {
         }
     }
 
-    fn from_list(v: GenericListArray<OffsetSize>, data_type: DataType) -> Self {
+    fn from_list(v: GenericListArray<OffsetSize>) -> Self {
         assert_eq!(
             v.data().child_data()[0].child_data().len(),
             0,
@@ -1509,7 +1509,7 @@ impl<OffsetSize: StringOffsetSizeTrait> GenericStringArray<OffsetSize> {
             "StringArray can only be created from List<u8> arrays, mismatched data types."
         );
 
-        let mut builder = ArrayData::builder(data_type)
+        let mut builder = ArrayData::builder(OffsetSize::DATA_TYPE)
             .len(v.len())
             .add_buffer(v.data_ref().buffers()[0].clone())
             .add_buffer(v.data_ref().child_data()[0].buffers()[0].clone());
@@ -1523,7 +1523,7 @@ impl<OffsetSize: StringOffsetSizeTrait> GenericStringArray<OffsetSize> {
         Self::from(data)
     }
 
-    pub(crate) fn from_vec(v: Vec<&str>, data_type: DataType) -> Self {
+    pub(crate) fn from_vec(v: Vec<&str>) -> Self {
         let mut offsets = Vec::with_capacity(v.len() + 1);
         let mut values = Vec::new();
         let mut length_so_far = OffsetSize::zero();
@@ -1533,7 +1533,7 @@ impl<OffsetSize: StringOffsetSizeTrait> GenericStringArray<OffsetSize> {
             offsets.push(length_so_far);
             values.extend_from_slice(s.as_bytes());
         }
-        let array_data = ArrayData::builder(data_type)
+        let array_data = ArrayData::builder(OffsetSize::DATA_TYPE)
             .len(v.len())
             .add_buffer(Buffer::from(offsets.to_byte_slice()))
             .add_buffer(Buffer::from(&values[..]))
@@ -1541,14 +1541,29 @@ impl<OffsetSize: StringOffsetSizeTrait> GenericStringArray<OffsetSize> {
         Self::from(array_data)
     }
 
-    pub(crate) fn from_opt_vec(v: Vec<Option<&str>>, data_type: DataType) -> Self {
-        let mut offsets = Vec::with_capacity(v.len() + 1);
+    pub(crate) fn from_opt_vec(v: Vec<Option<&str>>) -> Self {
+        GenericStringArray::from_iter(v)
+    }
+}
+
+impl<'a, Ptr, OffsetSize: StringOffsetSizeTrait> FromIterator<Ptr>
+    for GenericStringArray<OffsetSize>
+where
+    Ptr: Borrow<Option<&'a str>>,
+{
+    fn from_iter<I: IntoIterator<Item = Ptr>>(iter: I) -> Self {
+        let iter = iter.into_iter();
+        let (_, data_len) = iter.size_hint();
+        let data_len = data_len.expect("Iterator must be sized"); // panic if no upper bound.
+
+        let mut offsets = Vec::with_capacity(data_len + 1);
         let mut values = Vec::new();
-        let mut null_buf = make_null_buffer(v.len());
+        let mut null_buf = make_null_buffer(data_len);
         let mut length_so_far = OffsetSize::zero();
         offsets.push(length_so_far);
-        for (i, s) in v.iter().enumerate() {
-            if let Some(s) = s {
+
+        for (i, s) in iter.enumerate() {
+            if let Some(s) = s.borrow() {
                 // set null bit
                 let null_slice = null_buf.data_mut();
                 bit_util::set_bit(null_slice, i);
@@ -1561,8 +1576,9 @@ impl<OffsetSize: StringOffsetSizeTrait> GenericStringArray<OffsetSize> {
                 values.extend_from_slice(b"");
             }
         }
-        let array_data = ArrayData::builder(data_type)
-            .len(v.len())
+
+        let array_data = ArrayData::builder(OffsetSize::DATA_TYPE)
+            .len(data_len)
             .add_buffer(Buffer::from(offsets.to_byte_slice()))
             .add_buffer(Buffer::from(&values[..]))
             .null_bit_buffer(null_buf.freeze())
@@ -1649,37 +1665,37 @@ pub type LargeStringArray = GenericStringArray<i64>;
 
 impl From<ListArray> for StringArray {
     fn from(v: ListArray) -> Self {
-        StringArray::from_list(v, DataType::Utf8)
+        StringArray::from_list(v)
     }
 }
 
 impl From<LargeListArray> for LargeStringArray {
     fn from(v: LargeListArray) -> Self {
-        LargeStringArray::from_list(v, DataType::LargeUtf8)
+        LargeStringArray::from_list(v)
     }
 }
 
 impl From<Vec<&str>> for StringArray {
     fn from(v: Vec<&str>) -> Self {
-        StringArray::from_vec(v, DataType::Utf8)
+        StringArray::from_vec(v)
     }
 }
 
 impl From<Vec<&str>> for LargeStringArray {
     fn from(v: Vec<&str>) -> Self {
-        LargeStringArray::from_vec(v, DataType::LargeUtf8)
+        LargeStringArray::from_vec(v)
     }
 }
 
 impl From<Vec<Option<&str>>> for StringArray {
     fn from(v: Vec<Option<&str>>) -> Self {
-        StringArray::from_opt_vec(v, DataType::Utf8)
+        StringArray::from_opt_vec(v)
     }
 }
 
 impl From<Vec<Option<&str>>> for LargeStringArray {
     fn from(v: Vec<Option<&str>>) -> Self {
-        LargeStringArray::from_opt_vec(v, DataType::LargeUtf8)
+        LargeStringArray::from_opt_vec(v)
     }
 }
 
