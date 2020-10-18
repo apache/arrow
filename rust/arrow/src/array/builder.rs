@@ -545,7 +545,7 @@ impl<T: ArrowPrimitiveType> ArrayBuilder for PrimitiveBuilder<T> {
     ///
     /// This is used for validating array data types in `append_data`
     fn data_type(&self) -> DataType {
-        T::get_data_type()
+        T::DATA_TYPE
     }
 
     /// Builds the array and reset this builder.
@@ -618,7 +618,7 @@ impl<T: ArrowPrimitiveType> PrimitiveBuilder<T> {
         let len = self.len();
         let null_bit_buffer = self.bitmap_builder.finish();
         let null_count = len - bit_util::count_set_bits(null_bit_buffer.data());
-        let mut builder = ArrayData::builder(T::get_data_type())
+        let mut builder = ArrayData::builder(T::DATA_TYPE)
             .len(len)
             .add_buffer(self.values_builder.finish());
         if null_count > 0 {
@@ -636,7 +636,7 @@ impl<T: ArrowPrimitiveType> PrimitiveBuilder<T> {
         let null_bit_buffer = self.bitmap_builder.finish();
         let null_count = len - bit_util::count_set_bits(null_bit_buffer.data());
         let data_type = DataType::Dictionary(
-            Box::new(T::get_data_type()),
+            Box::new(T::DATA_TYPE),
             Box::new(values.data_type().clone()),
         );
         let mut builder = ArrayData::builder(data_type)
@@ -2234,7 +2234,7 @@ where
     ///
     /// This is used for validating array data types in `append_data`
     fn data_type(&self) -> DataType {
-        DataType::Dictionary(Box::new(K::get_data_type()), Box::new(V::get_data_type()))
+        DataType::Dictionary(Box::new(K::DATA_TYPE), Box::new(V::DATA_TYPE))
     }
 
     /// Builds the array and reset this builder.
@@ -2399,7 +2399,7 @@ where
     ///
     /// This is used for validating array data types in `append_data`
     fn data_type(&self) -> DataType {
-        DataType::Dictionary(Box::new(K::get_data_type()), Box::new(DataType::Utf8))
+        DataType::Dictionary(Box::new(K::DATA_TYPE), Box::new(DataType::Utf8))
     }
 
     /// Builds the array and reset this builder.

@@ -211,7 +211,7 @@ where
     };
 
     let data = ArrayData::new(
-        T::get_data_type(),
+        T::DATA_TYPE,
         indices.len(),
         None,
         Some(nulls),

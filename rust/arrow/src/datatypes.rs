@@ -214,8 +214,8 @@ pub trait ArrowPrimitiveType: 'static {
     /// Corresponding Rust native type for the primitive type.
     type Native: ArrowNativeType;
 
-    /// Returns the corresponding Arrow data type of this primitive type.
-    fn get_data_type() -> DataType;
+    /// the corresponding Arrow data type of this primitive type.
+    const DATA_TYPE: DataType;
 
     /// Returns the bit width of this primitive type.
     fn get_bit_width() -> usize {
@@ -376,10 +376,7 @@ pub struct BooleanType {}
 
 impl ArrowPrimitiveType for BooleanType {
     type Native = bool;
-
-    fn get_data_type() -> DataType {
-        DataType::Boolean
-    }
+    const DATA_TYPE: DataType = DataType::Boolean;
 
     fn get_bit_width() -> usize {
         1
@@ -400,10 +397,7 @@ macro_rules! make_type {
 
         impl ArrowPrimitiveType for $name {
             type Native = $native_ty;
-
-            fn get_data_type() -> DataType {
-                $data_ty
-            }
+            const DATA_TYPE: DataType = $data_ty;
         }
     };
 }

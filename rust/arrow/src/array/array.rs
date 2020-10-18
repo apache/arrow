@@ -463,7 +463,7 @@ impl<T: ArrowPrimitiveType> Array for PrimitiveArray<T> {
 /// Boolean arrays are bit-packed and so implemented separately.
 impl<T: ArrowNumericType> PrimitiveArray<T> {
     pub fn new(length: usize, values: Buffer, null_count: usize, offset: usize) -> Self {
-        let array_data = ArrayData::builder(T::get_data_type())
+        let array_data = ArrayData::builder(T::DATA_TYPE)
             .len(length)
             .add_buffer(values)
             .null_count(null_count)
@@ -619,7 +619,7 @@ where
 
 impl<T: ArrowPrimitiveType> fmt::Debug for PrimitiveArray<T> {
     default fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "PrimitiveArray<{:?}>\n[\n", T::get_data_type())?;
+        write!(f, "PrimitiveArray<{:?}>\n[\n", T::DATA_TYPE)?;
         print_long_array(self, f, |array, index, f| {
             fmt::Debug::fmt(&array.value(index), f)
         })?;
@@ -629,7 +629,7 @@ impl<T: ArrowPrimitiveType> fmt::Debug for PrimitiveArray<T> {
 
 impl<T: ArrowNumericType> fmt::Debug for PrimitiveArray<T> {
     default fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "PrimitiveArray<{:?}>\n[\n", T::get_data_type())?;
+        write!(f, "PrimitiveArray<{:?}>\n[\n", T::DATA_TYPE)?;
         print_long_array(self, f, |array, index, f| {
             fmt::Debug::fmt(&array.value(index), f)
         })?;
@@ -642,8 +642,8 @@ where
     i64: std::convert::From<T::Native>,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "PrimitiveArray<{:?}>\n[\n", T::get_data_type())?;
-        print_long_array(self, f, |array, index, f| match T::get_data_type() {
+        write!(f, "PrimitiveArray<{:?}>\n[\n", T::DATA_TYPE)?;
+        print_long_array(self, f, |array, index, f| match T::DATA_TYPE {
             DataType::Date32(_) | DataType::Date64(_) => {
                 match array.value_as_date(index) {
                     Some(date) => write!(f, "{:?}", date),
@@ -686,7 +686,7 @@ impl PrimitiveArray<BooleanType> {
 
 impl fmt::Debug for PrimitiveArray<BooleanType> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "PrimitiveArray<{:?}>\n[\n", BooleanType::get_data_type())?;
+        write!(f, "PrimitiveArray<{:?}>\n[\n", BooleanType::DATA_TYPE)?;
         print_long_array(self, f, |array, index, f| {
             fmt::Debug::fmt(&array.value(index), f)
         })?;
@@ -737,7 +737,7 @@ impl<T: ArrowPrimitiveType, Ptr: Borrow<Option<<T as ArrowPrimitiveType>::Native
         });
 
         let data = ArrayData::new(
-            T::get_data_type(),
+            T::DATA_TYPE,
             data_len,
             None,
             Some(null_buf.freeze()),
@@ -756,7 +756,7 @@ macro_rules! def_numeric_from_vec {
     ( $ty:ident ) => {
         impl From<Vec<<$ty as ArrowPrimitiveType>::Native>> for PrimitiveArray<$ty> {
             fn from(data: Vec<<$ty as ArrowPrimitiveType>::Native>) -> Self {
-                let array_data = ArrayData::builder($ty::get_data_type())
+                let array_data = ArrayData::builder($ty::DATA_TYPE)
                     .len(data.len())
                     .add_buffer(Buffer::from(data.to_byte_slice()))
                     .build();
@@ -2232,7 +2232,7 @@ impl<'a, K: ArrowPrimitiveType> DictionaryArray<K> {
     pub fn keys_array(&self) -> PrimitiveArray<K> {
         let data = self.data_ref();
         let keys_data = ArrayData::new(
-            K::get_data_type(),
+            K::DATA_TYPE,
             data.len(),
             Some(data.null_count()),
             data.null_buffer().cloned(),

@@ -542,12 +542,12 @@ impl UnionBuilder {
             Some(data) => data,
             None => match self.value_offset_builder {
                 Some(_) => {
-                    FieldData::new(self.fields.len() as i8, T::get_data_type(), None)
+                    FieldData::new(self.fields.len() as i8, T::DATA_TYPE, None)
                 }
                 None => {
                     let mut fd = FieldData::new(
                         self.fields.len() as i8,
-                        T::get_data_type(),
+                        T::DATA_TYPE,
                         Some(BooleanBufferBuilder::new(1)),
                     );
                     for _ in 0..self.len {
