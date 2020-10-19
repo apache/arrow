@@ -641,17 +641,23 @@ pub(crate) fn get_fb_dictionary<'a: 'b, 'b>(
     fbb: &mut FlatBufferBuilder<'a>,
 ) -> WIPOffset<ipc::DictionaryEncoding<'b>> {
     // We assume that the dictionary index type (as an integer) has already been
-    // validated elsewhere, and can safely assume we are dealing with signed
-    // integers
+    // validated elsewhere, and can safely assume we are dealing with integers
     let mut index_builder = ipc::IntBuilder::new(fbb);
-    index_builder.add_is_signed(true);
+
     match *index_type {
-        Int8 => index_builder.add_bitWidth(8),
-        Int16 => index_builder.add_bitWidth(16),
-        Int32 => index_builder.add_bitWidth(32),
-        Int64 => index_builder.add_bitWidth(64),
+        Int8 | Int16 | Int32 | Int64 => index_builder.add_is_signed(true),
+        UInt8 | UInt16 | UInt32 | UInt64 => index_builder.add_is_signed(false),
         _ => {}
     }
+
+    match *index_type {
+        Int8 | UInt8 => index_builder.add_bitWidth(8),
+        Int16 | UInt16 => index_builder.add_bitWidth(16),
+        Int32 | UInt32 => index_builder.add_bitWidth(32),
+        Int64 | UInt64 => index_builder.add_bitWidth(64),
+        _ => {}
+    }
+
     let index_builder = index_builder.finish();
 
     let mut builder = ipc::DictionaryEncodingBuilder::new(fbb);
@@ -768,6 +774,16 @@ mod tests {
                     DataType::Dictionary(
                         Box::new(DataType::Int32),
                         Box::new(DataType::Utf8),
+                    ),
+                    true,
+                    123,
+                    true,
+                ),
+                Field::new_dict(
+                    "dictionary<uint8, uint32>",
+                    DataType::Dictionary(
+                        Box::new(DataType::UInt8),
+                        Box::new(DataType::UInt32),
                     ),
                     true,
                     123,
