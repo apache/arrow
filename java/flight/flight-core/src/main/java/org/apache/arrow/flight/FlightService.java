@@ -35,7 +35,6 @@ import org.apache.arrow.flight.impl.Flight;
 import org.apache.arrow.flight.impl.FlightServiceGrpc.FlightServiceImplBase;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.AutoCloseables;
-import org.apache.arrow.vector.VectorUnloader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -88,6 +87,7 @@ class FlightService extends FlightServiceImplBase {
   public void doGetCustom(Flight.Ticket ticket, StreamObserver<ArrowMessage> responseObserverSimple) {
     final ServerCallStreamObserver<ArrowMessage> responseObserver =
         (ServerCallStreamObserver<ArrowMessage>) responseObserverSimple;
+
     final GetListener listener = new GetListener(responseObserver, this::handleExceptionWithMiddleware);
     try {
       producer.getStream(makeContext(responseObserver), new Ticket(ticket), listener);
@@ -127,8 +127,7 @@ class FlightService extends FlightServiceImplBase {
     private ServerCallStreamObserver<ArrowMessage> responseObserver;
     private final Consumer<Throwable> errorHandler;
     private Runnable onCancelHandler = null;
-    // null until stream started
-    private volatile VectorUnloader unloader;
+    private Runnable onReadyHandler = null;
     private boolean completed;
 
     public GetListener(ServerCallStreamObserver<ArrowMessage> responseObserver, Consumer<Throwable> errorHandler) {
@@ -137,6 +136,7 @@ class FlightService extends FlightServiceImplBase {
       this.completed = false;
       this.responseObserver = responseObserver;
       this.responseObserver.setOnCancelHandler(this::onCancel);
+      this.responseObserver.setOnReadyHandler(this::onReady);
       this.responseObserver.disableAutoInboundFlowControl();
     }
 
@@ -147,9 +147,20 @@ class FlightService extends FlightServiceImplBase {
       }
     }
 
+    private void onReady() {
+      if (onReadyHandler != null) {
+        onReadyHandler.run();
+      }
+    }
+
     @Override
     public void setOnCancelHandler(Runnable handler) {
       this.onCancelHandler = handler;
+    }
+
+    @Override
+    public void setOnReadyHandler(Runnable handler) {
+      this.onReadyHandler = handler;
     }
 
     @Override
