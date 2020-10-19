@@ -51,7 +51,6 @@ public class ServerAuthMiddleware implements FlightServerMiddleware {
 
     @Override
     public ServerAuthMiddleware onCallStarted(CallInfo callInfo, CallHeaders incomingHeaders, CallContext context) {
-      logger.debug("Call name: {}", callInfo.method().name());
       // Check if bearer token auth is being used, and if we've enabled use of server-generated
       // bearer tokens.
       if (authHandler.enableCachedCredentials()) {
@@ -60,7 +59,7 @@ public class ServerAuthMiddleware implements FlightServerMiddleware {
         if (bearerTokenFromHeaders != null) {
           final ServerAuthHandler.AuthResult result = bearerTokenAuthHandler.authenticate(incomingHeaders);
           context.put(AuthConstants.PEER_IDENTITY_KEY, result.getPeerIdentity());
-          return new ServerAuthMiddleware(result.getPeerIdentity(), result.getBearerToken().get());
+          return new ServerAuthMiddleware(result.getBearerToken().get());
         }
       }
 
@@ -73,15 +72,13 @@ public class ServerAuthMiddleware implements FlightServerMiddleware {
         bearerToken = result.getBearerToken().get();
       }
       context.put(AuthConstants.PEER_IDENTITY_KEY, result.getPeerIdentity());
-      return new ServerAuthMiddleware(result.getPeerIdentity(), bearerToken);
+      return new ServerAuthMiddleware(bearerToken);
     }
   }
 
   private final String bearerToken;
-  private final String peerIdentity;
 
-  public ServerAuthMiddleware(String peerIdentity, String bearerToken) {
-    this.peerIdentity = peerIdentity;
+  public ServerAuthMiddleware(String bearerToken) {
     this.bearerToken = bearerToken;
   }
 

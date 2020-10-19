@@ -366,7 +366,6 @@ class FlightService extends FlightServiceImplBase {
     private final BooleanSupplier isCancelled;
 
     FlightContext(final String peerIdentity, BooleanSupplier isCancelled) {
-      System.out.println("Peer identity: " + peerIdentity);
       this.peerIdentity = peerIdentity;
       this.isCancelled = isCancelled;
     }
