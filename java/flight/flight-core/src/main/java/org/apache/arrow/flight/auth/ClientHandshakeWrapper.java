@@ -20,6 +20,7 @@ package org.apache.arrow.flight.auth;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
+import org.apache.arrow.flight.FlightRuntimeException;
 import org.apache.arrow.flight.grpc.StatusUtils;
 import org.apache.arrow.flight.impl.Flight.HandshakeRequest;
 import org.apache.arrow.flight.impl.Flight.HandshakeResponse;
@@ -54,14 +55,18 @@ public class ClientHandshakeWrapper {
         Thread.currentThread().interrupt();
         throw ex;
       } catch (ExecutionException ex) {
-        logger.error("Failed on completing future", StatusUtils.fromThrowable(ex.getCause()));
-        throw ex.getCause();
+        final FlightRuntimeException wrappedException = StatusUtils.fromThrowable(ex.getCause());
+        logger.error("Failed on completing future", wrappedException);
+        throw wrappedException;
       }
     } catch (StatusRuntimeException sre) {
       logger.error("Failed with SREe", sre);
       throw StatusUtils.fromGrpcRuntimeException(sre);
     } catch (Throwable ex) {
       logger.error("Failed with unknown", ex);
+      if (ex instanceof FlightRuntimeException) {
+        throw (FlightRuntimeException) ex;
+      }
       throw StatusUtils.fromThrowable(ex);
     }
   }
