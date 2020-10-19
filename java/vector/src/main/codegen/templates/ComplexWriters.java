@@ -99,7 +99,7 @@ public class ${eName}WriterImpl extends AbstractFieldWriter {
 
   <#else>
 
-  <#if !minor.class?ends_with("Decimal")>
+  <#if !minor.class?starts_with("Decimal")>
   public void write(${minor.class}Holder h) {
     vector.setSafe(idx(), h);
     vector.setValueCount(idx()+1);
@@ -123,7 +123,7 @@ public class ${eName}WriterImpl extends AbstractFieldWriter {
   }
   </#if>
 
-  <#if minor.class?ends_with("Decimal")>
+  <#if minor.class?starts_with("Decimal")>
 
   public void write(${minor.class}Holder h){
     DecimalUtility.checkPrecisionAndScale(h.precision, h.scale, vector.getPrecision(), vector.getScale());
@@ -191,9 +191,9 @@ package org.apache.arrow.vector.complex.writer;
 public interface ${eName}Writer extends BaseWriter {
   public void write(${minor.class}Holder h);
 
-  <#if minor.class?ends_with("Decimal")>@Deprecated</#if>
+  <#if minor.class?starts_with("Decimal")>@Deprecated</#if>
   public void write${minor.class}(<#list fields as field>${field.type} ${field.name}<#if field_has_next>, </#if></#list>);
-<#if minor.class?ends_with("Decimal")>
+<#if minor.class?starts_with("Decimal")>
 
   public void write${minor.class}(<#list fields as field>${field.type} ${field.name}<#if field_has_next>, </#if></#list>, ArrowType arrowType);
 

@@ -16,9 +16,9 @@
  */
 
 import org.apache.arrow.memory.ArrowBuf;
-import org.apache.arrow.vector.complex.writer.BigDecimalWriter;
+import org.apache.arrow.vector.complex.writer.Decimal256Writer;
 import org.apache.arrow.vector.complex.writer.DecimalWriter;
-import org.apache.arrow.vector.holders.BigDecimalHolder;
+import org.apache.arrow.vector.holders.Decimal256Holder;
 import org.apache.arrow.vector.holders.DecimalHolder;
 
 import java.lang.UnsupportedOperationException;
@@ -172,12 +172,12 @@ public class UnionMapWriter extends UnionListWriter {
   }
 
   @Override
-  public BigDecimalWriter bigDecimal() {
+  public Decimal256Writer decimal256() {
     switch (mode) {
       case KEY:
-        return entryWriter.bigDecimal(MapVector.KEY_NAME);
+        return entryWriter.decimal256(MapVector.KEY_NAME);
       case VALUE:
-        return entryWriter.bigDecimal(MapVector.VALUE_NAME);
+        return entryWriter.decimal256(MapVector.VALUE_NAME);
       default:
         return this;
     }

@@ -42,10 +42,10 @@ import java.util.Objects;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.Preconditions;
-import org.apache.arrow.vector.BigDecimalVector;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVectorHelper;
 import org.apache.arrow.vector.BufferLayout.BufferType;
+import org.apache.arrow.vector.Decimal256Vector;
 import org.apache.arrow.vector.DecimalVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.Float4Vector;
@@ -447,16 +447,16 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
       }
     };
 
-    BufferReader BIG_DECIMAL = new BufferReader() {
+    BufferReader DECIMAL256 = new BufferReader() {
       @Override
       protected ArrowBuf read(BufferAllocator allocator, int count) throws IOException {
-        final int size = count * BigDecimalVector.TYPE_WIDTH;
+        final int size = count * Decimal256Vector.TYPE_WIDTH;
         ArrowBuf buf = allocator.buffer(size);
 
         for (int i = 0; i < count; i++) {
           parser.nextToken();
           BigDecimal decimalValue = new BigDecimal(parser.readValueAs(String.class));
-          DecimalUtility.writeBigDecimalToArrowBuf(decimalValue, buf, i, BigDecimalVector.TYPE_WIDTH);
+          DecimalUtility.writeBigDecimalToArrowBuf(decimalValue, buf, i, Decimal256Vector.TYPE_WIDTH);
         }
 
         buf.writerIndex(size);
@@ -634,8 +634,8 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
         case DECIMAL:
           reader = helper.DECIMAL;
           break;
-        case BIGDECIMAL:
-          reader = helper.BIG_DECIMAL;
+        case DECIMAL256:
+          reader = helper.DECIMAL256;
           break;
         case FIXEDSIZEBINARY:
           reader = helper.FIXEDSIZEBINARY;

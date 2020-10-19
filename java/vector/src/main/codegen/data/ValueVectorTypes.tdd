@@ -121,7 +121,7 @@
 
       minor: [
         {
-          class: "BigDecimal",
+          class: "Decimal256",
           maxPrecisionDigits: 76, nDecimalDigits: 4, friendlyType: "BigDecimal",
           typeParams: [ {name: "scale", type: "int"}, { name: "precision", type: "int"}],
           arrowType: "org.apache.arrow.vector.types.pojo.ArrowType.Decimal",

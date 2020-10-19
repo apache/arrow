@@ -31,12 +31,12 @@ import java.util.Set;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.BaseVariableWidthVector;
-import org.apache.arrow.vector.BigDecimalVector;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVectorHelper;
 import org.apache.arrow.vector.BufferLayout.BufferType;
 import org.apache.arrow.vector.DateDayVector;
 import org.apache.arrow.vector.DateMilliVector;
+import org.apache.arrow.vector.Decimal256Vector;
 import org.apache.arrow.vector.DecimalVector;
 import org.apache.arrow.vector.DurationVector;
 import org.apache.arrow.vector.FieldVector;
@@ -384,10 +384,10 @@ public class JsonFileWriter implements AutoCloseable {
           generator.writeString(decimalValue.unscaledValue().toString());
           break;
         }
-        case BIGDECIMAL: {
-          int scale = ((BigDecimalVector) vector).getScale();
+        case DECIMAL256: {
+          int scale = ((Decimal256Vector) vector).getScale();
           BigDecimal decimalValue = DecimalUtility.getBigDecimalFromArrowBuf(buffer, index, scale, 
-                                                                             BigDecimalVector.TYPE_WIDTH);
+                                                                             Decimal256Vector.TYPE_WIDTH);
           // We write the unscaled value, because the scale is stored in the type metadata.
           generator.writeString(decimalValue.unscaledValue().toString());
           break;

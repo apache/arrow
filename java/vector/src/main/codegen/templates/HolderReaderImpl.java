@@ -129,7 +129,7 @@ public class ${holderMode}${name}HolderReaderImpl extends AbstractFieldReader {
     holder.buffer.getBytes(holder.start, bytes, 0, ${type.width});
     ${friendlyType} value = new BigDecimal(new BigInteger(bytes), holder.scale);
     return value;
-  <#elseif minor.class == "BigDecimal">
+  <#elseif minor.class == "Decimal256">
     byte[] bytes = new byte[${type.width}];
     holder.buffer.getBytes(holder.start, bytes, 0, ${type.width});
     ${friendlyType} value = new BigDecimal(new BigInteger(bytes), holder.scale);

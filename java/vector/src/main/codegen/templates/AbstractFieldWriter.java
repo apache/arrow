@@ -76,7 +76,7 @@ abstract class AbstractFieldWriter extends AbstractBaseWriter implements FieldWr
     fail("${name}");
   }
 
-  <#if minor.class?ends_with("Decimal")>
+  <#if minor.class?starts_with("Decimal")>
   public void write${minor.class}(${friendlyType} value) {
     fail("${name}");
   }

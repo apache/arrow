@@ -16,9 +16,9 @@
  */
 
 import org.apache.arrow.memory.ArrowBuf;
-import org.apache.arrow.vector.complex.writer.BigDecimalWriter;
+import org.apache.arrow.vector.complex.writer.Decimal256Writer;
 import org.apache.arrow.vector.complex.writer.DecimalWriter;
-import org.apache.arrow.vector.holders.BigDecimalHolder;
+import org.apache.arrow.vector.holders.Decimal256Holder;
 import org.apache.arrow.vector.holders.DecimalHolder;
 
 
@@ -137,18 +137,18 @@ public class Union${listName}Writer extends AbstractFieldWriter {
   }
 
   @Override
-  public BigDecimalWriter bigDecimal() {
+  public Decimal256Writer decimal256() {
     return this;
   }
 
   @Override
-  public BigDecimalWriter bigDecimal(String name, int scale, int precision) {
-    return writer.bigDecimal(name, scale, precision);
+  public Decimal256Writer decimal256(String name, int scale, int precision) {
+    return writer.decimal256(name, scale, precision);
   }
 
   @Override
-  public BigDecimalWriter bigDecimal(String name) {
-    return writer.bigDecimal(name);
+  public Decimal256Writer decimal256(String name) {
+    return writer.decimal256(name);
   }
 
 
@@ -219,7 +219,7 @@ public class Union${listName}Writer extends AbstractFieldWriter {
   }
 
   @Override
-  public void write(BigDecimalHolder holder) {
+  public void write(Decimal256Holder holder) {
     writer.write(holder);
     writer.setPosition(writer.idx()+1);
   }
@@ -249,23 +249,23 @@ public class Union${listName}Writer extends AbstractFieldWriter {
     writer.setPosition(writer.idx() + 1);
   }
 
-  public void writeBigDecimal(int start, ArrowBuf buffer, ArrowType arrowType) {
-    writer.writeBigDecimal(start, buffer, arrowType);
+  public void writeDecimal256(int start, ArrowBuf buffer, ArrowType arrowType) {
+    writer.writeDecimal256(start, buffer, arrowType);
     writer.setPosition(writer.idx()+1);
   }
 
-  public void writeBigDecimal(long start, ArrowBuf buffer) {
-    writer.writeBigDecimal(start, buffer);
+  public void writeDecimal256(long start, ArrowBuf buffer) {
+    writer.writeDecimal256(start, buffer);
     writer.setPosition(writer.idx()+1);
   }
 
-  public void writeBigDecimal(BigDecimal value) {
-    writer.writeBigDecimal(value);
+  public void writeDecimal256(BigDecimal value) {
+    writer.writeDecimal256(value);
     writer.setPosition(writer.idx()+1);
   }
 
-  public void writeBigEndianBytesToBigDecimal(byte[] value, ArrowType arrowType){
-    writer.writeBigEndianBytesToBigDecimal(value, arrowType);
+  public void writeBigEndianBytesToDecimal256(byte[] value, ArrowType arrowType){
+    writer.writeBigEndianBytesToDecimal256(value, arrowType);
     writer.setPosition(writer.idx() + 1);
   }
 

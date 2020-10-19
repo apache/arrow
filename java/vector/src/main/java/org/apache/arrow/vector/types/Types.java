@@ -23,11 +23,11 @@ import static org.apache.arrow.vector.types.UnionMode.Dense;
 import static org.apache.arrow.vector.types.UnionMode.Sparse;
 
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.vector.BigDecimalVector;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.DateDayVector;
 import org.apache.arrow.vector.DateMilliVector;
+import org.apache.arrow.vector.Decimal256Vector;
 import org.apache.arrow.vector.DecimalVector;
 import org.apache.arrow.vector.DurationVector;
 import org.apache.arrow.vector.ExtensionTypeVector;
@@ -69,11 +69,11 @@ import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.UnionVector;
-import org.apache.arrow.vector.complex.impl.BigDecimalWriterImpl;
 import org.apache.arrow.vector.complex.impl.BigIntWriterImpl;
 import org.apache.arrow.vector.complex.impl.BitWriterImpl;
 import org.apache.arrow.vector.complex.impl.DateDayWriterImpl;
 import org.apache.arrow.vector.complex.impl.DateMilliWriterImpl;
+import org.apache.arrow.vector.complex.impl.Decimal256WriterImpl;
 import org.apache.arrow.vector.complex.impl.DecimalWriterImpl;
 import org.apache.arrow.vector.complex.impl.DenseUnionWriter;
 import org.apache.arrow.vector.complex.impl.DurationWriterImpl;
@@ -530,18 +530,18 @@ public class Types {
         return new DecimalWriterImpl((DecimalVector) vector);
       }
     },
-    BIGDECIMAL(null) {
+    DECIMAL256(null) {
       @Override
       public FieldVector getNewVector(
           Field field,
           BufferAllocator allocator,
           CallBack schemaChangeCallback) {
-        return new BigDecimalVector(field, allocator);
+        return new Decimal256Vector(field, allocator);
       }
 
       @Override
       public FieldWriter getNewFieldWriter(ValueVector vector) {
-        return new BigDecimalWriterImpl((BigDecimalVector) vector);
+        return new Decimal256WriterImpl((Decimal256Vector) vector);
       }
     },
     FIXEDSIZEBINARY(null) {
@@ -916,7 +916,7 @@ public class Types {
       @Override
       public MinorType visit(Decimal type) {
         if (type.getBitWidth() == 256) {
-          return MinorType.BIGDECIMAL;
+          return MinorType.DECIMAL256;
         }
         return MinorType.DECIMAL;
       }

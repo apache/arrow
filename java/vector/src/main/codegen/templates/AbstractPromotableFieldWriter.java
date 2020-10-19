@@ -106,25 +106,25 @@ abstract class AbstractPromotableFieldWriter extends AbstractFieldWriter {
   public void writeBigEndianBytesToDecimal(byte[] value) {
     getWriter(MinorType.DECIMAL).writeBigEndianBytesToDecimal(value);
   }
-  <#elseif minor.class == "BigDecimal">
+  <#elseif minor.class == "Decimal256">
   @Override
   public void write(BigDecimalHolder holder) {
-    getWriter(MinorType.BIGDECIMAL).write(holder);
+    getWriter(MinorType.DECIMAL256).write(holder);
   }
 
-  public void writeBigDecimal(long start, ArrowBuf buffer, ArrowType arrowType) {
-    getWriter(MinorType.BIGDECIMAL).writeBigDecimal(start, buffer, arrowType);
+  public void writeDecimal256(long start, ArrowBuf buffer, ArrowType arrowType) {
+    getWriter(MinorType.DECIMAL256).writeDecimal256(start, buffer, arrowType);
   }
 
-  public void writeBigDecimal(long start, ArrowBuf buffer) {
-    getWriter(MinorType.BIGDECIMAL).writeBigDecimal(start, buffer);
+  public void writeDecimal256(long start, ArrowBuf buffer) {
+    getWriter(MinorType.DECIMAL256).writeDecimal256(start, buffer);
   }
-  public void writeBigEndianBytesToBigDecimal(byte[] value, ArrowType arrowType) {
-    getWriter(MinorType.BIGDECIMAL).writeBigEndianBytesToBigDecimal(value, arrowType);
+  public void writeBigEndianBytesToDecimal256(byte[] value, ArrowType arrowType) {
+    getWriter(MinorType.DECIMAL256).writeBigEndianBytesToDecimal256(value, arrowType);
   }
 
-  public void writeBigEndianBytesToBigDecimal(byte[] value) {
-    getWriter(MinorType.BIGDECIMAL).writeBigEndianBytesToBigDecimal(value);
+  public void writeBigEndianBytesToDecimal256(byte[] value) {
+    getWriter(MinorType.DECIMAL256).writeBigEndianBytesToDecimal256(value);
   }
 
 
