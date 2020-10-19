@@ -1581,6 +1581,10 @@ impl<'a> ArrayReaderBuilder {
             (ArrowType::Int16, ArrowInt16Type),
             (ArrowType::Int32, ArrowInt32Type),
             (ArrowType::Int64, ArrowInt64Type),
+            (ArrowType::UInt8, ArrowUInt8Type),
+            (ArrowType::UInt16, ArrowUInt16Type),
+            (ArrowType::UInt32, ArrowUInt32Type),
+            (ArrowType::UInt64, ArrowUInt64Type),
         )
     }
 
