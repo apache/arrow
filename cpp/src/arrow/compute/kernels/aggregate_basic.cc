@@ -171,10 +171,34 @@ void AddMinMaxKernels(KernelInit init,
 }  // namespace aggregate
 
 namespace internal {
+namespace {
+
+const FunctionDoc count_doc{"Count the number of null / non-null values",
+                            ("By default, non-null values are counted.\n"
+                             "This can be changed through CountOptions."),
+                            {"array"},
+                            "CountOptions"};
+
+const FunctionDoc sum_doc{
+    "Sum values of a numeric array", ("Null values are ignored."), {"array"}};
+
+const FunctionDoc mean_doc{"Compute the mean of a numeric array",
+                           ("Null values are ignored. The result is always computed\n"
+                            "as a double, regardless of the input types"),
+                           {"array"}};
+
+const FunctionDoc min_max_doc{"Compute the minimum and maximum values of a numeric array",
+                              ("Null values are ignored by default.\n"
+                               "This can be changed through MinMaxOptions."),
+                              {"array"},
+                              "MinMaxOptions"};
+
+}  // namespace
+
 void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
   static auto default_count_options = CountOptions::Defaults();
-  auto func = std::make_shared<ScalarAggregateFunction>("count", Arity::Unary(),
-                                                        &default_count_options);
+  auto func = std::make_shared<ScalarAggregateFunction>(
+      "count", Arity::Unary(), &count_doc, &default_count_options);
 
   // Takes any array input, outputs int64 scalar
   InputType any_array(ValueDescr::ARRAY);
@@ -182,7 +206,7 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
                           aggregate::CountInit, func.get());
   DCHECK_OK(registry->AddFunction(std::move(func)));
 
-  func = std::make_shared<ScalarAggregateFunction>("sum", Arity::Unary());
+  func = std::make_shared<ScalarAggregateFunction>("sum", Arity::Unary(), &sum_doc);
   aggregate::AddBasicAggKernels(aggregate::SumInit, {boolean()}, int64(), func.get());
   aggregate::AddBasicAggKernels(aggregate::SumInit, SignedIntTypes(), int64(),
                                 func.get());
@@ -204,7 +228,7 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
 #endif
   DCHECK_OK(registry->AddFunction(std::move(func)));
 
-  func = std::make_shared<ScalarAggregateFunction>("mean", Arity::Unary());
+  func = std::make_shared<ScalarAggregateFunction>("mean", Arity::Unary(), &mean_doc);
   aggregate::AddBasicAggKernels(aggregate::MeanInit, {boolean()}, float64(), func.get());
   aggregate::AddBasicAggKernels(aggregate::MeanInit, NumericTypes(), float64(),
                                 func.get());
@@ -223,7 +247,7 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
 
   static auto default_minmax_options = MinMaxOptions::Defaults();
   func = std::make_shared<ScalarAggregateFunction>("min_max", Arity::Unary(),
-                                                   &default_minmax_options);
+                                                   &min_max_doc, &default_minmax_options);
   aggregate::AddMinMaxKernels(aggregate::MinMaxInit, {boolean()}, func.get());
   aggregate::AddMinMaxKernels(aggregate::MinMaxInit, NumericTypes(), func.get());
   // Add the SIMD variants for min max

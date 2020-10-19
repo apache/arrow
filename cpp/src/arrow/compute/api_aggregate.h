@@ -51,11 +51,11 @@ struct ARROW_EXPORT CountOptions : public FunctionOptions {
     COUNT_NULL,
   };
 
-  explicit CountOptions(enum Mode count_mode) : count_mode(count_mode) {}
+  explicit CountOptions(enum Mode count_mode = COUNT_NON_NULL) : count_mode(count_mode) {}
 
   static CountOptions Defaults() { return CountOptions(COUNT_NON_NULL); }
 
-  enum Mode count_mode = COUNT_NON_NULL;
+  enum Mode count_mode;
 };
 
 /// \brief Control MinMax kernel behavior
@@ -73,7 +73,7 @@ struct ARROW_EXPORT MinMaxOptions : public FunctionOptions {
 
   static MinMaxOptions Defaults() { return MinMaxOptions{}; }
 
-  enum Mode null_handling = SKIP;
+  enum Mode null_handling;
 };
 
 /// \brief Control Delta Degrees of Freedom (ddof) of Variance and Stddev kernel

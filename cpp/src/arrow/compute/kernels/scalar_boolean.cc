@@ -157,9 +157,10 @@ struct Xor {
 };
 
 void MakeFunction(std::string name, int arity, ArrayKernelExec exec,
-                  FunctionRegistry* registry, bool can_write_into_slices = true,
+                  const FunctionDoc* doc, FunctionRegistry* registry,
+                  bool can_write_into_slices = true,
                   NullHandling::type null_handling = NullHandling::INTERSECTION) {
-  auto func = std::make_shared<ScalarFunction>(name, Arity(arity));
+  auto func = std::make_shared<ScalarFunction>(name, Arity(arity), doc);
 
   // Scalar arguments not yet supported
   std::vector<InputType> in_types(arity, InputType::Array(boolean()));
@@ -171,21 +172,70 @@ void MakeFunction(std::string name, int arity, ArrayKernelExec exec,
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
+const FunctionDoc invert_doc{"Invert boolean values", "", {"values"}};
+
+const FunctionDoc and_doc{
+    "Logical 'and' boolean values",
+    ("When a null is encountered in either input, a null is output.\n"
+     "For a different null behavior, see function \"and_kleene\"."),
+    {"x", "y"}};
+
+const FunctionDoc or_doc{
+    "Logical 'or' boolean values",
+    ("When a null is encountered in either input, a null is output.\n"
+     "For a different null behavior, see function \"or_kleene\"."),
+    {"x", "y"}};
+
+const FunctionDoc xor_doc{
+    "Logical 'xor' boolean values",
+    ("When a null is encountered in either input, a null is output."),
+    {"x", "y"}};
+
+const FunctionDoc and_kleene_doc{
+    "Logical 'and' boolean values (Kleene logic)",
+    ("This function behaves as follows with nulls:\n\n"
+     "- true and null = null\n"
+     "- null and true = null\n"
+     "- false and null = false\n"
+     "- null and false = false\n"
+     "- null and null = null\n"
+     "\n"
+     "In other words, in this context a null value really means \"unknown\",\n"
+     "and an unknown value 'and' false is always false.\n"
+     "For a different null behavior, see function \"and\"."),
+    {"x", "y"}};
+
+const FunctionDoc or_kleene_doc{
+    "Logical 'or' boolean values (Kleene logic)",
+    ("This function behaves as follows with nulls:\n\n"
+     "- true or null = true\n"
+     "- null and true = true\n"
+     "- false and null = null\n"
+     "- null and false = null\n"
+     "- null and null = null\n"
+     "\n"
+     "In other words, in this context a null value really means \"unknown\",\n"
+     "and an unknown value 'or' true is always true.\n"
+     "For a different null behavior, see function \"and\"."),
+    {"x", "y"}};
+
 }  // namespace
 
 namespace internal {
 
 void RegisterScalarBoolean(FunctionRegistry* registry) {
   // These functions can write into sliced output bitmaps
-  MakeFunction("invert", 1, applicator::SimpleUnary<Invert>, registry);
-  MakeFunction("and", 2, applicator::SimpleBinary<And>, registry);
-  MakeFunction("or", 2, applicator::SimpleBinary<Or>, registry);
-  MakeFunction("xor", 2, applicator::SimpleBinary<Xor>, registry);
+  MakeFunction("invert", 1, applicator::SimpleUnary<Invert>, &invert_doc, registry);
+  MakeFunction("and", 2, applicator::SimpleBinary<And>, &and_doc, registry);
+  MakeFunction("or", 2, applicator::SimpleBinary<Or>, &or_doc, registry);
+  MakeFunction("xor", 2, applicator::SimpleBinary<Xor>, &xor_doc, registry);
 
   // The Kleene logic kernels cannot write into sliced output bitmaps
-  MakeFunction("and_kleene", 2, applicator::SimpleBinary<KleeneAnd>, registry,
+  MakeFunction("and_kleene", 2, applicator::SimpleBinary<KleeneAnd>, &and_kleene_doc,
+               registry,
                /*can_write_into_slices=*/false, NullHandling::COMPUTED_PREALLOCATE);
-  MakeFunction("or_kleene", 2, applicator::SimpleBinary<KleeneOr>, registry,
+  MakeFunction("or_kleene", 2, applicator::SimpleBinary<KleeneOr>, &or_kleene_doc,
+               registry,
                /*can_write_into_slices=*/false, NullHandling::COMPUTED_PREALLOCATE);
 }
 

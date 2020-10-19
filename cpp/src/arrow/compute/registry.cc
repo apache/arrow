@@ -33,6 +33,8 @@ namespace compute {
 class FunctionRegistry::FunctionRegistryImpl {
  public:
   Status AddFunction(std::shared_ptr<Function> function, bool allow_overwrite) {
+    RETURN_NOT_OK(function->Validate());
+
     std::lock_guard<std::mutex> mutation_guard(lock_);
 
     const std::string& name = function->name();
