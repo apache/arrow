@@ -106,8 +106,7 @@ public class PerformanceTestServer implements AutoCloseable {
     }
 
     @Override
-    public void getStream(CallContext context, Ticket ticket,
-        ServerStreamListener listener) {
+    public void getStream(FlightContext context, Ticket ticket, ServerStreamListener listener) {
       bpStrategy.register(listener);
       final Runnable loadData = () -> {
         VectorSchemaRoot root = null;
