@@ -395,6 +395,37 @@ Containment tests
 * \(3) Output is true iff the corresponding input element is equal to one
   of the elements in :member:`SetLookupOptions::value_set`.
 
+
+String splitting
+~~~~~~~~~~~~~~~~
+
+These functions split strings into lists of strings.  All kernels can optionally
+be configured with a ``max_splits`` and a ``reverse`` parameter, where
+``max_splits == -1`` means no limit (the default).  When ``reverse`` is true,
+the splitting is done starting from the end of the string; this is only relevant
+when a positive ``max_splits`` is given.
+
++--------------------------+------------+-------------------------+-------------------+----------------------------------+---------+
+| Function name            | Arity      | Input types             | Output type       | Options class                    | Notes   |
++==========================+============+=========================+===================+==================================+=========+
+| split_pattern            | Unary      | String-like             | List-like         | :struct:`SplitPatternOptions`    | \(1)    |
++--------------------------+------------+-------------------------+-------------------+----------------------------------+---------+
+| utf8_split_whitespace    | Unary      | String-like             | List-like         | :struct:`SplitOptions`           | \(2)    |
++--------------------------+------------+-------------------------+-------------------+----------------------------------+---------+
+| ascii_split_whitespace   | Unary      | String-like             | List-like         | :struct:`SplitOptions`           | \(3)    |
++--------------------------+------------+-------------------------+-------------------+----------------------------------+---------+
+
+* \(1) The string is split when an exact pattern is found (the pattern itself
+  is not included in the output).
+
+* \(2) A non-zero length sequence of Unicode defined whitespace codepoints
+  is seen as separator.
+
+* \(3) A non-zero length sequence of ASCII defined whitespace bytes
+  (``'\t'``, ``'\n'``, ``'\v'``, ``'\f'``, ``'\r'``  and ``' '``) is seen
+  as separator.
+
+
 Structural transforms
 ~~~~~~~~~~~~~~~~~~~~~
 

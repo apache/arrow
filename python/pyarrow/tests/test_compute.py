@@ -259,6 +259,51 @@ def test_match_substring():
     assert expected.equals(result)
 
 
+def test_split_pattern():
+    arr = pa.array(["-foo---bar--", "---foo---b"])
+    result = pc.split_pattern(arr, pattern="---")
+    expected = pa.array([["-foo", "bar--"], ["", "foo", "b"]])
+    assert expected.equals(result)
+
+    result = pc.split_pattern(arr, pattern="---", max_splits=1)
+    expected = pa.array([["-foo", "bar--"], ["", "foo---b"]])
+    assert expected.equals(result)
+
+    result = pc.split_pattern(arr, pattern="---", max_splits=1, reverse=True)
+    expected = pa.array([["-foo", "bar--"], ["---foo", "b"]])
+    assert expected.equals(result)
+
+
+def test_split_whitespace_utf8():
+    arr = pa.array(["foo bar", " foo  \u3000\tb"])
+    result = pc.utf8_split_whitespace(arr)
+    expected = pa.array([["foo", "bar"], ["", "foo", "b"]])
+    assert expected.equals(result)
+
+    result = pc.utf8_split_whitespace(arr, max_splits=1)
+    expected = pa.array([["foo", "bar"], ["", "foo  \u3000\tb"]])
+    assert expected.equals(result)
+
+    result = pc.utf8_split_whitespace(arr, max_splits=1, reverse=True)
+    expected = pa.array([["foo", "bar"], [" foo", "b"]])
+    assert expected.equals(result)
+
+
+def test_split_whitespace_ascii():
+    arr = pa.array(["foo bar", " foo  \u3000\tb"])
+    result = pc.ascii_split_whitespace(arr)
+    expected = pa.array([["foo", "bar"], ["", "foo", "\u3000", "b"]])
+    assert expected.equals(result)
+
+    result = pc.ascii_split_whitespace(arr, max_splits=1)
+    expected = pa.array([["foo", "bar"], ["", "foo  \u3000\tb"]])
+    assert expected.equals(result)
+
+    result = pc.ascii_split_whitespace(arr, max_splits=1, reverse=True)
+    expected = pa.array([["foo", "bar"], [" foo  \u3000", "b"]])
+    assert expected.equals(result)
+
+
 def test_min_max():
     # An example generated function wrapper with possible options
     data = [4, 5, 6, None, 1]

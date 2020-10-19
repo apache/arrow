@@ -785,3 +785,37 @@ cdef class _VarianceOptions(FunctionOptions):
 class VarianceOptions(_VarianceOptions):
     def __init__(self, *, ddof=0):
         self._set_options(ddof)
+
+
+cdef class _SplitOptions(FunctionOptions):
+    cdef:
+        unique_ptr[CSplitOptions] split_options
+
+    cdef const CFunctionOptions* get_options(self) except NULL:
+        return self.split_options.get()
+
+    def _set_options(self, max_splits, reverse):
+        self.split_options.reset(
+            new CSplitOptions(max_splits, reverse))
+
+
+class SplitOptions(_SplitOptions):
+    def __init__(self, *, max_splits=-1, reverse=False):
+        self._set_options(max_splits, reverse)
+
+
+cdef class _SplitPatternOptions(FunctionOptions):
+    cdef:
+        unique_ptr[CSplitPatternOptions] split_pattern_options
+
+    cdef const CFunctionOptions* get_options(self) except NULL:
+        return self.split_pattern_options.get()
+
+    def _set_options(self, pattern, max_splits, reverse):
+        self.split_pattern_options.reset(
+            new CSplitPatternOptions(tobytes(pattern), max_splits, reverse))
+
+
+class SplitPatternOptions(_SplitPatternOptions):
+    def __init__(self, *, pattern, max_splits=-1, reverse=False):
+        self._set_options(pattern, max_splits, reverse)
