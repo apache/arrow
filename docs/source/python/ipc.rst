@@ -330,21 +330,3 @@ An object can be reconstructed from its component-based representation using
 
 ``deserialize_components`` is also available as a method on
 ``SerializationContext`` objects.
-
-Serializing pandas Objects
-~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-The default serialization context has optimized handling of pandas
-objects like ``DataFrame`` and ``Series``. Combined with component-based
-serialization above, this enables zero-copy transport of pandas DataFrame
-objects not containing any Python objects:
-
-.. ipython:: python
-
-   import pandas as pd
-   df = pd.DataFrame({'a': [1, 2, 3, 4, 5]})
-   context = pa.default_serialization_context()
-   serialized_df = context.serialize(df)
-   df_components = serialized_df.to_components()
-   original_df = context.deserialize_components(df_components)
-   original_df
