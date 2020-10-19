@@ -149,3 +149,5 @@ pub mod memory;
 pub mod record_batch;
 pub mod tensor;
 pub mod util;
+#[cfg(feature = "memory-check")]
+mod zz_memory_check;

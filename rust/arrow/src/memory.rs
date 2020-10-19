@@ -135,6 +135,10 @@ const FALLBACK_ALIGNMENT: usize = 1 << 6;
 /// If you use allocation methods shown here you won't have any problems.
 const BYPASS_PTR: NonNull<u8> = unsafe { NonNull::new_unchecked(ALIGNMENT as *mut u8) };
 
+#[cfg(feature = "memory-check")]
+// If this number is not zero after all objects have been `drop`, there is a memory leak
+pub static mut ALLOCATIONS: i32 = 0;
+
 pub fn allocate_aligned(size: usize) -> *mut u8 {
     unsafe {
         if size == 0 {
@@ -143,6 +147,10 @@ pub fn allocate_aligned(size: usize) -> *mut u8 {
             // This will dodge allocator api for any type.
             BYPASS_PTR.as_ptr()
         } else {
+            #[cfg(feature = "memory-check")]
+            {
+                ALLOCATIONS += size as i32;
+            }
             let layout = Layout::from_size_align_unchecked(size, ALIGNMENT);
             std::alloc::alloc_zeroed(layout)
         }
@@ -159,6 +167,10 @@ pub fn allocate_aligned(size: usize) -> *mut u8 {
 /// * size must be the same size that was used to allocate that block of memory,
 pub unsafe fn free_aligned(ptr: *mut u8, size: usize) {
     if ptr != BYPASS_PTR.as_ptr() {
+        #[cfg(feature = "memory-check")]
+        {
+            ALLOCATIONS -= size as i32;
+        }
         std::alloc::dealloc(ptr, Layout::from_size_align_unchecked(size, ALIGNMENT));
     }
 }
@@ -184,6 +196,11 @@ pub unsafe fn reallocate(ptr: *mut u8, old_size: usize, new_size: usize) -> *mut
         return BYPASS_PTR.as_ptr();
     }
 
+    #[cfg(feature = "memory-check")]
+    {
+        ALLOCATIONS -= old_size as i32;
+        ALLOCATIONS += new_size as i32;
+    }
     let new_ptr = std::alloc::realloc(
         ptr,
         Layout::from_size_align_unchecked(old_size, ALIGNMENT),
@@ -241,6 +258,7 @@ mod tests {
             let p = allocate_aligned(1024);
             // make sure this is 64-byte aligned
             assert_eq!(0, (p as usize) % 64);
+            unsafe { free_aligned(p, 1024) };
         }
     }
 
@@ -257,5 +275,6 @@ mod tests {
         assert_eq!(true, is_aligned::<u8>(ptr, 1));
         assert_eq!(false, is_aligned::<u8>(ptr, 2));
         assert_eq!(false, is_aligned::<u8>(ptr, 4));
+        unsafe { free_aligned(ptr.offset(-1), 10) };
     }
 }
