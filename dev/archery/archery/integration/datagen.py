@@ -1283,7 +1283,10 @@ def generate_decimal128_case():
 
     possible_batch_sizes = 7, 10
     batch_sizes = [possible_batch_sizes[i % 2] for i in range(len(fields))]
-    return _generate_file('decimal128', fields, batch_sizes)
+    # 'decimal' is the original name for the test, and it must match
+    # provide "gold" files that test backwards compatibility, so they
+    # can be appropriately skipped.
+    return _generate_file('decimal', fields, batch_sizes)
 
 
 def generate_decimal256_case():
