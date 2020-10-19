@@ -1489,58 +1489,11 @@ impl<'a> ArrayReaderBuilder {
                             page_iterator, column_desc, converter
                         )?))
                     } else if let Some(ArrowType::Dictionary(key_type, _)) = arrow_type {
-                        match **key_type {
-                            ArrowType::Int8 => {
-                                let converter =
-                                    DictionaryConverter::new(DictionaryArrayConverter {});
-
-                                Ok(Box::new(ComplexObjectArrayReader::<
-                                    ByteArrayType,
-                                    DictionaryConverter<ArrowInt8Type>,
-                                >::new(
-                                    page_iterator, column_desc, converter
-                                )?))
-                            }
-                            ArrowType::Int16 => {
-                                let converter =
-                                    DictionaryConverter::new(DictionaryArrayConverter {});
-
-                                Ok(Box::new(ComplexObjectArrayReader::<
-                                    ByteArrayType,
-                                    DictionaryConverter<ArrowInt16Type>,
-                                >::new(
-                                    page_iterator, column_desc, converter
-                                )?))
-                            }
-                            ArrowType::Int32 => {
-                                let converter =
-                                    DictionaryConverter::new(DictionaryArrayConverter {});
-
-                                Ok(Box::new(ComplexObjectArrayReader::<
-                                    ByteArrayType,
-                                    DictionaryConverter<ArrowInt32Type>,
-                                >::new(
-                                    page_iterator, column_desc, converter
-                                )?))
-                            }
-                            ArrowType::Int64 => {
-                                let converter =
-                                    DictionaryConverter::new(DictionaryArrayConverter {});
-
-                                Ok(Box::new(ComplexObjectArrayReader::<
-                                    ByteArrayType,
-                                    DictionaryConverter<ArrowInt64Type>,
-                                >::new(
-                                    page_iterator, column_desc, converter
-                                )?))
-                            }
-                            ref other => {
-                                return Err(general_err!(
-                                    "Invalid/Unsupported index type for dictionary: {:?}",
-                                    other
-                                ))
-                            }
-                        }
+                        self.build_for_string_dictionary_type_inner(
+                            &*key_type,
+                            page_iterator,
+                            column_desc,
+                        )
                     } else {
                         let converter = Utf8Converter::new(Utf8ArrayConverter {});
                         Ok(Box::new(ComplexObjectArrayReader::<
@@ -1589,6 +1542,62 @@ impl<'a> ArrayReaderBuilder {
                 >::new(
                     page_iterator, column_desc, converter
                 )?))
+            }
+        }
+    }
+
+    fn build_for_string_dictionary_type_inner(
+        &self,
+        key_type: &ArrowType,
+        page_iterator: Box<dyn PageIterator>,
+        column_desc: ColumnDescPtr,
+    ) -> Result<Box<dyn ArrayReader>> {
+        match key_type {
+            ArrowType::Int8 => {
+                let converter = DictionaryConverter::new(DictionaryArrayConverter {});
+
+                Ok(Box::new(ComplexObjectArrayReader::<
+                    ByteArrayType,
+                    DictionaryConverter<ArrowInt8Type>,
+                >::new(
+                    page_iterator, column_desc, converter
+                )?))
+            }
+            ArrowType::Int16 => {
+                let converter = DictionaryConverter::new(DictionaryArrayConverter {});
+
+                Ok(Box::new(ComplexObjectArrayReader::<
+                    ByteArrayType,
+                    DictionaryConverter<ArrowInt16Type>,
+                >::new(
+                    page_iterator, column_desc, converter
+                )?))
+            }
+            ArrowType::Int32 => {
+                let converter = DictionaryConverter::new(DictionaryArrayConverter {});
+
+                Ok(Box::new(ComplexObjectArrayReader::<
+                    ByteArrayType,
+                    DictionaryConverter<ArrowInt32Type>,
+                >::new(
+                    page_iterator, column_desc, converter
+                )?))
+            }
+            ArrowType::Int64 => {
+                let converter = DictionaryConverter::new(DictionaryArrayConverter {});
+
+                Ok(Box::new(ComplexObjectArrayReader::<
+                    ByteArrayType,
+                    DictionaryConverter<ArrowInt64Type>,
+                >::new(
+                    page_iterator, column_desc, converter
+                )?))
+            }
+            ref other => {
+                return Err(general_err!(
+                    "Invalid/Unsupported index type for dictionary: {:?}",
+                    other
+                ))
             }
         }
     }
