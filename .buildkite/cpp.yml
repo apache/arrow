@@ -1,8 +1,10 @@
 steps:
   - label: "ARM64v8 Ubuntu C++"
+    env:
+      ARCH: arm64v8
     agents:
       docker: "true"
       arch: "arm64v8"
     commands:
       - pip3 install -e dev/archery[docker]
-      - ARCH=arm64v8 archery docker run ubuntu-cpp
+      - archery docker run ubuntu-cpp
