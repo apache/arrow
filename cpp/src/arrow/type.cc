@@ -1446,6 +1446,7 @@ Schema Schema::FromJson(const std::string& json_schema) {
   // TODO Remove (?) before final version of pull request.
   flatbuffers::Verifier verifier(parser.builder_.GetBufferPointer(), parser.builder_.GetSize());
   if (!reflection::VerifySchemaBuffer(verifier)) {
+    // NOTE We currently fail here.
     std::cerr << "Verifying failed!" << std::endl;
     exit(3);
   }
@@ -1460,10 +1461,10 @@ Schema Schema::FromJson(const std::string& json_schema) {
 
 std::string Schema::ToJson() const {
   // Convert schema to Arrow's Flatbuffer representation.
-  ipc::DictionaryMemo dict_memo;
+  ipc::DictionaryFieldMapper dict_mapper;
   flatbuffers::FlatBufferBuilder fbb;
   flatbuffers::Offset<flatbuf::Schema> fb_schema;
-  ARROW_CHECK(ipc::internal::SchemaToFlatbuffer(fbb, *this, &dict_memo, &fb_schema).ok());
+  ARROW_CHECK(ipc::internal::SchemaToFlatbuffer(fbb, *this, dict_mapper, &fb_schema).ok());
   std::cout << "Offset = " << fb_schema.o << std::endl;
   fbb.Finish(fb_schema);
 

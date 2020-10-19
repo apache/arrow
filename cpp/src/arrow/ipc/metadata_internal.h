@@ -166,7 +166,9 @@ static inline Status VerifyMessage(const uint8_t* data, int64_t size,
   return Status::OK();
 }
 
-Status SchemaToFlatbuffer(flatbuffers::FlatBufferBuilder& fbb, const Schema& schema, DictionaryMemo* dictionary_memo,
+using FBB = flatbuffers::FlatBufferBuilder;
+Status SchemaToFlatbuffer(FBB& fbb, const Schema& schema,
+                          const DictionaryFieldMapper& mapper,
                           flatbuffers::Offset<flatbuf::Schema>* out);
 
 // Serialize arrow::Schema as a Flatbuffer
