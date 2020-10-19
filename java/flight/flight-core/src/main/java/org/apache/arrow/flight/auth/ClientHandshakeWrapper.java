@@ -54,7 +54,7 @@ public class ClientHandshakeWrapper {
         Thread.currentThread().interrupt();
         throw ex;
       } catch (ExecutionException ex) {
-        logger.error("Failed on completing future", ex.getCause());
+        logger.error("Failed on completing future", StatusUtils.fromThrowable(ex.getCause()));
         throw ex.getCause();
       }
     } catch (StatusRuntimeException sre) {
