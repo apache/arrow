@@ -50,6 +50,7 @@ import com.google.common.collect.ImmutableList;
 public class TestBasicAuth {
 
   private static final String USERNAME = "flight";
+  private static final String NO_USERNAME = "";
   private static final String PASSWORD = "woohoo";
   private static final String VALID_TOKEN = "my_token";
 
@@ -80,8 +81,11 @@ public class TestBasicAuth {
 
   @Test
   public void invalidAuth() {
-    FlightTestUtil.assertCode(FlightStatusCode.UNAUTHORIZED, () ->
+    FlightTestUtil.assertCode(FlightStatusCode.UNAUTHENTICATED, () ->
         client.authenticateBasic(USERNAME, "WRONG"));
+
+    FlightTestUtil.assertCode(FlightStatusCode.UNAUTHENTICATED, () ->
+            client.authenticateBasic(NO_USERNAME, PASSWORD));
 
     FlightTestUtil.assertCode(FlightStatusCode.UNAUTHENTICATED, () ->
         client.listFlights(Criteria.ALL).forEach(action -> Assert.fail()));
@@ -101,13 +105,13 @@ public class TestBasicAuth {
       @Override
       public Optional<String> validateCredentials(String username, String password) throws Exception {
         if (Strings.isNullOrEmpty(username)) {
-          throw CallStatus.UNAUTHENTICATED.withDescription("Username is missing.").toRuntimeException();
+          throw CallStatus.UNAUTHENTICATED.withDescription("Credentials not supplied").toRuntimeException();
         }
-        if (USERNAME.equals(username) && PASSWORD.equals(password)) {
-          return Optional.of(VALID_TOKEN);
-        } else {
-          throw CallStatus.UNAUTHORIZED.withDescription("Username or password is invalid.").toRuntimeException();
+
+        if (!USERNAME.equals(username) || !PASSWORD.equals(password)) {
+          throw CallStatus.UNAUTHENTICATED.withDescription("Username or password is invalid.").toRuntimeException();
         }
+        return Optional.of("valid:" + username);
       }
 
       @Override

@@ -60,11 +60,11 @@ final class AuthBasicProtoScenario implements Scenario {
       @Override
       public Optional<String> validateCredentials(String username, String password) throws Exception {
         if (Strings.isNullOrEmpty(username)) {
-          throw CallStatus.UNAUTHORIZED.withDescription("Credentials not supplied").toRuntimeException();
+          throw CallStatus.UNAUTHENTICATED.withDescription("Credentials not supplied").toRuntimeException();
         }
 
         if (!USERNAME.equals(username) || !PASSWORD.equals(password)) {
-          throw CallStatus.UNAUTHORIZED.withDescription("Username or password is invalid.").toRuntimeException();
+          throw CallStatus.UNAUTHENTICATED.withDescription("Username or password is invalid.").toRuntimeException();
         }
         return Optional.of("valid:" + username);
       }
