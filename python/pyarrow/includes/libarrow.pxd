@@ -1684,6 +1684,18 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CMatchSubstringOptions(c_string pattern)
         c_string pattern
 
+    cdef cppclass CSplitOptions \
+            "arrow::compute::SplitOptions"(CFunctionOptions):
+        CSplitOptions(int64_t max_splits, c_bool reverse)
+        int64_t max_splits
+        c_bool reverse
+
+    cdef cppclass CSplitPatternOptions \
+            "arrow::compute::SplitPatternOptions"(CSplitOptions):
+        CSplitPatternOptions(c_string pattern, int64_t max_splits,
+                             c_bool reverse)
+        c_string pattern
+
     cdef cppclass CCastOptions" arrow::compute::CastOptions"(CFunctionOptions):
         CCastOptions()
         CCastOptions(c_bool safe)

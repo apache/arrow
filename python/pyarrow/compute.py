@@ -31,6 +31,8 @@ from pyarrow._compute import (  # noqa
     CountOptions,
     FilterOptions,
     MatchSubstringOptions,
+    SplitOptions,
+    SplitPatternOptions,
     MinMaxOptions,
     PartitionNthOptions,
     SetLookupOptions,
