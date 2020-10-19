@@ -6,5 +6,6 @@ steps:
       docker: "true"
       arch: "arm64v8"
     commands:
+      - which pip3
       - pip3 install -e dev/archery[docker]
       - archery docker run ubuntu-cpp
