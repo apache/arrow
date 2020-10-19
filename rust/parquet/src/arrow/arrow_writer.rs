@@ -179,7 +179,7 @@ fn write_leaves(
         ArrowDataType::Dictionary(key_type, value_type) => {
             use arrow_array::{
                 Int16DictionaryArray, Int32DictionaryArray, Int64DictionaryArray,
-                Int8DictionaryArray, StringArray, UInt16DictionaryArray,
+                Int8DictionaryArray, PrimitiveArray, StringArray, UInt16DictionaryArray,
                 UInt32DictionaryArray, UInt64DictionaryArray, UInt8DictionaryArray,
             };
             use ArrowDataType::*;
@@ -196,6 +196,57 @@ fn write_leaves(
                         (kt, vt, _) => panic!("Don't know how to write dictionary of <{:?}, {:?}>", kt, vt),
                     }
                 );
+            }
+
+            match (&**key_type, &**value_type, &mut col_writer) {
+                (UInt8, UInt32, Int32ColumnWriter(writer)) => {
+                    let typed_array = array
+                        .as_any()
+                        .downcast_ref::<arrow_array::UInt8DictionaryArray>()
+                        .expect("Unable to get dictionary array");
+
+                    let keys = typed_array.keys();
+
+                    let value_buffer = typed_array.values();
+                    let value_array =
+                        arrow::compute::cast(&value_buffer, &ArrowDataType::Int32)?;
+
+                    let values = value_array
+                        .as_any()
+                        .downcast_ref::<arrow_array::Int32Array>()
+                        .unwrap();
+
+                    use std::convert::TryFrom;
+                    // This removes NULL values from the NullableIter, but
+                    // they're encoded by the levels, so that's fine.
+                    let materialized_values: Vec<_> = keys
+                        .flatten()
+                        .map(|key| {
+                            usize::try_from(key).unwrap_or_else(|k| {
+                                panic!("key {} does not fit in usize", k)
+                            })
+                        })
+                        .map(|key| values.value(key))
+                        .collect();
+
+                    let materialized_primitive_array =
+                        PrimitiveArray::<arrow::datatypes::Int32Type>::from(
+                            materialized_values,
+                        );
+
+                    writer.write_batch(
+                        get_numeric_array_slice::<Int32Type, _>(
+                            &materialized_primitive_array,
+                        )
+                        .as_slice(),
+                        Some(levels.definition.as_slice()),
+                        levels.repetition.as_deref(),
+                    )?;
+                    row_group_writer.close_column(col_writer)?;
+
+                    return Ok(());
+                }
+                _ => {}
             }
 
             dispatch_dictionary!(
@@ -614,7 +665,7 @@ mod tests {
 
     use arrow::array::*;
     use arrow::datatypes::ToByteSlice;
-    use arrow::datatypes::{DataType, Field, Schema};
+    use arrow::datatypes::{DataType, Field, Schema, UInt32Type, UInt8Type};
     use arrow::record_batch::RecordBatch;
 
     use crate::arrow::{ArrowReader, ParquetFileArrowReader};
@@ -1233,7 +1284,7 @@ mod tests {
     }
 
     #[test]
-    fn arrow_writer_dictionary() {
+    fn arrow_writer_string_dictionary() {
         // define schema
         let schema = Arc::new(Schema::new(vec![Field::new_dict(
             "dictionary",
@@ -1253,7 +1304,41 @@ mod tests {
         let expected_batch =
             RecordBatch::try_new(schema.clone(), vec![Arc::new(d)]).unwrap();
 
-        roundtrip("test_arrow_writer_dictionary.parquet", expected_batch);
+        roundtrip(
+            "test_arrow_writer_string_dictionary.parquet",
+            expected_batch,
+        );
+    }
+
+    #[test]
+    fn arrow_writer_primitive_dictionary() {
+        // define schema
+        let schema = Arc::new(Schema::new(vec![Field::new_dict(
+            "dictionary",
+            DataType::Dictionary(Box::new(DataType::UInt8), Box::new(DataType::UInt32)),
+            true,
+            42,
+            true,
+        )]));
+
+        // create some data
+        let key_builder = PrimitiveBuilder::<UInt8Type>::new(3);
+        let value_builder = PrimitiveBuilder::<UInt32Type>::new(2);
+        let mut builder = PrimitiveDictionaryBuilder::new(key_builder, value_builder);
+        builder.append(12345678).unwrap();
+        builder.append_null().unwrap();
+        builder.append(22345678).unwrap();
+        builder.append(12345678).unwrap();
+        let d = builder.finish();
+
+        // build a record batch
+        let expected_batch =
+            RecordBatch::try_new(schema.clone(), vec![Arc::new(d)]).unwrap();
+
+        roundtrip(
+            "test_arrow_writer_primitive_dictionary.parquet",
+            expected_batch,
+        );
     }
 
     #[test]

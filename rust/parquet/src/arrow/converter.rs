@@ -22,8 +22,8 @@ use arrow::{
     array::{
         Array, ArrayRef, BinaryBuilder, BooleanArray, BooleanBufferBuilder,
         BufferBuilderTrait, FixedSizeBinaryBuilder, LargeBinaryBuilder,
-        LargeStringBuilder, PrimitiveBuilder, StringBuilder, StringDictionaryBuilder,
-        TimestampNanosecondBuilder,
+        LargeStringBuilder, PrimitiveBuilder, PrimitiveDictionaryBuilder, StringBuilder,
+        StringDictionaryBuilder, TimestampNanosecondBuilder,
     },
     datatypes::Time32MillisecondType,
 };
@@ -42,7 +42,8 @@ use arrow::datatypes::{
 use arrow::array::ArrayDataBuilder;
 use arrow::array::{
     BinaryArray, DictionaryArray, FixedSizeBinaryArray, LargeBinaryArray,
-    LargeStringArray, PrimitiveArray, StringArray, TimestampNanosecondArray,
+    LargeStringArray, PrimitiveArray, PrimitiveArrayOps, StringArray,
+    TimestampNanosecondArray,
 };
 use std::marker::PhantomData;
 
@@ -256,10 +257,10 @@ impl Converter<Vec<Option<ByteArray>>, LargeBinaryArray> for LargeBinaryArrayCon
     }
 }
 
-pub struct DictionaryArrayConverter {}
+pub struct StringDictionaryArrayConverter {}
 
 impl<K: ArrowDictionaryKeyType> Converter<Vec<Option<ByteArray>>, DictionaryArray<K>>
-    for DictionaryArrayConverter
+    for StringDictionaryArrayConverter
 {
     fn convert(&self, source: Vec<Option<ByteArray>>) -> Result<DictionaryArray<K>> {
         let data_size = source
@@ -277,6 +278,64 @@ impl<K: ArrowDictionaryKeyType> Converter<Vec<Option<ByteArray>>, DictionaryArra
                     let _ = builder.append(array.as_utf8()?)?;
                 }
                 None => builder.append_null()?,
+            }
+        }
+
+        Ok(builder.finish())
+    }
+}
+
+pub struct DictionaryArrayConverter<DictValueSourceType, DictValueTargetType, ParquetType>
+{
+    _dict_value_source_marker: PhantomData<DictValueSourceType>,
+    _dict_value_target_marker: PhantomData<DictValueTargetType>,
+    _parquet_marker: PhantomData<ParquetType>,
+}
+
+impl<DictValueSourceType, DictValueTargetType, ParquetType>
+    DictionaryArrayConverter<DictValueSourceType, DictValueTargetType, ParquetType>
+{
+    pub fn new() -> Self {
+        Self {
+            _dict_value_source_marker: PhantomData,
+            _dict_value_target_marker: PhantomData,
+            _parquet_marker: PhantomData,
+        }
+    }
+}
+
+impl<K, DictValueSourceType, DictValueTargetType, ParquetType>
+    Converter<Vec<Option<<ParquetType as DataType>::T>>, DictionaryArray<K>>
+    for DictionaryArrayConverter<DictValueSourceType, DictValueTargetType, ParquetType>
+where
+    K: ArrowPrimitiveType,
+    DictValueSourceType: ArrowPrimitiveType,
+    DictValueTargetType: ArrowPrimitiveType,
+    ParquetType: DataType,
+    PrimitiveArray<DictValueSourceType>: From<Vec<Option<<ParquetType as DataType>::T>>>,
+{
+    fn convert(
+        &self,
+        source: Vec<Option<<ParquetType as DataType>::T>>,
+    ) -> Result<DictionaryArray<K>> {
+        let keys_builder = PrimitiveBuilder::<K>::new(source.len());
+        let values_builder = PrimitiveBuilder::<DictValueTargetType>::new(source.len());
+
+        let mut builder = PrimitiveDictionaryBuilder::new(keys_builder, values_builder);
+
+        let source_array: Arc<dyn Array> =
+            Arc::new(PrimitiveArray::<DictValueSourceType>::from(source));
+        let target_array = cast(&source_array, &DictValueTargetType::get_data_type())?;
+        let target = target_array
+            .as_any()
+            .downcast_ref::<PrimitiveArray<DictValueTargetType>>()
+            .unwrap();
+
+        for i in 0..target.len() {
+            if target.is_null(i) {
+                builder.append_null()?;
+            } else {
+                let _ = builder.append(target.value(i))?;
             }
         }
 
@@ -323,11 +382,22 @@ pub type LargeBinaryConverter = ArrayRefConverter<
     LargeBinaryArray,
     LargeBinaryArrayConverter,
 >;
-pub type DictionaryConverter<T> = ArrayRefConverter<
+pub type StringDictionaryConverter<T> = ArrayRefConverter<
     Vec<Option<ByteArray>>,
     DictionaryArray<T>,
-    DictionaryArrayConverter,
+    StringDictionaryArrayConverter,
 >;
+pub type DictionaryConverter<K, SV, TV, P> = ArrayRefConverter<
+    Vec<Option<<P as DataType>::T>>,
+    DictionaryArray<K>,
+    DictionaryArrayConverter<SV, TV, P>,
+>;
+pub type PrimitiveDictionaryConverter<K, V> = ArrayRefConverter<
+    Vec<Option<<ParquetInt32Type as DataType>::T>>,
+    DictionaryArray<K>,
+    DictionaryArrayConverter<Int32Type, V, ParquetInt32Type>,
+>;
+
 pub type Int96Converter =
     ArrayRefConverter<Vec<Option<Int96>>, TimestampNanosecondArray, Int96ArrayConverter>;
 pub type FixedLenBinaryConverter = ArrayRefConverter<
