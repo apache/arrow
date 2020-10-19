@@ -167,7 +167,8 @@ static inline bool ListTypeSupported(const DataType& type) {
     case Type::UINT64:
     case Type::FLOAT:
     case Type::DOUBLE:
-    case Type::DECIMAL:
+    case Type::DECIMAL128:
+    case Type::DECIMAL256:
     case Type::BINARY:
     case Type::LARGE_BINARY:
     case Type::STRING:
@@ -1870,7 +1871,8 @@ static Status GetPandasWriterType(const ChunkedArray& data, const PandasOptions&
     case Type::STRUCT:             // fall through
     case Type::TIME32:             // fall through
     case Type::TIME64:             // fall through
-    case Type::DECIMAL:            // fall through
+    case Type::DECIMAL128:         // fall through
+    case Type::DECIMAL256:         // fall through
       *output_type = PandasWriter::OBJECT;
       break;
     case Type::DATE32:  // fall through
