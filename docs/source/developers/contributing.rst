@@ -314,35 +314,41 @@ that have been made in this regard.
 
 Endianess
 +++++++++
-The Arrow format allows setting endianness.  Due to the popularity of little endian
-architectures most of implementation assume little endian by default. There has been some 
-effort to support big endian platforms as well. Based on a mailing list discussion,
-The requirements for a new platform are:
 
-1. A robust (non-flaky, returns results in a reasonable time) Continuous integration setup.
-2. Performance benchmarks in performance critical parts of the code to demonstrate no
-   regression.
+The Arrow format allows setting endianness.  Due to the popularity of
+little endian architectures most of implementation assume little endian by
+default. There has been some  effort to support big endian platforms as well.
+Based on a `mailing-list discussion
+<https://mail-archives.apache.org/mod_mbox/arrow-dev/202009.mbox/%3cCAK7Z5T--HHhr9Dy43PYhD6m-XoU4qoGwQVLwZsG-kOxXjPTyZA@mail.gmail.com%3e>`__,
+the requirements for a new platform are:
 
-Furthermore for big-endianess support there are two levels that an implementation can support:
+1. A robust (non-flaky, returning results in a reasonable time) Continuous
+   Integration setup.
+2. Benchmarks for performance critical parts of the code to demonstrate
+   no regression.
 
-1.  Native endianness (all arrow communication happens with processes of the same endianness). 
-    This includes ancillary libraries like file import/export.
-2.  Cross platform support (implementations will do byte reordering when appropriate for IPC
-    and flight messages).
+Furthermore, for big-endian support, there are two levels that an
+implementation can support:
 
-The decision on what level to support is based on maintainers preferences for complexity and
-technical risk.  In general all implementations should be open to native endianness support
-(provided the CI and performance requirements are met).  Cross endianness support is a question
-for individual maintainers.  
+1. Native endianness (all Arrow communication happens with processes of the
+   same endianness).  This includes ancillary functionality such as reading
+   and writing various file formats, such as Parquet.
+2. Cross endian support (implementations will do byte reordering when
+   appropriate for :ref:`IPC <format-ipc>` and :ref:`Flight <flight-rpc>`
+   messages).
 
-The current implementations aiming for cross platform support are:
+The decision on what level to support is based on maintainers' preferences for
+complexity and technical risk.  In general all implementations should be open
+to native endianness support (provided the CI and performance requirements
+are met).  Cross endianness support is a question for individual maintainers.
+
+The current implementations aiming for cross endian support are:
 
 1. C++
 
-Implementations that do not intend to implement cross platform support:
+Implementations that do not intend to implement cross endian support:
 
 1. Java
 
-For other libraries a discussion to gather consensus on the mailing should be had before submitting
-PRs.
-
+For other libraries, a discussion to gather consensus on the mailing-list
+should be had before submitting PRs.

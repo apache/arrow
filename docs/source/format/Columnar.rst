@@ -787,6 +787,8 @@ layouts depending on the particular realization of the type.
 We do not go into detail about the logical types definitions in this
 document as we consider `Schema.fbs`_ to be authoritative.
 
+.. _format-ipc:
+
 Serialization and Interprocess Communication (IPC)
 ==================================================
 
