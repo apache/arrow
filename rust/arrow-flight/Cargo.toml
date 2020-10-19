@@ -18,7 +18,7 @@
 [package]
 name = "arrow-flight"
 description = "Apache Arrow Flight"
-version = "2.0.0"
+version = "3.0.0-SNAPSHOT"
 edition = "2018"
 authors = ["Apache Arrow <dev@arrow.apache.org>"]
 homepage = "https://github.com/apache/arrow"
@@ -26,7 +26,7 @@ repository = "https://github.com/apache/arrow"
 license = "Apache-2.0"
 
 [dependencies]
-arrow = { path = "../arrow", version = "2.0.0" }
+arrow = { path = "../arrow", version = "3.0.0-SNAPSHOT" }
 tonic = "0.3"
 bytes = "0.5"
 prost = "0.6"
