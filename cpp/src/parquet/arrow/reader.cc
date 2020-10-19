@@ -540,6 +540,10 @@ class ListReader : public ColumnReaderImpl {
 
   virtual ::arrow::Result<std::shared_ptr<ChunkedArray>> AssembleArray(
       std::shared_ptr<ArrayData> data) {
+    if (field_->type()->id() == ::arrow::Type::MAP) {
+      // Error out if data is not map-compliant instead of aborting in MakeArray below
+      RETURN_NOT_OK(::arrow::MapArray::ValidateChildData(data->child_data));
+    }
     std::shared_ptr<Array> result = ::arrow::MakeArray(data);
     return std::make_shared<ChunkedArray>(result);
   }
