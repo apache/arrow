@@ -165,7 +165,20 @@ public abstract class ArrowType {
     ${fieldType} ${field.name};
     </#list>
 
+
+    <#if type.name == "Decimal">
+    // Needed to support golden file integration tests.
     @JsonCreator
+    public static Decimal createDecimal128(
+      @JsonProperty("precision") int precision,
+      @JsonProperty("scale") int scale,
+      @JsonProperty("bitWidth") Integer bitWidth) {
+
+      return new Decimal(precision, scale, bitWidth == null ? 128 : bitWidth);
+    }
+    <#else>
+    @JsonCreator
+    </#if>
     public ${type.name}(
     <#list type.fields as field>
     <#assign fieldType = field.valueType!field.type>
