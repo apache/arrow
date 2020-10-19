@@ -158,7 +158,7 @@ Status InternalDecimalFromPyObject(PyObject* obj, const DecimalType& arrow_type,
     RETURN_NOT_OK(PyObject_StdStringStr(obj, &string));
     return DecimalFromStdString(string, arrow_type, out);
   } else if (PyDecimal_Check(obj)) {
-    return DecimalFromPythonDecimal(obj, arrow_type, out);
+    return InternalDecimalFromPythonDecimal<ArrowDecimal>(obj, arrow_type, out);
   } else {
     return Status::TypeError("int or Decimal object expected, got ",
                              Py_TYPE(obj)->tp_name);

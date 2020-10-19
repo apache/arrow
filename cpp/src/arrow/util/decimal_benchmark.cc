@@ -205,7 +205,7 @@ static void BinaryBitOp(benchmark::State& state) {  // NOLINT non-const referenc
 
 BENCHMARK(FromString);
 BENCHMARK(ToString);
-BENCHMARK(BinaryMathOp);
+BENCHMARK(BinaryMathOp128);
 BENCHMARK(BinaryMathOp256);
 BENCHMARK(BinaryMathOpAggregate);
 BENCHMARK(BinaryCompareOp);
