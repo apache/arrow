@@ -1638,6 +1638,12 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         FunctionKind_META \
             " arrow::compute::Function::META"
 
+    cdef cppclass CFunctionDoc" arrow::compute::FunctionDoc":
+        c_string summary
+        c_string description
+        vector[c_string] arg_names
+        c_string options_class
+
     cdef cppclass CFunctionOptions" arrow::compute::FunctionOptions":
         pass
 
@@ -1645,6 +1651,7 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         const c_string& name() const
         FunctionKind kind() const
         const CArity& arity() const
+        const CFunctionDoc& doc() const
         int num_kernels() const
         CResult[CDatum] Execute(const vector[CDatum]& args,
                                 const CFunctionOptions* options,
@@ -1728,6 +1735,17 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
     cdef cppclass CMinMaxOptions \
             "arrow::compute::MinMaxOptions"(CFunctionOptions):
         CMinMaxMode null_handling
+
+    enum CCountMode \
+            "arrow::compute::CountOptions::Mode":
+        CCountMode_COUNT_NON_NULL \
+            "arrow::compute::CountOptions::COUNT_NON_NULL"
+        CCountMode_COUNT_NULL \
+            "arrow::compute::CountOptions::COUNT_NULL"
+
+    cdef cppclass CCountOptions \
+            "arrow::compute::CountOptions"(CFunctionOptions):
+        CCountMode count_mode
 
     cdef cppclass CPartitionNthOptions \
             "arrow::compute::PartitionNthOptions"(CFunctionOptions):

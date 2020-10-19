@@ -25,7 +25,6 @@
 
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/kernels/common.h"
-#include "arrow/compute/kernels/scalar_string_internal.h"
 #include "arrow/util/utf8.h"
 #include "arrow/util/value_parsing.h"
 
@@ -392,8 +391,15 @@ struct MatchSubstring {
   }
 };
 
+const FunctionDoc match_substring_doc(
+    "Match strings against literal pattern",
+    ("For each string in `strings`, emit true iff it contains a given pattern.\n"
+     "Null inputs emit null.  The pattern must be given in MatchSubstringOptions."),
+    {"strings"}, "MatchSubstringOptions");
+
 void AddMatchSubstring(FunctionRegistry* registry) {
-  auto func = std::make_shared<ScalarFunction>("match_substring", Arity::Unary());
+  auto func = std::make_shared<ScalarFunction>("match_substring", Arity::Unary(),
+                                               &match_substring_doc);
   auto exec_32 = MatchSubstring<StringType>::Exec;
   auto exec_64 = MatchSubstring<LargeStringType>::Exec;
   DCHECK_OK(func->AddKernel({utf8()}, boolean(), exec_32, MatchSubstringState::Init));
@@ -846,8 +852,21 @@ Result<ValueDescr> StrptimeResolve(KernelContext* ctx, const std::vector<ValueDe
   return Status::Invalid("strptime does not provide default StrptimeOptions");
 }
 
+const FunctionDoc strptime_doc(
+    "Parse timestamps",
+    ("For each string in `strings`, parse it as a timestamp.\n"
+     "The timestamp unit and the expected string pattern must be given\n"
+     "in StrptimeOptions.  Null inputs emit null.  If a non-null string\n"
+     "fails parsing, an error is returned."),
+    {"strings"}, "StrptimeOptions");
+
+const FunctionDoc binary_length_doc(
+    "Compute string lengths",
+    ("For each string in `strings`, emit its length.  Null values emit null."),
+    {"strings"});
+
 void AddStrptime(FunctionRegistry* registry) {
-  auto func = std::make_shared<ScalarFunction>("strptime", Arity::Unary());
+  auto func = std::make_shared<ScalarFunction>("strptime", Arity::Unary(), &strptime_doc);
   DCHECK_OK(func->AddKernel({utf8()}, OutputType(StrptimeResolve),
                             StrptimeExec<StringType>, StrptimeState::Init));
   DCHECK_OK(func->AddKernel({large_utf8()}, OutputType(StrptimeResolve),
@@ -856,7 +875,8 @@ void AddStrptime(FunctionRegistry* registry) {
 }
 
 void AddBinaryLength(FunctionRegistry* registry) {
-  auto func = std::make_shared<ScalarFunction>("binary_length", Arity::Unary());
+  auto func = std::make_shared<ScalarFunction>("binary_length", Arity::Unary(),
+                                               &binary_length_doc);
   ArrayKernelExec exec_offset_32 =
       applicator::ScalarUnaryNotNull<Int32Type, StringType, BinaryLength>::Exec;
   ArrayKernelExec exec_offset_64 =
@@ -871,8 +891,9 @@ void AddBinaryLength(FunctionRegistry* registry) {
 }
 
 template <template <typename> class ExecFunctor>
-void MakeUnaryStringBatchKernel(std::string name, FunctionRegistry* registry) {
-  auto func = std::make_shared<ScalarFunction>(name, Arity::Unary());
+void MakeUnaryStringBatchKernel(std::string name, FunctionRegistry* registry,
+                                const FunctionDoc* doc) {
+  auto func = std::make_shared<ScalarFunction>(name, Arity::Unary(), doc);
   auto exec_32 = ExecFunctor<StringType>::Exec;
   auto exec_64 = ExecFunctor<LargeStringType>::Exec;
   DCHECK_OK(func->AddKernel({utf8()}, utf8(), exec_32));
@@ -883,8 +904,9 @@ void MakeUnaryStringBatchKernel(std::string name, FunctionRegistry* registry) {
 #ifdef ARROW_WITH_UTF8PROC
 
 template <template <typename> class Transformer>
-void MakeUnaryStringUTF8TransformKernel(std::string name, FunctionRegistry* registry) {
-  auto func = std::make_shared<ScalarFunction>(name, Arity::Unary());
+void MakeUnaryStringUTF8TransformKernel(std::string name, FunctionRegistry* registry,
+                                        const FunctionDoc* doc) {
+  auto func = std::make_shared<ScalarFunction>(name, Arity::Unary(), doc);
   ArrayKernelExec exec_32 = Transformer<StringType>::Exec;
   ArrayKernelExec exec_64 = Transformer<LargeStringType>::Exec;
   DCHECK_OK(func->AddKernel({utf8()}, utf8(), exec_32));
@@ -925,8 +947,9 @@ void ApplyPredicate(KernelContext* ctx, const ExecBatch& batch, StringPredicate 
 }
 
 template <typename Predicate>
-void AddUnaryStringPredicate(std::string name, FunctionRegistry* registry) {
-  auto func = std::make_shared<ScalarFunction>(name, Arity::Unary());
+void AddUnaryStringPredicate(std::string name, FunctionRegistry* registry,
+                             const FunctionDoc* doc) {
+  auto func = std::make_shared<ScalarFunction>(name, Arity::Unary(), doc);
   auto exec_32 = [](KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     ApplyPredicate<StringType>(ctx, batch, Predicate::Call, out);
   };
@@ -938,39 +961,146 @@ void AddUnaryStringPredicate(std::string name, FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
+FunctionDoc StringPredicateDoc(std::string summary, std::string description) {
+  return FunctionDoc{std::move(summary), std::move(description), {"strings"}};
+}
+
+FunctionDoc StringClassifyDoc(std::string class_summary, std::string class_desc,
+                              bool non_empty) {
+  std::string summary, description;
+  {
+    std::stringstream ss;
+    ss << "Classify strings as " << class_summary;
+    summary = ss.str();
+  }
+  {
+    std::stringstream ss;
+    if (non_empty) {
+      ss
+          << ("For each string in `strings`, emit true iff the string is non-empty\n"
+              "and consists only of ");
+    } else {
+      ss
+          << ("For each string in `strings`, emit true iff the string consists only\n"
+              "of ");
+    }
+    ss << class_desc << ".  Null strings emit null.";
+    description = ss.str();
+  }
+  return StringPredicateDoc(std::move(summary), std::move(description));
+}
+
+const auto string_is_ascii_doc = StringClassifyDoc("ASCII", "ASCII characters", false);
+
+const auto ascii_is_alnum_doc =
+    StringClassifyDoc("ASCII alphanumeric", "alphanumeric ASCII characters", true);
+const auto ascii_is_alpha_doc =
+    StringClassifyDoc("ASCII alphabetic", "alphabetic ASCII characters", true);
+const auto ascii_is_decimal_doc =
+    StringClassifyDoc("ASCII decimal", "decimal ASCII characters", true);
+const auto ascii_is_lower_doc =
+    StringClassifyDoc("ASCII lowercase", "lowercase ASCII characters", true);
+const auto ascii_is_printable_doc =
+    StringClassifyDoc("ASCII printable", "printable ASCII characters", true);
+const auto ascii_is_space_doc =
+    StringClassifyDoc("ASCII whitespace", "whitespace ASCII characters", true);
+const auto ascii_is_upper_doc =
+    StringClassifyDoc("ASCII uppercase", "uppercase ASCII characters", true);
+
+const auto ascii_is_title_doc = StringPredicateDoc(
+    "Classify strings as ASCII titlecase",
+    ("For each string in `strings`, emit true iff the string is title-cased,\n"
+     "i.e. it has at least one cased character, each uppercase character\n"
+     "follows a non-cased character, and each lowercase character follows\n"
+     "an uppercase character.\n"));
+
+const auto utf8_is_alnum_doc =
+    StringClassifyDoc("alphanumeric", "alphanumeric Unicode characters", true);
+const auto utf8_is_alpha_doc =
+    StringClassifyDoc("alphabetic", "alphabetic Unicode characters", true);
+const auto utf8_is_decimal_doc =
+    StringClassifyDoc("decimal", "decimal Unicode characters", true);
+const auto utf8_is_digit_doc = StringClassifyDoc("digits", "Unicode digits", true);
+const auto utf8_is_lower_doc =
+    StringClassifyDoc("lowercase", "lowercase Unicode characters", true);
+const auto utf8_is_numeric_doc =
+    StringClassifyDoc("numeric", "numeric Unicode characters", true);
+const auto utf8_is_printable_doc =
+    StringClassifyDoc("printable", "printable Unicode characters", true);
+const auto utf8_is_space_doc =
+    StringClassifyDoc("whitespace", "whitespace Unicode characters", true);
+const auto utf8_is_upper_doc =
+    StringClassifyDoc("uppercase", "uppercase Unicode characters", true);
+
+const auto utf8_is_title_doc = StringPredicateDoc(
+    "Classify strings as titlecase",
+    ("For each string in `strings`, emit true iff the string is title-cased,\n"
+     "i.e. it has at least one cased character, each uppercase character\n"
+     "follows a non-cased character, and each lowercase character follows\n"
+     "an uppercase character.\n"));
+
+const FunctionDoc ascii_upper_doc(
+    "Transform ASCII input to uppercase",
+    ("For each string in `strings`, return an uppercase version.\n\n"
+     "This function assumes the input is fully ASCII.  It it may contain\n"
+     "non-ASCII characters, use \"utf8_upper\" instead."),
+    {"strings"});
+
+const FunctionDoc ascii_lower_doc(
+    "Transform ASCII input to lowercase",
+    ("For each string in `strings`, return a lowercase version.\n\n"
+     "This function assumes the input is fully ASCII.  It it may contain\n"
+     "non-ASCII characters, use \"utf8_lower\" instead."),
+    {"strings"});
+
+const FunctionDoc utf8_upper_doc(
+    "Transform input to uppercase",
+    ("For each string in `strings`, return an uppercase version."), {"strings"});
+
+const FunctionDoc utf8_lower_doc(
+    "Transform input to lowercase",
+    ("For each string in `strings`, return a lowercase version."), {"strings"});
+
 }  // namespace
 
 void RegisterScalarStringAscii(FunctionRegistry* registry) {
-  MakeUnaryStringBatchKernel<AsciiUpper>("ascii_upper", registry);
-  MakeUnaryStringBatchKernel<AsciiLower>("ascii_lower", registry);
+  MakeUnaryStringBatchKernel<AsciiUpper>("ascii_upper", registry, &ascii_upper_doc);
+  MakeUnaryStringBatchKernel<AsciiLower>("ascii_lower", registry, &ascii_lower_doc);
 
-  AddUnaryStringPredicate<IsAscii>("string_is_ascii", registry);
+  AddUnaryStringPredicate<IsAscii>("string_is_ascii", registry, &string_is_ascii_doc);
 
-  AddUnaryStringPredicate<IsAlphaNumericAscii>("ascii_is_alnum", registry);
-  AddUnaryStringPredicate<IsAlphaAscii>("ascii_is_alpha", registry);
-  AddUnaryStringPredicate<IsDecimalAscii>("ascii_is_decimal", registry);
+  AddUnaryStringPredicate<IsAlphaNumericAscii>("ascii_is_alnum", registry,
+                                               &ascii_is_alnum_doc);
+  AddUnaryStringPredicate<IsAlphaAscii>("ascii_is_alpha", registry, &ascii_is_alpha_doc);
+  AddUnaryStringPredicate<IsDecimalAscii>("ascii_is_decimal", registry,
+                                          &ascii_is_decimal_doc);
   // no is_digit for ascii, since it is the same as is_decimal
-  AddUnaryStringPredicate<IsLowerAscii>("ascii_is_lower", registry);
+  AddUnaryStringPredicate<IsLowerAscii>("ascii_is_lower", registry, &ascii_is_lower_doc);
   // no is_numeric for ascii, since it is the same as is_decimal
-  AddUnaryStringPredicate<IsPrintableAscii>("ascii_is_printable", registry);
-  AddUnaryStringPredicate<IsSpaceAscii>("ascii_is_space", registry);
-  AddUnaryStringPredicate<IsTitleAscii>("ascii_is_title", registry);
-  AddUnaryStringPredicate<IsUpperAscii>("ascii_is_upper", registry);
+  AddUnaryStringPredicate<IsPrintableAscii>("ascii_is_printable", registry,
+                                            &ascii_is_printable_doc);
+  AddUnaryStringPredicate<IsSpaceAscii>("ascii_is_space", registry, &ascii_is_space_doc);
+  AddUnaryStringPredicate<IsTitleAscii>("ascii_is_title", registry, &ascii_is_title_doc);
+  AddUnaryStringPredicate<IsUpperAscii>("ascii_is_upper", registry, &ascii_is_upper_doc);
 
 #ifdef ARROW_WITH_UTF8PROC
-  MakeUnaryStringUTF8TransformKernel<UTF8Upper>("utf8_upper", registry);
-  MakeUnaryStringUTF8TransformKernel<UTF8Lower>("utf8_lower", registry);
+  MakeUnaryStringUTF8TransformKernel<UTF8Upper>("utf8_upper", registry, &utf8_upper_doc);
+  MakeUnaryStringUTF8TransformKernel<UTF8Lower>("utf8_lower", registry, &utf8_lower_doc);
 
-  AddUnaryStringPredicate<IsAlphaNumericUnicode>("utf8_is_alnum", registry);
-  AddUnaryStringPredicate<IsAlphaUnicode>("utf8_is_alpha", registry);
-  AddUnaryStringPredicate<IsDecimalUnicode>("utf8_is_decimal", registry);
-  AddUnaryStringPredicate<IsDigitUnicode>("utf8_is_digit", registry);
-  AddUnaryStringPredicate<IsLowerUnicode>("utf8_is_lower", registry);
-  AddUnaryStringPredicate<IsNumericUnicode>("utf8_is_numeric", registry);
-  AddUnaryStringPredicate<IsPrintableUnicode>("utf8_is_printable", registry);
-  AddUnaryStringPredicate<IsSpaceUnicode>("utf8_is_space", registry);
-  AddUnaryStringPredicate<IsTitleUnicode>("utf8_is_title", registry);
-  AddUnaryStringPredicate<IsUpperUnicode>("utf8_is_upper", registry);
+  AddUnaryStringPredicate<IsAlphaNumericUnicode>("utf8_is_alnum", registry,
+                                                 &utf8_is_alnum_doc);
+  AddUnaryStringPredicate<IsAlphaUnicode>("utf8_is_alpha", registry, &utf8_is_alpha_doc);
+  AddUnaryStringPredicate<IsDecimalUnicode>("utf8_is_decimal", registry,
+                                            &utf8_is_decimal_doc);
+  AddUnaryStringPredicate<IsDigitUnicode>("utf8_is_digit", registry, &utf8_is_digit_doc);
+  AddUnaryStringPredicate<IsLowerUnicode>("utf8_is_lower", registry, &utf8_is_lower_doc);
+  AddUnaryStringPredicate<IsNumericUnicode>("utf8_is_numeric", registry,
+                                            &utf8_is_numeric_doc);
+  AddUnaryStringPredicate<IsPrintableUnicode>("utf8_is_printable", registry,
+                                              &utf8_is_printable_doc);
+  AddUnaryStringPredicate<IsSpaceUnicode>("utf8_is_space", registry, &utf8_is_space_doc);
+  AddUnaryStringPredicate<IsTitleUnicode>("utf8_is_title", registry, &utf8_is_title_doc);
+  AddUnaryStringPredicate<IsUpperUnicode>("utf8_is_upper", registry, &utf8_is_upper_doc);
 #endif
 
   AddBinaryLength(registry);

@@ -71,7 +71,7 @@ they return ``null``.
    not_equal
 
 Logical Functions
------------
+-----------------
 
 These functions normally emit a null when one of the inputs is null. However, Kleene
 logic variants are provided (suffixed ``_kleene``). See User Guide for details.
