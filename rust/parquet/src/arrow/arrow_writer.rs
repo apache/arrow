@@ -1255,4 +1255,31 @@ mod tests {
 
         roundtrip("test_arrow_writer_dictionary.parquet", expected_batch);
     }
+
+    #[test]
+    fn arrow_writer_string_dictionary_unsigned_index() {
+        // define schema
+        let schema = Arc::new(Schema::new(vec![Field::new_dict(
+            "dictionary",
+            DataType::Dictionary(Box::new(DataType::UInt8), Box::new(DataType::Utf8)),
+            true,
+            42,
+            true,
+        )]));
+
+        // create some data
+        let d: UInt8DictionaryArray = [Some("alpha"), None, Some("beta"), Some("alpha")]
+            .iter()
+            .copied()
+            .collect();
+
+        // build a record batch
+        let expected_batch =
+            RecordBatch::try_new(schema.clone(), vec![Arc::new(d)]).unwrap();
+
+        roundtrip(
+            "test_arrow_writer_string_dictionary_unsigned_index.parquet",
+            expected_batch,
+        );
+    }
 }
