@@ -1552,54 +1552,36 @@ impl<'a> ArrayReaderBuilder {
         page_iterator: Box<dyn PageIterator>,
         column_desc: ColumnDescPtr,
     ) -> Result<Box<dyn ArrayReader>> {
-        match key_type {
-            ArrowType::Int8 => {
-                let converter = DictionaryConverter::new(DictionaryArrayConverter {});
+        macro_rules! convert_string_dictionary {
+            ($(($kt: pat, $at: ident),)*) => (
+                match key_type {
+                    $($kt => {
+                        let converter = DictionaryConverter::new(DictionaryArrayConverter {});
 
-                Ok(Box::new(ComplexObjectArrayReader::<
-                    ByteArrayType,
-                    DictionaryConverter<ArrowInt8Type>,
-                >::new(
-                    page_iterator, column_desc, converter
-                )?))
-            }
-            ArrowType::Int16 => {
-                let converter = DictionaryConverter::new(DictionaryArrayConverter {});
+                        Ok(Box::new(ComplexObjectArrayReader::<
+                            ByteArrayType,
+                            DictionaryConverter<$at>,
+                        >::new(
+                            page_iterator, column_desc, converter
+                        )?))
 
-                Ok(Box::new(ComplexObjectArrayReader::<
-                    ByteArrayType,
-                    DictionaryConverter<ArrowInt16Type>,
-                >::new(
-                    page_iterator, column_desc, converter
-                )?))
-            }
-            ArrowType::Int32 => {
-                let converter = DictionaryConverter::new(DictionaryArrayConverter {});
-
-                Ok(Box::new(ComplexObjectArrayReader::<
-                    ByteArrayType,
-                    DictionaryConverter<ArrowInt32Type>,
-                >::new(
-                    page_iterator, column_desc, converter
-                )?))
-            }
-            ArrowType::Int64 => {
-                let converter = DictionaryConverter::new(DictionaryArrayConverter {});
-
-                Ok(Box::new(ComplexObjectArrayReader::<
-                    ByteArrayType,
-                    DictionaryConverter<ArrowInt64Type>,
-                >::new(
-                    page_iterator, column_desc, converter
-                )?))
-            }
-            ref other => {
-                return Err(general_err!(
-                    "Invalid/Unsupported index type for dictionary: {:?}",
-                    other
-                ))
-            }
+                    })*
+                    ref other => {
+                        return Err(general_err!(
+                            "Invalid/Unsupported index type for dictionary: {:?}",
+                            other
+                        ))
+                    }
+                }
+            );
         }
+
+        convert_string_dictionary!(
+            (ArrowType::Int8, ArrowInt8Type),
+            (ArrowType::Int16, ArrowInt16Type),
+            (ArrowType::Int32, ArrowInt32Type),
+            (ArrowType::Int64, ArrowInt64Type),
+        )
     }
 
     /// Constructs struct array reader without considering repetition.
