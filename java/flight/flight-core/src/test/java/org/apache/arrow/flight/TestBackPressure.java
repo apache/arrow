@@ -17,7 +17,10 @@
 
 package org.apache.arrow.flight;
 
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Function;
 
 import org.apache.arrow.flight.perf.PerformanceTestServer;
 import org.apache.arrow.flight.perf.TestPerf;
@@ -43,10 +46,47 @@ public class TestBackPressure {
   @Ignore
   @Test
   public void ensureIndependentSteams() throws Exception {
+    ensureIndependentSteams((b) -> (location -> new PerformanceTestServer(b, location)));
+  }
+
+  /**
+   * Make sure that failing to consume one stream doesn't block other streams.
+   */
+  @Ignore
+  @Test
+  public void ensureIndependentSteamsWithCallbacks() throws Exception {
+    ensureIndependentSteams((b) -> (location -> new PerformanceTestServer(b, location,
+        new BackpressureStrategy.CallbackBackpressureStrategy(), true)));
+  }
+
+  /**
+   * Test to make sure stream doesn't go faster than the consumer is consuming.
+   */
+  @Ignore
+  @Test
+  public void ensureWaitUntilProceed() throws Exception {
+    ensureWaitUntilProceed(new PollingBackpressureStrategy(), false);
+  }
+
+  /**
+   * Test to make sure stream doesn't go faster than the consumer is consuming using a callback-based
+   * backpressure strategy.
+   */
+  @Ignore
+  @Test
+  public void ensureWaitUntilProceedWithCallbacks() throws Exception {
+    ensureWaitUntilProceed(new RecordingCallbackBackpressureStrategy(), true);
+  }
+
+  /**
+   * Make sure that failing to consume one stream doesn't block other streams.
+   */
+  private static void ensureIndependentSteams(Function<BufferAllocator, Function<Location, PerformanceTestServer>>
+                                                  serverConstructor) throws Exception {
     try (
         final BufferAllocator a = new RootAllocator(Long.MAX_VALUE);
         final PerformanceTestServer server = FlightTestUtil.getStartedServer(
-            (location) -> (new PerformanceTestServer(a, location)));
+            (location) -> (serverConstructor.apply(a).apply(location)));
         final FlightClient client = FlightClient.builder(a, server.getLocation()).build()
     ) {
       try (FlightStream fs1 = client.getStream(client.getInfo(
@@ -73,45 +113,46 @@ public class TestBackPressure {
   /**
    * Make sure that a stream doesn't go faster than the consumer is consuming.
    */
-  @Ignore
-  @Test
-  public void ensureWaitUntilProceed() throws Exception {
+  private static void ensureWaitUntilProceed(SleepTimeRecordingBackpressureStrategy bpStrategy, boolean isNonBlocking)
+      throws Exception {
     // request some values.
     final long wait = 3000;
     final long epsilon = 1000;
 
-    AtomicLong sleepTime = new AtomicLong(0);
     try (BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE)) {
 
       final FlightProducer producer = new NoOpFlightProducer() {
 
         @Override
-        public void getStream(CallContext context, Ticket ticket,
-            ServerStreamListener listener) {
-          int batches = 0;
-          final Schema pojoSchema = new Schema(ImmutableList.of(Field.nullable("a", MinorType.BIGINT.getType())));
-          try (VectorSchemaRoot root = VectorSchemaRoot.create(pojoSchema, allocator)) {
-            listener.start(root);
-            while (true) {
-              while (!listener.isReady()) {
-                try {
-                  Thread.sleep(1);
-                  sleepTime.addAndGet(1L);
-                } catch (InterruptedException ignore) {
+        public void getStream(CallContext context, Ticket ticket, ServerStreamListener listener) {
+          bpStrategy.register(listener);
+          final Runnable loadData = () -> {
+            int batches = 0;
+            final Schema pojoSchema = new Schema(ImmutableList.of(Field.nullable("a", MinorType.BIGINT.getType())));
+            try (VectorSchemaRoot root = VectorSchemaRoot.create(pojoSchema, allocator)) {
+              listener.start(root);
+              while (true) {
+                bpStrategy.waitForListener(0);
+                if (batches > 100) {
+                  root.clear();
+                  listener.completed();
+                  return;
                 }
-              }
 
-              if (batches > 100) {
-                root.clear();
-                listener.completed();
-                return;
+                root.allocateNew();
+                root.setRowCount(4095);
+                listener.putNext();
+                batches++;
               }
-
-              root.allocateNew();
-              root.setRowCount(4095);
-              listener.putNext();
-              batches++;
             }
+          };
+
+          if (!isNonBlocking) {
+            loadData.run();
+          } else {
+            final ExecutorService service = Executors.newSingleThreadExecutor();
+            service.submit(loadData);
+            service.shutdown();
           }
         }
       };
@@ -137,8 +178,8 @@ public class TestBackPressure {
         }
         long expected = wait - epsilon;
         Assert.assertTrue(
-            String.format("Expected a sleep of at least %dms but only slept for %d", expected, sleepTime.get()),
-            sleepTime.get() > expected);
+            String.format("Expected a sleep of at least %dms but only slept for %d", expected,
+                bpStrategy.getSleepTime()), bpStrategy.getSleepTime() > expected);
 
       }
     }
@@ -156,6 +197,66 @@ public class TestBackPressure {
     while (batches > 0 && stream.next()) {
       root.clear();
       batches--;
+    }
+  }
+
+  private interface SleepTimeRecordingBackpressureStrategy extends BackpressureStrategy {
+    /**
+     * Returns the total time spent waiting on the listener to be ready.
+     * @return the total time spent waiting on the listener to be ready.
+     */
+    long getSleepTime();
+  }
+
+  /**
+   * Implementation of a backpressure strategy that polls on isReady and records amount of time spent in Thread.sleep().
+   */
+  private static class PollingBackpressureStrategy implements SleepTimeRecordingBackpressureStrategy {
+    private final AtomicLong sleepTime = new AtomicLong(0);
+    private FlightProducer.ServerStreamListener listener;
+
+    @Override
+    public long getSleepTime() {
+      return sleepTime.get();
+    }
+
+    @Override
+    public void register(FlightProducer.ServerStreamListener listener) {
+      this.listener = listener;
+    }
+
+    @Override
+    public WaitResult waitForListener(long timeout) {
+      while (!listener.isReady()) {
+        try {
+          Thread.sleep(1);
+          sleepTime.addAndGet(1L);
+        } catch (InterruptedException ignore) {
+        }
+      }
+      return WaitResult.READY;
+    }
+  }
+
+  /**
+   * Implementation of a backpressure strategy that uses callbacks to detect changes in client readiness state
+   * and records spent time waiting.
+   */
+  private static class RecordingCallbackBackpressureStrategy extends BackpressureStrategy.CallbackBackpressureStrategy
+      implements SleepTimeRecordingBackpressureStrategy {
+    private final AtomicLong sleepTime = new AtomicLong(0);
+
+    @Override
+    public long getSleepTime() {
+      return sleepTime.get();
+    }
+
+    @Override
+    public WaitResult waitForListener(long timeout) {
+      final long startTime = System.currentTimeMillis();
+      final WaitResult result = super.waitForListener(timeout);
+      sleepTime.addAndGet(System.currentTimeMillis() - startTime);
+      return result;
     }
   }
 }

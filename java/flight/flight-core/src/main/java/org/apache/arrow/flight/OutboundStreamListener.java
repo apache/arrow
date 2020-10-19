@@ -37,6 +37,19 @@ public interface OutboundStreamListener {
   boolean isReady();
 
   /**
+   * Set a callback for when the listener is ready for new calls to putNext(), i.e. {@link #isReady()}
+   * has become true.
+   *
+   * <p>Note that this callback may only be called some time after {@link #isReady()} becomes true, and may never
+   * be called if all executor threads on the server are busy, or the RPC method body is implemented in a blocking
+   * fashion. Note that isReady() must still be checked after the callback is run as it may have been run
+   * spuriously.
+   */
+  default void setOnReadyHandler(Runnable handler) {
+    throw new UnsupportedOperationException("Not yet implemented.");
+  }
+
+  /**
    * Start sending data, using the schema of the given {@link VectorSchemaRoot}.
    *
    * <p>This method must be called before all others, except {@link #putMetadata(ArrowBuf)}.

@@ -49,6 +49,11 @@ abstract class OutboundStreamListenerImpl implements OutboundStreamListener {
   }
 
   @Override
+  public void setOnReadyHandler(Runnable handler) {
+    responseObserver.setOnReadyHandler(handler);
+  }
+
+  @Override
   public void start(VectorSchemaRoot root, DictionaryProvider dictionaries, IpcOption option) {
     this.option = option;
     try {
