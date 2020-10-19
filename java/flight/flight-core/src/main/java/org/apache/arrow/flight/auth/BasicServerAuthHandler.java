@@ -91,7 +91,7 @@ public class BasicServerAuthHandler implements ServerAuthHandler {
   }
 
   /**
-   * Interface that this handler delegates to forS determining if credentials are valid.
+   * Interface that this handler delegates to for determining if credentials are valid.
    */
   public interface BasicAuthValidator {
 
