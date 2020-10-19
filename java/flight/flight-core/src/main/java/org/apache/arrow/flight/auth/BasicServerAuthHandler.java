@@ -45,7 +45,7 @@ public class BasicServerAuthHandler implements ServerAuthHandler {
   public AuthResult authenticate(CallHeaders headers) {
     final String authEncoded = AuthUtilities.getValueFromAuthHeader(headers, AuthConstants.BASIC_PREFIX);
     if (authEncoded == null) {
-      throw new FlightRuntimeException(CallStatus.UNAUTHENTICATED);
+      throw CallStatus.UNAUTHENTICATED.toRuntimeException();
     }
 
     try {
@@ -53,7 +53,7 @@ public class BasicServerAuthHandler implements ServerAuthHandler {
       final String authDecoded = new String(Base64.getDecoder().decode(authEncoded), StandardCharsets.UTF_8);
       final int colonPos = authDecoded.indexOf(':');
       if (colonPos == -1) {
-        throw new FlightRuntimeException(CallStatus.UNAUTHORIZED);
+        throw CallStatus.UNAUTHORIZED.toRuntimeException();
       }
 
       final String user = authDecoded.substring(0, colonPos);
@@ -72,11 +72,11 @@ public class BasicServerAuthHandler implements ServerAuthHandler {
       };
 
     } catch (UnsupportedEncodingException ex) {
-      throw new FlightRuntimeException(CallStatus.INTERNAL.withCause(ex));
+      throw CallStatus.INTERNAL.withCause(ex).toRuntimeException();
     } catch (FlightRuntimeException ex) {
       throw ex;
     } catch (Exception ex) {
-      throw new FlightRuntimeException(CallStatus.UNAUTHORIZED.withCause(ex));
+      throw CallStatus.UNAUTHORIZED.withCause(ex).toRuntimeException();
     }
   }
 
