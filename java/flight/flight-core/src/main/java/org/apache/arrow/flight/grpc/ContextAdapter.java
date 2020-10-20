@@ -21,7 +21,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.arrow.flight.RequestContext;
-import org.apache.arrow.flight.auth.AuthConstants;
+import org.apache.arrow.flight.auth2.AuthConstants;
 
 import io.grpc.Context;
 

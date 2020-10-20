@@ -34,9 +34,11 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
-import org.apache.arrow.flight.auth.AuthConstants;
 import org.apache.arrow.flight.auth.ServerAuthHandler;
-import org.apache.arrow.flight.auth.ServerAuthMiddleware;
+import org.apache.arrow.flight.auth.ServerAuthInterceptor;
+import org.apache.arrow.flight.auth2.AuthConstants;
+import org.apache.arrow.flight.auth2.CallHeaderAuthenticator;
+import org.apache.arrow.flight.auth2.ServerCallHeaderAuthMiddleware;
 import org.apache.arrow.flight.grpc.ServerInterceptorAdapter;
 import org.apache.arrow.flight.grpc.ServerInterceptorAdapter.KeyFactory;
 import org.apache.arrow.memory.BufferAllocator;
@@ -46,6 +48,7 @@ import org.apache.arrow.util.VisibleForTesting;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 import io.grpc.Server;
+import io.grpc.ServerInterceptors;
 import io.grpc.netty.NettyServerBuilder;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.ServerChannel;
@@ -164,6 +167,7 @@ public class FlightServer implements AutoCloseable {
     private FlightProducer producer;
     private final Map<String, Object> builderOptions;
     private ServerAuthHandler authHandler = ServerAuthHandler.NO_OP;
+    private CallHeaderAuthenticator headerAuthenticator = CallHeaderAuthenticator.NO_OP;
     private ExecutorService executor = null;
     private int maxInboundMessageSize = MAX_GRPC_MESSAGE_SIZE;
     private InputStream certChain;
@@ -188,9 +192,9 @@ public class FlightServer implements AutoCloseable {
     /** Create the server for this builder. */
     public FlightServer build() {
       // Add the auth middleware if applicable.
-      if (authHandler != ServerAuthHandler.NO_OP) {
+      if (headerAuthenticator != CallHeaderAuthenticator.NO_OP) {
         this.middleware(FlightServerMiddleware.Key.of(AuthConstants.AUTHORIZATION_HEADER),
-            new ServerAuthMiddleware.Factory(authHandler));
+            new ServerCallHeaderAuthMiddleware.Factory(headerAuthenticator));
       }
       final NettyServerBuilder builder;
       switch (location.getUri().getScheme()) {
@@ -255,11 +259,14 @@ public class FlightServer implements AutoCloseable {
             new ThreadFactoryBuilder().setNameFormat("flight-server-default-executor-%d").build());
         grpcExecutor = exec;
       }
-      final FlightBindingService flightService = new FlightBindingService(allocator, producer, exec);
+      final FlightBindingService flightService = new FlightBindingService(allocator, producer, authHandler, exec);
       builder
           .executor(exec)
           .maxInboundMessageSize(maxInboundMessageSize)
-          .addService(flightService);
+          .addService(
+              ServerInterceptors.intercept(
+                  flightService,
+                  new ServerAuthInterceptor(authHandler)));
 
       // Allow hooking into the gRPC builder. This is not guaranteed to be available on all Arrow versions or
       // Flight implementations.
@@ -333,6 +340,14 @@ public class FlightServer implements AutoCloseable {
      */
     public Builder authHandler(ServerAuthHandler authHandler) {
       this.authHandler = authHandler;
+      return this;
+    }
+
+    /**
+     * Set the header-based authentication mechanism.
+     */
+    public Builder headerAuthenticator(CallHeaderAuthenticator headerAuthenticator) {
+      this.headerAuthenticator = headerAuthenticator;
       return this;
     }
 

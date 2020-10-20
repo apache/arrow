@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.flight.auth;
+package org.apache.arrow.flight.auth2;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;

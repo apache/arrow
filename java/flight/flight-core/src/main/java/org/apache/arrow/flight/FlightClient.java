@@ -30,10 +30,10 @@ import java.util.function.BooleanSupplier;
 import javax.net.ssl.SSLException;
 
 import org.apache.arrow.flight.FlightProducer.StreamListener;
-import org.apache.arrow.flight.auth.BasicAuthCredentialWriter;
-import org.apache.arrow.flight.auth.BearerCredentialWriter;
-import org.apache.arrow.flight.auth.ClientBearerTokenMiddleware;
-import org.apache.arrow.flight.auth.ClientHandshakeWrapper;
+import org.apache.arrow.flight.auth2.BasicAuthCredentialWriter;
+import org.apache.arrow.flight.auth2.BearerCredentialWriter;
+import org.apache.arrow.flight.auth2.ClientBearerTokenMiddleware;
+import org.apache.arrow.flight.auth2.ClientHandshakeWrapper;
 import org.apache.arrow.flight.grpc.ClientInterceptorAdapter;
 import org.apache.arrow.flight.grpc.CredentialCallOption;
 import org.apache.arrow.flight.grpc.StatusUtils;

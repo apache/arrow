@@ -29,6 +29,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
 import org.apache.arrow.flight.TestBasicOperation.Producer;
+import org.apache.arrow.flight.auth.ServerAuthHandler;
 import org.apache.arrow.flight.impl.FlightServiceGrpc;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -144,7 +145,7 @@ public class TestServerOptions {
     final ExecutorService executorService = Executors.newSingleThreadExecutor();
     try (final BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE)) {
       final FlightBindingService service = new FlightBindingService(allocator, new NoOpFlightProducer(),
-          executorService);
+          ServerAuthHandler.NO_OP, executorService);
       final ServerServiceDefinition definition = service.bindService();
       assertEquals(FlightServiceGrpc.getServiceDescriptor().getSchemaDescriptor(),
           definition.getServiceDescriptor().getSchemaDescriptor());

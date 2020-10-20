@@ -29,7 +29,7 @@ import org.apache.arrow.flight.FlightServer;
 import org.apache.arrow.flight.Location;
 import org.apache.arrow.flight.NoOpFlightProducer;
 import org.apache.arrow.flight.Result;
-import org.apache.arrow.flight.auth.BasicServerAuthHandler;
+import org.apache.arrow.flight.auth2.BasicCallHeaderAuthenticator;
 import org.apache.arrow.flight.grpc.CredentialCallOption;
 import org.apache.arrow.memory.BufferAllocator;
 
@@ -56,7 +56,7 @@ final class AuthBasicProtoScenario implements Scenario {
 
   @Override
   public void buildServer(FlightServer.Builder builder) {
-    builder.authHandler(new BasicServerAuthHandler(new BasicServerAuthHandler.BasicAuthValidator() {
+    builder.headerAuthenticator(new BasicCallHeaderAuthenticator(new BasicCallHeaderAuthenticator.BasicAuthValidator() {
       @Override
       public Optional<String> validateCredentials(String username, String password) throws Exception {
         if (Strings.isNullOrEmpty(username)) {
