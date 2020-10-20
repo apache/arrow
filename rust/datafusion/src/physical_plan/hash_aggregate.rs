@@ -390,11 +390,10 @@ impl Stream for GroupedHashAggregateStream {
             },
         );
 
-        let future = future.map(|accumulators| match accumulators {
-            Ok(accumulators) => {
+        let future = future.map(|maybe_accumulators| {
+            maybe_accumulators.map(|accumulators| {
                 create_batch_from_map(&mode, &accumulators, group_expr.len(), &schema)
-            }
-            Err(e) => Err(e),
+            })?
         });
 
         // send the stream to the heap, so that it outlives this function.
@@ -578,16 +577,13 @@ impl Stream for HashAggregateStream {
             // pick the accumulators (disregard the expressions)
             .map(|e| e.map(|e| e.0));
 
-        let future = future.map(|b| {
-            match b {
-                Err(e) => return Err(e),
-                Ok(acc) => {
-                    // 2 convert values to a record batch
-                    finalize_aggregation(&acc, &mode)
-                        .map_err(ExecutionError::into_arrow_external_error)
-                        .and_then(|columns| RecordBatch::try_new(schema.clone(), columns))
-                }
-            }
+        let future = future.map(|maybe_accumulators| {
+            maybe_accumulators.map(|accumulators| {
+                // 2. convert values to a record batch
+                finalize_aggregation(&accumulators, &mode)
+                    .map_err(ExecutionError::into_arrow_external_error)
+                    .and_then(|columns| RecordBatch::try_new(schema.clone(), columns))
+            })?
         });
 
         Box::pin(future.into_stream()).poll_next_unpin(cx)
