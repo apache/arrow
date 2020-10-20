@@ -27,3 +27,7 @@
 #include "arrow/dataset/file_ipc.h"
 #include "arrow/dataset/file_parquet.h"
 #include "arrow/dataset/scanner.h"
+
+#ifdef ARROW_RADOS
+#include "arrow/dataset/file_rados_parquet.h"
+#endif

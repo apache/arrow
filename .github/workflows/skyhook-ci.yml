@@ -1,0 +1,74 @@
+name: SkyhookDM-Arrow CI/CD
+
+# we need to build two type of images:
+# 1) for every release, uccross/skyhookdm-arrow:v0.1.0
+# 2) for every new commit pushed to `rados-dataset-dev`.
+on:
+  # trigger development build
+  # on pushes to only files related to rados format api.
+  push:
+    branches: [ rados-dataset-dev ]
+    paths:
+    - 'cpp/src/arrow/dataset/file_rados_parquet.cc'
+    - 'cpp/src/arrow/dataset/file_rados_parquet.h'
+    - 'cpp/src/arrow/dataset/rados_utils.cc'
+    - 'cpp/src/arrow/dataset/rados_utils.h'
+    - 'cpp/src/arrow/dataset/rados.cc'
+    - 'cpp/src/arrow/dataset/rados.h'
+    - 'cpp/src/arrow/adapters/arrow-rados-cls/cls_arrow.cc'
+    - 'cpp/src/arrow/adapters/arrow-rados-cls/cls_arrow_test.cc'
+    - '.github/workflows/skyhook-ci.yml'
+
+  # trigger on PRs, only when this file is touched.
+  pull_request:
+    paths:
+    - '.github/workflows/skyhook-ci.yml'
+
+  # trigger when a release is published
+  release:
+    types: [published]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env: 
+      DOCKER_ORG: uccross
+    steps:
+    - name: clone the repository
+      run: |
+        git clone \
+          --depth=1 \
+          https://github.com/uccross/skyhookdm-arrow-docker \
+          image/
+
+    - name: build skyhook image
+      env:
+        CEPH_VERSION: v15.2.4
+      run: |
+        docker build \
+          -t $DOCKER_ORG/skyhookdm-arrow:latest \
+          --build-arg CEPH_VERSION=$CEPH_VERSION \
+          --file image/docker/Dockerfile \
+          image/
+    
+    - name: login to dockerhub
+      if: ${{ github.event_name == 'push' || github.event_name == 'release' }}
+      env:
+        DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+        DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+      run: |
+        docker login -u "$DOCKER_USERNAME" \
+                     --password "$DOCKER_PASSWORD"
+
+    - name: push development image
+      if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/rados-dataset-dev' }}
+      run: |
+        docker tag $DOCKER_ORG/skyhookdm-arrow:latest $DOCKER_ORG/skyhookdm-arrow:dev-$GITHUB_SHA
+        docker push $DOCKER_ORG/skyhookdm-arrow:dev-$GITHUB_SHA
+    
+    - name: push production image
+      if: ${{ github.event_name == 'release' && startsWith(github.ref, 'refs/tags/v') }}
+      run: |
+        RELEASE_TAG=`echo $GITHUB_REF | cut -d'/' -f 3`
+        docker tag $DOCKER_ORG/skyhookdm-arrow:latest $DOCKER_ORG/skyhookdm-arrow:$RELEASE_TAG
+        docker push $DOCKER_ORG/skyhookdm-arrow:$RELEASE_TAG

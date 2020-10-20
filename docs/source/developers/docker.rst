@@ -209,6 +209,7 @@ responsible for. Like:
 - ``integration_dask.sh``: execute the dask integration tests.
 - ``integration_pandas.sh``: execute the pandas integration tests.
 - ``install_minio.sh``: install minio server for multiple platforms.
+- ``install_ceph.sh``: install ceph (currently only for ubuntu).
 - ``install_conda.sh``: install miniconda for multiple platforms.
 
 The parametrization (like the C++ CMake options) is achieved via environment
