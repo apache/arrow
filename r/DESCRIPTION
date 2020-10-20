@@ -21,7 +21,7 @@ BugReports: https://issues.apache.org/jira/projects/ARROW/issues
 Encoding: UTF-8
 Language: en-US
 LazyData: true
-SystemRequirements: C++11
+SystemRequirements: C++11; for AWS S3 support on Linux, libcurl and openssl (optional)
 Biarch: true
 Imports:
     assertthat,

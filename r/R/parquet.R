@@ -93,6 +93,12 @@ read_parquet <- function(file,
 #' @param allow_truncated_timestamps Allow loss of data when coercing timestamps to a
 #'    particular resolution. E.g. if microsecond or nanosecond data is lost when coercing
 #'    to "ms", do not raise an exception
+#' @param properties A `ParquetWriterProperties` object, used instead of the options
+#'    enumerated in this function's signature. Providing `properties` as an argument
+#'    is deprecated; if you need to assemble `ParquetWriterProperties` outside
+#'    of `write_parquet()`, use `ParquetFileWriter` instead.
+#' @param arrow_properties A `ParquetArrowWriterProperties` object. Like
+#'    `properties`, this argument is deprecated.
 #'
 #' @details The parameters `compression`, `compression_level`, `use_dictionary` and
 #'   `write_statistics` support various patterns:
@@ -140,7 +146,9 @@ write_parquet <- function(x,
                           # arrow writer properties
                           use_deprecated_int96_timestamps = FALSE,
                           coerce_timestamps = NULL,
-                          allow_truncated_timestamps = FALSE) {
+                          allow_truncated_timestamps = FALSE,
+                          properties = NULL,
+                          arrow_properties = NULL) {
   x_out <- x
   if (is.data.frame(x)) {
     x <- Table$create(x)
@@ -151,10 +159,18 @@ write_parquet <- function(x,
     on.exit(sink$close())
   }
 
+  # Deprecation warnings
+  if (!is.null(properties)) {
+    warning("Providing 'properties' is deprecated. If you need to assemble properties outside this function, use ParquetFileWriter instead.")
+  }
+  if (!is.null(arrow_properties)) {
+    warning("Providing 'arrow_properties' is deprecated. If you need to assemble arrow_properties outside this function, use ParquetFileWriter instead.")
+  }
+
   writer <- ParquetFileWriter$create(
     x$schema,
     sink,
-    properties = ParquetWriterProperties$create(
+    properties = properties %||% ParquetWriterProperties$create(
       x,
       version = version,
       compression = compression,
@@ -163,7 +179,7 @@ write_parquet <- function(x,
       write_statistics = write_statistics,
       data_page_size = data_page_size
     ),
-    arrow_properties = ParquetArrowWriterProperties$create(
+    arrow_properties = arrow_properties %||% ParquetArrowWriterProperties$create(
       use_deprecated_int96_timestamps = use_deprecated_int96_timestamps,
       coerce_timestamps = coerce_timestamps,
       allow_truncated_timestamps = allow_truncated_timestamps

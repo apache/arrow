@@ -55,6 +55,12 @@ download_binary <- function(os = identify_os()) {
     binary_url <- paste0(arrow_repo, "bin/", os, "/arrow-", VERSION, ".zip")
     if (try_download(binary_url, libfile)) {
       cat(sprintf("*** Successfully retrieved C++ binaries for %s\n", os))
+      if (!identical(os, "centos-7")) {
+        # centos-7 uses gcc 4.8 so the binary doesn't have ARROW_S3=ON but the others do
+        # TODO: actually check for system requirements?
+        cat("**** Binary package requires libcurl and openssl\n")
+        cat("**** If installation fails, retry after installing those system requirements\n")
+      }
     } else {
       cat(sprintf("*** No C++ binaries found for %s\n", os))
       libfile <- NULL

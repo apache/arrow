@@ -62,6 +62,7 @@ to send and receive data. See `vignette("flight", package = "arrow")` for an ove
 * File writers now respect the system umask setting
 * `ParquetFileReader` has additional methods for accessing individual columns or row groups from the file
 * Various segfaults fixed: invalid input in `ParquetFileWriter`; invalid `ArrowObject` pointer from a saved R object; converting deeply nested structs from Arrow to R
+* The `properties` and `arrow_properties` arguments to `write_parquet()` are deprecated
 
 # arrow 1.0.1
 
