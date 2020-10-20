@@ -724,6 +724,10 @@ if(ARROW_ORC)
   add_subdirectory(adapters/orc)
 endif()
 
+if(ARROW_CLS)
+  add_subdirectory(adapters/arrow-rados-cls)
+endif()
+
 if(ARROW_PYTHON)
   add_subdirectory(python)
 endif()

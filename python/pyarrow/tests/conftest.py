@@ -69,6 +69,7 @@ groups = [
     'slow',
     'requires_testing_data',
     'zstd',
+    'rados'
 ]
 
 defaults = {
@@ -94,6 +95,7 @@ defaults = {
     'tensorflow': False,
     'flight': False,
     'slow': False,
+    'rados': False,
     'requires_testing_data': True,
     'zstd': Codec.is_available('zstd'),
 }
@@ -167,6 +169,13 @@ except ImportError:
 try:
     from pyarrow.fs import HadoopFileSystem  # noqa
     defaults['hdfs'] = True
+except ImportError:
+    pass
+
+try:
+    import pyarrow.rados  # noqa
+    if defaults['dataset']:
+        defaults['rados'] = True
 except ImportError:
     pass
 

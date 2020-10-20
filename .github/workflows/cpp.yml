@@ -60,11 +60,21 @@ jobs:
         image:
           - conda-cpp
           - ubuntu-cpp-sanitizer
+          - ubuntu-cpp-cls
+          - ubuntu-python-cls
         include:
           - image: conda-cpp
             title: AMD64 Conda C++
           - image: ubuntu-cpp-sanitizer
             title: AMD64 Ubuntu 20.04 C++ ASAN UBSAN
+          - image: ubuntu-cpp-cls
+            ubuntu: 20.04
+            title: AMD64 Ubuntu 20.04 C++ (Rados Parquet Format)
+          - image: ubuntu-python-cls
+            ubuntu: 20.04
+            title: AMD64 Ubuntu 20.04 Python (Rados Parquet Format)
+    env:
+      UBUNTU: ${{ matrix.ubuntu || 18.04 }}
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v2

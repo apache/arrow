@@ -587,7 +587,7 @@ ParquetFileFragment::ParquetFileFragment(FileSource source,
                                          std::shared_ptr<Schema> physical_schema,
                                          util::optional<std::vector<int>> row_groups)
     : FileFragment(std::move(source), std::move(format), std::move(partition_expression),
-                   std::move(physical_schema)),
+                   std::move(physical_schema), nullptr),
       parquet_format_(checked_cast<ParquetFileFormat&>(*format_)),
       row_groups_(std::move(row_groups)) {}
 

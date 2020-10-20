@@ -34,6 +34,7 @@ from pyarrow._fs cimport FileSystem, FileInfo, FileSelector
 from pyarrow._csv cimport (
     ConvertOptions, ParseOptions, ReadOptions, WriteOptions)
 from pyarrow.util import _is_iterable, _is_path_like, _stringify_path
+from pyarrow._rados import RadosParquetFileFormat
 
 from pyarrow._parquet cimport (
     _create_writer_properties, _create_arrow_writer_properties,
@@ -288,10 +289,6 @@ cdef class Dataset(_Weakrefable):
     multiple files. This sharding of data may indicate partitioning, which
     can accelerate queries that only touch some partitions (files).
     """
-
-    cdef:
-        shared_ptr[CDataset] wrapped
-        CDataset* dataset
 
     def __init__(self):
         _forbid_instantiation(self.__class__)
@@ -818,10 +815,6 @@ cdef class FileWriteOptions(_Weakrefable):
 
 cdef class FileFormat(_Weakrefable):
 
-    cdef:
-        shared_ptr[CFileFormat] wrapped
-        CFileFormat* format
-
     def __init__(self):
         _forbid_instantiation(self.__class__)
 
@@ -837,6 +830,7 @@ cdef class FileFormat(_Weakrefable):
             'ipc': IpcFileFormat,
             'csv': CsvFileFormat,
             'parquet': ParquetFileFormat,
+            'rados-parquet': RadosParquetFileFormat,
         }
 
         class_ = classes.get(type_name, None)
@@ -847,7 +841,7 @@ cdef class FileFormat(_Weakrefable):
         self.init(sp)
         return self
 
-    cdef inline shared_ptr[CFileFormat] unwrap(self):
+    cdef inline shared_ptr[CFileFormat] unwrap(self) nogil:
         return self.wrapped
 
     def inspect(self, file, filesystem=None):
@@ -927,6 +921,7 @@ cdef class Fragment(_Weakrefable):
             # subclasses of FileFragment
             'ipc': FileFragment,
             'csv': FileFragment,
+            'rados-parquet': FileFragment,
             'parquet': ParquetFileFragment,
         }
 
@@ -1788,7 +1783,6 @@ cdef class IpcFileFormat(FileFormat):
 
     def __reduce__(self):
         return IpcFileFormat, tuple()
-
 
 cdef class CsvFileFormat(FileFormat):
     cdef:

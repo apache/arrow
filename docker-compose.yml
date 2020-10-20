@@ -119,6 +119,9 @@ x-hierarchy:
   - fedora-cpp:
     - fedora-python
   - ubuntu-cpp:
+    - ubuntu-cpp-cls
+    - ubuntu-python-cls
+    - ubuntu-cls-demo
     - ubuntu-c-glib:
       - ubuntu-ruby
     - ubuntu-lint
@@ -874,6 +877,62 @@ services:
 
   ##############################  Integration #################################
 
+  ubuntu-cpp-cls:
+    # Usage:
+    #   docker-compose build ubuntu-cpp-cls
+    #   docker-compose run --rm ubuntu-cpp-cls
+    # Parameters:
+    #   ARCH: amd64, arm64v8, ...
+    #   UBUNTU: 16.04, 18.04, 20.04
+    image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
+    build:
+      context: .
+      dockerfile: ci/docker/ubuntu-${UBUNTU}-cpp.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
+      args:
+        arch: ${ARCH}
+        base: "${ARCH}/ubuntu:${UBUNTU}"
+        clang_tools: ${CLANG_TOOLS}
+        llvm: ${LLVM}
+    shm_size: *shm-size
+    ulimits: *ulimits
+    privileged: true
+    environment:
+      <<: *ccache
+      ARROW_ENABLE_TIMING_TESTS:  # inherit
+      ARROW_CLS: "ON"
+    volumes: *ubuntu-volumes
+    command: &cpp-cls-command >
+      /bin/bash -c "
+        /arrow/ci/scripts/cpp_build.sh /arrow /build &&
+        /arrow/ci/scripts/integration_ceph.sh /arrow /build &&
+        /arrow/ci/scripts/cpp_test.sh /arrow /build"
+
+  ubuntu-python-cls:
+    image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-python-3
+    build:
+      context: .
+      dockerfile: ci/docker/linux-apt-python-3.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-python-3
+      args:
+        base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
+    shm_size: *shm-size
+    privileged: true
+    environment:
+      <<: *ccache
+      ARROW_ENABLE_TIMING_TESTS:  # inherit
+      ARROW_CLS: "ON"
+      ARROW_RADOS: "ON"
+    volumes: *ubuntu-volumes
+    command: &python-cls-command >
+      /bin/bash -c "
+        /arrow/ci/scripts/cpp_build.sh /arrow /build &&
+        /arrow/ci/scripts/python_build.sh /arrow /build &&
+        /arrow/ci/scripts/integration_ceph.sh /arrow /build &&
+        /arrow/ci/scripts/python_test.sh /arrow"
+
   conda-python-pandas:
     # Possible $PANDAS parameters:
     #  - `latest`: latest release
@@ -1509,3 +1568,14 @@ services:
         /arrow/ci/scripts/python_build.sh /arrow /build &&
         /arrow/ci/scripts/java_build.sh /arrow /build &&
         /arrow/ci/scripts/integration_spark.sh /arrow /spark ${TEST_PYARROW_ONLY:-false}"]
+
+  ubuntu-cls-demo:
+    build: ./cpp/src/arrow/adapters/arrow-rados-cls/docker
+    volumes: &ubuntu-cls-vols
+      - .:/workspace
+    ports:
+      - 8888:8888
+    privileged: true
+    command: &ubuntu-cls-command >
+      /bin/bash -c "
+        /workspace/cpp/src/arrow/adapters/arrow-rados-cls/docker/script.sh"

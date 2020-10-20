@@ -80,6 +80,9 @@ RUN apt-get update -y -q && \
         libprotoc-dev \
         libre2-dev \
         libsnappy-dev \
+        libradospp-dev \
+        rados-objclass-dev \
+        python3-rados \
         libssl-dev \
         libthrift-dev \
         libutf8proc-dev \
@@ -90,14 +93,17 @@ RUN apt-get update -y -q && \
         protobuf-compiler \
         rapidjson-dev \
         tzdata \
+        unzip \
         wget && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists*
 
 COPY ci/scripts/install_minio.sh \
      /arrow/ci/scripts/
+COPY ci/scripts/install_ceph.sh \
+     /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_minio.sh ${arch} linux latest /usr/local
-
+RUN /arrow/ci/scripts/install_ceph.sh
 # Prioritize system packages and local installation
 # The following dependencies will be downloaded due to missing/invalid packages
 # provided by the distribution:
