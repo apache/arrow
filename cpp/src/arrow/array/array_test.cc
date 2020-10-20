@@ -2521,7 +2521,7 @@ TEST_P(Decimal256Test, WithNulls) {
   this->TestCreate(precision, draw, valid_bytes, 2);
 }
 
-INSTANTIATE_TEST_SUITE_P(Decimal256Test, Decimal256Test, ::testing::Range(1, 76));
+INSTANTIATE_TEST_SUITE_P(Decimal256Test, Decimal256Test, ::testing::Values(1, 2, 5, 10, 38, 39, 40, 75, 76));
 
 // ----------------------------------------------------------------------
 // Test rechunking

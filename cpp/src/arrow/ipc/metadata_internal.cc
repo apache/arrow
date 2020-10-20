@@ -236,9 +236,6 @@ static inline TimeUnit::type FromFlatbufferUnit(flatbuf::TimeUnit unit) {
   return TimeUnit::SECOND;
 }
 
-constexpr int32_t kDecimalBitWidth128 = 128;
-constexpr int32_t kDecimalBitWidth256 = 256;
-
 Status ConcreteTypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
                                   const std::vector<std::shared_ptr<Field>>& children,
                                   std::shared_ptr<DataType>* out) {
@@ -274,9 +271,9 @@ Status ConcreteTypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
       return Status::OK();
     case flatbuf::Type::Decimal: {
       auto dec_type = static_cast<const flatbuf::Decimal*>(type_data);
-      if (dec_type->bitWidth() == kDecimalBitWidth128) {
+      if (dec_type->bitWidth() == 128) {
         return Decimal128Type::Make(dec_type->precision(), dec_type->scale()).Value(out);
-      } else if (dec_type->bitWidth() == kDecimalBitWidth256) {
+       else if (dec_type->bitWidth() == 256) {
         return Decimal256Type::Make(dec_type->precision(), dec_type->scale()).Value(out);
       } else {
         return Status::Invalid("Library only supports 128-bit or 256-bit decimal values");
