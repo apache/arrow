@@ -52,6 +52,9 @@ RUN apt-get update -y -q && \
         liblz4-dev \
         libre2-dev \
         libsnappy-dev \
+        libradospp-dev \
+        rados-objclass-dev \
+        python3-rados \
         libssl-dev \
         llvm-${llvm}-dev \
         make \

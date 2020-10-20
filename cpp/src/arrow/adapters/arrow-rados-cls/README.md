@@ -1,0 +1,81 @@
+<!---
+  Licensed to the Apache Software Foundation (ASF) under one
+  or more contributor license agreements.  See the NOTICE file
+  distributed with this work for additional information
+  regarding copyright ownership.  The ASF licenses this file
+  to you under the Apache License, Version 2.0 (the
+  "License"); you may not use this file except in compliance
+  with the License.  You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing,
+  software distributed under the License is distributed on an
+  "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+  KIND, either express or implied.  See the License for the
+  specific language governing permissions and limitations
+  under the License.
+-->
+# <img src="https://iris-hep.org/assets/logos/skyhookdmLogoJeff.png" width="64" valign="middle" alt="Skyhook"/> SkyhookDM-Arrow
+
+Apache Arrow provides a [`Dataset`](https://arrow.apache.org/docs/cpp/api/dataset.html) API, which acts as an abstraction over a collection of files in different storage backends like S3 and HDFS. It supports different file formats like CSV and Parquet through the [`FileFormat`](https://arrow.apache.org/docs/cpp/api/dataset.html#_CPPv4N5arrow7dataset10FileFormatE) API. In SkyhookDM, we create a new file format called `SkyhookFileFormat` on top of `ParquetFileFormat`, which besides providing all the features of Parquet allows offloading file fragment scan operations into the storage backend. Offloading scan operations increases the query performance many folds, provides better scalability, and results in less network traffic. The architecture of SkyhookDM is described [here](./docs/architecture.md).
+
+# Getting Started
+
+**NOTE:** Please make sure [docker](https://docs.docker.com/engine/install/ubuntu/) and [docker-compose](https://docs.docker.com/compose/install/) is installed.
+
+* Clone the repository. The default branch gets cloned.
+```bash
+git clone https://github.com/uccross/arrow
+```
+
+* Run the `ubuntu-cls-demo` step in the docker-compose file. This step will start a single node Ceph cluster inside the container, mount CephFS, put sample data into CephFS, and open an example Jupyter notebook with PyArrow installed.
+```bash
+cd arrow/
+docker-compose run --service-ports ubuntu-cls-demo
+```
+
+# Installation Instructions
+
+* For installing SkyhookDM-Arrow with [Rook](https://rook.io) on Kubernetes, check out [this](https://github.com/uccross/skyhookdm-arrow-docker/blob/master/README.md#deploying-skyhookdm-arrow-on-a-rook-cluster) guide.
+
+* For installing SkyhookDM-Arrow on CloudLab, check out [this](https://github.com/uccross/skyhookdm-workflows/tree/master/cloudlab#deploy-ceph-skyhookdm-on-cloudlab) guide. To deploy SkyhookDM on bare-metal in general, check out [this](docs/deploy.md) guide.
+# Salient Features
+
+* Enables pushing down filters, projections, compute operations to the Storage backend for minimal data transfer over the network.
+
+* Allows storing data in Parquet files for minimizing Disk I/O though predicate and projection pushdown.
+
+* Plugs-in seamlessly into the Arrow Dataset API and leverages all its functionality like dataset discovering,  partition pruning, etc.
+
+* Minimal overhead in requirements: 
+    1) Requires CephFS to be mounted. 
+    2) Requires using the [`SplittedParquetWriter`](../../../../../python/pyarrow/rados.py) API to write arrow Tables.
+
+* Built on top of latest Ceph v15.2.x.
+
+# Code Structure
+
+### Client side - C++
+
+* [`file_skyhook.h`](../../dataset/file_skyhook.h): This file contains the definitions of 3 APIs. The `RadosConnection` , `SkyhookDirectObjectAccess`, and the `SkyhookFileFormat`. The `RadosConnection` API helps create a connection to the Ceph cluster and provides a handle to the cluster that can be passed around. The `SkyhookDirectObjectAccess` API provides abstractions for converting filenames in CephFS to object IDs in the Object store and allows interacting with the objects directly. The `SkyhookFileFormat` API takes in the direct object access construct as input and contains the logic of pushing down scans to the underlying objects that make up a file. This file also contains functions for (de)serializing scan options and query results into `ceph::bufferlist` using Flatbuffers for sending them over the network.
+
+* [`rados.h`](../../dataset/rados.h): Contains a wrapper for the `librados` SDK for exposing `librados` methods like `init2`, `connect`, `stat`, `ioctx_create`, and `exec` which are required for establishing the connection to the Ceph cluster and for operating on objects directly. 
+
+### Client side - Python
+
+* [`_rados.pyx`](../../../../../python/pyarrow/_rados.pyx): Contains Cython bindings to the `SkyhookFileFormat` C++ API.
+
+* [`rados.py`](../../../../../python/pyarrow/rados.py): This file contains the definition of the `SplittedParquetWriter`. It is completely implemented in Python.
+
+### Storage side
+
+* [`cls_arrow.cc`](./cls_arrow.cc): Contains the Rados objclass functions and APIs for interacting with objects in the OSDs. Also, it includes a `RandomAccessObject` API to give a random access file view of objects for allowing operations like reading byte ranges, seeks, tell, etc. 
+
+# Development
+
+Check out these [instructions](docs/contributing.md) for setting up a local development environment.
+
+# Publications
+
+1. [Towards an Arrow-native Storage System](https://arxiv.org/pdf/2105.09894.pdf)
