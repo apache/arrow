@@ -75,13 +75,13 @@ Decimal256Builder::Decimal256Builder(const std::shared_ptr<DataType>& type,
     : FixedSizeBinaryBuilder(type, pool),
       decimal_type_(internal::checked_pointer_cast<Decimal256Type>(type)) {}
 
-Status Decimal256Builder::Append(Decimal256 value) {
+Status Decimal256Builder::Append(const Decimal256& value) {
   RETURN_NOT_OK(FixedSizeBinaryBuilder::Reserve(1));
   UnsafeAppend(value);
   return Status::OK();
 }
 
-void Decimal256Builder::UnsafeAppend(Decimal256 value) {
+void Decimal256Builder::UnsafeAppend(const Decimal256& value) {
   value.ToBytes(GetMutableValue(length()));
   byte_builder_.UnsafeAdvance(32);
   UnsafeAppendToBitmap(true);
