@@ -129,7 +129,7 @@ static void BinaryMathOpAggregate(
   state.SetItemsProcessed(state.iterations() * kValueSize);
 }
 
-static void BinaryMathOp(benchmark::State& state) {  // NOLINT non-const reference
+static void BinaryMathOp128(benchmark::State& state) {  // NOLINT non-const reference
   std::vector<BasicDecimal128> v1, v2;
   for (int x = 0; x < kValueSize; x++) {
     v1.emplace_back(100 + x, 100 + x);
