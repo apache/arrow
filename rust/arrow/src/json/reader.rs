@@ -44,6 +44,7 @@
 
 use indexmap::map::IndexMap as HashMap;
 use indexmap::set::IndexSet as HashSet;
+use std::cell::RefCell;
 use std::io::{BufRead, BufReader, Read, Seek, SeekFrom};
 use std::sync::Arc;
 
@@ -724,15 +725,15 @@ impl<R: Read> Reader<R> {
     where
         DICT_TY: ArrowPrimitiveType + ArrowDictionaryKeyType,
     {
-        let builder: Box<dyn ArrayBuilder> = match data_type {
+        let mut builder: RefCell<Box<dyn ArrayBuilder>> = match data_type {
             DataType::Utf8 => {
                 let values_builder = StringBuilder::new(rows.len() * 5);
-                Box::new(ListBuilder::new(values_builder))
+                RefCell::new(Box::new(ListBuilder::new(values_builder)))
             }
             DataType::Dictionary(_, _) => {
                 let values_builder =
                     self.build_string_dictionary_builder::<DICT_TY>(rows.len() * 5)?;
-                Box::new(ListBuilder::new(values_builder))
+                RefCell::new(Box::new(ListBuilder::new(values_builder)))
             }
             e => {
                 return Err(ArrowError::JsonError(format!(
@@ -741,12 +742,6 @@ impl<R: Read> Reader<R> {
                 )))
             }
         };
-        // Builders have different APIs if ArrayBuilder has covered the methods we've used dynamic
-        // dispatch without leaking the pointer and reacquire back for dropping.
-        // XXX: Be careful about not prolonging this reference's lifetime outside of this method.
-        // Before exiting from this method we reacquire the Box back again and dtor is called
-        // properly. There is no leak for it.
-        let mut builder = Box::leak(builder);
 
         for row in rows {
             if let Some(value) = row.get(col_name) {
@@ -781,13 +776,13 @@ impl<R: Read> Reader<R> {
                 // them.
                 match data_type {
                     DataType::Utf8 => {
-                        // instead of using transmute, we are using casts for reference to array
-                        // builder. This is just a clippy lint called "transmute_ptr_to_ptr" which
-                        // makes sense here.
-                        let builder: &mut &mut ListBuilder<StringBuilder> = unsafe {
-                            &mut *(&mut builder as *mut &mut dyn ArrayBuilder
-                                as *mut &mut ListBuilder<StringBuilder>)
-                        };
+                        let builder = &mut builder.borrow_mut();
+                        let builder = builder
+                            .as_any_mut()
+                            .downcast_mut::<ListBuilder<StringBuilder>>()
+                            .ok_or(ArrowError::JsonError(
+                                "Cast failed for ListBuilder<StringBuilder> during nested data parsing".to_string(),
+                            ))?;
                         for val in vals {
                             if let Some(v) = val {
                                 builder.values().append_value(&v)?
@@ -798,20 +793,12 @@ impl<R: Read> Reader<R> {
 
                         // Append to the list
                         builder.append(true)?;
-                        // Mutable ref of ref is dropped here.
                     }
                     DataType::Dictionary(_, _) => {
-                        // instead of using transmute, we are using casts for reference to array
-                        // builder. This is just a clippy lint called "transmute_ptr_to_ptr" which
-                        // makes sense here.
-                        let builder: &mut &mut ListBuilder<
-                            StringDictionaryBuilder<DICT_TY>,
-                        > = unsafe {
-                            &mut *(&mut builder as *mut &mut dyn ArrayBuilder
-                                as *mut &mut ListBuilder<
-                                    StringDictionaryBuilder<DICT_TY>,
-                                >)
-                        };
+                        let builder = &mut builder.borrow_mut();
+                        let builder = builder.as_any_mut().downcast_mut::<ListBuilder<StringDictionaryBuilder<DICT_TY>>>().ok_or(ArrowError::JsonError(
+                            "Cast failed for ListBuilder<StringDictionaryBuilder> during nested data parsing".to_string(),
+                        ))?;
                         for val in vals {
                             if let Some(v) = val {
                                 let _ = builder.values().append(&v)?;
@@ -822,7 +809,6 @@ impl<R: Read> Reader<R> {
 
                         // Append to the list
                         builder.append(true)?;
-                        // Mutable ref of ref is dropped here.
                     }
                     e => {
                         return Err(ArrowError::JsonError(format!(
@@ -834,11 +820,7 @@ impl<R: Read> Reader<R> {
             }
         }
 
-        // Actual off heap pointer acquired back again and dtor called after the `finish` method.
-        // XXX: Mind that this method is not breaking the lifetime rules, since it is all happening
-        // inside of this method's body. As already mentioned before, don't return any raw pointer
-        // beyond this method, or pass it down to the called methods of this method.
-        unsafe { Ok((*Box::from_raw(builder)).finish() as ArrayRef) }
+        Ok(builder.get_mut().finish() as ArrayRef)
     }
 
     #[inline(always)]
