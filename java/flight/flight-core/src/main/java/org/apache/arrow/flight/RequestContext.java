@@ -20,7 +20,7 @@ package org.apache.arrow.flight;
 /**
  * Tracks variables about the current request.
  */
-public interface CallContext {
+public interface RequestContext {
   /**
    * Register a variable and a value.
    * @param key the variable name.

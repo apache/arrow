@@ -21,7 +21,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collections;
 
-import org.apache.arrow.flight.CallContext;
 import org.apache.arrow.flight.CallHeaders;
 import org.apache.arrow.flight.CallInfo;
 import org.apache.arrow.flight.CallStatus;
@@ -35,6 +34,7 @@ import org.apache.arrow.flight.FlightServer;
 import org.apache.arrow.flight.FlightServerMiddleware;
 import org.apache.arrow.flight.Location;
 import org.apache.arrow.flight.NoOpFlightProducer;
+import org.apache.arrow.flight.RequestContext;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.types.pojo.Schema;
 
@@ -53,7 +53,7 @@ final class MiddlewareScenario implements Scenario {
   public FlightProducer producer(BufferAllocator allocator, Location location) {
     return new NoOpFlightProducer() {
       @Override
-      public FlightInfo getFlightInfo(FlightContext context, FlightDescriptor descriptor) {
+      public FlightInfo getFlightInfo(CallContext context, FlightDescriptor descriptor) {
         if (descriptor.isCommand()) {
           if (Arrays.equals(COMMAND_SUCCESS, descriptor.getCommand())) {
             return new FlightInfo(new Schema(Collections.emptyList()), descriptor, Collections.emptyList(), -1, -1);
@@ -125,7 +125,8 @@ final class MiddlewareScenario implements Scenario {
     static class Factory implements FlightServerMiddleware.Factory<InjectingServerMiddleware> {
 
       @Override
-      public InjectingServerMiddleware onCallStarted(CallInfo info, CallHeaders incomingHeaders, CallContext context) {
+      public InjectingServerMiddleware onCallStarted(CallInfo info, CallHeaders incomingHeaders,
+                                                     RequestContext context) {
         String incoming = incomingHeaders.get(HEADER);
         return new InjectingServerMiddleware(incoming == null ? "" : incoming);
       }

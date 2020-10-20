@@ -23,37 +23,37 @@ package org.apache.arrow.flight;
 public class NoOpFlightProducer implements FlightProducer {
 
   @Override
-  public void getStream(FlightContext context, Ticket ticket,
+  public void getStream(CallContext context, Ticket ticket,
                         ServerStreamListener listener) {
     listener.error(CallStatus.UNIMPLEMENTED.withDescription("Not implemented.").toRuntimeException());
   }
 
   @Override
-  public void listFlights(FlightContext context, Criteria criteria,
+  public void listFlights(CallContext context, Criteria criteria,
                           StreamListener<FlightInfo> listener) {
     listener.onError(CallStatus.UNIMPLEMENTED.withDescription("Not implemented.").toRuntimeException());
   }
 
   @Override
-  public FlightInfo getFlightInfo(FlightContext context,
+  public FlightInfo getFlightInfo(CallContext context,
                                   FlightDescriptor descriptor) {
     throw CallStatus.UNIMPLEMENTED.withDescription("Not implemented.").toRuntimeException();
   }
 
   @Override
-  public Runnable acceptPut(FlightContext context,
+  public Runnable acceptPut(CallContext context,
                             FlightStream flightStream, StreamListener<PutResult> ackStream) {
     throw CallStatus.UNIMPLEMENTED.withDescription("Not implemented.").toRuntimeException();
   }
 
   @Override
-  public void doAction(FlightContext context, Action action,
+  public void doAction(CallContext context, Action action,
                        StreamListener<Result> listener) {
     listener.onError(CallStatus.UNIMPLEMENTED.withDescription("Not implemented.").toRuntimeException());
   }
 
   @Override
-  public void listActions(FlightContext context,
+  public void listActions(CallContext context,
                           StreamListener<ActionType> listener) {
     listener.onError(CallStatus.UNIMPLEMENTED.withDescription("Not implemented.").toRuntimeException());
   }

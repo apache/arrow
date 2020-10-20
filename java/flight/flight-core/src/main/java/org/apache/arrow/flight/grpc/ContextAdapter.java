@@ -20,7 +20,7 @@ package org.apache.arrow.flight.grpc;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.apache.arrow.flight.CallContext;
+import org.apache.arrow.flight.RequestContext;
 import org.apache.arrow.flight.auth.AuthConstants;
 
 import io.grpc.Context;
@@ -28,7 +28,7 @@ import io.grpc.Context;
 /**
  * Adapter class for gRPC contexts.
  */
-public class ContextAdapter implements CallContext {
+public class ContextAdapter implements RequestContext {
   // gRPC uses reference equality when looking up keys in a Context. Cache used keys in this static map
   // so that look ups can succeed.
   private static final Map<String, Context.Key<String>> usedKeys = new HashMap<>();

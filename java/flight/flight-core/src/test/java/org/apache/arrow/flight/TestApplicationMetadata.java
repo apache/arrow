@@ -250,7 +250,7 @@ public class TestApplicationMetadata {
     }
 
     @Override
-    public void getStream(FlightContext context, Ticket ticket, ServerStreamListener listener) {
+    public void getStream(CallContext context, Ticket ticket, ServerStreamListener listener) {
       final Schema schema = new Schema(Collections.singletonList(Field.nullable("a", new ArrowType.Int(32, true))));
       try (VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator)) {
         root.allocateNew();
@@ -269,7 +269,7 @@ public class TestApplicationMetadata {
     }
 
     @Override
-    public Runnable acceptPut(FlightContext context, FlightStream stream, StreamListener<PutResult> ackStream) {
+    public Runnable acceptPut(CallContext context, FlightStream stream, StreamListener<PutResult> ackStream) {
       return () -> {
         // Wait for the descriptor to be sent
         stream.getRoot();
@@ -312,7 +312,7 @@ public class TestApplicationMetadata {
     }
 
     @Override
-    public Runnable acceptPut(FlightContext context, FlightStream flightStream, StreamListener<PutResult> ackStream) {
+    public Runnable acceptPut(CallContext context, FlightStream flightStream, StreamListener<PutResult> ackStream) {
       return () -> {
         while (flightStream.next()) {
           // Ignore any data

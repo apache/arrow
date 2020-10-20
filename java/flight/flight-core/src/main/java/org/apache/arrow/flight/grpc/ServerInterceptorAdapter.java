@@ -26,7 +26,7 @@ import java.util.Map;
 import org.apache.arrow.flight.CallInfo;
 import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.FlightMethod;
-import org.apache.arrow.flight.FlightProducer.FlightContext;
+import org.apache.arrow.flight.FlightProducer.CallContext;
 import org.apache.arrow.flight.FlightRuntimeException;
 import org.apache.arrow.flight.FlightServerMiddleware;
 import org.apache.arrow.flight.FlightServerMiddleware.Factory;
@@ -69,7 +69,7 @@ public class ServerInterceptorAdapter implements ServerInterceptor {
   /**
    * The {@link Context.Key} that stores the Flight middleware active for a particular call.
    *
-   * <p>Applications should not use this directly. Instead, see {@link FlightContext#getMiddleware(Key)}.
+   * <p>Applications should not use this directly. Instead, see {@link CallContext#getMiddleware(Key)}.
    */
   public static final Context.Key<Map<FlightServerMiddleware.Key<?>, FlightServerMiddleware>> SERVER_MIDDLEWARE_KEY =
       Context.key("arrow.flight.server_middleware");

@@ -128,7 +128,7 @@ public class TestBasicAuth {
         location,
         new NoOpFlightProducer() {
           @Override
-          public void listFlights(FlightContext context, Criteria criteria,
+          public void listFlights(CallContext context, Criteria criteria,
                                   StreamListener<FlightInfo> listener) {
             if (!context.peerIdentity().equals(USERNAME)) {
               listener.onError(new IllegalArgumentException("Invalid username"));
@@ -138,7 +138,7 @@ public class TestBasicAuth {
           }
 
           @Override
-          public void getStream(FlightContext context, Ticket ticket, ServerStreamListener listener) {
+          public void getStream(CallContext context, Ticket ticket, ServerStreamListener listener) {
             if (!context.peerIdentity().equals(USERNAME)) {
               listener.error(new IllegalArgumentException("Invalid username"));
               return;

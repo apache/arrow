@@ -32,7 +32,10 @@ package arrow.flight.protocol;
 service FlightService {
 
   /*
-   * Handshake between client and server.
+   * Handshake between client and server. Depending on the server, the
+   * handshake may be required to determine the token that should be used for	
+   * future operations. Both request and response are streams to allow multiple	
+   * round-trips depending on auth mechanism.
    */
   rpc Handshake(stream HandshakeRequest) returns (stream HandshakeResponse) {}
 
@@ -123,6 +126,11 @@ message HandshakeRequest {
    * A defined protocol version
    */
   uint64 protocol_version = 1;
+
+  /*	
+   * Arbitrary auth/handshake info.	
+   */	
+  bytes payload = 2;
 }
 
 message HandshakeResponse {
@@ -131,6 +139,19 @@ message HandshakeResponse {
    * A defined protocol version
    */
   uint64 protocol_version = 1;
+
+  /*	
+   * Arbitrary auth/handshake info.	
+   */	
+  bytes payload = 2;	
+}	
+
+/*	
+ * A message for doing simple auth.	
+ */	
+message BasicAuth {	
+  string username = 2;	
+  string password = 3;
 }
 
 message Empty {}

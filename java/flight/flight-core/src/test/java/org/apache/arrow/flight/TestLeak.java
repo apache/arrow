@@ -134,7 +134,7 @@ public class TestLeak {
     }
 
     @Override
-    public void getStream(FlightContext context, Ticket ticket, ServerStreamListener listener) {
+    public void getStream(CallContext context, Ticket ticket, ServerStreamListener listener) {
       BufferAllocator childAllocator = allocator.newChildAllocator("foo", 0, Long.MAX_VALUE);
       VectorSchemaRoot root = VectorSchemaRoot.create(TestLeak.getSchema(), childAllocator);
       root.allocateNew();
@@ -169,7 +169,7 @@ public class TestLeak {
     }
 
     @Override
-    public Runnable acceptPut(FlightContext context,
+    public Runnable acceptPut(CallContext context,
                               FlightStream flightStream, StreamListener<PutResult> ackStream) {
       return () -> {
         flightStream.getRoot();

@@ -80,7 +80,7 @@ public class TestErrorMetadata {
     }
 
     @Override
-    public void getStream(FlightContext context, Ticket ticket, ServerStreamListener listener) {
+    public void getStream(CallContext context, Ticket ticket, ServerStreamListener listener) {
       StatusRuntimeException sre = StatusProto.toStatusRuntimeException(Status.newBuilder()
               .setCode(1)
               .setMessage("Testing 1 2 3")

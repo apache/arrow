@@ -47,7 +47,7 @@ final class AuthBasicProtoScenario implements Scenario {
   public FlightProducer producer(BufferAllocator allocator, Location location) {
     return new NoOpFlightProducer() {
       @Override
-      public void doAction(FlightContext context, Action action, StreamListener<Result> listener) {
+      public void doAction(CallContext context, Action action, StreamListener<Result> listener) {
         listener.onNext(new Result(context.peerIdentity().getBytes(StandardCharsets.UTF_8)));
         listener.onCompleted();
       }
