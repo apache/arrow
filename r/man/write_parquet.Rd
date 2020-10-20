@@ -16,7 +16,9 @@ write_parquet(
   data_page_size = NULL,
   use_deprecated_int96_timestamps = FALSE,
   coerce_timestamps = NULL,
-  allow_truncated_timestamps = FALSE
+  allow_truncated_timestamps = FALSE,
+  properties = NULL,
+  arrow_properties = NULL
 )
 }
 \arguments{
@@ -49,6 +51,14 @@ size of data pages within a column chunk (in bytes). Default 1 MiB.}
 \item{allow_truncated_timestamps}{Allow loss of data when coercing timestamps to a
 particular resolution. E.g. if microsecond or nanosecond data is lost when coercing
 to "ms", do not raise an exception}
+
+\item{properties}{A \code{ParquetWriterProperties} object, used instead of the options
+enumerated in this function's signature. Providing \code{properties} as an argument
+is deprecated; if you need to assemble \code{ParquetWriterProperties} outside
+of \code{write_parquet()}, use \code{ParquetFileWriter} instead.}
+
+\item{arrow_properties}{A \code{ParquetArrowWriterProperties} object. Like
+\code{properties}, this argument is deprecated.}
 }
 \value{
 the input \code{x} invisibly.
