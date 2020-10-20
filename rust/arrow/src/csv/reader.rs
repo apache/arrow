@@ -452,8 +452,6 @@ fn build_primitive_array<T: ArrowPrimitiveType>(
     rows: &[StringRecord],
     col_idx: usize,
 ) -> Result<ArrayRef> {
-    let is_boolean_type = T::get_data_type() == DataType::Boolean;
-
     rows.iter()
         .enumerate()
         .map(|(row_index, row)| {
@@ -462,7 +460,7 @@ fn build_primitive_array<T: ArrowPrimitiveType>(
                     if s.is_empty() {
                         return Ok(None);
                     }
-                    let parsed = if is_boolean_type {
+                    let parsed = if T::DATA_TYPE == DataType::Boolean {
                         s.to_lowercase().parse::<T::Native>()
                     } else {
                         s.parse::<T::Native>()
