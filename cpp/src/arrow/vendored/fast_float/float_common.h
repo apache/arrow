@@ -8,17 +8,13 @@
 #include <strings.h>
 #endif
 
-#if defined(_MSC_VER) && !defined(__clang__)
-#define FASTFLOAT_VISUAL_STUDIO 1
-#endif
-
-#ifdef FASTFLOAT_VISUAL_STUDIO
+#ifdef _MSC_VER
 #define fastfloat_really_inline __forceinline
 #else
 #define fastfloat_really_inline inline __attribute__((always_inline))
 #endif 
 
-#ifdef _MSC_VER
+#ifdef _WIN32
 #define fastfloat_strcasecmp _stricmp
 #define fastfloat_strncasecmp _strnicmp
 #else
@@ -59,7 +55,7 @@ struct value128 {
 /* result might be undefined when input_num is zero */
 fastfloat_really_inline 
 int leading_zeroes(uint64_t input_num) {
-#ifdef FASTFLOAT_VISUAL_STUDIO
+#ifdef _MSC_VER
   unsigned long leading_zero = 0;
   // Search the mask data from most significant bit (MSB)
   // to least significant bit (LSB) for a set bit (1).
@@ -73,7 +69,8 @@ int leading_zeroes(uint64_t input_num) {
 }
 
 
-#ifdef FASTFLOAT_VISUAL_STUDIO
+#if defined(_WIN32) && !defined(__clang__)
+// Note MinGW falls here too
 #include <intrin.h>
 
 #if !defined(_M_X64) && !defined(_M_ARM64)// _umul128 for x86, arm
