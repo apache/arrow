@@ -19,17 +19,20 @@
 //! into a single partition
 
 use std::any::Any;
+use std::iter::Iterator;
 use std::sync::Arc;
 
+use futures::future;
+
+use super::common;
 use crate::error::{ExecutionError, Result};
-use crate::physical_plan::common::RecordBatchIterator;
+use crate::physical_plan::ExecutionPlan;
 use crate::physical_plan::Partitioning;
-use crate::physical_plan::{common, ExecutionPlan};
 
-use arrow::datatypes::SchemaRef;
 use arrow::record_batch::RecordBatch;
+use arrow::{datatypes::SchemaRef, error::ArrowError};
 
-use super::SendableRecordBatchReader;
+use super::SendableRecordBatchStream;
 
 use async_trait::async_trait;
 use tokio;
@@ -81,7 +84,7 @@ impl ExecutionPlan for MergeExec {
         }
     }
 
-    async fn execute(&self, partition: usize) -> Result<SendableRecordBatchReader> {
+    async fn execute(&self, partition: usize) -> Result<SendableRecordBatchStream> {
         // MergeExec produces a single partition
         if 0 != partition {
             return Err(ExecutionError::General(format!(
@@ -100,27 +103,29 @@ impl ExecutionPlan for MergeExec {
                 self.input.execute(0).await
             }
             _ => {
-                let tasks = (0..input_partitions)
-                    .map(|part_i| {
-                        let input = self.input.clone();
-                        tokio::spawn(async move {
-                            let it = input.execute(part_i).await?;
-                            common::collect(it)
-                        })
+                let tasks = (0..input_partitions).map(|part_i| {
+                    let input = self.input.clone();
+                    tokio::spawn(async move {
+                        let stream = input.execute(part_i).await?;
+                        common::collect(stream).await
                     })
-                    // this collect *is needed* so that the join below can
-                    // switch between tasks
+                });
+
+                let results = future::try_join_all(tasks)
+                    .await
+                    .map_err(|e| ArrowError::from_external_error(Box::new(e)))?;
+
+                let combined_results = results
+                    .into_iter()
+                    .try_fold(Vec::<RecordBatch>::new(), |mut acc, maybe_batches| {
+                        acc.append(&mut maybe_batches?);
+                        Result::Ok(acc)
+                    })?
+                    .into_iter()
+                    .map(|x| Arc::new(x))
                     .collect::<Vec<_>>();
 
-                let mut combined_results: Vec<Arc<RecordBatch>> = vec![];
-                for task in tasks {
-                    let result = task.await.unwrap()?;
-                    for batch in &result {
-                        combined_results.push(Arc::new(batch.clone()));
-                    }
-                }
-
-                Ok(Box::new(RecordBatchIterator::new(
+                Ok(Box::pin(common::SizedRecordBatchStream::new(
                     self.input.schema(),
                     combined_results,
                 )))
@@ -158,7 +163,7 @@ mod tests {
 
         // the result should contain 4 batches (one per input partition)
         let iter = merge.execute(0).await?;
-        let batches = common::collect(iter)?;
+        let batches = common::collect(iter).await?;
         assert_eq!(batches.len(), num_partitions);
 
         // there should be a total of 100 rows

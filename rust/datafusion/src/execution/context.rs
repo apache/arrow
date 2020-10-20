@@ -23,9 +23,10 @@ use std::path::Path;
 use std::string::String;
 use std::sync::Arc;
 
+use futures::{StreamExt, TryStreamExt};
+
 use arrow::csv;
 use arrow::datatypes::*;
-use arrow::error::Result as ArrowResult;
 use arrow::record_batch::RecordBatch;
 
 use crate::datasource::csv::CsvFile;
@@ -328,14 +329,14 @@ impl ExecutionContext {
             0 => Ok(vec![]),
             1 => {
                 let it = plan.execute(0).await?;
-                common::collect(it)
+                common::collect(it).await
             }
             _ => {
                 // merge into a single partition
                 let plan = MergeExec::new(plan.clone());
                 // MergeExec must produce a single partition
                 assert_eq!(1, plan.output_partitioning().partition_count());
-                common::collect(plan.execute(0).await?)
+                common::collect(plan.execute(0).await?).await
             }
         }
     }
@@ -357,13 +358,13 @@ impl ExecutionContext {
             let path = Path::new(&path).join(&filename);
             let file = fs::File::create(path)?;
             let mut writer = csv::Writer::new(file);
-            let reader = plan.execute(i).await?;
+            let stream = plan.execute(i).await?;
 
-            reader
-                .into_iter()
+            stream
                 .map(|batch| writer.write(&batch?))
-                .collect::<ArrowResult<_>>()
-                .map_err(|e| ExecutionError::from(e))?
+                .try_collect()
+                .await
+                .map_err(|e| ExecutionError::from(e))?;
         }
         Ok(())
     }

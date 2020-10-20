@@ -553,7 +553,7 @@ mod tests {
     use crate::physical_plan::{csv::CsvReadOptions, expressions, Partitioning};
     use crate::{
         logical_plan::{col, lit, sum, LogicalPlanBuilder},
-        physical_plan::SendableRecordBatchReader,
+        physical_plan::SendableRecordBatchStream,
     };
     use crate::{prelude::ExecutionConfig, test::arrow_testdata_path};
     use arrow::datatypes::{DataType, Field, SchemaRef};
@@ -804,7 +804,7 @@ mod tests {
             unimplemented!("NoOpExecutionPlan::with_new_children");
         }
 
-        async fn execute(&self, _partition: usize) -> Result<SendableRecordBatchReader> {
+        async fn execute(&self, _partition: usize) -> Result<SendableRecordBatchStream> {
             unimplemented!("NoOpExecutionPlan::execute");
         }
     }

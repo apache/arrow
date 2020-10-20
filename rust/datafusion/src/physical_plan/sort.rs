@@ -26,12 +26,12 @@ use arrow::compute::{concat, lexsort_to_indices, take, SortColumn, TakeOptions};
 use arrow::datatypes::SchemaRef;
 use arrow::record_batch::RecordBatch;
 
+use super::SendableRecordBatchStream;
 use crate::error::{ExecutionError, Result};
-use crate::physical_plan::common::RecordBatchIterator;
+use crate::physical_plan::common::SizedRecordBatchStream;
 use crate::physical_plan::expressions::PhysicalSortExpr;
 use crate::physical_plan::{common, Distribution, ExecutionPlan, Partitioning};
 
-use super::SendableRecordBatchReader;
 use async_trait::async_trait;
 
 /// Sort execution plan
@@ -100,7 +100,7 @@ impl ExecutionPlan for SortExec {
         }
     }
 
-    async fn execute(&self, partition: usize) -> Result<SendableRecordBatchReader> {
+    async fn execute(&self, partition: usize) -> Result<SendableRecordBatchStream> {
         if 0 != partition {
             return Err(ExecutionError::General(format!(
                 "SortExec invalid partition {}",
@@ -115,7 +115,7 @@ impl ExecutionPlan for SortExec {
             ));
         }
         let it = self.input.execute(0).await?;
-        let batches = common::collect(it)?;
+        let batches = common::collect(it).await?;
 
         // combine all record batches into one for each column
         let combined_batch = RecordBatch::try_new(
@@ -164,7 +164,7 @@ impl ExecutionPlan for SortExec {
                 .collect::<Result<Vec<ArrayRef>>>()?,
         )?;
 
-        Ok(Box::new(RecordBatchIterator::new(
+        Ok(Box::pin(SizedRecordBatchStream::new(
             self.schema(),
             vec![Arc::new(sorted_batch)],
         )))

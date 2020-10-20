@@ -21,14 +21,15 @@ use std::any::Any;
 use std::sync::Arc;
 
 use crate::error::{ExecutionError, Result};
-use crate::physical_plan::memory::MemoryIterator;
+use crate::physical_plan::memory::MemoryStream;
 use crate::physical_plan::{Distribution, ExecutionPlan, Partitioning};
 use arrow::array::ArrayRef;
 use arrow::compute::limit;
 use arrow::datatypes::SchemaRef;
 use arrow::record_batch::RecordBatch;
+use futures::StreamExt;
 
-use super::SendableRecordBatchReader;
+use super::SendableRecordBatchStream;
 
 use async_trait::async_trait;
 
@@ -94,7 +95,7 @@ impl ExecutionPlan for GlobalLimitExec {
         }
     }
 
-    async fn execute(&self, partition: usize) -> Result<SendableRecordBatchReader> {
+    async fn execute(&self, partition: usize) -> Result<SendableRecordBatchStream> {
         // GlobalLimitExec has a single output partition
         if 0 != partition {
             return Err(ExecutionError::General(format!(
@@ -111,8 +112,8 @@ impl ExecutionPlan for GlobalLimitExec {
         }
 
         let mut it = self.input.execute(0).await?;
-        Ok(Box::new(MemoryIterator::try_new(
-            collect_with_limit(&mut it, self.limit)?,
+        Ok(Box::pin(MemoryStream::try_new(
+            collect_with_limit(&mut it, self.limit).await?,
             self.input.schema(),
             None,
         )?))
@@ -167,10 +168,10 @@ impl ExecutionPlan for LocalLimitExec {
         }
     }
 
-    async fn execute(&self, _: usize) -> Result<SendableRecordBatchReader> {
+    async fn execute(&self, _: usize) -> Result<SendableRecordBatchStream> {
         let mut it = self.input.execute(0).await?;
-        Ok(Box::new(MemoryIterator::try_new(
-            collect_with_limit(&mut it, self.limit)?,
+        Ok(Box::pin(MemoryStream::try_new(
+            collect_with_limit(&mut it, self.limit).await?,
             self.input.schema(),
             None,
         )?))
@@ -190,14 +191,14 @@ pub fn truncate_batch(batch: &RecordBatch, n: usize) -> Result<RecordBatch> {
 }
 
 /// Create a vector of record batches from an iterator
-fn collect_with_limit(
-    reader: &mut SendableRecordBatchReader,
+async fn collect_with_limit(
+    reader: &mut SendableRecordBatchStream,
     limit: usize,
 ) -> Result<Vec<RecordBatch>> {
     let mut count = 0;
     let mut results: Vec<RecordBatch> = vec![];
     loop {
-        match reader.as_mut().next() {
+        match reader.as_mut().next().await {
             Some(Ok(batch)) => {
                 let capacity = limit - count;
                 if batch.num_rows() <= capacity {
@@ -247,7 +248,7 @@ mod tests {
 
         // the result should contain 4 batches (one per input partition)
         let iter = limit.execute(0).await?;
-        let batches = common::collect(iter)?;
+        let batches = common::collect(iter).await?;
 
         // there should be a total of 100 rows
         let row_count: usize = batches.iter().map(|batch| batch.num_rows()).sum();

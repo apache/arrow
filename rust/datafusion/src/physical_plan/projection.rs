@@ -21,16 +21,21 @@
 //! projection expressions.
 
 use std::any::Any;
+use std::pin::Pin;
 use std::sync::Arc;
+use std::task::{Context, Poll};
 
 use crate::error::{ExecutionError, Result};
 use crate::physical_plan::{ExecutionPlan, Partitioning, PhysicalExpr};
 use arrow::datatypes::{Field, Schema, SchemaRef};
 use arrow::error::Result as ArrowResult;
-use arrow::record_batch::{RecordBatch, RecordBatchReader};
+use arrow::record_batch::RecordBatch;
 
-use super::SendableRecordBatchReader;
+use super::{RecordBatchStream, SendableRecordBatchStream};
 use async_trait::async_trait;
+
+use futures::stream::Stream;
+use futures::stream::StreamExt;
 
 /// Execution plan for a projection
 #[derive(Debug)]
@@ -108,8 +113,8 @@ impl ExecutionPlan for ProjectionExec {
         }
     }
 
-    async fn execute(&self, partition: usize) -> Result<SendableRecordBatchReader> {
-        Ok(Box::new(ProjectionIterator {
+    async fn execute(&self, partition: usize) -> Result<SendableRecordBatchStream> {
+        Ok(Box::pin(ProjectionStream {
             schema: self.schema.clone(),
             expr: self.expr.iter().map(|x| x.0.clone()).collect(),
             input: self.input.execute(partition).await?,
@@ -117,34 +122,48 @@ impl ExecutionPlan for ProjectionExec {
     }
 }
 
-/// Projection iterator
-struct ProjectionIterator {
-    schema: SchemaRef,
-    expr: Vec<Arc<dyn PhysicalExpr>>,
-    input: SendableRecordBatchReader,
+fn batch_project(
+    batch: &RecordBatch,
+    expressions: &Vec<Arc<dyn PhysicalExpr>>,
+    schema: &SchemaRef,
+) -> ArrowResult<RecordBatch> {
+    expressions
+        .iter()
+        .map(|expr| expr.evaluate(&batch))
+        .collect::<Result<Vec<_>>>()
+        .map_or_else(
+            |e| Err(ExecutionError::into_arrow_external_error(e)),
+            |arrays| RecordBatch::try_new(schema.clone(), arrays),
+        )
 }
 
-impl Iterator for ProjectionIterator {
+/// Projection iterator
+struct ProjectionStream {
+    schema: SchemaRef,
+    expr: Vec<Arc<dyn PhysicalExpr>>,
+    input: SendableRecordBatchStream,
+}
+
+impl Stream for ProjectionStream {
     type Item = ArrowResult<RecordBatch>;
 
-    fn next(&mut self) -> Option<Self::Item> {
-        match self.input.next() {
-            Some(Ok(batch)) => Some(
-                self.expr
-                    .iter()
-                    .map(|expr| expr.evaluate(&batch))
-                    .collect::<Result<Vec<_>>>()
-                    .map_or_else(
-                        |e| Err(ExecutionError::into_arrow_external_error(e)),
-                        |arrays| RecordBatch::try_new(self.schema.clone(), arrays),
-                    ),
-            ),
+    fn poll_next(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<Option<Self::Item>> {
+        self.input.poll_next_unpin(cx).map(|x| match x {
+            Some(Ok(batch)) => Some(batch_project(&batch, &self.expr, &self.schema)),
             other => other,
-        }
+        })
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        // same number of record batches
+        self.input.size_hint()
     }
 }
 
-impl RecordBatchReader for ProjectionIterator {
+impl RecordBatchStream for ProjectionStream {
     /// Get the schema
     fn schema(&self) -> SchemaRef {
         self.schema.clone()
@@ -158,6 +177,7 @@ mod tests {
     use crate::physical_plan::csv::{CsvExec, CsvReadOptions};
     use crate::physical_plan::expressions::col;
     use crate::test;
+    use futures::future;
 
     #[tokio::test]
     async fn project_first_column() -> Result<()> {
@@ -177,16 +197,16 @@ mod tests {
         let mut row_count = 0;
         for partition in 0..projection.output_partitioning().partition_count() {
             partition_count += 1;
-            let iterator = projection.execute(partition).await?;
+            let stream = projection.execute(partition).await?;
 
-            row_count += iterator
-                .into_iter()
+            row_count += stream
                 .map(|batch| {
                     let batch = batch.unwrap();
                     assert_eq!(1, batch.num_columns());
                     batch.num_rows()
                 })
-                .sum::<usize>();
+                .fold(0, |acc, x| future::ready(acc + x))
+                .await;
         }
         assert_eq!(partitions, partition_count);
         assert_eq!(100, row_count);
