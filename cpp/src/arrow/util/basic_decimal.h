@@ -249,12 +249,27 @@ class ARROW_EXPORT BasicDecimal256 {
   std::array<uint64_t, 4> little_endian_array_;
 };
 
-ARROW_EXPORT bool operator==(const BasicDecimal256& left, const BasicDecimal256& right);
-ARROW_EXPORT bool operator!=(const BasicDecimal256& left, const BasicDecimal256& right);
+ARROW_EXPORT inline bool operator==(const BasicDecimal256& left, const BasicDecimal256& right) {
+  return left.little_endian_array() == right.little_endian_array();
+}
+
+ARROW_EXPORT inline bool operator!=(const BasicDecimal256& left, const BasicDecimal256& right) {
+  return left.little_endian_array() != right.little_endian_array();
+}
+
 ARROW_EXPORT bool operator<(const BasicDecimal256& left, const BasicDecimal256& right);
-ARROW_EXPORT bool operator<=(const BasicDecimal256& left, const BasicDecimal256& right);
-ARROW_EXPORT bool operator>(const BasicDecimal256& left, const BasicDecimal256& right);
-ARROW_EXPORT bool operator>=(const BasicDecimal256& left, const BasicDecimal256& right);
+
+ARROW_EXPORT inline bool operator<=(const BasicDecimal256& left, const BasicDecimal256& right) {
+  return !operator<(right, left);
+}
+
+ARROW_EXPORT inline bool operator>(const BasicDecimal256& left, const BasicDecimal256& right) {
+  return operator<(right, left);
+}
+
+ARROW_EXPORT inline bool operator>=(const BasicDecimal256& left, const BasicDecimal256& right) {
+  return !operator<(left, right);
+}
 
 ARROW_EXPORT BasicDecimal256 operator*(const BasicDecimal256& left,
                                        const BasicDecimal256& right);

@@ -923,13 +923,7 @@ BasicDecimal256 operator*(const BasicDecimal256& left, const BasicDecimal256& ri
   return result;
 }
 
-bool operator==(const BasicDecimal256& left, const BasicDecimal256& right) {
-  return left.little_endian_array() == right.little_endian_array();
-}
 
-bool operator!=(const BasicDecimal256& left, const BasicDecimal256& right) {
-  return left.little_endian_array() != right.little_endian_array();
-}
 
 bool operator<(const BasicDecimal256& left, const BasicDecimal256& right) {
   const std::array<uint64_t, 4>& lhs = left.little_endian_array();
@@ -938,18 +932,6 @@ bool operator<(const BasicDecimal256& left, const BasicDecimal256& right) {
              ? static_cast<int64_t>(lhs[3]) < static_cast<int64_t>(rhs[3])
              : lhs[2] != rhs[2] ? lhs[2] < rhs[2]
                                 : lhs[1] != rhs[1] ? lhs[1] < rhs[1] : lhs[0] < rhs[0];
-}
-
-bool operator<=(const BasicDecimal256& left, const BasicDecimal256& right) {
-  return !operator>(left, right);
-}
-
-bool operator>(const BasicDecimal256& left, const BasicDecimal256& right) {
-  return operator<(right, left);
-}
-
-bool operator>=(const BasicDecimal256& left, const BasicDecimal256& right) {
-  return !operator<(left, right);
 }
 
 }  // namespace arrow
