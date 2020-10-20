@@ -923,8 +923,6 @@ BasicDecimal256 operator*(const BasicDecimal256& left, const BasicDecimal256& ri
   return result;
 }
 
-
-
 bool operator<(const BasicDecimal256& left, const BasicDecimal256& right) {
   const std::array<uint64_t, 4>& lhs = left.little_endian_array();
   const std::array<uint64_t, 4>& rhs = right.little_endian_array();
