@@ -15,37 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.flight.auth;
-
-import org.apache.arrow.flight.FlightConstants;
-
-import io.grpc.Context;
-import io.grpc.Metadata.BinaryMarshaller;
-import io.grpc.Metadata.Key;
-import io.grpc.MethodDescriptor;
+package org.apache.arrow.flight.auth2;
 
 /**
  * Constants used in authorization of flight connections.
  */
 public final class AuthConstants {
+  public static final String PEER_IDENTITY_KEY = "arrow-flight-peer-identity";
+  public static final String BEARER_PREFIX = "Bearer ";
+  public static final String BASIC_PREFIX = "Basic ";
+  public static final String AUTHORIZATION_HEADER = "Authorization";
 
-  public static final String HANDSHAKE_DESCRIPTOR_NAME = MethodDescriptor
-      .generateFullMethodName(FlightConstants.SERVICE, "Handshake");
-  public static final String TOKEN_NAME = "Auth-Token-bin";
-  public static final Key<byte[]> TOKEN_KEY = Key.of(TOKEN_NAME, new BinaryMarshaller<byte[]>() {
-
-    @Override
-    public byte[] toBytes(byte[] value) {
-      return value;
-    }
-
-    @Override
-    public byte[] parseBytes(byte[] serialized) {
-      return serialized;
-    }
-  });
-
-  public static final Context.Key<String> PEER_IDENTITY_KEY = Context.keyWithDefault("arrow-flight-peer-identity", "");
-
-  private AuthConstants() {}
+  private AuthConstants() {
+  }
 }

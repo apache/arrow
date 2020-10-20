@@ -17,23 +17,39 @@
 
 package org.apache.arrow.flight.auth;
 
-import java.util.function.Consumer;
-
-import org.apache.arrow.flight.CallHeaders;
+import java.util.Iterator;
 
 /**
- * Client credentials that use a bearer token.
+ * Implement authentication for Flight on the client side.
  */
-public final class BearerCredentialWriter implements Consumer<CallHeaders> {
+public interface ClientAuthHandler {
+  /**
+   * Handle the initial handshake with the server.
+   * @param outgoing A channel to send data to the server.
+   * @param incoming An iterator of incoming data from the server.
+   */
+  void authenticate(ClientAuthSender outgoing, Iterator<byte[]> incoming);
 
-  private final String bearer;
+  /**
+   * Get the per-call authentication token.
+   */
+  byte[] getCallToken();
 
-  public BearerCredentialWriter(String bearer) {
-    this.bearer = bearer;
+  /**
+   * A communication channel to the server during initial connection.
+   */
+  interface ClientAuthSender {
+
+    /**
+     * Send the server a message.
+     */
+    void send(byte[] payload);
+
+    /**
+     * Signal an error to the server and abort the authentication attempt.
+     */
+    void onError(Throwable cause);
+
   }
 
-  @Override
-  public void accept(CallHeaders outputHeaders) {
-    outputHeaders.insert(AuthConstants.AUTHORIZATION_HEADER, AuthConstants.BEARER_PREFIX + bearer);
-  }
 }

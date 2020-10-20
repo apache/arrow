@@ -15,12 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.flight.auth;
+package org.apache.arrow.flight.auth2;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.Optional;
 
+import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.Criteria;
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightInfo;
@@ -30,6 +30,8 @@ import org.apache.arrow.flight.FlightStream;
 import org.apache.arrow.flight.FlightTestUtil;
 import org.apache.arrow.flight.NoOpFlightProducer;
 import org.apache.arrow.flight.Ticket;
+import org.apache.arrow.flight.auth2.BasicCallHeaderAuthenticator;
+import org.apache.arrow.flight.grpc.CredentialCallOption;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
@@ -40,15 +42,18 @@ import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 
 public class TestBasicAuth {
 
   private static final String USERNAME = "flight";
+  private static final String NO_USERNAME = "";
   private static final String PASSWORD = "woohoo";
-  private static final byte[] VALID_TOKEN = "my_token".getBytes();
+  private static final String VALID_TOKEN = "my_token";
 
   private FlightClient client;
   private FlightServer server;
@@ -56,60 +61,67 @@ public class TestBasicAuth {
 
   @Test
   public void validAuth() {
-    client.authenticateBasic(USERNAME, PASSWORD);
-    Assert.assertTrue(ImmutableList.copyOf(client.listFlights(Criteria.ALL)).size() == 0);
+    final CredentialCallOption bearerToken = client.authenticateBasic(USERNAME, PASSWORD).get();
+    Assert.assertTrue(ImmutableList.copyOf(client
+        .listFlights(Criteria.ALL, bearerToken))
+        .isEmpty());
   }
 
+  // ARROW-7722: this test occasionally leaks memory
+  @Ignore
   @Test
-  public void asyncCall() {
-    client.authenticateBasic(USERNAME, PASSWORD);
-    client.listFlights(Criteria.ALL);
-    FlightStream s = client.getStream(new Ticket(new byte[1]));
-
-    while (s.next()) {
-      Assert.assertEquals(4095, s.getRoot().getRowCount());
-      s.getRoot().clear();
+  public void asyncCall() throws Exception {
+    final CredentialCallOption bearerToken = client.authenticateBasic(USERNAME, PASSWORD).get();
+    client.listFlights(Criteria.ALL, bearerToken);
+    try (final FlightStream s = client.getStream(new Ticket(new byte[1]))) {
+      while (s.next()) {
+        Assert.assertEquals(4095, s.getRoot().getRowCount());
+      }
     }
   }
 
   @Test
   public void invalidAuth() {
-    FlightTestUtil.assertCode(FlightStatusCode.UNAUTHENTICATED, () -> {
-      client.authenticateBasic(USERNAME, "WRONG");
-    });
+    FlightTestUtil.assertCode(FlightStatusCode.UNAUTHENTICATED, () ->
+        client.authenticateBasic(USERNAME, "WRONG"));
 
-    FlightTestUtil.assertCode(FlightStatusCode.UNAUTHENTICATED, () -> {
-      client.listFlights(Criteria.ALL).forEach(action -> Assert.fail());
-    });
+    FlightTestUtil.assertCode(FlightStatusCode.UNAUTHENTICATED, () ->
+            client.authenticateBasic(NO_USERNAME, PASSWORD));
+
+    FlightTestUtil.assertCode(FlightStatusCode.UNAUTHENTICATED, () ->
+        client.listFlights(Criteria.ALL).forEach(action -> Assert.fail()));
   }
 
   @Test
   public void didntAuth() {
-    FlightTestUtil.assertCode(FlightStatusCode.UNAUTHENTICATED, () -> {
-      client.listFlights(Criteria.ALL).forEach(action -> Assert.fail());
-    });
+    FlightTestUtil.assertCode(FlightStatusCode.UNAUTHENTICATED, () ->
+        client.listFlights(Criteria.ALL).forEach(action -> Assert.fail()));
   }
 
   @Before
   public void setup() throws IOException {
     allocator = new RootAllocator(Long.MAX_VALUE);
-    final BasicServerAuthHandler.BasicAuthValidator validator = new BasicServerAuthHandler.BasicAuthValidator() {
+    final BasicCallHeaderAuthenticator.BasicAuthValidator validator =
+        new BasicCallHeaderAuthenticator.BasicAuthValidator() {
 
       @Override
-      public Optional<String> isValid(byte[] token) {
-        if (Arrays.equals(token, VALID_TOKEN)) {
-          return Optional.of(USERNAME);
+      public Optional<String> validateCredentials(String username, String password) throws Exception {
+        if (Strings.isNullOrEmpty(username)) {
+          throw CallStatus.UNAUTHENTICATED.withDescription("Credentials not supplied").toRuntimeException();
         }
-        return Optional.empty();
+
+        if (!USERNAME.equals(username) || !PASSWORD.equals(password)) {
+          throw CallStatus.UNAUTHENTICATED.withDescription("Username or password is invalid.").toRuntimeException();
+        }
+        return Optional.of("valid:" + username);
       }
 
       @Override
-      public byte[] getToken(String username, String password) {
-        if (USERNAME.equals(username) && PASSWORD.equals(password)) {
-          return VALID_TOKEN;
-        } else {
-          throw new IllegalArgumentException("invalid credentials");
+      public Optional<String> isValid(String token) {
+        if (token.equals(VALID_TOKEN)) {
+          return Optional.of(USERNAME);
         }
+        return Optional.empty();
       }
     };
 
@@ -134,16 +146,16 @@ public class TestBasicAuth {
               return;
             }
             final Schema pojoSchema = new Schema(ImmutableList.of(Field.nullable("a",
-                Types.MinorType.BIGINT.getType())));
-            VectorSchemaRoot root = VectorSchemaRoot.create(pojoSchema, allocator);
-            listener.start(root);
-            root.allocateNew();
-            root.setRowCount(4095);
-            listener.putNext();
-            root.clear();
-            listener.completed();
+                    Types.MinorType.BIGINT.getType())));
+            try (VectorSchemaRoot root = VectorSchemaRoot.create(pojoSchema, allocator)) {
+              listener.start(root);
+              root.allocateNew();
+              root.setRowCount(4095);
+              listener.putNext();
+              listener.completed();
+            }
           }
-        }).authHandler(new BasicServerAuthHandler(validator)).build());
+        }).headerAuthenticator(new BasicCallHeaderAuthenticator(validator)).build());
     client = FlightClient.builder(allocator, server.getLocation()).build();
   }
 
@@ -151,5 +163,4 @@ public class TestBasicAuth {
   public void shutdown() throws Exception {
     AutoCloseables.close(client, server, allocator);
   }
-
 }

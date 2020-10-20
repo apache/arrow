@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.flight.auth;
+package org.apache.arrow.flight.auth2;
 
 import java.util.Optional;
 
@@ -25,7 +25,7 @@ import org.apache.arrow.flight.CallStatus;
 /**
  * Partial implementation of ServerAuthHandler for bearer-token based authentication.
  */
-abstract class BearerTokenAuthHandler implements ServerAuthHandler {
+abstract class BearerTokenAuthHandler implements CallHeaderAuthenticator {
   @Override
   public AuthResult authenticate(CallHeaders headers) {
     final String bearerToken = AuthUtilities.getValueFromAuthHeader(headers, AuthConstants.BEARER_PREFIX);

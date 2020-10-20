@@ -17,16 +17,14 @@
 
 package org.apache.arrow.flight.auth;
 
-import java.io.UnsupportedEncodingException;
-import java.nio.charset.StandardCharsets;
-import java.util.Base64;
+import java.util.Iterator;
 import java.util.Optional;
 
-import org.apache.arrow.flight.CallHeaders;
-import org.apache.arrow.flight.CallStatus;
-import org.apache.arrow.flight.FlightRuntimeException;
+import org.apache.arrow.flight.impl.Flight.BasicAuth;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.google.protobuf.InvalidProtocolBufferException;
 
 /**
  * A ServerAuthHandler for username/password authentication.
@@ -41,62 +39,36 @@ public class BasicServerAuthHandler implements ServerAuthHandler {
     this.authValidator = authValidator;
   }
 
-  @Override
-  public AuthResult authenticate(CallHeaders headers) {
-    final String authEncoded = AuthUtilities.getValueFromAuthHeader(headers, AuthConstants.BASIC_PREFIX);
-    if (authEncoded == null) {
-      throw CallStatus.UNAUTHENTICATED.toRuntimeException();
-    }
+  /**
+   * Interface that this handler delegates for determining if credentials are valid.
+   */
+  public interface BasicAuthValidator {
 
-    try {
-      // The value has the format Base64(<username>:<password>)
-      final String authDecoded = new String(Base64.getDecoder().decode(authEncoded), StandardCharsets.UTF_8);
-      final int colonPos = authDecoded.indexOf(':');
-      if (colonPos == -1) {
-        throw CallStatus.UNAUTHORIZED.toRuntimeException();
-      }
+    byte[] getToken(String username, String password) throws Exception;
 
-      final String user = authDecoded.substring(0, colonPos);
-      final String password = authDecoded.substring(colonPos + 1);
-      final Optional<String> bearerToken = authValidator.validateCredentials(user, password);
-      return new AuthResult() {
-        @Override
-        public String getPeerIdentity() {
-          return user;
-        }
+    Optional<String> isValid(byte[] token);
 
-        @Override
-        public Optional<String> getBearerToken() {
-          return bearerToken;
-        }
-      };
-
-    } catch (UnsupportedEncodingException ex) {
-      throw CallStatus.INTERNAL.withCause(ex).toRuntimeException();
-    } catch (FlightRuntimeException ex) {
-      throw ex;
-    } catch (Exception ex) {
-      throw CallStatus.UNAUTHORIZED.withCause(ex).toRuntimeException();
-    }
   }
 
   @Override
-  public boolean validateBearer(String bearerToken) {
+  public boolean authenticate(ServerAuthSender outgoing, Iterator<byte[]> incoming) {
+    byte[] bytes = incoming.next();
+    try {
+      BasicAuth auth = BasicAuth.parseFrom(bytes);
+      byte[] token = authValidator.getToken(auth.getUsername(), auth.getPassword());
+      outgoing.send(token);
+      return true;
+    } catch (InvalidProtocolBufferException e) {
+      logger.debug("Failure parsing auth message.", e);
+    } catch (Exception e) {
+      logger.debug("Unknown error during authorization.", e);
+    }
+
     return false;
   }
 
   @Override
-  public boolean enableCachedCredentials() {
-    return true;
-  }
-
-  /**
-   * Interface that this handler delegates to for determining if credentials are valid.
-   */
-  public interface BasicAuthValidator {
-
-    Optional<String> validateCredentials(String username, String password) throws Exception;
-
-    Optional<String> isValid(String token);
+  public Optional<String> isValid(byte[] token) {
+    return authValidator.isValid(token);
   }
 }

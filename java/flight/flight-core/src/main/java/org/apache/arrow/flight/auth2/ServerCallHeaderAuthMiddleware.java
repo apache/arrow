@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.flight.auth;
+package org.apache.arrow.flight.auth2;
 
 import org.apache.arrow.flight.CallHeaders;
 import org.apache.arrow.flight.CallInfo;
@@ -29,42 +29,43 @@ import org.slf4j.LoggerFactory;
  * Middleware that's used to validate credentials during the handshake and verify
  * the bearer token in subsequent requests.
  */
-public class ServerAuthMiddleware implements FlightServerMiddleware {
-  private static final Logger logger = LoggerFactory.getLogger(ServerAuthMiddleware.class);
+public class ServerCallHeaderAuthMiddleware implements FlightServerMiddleware {
+  private static final Logger logger = LoggerFactory.getLogger(ServerCallHeaderAuthMiddleware.class);
 
   /**
    * Factory for accessing ServerAuthMiddleware.
    */
-  public static class Factory implements FlightServerMiddleware.Factory<ServerAuthMiddleware> {
-    private final ServerAuthHandler authHandler;
+  public static class Factory implements FlightServerMiddleware.Factory<ServerCallHeaderAuthMiddleware> {
+    private final CallHeaderAuthenticator authHandler;
     private final GeneratedBearerTokenAuthHandler bearerTokenAuthHandler;
 
     /**
      * Construct a factory with the given auth handler.
      * @param authHandler The auth handler what will be used for authenticating requests.
      */
-    public Factory(ServerAuthHandler authHandler) {
+    public Factory(CallHeaderAuthenticator authHandler) {
       this.authHandler = authHandler;
       bearerTokenAuthHandler = authHandler.enableCachedCredentials() ?
           new GeneratedBearerTokenAuthHandler() : null;
     }
 
     @Override
-    public ServerAuthMiddleware onCallStarted(CallInfo callInfo, CallHeaders incomingHeaders, RequestContext context) {
+    public ServerCallHeaderAuthMiddleware onCallStarted(CallInfo callInfo, CallHeaders incomingHeaders,
+                                                        RequestContext context) {
       // Check if bearer token auth is being used, and if we've enabled use of server-generated
       // bearer tokens.
       if (authHandler.enableCachedCredentials()) {
         final String bearerTokenFromHeaders =
             AuthUtilities.getValueFromAuthHeader(incomingHeaders, AuthConstants.BEARER_PREFIX);
         if (bearerTokenFromHeaders != null) {
-          final ServerAuthHandler.AuthResult result = bearerTokenAuthHandler.authenticate(incomingHeaders);
+          final CallHeaderAuthenticator.AuthResult result = bearerTokenAuthHandler.authenticate(incomingHeaders);
           context.put(AuthConstants.PEER_IDENTITY_KEY, result.getPeerIdentity());
-          return new ServerAuthMiddleware(result.getBearerToken().get());
+          return new ServerCallHeaderAuthMiddleware(result.getBearerToken().get());
         }
       }
 
       // Delegate to server auth handler to do the validation.
-      final ServerAuthHandler.AuthResult result = authHandler.authenticate(incomingHeaders);
+      final CallHeaderAuthenticator.AuthResult result = authHandler.authenticate(incomingHeaders);
       final String bearerToken;
       if (authHandler.enableCachedCredentials()) {
         bearerToken = bearerTokenAuthHandler.registerBearer(result);
@@ -72,13 +73,13 @@ public class ServerAuthMiddleware implements FlightServerMiddleware {
         bearerToken = result.getBearerToken().get();
       }
       context.put(AuthConstants.PEER_IDENTITY_KEY, result.getPeerIdentity());
-      return new ServerAuthMiddleware(bearerToken);
+      return new ServerCallHeaderAuthMiddleware(bearerToken);
     }
   }
 
   private final String bearerToken;
 
-  public ServerAuthMiddleware(String bearerToken) {
+  public ServerCallHeaderAuthMiddleware(String bearerToken) {
     this.bearerToken = bearerToken;
   }
 

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.flight.auth;
+package org.apache.arrow.flight.auth2;
 
 import java.nio.ByteBuffer;
 import java.util.Base64;

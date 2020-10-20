@@ -15,30 +15,34 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.flight.auth;
-
-import java.nio.charset.StandardCharsets;
-import java.util.Base64;
-import java.util.function.Consumer;
+package org.apache.arrow.flight.auth2;
 
 import org.apache.arrow.flight.CallHeaders;
+import org.apache.arrow.flight.auth2.AuthConstants;
 
 /**
- * Client credentials that use a username and password.
+ * Utility class for completing the auth process.
  */
-public final class BasicAuthCredentialWriter implements Consumer<CallHeaders> {
+public final class AuthUtilities {
+  private AuthUtilities() {
 
-  private final String name;
-  private final String password;
-
-  public BasicAuthCredentialWriter(String name, String password) {
-    this.name = name;
-    this.password = password;
   }
 
-  @Override
-  public void accept(CallHeaders outputHeaders) {
-    outputHeaders.insert(AuthConstants.AUTHORIZATION_HEADER, AuthConstants.BASIC_PREFIX +
-        Base64.getEncoder().encodeToString(String.format("%s:%s", name, password).getBytes(StandardCharsets.UTF_8)));
+  /**
+   * Helper method for retrieving a value from the Authorization header.
+   *
+   * @param headers     The headers to inspect.
+   * @param valuePrefix The prefix within the value portion of the header to extract away.
+   * @return The header value.
+   */
+  public static String getValueFromAuthHeader(CallHeaders headers, String valuePrefix) {
+    final String authHeaderValue = headers.get(AuthConstants.AUTHORIZATION_HEADER);
+    if (authHeaderValue != null) {
+      if (authHeaderValue.regionMatches(true, 0, valuePrefix, 0, valuePrefix.length())) {
+        return authHeaderValue.substring(valuePrefix.length());
+      }
+    }
+    return null;
   }
+
 }
