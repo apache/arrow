@@ -16,7 +16,7 @@
 // under the License.
 
 use std::cmp;
-use std::io::{self, Error, ErrorKind, Read, Seek, SeekFrom};
+use std::io::{self, Error, ErrorKind, Read};
 use std::rc::Rc;
 
 /// This is object to use if your file is already in memory.
@@ -71,36 +71,6 @@ impl SliceableCursor {
 }
 
 /// Implementation inspired by std::io::Cursor
-impl Seek for SliceableCursor {
-    fn seek(&mut self, style: SeekFrom) -> io::Result<u64> {
-        // base_pos the pos in the original Vec
-        let (base_pos, offset) = match style {
-            SeekFrom::Start(n) => {
-                self.pos = self.start + n;
-                return Ok(n);
-            }
-            SeekFrom::End(n) => (self.start + self.length as u64, n),
-            SeekFrom::Current(n) => (self.pos, n),
-        };
-        let new_pos = if offset >= 0 {
-            base_pos.checked_add(offset as u64)
-        } else {
-            base_pos.checked_sub((offset.wrapping_neg()) as u64)
-        };
-        match new_pos {
-            Some(n) => {
-                self.pos = n;
-                Ok(self.pos - self.start)
-            }
-            None => Err(Error::new(
-                ErrorKind::InvalidInput,
-                "invalid seek to a negative or overflowing position",
-            )),
-        }
-    }
-}
-
-/// Implementation inspired by std::io::Cursor
 impl Read for SliceableCursor {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         let n = Read::read(&mut self.remaining_slice(), buf)?;
@@ -139,65 +109,5 @@ mod tests {
     fn read_all_slice() {
         let cursor = get_u8_range().slice(10, 10).expect("error while slicing");
         check_read_all(cursor, 10, 19);
-    }
-
-    #[test]
-    fn seek_from_start_whole() {
-        let mut cursor = get_u8_range();
-        let seek_result = cursor.seek(SeekFrom::Start(100));
-        assert!(!seek_result.is_err(), "seek error");
-        assert_eq!(100, seek_result.unwrap());
-        check_read_all(cursor, 100, 255);
-    }
-
-    #[test]
-    fn seek_from_end_whole() {
-        let mut cursor = get_u8_range();
-        let seek_result = cursor.seek(SeekFrom::End(-100));
-        assert!(!seek_result.is_err(), "seek error");
-        assert_eq!(156, seek_result.unwrap());
-        check_read_all(cursor, 156, 255);
-    }
-
-    #[test]
-    fn seek_from_current_whole() {
-        let mut cursor = get_u8_range();
-        let seek_result = cursor.seek(SeekFrom::Current(110));
-        assert!(!seek_result.is_err(), "seek error");
-        assert_eq!(110, seek_result.unwrap());
-        let seek_result = cursor.seek(SeekFrom::Current(-10));
-        assert!(!seek_result.is_err(), "seek error");
-        assert_eq!(100, seek_result.unwrap());
-        check_read_all(cursor, 100, 255);
-    }
-
-    #[test]
-    fn seek_from_start_slice() {
-        let mut cursor = get_u8_range().slice(100, 100).expect("error while slicing");
-        let seek_result = cursor.seek(SeekFrom::Start(25));
-        assert!(!seek_result.is_err(), "seek error");
-        assert_eq!(25, seek_result.unwrap());
-        check_read_all(cursor, 125, 199);
-    }
-
-    #[test]
-    fn seek_from_end_slice() {
-        let mut cursor = get_u8_range().slice(100, 100).expect("error while slicing");
-        let seek_result = cursor.seek(SeekFrom::End(-25));
-        assert!(!seek_result.is_err(), "seek error");
-        assert_eq!(75, seek_result.unwrap());
-        check_read_all(cursor, 175, 199);
-    }
-
-    #[test]
-    fn seek_from_current_slice() {
-        let mut cursor = get_u8_range().slice(100, 100).expect("error while slicing");
-        let seek_result = cursor.seek(SeekFrom::Current(80));
-        assert!(!seek_result.is_err(), "seek error");
-        assert_eq!(80, seek_result.unwrap());
-        let seek_result = cursor.seek(SeekFrom::Current(-20));
-        assert!(!seek_result.is_err(), "seek error");
-        assert_eq!(60, seek_result.unwrap());
-        check_read_all(cursor, 160, 199);
     }
 }
