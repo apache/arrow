@@ -43,12 +43,14 @@ namespace internal {
 ///
 /// Specializations of FormatValueTraits for `ARROW_TYPE` must define:
 /// - A member type `value_type` which will be formatted.
-/// - A static member function `MaxSize(const ARROW_TYPE& t)` indicating the
+/// - A static data member `size_t max_size` indicating the
 ///   maximum number of characters which formatting a `value_type` may yield.
 /// - The static member function `Convert`, callable with signature
 ///   `(const ARROW_TYPE& t, const value_type& v, char* out)`. `Convert` returns
 ///   the number of characters written into `out`. Parameters required for formatting
 ///   (for example a timestamp's TimeUnit) are acquired from the type parameter `t`.
+///   Callers are responsible for ensuring that at least `max_size` characters
+///   pointed to by `out` are allocated and writable.
 template <typename ARROW_TYPE, typename Enable = void>
 struct FormatValueTraits;
 
@@ -59,25 +61,35 @@ size_t FormatValue(const T& type, typename FormatValueTraits<T>::value_type v,
   return FormatValueTraits<T>::Convert(type, v, out);
 }
 
-template <typename T>
-std::string FormatValue(const T& type, typename FormatValueTraits<T>::value_type v) {
-  std::string out(FormatValueTraits<T>::MaxSize(type), '\0');
-  size_t size = FormatValueTraits<T>::Convert(type, v, &out[0]);
-  out.resize(size);
+template <size_t N>
+struct FormatBuffer {
+  std::array<char, N> buffer;
+  int8_t size;
+
+  const char* data() const { return buffer.data(); }
+  util::string_view view() const { return {buffer.data(), static_cast<size_t>(size)}; }
+  std::string to_string() const { return view().to_string(); }
+};
+
+template <typename T, size_t N = FormatValueTraits<T>::max_size>
+FormatBuffer<N> FormatValue(const T& type, typename FormatValueTraits<T>::value_type v) {
+  FormatBuffer<N> out;
+  out.size =
+      static_cast<int8_t>(FormatValueTraits<T>::Convert(type, v, out.buffer.data()));
   return out;
 }
 
 template <typename T>
 enable_if_parameter_free<T, size_t> FormatValue(
     typename FormatValueTraits<T>::value_type v, char* out) {
-  static T type;
+  static const auto& type = checked_cast<const T&>(*TypeTraits<T>::type_singleton());
   return FormatValue(type, v, out);
 }
 
-template <typename T>
-enable_if_parameter_free<T, std::string> FormatValue(
+template <typename T, size_t N = FormatValueTraits<T>::max_size>
+enable_if_parameter_free<T, FormatBuffer<N>> FormatValue(
     typename FormatValueTraits<T>::value_type v) {
-  static T type;
+  static const auto& type = checked_cast<const T&>(*TypeTraits<T>::type_singleton());
   return FormatValue(type, v);
 }
 
@@ -107,7 +119,7 @@ template <>
 struct FormatValueTraits<BooleanType> {
   using value_type = bool;
 
-  static constexpr size_t MaxSize(const BooleanType&) { return 5; }
+  static constexpr size_t max_size = 5;
 
   static size_t Convert(const BooleanType&, bool value, char* out) {
     constexpr util::string_view true_string = "true";
@@ -200,8 +212,6 @@ struct FormatValueTraits<ARROW_TYPE,
   static constexpr size_t max_size =
       detail::Digits10(std::numeric_limits<value_type>::max()) + 1;
 
-  static constexpr size_t MaxSize(const ARROW_TYPE&) { return max_size; }
-
   static size_t Convert(const ARROW_TYPE&, value_type value, char* out) {
     detail::DigitBuffer<max_size> buffer;
     detail::FormatAllDigits(detail::Abs(value), &buffer.cursor);
@@ -217,8 +227,8 @@ struct FormatValueTraits<ARROW_TYPE,
 
 namespace detail {
 
-ARROW_EXPORT int FormatFloat(float v, size_t buffer_size, char* out);
-ARROW_EXPORT int FormatFloat(double v, size_t buffer_size, char* out);
+ARROW_EXPORT int FormatFloat(float v, int buffer_size, char* out);
+ARROW_EXPORT int FormatFloat(double v, int buffer_size, char* out);
 
 }  // namespace detail
 
@@ -235,8 +245,6 @@ struct FormatValueTraits<ARROW_TYPE,
       2 +                                              // 'e+' or 'e-'
       detail::Digits10(                                // exponent digits
           std::numeric_limits<value_type>::max_exponent10);
-
-  static constexpr size_t MaxSize(const ARROW_TYPE&) { return max_size; }
 
   static size_t Convert(const ARROW_TYPE&, value_type value, char* out) {
     std::array<char, max_size> buffer;
@@ -304,8 +312,6 @@ struct FormatValueTraits<T, enable_if_date<T>> {
 
   static constexpr size_t max_size = detail::BufferSizeYYYY_MM_DD();
 
-  static constexpr size_t MaxSize(const T&) { return max_size; }
-
   static size_t Convert(const T&, value_type value, char* out) {
     arrow_vendored::date::days since_epoch;
     if (T::type_id == Type::DATE32) {
@@ -329,7 +335,10 @@ template <typename T>
 struct FormatValueTraits<T, enable_if_time<T>> {
   using value_type = typename T::c_type;
 
-  static size_t MaxSize(const T& type) { return detail::BufferSizeHH_MM_SS(type.unit()); }
+  static constexpr size_t max_size =
+      std::is_same<T, Time32Type>::value
+          ? detail::BufferSizeHH_MM_SS<std::chrono::milliseconds>()
+          : detail::BufferSizeHH_MM_SS<std::chrono::nanoseconds>();
 
   struct ConvertImpl {
     template <typename Duration>
@@ -353,9 +362,9 @@ template <>
 struct FormatValueTraits<TimestampType> {
   using value_type = int64_t;
 
-  static size_t MaxSize(const TimestampType& type) {
-    return detail::BufferSizeYYYY_MM_DD() + 1 + detail::BufferSizeHH_MM_SS(type.unit());
-  }
+  static constexpr size_t max_size =
+      detail::BufferSizeYYYY_MM_DD() + 1 +
+      detail::BufferSizeHH_MM_SS<std::chrono::nanoseconds>();
 
   struct ConvertImpl {
     template <typename Duration>

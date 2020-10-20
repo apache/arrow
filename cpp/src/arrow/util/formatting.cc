@@ -37,17 +37,17 @@ static DoubleToStringConverter g_double_converter(
     DoubleToStringConverter::EMIT_POSITIVE_EXPONENT_SIGN, "inf", "nan", 'e', -6, 10, 6,
     0);
 
-int FormatFloat(float v, size_t buffer_size, char* buffer) {
+int FormatFloat(float v, int buffer_size, char* buffer) {
   // StringBuilder checks bounds in debug mode for us
-  util::double_conversion::StringBuilder builder(buffer, static_cast<int>(buffer_size));
+  util::double_conversion::StringBuilder builder(buffer, buffer_size);
   bool result = g_double_converter.ToShortestSingle(v, &builder);
   DCHECK(result);
   ARROW_UNUSED(result);
   return builder.position();
 }
 
-int FormatFloat(double v, size_t buffer_size, char* buffer) {
-  util::double_conversion::StringBuilder builder(buffer, static_cast<int>(buffer_size));
+int FormatFloat(double v, int buffer_size, char* buffer) {
+  util::double_conversion::StringBuilder builder(buffer, buffer_size);
   bool result = g_double_converter.ToShortest(v, &builder);
   DCHECK(result);
   ARROW_UNUSED(result);

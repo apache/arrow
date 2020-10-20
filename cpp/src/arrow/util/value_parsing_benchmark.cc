@@ -181,7 +181,7 @@ static void TimestampParsingStrptime(
 template <typename ARROW_TYPE, typename C_TYPE = typename ARROW_TYPE::c_type>
 static void IntegerFormatting(benchmark::State& state) {  // NOLINT non-const reference
   std::vector<C_TYPE> values = MakeInts<C_TYPE>(1000);
-  std::vector<char> buffer(FormatValueTraits<ARROW_TYPE>::MaxSize({}));
+  std::vector<char> buffer(FormatValueTraits<ARROW_TYPE>::max_size);
 
   for (auto _ : state) {
     for (const auto value : values) {
@@ -195,7 +195,7 @@ static void IntegerFormatting(benchmark::State& state) {  // NOLINT non-const re
 template <typename ARROW_TYPE, typename C_TYPE = typename ARROW_TYPE::c_type>
 static void FloatFormatting(benchmark::State& state) {  // NOLINT non-const reference
   std::vector<C_TYPE> values = MakeFloats<C_TYPE>(1000);
-  std::vector<char> buffer(FormatValueTraits<ARROW_TYPE>::MaxSize({}));
+  std::vector<char> buffer(FormatValueTraits<ARROW_TYPE>::max_size);
 
   for (auto _ : state) {
     for (const auto value : values) {

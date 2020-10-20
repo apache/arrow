@@ -476,7 +476,7 @@ class ArrayWriter {
   WriteDataValues(const ArrayType& arr) {
     for (int64_t i = 0; i < arr.length(); ++i) {
       if (arr.IsValid(i)) {
-        writer_->String(FormatValue<PhysicalType>(arr.Value(i)));
+        writer_->String(FormatValue<PhysicalType>(arr.Value(i)).to_string());
       } else {
         static const std::string null_string = "0";
         writer_->String(null_string);
@@ -573,7 +573,7 @@ class ArrayWriter {
       // Represent 64-bit integers as strings, as JSON numbers cannot represent
       // them exactly.
       for (int i = 0; i < length; ++i) {
-        writer_->String(FormatValue<ARROW_TYPE>(values[i]));
+        writer_->String(FormatValue<ARROW_TYPE>(values[i]).to_string());
       }
     }
     writer_->EndArray();

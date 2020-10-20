@@ -54,7 +54,6 @@ struct CastFunctor<
 
   static Status Convert(KernelContext* ctx, const ArrayData& input, ArrayData* output) {
     const auto& type = checked_cast<const I&>(*input.type);
-    auto max_size = FormatValueTraits<I>::MaxSize(type);
     BuilderType builder(input.type, ctx->memory_pool());
     RETURN_NOT_OK(builder.Reserve(input.length));
     RETURN_NOT_OK(VisitArrayDataInline<I>(
@@ -62,7 +61,7 @@ struct CastFunctor<
         [&](value_type v) {
           // TODO(bkietz) only ReserveData at the beginning of each bitblock,
           // where we can reserve max_size * popcount
-          RETURN_NOT_OK(builder.ReserveData(max_size));
+          RETURN_NOT_OK(builder.ReserveData(FormatValueTraits<I>::max_size));
           builder.UnsafeFormat([&](char* out) { return FormatValue(type, v, out); });
           return Status::OK();
         },

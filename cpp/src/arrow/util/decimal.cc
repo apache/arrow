@@ -307,9 +307,8 @@ static void AdjustIntegerStringWithScale(int32_t scale, std::string* str) {
     if (adjusted_exponent >= 0) {
       str->push_back('+');
     }
-    std::array<char, internal::FormatValueTraits<Int32Type>::max_size> buf;
-    auto size = internal::FormatValue<Int32Type>(adjusted_exponent, buf.data());
-    str->append(buf.data(), size);
+    auto exp = internal::FormatValue<Int32Type>(adjusted_exponent);
+    str->append(exp.data(), exp.size);
     return;
   }
 

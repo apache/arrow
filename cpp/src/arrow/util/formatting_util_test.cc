@@ -35,7 +35,7 @@ using internal::FormatValueTraits;
 template <typename ARROW_TYPE, typename Formatter = FormatValueTraits<ARROW_TYPE>,
           typename V = typename Formatter::value_type>
 void AssertFormat(const ARROW_TYPE& type, V value, const std::string& expected) {
-  ASSERT_EQ(FormatValue(type, value), expected)
+  ASSERT_EQ(FormatValue(type, value).to_string(), expected)
       << "Formatting failed (value = " << value << ")";
 }
 

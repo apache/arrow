@@ -499,7 +499,8 @@ template <typename ScalarType, typename T = typename ScalarType::TypeClass>
 internal::enable_if_formattable<T, Status> CastImpl(const ScalarType& from,
                                                     StringScalar* to) {
   const auto& from_type = checked_cast<const T&>(*from.type);
-  to->value = Buffer::FromString(internal::FormatValue(from_type, from.value));
+  to->value =
+      Buffer::FromString(internal::FormatValue(from_type, from.value).to_string());
   return Status::OK();
 }
 
