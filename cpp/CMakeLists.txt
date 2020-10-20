@@ -162,6 +162,10 @@ endif()
 
 find_package(ClangTools)
 find_package(InferTools)
+
+find_package(librados REQUIRED)
+include_directories(${LIBRADOS_INCLUDE_DIR})
+
 if("$ENV{CMAKE_EXPORT_COMPILE_COMMANDS}" STREQUAL "1" OR CLANG_TIDY_FOUND OR INFER_FOUND)
   # Generate a Clang compile_commands.json "compilation database" file for use
   # with various development tools, such as Vim's YouCompleteMe plugin.

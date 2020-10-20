@@ -21,13 +21,17 @@ arrow_install_all_headers("arrow/dataset")
 
 set(ARROW_DATASET_SRCS
     dataset.cc
+    dataset_rados.cc
     discovery.cc
     file_base.cc
     file_ipc.cc
     filter.cc
     partition.cc
     projector.cc
-    scanner.cc)
+    scanner.cc
+    rados_utils.cc
+    rados.cc
+    mockrados.cc)
 
 set(ARROW_DATASET_LINK_STATIC arrow_static)
 set(ARROW_DATASET_LINK_SHARED arrow_shared)
@@ -57,6 +61,7 @@ add_arrow_lib(arrow_dataset
               PRIVATE_INCLUDES
               ${ARROW_DATASET_PRIVATE_INCLUDES}
               SHARED_LINK_LIBS
+              ${LIBRADOS_LIBRARIES}
               ${ARROW_DATASET_LINK_SHARED}
               STATIC_LINK_LIBS
               ${ARROW_DATASET_LINK_STATIC})
@@ -105,6 +110,7 @@ function(ADD_ARROW_DATASET_TEST REL_TEST_NAME)
 endfunction()
 
 add_arrow_dataset_test(dataset_test)
+add_arrow_dataset_test(dataset_rados_test)
 add_arrow_dataset_test(discovery_test)
 add_arrow_dataset_test(file_ipc_test)
 add_arrow_dataset_test(file_test)
