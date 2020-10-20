@@ -19,7 +19,7 @@ package org.apache.arrow.vector;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -86,29 +86,23 @@ public class TestDecimal256Vector {
   @Test
   public void testDecimal256DifferentScaleAndPrecision() {
     try (Decimal256Vector decimalVector = TestUtils.newVector(Decimal256Vector.class, "decimal",
-        new ArrowType.Decimal(4, 2, 256), allocator);) {
+        new ArrowType.Decimal(4, 2, 256), allocator)) {
       decimalVector.allocateNew();
 
       // test Decimal256 with different scale
-      boolean hasError = false;
-      try {
+      {
         BigDecimal decimal = new BigDecimal(BigInteger.valueOf(0), 3);
-        decimalVector.setSafe(0, decimal);
-      } catch (UnsupportedOperationException ue) {
-        hasError = true;
-      } finally {
-        assertTrue(hasError);
+        UnsupportedOperationException ue =
+            assertThrows(UnsupportedOperationException.class, () -> decimalVector.setSafe(0, decimal));
+        assertEquals("BigDecimal scale must equal that in the Arrow vector: 3 != 2", ue.getMessage());
       }
 
       // test BigDecimal with larger precision than initialized
-      hasError = false;
-      try {
+      {
         BigDecimal decimal = new BigDecimal(BigInteger.valueOf(12345), 2);
-        decimalVector.setSafe(0, decimal);
-      } catch (UnsupportedOperationException ue) {
-        hasError = true;
-      } finally {
-        assertTrue(hasError);
+        UnsupportedOperationException ue =
+            assertThrows(UnsupportedOperationException.class, () -> decimalVector.setSafe(0, decimal));
+        assertEquals("BigDecimal precision can not be greater than that in the Arrow vector: 5 > 4", ue.getMessage());
       }
     }
   }
@@ -249,12 +243,10 @@ public class TestDecimal256Vector {
       decimalVector.setBigEndian(insertionIdx++, new byte[0]);
 
       // Try inserting a buffer larger than 33 bytes and expect a failure
-      try {
-        decimalVector.setBigEndian(insertionIdx, new byte[33]);
-        fail("above statement should have failed");
-      } catch (IllegalArgumentException ex) {
-        assertTrue(ex.getMessage().equals("Invalid decimal value length. Valid length in [1 - 32], got 33"));
-      }
+      final int insertionIdxCapture = insertionIdx;
+      IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+          () -> decimalVector.setBigEndian(insertionIdxCapture, new byte[33]));
+      assertTrue(ex.getMessage().equals("Invalid decimal value length. Valid length in [1 - 32], got 33"));
       decimalVector.setValueCount(insertionIdx);
 
       // retrieve values and check if they are correct
