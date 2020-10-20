@@ -31,7 +31,7 @@ public interface FlightProducer {
    * @param ticket The application-defined ticket identifying this stream.
    * @param listener An interface for sending data back to the client.
    */
-  void getStream(FlightContext context, Ticket ticket, ServerStreamListener listener);
+  void getStream(CallContext context, Ticket ticket, ServerStreamListener listener);
 
   /**
    * List available data streams on this service.
@@ -40,7 +40,7 @@ public interface FlightProducer {
    * @param criteria Application-defined criteria for filtering streams.
    * @param listener An interface for sending data back to the client.
    */
-  void listFlights(FlightContext context, Criteria criteria,
+  void listFlights(CallContext context, Criteria criteria,
                    StreamListener<FlightInfo> listener);
 
   /**
@@ -50,7 +50,7 @@ public interface FlightProducer {
    * @param descriptor The descriptor identifying the data stream.
    * @return Metadata about the stream.
    */
-  FlightInfo getFlightInfo(FlightContext context, FlightDescriptor descriptor);
+  FlightInfo getFlightInfo(CallContext context, FlightDescriptor descriptor);
 
   /**
    * Get schema for a particular data stream.
@@ -59,7 +59,7 @@ public interface FlightProducer {
    * @param descriptor The descriptor identifying the data stream.
    * @return Schema for the stream.
    */
-  default SchemaResult getSchema(FlightContext context, FlightDescriptor descriptor) {
+  default SchemaResult getSchema(CallContext context, FlightDescriptor descriptor) {
     FlightInfo info = getFlightInfo(context, descriptor);
     return new SchemaResult(info.getSchema());
   }
@@ -71,10 +71,10 @@ public interface FlightProducer {
    * @param context Per-call context.
    * @param flightStream The data stream being uploaded.
    */
-  Runnable acceptPut(FlightContext context,
+  Runnable acceptPut(CallContext context,
                      FlightStream flightStream, StreamListener<PutResult> ackStream);
 
-  default void doExchange(FlightContext context, FlightStream reader, ServerStreamListener writer) {
+  default void doExchange(CallContext context, FlightStream reader, ServerStreamListener writer) {
     throw CallStatus.UNIMPLEMENTED.withDescription("DoExchange is unimplemented").toRuntimeException();
   }
 
@@ -85,7 +85,7 @@ public interface FlightProducer {
    * @param action Client-supplied parameters.
    * @param listener A stream of responses.
    */
-  void doAction(FlightContext context, Action action,
+  void doAction(CallContext context, Action action,
                 StreamListener<Result> listener);
 
   /**
@@ -93,7 +93,7 @@ public interface FlightProducer {
    * @param context Per-call context.
    * @param listener An interface for sending data back to the client.
    */
-  void listActions(FlightContext context, StreamListener<ActionType> listener);
+  void listActions(CallContext context, StreamListener<ActionType> listener);
 
   /**
    * An interface for sending Arrow data back to a client.
@@ -144,7 +144,7 @@ public interface FlightProducer {
   /**
    * Call-specific context.
    */
-  interface FlightContext {
+  interface CallContext {
     /** The identity of the authenticated peer. May be the empty string if unknown. */
     String peerIdentity();
 

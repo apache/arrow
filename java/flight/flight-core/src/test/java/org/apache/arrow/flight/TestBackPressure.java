@@ -124,7 +124,7 @@ public class TestBackPressure {
       final FlightProducer producer = new NoOpFlightProducer() {
 
         @Override
-        public void getStream(FlightContext context, Ticket ticket, ServerStreamListener listener) {
+        public void getStream(CallContext context, Ticket ticket, ServerStreamListener listener) {
           bpStrategy.register(listener);
           final Runnable loadData = () -> {
             int batches = 0;

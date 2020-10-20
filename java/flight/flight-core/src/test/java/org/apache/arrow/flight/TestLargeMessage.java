@@ -113,7 +113,7 @@ public class TestLargeMessage {
     }
 
     @Override
-    public void getStream(FlightContext context, Ticket ticket,
+    public void getStream(CallContext context, Ticket ticket,
                           ServerStreamListener listener) {
       try (VectorSchemaRoot root = generateData(allocator)) {
         listener.start(root);
@@ -123,19 +123,19 @@ public class TestLargeMessage {
     }
 
     @Override
-    public void listFlights(FlightContext context, Criteria criteria,
+    public void listFlights(CallContext context, Criteria criteria,
                             StreamListener<FlightInfo> listener) {
 
     }
 
     @Override
-    public FlightInfo getFlightInfo(FlightContext context,
+    public FlightInfo getFlightInfo(CallContext context,
                                     FlightDescriptor descriptor) {
       return null;
     }
 
     @Override
-    public Runnable acceptPut(FlightContext context, FlightStream flightStream, StreamListener<PutResult> ackStream) {
+    public Runnable acceptPut(CallContext context, FlightStream flightStream, StreamListener<PutResult> ackStream) {
       return () -> {
         try (VectorSchemaRoot root = flightStream.getRoot()) {
           while (flightStream.next()) {
@@ -146,13 +146,13 @@ public class TestLargeMessage {
     }
 
     @Override
-    public void doAction(FlightContext context, Action action,
+    public void doAction(CallContext context, Action action,
                          StreamListener<Result> listener) {
       listener.onCompleted();
     }
 
     @Override
-    public void listActions(FlightContext context,
+    public void listActions(CallContext context,
                             StreamListener<ActionType> listener) {
 
     }

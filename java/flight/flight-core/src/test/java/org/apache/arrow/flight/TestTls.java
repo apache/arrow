@@ -128,7 +128,7 @@ public class TestTls {
   static class Producer extends NoOpFlightProducer implements AutoCloseable {
 
     @Override
-    public void doAction(FlightContext context, Action action, StreamListener<Result> listener) {
+    public void doAction(CallContext context, Action action, StreamListener<Result> listener) {
       if (action.getType().equals("hello-world")) {
         listener.onNext(new Result("Hello, world!".getBytes(StandardCharsets.UTF_8)));
         listener.onCompleted();

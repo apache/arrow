@@ -69,7 +69,7 @@ public class InMemoryStore implements FlightProducer, AutoCloseable {
   }
 
   @Override
-  public void getStream(FlightContext context, Ticket ticket,
+  public void getStream(CallContext context, Ticket ticket,
                         ServerStreamListener listener) {
     getStream(ticket).sendTo(allocator, listener);
   }
@@ -89,7 +89,7 @@ public class InMemoryStore implements FlightProducer, AutoCloseable {
   }
 
   @Override
-  public void listFlights(FlightContext context, Criteria criteria, StreamListener<FlightInfo> listener) {
+  public void listFlights(CallContext context, Criteria criteria, StreamListener<FlightInfo> listener) {
     try {
       for (FlightHolder h : holders.values()) {
         listener.onNext(h.getFlightInfo(location));
@@ -101,7 +101,7 @@ public class InMemoryStore implements FlightProducer, AutoCloseable {
   }
 
   @Override
-  public FlightInfo getFlightInfo(FlightContext context, FlightDescriptor descriptor) {
+  public FlightInfo getFlightInfo(CallContext context, FlightDescriptor descriptor) {
     FlightHolder h = holders.get(descriptor);
     if (h == null) {
       throw new IllegalStateException("Unknown descriptor.");
@@ -111,7 +111,7 @@ public class InMemoryStore implements FlightProducer, AutoCloseable {
   }
 
   @Override
-  public Runnable acceptPut(FlightContext context,
+  public Runnable acceptPut(CallContext context,
                             final FlightStream flightStream, final StreamListener<PutResult> ackStream) {
     return () -> {
       StreamCreator creator = null;
@@ -143,7 +143,7 @@ public class InMemoryStore implements FlightProducer, AutoCloseable {
   }
 
   @Override
-  public void doAction(FlightContext context, Action action,
+  public void doAction(CallContext context, Action action,
                        StreamListener<Result> listener) {
     switch (action.getType()) {
       case "drop": {
@@ -159,7 +159,7 @@ public class InMemoryStore implements FlightProducer, AutoCloseable {
   }
 
   @Override
-  public void listActions(FlightContext context,
+  public void listActions(CallContext context,
                           StreamListener<ActionType> listener) {
     listener.onNext(new ActionType("get", "pull a stream. Action must be done via standard get mechanism"));
     listener.onNext(new ActionType("put", "push a stream. Action must be done via standard put mechanism"));

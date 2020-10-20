@@ -228,17 +228,17 @@ public class TestMetadataVersion {
     }
 
     @Override
-    public FlightInfo getFlightInfo(FlightContext context, FlightDescriptor descriptor) {
+    public FlightInfo getFlightInfo(CallContext context, FlightDescriptor descriptor) {
       return new FlightInfo(schema, descriptor, Collections.emptyList(), -1, -1, option);
     }
 
     @Override
-    public SchemaResult getSchema(FlightContext context, FlightDescriptor descriptor) {
+    public SchemaResult getSchema(CallContext context, FlightDescriptor descriptor) {
       return new SchemaResult(schema, option);
     }
 
     @Override
-    public void getStream(FlightContext context, Ticket ticket, ServerStreamListener listener) {
+    public void getStream(CallContext context, Ticket ticket, ServerStreamListener listener) {
       if (Arrays.equals("union".getBytes(StandardCharsets.UTF_8), ticket.getBytes())) {
         try (final VectorSchemaRoot root = VectorSchemaRoot.create(unionSchema, allocator)) {
           listener.start(root, null, option);
@@ -258,7 +258,7 @@ public class TestMetadataVersion {
     }
 
     @Override
-    public Runnable acceptPut(FlightContext context, FlightStream flightStream, StreamListener<PutResult> ackStream) {
+    public Runnable acceptPut(CallContext context, FlightStream flightStream, StreamListener<PutResult> ackStream) {
       return () -> {
         try {
           assertTrue(flightStream.next());
@@ -285,7 +285,7 @@ public class TestMetadataVersion {
     }
 
     @Override
-    public void doExchange(FlightContext context, FlightStream reader, ServerStreamListener writer) {
+    public void doExchange(CallContext context, FlightStream reader, ServerStreamListener writer) {
       try (final VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator)) {
         try {
           assertTrue(reader.next());

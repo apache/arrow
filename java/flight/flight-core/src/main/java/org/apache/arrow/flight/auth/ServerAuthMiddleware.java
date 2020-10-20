@@ -17,11 +17,11 @@
 
 package org.apache.arrow.flight.auth;
 
-import org.apache.arrow.flight.CallContext;
 import org.apache.arrow.flight.CallHeaders;
 import org.apache.arrow.flight.CallInfo;
 import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.FlightServerMiddleware;
+import org.apache.arrow.flight.RequestContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -50,7 +50,7 @@ public class ServerAuthMiddleware implements FlightServerMiddleware {
     }
 
     @Override
-    public ServerAuthMiddleware onCallStarted(CallInfo callInfo, CallHeaders incomingHeaders, CallContext context) {
+    public ServerAuthMiddleware onCallStarted(CallInfo callInfo, CallHeaders incomingHeaders, RequestContext context) {
       // Check if bearer token auth is being used, and if we've enabled use of server-generated
       // bearer tokens.
       if (authHandler.enableCachedCredentials()) {
