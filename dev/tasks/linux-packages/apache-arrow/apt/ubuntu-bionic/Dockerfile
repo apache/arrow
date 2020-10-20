@@ -51,6 +51,9 @@ RUN \
     liblz4-dev \
     libre2-dev \
     libsnappy-dev \
+    libradospp-dev \
+    rados-objclass-dev \
+    python3-rados \
     libssl-dev \
     libutf8proc-dev \
     libzstd-dev \
