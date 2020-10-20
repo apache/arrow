@@ -20,6 +20,7 @@
 #pragma once
 
 #include "arrow/dataset/dataset.h"
+#include "arrow/dataset/dataset_rados.h"
 #include "arrow/dataset/discovery.h"
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/file_csv.h"
