@@ -725,7 +725,7 @@ pub struct SchemaDescriptor {
     // -- -- b     |
     // -- -- -- c  |
     // -- -- -- -- d
-    leaf_to_base: HashMap<usize, TypePtr>,
+    leaf_to_base: Vec<TypePtr>,
 }
 
 impl SchemaDescriptor {
@@ -733,7 +733,7 @@ impl SchemaDescriptor {
     pub fn new(tp: TypePtr) -> Self {
         assert!(tp.is_group(), "SchemaDescriptor should take a GroupType");
         let mut leaves = vec![];
-        let mut leaf_to_base = HashMap::new();
+        let mut leaf_to_base = Vec::new();
         for f in tp.get_fields() {
             let mut path = vec![];
             build_tree(
@@ -797,13 +797,9 @@ impl SchemaDescriptor {
             self.leaves.len()
         );
 
-        let result = self.leaf_to_base.get(&i);
-        assert!(
-            result.is_some(),
-            "Expected a value for index {} but found None",
-            i
-        );
-        result.unwrap()
+        self.leaf_to_base
+            .get(i)
+            .unwrap_or_else(|| panic!("Expected a value for index {} but found None", i))
     }
 
     /// Returns schema as [`Type`](crate::schema::types::Type).
@@ -824,7 +820,7 @@ fn build_tree(
     mut max_rep_level: i16,
     mut max_def_level: i16,
     leaves: &mut Vec<ColumnDescPtr>,
-    leaf_to_base: &mut HashMap<usize, TypePtr>,
+    leaf_to_base: &mut Vec<TypePtr>,
     path_so_far: &mut Vec<String>,
 ) {
     assert!(tp.get_basic_info().has_repetition());
@@ -852,7 +848,7 @@ fn build_tree(
                 max_rep_level,
                 ColumnPath::new(path),
             )));
-            leaf_to_base.insert(leaves.len() - 1, base_tp);
+            leaf_to_base.push(base_tp);
         }
         Type::GroupType { ref fields, .. } => {
             for f in fields {
