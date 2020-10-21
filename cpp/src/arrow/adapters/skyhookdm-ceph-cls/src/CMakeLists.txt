@@ -1,7 +1,7 @@
 set(cls_dir ${CMAKE_INSTALL_LIBDIR}/rados-classes)
 
 # cls_arrow
-add_library(cls_arrow SHARED cls_arrow.cc cls_arrow_utils.cc)
+add_library(cls_arrow SHARED cls_arrow.cc)
 set_target_properties(cls_arrow PROPERTIES
         VERSION "1.0.0"
         SOVERSION "1"
@@ -19,7 +19,6 @@ install(TARGETS cls_arrow DESTINATION ${cls_dir})
 add_executable(cls_arrow_test
         cls_arrow_test.cc
         test_utils.cc
-        cls_arrow_utils.cc
         )
 
 target_link_libraries(cls_arrow_test

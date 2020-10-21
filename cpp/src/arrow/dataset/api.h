@@ -28,3 +28,4 @@
 #include "arrow/dataset/file_ipc.h"
 #include "arrow/dataset/file_parquet.h"
 #include "arrow/dataset/scanner.h"
+#include "arrow/dataset/rados_utils.h"
