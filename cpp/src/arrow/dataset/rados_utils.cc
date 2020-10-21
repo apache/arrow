@@ -27,6 +27,9 @@
 #include "arrow/record_batch.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/builder.h"
+#include "arrow/dataset/scanner.h"
+#include "arrow/dataset/dataset.h"
+#include "arrow/io/memory.h"
 
 namespace arrow {
 namespace dataset {
@@ -147,7 +150,7 @@ Status serialize_scan_request_to_bufferlist(
 
   bl.append(filter_size_buffer, 8);
   bl.append((char*)filter_buffer->data(), filter_buffer->size());
-  
+
   bl.append(schema_size_buffer, 8);
   bl.append((char*)schema_buffer->data(), schema_buffer->size());
 
@@ -158,12 +161,12 @@ Status serialize_scan_request_to_bufferlist(
 }
 
 Status deserialize_scan_request_from_bufferlist(
-        std::shared_ptr<Expression> *filter, 
+        std::shared_ptr<Expression> *filter,
         std::shared_ptr<Schema> *schema,
         librados::bufferlist bl) {
 
   int64_t filter_size = 0;
-  char *filter_size_buffer = new char[8];
+  char filter_size_buffer[8];
   bl.begin(0).copy(8, filter_size_buffer);
   ARROW_RETURN_NOT_OK(char_to_int64((uint8_t*)filter_size_buffer, filter_size));
 
@@ -171,7 +174,7 @@ Status deserialize_scan_request_from_bufferlist(
   bl.begin(8).copy(filter_size, filter_buffer);
 
   int64_t schema_size = 0;
-  char *schema_size_buffer = new char[8];
+  char schema_size_buffer[8];
   bl.begin(8 + filter_size).copy(8, schema_size_buffer);
   ARROW_RETURN_NOT_OK(char_to_int64((uint8_t*)schema_size_buffer, schema_size));
 
@@ -193,7 +196,7 @@ Status deserialize_scan_request_from_bufferlist(
 Status read_table_from_bufferlist(
         std::shared_ptr<Table> *table,
         librados::bufferlist bl) {
-  
+
   io::BufferReader reader((uint8_t*)bl.c_str(), bl.length());
   ARROW_ASSIGN_OR_RAISE(auto record_batch_reader, ipc::RecordBatchStreamReader::Open(&reader));
   ARROW_ASSIGN_OR_RAISE(auto table_, Table::FromRecordBatchReader(record_batch_reader.get()));
@@ -207,12 +210,34 @@ Status write_table_to_bufferlist(std::shared_ptr<arrow::Table> &table,
   ARROW_ASSIGN_OR_RAISE(auto buffer_output_stream, io::BufferOutputStream::Create());
   const auto options = arrow::ipc::IpcWriteOptions::Defaults();
   ARROW_ASSIGN_OR_RAISE(auto writer, ipc::NewStreamWriter(buffer_output_stream.get(), table->schema(), options));
-  
+
   writer->WriteTable(*table);
   writer->Close();
-  
+
   ARROW_ASSIGN_OR_RAISE(auto buffer, buffer_output_stream->Finish());
   bl.append((char*)buffer->data(), buffer->size());
+  return Status::OK();
+}
+
+Status scan_batches(std::shared_ptr<Expression> &filter, std::shared_ptr<Schema> &schema, RecordBatchVector &batches, std::shared_ptr<Table> *table) {
+  std::shared_ptr<ScanContext> scan_context = std::make_shared<ScanContext>();
+  std::shared_ptr<InMemoryFragment> fragment = std::make_shared<InMemoryFragment>(batches);
+  auto batch_schema = batches[0]->schema();
+  std::shared_ptr<ScannerBuilder> builder = std::make_shared<ScannerBuilder>(batch_schema, fragment, scan_context);
+  ARROW_RETURN_NOT_OK(builder->Filter(filter));
+  ARROW_RETURN_NOT_OK(builder->Project(schema->field_names()));
+  ARROW_ASSIGN_OR_RAISE(auto scanner, builder->Finish());
+  ARROW_ASSIGN_OR_RAISE(auto table_, scanner->ToTable());
+
+  *table = table_;
+  return Status::OK();
+}
+
+arrow::Status extract_batches_from_bufferlist(RecordBatchVector *batches, librados::bufferlist &bl) {
+  std::shared_ptr<Buffer> buffer = std::make_shared<Buffer>((uint8_t*)bl.c_str(), bl.length());
+  std::shared_ptr<io::BufferReader> buffer_reader = std::make_shared<io::BufferReader>(buffer);
+  ARROW_ASSIGN_OR_RAISE(auto record_batch_reader, ipc::RecordBatchStreamReader::Open(buffer_reader));
+  ARROW_RETURN_NOT_OK(record_batch_reader->ReadAll(batches));
   return Status::OK();
 }
 

@@ -1,5 +1,5 @@
-#include "rados/objclass.h"
-#include "cls_arrow_utils.h"
+#include <rados/objclass.h>
+#include <rados/librados.hpp>
 
 #include <arrow/api.h>
 #include <arrow/dataset/api.h>
@@ -36,11 +36,11 @@ static int write(cls_method_context_t hctx, ceph::buffer::list *in, ceph::buffer
 static int read(cls_method_context_t hctx, ceph::buffer::list *in, ceph::buffer::list *out) {
   int ret;
   arrow::Status arrow_ret;
-  
+
   CLS_LOG(0, "deserializing scan request from the [in] bufferlist");
   std::shared_ptr<arrow::dataset::Expression> filter;
   std::shared_ptr<arrow::Schema> schema;
-  arrow_ret = deserialize_scan_request_from_bufferlist(&filter, &schema, *in);
+  arrow_ret = arrow::dataset::deserialize_scan_request_from_bufferlist(&filter, &schema, *in);
   if (!arrow_ret.ok()) {
     CLS_ERR("ERROR: failed to extract expression and schema");
     return -1;
@@ -56,7 +56,7 @@ static int read(cls_method_context_t hctx, ceph::buffer::list *in, ceph::buffer:
 
   CLS_LOG(0, "reading the vector of record batches from the bufferlist");
   arrow::RecordBatchVector batches;
-  arrow_ret = extract_batches_from_bufferlist(&batches, bl);
+  arrow_ret = arrow::dataset::extract_batches_from_bufferlist(&batches, bl);
   if (!arrow_ret.ok()) {
     CLS_ERR("ERROR: failed to extract record batch vector from bufferlist");
     return -1;
@@ -64,7 +64,7 @@ static int read(cls_method_context_t hctx, ceph::buffer::list *in, ceph::buffer:
 
   CLS_LOG(0, "applying scan operations over the vector of record batches");
   std::shared_ptr<arrow::Table> result_table;
-  arrow_ret = scan_batches(filter, schema, batches, &result_table);
+  arrow_ret = arrow::dataset::scan_batches(filter, schema, batches, &result_table);
   if (!arrow_ret.ok()) {
     CLS_ERR("ERROR: failed to scan vector of record batches");
     return -1;
@@ -72,13 +72,13 @@ static int read(cls_method_context_t hctx, ceph::buffer::list *in, ceph::buffer:
 
   CLS_LOG(0, "writing the resultant table into the [out] bufferlist");
   ceph::buffer::list result_bl;
-  arrow_ret = write_table_to_bufferlist(result_table, result_bl);
+  arrow_ret = arrow::dataset::write_table_to_bufferlist(result_table, result_bl);
   if (!arrow_ret.ok()) {
     CLS_ERR("ERROR: failed to write table to bufferlist");
     return -1;
   }
-  *out = result_bl;  
-  
+  *out = result_bl;
+
   return 0;
 }
 

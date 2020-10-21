@@ -78,8 +78,18 @@ ARROW_DS_EXPORT Status read_table_from_bufferlist(
         librados::bufferlist bl);
 
 ARROW_DS_EXPORT Status write_table_to_bufferlist(
-        std::shared_ptr<arrow::Table> &table,
+        std::shared_ptr<Table> &table,
         librados::bufferlist &bl);
+
+ARROW_DS_EXPORT Status scan_batches(
+	std::shared_ptr<Expression> &filter,
+	std::shared_ptr<Schema> &schema,
+	RecordBatchVector &batches,
+	std::shared_ptr<Table> *table);
+
+ARROW_DS_EXPORT Status extract_batches_from_bufferlist(
+	RecordBatchVector *batches,
+	librados::bufferlist &bl);
 
 }  // namespace dataset
 }  // namespace arrow
