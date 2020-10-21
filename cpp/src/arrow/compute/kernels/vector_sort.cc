@@ -16,6 +16,7 @@
 // under the License.
 
 #include <algorithm>
+#include <cmath>
 #include <limits>
 #include <numeric>
 
@@ -50,6 +51,7 @@ Status GetPhysicalView(const std::shared_ptr<ArrayData>& arr,
 template <typename OutType, typename InType>
 struct PartitionNthToIndices {
   using ArrayType = typename TypeTraits<InType>::ArrayType;
+
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     if (ctx->state() == nullptr) {
       ctx->SetStatus(Status::Invalid("NthToIndices requires PartitionNthOptions"));
@@ -74,11 +76,7 @@ struct PartitionNthToIndices {
     if (pivot == arr.length()) {
       return;
     }
-    uint64_t* nulls_begin = out_end;
-    if (arr.null_count()) {
-      nulls_begin = std::stable_partition(
-          out_begin, out_end, [&arr](uint64_t ind) { return !arr.IsNull(ind); });
-    }
+    auto nulls_begin = PartitionNulls(out_begin, out_end, arr);
     auto nth_begin = out_begin + pivot;
     if (nth_begin < nulls_begin) {
       std::nth_element(out_begin, nth_begin, nulls_begin,
@@ -86,6 +84,31 @@ struct PartitionNthToIndices {
                          return arr.GetView(left) < arr.GetView(right);
                        });
     }
+  }
+
+  // Move Nulls to end of array. Return where Null starts.
+  template <typename T = ArrayType>
+  static enable_if_t<!is_floating_type<typename T::TypeClass>::value, uint64_t*>
+  PartitionNulls(uint64_t* indices_begin, uint64_t* indices_end, const T& values) {
+    if (values.null_count() == 0) {
+      return indices_end;
+    }
+    return std::partition(indices_begin, indices_end,
+                          [&values](uint64_t ind) { return !values.IsNull(ind); });
+  }
+
+  // Move NaNs and Nulls to end of array. Return where NaN/Null starts.
+  template <typename T = ArrayType>
+  static enable_if_t<is_floating_type<typename T::TypeClass>::value, uint64_t*>
+  PartitionNulls(uint64_t* indices_begin, uint64_t* indices_end, const T& values) {
+    if (values.null_count() == 0) {
+      return std::partition(indices_begin, indices_end, [&values](uint64_t ind) {
+        return !std::isnan(values.GetView(ind));
+      });
+    }
+    return std::partition(indices_begin, indices_end, [&values](uint64_t ind) {
+      return !values.IsNull(ind) && !std::isnan(values.GetView(ind));
+    });
   }
 };
 
@@ -118,17 +141,44 @@ class CompareSorter {
  public:
   void Sort(uint64_t* indices_begin, uint64_t* indices_end, const ArrayType& values) {
     std::iota(indices_begin, indices_end, 0);
-
-    auto nulls_begin = indices_end;
-    if (values.null_count()) {
-      nulls_begin =
-          std::stable_partition(indices_begin, indices_end,
-                                [&values](uint64_t ind) { return !values.IsNull(ind); });
-    }
+    auto nulls_begin = PartitionNulls(indices_begin, indices_end, values);
     std::stable_sort(indices_begin, nulls_begin,
                      [&values](uint64_t left, uint64_t right) {
                        return values.GetView(left) < values.GetView(right);
                      });
+  }
+
+ private:
+  // Move (stable) Nulls to end of array. Return where Null starts.
+  template <typename T = ArrayType>
+  static enable_if_t<!is_floating_type<typename T::TypeClass>::value, uint64_t*>
+  PartitionNulls(uint64_t* indices_begin, uint64_t* indices_end, const T& values) {
+    if (values.null_count() == 0) {
+      return indices_end;
+    }
+    return std::stable_partition(indices_begin, indices_end,
+                                 [&values](uint64_t ind) { return !values.IsNull(ind); });
+  }
+
+  // Move (stable) NaNs and Nulls to end of array. Return where NaN/Null starts.
+  template <typename T = ArrayType>
+  static enable_if_t<is_floating_type<typename T::TypeClass>::value, uint64_t*>
+  PartitionNulls(uint64_t* indices_begin, uint64_t* indices_end, const T& values) {
+    if (values.null_count() == 0) {
+      return std::stable_partition(indices_begin, indices_end, [&values](uint64_t ind) {
+        return !std::isnan(values.GetView(ind));
+      });
+    }
+    uint64_t* nulls_begin =
+        std::stable_partition(indices_begin, indices_end, [&values](uint64_t ind) {
+          return !values.IsNull(ind) && !std::isnan(values.GetView(ind));
+        });
+    // move Nulls after NaN
+    if (values.null_count() < static_cast<int64_t>(indices_end - nulls_begin)) {
+      std::stable_partition(nulls_begin, indices_end,
+                            [&values](uint64_t ind) { return !values.IsNull(ind); });
+    }
+    return nulls_begin;
   }
 };
 
