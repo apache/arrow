@@ -69,17 +69,17 @@ class FakeJira(Jira):
 
     def project_versions(self, project='ARROW'):
         return [
-            Version("3.0.0", released=False),
-            Version("2.0.0", released=False),
-            Version("1.1.0", released=False),
-            Version("1.0.1", released=False),
-            Version("1.0.0", released=True),
-            Version("0.17.1", released=True),
-            Version("0.17.0", released=True),
-            Version("0.16.0", released=True),
-            Version("0.15.2", released=True),
-            Version("0.15.1", released=True),
-            Version("0.15.0", released=True),
+            Version.parse("3.0.0", released=False),
+            Version.parse("2.0.0", released=False),
+            Version.parse("1.1.0", released=False),
+            Version.parse("1.0.1", released=False),
+            Version.parse("1.0.0", released=True),
+            Version.parse("0.17.1", released=True),
+            Version.parse("0.17.0", released=True),
+            Version.parse("0.16.0", released=True),
+            Version.parse("0.15.2", released=True),
+            Version.parse("0.15.1", released=True),
+            Version.parse("0.15.0", released=True),
         ]
 
     def project_issues(self, version, project='ARROW'):
@@ -92,7 +92,7 @@ def fake_jira():
 
 
 def test_version(fake_jira):
-    v = Version("1.2.5")
+    v = Version.parse("1.2.5")
     assert str(v) == "1.2.5"
     assert v.major == 1
     assert v.minor == 2
@@ -100,7 +100,7 @@ def test_version(fake_jira):
     assert v.released is False
     assert v.release_date is None
 
-    v = Version("1.0.0", released=True, release_date="2020-01-01")
+    v = Version.parse("1.0.0", released=True, release_date="2020-01-01")
     assert str(v) == "1.0.0"
     assert v.major == 1
     assert v.minor == 0
