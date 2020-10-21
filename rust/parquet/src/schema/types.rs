@@ -736,16 +736,7 @@ impl SchemaDescriptor {
         let mut leaf_to_base = Vec::new();
         for f in tp.get_fields() {
             let mut path = vec![];
-            build_tree(
-                f.clone(),
-                tp.clone(),
-                f.clone(),
-                0,
-                0,
-                &mut leaves,
-                &mut leaf_to_base,
-                &mut path,
-            );
+            build_tree(f, &tp, f, 0, 0, &mut leaves, &mut leaf_to_base, &mut path);
         }
 
         Self {
@@ -813,19 +804,19 @@ impl SchemaDescriptor {
     }
 }
 
-fn build_tree(
-    tp: TypePtr,
-    root_tp: TypePtr,
-    base_tp: TypePtr,
+fn build_tree<'a>(
+    tp: &'a TypePtr,
+    root_tp: &TypePtr,
+    base_tp: &TypePtr,
     mut max_rep_level: i16,
     mut max_def_level: i16,
     leaves: &mut Vec<ColumnDescPtr>,
     leaf_to_base: &mut Vec<TypePtr>,
-    path_so_far: &mut Vec<String>,
+    path_so_far: &mut Vec<&'a str>,
 ) {
     assert!(tp.get_basic_info().has_repetition());
 
-    path_so_far.push(String::from(tp.name()));
+    path_so_far.push(tp.name());
     match tp.get_basic_info().repetition() {
         Repetition::OPTIONAL => {
             max_def_level += 1;
@@ -840,22 +831,22 @@ fn build_tree(
     match tp.as_ref() {
         Type::PrimitiveType { .. } => {
             let mut path: Vec<String> = vec![];
-            path.extend_from_slice(&path_so_far[..]);
+            path.extend(path_so_far.iter().copied().map(String::from));
             leaves.push(Rc::new(ColumnDescriptor::new(
                 tp.clone(),
-                Some(root_tp),
+                Some(root_tp.clone()),
                 max_def_level,
                 max_rep_level,
                 ColumnPath::new(path),
             )));
-            leaf_to_base.push(base_tp);
+            leaf_to_base.push(base_tp.clone());
         }
         Type::GroupType { ref fields, .. } => {
             for f in fields {
                 build_tree(
-                    f.clone(),
-                    root_tp.clone(),
-                    base_tp.clone(),
+                    f,
+                    root_tp,
+                    base_tp,
                     max_rep_level,
                     max_def_level,
                     leaves,
