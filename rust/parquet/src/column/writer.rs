@@ -673,14 +673,9 @@ impl<T: DataType> ColumnWriterImpl<T> {
                 // Data Page v2 compresses values only.
                 match self.compressor {
                     Some(ref mut cmpr) => {
-                        let mut compressed_buf =
-                            Vec::with_capacity(value_bytes.data().len());
-                        cmpr.compress(value_bytes.data(), &mut compressed_buf)?;
-                        buffer.extend_from_slice(&compressed_buf[..]);
+                        cmpr.compress(value_bytes.data(), &mut buffer)?;
                     }
-                    None => {
-                        buffer.extend_from_slice(value_bytes.data());
-                    }
+                    None => buffer.extend_from_slice(value_bytes.data()),
                 }
 
                 let data_page = Page::DataPageV2 {
