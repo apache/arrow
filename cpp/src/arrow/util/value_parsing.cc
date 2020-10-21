@@ -20,70 +20,19 @@
 #include <string>
 #include <utility>
 
-#include "arrow/util/double_conversion.h"
+#include "arrow/vendored/fast_float/fast_float.h"
 
 namespace arrow {
 namespace internal {
 
-namespace {
-
-struct StringToFloatConverterImpl {
-  StringToFloatConverterImpl()
-      : main_converter_(flags_, main_junk_value_, main_junk_value_, "inf", "nan"),
-        fallback_converter_(flags_, fallback_junk_value_, fallback_junk_value_, "inf",
-                            "nan") {}
-
-  // NOTE: This is only supported in double-conversion 3.1+
-  static constexpr int flags_ =
-      util::double_conversion::StringToDoubleConverter::ALLOW_CASE_INSENSIBILITY;
-
-  // Two unlikely values to signal a parsing error
-  static constexpr double main_junk_value_ = 0.7066424364107089;
-  static constexpr double fallback_junk_value_ = 0.40088499148279166;
-
-  util::double_conversion::StringToDoubleConverter main_converter_;
-  util::double_conversion::StringToDoubleConverter fallback_converter_;
-};
-
-static const StringToFloatConverterImpl g_string_to_float;
-
-// Older clang versions need an explicit implementation definition.
-constexpr double StringToFloatConverterImpl::main_junk_value_;
-constexpr double StringToFloatConverterImpl::fallback_junk_value_;
-
-}  // namespace
-
 bool StringToFloat(const char* s, size_t length, float* out) {
-  int processed_length;
-  float v;
-  v = g_string_to_float.main_converter_.StringToFloat(s, static_cast<int>(length),
-                                                      &processed_length);
-  if (ARROW_PREDICT_FALSE(v == static_cast<float>(g_string_to_float.main_junk_value_))) {
-    v = g_string_to_float.fallback_converter_.StringToFloat(s, static_cast<int>(length),
-                                                            &processed_length);
-    if (ARROW_PREDICT_FALSE(v ==
-                            static_cast<float>(g_string_to_float.fallback_junk_value_))) {
-      return false;
-    }
-  }
-  *out = v;
-  return true;
+  const auto res = ::arrow_vendored::fast_float::from_chars(s, s + length, *out);
+  return res.ec == std::errc() && res.ptr == s + length;
 }
 
 bool StringToFloat(const char* s, size_t length, double* out) {
-  int processed_length;
-  double v;
-  v = g_string_to_float.main_converter_.StringToDouble(s, static_cast<int>(length),
-                                                       &processed_length);
-  if (ARROW_PREDICT_FALSE(v == g_string_to_float.main_junk_value_)) {
-    v = g_string_to_float.fallback_converter_.StringToDouble(s, static_cast<int>(length),
-                                                             &processed_length);
-    if (ARROW_PREDICT_FALSE(v == g_string_to_float.fallback_junk_value_)) {
-      return false;
-    }
-  }
-  *out = v;
-  return true;
+  const auto res = ::arrow_vendored::fast_float::from_chars(s, s + length, *out);
+  return res.ec == std::errc() && res.ptr == s + length;
 }
 
 // ----------------------------------------------------------------------
