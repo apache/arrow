@@ -267,9 +267,7 @@ struct uint128_t {
     val_ = (static_cast<__uint128_t>(decimal.high_bits()) << 64) | decimal.low_bits();
   }
 
-  explicit uint128_t(std::array<uint64_t, 2> value) {
-    val_ = (static_cast<__uint128_t>(value[1] << 64)) | values[0];
-  }
+  explicit uint128_t(uint64_t value) : val_(value) {}
 
   uint64_t hi() { return val_ >> 64; }
   uint64_t lo() { return val_ & kInt64Mask; }
