@@ -22,20 +22,22 @@ use std::any::Any;
 use std::iter::Iterator;
 use std::sync::Arc;
 
-use futures::future;
+use futures::sink::SinkExt;
+use futures::stream::StreamExt;
+use futures::Stream;
+use futures::{channel::mpsc, future::try_join_all};
 
-use super::common;
+use async_trait::async_trait;
+
+use arrow::record_batch::RecordBatch;
+use arrow::{datatypes::SchemaRef, error::ArrowError, error::Result as ArrowResult};
+
+use super::RecordBatchStream;
 use crate::error::{DataFusionError, Result};
 use crate::physical_plan::ExecutionPlan;
 use crate::physical_plan::Partitioning;
 
-use arrow::record_batch::RecordBatch;
-use arrow::{datatypes::SchemaRef, error::ArrowError};
-
 use super::SendableRecordBatchStream;
-
-use async_trait::async_trait;
-use tokio;
 
 /// Merge execution plan executes partitions in parallel and combines them into a single
 /// partition. No guarantees are made about the order of the resulting partition.
@@ -103,34 +105,53 @@ impl ExecutionPlan for MergeExec {
                 self.input.execute(0).await
             }
             _ => {
-                let tasks = (0..input_partitions).map(|part_i| {
+                let (sender, receiver) = mpsc::unbounded::<ArrowResult<RecordBatch>>();
+
+                // spawn independent tasks whose resulting streams (of batches)
+                // are sent to the channel for consumption.
+                let handles = (0..input_partitions).map(|part_i| {
                     let input = self.input.clone();
+                    let mut sender = sender.clone();
                     tokio::spawn(async move {
                         let stream = input.execute(part_i).await?;
-                        common::collect(stream).await
+                        let mut stream =
+                            Box::pin(stream.then(|item| async move { Ok(item) }));
+                        Result::Ok(sender.send_all(&mut stream).await)
                     })
                 });
 
-                let results = future::try_join_all(tasks)
+                try_join_all(handles)
                     .await
                     .map_err(|e| ArrowError::from_external_error(Box::new(e)))?;
 
-                let combined_results = results
-                    .into_iter()
-                    .try_fold(Vec::<RecordBatch>::new(), |mut acc, maybe_batches| {
-                        acc.append(&mut maybe_batches?);
-                        Result::Ok(acc)
-                    })?
-                    .into_iter()
-                    .map(|x| Arc::new(x))
-                    .collect::<Vec<_>>();
-
-                Ok(Box::pin(common::SizedRecordBatchStream::new(
-                    self.input.schema(),
-                    combined_results,
-                )))
+                Ok(Box::pin(MergeStream {
+                    input: Box::pin(receiver),
+                    schema: self.schema().clone(),
+                }))
             }
         }
+    }
+}
+
+struct MergeStream {
+    schema: SchemaRef,
+    input: std::pin::Pin<Box<mpsc::UnboundedReceiver<ArrowResult<RecordBatch>>>>,
+}
+
+impl Stream for MergeStream {
+    type Item = ArrowResult<RecordBatch>;
+
+    fn poll_next(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Option<Self::Item>> {
+        self.input.poll_next_unpin(cx)
+    }
+}
+
+impl RecordBatchStream for MergeStream {
+    fn schema(&self) -> SchemaRef {
+        self.schema.clone()
     }
 }
 
