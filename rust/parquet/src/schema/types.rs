@@ -862,8 +862,7 @@ fn build_tree(
                     leaf_to_base,
                     path_so_far,
                 );
-                let idx = path_so_far.len() - 1;
-                path_so_far.remove(idx);
+                path_so_far.pop();
             }
         }
     }
