@@ -592,13 +592,6 @@ pub struct ColumnDescriptor {
     // The "leaf" primitive type of this column
     primitive_type: TypePtr,
 
-    // The root type of this column. For instance, if the column is "a.b.c.d", then the
-    // primitive type is 'd' while the root_type is 'a'.
-    //
-    // NOTE: this is sometimes `None` for the convenience of testing. It should NEVER be
-    // `None` when running in production.
-    root_type: Option<TypePtr>,
-
     // The maximum definition level for this column
     max_def_level: i16,
 
@@ -613,14 +606,12 @@ impl ColumnDescriptor {
     /// Creates new descriptor for leaf-level column.
     pub fn new(
         primitive_type: TypePtr,
-        root_type: Option<TypePtr>,
         max_def_level: i16,
         max_rep_level: i16,
         path: ColumnPath,
     ) -> Self {
         Self {
             primitive_type,
-            root_type,
             max_def_level,
             max_rep_level,
             path,
@@ -651,13 +642,6 @@ impl ColumnDescriptor {
     /// column.
     pub fn self_type_ptr(&self) -> TypePtr {
         self.primitive_type.clone()
-    }
-
-    /// Returns root [`Type`](crate::schema::types::Type) (most top-level parent field)
-    /// for this leaf column.
-    pub fn root_type(&self) -> &Type {
-        assert!(self.root_type.is_some());
-        self.root_type.as_ref().unwrap()
     }
 
     /// Returns column name.
@@ -744,7 +728,7 @@ impl SchemaDescriptor {
         let mut leaf_to_base = Vec::new();
         for f in tp.get_fields() {
             let mut path = vec![];
-            build_tree(f, &tp, f, 0, 0, &mut leaves, &mut leaf_to_base, &mut path);
+            build_tree(f, f, 0, 0, &mut leaves, &mut leaf_to_base, &mut path);
         }
 
         Self {
@@ -814,7 +798,6 @@ impl SchemaDescriptor {
 
 fn build_tree<'a>(
     tp: &'a TypePtr,
-    root_tp: &TypePtr,
     base_tp: &TypePtr,
     mut max_rep_level: i16,
     mut max_def_level: i16,
@@ -842,7 +825,6 @@ fn build_tree<'a>(
             path.extend(path_so_far.iter().copied().map(String::from));
             leaves.push(Rc::new(ColumnDescriptor::new(
                 tp.clone(),
-                Some(root_tp.clone()),
                 max_def_level,
                 max_rep_level,
                 ColumnPath::new(path),
@@ -853,7 +835,6 @@ fn build_tree<'a>(
             for f in fields {
                 build_tree(
                     f,
-                    root_tp,
                     base_tp,
                     max_rep_level,
                     max_def_level,
@@ -1345,19 +1326,7 @@ mod tests {
             .with_logical_type(LogicalType::UTF8)
             .build()?;
 
-        let root_tp = Type::group_type_builder("root")
-            .with_logical_type(LogicalType::LIST)
-            .build()
-            .unwrap();
-        let root_tp_rc = Rc::new(root_tp);
-
-        let descr = ColumnDescriptor::new(
-            Rc::new(tp),
-            Some(root_tp_rc.clone()),
-            4,
-            1,
-            ColumnPath::from("name"),
-        );
+        let descr = ColumnDescriptor::new(Rc::new(tp), 4, 1, ColumnPath::from("name"));
 
         assert_eq!(descr.path(), &ColumnPath::from("name"));
         assert_eq!(descr.logical_type(), LogicalType::UTF8);
@@ -1368,7 +1337,6 @@ mod tests {
         assert_eq!(descr.type_length(), -1);
         assert_eq!(descr.type_precision(), -1);
         assert_eq!(descr.type_scale(), -1);
-        assert_eq!(descr.root_type(), root_tp_rc.as_ref());
 
         Ok(())
     }

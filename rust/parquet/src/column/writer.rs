@@ -1921,7 +1921,7 @@ mod tests {
             .with_length(1)
             .build()
             .unwrap();
-        ColumnDescriptor::new(Rc::new(tpe), None, max_def_level, max_rep_level, path)
+        ColumnDescriptor::new(Rc::new(tpe), max_def_level, max_rep_level, path)
     }
 
     /// Returns page writer that collects pages without serializing them.

@@ -1389,7 +1389,6 @@ mod tests {
             .unwrap();
         Rc::new(ColumnDescriptor::new(
             Rc::new(ty),
-            None,
             0,
             0,
             ColumnPath::new(vec![]),

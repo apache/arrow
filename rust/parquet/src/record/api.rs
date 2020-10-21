@@ -776,7 +776,6 @@ mod tests {
                 .unwrap();
             Rc::new(ColumnDescriptor::new(
                 Rc::new(tpe),
-                None,
                 0,
                 0,
                 ColumnPath::from("col"),
@@ -792,7 +791,6 @@ mod tests {
                 .unwrap();
             Rc::new(ColumnDescriptor::new(
                 Rc::new(tpe),
-                None,
                 0,
                 0,
                 ColumnPath::from("col"),

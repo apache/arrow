@@ -562,7 +562,6 @@ mod tests {
             fn $test_func() {
                 let desc = Rc::new(ColumnDescriptor::new(
                     Rc::new($pty()),
-                    None,
                     $def_level,
                     $rep_level,
                     ColumnPath::new(Vec::new()),
@@ -948,7 +947,6 @@ mod tests {
         let primitive_type = get_test_int32_type();
         let desc = Rc::new(ColumnDescriptor::new(
             Rc::new(primitive_type),
-            None,
             1,
             1,
             ColumnPath::new(Vec::new()),
@@ -1066,7 +1064,6 @@ mod tests {
 
         let desc = Rc::new(ColumnDescriptor::new(
             Rc::new(primitive_type),
-            None,
             max_def_level,
             max_rep_level,
             ColumnPath::new(Vec::new()),
