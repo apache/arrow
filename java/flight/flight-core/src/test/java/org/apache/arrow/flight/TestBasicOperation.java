@@ -332,7 +332,7 @@ public class TestBasicOperation {
 
     @Override
     public void listFlights(CallContext context, Criteria criteria,
-                            StreamListener<FlightInfo> listener) {
+        StreamListener<FlightInfo> listener) {
       if (criteria.getExpression().length > 0) {
         // Don't send anything if criteria are set
         listener.onCompleted();
@@ -420,7 +420,7 @@ public class TestBasicOperation {
 
     @Override
     public FlightInfo getFlightInfo(CallContext context,
-                                    FlightDescriptor descriptor) {
+        FlightDescriptor descriptor) {
       try {
         Flight.FlightInfo getInfo = Flight.FlightInfo.newBuilder()
             .setFlightDescriptor(Flight.FlightDescriptor.newBuilder()
@@ -437,7 +437,7 @@ public class TestBasicOperation {
 
     @Override
     public void doAction(CallContext context, Action action,
-                         StreamListener<Result> listener) {
+        StreamListener<Result> listener) {
       switch (action.getType()) {
         case "hello": {
           listener.onNext(new Result("world".getBytes(Charsets.UTF_8)));
@@ -458,7 +458,7 @@ public class TestBasicOperation {
 
     @Override
     public void listActions(CallContext context,
-                            StreamListener<ActionType> listener) {
+        StreamListener<ActionType> listener) {
       listener.onNext(new ActionType("get", ""));
       listener.onNext(new ActionType("put", ""));
       listener.onNext(new ActionType("hello", ""));

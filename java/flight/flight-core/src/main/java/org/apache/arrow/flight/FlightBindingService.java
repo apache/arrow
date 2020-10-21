@@ -53,7 +53,7 @@ class FlightBindingService implements BindableService {
   private final BufferAllocator allocator;
 
   public FlightBindingService(BufferAllocator allocator, FlightProducer producer,
-                              ServerAuthHandler authHandler, ExecutorService executor) {
+      ServerAuthHandler authHandler, ExecutorService executor) {
     this.allocator = allocator;
     this.delegate = new FlightService(allocator, producer, authHandler, executor);
   }

@@ -257,7 +257,7 @@ public class TestClientMiddleware {
       FlightServerMiddleware.Factory<MultiHeaderServerMiddleware> {
     @Override
     public MultiHeaderServerMiddleware onCallStarted(CallInfo info, CallHeaders incomingHeaders,
-                                                     RequestContext context) {
+        RequestContext context) {
       // Echo the headers back to the client. Copy values out of CallHeaders since the underlying gRPC metadata
       // object isn't safe to use after this function returns.
       Map<String, List<byte[]>> binaryHeaders = new HashMap<>();

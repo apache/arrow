@@ -27,7 +27,7 @@ import java.util.Objects;
  * <p>Methods are not guaranteed to be called on any particular thread, relative to the thread that Flight requests are
  * executed on. Do not depend on thread-local storage; instead, use state on the middleware instance. Service
  * implementations may communicate with middleware implementations through
- * {@link FlightProducer.CallContext#getMiddleware(Key)}. Methods on the middleware instance
+ * {@link org.apache.arrow.flight.FlightProducer.CallContext#getMiddleware(Key)}. Methods on the middleware instance
  * are non-reentrant, that is, a particular RPC will not make multiple concurrent calls to methods on a single
  * middleware instance. However, methods on the factory instance are expected to be thread-safe, and if the factory
  * instance returns the same middleware object more than once, then that middleware object must be thread-safe.

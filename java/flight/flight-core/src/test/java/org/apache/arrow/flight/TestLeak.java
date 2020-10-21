@@ -170,7 +170,7 @@ public class TestLeak {
 
     @Override
     public Runnable acceptPut(CallContext context,
-                              FlightStream flightStream, StreamListener<PutResult> ackStream) {
+        FlightStream flightStream, StreamListener<PutResult> ackStream) {
       return () -> {
         flightStream.getRoot();
         ackStream.onError(CallStatus.CANCELLED.withDescription("CANCELLED").toRuntimeException());

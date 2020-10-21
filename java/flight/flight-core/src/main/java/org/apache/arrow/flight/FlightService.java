@@ -57,8 +57,8 @@ class FlightService extends FlightServiceImplBase {
   private final ServerAuthHandler authHandler;
   private final ExecutorService executors;
 
-  FlightService(BufferAllocator allocator, FlightProducer producer,
-                ServerAuthHandler authHandler, ExecutorService executors) {
+  FlightService(BufferAllocator allocator, FlightProducer producer, ServerAuthHandler authHandler,
+      ExecutorService executors) {
     this.allocator = allocator;
     this.producer = producer;
     this.authHandler = authHandler;

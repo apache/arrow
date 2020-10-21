@@ -92,7 +92,7 @@ public class FlightClient implements AutoCloseable {
    * Create a Flight client from an allocator and a gRPC channel.
    */
   FlightClient(BufferAllocator incomingAllocator, ManagedChannel channel,
-               List<FlightClientMiddleware.Factory> middleware) {
+      List<FlightClientMiddleware.Factory> middleware) {
     this.allocator = incomingAllocator.newChildAllocator("flight-client", 0, Long.MAX_VALUE);
     this.channel = channel;
     this.middleware = middleware;
