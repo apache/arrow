@@ -20,12 +20,12 @@ package org.apache.arrow.flight.auth2;
 /**
  * Constants used in authorization of flight connections.
  */
-public final class AuthConstants {
+public final class Auth2Constants {
   public static final String PEER_IDENTITY_KEY = "arrow-flight-peer-identity";
   public static final String BEARER_PREFIX = "Bearer ";
   public static final String BASIC_PREFIX = "Basic ";
   public static final String AUTHORIZATION_HEADER = "Authorization";
 
-  private AuthConstants() {
+  private Auth2Constants() {
   }
 }

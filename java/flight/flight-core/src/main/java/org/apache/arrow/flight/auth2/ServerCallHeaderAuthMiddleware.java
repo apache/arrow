@@ -56,10 +56,10 @@ public class ServerCallHeaderAuthMiddleware implements FlightServerMiddleware {
       // bearer tokens.
       if (authHandler.enableCachedCredentials()) {
         final String bearerTokenFromHeaders =
-            AuthUtilities.getValueFromAuthHeader(incomingHeaders, AuthConstants.BEARER_PREFIX);
+            AuthUtilities.getValueFromAuthHeader(incomingHeaders, Auth2Constants.BEARER_PREFIX);
         if (bearerTokenFromHeaders != null) {
           final CallHeaderAuthenticator.AuthResult result = bearerTokenAuthHandler.authenticate(incomingHeaders);
-          context.put(AuthConstants.PEER_IDENTITY_KEY, result.getPeerIdentity());
+          context.put(Auth2Constants.PEER_IDENTITY_KEY, result.getPeerIdentity());
           return new ServerCallHeaderAuthMiddleware(result.getBearerToken().get());
         }
       }
@@ -72,7 +72,7 @@ public class ServerCallHeaderAuthMiddleware implements FlightServerMiddleware {
       } else {
         bearerToken = result.getBearerToken().get();
       }
-      context.put(AuthConstants.PEER_IDENTITY_KEY, result.getPeerIdentity());
+      context.put(Auth2Constants.PEER_IDENTITY_KEY, result.getPeerIdentity());
       return new ServerCallHeaderAuthMiddleware(bearerToken);
     }
   }
@@ -86,8 +86,8 @@ public class ServerCallHeaderAuthMiddleware implements FlightServerMiddleware {
   @Override
   public void onBeforeSendingHeaders(CallHeaders outgoingHeaders) {
     if (bearerToken != null &&
-        null == AuthUtilities.getValueFromAuthHeader(outgoingHeaders, AuthConstants.BEARER_PREFIX)) {
-      outgoingHeaders.insert(AuthConstants.AUTHORIZATION_HEADER, AuthConstants.BEARER_PREFIX + bearerToken);
+        null == AuthUtilities.getValueFromAuthHeader(outgoingHeaders, Auth2Constants.BEARER_PREFIX)) {
+      outgoingHeaders.insert(Auth2Constants.AUTHORIZATION_HEADER, Auth2Constants.BEARER_PREFIX + bearerToken);
     }
   }
 

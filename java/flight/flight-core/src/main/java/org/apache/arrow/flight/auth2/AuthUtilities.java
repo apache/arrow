@@ -18,7 +18,6 @@
 package org.apache.arrow.flight.auth2;
 
 import org.apache.arrow.flight.CallHeaders;
-import org.apache.arrow.flight.auth2.AuthConstants;
 
 /**
  * Utility class for completing the auth process.
@@ -36,7 +35,7 @@ public final class AuthUtilities {
    * @return The header value.
    */
   public static String getValueFromAuthHeader(CallHeaders headers, String valuePrefix) {
-    final String authHeaderValue = headers.get(AuthConstants.AUTHORIZATION_HEADER);
+    final String authHeaderValue = headers.get(Auth2Constants.AUTHORIZATION_HEADER);
     if (authHeaderValue != null) {
       if (authHeaderValue.regionMatches(true, 0, valuePrefix, 0, valuePrefix.length())) {
         return authHeaderValue.substring(valuePrefix.length());
