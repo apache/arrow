@@ -36,16 +36,26 @@ if(${CMAKE_VERSION} VERSION_LESS "3.15.0")
   find_package_handle_standard_args(Python3Alt
                                     REQUIRED_VARS
                                     PYTHON_EXECUTABLE
-                                    PYTHON_LIBRARIES
                                     PYTHON_INCLUDE_DIRS
                                     NUMPY_INCLUDE_DIRS)
   return()
 endif()
 
-if(Python3Alt_FIND_REQUIRED)
-  find_package(Python3 COMPONENTS Interpreter Development NumPy REQUIRED)
+if(${CMAKE_VERSION} VERSION_LESS "3.18.0" OR ARROW_BUILD_TESTS)
+  # When building arrow-python-test, we need libpython to be present, so ask for
+  # the full "Development" component.  Also ask for it on CMake < 3.18,
+  # where "Development.Module" is not available.
+  if(Python3Alt_FIND_REQUIRED)
+    find_package(Python3 COMPONENTS Interpreter Development NumPy REQUIRED)
+  else()
+    find_package(Python3 COMPONENTS Interpreter Development NumPy)
+  endif()
 else()
-  find_package(Python3 COMPONENTS Interpreter Development NumPy)
+  if(Python3Alt_FIND_REQUIRED)
+    find_package(Python3 COMPONENTS Interpreter Development.Module NumPy REQUIRED)
+  else()
+    find_package(Python3 COMPONENTS Interpreter Development.Module NumPy)
+  endif()
 endif()
 
 if(NOT Python3_FOUND)
@@ -85,6 +95,5 @@ endfunction()
 find_package_handle_standard_args(Python3Alt
                                   REQUIRED_VARS
                                   PYTHON_EXECUTABLE
-                                  PYTHON_LIBRARIES
                                   PYTHON_INCLUDE_DIRS
                                   NUMPY_INCLUDE_DIRS)
