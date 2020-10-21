@@ -923,8 +923,6 @@ struct SplitBaseTransform {
       ListOffsetsBuilderType list_offsets_builder(ctx->memory_pool());
       KERNEL_RETURN_IF_ERROR(ctx, list_offsets_builder.Resize(input_nstrings));
       ArrayData* output_list = out->mutable_array();
-      // // we use the same null values
-      output_list->buffers[0] = input.buffers[0];
       // initial value
       KERNEL_RETURN_IF_ERROR(
           ctx, list_offsets_builder.Append(static_cast<list_offset_type>(0)));
@@ -986,6 +984,7 @@ struct SplitPatternTransform : SplitBaseTransform<Type, ListType, SplitPatternOp
     }
     return Status::OK();
   }
+
   static bool Find(const uint8_t* begin, const uint8_t* end,
                    const uint8_t** separator_begin, const uint8_t** separator_end,
                    const SplitPatternOptions& options) {
@@ -1004,6 +1003,7 @@ struct SplitPatternTransform : SplitBaseTransform<Type, ListType, SplitPatternOp
     }
     return false;
   }
+
   static bool FindReverse(const uint8_t* begin, const uint8_t* end,
                           const uint8_t** separator_begin, const uint8_t** separator_end,
                           const SplitPatternOptions& options) {

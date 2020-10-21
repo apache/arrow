@@ -339,10 +339,8 @@ TYPED_TEST(TestStringKernels, SplitBasics) {
   // basics
   this->CheckUnary("split_pattern", R"(["foo bar", "foo"])", list(this->type()),
                    R"([["foo", "bar"], ["foo"]])", &options);
-  // TODO: enable test when the following issue is fixed:
-  // https://issues.apache.org/jira/browse/ARROW-10208
-  // this->CheckUnary("split_pattern", R"(["foo bar", "foo", null])", list(this->type()),
-  //                  R"([["foo", "bar"], ["foo"], null])", &options);
+  this->CheckUnary("split_pattern", R"(["foo bar", "foo", null])", list(this->type()),
+                   R"([["foo", "bar"], ["foo"], null])", &options);
   // edgy cases
   this->CheckUnary("split_pattern", R"(["f  o o "])", list(this->type()),
                    R"([["f", "", "o", "o", ""]])", &options);
