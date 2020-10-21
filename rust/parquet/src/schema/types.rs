@@ -709,6 +709,7 @@ impl ColumnDescriptor {
 
 /// A schema descriptor. This encapsulates the top-level schemas for all the columns,
 /// as well as all descriptors for all the primitive columns.
+#[derive(Debug)]
 pub struct SchemaDescriptor {
     // The top-level schema (the "message" type).
     // This must be a `GroupType` where each field is a root column type in the schema.

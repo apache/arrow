@@ -46,6 +46,7 @@ use crate::schema::types::{
 };
 
 /// Global Parquet metadata.
+#[derive(Debug)]
 pub struct ParquetMetaData {
     file_metadata: FileMetaData,
     row_groups: Vec<RowGroupMetaData>,
@@ -89,6 +90,7 @@ pub type KeyValue = parquet_format::KeyValue;
 pub type FileMetaDataPtr = Rc<FileMetaData>;
 
 /// Metadata for a Parquet file.
+#[derive(Debug)]
 pub struct FileMetaData {
     version: i32,
     num_rows: i64,
@@ -188,6 +190,7 @@ impl FileMetaData {
 pub type RowGroupMetaDataPtr = Rc<RowGroupMetaData>;
 
 /// Metadata for a row group.
+#[derive(Debug)]
 pub struct RowGroupMetaData {
     columns: Vec<ColumnChunkMetaData>,
     num_rows: i64,
@@ -325,6 +328,7 @@ impl RowGroupMetaDataBuilder {
 }
 
 /// Metadata for a column chunk.
+#[derive(Debug)]
 pub struct ColumnChunkMetaData {
     column_type: Type,
     column_path: ColumnPath,
