@@ -24,7 +24,7 @@ use std::sync::Arc;
 use std::task::{Context, Poll};
 
 use super::{RecordBatchStream, SendableRecordBatchStream};
-use crate::error::{ExecutionError, Result};
+use crate::error::{DataFusionError, Result};
 use crate::physical_plan::{ExecutionPlan, Partitioning, PhysicalExpr};
 use arrow::array::BooleanArray;
 use arrow::compute::filter;
@@ -57,7 +57,7 @@ impl FilterExec {
                 predicate: predicate.clone(),
                 input: input.clone(),
             }),
-            other => Err(ExecutionError::General(format!(
+            other => Err(DataFusionError::Plan(format!(
                 "Filter predicate must return boolean values, not {:?}",
                 other
             ))),
@@ -96,7 +96,7 @@ impl ExecutionPlan for FilterExec {
                 self.predicate.clone(),
                 children[0].clone(),
             )?)),
-            _ => Err(ExecutionError::General(
+            _ => Err(DataFusionError::Internal(
                 "FilterExec wrong number of children".to_string(),
             )),
         }
@@ -128,13 +128,13 @@ fn batch_filter(
 ) -> ArrowResult<RecordBatch> {
     predicate
         .evaluate(&batch)
-        .map_err(ExecutionError::into_arrow_external_error)
+        .map_err(DataFusionError::into_arrow_external_error)
         .and_then(|array| {
             array
                 .as_any()
                 .downcast_ref::<BooleanArray>()
                 .ok_or(
-                    ExecutionError::InternalError(
+                    DataFusionError::Internal(
                         "Filter predicate evaluated to non-boolean value".to_string(),
                     )
                     .into_arrow_external_error(),

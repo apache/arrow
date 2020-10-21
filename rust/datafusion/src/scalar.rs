@@ -33,7 +33,7 @@ use arrow::{
     datatypes::DataType,
 };
 
-use crate::error::{ExecutionError, Result};
+use crate::error::{DataFusionError, Result};
 
 /// Represents a dynamically typed, nullable single value.
 /// This is the single-valued counter-part of arrow’s `Array`.
@@ -203,9 +203,7 @@ impl ScalarValue {
             DataType::LargeUtf8 => typed_cast!(array, index, LargeStringArray, LargeUtf8),
             DataType::List(nested_type) => {
                 let list_array = array.as_any().downcast_ref::<ListArray>().ok_or(
-                    ExecutionError::InternalError(
-                        "Failed to downcast ListArray".to_string(),
-                    ),
+                    DataFusionError::Internal("Failed to downcast ListArray".to_string()),
                 )?;
                 let value = match list_array.is_null(index) {
                     true => None,
@@ -220,7 +218,7 @@ impl ScalarValue {
                 ScalarValue::List(value, *nested_type.clone())
             }
             other => {
-                return Err(ExecutionError::NotImplemented(format!(
+                return Err(DataFusionError::NotImplemented(format!(
                     "Can't create a scalar of array of type \"{:?}\"",
                     other
                 )))
@@ -296,7 +294,7 @@ impl From<u64> for ScalarValue {
 }
 
 impl TryFrom<&DataType> for ScalarValue {
-    type Error = ExecutionError;
+    type Error = DataFusionError;
 
     fn try_from(datatype: &DataType) -> Result<Self> {
         Ok(match datatype {
@@ -317,7 +315,7 @@ impl TryFrom<&DataType> for ScalarValue {
                 ScalarValue::List(None, *nested_type.clone())
             }
             _ => {
-                return Err(ExecutionError::NotImplemented(format!(
+                return Err(DataFusionError::NotImplemented(format!(
                     "Can't create a scalar of type \"{:?}\"",
                     datatype
                 )))

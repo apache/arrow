@@ -33,7 +33,7 @@ use super::{
     type_coercion::{coerce, data_types},
     PhysicalExpr,
 };
-use crate::error::{ExecutionError, Result};
+use crate::error::{DataFusionError, Result};
 use crate::physical_plan::array_expressions;
 use crate::physical_plan::datetime_expressions;
 use crate::physical_plan::math_expressions;
@@ -131,7 +131,7 @@ impl fmt::Display for BuiltinScalarFunction {
 }
 
 impl FromStr for BuiltinScalarFunction {
-    type Err = ExecutionError;
+    type Err = DataFusionError;
     fn from_str(name: &str) -> Result<BuiltinScalarFunction> {
         Ok(match name {
             "sqrt" => BuiltinScalarFunction::Sqrt,
@@ -156,7 +156,7 @@ impl FromStr for BuiltinScalarFunction {
             "to_timestamp" => BuiltinScalarFunction::ToTimestamp,
             "array" => BuiltinScalarFunction::Array,
             _ => {
-                return Err(ExecutionError::General(format!(
+                return Err(DataFusionError::Plan(format!(
                     "There is no built-in function named {}",
                     name
                 )))
@@ -179,7 +179,7 @@ pub fn return_type(
     if arg_types.len() == 0 {
         // functions currently cannot be evaluated without arguments, as they can't
         // know the number of rows to return.
-        return Err(ExecutionError::General(
+        return Err(DataFusionError::Plan(
             format!("Function '{}' requires at least one argument", fun).to_string(),
         ));
     }
@@ -193,7 +193,7 @@ pub fn return_type(
             DataType::Utf8 => DataType::Int32,
             _ => {
                 // this error is internal as `data_types` should have captured this.
-                return Err(ExecutionError::InternalError(
+                return Err(DataFusionError::Internal(
                     "The length function can only accept strings.".to_string(),
                 ));
             }
@@ -446,7 +446,7 @@ mod tests {
     fn test_concat_error() -> Result<()> {
         let result = return_type(&BuiltinScalarFunction::Concat, &vec![]);
         if let Ok(_) = result {
-            Err(ExecutionError::General(
+            Err(DataFusionError::Plan(
                 "Function 'concat' cannot accept zero arguments".to_string(),
             ))
         } else {

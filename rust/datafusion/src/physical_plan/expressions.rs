@@ -21,7 +21,7 @@ use std::convert::TryFrom;
 use std::fmt;
 use std::sync::Arc;
 
-use crate::error::{ExecutionError, Result};
+use crate::error::{DataFusionError, Result};
 use crate::logical_plan::Operator;
 use crate::physical_plan::{Accumulator, AggregateExpr, PhysicalExpr};
 use crate::scalar::ScalarValue;
@@ -122,7 +122,7 @@ pub fn sum_return_type(arg_type: &DataType) -> Result<DataType> {
         }
         DataType::Float32 => Ok(DataType::Float32),
         DataType::Float64 => Ok(DataType::Float64),
-        other => Err(ExecutionError::General(format!(
+        other => Err(DataFusionError::Plan(format!(
             "SUM does not support type \"{:?}\"",
             other
         ))),
@@ -204,7 +204,7 @@ fn sum_batch(values: &ArrayRef) -> Result<ScalarValue> {
         DataType::UInt16 => typed_sum_delta_batch!(values, UInt16Array, UInt16),
         DataType::UInt8 => typed_sum_delta_batch!(values, UInt8Array, UInt8),
         e => {
-            return Err(ExecutionError::InternalError(format!(
+            return Err(DataFusionError::Internal(format!(
                 "Sum is not expected to receive the type {:?}",
                 e
             )))
@@ -288,7 +288,7 @@ fn sum(lhs: &ScalarValue, rhs: &ScalarValue) -> Result<ScalarValue> {
             typed_sum!(lhs, rhs, Int64, i64)
         }
         e => {
-            return Err(ExecutionError::InternalError(format!(
+            return Err(DataFusionError::Internal(format!(
                 "Sum is not expected to receive a scalar {:?}",
                 e
             )))
@@ -350,7 +350,7 @@ pub fn avg_return_type(arg_type: &DataType) -> Result<DataType> {
         | DataType::UInt64
         | DataType::Float32
         | DataType::Float64 => Ok(DataType::Float64),
-        other => Err(ExecutionError::General(format!(
+        other => Err(DataFusionError::Plan(format!(
             "AVG does not support {:?}",
             other
         ))),
@@ -470,7 +470,7 @@ impl Accumulator for AvgAccumulator {
                 Some(f) => Some(f / self.count as f64),
                 None => None,
             })),
-            _ => Err(ExecutionError::InternalError(
+            _ => Err(DataFusionError::Internal(
                 "Sum should be f64 on average".to_string(),
             )),
         }
@@ -564,10 +564,11 @@ macro_rules! min_max_batch {
             DataType::UInt16 => typed_min_max_batch!($VALUES, UInt16Array, UInt16, $OP),
             DataType::UInt8 => typed_min_max_batch!($VALUES, UInt8Array, UInt8, $OP),
             other => {
-                return Err(ExecutionError::NotImplemented(format!(
+                // This should have been handled before
+                return Err(DataFusionError::Internal(format!(
                     "Min/Max accumulator not implemented for type {:?}",
                     other
-                )))
+                )));
             }
         }
     }};
@@ -664,7 +665,7 @@ macro_rules! min_max {
                 typed_min_max_string!(lhs, rhs, LargeUtf8, $OP)
             }
             e => {
-                return Err(ExecutionError::InternalError(format!(
+                return Err(DataFusionError::Internal(format!(
                     "MIN/MAX is not expected to receive a scalar {:?}",
                     e
                 )))
@@ -888,7 +889,7 @@ impl CountAccumulator {
             (ScalarValue::UInt64(Some(lhs)), None) => Some(lhs.clone()),
             (ScalarValue::UInt64(Some(lhs)), Some(rhs)) => Some(lhs + rhs),
             _ => {
-                return Err(ExecutionError::InternalError(
+                return Err(DataFusionError::Internal(
                     "Code should not be reached reach".to_string(),
                 ))
             }
@@ -916,7 +917,7 @@ impl Accumulator for CountAccumulator {
             // value is null => no change in count
             (e, true) => e.clone(),
             (_, false) => {
-                return Err(ExecutionError::InternalError(
+                return Err(DataFusionError::Internal(
                     "Count is always of type u64".to_string(),
                 ))
             }
@@ -982,7 +983,7 @@ macro_rules! binary_string_array_op {
     ($LEFT:expr, $RIGHT:expr, $OP:ident) => {{
         match $LEFT.data_type() {
             DataType::Utf8 => compute_utf8_op!($LEFT, $RIGHT, $OP, StringArray),
-            other => Err(ExecutionError::General(format!(
+            other => Err(DataFusionError::Internal(format!(
                 "Unsupported data type {:?}",
                 other
             ))),
@@ -1006,7 +1007,7 @@ macro_rules! binary_primitive_array_op {
             DataType::UInt64 => compute_op!($LEFT, $RIGHT, $OP, UInt64Array),
             DataType::Float32 => compute_op!($LEFT, $RIGHT, $OP, Float32Array),
             DataType::Float64 => compute_op!($LEFT, $RIGHT, $OP, Float64Array),
-            other => Err(ExecutionError::General(format!(
+            other => Err(DataFusionError::Internal(format!(
                 "Unsupported data type {:?}",
                 other
             ))),
@@ -1033,7 +1034,7 @@ macro_rules! binary_array_op {
             DataType::Timestamp(TimeUnit::Nanosecond, None) => {
                 compute_op!($LEFT, $RIGHT, $OP, TimestampNanosecondArray)
             }
-            other => Err(ExecutionError::General(format!(
+            other => Err(DataFusionError::Internal(format!(
                 "Unsupported data type {:?}",
                 other
             ))),
@@ -1229,7 +1230,7 @@ fn common_binary_type(
             numerical_coercion(lhs_type, rhs_type)
         }
         Operator::Modulus => {
-            return Err(ExecutionError::NotImplemented(
+            return Err(DataFusionError::NotImplemented(
                 "Modulus operator is still not supported".to_string(),
             ))
         }
@@ -1237,7 +1238,7 @@ fn common_binary_type(
 
     // re-write the error message of failed coercions to include the operator's information
     match result {
-        None => Err(ExecutionError::General(
+        None => Err(DataFusionError::Plan(
             format!(
                 "'{:?} {} {:?}' can't be evaluated because there isn't a common type to coerce the types to",
                 lhs_type, op, rhs_type
@@ -1277,7 +1278,7 @@ pub fn binary_operator_data_type(
         Operator::Plus | Operator::Minus | Operator::Divide | Operator::Multiply => {
             Ok(common_type)
         }
-        Operator::Modulus => Err(ExecutionError::NotImplemented(
+        Operator::Modulus => Err(DataFusionError::NotImplemented(
             "Modulus operator is still not supported".to_string(),
         )),
     }
@@ -1319,7 +1320,8 @@ impl PhysicalExpr for BinaryExpr {
         let left = self.left.evaluate(batch)?;
         let right = self.right.evaluate(batch)?;
         if left.data_type() != right.data_type() {
-            return Err(ExecutionError::General(format!(
+            // this should have been captured during planning
+            return Err(DataFusionError::Internal(format!(
                 "Cannot evaluate binary expression {:?} with types {:?} and {:?}",
                 self.op,
                 left.data_type(),
@@ -1343,7 +1345,7 @@ impl PhysicalExpr for BinaryExpr {
                 if left.data_type() == &DataType::Boolean {
                     boolean_op!(left, right, and)
                 } else {
-                    return Err(ExecutionError::General(format!(
+                    return Err(DataFusionError::Internal(format!(
                         "Cannot evaluate binary expression {:?} with types {:?} and {:?}",
                         self.op,
                         left.data_type(),
@@ -1355,7 +1357,7 @@ impl PhysicalExpr for BinaryExpr {
                 if left.data_type() == &DataType::Boolean {
                     boolean_op!(left, right, or)
                 } else {
-                    return Err(ExecutionError::General(format!(
+                    return Err(DataFusionError::Internal(format!(
                         "Cannot evaluate binary expression {:?} with types {:?} and {:?}",
                         self.op,
                         left.data_type(),
@@ -1363,7 +1365,7 @@ impl PhysicalExpr for BinaryExpr {
                     )));
                 }
             }
-            Operator::Modulus => Err(ExecutionError::NotImplemented(
+            Operator::Modulus => Err(DataFusionError::NotImplemented(
                 "Modulus operator is still not supported".to_string(),
             )),
         }
@@ -1431,7 +1433,7 @@ pub fn not(
 ) -> Result<Arc<dyn PhysicalExpr>> {
     let data_type = arg.data_type(input_schema)?;
     if data_type != DataType::Boolean {
-        Err(ExecutionError::General(
+        Err(DataFusionError::Internal(
             format!(
                 "NOT '{:?}' can't be evaluated because the expression's type is {:?}, not boolean",
                 arg, data_type,
@@ -1574,7 +1576,7 @@ pub fn cast(
     } else if can_cast_types(&expr_type, &cast_type) {
         Ok(Arc::new(CastExpr { expr, cast_type }))
     } else {
-        Err(ExecutionError::General(format!(
+        Err(DataFusionError::Internal(format!(
             "Unsupported CAST from {:?} to {:?}",
             expr_type, cast_type
         )))
@@ -1662,7 +1664,7 @@ impl PhysicalExpr for Literal {
                 StringBuilder,
                 value.as_ref().and_then(|e| Some(&*e))
             ),
-            other => Err(ExecutionError::General(format!(
+            other => Err(DataFusionError::Internal(format!(
                 "Unsupported literal type {:?}",
                 other
             ))),
@@ -2021,12 +2023,12 @@ mod tests {
         let expr =
             common_binary_type(&DataType::Float32, &Operator::Plus, &DataType::Utf8);
 
-        if let Err(ExecutionError::General(e)) = expr {
+        if let Err(DataFusionError::Plan(e)) = expr {
             assert_eq!(e, "'Float32 + Utf8' can't be evaluated because there isn't a common type to coerce the types to");
             Ok(())
         } else {
-            Err(ExecutionError::General(
-                "Coercion should have returned an ExecutionError::General".to_string(),
+            Err(DataFusionError::Internal(
+                "Coercion should have returned an DataFusionError::Internal".to_string(),
             ))
         }
     }

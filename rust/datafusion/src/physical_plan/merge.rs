@@ -25,7 +25,7 @@ use std::sync::Arc;
 use futures::future;
 
 use super::common;
-use crate::error::{ExecutionError, Result};
+use crate::error::{DataFusionError, Result};
 use crate::physical_plan::ExecutionPlan;
 use crate::physical_plan::Partitioning;
 
@@ -78,7 +78,7 @@ impl ExecutionPlan for MergeExec {
     ) -> Result<Arc<dyn ExecutionPlan>> {
         match children.len() {
             1 => Ok(Arc::new(MergeExec::new(children[0].clone()))),
-            _ => Err(ExecutionError::General(
+            _ => Err(DataFusionError::Internal(
                 "MergeExec wrong number of children".to_string(),
             )),
         }
@@ -87,7 +87,7 @@ impl ExecutionPlan for MergeExec {
     async fn execute(&self, partition: usize) -> Result<SendableRecordBatchStream> {
         // MergeExec produces a single partition
         if 0 != partition {
-            return Err(ExecutionError::General(format!(
+            return Err(DataFusionError::Internal(format!(
                 "MergeExec invalid partition {}",
                 partition
             )));
@@ -95,7 +95,7 @@ impl ExecutionPlan for MergeExec {
 
         let input_partitions = self.input.output_partitioning().partition_count();
         match input_partitions {
-            0 => Err(ExecutionError::General(
+            0 => Err(DataFusionError::Internal(
                 "MergeExec requires at least one input partition".to_owned(),
             )),
             1 => {

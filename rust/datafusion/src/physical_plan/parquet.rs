@@ -25,7 +25,7 @@ use std::task::{Context, Poll};
 use std::{fmt, thread};
 
 use super::{RecordBatchStream, SendableRecordBatchStream};
-use crate::error::{ExecutionError, Result};
+use crate::error::{DataFusionError, Result};
 use crate::physical_plan::ExecutionPlan;
 use crate::physical_plan::{common, Partitioning};
 use arrow::datatypes::{Schema, SchemaRef};
@@ -63,7 +63,7 @@ impl ParquetExec {
         let mut filenames: Vec<String> = vec![];
         common::build_file_list(path, &mut filenames, ".parquet")?;
         if filenames.is_empty() {
-            Err(ExecutionError::General("No files found".to_string()))
+            Err(DataFusionError::Plan("No files found".to_string()))
         } else {
             let file = File::open(&filenames[0])?;
             let file_reader = Rc::new(SerializedFileReader::new(file)?);
@@ -120,7 +120,7 @@ impl ExecutionPlan for ParquetExec {
         if children.is_empty() {
             Ok(Arc::new(self.clone()))
         } else {
-            Err(ExecutionError::General(format!(
+            Err(DataFusionError::Internal(format!(
                 "Children cannot be replaced in {:?}",
                 self
             )))
@@ -158,7 +158,7 @@ fn send_result(
 ) -> Result<()> {
     response_tx
         .send(result)
-        .map_err(|e| ExecutionError::ExecutionError(e.to_string()))?;
+        .map_err(|e| DataFusionError::Execution(e.to_string()))?;
     Ok(())
 }
 
@@ -190,7 +190,7 @@ fn read_file(
                     Some(Err(ArrowError::ParquetError(err_msg.clone()))),
                 )?;
                 // terminate thread with error
-                return Err(ExecutionError::ExecutionError(err_msg));
+                return Err(DataFusionError::Execution(err_msg));
             }
         }
     }

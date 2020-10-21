@@ -25,7 +25,7 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 
-use crate::error::{ExecutionError, Result};
+use crate::error::{DataFusionError, Result};
 use crate::physical_plan::{ExecutionPlan, Partitioning, PhysicalExpr};
 use arrow::datatypes::{Field, Schema, SchemaRef};
 use arrow::error::Result as ArrowResult;
@@ -107,7 +107,7 @@ impl ExecutionPlan for ProjectionExec {
                 self.expr.clone(),
                 children[0].clone(),
             )?)),
-            _ => Err(ExecutionError::General(
+            _ => Err(DataFusionError::Internal(
                 "ProjectionExec wrong number of children".to_string(),
             )),
         }
@@ -132,7 +132,7 @@ fn batch_project(
         .map(|expr| expr.evaluate(&batch))
         .collect::<Result<Vec<_>>>()
         .map_or_else(
-            |e| Err(ExecutionError::into_arrow_external_error(e)),
+            |e| Err(DataFusionError::into_arrow_external_error(e)),
             |arrays| RecordBatch::try_new(schema.clone(), arrays),
         )
 }

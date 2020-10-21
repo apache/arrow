@@ -22,7 +22,7 @@ use std::sync::Arc;
 use std::task::{Context, Poll};
 
 use super::{ExecutionPlan, Partitioning, RecordBatchStream, SendableRecordBatchStream};
-use crate::error::{ExecutionError, Result};
+use crate::error::{DataFusionError, Result};
 use arrow::datatypes::SchemaRef;
 use arrow::error::Result as ArrowResult;
 use arrow::record_batch::RecordBatch;
@@ -67,7 +67,7 @@ impl ExecutionPlan for MemoryExec {
         &self,
         _: Vec<Arc<dyn ExecutionPlan>>,
     ) -> Result<Arc<dyn ExecutionPlan>> {
-        Err(ExecutionError::General(format!(
+        Err(DataFusionError::Internal(format!(
             "Children cannot be replaced in {:?}",
             self
         )))

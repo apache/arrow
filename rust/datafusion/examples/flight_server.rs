@@ -178,7 +178,7 @@ impl FlightService for FlightServiceImpl {
     }
 }
 
-fn to_tonic_err(e: &datafusion::error::ExecutionError) -> Status {
+fn to_tonic_err(e: &datafusion::error::DataFusionError) -> Status {
     Status::internal(format!("{:?}", e))
 }
 

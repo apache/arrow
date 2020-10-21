@@ -24,7 +24,7 @@ use std::task::{Context, Poll};
 use futures::stream::{Stream, StreamExt, TryStreamExt};
 use futures::FutureExt;
 
-use crate::error::{ExecutionError, Result};
+use crate::error::{DataFusionError, Result};
 use crate::physical_plan::{Accumulator, AggregateExpr};
 use crate::physical_plan::{Distribution, ExecutionPlan, Partitioning, PhysicalExpr};
 
@@ -183,7 +183,7 @@ impl ExecutionPlan for HashAggregateExec {
                 self.aggr_expr.clone(),
                 children[0].clone(),
             )?)),
-            _ => Err(ExecutionError::General(
+            _ => Err(DataFusionError::Internal(
                 "HashAggregateExec wrong number of children".to_string(),
             )),
         }
@@ -254,13 +254,13 @@ fn group_aggregate_batch(
     for row in 0..batch.num_rows() {
         // 1.1
         create_key(&group_values, row, &mut key)
-            .map_err(ExecutionError::into_arrow_external_error)?;
+            .map_err(DataFusionError::into_arrow_external_error)?;
 
         match accumulators.get_mut(&key) {
             // 1.2
             None => {
                 let accumulator_set = create_accumulators(aggr_expr)
-                    .map_err(ExecutionError::into_arrow_external_error)?;
+                    .map_err(DataFusionError::into_arrow_external_error)?;
 
                 accumulators
                     .insert(key.clone(), (accumulator_set, Box::new(vec![row as u32])));
@@ -362,9 +362,9 @@ impl Stream for GroupedHashAggregateStream {
         let aggregate_expressions = match aggregate_expressions(&aggr_expr, &mode) {
             Ok(e) => e,
             Err(e) => {
-                return Poll::Ready(Some(Err(ExecutionError::into_arrow_external_error(
-                    e,
-                ))))
+                return Poll::Ready(Some(Err(
+                    DataFusionError::into_arrow_external_error(e),
+                )))
             }
         };
 
@@ -386,7 +386,7 @@ impl Stream for GroupedHashAggregateStream {
                     accumulators,
                     &aggregate_expressions,
                 )
-                .map_err(ExecutionError::into_arrow_external_error)
+                .map_err(DataFusionError::into_arrow_external_error)
             },
         );
 
@@ -541,18 +541,18 @@ impl Stream for HashAggregateStream {
         let accumulators = match create_accumulators(&self.aggr_expr) {
             Ok(e) => e,
             Err(e) => {
-                return Poll::Ready(Some(Err(ExecutionError::into_arrow_external_error(
-                    e,
-                ))))
+                return Poll::Ready(Some(Err(
+                    DataFusionError::into_arrow_external_error(e),
+                )))
             }
         };
 
         let expressions = match aggregate_expressions(&self.aggr_expr, &self.mode) {
             Ok(e) => e,
             Err(e) => {
-                return Poll::Ready(Some(Err(ExecutionError::into_arrow_external_error(
-                    e,
-                ))))
+                return Poll::Ready(Some(Err(
+                    DataFusionError::into_arrow_external_error(e),
+                )))
             }
         };
         let expressions = Arc::new(expressions);
@@ -570,7 +570,7 @@ impl Stream for HashAggregateStream {
                 (accumulators, expressions),
                 |(acc, expr), batch| async move {
                     aggregate_batch(&mode, &batch, acc, &expr)
-                        .map_err(ExecutionError::into_arrow_external_error)
+                        .map_err(DataFusionError::into_arrow_external_error)
                         .map(|agg| (agg, expr))
                 },
             )
@@ -581,7 +581,7 @@ impl Stream for HashAggregateStream {
             maybe_accumulators.map(|accumulators| {
                 // 2. convert values to a record batch
                 finalize_aggregation(&accumulators, &mode)
-                    .map_err(ExecutionError::into_arrow_external_error)
+                    .map_err(DataFusionError::into_arrow_external_error)
                     .and_then(|columns| RecordBatch::try_new(schema.clone(), columns))
             })?
         });
@@ -642,7 +642,7 @@ fn create_batch_from_map(
             // 3.
             groups.extend(
                 finalize_aggregation(accumulator_set, mode)
-                    .map_err(ExecutionError::into_arrow_external_error)?,
+                    .map_err(DataFusionError::into_arrow_external_error)?,
             );
 
             Ok(groups)
@@ -745,9 +745,10 @@ fn create_key(
                 vec[i] = GroupByScalar::Utf8(String::from(array.value(row)))
             }
             _ => {
-                return Err(ExecutionError::ExecutionError(
+                // This is internal because we should have caught this before.
+                return Err(DataFusionError::Internal(
                     "Unsupported GROUP BY data type".to_string(),
-                ))
+                ));
             }
         }
     }

@@ -22,7 +22,7 @@ use std::{collections::HashSet, sync::Arc};
 use arrow::datatypes::{Schema, SchemaRef};
 
 use super::optimizer::OptimizerRule;
-use crate::error::{ExecutionError, Result};
+use crate::error::{DataFusionError, Result};
 use crate::logical_plan::{Expr, LogicalPlan, PlanType, StringifiedPlan};
 
 /// Recursively walk a list of expression trees, collecting the unique set of column
@@ -68,7 +68,7 @@ pub fn expr_to_column_names(expr: &Expr, accum: &mut HashSet<String>) -> Result<
         Expr::AggregateUDF { args, .. } => exprlist_to_column_names(args, accum),
         Expr::ScalarFunction { args, .. } => exprlist_to_column_names(args, accum),
         Expr::ScalarUDF { args, .. } => exprlist_to_column_names(args, accum),
-        Expr::Wildcard => Err(ExecutionError::General(
+        Expr::Wildcard => Err(DataFusionError::Internal(
             "Wildcard expressions are not valid in a logical query plan".to_owned(),
         )),
         Expr::Nested(e) => expr_to_column_names(e, accum),
@@ -215,7 +215,7 @@ pub fn expr_sub_expressions(expr: &Expr) -> Result<Vec<&Expr>> {
         Expr::ScalarVariable(_) => Ok(vec![]),
         Expr::Not(expr) => Ok(vec![expr]),
         Expr::Sort { expr, .. } => Ok(vec![expr]),
-        Expr::Wildcard { .. } => Err(ExecutionError::General(
+        Expr::Wildcard { .. } => Err(DataFusionError::Internal(
             "Wildcard expressions are not valid in a logical query plan".to_owned(),
         )),
         Expr::Nested(expr) => Ok(vec![expr]),
@@ -268,7 +268,7 @@ pub fn rewrite_expression(expr: &Expr, expressions: &Vec<Expr>) -> Result<Expr> 
             asc: asc.clone(),
             nulls_first: nulls_first.clone(),
         }),
-        Expr::Wildcard { .. } => Err(ExecutionError::General(
+        Expr::Wildcard { .. } => Err(DataFusionError::Internal(
             "Wildcard expressions are not valid in a logical query plan".to_owned(),
         )),
         Expr::Nested(_) => Ok(Expr::Nested(Box::new(expressions[0].clone()))),

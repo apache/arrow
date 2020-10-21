@@ -26,7 +26,7 @@ use crate::logical_plan::{
 };
 use crate::scalar::ScalarValue;
 use crate::{
-    error::{ExecutionError, Result},
+    error::{DataFusionError, Result},
     physical_plan::udaf::AggregateUDF,
 };
 use crate::{
@@ -80,7 +80,7 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
     pub fn sql_statement_to_plan(&self, sql: &Statement) -> Result<LogicalPlan> {
         match sql {
             Statement::Query(query) => self.query_to_plan(&query),
-            _ => Err(ExecutionError::NotImplemented(
+            _ => Err(DataFusionError::NotImplemented(
                 "Only SELECT statements are implemented".to_string(),
             )),
         }
@@ -90,7 +90,7 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
     pub fn query_to_plan(&self, query: &Query) -> Result<LogicalPlan> {
         let plan = match &query.body {
             SetExpr::Select(s) => self.select_to_plan(s.as_ref()),
-            _ => Err(ExecutionError::NotImplemented(
+            _ => Err(DataFusionError::NotImplemented(
                 format!("Query {} not implemented yet", query.body).to_owned(),
             )),
         }?;
@@ -117,14 +117,14 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
         match *file_type {
             FileType::CSV => {
                 if columns.is_empty() {
-                    return Err(ExecutionError::General(
+                    return Err(DataFusionError::Plan(
                         "Column definitions required for CSV files. None found".into(),
                     ));
                 }
             }
             FileType::Parquet => {
                 if !columns.is_empty() {
-                    return Err(ExecutionError::General(
+                    return Err(DataFusionError::Plan(
                         "Column definitions can not be specified for PARQUET files."
                             .into(),
                     ));
@@ -200,8 +200,8 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
             SQLDataType::Date => Ok(DataType::Date64(DateUnit::Day)),
             SQLDataType::Time => Ok(DataType::Time64(TimeUnit::Millisecond)),
             SQLDataType::Timestamp => Ok(DataType::Date64(DateUnit::Millisecond)),
-            _ => Err(ExecutionError::General(format!(
-                "Unsupported data type: {:?}.",
+            _ => Err(DataFusionError::NotImplemented(format!(
+                "The SQL data type {:?} is not implemented",
                 sql_type
             ))),
         }
@@ -212,7 +212,7 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
             return Ok(LogicalPlanBuilder::empty().build()?);
         }
         if from.len() != 1 {
-            return Err(ExecutionError::NotImplemented(
+            return Err(DataFusionError::NotImplemented(
                 "FROM with multiple tables is still not implemented".to_string(),
             ));
         };
@@ -228,13 +228,13 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
                         None,
                     )?
                     .build()?),
-                    None => Err(ExecutionError::General(format!(
+                    None => Err(DataFusionError::Plan(format!(
                         "no schema found for table {}",
                         name
                     ))),
                 }
             }
-            _ => Err(ExecutionError::NotImplemented(
+            _ => Err(DataFusionError::NotImplemented(
                 "Subqueries are still not supported".to_string(),
             )),
         }
@@ -243,7 +243,7 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
     /// Generate a logic plan from an SQL select
     fn select_to_plan(&self, select: &Select) -> Result<LogicalPlan> {
         if select.having.is_some() {
-            return Err(ExecutionError::NotImplemented(
+            return Err(DataFusionError::NotImplemented(
                 "HAVING is not implemented yet".to_string(),
             ));
         }
@@ -310,7 +310,7 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
         let aggr_count = aggr_expr.len();
 
         if group_by_count + aggr_count != projection_expr.len() {
-            return Err(ExecutionError::General(
+            return Err(DataFusionError::Plan(
                 "Projection references non-aggregate values".to_owned(),
             ));
         }
@@ -349,7 +349,7 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
             Some(ref limit_expr) => {
                 let n = match self.sql_to_rex(&limit_expr, &input.schema())? {
                     Expr::Literal(ScalarValue::Int64(Some(n))) => Ok(n as usize),
-                    _ => Err(ExecutionError::General(
+                    _ => Err(DataFusionError::Plan(
                         "Unexpected expression for LIMIT clause".to_string(),
                     )),
                 }?;
@@ -396,7 +396,7 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
                 alias.value.clone(),
             )),
             SelectItem::Wildcard => Ok(Expr::Wildcard),
-            SelectItem::QualifiedWildcard(_) => Err(ExecutionError::NotImplemented(
+            SelectItem::QualifiedWildcard(_) => Err(DataFusionError::NotImplemented(
                 "Qualified wildcards are not supported".to_string(),
             )),
         }
@@ -418,7 +418,7 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
                 } else {
                     match schema.field_with_name(&id.value) {
                         Ok(field) => Ok(Expr::Column(field.name().clone())),
-                        Err(_) => Err(ExecutionError::ExecutionError(format!(
+                        Err(_) => Err(DataFusionError::Plan(format!(
                             "Invalid identifier '{}' for schema {}",
                             id,
                             schema.to_string()
@@ -436,7 +436,7 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
                 if &var_names[0][0..1] == "@" {
                     Ok(Expr::ScalarVariable(var_names))
                 } else {
-                    Err(ExecutionError::ExecutionError(format!(
+                    Err(DataFusionError::Plan(format!(
                         "Invalid compound identifier '{:?}' for schema {}",
                         var_names,
                         schema.to_string()
@@ -466,7 +466,7 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
                 UnaryOperator::Not => {
                     Ok(Expr::Not(Box::new(self.sql_to_rex(expr, schema)?)))
                 }
-                _ => Err(ExecutionError::InternalError(format!(
+                _ => Err(DataFusionError::Internal(format!(
                     "SQL binary operator cannot be interpreted as a unary operator"
                 ))),
             },
@@ -492,7 +492,7 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
                     BinaryOperator::Or => Ok(Operator::Or),
                     BinaryOperator::Like => Ok(Operator::Like),
                     BinaryOperator::NotLike => Ok(Operator::NotLike),
-                    _ => Err(ExecutionError::NotImplemented(format!(
+                    _ => Err(DataFusionError::NotImplemented(format!(
                         "Unsupported SQL binary operator {:?}",
                         op
                     ))),
@@ -573,7 +573,7 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
                                 args,
                             })
                         }
-                        _ => Err(ExecutionError::General(format!(
+                        _ => Err(DataFusionError::Plan(format!(
                             "Invalid function '{}'",
                             name
                         ))),
@@ -583,7 +583,7 @@ impl<'a, S: SchemaProvider> SqlToRel<'a, S> {
 
             SQLExpr::Nested(e) => self.sql_to_rex(&e, &schema),
 
-            _ => Err(ExecutionError::General(format!(
+            _ => Err(DataFusionError::NotImplemented(format!(
                 "Unsupported ast node {:?} in sqltorel",
                 sql
             ))),
@@ -611,7 +611,7 @@ pub fn convert_data_type(sql: &SQLDataType) -> Result<DataType> {
         SQLDataType::Double => Ok(DataType::Float64),
         SQLDataType::Char(_) | SQLDataType::Varchar(_) => Ok(DataType::Utf8),
         SQLDataType::Timestamp => Ok(DataType::Timestamp(TimeUnit::Nanosecond, None)),
-        other => Err(ExecutionError::NotImplemented(format!(
+        other => Err(DataFusionError::NotImplemented(format!(
             "Unsupported SQL type {:?}",
             other
         ))),
@@ -848,7 +848,7 @@ mod tests {
         let sql = "SELECT c1, MIN(c12) FROM aggregate_test_100 GROUP BY c1, c13";
         let err = logical_plan(sql).expect_err("query should have failed");
         assert_eq!(
-            "General(\"Projection references non-aggregate values\")",
+            "Plan(\"Projection references non-aggregate values\")",
             format!("{:?}", err)
         );
     }
@@ -858,7 +858,7 @@ mod tests {
         let sql = "SELECT c1, c13, MIN(c12) FROM aggregate_test_100 GROUP BY c1";
         let err = logical_plan(sql).expect_err("query should have failed");
         assert_eq!(
-            "General(\"Projection references non-aggregate values\")",
+            "Plan(\"Projection references non-aggregate values\")",
             format!("{:?}", err)
         );
     }
@@ -875,7 +875,7 @@ mod tests {
         let sql = "CREATE EXTERNAL TABLE t STORED AS CSV LOCATION 'foo.csv'";
         let err = logical_plan(sql).expect_err("query should have failed");
         assert_eq!(
-            "General(\"Column definitions required for CSV files. None found\")",
+            "Plan(\"Column definitions required for CSV files. None found\")",
             format!("{:?}", err)
         );
     }
@@ -886,7 +886,7 @@ mod tests {
             "CREATE EXTERNAL TABLE t(c1 int) STORED AS PARQUET LOCATION 'foo.parquet'";
         let err = logical_plan(sql).expect_err("query should have failed");
         assert_eq!(
-            "General(\"Column definitions can not be specified for PARQUET files.\")",
+            "Plan(\"Column definitions can not be specified for PARQUET files.\")",
             format!("{:?}", err)
         );
     }
@@ -949,7 +949,7 @@ mod tests {
 
         fn get_function_meta(&self, name: &str) -> Option<Arc<ScalarUDF>> {
             let f: ScalarFunctionImplementation =
-                Arc::new(|_| Err(ExecutionError::NotImplemented("".to_string())));
+                Arc::new(|_| Err(DataFusionError::NotImplemented("".to_string())));
             match name {
                 "my_sqrt" => Some(Arc::new(create_udf(
                     "my_sqrt",

@@ -32,7 +32,7 @@ use arrow::record_batch::RecordBatch;
 use crate::datasource::csv::CsvFile;
 use crate::datasource::parquet::ParquetTable;
 use crate::datasource::TableProvider;
-use crate::error::{ExecutionError, Result};
+use crate::error::{DataFusionError, Result};
 use crate::execution::dataframe_impl::DataFrameImpl;
 use crate::logical_plan::{FunctionRegistry, LogicalPlan, LogicalPlanBuilder};
 use crate::optimizer::filter_push_down::FilterPushDown;
@@ -148,7 +148,7 @@ impl ExecutionContext {
                     let plan = LogicalPlanBuilder::empty().build()?;
                     Ok(Arc::new(DataFrameImpl::new(self.state.clone(), &plan)))
                 }
-                _ => Err(ExecutionError::ExecutionError(format!(
+                _ => Err(DataFusionError::NotImplemented(format!(
                     "Unsupported file type {:?}.",
                     file_type
                 ))),
@@ -164,7 +164,7 @@ impl ExecutionContext {
         let statements = DFParser::parse_sql(sql)?;
 
         if statements.len() != 1 {
-            return Err(ExecutionError::NotImplemented(format!(
+            return Err(DataFusionError::NotImplemented(format!(
                 "The context currently only supports a single SQL statement",
             )));
         }
@@ -288,7 +288,7 @@ impl ExecutionContext {
                     &LogicalPlanBuilder::from(&table_scan).build()?,
                 )))
             }
-            _ => Err(ExecutionError::General(format!(
+            _ => Err(DataFusionError::Plan(format!(
                 "No table named '{}'",
                 table_name
             ))),
@@ -364,7 +364,7 @@ impl ExecutionContext {
                 .map(|batch| writer.write(&batch?))
                 .try_collect()
                 .await
-                .map_err(|e| ExecutionError::from(e))?;
+                .map_err(|e| DataFusionError::from(e))?;
         }
         Ok(())
     }
@@ -501,7 +501,7 @@ impl FunctionRegistry for ExecutionContextState {
     fn udf(&self, name: &str) -> Result<&ScalarUDF> {
         let result = self.scalar_functions.get(name);
         if result.is_none() {
-            Err(ExecutionError::General(
+            Err(DataFusionError::Plan(
                 format!("There is no UDF named \"{}\" in the registry", name).to_string(),
             ))
         } else {
@@ -512,7 +512,7 @@ impl FunctionRegistry for ExecutionContextState {
     fn udaf(&self, name: &str) -> Result<&AggregateUDF> {
         let result = self.aggregate_functions.get(name);
         if result.is_none() {
-            Err(ExecutionError::General(
+            Err(DataFusionError::Plan(
                 format!("There is no UDAF named \"{}\" in the registry", name)
                     .to_string(),
             ))
@@ -1414,7 +1414,7 @@ mod tests {
             _logical_plan: &LogicalPlan,
             _ctx_state: &ExecutionContextState,
         ) -> Result<Arc<dyn ExecutionPlan>> {
-            Err(ExecutionError::NotImplemented(
+            Err(DataFusionError::NotImplemented(
                 "query not supported".to_string(),
             ))
         }

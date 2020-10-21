@@ -20,7 +20,7 @@
 use std::any::Any;
 use std::sync::Arc;
 
-use crate::error::{ExecutionError, Result};
+use crate::error::{DataFusionError, Result};
 use crate::physical_plan::memory::MemoryStream;
 use crate::physical_plan::{Distribution, ExecutionPlan, Partitioning};
 use arrow::datatypes::SchemaRef;
@@ -72,7 +72,7 @@ impl ExecutionPlan for EmptyExec {
     ) -> Result<Arc<dyn ExecutionPlan>> {
         match children.len() {
             0 => Ok(Arc::new(EmptyExec::new(self.schema.clone()))),
-            _ => Err(ExecutionError::General(
+            _ => Err(DataFusionError::Internal(
                 "EmptyExec wrong number of children".to_string(),
             )),
         }
@@ -81,7 +81,7 @@ impl ExecutionPlan for EmptyExec {
     async fn execute(&self, partition: usize) -> Result<SendableRecordBatchStream> {
         // GlobalLimitExec has a single output partition
         if 0 != partition {
-            return Err(ExecutionError::General(format!(
+            return Err(DataFusionError::Internal(format!(
                 "EmptyExec invalid partition {} (expected 0)",
                 partition
             )));

@@ -17,7 +17,7 @@
 
 //! Array expressions
 
-use crate::error::{ExecutionError, Result};
+use crate::error::{DataFusionError, Result};
 use arrow::array::*;
 use arrow::datatypes::DataType;
 use std::sync::Arc;
@@ -28,7 +28,7 @@ macro_rules! downcast_vec {
             .iter()
             .map(|e| match e.as_any().downcast_ref::<$ARRAY_TYPE>() {
                 Some(array) => Ok(array),
-                _ => Err(ExecutionError::General("failed to downcast".to_string())),
+                _ => Err(DataFusionError::Internal("failed to downcast".to_string())),
             })
     }};
 }
@@ -62,7 +62,7 @@ macro_rules! array {
 pub fn array(args: &[ArrayRef]) -> Result<ArrayRef> {
     // do not accept 0 arguments.
     if args.len() == 0 {
-        return Err(ExecutionError::InternalError(
+        return Err(DataFusionError::Internal(
             "array requires at least one argument".to_string(),
         ));
     }
@@ -81,7 +81,7 @@ pub fn array(args: &[ArrayRef]) -> Result<ArrayRef> {
         DataType::UInt16 => array!(args, UInt16Array, UInt16Builder),
         DataType::UInt32 => array!(args, UInt32Array, UInt32Builder),
         DataType::UInt64 => array!(args, UInt64Array, UInt64Builder),
-        data_type => Err(ExecutionError::NotImplemented(format!(
+        data_type => Err(DataFusionError::NotImplemented(format!(
             "Array is not implemented for type '{:?}'.",
             data_type
         ))),

@@ -19,7 +19,7 @@
 
 use std::convert::{From, TryFrom};
 
-use crate::error::{ExecutionError, Result};
+use crate::error::{DataFusionError, Result};
 use crate::scalar::ScalarValue;
 
 /// Enumeration of types that can be used in a GROUP BY expression (all primitives except
@@ -38,7 +38,7 @@ pub(crate) enum GroupByScalar {
 }
 
 impl TryFrom<&ScalarValue> for GroupByScalar {
-    type Error = ExecutionError;
+    type Error = DataFusionError;
 
     fn try_from(scalar_value: &ScalarValue) -> Result<Self> {
         Ok(match scalar_value {
@@ -60,13 +60,13 @@ impl TryFrom<&ScalarValue> for GroupByScalar {
             | ScalarValue::UInt32(None)
             | ScalarValue::UInt64(None)
             | ScalarValue::Utf8(None) => {
-                return Err(ExecutionError::InternalError(format!(
+                return Err(DataFusionError::Internal(format!(
                     "Cannot convert a ScalarValue holding NULL ({:?})",
                     scalar_value
                 )));
             }
             v => {
-                return Err(ExecutionError::InternalError(format!(
+                return Err(DataFusionError::Internal(format!(
                     "Cannot convert a ScalarValue with associated DataType {:?}",
                     v.get_datatype()
                 )))
@@ -95,7 +95,7 @@ impl From<&GroupByScalar> for ScalarValue {
 mod tests {
     use super::*;
 
-    use crate::error::{ExecutionError, Result};
+    use crate::error::{DataFusionError, Result};
 
     #[test]
     fn from_scalar_holding_none() -> Result<()> {
@@ -103,7 +103,7 @@ mod tests {
         let result = GroupByScalar::try_from(&scalar_value);
 
         match result {
-            Err(ExecutionError::InternalError(error_message)) => assert_eq!(
+            Err(DataFusionError::Internal(error_message)) => assert_eq!(
                 error_message,
                 String::from("Cannot convert a ScalarValue holding NULL (Int8(NULL))")
             ),
@@ -120,7 +120,7 @@ mod tests {
         let result = GroupByScalar::try_from(&scalar_value);
 
         match result {
-            Err(ExecutionError::InternalError(error_message)) => assert_eq!(
+            Err(DataFusionError::Internal(error_message)) => assert_eq!(
                 error_message,
                 String::from(
                     "Cannot convert a ScalarValue with associated DataType Float32"

@@ -23,7 +23,7 @@ use std::sync::Arc;
 use std::task::{Context, Poll};
 
 use super::{RecordBatchStream, SendableRecordBatchStream};
-use crate::error::{ExecutionError, Result};
+use crate::error::{DataFusionError, Result};
 
 use array::{
     BooleanArray, Float32Array, Float64Array, Int16Array, Int32Array, Int64Array,
@@ -84,7 +84,7 @@ pub async fn collect(stream: SendableRecordBatchStream) -> Result<Vec<RecordBatc
     stream
         .try_collect::<Vec<_>>()
         .await
-        .map_err(|e| ExecutionError::from(e))
+        .map_err(|e| DataFusionError::from(e))
 }
 
 /// Recursively build a list of files in a directory with a given extension
@@ -107,7 +107,7 @@ pub fn build_file_list(dir: &str, filenames: &mut Vec<String>, ext: &str) -> Res
                     }
                 }
             } else {
-                return Err(ExecutionError::General("Invalid path".to_string()));
+                return Err(DataFusionError::Plan("Invalid path".to_string()));
             }
         }
     }
@@ -159,12 +159,12 @@ pub fn create_batch_empty(schema: &Schema) -> ArrowResult<RecordBatch> {
             DataType::Boolean => {
                 Ok(Arc::new(BooleanArray::from(vec![] as Vec<bool>)) as ArrayRef)
             }
-            _ => Err(ExecutionError::NotImplemented(format!(
+            _ => Err(DataFusionError::NotImplemented(format!(
                 "Cannot convert datatype {:?} to array",
                 f.data_type()
             ))),
         })
         .collect::<Result<_>>()
-        .map_err(ExecutionError::into_arrow_external_error)?;
+        .map_err(DataFusionError::into_arrow_external_error)?;
     RecordBatch::try_new(Arc::new(schema.to_owned()), columns)
 }

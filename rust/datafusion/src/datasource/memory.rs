@@ -25,7 +25,7 @@ use arrow::datatypes::{Field, Schema, SchemaRef};
 use arrow::record_batch::RecordBatch;
 
 use crate::datasource::TableProvider;
-use crate::error::{ExecutionError, Result};
+use crate::error::{DataFusionError, Result};
 use crate::physical_plan::common;
 use crate::physical_plan::memory::MemoryExec;
 use crate::physical_plan::ExecutionPlan;
@@ -49,7 +49,7 @@ impl MemTable {
                 batches: partitions,
             })
         } else {
-            Err(ExecutionError::General(
+            Err(DataFusionError::Plan(
                 "Mismatch between schema and batches".to_string(),
             ))
         }
@@ -112,7 +112,7 @@ impl TableProvider for MemTable {
                 if *i < self.schema.fields().len() {
                     Ok(self.schema.field(*i).clone())
                 } else {
-                    Err(ExecutionError::General(
+                    Err(DataFusionError::Internal(
                         "Projection index out of range".to_string(),
                     ))
                 }
@@ -217,7 +217,7 @@ mod tests {
         let projection: Vec<usize> = vec![0, 4];
 
         match provider.scan(&Some(projection), 1024) {
-            Err(ExecutionError::General(e)) => {
+            Err(DataFusionError::Internal(e)) => {
                 assert_eq!("\"Projection index out of range\"", format!("{:?}", e))
             }
             _ => assert!(false, "Scan should failed on invalid projection"),
@@ -250,7 +250,7 @@ mod tests {
         )?;
 
         match MemTable::new(schema2, vec![vec![batch]]) {
-            Err(ExecutionError::General(e)) => assert_eq!(
+            Err(DataFusionError::Plan(e)) => assert_eq!(
                 "\"Mismatch between schema and batches\"",
                 format!("{:?}", e)
             ),

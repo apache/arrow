@@ -38,7 +38,7 @@ use std::string::String;
 use std::sync::Arc;
 
 use crate::datasource::TableProvider;
-use crate::error::{ExecutionError, Result};
+use crate::error::{DataFusionError, Result};
 use crate::physical_plan::csv::CsvExec;
 pub use crate::physical_plan::csv::CsvReadOptions;
 use crate::physical_plan::{common, ExecutionPlan};
@@ -62,7 +62,7 @@ impl CsvFile {
                 let mut filenames: Vec<String> = vec![];
                 common::build_file_list(path, &mut filenames, options.file_extension)?;
                 if filenames.is_empty() {
-                    return Err(ExecutionError::General("No files found".to_string()));
+                    return Err(DataFusionError::Plan("No files found".to_string()));
                 }
                 CsvExec::try_infer_schema(&filenames, &options)?
             }
