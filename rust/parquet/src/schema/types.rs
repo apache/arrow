@@ -709,7 +709,6 @@ impl ColumnDescriptor {
 
 /// A schema descriptor. This encapsulates the top-level schemas for all the columns,
 /// as well as all descriptors for all the primitive columns.
-#[derive(Debug)]
 pub struct SchemaDescriptor {
     // The top-level schema (the "message" type).
     // This must be a `GroupType` where each field is a root column type in the schema.
@@ -726,6 +725,15 @@ pub struct SchemaDescriptor {
     // -- -- -- c  |
     // -- -- -- -- d
     leaf_to_base: Vec<TypePtr>,
+}
+
+impl fmt::Debug for SchemaDescriptor {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // Skip leaves and leaf_to_base as they only a cache information already found in `schema`
+        f.debug_struct("SchemaDescriptor")
+            .field("schema", &self.schema)
+            .finish()
+    }
 }
 
 impl SchemaDescriptor {
