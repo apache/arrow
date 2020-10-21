@@ -26,8 +26,8 @@ import java.util.function.Consumer;
 import org.apache.arrow.flight.FlightProducer.ServerStreamListener;
 import org.apache.arrow.flight.FlightServerMiddleware.Key;
 import org.apache.arrow.flight.auth.ServerAuthHandler;
+import org.apache.arrow.flight.auth.ServerAuthWrapper;
 import org.apache.arrow.flight.auth2.AuthConstants;
-import org.apache.arrow.flight.auth2.ServerHandshakeWrapper;
 import org.apache.arrow.flight.grpc.ContextAdapter;
 import org.apache.arrow.flight.grpc.ContextPropagatingExecutorService;
 import org.apache.arrow.flight.grpc.ServerInterceptorAdapter;
@@ -38,6 +38,8 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.AutoCloseables;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.google.common.base.Strings;
 
 import io.grpc.stub.ServerCallStreamObserver;
 import io.grpc.stub.StreamObserver;
@@ -64,13 +66,22 @@ class FlightService extends FlightServiceImplBase {
   }
 
   private CallContext makeContext(ServerCallStreamObserver<?> responseObserver) {
+    // Try to get the peer identity from middleware first (using the auth2 interfaces).
     final ContextAdapter contextAdapter = new ContextAdapter();
-    return new CallContext(contextAdapter.get(AuthConstants.PEER_IDENTITY_KEY), responseObserver::isCancelled);
+    String peerIdentity = contextAdapter.get(AuthConstants.PEER_IDENTITY_KEY);
+    if (Strings.isNullOrEmpty(peerIdentity)) {
+      // Try the legacy auth interface.
+      peerIdentity = org.apache.arrow.flight.auth.AuthConstants.PEER_IDENTITY_KEY.get();
+    }
+
+    return new CallContext(peerIdentity, responseObserver::isCancelled);
   }
 
   @Override
   public StreamObserver<Flight.HandshakeRequest> handshake(StreamObserver<Flight.HandshakeResponse> responseObserver) {
-    return ServerHandshakeWrapper.wrapHandshake(responseObserver, executors);
+    // This method is not meaningful with the auth2 interfaces. Authentication would already
+    // have happened by header/middleware with the auth2 classes.
+    return ServerAuthWrapper.wrapHandshake(authHandler, responseObserver, executors);
   }
 
   @Override

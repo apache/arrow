@@ -82,7 +82,7 @@ final class AuthBasicProtoScenario implements Scenario {
   @Override
   public void client(BufferAllocator allocator, Location location, FlightClient.Builder clientBuilder) {
     try (final FlightClient client = clientBuilder.build()) {
-      final CredentialCallOption bearerCredentials = client.authenticateBasic(USERNAME, PASSWORD).get();
+      final CredentialCallOption bearerCredentials = client.basicHeaderAuthenticate(USERNAME, PASSWORD).get();
       final Result result = client.doAction(new Action(""), bearerCredentials).next();
       if (!USERNAME.equals(new String(result.getBody(), StandardCharsets.UTF_8))) {
         throw new AssertionError("Expected " + USERNAME + " but got " + Arrays.toString(result.getBody()));

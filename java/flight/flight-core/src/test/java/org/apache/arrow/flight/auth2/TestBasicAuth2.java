@@ -30,7 +30,6 @@ import org.apache.arrow.flight.FlightStream;
 import org.apache.arrow.flight.FlightTestUtil;
 import org.apache.arrow.flight.NoOpFlightProducer;
 import org.apache.arrow.flight.Ticket;
-import org.apache.arrow.flight.auth2.BasicCallHeaderAuthenticator;
 import org.apache.arrow.flight.grpc.CredentialCallOption;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -48,7 +47,7 @@ import org.junit.Test;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 
-public class TestBasicAuth {
+public class TestBasicAuth2 {
 
   private static final String USERNAME = "flight";
   private static final String NO_USERNAME = "";
@@ -61,7 +60,7 @@ public class TestBasicAuth {
 
   @Test
   public void validAuth() {
-    final CredentialCallOption bearerToken = client.authenticateBasic(USERNAME, PASSWORD).get();
+    final CredentialCallOption bearerToken = client.basicHeaderAuthenticate(USERNAME, PASSWORD).get();
     Assert.assertTrue(ImmutableList.copyOf(client
         .listFlights(Criteria.ALL, bearerToken))
         .isEmpty());
@@ -71,7 +70,7 @@ public class TestBasicAuth {
   @Ignore
   @Test
   public void asyncCall() throws Exception {
-    final CredentialCallOption bearerToken = client.authenticateBasic(USERNAME, PASSWORD).get();
+    final CredentialCallOption bearerToken = client.basicHeaderAuthenticate(USERNAME, PASSWORD).get();
     client.listFlights(Criteria.ALL, bearerToken);
     try (final FlightStream s = client.getStream(new Ticket(new byte[1]))) {
       while (s.next()) {
@@ -83,10 +82,10 @@ public class TestBasicAuth {
   @Test
   public void invalidAuth() {
     FlightTestUtil.assertCode(FlightStatusCode.UNAUTHENTICATED, () ->
-        client.authenticateBasic(USERNAME, "WRONG"));
+        client.basicHeaderAuthenticate(USERNAME, "WRONG"));
 
     FlightTestUtil.assertCode(FlightStatusCode.UNAUTHENTICATED, () ->
-            client.authenticateBasic(NO_USERNAME, PASSWORD));
+            client.basicHeaderAuthenticate(NO_USERNAME, PASSWORD));
 
     FlightTestUtil.assertCode(FlightStatusCode.UNAUTHENTICATED, () ->
         client.listFlights(Criteria.ALL).forEach(action -> Assert.fail()));
