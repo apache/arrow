@@ -72,7 +72,10 @@ final class Scenarios {
         scenario.buildServer(builder);
         try (final FlightServer server = builder.build()) {
           server.start();
-          scenario.client(allocator, location, FlightClient.builder(allocator, location));
+
+          try (final FlightClient client = FlightClient.builder(allocator, location).build()) {
+            scenario.client(allocator, location, client);
+          }
 
           server.shutdown();
           server.awaitTermination(1, TimeUnit.SECONDS);

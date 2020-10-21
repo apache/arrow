@@ -70,7 +70,7 @@ public class InMemoryStore implements FlightProducer, AutoCloseable {
 
   @Override
   public void getStream(CallContext context, Ticket ticket,
-                        ServerStreamListener listener) {
+      ServerStreamListener listener) {
     getStream(ticket).sendTo(allocator, listener);
   }
 
@@ -112,7 +112,7 @@ public class InMemoryStore implements FlightProducer, AutoCloseable {
 
   @Override
   public Runnable acceptPut(CallContext context,
-                            final FlightStream flightStream, final StreamListener<PutResult> ackStream) {
+      final FlightStream flightStream, final StreamListener<PutResult> ackStream) {
     return () -> {
       StreamCreator creator = null;
       boolean success = false;
@@ -144,7 +144,7 @@ public class InMemoryStore implements FlightProducer, AutoCloseable {
 
   @Override
   public void doAction(CallContext context, Action action,
-                       StreamListener<Result> listener) {
+      StreamListener<Result> listener) {
     switch (action.getType()) {
       case "drop": {
         // not implemented.
@@ -160,7 +160,7 @@ public class InMemoryStore implements FlightProducer, AutoCloseable {
 
   @Override
   public void listActions(CallContext context,
-                          StreamListener<ActionType> listener) {
+      StreamListener<ActionType> listener) {
     listener.onNext(new ActionType("get", "pull a stream. Action must be done via standard get mechanism"));
     listener.onNext(new ActionType("put", "push a stream. Action must be done via standard put mechanism"));
     listener.onNext(new ActionType("drop", "delete a flight. Action body is a JSON encoded path."));

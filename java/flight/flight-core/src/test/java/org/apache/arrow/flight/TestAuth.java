@@ -20,10 +20,6 @@ package org.apache.arrow.flight;
 import java.util.Iterator;
 import java.util.Optional;
 
-import org.apache.arrow.flight.FlightClient;
-import org.apache.arrow.flight.FlightServer;
-import org.apache.arrow.flight.FlightTestUtil;
-import org.apache.arrow.flight.NoOpFlightProducer;
 import org.apache.arrow.flight.auth.ClientAuthHandler;
 import org.apache.arrow.flight.auth.ServerAuthHandler;
 import org.apache.arrow.memory.BufferAllocator;
@@ -36,11 +32,11 @@ public class TestAuth {
   @Test(expected = RuntimeException.class)
   public void noMessages() throws Exception {
     try (final BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
-         final FlightServer s = FlightTestUtil
-             .getStartedServer(
-                 location -> FlightServer.builder(allocator, location, new NoOpFlightProducer()).authHandler(
-                     new OneshotAuthHandler()).build());
-         final FlightClient client = FlightClient.builder(allocator, s.getLocation()).build()) {
+        final FlightServer s = FlightTestUtil
+            .getStartedServer(
+                location -> FlightServer.builder(allocator, location, new NoOpFlightProducer()).authHandler(
+                    new OneshotAuthHandler()).build());
+        final FlightClient client = FlightClient.builder(allocator, s.getLocation()).build()) {
       client.authenticate(new ClientAuthHandler() {
         @Override
         public void authenticate(ClientAuthSender outgoing, Iterator<byte[]> incoming) {
@@ -58,11 +54,11 @@ public class TestAuth {
   @Test(expected = RuntimeException.class)
   public void clientError() throws Exception {
     try (final BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
-         final FlightServer s = FlightTestUtil
-             .getStartedServer(
-                 location -> FlightServer.builder(allocator, location, new NoOpFlightProducer()).authHandler(
-                     new OneshotAuthHandler()).build());
-         final FlightClient client = FlightClient.builder(allocator, s.getLocation()).build()) {
+        final FlightServer s = FlightTestUtil
+            .getStartedServer(
+                location -> FlightServer.builder(allocator, location, new NoOpFlightProducer()).authHandler(
+                    new OneshotAuthHandler()).build());
+        final FlightClient client = FlightClient.builder(allocator, s.getLocation()).build()) {
       client.authenticate(new ClientAuthHandler() {
         @Override
         public void authenticate(ClientAuthSender outgoing, Iterator<byte[]> incoming) {

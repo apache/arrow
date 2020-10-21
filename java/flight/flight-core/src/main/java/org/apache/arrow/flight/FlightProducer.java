@@ -41,7 +41,7 @@ public interface FlightProducer {
    * @param listener An interface for sending data back to the client.
    */
   void listFlights(CallContext context, Criteria criteria,
-                   StreamListener<FlightInfo> listener);
+      StreamListener<FlightInfo> listener);
 
   /**
    * Get information about a particular data stream.
@@ -72,7 +72,7 @@ public interface FlightProducer {
    * @param flightStream The data stream being uploaded.
    */
   Runnable acceptPut(CallContext context,
-                     FlightStream flightStream, StreamListener<PutResult> ackStream);
+      FlightStream flightStream, StreamListener<PutResult> ackStream);
 
   default void doExchange(CallContext context, FlightStream reader, ServerStreamListener writer) {
     throw CallStatus.UNIMPLEMENTED.withDescription("DoExchange is unimplemented").toRuntimeException();
@@ -86,7 +86,7 @@ public interface FlightProducer {
    * @param listener A stream of responses.
    */
   void doAction(CallContext context, Action action,
-                StreamListener<Result> listener);
+      StreamListener<Result> listener);
 
   /**
    * List available application-defined RPCs.

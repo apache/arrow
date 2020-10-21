@@ -106,7 +106,8 @@ public class PerformanceTestServer implements AutoCloseable {
     }
 
     @Override
-    public void getStream(CallContext context, Ticket ticket, ServerStreamListener listener) {
+    public void getStream(CallContext context, Ticket ticket,
+        ServerStreamListener listener) {
       bpStrategy.register(listener);
       final Runnable loadData = () -> {
         VectorSchemaRoot root = null;
@@ -178,7 +179,7 @@ public class PerformanceTestServer implements AutoCloseable {
 
     @Override
     public FlightInfo getFlightInfo(CallContext context,
-                                    FlightDescriptor descriptor) {
+        FlightDescriptor descriptor) {
       try {
         Preconditions.checkArgument(descriptor.isCommand());
         Perf exec = Perf.parseFrom(descriptor.getCommand());
