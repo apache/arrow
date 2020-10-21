@@ -72,7 +72,7 @@ class ExpressionEvaluator;
 
 /// forward declared to facilitate scalar(true) as a default for Expression parameters
 ARROW_DS_EXPORT
-std::shared_ptr<Expression> scalar(bool);
+const std::shared_ptr<Expression>& scalar(bool);
 
 class Partitioning;
 class PartitioningFactory;

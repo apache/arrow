@@ -247,6 +247,11 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
     }
     possible_stats_ = nullptr;
   }
+
+  bool Equals(const ColumnChunkMetaDataImpl& other) const {
+    return *column_metadata_ == *other.column_metadata_;
+  }
+
   // column chunk
   inline int64_t file_offset() const { return column_->file_offset; }
   inline const std::string& file_path() const { return column_->file_path; }
@@ -417,6 +422,10 @@ std::unique_ptr<ColumnCryptoMetaData> ColumnChunkMetaData::crypto_metadata() con
   return impl_->crypto_metadata();
 }
 
+bool ColumnChunkMetaData::Equals(const ColumnChunkMetaData& other) const {
+  return impl_->Equals(*other.impl_);
+}
+
 // row-group metadata
 class RowGroupMetaData::RowGroupMetaDataImpl {
  public:
@@ -428,6 +437,10 @@ class RowGroupMetaData::RowGroupMetaDataImpl {
         schema_(schema),
         writer_version_(writer_version),
         file_decryptor_(file_decryptor) {}
+
+  bool Equals(const RowGroupMetaDataImpl& other) const {
+    return *row_group_ == *other.row_group_;
+  }
 
   inline int num_columns() const { return static_cast<int>(row_group_->columns.size()); }
 
@@ -479,6 +492,10 @@ RowGroupMetaData::RowGroupMetaData(const void* metadata, const SchemaDescriptor*
 
 RowGroupMetaData::~RowGroupMetaData() {}
 
+bool RowGroupMetaData::Equals(const RowGroupMetaData& other) const {
+  return impl_->Equals(*other.impl_);
+}
+
 int RowGroupMetaData::num_columns() const { return impl_->num_columns(); }
 
 int64_t RowGroupMetaData::num_rows() const { return impl_->num_rows(); }
@@ -506,12 +523,12 @@ bool RowGroupMetaData::can_decompress() const {
 // file metadata
 class FileMetaData::FileMetaDataImpl {
  public:
-  FileMetaDataImpl() : metadata_len_(0) {}
+  FileMetaDataImpl() = default;
 
   explicit FileMetaDataImpl(
       const void* metadata, uint32_t* metadata_len,
       std::shared_ptr<InternalFileDecryptor> file_decryptor = nullptr)
-      : metadata_len_(0), file_decryptor_(file_decryptor) {
+      : file_decryptor_(file_decryptor) {
     metadata_.reset(new format::FileMetaData);
 
     auto footer_decryptor =
@@ -634,6 +651,10 @@ class FileMetaData::FileMetaDataImpl {
                                   file_decryptor_);
   }
 
+  bool Equals(const FileMetaDataImpl& other) const {
+    return *metadata_ == *other.metadata_;
+  }
+
   const SchemaDescriptor* schema() const { return &schema_; }
 
   const std::shared_ptr<const KeyValueMetadata>& key_value_metadata() const {
@@ -666,13 +687,52 @@ class FileMetaData::FileMetaDataImpl {
     }
   }
 
+  std::shared_ptr<FileMetaData> Subset(const std::vector<int>& row_groups) {
+    for (int i : row_groups) {
+      if (i < num_row_groups()) continue;
+
+      throw ParquetException(
+          "The file only has ", num_row_groups(),
+          " row groups, but requested a subset including row group: ", i);
+    }
+
+    std::shared_ptr<FileMetaData> out(new FileMetaData());
+    out->impl_.reset(new FileMetaDataImpl());
+    out->impl_->metadata_.reset(new format::FileMetaData());
+
+    auto metadata = out->impl_->metadata_.get();
+    metadata->version = metadata_->version;
+    metadata->schema = metadata_->schema;
+
+    metadata->row_groups.resize(row_groups.size());
+    int i = 0;
+    for (int selected_index : row_groups) {
+      metadata->num_rows += row_group(selected_index).num_rows;
+      metadata->row_groups[i++] = row_group(selected_index);
+    }
+
+    metadata->key_value_metadata = metadata_->key_value_metadata;
+    metadata->created_by = metadata_->created_by;
+    metadata->column_orders = metadata_->column_orders;
+    metadata->encryption_algorithm = metadata_->encryption_algorithm;
+    metadata->footer_signing_key_metadata = metadata_->footer_signing_key_metadata;
+    metadata->__isset = metadata_->__isset;
+
+    out->impl_->schema_ = schema_;
+    out->impl_->writer_version_ = writer_version_;
+    out->impl_->key_value_metadata_ = key_value_metadata_;
+    out->impl_->file_decryptor_ = file_decryptor_;
+
+    return out;
+  }
+
   void set_file_decryptor(std::shared_ptr<InternalFileDecryptor> file_decryptor) {
     file_decryptor_ = file_decryptor;
   }
 
  private:
   friend FileMetaDataBuilder;
-  uint32_t metadata_len_;
+  uint32_t metadata_len_ = 0;
   std::unique_ptr<format::FileMetaData> metadata_;
   SchemaDescriptor schema_;
   ApplicationVersion writer_version_;
@@ -734,6 +794,10 @@ FileMetaData::FileMetaData()
     : impl_{std::unique_ptr<FileMetaDataImpl>(new FileMetaDataImpl())} {}
 
 FileMetaData::~FileMetaData() {}
+
+bool FileMetaData::Equals(const FileMetaData& other) const {
+  return impl_->Equals(*other.impl_);
+}
 
 std::unique_ptr<RowGroupMetaData> FileMetaData::RowGroup(int i) const {
   return impl_->RowGroup(i);
@@ -809,6 +873,11 @@ void FileMetaData::set_file_path(const std::string& path) { impl_->set_file_path
 
 void FileMetaData::AppendRowGroups(const FileMetaData& other) {
   impl_->AppendRowGroups(other.impl_);
+}
+
+std::shared_ptr<FileMetaData> FileMetaData::Subset(
+    const std::vector<int>& row_groups) const {
+  return impl_->Subset(row_groups);
 }
 
 void FileMetaData::WriteTo(::arrow::io::OutputStream* dst,

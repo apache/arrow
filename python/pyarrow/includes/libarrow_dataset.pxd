@@ -237,8 +237,12 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         int64_t num_rows() const
         int64_t total_byte_size() const
         bint Equals(const CRowGroupInfo& other)
-        c_bool HasStatistics() const
-        shared_ptr[CStructScalar] statistics() const
+        c_bool HasMetadata() const
+        shared_ptr[CFileMetaData] file_metadata() const
+        shared_ptr[CRowGroupMetaData] metadata() const
+        shared_ptr[CSchema] schema() const
+        CResult[int] column_index(c_string) const
+        CResult[shared_ptr[CDataType]] type(int) const
 
         @staticmethod
         vector[CRowGroupInfo] FromIdentifiers(vector[int])
@@ -250,8 +254,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
 
     cdef cppclass CParquetFileFragment "arrow::dataset::ParquetFileFragment"(
             CFileFragment):
-        const vector[CRowGroupInfo]* row_groups() const
-        CResult[int] GetNumRowGroups()
+        const vector[CRowGroupInfo]& row_groups() const
         CResult[vector[shared_ptr[CFragment]]] SplitByRowGroup(
             shared_ptr[CExpression] predicate)
         CResult[shared_ptr[CFragment]] SubsetWithFilter "Subset"(

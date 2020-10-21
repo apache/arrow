@@ -33,7 +33,8 @@ from pyarrow._csv cimport ParseOptions
 from pyarrow.util import _is_path_like, _stringify_path
 
 from pyarrow._parquet cimport (
-    _create_writer_properties, _create_arrow_writer_properties
+    _create_writer_properties, _create_arrow_writer_properties,
+    FileMetaData, RowGroupMetaData, ColumnChunkMetaData
 )
 
 
@@ -939,26 +940,14 @@ cdef class RowGroupInfo(_Weakrefable):
         return self.info.total_byte_size()
 
     @property
-    def statistics(self):
-        if not self.info.HasStatistics():
+    def metadata(self):
+        if not self.info.HasMetadata():
             return None
 
-        cdef:
-            CStructScalar* c_statistics
-            CStructScalar* c_minmax
+        cdef FileMetaData metadata = FileMetaData.__new__(FileMetaData)
 
-        statistics = dict()
-        c_statistics = self.info.statistics().get()
-        for i in range(c_statistics.value.size()):
-            name = frombytes(c_statistics.type.get().field(i).get().name())
-            c_minmax = <CStructScalar*> c_statistics.value[i].get()
-
-            statistics[name] = {
-                'min': pyarrow_wrap_scalar(c_minmax.value[0]).as_py(),
-                'max': pyarrow_wrap_scalar(c_minmax.value[1]).as_py(),
-            }
-
-        return statistics
+        metadata.init(self.info.file_metadata())
+        return metadata.row_group(self.id)
 
     def __eq__(self, other):
         if not isinstance(other, RowGroupInfo):
@@ -967,6 +956,31 @@ cdef class RowGroupInfo(_Weakrefable):
             RowGroupInfo row_group = other
             CRowGroupInfo c_info = row_group.info
         return self.info.Equals(c_info)
+
+    @property
+    def statistics(self):
+        metadata = self.metadata
+        if metadata is None:
+            return None
+
+        def path_stats(i):
+            col = metadata.column(i)
+
+            if not col.statistics.has_min_max:
+                return None, None
+
+            typ = pyarrow_wrap_data_type(GetResultValue(self.info.type(i)))
+
+            return col.path_in_schema, {
+                'min': pa.scalar(col.statistics.min, type=typ).as_py(),
+                'max': pa.scalar(col.statistics.max, type=typ).as_py()
+            }
+
+        return {
+            path: stats
+            for path, stats in map(path_stats, range(metadata.num_columns))
+            if stats is not None
+        }
 
 
 cdef class ParquetFileFragment(FileFragment):
@@ -1001,13 +1015,12 @@ cdef class ParquetFileFragment(FileFragment):
 
     @property
     def row_groups(self):
-        cdef:
-            const vector[CRowGroupInfo]* c_row_groups
-        c_row_groups = self.parquet_file_fragment.row_groups()
-        if c_row_groups == nullptr:
-            return None
-        return [RowGroupInfo.wrap(c_row_groups.at(i))
-                for i in range(c_row_groups.size())]
+        cdef vector[CRowGroupInfo] row_groups
+
+        check_status(self.parquet_file_fragment.EnsureCompleteMetadata())
+        row_groups = self.parquet_file_fragment.row_groups()
+
+        return [RowGroupInfo.wrap(g) for g in row_groups]
 
     @property
     def num_row_groups(self):
@@ -1015,7 +1028,7 @@ cdef class ParquetFileFragment(FileFragment):
         Return the number of row groups viewed by this fragment (not the
         number of row groups in the origin file).
         """
-        return GetResultValue(self.parquet_file_fragment.GetNumRowGroups())
+        return len(self.row_groups)
 
     def split_by_row_group(self, Expression filter=None,
                            Schema schema=None):

@@ -34,6 +34,8 @@
 
 namespace parquet {
 class ParquetFileReader;
+class Statistics;
+class ColumnChunkMetaData;
 class RowGroupMetaData;
 class FileMetaData;
 class FileDecryptionProperties;
@@ -48,6 +50,7 @@ class ArrowWriterProperties;
 namespace arrow {
 class FileReader;
 class FileWriter;
+struct SchemaManifest;
 }  // namespace arrow
 }  // namespace parquet
 
@@ -140,45 +143,42 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
 /// \brief Represents a parquet's RowGroup with extra information.
 class ARROW_DS_EXPORT RowGroupInfo : public util::EqualityComparable<RowGroupInfo> {
  public:
-  RowGroupInfo() : RowGroupInfo(-1) {}
-
   /// \brief Construct a RowGroup from an identifier.
-  explicit RowGroupInfo(int id) : RowGroupInfo(id, -1, -1, NULLPTR) {}
+  explicit RowGroupInfo(int id) : id_(id) {}
 
-  /// \brief Construct a RowGroup from an identifier with statistics.
-  RowGroupInfo(int id, int64_t num_rows, int64_t total_byte_size,
-               std::shared_ptr<StructScalar> statistics)
-      : id_(id),
-        num_rows_(num_rows),
-        total_byte_size_(total_byte_size),
-        statistics_(std::move(statistics)) {
-    SetStatisticsExpression();
-  }
+  /// \brief Only default constructible for cython
+  RowGroupInfo() = default;
 
   /// \brief Transform a vector of identifiers into a vector of RowGroupInfos
   static std::vector<RowGroupInfo> FromIdentifiers(const std::vector<int> ids);
+
   static std::vector<RowGroupInfo> FromCount(int count);
 
   /// \brief Return the RowGroup's identifier (index in the file).
   int id() const { return id_; }
 
   /// \brief Return the RowGroup's number of rows.
-  ///
-  /// If statistics are not provided, return -1.
-  int64_t num_rows() const { return num_rows_; }
+  int64_t num_rows() const;
 
   /// \brief Return the RowGroup's total size in bytes.
-  ///
-  /// If statistics are not provided, return -1.
-  int64_t total_byte_size() const { return total_byte_size_; }
+  int64_t total_byte_size() const;
 
-  /// \brief Return the RowGroup's statistics as a StructScalar with a field for
-  /// each column with statistics.
-  /// Each field will also be a StructScalar with "min" and "max" fields.
-  const std::shared_ptr<StructScalar>& statistics() const { return statistics_; }
+  /// \brief Return the RowGroup's statistics for the referenced column.
+  Result<std::shared_ptr<parquet::Statistics>> statistics(FieldRef ref) const;
 
-  /// \brief Indicate if statistics are set.
-  bool HasStatistics() const { return statistics_ != NULLPTR; }
+  std::shared_ptr<Schema> schema() const;
+
+  const std::shared_ptr<parquet::FileMetaData>& file_metadata() const {
+    return file_metadata_;
+  }
+  const std::shared_ptr<parquet::RowGroupMetaData>& metadata() const { return metadata_; }
+  Result<int> column_index(FieldRef ref) const;
+
+  /// \brief The type of a parquet-indexed column
+  Result<std::shared_ptr<DataType>> type(int column_index) const;
+
+  /// \brief Indicate if metadata is cached (otherwise access may require IO).
+  bool HasMetadata() const { return file_metadata_ != NULLPTR; }
 
   /// \brief Indicate if the RowGroup's statistics satisfy the predicate.
   ///
@@ -189,14 +189,15 @@ class ARROW_DS_EXPORT RowGroupInfo : public util::EqualityComparable<RowGroupInf
   /// \brief Indicate if the other RowGroup points to the same RowGroup.
   bool Equals(const RowGroupInfo& other) const { return id() == other.id(); }
 
- private:
-  void SetStatisticsExpression();
+  Status SetMetadata(std::shared_ptr<parquet::FileMetaData> metadata,
+                     std::shared_ptr<parquet::arrow::SchemaManifest> manifest);
 
-  int id_;
-  int64_t num_rows_;
-  int64_t total_byte_size_;
-  std::shared_ptr<Expression> statistics_expression_;
-  std::shared_ptr<StructScalar> statistics_;
+ private:
+  int id_ = -1;
+  std::shared_ptr<parquet::FileMetaData> file_metadata_;
+  std::shared_ptr<parquet::RowGroupMetaData> metadata_;
+  std::shared_ptr<parquet::arrow::SchemaManifest> manifest_;
+  mutable std::shared_ptr<Expression> statistics_expression_;
 };
 
 /// \brief A FileFragment with parquet logic.
@@ -215,12 +216,8 @@ class ARROW_DS_EXPORT ParquetFileFragment : public FileFragment {
  public:
   Result<FragmentVector> SplitByRowGroup(const std::shared_ptr<Expression>& predicate);
 
-  /// \brief Return the RowGroups selected by this fragment, or nullptr
-  /// if all RowGroups in the parquet file are selected.
-  const std::vector<RowGroupInfo>* row_groups();
-
-  /// \brief Return the number of row groups selected by this fragment.
-  Result<int> GetNumRowGroups();
+  /// \brief Return the RowGroups selected by this fragment.
+  const std::vector<RowGroupInfo>& row_groups() const { return row_groups_; }
 
   /// \brief Indicate if the attached statistics are complete and the physical schema
   /// is cached.
@@ -246,6 +243,9 @@ class ARROW_DS_EXPORT ParquetFileFragment : public FileFragment {
                       std::shared_ptr<Expression> partition_expression,
                       std::shared_ptr<Schema> physical_schema);
 
+  Status SetMetadata(std::shared_ptr<parquet::FileMetaData> metadata,
+                     std::shared_ptr<parquet::arrow::SchemaManifest> manifest);
+
   // Overridden to opportunistically set metadata since a reader must be opened anyway.
   Result<std::shared_ptr<Schema>> ReadPhysicalSchemaImpl() override {
     ARROW_RETURN_NOT_OK(EnsureCompleteMetadata());
@@ -255,14 +255,17 @@ class ARROW_DS_EXPORT ParquetFileFragment : public FileFragment {
   // Return a filtered subset of RowGroupInfos.
   Result<std::vector<RowGroupInfo>> FilterRowGroups(const Expression& predicate);
 
-  void SetNumRowGroups(int);
-
   std::vector<RowGroupInfo> row_groups_;
+  ExpressionVector statistics_expressions_;
+  std::vector<bool> statistics_expressions_complete_;
+  std::shared_ptr<parquet::FileMetaData> metadata_;
+  std::shared_ptr<parquet::arrow::SchemaManifest> manifest_;
   ParquetFileFormat& parquet_format_;
   bool has_complete_metadata_ = false;
   int num_row_groups_ = -1;
 
   friend class ParquetFileFormat;
+  friend class ParquetDatasetFactory;
 };
 
 class ARROW_DS_EXPORT ParquetFileWriteOptions : public FileWriteOptions {
@@ -388,7 +391,7 @@ class ARROW_DS_EXPORT ParquetDatasetFactory : public DatasetFactory {
       const parquet::ArrowReaderProperties& properties);
 
   Result<std::vector<std::shared_ptr<FileFragment>>> CollectParquetFragments(
-      const parquet::FileMetaData& metadata,
+      const std::shared_ptr<parquet::FileMetaData>& metadata,
       const parquet::ArrowReaderProperties& properties, const Partitioning& partitioning);
 
   Result<std::shared_ptr<Schema>> PartitionSchema();

@@ -28,6 +28,9 @@
 
 namespace arrow {
 
+template <typename>
+struct EnsureResult;
+
 namespace internal {
 
 #if __cplusplus >= 201703L
@@ -379,7 +382,7 @@ class ARROW_MUST_USE_TYPE Result : public util::EqualityComparable<Result<T>> {
   /// Apply a function to the internally stored value to produce a new result or propagate
   /// the stored error.
   template <typename M>
-  typename std::result_of<M && (T)>::type Map(M&& m) && {
+  typename EnsureResult<typename std::result_of<M && (T)>::type>::type Map(M&& m) && {
     if (!ok()) {
       return status();
     }
@@ -389,7 +392,8 @@ class ARROW_MUST_USE_TYPE Result : public util::EqualityComparable<Result<T>> {
   /// Apply a function to the internally stored value to produce a new result or propagate
   /// the stored error.
   template <typename M>
-  typename std::result_of<M && (const T&)>::type Map(M&& m) const& {
+  typename EnsureResult<typename std::result_of<M && (const T&)>::type>::type Map(
+      M&& m) const& {
     if (!ok()) {
       return status();
     }
@@ -466,5 +470,15 @@ template <typename T>
 Result<T> ToResult(T t) {
   return Result<T>(std::move(t));
 }
+
+template <typename T>
+struct EnsureResult {
+  using type = Result<T>;
+};
+
+template <typename T>
+struct EnsureResult<Result<T>> {
+  using type = Result<T>;
+};
 
 }  // namespace arrow

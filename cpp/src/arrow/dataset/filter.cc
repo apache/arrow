@@ -80,6 +80,14 @@ struct Comparison {
   };
 };
 
+Result<std::shared_ptr<Scalar>> EnsureNotDictionary(
+    const std::shared_ptr<Scalar>& scalar) {
+  if (scalar->type->id() == Type::DICTIONARY) {
+    return checked_cast<const DictionaryScalar&>(*scalar).GetEncodedValue();
+  }
+  return scalar;
+}
+
 Result<Comparison::type> Compare(const Scalar& lhs, const Scalar& rhs);
 
 struct CompareVisitor {
@@ -149,11 +157,7 @@ struct CompareVisitor {
   }
 
   Status Visit(const DictionaryType&) {
-    ARROW_ASSIGN_OR_RAISE(auto lhs,
-                          checked_cast<const DictionaryScalar&>(lhs_).GetEncodedValue());
-    ARROW_ASSIGN_OR_RAISE(auto rhs,
-                          checked_cast<const DictionaryScalar&>(rhs_).GetEncodedValue());
-    return Compare(*lhs, *rhs).Value(&result_);
+    return Status::NotImplemented("comparison of scalars of type ", *lhs_.type);
   }
 
   // defer comparison to ScalarType<T>::value
@@ -358,9 +362,17 @@ std::shared_ptr<Expression> ComparisonExpression::AssumeGivenComparison(
     }
   }
 
-  const auto& this_rhs = checked_cast<const ScalarExpression&>(*right_operand_).value();
-  const auto& given_rhs =
-      checked_cast<const ScalarExpression&>(*given.right_operand_).value();
+  auto this_rhs =
+      EnsureNotDictionary(checked_cast<const ScalarExpression&>(*right_operand_).value())
+          .ValueOr(nullptr);
+  auto given_rhs =
+      EnsureNotDictionary(
+          checked_cast<const ScalarExpression&>(*given.right_operand_).value())
+          .ValueOr(nullptr);
+
+  if (!this_rhs || !given_rhs) {
+    return Copy();
+  }
 
   auto cmp = Compare(*this_rhs, *given_rhs).ValueOrDie();
 
@@ -806,6 +818,7 @@ std::shared_ptr<Expression> and_(std::shared_ptr<Expression> lhs,
 std::shared_ptr<Expression> and_(const ExpressionVector& subexpressions) {
   auto acc = scalar(true);
   for (const auto& next : subexpressions) {
+    if (next->Equals(false)) return next;
     acc = acc->Equals(true) ? next : and_(std::move(acc), next);
   }
   return acc;
@@ -819,6 +832,7 @@ std::shared_ptr<Expression> or_(std::shared_ptr<Expression> lhs,
 std::shared_ptr<Expression> or_(const ExpressionVector& subexpressions) {
   auto acc = scalar(false);
   for (const auto& next : subexpressions) {
+    if (next->Equals(true)) return next;
     acc = acc->Equals(false) ? next : or_(std::move(acc), next);
   }
   return acc;
@@ -1338,7 +1352,11 @@ Result<std::shared_ptr<RecordBatch>> TreeEvaluator::Filter(
   return batch->Slice(0, 0);
 }
 
-std::shared_ptr<Expression> scalar(bool value) { return scalar(MakeScalar(value)); }
+const std::shared_ptr<Expression>& scalar(bool value) {
+  static auto true_ = scalar(MakeScalar(true));
+  static auto false_ = scalar(MakeScalar(false));
+  return value ? true_ : false_;
+}
 
 // Serialization is accomplished by converting expressions to single element StructArrays
 // then writing that to an IPC file. The last field is always an int32 column containing
