@@ -30,6 +30,10 @@ import java.util.function.BooleanSupplier;
 import javax.net.ssl.SSLException;
 
 import org.apache.arrow.flight.FlightProducer.StreamListener;
+import org.apache.arrow.flight.auth.BasicClientAuthHandler;
+import org.apache.arrow.flight.auth.ClientAuthHandler;
+import org.apache.arrow.flight.auth.ClientAuthInterceptor;
+import org.apache.arrow.flight.auth.ClientAuthWrapper;
 import org.apache.arrow.flight.auth2.BasicAuthCredentialWriter;
 import org.apache.arrow.flight.auth2.BearerCredentialWriter;
 import org.apache.arrow.flight.auth2.ClientBearerTokenMiddleware;
@@ -50,6 +54,7 @@ import org.apache.arrow.vector.dictionary.DictionaryProvider.MapDictionaryProvid
 
 import io.grpc.Channel;
 import io.grpc.ClientCall;
+import io.grpc.ClientInterceptor;
 import io.grpc.ClientInterceptors;
 import io.grpc.ManagedChannel;
 import io.grpc.MethodDescriptor;
@@ -77,6 +82,7 @@ public class FlightClient implements AutoCloseable {
   private final Channel interceptedChannel;
   private final FlightServiceBlockingStub blockingStub;
   private final FlightServiceStub asyncStub;
+  private final ClientAuthInterceptor authInterceptor = new ClientAuthInterceptor();
   private final MethodDescriptor<Flight.Ticket, ArrowMessage> doGetDescriptor;
   private final MethodDescriptor<ArrowMessage, Flight.PutResult> doPutDescriptor;
   private final MethodDescriptor<ArrowMessage, ArrowMessage> doExchangeDescriptor;
@@ -91,8 +97,11 @@ public class FlightClient implements AutoCloseable {
     this.channel = channel;
     this.middleware = middleware;
 
+    final ClientInterceptor[] interceptors;
+    interceptors = new ClientInterceptor[]{authInterceptor, new ClientInterceptorAdapter(middleware)};
+
     // Create a channel with interceptors pre-applied for DoGet and DoPut
-    this.interceptedChannel = ClientInterceptors.intercept(channel, new ClientInterceptorAdapter(middleware));
+    this.interceptedChannel = ClientInterceptors.intercept(channel, interceptors);
 
     blockingStub = FlightServiceGrpc.newBlockingStub(interceptedChannel);
     asyncStub = FlightServiceGrpc.newStub(interceptedChannel);
@@ -157,13 +166,33 @@ public class FlightClient implements AutoCloseable {
 
   /**
    * Authenticates with a username and password.
+   */
+  public void authenticateBasic(String username, String password) {
+    BasicClientAuthHandler basicClient = new BasicClientAuthHandler(username, password);
+    authenticate(basicClient);
+  }
+
+  /**
+   * Authenticates against the Flight service.
+   *
+   * @param options RPC-layer hints for this call.
+   * @param handler The auth mechanism to use.
+   */
+  public void authenticate(ClientAuthHandler handler, CallOption... options) {
+    Preconditions.checkArgument(!authInterceptor.hasAuthHandler(), "Auth already completed.");
+    ClientAuthWrapper.doClientAuth(handler, CallOptions.wrapStub(asyncStub, options));
+    authInterceptor.setAuthHandler(handler);
+  }
+
+  /**
+   * Authenticates with a username and password.
    *
    * @param username the username.
    * @param password the password.
    * @return a CredentialCallOption containing a bearer token if the server emitted one, or
    *     empty if no bearer token was returned. This can be used in subsequent API calls.
    */
-  public Optional<CredentialCallOption> authenticateBasic(String username, String password) {
+  public Optional<CredentialCallOption> basicHeaderAuthenticate(String username, String password) {
     final ClientBearerTokenMiddleware.Factory tokenMiddleware = new ClientBearerTokenMiddleware.Factory();
     middleware.add(tokenMiddleware);
     handshake(new CredentialCallOption(new BasicAuthCredentialWriter(username, password)));
