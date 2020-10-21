@@ -102,7 +102,9 @@ jobs:
     #         hosted machines
     name: ${{ matrix.title }}
     runs-on: ${{ matrix.runner }}
-    if: github.event_name == 'push'
+    # TODO(kszucs): re-enable once the self-hosted workers are properly
+    # registered to github
+    if: false && github.event_name == 'push'
     defaults:
       # To use certain environment variables set by .bashrc, an interactive
       # bash shell must be used
@@ -119,11 +121,12 @@ jobs:
             debian: 10
             title: ARM32v7 Debian 10 C++
             image: |
-              -e CPP_MAKE_PARALLELISM=4 \
+              -e CPP_MAKE_PARALLELISM=2 \
               -e CXXFLAGS=-Wno-psabi \
               -e ARROW_PARQUET=OFF \
               -e ARROW_FLIGHT=OFF \
               -e ARROW_GANDIVA=OFF \
+              -e ARROW_ORC=OFF \
               -e CMAKE_ARGS=-DARROW_CPU_FLAG=armv7 \
               debian-cpp
             arch: 'arm32v7'

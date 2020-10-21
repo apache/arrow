@@ -92,7 +92,6 @@ RUN /arrow/ci/scripts/install_minio.sh ${arch} linux latest /usr/local
 # - libprotobuf-dev only provide sources
 ENV ARROW_BUILD_TESTS=ON \
     ARROW_DEPENDENCY_SOURCE=SYSTEM \
-    ARROW_S3=ON \
     ARROW_DATASET=ON \
     ARROW_FLIGHT=OFF \
     ARROW_GANDIVA=ON \
@@ -103,6 +102,7 @@ ENV ARROW_BUILD_TESTS=ON \
     ARROW_ORC=ON \
     ARROW_PARQUET=ON \
     ARROW_PLASMA=ON \
+    ARROW_S3=ON \
     ARROW_USE_ASAN=OFF \
     ARROW_USE_CCACHE=ON \
     ARROW_USE_UBSAN=OFF \

@@ -169,9 +169,9 @@ def multisourcefs(request):
         with mockfs.open_output_stream(path) as out:
             pq.write_table(_table_from_pandas(chunk), out)
 
-    # create one with schema partitioning by week and color
+    # create one with schema partitioning by weekday and color
     mockfs.create_dir('schema')
-    for part, chunk in df_b.groupby([df_b.date.dt.week, df_b.color]):
+    for part, chunk in df_b.groupby([df_b.date.dt.dayofweek, df_b.color]):
         folder = 'schema/{}/{}'.format(*part)
         path = '{}/chunk.parquet'.format(folder)
         mockfs.create_dir(folder)
@@ -830,7 +830,7 @@ def test_fragments_parquet_row_groups(tempdir):
 
 
 @pytest.mark.parquet
-def test_parquet_fragment_num_row_groups(tempdir):
+def test_fragments_parquet_num_row_groups(tempdir):
     import pyarrow.parquet as pq
 
     table = pa.table({'a': range(8)})
@@ -1091,6 +1091,81 @@ def test_fragments_parquet_row_groups_reconstruct(tempdir):
         row_groups={2})
     with pytest.raises(IndexError, match="Trying to scan row group 2"):
         new_fragment.to_table()
+
+
+@pytest.mark.pandas
+@pytest.mark.parquet
+def test_fragments_parquet_subset_ids(tempdir):
+    table, dataset = _create_dataset_for_fragments(tempdir, chunk_size=1)
+    fragment = list(dataset.get_fragments())[0]
+
+    # select with row group ids
+    subfrag = fragment.subset(row_group_ids=[0, 3])
+    assert subfrag.num_row_groups == 2
+    # the row_groups list is initialized, but don't have statistics
+    assert len(subfrag.row_groups) == 2
+    assert subfrag.row_groups[0].statistics is None
+    # check correct scan result of subset
+    result = subfrag.to_table()
+    assert result.to_pydict() == {"f1": [0, 3], "f2": [1, 1]}
+
+    # if the original fragment has statistics -> preserve them
+    fragment.ensure_complete_metadata()
+    subfrag = fragment.subset(row_group_ids=[0, 3])
+    assert subfrag.num_row_groups == 2
+    assert len(subfrag.row_groups) == 2
+    assert subfrag.row_groups[0].statistics is not None
+
+    # empty list of ids
+    subfrag = fragment.subset(row_group_ids=[])
+    assert subfrag.num_row_groups == 0
+    assert subfrag.row_groups == []
+    result = subfrag.to_table(schema=dataset.schema)
+    assert result.num_rows == 0
+    assert result.equals(table[:0])
+
+
+@pytest.mark.pandas
+@pytest.mark.parquet
+def test_fragments_parquet_subset_filter(tempdir):
+    table, dataset = _create_dataset_for_fragments(tempdir, chunk_size=1)
+    fragment = list(dataset.get_fragments())[0]
+
+    # select with filter
+    subfrag = fragment.subset(ds.field("f1") >= 1)
+    assert subfrag.num_row_groups == 3
+    # ensure statistics are preserved in subset (need to be read for filter)
+    assert len(subfrag.row_groups) == 3
+    assert subfrag.row_groups[0].statistics is not None
+    # check correct scan result of subset
+    result = subfrag.to_table()
+    assert result.to_pydict() == {"f1": [1, 2, 3], "f2": [1, 1, 1]}
+
+    # filter that results in empty selection
+    subfrag = fragment.subset(ds.field("f1") > 5)
+    assert subfrag.num_row_groups == 0
+    assert subfrag.row_groups == []
+    result = subfrag.to_table(schema=dataset.schema)
+    assert result.num_rows == 0
+    assert result.equals(table[:0])
+
+    # passing schema to ensure filter on partition expression works
+    subfrag = fragment.subset(ds.field("part") == "a", schema=dataset.schema)
+    assert subfrag.num_row_groups == 4
+
+
+@pytest.mark.pandas
+@pytest.mark.parquet
+def test_fragments_parquet_subset_invalid(tempdir):
+    _, dataset = _create_dataset_for_fragments(tempdir, chunk_size=1)
+    fragment = list(dataset.get_fragments())[0]
+
+    # passing none or both of filter / row_group_ids
+    with pytest.raises(ValueError):
+        fragment.subset(ds.field("f1") >= 1, row_group_ids=[1, 2])
+
+    with pytest.raises(ValueError):
+        fragment.subset()
 
 
 def test_partitioning_factory(mockfs):
@@ -2385,3 +2460,43 @@ def test_write_dataset_parquet(tempdir):
         ds.write_dataset(table, base_dir, format=format, file_options=opts)
         meta = pq.read_metadata(base_dir / "part-0.parquet")
         assert meta.format_version == version
+
+
+@pytest.mark.parquet
+@pytest.mark.pandas
+def test_write_dataset_arrow_schema_metadata(tempdir):
+    # ensure we serialize ARROW schema in the parquet metadata, to have a
+    # correct roundtrip (e.g. preserve non-UTC timezone)
+    import pyarrow.parquet as pq
+
+    table = pa.table({"a": [pd.Timestamp("2012-01-01", tz="Europe/Brussels")]})
+    assert table["a"].type.tz == "Europe/Brussels"
+
+    ds.write_dataset(table, tempdir, format="parquet")
+    result = pq.read_table(tempdir / "part-0.parquet")
+    assert result["a"].type.tz == "Europe/Brussels"
+
+
+def test_write_dataset_schema_metadata(tempdir):
+    # ensure that schema metadata gets written
+    from pyarrow import feather
+
+    table = pa.table({'a': [1, 2, 3]})
+    table = table.replace_schema_metadata({b'key': b'value'})
+    ds.write_dataset(table, tempdir, format="feather")
+
+    schema = feather.read_table(tempdir / "part-0.feather").schema
+    assert schema.metadata == {b'key': b'value'}
+
+
+@pytest.mark.parquet
+def test_write_dataset_schema_metadata_parquet(tempdir):
+    # ensure that schema metadata gets written
+    import pyarrow.parquet as pq
+
+    table = pa.table({'a': [1, 2, 3]})
+    table = table.replace_schema_metadata({b'key': b'value'})
+    ds.write_dataset(table, tempdir, format="parquet")
+
+    schema = pq.read_table(tempdir / "part-0.parquet").schema
+    assert schema.metadata == {b'key': b'value'}

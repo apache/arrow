@@ -35,7 +35,7 @@ public class TestNettyAllocationManager {
     return new RootAllocator(BaseAllocator.configBuilder()
         .allocationManagerFactory(new AllocationManager.Factory() {
           @Override
-          public AllocationManager create(BaseAllocator accountingAllocator, long size) {
+          public AllocationManager create(BufferAllocator accountingAllocator, long size) {
             return new NettyAllocationManager(accountingAllocator, size, CUSTOMIZED_ALLOCATION_CUTOFF_VALUE);
           }
 

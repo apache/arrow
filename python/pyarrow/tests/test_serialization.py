@@ -52,6 +52,11 @@ except ImportError:
     sparse = None
 
 
+# ignore all serialization deprecation warnings in this file, we test that the
+# warnings are actually raised in test_serialization_deprecated.py
+pytestmark = pytest.mark.filterwarnings("ignore:'pyarrow:DeprecationWarning")
+
+
 def assert_equal(obj1, obj2):
     if torch is not None and torch.is_tensor(obj1) and torch.is_tensor(obj2):
         if obj1.is_sparse:
@@ -233,7 +238,8 @@ CUSTOM_OBJECTS = [Exception("Test object."), CustomError(), Point(11, y=22),
 
 
 def make_serialization_context():
-    context = pa.default_serialization_context()
+    with pytest.warns(DeprecationWarning):
+        context = pa.default_serialization_context()
 
     context.register_type(Foo, "Foo")
     context.register_type(Bar, "Bar")

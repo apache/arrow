@@ -17,8 +17,10 @@
 
 from datetime import datetime
 from functools import lru_cache
+import inspect
 import pickle
 import pytest
+import random
 import textwrap
 
 import numpy as np
@@ -54,6 +56,13 @@ exported_functions = [
     if hasattr(func, '__arrow_compute_function__')]
 
 
+exported_option_classes = [
+    cls for (name, cls) in sorted(pc.__dict__.items())
+    if (isinstance(cls, type) and
+        cls is not pc.FunctionOptions and
+        issubclass(cls, pc.FunctionOptions))]
+
+
 numerical_arrow_types = [
     pa.int8(),
     pa.int16(),
@@ -79,6 +88,18 @@ def test_exported_functions():
                            match="Got unexpected argument type "
                                  "<class 'object'> for compute function"):
             func(*args)
+
+
+def test_exported_option_classes():
+    classes = exported_option_classes
+    assert len(classes) >= 10
+    for cls in classes:
+        # Option classes must have an introspectable constructor signature,
+        # and that signature should not have any *args or **kwargs.
+        sig = inspect.signature(cls)
+        for param in sig.parameters.values():
+            assert param.kind not in (param.VAR_POSITIONAL,
+                                      param.VAR_KEYWORD)
 
 
 def test_list_functions():
@@ -238,6 +259,51 @@ def test_match_substring():
     assert expected.equals(result)
 
 
+def test_split_pattern():
+    arr = pa.array(["-foo---bar--", "---foo---b"])
+    result = pc.split_pattern(arr, pattern="---")
+    expected = pa.array([["-foo", "bar--"], ["", "foo", "b"]])
+    assert expected.equals(result)
+
+    result = pc.split_pattern(arr, pattern="---", max_splits=1)
+    expected = pa.array([["-foo", "bar--"], ["", "foo---b"]])
+    assert expected.equals(result)
+
+    result = pc.split_pattern(arr, pattern="---", max_splits=1, reverse=True)
+    expected = pa.array([["-foo", "bar--"], ["---foo", "b"]])
+    assert expected.equals(result)
+
+
+def test_split_whitespace_utf8():
+    arr = pa.array(["foo bar", " foo  \u3000\tb"])
+    result = pc.utf8_split_whitespace(arr)
+    expected = pa.array([["foo", "bar"], ["", "foo", "b"]])
+    assert expected.equals(result)
+
+    result = pc.utf8_split_whitespace(arr, max_splits=1)
+    expected = pa.array([["foo", "bar"], ["", "foo  \u3000\tb"]])
+    assert expected.equals(result)
+
+    result = pc.utf8_split_whitespace(arr, max_splits=1, reverse=True)
+    expected = pa.array([["foo", "bar"], [" foo", "b"]])
+    assert expected.equals(result)
+
+
+def test_split_whitespace_ascii():
+    arr = pa.array(["foo bar", " foo  \u3000\tb"])
+    result = pc.ascii_split_whitespace(arr)
+    expected = pa.array([["foo", "bar"], ["", "foo", "\u3000", "b"]])
+    assert expected.equals(result)
+
+    result = pc.ascii_split_whitespace(arr, max_splits=1)
+    expected = pa.array([["foo", "bar"], ["", "foo  \u3000\tb"]])
+    assert expected.equals(result)
+
+    result = pc.ascii_split_whitespace(arr, max_splits=1, reverse=True)
+    expected = pa.array([["foo", "bar"], [" foo  \u3000", "b"]])
+    assert expected.equals(result)
+
+
 def test_min_max():
     # An example generated function wrapper with possible options
     data = [4, 5, 6, None, 1]
@@ -267,6 +333,12 @@ def test_min_max():
     with pytest.raises(TypeError):
         s = pc.min_max(data, options=options)
 
+    # Missing argument
+    with pytest.raises(
+            TypeError,
+            match=r"min_max\(\) missing 1 required positional argument"):
+        s = pc.min_max()
+
 
 def test_is_valid():
     # An example generated function wrapper without options
@@ -279,11 +351,14 @@ def test_is_valid():
 
 def test_generated_docstrings():
     assert pc.min_max.__doc__ == textwrap.dedent("""\
-        Call compute function 'min_max' with the given argument.
+        Compute the minimum and maximum values of a numeric array.
+
+        Null values are ignored by default.
+        This can be changed through MinMaxOptions.
 
         Parameters
         ----------
-        arg : Array-like or scalar-like
+        array : Array-like
             Argument to compute function
         memory_pool : pyarrow.MemoryPool, optional
             If not passed, will allocate memory from the default memory pool.
@@ -294,14 +369,18 @@ def test_generated_docstrings():
             or `**kwargs` can be passed, but not both at the same time.
         """)
     assert pc.add.__doc__ == textwrap.dedent("""\
-        Call compute function 'add' with the given arguments.
+        Add the arguments element-wise.
+
+        Results will wrap around on integer overflow.
+        Use function "add_checked" if you want overflow
+        to return an error.
 
         Parameters
         ----------
-        left : Array-like or scalar-like
-            First argument to compute function
-        right : Array-like or scalar-like
-            Second argument to compute function
+        x : Array-like or scalar-like
+            Argument to compute function
+        y : Array-like or scalar-like
+            Argument to compute function
         memory_pool : pyarrow.MemoryPool, optional
             If not passed, will allocate memory from the default memory pool.
         """)
@@ -858,3 +937,35 @@ def test_cast():
     arr = pa.array([datetime(2010, 1, 1), datetime(2015, 1, 1)])
     expected = pa.array([1262304000000, 1420070400000], type='timestamp[ms]')
     assert pc.cast(arr, 'timestamp[ms]') == expected
+
+
+def test_strptime():
+    arr = pa.array(["5/1/2020", None, "12/13/1900"])
+
+    got = pc.strptime(arr, format='%m/%d/%Y', unit='s')
+    expected = pa.array([datetime(2020, 5, 1), None, datetime(1900, 12, 13)],
+                        type=pa.timestamp('s'))
+    assert got == expected
+
+
+def test_count():
+    arr = pa.array([1, 2, 3, None, None])
+    assert pc.count(arr).as_py() == 3
+    assert pc.count(arr, count_mode='count_non_null').as_py() == 3
+    assert pc.count(arr, count_mode='count_null').as_py() == 2
+
+    with pytest.raises(ValueError, match="'zzz' is not a valid count_mode"):
+        pc.count(arr, count_mode='zzz')
+
+
+def test_partition_nth():
+    data = list(range(100, 140))
+    random.shuffle(data)
+    pivot = 10
+    indices = pc.partition_nth_indices(data, pivot=pivot).to_pylist()
+    assert len(indices) == len(data)
+    assert sorted(indices) == list(range(len(data)))
+    assert all(data[indices[i]] <= data[indices[pivot]]
+               for i in range(pivot))
+    assert all(data[indices[i]] >= data[indices[pivot]]
+               for i in range(pivot, len(data)))

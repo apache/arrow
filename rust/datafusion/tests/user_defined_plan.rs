@@ -58,11 +58,13 @@
 //! N elements, reducing the total amount of required buffer memory.
 //!
 
+use futures::{FutureExt, Stream, StreamExt, TryStreamExt};
+
 use arrow::{
     array::{Int64Array, PrimitiveArrayOps, StringArray},
     datatypes::SchemaRef,
     error::ArrowError,
-    record_batch::{RecordBatch, RecordBatchReader},
+    record_batch::RecordBatch,
     util::pretty::pretty_format_batches,
 };
 use datafusion::{
@@ -73,11 +75,13 @@ use datafusion::{
     optimizer::{optimizer::OptimizerRule, utils::optimize_explain},
     physical_plan::{
         planner::{DefaultPhysicalPlanner, ExtensionPlanner},
-        Distribution, ExecutionPlan, Partitioning, PhysicalPlanner,
+        Distribution, ExecutionPlan, Partitioning, PhysicalPlanner, RecordBatchStream,
+        SendableRecordBatchStream,
     },
     prelude::{ExecutionConfig, ExecutionContext},
 };
 use fmt::Debug;
+use std::task::{Context, Poll};
 use std::{any::Any, collections::BTreeMap, fmt, sync::Arc};
 
 use async_trait::async_trait;
@@ -392,10 +396,7 @@ impl ExecutionPlan for TopKExec {
     }
 
     /// Execute one partition and return an iterator over RecordBatch
-    async fn execute(
-        &self,
-        partition: usize,
-    ) -> Result<Box<dyn RecordBatchReader + Send>> {
+    async fn execute(&self, partition: usize) -> Result<SendableRecordBatchStream> {
         if 0 != partition {
             return Err(ExecutionError::General(format!(
                 "TopKExec invalid partition {}",
@@ -403,7 +404,7 @@ impl ExecutionPlan for TopKExec {
             )));
         }
 
-        Ok(Box::new(TopKReader {
+        Ok(Box::pin(TopKReader {
             input: self.input.execute(partition).await?,
             k: self.k,
             done: false,
@@ -414,7 +415,7 @@ impl ExecutionPlan for TopKExec {
 // A very specialized TopK implementation
 struct TopKReader {
     /// The input to read data from
-    input: Box<dyn RecordBatchReader + Send>,
+    input: SendableRecordBatchStream,
     /// Maximum number of output values
     k: usize,
     /// Have we produced the output yet?
@@ -448,9 +449,9 @@ fn remove_lowest_value(top_values: &mut BTreeMap<i64, String>) {
 
 fn accumulate_batch(
     input_batch: &RecordBatch,
-    top_values: &mut BTreeMap<i64, String>,
+    mut top_values: BTreeMap<i64, String>,
     k: &usize,
-) -> Result<()> {
+) -> Result<BTreeMap<i64, String>> {
     let num_rows = input_batch.num_rows();
     // Assuming the input columns are
     // column[0]: customer_id / UTF8
@@ -468,51 +469,69 @@ fn accumulate_batch(
         .expect("Column 1 is not revenue");
 
     for row in 0..num_rows {
-        add_row(top_values, customer_id.value(row), revenue.value(row), k);
+        add_row(
+            &mut top_values,
+            customer_id.value(row),
+            revenue.value(row),
+            k,
+        );
     }
-    Ok(())
+    Ok(top_values)
 }
 
-impl Iterator for TopKReader {
+impl Stream for TopKReader {
     type Item = std::result::Result<RecordBatch, ArrowError>;
 
-    /// Reads the next `RecordBatch`.
-    fn next(&mut self) -> Option<Self::Item> {
+    fn poll_next(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<Option<Self::Item>> {
         if self.done {
-            return None;
+            return Poll::Ready(None);
         }
-
-        // Hard coded implementation for sales / customer_id example
-        let mut top_values: BTreeMap<i64, String> = BTreeMap::new();
+        // this aggregates and thus returns a single RecordBatch.
+        self.done = true;
 
         // take this as immutable
-        let k = &self.k;
+        let k = self.k;
+        let schema = self.schema().clone();
 
-        self.input
+        let top_values = self
+            .input
             .as_mut()
-            .into_iter()
-            .map(|batch| accumulate_batch(&batch?, &mut top_values, k))
-            .collect::<Result<()>>()
-            .unwrap();
+            // Hard coded implementation for sales / customer_id example as BTree
+            .try_fold(
+                BTreeMap::<i64, String>::new(),
+                move |top_values, batch| async move {
+                    accumulate_batch(&batch, top_values, &k)
+                        .map_err(ExecutionError::into_arrow_external_error)
+                },
+            );
 
-        // make output by walking over the map backwards (so values are descending)
-        let (revenue, customer): (Vec<i64>, Vec<&String>) =
-            top_values.iter().rev().unzip();
+        let top_values = top_values.map(|top_values| match top_values {
+            Ok(top_values) => {
+                // make output by walking over the map backwards (so values are descending)
+                let (revenue, customer): (Vec<i64>, Vec<&String>) =
+                    top_values.iter().rev().unzip();
 
-        let customer: Vec<&str> = customer.iter().map(|&s| &**s).collect();
+                let customer: Vec<&str> = customer.iter().map(|&s| &**s).collect();
+                Ok(RecordBatch::try_new(
+                    schema,
+                    vec![
+                        Arc::new(StringArray::from(customer)),
+                        Arc::new(Int64Array::from(revenue)),
+                    ],
+                )?)
+            }
+            Err(e) => Err(e),
+        });
+        let mut top_values = Box::pin(top_values.into_stream());
 
-        self.done = true;
-        Some(RecordBatch::try_new(
-            self.schema().clone(),
-            vec![
-                Arc::new(StringArray::from(customer)),
-                Arc::new(Int64Array::from(revenue)),
-            ],
-        ))
+        top_values.poll_next_unpin(cx)
     }
 }
 
-impl RecordBatchReader for TopKReader {
+impl RecordBatchStream for TopKReader {
     fn schema(&self) -> SchemaRef {
         self.input.schema()
     }

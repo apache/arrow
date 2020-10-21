@@ -7,7 +7,6 @@
 write_parquet(
   x,
   sink,
-  filesystem = NULL,
   chunk_size = NULL,
   version = NULL,
   compression = default_parquet_compression(),
@@ -17,16 +16,16 @@ write_parquet(
   data_page_size = NULL,
   use_deprecated_int96_timestamps = FALSE,
   coerce_timestamps = NULL,
-  allow_truncated_timestamps = FALSE
+  allow_truncated_timestamps = FALSE,
+  properties = NULL,
+  arrow_properties = NULL
 )
 }
 \arguments{
 \item{x}{\code{data.frame}, \link{RecordBatch}, or \link{Table}}
 
-\item{sink}{A string file path, URI, or \link{OutputStream}}
-
-\item{filesystem}{A \link{FileSystem} where \code{sink} should be written if it is a
-string file path; default is the local file system}
+\item{sink}{A string file path, URI, or \link{OutputStream}, or path in a file
+system (\code{SubTreeFileSystem})}
 
 \item{chunk_size}{chunk size in number of rows. If NULL, the total number of rows is used.}
 
@@ -52,6 +51,14 @@ size of data pages within a column chunk (in bytes). Default 1 MiB.}
 \item{allow_truncated_timestamps}{Allow loss of data when coercing timestamps to a
 particular resolution. E.g. if microsecond or nanosecond data is lost when coercing
 to "ms", do not raise an exception}
+
+\item{properties}{A \code{ParquetWriterProperties} object, used instead of the options
+enumerated in this function's signature. Providing \code{properties} as an argument
+is deprecated; if you need to assemble \code{ParquetWriterProperties} outside
+of \code{write_parquet()}, use \code{ParquetFileWriter} instead.}
+
+\item{arrow_properties}{A \code{ParquetArrowWriterProperties} object. Like
+\code{properties}, this argument is deprecated.}
 }
 \value{
 the input \code{x} invisibly.
@@ -61,6 +68,12 @@ the input \code{x} invisibly.
 This function enables you to write Parquet files from R.
 }
 \details{
+Due to features of the format, Parquet files cannot be appended to.
+If you want to use the Parquet format but also want the ability to extend
+your dataset, you can write to additional Parquet files and then treat
+the whole directory of files as a \link{Dataset} you can query.
+See \code{vignette("dataset", package = "arrow")} for examples of this.
+
 The parameters \code{compression}, \code{compression_level}, \code{use_dictionary} and
 \code{write_statistics} support various patterns:
 \itemize{

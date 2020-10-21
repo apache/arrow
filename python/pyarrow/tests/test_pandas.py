@@ -35,6 +35,7 @@ import pytz
 
 from pyarrow.pandas_compat import get_logical_type, _pandas_api
 from pyarrow.tests.util import random_ascii, rands
+import pyarrow.tests.strategies as past
 
 import pyarrow as pa
 try:
@@ -998,9 +999,13 @@ class TestConvertDateTimeLikeTypes:
     def test_python_datetime_with_timezone_tzinfo(self):
         from datetime import timezone
 
-        values = [datetime(2018, 1, 1, 12, 23, 45, tzinfo=pytz.utc)]
-        df = pd.DataFrame({'datetime': values})
-        _check_pandas_roundtrip(df)
+        if LooseVersion(pd.__version__) > "0.25.0":
+            # older pandas versions fail on datetime.timezone.utc (as in input)
+            # vs pytz.UTC (as in result)
+            values = [datetime(2018, 1, 1, 12, 23, 45, tzinfo=timezone.utc)]
+            # also test with index to ensure both paths roundtrip (ARROW-9962)
+            df = pd.DataFrame({'datetime': values}, index=values)
+            _check_pandas_roundtrip(df, preserve_index=True)
 
         # datetime.timezone is going to be pytz.FixedOffset
         hours = 1
@@ -1008,9 +1013,9 @@ class TestConvertDateTimeLikeTypes:
         tz_pytz = pytz.FixedOffset(hours * 60)
         values = [datetime(2018, 1, 1, 12, 23, 45, tzinfo=tz_timezone)]
         values_exp = [datetime(2018, 1, 1, 12, 23, 45, tzinfo=tz_pytz)]
-        df = pd.DataFrame({'datetime': values})
-        df_exp = pd.DataFrame({'datetime': values_exp})
-        _check_pandas_roundtrip(df, expected=df_exp)
+        df = pd.DataFrame({'datetime': values}, index=values)
+        df_exp = pd.DataFrame({'datetime': values_exp}, index=values_exp)
+        _check_pandas_roundtrip(df, expected=df_exp, preserve_index=True)
 
     def test_python_datetime_subclass(self):
 
@@ -1788,7 +1793,7 @@ class TestConvertListTypes:
             np.arange(5, dtype=dtype),
             None,
             np.arange(1, dtype=dtype)
-        ])
+        ], dtype=object)
         type_ = pa.list_(pa.int8())
         parr = pa.array(arr, type=type_)
 
@@ -2085,7 +2090,7 @@ class TestConvertListTypes:
                       type=pa.large_list(pa.large_list(pa.int64())))
              .to_pandas())
         tm.assert_series_equal(
-            s, pd.Series([[[1, 2, 3], [4]], None]),
+            s, pd.Series([[[1, 2, 3], [4]], None], dtype=object),
             check_names=False)
 
     def test_large_binary_list(self):
@@ -2712,7 +2717,11 @@ class TestConvertMisc:
 
     def test_error_sparse(self):
         # ARROW-2818
-        df = pd.DataFrame({'a': pd.SparseArray([1, np.nan, 3])})
+        try:
+            df = pd.DataFrame({'a': pd.arrays.SparseArray([1, np.nan, 3])})
+        except AttributeError:
+            # pandas.arrays module introduced in pandas 0.24
+            df = pd.DataFrame({'a': pd.SparseArray([1, np.nan, 3])})
         with pytest.raises(TypeError, match="Sparse pandas data"):
             pa.Table.from_pandas(df)
 
@@ -2764,10 +2773,13 @@ def test_roundtrip_with_bytes_unicode(columns):
 
 
 def _check_serialize_components_roundtrip(pd_obj):
-    ctx = pa.default_serialization_context()
+    with pytest.warns(DeprecationWarning):
+        ctx = pa.default_serialization_context()
 
-    components = ctx.serialize(pd_obj).to_components()
-    deserialized = ctx.deserialize_components(components)
+    with pytest.warns(DeprecationWarning):
+        components = ctx.serialize(pd_obj).to_components()
+    with pytest.warns(DeprecationWarning):
+        deserialized = ctx.deserialize_components(components)
 
     if isinstance(pd_obj, pd.DataFrame):
         tm.assert_frame_equal(pd_obj, deserialized)
@@ -2832,6 +2844,17 @@ def test_convert_unsupported_type_error_message():
         msg = 'Conversion failed for column a with type (period|object)'
         with pytest.raises((TypeError, ValueError), match=msg):
             pa.Table.from_pandas(df)
+
+
+# ----------------------------------------------------------------------
+# Hypothesis tests
+
+
+@h.given(past.arrays(past.pandas_compatible_types))
+def test_array_to_pandas_roundtrip(arr):
+    s = arr.to_pandas()
+    restored = pa.array(s, type=arr.type, from_pandas=True)
+    assert restored.equals(arr)
 
 
 # ----------------------------------------------------------------------

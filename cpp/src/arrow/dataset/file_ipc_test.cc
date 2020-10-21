@@ -28,11 +28,13 @@
 #include "arrow/dataset/partition.h"
 #include "arrow/dataset/test_util.h"
 #include "arrow/io/memory.h"
+#include "arrow/ipc/reader.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
+#include "arrow/util/key_value_metadata.h"
 
 namespace arrow {
 namespace dataset {
@@ -164,6 +166,35 @@ TEST_F(TestIpcFileFormat, WriteRecordBatchReader) {
   EXPECT_OK_AND_ASSIGN(auto written, sink->Finish());
 
   AssertBufferEqual(*written, *source->buffer());
+}
+
+TEST_F(TestIpcFileFormat, WriteRecordBatchReaderCustomOptions) {
+  std::shared_ptr<RecordBatchReader> reader = GetRecordBatchReader();
+  auto source = GetFileSource(reader.get());
+  reader = GetRecordBatchReader();
+
+  opts_ = ScanOptions::Make(reader->schema());
+
+  EXPECT_OK_AND_ASSIGN(auto sink, GetFileSink());
+
+  auto ipc_options =
+      checked_pointer_cast<IpcFileWriteOptions>(format_->DefaultWriteOptions());
+  if (util::Codec::IsAvailable(Compression::ZSTD)) {
+    EXPECT_OK_AND_ASSIGN(ipc_options->options->codec,
+                         util::Codec::Create(Compression::ZSTD));
+  }
+  ipc_options->metadata = key_value_metadata({{"hello", "world"}});
+  EXPECT_OK_AND_ASSIGN(auto writer,
+                       format_->MakeWriter(sink, reader->schema(), ipc_options));
+  ASSERT_OK(writer->Write(reader.get()));
+  ASSERT_OK(writer->Finish());
+
+  EXPECT_OK_AND_ASSIGN(auto written, sink->Finish());
+  EXPECT_OK_AND_ASSIGN(auto ipc_reader, ipc::RecordBatchFileReader::Open(
+                                            std::make_shared<io::BufferReader>(written)));
+
+  EXPECT_EQ(ipc_reader->metadata()->sorted_pairs(),
+            ipc_options->metadata->sorted_pairs());
 }
 
 class TestIpcFileSystemDataset : public testing::Test,

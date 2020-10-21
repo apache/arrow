@@ -42,7 +42,6 @@ class FeatherDataset:
     """
 
     def __init__(self, path_or_paths, validate_schema=True):
-        _check_pandas_version()
         self.paths = path_or_paths
         self.validate_schema = validate_schema
 
@@ -94,6 +93,7 @@ class FeatherDataset:
         pandas.DataFrame
             Content of the file as a pandas DataFrame (of columns)
         """
+        _check_pandas_version()
         return self.read_table(columns=columns).to_pandas(
             use_threads=use_threads)
 

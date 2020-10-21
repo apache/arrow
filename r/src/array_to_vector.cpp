@@ -390,6 +390,8 @@ class Converter_Binary : public Converter {
 
     return IngestSome(array, n, ingest_one);
   }
+
+  virtual bool Parallel() const { return false; }
 };
 
 class Converter_FixedSizeBinary : public Converter {
@@ -428,6 +430,8 @@ class Converter_FixedSizeBinary : public Converter {
 
     return IngestSome(array, n, ingest_one);
   }
+
+  virtual bool Parallel() const { return false; }
 
  private:
   int byte_width_;
@@ -646,6 +650,15 @@ class Converter_Struct : public Converter {
     }
 
     return Status::OK();
+  }
+
+  virtual bool Parallel() const {
+    // this can only run in parallel if all the
+    // inner converters can
+    for (const auto& converter : converters) {
+      if (!converter->Parallel()) return false;
+    }
+    return true;
   }
 
  private:

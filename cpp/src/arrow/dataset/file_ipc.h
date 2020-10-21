@@ -66,7 +66,11 @@ class ARROW_DS_EXPORT IpcFileFormat : public FileFormat {
 
 class ARROW_DS_EXPORT IpcFileWriteOptions : public FileWriteOptions {
  public:
-  std::shared_ptr<ipc::IpcWriteOptions> ipc_options;
+  /// Options passed to ipc::MakeFileWriter. use_threads is ignored
+  std::shared_ptr<ipc::IpcWriteOptions> options;
+
+  /// custom_metadata written to the file's footer
+  std::shared_ptr<const KeyValueMetadata> metadata;
 
  protected:
   using FileWriteOptions::FileWriteOptions;

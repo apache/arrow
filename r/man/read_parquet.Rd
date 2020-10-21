@@ -9,12 +9,12 @@ read_parquet(
   col_select = NULL,
   as_data_frame = TRUE,
   props = ParquetReaderProperties$create(),
-  filesystem = NULL,
   ...
 )
 }
 \arguments{
-\item{file}{A character file name or URI, \code{raw} vector, or an Arrow input stream.
+\item{file}{A character file name or URI, \code{raw} vector, an Arrow input stream,
+or a \code{FileSystem} with path (\code{SubTreeFileSystem}).
 If a file name or URI, an Arrow \link{InputStream} will be opened and
 closed when finished. If an input stream is provided, it will be left
 open.}
@@ -28,9 +28,6 @@ of columns, as used in \code{dplyr::select()}.}
 an Arrow \link{Table}?}
 
 \item{props}{\link{ParquetReaderProperties}}
-
-\item{filesystem}{A \link{FileSystem} where \code{file} can be found if it is a
-string file path; default is the local file system}
 
 \item{...}{Additional arguments passed to \code{ParquetFileReader$create()}}
 }

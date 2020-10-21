@@ -1,6 +1,6 @@
 Package: arrow
 Title: Integration to 'Apache' 'Arrow'
-Version: 1.0.1.9000
+Version: 2.0.0.9000
 Authors@R: c(
     person("Romain", "Fran\u00e7ois", email = "romain@rstudio.com", role = c("aut"), comment = c(ORCID = "0000-0002-2444-4226")),
     person("Jeroen", "Ooms", email = "jeroen@berkeley.edu", role = c("aut")),
@@ -21,7 +21,7 @@ BugReports: https://issues.apache.org/jira/projects/ARROW/issues
 Encoding: UTF-8
 Language: en-US
 LazyData: true
-SystemRequirements: C++11
+SystemRequirements: C++11; for AWS S3 support on Linux, libcurl and openssl (optional)
 Biarch: true
 Imports:
     assertthat,

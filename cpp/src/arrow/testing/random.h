@@ -34,7 +34,7 @@ class Array;
 
 namespace random {
 
-using SeedType = std::random_device::result_type;
+using SeedType = int32_t;
 constexpr SeedType kSeedMax = std::numeric_limits<SeedType>::max();
 
 class ARROW_TESTING_EXPORT RandomArrayGenerator {

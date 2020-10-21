@@ -23,9 +23,10 @@ use std::path::Path;
 use std::string::String;
 use std::sync::Arc;
 
+use futures::{StreamExt, TryStreamExt};
+
 use arrow::csv;
 use arrow::datatypes::*;
-use arrow::error::Result as ArrowResult;
 use arrow::record_batch::RecordBatch;
 
 use crate::datasource::csv::CsvFile;
@@ -328,14 +329,14 @@ impl ExecutionContext {
             0 => Ok(vec![]),
             1 => {
                 let it = plan.execute(0).await?;
-                common::collect(it)
+                common::collect(it).await
             }
             _ => {
                 // merge into a single partition
-                let plan = MergeExec::new(plan.clone(), self.state.config.concurrency);
+                let plan = MergeExec::new(plan.clone());
                 // MergeExec must produce a single partition
                 assert_eq!(1, plan.output_partitioning().partition_count());
-                common::collect(plan.execute(0).await?)
+                common::collect(plan.execute(0).await?).await
             }
         }
     }
@@ -357,13 +358,13 @@ impl ExecutionContext {
             let path = Path::new(&path).join(&filename);
             let file = fs::File::create(path)?;
             let mut writer = csv::Writer::new(file);
-            let reader = plan.execute(i).await?;
+            let stream = plan.execute(i).await?;
 
-            reader
-                .into_iter()
+            stream
                 .map(|batch| writer.write(&batch?))
-                .collect::<ArrowResult<_>>()
-                .map_err(|e| ExecutionError::from(e))?
+                .try_collect()
+                .await
+                .map_err(|e| ExecutionError::from(e))?;
         }
         Ok(())
     }
@@ -537,8 +538,8 @@ mod tests {
         ArrayRef, Float64Array, Int32Array, PrimitiveArrayOps, StringArray,
     };
     use arrow::compute::add;
+    use std::fs::File;
     use std::thread::{self, JoinHandle};
-    use std::{cell::RefCell, fs::File, rc::Rc};
     use std::{io::prelude::*, sync::Mutex};
     use tempfile::TempDir;
     use test::*;
@@ -1371,11 +1372,7 @@ mod tests {
             "MY_AVG",
             DataType::Float64,
             Arc::new(DataType::Float64),
-            Arc::new(|| {
-                Ok(Rc::new(RefCell::new(AvgAccumulator::try_new(
-                    &DataType::Float64,
-                )?)))
-            }),
+            Arc::new(|| Ok(Box::new(AvgAccumulator::try_new(&DataType::Float64)?))),
             Arc::new(vec![DataType::UInt64, DataType::Float64]),
         );
 

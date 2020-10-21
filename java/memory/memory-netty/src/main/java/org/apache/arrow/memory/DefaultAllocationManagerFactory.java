@@ -26,7 +26,7 @@ public class DefaultAllocationManagerFactory implements AllocationManager.Factor
   public static final AllocationManager.Factory FACTORY = NettyAllocationManager.FACTORY;
 
   @Override
-  public AllocationManager create(BaseAllocator accountingAllocator, long size) {
+  public AllocationManager create(BufferAllocator accountingAllocator, long size) {
     return FACTORY.create(accountingAllocator, size);
   }
 

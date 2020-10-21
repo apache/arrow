@@ -158,15 +158,12 @@ cdef class ChunkedArray(_PandasConvertible):
         """
         if isinstance(key, slice):
             return _normalize_slice(self, key)
-        elif isinstance(key, int):
-            return self.getitem(key)
-        else:
-            raise TypeError("key must either be a slice or integer")
 
-    cdef getitem(self, int64_t i):
+        return self.getitem(_normalize_index(key, self.chunked_array.length()))
+
+    cdef getitem(self, int64_t index):
         cdef int j
 
-        index = _normalize_index(i, self.chunked_array.length())
         for j in range(self.num_chunks):
             if index < self.chunked_array.chunk(j).get().length():
                 return self.chunk(j)[index]

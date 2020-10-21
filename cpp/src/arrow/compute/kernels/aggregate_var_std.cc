@@ -53,32 +53,33 @@ struct VarStdState {
         []() {});
 
     this->count = count;
-    this->sum = sum;
+    this->mean = mean;
     this->m2 = m2;
   }
 
-  // Combine `m2` from two chunks
-  // https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Parallel_algorithm
+  // Combine `m2` from two chunks (m2 = n*s2)
+  // https://www.emathzone.com/tutorials/basic-statistics/combined-variance.html
   void MergeFrom(const ThisType& state) {
     if (state.count == 0) {
       return;
     }
     if (this->count == 0) {
       this->count = state.count;
-      this->sum = state.sum;
+      this->mean = state.mean;
       this->m2 = state.m2;
       return;
     }
-    double delta = this->sum / this->count - state.sum / state.count;
-    this->m2 += state.m2 +
-                delta * delta * this->count * state.count / (this->count + state.count);
+    double mean = (this->mean * this->count + state.mean * state.count) /
+                  (this->count + state.count);
+    this->m2 += state.m2 + this->count * (this->mean - mean) * (this->mean - mean) +
+                state.count * (state.mean - mean) * (state.mean - mean);
     this->count += state.count;
-    this->sum += state.sum;
+    this->mean = mean;
   }
 
   int64_t count = 0;
-  double sum = 0;
-  double m2 = 0;  // sum((X-mean)^2)
+  double mean = 0;
+  double m2 = 0;  // m2 = count*s2 = sum((X-mean)^2)
 };
 
 enum class VarOrStd : bool { Var, Std };
@@ -179,20 +180,38 @@ void AddVarStdKernels(KernelInit init,
   }
 }
 
+const FunctionDoc stddev_doc{
+    "Calculate the standard deviation of a numeric array",
+    ("The number of degrees of freedom can be controlled using VarianceOptions.\n"
+     "By default (`ddof` = 0), the population standard deviation is calculated.\n"
+     "Nulls are ignored.  If there are not enough non-null values in the array\n"
+     "to satisfy `ddof`, null is returned."),
+    {"array"},
+    "VarianceOptions"};
+
+const FunctionDoc variance_doc{
+    "Calculate the variance of a numeric array",
+    ("The number of degrees of freedom can be controlled using VarianceOptions.\n"
+     "By default (`ddof` = 0), the population variance is calculated.\n"
+     "Nulls are ignored.  If there are not enough non-null values in the array\n"
+     "to satisfy `ddof`, null is returned."),
+    {"array"},
+    "VarianceOptions"};
+
 }  // namespace
 
 std::shared_ptr<ScalarAggregateFunction> AddStddevAggKernels() {
   static auto default_std_options = VarianceOptions::Defaults();
-  auto func = std::make_shared<ScalarAggregateFunction>("stddev", Arity::Unary(),
-                                                        &default_std_options);
+  auto func = std::make_shared<ScalarAggregateFunction>(
+      "stddev", Arity::Unary(), &stddev_doc, &default_std_options);
   AddVarStdKernels(StddevInit, internal::NumericTypes(), func.get());
   return func;
 }
 
 std::shared_ptr<ScalarAggregateFunction> AddVarianceAggKernels() {
   static auto default_var_options = VarianceOptions::Defaults();
-  auto func = std::make_shared<ScalarAggregateFunction>("variance", Arity::Unary(),
-                                                        &default_var_options);
+  auto func = std::make_shared<ScalarAggregateFunction>(
+      "variance", Arity::Unary(), &variance_doc, &default_var_options);
   AddVarStdKernels(VarianceInit, internal::NumericTypes(), func.get());
   return func;
 }

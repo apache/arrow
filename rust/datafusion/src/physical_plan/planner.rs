@@ -117,10 +117,7 @@ impl DefaultPhysicalPlanner {
                             if child.output_partitioning().partition_count() == 1 {
                                 child.clone()
                             } else {
-                                Arc::new(MergeExec::new(
-                                    child.clone(),
-                                    ctx_state.config.concurrency,
-                                ))
+                                Arc::new(MergeExec::new(child.clone()))
                             }
                         })
                         .collect(),
@@ -556,7 +553,7 @@ mod tests {
     use crate::physical_plan::{csv::CsvReadOptions, expressions, Partitioning};
     use crate::{
         logical_plan::{col, lit, sum, LogicalPlanBuilder},
-        physical_plan::Source,
+        physical_plan::SendableRecordBatchStream,
     };
     use crate::{prelude::ExecutionConfig, test::arrow_testdata_path};
     use arrow::datatypes::{DataType, Field, SchemaRef};
@@ -807,7 +804,7 @@ mod tests {
             unimplemented!("NoOpExecutionPlan::with_new_children");
         }
 
-        async fn execute(&self, _partition: usize) -> Result<Source> {
+        async fn execute(&self, _partition: usize) -> Result<SendableRecordBatchStream> {
             unimplemented!("NoOpExecutionPlan::execute");
         }
     }

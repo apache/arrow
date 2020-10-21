@@ -38,8 +38,10 @@ using internal::ToTypeName;
 namespace compute {
 namespace internal {
 
+namespace {
+
 std::unordered_map<int, std::shared_ptr<CastFunction>> g_cast_table;
-static std::once_flag cast_table_initialized;
+std::once_flag cast_table_initialized;
 
 void AddCastFunctions(const std::vector<std::shared_ptr<CastFunction>>& funcs) {
   for (const auto& func : funcs) {
@@ -56,8 +58,6 @@ void InitCastTable() {
 }
 
 void EnsureInitCastTable() { std::call_once(cast_table_initialized, InitCastTable); }
-
-namespace {
 
 // Private version of GetCastFunction with better error reporting
 // if the input type is known.
@@ -78,13 +78,17 @@ Result<std::shared_ptr<CastFunction>> GetCastFunctionInternal(
   return it->second;
 }
 
-}  // namespace
+const FunctionDoc cast_doc{"Cast values to another data type",
+                           ("Behavior when values wouldn't fit in the target type\n"
+                            "can be controlled through CastOptions."),
+                           {"input"},
+                           "CastOptions"};
 
-// Metafunction for dispatching to appropraite CastFunction. This corresponds
+// Metafunction for dispatching to appropriate CastFunction. This corresponds
 // to the standard SQL CAST(expr AS target_type)
 class CastMetaFunction : public MetaFunction {
  public:
-  CastMetaFunction() : MetaFunction("cast", Arity::Unary()) {}
+  CastMetaFunction() : MetaFunction("cast", Arity::Unary(), &cast_doc) {}
 
   Result<const CastOptions*> ValidateOptions(const FunctionOptions* options) const {
     auto cast_options = static_cast<const CastOptions*>(options);
@@ -112,6 +116,8 @@ class CastMetaFunction : public MetaFunction {
   }
 };
 
+}  // namespace
+
 void RegisterScalarCast(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::make_shared<CastMetaFunction>()));
 }
@@ -124,7 +130,7 @@ struct CastFunction::CastFunctionImpl {
 };
 
 CastFunction::CastFunction(std::string name, Type::type out_type)
-    : ScalarFunction(std::move(name), Arity::Unary()) {
+    : ScalarFunction(std::move(name), Arity::Unary(), /*doc=*/nullptr) {
   impl_.reset(new CastFunctionImpl());
   impl_->out_type = out_type;
 }

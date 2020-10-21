@@ -180,7 +180,7 @@ impl<'a, T: ArrowPrimitiveType> Tensor<'a, T> {
         };
 
         Ok(Self {
-            data_type: T::get_data_type(),
+            data_type: T::DATA_TYPE,
             buffer,
             shape,
             strides: tensor_strides,

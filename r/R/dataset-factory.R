@@ -44,9 +44,6 @@ DatasetFactory$create <- function(x,
   if (is_list_of(x, "DatasetFactory")) {
     return(shared_ptr(DatasetFactory, dataset___UnionDatasetFactory__Make(x)))
   }
-  if (!is.string(x)) {
-    stop("'x' must be a string or a list of DatasetFactory", call. = FALSE)
-  }
 
   path_and_fs <- get_path_and_filesystem(x, filesystem)
   selector <- FileSelector$create(path_and_fs$path, allow_not_found = FALSE, recursive = TRUE)

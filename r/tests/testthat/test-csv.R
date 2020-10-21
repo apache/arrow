@@ -212,11 +212,11 @@ test_that("read_csv_arrow() can read timestamps", {
   tf <- tempfile(); on.exit(unlink(tf))
   write.csv(tbl, tf, row.names = FALSE)
 
-  df <- read_csv_arrow(tf, col_types = schema(time = timestamp()))
+  df <- read_csv_arrow(tf, col_types = schema(time = timestamp(timezone = "UTC")))
   expect_equal(tbl, df)
 
   df <- read_csv_arrow(tf, col_types = "t", col_names = "time", skip = 1)
-  expect_equal(tbl, df)
+  expect_equal(tbl, df, check.tzone = FALSE) # col_types = "t" makes timezone-naive timestamp
 })
 
 test_that("read_csv_arrow(timestamp_parsers=)", {

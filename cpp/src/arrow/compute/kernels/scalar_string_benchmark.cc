@@ -66,6 +66,11 @@ static void MatchSubstring(benchmark::State& state) {
   UnaryStringBenchmark(state, "match_substring", &options);
 }
 
+static void SplitPattern(benchmark::State& state) {
+  SplitPatternOptions options("a");
+  UnaryStringBenchmark(state, "split_pattern", &options);
+}
+
 #ifdef ARROW_WITH_UTF8PROC
 static void Utf8Upper(benchmark::State& state) {
   UnaryStringBenchmark(state, "utf8_upper");
@@ -84,6 +89,7 @@ BENCHMARK(AsciiLower);
 BENCHMARK(AsciiUpper);
 BENCHMARK(IsAlphaNumericAscii);
 BENCHMARK(MatchSubstring);
+BENCHMARK(SplitPattern);
 #ifdef ARROW_WITH_UTF8PROC
 BENCHMARK(Utf8Lower);
 BENCHMARK(Utf8Upper);

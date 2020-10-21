@@ -140,7 +140,7 @@ class Accountant implements AutoCloseable {
    * @param size to increase
    * @return Whether the allocation fit within limits.
    */
-  boolean forceAllocate(long size) {
+  public boolean forceAllocate(long size) {
     final AllocationOutcome.Status outcome = allocate(size, true, true, null);
     return outcome.isOk();
   }
@@ -220,7 +220,6 @@ class Accountant implements AutoCloseable {
       final long actualToReleaseToParent = Math.min(size, possibleAmountToReleaseToParent);
       parent.releaseBytes(actualToReleaseToParent);
     }
-
   }
 
   public boolean isOverLimit() {

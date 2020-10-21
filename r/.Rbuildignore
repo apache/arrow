@@ -9,6 +9,7 @@ Dockerfile
 .*\.tar\.gz
 ^windows
 ^libarrow
+^revdep
 clang_format.sh
 ^cran-comments\.md$
 ^arrow_.*.tar.gz$

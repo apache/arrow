@@ -185,6 +185,15 @@ FileSelector$create <- function(base_dir, allow_not_found = FALSE, recursive = F
 #' - `$OpenAppendStream(path)`: Open an [output stream][OutputStream] for
 #'    appending.
 #'
+#' @section Active bindings:
+#'
+#' - `$type_name`: string filesystem type name, such as "local", "s3", etc.
+#' - `$region`: string AWS region, for `S3FileSystem` and `SubTreeFileSystem`
+#'    containing a `S3FileSystem`
+#' - `$base_fs`: for `SubTreeFileSystem`, the `FileSystem` it contains
+#' - `$base_path`: for `SubTreeFileSystem`, the path in `$base_fs` which is considered
+#'    root in this `SubTreeFileSystem`.
+#'
 #' @usage NULL
 #' @format NULL
 #' @docType class
@@ -263,6 +272,19 @@ FileSystem <- R6Class("FileSystem", inherit = ArrowObject,
     },
     OpenAppendStream = function(path) {
       shared_ptr(OutputStream, fs___FileSystem__OpenAppendStream(self, clean_path_rel(path)))
+    },
+
+    # Friendlier R user interface
+    path = function(x) SubTreeFileSystem$create(x, self),
+    cd = function(x) SubTreeFileSystem$create(x, self),
+    ls = function(path = "", ...) {
+      selector <- FileSelector$create(path, ...) # ... for recursive = TRUE
+      infos <- self$GetFileInfo(selector)
+      map_chr(infos, ~.$path)
+      # TODO: add full.names argument like base::dir() (default right now is TRUE)
+      # TODO: see fs package for glob/regexp filtering
+      # TODO: verbose method that shows other attributes as df
+      # TODO: print methods for FileInfo, SubTreeFileSystem, S3FileSystem
     }
   ),
   active = list(
@@ -279,6 +301,9 @@ FileSystem$from_uri <- function(uri) {
 get_path_and_filesystem <- function(x, filesystem = NULL) {
   # Wrapper around FileSystem$from_uri that handles local paths
   # and an optional explicit filesystem
+  if (inherits(x, "SubTreeFileSystem")) {
+    return(list(fs = x$base_fs, path = x$base_path))
+  }
   assert_that(is.string(x))
   if (is_url(x)) {
     if (!is.null(filesystem)) {
@@ -293,7 +318,7 @@ get_path_and_filesystem <- function(x, filesystem = NULL) {
   }
 }
 
-is_url <- function(x) grepl("://", x)
+is_url <- function(x) is.string(x) && grepl("://", x)
 
 #' @usage NULL
 #' @format NULL
@@ -309,7 +334,11 @@ LocalFileSystem$create <- function() {
 #' @rdname FileSystem
 #' @importFrom utils modifyList
 #' @export
-S3FileSystem <- R6Class("S3FileSystem", inherit = FileSystem)
+S3FileSystem <- R6Class("S3FileSystem", inherit = FileSystem,
+  active = list(
+    region = function() fs___S3FileSystem__region(self)
+  )
+)
 S3FileSystem$create <- function(anonymous = FALSE, ...) {
   args <- list2(...)
   if (anonymous) {
@@ -357,15 +386,54 @@ default_s3_options <- list(
   background_writes = TRUE
 )
 
-arrow_with_s3 <- function() {
-  .Call(`_s3_available`)
+#' Connect to an AWS S3 bucket
+#'
+#' `s3_bucket()` is a convenience function to create an `S3FileSystem` object
+#' that automatically detects the bucket's AWS region and holding onto the its
+#' relative path.
+#'
+#' @param bucket string S3 bucket name or path
+#' @param ... Additional connection options, passed to `S3FileSystem$create()`
+#' @return A `SubTreeFileSystem` containing an `S3FileSystem` and the bucket's
+#' relative path. Note that this function's success does not guarantee that you
+#' are authorized to access the bucket's contents.
+#' @examples
+#' if (arrow_with_s3()) {
+#'   bucket <- s3_bucket("ursa-labs-taxi-data")
+#' }
+#' @export
+s3_bucket <- function(bucket, ...) {
+  assert_that(is.string(bucket))
+  args <- list2(...)
+
+  # Use FileSystemFromUri to detect the bucket's region
+  if (!is_url(bucket)) {
+    bucket <- paste0("s3://", bucket)
+  }
+  fs_and_path <- FileSystem$from_uri(bucket)
+  fs <- fs_and_path$fs
+  # If there are no additional S3Options, we can use that filesystem
+  # Otherwise, take the region that was detected and make a new fs with the args
+  if (length(args)) {
+    args$region <- fs$region
+    fs <- exec(S3FileSystem$create, !!!args)
+  }
+  # Return a subtree pointing at that bucket path
+  SubTreeFileSystem$create(fs_and_path$path, fs)
 }
 
 #' @usage NULL
 #' @format NULL
 #' @rdname FileSystem
 #' @export
-SubTreeFileSystem <- R6Class("SubTreeFileSystem", inherit = FileSystem)
+SubTreeFileSystem <- R6Class("SubTreeFileSystem", inherit = FileSystem,
+  active = list(
+    base_fs = function() {
+      shared_ptr(FileSystem, fs___SubTreeFileSystem__base_fs(self))$..dispatch()
+    },
+    base_path = function() fs___SubTreeFileSystem__base_path(self)
+  )
+)
 SubTreeFileSystem$create <- function(base_path, base_fs = NULL) {
   fs_and_path <- get_path_and_filesystem(base_path, base_fs)
   shared_ptr(
@@ -374,28 +442,48 @@ SubTreeFileSystem$create <- function(base_path, base_fs = NULL) {
   )
 }
 
-#' Copy files, including between FileSystems
+#' @export
+`$.SubTreeFileSystem` <- function(x, name, ...) {
+  # This is to allow delegating methods/properties to the base_fs
+  assert_that(is.string(name))
+  if (name %in% ls(x)) {
+    get(name, x)
+  } else {
+    get(name, x$base_fs)
+  }
+}
+
+#' Copy files between FileSystems
 #'
-#' @param src_fs The FileSystem from which files will be copied.
-#' @param src_sel A FileSelector indicating which files should be copied.
-#' A string may also be passed, which is used as the base dir for recursive
-#' selection.
-#' @param dest_fs The FileSystem into which files will be copied.
-#' @param dest_base_dir Where the copied files should be placed.
-#' Directories will be created as necessary.
+#' @param from A string path to a local directory or file, a URI, or a
+#' `SubTreeFileSystem`. Files will be copied recursively from this path.
+#' @param to A string path to a local directory or file, a URI, or a
+#' `SubTreeFileSystem`. Directories will be created as necessary
 #' @param chunk_size The maximum size of block to read before flushing
 #' to the destination file. A larger chunk_size will use more memory while
 #' copying but may help accommodate high latency FileSystems.
-copy_files <- function(src_fs = LocalFileSystem$create(),
-                       src_sel,
-                       dest_fs = LocalFileSystem$create(),
-                       dest_base_dir,
-                       chunk_size = 1024L * 1024L) {
-  if (!inherits(src_sel, "FileSelector")) {
-    src_sel <- FileSelector$create(src_sel, recursive = TRUE)
-  }
-  fs___CopyFiles(src_fs, src_sel, dest_fs, dest_base_dir,
-                 chunk_size, option_use_threads())
+#' @return Nothing: called for side effects in the file system
+#' @export
+#' @examples
+#' \dontrun{
+#' # Copy an S3 bucket's files to a local directory:
+#' copy_files("s3://your-bucket-name", "local-directory")
+#' # Using a FileSystem object
+#' copy_files(s3_bucket("your-bucket-name"), "local-directory")
+#' # Or go the other way, from local to S3
+#' copy_files("local-directory", s3_bucket("your-bucket-name"))
+#' }
+copy_files <- function(from, to, chunk_size = 1024L * 1024L) {
+  from <- get_path_and_filesystem(from)
+  to <- get_path_and_filesystem(to)
+  invisible(fs___CopyFiles(
+    from$fs,
+    FileSelector$create(from$path, recursive = TRUE),
+    to$fs,
+    to$path,
+    chunk_size,
+    option_use_threads()
+  ))
 }
 
 clean_path_abs <- function(path) {

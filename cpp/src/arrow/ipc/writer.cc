@@ -185,17 +185,13 @@ class RecordBatchSerializer {
   }
 
   Status CompressBodyBuffers() {
-    std::unique_ptr<util::Codec> codec;
-
-    RETURN_NOT_OK(internal::CheckCompressionSupported(options_.compression));
-
-    ARROW_ASSIGN_OR_RAISE(
-        codec, util::Codec::Create(options_.compression, options_.compression_level));
+    RETURN_NOT_OK(
+        internal::CheckCompressionSupported(options_.codec->compression_type()));
 
     auto CompressOne = [&](size_t i) {
       if (out_->body_buffers[i]->size() > 0) {
-        RETURN_NOT_OK(
-            CompressBuffer(*out_->body_buffers[i], codec.get(), &out_->body_buffers[i]));
+        RETURN_NOT_OK(CompressBuffer(*out_->body_buffers[i], options_.codec.get(),
+                                     &out_->body_buffers[i]));
       }
       return Status::OK();
     };
@@ -216,7 +212,7 @@ class RecordBatchSerializer {
       RETURN_NOT_OK(VisitArray(*batch.column(i)));
     }
 
-    if (options_.compression != Compression::UNCOMPRESSED) {
+    if (options_.codec != nullptr) {
       RETURN_NOT_OK(CompressBodyBuffers());
     }
 
@@ -227,8 +223,7 @@ class RecordBatchSerializer {
     buffer_meta_.reserve(out_->body_buffers.size());
 
     // Construct the buffer metadata for the record batch header
-    for (size_t i = 0; i < out_->body_buffers.size(); ++i) {
-      const Buffer* buffer = out_->body_buffers[i].get();
+    for (const auto& buffer : out_->body_buffers) {
       int64_t size = 0;
       int64_t padding = 0;
 

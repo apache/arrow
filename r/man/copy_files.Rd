@@ -2,32 +2,34 @@
 % Please edit documentation in R/filesystem.R
 \name{copy_files}
 \alias{copy_files}
-\title{Copy files, including between FileSystems}
+\title{Copy files between FileSystems}
 \usage{
-copy_files(
-  src_fs = LocalFileSystem$create(),
-  src_sel,
-  dest_fs = LocalFileSystem$create(),
-  dest_base_dir,
-  chunk_size = 1024L * 1024L
-)
+copy_files(from, to, chunk_size = 1024L * 1024L)
 }
 \arguments{
-\item{src_fs}{The FileSystem from which files will be copied.}
+\item{from}{A string path to a local directory or file, a URI, or a
+\code{SubTreeFileSystem}. Files will be copied recursively from this path.}
 
-\item{src_sel}{A FileSelector indicating which files should be copied.
-A string may also be passed, which is used as the base dir for recursive
-selection.}
-
-\item{dest_fs}{The FileSystem into which files will be copied.}
-
-\item{dest_base_dir}{Where the copied files should be placed.
-Directories will be created as necessary.}
+\item{to}{A string path to a local directory or file, a URI, or a
+\code{SubTreeFileSystem}. Directories will be created as necessary}
 
 \item{chunk_size}{The maximum size of block to read before flushing
 to the destination file. A larger chunk_size will use more memory while
 copying but may help accommodate high latency FileSystems.}
 }
+\value{
+Nothing: called for side effects in the file system
+}
 \description{
-Copy files, including between FileSystems
+Copy files between FileSystems
+}
+\examples{
+\dontrun{
+# Copy an S3 bucket's files to a local directory:
+copy_files("s3://your-bucket-name", "local-directory")
+# Using a FileSystem object
+copy_files(s3_bucket("your-bucket-name"), "local-directory")
+# Or go the other way, from local to S3
+copy_files("local-directory", s3_bucket("your-bucket-name"))
+}
 }

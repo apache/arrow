@@ -215,9 +215,9 @@ class ARROW_DS_EXPORT ParquetFileFragment : public FileFragment {
  public:
   Result<FragmentVector> SplitByRowGroup(const std::shared_ptr<Expression>& predicate);
 
-  /// \brief Return the RowGroups selected by this fragment. An empty list
-  /// represents all RowGroups in the parquet file.
-  const std::vector<RowGroupInfo>& row_groups() const { return row_groups_; }
+  /// \brief Return the RowGroups selected by this fragment, or nullptr
+  /// if all RowGroups in the parquet file are selected.
+  const std::vector<RowGroupInfo>* row_groups();
 
   /// \brief Return the number of row groups selected by this fragment.
   Result<int> GetNumRowGroups();
@@ -232,11 +232,19 @@ class ARROW_DS_EXPORT ParquetFileFragment : public FileFragment {
   /// \brief Ensure attached statistics are complete and the physical schema is cached.
   Status EnsureCompleteMetadata(parquet::arrow::FileReader* reader = NULLPTR);
 
+  /// \brief Return a filtered subset of the ParquetFileFragment.
+  Result<std::shared_ptr<Fragment>> Subset(const std::shared_ptr<Expression>& predicate);
+  Result<std::shared_ptr<Fragment>> Subset(const std::vector<int> row_group_ids);
+
  private:
   ParquetFileFragment(FileSource source, std::shared_ptr<FileFormat> format,
                       std::shared_ptr<Expression> partition_expression,
                       std::shared_ptr<Schema> physical_schema,
                       std::vector<RowGroupInfo> row_groups);
+
+  ParquetFileFragment(FileSource source, std::shared_ptr<FileFormat> format,
+                      std::shared_ptr<Expression> partition_expression,
+                      std::shared_ptr<Schema> physical_schema);
 
   // Overridden to opportunistically set metadata since a reader must be opened anyway.
   Result<std::shared_ptr<Schema>> ReadPhysicalSchemaImpl() override {
@@ -247,9 +255,11 @@ class ARROW_DS_EXPORT ParquetFileFragment : public FileFragment {
   // Return a filtered subset of RowGroupInfos.
   Result<std::vector<RowGroupInfo>> FilterRowGroups(const Expression& predicate);
 
+  void SetNumRowGroups(int);
+
   std::vector<RowGroupInfo> row_groups_;
   ParquetFileFormat& parquet_format_;
-  bool has_complete_metadata_;
+  bool has_complete_metadata_ = false;
   int num_row_groups_ = -1;
 
   friend class ParquetFileFormat;

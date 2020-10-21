@@ -168,12 +168,12 @@ Result<ScanTaskIterator> IpcFileFormat::ScanFile(std::shared_ptr<ScanOptions> op
 //
 
 std::shared_ptr<FileWriteOptions> IpcFileFormat::DefaultWriteOptions() {
-  std::shared_ptr<IpcFileWriteOptions> options(
+  std::shared_ptr<IpcFileWriteOptions> ipc_options(
       new IpcFileWriteOptions(shared_from_this()));
 
-  options->ipc_options =
+  ipc_options->options =
       std::make_shared<ipc::IpcWriteOptions>(ipc::IpcWriteOptions::Defaults());
-  return options;
+  return ipc_options;
 }
 
 Result<std::shared_ptr<FileWriter>> IpcFileFormat::MakeWriter(
@@ -185,7 +185,13 @@ Result<std::shared_ptr<FileWriter>> IpcFileFormat::MakeWriter(
 
   auto ipc_options = checked_pointer_cast<IpcFileWriteOptions>(options);
 
-  ARROW_ASSIGN_OR_RAISE(auto writer, ipc::MakeFileWriter(destination, schema));
+  // override use_threads to avoid nested parallelism
+  ipc_options->options->use_threads = false;
+
+  ARROW_ASSIGN_OR_RAISE(auto writer,
+                        ipc::MakeFileWriter(destination, schema, *ipc_options->options,
+                                            ipc_options->metadata));
+
   return std::shared_ptr<FileWriter>(
       new IpcFileWriter(std::move(writer), std::move(schema), std::move(ipc_options)));
 }

@@ -62,7 +62,7 @@ pub struct BitChunkIterator<'a> {
 
 impl<'a> BitChunks<'a> {
     #[inline]
-    pub fn remainder_len(&self) -> usize {
+    pub const fn remainder_len(&self) -> usize {
         self.remainder_len
     }
 
@@ -92,7 +92,7 @@ impl<'a> BitChunks<'a> {
     }
 
     #[inline]
-    pub fn iter(&self) -> BitChunkIterator<'a> {
+    pub const fn iter(&self) -> BitChunkIterator<'a> {
         BitChunkIterator::<'a> {
             buffer: self.buffer,
             raw_data: self.raw_data,

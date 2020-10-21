@@ -21,10 +21,12 @@ import static java.nio.channels.Channels.newChannel;
 import static java.util.Arrays.asList;
 import static org.apache.arrow.memory.util.LargeMemoryUtil.checkedCastToInt;
 import static org.apache.arrow.vector.TestUtils.newVarCharVector;
+import static org.apache.arrow.vector.TestUtils.newVector;
 import static org.apache.arrow.vector.testing.ValueVectorDataPopulator.setVector;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 import java.io.ByteArrayInputStream;
@@ -41,6 +43,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
 import org.apache.arrow.flatbuf.FieldNode;
@@ -55,11 +58,16 @@ import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.NullVector;
 import org.apache.arrow.vector.TestUtils;
+import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorLoader;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.VectorUnloader;
+import org.apache.arrow.vector.compare.Range;
+import org.apache.arrow.vector.compare.RangeEqualsVisitor;
+import org.apache.arrow.vector.compare.TypeEqualsVisitor;
 import org.apache.arrow.vector.compare.VectorEqualsVisitor;
+import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.dictionary.DictionaryEncoder;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
@@ -69,6 +77,7 @@ import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.ipc.message.IpcOption;
 import org.apache.arrow.vector.ipc.message.MessageSerializer;
+import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.types.pojo.Field;
@@ -87,10 +96,12 @@ public class TestArrowReaderWriter {
   private VarCharVector dictionaryVector1;
   private VarCharVector dictionaryVector2;
   private VarCharVector dictionaryVector3;
+  private StructVector dictionaryVector4;
 
   private Dictionary dictionary1;
   private Dictionary dictionary2;
   private Dictionary dictionary3;
+  private Dictionary dictionary4;
 
   private Schema schema;
   private Schema encodedSchema;
@@ -119,6 +130,12 @@ public class TestArrowReaderWriter {
         "aa".getBytes(StandardCharsets.UTF_8),
         "bb".getBytes(StandardCharsets.UTF_8),
         "cc".getBytes(StandardCharsets.UTF_8));
+    
+    dictionaryVector4 = newVector(StructVector.class, "D4", MinorType.STRUCT, allocator);
+    final Map<String, List<Integer>> dictionaryValues4 = new HashMap<>();
+    dictionaryValues4.put("a", Arrays.asList(1, 2, 3));
+    dictionaryValues4.put("b", Arrays.asList(4, 5, 6));
+    setVector(dictionaryVector4, dictionaryValues4);
 
     dictionary1 = new Dictionary(dictionaryVector1,
         new DictionaryEncoding(/*id=*/1L, /*ordered=*/false, /*indexType=*/null));
@@ -126,6 +143,8 @@ public class TestArrowReaderWriter {
         new DictionaryEncoding(/*id=*/2L, /*ordered=*/false, /*indexType=*/null));
     dictionary3 = new Dictionary(dictionaryVector3,
         new DictionaryEncoding(/*id=*/1L, /*ordered=*/false, /*indexType=*/null));
+    dictionary4 = new Dictionary(dictionaryVector4,
+        new DictionaryEncoding(/*id=*/3L, /*ordered=*/false, /*indexType=*/null));
   }
 
   @After
@@ -133,6 +152,7 @@ public class TestArrowReaderWriter {
     dictionaryVector1.close();
     dictionaryVector2.close();
     dictionaryVector3.close();
+    dictionaryVector4.close();
     allocator.close();
   }
 
@@ -301,6 +321,82 @@ public class TestArrowReaderWriter {
 
         reader.loadNextBatch();
         assertEquals(2, reader.getVectorSchemaRoot().getFieldVectors().size());
+      }
+    }
+  }
+
+  @Test
+  public void testWriteReadWithStructDictionaries() throws IOException {
+    DictionaryProvider.MapDictionaryProvider provider =
+        new DictionaryProvider.MapDictionaryProvider();
+    provider.put(dictionary4);
+
+    try (final StructVector vector =
+        newVector(StructVector.class, "D4", MinorType.STRUCT, allocator)) {
+      final Map<String, List<Integer>> values = new HashMap<>();
+      // Index: 0, 2, 1, 2, 1, 0, 0
+      values.put("a", Arrays.asList(1, 3, 2, 3, 2, 1, 1));
+      values.put("b", Arrays.asList(4, 6, 5, 6, 5, 4, 4));
+      setVector(vector, values);
+      FieldVector encodedVector = (FieldVector) DictionaryEncoder.encode(vector, dictionary4);
+
+      List<Field> fields = Arrays.asList(encodedVector.getField());
+      List<FieldVector> vectors = Collections2.asImmutableList(encodedVector);
+      try (
+          VectorSchemaRoot root =
+              new VectorSchemaRoot(fields, vectors, encodedVector.getValueCount());
+          ByteArrayOutputStream out = new ByteArrayOutputStream();
+          ArrowFileWriter writer = new ArrowFileWriter(root, provider, newChannel(out));) {
+
+        writer.start();
+        writer.writeBatch();
+        writer.end();
+
+        try (
+            SeekableReadChannel channel = new SeekableReadChannel(
+                new ByteArrayReadableSeekableByteChannel(out.toByteArray()));
+            ArrowFileReader reader = new ArrowFileReader(channel, allocator)) {
+          final VectorSchemaRoot readRoot = reader.getVectorSchemaRoot();
+          final Schema readSchema = readRoot.getSchema();
+          assertEquals(root.getSchema(), readSchema);
+          assertEquals(1, reader.getDictionaryBlocks().size());
+          assertEquals(1, reader.getRecordBlocks().size());
+
+          reader.loadNextBatch();
+          assertEquals(1, readRoot.getFieldVectors().size());
+          assertEquals(1, reader.getDictionaryVectors().size());
+
+          // Read the encoded vector and check it
+          final FieldVector readEncoded = readRoot.getVector(0);
+          assertEquals(encodedVector.getValueCount(), readEncoded.getValueCount());
+          assertTrue(new RangeEqualsVisitor(encodedVector, readEncoded)
+              .rangeEquals(new Range(0, 0, encodedVector.getValueCount())));
+
+          // Read the dictionary
+          final Map<Long, Dictionary> readDictionaryMap = reader.getDictionaryVectors();
+          final Dictionary readDictionary =
+              readDictionaryMap.get(readEncoded.getField().getDictionary().getId());
+          assertNotNull(readDictionary);
+
+          // Assert the dictionary vector is correct
+          final FieldVector readDictionaryVector = readDictionary.getVector();
+          assertEquals(dictionaryVector4.getValueCount(), readDictionaryVector.getValueCount());
+          final BiFunction<ValueVector, ValueVector, Boolean> typeComparatorIgnoreName =
+              (v1, v2) -> new TypeEqualsVisitor(v1, false, true).equals(v2);
+          assertTrue("Dictionary vectors are not equal",
+              new RangeEqualsVisitor(dictionaryVector4, readDictionaryVector,
+                  typeComparatorIgnoreName)
+                      .rangeEquals(new Range(0, 0, dictionaryVector4.getValueCount())));
+
+          // Assert the decoded vector is correct
+          try (final ValueVector readVector =
+              DictionaryEncoder.decode(readEncoded, readDictionary)) {
+            assertEquals(vector.getValueCount(), readVector.getValueCount());
+            assertTrue("Decoded vectors are not equal",
+                new RangeEqualsVisitor(vector, readVector, typeComparatorIgnoreName)
+                    .rangeEquals(new Range(0, 0, vector.getValueCount())));
+          }
+        }
       }
     }
   }

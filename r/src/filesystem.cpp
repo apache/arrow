@@ -222,6 +222,18 @@ std::shared_ptr<fs::SubTreeFileSystem> fs___SubTreeFileSystem__create(
 }
 
 // [[arrow::export]]
+std::shared_ptr<fs::FileSystem> fs___SubTreeFileSystem__base_fs(
+    const std::shared_ptr<fs::SubTreeFileSystem>& file_system) {
+  return file_system->base_fs();
+}
+
+// [[arrow::export]]
+std::string fs___SubTreeFileSystem__base_path(
+    const std::shared_ptr<fs::SubTreeFileSystem>& file_system) {
+  return file_system->base_path();
+}
+
+// [[arrow::export]]
 cpp11::writable::list fs___FileSystemFromUri(const std::string& path) {
   using cpp11::literals::operator"" _nm;
 
@@ -284,6 +296,11 @@ std::shared_ptr<fs::S3FileSystem> fs___S3FileSystem__create(
 
   StopIfNotOk(fs::EnsureS3Initialized());
   return ValueOrStop(fs::S3FileSystem::Make(s3_opts));
+}
+
+// [[s3::export]]
+std::string fs___S3FileSystem__region(const std::shared_ptr<fs::S3FileSystem>& fs) {
+  return fs->region();
 }
 
 #endif

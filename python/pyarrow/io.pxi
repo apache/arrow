@@ -1557,25 +1557,6 @@ cdef CCompressionType _ensure_compression(str name) except *:
         raise ValueError('Invalid value for compression: {!r}'.format(name))
 
 
-cdef str _compression_name(CCompressionType ctype):
-    if ctype == CCompressionType_GZIP:
-        return 'gzip'
-    elif ctype == CCompressionType_BROTLI:
-        return 'brotli'
-    elif ctype == CCompressionType_BZ2:
-        return 'bz2'
-    elif ctype == CCompressionType_LZ4_FRAME:
-        return 'lz4'
-    elif ctype == CCompressionType_LZ4:
-        return 'lz4_raw'
-    elif ctype == CCompressionType_SNAPPY:
-        return 'snappy'
-    elif ctype == CCompressionType_ZSTD:
-        return 'zstd'
-    else:
-        raise RuntimeError('Unexpected CCompressionType value')
-
-
 cdef class Codec(_Weakrefable):
     """
     Compression codec.

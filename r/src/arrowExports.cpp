@@ -1697,6 +1697,43 @@ extern "C" SEXP _arrow_dataset___ParquetFileWriteOptions__update(SEXP options_se
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
+void dataset___IpcFileWriteOptions__update2(const std::shared_ptr<ds::IpcFileWriteOptions>& ipc_options, bool use_legacy_format, const std::shared_ptr<arrow::util::Codec>& codec, arrow::ipc::MetadataVersion metadata_version);
+extern "C" SEXP _arrow_dataset___IpcFileWriteOptions__update2(SEXP ipc_options_sexp, SEXP use_legacy_format_sexp, SEXP codec_sexp, SEXP metadata_version_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<ds::IpcFileWriteOptions>&>::type ipc_options(ipc_options_sexp);
+	arrow::r::Input<bool>::type use_legacy_format(use_legacy_format_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::util::Codec>&>::type codec(codec_sexp);
+	arrow::r::Input<arrow::ipc::MetadataVersion>::type metadata_version(metadata_version_sexp);
+	dataset___IpcFileWriteOptions__update2(ipc_options, use_legacy_format, codec, metadata_version);
+	return R_NilValue;
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_dataset___IpcFileWriteOptions__update2(SEXP ipc_options_sexp, SEXP use_legacy_format_sexp, SEXP codec_sexp, SEXP metadata_version_sexp){
+	Rf_error("Cannot call dataset___IpcFileWriteOptions__update2(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// dataset.cpp
+#if defined(ARROW_R_WITH_ARROW)
+void dataset___IpcFileWriteOptions__update1(const std::shared_ptr<ds::IpcFileWriteOptions>& ipc_options, bool use_legacy_format, arrow::ipc::MetadataVersion metadata_version);
+extern "C" SEXP _arrow_dataset___IpcFileWriteOptions__update1(SEXP ipc_options_sexp, SEXP use_legacy_format_sexp, SEXP metadata_version_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<ds::IpcFileWriteOptions>&>::type ipc_options(ipc_options_sexp);
+	arrow::r::Input<bool>::type use_legacy_format(use_legacy_format_sexp);
+	arrow::r::Input<arrow::ipc::MetadataVersion>::type metadata_version(metadata_version_sexp);
+	dataset___IpcFileWriteOptions__update1(ipc_options, use_legacy_format, metadata_version);
+	return R_NilValue;
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_dataset___IpcFileWriteOptions__update1(SEXP ipc_options_sexp, SEXP use_legacy_format_sexp, SEXP metadata_version_sexp){
+	Rf_error("Cannot call dataset___IpcFileWriteOptions__update1(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// dataset.cpp
+#if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<ds::IpcFileFormat> dataset___IpcFileFormat__Make();
 extern "C" SEXP _arrow_dataset___IpcFileFormat__Make(){
 BEGIN_CPP11
@@ -3716,6 +3753,36 @@ extern "C" SEXP _arrow_fs___SubTreeFileSystem__create(SEXP base_path_sexp, SEXP 
 
 // filesystem.cpp
 #if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<fs::FileSystem> fs___SubTreeFileSystem__base_fs(const std::shared_ptr<fs::SubTreeFileSystem>& file_system);
+extern "C" SEXP _arrow_fs___SubTreeFileSystem__base_fs(SEXP file_system_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<fs::SubTreeFileSystem>&>::type file_system(file_system_sexp);
+	return cpp11::as_sexp(fs___SubTreeFileSystem__base_fs(file_system));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_fs___SubTreeFileSystem__base_fs(SEXP file_system_sexp){
+	Rf_error("Cannot call fs___SubTreeFileSystem__base_fs(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// filesystem.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::string fs___SubTreeFileSystem__base_path(const std::shared_ptr<fs::SubTreeFileSystem>& file_system);
+extern "C" SEXP _arrow_fs___SubTreeFileSystem__base_path(SEXP file_system_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<fs::SubTreeFileSystem>&>::type file_system(file_system_sexp);
+	return cpp11::as_sexp(fs___SubTreeFileSystem__base_path(file_system));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_fs___SubTreeFileSystem__base_path(SEXP file_system_sexp){
+	Rf_error("Cannot call fs___SubTreeFileSystem__base_path(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// filesystem.cpp
+#if defined(ARROW_R_WITH_ARROW)
 cpp11::writable::list fs___FileSystemFromUri(const std::string& path);
 extern "C" SEXP _arrow_fs___FileSystemFromUri(SEXP path_sexp){
 BEGIN_CPP11
@@ -3773,6 +3840,21 @@ END_CPP11
 #else
 extern "C" SEXP _arrow_fs___S3FileSystem__create(SEXP anonymous_sexp, SEXP access_key_sexp, SEXP secret_key_sexp, SEXP session_token_sexp, SEXP role_arn_sexp, SEXP session_name_sexp, SEXP external_id_sexp, SEXP load_frequency_sexp, SEXP region_sexp, SEXP endpoint_override_sexp, SEXP scheme_sexp, SEXP background_writes_sexp){
 	Rf_error("Cannot call fs___S3FileSystem__create(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// filesystem.cpp
+#if defined(ARROW_R_WITH_S3)
+std::string fs___S3FileSystem__region(const std::shared_ptr<fs::S3FileSystem>& fs);
+extern "C" SEXP _arrow_fs___S3FileSystem__region(SEXP fs_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<fs::S3FileSystem>&>::type fs(fs_sexp);
+	return cpp11::as_sexp(fs___S3FileSystem__region(fs));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_fs___S3FileSystem__region(SEXP fs_sexp){
+	Rf_error("Cannot call fs___S3FileSystem__region(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -6354,6 +6436,8 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_dataset___ParquetFileFormat__Make", (DL_FUNC) &_arrow_dataset___ParquetFileFormat__Make, 3}, 
 		{ "_arrow_dataset___FileWriteOptions__type_name", (DL_FUNC) &_arrow_dataset___FileWriteOptions__type_name, 1}, 
 		{ "_arrow_dataset___ParquetFileWriteOptions__update", (DL_FUNC) &_arrow_dataset___ParquetFileWriteOptions__update, 3}, 
+		{ "_arrow_dataset___IpcFileWriteOptions__update2", (DL_FUNC) &_arrow_dataset___IpcFileWriteOptions__update2, 4}, 
+		{ "_arrow_dataset___IpcFileWriteOptions__update1", (DL_FUNC) &_arrow_dataset___IpcFileWriteOptions__update1, 3}, 
 		{ "_arrow_dataset___IpcFileFormat__Make", (DL_FUNC) &_arrow_dataset___IpcFileFormat__Make, 0}, 
 		{ "_arrow_dataset___CsvFileFormat__Make", (DL_FUNC) &_arrow_dataset___CsvFileFormat__Make, 1}, 
 		{ "_arrow_dataset___DirectoryPartitioning", (DL_FUNC) &_arrow_dataset___DirectoryPartitioning, 1}, 
@@ -6485,9 +6569,12 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_fs___FileSystem__type_name", (DL_FUNC) &_arrow_fs___FileSystem__type_name, 1}, 
 		{ "_arrow_fs___LocalFileSystem__create", (DL_FUNC) &_arrow_fs___LocalFileSystem__create, 0}, 
 		{ "_arrow_fs___SubTreeFileSystem__create", (DL_FUNC) &_arrow_fs___SubTreeFileSystem__create, 2}, 
+		{ "_arrow_fs___SubTreeFileSystem__base_fs", (DL_FUNC) &_arrow_fs___SubTreeFileSystem__base_fs, 1}, 
+		{ "_arrow_fs___SubTreeFileSystem__base_path", (DL_FUNC) &_arrow_fs___SubTreeFileSystem__base_path, 1}, 
 		{ "_arrow_fs___FileSystemFromUri", (DL_FUNC) &_arrow_fs___FileSystemFromUri, 1}, 
 		{ "_arrow_fs___CopyFiles", (DL_FUNC) &_arrow_fs___CopyFiles, 6}, 
 		{ "_arrow_fs___S3FileSystem__create", (DL_FUNC) &_arrow_fs___S3FileSystem__create, 12}, 
+		{ "_arrow_fs___S3FileSystem__region", (DL_FUNC) &_arrow_fs___S3FileSystem__region, 1}, 
 		{ "_arrow_io___Readable__Read", (DL_FUNC) &_arrow_io___Readable__Read, 2}, 
 		{ "_arrow_io___InputStream__Close", (DL_FUNC) &_arrow_io___InputStream__Close, 1}, 
 		{ "_arrow_io___OutputStream__Close", (DL_FUNC) &_arrow_io___OutputStream__Close, 1}, 

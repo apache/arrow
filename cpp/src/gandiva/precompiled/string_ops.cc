@@ -17,13 +17,13 @@
 
 // String functions
 #include "arrow/util/value_parsing.h"
-
 extern "C" {
 
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
 #include "./types.h"
 
 FORCE_INLINE
@@ -96,6 +96,16 @@ VAR_LEN_OP_TYPES(BINARY_RELATIONAL, greater_than_or_equal_to, >=)
 #define VAR_LEN_TYPES(INNER, NAME) \
   INNER(NAME, utf8)                \
   INNER(NAME, binary)
+
+FORCE_INLINE
+int to_binary_from_hex(char ch) {
+  if (ch >= 'A' && ch <= 'F') {
+    return 10 + (ch - 'A');
+  } else if (ch >= 'a' && ch <= 'f') {
+    return 10 + (ch - 'a');
+  }
+  return ch - '0';
+}
 
 FORCE_INLINE
 bool starts_with_utf8_utf8(const char* data, gdv_int32 data_len, const char* prefix,
@@ -1391,27 +1401,43 @@ const char* split_part(gdv_int64 context, const char* text, gdv_int32 text_len,
   return "";
 }
 
-#define CAST_NUMERIC_FROM_STRING(OUT_TYPE, ARROW_TYPE, TYPE_NAME)                       \
-  FORCE_INLINE                                                                          \
-  gdv_##OUT_TYPE cast##TYPE_NAME##_utf8(int64_t context, const char* data,              \
-                                        int32_t len) {                                  \
-    gdv_##OUT_TYPE val = 0;                                                             \
-    int32_t trimmed_len;                                                                \
-    data = btrim_utf8(context, data, len, &trimmed_len);                                \
-    if (!arrow::internal::ParseValue<ARROW_TYPE>(data, trimmed_len, &val)) {            \
-      std::string err = "Failed to cast the string " + std::string(data, trimmed_len) + \
-                        " to " #OUT_TYPE;                                               \
-      gdv_fn_context_set_error_msg(context, err.c_str());                               \
-    }                                                                                   \
-    return val;                                                                         \
+FORCE_INLINE
+const char* binary_string(gdv_int64 context, const char* text, gdv_int32 text_len,
+                          gdv_int32* out_len) {
+  gdv_binary ret =
+      reinterpret_cast<gdv_binary>(gdv_fn_context_arena_malloc(context, text_len));
+
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return "";
   }
 
-CAST_NUMERIC_FROM_STRING(int32, arrow::Int32Type, INT)
-CAST_NUMERIC_FROM_STRING(int64, arrow::Int64Type, BIGINT)
-CAST_NUMERIC_FROM_STRING(float32, arrow::FloatType, FLOAT4)
-CAST_NUMERIC_FROM_STRING(float64, arrow::DoubleType, FLOAT8)
+  if (text_len == 0) {
+    *out_len = 0;
+    return "";
+  }
 
-#undef CAST_INT_FROM_STRING
-#undef CAST_FLOAT_FROM_STRING
+  // converting hex encoded string to normal string
+  int j = 0;
+  for (int i = 0; i < text_len; i++, j++) {
+    if (text[i] == '\\' && i + 3 < text_len &&
+        (text[i + 1] == 'x' || text[i + 1] == 'X')) {
+      char hd1 = text[i + 2];
+      char hd2 = text[i + 3];
+      if (isxdigit(hd1) && isxdigit(hd2)) {
+        // [a-fA-F0-9]
+        ret[j] = to_binary_from_hex(hd1) * 16 + to_binary_from_hex(hd2);
+        i += 3;
+      } else {
+        ret[j] = text[i];
+      }
+    } else {
+      ret[j] = text[i];
+    }
+  }
+  *out_len = j;
+  return ret;
+}
 
 }  // extern "C"

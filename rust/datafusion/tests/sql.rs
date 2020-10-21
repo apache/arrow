@@ -21,8 +21,8 @@ use std::sync::Arc;
 extern crate arrow;
 extern crate datafusion;
 
-use arrow::record_batch::RecordBatch;
 use arrow::{array::*, datatypes::TimeUnit};
+use arrow::{datatypes::Int32Type, record_batch::RecordBatch};
 use arrow::{
     datatypes::{DataType, Field, Schema, SchemaRef},
     util::display::array_value_to_string,
@@ -930,14 +930,20 @@ fn register_alltypes_parquet(ctx: &mut ExecutionContext) {
 /// Execute query and return result set as 2-d table of Vecs
 /// `result[row][column]`
 async fn execute(ctx: &mut ExecutionContext, sql: &str) -> Vec<Vec<String>> {
-    let plan = ctx.create_logical_plan(&sql).unwrap();
+    let msg = format!("Creating logical plan for '{}'", sql);
+    let plan = ctx.create_logical_plan(&sql).expect(&msg);
     let logical_schema = plan.schema();
-    let plan = ctx.optimize(&plan).unwrap();
+
+    let msg = format!("Optimizing logical plan for '{}': {:?}", sql, plan);
+    let plan = ctx.optimize(&plan).expect(&msg);
     let optimized_logical_schema = plan.schema();
-    let plan = ctx.create_physical_plan(&plan).unwrap();
+
+    let msg = format!("Creating physical plan for '{}': {:?}", sql, plan);
+    let plan = ctx.create_physical_plan(&plan).expect(&msg);
     let physical_schema = plan.schema();
 
-    let results = ctx.collect(plan).await.unwrap();
+    let msg = format!("Executing physical plan for '{}': {:?}", sql, plan);
+    let results = ctx.collect(plan).await.expect(&msg);
 
     assert_eq!(logical_schema.as_ref(), optimized_logical_schema.as_ref());
     assert_eq!(logical_schema.as_ref(), physical_schema.as_ref());
@@ -1236,5 +1242,61 @@ async fn query_count_distinct() -> Result<()> {
     let actual = execute(&mut ctx, sql).await;
     let expected = vec![vec!["3".to_string()]];
     assert_eq!(expected, actual);
+    Ok(())
+}
+
+#[tokio::test]
+async fn query_on_string_dictionary() -> Result<()> {
+    // Test to ensure DataFusion can operate on dictionary types
+    // Use StringDictionary (32 bit indexes = keys)
+    let field_type =
+        DataType::Dictionary(Box::new(DataType::Int32), Box::new(DataType::Utf8));
+    let schema = Arc::new(Schema::new(vec![Field::new("d1", field_type, true)]));
+
+    let keys_builder = PrimitiveBuilder::<Int32Type>::new(10);
+    let values_builder = StringBuilder::new(10);
+    let mut builder = StringDictionaryBuilder::new(keys_builder, values_builder);
+
+    builder.append("one")?;
+    builder.append_null()?;
+    builder.append("three")?;
+    let array = Arc::new(builder.finish());
+
+    let data = RecordBatch::try_new(schema.clone(), vec![array])?;
+
+    let table = MemTable::new(schema, vec![vec![data]])?;
+    let mut ctx = ExecutionContext::new();
+    ctx.register_table("test", Box::new(table));
+
+    // Basic SELECT
+    let sql = "SELECT * FROM test";
+    let actual = execute(&mut ctx, sql).await;
+    let expected = vec![vec!["one"], vec!["NULL"], vec!["three"]];
+    assert_eq!(expected, actual);
+
+    // basic filtering
+    let sql = "SELECT * FROM test WHERE d1 IS NOT NULL";
+    let actual = execute(&mut ctx, sql).await;
+    let expected = vec![vec!["one"], vec!["three"]];
+    assert_eq!(expected, actual);
+
+    // filtering with constant
+    let sql = "SELECT * FROM test WHERE d1 = 'three'";
+    let actual = execute(&mut ctx, sql).await;
+    let expected = vec![vec!["three"]];
+    assert_eq!(expected, actual);
+
+    // Expression evaluation
+    let sql = "SELECT concat(d1, '-foo') FROM test";
+    let actual = execute(&mut ctx, sql).await;
+    let expected = vec![vec!["one-foo"], vec!["NULL"], vec!["three-foo"]];
+    assert_eq!(expected, actual);
+
+    // aggregation
+    let sql = "SELECT COUNT(d1) FROM test";
+    let actual = execute(&mut ctx, sql).await;
+    let expected = vec![vec!["2"]];
+    assert_eq!(expected, actual);
+
     Ok(())
 }

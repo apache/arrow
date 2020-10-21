@@ -165,6 +165,8 @@ def test_chunked_array_getitem():
         data[6]
     with pytest.raises(IndexError):
         data[-7]
+    # Ensure this works with numpy scalars
+    assert data[np.int32(1)].as_py() == 2
 
     data_slice = data[2:4]
     assert data_slice.to_pylist() == [3, 4]

@@ -17,6 +17,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+
 #include "gandiva/execution_context.h"
 #include "gandiva/precompiled/types.h"
 
@@ -913,6 +914,45 @@ TEST(TestStringOps, TestReplace) {
   ctx.Reset();
 }
 
+TEST(TestStringOps, TestBinaryString) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
+  gdv_int32 out_len = 0;
+  const char* out_str;
+
+  out_str = binary_string(ctx_ptr, "TestString", 10, &out_len);
+  std::string output = std::string(out_str, out_len);
+  EXPECT_EQ(output, "TestString");
+
+  out_str = binary_string(ctx_ptr, "", 0, &out_len);
+  output = std::string(out_str, out_len);
+  EXPECT_EQ(output, "");
+
+  out_str = binary_string(ctx_ptr, "T", 1, &out_len);
+  output = std::string(out_str, out_len);
+  EXPECT_EQ(output, "T");
+
+  out_str = binary_string(ctx_ptr, "\\x41\\x42\\x43", 12, &out_len);
+  output = std::string(out_str, out_len);
+  EXPECT_EQ(output, "ABC");
+
+  out_str = binary_string(ctx_ptr, "\\x41", 4, &out_len);
+  output = std::string(out_str, out_len);
+  EXPECT_EQ(output, "A");
+
+  out_str = binary_string(ctx_ptr, "\\x6d\\x6D", 8, &out_len);
+  output = std::string(out_str, out_len);
+  EXPECT_EQ(output, "mm");
+
+  out_str = binary_string(ctx_ptr, "\\x6f\\x6d", 8, &out_len);
+  output = std::string(out_str, out_len);
+  EXPECT_EQ(output, "om");
+
+  out_str = binary_string(ctx_ptr, "\\x4f\\x4D", 8, &out_len);
+  output = std::string(out_str, out_len);
+  EXPECT_EQ(output, "OM");
+}
+
 TEST(TestStringOps, TestSplitPart) {
   gandiva::ExecutionContext ctx;
   uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
@@ -961,140 +1001,6 @@ TEST(TestStringOps, TestSplitPart) {
 
   out_str = split_part(ctx_ptr, "ç†ååçåå†", 18, "†", 3, 2, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "ååçåå");
-}
-
-TEST(TestArithmeticOps, TestCastINT) {
-  gandiva::ExecutionContext ctx;
-
-  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
-
-  EXPECT_EQ(castINT_utf8(ctx_ptr, "-45", 3), -45);
-  EXPECT_EQ(castINT_utf8(ctx_ptr, "0", 1), 0);
-  EXPECT_EQ(castINT_utf8(ctx_ptr, "2147483647", 10), 2147483647);
-  EXPECT_EQ(castINT_utf8(ctx_ptr, "02147483647", 11), 2147483647);
-  EXPECT_EQ(castINT_utf8(ctx_ptr, "-2147483648", 11), -2147483648LL);
-  EXPECT_EQ(castINT_utf8(ctx_ptr, "-02147483648", 12), -2147483648LL);
-  EXPECT_EQ(castINT_utf8(ctx_ptr, " 12 ", 4), 12);
-
-  castINT_utf8(ctx_ptr, "2147483648", 10);
-  EXPECT_THAT(ctx.get_error(),
-              ::testing::HasSubstr("Failed to cast the string 2147483648 to int32"));
-  ctx.Reset();
-
-  castINT_utf8(ctx_ptr, "-2147483649", 11);
-  EXPECT_THAT(ctx.get_error(),
-              ::testing::HasSubstr("Failed to cast the string -2147483649 to int32"));
-  ctx.Reset();
-
-  castINT_utf8(ctx_ptr, "12.34", 5);
-  EXPECT_THAT(ctx.get_error(),
-              ::testing::HasSubstr("Failed to cast the string 12.34 to int32"));
-  ctx.Reset();
-
-  castINT_utf8(ctx_ptr, "abc", 3);
-  EXPECT_THAT(ctx.get_error(),
-              ::testing::HasSubstr("Failed to cast the string abc to int32"));
-  ctx.Reset();
-
-  castINT_utf8(ctx_ptr, "", 0);
-  EXPECT_THAT(ctx.get_error(),
-              ::testing::HasSubstr("Failed to cast the string  to int32"));
-  ctx.Reset();
-
-  castINT_utf8(ctx_ptr, "-", 1);
-  EXPECT_THAT(ctx.get_error(),
-              ::testing::HasSubstr("Failed to cast the string - to int32"));
-  ctx.Reset();
-}
-
-TEST(TestArithmeticOps, TestCastBIGINT) {
-  gandiva::ExecutionContext ctx;
-
-  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
-
-  EXPECT_EQ(castBIGINT_utf8(ctx_ptr, "-45", 3), -45);
-  EXPECT_EQ(castBIGINT_utf8(ctx_ptr, "0", 1), 0);
-  EXPECT_EQ(castBIGINT_utf8(ctx_ptr, "9223372036854775807", 19), 9223372036854775807LL);
-  EXPECT_EQ(castBIGINT_utf8(ctx_ptr, "09223372036854775807", 20), 9223372036854775807LL);
-  EXPECT_EQ(castBIGINT_utf8(ctx_ptr, "-9223372036854775808", 20),
-            -9223372036854775807LL - 1);
-  EXPECT_EQ(castBIGINT_utf8(ctx_ptr, "-009223372036854775808", 22),
-            -9223372036854775807LL - 1);
-  EXPECT_EQ(castBIGINT_utf8(ctx_ptr, " 12 ", 4), 12);
-
-  castBIGINT_utf8(ctx_ptr, "9223372036854775808", 19);
-  EXPECT_THAT(
-      ctx.get_error(),
-      ::testing::HasSubstr("Failed to cast the string 9223372036854775808 to int64"));
-  ctx.Reset();
-
-  castBIGINT_utf8(ctx_ptr, "-9223372036854775809", 20);
-  EXPECT_THAT(
-      ctx.get_error(),
-      ::testing::HasSubstr("Failed to cast the string -9223372036854775809 to int64"));
-  ctx.Reset();
-
-  castBIGINT_utf8(ctx_ptr, "12.34", 5);
-  EXPECT_THAT(ctx.get_error(),
-              ::testing::HasSubstr("Failed to cast the string 12.34 to int64"));
-  ctx.Reset();
-
-  castBIGINT_utf8(ctx_ptr, "abc", 3);
-  EXPECT_THAT(ctx.get_error(),
-              ::testing::HasSubstr("Failed to cast the string abc to int64"));
-  ctx.Reset();
-
-  castBIGINT_utf8(ctx_ptr, "", 0);
-  EXPECT_THAT(ctx.get_error(),
-              ::testing::HasSubstr("Failed to cast the string  to int64"));
-  ctx.Reset();
-
-  castBIGINT_utf8(ctx_ptr, "-", 1);
-  EXPECT_THAT(ctx.get_error(),
-              ::testing::HasSubstr("Failed to cast the string - to int64"));
-  ctx.Reset();
-}
-
-TEST(TestArithmeticOps, TestCastFloat4) {
-  gandiva::ExecutionContext ctx;
-
-  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
-
-  EXPECT_EQ(castFLOAT4_utf8(ctx_ptr, "-45.34", 6), -45.34f);
-  EXPECT_EQ(castFLOAT4_utf8(ctx_ptr, "0", 1), 0.0f);
-  EXPECT_EQ(castFLOAT4_utf8(ctx_ptr, "5", 1), 5.0f);
-  EXPECT_EQ(castFLOAT4_utf8(ctx_ptr, " 3.4 ", 5), 3.4f);
-
-  castFLOAT4_utf8(ctx_ptr, "", 0);
-  EXPECT_THAT(ctx.get_error(),
-              ::testing::HasSubstr("Failed to cast the string  to float32"));
-  ctx.Reset();
-
-  castFLOAT4_utf8(ctx_ptr, "e", 1);
-  EXPECT_THAT(ctx.get_error(),
-              ::testing::HasSubstr("Failed to cast the string e to float32"));
-  ctx.Reset();
-}
-
-TEST(TestParseStringHolder, TestCastFloat8) {
-  gandiva::ExecutionContext ctx;
-
-  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
-
-  EXPECT_EQ(castFLOAT8_utf8(ctx_ptr, "-45.34", 6), -45.34);
-  EXPECT_EQ(castFLOAT8_utf8(ctx_ptr, "0", 1), 0.0);
-  EXPECT_EQ(castFLOAT8_utf8(ctx_ptr, "5", 1), 5.0);
-  EXPECT_EQ(castFLOAT8_utf8(ctx_ptr, " 3.4 ", 5), 3.4);
-
-  castFLOAT8_utf8(ctx_ptr, "", 0);
-  EXPECT_THAT(ctx.get_error(),
-              ::testing::HasSubstr("Failed to cast the string  to float64"));
-  ctx.Reset();
-
-  castFLOAT8_utf8(ctx_ptr, "e", 1);
-  EXPECT_THAT(ctx.get_error(),
-              ::testing::HasSubstr("Failed to cast the string e to float64"));
-  ctx.Reset();
 }
 
 }  // namespace gandiva

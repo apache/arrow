@@ -1337,7 +1337,7 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
         c_bool write_legacy_ipc_format
         CMemoryPool* memory_pool
         CMetadataVersion metadata_version
-        CCompressionType compression
+        shared_ptr[CCodec] codec
         c_bool use_threads
 
         @staticmethod
@@ -1638,6 +1638,12 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         FunctionKind_META \
             " arrow::compute::Function::META"
 
+    cdef cppclass CFunctionDoc" arrow::compute::FunctionDoc":
+        c_string summary
+        c_string description
+        vector[c_string] arg_names
+        c_string options_class
+
     cdef cppclass CFunctionOptions" arrow::compute::FunctionOptions":
         pass
 
@@ -1645,6 +1651,7 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         const c_string& name() const
         FunctionKind kind() const
         const CArity& arity() const
+        const CFunctionDoc& doc() const
         int num_kernels() const
         CResult[CDatum] Execute(const vector[CDatum]& args,
                                 const CFunctionOptions* options,
@@ -1675,6 +1682,18 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
     cdef cppclass CMatchSubstringOptions \
             "arrow::compute::MatchSubstringOptions"(CFunctionOptions):
         CMatchSubstringOptions(c_string pattern)
+        c_string pattern
+
+    cdef cppclass CSplitOptions \
+            "arrow::compute::SplitOptions"(CFunctionOptions):
+        CSplitOptions(int64_t max_splits, c_bool reverse)
+        int64_t max_splits
+        c_bool reverse
+
+    cdef cppclass CSplitPatternOptions \
+            "arrow::compute::SplitPatternOptions"(CSplitOptions):
+        CSplitPatternOptions(c_string pattern, int64_t max_splits,
+                             c_bool reverse)
         c_string pattern
 
     cdef cppclass CCastOptions" arrow::compute::CastOptions"(CFunctionOptions):
@@ -1728,6 +1747,17 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
     cdef cppclass CMinMaxOptions \
             "arrow::compute::MinMaxOptions"(CFunctionOptions):
         CMinMaxMode null_handling
+
+    enum CCountMode \
+            "arrow::compute::CountOptions::Mode":
+        CCountMode_COUNT_NON_NULL \
+            "arrow::compute::CountOptions::COUNT_NON_NULL"
+        CCountMode_COUNT_NULL \
+            "arrow::compute::CountOptions::COUNT_NULL"
+
+    cdef cppclass CCountOptions \
+            "arrow::compute::CountOptions"(CFunctionOptions):
+        CCountMode count_mode
 
     cdef cppclass CPartitionNthOptions \
             "arrow::compute::PartitionNthOptions"(CFunctionOptions):
@@ -2055,7 +2085,7 @@ cdef extern from 'arrow/util/compression.h' namespace 'arrow' nogil:
         CResult[int64_t] Compress(int64_t input_len, const uint8_t* input,
                                   int64_t output_buffer_len,
                                   uint8_t* output_buffer)
-        const char* name() const
+        c_string name() const
         int64_t MaxCompressedLen(int64_t input_len, const uint8_t* input)
 
 

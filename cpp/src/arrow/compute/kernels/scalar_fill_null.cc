@@ -153,6 +153,13 @@ void AddBasicFillNullKernels(ScalarKernel kernel, ScalarFunction* func) {
   AddKernels({boolean(), null()});
 }
 
+const FunctionDoc fill_null_doc{
+    "Replace null elements",
+    ("`fill_value` must be a scalar of the same type as `values`.\n"
+     "Each non-null value in `values` is emitted as-is.\n"
+     "Each null value in `values` is replaced with `fill_value`."),
+    {"values", "fill_value"}};
+
 }  // namespace
 
 void RegisterScalarFillNull(FunctionRegistry* registry) {
@@ -160,7 +167,8 @@ void RegisterScalarFillNull(FunctionRegistry* registry) {
     ScalarKernel fill_null_base;
     fill_null_base.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
     fill_null_base.mem_allocation = MemAllocation::NO_PREALLOCATE;
-    auto fill_null = std::make_shared<ScalarFunction>("fill_null", Arity::Binary());
+    auto fill_null =
+        std::make_shared<ScalarFunction>("fill_null", Arity::Binary(), &fill_null_doc);
     AddBasicFillNullKernels(fill_null_base, fill_null.get());
     DCHECK_OK(registry->AddFunction(fill_null));
   }

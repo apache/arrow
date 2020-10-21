@@ -50,6 +50,14 @@ public interface BufferAllocator extends AutoCloseable {
   ArrowBuf buffer(long size, BufferManager manager);
 
   /**
+   * Get the root allocator of this allocator. If this allocator is already a root, return
+   * this directly.
+   *
+   * @return The root allocator
+   */
+  BufferAllocator getRoot();
+
+  /**
    * Create a new child allocator.
    *
    * @param name            the name of the allocator.
@@ -125,6 +133,30 @@ public interface BufferAllocator extends AutoCloseable {
    * @return Headroom in bytes
    */
   long getHeadroom();
+
+  /**
+   * Forcibly allocate bytes. Returns whether the allocation fit within limits.
+   *
+   * @param size to increase
+   * @return Whether the allocation fit within limits.
+   */
+  boolean forceAllocate(long size);
+
+
+  /**
+   * Release bytes from this allocator.
+   *
+   * @param size to release
+   */
+  void releaseBytes(long size);
+
+  /**
+   * Returns the allocation listener used by this allocator.
+   *
+   * @return the {@link AllocationListener} instance. Or {@link AllocationListener#NOOP} by default if no listener
+   *         is configured when this allocator was created.
+   */
+  AllocationListener getListener();
 
   /**
    * Returns the parent allocator.

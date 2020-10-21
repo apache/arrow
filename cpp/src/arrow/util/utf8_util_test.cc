@@ -374,5 +374,43 @@ TEST(WideStringToUTF8, Basics) {
 #endif
 }
 
+TEST(UTF8DecodeReverse, Basics) {
+  auto CheckOk = [](const std::string& s) -> void {
+    const uint8_t* begin = reinterpret_cast<const uint8_t*>(s.c_str());
+    const uint8_t* end = begin + s.length();
+    const uint8_t* i = end - 1;
+    uint32_t codepoint;
+    EXPECT_TRUE(UTF8DecodeReverse(&i, &codepoint));
+    EXPECT_EQ(i, begin - 1);
+  };
+
+  // 0x80 == 0b10000000
+  // 0xC0 == 0b11000000
+  // 0xE0 == 0b11100000
+  // 0xF0 == 0b11110000
+  CheckOk("a");
+  CheckOk("\xC0\x80");
+  CheckOk("\xE0\x80\x80");
+  CheckOk("\xF0\x80\x80\x80");
+
+  auto CheckInvalid = [](const std::string& s) -> void {
+    const uint8_t* begin = reinterpret_cast<const uint8_t*>(s.c_str());
+    const uint8_t* end = begin + s.length();
+    const uint8_t* i = end - 1;
+    uint32_t codepoint;
+    EXPECT_FALSE(UTF8DecodeReverse(&i, &codepoint));
+  };
+
+  // too many continuation code units
+  CheckInvalid("a\x80");
+  CheckInvalid("\xC0\x80\x80");
+  CheckInvalid("\xE0\x80\x80\x80");
+  CheckInvalid("\xF0\x80\x80\x80\x80");
+  // not enough continuation code units
+  CheckInvalid("\xC0");
+  CheckInvalid("\xE0\x80");
+  CheckInvalid("\xF0\x80\x80");
+}
+
 }  // namespace util
 }  // namespace arrow

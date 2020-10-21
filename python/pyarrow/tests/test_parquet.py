@@ -497,6 +497,7 @@ def test_multiple_path_types(tempdir, use_legacy_dataset):
     tm.assert_frame_equal(df, df_read)
 
 
+@pytest.mark.dataset
 @parametrize_legacy_dataset
 @pytest.mark.parametrize("filesystem", [
     None, fs.LocalFileSystem(), LocalFileSystem._get_instance()
@@ -2705,6 +2706,7 @@ def test_ignore_custom_prefixes(tempdir, use_legacy_dataset):
         pa.array(part).dictionary_encode(),
     ], names=['index', '_part'])
 
+    # TODO use_legacy_dataset ARROW-10247
     pq.write_to_dataset(table, str(tempdir), partition_cols=['_part'])
 
     private_duplicate = tempdir / '_private_duplicate'
@@ -2841,7 +2843,8 @@ def _test_write_to_dataset_with_partitions(base_path,
     output_table = pa.Table.from_pandas(output_df, schema=schema, safe=False,
                                         preserve_index=False)
     pq.write_to_dataset(output_table, base_path, partition_by,
-                        filesystem=filesystem)
+                        filesystem=filesystem,
+                        use_legacy_dataset=use_legacy_dataset)
 
     metadata_path = os.path.join(str(base_path), '_common_metadata')
 
@@ -2980,7 +2983,10 @@ def test_write_to_dataset_pathlib_nonlocal(
 
 
 @pytest.mark.pandas
-def test_write_to_dataset_with_partitions_and_custom_filenames(tempdir):
+@parametrize_legacy_dataset_not_supported
+def test_write_to_dataset_with_partitions_and_custom_filenames(
+    tempdir, use_legacy_dataset
+):
     output_df = pd.DataFrame({'group1': list('aaabbbbccc'),
                               'group2': list('eefeffgeee'),
                               'num': list(range(10)),
@@ -2995,7 +3001,8 @@ def test_write_to_dataset_with_partitions_and_custom_filenames(tempdir):
         return "{}-{}.parquet".format(*keys)
 
     pq.write_to_dataset(output_table, path,
-                        partition_by, partition_filename_callback)
+                        partition_by, partition_filename_callback,
+                        use_legacy_dataset=use_legacy_dataset)
 
     dataset = pq.ParquetDataset(path)
 
@@ -3024,13 +3031,18 @@ def test_write_to_dataset_pandas_preserve_extensiondtypes(
     df['col'] = df['col'].astype("Int64")
     table = pa.table(df)
 
-    pq.write_to_dataset(table, str(tempdir / "case1"), partition_cols=['part'])
+    pq.write_to_dataset(
+        table, str(tempdir / "case1"), partition_cols=['part'],
+        use_legacy_dataset=use_legacy_dataset
+    )
     result = pq.read_table(
         str(tempdir / "case1"), use_legacy_dataset=use_legacy_dataset
     ).to_pandas()
     tm.assert_frame_equal(result[["col"]], df[["col"]])
 
-    pq.write_to_dataset(table, str(tempdir / "case2"))
+    pq.write_to_dataset(
+        table, str(tempdir / "case2"), use_legacy_dataset=use_legacy_dataset
+    )
     result = pq.read_table(
         str(tempdir / "case2"), use_legacy_dataset=use_legacy_dataset
     ).to_pandas()
@@ -3054,13 +3066,18 @@ def test_write_to_dataset_pandas_preserve_index(tempdir, use_legacy_dataset):
     df_cat = df[["col", "part"]].copy()
     df_cat["part"] = df_cat["part"].astype("category")
 
-    pq.write_to_dataset(table, str(tempdir / "case1"), partition_cols=['part'])
+    pq.write_to_dataset(
+        table, str(tempdir / "case1"), partition_cols=['part'],
+        use_legacy_dataset=use_legacy_dataset
+    )
     result = pq.read_table(
         str(tempdir / "case1"), use_legacy_dataset=use_legacy_dataset
     ).to_pandas()
     tm.assert_frame_equal(result, df_cat)
 
-    pq.write_to_dataset(table, str(tempdir / "case2"))
+    pq.write_to_dataset(
+        table, str(tempdir / "case2"), use_legacy_dataset=use_legacy_dataset
+    )
     result = pq.read_table(
         str(tempdir / "case2"), use_legacy_dataset=use_legacy_dataset
     ).to_pandas()
@@ -3774,6 +3791,7 @@ def test_dataset_read_dictionary(tempdir, use_legacy_dataset):
     path = tempdir / "ARROW-3325-dataset"
     t1 = pa.table([[util.rands(10) for i in range(5)] * 10], names=['f0'])
     t2 = pa.table([[util.rands(10) for i in range(5)] * 10], names=['f0'])
+    # TODO pass use_legacy_dataset (need to fix unique names)
     pq.write_to_dataset(t1, root_path=str(path))
     pq.write_to_dataset(t2, root_path=str(path))
 
@@ -3828,7 +3846,8 @@ def test_direct_read_dictionary_subfield(use_legacy_dataset):
 
 
 @pytest.mark.pandas
-def test_write_to_dataset_metadata(tempdir):
+@parametrize_legacy_dataset
+def test_write_to_dataset_metadata(tempdir, use_legacy_dataset):
     path = tempdir / "ARROW-1983-dataset"
 
     # create and write a test dataset
@@ -3840,9 +3859,18 @@ def test_write_to_dataset_metadata(tempdir):
     table = pa.Table.from_pandas(df)
 
     metadata_list = []
+    if not use_legacy_dataset:
+        # New dataset implementation does not yet support metadata_collector
+        with pytest.raises(ValueError):
+            pq.write_to_dataset(table, root_path=str(path),
+                                partition_cols=['one', 'two'],
+                                metadata_collector=metadata_list,
+                                use_legacy_dataset=use_legacy_dataset)
+        return
     pq.write_to_dataset(table, root_path=str(path),
                         partition_cols=['one', 'two'],
-                        metadata_collector=metadata_list)
+                        metadata_collector=metadata_list,
+                        use_legacy_dataset=use_legacy_dataset)
 
     # open the dataset and collect metadata from pieces:
     dataset = pq.ParquetDataset(path)
@@ -4167,6 +4195,7 @@ def test_filter_before_validate_schema(tempdir, use_legacy_dataset):
 @pytest.mark.pandas
 @pytest.mark.fastparquet
 @pytest.mark.filterwarnings("ignore:RangeIndex:FutureWarning")
+@pytest.mark.filterwarnings("ignore:tostring:DeprecationWarning:fastparquet")
 def test_fastparquet_cross_compatibility(tempdir):
     fp = pytest.importorskip('fastparquet')
 
@@ -4296,3 +4325,17 @@ def test_dataset_partitioning(tempdir):
     with pytest.raises(ValueError):
         pq.ParquetDataset(
             str(root_path), partitioning=part, use_legacy_dataset=True)
+
+
+@pytest.mark.dataset
+def test_parquet_dataset_new_filesystem(tempdir):
+    # Ensure we can pass new FileSystem object to ParquetDataset
+    # (use new implementation automatically without specifying
+    #  use_legacy_dataset=False)
+    table = pa.table({'a': [1, 2, 3]})
+    pq.write_table(table, tempdir / 'data.parquet')
+    # don't use simple LocalFileSystem (as that gets mapped to legacy one)
+    filesystem = fs.SubTreeFileSystem(str(tempdir), fs.LocalFileSystem())
+    dataset = pq.ParquetDataset('.', filesystem=filesystem)
+    result = dataset.read()
+    assert result.equals(table)

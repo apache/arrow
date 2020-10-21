@@ -230,6 +230,10 @@ mmap_open <- function(path, mode = c("read", "write", "readwrite")) {
 #' @return An `InputStream` or a subclass of one.
 #' @keywords internal
 make_readable_file <- function(file, mmap = TRUE, compression = NULL, filesystem = NULL) {
+  if (inherits(file, "SubTreeFileSystem")) {
+    filesystem <- file$base_fs
+    file <- file$base_path
+  }
   if (is.string(file)) {
     if (is_url(file)) {
       fs_and_path <- FileSystem$from_uri(file)
@@ -258,11 +262,15 @@ make_readable_file <- function(file, mmap = TRUE, compression = NULL, filesystem
 }
 
 make_output_stream <- function(x, filesystem = NULL) {
-  if (is_url(x)) {
+  if (inherits(x, "SubTreeFileSystem")) {
+    filesystem <- x$base_fs
+    x <- x$base_path
+  } else if (is_url(x)) {
     fs_and_path <- FileSystem$from_uri(x)
     filesystem = fs_and_path$fs
     x <- fs_and_path$path
   }
+  assert_that(is.string(x))
   if (is.null(filesystem)) {
     FileOutputStream$create(x)
   } else {

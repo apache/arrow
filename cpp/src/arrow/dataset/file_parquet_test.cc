@@ -197,7 +197,7 @@ class TestParquetFileFormat : public ArrowParquetWriterMixin {
       auto expected = expected_row_groups[i];
       auto parquet_fragment = checked_pointer_cast<ParquetFileFragment>(fragments[i]);
 
-      EXPECT_EQ(parquet_fragment->row_groups(),
+      EXPECT_EQ(*parquet_fragment->row_groups(),
                 RowGroupInfo::FromIdentifiers({expected}));
       EXPECT_EQ(SingleBatch(parquet_fragment.get())->num_rows(), expected + 1);
     }
@@ -514,14 +514,20 @@ TEST_F(TestParquetFileFormat, ExplicitRowGroupSelection) {
     return internal::checked_pointer_cast<ParquetFileFragment>(fragment);
   };
 
-  // empty selection is identical to selecting all row groups
-  EXPECT_TRUE(row_groups_fragment({})->row_groups().empty());
-  CountRowsAndBatchesInScan(row_groups_fragment({}), kTotalNumRows, kNumRowGroups);
+  EXPECT_OK_AND_ASSIGN(auto all_row_groups_fragment,
+                       format_->MakeFragment(*source, scalar(true)));
+
+  // null selection is identical to selecting all row groups
+  EXPECT_EQ(internal::checked_pointer_cast<ParquetFileFragment>(all_row_groups_fragment)
+                ->row_groups(),
+            nullptr);
+  CountRowsAndBatchesInScan(all_row_groups_fragment, kTotalNumRows, kNumRowGroups);
 
   // individual selection selects a single row group
   for (int i = 0; i < kNumRowGroups; ++i) {
     CountRowsAndBatchesInScan(row_groups_fragment({i}), i + 1, 1);
-    EXPECT_EQ(row_groups_fragment({i})->row_groups(), RowGroupInfo::FromIdentifiers({i}));
+    EXPECT_EQ(*row_groups_fragment({i})->row_groups(),
+              RowGroupInfo::FromIdentifiers({i}));
   }
 
   for (int i = 0; i < kNumRowGroups; ++i) {

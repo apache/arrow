@@ -94,17 +94,18 @@ cdef class IpcWriteOptions(_Weakrefable):
 
     @property
     def compression(self):
-        if self.c_options.compression == CCompressionType_UNCOMPRESSED:
+        if self.c_options.codec == nullptr:
             return None
         else:
-            return _compression_name(self.c_options.compression)
+            return frombytes(self.c_options.codec.get().name())
 
     @compression.setter
     def compression(self, value):
         if value is None:
-            self.c_options.compression = CCompressionType_UNCOMPRESSED
+            self.c_options.codec.reset()
         else:
-            self.c_options.compression = _ensure_compression(value)
+            self.c_options.codec = shared_ptr[CCodec](GetResultValue(
+                CCodec.Create(_ensure_compression(value))).release())
 
     @property
     def use_threads(self):

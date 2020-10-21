@@ -22,11 +22,11 @@
 use std::sync::Arc;
 
 use arrow::datatypes::{Field, Schema, SchemaRef};
-use arrow::error::Result as ArrowResult;
 use arrow::record_batch::RecordBatch;
 
 use crate::datasource::TableProvider;
 use crate::error::{ExecutionError, Result};
+use crate::physical_plan::common;
 use crate::physical_plan::memory::MemoryExec;
 use crate::physical_plan::ExecutionPlan;
 
@@ -56,16 +56,28 @@ impl MemTable {
     }
 
     /// Create a mem table by reading from another data source
-    pub async fn load(t: &dyn TableProvider) -> Result<Self> {
+    pub async fn load(t: &dyn TableProvider, batch_size: usize) -> Result<Self> {
         let schema = t.schema();
-        let exec = t.scan(&None, 1024 * 1024)?;
+        let exec = t.scan(&None, batch_size)?;
+        let partition_count = exec.output_partitioning().partition_count();
+
+        let tasks = (0..partition_count)
+            .map(|part_i| {
+                let exec = exec.clone();
+                tokio::spawn(async move {
+                    let stream = exec.execute(part_i).await?;
+                    common::collect(stream).await
+                })
+            })
+            // this collect *is needed* so that the join below can
+            // switch between tasks
+            .collect::<Vec<_>>();
 
         let mut data: Vec<Vec<RecordBatch>> =
             Vec::with_capacity(exec.output_partitioning().partition_count());
-        for partition in 0..exec.output_partitioning().partition_count() {
-            let it = exec.execute(partition).await?;
-            let partition_batches = it.into_iter().collect::<ArrowResult<Vec<_>>>()?;
-            data.push(partition_batches);
+        for task in tasks {
+            let result = task.await.expect("MemTable::load could not join task")?;
+            data.push(result);
         }
 
         MemTable::new(schema.clone(), data)
@@ -122,6 +134,7 @@ mod tests {
     use super::*;
     use arrow::array::Int32Array;
     use arrow::datatypes::{DataType, Field, Schema};
+    use futures::StreamExt;
 
     #[tokio::test]
     async fn test_with_projection() -> Result<()> {
@@ -145,7 +158,7 @@ mod tests {
         // scan with projection
         let exec = provider.scan(&Some(vec![2, 1]), 1024)?;
         let mut it = exec.execute(0).await?;
-        let batch2 = it.next().unwrap()?;
+        let batch2 = it.next().await.unwrap()?;
         assert_eq!(2, batch2.schema().fields().len());
         assert_eq!("c", batch2.schema().field(0).name());
         assert_eq!("b", batch2.schema().field(1).name());
@@ -175,7 +188,7 @@ mod tests {
 
         let exec = provider.scan(&None, 1024)?;
         let mut it = exec.execute(0).await?;
-        let batch1 = it.next().unwrap()?;
+        let batch1 = it.next().await.unwrap()?;
         assert_eq!(3, batch1.schema().fields().len());
         assert_eq!(3, batch1.num_columns());
 

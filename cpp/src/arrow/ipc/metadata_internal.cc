@@ -903,15 +903,15 @@ static Status WriteBuffers(FBB& fbb, const std::vector<BufferMetadata>& buffers,
 
 static Status GetBodyCompression(FBB& fbb, const IpcWriteOptions& options,
                                  BodyCompressionOffset* out) {
-  if (options.compression != Compression::UNCOMPRESSED) {
+  if (options.codec != nullptr) {
     flatbuf::CompressionType codec;
-    if (options.compression == Compression::LZ4_FRAME) {
+    if (options.codec->compression_type() == Compression::LZ4_FRAME) {
       codec = flatbuf::CompressionType::LZ4_FRAME;
-    } else if (options.compression == Compression::ZSTD) {
+    } else if (options.codec->compression_type() == Compression::ZSTD) {
       codec = flatbuf::CompressionType::ZSTD;
     } else {
       return Status::Invalid("Unsupported IPC compression codec: ",
-                             util::Codec::GetCodecAsString(options.compression));
+                             options.codec->name());
     }
     *out = flatbuf::CreateBodyCompression(fbb, codec,
                                           flatbuf::BodyCompressionMethod::BUFFER);

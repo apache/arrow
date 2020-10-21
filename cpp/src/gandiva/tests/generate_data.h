@@ -20,6 +20,7 @@
 #include <string>
 
 #include "arrow/util/decimal.h"
+#include "arrow/util/io_util.h"
 
 #pragma once
 
@@ -35,18 +36,13 @@ class DataGenerator {
 
 class Random {
  public:
-  explicit Random(uint32_t seed = 100) : seed_(seed) {}
+  Random() : gen_(::arrow::internal::GetRandomSeed()) {}
+  explicit Random(uint64_t seed) : gen_(seed) {}
 
-  // This is 3 times faster than random_device
-#ifndef _MSC_VER
-  int32_t next() { return rand_r(&seed_); }
-#else
-  int32_t next() { return random_dev_(); }
-#endif
+  int32_t next() { return gen_(); }
 
  private:
-  uint32_t seed_;
-  std::random_device random_dev_;
+  std::default_random_engine gen_;
 };
 
 class Int32DataGenerator : public DataGenerator<int32_t> {

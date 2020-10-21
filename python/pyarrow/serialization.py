@@ -16,6 +16,7 @@
 # under the License.
 
 import collections
+import warnings
 
 import numpy as np
 
@@ -73,6 +74,14 @@ except ImportError:
         titles, names = zip(*nametups)
         return np.dtype({'names': names, 'formats': formats, 'titles': titles,
                          'offsets': offsets, 'itemsize': offset})
+
+
+def _deprecate_serialization(name):
+    msg = (
+        "'pyarrow.{}' is deprecated as of 2.0.0 and will be removed in a "
+        "future version. Use pickle or the pyarrow IPC functionality instead."
+    ).format(name)
+    warnings.warn(msg, DeprecationWarning, stacklevel=3)
 
 
 # ----------------------------------------------------------------------
@@ -261,6 +270,7 @@ def _register_custom_pandas_handlers(context):
 def register_torch_serialization_handlers(serialization_context):
     # ----------------------------------------------------------------------
     # Set up serialization for pytorch tensors
+    _deprecate_serialization("register_torch_serialization_handlers")
 
     try:
         import torch
@@ -432,7 +442,7 @@ def _register_pydata_sparse_handlers(serialization_context):
         pass
 
 
-def register_default_serialization_handlers(serialization_context):
+def _register_default_serialization_handlers(serialization_context):
 
     # ----------------------------------------------------------------------
     # Set up serialization for primitive datatypes
@@ -482,7 +492,13 @@ def register_default_serialization_handlers(serialization_context):
     _register_pydata_sparse_handlers(serialization_context)
 
 
+def register_default_serialization_handlers(serialization_context):
+    _deprecate_serialization("register_default_serialization_handlers")
+    _register_default_serialization_handlers(serialization_context)
+
+
 def default_serialization_context():
+    _deprecate_serialization("default_serialization_context")
     context = SerializationContext()
-    register_default_serialization_handlers(context)
+    _register_default_serialization_handlers(context)
     return context

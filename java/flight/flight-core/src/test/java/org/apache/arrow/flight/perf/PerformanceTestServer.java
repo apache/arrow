@@ -21,10 +21,14 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
+import org.apache.arrow.flight.BackpressureStrategy;
 import org.apache.arrow.flight.FlightDescriptor;
 import org.apache.arrow.flight.FlightEndpoint;
 import org.apache.arrow.flight.FlightInfo;
+import org.apache.arrow.flight.FlightProducer;
 import org.apache.arrow.flight.FlightServer;
 import org.apache.arrow.flight.Location;
 import org.apache.arrow.flight.NoOpFlightProducer;
@@ -51,12 +55,34 @@ public class PerformanceTestServer implements AutoCloseable {
   private final Location location;
   private final BufferAllocator allocator;
   private final PerfProducer producer;
+  private final boolean isNonBlocking;
 
   public PerformanceTestServer(BufferAllocator incomingAllocator, Location location) {
+    this(incomingAllocator, location, new BackpressureStrategy() {
+      private FlightProducer.ServerStreamListener listener;
+
+      @Override
+      public void register(FlightProducer.ServerStreamListener listener) {
+        this.listener = listener;
+      }
+
+      @Override
+      public WaitResult waitForListener(long timeout) {
+        while (!listener.isReady()) {
+          // busy wait
+        }
+        return WaitResult.READY;
+      }
+    }, false);
+  }
+
+  public PerformanceTestServer(BufferAllocator incomingAllocator, Location location, BackpressureStrategy bpStrategy,
+                               boolean isNonBlocking) {
     this.allocator = incomingAllocator.newChildAllocator("perf-server", 0, Long.MAX_VALUE);
     this.location = location;
-    this.producer = new PerfProducer();
+    this.producer = new PerfProducer(bpStrategy);
     this.flightServer = FlightServer.builder(this.allocator, location, producer).build();
+    this.isNonBlocking = isNonBlocking;
   }
 
   public Location getLocation() {
@@ -73,68 +99,81 @@ public class PerformanceTestServer implements AutoCloseable {
   }
 
   private final class PerfProducer extends NoOpFlightProducer {
+    private final BackpressureStrategy bpStrategy;
+
+    private PerfProducer(BackpressureStrategy bpStrategy) {
+      this.bpStrategy = bpStrategy;
+    }
 
     @Override
     public void getStream(CallContext context, Ticket ticket,
         ServerStreamListener listener) {
-      VectorSchemaRoot root = null;
-      try {
-        Token token = Token.parseFrom(ticket.getBytes());
-        Perf perf = token.getDefinition();
-        Schema schema = Schema.deserialize(ByteBuffer.wrap(perf.getSchema().toByteArray()));
-        root = VectorSchemaRoot.create(schema, allocator);
-        BigIntVector a = (BigIntVector) root.getVector("a");
-        BigIntVector b = (BigIntVector) root.getVector("b");
-        BigIntVector c = (BigIntVector) root.getVector("c");
-        BigIntVector d = (BigIntVector) root.getVector("d");
-        listener.start(root);
-        root.allocateNew();
+      bpStrategy.register(listener);
+      final Runnable loadData = () -> {
+        VectorSchemaRoot root = null;
+        try {
+          Token token = Token.parseFrom(ticket.getBytes());
+          Perf perf = token.getDefinition();
+          Schema schema = Schema.deserialize(ByteBuffer.wrap(perf.getSchema().toByteArray()));
+          root = VectorSchemaRoot.create(schema, allocator);
+          BigIntVector a = (BigIntVector) root.getVector("a");
+          BigIntVector b = (BigIntVector) root.getVector("b");
+          BigIntVector c = (BigIntVector) root.getVector("c");
+          BigIntVector d = (BigIntVector) root.getVector("d");
+          listener.start(root);
+          root.allocateNew();
 
-        int current = 0;
-        long i = token.getStart();
-        while (i < token.getEnd()) {
-          if (listener.isCancelled()) {
-            root.clear();
-            return;
-          }
-
-          if (TestPerf.VALIDATE) {
-            a.setSafe(current, i);
-          }
-
-          i++;
-          current++;
-          if (i % perf.getRecordsPerBatch() == 0) {
-            root.setRowCount(current);
-
-            while (!listener.isReady()) {
-              //Thread.sleep(0, nanos);
-            }
-
+          int current = 0;
+          long i = token.getStart();
+          while (i < token.getEnd()) {
             if (listener.isCancelled()) {
               root.clear();
               return;
             }
+
+            if (TestPerf.VALIDATE) {
+              a.setSafe(current, i);
+            }
+
+            i++;
+            current++;
+            if (i % perf.getRecordsPerBatch() == 0) {
+              root.setRowCount(current);
+
+              bpStrategy.waitForListener(0);
+              if (listener.isCancelled()) {
+                root.clear();
+                return;
+              }
+              listener.putNext();
+              current = 0;
+              root.allocateNew();
+            }
+          }
+
+          // send last partial batch.
+          if (current != 0) {
+            root.setRowCount(current);
             listener.putNext();
-            current = 0;
-            root.allocateNew();
+          }
+          listener.completed();
+        } catch (InvalidProtocolBufferException e) {
+          throw new RuntimeException(e);
+        } finally {
+          try {
+            AutoCloseables.close(root);
+          } catch (Exception e) {
+            throw new RuntimeException(e);
           }
         }
+      };
 
-        // send last partial batch.
-        if (current != 0) {
-          root.setRowCount(current);
-          listener.putNext();
-        }
-        listener.completed();
-      } catch (InvalidProtocolBufferException e) {
-        throw new RuntimeException(e);
-      } finally {
-        try {
-          AutoCloseables.close(root);
-        } catch (Exception e) {
-          throw new RuntimeException(e);
-        }
+      if (!isNonBlocking) {
+        loadData.run();
+      } else {
+        final ExecutorService service = Executors.newSingleThreadExecutor();
+        service.submit(loadData);
+        service.shutdown();
       }
     }
 

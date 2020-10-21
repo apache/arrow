@@ -214,8 +214,8 @@ pub trait ArrowPrimitiveType: 'static {
     /// Corresponding Rust native type for the primitive type.
     type Native: ArrowNativeType;
 
-    /// Returns the corresponding Arrow data type of this primitive type.
-    fn get_data_type() -> DataType;
+    /// the corresponding Arrow data type of this primitive type.
+    const DATA_TYPE: DataType;
 
     /// Returns the bit width of this primitive type.
     fn get_bit_width() -> usize {
@@ -376,10 +376,7 @@ pub struct BooleanType {}
 
 impl ArrowPrimitiveType for BooleanType {
     type Native = bool;
-
-    fn get_data_type() -> DataType {
-        DataType::Boolean
-    }
+    const DATA_TYPE: DataType = DataType::Boolean;
 
     fn get_bit_width() -> usize {
         1
@@ -400,10 +397,7 @@ macro_rules! make_type {
 
         impl ArrowPrimitiveType for $name {
             type Native = $native_ty;
-
-            fn get_data_type() -> DataType {
-                $data_ty
-            }
+            const DATA_TYPE: DataType = $data_ty;
         }
     };
 }
@@ -1129,6 +1123,16 @@ impl DataType {
             DataType::Dictionary(_, _) => json!({ "name": "dictionary"}),
         }
     }
+
+    /// Returns true if this type is numeric: (UInt*, Unit*, or Float*)
+    pub fn is_numeric(t: &DataType) -> bool {
+        use DataType::*;
+        match t {
+            UInt8 | UInt16 | UInt32 | UInt64 | Int8 | Int16 | Int32 | Int64 | Float32
+            | Float64 => true,
+            _ => false,
+        }
+    }
 }
 
 impl Field {
@@ -1161,17 +1165,20 @@ impl Field {
     }
 
     /// Returns an immutable reference to the `Field`'s name
-    pub fn name(&self) -> &String {
+    #[inline]
+    pub const fn name(&self) -> &String {
         &self.name
     }
 
     /// Returns an immutable reference to the `Field`'s  data-type
-    pub fn data_type(&self) -> &DataType {
+    #[inline]
+    pub const fn data_type(&self) -> &DataType {
         &self.data_type
     }
 
     /// Indicates whether this `Field` supports null values
-    pub fn is_nullable(&self) -> bool {
+    #[inline]
+    pub const fn is_nullable(&self) -> bool {
         self.nullable
     }
 
@@ -1524,7 +1531,8 @@ impl Schema {
     ///
     /// let schema = Schema::new_with_metadata(vec![field_a, field_b], metadata);
     /// ```
-    pub fn new_with_metadata(
+    #[inline]
+    pub const fn new_with_metadata(
         fields: Vec<Field>,
         metadata: HashMap<String, String>,
     ) -> Self {
@@ -1600,7 +1608,8 @@ impl Schema {
     }
 
     /// Returns an immutable reference of the vector of `Field` instances
-    pub fn fields(&self) -> &Vec<Field> {
+    #[inline]
+    pub const fn fields(&self) -> &Vec<Field> {
         &self.fields
     }
 
@@ -1631,7 +1640,8 @@ impl Schema {
     }
 
     /// Returns an immutable reference to the Map of custom metadata key-value pairs.
-    pub fn metadata(&self) -> &HashMap<String, String> {
+    #[inline]
+    pub const fn metadata(&self) -> &HashMap<String, String> {
         &self.metadata
     }
 

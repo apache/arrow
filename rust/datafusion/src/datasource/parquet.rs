@@ -75,6 +75,7 @@ mod tests {
         TimestampNanosecondArray,
     };
     use arrow::record_batch::RecordBatch;
+    use futures::StreamExt;
     use std::env;
 
     #[tokio::test]
@@ -82,16 +83,16 @@ mod tests {
         let table = load_table("alltypes_plain.parquet")?;
         let projection = None;
         let exec = table.scan(&projection, 2)?;
-        let it = exec.execute(0).await?;
+        let stream = exec.execute(0).await?;
 
-        let count = it
-            .into_iter()
+        let count = stream
             .map(|batch| {
                 let batch = batch.unwrap();
                 assert_eq!(11, batch.num_columns());
                 assert_eq!(2, batch.num_rows());
             })
-            .count();
+            .fold(0, |acc, _| async move { acc + 1i32 })
+            .await;
 
         // we should have seen 4 batches of 2 rows
         assert_eq!(4, count);
@@ -305,6 +306,7 @@ mod tests {
         let exec = table.scan(projection, 1024)?;
         let mut it = exec.execute(0).await?;
         it.next()
+            .await
             .expect("should have received at least one batch")
             .map_err(|e| e.into())
     }

@@ -97,12 +97,14 @@ impl ArrayData {
     }
 
     /// Returns a builder to construct a `ArrayData` instance.
-    pub fn builder(data_type: DataType) -> ArrayDataBuilder {
+    #[inline]
+    pub const fn builder(data_type: DataType) -> ArrayDataBuilder {
         ArrayDataBuilder::new(data_type)
     }
 
     /// Returns a reference to the data type of this array data
-    pub fn data_type(&self) -> &DataType {
+    #[inline]
+    pub const fn data_type(&self) -> &DataType {
         &self.data_type
     }
 
@@ -125,7 +127,8 @@ impl ArrayData {
     }
 
     /// Returns a reference to the null bitmap of this array data
-    pub fn null_bitmap(&self) -> &Option<Bitmap> {
+    #[inline]
+    pub const fn null_bitmap(&self) -> &Option<Bitmap> {
         &self.null_bitmap
     }
 
@@ -143,22 +146,26 @@ impl ArrayData {
     }
 
     /// Returns the length (i.e., number of elements) of this array
-    pub fn len(&self) -> usize {
+    #[inline]
+    pub const fn len(&self) -> usize {
         self.len
     }
 
-    pub fn is_empty(&self) -> bool {
+    // Returns whether array data is empty
+    #[inline]
+    pub const fn is_empty(&self) -> bool {
         self.len == 0
     }
 
     /// Returns the offset of this array
     #[inline]
-    pub fn offset(&self) -> usize {
+    pub const fn offset(&self) -> usize {
         self.offset
     }
 
     /// Returns the total number of nulls in this array
-    pub fn null_count(&self) -> usize {
+    #[inline]
+    pub const fn null_count(&self) -> usize {
         self.null_count
     }
 
@@ -215,7 +222,8 @@ pub struct ArrayDataBuilder {
 }
 
 impl ArrayDataBuilder {
-    pub fn new(data_type: DataType) -> Self {
+    #[inline]
+    pub const fn new(data_type: DataType) -> Self {
         Self {
             data_type,
             len: 0,
@@ -227,12 +235,14 @@ impl ArrayDataBuilder {
         }
     }
 
-    pub fn len(mut self, n: usize) -> Self {
+    #[inline]
+    pub const fn len(mut self, n: usize) -> Self {
         self.len = n;
         self
     }
 
-    pub fn null_count(mut self, n: usize) -> Self {
+    #[inline]
+    pub const fn null_count(mut self, n: usize) -> Self {
         self.null_count = Some(n);
         self
     }
@@ -242,7 +252,8 @@ impl ArrayDataBuilder {
         self
     }
 
-    pub fn offset(mut self, n: usize) -> Self {
+    #[inline]
+    pub const fn offset(mut self, n: usize) -> Self {
         self.offset = n;
         self
     }

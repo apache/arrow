@@ -53,16 +53,26 @@
 
 #' Is the C++ Arrow library available?
 #'
-#' You won't generally need to call this function, but it's here in case it
-#' helps for development purposes.
+#' You won't generally need to call these function, but they're made available
+#' for diagnostic purposes.
 #' @return `TRUE` or `FALSE` depending on whether the package was installed
-#' with the Arrow C++ library. If `FALSE`, you'll need to install the C++
-#' library and then reinstall the R package. See [install_arrow()] for help.
+#' with the Arrow C++ library (check with `arrow_available()`) or with S3
+#' support enabled (check with `arrow_with_s3()`).
 #' @export
 #' @examples
 #' arrow_available()
+#' arrow_with_s3()
+#' @seealso If either of these are `FALSE`, see
+#' `vignette("install", package = "arrow")` for guidance on reinstalling the
+#' package.
 arrow_available <- function() {
   .Call(`_arrow_available`)
+}
+
+#' @rdname arrow_available
+#' @export
+arrow_with_s3 <- function() {
+  .Call(`_s3_available`)
 }
 
 option_use_threads <- function() {
