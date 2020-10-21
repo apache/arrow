@@ -329,7 +329,12 @@ public final class Decimal256Vector extends BaseFixedWidthVector {
    */
   public void set(int index, long value) {
     BitVectorHelper.setBit(validityBuffer, index);
-    DecimalUtility.writeLongToArrowBufBigDecimal(value, valueBuffer, index);
+    final long addressOfValue = valueBuffer.memoryAddress() + (long) index * TYPE_WIDTH;
+    PlatformDependent.putLong(addressOfValue, value);
+    final long padValue = Long.signum(value) == -1 ? -1L : 0L;
+    PlatformDependent.putLong(addressOfValue + Long.BYTES, padValue);
+    PlatformDependent.putLong(addressOfValue + 2 * Long.BYTES, padValue);
+    PlatformDependent.putLong(addressOfValue + 3 * Long.BYTES, padValue);
   }
 
   /**
