@@ -15,8 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! Contains file reader implementations and provides methods to access file metadata, row group
-//! readers to read individual column chunks, or access record iterator.
+//! Contains implementations of the reader traits FileReader, RowGroupReader and PageReader
+//! Also contains implementations of the ChunkReader for files (with buffering) and byte arrays (RAM)
 
 use std::{convert::TryFrom, fs::File, io::Read, path::Path, rc::Rc};
 

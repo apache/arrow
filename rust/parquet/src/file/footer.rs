@@ -15,9 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! Contains file reader API and provides methods to access file metadata, row group
-//! readers to read individual column chunks, or access record iterator.
-
 use std::{
     cmp::min,
     io::{Cursor, Read, Seek, SeekFrom},
