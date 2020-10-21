@@ -65,7 +65,7 @@ public class ClientBearerTokenMiddleware implements FlightClientMiddleware {
 
   @Override
   public void onHeadersReceived(CallHeaders incomingHeaders) {
-    final String bearerValue = AuthUtilities.getValueFromAuthHeader(incomingHeaders, AuthConstants.BEARER_PREFIX);
+    final String bearerValue = AuthUtilities.getValueFromAuthHeader(incomingHeaders, Auth2Constants.BEARER_PREFIX);
     if (bearerValue != null) {
       factory.setBearerToken(bearerValue);
     }

@@ -20,7 +20,6 @@ package org.apache.arrow.flight.auth2;
 import java.util.function.Consumer;
 
 import org.apache.arrow.flight.CallHeaders;
-import org.apache.arrow.flight.auth2.AuthConstants;
 
 /**
  * Client credentials that use a bearer token.
@@ -35,6 +34,6 @@ public final class BearerCredentialWriter implements Consumer<CallHeaders> {
 
   @Override
   public void accept(CallHeaders outputHeaders) {
-    outputHeaders.insert(AuthConstants.AUTHORIZATION_HEADER, AuthConstants.BEARER_PREFIX + bearer);
+    outputHeaders.insert(Auth2Constants.AUTHORIZATION_HEADER, Auth2Constants.BEARER_PREFIX + bearer);
   }
 }

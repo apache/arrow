@@ -28,7 +28,7 @@ import org.apache.arrow.flight.CallStatus;
 abstract class BearerTokenAuthHandler implements CallHeaderAuthenticator {
   @Override
   public AuthResult authenticate(CallHeaders headers) {
-    final String bearerToken = AuthUtilities.getValueFromAuthHeader(headers, AuthConstants.BEARER_PREFIX);
+    final String bearerToken = AuthUtilities.getValueFromAuthHeader(headers, Auth2Constants.BEARER_PREFIX);
     if (bearerToken == null) {
       throw CallStatus.UNAUTHENTICATED.toRuntimeException();
     }

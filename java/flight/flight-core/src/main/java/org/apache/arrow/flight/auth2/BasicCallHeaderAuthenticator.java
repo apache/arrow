@@ -43,7 +43,7 @@ public class BasicCallHeaderAuthenticator implements CallHeaderAuthenticator {
 
   @Override
   public AuthResult authenticate(CallHeaders headers) {
-    final String authEncoded = AuthUtilities.getValueFromAuthHeader(headers, AuthConstants.BASIC_PREFIX);
+    final String authEncoded = AuthUtilities.getValueFromAuthHeader(headers, Auth2Constants.BASIC_PREFIX);
     if (authEncoded == null) {
       throw CallStatus.UNAUTHENTICATED.toRuntimeException();
     }

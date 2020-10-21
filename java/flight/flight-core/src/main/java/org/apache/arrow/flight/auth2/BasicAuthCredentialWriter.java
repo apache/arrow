@@ -22,7 +22,6 @@ import java.util.Base64;
 import java.util.function.Consumer;
 
 import org.apache.arrow.flight.CallHeaders;
-import org.apache.arrow.flight.auth2.AuthConstants;
 
 /**
  * Client credentials that use a username and password.
@@ -39,7 +38,7 @@ public final class BasicAuthCredentialWriter implements Consumer<CallHeaders> {
 
   @Override
   public void accept(CallHeaders outputHeaders) {
-    outputHeaders.insert(AuthConstants.AUTHORIZATION_HEADER, AuthConstants.BASIC_PREFIX +
+    outputHeaders.insert(Auth2Constants.AUTHORIZATION_HEADER, Auth2Constants.BASIC_PREFIX +
         Base64.getEncoder().encodeToString(String.format("%s:%s", name, password).getBytes(StandardCharsets.UTF_8)));
   }
 }

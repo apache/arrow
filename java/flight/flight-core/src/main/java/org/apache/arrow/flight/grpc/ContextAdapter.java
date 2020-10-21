@@ -21,7 +21,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.arrow.flight.RequestContext;
-import org.apache.arrow.flight.auth2.AuthConstants;
+import org.apache.arrow.flight.auth2.Auth2Constants;
 
 import io.grpc.Context;
 
@@ -32,7 +32,7 @@ public class ContextAdapter implements RequestContext {
   // gRPC uses reference equality when looking up keys in a Context. Cache used keys in this static map
   // so that look ups can succeed.
   private static final Map<String, Context.Key<String>> usedKeys = new HashMap<>();
-  private static final Context.Key<String> authkey = Context.keyWithDefault(AuthConstants.PEER_IDENTITY_KEY, "");
+  private static final Context.Key<String> authkey = Context.keyWithDefault(Auth2Constants.PEER_IDENTITY_KEY, "");
   private Context context = Context.current();
 
   /**
