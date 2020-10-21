@@ -62,18 +62,42 @@ Result<std::shared_ptr<Buffer>> AllocateDataBuffer(KernelContext* ctx, int64_t l
   if (bit_width == 1) {
     return ctx->AllocateBitmap(length);
   } else {
-    ARROW_CHECK_EQ(bit_width % 8, 0)
-        << "Only bit widths with multiple of 8 are currently supported";
-    int64_t buffer_size = length * bit_width / 8;
+    int64_t buffer_size = BitUtil::BytesForBits(length * bit_width);
     return ctx->Allocate(buffer_size);
   }
   return Status::OK();
 }
 
-bool CanPreallocate(const DataType& type) {
-  // There are currently cases where NullType is the output type, so we disable
-  // any preallocation logic when this occurs
-  return is_fixed_width(type.id()) && type.id() != Type::NA;
+struct BufferPreallocation {
+  explicit BufferPreallocation(int bit_width = -1, int added_length = 0)
+      : bit_width(bit_width), added_length(added_length) {}
+
+  int bit_width;
+  int added_length;
+};
+
+void ComputeDataPreallocate(const DataType& type,
+                            std::vector<BufferPreallocation>* widths) {
+  if (is_fixed_width(type.id()) && type.id() != Type::NA) {
+    widths->emplace_back(checked_cast<const FixedWidthType&>(type).bit_width());
+    return;
+  }
+  // Preallocate binary and list offsets
+  switch (type.id()) {
+    case Type::BINARY:
+    case Type::STRING:
+    case Type::LIST:
+    case Type::MAP:
+      widths->emplace_back(32, /*added_length=*/1);
+      return;
+    case Type::LARGE_BINARY:
+    case Type::LARGE_STRING:
+    case Type::LARGE_LIST:
+      widths->emplace_back(64, /*added_length=*/1);
+      return;
+    default:
+      break;
+  }
 }
 
 Status GetValueDescriptors(const std::vector<Datum>& args,
@@ -87,6 +111,16 @@ Status GetValueDescriptors(const std::vector<Datum>& args,
 }  // namespace
 
 namespace detail {
+
+Status CheckAllValues(const std::vector<Datum>& values) {
+  for (const auto& value : values) {
+    if (!value.is_value()) {
+      return Status::Invalid("Tried executing function with non-value type: ",
+                             value.ToString());
+    }
+  }
+  return Status::OK();
+}
 
 ExecBatchIterator::ExecBatchIterator(std::vector<Datum> args, int64_t length,
                                      int64_t max_chunksize)
@@ -183,6 +217,8 @@ bool ExecBatchIterator::Next(ExecBatch* batch) {
   DCHECK_LE(position_, length_);
   return true;
 }
+
+namespace {
 
 bool ArrayHasNulls(const ArrayData& data) {
   // As discovered in ARROW-8863 (and not only for that reason)
@@ -393,28 +429,6 @@ class NullPropagator {
   bool bitmap_preallocated_ = false;
 };
 
-Status PropagateNulls(KernelContext* ctx, const ExecBatch& batch, ArrayData* output) {
-  DCHECK_NE(nullptr, output);
-  DCHECK_GT(output->buffers.size(), 0);
-
-  if (output->type->id() == Type::NA) {
-    // Null output type is a no-op (rare when this would happen but we at least
-    // will test for it)
-    return Status::OK();
-  }
-
-  // This function is ONLY able to write into output with non-zero offset
-  // when the bitmap is preallocated. This could be a DCHECK but returning
-  // error Status for now for emphasis
-  if (output->offset != 0 && output->buffers[0] == nullptr) {
-    return Status::Invalid(
-        "Can only propagate nulls into pre-allocated memory "
-        "when the output offset is non-zero");
-  }
-  NullPropagator propagator(ctx, batch, output);
-  return propagator.Execute();
-}
-
 std::shared_ptr<ChunkedArray> ToChunkedArray(const std::vector<Datum>& values,
                                              const std::shared_ptr<DataType>& type) {
   std::vector<std::shared_ptr<Array>> arrays;
@@ -436,16 +450,6 @@ bool HaveChunkedArray(const std::vector<Datum>& values) {
     }
   }
   return false;
-}
-
-Status CheckAllValues(const std::vector<Datum>& values) {
-  for (const auto& value : values) {
-    if (!value.is_value()) {
-      return Status::Invalid("Tried executing function with non-value type: ",
-                             value.ToString());
-    }
-  }
-  return Status::OK();
 }
 
 template <typename FunctionType>
@@ -499,10 +503,14 @@ class FunctionExecutorImpl : public FunctionExecutor {
     if (validity_preallocated_) {
       ARROW_ASSIGN_OR_RAISE(out->buffers[0], kernel_ctx_.AllocateBitmap(length));
     }
-    if (data_preallocated_) {
-      const auto& fw_type = checked_cast<const FixedWidthType&>(*out->type);
-      ARROW_ASSIGN_OR_RAISE(
-          out->buffers[1], AllocateDataBuffer(&kernel_ctx_, length, fw_type.bit_width()));
+    for (size_t i = 0; i < data_preallocated_.size(); ++i) {
+      const auto& prealloc = data_preallocated_[i];
+      if (prealloc.bit_width >= 0) {
+        ARROW_ASSIGN_OR_RAISE(
+            out->buffers[i + 1],
+            AllocateDataBuffer(&kernel_ctx_, length + prealloc.added_length,
+                               prealloc.bit_width));
+      }
     }
     return out;
   }
@@ -523,12 +531,13 @@ class FunctionExecutorImpl : public FunctionExecutor {
 
   int output_num_buffers_;
 
-  // If true, then the kernel writes into a preallocated data buffer
-  bool data_preallocated_ = false;
-
   // If true, then memory is preallocated for the validity bitmap with the same
   // strategy as the data buffer(s).
   bool validity_preallocated_ = false;
+
+  // The kernel writes into data buffers preallocated for these bit widths
+  // (0 indicates no preallocation);
+  std::vector<BufferPreallocation> data_preallocated_;
 };
 
 class ScalarExecutor : public FunctionExecutorImpl<ScalarFunction> {
@@ -675,24 +684,27 @@ class ScalarExecutor : public FunctionExecutorImpl<ScalarFunction> {
     output_num_buffers_ = static_cast<int>(output_descr_.type->layout().buffers.size());
 
     // Decide if we need to preallocate memory for this kernel
-    data_preallocated_ = ((kernel_->mem_allocation == MemAllocation::PREALLOCATE) &&
-                          CanPreallocate(*output_descr_.type));
     validity_preallocated_ =
         (kernel_->null_handling != NullHandling::COMPUTED_NO_PREALLOCATE &&
          kernel_->null_handling != NullHandling::OUTPUT_NOT_NULL);
+    if (kernel_->mem_allocation == MemAllocation::PREALLOCATE) {
+      ComputeDataPreallocate(*output_descr_.type, &data_preallocated_);
+    }
 
-    // Contiguous preallocation only possible if both the VALIDITY and DATA can
-    // be preallocated. Otherwise, we must go chunk-by-chunk. Note that when
-    // the DATA cannot be preallocated, the VALIDITY may still be preallocated
-    // depending on the NullHandling of the kernel
+    // Contiguous preallocation only possible on non-nested types if all
+    // buffers are preallocated.  Otherwise, we must go chunk-by-chunk.
     //
-    // Some kernels are unable to write into sliced outputs, so we respect the
-    // kernel's attributes
+    // Some kernels are also unable to write into sliced outputs, so we respect the
+    // kernel's attributes.
     preallocate_contiguous_ =
         (exec_ctx_->preallocate_contiguous() && kernel_->can_write_into_slices &&
-         data_preallocated_ && validity_preallocated_);
+         validity_preallocated_ && !is_nested(output_descr_.type->id()) &&
+         data_preallocated_.size() == static_cast<size_t>(output_num_buffers_ - 1) &&
+         std::all_of(data_preallocated_.begin(), data_preallocated_.end(),
+                     [](const BufferPreallocation& prealloc) {
+                       return prealloc.bit_width >= 0;
+                     }));
     if (preallocate_contiguous_) {
-      DCHECK_EQ(2, output_num_buffers_);
       ARROW_ASSIGN_OR_RAISE(preallocated_, PrepareOutput(total_length));
     }
     return Status::OK();
@@ -825,11 +837,12 @@ class VectorExecutor : public FunctionExecutorImpl<VectorFunction> {
     output_num_buffers_ = static_cast<int>(output_descr_.type->layout().buffers.size());
 
     // Decide if we need to preallocate memory for this kernel
-    data_preallocated_ = ((kernel_->mem_allocation == MemAllocation::PREALLOCATE) &&
-                          CanPreallocate(*output_descr_.type));
     validity_preallocated_ =
         (kernel_->null_handling != NullHandling::COMPUTED_NO_PREALLOCATE &&
          kernel_->null_handling != NullHandling::OUTPUT_NOT_NULL);
+    if (kernel_->mem_allocation == MemAllocation::PREALLOCATE) {
+      ComputeDataPreallocate(*output_descr_.type, &data_preallocated_);
+    }
     return Status::OK();
   }
 
@@ -901,15 +914,39 @@ Result<std::unique_ptr<FunctionExecutor>> MakeExecutor(ExecContext* ctx,
   return std::unique_ptr<FunctionExecutor>(new ExecutorType(ctx, typed_func, options));
 }
 
+}  // namespace
+
+Status PropagateNulls(KernelContext* ctx, const ExecBatch& batch, ArrayData* output) {
+  DCHECK_NE(nullptr, output);
+  DCHECK_GT(output->buffers.size(), 0);
+
+  if (output->type->id() == Type::NA) {
+    // Null output type is a no-op (rare when this would happen but we at least
+    // will test for it)
+    return Status::OK();
+  }
+
+  // This function is ONLY able to write into output with non-zero offset
+  // when the bitmap is preallocated. This could be a DCHECK but returning
+  // error Status for now for emphasis
+  if (output->offset != 0 && output->buffers[0] == nullptr) {
+    return Status::Invalid(
+        "Can only propagate nulls into pre-allocated memory "
+        "when the output offset is non-zero");
+  }
+  NullPropagator propagator(ctx, batch, output);
+  return propagator.Execute();
+}
+
 Result<std::unique_ptr<FunctionExecutor>> FunctionExecutor::Make(
     ExecContext* ctx, const Function* func, const FunctionOptions* options) {
   switch (func->kind()) {
     case Function::SCALAR:
-      return MakeExecutor<detail::ScalarExecutor>(ctx, func, options);
+      return MakeExecutor<ScalarExecutor>(ctx, func, options);
     case Function::VECTOR:
-      return MakeExecutor<detail::VectorExecutor>(ctx, func, options);
+      return MakeExecutor<VectorExecutor>(ctx, func, options);
     case Function::SCALAR_AGGREGATE:
-      return MakeExecutor<detail::ScalarAggExecutor>(ctx, func, options);
+      return MakeExecutor<ScalarAggExecutor>(ctx, func, options);
     default:
       DCHECK(false);
       return nullptr;
