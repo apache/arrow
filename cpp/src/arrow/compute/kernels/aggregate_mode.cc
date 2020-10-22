@@ -18,11 +18,13 @@
 #include <cmath>
 #include <unordered_map>
 
-#include "arrow/compute/kernels/aggregate_basic_internal.h"
+#include "arrow/compute/api_aggregate.h"
+#include "arrow/compute/kernels/aggregate_internal.h"
+#include "arrow/compute/kernels/common.h"
 
 namespace arrow {
 namespace compute {
-namespace aggregate {
+namespace internal {
 
 namespace {
 
@@ -277,16 +279,20 @@ const FunctionDoc mode_doc{
      "null is returned."),
     {"array"}};
 
-}  // namespace
-
 std::shared_ptr<ScalarAggregateFunction> AddModeAggKernels() {
   auto func =
       std::make_shared<ScalarAggregateFunction>("mode", Arity::Unary(), &mode_doc);
   AddModeKernels(ModeInit, {boolean()}, func.get());
-  AddModeKernels(ModeInit, internal::NumericTypes(), func.get());
+  AddModeKernels(ModeInit, NumericTypes(), func.get());
   return func;
 }
 
-}  // namespace aggregate
+}  // namespace
+
+void RegisterScalarAggregateMode(FunctionRegistry* registry) {
+  DCHECK_OK(registry->AddFunction(AddModeAggKernels()));
+}
+
+}  // namespace internal
 }  // namespace compute
 }  // namespace arrow

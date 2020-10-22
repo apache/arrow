@@ -47,5 +47,15 @@ struct FindAccumulatorType<I, enable_if_floating_point<I>> {
   using Type = DoubleType;
 };
 
+struct ScalarAggregator : public KernelState {
+  virtual void Consume(KernelContext* ctx, const ExecBatch& batch) = 0;
+  virtual void MergeFrom(KernelContext* ctx, KernelState&& src) = 0;
+  virtual void Finalize(KernelContext* ctx, Datum* out) = 0;
+};
+
+void AddAggKernel(std::shared_ptr<KernelSignature> sig, KernelInit init,
+                  ScalarAggregateFunction* func,
+                  SimdLevel::type simd_level = SimdLevel::NONE);
+
 }  // namespace compute
 }  // namespace arrow
