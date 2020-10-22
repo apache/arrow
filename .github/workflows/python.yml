@@ -50,7 +50,6 @@ jobs:
           - conda-python-3.8-nopandas
           - conda-python-3.6-pandas-0.23
           - conda-python-3.7-pandas-latest
-          - conda-python-3.9-pandas-nightly
           - centos-python-3.6-manylinux1
         include:
           - name: conda-python-3.8-nopandas
@@ -70,13 +69,6 @@ jobs:
             title: AMD64 Conda Python 3.7 Pandas latest
             python: 3.7
             pandas: latest
-          - name: conda-python-3.9-pandas-nightly
-            cache: conda-python-3.9
-            image: conda-python-pandas
-            title: AMD64 Conda Python 3.9 Pandas Nightly
-            python: 3.9
-            pandas: nightly
-            numpy: nightly
           - name: centos-python-3.6-manylinux1
             cache: manylinux1
             image: centos-python-manylinux1
