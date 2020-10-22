@@ -249,7 +249,7 @@ public class Union${listName}Writer extends AbstractFieldWriter {
     writer.setPosition(writer.idx() + 1);
   }
 
-  public void writeDecimal256(int start, ArrowBuf buffer, ArrowType arrowType) {
+  public void writeDecimal256(long start, ArrowBuf buffer, ArrowType arrowType) {
     writer.writeDecimal256(start, buffer, arrowType);
     writer.setPosition(writer.idx()+1);
   }

@@ -75,7 +75,7 @@ abstract class AbstractPromotableFieldWriter extends AbstractFieldWriter {
 
   <#list vv.types as type><#list type.minor as minor><#assign name = minor.class?cap_first />
     <#assign fields = minor.fields!type.fields />
-  <#if minor.class != "Decimal" && minor.class != "BigDecimal">
+  <#if minor.class != "Decimal" && minor.class != "Decimal256">
   @Override
   public void write(${name}Holder holder) {
     getWriter(MinorType.${name?upper_case}).write(holder);
@@ -108,7 +108,7 @@ abstract class AbstractPromotableFieldWriter extends AbstractFieldWriter {
   }
   <#elseif minor.class == "Decimal256">
   @Override
-  public void write(BigDecimalHolder holder) {
+  public void write(Decimal256Holder holder) {
     getWriter(MinorType.DECIMAL256).write(holder);
   }
 

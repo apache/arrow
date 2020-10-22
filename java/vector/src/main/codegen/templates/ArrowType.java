@@ -169,7 +169,7 @@ public abstract class ArrowType {
     <#if type.name == "Decimal">
     // Needed to support golden file integration tests.
     @JsonCreator
-    public static Decimal createDecimal128(
+    public static Decimal createDecimal(
       @JsonProperty("precision") int precision,
       @JsonProperty("scale") int scale,
       @JsonProperty("bitWidth") Integer bitWidth) {
