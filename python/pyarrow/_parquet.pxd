@@ -534,7 +534,6 @@ cdef class Statistics(_Weakrefable):
         ColumnChunkMetaData parent
 
     cdef inline init(self, const shared_ptr[CStatistics]& statistics,
-              ColumnChunkMetaData parent):
+                     ColumnChunkMetaData parent):
         self.statistics = statistics
         self.parent = parent
-

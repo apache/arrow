@@ -908,77 +908,44 @@ cdef class FileFragment(Fragment):
         return FileFormat.wrap(self.file_fragment.format())
 
 
-cdef class RowGroupInfo(_Weakrefable):
+class RowGroupInfo:
     """A wrapper class for RowGroup information"""
 
-    cdef:
-        CRowGroupInfo info
-
-    def __init__(self, int id):
-        cdef CRowGroupInfo info = CRowGroupInfo(id)
-        self.init(info)
-
-    cdef void init(self, CRowGroupInfo info):
-        self.info = info
-
-    @staticmethod
-    cdef wrap(CRowGroupInfo info):
-        cdef RowGroupInfo self = RowGroupInfo.__new__(RowGroupInfo)
-        self.init(info)
-        return self
-
-    @property
-    def id(self):
-        return self.info.id()
+    def __init__(self, int id, metadata, schema):
+        self.id = id
+        self.metadata = metadata
+        self.schema = schema
 
     @property
     def num_rows(self):
-        return self.info.num_rows()
+        return self.metadata.num_rows
 
     @property
     def total_byte_size(self):
-        return self.info.total_byte_size()
-
-    @property
-    def metadata(self):
-        if not self.info.HasMetadata():
-            return None
-
-        cdef FileMetaData metadata = FileMetaData.__new__(FileMetaData)
-
-        metadata.init(self.info.file_metadata())
-        return metadata.row_group(self.id)
-
-    def __eq__(self, other):
-        if not isinstance(other, RowGroupInfo):
-            return False
-        cdef:
-            RowGroupInfo row_group = other
-            CRowGroupInfo c_info = row_group.info
-        return self.info.Equals(c_info)
+        return self.metadata.total_byte_size
 
     @property
     def statistics(self):
-        metadata = self.metadata
-        if metadata is None:
-            return None
-
-        def path_stats(i):
-            col = metadata.column(i)
+        def name_stats(i):
+            col = self.metadata.column(i)
 
             if not col.statistics.has_min_max:
                 return None, None
 
-            typ = pyarrow_wrap_data_type(GetResultValue(self.info.type(i)))
+            name = col.path_in_schema
+            field_index = self.schema.get_field_index(name)
+            if field_index < 0:
+                return None, None
 
+            typ = self.schema.field(field_index).type
             return col.path_in_schema, {
                 'min': pa.scalar(col.statistics.min, type=typ).as_py(),
                 'max': pa.scalar(col.statistics.max, type=typ).as_py()
             }
 
         return {
-            path: stats
-            for path, stats in map(path_stats, range(metadata.num_columns))
+            name: stats for name, stats
+            in map(name_stats, range(self.metadata.num_columns))
             if stats is not None
         }
 
@@ -1015,12 +982,20 @@ cdef class ParquetFileFragment(FileFragment):
 
     @property
     def row_groups(self):
-        cdef vector[CRowGroupInfo] row_groups
+        cdef const vector[int]* row_groups
+        row_groups = &self.parquet_file_fragment.row_groups()
+        metadata = self.metadata
+        schema = self.physical_schema
+        self.ensure_complete_metadata()
+        return [RowGroupInfo(row_groups.at(i), metadata, schema)
+                for i in range(row_groups.size())]
 
-        check_status(self.parquet_file_fragment.EnsureCompleteMetadata())
-        row_groups = self.parquet_file_fragment.row_groups()
-
-        return [RowGroupInfo.wrap(g) for g in row_groups]
+    @property
+    def metadata(self):
+        self.ensure_complete_metadata()
+        cdef FileMetaData metadata = FileMetaData.__new__(FileMetaData)
+        metadata.init(self.parquet_file_fragment.metadata())
+        return metadata.row_group(self.id)
 
     @property
     def num_row_groups(self):
@@ -1028,7 +1003,8 @@ cdef class ParquetFileFragment(FileFragment):
         Return the number of row groups viewed by this fragment (not the
         number of row groups in the origin file).
         """
-        return len(self.row_groups)
+        self.ensure_complete_metadata()
+        return self.parquet_file_fragment.row_groups().size()
 
     def split_by_row_group(self, Expression filter=None,
                            Schema schema=None):
@@ -1321,8 +1297,7 @@ cdef class ParquetFileFormat(FileFormat):
     def make_fragment(self, file, filesystem=None,
                       Expression partition_expression=None, row_groups=None):
         cdef:
-            vector[int] c_row_group_ids
-            vector[CRowGroupInfo] c_row_groups
+            vector[int] c_row_groups
 
         partition_expression = partition_expression or _true
 
@@ -1331,14 +1306,13 @@ cdef class ParquetFileFormat(FileFormat):
                                          partition_expression)
 
         c_source = _make_file_source(file, filesystem)
-        c_row_group_ids = [<int> row_group for row_group in set(row_groups)]
-        c_row_groups = CRowGroupInfo.FromIdentifiers(move(c_row_group_ids))
+        c_row_groups = [<int> row_group for row_group in set(row_groups)]
 
         c_fragment = <shared_ptr[CFragment]> GetResultValue(
             self.parquet_format.MakeFragment(move(c_source),
                                              partition_expression.unwrap(),
-                                             move(c_row_groups),
-                                             <shared_ptr[CSchema]>nullptr))
+                                             <shared_ptr[CSchema]>nullptr,
+                                             move(c_row_groups)))
         return Fragment.wrap(move(c_fragment))
 
 

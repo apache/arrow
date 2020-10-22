@@ -230,23 +230,6 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         const CFileSource& source() const
         const shared_ptr[CFileFormat]& format() const
 
-    cdef cppclass CRowGroupInfo "arrow::dataset::RowGroupInfo":
-        CRowGroupInfo()
-        CRowGroupInfo(int id)
-        int id() const
-        int64_t num_rows() const
-        int64_t total_byte_size() const
-        bint Equals(const CRowGroupInfo& other)
-        c_bool HasMetadata() const
-        shared_ptr[CFileMetaData] file_metadata() const
-        shared_ptr[CRowGroupMetaData] metadata() const
-        shared_ptr[CSchema] schema() const
-        CResult[int] column_index(c_string) const
-        CResult[shared_ptr[CDataType]] type(int) const
-
-        @staticmethod
-        vector[CRowGroupInfo] FromIdentifiers(vector[int])
-
     cdef cppclass CParquetFileWriteOptions \
             "arrow::dataset::ParquetFileWriteOptions"(CFileWriteOptions):
         shared_ptr[WriterProperties] writer_properties
@@ -254,7 +237,8 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
 
     cdef cppclass CParquetFileFragment "arrow::dataset::ParquetFileFragment"(
             CFileFragment):
-        const vector[CRowGroupInfo]& row_groups() const
+        const vector[int]& row_groups() const
+        shared_ptr[CFileMetaData] metadata() const
         CResult[vector[shared_ptr[CFragment]]] SplitByRowGroup(
             shared_ptr[CExpression] predicate)
         CResult[shared_ptr[CFragment]] SubsetWithFilter "Subset"(
@@ -304,8 +288,8 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         CResult[shared_ptr[CFileFragment]] MakeFragment(
             CFileSource source,
             shared_ptr[CExpression] partition_expression,
-            vector[CRowGroupInfo] row_groups,
-            shared_ptr[CSchema] physical_schema)
+            shared_ptr[CSchema] physical_schema,
+            vector[int] row_groups)
 
     cdef cppclass CIpcFileWriteOptions \
             "arrow::dataset::IpcFileWriteOptions"(CFileWriteOptions):

@@ -197,8 +197,7 @@ class TestParquetFileFormat : public ArrowParquetWriterMixin {
       auto expected = expected_row_groups[i];
       auto parquet_fragment = checked_pointer_cast<ParquetFileFragment>(fragments[i]);
 
-      EXPECT_EQ(parquet_fragment->row_groups(),
-                RowGroupInfo::FromIdentifiers({expected}));
+      EXPECT_EQ(parquet_fragment->row_groups(), std::vector<int>{expected});
       EXPECT_EQ(SingleBatch(parquet_fragment.get())->num_rows(), expected + 1);
     }
   }
@@ -506,12 +505,10 @@ TEST_F(TestParquetFileFormat, ExplicitRowGroupSelection) {
   opts_ = ScanOptions::Make(reader->schema());
 
   auto row_groups_fragment = [&](std::vector<int> row_groups) {
-    std::shared_ptr<Schema> physical_schema = nullptr;
     EXPECT_OK_AND_ASSIGN(auto fragment,
                          format_->MakeFragment(*source, scalar(true),
-                                               RowGroupInfo::FromIdentifiers(row_groups),
-                                               physical_schema));
-    return internal::checked_pointer_cast<ParquetFileFragment>(fragment);
+                                               /*physical_schema=*/nullptr, row_groups));
+    return fragment;
   };
 
   // select all row groups
@@ -522,7 +519,7 @@ TEST_F(TestParquetFileFormat, ExplicitRowGroupSelection) {
             return internal::checked_pointer_cast<ParquetFileFragment>(f);
           }));
 
-  EXPECT_EQ(all_row_groups_fragment->row_groups(), RowGroupInfo::FromCount(0));
+  EXPECT_EQ(all_row_groups_fragment->row_groups(), std::vector<int>{});
 
   ARROW_EXPECT_OK(all_row_groups_fragment->EnsureCompleteMetadata());
   CountRowsAndBatchesInScan(all_row_groups_fragment, kTotalNumRows, kNumRowGroups);
@@ -530,7 +527,7 @@ TEST_F(TestParquetFileFormat, ExplicitRowGroupSelection) {
   // individual selection selects a single row group
   for (int i = 0; i < kNumRowGroups; ++i) {
     CountRowsAndBatchesInScan(row_groups_fragment({i}), i + 1, 1);
-    EXPECT_EQ(row_groups_fragment({i})->row_groups(), RowGroupInfo::FromIdentifiers({i}));
+    EXPECT_EQ(row_groups_fragment({i})->row_groups(), std::vector<int>{i});
   }
 
   for (int i = 0; i < kNumRowGroups; ++i) {
