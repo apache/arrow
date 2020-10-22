@@ -558,7 +558,8 @@ if(ARROW_JSON)
        json/object_parser.cc
        json/object_writer.cc
        json/parser.cc
-       json/reader.cc)
+       json/reader.cc
+       extension/tensor_array.cc)
 endif()
 
 if(ARROW_ORC)

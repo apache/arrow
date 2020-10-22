@@ -26,6 +26,7 @@
 
 #include "arrow/array/util.h"
 #include "arrow/chunked_array.h"
+#include "arrow/extension/tensor_array.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
@@ -139,6 +140,9 @@ namespace internal {
 
 static void CreateGlobalRegistry() {
   g_registry = std::make_shared<ExtensionTypeRegistryImpl>();
+
+  // Register canonical extension types
+  ARROW_CHECK_OK(g_registry->RegisterType(extension::tensor_array(int64(), {0})));
 }
 
 }  // namespace internal
