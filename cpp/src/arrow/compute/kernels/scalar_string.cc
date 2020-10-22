@@ -196,7 +196,7 @@ struct UTF8Upper : UTF8Transform<Type, UTF8Upper<Type>> {
 
 template <typename Type>
 struct UTF8Lower : UTF8Transform<Type, UTF8Lower<Type>> {
-  static uint32_t TransformCodepoint(uint32_t codepoint) {
+  inline static uint32_t TransformCodepoint(uint32_t codepoint) {
     return codepoint <= kMaxCodepointLookup ? lut_lower_codepoint[codepoint]
                                             : utf8proc_tolower(codepoint);
   }
