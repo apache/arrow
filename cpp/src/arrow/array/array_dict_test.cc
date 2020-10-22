@@ -25,7 +25,9 @@
 #include <gtest/gtest.h>
 
 #include "arrow/array.h"
-#include "arrow/builder.h"
+#include "arrow/array/builder_decimal.h"
+#include "arrow/array/builder_dict.h"
+#include "arrow/array/builder_nested.h"
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_common.h"

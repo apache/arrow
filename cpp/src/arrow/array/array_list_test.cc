@@ -23,8 +23,8 @@
 #include <gtest/gtest.h>
 
 #include "arrow/array.h"
+#include "arrow/array/builder_nested.h"
 #include "arrow/buffer.h"
-#include "arrow/builder.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_common.h"
 #include "arrow/testing/gtest_util.h"

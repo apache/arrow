@@ -28,13 +28,15 @@
 #include <vector>
 
 #include "arrow/array.h"
-#include "arrow/builder.h"
+#include "arrow/array/builder_base.h"
+#include "arrow/array/builder_binary.h"
+#include "arrow/array/builder_nested.h"
+#include "arrow/array/builder_primitive.h"
 #include "arrow/chunked_array.h"
 #include "arrow/compute/api.h"
-#include "arrow/memory_pool.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
-#include "arrow/type.h"
+#include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/macros.h"

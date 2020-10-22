@@ -60,7 +60,6 @@ using FieldVector = std::vector<std::shared_ptr<Field>>;
 class Array;
 struct ArrayData;
 class ArrayBuilder;
-class Tensor;
 struct Scalar;
 
 using ArrayDataVector = std::vector<std::shared_ptr<ArrayData>>;
@@ -250,6 +249,9 @@ struct DurationScalar;
 class ExtensionType;
 class ExtensionArray;
 struct ExtensionScalar;
+
+class Tensor;
+class SparseTensor;
 
 // ----------------------------------------------------------------------
 

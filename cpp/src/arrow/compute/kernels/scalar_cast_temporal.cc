@@ -19,6 +19,7 @@
 
 #include <limits>
 
+#include "arrow/array/builder_time.h"
 #include "arrow/compute/kernels/common.h"
 #include "arrow/compute/kernels/scalar_cast_internal.h"
 #include "arrow/util/bitmap_reader.h"

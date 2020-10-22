@@ -23,10 +23,10 @@
 #include <vector>
 
 #include "arrow/array.h"
-#include "arrow/buffer.h"
-#include "arrow/builder.h"
+#include "arrow/array/builder_binary.h"
+#include "arrow/array/builder_primitive.h"
+#include "arrow/array/builder_time.h"
 #include "arrow/ipc/test_common.h"
-#include "arrow/memory_pool.h"
 #include "arrow/pretty_print.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
@@ -35,6 +35,7 @@
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
+#include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_builders.h"

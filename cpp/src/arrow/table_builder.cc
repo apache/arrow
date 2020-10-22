@@ -21,7 +21,7 @@
 #include <utility>
 
 #include "arrow/array/array_base.h"
-#include "arrow/builder.h"
+#include "arrow/array/builder_base.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
 #include "arrow/type.h"

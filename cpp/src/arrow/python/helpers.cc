@@ -24,14 +24,12 @@
 #include <mutex>
 #include <sstream>
 #include <type_traits>
-#include <typeinfo>
 
 #include "arrow/python/common.h"
 #include "arrow/python/decimal.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
-
-#include <arrow/api.h>
 
 namespace arrow {
 

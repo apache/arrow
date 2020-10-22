@@ -26,10 +26,10 @@
 #include <gtest/gtest.h>
 
 #include "arrow/array.h"
+#include "arrow/array/builder_decimal.h"
 #include "arrow/buffer.h"
 #include "arrow/chunked_array.h"
 #include "arrow/extension_type.h"
-#include "arrow/memory_pool.h"
 #include "arrow/status.h"
 #include "arrow/testing/extension_type.h"
 #include "arrow/testing/gtest_common.h"

@@ -22,13 +22,11 @@
 #include <memory>
 #include <numeric>
 #include <string>
-#include <unordered_map>
 #include <utility>
 #include <vector>
 
+#include "arrow/array/builder_primitive.h"
 #include "arrow/buffer.h"
-#include "arrow/buffer_builder.h"
-#include "arrow/builder.h"
 #include "arrow/compute/api.h"
 #include "arrow/dataset/dataset.h"
 #include "arrow/io/memory.h"
