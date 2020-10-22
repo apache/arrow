@@ -139,9 +139,9 @@ Result<RecordBatchIterator> RadosScanTask::Execute() {
   ));
 
   int e = rados_options_->io_ctx_interface_->exec(object_->id(), 
-                                           rados_options_->cls_name_.c_str(), 
-                                           rados_options_->cls_method_.c_str(), 
-                                           in, out);
+                                                  rados_options_->cls_name_.c_str(), 
+                                                  rados_options_->cls_method_.c_str(), 
+                                                  in, out);
   if (e != 0) {
     return Status::ExecutionError("call to exec() returned non-zero exit code.");
   }
@@ -149,10 +149,13 @@ Result<RecordBatchIterator> RadosScanTask::Execute() {
   std::shared_ptr<Table> result_table;
   ARROW_RETURN_NOT_OK(read_table_from_bufferlist(&result_table, out));
 
-  TableBatchReader table_reader(*result_table);
+  if (!options_->schema()->Equals(*(result_table->schema()))) {
+    return Status::Invalid("the schema of the result table doesn't match the schema of the requested projection.");
+  }
 
+  auto table_reader = std::make_shared<TableBatchReader>(*result_table);
   RecordBatchVector batches;
-  ARROW_RETURN_NOT_OK(table_reader.ReadAll(&batches));
+  ARROW_RETURN_NOT_OK(table_reader->ReadAll(&batches));
 
   return MakeVectorIterator(batches);
 }

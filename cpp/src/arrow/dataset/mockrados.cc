@@ -19,68 +19,63 @@
 
 #include <time.h>
 
-#include "arrow/type.h"
-#include "arrow/array.h"
-#include "arrow/builder.h"
-#include "arrow/table.h"
-#include "arrow/dataset/rados_utils.h"
-
 namespace arrow {
 namespace dataset {
 
-std::shared_ptr<RecordBatch> GenerateTestRecordBatch(){
-    /* initialize random seed: */
+std::shared_ptr<RecordBatch> generate_test_record_batch() {
+    // Initialize random seed
     srand (time(NULL));
 
-    int64_t rows_num = 100;
+    // The number of rows that the Record Batch will contain
+    int64_t row_count = 100;
 
-    std::shared_ptr<Field> f1 = field("f1", int64());
-    std::shared_ptr<Field> f2 = field("f2", int64());
-
-    std::vector<std::shared_ptr<Field>> schema_vector = {
-            f1,
-            f2,
-    };
-    std::shared_ptr<Schema> schema = std::make_shared<arrow::Schema>(schema_vector);
-
+    // Define a schema
+    auto schema_ = schema({field("f1", int64()), field("f2", int64())});
+    
+    // Build the `f1` column
     auto f1_builder = std::make_shared<Int64Builder>();
     f1_builder->Reset();
-    for(auto i = 0; i < rows_num; i++) {
+    for(auto i = 0; i < row_count; i++) {
         f1_builder->Append(rand());
     }
     std::shared_ptr<Array> batch_size_array;
     f1_builder->Finish(&batch_size_array);
 
+    // Build the `f2` column
     auto f2_builder = std::make_shared<Int64Builder>();
     f2_builder->Reset();
-    for(auto i = 0; i < rows_num; i++) {
+    for(auto i = 0; i < row_count; i++) {
         f2_builder->Append(rand());
     }
     std::shared_ptr<Array> seq_num_array;
     f2_builder->Finish(&seq_num_array);
 
+    // Build the Record Batch
     std::vector<std::shared_ptr<Array>> columns = {
             batch_size_array,
             seq_num_array
     };
-
-    return RecordBatch::Make(schema, rows_num, columns);
+    return RecordBatch::Make(schema_, row_count, columns);
 }
 
-std::shared_ptr<Table> GenerateTestTable() {
+std::shared_ptr<Table> generate_test_table() {
     RecordBatchVector batches;
     for (int i = 0; i < 8; i++) {
-        batches.push_back(GenerateTestRecordBatch());
+        batches.push_back(generate_test_record_batch());
     }
-    return Table::FromRecordBatches(batches).ValueOrDie();
+    // Build a Table having 8 Record Batches
+    auto table = Table::FromRecordBatches(batches).ValueOrDie();
+    return table;
 }
 
-Status get_test_bufferlist(librados::bufferlist &bl) {
+Status get_test_table_in_bufferlist(librados::bufferlist &bl) {
     librados::bufferlist result;
-    auto table = GenerateTestTable();
-    write_table_to_bufferlist(table, result);
-
+    
+    // Get the test table and write it to a bufferlist
+    auto table = generate_test_table();
+    ARROW_RETURN_NOT_OK(write_table_to_bufferlist(table, result));
     bl = result;
+
     return Status::OK();
 }
 
