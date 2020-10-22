@@ -16,6 +16,7 @@
 // under the License.
 
 #include "arrow/compute/kernels/aggregate_basic_internal.h"
+#include "arrow/util/int128_internal.h"
 
 namespace arrow {
 namespace compute {
@@ -23,30 +24,35 @@ namespace aggregate {
 
 namespace {
 
+using arrow::internal::int128_t;
+
 template <typename ArrowType>
 struct VarStdState {
   using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
-  using c_type = typename ArrowType::c_type;
+  using CType = typename ArrowType::c_type;
   using ThisType = VarStdState<ArrowType>;
 
-  // Calculate `m2` (sum((X-mean)^2)) of one chunk with `two pass algorithm`
+  // float/double/int64: calculate `m2` (sum((X-mean)^2)) with `two pass algorithm`
   // https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Two-pass_algorithm
-  // Always use `double` to calculate variance for any array type
-  void Consume(const ArrayType& array) {
+  template <typename T = ArrowType>
+  enable_if_t<is_floating_type<T>::value || (sizeof(CType) > 4)> Consume(
+      const ArrayType& array) {
     int64_t count = array.length() - array.null_count();
     if (count == 0) {
       return;
     }
 
-    double sum = 0;
+    using SumType =
+        typename std::conditional<is_floating_type<T>::value, double, int128_t>::type;
+    SumType sum = 0;
     VisitArrayDataInline<ArrowType>(
-        *array.data(), [&sum](c_type value) { sum += static_cast<double>(value); },
+        *array.data(), [&sum](CType value) { sum += static_cast<SumType>(value); },
         []() {});
 
-    double mean = sum / count, m2 = 0;
+    double mean = static_cast<double>(sum) / count, m2 = 0;
     VisitArrayDataInline<ArrowType>(
         *array.data(),
-        [mean, &m2](c_type value) {
+        [mean, &m2](CType value) {
           double v = static_cast<double>(value);
           m2 += (v - mean) * (v - mean);
         },
@@ -55,6 +61,54 @@ struct VarStdState {
     this->count = count;
     this->mean = mean;
     this->m2 = m2;
+  }
+
+  // int32/16/8: textbook one pass algorithm with integer arithmetic
+  template <typename T = ArrowType>
+  enable_if_t<is_integer_type<T>::value && (sizeof(CType) <= 4)> Consume(
+      const ArrayType& array) {
+    // max number of elements that sum will not overflow int64 (2Gi int32 elements)
+    // for uint32:    0 <= sum < 2^63 (int64 >= 0)
+    // for int32: -2^62 <= sum < 2^62
+    constexpr int64_t max_length = 1ULL << (63 - sizeof(CType) * 8);
+
+    int64_t start_index = 0;
+    int64_t valid_count = array.length() - array.null_count();
+
+    while (valid_count > 0) {
+      // process in chunks that overflow will never happen
+      const auto slice = array.Slice(start_index, max_length);
+      const int64_t count = slice->length() - slice->null_count();
+      start_index += max_length;
+      valid_count -= count;
+
+      if (count > 0) {
+        int64_t sum = 0;
+        int128_t square_sum = 0;
+        VisitArrayDataInline<ArrowType>(
+            *slice->data(),
+            [&sum, &square_sum](CType value) {
+              sum += value;
+              square_sum += static_cast<uint64_t>(value) * value;
+            },
+            []() {});
+
+        const double mean = static_cast<double>(sum) / count;
+        // calculate m2 = square_sum - sum * sum / count
+        // decompose `sum * sum / count` into integers and fractions
+        const int128_t sum_square = static_cast<int128_t>(sum) * sum;
+        const int128_t integers = sum_square / count;
+        const double fractions = static_cast<double>(sum_square % count) / count;
+        const double m2 = static_cast<double>(square_sum - integers) - fractions;
+
+        // merge variance
+        ThisType state;
+        state.count = count;
+        state.mean = mean;
+        state.m2 = m2;
+        this->MergeFrom(state);
+      }
+    }
   }
 
   // Combine `m2` from two chunks (m2 = n*s2)
