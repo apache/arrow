@@ -31,7 +31,6 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/map.h"
 #include "arrow/util/range.h"
 #include "parquet/arrow/reader.h"
 #include "parquet/arrow/schema.h"
@@ -92,19 +91,6 @@ class ParquetScanTask : public ScanTask {
   std::vector<int> column_projection_;
   std::shared_ptr<parquet::arrow::FileReader> reader_;
 };
-
-static Result<std::unique_ptr<parquet::ParquetFileReader>> OpenReader(
-    const FileSource& source, parquet::ReaderProperties properties) {
-  ARROW_ASSIGN_OR_RAISE(auto input, source.Open());
-  try {
-    return parquet::ParquetFileReader::Open(std::move(input), std::move(properties));
-  } catch (const ::parquet::ParquetException& e) {
-    return Status::IOError("Could not open parquet input source '", source.path(),
-                           "': ", e.what());
-  }
-
-  return Status::UnknownError("unknown exception caught");
-}
 
 static parquet::ReaderProperties MakeReaderProperties(
     const ParquetFileFormat& format, MemoryPool* pool = default_memory_pool()) {
@@ -281,7 +267,15 @@ Result<std::unique_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReader
     const FileSource& source, ScanOptions* options, ScanContext* context) const {
   MemoryPool* pool = context ? context->pool : default_memory_pool();
   auto properties = MakeReaderProperties(*this, pool);
-  ARROW_ASSIGN_OR_RAISE(auto reader, OpenReader(source, std::move(properties)));
+
+  ARROW_ASSIGN_OR_RAISE(auto input, source.Open());
+  std::unique_ptr<parquet::ParquetFileReader> reader;
+  try {
+    reader = parquet::ParquetFileReader::Open(std::move(input), std::move(properties));
+  } catch (const ::parquet::ParquetException& e) {
+    return Status::IOError("Could not open parquet input source '", source.path(),
+                           "': ", e.what());
+  }
 
   std::shared_ptr<parquet::FileMetaData> metadata = reader->metadata();
   auto arrow_properties = MakeArrowReaderProperties(*this, *metadata);
