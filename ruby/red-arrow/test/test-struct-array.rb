@@ -27,8 +27,8 @@ class StructArrayTest < Test::Unit::TestCase
       ]
       array = Arrow::StructArray.new(data_type, values)
       assert_equal([
-                     [true, nil, false],
-                     [1, nil, 2],
+                     [true, false, false],
+                     [1, 0, 2],
                    ],
                    [
                      array.find_field(0).to_a,

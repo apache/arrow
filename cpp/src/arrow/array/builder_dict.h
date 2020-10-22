@@ -261,6 +261,18 @@ class DictionaryBuilderBase : public ArrayBuilder {
     return indices_builder_.AppendNulls(length);
   }
 
+  Status AppendEmptyValue() final {
+    length_ += 1;
+
+    return indices_builder_.AppendEmptyValue();
+  }
+
+  Status AppendEmptyValues(int64_t length) final {
+    length_ += length;
+
+    return indices_builder_.AppendEmptyValues(length);
+  }
+
   /// \brief Insert values into the dictionary's memo, but do not append any
   /// indices. Can be used to initialize a new builder with known dictionary
   /// values
@@ -435,6 +447,18 @@ class DictionaryBuilderBase<BuilderType, NullType> : public ArrayBuilder {
     null_count_ += length;
 
     return indices_builder_.AppendNulls(length);
+  }
+
+  Status AppendEmptyValue() final {
+    length_ += 1;
+
+    return indices_builder_.AppendEmptyValue();
+  }
+
+  Status AppendEmptyValues(int64_t length) final {
+    length_ += length;
+
+    return indices_builder_.AppendEmptyValues(length);
   }
 
   /// \brief Append a whole dense array to the builder

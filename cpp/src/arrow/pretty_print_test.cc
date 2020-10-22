@@ -15,6 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/pretty_print.h"
+
+#include <gtest/gtest.h>
+
 #include <cstdint>
 #include <cstring>
 #include <memory>
@@ -22,11 +26,8 @@
 #include <string>
 #include <vector>
 
-#include <gtest/gtest.h>
-
 #include "arrow/array.h"
 #include "arrow/builder.h"
-#include "arrow/pretty_print.h"
 #include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
@@ -324,13 +325,13 @@ TEST_F(TestPrettyPrint, StructTypeAdvanced) {
 -- child 0 type: int32
   [
     11,
-    null,
+    0,
     null
   ]
 -- child 1 type: int32
   [
     22,
-    null,
+    0,
     33
   ])expected";
   CheckStream(*array, {0, 10}, ex);

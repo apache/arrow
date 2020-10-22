@@ -15,15 +15,16 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <string>
-#include <utility>
-#include <vector>
+#include "arrow/json/parser.h"
 
 #include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
 
+#include <string>
+#include <utility>
+#include <vector>
+
 #include "arrow/json/options.h"
-#include "arrow/json/parser.h"
 #include "arrow/json/test_common.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
@@ -188,7 +189,7 @@ TEST(BlockParserWithSchema, Nested) {
                       field("nuf", struct_({field("ps", utf8())}))},
                      {"[\"thing\", null, \"\xe5\xbf\x8d\", null]",
                       R"([["1", "2", "3"], ["2"], [], null])",
-                      R"([{"ps":null}, null, {"ps":"78"}, {"ps":"90"}])"});
+                      R"([{"ps":null}, {}, {"ps":"78"}, {"ps":"90"}])"});
 }
 
 TEST(BlockParserWithSchema, FailOnIncompleteJson) {
@@ -217,7 +218,7 @@ TEST(BlockParser, Nested) {
                       field("nuf", struct_({field("ps", utf8())}))},
                      {"[\"thing\", null, \"\xe5\xbf\x8d\", null]",
                       R"([["1", "2", "3"], ["2"], [], null])",
-                      R"([{"ps":null}, null, {"ps":"78"}, {"ps":"90"}])"});
+                      R"([{"ps":null}, {}, {"ps":"78"}, {"ps":"90"}])"});
 }
 
 TEST(BlockParser, AdHoc) {

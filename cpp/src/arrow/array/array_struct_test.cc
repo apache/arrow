@@ -15,12 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <gtest/gtest.h>
+
 #include <cstdint>
 #include <cstring>
 #include <memory>
 #include <vector>
-
-#include <gtest/gtest.h>
 
 #include "arrow/array.h"
 #include "arrow/builder.h"
@@ -266,10 +266,8 @@ TEST_F(TestStructBuilder, TestAppendNull) {
   ASSERT_EQ(2, result_->field(1)->length());
   ASSERT_TRUE(result_->IsNull(0));
   ASSERT_TRUE(result_->IsNull(1));
-  ASSERT_TRUE(result_->field(0)->IsNull(0));
-  ASSERT_TRUE(result_->field(0)->IsNull(1));
-  ASSERT_TRUE(result_->field(1)->IsNull(0));
-  ASSERT_TRUE(result_->field(1)->IsNull(1));
+  ASSERT_EQ(0, result_->field(0)->null_count());
+  ASSERT_EQ(0, result_->field(1)->null_count());
 
   ASSERT_EQ(Type::LIST, result_->field(0)->type_id());
   ASSERT_EQ(Type::INT32, result_->field(1)->type_id());

@@ -61,6 +61,7 @@ class BaseBinaryBuilder : public ArrayBuilder {
     ARROW_RETURN_NOT_OK(AppendNextOffset());
     // Safety check for UBSAN.
     if (ARROW_PREDICT_TRUE(length > 0)) {
+      ARROW_RETURN_NOT_OK(ValidateOverflow(length));
       ARROW_RETURN_NOT_OK(value_data_builder_.Append(value, length));
     }
 
@@ -78,7 +79,6 @@ class BaseBinaryBuilder : public ArrayBuilder {
 
   Status AppendNulls(int64_t length) final {
     const int64_t num_bytes = value_data_builder_.length();
-    ARROW_RETURN_NOT_OK(ValidateOverflow(0));
     ARROW_RETURN_NOT_OK(Reserve(length));
     for (int64_t i = 0; i < length; ++i) {
       offsets_builder_.UnsafeAppend(static_cast<offset_type>(num_bytes));
@@ -91,6 +91,23 @@ class BaseBinaryBuilder : public ArrayBuilder {
     ARROW_RETURN_NOT_OK(AppendNextOffset());
     ARROW_RETURN_NOT_OK(Reserve(1));
     UnsafeAppendToBitmap(false);
+    return Status::OK();
+  }
+
+  Status AppendEmptyValue() final {
+    ARROW_RETURN_NOT_OK(AppendNextOffset());
+    ARROW_RETURN_NOT_OK(Reserve(1));
+    UnsafeAppendToBitmap(true);
+    return Status::OK();
+  }
+
+  Status AppendEmptyValues(int64_t length) final {
+    const int64_t num_bytes = value_data_builder_.length();
+    ARROW_RETURN_NOT_OK(Reserve(length));
+    for (int64_t i = 0; i < length; ++i) {
+      offsets_builder_.UnsafeAppend(static_cast<offset_type>(num_bytes));
+    }
+    UnsafeAppendToBitmap(length, true);
     return Status::OK();
   }
 
@@ -323,7 +340,6 @@ class BaseBinaryBuilder : public ArrayBuilder {
 
   Status AppendNextOffset() {
     const int64_t num_bytes = value_data_builder_.length();
-    ARROW_RETURN_NOT_OK(ValidateOverflow(0));
     return offsets_builder_.Append(static_cast<offset_type>(num_bytes));
   }
 
@@ -437,8 +453,10 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
                       const uint8_t* valid_bytes = NULLPTR);
 
   Status AppendNull() final;
-
   Status AppendNulls(int64_t length) final;
+
+  Status AppendEmptyValue() final;
+  Status AppendEmptyValues(int64_t length) final;
 
   void UnsafeAppend(const uint8_t* value) {
     UnsafeAppendToBitmap(true);

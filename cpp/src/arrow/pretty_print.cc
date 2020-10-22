@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/pretty_print.h"
+
 #include <algorithm>
 #include <chrono>
 #include <cstddef>
@@ -28,7 +30,6 @@
 
 #include "arrow/array.h"
 #include "arrow/chunked_array.h"
-#include "arrow/pretty_print.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
@@ -327,7 +328,6 @@ class ArrayPrinter : public PrettyPrinter {
       if (offset != 0) {
         field = field->Slice(offset, length);
       }
-
       RETURN_NOT_OK(PrettyPrint(*field, indent_ + options_.indent_size, sink_));
     }
     return Status::OK();
