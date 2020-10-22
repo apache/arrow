@@ -228,43 +228,43 @@ def test_release_basics(fake_jira):
 def test_previous_and_next_release(fake_jira):
     r = Release.from_jira("3.0.0", jira=fake_jira)
     assert isinstance(r.previous, MajorRelease)
-    assert r.previous.version == "2.0.0"
+    assert r.previous.version == Version("2.0.0")
     with pytest.raises(ValueError, match="There is no upcoming release set"):
         assert r.next
 
     r = Release.from_jira("2.0.0", jira=fake_jira)
     assert isinstance(r.previous, MajorRelease)
     assert isinstance(r.next, MajorRelease)
-    assert r.previous.version == "1.0.0"
-    assert r.next.version == "3.0.0"
+    assert r.previous.version == Version("1.0.0")
+    assert r.next.version == Version("3.0.0")
 
     r = Release.from_jira("1.1.0", jira=fake_jira)
     assert isinstance(r.previous, MajorRelease)
     assert isinstance(r.next, MajorRelease)
-    assert r.previous.version == "1.0.0"
-    assert r.next.version == "2.0.0"
+    assert r.previous.version == Version("1.0.0")
+    assert r.next.version == Version("2.0.0")
 
     r = Release.from_jira("1.0.0", jira=fake_jira)
     assert isinstance(r.next, MajorRelease)
     assert isinstance(r.previous, MajorRelease)
-    assert r.previous.version == "0.17.0"
-    assert r.next.version == "2.0.0"
+    assert r.previous.version == Version("0.17.0")
+    assert r.next.version == Version("2.0.0")
 
     r = Release.from_jira("0.17.0", jira=fake_jira)
     assert isinstance(r.previous, MajorRelease)
-    assert r.previous.version == "0.16.0"
+    assert r.previous.version == Version("0.16.0")
 
     r = Release.from_jira("0.15.2", jira=fake_jira)
     assert isinstance(r.previous, PatchRelease)
     assert isinstance(r.next, MajorRelease)
-    assert r.previous.version == "0.15.1"
-    assert r.next.version == "0.16.0"
+    assert r.previous.version == Version("0.15.1")
+    assert r.next.version == Version("0.16.0")
 
     r = Release.from_jira("0.15.1", jira=fake_jira)
     assert isinstance(r.previous, MajorRelease)
     assert isinstance(r.next, PatchRelease)
-    assert r.previous.version == "0.15.0"
-    assert r.next.version == "0.15.2"
+    assert r.previous.version == Version("0.15.0")
+    assert r.next.version == Version("0.15.2")
 
 
 def test_release_issues(fake_jira):
