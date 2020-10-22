@@ -76,6 +76,7 @@ jobs:
             title: AMD64 Conda Python 3.9 Pandas Nightly
             python: 3.9
             pandas: nightly
+            numpy: nightly
           - name: centos-python-3.6-manylinux1
             cache: manylinux1
             image: centos-python-manylinux1
@@ -84,6 +85,7 @@ jobs:
       PYTHON: ${{ matrix.python || 3.7 }}
       UBUNTU: ${{ matrix.ubuntu || 18.04 }}
       PANDAS: ${{ matrix.pandas || 'latest' }}
+      NUMPY: ${{ matrix.numpy || 'latest' }}
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v2
