@@ -201,8 +201,8 @@ TEST(ClsSDK, TestEndToEnd) {
 
     auto context = std::make_shared<arrow::dataset::ScanContext>();
 
-    auto rados_scanner_builder = std::make_shared<arrow::dataset::ScannerBuilder>(rados_ds, context);
-    auto inmemory_scanner_builder = std::make_shared<arrow::dataset::ScannerBuilder>(inmemory_ds, context);
+    auto rados_scanner_builder = rados_ds->NewScan().ValueOrDie();
+    auto inmemory_scanner_builder = inmemory_ds->NewScan().ValueOrDie();
 
     rados_scanner_builder->Filter(("id"_ > int32_t(7)).Copy());
     rados_scanner_builder->Project(std::vector<std::string>{"cost", "id"});
