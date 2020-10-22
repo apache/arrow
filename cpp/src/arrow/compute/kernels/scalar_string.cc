@@ -131,13 +131,9 @@ struct UTF8Transform {
                              ctx->Allocate(output_ncodeunits_max));
       output->buffers[2] = values_buffer;
 
-      // We could reuse the indices if the data is all ascii, benchmarking showed this
-      // not to matter.
-      //   output->buffers[1] = input.buffers[1];
-      KERNEL_ASSIGN_OR_RAISE(output->buffers[1], ctx,
-                             ctx->Allocate((input_nstrings + 1) * sizeof(offset_type)));
-      uint8_t* output_str = output->buffers[2]->mutable_data();
+      // String offsets are preallocated
       offset_type* output_string_offsets = output->GetMutableValues<offset_type>(1);
+      uint8_t* output_str = output->buffers[2]->mutable_data();
       offset_type output_ncodeunits = 0;
 
       output_string_offsets[0] = 0;
@@ -200,7 +196,7 @@ struct UTF8Upper : UTF8Transform<Type, UTF8Upper<Type>> {
 
 template <typename Type>
 struct UTF8Lower : UTF8Transform<Type, UTF8Lower<Type>> {
-  static uint32_t TransformCodepoint(uint32_t codepoint) {
+  inline static uint32_t TransformCodepoint(uint32_t codepoint) {
     return codepoint <= kMaxCodepointLookup ? lut_lower_codepoint[codepoint]
                                             : utf8proc_tolower(codepoint);
   }
@@ -910,22 +906,18 @@ struct SplitBaseTransform {
       const ArrayData& input = *batch[0].array();
       ArrayType input_boxed(batch[0].array());
 
-      string_offset_type input_nstrings = static_cast<string_offset_type>(input.length);
-
       BuilderType builder(input.type, ctx->memory_pool());
       // a slight overestimate of the data needed
       KERNEL_RETURN_IF_ERROR(ctx, builder.ReserveData(input_boxed.total_values_length()));
       // the minimum amount of strings needed
       KERNEL_RETURN_IF_ERROR(ctx, builder.Resize(input.length));
 
-      // ideally we do not allocate this, see
-      // https://issues.apache.org/jira/browse/ARROW-10207
-      ListOffsetsBuilderType list_offsets_builder(ctx->memory_pool());
-      KERNEL_RETURN_IF_ERROR(ctx, list_offsets_builder.Resize(input_nstrings));
       ArrayData* output_list = out->mutable_array();
+      // list offsets were preallocated
+      auto* list_offsets = output_list->GetMutableValues<list_offset_type>(1);
+      DCHECK_NE(list_offsets, nullptr);
       // initial value
-      KERNEL_RETURN_IF_ERROR(
-          ctx, list_offsets_builder.Append(static_cast<list_offset_type>(0)));
+      *list_offsets++ = 0;
       KERNEL_RETURN_IF_ERROR(
           ctx,
           VisitArrayDataInline<Type>(
@@ -936,18 +928,14 @@ struct SplitBaseTransform {
                                         std::numeric_limits<list_offset_type>::max())) {
                   return Status::CapacityError("List offset does not fit into 32 bit");
                 }
-                RETURN_NOT_OK(list_offsets_builder.Append(
-                    static_cast<list_offset_type>(builder.length())));
+                *list_offsets++ = static_cast<list_offset_type>(builder.length());
                 return Status::OK();
               },
               [&]() {
                 // null value is already taken from input
-                RETURN_NOT_OK(list_offsets_builder.Append(
-                    static_cast<list_offset_type>(builder.length())));
+                *list_offsets++ = static_cast<list_offset_type>(builder.length());
                 return Status::OK();
               }));
-      // assign list indices
-      KERNEL_RETURN_IF_ERROR(ctx, list_offsets_builder.Finish(&output_list->buffers[1]));
       // assign list child data
       std::shared_ptr<Array> string_array;
       KERNEL_RETURN_IF_ERROR(ctx, builder.Finish(&string_array));
@@ -1282,13 +1270,22 @@ void AddBinaryLength(FunctionRegistry* registry) {
 }
 
 template <template <typename> class ExecFunctor>
-void MakeUnaryStringBatchKernel(std::string name, FunctionRegistry* registry,
-                                const FunctionDoc* doc) {
+void MakeUnaryStringBatchKernel(
+    std::string name, FunctionRegistry* registry, const FunctionDoc* doc,
+    MemAllocation::type mem_allocation = MemAllocation::PREALLOCATE) {
   auto func = std::make_shared<ScalarFunction>(name, Arity::Unary(), doc);
-  auto exec_32 = ExecFunctor<StringType>::Exec;
-  auto exec_64 = ExecFunctor<LargeStringType>::Exec;
-  DCHECK_OK(func->AddKernel({utf8()}, utf8(), exec_32));
-  DCHECK_OK(func->AddKernel({large_utf8()}, large_utf8(), exec_64));
+  {
+    auto exec_32 = ExecFunctor<StringType>::Exec;
+    ScalarKernel kernel{{utf8()}, utf8(), exec_32};
+    kernel.mem_allocation = mem_allocation;
+    DCHECK_OK(func->AddKernel(std::move(kernel)));
+  }
+  {
+    auto exec_64 = ExecFunctor<LargeStringType>::Exec;
+    ScalarKernel kernel{{large_utf8()}, large_utf8(), exec_64};
+    kernel.mem_allocation = mem_allocation;
+    DCHECK_OK(func->AddKernel(std::move(kernel)));
+  }
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
@@ -1455,8 +1452,12 @@ const FunctionDoc utf8_lower_doc(
 }  // namespace
 
 void RegisterScalarStringAscii(FunctionRegistry* registry) {
-  MakeUnaryStringBatchKernel<AsciiUpper>("ascii_upper", registry, &ascii_upper_doc);
-  MakeUnaryStringBatchKernel<AsciiLower>("ascii_lower", registry, &ascii_lower_doc);
+  // ascii_upper and ascii_lower are able to reuse the original offsets buffer,
+  // so don't preallocate them in the output.
+  MakeUnaryStringBatchKernel<AsciiUpper>("ascii_upper", registry, &ascii_upper_doc,
+                                         MemAllocation::NO_PREALLOCATE);
+  MakeUnaryStringBatchKernel<AsciiLower>("ascii_lower", registry, &ascii_lower_doc,
+                                         MemAllocation::NO_PREALLOCATE);
 
   AddUnaryStringPredicate<IsAscii>("string_is_ascii", registry, &string_is_ascii_doc);
 
