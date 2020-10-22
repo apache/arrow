@@ -380,6 +380,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
             "arrow::dataset::ParquetFactoryOptions":
         CPartitioningOrFactory partitioning
         c_string partition_base_dir
+        c_bool validate_column_chunk_paths
 
     cdef cppclass CParquetDatasetFactory \
             "arrow::dataset::ParquetDatasetFactory"(CDatasetFactory):

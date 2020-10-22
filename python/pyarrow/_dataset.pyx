@@ -1934,6 +1934,12 @@ cdef class ParquetFactoryOptions(_Weakrefable):
         have partition information.
     partitioning : Partitioning, PartitioningFactory, optional
         The partitioning scheme applied to fragments, see ``Partitioning``.
+    validate_column_chunk_paths : bool, default False
+        Assert that all ColumnChunk paths are consitent. The parquet spec
+        allows for ColumnChunk data to be stored in multiple files, but
+        ParquetDatasetFactory supports only a single file with all ColumnChunk
+        data. If this flag is set construction of a ParquetDatasetFactory will
+        raise an error if ColumnChunk data is not resident in a single file.
     """
 
     cdef:
@@ -1941,7 +1947,8 @@ cdef class ParquetFactoryOptions(_Weakrefable):
 
     __slots__ = ()  # avoid mistakingly creating attributes
 
-    def __init__(self, partition_base_dir=None, partitioning=None):
+    def __init__(self, partition_base_dir=None, partitioning=None,
+                 validate_column_chunk_paths=False):
         if isinstance(partitioning, PartitioningFactory):
             self.partitioning_factory = partitioning
         elif isinstance(partitioning, Partitioning):
@@ -1949,6 +1956,8 @@ cdef class ParquetFactoryOptions(_Weakrefable):
 
         if partition_base_dir is not None:
             self.partition_base_dir = partition_base_dir
+
+        self.options.validate_column_chunk_paths = validate_column_chunk_paths
 
     cdef inline CParquetFactoryOptions unwrap(self):
         return self.options
@@ -1994,6 +2003,17 @@ cdef class ParquetFactoryOptions(_Weakrefable):
     @partition_base_dir.setter
     def partition_base_dir(self, value):
         self.options.partition_base_dir = tobytes(value)
+
+    @property
+    def validate_column_chunk_paths(self):
+        """
+        Base directory to strip paths before applying the partitioning.
+        """
+        return self.options.validate_column_chunk_paths
+
+    @validate_column_chunk_paths.setter
+    def validate_column_chunk_paths(self, value):
+        self.options.validate_column_chunk_paths = value
 
 
 cdef class ParquetDatasetFactory(DatasetFactory):

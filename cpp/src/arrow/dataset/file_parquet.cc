@@ -581,7 +581,7 @@ Result<std::vector<int>> ParquetFileFragment::FilterRowGroups(
 
 static inline Result<std::string> FileFromRowGroup(
     fs::FileSystem* filesystem, const std::string& base_path,
-    const parquet::RowGroupMetaData& row_group) {
+    const parquet::RowGroupMetaData& row_group, bool validate_column_chunk_paths) {
   constexpr auto prefix = "Extracting file path from RowGroup failed. ";
 
   if (row_group.num_columns() == 0) {
@@ -596,12 +596,14 @@ static inline Result<std::string> FileFromRowGroup(
         "The column chunks' file paths should be set, but got an empty file path.");
   }
 
-  for (int i = 1; i < row_group.num_columns(); ++i) {
-    const auto& column_path = row_group.ColumnChunk(i)->file_path();
-    if (column_path != path) {
-      return Status::Invalid(prefix, "Path '", column_path, "' not equal to path '", path,
-                             ", for ColumnChunk at index ", i,
-                             "; ColumnChunks in a RowGroup must have the same path.");
+  if (validate_column_chunk_paths) {
+    for (int i = 1; i < row_group.num_columns(); ++i) {
+      const auto& column_path = row_group.ColumnChunk(i)->file_path();
+      if (column_path != path) {
+        return Status::Invalid(prefix, "Path '", column_path, "' not equal to path '",
+                               path, ", for ColumnChunk at index ", i,
+                               "; ColumnChunks in a RowGroup must have the same path.");
+      }
     }
   }
 
@@ -663,7 +665,8 @@ Result<std::shared_ptr<DatasetFactory>> ParquetDatasetFactory::Make(
   for (int i = 0; i < metadata->num_row_groups(); i++) {
     auto row_group = metadata->RowGroup(i);
     ARROW_ASSIGN_OR_RAISE(auto path,
-                          FileFromRowGroup(filesystem.get(), base_path, *row_group));
+                          FileFromRowGroup(filesystem.get(), base_path, *row_group,
+                                           options.validate_column_chunk_paths));
 
     // Insert the path, or increase the count of row groups. It will be assumed that the
     // RowGroup of a file are ordered exactly as in the metadata file.
