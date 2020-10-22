@@ -911,21 +911,28 @@ cdef class FileFragment(Fragment):
 class RowGroupInfo:
     """A wrapper class for RowGroup information"""
 
-    def __init__(self, int id, metadata, schema):
+    def __init__(self, id, metadata=None, schema=None):
         self.id = id
         self.metadata = metadata
         self.schema = schema
 
     @property
     def num_rows(self):
+        if self.metadata is None:
+            return None
         return self.metadata.num_rows
 
     @property
     def total_byte_size(self):
+        if self.metadata is None:
+            return None
         return self.metadata.total_byte_size
 
     @property
     def statistics(self):
+        if self.metadata is None:
+            return None
+
         def name_stats(i):
             col = self.metadata.column(i)
 
@@ -948,6 +955,14 @@ class RowGroupInfo:
             in map(name_stats, range(self.metadata.num_columns))
             if stats is not None
         }
+
+    def __repr__(self):
+        return "RowGroupInfo({})".format(self.id)
+
+    def __eq__(self, other):
+        if not isinstance(other, RowGroupInfo):
+            return False
+        return self.id == other.id
 
 
 cdef class ParquetFileFragment(FileFragment):
@@ -982,20 +997,17 @@ cdef class ParquetFileFragment(FileFragment):
 
     @property
     def row_groups(self):
-        cdef const vector[int]* row_groups
-        row_groups = &self.parquet_file_fragment.row_groups()
         metadata = self.metadata
-        schema = self.physical_schema
-        self.ensure_complete_metadata()
-        return [RowGroupInfo(row_groups.at(i), metadata, schema)
-                for i in range(row_groups.size())]
+        cdef vector[int] row_groups = self.parquet_file_fragment.row_groups()
+        return [RowGroupInfo(i, metadata.row_group(i), self.physical_schema)
+                for i in row_groups]
 
     @property
     def metadata(self):
         self.ensure_complete_metadata()
         cdef FileMetaData metadata = FileMetaData.__new__(FileMetaData)
         metadata.init(self.parquet_file_fragment.metadata())
-        return metadata.row_group(self.id)
+        return metadata
 
     @property
     def num_row_groups(self):
