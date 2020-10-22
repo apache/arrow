@@ -116,25 +116,16 @@ static parquet::ArrowReaderProperties MakeArrowReaderProperties(
 }
 
 template <typename M>
-static Result<SchemaManifest> GetSchemaManifest(
+static Result<std::shared_ptr<SchemaManifest>> GetSchemaManifest(
     const M& metadata, const parquet::ArrowReaderProperties& properties) {
-  SchemaManifest manifest;
+  auto manifest = std::make_shared<SchemaManifest>();
   const std::shared_ptr<const ::arrow::KeyValueMetadata>& key_value_metadata = nullptr;
-  RETURN_NOT_OK(
-      SchemaManifest::Make(metadata.schema(), key_value_metadata, properties, &manifest));
+  RETURN_NOT_OK(SchemaManifest::Make(metadata.schema(), key_value_metadata, properties,
+                                     manifest.get()));
   return manifest;
 }
 
-static std::shared_ptr<StructScalar> MakeMinMaxScalar(std::shared_ptr<Scalar> min,
-                                                      std::shared_ptr<Scalar> max) {
-  return std::make_shared<StructScalar>(ScalarVector{min, max},
-                                        struct_({
-                                            field("min", min->type),
-                                            field("max", max->type),
-                                        }));
-}
-
-static std::shared_ptr<StructScalar> ColumnChunkStatisticsAsStructScalar(
+static std::shared_ptr<Expression> ColumnChunkStatisticsAsExpression(
     const SchemaField& schema_field, const parquet::RowGroupMetaData& metadata) {
   // For the remaining of this function, failure to extract/parse statistics
   // are ignored by returning nullptr. The goal is two fold. First
@@ -157,8 +148,7 @@ static std::shared_ptr<StructScalar> ColumnChunkStatisticsAsStructScalar(
 
   // Optimize for corner case where all values are nulls
   if (statistics->num_values() == statistics->null_count()) {
-    auto null = MakeNullScalar(field->type());
-    return MakeMinMaxScalar(null, null);
+    return equal(std::move(field_expr), scalar(MakeNullScalar(field->type())));
   }
 
   std::shared_ptr<Scalar> min, max;
@@ -171,11 +161,11 @@ static std::shared_ptr<StructScalar> ColumnChunkStatisticsAsStructScalar(
   if (maybe_min.ok() && maybe_max.ok()) {
     min = maybe_min.MoveValueUnsafe();
     max = maybe_max.MoveValueUnsafe();
-  } else {
-    return nullptr;
+    return and_(greater_equal(field_expr, scalar(min)),
+                less_equal(field_expr, scalar(max)));
   }
 
-  return MakeMinMaxScalar(std::move(min), std::move(max));
+  return nullptr;
 }
 
 static void AddColumnIndices(const SchemaField& schema_field,
@@ -441,9 +431,8 @@ Status ParquetFileFragment::EnsureCompleteMetadata(parquet::arrow::FileReader* r
     row_groups_ = internal::Iota(reader->num_row_groups());
   }
 
-  auto manifest = std::make_shared<SchemaManifest>();
   ARROW_ASSIGN_OR_RAISE(
-      *manifest,
+      auto manifest,
       GetSchemaManifest(*reader->parquet_reader()->metadata(), reader->properties()));
   return SetMetadata(reader->parquet_reader()->metadata(), std::move(manifest));
 }
@@ -506,6 +495,14 @@ Result<std::shared_ptr<Fragment>> ParquetFileFragment::Subset(
   return new_fragment;
 }
 
+inline void FoldingAnd(std::shared_ptr<Expression>* l, std::shared_ptr<Expression> r) {
+  if ((*l)->Equals(true)) {
+    *l = std::move(r);
+  } else {
+    *l = and_(std::move(*l), std::move(r));
+  }
+}
+
 Result<std::vector<int>> ParquetFileFragment::FilterRowGroups(
     const Expression& predicate) {
   auto lock = physical_schema_mutex_.Lock();
@@ -524,30 +521,10 @@ Result<std::vector<int>> ParquetFileFragment::FilterRowGroups(
     int i = 0;
     for (int row_group : row_groups_) {
       auto row_group_metadata = metadata_->RowGroup(row_group);
-      auto minmax_scalar =
-          ColumnChunkStatisticsAsStructScalar(schema_field, *row_group_metadata);
 
-      if (minmax_scalar == nullptr) {
-        ++i;
-        continue;
-      }
-
-      DCHECK_EQ(minmax_scalar->value.size(), 2);
-      const auto& min = minmax_scalar->value[0];
-      const auto& max = minmax_scalar->value[1];
-
-      DCHECK_EQ(min->is_valid, max->is_valid);
-
-      auto field_expr = field_ref(schema_field.field->name());
-      auto minmax = min->is_valid ? and_(greater_equal(field_expr, scalar(min)),
-                                         less_equal(field_expr, scalar(max)))
-                                  : equal(std::move(field_expr), scalar(min));
-
-      if (statistics_expressions_[i]->Equals(true)) {
-        statistics_expressions_[i] = std::move(minmax);
-      } else {
-        statistics_expressions_[i] =
-            and_(std::move(statistics_expressions_[i]), std::move(minmax));
+      if (auto minmax =
+              ColumnChunkStatisticsAsExpression(schema_field, *row_group_metadata)) {
+        FoldingAnd(&statistics_expressions_[i], std::move(minmax));
       }
 
       ++i;
@@ -650,9 +627,7 @@ Result<std::shared_ptr<DatasetFactory>> ParquetDatasetFactory::Make(
 
   auto properties = MakeArrowReaderProperties(*format, *metadata);
   ARROW_ASSIGN_OR_RAISE(auto physical_schema, GetSchema(*metadata, properties));
-
-  auto manifest = std::make_shared<SchemaManifest>();
-  ARROW_ASSIGN_OR_RAISE(*manifest, GetSchemaManifest(*metadata, properties));
+  ARROW_ASSIGN_OR_RAISE(auto manifest, GetSchemaManifest(*metadata, properties));
 
   std::unordered_map<std::string, std::vector<int>> path_to_row_group_ids;
 
