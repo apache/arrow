@@ -15,8 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// This API is EXPERIMENTAL.
-
 #pragma once
 
 #include <functional>
@@ -28,15 +26,11 @@
 #include "arrow/util/macros.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
-#include "arrow/result.h"
-#include "arrow/record_batch.h"
-#include "arrow/ipc/writer.h"
-#include "arrow/ipc/reader.h"
-#include "arrow/type.h"
-#include "arrow/dataset/filter.h"
-#include "arrow/dataset/projector.h"
-#include "arrow/io/memory.h"
 #include "arrow/dataset/rados.h"
+#include "arrow/api.h"
+#include "arrow/ipc/api.h"
+#include "arrow/dataset/api.h"
+#include "arrow/io/api.h"
 
 namespace arrow {
 namespace dataset {
