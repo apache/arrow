@@ -16,5 +16,7 @@
 # under the License.
 
 click
+gitpython
 pygithub
 ruamel.yaml
+semver
