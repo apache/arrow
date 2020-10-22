@@ -442,7 +442,14 @@ class ARROW_EXPORT StructBuilder : public ArrayBuilder {
 
   /// \brief Append multiple null values. Automatically appends empty values to each
   /// child builder.
-  Status AppendNulls(int64_t length) final;
+  Status AppendNulls(int64_t length) final {
+    for (const auto& field : children_) {
+      ARROW_RETURN_NOT_OK(field->AppendEmptyValues(length));
+    }
+    ARROW_RETURN_NOT_OK(Reserve(length));
+    UnsafeAppendToBitmap(length, false);
+    return Status::OK();
+  }
 
   Status AppendEmptyValue() final {
     for (const auto& field : children_) {

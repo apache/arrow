@@ -75,7 +75,6 @@ class ARROW_EXPORT AdaptiveIntBuilderBase : public ArrayBuilder {
   Status AppendEmptyValue() final {
     pending_data_[pending_pos_] = 0;
     pending_valid_[pending_pos_] = 1;
-    pending_has_nulls_ = false;
     ++pending_pos_;
     ++length_;
 

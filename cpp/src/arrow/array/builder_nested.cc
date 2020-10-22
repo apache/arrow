@@ -262,15 +262,6 @@ void StructBuilder::Reset() {
   }
 }
 
-Status StructBuilder::AppendNulls(int64_t length) {
-  for (const auto& field : children_) {
-    RETURN_NOT_OK(field->AppendEmptyValues(length));
-  }
-  ARROW_RETURN_NOT_OK(Reserve(length));
-  UnsafeAppendToBitmap(length, false);
-  return Status::OK();
-}
-
 Status StructBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   std::shared_ptr<Buffer> null_bitmap;
   RETURN_NOT_OK(null_bitmap_builder_.Finish(&null_bitmap));

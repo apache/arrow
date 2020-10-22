@@ -70,6 +70,7 @@
 namespace arrow {
 
 using internal::checked_cast;
+using internal::checked_pointer_cast;
 
 class TestArray : public ::testing::Test {
  public:
@@ -641,7 +642,7 @@ class TestPrimitiveBuilder : public TestBuilder {
     std::shared_ptr<Array> out;
     FinishAndCheckPadding(builder.get(), &out);
 
-    std::shared_ptr<ArrayType> result = std::dynamic_pointer_cast<ArrayType>(out);
+    std::shared_ptr<ArrayType> result = checked_pointer_cast<ArrayType>(out);
 
     // Builder is now reset
     ASSERT_EQ(0, builder->length());
@@ -766,7 +767,7 @@ void TestPrimitiveBuilder<PBoolean>::Check(const std::unique_ptr<BooleanBuilder>
   std::shared_ptr<Array> out;
   FinishAndCheckPadding(builder.get(), &out);
 
-  std::shared_ptr<BooleanArray> result = std::dynamic_pointer_cast<BooleanArray>(out);
+  std::shared_ptr<BooleanArray> result = checked_pointer_cast<BooleanArray>(out);
 
   ASSERT_EQ(ex_null_count, result->null_count());
   ASSERT_EQ(size, result->length());
@@ -883,7 +884,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendNull) {
 
   std::shared_ptr<Array> out;
   FinishAndCheckPadding(this->builder_.get(), &out);
-  auto result = std::dynamic_pointer_cast<typename TypeParam::ArrayType>(out);
+  auto result = checked_pointer_cast<typename TypeParam::ArrayType>(out);
 
   for (int64_t i = 0; i < size; ++i) {
     ASSERT_TRUE(result->IsNull(i)) << i;
@@ -914,6 +915,33 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendNulls) {
       // Validates current implementation, algorithms shouldn't rely on this
       ASSERT_EQ(0, *(buffer->data() + i)) << i;
     }
+  }
+}
+
+TYPED_TEST(TestPrimitiveBuilder, TestAppendEmptyValue) {
+  ASSERT_OK(this->builder_->AppendNull());
+  ASSERT_OK(this->builder_->AppendEmptyValue());
+  ASSERT_OK(this->builder_->AppendNulls(2));
+  ASSERT_OK(this->builder_->AppendEmptyValues(2));
+
+  std::shared_ptr<Array> out;
+  FinishAndCheckPadding(this->builder_.get(), &out);
+  ASSERT_OK(out->ValidateFull());
+
+  auto result = checked_pointer_cast<typename TypeParam::ArrayType>(out);
+  ASSERT_EQ(result->length(), 6);
+  ASSERT_EQ(result->null_count(), 3);
+
+  ASSERT_TRUE(result->IsNull(0));
+  ASSERT_FALSE(result->IsNull(1));
+  ASSERT_TRUE(result->IsNull(2));
+  ASSERT_TRUE(result->IsNull(3));
+  ASSERT_FALSE(result->IsNull(4));
+  ASSERT_FALSE(result->IsNull(5));
+
+  // implementation detail: the value slots are 0-initialized
+  for (int64_t i = 0; i < result->length(); ++i) {
+    ASSERT_EQ(result->Value(i), 0);
   }
 }
 
@@ -2104,6 +2132,18 @@ TEST_F(TestAdaptiveIntBuilder, TestAppendNulls) {
   }
 }
 
+TEST_F(TestAdaptiveIntBuilder, TestAppendEmptyValue) {
+  ASSERT_OK(builder_->AppendNulls(2));
+  ASSERT_OK(builder_->AppendEmptyValue());
+  ASSERT_OK(builder_->Append(42));
+  ASSERT_OK(builder_->AppendEmptyValues(2));
+  Done();
+
+  ASSERT_OK(result_->ValidateFull());
+  // NOTE: The fact that we get 0 is really an implementation detail
+  AssertArraysEqual(*result_, *ArrayFromJSON(int8(), "[null, null, 0, 42, 0, 0]"));
+}
+
 TEST(TestAdaptiveIntBuilderWithStartIntSize, TestReset) {
   auto builder = std::make_shared<AdaptiveIntBuilder>(
       static_cast<uint8_t>(sizeof(int16_t)), default_memory_pool());
@@ -2320,6 +2360,18 @@ TEST_F(TestAdaptiveUIntBuilder, TestAppendNulls) {
   for (unsigned index = 0; index < size; ++index) {
     ASSERT_FALSE(result_->IsValid(index));
   }
+}
+
+TEST_F(TestAdaptiveUIntBuilder, TestAppendEmptyValue) {
+  ASSERT_OK(builder_->AppendNulls(2));
+  ASSERT_OK(builder_->AppendEmptyValue());
+  ASSERT_OK(builder_->Append(42));
+  ASSERT_OK(builder_->AppendEmptyValues(2));
+  Done();
+
+  ASSERT_OK(result_->ValidateFull());
+  // NOTE: The fact that we get 0 is really an implementation detail
+  AssertArraysEqual(*result_, *ArrayFromJSON(uint8(), "[null, null, 0, 42, 0, 0]"));
 }
 
 TEST(TestAdaptiveUIntBuilderWithStartIntSize, TestReset) {

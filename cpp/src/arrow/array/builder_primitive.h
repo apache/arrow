@@ -319,8 +319,8 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
 
   Status AppendEmptyValue() final {
     ARROW_RETURN_NOT_OK(Reserve(1));
-    UnsafeSetNotNull(1);
     data_builder_.UnsafeAppend(false);
+    UnsafeSetNotNull(1);
     return Status::OK();
   }
 
