@@ -17,28 +17,24 @@
 
 #pragma once
 
+#include "arrow/dataset/rados.h"
+
 #include <gmock/gmock.h>
 
-#include "arrow/dataset/type_fwd.h"
+#include "arrow/dataset/api.h"
 #include "arrow/dataset/visibility.h"
 #include "arrow/util/macros.h"
-#include "arrow/dataset/rados.h"
-#include "arrow/ipc/options.h"
-#include "arrow/ipc/reader.h"
-#include "arrow/ipc/writer.h"
-#include "arrow/record_batch.h"
-#include "arrow/result.h"
-#include "arrow/buffer.h"
-#include "arrow/status.h"
+#include "arrow/ipc/api.h"
+#include "arrow/api.h"
 
 namespace arrow {
 namespace dataset {
 
-ARROW_DS_EXPORT std::shared_ptr<RecordBatch> GenerateTestRecordBatch();
+ARROW_DS_EXPORT std::shared_ptr<RecordBatch> generate_test_record_batch();
 
-ARROW_DS_EXPORT std::shared_ptr<Table> GenerateTestTable();
+ARROW_DS_EXPORT std::shared_ptr<Table> generate_test_table();
 
-ARROW_DS_EXPORT Status get_test_bufferlist(librados::bufferlist &bl);
+ARROW_DS_EXPORT Status get_test_table_in_bufferlist(librados::bufferlist &bl);
 
 class ARROW_DS_EXPORT MockIoCtx : public IoCtxInterface {
 public:
@@ -57,8 +53,8 @@ private:
                 .WillOnce(testing::Return(0));
 
         librados::bufferlist result;
-        get_test_bufferlist(result);
-        
+        get_test_table_in_bufferlist(result);
+
         EXPECT_CALL(*this, read(testing::_, testing::_, testing::_, testing::_))
                 .WillOnce(DoAll(testing::SetArgReferee<1>(result), testing::Return(0)));
 
@@ -70,11 +66,11 @@ private:
 
 class ARROW_DS_EXPORT MockRados : public RadosInterface {
 public:
-    ~MockRados(){}
     MockRados(){
         this->setup();
         testing::Mock::AllowLeak(this);
     }
+    ~MockRados(){}
     MOCK_METHOD3(init2, int(const char * const name, const char * const clustername, uint64_t flags));
     MOCK_METHOD2(ioctx_create, int(const char *name, IoCtxInterface *pioctx));
     MOCK_METHOD1(conf_read_file, int(const char * const path));
@@ -96,5 +92,5 @@ private:
     }
 };
 
-}
-}
+} // namespace arrow
+} // namespace dataset

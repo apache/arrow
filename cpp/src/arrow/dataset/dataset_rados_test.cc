@@ -15,21 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/dataset/dataset_rados.h"
+#include "arrow/api.h"
+#include "arrow/dataset/api.h"
 #include "arrow/dataset/mockrados.h"
-#include "arrow/dataset/dataset_internal.h"
-#include "arrow/dataset/discovery.h"
-#include "arrow/dataset/scanner.h"
-#include "arrow/dataset/partition.h"
-#include "arrow/ipc/api.h"
 #include "arrow/dataset/test_util.h"
-#include "arrow/filesystem/mockfs.h"
+#include "arrow/ipc/api.h"
 #include "arrow/io/memory.h"
-#include "arrow/stl.h"
+#include "arrow/filesystem/mockfs.h"
 #include "arrow/testing/generator.h"
 #include "arrow/util/optional.h"
-#include "arrow/ipc/api.h"
-#include "arrow/dataset/rados_utils.h"
 
 namespace arrow {
 namespace dataset {
@@ -40,7 +34,7 @@ TEST_F(TestRadosScanTask, Execute) {
   constexpr int64_t kNumberBatches = 8;
 
   SetSchema({field("f1", int64()), field("f2", int64())});
-  auto batch = GenerateTestRecordBatch();
+  auto batch = generate_test_record_batch();
   auto reader = ConstantArrayGenerator::Repeat(kNumberBatches, batch);
 
   auto object = std::make_shared<Object>("object.1");
@@ -65,7 +59,7 @@ TEST_F(TestRadosFragment, Scan) {
   constexpr int64_t kNumberBatches = 8;
 
   SetSchema({field("f1", int64()), field("f2", int64())});
-  auto batch = GenerateTestRecordBatch();
+  auto batch = generate_test_record_batch();
   auto reader = ConstantArrayGenerator::Repeat(kNumberBatches, batch);
 
   auto object = std::make_shared<Object>("object.1");
@@ -95,7 +89,7 @@ TEST_F(TestRadosDataset, GetFragments) {
     std::make_shared<Object>("object.3")
   };
 
-  auto batch = GenerateTestRecordBatch();
+  auto batch = generate_test_record_batch();
   auto reader = ConstantArrayGenerator::Repeat(kNumberBatches, batch);
 
   auto rados_options = RadosOptions::FromPoolName("test_pool");
@@ -151,24 +145,7 @@ TEST_F(TestRadosDataset, ReplaceSchema) {
                     .status());
 }
 
-class ScanRequest;
-TEST_F(TestRadosDataset, SerializeDeserializeUsingRecordBatch) {
-  auto schema = arrow::schema({field("i32", int32()), field("f64", float64())});
-  auto filter = std::make_shared<OrExpression>("b"_ == 3 or "b"_ == 4);
-  std::shared_ptr<RecordBatch> rb = wrap_rados_scan_request(filter, *(schema), 10, 1).ValueOrDie();
-  Expression *d_filter = NULL;
-  RecordBatchProjector *d_schema = NULL;
-  int64_t *d_batch_size = NULL;
-  int64_t *d_seq_num = NULL;
-  ScanRequest request = unwrap_rados_scan_request(rb).ValueOrDie();
-
-  ASSERT_TRUE(request.filter->Equals(filter));
-  ASSERT_TRUE(request.projector->schema()->Equals(schema));
-  ASSERT_EQ(request.batch_size, 10);
-  ASSERT_EQ(request.seq_num, 1);
-}
-
-TEST_F(TestRadosDataset, IntToByteArray) {
+TEST_F(TestRadosDataset, IntToCharAndCharToInt) {
   int64_t value = 12345678;
   char *result = new char[8];
   int64_to_char((uint8_t*)result, value);
@@ -197,7 +174,7 @@ TEST_F(TestRadosDataset, SerializeDeserializeScanRequest) {
 }
 
 TEST_F(TestRadosDataset, SerializeDeserializeTable) {
-  auto table = GenerateTestTable();
+  auto table = generate_test_table();
   librados::bufferlist bl;
   write_table_to_bufferlist(table, bl);
 
@@ -220,7 +197,7 @@ TEST_F(TestRadosDataset, EndToEnd) {
     std::make_shared<Object>("object.3")
   };
 
-  auto batch = GenerateTestRecordBatch();
+  auto batch = generate_test_record_batch();
   auto reader = ConstantArrayGenerator::Repeat(kNumberBatches, batch);
 
   auto rados_options = RadosOptions::FromPoolName("test_pool");
