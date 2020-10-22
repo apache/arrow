@@ -579,15 +579,46 @@ Result<std::vector<int>> ParquetFileFragment::FilterRowGroups(
 // ParquetDatasetFactory
 //
 
-ParquetDatasetFactory::ParquetDatasetFactory(
-    std::shared_ptr<fs::FileSystem> filesystem, std::shared_ptr<ParquetFileFormat> format,
-    std::shared_ptr<parquet::FileMetaData> metadata, std::string base_path,
-    ParquetFactoryOptions options)
-    : filesystem_(std::move(filesystem)),
-      format_(std::move(format)),
-      metadata_(std::move(metadata)),
-      base_path_(std::move(base_path)),
-      options_(std::move(options)) {}
+static inline Result<std::string> FileFromRowGroup(
+    fs::FileSystem* filesystem, const std::string& base_path,
+    const parquet::RowGroupMetaData& row_group) {
+  constexpr auto prefix = "Extracting file path from RowGroup failed. ";
+
+  if (row_group.num_columns() == 0) {
+    return Status::Invalid(prefix,
+                           "RowGroup must have a least one column to extract path.");
+  }
+
+  auto path = row_group.ColumnChunk(0)->file_path();
+  if (path == "") {
+    return Status::Invalid(
+        prefix,
+        "The column chunks' file paths should be set, but got an empty file path.");
+  }
+
+  for (int i = 1; i < row_group.num_columns(); ++i) {
+    const auto& column_path = row_group.ColumnChunk(i)->file_path();
+    if (column_path != path) {
+      return Status::Invalid(prefix, "Path '", column_path, "' not equal to path '", path,
+                             ", for ColumnChunk at index ", i,
+                             "; ColumnChunks in a RowGroup must have the same path.");
+    }
+  }
+
+  path = fs::internal::JoinAbstractPath(
+      std::vector<std::string>{base_path, std::move(path)});
+  // Normalizing path is required for Windows.
+  return filesystem->NormalizePath(std::move(path));
+}
+
+Result<std::shared_ptr<Schema>> GetSchema(
+    const parquet::FileMetaData& metadata,
+    const parquet::ArrowReaderProperties& properties) {
+  std::shared_ptr<Schema> schema;
+  RETURN_NOT_OK(parquet::arrow::FromParquetSchema(
+      metadata.schema(), properties, metadata.key_value_metadata(), &schema));
+  return schema;
+}
 
 Result<std::shared_ptr<DatasetFactory>> ParquetDatasetFactory::Make(
     const std::string& metadata_path, std::shared_ptr<fs::FileSystem> filesystem,
@@ -616,110 +647,45 @@ Result<std::shared_ptr<DatasetFactory>> ParquetDatasetFactory::Make(
   ARROW_ASSIGN_OR_RAISE(auto reader, format->GetReader(metadata_source));
   std::shared_ptr<parquet::FileMetaData> metadata = reader->parquet_reader()->metadata();
 
-  return std::shared_ptr<DatasetFactory>(
-      new ParquetDatasetFactory(std::move(filesystem), std::move(format),
-                                std::move(metadata), base_path, std::move(options)));
-}
-
-static inline Result<std::string> FileFromRowGroup(
-    fs::FileSystem* filesystem, const std::string& base_path,
-    const parquet::RowGroupMetaData& row_group) {
-  constexpr auto prefix = "Extracting file path from RowGroup failed. ";
-
-  int n_columns = row_group.num_columns();
-  if (n_columns == 0) {
-    return Status::Invalid(prefix,
-                           "RowGroup must have a least one column to extract path.");
-  }
-
-  auto path = row_group.ColumnChunk(0)->file_path();
-  if (path == "") {
-    return Status::Invalid(
-        prefix,
-        "The column chunks' file paths should be set, but got an empty file path.");
-  }
-
-  for (int i = 1; i < n_columns; ++i) {
-    const auto& column_path = row_group.ColumnChunk(i)->file_path();
-    if (column_path != path) {
-      return Status::Invalid(prefix, "Path '", column_path, "' not equal to path '", path,
-                             ", for ColumnChunk at index ", i,
-                             "; ColumnChunks in a RowGroup must have the same path.");
-    }
-  }
-
-  // TODO Is it possible to infer the file size and return a populated FileInfo?
-  // This could avoid some spurious HEAD requests on S3 (ARROW-8950)
-  path = fs::internal::JoinAbstractPath(
-      std::vector<std::string>{base_path, std::move(path)});
-  // Normalizing path is required for Windows.
-  return filesystem->NormalizePath(std::move(path));
-}
-
-Result<std::vector<std::string>> ParquetDatasetFactory::CollectPaths(
-    const parquet::FileMetaData& metadata,
-    const parquet::ArrowReaderProperties& properties) {
-  std::unordered_set<std::string> unique_paths;
-  ARROW_ASSIGN_OR_RAISE(auto manifest, GetSchemaManifest(metadata, properties));
-
-  for (int i = 0; i < metadata.num_row_groups(); i++) {
-    auto row_group = metadata.RowGroup(i);
-
-    ARROW_ASSIGN_OR_RAISE(auto path,
-                          FileFromRowGroup(filesystem_.get(), base_path_, *row_group));
-    unique_paths.emplace(std::move(path));
-  }
-
-  std::vector<std::string> paths(unique_paths.size());
-  std::move(unique_paths.begin(), unique_paths.end(), paths.begin());
-  return paths;
-}
-
-Result<std::shared_ptr<Schema>> GetSchema(
-    const parquet::FileMetaData& metadata,
-    const parquet::ArrowReaderProperties& properties) {
-  std::shared_ptr<Schema> schema;
-  RETURN_NOT_OK(parquet::arrow::FromParquetSchema(
-      metadata.schema(), properties, metadata.key_value_metadata(), &schema));
-  return schema;
-}
-
-Result<std::vector<std::shared_ptr<FileFragment>>>
-ParquetDatasetFactory::CollectParquetFragments(
-    const std::shared_ptr<parquet::FileMetaData>& metadata,
-    const parquet::ArrowReaderProperties& properties, const Partitioning& partitioning) {
-  auto n_columns = metadata->num_columns();
-  if (n_columns == 0) {
+  if (metadata->num_columns() == 0) {
     return Status::Invalid(
         "ParquetDatasetFactory must contain a schema with at least one column");
   }
+
+  auto properties = MakeArrowReaderProperties(*format, *metadata);
+  ARROW_ASSIGN_OR_RAISE(auto physical_schema, GetSchema(*metadata, properties));
+
+  auto manifest = std::make_shared<SchemaManifest>();
+  ARROW_ASSIGN_OR_RAISE(*manifest, GetSchemaManifest(*metadata, properties));
 
   std::unordered_map<std::string, std::vector<int>> path_to_row_group_ids;
 
   for (int i = 0; i < metadata->num_row_groups(); i++) {
     auto row_group = metadata->RowGroup(i);
     ARROW_ASSIGN_OR_RAISE(auto path,
-                          FileFromRowGroup(filesystem_.get(), base_path_, *row_group));
+                          FileFromRowGroup(filesystem.get(), base_path, *row_group));
 
     // Insert the path, or increase the count of row groups. It will be assumed that the
     // RowGroup of a file are ordered exactly as in the metadata file.
-    auto row_groups = &internal::GetOrInsertGenerated(
-                           &path_to_row_group_ids, std::move(path),
-                           [](const std::string&) { return std::vector<int>{}; })
-                           ->second;
-
+    auto row_groups = &path_to_row_group_ids.insert({std::move(path), {}}).first->second;
     row_groups->emplace_back(i);
   }
 
-  auto manifest = std::make_shared<SchemaManifest>();
-  ARROW_ASSIGN_OR_RAISE(*manifest, GetSchemaManifest(*metadata, properties));
-  ARROW_ASSIGN_OR_RAISE(auto physical_schema, GetSchema(*metadata, properties));
-  std::vector<std::shared_ptr<FileFragment>> fragments;
-  fragments.reserve(path_to_row_group_ids.size());
-  for (auto&& elem : path_to_row_group_ids) {
-    const auto& path = elem.first;
+  return std::shared_ptr<DatasetFactory>(new ParquetDatasetFactory(
+      std::move(filesystem), std::move(format), std::move(metadata), std::move(manifest),
+      std::move(physical_schema), base_path, std::move(options),
+      std::move(path_to_row_group_ids)));
+}
 
-    auto metadata_subset = metadata->Subset(elem.second);
+Result<std::vector<std::shared_ptr<FileFragment>>>
+ParquetDatasetFactory::CollectParquetFragments(const Partitioning& partitioning) {
+  std::vector<std::shared_ptr<FileFragment>> fragments(path_to_row_group_ids_.size());
+
+  size_t i = 0;
+  for (const auto& e : path_to_row_group_ids_) {
+    const auto& path = e.first;
+    auto metadata_subset = metadata_->Subset(e.second);
+
     auto row_groups = internal::Iota(metadata_subset->num_row_groups());
 
     auto partition_expression =
@@ -729,10 +695,10 @@ ParquetDatasetFactory::CollectParquetFragments(
     ARROW_ASSIGN_OR_RAISE(
         auto fragment,
         format_->MakeFragment({path, filesystem_}, std::move(partition_expression),
-                              physical_schema, std::move(row_groups)));
+                              physical_schema_, std::move(row_groups)));
 
-    RETURN_NOT_OK(fragment->SetMetadata(metadata_subset, manifest));
-    fragments.push_back(std::move(fragment));
+    RETURN_NOT_OK(fragment->SetMetadata(metadata_subset, manifest_));
+    fragments[i++] = std::move(fragment);
   }
 
   return fragments;
@@ -740,24 +706,22 @@ ParquetDatasetFactory::CollectParquetFragments(
 
 Result<std::vector<std::shared_ptr<Schema>>> ParquetDatasetFactory::InspectSchemas(
     InspectOptions options) {
-  std::vector<std::shared_ptr<Schema>> schemas;
-  auto properties = MakeArrowReaderProperties(*format_, *metadata_);
-
   // The physical_schema from the _metadata file is always yielded
-  ARROW_ASSIGN_OR_RAISE(auto physical_schema, GetSchema(*metadata_, properties));
-  schemas.push_back(std::move(physical_schema));
+  std::vector<std::shared_ptr<Schema>> schemas = {physical_schema_};
 
   if (auto factory = options_.partitioning.factory()) {
     // Gather paths found in RowGroups' ColumnChunks.
-    ARROW_ASSIGN_OR_RAISE(auto paths, CollectPaths(*metadata_, properties));
+    std::vector<std::string> stripped(path_to_row_group_ids_.size());
 
-    ARROW_ASSIGN_OR_RAISE(
-        auto partition_schema,
-        factory->Inspect(StripPrefixAndFilename(paths, options_.partition_base_dir)));
+    size_t i = 0;
+    for (const auto& e : path_to_row_group_ids_) {
+      stripped[i++] = StripPrefixAndFilename(e.first, options_.partition_base_dir);
+    }
+    ARROW_ASSIGN_OR_RAISE(auto partition_schema, factory->Inspect(stripped));
 
     schemas.push_back(std::move(partition_schema));
   } else {
-    schemas.push_back(std::move(options_.partitioning.partitioning()->schema()));
+    schemas.push_back(options_.partitioning.partitioning()->schema());
   }
 
   return schemas;
@@ -776,9 +740,7 @@ Result<std::shared_ptr<Dataset>> ParquetDatasetFactory::Finish(FinishOptions opt
     ARROW_ASSIGN_OR_RAISE(partitioning, factory->Finish(schema));
   }
 
-  auto properties = MakeArrowReaderProperties(*format_, *metadata_);
-  ARROW_ASSIGN_OR_RAISE(auto fragments,
-                        CollectParquetFragments(metadata_, properties, *partitioning));
+  ARROW_ASSIGN_OR_RAISE(auto fragments, CollectParquetFragments(*partitioning));
   return FileSystemDataset::Make(std::move(schema), scalar(true), format_, filesystem_,
                                  std::move(fragments));
 }

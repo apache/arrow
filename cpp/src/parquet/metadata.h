@@ -89,9 +89,9 @@ class PARQUET_EXPORT ApplicationVersion {
     std::string build_info;
   } version;
 
-  ApplicationVersion() {}
+  ApplicationVersion() = default;
   explicit ApplicationVersion(const std::string& created_by);
-  ApplicationVersion(const std::string& application, int major, int minor, int patch);
+  ApplicationVersion(std::string application, int major, int minor, int patch);
 
   // Returns true if version is strictly less than other_version
   bool VersionLt(const ApplicationVersion& other_version) const;
