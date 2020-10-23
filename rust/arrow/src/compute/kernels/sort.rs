@@ -466,31 +466,26 @@ pub fn lexsort(columns: &[SortColumn]) -> Result<Vec<ArrayRef>> {
 /// Sort elements lexicographically from a list of `ArrayRef` into an unsigned integer
 /// (`UInt32Array`) of indices.
 pub fn lexsort_to_indices(columns: &[SortColumn]) -> Result<UInt32Array> {
+    if columns.len() == 0 {
+        return Err(ArrowError::InvalidArgumentError("Sort requires at least one column".to_string()));
+    }
     if columns.len() == 1 {
         // fallback to non-lexical sort
         let column = &columns[0];
         return sort_to_indices(&column.values, column.options);
     }
 
-    let mut row_count = None;
+    let row_count = columns[0].values.len();
+    if columns.iter().any(|item| item.values.len() != row_count) {
+        return Err(ArrowError::ComputeError(
+            "lexical sort columns have different row counts".to_string(),
+        ));
+    };
+
     // convert ArrayRefs to OrdArray trait objects and perform row count check
     let flat_columns = columns
         .iter()
         .map(|column| -> Result<(&Array, Box<OrdArray>, SortOptions)> {
-            // row count check
-            let curr_row_count = column.values.len() - column.values.offset();
-            match row_count {
-                None => {
-                    row_count = Some(curr_row_count);
-                }
-                Some(cnt) => {
-                    if curr_row_count != cnt {
-                        return Err(ArrowError::ComputeError(
-                            "lexical sort columns have different row counts".to_string(),
-                        ));
-                    }
-                }
-            }
             // flatten and convert to OrdArray
             Ok((
                 column.values.as_ref(),
@@ -542,7 +537,7 @@ pub fn lexsort_to_indices(columns: &[SortColumn]) -> Result<UInt32Array> {
         Ordering::Equal
     };
 
-    let mut value_indices = (0..row_count.unwrap()).collect::<Vec<usize>>();
+    let mut value_indices = (0..row_count).collect::<Vec<usize>>();
     value_indices.sort_by(lex_comparator);
 
     Ok(UInt32Array::from(
