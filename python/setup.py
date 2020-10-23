@@ -123,7 +123,9 @@ class build_ext(_build_ext):
                      ('bundle-arrow-cpp', None,
                       'bundle the Arrow C++ libraries'),
                      ('bundle-arrow-cpp-headers', None,
-                      'bundle the Arrow C++ headers')] +
+                      'bundle the Arrow C++ headers'),
+                     ('bundle-plasma-executable', None,
+                      'bundle the plasma-store-server executable')] +
                     _build_ext.user_options)
 
     def initialize_options(self):
@@ -179,6 +181,8 @@ class build_ext(_build_ext):
             os.environ.get('PYARROW_BUNDLE_BOOST', '0'))
         self.bundle_arrow_cpp_headers = strtobool(
             os.environ.get('PYARROW_BUNDLE_ARROW_CPP_HEADERS', '1'))
+        self.bundle_plasma_executable = strtobool(
+            os.environ.get('PYARROW_BUNDLE_PLASMA_EXECUTABLE', '1'))
 
     CYTHON_MODULE_NAMES = [
         'lib',
@@ -350,7 +354,7 @@ class build_ext(_build_ext):
             if self.bundle_arrow_cpp:
                 self._bundle_arrow_cpp(build_prefix, build_lib)
 
-            if self.with_plasma:
+            if self.with_plasma and self.bundle_plasma_executable:
                 # Move the plasma store
                 source = os.path.join(self.build_type, "plasma-store-server")
                 target = os.path.join(build_lib,
