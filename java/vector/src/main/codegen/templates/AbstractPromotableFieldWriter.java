@@ -75,7 +75,7 @@ abstract class AbstractPromotableFieldWriter extends AbstractFieldWriter {
 
   <#list vv.types as type><#list type.minor as minor><#assign name = minor.class?cap_first />
     <#assign fields = minor.fields!type.fields />
-  <#if minor.class != "Decimal">
+  <#if minor.class != "Decimal" && minor.class != "Decimal256">
   @Override
   public void write(${name}Holder holder) {
     getWriter(MinorType.${name?upper_case}).write(holder);
@@ -85,7 +85,7 @@ abstract class AbstractPromotableFieldWriter extends AbstractFieldWriter {
     getWriter(MinorType.${name?upper_case}).write${minor.class}(<#list fields as field>${field.name}<#if field_has_next>, </#if></#list>);
   }
 
-  <#else>
+  <#elseif minor.class == "Decimal">
   @Override
   public void write(DecimalHolder holder) {
     getWriter(MinorType.DECIMAL).write(holder);
@@ -106,6 +106,28 @@ abstract class AbstractPromotableFieldWriter extends AbstractFieldWriter {
   public void writeBigEndianBytesToDecimal(byte[] value) {
     getWriter(MinorType.DECIMAL).writeBigEndianBytesToDecimal(value);
   }
+  <#elseif minor.class == "Decimal256">
+  @Override
+  public void write(Decimal256Holder holder) {
+    getWriter(MinorType.DECIMAL256).write(holder);
+  }
+
+  public void writeDecimal256(long start, ArrowBuf buffer, ArrowType arrowType) {
+    getWriter(MinorType.DECIMAL256).writeDecimal256(start, buffer, arrowType);
+  }
+
+  public void writeDecimal256(long start, ArrowBuf buffer) {
+    getWriter(MinorType.DECIMAL256).writeDecimal256(start, buffer);
+  }
+  public void writeBigEndianBytesToDecimal256(byte[] value, ArrowType arrowType) {
+    getWriter(MinorType.DECIMAL256).writeBigEndianBytesToDecimal256(value, arrowType);
+  }
+
+  public void writeBigEndianBytesToDecimal256(byte[] value) {
+    getWriter(MinorType.DECIMAL256).writeBigEndianBytesToDecimal256(value);
+  }
+
+
   </#if>
 
   </#list></#list>

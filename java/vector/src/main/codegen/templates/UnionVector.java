@@ -272,18 +272,18 @@ public class UnionVector implements FieldVector {
       <#assign fields = minor.fields!type.fields />
       <#assign uncappedName = name?uncap_first/>
       <#assign lowerCaseName = name?lower_case/>
-      <#if !minor.typeParams?? || minor.class == "Decimal" >
+      <#if !minor.typeParams?? || minor.class?starts_with("Decimal") >
 
   private ${name}Vector ${uncappedName}Vector;
 
-  public ${name}Vector get${name}Vector(<#if minor.class == "Decimal"> ArrowType arrowType</#if>) {
-    return get${name}Vector(null<#if minor.class == "Decimal">, arrowType</#if>);
+  public ${name}Vector get${name}Vector(<#if minor.class?starts_with("Decimal")> ArrowType arrowType</#if>) {
+    return get${name}Vector(null<#if minor.class?starts_with("Decimal")>, arrowType</#if>);
   }
 
-  public ${name}Vector get${name}Vector(String name<#if minor.class == "Decimal">, ArrowType arrowType</#if>) {
+  public ${name}Vector get${name}Vector(String name<#if minor.class?starts_with("Decimal")>, ArrowType arrowType</#if>) {
     if (${uncappedName}Vector == null) {
       int vectorCount = internalStruct.size();
-      ${uncappedName}Vector = addOrGet(name, MinorType.${name?upper_case},<#if minor.class == "Decimal"> arrowType,</#if> ${name}Vector.class);
+      ${uncappedName}Vector = addOrGet(name, MinorType.${name?upper_case},<#if minor.class?starts_with("Decimal")> arrowType,</#if> ${name}Vector.class);
       if (internalStruct.size() > vectorCount) {
         ${uncappedName}Vector.allocateNew();
         if (callBack != null) {
@@ -293,10 +293,10 @@ public class UnionVector implements FieldVector {
     }
     return ${uncappedName}Vector;
   }
-  <#if minor.class == "Decimal">
+  <#if minor.class?starts_with("Decimal")>
   public ${name}Vector get${name}Vector() {
     if (${uncappedName}Vector == null) {
-      throw new IllegalArgumentException("No Decimal Vector present. Provide ArrowType argument to create a new vector");
+      throw new IllegalArgumentException("No ${uncappedName} present. Provide ArrowType argument to create a new vector");
     }
     return ${uncappedName}Vector;
   }
@@ -637,9 +637,9 @@ public class UnionVector implements FieldVector {
           <#assign name = minor.class?cap_first />
           <#assign fields = minor.fields!type.fields />
           <#assign uncappedName = name?uncap_first/>
-          <#if !minor.typeParams?? || minor.class == "Decimal" >
+          <#if !minor.typeParams?? || minor.class?starts_with("Decimal") >
         case ${name?upper_case}:
-        return get${name}Vector(name<#if minor.class == "Decimal">, arrowType</#if>);
+        return get${name}Vector(name<#if minor.class?starts_with("Decimal")>, arrowType</#if>);
           </#if>
         </#list>
       </#list>
@@ -722,11 +722,11 @@ public class UnionVector implements FieldVector {
           <#assign name = minor.class?cap_first />
           <#assign fields = minor.fields!type.fields />
           <#assign uncappedName = name?uncap_first/>
-          <#if !minor.typeParams?? || minor.class == "Decimal" >
+          <#if !minor.typeParams?? || minor.class?starts_with("Decimal") >
       case ${name?upper_case}:
         Nullable${name}Holder ${uncappedName}Holder = new Nullable${name}Holder();
         reader.read(${uncappedName}Holder);
-        setSafe(index, ${uncappedName}Holder<#if minor.class == "Decimal">, arrowType</#if>);
+        setSafe(index, ${uncappedName}Holder<#if minor.class?starts_with("Decimal")>, arrowType</#if>);
         break;
           </#if>
         </#list>
@@ -748,10 +748,10 @@ public class UnionVector implements FieldVector {
         <#assign name = minor.class?cap_first />
         <#assign fields = minor.fields!type.fields />
         <#assign uncappedName = name?uncap_first/>
-        <#if !minor.typeParams?? || minor.class == "Decimal" >
-    public void setSafe(int index, Nullable${name}Holder holder<#if minor.class == "Decimal">, ArrowType arrowType</#if>) {
+        <#if !minor.typeParams?? || minor.class?starts_with("Decimal") >
+    public void setSafe(int index, Nullable${name}Holder holder<#if minor.class?starts_with("Decimal")>, ArrowType arrowType</#if>) {
       setType(index, MinorType.${name?upper_case});
-      get${name}Vector(null<#if minor.class == "Decimal">, arrowType</#if>).setSafe(index, holder);
+      get${name}Vector(null<#if minor.class?starts_with("Decimal")>, arrowType</#if>).setSafe(index, holder);
     }
 
         </#if>

@@ -53,6 +53,7 @@ def get_many_types():
         pa.float32(),
         pa.float64(),
         pa.decimal128(19, 4),
+        pa.decimal256(76, 38),
         pa.string(),
         pa.binary(),
         pa.binary(10),
@@ -124,8 +125,21 @@ def test_null_field_may_not_be_non_nullable():
 
 
 def test_is_decimal():
-    assert types.is_decimal(pa.decimal128(19, 4))
-    assert not types.is_decimal(pa.int32())
+    decimal128 = pa.decimal128(19, 4)
+    decimal256 = pa.decimal256(76, 38)
+    int32 = pa.int32()
+
+    assert types.is_decimal(decimal128)
+    assert types.is_decimal(decimal256)
+    assert not types.is_decimal(int32)
+
+    assert types.is_decimal128(decimal128)
+    assert not types.is_decimal128(decimal256)
+    assert not types.is_decimal128(int32)
+
+    assert not types.is_decimal256(decimal128)
+    assert types.is_decimal256(decimal256)
+    assert not types.is_decimal256(int32)
 
 
 def test_is_list():
@@ -695,6 +709,7 @@ def test_bit_width():
                          (pa.uint32(), 32),
                          (pa.float16(), 16),
                          (pa.decimal128(19, 4), 128),
+                         (pa.decimal256(76, 38), 256),
                          (pa.binary(42), 42 * 8)]:
         assert ty.bit_width == expected
     for ty in [pa.binary(), pa.string(), pa.list_(pa.int16())]:
@@ -712,6 +727,10 @@ def test_decimal_properties():
     assert ty.byte_width == 16
     assert ty.precision == 19
     assert ty.scale == 4
+    ty = pa.decimal256(76, 38)
+    assert ty.byte_width == 32
+    assert ty.precision == 76
+    assert ty.scale == 38
 
 
 def test_decimal_overflow():
@@ -719,7 +738,13 @@ def test_decimal_overflow():
     pa.decimal128(38, 0)
     for i in (0, -1, 39):
         with pytest.raises(ValueError):
-            pa.decimal128(39, 0)
+            pa.decimal128(i, 0)
+
+    pa.decimal256(1, 0)
+    pa.decimal256(76, 0)
+    for i in (0, -1, 77):
+        with pytest.raises(ValueError):
+            pa.decimal256(i, 0)
 
 
 def test_type_equality_operators():

@@ -46,8 +46,8 @@ cdef dict _pandas_type_map = {
     _Type_FIXED_SIZE_BINARY: np.object_,
     _Type_STRING: np.object_,
     _Type_LIST: np.object_,
-    _Type_DECIMAL: np.object_,
     _Type_MAP: np.object_,
+    _Type_DECIMAL128: np.object_,
 }
 
 cdef dict _pep3118_type_map = {
@@ -622,6 +622,33 @@ cdef class Decimal128Type(FixedSizeBinaryType):
         The decimal scale (an integer).
         """
         return self.decimal128_type.scale()
+
+
+cdef class Decimal256Type(FixedSizeBinaryType):
+    """
+    Concrete class for Decimal256 data types.
+    """
+
+    cdef void init(self, const shared_ptr[CDataType]& type) except *:
+        FixedSizeBinaryType.init(self, type)
+        self.decimal256_type = <const CDecimal256Type*> type.get()
+
+    def __reduce__(self):
+        return decimal256, (self.precision, self.scale)
+
+    @property
+    def precision(self):
+        """
+        The decimal precision, in number of decimal digits (an integer).
+        """
+        return self.decimal256_type.precision()
+
+    @property
+    def scale(self):
+        """
+        The decimal scale (an integer).
+        """
+        return self.decimal256_type.scale()
 
 
 cdef class BaseExtensionType(DataType):
@@ -2090,6 +2117,26 @@ cpdef DataType decimal128(int precision, int scale=0):
     if precision < 1 or precision > 38:
         raise ValueError("precision should be between 1 and 38")
     decimal_type.reset(new CDecimal128Type(precision, scale))
+    return pyarrow_wrap_data_type(decimal_type)
+
+
+cpdef DataType decimal256(int precision, int scale=0):
+    """
+    Create decimal type with precision and scale and 256bit width.
+
+    Parameters
+    ----------
+    precision : int
+    scale : int
+
+    Returns
+    -------
+    decimal_type : Decimal256Type
+    """
+    cdef shared_ptr[CDataType] decimal_type
+    if precision < 1 or precision > 76:
+        raise ValueError("precision should be between 1 and 76")
+    decimal_type.reset(new CDecimal256Type(precision, scale))
     return pyarrow_wrap_data_type(decimal_type)
 
 

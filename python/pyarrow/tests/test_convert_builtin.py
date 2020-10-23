@@ -1425,61 +1425,62 @@ def test_sequence_mixed_types_with_specified_type_fails():
 
 def test_sequence_decimal():
     data = [decimal.Decimal('1234.183'), decimal.Decimal('8094.234')]
-    type = pa.decimal128(precision=7, scale=3)
-    arr = pa.array(data, type=type)
-    assert arr.to_pylist() == data
+    for type in [pa.decimal128, pa.decimal256]:
+        arr = pa.array(data, type=type(precision=7, scale=3))
+        assert arr.to_pylist() == data
 
 
 def test_sequence_decimal_different_precisions():
     data = [
         decimal.Decimal('1234234983.183'), decimal.Decimal('80943244.234')
     ]
-    type = pa.decimal128(precision=13, scale=3)
-    arr = pa.array(data, type=type)
-    assert arr.to_pylist() == data
+    for type in [pa.decimal128, pa.decimal256]:
+        arr = pa.array(data, type=type(precision=13, scale=3))
+        assert arr.to_pylist() == data
 
 
 def test_sequence_decimal_no_scale():
     data = [decimal.Decimal('1234234983'), decimal.Decimal('8094324')]
-    type = pa.decimal128(precision=10)
-    arr = pa.array(data, type=type)
-    assert arr.to_pylist() == data
+    for type in [pa.decimal128, pa.decimal256]:
+        arr = pa.array(data, type=type(precision=10))
+        assert arr.to_pylist() == data
 
 
 def test_sequence_decimal_negative():
     data = [decimal.Decimal('-1234.234983'), decimal.Decimal('-8.094324')]
-    type = pa.decimal128(precision=10, scale=6)
-    arr = pa.array(data, type=type)
-    assert arr.to_pylist() == data
+    for type in [pa.decimal128, pa.decimal256]:
+        arr = pa.array(data, type=type(precision=10, scale=6))
+        assert arr.to_pylist() == data
 
 
 def test_sequence_decimal_no_whole_part():
     data = [decimal.Decimal('-.4234983'), decimal.Decimal('.0103943')]
-    type = pa.decimal128(precision=7, scale=7)
-    arr = pa.array(data, type=type)
-    assert arr.to_pylist() == data
+    for type in [pa.decimal128, pa.decimal256]:
+        arr = pa.array(data, type=type(precision=7, scale=7))
+        assert arr.to_pylist() == data
 
 
 def test_sequence_decimal_large_integer():
     data = [decimal.Decimal('-394029506937548693.42983'),
             decimal.Decimal('32358695912932.01033')]
-    type = pa.decimal128(precision=23, scale=5)
-    arr = pa.array(data, type=type)
-    assert arr.to_pylist() == data
+    for type in [pa.decimal128, pa.decimal256]:
+        arr = pa.array(data, type=type(precision=23, scale=5))
+        assert arr.to_pylist() == data
 
 
 def test_sequence_decimal_from_integers():
     data = [0, 1, -39402950693754869342983]
     expected = [decimal.Decimal(x) for x in data]
+    # TODO: update this test after scaling implementation.
     type = pa.decimal128(precision=28, scale=5)
     arr = pa.array(data, type=type)
     assert arr.to_pylist() == expected
 
 
 def test_sequence_decimal_too_high_precision():
-    # ARROW-6989 python decimal created from float has too high precision
+    # ARROW-6989 python decimal has too high precision
     with pytest.raises(ValueError, match="precision out of range"):
-        pa.array([decimal.Decimal(123.234)])
+        pa.array([decimal.Decimal('1' * 80)])
 
 
 def test_range_types():

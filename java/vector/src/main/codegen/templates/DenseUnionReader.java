@@ -92,7 +92,7 @@ public class DenseUnionReader extends AbstractFieldReader {
       <#list type.minor as minor>
         <#assign name = minor.class?cap_first />
         <#assign uncappedName = name?uncap_first/>
-        <#if !minor.typeParams?? || minor.class == "Decimal">
+        <#if !minor.typeParams?? || minor.class?starts_with("Decimal")>
       case ${name?upper_case}:
       reader = (FieldReader) get${name}(typeId);
       break;
@@ -165,7 +165,7 @@ public class DenseUnionReader extends AbstractFieldReader {
       <#assign friendlyType = (minor.friendlyType!minor.boxedType!type.boxedType) />
       <#assign safeType=friendlyType />
       <#if safeType=="byte[]"><#assign safeType="ByteArray" /></#if>
-      <#if !minor.typeParams?? || minor.class == "Decimal">
+      <#if !minor.typeParams?? || minor.class?starts_with("Decimal")>
 
   private ${name}ReaderImpl get${name}(byte typeId) {
     ${name}ReaderImpl reader = (${name}ReaderImpl) readers[typeId];

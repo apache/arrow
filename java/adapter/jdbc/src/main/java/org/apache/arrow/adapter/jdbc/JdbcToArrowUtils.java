@@ -251,7 +251,7 @@ public class JdbcToArrowUtils {
       case Types.DECIMAL:
         int precision = fieldInfo.getPrecision();
         int scale = fieldInfo.getScale();
-        return new ArrowType.Decimal(precision, scale);
+        return new ArrowType.Decimal(precision, scale, 128);
       case Types.REAL:
       case Types.FLOAT:
         return new ArrowType.FloatingPoint(SINGLE);

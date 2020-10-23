@@ -498,7 +498,8 @@ KernelInit GetHashInit(Type::type type_id) {
     case Type::LARGE_STRING:
       return HashInit<LargeBinaryType, Action>;
     case Type::FIXED_SIZE_BINARY:
-    case Type::DECIMAL:
+    case Type::DECIMAL128:
+    case Type::DECIMAL256:
       return HashInit<FixedSizeBinaryType, Action>;
     default:
       DCHECK(false);

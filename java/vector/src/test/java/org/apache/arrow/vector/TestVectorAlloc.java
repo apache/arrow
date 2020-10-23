@@ -72,7 +72,7 @@ public class TestVectorAlloc {
         field("UTF8", MinorType.VARCHAR.getType()),
         field("VARBINARY", MinorType.VARBINARY.getType()),
         field("BIT", MinorType.BIT.getType()),
-        field("DECIMAL", new Decimal(38, 5)),
+        field("DECIMAL", new Decimal(38, 5, 128)),
         field("FIXEDSIZEBINARY", new FixedSizeBinary(50)),
         field("DATEDAY", MinorType.DATEDAY.getType()),
         field("DATEMILLI", MinorType.DATEMILLI.getType()),

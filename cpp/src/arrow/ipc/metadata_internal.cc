@@ -236,8 +236,6 @@ static inline TimeUnit::type FromFlatbufferUnit(flatbuf::TimeUnit unit) {
   return TimeUnit::SECOND;
 }
 
-constexpr int32_t kDecimalBitWidth = 128;
-
 Status ConcreteTypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
                                   const std::vector<std::shared_ptr<Field>>& children,
                                   std::shared_ptr<DataType>* out) {
@@ -273,10 +271,13 @@ Status ConcreteTypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
       return Status::OK();
     case flatbuf::Type::Decimal: {
       auto dec_type = static_cast<const flatbuf::Decimal*>(type_data);
-      if (dec_type->bitWidth() != kDecimalBitWidth) {
-        return Status::Invalid("Library only supports 128-bit decimal values");
+      if (dec_type->bitWidth() == 128) {
+        return Decimal128Type::Make(dec_type->precision(), dec_type->scale()).Value(out);
+      } else if (dec_type->bitWidth() == 256) {
+        return Decimal256Type::Make(dec_type->precision(), dec_type->scale()).Value(out);
+      } else {
+        return Status::Invalid("Library only supports 128-bit or 256-bit decimal values");
       }
-      return Decimal128Type::Make(dec_type->precision(), dec_type->scale()).Value(out);
     }
     case flatbuf::Type::Date: {
       auto date_type = static_cast<const flatbuf::Date*>(type_data);
@@ -594,11 +595,21 @@ class FieldToFlatbufferVisitor {
     return Status::OK();
   }
 
-  Status Visit(const DecimalType& type) {
+  Status Visit(const Decimal128Type& type) {
     const auto& dec_type = checked_cast<const Decimal128Type&>(type);
     fb_type_ = flatbuf::Type::Decimal;
-    type_offset_ =
-        flatbuf::CreateDecimal(fbb_, dec_type.precision(), dec_type.scale()).Union();
+    type_offset_ = flatbuf::CreateDecimal(fbb_, dec_type.precision(), dec_type.scale(),
+                                          /*bitWidth=*/128)
+                       .Union();
+    return Status::OK();
+  }
+
+  Status Visit(const Decimal256Type& type) {
+    const auto& dec_type = checked_cast<const Decimal256Type&>(type);
+    fb_type_ = flatbuf::Type::Decimal;
+    type_offset_ = flatbuf::CreateDecimal(fbb_, dec_type.precision(), dec_type.scale(),
+                                          /*bitWith=*/256)
+                       .Union();
     return Status::OK();
   }
 

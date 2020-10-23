@@ -83,7 +83,7 @@ public class DecimalTypeUtilTest {
   }
 
   private ArrowType.Decimal getDecimal(int precision, int scale) {
-    return new ArrowType.Decimal(precision, scale);
+    return new ArrowType.Decimal(precision, scale, 128);
   }
 
 }

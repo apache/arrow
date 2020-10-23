@@ -1486,6 +1486,12 @@ cdef class Decimal128Array(FixedSizeBinaryArray):
     Concrete class for Arrow arrays of decimal128 data type.
     """
 
+
+cdef class Decimal256Array(FixedSizeBinaryArray):
+    """
+    Concrete class for Arrow arrays of decimal256 data type.
+    """
+
 cdef class BaseListArray(Array):
 
     def flatten(self):
@@ -2276,7 +2282,8 @@ cdef dict _array_classes = {
     _Type_LARGE_STRING: LargeStringArray,
     _Type_DICTIONARY: DictionaryArray,
     _Type_FIXED_SIZE_BINARY: FixedSizeBinaryArray,
-    _Type_DECIMAL: Decimal128Array,
+    _Type_DECIMAL128: Decimal128Array,
+    _Type_DECIMAL256: Decimal256Array,
     _Type_STRUCT: StructArray,
     _Type_EXTENSION: ExtensionArray,
 }

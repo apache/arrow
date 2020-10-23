@@ -155,7 +155,7 @@ public class TypeLayout {
 
       @Override
       public TypeLayout visit(Decimal type) {
-        return newFixedWidthTypeLayout(BufferLayout.dataBuffer(128));
+        return newFixedWidthTypeLayout(BufferLayout.dataBuffer(type.getBitWidth()));
       }
 
       @Override

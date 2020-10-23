@@ -240,10 +240,18 @@ class DictionaryBuilderBase : public ArrayBuilder {
 
   /// \brief Append a decimal (only for Decimal128Type)
   template <typename T1 = T>
-  enable_if_decimal<T1, Status> Append(const Decimal128& value) {
+  enable_if_decimal128<T1, Status> Append(const Decimal128& value) {
     uint8_t data[16];
     value.ToBytes(data);
     return Append(data, 16);
+  }
+
+  /// \brief Append a decimal (only for Decimal128Type)
+  template <typename T1 = T>
+  enable_if_decimal256<T1, Status> Append(const Decimal256& value) {
+    uint8_t data[32];
+    value.ToBytes(data);
+    return Append(data, 32);
   }
 
   /// \brief Append a scalar null value

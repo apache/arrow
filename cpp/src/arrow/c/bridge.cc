@@ -304,9 +304,16 @@ struct SchemaExporter {
     return SetFormat("w:" + std::to_string(type.byte_width()));
   }
 
-  Status Visit(const Decimal128Type& type) {
-    return SetFormat("d:" + std::to_string(type.precision()) + "," +
-                     std::to_string(type.scale()));
+  Status Visit(const DecimalType& type) {
+    if (type.bit_width() == 128) {
+      // 128 is the default bit-width
+      return SetFormat("d:" + std::to_string(type.precision()) + "," +
+                       std::to_string(type.scale()));
+    } else {
+      return SetFormat("d:" + std::to_string(type.precision()) + "," +
+                       std::to_string(type.scale()) + "," +
+                       std::to_string(type.bit_width()));
+    }
   }
 
   Status Visit(const BinaryType& type) { return SetFormat("z"); }
@@ -973,13 +980,20 @@ struct SchemaImporter {
   Status ProcessDecimal() {
     RETURN_NOT_OK(f_parser_.CheckNext(':'));
     ARROW_ASSIGN_OR_RAISE(auto prec_scale, f_parser_.ParseInts(f_parser_.Rest()));
-    if (prec_scale.size() != 2) {
+    // 3 elements indicates bit width was communicated as well.
+    if (prec_scale.size() != 2 && prec_scale.size() != 3) {
       return f_parser_.Invalid();
     }
     if (prec_scale[0] <= 0 || prec_scale[1] <= 0) {
       return f_parser_.Invalid();
     }
-    type_ = decimal(prec_scale[0], prec_scale[1]);
+    if (prec_scale.size() == 2 || prec_scale[2] == 128) {
+      type_ = decimal(prec_scale[0], prec_scale[1]);
+    } else if (prec_scale[2] == 256) {
+      type_ = decimal256(prec_scale[0], prec_scale[1]);
+    } else {
+      return f_parser_.Invalid();
+    }
     return Status::OK();
   }
 

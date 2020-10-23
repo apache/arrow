@@ -27,6 +27,7 @@ import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.DateDayVector;
 import org.apache.arrow.vector.DateMilliVector;
+import org.apache.arrow.vector.Decimal256Vector;
 import org.apache.arrow.vector.DecimalVector;
 import org.apache.arrow.vector.DurationVector;
 import org.apache.arrow.vector.ExtensionTypeVector;
@@ -72,6 +73,7 @@ import org.apache.arrow.vector.complex.impl.BigIntWriterImpl;
 import org.apache.arrow.vector.complex.impl.BitWriterImpl;
 import org.apache.arrow.vector.complex.impl.DateDayWriterImpl;
 import org.apache.arrow.vector.complex.impl.DateMilliWriterImpl;
+import org.apache.arrow.vector.complex.impl.Decimal256WriterImpl;
 import org.apache.arrow.vector.complex.impl.DecimalWriterImpl;
 import org.apache.arrow.vector.complex.impl.DenseUnionWriter;
 import org.apache.arrow.vector.complex.impl.DurationWriterImpl;
@@ -528,6 +530,20 @@ public class Types {
         return new DecimalWriterImpl((DecimalVector) vector);
       }
     },
+    DECIMAL256(null) {
+      @Override
+      public FieldVector getNewVector(
+          Field field,
+          BufferAllocator allocator,
+          CallBack schemaChangeCallback) {
+        return new Decimal256Vector(field, allocator);
+      }
+
+      @Override
+      public FieldWriter getNewFieldWriter(ValueVector vector) {
+        return new Decimal256WriterImpl((Decimal256Vector) vector);
+      }
+    },
     FIXEDSIZEBINARY(null) {
       @Override
       public FieldVector getNewVector(
@@ -899,6 +915,9 @@ public class Types {
 
       @Override
       public MinorType visit(Decimal type) {
+        if (type.getBitWidth() == 256) {
+          return MinorType.DECIMAL256;
+        }
         return MinorType.DECIMAL;
       }
 

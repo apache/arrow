@@ -92,7 +92,7 @@
     },
     {
       name: "Decimal",
-      fields: [{name: "precision", type: int}, {name: "scale", type: int}],
+      fields: [{name: "precision", type: int}, {name: "scale", type: int}, {name: "bitWidth", type: int}],
       complex: false
     },
     {

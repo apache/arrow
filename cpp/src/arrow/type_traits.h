@@ -66,7 +66,8 @@ TYPE_ID_TRAIT(TIMESTAMP, TimestampType)
 TYPE_ID_TRAIT(INTERVAL_DAY_TIME, DayTimeIntervalType)
 TYPE_ID_TRAIT(INTERVAL_MONTHS, MonthIntervalType)
 TYPE_ID_TRAIT(DURATION, DurationType)
-TYPE_ID_TRAIT(DECIMAL, Decimal128Type)  // XXX or DecimalType?
+TYPE_ID_TRAIT(DECIMAL128, Decimal128Type)
+TYPE_ID_TRAIT(DECIMAL256, Decimal256Type)
 TYPE_ID_TRAIT(STRUCT, StructType)
 TYPE_ID_TRAIT(LIST, ListType)
 TYPE_ID_TRAIT(LARGE_LIST, LargeListType)
@@ -285,6 +286,14 @@ struct TypeTraits<Decimal128Type> {
   using ArrayType = Decimal128Array;
   using BuilderType = Decimal128Builder;
   using ScalarType = Decimal128Scalar;
+  constexpr static bool is_parameter_free = false;
+};
+
+template <>
+struct TypeTraits<Decimal256Type> {
+  using ArrayType = Decimal256Array;
+  using BuilderType = Decimal256Builder;
+  using ScalarType = Decimal256Scalar;
   constexpr static bool is_parameter_free = false;
 };
 
@@ -577,6 +586,18 @@ using is_decimal_type = std::is_base_of<DecimalType, T>;
 template <typename T, typename R = void>
 using enable_if_decimal = enable_if_t<is_decimal_type<T>::value, R>;
 
+template <typename T>
+using is_decimal128_type = std::is_base_of<Decimal128Type, T>;
+
+template <typename T, typename R = void>
+using enable_if_decimal128 = enable_if_t<is_decimal128_type<T>::value, R>;
+
+template <typename T>
+using is_decimal256_type = std::is_base_of<Decimal256Type, T>;
+
+template <typename T, typename R = void>
+using enable_if_decimal256 = enable_if_t<is_decimal256_type<T>::value, R>;
+
 // Nested Types
 
 template <typename T>
@@ -614,7 +635,7 @@ template <typename T>
 using is_list_type =
     std::integral_constant<bool, std::is_same<T, ListType>::value ||
                                      std::is_same<T, LargeListType>::value ||
-                                     std::is_same<T, FixedSizeListType>::valuae>;
+                                     std::is_same<T, FixedSizeListType>::value>;
 
 template <typename T, typename R = void>
 using enable_if_list_type = enable_if_t<is_list_type<T>::value, R>;
@@ -894,7 +915,8 @@ static inline bool is_dictionary(Type::type type_id) {
 
 static inline bool is_fixed_size_binary(Type::type type_id) {
   switch (type_id) {
-    case Type::DECIMAL:
+    case Type::DECIMAL128:
+    case Type::DECIMAL256:
     case Type::FIXED_SIZE_BINARY:
       return true;
     default:

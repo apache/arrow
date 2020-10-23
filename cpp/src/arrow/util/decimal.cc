@@ -445,6 +445,24 @@ bool ParseDecimalComponents(const char* s, size_t size, DecimalComponents* out) 
   return pos == size;
 }
 
+inline Status ToArrowStatus(DecimalStatus dstatus, int num_bits) {
+  switch (dstatus) {
+    case DecimalStatus::kSuccess:
+      return Status::OK();
+
+    case DecimalStatus::kDivideByZero:
+      return Status::Invalid("Division by 0 in Decimal", num_bits);
+
+    case DecimalStatus::kOverflow:
+      return Status::Invalid("Overflow occurred during Decimal", num_bits, " operation.");
+
+    case DecimalStatus::kRescaleDataLoss:
+      return Status::Invalid("Rescaling Decimal", num_bits,
+                             " value would cause data loss");
+  }
+  return Status::OK();
+}
+
 }  // namespace
 
 Status Decimal128::FromString(const util::string_view& s, Decimal128* out,
@@ -598,26 +616,7 @@ Result<Decimal128> Decimal128::FromBigEndian(const uint8_t* bytes, int32_t lengt
 }
 
 Status Decimal128::ToArrowStatus(DecimalStatus dstatus) const {
-  Status status;
-
-  switch (dstatus) {
-    case DecimalStatus::kSuccess:
-      status = Status::OK();
-      break;
-
-    case DecimalStatus::kDivideByZero:
-      status = Status::Invalid("Division by 0 in Decimal128");
-      break;
-
-    case DecimalStatus::kOverflow:
-      status = Status::Invalid("Overflow occurred during Decimal128 operation.");
-      break;
-
-    case DecimalStatus::kRescaleDataLoss:
-      status = Status::Invalid("Rescaling decimal value would cause data loss");
-      break;
-  }
-  return status;
+  return arrow::ToArrowStatus(dstatus, 128);
 }
 
 std::ostream& operator<<(std::ostream& os, const Decimal128& decimal) {
@@ -625,4 +624,106 @@ std::ostream& operator<<(std::ostream& os, const Decimal128& decimal) {
   return os;
 }
 
+Decimal256::Decimal256(const std::string& str) : Decimal256() {
+  *this = Decimal256::FromString(str).ValueOrDie();
+}
+
+std::string Decimal256::ToIntegerString() const {
+  std::string result;
+  if (static_cast<int64_t>(little_endian_array()[3]) < 0) {
+    result.push_back('-');
+    Decimal256 abs = *this;
+    abs.Negate();
+    AppendLittleEndianArrayToString(abs.little_endian_array(), &result);
+  } else {
+    AppendLittleEndianArrayToString(little_endian_array(), &result);
+  }
+  return result;
+}
+
+std::string Decimal256::ToString(int32_t scale) const {
+  std::string str(ToIntegerString());
+  AdjustIntegerStringWithScale(scale, &str);
+  return str;
+}
+
+Status Decimal256::FromString(const util::string_view& s, Decimal256* out,
+                              int32_t* precision, int32_t* scale) {
+  if (s.empty()) {
+    return Status::Invalid("Empty string cannot be converted to decimal");
+  }
+
+  DecimalComponents dec;
+  if (!ParseDecimalComponents(s.data(), s.size(), &dec)) {
+    return Status::Invalid("The string '", s, "' is not a valid decimal number");
+  }
+
+  // Count number of significant digits (without leading zeros)
+  size_t first_non_zero = dec.whole_digits.find_first_not_of('0');
+  size_t significant_digits = dec.fractional_digits.size();
+  if (first_non_zero != std::string::npos) {
+    significant_digits += dec.whole_digits.size() - first_non_zero;
+  }
+
+  if (precision != nullptr) {
+    *precision = static_cast<int32_t>(significant_digits);
+  }
+
+  if (scale != nullptr) {
+    if (dec.has_exponent) {
+      auto adjusted_exponent = dec.exponent;
+      auto len = static_cast<int32_t>(significant_digits);
+      *scale = -adjusted_exponent + len - 1;
+    } else {
+      *scale = static_cast<int32_t>(dec.fractional_digits.size());
+    }
+  }
+
+  if (out != nullptr) {
+    std::array<uint64_t, 4> little_endian_array = {0, 0, 0, 0};
+    ShiftAndAdd(dec.whole_digits, little_endian_array.data(), little_endian_array.size());
+    ShiftAndAdd(dec.fractional_digits, little_endian_array.data(),
+                little_endian_array.size());
+    *out = Decimal256(little_endian_array);
+
+    if (dec.sign == '-') {
+      out->Negate();
+    }
+  }
+
+  return Status::OK();
+}
+
+Status Decimal256::FromString(const std::string& s, Decimal256* out, int32_t* precision,
+                              int32_t* scale) {
+  return FromString(util::string_view(s), out, precision, scale);
+}
+
+Status Decimal256::FromString(const char* s, Decimal256* out, int32_t* precision,
+                              int32_t* scale) {
+  return FromString(util::string_view(s), out, precision, scale);
+}
+
+Result<Decimal256> Decimal256::FromString(const util::string_view& s) {
+  Decimal256 out;
+  RETURN_NOT_OK(FromString(s, &out, nullptr, nullptr));
+  return std::move(out);
+}
+
+Result<Decimal256> Decimal256::FromString(const std::string& s) {
+  return FromString(util::string_view(s));
+}
+
+Result<Decimal256> Decimal256::FromString(const char* s) {
+  return FromString(util::string_view(s));
+}
+
+Status Decimal256::ToArrowStatus(DecimalStatus dstatus) const {
+  return arrow::ToArrowStatus(dstatus, 256);
+}
+
+std::ostream& operator<<(std::ostream& os, const Decimal256& decimal) {
+  os << decimal.ToIntegerString();
+  return os;
+}
 }  // namespace arrow

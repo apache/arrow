@@ -167,6 +167,12 @@ class PyValue {
     return value;
   }
 
+  static Result<Decimal256> Convert(const Decimal256Type* type, const O&, I obj) {
+    Decimal256 value;
+    RETURN_NOT_OK(internal::DecimalFromPyObject(obj, *type, &value));
+    return value;
+  }
+
   static Result<int32_t> Convert(const Date32Type*, const O&, I obj) {
     int32_t value;
     if (PyDate_Check(obj)) {

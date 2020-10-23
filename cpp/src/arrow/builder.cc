@@ -51,6 +51,7 @@ struct DictionaryBuilderCase {
   }
   Status Visit(const FixedSizeBinaryType&) { return CreateFor<FixedSizeBinaryType>(); }
   Status Visit(const Decimal128Type&) { return CreateFor<Decimal128Type>(); }
+  Status Visit(const Decimal256Type&) { return CreateFor<Decimal256Type>(); }
 
   Status Visit(const DataType& value_type) { return NotImplemented(value_type); }
   Status Visit(const HalfFloatType& value_type) { return NotImplemented(value_type); }
@@ -138,6 +139,7 @@ Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
       BUILDER_CASE(LargeBinary);
       BUILDER_CASE(FixedSizeBinary);
       BUILDER_CASE(Decimal128);
+      BUILDER_CASE(Decimal256);
 
     case Type::DICTIONARY: {
       const auto& dict_type = static_cast<const DictionaryType&>(*type);

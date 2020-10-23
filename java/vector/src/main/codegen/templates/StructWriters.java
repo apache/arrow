@@ -255,7 +255,7 @@ public class ${mode}StructWriter extends AbstractFieldWriter {
                 <#assign constructorParams = constructorParams + [ typeParam.name ] />
               </#list>
             </#if>    
-            new ${minor.arrowType}(${constructorParams?join(", ")})
+            new ${minor.arrowType}(${constructorParams?join(", ")}<#if minor.class?starts_with("Decimal")>, ${vectName}Vector.TYPE_WIDTH * 8</#if>)
           <#else>
             MinorType.${upperName}.getType()
           </#if>
@@ -274,7 +274,7 @@ public class ${mode}StructWriter extends AbstractFieldWriter {
     } else {
       if (writer instanceof PromotableWriter) {
         // ensure writers are initialized
-        ((PromotableWriter)writer).getWriter(MinorType.${upperName}<#if minor.class == "Decimal">, new ${minor.arrowType}(precision, scale)</#if>);
+        ((PromotableWriter)writer).getWriter(MinorType.${upperName}<#if minor.class?starts_with("Decimal")>, new ${minor.arrowType}(precision, scale, ${vectName}Vector.TYPE_WIDTH * 8)</#if>);
       }
     }
     return writer;

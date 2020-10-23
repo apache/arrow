@@ -499,15 +499,16 @@ TEST_F(TestPrettyPrint, FixedSizeBinaryType) {
   CheckArray(*array, {2, 1}, ex_2);
 }
 
-TEST_F(TestPrettyPrint, Decimal128Type) {
+TEST_F(TestPrettyPrint, DecimalTypes) {
   int32_t p = 19;
   int32_t s = 4;
 
-  auto type = decimal(p, s);
-  auto array = ArrayFromJSON(type, "[\"123.4567\", \"456.7891\", null]");
+  for (auto type : {decimal128(p, s), decimal256(p, s)}) {
+    auto array = ArrayFromJSON(type, "[\"123.4567\", \"456.7891\", null]");
 
-  static const char* ex = "[\n  123.4567,\n  456.7891,\n  null\n]";
-  CheckArray(*array, {0}, ex);
+    static const char* ex = "[\n  123.4567,\n  456.7891,\n  null\n]";
+    CheckArray(*array, {0}, ex);
+  }
 }
 
 TEST_F(TestPrettyPrint, DictionaryType) {

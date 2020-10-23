@@ -494,14 +494,14 @@ TEST(TestFixedSizeBinary, Dictionary) {
   ASSERT_RAISES(Invalid, ArrayFromJSON(dictionary(int8(), type), R"(["x"])", &array));
 }
 
-TEST(TestDecimal, Basics) {
-  std::shared_ptr<DataType> type = decimal(10, 4);
+template <typename DecimalValue, typename DecimalBuilder>
+void TestDecimalBasic(std::shared_ptr<DataType> type) {
   std::shared_ptr<Array> expected, actual;
 
   ASSERT_OK(ArrayFromJSON(type, "[]", &actual));
   ASSERT_OK(actual->ValidateFull());
   {
-    Decimal128Builder builder(type);
+    DecimalBuilder builder(type);
     ASSERT_OK(builder.Finish(&expected));
   }
   AssertArraysEqual(*expected, *actual);
@@ -509,9 +509,9 @@ TEST(TestDecimal, Basics) {
   ASSERT_OK(ArrayFromJSON(type, "[\"123.4567\", \"-78.9000\"]", &actual));
   ASSERT_OK(actual->ValidateFull());
   {
-    Decimal128Builder builder(type);
-    ASSERT_OK(builder.Append(Decimal128(1234567)));
-    ASSERT_OK(builder.Append(Decimal128(-789000)));
+    DecimalBuilder builder(type);
+    ASSERT_OK(builder.Append(DecimalValue(1234567)));
+    ASSERT_OK(builder.Append(DecimalValue(-789000)));
     ASSERT_OK(builder.Finish(&expected));
   }
   AssertArraysEqual(*expected, *actual);
@@ -519,31 +519,41 @@ TEST(TestDecimal, Basics) {
   ASSERT_OK(ArrayFromJSON(type, "[\"123.4567\", null]", &actual));
   ASSERT_OK(actual->ValidateFull());
   {
-    Decimal128Builder builder(type);
-    ASSERT_OK(builder.Append(Decimal128(1234567)));
+    DecimalBuilder builder(type);
+    ASSERT_OK(builder.Append(DecimalValue(1234567)));
     ASSERT_OK(builder.AppendNull());
     ASSERT_OK(builder.Finish(&expected));
   }
   AssertArraysEqual(*expected, *actual);
 }
 
-TEST(TestDecimal, Errors) {
-  std::shared_ptr<DataType> type = decimal(10, 4);
-  std::shared_ptr<Array> array;
+TEST(TestDecimal128, Basics) {
+  TestDecimalBasic<Decimal128, Decimal128Builder>(decimal128(10, 4));
+}
 
-  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[0]", &array));
-  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[12.3456]", &array));
-  // Bad scale
-  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[\"12.345\"]", &array));
-  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[\"12.34560\"]", &array));
+TEST(TestDecimal256, Basics) {
+  TestDecimalBasic<Decimal256, Decimal256Builder>(decimal256(10, 4));
+}
+
+TEST(TestDecimal, Errors) {
+  for (std::shared_ptr<DataType> type : {decimal128(10, 4), decimal256(10, 4)}) {
+    std::shared_ptr<Array> array;
+
+    ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[0]", &array));
+    ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[12.3456]", &array));
+    // Bad scale
+    ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[\"12.345\"]", &array));
+    ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[\"12.34560\"]", &array));
+  }
 }
 
 TEST(TestDecimal, Dictionary) {
-  std::shared_ptr<DataType> type = decimal(10, 2);
-
-  AssertJSONDictArray(int32(), type, R"(["123.45", "-78.90", "-78.90", null, "123.45"])",
-                      /*indices=*/"[0, 1, 1, null, 0]",
-                      /*values=*/R"(["123.45", "-78.90"])");
+  for (std::shared_ptr<DataType> type : {decimal128(10, 2), decimal256(10, 2)}) {
+    AssertJSONDictArray(int32(), type,
+                        R"(["123.45", "-78.90", "-78.90", null, "123.45"])",
+                        /*indices=*/"[0, 1, 1, null, 0]",
+                        /*values=*/R"(["123.45", "-78.90"])");
+  }
 }
 
 TEST(TestList, IntegerList) {

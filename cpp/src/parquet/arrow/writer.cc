@@ -50,7 +50,6 @@ using arrow::BinaryArray;
 using arrow::BooleanArray;
 using arrow::ChunkedArray;
 using arrow::DataType;
-using arrow::Decimal128Array;
 using arrow::DictionaryArray;
 using arrow::ExtensionArray;
 using arrow::ExtensionType;

@@ -73,12 +73,18 @@ floating_types = st.sampled_from([
     pa.float32(),
     pa.float64()
 ])
-decimal_type = st.builds(
+decimal128_type = st.builds(
     pa.decimal128,
     precision=st.integers(min_value=1, max_value=38),
     scale=st.integers(min_value=1, max_value=38)
 )
-numeric_types = st.one_of(integer_types, floating_types, decimal_type)
+decimal256_type = st.builds(
+    pa.decimal256,
+    precision=st.integers(min_value=1, max_value=76),
+    scale=st.integers(min_value=1, max_value=76)
+)
+numeric_types = st.one_of(integer_types, floating_types,
+                          decimal128_type, decimal256_type)
 
 date_types = st.sampled_from([
     pa.date32(),
@@ -359,7 +365,7 @@ pandas_compatible_primitive_types = st.one_of(
     bool_type,
     integer_types,
     st.sampled_from([pa.float32(), pa.float64()]),
-    decimal_type,
+    decimal128_type,
     date_types,
     time_types,
     # Need to exclude timestamp and duration types otherwise hypothesis

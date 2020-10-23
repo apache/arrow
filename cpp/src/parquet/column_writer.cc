@@ -1860,7 +1860,8 @@ using ::arrow::internal::checked_pointer_cast;
 // Requires a custom serializer because decimal128 in parquet are in big-endian
 // format. Thus, a temporary local buffer is required.
 template <typename ParquetType, typename ArrowType>
-struct SerializeFunctor<ParquetType, ArrowType, ::arrow::enable_if_decimal<ArrowType>> {
+struct SerializeFunctor<ParquetType, ArrowType,
+                        ::arrow::enable_if_decimal128<ArrowType>> {
   Status Serialize(const ::arrow::Decimal128Array& array, ArrowWriteContext* ctx,
                    FLBA* out) {
     AllocateScratch(array, ctx);
@@ -1908,13 +1909,23 @@ struct SerializeFunctor<ParquetType, ArrowType, ::arrow::enable_if_decimal<Arrow
   int64_t* scratch;
 };
 
+template <typename ParquetType, typename ArrowType>
+struct SerializeFunctor<ParquetType, ArrowType,
+                        ::arrow::enable_if_decimal256<ArrowType>> {
+  Status Serialize(const ::arrow::Decimal256Array& array, ArrowWriteContext* ctx,
+                   FLBA* out) {
+    return Status::NotImplemented("Decimal256 serialization isn't implemented");
+  }
+};
+
 template <>
 Status TypedColumnWriterImpl<FLBAType>::WriteArrowDense(
     const int16_t* def_levels, const int16_t* rep_levels, int64_t num_levels,
     const ::arrow::Array& array, ArrowWriteContext* ctx, bool maybe_parent_nulls) {
   switch (array.type()->id()) {
     WRITE_SERIALIZE_CASE(FIXED_SIZE_BINARY, FixedSizeBinaryType, FLBAType)
-    WRITE_SERIALIZE_CASE(DECIMAL, Decimal128Type, FLBAType)
+    WRITE_SERIALIZE_CASE(DECIMAL128, Decimal128Type, FLBAType)
+    WRITE_SERIALIZE_CASE(DECIMAL256, Decimal256Type, FLBAType)
     default:
       break;
   }
