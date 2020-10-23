@@ -61,7 +61,7 @@
 use futures::{FutureExt, Stream, StreamExt, TryStreamExt};
 
 use arrow::{
-    array::{Int64Array, PrimitiveArrayOps, StringArray},
+    array::{Int64Array, StringArray},
     datatypes::SchemaRef,
     error::ArrowError,
     record_batch::RecordBatch,

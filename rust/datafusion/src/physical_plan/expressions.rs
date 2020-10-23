@@ -1703,8 +1703,8 @@ mod tests {
     use arrow::datatypes::*;
     use arrow::{
         array::{
-            LargeStringArray, PrimitiveArray, PrimitiveArrayOps, PrimitiveBuilder,
-            StringArray, StringDictionaryBuilder, Time64NanosecondArray,
+            LargeStringArray, PrimitiveArray, PrimitiveBuilder, StringArray,
+            StringDictionaryBuilder, Time64NanosecondArray,
         },
         util::display::array_value_to_string,
     };
