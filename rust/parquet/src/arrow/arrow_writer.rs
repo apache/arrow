@@ -537,38 +537,7 @@ mod tests {
         assert_eq!(levels[0].repetition, Some(vec![0, 0, 1, 0, 1, 1]));
     }
 
-    // I'm trying to test the same scenario as the previous test, but get the data into an Array
-    // through JSON so that we can more easily match these tests up with the scenarios tested in
-    // cpp/src/parquet/arrow/path_internal_test.cc where the inputs are in JSON.
-    // However, something about the way I'm constructing or accessing this data isn't producing
-    // the same results...
-    #[test]
-    fn get_levels_from_json() {
-        use arrow::json;
-        use std::io::Cursor;
-
-        let schema = Schema::new(vec![
-            Field::new("a", DataType::List(Box::new(DataType::Int64)), true),
-        ]);
-
-        let json_str = r#"{"a":[[1], [2, 3], [4, 5, 6]]}"#;
-        let json_bytes = json_str.as_bytes();
-        let json_cursor = Cursor::new(json_bytes);
-        let builder = json::ReaderBuilder::new().with_schema(Arc::new(schema.clone()));
-        let mut reader = builder.build(json_cursor).unwrap();
-
-        let batch = reader.next().unwrap().unwrap();
-
-        assert_eq!(1, batch.num_columns());
-
-        let list_array = batch.column(0);
-
-        let levels = get_levels(&list_array, 0, &vec![1i16; 6][..], None);
-
-        assert_eq!(levels.len(), 1);
-        assert_eq!(levels[0].definition, vec![1; 6]);
-        assert_eq!(levels[0].repetition, Some(vec![0, 0, 1, 0, 1, 1]));
-    }
+    // Not confident I know how to correctly create these scenarios:
 
     #[test]
     #[ignore] // get_primitive_def_levels gets an empty parent_def_levels and I'm not sure why
@@ -589,8 +558,35 @@ mod tests {
         assert_eq!(levels[0].repetition, Some(vec![0; 4]));
     }
 
-    // Not confident I know how to correctly create these scenarios:
-    // fn get_levels_nullable_single_list_all_empty_lists()
+    #[test]
+    #[ignore] // get_levels returns all zeros for definition
+    fn get_levels_nullable_single_list_all_empty_lists() {
+        // Construct a value array
+        let value_data = ArrayData::builder(DataType::Int64)
+            .len(1)
+            .add_buffer(Buffer::from(&[1u64].to_byte_slice()))
+            .build();
+
+        // Construct a buffer for value offsets, for the nested array:
+        // [[], [], [], []]
+        let value_offsets = Buffer::from(&[0i64, 0, 0, 0, 0].to_byte_slice());
+
+        // Construct a list array from the above two
+        let list_data_type = DataType::LargeList(Box::new(DataType::Int64));
+        let list_data = ArrayData::builder(list_data_type)
+            .len(4)
+            .add_buffer(value_offsets)
+            .add_child_data(value_data)
+            .build();
+        let list_array: Arc<dyn Array> = Arc::new(LargeListArray::from(list_data));
+
+        let levels = get_levels(&list_array, 0, &[1i16; 4], None);
+
+        assert_eq!(levels.len(), 1);
+        assert_eq!(levels[0].definition, [1; 4]);
+        assert_eq!(levels[0].repetition, Some(vec![0; 4]));
+    }
+
     // fn get_levels_nullable_single_list_all_null_entries()
 
     #[test]
