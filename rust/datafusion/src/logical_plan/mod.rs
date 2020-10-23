@@ -30,6 +30,7 @@ use arrow::{
     datatypes::{DataType, Field, Schema, SchemaRef},
 };
 
+use crate::datasource::custom::CustomScanner;
 use crate::datasource::parquet::ParquetTable;
 use crate::datasource::TableProvider;
 use crate::error::{DataFusionError, Result};
@@ -841,6 +842,11 @@ pub enum LogicalPlan {
         /// The schema description of the output
         projected_schema: SchemaRef,
     },
+    /// Produces rows from a custom user implementation
+    CustomScan {
+        /// A shared reference to the custom implementation
+        scanner: Arc<dyn CustomScanner>,
+    },
     /// Produces rows by scanning Parquet file(s)
     ParquetScan {
         /// The path to the files
@@ -928,6 +934,7 @@ impl LogicalPlan {
             LogicalPlan::TableScan {
                 projected_schema, ..
             } => &projected_schema,
+            LogicalPlan::CustomScan { scanner, .. } => scanner.projected_schema(),
             LogicalPlan::Projection { schema, .. } => &schema,
             LogicalPlan::Filter { input, .. } => input.schema(),
             LogicalPlan::Aggregate { schema, .. } => &schema,
@@ -965,6 +972,9 @@ impl LogicalPlan {
             } => write!(f, "TableScan: {} projection={:?}", table_name, projection),
             LogicalPlan::InMemoryScan { ref projection, .. } => {
                 write!(f, "InMemoryScan: projection={:?}", projection)
+            }
+            LogicalPlan::CustomScan { ref scanner, .. } => {
+                write!(f, "CustomScan: {:?}", scanner.format())
             }
             LogicalPlan::CsvScan {
                 ref path,

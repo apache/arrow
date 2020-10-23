@@ -202,6 +202,7 @@ pub mod aggregates;
 pub mod array_expressions;
 pub mod common;
 pub mod csv;
+pub mod custom_source;
 pub mod datetime_expressions;
 pub mod distinct_expressions;
 pub mod empty;

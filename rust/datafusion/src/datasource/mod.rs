@@ -18,6 +18,7 @@
 //! DataFusion data sources
 
 pub mod csv;
+pub mod custom;
 pub mod datasource;
 pub mod memory;
 pub mod parquet;
