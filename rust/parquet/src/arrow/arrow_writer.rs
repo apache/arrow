@@ -587,7 +587,39 @@ mod tests {
         assert_eq!(levels[0].repetition, Some(vec![0; 4]));
     }
 
-    // fn get_levels_nullable_single_list_all_null_entries()
+
+    #[test]
+    #[ignore] // get_levels returns all zeros for definition
+    fn get_levels_nullable_single_list_all_null_entries() {
+        // Construct a value array
+        let bit_v = [0; 1];
+        let value_data = ArrayData::builder(DataType::Int64)
+            .len(4)
+            .null_count(4)
+            .null_bit_buffer(Buffer::from(bit_v))
+            .add_buffer(Buffer::from(&[1i64, 2, 3, 4].to_byte_slice()))
+            .build();
+
+        // Construct a buffer for value offsets, for the nested array:
+        // [[null], [null], [null], [null]]
+        let value_offsets = Buffer::from(&[0i64, 1, 2, 3, 4].to_byte_slice());
+
+        // Construct a list array from the above two
+        let list_data_type = DataType::LargeList(Box::new(DataType::Int64));
+        let list_data = ArrayData::builder(list_data_type)
+            .len(4)
+            .add_buffer(value_offsets)
+            .add_child_data(value_data)
+            .build();
+
+        let list_array: Arc<dyn Array> = Arc::new(LargeListArray::from(list_data));
+
+        let levels = get_levels(&list_array, 0, &[1i16; 4], None);
+
+        assert_eq!(levels.len(), 1);
+        assert_eq!(levels[0].definition, [2; 4]);
+        assert_eq!(levels[0].repetition, Some(vec![0; 4]));
+    }
 
     #[test]
     fn arrow_writer() {
