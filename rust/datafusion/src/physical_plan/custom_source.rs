@@ -22,14 +22,14 @@ use std::fmt;
 use std::sync::Arc;
 
 use crate::datasource::custom::CustomScanner;
-use crate::error::{ExecutionError, Result};
+use crate::error::{DataFusionError, Result};
 use crate::physical_plan::ExecutionPlan;
 use crate::physical_plan::Partitioning;
 use arrow::datatypes::SchemaRef;
 
 use fmt::Debug;
 
-use super::SendableRecordBatchReader;
+use super::SendableRecordBatchStream;
 use async_trait::async_trait;
 
 /// Execution plan for scanning a Parquet file
@@ -75,15 +75,15 @@ impl ExecutionPlan for CustomSourceExec {
     if children.is_empty() {
       Ok(Arc::new(self.clone()))
     } else {
-      Err(ExecutionError::General(format!(
+      Err(DataFusionError::Plan(format!(
         "Children cannot be replaced in {:?}",
         self
       )))
     }
   }
 
-  async fn execute(&self, partition: usize) -> Result<SendableRecordBatchReader> {
-    self.execute(partition).await
+  async fn execute(&self, partition: usize) -> Result<SendableRecordBatchStream> {
+    self.scanner.execute(partition).await
   }
 }
 

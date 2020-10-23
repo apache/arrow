@@ -21,8 +21,8 @@
 
 use crate::error::Result;
 use crate::physical_plan::Partitioning;
+use crate::physical_plan::SendableRecordBatchStream;
 use arrow::datatypes::SchemaRef;
-use arrow::record_batch::RecordBatchReader;
 use async_trait::async_trait;
 use std::{collections::HashSet, fmt, sync::Arc};
 
@@ -42,5 +42,5 @@ pub trait CustomScanner: Send + Sync + fmt::Debug {
   /// get scanner partitioning
   fn output_partitioning(&self) -> Partitioning;
   /// get iterator for a given partition
-  async fn execute(&self, partition: usize) -> Result<Box<dyn RecordBatchReader + Send>>;
+  async fn execute(&self, partition: usize) -> Result<SendableRecordBatchStream>;
 }
