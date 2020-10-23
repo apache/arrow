@@ -17,7 +17,7 @@
 
 use arrow::{
     array::{
-        Array, ArrayRef, Float32Array, Float64Array, Float64Builder, PrimitiveArrayOps,
+        Array, ArrayRef, Float32Array, Float64Array, Float64Builder,
     },
     datatypes::DataType,
     record_batch::RecordBatch,
