@@ -17,7 +17,6 @@
 
 //! Defines miscellaneous array kernels.
 
-use crate::array::PrimitiveArrayOps;
 use crate::array::*;
 use crate::datatypes::*;
 use crate::error::{ArrowError, Result};

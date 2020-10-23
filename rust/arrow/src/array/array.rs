@@ -411,30 +411,6 @@ pub struct PrimitiveArray<T: ArrowPrimitiveType> {
     raw_values: RawPtrBox<T::Native>,
 }
 
-/// Common operations for primitive types, including numeric types and boolean type.
-pub trait PrimitiveArrayOps<T: ArrowPrimitiveType> {
-    /// Returns a `Buffer` holding all the values of this array.
-    ///
-    /// Note this doesn't take the offset of this array into account.
-    fn values(&self) -> Buffer;
-
-    /// Returns the primitive value at index `i`.
-    ///
-    /// Note this doesn't do any bound checking, for performance reason.
-    fn value(&self, i: usize) -> T::Native;
-}
-
-impl<T: ArrowPrimitiveType> PrimitiveArrayOps<T> for PrimitiveArray<T> {
-    fn values(&self) -> Buffer {
-        self.data.buffers()[0].clone()
-    }
-
-    fn value(&self, i: usize) -> T::Native {
-        let offset = i + self.offset();
-        unsafe { T::index(self.raw_values.get(), offset) }
-    }
-}
-
 impl<T: ArrowPrimitiveType> Array for PrimitiveArray<T> {
     fn as_any(&self) -> &Any {
         self
@@ -499,6 +475,17 @@ impl<T: ArrowNumericType> PrimitiveArray<T> {
     // Returns a new primitive array builder
     pub fn builder(capacity: usize) -> PrimitiveBuilder<T> {
         PrimitiveBuilder::<T>::new(capacity)
+    }
+}
+
+impl<T: ArrowPrimitiveType> PrimitiveArray<T> {
+    pub fn values(&self) -> Buffer {
+        self.data.buffers()[0].clone()
+    }
+
+    pub fn value(&self, i: usize) -> T::Native {
+        let offset = i + self.offset();
+        unsafe { T::index(self.raw_values.get(), offset) }
     }
 }
 
