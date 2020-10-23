@@ -514,7 +514,7 @@ mod tests {
         // Construct a value array
         let value_data = ArrayData::builder(DataType::Int64)
             .len(6)
-            .add_buffer(Buffer::from(&[1, 2, 3, 4, 5, 6].to_byte_slice()))
+            .add_buffer(Buffer::from(&[1u64, 2, 3, 4, 5, 6].to_byte_slice()))
             .build();
 
         // Construct a buffer for value offsets, for the nested array:
