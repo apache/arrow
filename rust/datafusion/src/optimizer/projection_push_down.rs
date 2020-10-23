@@ -256,7 +256,7 @@ fn optimize_plan(
                 projected_schema: projected_schema,
             })
         }
-        LogicalPlan::CustomScan { scanner, .. } => Ok(LogicalPlan::CustomScan {
+        LogicalPlan::SourceScan { scanner, .. } => Ok(LogicalPlan::SourceScan {
             scanner: scanner.project(required_columns, has_projection)?,
         }),
         LogicalPlan::CsvScan {

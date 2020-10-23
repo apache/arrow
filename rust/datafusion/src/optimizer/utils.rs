@@ -123,7 +123,7 @@ pub fn expressions(plan: &LogicalPlan) -> Vec<Expr> {
         // plans without expressions
         LogicalPlan::TableScan { .. }
         | LogicalPlan::InMemoryScan { .. }
-        | LogicalPlan::CustomScan { .. }
+        | LogicalPlan::SourceScan { .. }
         | LogicalPlan::ParquetScan { .. }
         | LogicalPlan::CsvScan { .. }
         | LogicalPlan::EmptyRelation { .. }
@@ -145,7 +145,7 @@ pub fn inputs(plan: &LogicalPlan) -> Vec<&LogicalPlan> {
         // plans without inputs
         LogicalPlan::TableScan { .. }
         | LogicalPlan::InMemoryScan { .. }
-        | LogicalPlan::CustomScan { .. }
+        | LogicalPlan::SourceScan { .. }
         | LogicalPlan::ParquetScan { .. }
         | LogicalPlan::CsvScan { .. }
         | LogicalPlan::EmptyRelation { .. }
@@ -192,7 +192,7 @@ pub fn from_plan(
         LogicalPlan::EmptyRelation { .. }
         | LogicalPlan::TableScan { .. }
         | LogicalPlan::InMemoryScan { .. }
-        | LogicalPlan::CustomScan { .. }
+        | LogicalPlan::SourceScan { .. }
         | LogicalPlan::ParquetScan { .. }
         | LogicalPlan::CsvScan { .. }
         | LogicalPlan::CreateExternalTable { .. }
