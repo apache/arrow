@@ -79,7 +79,8 @@ internal::LevelInfo ComputeLevelInfo(const ColumnDescriptor* descr) {
   return level_info;
 }
 
-inline const int16_t* AddIfNotNull(const int16_t* base, int64_t offset) {
+template <class T>
+inline const T* AddIfNotNull(const T* base, int64_t offset) {
   if (base != nullptr) {
     return base + offset;
   }
@@ -999,7 +1000,8 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
       if (values_to_write > 0) {
         DCHECK_NE(nullptr, values);
       }
-      WriteValues(values + value_offset, values_to_write, batch_size - values_to_write);
+      WriteValues(AddIfNotNull(values, value_offset), values_to_write,
+                  batch_size - values_to_write);
       CommitWriteAndCheckPageLimit(batch_size, values_to_write);
       value_offset += values_to_write;
 
@@ -1027,10 +1029,10 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
       WriteLevelsSpaced(batch_size, AddIfNotNull(def_levels, offset),
                         AddIfNotNull(rep_levels, offset));
       if (bits_buffer_ != nullptr) {
-        WriteValuesSpaced(values + value_offset, batch_num_values,
+        WriteValuesSpaced(AddIfNotNull(values, value_offset), batch_num_values,
                           batch_num_spaced_values, bits_buffer_->data(), /*offset=*/0);
       } else {
-        WriteValuesSpaced(values + value_offset, batch_num_values,
+        WriteValuesSpaced(AddIfNotNull(values, value_offset), batch_num_values,
                           batch_num_spaced_values, valid_bits,
                           valid_bits_offset + value_offset);
       }
@@ -1190,7 +1192,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
                                   int64_t* out_spaced_values_to_write,
                                   int64_t* null_count) {
     if (bits_buffer_ == nullptr) {
-      if (!level_info_.HasNullableValues()) {
+      if (level_info_.def_level == 0) {
         *out_values_to_write = batch_size;
         *out_spaced_values_to_write = batch_size;
         *null_count = 0;
