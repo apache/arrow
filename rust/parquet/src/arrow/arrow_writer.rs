@@ -537,6 +537,39 @@ mod tests {
         assert_eq!(levels[0].repetition, Some(vec![0, 0, 1, 0, 1, 1]));
     }
 
+    // I'm trying to test the same scenario as the previous test, but get the data into an Array
+    // through JSON so that we can more easily match these tests up with the scenarios tested in
+    // cpp/src/parquet/arrow/path_internal_test.cc where the inputs are in JSON.
+    // However, something about the way I'm constructing or accessing this data isn't producing
+    // the same results...
+    #[test]
+    fn get_levels_from_json() {
+        use arrow::json;
+        use std::io::Cursor;
+
+        let schema = Schema::new(vec![
+            Field::new("a", DataType::List(Box::new(DataType::Int64)), true),
+        ]);
+
+        let json_str = r#"{"a":[[1], [2, 3], [4, 5, 6]]}"#;
+        let json_bytes = json_str.as_bytes();
+        let json_cursor = Cursor::new(json_bytes);
+        let builder = json::ReaderBuilder::new().with_schema(Arc::new(schema.clone()));
+        let mut reader = builder.build(json_cursor).unwrap();
+
+        let batch = reader.next().unwrap().unwrap();
+
+        assert_eq!(1, batch.num_columns());
+
+        let list_array = batch.column(0);
+
+        let levels = get_levels(&list_array, 0, &vec![1i16; 6][..], None);
+
+        assert_eq!(levels.len(), 1);
+        assert_eq!(levels[0].definition, vec![1; 6]);
+        assert_eq!(levels[0].repetition, Some(vec![0, 0, 1, 0, 1, 1]));
+    }
+
     #[test]
     #[ignore] // get_primitive_def_levels gets an empty parent_def_levels and I'm not sure why
     fn get_levels_nullable_single_list_all_null_lists() {
