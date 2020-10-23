@@ -36,7 +36,7 @@
 //! can be obtained via [`is_null(index)`](array::Array::is_null). To downcast an [`Array`](array::Array) to a specific implementation, you can use
 //!
 //! ```rust
-//! use arrow::array::{Array, PrimitiveArrayOps, UInt32Array};
+//! use arrow::array::{Array, UInt32Array};
 //! let array = UInt32Array::from(vec![Some(1), None, Some(3)]);
 //! assert_eq!(array.len(), 3);
 //! assert_eq!(array.value(0), 1);
@@ -61,7 +61,7 @@
 //!
 //! ```rust
 //! # use std::sync::Arc;
-//! # use arrow::array::{UInt32Array, ArrayRef, PrimitiveArrayOps};
+//! # use arrow::array::{UInt32Array, ArrayRef};
 //! # let array = UInt32Array::from(vec![Some(1), None, Some(3)]);
 //! # let array: ArrayRef = Arc::new(array);
 //! let array = array.as_any().downcast_ref::<UInt32Array>().unwrap();

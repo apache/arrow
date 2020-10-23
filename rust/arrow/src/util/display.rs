@@ -20,7 +20,7 @@
 //! record batch pretty printing.
 
 use crate::array;
-use crate::array::{Array, PrimitiveArrayOps};
+use crate::array::Array;
 use crate::datatypes::{
     ArrowNativeType, ArrowPrimitiveType, DataType, Int16Type, Int32Type, Int64Type,
     Int8Type, TimeUnit, UInt16Type, UInt32Type, UInt64Type, UInt8Type,

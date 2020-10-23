@@ -534,9 +534,7 @@ mod tests {
         datasource::MemTable, logical_plan::create_udaf,
         physical_plan::expressions::AvgAccumulator,
     };
-    use arrow::array::{
-        ArrayRef, Float64Array, Int32Array, PrimitiveArrayOps, StringArray,
-    };
+    use arrow::array::{ArrayRef, Float64Array, Int32Array, StringArray};
     use arrow::compute::add;
     use std::fs::File;
     use std::thread::{self, JoinHandle};

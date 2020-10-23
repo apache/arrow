@@ -17,7 +17,7 @@
 
 use crate::datatypes::ArrowPrimitiveType;
 
-use super::{Array, PrimitiveArray, PrimitiveArrayOps};
+use super::{Array, PrimitiveArray};
 
 /// an iterator that returns Some(T) or None, that can be used on any non-boolean PrimitiveArray
 #[derive(Debug)]

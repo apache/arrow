@@ -28,10 +28,7 @@ use arrow::array::{
     Int16Builder, Int32Builder, Int64Builder, Int8Builder, ListBuilder, UInt16Builder,
     UInt32Builder, UInt64Builder, UInt8Builder,
 };
-use arrow::{
-    array::{ArrayRef, PrimitiveArrayOps},
-    datatypes::DataType,
-};
+use arrow::{array::ArrayRef, datatypes::DataType};
 
 use crate::error::{DataFusionError, Result};
 

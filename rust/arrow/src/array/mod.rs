@@ -49,7 +49,7 @@
 //! ```
 //! extern crate arrow;
 //!
-//! use arrow::array::{Int16Array, PrimitiveArrayOps};
+//! use arrow::array::Int16Array;
 //!
 //! // Create a new builder with a capacity of 100
 //! let mut builder = Int16Array::builder(100);
@@ -160,7 +160,6 @@ pub use self::array::GenericBinaryArray;
 pub use self::array::GenericListArray;
 pub use self::array::GenericStringArray;
 pub use self::array::OffsetSizeTrait;
-pub use self::array::PrimitiveArrayOps;
 pub use self::array::StringOffsetSizeTrait;
 
 // --------------------- Array Builder ---------------------

@@ -16,9 +16,7 @@
 // under the License.
 
 use arrow::{
-    array::{
-        Array, ArrayRef, Float32Array, Float64Array, Float64Builder, PrimitiveArrayOps,
-    },
+    array::{Array, ArrayRef, Float32Array, Float64Array, Float64Builder},
     datatypes::DataType,
     record_batch::RecordBatch,
     util::pretty,

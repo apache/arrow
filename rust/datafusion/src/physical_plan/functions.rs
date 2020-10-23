@@ -362,10 +362,7 @@ mod tests {
     use super::*;
     use crate::{error::Result, physical_plan::expressions::lit, scalar::ScalarValue};
     use arrow::{
-        array::{
-            ArrayRef, FixedSizeListArray, Float64Array, Int32Array, PrimitiveArrayOps,
-            StringArray,
-        },
+        array::{ArrayRef, FixedSizeListArray, Float64Array, Int32Array, StringArray},
         datatypes::Field,
         record_batch::RecordBatch,
     };

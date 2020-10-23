@@ -409,7 +409,7 @@ pub struct SortColumn {
 /// ```
 /// use std::convert::From;
 /// use std::sync::Arc;
-/// use arrow::array::{ArrayRef, StringArray, PrimitiveArray, PrimitiveArrayOps, as_primitive_array};
+/// use arrow::array::{ArrayRef, StringArray, PrimitiveArray, as_primitive_array};
 /// use arrow::compute::kernels::sort::{SortColumn, SortOptions, lexsort};
 /// use arrow::datatypes::Int64Type;
 ///

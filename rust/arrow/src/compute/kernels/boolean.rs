@@ -153,7 +153,6 @@ pub fn is_not_null(input: &ArrayRef) -> Result<BooleanArray> {
 mod tests {
     use super::*;
     use crate::array::Int32Array;
-    use crate::array::PrimitiveArrayOps;
 
     #[test]
     fn test_bool_array_and() {
