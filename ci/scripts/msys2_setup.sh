@@ -24,7 +24,6 @@ target=$1
 packages=()
 case "${target}" in
   cpp|c_glib|ruby)
-    packages+=(make)
     packages+=(${MINGW_PACKAGE_PREFIX}-aws-sdk-cpp)
     packages+=(${MINGW_PACKAGE_PREFIX}-ccache)
     packages+=(${MINGW_PACKAGE_PREFIX}-boost)
@@ -37,6 +36,7 @@ case "${target}" in
     packages+=(${MINGW_PACKAGE_PREFIX}-gtest)
     packages+=(${MINGW_PACKAGE_PREFIX}-llvm)
     packages+=(${MINGW_PACKAGE_PREFIX}-lz4)
+    packages+=(${MINGW_PACKAGE_PREFIX}-ninja)
     packages+=(${MINGW_PACKAGE_PREFIX}-polly)
     packages+=(${MINGW_PACKAGE_PREFIX}-protobuf)
     packages+=(${MINGW_PACKAGE_PREFIX}-python3-numpy)
