@@ -356,7 +356,7 @@ static inline uint8_t* UTF8Encode(uint8_t* str, uint32_t codepoint) {
 
 static inline bool UTF8Decode(const uint8_t** data, uint32_t* codepoint) {
   const uint8_t* str = *data;
-  if (*str < 0x80) {  // ascci
+  if (*str < 0x80) {  // ascii
     *codepoint = *str++;
   } else if (ARROW_PREDICT_FALSE(*str < 0xC0)) {  // invalid non-ascii char
     return false;
@@ -403,7 +403,7 @@ static inline bool UTF8Decode(const uint8_t** data, uint32_t* codepoint) {
 
 static inline bool UTF8DecodeReverse(const uint8_t** data, uint32_t* codepoint) {
   const uint8_t* str = *data;
-  if (*str < 0x80) {  // ascci
+  if (*str < 0x80) {  // ascii
     *codepoint = *str--;
   } else {
     if (ARROW_PREDICT_FALSE(!Utf8IsContinuation(*str))) {

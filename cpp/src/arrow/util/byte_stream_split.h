@@ -58,7 +58,7 @@ void ByteStreamSplitDecodeSse2(const uint8_t* data, int64_t num_values, int64_t 
     out[i] = arrow::util::SafeLoadAs<T>(&gathered_byte_data[0]);
   }
 
-  // The blocks get processed hierahically using the unpack intrinsics.
+  // The blocks get processed hierarchically using the unpack intrinsics.
   // Example with four streams:
   // Stage 1: AAAA BBBB CCCC DDDD
   // Stage 2: ACAC ACAC BDBD BDBD
@@ -200,7 +200,7 @@ void ByteStreamSplitDecodeAvx2(const uint8_t* data, int64_t num_values, int64_t 
     out[i] = arrow::util::SafeLoadAs<T>(&gathered_byte_data[0]);
   }
 
-  // Processed hierahically using unpack intrinsics, then permute intrinsics.
+  // Processed hierarchically using unpack intrinsics, then permute intrinsics.
   __m256i stage[kNumStreamsLog2 + 1U][kNumStreams];
   __m256i final_result[kNumStreams];
   constexpr size_t kNumStreamsHalf = kNumStreams / 2U;
@@ -292,7 +292,7 @@ void ByteStreamSplitEncodeAvx2(const uint8_t* raw_values, const size_t num_value
   }
 
   // Path for float.
-  // 1. Processed hierahically to 32i blcok using the unpack intrinsics.
+  // 1. Processed hierarchically to 32i blcok using the unpack intrinsics.
   // 2. Pack 128i block using _mm256_permutevar8x32_epi32.
   // 3. Pack final 256i block with _mm256_permute2x128_si256.
   constexpr size_t kNumUnpack = 3U;
@@ -358,7 +358,7 @@ void ByteStreamSplitDecodeAvx512(const uint8_t* data, int64_t num_values, int64_
     out[i] = arrow::util::SafeLoadAs<T>(&gathered_byte_data[0]);
   }
 
-  // Processed hierahically using the unpack, then two shuffles.
+  // Processed hierarchically using the unpack, then two shuffles.
   __m512i stage[kNumStreamsLog2 + 1U][kNumStreams];
   __m512i shuffle[kNumStreams];
   __m512i final_result[kNumStreams];
@@ -526,7 +526,7 @@ void ByteStreamSplitEncodeAvx512(const uint8_t* raw_values, const size_t num_val
       final_result[7] = _mm512_shuffle_i32x4(shuffle[6], shuffle[7], 0b11011101);
     } else {
       // Path for float.
-      // 1. Processed hierahically to 32i blcok using the unpack intrinsics.
+      // 1. Processed hierarchically to 32i blcok using the unpack intrinsics.
       // 2. Pack 128i block using _mm256_permutevar8x32_epi32.
       // 3. Pack final 256i block with _mm256_permute2x128_si256.
       for (size_t i = 0; i < kNumStreams; ++i)

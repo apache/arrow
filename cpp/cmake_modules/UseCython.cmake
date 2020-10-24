@@ -22,7 +22,7 @@
 # (this is an inherent limitation of Cython).
 #
 # The sample paths set with the CMake include_directories() command will be used
-# for include directories to search for *.pxd when running the Cython complire.
+# for include directories to search for *.pxd when running the Cython compiler.
 #
 # Cache variables that effect the behavior include:
 #

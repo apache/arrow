@@ -1039,7 +1039,7 @@ class ARROW_EXPORT IpcFormatWriter : public RecordBatchWriter {
         return Status::Invalid(
             "Dictionary replacement detected when writing IPC file format. "
             "Arrow IPC files only support a single dictionary for a given field "
-            "accross all batches.");
+            "across all batches.");
       }
 
       RETURN_NOT_OK(GetDictionaryPayload(dictionary_id, dictionary, options_, &payload));

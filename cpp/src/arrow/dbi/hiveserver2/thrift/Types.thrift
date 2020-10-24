@@ -115,7 +115,7 @@ enum TRuntimeFilterMode {
   // fragment.
   LOCAL,
 
-  // All fiters are computed in the BE, and are published globally.
+  // All filters are computed in the BE, and are published globally.
   GLOBAL
 }
 

@@ -689,7 +689,7 @@ TEST(FirstTimeBitmapWriter, AppendWordShiftsBitsCorrectly) {
   check_append("11111110", "10110010", "10110010", 15, true);
 }
 
-TEST(TestAppendBitmap, AppendWordOnlyApproriateBytesWritten) {
+TEST(TestAppendBitmap, AppendWordOnlyAppropriateBytesWritten) {
   std::vector<uint8_t> valid_bits = {0x00, 0x00};
 
   uint64_t bitmap = 0x1FF;

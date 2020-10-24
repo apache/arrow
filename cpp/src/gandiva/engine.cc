@@ -122,7 +122,7 @@ Status Engine::Make(const std::shared_ptr<Configuration>& conf,
   auto ctx = arrow::internal::make_unique<llvm::LLVMContext>();
   auto module = arrow::internal::make_unique<llvm::Module>("codegen", *ctx);
 
-  // Capture before moving, ExceutionEngine does not allow retrieving the
+  // Capture before moving, ExecutionEngine does not allow retrieving the
   // original Module.
   auto module_ptr = module.get();
 
