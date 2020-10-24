@@ -25,6 +25,7 @@ RUN apt-get update -y -q && \
         gtk-doc-tools \
         libgirepository1.0-dev \
         libglib2.0-doc \
+        lsb-release \
         luarocks \
         pkg-config \
         ruby-dev && \
