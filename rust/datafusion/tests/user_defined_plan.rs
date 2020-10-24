@@ -306,8 +306,8 @@ impl UserDefinedLogicalNode for TopKPlanNode {
         exprs: &Vec<Expr>,
         inputs: &Vec<LogicalPlan>,
     ) -> Arc<dyn UserDefinedLogicalNode + Send + Sync> {
-        assert_eq!(inputs.len(), 1, "input size inconistent");
-        assert_eq!(exprs.len(), 1, "expression size inconistent");
+        assert_eq!(inputs.len(), 1, "input size inconsistent");
+        assert_eq!(exprs.len(), 1, "expression size inconsistent");
         Arc::new(TopKPlanNode {
             k: self.k,
             input: inputs[0].clone(),

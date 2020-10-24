@@ -34,7 +34,7 @@ use chrono::{prelude::*, LocalResult};
 /// Implements the `to_timestamp` function to convert a string to a
 /// timestamp, following the model of spark SQL’s to_`timestamp`.
 ///
-/// In addition to RFC3339 / ISO8601 standard tiemstamps, it also
+/// In addition to RFC3339 / ISO8601 standard timestamps, it also
 /// accepts strings that use a space ` ` to separate the date and time
 /// as well as strings that have no explicit timezone offset.
 ///
@@ -96,7 +96,7 @@ fn string_to_timestamp_nanos(s: &str) -> Result<i64> {
         return Ok(ts.timestamp_nanos());
     }
 
-    // with an explict Z, using ' ' as a separator
+    // with an explicit Z, using ' ' as a separator
     // Example: 2020-09-08 13:42:29Z
     if let Ok(ts) = Utc.datetime_from_str(s, "%Y-%m-%d %H:%M:%S%.fZ") {
         return Ok(ts.timestamp_nanos());

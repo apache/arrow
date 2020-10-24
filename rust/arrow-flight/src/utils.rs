@@ -154,4 +154,4 @@ pub fn flight_data_to_arrow_batch(
         )
 }
 
-// TODO: add more explicit conversion that expoess flight descriptor and metadata options
+// TODO: add more explicit conversion that exposes flight descriptor and metadata options

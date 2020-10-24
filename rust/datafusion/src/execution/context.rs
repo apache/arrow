@@ -381,7 +381,7 @@ impl From<ExecutionContextState> for ExecutionContext {
     }
 }
 
-/// A planner used to add extensions to DataFusion logical and phusical plans.
+/// A planner used to add extensions to DataFusion logical and physical plans.
 pub trait QueryPlanner {
     /// Given a `LogicalPlan`, create a new, modified `LogicalPlan`
     /// plan. This method is run after built in `OptimizerRule`s. By

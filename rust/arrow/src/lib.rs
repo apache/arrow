@@ -52,7 +52,7 @@
 //! # let array = UInt32Array::from(vec![Some(1), None, Some(3)]);
 //! let array: ArrayRef = Arc::new(array);
 //! assert_eq!(array.len(), 3);
-//! // array.value() is not available in the dynamcally-typed version
+//! // array.value() is not available in the dynamically-typed version
 //! assert_eq!(array.is_null(1), true);
 //! assert_eq!(array.data_type(), &DataType::UInt32);
 //! ```

@@ -57,7 +57,7 @@ fn main() -> Result<()> {
     println!("{:?}", tensor);
 
     // In order to build a tensor from an array the function to_byte_slice add the
-    // required padding to the elements in the the array.
+    // required padding to the elements in the array.
     let buf = Buffer::from(&[0, 1, 2, 3, 4, 5, 6, 7, 9, 10].to_byte_slice());
     let tensor = Int32Tensor::try_new(buf, Some(vec![2, 5]), None, None)?;
     println!("\nInt32 Tensor");
