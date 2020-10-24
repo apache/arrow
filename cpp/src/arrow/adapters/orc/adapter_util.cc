@@ -316,6 +316,73 @@ Status AppendBatch(const liborc::Type* type, liborc::ColumnVectorBatch* batch,
   }
 }
 
+// template <class array_type, class batch_type, class elem_type>
+// Status FillNumericBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch, int64_t& arrowOffset, int64_t& orcOffset, int64_t length, Array* parray){
+//   auto array = checked_cast<array_type*>(parray);
+//   auto batch = checked_cast<batch_type*>(cbatch);
+//   int64_t arrowLength = array.length();
+//   if (!arrowLength)
+//     return Status::OK();
+//   int64_t arrowEnd = arrowOffset + arrowLength;
+//   int64_t initORCOffset = orcOffset;
+//   if (array->null_count)
+//     batch->hasNulls = true;
+//   for (; orcOffset < length && arrowOffset < arrowEnd; orcOffset++, arrowOffset++) {
+//     if (array->IsNull(arrowOffset)) {
+//       batch->notNull[orcOffset] = false;
+//     }
+//     else {
+//       batch->data[orcOffset] = array->Value(arrowOffset);
+//     }
+//   }
+//   batch->numElements += orcOffset - initORCOffset;
+//   return Status::OK();
+// }
+
+
+
+// Status FillStructBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch, int64_t offset, int64_t length, Array* parray){
+//   auto array = checked_cast<StructArray*>(parray);
+//   auto batch = checked_cast<liborc::StructVectorBatch*>(cbatch);
+//   auto size = type->fields().size();
+//   int64_t lastIndex = offset + length;
+//   for (auto i = 0; i < size; i++) {
+//     for (auto j = offset; j < lastIndex; j++) {
+//       if 
+//       subarray = array->field(i).get();
+//     }
+//   }
+// }
+
+// Status FillListBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch, int64_t& arrowOffset, int64_t& orcOffset, int64_t length, Array* parray){
+//   auto array = checked_cast<ListArray*>(parray);
+//   auto batch = checked_cast<liborc::ListVectorBatch*>(cbatch);
+//   int64_t arrowLength = array.length();
+//   if (!arrowLength)
+//     return Status::OK();
+//   int64_t arrowEnd = arrowOffset + arrowLength;
+//   int64_t initORCOffset = orcOffset;
+//   if (array->null_count)
+//     batch->hasNulls = true;
+//   for (; orcOffset < length && arrowOffset < arrowEnd; orcOffset++, arrowOffset++) {
+//     if (array->IsNull(arrowOffset)) {
+//       batch->notNull[orcOffset] = false;
+//     }
+//     else {
+//       batch->data[orcOffset] = array->Value(arrowOffset);
+//       batch->data[orcOffset] = array->Value(arrowOffset);
+//       FillBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch, int64_t& arrowOffset, int64_t orcOffset, int64_t length, ChunkedArray* pchunkedArray)
+//     }
+//   }
+//   batch->numElements += orcOffset - initORCOffset;
+//   return Status::OK();
+// }
+
+// Status FillBatch(const DataType* type, liborc::ColumnVectorBatch* cbatch, int64_t& arrowOffset, int64_t orcOffset, int64_t length, ChunkedArray* pchunkedArray){
+
+// }
+
+
 Status GetArrowType(const liborc::Type* type, std::shared_ptr<DataType>* out) {
   // When subselecting fields on read, liborc will set some nodes to nullptr,
   // so we need to check for nullptr before progressing
