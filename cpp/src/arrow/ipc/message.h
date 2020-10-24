@@ -365,7 +365,7 @@ class ARROW_EXPORT MessageDecoder {
   ///   memcpy(buffer->mutable_data() + current_buffer_size,
   ///          small_chunk,
   ///          small_chunk_size);
-  ///   if (buffer->size() < decoder.next_requied_size()) {
+  ///   if (buffer->size() < decoder.next_required_size()) {
   ///     continue;
   ///   }
   ///   std::shared_ptr<arrow::Buffer> chunk(buffer.release());

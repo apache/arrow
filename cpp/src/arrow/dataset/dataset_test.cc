@@ -744,7 +744,7 @@ TEST_F(TestSchemaUnification, SelectPartitionColumnsFilterPhysicalColumn) {
 }
 
 TEST_F(TestSchemaUnification, SelectMixedColumnsAndFilter) {
-  // Selects mix of phyical/virtual with a different order and uses a filter on
+  // Selects mix of physical/virtual with a different order and uses a filter on
   // a physical column not selected.
   ASSERT_OK_AND_ASSIGN(auto scan_builder, dataset_->NewScan());
   ASSERT_OK(scan_builder->Filter("phy_2"_ >= 212));

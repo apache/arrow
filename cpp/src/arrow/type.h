@@ -126,7 +126,7 @@ class ARROW_EXPORT DataType : public detail::Fingerprintable {
   ARROW_DEPRECATED("Use field(i)")
   const std::shared_ptr<Field>& child(int i) const { return field(i); }
 
-  /// Returns the the child-field at index i.
+  /// Returns the child-field at index i.
   const std::shared_ptr<Field>& field(int i) const { return children_[i]; }
 
   ARROW_DEPRECATED("Use fields()")
@@ -1718,18 +1718,18 @@ class ARROW_EXPORT SchemaBuilder {
   };
 
   /// \brief Construct an empty SchemaBuilder
-  /// `field_merge_options` is only effecitive when `conflict_policy` == `CONFLICT_MERGE`.
+  /// `field_merge_options` is only effective when `conflict_policy` == `CONFLICT_MERGE`.
   SchemaBuilder(
       ConflictPolicy conflict_policy = CONFLICT_APPEND,
       Field::MergeOptions field_merge_options = Field::MergeOptions::Defaults());
   /// \brief Construct a SchemaBuilder from a list of fields
-  /// `field_merge_options` is only effecitive when `conflict_policy` == `CONFLICT_MERGE`.
+  /// `field_merge_options` is only effective when `conflict_policy` == `CONFLICT_MERGE`.
   SchemaBuilder(
       std::vector<std::shared_ptr<Field>> fields,
       ConflictPolicy conflict_policy = CONFLICT_APPEND,
       Field::MergeOptions field_merge_options = Field::MergeOptions::Defaults());
   /// \brief Construct a SchemaBuilder from a schema, preserving the metadata
-  /// `field_merge_options` is only effecitive when `conflict_policy` == `CONFLICT_MERGE`.
+  /// `field_merge_options` is only effective when `conflict_policy` == `CONFLICT_MERGE`.
   SchemaBuilder(
       const std::shared_ptr<Schema>& schema,
       ConflictPolicy conflict_policy = CONFLICT_APPEND,

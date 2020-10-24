@@ -78,7 +78,7 @@ arrow::Status VectorToColumnarTable(const std::vector<struct data_row>& rows,
     // Indicate the start of a new list row. This will memorise the current
     // offset in the values builder.
     ARROW_RETURN_NOT_OK(components_builder.Append());
-    // Store the actual values. The final nullptr argument tells the underyling
+    // Store the actual values. The final nullptr argument tells the underlying
     // builder that all added values are valid, i.e. non-null.
     ARROW_RETURN_NOT_OK(cost_components_builder.AppendValues(row.cost_components.data(),
                                                              row.cost_components.size()));

@@ -421,7 +421,7 @@ static void CopyBitmapWithOffset(benchmark::State& state) {  // NOLINT non-const
   CopyBitmap<4>(state);
 }
 
-// Trigger the slow path where both source and dest buffer are not byte aligend.
+// Trigger the slow path where both source and dest buffer are not byte aligned.
 static void CopyBitmapWithOffsetBoth(benchmark::State& state) { CopyBitmap<3, 7>(state); }
 
 // Benchmark the worst case of comparing two identical bitmap
