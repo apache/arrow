@@ -710,12 +710,12 @@ impl fmt::Debug for Expr {
 ///
 /// See the example in
 /// [user_defined_plan.rs](../../tests/user_defined_plan.rs) for an
-/// example of how to use this extenison API
+/// example of how to use this extension API
 pub trait UserDefinedLogicalNode: Debug {
     /// Return a reference to self as Any, to support dynamic downcasting
     fn as_any(&self) -> &dyn Any;
 
-    /// Return the the logical plan's inputs
+    /// Return the logical plan's inputs
     fn inputs(&self) -> Vec<&LogicalPlan>;
 
     /// Return the output schema of this logical plan node

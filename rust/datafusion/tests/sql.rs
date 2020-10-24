@@ -268,7 +268,7 @@ async fn csv_query_custom_udf_with_cast() -> Result<()> {
     Ok(())
 }
 
-/// sqrt(f32) is sligthly different than sqrt(CAST(f32 AS double)))
+/// sqrt(f32) is slightly different than sqrt(CAST(f32 AS double)))
 #[tokio::test]
 async fn sqrt_f32_vs_f64() -> Result<()> {
     let mut ctx = create_ctx()?;

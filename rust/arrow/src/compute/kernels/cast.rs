@@ -1049,7 +1049,7 @@ where
     // use the take kernel to expand out the dictionary
     let cast_dict_values = cast(&dict_array.values(), to_type)?;
 
-    // Note take requires first casting the indicies to u32
+    // Note take requires first casting the indices to u32
     let keys_array: ArrayRef = Arc::new(dict_array.keys_array());
     let indicies = cast(&keys_array, &DataType::UInt32)?;
     let u32_indicies =
@@ -1058,7 +1058,7 @@ where
             .downcast_ref::<UInt32Array>()
             .ok_or_else(|| {
                 ArrowError::ComputeError(
-                    "Internal Error: Cannot cast dict indicies to UInt32".to_string(),
+                    "Internal Error: Cannot cast dict indices to UInt32".to_string(),
                 )
             })?;
 

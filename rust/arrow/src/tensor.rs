@@ -147,7 +147,7 @@ impl<'a, T: ArrowPrimitiveType> Tensor<'a, T> {
                 let total_elements: usize = s.iter().product();
                 if total_elements != (buffer.len() / mem::size_of::<T::Native>()) {
                     return Err(ArrowError::InvalidArgumentError(
-                        "number of elements in buffer does not match dimensios"
+                        "number of elements in buffer does not match dimensions"
                             .to_string(),
                     ));
                 }
