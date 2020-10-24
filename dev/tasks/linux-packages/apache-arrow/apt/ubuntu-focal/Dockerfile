@@ -39,7 +39,7 @@ RUN \
     gnupg \
     wget && \
   wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - && \
-  echo "deb https://apt.llvm.org/bionic/ llvm-toolchain-focal-${LLVM} main" > \
+  echo "deb https://apt.llvm.org/focal/ llvm-toolchain-focal-${LLVM} main" > \
     /etc/apt/sources.list.d/llvm.list && \
   apt update ${quiet} && \
   apt install -y -V ${quiet} \
