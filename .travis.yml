@@ -65,6 +65,8 @@ jobs:
           -e ARROW_GANDIVA=OFF
           -e ARROW_PARQUET=OFF
           "
+        # The LLVM's APT repository provides only arm64 binaries.
+        # We should use LLVM provided by Ubuntu.
         LLVM: "10"
         UBUNTU: "20.04"
 
@@ -91,6 +93,8 @@ jobs:
           -e cares_SOURCE=BUNDLED
           -e gRPC_SOURCE=BUNDLED
           "
+        # The LLVM's APT repository provides only arm64 binaries.
+        # We should use LLVM provided by Ubuntu.
         LLVM: "10"
         UBUNTU: "20.04"
 
