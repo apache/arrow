@@ -64,7 +64,7 @@ cmake -DCMAKE_BUILD_TYPE=Release \
     -DBOOST_ROOT=/arrow_boost_dist \
     -GNinja /arrow/cpp
 ninja install
-ninja test
+CTEST_OUTPUT_ON_FAILURE=1 ninja test
 popd
 
 
