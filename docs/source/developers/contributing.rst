@@ -312,8 +312,8 @@ From time to time the community has discussions on specific types of features
 and improvements that they expect to support.  This section outlines decisions
 that have been made in this regard.
 
-Endianess
-+++++++++
+Endianness
+++++++++++
 
 The Arrow format allows setting endianness.  Due to the popularity of
 little endian architectures most of implementation assume little endian by

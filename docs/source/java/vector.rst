@@ -120,7 +120,7 @@ Some points to note about the steps above:
 
 * For fixed width vectors (e.g. IntVector), we can set values at different indices in arbitrary orders.
   For variable width vectors (e.g. VarCharVector), however, we must set values in non-decreasing order of the
-  indices. Otherwise, the values after the set positiion will become invalid. For example, suppose we use the
+  indices. Otherwise, the values after the set position will become invalid. For example, suppose we use the
   following statements to populate a variable width vector:
 
 .. code-block:: Java
