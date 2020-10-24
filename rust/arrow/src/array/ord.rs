@@ -259,6 +259,27 @@ pub mod tests {
     }
 
     #[test]
+    fn test_f64_nan() -> Result<()> {
+        let array = Float64Array::from(vec![1.0, f64::NAN]);
+
+        let cmp = build_compare(&array, &array)?;
+
+        assert_eq!(Ordering::Less, (cmp)(0, 1));
+        Ok(())
+    }
+
+    #[test]
+    fn test_f64_zeros() -> Result<()> {
+        let array = Float64Array::from(vec![-0.0, 0.0]);
+
+        let cmp = build_compare(&array, &array)?;
+
+        assert_eq!(Ordering::Equal, (cmp)(0, 1));
+        assert_eq!(Ordering::Equal, (cmp)(1, 0));
+        Ok(())
+    }
+
+    #[test]
     fn test_dict() -> Result<()> {
         let data = vec!["a", "b", "c", "a", "a", "c", "c"];
         let array = DictionaryArray::<Int16Type>::from_iter(data.into_iter());
