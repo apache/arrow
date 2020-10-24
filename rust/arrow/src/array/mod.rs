@@ -249,9 +249,9 @@ pub use self::iterator::*;
 pub use self::equal::ArrayEqual;
 pub use self::equal::JsonEqual;
 
-// --------------------- Sortable Array ---------------------
+// --------------------- Array's values comparison ---------------------
 
-pub use self::ord::{as_ordarray, OrdArray};
+pub use self::ord::{build_compare, DynComparator};
 
 // --------------------- Array downcast helper functions ---------------------
 

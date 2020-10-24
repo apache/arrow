@@ -467,7 +467,9 @@ pub fn lexsort(columns: &[SortColumn]) -> Result<Vec<ArrayRef>> {
 /// (`UInt32Array`) of indices.
 pub fn lexsort_to_indices(columns: &[SortColumn]) -> Result<UInt32Array> {
     if columns.len() == 0 {
-        return Err(ArrowError::InvalidArgumentError("Sort requires at least one column".to_string()));
+        return Err(ArrowError::InvalidArgumentError(
+            "Sort requires at least one column".to_string(),
+        ));
     }
     if columns.len() == 1 {
         // fallback to non-lexical sort
@@ -485,25 +487,25 @@ pub fn lexsort_to_indices(columns: &[SortColumn]) -> Result<UInt32Array> {
     // convert ArrayRefs to OrdArray trait objects and perform row count check
     let flat_columns = columns
         .iter()
-        .map(|column| -> Result<(&Array, Box<OrdArray>, SortOptions)> {
-            // flatten and convert to OrdArray
+        .map(|column| -> Result<(&Array, DynComparator, SortOptions)> {
+            // flatten and convert build comparators
             Ok((
                 column.values.as_ref(),
-                as_ordarray(&column.values)?,
+                build_compare(column.values.as_ref(), column.values.as_ref())?,
                 column.options.unwrap_or_default(),
             ))
         })
-        .collect::<Result<Vec<(&Array, Box<OrdArray>, SortOptions)>>>()?;
+        .collect::<Result<Vec<(&Array, DynComparator, SortOptions)>>>()?;
 
     let lex_comparator = |a_idx: &usize, b_idx: &usize| -> Ordering {
         for column in flat_columns.iter() {
             let values = &column.0;
-            let ord_array = &column.1;
+            let comparator = &column.1;
             let sort_option = column.2;
 
             match (values.is_valid(*a_idx), values.is_valid(*b_idx)) {
                 (true, true) => {
-                    match ord_array.cmp_value(*a_idx, *b_idx) {
+                    match (comparator)(*a_idx, *b_idx) {
                         // equal, move on to next column
                         Ordering::Equal => continue,
                         order => {
