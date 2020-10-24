@@ -43,6 +43,7 @@ RUN apt-get update -y -q && \
       echo "deb https://apt.llvm.org/focal/ llvm-toolchain-focal-${clang_tools} main" > \
          /etc/apt/sources.list.d/clang-tools.list; \
     fi && \
+    apt-get update -y -q && \
     apt-get install -y -q --no-install-recommends \
         clang-${clang_tools} \
         clang-${llvm} \
