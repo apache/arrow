@@ -65,6 +65,7 @@ jobs:
           -e ARROW_GANDIVA=OFF
           -e ARROW_PARQUET=OFF
           "
+        LLVM: "10"
         UBUNTU: "20.04"
 
     - name: "C++ on s390x"
@@ -90,6 +91,7 @@ jobs:
           -e cares_SOURCE=BUNDLED
           -e gRPC_SOURCE=BUNDLED
           "
+        LLVM: "10"
         UBUNTU: "20.04"
 
     - name: "Go on s390x"
