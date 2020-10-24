@@ -16,7 +16,7 @@
 # under the License.
 
 ARG arch
-FROM ${arch}/fedora:32
+FROM ${arch}/fedora:33
 ARG arch
 
 # install dependencies
@@ -32,17 +32,18 @@ RUN dnf update -y && \
         cmake \
         curl-devel \
         flatbuffers-devel \
-        java-1.8.0-openjdk-devel \
-        java-1.8.0-openjdk-headless \
         gcc \
         gcc-c++ \
-        glog-devel \
         gflags-devel \
+        git \
+        glog-devel \
         gmock-devel \
         google-benchmark-devel \
-        protobuf-devel \
+        grpc-devel \
+        grpc-plugins \
         gtest-devel \
-        git \
+        java-latest-openjdk-devel \
+        java-latest-openjdk-headless \
         libzstd-devel \
         llvm-devel \
         llvm-static \
@@ -50,6 +51,7 @@ RUN dnf update -y && \
         make \
         ninja-build \
         openssl-devel \
+        protobuf-devel \
         python \
         rapidjson-devel \
         re2-devel \
@@ -64,7 +66,6 @@ COPY ci/scripts/install_minio.sh \
      /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_minio.sh ${arch} linux latest /usr/local
 
-# * gRPC 1.26 in Fedora 32 may have a problem. arrow-flight-test is stuck.
 ENV ARROW_BUILD_TESTS=ON \
     ARROW_DEPENDENCY_SOURCE=SYSTEM \
     ARROW_DATASET=ON \
@@ -85,7 +86,6 @@ ENV ARROW_BUILD_TESTS=ON \
     AWSSDK_SOURCE=BUNDLED \
     CC=gcc \
     CXX=g++ \
-    gRPC_SOURCE=BUNDLED \
     ORC_SOURCE=BUNDLED \
     PARQUET_BUILD_EXECUTABLES=ON \
     PARQUET_BUILD_EXAMPLES=ON \

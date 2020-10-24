@@ -54,7 +54,7 @@ class PackageTask
       @rpm_version = @version
       @rpm_release = "1"
     end
-    @deb_release = "1"
+    @deb_release = ENV["DEB_RELEASE"] || "1"
   end
 
   def define

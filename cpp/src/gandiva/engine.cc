@@ -53,6 +53,7 @@
 #include <llvm/Linker/Linker.h>
 #include <llvm/MC/SubtargetFeature.h>
 #include <llvm/Support/DynamicLibrary.h>
+#include <llvm/Support/Host.h>
 #include <llvm/Support/TargetRegistry.h>
 #include <llvm/Support/TargetSelect.h>
 #include <llvm/Support/raw_ostream.h>
