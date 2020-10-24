@@ -165,6 +165,36 @@ class ArrayDataEndianSwapper {
     return Status::OK();
   }
 
+  Status Visit(const Decimal256Type& type) {
+    auto data = reinterpret_cast<const uint64_t*>(data_->buffers[1]->data());
+    ARROW_ASSIGN_OR_RAISE(auto new_buffer, AllocateBuffer(data_->buffers[1]->size()));
+    auto new_data = reinterpret_cast<uint64_t*>(new_buffer->mutable_data());
+    int64_t length = length_;
+    for (int64_t i = 0; i < length; i++) {
+      uint64_t tmp0, tmp1, tmp2;
+      auto idx = i * 4;
+#if ARROW_LITTLE_ENDIAN
+      tmp0 = BitUtil::FromBigEndian(data[idx]);
+      tmp1 = BitUtil::FromBigEndian(data[idx + 1]);
+      tmp2 = BitUtil::FromBigEndian(data[idx + 2]);
+      new_data[idx] = BitUtil::FromBigEndian(data[idx + 3]);
+      new_data[idx + 1] = tmp2;
+      new_data[idx + 2] = tmp1;
+      new_data[idx + 3] = tmp0;
+#else
+      tmp0 = BitUtil::FromLittleEndian(data[idx]);
+      tmp1 = BitUtil::FromLittleEndian(data[idx + 1]);
+      tmp2 = BitUtil::FromLittleEndian(data[idx + 2]);
+      new_data[idx] = BitUtil::FromLittleEndian(data[idx + 3]);
+      new_data[idx + 1] = tmp2;
+      new_data[idx + 2] = tmp1;
+      new_data[idx + 3] = tmp0;
+#endif
+    }
+    data_->buffers[1] = std::move(new_buffer);
+    return Status::OK();
+  }
+
   Status Visit(const DayTimeIntervalType& type) {
     auto data = reinterpret_cast<const uint32_t*>(data_->buffers[1]->data());
     ARROW_ASSIGN_OR_RAISE(auto new_buffer, AllocateBuffer(data_->buffers[1]->size()));
