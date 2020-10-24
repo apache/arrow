@@ -46,7 +46,7 @@ For those familiar with the existing :class:`pyarrow.parquet.ParquetDataset` for
 reading Parquet datasets: ``pyarrow.dataset``'s goal is similar but not specific
 to the Parquet format and not tied to Python: the same datasets API is exposed
 in the R bindings or Arrow. In addition ``pyarrow.dataset`` boasts improved
-perfomance and new features (e.g. filtering within files rather than only on
+performance and new features (e.g. filtering within files rather than only on
 partition keys).
 
 

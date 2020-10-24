@@ -27,7 +27,7 @@ Installation
 ------------
 
 Archery requires Python 3.5 or later. It is recommended to install archery in
-*editable* mode with the ``-e`` flag to automatically update the intallation
+*editable* mode with the ``-e`` flag to automatically update the installation
 when pulling the Arrow repository.
 
 .. code:: bash
