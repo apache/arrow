@@ -34,19 +34,19 @@ use arrow::array::{
 use arrow::buffer::{Buffer, MutableBuffer};
 use arrow::datatypes::{
     BooleanType as ArrowBooleanType, DataType as ArrowType,
-    Date32Type as ArrowDate32Type, Date64Type as ArrowDate64Type, DateUnit,
+    Date32Type as ArrowDate32Type, Date64Type as ArrowDate64Type,
     DurationMicrosecondType as ArrowDurationMicrosecondType,
     DurationMillisecondType as ArrowDurationMillisecondType,
     DurationNanosecondType as ArrowDurationNanosecondType,
     DurationSecondType as ArrowDurationSecondType, Field,
     Float32Type as ArrowFloat32Type, Float64Type as ArrowFloat64Type,
     Int16Type as ArrowInt16Type, Int32Type as ArrowInt32Type,
-    Int64Type as ArrowInt64Type, Int8Type as ArrowInt8Type, IntervalUnit, Schema,
+    Int64Type as ArrowInt64Type, Int8Type as ArrowInt8Type, Schema,
     Time32MillisecondType as ArrowTime32MillisecondType,
     Time32SecondType as ArrowTime32SecondType,
     Time64MicrosecondType as ArrowTime64MicrosecondType,
-    Time64NanosecondType as ArrowTime64NanosecondType, TimeUnit,
-    TimeUnit as ArrowTimeUnit, TimestampMicrosecondType as ArrowTimestampMicrosecondType,
+    Time64NanosecondType as ArrowTime64NanosecondType, TimeUnit as ArrowTimeUnit,
+    TimestampMicrosecondType as ArrowTimestampMicrosecondType,
     TimestampMillisecondType as ArrowTimestampMillisecondType,
     TimestampNanosecondType as ArrowTimestampNanosecondType,
     TimestampSecondType as ArrowTimestampSecondType, ToByteSlice,
@@ -57,15 +57,10 @@ use arrow::util::bit_util;
 
 use crate::arrow::converter::{
     BinaryArrayConverter, BinaryConverter, BoolConverter, BooleanArrayConverter,
-    Converter, Date32Converter, DictionaryArrayConverter, FixedLenBinaryConverter,
-    FixedSizeArrayConverter, Float32Converter, Float64Converter, Int16Converter,
-    Int32Converter, Int64Converter, Int8Converter, Int96ArrayConverter, Int96Converter,
-    LargeBinaryArrayConverter, LargeBinaryConverter, LargeUtf8ArrayConverter,
-    LargeUtf8Converter, PrimitiveDictionaryConverter, StringDictionaryArrayConverter,
-    StringDictionaryConverter, Time32MillisecondConverter, Time32SecondConverter,
-    Time64MicrosecondConverter, Time64NanosecondConverter, TimestampMicrosecondConverter,
-    TimestampMillisecondConverter, UInt16Converter, UInt32Converter, UInt64Converter,
-    UInt8Converter, Utf8ArrayConverter, Utf8Converter,
+    Converter, FixedLenBinaryConverter, FixedSizeArrayConverter, Float32Converter,
+    Float64Converter, Int32Converter, Int64Converter, Int96ArrayConverter,
+    Int96Converter, LargeBinaryArrayConverter, LargeBinaryConverter,
+    LargeUtf8ArrayConverter, LargeUtf8Converter, Utf8ArrayConverter, Utf8Converter,
 };
 use crate::arrow::record_reader::RecordReader;
 use crate::arrow::schema::parquet_to_arrow_field;
@@ -213,10 +208,15 @@ impl<T: DataType> PrimitiveArrayReader<T> {
     pub fn new(
         mut pages: Box<dyn PageIterator>,
         column_desc: ColumnDescPtr,
+        arrow_type: Option<ArrowType>,
     ) -> Result<Self> {
-        let data_type = parquet_to_arrow_field(column_desc.as_ref())?
-            .data_type()
-            .clone();
+        // Check if Arrow type is specified, else create it from Parquet type
+        let data_type = match arrow_type {
+            Some(t) => t,
+            None => parquet_to_arrow_field(column_desc.as_ref())?
+                .data_type()
+                .clone(),
+        };
 
         let mut record_reader = RecordReader::<T>::new(column_desc.clone());
         if let Some(page_reader) = pages.next() {
@@ -268,90 +268,39 @@ impl<T: DataType> ArrayReader for PrimitiveArrayReader<T> {
             }
         }
 
-        // convert to arrays
+        // Convert to arrays by using the Parquet phyisical type.
+        // The physical types are then cast to Arrow types if necessary
         let array =
-            match (&self.data_type, T::get_physical_type()) {
-                (ArrowType::Boolean, PhysicalType::BOOLEAN) => {
-                    BoolConverter::new(BooleanArrayConverter {})
-                        .convert(self.record_reader.cast::<BoolType>())
-                }
-                (ArrowType::Int8, PhysicalType::INT32) => {
-                    Int8Converter::new().convert(self.record_reader.cast::<Int32Type>())
-                }
-                (ArrowType::Int16, PhysicalType::INT32) => {
-                    Int16Converter::new().convert(self.record_reader.cast::<Int32Type>())
-                }
-                (ArrowType::Int32, PhysicalType::INT32) => {
+            match T::get_physical_type() {
+                PhysicalType::BOOLEAN => BoolConverter::new(BooleanArrayConverter {})
+                    .convert(self.record_reader.cast::<BoolType>()),
+                PhysicalType::INT32 => {
+                    // TODO: the cast is a no-op, but we should remove it
                     Int32Converter::new().convert(self.record_reader.cast::<Int32Type>())
                 }
-                (ArrowType::UInt8, PhysicalType::INT32) => {
-                    UInt8Converter::new().convert(self.record_reader.cast::<Int32Type>())
-                }
-                (ArrowType::UInt16, PhysicalType::INT32) => {
-                    UInt16Converter::new().convert(self.record_reader.cast::<Int32Type>())
-                }
-                (ArrowType::UInt32, PhysicalType::INT32) => {
-                    UInt32Converter::new().convert(self.record_reader.cast::<Int32Type>())
-                }
-                (ArrowType::Int64, PhysicalType::INT64) => {
+                PhysicalType::INT64 => {
                     Int64Converter::new().convert(self.record_reader.cast::<Int64Type>())
                 }
-                (ArrowType::UInt64, PhysicalType::INT64) => {
-                    UInt64Converter::new().convert(self.record_reader.cast::<Int64Type>())
-                }
-                (ArrowType::Float32, PhysicalType::FLOAT) => Float32Converter::new()
+                PhysicalType::FLOAT => Float32Converter::new()
                     .convert(self.record_reader.cast::<FloatType>()),
-                (ArrowType::Float64, PhysicalType::DOUBLE) => Float64Converter::new()
+                PhysicalType::DOUBLE => Float64Converter::new()
                     .convert(self.record_reader.cast::<DoubleType>()),
-                (ArrowType::Timestamp(unit, _), PhysicalType::INT64) => match unit {
-                    TimeUnit::Millisecond => TimestampMillisecondConverter::new()
-                        .convert(self.record_reader.cast::<Int64Type>()),
-                    TimeUnit::Microsecond => TimestampMicrosecondConverter::new()
-                        .convert(self.record_reader.cast::<Int64Type>()),
-                    _ => Err(general_err!("No conversion from parquet type to arrow type for timestamp with unit {:?}", unit)),
-                },
-                (ArrowType::Date32(unit), PhysicalType::INT32) => match unit {
-                    DateUnit::Day => Date32Converter::new()
-                        .convert(self.record_reader.cast::<Int32Type>()),
-                    _ => Err(general_err!("No conversion from parquet type to arrow type for date with unit {:?}", unit)),
+                PhysicalType::INT96
+                | PhysicalType::BYTE_ARRAY
+                | PhysicalType::FIXED_LEN_BYTE_ARRAY => {
+                    // TODO: we could use unreachable!() as this is a private fn
+                    Err(general_err!(
+                        "Cannot read primitive array with a complex physical type"
+                    ))
                 }
-                (ArrowType::Time32(unit), PhysicalType::INT32) => {
-                    match unit {
-                        TimeUnit::Second => {
-                            Time32SecondConverter::new().convert(self.record_reader.cast::<Int32Type>())
-                        }
-                        TimeUnit::Millisecond => {
-                            Time32MillisecondConverter::new().convert(self.record_reader.cast::<Int32Type>())
-                        }
-                        _ => Err(general_err!("Invalid or unsupported arrow array with datatype {:?}", self.get_data_type()))
-                    }
-                }
-                (ArrowType::Time64(unit), PhysicalType::INT64) => {
-                    match unit {
-                        TimeUnit::Microsecond => {
-                            Time64MicrosecondConverter::new().convert(self.record_reader.cast::<Int64Type>())
-                        }
-                        TimeUnit::Nanosecond => {
-                            Time64NanosecondConverter::new().convert(self.record_reader.cast::<Int64Type>())
-                        }
-                        _ => Err(general_err!("Invalid or unsupported arrow array with datatype {:?}", self.get_data_type()))
-                    }
-                }
-                (ArrowType::Interval(IntervalUnit::YearMonth), PhysicalType::INT32) => {
-                    UInt32Converter::new().convert(self.record_reader.cast::<Int32Type>())
-                }
-                (ArrowType::Interval(IntervalUnit::DayTime), PhysicalType::INT64) => {
-                    UInt64Converter::new().convert(self.record_reader.cast::<Int64Type>())
-                }
-                (ArrowType::Duration(_), PhysicalType::INT64) => {
-                    UInt64Converter::new().convert(self.record_reader.cast::<Int64Type>())
-                }
-                (arrow_type, physical_type) => Err(general_err!(
-                    "Reading {:?} type from parquet {:?} is not supported yet.",
-                    arrow_type,
-                    physical_type
-                )),
             }?;
+
+        // cast to Arrow type
+        // TODO: we need to check if it's fine for this to be fallible.
+        // My assumption is that we can't get to an illegal cast as we can only
+        // generate types that are supported, because we'd have gotten them from
+        // the metadata which was written to the Parquet sink
+        let array = arrow::compute::cast(&array, self.get_data_type())?;
 
         // save definition and repetition buffers
         self.def_levels_buffer = self.record_reader.consume_def_levels()?;
@@ -504,7 +453,13 @@ where
             data_buffer.into_iter().map(Some).collect()
         };
 
-        self.converter.convert(data)
+        // TODO: I did this quickly without thinking through it, there might be edge cases to consider
+        let array = self.converter.convert(data)?;
+
+        Ok(match self.data_type {
+            ArrowType::Dictionary(_, _) => arrow::compute::cast(&array, &self.data_type)?,
+            _ => array,
+        })
     }
 
     fn get_def_levels(&self) -> Option<&[i16]> {
@@ -525,10 +480,14 @@ where
         pages: Box<dyn PageIterator>,
         column_desc: ColumnDescPtr,
         converter: C,
+        arrow_type: Option<ArrowType>,
     ) -> Result<Self> {
-        let data_type = parquet_to_arrow_field(column_desc.as_ref())?
-            .data_type()
-            .clone();
+        let data_type = match arrow_type {
+            Some(t) => t,
+            None => parquet_to_arrow_field(column_desc.as_ref())?
+                .data_type()
+                .clone(),
+        };
 
         Ok(Self {
             data_type,
@@ -1438,236 +1397,134 @@ impl<'a> ArrayReaderBuilder {
             .arrow_schema
             .field_with_name(cur_type.name())
             .ok()
-            .map(|f| f.data_type());
+            .map(|f| f.data_type())
+            .cloned();
 
-        if let Some(ArrowType::Dictionary(key_type, value_type)) = arrow_type {
-            match cur_type.get_physical_type() {
-                PhysicalType::BYTE_ARRAY => {
-                    let logical_type = cur_type.get_basic_info().logical_type();
-                    if logical_type == LogicalType::UTF8 {
-                        self.build_for_string_dictionary_type_inner(
-                            &*key_type,
-                            page_iterator,
-                            column_desc,
-                        )
-                    } else {
-                        panic!("logical type not handled yet: {:?}", logical_type);
-                    }
-                }
-                PhysicalType::INT32 => {
-                    if let ArrowType::UInt8 = **key_type {
-                        if let ArrowType::UInt32 = **value_type {
-                            let converter = PrimitiveDictionaryConverter::<
-                                ArrowUInt8Type,
-                                ArrowUInt32Type,
-                            >::new(
-                                DictionaryArrayConverter::new()
-                            );
-                            return Ok(Box::new(
-                                ComplexObjectArrayReader::<Int32Type, _>::new(
-                                    page_iterator,
-                                    column_desc,
-                                    converter,
-                                )?,
-                            ));
-                        } else if let ArrowType::Int32 = **value_type {
-                            let converter = PrimitiveDictionaryConverter::<
-                                ArrowUInt8Type,
-                                ArrowInt32Type,
-                            >::new(
-                                DictionaryArrayConverter::new()
-                            );
-                            return Ok(Box::new(
-                                ComplexObjectArrayReader::<Int32Type, _>::new(
-                                    page_iterator,
-                                    column_desc,
-                                    converter,
-                                )?,
-                            ));
-                        } else {
-                            panic!("byeagain");
-                        }
-                    } else if let ArrowType::UInt16 = **key_type {
-                        if let ArrowType::UInt32 = **value_type {
-                            let converter = PrimitiveDictionaryConverter::<
-                                ArrowUInt16Type,
-                                ArrowUInt32Type,
-                            >::new(
-                                DictionaryArrayConverter::new()
-                            );
-                            return Ok(Box::new(
-                                ComplexObjectArrayReader::<Int32Type, _>::new(
-                                    page_iterator,
-                                    column_desc,
-                                    converter,
-                                )?,
-                            ));
-                        } else if let ArrowType::Int32 = **value_type {
-                            let converter = PrimitiveDictionaryConverter::<
-                                ArrowUInt16Type,
-                                ArrowInt32Type,
-                            >::new(
-                                DictionaryArrayConverter::new()
-                            );
-                            return Ok(Box::new(
-                                ComplexObjectArrayReader::<Int32Type, _>::new(
-                                    page_iterator,
-                                    column_desc,
-                                    converter,
-                                )?,
-                            ));
-                        } else {
-                            panic!("byeagain");
-                        }
-                    } else {
-                        panic!("bye");
-                    }
-                    unimplemented!();
-                }
-                other => panic!("physical type not handled yet: {:?}", other),
-            }
-        } else {
-            match cur_type.get_physical_type() {
-                PhysicalType::BOOLEAN => Ok(Box::new(
-                    PrimitiveArrayReader::<BoolType>::new(page_iterator, column_desc)?,
-                )),
-                PhysicalType::INT32 => {
-                    if let Some(ArrowType::Null) = arrow_type {
-                        Ok(Box::new(NullArrayReader::<Int32Type>::new(
-                            page_iterator,
-                            column_desc,
-                        )?))
-                    } else {
-                        Ok(Box::new(PrimitiveArrayReader::<Int32Type>::new(
-                            page_iterator,
-                            column_desc,
-                        )?))
-                    }
-                }
-                PhysicalType::INT64 => Ok(Box::new(
-                    PrimitiveArrayReader::<Int64Type>::new(page_iterator, column_desc)?,
-                )),
-                PhysicalType::INT96 => {
-                    let converter = Int96Converter::new(Int96ArrayConverter {});
-                    Ok(Box::new(ComplexObjectArrayReader::<
-                        Int96Type,
-                        Int96Converter,
-                    >::new(
-                        page_iterator, column_desc, converter
+        match cur_type.get_physical_type() {
+            PhysicalType::BOOLEAN => Ok(Box::new(PrimitiveArrayReader::<BoolType>::new(
+                page_iterator,
+                column_desc,
+                arrow_type,
+            )?)),
+            PhysicalType::INT32 => {
+                if let Some(ArrowType::Null) = arrow_type {
+                    Ok(Box::new(NullArrayReader::<Int32Type>::new(
+                        page_iterator,
+                        column_desc,
+                    )?))
+                } else {
+                    Ok(Box::new(PrimitiveArrayReader::<Int32Type>::new(
+                        page_iterator,
+                        column_desc,
+                        arrow_type,
                     )?))
                 }
-                PhysicalType::FLOAT => Ok(Box::new(
-                    PrimitiveArrayReader::<FloatType>::new(page_iterator, column_desc)?,
-                )),
-                PhysicalType::DOUBLE => Ok(Box::new(
-                    PrimitiveArrayReader::<DoubleType>::new(page_iterator, column_desc)?,
-                )),
-                PhysicalType::BYTE_ARRAY => {
-                    if cur_type.get_basic_info().logical_type() == LogicalType::UTF8 {
-                        if let Some(ArrowType::LargeUtf8) = arrow_type {
-                            let converter =
-                                LargeUtf8Converter::new(LargeUtf8ArrayConverter {});
-                            Ok(Box::new(ComplexObjectArrayReader::<
-                                ByteArrayType,
-                                LargeUtf8Converter,
-                            >::new(
-                                page_iterator, column_desc, converter
-                            )?))
-                        } else if let Some(ArrowType::Dictionary(_, _)) = arrow_type {
-                            unreachable!();
-                        } else {
-                            let converter = Utf8Converter::new(Utf8ArrayConverter {});
-                            Ok(Box::new(ComplexObjectArrayReader::<
-                                ByteArrayType,
-                                Utf8Converter,
-                            >::new(
-                                page_iterator, column_desc, converter
-                            )?))
-                        }
-                    } else if let Some(ArrowType::LargeBinary) = arrow_type {
+            }
+            PhysicalType::INT64 => Ok(Box::new(PrimitiveArrayReader::<Int64Type>::new(
+                page_iterator,
+                column_desc,
+                arrow_type,
+            )?)),
+            PhysicalType::INT96 => {
+                let converter = Int96Converter::new(Int96ArrayConverter {});
+                Ok(Box::new(ComplexObjectArrayReader::<
+                    Int96Type,
+                    Int96Converter,
+                >::new(
+                    page_iterator,
+                    column_desc,
+                    converter,
+                    arrow_type,
+                )?))
+            }
+            PhysicalType::FLOAT => Ok(Box::new(PrimitiveArrayReader::<FloatType>::new(
+                page_iterator,
+                column_desc,
+                arrow_type,
+            )?)),
+            PhysicalType::DOUBLE => {
+                Ok(Box::new(PrimitiveArrayReader::<DoubleType>::new(
+                    page_iterator,
+                    column_desc,
+                    arrow_type,
+                )?))
+            }
+            PhysicalType::BYTE_ARRAY => {
+                if cur_type.get_basic_info().logical_type() == LogicalType::UTF8 {
+                    if let Some(ArrowType::LargeUtf8) = arrow_type {
                         let converter =
-                            LargeBinaryConverter::new(LargeBinaryArrayConverter {});
+                            LargeUtf8Converter::new(LargeUtf8ArrayConverter {});
                         Ok(Box::new(ComplexObjectArrayReader::<
                             ByteArrayType,
-                            LargeBinaryConverter,
+                            LargeUtf8Converter,
                         >::new(
-                            page_iterator, column_desc, converter
+                            page_iterator,
+                            column_desc,
+                            converter,
+                            arrow_type,
                         )?))
                     } else {
-                        let converter = BinaryConverter::new(BinaryArrayConverter {});
+                        let converter = Utf8Converter::new(Utf8ArrayConverter {});
                         Ok(Box::new(ComplexObjectArrayReader::<
                             ByteArrayType,
-                            BinaryConverter,
+                            Utf8Converter,
                         >::new(
-                            page_iterator, column_desc, converter
+                            page_iterator,
+                            column_desc,
+                            converter,
+                            arrow_type,
                         )?))
                     }
-                }
-                PhysicalType::FIXED_LEN_BYTE_ARRAY => {
-                    let byte_width = match *cur_type {
-                        Type::PrimitiveType {
-                            ref type_length, ..
-                        } => *type_length,
-                        _ => {
-                            return Err(ArrowError(
-                                "Expected a physical type, not a group type".to_string(),
-                            ))
-                        }
-                    };
-                    let converter = FixedLenBinaryConverter::new(
-                        FixedSizeArrayConverter::new(byte_width),
-                    );
+                } else if let Some(ArrowType::LargeBinary) = arrow_type {
+                    let converter =
+                        LargeBinaryConverter::new(LargeBinaryArrayConverter {});
                     Ok(Box::new(ComplexObjectArrayReader::<
-                        FixedLenByteArrayType,
-                        FixedLenBinaryConverter,
+                        ByteArrayType,
+                        LargeBinaryConverter,
                     >::new(
-                        page_iterator, column_desc, converter
+                        page_iterator,
+                        column_desc,
+                        converter,
+                        arrow_type,
+                    )?))
+                } else {
+                    let converter = BinaryConverter::new(BinaryArrayConverter {});
+                    Ok(Box::new(ComplexObjectArrayReader::<
+                        ByteArrayType,
+                        BinaryConverter,
+                    >::new(
+                        page_iterator,
+                        column_desc,
+                        converter,
+                        arrow_type,
                     )?))
                 }
             }
-        }
-    }
-
-    fn build_for_string_dictionary_type_inner(
-        &self,
-        key_type: &ArrowType,
-        page_iterator: Box<dyn PageIterator>,
-        column_desc: ColumnDescPtr,
-    ) -> Result<Box<dyn ArrayReader>> {
-        macro_rules! convert_string_dictionary {
-            ($(($kt: pat, $at: ident),)*) => (
-                match key_type {
-                    $($kt => {
-                        let converter = StringDictionaryConverter::new(StringDictionaryArrayConverter {});
-
-                        Ok(Box::new(ComplexObjectArrayReader::<
-                            ByteArrayType,
-                            StringDictionaryConverter<$at>,
-                        >::new(
-                            page_iterator, column_desc, converter
-                        )?))
-
-                    })*
-                    ref other => {
-                        return Err(general_err!(
-                            "Invalid/Unsupported index type for dictionary: {:?}",
-                            other
+            PhysicalType::FIXED_LEN_BYTE_ARRAY => {
+                let byte_width = match *cur_type {
+                    Type::PrimitiveType {
+                        ref type_length, ..
+                    } => *type_length,
+                    _ => {
+                        return Err(ArrowError(
+                            "Expected a physical type, not a group type".to_string(),
                         ))
                     }
-                }
-            );
+                };
+                let converter = FixedLenBinaryConverter::new(
+                    FixedSizeArrayConverter::new(byte_width),
+                );
+                Ok(Box::new(ComplexObjectArrayReader::<
+                    FixedLenByteArrayType,
+                    FixedLenBinaryConverter,
+                >::new(
+                    page_iterator,
+                    column_desc,
+                    converter,
+                    arrow_type,
+                )?))
+            }
         }
-
-        convert_string_dictionary!(
-            (ArrowType::Int8, ArrowInt8Type),
-            (ArrowType::Int16, ArrowInt16Type),
-            (ArrowType::Int32, ArrowInt32Type),
-            (ArrowType::Int64, ArrowInt64Type),
-            (ArrowType::UInt8, ArrowUInt8Type),
-            (ArrowType::UInt16, ArrowUInt16Type),
-            (ArrowType::UInt32, ArrowUInt32Type),
-            (ArrowType::UInt64, ArrowUInt64Type),
-        )
     }
 
     /// Constructs struct array reader without considering repetition.
@@ -1801,9 +1658,12 @@ mod tests {
         let column_desc = schema.column(0);
         let page_iterator = EmptyPageIterator::new(schema);
 
-        let mut array_reader =
-            PrimitiveArrayReader::<Int32Type>::new(Box::new(page_iterator), column_desc)
-                .unwrap();
+        let mut array_reader = PrimitiveArrayReader::<Int32Type>::new(
+            Box::new(page_iterator),
+            column_desc,
+            None,
+        )
+        .unwrap();
 
         // expect no values to be read
         let array = array_reader.next_batch(50).unwrap();
@@ -1848,6 +1708,7 @@ mod tests {
             let mut array_reader = PrimitiveArrayReader::<Int32Type>::new(
                 Box::new(page_iterator),
                 column_desc,
+                None,
             )
             .unwrap();
 
@@ -1931,6 +1792,7 @@ mod tests {
                 let mut array_reader = PrimitiveArrayReader::<$arrow_parquet_type>::new(
                     Box::new(page_iterator),
                     column_desc.clone(),
+                    None,
                 )
                 .expect("Unable to get array reader");
 
@@ -2064,6 +1926,7 @@ mod tests {
             let mut array_reader = PrimitiveArrayReader::<Int32Type>::new(
                 Box::new(page_iterator),
                 column_desc,
+                None,
             )
             .unwrap();
 
@@ -2177,6 +2040,7 @@ mod tests {
                 Box::new(page_iterator),
                 column_desc,
                 converter,
+                None,
             )
             .unwrap();
 

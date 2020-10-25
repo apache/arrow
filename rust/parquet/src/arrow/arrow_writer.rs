@@ -1301,8 +1301,7 @@ mod tests {
             .collect();
 
         // build a record batch
-        let expected_batch =
-            RecordBatch::try_new(schema.clone(), vec![Arc::new(d)]).unwrap();
+        let expected_batch = RecordBatch::try_new(schema, vec![Arc::new(d)]).unwrap();
 
         roundtrip(
             "test_arrow_writer_string_dictionary.parquet",
@@ -1332,8 +1331,7 @@ mod tests {
         let d = builder.finish();
 
         // build a record batch
-        let expected_batch =
-            RecordBatch::try_new(schema.clone(), vec![Arc::new(d)]).unwrap();
+        let expected_batch = RecordBatch::try_new(schema, vec![Arc::new(d)]).unwrap();
 
         roundtrip(
             "test_arrow_writer_primitive_dictionary.parquet",
@@ -1359,8 +1357,7 @@ mod tests {
             .collect();
 
         // build a record batch
-        let expected_batch =
-            RecordBatch::try_new(schema.clone(), vec![Arc::new(d)]).unwrap();
+        let expected_batch = RecordBatch::try_new(schema, vec![Arc::new(d)]).unwrap();
 
         roundtrip(
             "test_arrow_writer_string_dictionary_unsigned_index.parquet",
