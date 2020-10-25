@@ -84,6 +84,7 @@
 #[allow(clippy::module_inception)]
 mod array;
 mod array_dictionary;
+mod array_string;
 mod array_struct;
 mod builder;
 mod cast;
@@ -111,11 +112,11 @@ pub use self::array::FixedSizeBinaryArray;
 pub use self::array::FixedSizeListArray;
 pub use self::array::LargeBinaryArray;
 pub use self::array::LargeListArray;
-pub use self::array::LargeStringArray;
 pub use self::array::ListArray;
 pub use self::array::PrimitiveArray;
-pub use self::array::StringArray;
 pub use self::array_dictionary::DictionaryArray;
+pub use self::array_string::LargeStringArray;
+pub use self::array_string::StringArray;
 pub use self::array_struct::StructArray;
 pub use self::null::NullArray;
 pub use self::union::UnionArray;
@@ -162,9 +163,9 @@ pub type DurationNanosecondArray = PrimitiveArray<DurationNanosecondType>;
 
 pub use self::array::GenericBinaryArray;
 pub use self::array::GenericListArray;
-pub use self::array::GenericStringArray;
 pub use self::array::OffsetSizeTrait;
-pub use self::array::StringOffsetSizeTrait;
+pub use self::array_string::GenericStringArray;
+pub use self::array_string::StringOffsetSizeTrait;
 
 // --------------------- Array Builder ---------------------
 

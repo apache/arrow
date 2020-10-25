@@ -18,8 +18,7 @@
 use super::*;
 use crate::datatypes::*;
 use array::{
-    Array, BinaryOffsetSizeTrait, GenericBinaryArray, GenericListArray,
-    GenericStringArray, OffsetSizeTrait, StringOffsetSizeTrait,
+    Array, BinaryOffsetSizeTrait, GenericBinaryArray, GenericListArray, OffsetSizeTrait,
 };
 use hex::FromHex;
 use serde_json::value::Value::{Null as JNull, Object, String as JString};
