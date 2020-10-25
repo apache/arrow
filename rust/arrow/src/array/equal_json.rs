@@ -17,7 +17,7 @@
 
 use super::*;
 use crate::datatypes::*;
-use array::{Array, GenericListArray, OffsetSizeTrait};
+use array::Array;
 use hex::FromHex;
 use serde_json::value::Value::{Null as JNull, Object, String as JString};
 use serde_json::Value;
