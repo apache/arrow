@@ -34,7 +34,6 @@ case "${target}" in
     packages+=(${MINGW_PACKAGE_PREFIX}-gflags)
     packages+=(${MINGW_PACKAGE_PREFIX}-grpc)
     packages+=(${MINGW_PACKAGE_PREFIX}-gtest)
-    packages+=(${MINGW_PACKAGE_PREFIX}-libc++)
     packages+=(${MINGW_PACKAGE_PREFIX}-libutf8proc)
     packages+=(${MINGW_PACKAGE_PREFIX}-llvm)
     packages+=(${MINGW_PACKAGE_PREFIX}-lz4)
