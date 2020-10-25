@@ -83,6 +83,7 @@
 
 #[allow(clippy::module_inception)]
 mod array;
+mod array_dictionary;
 mod array_struct;
 mod builder;
 mod cast;
@@ -92,6 +93,7 @@ mod equal_json;
 mod iterator;
 mod null;
 mod ord;
+mod raw_pointer;
 mod union;
 
 use crate::datatypes::*;
@@ -105,7 +107,6 @@ pub use self::data::ArrayDataBuilder;
 pub use self::data::ArrayDataRef;
 
 pub use self::array::BinaryArray;
-pub use self::array::DictionaryArray;
 pub use self::array::FixedSizeBinaryArray;
 pub use self::array::FixedSizeListArray;
 pub use self::array::LargeBinaryArray;
@@ -114,6 +115,7 @@ pub use self::array::LargeStringArray;
 pub use self::array::ListArray;
 pub use self::array::PrimitiveArray;
 pub use self::array::StringArray;
+pub use self::array_dictionary::DictionaryArray;
 pub use self::array_struct::StructArray;
 pub use self::null::NullArray;
 pub use self::union::UnionArray;
