@@ -18,8 +18,8 @@
 use crate::datatypes::ArrowPrimitiveType;
 
 use super::{
-    array::BinaryOffsetSizeTrait, Array, GenericBinaryArray, GenericStringArray,
-    PrimitiveArray, StringOffsetSizeTrait,
+    Array, BinaryOffsetSizeTrait, GenericBinaryArray, GenericStringArray, PrimitiveArray,
+    StringOffsetSizeTrait,
 };
 
 /// an iterator that returns Some(T) or None, that can be used on any non-boolean PrimitiveArray
