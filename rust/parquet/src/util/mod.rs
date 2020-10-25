@@ -20,6 +20,7 @@ pub mod memory;
 #[macro_use]
 pub mod bit_util;
 mod bit_packing;
+pub mod cursor;
 pub mod hash_util;
 
 #[cfg(test)]

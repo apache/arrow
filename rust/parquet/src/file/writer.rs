@@ -34,11 +34,11 @@ use crate::column::{
 };
 use crate::errors::{ParquetError, Result};
 use crate::file::{
-    metadata::*, properties::WriterPropertiesPtr, reader::TryClone,
+    metadata::*, properties::WriterPropertiesPtr,
     statistics::to_thrift as statistics_to_thrift, FOOTER_SIZE, PARQUET_MAGIC,
 };
 use crate::schema::types::{self, SchemaDescPtr, SchemaDescriptor, TypePtr};
-use crate::util::io::{FileSink, Position};
+use crate::util::io::{FileSink, Position, TryClone};
 
 // ----------------------------------------------------------------------
 // APIs for file & row group writers

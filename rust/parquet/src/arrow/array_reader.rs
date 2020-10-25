@@ -953,7 +953,7 @@ mod tests {
     use std::rc::Rc;
     use std::sync::Arc;
 
-    fn make_column_chuncks<T: DataType>(
+    fn make_column_chunks<T: DataType>(
         column_desc: ColumnDescPtr,
         encoding: Encoding,
         num_levels: usize,
@@ -964,11 +964,11 @@ mod tests {
         values: &mut Vec<T::T>,
         page_lists: &mut Vec<Vec<Page>>,
         use_v2: bool,
-        num_chuncks: usize,
+        num_chunks: usize,
     ) where
         T::T: PartialOrd + SampleUniform + Copy,
     {
-        for _i in 0..num_chuncks {
+        for _i in 0..num_chunks {
             let mut pages = VecDeque::new();
             let mut data = Vec::new();
             let mut page_def_levels = Vec::new();
@@ -1039,7 +1039,7 @@ mod tests {
         {
             let mut data = Vec::new();
             let mut page_lists = Vec::new();
-            make_column_chuncks::<Int32Type>(
+            make_column_chunks::<Int32Type>(
                 column_desc.clone(),
                 Encoding::PLAIN,
                 100,
@@ -1061,7 +1061,7 @@ mod tests {
             )
             .unwrap();
 
-            // Read first 50 values, which are all from the first column chunck
+            // Read first 50 values, which are all from the first column chunk
             let array = array_reader.next_batch(50).unwrap();
             let array = array
                 .as_any()
@@ -1120,7 +1120,7 @@ mod tests {
             {
                 let mut data = Vec::new();
                 let mut page_lists = Vec::new();
-                make_column_chuncks::<$arrow_parquet_type>(
+                make_column_chunks::<$arrow_parquet_type>(
                     column_desc.clone(),
                     Encoding::PLAIN,
                     100,
@@ -1225,7 +1225,7 @@ mod tests {
             let mut def_levels = Vec::new();
             let mut rep_levels = Vec::new();
             let mut page_lists = Vec::new();
-            make_column_chuncks::<Int32Type>(
+            make_column_chunks::<Int32Type>(
                 column_desc.clone(),
                 Encoding::PLAIN,
                 100,
@@ -1250,7 +1250,7 @@ mod tests {
 
             let mut accu_len: usize = 0;
 
-            // Read first 50 values, which are all from the first column chunck
+            // Read first 50 values, which are all from the first column chunk
             let array = array_reader.next_batch(50).unwrap();
             assert_eq!(
                 Some(&def_levels[accu_len..(accu_len + array.len())]),
