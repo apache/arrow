@@ -83,6 +83,7 @@
 
 #[allow(clippy::module_inception)]
 mod array;
+mod array_struct;
 mod builder;
 mod cast;
 mod data;
@@ -113,7 +114,7 @@ pub use self::array::LargeStringArray;
 pub use self::array::ListArray;
 pub use self::array::PrimitiveArray;
 pub use self::array::StringArray;
-pub use self::array::StructArray;
+pub use self::array_struct::StructArray;
 pub use self::null::NullArray;
 pub use self::union::UnionArray;
 
