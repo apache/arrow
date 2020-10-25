@@ -256,6 +256,7 @@ impl CsvStream {
             has_header,
             delimiter,
             batch_size,
+            None,
             projection.clone(),
         );
 

@@ -1990,6 +1990,79 @@ impl ArrayBuilder for StructBuilder {
     }
 }
 
+/// Returns a builder with capacity `capacity` that corresponds to the datatype `DataType`
+/// This function is useful to construct arrays from an arbitrary vectors with known/expected
+/// schema.
+pub fn make_builder(datatype: &DataType, capacity: usize) -> Box<ArrayBuilder> {
+    match datatype {
+        DataType::Null => unimplemented!(),
+        DataType::Boolean => Box::new(BooleanBuilder::new(capacity)),
+        DataType::Int8 => Box::new(Int8Builder::new(capacity)),
+        DataType::Int16 => Box::new(Int16Builder::new(capacity)),
+        DataType::Int32 => Box::new(Int32Builder::new(capacity)),
+        DataType::Int64 => Box::new(Int64Builder::new(capacity)),
+        DataType::UInt8 => Box::new(UInt8Builder::new(capacity)),
+        DataType::UInt16 => Box::new(UInt16Builder::new(capacity)),
+        DataType::UInt32 => Box::new(UInt32Builder::new(capacity)),
+        DataType::UInt64 => Box::new(UInt64Builder::new(capacity)),
+        DataType::Float32 => Box::new(Float32Builder::new(capacity)),
+        DataType::Float64 => Box::new(Float64Builder::new(capacity)),
+        DataType::Binary => Box::new(BinaryBuilder::new(capacity)),
+        DataType::FixedSizeBinary(len) => {
+            Box::new(FixedSizeBinaryBuilder::new(capacity, *len))
+        }
+        DataType::Utf8 => Box::new(StringBuilder::new(capacity)),
+        DataType::Date32(DateUnit::Day) => Box::new(Date32Builder::new(capacity)),
+        DataType::Date64(DateUnit::Millisecond) => Box::new(Date64Builder::new(capacity)),
+        DataType::Time32(TimeUnit::Second) => {
+            Box::new(Time32SecondBuilder::new(capacity))
+        }
+        DataType::Time32(TimeUnit::Millisecond) => {
+            Box::new(Time32MillisecondBuilder::new(capacity))
+        }
+        DataType::Time64(TimeUnit::Microsecond) => {
+            Box::new(Time64MicrosecondBuilder::new(capacity))
+        }
+        DataType::Time64(TimeUnit::Nanosecond) => {
+            Box::new(Time64NanosecondBuilder::new(capacity))
+        }
+        DataType::Timestamp(TimeUnit::Second, _) => {
+            Box::new(TimestampSecondBuilder::new(capacity))
+        }
+        DataType::Timestamp(TimeUnit::Millisecond, _) => {
+            Box::new(TimestampMillisecondBuilder::new(capacity))
+        }
+        DataType::Timestamp(TimeUnit::Microsecond, _) => {
+            Box::new(TimestampMicrosecondBuilder::new(capacity))
+        }
+        DataType::Timestamp(TimeUnit::Nanosecond, _) => {
+            Box::new(TimestampNanosecondBuilder::new(capacity))
+        }
+        DataType::Interval(IntervalUnit::YearMonth) => {
+            Box::new(IntervalYearMonthBuilder::new(capacity))
+        }
+        DataType::Interval(IntervalUnit::DayTime) => {
+            Box::new(IntervalDayTimeBuilder::new(capacity))
+        }
+        DataType::Duration(TimeUnit::Second) => {
+            Box::new(DurationSecondBuilder::new(capacity))
+        }
+        DataType::Duration(TimeUnit::Millisecond) => {
+            Box::new(DurationMillisecondBuilder::new(capacity))
+        }
+        DataType::Duration(TimeUnit::Microsecond) => {
+            Box::new(DurationMicrosecondBuilder::new(capacity))
+        }
+        DataType::Duration(TimeUnit::Nanosecond) => {
+            Box::new(DurationNanosecondBuilder::new(capacity))
+        }
+        DataType::Struct(fields) => {
+            Box::new(StructBuilder::from_fields(fields.clone(), capacity))
+        }
+        t => panic!("Data type {:?} is not currently supported", t),
+    }
+}
+
 impl StructBuilder {
     pub fn new(fields: Vec<Field>, builders: Vec<Box<ArrayBuilder>>) -> Self {
         let mut field_anys = Vec::with_capacity(builders.len());
@@ -2016,86 +2089,12 @@ impl StructBuilder {
         }
     }
 
-    pub fn from_schema(schema: Schema, capacity: usize) -> Self {
-        let fields = schema.fields();
+    pub fn from_fields(fields: Vec<Field>, capacity: usize) -> Self {
         let mut builders = Vec::with_capacity(fields.len());
-        for f in schema.fields() {
-            builders.push(Self::from_field(f.clone(), capacity));
+        for field in &fields {
+            builders.push(make_builder(field.data_type(), capacity));
         }
-        Self::new(schema.fields, builders)
-    }
-
-    fn from_field(f: Field, capacity: usize) -> Box<ArrayBuilder> {
-        match f.data_type() {
-            DataType::Null => unimplemented!(),
-            DataType::Boolean => Box::new(BooleanBuilder::new(capacity)),
-            DataType::Int8 => Box::new(Int8Builder::new(capacity)),
-            DataType::Int16 => Box::new(Int16Builder::new(capacity)),
-            DataType::Int32 => Box::new(Int32Builder::new(capacity)),
-            DataType::Int64 => Box::new(Int64Builder::new(capacity)),
-            DataType::UInt8 => Box::new(UInt8Builder::new(capacity)),
-            DataType::UInt16 => Box::new(UInt16Builder::new(capacity)),
-            DataType::UInt32 => Box::new(UInt32Builder::new(capacity)),
-            DataType::UInt64 => Box::new(UInt64Builder::new(capacity)),
-            DataType::Float32 => Box::new(Float32Builder::new(capacity)),
-            DataType::Float64 => Box::new(Float64Builder::new(capacity)),
-            DataType::Binary => Box::new(BinaryBuilder::new(capacity)),
-            DataType::FixedSizeBinary(len) => {
-                Box::new(FixedSizeBinaryBuilder::new(capacity, *len))
-            }
-            DataType::Utf8 => Box::new(StringBuilder::new(capacity)),
-            DataType::Date32(DateUnit::Day) => Box::new(Date32Builder::new(capacity)),
-            DataType::Date64(DateUnit::Millisecond) => {
-                Box::new(Date64Builder::new(capacity))
-            }
-            DataType::Time32(TimeUnit::Second) => {
-                Box::new(Time32SecondBuilder::new(capacity))
-            }
-            DataType::Time32(TimeUnit::Millisecond) => {
-                Box::new(Time32MillisecondBuilder::new(capacity))
-            }
-            DataType::Time64(TimeUnit::Microsecond) => {
-                Box::new(Time64MicrosecondBuilder::new(capacity))
-            }
-            DataType::Time64(TimeUnit::Nanosecond) => {
-                Box::new(Time64NanosecondBuilder::new(capacity))
-            }
-            DataType::Timestamp(TimeUnit::Second, _) => {
-                Box::new(TimestampSecondBuilder::new(capacity))
-            }
-            DataType::Timestamp(TimeUnit::Millisecond, _) => {
-                Box::new(TimestampMillisecondBuilder::new(capacity))
-            }
-            DataType::Timestamp(TimeUnit::Microsecond, _) => {
-                Box::new(TimestampMicrosecondBuilder::new(capacity))
-            }
-            DataType::Timestamp(TimeUnit::Nanosecond, _) => {
-                Box::new(TimestampNanosecondBuilder::new(capacity))
-            }
-            DataType::Interval(IntervalUnit::YearMonth) => {
-                Box::new(IntervalYearMonthBuilder::new(capacity))
-            }
-            DataType::Interval(IntervalUnit::DayTime) => {
-                Box::new(IntervalDayTimeBuilder::new(capacity))
-            }
-            DataType::Duration(TimeUnit::Second) => {
-                Box::new(DurationSecondBuilder::new(capacity))
-            }
-            DataType::Duration(TimeUnit::Millisecond) => {
-                Box::new(DurationMillisecondBuilder::new(capacity))
-            }
-            DataType::Duration(TimeUnit::Microsecond) => {
-                Box::new(DurationMicrosecondBuilder::new(capacity))
-            }
-            DataType::Duration(TimeUnit::Nanosecond) => {
-                Box::new(DurationNanosecondBuilder::new(capacity))
-            }
-            DataType::Struct(fields) => {
-                let schema = Schema::new(fields.clone());
-                Box::new(Self::from_schema(schema, capacity))
-            }
-            t => panic!("Data type {:?} is not currently supported", t),
-        }
+        Self::new(fields, builders)
     }
 
     /// Returns a mutable reference to the child field builder at index `i`.
@@ -3369,7 +3368,7 @@ mod tests {
         let struct_type = DataType::Struct(sub_fields);
         fields.push(Field::new("f3", struct_type, false));
 
-        let mut builder = StructBuilder::from_schema(Schema::new(fields), 5);
+        let mut builder = StructBuilder::from_fields(fields, 5);
         assert_eq!(3, builder.num_fields());
         assert!(builder.field_builder::<Float32Builder>(0).is_some());
         assert!(builder.field_builder::<StringBuilder>(1).is_some());
@@ -3384,7 +3383,7 @@ mod tests {
         let list_type = DataType::List(Box::new(DataType::Int64));
         fields.push(Field::new("f2", list_type, false));
 
-        let _ = StructBuilder::from_schema(Schema::new(fields), 5);
+        let _ = StructBuilder::from_fields(fields, 5);
     }
 
     #[test]
