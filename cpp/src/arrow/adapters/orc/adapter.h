@@ -147,7 +147,7 @@ class ARROW_EXPORT ORCFileReader {
 class ARROW_EXPORT ORCFileWriter {
  public:
   ~ORCFileWriter();
-}
+};
 
 }  // namespace orc
 
