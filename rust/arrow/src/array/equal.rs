@@ -779,13 +779,13 @@ fn base_equal(this: &ArrayDataRef, other: &ArrayDataRef) -> bool {
     if this.data_type() != other.data_type() {
         return false;
     }
-    if this.len != other.len {
+    if this.len() != other.len() {
         return false;
     }
-    if this.null_count != other.null_count {
+    if this.null_count() != other.null_count() {
         return false;
     }
-    if this.null_count > 0 {
+    if this.null_count() > 0 {
         let null_bitmap = this.null_bitmap().as_ref().unwrap();
         let other_null_bitmap = other.null_bitmap().as_ref().unwrap();
         let null_buf = null_bitmap.bits.data();

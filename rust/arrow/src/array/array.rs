@@ -115,7 +115,7 @@ pub trait Array: fmt::Debug + Send + Sync + ArrayEqual + JsonEqual {
     /// assert!(array_slice.equals(&Int32Array::from(vec![2, 3, 4])));
     /// ```
     fn slice(&self, offset: usize, length: usize) -> ArrayRef {
-        make_array(slice_data(self.data_ref(), offset, length))
+        make_array(Arc::new(self.data_ref().as_ref().slice(offset, length)))
     }
 
     /// Returns the length (i.e., number of elements) of this array.
@@ -336,33 +336,6 @@ pub fn make_array(data: ArrayDataRef) -> ArrayRef {
         DataType::Null => Arc::new(NullArray::from(data)) as ArrayRef,
         dt => panic!("Unexpected data type {:?}", dt),
     }
-}
-
-/// Creates a zero-copy slice of the array's data.
-///
-/// # Panics
-///
-/// Panics if `offset + length > data.len()`.
-fn slice_data(data: &ArrayDataRef, mut offset: usize, length: usize) -> ArrayDataRef {
-    assert!((offset + length) <= data.len());
-
-    let mut new_data = data.as_ref().clone();
-    let len = std::cmp::min(new_data.len - offset, length);
-
-    offset += data.offset;
-    new_data.len = len;
-    new_data.offset = offset;
-
-    // Calculate the new null count based on the offset
-    new_data.null_count = if let Some(bitmap) = new_data.null_bitmap() {
-        let valid_bits = bitmap.bits.data();
-        len.checked_sub(bit_util::count_set_bits_offset(valid_bits, offset, length))
-            .unwrap()
-    } else {
-        0
-    };
-
-    Arc::new(new_data)
 }
 
 // creates a new MutableBuffer initializes all falsed
@@ -1935,8 +1908,8 @@ impl From<ArrayDataRef> for StructArray {
     fn from(data: ArrayDataRef) -> Self {
         let mut boxed_fields = vec![];
         for cd in data.child_data() {
-            let child_data = if data.offset != 0 || data.len != cd.len {
-                slice_data(&cd, data.offset, data.len)
+            let child_data = if data.offset() != 0 || data.len() != cd.len() {
+                Arc::new(cd.as_ref().slice(data.offset(), data.len()))
             } else {
                 cd.clone()
             };
