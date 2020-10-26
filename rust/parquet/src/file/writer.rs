@@ -40,6 +40,9 @@ use crate::file::{
 use crate::schema::types::{self, SchemaDescPtr, SchemaDescriptor, TypePtr};
 use crate::util::io::{FileSink, Position};
 
+// Exposed publically so client code can implement ParquetWriter
+pub use crate::util::io::TryClone;
+
 // ----------------------------------------------------------------------
 // APIs for file & row group writers
 
@@ -114,7 +117,6 @@ pub trait RowGroupWriter {
 // ----------------------------------------------------------------------
 // Serialized impl for file & row group writers
 
-pub use crate::util::io::TryClone;
 pub trait ParquetWriter: Write + Seek + TryClone {}
 impl<T: Write + Seek + TryClone> ParquetWriter for T {}
 
