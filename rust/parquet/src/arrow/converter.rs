@@ -15,25 +15,20 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use crate::arrow::record_reader::RecordReader;
 use crate::data_type::{ByteArray, DataType, Int96};
 // TODO: clean up imports (best done when there are few moving parts)
 use arrow::array::{
-    Array, ArrayRef, BinaryBuilder, BooleanArray, BooleanBufferBuilder,
-    BufferBuilderTrait, FixedSizeBinaryBuilder, LargeBinaryBuilder, LargeStringBuilder,
-    PrimitiveBuilder, PrimitiveDictionaryBuilder, StringBuilder, StringDictionaryBuilder,
-    TimestampNanosecondBuilder,
+    Array, ArrayRef, BinaryBuilder, FixedSizeBinaryBuilder, LargeBinaryBuilder,
+    LargeStringBuilder, PrimitiveBuilder, PrimitiveDictionaryBuilder, StringBuilder,
+    StringDictionaryBuilder, TimestampNanosecondBuilder,
 };
 use arrow::compute::cast;
 use std::convert::From;
 use std::sync::Arc;
 
 use crate::errors::Result;
-use arrow::datatypes::{
-    ArrowDictionaryKeyType, ArrowPrimitiveType, DataType as ArrowDataType,
-};
+use arrow::datatypes::{ArrowDictionaryKeyType, ArrowPrimitiveType};
 
-use arrow::array::ArrayDataBuilder;
 use arrow::array::{
     BinaryArray, DictionaryArray, FixedSizeBinaryArray, LargeBinaryArray,
     LargeStringArray, PrimitiveArray, StringArray, TimestampNanosecondArray,
@@ -50,84 +45,6 @@ pub trait Converter<S, T> {
     /// It will consume record reader's data, but will not reset record reader's
     /// state.
     fn convert(&self, source: S) -> Result<T>;
-}
-
-/// Cast converter first converts record reader's buffer to arrow's
-/// `PrimitiveArray<ArrowSourceType>`, then casts it to `PrimitiveArray<ArrowTargetType>`.
-pub struct CastConverter<ParquetType, ArrowSourceType, ArrowTargetType> {
-    _parquet_marker: PhantomData<ParquetType>,
-    _arrow_source_marker: PhantomData<ArrowSourceType>,
-    _arrow_target_marker: PhantomData<ArrowTargetType>,
-}
-
-impl<ParquetType, ArrowSourceType, ArrowTargetType>
-    CastConverter<ParquetType, ArrowSourceType, ArrowTargetType>
-where
-    ParquetType: DataType,
-    ArrowSourceType: ArrowPrimitiveType,
-    ArrowTargetType: ArrowPrimitiveType,
-{
-    pub fn new() -> Self {
-        Self {
-            _parquet_marker: PhantomData,
-            _arrow_source_marker: PhantomData,
-            _arrow_target_marker: PhantomData,
-        }
-    }
-}
-
-impl<ParquetType, ArrowSourceType, ArrowTargetType>
-    Converter<&mut RecordReader<ParquetType>, ArrayRef>
-    for CastConverter<ParquetType, ArrowSourceType, ArrowTargetType>
-where
-    ParquetType: DataType,
-    ArrowSourceType: ArrowPrimitiveType,
-    ArrowTargetType: ArrowPrimitiveType,
-{
-    fn convert(&self, record_reader: &mut RecordReader<ParquetType>) -> Result<ArrayRef> {
-        let record_data = record_reader.consume_record_data();
-
-        let mut array_data = ArrayDataBuilder::new(ArrowSourceType::DATA_TYPE)
-            .len(record_reader.num_values())
-            .add_buffer(record_data?);
-
-        if let Some(b) = record_reader.consume_bitmap_buffer()? {
-            array_data = array_data.null_bit_buffer(b);
-        }
-
-        let primitive_array: ArrayRef =
-            Arc::new(PrimitiveArray::<ArrowSourceType>::from(array_data.build()));
-
-        // TODO: We should make this cast redundant in favour of 1 cast to rule them all
-        // Ok(cast(&primitive_array, &ArrowTargetType::DATA_TYPE)?)
-        Ok(primitive_array)
-    }
-}
-
-pub struct BooleanArrayConverter {}
-
-impl<T: DataType> Converter<&mut RecordReader<T>, BooleanArray>
-    for BooleanArrayConverter
-{
-    fn convert(&self, record_reader: &mut RecordReader<T>) -> Result<BooleanArray> {
-        let record_data = record_reader.consume_record_data()?;
-
-        let mut boolean_buffer = BooleanBufferBuilder::new(record_data.len());
-
-        for e in record_data.data() {
-            boolean_buffer.append(*e > 0)?;
-        }
-
-        let mut array_data = ArrayDataBuilder::new(ArrowDataType::Boolean)
-            .len(record_data.len())
-            .add_buffer(boolean_buffer.finish());
-
-        if let Some(b) = record_reader.consume_bitmap_buffer()? {
-            array_data = array_data.null_bit_buffer(b);
-        }
-
-        Ok(BooleanArray::from(array_data.build()))
-    }
 }
 
 pub struct FixedSizeArrayConverter {
@@ -330,8 +247,6 @@ where
     }
 }
 
-pub type BoolConverter<'a, T> =
-    ArrayRefConverter<&'a mut RecordReader<T>, BooleanArray, BooleanArrayConverter>;
 pub type Utf8Converter =
     ArrayRefConverter<Vec<Option<ByteArray>>, StringArray, Utf8ArrayConverter>;
 pub type LargeUtf8Converter =
@@ -422,124 +337,5 @@ where
         self.converter
             .convert(source)
             .map(|array| Arc::new(array) as ArrayRef)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::arrow::record_reader::RecordReader;
-    use crate::basic::Encoding;
-    use crate::schema::parser::parse_message_type;
-    use crate::schema::types::SchemaDescriptor;
-    use crate::util::test_common::page_util::InMemoryPageReader;
-    use crate::util::test_common::page_util::{DataPageBuilder, DataPageBuilderImpl};
-    use arrow::array::ArrayEqual;
-    use arrow::array::PrimitiveArray;
-    use arrow::datatypes::{Date32Type, Int16Type, Int32Type};
-    use std::rc::Rc;
-
-    macro_rules! converter_arrow_source_target {
-        ($raw_data:expr, $physical_type:expr, $result_arrow_type:ty, $converter:ty) => {{
-            // Construct record reader
-            let mut record_reader = {
-                // Construct column schema
-                let message_type = &format!(
-                    "
-                message test_schema {{
-                OPTIONAL {} leaf;
-                }}
-                ",
-                    $physical_type
-                );
-
-                let def_levels = [1i16, 0i16, 1i16, 1i16];
-                build_record_reader(
-                    message_type,
-                    &[1, 2, 3],
-                    0i16,
-                    None,
-                    1i16,
-                    Some(&def_levels),
-                    10,
-                )
-            };
-
-            let array = <$converter>::new().convert(&mut record_reader).unwrap();
-            let array = array
-                .as_any()
-                .downcast_ref::<PrimitiveArray<$result_arrow_type>>()
-                .unwrap();
-
-            assert!(array.equals(&PrimitiveArray::<$result_arrow_type>::from($raw_data)));
-        }};
-    }
-
-    #[test]
-    #[ignore = "We need to look at whether this is still relevant after we refactor out the casts"]
-    fn test_converter_arrow_source_i16_target_i32() {
-        // TODO: this fails if we remove the cast here on converter. Is it still relevant?
-        // I'd favour removing these Parquet::PHYSICAL > Arrow::DataType, so we can do it in 1 pleace.
-        let raw_data = vec![Some(1i16), None, Some(2i16), Some(3i16)];
-        converter_arrow_source_target!(raw_data, "INT32", Int16Type, CastConverter<ParquetInt32Type, Int32Type, Int16Type>)
-    }
-
-    #[test]
-    fn test_converter_arrow_source_i32_target_date32() {
-        let raw_data = vec![Some(1i32), None, Some(2i32), Some(3i32)];
-        converter_arrow_source_target!(raw_data, "INT32", Date32Type, CastConverter<ParquetInt32Type, Date32Type, Date32Type>)
-    }
-
-    #[test]
-    fn test_converter_arrow_source_i32_target_i32() {
-        let raw_data = vec![Some(1i32), None, Some(2i32), Some(3i32)];
-        converter_arrow_source_target!(raw_data, "INT32", Int32Type, CastConverter<ParquetInt32Type, Int32Type, Int32Type>)
-    }
-
-    fn build_record_reader<T: DataType>(
-        message_type: &str,
-        values: &[T::T],
-        max_rep_level: i16,
-        rep_levels: Option<&[i16]>,
-        max_def_level: i16,
-        def_levels: Option<&[i16]>,
-        num_records: usize,
-    ) -> RecordReader<T> {
-        let desc = parse_message_type(message_type)
-            .map(|t| SchemaDescriptor::new(Rc::new(t)))
-            .map(|s| s.column(0))
-            .unwrap();
-
-        let mut record_reader = RecordReader::<T>::new(desc.clone());
-
-        // Prepare record reader
-        let mut pb = DataPageBuilderImpl::new(desc, 4, true);
-        if rep_levels.is_some() {
-            pb.add_rep_levels(
-                max_rep_level,
-                match rep_levels {
-                    Some(a) => a,
-                    _ => unreachable!(),
-                },
-            );
-        }
-        if def_levels.is_some() {
-            pb.add_def_levels(
-                max_def_level,
-                match def_levels {
-                    Some(a) => a,
-                    _ => unreachable!(),
-                },
-            );
-        }
-        pb.add_values::<T>(Encoding::PLAIN, &values);
-        let page = pb.consume();
-
-        let page_reader = Box::new(InMemoryPageReader::new(vec![page]));
-        record_reader.set_page_reader(page_reader).unwrap();
-
-        record_reader.read_records(num_records).unwrap();
-
-        record_reader
     }
 }
