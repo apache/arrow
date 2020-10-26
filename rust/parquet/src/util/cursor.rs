@@ -16,7 +16,7 @@
 // under the License.
 
 use std::cmp;
-use std::io::{self, Error, ErrorKind, Read};
+use std::io::{self, Read};
 use std::rc::Rc;
 
 /// This is object to use if your file is already in memory.
@@ -42,20 +42,21 @@ impl SliceableCursor {
         }
     }
 
-    /// Create a slice cursor using the same data as a current one.
-    pub fn slice(&self, start: u64, length: usize) -> io::Result<Self> {
-        let new_start = self.start + start;
-        if new_start >= self.inner.len() as u64
-            || new_start as usize + length > self.inner.len()
-        {
-            return Err(Error::new(ErrorKind::InvalidInput, "out of bound"));
+    /// Create a slice cursor backed by the same data as a current one.
+    /// If the slice length is larger than the remaining bytes in the source, the slice is clamped.
+    /// Panics if start is larger than the vector size.
+    pub fn slice(&self, start: u64, length: usize) -> Self {
+        if start > self.length as u64 {
+            panic!("Slice start larger than cursor");
         }
-        Ok(SliceableCursor {
+        let absolute_start = self.start + start;
+        let clamped_length = std::cmp::min(length, self.length - start as usize);
+        SliceableCursor {
             inner: Rc::clone(&self.inner),
-            start: new_start,
-            pos: new_start,
-            length,
-        })
+            start: absolute_start,
+            pos: absolute_start,
+            length: clamped_length,
+        }
     }
 
     fn remaining_slice(&self) -> &[u8] {
@@ -107,7 +108,19 @@ mod tests {
 
     #[test]
     fn read_all_slice() {
-        let cursor = get_u8_range().slice(10, 10).expect("error while slicing");
+        let cursor = get_u8_range().slice(10, 10);
         check_read_all(cursor, 10, 19);
+    }
+
+    #[test]
+    fn read_all_clipped_slice() {
+        let cursor = get_u8_range().slice(250, 10);
+        check_read_all(cursor, 250, 255);
+    }
+
+    #[test]
+    fn chaining_slices() {
+        let cursor = get_u8_range().slice(200, 50).slice(10, 10);
+        check_read_all(cursor, 210, 219);
     }
 }

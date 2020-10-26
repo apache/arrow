@@ -32,6 +32,22 @@ use crate::basic::Type;
 
 use crate::column::reader::ColumnReaderImpl;
 
+/// Parquet files must be read from end for the footer then from start for columns
+pub enum ChunkMode {
+    FromStart(u64),
+    FromEnd(u64),
+}
+
+impl ChunkMode {
+    /// FromStart offset can always be computed if you know the length
+    pub fn from_start(&self, len: u64) -> u64 {
+        match self {
+            ChunkMode::FromStart(start_offset) => *start_offset,
+            ChunkMode::FromEnd(end_offset) => len.saturating_sub(*end_offset),
+        }
+    }
+}
+
 /// Length should return the total number of bytes in the input source.
 /// It's mainly used to read the metadata, which is at the end of the source.
 #[allow(clippy::len_without_is_empty)]
@@ -43,11 +59,12 @@ pub trait Length {
 /// The ChunkReader trait generates readers of chunks of a source.
 /// For a file system reader, each chunk might contain a clone of File bounded on a given range.
 /// For an object store reader, each read can be mapped to a range request.
-pub trait ChunkReader: Length {
-    type T: Read;
-    /// get a serialy readeable slice of the current reader
-    /// This should fail if the slice exceeds the current bounds
-    fn get_read(&self, start: u64, length: usize) -> Result<Self::T>;
+pub trait ChunkReader {
+    type T: Read + Length;
+    /// Get a serialy readeable slice of the current reader.
+    /// If one end of the slice exceeds the bounds of the source, the slice will be clamped to the source.
+    /// In that case, the length of the resulting Read will be smaller than the requested length.
+    fn get_read(&self, start: ChunkMode, length: usize) -> Result<Self::T>;
 }
 
 // ----------------------------------------------------------------------

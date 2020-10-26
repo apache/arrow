@@ -16,7 +16,6 @@
 // under the License.
 
 use std::{
-    cmp::min,
     io::{Cursor, Read, Seek, SeekFrom},
     rc::Rc,
 };
@@ -29,8 +28,9 @@ use crate::basic::ColumnOrder;
 
 use crate::errors::{ParquetError, Result};
 use crate::file::{
-    metadata::*, reader::ChunkReader, DEFAULT_FOOTER_READ_SIZE, FOOTER_SIZE,
-    PARQUET_MAGIC,
+    metadata::*,
+    reader::{ChunkMode, ChunkReader, Length},
+    DEFAULT_FOOTER_READ_SIZE, FOOTER_SIZE, PARQUET_MAGIC,
 };
 
 use crate::schema::types::{self, SchemaDescriptor};
@@ -44,30 +44,31 @@ use crate::schema::types::{self, SchemaDescriptor};
 /// The reader first reads DEFAULT_FOOTER_SIZE bytes from the end of the file.
 /// If it is not enough according to the length indicated in the footer, it reads more bytes.
 pub fn parse_metadata<R: ChunkReader>(chunk_reader: &R) -> Result<ParquetMetaData> {
-    // check file is large enough to hold footer
-    let file_size = chunk_reader.len();
-    if file_size < (FOOTER_SIZE as u64) {
+    // read and cache up to DEFAULT_FOOTER_READ_SIZE bytes from the end and process the footer
+    let mut first_end_read = chunk_reader.get_read(
+        ChunkMode::FromEnd(DEFAULT_FOOTER_READ_SIZE as u64),
+        DEFAULT_FOOTER_READ_SIZE,
+    )?;
+    let first_end_len = first_end_read.len() as usize;
+
+    if first_end_len < FOOTER_SIZE {
         return Err(general_err!(
             "Invalid Parquet file. Size is smaller than footer"
         ));
     }
 
-    // read and cache up to DEFAULT_FOOTER_READ_SIZE bytes from the end and process the footer
-    let default_end_len = min(DEFAULT_FOOTER_READ_SIZE, chunk_reader.len() as usize);
-    let mut default_end_reader = chunk_reader
-        .get_read(chunk_reader.len() - default_end_len as u64, default_end_len)?;
-    let mut default_len_end_buf = vec![0; default_end_len];
-    default_end_reader.read_exact(&mut default_len_end_buf)?;
+    let mut first_len_end_buf = vec![0; first_end_len];
+    first_end_read.read_exact(&mut first_len_end_buf)?;
 
     // check this is indeed a parquet file
-    if default_len_end_buf[default_end_len - 4..] != PARQUET_MAGIC {
+    if first_len_end_buf[first_end_len - 4..] != PARQUET_MAGIC {
         return Err(general_err!("Invalid Parquet file. Corrupt footer"));
     }
 
     // get the metadata length from the footer
-    let metadata_len = LittleEndian::read_i32(
-        &default_len_end_buf[default_end_len - 8..default_end_len - 4],
-    ) as i64;
+    let metadata_len =
+        LittleEndian::read_i32(&first_len_end_buf[first_end_len - 8..first_end_len - 4])
+            as i64;
     if metadata_len < 0 {
         return Err(general_err!(
             "Invalid Parquet file. Metadata length is less than zero ({})",
@@ -77,24 +78,31 @@ pub fn parse_metadata<R: ChunkReader>(chunk_reader: &R) -> Result<ParquetMetaDat
     let footer_metadata_len = FOOTER_SIZE + metadata_len as usize;
 
     // build up the reader covering the entire metadata
-    let mut default_end_cursor = Cursor::new(default_len_end_buf);
+    let mut first_end_cursor = Cursor::new(first_len_end_buf);
     let metadata_read: Box<dyn Read>;
-    if footer_metadata_len > file_size as usize {
+    if first_end_len < DEFAULT_FOOTER_READ_SIZE
+        && footer_metadata_len > first_end_len as usize
+    {
         return Err(general_err!(
-            "Invalid Parquet file. Metadata start is less than zero ({})",
-            file_size as i64 - footer_metadata_len as i64
+            "Invalid Parquet file. Metadata size exceeds file size."
         ));
     } else if footer_metadata_len < DEFAULT_FOOTER_READ_SIZE {
         // the whole metadata is in the bytes we already read
-        default_end_cursor.seek(SeekFrom::End(-(footer_metadata_len as i64)))?;
-        metadata_read = Box::new(default_end_cursor);
+        first_end_cursor.seek(SeekFrom::End(-(footer_metadata_len as i64)))?;
+        metadata_read = Box::new(first_end_cursor);
     } else {
         // the end of file read by default is not long enough, read missing bytes
+        let complementary_end_len = FOOTER_SIZE + metadata_len as usize - first_end_len;
         let complementary_end_read = chunk_reader.get_read(
-            file_size - footer_metadata_len as u64,
-            FOOTER_SIZE + metadata_len as usize - default_end_len,
+            ChunkMode::FromEnd(footer_metadata_len as u64),
+            complementary_end_len,
         )?;
-        metadata_read = Box::new(complementary_end_read.chain(default_end_cursor));
+        if complementary_end_read.len() < complementary_end_len as u64 {
+            return Err(general_err!(
+                "Invalid Parquet file. Metadata size exceeds file size."
+            ));
+        }
+        metadata_read = Box::new(complementary_end_read.chain(first_end_cursor));
     }
 
     // TODO: row group filtering
@@ -207,7 +215,7 @@ mod tests {
         assert!(reader_result.is_err());
         assert_eq!(
             reader_result.err().unwrap(),
-            general_err!("Invalid Parquet file. Metadata start is less than zero (-255)")
+            general_err!("Invalid Parquet file. Metadata size exceeds file size.")
         );
     }
 

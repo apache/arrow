@@ -57,6 +57,7 @@ pub trait Position {
 pub struct FileSource<R: ParquetReader> {
     reader: RefCell<R>,
     start: u64,     // start position in a file
+    pos: u64,       // current position in a file
     end: u64,       // end position in a file
     buf: Vec<u8>,   // buffer where bytes read in advance are stored
     buf_pos: usize, // current position of the reader in the buffer
@@ -65,12 +66,19 @@ pub struct FileSource<R: ParquetReader> {
 
 impl<R: ParquetReader> FileSource<R> {
     /// Creates new file reader with start and length from a file handle
+    /// If length is larger than the remaining bytes in the source, it is clamped.
+    /// Panics if start is larger than the file size
     pub fn new(fd: &R, start: u64, length: usize) -> Self {
         let reader = RefCell::new(fd.try_clone().unwrap());
+        if start > fd.len() as u64 {
+            panic!("Slice start larger than file");
+        }
+        let length = std::cmp::min(length as u64, fd.len() - start);
         Self {
             reader,
             start,
-            end: start + length as u64,
+            pos: start,
+            end: start + length,
             buf: vec![0 as u8; DEFAULT_BUF_SIZE],
             buf_pos: 0,
             buf_cap: 0,
@@ -85,7 +93,7 @@ impl<R: ParquetReader> FileSource<R> {
             // to tell the compiler that the pos..cap slice is always valid.
             debug_assert!(self.buf_pos == self.buf_cap);
             let mut reader = self.reader.borrow_mut();
-            reader.seek(SeekFrom::Start(self.start))?; // always seek to start before reading
+            reader.seek(SeekFrom::Start(self.pos))?; // always seek to start before reading
             self.buf_cap = reader.read(&mut self.buf)?;
             self.buf_pos = 0;
         }
@@ -98,16 +106,16 @@ impl<R: ParquetReader> FileSource<R> {
         self.buf_cap = 0;
         // read directly into param buffer
         let mut reader = self.reader.borrow_mut();
-        reader.seek(SeekFrom::Start(self.start))?; // always seek to start before reading
+        reader.seek(SeekFrom::Start(self.pos))?; // always seek to start before reading
         let nread = reader.read(buf)?;
-        self.start += nread as u64;
+        self.pos += nread as u64;
         Ok(nread)
     }
 }
 
 impl<R: ParquetReader> Read for FileSource<R> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
-        let bytes_to_read = cmp::min(buf.len(), (self.end - self.start) as usize);
+        let bytes_to_read = cmp::min(buf.len(), (self.end - self.pos) as usize);
         let buf = &mut buf[0..bytes_to_read];
 
         // If we don't have any buffered data and we're doing a massive read
@@ -124,14 +132,14 @@ impl<R: ParquetReader> Read for FileSource<R> {
         // consume from buffer
         self.buf_pos = cmp::min(self.buf_pos + nread, self.buf_cap);
 
-        self.start += nread as u64;
+        self.pos += nread as u64;
         Ok(nread)
     }
 }
 
 impl<R: ParquetReader> Position for FileSource<R> {
     fn pos(&self) -> u64 {
-        self.start
+        self.pos
     }
 }
 
@@ -241,6 +249,19 @@ mod tests {
         let bytes_read = src.read(&mut [0; 128]).unwrap();
         assert_eq!(bytes_read, 0);
         assert_eq!(src.pos(), 4);
+    }
+
+    #[test]
+    fn test_io_slice_over_limit() {
+        let mut buf = vec![0; 8];
+        let file = get_test_file("alltypes_plain.parquet");
+        // read the footer
+        let mut src = FileSource::new(&file, file.len() - 4, 10);
+        assert_eq!(src.len(), 4);
+
+        let bytes_read = src.read(&mut buf[..]).unwrap();
+        assert_eq!(bytes_read, 4);
+        assert_eq!(buf, vec![b'P', b'A', b'R', b'1', 0, 0, 0, 0]);
     }
 
     #[test]

@@ -55,8 +55,8 @@ impl TryClone for File {
 impl ChunkReader for File {
     type T = FileSource<File>;
 
-    fn get_read(&self, start: u64, length: usize) -> Result<Self::T> {
-        Ok(FileSource::new(self, start, length))
+    fn get_read(&self, start: ChunkMode, length: usize) -> Result<Self::T> {
+        Ok(FileSource::new(self, start.from_start(self.len()), length))
     }
 }
 
@@ -69,8 +69,8 @@ impl Length for SliceableCursor {
 impl ChunkReader for SliceableCursor {
     type T = SliceableCursor;
 
-    fn get_read(&self, start: u64, length: usize) -> Result<Self::T> {
-        self.slice(start, length).map_err(|e| e.into())
+    fn get_read(&self, start: ChunkMode, length: usize) -> Result<Self::T> {
+        Ok(self.slice(start.from_start(self.len()), length))
     }
 }
 
@@ -199,7 +199,7 @@ impl<'a, R: 'static + ChunkReader> RowGroupReader for SerializedRowGroupReader<'
         let col_length = col.compressed_size();
         let file_chunk = self
             .chunk_reader
-            .get_read(col_start as u64, col_length as usize)?;
+            .get_read(ChunkMode::FromStart(col_start as u64), col_length as usize)?;
         let page_reader = SerializedPageReader::new(
             file_chunk,
             col.num_values(),
