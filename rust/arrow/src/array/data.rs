@@ -21,11 +21,12 @@
 use std::mem;
 use std::sync::Arc;
 
-use crate::bitmap::Bitmap;
 use crate::buffer::Buffer;
 use crate::datatypes::DataType;
 use crate::util::bit_util;
+use crate::{bitmap::Bitmap, datatypes::ArrowNativeType};
 
+#[inline]
 fn count_nulls(null_bit_buffer: Option<&Buffer>, offset: usize, len: usize) -> usize {
     if let Some(ref buf) = null_bit_buffer {
         len.checked_sub(bit_util::count_set_bits_offset(buf.data(), offset, len))
@@ -49,7 +50,7 @@ pub struct ArrayData {
     /// The number of null elements in this array data
     null_count: usize,
 
-    /// The offset into this array data
+    /// The offset into this array data, in number of items
     offset: usize,
 
     /// The buffers for this array data. Note that depending on the array types, this
@@ -119,7 +120,7 @@ impl ArrayData {
     /// Returns whether the element at index `i` is null
     pub fn is_null(&self, i: usize) -> bool {
         if let Some(ref b) = self.null_bitmap {
-            return !b.is_set(i);
+            return !b.is_set(self.offset + i);
         }
         false
     }
@@ -138,7 +139,7 @@ impl ArrayData {
     /// Returns whether the element at index `i` is not null
     pub fn is_valid(&self, i: usize) -> bool {
         if let Some(ref b) = self.null_bitmap {
-            return b.is_set(i);
+            return b.is_set(self.offset + i);
         }
         true
     }
@@ -224,6 +225,21 @@ impl ArrayData {
             count_nulls(new_data.null_buffer(), new_data.offset, new_data.len);
 
         new_data
+    }
+
+    /// Returns the `buffer` as a slice of type `T` starting at self.offset
+    /// # Panics
+    /// This function panics if:
+    /// * the buffer is not byte-aligned with type T, or
+    /// * the datatype is `Boolean` (it corresponds to a bit-packed buffer where the offset is not applicable)
+    #[inline]
+    pub(super) fn buffer<T: ArrowNativeType>(&self, buffer: usize) -> &[T] {
+        let values = unsafe { self.buffers[buffer].data().align_to::<T>() };
+        if values.0.len() != 0 || values.2.len() != 0 {
+            panic!("The buffer is not byte-aligned with its interpretation")
+        };
+        assert_ne!(self.data_type, DataType::Boolean);
+        &values.1[self.offset..]
     }
 }
 

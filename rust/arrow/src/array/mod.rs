@@ -247,7 +247,6 @@ pub use self::iterator::*;
 
 // --------------------- Array Equality ---------------------
 
-pub use self::equal::ArrayEqual;
 pub use self::equal_json::JsonEqual;
 
 // --------------------- Array's values comparison ---------------------

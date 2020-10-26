@@ -62,13 +62,7 @@ fn create_array(size: usize, with_nulls: bool) -> ArrayRef {
 }
 
 fn bench_equal(arr_a: &ArrayRef) {
-    let arr_a = arr_a.as_any().downcast_ref::<Float32Array>().unwrap();
-    criterion::black_box(arr_a.equals(arr_a));
-}
-
-fn bench_equal_string(arr_a: &ArrayRef) {
-    let arr_a = arr_a.as_any().downcast_ref::<StringArray>().unwrap();
-    criterion::black_box(arr_a.equals(arr_a));
+    criterion::black_box(arr_a == arr_a);
 }
 
 fn add_benchmark(c: &mut Criterion) {
@@ -79,13 +73,11 @@ fn add_benchmark(c: &mut Criterion) {
     c.bench_function("equal_nulls_512", |b| b.iter(|| bench_equal(&arr_a_nulls)));
 
     let arr_a = create_string_array(512, false);
-    c.bench_function("equal_string_512", |b| {
-        b.iter(|| bench_equal_string(&arr_a))
-    });
+    c.bench_function("equal_string_512", |b| b.iter(|| bench_equal(&arr_a)));
 
     let arr_a_nulls = create_string_array(512, true);
     c.bench_function("equal_string_nulls_512", |b| {
-        b.iter(|| bench_equal_string(&arr_a_nulls))
+        b.iter(|| bench_equal(&arr_a_nulls))
     });
 }
 

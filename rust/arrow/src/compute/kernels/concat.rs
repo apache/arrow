@@ -220,12 +220,7 @@ mod tests {
             Some("baz"),
         ])) as ArrayRef;
 
-        assert!(
-            arr.equals(&(*expected_output)),
-            "expect {:#?} to be: {:#?}",
-            arr,
-            &expected_output
-        );
+        assert_eq!(&arr, &expected_output);
 
         Ok(())
     }
@@ -268,12 +263,7 @@ mod tests {
             Some(1024),
         ])) as ArrayRef;
 
-        assert!(
-            arr.equals(&(*expected_output)),
-            "expect {:#?} to be: {:#?}",
-            arr,
-            &expected_output
-        );
+        assert_eq!(&arr, &expected_output);
 
         Ok(())
     }
@@ -310,12 +300,7 @@ mod tests {
             Some(false),
         ])) as ArrayRef;
 
-        assert!(
-            arr.equals(&(*expected_output)),
-            "expect {:#?} to be: {:#?}",
-            arr,
-            &expected_output
-        );
+        assert_eq!(&arr, &expected_output);
 
         Ok(())
     }
@@ -379,14 +364,9 @@ mod tests {
             Arc::new(builder_in3.finish()),
         ])?;
 
-        let array_expected = builder_expected.finish();
+        let array_expected = Arc::new(builder_expected.finish()) as ArrayRef;
 
-        assert!(
-            array_result.equals(&array_expected),
-            "expect {:#?} to be: {:#?}",
-            array_result,
-            &array_expected
-        );
+        assert_eq!(&array_result, &array_expected);
 
         Ok(())
     }

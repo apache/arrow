@@ -460,16 +460,12 @@ mod tests {
         expected_data: Vec<Option<T::Native>>,
     ) where
         T: ArrowPrimitiveType,
-        PrimitiveArray<T>: From<Vec<Option<T::Native>>> + ArrayEqual,
+        PrimitiveArray<T>: From<Vec<Option<T::Native>>>,
     {
         let output = PrimitiveArray::<T>::from(data);
-        let expected = PrimitiveArray::<T>::from(expected_data);
+        let expected = Arc::new(PrimitiveArray::<T>::from(expected_data)) as ArrayRef;
         let output = take(&(Arc::new(output) as ArrayRef), index, options).unwrap();
-        let output = output.as_any().downcast_ref::<PrimitiveArray<T>>().unwrap();
-        assert!(
-            output.equals(&expected),
-            format!("{:?} =! {:?}", output.data(), expected.data())
-        )
+        assert_eq!(&output, &expected)
     }
 
     fn test_take_impl_primitive_arrays<T, I>(
@@ -479,7 +475,7 @@ mod tests {
         expected_data: Vec<Option<T::Native>>,
     ) where
         T: ArrowPrimitiveType,
-        PrimitiveArray<T>: From<Vec<Option<T::Native>>> + ArrayEqual,
+        PrimitiveArray<T>: From<Vec<Option<T::Native>>>,
         I: ArrowNumericType,
         I::Native: ToPrimitive,
     {
@@ -487,10 +483,7 @@ mod tests {
         let expected = PrimitiveArray::<T>::from(expected_data);
         let output = take_impl(&(Arc::new(output) as ArrayRef), index, options).unwrap();
         let output = output.as_any().downcast_ref::<PrimitiveArray<T>>().unwrap();
-        assert!(
-            output.equals(&expected),
-            format!("{:?} =! {:?}", output.data(), expected.data())
-        )
+        assert_eq!(output, &expected)
     }
 
     // create a simple struct for testing purposes
@@ -731,7 +724,7 @@ mod tests {
 
     fn _test_take_string<'a, K: 'static>()
     where
-        K: Array + From<Vec<Option<&'a str>>>,
+        K: Array + PartialEq + From<Vec<Option<&'a str>>>,
     {
         let index = UInt32Array::from(vec![Some(3), None, Some(1), Some(3), Some(4)]);
 
@@ -752,12 +745,7 @@ mod tests {
         let expected =
             K::from(vec![Some("four"), None, None, Some("four"), Some("five")]);
 
-        assert!(
-            actual.equals(&expected),
-            "{:?} != {:?}",
-            actual.data(),
-            expected.data()
-        );
+        assert_eq!(actual, &expected);
     }
 
     #[test]
@@ -828,7 +816,7 @@ mod tests {
                 .build();
             let expected_list_array = $list_array_type::from(expected_list_data);
 
-            assert!(a.equals(&expected_list_array));
+            assert_eq!(a, &expected_list_array);
         }};
     }
 
@@ -902,7 +890,7 @@ mod tests {
                 .build();
             let expected_list_array = $list_array_type::from(expected_list_data);
 
-            assert!(a.equals(&expected_list_array));
+            assert_eq!(a, &expected_list_array);
         }};
     }
 
@@ -976,7 +964,7 @@ mod tests {
                 .build();
             let expected_list_array = $list_array_type::from(expected_list_data);
 
-            assert!(a.equals(&expected_list_array));
+            assert_eq!(a, &expected_list_array);
         }};
     }
 
@@ -1057,10 +1045,8 @@ mod tests {
             .add_child_data(expected_int_data)
             .build();
         let struct_array = StructArray::from(struct_array_data);
-        assert!(
-            a.equals(&struct_array),
-            format!("{:?} =! {:?}", a.data(), struct_array.data())
-        );
+
+        assert_eq!(a, &struct_array);
     }
 
     #[test]
@@ -1090,10 +1076,7 @@ mod tests {
             .add_child_data(expected_int_data)
             .build();
         let struct_array = StructArray::from(struct_array_data);
-        assert!(
-            a.equals(&struct_array),
-            format!("{:?} =! {:?}", a.data(), struct_array.data())
-        );
+        assert_eq!(a, &struct_array);
     }
 
     #[test]
