@@ -492,7 +492,6 @@ where
             data_buffer.into_iter().map(Some).collect()
         };
 
-        // TODO: I did this quickly without thinking through it, there might be edge cases to consider
         let mut array = self.converter.convert(data)?;
 
         if let ArrowType::Dictionary(_, _) = self.data_type {
