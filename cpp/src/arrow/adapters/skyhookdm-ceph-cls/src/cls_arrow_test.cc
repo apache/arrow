@@ -15,10 +15,10 @@ using arrow::dataset::string_literals::operator"" _;
 
 int create_test_arrow_table(std::shared_ptr<arrow::Table> *out_table) {
 
-  // create a memory pool
+  // Create a memory pool
   arrow::MemoryPool *pool = arrow::default_memory_pool();
 
-  // arrow array builder for each table column
+  // An arrow array builder for each table column
   arrow::Int32Builder id_builder(pool);
   arrow::DoubleBuilder cost_builder(pool);
   arrow::ListBuilder components_builder(
@@ -28,7 +28,7 @@ int create_test_arrow_table(std::shared_ptr<arrow::Table> *out_table) {
   arrow::DoubleBuilder &cost_components_builder = *(
       static_cast<arrow::DoubleBuilder *>(components_builder.value_builder()));
 
-  // append some fake data
+  // Append some fake data
   for (int i = 0; i < 10; ++i) {
     id_builder.Append(i);
     cost_builder.Append(i + 1.0);
@@ -54,7 +54,7 @@ int create_test_arrow_table(std::shared_ptr<arrow::Table> *out_table) {
   std::shared_ptr<arrow::ListArray> cost_components_array;
   components_builder.Finish(&cost_components_array);
 
-  // create table schema and make table from col arrays and schema
+  // Create table schema and make table from col arrays and schema
   std::vector<std::shared_ptr<arrow::Field>> schema_vector = {
       arrow::field("id", arrow::int32()),
       arrow::field("cost", arrow::float64()),
@@ -76,24 +76,23 @@ TEST(ClsSDK, TestWriteAndReadTable) {
   librados::IoCtx ioctx;
   cluster.ioctx_create(pool_name.c_str(), ioctx);
 
-  // WTITE PATH
   librados::bufferlist in, out;
   std::shared_ptr<arrow::Table> table;
   create_test_arrow_table(&table);
-  arrow::dataset::write_table_to_bufferlist(table, in);
+  arrow::dataset::serialize_table_to_bufferlist(table, in);
   ASSERT_EQ(0, ioctx.exec("test_object_1", "arrow", "write", in, out));
 
-  // READ PATH
   librados::bufferlist in_, out_;
   auto filter = arrow::dataset::scalar(true);
   auto schema = arrow::schema({
       arrow::field("id", arrow::int32()),
       arrow::field("cost", arrow::float64()),
       arrow::field("cost_components", arrow::list(arrow::float64()))});
+
   arrow::dataset::serialize_scan_request_to_bufferlist(filter, schema, in_);
-  ASSERT_EQ(0, ioctx.exec("test_object_1", "arrow", "read", in_, out_));
+  ASSERT_EQ(0, ioctx.exec("test_object_1", "arrow", "read_and_scan", in_, out_));
   std::shared_ptr<arrow::Table> table_;
-  arrow::dataset::read_table_from_bufferlist(&table_, out_);
+  arrow::dataset::deserialize_table_from_bufferlist(&table_, out_);
   ASSERT_EQ(table->Equals(*table_), 1);
 
   ASSERT_EQ(0, destroy_one_pool_pp(pool_name, cluster));
@@ -106,14 +105,12 @@ TEST(ClsSDK, TestProjection) {
   librados::IoCtx ioctx;
   cluster.ioctx_create(pool_name.c_str(), ioctx);
 
-  // WTITE PATH
   librados::bufferlist in, out;
   std::shared_ptr<arrow::Table> table;
   create_test_arrow_table(&table);
-  arrow::dataset::write_table_to_bufferlist(table, in);
+  arrow::dataset::serialize_table_to_bufferlist(table, in);
   ASSERT_EQ(0, ioctx.exec("test_object_2", "arrow", "write", in, out));
 
-  // READ PATH
   librados::bufferlist in_, out_;
   auto filter = arrow::dataset::scalar(true);
   auto schema = arrow::schema({
@@ -122,9 +119,9 @@ TEST(ClsSDK, TestProjection) {
 
   auto table_projected = table->RemoveColumn(1).ValueOrDie();
   arrow::dataset::serialize_scan_request_to_bufferlist(filter, schema, in_);
-  ASSERT_EQ(0, ioctx.exec("test_object_2", "arrow", "read", in_, out_));
+  ASSERT_EQ(0, ioctx.exec("test_object_2", "arrow", "read_and_scan", in_, out_));
   std::shared_ptr<arrow::Table> table_;
-  arrow::dataset::read_table_from_bufferlist(&table_, out_);
+  arrow::dataset::deserialize_table_from_bufferlist(&table_, out_);
 
   ASSERT_EQ(table->Equals(*table_), 0);
   ASSERT_EQ(table_projected->Equals(*table_), 1);
@@ -141,14 +138,12 @@ TEST(ClsSDK, TestSelection) {
   librados::IoCtx ioctx;
   cluster.ioctx_create(pool_name.c_str(), ioctx);
 
-  // WTITE PATH
   librados::bufferlist in, out;
   std::shared_ptr<arrow::Table> table;
   create_test_arrow_table(&table);
-  arrow::dataset::write_table_to_bufferlist(table, in);
+  arrow::dataset::serialize_table_to_bufferlist(table, in);
   ASSERT_EQ(0, ioctx.exec("test_object_3", "arrow", "write", in, out));
 
-  // READ PATH
   librados::bufferlist in_, out_;
   std::shared_ptr<arrow::dataset::Expression> filter = ("id"_ == int32_t(8) || "id"_ == int32_t(7)).Copy();
   auto schema = arrow::schema({
@@ -156,9 +151,9 @@ TEST(ClsSDK, TestSelection) {
       arrow::field("cost", arrow::float64()),
       arrow::field("cost_components", arrow::list(arrow::float64()))});
   arrow::dataset::serialize_scan_request_to_bufferlist(filter, schema, in_);
-  ASSERT_EQ(0, ioctx.exec("test_object_3", "arrow", "read", in_, out_));
+  ASSERT_EQ(0, ioctx.exec("test_object_3", "arrow", "read_and_scan", in_, out_));
   std::shared_ptr<arrow::Table> table_;
-  arrow::dataset::read_table_from_bufferlist(&table_, out_);
+  arrow::dataset::deserialize_table_from_bufferlist(&table_, out_);
   ASSERT_EQ(table_->num_rows(), 2);
   ASSERT_EQ(0, destroy_one_pool_pp(pool_name, cluster));
 }
@@ -170,11 +165,10 @@ TEST(ClsSDK, TestEndToEnd) {
   librados::IoCtx ioctx;
   cluster.ioctx_create(pool_name.c_str(), ioctx);
 
-  // create and write table
   librados::bufferlist in, out;
   std::shared_ptr<arrow::Table> table;
   create_test_arrow_table(&table);
-  arrow::dataset::write_table_to_bufferlist(table, in);
+  arrow::dataset::serialize_table_to_bufferlist(table, in);
 
   arrow::TableBatchReader table_reader(*table);
   arrow::RecordBatchVector batches;
@@ -191,8 +185,8 @@ TEST(ClsSDK, TestEndToEnd) {
       arrow::field("cost_components", arrow::list(arrow::float64()))
     });
 
-    arrow::dataset::ObjectVector objects;
-    for (int i = 0; i < 1; i++) objects.push_back(std::make_shared<arrow::dataset::Object>("obj." + std::to_string(i)));
+    arrow::dataset::RadosObjectVector objects;
+    for (int i = 0; i < 1; i++) objects.push_back(std::make_shared<arrow::dataset::RadosObject>("obj." + std::to_string(i)));
 
     auto rados_options = arrow::dataset::RadosOptions::FromPoolName("test-pool");
 

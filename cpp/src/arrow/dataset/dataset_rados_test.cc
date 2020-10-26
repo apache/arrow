@@ -37,7 +37,7 @@ TEST_F(TestRadosScanTask, Execute) {
   auto batch = generate_test_record_batch();
   auto reader = ConstantArrayGenerator::Repeat(kNumberBatches, batch);
 
-  auto object = std::make_shared<Object>("object.1");
+  auto object = std::make_shared<RadosObject>("object.1");
   auto rados_options = RadosOptions::FromPoolName("test_pool");
 
   auto mock_rados_interface = new MockRados();
@@ -62,7 +62,7 @@ TEST_F(TestRadosFragment, Scan) {
   auto batch = generate_test_record_batch();
   auto reader = ConstantArrayGenerator::Repeat(kNumberBatches, batch);
 
-  auto object = std::make_shared<Object>("object.1");
+  auto object = std::make_shared<RadosObject>("object.1");
   auto rados_options = RadosOptions::FromPoolName("test_pool");
   
   auto mock_rados_interface = new MockRados();
@@ -83,10 +83,10 @@ TEST_F(TestRadosDataset, GetFragments) {
 
   SetSchema({field("f1", int64()), field("f2", int64())});
   
-  ObjectVector object_vector{
-    std::make_shared<Object>("object.1"), 
-    std::make_shared<Object>("object.2"),
-    std::make_shared<Object>("object.3")
+  RadosObjectVector object_vector{
+    std::make_shared<RadosObject>("object.1"), 
+    std::make_shared<RadosObject>("object.2"),
+    std::make_shared<RadosObject>("object.3")
   };
 
   auto batch = generate_test_record_batch();
@@ -108,9 +108,9 @@ TEST_F(TestRadosDataset, GetFragments) {
 TEST_F(TestRadosDataset, ReplaceSchema) {
   SetSchema({field("i32", int32()), field("f64", float64())});
   
-  ObjectVector object_vector{
-    std::make_shared<Object>("object.1"), 
-    std::make_shared<Object>("object.2")
+  RadosObjectVector object_vector{
+    std::make_shared<RadosObject>("object.1"), 
+    std::make_shared<RadosObject>("object.2")
   };
 
   auto rados_options = RadosOptions::FromPoolName("test_pool");
@@ -163,7 +163,6 @@ TEST_F(TestRadosDataset, SerializeDeserializeScanRequest) {
   librados::bufferlist bl;
   serialize_scan_request_to_bufferlist(filter, schema, bl); 
 
-  // will point to the deserialized filter, schema and batch size
   librados::bufferlist bl__ = std::move(bl);
   std::shared_ptr<Expression> filter__;
   std::shared_ptr<Schema> schema__;
@@ -176,11 +175,11 @@ TEST_F(TestRadosDataset, SerializeDeserializeScanRequest) {
 TEST_F(TestRadosDataset, SerializeDeserializeTable) {
   auto table = generate_test_table();
   librados::bufferlist bl;
-  write_table_to_bufferlist(table, bl);
+  serialize_table_to_bufferlist(table, bl);
 
   librados::bufferlist bl__(bl);
   std::shared_ptr<Table> table__;
-  read_table_from_bufferlist(&table__, bl__);
+  deserialize_table_from_bufferlist(&table__, bl__);
 
   ASSERT_TRUE(table__->Equals(*table));
 }
@@ -191,10 +190,10 @@ TEST_F(TestRadosDataset, EndToEnd) {
 
   SetSchema({field("f1", int64()), field("f2", int64())});
 
-  ObjectVector object_vector{
-    std::make_shared<Object>("object.1"), 
-    std::make_shared<Object>("object.2"),
-    std::make_shared<Object>("object.3")
+  RadosObjectVector object_vector{
+    std::make_shared<RadosObject>("object.1"), 
+    std::make_shared<RadosObject>("object.2"),
+    std::make_shared<RadosObject>("object.3")
   };
 
   auto batch = generate_test_record_batch();

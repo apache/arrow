@@ -21,21 +21,22 @@
 
 #include <gmock/gmock.h>
 
+#include "arrow/api.h"
+#include "arrow/ipc/api.h"
 #include "arrow/dataset/api.h"
 #include "arrow/dataset/visibility.h"
 #include "arrow/util/macros.h"
-#include "arrow/ipc/api.h"
-#include "arrow/api.h"
 
 namespace arrow {
 namespace dataset {
 
+/// \brief Generate a RecordBatch containing random data
 ARROW_DS_EXPORT std::shared_ptr<RecordBatch> generate_test_record_batch();
 
+/// \brief Generate a Table containing random data
 ARROW_DS_EXPORT std::shared_ptr<Table> generate_test_table();
 
-ARROW_DS_EXPORT Status get_test_table_in_bufferlist(librados::bufferlist &bl);
-
+/// \brief A Mock for the IoCtxInterface
 class ARROW_DS_EXPORT MockIoCtx : public IoCtxInterface {
 public:
     MockIoCtx(){
@@ -52,8 +53,10 @@ private:
         EXPECT_CALL(*this, write_full(testing::_, testing::_))
                 .WillOnce(testing::Return(0));
 
+        // Generate a random table and write it to a bufferlist
         librados::bufferlist result;
-        get_test_table_in_bufferlist(result);
+        auto table = generate_test_table();
+        serialize_table_to_bufferlist(table, result);
 
         EXPECT_CALL(*this, read(testing::_, testing::_, testing::_, testing::_))
                 .WillOnce(DoAll(testing::SetArgReferee<1>(result), testing::Return(0)));
@@ -64,6 +67,7 @@ private:
     }
 };
 
+/// \brief A Mock for the RadosInterface
 class ARROW_DS_EXPORT MockRados : public RadosInterface {
 public:
     MockRados(){

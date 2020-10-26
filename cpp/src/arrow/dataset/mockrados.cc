@@ -68,16 +68,5 @@ std::shared_ptr<Table> generate_test_table() {
     return table;
 }
 
-Status get_test_table_in_bufferlist(librados::bufferlist &bl) {
-    librados::bufferlist result;
-    
-    // Get the test table and write it to a bufferlist
-    auto table = generate_test_table();
-    ARROW_RETURN_NOT_OK(write_table_to_bufferlist(table, result));
-    bl = result;
-
-    return Status::OK();
-}
-
 }  // namespace dataset
 }  // namespace arrow
