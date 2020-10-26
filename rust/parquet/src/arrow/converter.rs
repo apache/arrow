@@ -42,7 +42,7 @@ use arrow::datatypes::{
 use arrow::array::ArrayDataBuilder;
 use arrow::array::{
     BinaryArray, DictionaryArray, FixedSizeBinaryArray, LargeBinaryArray,
-    LargeStringArray, PrimitiveArray, PrimitiveArrayOps, StringArray,
+    LargeStringArray, PrimitiveArray, StringArray,
     TimestampNanosecondArray,
 };
 use std::marker::PhantomData;
@@ -325,7 +325,7 @@ where
 
         let source_array: Arc<dyn Array> =
             Arc::new(PrimitiveArray::<DictValueSourceType>::from(source));
-        let target_array = cast(&source_array, &DictValueTargetType::get_data_type())?;
+        let target_array = cast(&source_array, &DictValueTargetType::DATA_TYPE)?;
         let target = target_array
             .as_any()
             .downcast_ref::<PrimitiveArray<DictValueTargetType>>()
