@@ -57,9 +57,8 @@ use arrow::util::bit_util;
 
 use crate::arrow::converter::{
     BinaryArrayConverter, BinaryConverter, BoolConverter, BooleanArrayConverter,
-    Converter, FixedLenBinaryConverter, FixedSizeArrayConverter, Float32Converter,
-    Float64Converter, Int32Converter, Int64Converter, Int96ArrayConverter,
-    Int96Converter, LargeBinaryArrayConverter, LargeBinaryConverter,
+    CastConverter, Converter, FixedLenBinaryConverter, FixedSizeArrayConverter,
+    Int96ArrayConverter, Int96Converter, LargeBinaryArrayConverter, LargeBinaryConverter,
     LargeUtf8ArrayConverter, LargeUtf8Converter, Utf8ArrayConverter, Utf8Converter,
 };
 use crate::arrow::record_reader::RecordReader;
@@ -270,29 +269,33 @@ impl<T: DataType> ArrayReader for PrimitiveArrayReader<T> {
 
         // Convert to arrays by using the Parquet phyisical type.
         // The physical types are then cast to Arrow types if necessary
-        let array =
-            match T::get_physical_type() {
-                PhysicalType::BOOLEAN => BoolConverter::new(BooleanArrayConverter {})
-                    .convert(self.record_reader.cast::<BoolType>()),
-                PhysicalType::INT32 => {
-                    // TODO: the cast is a no-op, but we should remove it
-                    Int32Converter::new().convert(self.record_reader.cast::<Int32Type>())
-                }
-                PhysicalType::INT64 => {
-                    Int64Converter::new().convert(self.record_reader.cast::<Int64Type>())
-                }
-                PhysicalType::FLOAT => Float32Converter::new()
-                    .convert(self.record_reader.cast::<FloatType>()),
-                PhysicalType::DOUBLE => Float64Converter::new()
-                    .convert(self.record_reader.cast::<DoubleType>()),
-                PhysicalType::INT96
-                | PhysicalType::BYTE_ARRAY
-                | PhysicalType::FIXED_LEN_BYTE_ARRAY => {
-                    unreachable!(
-                        "PrimitiveArrayReaders don't support complex physical types"
-                    );
-                }
-            }?;
+        let array = match T::get_physical_type() {
+            PhysicalType::BOOLEAN => BoolConverter::new(BooleanArrayConverter {})
+                .convert(&mut self.record_reader),
+            PhysicalType::INT32 => {
+                CastConverter::<_, ArrowInt32Type, ArrowInt32Type>::new()
+                    .convert(&mut self.record_reader)
+            }
+            PhysicalType::INT64 => {
+                CastConverter::<_, ArrowInt64Type, ArrowInt64Type>::new()
+                    .convert(&mut self.record_reader)
+            }
+            PhysicalType::FLOAT => {
+                CastConverter::<_, ArrowFloat32Type, ArrowFloat32Type>::new()
+                    .convert(&mut self.record_reader)
+            }
+            PhysicalType::DOUBLE => {
+                CastConverter::<_, ArrowFloat64Type, ArrowFloat64Type>::new()
+                    .convert(&mut self.record_reader)
+            }
+            PhysicalType::INT96
+            | PhysicalType::BYTE_ARRAY
+            | PhysicalType::FIXED_LEN_BYTE_ARRAY => {
+                unreachable!(
+                    "PrimitiveArrayReaders don't support complex physical types"
+                );
+            }
+        }?;
 
         // cast to Arrow type
         // TODO: we need to check if it's fine for this to be fallible.

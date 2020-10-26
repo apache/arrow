@@ -46,14 +46,10 @@ use arrow::array::{
 };
 use std::marker::PhantomData;
 
-use crate::data_type::{
-    BoolType, DoubleType as ParquetDoubleType, FloatType as ParquetFloatType,
-    Int32Type as ParquetInt32Type, Int64Type as ParquetInt64Type,
-};
+use crate::data_type::{Int32Type as ParquetInt32Type, Int64Type as ParquetInt64Type};
 use arrow::datatypes::{
-    Date32Type, Float32Type, Float64Type, Int16Type, Int32Type, Int64Type, Int8Type,
-    TimestampMicrosecondType, TimestampMillisecondType, UInt16Type, UInt32Type,
-    UInt64Type, UInt8Type,
+    Date32Type, Int16Type, Int32Type, Int8Type, TimestampMicrosecondType,
+    TimestampMillisecondType, UInt16Type, UInt32Type, UInt64Type, UInt8Type,
 };
 
 /// A converter is used to consume record reader's content and convert it to arrow
@@ -119,11 +115,10 @@ where
 
 pub struct BooleanArrayConverter {}
 
-impl Converter<&mut RecordReader<BoolType>, BooleanArray> for BooleanArrayConverter {
-    fn convert(
-        &self,
-        record_reader: &mut RecordReader<BoolType>,
-    ) -> Result<BooleanArray> {
+impl<T: DataType> Converter<&mut RecordReader<T>, BooleanArray>
+    for BooleanArrayConverter
+{
+    fn convert(&self, record_reader: &mut RecordReader<T>) -> Result<BooleanArray> {
         let record_data = record_reader.consume_record_data()?;
 
         let mut boolean_buffer = BooleanBufferBuilder::new(record_data.len());
@@ -344,19 +339,14 @@ where
     }
 }
 
-pub type BoolConverter<'a> = ArrayRefConverter<
-    &'a mut RecordReader<BoolType>,
-    BooleanArray,
-    BooleanArrayConverter,
->;
+pub type BoolConverter<'a, T> =
+    ArrayRefConverter<&'a mut RecordReader<T>, BooleanArray, BooleanArrayConverter>;
 // TODO: intuition tells me that removing many of these converters could help us consolidate where we cast
 pub type Int8Converter = CastConverter<ParquetInt32Type, Int32Type, Int8Type>;
 pub type UInt8Converter = CastConverter<ParquetInt32Type, Int32Type, UInt8Type>;
 pub type Int16Converter = CastConverter<ParquetInt32Type, Int32Type, Int16Type>;
 pub type UInt16Converter = CastConverter<ParquetInt32Type, Int32Type, UInt16Type>;
-pub type Int32Converter = CastConverter<ParquetInt32Type, Int32Type, Int32Type>;
 pub type UInt32Converter = CastConverter<ParquetInt32Type, UInt32Type, UInt32Type>;
-pub type Int64Converter = CastConverter<ParquetInt64Type, Int64Type, Int64Type>;
 pub type Date32Converter = CastConverter<ParquetInt32Type, Date32Type, Date32Type>;
 pub type TimestampMillisecondConverter =
     CastConverter<ParquetInt64Type, TimestampMillisecondType, TimestampMillisecondType>;
@@ -371,8 +361,6 @@ pub type Time64MicrosecondConverter =
 pub type Time64NanosecondConverter =
     CastConverter<ParquetInt64Type, Time64NanosecondType, Time64NanosecondType>;
 pub type UInt64Converter = CastConverter<ParquetInt64Type, UInt64Type, UInt64Type>;
-pub type Float32Converter = CastConverter<ParquetFloatType, Float32Type, Float32Type>;
-pub type Float64Converter = CastConverter<ParquetDoubleType, Float64Type, Float64Type>;
 pub type Utf8Converter =
     ArrayRefConverter<Vec<Option<ByteArray>>, StringArray, Utf8ArrayConverter>;
 pub type LargeUtf8Converter =
@@ -535,7 +523,7 @@ mod tests {
     #[test]
     fn test_converter_arrow_source_i32_target_i32() {
         let raw_data = vec![Some(1i32), None, Some(2i32), Some(3i32)];
-        converter_arrow_source_target!(raw_data, "INT32", Int32Type, Int32Converter)
+        converter_arrow_source_target!(raw_data, "INT32", Int32Type, CastConverter<ParquetInt32Type, Int32Type, Int32Type>)
     }
 
     fn build_record_reader<T: DataType>(
