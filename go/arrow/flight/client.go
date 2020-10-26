@@ -80,7 +80,7 @@ func (c *client) Authenticate(ctx context.Context, opts ...grpc.CallOption) erro
 		return err
 	}
 
-	return c.authHandler.Authenticate(&clientAuthConn{stream})
+	return c.authHandler.Authenticate(ctx, &clientAuthConn{stream})
 }
 
 func (c *client) Close() error {
