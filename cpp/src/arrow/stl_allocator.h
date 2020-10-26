@@ -32,7 +32,7 @@ namespace stl {
 
 /// \brief A STL allocator delegating allocations to a Arrow MemoryPool
 template <class T>
-class allocator {
+class allocator : public std::allocator<T> {
  public:
   using value_type = T;
   using pointer = T*;
