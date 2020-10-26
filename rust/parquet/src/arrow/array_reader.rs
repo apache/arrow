@@ -288,10 +288,9 @@ impl<T: DataType> ArrayReader for PrimitiveArrayReader<T> {
                 PhysicalType::INT96
                 | PhysicalType::BYTE_ARRAY
                 | PhysicalType::FIXED_LEN_BYTE_ARRAY => {
-                    // TODO: we could use unreachable!() as this is a private fn
-                    Err(general_err!(
-                        "Cannot read primitive array with a complex physical type"
-                    ))
+                    unreachable!(
+                        "PrimitiveArrayReaders don't support complex physical types"
+                    );
                 }
             }?;
 
