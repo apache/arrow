@@ -40,7 +40,7 @@ use crate::file::{
 use crate::schema::types::{self, SchemaDescPtr, SchemaDescriptor, TypePtr};
 use crate::util::io::{FileSink, Position};
 
-// Exposed publically so client code can implement ParquetWriter
+// Exposed publically so client code can implement [`ParquetWriter`]
 pub use crate::util::io::TryClone;
 
 // ----------------------------------------------------------------------
