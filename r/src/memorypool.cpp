@@ -19,10 +19,45 @@
 #if defined(ARROW_R_WITH_ARROW)
 #include <arrow/memory_pool.h>
 
+class GcMemoryPool : public arrow::MemoryPool {
+ public:
+  GcMemoryPool()
+      : pool_(arrow::default_memory_pool()), gc_(cpp11::package("base")["gc"]) {}
+
+  arrow::Status Allocate(int64_t size, uint8_t** out) override {
+    return GcAndTryAgain([&] { return pool_->Allocate(size, out); });
+  }
+
+  arrow::Status Reallocate(int64_t old_size, int64_t new_size, uint8_t** ptr) override {
+    return GcAndTryAgain([&] { return pool_->Reallocate(old_size, new_size, ptr); });
+  }
+
+  void Free(uint8_t* buffer, int64_t size) override { pool_->Free(buffer, size); }
+
+  int64_t bytes_allocated() const override { return pool_->bytes_allocated(); }
+
+  int64_t max_memory() const override { return pool_->max_memory(); }
+
+  std::string backend_name() const override { return pool_->backend_name() + "-gc"; }
+
+ private:
+  template <typename Call>
+  arrow::Status GcAndTryAgain(const Call& call) {
+    if (call().ok()) {
+      return arrow::Status::OK();
+    }
+    // ARROW-10080
+    gc_();
+    return call();
+  }
+
+  arrow::MemoryPool* pool_;
+  cpp11::function gc_;
+};
+
 // [[arrow::export]]
 std::shared_ptr<arrow::MemoryPool> MemoryPool__default() {
-  return std::shared_ptr<arrow::MemoryPool>(arrow::default_memory_pool(),
-                                            [](arrow::MemoryPool* not_deleted) {});
+  return std::make_shared<GcMemoryPool>();
 }
 
 // [[arrow::export]]
