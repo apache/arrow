@@ -297,8 +297,9 @@ class RepeatedArrayFactory {
     return out_;
   }
 
-  Status Visit(const DataType& type) {
-    return Status::NotImplemented("construction from scalar of type ", *scalar_.type);
+  Status Visit(const NullType& type) {
+    DCHECK(false);  // already forwarded to MakeArrayOfNull
+    return Status::OK();
   }
 
   Status Visit(const BooleanType&) {
@@ -401,6 +402,18 @@ class RepeatedArrayFactory {
     }
     out_ = std::make_shared<StructArray>(scalar_.type, length_, std::move(fields));
     return Status::OK();
+  }
+
+  Status Visit(const ExtensionType& type) {
+    return Status::NotImplemented("construction from scalar of type ", *scalar_.type);
+  }
+
+  Status Visit(const DenseUnionType& type) {
+    return Status::NotImplemented("construction from scalar of type ", *scalar_.type);
+  }
+
+  Status Visit(const SparseUnionType& type) {
+    return Status::NotImplemented("construction from scalar of type ", *scalar_.type);
   }
 
   template <typename OffsetType>

@@ -18,31 +18,20 @@
 #include "arrow/dataset/partition.h"
 
 #include <algorithm>
-#include <chrono>
 #include <memory>
-#include <set>
-#include <stack>
 #include <utility>
 #include <vector>
 
 #include "arrow/array/array_base.h"
 #include "arrow/array/array_nested.h"
-#include "arrow/array/builder_binary.h"
 #include "arrow/array/builder_dict.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/dataset/dataset_internal.h"
-#include "arrow/dataset/file_base.h"
 #include "arrow/dataset/filter.h"
-#include "arrow/dataset/scanner.h"
-#include "arrow/dataset/scanner_internal.h"
-#include "arrow/filesystem/filesystem.h"
 #include "arrow/filesystem/path_util.h"
 #include "arrow/scalar.h"
-#include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/make_unique.h"
-#include "arrow/util/range.h"
-#include "arrow/util/sort.h"
 #include "arrow/util/string_view.h"
 
 namespace arrow {

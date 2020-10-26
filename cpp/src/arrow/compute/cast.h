@@ -83,7 +83,7 @@ struct ARROW_EXPORT CastOptions : public FunctionOptions {
 class CastFunction : public ScalarFunction {
  public:
   CastFunction(std::string name, Type::type out_type);
-  ~CastFunction();
+  ~CastFunction() override;
 
   Type::type out_type_id() const;
 
@@ -156,6 +156,18 @@ ARROW_EXPORT
 Result<Datum> Cast(const Datum& value, std::shared_ptr<DataType> to_type,
                    const CastOptions& options = CastOptions::Safe(),
                    ExecContext* ctx = NULLPTR);
+
+/// \addtogroup compute-concrete-options
+/// @{
+
+struct ARROW_EXPORT StructOptions : public FunctionOptions {
+  explicit StructOptions(std::vector<std::string> n) : field_names(std::move(n)) {}
+
+  /// Names for wrapped columns
+  std::vector<std::string> field_names;
+};
+
+/// @}
 
 }  // namespace compute
 }  // namespace arrow
