@@ -42,8 +42,7 @@ use arrow::datatypes::{
 use arrow::array::ArrayDataBuilder;
 use arrow::array::{
     BinaryArray, DictionaryArray, FixedSizeBinaryArray, LargeBinaryArray,
-    LargeStringArray, PrimitiveArray, StringArray,
-    TimestampNanosecondArray,
+    LargeStringArray, PrimitiveArray, StringArray, TimestampNanosecondArray,
 };
 use std::marker::PhantomData;
 

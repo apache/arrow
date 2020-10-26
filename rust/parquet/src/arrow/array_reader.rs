@@ -61,11 +61,11 @@ use crate::arrow::converter::{
     FixedSizeArrayConverter, Float32Converter, Float64Converter, Int16Converter,
     Int32Converter, Int64Converter, Int8Converter, Int96ArrayConverter, Int96Converter,
     LargeBinaryArrayConverter, LargeBinaryConverter, LargeUtf8ArrayConverter,
-    LargeUtf8Converter, StringDictionaryArrayConverter, StringDictionaryConverter,
-    Time32MillisecondConverter, Time32SecondConverter, Time64MicrosecondConverter,
-    Time64NanosecondConverter, TimestampMicrosecondConverter,
+    LargeUtf8Converter, PrimitiveDictionaryConverter, StringDictionaryArrayConverter,
+    StringDictionaryConverter, Time32MillisecondConverter, Time32SecondConverter,
+    Time64MicrosecondConverter, Time64NanosecondConverter, TimestampMicrosecondConverter,
     TimestampMillisecondConverter, UInt16Converter, UInt32Converter, UInt64Converter,
-    UInt8Converter, Utf8ArrayConverter, Utf8Converter, PrimitiveDictionaryConverter,
+    UInt8Converter, Utf8ArrayConverter, Utf8Converter,
 };
 use crate::arrow::record_reader::RecordReader;
 use crate::arrow::schema::parquet_to_arrow_field;
@@ -1457,10 +1457,12 @@ impl<'a> ArrayReaderBuilder {
                 PhysicalType::INT32 => {
                     if let ArrowType::UInt8 = **key_type {
                         if let ArrowType::UInt32 = **value_type {
-                            let converter =
-                                PrimitiveDictionaryConverter::<ArrowUInt8Type, ArrowUInt32Type>::new(
-                                    DictionaryArrayConverter::new(),
-                                );
+                            let converter = PrimitiveDictionaryConverter::<
+                                ArrowUInt8Type,
+                                ArrowUInt32Type,
+                            >::new(
+                                DictionaryArrayConverter::new()
+                            );
                             return Ok(Box::new(
                                 ComplexObjectArrayReader::<Int32Type, _>::new(
                                     page_iterator,
@@ -1469,10 +1471,12 @@ impl<'a> ArrayReaderBuilder {
                                 )?,
                             ));
                         } else if let ArrowType::Int32 = **value_type {
-                            let converter =
-                                PrimitiveDictionaryConverter::<ArrowUInt8Type, ArrowInt32Type>::new(
-                                    DictionaryArrayConverter::new(),
-                                );
+                            let converter = PrimitiveDictionaryConverter::<
+                                ArrowUInt8Type,
+                                ArrowInt32Type,
+                            >::new(
+                                DictionaryArrayConverter::new()
+                            );
                             return Ok(Box::new(
                                 ComplexObjectArrayReader::<Int32Type, _>::new(
                                     page_iterator,
@@ -1484,12 +1488,13 @@ impl<'a> ArrayReaderBuilder {
                             panic!("byeagain");
                         }
                     } else if let ArrowType::UInt16 = **key_type {
-
                         if let ArrowType::UInt32 = **value_type {
-                            let converter =
-                                PrimitiveDictionaryConverter::<ArrowUInt16Type, ArrowUInt32Type>::new(
-                                    DictionaryArrayConverter::new(),
-                                );
+                            let converter = PrimitiveDictionaryConverter::<
+                                ArrowUInt16Type,
+                                ArrowUInt32Type,
+                            >::new(
+                                DictionaryArrayConverter::new()
+                            );
                             return Ok(Box::new(
                                 ComplexObjectArrayReader::<Int32Type, _>::new(
                                     page_iterator,
@@ -1498,10 +1503,12 @@ impl<'a> ArrayReaderBuilder {
                                 )?,
                             ));
                         } else if let ArrowType::Int32 = **value_type {
-                            let converter =
-                                PrimitiveDictionaryConverter::<ArrowUInt16Type, ArrowInt32Type>::new(
-                                    DictionaryArrayConverter::new(),
-                                );
+                            let converter = PrimitiveDictionaryConverter::<
+                                ArrowUInt16Type,
+                                ArrowInt32Type,
+                            >::new(
+                                DictionaryArrayConverter::new()
+                            );
                             return Ok(Box::new(
                                 ComplexObjectArrayReader::<Int32Type, _>::new(
                                     page_iterator,
