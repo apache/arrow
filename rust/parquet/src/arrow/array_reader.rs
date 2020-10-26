@@ -453,12 +453,13 @@ where
         };
 
         // TODO: I did this quickly without thinking through it, there might be edge cases to consider
-        let array = self.converter.convert(data)?;
+        let mut array = self.converter.convert(data)?;
 
-        Ok(match self.data_type {
-            ArrowType::Dictionary(_, _) => arrow::compute::cast(&array, &self.data_type)?,
-            _ => array,
-        })
+        if let ArrowType::Dictionary(_, _) = self.data_type {
+            array = arrow::compute::cast(&array, &self.data_type)?;
+        }
+
+        Ok(array)
     }
 
     fn get_def_levels(&self) -> Option<&[i16]> {
