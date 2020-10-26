@@ -10,9 +10,14 @@ CLS_VER(1, 0)
 CLS_NAME(arrow)
 
 cls_handle_t h_class;
-cls_method_handle_t h_read;
+cls_method_handle_t h_read_and_scan;
 cls_method_handle_t h_write;
 
+/// \brief Write data to an object.
+///  
+/// \param[in] hctx the function execution context
+/// \param[in] in the input bufferlist
+/// \param[in] out the output bufferlist
 static int write(cls_method_context_t hctx, ceph::buffer::list *in, ceph::buffer::list *out) {
   int ret;
 
@@ -33,7 +38,13 @@ static int write(cls_method_context_t hctx, ceph::buffer::list *in, ceph::buffer
   return 0;
 }
 
-static int read(cls_method_context_t hctx, ceph::buffer::list *in, ceph::buffer::list *out) {
+/// \brief Read record batches from an object and 
+/// apply the pushed down scan operations on them.
+///
+/// \param[in] hctx the function execution context
+/// \param[in] in the input bufferlist
+/// \param[in] out the output bufferlist
+static int read_and_scan(cls_method_context_t hctx, ceph::buffer::list *in, ceph::buffer::list *out) {
   int ret;
   arrow::Status arrow_ret;
 
@@ -72,7 +83,7 @@ static int read(cls_method_context_t hctx, ceph::buffer::list *in, ceph::buffer:
 
   CLS_LOG(0, "writing the resultant table into the [out] bufferlist");
   ceph::buffer::list result_bl;
-  arrow_ret = arrow::dataset::write_table_to_bufferlist(result_table, result_bl);
+  arrow_ret = arrow::dataset::serialize_table_to_bufferlist(result_table, result_bl);
   if (!arrow_ret.ok()) {
     CLS_ERR("ERROR: failed to write table to bufferlist");
     return -1;
@@ -88,9 +99,9 @@ CLS_INIT(arrow)
 
   cls_register("arrow", &h_class);
 
-  cls_register_cxx_method(h_class, "read",
-                          CLS_METHOD_RD | CLS_METHOD_WR, read,
-                          &h_read);
+  cls_register_cxx_method(h_class, "read_and_scan",
+                          CLS_METHOD_RD | CLS_METHOD_WR, read_and_scan,
+                          &h_read_and_scan);
 
   cls_register_cxx_method(h_class, "write",
                           CLS_METHOD_RD | CLS_METHOD_WR, write,

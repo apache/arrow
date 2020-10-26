@@ -67,6 +67,7 @@ docker_cache
 .*.swo
 
 site/
+**/test-cluster/
 
 # R files
 **/.Rproj.user

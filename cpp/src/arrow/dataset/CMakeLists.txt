@@ -29,6 +29,7 @@ set(ARROW_DATASET_SRCS
     partition.cc
     projector.cc
     scanner.cc
+    scanner_rados.cc
     rados_utils.cc
     rados.cc
     mockrados.cc)
