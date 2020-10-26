@@ -18,19 +18,13 @@
 use crate::arrow::record_reader::RecordReader;
 use crate::data_type::{ByteArray, DataType, Int96};
 // TODO: clean up imports (best done when there are few moving parts)
-use arrow::{
-    array::{
-        Array, ArrayRef, BinaryBuilder, BooleanArray, BooleanBufferBuilder,
-        BufferBuilderTrait, FixedSizeBinaryBuilder, LargeBinaryBuilder,
-        LargeStringBuilder, PrimitiveBuilder, PrimitiveDictionaryBuilder, StringBuilder,
-        StringDictionaryBuilder, TimestampNanosecondBuilder,
-    },
-    datatypes::Time32MillisecondType,
+use arrow::array::{
+    Array, ArrayRef, BinaryBuilder, BooleanArray, BooleanBufferBuilder,
+    BufferBuilderTrait, FixedSizeBinaryBuilder, LargeBinaryBuilder, LargeStringBuilder,
+    PrimitiveBuilder, PrimitiveDictionaryBuilder, StringBuilder, StringDictionaryBuilder,
+    TimestampNanosecondBuilder,
 };
-use arrow::{
-    compute::cast, datatypes::Time32SecondType, datatypes::Time64MicrosecondType,
-    datatypes::Time64NanosecondType,
-};
+use arrow::compute::cast;
 use std::convert::From;
 use std::sync::Arc;
 
@@ -46,11 +40,8 @@ use arrow::array::{
 };
 use std::marker::PhantomData;
 
-use crate::data_type::{Int32Type as ParquetInt32Type, Int64Type as ParquetInt64Type};
-use arrow::datatypes::{
-    Date32Type, Int16Type, Int32Type, Int8Type, TimestampMicrosecondType,
-    TimestampMillisecondType, UInt16Type, UInt32Type, UInt64Type, UInt8Type,
-};
+use crate::data_type::Int32Type as ParquetInt32Type;
+use arrow::datatypes::Int32Type;
 
 /// A converter is used to consume record reader's content and convert it to arrow
 /// primitive array.
@@ -341,26 +332,6 @@ where
 
 pub type BoolConverter<'a, T> =
     ArrayRefConverter<&'a mut RecordReader<T>, BooleanArray, BooleanArrayConverter>;
-// TODO: intuition tells me that removing many of these converters could help us consolidate where we cast
-pub type Int8Converter = CastConverter<ParquetInt32Type, Int32Type, Int8Type>;
-pub type UInt8Converter = CastConverter<ParquetInt32Type, Int32Type, UInt8Type>;
-pub type Int16Converter = CastConverter<ParquetInt32Type, Int32Type, Int16Type>;
-pub type UInt16Converter = CastConverter<ParquetInt32Type, Int32Type, UInt16Type>;
-pub type UInt32Converter = CastConverter<ParquetInt32Type, UInt32Type, UInt32Type>;
-pub type Date32Converter = CastConverter<ParquetInt32Type, Date32Type, Date32Type>;
-pub type TimestampMillisecondConverter =
-    CastConverter<ParquetInt64Type, TimestampMillisecondType, TimestampMillisecondType>;
-pub type TimestampMicrosecondConverter =
-    CastConverter<ParquetInt64Type, TimestampMicrosecondType, TimestampMicrosecondType>;
-pub type Time32SecondConverter =
-    CastConverter<ParquetInt32Type, Time32SecondType, Time32SecondType>;
-pub type Time32MillisecondConverter =
-    CastConverter<ParquetInt32Type, Time32MillisecondType, Time32MillisecondType>;
-pub type Time64MicrosecondConverter =
-    CastConverter<ParquetInt64Type, Time64MicrosecondType, Time64MicrosecondType>;
-pub type Time64NanosecondConverter =
-    CastConverter<ParquetInt64Type, Time64NanosecondType, Time64NanosecondType>;
-pub type UInt64Converter = CastConverter<ParquetInt64Type, UInt64Type, UInt64Type>;
 pub type Utf8Converter =
     ArrayRefConverter<Vec<Option<ByteArray>>, StringArray, Utf8ArrayConverter>;
 pub type LargeUtf8Converter =
@@ -457,7 +428,6 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::arrow::converter::Int16Converter;
     use crate::arrow::record_reader::RecordReader;
     use crate::basic::Encoding;
     use crate::schema::parser::parse_message_type;
@@ -466,7 +436,7 @@ mod tests {
     use crate::util::test_common::page_util::{DataPageBuilder, DataPageBuilderImpl};
     use arrow::array::ArrayEqual;
     use arrow::array::PrimitiveArray;
-    use arrow::datatypes::{Int16Type, Int32Type};
+    use arrow::datatypes::{Date32Type, Int16Type, Int32Type};
     use std::rc::Rc;
 
     macro_rules! converter_arrow_source_target {
@@ -511,13 +481,13 @@ mod tests {
         // TODO: this fails if we remove the cast here on converter. Is it still relevant?
         // I'd favour removing these Parquet::PHYSICAL > Arrow::DataType, so we can do it in 1 pleace.
         let raw_data = vec![Some(1i16), None, Some(2i16), Some(3i16)];
-        converter_arrow_source_target!(raw_data, "INT32", Int16Type, Int16Converter)
+        converter_arrow_source_target!(raw_data, "INT32", Int16Type, CastConverter<ParquetInt32Type, Int32Type, Int16Type>)
     }
 
     #[test]
     fn test_converter_arrow_source_i32_target_date32() {
         let raw_data = vec![Some(1i32), None, Some(2i32), Some(3i32)];
-        converter_arrow_source_target!(raw_data, "INT32", Date32Type, Date32Converter)
+        converter_arrow_source_target!(raw_data, "INT32", Date32Type, CastConverter<ParquetInt32Type, Date32Type, Date32Type>)
     }
 
     #[test]
