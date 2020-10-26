@@ -16,8 +16,6 @@
 // under the License.
 
 // Platform-specific defines
-#include "arrow/flight/platform.h"
-
 #include "arrow/flight/server.h"
 
 #include <atomic>
@@ -28,6 +26,8 @@
 #include <unordered_map>
 #include <utility>
 
+#include "arrow/flight/platform.h"
+
 #ifdef GRPCPP_PP_INCLUDE
 #include <grpcpp/grpcpp.h>
 #else
@@ -35,6 +35,13 @@
 #endif
 
 #include "arrow/buffer.h"
+#include "arrow/flight/internal.h"
+#include "arrow/flight/middleware.h"
+#include "arrow/flight/middleware_internal.h"
+#include "arrow/flight/serialization_internal.h"
+#include "arrow/flight/server_auth.h"
+#include "arrow/flight/server_middleware.h"
+#include "arrow/flight/types.h"
 #include "arrow/ipc/dictionary.h"
 #include "arrow/ipc/options.h"
 #include "arrow/ipc/reader.h"
@@ -45,14 +52,6 @@
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/uri.h"
-
-#include "arrow/flight/internal.h"
-#include "arrow/flight/middleware.h"
-#include "arrow/flight/middleware_internal.h"
-#include "arrow/flight/serialization_internal.h"
-#include "arrow/flight/server_auth.h"
-#include "arrow/flight/server_middleware.h"
-#include "arrow/flight/types.h"
 
 using FlightService = arrow::flight::protocol::FlightService;
 using ServerContext = grpc::ServerContext;
@@ -472,7 +471,16 @@ class FlightServiceImpl : public FlightService::Service {
   grpc::Status CheckAuth(const FlightMethod& method, ServerContext* context,
                          GrpcServerCallContext& flight_context) {
     if (!auth_handler_) {
-      flight_context.peer_identity_ = "";
+      const auto auth_context = context->auth_context();
+      if (auth_context && auth_context->IsPeerAuthenticated()) {
+        auto peer_identity = auth_context->GetPeerIdentity();
+        flight_context.peer_identity_ =
+            peer_identity.empty()
+                ? ""
+                : std::string(peer_identity.front().begin(), peer_identity.front().end());
+      } else {
+        flight_context.peer_identity_ = "";
+      }
     } else {
       const auto client_metadata = context->client_metadata();
       const auto auth_header = client_metadata.find(internal::kGrpcAuthHeader);
