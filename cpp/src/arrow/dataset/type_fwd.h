@@ -76,6 +76,9 @@ class ExpressionEvaluator;
 ARROW_DS_EXPORT
 const std::shared_ptr<Expression>& scalar(bool);
 
+struct ExpressionState;
+class Expression2;
+
 class Partitioning;
 class PartitioningFactory;
 class PartitioningOrFactory;

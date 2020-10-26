@@ -21,20 +21,16 @@
 #include <gtest/gtest.h>
 
 #include <cstdint>
-#include <map>
 #include <memory>
 #include <regex>
 #include <string>
 #include <vector>
 
-#include "arrow/dataset/file_base.h"
 #include "arrow/dataset/scanner_internal.h"
 #include "arrow/dataset/test_util.h"
-#include "arrow/filesystem/localfs.h"
 #include "arrow/filesystem/path_util.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
-#include "arrow/util/io_util.h"
 
 namespace arrow {
 using internal::checked_pointer_cast;

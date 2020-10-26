@@ -118,8 +118,86 @@ class CastMetaFunction : public MetaFunction {
 
 }  // namespace
 
+const FunctionDoc struct_doc{"Wrap Arrays into a StructArray",
+                             ("Names of the StructArray's fields are\n"
+                              "specified through StructOptions."),
+                             {},
+                             "StructOptions"};
+
+Result<ValueDescr> StructResolve(KernelContext* ctx,
+                                 const std::vector<ValueDescr>& descrs) {
+  const auto& names = OptionsWrapper<StructOptions>::Get(ctx).field_names;
+  if (names.size() != descrs.size()) {
+    return Status::Invalid("Struct() was passed ", names.size(), " field ", "names but ",
+                           descrs.size(), " arguments");
+  }
+
+  size_t i = 0;
+  FieldVector fields(descrs.size());
+
+  ValueDescr::Shape shape = ValueDescr::SCALAR;
+  for (const ValueDescr& descr : descrs) {
+    if (descr.shape != ValueDescr::SCALAR) {
+      shape = ValueDescr::ARRAY;
+    } else {
+      switch (descr.type->id()) {
+        case Type::EXTENSION:
+        case Type::DENSE_UNION:
+        case Type::SPARSE_UNION:
+          return Status::NotImplemented("Broadcasting scalars of type ", *descr.type);
+        default:
+          break;
+      }
+    }
+
+    fields[i] = field(names[i], descr.type);
+    ++i;
+  }
+
+  return ValueDescr{struct_(std::move(fields)), shape};
+}
+
+void StructExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  KERNEL_ASSIGN_OR_RAISE(auto descr, ctx, StructResolve(ctx, batch.GetDescriptors()));
+
+  if (descr.shape == ValueDescr::SCALAR) {
+    ScalarVector scalars(batch.num_values());
+    for (int i = 0; i < batch.num_values(); ++i) {
+      scalars[i] = batch[i].scalar();
+    }
+
+    *out =
+        Datum(std::make_shared<StructScalar>(std::move(scalars), std::move(descr.type)));
+    return;
+  }
+
+  ArrayVector arrays(batch.num_values());
+  for (int i = 0; i < batch.num_values(); ++i) {
+    if (batch[i].is_array()) {
+      arrays[i] = batch[i].make_array();
+      continue;
+    }
+
+    KERNEL_ASSIGN_OR_RAISE(
+        arrays[i], ctx,
+        MakeArrayFromScalar(*batch[i].scalar(), batch.length, ctx->memory_pool()));
+  }
+
+  *out = std::make_shared<StructArray>(descr.type, batch.length, std::move(arrays));
+}
+
 void RegisterScalarCast(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::make_shared<CastMetaFunction>()));
+
+  auto struct_function =
+      std::make_shared<ScalarFunction>("struct", Arity::VarArgs(), &struct_doc);
+  ScalarKernel kernel{KernelSignature::Make({InputType{}}, OutputType{StructResolve},
+                                            /*is_varargs=*/true),
+                      StructExec, OptionsWrapper<StructOptions>::Init};
+  kernel.null_handling = NullHandling::OUTPUT_NOT_NULL;
+  kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
+  DCHECK_OK(struct_function->AddKernel(std::move(kernel)));
+  DCHECK_OK(registry->AddFunction(std::move(struct_function)));
 }
 
 }  // namespace internal
@@ -135,7 +213,7 @@ CastFunction::CastFunction(std::string name, Type::type out_type)
   impl_->out_type = out_type;
 }
 
-CastFunction::~CastFunction() {}
+CastFunction::~CastFunction() = default;
 
 Type::type CastFunction::out_type_id() const { return impl_->out_type; }
 

@@ -68,6 +68,8 @@ Datum::Datum(int64_t value) : value(std::make_shared<Int64Scalar>(value)) {}
 Datum::Datum(uint64_t value) : value(std::make_shared<UInt64Scalar>(value)) {}
 Datum::Datum(float value) : value(std::make_shared<FloatScalar>(value)) {}
 Datum::Datum(double value) : value(std::make_shared<DoubleScalar>(value)) {}
+Datum::Datum(std::string value)
+    : value(std::make_shared<StringScalar>(std::move(value))) {}
 
 Datum::Datum(const ChunkedArray& value)
     : value(std::make_shared<ChunkedArray>(value.chunks(), value.type())) {}
@@ -236,6 +238,19 @@ ValueDescr::Shape GetBroadcastShape(const std::vector<ValueDescr>& args) {
     }
   }
   return ValueDescr::SCALAR;
+}
+
+void PrintTo(const Datum& datum, std::ostream* os) {
+  switch (datum.kind()) {
+    case Datum::SCALAR:
+      *os << datum.scalar()->ToString();
+      break;
+    case Datum::ARRAY:
+      *os << datum.make_array()->ToString();
+      break;
+    default:
+      *os << datum.ToString();
+  }
 }
 
 }  // namespace arrow

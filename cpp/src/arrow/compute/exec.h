@@ -165,7 +165,7 @@ class ARROW_EXPORT SelectionVector {
 /// than is desirable for this class. Microbenchmarks would help determine for
 /// sure. See ARROW-8928.
 struct ExecBatch {
-  ExecBatch() {}
+  ExecBatch() = default;
   ExecBatch(std::vector<Datum> values, int64_t length)
       : values(std::move(values)), length(length) {}
 

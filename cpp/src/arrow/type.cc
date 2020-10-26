@@ -885,12 +885,15 @@ size_t FieldPath::hash() const {
 }
 
 std::string FieldPath::ToString() const {
+  if (this->indices().empty()) {
+    return "FieldPath(empty)";
+  }
+
   std::string repr = "FieldPath(";
   for (auto index : this->indices()) {
     repr += std::to_string(index) + " ";
   }
-  repr.resize(repr.size() - 1);
-  repr += ")";
+  repr.back() = ')';
   return repr;
 }
 
@@ -1039,11 +1042,29 @@ Result<std::shared_ptr<Field>> FieldPath::Get(const FieldVector& fields) const {
 
 Result<std::shared_ptr<Array>> FieldPath::Get(const RecordBatch& batch) const {
   ARROW_ASSIGN_OR_RAISE(auto data, FieldPathGetImpl::Get(this, batch.column_data()));
-  return MakeArray(data);
+  return MakeArray(std::move(data));
 }
 
 Result<std::shared_ptr<ChunkedArray>> FieldPath::Get(const Table& table) const {
   return FieldPathGetImpl::Get(this, table.columns());
+}
+
+Result<std::shared_ptr<Array>> FieldPath::Get(const Array& array) const {
+  ARROW_ASSIGN_OR_RAISE(auto data, Get(*array.data()));
+  return MakeArray(std::move(data));
+}
+
+Result<std::shared_ptr<ArrayData>> FieldPath::Get(const ArrayData& data) const {
+  return FieldPathGetImpl::Get(this, data.child_data);
+}
+
+Result<std::shared_ptr<ChunkedArray>> FieldPath::Get(const ChunkedArray& array) const {
+  FieldPath prefixed_with_0 = *this;
+  prefixed_with_0.indices_.insert(prefixed_with_0.indices_.begin(), 0);
+
+  ChunkedArrayVector vec;
+  vec.emplace_back(const_cast<ChunkedArray*>(&array), [](...) {});
+  return FieldPathGetImpl::Get(&prefixed_with_0, vec);
 }
 
 FieldRef::FieldRef(FieldPath indices) : impl_(std::move(indices)) {
@@ -1291,6 +1312,10 @@ std::vector<FieldPath> FieldRef::FindAll(const FieldVector& fields) const {
   return util::visit(Visitor{fields}, impl_);
 }
 
+std::vector<FieldPath> FieldRef::FindAll(const ArrayData& array) const {
+  return FindAll(*array.type);
+}
+
 std::vector<FieldPath> FieldRef::FindAll(const Array& array) const {
   return FindAll(*array.type());
 }
@@ -1333,7 +1358,7 @@ Schema::Schema(std::vector<std::shared_ptr<Field>> fields,
 Schema::Schema(const Schema& schema)
     : detail::Fingerprintable(), impl_(new Impl(*schema.impl_)) {}
 
-Schema::~Schema() {}
+Schema::~Schema() = default;
 
 int Schema::num_fields() const { return static_cast<int>(impl_->fields_.size()); }
 

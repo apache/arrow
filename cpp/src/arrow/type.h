@@ -1402,6 +1402,9 @@ class ARROW_EXPORT FieldPath {
   std::string ToString() const;
 
   size_t hash() const;
+  struct Hash {
+    size_t operator()(const FieldPath& path) const { return path.hash(); }
+  };
 
   explicit operator bool() const { return !indices_.empty(); }
   bool operator!() const { return indices_.empty(); }
@@ -1423,9 +1426,13 @@ class ARROW_EXPORT FieldPath {
   Result<std::shared_ptr<Array>> Get(const RecordBatch& batch) const;
   Result<std::shared_ptr<ChunkedArray>> Get(const Table& table) const;
 
-  /// \brief Retrieve the referenced child Array from an Array or ChunkedArray
+  /// \brief Retrieve the referenced child from an Array, ArrayData, or ChunkedArray
   Result<std::shared_ptr<Array>> Get(const Array& array) const;
+  Result<std::shared_ptr<ArrayData>> Get(const ArrayData& data) const;
   Result<std::shared_ptr<ChunkedArray>> Get(const ChunkedArray& array) const;
+
+  /// \brief Retrieve the reference child from a Datum
+  Result<Datum> Get(const Datum& datum) const;
 
  private:
   std::vector<int> indices_;
@@ -1517,6 +1524,12 @@ class ARROW_EXPORT FieldRef {
   std::string ToString() const;
 
   size_t hash() const;
+  struct Hash {
+    size_t operator()(const FieldRef& ref) const { return ref.hash(); }
+  };
+
+  explicit operator bool() const { return Equals(FieldPath{}); }
+  bool operator!() const { return !Equals(FieldPath{}); }
 
   bool IsFieldPath() const { return util::holds_alternative<FieldPath>(impl_); }
   bool IsName() const { return util::holds_alternative<std::string>(impl_); }
@@ -1526,6 +1539,13 @@ class ARROW_EXPORT FieldRef {
     return true;
   }
 
+  const FieldPath* field_path() const {
+    return IsFieldPath() ? &util::get<FieldPath>(impl_) : NULLPTR;
+  }
+  const std::string* name() const {
+    return IsName() ? &util::get<std::string>(impl_) : NULLPTR;
+  }
+
   /// \brief Retrieve FieldPath of every child field which matches this FieldRef.
   std::vector<FieldPath> FindAll(const Schema& schema) const;
   std::vector<FieldPath> FindAll(const Field& field) const;
@@ -1533,6 +1553,7 @@ class ARROW_EXPORT FieldRef {
   std::vector<FieldPath> FindAll(const FieldVector& fields) const;
 
   /// \brief Convenience function which applies FindAll to arg's type or schema.
+  std::vector<FieldPath> FindAll(const ArrayData& array) const;
   std::vector<FieldPath> FindAll(const Array& array) const;
   std::vector<FieldPath> FindAll(const ChunkedArray& array) const;
   std::vector<FieldPath> FindAll(const RecordBatch& batch) const;
@@ -1609,7 +1630,7 @@ class ARROW_EXPORT FieldRef {
     if (match) {
       return match.Get(root).ValueOrDie();
     }
-    return NULLPTR;
+    return GetType<T>(NULLPTR);
   }
 
  private:

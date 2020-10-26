@@ -401,6 +401,28 @@ class ARROW_MUST_USE_TYPE Result : public util::EqualityComparable<Result<T>> {
     return std::forward<M>(m)(ValueUnsafe());
   }
 
+  /// Cast the internally stored value to produce a new result or propagate the stored
+  /// error.
+  template <typename U, typename E = typename std::enable_if<
+                            std::is_constructible<U, T>::value>::type>
+  Result<U> As() && {
+    if (!ok()) {
+      return status();
+    }
+    return U(MoveValueUnsafe());
+  }
+
+  /// Cast the internally stored value to produce a new result or propagate the stored
+  /// error.
+  template <typename U, typename E = typename std::enable_if<
+                            std::is_constructible<U, const T&>::value>::type>
+  Result<U> As() const& {
+    if (!ok()) {
+      return status();
+    }
+    return U(ValueUnsafe());
+  }
+
   const T& ValueUnsafe() const& {
     return *internal::launder(reinterpret_cast<const T*>(&data_));
   }
