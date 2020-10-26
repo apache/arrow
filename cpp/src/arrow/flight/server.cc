@@ -16,6 +16,8 @@
 // under the License.
 
 // Platform-specific defines
+#include "arrow/flight/platform.h"
+
 #include "arrow/flight/server.h"
 
 #include <atomic>
@@ -26,8 +28,6 @@
 #include <unordered_map>
 #include <utility>
 
-#include "arrow/flight/platform.h"
-
 #ifdef GRPCPP_PP_INCLUDE
 #include <grpcpp/grpcpp.h>
 #else
@@ -35,13 +35,6 @@
 #endif
 
 #include "arrow/buffer.h"
-#include "arrow/flight/internal.h"
-#include "arrow/flight/middleware.h"
-#include "arrow/flight/middleware_internal.h"
-#include "arrow/flight/serialization_internal.h"
-#include "arrow/flight/server_auth.h"
-#include "arrow/flight/server_middleware.h"
-#include "arrow/flight/types.h"
 #include "arrow/ipc/dictionary.h"
 #include "arrow/ipc/options.h"
 #include "arrow/ipc/reader.h"
@@ -52,6 +45,14 @@
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/uri.h"
+
+#include "arrow/flight/internal.h"
+#include "arrow/flight/middleware.h"
+#include "arrow/flight/middleware_internal.h"
+#include "arrow/flight/serialization_internal.h"
+#include "arrow/flight/server_auth.h"
+#include "arrow/flight/server_middleware.h"
+#include "arrow/flight/types.h"
 
 using FlightService = arrow::flight::protocol::FlightService;
 using ServerContext = grpc::ServerContext;
