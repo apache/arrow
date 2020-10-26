@@ -23,7 +23,7 @@ use super::{aggregates, empty::EmptyExec, expressions::binary, functions, udaf};
 use crate::error::{DataFusionError, Result};
 use crate::execution::context::ExecutionContextState;
 use crate::logical_plan::{
-    Expr, LogicalPlan, PlanType, StringifiedPlan, UserDefinedLogicalNode,
+    Expr, LogicalPlan, PlanType, StringifiedPlan, TableSource, UserDefinedLogicalNode,
 };
 use crate::physical_plan::csv::{CsvExec, CsvReadOptions};
 use crate::physical_plan::explain::ExplainExec;
@@ -136,16 +136,21 @@ impl DefaultPhysicalPlanner {
 
         match logical_plan {
             LogicalPlan::TableScan {
-                table_name,
-                projection,
-                ..
-            } => match ctx_state.datasources.get(table_name) {
-                Some(provider) => provider.scan(projection, batch_size),
-                _ => Err(DataFusionError::Plan(format!(
-                    "No table named {}. Existing tables: {:?}",
-                    table_name,
-                    ctx_state.datasources.keys().collect::<Vec<_>>(),
-                ))),
+                source, projection, ..
+            } => match source {
+                TableSource::FromContext(table_name) => {
+                    match ctx_state.datasources.get(table_name) {
+                        Some(provider) => provider.scan(projection, batch_size),
+                        _ => Err(DataFusionError::Plan(format!(
+                            "No table named {}. Existing tables: {:?}",
+                            table_name,
+                            ctx_state.datasources.keys().collect::<Vec<_>>(),
+                        ))),
+                    }
+                }
+                TableSource::FromProvider(ref provider) => {
+                    provider.scan(projection, batch_size)
+                }
             },
             LogicalPlan::InMemoryScan {
                 data,

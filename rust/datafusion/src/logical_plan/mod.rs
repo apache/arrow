@@ -763,6 +763,15 @@ pub trait UserDefinedLogicalNode: Debug {
     ) -> Arc<dyn UserDefinedLogicalNode + Send + Sync>;
 }
 
+/// Describes the source of the table, either registered on the context or by reference
+#[derive(Clone)]
+pub enum TableSource {
+    /// The source provider is registered in the context with the corresponding name
+    FromContext(String),
+    /// The source provider is passed directly by reference
+    FromProvider(Arc<dyn TableProvider + Send + Sync>),
+}
+
 /// A LogicalPlan represents the different types of relational
 /// operators (such as Projection, Filter, etc) and can be created by
 /// the SQL query planner and the DataFrame API.
@@ -816,14 +825,13 @@ pub enum LogicalPlan {
         /// The incoming logical plan
         input: Arc<LogicalPlan>,
     },
-    /// Produces rows from a table that has been registered on a
-    /// context
+    /// Produces rows from a table provider by reference or from the context
     TableScan {
         /// The name of the schema
         schema_name: String,
-        /// The name of the table
-        table_name: String,
-        /// The schema of the CSV file(s)
+        /// The source of the table
+        source: TableSource,
+        /// The schema of the source data
         table_schema: SchemaRef,
         /// Optional column indices to use as a projection
         projection: Option<Vec<usize>>,
@@ -959,10 +967,17 @@ impl LogicalPlan {
         match *self {
             LogicalPlan::EmptyRelation { .. } => write!(f, "EmptyRelation"),
             LogicalPlan::TableScan {
-                ref table_name,
+                ref source,
                 ref projection,
                 ..
-            } => write!(f, "TableScan: {} projection={:?}", table_name, projection),
+            } => match source {
+                TableSource::FromContext(table_name) => {
+                    write!(f, "TableScan: {} projection={:?}", table_name, projection)
+                }
+                TableSource::FromProvider(_) => {
+                    write!(f, "TableScan: projection={:?}", projection)
+                }
+            },
             LogicalPlan::InMemoryScan { ref projection, .. } => {
                 write!(f, "InMemoryScan: projection={:?}", projection)
             }
@@ -1156,7 +1171,7 @@ impl LogicalPlanBuilder {
 
         Ok(Self::from(&LogicalPlan::TableScan {
             schema_name: schema_name.to_owned(),
-            table_name: table_name.to_owned(),
+            source: TableSource::FromContext(table_name.to_owned()),
             table_schema,
             projected_schema,
             projection,
