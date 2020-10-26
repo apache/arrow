@@ -294,7 +294,7 @@ struct Converter_String : public Converter {
                                                 array->offset(), n);
       for (int i = 0; i < n; i++, null_reader.Next()) {
         if (null_reader.IsSet()) {
-          SET_STRING_ELT(data, start + i, cpp11::r_string(string_array->GetString(i)));
+          SET_STRING_ELT(data, start + i, r_string_from_view(string_array->GetView(i)));
         } else {
           SET_STRING_ELT(data, start + i, NA_STRING);
         }
@@ -302,7 +302,7 @@ struct Converter_String : public Converter {
 
     } else {
       for (int i = 0; i < n; i++) {
-        SET_STRING_ELT(data, start + i, cpp11::r_string(string_array->GetString(i)));
+        SET_STRING_ELT(data, start + i, r_string_from_view(string_array->GetView(i)));
       }
     }
 
@@ -310,6 +310,9 @@ struct Converter_String : public Converter {
   }
 
   bool Parallel() const { return false; }
+  inline SEXP r_string_from_view(const arrow::util::string_view& view) const {
+    return Rf_mkCharLenCE(view.data(), view.size(), CE_UTF8);
+  }
 };
 
 class Converter_Boolean : public Converter {
