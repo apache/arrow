@@ -261,7 +261,7 @@ mod tests {
             .add_buffer(Buffer::from(offset_data.to_byte_slice()))
             .add_buffer(Buffer::from(v.to_byte_slice()))
             .build();
-        let b = BinaryArray::from(array_data);
+        let b = StringArray::from(array_data);
 
         let record_batch =
             RecordBatch::try_new(Arc::new(schema), vec![Arc::new(a), Arc::new(b)])

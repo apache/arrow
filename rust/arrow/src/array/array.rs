@@ -3480,7 +3480,7 @@ mod tests {
         let offsets: [i64; 4] = [0, 5, 5, 12];
 
         // Array data: ["hello", "", "parquet"]
-        let array_data = ArrayData::builder(DataType::Binary)
+        let array_data = ArrayData::builder(DataType::LargeBinary)
             .len(3)
             .add_buffer(Buffer::from(offsets.to_byte_slice()))
             .add_buffer(Buffer::from(&values[..]))

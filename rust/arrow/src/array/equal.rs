@@ -1844,9 +1844,14 @@ mod tests {
     #[test]
     fn test_binary_json_equal() {
         // Test the equal case
-        let arrow_array =
-            StringArray::from(vec![Some("hello"), None, None, Some("world"), None, None]);
-        let arrow_array = BinaryArray::from(arrow_array.data());
+        let mut builder = BinaryBuilder::new(6);
+        builder.append_value(b"hello").unwrap();
+        builder.append_null().unwrap();
+        builder.append_null().unwrap();
+        builder.append_value(b"world").unwrap();
+        builder.append_null().unwrap();
+        builder.append_null().unwrap();
+        let arrow_array = builder.finish();
         let json_array: Value = serde_json::from_str(
             r#"
             [
