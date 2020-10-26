@@ -31,11 +31,11 @@ use crate::file::{footer, metadata::*, reader::*, statistics};
 use crate::record::reader::RowIter;
 use crate::record::Row;
 use crate::schema::types::Type as SchemaType;
-use crate::util::{
-    cursor::SliceableCursor,
-    io::{FileSource, TryClone},
-    memory::ByteBufferPtr,
-};
+use crate::util::{io::TryClone, memory::ByteBufferPtr};
+
+// export `SliceableCursor` and `FileSource` publically so clients can
+// re-use the logic in their own ParquetFileWriter wrappers
+pub use crate::util::{cursor::SliceableCursor, io::FileSource};
 
 // ----------------------------------------------------------------------
 // Implementations of traits facilitating the creation of a new reader
