@@ -42,4 +42,23 @@ class InHolder {
   std::unordered_set<Type> values_;
 };
 
+template <>
+class InHolder<std::string> {
+ public:
+  explicit InHolder(std::unordered_set<std::string> values) : values_(std::move(values)) {
+    values_lookup_.max_load_factor(0.25f);
+    for (const std::string& value : values_) {
+      values_lookup_.emplace(value);
+    }
+  }
+
+  bool HasValue(arrow::util::string_view value) const {
+    return values_lookup_.count(value) == 1;
+  }
+
+ private:
+  std::unordered_set<arrow::util::string_view> values_lookup_;
+  const std::unordered_set<std::string> values_;
+};
+
 }  // namespace gandiva
