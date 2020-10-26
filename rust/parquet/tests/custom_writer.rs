@@ -1,10 +1,16 @@
-use std::{io::{SeekFrom, prelude::*}, rc::Rc, fs};
 use std::fs::File;
+use std::{
+    fs,
+    io::{prelude::*, SeekFrom},
+    rc::Rc,
+};
 
+use parquet::file::writer::TryClone;
+use parquet::{
+    basic::Repetition, basic::Type, file::properties::WriterProperties,
+    file::writer::SerializedFileWriter, schema::types,
+};
 use std::env;
-use parquet::{schema::types, basic::Repetition, file::properties::WriterProperties, file::writer::SerializedFileWriter};
-use parquet::util::io::TryClone;
-
 
 // Test creating some sort of custom writer to ensure the
 // appropriate traits are exposed
@@ -12,21 +18,19 @@ struct CustomWriter {
     file: File,
 }
 
-impl Write for CustomWriter{
+impl Write for CustomWriter {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
         self.file.write(buf)
     }
     fn flush(&mut self) -> std::io::Result<()> {
         self.file.flush()
     }
-
 }
 
 impl Seek for CustomWriter {
     fn seek(&mut self, pos: SeekFrom) -> std::io::Result<u64> {
         self.file.seek(pos)
     }
-
 }
 
 impl TryClone for CustomWriter {
@@ -34,7 +38,6 @@ impl TryClone for CustomWriter {
         use std::io::{Error, ErrorKind};
         Err(Error::new(ErrorKind::Other, "Clone not supported"))
     }
-
 }
 
 #[test]
@@ -42,7 +45,7 @@ fn test_custom_writer() {
     let schema = Rc::new(
         types::Type::group_type_builder("schema")
             .with_fields(&mut vec![Rc::new(
-                types::Type::primitive_type_builder("col1", types::Type::INT32)
+                types::Type::primitive_type_builder("col1", Type::INT32)
                     .with_repetition(Repetition::REQUIRED)
                     .build()
                     .unwrap(),
@@ -52,20 +55,22 @@ fn test_custom_writer() {
     );
     let props = Rc::new(WriterProperties::builder().build());
 
+    let file = get_temp_file("test_custom_file_writer");
+    let test_file = file.try_clone().unwrap();
 
-
-    let file = get_temp_file("test_custom_file_writer", &[]);
     let writer = CustomWriter { file };
 
     // test is that this file can be created
-    let mut file_writer =
-        SerializedFileWriter::new(writer, schema, props).unwrap();
-    file_writer.close().unwrap();
+    let file_writer = SerializedFileWriter::new(writer, schema, props).unwrap();
+    std::mem::drop(file_writer);
+
+    // ensure the file now exists and has non zero size
+    let metadata = test_file.metadata().unwrap();
+    assert!(metadata.len() > 0);
 }
 
-
 /// Returns file handle for a temp file in 'target' directory with a provided content
-pub fn get_temp_file(file_name: &str, content: &[u8]) -> fs::File {
+fn get_temp_file(file_name: &str) -> fs::File {
     // build tmp path to a file in "target/debug/testdata"
     let mut path_buf = env::current_dir().unwrap();
     path_buf.push("target");

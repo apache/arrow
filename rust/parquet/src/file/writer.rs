@@ -38,7 +38,7 @@ use crate::file::{
     statistics::to_thrift as statistics_to_thrift, FOOTER_SIZE, PARQUET_MAGIC,
 };
 use crate::schema::types::{self, SchemaDescPtr, SchemaDescriptor, TypePtr};
-use crate::util::io::{FileSink, Position, TryClone};
+use crate::util::io::{FileSink, Position};
 
 // ----------------------------------------------------------------------
 // APIs for file & row group writers
@@ -114,6 +114,7 @@ pub trait RowGroupWriter {
 // ----------------------------------------------------------------------
 // Serialized impl for file & row group writers
 
+pub use crate::util::io::TryClone;
 pub trait ParquetWriter: Write + Seek + TryClone {}
 impl<T: Write + Seek + TryClone> ParquetWriter for T {}
 
