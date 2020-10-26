@@ -193,7 +193,7 @@ fn write_leaves(
                 ($($kt: pat, $vt: pat, $w: ident => $kat: ty, $vat: ty,)*) => (
                     match (&**key_type, &**value_type, &mut col_writer) {
                         $(($kt, $vt, $w(writer)) => write_dict::<$kat, $vat, _>(array, writer, levels),)*
-                        (kt, vt, _) => panic!("Don't know how to write dictionary of <{:?}, {:?}>", kt, vt),
+                        (kt, vt, _) => unreachable!("Shouldn't be attempting to write dictionary of <{:?}, {:?}>", kt, vt),
                     }
                 );
             }
