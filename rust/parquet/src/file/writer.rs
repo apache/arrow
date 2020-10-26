@@ -38,7 +38,10 @@ use crate::file::{
     statistics::to_thrift as statistics_to_thrift, FOOTER_SIZE, PARQUET_MAGIC,
 };
 use crate::schema::types::{self, SchemaDescPtr, SchemaDescriptor, TypePtr};
-use crate::util::io::{FileSink, Position, TryClone};
+use crate::util::io::{FileSink, Position};
+
+// Exposed publically so client code can implement [`ParquetWriter`]
+pub use crate::util::io::TryClone;
 
 // ----------------------------------------------------------------------
 // APIs for file & row group writers
