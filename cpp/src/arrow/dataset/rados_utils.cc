@@ -17,9 +17,6 @@
 
 #include "arrow/dataset/rados_utils.h"
 
-#include <iostream>
-#include <vector>
-
 namespace arrow {
 namespace dataset {
 
@@ -55,7 +52,7 @@ Status serialize_scan_request_to_bufferlist(std::shared_ptr<Expression> filter, 
   return Status::OK();
 }
 
-Status deserialize_scan_request_from_bufferlist(std::shared_ptr<Expression> *filter, std::shared_ptr<Schema> *schema, librados::bufferlist bl) {
+Status deserialize_scan_request_from_bufferlist(std::shared_ptr<Expression> *filter, std::shared_ptr<Schema> *schema, librados::bufferlist &bl) {
   int64_t filter_size = 0;
   char filter_size_buffer[8];
   bl.begin(0).copy(8, filter_size_buffer);
@@ -84,15 +81,7 @@ Status deserialize_scan_request_from_bufferlist(std::shared_ptr<Expression> *fil
   return Status::OK();
 }
 
-Status read_table_from_bufferlist(std::shared_ptr<Table> *table, librados::bufferlist bl) {
-  io::BufferReader reader((uint8_t*)bl.c_str(), bl.length());
-  ARROW_ASSIGN_OR_RAISE(auto record_batch_reader, ipc::RecordBatchStreamReader::Open(&reader));
-  ARROW_ASSIGN_OR_RAISE(auto table_, Table::FromRecordBatchReader(record_batch_reader.get()));
-  *table = table_;
-  return Status::OK();
-}
-
-Status write_table_to_bufferlist(std::shared_ptr<Table> &table, librados::bufferlist &bl) {
+Status serialize_table_to_bufferlist(std::shared_ptr<Table> &table, librados::bufferlist &bl) {
   ARROW_ASSIGN_OR_RAISE(auto buffer_output_stream, io::BufferOutputStream::Create());
   const auto options = ipc::IpcWriteOptions::Defaults();
   ARROW_ASSIGN_OR_RAISE(auto writer, ipc::NewStreamWriter(buffer_output_stream.get(), table->schema(), options));
@@ -102,6 +91,14 @@ Status write_table_to_bufferlist(std::shared_ptr<Table> &table, librados::buffer
 
   ARROW_ASSIGN_OR_RAISE(auto buffer, buffer_output_stream->Finish());
   bl.append((char*)buffer->data(), buffer->size());
+  return Status::OK();
+}
+
+Status deserialize_table_from_bufferlist(std::shared_ptr<Table> *table, librados::bufferlist &bl) {
+  io::BufferReader reader((uint8_t*)bl.c_str(), bl.length());
+  ARROW_ASSIGN_OR_RAISE(auto record_batch_reader, ipc::RecordBatchStreamReader::Open(&reader));
+  ARROW_ASSIGN_OR_RAISE(auto table_, Table::FromRecordBatchReader(record_batch_reader.get()));
+  *table = table_;
   return Status::OK();
 }
 
