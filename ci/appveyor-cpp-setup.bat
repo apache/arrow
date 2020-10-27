@@ -65,6 +65,7 @@ if "%JOB%" NEQ "Build_Debug" (
     "ninja" ^
     "nomkl" ^
     "pandas" ^
+    "fsspec" ^
     "python=%PYTHON%" ^
     || exit /B
 )
