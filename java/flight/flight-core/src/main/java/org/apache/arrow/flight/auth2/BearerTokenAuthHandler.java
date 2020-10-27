@@ -47,14 +47,16 @@ abstract class BearerTokenAuthHandler implements CallHeaderAuthenticator {
       public Optional<String> getBearerToken() {
         return Optional.of(bearerToken);
       }
+
+      @Override
+      public void appendToOutgoingHeaders(CallHeaders outgoingHeaders) {
+        if (null == AuthUtilities.getValueFromAuthHeader(outgoingHeaders, Auth2Constants.BEARER_PREFIX)) {
+          outgoingHeaders.insert(Auth2Constants.AUTHORIZATION_HEADER, Auth2Constants.BEARER_PREFIX + bearerToken);
+        }
+      }
     };
   }
 
   protected abstract String getIdentityForBearerToken(String bearerToken);
 
-  @Override
-  public final boolean enableCachedCredentials() {
-    // Already using bearer token validation. No point in caching these.
-    return false;
-  }
 }

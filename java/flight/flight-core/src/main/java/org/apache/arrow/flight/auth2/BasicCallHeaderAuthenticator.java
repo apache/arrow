@@ -34,9 +34,9 @@ import org.slf4j.LoggerFactory;
 public class BasicCallHeaderAuthenticator implements CallHeaderAuthenticator {
 
   private static final Logger logger = LoggerFactory.getLogger(BasicCallHeaderAuthenticator.class);
-  private final BasicAuthValidator authValidator;
+  private final AuthValidator authValidator;
 
-  public BasicCallHeaderAuthenticator(BasicAuthValidator authValidator) {
+  public BasicCallHeaderAuthenticator(AuthValidator authValidator) {
     super();
     this.authValidator = authValidator;
   }
@@ -58,7 +58,8 @@ public class BasicCallHeaderAuthenticator implements CallHeaderAuthenticator {
 
       final String user = authDecoded.substring(0, colonPos);
       final String password = authDecoded.substring(colonPos + 1);
-      final Optional<String> bearerToken = authValidator.validateCredentials(user, password);
+      authValidator.validateCredentials(user, password);
+      final Optional<String> bearerToken = authValidator.getToken(user, password);
       return new AuthResult() {
         @Override
         public String getPeerIdentity() {
@@ -69,8 +70,16 @@ public class BasicCallHeaderAuthenticator implements CallHeaderAuthenticator {
         public Optional<String> getBearerToken() {
           return bearerToken;
         }
-      };
 
+        @Override
+        public void appendToOutgoingHeaders(CallHeaders outgoingHeaders) {
+          if (bearerToken.isPresent() &&
+                null == AuthUtilities.getValueFromAuthHeader(outgoingHeaders, Auth2Constants.BEARER_PREFIX)) {
+            outgoingHeaders.insert(
+                Auth2Constants.AUTHORIZATION_HEADER, Auth2Constants.BEARER_PREFIX + bearerToken.get());
+          }
+        }
+      };
     } catch (UnsupportedEncodingException ex) {
       throw CallStatus.INTERNAL.withCause(ex).toRuntimeException();
     } catch (FlightRuntimeException ex) {
@@ -85,17 +94,15 @@ public class BasicCallHeaderAuthenticator implements CallHeaderAuthenticator {
     return false;
   }
 
-  @Override
-  public boolean enableCachedCredentials() {
-    return true;
-  }
-
   /**
-   * Interface that this handler delegates to for determining if credentials are valid.
+   * Interface that this handler delegates to for determining if credentials are valid
+   * and generating tokens.
    */
-  public interface BasicAuthValidator {
+  public interface AuthValidator {
 
     Optional<String> validateCredentials(String username, String password) throws Exception;
+
+    Optional<String> getToken(String username, String password) throws Exception;
 
     Optional<String> isValid(String token);
   }

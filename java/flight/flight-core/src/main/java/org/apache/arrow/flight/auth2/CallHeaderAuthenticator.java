@@ -46,6 +46,13 @@ public interface CallHeaderAuthenticator {
     default Optional<String> getBearerToken() {
       return Optional.empty();
     }
+
+    /**
+     * Appends a header to the outgoing headers.
+     *
+     * @param outgoingHeaders The outgoing headers to append the headers to.
+     */
+    void appendToOutgoingHeaders(CallHeaders outgoingHeaders);
   }
 
   /**
@@ -67,11 +74,6 @@ public interface CallHeaderAuthenticator {
   boolean validateBearer(String bearerToken);
 
   /**
-   * Indicates if the server should implement its own authenticated session management.
-   */
-  boolean enableCachedCredentials();
-
-  /**
    * An auth handler that does nothing.
    */
   CallHeaderAuthenticator NO_OP = new CallHeaderAuthenticator() {
@@ -82,6 +84,16 @@ public interface CallHeaderAuthenticator {
         public String getPeerIdentity() {
           return "";
         }
+
+        @Override
+        public Optional<String> getBearerToken() {
+          return Optional.empty();
+        }
+
+        @Override
+        public void appendToOutgoingHeaders(CallHeaders outgoingHeaders) {
+
+        }
       };
     }
 
@@ -90,9 +102,5 @@ public interface CallHeaderAuthenticator {
       return true;
     }
 
-    @Override
-    public boolean enableCachedCredentials() {
-      return false;
-    }
   };
 }

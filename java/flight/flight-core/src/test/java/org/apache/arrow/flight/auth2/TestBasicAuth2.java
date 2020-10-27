@@ -41,7 +41,6 @@ import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 
 import com.google.common.base.Strings;
@@ -59,7 +58,7 @@ public class TestBasicAuth2 {
   private BufferAllocator allocator;
 
   @Test
-  public void validAuth() {
+  public void validAuth() throws IOException {
     final CredentialCallOption bearerToken = client.basicHeaderAuthenticate(USERNAME, PASSWORD).get();
     Assert.assertTrue(ImmutableList.copyOf(client
         .listFlights(Criteria.ALL, bearerToken))
@@ -67,7 +66,6 @@ public class TestBasicAuth2 {
   }
 
   // ARROW-7722: this test occasionally leaks memory
-  @Ignore
   @Test
   public void asyncCall() throws Exception {
     final CredentialCallOption bearerToken = client.basicHeaderAuthenticate(USERNAME, PASSWORD).get();
@@ -100,11 +98,9 @@ public class TestBasicAuth2 {
   @Before
   public void setup() throws IOException {
     allocator = new RootAllocator(Long.MAX_VALUE);
-    final BasicCallHeaderAuthenticator.BasicAuthValidator validator =
-        new BasicCallHeaderAuthenticator.BasicAuthValidator() {
-
+    final BasicAuthValidator.CredentialValidator credentialValidator = new BasicAuthValidator.CredentialValidator() {
       @Override
-      public Optional<String> validateCredentials(String username, String password) throws Exception {
+      public Optional<String> validate(String username, String password) throws Exception {
         if (Strings.isNullOrEmpty(username)) {
           throw CallStatus.UNAUTHENTICATED.withDescription("Credentials not supplied").toRuntimeException();
         }
@@ -114,13 +110,38 @@ public class TestBasicAuth2 {
         }
         return Optional.of("valid:" + username);
       }
+    };
+    final BasicAuthValidator.AuthTokenManager authTokenManager = new BasicAuthValidator.AuthTokenManager() {
+      @Override
+      public Optional<String> generateToken(String username, String password) throws Exception {
+        return Optional.of(VALID_TOKEN);
+      }
 
       @Override
-      public Optional<String> isValid(String token) {
+      public Optional<String> validateToken(String token) {
         if (token.equals(VALID_TOKEN)) {
           return Optional.of(USERNAME);
         }
         return Optional.empty();
+      }
+    };
+
+    final BasicCallHeaderAuthenticator.AuthValidator validator =
+        new BasicAuthValidator(credentialValidator, authTokenManager) {
+
+      @Override
+      public Optional<String> validateCredentials(String username, String password) throws Exception {
+        return credentialValidator.validate(username, password);
+      }
+
+      @Override
+      public Optional<String> getToken(String username, String password) throws Exception {
+        return authTokenManager.generateToken(username, password);
+      }
+
+      @Override
+      public Optional<String> isValid(String token) {
+        return authTokenManager.validateToken(token);
       }
     };
 
