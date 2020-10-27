@@ -19,6 +19,8 @@ package org.apache.arrow.flight.auth2;
 
 import java.util.Optional;
 
+import org.apache.arrow.flight.CallHeaders;
+
 /**
  * An AuthValidator for Token generation and username/password validation.
  */
@@ -28,9 +30,9 @@ public class BasicAuthValidator implements BasicCallHeaderAuthenticator.AuthVali
   private final AuthTokenManager authTokenManager;
 
   /**
-   * Creates a validator with supplied TokenManager to generate token 
+   * Creates a validator with supplied AuthTokenManager to generate token
    * and CredentialValidator to validate username/password. 
-   * @param authTokenManager TokenManager used to generate tokens.
+   * @param authTokenManager AuthTokenManager used to generate tokens.
    * @param credentialValidator CredentialValidator used to validate the username/password
    */
   public BasicAuthValidator(CredentialValidator credentialValidator, AuthTokenManager authTokenManager) {
@@ -50,7 +52,7 @@ public class BasicAuthValidator implements BasicCallHeaderAuthenticator.AuthVali
    * Interface that this validator delegates for generating a Token.
    */
   interface AuthTokenManager {
-    Optional<String> generateToken(String username, String password) throws Exception;
+    Optional<String> generateToken(String username, String password);
 
     Optional<String> validateToken(String token);
   }
@@ -68,5 +70,19 @@ public class BasicAuthValidator implements BasicCallHeaderAuthenticator.AuthVali
   @Override
   public Optional<String> isValid(String token) {
     return authTokenManager.validateToken(token);
+  }
+
+  @Override
+  public String parseNonBasicHeaders(CallHeaders incomingHeaders) {
+    return AuthUtilities.getValueFromAuthHeader(incomingHeaders, Auth2Constants.BEARER_PREFIX);
+  }
+
+  @Override
+  public void appendToOutgoingHeaders(CallHeaders outgoingHeaders, String username, String password) {
+    if (null == AuthUtilities.getValueFromAuthHeader(outgoingHeaders, Auth2Constants.BEARER_PREFIX)) {
+      outgoingHeaders.insert(
+          Auth2Constants.AUTHORIZATION_HEADER,
+              Auth2Constants.BEARER_PREFIX + authTokenManager.generateToken(username, password).get());
+    }
   }
 }

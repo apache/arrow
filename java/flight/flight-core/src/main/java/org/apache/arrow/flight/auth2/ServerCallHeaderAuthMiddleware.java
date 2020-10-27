@@ -17,7 +17,7 @@
 
 package org.apache.arrow.flight.auth2;
 
-import static org.apache.arrow.flight.auth2.CallHeaderAuthenticator.*;
+import static org.apache.arrow.flight.auth2.CallHeaderAuthenticator.AuthResult;
 
 import org.apache.arrow.flight.CallHeaders;
 import org.apache.arrow.flight.CallInfo;

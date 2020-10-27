@@ -43,43 +43,12 @@ public class BasicCallHeaderAuthenticator implements CallHeaderAuthenticator {
 
   @Override
   public AuthResult authenticate(CallHeaders headers) {
-    final String authEncoded = AuthUtilities.getValueFromAuthHeader(headers, Auth2Constants.BASIC_PREFIX);
-    if (authEncoded == null) {
-      throw CallStatus.UNAUTHENTICATED.toRuntimeException();
-    }
-
     try {
-      // The value has the format Base64(<username>:<password>)
-      final String authDecoded = new String(Base64.getDecoder().decode(authEncoded), StandardCharsets.UTF_8);
-      final int colonPos = authDecoded.indexOf(':');
-      if (colonPos == -1) {
-        throw CallStatus.UNAUTHORIZED.toRuntimeException();
+      AuthResult authResult = parseAndValidateNonBasicHeaders(headers);
+      if (authResult != null) {
+        return authResult;
       }
-
-      final String user = authDecoded.substring(0, colonPos);
-      final String password = authDecoded.substring(colonPos + 1);
-      authValidator.validateCredentials(user, password);
-      final Optional<String> bearerToken = authValidator.getToken(user, password);
-      return new AuthResult() {
-        @Override
-        public String getPeerIdentity() {
-          return user;
-        }
-
-        @Override
-        public Optional<String> getBearerToken() {
-          return bearerToken;
-        }
-
-        @Override
-        public void appendToOutgoingHeaders(CallHeaders outgoingHeaders) {
-          if (bearerToken.isPresent() &&
-                null == AuthUtilities.getValueFromAuthHeader(outgoingHeaders, Auth2Constants.BEARER_PREFIX)) {
-            outgoingHeaders.insert(
-                Auth2Constants.AUTHORIZATION_HEADER, Auth2Constants.BEARER_PREFIX + bearerToken.get());
-          }
-        }
-      };
+      return parseAndValidateBasicHeaders(headers);
     } catch (UnsupportedEncodingException ex) {
       throw CallStatus.INTERNAL.withCause(ex).toRuntimeException();
     } catch (FlightRuntimeException ex) {
@@ -87,6 +56,67 @@ public class BasicCallHeaderAuthenticator implements CallHeaderAuthenticator {
     } catch (Exception ex) {
       throw CallStatus.UNAUTHORIZED.withCause(ex).toRuntimeException();
     }
+  }
+
+  private AuthResult parseAndValidateNonBasicHeaders(CallHeaders headers) {
+    final String parsedValue = authValidator.parseNonBasicHeaders(headers);
+    if (parsedValue != null) {
+      final Optional<String> peerIdentity = authValidator.isValid(parsedValue);
+      if (!peerIdentity.isPresent()) {
+        throw CallStatus.UNAUTHORIZED.toRuntimeException();
+      }
+      return new AuthResult() {
+        @Override
+        public String getPeerIdentity() {
+          return peerIdentity.get();
+        }
+
+        @Override
+        public Optional<String> getBearerToken() {
+          return Optional.of(parsedValue);
+        }
+
+        @Override
+        public void appendToOutgoingHeaders(CallHeaders outgoingHeaders) {
+          // Don't append anything to the outgoing headers
+        }
+      };
+    }
+    return null;
+  }
+
+  private AuthResult parseAndValidateBasicHeaders(CallHeaders headers) throws Exception {
+    final String authEncoded = AuthUtilities.getValueFromAuthHeader(headers, Auth2Constants.BASIC_PREFIX);
+    if (authEncoded == null) {
+      throw CallStatus.UNAUTHENTICATED.toRuntimeException();
+    }
+    // The value has the format Base64(<username>:<password>)
+    final String authDecoded = new String(Base64.getDecoder().decode(authEncoded), StandardCharsets.UTF_8);
+    final int colonPos = authDecoded.indexOf(':');
+    if (colonPos == -1) {
+      throw CallStatus.UNAUTHORIZED.toRuntimeException();
+    }
+
+    final String user = authDecoded.substring(0, colonPos);
+    final String password = authDecoded.substring(colonPos + 1);
+    authValidator.validateCredentials(user, password);
+    final Optional<String> bearerToken = authValidator.getToken(user, password);
+    return new AuthResult() {
+      @Override
+      public String getPeerIdentity() {
+        return user;
+      }
+
+      @Override
+      public Optional<String> getBearerToken() {
+        return bearerToken;
+      }
+
+      @Override
+      public void appendToOutgoingHeaders(CallHeaders outgoingHeaders) {
+        authValidator.appendToOutgoingHeaders(outgoingHeaders, user, password);
+      }
+    };
   }
 
   @Override
@@ -105,5 +135,9 @@ public class BasicCallHeaderAuthenticator implements CallHeaderAuthenticator {
     Optional<String> getToken(String username, String password) throws Exception;
 
     Optional<String> isValid(String token);
+
+    String parseNonBasicHeaders(CallHeaders incomingHeaders);
+
+    void appendToOutgoingHeaders(CallHeaders outgoingHeaders, String username, String password);
   }
 }

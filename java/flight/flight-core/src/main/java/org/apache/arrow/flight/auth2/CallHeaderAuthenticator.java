@@ -101,6 +101,5 @@ public interface CallHeaderAuthenticator {
     public boolean validateBearer(String bearerToken) {
       return true;
     }
-
   };
 }
