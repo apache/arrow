@@ -17,6 +17,8 @@
 
 package org.apache.arrow.flight.auth2;
 
+import static org.apache.arrow.flight.auth2.CallHeaderAuthenticator.*;
+
 import org.apache.arrow.flight.CallHeaders;
 import org.apache.arrow.flight.CallInfo;
 import org.apache.arrow.flight.CallStatus;
@@ -33,7 +35,6 @@ public class ServerCallHeaderAuthMiddleware implements FlightServerMiddleware {
    */
   public static class Factory implements FlightServerMiddleware.Factory<ServerCallHeaderAuthMiddleware> {
     private final CallHeaderAuthenticator authHandler;
-    private final GeneratedBearerTokenAuthHandler bearerTokenAuthHandler;
 
     /**
      * Construct a factory with the given auth handler.
@@ -41,50 +42,26 @@ public class ServerCallHeaderAuthMiddleware implements FlightServerMiddleware {
      */
     public Factory(CallHeaderAuthenticator authHandler) {
       this.authHandler = authHandler;
-      bearerTokenAuthHandler = authHandler.enableCachedCredentials() ?
-          new GeneratedBearerTokenAuthHandler() : null;
     }
 
     @Override
     public ServerCallHeaderAuthMiddleware onCallStarted(CallInfo callInfo, CallHeaders incomingHeaders,
                                                         RequestContext context) {
-      // Check if bearer token auth is being used, and if we've enabled use of server-generated
-      // bearer tokens.
-      if (authHandler.enableCachedCredentials()) {
-        final String bearerTokenFromHeaders =
-            AuthUtilities.getValueFromAuthHeader(incomingHeaders, Auth2Constants.BEARER_PREFIX);
-        if (bearerTokenFromHeaders != null) {
-          final CallHeaderAuthenticator.AuthResult result = bearerTokenAuthHandler.authenticate(incomingHeaders);
-          context.put(Auth2Constants.PEER_IDENTITY_KEY, result.getPeerIdentity());
-          return new ServerCallHeaderAuthMiddleware(result.getBearerToken().get());
-        }
-      }
-
-      // Delegate to server auth handler to do the validation.
-      final CallHeaderAuthenticator.AuthResult result = authHandler.authenticate(incomingHeaders);
-      final String bearerToken;
-      if (authHandler.enableCachedCredentials()) {
-        bearerToken = bearerTokenAuthHandler.registerBearer(result);
-      } else {
-        bearerToken = result.getBearerToken().get();
-      }
+      final AuthResult result = authHandler.authenticate(incomingHeaders);
       context.put(Auth2Constants.PEER_IDENTITY_KEY, result.getPeerIdentity());
-      return new ServerCallHeaderAuthMiddleware(bearerToken);
+      return new ServerCallHeaderAuthMiddleware(result);
     }
   }
 
-  private final String bearerToken;
+  private final AuthResult authResult;
 
-  public ServerCallHeaderAuthMiddleware(String bearerToken) {
-    this.bearerToken = bearerToken;
+  public ServerCallHeaderAuthMiddleware(AuthResult authResult) {
+    this.authResult = authResult;
   }
 
   @Override
   public void onBeforeSendingHeaders(CallHeaders outgoingHeaders) {
-    if (bearerToken != null &&
-        null == AuthUtilities.getValueFromAuthHeader(outgoingHeaders, Auth2Constants.BEARER_PREFIX)) {
-      outgoingHeaders.insert(Auth2Constants.AUTHORIZATION_HEADER, Auth2Constants.BEARER_PREFIX + bearerToken);
-    }
+    authResult.appendToOutgoingHeaders(outgoingHeaders);
   }
 
   @Override
