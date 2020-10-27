@@ -22,8 +22,6 @@ import java.util.concurrent.Future;
 
 import org.apache.arrow.flight.impl.Flight.HandshakeRequest;
 import org.apache.arrow.flight.impl.Flight.HandshakeResponse;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import io.grpc.stub.StreamObserver;
 
@@ -31,8 +29,6 @@ import io.grpc.stub.StreamObserver;
  * Contains utility methods for integrating authorization into a GRPC stream.
  */
 public class ServerHandshakeWrapper {
-  private static final Logger LOGGER = LoggerFactory.getLogger(ServerHandshakeWrapper.class);
-
   /**
    * Wrap the auth handler for handshake purposes.
    *
@@ -63,19 +59,16 @@ public class ServerHandshakeWrapper {
 
     @Override
     public void onNext(HandshakeRequest value) {
-      LOGGER.debug("Got HandshakeRequest");
     }
 
     @Override
     public void onError(Throwable t) {
-      LOGGER.error("Error", t);
       while (future == null) {/* busy wait */}
       future.cancel(true);
     }
 
     @Override
     public void onCompleted() {
-      LOGGER.debug("Got HandshakeRequest.onCompleted");
     }
   }
 }
