@@ -344,7 +344,7 @@ Result<std::shared_ptr<FileFragment>> ParquetFileFormat::MakeFragment(
     std::shared_ptr<Schema> physical_schema) {
   return std::shared_ptr<FileFragment>(new ParquetFileFragment(
       std::move(source), shared_from_this(), std::move(partition_expression),
-      std::move(physical_schema), {}, /*select_all_row_groups=*/true));
+      std::move(physical_schema), util::nullopt));
 }
 
 //
@@ -397,13 +397,11 @@ ParquetFileFragment::ParquetFileFragment(FileSource source,
                                          std::shared_ptr<FileFormat> format,
                                          std::shared_ptr<Expression> partition_expression,
                                          std::shared_ptr<Schema> physical_schema,
-                                         std::vector<int> row_groups,
-                                         bool select_all_row_groups)
+                                         util::optional<std::vector<int>> row_groups)
     : FileFragment(std::move(source), std::move(format), std::move(partition_expression),
                    std::move(physical_schema)),
       parquet_format_(checked_cast<ParquetFileFormat&>(*format_)),
-      row_groups_(std::move(row_groups)),
-      select_all_row_groups_(select_all_row_groups) {}
+      row_groups_(std::move(row_groups)) {}
 
 Status ParquetFileFragment::EnsureCompleteMetadata(parquet::arrow::FileReader* reader) {
   auto lock = physical_schema_mutex_.Lock();
@@ -426,8 +424,7 @@ Status ParquetFileFragment::EnsureCompleteMetadata(parquet::arrow::FileReader* r
   }
   physical_schema_ = std::move(schema);
 
-  if (select_all_row_groups_) {
-    DCHECK(row_groups_.empty());
+  if (!row_groups_) {
     row_groups_ = internal::Iota(reader->num_row_groups());
   }
 
@@ -440,13 +437,15 @@ Status ParquetFileFragment::EnsureCompleteMetadata(parquet::arrow::FileReader* r
 Status ParquetFileFragment::SetMetadata(
     std::shared_ptr<parquet::FileMetaData> metadata,
     std::shared_ptr<parquet::arrow::SchemaManifest> manifest) {
+  DCHECK(row_groups_.has_value());
+
   metadata_ = std::move(metadata);
   manifest_ = std::move(manifest);
 
-  statistics_expressions_.resize(row_groups_.size(), scalar(true));
+  statistics_expressions_.resize(row_groups_->size(), scalar(true));
   statistics_expressions_complete_.resize(physical_schema_->num_fields(), false);
 
-  for (int row_group : row_groups_) {
+  for (int row_group : *row_groups_) {
     // Ensure RowGroups are indexing valid RowGroups before augmenting.
     if (row_group < metadata_->num_row_groups()) continue;
 
@@ -519,7 +518,7 @@ Result<std::vector<int>> ParquetFileFragment::FilterRowGroups(
 
     const SchemaField& schema_field = manifest_->schema_fields[path[0]];
     int i = 0;
-    for (int row_group : row_groups_) {
+    for (int row_group : *row_groups_) {
       auto row_group_metadata = metadata_->RowGroup(row_group);
 
       if (auto minmax =
@@ -537,9 +536,9 @@ Result<std::vector<int>> ParquetFileFragment::FilterRowGroups(
   }
 
   std::vector<int> row_groups;
-  for (size_t i = 0; i < row_groups_.size(); ++i) {
+  for (size_t i = 0; i < row_groups_->size(); ++i) {
     if (simplified_predicate->IsSatisfiableWith(statistics_expressions_[i])) {
-      row_groups.push_back(row_groups_[i]);
+      row_groups.push_back(row_groups_->at(i));
     }
   }
 

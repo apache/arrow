@@ -911,28 +911,21 @@ cdef class FileFragment(Fragment):
 class RowGroupInfo:
     """A wrapper class for RowGroup information"""
 
-    def __init__(self, id, metadata=None, schema=None):
+    def __init__(self, id, metadata, schema):
         self.id = id
         self.metadata = metadata
         self.schema = schema
 
     @property
     def num_rows(self):
-        if self.metadata is None:
-            return None
         return self.metadata.num_rows
 
     @property
     def total_byte_size(self):
-        if self.metadata is None:
-            return None
         return self.metadata.total_byte_size
 
     @property
     def statistics(self):
-        if self.metadata is None:
-            return None
-
         def name_stats(i):
             col = self.metadata.column(i)
 
@@ -960,6 +953,8 @@ class RowGroupInfo:
         return "RowGroupInfo({})".format(self.id)
 
     def __eq__(self, other):
+        if isinstance(other, int):
+            return self.id == other
         if not isinstance(other, RowGroupInfo):
             return False
         return self.id == other.id
@@ -977,10 +972,7 @@ cdef class ParquetFileFragment(FileFragment):
 
     def __reduce__(self):
         buffer = self.buffer
-        if self.row_groups is not None:
-            row_groups = [row_group.id for row_group in self.row_groups]
-        else:
-            row_groups = None
+        row_groups = [row_group.id for row_group in self.row_groups]
         return self.format.make_fragment, (
             self.path if buffer is None else buffer,
             self.filesystem,
@@ -1005,7 +997,7 @@ cdef class ParquetFileFragment(FileFragment):
     @property
     def metadata(self):
         self.ensure_complete_metadata()
-        cdef FileMetaData metadata = FileMetaData.__new__(FileMetaData)
+        cdef FileMetaData metadata = FileMetaData()
         metadata.init(self.parquet_file_fragment.metadata())
         return metadata
 
@@ -1935,7 +1927,7 @@ cdef class ParquetFactoryOptions(_Weakrefable):
     partitioning : Partitioning, PartitioningFactory, optional
         The partitioning scheme applied to fragments, see ``Partitioning``.
     validate_column_chunk_paths : bool, default False
-        Assert that all ColumnChunk paths are consitent. The parquet spec
+        Assert that all ColumnChunk paths are consistent. The parquet spec
         allows for ColumnChunk data to be stored in multiple files, but
         ParquetDatasetFactory supports only a single file with all ColumnChunk
         data. If this flag is set construction of a ParquetDatasetFactory will

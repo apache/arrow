@@ -154,7 +154,11 @@ class ARROW_DS_EXPORT ParquetFileFragment : public FileFragment {
   Result<FragmentVector> SplitByRowGroup(const std::shared_ptr<Expression>& predicate);
 
   /// \brief Return the RowGroups selected by this fragment.
-  const std::vector<int>& row_groups() const { return row_groups_; }
+  const std::vector<int>& row_groups() const {
+    if (row_groups_) return *row_groups_;
+    static std::vector<int> empty;
+    return empty;
+  }
 
   /// \brief Return the FileMetaData associated with this fragment.
   const std::shared_ptr<parquet::FileMetaData>& metadata() const { return metadata_; }
@@ -162,7 +166,7 @@ class ARROW_DS_EXPORT ParquetFileFragment : public FileFragment {
   /// \brief Ensure this fragment's FileMetaData is in memory.
   Status EnsureCompleteMetadata(parquet::arrow::FileReader* reader = NULLPTR);
 
-  /// \brief Return a filtered subset of the ParquetFileFragment.
+  /// \brief Return fragment which selects a filtered subset of this fragment's RowGroups.
   Result<std::shared_ptr<Fragment>> Subset(const std::shared_ptr<Expression>& predicate);
   Result<std::shared_ptr<Fragment>> Subset(std::vector<int> row_group_ids);
 
@@ -170,7 +174,7 @@ class ARROW_DS_EXPORT ParquetFileFragment : public FileFragment {
   ParquetFileFragment(FileSource source, std::shared_ptr<FileFormat> format,
                       std::shared_ptr<Expression> partition_expression,
                       std::shared_ptr<Schema> physical_schema,
-                      std::vector<int> row_groups, bool select_all_row_groups = false);
+                      util::optional<std::vector<int>> row_groups);
 
   Status SetMetadata(std::shared_ptr<parquet::FileMetaData> metadata,
                      std::shared_ptr<parquet::arrow::SchemaManifest> manifest);
@@ -181,12 +185,14 @@ class ARROW_DS_EXPORT ParquetFileFragment : public FileFragment {
     return physical_schema_;
   }
 
-  // Return a filtered subset of RowGroupInfos.
+  // Return a filtered subset of row group indices.
   Result<std::vector<int>> FilterRowGroups(const Expression& predicate);
 
   ParquetFileFormat& parquet_format_;
-  std::vector<int> row_groups_;
-  bool select_all_row_groups_;
+
+  // Indices of row groups selected by this fragment,
+  // or util::nullopt if all row groups are selected.
+  util::optional<std::vector<int>> row_groups_;
 
   ExpressionVector statistics_expressions_;
   std::vector<bool> statistics_expressions_complete_;
@@ -255,7 +261,7 @@ struct ParquetFactoryOptions {
   // is important, e.g. DirectoryPartitioning.
   std::string partition_base_dir;
 
-  // Assert that all ColumnChunk paths are consitent. The parquet spec allows for
+  // Assert that all ColumnChunk paths are consistent. The parquet spec allows for
   // ColumnChunk data to be stored in multiple files, but ParquetDatasetFactory
   // supports only a single file with all ColumnChunk data. If this flag is set
   // construction of a ParquetDatasetFactory will raise an error if ColumnChunk
