@@ -20,6 +20,7 @@
 #include <string>
 #include <unordered_set>
 
+#include "arrow/util/hashing.h"
 #include "gandiva/arrow.h"
 #include "gandiva/gandiva_aliases.h"
 
@@ -57,7 +58,14 @@ class InHolder<std::string> {
   }
 
  private:
-  std::unordered_set<arrow::util::string_view> values_lookup_;
+  struct string_view_hash {
+   public:
+    std::size_t operator()(arrow::util::string_view v) const {
+      return arrow::internal::ComputeStringHash<0>(v.data(), v.length());
+    }
+  };
+
+  std::unordered_set<arrow::util::string_view, string_view_hash> values_lookup_;
   const std::unordered_set<std::string> values_;
 };
 
