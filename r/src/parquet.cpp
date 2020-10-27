@@ -310,9 +310,8 @@ void parquet___arrow___WriteTable(
     const std::shared_ptr<arrow::io::OutputStream>& sink,
     const std::shared_ptr<parquet::WriterProperties>& properties,
     const std::shared_ptr<parquet::ArrowWriterProperties>& arrow_properties) {
-  PARQUET_THROW_NOT_OK(parquet::arrow::WriteTable(*table, gc_memory_pool(),
-                                                  sink, table->num_rows(), properties,
-                                                  arrow_properties));
+  PARQUET_THROW_NOT_OK(parquet::arrow::WriteTable(
+      *table, gc_memory_pool(), sink, table->num_rows(), properties, arrow_properties));
 }
 
 // [[arrow::export]]
