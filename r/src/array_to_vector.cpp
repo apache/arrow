@@ -292,24 +292,32 @@ struct Converter_String : public Converter {
       // need to watch for nulls
       arrow::internal::BitmapReader null_reader(array->null_bitmap_data(),
                                                 array->offset(), n);
-      for (int i = 0; i < n; i++, null_reader.Next()) {
-        if (null_reader.IsSet()) {
-          SET_STRING_ELT(data, start + i, cpp11::r_string(string_array->GetString(i)));
-        } else {
-          SET_STRING_ELT(data, start + i, NA_STRING);
+      cpp11::unwind_protect([&] {
+        for (int i = 0; i < n; i++, null_reader.Next()) {
+          if (null_reader.IsSet()) {
+            SET_STRING_ELT(data, start + i, r_string_from_view(string_array->GetView(i)));
+          } else {
+            SET_STRING_ELT(data, start + i, NA_STRING);
+          }
         }
-      }
-
+      });
     } else {
-      for (int i = 0; i < n; i++) {
-        SET_STRING_ELT(data, start + i, cpp11::r_string(string_array->GetString(i)));
-      }
+      cpp11::unwind_protect([&] {
+        for (int i = 0; i < n; i++) {
+          SET_STRING_ELT(data, start + i, r_string_from_view(string_array->GetView(i)));
+        }
+      });
     }
 
     return Status::OK();
   }
 
   bool Parallel() const { return false; }
+
+ private:
+  static SEXP r_string_from_view(const arrow::util::string_view& view) {
+    return Rf_mkCharLenCE(view.data(), view.size(), CE_UTF8);
+  }
 };
 
 class Converter_Boolean : public Converter {
