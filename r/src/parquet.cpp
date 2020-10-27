@@ -62,7 +62,8 @@ std::shared_ptr<parquet::arrow::FileReader> parquet___arrow___FileReader__OpenFi
   std::unique_ptr<parquet::arrow::FileReader> reader;
   parquet::arrow::FileReaderBuilder builder;
   PARQUET_THROW_NOT_OK(builder.Open(file));
-  PARQUET_THROW_NOT_OK(builder.properties(*props)->Build(&reader));
+  PARQUET_THROW_NOT_OK(
+      builder.memory_pool(gc_memory_pool())->properties(*props)->Build(&reader));
   return std::move(reader);
 }
 

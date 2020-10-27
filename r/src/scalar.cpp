@@ -54,7 +54,7 @@ std::shared_ptr<arrow::Scalar> StructScalar__GetFieldByName(
 
 // [[arrow::export]]
 SEXP Scalar__as_vector(const std::shared_ptr<arrow::Scalar>& scalar) {
-  auto array = ValueOrStop(arrow::MakeArrayFromScalar(*scalar, 1));
+  auto array = ValueOrStop(arrow::MakeArrayFromScalar(*scalar, 1, gc_memory_pool()));
 
   // defined in array_to_vector.cpp
   SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array);

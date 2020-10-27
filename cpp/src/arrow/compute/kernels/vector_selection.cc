@@ -1793,7 +1793,8 @@ void StructFilter(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   std::shared_ptr<ArrayData> indices;
   KERNEL_RETURN_IF_ERROR(
       ctx,
-      GetTakeIndices(*batch[1].array(), FilterState::Get(ctx).null_selection_behavior)
+      GetTakeIndices(*batch[1].array(), FilterState::Get(ctx).null_selection_behavior,
+                     ctx->memory_pool())
           .Value(&indices));
 
   Datum result;
@@ -1820,7 +1821,8 @@ Result<std::shared_ptr<RecordBatch>> FilterRecordBatch(const RecordBatch& batch,
   const auto& filter_opts = *static_cast<const FilterOptions*>(options);
   ARROW_ASSIGN_OR_RAISE(
       std::shared_ptr<ArrayData> indices,
-      GetTakeIndices(*filter.array(), filter_opts.null_selection_behavior));
+      GetTakeIndices(*filter.array(), filter_opts.null_selection_behavior,
+                     ctx->memory_pool()));
   std::vector<std::shared_ptr<Array>> columns(batch.num_columns());
   for (int i = 0; i < batch.num_columns(); ++i) {
     ARROW_ASSIGN_OR_RAISE(Datum out, Take(batch.column(i)->data(), Datum(indices),

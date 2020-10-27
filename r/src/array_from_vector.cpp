@@ -357,7 +357,8 @@ std::shared_ptr<Array> MakeFactorArrayImpl(cpp11::integers factor,
 
   if (i < n) {
     // there are NA's so we need a null buffer
-    auto null_buffer = ValueOrStop(AllocateBuffer(BitUtil::BytesForBits(n)));
+    auto null_buffer =
+        ValueOrStop(AllocateBuffer(BitUtil::BytesForBits(n), gc_memory_pool()));
     internal::FirstTimeBitmapWriter null_bitmap_writer(null_buffer->mutable_data(), 0, n);
 
     // catch up

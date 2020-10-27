@@ -111,7 +111,7 @@ void io___MemoryMappedFile__Resize(const std::shared_ptr<arrow::io::MemoryMapped
 // [[arrow::export]]
 std::shared_ptr<arrow::io::ReadableFile> io___ReadableFile__Open(
     const std::string& path) {
-  return ValueOrStop(arrow::io::ReadableFile::Open(path));
+  return ValueOrStop(arrow::io::ReadableFile::Open(path, gc_memory_pool()));
 }
 
 // ------ arrow::io::BufferReader

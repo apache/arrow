@@ -41,14 +41,16 @@ bool util___Codec__IsAvailable(arrow::Compression::type codec) {
 std::shared_ptr<arrow::io::CompressedOutputStream> io___CompressedOutputStream__Make(
     const std::shared_ptr<arrow::util::Codec>& codec,
     const std::shared_ptr<arrow::io::OutputStream>& raw) {
-  return ValueOrStop(arrow::io::CompressedOutputStream::Make(codec.get(), raw));
+  return ValueOrStop(
+      arrow::io::CompressedOutputStream::Make(codec.get(), raw, gc_memory_pool()));
 }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::io::CompressedInputStream> io___CompressedInputStream__Make(
     const std::shared_ptr<arrow::util::Codec>& codec,
     const std::shared_ptr<arrow::io::InputStream>& raw) {
-  return ValueOrStop(arrow::io::CompressedInputStream::Make(codec.get(), raw));
+  return ValueOrStop(
+      arrow::io::CompressedInputStream::Make(codec.get(), raw, gc_memory_pool()));
 }
 
 #endif
