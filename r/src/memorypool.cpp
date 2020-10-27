@@ -18,11 +18,11 @@
 #include "./arrow_types.h"
 #if defined(ARROW_R_WITH_ARROW)
 #include <arrow/memory_pool.h>
+#include <arrow/util/mutex.h>
 
 class GcMemoryPool : public arrow::MemoryPool {
  public:
-  GcMemoryPool()
-      : pool_(arrow::default_memory_pool()), gc_(cpp11::package("base")["gc"]) {}
+  GcMemoryPool() : pool_(arrow::default_memory_pool()) {}
 
   arrow::Status Allocate(int64_t size, uint8_t** out) override {
     return GcAndTryAgain([&] { return pool_->Allocate(size, out); });
@@ -45,19 +45,28 @@ class GcMemoryPool : public arrow::MemoryPool {
   arrow::Status GcAndTryAgain(const Call& call) {
     if (call().ok()) {
       return arrow::Status::OK();
+    } else {
+      auto lock = mutex_.Lock();
+
+      // ARROW-10080: Allocation may fail spuriously since the garbage collector is lazy.
+      // Force it to run then try again in case any reusable allocations have been freed.
+      static cpp11::function gc = cpp11::package("base")["gc"];
+      gc();
     }
-    // ARROW-10080
-    gc_();
     return call();
   }
 
+  arrow::util::Mutex mutex_;
   arrow::MemoryPool* pool_;
-  cpp11::function gc_;
 };
+
+static GcMemoryPool g_pool;
+
+arrow::MemoryPool* gc_memory_pool() { return &g_pool; }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::MemoryPool> MemoryPool__default() {
-  return std::make_shared<GcMemoryPool>();
+  return std::shared_ptr<GcMemoryPool>(&g_pool, [](...) {});
 }
 
 // [[arrow::export]]

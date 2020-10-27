@@ -33,7 +33,9 @@ namespace fs = ::arrow::fs;
 // [[arrow::export]]
 std::shared_ptr<ds::ScannerBuilder> dataset___Dataset__NewScan(
     const std::shared_ptr<ds::Dataset>& ds) {
-  return ValueOrStop(ds->NewScan());
+  auto context = std::make_shared<ds::ScanContext>();
+  context->pool = gc_memory_pool();
+  return ValueOrStop(ds->NewScan(std::move(context)));
 }
 
 // [[arrow::export]]

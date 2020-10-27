@@ -122,13 +122,13 @@ test_that("Simple interface for datasets", {
   )
 })
 
-test_that("dim method returns the correct number of rows and columns",{
+test_that("dim method returns the correct number of rows and columns", {
   ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
   expect_identical(dim(ds), c(20L, 7L))
 })
 
 
-test_that("dim() correctly determine numbers of rows and columns on arrow_dplyr_query object",{
+test_that("dim() correctly determine numbers of rows and columns on arrow_dplyr_query object", {
   ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
 
   expect_warning(

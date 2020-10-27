@@ -179,7 +179,9 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
 SEXP compute__CallFunction(std::string func_name, cpp11::list args, cpp11::list options) {
   auto opts = make_compute_options(func_name, options);
   auto datum_args = arrow::r::from_r_list<arrow::Datum>(args);
-  auto out = ValueOrStop(arrow::compute::CallFunction(func_name, datum_args, opts.get()));
+  arrow::compute::ExecContext context(gc_memory_pool());
+  auto out = ValueOrStop(
+      arrow::compute::CallFunction(func_name, datum_args, opts.get(), &context));
   return from_datum(out);
 }
 

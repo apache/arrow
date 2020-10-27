@@ -60,3 +60,17 @@ test_that("arrow gracefully fails to load objects from other sessions (ARROW-100
 test_that("check for an ArrowObject in functions use std::shared_ptr", {
   expect_error(Array__length(1), "Invalid R object")
 })
+
+test_that("MemoryPool calls gc() to free memory when allocation fails (ARROW-10080)", {
+  env <- new.env()
+  trace(gc, print = FALSE, tracer = function() {
+          env$gc_was_called <- TRUE
+        })
+  expect_error(
+    BufferOutputStream$create(2 ** 60),
+    "Out of memory"
+  )
+  expect_true(env$gc_was_called)
+
+  untrace(gc)
+})

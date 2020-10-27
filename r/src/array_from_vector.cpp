@@ -321,7 +321,7 @@ struct VectorToArrayConverter {
 
   static std::shared_ptr<Array> Visit(SEXP x, const std::shared_ptr<DataType>& type) {
     std::unique_ptr<ArrayBuilder> builder;
-    StopIfNotOk(MakeBuilder(arrow::default_memory_pool(), type, &builder));
+    StopIfNotOk(MakeBuilder(gc_memory_pool(), type, &builder));
 
     VectorToArrayConverter converter{x, builder.get()};
     StopIfNotOk(arrow::VisitTypeInline(*type, &converter));
@@ -1512,7 +1512,7 @@ std::shared_ptr<arrow::Array> Array__from_vector(
 
   // Create ArrayBuilder for type
   std::unique_ptr<arrow::ArrayBuilder> type_builder;
-  StopIfNotOk(arrow::MakeBuilder(arrow::default_memory_pool(), type, &type_builder));
+  StopIfNotOk(arrow::MakeBuilder(gc_memory_pool(), type, &type_builder));
   StopIfNotOk(converter->Init(type_builder.get()));
 
   // ingest R data and grab the result array
@@ -1568,7 +1568,7 @@ std::shared_ptr<arrow::ChunkedArray> ChunkedArray__from_list(cpp11::list chunks,
   if (n == 0) {
     std::shared_ptr<arrow::Array> array;
     std::unique_ptr<arrow::ArrayBuilder> type_builder;
-    StopIfNotOk(arrow::MakeBuilder(arrow::default_memory_pool(), type, &type_builder));
+    StopIfNotOk(arrow::MakeBuilder(gc_memory_pool(), type, &type_builder));
     StopIfNotOk(type_builder->Finish(&array));
     vec.push_back(array);
   } else {

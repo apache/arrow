@@ -37,6 +37,7 @@ SEXP ChunkedArray__as_vector(const std::shared_ptr<arrow::ChunkedArray>& chunked
 SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array);
 std::shared_ptr<arrow::Array> Array__from_vector(SEXP x, SEXP type);
 std::shared_ptr<arrow::RecordBatch> RecordBatch__from_arrays(SEXP, SEXP);
+arrow::MemoryPool* gc_memory_pool();
 
 namespace arrow {
 
