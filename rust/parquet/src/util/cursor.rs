@@ -25,10 +25,10 @@ use std::{cmp, fmt};
 /// because the lack of Generic Associated Type implies that you would require complex lifetime propagation when
 /// returning such a cursor.
 pub struct SliceableCursor {
+    inner: Rc<Vec<u8>>,
     start: u64,
     length: usize,
     pos: u64,
-    inner: Rc<Vec<u8>>,
 }
 
 impl fmt::Debug for SliceableCursor {
