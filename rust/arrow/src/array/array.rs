@@ -29,7 +29,7 @@ use num::Num;
 
 use super::*;
 use crate::array::builder::StringDictionaryBuilder;
-use crate::array::equal::JsonEqual;
+use crate::array::equal_json::JsonEqual;
 use crate::buffer::{buffer_bin_or, Buffer, MutableBuffer};
 use crate::datatypes::DataType::Struct;
 use crate::datatypes::*;
