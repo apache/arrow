@@ -94,7 +94,7 @@ impl Seek for SliceableCursor {
     fn seek(&mut self, pos: SeekFrom) -> io::Result<u64> {
         let new_pos = match pos {
             SeekFrom::Start(pos) => pos as i64,
-            SeekFrom::End(pos) => self.inner.len() as i64 - 1 + pos as i64,
+            SeekFrom::End(pos) => self.inner.len() as i64 + pos as i64,
             SeekFrom::Current(pos) => self.pos as i64 + pos as i64,
         };
 
@@ -177,7 +177,7 @@ mod tests {
         let mut cursor = get_u8_range();
 
         cursor.seek(SeekFrom::End(-10)).unwrap();
-        check_read_all(cursor, 245, 255);
+        check_read_all(cursor, 246, 255);
     }
 
     #[test]
@@ -196,7 +196,7 @@ mod tests {
         let res = cursor.seek(SeekFrom::End(-1000));
         let actual_error = res.expect_err("expected error").to_string();
         let expected_error =
-            "Request out of bounds: cur position 0 + seek End(-1000) < 0: -745";
+            "Request out of bounds: cur position 0 + seek End(-1000) < 0: -744";
         assert_eq!(actual_error, expected_error);
     }
 }
