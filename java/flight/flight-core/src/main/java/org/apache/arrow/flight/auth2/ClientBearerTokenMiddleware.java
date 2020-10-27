@@ -23,15 +23,11 @@ import org.apache.arrow.flight.CallHeaders;
 import org.apache.arrow.flight.CallInfo;
 import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.FlightClientMiddleware;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Middleware for capturing bearer tokens sent back from the Flight server.
  */
 public class ClientBearerTokenMiddleware implements FlightClientMiddleware {
-  private static final Logger logger = LoggerFactory.getLogger(ClientBearerTokenMiddleware.class);
-
   private final Factory factory;
 
   /**
@@ -42,7 +38,6 @@ public class ClientBearerTokenMiddleware implements FlightClientMiddleware {
 
     @Override
     public FlightClientMiddleware onCallStarted(CallInfo info) {
-      logger.debug("Call name: {}", info.method().name());
       return new ClientBearerTokenMiddleware(this);
     }
 
@@ -73,6 +68,5 @@ public class ClientBearerTokenMiddleware implements FlightClientMiddleware {
 
   @Override
   public void onCallCompleted(CallStatus status) {
-    logger.debug("Request completed with status {}.", status);
   }
 }
