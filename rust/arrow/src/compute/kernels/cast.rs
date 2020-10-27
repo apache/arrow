@@ -202,6 +202,7 @@ pub fn can_cast_types(from_type: &DataType, to_type: &DataType) -> bool {
         (Timestamp(_, _), Date32(_)) => true,
         (Timestamp(_, _), Date64(_)) => true,
         // date64 to timestamp might not make sense,
+        (Int64, Duration(_)) => true,
         (Null, Int32) => true,
         (_, _) => false,
     }

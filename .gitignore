@@ -80,6 +80,3 @@ cpp/Brewfile.lock.json
 
 # docker volumes used for caching
 .docker
-
-# local integration testing logs
-integration-testing.log
