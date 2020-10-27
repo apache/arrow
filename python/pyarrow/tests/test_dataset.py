@@ -1097,8 +1097,6 @@ def test_fragments_parquet_subset_ids(tempdir, open_logging_fs):
     with assert_opens([]):
         assert subfrag.num_row_groups == 2
         assert subfrag.row_groups == [0, 3]
-
-        # if the original fragment has statistics -> preserve them
         assert subfrag.row_groups[0].statistics is not None
 
     # check correct scan result of subset
@@ -1126,7 +1124,6 @@ def test_fragments_parquet_subset_filter(tempdir, open_logging_fs):
     subfrag = fragment.subset(ds.field("f1") >= 1)
     with assert_opens([]):
         assert subfrag.num_row_groups == 3
-        # ensure statistics are preserved in subset (need to be read for filter)
         assert len(subfrag.row_groups) == 3
         assert subfrag.row_groups[0].statistics is not None
 
