@@ -1417,50 +1417,57 @@ mod tests {
         // assert!(b_slice.equals(&*a_slice));
     }
 
-    fn test_generic_string_equal<OffsetSize: StringOffsetSizeTrait>(datatype: DataType) {
-        let a = GenericStringArray::<OffsetSize>::from_vec(
-            vec!["hello", "world"],
-            datatype.clone(),
-        );
-        let b = GenericStringArray::<OffsetSize>::from_vec(
-            vec!["hello", "world"],
-            datatype.clone(),
-        );
+    fn test_generic_string_equal<OffsetSize: StringOffsetSizeTrait>() {
+        let a = GenericStringArray::<OffsetSize>::from_vec(vec!["hello", "world"]);
+        let b = GenericStringArray::<OffsetSize>::from_vec(vec!["hello", "world"]);
         assert!(a.equals(&b));
         assert!(b.equals(&a));
 
-        let b = GenericStringArray::<OffsetSize>::from_vec(
-            vec!["hello", "arrow"],
-            datatype.clone(),
-        );
+        let b = GenericStringArray::<OffsetSize>::from_vec(vec!["hello", "arrow"]);
         assert!(!a.equals(&b));
         assert!(!b.equals(&a));
 
         // Test the case where null_count > 0
 
-        let a = GenericStringArray::<OffsetSize>::from_opt_vec(
-            vec![Some("hello"), None, None, Some("world"), None, None],
-            datatype.clone(),
-        );
+        let a = GenericStringArray::<OffsetSize>::from_opt_vec(vec![
+            Some("hello"),
+            None,
+            None,
+            Some("world"),
+            None,
+            None,
+        ]);
 
-        let b = GenericStringArray::<OffsetSize>::from_opt_vec(
-            vec![Some("hello"), None, None, Some("world"), None, None],
-            datatype.clone(),
-        );
+        let b = GenericStringArray::<OffsetSize>::from_opt_vec(vec![
+            Some("hello"),
+            None,
+            None,
+            Some("world"),
+            None,
+            None,
+        ]);
         assert!(a.equals(&b));
         assert!(b.equals(&a));
 
-        let b = GenericStringArray::<OffsetSize>::from_opt_vec(
-            vec![Some("hello"), Some("foo"), None, Some("world"), None, None],
-            datatype.clone(),
-        );
+        let b = GenericStringArray::<OffsetSize>::from_opt_vec(vec![
+            Some("hello"),
+            Some("foo"),
+            None,
+            Some("world"),
+            None,
+            None,
+        ]);
         assert!(!a.equals(&b));
         assert!(!b.equals(&a));
 
-        let b = GenericStringArray::<OffsetSize>::from_opt_vec(
-            vec![Some("hello"), None, None, Some("arrow"), None, None],
-            datatype.clone(),
-        );
+        let b = GenericStringArray::<OffsetSize>::from_opt_vec(vec![
+            Some("hello"),
+            None,
+            None,
+            Some("arrow"),
+            None,
+            None,
+        ]);
         assert!(!a.equals(&b));
         assert!(!b.equals(&a));
 
@@ -1484,12 +1491,12 @@ mod tests {
 
     #[test]
     fn test_string_equal() {
-        test_generic_string_equal::<i32>(DataType::Utf8)
+        test_generic_string_equal::<i32>()
     }
 
     #[test]
     fn test_large_string_equal() {
-        test_generic_string_equal::<i64>(DataType::LargeUtf8)
+        test_generic_string_equal::<i64>()
     }
 
     #[test]
