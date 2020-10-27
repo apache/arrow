@@ -25,7 +25,7 @@ use arrow::record_batch::RecordBatch;
 use arrow_array::Array;
 
 use super::schema::add_encoded_arrow_schema_to_metadata;
-use crate::column::writer::ColumnWriter;
+use crate::column::writer::{ColumnWriter, ColumnWriterImpl};
 use crate::errors::{ParquetError, Result};
 use crate::file::properties::WriterProperties;
 use crate::{
@@ -176,17 +176,173 @@ fn write_leaves(
             }
             Ok(())
         }
+        ArrowDataType::Dictionary(key_type, value_type) => {
+            use arrow_array::{
+                Int16DictionaryArray, Int32DictionaryArray, Int64DictionaryArray,
+                Int8DictionaryArray, PrimitiveArray, StringArray, UInt16DictionaryArray,
+                UInt32DictionaryArray, UInt64DictionaryArray, UInt8DictionaryArray,
+            };
+            use ArrowDataType::*;
+            use ColumnWriter::*;
+
+            let array = &**array;
+            let mut col_writer = get_col_writer(&mut row_group_writer)?;
+            let levels = levels.pop().expect("Levels exhausted");
+
+            macro_rules! dispatch_dictionary {
+                ($($kt: pat, $vt: pat, $w: ident => $kat: ty, $vat: ty,)*) => (
+                    match (&**key_type, &**value_type, &mut col_writer) {
+                        $(($kt, $vt, $w(writer)) => write_dict::<$kat, $vat, _>(array, writer, levels),)*
+                        (kt, vt, _) => unreachable!("Shouldn't be attempting to write dictionary of <{:?}, {:?}>", kt, vt),
+                    }
+                );
+            }
+
+            match (&**key_type, &**value_type, &mut col_writer) {
+                (UInt8, UInt32, Int32ColumnWriter(writer)) => {
+                    let typed_array = array
+                        .as_any()
+                        .downcast_ref::<arrow_array::UInt8DictionaryArray>()
+                        .expect("Unable to get dictionary array");
+
+                    let keys = typed_array.keys();
+
+                    let value_buffer = typed_array.values();
+                    let value_array =
+                        arrow::compute::cast(&value_buffer, &ArrowDataType::Int32)?;
+
+                    let values = value_array
+                        .as_any()
+                        .downcast_ref::<arrow_array::Int32Array>()
+                        .unwrap();
+
+                    use std::convert::TryFrom;
+                    // This removes NULL values from the NullableIter, but
+                    // they're encoded by the levels, so that's fine.
+                    let materialized_values: Vec<_> = keys
+                        .flatten()
+                        .map(|key| {
+                            usize::try_from(key).unwrap_or_else(|k| {
+                                panic!("key {} does not fit in usize", k)
+                            })
+                        })
+                        .map(|key| values.value(key))
+                        .collect();
+
+                    let materialized_primitive_array =
+                        PrimitiveArray::<arrow::datatypes::Int32Type>::from(
+                            materialized_values,
+                        );
+
+                    writer.write_batch(
+                        get_numeric_array_slice::<Int32Type, _>(
+                            &materialized_primitive_array,
+                        )
+                        .as_slice(),
+                        Some(levels.definition.as_slice()),
+                        levels.repetition.as_deref(),
+                    )?;
+                    row_group_writer.close_column(col_writer)?;
+
+                    return Ok(());
+                }
+                _ => {}
+            }
+
+            dispatch_dictionary!(
+                Int8, Utf8, ByteArrayColumnWriter => Int8DictionaryArray, StringArray,
+                Int16, Utf8, ByteArrayColumnWriter => Int16DictionaryArray, StringArray,
+                Int32, Utf8, ByteArrayColumnWriter => Int32DictionaryArray, StringArray,
+                Int64, Utf8, ByteArrayColumnWriter => Int64DictionaryArray, StringArray,
+                UInt8, Utf8, ByteArrayColumnWriter => UInt8DictionaryArray, StringArray,
+                UInt16, Utf8, ByteArrayColumnWriter => UInt16DictionaryArray, StringArray,
+                UInt32, Utf8, ByteArrayColumnWriter => UInt32DictionaryArray, StringArray,
+                UInt64, Utf8, ByteArrayColumnWriter => UInt64DictionaryArray, StringArray,
+            )?;
+
+            row_group_writer.close_column(col_writer)?;
+
+            Ok(())
+        }
         ArrowDataType::Float16 => Err(ParquetError::ArrowError(
             "Float16 arrays not supported".to_string(),
         )),
         ArrowDataType::FixedSizeList(_, _)
         | ArrowDataType::Boolean
         | ArrowDataType::FixedSizeBinary(_)
-        | ArrowDataType::Union(_)
-        | ArrowDataType::Dictionary(_, _) => Err(ParquetError::NYI(
+        | ArrowDataType::Union(_) => Err(ParquetError::NYI(
             "Attempting to write an Arrow type that is not yet implemented".to_string(),
         )),
     }
+}
+
+trait Materialize<K, V> {
+    type Output;
+
+    // Materialize the packed dictionary. The writer will later repack it.
+    fn materialize(&self) -> Vec<Self::Output>;
+}
+
+macro_rules! materialize_string {
+    ($($k:ty,)*) => {
+        $(impl Materialize<$k, arrow_array::StringArray> for dyn Array {
+            type Output = ByteArray;
+
+            fn materialize(&self) -> Vec<Self::Output> {
+                use std::convert::TryFrom;
+
+                let typed_array = self.as_any()
+                    .downcast_ref::<$k>()
+                    .expect("Unable to get dictionary array");
+
+                let keys = typed_array.keys();
+
+                let value_buffer = typed_array.values();
+                let values = value_buffer
+                    .as_any()
+                    .downcast_ref::<arrow_array::StringArray>()
+                    .unwrap();
+
+                // This removes NULL values from the NullableIter, but
+                // they're encoded by the levels, so that's fine.
+                keys
+                    .flatten()
+                    .map(|key| usize::try_from(key).unwrap_or_else(|k| panic!("key {} does not fit in usize", k)))
+                    .map(|key| values.value(key))
+                    .map(ByteArray::from)
+                    .collect()
+            }
+        })*
+    };
+}
+
+materialize_string! {
+    arrow_array::Int8DictionaryArray,
+    arrow_array::Int16DictionaryArray,
+    arrow_array::Int32DictionaryArray,
+    arrow_array::Int64DictionaryArray,
+    arrow_array::UInt8DictionaryArray,
+    arrow_array::UInt16DictionaryArray,
+    arrow_array::UInt32DictionaryArray,
+    arrow_array::UInt64DictionaryArray,
+}
+
+fn write_dict<K, V, T>(
+    array: &(dyn Array + 'static),
+    writer: &mut ColumnWriterImpl<T>,
+    levels: Levels,
+) -> Result<()>
+where
+    T: DataType,
+    dyn Array: Materialize<K, V, Output = T::T>,
+{
+    writer.write_batch(
+        &array.materialize(),
+        Some(levels.definition.as_slice()),
+        levels.repetition.as_deref(),
+    )?;
+
+    Ok(())
 }
 
 fn write_leaf(
@@ -238,7 +394,7 @@ fn write_leaf(
             )?
         }
         ColumnWriter::ByteArrayColumnWriter(ref mut typed) => match column.data_type() {
-            ArrowDataType::Binary | ArrowDataType::Utf8 => {
+            ArrowDataType::Binary => {
                 let array = arrow_array::BinaryArray::from(column.data());
                 typed.write_batch(
                     get_binary_array(&array).as_slice(),
@@ -246,10 +402,26 @@ fn write_leaf(
                     levels.repetition.as_deref(),
                 )?
             }
-            ArrowDataType::LargeBinary | ArrowDataType::LargeUtf8 => {
+            ArrowDataType::Utf8 => {
+                let array = arrow_array::StringArray::from(column.data());
+                typed.write_batch(
+                    get_string_array(&array).as_slice(),
+                    Some(levels.definition.as_slice()),
+                    levels.repetition.as_deref(),
+                )?
+            }
+            ArrowDataType::LargeBinary => {
                 let array = arrow_array::LargeBinaryArray::from(column.data());
                 typed.write_batch(
                     get_large_binary_array(&array).as_slice(),
+                    Some(levels.definition.as_slice()),
+                    levels.repetition.as_deref(),
+                )?
+            }
+            ArrowDataType::LargeUtf8 => {
+                let array = arrow_array::LargeStringArray::from(column.data());
+                typed.write_batch(
+                    get_large_string_array(&array).as_slice(),
                     Some(levels.definition.as_slice()),
                     levels.repetition.as_deref(),
                 )?
@@ -430,7 +602,15 @@ fn get_levels(
             struct_levels
         }
         ArrowDataType::Union(_) => unimplemented!(),
-        ArrowDataType::Dictionary(_, _) => unimplemented!(),
+        ArrowDataType::Dictionary(_, _) => {
+            // Need to check for these cases not implemented in C++:
+            // - "Writing DictionaryArray with nested dictionary type not yet supported"
+            // - "Writing DictionaryArray with null encoded in dictionary type not yet supported"
+            vec![Levels {
+                definition: get_primitive_def_levels(array, parent_def_levels),
+                repetition: None,
+            }]
+        }
     }
 }
 
@@ -462,7 +642,8 @@ macro_rules! def_get_binary_array_fn {
             let mut values = Vec::with_capacity(array.len() - array.null_count());
             for i in 0..array.len() {
                 if array.is_valid(i) {
-                    let bytes = ByteArray::from(array.value(i).to_vec());
+                    let bytes: Vec<u8> = array.value(i).into();
+                    let bytes = ByteArray::from(bytes);
                     values.push(bytes);
                 }
             }
@@ -472,7 +653,9 @@ macro_rules! def_get_binary_array_fn {
 }
 
 def_get_binary_array_fn!(get_binary_array, arrow_array::BinaryArray);
+def_get_binary_array_fn!(get_string_array, arrow_array::StringArray);
 def_get_binary_array_fn!(get_large_binary_array, arrow_array::LargeBinaryArray);
+def_get_binary_array_fn!(get_large_string_array, arrow_array::LargeStringArray);
 
 /// Get the underlying numeric array slice, skipping any null values.
 /// If there are no null values, it might be quicker to get the slice directly instead of
@@ -501,7 +684,7 @@ mod tests {
 
     use arrow::array::*;
     use arrow::datatypes::ToByteSlice;
-    use arrow::datatypes::{DataType, Field, Schema};
+    use arrow::datatypes::{DataType, Field, Schema, UInt32Type, UInt8Type};
     use arrow::record_batch::RecordBatch;
 
     use crate::arrow::{ArrowReader, ParquetFileArrowReader};
@@ -1117,5 +1300,87 @@ mod tests {
 
         let values = Arc::new(s);
         one_column_roundtrip("struct_single_column", values, false);
+    }
+
+    #[test]
+    fn arrow_writer_string_dictionary() {
+        // define schema
+        let schema = Arc::new(Schema::new(vec![Field::new_dict(
+            "dictionary",
+            DataType::Dictionary(Box::new(DataType::Int32), Box::new(DataType::Utf8)),
+            true,
+            42,
+            true,
+        )]));
+
+        // create some data
+        let d: Int32DictionaryArray = [Some("alpha"), None, Some("beta"), Some("alpha")]
+            .iter()
+            .copied()
+            .collect();
+
+        // build a record batch
+        let expected_batch = RecordBatch::try_new(schema, vec![Arc::new(d)]).unwrap();
+
+        roundtrip(
+            "test_arrow_writer_string_dictionary.parquet",
+            expected_batch,
+        );
+    }
+
+    #[test]
+    fn arrow_writer_primitive_dictionary() {
+        // define schema
+        let schema = Arc::new(Schema::new(vec![Field::new_dict(
+            "dictionary",
+            DataType::Dictionary(Box::new(DataType::UInt8), Box::new(DataType::UInt32)),
+            true,
+            42,
+            true,
+        )]));
+
+        // create some data
+        let key_builder = PrimitiveBuilder::<UInt8Type>::new(3);
+        let value_builder = PrimitiveBuilder::<UInt32Type>::new(2);
+        let mut builder = PrimitiveDictionaryBuilder::new(key_builder, value_builder);
+        builder.append(12345678).unwrap();
+        builder.append_null().unwrap();
+        builder.append(22345678).unwrap();
+        builder.append(12345678).unwrap();
+        let d = builder.finish();
+
+        // build a record batch
+        let expected_batch = RecordBatch::try_new(schema, vec![Arc::new(d)]).unwrap();
+
+        roundtrip(
+            "test_arrow_writer_primitive_dictionary.parquet",
+            expected_batch,
+        );
+    }
+
+    #[test]
+    fn arrow_writer_string_dictionary_unsigned_index() {
+        // define schema
+        let schema = Arc::new(Schema::new(vec![Field::new_dict(
+            "dictionary",
+            DataType::Dictionary(Box::new(DataType::UInt8), Box::new(DataType::Utf8)),
+            true,
+            42,
+            true,
+        )]));
+
+        // create some data
+        let d: UInt8DictionaryArray = [Some("alpha"), None, Some("beta"), Some("alpha")]
+            .iter()
+            .copied()
+            .collect();
+
+        // build a record batch
+        let expected_batch = RecordBatch::try_new(schema, vec![Arc::new(d)]).unwrap();
+
+        roundtrip(
+            "test_arrow_writer_string_dictionary_unsigned_index.parquet",
+            expected_batch,
+        );
     }
 }
