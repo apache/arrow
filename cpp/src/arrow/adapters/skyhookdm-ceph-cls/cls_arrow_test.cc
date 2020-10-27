@@ -3,12 +3,12 @@
 
 #include <rados/librados.hpp>
 
-#include <arrow/api.h>
-#include <arrow/dataset/api.h>
-#include <arrow/io/api.h>
-#include <arrow/ipc/api.h>
+#include "arrow/api.h"
+#include "arrow/dataset/api.h"
+#include "arrow/io/api.h"
+#include "arrow/ipc/api.h"
 
-#include "test_utils.h"
+#include "cls_arrow_test_utils.h"
 #include "gtest/gtest.h"
 
 using arrow::dataset::string_literals::operator"" _;
@@ -95,7 +95,7 @@ TEST(ClsSDK, TestWriteAndReadTable) {
   arrow::dataset::deserialize_table_from_bufferlist(&table_, out_);
   ASSERT_EQ(table->Equals(*table_), 1);
 
-  ASSERT_EQ(0, destroy_one_pool_pp(pool_name, cluster));
+  // ASSERT_EQ(0, destroy_one_pool_pp(pool_name, cluster));
 }
 
 TEST(ClsSDK, TestProjection) {
@@ -128,7 +128,7 @@ TEST(ClsSDK, TestProjection) {
   ASSERT_EQ(table_->num_columns(), 2);
   ASSERT_EQ(table_->schema()->Equals(*schema), 1);
 
-  ASSERT_EQ(0, destroy_one_pool_pp(pool_name, cluster));
+  // ASSERT_EQ(0, destroy_one_pool_pp(pool_name, cluster));
 }
 
 TEST(ClsSDK, TestSelection) {
@@ -155,7 +155,7 @@ TEST(ClsSDK, TestSelection) {
   std::shared_ptr<arrow::Table> table_;
   arrow::dataset::deserialize_table_from_bufferlist(&table_, out_);
   ASSERT_EQ(table_->num_rows(), 2);
-  ASSERT_EQ(0, destroy_one_pool_pp(pool_name, cluster));
+  // ASSERT_EQ(0, destroy_one_pool_pp(pool_name, cluster));
 }
 
 TEST(ClsSDK, TestEndToEnd) {
