@@ -68,8 +68,8 @@ outputs:
         - glog
         - grpc-cpp
         - libprotobuf
-        - clangdev 10
-        - llvmdev 10
+        - clangdev 11
+        - llvmdev 11
         - libutf8proc
         - lz4-c
         - numpy

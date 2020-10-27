@@ -46,7 +46,7 @@ jobs:
       matrix:
         name:
           - amd64-debian-10-cpp
-          - amd64-fedora-32-cpp
+          - amd64-fedora-33-cpp
           - amd64-ubuntu-16.04-cpp
           - amd64-ubuntu-18.04-cpp
           - amd64-ubuntu-18.04-cpp-cmake32
@@ -55,10 +55,10 @@ jobs:
             image: debian-cpp
             title: AMD64 Debian 10 C++
             debian: 10
-          - name: amd64-fedora-32-cpp
+          - name: amd64-fedora-33-cpp
             image: fedora-cpp
-            title: AMD64 Fedora 32 C++
-            fedora: 32
+            title: AMD64 Fedora 33 C++
+            fedora: 33
           - name: amd64-ubuntu-16.04-cpp
             image: ubuntu-cpp
             title: AMD64 Ubuntu 16.04 C++
@@ -75,7 +75,7 @@ jobs:
       # the defaults here should correspond to the values in .env
       ARCH: 'amd64'
       DEBIAN: ${{ matrix.debian || 10 }}
-      FEDORA: ${{ matrix.fedora || 32 }}
+      FEDORA: ${{ matrix.fedora || 33 }}
       UBUNTU: ${{ matrix.ubuntu || 18.04 }}
     steps:
       - name: Checkout Arrow

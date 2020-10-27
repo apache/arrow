@@ -1824,6 +1824,7 @@ macro(build_rapidjson)
   set(RAPIDJSON_INCLUDE_DIR "${RAPIDJSON_PREFIX}/include")
 
   add_dependencies(toolchain rapidjson_ep)
+  add_dependencies(toolchain-tests rapidjson_ep)
   add_dependencies(rapidjson rapidjson_ep)
 
   set(RAPIDJSON_VENDORED TRUE)

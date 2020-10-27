@@ -16,7 +16,7 @@ class ApacheArrow < Formula
   depends_on "numpy"
   depends_on "openssl@1.1"
   depends_on "protobuf"
-  depends_on "python@3.8"
+  depends_on "python@3.9"
   depends_on "rapidjson"
   depends_on "snappy"
   depends_on "thrift"
@@ -42,7 +42,7 @@ class ApacheArrow < Formula
       -DARROW_WITH_SNAPPY=ON
       -DARROW_WITH_BROTLI=ON
       -DARROW_INSTALL_NAME_RPATH=OFF
-      -DPYTHON_EXECUTABLE=#{Formula["python@3.8"].bin/"python3"}
+      -DPython3_EXECUTABLE=#{Formula["python@3.9"].bin/"python3"}
     ]
     # Re-enable -DARROW_S3=ON and add back aws-sdk-cpp to depends_on in ARROW-6437
 
