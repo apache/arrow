@@ -342,7 +342,7 @@ std::shared_ptr<Array> MakeFactorArrayImpl(cpp11::integers factor,
   auto n = factor.size();
 
   std::shared_ptr<Buffer> indices_buffer =
-      ValueOrStop(AllocateBuffer(n * sizeof(value_type)));
+      ValueOrStop(AllocateBuffer(n * sizeof(value_type), gc_memory_pool()));
 
   std::vector<std::shared_ptr<Buffer>> buffers{nullptr, indices_buffer};
 
@@ -1367,7 +1367,8 @@ std::shared_ptr<Array> MakeSimpleArray(SEXP x) {
 
   auto first_na = std::find_if(p_vec_start, p_vec_end, is_na<value_type>);
   if (first_na < p_vec_end) {
-    auto null_bitmap = ValueOrStop(AllocateBuffer(BitUtil::BytesForBits(n)));
+    auto null_bitmap =
+        ValueOrStop(AllocateBuffer(BitUtil::BytesForBits(n), gc_memory_pool()));
     internal::FirstTimeBitmapWriter bitmap_writer(null_bitmap->mutable_data(), 0, n);
 
     // first loop to clear all the bits before the first NA

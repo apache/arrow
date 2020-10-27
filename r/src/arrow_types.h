@@ -71,8 +71,10 @@ template <typename RVector>
 class RBuffer : public MutableBuffer {
  public:
   explicit RBuffer(RVector vec)
-      : MutableBuffer(reinterpret_cast<uint8_t*>(DATAPTR(vec)),
-                      vec.size() * sizeof(typename RVector::value_type)),
+      : MutableBuffer(
+            reinterpret_cast<uint8_t*>(DATAPTR(vec)),
+            vec.size() * sizeof(typename RVector::value_type),
+            arrow::CPUMemoryManager::Make(CPUDevice::Instance(), gc_memory_pool())),
         vec_(vec) {}
 
  private:
