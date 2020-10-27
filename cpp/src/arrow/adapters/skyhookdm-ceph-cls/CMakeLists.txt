@@ -1,30 +1,48 @@
-cmake_minimum_required(VERSION 3.11)
-project(arrow-cls)
+add_custom_target(cls_arrow)
+arrow_install_all_headers("arrow/adapters/skyhookdm-ceph-cls")
 
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/modules/")
+# cls_arrow
+set(ARROW_CLS_SRCS cls_arrow.cc)
 
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
-
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror -Wall -g")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Werror -Wall -g")
-
-include(CheckCXXCompilerFlag)
-CHECK_CXX_COMPILER_FLAG("-std=c++11" COMPILER_SUPPORTS_CXX11)
-if (COMPILER_SUPPORTS_CXX11)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
-else()
-  message(FATAL_ERROR "The compiler ${CMAKE_CXX_COMPILER} has no C++11 support.")
-endif()
+set(ARROW_CLS_LINK_STATIC arrow_dataset_static)
+set(ARROW_CLS_LINK_SHARED arrow_dataset_shared)
 
 find_package(librados REQUIRED)
 include_directories(${LIBRADOS_INCLUDE_DIR})
 
-find_package(Arrow REQUIRED)
-include_directories(${ARROW_INCLUDE_DIR})
+add_arrow_lib(cls_arrow
+              CMAKE_PACKAGE_NAME
+              ArrowCls
+              PKG_CONFIG_NAME
+              arrow-cls
+              OUTPUTS
+              ARROW_CLS_LIBRARIES
+              SOURCES
+              ${ARROW_CLS_SRCS}
+              PRIVATE_INCLUDES
+              ${ARROW_CLS_PRIVATE_INCLUDES}
+              SHARED_LINK_LIBS
+              ${ARROW_CLS_LINK_SHARED}
+              STATIC_LINK_LIBS
+              ${ARROW_CLS_LINK_STATIC})
 
-find_package(GTest REQUIRED)
-include_directories(${GTEST_INCLUDE_DIRS})
 
-add_subdirectory(src)
+if(ARROW_TEST_LINKAGE STREQUAL "static")
+  set(ARROW_DATASET_TEST_LINK_LIBS arrow_dataset_static ${ARROW_TEST_STATIC_LINK_LIBS})
+else()
+  set(ARROW_DATASET_TEST_LINK_LIBS arrow_dataset_shared ${ARROW_TEST_SHARED_LINK_LIBS})
+endif()
+
+foreach(LIB_TARGET ${ARROW_DATASET_LIBRARIES})
+  target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_DS_EXPORTING)
+endforeach()
+
+# cls_arrow_test
+add_arrow_test(cls_arrow_test
+               SOURCES
+               cls_arrow_test.cc
+               cls_arrow_test_utils.cc
+               EXTRA_LINK_LIBS
+               ${ARROW_DATASET_TEST_LINK_LIBS}
+               PREFIX
+               "arrow-cls")

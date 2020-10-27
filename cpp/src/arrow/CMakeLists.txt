@@ -685,6 +685,10 @@ if(ARROW_ORC)
   add_subdirectory(adapters/orc)
 endif()
 
+if(ARROW_CLS)
+  add_subdirectory(adapters/skyhookdm-ceph-cls)
+endif()
+
 if(ARROW_PYTHON)
   add_subdirectory(python)
 endif()
