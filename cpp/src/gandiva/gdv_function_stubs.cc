@@ -94,7 +94,7 @@ bool gdv_fn_in_expr_lookup_utf8(int64_t ptr, const char* data, int data_len,
   }
   gandiva::InHolder<std::string>* holder =
       reinterpret_cast<gandiva::InHolder<std::string>*>(ptr);
-  return holder->HasValue(std::string(data, data_len));
+  return holder->HasValue(arrow::util::string_view(data, data_len));
 }
 
 int32_t gdv_fn_populate_varlen_vector(int64_t context_ptr, int8_t* data_ptr,
