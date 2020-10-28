@@ -20,7 +20,6 @@ package org.apache.arrow.flight.auth2;
 import java.io.IOException;
 import java.util.Optional;
 
-import org.apache.arrow.flight.CallHeaders;
 import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.Criteria;
 import org.apache.arrow.flight.FlightClient;
@@ -103,7 +102,7 @@ public class TestBasicAuth2 {
     allocator = new RootAllocator(Long.MAX_VALUE);
     final BasicAuthValidator.CredentialValidator credentialValidator = new BasicAuthValidator.CredentialValidator() {
       @Override
-      public Optional<String> validate(String username, String password) throws Exception {
+      public Optional<String> validate(String username, String password) {
         if (Strings.isNullOrEmpty(username)) {
           throw CallStatus.UNAUTHENTICATED.withDescription("Credentials not supplied").toRuntimeException();
         }
@@ -130,37 +129,7 @@ public class TestBasicAuth2 {
     };
 
     final BasicCallHeaderAuthenticator.AuthValidator validator =
-        new BasicAuthValidator(credentialValidator, authTokenManager) {
-
-      @Override
-      public Optional<String> validateCredentials(String username, String password) throws Exception {
-        return credentialValidator.validate(username, password);
-      }
-
-      @Override
-      public Optional<String> getToken(String username, String password) throws Exception {
-        return authTokenManager.generateToken(username, password);
-      }
-
-      @Override
-      public Optional<String> isValid(String token) {
-        return authTokenManager.validateToken(token);
-      }
-
-      @Override
-      public String parseNonBasicHeaders(CallHeaders incomingHeaders) {
-        return AuthUtilities.getValueFromAuthHeader(incomingHeaders, Auth2Constants.BEARER_PREFIX);
-      }
-
-      @Override
-      public void appendToOutgoingHeaders(CallHeaders outgoingHeaders, String username, String password) {
-        if (null == AuthUtilities.getValueFromAuthHeader(outgoingHeaders, Auth2Constants.BEARER_PREFIX)) {
-          outgoingHeaders.insert(
-                  Auth2Constants.AUTHORIZATION_HEADER,
-                  Auth2Constants.BEARER_PREFIX + authTokenManager.generateToken(username, password).get());
-        }
-      }
-    };
+        new BasicAuthValidator(credentialValidator, authTokenManager);
 
     server = FlightTestUtil.getStartedServer((location) -> FlightServer.builder(
         allocator,

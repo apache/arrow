@@ -44,7 +44,7 @@ public class GeneratedBearerTokenAuthHandler extends BearerTokenAuthHandler {
   }
 
   String registerBearer(AuthResult handshakeResult) {
-    final String bearerToken = handshakeResult.getBearerToken()
+    final String bearerToken = getBearerToken()
         .orElseGet(() -> {
           final UUID uuid = UUID.randomUUID();
           final ByteBuffer byteBuffer = ByteBuffer.wrap(new byte[16]);

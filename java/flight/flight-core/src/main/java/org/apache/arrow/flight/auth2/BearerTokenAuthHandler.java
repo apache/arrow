@@ -26,9 +26,12 @@ import org.apache.arrow.flight.CallStatus;
  * Partial implementation of ServerAuthHandler for bearer-token based authentication.
  */
 abstract class BearerTokenAuthHandler implements CallHeaderAuthenticator {
+
+  String bearerToken;
+
   @Override
   public AuthResult authenticate(CallHeaders headers) {
-    final String bearerToken = AuthUtilities.getValueFromAuthHeader(headers, Auth2Constants.BEARER_PREFIX);
+    bearerToken = AuthUtilities.getValueFromAuthHeader(headers, Auth2Constants.BEARER_PREFIX);
     if (bearerToken == null) {
       throw CallStatus.UNAUTHENTICATED.toRuntimeException();
     }
@@ -44,11 +47,6 @@ abstract class BearerTokenAuthHandler implements CallHeaderAuthenticator {
       }
 
       @Override
-      public Optional<String> getBearerToken() {
-        return Optional.of(bearerToken);
-      }
-
-      @Override
       public void appendToOutgoingHeaders(CallHeaders outgoingHeaders) {
         if (null == AuthUtilities.getValueFromAuthHeader(outgoingHeaders, Auth2Constants.BEARER_PREFIX)) {
           outgoingHeaders.insert(Auth2Constants.AUTHORIZATION_HEADER, Auth2Constants.BEARER_PREFIX + bearerToken);
@@ -56,6 +54,12 @@ abstract class BearerTokenAuthHandler implements CallHeaderAuthenticator {
       }
     };
   }
+
+  Optional<String> getBearerToken() {
+    return Optional.of(bearerToken);
+  }
+
+  protected abstract boolean validateBearer(String bearerToken);
 
   protected abstract String getIdentityForBearerToken(String bearerToken);
 
