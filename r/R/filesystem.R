@@ -405,7 +405,7 @@ s3_bucket <- function(bucket, ...) {
 SubTreeFileSystem <- R6Class("SubTreeFileSystem", inherit = FileSystem,
   active = list(
     base_fs = function() {
-      shared_ptr(FileSystem, fs___SubTreeFileSystem__base_fs(self))$..dispatch()
+      fs___SubTreeFileSystem__base_fs(self)
     },
     base_path = function() fs___SubTreeFileSystem__base_path(self)
   )

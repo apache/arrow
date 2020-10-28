@@ -229,9 +229,9 @@ R6 fs___SubTreeFileSystem__create(const std::string& base_path,
 }
 
 // [[arrow::export]]
-std::shared_ptr<fs::FileSystem> fs___SubTreeFileSystem__base_fs(
+R6 fs___SubTreeFileSystem__base_fs(
     const std::shared_ptr<fs::SubTreeFileSystem>& file_system) {
-  return file_system->base_fs();
+  return cpp11::r6_FileSystem(file_system->base_fs());
 }
 
 // [[arrow::export]]

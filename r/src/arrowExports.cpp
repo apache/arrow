@@ -3723,7 +3723,7 @@ extern "C" SEXP _arrow_fs___SubTreeFileSystem__create(SEXP base_path_sexp, SEXP 
 
 // filesystem.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<fs::FileSystem> fs___SubTreeFileSystem__base_fs(const std::shared_ptr<fs::SubTreeFileSystem>& file_system);
+R6 fs___SubTreeFileSystem__base_fs(const std::shared_ptr<fs::SubTreeFileSystem>& file_system);
 extern "C" SEXP _arrow_fs___SubTreeFileSystem__base_fs(SEXP file_system_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<fs::SubTreeFileSystem>&>::type file_system(file_system_sexp);
