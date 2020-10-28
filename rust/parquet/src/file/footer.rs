@@ -102,7 +102,7 @@ pub fn parse_metadata<R: ChunkReader>(chunk_reader: &R) -> Result<ParquetMetaDat
     let t_file_metadata: TFileMetaData = TFileMetaData::read_from_in_protocol(&mut prot)
         .map_err(|e| ParquetError::General(format!("Could not parse metadata: {}", e)))?;
     let schema = types::from_thrift(&t_file_metadata.schema)?;
-    let schema_descr = Rc::new(SchemaDescriptor::new(schema.clone()));
+    let schema_descr = Rc::new(SchemaDescriptor::new(schema));
     let mut row_groups = Vec::new();
     for rg in t_file_metadata.row_groups {
         row_groups.push(RowGroupMetaData::from_thrift(schema_descr.clone(), rg)?);
@@ -114,7 +114,6 @@ pub fn parse_metadata<R: ChunkReader>(chunk_reader: &R) -> Result<ParquetMetaDat
         t_file_metadata.num_rows,
         t_file_metadata.created_by,
         t_file_metadata.key_value_metadata,
-        schema,
         schema_descr,
         column_orders,
     );
