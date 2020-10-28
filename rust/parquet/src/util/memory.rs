@@ -18,12 +18,14 @@
 //! Utility methods and structs for working with memory.
 
 use std::{
-    cell::Cell,
     fmt::{Debug, Display, Formatter, Result as FmtResult},
     io::{Result as IoResult, Write},
     mem,
     ops::{Index, IndexMut},
-    sync::{Arc, Weak},
+    sync::{
+        atomic::{AtomicI64, Ordering},
+        Arc, Weak,
+    },
 };
 
 // ----------------------------------------------------------------------
@@ -39,7 +41,8 @@ pub type WeakMemTrackerPtr = Weak<MemTracker>;
 pub struct MemTracker {
     // In the tuple, the first element is the current memory allocated (in bytes),
     // and the second element is the maximum memory allocated so far (in bytes).
-    memory_usage: Cell<(i64, i64)>,
+    current_memory_usage: AtomicI64,
+    max_memory_usage: AtomicI64,
 }
 
 impl MemTracker {
@@ -47,29 +50,31 @@ impl MemTracker {
     #[inline]
     pub fn new() -> MemTracker {
         MemTracker {
-            memory_usage: Cell::new((0, 0)),
+            current_memory_usage: Default::default(),
+            max_memory_usage: Default::default(),
         }
     }
 
     /// Returns the current memory consumption, in bytes.
     pub fn memory_usage(&self) -> i64 {
-        self.memory_usage.get().0
+        self.current_memory_usage.load(Ordering::Acquire)
     }
 
     /// Returns the maximum memory consumption so far, in bytes.
     pub fn max_memory_usage(&self) -> i64 {
-        self.memory_usage.get().1
+        self.max_memory_usage.load(Ordering::Acquire)
     }
 
     /// Adds `num_bytes` to the memory consumption tracked by this memory tracker.
     #[inline]
     pub fn alloc(&self, num_bytes: i64) {
-        let (current, mut maximum) = self.memory_usage.get();
+        let current = self
+            .current_memory_usage
+            .fetch_add(num_bytes, Ordering::Acquire)
+            + num_bytes;
         let new_current = current + num_bytes;
-        if new_current > maximum {
-            maximum = new_current
-        }
-        self.memory_usage.set((new_current, maximum));
+        self.max_memory_usage
+            .fetch_max(new_current, Ordering::Acquire);
     }
 }
 
