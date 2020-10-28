@@ -26,12 +26,12 @@
 //! use arrow::record_batch::RecordBatchReader;
 //! use parquet::file::reader::SerializedFileReader;
 //! use parquet::arrow::{ParquetFileArrowReader, ArrowReader};
-//! use std::rc::Rc;
+//! use std::sync::Arc;
 //! use std::fs::File;
 //!
 //! let file = File::open("parquet.file").unwrap();
 //! let file_reader = SerializedFileReader::new(file).unwrap();
-//! let mut arrow_reader = ParquetFileArrowReader::new(Rc::new(file_reader));
+//! let mut arrow_reader = ParquetFileArrowReader::new(Arc::new(file_reader));
 //!
 //! println!("Converted arrow schema is: {}", arrow_reader.get_schema().unwrap());
 //! println!("Arrow schema after projection is: {}",

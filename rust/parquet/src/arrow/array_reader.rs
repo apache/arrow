@@ -19,7 +19,6 @@ use std::cmp::{max, min};
 use std::collections::{HashMap, HashSet};
 use std::marker::PhantomData;
 use std::mem::size_of;
-use std::rc::Rc;
 use std::result::Result::Ok;
 use std::sync::Arc;
 use std::vec::Vec;
@@ -1124,7 +1123,7 @@ pub fn build_array_reader<T>(
     parquet_schema: SchemaDescPtr,
     arrow_schema: Schema,
     column_indices: T,
-    file_reader: Rc<dyn FileReader>,
+    file_reader: Arc<dyn FileReader>,
 ) -> Result<Box<dyn ArrayReader>>
 where
     T: IntoIterator<Item = usize>,
@@ -1162,9 +1161,9 @@ where
     };
 
     ArrayReaderBuilder::new(
-        Rc::new(proj),
-        Rc::new(arrow_schema),
-        Rc::new(leaves),
+        Arc::new(proj),
+        Arc::new(arrow_schema),
+        Arc::new(leaves),
         file_reader,
     )
     .build_array_reader()
@@ -1173,11 +1172,11 @@ where
 /// Used to build array reader.
 struct ArrayReaderBuilder {
     root_schema: TypePtr,
-    arrow_schema: Rc<Schema>,
+    arrow_schema: Arc<Schema>,
     // Key: columns that need to be included in final array builder
     // Value: column index in schema
-    columns_included: Rc<HashMap<*const Type, usize>>,
-    file_reader: Rc<dyn FileReader>,
+    columns_included: Arc<HashMap<*const Type, usize>>,
+    file_reader: Arc<dyn FileReader>,
 }
 
 /// Used in type visitor.
@@ -1243,7 +1242,7 @@ impl<'a> TypeVisitor<Option<Box<dyn ArrayReader>>, &'a ArrayReaderBuilderContext
     /// Build array reader for struct type.
     fn visit_struct(
         &mut self,
-        cur_type: Rc<Type>,
+        cur_type: Arc<Type>,
         context: &'a ArrayReaderBuilderContext,
     ) -> Result<Option<Box<ArrayReader>>> {
         let mut new_context = context.clone();
@@ -1281,7 +1280,7 @@ impl<'a> TypeVisitor<Option<Box<dyn ArrayReader>>, &'a ArrayReaderBuilderContext
     /// Currently this is not supported.
     fn visit_map(
         &mut self,
-        _cur_type: Rc<Type>,
+        _cur_type: Arc<Type>,
         _context: &'a ArrayReaderBuilderContext,
     ) -> Result<Option<Box<dyn ArrayReader>>> {
         Err(ArrowError(
@@ -1292,8 +1291,8 @@ impl<'a> TypeVisitor<Option<Box<dyn ArrayReader>>, &'a ArrayReaderBuilderContext
     /// Build array reader for list type.
     fn visit_list_with_item(
         &mut self,
-        list_type: Rc<Type>,
-        item_type: Rc<Type>,
+        list_type: Arc<Type>,
+        item_type: Arc<Type>,
         context: &'a ArrayReaderBuilderContext,
     ) -> Result<Option<Box<dyn ArrayReader>>> {
         let list_child = &list_type
@@ -1389,9 +1388,9 @@ impl<'a> ArrayReaderBuilder {
     /// Construct array reader builder.
     fn new(
         root_schema: TypePtr,
-        arrow_schema: Rc<Schema>,
-        columns_included: Rc<HashMap<*const Type, usize>>,
-        file_reader: Rc<dyn FileReader>,
+        arrow_schema: Arc<Schema>,
+        columns_included: Arc<HashMap<*const Type, usize>>,
+        file_reader: Arc<dyn FileReader>,
     ) -> Self {
         Self {
             root_schema,
@@ -1424,7 +1423,7 @@ impl<'a> ArrayReaderBuilder {
         cur_type: TypePtr,
         context: &'a ArrayReaderBuilderContext,
     ) -> Result<Box<dyn ArrayReader>> {
-        let column_desc = Rc::new(ColumnDescriptor::new(
+        let column_desc = Arc::new(ColumnDescriptor::new(
             cur_type.clone(),
             context.def_level,
             context.rep_level,
@@ -1639,7 +1638,6 @@ mod tests {
     use rand::{thread_rng, Rng};
     use std::any::Any;
     use std::collections::VecDeque;
-    use std::rc::Rc;
     use std::sync::Arc;
 
     fn make_column_chunks<T: DataType>(
@@ -1694,7 +1692,7 @@ mod tests {
         ";
 
         let schema = parse_message_type(message_type)
-            .map(|t| Rc::new(SchemaDescriptor::new(Rc::new(t))))
+            .map(|t| Arc::new(SchemaDescriptor::new(Arc::new(t))))
             .unwrap();
 
         let column_desc = schema.column(0);
@@ -1722,7 +1720,7 @@ mod tests {
         ";
 
         let schema = parse_message_type(message_type)
-            .map(|t| Rc::new(SchemaDescriptor::new(Rc::new(t))))
+            .map(|t| Arc::new(SchemaDescriptor::new(Arc::new(t))))
             .unwrap();
 
         let column_desc = schema.column(0);
@@ -1804,8 +1802,8 @@ mod tests {
                 $physical_type, $logical_type_str
             );
             let schema = parse_message_type(&message_type)
-                .map(|t| Rc::new(SchemaDescriptor::new(Rc::new(t))))
-                .expect("Unable to parse message type into a schema descriptor");
+                .map(|t| Arc::new(SchemaDescriptor::new(Arc::new(t))))
+                .unwrap();
 
             let column_desc = schema.column(0);
 
@@ -1938,7 +1936,7 @@ mod tests {
         ";
 
         let schema = parse_message_type(message_type)
-            .map(|t| Rc::new(SchemaDescriptor::new(Rc::new(t))))
+            .map(|t| Arc::new(SchemaDescriptor::new(Arc::new(t))))
             .unwrap();
 
         let column_desc = schema.column(0);
@@ -2027,7 +2025,7 @@ mod tests {
         let str_base = "Hello World";
 
         let schema = parse_message_type(message_type)
-            .map(|t| Rc::new(SchemaDescriptor::new(Rc::new(t))))
+            .map(|t| Arc::new(SchemaDescriptor::new(Arc::new(t))))
             .unwrap();
 
         let max_def_level = schema.column(0).max_def_level();
@@ -2266,7 +2264,7 @@ mod tests {
     #[test]
     fn test_create_array_reader() {
         let file = get_test_file("nulls.snappy.parquet");
-        let file_reader = Rc::new(SerializedFileReader::new(file).unwrap());
+        let file_reader = Arc::new(SerializedFileReader::new(file).unwrap());
 
         let file_metadata = file_reader.metadata().file_metadata();
         let arrow_schema = parquet_to_arrow_schema(

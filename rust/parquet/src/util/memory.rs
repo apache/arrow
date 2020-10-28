@@ -23,14 +23,14 @@ use std::{
     io::{Result as IoResult, Write},
     mem,
     ops::{Index, IndexMut},
-    rc::{Rc, Weak},
+    sync::{Arc, Weak},
 };
 
 // ----------------------------------------------------------------------
 // Memory Tracker classes
 
 /// Reference counted pointer for [`MemTracker`].
-pub type MemTrackerPtr = Rc<MemTracker>;
+pub type MemTrackerPtr = Arc<MemTracker>;
 /// Non-owning reference for [`MemTracker`].
 pub type WeakMemTrackerPtr = Weak<MemTracker>;
 
@@ -267,7 +267,7 @@ impl<T: Clone> Drop for Buffer<T> {
 /// when all slices are dropped.
 #[derive(Clone, Debug)]
 pub struct BufferPtr<T> {
-    data: Rc<Vec<T>>,
+    data: Arc<Vec<T>>,
     start: usize,
     len: usize,
     // TODO: will this create too many references? rethink about this.
@@ -279,7 +279,7 @@ impl<T> BufferPtr<T> {
     pub fn new(v: Vec<T>) -> Self {
         let len = v.len();
         Self {
-            data: Rc::new(v),
+            data: Arc::new(v),
             start: 0,
             len,
             mem_tracker: None,
@@ -380,8 +380,8 @@ impl<T: Debug> Display for BufferPtr<T> {
 impl<T> Drop for BufferPtr<T> {
     fn drop(&mut self) {
         if self.is_mem_tracked()
-            && Rc::strong_count(&self.data) == 1
-            && Rc::weak_count(&self.data) == 0
+            && Arc::strong_count(&self.data) == 1
+            && Arc::weak_count(&self.data) == 0
         {
             let mc = self.mem_tracker.as_ref().unwrap();
             mc.alloc(-(self.data.capacity() as i64));
@@ -401,7 +401,7 @@ mod tests {
 
     #[test]
     fn test_byte_buffer_mem_tracker() {
-        let mem_tracker = Rc::new(MemTracker::new());
+        let mem_tracker = Arc::new(MemTracker::new());
 
         let mut buffer = ByteBuffer::new().with_mem_tracker(mem_tracker.clone());
         buffer.set_data(vec![0; 10]);
@@ -437,7 +437,7 @@ mod tests {
 
     #[test]
     fn test_byte_ptr_mem_tracker() {
-        let mem_tracker = Rc::new(MemTracker::new());
+        let mem_tracker = Arc::new(MemTracker::new());
 
         let mut buffer = ByteBuffer::new().with_mem_tracker(mem_tracker.clone());
         buffer.set_data(vec![0; 60]);
