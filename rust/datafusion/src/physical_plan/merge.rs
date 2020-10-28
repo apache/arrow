@@ -19,18 +19,20 @@
 //! into a single partition
 
 use std::any::Any;
-use std::iter::Iterator;
 use std::sync::Arc;
 
+use futures::channel::mpsc;
 use futures::sink::SinkExt;
 use futures::stream::StreamExt;
 use futures::Stream;
-use futures::{channel::mpsc, future::try_join_all};
 
 use async_trait::async_trait;
 
 use arrow::record_batch::RecordBatch;
-use arrow::{datatypes::SchemaRef, error::ArrowError, error::Result as ArrowResult};
+use arrow::{
+    datatypes::SchemaRef,
+    error::{ArrowError, Result as ArrowResult},
+};
 
 use super::RecordBatchStream;
 use crate::error::{DataFusionError, Result};
@@ -38,6 +40,7 @@ use crate::physical_plan::ExecutionPlan;
 use crate::physical_plan::Partitioning;
 
 use super::SendableRecordBatchStream;
+use pin_project_lite::pin_project;
 
 /// Merge execution plan executes partitions in parallel and combines them into a single
 /// partition. No guarantees are made about the order of the resulting partition.
@@ -105,27 +108,39 @@ impl ExecutionPlan for MergeExec {
                 self.input.execute(0).await
             }
             _ => {
-                let (sender, receiver) = mpsc::unbounded::<ArrowResult<RecordBatch>>();
+                // use a stream that allows each sender to put in at
+                // least one result in an attempt to maximize
+                // parallelism.
+                let (sender, receiver) =
+                    mpsc::channel::<ArrowResult<RecordBatch>>(input_partitions);
 
                 // spawn independent tasks whose resulting streams (of batches)
                 // are sent to the channel for consumption.
-                let handles = (0..input_partitions).map(|part_i| {
+                for part_i in (0..input_partitions) {
                     let input = self.input.clone();
                     let mut sender = sender.clone();
                     tokio::spawn(async move {
-                        let stream = input.execute(part_i).await?;
-                        let mut stream =
-                            Box::pin(stream.then(|item| async move { Ok(item) }));
-                        Result::Ok(sender.send_all(&mut stream).await)
-                    })
-                });
+                        let mut stream = match input.execute(part_i).await {
+                            Err(e) => {
+                                // If send fails, plan being torn
+                                // down, no place to send the error
+                                let arrow_error = ArrowError::ExternalError(Box::new(e));
+                                sender.send(Err(arrow_error)).await.ok();
+                                return;
+                            }
+                            Ok(stream) => stream,
+                        };
 
-                try_join_all(handles)
-                    .await
-                    .map_err(|e| ArrowError::from_external_error(Box::new(e)))?;
+                        while let Some(item) = stream.next().await {
+                            // If send fails, plan being torn down,
+                            // there is no place to send the error
+                            sender.send(item).await.ok();
+                        }
+                    });
+                }
 
                 Ok(Box::pin(MergeStream {
-                    input: Box::pin(receiver),
+                    input: receiver,
                     schema: self.schema().clone(),
                 }))
             }
@@ -133,19 +148,23 @@ impl ExecutionPlan for MergeExec {
     }
 }
 
-struct MergeStream {
-    schema: SchemaRef,
-    input: std::pin::Pin<Box<mpsc::UnboundedReceiver<ArrowResult<RecordBatch>>>>,
+pin_project! {
+    struct MergeStream {
+        schema: SchemaRef,
+        #[pin]
+        input: mpsc::Receiver<ArrowResult<RecordBatch>>,
+    }
 }
 
 impl Stream for MergeStream {
     type Item = ArrowResult<RecordBatch>;
 
     fn poll_next(
-        mut self: std::pin::Pin<&mut Self>,
+        self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Option<Self::Item>> {
-        self.input.poll_next_unpin(cx)
+        let this = self.project();
+        this.input.poll_next(cx)
     }
 }
 
