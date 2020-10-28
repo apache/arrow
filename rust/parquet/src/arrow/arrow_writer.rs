@@ -1067,7 +1067,6 @@ mod tests {
     // one_column_roundtrip manually instead of calling required_and_optional for these tests.
 
     #[test]
-    #[ignore] // Timestamp support isn't correct yet
     fn timestamp_second_single_column() {
         let raw_values: Vec<_> = (0..SMALL_SIZE as i64).collect();
         let values = Arc::new(TimestampSecondArray::from_vec(raw_values, None));
@@ -1092,7 +1091,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // Timestamp support isn't correct yet
     fn timestamp_nanosecond_single_column() {
         let raw_values: Vec<_> = (0..SMALL_SIZE as i64).collect();
         let values = Arc::new(TimestampNanosecondArray::from_vec(raw_values, None));
@@ -1118,7 +1116,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // DateUnit resolution mismatch
     fn time32_second_single_column() {
         required_and_optional::<Time32SecondArray, _>(
             0..SMALL_SIZE as i32,
@@ -1143,7 +1140,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // DateUnit resolution mismatch
     fn time64_nanosecond_single_column() {
         required_and_optional::<Time64NanosecondArray, _>(
             0..SMALL_SIZE as i64,
