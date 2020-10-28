@@ -18,6 +18,7 @@
 package org.apache.arrow.flight.grpc;
 
 import java.util.HashMap;
+import java.util.Set;
 
 import org.apache.arrow.flight.RequestContext;
 
@@ -42,5 +43,15 @@ public class RequestContextAdapter implements RequestContext {
   @Override
   public String get(String key) {
     return map.get(key);
+  }
+
+  @Override
+  public Set<String> keySet() {
+    return map.keySet();
+  }
+
+  @Override
+  public String remove(String key) {
+    return map.remove(key);
   }
 }

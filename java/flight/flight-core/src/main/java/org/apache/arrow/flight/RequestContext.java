@@ -17,6 +17,8 @@
 
 package org.apache.arrow.flight;
 
+import java.util.Set;
+
 /**
  * Tracks variables about the current request.
  */
@@ -34,4 +36,16 @@ public interface RequestContext {
    * @return the value, or empty string if not found.
    */
   String get(String key);
+
+  /**
+   * Retrieves the keys that have been registered to this context.
+   * @return the keys used in this context.
+   */
+  Set<String> keySet();
+
+  /**
+   * Deletes a registered variable.
+   * @return the value associated with the deleted variable, or null if the key doesn't exist.
+   */
+  String remove(String key);
 }
