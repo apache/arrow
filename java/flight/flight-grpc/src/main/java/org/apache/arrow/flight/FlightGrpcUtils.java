@@ -21,6 +21,7 @@ import java.util.Collections;
 import java.util.concurrent.ExecutorService;
 
 import org.apache.arrow.flight.auth.ServerAuthHandler;
+import org.apache.arrow.flight.auth2.ClientHeaderHandler;
 import org.apache.arrow.memory.BufferAllocator;
 
 import io.grpc.BindableService;
@@ -53,6 +54,6 @@ public class FlightGrpcUtils {
    * @return FlightClient
    */
   public static FlightClient createFlightClient(BufferAllocator incomingAllocator, ManagedChannel channel) {
-    return new FlightClient(incomingAllocator, channel, Collections.emptyList());
+    return new FlightClient(incomingAllocator, channel, Collections.emptyList(), ClientHeaderHandler.NO_OP);
   }
 }
