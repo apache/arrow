@@ -971,8 +971,9 @@ mod tests {
                 .unwrap(),
         );
         let props = Arc::new(WriterProperties::builder().build());
-        let mut file_writer =
-            SerializedFileWriter::new(file.try_clone().unwrap(), schema, props).unwrap();
+        let mut file_writer = assert_send(
+            SerializedFileWriter::new(file.try_clone().unwrap(), schema, props).unwrap(),
+        );
         let mut rows: i64 = 0;
 
         for subset in &data {
@@ -995,7 +996,7 @@ mod tests {
 
         file_writer.close().unwrap();
 
-        let reader = SerializedFileReader::new(file).unwrap();
+        let reader = assert_send(SerializedFileReader::new(file).unwrap());
         assert_eq!(reader.num_row_groups(), data.len());
         assert_eq!(
             reader.metadata().file_metadata().num_rows(),
@@ -1010,5 +1011,9 @@ mod tests {
                 .collect::<Vec<i32>>();
             assert_eq!(res, data[i]);
         }
+    }
+
+    fn assert_send<T: Send>(t: T) -> T {
+        t
     }
 }
