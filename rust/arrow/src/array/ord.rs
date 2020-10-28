@@ -26,7 +26,7 @@ use crate::error::{ArrowError, Result};
 
 use num::Float;
 
-/// The public interface to compare values from arrays in a dynamically-typed fashion.
+/// Compare the values at two arbitrary indices in two arrays.
 pub type DynComparator<'a> = Box<dyn Fn(usize, usize) -> Ordering + 'a>;
 
 /// compares two floats, placing NaNs at last
@@ -212,10 +212,20 @@ pub fn build_compare<'a>(left: &'a Array, right: &'a Array) -> Result<DynCompara
                 (Int16, Int16) => compare_dict_string::<Int16Type>(left, right),
                 (Int32, Int32) => compare_dict_string::<Int32Type>(left, right),
                 (Int64, Int64) => compare_dict_string::<Int64Type>(left, right),
-                _ => todo!(),
+                (lhs, _) => {
+                    return Err(ArrowError::InvalidArgumentError(format!(
+                        "Dictionaries do not support keys of type {:?}",
+                        lhs
+                    )))
+                }
             }
         }
-        _ => todo!(),
+        (lhs, _) => {
+            return Err(ArrowError::InvalidArgumentError(format!(
+                "The data type type {:?} has no natural order",
+                lhs
+            )))
+        }
     })
 }
 

@@ -41,6 +41,7 @@ pub fn sort(values: &ArrayRef, options: Option<SortOptions>) -> Result<ArrayRef>
     take(values, &indices, None)
 }
 
+// partition indices into non-NaN and NaN
 fn partition_nan<T: ArrowPrimitiveType>(
     array: &ArrayRef,
     v: Vec<u32>,
@@ -76,6 +77,7 @@ fn partition_nan<T: ArrowPrimitiveType>(
     }
 }
 
+// partition indices into valid and null indices
 fn partition_validity(array: &ArrayRef) -> (Vec<u32>, Vec<u32>) {
     let indices = 0..(array.len().to_u32().unwrap());
     indices.partition(|index| array.is_valid(*index as usize))
