@@ -109,7 +109,6 @@ fn coerce_data_type(dt: Vec<&DataType>) -> Result<DataType> {
                         if t1 == &DataType::Utf8 {
                             Ok(DataType::List(Box::new(DataType::Utf8)))
                         } else {
-                            dbg!(&t1);
                             Ok(DataType::List(Box::new(coerce_data_type(vec![
                                 t1,
                                 &DataType::Utf8,
@@ -753,7 +752,7 @@ impl<R: Read> Reader<R> {
                         .map(|v: &Value| {
                             if v.is_string() {
                                 Some(v.as_str().unwrap().to_string())
-                            } else if v.is_array() || v.is_object() {
+                            } else if v.is_array() || v.is_object() || v.is_null() {
                                 // implicitly drop nested values
                                 // TODO support deep-nesting
                                 None
@@ -1703,6 +1702,66 @@ mod tests {
         // dict from the events list
         let dict_el = evs_list.values();
         let dict_el = dict_el.as_any().downcast_ref::<StringArray>().unwrap();
+        assert_eq!(3, dict_el.len());
+        assert_eq!("Elect Leader", dict_el.value(0));
+        assert_eq!("Do Ballot", dict_el.value(1));
+        assert_eq!("Send Data", dict_el.value(2));
+    }
+
+    #[test]
+    fn test_list_of_string_dictionary_from_json_with_nulls() {
+        let schema = Schema::new(vec![Field::new(
+            "events",
+            List(Box::new(Dictionary(
+                Box::new(DataType::UInt64),
+                Box::new(DataType::Utf8),
+            ))),
+            true,
+        )]);
+        let builder = ReaderBuilder::new()
+            .with_schema(Arc::new(schema))
+            .with_batch_size(64);
+        let mut reader: Reader<File> = builder
+            .build::<File>(
+                File::open("test/data/list_string_dict_nested_nulls.json").unwrap(),
+            )
+            .unwrap();
+        let batch = reader.next().unwrap().unwrap();
+
+        assert_eq!(1, batch.num_columns());
+        assert_eq!(3, batch.num_rows());
+
+        let schema = reader.schema();
+        let batch_schema = batch.schema();
+        assert_eq!(schema, batch_schema);
+
+        let events = schema.column_with_name("events").unwrap();
+        assert_eq!(
+            &List(Box::new(Dictionary(
+                Box::new(DataType::UInt64),
+                Box::new(DataType::Utf8)
+            ))),
+            events.1.data_type()
+        );
+
+        let evs_list = batch
+            .column(events.0)
+            .as_any()
+            .downcast_ref::<ListArray>()
+            .unwrap();
+        let evs_list = evs_list.values();
+        let evs_list = evs_list
+            .as_any()
+            .downcast_ref::<DictionaryArray<UInt64Type>>()
+            .unwrap();
+        assert_eq!(8, evs_list.len());
+        assert_eq!(true, evs_list.is_valid(1));
+        assert_eq!(DataType::Utf8, evs_list.value_type());
+
+        // dict from the events list
+        let dict_el = evs_list.values();
+        let dict_el = dict_el.as_any().downcast_ref::<StringArray>().unwrap();
+        assert_eq!(2, evs_list.null_count());
         assert_eq!(3, dict_el.len());
         assert_eq!("Elect Leader", dict_el.value(0));
         assert_eq!("Do Ballot", dict_el.value(1));
