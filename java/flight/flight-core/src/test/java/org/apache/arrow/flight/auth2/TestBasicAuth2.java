@@ -162,7 +162,9 @@ public class TestBasicAuth2 {
             }
           }
         }).headerAuthenticator(new BasicCallHeaderAuthenticator(validator)).build());
-    client = FlightClient.builder(allocator, server.getLocation()).build();
+    client = FlightClient.builder(allocator, server.getLocation())
+            .headerHandler(new ClientBearerHeaderHandler())
+            .build();
   }
 
   @After

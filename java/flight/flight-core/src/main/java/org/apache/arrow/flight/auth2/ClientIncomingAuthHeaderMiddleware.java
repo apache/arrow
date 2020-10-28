@@ -23,34 +23,48 @@ import org.apache.arrow.flight.CallHeaders;
 import org.apache.arrow.flight.CallInfo;
 import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.FlightClientMiddleware;
+import org.apache.arrow.flight.grpc.CredentialCallOption;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Middleware for capturing bearer tokens sent back from the Flight server.
  */
-public class ClientBearerTokenMiddleware implements FlightClientMiddleware {
+public class ClientIncomingAuthHeaderMiddleware implements FlightClientMiddleware {
+  private static final Logger logger = LoggerFactory.getLogger(ClientIncomingAuthHeaderMiddleware.class);
+
   private final Factory factory;
 
   /**
    * Factory used within FlightClient.
    */
   public static class Factory implements FlightClientMiddleware.Factory {
-    private final AtomicReference<String> bearerToken = new AtomicReference<>();
+    private final ClientHeaderHandler headerHandler;
+    private final AtomicReference<CredentialCallOption> credentialCallOption = new AtomicReference<>();
+
+    /**
+     * Construct a factory with the given header handler.
+     * @param headerHandler The header handler that will be used for handling incoming headers from the flight server.
+     */
+    public Factory(ClientHeaderHandler headerHandler) {
+      this.headerHandler = headerHandler;
+    }
 
     @Override
     public FlightClientMiddleware onCallStarted(CallInfo info) {
-      return new ClientBearerTokenMiddleware(this);
+      return new ClientIncomingAuthHeaderMiddleware(this);
     }
 
-    void setBearerToken(String bearerToken) {
-      this.bearerToken.set(bearerToken);
+    void setCredentialCallOption(CredentialCallOption callOption) {
+      this.credentialCallOption.set(callOption);
     }
 
-    public String getBearerToken() {
-      return bearerToken.get();
+    public CredentialCallOption getCredentialCallOption() {
+      return credentialCallOption.get();
     }
   }
 
-  private ClientBearerTokenMiddleware(Factory factory) {
+  private ClientIncomingAuthHeaderMiddleware(Factory factory) {
     this.factory = factory;
   }
 
@@ -60,10 +74,8 @@ public class ClientBearerTokenMiddleware implements FlightClientMiddleware {
 
   @Override
   public void onHeadersReceived(CallHeaders incomingHeaders) {
-    final String bearerValue = AuthUtilities.getValueFromAuthHeader(incomingHeaders, Auth2Constants.BEARER_PREFIX);
-    if (bearerValue != null) {
-      factory.setBearerToken(bearerValue);
-    }
+    factory.setCredentialCallOption(
+            factory.headerHandler.getCredentialCallOptionFromIncomingHeaders(incomingHeaders));
   }
 
   @Override
