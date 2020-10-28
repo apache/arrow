@@ -112,3 +112,7 @@ harness = false
 [[bench]]
 name = "csv_writer"
 harness = false
+
+[[bench]]
+name = "equal"
+harness = false
