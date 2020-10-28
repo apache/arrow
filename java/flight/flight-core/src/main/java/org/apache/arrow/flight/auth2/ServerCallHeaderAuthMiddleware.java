@@ -22,16 +22,12 @@ import org.apache.arrow.flight.CallInfo;
 import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.FlightServerMiddleware;
 import org.apache.arrow.flight.RequestContext;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Middleware that's used to validate credentials during the handshake and verify
  * the bearer token in subsequent requests.
  */
 public class ServerCallHeaderAuthMiddleware implements FlightServerMiddleware {
-  private static final Logger logger = LoggerFactory.getLogger(ServerCallHeaderAuthMiddleware.class);
-
   /**
    * Factory for accessing ServerAuthMiddleware.
    */
@@ -93,11 +89,9 @@ public class ServerCallHeaderAuthMiddleware implements FlightServerMiddleware {
 
   @Override
   public void onCallCompleted(CallStatus status) {
-    logger.debug("Call completed with status {}", status);
   }
 
   @Override
   public void onCallErrored(Throwable err) {
-    logger.error("Call failed", err);
   }
 }

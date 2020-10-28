@@ -29,8 +29,8 @@ import org.apache.arrow.flight.auth.AuthConstants;
 import org.apache.arrow.flight.auth.ServerAuthHandler;
 import org.apache.arrow.flight.auth.ServerAuthWrapper;
 import org.apache.arrow.flight.auth2.Auth2Constants;
-import org.apache.arrow.flight.grpc.ContextAdapter;
 import org.apache.arrow.flight.grpc.ContextPropagatingExecutorService;
+import org.apache.arrow.flight.grpc.RequestContextAdapter;
 import org.apache.arrow.flight.grpc.ServerInterceptorAdapter;
 import org.apache.arrow.flight.grpc.StatusUtils;
 import org.apache.arrow.flight.impl.Flight;
@@ -68,8 +68,7 @@ class FlightService extends FlightServiceImplBase {
 
   private CallContext makeContext(ServerCallStreamObserver<?> responseObserver) {
     // Try to get the peer identity from middleware first (using the auth2 interfaces).
-    final ContextAdapter contextAdapter = new ContextAdapter();
-    String peerIdentity = contextAdapter.get(Auth2Constants.PEER_IDENTITY_KEY);
+    String peerIdentity = RequestContextAdapter.REQUEST_CONTEXT_KEY.get().get(Auth2Constants.PEER_IDENTITY_KEY);
     if (Strings.isNullOrEmpty(peerIdentity)) {
       // Try the legacy auth interface.
       peerIdentity = AuthConstants.PEER_IDENTITY_KEY.get();

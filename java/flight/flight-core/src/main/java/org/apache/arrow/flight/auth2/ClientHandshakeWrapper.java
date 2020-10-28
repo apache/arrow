@@ -83,18 +83,15 @@ public class ClientHandshakeWrapper {
 
     @Override
     public void onNext(HandshakeResponse value) {
-      logger.debug("Got HandshakeResponse");
     }
 
     @Override
     public void onError(Throwable t) {
-      logger.error("Error", t);
       completed.completeExceptionally(t);
     }
 
     @Override
     public void onCompleted() {
-      logger.debug("Got HandshakeResponse.onCompleted");
       completed.complete(true);
     }
   }
