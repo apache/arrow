@@ -121,6 +121,11 @@ RecordBatch <- R6Class("RecordBatch", inherit = ArrowObject,
       assert_that(identical(self$schema$names, target_schema$names), msg = "incompatible schemas")
 
       RecordBatch__cast(self, target_schema, options)
+    },
+
+    invalidate = function() {
+      .Call(`_arrow_RecordBatch__Reset`, self)
+      super$invalidate()
     }
   ),
 

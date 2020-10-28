@@ -79,8 +79,6 @@ option_use_threads <- function() {
   !is_false(getOption("arrow.use_threads"))
 }
 
-ns_arrow <- environment()
-
 #' @include enums.R
 ArrowObject <- R6Class("ArrowObject",
   public = list(
@@ -113,13 +111,6 @@ ArrowObject <- R6Class("ArrowObject",
     },
 
     invalidate = function() {
-      cl <- class(self)[1L]
-      # if there is a Reset function for that class, call it
-      reset <- get(paste0("_arrow_", cl, "__Reset"), ns_arrow)
-      if (!is.null(reset)) {
-        get(".Call")(reset, self)
-      }
-      # but in any case, set the external pointer to NULL
       assign(".:xp:.", NULL, envir = self)
     }
   )

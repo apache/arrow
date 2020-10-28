@@ -150,7 +150,13 @@ Table <- R6Class("Table", inherit = ArrowObject,
 
     ValidateFull = function() {
       Table__ValidateFull(self)
+    },
+
+    invalidate = function() {
+      .Call(`_arrow_Table__Reset`, self)
+      super$invalidate()
     }
+
   ),
 
   active = list(
