@@ -35,9 +35,9 @@ import org.apache.arrow.flight.auth.ClientAuthHandler;
 import org.apache.arrow.flight.auth.ClientAuthInterceptor;
 import org.apache.arrow.flight.auth.ClientAuthWrapper;
 import org.apache.arrow.flight.auth2.BasicAuthCredentialWriter;
-import org.apache.arrow.flight.auth2.BearerCredentialWriter;
-import org.apache.arrow.flight.auth2.ClientBearerTokenMiddleware;
 import org.apache.arrow.flight.auth2.ClientHandshakeWrapper;
+import org.apache.arrow.flight.auth2.ClientHeaderHandler;
+import org.apache.arrow.flight.auth2.ClientIncomingAuthHeaderMiddleware;
 import org.apache.arrow.flight.grpc.ClientInterceptorAdapter;
 import org.apache.arrow.flight.grpc.CredentialCallOption;
 import org.apache.arrow.flight.grpc.StatusUtils;
@@ -87,15 +87,17 @@ public class FlightClient implements AutoCloseable {
   private final MethodDescriptor<ArrowMessage, Flight.PutResult> doPutDescriptor;
   private final MethodDescriptor<ArrowMessage, ArrowMessage> doExchangeDescriptor;
   private final List<FlightClientMiddleware.Factory> middleware;
+  private final ClientHeaderHandler headerHandler;
 
   /**
    * Create a Flight client from an allocator and a gRPC channel.
    */
   FlightClient(BufferAllocator incomingAllocator, ManagedChannel channel,
-      List<FlightClientMiddleware.Factory> middleware) {
+      List<FlightClientMiddleware.Factory> middleware, ClientHeaderHandler headerHandler) {
     this.allocator = incomingAllocator.newChildAllocator("flight-client", 0, Long.MAX_VALUE);
     this.channel = channel;
     this.middleware = middleware;
+    this.headerHandler = headerHandler;
 
     final ClientInterceptor[] interceptors;
     interceptors = new ClientInterceptor[]{authInterceptor, new ClientInterceptorAdapter(middleware)};
@@ -193,12 +195,12 @@ public class FlightClient implements AutoCloseable {
    *     empty if no bearer token was returned. This can be used in subsequent API calls.
    */
   public Optional<CredentialCallOption> basicHeaderAuthenticate(String username, String password) {
-    final ClientBearerTokenMiddleware.Factory tokenMiddleware = new ClientBearerTokenMiddleware.Factory();
-    middleware.add(tokenMiddleware);
+    final ClientIncomingAuthHeaderMiddleware.Factory clientAuthMiddleware =
+            new ClientIncomingAuthHeaderMiddleware.Factory(headerHandler);
+    middleware.add(clientAuthMiddleware);
     handshake(new CredentialCallOption(new BasicAuthCredentialWriter(username, password)));
 
-    return Optional.ofNullable(tokenMiddleware.getBearerToken()).map(token ->
-        new CredentialCallOption(new BearerCredentialWriter(token)));
+    return Optional.ofNullable(clientAuthMiddleware.getCredentialCallOption());
   }
 
   /**
@@ -561,7 +563,6 @@ public class FlightClient implements AutoCloseable {
    * A builder for Flight clients.
    */
   public static final class Builder {
-
     private BufferAllocator allocator;
     private Location location;
     private boolean forceTls = false;
@@ -572,6 +573,7 @@ public class FlightClient implements AutoCloseable {
     private String overrideHostname = null;
     private List<FlightClientMiddleware.Factory> middleware = new ArrayList<>();
     private boolean verifyServer = true;
+    private ClientHeaderHandler headerHandler = ClientHeaderHandler.NO_OP;
 
     private Builder() {
     }
@@ -633,6 +635,11 @@ public class FlightClient implements AutoCloseable {
 
     public Builder verifyServer(boolean verifyServer) {
       this.verifyServer = verifyServer;
+      return this;
+    }
+
+    public Builder headerHandler(ClientHeaderHandler headerHandler) {
+      this.headerHandler = headerHandler;
       return this;
     }
 
@@ -716,7 +723,7 @@ public class FlightClient implements AutoCloseable {
       builder
           .maxTraceEvents(MAX_CHANNEL_TRACE_EVENTS)
           .maxInboundMessageSize(maxInboundMessageSize);
-      return new FlightClient(allocator, builder.build(), middleware);
+      return new FlightClient(allocator, builder.build(), middleware, headerHandler);
     }
   }
 }
