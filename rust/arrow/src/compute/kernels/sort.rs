@@ -41,6 +41,48 @@ pub fn sort(values: &ArrayRef, options: Option<SortOptions>) -> Result<ArrayRef>
     take(values, &indices, None)
 }
 
+// partition indices into non-NaN and NaN
+fn partition_nan<T: ArrowPrimitiveType>(
+    array: &ArrayRef,
+    v: Vec<u32>,
+) -> (Vec<u32>, Vec<u32>) {
+    // partition by nan for float types
+    if T::DATA_TYPE == DataType::Float32 {
+        // T::Native has no `is_nan` and thus we need to downcast
+        let array = array
+            .as_any()
+            .downcast_ref::<Float32Array>()
+            .expect("Unable to downcast array");
+        let has_nan = v.iter().any(|index| array.value(*index as usize).is_nan());
+        if has_nan {
+            v.into_iter()
+                .partition(|index| !array.value(*index as usize).is_nan())
+        } else {
+            (v, vec![])
+        }
+    } else if T::DATA_TYPE == DataType::Float64 {
+        let array = array
+            .as_any()
+            .downcast_ref::<Float64Array>()
+            .expect("Unable to downcast array");
+        let has_nan = v.iter().any(|index| array.value(*index as usize).is_nan());
+        if has_nan {
+            v.into_iter()
+                .partition(|index| !array.value(*index as usize).is_nan())
+        } else {
+            (v, vec![])
+        }
+    } else {
+        unreachable!("Partition by nan is only applicable to float types")
+    }
+}
+
+// partition indices into valid and null indices
+fn partition_validity(array: &ArrayRef) -> (Vec<u32>, Vec<u32>) {
+    let indices = 0..(array.len().to_u32().unwrap());
+    indices.partition(|index| array.is_valid(*index as usize))
+}
+
 /// Sort elements from `ArrayRef` into an unsigned integer (`UInt32Array`) of indices.
 /// For floating point arrays any NaN values are considered to be greater than any other non-null value
 pub fn sort_to_indices(
@@ -48,103 +90,76 @@ pub fn sort_to_indices(
     options: Option<SortOptions>,
 ) -> Result<UInt32Array> {
     let options = options.unwrap_or_default();
-    let indices = 0..(values.len().to_u32().ok_or_else(|| {
-        ArrowError::ComputeError(
-            "Sorting currently only supports u32 indices".to_string(),
-        )
-    })?);
-    // partition indices into valid (`v`) and null (`n` indices
-    // for floating point types the valid indices are further partioned into non-NaN and NaN
-    let (v, n, nan): (Vec<u32>, Vec<u32>, Vec<u32>) =
-        if values.data_type() == &DataType::Float32 {
-            let array = values
-                .as_any()
-                .downcast_ref::<Float32Array>()
-                .expect("Unable to downcast array");
-            let (v, n): (Vec<u32>, Vec<u32>) =
-                indices.partition(|index| array.is_valid(*index as usize));
-            let has_nan = v.iter().any(|index| array.value(*index as usize).is_nan());
-            let (v, nan) = if has_nan {
-                v.into_iter()
-                    .partition(|index| !array.value(*index as usize).is_nan())
-            } else {
-                (v, vec![])
-            };
-            (v, n, nan)
-        } else if values.data_type() == &DataType::Float64 {
-            let array = values
-                .as_any()
-                .downcast_ref::<Float64Array>()
-                .expect("Unable to downcast array");
-            let (v, n): (Vec<u32>, Vec<u32>) =
-                indices.partition(|index| array.is_valid(*index as usize));
-            let has_nan = v.iter().any(|index| array.value(*index as usize).is_nan());
-            let (v, nan) = if has_nan {
-                v.into_iter()
-                    .partition(|index| !array.value(*index as usize).is_nan())
-            } else {
-                (v, vec![])
-            };
-            (v, n, nan)
-        } else {
-            let (v, n) = indices.partition(|index| values.is_valid(*index as usize));
-            (v, n, vec![])
-        };
+
+    let (v, n) = partition_validity(values);
+
     match values.data_type() {
-        DataType::Boolean => sort_primitive::<BooleanType>(values, v, n, nan, &options),
-        DataType::Int8 => sort_primitive::<Int8Type>(values, v, n, nan, &options),
-        DataType::Int16 => sort_primitive::<Int16Type>(values, v, n, nan, &options),
-        DataType::Int32 => sort_primitive::<Int32Type>(values, v, n, nan, &options),
-        DataType::Int64 => sort_primitive::<Int64Type>(values, v, n, nan, &options),
-        DataType::UInt8 => sort_primitive::<UInt8Type>(values, v, n, nan, &options),
-        DataType::UInt16 => sort_primitive::<UInt16Type>(values, v, n, nan, &options),
-        DataType::UInt32 => sort_primitive::<UInt32Type>(values, v, n, nan, &options),
-        DataType::UInt64 => sort_primitive::<UInt64Type>(values, v, n, nan, &options),
-        DataType::Float32 => sort_primitive::<Float32Type>(values, v, n, nan, &options),
-        DataType::Float64 => sort_primitive::<Float64Type>(values, v, n, nan, &options),
-        DataType::Date32(_) => sort_primitive::<Date32Type>(values, v, n, nan, &options),
-        DataType::Date64(_) => sort_primitive::<Date64Type>(values, v, n, nan, &options),
+        DataType::Boolean => {
+            sort_primitive::<BooleanType>(values, v, n, vec![], &options)
+        }
+        DataType::Int8 => sort_primitive::<Int8Type>(values, v, n, vec![], &options),
+        DataType::Int16 => sort_primitive::<Int16Type>(values, v, n, vec![], &options),
+        DataType::Int32 => sort_primitive::<Int32Type>(values, v, n, vec![], &options),
+        DataType::Int64 => sort_primitive::<Int64Type>(values, v, n, vec![], &options),
+        DataType::UInt8 => sort_primitive::<UInt8Type>(values, v, n, vec![], &options),
+        DataType::UInt16 => sort_primitive::<UInt16Type>(values, v, n, vec![], &options),
+        DataType::UInt32 => sort_primitive::<UInt32Type>(values, v, n, vec![], &options),
+        DataType::UInt64 => sort_primitive::<UInt64Type>(values, v, n, vec![], &options),
+        DataType::Float32 => {
+            let (v, nan) = partition_nan::<Float32Type>(values, v);
+            sort_primitive::<Float32Type>(values, v, n, nan, &options)
+        }
+        DataType::Float64 => {
+            let (v, nan) = partition_nan::<Float64Type>(values, v);
+            sort_primitive::<Float64Type>(values, v, n, nan, &options)
+        }
+        DataType::Date32(_) => {
+            sort_primitive::<Date32Type>(values, v, n, vec![], &options)
+        }
+        DataType::Date64(_) => {
+            sort_primitive::<Date64Type>(values, v, n, vec![], &options)
+        }
         DataType::Time32(Second) => {
-            sort_primitive::<Time32SecondType>(values, v, n, nan, &options)
+            sort_primitive::<Time32SecondType>(values, v, n, vec![], &options)
         }
         DataType::Time32(Millisecond) => {
-            sort_primitive::<Time32MillisecondType>(values, v, n, nan, &options)
+            sort_primitive::<Time32MillisecondType>(values, v, n, vec![], &options)
         }
         DataType::Time64(Microsecond) => {
-            sort_primitive::<Time64MicrosecondType>(values, v, n, nan, &options)
+            sort_primitive::<Time64MicrosecondType>(values, v, n, vec![], &options)
         }
         DataType::Time64(Nanosecond) => {
-            sort_primitive::<Time64NanosecondType>(values, v, n, nan, &options)
+            sort_primitive::<Time64NanosecondType>(values, v, n, vec![], &options)
         }
         DataType::Timestamp(Second, _) => {
-            sort_primitive::<TimestampSecondType>(values, v, n, nan, &options)
+            sort_primitive::<TimestampSecondType>(values, v, n, vec![], &options)
         }
         DataType::Timestamp(Millisecond, _) => {
-            sort_primitive::<TimestampMillisecondType>(values, v, n, nan, &options)
+            sort_primitive::<TimestampMillisecondType>(values, v, n, vec![], &options)
         }
         DataType::Timestamp(Microsecond, _) => {
-            sort_primitive::<TimestampMicrosecondType>(values, v, n, nan, &options)
+            sort_primitive::<TimestampMicrosecondType>(values, v, n, vec![], &options)
         }
         DataType::Timestamp(Nanosecond, _) => {
-            sort_primitive::<TimestampNanosecondType>(values, v, n, nan, &options)
+            sort_primitive::<TimestampNanosecondType>(values, v, n, vec![], &options)
         }
         DataType::Interval(IntervalUnit::YearMonth) => {
-            sort_primitive::<IntervalYearMonthType>(values, v, n, nan, &options)
+            sort_primitive::<IntervalYearMonthType>(values, v, n, vec![], &options)
         }
         DataType::Interval(IntervalUnit::DayTime) => {
-            sort_primitive::<IntervalDayTimeType>(values, v, n, nan, &options)
+            sort_primitive::<IntervalDayTimeType>(values, v, n, vec![], &options)
         }
         DataType::Duration(TimeUnit::Second) => {
-            sort_primitive::<DurationSecondType>(values, v, n, nan, &options)
+            sort_primitive::<DurationSecondType>(values, v, n, vec![], &options)
         }
         DataType::Duration(TimeUnit::Millisecond) => {
-            sort_primitive::<DurationMillisecondType>(values, v, n, nan, &options)
+            sort_primitive::<DurationMillisecondType>(values, v, n, vec![], &options)
         }
         DataType::Duration(TimeUnit::Microsecond) => {
-            sort_primitive::<DurationMicrosecondType>(values, v, n, nan, &options)
+            sort_primitive::<DurationMicrosecondType>(values, v, n, vec![], &options)
         }
         DataType::Duration(TimeUnit::Nanosecond) => {
-            sort_primitive::<DurationNanosecondType>(values, v, n, nan, &options)
+            sort_primitive::<DurationNanosecondType>(values, v, n, vec![], &options)
         }
         DataType::Utf8 => sort_string(values, v, n, &options),
         DataType::Dictionary(key_type, value_type)
@@ -453,49 +468,46 @@ pub fn lexsort(columns: &[SortColumn]) -> Result<Vec<ArrayRef>> {
 /// Sort elements lexicographically from a list of `ArrayRef` into an unsigned integer
 /// (`UInt32Array`) of indices.
 pub fn lexsort_to_indices(columns: &[SortColumn]) -> Result<UInt32Array> {
+    if columns.len() == 0 {
+        return Err(ArrowError::InvalidArgumentError(
+            "Sort requires at least one column".to_string(),
+        ));
+    }
     if columns.len() == 1 {
         // fallback to non-lexical sort
         let column = &columns[0];
         return sort_to_indices(&column.values, column.options);
     }
 
-    let mut row_count = None;
+    let row_count = columns[0].values.len();
+    if columns.iter().any(|item| item.values.len() != row_count) {
+        return Err(ArrowError::ComputeError(
+            "lexical sort columns have different row counts".to_string(),
+        ));
+    };
+
     // convert ArrayRefs to OrdArray trait objects and perform row count check
     let flat_columns = columns
         .iter()
-        .map(|column| -> Result<(&Array, Box<OrdArray>, SortOptions)> {
-            // row count check
-            let curr_row_count = column.values.len() - column.values.offset();
-            match row_count {
-                None => {
-                    row_count = Some(curr_row_count);
-                }
-                Some(cnt) => {
-                    if curr_row_count != cnt {
-                        return Err(ArrowError::ComputeError(
-                            "lexical sort columns have different row counts".to_string(),
-                        ));
-                    }
-                }
-            }
-            // flatten and convert to OrdArray
+        .map(|column| -> Result<(&Array, DynComparator, SortOptions)> {
+            // flatten and convert build comparators
             Ok((
                 column.values.as_ref(),
-                as_ordarray(&column.values)?,
+                build_compare(column.values.as_ref(), column.values.as_ref())?,
                 column.options.unwrap_or_default(),
             ))
         })
-        .collect::<Result<Vec<(&Array, Box<OrdArray>, SortOptions)>>>()?;
+        .collect::<Result<Vec<(&Array, DynComparator, SortOptions)>>>()?;
 
     let lex_comparator = |a_idx: &usize, b_idx: &usize| -> Ordering {
         for column in flat_columns.iter() {
             let values = &column.0;
-            let ord_array = &column.1;
+            let comparator = &column.1;
             let sort_option = column.2;
 
             match (values.is_valid(*a_idx), values.is_valid(*b_idx)) {
                 (true, true) => {
-                    match ord_array.cmp_value(*a_idx, *b_idx) {
+                    match (comparator)(*a_idx, *b_idx) {
                         // equal, move on to next column
                         Ordering::Equal => continue,
                         order => {
@@ -529,7 +541,7 @@ pub fn lexsort_to_indices(columns: &[SortColumn]) -> Result<UInt32Array> {
         Ordering::Equal
     };
 
-    let mut value_indices = (0..row_count.unwrap()).collect::<Vec<usize>>();
+    let mut value_indices = (0..row_count).collect::<Vec<usize>>();
     value_indices.sort_by(lex_comparator);
 
     Ok(UInt32Array::from(
