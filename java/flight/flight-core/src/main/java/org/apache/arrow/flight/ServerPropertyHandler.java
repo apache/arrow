@@ -23,7 +23,7 @@ import java.util.function.Consumer;
 /**
  * Interface for server side property handling.
  */
-public interface ServerPropertyHandler extends Consumer<Map<String, String>> {
+public interface ServerPropertyHandler extends Consumer<Map<String, Object>> {
   /**
    * A property handler that does nothing.
    */

@@ -17,6 +17,12 @@
 
 package org.apache.arrow.flight;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.ObjectOutputStream;
+import java.io.Serializable;
+import java.util.Base64;
+import java.util.Collections;
 import java.util.Map;
 
 import io.grpc.Metadata;
@@ -33,21 +39,33 @@ public class PropertyCallOption implements CallOptions.GrpcCallOption {
    * Single property constructor.
    */
   public PropertyCallOption(String key, String value) {
-    propertiesMetadata = new Metadata();
-    propertiesMetadata.put(
-        Metadata.Key.of(FlightConstants.PROPERTY_PREFIX + key, Metadata.ASCII_STRING_MARSHALLER), value);
+    this(Collections.singletonMap(key, value));
   }
 
   /**
    * Multi-property constructor.
    */
-  public PropertyCallOption(Map<String, String> properties) {
-    propertiesMetadata = new Metadata();
-    for (String key : properties.keySet()) {
-      propertiesMetadata.put(
-          Metadata.Key.of(FlightConstants.PROPERTY_PREFIX + key, Metadata.ASCII_STRING_MARSHALLER),
-          properties.get(key));
+  public PropertyCallOption(Map<String, Serializable> properties) {
+    // Encode the properties as a set of key/value Base64 encoded strings.
+    final StringBuilder value = new StringBuilder();
+    final Base64.Encoder encoder = Base64.getEncoder().withoutPadding();
+    for (Map.Entry<String, Serializable> property : properties.entrySet()) {
+      value.append(encoder.encodeToString(property.getKey().getBytes()));
+      value.append("=");
+      try (ByteArrayOutputStream byteStream = new ByteArrayOutputStream();
+          ObjectOutputStream outStream = new ObjectOutputStream(byteStream)) {
+        outStream.writeObject(property.getValue());
+        value.append(encoder.encodeToString(byteStream.toByteArray()));
+      } catch (IOException e) {
+        throw new RuntimeException(e);
+      }
+      value.append(";");
     }
+
+    propertiesMetadata = new Metadata();
+    propertiesMetadata.put(
+        Metadata.Key.of(FlightConstants.PROPERTY_HEADER, Metadata.ASCII_STRING_MARSHALLER),
+        value.toString());
   }
 
   @Override

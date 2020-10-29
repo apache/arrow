@@ -17,6 +17,10 @@
 
 package org.apache.arrow.flight;
 
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -41,10 +45,20 @@ public class ServerPropertyMiddleware implements FlightServerMiddleware {
     @Override
     public ServerPropertyMiddleware onCallStarted(CallInfo callInfo, CallHeaders incomingHeaders,
                                                   RequestContext context) {
-      final Map<String, String> properties = new HashMap<>();
-      for (String key : incomingHeaders.keys()) {
-        if (key.startsWith(FlightConstants.PROPERTY_PREFIX)) {
-          properties.put(key.substring(FlightConstants.PROPERTY_PREFIX.length()), incomingHeaders.get(key));
+      final String headerVal = incomingHeaders.get(FlightConstants.PROPERTY_HEADER);
+      final Map<String, Object> properties = new HashMap<>();
+      for (String property : headerVal.split(";")) {
+        final String[] splitProp = property.split("=");
+        if (splitProp.length == 2) {
+          final String key = new String(Base64.getDecoder().decode(splitProp[0]));
+
+          final byte[] binaryValue = Base64.getDecoder().decode(splitProp[1]);
+          try (ByteArrayInputStream byteInStream = new ByteArrayInputStream(binaryValue);
+              ObjectInputStream inStream = new ObjectInputStream(byteInStream)) {
+            properties.put(key, inStream.readObject());
+          } catch (IOException | ClassNotFoundException e) {
+            throw new RuntimeException(e);
+          }
         }
       }
 
