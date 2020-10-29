@@ -20,7 +20,7 @@
 use hex::decode;
 use serde_json::Value;
 
-use arrow::util::integration_util::{ArrowJsonBatch};
+use arrow::util::integration_util::ArrowJsonBatch;
 
 use arrow::array::*;
 use arrow::datatypes::{DataType, DateUnit, Field, IntervalUnit, Schema};
@@ -37,6 +37,11 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::BufReader;
 use std::sync::Arc;
+
+/// The expected username for the basic auth integration test.
+pub const AUTH_USERNAME: &str = "arrow";
+/// The expected password for the basic auth integration test.
+pub const AUTH_PASSWORD: &str = "flight";
 
 pub struct ArrowFile {
     pub schema: Schema,

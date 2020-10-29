@@ -27,11 +27,17 @@ edition = "2018"
 
 [dependencies]
 arrow = { path = "../arrow" }
+arrow-flight = { path = "../arrow-flight" }
+async-trait = "0.1.41"
 clap = "2.33"
+futures = "0.3"
+hex = "0.4"
+prost = "0.6"
 serde = { version = "1.0", features = ["rc"] }
 serde_derive = "1.0"
 serde_json = { version = "1.0", features = ["preserve_order"] }
-hex = "0.4"
+tokio = { version = "0.2", features = ["macros", "rt-core", "rt-threaded"] }
+tonic = "0.3"
 
 [[bin]]
 name = "arrow-file-to-stream"
@@ -44,3 +50,11 @@ path = "src/bin/arrow-stream-to-file.rs"
 [[bin]]
 name = "arrow-json-integration-test"
 path = "src/bin/arrow-json-integration-test.rs"
+
+[[bin]]
+name = "flight-test-integration-server"
+path = "src/bin/flight-test-integration-server.rs"
+
+[[bin]]
+name = "flight-test-integration-client"
+path = "src/bin/flight-test-integration-client.rs"
