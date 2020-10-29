@@ -159,7 +159,7 @@ test_that("metadata drops readr's problems attribute", {
 })
 
 test_that("metadata of list elements (ARROW-10386)", {
-  df <- data.frame(x = list(structure(1, foo = "bar"), structure(2, foo = "bar")))
+  df <- data.frame(x = I(list(structure(1, foo = "bar"), structure(2, foo = "bar"))))
   tab <- Table$create(df)
   expect_identical(attr(as.data.frame(tab)$x[[1]], "foo"), "bar")
   expect_identical(attr(as.data.frame(tab)$x[[2]], "foo"), "bar")
