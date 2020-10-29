@@ -34,8 +34,8 @@ public class PropertyCallOption implements CallOptions.GrpcCallOption {
    */
   public PropertyCallOption(String key, String value) {
     propertiesMetadata = new Metadata();
-    // TODO - do this properly.
-    propertiesMetadata.put(Metadata.Key.of(FlightConstants.PROPERTY_HEADER, Metadata.ASCII_STRING_MARSHALLER), value);
+    propertiesMetadata.put(
+        Metadata.Key.of(FlightConstants.PROPERTY_PREFIX + key, Metadata.ASCII_STRING_MARSHALLER), value);
   }
 
   /**
@@ -43,8 +43,11 @@ public class PropertyCallOption implements CallOptions.GrpcCallOption {
    */
   public PropertyCallOption(Map<String, String> properties) {
     propertiesMetadata = new Metadata();
-    // TODO - do this properly.
-    //propertiesMetadata.put(Metadata.Key.of(key, Metadata.ASCII_STRING_MARSHALLER), value);
+    for (String key : properties.keySet()) {
+      propertiesMetadata.put(
+          Metadata.Key.of(FlightConstants.PROPERTY_PREFIX + key, Metadata.ASCII_STRING_MARSHALLER),
+          properties.get(key));
+    }
   }
 
   @Override

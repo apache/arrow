@@ -74,7 +74,7 @@ public class TestCallOptions {
         Producer producer = new Producer(a);
         FlightServer s =
             FlightTestUtil.getStartedServer((location) ->
-                FlightServer.builder(a, location, producer).propertyHandler(p -> properties.putAll(p)).build());
+                FlightServer.builder(a, location, producer).propertyHandler(properties::putAll).build());
         FlightClient client = FlightClient.builder(a, s.getLocation()).build()) {
 
       final String keyVal = "key";
