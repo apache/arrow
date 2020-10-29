@@ -1647,18 +1647,18 @@ extern "C" SEXP _arrow_dataset___FileFormat__DefaultWriteOptions(SEXP fmt_sexp){
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-R6 dataset___ParquetFileFormat__MakeRead(bool use_buffered_stream, int64_t buffer_size, cpp11::strings dict_columns);
-extern "C" SEXP _arrow_dataset___ParquetFileFormat__MakeRead(SEXP use_buffered_stream_sexp, SEXP buffer_size_sexp, SEXP dict_columns_sexp){
+R6 dataset___ParquetFileFormat__Make(bool use_buffered_stream, int64_t buffer_size, cpp11::strings dict_columns);
+extern "C" SEXP _arrow_dataset___ParquetFileFormat__Make(SEXP use_buffered_stream_sexp, SEXP buffer_size_sexp, SEXP dict_columns_sexp){
 BEGIN_CPP11
 	arrow::r::Input<bool>::type use_buffered_stream(use_buffered_stream_sexp);
 	arrow::r::Input<int64_t>::type buffer_size(buffer_size_sexp);
 	arrow::r::Input<cpp11::strings>::type dict_columns(dict_columns_sexp);
-	return cpp11::as_sexp(dataset___ParquetFileFormat__MakeRead(use_buffered_stream, buffer_size, dict_columns));
+	return cpp11::as_sexp(dataset___ParquetFileFormat__Make(use_buffered_stream, buffer_size, dict_columns));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_dataset___ParquetFileFormat__MakeRead(SEXP use_buffered_stream_sexp, SEXP buffer_size_sexp, SEXP dict_columns_sexp){
-	Rf_error("Cannot call dataset___ParquetFileFormat__MakeRead(). Please use arrow::install_arrow() to install required runtime libraries. ");
+extern "C" SEXP _arrow_dataset___ParquetFileFormat__Make(SEXP use_buffered_stream_sexp, SEXP buffer_size_sexp, SEXP dict_columns_sexp){
+	Rf_error("Cannot call dataset___ParquetFileFormat__Make(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -6427,7 +6427,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_dataset___FileSystemDatasetFactory__Make3", (DL_FUNC) &_arrow_dataset___FileSystemDatasetFactory__Make3, 4}, 
 		{ "_arrow_dataset___FileFormat__type_name", (DL_FUNC) &_arrow_dataset___FileFormat__type_name, 1}, 
 		{ "_arrow_dataset___FileFormat__DefaultWriteOptions", (DL_FUNC) &_arrow_dataset___FileFormat__DefaultWriteOptions, 1}, 
-		{ "_arrow_dataset___ParquetFileFormat__MakeRead", (DL_FUNC) &_arrow_dataset___ParquetFileFormat__MakeRead, 3}, 
+		{ "_arrow_dataset___ParquetFileFormat__Make", (DL_FUNC) &_arrow_dataset___ParquetFileFormat__Make, 3}, 
 		{ "_arrow_dataset___FileWriteOptions__type_name", (DL_FUNC) &_arrow_dataset___FileWriteOptions__type_name, 1}, 
 		{ "_arrow_dataset___ParquetFileWriteOptions__update", (DL_FUNC) &_arrow_dataset___ParquetFileWriteOptions__update, 3}, 
 		{ "_arrow_dataset___IpcFileWriteOptions__update2", (DL_FUNC) &_arrow_dataset___IpcFileWriteOptions__update2, 4}, 

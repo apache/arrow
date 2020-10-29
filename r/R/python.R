@@ -24,7 +24,7 @@ py_to_r.pyarrow.lib.Array <- function(x, ...) {
   })
 
   x$`_export_to_c`(array_ptr, schema_ptr)
-  Array$create(ImportArray(array_ptr, schema_ptr))
+  ImportArray(array_ptr, schema_ptr)
 }
 
 r_to_py.Array <- function(x, convert = FALSE) {
