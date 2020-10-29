@@ -286,6 +286,20 @@ as.data.frame.RecordBatch <- function(x, row.names = NULL, optional = FALSE, ...
 
 apply_arrow_r_metadata <- function(x, r_metadata) {
   tryCatch({
+    columns_metadata <- r_metadata$columns
+    if (is.data.frame(x)) {
+      if (length(names(x)) && !is.null(columns_metadata)) {
+        for (name in intersect(names(columns_metadata), names(x))) {
+          x[[name]] <- apply_arrow_r_metadata(x[[name]], columns_metadata[[name]])
+        }
+      }
+    } else if(is.list(x) && !inherits(x, "POSIXlt") && !is.null(columns_metadata)) {
+      x <- map2(x, columns_metadata, function(.x, .y) {
+        apply_arrow_r_metadata(.x, .y)
+      })
+      x
+    }
+
     if (!is.null(r_metadata$attributes)) {
       attributes(x)[names(r_metadata$attributes)] <- r_metadata$attributes
       if (inherits(x, "POSIXlt")) {
@@ -297,12 +311,6 @@ apply_arrow_r_metadata <- function(x, r_metadata) {
       }
     }
 
-    columns_metadata <- r_metadata$columns
-    if (length(names(x)) && !is.null(columns_metadata)) {
-      for (name in intersect(names(columns_metadata), names(x))) {
-        x[[name]] <- apply_arrow_r_metadata(x[[name]], columns_metadata[[name]])
-      }
-    }
   }, error = function(e) {
     warning("Invalid metadata$r", call. = FALSE)
   })
