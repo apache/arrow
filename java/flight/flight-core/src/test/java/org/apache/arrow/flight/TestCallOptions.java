@@ -64,6 +64,23 @@ public class TestCallOptions {
     });
   }
 
+  @Test
+  public void propertyHeader() {
+    try (
+        BufferAllocator a = new RootAllocator(Long.MAX_VALUE);
+        Producer producer = new Producer(a);
+        FlightServer s =
+            FlightTestUtil.getStartedServer((location) ->
+                FlightServer.builder(a, location, producer).propertyHandler(t -> System.out.println(t)).build());
+        FlightClient client = FlightClient.builder(a, s.getLocation()).build()) {
+
+      Iterator<Result> results = client.doAction(new Action("fast"),
+          new PropertyCallOption(FlightConstants.PROPERTY_HEADER, "value"));
+    } catch (InterruptedException | IOException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
   void test(Consumer<FlightClient> testFn) {
     try (
         BufferAllocator a = new RootAllocator(Long.MAX_VALUE);
