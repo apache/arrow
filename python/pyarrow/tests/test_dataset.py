@@ -246,14 +246,14 @@ def test_filesystem_dataset(mockfs):
             assert fragment.path == path
             assert isinstance(fragment.format, ds.ParquetFileFormat)
             assert isinstance(fragment, ds.ParquetFileFragment)
-            assert fragment.row_groups is None
+            assert fragment.row_groups == [0]
             assert fragment.num_row_groups == 1
 
             row_group_fragments = list(fragment.split_by_row_group())
             assert fragment.num_row_groups == len(row_group_fragments) == 1
             assert isinstance(row_group_fragments[0], ds.ParquetFileFragment)
             assert row_group_fragments[0].path == path
-            assert row_group_fragments[0].row_groups == [ds.RowGroupInfo(0)]
+            assert row_group_fragments[0].row_groups == [0]
             assert row_group_fragments[0].num_row_groups == 1
 
         fragments = list(dataset.get_fragments(filter=ds.field("const") == 0))
@@ -598,8 +598,7 @@ def test_make_fragment(multisourcefs):
 
     for path in dataset.files:
         fragment = parquet_format.make_fragment(path, multisourcefs)
-        assert fragment.row_groups is None
-        assert fragment.num_row_groups == 1
+        assert fragment.row_groups == [0]
 
         row_group_fragment = parquet_format.make_fragment(path, multisourcefs,
                                                           row_groups=[0])
@@ -607,8 +606,7 @@ def test_make_fragment(multisourcefs):
             assert isinstance(f, ds.ParquetFileFragment)
             assert f.path == path
             assert isinstance(f.filesystem, type(multisourcefs))
-        assert row_group_fragment.row_groups == [ds.RowGroupInfo(0)]
-        assert row_group_fragment.num_row_groups == 1
+        assert row_group_fragment.row_groups == [0]
 
 
 def test_make_csv_fragment_from_buffer():
@@ -877,10 +875,9 @@ def test_fragments_parquet_ensure_metadata(tempdir, open_logging_fs):
     fragment = list(dataset.get_fragments())[0]
 
     # with default discovery, no metadata loaded
-    assert fragment.row_groups is None
     with assert_opens([fragment.path]):
         fragment.ensure_complete_metadata()
-    assert fragment.row_groups is not None
+    assert fragment.row_groups == [0, 1]
 
     # second time -> use cached / no file IO
     with assert_opens([]):
@@ -890,13 +887,7 @@ def test_fragments_parquet_ensure_metadata(tempdir, open_logging_fs):
     new_fragment = fragment.format.make_fragment(
         fragment.path, fragment.filesystem, row_groups=[0, 1]
     )
-    assert new_fragment.row_groups is not None
-    assert len(new_fragment.row_groups) == 2
-    row_group = new_fragment.row_groups[0]
-    assert row_group.id == 0
-    # no initialized statistics
-    assert row_group.num_rows == -1
-    assert row_group.statistics is None
+    assert new_fragment.row_groups == fragment.row_groups
 
     # collect metadata
     new_fragment.ensure_complete_metadata()
@@ -905,13 +896,13 @@ def test_fragments_parquet_ensure_metadata(tempdir, open_logging_fs):
     assert row_group.num_rows == 2
     assert row_group.statistics is not None
 
-    # pickling preserves row group ids but not statistics
+    # pickling preserves row group ids
     pickled_fragment = pickle.loads(pickle.dumps(new_fragment))
-    assert pickled_fragment.row_groups is not None
-    row_group = pickled_fragment.row_groups[0]
-    assert row_group.id == 0
-    assert row_group.num_rows == -1
-    assert row_group.statistics is None
+    with assert_opens([fragment.path]):
+        assert pickled_fragment.row_groups == [0, 1]
+        row_group = pickled_fragment.row_groups[0]
+        assert row_group.id == 0
+        assert row_group.statistics is not None
 
 
 def _create_dataset_all_types(tempdir, chunk_size=None):
@@ -1089,32 +1080,28 @@ def test_fragments_parquet_row_groups_reconstruct(tempdir):
         fragment.path, fragment.filesystem,
         partition_expression=fragment.partition_expression,
         row_groups={2})
-    with pytest.raises(IndexError, match="Trying to scan row group 2"):
+    with pytest.raises(IndexError, match="references row group 2"):
         new_fragment.to_table()
 
 
 @pytest.mark.pandas
 @pytest.mark.parquet
-def test_fragments_parquet_subset_ids(tempdir):
-    table, dataset = _create_dataset_for_fragments(tempdir, chunk_size=1)
+def test_fragments_parquet_subset_ids(tempdir, open_logging_fs):
+    fs, assert_opens = open_logging_fs
+    table, dataset = _create_dataset_for_fragments(tempdir, chunk_size=1,
+                                                   filesystem=fs)
     fragment = list(dataset.get_fragments())[0]
 
     # select with row group ids
     subfrag = fragment.subset(row_group_ids=[0, 3])
-    assert subfrag.num_row_groups == 2
-    # the row_groups list is initialized, but don't have statistics
-    assert len(subfrag.row_groups) == 2
-    assert subfrag.row_groups[0].statistics is None
+    with assert_opens([]):
+        assert subfrag.num_row_groups == 2
+        assert subfrag.row_groups == [0, 3]
+        assert subfrag.row_groups[0].statistics is not None
+
     # check correct scan result of subset
     result = subfrag.to_table()
     assert result.to_pydict() == {"f1": [0, 3], "f2": [1, 1]}
-
-    # if the original fragment has statistics -> preserve them
-    fragment.ensure_complete_metadata()
-    subfrag = fragment.subset(row_group_ids=[0, 3])
-    assert subfrag.num_row_groups == 2
-    assert len(subfrag.row_groups) == 2
-    assert subfrag.row_groups[0].statistics is not None
 
     # empty list of ids
     subfrag = fragment.subset(row_group_ids=[])
@@ -1127,16 +1114,19 @@ def test_fragments_parquet_subset_ids(tempdir):
 
 @pytest.mark.pandas
 @pytest.mark.parquet
-def test_fragments_parquet_subset_filter(tempdir):
-    table, dataset = _create_dataset_for_fragments(tempdir, chunk_size=1)
+def test_fragments_parquet_subset_filter(tempdir, open_logging_fs):
+    fs, assert_opens = open_logging_fs
+    table, dataset = _create_dataset_for_fragments(tempdir, chunk_size=1,
+                                                   filesystem=fs)
     fragment = list(dataset.get_fragments())[0]
 
     # select with filter
     subfrag = fragment.subset(ds.field("f1") >= 1)
-    assert subfrag.num_row_groups == 3
-    # ensure statistics are preserved in subset (need to be read for filter)
-    assert len(subfrag.row_groups) == 3
-    assert subfrag.row_groups[0].statistics is not None
+    with assert_opens([]):
+        assert subfrag.num_row_groups == 3
+        assert len(subfrag.row_groups) == 3
+        assert subfrag.row_groups[0].statistics is not None
+
     # check correct scan result of subset
     result = subfrag.to_table()
     assert result.to_pydict() == {"f1": [1, 2, 3], "f2": [1, 1, 1]}

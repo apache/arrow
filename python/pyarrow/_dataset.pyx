@@ -33,7 +33,8 @@ from pyarrow._csv cimport ParseOptions
 from pyarrow.util import _is_path_like, _stringify_path
 
 from pyarrow._parquet cimport (
-    _create_writer_properties, _create_arrow_writer_properties
+    _create_writer_properties, _create_arrow_writer_properties,
+    FileMetaData, RowGroupMetaData, ColumnChunkMetaData
 )
 
 
@@ -907,66 +908,56 @@ cdef class FileFragment(Fragment):
         return FileFormat.wrap(self.file_fragment.format())
 
 
-cdef class RowGroupInfo(_Weakrefable):
+class RowGroupInfo:
     """A wrapper class for RowGroup information"""
 
-    cdef:
-        CRowGroupInfo info
-
-    def __init__(self, int id):
-        cdef CRowGroupInfo info = CRowGroupInfo(id)
-        self.init(info)
-
-    cdef void init(self, CRowGroupInfo info):
-        self.info = info
-
-    @staticmethod
-    cdef wrap(CRowGroupInfo info):
-        cdef RowGroupInfo self = RowGroupInfo.__new__(RowGroupInfo)
-        self.init(info)
-        return self
-
-    @property
-    def id(self):
-        return self.info.id()
+    def __init__(self, id, metadata, schema):
+        self.id = id
+        self.metadata = metadata
+        self.schema = schema
 
     @property
     def num_rows(self):
-        return self.info.num_rows()
+        return self.metadata.num_rows
 
     @property
     def total_byte_size(self):
-        return self.info.total_byte_size()
+        return self.metadata.total_byte_size
 
     @property
     def statistics(self):
-        if not self.info.HasStatistics():
-            return None
+        def name_stats(i):
+            col = self.metadata.column(i)
 
-        cdef:
-            CStructScalar* c_statistics
-            CStructScalar* c_minmax
+            if not col.statistics.has_min_max:
+                return None, None
 
-        statistics = dict()
-        c_statistics = self.info.statistics().get()
-        for i in range(c_statistics.value.size()):
-            name = frombytes(c_statistics.type.get().field(i).get().name())
-            c_minmax = <CStructScalar*> c_statistics.value[i].get()
+            name = col.path_in_schema
+            field_index = self.schema.get_field_index(name)
+            if field_index < 0:
+                return None, None
 
-            statistics[name] = {
-                'min': pyarrow_wrap_scalar(c_minmax.value[0]).as_py(),
-                'max': pyarrow_wrap_scalar(c_minmax.value[1]).as_py(),
+            typ = self.schema.field(field_index).type
+            return col.path_in_schema, {
+                'min': pa.scalar(col.statistics.min, type=typ).as_py(),
+                'max': pa.scalar(col.statistics.max, type=typ).as_py()
             }
 
-        return statistics
+        return {
+            name: stats for name, stats
+            in map(name_stats, range(self.metadata.num_columns))
+            if stats is not None
+        }
+
+    def __repr__(self):
+        return "RowGroupInfo({})".format(self.id)
 
     def __eq__(self, other):
+        if isinstance(other, int):
+            return self.id == other
         if not isinstance(other, RowGroupInfo):
             return False
-        cdef:
-            RowGroupInfo row_group = other
-            CRowGroupInfo c_info = row_group.info
-        return self.info.Equals(c_info)
+        return self.id == other.id
 
 
 cdef class ParquetFileFragment(FileFragment):
@@ -981,10 +972,7 @@ cdef class ParquetFileFragment(FileFragment):
 
     def __reduce__(self):
         buffer = self.buffer
-        if self.row_groups is not None:
-            row_groups = [row_group.id for row_group in self.row_groups]
-        else:
-            row_groups = None
+        row_groups = [row_group.id for row_group in self.row_groups]
         return self.format.make_fragment, (
             self.path if buffer is None else buffer,
             self.filesystem,
@@ -1001,13 +989,17 @@ cdef class ParquetFileFragment(FileFragment):
 
     @property
     def row_groups(self):
-        cdef:
-            const vector[CRowGroupInfo]* c_row_groups
-        c_row_groups = self.parquet_file_fragment.row_groups()
-        if c_row_groups == nullptr:
-            return None
-        return [RowGroupInfo.wrap(c_row_groups.at(i))
-                for i in range(c_row_groups.size())]
+        metadata = self.metadata
+        cdef vector[int] row_groups = self.parquet_file_fragment.row_groups()
+        return [RowGroupInfo(i, metadata.row_group(i), self.physical_schema)
+                for i in row_groups]
+
+    @property
+    def metadata(self):
+        self.ensure_complete_metadata()
+        cdef FileMetaData metadata = FileMetaData()
+        metadata.init(self.parquet_file_fragment.metadata())
+        return metadata
 
     @property
     def num_row_groups(self):
@@ -1015,7 +1007,8 @@ cdef class ParquetFileFragment(FileFragment):
         Return the number of row groups viewed by this fragment (not the
         number of row groups in the origin file).
         """
-        return GetResultValue(self.parquet_file_fragment.GetNumRowGroups())
+        self.ensure_complete_metadata()
+        return self.parquet_file_fragment.row_groups().size()
 
     def split_by_row_group(self, Expression filter=None,
                            Schema schema=None):
@@ -1308,8 +1301,7 @@ cdef class ParquetFileFormat(FileFormat):
     def make_fragment(self, file, filesystem=None,
                       Expression partition_expression=None, row_groups=None):
         cdef:
-            vector[int] c_row_group_ids
-            vector[CRowGroupInfo] c_row_groups
+            vector[int] c_row_groups
 
         partition_expression = partition_expression or _true
 
@@ -1318,14 +1310,13 @@ cdef class ParquetFileFormat(FileFormat):
                                          partition_expression)
 
         c_source = _make_file_source(file, filesystem)
-        c_row_group_ids = [<int> row_group for row_group in set(row_groups)]
-        c_row_groups = CRowGroupInfo.FromIdentifiers(move(c_row_group_ids))
+        c_row_groups = [<int> row_group for row_group in set(row_groups)]
 
         c_fragment = <shared_ptr[CFragment]> GetResultValue(
             self.parquet_format.MakeFragment(move(c_source),
                                              partition_expression.unwrap(),
-                                             move(c_row_groups),
-                                             <shared_ptr[CSchema]>nullptr))
+                                             <shared_ptr[CSchema]>nullptr,
+                                             move(c_row_groups)))
         return Fragment.wrap(move(c_fragment))
 
 
@@ -1935,6 +1926,12 @@ cdef class ParquetFactoryOptions(_Weakrefable):
         have partition information.
     partitioning : Partitioning, PartitioningFactory, optional
         The partitioning scheme applied to fragments, see ``Partitioning``.
+    validate_column_chunk_paths : bool, default False
+        Assert that all ColumnChunk paths are consistent. The parquet spec
+        allows for ColumnChunk data to be stored in multiple files, but
+        ParquetDatasetFactory supports only a single file with all ColumnChunk
+        data. If this flag is set construction of a ParquetDatasetFactory will
+        raise an error if ColumnChunk data is not resident in a single file.
     """
 
     cdef:
@@ -1942,7 +1939,8 @@ cdef class ParquetFactoryOptions(_Weakrefable):
 
     __slots__ = ()  # avoid mistakingly creating attributes
 
-    def __init__(self, partition_base_dir=None, partitioning=None):
+    def __init__(self, partition_base_dir=None, partitioning=None,
+                 validate_column_chunk_paths=False):
         if isinstance(partitioning, PartitioningFactory):
             self.partitioning_factory = partitioning
         elif isinstance(partitioning, Partitioning):
@@ -1950,6 +1948,8 @@ cdef class ParquetFactoryOptions(_Weakrefable):
 
         if partition_base_dir is not None:
             self.partition_base_dir = partition_base_dir
+
+        self.options.validate_column_chunk_paths = validate_column_chunk_paths
 
     cdef inline CParquetFactoryOptions unwrap(self):
         return self.options
@@ -1995,6 +1995,17 @@ cdef class ParquetFactoryOptions(_Weakrefable):
     @partition_base_dir.setter
     def partition_base_dir(self, value):
         self.options.partition_base_dir = tobytes(value)
+
+    @property
+    def validate_column_chunk_paths(self):
+        """
+        Base directory to strip paths before applying the partitioning.
+        """
+        return self.options.validate_column_chunk_paths
+
+    @validate_column_chunk_paths.setter
+    def validate_column_chunk_paths(self, value):
+        self.options.validate_column_chunk_paths = value
 
 
 cdef class ParquetDatasetFactory(DatasetFactory):

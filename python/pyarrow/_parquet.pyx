@@ -46,17 +46,8 @@ cimport cpython as cp
 
 
 cdef class Statistics(_Weakrefable):
-    cdef:
-        shared_ptr[CStatistics] statistics
-        ColumnChunkMetaData parent
-
     def __cinit__(self):
         pass
-
-    cdef init(self, const shared_ptr[CStatistics]& statistics,
-              ColumnChunkMetaData parent):
-        self.statistics = statistics
-        self.parent = parent
 
     def __repr__(self):
         return """{}
@@ -98,14 +89,7 @@ cdef class Statistics(_Weakrefable):
             return NotImplemented
 
     def equals(self, Statistics other):
-        # TODO(kszucs): implement native Equals method for Statistics
-        return (self.has_min_max == other.has_min_max and
-                self.min == other.min and
-                self.max == other.max and
-                self.null_count == other.null_count and
-                self.distinct_count == other.distinct_count and
-                self.num_values == other.num_values and
-                self.physical_type == other.physical_type)
+        return self.statistics.get().Equals(deref(other.statistics.get()))
 
     @property
     def has_min_max(self):
@@ -297,18 +281,8 @@ cdef _box_flba(ParquetFLBA val, uint32_t len):
 
 
 cdef class ColumnChunkMetaData(_Weakrefable):
-    cdef:
-        unique_ptr[CColumnChunkMetaData] up_metadata
-        CColumnChunkMetaData* metadata
-        RowGroupMetaData parent
-
     def __cinit__(self):
         pass
-
-    cdef init(self, RowGroupMetaData parent, int i):
-        self.up_metadata = parent.metadata.ColumnChunk(i)
-        self.metadata = self.up_metadata.get()
-        self.parent = parent
 
     def __repr__(self):
         statistics = indent(repr(self.statistics), 4 * ' ')
@@ -369,21 +343,7 @@ cdef class ColumnChunkMetaData(_Weakrefable):
             return NotImplemented
 
     def equals(self, ColumnChunkMetaData other):
-        # TODO(kszucs): implement native Equals method for CColumnChunkMetaData
-        return (self.file_offset == other.file_offset and
-                self.file_path == other.file_path and
-                self.physical_type == other.physical_type and
-                self.num_values == other.num_values and
-                self.path_in_schema == other.path_in_schema and
-                self.is_stats_set == other.is_stats_set and
-                self.statistics == other.statistics and
-                self.compression == other.compression and
-                self.encodings == other.encodings and
-                self.has_dictionary_page == other.has_dictionary_page and
-                self.dictionary_page_offset == other.dictionary_page_offset and
-                self.data_page_offset == other.data_page_offset and
-                self.total_compressed_size == other.total_compressed_size and
-                self.total_uncompressed_size == other.total_uncompressed_size)
+        return self.metadata.Equals(deref(other.metadata))
 
     @property
     def file_offset(self):
@@ -459,12 +419,6 @@ cdef class ColumnChunkMetaData(_Weakrefable):
 
 
 cdef class RowGroupMetaData(_Weakrefable):
-    cdef:
-        int index  # for pickling support
-        unique_ptr[CRowGroupMetaData] up_metadata
-        CRowGroupMetaData* metadata
-        FileMetaData parent
-
     def __cinit__(self, FileMetaData parent, int index):
         if index < 0 or index >= parent.num_row_groups:
             raise IndexError('{0} out of bounds'.format(index))
@@ -483,16 +437,7 @@ cdef class RowGroupMetaData(_Weakrefable):
             return NotImplemented
 
     def equals(self, RowGroupMetaData other):
-        if not (self.num_columns == other.num_columns and
-                self.num_rows == other.num_rows and
-                self.total_byte_size == other.total_byte_size):
-            return False
-
-        for i in range(self.num_columns):
-            if self.column(i) != other.column(i):
-                return False
-
-        return True
+        return self.metadata.Equals(deref(other.metadata))
 
     def column(self, int i):
         if i < 0 or i >= self.num_columns:
@@ -547,17 +492,8 @@ def _reconstruct_filemetadata(Buffer serialized):
 
 
 cdef class FileMetaData(_Weakrefable):
-    cdef:
-        shared_ptr[CFileMetaData] sp_metadata
-        CFileMetaData* _metadata
-        ParquetSchema _schema
-
     def __cinit__(self):
         pass
-
-    cdef init(self, const shared_ptr[CFileMetaData]& metadata):
-        self.sp_metadata = metadata
-        self._metadata = metadata.get()
 
     def __reduce__(self):
         cdef:
@@ -604,13 +540,7 @@ cdef class FileMetaData(_Weakrefable):
             return NotImplemented
 
     def equals(self, FileMetaData other):
-        # TODO(kszucs): use native method after ARROW-4970 is implemented
-        for prop in ('schema', 'serialized_size', 'num_columns', 'num_rows',
-                     'num_row_groups', 'format_version', 'created_by',
-                     'metadata'):
-            if getattr(self, prop) != getattr(other, prop):
-                return False
-        return True
+        return self._metadata.Equals(deref(other._metadata))
 
     @property
     def schema(self):
@@ -706,10 +636,6 @@ cdef class FileMetaData(_Weakrefable):
 
 
 cdef class ParquetSchema(_Weakrefable):
-    cdef:
-        FileMetaData parent  # the FileMetaData owning the SchemaDescriptor
-        const SchemaDescriptor* schema
-
     def __cinit__(self, FileMetaData container):
         self.parent = container
         self.schema = container._metadata.schema()
