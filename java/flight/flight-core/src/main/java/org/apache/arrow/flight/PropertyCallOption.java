@@ -33,12 +33,12 @@ import io.grpc.stub.MetadataUtils;
  * Method option for supplying properties to method calls.
  */
 public class PropertyCallOption implements CallOptions.GrpcCallOption {
-  private final Metadata propertiesMetadata;
+  private final Metadata propertiesMetadata = new Metadata();
 
   /**
    * Single property constructor.
    */
-  public PropertyCallOption(String key, String value) {
+  public PropertyCallOption(String key, Serializable value) {
     this(Collections.singletonMap(key, value));
   }
 
@@ -46,26 +46,27 @@ public class PropertyCallOption implements CallOptions.GrpcCallOption {
    * Multi-property constructor.
    */
   public PropertyCallOption(Map<String, Serializable> properties) {
-    // Encode the properties as a set of key/value Base64 encoded strings.
-    final StringBuilder value = new StringBuilder();
-    final Base64.Encoder encoder = Base64.getEncoder().withoutPadding();
-    for (Map.Entry<String, Serializable> property : properties.entrySet()) {
-      value.append(encoder.encodeToString(property.getKey().getBytes()));
-      value.append("=");
-      try (ByteArrayOutputStream byteStream = new ByteArrayOutputStream();
-          ObjectOutputStream outStream = new ObjectOutputStream(byteStream)) {
-        outStream.writeObject(property.getValue());
-        value.append(encoder.encodeToString(byteStream.toByteArray()));
-      } catch (IOException e) {
-        throw new RuntimeException(e);
+    if (!properties.isEmpty()) {
+      // Encode the properties as a set of key/value Base64 encoded strings.
+      final StringBuilder value = new StringBuilder();
+      final Base64.Encoder encoder = Base64.getEncoder().withoutPadding();
+      for (Map.Entry<String, Serializable> property : properties.entrySet()) {
+        value.append(encoder.encodeToString(property.getKey().getBytes()));
+        value.append("=");
+        try (ByteArrayOutputStream byteStream = new ByteArrayOutputStream();
+             ObjectOutputStream outStream = new ObjectOutputStream(byteStream)) {
+          outStream.writeObject(property.getValue());
+          value.append(encoder.encodeToString(byteStream.toByteArray()));
+        } catch (IOException e) {
+          throw new RuntimeException(e);
+        }
+        value.append(";");
       }
-      value.append(";");
-    }
 
-    propertiesMetadata = new Metadata();
-    propertiesMetadata.put(
-        Metadata.Key.of(FlightConstants.PROPERTY_HEADER, Metadata.ASCII_STRING_MARSHALLER),
-        value.toString());
+      propertiesMetadata.put(
+          Metadata.Key.of(FlightConstants.PROPERTY_HEADER, Metadata.ASCII_STRING_MARSHALLER),
+          value.toString());
+    }
   }
 
   @Override

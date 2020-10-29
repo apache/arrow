@@ -75,7 +75,7 @@ public class ServerCallHeaderAuthMiddleware implements FlightServerMiddleware {
 
   private final String bearerToken;
 
-  public ServerCallHeaderAuthMiddleware(String bearerToken) {
+  private ServerCallHeaderAuthMiddleware(String bearerToken) {
     this.bearerToken = bearerToken;
   }
 

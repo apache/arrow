@@ -44,21 +44,23 @@ public class ServerPropertyMiddleware implements FlightServerMiddleware {
 
     @Override
     public ServerPropertyMiddleware onCallStarted(CallInfo callInfo, CallHeaders incomingHeaders,
-                                                  RequestContext context) {
+        RequestContext context) {
       final String headerVal = incomingHeaders.get(FlightConstants.PROPERTY_HEADER);
       final Map<String, Object> properties = new HashMap<>();
       for (String property : headerVal.split(";")) {
         final String[] splitProp = property.split("=");
-        if (splitProp.length == 2) {
-          final String key = new String(Base64.getDecoder().decode(splitProp[0]));
+        if (splitProp.length != 2) {
+          throw new RuntimeException("Malformed property received from client.");
+        }
 
-          final byte[] binaryValue = Base64.getDecoder().decode(splitProp[1]);
-          try (ByteArrayInputStream byteInStream = new ByteArrayInputStream(binaryValue);
-              ObjectInputStream inStream = new ObjectInputStream(byteInStream)) {
-            properties.put(key, inStream.readObject());
-          } catch (IOException | ClassNotFoundException e) {
-            throw new RuntimeException(e);
-          }
+        final String key = new String(Base64.getDecoder().decode(splitProp[0]));
+
+        final byte[] binaryValue = Base64.getDecoder().decode(splitProp[1]);
+        try (ByteArrayInputStream byteInStream = new ByteArrayInputStream(binaryValue);
+            ObjectInputStream inStream = new ObjectInputStream(byteInStream)) {
+          properties.put(key, inStream.readObject());
+        } catch (IOException | ClassNotFoundException e) {
+          throw new RuntimeException(e);
         }
       }
 
@@ -70,7 +72,7 @@ public class ServerPropertyMiddleware implements FlightServerMiddleware {
     }
   }
 
-  public ServerPropertyMiddleware() {
+  private ServerPropertyMiddleware() {
   }
 
   @Override

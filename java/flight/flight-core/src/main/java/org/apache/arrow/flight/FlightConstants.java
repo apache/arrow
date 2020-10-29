@@ -23,6 +23,6 @@ package org.apache.arrow.flight;
 public interface FlightConstants {
 
   String SERVICE = "arrow.flight.protocol.FlightService";
-  String PROPERTY_HEADER = "ArrowProperties";
+  String PROPERTY_HEADER = "Arrow-Properties";
 
 }
