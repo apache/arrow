@@ -19,7 +19,6 @@ package org.apache.arrow.flight.auth2;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
-import java.util.Optional;
 
 import org.apache.arrow.flight.CallHeaders;
 import org.apache.arrow.flight.CallStatus;
@@ -35,9 +34,9 @@ public class BasicAuthValidator implements BasicCallHeaderAuthenticator.AuthVali
 
   /**
    * Creates a validator with supplied AuthTokenManager to generate token
-   * and CredentialValidator to validate username/password. 
+   * and CredentialValidator to validate username/password.
    * @param authTokenManager AuthTokenManager used to generate tokens.
-   * @param credentialValidator CredentialValidator used to validate the username/password
+   * @param credentialValidator CredentialValidator used to validate Credentials the username/password
    */
   public BasicAuthValidator(CredentialValidator credentialValidator, AuthTokenManager authTokenManager) {
     super();
@@ -49,37 +48,44 @@ public class BasicAuthValidator implements BasicCallHeaderAuthenticator.AuthVali
    * Interface that this validator delegates for determining if the credentials are valid.
    */
   interface CredentialValidator {
-    Optional<String> validate(String username, String password) throws Exception;
+    /**
+     * Validate the supplied credentials (username/password) and return the peer identity.
+     * @param username The username to validate.
+     * @param password The password to validate.
+     * @return The peer identity if the supplied credentials are valid.
+     * @throws Exception If the supplied credentials are not valid.
+     */
+    String validateCredentials(String username, String password) throws Exception;
   }
 
   /**
    * Interface that this validator delegates for generating and validating a token.
    */
   interface AuthTokenManager {
-    Optional<String> generateToken(String username, String password);
+    /**
+     * Generate a token for the supplied username and password.
+     * @param username The username to generate the token for.
+     * @param password The password to generate the token for.
+     * @return The generated token.
+     */
+    String generateToken(String username, String password);
 
-    Optional<String> validateToken(String token);
+    /**
+     * Validate the supplied token and return the peer identity.
+     * @param token The token to be validated.
+     * @return The peer identity if the supplied token is valid.
+     * @throws Exception If the supplied token is not valid.
+     */
+    String validateToken(String token) throws Exception;
   }
 
   @Override
   public AuthResult validateIncomingHeaders(CallHeaders incomingHeaders) throws Exception {
-    AuthResult authResult = parseAndValidateBearerHeaders(incomingHeaders);
+    final AuthResult authResult = parseAndValidateBearerHeaders(incomingHeaders);
     if (authResult != null) {
       return authResult;
     }
     return parseAndValidateBasicHeaders(incomingHeaders);
-  }
-
-  /**
-   * Appends an authorization header with a bearer token to the outgoing headers.
-   * @param outgoingHeaders Outgoing headers to append the authorization header to.
-   * @param token Token to be appended to the outgoing header along with the authorization header.
-   */
-  private void appendAuthHeaderWithBearerTokenToOutgoingHeaders(CallHeaders outgoingHeaders, String token) {
-    if (null == AuthUtilities.getValueFromAuthHeader(outgoingHeaders, Auth2Constants.BEARER_PREFIX)) {
-      outgoingHeaders.insert(Auth2Constants.AUTHORIZATION_HEADER,
-              Auth2Constants.BEARER_PREFIX + token);
-    }
   }
 
   /**
@@ -97,22 +103,44 @@ public class BasicAuthValidator implements BasicCallHeaderAuthenticator.AuthVali
     final String authDecoded = new String(Base64.getDecoder().decode(authEncoded), StandardCharsets.UTF_8);
     final int colonPos = authDecoded.indexOf(':');
     if (colonPos == -1) {
-      throw CallStatus.UNAUTHORIZED.toRuntimeException();
+      throw CallStatus.UNAUTHENTICATED.toRuntimeException();
     }
 
     final String user = authDecoded.substring(0, colonPos);
     final String password = authDecoded.substring(colonPos + 1);
-    credentialValidator.validate(user, password);
+    final String peerIdentity = credentialValidator.validateCredentials(user, password);
     return new AuthResult() {
       @Override
       public String getPeerIdentity() {
-        return user;
+        return peerIdentity;
+      }
+
+      @Override
+      public CallHeaderAuthenticator.HeaderMetadata getHeaderMetadata() {
+        return new CallHeaderAuthenticator.HeaderMetadata() {
+          @Override
+          public String getKey() {
+            return Auth2Constants.AUTHORIZATION_HEADER;
+          }
+
+          @Override
+          public String getValuePrefix() {
+            return Auth2Constants.BEARER_PREFIX;
+          }
+
+          @Override
+          public String getValue() {
+            return authTokenManager.generateToken(user, password);
+          }
+        };
       }
 
       @Override
       public void appendToOutgoingHeaders(CallHeaders outgoingHeaders) {
-        appendAuthHeaderWithBearerTokenToOutgoingHeaders(outgoingHeaders,
-                authTokenManager.generateToken(user, password).get());
+        final CallHeaderAuthenticator.HeaderMetadata metadata = this.getHeaderMetadata();
+        if (null == AuthUtilities.getValueFromAuthHeader(outgoingHeaders, metadata.getValuePrefix())) {
+          outgoingHeaders.insert(metadata.getKey(), metadata.getValuePrefix() + metadata.getValue());
+        }
       }
     };
   }
@@ -123,22 +151,41 @@ public class BasicAuthValidator implements BasicCallHeaderAuthenticator.AuthVali
    * @return An instance of an AuthResult.
    * @throws Exception When the bearer header does not contain the token or the token validation fails.
    */
-  private AuthResult parseAndValidateBearerHeaders(CallHeaders incomingHeaders) {
+  private AuthResult parseAndValidateBearerHeaders(CallHeaders incomingHeaders) throws Exception {
     final String parsedValue = AuthUtilities.getValueFromAuthHeader(incomingHeaders, Auth2Constants.BEARER_PREFIX);
     if (parsedValue != null) {
-      final Optional<String> peerIdentity = authTokenManager.validateToken(parsedValue);
-      if (!peerIdentity.isPresent()) {
-        throw CallStatus.UNAUTHORIZED.toRuntimeException();
-      }
+      final String peerIdentity = authTokenManager.validateToken(parsedValue);
       return new AuthResult() {
         @Override
         public String getPeerIdentity() {
-          return peerIdentity.get();
+          return peerIdentity;
+        }
+
+        public CallHeaderAuthenticator.HeaderMetadata getHeaderMetadata() {
+          return new CallHeaderAuthenticator.HeaderMetadata() {
+            @Override
+            public String getKey() {
+              return Auth2Constants.AUTHORIZATION_HEADER;
+            }
+
+            @Override
+            public String getValuePrefix() {
+              return Auth2Constants.BEARER_PREFIX;
+            }
+
+            @Override
+            public String getValue() {
+              return parsedValue;
+            }
+          };
         }
 
         @Override
         public void appendToOutgoingHeaders(CallHeaders outgoingHeaders) {
-          appendAuthHeaderWithBearerTokenToOutgoingHeaders(outgoingHeaders, parsedValue);
+          final CallHeaderAuthenticator.HeaderMetadata metadata = this.getHeaderMetadata();
+          if (null == AuthUtilities.getValueFromAuthHeader(outgoingHeaders, metadata.getValuePrefix())) {
+            outgoingHeaders.insert(metadata.getKey(), metadata.getValuePrefix() + metadata.getValue());
+          }
         }
       };
     }

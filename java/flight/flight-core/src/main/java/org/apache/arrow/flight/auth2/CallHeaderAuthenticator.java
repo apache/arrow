@@ -25,6 +25,33 @@ import org.apache.arrow.flight.FlightRuntimeException;
  */
 public interface CallHeaderAuthenticator {
   /**
+   * The header metadata that will be part of the header appended to the outgoing headers.
+   */
+  interface HeaderMetadata {
+
+    /**
+     * The metadata key of the header to be appended.
+     *
+     * @return The metadata key.
+     */
+    String getKey();
+
+    /**
+     * The metadata value prefix of the header to be appended.
+     *
+     * @return The metadata value prefix.
+     */
+    String getValuePrefix();
+
+    /**
+     * The metadata value of the header to be appended.
+     *
+     * @return The metadata value.
+     */
+    String getValue();
+  }
+
+  /**
    * The result of the server analyzing authentication headers.
    */
   interface AuthResult {
@@ -37,9 +64,14 @@ public interface CallHeaderAuthenticator {
     String getPeerIdentity();
 
     /**
+     * The outgoing header metadata that will be appended to the outgoing headers.
+     * @return The outgoing header metadata.
+     */
+    HeaderMetadata getHeaderMetadata();
+
+    /**
      * Appends a header to the outgoing call headers.
-     *
-     * @param outgoingHeaders The outgoing call headers to append the header to.
+     * @param outgoingHeaders The outgoing headers.
      */
     void appendToOutgoingHeaders(CallHeaders outgoingHeaders);
   }
@@ -47,23 +79,28 @@ public interface CallHeaderAuthenticator {
   /**
    * Validate the auth headers sent by the client.
    *
-   * @param headers The headers to authenticate.
+   * @param incomingHeaders The incoming headers to authenticate.
    * @return a handshake result containing a peer identity and optionally a bearer token.
    * @throws FlightRuntimeException with CallStatus.UNAUTHENTICATED if credentials were not supplied
-   *     or CallStatus.UNAUTHORIZED if credentials were supplied but were not valid.
+   *     or if credentials were supplied but were not valid.
    */
-  AuthResult authenticate(CallHeaders headers);
+  AuthResult authenticate(CallHeaders incomingHeaders);
 
   /**
    * An auth handler that does nothing.
    */
   CallHeaderAuthenticator NO_OP = new CallHeaderAuthenticator() {
     @Override
-    public AuthResult authenticate(CallHeaders headers) {
+    public AuthResult authenticate(CallHeaders incomingHeaders) {
       return new AuthResult() {
         @Override
         public String getPeerIdentity() {
           return "";
+        }
+
+        @Override
+        public HeaderMetadata getHeaderMetadata() {
+          return null;
         }
 
         @Override

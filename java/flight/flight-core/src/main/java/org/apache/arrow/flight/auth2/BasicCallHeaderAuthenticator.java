@@ -39,9 +39,9 @@ public class BasicCallHeaderAuthenticator implements CallHeaderAuthenticator {
   }
 
   @Override
-  public AuthResult authenticate(CallHeaders headers) {
+  public AuthResult authenticate(CallHeaders incomingHeaders) {
     try {
-      return authValidator.validateIncomingHeaders(headers);
+      return authValidator.validateIncomingHeaders(incomingHeaders);
     } catch (UnsupportedEncodingException ex) {
       throw CallStatus.INTERNAL.withCause(ex).toRuntimeException();
     } catch (FlightRuntimeException ex) {

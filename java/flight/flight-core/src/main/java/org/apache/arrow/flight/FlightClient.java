@@ -194,7 +194,7 @@ public class FlightClient implements AutoCloseable {
    * @return a CredentialCallOption containing a bearer token if the server emitted one, or
    *     empty if no bearer token was returned. This can be used in subsequent API calls.
    */
-  public Optional<CredentialCallOption> basicHeaderAuthenticate(String username, String password) {
+  public Optional<CredentialCallOption> authenticateBasicToken(String username, String password) {
     final ClientIncomingAuthHeaderMiddleware.Factory clientAuthMiddleware =
             new ClientIncomingAuthHeaderMiddleware.Factory(headerHandler);
     middleware.add(clientAuthMiddleware);

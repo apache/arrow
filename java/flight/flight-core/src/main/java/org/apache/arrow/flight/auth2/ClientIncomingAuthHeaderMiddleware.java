@@ -17,8 +17,6 @@
 
 package org.apache.arrow.flight.auth2;
 
-import java.util.concurrent.atomic.AtomicReference;
-
 import org.apache.arrow.flight.CallHeaders;
 import org.apache.arrow.flight.CallInfo;
 import org.apache.arrow.flight.CallStatus;
@@ -40,7 +38,7 @@ public class ClientIncomingAuthHeaderMiddleware implements FlightClientMiddlewar
    */
   public static class Factory implements FlightClientMiddleware.Factory {
     private final ClientHeaderHandler headerHandler;
-    private final AtomicReference<CredentialCallOption> credentialCallOption = new AtomicReference<>();
+    private CredentialCallOption credentialCallOption;
 
     /**
      * Construct a factory with the given header handler.
@@ -56,11 +54,11 @@ public class ClientIncomingAuthHeaderMiddleware implements FlightClientMiddlewar
     }
 
     void setCredentialCallOption(CredentialCallOption callOption) {
-      this.credentialCallOption.set(callOption);
+      this.credentialCallOption = callOption;
     }
 
     public CredentialCallOption getCredentialCallOption() {
-      return credentialCallOption.get();
+      return credentialCallOption;
     }
   }
 

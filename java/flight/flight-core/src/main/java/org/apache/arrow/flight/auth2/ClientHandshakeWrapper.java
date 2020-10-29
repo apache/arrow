@@ -20,6 +20,7 @@ package org.apache.arrow.flight.auth2;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
+import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.FlightRuntimeException;
 import org.apache.arrow.flight.grpc.StatusUtils;
 import org.apache.arrow.flight.impl.Flight.HandshakeRequest;
@@ -49,7 +50,7 @@ public class ClientHandshakeWrapper {
       try {
         if (!observer.completed.get()) {
           // TODO: ARROW-5681
-          throw new RuntimeException("Unauthenticated");
+          throw CallStatus.UNAUTHENTICATED.toRuntimeException();
         }
       } catch (InterruptedException ex) {
         Thread.currentThread().interrupt();

@@ -33,7 +33,7 @@ public interface RequestContext {
   /**
    * Retrieve a registered variable.
    * @param key the variable name.
-   * @return the value, or empty string if not found.
+   * @return the value, or null if not found.
    */
   String get(String key);
 

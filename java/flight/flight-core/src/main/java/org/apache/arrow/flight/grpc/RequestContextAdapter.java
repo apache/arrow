@@ -29,9 +29,9 @@ import io.grpc.Context;
  * Adapter for holding key value pairs.
  */
 public class RequestContextAdapter implements RequestContext {
-  private final HashMap<String, String> map = new HashMap<>();
   public static final Context.Key<RequestContext> REQUEST_CONTEXT_KEY =
-      Context.key("arrow-flight-request-context");
+          Context.key("arrow-flight-request-context");
+  private final HashMap<String, String> map = new HashMap<>();
 
   @Override
   public void put(String key, String value) {

@@ -22,6 +22,9 @@ import java.util.Base64;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.arrow.flight.CallStatus;
+
+import com.google.common.base.Strings;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 
@@ -33,26 +36,29 @@ public class GeneratedBearerTokenAuthHandler extends BearerTokenAuthHandler {
       .expireAfterAccess(2, TimeUnit.HOURS)
       .build();
 
-  @Override
-  protected String getIdentityForBearerToken(String bearerToken) {
-    return bearerToIdentityCache.getIfPresent(bearerToken);
+  public GeneratedBearerTokenAuthHandler(BasicCallHeaderAuthenticator basicAuthHandler) {
+    super(basicAuthHandler);
   }
 
   @Override
-  public boolean validateBearer(String bearerToken) {
-    return bearerToIdentityCache.getIfPresent(bearerToken) != null;
+  protected String validateBearer(String bearerToken) throws Exception {
+    final String peerIdentity = bearerToIdentityCache.getIfPresent(bearerToken);
+    if (peerIdentity == null) {
+      throw CallStatus.UNAUTHENTICATED.toRuntimeException();
+    }
+    return peerIdentity;
   }
 
-  String registerBearer(AuthResult handshakeResult) {
-    final String bearerToken = getBearerToken()
-        .orElseGet(() -> {
-          final UUID uuid = UUID.randomUUID();
-          final ByteBuffer byteBuffer = ByteBuffer.wrap(new byte[16]);
-          byteBuffer.putLong(uuid.getMostSignificantBits());
-          byteBuffer.putLong(uuid.getLeastSignificantBits());
-          return Base64.getEncoder().encodeToString(byteBuffer.array());
-        });
-    bearerToIdentityCache.put(bearerToken, handshakeResult.getPeerIdentity());
-    return bearerToken;
+  @Override
+  protected void registerBearer(AuthResult authResult) {
+    String bearerToken = authResult.getHeaderMetadata().getValue();
+    if (Strings.isNullOrEmpty(bearerToken)) {
+      final UUID uuid = UUID.randomUUID();
+      final ByteBuffer byteBuffer = ByteBuffer.wrap(new byte[16]);
+      byteBuffer.putLong(uuid.getMostSignificantBits());
+      byteBuffer.putLong(uuid.getLeastSignificantBits());
+      bearerToken = Base64.getEncoder().encodeToString(byteBuffer.array());
+    }
+    bearerToIdentityCache.put(bearerToken, authResult.getPeerIdentity());
   }
 }
