@@ -17,6 +17,11 @@
 
 package org.apache.arrow.flight;
 
+import java.util.HashMap;
+import java.util.Map;
+
+import com.google.common.base.Strings;
+
 /**
  * Middleware that's used to extract and pass properties to the server during requests.
  */
@@ -39,6 +44,12 @@ public class ServerPropertyMiddleware implements FlightServerMiddleware {
     public ServerPropertyMiddleware onCallStarted(CallInfo callInfo, CallHeaders incomingHeaders,
                                                   RequestContext context) {
       final String value = incomingHeaders.get(FlightConstants.PROPERTY_HEADER);
+      if (!Strings.isNullOrEmpty(value)) {
+        final Map<String, String> properties = new HashMap<>();
+
+        // TODO: Deserialize into a map.
+        propertyHandler.accept(properties);
+      }
 
       return new ServerPropertyMiddleware();
     }

@@ -29,13 +29,21 @@ import io.grpc.stub.MetadataUtils;
 public class PropertyCallOption implements CallOptions.GrpcCallOption {
   private final Metadata propertiesMetadata;
 
+  /**
+   * Single property constructor.
+   */
   public PropertyCallOption(String key, String value) {
     propertiesMetadata = new Metadata();
+    // TODO - do this properly.
     propertiesMetadata.put(Metadata.Key.of(FlightConstants.PROPERTY_HEADER, Metadata.ASCII_STRING_MARSHALLER), value);
   }
 
+  /**
+   * Multi-property constructor.
+   */
   public PropertyCallOption(Map<String, String> properties) {
     propertiesMetadata = new Metadata();
+    // TODO - do this properly.
     //propertiesMetadata.put(Metadata.Key.of(key, Metadata.ASCII_STRING_MARSHALLER), value);
   }
 

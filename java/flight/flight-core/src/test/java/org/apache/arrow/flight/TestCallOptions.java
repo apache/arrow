@@ -20,7 +20,9 @@ package org.apache.arrow.flight;
 import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.Iterator;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
@@ -66,16 +68,20 @@ public class TestCallOptions {
 
   @Test
   public void propertyHeader() {
+    final Map<String, String> properties = new HashMap<>();
     try (
         BufferAllocator a = new RootAllocator(Long.MAX_VALUE);
         Producer producer = new Producer(a);
         FlightServer s =
             FlightTestUtil.getStartedServer((location) ->
-                FlightServer.builder(a, location, producer).propertyHandler(t -> System.out.println(t)).build());
+                FlightServer.builder(a, location, producer).propertyHandler(p -> properties.putAll(p)).build());
         FlightClient client = FlightClient.builder(a, s.getLocation()).build()) {
 
-      Iterator<Result> results = client.doAction(new Action("fast"),
-          new PropertyCallOption(FlightConstants.PROPERTY_HEADER, "value"));
+      final String keyVal = "key";
+      final String propVal = "prop";
+      client.doAction(new Action("fast"), new PropertyCallOption(keyVal, propVal)).hasNext();
+      Assert.assertTrue(properties.containsKey(keyVal));
+      Assert.assertEquals(propVal, properties.get(keyVal));
     } catch (InterruptedException | IOException e) {
       throw new RuntimeException(e);
     }
