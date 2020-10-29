@@ -34,7 +34,9 @@ use crate::datasource::parquet::ParquetTable;
 use crate::datasource::TableProvider;
 use crate::error::{DataFusionError, Result};
 use crate::execution::dataframe_impl::DataFrameImpl;
-use crate::logical_plan::{FunctionRegistry, LogicalPlan, LogicalPlanBuilder};
+use crate::logical_plan::{
+    FunctionRegistry, LogicalPlan, LogicalPlanBuilder, TableSource,
+};
 use crate::optimizer::filter_push_down::FilterPushDown;
 use crate::optimizer::optimizer::OptimizerRule;
 use crate::optimizer::projection_push_down::ProjectionPushDown;
@@ -237,6 +239,25 @@ impl ExecutionContext {
         )))
     }
 
+    /// Creates a DataFrame for reading a custom TableProvider
+    pub fn read_table(
+        &mut self,
+        provider: Arc<dyn TableProvider + Send + Sync>,
+    ) -> Result<Arc<dyn DataFrame>> {
+        let schema = provider.schema().clone();
+        let table_scan = LogicalPlan::TableScan {
+            schema_name: "".to_string(),
+            source: TableSource::FromProvider(provider),
+            table_schema: schema.clone(),
+            projected_schema: schema,
+            projection: None,
+        };
+        Ok(Arc::new(DataFrameImpl::new(
+            self.state.clone(),
+            &LogicalPlanBuilder::from(&table_scan).build()?,
+        )))
+    }
+
     /// Register a CSV data source so that it can be referenced from SQL statements
     /// executed against this context.
     pub fn register_csv(
@@ -278,7 +299,7 @@ impl ExecutionContext {
                 let schema = provider.schema().clone();
                 let table_scan = LogicalPlan::TableScan {
                     schema_name: "".to_string(),
-                    table_name: table_name.to_string(),
+                    source: TableSource::FromContext(table_name.to_string()),
                     table_schema: schema.clone(),
                     projected_schema: schema,
                     projection: None,
