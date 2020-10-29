@@ -30,6 +30,8 @@ import org.apache.arrow.flight.FlightStream;
 import org.apache.arrow.flight.FlightTestUtil;
 import org.apache.arrow.flight.NoOpFlightProducer;
 import org.apache.arrow.flight.Ticket;
+import org.apache.arrow.flight.auth2.BasicAuthValidator.Factory.BasicCredentialValidator;
+import org.apache.arrow.flight.auth2.BasicAuthValidator.Factory.BearerTokenManager;
 import org.apache.arrow.flight.grpc.CredentialCallOption;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -135,7 +137,7 @@ public class TestBasicAuth2 {
   @Before
   public void setup() throws IOException {
     allocator = new RootAllocator(Long.MAX_VALUE);
-    final BasicAuthValidator.CredentialValidator credentialValidator = new BasicAuthValidator.CredentialValidator() {
+    final BasicCredentialValidator credentialValidator = new BasicCredentialValidator() {
       @Override
       public String validateCredentials(String username, String password) throws Exception {
         if (Strings.isNullOrEmpty(username)) {
@@ -150,7 +152,7 @@ public class TestBasicAuth2 {
         }
       }
     };
-    final BasicAuthValidator.AuthTokenManager authTokenManager = new BasicAuthValidator.AuthTokenManager() {
+    final BearerTokenManager authTokenManager = new BearerTokenManager() {
       @Override
       public String generateToken(String username, String password) {
         if (USERNAME_1.equals(username) && PASSWORD_1.equals(password)) {
@@ -172,8 +174,10 @@ public class TestBasicAuth2 {
       }
     };
 
-    final BasicCallHeaderAuthenticator.AuthValidator validator =
-        new BasicAuthValidator(credentialValidator, authTokenManager);
+    final BasicCallHeaderAuthenticator.ServerAuthValidator validator =
+        new BasicAuthValidator(new BasicAuthValidator.Factory(
+                BasicAuthValidator.Factory.createValidatorWithBasicAndBearerValidation(
+                        credentialValidator, authTokenManager)));
     final BasicCallHeaderAuthenticator basicCallHeaderAuthenticator = new BasicCallHeaderAuthenticator(validator);
     final GeneratedBearerTokenAuthHandler generatedBearerTokenAuthHandler =
             new GeneratedBearerTokenAuthHandler(new BasicCallHeaderAuthenticator(validator));

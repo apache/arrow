@@ -55,30 +55,9 @@ abstract class BearerTokenAuthHandler implements CallHeaderAuthenticator {
         }
 
         @Override
-        public HeaderMetadata getHeaderMetadata() {
-          return new HeaderMetadata() {
-            @Override
-            public String getKey() {
-              return Auth2Constants.AUTHORIZATION_HEADER;
-            }
-
-            @Override
-            public String getValuePrefix() {
-              return Auth2Constants.BEARER_PREFIX;
-            }
-
-            @Override
-            public String getValue() {
-              return bearerToken;
-            }
-          };
-        }
-
-        @Override
         public void appendToOutgoingHeaders(CallHeaders outgoingHeaders) {
-          HeaderMetadata metadata = this.getHeaderMetadata();
-          if (null == AuthUtilities.getValueFromAuthHeader(outgoingHeaders, metadata.getValuePrefix())) {
-            outgoingHeaders.insert(metadata.getKey(), metadata.getValuePrefix() + metadata.getValue());
+          if (null == AuthUtilities.getValueFromAuthHeader(outgoingHeaders, Auth2Constants.BEARER_PREFIX)) {
+            outgoingHeaders.insert(Auth2Constants.AUTHORIZATION_HEADER, Auth2Constants.BEARER_PREFIX + bearerToken);
           }
         }
       };

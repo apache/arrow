@@ -22,18 +22,15 @@ import java.io.UnsupportedEncodingException;
 import org.apache.arrow.flight.CallHeaders;
 import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.FlightRuntimeException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * A ServerAuthHandler for username/password authentication.
  */
 public class BasicCallHeaderAuthenticator implements CallHeaderAuthenticator {
 
-  private static final Logger logger = LoggerFactory.getLogger(BasicCallHeaderAuthenticator.class);
-  private final AuthValidator authValidator;
+  private final ServerAuthValidator authValidator;
 
-  public BasicCallHeaderAuthenticator(AuthValidator authValidator) {
+  public BasicCallHeaderAuthenticator(ServerAuthValidator authValidator) {
     super();
     this.authValidator = authValidator;
   }
@@ -54,7 +51,15 @@ public class BasicCallHeaderAuthenticator implements CallHeaderAuthenticator {
   /**
    * Interface that this handler delegates to for validating the incoming headers.
    */
-  public interface AuthValidator {
+  public interface ServerAuthValidator {
+    /**
+     * A factory for Server Auth Validator.
+     * @param <T> The validator type.
+     */
+    interface Factory<T extends ServerAuthValidator> {
+
+    }
+
     AuthResult validateIncomingHeaders(CallHeaders incomingHeaders) throws Exception;
   }
 }

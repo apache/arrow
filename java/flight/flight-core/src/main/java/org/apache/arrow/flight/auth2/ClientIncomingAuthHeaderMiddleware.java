@@ -22,15 +22,11 @@ import org.apache.arrow.flight.CallInfo;
 import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.FlightClientMiddleware;
 import org.apache.arrow.flight.grpc.CredentialCallOption;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Middleware for capturing bearer tokens sent back from the Flight server.
  */
 public class ClientIncomingAuthHeaderMiddleware implements FlightClientMiddleware {
-  private static final Logger logger = LoggerFactory.getLogger(ClientIncomingAuthHeaderMiddleware.class);
-
   private final Factory factory;
 
   /**

@@ -23,7 +23,7 @@ import org.apache.arrow.flight.grpc.CredentialCallOption;
 /**
  * A client header handler that parses the incoming headers for a bearer token.
  */
-class ClientBearerHeaderHandler implements ClientHeaderHandler {
+public class ClientBearerHeaderHandler implements ClientHeaderHandler {
 
   @Override
   public CredentialCallOption getCredentialCallOptionFromIncomingHeaders(CallHeaders incomingHeaders) {

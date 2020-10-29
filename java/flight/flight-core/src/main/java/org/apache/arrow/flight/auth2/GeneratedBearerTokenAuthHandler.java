@@ -22,11 +22,15 @@ import java.util.Base64;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.arrow.flight.CallHeaders;
 import org.apache.arrow.flight.CallStatus;
+import org.apache.arrow.flight.grpc.MetadataAdapter;
 
 import com.google.common.base.Strings;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
+
+import io.grpc.Metadata;
 
 /**
  * Generates and caches bearer tokens from user credentials.
@@ -51,7 +55,13 @@ public class GeneratedBearerTokenAuthHandler extends BearerTokenAuthHandler {
 
   @Override
   protected void registerBearer(AuthResult authResult) {
-    String bearerToken = authResult.getHeaderMetadata().getValue();
+    // We generate a dummy header and call appendToOutgoingHeaders with it.
+    // We then inspect the dummy header and parse the bearer token if present in the header
+    // and generate a new bearer token if a bearer token is not present in the header.
+    final CallHeaders dummyHeaders = new MetadataAdapter(new Metadata());
+    authResult.appendToOutgoingHeaders(dummyHeaders);
+    String bearerToken =
+            AuthUtilities.getValueFromAuthHeader(dummyHeaders, Auth2Constants.BEARER_PREFIX);
     if (Strings.isNullOrEmpty(bearerToken)) {
       final UUID uuid = UUID.randomUUID();
       final ByteBuffer byteBuffer = ByteBuffer.wrap(new byte[16]);

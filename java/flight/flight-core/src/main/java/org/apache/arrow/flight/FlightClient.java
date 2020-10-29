@@ -35,6 +35,7 @@ import org.apache.arrow.flight.auth.ClientAuthHandler;
 import org.apache.arrow.flight.auth.ClientAuthInterceptor;
 import org.apache.arrow.flight.auth.ClientAuthWrapper;
 import org.apache.arrow.flight.auth2.BasicAuthCredentialWriter;
+import org.apache.arrow.flight.auth2.ClientBearerHeaderHandler;
 import org.apache.arrow.flight.auth2.ClientHandshakeWrapper;
 import org.apache.arrow.flight.auth2.ClientHeaderHandler;
 import org.apache.arrow.flight.auth2.ClientIncomingAuthHeaderMiddleware;
@@ -196,7 +197,7 @@ public class FlightClient implements AutoCloseable {
    */
   public Optional<CredentialCallOption> authenticateBasicToken(String username, String password) {
     final ClientIncomingAuthHeaderMiddleware.Factory clientAuthMiddleware =
-            new ClientIncomingAuthHeaderMiddleware.Factory(headerHandler);
+            new ClientIncomingAuthHeaderMiddleware.Factory(new ClientBearerHeaderHandler());
     middleware.add(clientAuthMiddleware);
     handshake(new CredentialCallOption(new BasicAuthCredentialWriter(username, password)));
 

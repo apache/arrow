@@ -24,32 +24,6 @@ import org.apache.arrow.flight.FlightRuntimeException;
  * Interface for Server side authentication handlers.
  */
 public interface CallHeaderAuthenticator {
-  /**
-   * The header metadata that will be part of the header appended to the outgoing headers.
-   */
-  interface HeaderMetadata {
-
-    /**
-     * The metadata key of the header to be appended.
-     *
-     * @return The metadata key.
-     */
-    String getKey();
-
-    /**
-     * The metadata value prefix of the header to be appended.
-     *
-     * @return The metadata value prefix.
-     */
-    String getValuePrefix();
-
-    /**
-     * The metadata value of the header to be appended.
-     *
-     * @return The metadata value.
-     */
-    String getValue();
-  }
 
   /**
    * The result of the server analyzing authentication headers.
@@ -64,12 +38,6 @@ public interface CallHeaderAuthenticator {
     String getPeerIdentity();
 
     /**
-     * The outgoing header metadata that will be appended to the outgoing headers.
-     * @return The outgoing header metadata.
-     */
-    HeaderMetadata getHeaderMetadata();
-
-    /**
      * Appends a header to the outgoing call headers.
      * @param outgoingHeaders The outgoing headers.
      */
@@ -80,7 +48,7 @@ public interface CallHeaderAuthenticator {
    * Validate the auth headers sent by the client.
    *
    * @param incomingHeaders The incoming headers to authenticate.
-   * @return a handshake result containing a peer identity and optionally a bearer token.
+   * @return an auth result containing a peer identity and optionally a bearer token.
    * @throws FlightRuntimeException with CallStatus.UNAUTHENTICATED if credentials were not supplied
    *     or if credentials were supplied but were not valid.
    */
@@ -96,11 +64,6 @@ public interface CallHeaderAuthenticator {
         @Override
         public String getPeerIdentity() {
           return "";
-        }
-
-        @Override
-        public HeaderMetadata getHeaderMetadata() {
-          return null;
         }
 
         @Override
