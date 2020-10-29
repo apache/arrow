@@ -149,12 +149,7 @@ Dataset <- R6Class("Dataset", inherit = ArrowObject,
     # Start a new scan of the data
     # @return A [ScannerBuilder]
     NewScan = function() dataset___Dataset__NewScan(self),
-    ToString = function() self$schema$ToString(),
-    write = function(path, filesystem = NULL, schema = self$schema, format, partitioning, ...) {
-      path_and_fs <- get_path_and_filesystem(path, filesystem)
-      dataset___Dataset__Write(self, schema, format, path_and_fs$fs, path_and_fs$path, partitioning)
-      invisible(self)
-    }
+    ToString = function() self$schema$ToString()
   ),
   active = list(
     schema = function(schema) {

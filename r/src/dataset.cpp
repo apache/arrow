@@ -227,7 +227,7 @@ R6 dataset___FileFormat__DefaultWriteOptions(const std::shared_ptr<ds::FileForma
 }
 
 // [[arrow::export]]
-R6 dataset___ParquetFileFormat__MakeRead(bool use_buffered_stream, int64_t buffer_size,
+R6 dataset___ParquetFileFormat__Make(bool use_buffered_stream, int64_t buffer_size,
                                          cpp11::strings dict_columns) {
   auto fmt = std::make_shared<ds::ParquetFileFormat>();
 
