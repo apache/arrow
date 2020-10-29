@@ -176,6 +176,20 @@ public abstract class ArrowType {
 
       return new Decimal(precision, scale, bitWidth == null ? 128 : bitWidth);
     }
+
+    /**
+     * Construct Decimal with 128 bits.
+     * 
+     * This is kept mainly for the sake of backward compatibility.
+     * Please use {@link org.apache.arrow.vector.types.pojo.ArrowType.Decimal#Decimal(int, int, int)} instead.
+     *
+     * @deprecated This API will be removed in a future release.
+     */
+    @Deprecated
+    public Decimal(int precision, int scale) {
+      this(precision, scale, 128);
+    }
+
     <#else>
     @JsonCreator
     </#if>
