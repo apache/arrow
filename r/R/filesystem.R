@@ -262,7 +262,6 @@ FileSystem <- R6Class("FileSystem", inherit = ArrowObject,
       # TODO: see fs package for glob/regexp filtering
       # TODO: verbose method that shows other attributes as df
       # TODO: print methods for FileInfo, SubTreeFileSystem, S3FileSystem
-      fs___FileSystem__OpenAppendStream(self, clean_path_rel(path))
     }
   ),
   active = list(
