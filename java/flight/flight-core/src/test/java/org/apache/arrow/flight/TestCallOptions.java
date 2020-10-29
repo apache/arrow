@@ -68,7 +68,18 @@ public class TestCallOptions {
 
   @Test
   public void propertyHeader() {
-    final Map<String, String> properties = new HashMap<>();
+    final String keyVal = "key";
+    final String propVal = "prop";
+    final Map<String, Object> properties = test((client) -> {
+      client.doAction(new Action("fast"), new PropertyCallOption(keyVal, propVal)).hasNext();
+    });
+
+    Assert.assertTrue(properties.containsKey(keyVal));
+    Assert.assertEquals(propVal, properties.get(keyVal));
+  }
+
+  Map<String, Object> test(Consumer<FlightClient> testFn) {
+    final Map<String, Object> properties = new HashMap<>();
     try (
         BufferAllocator a = new RootAllocator(Long.MAX_VALUE);
         Producer producer = new Producer(a);
@@ -76,25 +87,8 @@ public class TestCallOptions {
             FlightTestUtil.getStartedServer((location) ->
                 FlightServer.builder(a, location, producer).propertyHandler(properties::putAll).build());
         FlightClient client = FlightClient.builder(a, s.getLocation()).build()) {
-
-      final String keyVal = "key";
-      final String propVal = "prop";
-      client.doAction(new Action("fast"), new PropertyCallOption(keyVal, propVal)).hasNext();
-      Assert.assertTrue(properties.containsKey(keyVal));
-      Assert.assertEquals(propVal, properties.get(keyVal));
-    } catch (InterruptedException | IOException e) {
-      throw new RuntimeException(e);
-    }
-  }
-
-  void test(Consumer<FlightClient> testFn) {
-    try (
-        BufferAllocator a = new RootAllocator(Long.MAX_VALUE);
-        Producer producer = new Producer(a);
-        FlightServer s =
-            FlightTestUtil.getStartedServer((location) -> FlightServer.builder(a, location, producer).build());
-        FlightClient client = FlightClient.builder(a, s.getLocation()).build()) {
       testFn.accept(client);
+      return properties;
     } catch (InterruptedException | IOException e) {
       throw new RuntimeException(e);
     }
