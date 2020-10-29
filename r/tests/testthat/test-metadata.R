@@ -137,6 +137,7 @@ test_that("metadata keeps attribute of top level data frame", {
   expect_identical(as.data.frame(tab), df)
 })
 
+
 test_that("metadata drops readr's problems attribute", {
   readr_like <- tibble::tibble(
     dbl = 1.1,
@@ -155,4 +156,11 @@ test_that("metadata drops readr's problems attribute", {
 
   tab <- Table$create(readr_like)
   expect_null(attr(as.data.frame(tab), "problems"))
+})
+
+test_that("metadata of list elements (ARROW-10386)", {
+  df <- data.frame(x = list(structure(1, foo = "bar"), structure(2, foo = "bar")))
+  tab <- Table$create(df)
+  expect_identical(attr(as.data.frame(tab)$x[[1]], "foo"), "bar")
+  expect_identical(attr(as.data.frame(tab)$x[[2]], "foo"), "bar")
 })
