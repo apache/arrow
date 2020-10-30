@@ -22,7 +22,7 @@ import org.apache.arrow.flight.CallHeaders;
 /**
  * Partial implementation of {@link CallHeaderAuthenticator} for bearer-token based authentication.
  */
-abstract class BearerTokenAuthenticator implements CallHeaderAuthenticator {
+public abstract class BearerTokenAuthenticator implements CallHeaderAuthenticator {
 
   final CallHeaderAuthenticator initialAuthenticator;
 
