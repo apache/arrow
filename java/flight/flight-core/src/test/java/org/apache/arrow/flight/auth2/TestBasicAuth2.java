@@ -17,8 +17,6 @@
 
 package org.apache.arrow.flight.auth2;
 
-import static org.apache.arrow.flight.auth2.BasicAuthValidator.createCompositeCredentialValidator;
-
 import java.io.IOException;
 
 import org.apache.arrow.flight.CallStatus;
@@ -32,9 +30,6 @@ import org.apache.arrow.flight.FlightStream;
 import org.apache.arrow.flight.FlightTestUtil;
 import org.apache.arrow.flight.NoOpFlightProducer;
 import org.apache.arrow.flight.Ticket;
-import org.apache.arrow.flight.auth2.BasicAuthValidator.CompositeCredentialValidator.BasicCredentialValidator;
-import org.apache.arrow.flight.auth2.BasicAuthValidator.CompositeCredentialValidator.BearerTokenManager;
-import org.apache.arrow.flight.auth2.BasicCallHeaderAuthenticator.ServerAuthValidator;
 import org.apache.arrow.flight.grpc.CredentialCallOption;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -59,136 +54,22 @@ public class TestBasicAuth2 {
   private static final String NO_USERNAME = "";
   private static final String PASSWORD_1 = "woohoo1";
   private static final String PASSWORD_2 = "woohoo2";
-  private static final String VALID_TOKEN_1 = "my_token1";
-  private static final String VALID_TOKEN_2 = "my_token2";
   private BufferAllocator allocator;
-  private ServerAuthValidator validator;
-
-  @Test
-  public void validAuthWithBasicAuthServer() throws IOException {
-    final BasicCallHeaderAuthenticator basicCallHeaderAuthenticator = new BasicCallHeaderAuthenticator(validator);
-    final FlightClient clientWithBasicAuthServer = getFlightClient(
-            basicCallHeaderAuthenticator, new ClientBearerHeaderHandler());
-    testValidAuth(clientWithBasicAuthServer);
-  }
-
-  @Test
-  public void validAuthWithBearerAuthServer() throws IOException {
-    final GeneratedBearerTokenAuthHandler generatedBearerTokenAuthHandler =
-            new GeneratedBearerTokenAuthHandler(new BasicCallHeaderAuthenticator(validator));
-    final FlightClient clientWithBearerAuthServer = getFlightClient(
-            generatedBearerTokenAuthHandler, new ClientBearerHeaderHandler());
-    testValidAuth(clientWithBearerAuthServer);
-  }
-
-  @Test
-  public void validAuthWithMultipleClientsWithSameCredentialsWithBasicAuthServer() throws IOException {
-    final BasicCallHeaderAuthenticator basicCallHeaderAuthenticator = new BasicCallHeaderAuthenticator(validator);
-    final FlightClient clientWithBasicAuthServer1 = getFlightClient(
-            basicCallHeaderAuthenticator, new ClientBearerHeaderHandler());
-    final FlightClient clientWithBasicAuthServer2 = getFlightClient(
-            basicCallHeaderAuthenticator, new ClientBearerHeaderHandler());
-    testValidAuthWithMultipleClientsWithSameCredentials(
-            clientWithBasicAuthServer1, clientWithBasicAuthServer2);
-  }
-
-  @Test
-  public void validAuthWithMultipleClientsWithSameCredentialsWithBearerAuthServer() throws IOException {
-    final GeneratedBearerTokenAuthHandler generatedBearerTokenAuthHandler =
-            new GeneratedBearerTokenAuthHandler(new BasicCallHeaderAuthenticator(validator));
-    final FlightClient clientWithBearerAuthServer1 = getFlightClient(
-            generatedBearerTokenAuthHandler, new ClientBearerHeaderHandler());
-    final FlightClient clientWithBearerAuthServer2 = getFlightClient(
-            generatedBearerTokenAuthHandler, new ClientBearerHeaderHandler());
-    testValidAuthWithMultipleClientsWithSameCredentials(
-            clientWithBearerAuthServer1, clientWithBearerAuthServer2);
-  }
-
-  @Test
-  public void validAuthWithMultipleClientsWithDifferentCredentialsWithBasicAuthServer() throws IOException {
-    final BasicCallHeaderAuthenticator basicCallHeaderAuthenticator = new BasicCallHeaderAuthenticator(validator);
-    final FlightClient clientWithBasicAuthServer1 = getFlightClient(
-            basicCallHeaderAuthenticator, new ClientBearerHeaderHandler());
-    final FlightClient clientWithBasicAuthServer2 = getFlightClient(
-            basicCallHeaderAuthenticator, new ClientBearerHeaderHandler());
-    testValidAuthWithMultipleClientsWithDifferentCredentials(
-            clientWithBasicAuthServer1, clientWithBasicAuthServer2);
-  }
-
-  @Test
-  public void validAuthWithMultipleClientsWithDifferentCredentialsWithBearerAuthServer() throws IOException {
-    final GeneratedBearerTokenAuthHandler generatedBearerTokenAuthHandler =
-            new GeneratedBearerTokenAuthHandler(new BasicCallHeaderAuthenticator(validator));
-    final FlightClient clientWithBearerAuthServer1 = getFlightClient(
-            generatedBearerTokenAuthHandler, new ClientBearerHeaderHandler());
-    final FlightClient clientWithBearerAuthServer2 = getFlightClient(
-            generatedBearerTokenAuthHandler, new ClientBearerHeaderHandler());
-    testValidAuthWithMultipleClientsWithDifferentCredentials(
-            clientWithBearerAuthServer1, clientWithBearerAuthServer2);
-  }
-
-  // ARROW-7722: this test occasionally leaks memory
-  @Ignore
-  @Test
-  public void asyncCall() throws Exception {
-    final BasicCallHeaderAuthenticator basicCallHeaderAuthenticator = new BasicCallHeaderAuthenticator(validator);
-    final FlightClient clientWithBasicAuthServer1 = getFlightClient(
-            basicCallHeaderAuthenticator, new ClientBearerHeaderHandler());
-    final CredentialCallOption bearerToken = clientWithBasicAuthServer1
-            .authenticateBasicToken(USERNAME_1, PASSWORD_1).get();
-    clientWithBasicAuthServer1.listFlights(Criteria.ALL, bearerToken);
-    try (final FlightStream s = clientWithBasicAuthServer1.getStream(new Ticket(new byte[1]))) {
-      while (s.next()) {
-        Assert.assertEquals(4095, s.getRoot().getRowCount());
-      }
-    }
-  }
-
-  @Test
-  public void invalidAuthWithBasicAuthServer() throws IOException {
-    final BasicCallHeaderAuthenticator basicCallHeaderAuthenticator = new BasicCallHeaderAuthenticator(validator);
-    final FlightClient clientWithBasicAuthServer1 = getFlightClient(
-            basicCallHeaderAuthenticator, new ClientBearerHeaderHandler());
-    testInvalidAuth(clientWithBasicAuthServer1);
-  }
-
-  @Test
-  public void invalidAuthWithBearerAuthServer() throws IOException {
-    final GeneratedBearerTokenAuthHandler generatedBearerTokenAuthHandler =
-            new GeneratedBearerTokenAuthHandler(new BasicCallHeaderAuthenticator(validator));
-    final FlightClient clientWithBearerAuthServer1 = getFlightClient(
-            generatedBearerTokenAuthHandler, new ClientBearerHeaderHandler());
-    testInvalidAuth(clientWithBearerAuthServer1);
-  }
-
-  @Test
-  public void didntAuthWithBasicAuthServer() throws IOException {
-    final BasicCallHeaderAuthenticator basicCallHeaderAuthenticator = new BasicCallHeaderAuthenticator(validator);
-    final FlightClient clientWithBasicAuthServer1 = getFlightClient(
-            basicCallHeaderAuthenticator, new ClientBearerHeaderHandler());
-    didntAuth(clientWithBasicAuthServer1);
-  }
-
-  @Test
-  public void didntAuthWithBearerAuthServer() throws IOException {
-    final GeneratedBearerTokenAuthHandler generatedBearerTokenAuthHandler =
-            new GeneratedBearerTokenAuthHandler(new BasicCallHeaderAuthenticator(validator));
-    final FlightClient clientWithBearerAuthServer1 = getFlightClient(
-            generatedBearerTokenAuthHandler, new ClientBearerHeaderHandler());
-    didntAuth(clientWithBearerAuthServer1);
-  }
+  private FlightServer server;
+  private FlightClient client;
+  private FlightClient client2;
 
   @Before
-  public void setup() {
+  public void setup() throws Exception {
     allocator = new RootAllocator(Long.MAX_VALUE);
-    validator = getServerAuthValidator();
+    startServerAndClient();
   }
 
   private FlightProducer getFlightProducer() {
     return new NoOpFlightProducer() {
       @Override
       public void listFlights(CallContext context, Criteria criteria,
-                              StreamListener<FlightInfo> listener) {
+          StreamListener<FlightInfo> listener) {
         if (!context.peerIdentity().equals(USERNAME_1) && !context.peerIdentity().equals(USERNAME_2)) {
           listener.onError(new IllegalArgumentException("Invalid username"));
           return;
@@ -215,61 +96,86 @@ public class TestBasicAuth2 {
     };
   }
 
-  private FlightClient getFlightClient(CallHeaderAuthenticator headerAuthenticator,
-                                       ClientHeaderHandler clientHeaderHandler) throws IOException {
+  private void startServerAndClient() throws IOException {
     final FlightProducer flightProducer = getFlightProducer();
-    final FlightServer flightServer = FlightTestUtil.getStartedServer((location) -> FlightServer
-            .builder(allocator, location, flightProducer)
-            .headerAuthenticator(headerAuthenticator).build());
-    return FlightClient.builder(allocator, flightServer.getLocation())
-            .headerHandler(clientHeaderHandler)
-            .build();
-  }
+    this.server = FlightTestUtil.getStartedServer((location) -> FlightServer
+        .builder(allocator, location, flightProducer)
+        .headerAuthenticator(new GeneratedBearerTokenAuthenticator(
+            new BasicCallHeaderAuthenticator(this::validate)))
+        .build());
 
-  private ServerAuthValidator getServerAuthValidator() {
-    final BasicCredentialValidator credentialValidator = new BasicCredentialValidator() {
-      @Override
-      public String validateCredentials(String username, String password) throws Exception {
-        if (Strings.isNullOrEmpty(username)) {
-          throw CallStatus.UNAUTHENTICATED.withDescription("Credentials not supplied.").toRuntimeException();
-        }
-        if (USERNAME_1.equals(username) && PASSWORD_1.equals(password)) {
-          return USERNAME_1;
-        } else if (USERNAME_2.equals(username) && PASSWORD_2.equals(password)) {
-          return USERNAME_2;
-        } else {
-          throw CallStatus.UNAUTHENTICATED.withDescription("Username or password is invalid.").toRuntimeException();
-        }
-      }
-    };
-    final BearerTokenManager authTokenManager = new BearerTokenManager() {
-      @Override
-      public String generateToken(String username, String password) {
-        if (USERNAME_1.equals(username) && PASSWORD_1.equals(password)) {
-          return VALID_TOKEN_1;
-        } else {
-          return VALID_TOKEN_2;
-        }
-      }
-
-      @Override
-      public String validateToken(String token) throws Exception {
-        if (token.equals(VALID_TOKEN_1)) {
-          return USERNAME_1;
-        } else if (token.equals(VALID_TOKEN_2)) {
-          return USERNAME_2;
-        } else {
-          throw CallStatus.UNAUTHENTICATED.withDescription("Token is invalid.").toRuntimeException();
-        }
-      }
-    };
-
-    return new BasicAuthValidator(createCompositeCredentialValidator(credentialValidator, authTokenManager));
+    this.client = FlightClient.builder(allocator, server.getLocation())
+        .build();
   }
 
   @After
   public void shutdown() throws Exception {
-    AutoCloseables.close(allocator);
+    AutoCloseables.close(client, client2, server, allocator);
+    client = null;
+    client2 = null;
+    server = null;
+    allocator = null;
+  }
+
+  private void startClient2() throws IOException {
+    client2 = FlightClient.builder(allocator, server.getLocation())
+        .build();
+  }
+
+  private CallHeaderAuthenticator.AuthResult validate(String username, String password) {
+    if (Strings.isNullOrEmpty(username)) {
+      throw CallStatus.UNAUTHENTICATED.withDescription("Credentials not supplied.").toRuntimeException();
+    }
+    final String identity;
+    if (USERNAME_1.equals(username) && PASSWORD_1.equals(password)) {
+      identity = USERNAME_1;
+    } else if (USERNAME_2.equals(username) && PASSWORD_2.equals(password)) {
+      identity = USERNAME_2;
+    } else {
+      throw CallStatus.UNAUTHENTICATED.withDescription("Username or password is invalid.").toRuntimeException();
+    }
+    return () -> identity;
+  }
+
+  @Test
+  public void validAuthWithBearerAuthServer() throws IOException {
+    testValidAuth(client);
+  }
+
+  @Test
+  public void validAuthWithMultipleClientsWithSameCredentialsWithBearerAuthServer() throws IOException {
+    startClient2();
+    testValidAuthWithMultipleClientsWithSameCredentials(client, client2);
+  }
+
+  @Test
+  public void validAuthWithMultipleClientsWithDifferentCredentialsWithBearerAuthServer() throws IOException {
+    startClient2();
+    testValidAuthWithMultipleClientsWithDifferentCredentials(client, client2);
+  }
+
+  // ARROW-7722: this test occasionally leaks memory
+  @Ignore
+  @Test
+  public void asyncCall() throws Exception {
+    final CredentialCallOption bearerToken = client
+        .authenticateBasicToken(USERNAME_1, PASSWORD_1).get();
+    client.listFlights(Criteria.ALL, bearerToken);
+    try (final FlightStream s = client.getStream(new Ticket(new byte[1]))) {
+      while (s.next()) {
+        Assert.assertEquals(4095, s.getRoot().getRowCount());
+      }
+    }
+  }
+
+  @Test
+  public void invalidAuthWithBearerAuthServer() throws IOException {
+    testInvalidAuth(client);
+  }
+
+  @Test
+  public void didntAuthWithBearerAuthServer() throws IOException {
+    didntAuth(client);
   }
 
   private void testValidAuth(FlightClient client) {

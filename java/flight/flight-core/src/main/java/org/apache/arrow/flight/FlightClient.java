@@ -37,7 +37,6 @@ import org.apache.arrow.flight.auth.ClientAuthWrapper;
 import org.apache.arrow.flight.auth2.BasicAuthCredentialWriter;
 import org.apache.arrow.flight.auth2.ClientBearerHeaderHandler;
 import org.apache.arrow.flight.auth2.ClientHandshakeWrapper;
-import org.apache.arrow.flight.auth2.ClientHeaderHandler;
 import org.apache.arrow.flight.auth2.ClientIncomingAuthHeaderMiddleware;
 import org.apache.arrow.flight.grpc.ClientInterceptorAdapter;
 import org.apache.arrow.flight.grpc.CredentialCallOption;
@@ -88,17 +87,15 @@ public class FlightClient implements AutoCloseable {
   private final MethodDescriptor<ArrowMessage, Flight.PutResult> doPutDescriptor;
   private final MethodDescriptor<ArrowMessage, ArrowMessage> doExchangeDescriptor;
   private final List<FlightClientMiddleware.Factory> middleware;
-  private final ClientHeaderHandler headerHandler;
 
   /**
    * Create a Flight client from an allocator and a gRPC channel.
    */
   FlightClient(BufferAllocator incomingAllocator, ManagedChannel channel,
-      List<FlightClientMiddleware.Factory> middleware, ClientHeaderHandler headerHandler) {
+      List<FlightClientMiddleware.Factory> middleware) {
     this.allocator = incomingAllocator.newChildAllocator("flight-client", 0, Long.MAX_VALUE);
     this.channel = channel;
     this.middleware = middleware;
-    this.headerHandler = headerHandler;
 
     final ClientInterceptor[] interceptors;
     interceptors = new ClientInterceptor[]{authInterceptor, new ClientInterceptorAdapter(middleware)};
@@ -574,7 +571,6 @@ public class FlightClient implements AutoCloseable {
     private String overrideHostname = null;
     private List<FlightClientMiddleware.Factory> middleware = new ArrayList<>();
     private boolean verifyServer = true;
-    private ClientHeaderHandler headerHandler = ClientHeaderHandler.NO_OP;
 
     private Builder() {
     }
@@ -636,11 +632,6 @@ public class FlightClient implements AutoCloseable {
 
     public Builder verifyServer(boolean verifyServer) {
       this.verifyServer = verifyServer;
-      return this;
-    }
-
-    public Builder headerHandler(ClientHeaderHandler headerHandler) {
-      this.headerHandler = headerHandler;
       return this;
     }
 
@@ -724,7 +715,7 @@ public class FlightClient implements AutoCloseable {
       builder
           .maxTraceEvents(MAX_CHANNEL_TRACE_EVENTS)
           .maxInboundMessageSize(maxInboundMessageSize);
-      return new FlightClient(allocator, builder.build(), middleware, headerHandler);
+      return new FlightClient(allocator, builder.build(), middleware);
     }
   }
 }

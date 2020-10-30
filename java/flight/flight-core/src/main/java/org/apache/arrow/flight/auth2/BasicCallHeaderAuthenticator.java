@@ -18,6 +18,8 @@
 package org.apache.arrow.flight.auth2;
 
 import java.io.UnsupportedEncodingException;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 
 import org.apache.arrow.flight.CallHeaders;
 import org.apache.arrow.flight.CallStatus;
@@ -28,30 +30,51 @@ import org.apache.arrow.flight.FlightRuntimeException;
  */
 public class BasicCallHeaderAuthenticator implements CallHeaderAuthenticator {
 
-  private final ServerAuthValidator authValidator;
+  private final CredentialValidator authValidator;
 
-  public BasicCallHeaderAuthenticator(ServerAuthValidator authValidator) {
-    super();
+  public BasicCallHeaderAuthenticator(CredentialValidator authValidator) {
     this.authValidator = authValidator;
   }
 
   @Override
   public AuthResult authenticate(CallHeaders incomingHeaders) {
     try {
-      return authValidator.validateIncomingHeaders(incomingHeaders);
+      final String authEncoded = AuthUtilities.getValueFromAuthHeader(
+          incomingHeaders, Auth2Constants.BASIC_PREFIX);
+      if (authEncoded == null) {
+        throw CallStatus.UNAUTHENTICATED.toRuntimeException();
+      }
+      // The value has the format Base64(<username>:<password>)
+      final String authDecoded = new String(Base64.getDecoder().decode(authEncoded), StandardCharsets.UTF_8);
+      final int colonPos = authDecoded.indexOf(':');
+      if (colonPos == -1) {
+        throw CallStatus.UNAUTHENTICATED.toRuntimeException();
+      }
+
+      final String user = authDecoded.substring(0, colonPos);
+      final String password = authDecoded.substring(colonPos + 1);
+      return authValidator.validate(user, password);
     } catch (UnsupportedEncodingException ex) {
       throw CallStatus.INTERNAL.withCause(ex).toRuntimeException();
     } catch (FlightRuntimeException ex) {
       throw ex;
     } catch (Exception ex) {
-      throw CallStatus.UNAUTHORIZED.withCause(ex).toRuntimeException();
+      throw CallStatus.UNAUTHENTICATED.withCause(ex).toRuntimeException();
     }
   }
 
   /**
    * Interface that this handler delegates to for validating the incoming headers.
    */
-  public interface ServerAuthValidator {
-    AuthResult validateIncomingHeaders(CallHeaders incomingHeaders) throws Exception;
+  public interface CredentialValidator {
+    /**
+     * Validate the supplied credentials (username/password) and return the peer identity.
+     *
+     * @param username The username to validate.
+     * @param password The password to validate.
+     * @return The peer identity if the supplied credentials are valid.
+     * @throws Exception If the supplied credentials are not valid.
+     */
+    AuthResult validate(String username, String password) throws Exception;
   }
 }

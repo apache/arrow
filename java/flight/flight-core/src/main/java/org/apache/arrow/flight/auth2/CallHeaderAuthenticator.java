@@ -41,7 +41,9 @@ public interface CallHeaderAuthenticator {
      * Appends a header to the outgoing call headers.
      * @param outgoingHeaders The outgoing headers.
      */
-    void appendToOutgoingHeaders(CallHeaders outgoingHeaders);
+    default void appendToOutgoingHeaders(CallHeaders outgoingHeaders) {
+
+    }
   }
 
   /**
