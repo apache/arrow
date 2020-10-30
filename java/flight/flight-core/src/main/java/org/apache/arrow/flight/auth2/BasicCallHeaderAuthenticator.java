@@ -24,11 +24,15 @@ import java.util.Base64;
 import org.apache.arrow.flight.CallHeaders;
 import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.FlightRuntimeException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * A ServerAuthHandler for username/password authentication.
  */
 public class BasicCallHeaderAuthenticator implements CallHeaderAuthenticator {
+
+  private static final Logger logger = LoggerFactory.getLogger(BasicCallHeaderAuthenticator.class);
 
   private final CredentialValidator authValidator;
 
@@ -55,11 +59,15 @@ public class BasicCallHeaderAuthenticator implements CallHeaderAuthenticator {
       final String password = authDecoded.substring(colonPos + 1);
       return authValidator.validate(user, password);
     } catch (UnsupportedEncodingException ex) {
-      throw CallStatus.INTERNAL.withCause(ex).toRuntimeException();
+      // Note: Intentionally discarding the exception cause when reporting back to the client for security purposes.
+      logger.error("Authentication failed due to missing encoding.", ex);
+      throw CallStatus.INTERNAL.toRuntimeException();
     } catch (FlightRuntimeException ex) {
       throw ex;
     } catch (Exception ex) {
-      throw CallStatus.UNAUTHENTICATED.withCause(ex).toRuntimeException();
+      // Note: Intentionally discarding the exception cause when reporting back to the client for security purposes.
+      logger.error("Authentication failed.", ex);
+      throw CallStatus.UNAUTHENTICATED.toRuntimeException();
     }
   }
 
