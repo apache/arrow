@@ -22,11 +22,29 @@ import org.apache.arrow.flight.FlightRuntimeException;
 
 /**
  * Interface for Server side authentication handlers.
+ *
+ * A CallHeaderAuthenticator is used by {@link ServerCallHeaderAuthMiddleware} to validate headers sent by a Flight
+ * client for authentication purposes. The headers validated do not necessarily have to be Authorization headers.
+ *
+ * The workflow is that the FlightServer will intercept headers on a request, validate the headers, and
+ * either send back an UNAUTHENTICATED error, or succeed and potentially send back additional headers to the client.
+ *
+ * Implementations of CallHeaderAuthenticator should take care not to provide leak confidential details (such as
+ * indicating if usernames are valid or not) for security reasons when reporting errors back to clients.
+ *
+ * Example CallHeaderAuthenticators provided include:
+ * The {@link BasicCallHeaderAuthenticator} will authenticate basic HTTP credentials.
+ *
+ * The {@link BearerTokenAuthenticator} will authenticate basic HTTP credentials initially, then also send back a
+ * bearer token that the client can use for subsequent requests. The {@link GeneratedBearerTokenAuthenticator} will
+ * provide internally generated bearer tokens and maintain a cache of them.
  */
 public interface CallHeaderAuthenticator {
 
   /**
-   * The result of the server analyzing authentication headers.
+   * Encapsulates the result of the {@link CallHeaderAuthenticator} analysis of headers.
+   *
+   * This includes the identity of the incoming user and any outbound headers to send as a response to the client.
    */
   interface AuthResult {
     /**
@@ -62,17 +80,7 @@ public interface CallHeaderAuthenticator {
   CallHeaderAuthenticator NO_OP = new CallHeaderAuthenticator() {
     @Override
     public AuthResult authenticate(CallHeaders incomingHeaders) {
-      return new AuthResult() {
-        @Override
-        public String getPeerIdentity() {
-          return "";
-        }
-
-        @Override
-        public void appendToOutgoingHeaders(CallHeaders outgoingHeaders) {
-
-        }
-      };
+      return () -> "";
     }
   };
 }
