@@ -40,13 +40,6 @@ DataType <- R6Class("DataType",
     num_fields = function() {
       DataType__num_fields(self)
     },
-    num_children = function() {
-      DataType__num_fields(self)
-    },
-    children = function() {
-      # TODO: this is deprecated
-      DataType__fields(self)
-    },
     fields = function() {
       DataType__fields(self)
     }
