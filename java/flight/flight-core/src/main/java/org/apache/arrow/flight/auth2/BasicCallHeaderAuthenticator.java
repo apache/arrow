@@ -52,14 +52,6 @@ public class BasicCallHeaderAuthenticator implements CallHeaderAuthenticator {
    * Interface that this handler delegates to for validating the incoming headers.
    */
   public interface ServerAuthValidator {
-    /**
-     * A factory for Server Auth Validator.
-     * @param <T> The validator type.
-     */
-    interface Factory<T extends ServerAuthValidator> {
-
-    }
-
     AuthResult validateIncomingHeaders(CallHeaders incomingHeaders) throws Exception;
   }
 }
