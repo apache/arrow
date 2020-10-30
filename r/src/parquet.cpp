@@ -63,7 +63,7 @@ R6 parquet___arrow___FileReader__OpenFile(
   parquet::arrow::FileReaderBuilder builder;
   PARQUET_THROW_NOT_OK(builder.Open(file));
   PARQUET_THROW_NOT_OK(
-    builder.memory_pool(gc_memory_pool())->properties(*props)->Build(&reader));
+      builder.memory_pool(gc_memory_pool())->properties(*props)->Build(&reader));
   return cpp11::r6(std::shared_ptr<parquet::arrow::FileReader>(std::move(reader)),
                    "ParquetFileReader");
 }

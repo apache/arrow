@@ -51,7 +51,7 @@ R6 io___CompressedOutputStream__Make(
 R6 io___CompressedInputStream__Make(const std::shared_ptr<arrow::util::Codec>& codec,
                                     const std::shared_ptr<arrow::io::InputStream>& raw) {
   auto stream = ValueOrStop(
-    arrow::io::CompressedInputStream::Make(codec.get(), raw, gc_memory_pool()));
+      arrow::io::CompressedInputStream::Make(codec.get(), raw, gc_memory_pool()));
   return cpp11::r6(stream, "CompressedInputStream");
 }
 

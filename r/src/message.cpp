@@ -81,7 +81,8 @@ R6 ipc___ReadSchema_Message(const std::unique_ptr<arrow::ipc::Message>& message)
 
 // [[arrow::export]]
 R6 ipc___MessageReader__Open(const std::shared_ptr<arrow::io::InputStream>& stream) {
-  std::shared_ptr<arrow::ipc::MessageReader> reader(arrow::ipc::MessageReader::Open(stream));
+  std::shared_ptr<arrow::ipc::MessageReader> reader(
+      arrow::ipc::MessageReader::Open(stream));
   return cpp11::r6(reader, "MessageReader");
 }
 

@@ -42,8 +42,8 @@ R6 json___TableReader__Make(
     const std::shared_ptr<arrow::io::InputStream>& input,
     const std::shared_ptr<arrow::json::ReadOptions>& read_options,
     const std::shared_ptr<arrow::json::ParseOptions>& parse_options) {
-  auto reader = ValueOrStop(arrow::json::TableReader::Make(gc_memory_pool(), input,
-                                                           *read_options, *parse_options));
+  auto reader = ValueOrStop(arrow::json::TableReader::Make(
+      gc_memory_pool(), input, *read_options, *parse_options));
   return cpp11::r6(reader, "JsonTableReader");
 }
 

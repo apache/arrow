@@ -42,7 +42,8 @@ R6 compute___CastOptions__initialize(bool allow_int_overflow, bool allow_time_tr
 R6 Array__cast(const std::shared_ptr<arrow::Array>& array,
                const std::shared_ptr<arrow::DataType>& target_type,
                const std::shared_ptr<arrow::compute::CastOptions>& options) {
-  auto out = ValueOrStop(arrow::compute::Cast(*array, target_type, *options, gc_context()));
+  auto out =
+      ValueOrStop(arrow::compute::Cast(*array, target_type, *options, gc_context()));
   return cpp11::r6_Array(out);
 }
 
@@ -51,7 +52,8 @@ R6 ChunkedArray__cast(const std::shared_ptr<arrow::ChunkedArray>& chunked_array,
                       const std::shared_ptr<arrow::DataType>& target_type,
                       const std::shared_ptr<arrow::compute::CastOptions>& options) {
   arrow::Datum value(chunked_array);
-  arrow::Datum out = ValueOrStop(arrow::compute::Cast(value, target_type, *options, gc_context()));
+  arrow::Datum out =
+      ValueOrStop(arrow::compute::Cast(value, target_type, *options, gc_context()));
   return cpp11::r6(out.chunked_array(), "ChunkedArray");
 }
 

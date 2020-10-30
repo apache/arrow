@@ -147,7 +147,7 @@ R6 io___FileOutputStream__Open(const std::string& path) {
 // [[arrow::export]]
 R6 io___BufferOutputStream__Create(int64_t initial_capacity) {
   auto stream = ValueOrStop(
-    arrow::io::BufferOutputStream::Create(initial_capacity, gc_memory_pool()));
+      arrow::io::BufferOutputStream::Create(initial_capacity, gc_memory_pool()));
   return cpp11::r6(stream, "BufferOutputStream");
 }
 

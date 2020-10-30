@@ -138,9 +138,8 @@ R6 csv___TableReader__Make(
     const std::shared_ptr<arrow::csv::ReadOptions>& read_options,
     const std::shared_ptr<arrow::csv::ParseOptions>& parse_options,
     const std::shared_ptr<arrow::csv::ConvertOptions>& convert_options) {
-  auto reader = ValueOrStop(
-      arrow::csv::TableReader::Make(gc_memory_pool(), input, *read_options,
-                                    *parse_options, *convert_options));
+  auto reader = ValueOrStop(arrow::csv::TableReader::Make(
+      gc_memory_pool(), input, *read_options, *parse_options, *convert_options));
   return cpp11::r6(reader, "CsvTableReader");
 }
 

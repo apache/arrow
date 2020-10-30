@@ -78,7 +78,6 @@ R6 r6_FileFormat(const std::shared_ptr<ds::FileFormat>& file_format) {
 
 // [[arrow::export]]
 R6 dataset___Dataset__NewScan(const std::shared_ptr<ds::Dataset>& ds) {
-
   auto context = std::make_shared<ds::ScanContext>();
   context->pool = gc_memory_pool();
   auto out = ValueOrStop(ds->NewScan(std::move(context)));
