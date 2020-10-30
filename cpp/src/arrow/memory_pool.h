@@ -63,7 +63,7 @@ class MemoryPoolStats {
 /// take care of the required 64-byte alignment.
 class ARROW_EXPORT MemoryPool {
  public:
-  virtual ~MemoryPool();
+  virtual ~MemoryPool() = default;
 
   /// \brief EXPERIMENTAL. Create a new instance of the default MemoryPool
   static std::unique_ptr<MemoryPool> CreateDefault();
@@ -101,7 +101,7 @@ class ARROW_EXPORT MemoryPool {
   virtual std::string backend_name() const = 0;
 
  protected:
-  MemoryPool();
+  MemoryPool() = default;
 };
 
 class ARROW_EXPORT LoggingMemoryPool : public MemoryPool {

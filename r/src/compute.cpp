@@ -23,6 +23,11 @@
 #include <arrow/record_batch.h>
 #include <arrow/table.h>
 
+arrow::compute::ExecContext* gc_context() {
+  static arrow::compute::ExecContext context(gc_memory_pool());
+  return &context;
+}
+
 // [[arrow::export]]
 std::shared_ptr<arrow::compute::CastOptions> compute___CastOptions__initialize(
     bool allow_int_overflow, bool allow_time_truncate, bool allow_float_truncate) {
@@ -38,7 +43,7 @@ std::shared_ptr<arrow::Array> Array__cast(
     const std::shared_ptr<arrow::Array>& array,
     const std::shared_ptr<arrow::DataType>& target_type,
     const std::shared_ptr<arrow::compute::CastOptions>& options) {
-  return ValueOrStop(arrow::compute::Cast(*array, target_type, *options));
+  return ValueOrStop(arrow::compute::Cast(*array, target_type, *options, gc_context()));
 }
 
 // [[arrow::export]]
@@ -47,7 +52,8 @@ std::shared_ptr<arrow::ChunkedArray> ChunkedArray__cast(
     const std::shared_ptr<arrow::DataType>& target_type,
     const std::shared_ptr<arrow::compute::CastOptions>& options) {
   arrow::Datum value(chunked_array);
-  arrow::Datum out = ValueOrStop(arrow::compute::Cast(value, target_type, *options));
+  arrow::Datum out =
+      ValueOrStop(arrow::compute::Cast(value, target_type, *options, gc_context()));
   return out.chunked_array();
 }
 
@@ -179,7 +185,8 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
 SEXP compute__CallFunction(std::string func_name, cpp11::list args, cpp11::list options) {
   auto opts = make_compute_options(func_name, options);
   auto datum_args = arrow::r::from_r_list<arrow::Datum>(args);
-  auto out = ValueOrStop(arrow::compute::CallFunction(func_name, datum_args, opts.get()));
+  auto out = ValueOrStop(
+      arrow::compute::CallFunction(func_name, datum_args, opts.get(), gc_context()));
   return from_datum(out);
 }
 

@@ -111,7 +111,7 @@ void io___MemoryMappedFile__Resize(const std::shared_ptr<arrow::io::MemoryMapped
 // [[arrow::export]]
 std::shared_ptr<arrow::io::ReadableFile> io___ReadableFile__Open(
     const std::string& path) {
-  return ValueOrStop(arrow::io::ReadableFile::Open(path));
+  return ValueOrStop(arrow::io::ReadableFile::Open(path, gc_memory_pool()));
 }
 
 // ------ arrow::io::BufferReader
@@ -150,8 +150,8 @@ std::shared_ptr<arrow::io::FileOutputStream> io___FileOutputStream__Open(
 // [[arrow::export]]
 std::shared_ptr<arrow::io::BufferOutputStream> io___BufferOutputStream__Create(
     int64_t initial_capacity) {
-  return ValueOrStop(arrow::io::BufferOutputStream::Create(initial_capacity,
-                                                           arrow::default_memory_pool()));
+  return ValueOrStop(
+      arrow::io::BufferOutputStream::Create(initial_capacity, gc_memory_pool()));
 }
 
 // [[arrow::export]]

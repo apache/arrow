@@ -141,9 +141,8 @@ std::shared_ptr<arrow::csv::TableReader> csv___TableReader__Make(
     const std::shared_ptr<arrow::csv::ReadOptions>& read_options,
     const std::shared_ptr<arrow::csv::ParseOptions>& parse_options,
     const std::shared_ptr<arrow::csv::ConvertOptions>& convert_options) {
-  return ValueOrStop(arrow::csv::TableReader::Make(arrow::default_memory_pool(), input,
-                                                   *read_options, *parse_options,
-                                                   *convert_options));
+  return ValueOrStop(arrow::csv::TableReader::Make(gc_memory_pool(), input, *read_options,
+                                                   *parse_options, *convert_options));
 }
 
 // [[arrow::export]]

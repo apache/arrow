@@ -199,10 +199,11 @@ Status WriteDictionaryMessage(
     const IpcWriteOptions& options, std::shared_ptr<Buffer>* out);
 
 static inline Result<std::shared_ptr<Buffer>> WriteFlatbufferBuilder(
-    flatbuffers::FlatBufferBuilder& fbb) {
+    flatbuffers::FlatBufferBuilder& fbb,  // NOLINT non-const reference
+    MemoryPool* pool = default_memory_pool()) {
   int32_t size = fbb.GetSize();
 
-  ARROW_ASSIGN_OR_RAISE(auto result, AllocateBuffer(size));
+  ARROW_ASSIGN_OR_RAISE(auto result, AllocateBuffer(size, pool));
 
   uint8_t* dst = result->mutable_data();
   memcpy(dst, fbb.GetBufferPointer(), size);

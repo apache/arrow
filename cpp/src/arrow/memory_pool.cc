@@ -264,10 +264,6 @@ class MimallocAllocator {
 
 }  // namespace
 
-MemoryPool::MemoryPool() {}
-
-MemoryPool::~MemoryPool() {}
-
 int64_t MemoryPool::max_memory() const { return -1; }
 
 ///////////////////////////////////////////////////////////////////////

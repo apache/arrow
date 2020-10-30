@@ -54,6 +54,7 @@ BufferOutputStream::BufferOutputStream(const std::shared_ptr<ResizableBuffer>& b
 Result<std::shared_ptr<BufferOutputStream>> BufferOutputStream::Create(
     int64_t initial_capacity, MemoryPool* pool) {
   // ctor is private, so cannot use make_shared
+  DCHECK_NE(pool, nullptr);
   auto ptr = std::shared_ptr<BufferOutputStream>(new BufferOutputStream);
   RETURN_NOT_OK(ptr->Reset(initial_capacity, pool));
   return ptr;

@@ -651,7 +651,7 @@ class Converter_Struct : public Converter {
     auto struct_array = checked_cast<const arrow::StructArray*>(array.get());
     int nf = converters.size();
     // Flatten() deals with merging of nulls
-    auto arrays = ValueOrStop(struct_array->Flatten(default_memory_pool()));
+    auto arrays = ValueOrStop(struct_array->Flatten(gc_memory_pool()));
     for (int i = 0; i < nf; i++) {
       StopIfNotOk(converters[i]->Ingest_some_nulls(VECTOR_ELT(data, i), arrays[i], start,
                                                    n, chunk_index));
@@ -826,7 +826,7 @@ class Converter_List : public Converter {
 
     // Build an empty array to match value_type
     std::unique_ptr<arrow::ArrayBuilder> builder;
-    StopIfNotOk(arrow::MakeBuilder(arrow::default_memory_pool(), value_type_, &builder));
+    StopIfNotOk(arrow::MakeBuilder(gc_memory_pool(), value_type_, &builder));
 
     std::shared_ptr<arrow::Array> array;
     StopIfNotOk(builder->Finish(&array));
@@ -877,7 +877,7 @@ class Converter_FixedSizeList : public Converter {
 
     // Build an empty array to match value_type
     std::unique_ptr<arrow::ArrayBuilder> builder;
-    StopIfNotOk(arrow::MakeBuilder(arrow::default_memory_pool(), value_type_, &builder));
+    StopIfNotOk(arrow::MakeBuilder(gc_memory_pool(), value_type_, &builder));
 
     std::shared_ptr<arrow::Array> array;
     StopIfNotOk(builder->Finish(&array));

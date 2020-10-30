@@ -583,7 +583,8 @@ class ScalarExecutor : public FunctionExecutorImpl<ScalarFunction> {
       } else {
         // XXX: In the case where no outputs are omitted, is returning a 0-length
         // array always the correct move?
-        return MakeArrayOfNull(output_descr_.type, /*length=*/0).ValueOrDie();
+        return MakeArrayOfNull(output_descr_.type, /*length=*/0, exec_ctx_->memory_pool())
+            .ValueOrDie();
       }
     }
   }
