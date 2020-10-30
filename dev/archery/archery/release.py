@@ -37,7 +37,7 @@ def cached_property(fn):
 
 class Version(SemVer):
 
-    __slots__ = SemVer.__slots__ + ('released', 'release_date')
+    __slots__ = ('released', 'release_date')
 
     def __init__(self, released=False, release_date=None, **kwargs):
         super().__init__(**kwargs)
