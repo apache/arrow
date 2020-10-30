@@ -19,6 +19,8 @@ package org.apache.arrow.memory;
 
 import static org.junit.Assert.assertEquals;
 
+import java.nio.ByteOrder;
+
 import org.junit.Test;
 
 import io.netty.buffer.ByteBuf;
@@ -27,14 +29,21 @@ import io.netty.buffer.NettyArrowBuf;
 public class TestEndianness {
 
   @Test
-  public void testLittleEndian() {
+  public void testNativeEndian() {
     final BufferAllocator a = new RootAllocator(10000);
     final ByteBuf b = NettyArrowBuf.unwrapBuffer(a.buffer(4));
     b.setInt(0, 35);
-    assertEquals(b.getByte(0), 35);
-    assertEquals(b.getByte(1), 0);
-    assertEquals(b.getByte(2), 0);
-    assertEquals(b.getByte(3), 0);
+    if (ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN) {
+      assertEquals(b.getByte(0), 35);
+      assertEquals(b.getByte(1), 0);
+      assertEquals(b.getByte(2), 0);
+      assertEquals(b.getByte(3), 0);
+    } else {
+      assertEquals(b.getByte(0), 0);
+      assertEquals(b.getByte(1), 0);
+      assertEquals(b.getByte(2), 0);
+      assertEquals(b.getByte(3), 35);
+    }
     b.release();
     a.close();
   }
