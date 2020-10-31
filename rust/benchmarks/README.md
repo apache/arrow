@@ -28,16 +28,22 @@ crates as well.
 
 ## Benchmark derived from TPC-H
 
-These benchmarks are derived from the [TPC-H](http://www.tpc.org/tpch/) benchmark.
+These benchmarks are derived from the [TPC-H][1] benchmark.
 
-Data for this benchmark can be generated using the
-[tpch-dbgen](https://github.com/databricks/tpch-dbgen) tool with a
-command such as the following (`-s 1` means use Scale Factor 1 or ~1 GB of
-data, replace the 1 to change datasize).
+Data for this benchmark can be generated using the [tpch-dbgen][2] command-line tool. Run the following commands to
+clone the repository and build the source code.
 
 ```
-cd /mnt/tpch-dbgen
-dbgen -vf -s 1
+git clone git@github.com:databricks/tpch-dbgen.git
+cd tpch-dbgen
+make
+```
+
+Data can now be generated with the following command. Note that `-s 1` means use Scale Factor 1 or ~1 GB of
+data. This value can be increased to generate larger data sets.
+
+```
+./dbgen -vf -s 1
 ```
 
 The benchmark can then be run (assuming the data created from `dbgen` is in `/mnt/tpch-dbgen`) with a command such as:
@@ -46,12 +52,13 @@ The benchmark can then be run (assuming the data created from `dbgen` is in `/mn
 cargo run --release --bin tpch -- --iterations 3 --path /mnt/tpch-dbgen --format tbl --query 1 --batch-size 4096
 ```
 
-The benchmark program also supports csv and parquet file formats
-
+The benchmark program also supports CSV and Parquet input file formats. This crate does not currently provide a method
+for converting the generated tbl format to CSV or Parquet so it is necessary to use other tools to perform this
+conversion.
 
 ## NYC Taxi Benchmark
 
-These benchmarks are based on the [New York Taxi and Limousine Commission](https://www1.nyc.gov/site/tlc/about/tlc-trip-record-data.page) data set.
+These benchmarks are based on the [New York Taxi and Limousine Commission][3] data set.
 
 ```bash
 cargo run --release --bin nyctaxi -- --iterations 3 --path /mnt/nyctaxi/csv --format csv --batch-size 4096
@@ -66,3 +73,7 @@ Query 'fare_amt_by_passenger' iteration 0 took 7138 ms
 Query 'fare_amt_by_passenger' iteration 1 took 7599 ms
 Query 'fare_amt_by_passenger' iteration 2 took 7969 ms
 ```
+
+[1]: http://www.tpc.org/tpch/
+[2]: https://github.com/databricks/tpch-dbgen
+[3]: https://www1.nyc.gov/site/tlc/about/tlc-trip-record-data.page
