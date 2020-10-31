@@ -15,9 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use std::cmp;
-use std::io::{self, Error, ErrorKind, Read};
+use std::io::{self, Error, ErrorKind, Read, Seek, SeekFrom};
 use std::rc::Rc;
+use std::{cmp, fmt};
 
 /// This is object to use if your file is already in memory.
 /// The sliceable cursor is similar to std::io::Cursor, except that it makes it easy to create "cursor slices".
@@ -29,6 +29,17 @@ pub struct SliceableCursor {
     start: u64,
     length: usize,
     pos: u64,
+}
+
+impl fmt::Debug for SliceableCursor {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("SliceableCursor")
+            .field("start", &self.start)
+            .field("length", &self.length)
+            .field("pos", &self.pos)
+            .field("inner.len", &self.inner.len())
+            .finish()
+    }
 }
 
 impl SliceableCursor {
@@ -79,6 +90,40 @@ impl Read for SliceableCursor {
     }
 }
 
+impl Seek for SliceableCursor {
+    fn seek(&mut self, pos: SeekFrom) -> io::Result<u64> {
+        let new_pos = match pos {
+            SeekFrom::Start(pos) => pos as i64,
+            SeekFrom::End(pos) => self.inner.len() as i64 + pos as i64,
+            SeekFrom::Current(pos) => self.pos as i64 + pos as i64,
+        };
+
+        if new_pos < 0 {
+            Err(Error::new(
+                ErrorKind::InvalidInput,
+                format!(
+                    "Request out of bounds: cur position {} + seek {:?} < 0: {}",
+                    self.pos, pos, new_pos
+                ),
+            ))
+        } else if new_pos >= self.inner.len() as i64 {
+            Err(Error::new(
+                ErrorKind::InvalidInput,
+                format!(
+                    "Request out of bounds: cur position {} + seek {:?} >= length {}: {}",
+                    self.pos,
+                    pos,
+                    self.inner.len(),
+                    new_pos
+                ),
+            ))
+        } else {
+            self.pos = new_pos as u64;
+            Ok(self.start)
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -109,5 +154,49 @@ mod tests {
     fn read_all_slice() {
         let cursor = get_u8_range().slice(10, 10).expect("error while slicing");
         check_read_all(cursor, 10, 19);
+    }
+
+    #[test]
+    fn seek_cursor_start() {
+        let mut cursor = get_u8_range();
+
+        cursor.seek(SeekFrom::Start(5)).unwrap();
+        check_read_all(cursor, 5, 255);
+    }
+
+    #[test]
+    fn seek_cursor_current() {
+        let mut cursor = get_u8_range();
+        cursor.seek(SeekFrom::Start(10)).unwrap();
+        cursor.seek(SeekFrom::Current(10)).unwrap();
+        check_read_all(cursor, 20, 255);
+    }
+
+    #[test]
+    fn seek_cursor_end() {
+        let mut cursor = get_u8_range();
+
+        cursor.seek(SeekFrom::End(-10)).unwrap();
+        check_read_all(cursor, 246, 255);
+    }
+
+    #[test]
+    fn seek_cursor_error_too_long() {
+        let mut cursor = get_u8_range();
+        let res = cursor.seek(SeekFrom::Start(1000));
+        let actual_error = res.expect_err("expected error").to_string();
+        let expected_error =
+            "Request out of bounds: cur position 0 + seek Start(1000) >= length 256: 1000";
+        assert_eq!(actual_error, expected_error);
+    }
+
+    #[test]
+    fn seek_cursor_error_too_short() {
+        let mut cursor = get_u8_range();
+        let res = cursor.seek(SeekFrom::End(-1000));
+        let actual_error = res.expect_err("expected error").to_string();
+        let expected_error =
+            "Request out of bounds: cur position 0 + seek End(-1000) < 0: -744";
+        assert_eq!(actual_error, expected_error);
     }
 }

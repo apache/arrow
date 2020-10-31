@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use std::{cell::RefCell, cmp, io::*};
+use std::{cell::RefCell, cmp, fmt, io::*};
 
 use crate::file::{reader::Length, writer::ParquetWriter};
 
@@ -61,6 +61,19 @@ pub struct FileSource<R: ParquetReader> {
     buf: Vec<u8>,   // buffer where bytes read in advance are stored
     buf_pos: usize, // current position of the reader in the buffer
     buf_cap: usize, // current number of bytes read into the buffer
+}
+
+impl<R: ParquetReader> fmt::Debug for FileSource<R> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("FileSource")
+            .field("reader", &"OPAQUE")
+            .field("start", &self.start)
+            .field("end", &self.end)
+            .field("buf.len", &self.buf.len())
+            .field("buf_pos", &self.buf_pos)
+            .field("buf_cap", &self.buf_cap)
+            .finish()
+    }
 }
 
 impl<R: ParquetReader> FileSource<R> {
