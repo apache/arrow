@@ -29,6 +29,8 @@ pub use self::kernels::comparison::*;
 pub use self::kernels::concat::*;
 pub use self::kernels::filter::*;
 pub use self::kernels::limit::*;
+pub use self::kernels::merge::*;
+pub use self::kernels::merge_sort::*;
 pub use self::kernels::sort::*;
 pub use self::kernels::take::*;
 pub use self::kernels::temporal::*;
