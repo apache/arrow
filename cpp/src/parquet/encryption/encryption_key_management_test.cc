@@ -89,37 +89,40 @@ class TestEncrytionKeyManagement : public ::testing::Test {
 
   std::shared_ptr<EncryptionConfiguration> GetEncryptionConfiguration(
       bool double_wrapping, int encryption_no) {
-    EncryptionConfiguration::Builder builder(kFooterMasterKeyId);
+    std::shared_ptr<EncryptionConfiguration> encryption =
+        std::make_shared<EncryptionConfiguration>(kFooterMasterKeyId);
+    encryption->double_wrapping = double_wrapping;
 
     switch (encryption_no) {
       case 0:
         // encrypt some columns and footer, different keys
-        builder.column_keys(column_key_mapping_);
+        encryption->column_keys = column_key_mapping_;
         break;
       case 1:
         // encrypt columns, plaintext footer, different keys
-        builder.column_keys(column_key_mapping_)->plaintext_footer(true);
+        encryption->column_keys = column_key_mapping_;
+        encryption->plaintext_footer = true;
         break;
       case 2:
         // encrypt some columns and footer, same key
-        builder.uniform_encryption();
+        encryption->uniform_encryption = true;
         break;
       case 3:
         // Encrypt two columns and the footer, with different keys.
         // Use AES_GCM_CTR_V1 algorithm.
-        builder.column_keys(column_key_mapping_)
-            ->encryption_algorithm(ParquetCipher::AES_GCM_CTR_V1);
+        encryption->column_keys = column_key_mapping_;
+        encryption->encryption_algorithm = ParquetCipher::AES_GCM_CTR_V1;
         break;
       default:
         // no encryption
         return NULL;
     }
-    return builder.double_wrapping(double_wrapping)->build();
+
+    return encryption;
   }
 
-  std::shared_ptr<DecryptionConfiguration> GetDecryptionConfiguration(bool wrap_locally) {
-    DecryptionConfiguration::Builder builder;
-    return builder.build();
+  std::shared_ptr<DecryptionConfiguration> GetDecryptionConfiguration() {
+    return std::make_shared<DecryptionConfiguration>();
   }
 
   void WriteEncryptedParquetFile(bool double_wrapping, int encryption_no) {
@@ -135,7 +138,7 @@ class TestEncrytionKeyManagement : public ::testing::Test {
   }
 
   void ReadEncryptedParquetFile(bool double_wrapping, int encryption_no) {
-    auto decryption_config = GetDecryptionConfiguration(wrap_locally_);
+    auto decryption_config = GetDecryptionConfiguration();
     std::string file_name = GetFileName(double_wrapping, wrap_locally_, encryption_no);
 
     std::shared_ptr<FileDecryptionProperties> file_decryption_properties =

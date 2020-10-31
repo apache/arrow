@@ -31,90 +31,6 @@
 namespace parquet {
 namespace encryption {
 
-EncryptionConfiguration::Builder* EncryptionConfiguration::Builder::column_keys(
-    const std::string& column_keys) {
-  if (column_keys.empty()) {
-    throw ParquetException("At least one column must be specified");
-  }
-  if (uniform_encryption_) {
-    throw ParquetException(
-        "Cannot call both column_keys(const std::string&) and uniform_encryption()");
-  }
-  column_keys_ = column_keys;
-  return this;
-}
-
-EncryptionConfiguration::Builder* EncryptionConfiguration::Builder::uniform_encryption() {
-  if (!column_keys_.empty()) {
-    throw ParquetException(
-        "Cannot call both column_keys(const std::string&) and uniform_encryption()");
-  }
-  uniform_encryption_ = true;
-  return this;
-}
-
-EncryptionConfiguration::Builder* EncryptionConfiguration::Builder::encryption_algorithm(
-    ParquetCipher::type algo) {
-  encryption_algorithm_ = algo;
-  return this;
-}
-
-EncryptionConfiguration::Builder* EncryptionConfiguration::Builder::plaintext_footer(
-    bool plaintext_footer) {
-  plaintext_footer_ = plaintext_footer;
-  return this;
-}
-
-EncryptionConfiguration::Builder* EncryptionConfiguration::Builder::double_wrapping(
-    bool double_wrapping) {
-  double_wrapping_ = double_wrapping;
-  return this;
-}
-
-EncryptionConfiguration::Builder*
-EncryptionConfiguration::Builder::cache_lifetime_seconds(
-    uint64_t cache_lifetime_seconds) {
-  cache_lifetime_seconds_ = cache_lifetime_seconds;
-  return this;
-}
-
-EncryptionConfiguration::Builder* EncryptionConfiguration::Builder::internal_key_material(
-    bool internal_key_material) {
-  internal_key_material_ = internal_key_material;
-  return this;
-}
-
-EncryptionConfiguration::Builder* EncryptionConfiguration::Builder::data_key_length_bits(
-    int32_t data_key_length_bits) {
-  data_key_length_bits_ = data_key_length_bits;
-  return this;
-}
-
-std::shared_ptr<EncryptionConfiguration> EncryptionConfiguration::Builder::build() {
-  if (!uniform_encryption_ && column_keys_.empty()) {
-    throw ParquetException(
-        "Either column_keys(const std::string&) or uniform_encryption() must be "
-        "called.");
-  }
-
-  return std::shared_ptr<EncryptionConfiguration>(new EncryptionConfiguration(
-      footer_key_, column_keys_, encryption_algorithm_, plaintext_footer_,
-      double_wrapping_, cache_lifetime_seconds_, internal_key_material_,
-      uniform_encryption_, data_key_length_bits_));
-}
-
-DecryptionConfiguration::Builder*
-DecryptionConfiguration::Builder::cache_lifetime_seconds(
-    uint64_t cache_lifetime_seconds) {
-  cache_lifetime_seconds_ = cache_lifetime_seconds;
-  return this;
-}
-
-std::shared_ptr<DecryptionConfiguration> DecryptionConfiguration::Builder::build() {
-  return std::shared_ptr<DecryptionConfiguration>(
-      new DecryptionConfiguration(cache_lifetime_seconds_));
-}
-
 void PropertiesDrivenCryptoFactory::RegisterKmsClientFactory(
     std::shared_ptr<KmsClientFactory> kms_client_factory) {
   key_toolkit_.RegisterKmsClientFactory(kms_client_factory);
@@ -127,20 +43,26 @@ PropertiesDrivenCryptoFactory::GetFileEncryptionProperties(
   if (encryption_config == NULL) {
     return NULL;
   }
-  const std::string& footer_key_id = encryption_config->footer_key();
-  const std::string& column_key_str = encryption_config->column_keys();
+  if (!encryption_config->uniform_encryption && encryption_config->column_keys.empty()) {
+    throw ParquetException("Either column_keys or uniform_encryption must be set");
+  } else if (encryption_config->uniform_encryption &&
+             !encryption_config->column_keys.empty()) {
+    throw ParquetException("Cannot set both column_keys and uniform_encryption");
+  }
+  const std::string& footer_key_id = encryption_config->footer_key;
+  const std::string& column_key_str = encryption_config->column_keys;
 
   std::shared_ptr<FileKeyMaterialStore> key_material_store = NULL;
-  if (!encryption_config->internal_key_material()) {
+  if (!encryption_config->internal_key_material) {
     // TODO: using external key material store with Hadoop file system
     throw ParquetException("External key material store is not supported yet.");
   }
 
   FileKeyWrapper key_wrapper(&key_toolkit_, kms_connection_config, key_material_store,
-                             encryption_config->cache_lifetime_seconds(),
-                             encryption_config->double_wrapping());
+                             encryption_config->cache_lifetime_seconds,
+                             encryption_config->double_wrapping);
 
-  int32_t dek_length_bits = encryption_config->data_key_length_bits();
+  int32_t dek_length_bits = encryption_config->data_key_length_bits;
   if (!internal::ValidateKeyLength(dek_length_bits)) {
     std::ostringstream ss;
     ss << "Wrong data key length : " << dek_length_bits;
@@ -159,14 +81,14 @@ PropertiesDrivenCryptoFactory::GetFileEncryptionProperties(
   FileEncryptionProperties::Builder properties_builder =
       FileEncryptionProperties::Builder(footer_key);
   properties_builder.footer_key_metadata(footer_key_metadata);
-  properties_builder.algorithm(encryption_config->encryption_algorithm());
+  properties_builder.algorithm(encryption_config->encryption_algorithm);
 
-  if (!encryption_config->uniform_encryption()) {
+  if (!encryption_config->uniform_encryption) {
     ColumnPathToEncryptionPropertiesMap encrypted_columns =
         GetColumnEncryptionProperties(dek_length, column_key_str, key_wrapper);
     properties_builder.encrypted_columns(encrypted_columns);
 
-    if (encryption_config->plaintext_footer()) {
+    if (encryption_config->plaintext_footer) {
       properties_builder.set_plaintext_footer();
     }
   }
@@ -248,7 +170,7 @@ PropertiesDrivenCryptoFactory::GetFileDecryptionProperties(
     const KmsConnectionConfig& kms_connection_config,
     std::shared_ptr<DecryptionConfiguration> decryption_config) {
   std::shared_ptr<DecryptionKeyRetriever> key_retriever(new FileKeyUnwrapper(
-      &key_toolkit_, kms_connection_config, decryption_config->cache_lifetime_seconds()));
+      &key_toolkit_, kms_connection_config, decryption_config->cache_lifetime_seconds));
 
   return FileDecryptionProperties::Builder()
       .key_retriever(key_retriever)

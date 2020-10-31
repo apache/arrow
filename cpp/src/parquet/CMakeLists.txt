@@ -411,7 +411,6 @@ if(PARQUET_REQUIRE_ENCRYPTION)
 
   add_parquet_test(encryption-key-management-test
                    SOURCES
-                   encryption/encryption_configuration_builder_test.cc
                    encryption/encryption_key_management_test.cc
                    encryption/key_metadata_test.cc
                    encryption/key_wrapping_test.cc
