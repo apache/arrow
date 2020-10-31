@@ -1603,3 +1603,40 @@ mod tests {
         }
     }
 }
+
+#[cfg(test)]
+#[allow(clippy::approx_constant, clippy::many_single_char_names)]
+mod api_tests {
+    use super::make_row;
+    use crate::record::Field;
+
+    #[test]
+    fn test_field_visibility() {
+        let row = make_row(vec![(
+            "a".to_string(),
+            Field::Group(make_row(vec![
+                ("x".to_string(), Field::Null),
+                ("Y".to_string(), Field::Int(2)),
+            ])),
+        )]);
+
+        match row.get_column_iter().next() {
+            Some(column) => {
+                assert_eq!("a", column.0);
+                match column.1 {
+                    Field::Group(r) => {
+                        assert_eq!(
+                            &make_row(vec![
+                                ("x".to_string(), Field::Null),
+                                ("Y".to_string(), Field::Int(2)),
+                            ]),
+                            r
+                        );
+                    }
+                    _ => panic!("Expected the first column to be Field::Group"),
+                }
+            }
+            None => panic!("Expected at least one column"),
+        }
+    }
+}
