@@ -272,11 +272,13 @@ class PyValue {
               return internal::InvalidValue(obj,
                                             "out of bounds for nanosecond resolution");
             }
-          }
-          // Adjust with offset and check for overflow
-          if (arrow::internal::SubtractWithOverflow(value, offset * 1000000000LL,
-                                                    &value)) {
-            return internal::InvalidValue(obj, "out of bounds for nanosecond resolution");
+
+            // Adjust with offset and check for overflow
+            if (arrow::internal::SubtractWithOverflow(value, offset * 1000000000LL,
+                                                      &value)) {
+              return internal::InvalidValue(obj,
+                                            "out of bounds for nanosecond resolution");
+            }
           }
           break;
         default:
